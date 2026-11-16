@@ -1,0 +1,91 @@
+.row {
+  display: grid;
+  grid-template-columns: 5.4rem 3.6rem 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 0 4px;
+  border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
+  animation: rowIn 0.5s ease both;
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.today .day {
+  font-weight: 600;
+}
+
+.trend {
+  opacity: 0.78;
+}
+
+.name {
+  display: grid;
+  line-height: 1.15;
+}
+
+.day {
+  font-family: 'Frank Ruhl Libre', serif;
+  font-weight: 500;
+  font-size: 1.15rem;
+}
+
+.date {
+  font-size: 0.75rem;
+  color: var(--sheet-muted);
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px dashed var(--sheet-muted);
+  font-size: 0.6875rem;
+}
+
+.cond {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prob {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1F7A9C;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.is-night) .prob {
+  color: #7FD3EE;
+}
+
+.range {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr 2.4rem;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.min {
+  text-align: right;
+  color: var(--sheet-muted);
+  font-size: 1rem;
+}
+
+.max {
+  text-align: left;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row { animation: none; }
+}

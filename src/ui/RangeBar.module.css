@@ -1,0 +1,34 @@
+.track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sheet-ink) 9%, transparent);
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  transform-origin: left center;
+  animation: grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.now {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--sheet);
+  border: 2.5px solid var(--sheet-ink);
+}
+
+@keyframes grow {
+  from { transform: scaleX(0.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { animation: none; }
+}

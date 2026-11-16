@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Place } from '../config/place'
+import { nowIn } from '../domain/now'
 import type { Forecast } from '../domain/types'
 import { freshnessOf, readCache, writeCache, type Freshness } from './cache'
 import type { WeatherProvider } from './WeatherProvider'
@@ -21,12 +22,15 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
   const [error, setError] = useState<string | null>(null)
   const inFlight = useRef<AbortController | null>(null)
   const latest = useRef(forecast)
-  latest.current = forecast
+  useEffect(() => {
+    latest.current = forecast
+  }, [forecast])
 
   const load = useCallback(
     (force: boolean) => {
       const cached = latest.current
-      if (!force && cached && freshnessOf(cached) === 'fresh') return
+      const sameDay = cached?.current.time.slice(0, 10) === nowIn(place.timezone).slice(0, 10)
+      if (!force && cached && sameDay && freshnessOf(cached) === 'fresh') return
       if (inFlight.current) return
       const ctrl = new AbortController()
       inFlight.current = ctrl

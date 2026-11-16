@@ -1,0 +1,74 @@
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--sky-top) 0, var(--sky-mid) 36svh, var(--sky-horizon) 66svh);
+  transition: --sky-top 1.2s ease, --sky-mid 1.2s ease, --sky-horizon 1.2s ease;
+}
+
+/* Soft light where the sun sits low over the eastern ridge. */
+.glow {
+  position: absolute;
+  inset: 30% -20% auto -20%;
+  height: 60%;
+  background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 60%);
+  opacity: 0.55;
+}
+
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1.5px;
+  height: 1.5px;
+  border-radius: 50%;
+  animation: twinkle 6s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+.clouds span {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  filter: blur(28px);
+  animation: float 70s linear infinite alternate;
+}
+.clouds span:nth-child(1) { width: 70vw; height: 22vh; top: 6vh; right: -10vw; }
+.clouds span:nth-child(2) { width: 55vw; height: 16vh; top: 22vh; left: -12vw; animation-duration: 90s; }
+.clouds span:nth-child(3) { width: 40vw; height: 12vh; top: 36vh; right: 18vw; animation-duration: 110s; }
+
+@keyframes float {
+  from { transform: translateX(-4vw); }
+  to { transform: translateX(6vw); }
+}
+
+.rain {
+  position: absolute;
+  inset: -20% 0 0 0;
+  background-image:
+    repeating-linear-gradient(105deg, transparent 0 22px, rgba(220, 240, 255, 0.16) 22px 23px),
+    repeating-linear-gradient(100deg, transparent 0 37px, rgba(220, 240, 255, 0.1) 37px 38px);
+  background-size: 100% 140px, 100% 220px;
+  animation: fall 0.9s linear infinite;
+}
+
+@keyframes fall {
+  to { background-position: -20px 140px, -30px 220px; }
+}
+
+.dust {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stars, .clouds span, .rain { animation: none; }
+}

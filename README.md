@@ -1,32 +1,35 @@
-# React + TypeScript + Vite
+# שמיים · Shamayim
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A Hebrew (RTL) weather app that tells you clearly and comfortably what the weather will be, for a specific place, as accurately as the data allows.
 
-Currently, two official plugins are available:
+v1: one screen for Shadmot Mehola (Jordan Valley) — current temperature, a short Hebrew sentence describing the expected weather, and a 7-day forecast, over a live "valley sky" that follows the real sun position and conditions.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # unit tests (sentence engine, mappers, theme contrast)
+npm run build      # production build + PWA service worker
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Dev only: append `?at=2026-11-17T13:00` to preview the screen at another local time (themes, sentence).
+
+## Data
+
+- [Open-Meteo](https://open-meteo.com/) forecast API, model `icon_seamless` (DWD ICON-EU for ~5 days, ICON Global after; days 6–7 are labelled "מגמה").
+- Open-Meteo air-quality API (CAMS) for PM10/dust, used only for haze wording.
+- Free tier is non-commercial; a store release needs an API key or proxy.
+
+## Structure
+
+See [docs/PLAN.md](docs/PLAN.md) for the architecture and decisions, and [TASKS.md](TASKS.md) for status.
+
+```
+src/config   place + thresholds
+src/domain   types, WMO conditions, local-time helpers
+src/data     provider interface, Open-Meteo provider, cache, useForecast
+src/text     Hebrew sentence engine (facts → phrases → sentences)
+src/theme    sky themes + picker (contrast-tested)
+src/ui       components
+```
