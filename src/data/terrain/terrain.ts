@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
+import { weatherUrl } from '../weatherApi'
 import { gentleHillsPath, profilePoints, profileToPath, profileY, ridgePoints, sampleY, type TerrainSample } from './profile'
 
 export interface TerrainData {
@@ -111,7 +112,7 @@ function points(place: Place, radiusKm: number): { latitudes: string; longitudes
 async function fetchLine(place: Place, radiusKm: number, signal: AbortSignal): Promise<TerrainSample[]> {
   const { latitudes, longitudes } = points(place, radiusKm)
   const query = new URLSearchParams({ latitude: latitudes, longitude: longitudes })
-  const response = await fetch(`https://api.open-meteo.com/v1/elevation?${query}`, { signal })
+  const response = await fetch(weatherUrl('elevation', query), { signal })
   if (!response.ok) throw new Error(`Elevation HTTP ${response.status}`)
   const body = await response.json() as { elevation?: unknown }
   if (!Array.isArray(body.elevation) || body.elevation.length !== 41) throw new Error('Invalid elevation profile')

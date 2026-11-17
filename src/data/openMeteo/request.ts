@@ -1,4 +1,5 @@
 import type { Place } from '../../config/place'
+import { weatherUrl } from '../weatherApi'
 
 export const FORECAST_MODELS = 'icon_seamless,ecmwf_ifs025'
 
@@ -35,12 +36,12 @@ export function forecastUrl(place: Place): string {
   p.set('current', CURRENT.join(','))
   p.set('hourly', HOURLY.join(','))
   p.set('daily', DAILY.join(','))
-  return `https://api.open-meteo.com/v1/forecast?${p}`
+  return weatherUrl('forecast', p)
 }
 
 export function airUrl(place: Place): string {
   const p = base(place)
   p.set('forecast_days', '2')
   p.set('hourly', 'pm10,dust,uv_index')
-  return `https://air-quality-api.open-meteo.com/v1/air-quality?${p}`
+  return weatherUrl('air-quality', p)
 }
