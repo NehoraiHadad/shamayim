@@ -1,11 +1,10 @@
 .sheet {
   position: relative;
-  margin: -26px -16px 0;
-  padding: var(--space-5) var(--gutter) var(--space-2);
-  /* A concave top edge that cups the valley: it meets the ridges at the sides and dips ~22 px in the middle, so the
-     paper reads as the ground under the cross-section and the village keeps its air. */
-  -webkit-mask-image: radial-gradient(54% 22px at 50% 0, transparent 97%, #000 100%);
-  mask-image: radial-gradient(54% 22px at 50% 0, transparent 97%, #000 100%);
+  /* A straight, square cut with no corner radius or shadow: the valley is a cross-section, and the paper starts where
+     the section's ground is cut off, like the base line of a section drawing. The illustration stays the one bold
+     element; this edge stays quiet. */
+  margin: -14px -16px 0;
+  padding: var(--space-4) var(--gutter) var(--space-2);
   background: var(--sheet);
   color: var(--sheet-ink);
   transition: background-color var(--d4), color var(--d4);
