@@ -1,7 +1,7 @@
 .strip {
   --curve: var(--accent);
   position: relative;
-  margin: var(--space-5) -20px 0;
+  margin: var(--space-4) -20px 0;
 }
 
 .sky { color: var(--ink); }
@@ -69,13 +69,23 @@
   align-items: center;
   width: 100%;
   height: 100%;
-  padding: 4px 0 0;
+  padding: 2px 0 0;
   border: 0;
   border-radius: var(--radius-slot);
   background: transparent;
   color: inherit;
   font: inherit;
+  isolation: isolate;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* The picked hour's well stops above the sunrise/sunset label row, so it never covers "שקיעה 16:36". */
+.slot::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 16px;
+  z-index: -1;
+  border-radius: var(--radius-slot);
   transition: background-color var(--d1) linear;
 }
 
@@ -86,7 +96,7 @@ button.slot:focus-visible {
   outline-offset: -2px;
 }
 
-.selected {
+.selected::before {
   background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
@@ -112,7 +122,13 @@ button.slot:focus-visible {
 .iconWrap {
   display: flex;
   margin-top: 2px;
+  transition: opacity var(--d1) linear;
 }
+
+/* Same weather as the hour before: still there for anyone who looks, but the change is what reads at a glance. */
+.repeat { opacity: 0.32; }
+
+.selected .repeat { opacity: 1; }
 
 .icon {
   fill: none;
