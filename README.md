@@ -43,7 +43,7 @@ Open-Meteo's free tier limits requests per IP address, so many users behind one 
 - CORS: only origins in the `ALLOWED_ORIGINS` variable (`worker/wrangler.toml`; `https://*.shamayim.pages.dev` covers Pages preview builds); other browser origins get 403.
 - Served at `https://shamayim-api.nehoraihadad.com` (custom domain, so the Cache API works; on `*.workers.dev` it would not, and only a per-isolate memory cache would remain).
 
-Production builds use it through `.env.production` (`VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com`), which Vite reads only for `vite build`. Unset (dev, tests), the app calls Open-Meteo directly (local dev, tests). Geocoding and Overpass/Nominatim are always called directly.
+Production builds use it through `.env.production` (`VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com`), which Vite reads only for `vite build`. Unset (dev, tests), the app calls Open-Meteo directly. Geocoding and Overpass/Nominatim are always called directly.
 
 ```bash
 cd worker
