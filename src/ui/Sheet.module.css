@@ -1,10 +1,12 @@
 .sheet {
   position: relative;
-  margin: -14px -16px 0;
-  padding: var(--space-4) var(--gutter) var(--space-2);
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  margin: -26px -16px 0;
+  padding: var(--space-5) var(--gutter) var(--space-2);
+  /* A concave top edge that cups the valley: it meets the ridges at the sides and dips ~22 px in the middle, so the
+     paper reads as the ground under the cross-section and the village keeps its air. */
+  -webkit-mask-image: radial-gradient(54% 22px at 50% 0, transparent 97%, #000 100%);
+  mask-image: radial-gradient(54% 22px at 50% 0, transparent 97%, #000 100%);
   background: var(--sheet);
   color: var(--sheet-ink);
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.12);
   transition: background-color var(--d4), color var(--d4);
 }

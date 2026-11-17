@@ -4,8 +4,11 @@ import { fieldWidth } from './generic/buildingSpecs'
 import { curated, isField, isHillMark } from './hillPlane'
 import { boxAround, fieldBox, fieldDepthOf, markGeometry, overlaps, type Box } from './markBox'
 
-/** The sheet rises 14 px over the scene (Sheet.module.css `margin: -14px …`): below this line nothing shows. */
-export const SHEET_OVERLAP = 14
+/**
+ * The sheet rises 26 px over the scene at its sides (Sheet.module.css `margin: -26px …`); its concave edge dips lower in
+ * the middle. Marks keep above the side height, which is safe everywhere.
+ */
+export const SHEET_OVERLAP = 26
 export const VISIBLE_BOTTOM = SCENE_H - SHEET_OVERLAP
 /** A base closer than this to the sheet edge reads as a stub cut by the card. */
 export const SHEET_CLEAR = 6

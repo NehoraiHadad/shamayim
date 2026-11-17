@@ -15,7 +15,10 @@ function secondLine(c: CurrentWeather): string | null {
   return null
 }
 
-/** Now: one number, one condition in words, and at most one supporting fact. The icon for now is in the strip below. */
+/**
+ * Now: one number and at most one supporting fact. The condition is not repeated here: the strip's "עכשיו" slot shows
+ * it right below, and the sentence says it in words. Screen readers still hear it with the temperature.
+ */
 export function Hero({ current }: { current: CurrentWeather }) {
   const temp = useCountUp(Math.round(current.temperature))
   const kind = conditionOf(current.weatherCode)
@@ -24,16 +27,13 @@ export function Hero({ current }: { current: CurrentWeather }) {
   return (
     <section className={styles.hero} aria-label="מזג האוויר עכשיו">
       <p className={styles.temp}>
-        <span className="visually-hidden">{Math.round(current.temperature)} מעלות</span>
+        <span className="visually-hidden">{Math.round(current.temperature)} מעלות, {conditionLabel(kind, current.isDay)}</span>
         <span className={styles.digits} data-intro="digits" aria-hidden="true">
           {formatTemp(temp, false)}
           <span className={styles.degree}>°</span>
         </span>
       </p>
-      <div className={styles.meta} data-intro="cond">
-        <p className={styles.condition}>{conditionLabel(kind, current.isDay)}</p>
-        {line && <p className={styles.line}>{line}</p>}
-      </div>
+      {line && <p className={styles.line} data-intro="cond">{line}</p>}
     </section>
   )
 }

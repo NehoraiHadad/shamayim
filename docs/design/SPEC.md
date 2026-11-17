@@ -8,7 +8,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 |---|---|---|
 | Sun arc | **Deleted**, not shrunk. The sun now appears in three places: the valley scene, a thin marker in the hourly strip, and an "אור יום" row in the day detail. | The owner's complaint. It used about 125 px to repeat two times shown elsewhere. |
 | Signature moment | **Valley cross-section**, from Fable: Samaria in the west (left), the Gilead in the east (right), a dashed sea-level line above the village at ‎−175 מ׳, and the real sun moving behind the ridges. | This is the one place to be bold. It replaces the ridge, the arc and the depth chip. Codex's "now disc" idea is dropped. |
-| Hero | Temperature in Karantina at **112 px** (Fable suggested 142, Codex 104). The 20 px serif condition label (no icon: the strip's "עכשיו" slot shows it) sits right beside the digits, start-aligned on their baseline; the pair is centred as one block, and the sentence is centred under it (top bar, strip and sheet stay edge-aligned). One secondary line: feels-like when it differs by 2° or more, else gusts when they reach 20 km/h or more, else nothing. The ↑max ↓min line is dropped. | Shows each number once. The sentence already gives the maximum. |
+| Hero | Temperature in Karantina at **112 px** (Fable suggested 142, Codex 104). Centred, with the sentence centred under it (top bar, strip and sheet stay edge-aligned). No condition icon or label: the strip's "עכשיו" slot shows the icon right below and the sentence says it in words; screen readers hear it with the temperature. One secondary line: feels-like when it differs by 2° or more, else gusts when they reach 20 km/h or more, else nothing. The ↑max ↓min line is dropped. | Shows each number once. The sentence already gives the maximum. |
 | Top bar | One line: place name in 18 px serif, "בקעת הירדן" muted beside it in 13 px (it truncates first). Status pill is a 32 px round icon while data is under 30 min old; it shows the age or "אין חיבור" only when that matters. 44 px hit area. Depth chip removed. | Frees about 30 px. |
 | Hourly strip | About 120 px tall. Sun events become a 1 px marker between hours. The probability row collapses when the window has no rain. A midnight divider carries the weekday. Tap an hour to select it: a readout line appears and the sun in the scene moves to that hour. Arrow keys work. | Clearer rhythm; makes the strip and the scene work together. |
 | Sheet | No handle. Paper tinted per theme, with a new `sheetAccent` token. Dusk gets a plum sheet. The wear note has no box: a 3 px inline-start rule and 18 px serif text. Rows are 56 px with hairlines. The open day sits in a well with radius 16. Facts are a two-column list. | Gets rid of the "identical cards" look. |
@@ -21,10 +21,10 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 
 ```
   0  place 18px serif · בקעת הירדן 13px, one line      (⟳ 32px; words only when 30+ min old or offline)
- 74  112px temperature  מעונן חלקית 20px / מרגיש כמו 27°   (open sky)
+ 74  112px temperature, centred; מרגיש כמו 27° under it when it applies
 210  sentence, 24px serif, 1–3 lines, centred
 290  hourly strip, 120px  (selection readout line when an hour is tapped)
-418  VALLEY SCENE, 128px (the sheet overlaps the lowest 14px)
+418  VALLEY SCENE, 128px (the sheet overlaps 26px at the sides, ~4px in the middle)
 526  sheet: wear note → "השבוע הקרוב" → today, tomorrow…
 ```
 
@@ -32,7 +32,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 
 - Type: 112/0.82 Karantina. 24/1.32, 18/1.4 and 20 Frank Ruhl Libre. 15/1.45, 13/1.4 and 11/1.3 Assistant. Numerals are tabular.
 - Space: 4, 8, 12, 16, 24, 32. Gutter 20 px in both the sky area and the sheet.
-- Radius: sheet 28, well 16, selected slot 12, pill 999. Nothing else is rounded.
+- Radius: picker sheet 28, well 16, selected slot 12, pill 999. Nothing else is rounded. The sheet has no corner radius: its top edge is a concave cut (54% × 22 px ellipse) that cups the valley.
 - Easing:
   - `--ease-out: cubic-bezier(.22,.8,.2,1)`
   - `--ease-in-out: cubic-bezier(.4,0,.2,1)`
