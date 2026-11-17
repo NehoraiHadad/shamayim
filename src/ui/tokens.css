@@ -12,7 +12,7 @@
   --font-serif: 'Frank Ruhl Libre', serif;
   --font-sans: 'Assistant', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* 128 px on a phone; shrinks with the viewport so 200% text still fits beside the icon. */
-  --text-hero: clamp(5rem, 30vw, 8rem);
+  --text-hero: clamp(5rem, 34.2vw, 8rem);
   --text-xl: 1.5rem;
   --text-place: 1.25rem;
   --text-lg: 1.125rem;

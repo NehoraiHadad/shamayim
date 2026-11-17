@@ -109,10 +109,7 @@
   opacity: 0.9;
 }
 
-.seaLabel {
-  right: 27%;
-  opacity: 0.75;
-}
+.seaLabel { right: 27%; opacity: 0.75; }
 
 /* Sun-event caption: below the strip's midnight label, haloed in the mid-sky colour so it holds on a pale horizon.
    Its box is mirrored in marks/sceneLayout.ts `captionBox`. */
@@ -142,9 +139,7 @@
   animation: readout-in var(--d1) linear;
 }
 
-@keyframes readout-in {
-  from { opacity: 0; }
-}
+@keyframes readout-in { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sun { transition: opacity var(--d1) linear; }

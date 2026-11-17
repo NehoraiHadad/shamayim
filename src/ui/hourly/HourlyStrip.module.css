@@ -4,9 +4,7 @@
   margin: var(--space-5) -20px 0;
 }
 
-.sky {
-  color: var(--ink);
-}
+.sky { color: var(--ink); }
 
 .sheet {
   --curve: var(--sheet-curve);
@@ -24,9 +22,7 @@
   mask-image: linear-gradient(to left, transparent, #000 16px, #000 calc(100% - 24px), transparent);
 }
 
-.scroller::-webkit-scrollbar {
-  display: none;
-}
+.scroller::-webkit-scrollbar { display: none; }
 
 .track {
   position: relative;
@@ -83,9 +79,7 @@
   transition: background-color var(--d1) linear;
 }
 
-button.slot {
-  cursor: pointer;
-}
+button.slot { cursor: pointer; }
 
 button.slot:focus-visible {
   outline: 2px solid var(--accent);

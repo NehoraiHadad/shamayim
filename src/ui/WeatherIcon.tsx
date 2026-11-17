@@ -35,9 +35,9 @@ const drops = (n: number) => (
 /** Fog: staggered, broken wavy wisps (not three even bars, which read as a menu button). */
 const FOG_WISPS = (
   <g>
-    <path d="M4 15.5q2-1.2 4 0t4 0M15 15.5h4.5" />
-    <path d="M6 19q2-1.2 4 0t4 0q2-1.2 4 0" />
-    <path d="M3.5 22.5h3M9.5 22.5q2-1.2 4 0t4 0" />
+    <path d="M4 14.5q2-.9 4 0t4 0M15 14.5h4.5" />
+    <path d="M6.5 18.5q2-.9 4 0t4 0q2-.9 4 0" />
+    <path d="M3.5 22.5h3M9.5 22.5q2-.9 4 0t4 0" />
   </g>
 )
 
@@ -59,7 +59,7 @@ export function WeatherIcon({ kind, isDay = true, size = 28, className, decorati
       case 'cloudy':
         return <g transform="translate(0 -2)">{CLOUD}</g>
       case 'fog':
-        return <><g transform="translate(2.4 -3) scale(0.8)">{CLOUD}</g>{FOG_WISPS}</>
+        return <><g transform="translate(2.4 -3.6) scale(0.8)">{CLOUD}</g>{FOG_WISPS}</>
       case 'drizzle':
         return <><g transform="translate(0 -3)">{CLOUD}</g>{drops(2)}</>
       case 'rain':
