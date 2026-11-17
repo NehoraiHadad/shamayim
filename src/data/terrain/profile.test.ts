@@ -31,6 +31,14 @@ describe('profileToPath', () => {
 
   it('keeps the tuned Shadmot terrain and otherwise falls back gently', () => {
     expect(terrainForPlace('shadmot-mehola', null).centerLeft).toBe('47.5%')
+    expect(terrainForPlace('shadmot-mehola', null).seaSide).toBeNull()
     expect(terrainForPlace('elsewhere', null)).toBe(GENERIC_TERRAIN)
+  })
+
+  it('identifies the profile edge containing sea', () => {
+    const west = terrainForPlace('west', { near: samples(0, 1, 20, 30), far: samples(3, 4, 5, 6) })
+    const east = terrainForPlace('east', { near: samples(20, 10, 1, 0), far: samples(3, 4, 5, 6) })
+    expect({ visible: west.seaInView, side: west.seaSide }).toEqual({ visible: true, side: 'west' })
+    expect({ visible: east.seaInView, side: east.seaSide }).toEqual({ visible: true, side: 'east' })
   })
 })

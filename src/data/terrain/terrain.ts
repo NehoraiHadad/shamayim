@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
-import { gentleHillsPath, profileToPath, profileY, sampleY, type TerrainSample } from './profile'
+import { gentleHillsPath, profilePoints, profileToPath, profileY, sampleY, type TerrainSample } from './profile'
 
 export interface TerrainData {
   near: TerrainSample[]
@@ -14,6 +14,11 @@ export interface SceneTerrain {
   centerY: number
   seaY: number
   seaInView: boolean
+  seaSide: 'west' | 'east' | null
+  nearPoints: [number, number][]
+  farPoints: [number, number][]
+  nearElevations?: number[]
+  farElevations?: number[]
 }
 
 const SHADMOT: SceneTerrain = {
@@ -23,6 +28,9 @@ const SHADMOT: SceneTerrain = {
   centerY: 96,
   seaY: 72,
   seaInView: false,
+  seaSide: null,
+  nearPoints: [[0, 50], [150, 96], [200, 96], [236, 96], [296, 44], [375, 32]],
+  farPoints: [[0, 38], [104, 48], [190, 86], [262, 52], [375, 20]],
 }
 
 export const GENERIC_TERRAIN: SceneTerrain = {
@@ -32,6 +40,9 @@ export const GENERIC_TERRAIN: SceneTerrain = {
   centerY: 74,
   seaY: 72,
   seaInView: false,
+  seaSide: null,
+  nearPoints: [[0, 72], [136, 70], [220, 88], [375, 66]],
+  farPoints: [[0, 54], [148, 62], [236, 76], [375, 50]],
 }
 
 function terrainKey(placeId: string): string {
@@ -56,23 +67,32 @@ function writeTerrain(placeId: string, data: TerrainData): void {
 }
 
 /** Water rule: two adjacent ~0 m samples at either profile edge count as visible sea. */
-function seaAtEdge(samples: readonly TerrainSample[]): boolean {
+function seaAtEdge(samples: readonly TerrainSample[]): 'west' | 'east' | null {
   const water = (sample: TerrainSample) => Math.abs(sample.elevation) <= 1
-  return samples.slice(0, 3).some((sample, index, edge) => index > 0 && water(sample) && water(edge[index - 1]))
-    || samples.slice(-3).some((sample, index, edge) => index > 0 && water(sample) && water(edge[index - 1]))
+  const hasWater = (edge: readonly TerrainSample[]) => edge.some((sample, index) =>
+    index > 0 && water(sample) && water(edge[index - 1]))
+  if (hasWater(samples.slice(0, 3))) return 'west'
+  if (hasWater(samples.slice(-3))) return 'east'
+  return null
 }
 
 export function terrainForPlace(placeId: string, data: TerrainData | null): SceneTerrain {
   if (placeId === 'shadmot-mehola') return SHADMOT
   if (!data) return GENERIC_TERRAIN
   const middle = Math.floor(data.near.length / 2)
+  const seaSide = seaAtEdge(data.near) ?? seaAtEdge(data.far)
   return {
     near: profileToPath(data.near),
     far: profileToPath(data.far),
     centerLeft: '50%',
     centerY: sampleY(data.near, middle),
     seaY: profileY(data.near, 0),
-    seaInView: seaAtEdge(data.near) || seaAtEdge(data.far),
+    seaInView: seaSide !== null,
+    seaSide,
+    nearPoints: profilePoints(data.near),
+    farPoints: profilePoints(data.far),
+    nearElevations: data.near.map((sample) => sample.elevation),
+    farElevations: data.far.map((sample) => sample.elevation),
   }
 }
 

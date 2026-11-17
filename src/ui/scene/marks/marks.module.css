@@ -1,0 +1,59 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mark {
+  position: absolute;
+  overflow: visible;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+}
+
+.body {
+  fill: var(--ridge-near);
+  opacity: calc(1 - var(--near-fade, 0));
+  transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
+}
+
+.far .body {
+  fill: var(--ridge-far);
+  opacity: calc((1 - .95 * var(--far-fade, 0)) * var(--mark-bleach, 1));
+}
+
+.accent { fill: color-mix(in srgb, var(--accent) 70%, var(--ridge-near)); }
+.lights { fill: #FFD9A0; transition: opacity var(--d4) linear; }
+.halo { filter: drop-shadow(0 0 3px rgb(255 217 160 / .25)); }
+.aviation { fill: #FF5A4A; }
+
+.crown {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: rotate(var(--lean));
+}
+
+.crown.sway {
+  animation: mark-sway var(--sway-period) ease-in-out alternate;
+  animation-iteration-count: var(--sway-count);
+}
+
+.blades {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: turbine-spin var(--turbine-period) linear;
+  animation-iteration-count: var(--turbine-count);
+}
+
+.layer[data-hidden='true'] :is(.sway, .blades) { animation-play-state: paused; }
+
+@keyframes mark-sway {
+  from { transform: rotate(calc(var(--lean) - var(--sway))); }
+  to { transform: rotate(calc(var(--lean) + var(--sway))); }
+}
+
+@keyframes turbine-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sway, .blades { animation: none; }
+}

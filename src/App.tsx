@@ -4,6 +4,8 @@ import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
 import { Life } from './atmo/life/Life'
 import { mapLife } from './atmo/life/mapLife'
+import { mapMarks } from './atmo/life/mapMarks'
+import { useLandmarks } from './data/landmarks/useLandmarks'
 import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
@@ -37,6 +39,7 @@ export default function App() {
   const { place, recent, selectPlace } = usePlace()
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
+  const landmarks = useLandmarks(place)
   const now = useNow(place.timezone)
   const forecast = useMemo(() => (raw ? rollForward(raw, now) : null), [raw, now])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
@@ -49,6 +52,7 @@ export default function App() {
   const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place.lat, selected), ...forcedWeather() } : null), [forecast, now, place.lat, selected])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
+  const markLife = useMemo(() => (shown && air ? mapMarks(shown, air) : null), [shown, air])
   const intro = useIntro(Boolean(forecast))
   useThemeChrome(themeId)
 
@@ -94,13 +98,16 @@ export default function App() {
             terrain={terrain}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
+            place={place}
+            landmarks={landmarks.marks}
+            markLife={markLife!}
           />
           <div className="paper" data-intro="sheet">
             <Sheet>
               <WearCard tip={wear} />
               <WeekList forecast={forecast} now={now} />
             </Sheet>
-            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} />
+            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
           </div>
         </div>
       )}
