@@ -54,7 +54,7 @@ export function HillMarks({ marks, settlement, width, ground, sunX, night }: Pro
     ))}
     {hill.filter((mark) => FIELD_KINDS.has(mark.kind)).map((mark) => (
       <Field key={mark.id} kind={mark.kind} x={toPx(mark)} ground={ground} width={fieldWidth(mark.kind)}
-        depth={3 + 9 * Math.max(.3, clamp(Math.abs(mark.dy) / 1.5))} />
+        depth={2 + 6 * clamp(Math.abs(mark.dy) / 1.5)} />
     ))}
     {byPlane('face').map((mark) => (
       <Building key={mark.id} mark={mark} x={toPx(mark)} ground={ground} sunX={sunX} night={night} />

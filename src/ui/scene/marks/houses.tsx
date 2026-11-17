@@ -52,8 +52,8 @@ export function FlatRoof({ w, h, heater }: Shape & { heater: boolean }) {
     <rect className={styles.lit} x={left} y={-h} width={side} height={h} />
     <rect className={styles.lit} x={left} y={-h - .6} width={w} height={.6} />
     {heater && <>
-      <rect className={styles.wall} x={w / 2 - 2.6} y={-h - 1.8} width={1.6} height={1.2} />
-      <path className={styles.shade} d={`M${w / 2 - 1} ${-h - .6}h1.1l-.6 -1.3h-1.1z`} />
+      <rect className={styles.lit} x={w / 2 - 2.6} y={-h - 1.5} width={1.4} height={.9} />
+      <path className={styles.wall} d={`M${w / 2 - 1} ${-h - .6}h1.1l-.6 -1.3h-1.1z`} />
     </>}
   </>
 }

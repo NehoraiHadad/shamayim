@@ -1,5 +1,6 @@
 import styles from '../marks.module.css'
 import type { BuildingProps } from './buildingSpecs'
+import { Dome } from './shadow'
 
 /**
  * Buildings drawn in px around their base point: x 0 is the centre, y 0 the ground, up is negative
@@ -16,8 +17,7 @@ export function Mosque({ h, night }: BuildingProps) {
   return <>
     <rect className={styles.wall} x={-7} y={-5} width={9} height={5} />
     <rect className={styles.lit} x={-7} y={-5} width={2} height={5} />
-    <path className={styles.lit} d="M-5.5 -5a3 3 0 0 1 3 -3v3z" />
-    <path className={styles.shade} d="M-2.5 -8a3 3 0 0 1 3 3h-3z" />
+    <Dome cx={-2.5} y={-5} r={3} />
     <rect className={styles.wall} x={2} y={balcony} width={2} height={-balcony} />
     <rect className={styles.lit} x={2} y={balcony} width={.9} height={-balcony} />
     <rect className={styles.wall} x={1.25} y={balcony - .75} width={3.5} height={.75} />
@@ -38,8 +38,7 @@ export function Synagogue({ night }: BuildingProps) {
     <rect className={styles.wall} x={-5.5} y={-7} width={11} height={7} />
     <rect className={styles.lit} x={-5.5} y={-7} width={2} height={7} />
     <rect className={styles.lit} x={-5.5} y={-7.75} width={11} height={.75} />
-    <path className={styles.lit} d="M-1.75 -7.75a1.75 1.75 0 0 1 1.75 -1.75v1.75z" />
-    <path className={styles.shade} d="M0 -9.5a1.75 1.75 0 0 1 1.75 1.75h-1.75z" />
+    <Dome cx={0} y={-7.75} r={1.75} />
     {[-2.5, 0, 2.5].map((x) => (
       <path key={x} className={night ? styles.win : styles.shade}
         d={`M${x - .7} -1.5v-2.6a.7 .7 0 0 1 1.4 0v2.6z`} />
@@ -56,9 +55,9 @@ export function Church({ night }: BuildingProps) {
     <rect className={styles.wall} x={2} y={-12} width={3.5} height={12} />
     <rect className={styles.lit} x={2} y={-12} width={1.4} height={12} />
     <rect className={night ? styles.win : styles.shade} x={3.1} y={-11} width={1.3} height={2} rx={.6} />
-    <path className={styles.lit} d="M2 -12a1.75 1.75 0 0 1 1.75 -1.75v1.75z" />
-    <path className={styles.shade} d="M3.75 -13.75a1.75 1.75 0 0 1 1.75 1.75h-1.75z" />
-    <rect className={styles.solid} x={3.4} y={-15.5} width={.7} height={1.75} />
+    <Dome cx={3.75} y={-12} r={1.75} />
+    <rect className={styles.solid} x={3.4} y={-15.75} width={.7} height={2} />
+    <rect className={styles.solid} x={3.05} y={-15.1} width={1.4} height={.5} />
   </>
 }
 
@@ -78,9 +77,9 @@ export function WaterTower({ h, night }: BuildingProps) {
 
 export function Castle() {
   return <>
-    <path className={styles.wall} d="M-8 0v-7.5l1 -.8 .6 1 .9 -1.6 1.1 .4 .4 -.9 1 .6V-5h1.5l.8 -.7 1.2 .5 .9 -.4 1.3.6 1.6 -.3L8 0z" />
+    <path className={styles.wall} d="M-8 0v-7.5l1 -.8 .6 1 .9 -1.6 1.1 .4 .4 -.9 1 .6V-5h1.5l.8 -.7 1.2 .5 .9 -.4 1.3.6 1.6 -.3L5.2 -3.4h1l.2 -.3.4 1.7h.8L8 0z" />
     <path className={styles.lit} d="M-8 0v-7.5l1 -.8 .6 1 .4 -.7V0z" />
-    <path className={styles.shade} d="M-3.6 0v-2.5l.9 -1.4 .9 1.4V0z" />
+    <path className={styles.lit} d="M-3 -5h1.5l.8 -.7 1.2 .5 .9 -.4 1.3 .6 1.6 -.3v.5l-1.6 .3 -1.3 -.6 -.9 .4 -1.2 -.5 -.8 .7H-3z" />
     <rect className={styles.wall} x={5.5} y={-1} width={1} height={1} />
     <rect className={styles.wall} x={7.2} y={-.7} width={.8} height={.7} />
   </>

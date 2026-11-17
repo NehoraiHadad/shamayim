@@ -9,7 +9,11 @@ interface Props { settlement: Settlement; sunX: number | null; night: boolean }
 function Windows({ house, style }: { house: House; style: Settlement['style'] }) {
   const { x, baseY: b, h, w, seed } = house
   if (seed % 4 === 3) return null
-  if (style === 'tile') return <rect className={styles.win} x={x - .75} y={b - h * .5 + .6} width={1.5} height={1.5} />
+  if (style === 'tile') {
+    const at = x - .75 + (seed % 3 - 1) * w * .25
+    return <>{(seed % 5 ? [at] : [at - 1.4, at + 1.4]).map((left) => (
+      <rect key={left} className={styles.win} x={left} y={b - h * .5 + .6} width={1.5} height={1.5} />))}</>
+  }
   const count = style === 'blocks' ? 2 + seed % 3 : 1 + seed % 2
   return <>{Array.from({ length: count }, (_, i) => {
     const column = (seed >> i) % 2
@@ -23,10 +27,12 @@ export function SettlementGlyph({ settlement, sunX, night }: Props) {
   const { style, houses, contours } = settlement
   const ordered = [...houses].sort((a, b) => a.row - b.row || a.baseY - b.baseY)
   const lit = sunX != null && !night
+  /** One light direction for the whole cluster, so no seam runs through the village at the sun's x. */
+  const xs = houses.map((house) => house.x)
+  const mirror = lit && sunX! > (Math.min(...xs) + Math.max(...xs)) / 2 ? -1 : 1
   return <g className={lit ? undefined : styles.flat}>
     {contours.map((d) => <path key={d} className={styles.contour} d={d} />)}
     {ordered.map((house) => {
-      const mirror = lit && sunX! > house.x ? -1 : 1
       const back = style === 'blocks' && house.row === 0
       return <g key={`${house.row}-${house.x.toFixed(1)}`}>
         <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${mirror} 1)`}

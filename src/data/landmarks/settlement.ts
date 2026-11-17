@@ -76,7 +76,8 @@ function dims(style: SettlementStyle, row: number, index: number, random: () => 
 
 function hitsDot(house: Omit<House, 'lit' | 'seed'>, cx: number, cy: number) {
   const nx = Math.max(house.x - house.w / 2, Math.min(cx, house.x + house.w / 2))
-  const ny = Math.max(house.baseY - house.h, Math.min(cy, house.baseY))
+  // Roof parapets and water heaters stand up to 1.8 px above the body.
+  const ny = Math.max(house.baseY - house.h - 1.8, Math.min(cy, house.baseY))
   return Math.hypot(nx - cx, ny - cy) < DOT_R
 }
 
