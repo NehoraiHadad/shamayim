@@ -44,7 +44,7 @@ export function useStripScrub({ scrollerRef, slots, shownHour, scrubbing, first,
   const end = (e: PointerEvent<HTMLDivElement>) => {
     if (drag.current !== e.pointerId) return
     drag.current = null
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
     onRelease?.()
   }
   return {

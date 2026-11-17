@@ -43,7 +43,8 @@ export function SceneScrubber({ at, now, first, last, readout, onScrub, onReleas
   const up = (e: PointerEvent<HTMLDivElement>) => {
     if (drag.current?.id !== e.pointerId) return
     drag.current = null
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    // After a pointercancel the capture is already gone and releasing it would throw before onRelease.
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
     onRelease()
   }
   const key = (e: KeyboardEvent<HTMLDivElement>) => {

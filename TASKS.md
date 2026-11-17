@@ -250,15 +250,21 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
 ## v8 scene/time lane — the valley plays the day — 2026-11-17 (branch `claude/scene-time-0f67a4`)
 Brief: `docs/briefs/scene-time.md` (decisions by Fable). Codex (sol): astro, scrub, light. Moon drawn by Claude.
 Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCard`, `week/`, `DayRow`).
-- [~] `src/astro/`: sun + moon position, moon phase, local→UTC (tests on 2026 eclipses / full and new moons)
-- [~] Scene time at minute resolution (`useSceneTime`): scrub on the valley (touch) and the strip (mouse/pen);
+- [x] `src/astro/`: sun + moon position, moon phase, local→UTC (tests on 2026 eclipses / full and new moons)
+- [x] Scene time at minute resolution (`useSceneTime`): scrub on the valley (touch) and the strip (mouse/pen);
       hold 6 s then rewind to now over 900 ms; "עכשיו" chip; slider role + keys; reduced motion → cut
-- [~] Air follows the scrubbed minute (hourly fields interpolated); sun, glow, lit windows follow
-- [~] Continuous sky light from sun altitude + cloud / wet / PM10 (`src/theme/skyLight.ts`), contrast guard,
+- [x] Air follows the scrubbed minute (hourly fields interpolated); sun, glow, lit windows follow
+- [x] Continuous sky light from sun altitude + cloud / wet / PM10 (`src/theme/skyLight.ts`), contrast guard,
       altitude-sweep tests; sheet stays on now
 - [x] Moon geometry (`scene/moonShape.ts` + tests): true west–east place, continuous phase outline, lit limb to the sun
-- [ ] Moon component wired into the scene (after astro lands)
-- [ ] QA stills at 375 px: dawn, golden hour, dusk, night with moon, scrubbing a rainy day (`docs/design/qa/scene-time-*`)
+- [x] Moon component wired into the scene (behind the ridges, veiled by cloud, faded by far haze)
+- [x] QA stills at 375 px (headless): dawn, golden, dusk, night-moon, rain morning/dusk, dust noon (`docs/design/qa/scene-time-*`)
+- [x] Scrub checked in the pane with synthetic pointer/key events: drag, release → hold → back to now, keys, Escape, strip 4 px threshold
+- [x] Fix: releasing pointer capture after a pointercancel threw and left the scene stuck in scrubbing
+- [ ] Real-finger scrub on a phone (touch-action pan-y vs vertical scroll, feel of 4 min/px)
+- [ ] The 900 ms rewind seen animating (the pane throttled rAF to 2 fps, so it showed as a cut)
+- [ ] Reduced motion and VoiceOver/TalkBack on a device (slider announcements)
+- [ ] Golden hour on a clear day (fixture day is cloudy, so golden reads grey)
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
