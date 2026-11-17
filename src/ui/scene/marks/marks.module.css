@@ -1,30 +1,4 @@
-.layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.mark {
-  position: absolute;
-  overflow: visible;
-  transform: translateX(-50%);
-  transform-origin: 50% 100%;
-}
-
-.body {
-  fill: var(--ridge-near);
-  opacity: calc(1 - var(--near-fade, 0));
-  transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
-}
-
-.far .body {
-  fill: var(--ridge-far);
-  opacity: calc((1 - .95 * var(--far-fade, 0)) * var(--mark-bleach, 1));
-}
-
-.accent { fill: color-mix(in srgb, var(--accent) 70%, var(--ridge-near)); }
-.lights { fill: #FFD9A0; transition: opacity var(--d4) linear; }
-.halo { filter: drop-shadow(0 0 3px rgb(255 217 160 / .25)); }
+/* Mark life (LANDMARKS.md): aviation light, palm lean / sway, turbine spin. */
 .aviation { fill: #FF5A4A; }
 
 .crown {
@@ -45,7 +19,7 @@
   animation-iteration-count: var(--turbine-count);
 }
 
-.layer[data-hidden='true'] :is(.sway, .blades) { animation-play-state: paused; }
+.px[data-hidden='true'] :is(.sway, .blades) { animation-play-state: paused; }
 
 @keyframes mark-sway {
   from { transform: rotate(calc(var(--lean) - var(--sway))); }
@@ -87,8 +61,18 @@
 .shade { fill: var(--mark-shade); }
 .contour { fill: none; stroke: var(--mark-shade); stroke-width: 1; stroke-linecap: round; opacity: .7; }
 .win { fill: #FFD9A0; }
+.backTone { fill: var(--mark-back); }
+.glass { fill: color-mix(in srgb, var(--sky-horizon) 20%, var(--ridge-near)); }
+.gold { fill: color-mix(in srgb, #E0AE3C 72%, var(--ridge-near)); }
+.cable { fill: none; stroke: var(--mark-wall); stroke-width: .6; }
 .lamp { fill: #7CE0A0; }
-.back :is(.solid, .wall, .lit, .roof, .shade) { fill: var(--mark-back); }
+.back :is(.solid, .wall, .lit, .roof, .shade, .backTone, .glass, .gold, .green, .panel) { fill: var(--mark-back); }
+.back .cable { stroke: var(--mark-back); }
 .maskWhite * { fill: #fff !important; stroke: none; }
 .night .roof { fill: color-mix(in srgb, #B5553C 18%, var(--ridge-near)); }
 .night .wall { fill: color-mix(in srgb, var(--sky-horizon) 25%, var(--ridge-near)); }
+
+/* Far ridge marks: silhouettes in the far tone, fading and bleaching with the far ridge (ILLUSTRATION.md R1). */
+.px.farLayer { opacity: calc((1 - .95 * var(--far-fade, 0)) * var(--mark-bleach, 1)); }
+.farLayer :not(.aviation) { fill: var(--ridge-far); stroke: none; }
+.farLayer circle[fill='none'] { fill: none; }

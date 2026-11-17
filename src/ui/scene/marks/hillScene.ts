@@ -8,6 +8,7 @@ import type { SceneTerrain } from '../../../data/terrain/terrain'
 /** Ground function and the place's settlement cluster for the hill layer, in px at the scene's real width. */
 export function hillScene(place: Place, terrain: SceneTerrain, landmarks: Landmark[], width: number, litShare: number) {
   const ground = groundFn(terrain.nearPoints, width)
+  const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
   const centerY = place.id === 'shadmot-mehola' ? terrain.centerY : ground(centerX)
@@ -20,5 +21,5 @@ export function hillScene(place: Place, terrain: SceneTerrain, landmarks: Landma
       centerX, centerY, seed: hashId(place.id),
     })
   }
-  return { ground, settlement, centerY }
+  return { ground, farGround, settlement, centerY }
 }
