@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
-import { gentleHillsPath, profilePoints, profileToPath, profileY, sampleY, type TerrainSample } from './profile'
+import { gentleHillsPath, profilePoints, profileToPath, profileY, ridgePoints, sampleY, type TerrainSample } from './profile'
 
 export interface TerrainData {
   near: TerrainSample[]
@@ -21,28 +21,33 @@ export interface SceneTerrain {
   farElevations?: number[]
 }
 
+const SHADMOT_FAR = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
+const SHADMOT_NEAR = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z'
+const GENERIC_FAR = 'M0 128V54C52 32 102 44 148 62S236 76 284 48S344 38 375 50V128Z'
+
 const SHADMOT: SceneTerrain = {
-  far: 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z',
-  near: 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z',
+  far: SHADMOT_FAR,
+  near: SHADMOT_NEAR,
   centerLeft: '47.5%',
   centerY: 96,
   seaY: 72,
   seaInView: false,
   seaSide: null,
-  nearPoints: [[0, 50], [150, 96], [200, 96], [236, 96], [296, 44], [375, 32]],
-  farPoints: [[0, 38], [104, 48], [190, 86], [262, 52], [375, 20]],
+  // Sampled from the drawn paths, so marks stand on the line you see (a few hand-picked corners missed the curves).
+  nearPoints: ridgePoints(SHADMOT_NEAR),
+  farPoints: ridgePoints(SHADMOT_FAR),
 }
 
 export const GENERIC_TERRAIN: SceneTerrain = {
-  far: 'M0 128V54C52 32 102 44 148 62S236 76 284 48S344 38 375 50V128Z',
+  far: GENERIC_FAR,
   near: gentleHillsPath(),
   centerLeft: '50%',
   centerY: 74,
   seaY: 72,
   seaInView: false,
   seaSide: null,
-  nearPoints: [[0, 72], [136, 70], [220, 88], [375, 66]],
-  farPoints: [[0, 54], [148, 62], [236, 76], [375, 50]],
+  nearPoints: ridgePoints(gentleHillsPath()),
+  farPoints: ridgePoints(GENERIC_FAR),
 }
 
 function terrainKey(placeId: string): string {
