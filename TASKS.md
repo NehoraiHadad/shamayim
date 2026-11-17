@@ -85,7 +85,8 @@ Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, f
 - [x] Git-connected: every push to `main` builds (`npm run build`, Node from `.nvmrc`) and deploys to production;
       preview deployments off, no PR comments
 - [x] `public/_headers`: no-cache for `sw.js`, manifest, index; immutable `/assets/*`; nosniff, geolocation self only
-- [ ] Optional: custom domain; Cloudflare Web Analytics
+- [x] Custom domain shamayim.nehoraihadad.com
+- [ ] Optional: Cloudflare Web Analytics
 - Later services fit here: Pages Functions / Workers (API proxy, IMS warnings, push), KV/D1, Cron Triggers
 
 ## v6 — landmarks — 2026-11-17
@@ -111,10 +112,24 @@ Brief: `docs/briefs/place-detection.md`. Codex (sol), merged `feat/place-detecti
 - [x] Curated data checked online with sources in comments: Báb 11 m, Dagon 65 m (moved), Shalom 142 m,
       one Bazan cooling tower; YMCA / Tower of David / Dome top / Reading chimney heights still unverified
 - [ ] Homes on כרמי צור are 12×6 px, ridge-coloured, under the village dot → invisible. Fix in illustration round.
-- [ ] Overpass public servers at capacity (overpass-api.de says "at capacity… automated use: run your own";
-      mirrors time out). A server proxy counts as automated use → plan: monthly static Israel landmark file built
-      from the Geofabrik extract (GitHub Action), Overpass only for places abroad. Brief draft (proxy variant):
-      `docs/briefs/landmarks-proxy.md` — rewrite before use.
+- [x] Overpass public servers at capacity ("automated use: run your own") → solved for Israel in v6.2
+
+## v6.2 — Israel landmark file — 2026-11-17
+Brief: `docs/briefs/israel-landmarks.md`. Codex (sol), merged `feat/israel-landmarks`.
+(`docs/briefs/landmarks-proxy.md` is superseded — kept only as the base for a future IMS Pages Function.)
+- [x] `.github/workflows/landmarks.yml`: monthly (1st, 02:00 UTC) + manual; Geofabrik israel-and-palestine pbf →
+      `osmium tags-filter` (filters from `src/data/landmarks/filters.ts`, shared with Overpass) → geojsonseq →
+      `scripts/landmarks/build.ts` → `public/data/landmarks/il/<lat*10>_<lon*10>.json` + `index.json`; commits if changed
+- [x] First run (44070744406): 256 cells, 470 KB, bbox 29.45–33.34 N / 34.17–35.90 E
+- [x] Client: curated → Israel cells (in coverage) → Overpass; cache key `shamayim:landmarks:v2:`; SW runtime-caches
+      `/data/landmarks` (not precached)
+- [x] Verified on prod: כרמי צור loads index + 13 cells, 5 marks (Beit Ummar minarets), no Overpass call
+- [x] Custom domain https://shamayim.nehoraihadad.com (Pages domain + proxied CNAME via `cf`)
+- [ ] Stale service worker kept an old bundle on prod until unregistered → add an update prompt / skipWaiting
+- [ ] Synagogues and water towers are in the data but have no glyph (illustration round)
+- [ ] Abroad: OpenFreeMap vector tiles (z14: worship, castles/ruins, building `render_height`; no towers/masts)
+      as the main source, Overpass as a bonus — next Codex round
+- [ ] Later: Cloudflare Pages Function for IMS (token server-side) once access is granted (asked 16.11)
 - [ ] Illustration upgrade: Fable critique + glyph redesign (houses that read, real silhouettes per place)
 
 ## Known gaps / polish

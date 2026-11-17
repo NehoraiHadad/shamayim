@@ -1,3 +1,5 @@
+> Superseded (2026-11-17) by `israel-landmarks.md` (static Geofabrik cells). Kept as the base for a future IMS Pages Function.
+
 # Brief: landmarks through our own Cloudflare Pages Function (v6.2)
 
 Why: today every phone calls public Overpass servers directly. They rate-limit per IP and fail under load
