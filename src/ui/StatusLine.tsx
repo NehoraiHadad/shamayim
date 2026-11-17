@@ -47,23 +47,30 @@ export function StatusLine({ status, freshness, fetchedAt, hasError, onRefresh }
   const offline = hasError || freshness === 'stale'
   const [phase, start] = usePhase(status === 'refreshing' || status === 'loading', hasError, onRefresh)
   const fresh = fetchedAt ? freshnessText(fetchedAt, offline) : { text: '', spoken: '' }
-  const text = phase === 'busy' ? 'מעדכן…' : phase === 'done' ? 'עודכן עכשיו' : fresh.text
-  const spoken = phase === 'busy' ? 'מעדכן את התחזית' : `${phase === 'done' ? 'עודכן עכשיו' : fresh.spoken}. רענון`
+  const busy = phase === 'busy'
+  /** What the refresh itself is doing; empty when idle, where the pill shows freshness instead. */
+  const update = busy ? 'מעדכן…' : phase === 'done' ? 'עודכן עכשיו' : ''
+  const text = update || fresh.text
+  const spoken = busy ? 'מעדכן את התחזית' : `${phase === 'done' ? 'עודכן עכשיו' : fresh.spoken}. רענון`
 
   return (
-    <button
-      type="button"
-      className={`${styles.status} ${offline && phase === 'idle' ? styles.warn : ''}`}
-      onClick={start}
-      disabled={phase === 'busy'}
-      aria-label={spoken}
-    >
-      <span className={styles.pill}>
-        <svg className={`${styles.icon} ${phase === 'busy' ? styles.spin : ''}`} width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-          {phase === 'done' ? <path d="M5 12.5l4.5 4.5L19 7.5" /> : <path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5" />}
-        </svg>
-        <span key={text} className={styles.text}>{text}</span>
-      </span>
-    </button>
+    <>
+      <button
+        type="button"
+        className={`${styles.status} ${offline && phase === 'idle' ? styles.warn : ''}`}
+        onClick={busy ? undefined : start}
+        aria-disabled={busy}
+        aria-label={spoken}
+      >
+        <span className={styles.pill}>
+          <svg className={`${styles.icon} ${busy ? styles.spin : ''}`} width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+            {phase === 'done' ? <path d="M5 12.5l4.5 4.5L19 7.5" /> : <path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5" />}
+          </svg>
+          <span key={text} className={styles.text}>{text}</span>
+        </span>
+      </button>
+      {/* Announces the refresh as it happens; the idle freshness text is not re-read on every clock tick. */}
+      <span className="visually-hidden" role="status">{update}</span>
+    </>
   )
 }

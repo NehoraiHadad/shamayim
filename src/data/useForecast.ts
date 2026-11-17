@@ -3,6 +3,7 @@ import type { Place } from '../config/place'
 import { nowIn } from '../domain/now'
 import type { Forecast } from '../domain/types'
 import { freshnessOf, readCache, writeCache, type Freshness } from './cache'
+import { toFetchFailure, type FetchFailure } from './fetchFailure'
 import type { WeatherProvider } from './WeatherProvider'
 
 export type LoadStatus = 'loading' | 'ready' | 'refreshing' | 'error'
@@ -11,7 +12,7 @@ export interface ForecastState {
   forecast: Forecast | null
   status: LoadStatus
   freshness: Freshness | null
-  error: string | null
+  error: FetchFailure | null
   refresh: () => void
 }
 
@@ -19,7 +20,7 @@ export interface ForecastState {
 export function useForecast(place: Place, provider: WeatherProvider): ForecastState {
   const [forecast, setForecast] = useState<Forecast | null>(() => readCache(place.id))
   const [status, setStatus] = useState<LoadStatus>(forecast ? 'ready' : 'loading')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<FetchFailure | null>(null)
   const [activePlaceId, setActivePlaceId] = useState(place.id)
   const inFlight = useRef<AbortController | null>(null)
   const latest = useRef(forecast)
@@ -53,7 +54,7 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
         })
         .catch((err: unknown) => {
           if (ctrl.signal.aborted) return
-          setError(err instanceof Error ? err.message : String(err))
+          setError(toFetchFailure(err))
           setStatus(latest.current ? 'ready' : 'error')
         })
         .finally(() => {
