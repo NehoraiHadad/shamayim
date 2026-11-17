@@ -52,8 +52,10 @@ Where they differ, the decision and the reason are given here. This file wins.
   (DPR 1 → fewer octaves → half particles → 30 fps → still), never step back up in a session.
 
 ## Hour preview
-Selected hour drives particles, cloud, haze, wind, rain (from `HourPoint`); direction/visibility held
-from now. Transition 320 ms; return 520 ms. Gradient, ink, sheet stay on now. No lightning in preview.
+The valley is a minute-resolution touch scrubber; the strip keeps native touch scrolling and adds mouse/pen dragging.
+The shown minute drives particles, cloud, haze, wind, rain, sun, twilight, landmarks, and the continuous sky palette;
+hourly numeric fields interpolate while direction and visibility stay live. Release holds for 6 s, then rewinds through
+time over 900 ms; reduced motion cuts directly to now. The paper sheet stays on now. No lightning in preview.
 
 ## Intro
 Air present on the first frame at 70%, settles over 900 ms; particles begin at 260 ms, ramp 520 ms.

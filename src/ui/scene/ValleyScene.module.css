@@ -121,7 +121,32 @@
   font-size: var(--text-sm);
   font-weight: 600;
   animation: readout-in var(--d1) linear;
+  z-index: 21;
 }
+
+.readout button {
+  min-width: 44px;
+  min-height: 44px;
+  margin-inline-start: 8px;
+  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sky-mid) 78%, transparent);
+  color: inherit;
+  font: inherit;
+  pointer-events: auto;
+}
+
+.scrubber {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+
+.scrubber:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+
+:global(.app[data-scrubbing]) :is(.sun, .far, .near) { transition: none; }
 
 @keyframes readout-in { from { opacity: 0; } }
 

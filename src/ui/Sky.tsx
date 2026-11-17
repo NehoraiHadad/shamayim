@@ -1,9 +1,8 @@
 import { useMemo, type ReactNode } from 'react'
-import type { ThemeId } from '../theme/skyThemes'
 import styles from './Sky.module.css'
 
 interface Props {
-  theme: ThemeId
+  altitude: number
   /** 0–100; cloud hides stars. */
   cloudCover: number
   /** The live air, drawn over the gradient and stars. */
@@ -23,12 +22,10 @@ function starField(count: number): string {
   }).join(',')
 }
 
-const STARS: Partial<Record<ThemeId, number>> = { night: 1, dusk: 0.4 }
-
 /** The sky behind everything: the theme gradient, stars (hidden by cloud), then the air. */
-export function Sky({ theme, cloudCover, children }: Props) {
+export function Sky({ altitude, cloudCover, children }: Props) {
   const stars = useMemo(() => starField(46), [])
-  const starOpacity = (STARS[theme] ?? 0) * (1 - 0.9 * (cloudCover / 100))
+  const starOpacity = Math.min(1, Math.max(0, (-altitude - 4) / 8)) * (1 - 0.9 * (cloudCover / 100))
   return (
     <div className={styles.sky} data-sky aria-hidden="true">
       <div className={styles.stars} style={{ boxShadow: stars, opacity: starOpacity }} />
