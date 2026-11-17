@@ -57,3 +57,38 @@
 @media (prefers-reduced-motion: reduce) {
   .sway, .blades { animation: none; }
 }
+
+/* v7 marks that belong to the hill (docs/design/ILLUSTRATION.md R3) */
+.px {
+  --mark-back: color-mix(in srgb, var(--ridge-far) 35%, var(--ridge-near));
+  --mark-wall: color-mix(in srgb, var(--sky-horizon) 38%, var(--ridge-near));
+  --mark-lit: color-mix(in srgb, var(--sky-horizon) 55%, var(--ridge-near));
+  --mark-shade: color-mix(in srgb, #000 28%, var(--ridge-near));
+  --mark-roof: color-mix(in srgb, #B5553C 55%, var(--ridge-near));
+  --mark-green: color-mix(in srgb, #5E7B4A 45%, var(--ridge-near));
+  --mark-panel: color-mix(in srgb, #3E5C7A 50%, var(--ridge-near));
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: calc(1 - var(--near-fade, 0));
+  transition: opacity var(--d4) linear;
+}
+.px * { transition: fill var(--d6) var(--ease-in-out); }
+.solid { fill: var(--ridge-near); }
+.wall { fill: var(--mark-wall); }
+.lit { fill: var(--mark-lit); }
+.roof { fill: var(--mark-roof); }
+.green { fill: var(--mark-green); }
+.vine { fill: none; stroke: var(--mark-green); stroke-width: 1; stroke-linecap: round; }
+.panel { fill: var(--mark-panel); }
+.shade { fill: var(--mark-shade); }
+.contour { fill: none; stroke: var(--mark-shade); stroke-width: 1; stroke-linecap: round; opacity: .7; }
+.win { fill: #FFD9A0; }
+.lamp { fill: #7CE0A0; }
+.back :is(.solid, .wall, .lit, .roof, .shade) { fill: var(--mark-back); }
+.maskWhite * { fill: #fff !important; stroke: none; }
+.night .roof { fill: color-mix(in srgb, #B5553C 18%, var(--ridge-near)); }
+.night .wall { fill: color-mix(in srgb, var(--sky-horizon) 25%, var(--ridge-near)); }

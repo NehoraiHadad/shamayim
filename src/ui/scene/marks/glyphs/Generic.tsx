@@ -14,9 +14,6 @@ const paths: Record<string, string> = {
   castle: 'M7 40V27h4v3h3v-3h4v3h3v-3h4v13z',
   solar: 'M1 40 4 5h6L7 40zm8 0 3-35h6l-3 35zm8 0 3-35h6l-3 35zm8 0 3-35h6l-3 35z',
   homes: 'M1 40V12L6 3l5 9v28zm10 0V8l5-8 5 8v32zm10 0V12l5-9 5 9v28z',
-  'homes-small': 'M1 40V12L6 3l5 9v28zm10 0V8l5-8 5 8v32zm10 0V12l5-9 5 9v28z',
-  'homes-medium': 'M0 40V18l3-6 3 6v22zm6 0V12l4-7 4 7v28zm8 0V16l4-6 4 6v24zm8 0V8h6v32zm6 0V18l3-6 3 6v22z',
-  'homes-large': 'M0 40V12h4v28zm5 0V4h5v36zm11 0V10h5v30zm6 0V0h5v40zm6 0V14h4v26zM11 40V18h4v22z',
 }
 
 export function GenericGlyph({ glyph, moving, bladeClass, crownClass }: Props) {

@@ -12,6 +12,9 @@ import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
 import { Landmarks } from './marks/Landmarks'
+import { HillMarks } from './marks/HillMarks'
+import { isHillMark } from './marks/hillPlane'
+import { hillScene } from './marks/hillScene'
 import styles from './ValleyScene.module.css'
 
 interface Props {
@@ -59,6 +62,11 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const showSea = forecast.elevation < 50 || terrain.seaInView
   const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
     [place, terrain, landmarks, sceneWidth, showSea])
+  const flat = useMemo(() => placed.filter((mark) => !isHillMark(mark)), [placed])
+  const night = markLife.litShare > 0
+  const hill = useMemo(() => hillScene(place, terrain, landmarks, sceneWidth, markLife.litShare),
+    [place, terrain, landmarks, sceneWidth, markLife.litShare])
+  const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
@@ -84,18 +92,20 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
           <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
         </foreignObject>
       </svg>
-      <Landmarks marks={placed} layer="far" life={markLife} readout={Boolean(readout)} fade={air.haze.farFade} />
+      <Landmarks marks={flat} layer="far" life={markLife} readout={Boolean(readout)} fade={air.haze.farFade} />
       <svg className={`${styles.land} ${styles.landNear}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {showSea && (
           <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
       </svg>
-      <Landmarks marks={placed} layer="near" life={markLife} readout={Boolean(readout)} fade={air.haze.nearFade} />
-      <span className={styles.village} style={{ left: terrain.centerLeft, top: terrain.centerY }} aria-hidden="true" />
+      <Landmarks marks={flat} layer="near" life={markLife} readout={Boolean(readout)} fade={air.haze.nearFade} />
+      <HillMarks marks={placed} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night} />
+      <span className={styles.village} style={{ left: terrain.centerLeft, top: hill.centerY }} aria-hidden="true" />
       <span
         className={styles.depth}
-        style={{ left: terrain.centerLeft, top: below ? terrain.seaY + 6 : Math.min(116, terrain.centerY + 7) }}
+        style={{ left: terrain.centerLeft, top: below ? terrain.seaY + 6
+          : hill.settlement?.labelTop ?? Math.min(116, hill.centerY + 7) }}
         aria-hidden="true"
       >
         <bdi>{elevationText.replace(' מ׳', '')}</bdi> מ׳

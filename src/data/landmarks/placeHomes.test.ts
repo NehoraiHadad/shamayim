@@ -33,12 +33,13 @@ describe('place homes', () => {
     expect(placeHomes(city, [far])[0].glyph).toBe('homes-large')
   })
 
-  it('anchors place homes at the village dot while other marks avoid it', () => {
+  it('leaves the place homes to the settlement cluster and keeps other marks out of it', () => {
     const homes = placeHomes({ ...place, featureCode: 'PPL' }, [])[0]
-    const nextToCentre = { ...baseMark, id: 'nearby', lat: place.lat, lon: place.lon }
+    const nextToCentre = { ...baseMark, id: 'nearby', lat: place.lat, lon: place.lon + .001 }
     const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, nextToCentre], 375)
-    expect(marks.find((mark) => mark.kind === 'homes')?.xPct).toBe(47)
-    expect(Math.abs((marks.find((mark) => mark.id === 'nearby')?.xPct ?? 47) - 47)).toBeGreaterThanOrEqual(7 / 3.75)
+    expect(marks.find((mark) => mark.kind === 'homes')).toBeUndefined()
+    const nearby = marks.find((mark) => mark.id === 'nearby')
+    expect(nearby == null || Math.abs(nearby.xPct - 47) * 3.75 >= 27).toBe(true)
   })
 
   it.each(['shadmot-mehola', 'jerusalem', 'tel-aviv', 'haifa'])('leaves curated %s marks unchanged', (id) => {

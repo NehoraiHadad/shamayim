@@ -2,6 +2,7 @@ export type MarkKind =
   | 'highrise' | 'chimney' | 'cooling' | 'mast' | 'waterTower'
   | 'minaret' | 'church' | 'silo' | 'lighthouse' | 'turbine'
   | 'bridge' | 'castle' | 'palms' | 'orchard' | 'solar' | 'homes' | 'custom'
+  | 'synagogue' | 'vineyard'
 
 export interface Landmark {
   id: string
@@ -32,6 +33,8 @@ export interface PlacedMark {
   hPx: number
   lights: number
   tall: boolean
+  /** North–south offset in km (north = behind the section line). */
+  dy: number
 }
 
 export interface MarkLife {
