@@ -21,7 +21,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--sky-top) 55%, transparent);
@@ -29,6 +29,14 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   transition: background-color var(--d1) linear;
+}
+
+/* Fresh data: a 32 px round icon button, still inside the 44 px hit area. */
+.iconOnly .pill {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  justify-content: center;
 }
 
 .status:active .pill {

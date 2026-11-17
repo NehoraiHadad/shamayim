@@ -1,6 +1,6 @@
 .sheet {
   position: relative;
-  margin: -26px -16px 0;
+  margin: -14px -16px 0;
   padding: var(--space-4) var(--gutter) var(--space-2);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--sheet);

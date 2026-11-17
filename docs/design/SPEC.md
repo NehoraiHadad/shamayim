@@ -9,7 +9,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 | Sun arc | **Deleted**, not shrunk. The sun now appears in three places: the valley scene, a thin marker in the hourly strip, and an "אור יום" row in the day detail. | The owner's complaint. It used about 125 px to repeat two times shown elsewhere. |
 | Signature moment | **Valley cross-section**, from Fable: Samaria in the west (left), the Gilead in the east (right), a dashed sea-level line above the village at ‎−175 מ׳, and the real sun moving behind the ridges. | This is the one place to be bold. It replaces the ridge, the arc and the depth chip. Codex's "now disc" idea is dropped. |
 | Hero | Temperature in Karantina at **112 px** (Fable suggested 142, Codex 104). The 32 px condition icon and the 20 px serif condition label sit right beside the digits, start-aligned on their baseline (not centred in the leftover width). One secondary line: feels-like when it differs by 2° or more, else gusts when they reach 20 km/h or more, else nothing. The ↑max ↓min line is dropped. | Shows each number once. The sentence already gives the maximum. |
-| Top bar | Place name on one line in 20 px serif, with "בקעת הירדן" beneath it in 13 px. Status pill has a 44 px hit area. Depth chip removed. | Frees about 30 px. |
+| Top bar | One line: place name in 18 px serif, "בקעת הירדן" muted beside it in 13 px (it truncates first). Status pill is a 32 px round icon while data is under 30 min old; it shows the age or "אין חיבור" only when that matters. 44 px hit area. Depth chip removed. | Frees about 30 px. |
 | Hourly strip | About 120 px tall. Sun events become a 1 px marker between hours. The probability row collapses when the window has no rain. A midnight divider carries the weekday. Tap an hour to select it: a readout line appears and the sun in the scene moves to that hour. Arrow keys work. | Clearer rhythm; makes the strip and the scene work together. |
 | Sheet | No handle. Paper tinted per theme, with a new `sheetAccent` token. Dusk gets a plum sheet. The wear note has no box: a 3 px inline-start rule and 18 px serif text. Rows are 56 px with hairlines. The open day sits in a well with radius 16. Facts are a two-column list. | Gets rid of the "identical cards" look. |
 | Uncertainty | Model spread is drawn as faded ends on the range bar. Tags: "הערכה" for days 6–7 and "עשוי להשתנות" for an uncertain near day. | Shows uncertainty visually instead of only labelling it. |
@@ -20,11 +20,11 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 ## 2. Layout at 375 × 812
 
 ```
-  0  place 20px serif / בקעת הירדן 13px          (⟳ לפני 10 דק׳)
+  0  place 18px serif · בקעת הירדן 13px, one line      (⟳ 32px; words only when 30+ min old or offline)
  74  112px temperature  ☁ 32px / מעונן חלקית 20px / מרגיש כמו 27°   (open sky)
 210  sentence, 24px serif, 1–3 lines
 290  hourly strip, 120px  (selection readout line when an hour is tapped)
-418  VALLEY SCENE, 128px (the sheet overlaps the lowest 20px)
+418  VALLEY SCENE, 128px (the sheet overlaps the lowest 14px)
 526  sheet: wear note → "השבוע הקרוב" → today, tomorrow…
 ```
 
