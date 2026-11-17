@@ -125,7 +125,7 @@ Brief: `docs/briefs/israel-landmarks.md`. Codex (sol), merged `feat/israel-landm
       `/data/landmarks` (not precached)
 - [x] Verified on prod: כרמי צור loads index + 13 cells, 5 marks (Beit Ummar minarets), no Overpass call
 - [x] Custom domain https://shamayim.nehoraihadad.com (Pages domain + proxied CNAME via `cf`)
-- [ ] Stale service worker kept an old bundle on prod until unregistered → add an update prompt / skipWaiting
+- [x] Stale service worker kept an old bundle on prod until unregistered → skipWaiting + clientsClaim + update polling (`src/pwa.ts`)
 - [ ] Synagogues and water towers are in the data but have no glyph (illustration round)
 - [ ] Abroad: OpenFreeMap vector tiles (z14: worship, castles/ruins, building `render_height`; no towers/masts)
       as the main source, Overpass as a bonus — next Codex round
