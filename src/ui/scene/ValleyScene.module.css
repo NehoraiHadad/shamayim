@@ -44,7 +44,8 @@
 }
 
 .sea {
-  stroke: color-mix(in srgb, var(--ink) 65%, transparent);
+  /* The sea line and its labels never change for a place, so they read as quiet notes on the drawing, not as data. */
+  stroke: color-mix(in srgb, var(--ink) 38%, transparent);
   stroke-width: 1;
   stroke-dasharray: 1 4;
   stroke-linecap: round;
@@ -106,10 +107,10 @@
 
 .depth {
   transform: translateX(-50%);
-  opacity: 0.9;
+  opacity: 0.68;
 }
 
-.seaLabel { right: 27%; opacity: 0.75; }
+.seaLabel { right: 27%; opacity: 0.42; }
 
 .readout {
   position: absolute;
