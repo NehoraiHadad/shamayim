@@ -25,7 +25,7 @@ stays crisp (a shader-drawn wing on a DPR-1.5 quad is mush), and it works withou
 - **First event 5–9 s after load/visible** (sessions are short; a 60 s wait means nobody sees it), then the per-kind gap. Never during the intro,
   never in hour preview (same rule as lightning).
 - **Reduced motion or Save-Data:** no events, no twinkle. Mist is drawn (it is static).
-- **Text band:** lanes sit below the band. If `laneTop < bandBottom + 8`, shift the lane down; if less than 30 px remains, event alpha ×0.4.
+- **Text band:** `[data-air-band]` is the whole sky area and ends at the scene top, so flight lanes sit at the scene top (see Lanes) and the meteor uses the upper sky.
 
 ## 3. Eligibility (pure)
 `quiet` = rain, snow, grains, streaks counts all 0 · no thunder · `gustExcess = 0` · `haze.farFade ≤ 0.6` · at most one of {heat band, rays} active ·
@@ -41,7 +41,7 @@ stays crisp (a shader-drawn wing on a DPR-1.5 quad is mush), and it works withou
 If several kinds are eligible, event `n` takes `eligible[n % eligible.length]` in table order.
 
 ## 4. Event specs
-Lanes: **high** `y = sceneTop − 56 … −24`; **low** `y = sceneTop − 16 … +20`. Direction `dir = sign(u)` when `wind ≥ 5` and `|u| ≥ 0.35` (birds ride
+Lanes: **high** `y = sceneTop − 30 … −8`; **low** `y = sceneTop − 8 … +16` (the air band spans the whole sky area, so lanes hang off the scene top at full alpha). Direction `dir = sign(u)` when `wind ≥ 5` and `|u| ≥ 0.35` (birds ride
 the wind), else from seed. Travel from `−40` to `w + 40` px (reversed for `dir = −1`); flip glyphs with `scaleX(dir)`. Migration runs along the depth
 axis (the view looks north), so skeins also scale: autumn (southbound, toward us) `0.8 → 1.15` and `y −18 px` over the pass; spring `1.15 → 0.8`, `y
 +18 px`.
@@ -58,7 +58,7 @@ axis (the view looks north), so skeins also scale: autumn (southbound, toward us
   `scaleX` 1 → 0.45 → 1 and `rotate` ±12° per turn.
 - **Swifts:** each bird its own cubic path in the low lane (control points ±22 px in y), starts staggered 0–2.5 s, 60% go `dir`, 40% the other way.
 - **Meteor:** gradient `#FFFFFF` α .7 (head) → 0, 28–40° below horizontal, x start 15–85% w, fades over the last 150 ms. Strip = the taller of
-  (safe-area top … bandTop) and (bandBottom … sceneTop); if neither is ≥ 40 px, draw over the band at α .35.
+  (safe-area top … bandTop) and (bandBottom … sceneTop); if neither is ≥ 40 px, draw in the upper 45% of the band at α .6.
 
 ## 5. Drawing a bird at 6–14 px
 One inline SVG per bird, `viewBox="0 0 16 8"`, `overflow: visible`, no fill, round caps, stroke 1.2 (swift 1.0). Two wing paths meeting at the

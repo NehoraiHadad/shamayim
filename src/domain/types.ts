@@ -21,6 +21,8 @@ export interface CurrentWeather {
   snowfall: number
   /** metres; null when the model has none. */
   visibility: number | null
+  /** Relative humidity, 0–100; null when unavailable. */
+  humidity: number | null
 }
 
 export interface HourPoint {
@@ -32,6 +34,8 @@ export interface HourPoint {
   cloudCover: number
   windSpeed: number
   windGusts: number
+  /** Relative humidity, 0–100; null when unavailable. */
+  humidity: number | null
 }
 
 export interface DayPoint {

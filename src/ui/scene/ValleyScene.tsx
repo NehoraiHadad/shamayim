@@ -23,10 +23,13 @@ interface Props {
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
   terrain: SceneTerrain
+  /** Still morning mist, layered between the two ridge paths. */
+  mist?: number
+  mistColor?: string
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain }: Props) {
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0, mistColor = '#C9D2D8' }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
@@ -57,6 +60,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <svg className={styles.land} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
+        <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
+          <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
+        </foreignObject>
         {showSea && (
           <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}

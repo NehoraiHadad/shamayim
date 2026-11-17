@@ -26,6 +26,8 @@ export function airInput(forecast: Forecast, now: LocalTime, lat: number, select
   const at = hour ? selected! : now
   const a = airAt(forecast.air, at)
   const base = {
+    date: datePart(at),
+    localHour: Number(at.slice(11, 13)) + Number(at.slice(14, 16)) / 60,
     windDirection: c.windDirection,
     snowfall: c.snowfall,
     visibilityKm: c.visibility === null ? null : c.visibility / 1000,
@@ -43,6 +45,7 @@ export function airInput(forecast: Forecast, now: LocalTime, lat: number, select
       windGusts: hour.windGusts,
       precipitation: hour.precipitation,
       weatherCode: hour.weatherCode,
+      humidity: hour.humidity,
       preview: true,
     }
   }
@@ -56,6 +59,7 @@ export function airInput(forecast: Forecast, now: LocalTime, lat: number, select
     // The hourly sum is a true mm/h; current is a 15-minute sum (×4) and only a fallback.
     precipitation: forecast.hours.find((h) => h.time === `${now.slice(0, 13)}:00`)?.precipitation ?? c.precipitation * 4,
     weatherCode: c.weatherCode,
+    humidity: c.humidity,
     preview: false,
   }
 }

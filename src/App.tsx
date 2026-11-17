@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { airInput } from './atmo/airInput'
 import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
+import { Life } from './atmo/life/Life'
+import { mapLife } from './atmo/life/mapLife'
 import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
@@ -46,6 +48,7 @@ export default function App() {
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time === selected)
   const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place.lat, selected), ...forcedWeather() } : null), [forecast, now, place.lat, selected])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
+  const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
   const intro = useIntro(Boolean(forecast))
   useThemeChrome(themeId)
 
@@ -64,6 +67,7 @@ export default function App() {
     <div className={classes} style={themeVars(themeId)}>
       <Sky theme={themeId} cloudCover={forecast?.current.cloudCover ?? 0}>
         {air && <Atmosphere air={air} theme={themeId} night={themeId === 'night'} glide={selected ? 320 : 520} />}
+        {life && air && shown && <Life life={life} air={air} sunElevation={shown.sunElevation} intro={intro} />}
       </Sky>
       <main className="sky-area" data-air-band>
         <TopBar place={place} recent={recent} onSelectPlace={selectPlace} status={statusLine} />
@@ -88,6 +92,8 @@ export default function App() {
             air={air!}
             cloudCover={shown?.cloudCover ?? 0}
             terrain={terrain}
+            mist={life && life.mist >= .15 ? life.mist : 0}
+            mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
           />
           <div className="paper" data-intro="sheet">
             <Sheet>
