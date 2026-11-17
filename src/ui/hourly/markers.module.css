@@ -22,14 +22,30 @@
   white-space: nowrap;
 }
 
-.sunDot {
+/* On the sky the hairline stops short of the band's foot and its label sits there, under the lowest the curve goes
+   (PAD), so the marker reads as one thing: line → "שקיעה 16:36". */
+.sunSky {
+  height: 42px; /* BAND_H − the 16px label row */
+}
+
+.sunLabel {
   position: absolute;
-  bottom: 2px;
-  width: 7px;
-  height: 7px;
-  margin-left: -4px;
-  border-radius: 50%;
-  background: var(--curve);
+  top: calc(100% + 2px);
+  left: 0;
+  transform: translateX(-50%);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+  text-shadow: 0 0 6px var(--sky-mid), 0 0 2px var(--sky-mid);
+}
+
+.sunSky bdi {
+  position: static;
+  transform: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
 }
 
 /* Midnight: a hairline with the new day's name at its foot (clear of the hour labels). */

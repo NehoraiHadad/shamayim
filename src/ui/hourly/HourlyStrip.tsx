@@ -72,9 +72,11 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
             <span key={b.x} className={marks.break} style={{ left: b.x }} aria-hidden="true">{b.label}</span>
           ))}
           {suns.map((s) => (
-            <span key={s.time} className={marks.sun} style={{ left: s.x }} aria-hidden="true">
-              {/* On the sky the valley scene names the next sun event; the sheet has no scene. */}
-              {tone === 'sheet' ? <bdi>{clockOf(s.time)}</bdi> : <i className={marks.sunDot} />}
+            <span key={s.time} className={`${marks.sun} ${tone === 'sky' ? marks.sunSky : ''}`} style={{ left: s.x }} aria-hidden="true">
+              {/* The hairline ends in its own name, so the marker explains itself; the sheet's day detail only needs the time. */}
+              {tone === 'sheet'
+                ? <bdi>{clockOf(s.time)}</bdi>
+                : <span className={marks.sunLabel}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
             </span>
           ))}
           <ol className={styles.slots} onKeyDown={onKey}>

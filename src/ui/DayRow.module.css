@@ -137,6 +137,22 @@
 
 .open + .item { border-color: transparent; }
 
+/* Large text (about 150% and up on a phone): the four columns (≈13.4rem) no longer fit, so the range bar takes its own line
+   under the name, instead of pushing the row past the screen edge. In rem, so it follows the text size. */
+@container week (max-width: 13.5rem) {
+  .row {
+    grid-template-columns: 1fr auto 16px;
+    grid-template-areas: 'name cond chevron' 'range range range';
+    row-gap: 0;
+    padding-bottom: var(--space-2);
+  }
+
+  .name { grid-area: name; }
+  .cond { grid-area: cond; }
+  .range { grid-area: range; }
+  .chevron { grid-area: chevron; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chevron,
   .panel,
