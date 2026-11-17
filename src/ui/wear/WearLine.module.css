@@ -13,7 +13,7 @@
   stroke-width: 1;
 }
 
-/* Cloth: paper-filled so the line passes behind it, outlined in ink; seams in a thinner muted line. */
+/* Cloth: paper-filled so the line passes behind it, outlined in softened ink; seams in a thinner muted line. */
 .item path,
 .item circle {
   fill: color-mix(in srgb, var(--cloth) 30%, var(--sheet));
@@ -24,11 +24,20 @@
   stroke-linecap: round;
 }
 
-.item :global(.seam) {
+/* Folds and the side away from the light: the cloth a step deeper, darker on either paper. */
+.item :global(.shade) {
+  fill: color-mix(in srgb, color-mix(in srgb, var(--cloth) 40%, var(--sheet)) 80%, #000);
+  stroke: none;
+}
+
+.item :global(.seam),
+.item :global(.stitch) {
   fill: none;
   stroke: color-mix(in srgb, var(--sheet-muted) 70%, var(--sheet));
   stroke-width: 0.8;
 }
+
+.item :global(.stitch) { stroke-dasharray: 1.3 1.1; stroke-width: 0.7; }
 
 .item :global(.seam.strong) {
   stroke: color-mix(in srgb, var(--sheet-ink) 72%, var(--sheet));
@@ -36,26 +45,68 @@
 }
 
 .item :global(.dot) {
-  fill: var(--sheet-ink);
+  fill: color-mix(in srgb, var(--sheet-ink) 80%, var(--sheet));
   stroke: none;
+}
+
+.item :global(.water) {
+  fill: color-mix(in srgb, var(--cloth) 62%, var(--sheet));
+  stroke: none;
+}
+
+.item :global(.glint) {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.7);
+  stroke-width: 1;
 }
 
 .peg {
   fill: var(--sheet-accent);
 }
 
-/* Cloth sways on the line, each item out of phase: slow in still air, quicker and wider in wind. */
+/* Gusts flap the hem out from the pegs (top stays on the line); hooked things swing from the hook. The stops follow
+   GUST in gust.ts so the cloth flaps as the rope lifts. */
 .item {
   transform-box: fill-box;
-  transform-origin: 50% 0; /* swing from the line */
-  animation: sway var(--sway-dur, 7s) var(--ease-in-out) infinite alternate;
+  transform-origin: 50% 0;
+  animation: flap var(--sway-dur, 7s) var(--ease-in-out) infinite;
 }
 
-@keyframes sway {
-  from { rotate: calc(-1 * var(--sway-amp, 1.2deg)); }
-  to { rotate: var(--sway-amp, 1.2deg); }
+.item[data-hook] { animation-name: swing; }
+
+@keyframes flap {
+  0%, 100% { transform: skewX(0deg); }
+  18% { transform: skewX(var(--sway-amp)); }
+  30% { transform: skewX(calc(var(--sway-amp) * 0.35)); }
+  48% { transform: skewX(calc(var(--sway-amp) * 0.9)); }
+  62% { transform: skewX(calc(var(--sway-amp) * -0.25)); }
+  80% { transform: skewX(calc(var(--sway-amp) * 0.6)); }
+}
+
+@keyframes swing {
+  0%, 100% { transform: rotate(0deg); }
+  18% { transform: rotate(calc(var(--sway-amp) * -0.8)); }
+  30% { transform: rotate(calc(var(--sway-amp) * -0.3)); }
+  48% { transform: rotate(calc(var(--sway-amp) * -0.7)); }
+  62% { transform: rotate(calc(var(--sway-amp) * 0.2)); }
+  80% { transform: rotate(calc(var(--sway-amp) * -0.5)); }
+}
+
+/* Rain gear drips: a drop swells at the hem, falls, fades. */
+.drip {
+  fill: color-mix(in srgb, var(--cloth) 70%, var(--sheet));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: drip 2.4s ease-in infinite;
+}
+
+@keyframes drip {
+  0%, 40% { transform: translateY(0) scale(0.4); opacity: 0; }
+  55% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(14px) scale(0.8); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .item { animation: none; }
+  .item, .drip { animation: none; }
+  .drip { opacity: 0.8; }
 }

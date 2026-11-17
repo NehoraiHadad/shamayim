@@ -273,8 +273,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
       and hooked things swing with the day's max wind (downwind from today's direction; tomorrow assumes the westerly);
       sway slower in still air, off under reduced motion. Specimen: `docs/design/qa/wear-specimen.html` →
       `wear-line-specimen.png`. Fable: keep it; softer outline + 1.3× scale done
-  - [ ] Later (Fable): pivot from the pegs with a lagging hem instead of a whole-garment skew; let the line lift in
-        wind; a slight hem drift on calm days
+  - [x] Pass 2 (owner: "improve the drawings + add animation"): garments split into `wear/tops.tsx` + `wear/gear.tsx`
+        with shaded drapes / inner sleeves, stitched hems, a cable-knit sweater, coat flap pockets, umbrella strap,
+        hat ribbon + brim underside, water inside the bottle. Motion (`wear/gust.ts`): one gust cycle shared by the
+        rope (SMIL: the line lifts in gusts, more in wind) and the cloth (hems flap out from the pegs, hooked things
+        swing; calm days only drift); rain gear drips. Reduced motion: no SMIL, no CSS animation
+  - [ ] Not verified: real-time motion feel on a phone (only 3 headless frames checked); SMIL + CSS in Safari
   - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
 - Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
   Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
