@@ -14,8 +14,12 @@ const selectors = [
   'nwr[man_made=silo]', 'nwr[historic~"castle|fort"]', 'nwr[man_made=mast]',
   'nwr[man_made=tower]["tower:type"=communication]', 'nwr[landuse=orchard]',
   'nwr[power=plant]["plant:source"=solar]',
+  'nwr[amenity=place_of_worship][religion=jewish][building]',
+  'nwr[amenity=place_of_worship][religion=muslim][building]',
 ]
 const farSelectors = selectors.slice(0, 10).concat(selectors.slice(14, 16))
+const HOSTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter']
 
 function box(place: Place, eastKm: number, northKm: number) {
   const lat = northKm / 111.32
@@ -39,7 +43,8 @@ function classify(tags: Record<string, string>): { kind: MarkKind; height: numbe
   if (tags.power === 'generator' && tags['generator:source'] === 'wind') return { kind: 'turbine', height: height ?? 80 }
   if (tags.man_made === 'chimney') return { kind: 'chimney', height: height ?? 60 }
   if (tags.man_made === 'lighthouse') return { kind: 'lighthouse', height: height ?? 20 }
-  if (tags['tower:type'] === 'minaret' || tags.building === 'mosque') return { kind: 'minaret', height: height ?? 30 }
+  if (tags['tower:type'] === 'minaret' || tags.building === 'mosque'
+    || (tags.amenity === 'place_of_worship' && tags.religion === 'muslim')) return { kind: 'minaret', height: height ?? 30 }
   if (tags.man_made === 'water_tower') return { kind: 'waterTower', height: height ?? 25 }
   if (tags.building && (height ?? levels * 3.2) >= 40) return { kind: 'highrise', height: height ?? levels * 3.2 }
   if (/church|cathedral/.test(tags.building ?? '') && tags.amenity === 'place_of_worship') return { kind: 'church', height: height ?? 25 }
@@ -70,4 +75,29 @@ export function parseOverpass(json: unknown): Landmark[] {
     else if (candidate.heightM > duplicate.heightM) Object.assign(duplicate, candidate)
   }
   return found
+}
+
+export async function fetchOverpass(place: Place, signal: AbortSignal): Promise<Landmark[]> {
+  if (signal.aborted) throw signal.reason
+  const query = encodeURIComponent(buildQuery(place))
+  let lastError: unknown
+  for (const host of HOSTS) {
+    const attempt = new AbortController()
+    const abort = () => attempt.abort(signal.reason)
+    signal.addEventListener('abort', abort, { once: true })
+    const timeout = globalThis.setTimeout(
+      () => attempt.abort(new DOMException('Overpass timeout', 'TimeoutError')), 12_000)
+    try {
+      const response = await fetch(`${host}?data=${query}`, { signal: attempt.signal })
+      if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`)
+      return parseOverpass(await response.json())
+    } catch (error) {
+      if (signal.aborted) throw error
+      lastError = error
+    } finally {
+      globalThis.clearTimeout(timeout)
+      signal.removeEventListener('abort', abort)
+    }
+  }
+  throw lastError
 }

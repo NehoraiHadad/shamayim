@@ -8,21 +8,21 @@ const mark = (value: Mark): Landmark => ({ ...value, source: 'curated' })
 export const CURATED: CuratedPlace[] = [
   { id: 'jerusalem', lat: 31.7690, lon: 35.2163, marks: [
     mark({ id: 'jerusalem-bridge', kind: 'custom', glyph: 'jerusalem-bridge', nameHe: 'גשר המיתרים', lat: 31.7885, lon: 35.2004, heightM: 118 }),
-    mark({ id: 'jerusalem-ymca', kind: 'custom', glyph: 'jerusalem-ymca', nameHe: 'מגדל ימקא', lat: 31.7743, lon: 35.2216, heightM: 46 }),
-    mark({ id: 'jerusalem-david', kind: 'custom', glyph: 'jerusalem-david', nameHe: 'מגדל דוד', lat: 31.7761, lon: 35.2281, heightM: 30 }),
-    mark({ id: 'jerusalem-wall', kind: 'custom', glyph: 'jerusalem-wall', nameHe: 'הכותל וכיפת הסלע', lat: 31.7768, lon: 35.2344, heightM: 34 }),
+    mark({ id: 'jerusalem-ymca', kind: 'custom', glyph: 'jerusalem-ymca', nameHe: 'מגדל ימקא', lat: 31.7743, lon: 35.2216, heightM: 46 }), // Height unverified.
+    mark({ id: 'jerusalem-david', kind: 'custom', glyph: 'jerusalem-david', nameHe: 'מגדל דוד', lat: 31.7761, lon: 35.2281, heightM: 30 }), // Height unverified.
+    mark({ id: 'jerusalem-wall', kind: 'custom', glyph: 'jerusalem-wall', nameHe: 'הכותל וכיפת הסלע', lat: 31.7768, lon: 35.2344, heightM: 34 }), // Height unverified.
   ] },
   { id: 'tel-aviv', lat: 32.0809, lon: 34.7806, marks: [
-    mark({ id: 'tel-aviv-shalom', kind: 'custom', glyph: 'tel-aviv-shalom', nameHe: 'מגדל שלום', lat: 32.0642, lon: 34.7697, heightM: 130 }),
-    mark({ id: 'tel-aviv-reading', kind: 'custom', glyph: 'tel-aviv-reading', nameHe: 'ארובת רדינג', lat: 32.1055, lon: 34.7789, heightM: 150 }),
+    mark({ id: 'tel-aviv-shalom', kind: 'custom', glyph: 'tel-aviv-shalom', nameHe: 'מגדל שלום', lat: 32.0642, lon: 34.7697, heightM: 142 }), // https://www.skyscrapercenter.com/building/wd/4259
+    mark({ id: 'tel-aviv-reading', kind: 'custom', glyph: 'tel-aviv-reading', nameHe: 'ארובת רדינג', lat: 32.1055, lon: 34.7789, heightM: 150 }), // Retired 2024; chimney retained by plan. Height unverified. https://www.timesofisrael.com/tel-avivs-iconic-power-station-to-close-become-apartments-report/
     mark({ id: 'tel-aviv-sarona', kind: 'custom', glyph: 'tel-aviv-sarona', nameHe: 'עזריאלי שרונה', lat: 32.0719, lon: 34.7885, heightM: 238 }),
     mark({ id: 'tel-aviv-azrieli', kind: 'custom', glyph: 'tel-aviv-azrieli', nameHe: 'מרכז עזריאלי', lat: 32.0746, lon: 34.7916, heightM: 187 }),
   ] },
   { id: 'haifa', lat: 32.8130, lon: 34.9993, marks: [
-    mark({ id: 'haifa-bab', kind: 'custom', glyph: 'haifa-bab', nameHe: 'מקדש הבאב', lat: 32.8146, lon: 34.9871, heightM: 40 }),
-    mark({ id: 'haifa-dagon', kind: 'custom', glyph: 'haifa-dagon', nameHe: 'ממגורות דגון', lat: 32.8232, lon: 34.9948, heightM: 47 }),
+    mark({ id: 'haifa-bab', kind: 'custom', glyph: 'haifa-bab', nameHe: 'מקדש הבאב', lat: 32.8146, lon: 34.9871, heightM: 11 }), // https://en.wikipedia.org/wiki/Shrine_of_the_B%C3%A1b
+    mark({ id: 'haifa-dagon', kind: 'custom', glyph: 'haifa-dagon', nameHe: 'ממגורות דגון', lat: 32.82297, lon: 34.99526, heightM: 65 }), // https://he.wikipedia.org/wiki/%D7%9E%D7%9E%D7%92%D7%95%D7%A8%D7%95%D7%AA_%D7%93%D7%92%D7%95%D7%9F
     mark({ id: 'haifa-sail', kind: 'custom', glyph: 'haifa-sail', nameHe: 'מגדל המפרש', lat: 32.8163, lon: 35.0028, heightM: 137 }),
-    mark({ id: 'haifa-cooling', kind: 'custom', glyph: 'haifa-cooling', nameHe: 'מגדלי הקירור', lat: 32.7933, lon: 35.0516, heightM: 75 }),
+    mark({ id: 'haifa-cooling', kind: 'custom', glyph: 'haifa-cooling', nameHe: 'מגדל הקירור בבזן', lat: 32.7933, lon: 35.0516, heightM: 75 }), // One tower remains; height unverified. https://www.timesofisrael.com/iconic-haifa-oil-refinery-tower-collapses/
   ] },
   { id: 'shadmot-mehola', lat: 32.348, lon: 35.535, marks: [
     mark({ id: 'shadmot-palms', kind: 'palms', glyph: 'shadmot-palms', nameHe: 'מטע תמרים', lat: 32.3690, lon: 35.5253, heightM: 15, x: 160 }),

@@ -116,6 +116,7 @@ describe('placement and selection', () => {
     const city: Place = { ...place, id: 'haifa', lat: 32.8130, lon: 34.9993 }
     const marks = placeMarks(city, terrain, CURATED.find((item) => item.id === city.id)!.marks, width)
     expect(marks.map((mark) => mark.id)).toEqual(expect.arrayContaining(['haifa-bab', 'haifa-dagon', 'haifa-sail']))
+    expect(marks.find((mark) => mark.id === 'haifa-bab')!.hPx).toBeGreaterThanOrEqual(10)
   })
 
   it('uses the sea-side label box for collision avoidance', () => {

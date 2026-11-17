@@ -8,6 +8,25 @@ const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6,
 const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minaret', 'lighthouse'])
 const LIT_CUSTOM = new Set(['jerusalem-ymca', 'jerusalem-david', 'jerusalem-wall', 'tel-aviv-shalom',
   'tel-aviv-sarona', 'tel-aviv-azrieli', 'haifa-bab', 'haifa-dagon', 'haifa-sail', 'shadmot-homes'])
+const SETTLEMENTS = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
+
+export function placeHomes(place: Place, osmMarks: Landmark[]): Landmark[] {
+  if (!place.featureCode?.startsWith('PPL') && !(place.usesOsm && SETTLEMENTS.has(place.settlementType ?? ''))) return []
+  const size = place.population != null
+    ? place.population < 2_000 ? 'small' : place.population < 50_000 ? 'medium' : 'large'
+    : place.settlementType === 'city' || place.featureCode === 'PPLA' ? 'large'
+      : place.settlementType === 'town' || place.featureCode === 'PPLX' ? 'medium' : 'small'
+  const skyline = size === 'large' && osmMarks.some((mark) => mark.kind === 'highrise'
+    && Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= 1)
+  if (skyline) return []
+  const heightM = size === 'small' ? 6 : size === 'medium' ? 8 : 14
+  return [{ id: `${place.id}-homes`, kind: 'homes', glyph: `homes-${size}`, nameHe: place.nameHe,
+    lat: place.lat, lon: place.lon, heightM, source: 'place' }]
+}
+
+export function withPlaceHomes(place: Place, marks: Landmark[], curated = false): Landmark[] {
+  return curated ? marks : [...marks, ...placeHomes(place, marks)]
+}
 
 function elevationAt(values: number[] | undefined, x: number): number | undefined {
   if (!values?.length) return undefined
@@ -38,20 +57,25 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     const h = fixed ?? markHeight(mark.heightM, projected.layer)
     candidates.push({
       mark, dx: offset.dx, dy: offset.dy, x: projected.x, layer: projected.layer,
-      width: markWidth(mark.kind, mark.glyph, h) * scale, score: score(mark, offset.dx, offset.dy, band),
+      width: markWidth(mark.kind, mark.glyph, h) * scale,
+      score: mark.kind === 'homes' && mark.source === 'place' ? Number.MAX_SAFE_INTEGER : score(mark, offset.dx, offset.dy, band),
     })
   }
   const chosen = select(candidates, width)
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
   const villageHalf = 7 * scale
+  const anchored = chosen.filter((item) => item.mark.kind === 'homes' && item.mark.source === 'place')
+    .map((item) => ({ ...item, x: center }))
   const spaced = (['far', 'near'] as const).flatMap((layer) => spread(
-    chosen.filter((item) => item.layer === layer), (layer === 'near' ? 3 : 6) * scale,
+    chosen.filter((item) => item.layer === layer && !(item.mark.kind === 'homes' && item.mark.source === 'place')),
+    (layer === 'near' ? 3 : 6) * scale,
     layer === 'near' ? [center - villageHalf, center + villageHalf] : undefined, scale,
-  ))
+  )).concat(anchored)
   const labelRight = terrain.seaSide === 'west' ? 375 * .06 + 44 * scale
     : terrain.seaSide === 'east' ? 375 * .94 : 375 * .73
   const labelLeft = labelRight - 44 * scale
   const clearLabel = spaced.flatMap((item) => {
+    if (item.mark.kind === 'homes' && item.mark.source === 'place') return [item]
     if (!terrain.seaInView) return [item]
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const base = groundY(points.map(([x, y]) => ({ x, y })), item.x)

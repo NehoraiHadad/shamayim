@@ -44,7 +44,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
         .catch((cause: unknown) => {
           if (!(cause instanceof DOMException && cause.name === 'AbortError')) setError('לא הצלחנו לחפש כרגע')
         })
-    }, 300)
+    }, 550)
     return () => {
       window.clearTimeout(timer)
       controller.abort()

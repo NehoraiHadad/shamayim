@@ -1,0 +1,49 @@
+import { describe, expect, it } from 'vitest'
+import type { Place } from '../../config/place'
+import type { SceneTerrain } from '../terrain/terrain'
+import { CURATED } from './curated'
+import { placeHomes, placeMarks, withPlaceHomes } from './placeMarks'
+import type { Landmark } from './types'
+
+const place: Place = { id: 'x', nameHe: 'מקום', regionHe: '', lat: 32, lon: 35, timezone: 'Asia/Jerusalem' }
+const baseMark: Landmark = { id: 'm', kind: 'mast', lat: 32, lon: 35, heightM: 60, source: 'osm' }
+const terrain: SceneTerrain = {
+  near: '', far: '', centerLeft: '50%', centerY: 60, seaY: 60, seaInView: false, seaSide: null,
+  nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
+  nearElevations: [20, 20], farElevations: [20, 20],
+}
+
+describe('place homes', () => {
+  it('always adds Karmei Tzur homes alongside remote OSM marks', () => {
+    const karmei: Place = { ...place, id: 'karmei-tzur', nameHe: 'כרמי צור', lat: 31.6092, lon: 35.1009,
+      usesOsm: true, featureCode: 'PPL', settlementType: 'village' }
+    expect(placeHomes(karmei, [])[0].glyph).toBe('homes-small')
+    const minaret: Landmark = { ...baseMark, id: 'west-minaret', kind: 'minaret',
+      lat: karmei.lat, lon: karmei.lon - 6 / (111.32 * Math.cos(karmei.lat * Math.PI / 180)) }
+    const combined = withPlaceHomes(karmei, [minaret])
+    expect(combined.map((mark) => mark.kind)).toEqual(['minaret', 'homes'])
+    expect(combined[1].glyph).toBe('homes-small')
+  })
+
+  it('skips large-place homes only for a skyline within one kilometre', () => {
+    const city: Place = { ...place, featureCode: 'PPLA', settlementType: 'city' }
+    const near = { ...baseMark, kind: 'highrise' as const, lat: city.lat, lon: city.lon + .005 }
+    const far = { ...near, lon: city.lon + .02 }
+    expect(placeHomes(city, [near])).toEqual([])
+    expect(placeHomes(city, [far])[0].glyph).toBe('homes-large')
+  })
+
+  it('anchors place homes at the village dot while other marks avoid it', () => {
+    const homes = placeHomes({ ...place, featureCode: 'PPL' }, [])[0]
+    const nextToCentre = { ...baseMark, id: 'nearby', lat: place.lat, lon: place.lon }
+    const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, nextToCentre], 375)
+    expect(marks.find((mark) => mark.kind === 'homes')?.xPct).toBe(47)
+    expect(Math.abs((marks.find((mark) => mark.id === 'nearby')?.xPct ?? 47) - 47)).toBeGreaterThanOrEqual(7 / 3.75)
+  })
+
+  it.each(['shadmot-mehola', 'jerusalem', 'tel-aviv', 'haifa'])('leaves curated %s marks unchanged', (id) => {
+    const curated = CURATED.find((item) => item.id === id)!
+    const city: Place = { ...place, id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }
+    expect(withPlaceHomes(city, curated.marks, true)).toEqual(curated.marks)
+  })
+})
