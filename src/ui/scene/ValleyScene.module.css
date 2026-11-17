@@ -16,12 +16,19 @@
 
 .far {
   fill: var(--ridge-far);
-  transition: fill var(--d6) var(--ease-in-out);
+  opacity: calc(1 - 0.95 * var(--far-fade, 0));
+  transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
 }
 
 .near {
   fill: var(--ridge-near);
-  transition: fill var(--d6) var(--ease-in-out);
+  opacity: calc(1 - var(--near-fade, 0));
+  transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
+}
+
+/* Heavy haze turns the far ridge pale, so labels over it switch to dark ink. */
+.scene[data-haze='heavy'] :is(.depth, .seaLabel, .caption, .readout) {
+  color: var(--ridge-near);
 }
 
 .sea {
@@ -37,10 +44,11 @@
   height: 18px;
   margin: -9px 0 0 -9px;
   border-radius: 50%;
-  background: var(--accent);
+  --halo: calc(1 - var(--coin, 0));
+  background: color-mix(in srgb, #F3E3B8 calc(var(--coin, 0) * 100%), var(--accent));
   box-shadow:
-    0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 0 32px 8px color-mix(in srgb, var(--accent) 45%, transparent);
+    0 0 0 6px color-mix(in srgb, var(--accent) calc(18% * var(--halo)), transparent),
+    0 0 32px 8px color-mix(in srgb, var(--accent) calc(45% * var(--halo)), transparent);
   transition:
     left var(--d3) var(--ease-out),
     top var(--d3) var(--ease-out),

@@ -40,9 +40,27 @@ Spec: `docs/design/SPEC.md` (merged from `review-codex.md` + `review-fable.md`).
 - [x] Sheet lane (Codex): WeekList, DayRow grid + lazy disclosure, RangeBar spread ends, DayDetail facts, UV feminine
 - [x] Verified 375 px: noon, night, dusk, clearDay, rain, expanded day; typecheck, lint, 78 tests, build
 
+## v4 — live atmosphere — 2026-11-17
+Spec: `docs/design/ATMOSPHERE.md` (merged from `atmo-codex.md` + `atmo-fable.md`). Code: `src/atmo/`.
+- [x] Current adds wind direction, precipitation, snowfall, visibility (cache v3)
+- [x] `mapAir(input) → AirState`: pure, 13 tests; max two moving systems; one carrier per variable; calm = still
+- [x] `airInput`: live values or the selected hour's (direction/visibility held from now)
+- [x] WebGL1 renderer: ⅓-res air pass (clouds, haze, rays, bloom, heat lines, thunder flash) + stateless particles
+      (rain, snow, dust grains, wind streaks) in one static buffer; `AirMotion` eases, gusts, breathes
+- [x] Loop: pauses when hidden, calm days draw one frame and stop, governor steps DPR/octaves down, intro ramp
+- [x] Scene: far/near ridge fade from visibility, heavy-haze label ink, sun veil + sharav coin, SVG heat shimmer
+- [x] CSS fallback (`CssAir`) when WebGL is unavailable; reduced motion / Save-Data → one still frame
+- [x] Dev override `?wx=rain:12,wind:45,gust:65,dir:270,cloud:95,code:63,temp:,pm10:,vis:,snow:`
+- [x] Fixed: StrictMode remount killed the GL context (dispose no longer calls loseContext)
+- [x] Tuned by eye: rain slant cap 50°, wind streak alpha .24→.40, snowflakes 5–10 px
+- [x] Verified (Chrome, live loop): storm rain, sharav, dry easterly wind, snow, 44 °C heat, night rain,
+      hour preview, calm day stops drawing
+- [ ] Not verified: reduced-motion still and CSS fallback on a device; frame times on a real phone
+- [ ] Deferred: anidoodle-painted ridge plates (same 375×128 contract) — out of v4 scope
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
-- [ ] Rain/dust/heat themes seen only via `?theme=` with dry data, not real conditions
+- [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
 - [ ] Screen-reader pass on a real device (VoiceOver/TalkBack)
 - [ ] Lighthouse PWA/perf pass on a deployed build
 

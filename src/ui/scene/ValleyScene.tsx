@@ -1,7 +1,10 @@
+import { useId, type CSSProperties } from 'react'
+import type { AirState } from '../../atmo/airTypes'
 import { clockOf, datePart } from '../../domain/time'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
+import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
 import { FLOOR_Y, SCENE_H, SCENE_W, SEA_Y, sunPosition } from './sunPath'
 import styles from './ValleyScene.module.css'
@@ -14,6 +17,10 @@ interface Props {
   lat: number
   /** Shown in place of the next sun event while an hour is selected. */
   readout?: string | null
+  /** The air being shown (now or the selected hour): haze, dust coin, heat shimmer, cloud veil. */
+  air: AirState
+  /** Cloud cover of the shown hour, 0–100. */
+  cloudCover: number
 }
 
 // West (Samaria) on the left, east (Gilead, higher and steeper) on the right, as on a map.
@@ -23,7 +30,8 @@ const NEAR = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L23
 const VILLAGE_LEFT = `${((178 / SCENE_W) * 100).toFixed(1)}%`
 
 /** Cross-section of the Jordan Valley at Shadmot Mehola, with sea level drawn above the village. */
-export function ValleyScene({ forecast, now, selected, lat, readout = null }: Props) {
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover }: Props) {
+  const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat) : null
@@ -38,11 +46,19 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null }: Pr
   ].filter(Boolean).join(' ')
 
   return (
-    <figure className={styles.scene} role="img" aria-label={label}>
+    <figure
+      className={styles.scene}
+      role="img"
+      aria-label={label}
+      data-scene
+      data-haze={air.haze.farFade > 0.5 ? 'heavy' : undefined}
+      style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
+    >
       {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
-      <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={forecast.current.cloudCover} />
+      <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={styles.land} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
-        <path d={FAR} className={styles.far} />
+        {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
+        <path d={FAR} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
         {below && (
           <line x1="96" x2="276" y1={SEA_Y} y2={SEA_Y} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}

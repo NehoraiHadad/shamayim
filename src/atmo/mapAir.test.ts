@@ -43,7 +43,8 @@ describe('mapAir', () => {
     expect(drizzle.count).toBeLessThan(60)
     expect(pour.count).toBe(450)
     expect(pour.speed).toBeGreaterThan(drizzle.speed * 2)
-    expect(pour.slant).toBeGreaterThan(0.6)
+    expect(pour.slant).toBeGreaterThan(0.5)
+    expect(drizzle.slant).toBeLessThan(pour.slant)
   })
 
   it('a rain code with no measured rate still shows drizzle', () => {
@@ -90,7 +91,7 @@ describe('mapAir', () => {
 
   it('snow at freezing replaces rain', () => {
     const s = air({ snowfall: 1, precipitation: 1.5, temperature: 0, weatherCode: 73 })
-    expect(s.snow.count).toBe(60)
+    expect(s.snow.count).toBe(90)
     expect(s.rain.count).toBe(0)
   })
 })

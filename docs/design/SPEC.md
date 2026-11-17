@@ -41,7 +41,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 
 ## 4. Motion
 
-There are only three verbs: the sun **travels**, lines **draw**, and text **fades** (opacity only). The sheet is the only element that slides, and it slides once.
+There are four verbs: the sun **travels**, lines **draw**, text **fades** (opacity only), and the air **drifts** (ambient, paced by the data, never triggered by touch; see `ATMOSPHERE.md`). The sheet is the only element that slides, and it slides once.
 
 - **Load**, one sequence driven by `.app[data-intro]` (see `src/ui/motion/intro.css`):
 

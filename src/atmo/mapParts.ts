@@ -24,7 +24,7 @@ export function streaks(kmh: number, u: number): Particles {
     count: Math.round(44 * t),
     speed: 12 * kmh,
     length: lerp(40, 220, ramp(kmh, 20, 52)) * along,
-    alpha: lerp(0.1, 0.18, t),
+    alpha: lerp(0.24, 0.4, t),
   }
 }
 
@@ -37,11 +37,12 @@ export function rainRate(i: AirInput): number {
 export function rain(r: number, kmh: number, u: number, code: number): AirState['rain'] {
   if (r <= 0) return { ...NONE, slant: 0, breathe: false }
   const s = Math.sqrt(r)
-  const fall = r < 0.5 ? 12 : 32
-  const slant = Math.min((65 * Math.PI) / 180, Math.atan((kmh * Math.abs(u)) / fall))
+  // Apparent fall speed (km/h-equivalent) tuned by eye: drizzle drifts, heavy rain stays rain-like.
+  const fall = r < 0.5 ? 20 : 60
+  const slant = Math.min((50 * Math.PI) / 180, Math.atan((kmh * Math.abs(u)) / fall))
   return {
     count: Math.round(Math.min(480, 90 * s)),
-    length: Math.min(36, 6 + 6 * s),
+    length: Math.min(28, 6 + 5 * s),
     speed: Math.min(1600, 500 + 220 * s),
     alpha: lerp(0.18, 0.32, ramp(s, 0.3, 4.5)),
     slant: Math.sign(u || 1) * slant,
@@ -52,7 +53,7 @@ export function rain(r: number, kmh: number, u: number, code: number): AirState[
 export function snow(cmh: number): AirState['snow'] {
   if (cmh <= 0) return { ...NONE, sway: 0 }
   const t = ramp(Math.sqrt(cmh), 0.1, 1.5)
-  return { count: Math.round(Math.min(220, 60 * Math.sqrt(cmh))), speed: lerp(60, 120, t), length: lerp(1.5, 3, t), alpha: 0.7, sway: 12 }
+  return { count: Math.round(Math.min(220, 90 * Math.sqrt(cmh))), speed: lerp(60, 120, t), length: lerp(1.5, 3, t), alpha: 0.7, sway: 12 }
 }
 
 /** Dust level: dust concentration when known, else PM10. */

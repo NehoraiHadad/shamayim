@@ -1,0 +1,16 @@
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: air-in var(--d5) var(--ease-out) both;
+}
+
+@keyframes air-in {
+  from { opacity: 0.7; }
+}
+
+@media (forced-colors: active) {
+  .canvas { display: none; }
+}

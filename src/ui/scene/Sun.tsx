@@ -15,10 +15,12 @@ interface Props {
   lat: number
   /** 0–100; clouds veil the disc. */
   cloudCover: number
+  /** 0–1; dust flattens the sun into a pale coin with no halo. */
+  coin?: number
 }
 
 /** The sun disc. On first appearance it travels up from behind the Gilead to where it is now. */
-export function Sun({ point, date, lat, cloudCover }: Props) {
+export function Sun({ point, date, lat, cloudCover, coin = 0 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const travelled = useRef(false)
 
@@ -36,7 +38,8 @@ export function Sun({ point, date, lat, cloudCover }: Props) {
     <div
       ref={ref}
       className={`${styles.sun} ${point ? '' : styles.set}`}
-      style={point ? { ...place(point), opacity: 1 - 0.55 * (cloudCover / 100) } : undefined}
+      style={point ? ({ ...place(point), opacity: Math.max(0.12, 1 - 0.85 * (cloudCover / 100) ** 1.5 - 0.4 * coin), '--coin': coin } as React.CSSProperties) : undefined}
+      data-sun={point ? 'up' : 'down'}
       aria-hidden="true"
     />
   )

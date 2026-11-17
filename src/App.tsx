@@ -1,4 +1,7 @@
 import { useMemo } from 'react'
+import { airInput } from './atmo/airInput'
+import { Atmosphere } from './atmo/Atmosphere'
+import { mapAir } from './atmo/mapAir'
 import { SHADMOT_MEHOLA } from './config/place'
 import { openMeteoIcon } from './data/openMeteo/provider'
 import { useForecast } from './data/useForecast'
@@ -8,7 +11,7 @@ import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
 import { DARK_SHEET, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
-import { forcedTheme } from './ui/devParams'
+import { forcedTheme, forcedWeather } from './ui/devParams'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
@@ -40,6 +43,8 @@ export default function App() {
   const wear = useMemo(() => (forecast ? wearTip(forecast, now) : null), [forecast, now])
   const [selected, select] = useHourSelection()
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time === selected)
+  const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place.lat, selected), ...forcedWeather() } : null), [forecast, now, selected])
+  const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   const intro = useIntro(Boolean(forecast))
   useThemeChrome(themeId)
 
@@ -56,8 +61,10 @@ export default function App() {
 
   return (
     <div className={classes} style={themeVars(themeId)}>
-      <Sky theme={themeId} cloudCover={forecast?.current.cloudCover ?? 0} />
-      <main className="sky-area">
+      <Sky theme={themeId} cloudCover={forecast?.current.cloudCover ?? 0}>
+        {air && <Atmosphere air={air} theme={themeId} night={themeId === 'night'} glide={selected ? 320 : 520} />}
+      </Sky>
+      <main className="sky-area" data-air-band>
         <TopBar place={place} status={statusLine} />
         {!forecast && status === 'error' && <ErrorState message={error} onRetry={refresh} />}
         {!forecast && status !== 'error' && <LoadingState />}
@@ -77,6 +84,8 @@ export default function App() {
             selected={selected}
             lat={place.lat}
             readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot) : null}
+            air={air!}
+            cloudCover={shown?.cloudCover ?? 0}
           />
           <div className="paper" data-intro="sheet">
             <Sheet>

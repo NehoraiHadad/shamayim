@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { ThemeId } from '../theme/skyThemes'
 import styles from './Sky.module.css'
 
 interface Props {
   theme: ThemeId
-  /** 0–100, drives cloud layer opacity. */
+  /** 0–100; cloud hides stars. */
   cloudCover: number
+  /** The live air, drawn over the gradient and stars. */
+  children?: ReactNode
 }
 
 /** Deterministic star field as one box-shadow list (cheap: a single element). Kept clear of the text column. */
@@ -23,21 +25,14 @@ function starField(count: number): string {
 
 const STARS: Partial<Record<ThemeId, number>> = { night: 1, dusk: 0.4 }
 
-/**
- * The sky behind everything. Every layer stays mounted and cross-fades by opacity,
- * so a theme change never pops.
- */
-export function Sky({ theme, cloudCover }: Props) {
+/** The sky behind everything: the theme gradient, stars (hidden by cloud), then the air. */
+export function Sky({ theme, cloudCover, children }: Props) {
   const stars = useMemo(() => starField(46), [])
-  const clouds = theme !== 'dust' && cloudCover >= 20 ? Math.min(0.7, cloudCover / 100) : 0
+  const starOpacity = (STARS[theme] ?? 0) * (1 - 0.9 * (cloudCover / 100))
   return (
     <div className={styles.sky} aria-hidden="true">
-      <div className={styles.stars} style={{ boxShadow: stars, opacity: STARS[theme] ?? 0 }} />
-      <div className={styles.clouds} style={{ opacity: clouds }}>
-        <span /><span /><span />
-      </div>
-      <div className={styles.rain} style={{ opacity: theme === 'rain' ? 1 : 0, animationPlayState: theme === 'rain' ? 'running' : 'paused' }} />
-      <div className={styles.dust} style={{ opacity: theme === 'dust' ? 0.14 : 0 }} />
+      <div className={styles.stars} style={{ boxShadow: stars, opacity: starOpacity }} />
+      {children}
     </div>
   )
 }

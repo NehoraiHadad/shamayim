@@ -18,13 +18,14 @@ Where they differ, the decision and the reason are given here. This file wins.
 ## Mapping (numbers from Fable unless noted; interpolate inside bands)
 - **Wind** `u = −sin(dir)` (+1 = moves left→right, westerly). Along-valley (`|u|<0.35`) foreshortens
   streaks to 30%. Streaks: count `44·clamp((kmh−18)/34)`, speed `12·kmh` px/s, length 40→220 px,
-  alpha .10→.18, ×0.3 when rain ≥0.5 or dust active. Cloud drift `max(1.5, 0.4·kmh)` px/s.
+  alpha .24→.40 (Fable's .10→.18 was invisible on a phone), ×0.3 when rain ≥0.5 or dust active. Cloud drift `max(1.5, 0.4·kmh)` px/s.
   **Gusts** when `gust−speed ≥ 15`: swell every 5–9 s, attack 300 ms, decay 900 ms, wind → gust.
 - **Rain** (mm/h; current `precipitation`, code says rain and rate <0.1 → 0.2): count `min(480, 90√r)`,
   length `min(36, 6+6√r)`, speed `min(1600, 500+220√r)`, slant `atan(windEff·|u| / fall)`,
-  fall 32 km/h (12 when r<0.5 so drizzle drifts), cap 65°. Alpha .18→.32. Colour `#DCF0FF`.
+  fall 60 km/h-equivalent (20 when r<0.5 so drizzle drifts), cap 50°, length cap 28 (tuned by eye:
+  Fable's 32/65° read as scratches, not rain). Alpha .18→.32. Colour `#DCF0FF`.
   Showers (80–82) breathe ±35% over 8–14 s. ≥7.5 mm/h: sky top darkens 8%, far ridge fade +0.3.
-- **Snow** (cm/h): count `min(220, 60√s)`, 1.5–3 px, fall 60–120 px/s, sway ±12 px @0.4 Hz.
+- **Snow** (cm/h): count `min(220, 90√s)`, flakes 5–10 px across (tuned up by eye), fall 60–120 px/s, sway ±12 px @0.4 Hz.
 - **Heat** `max(temp, feelsLike)`, daylight, cloud <60%, dry: 35–39 shimmer band 24 px/0.6 px;
   40–44: 40 px/1.2 px, sun bloom 32→56 px, horizon bleach +6%; ≥45: 56 px/1.8 px. Never above the scene.
 - **Cloud** `coverage = smoothstep(.1,.9,cover)` thresholds the noise (amount of sky, not opacity).
