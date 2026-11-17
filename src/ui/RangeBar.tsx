@@ -1,3 +1,4 @@
+import { mix } from '../theme/contrast'
 import styles from './RangeBar.module.css'
 
 interface Props {
@@ -12,15 +13,16 @@ interface Props {
   spreadMax: number
 }
 
-/** Fixed absolute colour ramp: the same temperature is always the same colour. */
+/** Fixed absolute colour ramp in the sky's own colours (night indigo, clear-day blue, horizon sand, heat rust):
+ *  the same temperature is always the same colour, so a 26° day and a 29° day visibly differ. */
 const RAMP: [number, string][] = [
-  [0, '#6C8CF0'],
-  [10, '#4FA3E3'],
-  [18, '#7CC9B5'],
-  [25, '#F2C14E'],
-  [32, '#F08A3C'],
-  [38, '#E4572E'],
-  [45, '#9B1D20'],
+  [0, '#3E4F96'],
+  [10, '#2A74B8'],
+  [17, '#7FA2BC'],
+  [22, '#CDAE7C'],
+  [28, '#D08A3A'],
+  [34, '#A84F1C'],
+  [42, '#7E2A10'],
 ]
 
 function rampStops(from: number, to: number): string {
@@ -30,10 +32,13 @@ function rampStops(from: number, to: number): string {
   return pts.map(([t, c]) => `${c} ${(((t - from) / span) * 100).toFixed(1)}%`).join(', ')
 }
 
+/** The ramp colour at t, blended between its two nearest stops. */
 function colorAt(t: number): string {
-  let pick = RAMP[0][1]
-  for (const [stop, c] of RAMP) if (t >= stop) pick = c
-  return pick
+  const next = RAMP.findIndex(([stop]) => stop > t)
+  if (next === 0) return RAMP[0][1]
+  if (next < 0) return RAMP[RAMP.length - 1][1]
+  const [[t0, c0], [t1, c1]] = [RAMP[next - 1], RAMP[next]]
+  return mix(c0, c1, (t - t0) / (t1 - t0))
 }
 
 const clampPct = (v: number) => Math.min(100, Math.max(0, v))
@@ -50,7 +55,14 @@ export function RangeBar({ min, max, scaleMin, scaleMax, now, spreadMin, spreadM
   return (
     <div className={styles.track} dir="ltr" aria-hidden="true">
       {spreadTo - spreadFrom > width && (
-        <div className={styles.spread} style={{ left: `${spreadFrom}%`, width: `${spreadTo - spreadFrom}%` }} />
+        <div
+          className={styles.spread}
+          style={{
+            left: `${spreadFrom}%`,
+            width: `${spreadTo - spreadFrom}%`,
+            backgroundImage: `linear-gradient(90deg, ${rampStops(min - spreadMin, max + spreadMax)})`,
+          }}
+        />
       )}
       <div
         className={styles.fill}

@@ -10,12 +10,15 @@ describe('wearTip', () => {
     const tip = wearTip(f, at('08:00'))
     expect(tip?.when).toBe('היום')
     expect(tip?.text).toBe('חולצה קצרה לכל היום. בגדים בהירים, כובע והרבה מים.')
+    expect(tip?.garments).toEqual(['tee', 'sunHat', 'water'])
   })
 
   it('winter day: warmer midday, sweater in the evening', () => {
     const f = makeForecast([{ max: 20, min: 9 }, { max: 21, min: 8 }, { max: 20, min: 9 }])
     const tip = wearTip(f, at('08:00'))
     expect(tip?.text).toMatch(/^שרוול ארוך דק בצהריים, .+ בבוקר ובערב\.$/)
+    expect(tip?.garments[0]).toBe('longSleeve')
+    expect(tip?.garments).toHaveLength(2)
   })
 
   it('switches to tomorrow in the afternoon', () => {
@@ -30,6 +33,7 @@ describe('wearTip', () => {
       { max: 18, min: 10 },
     ])
     expect(wearTip(f, at('08:00'))?.text).toContain('קחו מטרייה.')
+    expect(wearTip(f, at('08:00'))?.garments).toContain('umbrella')
   })
 
   it('brisk wind feels colder', () => {

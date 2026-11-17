@@ -6,7 +6,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 4.5rem 2.5rem 1fr 16px;
+  grid-template-columns: 5.5rem 2.5rem 1fr;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
@@ -34,7 +34,7 @@
 
 .today .day { font-weight: 600; }
 
-/* Day name, date, and (on uncertain days) the tag on its own line, so it never spills out of the column. */
+/* Day name over one muted line: date · rain chance · (on uncertain days) the tag; it wraps rather than spills. */
 .name {
   display: grid;
   justify-items: start;
@@ -48,23 +48,18 @@
   font-size: var(--text-lg);
 }
 
-.date,
-.tag {
+.date {
   font-size: var(--text-sm);
   color: var(--sheet-muted);
 }
 
-.tag { font-size: var(--text-xs); }
-
 .cond {
   display: grid;
-  justify-items: center;
-  align-items: center;
-  gap: var(--space-1);
+  place-items: center;
 }
 
+/* Rain chance rides on the date line, in the rain colour. */
 .prob {
-  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--sheet-rain);
   font-variant-numeric: tabular-nums;
@@ -88,17 +83,6 @@
   text-align: left;
   font-weight: 600;
 }
-
-.chevron {
-  fill: none;
-  stroke: var(--sheet-muted);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform var(--d2);
-}
-
-.open .chevron { transform: rotate(180deg); }
 
 .panel {
   display: grid;
@@ -133,16 +117,17 @@
   border-radius: var(--radius-well);
   border-color: transparent;
   background: color-mix(in srgb, var(--sheet-ink) 4%, transparent);
+  --win-ground: color-mix(in srgb, var(--sheet-ink) 4%, var(--sheet));
 }
 
 .open + .item { border-color: transparent; }
 
-/* Large text (about 150% and up on a phone): the four columns (≈13.4rem) no longer fit, so the range bar takes its own line
+/* Large text (about 150% and up on a phone): the three columns (≈13.4rem, with gaps) no longer fit, so the range bar takes its own line
    under the name, instead of pushing the row past the screen edge. In rem, so it follows the text size. */
 @container week (max-width: 13.5rem) {
   .row {
-    grid-template-columns: 1fr auto 16px;
-    grid-template-areas: 'name cond chevron' 'range range range';
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'name cond' 'range range';
     row-gap: 0;
     padding-bottom: var(--space-2);
   }
@@ -150,11 +135,9 @@
   .name { grid-area: name; }
   .cond { grid-area: cond; }
   .range { grid-area: range; }
-  .chevron { grid-area: chevron; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chevron,
   .panel,
   .panelContent { transition: none; }
 }

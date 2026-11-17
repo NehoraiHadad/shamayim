@@ -1,6 +1,6 @@
 .track {
   position: relative;
-  height: 8px;
+  height: 5px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--sheet-ink) 9%, transparent);
 }
@@ -14,24 +14,28 @@
   z-index: 1;
 }
 
-/* Model spread: one hairline-outlined sleeve behind the bar, in ink so it reads on light and dark paper. */
+/* Model spread: a pale tint of the bar's own colours past each end, no outline (an outline read as a glitch). */
 .spread {
   position: absolute;
   inset-block: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sheet-ink) 7%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sheet-ink) 38%, transparent);
+  opacity: 0.38;
 }
 
+/* Now (today only): a small solid ink dot, haloed in paper so it sits on the bar without a heavy ring. */
 .now {
   position: absolute;
   z-index: 2;
   top: 50%;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
   border-radius: 50%;
-  background: var(--sheet);
-  border: 2.5px solid var(--sheet-ink);
+  background: var(--sheet-ink);
+  box-shadow: 0 0 0 2px var(--sheet);
 }
 
+@media (forced-colors: active) {
+  .fill { background: CanvasText; }
+  .spread { border: 1px solid CanvasText; }
+}
