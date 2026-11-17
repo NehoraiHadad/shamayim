@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SHADMOT_MEHOLA } from '../config/place'
 import { airUrl, forecastUrl } from './openMeteo/request'
-import { fetchedAtOf, weatherUrl } from './weatherApi'
+import { fetchedAtOf, normalsUrl, weatherUrl } from './weatherApi'
 
 const q = new URLSearchParams({ latitude: '1', longitude: '2' })
 
 afterEach(() => vi.unstubAllEnvs())
 
 describe('weatherUrl', () => {
+  it('makes normals available only through the Worker', () => {
+    expect(normalsUrl(q, '')).toBeNull()
+    expect(normalsUrl(q, '  ')).toBeNull()
+    expect(normalsUrl(q, 'https://w.test/')).toBe('https://w.test/v1/normals?latitude=1&longitude=2')
+  })
+
   it('calls Open-Meteo directly when no base is set', () => {
     expect(weatherUrl('forecast', q, '')).toBe('https://api.open-meteo.com/v1/forecast?latitude=1&longitude=2')
     expect(weatherUrl('air-quality', q, undefined)).toBe('https://air-quality-api.open-meteo.com/v1/air-quality?latitude=1&longitude=2')
@@ -20,6 +26,9 @@ describe('weatherUrl', () => {
   })
 
   it('follows VITE_WEATHER_API_BASE in the request builders', () => {
+    const params = new URL(forecastUrl(SHADMOT_MEHOLA)).searchParams
+    expect(params.get('minutely_15')).toBe('precipitation')
+    expect(params.get('forecast_minutely_15')).toBe('12')
     expect(forecastUrl(SHADMOT_MEHOLA)).toMatch(/^https:\/\/api\.open-meteo\.com\/v1\/forecast\?latitude=/)
     vi.stubEnv('VITE_WEATHER_API_BASE', 'https://w.test')
     expect(forecastUrl(SHADMOT_MEHOLA)).toMatch(/^https:\/\/w\.test\/v1\/forecast\?latitude=/)

@@ -12,7 +12,10 @@ export interface DaySpec {
 }
 
 /** Build a synthetic forecast: index 0 = yesterday, 1 = today, 2 = tomorrow, 3 = day after. */
-export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) => number): Forecast {
+export function makeForecast(
+  days: DaySpec[], pm10?: (date: string, h: number) => number,
+  optional: Partial<Pick<Forecast, 'nowcast' | 'normals'>> = {},
+): Forecast {
   const hours: HourPoint[] = []
   const dayPoints: DayPoint[] = days.map((spec, i) => {
     const date = DATES[i]
@@ -63,6 +66,8 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
     hours,
     days: dayPoints,
     air,
+    normals: optional.normals ?? null,
+    nowcast: optional.nowcast ?? null,
     fetchedAt: 0,
     source: 'test',
     models: ['test'],

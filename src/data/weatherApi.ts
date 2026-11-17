@@ -11,11 +11,22 @@ const OPEN_METEO: Record<WeatherEndpoint, string> = {
   elevation: 'https://api.open-meteo.com/v1/elevation',
 }
 
+const rootOf = (base: string | undefined) => base?.trim().replace(/\/+$/, '')
+
 /** The endpoint URL for `query`; `base` defaults to the build-time variable, read at call time. */
 export function weatherUrl(endpoint: WeatherEndpoint, query: URLSearchParams, base = import.meta.env.VITE_WEATHER_API_BASE): string {
-  const root = base?.trim().replace(/\/+$/, '')
+  const root = rootOf(base)
   const path = root ? `${root}/v1/${endpoint}` : OPEN_METEO[endpoint]
   return `${path}?${query}`
+}
+
+/**
+ * Climate normals exist only through the Worker, which reduces 30 years of archive data to a small table.
+ * Without a Worker base there are none (null), and the sentence simply does not compare with normal.
+ */
+export function normalsUrl(query: URLSearchParams, base = import.meta.env.VITE_WEATHER_API_BASE): string | null {
+  const root = rootOf(base)
+  return root ? `${root}/v1/normals?${query}` : null
 }
 
 /**

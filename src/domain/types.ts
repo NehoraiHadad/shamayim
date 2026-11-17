@@ -69,7 +69,23 @@ export interface Forecast {
   /** Includes yesterday at index 0 (past_days=1). */
   days: DayPoint[]
   air: AirPoint[] | null
+  nowcast: NowcastPoint[] | null
+  normals: Record<LocalDate, DayNormal> | null
   fetchedAt: number
   source: string
   models: string[]
+}
+
+/** mm in the 15 minutes ending at time (local wall clock). */
+export interface NowcastPoint {
+  time: LocalTime
+  precipitation: number
+}
+
+export interface DayNormal {
+  tempMax: number
+  tempMaxSd: number
+  tempMin: number
+  gustMax: number
+  gustMaxSd: number
 }

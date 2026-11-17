@@ -1,6 +1,7 @@
 import type { Place } from '../../config/place'
 import type { Forecast } from '../../domain/types'
 import { HttpError } from '../fetchFailure'
+import { fetchNormals, normalsFor } from '../normals'
 import type { WeatherProvider } from '../WeatherProvider'
 import { fetchedAtOf } from '../weatherApi'
 import { mapAir } from './mapAir'
@@ -48,9 +49,10 @@ async function getJsonRetry(url: string, signal?: AbortSignal): Promise<Fetched>
 export const openMeteoIcon: WeatherProvider = {
   id: 'open-meteo-icon',
   async getForecast(place: Place, signal?: AbortSignal): Promise<Forecast> {
-    const [forecastRes, airRes] = await Promise.allSettled([
+    const [forecastRes, airRes, normalsRes] = await Promise.allSettled([
       getJsonRetry(forecastUrl(place), signal),
       getJson(airUrl(place), signal),
+      fetchNormals(place, signal),
     ])
     if (forecastRes.status === 'rejected') throw forecastRes.reason
     const mapped = mapForecast(forecastRes.value.body)
@@ -66,6 +68,8 @@ export const openMeteoIcon: WeatherProvider = {
       placeId: place.id,
       ...mapped,
       air,
+      normals: normalsRes.status === 'fulfilled' && normalsRes.value
+        ? normalsFor(normalsRes.value, mapped.days.map((d) => d.date)) : null,
       fetchedAt: forecastRes.value.fetchedAt,
       source: 'Open-Meteo · DWD ICON + ECMWF',
       models: ['icon_seamless', 'ecmwf_ifs025'],

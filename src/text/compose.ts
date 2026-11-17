@@ -3,42 +3,29 @@ import { conditionOf } from '../domain/conditions'
 import { clockOf, hourOf } from '../domain/time'
 import type { DayPoint, Forecast, LocalTime } from '../domain/types'
 import { dominantSky, findDay, nextDate, windowFacts, type WindowFacts } from './facts'
+import { limitSentences, rainContext } from './hazard'
+import { contradictsNormal, normalClause } from './normal'
+import { thresholdsFor } from './placeThresholds'
 import {
-  dayPartOf, dayTempWord, deg, DURING, FROM, joinClauses, mm, nightTempWord, skyWith,
+  around, dayPartOf, dayTempWord, DURING, joinClauses, nightTempWord, skyWith, upTo,
 } from './phrases'
 
-/** The hazard sentence (rain, heavy dust, extreme heat) or null. */
-function hazard(w: WindowFacts, nowHour: number, when: string): string | null {
-  if (w.pm10Max !== null && w.pm10Max >= T.dust.heavy) {
-    return `אובך כבד ${when}, עדיף למעט בפעילות בחוץ.`
-  }
-  if (w.rainProb >= T.rain.possible) {
-    const startHour = w.rainStart ? hourOf(w.rainStart) : nowHour
-    const start = startHour <= nowHour + 1 ? 'בשעות הקרובות' : FROM[dayPartOf(startHour)]
-    const amount = w.rainMm >= 1 ? `, כ־${mm(w.rainMm)}` : ''
-    const flood = w.thunder || w.rainMm >= T.rain.floodMm ? '. חשש לשיטפונות בנחלים' : ''
-    if (w.rainProb >= T.rain.heavy && w.rainMm >= T.rain.heavyMm) {
-      return `גשם משמעותי ${start}${amount}${flood}.`
-    }
-    if (w.rainProb >= T.rain.likely) return `צפוי גשם ${start}${amount}${flood}.`
-    return `ייתכן גשם מקומי ${start}${flood}.`
-  }
-  return null
-}
+type PlaceThresholds = ReturnType<typeof thresholdsFor>
+type RainContext = ReturnType<typeof rainContext>
 
-function extremeHeat(day: DayPoint, w: WindowFacts): string | null {
-  if (day.tempMax < T.dayTemp.veryHot) return null
+function extremeHeat(day: DayPoint, w: WindowFacts, thresholds: PlaceThresholds): string | null {
+  if (day.tempMax < thresholds.veryHot) return null
   const span = w.heatSpan
-  const shade = span ? ` בין ${clockOf(span[0])} ל־${clockOf(span[1])} עדיף להישאר בצל.` : ''
-  return `שרב, עד ${deg(day.tempMax)}.${shade}`
+  const shade = span ? ` בין\u00A0${clockOf(span[0])} ל־${clockOf(span[1])} עדיף להישאר בצל.` : ''
+  return `שרב, ${upTo(day.tempMax)}.${shade}`
 }
 
-function windClause(w: WindowFacts): string | null {
+function windClause(w: WindowFacts, thresholds: PlaceThresholds): string | null {
   if (!w.peakWind) return null
   const part = DURING[dayPartOf(hourOf(w.peakWind.time))]
-  if (w.peakWind.gusts >= T.wind.gusts) return `${part} משבי רוח חזקים`
-  if (w.peakWind.speed >= T.wind.strong) return `${part} רוחות חזקות`
-  if (w.peakWind.speed >= T.wind.brisk) return `${part} רוח ערה`
+  if (w.peakWind.gusts >= thresholds.wind.gusts) return `${part} משבי רוח חזקים`
+  if (w.peakWind.speed >= thresholds.wind.strong) return `${part} רוחות חזקות`
+  if (w.peakWind.speed >= thresholds.wind.brisk) return `${part} רוח ערה`
   return null
 }
 
@@ -52,18 +39,24 @@ function trendClause(f: Forecast, today: DayPoint, now: LocalTime): string | nul
   return delta > 0 ? 'מחר התחממות' : 'מחר התקררות'
 }
 
-function composeDay(f: Forecast, today: DayPoint, now: LocalTime): string[] {
-  const w = windowFacts(f, now, `${today.date}T23:59`)
-  const heat = extremeHeat(today, w)
-  const risk = hazard(w, hourOf(now), 'היום')
+function composeDay(f: Forecast, today: DayPoint, now: LocalTime, rain: RainContext): string[] {
+  const normal = f.normals?.[today.date]
+  const thresholds = thresholdsFor(normal)
+  const w = windowFacts(f, now, `${today.date}T23:59`, thresholds.heatHours)
+  const heat = extremeHeat(today, w, thresholds)
+  const risk = rain.hazard(w, 'היום')
   const sky = w.rainProb >= T.rain.possible ? 'rain' : dominantSky(w.hours, today.weatherCode)
-  const tempWord = dayTempWord(today.tempMax)
+  const tempWord = heat ? 'שרב' : dayTempWord(today.tempMax)
   const lead = risk ? '' : `${conditionOf(f.current.weatherCode) === sky ? 'היום' : 'בהמשך היום'} `
-  const temp = heat ?? `${lead}${sky === 'rain' ? tempWord : skyWith(sky, tempWord)}, עד ${deg(today.tempMax)}.`
+  const body = sky === 'rain' ? tempWord : skyWith(sky, tempWord)
+  const anomaly = normalClause(today, normal)
+  const contrast = contradictsNormal(tempWord, today.tempMax, normal)
+  const temp = heat ?? `${lead}${body}, ${upTo(today.tempMax)}${anomaly && contrast ? `, אבל ${anomaly}` : ''}.`
 
   // Feels-like lives in the hero, so the sentence does not repeat it.
   const extras: string[] = []
-  const wind = windClause(w)
+  if (anomaly && !contrast) extras.push(anomaly)
+  const wind = windClause(w, thresholds)
   if (wind) extras.push(wind)
   if (w.pm10Max !== null && w.pm10Max >= T.dust.light && w.pm10Max < T.dust.heavy) extras.push('אובך קל')
   const trend = trendClause(f, today, now)
@@ -74,27 +67,33 @@ function composeDay(f: Forecast, today: DayPoint, now: LocalTime): string[] {
   return tail.length ? [temp, `${joinClauses(tail)}.`] : [temp]
 }
 
-function composeNight(f: Forecast, now: LocalTime): string[] {
+function composeNight(f: Forecast, now: LocalTime, context: RainContext): string[] {
   const nightDate = hourOf(now) < 5 ? now.slice(0, 10) : nextDate(f, now.slice(0, 10))
   const morning = nightDate ? findDay(f, nightDate) : undefined
   if (!morning) return []
   const w = windowFacts(f, now, morning.sunrise)
   const low = Math.min(...w.hours.map((h) => h.temperature), f.current.temperature)
-  const risk = hazard(w, hourOf(now), 'הלילה')
-  const first = risk ?? `הלילה ${nightTempWord(low)}, סביב ${deg(low)}.`
-
-  const t = windowFacts(f, morning.sunrise, `${morning.date}T23:59`)
-  const word = dayTempWord(morning.tempMax)
-  const rain = t.rainProb >= T.rain.likely ? 'צפוי גשם' : t.rainProb >= T.rain.possible ? 'ייתכן גשם' : null
+  const t = context.afterStop(windowFacts(f, morning.sunrise, `${morning.date}T23:59`))
   const label = hourOf(now) < 5 ? 'היום' : 'מחר'
+  const dayRisk = context.change?.kind === 'stop' ? context.hazard(t, label) : null
+  const risk = context.hazard(w, 'הלילה') ?? dayRisk
+  const first = risk ?? `הלילה ${nightTempWord(low)}, ${around(low)}.`
+  const word = dayTempWord(morning.tempMax)
+  const rain = dayRisk ? null : t.rainProb >= T.rain.likely ? 'צפוי גשם' : t.rainProb >= T.rain.possible ? 'ייתכן גשם' : null
   const body = rain ? `${rain} ו${word}` : skyWith(dominantSky(t.hours, morning.weatherCode), word)
-  return [first, `${label} ${body}, עד ${deg(morning.tempMax)}.`]
+  const normal = f.normals?.[morning.date]
+  const anomaly = normalClause(morning, normal)
+  const contrast = contradictsNormal(word, morning.tempMax, normal)
+  const suffix = anomaly && !(word === 'שרב' && contrast) ? `, ${contrast ? 'אבל ' : ''}${anomaly}` : ''
+  return [first, `${label} ${body}, ${upTo(morning.tempMax)}${suffix}.`]
 }
 
-/** One to two short Hebrew sentences describing the expected weather. */
+/** Up to three short Hebrew sentences, with any imminent rain change first. */
 export function composeSummary(f: Forecast, now: LocalTime): string[] {
   const today = findDay(f, now.slice(0, 10))
   if (!today) return []
   const isDayMode = hourOf(now) >= 5 && now < today.sunset
-  return isDayMode ? composeDay(f, today, now) : composeNight(f, now)
+  const rain = rainContext(f, now)
+  const rest = isDayMode ? composeDay(f, today, now, rain) : composeNight(f, now, rain)
+  return limitSentences(rain.lead ? [rain.lead, ...rest] : rest)
 }

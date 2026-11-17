@@ -39,5 +39,37 @@ describe('openMeteoIcon provider', () => {
     const urls = fetchMock.mock.calls.map(([url]) => String(url))
     expect(urls.some((u) => u.startsWith('https://w.test/v1/forecast?'))).toBe(true)
     expect(urls.some((u) => u.startsWith('https://w.test/v1/air-quality?'))).toBe(true)
+    expect(urls.some((u) => u.startsWith('https://w.test/v1/normals?'))).toBe(true)
+  })
+
+  it('starts forecast, air and normals in parallel and retains forecast on normals failure', async () => {
+    vi.stubEnv('VITE_WEATHER_API_BASE', 'https://w.test')
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const calls: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      calls.push(url)
+      await gate
+      return url.includes('/forecast?') ? new Response(JSON.stringify(live)) : new Response('{}', { status: 503 })
+    }))
+    const pending = openMeteoIcon.getForecast(SHADMOT_MEHOLA)
+    expect(calls).toHaveLength(3)
+    release()
+    const f = await pending
+    expect(f.normals).toBeNull()
+    expect(f.nowcast).toBeNull()
+    expect(f.days.length).toBeGreaterThan(0)
+  })
+
+  it('attaches normals for forecast dates only', async () => {
+    vi.stubEnv('VITE_WEATHER_API_BASE', 'https://w.test')
+    const table = { tempMax: Array(366).fill(22), tempMaxSd: Array(366).fill(2), tempMin: Array(366).fill(12),
+      gustMax: Array(366).fill(40), gustMaxSd: Array(366).fill(8) }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+      url.includes('/normals?') ? table : url.includes('/forecast?') ? live : {},
+    ), { status: url.includes('/air-quality?') ? 503 : 200 })))
+    const f = await openMeteoIcon.getForecast(SHADMOT_MEHOLA)
+    expect(Object.keys(f.normals!)).toEqual(f.days.map((d) => d.date))
+    expect(f.normals![f.days[1].date].tempMax).toBe(22)
   })
 })

@@ -36,6 +36,8 @@ export function forecastUrl(place: Place): string {
   p.set('current', CURRENT.join(','))
   p.set('hourly', HOURLY.join(','))
   p.set('daily', DAILY.join(','))
+  p.set('minutely_15', 'precipitation')
+  p.set('forecast_minutely_15', '12')
   return weatherUrl('forecast', p)
 }
 

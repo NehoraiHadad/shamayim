@@ -12,9 +12,25 @@
   const query = new URLSearchParams(location.search)
   const place = JSON.parse(query.get('p'))
   const forecast = { placeId: place.id, ...mapForecast(live), air: null, fetchedAt: Date.now(),
+    normals: null,
     source: 'fixture', models: ['icon_seamless', 'ecmwf_ifs025'] }
+  if (query.has('nm')) forecast.normals = Object.fromEntries(forecast.days.map(d => [d.date,
+    { tempMax: d.tempMax - Number(query.get('nm')), tempMaxSd: 2, tempMin: d.tempMin, gustMax: 40, gustMaxSd: 8 }]))
+  const nc = query.get('nc')?.split(':')
+  if (nc) {
+    const date = forecast.current.time.slice(0, 10)
+    const target = Date.parse(`${date}T${nc[1]}:${nc[2]}Z`)
+    const to = new URL(query.get('to') || '/', location.href)
+    const now = Date.parse(`${to.searchParams.get('at') || forecast.current.time}Z`)
+    const start = Math.floor(now / 900000) * 900000
+    forecast.nowcast = Array.from({ length: 12 }, (_, i) => {
+      const end = start + i * 900000
+      const wet = nc[0] === 'start' ? end - 900000 >= target : end - 900000 < target
+      return { time: new Date(end).toISOString().slice(0, 16), precipitation: wet ? 0.8 : 0 }
+    })
+  }
   localStorage.setItem('shamayim:place:v1', JSON.stringify(place))
-  localStorage.setItem(`shamayim:v3:${place.id}`, JSON.stringify(forecast))
+  localStorage.setItem(`shamayim:v4:${place.id}`, JSON.stringify(forecast))
   const frame = document.createElement('iframe')
   Object.assign(frame, { src: query.get('to') || '/', width: query.get('w') || 375, height: query.get('h') || 700 })
   document.body.append(frame)

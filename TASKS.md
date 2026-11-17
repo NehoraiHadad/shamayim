@@ -78,7 +78,7 @@ Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, f
       crane V crossing today (17.11), meteor + twinkle at night, mist at 07:00
 - [ ] Not verified: GPS on a phone; swifts/storks/raptor by eye (only by tests); mist band height on
       sampled (non-Shadmot) terrain uses the fixed y 72–105 band
-- [ ] Next: climate-relative thresholds (what is "hot"/"windy" depends on the place), place-aware sentences
+- [x] Climate-relative thresholds and place-aware sentences — see climate normals + nowcast below
 
 ## Deploy — 2026-11-17
 - [x] Cloudflare Pages project `shamayim` → https://shamayim.pages.dev (free plan)
@@ -246,6 +246,36 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
 - [x] Custom domain `shamayim-api.nehoraihadad.com` (Cache API works there); origin shamayim.nehoraihadad.com added;
       live: MISS→HIT→HIT, 8 parallel connections all HIT with one X-Fetched-At, 400, preflight 204/403
 - [x] PR against main
+
+## Climate normals + nowcast — 2026-11-17 (branch `claude/data-text-80a67f`)
+Brief: `docs/briefs/climate-nowcast.md` (Claude Opus 5.5). Code: Codex gpt-5.6-sol (via the Codex plugin; the
+outsourcerer cloud gate refused the run because of `.env.production`, which holds only the public Worker URL).
+Review, the `normalsUrl` cleanup, commits and QA: Claude Opus 5.5. Later code rounds in this lane: Codex sol 6.2, Opus if weak.
+- Facts: Open-Meteo has no native 15-min model over Israel (only ICON-D2 Central Europe / HRRR North America);
+  `minutely_15` here is interpolated from hourly ICON/ECMWF, so the sentence speaks in quarter hours, not minutes.
+  Archive weight ≈ (days/14)·(vars/10): 30 y × 3 vars ≈ 235 calls, hence one fetch per place per year via the Worker.
+- [x] Worker computed routes; `/v1/normals` reduces 1991–2020 archive data into a circular 366-slot table;
+      365-day shared cache, stale fallback, precise coordinates; forecast accepts 15-minute precipitation
+- [x] App: optional blended nowcast; Worker-only normals with 180-day localStorage cache; parallel provider;
+      forecast cache v4; offline QA `nm=` and `nc=` overrides
+- [x] Sentence: Hebrew temperature anomaly first extra / tomorrow suffix; place-relative heat and wind;
+      rain start/stop leads with hazard folding, returning-rain wording and a three-sentence limit
+- [x] Local verification: root typecheck, lint, 314 tests and build; Worker typecheck and 48 tests
+- [x] Browser pane, 375 px, fixture via `offline.html` at 10:00: warmer (`nm=4` → "חם מהרגיל לנובמבר ב־4°"),
+      colder (`nm=-4`), normal (`nm=0`, silent), rain starting (`nc=start:10:30` → "בעוד כחצי שעה"), rain stopping
+      (`nc=stop:10:15` → "בעוד כרבע שעה"). Still `docs/design/qa/climate-nowcast-start-colder-375.jpg` (3 sentences fit)
+- [x] PR #5 review round (code: Codex gpt-6.2-sol; review + QA: Claude Opus 5.5): a warm word can no longer sit
+      beside "colder than normal" (or "קריר" beside "warmer") as a separate sentence — the gap joins the temperature
+      clause with "אבל": "מעונן וחמים, עד 26°, אבל קריר מהרגיל לנובמבר ב־4°." (shown only when |gap| ≥ max(3, sd),
+      so it is a real contrast, not noise); `contradictsNormal` + tests both ways, day and night. "עד/סביב/בין" are
+      glued to the number with U+00A0, so "עד" never ends a line. Checked at 375 px: `climate-contrast-colder-375.jpg`
+- [x] Real Shadmot normals (ERA5 1991–2020 archive, reduced by the Worker code locally): 17 Nov max 24.8 ± 3.4,
+      min 13.9, gust 23.5 ± 9.1; 15 Jan 17.6; 15 Jul 37.1; elevation −175. The fixture day (26°) is +1.2° → silent,
+      as it should be; the "ב־4°" in QA comes only from the synthetic `nm=` override. Reduce ≈ 5.6 ms locally, 8.2 KB
+- [ ] After merge: redeploy the Worker (`/v1/normals`, `minutely_15`); then check a live `/v1/normals` MISS→HIT,
+      its CPU time on the free plan, and that a real Israeli `minutely_15` answer carries both suffixed columns
+- [ ] Not verified: live archive/forecast answers (Open-Meteo daily limit was hit from this IP), real-device QA,
+      night-mode anomaly and nowcast in the browser (tests only)
 
 ## Sheet polish — the sheet belongs to the sky — 2026-11-17 (branch `claude/sheet-polish-4018dc`)
 Fable critique before → build → Fable critique after (verdict: belongs; its three small fixes done).

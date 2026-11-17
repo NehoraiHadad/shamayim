@@ -1,7 +1,9 @@
 /**
- * The three Open-Meteo endpoints the app uses, and exactly which query parameters each may carry.
+ * The Open-Meteo endpoints the app uses, and exactly which query parameters each may carry.
  * Anything outside this table is refused, so the Worker is not an open proxy.
  */
+
+import { normalsQuery, reduceNormals } from './normals'
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -17,8 +19,10 @@ export type ParamSpec =
   | { kind: 'timezone' }
 
 export interface Route {
-  name: 'forecast' | 'air-quality' | 'elevation'
+  name: 'forecast' | 'air-quality' | 'elevation' | 'normals'
   upstream: string
+  upstreamQuery?: (canonical: string) => string
+  transform?: (body: string) => string
   params: Record<string, ParamSpec>
   required: readonly string[]
   /** Served from the shared cache without asking Open-Meteo while younger than this. */
@@ -51,6 +55,16 @@ const LAT: ParamSpec = { kind: 'coord', axis: 'lat' }
 const LON: ParamSpec = { kind: 'coord', axis: 'lon' }
 
 export const ROUTES: Record<string, Route> = {
+  '/v1/normals': {
+    name: 'normals',
+    upstream: 'https://archive-api.open-meteo.com/v1/archive',
+    params: { latitude: LAT, longitude: LON },
+    required: ['latitude', 'longitude'],
+    freshMs: 365 * DAY,
+    staleMs: Number.POSITIVE_INFINITY,
+    upstreamQuery: normalsQuery,
+    transform: reduceNormals,
+  },
   '/v1/forecast': {
     name: 'forecast',
     upstream: 'https://api.open-meteo.com/v1/forecast',
@@ -65,6 +79,8 @@ export const ROUTES: Record<string, Route> = {
       current: { kind: 'list', values: CURRENT },
       hourly: { kind: 'list', values: HOURLY },
       daily: { kind: 'list', values: DAILY },
+      minutely_15: { kind: 'list', values: ['precipitation'] },
+      forecast_minutely_15: { kind: 'int', min: 1, max: 16 },
     },
     required: ['latitude', 'longitude'],
     freshMs: 15 * MINUTE,

@@ -48,7 +48,7 @@ function checkValue(raw: string, spec: ParamSpec): string | null {
 
 /**
  * Checks a request's query against its route and returns it in canonical form: allowlisted parameters only, each
- * once, in the route's fixed order. The same string is the cache key and the upstream query.
+ * once, in the route's fixed order. This is the cache key; computed routes may expand it upstream.
  */
 export function canonicalQuery(route: Route, params: URLSearchParams): QueryResult {
   const seen = new Set<string>()
