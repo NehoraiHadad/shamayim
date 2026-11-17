@@ -8,9 +8,8 @@ const mark = (value: Mark): Landmark => ({ ...value, source: 'curated' })
 export const CURATED: CuratedPlace[] = [
   { id: 'jerusalem', lat: 31.7690, lon: 35.2163, marks: [
     mark({ id: 'jerusalem-bridge', kind: 'custom', glyph: 'jerusalem-bridge', nameHe: 'גשר המיתרים', lat: 31.7885, lon: 35.2004, heightM: 118 }),
-    mark({ id: 'jerusalem-ymca', kind: 'custom', glyph: 'jerusalem-ymca', nameHe: 'מגדל ימקא', lat: 31.7743, lon: 35.2216, heightM: 46 }), // Height unverified.
     mark({ id: 'jerusalem-david', kind: 'custom', glyph: 'jerusalem-david', nameHe: 'מגדל דוד', lat: 31.7761, lon: 35.2281, heightM: 30 }), // Height unverified.
-    mark({ id: 'jerusalem-wall', kind: 'custom', glyph: 'jerusalem-wall', nameHe: 'הכותל וכיפת הסלע', lat: 31.7768, lon: 35.2344, heightM: 34 }), // Height unverified.
+    mark({ id: 'jerusalem-wall', kind: 'custom', glyph: 'jerusalem-wall', nameHe: 'הכותל', lat: 31.7768, lon: 35.2344, heightM: 19 }), // Wall above the plaza; drawn without the Dome of the Rock (owner, 2026-11-17).
   ] },
   { id: 'tel-aviv', lat: 32.0809, lon: 34.7806, marks: [
     mark({ id: 'tel-aviv-shalom', kind: 'custom', glyph: 'tel-aviv-shalom', nameHe: 'מגדל שלום', lat: 32.0642, lon: 34.7697, heightM: 142 }), // https://www.skyscrapercenter.com/building/wd/4259

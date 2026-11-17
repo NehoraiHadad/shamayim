@@ -185,6 +185,8 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
       HillMarks draws absorbed marks after the settlement. Stills `docs/design/qa/blocks-*.png`
 - [ ] Blocks follow-ups: Tiberias dot sits ~12 px above the sheet on a 1.3 slope, so its town is a small uphill
       clump (terrain/dot placement, not the cluster); windows are sub-px at 1x; clear-day washes may read light
+- [x] Jerusalem without mosque or church (owner, 2026-11-17): YMCA bell tower removed; the Wall drawn alone (9 px,
+      Herodian courses), no Dome of the Rock. Tower of David keeps its Ottoman minaret silhouette
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

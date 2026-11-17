@@ -30,7 +30,7 @@ export function Sky({ theme, cloudCover, children }: Props) {
   const stars = useMemo(() => starField(46), [])
   const starOpacity = (STARS[theme] ?? 0) * (1 - 0.9 * (cloudCover / 100))
   return (
-    <div className={styles.sky} aria-hidden="true">
+    <div className={styles.sky} data-sky aria-hidden="true">
       <div className={styles.stars} style={{ boxShadow: stars, opacity: starOpacity }} />
       {children}
     </div>
