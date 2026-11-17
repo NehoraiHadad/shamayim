@@ -5,6 +5,8 @@ export interface Place {
   lat: number
   lon: number
   timezone: string
+  elevation?: number
+  usesOsm?: boolean
 }
 
 export const SHADMOT_MEHOLA: Place = {

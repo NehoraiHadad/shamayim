@@ -20,6 +20,7 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
   const [forecast, setForecast] = useState<Forecast | null>(() => readCache(place.id))
   const [status, setStatus] = useState<LoadStatus>(forecast ? 'ready' : 'loading')
   const [error, setError] = useState<string | null>(null)
+  const [activePlaceId, setActivePlaceId] = useState(place.id)
   const inFlight = useRef<AbortController | null>(null)
   const latest = useRef(forecast)
   useEffect(() => {
@@ -28,7 +29,14 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
 
   const load = useCallback(
     (force: boolean) => {
-      const cached = latest.current
+      setActivePlaceId((current) => current === place.id ? current : place.id)
+      const cached = latest.current?.placeId === place.id ? latest.current : readCache(place.id)
+      if (latest.current !== cached) {
+        latest.current = cached
+        setForecast(cached)
+        setError(null)
+        setStatus(cached ? 'ready' : 'loading')
+      }
       const sameDay = cached?.current.time.slice(0, 10) === nowIn(place.timezone).slice(0, 10)
       if (!force && cached && sameDay && freshnessOf(cached) === 'fresh') return
       if (inFlight.current) return
@@ -56,12 +64,14 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
   )
 
   useEffect(() => {
-    load(false)
+    let mounted = true
+    queueMicrotask(() => mounted && load(false))
     const onVisible = () => document.visibilityState === 'visible' && load(false)
     const onOnline = () => load(false)
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', onOnline)
     return () => {
+      mounted = false
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onOnline)
       inFlight.current?.abort()
@@ -69,11 +79,13 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
     }
   }, [load])
 
+  const visible = forecast?.placeId === place.id ? forecast : null
+  const active = activePlaceId === place.id
   return {
-    forecast,
-    status,
-    freshness: forecast ? freshnessOf(forecast) : null,
-    error,
+    forecast: visible,
+    status: active ? status : 'loading',
+    freshness: visible ? freshnessOf(visible) : null,
+    error: active ? error : null,
     refresh: () => load(true),
   }
 }

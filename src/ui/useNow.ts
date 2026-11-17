@@ -5,11 +5,11 @@ import { pinnedTime } from './devParams'
 
 /** Wall-clock time in the place's timezone, ticking every minute. */
 export function useNow(timezone: string): LocalTime {
-  const [now, setNow] = useState(() => pinnedTime() ?? nowIn(timezone))
+  const [clock, setClock] = useState(() => ({ timezone, now: pinnedTime() ?? nowIn(timezone) }))
   useEffect(() => {
     if (pinnedTime()) return
-    const id = setInterval(() => setNow(nowIn(timezone)), 60_000)
+    const id = setInterval(() => setClock({ timezone, now: nowIn(timezone) }), 60_000)
     return () => clearInterval(id)
   }, [timezone])
-  return now
+  return clock.timezone === timezone ? clock.now : pinnedTime() ?? nowIn(timezone)
 }

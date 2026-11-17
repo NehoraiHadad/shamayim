@@ -1,12 +1,13 @@
 import { useId, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
+import type { SceneTerrain } from '../../data/terrain/terrain'
 import { clockOf, datePart } from '../../domain/time'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
-import { FLOOR_Y, SCENE_H, SCENE_W, SEA_Y, sunPosition } from './sunPath'
+import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
 import styles from './ValleyScene.module.css'
 
 interface Props {
@@ -21,16 +22,11 @@ interface Props {
   air: AirState
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
+  terrain: SceneTerrain
 }
 
-// West (Samaria) on the left, east (Gilead, higher and steeper) on the right, as on a map.
-// The near layer dips to the Jordan just east of the village. Vertical scale is exaggerated.
-const FAR = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
-const NEAR = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z'
-const VILLAGE_LEFT = `${((178 / SCENE_W) * 100).toFixed(1)}%`
-
-/** Cross-section of the Jordan Valley at Shadmot Mehola, with sea level drawn above the village. */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover }: Props) {
+/** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
@@ -38,11 +34,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const glow = twilight(forecast.days.find((d) => d.date === datePart(now)), now)
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
-  const depth = Math.abs(Math.round(forecast.elevation))
+  const elevation = Math.round(forecast.elevation)
+  const elevationText = `${elevation < 0 ? `−${Math.abs(elevation)}` : elevation} מ׳`
+  const showSea = forecast.elevation < 50 || terrain.seaInView
   const label = [
-    sun && !selected ? 'השמש מעל הבקעה.' : '',
+    sun && !selected ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
-    below ? `היישוב ${depth} מטר מתחת לפני הים.` : '',
+    below ? `היישוב ${Math.abs(elevation)} מטר מתחת לפני הים.` : `גובה היישוב ${elevation} מטר.`,
   ].filter(Boolean).join(' ')
 
   return (
@@ -58,19 +56,23 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={styles.land} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
-        <path d={FAR} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
-        {below && (
-          <line x1="96" x2="276" y1={SEA_Y} y2={SEA_Y} className={styles.sea} vectorEffect="non-scaling-stroke" />
+        <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
+        {showSea && (
+          <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
-        <path d={NEAR} className={styles.near} />
+        <path d={terrain.near} className={styles.near} />
       </svg>
-      <span className={styles.village} style={{ left: VILLAGE_LEFT, top: FLOOR_Y }} aria-hidden="true" />
-      {below && (
+      <span className={styles.village} style={{ left: terrain.centerLeft, top: terrain.centerY }} aria-hidden="true" />
+      <span
+        className={styles.depth}
+        style={{ left: terrain.centerLeft, top: below ? terrain.seaY + 6 : Math.min(116, terrain.centerY + 7) }}
+        aria-hidden="true"
+      >
+        <bdi>{elevationText.replace(' מ׳', '')}</bdi> מ׳
+      </span>
+      {showSea && (
         <>
-          <span className={styles.depth} style={{ left: VILLAGE_LEFT, top: SEA_Y + 6 }} aria-hidden="true">
-            <bdi>−{depth}</bdi> מ׳
-          </span>
-          <span className={styles.seaLabel} style={{ top: SEA_Y - 14 }} aria-hidden="true">פני הים</span>
+          <span className={styles.seaLabel} style={{ top: terrain.seaY - 14 }} aria-hidden="true">פני הים</span>
         </>
       )}
       {readout && (
