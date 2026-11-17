@@ -143,10 +143,16 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
       field patches (`generic/fields.tsx`): orchard, vineyard, solar
 - [x] OSM caps (minaret 2, mast 1, orchard 2, solar 1, highrise 4) + variety penalty; new kinds synagogue, vineyard
 - [x] Look test Karmei Tzur 10:00 / 21:00 at 375 px → sent to owner for approval
-- [ ] After approval: absorb worship/water tower near the centre into the cluster (Umm al-Fahm lost its minarets
-      behind the cluster); flat-desert rows must stay on the rim (Mitzpe Ramon drapes down the cliff)
-- [ ] `classify`: synagogue (religion=jewish) + vineyard filter, then re-run the landmarks workflow
-- [ ] Redraw turbine / mast / highrise / chimney in the px layer; curated cities get seat + light
+- [x] Absorb (eafd467): synagogue/water tower/minaret/church/silo within 0.6 km of the centre skip `select` and stand
+      at their true x inside the cluster (≥8 px from the dot, max 3), the skyline house in their slot gives way;
+      seated with `steepOk`, plane `line`. Umm al-Fahm shows its central mosque again
+- [x] flat-desert: houses only where ground is within 5 px of the rim (Mitzpe Ramon stays on the plateau)
+- [x] `classify`: synagogue (religion=jewish + building, 9 m), `landuse=vineyard` filter + kind
+- [ ] After merge to main: re-run the landmarks workflow (`workflow_dispatch`) so cells carry synagogues/vineyards
+- [~] Glyph agent (worktree branch `feat/illustration-glyphs`): curated Jerusalem/Tel Aviv/Haifa/Shadmot + highrise,
+      chimney, cooling, turbine, mast, silo, lighthouse, bridge, palms → review its QA stills, merge into feat/illustration
+- [ ] Mitzpe Ramon: the sun-event label (שקיעה) overlaps the westmost houses — move label or skip houses under it
+- QA tip: in the browser pane use `resize_window` mobile, then `scene.style.zoom=3` for readable stills
 - [ ] Regression stills for all 10 places; then merge to main
 
 ## Known gaps / polish
