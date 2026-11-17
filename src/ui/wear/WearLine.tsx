@@ -4,10 +4,12 @@ import { GARMENTS } from './garments'
 import styles from './WearLine.module.css'
 
 const W = 335
-const H = 62
+const H = 78
 const END_Y = 7
 const SAG = 16
-const STEP = 58
+const STEP = 70
+/** Garments are drawn ~34 px wide; on a full-width line they read best a third larger. */
+const SCALE = 1.3
 
 /** Height of the sagging line at x (a quadratic from end to end, deepest in the middle). */
 const lineY = (x: number) => END_Y + 4 * SAG * (x / W) * (1 - x / W)
@@ -32,7 +34,7 @@ export function WearLine({ garments, wind }: Pick<WearTip, 'garments' | 'wind'>)
         // Pegged cloth keeps its top on the line and its hem blows out (skew); hooked things swing (rotate).
         const blown = item.hook ? `rotate(${(-lean).toFixed(1)})` : `skewX(${lean.toFixed(1)})`
         return (
-          <g key={g} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(tilt * 0.6).toFixed(1)}) ${blown}`}>
+          <g key={g} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(tilt * 0.6).toFixed(1)}) scale(${SCALE}) ${blown}`}>
             <g className={styles.item} style={{ animationDelay: `${-i * 0.7}s`, '--cloth': item.cloth } as CSSProperties}>
               {item.body}
               {item.pegs.map((px) => <rect key={px} className={styles.peg} x={px - 1.3} y={-3.2} width={2.6} height={6.4} rx={0.8} />)}

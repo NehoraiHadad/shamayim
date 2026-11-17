@@ -267,7 +267,16 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
 - [ ] Not verified: real rain/dust/heat weeks (only synthetic data); a phone; screen reader; 200% text checked by eye
       at night only; no component tests (vitest is node-only); the rows' tap affordance without chevrons is a judgment call
 - [ ] Later (Fable): the hard straight seam between valley and sheet
-- Who wrote what: all code and the hazy-sun / ridge glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
+- [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
+      the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,
+      + umbrella or rain jacket, + sun hat / water bottle); `wear.ts` returns `garments` + `wind`; pegged cloth skews
+      and hooked things swing with the day's max wind (downwind from today's direction; tomorrow assumes the westerly);
+      sway slower in still air, off under reduced motion. Specimen: `docs/design/qa/wear-specimen.html` →
+      `wear-line-specimen.png`. Fable: keep it; softer outline + 1.3× scale done
+  - [ ] Later (Fable): pivot from the pegs with a lagging hem instead of a whole-garment skew; let the line lift in
+        wind; a slight hem drift on calm days
+  - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
+- Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
   Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
   glyphs stay with Claude) arrived after this PR was opened, so 6.2 is untested here. Apply it to the next UI pass.
 
