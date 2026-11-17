@@ -261,6 +261,11 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
 - [x] QA stills at 375 px (headless): dawn, golden, dusk, night-moon, rain morning/dusk, dust noon (`docs/design/qa/scene-time-*`)
 - [x] Scrub checked in the pane with synthetic pointer/key events: drag, release → hold → back to now, keys, Escape, strip 4 px threshold
 - [x] Fix: releasing pointer capture after a pointercancel threw and left the scene stuck in scrubbing
+- Models: outsourcerer's `sol` alias ran **gpt-5.6-sol** (Codex) for astro, skyLight/oklab, the first scrub/strip/App
+      wiring; not 6.1 or 6.2 (no 6.2 lane in outsourcerer 0.17; Codex config default is gpt-6.1-sol). Opus (main thread)
+      rewrote `useSceneTime`, wrote `SceneScrubber`, `useStripScrub`, `airInput` tests and fixed 8 review bugs; Claude drew
+      the moon. Verdict on sol: math/theme solid, interaction code needed rework. 6.2 not yet tried — owner wants it for
+      the next UI code (fall back to Opus if weak).
 - [ ] Real-finger scrub on a phone (touch-action pan-y vs vertical scroll, feel of 4 min/px)
 - [ ] The 900 ms rewind seen animating (the pane throttled rAF to 2 fps, so it showed as a cut)
 - [ ] Reduced motion and VoiceOver/TalkBack on a device (slider announcements)
