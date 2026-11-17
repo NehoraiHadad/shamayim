@@ -13,6 +13,9 @@ export const THRESHOLDS = {
   trendDelta: 3,
   /** Heat-hours clause threshold when the max is extreme. */
   heatHours: 38,
+  anomaly: { minDelta: 3, sdFactor: 1, strong: 6 },
+  heat: { aboveNormal: 8, floor: 35 },
+  nowcast: { wetMm: 0.1, dryRun: 2, horizonMin: 120, startRun: 2, startMm: 0.3 },
   /** Rain probability below this is hidden in the week list. */
   showRainProb: 20,
   confidence: { tempMaxMedium: 2, tempMaxLow: 4, precipProbMedium: 20, precipProbLow: 40 },

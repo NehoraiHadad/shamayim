@@ -1,5 +1,6 @@
 import { THRESHOLDS as T } from '../config/thresholds'
 import type { ConditionKind } from '../domain/conditions'
+import type { RainChange } from './nowcast'
 
 /** Whole Hebrew phrases. Words are chosen to agree with "היום/הלילה/מחר" (masc. sing.). */
 
@@ -63,6 +64,14 @@ export const FROM: Record<DayPart, string> = {
 
 export const deg = (n: number) => `${Math.round(n)}°`
 export const mm = (n: number) => `${Math.max(1, Math.round(n))} מ״מ`
+
+export function nowcastPhrase(change: RainChange): string {
+  const times = [15, 30, 45, 60, 90, 120]
+  const words = ['כרבע שעה', 'כחצי שעה', 'כשלושה רבעי שעה', 'כשעה', 'כשעה וחצי', 'כשעתיים']
+  const nearest = times.reduce((best, value) => Math.abs(value - change.minutes) < Math.abs(best - change.minutes) ? value : best)
+  const when = change.minutes < 10 ? 'בדקות הקרובות' : `בעוד ${words[times.indexOf(nearest)]}`
+  return `${change.kind === 'start' ? 'גשם צפוי להתחיל' : 'הגשם צפוי להיפסק'} ${when}.`
+}
 
 /** Join clauses: "א, ב ו־ג" style, with the conjunction ו attached to the last. */
 export function joinClauses(parts: string[]): string {

@@ -20,7 +20,7 @@ export function hoursBetween(f: Forecast, from: LocalTime, to: LocalTime): HourP
   return f.hours.filter((h) => h.time >= start && h.time < to)
 }
 
-export function windowFacts(f: Forecast, from: LocalTime, to: LocalTime): WindowFacts {
+export function windowFacts(f: Forecast, from: LocalTime, to: LocalTime, heatHours: number = T.heatHours): WindowFacts {
   const hours = hoursBetween(f, from, to)
   const probs = hours.map((h) => h.precipProb ?? 0)
   const rainProb = probs.length ? Math.max(...probs) : 0
@@ -32,7 +32,7 @@ export function windowFacts(f: Forecast, from: LocalTime, to: LocalTime): Window
     (best, h) => (!best || h.windGusts > best.windGusts ? h : best), null)
   const air = (f.air ?? []).filter((a) => a.time >= from.slice(0, 13) && a.time < to)
   const pm = air.map((a) => a.pm10).filter((v): v is number => v !== null)
-  const hot = hours.filter((h) => h.temperature >= T.heatHours)
+  const hot = hours.filter((h) => h.temperature >= heatHours)
   return {
     hours,
     rainProb,
