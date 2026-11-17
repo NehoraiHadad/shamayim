@@ -35,7 +35,7 @@ export default function App() {
   const sentences = useMemo(() => (forecast ? composeSummary(forecast, now) : []), [forecast, now])
   const hourly = useMemo(() => (forecast ? next24h(forecast, now) : []), [forecast, now])
   const wear = useMemo(() => (forecast ? wearTip(forecast, now) : null), [forecast, now])
-  const isNight = themeId === 'night' || themeId === 'dusk'
+  const darkSheet = themeId === 'night' || themeId === 'dusk'
 
   useEffect(() => {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', SKY_THEMES[themeId].top)
@@ -52,7 +52,7 @@ export default function App() {
   )
 
   return (
-    <div className={`app ${isNight ? 'is-night' : ''}`} style={themeVars(themeId)}>
+    <div className={`app ${darkSheet ? 'dark-sheet' : ''}`} style={themeVars(themeId)}>
       <Sky theme={themeId} cloudCover={forecast?.current.cloudCover ?? 0} />
       <main className="sky-area">
         <TopBar place={place} elevation={forecast?.elevation ?? null} status={statusLine} />

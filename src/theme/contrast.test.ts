@@ -9,16 +9,18 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-function ratio(a: string, b: string): number {
+export function ratio(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi + 0.05) / (lo + 0.05)
 }
 
+/** All sky text sits on `top` or `mid` (the light horizon is only behind the valley scene). */
 describe('sky theme contrast (WCAG AA)', () => {
   for (const [id, t] of Object.entries(SKY_THEMES)) {
     it(`${id}: ink on top sky ≥ 4.5`, () => expect(ratio(t.ink, t.top)).toBeGreaterThanOrEqual(4.5))
-    it(`${id}: ink on mid sky ≥ 3 (large text only)`, () => expect(ratio(t.ink, t.mid)).toBeGreaterThanOrEqual(3))
+    it(`${id}: ink on mid sky ≥ 4.5`, () => expect(ratio(t.ink, t.mid)).toBeGreaterThanOrEqual(4.5))
     it(`${id}: sheet text ≥ 4.5`, () => expect(ratio(t.sheetInk, t.sheet)).toBeGreaterThanOrEqual(4.5))
     it(`${id}: sheet muted ≥ 4.5`, () => expect(ratio(t.sheetMuted, t.sheet)).toBeGreaterThanOrEqual(4.5))
+    it(`${id}: sheet accent ≥ 4.5`, () => expect(ratio(t.sheetAccent, t.sheet)).toBeGreaterThanOrEqual(4.5))
   }
 })

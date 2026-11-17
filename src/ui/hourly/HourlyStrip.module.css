@@ -15,7 +15,7 @@
   margin: 4px -8px 0;
 }
 
-:global(.is-night) .sheet {
+:global(.dark-sheet) .sheet {
   --curve: #F2C46B;
 }
 
@@ -124,7 +124,7 @@
   color: #1F7A9C;
 }
 
-:global(.is-night) .sheet .prob {
+:global(.dark-sheet) .sheet .prob {
   color: #7FD3EE;
 }
 

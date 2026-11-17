@@ -64,9 +64,9 @@
 .medium .meter { color: #C08A1E; }
 .low .meter { color: #C0502E; }
 
-:global(.is-night) .high .meter { color: #6FD39B; }
-:global(.is-night) .medium .meter { color: #F2C46B; }
-:global(.is-night) .low .meter { color: #F28B6B; }
+:global(.dark-sheet) .high .meter { color: #6FD39B; }
+:global(.dark-sheet) .medium .meter { color: #F2C46B; }
+:global(.dark-sheet) .low .meter { color: #F28B6B; }
 
 @keyframes open {
   from { opacity: 0; transform: translateY(-6px); }
