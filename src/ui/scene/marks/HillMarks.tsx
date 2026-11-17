@@ -3,6 +3,7 @@ import type { PlacedMark } from '../../../data/landmarks/types'
 import { fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
 import { isField, isHillMark, planeOf, specOf } from './hillPlane'
+import { fieldDepthOf } from './markBox'
 import { MarkBuilding, type BuildingContext } from './MarkBuilding'
 import { SettlementGlyph } from './SettlementGlyph'
 import { lifeStyle, useMarkMotion } from './useMarkMotion'
@@ -19,8 +20,6 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   width: number
   layer?: 'near' | 'far'
 }
-
-const clamp = (value: number) => Math.max(0, Math.min(1, value))
 
 export function HillMarks({ marks, settlement, width, layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
@@ -40,7 +39,7 @@ export function HillMarks({ marks, settlement, width, layer = 'near', ...context
     {!far && <>
       {hill.filter(isField).map((mark) => (
         <Field key={mark.id} kind={mark.kind} x={toPx(mark)} ground={context.ground} width={fieldWidth(mark.kind)}
-          depth={2 + 6 * clamp(Math.abs(mark.dy) / 1.5)} />
+          depth={fieldDepthOf(mark)} />
       ))}
       {byPlane('face').map(building)}
       {settlement && <SettlementGlyph settlement={settlement} sunX={context.sunX} night={context.night} />}

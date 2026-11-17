@@ -159,13 +159,16 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
       `Landmarks.tsx` + `glyphs/` removed. Specimens + critique: `docs/design/qa/specimens-*.png`, `NOTES.md`
 - [x] Merged into feat/illustration; my five buildings keep their own lit faces (`selfLit`, mirrored, CastShadow),
       other glyphs use LightRig. [ ] Fresh critic over `specimens-generic/curated.png`
-- [ ] Follow-ups: Haifa elevation label covers the Báb shrine; Dagon dropped by placement; Tel Aviv dot off its towers;
+- [ ] Follow-ups: (Báb label fixed by placement) Dagon dropped by placement; Tel Aviv dot off its towers;
       Sarona twist reads flat at 1x; palms crowns still icon-like; verify the facts listed in `docs/design/qa/NOTES.md`
 - [x] Critic on city glyphs (r1): ground skirt under line-plane marks (no sky wedge under Azrieli), Báb terraces as
       one stair, wall/lit tones down to 18%/30% sky
-- [ ] Placement (critic P0/P1): elevation label covers the Báb (keep label clear of curated marks or flip side);
-      Shadmot pin/label on houses and palms; Bazan cut by the sheet edge (drop marks with base < 6 px above card);
-      Shadmot orchard on the card edge; Azrieli round tower needs round shading; Western Wall stone courses
+- [x] Placement (critic P0/P1, `fix/scene-placement`): `marks/sceneLayout.ts` fits the near hill to what shows above
+      the sheet (scene y < 102): label takes the nearest spot clear of every mark/house/dot/caption box; marks step
+      off the dot; bases within 6 px of the sheet are dropped (curated: lifted ≤ 6 px); fields slide onto the visible
+      face; no house under the sun-event caption. Stills `docs/design/qa/placement-{before,after}-*.png`
+      (dev helper `docs/design/qa/place.html` seeds the place for headless Chrome at a true 375 px)
+- [ ] Glyph follow-ups from the same critic: Azrieli round tower needs round shading; Western Wall stone courses
 - [ ] Regression stills for all 10 places; then merge to main
 
 ## Known gaps / polish

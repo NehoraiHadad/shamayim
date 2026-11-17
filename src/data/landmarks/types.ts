@@ -37,6 +37,10 @@ export interface PlacedMark {
   dy: number
   /** Stands among the place's own roofs (ILLUSTRATION.md R5): seated on the crest at its true x, the house there removed. */
   absorbed?: boolean
+  /** Px the base is raised off low ground so the sheet edge does not cut it (src/ui/scene/marks/sceneLayout.ts). */
+  lift?: number
+  /** Px a field patch sits under the crest, fitted to the visible face (sceneLayout.ts); else from dy. */
+  fieldDepth?: number
 }
 
 export interface MarkLife {
