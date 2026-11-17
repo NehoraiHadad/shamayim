@@ -12,7 +12,9 @@ import { Windows } from '../generic/parts'
 export function BabShrine({ h, night }: BuildingProps) {
   const dome = -h + 1.5
   return <>
-    {[[1.5, 9], [4, 12], [6.5, 15]].map(([y, w]) => <rect key={y} className={styles.green} x={-w / 2} y={y} width={w} height={1.5} />)}
+    {/* The terraces step down the slope as one stair of gardens, with a light stair line down the middle. */}
+    <path className={styles.green} d="M-3 1.5h6l1.5 2.5h-9zM-4.5 4h9l1.5 2.5h-12zM-6 6.5h12l1.5 2.5h-15z" />
+    <rect className={styles.lit} x={-.25} y={1.5} width={.5} height={7.5} />
     <rect className={night ? styles.lit : styles.wall} x={-6} y={-4} width={12} height={4} />
     {[-4.5, -1.75, 1, 3.75].map((x) => <rect key={x} className={night ? styles.win : styles.shade} x={x - .25} y={-3}
       width={1.5} height={3} rx={.75} />)}

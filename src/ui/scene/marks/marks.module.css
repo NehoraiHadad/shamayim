@@ -35,8 +35,8 @@
 /* v7 marks that belong to the hill (docs/design/ILLUSTRATION.md R3) */
 .px {
   --mark-back: color-mix(in srgb, var(--ridge-far) 35%, var(--ridge-near));
-  --mark-wall: color-mix(in srgb, var(--sky-horizon) 24%, var(--ridge-near));
-  --mark-lit: color-mix(in srgb, var(--sky-horizon) 36%, var(--ridge-near));
+  --mark-wall: color-mix(in srgb, var(--sky-horizon) 18%, var(--ridge-near));
+  --mark-lit: color-mix(in srgb, var(--sky-horizon) 30%, var(--ridge-near));
   --mark-shade: color-mix(in srgb, #000 28%, var(--ridge-near));
   --mark-roof: color-mix(in srgb, #B5553C 55%, var(--ridge-near));
   --mark-green: color-mix(in srgb, #5E7B4A 45%, var(--ridge-near));
@@ -51,7 +51,7 @@
   transition: opacity var(--d4) linear;
 }
 .px * { transition: fill var(--d6) var(--ease-in-out); }
-.solid { fill: var(--ridge-near); }
+.solid, .skirt { fill: var(--ridge-near); }
 .wall { fill: var(--mark-wall); }
 .lit { fill: var(--mark-lit); }
 .roof { fill: var(--mark-roof); }

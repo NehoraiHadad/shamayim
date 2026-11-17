@@ -161,6 +161,11 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
       other glyphs use LightRig. [ ] Fresh critic over `specimens-generic/curated.png`
 - [ ] Follow-ups: Haifa elevation label covers the Báb shrine; Dagon dropped by placement; Tel Aviv dot off its towers;
       Sarona twist reads flat at 1x; palms crowns still icon-like; verify the facts listed in `docs/design/qa/NOTES.md`
+- [x] Critic on city glyphs (r1): ground skirt under line-plane marks (no sky wedge under Azrieli), Báb terraces as
+      one stair, wall/lit tones down to 18%/30% sky
+- [ ] Placement (critic P0/P1): elevation label covers the Báb (keep label clear of curated marks or flip side);
+      Shadmot pin/label on houses and palms; Bazan cut by the sheet edge (drop marks with base < 6 px above card);
+      Shadmot orchard on the card edge; Azrieli round tower needs round shading; Western Wall stone courses
 - [ ] Regression stills for all 10 places; then merge to main
 
 ## Known gaps / polish
