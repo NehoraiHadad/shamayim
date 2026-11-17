@@ -1,0 +1,51 @@
+import { describe, expect, it } from 'vitest'
+import { makeForecast, TODAY } from '../../test/makeForecast'
+import { buildTimeline, next24h } from './timeline'
+import { fillGaps, smoothPath } from './curve'
+
+const f = makeForecast([{ max: 30, min: 20 }, { max: 30, min: 20 }, { max: 31, min: 21 }, { max: 31, min: 21 }])
+
+describe('next24h', () => {
+  it('starts at the current hour, marked now, using current temperature', () => {
+    const slots = next24h(f, `${TODAY}T09:20`)
+    const first = slots[0]
+    expect(first.type).toBe('hour')
+    if (first.type === 'hour') {
+      expect(first.time).toBe(`${TODAY}T09:00`)
+      expect(first.isNow).toBe(true)
+      expect(first.temp).toBe(f.current.temperature)
+    }
+    expect(slots.filter((s) => s.type === 'hour')).toHaveLength(25)
+  })
+
+  it('inserts sunset and the next sunrise in order', () => {
+    const slots = next24h(f, `${TODAY}T09:20`)
+    const sun = slots.filter((s) => s.type === 'sun')
+    expect(sun.map((s) => s.time)).toEqual([`${TODAY}T19:45`, '2026-07-16T05:40'])
+    const i = slots.findIndex((s) => s.type === 'sun')
+    expect(slots[i - 1].time < slots[i].time && slots[i].time < slots[i + 1].time).toBe(true)
+  })
+
+  it('marks night hours', () => {
+    const slots = next24h(f, `${TODAY}T09:20`)
+    const at = (t: string) => slots.find((s) => s.type === 'hour' && s.time === t)
+    expect(at(`${TODAY}T22:00`)).toMatchObject({ isDay: false })
+    expect(at(`${TODAY}T12:00`)).toMatchObject({ isDay: true })
+  })
+})
+
+describe('buildTimeline', () => {
+  it('steps by two hours for a whole day', () => {
+    const slots = buildTimeline(f, '2026-07-16T00:00', '2026-07-17T00:00', `${TODAY}T09:00`, 2)
+    expect(slots.filter((s) => s.type === 'hour')).toHaveLength(12)
+  })
+})
+
+describe('curve helpers', () => {
+  it('fills gaps linearly', () => {
+    expect(fillGaps([10, null, 20, null])).toEqual([10, 15, 20, 20])
+  })
+  it('draws a path through every point', () => {
+    expect(smoothPath([{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 0 }]).match(/C/g)).toHaveLength(2)
+  })
+})

@@ -30,3 +30,21 @@ export function updatedAgo(fetchedAt: number, now = Date.now()): string {
   const h = Math.round(min / 60)
   return h === 1 ? 'עודכן לפני שעה' : `עודכן לפני ${h} שע׳`
 }
+
+/** UV index → Hebrew band (WHO scale). */
+export function uvLabel(uv: number): string {
+  const n = Math.round(uv)
+  if (n <= 2) return `${n} · נמוך`
+  if (n <= 5) return `${n} · בינוני`
+  if (n <= 7) return `${n} · גבוה`
+  if (n <= 10) return `${n} · גבוה מאוד`
+  return `${n} · קיצוני`
+}
+
+/** PM10 (µg/m³) → air description, using the dust thresholds. */
+export function airLabel(pm10: number, light: number, heavy: number): string {
+  if (pm10 >= heavy) return 'אובך כבד'
+  if (pm10 >= light) return 'אובך'
+  if (pm10 >= light / 2) return 'סביר'
+  return 'נקי'
+}

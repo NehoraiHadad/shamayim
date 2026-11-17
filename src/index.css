@@ -58,10 +58,6 @@ bdi {
   flex-direction: column;
 }
 
-.lower > section {
-  margin-top: -26px;
-}
-
 .attribution {
   padding: 18px 8px calc(env(safe-area-inset-bottom) + 24px);
   text-align: center;
