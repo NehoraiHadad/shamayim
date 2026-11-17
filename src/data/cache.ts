@@ -1,6 +1,6 @@
 import type { Forecast } from '../domain/types'
 
-const VERSION = 'v2'
+const VERSION = 'v3'
 export const FRESH_MS = 15 * 60 * 1000
 export const STALE_MS = 12 * 60 * 60 * 1000
 

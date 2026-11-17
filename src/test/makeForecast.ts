@@ -55,6 +55,7 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
     current: {
       time: `${DATES[1]}T09:00`, temperature: 30, feelsLike: 30, isDay: true,
       weatherCode: 0, cloudCover: 5, windSpeed: 8, windGusts: 15,
+      windDirection: 300, precipitation: 0, snowfall: 0, visibility: 24000,
     },
     hours,
     days: dayPoints,

@@ -34,6 +34,7 @@ export function rollForward(forecast: Forecast, now: LocalTime): Forecast {
       cloudCover: row.cloudCover,
       windSpeed: row.windSpeed,
       windGusts: row.windGusts,
+      precipitation: row.precipitation,
     },
   }
 }

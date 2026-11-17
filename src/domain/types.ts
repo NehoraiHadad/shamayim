@@ -13,6 +13,14 @@ export interface CurrentWeather {
   cloudCover: number
   windSpeed: number
   windGusts: number
+  /** Degrees the wind comes FROM (meteorological), 0 = north. */
+  windDirection: number
+  /** mm in the last interval (rain + showers + melted snow). */
+  precipitation: number
+  /** cm in the last interval. */
+  snowfall: number
+  /** metres; null when the model has none. */
+  visibility: number | null
 }
 
 export interface HourPoint {

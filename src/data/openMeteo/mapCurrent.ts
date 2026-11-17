@@ -1,5 +1,5 @@
 import type { CurrentWeather } from '../../domain/types'
-import { expectUnit, num, obj, str, type Json } from './guards'
+import { expectUnit, num, numOrNull, obj, str, type Json } from './guards'
 
 export function mapCurrent(raw: Json): CurrentWeather {
   const current = obj(raw.current, 'current')
@@ -14,5 +14,9 @@ export function mapCurrent(raw: Json): CurrentWeather {
     cloudCover: num(current.cloud_cover, 'current.cloud_cover'),
     windSpeed: num(current.wind_speed_10m, 'current.wind_speed_10m'),
     windGusts: num(current.wind_gusts_10m, 'current.wind_gusts_10m'),
+    windDirection: numOrNull(current.wind_direction_10m) ?? 0,
+    precipitation: numOrNull(current.precipitation) ?? 0,
+    snowfall: numOrNull(current.snowfall) ?? 0,
+    visibility: numOrNull(current.visibility),
   }
 }
