@@ -3,7 +3,16 @@ import { ratio } from './contrast'
 import { hexToOklab, mixOklab, oklabToHex } from './oklab'
 import { SKY_THEMES, type SkyTheme } from './skyThemes'
 
-export interface SkyLightInput { altitude: number; rising: boolean; cloudCover: number; wet: boolean; pm10: number | null }
+export interface SkyLightInput {
+  /** Sun altitude, degrees. */
+  altitude: number
+  /** Morning or evening twilight (they differ in tint). */
+  rising: boolean
+  cloudCover: number
+  /** How wet, 0–1 (a ramp, not a switch, so drizzle starting does not jump the colour). */
+  wet: number
+  pm10: number | null
+}
 export type SkyLight = Pick<SkyTheme, 'top' | 'mid' | 'horizon' | 'ink' | 'accent' | 'ridgeFar' | 'ridgeNear'>
 
 const smoothstep = (lo: number, hi: number, value: number) => {
@@ -57,7 +66,7 @@ export function skyLight(input: SkyLightInput): SkyLight {
   for (const field of Object.keys(result) as (keyof SkyLight)[]) {
     const cloudTarget = mixOklab(SKY_THEMES.night[field], SKY_THEMES.cloudy[field], cloudDaylight)
     result[field] = mixOklab(result[field], cloudTarget, cloudWeight)
-    if (input.wet) result[field] = mixOklab(result[field], SKY_THEMES.rain[field], 0.7)
+    if (input.wet > 0) result[field] = mixOklab(result[field], SKY_THEMES.rain[field], 0.7 * Math.min(1, input.wet))
     if (input.pm10 != null) {
       const dust = smoothstep(THRESHOLDS.dust.light, THRESHOLDS.dust.heavy, input.pm10) * 0.9 * daylight
       result[field] = mixOklab(result[field], SKY_THEMES.dust[field], Math.min(0.9, dust * (field === 'horizon' ? 1.3 : 1)))

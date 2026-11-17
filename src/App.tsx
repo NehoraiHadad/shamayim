@@ -52,10 +52,10 @@ export default function App() {
   const sceneTime = useSceneTime(now)
   const selected = sceneTime.at
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
-  const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place.lat, selected), ...forcedWeather() } : null), [forecast, now, place.lat, selected])
+  const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected), ...forcedWeather() } : null), [forecast, now, place, selected])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
-    cloudCover: shown.cloudCover, wet: shown.precipitation > 0, pm10: shown.pm10 }) : SKY_THEMES[themeId], [shown, themeId])
+    cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10 }) : SKY_THEMES[themeId], [shown, themeId])
   const palette = useMemo(() => forced ? SKY_THEMES[themeId] : { ...SKY_THEMES[themeId], ...light }, [forced, themeId, light])
   const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
   const markLife = useMemo(() => (shown && air ? mapMarks(shown, air) : null), [shown, air])
@@ -100,7 +100,7 @@ export default function App() {
             now={now}
             selected={selected}
             lat={place.lat}
-            readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot) : null}
+            readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
             air={air!}
             cloudCover={shown?.cloudCover ?? 0}
             terrain={terrain}

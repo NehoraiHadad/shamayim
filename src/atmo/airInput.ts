@@ -1,14 +1,19 @@
-import { datePart, daylightFraction } from '../domain/time'
+import { sunPosition } from '../astro/sun'
+import { utcOf } from '../astro/utc'
+import { datePart } from '../domain/time'
 import type { AirPoint, Forecast, LocalTime } from '../domain/types'
-import { noonElevation } from '../ui/scene/sunPath'
 import type { AirInput } from './airTypes'
 
-/** Sun height in degrees: noon height × sin(π·t), which goes negative before sunrise and after sunset. */
-export function sunElevation(forecast: Forecast, at: LocalTime, lat: number): number {
-  const day = forecast.days.find((d) => d.date === datePart(at))
-  if (!day) return -18
-  const t = daylightFraction(at, day.sunrise, day.sunset)
-  return Math.max(-18, noonElevation(datePart(at), lat) * Math.sin(Math.PI * t))
+/** Where the sky is computed: the place's coordinates and its wall-clock zone. */
+export interface SkySite {
+  lat: number
+  lon: number
+  timezone: string
+}
+
+/** True sun altitude in degrees at a wall-clock minute (twilight depth included, floored at −18 = full night). */
+export function sunElevation(at: LocalTime, site: SkySite): number {
+  return Math.max(-18, sunPosition(utcOf(at, site.timezone), site.lat, site.lon).altitude)
 }
 
 function airAt(air: AirPoint[] | null, at: LocalTime): AirPoint | undefined {
@@ -22,7 +27,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
  * The input for "now", or for a selected hour (a preview). A preview takes rain, cloud,
  * wind and temperature from that hour and holds direction, snow and visibility from now.
  */
-export function airInput(forecast: Forecast, now: LocalTime, lat: number, selected: LocalTime | null): AirInput {
+export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, selected: LocalTime | null): AirInput {
   const c = forecast.current
   const floor = selected ? `${selected.slice(0, 13)}:00` : null
   const hour = floor ? forecast.hours.find((h) => h.time === floor) : undefined
@@ -38,7 +43,7 @@ export function airInput(forecast: Forecast, now: LocalTime, lat: number, select
     visibilityKm: c.visibility === null ? null : c.visibility / 1000,
     pm10: a?.pm10 ?? null,
     dust: a?.dust ?? null,
-    sunElevation: sunElevation(forecast, at, lat),
+    sunElevation: sunElevation(at, site),
   }
   if (hour) {
     const value = (field: 'temperature' | 'cloudCover' | 'windSpeed' | 'windGusts' | 'precipitation') =>

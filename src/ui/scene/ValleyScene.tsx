@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
 import { placeMarks } from '../../data/landmarks/placeMarks'
@@ -6,9 +6,10 @@ import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { Place } from '../../config/place'
 import { clockOf, datePart } from '../../domain/time'
 import type { Forecast, LocalTime } from '../../domain/types'
-import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
+import { Moon } from './Moon'
+import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
@@ -76,27 +77,6 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
     below ? `היישוב ${Math.abs(elevation)} מטר מתחת לפני הים.` : `גובה היישוב ${elevation} מטר.`,
   ].filter(Boolean).join(' ')
-  const drag = useRef<{ id: number; x: number; at: LocalTime } | null>(null)
-  const clampTime = (time: LocalTime) => time < first ? first : time > last ? last : time
-  const pointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    drag.current = { id: e.pointerId, x: e.clientX, at }; e.currentTarget.setPointerCapture(e.pointerId)
-  }
-  const pointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (drag.current?.id !== e.pointerId) return
-    onScrub(clampTime(addMinutes(drag.current.at, (drag.current.x - e.clientX) * 4)))
-  }
-  const pointerUp = (e: PointerEvent<HTMLDivElement>) => {
-    if (drag.current?.id !== e.pointerId) return
-    drag.current = null; e.currentTarget.releasePointerCapture(e.pointerId); onRelease()
-  }
-  const sliderKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const target = e.key === 'ArrowLeft' ? addMinutes(at, 60) : e.key === 'ArrowRight' ? addMinutes(at, -60)
-      : e.key === 'Home' ? first : e.key === 'End' ? last : null
-    if (e.key === 'Escape') { e.preventDefault(); onNow(); return }
-    if (!target) return
-    e.preventDefault(); onScrub(clampTime(target)); onRelease()
-  }
-
   return (
     <figure
       className={styles.scene}
@@ -108,6 +88,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
     >
       {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
+      <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
+        farFade={air.haze.farFade} />
       <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
@@ -142,14 +124,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         </>
       )}
       {readout && (
-        <span className={styles.readout} aria-hidden="true"><bdi>{clockOf(at)}</bdi> · {isolateNumbers(readout)}
-          <button type="button" onClick={onNow}>עכשיו</button></span>
+        <span className={styles.readout}>
+          <span aria-hidden="true">{isolateNumbers(readout)}</span>
+          <button type="button" onClick={onNow}>עכשיו</button>
+        </span>
       )}
-      <div className={styles.scrubber} role="slider" tabIndex={0} aria-label="שעה בעמק"
-        aria-valuemin={minutesBetweenLocal(now, first)} aria-valuemax={minutesBetweenLocal(now, last)}
-        aria-valuenow={minutesBetweenLocal(now, at)} aria-valuetext={readout ? `${clockOf(at)}, ${readout}` : `עכשיו, ${clockOf(now)}`}
-        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}
-        onKeyDown={sliderKey} />
+      <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
+        onNow={onNow} />
     </figure>
   )
 }

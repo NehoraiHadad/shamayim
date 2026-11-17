@@ -5,7 +5,7 @@ import { skyLight } from './skyLight'
 import { SKY_THEMES } from './skyThemes'
 
 const fields = ['top', 'mid', 'horizon'] as const
-const light = (altitude: number, rising = true, cloudCover = 0, wet = false, pm10: number | null = null) =>
+const light = (altitude: number, rising = true, cloudCover = 0, wet = 0, pm10: number | null = null) =>
   skyLight({ altitude, rising, cloudCover, wet, pm10 })
 
 describe('continuous sky light', () => {
@@ -19,7 +19,7 @@ describe('continuous sky light', () => {
   it('keeps text contrast throughout weather and altitude combinations', () => {
     for (let altitude = -20; altitude <= 70; altitude += 0.5)
       for (const rising of [true, false]) for (const cloudCover of [0, 50, 100])
-        for (const wet of [false, true]) for (const pm10 of [null, 80, 300]) {
+        for (const wet of [0, 0.5, 1]) for (const pm10 of [null, 80, 300]) {
           const value = light(altitude, rising, cloudCover, wet, pm10)
           expect(ratio(value.ink, value.top)).toBeGreaterThanOrEqual(4.5)
           expect(ratio(value.ink, value.mid)).toBeGreaterThanOrEqual(4.5)

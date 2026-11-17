@@ -72,9 +72,9 @@ export function layoutStrip(slots: TimelineSlot[]): StripLayout {
   return { hours, width, pts, suns, breaks, hasProb: hours.some((h) => h.prob !== null) }
 }
 
-/** "15:00, מעונן, 26°, רוח 14 קמ״ש" (the time first). */
-export function describeHour(h: HourSlot): string {
-  const parts = [h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), formatTemp(h.temp)]
+/** "15:00, מעונן, 26°, רוח 14 קמ״ש" (the time first; `at` names a minute inside the hour, for a moved time). */
+export function describeHour(h: HourSlot, at?: LocalTime): string {
+  const parts = [at ? clockOf(at) : h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), formatTemp(h.temp)]
   if (h.prob !== null) parts.push(`סיכוי לגשם ${formatProb(h.prob)}`)
   parts.push(`רוח ${Math.round(h.wind)} קמ״ש`)
   return parts.join(', ')
