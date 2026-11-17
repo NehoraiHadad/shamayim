@@ -16,6 +16,7 @@ const APP_FORECAST = new URLSearchParams({
     + 'wind_gusts_10m,relative_humidity_2m',
   daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,'
     + 'wind_gusts_10m_max,sunrise,sunset',
+  minutely_15: 'precipitation', forecast_minutely_15: '12',
 })
 
 const query = (route = forecast, params: Record<string, string> | URLSearchParams = APP_FORECAST) =>
@@ -26,7 +27,9 @@ function points(n: number, value: string): string {
 }
 
 describe('routes', () => {
-  it('knows the three endpoints and nothing else', () => {
+  it('knows the four endpoints and nothing else', () => {
+    expect(Object.keys(ROUTES)).toHaveLength(4)
+    expect(routeFor('/v1/normals')?.name).toBe('normals')
     expect(routeFor('/v1/forecast')?.name).toBe('forecast')
     expect(routeFor('/v1/air-quality')?.name).toBe('air-quality')
     expect(routeFor('/v1/elevation')?.name).toBe('elevation')
@@ -36,10 +39,27 @@ describe('routes', () => {
 })
 
 describe('canonicalQuery', () => {
+  it('canonicalizes normals coordinates and refuses extra or missing parameters', () => {
+    const normals = ROUTES['/v1/normals']
+    expect(query(normals, { longitude: '35.50001', latitude: '32.348123' }))
+      .toEqual({ ok: true, query: 'latitude=32.3481&longitude=35.5' })
+    expect(query(normals, { latitude: '32', longitude: '35', daily: 'temperature_2m_max' }).ok).toBe(false)
+    expect(query(normals, { latitude: '32' }).ok).toBe(false)
+    expect(normals.freshMs).toBe(365 * 24 * 3600_000)
+    expect(normals.staleMs).toBe(Infinity)
+  })
   it('accepts the app forecast query unchanged', () => {
     const result = query()
     expect(result.ok).toBe(true)
-    if (result.ok) expect(Object.fromEntries(new URLSearchParams(result.query))).toEqual(Object.fromEntries(APP_FORECAST))
+    if (result.ok) expect(result.query).toBe(APP_FORECAST.toString())
+  })
+
+  it('accepts both ends of the 15-minute forecast range', () => {
+    for (const n of [1, 16]) {
+      const p = new URLSearchParams(APP_FORECAST)
+      p.set('forecast_minutely_15', String(n))
+      expect(query(forecast, p).ok).toBe(true)
+    }
   })
 
   it('builds the same key whatever the parameter order', () => {
@@ -63,6 +83,9 @@ describe('canonicalQuery', () => {
     [{ hourly: 'temperature_2m,temperature_2m' }, 'Invalid value for hourly'],
     [{ models: 'gfs_seamless' }, 'Invalid value for models'],
     [{ forecast_days: '16' }, 'Invalid value for forecast_days'],
+    [{ forecast_minutely_15: '0' }, 'Invalid value for forecast_minutely_15'],
+    [{ forecast_minutely_15: '17' }, 'Invalid value for forecast_minutely_15'],
+    [{ minutely_15: 'temperature_2m' }, 'Invalid value for minutely_15'],
     [{ wind_speed_unit: 'mph' }, 'Invalid value for wind_speed_unit'],
     [{ timezone: '../etc' }, 'Invalid value for timezone'],
     [{ latitude: '91' }, 'Invalid value for latitude'],

@@ -15,19 +15,25 @@ export type CacheStatus = 'HIT' | 'MISS' | 'STALE'
 /** One upstream request per key at a time within this isolate; concurrent misses wait for the same answer. */
 const inflight = new Map<string, Promise<Stored>>()
 
+class InvalidUpstream extends Error {}
+
 /** The cache key: route path + canonical query, on the Worker's own origin (Cache API keys must be URLs). */
 export function cacheKey(origin: string, path: string, query: string): string {
   return `${origin}${path}?${query}`
 }
 
 async function fetchUpstream(route: Route, query: string, deps: ProxyDeps): Promise<Stored> {
-  const res = await deps.fetch(`${route.upstream}?${query}`, {
+  const res = await deps.fetch(`${route.upstream}?${route.upstreamQuery?.(query) ?? query}`, {
     headers: { Accept: 'application/json', 'User-Agent': 'shamayim-weather-worker' },
     signal: AbortSignal.timeout(deps.timeoutMs),
   })
+  let body = await res.text()
+  if (res.status === 200 && route.transform) {
+    try { body = route.transform(body) } catch { throw new InvalidUpstream() }
+  }
   return {
     status: res.status,
-    body: await res.text(),
+    body,
     contentType: res.headers.get('Content-Type') ?? 'application/json',
     fetchedAt: deps.now(),
   }
@@ -76,6 +82,9 @@ export async function proxy(route: Route, query: string, key: string, deps: Prox
   try {
     result = await coalesced(key, () => fetchUpstream(route, query, deps))
   } catch (err) {
+    if (err instanceof InvalidUpstream) {
+      return usable ? respond(usable, 'STALE', 0, 'upstream data invalid') : errorJson(502, 'Upstream data invalid')
+    }
     const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
     if (usable) return respond(usable, 'STALE', 0, timedOut ? 'upstream timeout' : 'upstream unreachable')
     return timedOut ? errorJson(504, 'Upstream timeout') : errorJson(502, 'Upstream unreachable')
