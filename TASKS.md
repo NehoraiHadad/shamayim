@@ -78,7 +78,7 @@ Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, f
       crane V crossing today (17.11), meteor + twinkle at night, mist at 07:00
 - [ ] Not verified: GPS on a phone; swifts/storks/raptor by eye (only by tests); mist band height on
       sampled (non-Shadmot) terrain uses the fixed y 72–105 band
-- [ ] Next: climate-relative thresholds (what is "hot"/"windy" depends on the place), place-aware sentences
+- [x] Climate-relative thresholds and place-aware sentences — see climate normals + nowcast below
 
 ## Deploy — 2026-11-17
 - [x] Cloudflare Pages project `shamayim` → https://shamayim.pages.dev (free plan)
@@ -246,6 +246,28 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
 - [x] Custom domain `shamayim-api.nehoraihadad.com` (Cache API works there); origin shamayim.nehoraihadad.com added;
       live: MISS→HIT→HIT, 8 parallel connections all HIT with one X-Fetched-At, 400, preflight 204/403
 - [x] PR against main
+
+## Climate normals + nowcast — 2026-11-17 (branch `claude/data-text-80a67f`)
+Brief: `docs/briefs/climate-nowcast.md` (Claude Opus 5.5). Code: Codex gpt-5.6-sol (via the Codex plugin; the
+outsourcerer cloud gate refused the run because of `.env.production`, which holds only the public Worker URL).
+Review, the `normalsUrl` cleanup, commits and QA: Claude Opus 5.5. Later code rounds in this lane: Codex sol 6.2, Opus if weak.
+- Facts: Open-Meteo has no native 15-min model over Israel (only ICON-D2 Central Europe / HRRR North America);
+  `minutely_15` here is interpolated from hourly ICON/ECMWF, so the sentence speaks in quarter hours, not minutes.
+  Archive weight ≈ (days/14)·(vars/10): 30 y × 3 vars ≈ 235 calls, hence one fetch per place per year via the Worker.
+- [x] Worker computed routes; `/v1/normals` reduces 1991–2020 archive data into a circular 366-slot table;
+      365-day shared cache, stale fallback, precise coordinates; forecast accepts 15-minute precipitation
+- [x] App: optional blended nowcast; Worker-only normals with 180-day localStorage cache; parallel provider;
+      forecast cache v4; offline QA `nm=` and `nc=` overrides
+- [x] Sentence: Hebrew temperature anomaly first extra / tomorrow suffix; place-relative heat and wind;
+      rain start/stop leads with hazard folding, returning-rain wording and a three-sentence limit
+- [x] Local verification: root typecheck, lint, 314 tests and build; Worker typecheck and 48 tests
+- [x] Browser pane, 375 px, fixture via `offline.html` at 10:00: warmer (`nm=4` → "חם מהרגיל לנובמבר ב־4°"),
+      colder (`nm=-4`), normal (`nm=0`, silent), rain starting (`nc=start:10:30` → "בעוד כחצי שעה"), rain stopping
+      (`nc=stop:10:15` → "בעוד כרבע שעה"). Still `docs/design/qa/climate-nowcast-start-colder-375.jpg` (3 sentences fit)
+- [ ] After merge: redeploy the Worker (`/v1/normals`, `minutely_15`); then check a live `/v1/normals` MISS→HIT,
+      its CPU time on the free plan, and that a real Israeli `minutely_15` answer carries both suffixed columns
+- [ ] Not verified: live archive/forecast answers (Open-Meteo daily limit was hit from this IP), real-device QA,
+      night-mode anomaly and nowcast in the browser (tests only)
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
