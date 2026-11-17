@@ -41,3 +41,8 @@ export function forcedWeather(): Record<string, number> | null {
   if ('pm10' in out) out.dust = out.pm10
   return out
 }
+
+/** `?picker=open` opens the place picker on load, for screenshots of it. */
+export function pickerOpenOnLoad(): boolean {
+  return param('picker') === 'open'
+}

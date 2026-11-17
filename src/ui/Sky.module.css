@@ -1,4 +1,8 @@
-/* Text sits on top/mid only; the light horizon colour is reserved for the valley scene (SPEC §5). */
+/* Text sits on top/mid only; the light horizon colour is reserved for the valley scene (SPEC §5).
+   Stops are in rem, tied to the content above (scene top ≈ 21.5rem at 375px with a one-line sentence, +2rem per
+   extra line), not to the viewport: mid holds through the strip and the scene caption even with a three-line
+   sentence, and the horizon colour rises behind the ridges. Sky text also keeps a mid-sky halo as a backstop.
+   Numbers: docs/design/qa/contrast-report.ts. */
 /* Scrolls with the page (not fixed), so the horizon, haze and clouds stay put behind the hill when it scrolls. */
 .sky {
   position: absolute;
@@ -12,9 +16,9 @@
   background: linear-gradient(
     180deg,
     var(--sky-top) 0,
-    var(--sky-mid) 30svh,
-    var(--sky-mid) 50svh,
-    var(--sky-horizon) 66svh
+    var(--sky-mid) 12rem,
+    var(--sky-mid) 27rem,
+    var(--sky-horizon) 33rem
   );
   transition:
     --sky-top var(--d6) var(--ease-in-out),

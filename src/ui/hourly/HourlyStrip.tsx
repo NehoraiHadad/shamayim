@@ -30,10 +30,12 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time === selected : h.isNow)))
 
   const onKey = (e: KeyboardEvent<HTMLOListElement>) => {
-    const step = { ArrowLeft: 1, ArrowRight: -1 }[e.key]
+    const last = hours.length - 1
+    // RTL: the left arrow moves later in time; Home/End jump to the first/last hour.
+    const target = { ArrowLeft: (at: number) => at + 1, ArrowRight: (at: number) => at - 1, Home: () => 0, End: () => last }[e.key]
     const at = Number((e.target as HTMLElement).dataset.index)
-    if (!step || !onSelect || Number.isNaN(at)) return
-    const next = Math.min(hours.length - 1, Math.max(0, at + step))
+    if (!target || !onSelect || Number.isNaN(at)) return
+    const next = Math.min(last, Math.max(0, target(at)))
     e.preventDefault()
     onSelect(hours[next].time)
     e.currentTarget.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
@@ -49,8 +51,18 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
                 <stop offset="0" stopColor="var(--curve)" stopOpacity="0.2" />
                 <stop offset="1" stopColor="var(--curve)" stopOpacity="0" />
               </linearGradient>
+              {/* Fade the fill out sideways at both ends, so it never stops in a hard vertical edge under a dot. */}
+              <linearGradient id={`${gradId}-ends`} gradientUnits="userSpaceOnUse" x1={pts[0].x} x2={pts[pts.length - 1].x} y1="0" y2="0">
+                <stop offset="0" stopColor="#fff" stopOpacity="0" />
+                <stop offset={Math.min(.5, 28 / width)} stopColor="#fff" />
+                <stop offset={Math.max(.5, 1 - 28 / width)} stopColor="#fff" />
+                <stop offset="1" stopColor="#fff" stopOpacity="0" />
+              </linearGradient>
+              <mask id={`${gradId}-mask`}>
+                <rect x={0} y={0} width={width} height={BAND_H} fill={`url(#${gradId}-ends)`} />
+              </mask>
             </defs>
-            {tone === 'sky' && <path d={area} fill={`url(#${gradId})`} />}
+            {tone === 'sky' && <path d={area} fill={`url(#${gradId})`} mask={`url(#${gradId}-mask)`} />}
             <path d={line} className={styles.line} pathLength={1} data-intro="curve" />
             {pts.map((p, i) => (
               <circle key={i} cx={p.x} cy={p.y} r={hours[i].time === selected ? 4.5 : hours[i].isNow ? 3.6 : 2} className={styles.dot} />

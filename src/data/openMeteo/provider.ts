@@ -1,5 +1,6 @@
 import type { Place } from '../../config/place'
 import type { Forecast } from '../../domain/types'
+import { HttpError } from '../fetchFailure'
 import type { WeatherProvider } from '../WeatherProvider'
 import { mapAir } from './mapAir'
 import { mapForecast } from './mapForecast'
@@ -11,7 +12,7 @@ async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
   const timeout = AbortSignal.timeout(TIMEOUT_MS)
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout
   const res = await fetch(url, { signal: combined })
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${new URL(url).host}`)
+  if (!res.ok) throw new HttpError(res.status, new URL(url).host)
   return res.json()
 }
 

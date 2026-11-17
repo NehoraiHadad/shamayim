@@ -19,6 +19,7 @@
 
 .digits {
   display: flex;
+  direction: ltr; /* the degree sign follows the digits ("18°") inside the RTL row */
   align-items: flex-start;
 }
 

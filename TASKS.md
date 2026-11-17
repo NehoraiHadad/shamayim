@@ -188,6 +188,44 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [x] Jerusalem without mosque or church (owner, 2026-11-17): YMCA bell tower removed; the Wall drawn alone (9 px,
       Herodian courses), no Dome of the Rock. Tower of David keeps its Ottoman minaret silhouette
 
+## UI polish A — picker, top bar, status, states (2026-11-17, branch from main)
+- [x] Picker contrast: dark sky surface (`--sky-top` 92% + white), ink 55% borders, explicit placeholder, no opacity
+      text; checked for all 8 themes in `src/ui/PlacePicker.contrast.test.ts` (helpers in `src/test/contrast.ts`)
+- [x] Picker is a native modal `<dialog>` bottom sheet (radius 28 28 0 0): page inert, Tab stays inside, Escape and ×
+      close it, focus returns to the opener; wells/rows/input use `--radius-well`; 16 px stroke close icon; "מחפש…"
+      status while the debounced search is pending; split into `PlacePickerSearch.ts` + `PlacePickerList.tsx`
+- [x] Top bar: 12 px chevron after the place name, aria-label "{place}, החלפת מקום", focus ring; hidden `<h1>`
+- [x] Refresh pill: `aria-disabled` while busy (focus stays), `role=status` mirror announces "מעדכן…" / "עודכן עכשיו"
+- [x] Copy: impersonal "מאתר מיקום…" / "מעדכן…"
+- [x] Error state by cause: `HttpError` + `toFetchFailure` (429/5xx → "השירות עמוס, נסו שוב בעוד דקה", else network);
+      typed `FetchFailure` from `useForecast`; tests in `src/data/fetchFailure.test.ts`; focus ring on retry
+- [x] Sentence no longer `aria-live` (re-announced on every clock tick)
+- [x] forced-colors borders on picker rows/buttons, refresh pill, retry button
+- [x] Dev QA: `?picker=open` opens the picker on load; `place.html` takes `r=<recent places JSON>`.
+      Stills `docs/design/qa/polish-a-{before,after}-*.png` (Open-Meteo was rate-limiting, so the top bar sits over
+      the error state in them)
+- [ ] No component-test setup (vitest runs `node`, `*.test.ts` only): focus return / inert were checked by hand in
+      Chrome, not in an automated test. `src/theme/contrast.test.ts` still has its own luminance helper (theme files
+      belong to polish B); it could import `src/test/contrast.ts`
+## UI polish B — hero, sheet, strip, sky contrast — 2026-11-17 (worktree branch, part A runs in parallel)
+- [x] Hero: degree sign after the digits (LTR digits row), visually-hidden "{n} מעלות", decorative icon,
+      `--text-hero: clamp(5rem, 34.2vw, 8rem)` (128 px at 375, fits 200% text)
+- [x] RangeBar: spread clamped to the track, one ink-hairline sleeve (reads on light and dark paper); fill clamped
+- [x] Tokens: `--sky-rain`, `--sheet-rain`, `--sheet-curve`, `--sheet-sun` (+ `.dark-sheet`) in `tokens.css`;
+      Sheet/WearCard/DayRow/Attribution hard-coded sizes, radii, durations and fonts mapped to tokens
+- [x] DayRow: confidence tag on its own line; no opacity on estimate rows; date 13 px muted (≥ 5.8:1)
+- [x] Fog icon: wavy wisps under a small cloud (`docs/design/qa/polish-b-fog-icon.png`)
+- [x] Attribution: one source per line
+- [x] Hourly strip: labels at full opacity (weight marks now/selected), min-heights, Home/End keys,
+      forced-colors outline on the picked hour, mid-sky halo on sky text; sun times on paper `--sheet-sun`
+- [x] Sky gradient stops in rem (mid 12–27rem, horizon 33rem) instead of svh; scene caption top 12 px + halo
+      (`captionBox` mirrors it); `body` font-size 100%
+- [x] Contrast: `src/theme/contrast.ts` (shared), test reads tokens.css; report `docs/design/qa/contrast-report.ts`
+- [x] QA: `docs/design/qa/offline.html` seeds the cache with the fixture when Open-Meteo answers 429;
+      stills `docs/design/qa/polish-b-{before,after}-*.png`
+- [ ] Not done: --warn token (no warning colour lives in these files); hourly band offsets stay px, so 200% text
+      grows labels into the curve band; DayDetail sheet strip not captured in stills (needs a tap)
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

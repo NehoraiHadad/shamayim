@@ -6,7 +6,7 @@
 
 .title {
   margin: 0;
-  font: 500 1.5rem 'Frank Ruhl Libre', serif;
+  font: 500 var(--text-xl) var(--font-serif);
 }
 
 .text { margin: 0; opacity: 0.85; }
@@ -24,6 +24,15 @@
   cursor: pointer;
 }
 
+.button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+@media (forced-colors: active) {
+  .button { border: 1px solid ButtonText; }
+}
+
 .skeleton {
   border-radius: 14px;
   background: color-mix(in srgb, var(--ink) 14%, transparent);
@@ -33,15 +42,6 @@
 .temp { width: 150px; height: 120px; }
 .line { width: 85%; height: 22px; }
 .short { width: 55%; }
-
-.visuallyHidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
 
 @keyframes pulse { to { opacity: 0.45; } }
 
