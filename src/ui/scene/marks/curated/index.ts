@@ -2,7 +2,7 @@ import type { BuildingSpec } from '../generic/buildingSpecs'
 import { Cooling } from '../generic/industry'
 import { Palms } from '../generic/nature'
 import { BabShrine, DagonSilo, SailTower } from './haifa'
-import { ChordsBridge, TowerOfDavid, WallAndDome, Ymca } from './jerusalem'
+import { ChordsBridge, TowerOfDavid, WesternWall } from './jerusalem'
 import { ShadmotHomes } from './shadmot'
 import { AzrieliCenter, ReadingChimney, Sarona, ShalomMeir } from './telAviv'
 
@@ -10,9 +10,8 @@ import { AzrieliCenter, ReadingChimney, Sarona, ShalomMeir } from './telAviv'
 export const CURATED_BUILDINGS: Record<string, BuildingSpec> = {
   'jerusalem-bridge': { w: 20, h: (hPx) => Math.max(22, hPx), Draw: ChordsBridge, litWidth: 0,
     beacon: (h) => [-6 - .2 * h, -h] },
-  'jerusalem-ymca': { w: 14, h: (hPx) => Math.max(18, hPx), Draw: Ymca, selfLit: true },
   'jerusalem-david': { w: 16, h: (hPx) => Math.max(17, hPx), Draw: TowerOfDavid, selfLit: true },
-  'jerusalem-wall': { w: 18, h: () => 17, Draw: WallAndDome },
+  'jerusalem-wall': { w: 18, h: () => 9, Draw: WesternWall },
   'tel-aviv-shalom': { w: 8, h: (hPx) => Math.max(22, hPx), Draw: ShalomMeir },
   'tel-aviv-reading': { w: 12, h: (hPx) => Math.max(22, hPx), Draw: ReadingChimney, beacon: (h) => [4, -h] },
   'tel-aviv-sarona': { w: 10, h: (hPx) => Math.max(26, hPx), Draw: Sarona, selfLit: true, beacon: (h) => [-1, -h - 1] },

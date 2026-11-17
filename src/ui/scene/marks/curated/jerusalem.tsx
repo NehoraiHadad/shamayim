@@ -1,6 +1,5 @@
 import styles from '../marks.module.css'
 import type { BuildingProps } from '../generic/buildingSpecs'
-import { Dome } from '../generic/shadow'
 
 /**
  * Jerusalem's curated skyline in px (x 0 centre, y 0 ground). Reference notes per glyph; proportions are read from
@@ -39,36 +38,6 @@ export function ChordsBridge({ h }: BuildingProps) {
 }
 
 /**
- * YMCA (1933, Harmon): a low limestone hall with a domed wing and the tall square bell tower (46 m, per data). The
- * tower is straight-sided, opens near its top in a tall arched belfry and ends in a small dome with a finial (photos
- * from King David St). At 1x the belfry is one 2 px arch per face in the darkest tone, and a shade collar under the
- * dome lets its lit cap stand off the tower. Self-lit: lit west faces, shade on the east.
- */
-export function Ymca({ h, night }: BuildingProps) {
-  const domeBase = -h + 3
-  const belfry = domeBase + .9
-  return <>
-    <rect className={styles.wall} x={-7} y={-5} width={14} height={5} />
-    <rect className={styles.lit} x={-7} y={-5} width={1.5} height={5} />
-    <rect className={styles.shade} x={-7} y={-5} width={14} height={.5} opacity={.5} />
-    <Dome cx={-4.6} y={-5} r={2.1} />
-    <rect className={styles.wall} x={-2.2} y={belfry} width={4.4} height={-belfry} />
-    <rect className={styles.lit} x={-2.2} y={belfry} width={1} height={-belfry} />
-    <rect className={styles.shade} x={1.6} y={belfry} width={.6} height={-belfry} />
-    {/* Belfry: one tall round-headed opening, then the cornice below it. */}
-    <path className={night ? styles.win : styles.solid} d={`M-.9 ${belfry + 4.1}v-2.1a1 1 0 0 1 2 0v2.1z`} />
-    <rect className={styles.shade} x={-2.5} y={belfry + 4.6} width={5} height={.7} />
-    {/* Drum and collar, then the dome whose cap takes the light. */}
-    <rect className={styles.wall} x={-2.5} y={domeBase} width={5} height={.9} />
-    <rect className={styles.lit} x={-2.5} y={domeBase} width={1.2} height={.9} />
-    <rect className={styles.shade} x={-2.2} y={domeBase - .1} width={4.4} height={.5} />
-    <Dome cx={0} y={domeBase - .1} r={1.9} />
-    <rect className={styles.solid} x={-.25} y={-h} width={.5} height={1.2} />
-    {night && [-5, 3.5].map((x) => <rect key={x} className={styles.win} x={x} y={-3.2} width={1.5} height={1.5} />)}
-  </>
-}
-
-/**
  * Tower of David citadel: crenellated walls, the square Phasael tower, and the Ottoman minaret (1655) that gives the
  * citadel its silhouette: a slim shaft, a round corbelled gallery, a narrower stepped upper stage and a small domed
  * cap with a finial (photos from Jaffa Gate). Self-lit with the sun on the left.
@@ -102,29 +71,28 @@ export function TowerOfDavid({ h, night }: BuildingProps) {
   </>
 }
 
-/** Ashlar joints per course (x, top y): irregular, so the wall reads as laid stone, not a ruled grid. */
-const JOINTS: [number, number][] = [[-7, -1.5], [-3.6, -1.5], [.5, -1.5], [5.2, -1.5], [-5.4, -3], [-1.2, -3],
-  [2.9, -3], [7.1, -3], [-6.8, -5], [-2.9, -5], [1.6, -5], [4.4, -5]]
+/** Courses bottom-up (height, joint offset): big Herodian ashlars below, the smaller later courses above. */
+const COURSES: [number, number][] = [[1.9, 0], [1.9, 2.1], [1.7, .9], [1.3, 2.6], [1.1, 1.4], [1.1, .3]]
 
 /**
- * Western Wall / Temple Mount retaining wall with the Dome of the Rock above: blue-tiled octagon, drum, gilded dome
- * (slightly pointed) and finial. The wall shows its huge Herodian courses (photos from the plaza). Wall and dome are
- * floodlit at night, so the gold and the wall stay bright.
+ * Western Wall: the Temple Mount retaining wall, huge Herodian courses at the bottom and smaller ones above, caper
+ * bushes growing from the joints (photos from the plaza). Floodlit at night, so the stone stays bright.
  */
-export function WallAndDome({ h, night }: BuildingProps) {
-  const dome = -h + 1.6
+export function WesternWall({ h, night }: BuildingProps) {
+  const rows = COURSES.map(([height, offset], i) => ({
+    y: -COURSES.slice(0, i + 1).reduce((sum, [rise]) => sum + rise, 0), height, offset,
+  })).filter((row) => row.y >= -h - .1)
+  const wallTop = rows.at(-1)!.y
   return <>
-    <rect className={night ? styles.lit : styles.wall} x={-9} y={-5} width={18} height={5} />
-    {[-1.5, -3].map((y) => <rect key={y} className={styles.shade} x={-9} y={y - .25} width={18} height={.5}
-      opacity={.6} />)}
-    {JOINTS.map(([x, y]) => <rect key={`${x}${y}`} className={styles.shade} x={x} y={y} width={.4}
-      height={y === -5 ? 1.75 : 1.25} opacity={.45} />)}
-    <rect className={styles.green} x={-6} y={-4.6} width={1.2} height={.6} />
-    <rect className={styles.panel} x={-4.5} y={-9} width={9} height={4} />
-    <rect className={styles.wall} x={-4.5} y={-9.6} width={9} height={.8} />
-    <rect className={styles.panel} x={-2.9} y={-11} width={5.8} height={1.6} />
-    <path className={styles.gold} d={`M-3.1 -11Q-3.3 ${dome + 1.2} 0 ${dome}Q3.3 ${dome + 1.2} 3.1 -11z`} />
-    <rect className={styles.gold} x={-.35} y={-h} width={.7} height={1.8} />
-    {night && [-3.2, -.75, 1.7].map((x) => <rect key={x} className={styles.win} x={x} y={-8} width={1.5} height={2} rx={.6} />)}
+    <rect className={night ? styles.lit : styles.wall} x={-9} y={wallTop} width={18} height={-wallTop} />
+    <rect className={styles.lit} x={-9} y={wallTop} width={18} height={.6} />
+    {rows.slice(1).map((row) => <rect key={row.y} className={styles.shade} x={-9} y={row.y + row.height - .2}
+      width={18} height={.4} opacity={.55} />)}
+    {rows.flatMap((row) => Array.from({ length: 5 }, (_, i) => -8.6 + row.offset + i * (3 + row.height))
+      .filter((x) => x < 8.6).map((x) => <rect key={`${row.y}${x}`} className={styles.shade} x={x} y={row.y}
+        width={.4} height={row.height} opacity={.4} />))}
+    <rect className={styles.green} x={-6} y={-6.9} width={1.3} height={.7} />
+    <rect className={styles.green} x={3.6} y={-5.2} width={1} height={.6} />
+    <rect className={styles.green} x={-1.5} y={-8.3} width={.9} height={.5} />
   </>
 }
