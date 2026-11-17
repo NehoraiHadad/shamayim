@@ -25,7 +25,7 @@ export function WeekList({ forecast, now }: Props) {
 
   return (
     <section className={styles.week} aria-labelledby="week-title">
-      <h2 id="week-title" className={styles.title}>7 הימים הקרובים</h2>
+      <h2 id="week-title" className={styles.title}>השבוע הקרוב</h2>
       <ol className={styles.list}>
         {week.map((d, i) => {
           const isToday = d.date === today

@@ -1,14 +1,13 @@
-/** Data attribution (required by the Open-Meteo and CAMS licences) and how the forecast is made. */
+import styles from './Attribution.module.css'
+
 export function Attribution({ withAir }: { withAir: boolean }) {
   return (
-    <footer className="attribution">
+    <footer className={styles.attribution}>
       נתונים:{' '}
       <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
-      {' · '}DWD ICON · ECMWF{withAir ? ' · CAMS' : ''}
+      {', '}DWD ICON, ECMWF{withAir ? ', CAMS' : ''}
       <br />
-      התחזית משלבת שני מודלים; כשהם חלוקים היום מסומן "לא ודאי".
-      <br />
-      הימים השישי והשביעי הם מגמה, פחות ודאיים.
+      התחזית משלבת שני מודלים אירופיים. כשהם לא מסכימים, היום מסומן ״עשוי להשתנות״. מהיום השישי והלאה זו הערכה כללית בלבד.
     </footer>
   )
 }

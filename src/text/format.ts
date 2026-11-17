@@ -22,23 +22,14 @@ export function formatProb(p: number): string {
   return `${Math.round(p / 10) * 10}%`
 }
 
-/** "עודכן לפני 5 דק׳" / "עודכן לפני 3 שע׳" / "עודכן עכשיו". */
-export function updatedAgo(fetchedAt: number, now = Date.now()): string {
-  const min = Math.max(0, Math.round((now - fetchedAt) / 60000))
-  if (min < 1) return 'עודכן עכשיו'
-  if (min < 60) return `עודכן לפני ${min} דק׳`
-  const h = Math.round(min / 60)
-  return h === 1 ? 'עודכן לפני שעה' : `עודכן לפני ${h} שע׳`
-}
-
 /** UV index → Hebrew band (WHO scale). */
 export function uvLabel(uv: number): string {
   const n = Math.round(uv)
-  if (n <= 2) return `${n} · נמוך`
-  if (n <= 5) return `${n} · בינוני`
-  if (n <= 7) return `${n} · גבוה`
-  if (n <= 10) return `${n} · גבוה מאוד`
-  return `${n} · קיצוני`
+  if (n <= 2) return `נמוכה (${n})`
+  if (n <= 5) return `בינונית (${n})`
+  if (n <= 7) return `גבוהה (${n})`
+  if (n <= 10) return `גבוהה מאוד (${n})`
+  return `קיצונית (${n})`
 }
 
 /** PM10 (µg/m³) → air description, using the dust thresholds. */

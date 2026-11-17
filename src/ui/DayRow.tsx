@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { THRESHOLDS as T } from '../config/thresholds'
 import { conditionLabel, conditionOf } from '../domain/conditions'
 import type { DayPoint } from '../domain/types'
@@ -22,6 +22,22 @@ interface Props {
 }
 
 export function DayRow({ day, name, index, scaleMin, scaleMax, isToday, nowTemp, open, onToggle, detail }: Props) {
+  const [hasOpened, setHasOpened] = useState(open)
+  const itemRef = useRef<HTMLLIElement>(null)
+  useEffect(() => {
+    if (!open) return
+    requestAnimationFrame(() => {
+      const item = itemRef.current
+      if (item && item.getBoundingClientRect().bottom > window.innerHeight) {
+        const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+        item.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' })
+      }
+    })
+  }, [open])
+  const toggle = () => {
+    if (!open) setHasOpened(true)
+    onToggle()
+  }
   const kind = conditionOf(day.weatherCode)
   const prob = day.precipProbMax ?? 0
   const showProb = prob >= T.showRainProb
@@ -32,14 +48,15 @@ export function DayRow({ day, name, index, scaleMin, scaleMax, isToday, nowTemp,
     `מקסימום ${formatTemp(day.tempMax)}`,
     `מינימום ${formatTemp(day.tempMin)}`,
     showProb ? `סיכוי לגשם ${formatProb(prob)}` : '',
-    uncertain ? 'תחזית פחות ודאית' : '',
+    uncertain ? (day.lowConfidence ? 'הערכה' : 'עשוי להשתנות') : '',
   ].filter(Boolean).join(', ')
   const detailId = `day-${day.date}`
 
   return (
     <li
       className={`${styles.item} ${isToday ? styles.today : ''} ${open ? styles.open : ''}`}
-      style={{ animationDelay: `${120 + index * 45}ms` }}
+      style={{ '--i': index } as CSSProperties}
+      ref={itemRef}
     >
       <button
         type="button"
@@ -47,12 +64,13 @@ export function DayRow({ day, name, index, scaleMin, scaleMax, isToday, nowTemp,
         aria-expanded={open}
         aria-controls={detailId}
         aria-label={summary}
-        onClick={onToggle}
+        onClick={toggle}
       >
         <span className={styles.name} aria-hidden="true">
           <span className={styles.day}>{name}</span>
           <span className={styles.date}>
-            {uncertain ? <span className={styles.tag}>{day.lowConfidence ? 'מגמה' : 'לא ודאי'}</span> : <bdi>{shortDate(day.date)}</bdi>}
+            <bdi>{shortDate(day.date)}</bdi>
+            {uncertain && <span className={styles.tag}>{day.lowConfidence ? 'הערכה' : 'עשוי להשתנות'}</span>}
           </span>
         </span>
         <span className={styles.cond} aria-hidden="true">
@@ -61,15 +79,16 @@ export function DayRow({ day, name, index, scaleMin, scaleMax, isToday, nowTemp,
         </span>
         <span className={styles.range} dir="ltr" aria-hidden="true">
           <span className={styles.min}>{formatTemp(day.tempMin)}</span>
-          <RangeBar min={day.tempMin} max={day.tempMax} scaleMin={scaleMin} scaleMax={scaleMax} now={nowTemp} />
+          <RangeBar min={day.tempMin} max={day.tempMax} scaleMin={scaleMin} scaleMax={scaleMax}
+            now={nowTemp} spreadMin={day.spread.tempMin} spreadMax={day.spread.tempMax} />
           <span className={styles.max}>{formatTemp(day.tempMax)}</span>
         </span>
-        <svg className={styles.chevron} viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <svg className={styles.chevron} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
           <path d="M4 6l4 4 4-4" />
         </svg>
       </button>
-      <div id={detailId} className={styles.panel} hidden={!open}>
-        {open && detail}
+      <div id={detailId} className={`${styles.panel} ${open ? styles.panelOpen : ''}`} inert={!open ? true : undefined}>
+        <div className={styles.panelInner}><div className={styles.panelContent}>{hasOpened && detail}</div></div>
       </div>
     </li>
   )

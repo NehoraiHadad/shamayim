@@ -15,9 +15,9 @@ interface Props {
 }
 
 const CONFIDENCE_TEXT = {
-  high: 'המודלים מסכימים',
-  medium: 'הבדלים קלים בין המודלים',
-  low: 'המודלים חלוקים, תחזית פחות ודאית',
+  high: 'תחזית יציבה',
+  medium: 'ייתכנו שינויים קלים',
+  low: 'תחזית לא יציבה, כדאי לבדוק שוב מחר',
 } as const
 
 /** Expanded day: that day's hours plus the numbers behind the row. */
@@ -27,25 +27,24 @@ export function DayDetail({ day, forecast, now, nextDate }: Props) {
   const slots = buildTimeline(forecast, from, to, now, 2)
   const prob = day.precipProbMax ?? 0
   const confidence = day.confidence ?? (day.lowConfidence ? 'low' : 'high')
-  const tiles = [
-    { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)} · ${mm(day.precipSum)}` : 'לא צפוי' },
-    { label: 'משבי רוח', value: `עד ${Math.round(day.windGustsMax)} קמ״ש` },
-    { label: 'זריחה', value: <bdi>{clockOf(day.sunrise)}</bdi> },
-    { label: 'שקיעה', value: <bdi>{clockOf(day.sunset)}</bdi> },
+  const facts = [
+    { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)}, כ־${mm(day.precipSum)}` : 'לא צפוי' },
+    { label: 'רוח', value: `משבים עד ${Math.round(day.windGustsMax)} קמ״ש` },
+    { label: 'אור יום', value: <bdi>{clockOf(day.sunrise)}–{clockOf(day.sunset)}</bdi> },
   ]
   const air = (forecast.air ?? []).filter((a) => a.time.startsWith(day.date))
   const uv = air.map((a) => a.uv).filter((v): v is number => v !== null)
   const pm = air.filter((a) => a.time >= day.sunrise && a.time <= day.sunset)
     .map((a) => a.pm10).filter((v): v is number => v !== null)
-  if (uv.length) tiles.push({ label: 'קרינת UV', value: uvLabel(Math.max(...uv)) })
-  if (pm.length) tiles.push({ label: 'איכות אוויר', value: airLabel(Math.max(...pm), T.dust.light, T.dust.heavy) })
+  if (uv.length) facts.push({ label: 'קרינת UV', value: uvLabel(Math.max(...uv)) })
+  if (pm.length) facts.push({ label: 'אוויר', value: airLabel(Math.max(...pm), T.dust.light, T.dust.heavy) })
 
   return (
     <div className={styles.detail}>
-      {slots.length > 1 && <HourlyStrip slots={slots} label="לפי שעות" tone="sheet" />}
-      <dl className={styles.tiles}>
-        {tiles.map((t) => (
-          <div key={t.label} className={styles.tile}>
+      {day.date !== now.slice(0, 10) && slots.length > 1 && <HourlyStrip slots={slots} label="לפי שעות" tone="sheet" />}
+      <dl className={styles.facts}>
+        {facts.map((t) => (
+          <div key={t.label} className={styles.fact}>
             <dt>{t.label}</dt>
             <dd>{t.value}</dd>
           </div>

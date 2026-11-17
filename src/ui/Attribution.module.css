@@ -1,0 +1,14 @@
+.attribution {
+  flex: 1;
+  margin: 0 -16px;
+  padding: 18px 20px calc(env(safe-area-inset-bottom) + 24px);
+  border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
+  background: var(--sheet);
+  color: var(--sheet-muted);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  transition: background-color 520ms, color 520ms;
+}
+
+.attribution a { color: inherit; }

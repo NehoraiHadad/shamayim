@@ -1,0 +1,50 @@
+.state {
+  display: grid;
+  gap: 14px;
+  padding-top: 32px;
+}
+
+.title {
+  margin: 0;
+  font: 500 1.5rem 'Frank Ruhl Libre', serif;
+}
+
+.text { margin: 0; opacity: 0.85; }
+
+.button {
+  min-height: 44px;
+  padding: 0 22px;
+  justify-self: start;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1c1a17;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.skeleton {
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  animation: pulse 1.4s ease-in-out infinite alternate;
+}
+
+.temp { width: 150px; height: 120px; }
+.line { width: 85%; height: 22px; }
+.short { width: 55%; }
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes pulse { to { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}

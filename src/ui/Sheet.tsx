@@ -5,7 +5,6 @@ import styles from './Sheet.module.css'
 export function Sheet({ children }: { children: ReactNode }) {
   return (
     <div className={styles.sheet}>
-      <div className={styles.handle} aria-hidden="true" />
       {children}
     </div>
   )

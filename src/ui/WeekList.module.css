@@ -1,12 +1,9 @@
-.week {
-  margin-top: 18px;
-}
+.week { margin-top: 0; }
 
 .title {
-  margin: 0 4px 4px;
+  margin: 0 0 4px;
   font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
   color: var(--sheet-muted);
 }
 

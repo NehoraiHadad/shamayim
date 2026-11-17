@@ -1,23 +1,26 @@
-/** Loading and error placeholders for the first load (no cached data yet). */
+import { useEffect } from 'react'
+import styles from './States.module.css'
 
 export function LoadingState() {
   return (
-    <div className="state" role="status" aria-live="polite">
-      <div className="skeleton skeleton-temp" />
-      <div className="skeleton skeleton-line" />
-      <div className="skeleton skeleton-line short" />
-      <span className="visually-hidden">טוען את התחזית…</span>
+    <div className={styles.state} role="status" aria-live="polite">
+      <div className={`${styles.skeleton} ${styles.temp}`} />
+      <div className={`${styles.skeleton} ${styles.line}`} />
+      <div className={`${styles.skeleton} ${styles.line} ${styles.short}`} />
+      <span className={styles.visuallyHidden}>מביאים את התחזית…</span>
     </div>
   )
 }
 
 export function ErrorState({ message, onRetry }: { message: string | null; onRetry: () => void }) {
+  useEffect(() => {
+    if (message) console.error(message)
+  }, [message])
   return (
-    <div className="state" role="alert">
-      <p className="state-title">לא הצלחנו להביא את התחזית</p>
-      <p className="state-text">בדקו את החיבור לאינטרנט ונסו שוב.</p>
-      {message && <p className="state-detail" dir="ltr">{message}</p>}
-      <button type="button" className="state-button" onClick={onRetry}>נסו שוב</button>
+    <div className={styles.state} role="alert">
+      <p className={styles.title}>אין תחזית כרגע</p>
+      <p className={styles.text}>לא הצלחנו להתחבר. בדקו את הרשת ונסו שוב.</p>
+      <button type="button" className={styles.button} onClick={onRetry}>לנסות שוב</button>
     </div>
   )
 }
