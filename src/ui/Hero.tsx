@@ -32,7 +32,7 @@ export function Hero({ current }: { current: CurrentWeather }) {
         </span>
       </p>
       <div className={styles.meta} data-intro="cond">
-        <WeatherIcon kind={kind} isDay={current.isDay} size={40} className={styles.icon} decorative />
+        <WeatherIcon kind={kind} isDay={current.isDay} size={32} className={styles.icon} decorative />
         <p className={styles.condition}>{conditionLabel(kind, current.isDay)}</p>
         {line && <p className={styles.line}>{line}</p>}
       </div>

@@ -8,7 +8,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 |---|---|---|
 | Sun arc | **Deleted**, not shrunk. The sun now appears in three places: the valley scene, a thin marker in the hourly strip, and an "אור יום" row in the day detail. | The owner's complaint. It used about 125 px to repeat two times shown elsewhere. |
 | Signature moment | **Valley cross-section**, from Fable: Samaria in the west (left), the Gilead in the east (right), a dashed sea-level line above the village at ‎−175 מ׳, and the real sun moving behind the ridges. | This is the one place to be bold. It replaces the ridge, the arc and the depth chip. Codex's "now disc" idea is dropped. |
-| Hero | Temperature in Karantina at **128 px** (Fable suggested 142, Codex 104). A 40 px condition icon sits in the empty quadrant. Condition label 24 px serif. One secondary line: feels-like when it differs by 2° or more, else gusts when they reach 20 km/h or more, else nothing. The ↑max ↓min line is dropped. | Shows each number once. The sentence already gives the maximum. |
+| Hero | Temperature in Karantina at **112 px** (Fable suggested 142, Codex 104). The 32 px condition icon and the 20 px serif condition label sit right beside the digits, start-aligned on their baseline (not centred in the leftover width). One secondary line: feels-like when it differs by 2° or more, else gusts when they reach 20 km/h or more, else nothing. The ↑max ↓min line is dropped. | Shows each number once. The sentence already gives the maximum. |
 | Top bar | Place name on one line in 20 px serif, with "בקעת הירדן" beneath it in 13 px. Status pill has a 44 px hit area. Depth chip removed. | Frees about 30 px. |
 | Hourly strip | About 120 px tall. Sun events become a 1 px marker between hours. The probability row collapses when the window has no rain. A midnight divider carries the weekday. Tap an hour to select it: a readout line appears and the sun in the scene moves to that hour. Arrow keys work. | Clearer rhythm; makes the strip and the scene work together. |
 | Sheet | No handle. Paper tinted per theme, with a new `sheetAccent` token. Dusk gets a plum sheet. The wear note has no box: a 3 px inline-start rule and 18 px serif text. Rows are 56 px with hairlines. The open day sits in a well with radius 16. Facts are a two-column list. | Gets rid of the "identical cards" look. |
@@ -21,7 +21,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 
 ```
   0  place 20px serif / בקעת הירדן 13px          (⟳ לפני 10 דק׳)
- 74  128px temperature          ☁ 40px  /  מעונן חלקית 24px  /  מרגיש כמו 27°
+ 74  112px temperature  ☁ 32px / מעונן חלקית 20px / מרגיש כמו 27°   (open sky)
 210  sentence, 24px serif, 1–3 lines
 290  hourly strip, 120px  (selection readout line when an hour is tapped)
 418  VALLEY SCENE, 128px (the sheet overlaps the lowest 20px)
@@ -30,7 +30,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 
 ## 3. Tokens (`src/ui/tokens.css`)
 
-- Type: 128/0.82 Karantina. 24/1.32, 18/1.4 and 20 Frank Ruhl Libre. 15/1.45, 13/1.4 and 11/1.3 Assistant. Numerals are tabular.
+- Type: 112/0.82 Karantina. 24/1.32, 18/1.4 and 20 Frank Ruhl Libre. 15/1.45, 13/1.4 and 11/1.3 Assistant. Numerals are tabular.
 - Space: 4, 8, 12, 16, 24, 32. Gutter 20 px in both the sky area and the sheet.
 - Radius: sheet 28, well 16, selected slot 12, pill 999. Nothing else is rounded.
 - Easing:

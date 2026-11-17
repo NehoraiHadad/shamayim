@@ -1,7 +1,6 @@
 .hero {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
   gap: var(--space-4);
   margin-top: var(--space-3);
 }
@@ -30,19 +29,21 @@
   transition: color var(--d6) var(--ease-in-out);
 }
 
-/* The supporting column fills what was an empty quadrant beside the digits. */
+/* The condition belongs to the number, so it sits right beside it (proximity), start-aligned and resting on the
+   digits' baseline, instead of floating centred in whatever width is left. The open sky past it is left empty on
+   purpose: it is where the sun and the air are drawn. */
 .meta {
-  flex: 1;
   min-width: 0;
   display: grid;
-  justify-items: center;
-  gap: var(--space-1);
-  padding-bottom: var(--space-2);
-  text-align: center;
+  justify-items: start;
+  gap: 2px;
+  padding-bottom: var(--space-1);
+  text-align: start;
 }
 
 .icon {
   margin-bottom: var(--space-1);
+  margin-inline-start: -2px; /* optical: the glyph's stroke box is inset from its viewBox */
   fill: none;
   stroke: currentColor;
   stroke-width: 1.4;
@@ -54,8 +55,8 @@
   margin: 0;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: var(--text-xl);
-  line-height: 1.1;
+  font-size: var(--text-place);
+  line-height: 1.15;
 }
 
 .line {
