@@ -88,10 +88,20 @@ Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, f
 - [ ] Optional: custom domain; Cloudflare Web Analytics
 - Later services fit here: Pages Functions / Workers (API proxy, IMS warnings, push), KV/D1, Cron Triggers
 
-## Next: landmarks (proposed, not started)
-- Real landmarks on the cross-section at their true west–east position (curated list for known cities,
-  OSM/Overpass towers, bridges, water towers, minarets, churches for small places); weather gives them life
-  (lit windows at night, flags in wind, wet sheen in rain, snow caps). Design first (Fable), then Codex.
+## v6 — landmarks — 2026-11-17
+Design: `docs/design/LANDMARKS.md` (Fable). Built by Codex (sol) in `feat/landmarks`, two rounds; verified and merged here.
+- [x] Curated marks at true west–east positions: Jerusalem (Chords Bridge, YMCA, Tower of David, Wall + Dome),
+      Tel Aviv (Shalom Meir, Reading, Sarona, Azrieli), Haifa (Báb, Dagon, Sail, refinery cooling towers),
+      Shadmot (Mehola palms, homes + hall, solar field, orchard)
+- [x] OSM/Overpass marks elsewhere (idle-time, cached 30 days, mirror fallback) + populated-place homes; ODbL credit
+- [x] Scene split: ridges stretch, marks keep their aspect; spacing in viewBox units; dense curated clusters overlap ≤30%
+- [x] Weather life: lit windows (night/storm/haze), aviation light ≥60 m, lights outlast walls in fog, far marks hidden
+      in thick fog, palm lean + 20 s sway in light dry wind, turbines; reduced motion → static
+- [x] Fixed: "פני הים" label now over the sea side (west/east), Shadmot unchanged
+- [x] Verified (Chrome): all four places by day, Jerusalem at night
+- [ ] Gaps: Haifa "69 מ׳" label touches the Dagon silo; OSM path not yet seen live on a small place; some curated
+      heights unverified (YMCA, Tower of David, Azrieli Sarona); Haifa cooling towers' current existence unconfirmed
+- [ ] Deferred: snow caps (with a ridge snow line); gust-triggered re-sway
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
