@@ -103,6 +103,20 @@ Design: `docs/design/LANDMARKS.md` (Fable). Built by Codex (sol) in `feat/landma
       heights unverified (YMCA, Tower of David, Azrieli Sarona); Haifa cooling towers' current existence unconfirmed
 - [ ] Deferred: snow caps (with a ridge snow line); gust-triggered re-sway
 
+## v6.1 — place detection — 2026-11-17
+Brief: `docs/briefs/place-detection.md`. Codex (sol), merged `feat/place-detection`.
+- [x] Search = Open-Meteo + Nominatim in parallel (Open-Meteo/GeoNames has no Gush Etzion places; כרמי צור now found)
+- [x] Settlement homes always drawn at the centre (PPL* or Nominatim village/town/city), alongside OSM marks
+- [x] Overpass: 3 hosts, 12 s timeout each, failure remembered 1 h, empty answer cached 30 days
+- [x] Curated data checked online with sources in comments: Báb 11 m, Dagon 65 m (moved), Shalom 142 m,
+      one Bazan cooling tower; YMCA / Tower of David / Dome top / Reading chimney heights still unverified
+- [ ] Homes on כרמי צור are 12×6 px, ridge-coloured, under the village dot → invisible. Fix in illustration round.
+- [ ] Overpass public servers at capacity (overpass-api.de says "at capacity… automated use: run your own";
+      mirrors time out). A server proxy counts as automated use → plan: monthly static Israel landmark file built
+      from the Geofabrik extract (GitHub Action), Overpass only for places abroad. Brief draft (proxy variant):
+      `docs/briefs/landmarks-proxy.md` — rewrite before use.
+- [ ] Illustration upgrade: Fable critique + glyph redesign (houses that read, real silhouettes per place)
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
