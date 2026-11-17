@@ -11,7 +11,8 @@
   --font-digits: 'Karantina', 'Assistant', sans-serif;
   --font-serif: 'Frank Ruhl Libre', serif;
   --font-sans: 'Assistant', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --text-hero: 8rem;
+  /* 128 px on a phone; shrinks with the viewport so 200% text still fits beside the icon. */
+  --text-hero: clamp(5rem, 30vw, 8rem);
   --text-xl: 1.5rem;
   --text-place: 1.25rem;
   --text-lg: 1.125rem;
@@ -32,6 +33,18 @@
   --d4: 520ms;
   --d5: 900ms;
   --d6: 1600ms;
+
+  /* Text colours that sit beside the theme tokens (checked by src/theme/contrast.test.ts). */
+  --sky-rain: #E8F9FF; /* rain % on every theme's --sky-mid */
+  --sheet-rain: #17607A; /* rain % on the light papers */
+  --sheet-curve: #C98A1E; /* temperature line on paper (a mark, not text) */
+  --sheet-sun: #8A5A00; /* sunrise/sunset times on paper */
+}
+
+.dark-sheet {
+  --sheet-rain: #7FD3EE;
+  --sheet-curve: #F2C46B;
+  --sheet-sun: #F2C46B;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,14 +1,23 @@
 .attribution {
   flex: 1;
   margin: 0 -16px;
-  padding: 18px 20px calc(env(safe-area-inset-bottom) + 24px);
+  padding: 18px var(--gutter) calc(env(safe-area-inset-bottom) + var(--space-5));
   border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
   background: var(--sheet);
   color: var(--sheet-muted);
   text-align: center;
   font-size: 0.75rem;
   line-height: 1.6;
-  transition: background-color 520ms, color 520ms;
+  transition: background-color var(--d4), color var(--d4);
 }
 
 .attribution a { color: inherit; }
+
+/* Each source on its own line, so a label never wraps away from its value. */
+.sources {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.note { margin: 0; }

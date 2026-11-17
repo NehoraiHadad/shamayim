@@ -24,14 +24,15 @@ export function Hero({ current }: { current: CurrentWeather }) {
 
   return (
     <section className={styles.hero} aria-label="מזג האוויר עכשיו">
-      <p className={styles.temp} aria-label={`${Math.round(current.temperature)} מעלות`}>
+      <p className={styles.temp}>
+        <span className="visually-hidden">{Math.round(current.temperature)} מעלות</span>
         <span className={styles.digits} data-intro="digits" aria-hidden="true">
-          <bdi>{formatTemp(temp, false)}</bdi>
+          {formatTemp(temp, false)}
           <span className={styles.degree}>°</span>
         </span>
       </p>
       <div className={styles.meta} data-intro="cond">
-        <WeatherIcon kind={kind} isDay={current.isDay} size={40} className={styles.icon} />
+        <WeatherIcon kind={kind} isDay={current.isDay} size={40} className={styles.icon} decorative />
         <p className={styles.condition}>{conditionLabel(kind, current.isDay)}</p>
         {line && <p className={styles.line}>{line}</p>}
       </div>

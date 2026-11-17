@@ -1,12 +1,12 @@
 .card {
-  margin-bottom: 24px;
-  padding-inline-start: 12px;
+  margin-bottom: var(--space-5);
+  padding-inline-start: var(--space-3);
   border-inline-start: 3px solid var(--sheet-accent);
 }
 
 .title {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
   font-weight: 600;
   color: var(--sheet-muted);
@@ -14,9 +14,8 @@
 
 .text {
   margin: 2px 0 0;
-  font-family: 'Frank Ruhl Libre', serif;
+  font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
   line-height: 1.4;
 }
-

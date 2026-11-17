@@ -9,13 +9,9 @@
 }
 
 .sheet {
-  --curve: #C98A1E;
+  --curve: var(--sheet-curve);
   color: var(--sheet-ink);
   margin: var(--space-1) -8px 0;
-}
-
-:global(.dark-sheet) .sheet {
-  --curve: #F2C46B;
 }
 
 .scroller {
@@ -100,18 +96,22 @@ button.slot:focus-visible {
   background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
+@media (forced-colors: active) {
+  .selected { outline: 2px solid Highlight; outline-offset: -2px; }
+}
+
+/* Full-strength ink for contrast; "now" and the picked hour stand out by weight. */
 .hour {
-  height: 18px;
+  min-height: 18px;
   font-size: var(--text-sm);
   line-height: 18px;
-  opacity: 0.8;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .now .hour,
 .selected .hour {
-  opacity: 1;
   font-weight: 600;
 }
 
@@ -129,16 +129,15 @@ button.slot:focus-visible {
 }
 
 .prob {
-  height: 14px;
+  min-height: 14px;
   font-size: var(--text-xs);
   line-height: 14px;
   font-weight: 600;
-  color: #A8E6F8;
+  color: var(--sky-rain);
   font-variant-numeric: tabular-nums;
 }
 
-.sheet .prob { color: #1F6F8E; }
-:global(.dark-sheet) .sheet .prob { color: #7FD3EE; }
+.sheet .prob { color: var(--sheet-rain); }
 
 .temp {
   position: absolute;
@@ -147,4 +146,9 @@ button.slot:focus-visible {
   font-size: var(--text-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* A soft halo in the mid-sky colour keeps sky text legible should it drift toward the pale horizon. */
+.sky :is(.hour, .prob, .temp) {
+  text-shadow: 0 0 6px var(--sky-mid), 0 0 2px var(--sky-mid);
 }
