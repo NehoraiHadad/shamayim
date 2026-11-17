@@ -58,6 +58,28 @@ Spec: `docs/design/ATMOSPHERE.md` (merged from `atmo-codex.md` + `atmo-fable.md`
 - [ ] Not verified: reduced-motion still and CSS fallback on a device; frame times on a real phone
 - [ ] Deferred: anidoodle-painted ridge plates (same 375×128 contract) — out of v4 scope
 
+## v5 — any place + life on calm days — 2026-11-17
+Briefs: `docs/briefs/location.md`, `docs/briefs/calm-life.md`. Design: `docs/design/CALM-LIFE.md` (Fable).
+Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, fixed and merged here.
+- [x] `usePlace`: current + 4 recent places in localStorage; the place you leave joins the recents
+- [x] Place picker (tap the place name): GPS ("המיקום שלי"), Open-Meteo geocoding search (he, debounced,
+      aborts stale), recents; opens fresh each time
+- [x] Terrain: 41 Open-Meteo elevation samples ±12 km (near) / ±30 km (far), cached per place
+      (`shamayim:terrain:v1:<id>`), smoothed + Catmull-Rom curves; generic hills while loading/failing;
+      Shadmot keeps its hand-drawn ridges. Sea line only below 50 m or with sea at a profile edge
+- [x] Forecast and cache keyed by place id; timezone follows the place
+- [x] Calm life (`src/atmo/life/`): crane V / stork skeins (migration windows), swifts (Mar–Jun dusk),
+      thermal raptor (hot noon), meteors on shower peaks; one event at a time via Web Animations, GL loop
+      stays asleep; mist band (humid still mornings); 30 s wind-driven star twinkle; reduced motion → mist only
+- [x] Fixed in review: RTL `inset-inline-start` sent every flight off-screen; lanes were always dimmed to
+      α .4 because `[data-air-band]` covers the whole sky — lanes now hang off the scene top
+- [x] Dev override `?wx=hum:96` for mist QA
+- [x] Verified (Chrome): Jerusalem (792 m, real ridges), Tel Aviv (11 m, sea west), back to Shadmot unchanged;
+      crane V crossing today (17.11), meteor + twinkle at night, mist at 07:00
+- [ ] Not verified: GPS on a phone; swifts/storks/raptor by eye (only by tests); mist band height on
+      sampled (non-Shadmot) terrain uses the fixed y 72–105 band
+- [ ] Next: climate-relative thresholds (what is "hot"/"windy" depends on the place), place-aware sentences
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
@@ -66,5 +88,6 @@ Spec: `docs/design/ATMOSPHERE.md` (merged from `atmo-codex.md` + `atmo-fable.md`
 
 ## Next (proposed)
 - IMS (Israel Meteorological Service) warnings
-- Radar (RainViewer tiles), place search / GPS, Capacitor wrap
+- Radar (RainViewer tiles), Capacitor wrap
+- Deploy: Cloudflare Pages (static `dist`, `_headers` for sw.js) — waiting for the go-ahead
 - Verify blend weights against observed station data (IMS station near Shadmot Mehola / Tirat Zvi)
