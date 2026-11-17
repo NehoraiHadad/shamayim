@@ -1,6 +1,8 @@
 import type { Place } from '../../config/place'
 import { offsetKm } from './project'
+import { seeded } from './hash'
 import { seat } from './seat'
+import { terraceLine } from './terraces'
 import type { Landmark } from './types'
 
 /** The place's own houses, composed as one cluster draped over the crest (docs/design/ILLUSTRATION.md §4). */
@@ -20,14 +22,20 @@ export interface Settlement {
 
 const ROWS: Record<SettlementSize, number[]> = { small: [5, 4, 3], medium: [8, 7, 5], large: [10, 9, 7] }
 const HALF: Record<SettlementSize, number> = { small: 27, medium: 43, large: 62 }
-const PITCH: Record<SettlementStyle, number> = { tile: 9, 'flat-hill': 7, 'flat-desert': 7, blocks: 8 }
-const ROW_STEP: Record<SettlementStyle, number> = { tile: 5.5, 'flat-hill': 4, 'flat-desert': 6, blocks: 5.5 }
+const PITCH: Record<SettlementStyle, number> = { tile: 9, 'flat-hill': 7, 'flat-desert': 7, blocks: 6.5 }
+const ROW_STEP: Record<SettlementStyle, number> = { tile: 5.5, 'flat-hill': 4, 'flat-desert': 6, blocks: 4.5 }
+/**
+ * How far a house's ground may rise above / fall below the dot (px): houses spread along the contour near the crest
+ * instead of running down a steep face in a staircase. Desert towns stay on the plateau rim.
+ */
+const REACH: Record<SettlementStyle, { up: number; down: number }> = { tile: { up: 14, down: 12 },
+  'flat-hill': { up: 14, down: 12 }, 'flat-desert': { up: 5, down: 5 }, blocks: { up: 22, down: 12 } }
 const DOT_R = 5.5
 const LABEL_MAX = 116
 const LABEL_HALF = 23
-const RIM = 5
 
 export function settlementHalfWidth(size: SettlementSize) { return HALF[size] }
+export function settlementReach(style: SettlementStyle) { return REACH[style] }
 
 export function settlementStyle(place: Place, size: SettlementSize, marks: Landmark[]): SettlementStyle {
   /** Inside the place itself: neighbouring villages a kilometre away must not set the roofs. */
@@ -35,22 +43,10 @@ export function settlementStyle(place: Place, size: SettlementSize, marks: Landm
   const minarets = close.filter((mark) => mark.kind === 'minaret').length
   if (minarets >= 2 && !close.some((mark) => mark.kind === 'synagogue')) return 'flat-hill'
   if (place.lat < 31.25 || /נגב|ערבה|ים המלח/.test(place.regionHe)) return 'flat-desert'
-  if (size === 'large') return 'blocks'
+  /** A city (Umm al-Fahm, Tiberias) is concrete and stone blocks even under 50 000 people. */
+  if (size === 'large' || place.settlementType === 'city') return 'blocks'
   return 'tile'
 }
-
-export function seeded(seed: number) {
-  let state = seed >>> 0 || 1
-  return () => {
-    state = (state + 0x6D2B79F5) >>> 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-export function hashId(id: string) { return [...id].reduce((sum, char) => Math.imul(sum ^ char.charCodeAt(0), 16777619), 2166136261) }
 
 interface Input {
   style: SettlementStyle
@@ -61,17 +57,27 @@ interface Input {
   ground: (x: number) => number
   litShare: number
   seed: number
-  /** Absorbed buildings (px x and width): the skyline house in their slot gives way. */
-  absorbed?: { x: number; w: number }[]
+  /** Absorbed buildings (px x, width, base y): houses that would stand over or behind them give way. */
+  absorbed?: { x: number; w: number; base: number }[]
+  /** Lowest base a house may have: under it the sheet would cut the house to a stub. */
+  floor?: number
   /** Boxes no house may stand under (the sun-event caption), in px. */
   keepOut?: { left: number; right: number; top: number; bottom: number }[]
 }
 
+/** One storey of a block house in px (blocks.tsx draws a window row per storey). */
+export const STOREY = 2.8
+export const PARAPET = 1.5
+
 function dims(style: SettlementStyle, row: number, index: number, random: () => number) {
-  const shrink = row === 2 ? .85 : 1
+  const shrink = row >= 2 ? .85 : 1
   if (style === 'tile') return index % 3 === 2 ? { w: 9 * shrink, h: 7 * shrink } : { w: 7 * shrink, h: 6 * shrink }
   if (style === 'blocks') {
-    return row === 0 ? { w: 6 + random() * 3, h: 9 + random() * 6 } : { w: 6 + random() * 3, h: (7 + random() * 3) * shrink }
+    /** Two to four storeys, the odd five; widths from a narrow stair-house to a wide family block. */
+    const roll = random()
+    const storeys = roll < .35 ? 2 : roll < .8 ? 3 : roll < .97 ? 4 : 5
+    const fewer = row >= 2 && storeys > 2 ? 1 : 0
+    return { w: 5 + random() * 6, h: PARAPET + (storeys - fewer) * STOREY }
   }
   return { w: (6 + random() * 2) * shrink, h: (5 + random() * 3) * shrink }
 }
@@ -96,36 +102,37 @@ export function composeSettlement(input: Input): Settlement {
   const random = seeded(input.seed)
   const extra = Math.max(0, Math.floor((width - 375) / 120))
   const step = ROW_STEP[style]
-  let rows = ROWS[size].map((count) => count + extra)
+  /** On a steep face the town packs tighter and its terraces climb from the dot, a mass rather than a single file. */
+  const fall = ground(centerX + 8) - ground(centerX - 8)
+  const steep = Math.abs(fall) / 16 > .6
+  const pitch = PITCH[style] * (steep ? .6 : 1)
+  const lean = steep ? -Math.sign(fall) * pitch * 3 : 0
+  const counts = style === 'blocks' ? [...ROWS[size], ROWS[size][2] - 1] : ROWS[size]
+  let rows = counts.map((count) => count + extra)
   while (rows.length > 1 && centerY + 7 + step * (rows.length - 1) + 2 > LABEL_MAX) rows = rows.slice(0, -1)
   const underLabel = (left: number, right: number) => right > centerX - LABEL_HALF - 2 && left < centerX + LABEL_HALF + 2
   const houses: House[] = []
   const contours: string[] = []
   rows.forEach((count, row) => {
-    const xs = offsets(count, row, PITCH[style], random).map((offset) => centerX + offset)
+    const xs = offsets(count, row, pitch, random).map((offset) => centerX + offset + (row ? lean : 0))
     xs.forEach((x, index) => {
       const size = dims(style, row, index, random)
-      /** Desert towns sit on the plateau rim in level rows; nothing climbs down the cliff. */
-      if (style === 'flat-desert' && Math.abs(ground(x) - centerY) > RIM) return
+      const rise = ground(x) - centerY
+      if (rise > REACH[style].down || -rise > REACH[style].up) return
       const placed = seat(ground, x, size.w, row * step, true)
       if (!placed) return
       const house = { x, baseY: placed.baseY, w: placed.w, h: size.h + (row ? 0 : (random() - .5) * 2), row }
-      if (house.baseY - house.h < 4 || house.baseY > 127 || hitsDot(house, centerX, centerY)) return
+      if (house.baseY - house.h < 4 || house.baseY > (input.floor ?? 127) || hitsDot(house, centerX, centerY)) return
       if (input.keepOut?.some((box) => house.x + house.w / 2 > box.left - 2 && house.x - house.w / 2 < box.right + 2
         && house.baseY > box.top - 2 && house.baseY - house.h - 1.8 < box.bottom + 2)) return
-      if (row === 0 && input.absorbed?.some((mark) => Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1)) return
+      /** Houses round the absorbed hall stay no taller than it, so its minaret rises clear of the town. */
+      if (input.absorbed?.some((mark) => Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1
+        && house.baseY - house.h - 1.8 < mark.base - 6)) return
       houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
     })
     if (row > 0 && (style === 'tile' || style === 'blocks')) {
-      const span = (count - 1) / 2 * PITCH[style] + 5
-      let path = ''
-      let pen = 'M'
-      for (let x = centerX - span; x <= centerX + span; x += 2) {
-        const y = ground(x) + row * step + 1
-        if (underLabel(x, x) && y > centerY + 4) { pen = 'M'; continue }
-        path += `${pen}${x.toFixed(1)} ${y.toFixed(1)}`
-        pen = 'L'
-      }
+      const path = terraceLine(houses.filter((house) => house.row === row), (x) => ground(x) + row * step + 1,
+        (x, y) => (underLabel(x, x) && y > centerY + 4) || (style === 'blocks' && Math.floor(x / 10) % 2 !== row % 2))
       if (path) contours.push(path)
     }
   })

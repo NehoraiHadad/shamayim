@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { hashId } from '../../../data/landmarks/settlement'
+import { hashId } from '../../../data/landmarks/hash'
 import type { MarkLife, PlacedMark } from '../../../data/landmarks/types'
 import { CastShadow } from './generic/shadow'
 import { ContactShadow, LightRig, type LightSide } from './LightRig'

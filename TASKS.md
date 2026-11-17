@@ -171,6 +171,21 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [ ] Glyph follow-ups from the same critic: Azrieli round tower needs round shading; Western Wall stone courses
 - [ ] Regression stills for all 10 places; then merge to main
 
+- [x] Hill-town blocks ("מודבק" fix, Umm al-Fahm / Tiberias): `marks/blocks.tsx` draws a flat-roofed block of 2–5
+      storeys (`STOREY`/`PARAPET` in `settlement.ts`) with lit side, sky-lit parapet, a dark window row per storey by
+      day (lit by `litShare` at night), black tanks / heater / rebar; per-house wash (`.house` concrete, washed,
+      stone, basalt) and the crest row pulled toward the far ridge (`.recede`). Overcast (`.flat`): `.side` goes a step
+      darker and `.top` stays sky-lit, so houses keep two values (FlatRoof too). Layout: houses only where ground is
+      within `REACH` of the dot (blocks 22 up / 12 down, tile 14/12, desert 5/5); steep face (slope > .6) packs at
+      .6 pitch and leans the terraces uphill; nothing below the sheet (`floor`); retaining walls only under every
+      other stretch (`terraces.ts`). Cities (`settlementType: city`) take blocks even under 50 000
+- [x] Absorbed minaret (Umm al-Fahm): it was drawn in the `line` plane BEFORE the cluster, so lower rows painted over
+      it (only row 0 gave way) and it sat seated low on the steep west face. Now `hillScene.intoTown` slides it up to
+      the crest when its base falls below the houses' reach, houses round it stay under its roof (base − 6 px), and
+      HillMarks draws absorbed marks after the settlement. Stills `docs/design/qa/blocks-*.png`
+- [ ] Blocks follow-ups: Tiberias dot sits ~12 px above the sheet on a 1.3 slope, so its town is a small uphill
+      clump (terrain/dot placement, not the cluster); windows are sub-px at 1x; clear-day washes may read light
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

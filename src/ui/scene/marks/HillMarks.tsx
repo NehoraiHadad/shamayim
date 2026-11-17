@@ -28,7 +28,9 @@ export function HillMarks({ marks, settlement, width, layer = 'near', ...context
   const shared = { ...context, motion: motion.allowed, far }
   const toPx = (mark: PlacedMark) => mark.xPct / 100 * width
   const hill = far ? marks.filter((mark) => mark.layer === 'far' && specOf(mark)) : marks.filter(isHillMark)
-  const byPlane = (plane: string) => hill.filter((mark) => !isField(mark) && (far || planeOf(mark) === plane))
+  /** The place's own mosque or tower stands inside its cluster: drawn after the houses, in the gap they leave it. */
+  const byPlane = (plane: string) => hill.filter((mark) => !isField(mark)
+    && (far || (planeOf(mark) === plane && !mark.absorbed) || (plane === 'inside' && mark.absorbed)))
   const building = (mark: PlacedMark) => (
     <MarkBuilding key={`${mark.id}-${motion.generation}`} mark={mark} x={toPx(mark)} {...shared} />
   )
@@ -43,6 +45,7 @@ export function HillMarks({ marks, settlement, width, layer = 'near', ...context
       ))}
       {byPlane('face').map(building)}
       {settlement && <SettlementGlyph settlement={settlement} sunX={context.sunX} night={context.night} />}
+      {byPlane('inside').map(building)}
     </>}
   </svg>
 }
