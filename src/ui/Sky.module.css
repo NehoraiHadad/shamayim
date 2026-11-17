@@ -1,7 +1,12 @@
 /* Text sits on top/mid only; the light horizon colour is reserved for the valley scene (SPEC §5). */
+/* Scrolls with the page (not fixed), so the horizon, haze and clouds stay put behind the hill when it scrolls. */
 .sky {
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* The hero is content-sized (scene ends near 500px), so short landscape screens still need sky behind the hill. */
+  height: max(100lvh, 640px);
   z-index: -1;
   overflow: hidden;
   background: linear-gradient(
