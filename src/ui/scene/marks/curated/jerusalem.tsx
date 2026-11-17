@@ -40,27 +40,29 @@ export function ChordsBridge({ h }: BuildingProps) {
 
 /**
  * YMCA (1933, Harmon): a low limestone hall with a domed wing and the tall square bell tower (46 m, per data). The
- * tower is straight-sided, opens near its top in tall paired arches (the belfry) and ends in a small dome with a
- * finial (photos from King David St). Self-lit: lit west faces, shade on the east.
+ * tower is straight-sided, opens near its top in a tall arched belfry and ends in a small dome with a finial (photos
+ * from King David St). At 1x the belfry is one 2 px arch per face in the darkest tone, and a shade collar under the
+ * dome lets its lit cap stand off the tower. Self-lit: lit west faces, shade on the east.
  */
 export function Ymca({ h, night }: BuildingProps) {
-  const domeBase = -h + 2.6
-  const belfry = domeBase + .8
+  const domeBase = -h + 3
+  const belfry = domeBase + .9
   return <>
     <rect className={styles.wall} x={-7} y={-5} width={14} height={5} />
     <rect className={styles.lit} x={-7} y={-5} width={1.5} height={5} />
     <rect className={styles.shade} x={-7} y={-5} width={14} height={.5} opacity={.5} />
-    <Dome cx={-4.3} y={-5} r={2.1} />
-    <rect className={styles.wall} x={-2} y={belfry} width={4} height={-belfry} />
-    <rect className={styles.lit} x={-2} y={belfry} width={1.4} height={-belfry} />
-    <rect className={styles.shade} x={1.2} y={belfry} width={.8} height={-belfry} />
-    {/* Cornice under the belfry, then the paired arched openings. */}
-    <rect className={styles.shade} x={-2.3} y={belfry + 4.4} width={4.6} height={.6} />
-    {[-1.35, .35].map((x) => <path key={x} className={night ? styles.win : styles.shade}
-      d={`M${x} ${belfry + 3.8}v-2.4a.5 .5 0 0 1 1 0v2.4z`} />)}
-    <rect className={styles.wall} x={-2.3} y={domeBase} width={4.6} height={.8} />
-    <rect className={styles.lit} x={-2.3} y={domeBase} width={1.4} height={.8} />
-    <Dome cx={0} y={domeBase} r={1.6} />
+    <Dome cx={-4.6} y={-5} r={2.1} />
+    <rect className={styles.wall} x={-2.2} y={belfry} width={4.4} height={-belfry} />
+    <rect className={styles.lit} x={-2.2} y={belfry} width={1} height={-belfry} />
+    <rect className={styles.shade} x={1.6} y={belfry} width={.6} height={-belfry} />
+    {/* Belfry: one tall round-headed opening, then the cornice below it. */}
+    <path className={night ? styles.win : styles.solid} d={`M-.9 ${belfry + 4.1}v-2.1a1 1 0 0 1 2 0v2.1z`} />
+    <rect className={styles.shade} x={-2.5} y={belfry + 4.6} width={5} height={.7} />
+    {/* Drum and collar, then the dome whose cap takes the light. */}
+    <rect className={styles.wall} x={-2.5} y={domeBase} width={5} height={.9} />
+    <rect className={styles.lit} x={-2.5} y={domeBase} width={1.2} height={.9} />
+    <rect className={styles.shade} x={-2.2} y={domeBase - .1} width={4.4} height={.5} />
+    <Dome cx={0} y={domeBase - .1} r={1.9} />
     <rect className={styles.solid} x={-.25} y={-h} width={.5} height={1.2} />
     {night && [-5, 3.5].map((x) => <rect key={x} className={styles.win} x={x} y={-3.2} width={1.5} height={1.5} />)}
   </>
