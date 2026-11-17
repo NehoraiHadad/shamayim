@@ -149,10 +149,18 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [x] flat-desert: houses only where ground is within 5 px of the rim (Mitzpe Ramon stays on the plateau)
 - [x] `classify`: synagogue (religion=jewish + building, 9 m), `landuse=vineyard` filter + kind
 - [ ] After merge to main: re-run the landmarks workflow (`workflow_dispatch`) so cells carry synagogues/vineyards
-- [~] Glyph agent (worktree branch `feat/illustration-glyphs`): curated Jerusalem/Tel Aviv/Haifa/Shadmot + highrise,
-      chimney, cooling, turbine, mast, silo, lighthouse, bridge, palms → review its QA stills, merge into feat/illustration
 - [ ] Mitzpe Ramon: the sun-event label (שקיעה) overlaps the westmost houses — move label or skip houses under it
 - QA tip: in the browser pane use `resize_window` mobile, then `scene.style.zoom=3` for readable stills
+- [x] Fresh-critic loop (anidoodle method): r1 → 60ca846, r2 → 4292ae4 (houses in the ridge tone, crescent domes,
+      hand-planted orchard, solar strips, stepped castle rubble, one light side per village). Sheets:
+      `docs/design/qa/specimens-mine*.png`; dev sheet at `/specimen.html`
+- [x] (`feat/illustration-glyphs`) All generic kinds in the px layer (`generic/industry|structures|nature.tsx`);
+      curated cities redrawn (`curated/*.tsx`); one-light rig (`LightRig.tsx`); far layer via HillMarks; old
+      `Landmarks.tsx` + `glyphs/` removed. Specimens + critique: `docs/design/qa/specimens-*.png`, `NOTES.md`
+- [x] Merged into feat/illustration; my five buildings keep their own lit faces (`selfLit`, mirrored, CastShadow),
+      other glyphs use LightRig. [ ] Fresh critic over `specimens-generic/curated.png`
+- [ ] Follow-ups: Haifa elevation label covers the Báb shrine; Dagon dropped by placement; Tel Aviv dot off its towers;
+      Sarona twist reads flat at 1x; palms crowns still icon-like; verify the facts listed in `docs/design/qa/NOTES.md`
 - [ ] Regression stills for all 10 places; then merge to main
 
 ## Known gaps / polish

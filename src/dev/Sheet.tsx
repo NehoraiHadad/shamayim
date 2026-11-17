@@ -50,7 +50,9 @@ function Strip({ theme, scale, style }: { theme: ThemeId; scale: number; style: 
       <path d={ridge} fill="var(--ridge-near)" />
       <circle cx={187} cy={ground(187)} r={4.5} fill="var(--ridge-near)" opacity={.7} /><circle cx={187} cy={ground(187)} r={2.5} fill="var(--accent)" />
     </svg>
-    <HillMarks marks={marks} settlement={settlement} width={W} ground={ground} sunX={theme === 'clearDay' ? 60 : null} night={night} />
+    <HillMarks marks={marks} settlement={settlement} width={W} ground={ground} sunX={theme === 'clearDay' ? 60 : null} night={night}
+      readout={false} life={{ litShare: night ? .4 : 0, aviation: night, leanDeg: 0, sway: null, turbinePeriodS: null,
+        hideFar: false, farBleach: 1 }} />
   </div>
 }
 

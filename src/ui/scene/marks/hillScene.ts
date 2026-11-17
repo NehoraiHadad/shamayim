@@ -10,6 +10,7 @@ import { BUILDINGS } from './generic/buildingSpecs'
 export function hillScene(place: Place, terrain: SceneTerrain, landmarks: Landmark[], placed: PlacedMark[], width: number,
   litShare: number) {
   const ground = groundFn(terrain.nearPoints, width)
+  const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
   const centerY = place.id === 'shadmot-mehola' ? terrain.centerY : ground(centerX)
@@ -24,5 +25,5 @@ export function hillScene(place: Place, terrain: SceneTerrain, landmarks: Landma
         .map((mark) => ({ x: mark.xPct / 100 * width, w: BUILDINGS[mark.kind]!.w })),
     })
   }
-  return { ground, settlement, centerY }
+  return { ground, farGround, settlement, centerY }
 }
