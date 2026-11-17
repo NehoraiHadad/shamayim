@@ -48,7 +48,8 @@ export const openMeteoIcon: WeatherProvider = {
       ...mapped,
       air,
       fetchedAt: Date.now(),
-      source: 'Open-Meteo · DWD ICON',
+      source: 'Open-Meteo · DWD ICON + ECMWF',
+      models: ['icon_seamless', 'ecmwf_ifs025'],
     }
   },
 }

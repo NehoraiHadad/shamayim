@@ -2,6 +2,7 @@
 export type LocalTime = string
 /** Local date, e.g. "2026-11-16". */
 export type LocalDate = string
+export type Confidence = 'high' | 'medium' | 'low'
 
 export interface CurrentWeather {
   time: LocalTime
@@ -37,6 +38,8 @@ export interface DayPoint {
   sunset: LocalTime
   /** Days beyond the high-resolution ICON-EU horizon. */
   lowConfidence: boolean
+  confidence: Confidence
+  spread: { tempMax: number; tempMin: number; precipProb: number }
 }
 
 export interface AirPoint {
@@ -56,4 +59,5 @@ export interface Forecast {
   air: AirPoint[] | null
   fetchedAt: number
   source: string
+  models: string[]
 }

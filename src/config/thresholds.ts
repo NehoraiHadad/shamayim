@@ -15,4 +15,5 @@ export const THRESHOLDS = {
   heatHours: 38,
   /** Rain probability below this is hidden in the week list. */
   showRainProb: 20,
+  confidence: { tempMaxMedium: 2, tempMaxLow: 4, precipProbMedium: 20, precipProbLow: 40 },
 } as const

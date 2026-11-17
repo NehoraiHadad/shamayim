@@ -1,8 +1,6 @@
 import type { Place } from '../../config/place'
 
-export const FORECAST_MODEL = 'icon_seamless'
-/** ICON-EU high-resolution horizon; later days come from ICON Global. */
-export const HIGH_RES_DAYS = 5
+export const FORECAST_MODELS = 'icon_seamless,ecmwf_ifs025'
 
 const CURRENT = [
   'temperature_2m', 'apparent_temperature', 'is_day', 'weather_code',
@@ -28,7 +26,7 @@ function base(place: Place): URLSearchParams {
 
 export function forecastUrl(place: Place): string {
   const p = base(place)
-  p.set('models', FORECAST_MODEL)
+  p.set('models', FORECAST_MODELS)
   p.set('forecast_days', '7')
   p.set('past_days', '1')
   p.set('wind_speed_unit', 'kmh')

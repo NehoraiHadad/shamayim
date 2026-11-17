@@ -42,6 +42,8 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
       sunrise: `${date}T05:40`,
       sunset: `${date}T19:45`,
       lowConfidence: false,
+      confidence: 'high',
+      spread: { tempMax: 0, tempMin: 0, precipProb: 0 },
     }
   })
   const air = pm10
@@ -59,6 +61,7 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
     air,
     fetchedAt: 0,
     source: 'test',
+    models: ['test'],
   }
 }
 
