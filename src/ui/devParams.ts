@@ -21,12 +21,12 @@ export function forcedTheme(): ThemeId | null {
 
 const WX_KEYS = {
   rain: 'precipitation', snow: 'snowfall', wind: 'windSpeed', gust: 'windGusts', dir: 'windDirection',
-  temp: 'temperature', cloud: 'cloudCover', pm10: 'pm10', vis: 'visibilityKm', code: 'weatherCode',
+  temp: 'temperature', cloud: 'cloudCover', pm10: 'pm10', vis: 'visibilityKm', code: 'weatherCode', hum: 'humidity',
 } as const
 
 /**
  * `?wx=rain:12,wind:45,dir:270,cloud:90,code:63` overrides air inputs for visual QA of conditions
- * the real sky is not showing today. Keys: rain (mm/h), snow (cm/h), wind, gust, dir, temp, cloud, pm10, vis (km), code.
+ * the real sky is not showing today. Keys: rain (mm/h), snow (cm/h), wind, gust, dir, temp, cloud, pm10, vis (km), code, hum (%).
  */
 export function forcedWeather(): Record<string, number> | null {
   const wx = param('wx')

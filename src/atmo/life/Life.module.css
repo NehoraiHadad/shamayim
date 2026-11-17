@@ -7,7 +7,8 @@
 
 .event {
   position: absolute;
-  inset-inline-start: 0;
+  /* Physical left: flight paths are written in screen x, and the app is RTL. */
+  left: 0;
   width: 1px;
   height: 1px;
   transform-origin: 0 0;
@@ -17,6 +18,8 @@
 .birdWrap,
 .swift {
   position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   width: 1px;
   height: 1px;

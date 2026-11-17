@@ -20,12 +20,13 @@ function lane(plan: EventPlan, seed: number) {
   if (plan.laneY === 'free') {
     const above = layout.bandTop
     const below = layout.sceneTop - layout.bandBottom
-    if (Math.max(above, below) < 40) return { width: layout.w, y: layout.bandTop + (layout.bandBottom - layout.bandTop) / 2, alpha: .35 }
+    if (Math.max(above, below) < 40) return { width: layout.w, y: layout.bandTop + random() * (layout.bandBottom - layout.bandTop) * .45, alpha: .6 }
     return { width: layout.w, y: above >= below ? random() * Math.max(1, above - 40) : layout.bandBottom + random() * Math.max(1, below - 40), alpha: 1 }
   }
-  const raw = plan.laneY === 'high' ? layout.sceneTop - 56 + random() * 32 : layout.sceneTop - 16 + random() * 36
-  const y = Math.max(raw, layout.bandBottom + 8)
-  return { width: layout.w, y, alpha: layout.sceneTop + 20 - y < 30 ? .4 : 1 }
+  // [data-air-band] spans the whole sky area and ends where the scene begins, so lanes hang off the
+  // scene top: high just above the ridges (under the hourly curve), low across the upper ridges.
+  const y = plan.laneY === 'high' ? layout.sceneTop - 30 + random() * 22 : layout.sceneTop - 8 + random() * 24
+  return { width: layout.w, y, alpha: 1 }
 }
 
 export function LifeEvent({ plan, seed, autumn, ink, valid, onComplete }: Props) {
