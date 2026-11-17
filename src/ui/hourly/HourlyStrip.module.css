@@ -24,6 +24,9 @@
 
 .scroller::-webkit-scrollbar { display: none; }
 
+/* Room under the band for the sunrise/sunset chips, which hang 6 px below it (markers.module.css). */
+.sky .scroller { padding-bottom: 6px; }
+
 .track {
   position: relative;
 }

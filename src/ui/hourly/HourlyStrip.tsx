@@ -77,7 +77,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
               {/* The hairline ends in its own name, so the marker explains itself; the sheet's day detail only needs the time. */}
               {tone === 'sheet'
                 ? <bdi>{clockOf(s.time)}</bdi>
-                : <span className={marks.sunLabel}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
+                : <span className={`${marks.chip} ${marks.sunLabel}`}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
             </span>
           ))}
           <ol className={styles.slots} onKeyDown={onKey}>
@@ -123,7 +123,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
         </div>
       </div>
       {away && suns[0] && (
-        <button type="button" className={`${marks.sunTag} ${marks[away]}`} onClick={bringNextSun}
+        <button type="button" className={`${marks.chip} ${marks.sunTag} ${marks[away]}`} onClick={bringNextSun}
           aria-label={`${suns[0].rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(suns[0].time)}. הצגה ברצועה`}>
           {away === 'right' && <TagArrow side="right" />}
           <span>{suns[0].rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(suns[0].time)}</bdi></span>
@@ -141,7 +141,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
 
 function TagArrow({ side }: { side: 'left' | 'right' }) {
   return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+    <svg width="8" height="8" viewBox="0 0 10 10" aria-hidden="true">
       <path d={side === 'left' ? 'M6.5 2L3.5 5l3 3' : 'M3.5 2l3 3-3 3'} />
     </svg>
   )
