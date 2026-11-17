@@ -29,8 +29,10 @@ export function skyPalette(): SkyPalette {
     clear: pair(t.clearDay.top, t.clearDay.mid),
     overcast: pair(t.cloudy.top, t.cloudy.mid),
     rain: pair(t.rain.top, t.rain.mid),
-    dust: pair(t.dust.top, t.dust.mid),
-    heat: pair(t.heat.top, t.heat.mid),
+    // Dust: a desaturated ochre-grey (sharav greys the sky); heat: red-orange, paler at the top (glare).
+    // Kept apart on purpose, so the two brown days of a week never read the same.
+    dust: pair(mix(t.dust.top, t.cloudy.top, 0.45), mix(t.dust.mid, t.cloudy.mid, 0.45)),
+    heat: pair(mix(t.heat.mid, t.heat.horizon, 0.28), mix(t.heat.mid, '#C8401C', 0.5)),
     pale: pair(t.cloudy.horizon, mix(t.cloudy.horizon, '#FFFFFF', 0.35)),
   }
 }

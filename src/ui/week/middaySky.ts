@@ -19,6 +19,8 @@ export interface DaySky {
   /** What to draw in the window. Wet, fog, snow and thunder days keep the day's own kind (it matters whenever it
    *  comes); dry days take the midday cloud, so the icon never says "overcast" over a clear midday sky. */
   kind: ConditionKind
+  /** Dust over the light threshold at midday: the window draws a hazy sun instead of the icon. */
+  hazy: boolean
 }
 
 const CLOUD_BY_KIND: Partial<Record<ConditionKind, number>> = { clear: 5, partly: 45, cloudy: 100 }
@@ -61,11 +63,11 @@ export function middaySky(day: DayPoint, f: Pick<Forecast, 'hours' | 'air'>): Da
   else if (wet) sky = p.rain
   else {
     sky = mixPair(p.clear, p.overcast, clamp01(cloud / 100))
-    if (day.tempMax >= T.dayTemp.hot && cloud < 50) sky = mixPair(sky, p.heat, 0.75)
+    if (day.tempMax >= T.dayTemp.hot && cloud < 50) sky = mixPair(sky, p.heat, 0.9)
   }
   if (pm10 >= T.dust.light) {
     sky = mixPair(sky, p.dust, clamp01(0.5 + (pm10 - T.dust.light) / (T.dust.heavy - T.dust.light) / 2))
   }
   const ink = Math.min(ratio(WHITE, sky.low), ratio(WHITE, sky.top)) >= 3 ? WHITE : DARK
-  return { top: sky.top.toUpperCase(), low: sky.low.toUpperCase(), ink, kind: shownKind(kind, cloud) }
+  return { top: sky.top.toUpperCase(), low: sky.low.toUpperCase(), ink, kind: shownKind(kind, cloud), hazy: pm10 >= T.dust.light }
 }

@@ -6,7 +6,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 4.5rem 2.5rem 1fr;
+  grid-template-columns: 5.5rem 2.5rem 1fr;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
@@ -34,7 +34,7 @@
 
 .today .day { font-weight: 600; }
 
-/* Day name, date, and (on uncertain days) the tag on its own line, so it never spills out of the column. */
+/* Day name over one muted line: date · rain chance · (on uncertain days) the tag; it wraps rather than spills. */
 .name {
   display: grid;
   justify-items: start;
@@ -48,13 +48,10 @@
   font-size: var(--text-lg);
 }
 
-.date,
-.tag {
+.date {
   font-size: var(--text-sm);
   color: var(--sheet-muted);
 }
-
-.tag { font-size: var(--text-xs); }
 
 .cond {
   display: grid;
@@ -125,7 +122,7 @@
 
 .open + .item { border-color: transparent; }
 
-/* Large text (about 150% and up on a phone): the three columns (≈12.4rem, with gaps) no longer fit, so the range bar takes its own line
+/* Large text (about 150% and up on a phone): the three columns (≈13.4rem, with gaps) no longer fit, so the range bar takes its own line
    under the name, instead of pushing the row past the screen edge. In rem, so it follows the text size. */
 @container week (max-width: 13.5rem) {
   .row {

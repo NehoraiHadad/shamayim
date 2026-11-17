@@ -247,6 +247,27 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
       live: MISS→HIT→HIT, 8 parallel connections all HIT with one X-Fetched-At, 400, preflight 204/403
 - [x] PR against main
 
+## Sheet polish — the sheet belongs to the sky — 2026-11-17 (branch `claude/sheet-polish-4018dc`)
+Fable critique before → build → Fable critique after (verdict: belongs; its three small fixes done).
+- [x] Wear card: side stripe gone; xs muted label over a `--text-lead` (21 px) balanced serif sentence, hairline below
+- [x] Week rows: `week/SkyWindow.tsx` — a 36×40 window of the day's midday sky (hours 11–14: cloud, rain, dust, heat)
+      carrying the icon in the sky's ink, a ridge cut at its foot in paper colour (the open row's well sets `--win-ground`)
+  - [x] `week/middaySky.ts` (+ tests): dry days draw the midday cloud (no "overcast" icon over a clear midday);
+        wet/fog/snow/thunder keep the day's kind; dust → greyed ochre + hand-drawn hazy sun (+ "אובך" in the label);
+        heat → red-orange with a paler top; fog/snow → pale window with dark ink, slate with white ink on the dark sheet
+  - [x] Sky colours read only through `week/skyPalette.ts` (adapter over `SKY_THEMES`): when the scene lane moves
+        to continuous light, remap there
+  - [x] Icon ink ≥ 3:1 on every reachable window sky (test grid); heat vs dust kept apart (test)
+- [x] Date line carries rain % and the tag ("22.11 · הערכה"); name column 5.5 rem; chevrons removed (open well marks it)
+- [x] "השבוע הקרוב" kept for screen readers only
+- [x] RangeBar: absolute ramp in sky colours (indigo → clear blue → sand → rust), interpolated; 5 px; spread as a pale
+      tint, no outline; today = small ink dot with a paper halo
+- [x] Stills (375 px): `docs/design/qa/sheet-{before,after}-{day,night}.png` (fixture via `offline.html`),
+      `sheet-after-variety-day.png` + `sheet-after-variety-night-expanded.png` (synthetic rain/heat/dust/fog days)
+- [ ] Not verified: real rain/dust/heat weeks (only synthetic data); a phone; screen reader; 200% text checked by eye
+      at night only; no component tests (vitest is node-only); the rows' tap affordance without chevrons is a judgment call
+- [ ] Later (Fable): the hard straight seam between valley and sheet
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

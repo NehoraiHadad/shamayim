@@ -34,7 +34,17 @@ describe('middaySky', () => {
     const light = sky({ cloudCover: 0 }, { pm10: 120 }).low
     const heavy = sky({ cloudCover: 0 }, { pm10: 400 }).low
     expect(light).not.toBe(SKY_THEMES.clearDay.mid)
-    expect(heavy).toBe(SKY_THEMES.dust.mid)
+    expect(heavy).not.toBe(light)
+    expect(sky({ cloudCover: 0 }, { pm10: 120 }).hazy).toBe(true)
+    expect(sky({ cloudCover: 0 }).hazy).toBe(false)
+  })
+
+  it('heat and dust skies stay apart', () => {
+    const heat = sky({ cloudCover: 0 }, { max: 40 })
+    const dust = sky({ cloudCover: 0 }, { pm10: 400 })
+    // Warmth = red minus blue: heat is clearly warmer than the greyed dust sky.
+    const warmth = (hex: string) => parseInt(hex.slice(1, 3), 16) - parseInt(hex.slice(5, 7), 16)
+    expect(warmth(heat.low) - warmth(dust.low)).toBeGreaterThan(60)
   })
 
   it('a hot clear day leans to the heat sky', () => {

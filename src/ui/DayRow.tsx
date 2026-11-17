@@ -48,6 +48,7 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
   const summary = [
     name,
     conditionLabel(kind, true),
+    sky.hazy ? 'אובך' : '',
     `מקסימום ${formatTemp(day.tempMax)}`,
     `מינימום ${formatTemp(day.tempMin)}`,
     showProb ? `סיכוי לגשם ${formatProb(prob)}` : '',
@@ -74,8 +75,8 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
           <span className={styles.date}>
             <bdi>{shortDate(day.date)}</bdi>
             {showProb && <span className={styles.prob}> · {formatProb(prob)}</span>}
+            {tag && <> · {tag}</>}
           </span>
-          {tag && <span className={styles.tag}>{tag}</span>}
         </span>
         <span className={styles.cond}>
           <SkyWindow sky={sky} />
