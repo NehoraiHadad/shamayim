@@ -69,7 +69,10 @@ There are four verbs: the sun **travels**, lines **draw**, text **fades** (opaci
   - The slot gets a 10% ink wash with radius 12.
   - The readout fades in over 160 ms.
   - The sun moves to that hour in 320 ms.
-  - The selection clears after 6 s; the sun returns in 520 ms.
+  - The valley scrubs at about four minutes per horizontal pixel (left is later); the strip also supports mouse/pen
+    drag while touch keeps native scrolling. Both expose the minute-exact shown time and keyboard controls.
+  - Release holds for 6 s, then rewinds through the intervening minutes over 900 ms; the “עכשיו” chip returns at once.
+    Reduced motion cuts to now. The continuous sky and air follow shown time; the paper sheet stays on now.
 - **Refresh:**
   - The icon spins once every 800 ms, for at least 600 ms.
   - On success it shows a check for 1200 ms with "עודכן עכשיו".

@@ -1,0 +1,34 @@
+/* The moon: drawn before the ridges, positioned like the sun (left %, top px), centred on its point. */
+.moon {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  /* Bone at night, the day sky's own pale blue by day. */
+  --moon: color-mix(in srgb, #DCE6F2 calc(var(--daylight, 0) * 100%), #E9E4D4);
+  transition: left var(--d3) var(--ease-out), top var(--d3) var(--ease-out), opacity var(--d2) linear;
+}
+
+.moon svg { display: block; overflow: visible; }
+
+.face { fill: var(--moon); }
+
+/* Seas a step darker than the face; quiet enough to read only as "the moon", not as a picture of it. */
+.maria {
+  fill: color-mix(in srgb, var(--moon) 84%, #5A6070);
+  opacity: calc(1 - var(--daylight, 0));
+}
+
+/* The unlit disc of a thin crescent: one hairline, so it still reads as a moon. */
+.ring {
+  fill: none;
+  stroke: var(--moon);
+  stroke-width: 1;
+  opacity: .18;
+}
+
+:global(.app[data-scrubbing]) .moon { transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .moon { transition: opacity var(--d1) linear; }
+}

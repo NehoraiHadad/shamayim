@@ -8,6 +8,7 @@ import marks from './markers.module.css'
 import styles from './HourlyStrip.module.css'
 import { BAND_H, BAND_TOP, describeHour, layoutStrip, SLOT_W } from './stripLayout'
 import type { TimelineSlot } from './timeline'
+import { useStripScrub } from './useStripScrub'
 
 interface Props {
   slots: TimelineSlot[]
@@ -17,19 +18,25 @@ interface Props {
   /** When given, hours can be picked (tap or arrow keys). */
   selected?: LocalTime | null
   onSelect?: (time: LocalTime | null) => void
+  onScrub?: (time: LocalTime) => void
+  onRelease?: () => void
+  scrubbing?: boolean
 }
 
 /** Horizontally scrolling hours with a temperature curve; sunrise, sunset and midnight marked. */
-export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSelect }: Props) {
+export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSelect, onScrub, onRelease, scrubbing = false }: Props) {
   const gradId = useId()
   const [scrollerRef, away, bringNextSun] = useNextSunTag(tone === 'sky', slots)
-  if (!slots.some((s) => s.type === 'hour')) return null
+  const selectedHour = selected?.slice(0, 13)
+  const firstHour = slots.find((s) => s.type === 'hour')
+  const pointer = useStripScrub({ scrollerRef, slots, shownHour: selectedHour, scrubbing, first: firstHour?.time,
+    width: slots.filter((s) => s.type === 'hour').length * SLOT_W, onScrub, onRelease })
+  if (!firstHour) return null
   const { hours, width, pts, suns, breaks, hasProb } = layoutStrip(slots)
   const bandTop = hasProb ? BAND_TOP.withProb : BAND_TOP.withoutProb
   const line = smoothPath(pts)
   const area = `${line} L${pts[pts.length - 1].x},${BAND_H} L${pts[0].x},${BAND_H} Z`
-  const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time === selected : h.isNow)))
-
+  const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time.slice(0, 13) === selectedHour : h.isNow)))
   const onKey = (e: KeyboardEvent<HTMLOListElement>) => {
     const last = hours.length - 1
     // RTL: the left arrow moves later in time; Home/End jump to the first/last hour.
@@ -45,7 +52,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   return (
     <section className={`${styles.strip} ${styles[tone]}`} aria-label={label} style={{ '--band-top': `${bandTop}px`, '--band-h': `${BAND_H}px` } as React.CSSProperties}>
       <div className={styles.scroller} ref={scrollerRef}>
-        <div className={styles.track} style={{ width, height: bandTop + BAND_H }}>
+        <div className={styles.track} style={{ width, height: bandTop + BAND_H }} {...pointer}>
           <svg className={styles.curve} width={width} height={BAND_H} aria-hidden="true">
             <defs>
               <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
@@ -66,7 +73,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
             {tone === 'sky' && <path d={area} fill={`url(#${gradId})`} mask={`url(#${gradId}-mask)`} />}
             <path d={line} className={styles.line} pathLength={1} data-intro="curve" />
             {pts.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r={hours[i].time === selected ? 4.5 : hours[i].isNow ? 3.6 : 2} className={styles.dot} />
+              <circle key={i} cx={p.x} cy={p.y} r={hours[i].time.slice(0, 13) === selectedHour ? 4.5 : hours[i].isNow ? 3.6 : 2} className={styles.dot} />
             ))}
           </svg>
           {breaks.map((b) => (
@@ -99,7 +106,8 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
                   </span>
                 </>
               )
-              const cls = `${styles.slot} ${h.isNow ? styles.now : ''} ${h.time === selected ? styles.selected : ''}`
+              const picked = h.time.slice(0, 13) === selectedHour
+              const cls = `${styles.slot} ${h.isNow ? styles.now : ''} ${picked ? styles.selected : ''}`
               return (
                 <li key={h.time} style={{ width: SLOT_W, '--i': i } as React.CSSProperties} data-intro="label">
                   {onSelect ? (
@@ -108,8 +116,8 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
                       className={cls}
                       data-index={i}
                       tabIndex={i === focusIndex ? 0 : -1}
-                      aria-pressed={h.time === selected}
-                      onClick={() => onSelect(h.time === selected ? null : h.time)}
+                      aria-pressed={picked}
+                      onClick={() => onSelect(picked ? null : h.time)}
                     >
                       {content}
                     </button>
