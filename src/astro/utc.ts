@@ -1,5 +1,4 @@
-/** A minute-precision local wall-clock value. */
-export type LocalTime = `${number}-${number}-${number}T${number}:${number}`
+import type { LocalTime } from '../domain/types'
 
 const partsAt = (at: Date, timeZone: string) => {
   const values = new Intl.DateTimeFormat('en-CA', {
