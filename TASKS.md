@@ -264,6 +264,14 @@ Review, the `normalsUrl` cleanup, commits and QA: Claude Opus 5.5. Later code ro
 - [x] Browser pane, 375 px, fixture via `offline.html` at 10:00: warmer (`nm=4` → "חם מהרגיל לנובמבר ב־4°"),
       colder (`nm=-4`), normal (`nm=0`, silent), rain starting (`nc=start:10:30` → "בעוד כחצי שעה"), rain stopping
       (`nc=stop:10:15` → "בעוד כרבע שעה"). Still `docs/design/qa/climate-nowcast-start-colder-375.jpg` (3 sentences fit)
+- [x] PR #5 review round (code: Codex gpt-6.2-sol; review + QA: Claude Opus 5.5): a warm word can no longer sit
+      beside "colder than normal" (or "קריר" beside "warmer") as a separate sentence — the gap joins the temperature
+      clause with "אבל": "מעונן וחמים, עד 26°, אבל קריר מהרגיל לנובמבר ב־4°." (shown only when |gap| ≥ max(3, sd),
+      so it is a real contrast, not noise); `contradictsNormal` + tests both ways, day and night. "עד/סביב/בין" are
+      glued to the number with U+00A0, so "עד" never ends a line. Checked at 375 px: `climate-contrast-colder-375.jpg`
+- [x] Real Shadmot normals (ERA5 1991–2020 archive, reduced by the Worker code locally): 17 Nov max 24.8 ± 3.4,
+      min 13.9, gust 23.5 ± 9.1; 15 Jan 17.6; 15 Jul 37.1; elevation −175. The fixture day (26°) is +1.2° → silent,
+      as it should be; the "ב־4°" in QA comes only from the synthetic `nm=` override. Reduce ≈ 5.6 ms locally, 8.2 KB
 - [ ] After merge: redeploy the Worker (`/v1/normals`, `minutely_15`); then check a live `/v1/normals` MISS→HIT,
       its CPU time on the free plan, and that a real Israeli `minutely_15` answer carries both suffixed columns
 - [ ] Not verified: live archive/forecast answers (Open-Meteo daily limit was hit from this IP), real-device QA,

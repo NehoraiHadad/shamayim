@@ -4,6 +4,12 @@ import { deg } from './phrases'
 
 const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
 
+export function contradictsNormal(tempWord: string, max: number, normal?: DayNormal): boolean {
+  if (!normal) return false
+  if (max < normal.tempMax) return ['חמים', 'חם', 'חם מאוד', 'שרב'].includes(tempWord)
+  return max > normal.tempMax && tempWord === 'קריר'
+}
+
 export function normalClause(day: DayPoint, normal?: DayNormal): string | null {
   if (!normal) return null
   const gap = day.tempMax - normal.tempMax

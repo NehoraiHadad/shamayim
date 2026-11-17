@@ -63,6 +63,8 @@ export const FROM: Record<DayPart, string> = {
 }
 
 export const deg = (n: number) => `${Math.round(n)}°`
+export const upTo = (n: number) => `עד\u00A0${deg(n)}`
+export const around = (n: number) => `סביב\u00A0${deg(n)}`
 export const mm = (n: number) => `${Math.max(1, Math.round(n))} מ״מ`
 
 export function nowcastPhrase(change: RainChange): string {
