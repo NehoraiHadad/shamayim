@@ -14,7 +14,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 | Sheet | No handle. Paper tinted per theme, with a new `sheetAccent` token. Dusk gets a plum sheet. The wear note has no box: a 3 px inline-start rule and 18 px serif text. Rows are 56 px with hairlines. The open day sits in a well with radius 16. Facts are a two-column list. | Gets rid of the "identical cards" look. |
 | Uncertainty | Model spread is drawn as faded ends on the range bar. Tags: "הערכה" for days 6–7 and "עשוי להשתנות" for an uncertain near day. | Shows uncertainty visually instead of only labelling it. |
 | Contrast | The gradient keeps all text on `top` or `mid`. The contrast test raises ink-on-mid to 4.5 and adds `sheetAccent` and `sheetMuted` against each paper. | Light horizons failed the contrast check. |
-| Night classes | `is-dark-sheet` (dusk and night) controls the sheet colours. Stars appear only in night, and in dusk at 40% opacity. | The navy slab under an orange sky read as a bug. |
+| Night classes | `dark-sheet` (dusk and night) controls the sheet colours. Stars appear only in night, and in dusk at 40% opacity. | The navy slab under an orange sky read as a bug. |
 | Pull-to-refresh | None. A tap on the pill gives the feedback, as both reviews agree. | Avoids fighting iOS scrolling. |
 
 ## 2. Layout at 375 × 812
@@ -99,7 +99,7 @@ Also:
 
 ## 7. Who builds what
 
-1. **F0, me:** tokens, theme colours and test, pre-paint script, App layout with SunArc/Ridge removed, `is-dark-sheet`.
+1. **F0, me:** tokens, theme colours and test, pre-paint script, App layout with SunArc/Ridge removed, `dark-sheet`.
 2. **Lane A (sky), me:**
    - `src/ui/scene/*`, TopBar, StatusLine, Hero, `hourly/*`, Sky, compose "בהמשך היום";
    - the intro choreography in `src/ui/motion/*`.

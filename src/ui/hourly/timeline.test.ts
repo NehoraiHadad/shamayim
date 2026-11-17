@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeForecast, TODAY } from '../../test/makeForecast'
 import { buildTimeline, next24h } from './timeline'
 import { fillGaps, smoothPath } from './curve'
+import { layoutStrip } from './stripLayout'
 
 const f = makeForecast([{ max: 30, min: 20 }, { max: 30, min: 20 }, { max: 31, min: 21 }, { max: 31, min: 21 }])
 
@@ -47,5 +48,23 @@ describe('curve helpers', () => {
   })
   it('draws a path through every point', () => {
     expect(smoothPath([{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 0 }]).match(/C/g)).toHaveLength(2)
+  })
+})
+
+describe('layoutStrip', () => {
+  const slots = next24h(f, `${TODAY}T09:20`)
+  const layout = layoutStrip(slots)
+
+  it('keeps sun events off the hour axis, between their neighbours', () => {
+    expect(layout.hours).toHaveLength(25)
+    const set = layout.suns[0]
+    const i = layout.hours.findIndex((h) => h.time === `${TODAY}T19:00`)
+    expect(set.x).toBeLessThan(layout.pts[i].x)
+    expect(set.x).toBeGreaterThan(layout.pts[i + 1].x)
+  })
+
+  it('marks midnight with the next weekday name', () => {
+    expect(layout.breaks).toHaveLength(1)
+    expect(layout.breaks[0].label).not.toMatch(/^יום/)
   })
 })

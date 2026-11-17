@@ -1,4 +1,5 @@
 import { THRESHOLDS as T } from '../config/thresholds'
+import { conditionOf } from '../domain/conditions'
 import { clockOf, hourOf } from '../domain/time'
 import type { DayPoint, Forecast, LocalTime } from '../domain/types'
 import { dominantSky, findDay, nextDate, windowFacts, type WindowFacts } from './facts'
@@ -57,11 +58,11 @@ function composeDay(f: Forecast, today: DayPoint, now: LocalTime): string[] {
   const risk = hazard(w, hourOf(now), 'היום')
   const sky = w.rainProb >= T.rain.possible ? 'rain' : dominantSky(w.hours, today.weatherCode)
   const tempWord = dayTempWord(today.tempMax)
-  const temp = heat ?? `${risk ? '' : 'היום '}${sky === 'rain' ? tempWord : skyWith(sky, tempWord)}, עד ${deg(today.tempMax)}.`
+  const lead = risk ? '' : `${conditionOf(f.current.weatherCode) === sky ? 'היום' : 'בהמשך היום'} `
+  const temp = heat ?? `${lead}${sky === 'rain' ? tempWord : skyWith(sky, tempWord)}, עד ${deg(today.tempMax)}.`
 
+  // Feels-like lives in the hero, so the sentence does not repeat it.
   const extras: string[] = []
-  const feels = f.current.feelsLike - f.current.temperature
-  if (Math.abs(feels) >= T.feelsLikeDelta) extras.push(`כרגע מרגיש כמו ${deg(f.current.feelsLike)}`)
   const wind = windClause(w)
   if (wind) extras.push(wind)
   if (w.pm10Max !== null && w.pm10Max >= T.dust.light && w.pm10Max < T.dust.heavy) extras.push('אובך קל')

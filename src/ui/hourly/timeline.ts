@@ -11,6 +11,8 @@ export interface HourSlot {
   isDay: boolean
   /** Rain chance worth showing (≥ showRainProb), otherwise null. */
   prob: number | null
+  /** Mean wind, km/h. */
+  wind: number
   isNow: boolean
 }
 
@@ -54,6 +56,7 @@ export function buildTimeline(
       kind: conditionOf(h.time === nowKey ? f.current.weatherCode : h.weatherCode),
       isDay: isDaylight(h.time, f.days),
       prob: prob >= T.showRainProb ? prob : null,
+      wind: h.time === nowKey ? f.current.windSpeed : h.windSpeed,
       isNow: h.time === nowKey,
     }
   })

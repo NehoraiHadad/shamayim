@@ -1,0 +1,49 @@
+/* Markers over the hourly strip: sunrise/sunset hairlines and midnight breaks. */
+
+/* Sunrise / sunset: a hairline at its true time, the time under the curve. */
+.sun {
+  position: absolute;
+  top: var(--band-top);
+  height: 58px;
+  width: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--curve) 55%, transparent);
+  pointer-events: none;
+}
+
+.sun bdi {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  padding: 0 3px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 14px;
+  color: var(--curve);
+  white-space: nowrap;
+}
+
+.sunDot {
+  position: absolute;
+  bottom: 2px;
+  width: 7px;
+  height: 7px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--curve);
+}
+
+/* Midnight: a hairline with the new day's name at its foot (clear of the hour labels). */
+.break {
+  position: absolute;
+  top: 4px;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  border-left: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  padding-left: 4px;
+  font-size: var(--text-xs);
+  line-height: 14px;
+  opacity: 0.85;
+  white-space: nowrap;
+  pointer-events: none;
+}

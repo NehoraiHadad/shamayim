@@ -11,6 +11,12 @@ describe('composeSummary — daytime', () => {
     expect(text(composeSummary(f, at('09:00')))).toBe('היום בהיר ונעים, עד 23°. חם יותר מאתמול.')
   })
 
+  it('says "בהמשך היום" when it is cloudy now but the day is clear', () => {
+    const f = makeForecast([{ max: 19, min: 12 }, { max: 23, min: 13 }, { max: 24, min: 14 }])
+    f.current.weatherCode = 3
+    expect(composeSummary(f, at('09:00'))[0]).toBe('בהמשך היום בהיר ונעים, עד 23°.')
+  })
+
   it('very hot afternoon mentions tomorrow trend', () => {
     const f = makeForecast([{ max: 38, min: 26 }, { max: 39, min: 27 }, { max: 42, min: 29 }])
     expect(text(composeSummary(f, at('12:00')))).toBe('היום בהיר וחם מאוד, עד 39°. מחר התחממות.')

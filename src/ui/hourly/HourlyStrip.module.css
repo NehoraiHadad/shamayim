@@ -1,8 +1,7 @@
 .strip {
-  --band-top: 74px;
   --curve: var(--accent);
   position: relative;
-  margin: 22px -20px 0;
+  margin: var(--space-5) -20px 0;
 }
 
 .sky {
@@ -10,9 +9,9 @@
 }
 
 .sheet {
-  --curve: #E0A43A;
+  --curve: #C98A1E;
   color: var(--sheet-ink);
-  margin: 4px -8px 0;
+  margin: var(--space-1) -8px 0;
 }
 
 :global(.dark-sheet) .sheet {
@@ -26,22 +25,15 @@
   scrollbar-width: none;
   padding: 0 20px;
   scroll-padding-inline: 20px;
-  mask-image: linear-gradient(to left, transparent, #000 20px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to left, transparent, #000 16px, #000 calc(100% - 24px), transparent);
 }
 
 .scroller::-webkit-scrollbar {
   display: none;
 }
 
-.scroller:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-  border-radius: 14px;
-}
-
 .track {
   position: relative;
-  height: 144px;
 }
 
 .curve {
@@ -61,6 +53,7 @@
 
 .dot {
   fill: var(--curve);
+  transition: r var(--d1) var(--ease-out);
 }
 
 .slots {
@@ -72,33 +65,62 @@
   list-style: none;
 }
 
+.slots > li {
+  flex: none;
+  scroll-snap-align: start;
+}
+
 .slot {
   position: relative;
-  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 10px;
-  scroll-snap-align: start;
-  animation: slotIn 0.45s ease both;
+  width: 100%;
+  height: 100%;
+  padding: 4px 0 0;
+  border: 0;
+  border-radius: var(--radius-slot);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--d1) linear;
+}
+
+button.slot {
+  cursor: pointer;
+}
+
+button.slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.selected {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
 .hour {
   height: 18px;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   line-height: 18px;
-  opacity: 0.78;
+  opacity: 0.8;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.now .hour {
+.now .hour,
+.selected .hour {
   opacity: 1;
   font-weight: 600;
 }
 
+.iconWrap {
+  display: flex;
+  margin-top: 2px;
+}
+
 .icon {
-  margin-top: 6px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
@@ -106,56 +128,24 @@
   stroke-linejoin: round;
 }
 
-.iconWrap {
-  display: flex;
-}
-
 .prob {
   height: 14px;
-  margin-top: 2px;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   line-height: 14px;
   font-weight: 600;
-  color: #9BE0F5;
+  color: #A8E6F8;
   font-variant-numeric: tabular-nums;
 }
 
-.sheet .prob {
-  color: #1F7A9C;
-}
-
-:global(.dark-sheet) .sheet .prob {
-  color: #7FD3EE;
-}
+.sheet .prob { color: #1F6F8E; }
+:global(.dark-sheet) .sheet .prob { color: #7FD3EE; }
 
 .temp {
   position: absolute;
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 0.9375rem;
+  font-size: var(--text-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.sun .hour {
-  font-size: 0.75rem;
-}
-
-.sun .prob {
-  color: inherit;
-  opacity: 0.85;
-  font-weight: 400;
-}
-
-.sun .icon {
-  color: var(--curve);
-}
-
-@keyframes slotIn {
-  from { opacity: 0; transform: translateX(-8px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .slot { animation: none; }
 }

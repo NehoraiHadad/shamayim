@@ -1,0 +1,67 @@
+/*
+ * The one load sequence (SPEC §4). Components only mark their parts with data-intro;
+ * the timing lives here. The sun's travel is in scene/Sun.tsx (it follows the arc).
+ */
+.intro [data-intro='digits'] {
+  animation: intro-reveal var(--d4) 120ms var(--ease-out) both;
+}
+
+.intro [data-intro='cond'] {
+  animation: intro-fade var(--d2) 260ms linear both;
+}
+
+.intro [data-intro='sheet'] {
+  animation: intro-rise var(--d4) 300ms var(--ease-out) both;
+}
+
+.intro [data-intro='sentence'] {
+  animation: intro-fade var(--d3) 340ms linear both;
+}
+
+.intro [data-intro='curve'] {
+  stroke-dasharray: 1 1;
+  animation: intro-draw 700ms 480ms var(--ease-in-out) both;
+}
+
+.intro [data-intro='label'] {
+  animation: intro-fade var(--d1) calc(560ms + min(var(--i, 0), 8) * 24ms) linear both;
+}
+
+.intro [data-intro='bar'] {
+  transform-origin: left center;
+  animation: intro-grow var(--d4) calc(700ms + var(--i, 0) * 30ms) var(--ease-out) both;
+}
+
+@keyframes intro-reveal {
+  from {
+    transform: translateY(30%);
+    clip-path: inset(-10% -10% 30% -10%);
+  }
+  to {
+    transform: none;
+    clip-path: inset(-10% -10% -10% -10%);
+  }
+}
+
+@keyframes intro-fade {
+  from { opacity: 0; }
+}
+
+@keyframes intro-rise {
+  from { transform: translateY(24px); }
+}
+
+@keyframes intro-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes intro-grow {
+  from { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro [data-intro] {
+    animation: none;
+  }
+}

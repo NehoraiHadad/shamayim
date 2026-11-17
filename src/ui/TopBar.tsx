@@ -3,26 +3,18 @@ import styles from './TopBar.module.css'
 
 interface Props {
   place: Place
-  elevation: number | null
   status: React.ReactNode
 }
 
-export function TopBar({ place, elevation, status }: Props) {
-  const below = elevation !== null && elevation < 0
+/** Place and data freshness. The depth below sea level is told by the valley scene. */
+export function TopBar({ place, status }: Props) {
   return (
     <header className={styles.bar}>
       <div>
         <h1 className={styles.place}>{place.nameHe}</h1>
-        <p className={styles.region}>
-          {place.regionHe}
-          {below && (
-            <span className={styles.chip}>
-              <bdi>{Math.abs(Math.round(elevation))}</bdi> מ׳ מתחת לפני הים
-            </span>
-          )}
-        </p>
+        <p className={styles.region}>{place.regionHe}</p>
       </div>
-      <div className={styles.status}>{status}</div>
+      {status}
     </header>
   )
 }

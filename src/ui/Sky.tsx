@@ -8,33 +8,36 @@ interface Props {
   cloudCover: number
 }
 
-/** Deterministic star field as one box-shadow list (cheap: a single element). */
+/** Deterministic star field as one box-shadow list (cheap: a single element). Kept clear of the text column. */
 function starField(count: number): string {
   let seed = 7
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
   return Array.from({ length: count }, () => {
     const x = Math.round(rand() * 100)
-    const y = Math.round(rand() * 55)
-    const a = (0.35 + rand() * 0.65).toFixed(2)
-    return `${x}vw ${y}vh 0 rgba(255,255,255,${a})`
+    const y = Math.round(rand() * 50)
+    const nearText = x > 30 && y > 8 && y < 40
+    const a = ((0.35 + rand() * 0.65) * (nearText ? 0.4 : 1)).toFixed(2)
+    return `${x}vw ${y}svh 0 rgba(255,255,255,${a})`
   }).join(',')
 }
 
+const STARS: Partial<Record<ThemeId, number>> = { night: 1, dusk: 0.4 }
+
+/**
+ * The sky behind everything. Every layer stays mounted and cross-fades by opacity,
+ * so a theme change never pops.
+ */
 export function Sky({ theme, cloudCover }: Props) {
   const stars = useMemo(() => starField(46), [])
-  const night = theme === 'night' || theme === 'dusk'
-  const clouds = theme !== 'dust' && cloudCover >= 20
+  const clouds = theme !== 'dust' && cloudCover >= 20 ? Math.min(0.7, cloudCover / 100) : 0
   return (
     <div className={styles.sky} aria-hidden="true">
-      <div className={styles.glow} />
-      {night && <div className={styles.stars} style={{ boxShadow: stars }} />}
-      {clouds && (
-        <div className={styles.clouds} style={{ opacity: Math.min(0.85, cloudCover / 100 + 0.15) }}>
-          <span /><span /><span />
-        </div>
-      )}
-      {theme === 'rain' && <div className={styles.rain} />}
-      {theme === 'dust' && <div className={styles.dust} />}
+      <div className={styles.stars} style={{ boxShadow: stars, opacity: STARS[theme] ?? 0 }} />
+      <div className={styles.clouds} style={{ opacity: clouds }}>
+        <span /><span /><span />
+      </div>
+      <div className={styles.rain} style={{ opacity: theme === 'rain' ? 1 : 0, animationPlayState: theme === 'rain' ? 'running' : 'paused' }} />
+      <div className={styles.dust} style={{ opacity: theme === 'dust' ? 0.14 : 0 }} />
     </div>
   )
 }

@@ -1,0 +1,44 @@
+/* Design tokens: see docs/design/SPEC.md §3. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --gutter: 20px;
+
+  --font-digits: 'Karantina', 'Assistant', sans-serif;
+  --font-serif: 'Frank Ruhl Libre', serif;
+  --font-sans: 'Assistant', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-hero: 8rem;
+  --text-xl: 1.5rem;
+  --text-place: 1.25rem;
+  --text-lg: 1.125rem;
+  --text-md: 0.9375rem;
+  --text-sm: 0.8125rem;
+  --text-xs: 0.6875rem;
+
+  --radius-sheet: 28px;
+  --radius-well: 16px;
+  --radius-slot: 12px;
+
+  --ease-out: cubic-bezier(.22, .8, .2, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
+  --ease-in: cubic-bezier(.4, 0, 1, 1);
+  --d1: 160ms;
+  --d2: 240ms;
+  --d3: 320ms;
+  --d4: 520ms;
+  --d5: 900ms;
+  --d6: 1600ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d3: 160ms;
+    --d4: 160ms;
+    --d5: 160ms;
+    --d6: 320ms;
+  }
+}

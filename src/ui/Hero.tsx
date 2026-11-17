@@ -1,40 +1,39 @@
+import { THRESHOLDS as T } from '../config/thresholds'
 import { conditionLabel, conditionOf } from '../domain/conditions'
-import type { CurrentWeather, DayPoint } from '../domain/types'
+import type { CurrentWeather } from '../domain/types'
 import { formatTemp } from '../text/format'
 import styles from './Hero.module.css'
 import { useCountUp } from './useCountUp'
+import { WeatherIcon } from './WeatherIcon'
 
-interface Props {
-  current: CurrentWeather
-  today: DayPoint | undefined
+const SHOW_GUSTS_FROM = 20
+
+/** Feels-like when it differs noticeably, else notable gusts, else nothing. */
+function secondLine(c: CurrentWeather): string | null {
+  const feels = Math.round(c.feelsLike)
+  if (Math.abs(feels - Math.round(c.temperature)) >= T.feelsLikeDelta) return `מרגיש כמו ${formatTemp(feels)}`
+  if (c.windGusts >= SHOW_GUSTS_FROM) return `משבים עד ${Math.round(c.windGusts)} קמ״ש`
+  return null
 }
 
-export function Hero({ current, today }: Props) {
+/** Now: one number, one icon, one condition, and at most one supporting fact. */
+export function Hero({ current }: { current: CurrentWeather }) {
   const temp = useCountUp(Math.round(current.temperature))
   const kind = conditionOf(current.weatherCode)
-  const feels = Math.round(current.feelsLike)
-  const showFeels = Math.abs(feels - Math.round(current.temperature)) >= 2
+  const line = secondLine(current)
 
   return (
     <section className={styles.hero} aria-label="מזג האוויר עכשיו">
       <p className={styles.temp} aria-label={`${Math.round(current.temperature)} מעלות`}>
-        <bdi>{formatTemp(temp, false)}</bdi>
-        <span className={styles.degree} aria-hidden="true">°</span>
+        <span className={styles.digits} data-intro="digits" aria-hidden="true">
+          <bdi>{formatTemp(temp, false)}</bdi>
+          <span className={styles.degree}>°</span>
+        </span>
       </p>
-      <div className={styles.meta}>
+      <div className={styles.meta} data-intro="cond">
+        <WeatherIcon kind={kind} isDay={current.isDay} size={40} className={styles.icon} />
         <p className={styles.condition}>{conditionLabel(kind, current.isDay)}</p>
-        {showFeels && (
-          <p className={styles.line}>
-            מרגיש כמו <bdi>{formatTemp(feels)}</bdi>
-          </p>
-        )}
-        {today && (
-          <p className={styles.line}>
-            <span aria-label="מקסימום">↑<bdi>{formatTemp(today.tempMax)}</bdi></span>
-            <span className={styles.dot} aria-hidden="true">·</span>
-            <span aria-label="מינימום">↓<bdi>{formatTemp(today.tempMin)}</bdi></span>
-          </p>
-        )}
+        {line && <p className={styles.line}>{line}</p>}
       </div>
     </section>
   )

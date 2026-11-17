@@ -1,28 +1,31 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { SHADMOT_MEHOLA } from './config/place'
 import { openMeteoIcon } from './data/openMeteo/provider'
 import { useForecast } from './data/useForecast'
 import { rollForward } from './domain/now'
 import { composeSummary } from './text/compose'
+import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
-import { SKY_THEMES, themeVars } from './theme/skyThemes'
+import { DARK_SHEET, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
+import { forcedTheme } from './ui/devParams'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
+import { describeHour } from './ui/hourly/stripLayout'
 import { next24h } from './ui/hourly/timeline'
-import { LoadingState, ErrorState } from './ui/States'
-import { Ridge } from './ui/Ridge'
+import { useIntro } from './ui/motion/useIntro'
+import { ValleyScene } from './ui/scene/ValleyScene'
 import { Sentence } from './ui/Sentence'
-import { Sky } from './ui/Sky'
-import { StatusLine } from './ui/StatusLine'
-import { SunArc } from './ui/SunArc'
-import { TopBar } from './ui/TopBar'
-import { useNow } from './ui/useNow'
-import { forcedTheme } from './ui/devParams'
-import { WeekList } from './ui/WeekList'
 import { Sheet } from './ui/Sheet'
+import { Sky } from './ui/Sky'
+import { ErrorState, LoadingState } from './ui/States'
+import { StatusLine } from './ui/StatusLine'
+import { TopBar } from './ui/TopBar'
+import { useHourSelection } from './ui/useHourSelection'
+import { useNow } from './ui/useNow'
+import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
-import { wearTip } from './text/wear'
+import { WeekList } from './ui/WeekList'
 
 const place = SHADMOT_MEHOLA
 
@@ -35,12 +38,12 @@ export default function App() {
   const sentences = useMemo(() => (forecast ? composeSummary(forecast, now) : []), [forecast, now])
   const hourly = useMemo(() => (forecast ? next24h(forecast, now) : []), [forecast, now])
   const wear = useMemo(() => (forecast ? wearTip(forecast, now) : null), [forecast, now])
-  const darkSheet = themeId === 'night' || themeId === 'dusk'
+  const [selected, select] = useHourSelection()
+  const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time === selected)
+  const intro = useIntro(Boolean(forecast))
+  useThemeChrome(themeId)
 
-  useEffect(() => {
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', SKY_THEMES[themeId].top)
-  }, [themeId])
-
+  const classes = ['app', DARK_SHEET.has(themeId) ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
   const statusLine = (
     <StatusLine
       status={status}
@@ -52,29 +55,36 @@ export default function App() {
   )
 
   return (
-    <div className={`app ${darkSheet ? 'dark-sheet' : ''}`} style={themeVars(themeId)}>
+    <div className={classes} style={themeVars(themeId)}>
       <Sky theme={themeId} cloudCover={forecast?.current.cloudCover ?? 0} />
       <main className="sky-area">
-        <TopBar place={place} elevation={forecast?.elevation ?? null} status={statusLine} />
+        <TopBar place={place} status={statusLine} />
         {!forecast && status === 'error' && <ErrorState message={error} onRetry={refresh} />}
         {!forecast && status !== 'error' && <LoadingState />}
         {forecast && (
           <>
-            <Hero current={forecast.current} today={today} />
+            <Hero current={forecast.current} />
             <Sentence sentences={sentences} />
-            <HourlyStrip slots={hourly} label="24 השעות הקרובות" />
-            {today && <SunArc now={now} sunrise={today.sunrise} sunset={today.sunset} />}
+            <HourlyStrip slots={hourly} label="24 השעות הקרובות" selected={selected} onSelect={select} />
           </>
         )}
       </main>
       {forecast && (
         <div className="lower">
-          <Ridge />
-          <Sheet>
-            <WearCard tip={wear} />
-            <WeekList forecast={forecast} now={now} />
-          </Sheet>
-          <Attribution withAir={Boolean(forecast.air)} />
+          <ValleyScene
+            forecast={forecast}
+            now={now}
+            selected={selected}
+            lat={place.lat}
+            readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot) : null}
+          />
+          <div className="paper" data-intro="sheet">
+            <Sheet>
+              <WearCard tip={wear} />
+              <WeekList forecast={forecast} now={now} />
+            </Sheet>
+            <Attribution withAir={Boolean(forecast.air)} />
+          </div>
         </div>
       )}
     </div>

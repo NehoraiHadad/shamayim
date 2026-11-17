@@ -8,6 +8,16 @@
     <meta name="description" content="שמיים — מזג האוויר המדויק למקום שלך, בעברית ברורה" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>שמיים</title>
+    <script>
+      // Paint the last sky colour before the app loads, so a daytime start does not flash navy.
+      try {
+        var bg = localStorage.getItem('shamayim:boot-bg')
+        if (/^#[0-9a-f]{6}$/i.test(bg || '')) {
+          document.documentElement.style.setProperty('--boot-bg', bg)
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', bg)
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
