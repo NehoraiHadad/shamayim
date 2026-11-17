@@ -54,22 +54,25 @@ export function Sarona({ h, night, seed = 1, litShare = 1 }: BuildingProps) {
 /**
  * Azrieli Center (reference: Wikipedia, photos from the Ayalon): round (187 m), triangular (169 m) and square (154 m)
  * glass towers on a shared podium; the mid-height mechanical floor shows as a band. West→east order is unverified.
- * Self-lit with the sun on the left: the drum turns through lit / body / shade bands so it reads round.
+ * Self-lit with the sun on the left: the drum turns through lit / body / shade bands so it reads round, and its
+ * crown steps in at the shoulders.
  */
 export function AzrieliCenter({ h, night, seed = 1, litShare = 1 }: BuildingProps) {
   const [round, tri, square] = [h, h * .9, h * .82 - 1]
+  const shoulder = -round + .9
   return <>
     {/* The mall podium the three towers stand on; it seats them as one complex, not three poles. */}
     <rect className={styles.wall} x={-9.5} y={-3} width={19} height={3} />
     <rect className={styles.lit} x={-9.5} y={-3} width={1.5} height={3} />
     {/* Round: a glass drum, 1.5 px lit band toward the sun, 1 px core shadow on the far side. */}
-    <rect className={styles.glass} x={-8} y={-round} width={5.5} height={round} />
-    <rect className={styles.lit} x={-8} y={-round} width={1.5} height={round} />
-    <rect className={styles.shade} x={-3.5} y={-round} width={1} height={round} />
-    {/* The set-back crown (observation floor / helipad): its top catches the sky, its side stays in body tone. */}
-    <rect className={styles.wall} x={-7.2} y={-round - 1.2} width={3.9} height={1.2} />
-    <rect className={styles.lit} x={-7.2} y={-round - 1.2} width={3.9} height={.5} />
-    <rect className={styles.shade} x={-4} y={-round - .7} width={.7} height={.7} />
+    <rect className={styles.glass} x={-8} y={shoulder} width={5.5} height={-shoulder} />
+    <rect className={styles.lit} x={-8} y={shoulder} width={1.5} height={-shoulder} />
+    <rect className={styles.shade} x={-3.5} y={shoulder} width={1} height={-shoulder} />
+    {/* Circular crown (observation floor, photos from the Ayalon): stepped shoulders suggest the curve at 1x, a lit
+        rim arcs over the sun side and the far shoulder turns into the core shadow. */}
+    <path className={styles.glass} d={`M-8 ${shoulder}v-.9h.7v-.7h.8v-.5h2.5v.5h.8v.7h.7v.9z`} />
+    <path className={styles.lit} d={`M-8 ${shoulder}v-.9h.7v-.7h.8v-.5h1.6v.6h-1.1v.6h-.5v.9z`} />
+    <path className={styles.shade} d={`M-2.5 ${shoulder}v-.9h-.7v-.7h-.8v.6h.5v1z`} />
     {/* Triangle: two glass faces meet at a sharp vertical edge, one turned from the light. */}
     <rect className={styles.glass} x={-2} y={-tri} width={2.6} height={tri} />
     <rect className={styles.lit} x={-2} y={-tri} width={.8} height={tri} />

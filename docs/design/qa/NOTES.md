@@ -69,3 +69,17 @@ Dagon, palms (generic and Shadmot). Changes:
   David: a minaret on a square footing, a round corbelled gallery, two stepped upper stages, a cap and a finial.
 Still weak: the Azrieli crown reads square at 1x. The palm lit tint is faint at 1x. Under overcast skies the palm lit tint
 turns to the wall tone (`.flat`). The YMCA belfry arches are 1 px wide, so they merge into the tower at 1x.
+
+## City glyphs, round 3 (`specimens-cities-r3.png`, judged at 6x and downscaled to 1x)
+- Azrieli: the round tower's crown now steps in at both shoulders (0.7 / 0.8 px steps over 2.1 px), so it reads as
+  rounded at 1x. A lit rim arcs over the west shoulder and joins the drum's lit band. The east shoulder turns into
+  the core shadow. The crown top and the beacon stay at h + 1.2.
+- Palms (generic and Shadmot): each frond is now a sampled tapered polygon along its arch. The crowns read by value,
+  not by `.lit`. The drooping lower fronds are full `.shade`, which gives a dark underside. The outer 38% of every
+  frond is drawn at 0.55 opacity, so the tips lighten against the sky in any weather. The `.lit` overlay is only an
+  extra on sunny days, so under `.flat` the crowns keep the same structure.
+- YMCA: the tower is 4.4 px wide, with a single 2 px round-headed belfry opening per face in `.solid` (`.win` at
+  night) and a wall sill above the cornice. A shade collar sits under a larger (r 1.9) dome, so its lit cap stands
+  off the tower.
+- Not verified on the specimen sheet: the plates don't apply `.flat`. Overcast was judged from the tone values
+  (`.lit` maps to `.wall`, which is about equal to `.green` in value).
