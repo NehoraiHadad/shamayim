@@ -5,7 +5,6 @@ import { placeMarks } from '../../data/landmarks/placeMarks'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { Place } from '../../config/place'
 import { clockOf, datePart } from '../../domain/time'
-import { SLOT_W } from '../hourly/stripLayout'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
@@ -14,7 +13,6 @@ import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
-import { captionBox } from './marks/sceneLayout'
 import styles from './ValleyScene.module.css'
 
 interface Props {
@@ -37,9 +35,6 @@ interface Props {
   landmarks: Landmark[]
   markLife: MarkLife
 }
-
-/** Hours from a to b across dates (local wall-clock strings, compared as if UTC). */
-const hoursUntil = (a: LocalTime, b: LocalTime) => (Date.parse(`${b}Z`) - Date.parse(`${a}Z`)) / 3_600_000
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0,
@@ -66,13 +61,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
     [place, terrain, landmarks, sceneWidth, showSea])
   const night = markLife.litShare > 0
-  // The strip labels its own sun marker; the scene names the event only when that marker is scrolled out of view.
-  const inStrip = event !== null && (hoursUntil(now, event.time) + 0.5) * SLOT_W + 20 < sceneWidth
-  const captionText = event && !readout && !inStrip ? `${event.rise ? 'זריחה' : 'שקיעה'} ${clockOf(event.time)}` : null
-  const captionSide = event?.rise ? 'east' : 'west'
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
-    caption: captionText ? captionBox(captionText, captionSide, sceneWidth) : null, label: { text: elevationText, below } }),
-  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, captionText, captionSide, elevationText, below])
+    label: { text: elevationText, below } }),
+  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
   const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
@@ -126,11 +117,6 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       )}
       {readout && (
         <span className={styles.readout} aria-hidden="true">{isolateNumbers(readout)}</span>
-      )}
-      {event && captionText && (
-        <span className={`${styles.caption} ${styles[captionSide]}`} aria-hidden="true">
-          {event.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(event.time)}</bdi>
-        </span>
       )}
     </figure>
   )

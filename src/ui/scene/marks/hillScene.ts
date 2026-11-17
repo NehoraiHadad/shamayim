@@ -6,7 +6,7 @@ import { composeSettlement, settlementReach, settlementStyle, type Settlement, t
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
 import { BUILDINGS } from './generic/buildingSpecs'
-import { markGeometry, type Box } from './markBox'
+import { markGeometry } from './markBox'
 import { DOT_R, fitMarks, hillBoxes, placeLabel, VISIBLE_BOTTOM } from './sceneLayout'
 
 interface Input {
@@ -16,8 +16,6 @@ interface Input {
   placed: PlacedMark[]
   width: number
   litShare: number
-  /** The sun-event caption's box, when shown: no house stands under it and the label keeps clear. */
-  caption: Box | null
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
 }
@@ -50,7 +48,7 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * Ground functions, the marks fitted to what is visible, the place's settlement cluster and the elevation label's
  * spot for the hill layer, in px at the scene's real width.
  */
-export function hillScene({ place, terrain, landmarks, placed, width, litShare, caption, label }: Input) {
+export function hillScene({ place, terrain, landmarks, placed, width, litShare, label }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
@@ -65,7 +63,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   if (size && style) {
     settlement = composeSettlement({
       style, size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,
-      centerX, centerY, seed: hashId(place.id), keepOut: caption ? [caption] : [],
+      centerX, centerY, seed: hashId(place.id), keepOut: [],
       absorbed: marks.flatMap((mark) => {
         const x = mark.xPct / 100 * width
         const base = mark.absorbed && BUILDINGS[mark.kind] && markGeometry(mark, x, ground)?.base
@@ -79,7 +77,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     dot, text: label.text, width,
     top: label.below ? terrain.seaY + 6 : settlement?.labelTop ?? centerY + 7,
     minTop: label.below ? terrain.seaY + 2 : 0,
-    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...(caption ? [caption] : [])],
+    obstacles: [...hillBoxes(marks, ground, width), ...houses],
   })
   return { ground, farGround, settlement, centerY, marks, label: labelSpot }
 }

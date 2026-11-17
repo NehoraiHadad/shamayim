@@ -39,7 +39,7 @@
 }
 
 /* Heavy haze turns the far ridge pale, so labels over it switch to dark ink. */
-.scene[data-haze='heavy'] :is(.depth, .seaLabel, .caption, .readout) {
+.scene[data-haze='heavy'] :is(.depth, .seaLabel, .readout) {
   color: var(--ridge-near);
 }
 
@@ -110,23 +110,6 @@
 }
 
 .seaLabel { right: 27%; opacity: 0.75; }
-
-/* Sun-event caption: below the strip's midnight label, haloed in the mid-sky colour so it holds on a pale horizon.
-   Its box is mirrored in marks/sceneLayout.ts `captionBox`. */
-.caption {
-  position: absolute;
-  top: 12px;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-  text-shadow: 0 0 6px var(--sky-mid), 0 0 2px var(--sky-mid);
-}
-
-.caption.east { right: 20px; }
-.caption.west { left: 20px; }
-
-.scene[data-haze='heavy'] .caption { text-shadow: none; }
 
 .readout {
   position: absolute;

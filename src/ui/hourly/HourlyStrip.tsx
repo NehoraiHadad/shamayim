@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { clockOf } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
@@ -22,6 +22,7 @@ interface Props {
 /** Horizontally scrolling hours with a temperature curve; sunrise, sunset and midnight marked. */
 export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSelect }: Props) {
   const gradId = useId()
+  const [scrollerRef, away, bringNextSun] = useNextSunTag(tone === 'sky', slots)
   if (!slots.some((s) => s.type === 'hour')) return null
   const { hours, width, pts, suns, breaks, hasProb } = layoutStrip(slots)
   const bandTop = hasProb ? BAND_TOP.withProb : BAND_TOP.withoutProb
@@ -43,7 +44,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
 
   return (
     <section className={`${styles.strip} ${styles[tone]}`} aria-label={label} style={{ '--band-top': `${bandTop}px` } as React.CSSProperties}>
-      <div className={styles.scroller}>
+      <div className={styles.scroller} ref={scrollerRef}>
         <div className={styles.track} style={{ width, height: bandTop + BAND_H }}>
           <svg className={styles.curve} width={width} height={BAND_H} aria-hidden="true">
             <defs>
@@ -72,7 +73,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
             <span key={b.x} className={marks.break} style={{ left: b.x }} aria-hidden="true">{b.label}</span>
           ))}
           {suns.map((s) => (
-            <span key={s.time} className={`${marks.sun} ${tone === 'sky' ? marks.sunSky : ''}`} style={{ left: s.x }} aria-hidden="true">
+            <span key={s.time} data-sun className={`${marks.sun} ${tone === 'sky' ? marks.sunSky : ''}`} style={{ left: s.x }} aria-hidden="true">
               {/* The hairline ends in its own name, so the marker explains itself; the sheet's day detail only needs the time. */}
               {tone === 'sheet'
                 ? <bdi>{clockOf(s.time)}</bdi>
@@ -117,6 +118,14 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
           </ol>
         </div>
       </div>
+      {away && suns[0] && (
+        <button type="button" className={`${marks.sunTag} ${marks[away]}`} onClick={bringNextSun}
+          aria-label={`${suns[0].rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(suns[0].time)}. הצגה ברצועה`}>
+          {away === 'right' && <TagArrow side="right" />}
+          <span>{suns[0].rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(suns[0].time)}</bdi></span>
+          {away === 'left' && <TagArrow side="left" />}
+        </button>
+      )}
       {suns.length > 0 && (
         <p className="visually-hidden">
           {suns.map((s) => `${s.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(s.time)}`).join(', ')}
@@ -124,4 +133,54 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
       )}
     </section>
   )
+}
+
+function TagArrow({ side }: { side: 'left' | 'right' }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+      <path d={side === 'left' ? 'M6.5 2L3.5 5l3 3' : 'M3.5 2l3 3-3 3'} />
+    </svg>
+  )
+}
+
+/**
+ * The next sun event's marker can sit past the visible hours (sunset seen from the morning). While it is scrolled
+ * out of view, a tag at that edge names it, and tapping it scrolls the marker into the middle.
+ */
+function useNextSunTag(enabled: boolean, slots: TimelineSlot[]) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [away, setAway] = useState<'left' | 'right' | null>(null)
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    if (!enabled || !scroller) return
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const marker = scroller.querySelector<HTMLElement>('[data-sun]')
+      if (!marker) return setAway(null)
+      const box = scroller.getBoundingClientRect()
+      const x = marker.getBoundingClientRect().left
+      // Inside the edge fades, the hairline is too faint to count as shown.
+      setAway(x < box.left + 24 ? 'left' : x > box.right - 24 ? 'right' : null)
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(check) }
+    check()
+    scroller.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      cancelAnimationFrame(frame)
+      scroller.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [enabled, slots])
+  const bring = () => {
+    const scroller = scrollerRef.current
+    const marker = scroller?.querySelector<HTMLElement>('[data-sun]')
+    if (!scroller || !marker) return
+    const box = scroller.getBoundingClientRect()
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    scroller.scrollBy({ left: marker.getBoundingClientRect().left - (box.left + box.width / 2),
+      behavior: reduced ? 'auto' : 'smooth' })
+  }
+  return [scrollerRef, away, bring] as const
 }
