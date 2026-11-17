@@ -6,10 +6,14 @@ import { fillGaps, scaleY, type Pt } from './curve'
 import type { HourSlot, TimelineSlot } from './timeline'
 
 export const SLOT_W = 54
-export const BAND_H = 58
+/**
+ * The curve band: PAD above the highest point (room for its temperature label) and PAD below the lowest (room for the
+ * sunrise/sunset label row), leaving 14 px of relief. Enough to show the day's shape; the numbers carry the values.
+ */
+export const BAND_H = 50
 export const PAD = 18
 /** Top of the curve band, with and without the rain-probability row. */
-export const BAND_TOP = { withProb: 62, withoutProb: 48 }
+export const BAND_TOP = { withProb: 60, withoutProb: 46 }
 
 export interface SunMarker {
   x: number

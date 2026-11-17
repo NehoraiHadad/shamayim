@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { clockOf } from '../../domain/time'
+import { clockOf, hourOf } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
 import { WeatherIcon } from '../WeatherIcon'
@@ -43,7 +43,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   }
 
   return (
-    <section className={`${styles.strip} ${styles[tone]}`} aria-label={label} style={{ '--band-top': `${bandTop}px` } as React.CSSProperties}>
+    <section className={`${styles.strip} ${styles[tone]}`} aria-label={label} style={{ '--band-top': `${bandTop}px`, '--band-h': `${BAND_H}px` } as React.CSSProperties}>
       <div className={styles.scroller} ref={scrollerRef}>
         <div className={styles.track} style={{ width, height: bandTop + BAND_H }}>
           <svg className={styles.curve} width={width} height={BAND_H} aria-hidden="true">
@@ -77,16 +77,20 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
               {/* The hairline ends in its own name, so the marker explains itself; the sheet's day detail only needs the time. */}
               {tone === 'sheet'
                 ? <bdi>{clockOf(s.time)}</bdi>
-                : <span className={marks.sunLabel}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
+                : <span className={`${marks.chip} ${marks.sunLabel}`}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
             </span>
           ))}
           <ol className={styles.slots} onKeyDown={onKey}>
             {hours.map((h, i) => {
+              // An icon that only repeats the hour before is dimmed, so a change of weather is what stands out.
+              // "Now" and the first hour of a new day always show in full, to keep their context.
+              const prev = hours[i - 1]
+              const repeat = Boolean(prev) && !h.isNow && hourOf(h.time) !== 0 && prev.kind === h.kind && prev.isDay === h.isDay
               const content = (
                 <>
                   <span className="visually-hidden">{describeHour(h)}</span>
                   <span className={styles.hour} aria-hidden="true">{h.isNow ? 'עכשיו' : clockOf(h.time).slice(0, 2)}</span>
-                  <span aria-hidden="true" className={styles.iconWrap}>
+                  <span aria-hidden="true" className={`${styles.iconWrap} ${repeat ? styles.repeat : ''}`}>
                     <WeatherIcon kind={h.kind} isDay={h.isDay} size={24} className={styles.icon} />
                   </span>
                   {hasProb && <span className={styles.prob} aria-hidden="true">{h.prob !== null ? formatProb(h.prob) : ''}</span>}
@@ -119,7 +123,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
         </div>
       </div>
       {away && suns[0] && (
-        <button type="button" className={`${marks.sunTag} ${marks[away]}`} onClick={bringNextSun}
+        <button type="button" className={`${marks.chip} ${marks.sunTag} ${marks[away]}`} onClick={bringNextSun}
           aria-label={`${suns[0].rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(suns[0].time)}. הצגה ברצועה`}>
           {away === 'right' && <TagArrow side="right" />}
           <span>{suns[0].rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(suns[0].time)}</bdi></span>
@@ -137,7 +141,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
 
 function TagArrow({ side }: { side: 'left' | 'right' }) {
   return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+    <svg width="8" height="8" viewBox="0 0 10 10" aria-hidden="true">
       <path d={side === 'left' ? 'M6.5 2L3.5 5l3 3' : 'M3.5 2l3 3-3 3'} />
     </svg>
   )
