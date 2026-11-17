@@ -32,6 +32,11 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         navigateFallback: 'index.html',
+        runtimeCaching: [{
+          urlPattern: /\/data\/landmarks\//,
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'landmark-data' },
+        }],
       },
     }),
   ],

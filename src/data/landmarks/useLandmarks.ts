@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
 import { curatedForPlace } from './curated'
+import { loadIsrael } from './israelData'
 import { fetchOverpass } from './overpass'
 import { withPlaceHomes } from './placeMarks'
 import { offsetKm, toX } from './project'
@@ -12,7 +13,7 @@ const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
 interface Cache { at?: number; failed?: number; marks?: Landmark[] }
 
-function key(id: string) { return `shamayim:landmarks:v1:${id}` }
+function key(id: string) { return `shamayim:landmarks:v2:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }
@@ -37,6 +38,24 @@ function ranked(place: Place, marks: Landmark[]) {
   return selected.map(({ mark }) => mark)
 }
 
+interface Loaders {
+  israel?: typeof loadIsrael
+  overpass?: typeof fetchOverpass
+}
+
+export async function loadLandmarkSource(place: Place, signal: AbortSignal, loaders: Loaders = {}) {
+  const curated = curatedForPlace(place)
+  if (curated) return { marks: curated.marks, curated: true }
+  try {
+    const israel = await (loaders.israel ?? loadIsrael)(place, signal)
+    if (israel !== null) return { marks: ranked(place, israel), curated: false }
+  } catch (error) {
+    if (signal.aborted) throw error
+  }
+  const overpass = await (loaders.overpass ?? fetchOverpass)(place, signal)
+  return { marks: ranked(place, overpass), curated: false }
+}
+
 export function useLandmarks(place: Place) {
   const curated = useMemo(() => curatedForPlace(place), [place])
   const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[] } | null>(null)
@@ -48,7 +67,7 @@ export function useLandmarks(place: Place) {
   useEffect(() => {
     if (curated || fresh !== null || (cached.failed && SESSION_STARTED - cached.failed < HOUR)) return
     const controller = new AbortController()
-    const run = () => fetchOverpass(place, controller.signal).then((found) => ranked(place, found)).then((next) => {
+    const run = () => loadLandmarkSource(place, controller.signal).then(({ marks: next }) => {
       write(place.id, { at: Date.now(), marks: next })
       setLoaded({ placeId: place.id, marks: next })
     }).catch(() => { if (!controller.signal.aborted) write(place.id, { failed: Date.now() }) })
