@@ -67,6 +67,7 @@ export function Sheet() {
         {STYLES.map((style) => <Strip key={style} theme={theme} scale={1} style={style} />)}
       </div>
       <Strip theme={theme} scale={3} style="tile" />
+      <Strip theme={theme} scale={3} style="blocks" />
     </section>)}
   </div>
 }

@@ -49,8 +49,8 @@ export function FlatRoof({ w, h, heater }: Shape & { heater: boolean }) {
   const side = Math.min(2, w * .28)
   return <>
     <rect className={styles.wall} x={left} y={-h} width={w} height={h} />
-    <rect className={styles.lit} x={left} y={-h} width={side} height={h} />
-    <rect className={styles.lit} x={left} y={-h - .6} width={w} height={.6} />
+    <rect className={styles.side} x={left} y={-h} width={side} height={h} />
+    <rect className={styles.top} x={left} y={-h - .6} width={w} height={.6} />
     {heater && <>
       <rect className={styles.lit} x={w / 2 - 2.6} y={-h - 1.5} width={1.4} height={.9} />
       <path className={styles.wall} d={`M${w / 2 - 1} ${-h - .6}h1.1l-.6 -1.3h-1.1z`} />
