@@ -267,6 +267,9 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
 - [ ] Not verified: real rain/dust/heat weeks (only synthetic data); a phone; screen reader; 200% text checked by eye
       at night only; no component tests (vitest is node-only); the rows' tap affordance without chevrons is a judgment call
 - [ ] Later (Fable): the hard straight seam between valley and sheet
+- Who wrote what: all code and the hazy-sun / ridge glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
+  Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
+  glyphs stay with Claude) arrived after this PR was opened, so 6.2 is untested here. Apply it to the next UI pass.
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
