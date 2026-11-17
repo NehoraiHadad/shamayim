@@ -10,7 +10,7 @@ export const FLOOR_Y = 96
 /** Sun path: rises behind the Gilead (east, right) and sets behind Samaria (west, left). */
 const RISE_X = 322
 const SET_X = 53
-const HORIZON_Y = 70
+export const HORIZON_Y = 70
 
 /** Solar declination in degrees for a date (simple cosine model, ±0.5°). */
 export function declination(date: LocalDate): number {
