@@ -1,10 +1,10 @@
 .sheet {
   position: relative;
   margin: -26px -16px 0;
-  padding: 16px 20px 8px;
-  border-radius: 28px 28px 0 0;
+  padding: var(--space-4) var(--gutter) var(--space-2);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--sheet);
   color: var(--sheet-ink);
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.12);
-  transition: background-color 520ms, color 520ms;
+  transition: background-color var(--d4), color var(--d4);
 }

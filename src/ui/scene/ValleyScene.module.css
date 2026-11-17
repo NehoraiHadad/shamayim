@@ -96,10 +96,9 @@
 }
 
 .depth,
-.seaLabel,
-.caption {
+.seaLabel {
   position: absolute;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -110,18 +109,24 @@
   opacity: 0.9;
 }
 
-.seaLabel {
-  right: 27%;
-  opacity: 0.75;
-}
+.seaLabel { right: 27%; opacity: 0.75; }
 
+/* Sun-event caption: below the strip's midnight label, haloed in the mid-sky colour so it holds on a pale horizon.
+   Its box is mirrored in marks/sceneLayout.ts `captionBox`. */
 .caption {
-  top: 4px;
-  font-size: 0.8125rem;
-  opacity: 0.92;
+  position: absolute;
+  top: 12px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 6px var(--sky-mid), 0 0 2px var(--sky-mid);
 }
 
 .caption.east { right: 20px; }
+.caption.west { left: 20px; }
+
+.scene[data-haze='heavy'] .caption { text-shadow: none; }
 
 .readout {
   position: absolute;
@@ -134,10 +139,7 @@
   animation: readout-in var(--d1) linear;
 }
 
-@keyframes readout-in {
-  from { opacity: 0; }
-}
-.caption.west { left: 20px; }
+@keyframes readout-in { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sun { transition: opacity var(--d1) linear; }

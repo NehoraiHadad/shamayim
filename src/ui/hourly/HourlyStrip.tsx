@@ -30,10 +30,12 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time === selected : h.isNow)))
 
   const onKey = (e: KeyboardEvent<HTMLOListElement>) => {
-    const step = { ArrowLeft: 1, ArrowRight: -1 }[e.key]
+    const last = hours.length - 1
+    // RTL: the left arrow moves later in time; Home/End jump to the first/last hour.
+    const target = { ArrowLeft: (at: number) => at + 1, ArrowRight: (at: number) => at - 1, Home: () => 0, End: () => last }[e.key]
     const at = Number((e.target as HTMLElement).dataset.index)
-    if (!step || !onSelect || Number.isNaN(at)) return
-    const next = Math.min(hours.length - 1, Math.max(0, at + step))
+    if (!target || !onSelect || Number.isNaN(at)) return
+    const next = Math.min(last, Math.max(0, target(at)))
     e.preventDefault()
     onSelect(hours[next].time)
     e.currentTarget.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()

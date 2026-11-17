@@ -5,6 +5,8 @@ interface Props {
   isDay?: boolean
   size?: number
   className?: string
+  /** Hidden from screen readers when the condition is already spoken beside it. */
+  decorative?: boolean
 }
 
 const SUN = (
@@ -30,9 +32,19 @@ const drops = (n: number) => (
   </g>
 )
 
+/** Fog: staggered, broken wavy wisps (not three even bars, which read as a menu button). */
+const FOG_WISPS = (
+  <g>
+    <path d="M4 14.5q2-.9 4 0t4 0M15 14.5h4.5" />
+    <path d="M6.5 18.5q2-.9 4 0t4 0q2-.9 4 0" />
+    <path d="M3.5 22.5h3M9.5 22.5q2-.9 4 0t4 0" />
+  </g>
+)
+
 /** Hand-drawn 24px line icons. Stroke inherits `currentColor`. */
-export function WeatherIcon({ kind, isDay = true, size = 28, className }: Props) {
+export function WeatherIcon({ kind, isDay = true, size = 28, className, decorative = false }: Props) {
   const label = conditionLabel(kind, isDay)
+  const a11y = decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label }
   const body = (() => {
     switch (kind) {
       case 'clear':
@@ -47,13 +59,7 @@ export function WeatherIcon({ kind, isDay = true, size = 28, className }: Props)
       case 'cloudy':
         return <g transform="translate(0 -2)">{CLOUD}</g>
       case 'fog':
-        return (
-          <g>
-            {[8, 12, 16].map((y, i) => (
-              <line key={y} x1={4 + i} y1={y} x2={20 - i} y2={y} />
-            ))}
-          </g>
-        )
+        return <><g transform="translate(2.4 -3.6) scale(0.8)">{CLOUD}</g>{FOG_WISPS}</>
       case 'drizzle':
         return <><g transform="translate(0 -3)">{CLOUD}</g>{drops(2)}</>
       case 'rain':
@@ -81,8 +87,7 @@ export function WeatherIcon({ kind, isDay = true, size = 28, className }: Props)
       strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"
-      role="img"
-      aria-label={label}
+      {...a11y}
     >
       {body}
     </svg>

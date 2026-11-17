@@ -83,7 +83,7 @@ There are four verbs: the sun **travels**, lines **draw**, text **fades** (opaci
 
 - `mid`: clearDay `#2A74B8`, heat `#A84F1C`. Any other theme that fails 4.5 is darkened until the test passes.
 - `sheet` and `sheetAccent` per theme come from the table in review-fable.md §5. Dusk: sheet `#211A33`, ink `#F4EEF7`, muted `#B3A9C9`.
-- The gradient uses fixed stops: `top 0`, `mid 30svh`, `mid 50svh`, `horizon 66svh`. The horizon colour appears only behind the scene.
+- The gradient uses content-tied stops: `top 0`, `mid 12rem`, `mid 27rem`, `horizon 33rem` (was svh, which let short viewports put the pale horizon under the strip and the scene caption). The horizon colour appears only behind the scene; sky text near it carries a soft `--sky-mid` halo.
 - `index.html` has a pre-paint script that reads the last theme from localStorage and sets the `html` background and `theme-color`.
 
 ## 6. Copy

@@ -36,24 +36,28 @@ function colorAt(t: number): string {
   return pick
 }
 
+const clampPct = (v: number) => Math.min(100, Math.max(0, v))
+
 /** Horizontal min→max bar. Always LTR (cold left, hot right), even inside RTL. */
 export function RangeBar({ min, max, scaleMin, scaleMax, now, spreadMin, spreadMax }: Props) {
   const span = Math.max(1, scaleMax - scaleMin)
   const left = ((min - scaleMin) / span) * 100
-  const width = Math.max(4, ((max - min) / span) * 100)
+  const width = Math.min(100 - left, Math.max(4, ((max - min) / span) * 100))
   const marker = now === undefined ? null : ((now - scaleMin) / span) * 100
-  const lowSpread = (spreadMin / span) * 100
-  const highSpread = (spreadMax / span) * 100
+  // The model spread reaches past each end of the bar, clamped inside the track.
+  const spreadFrom = clampPct(left - (spreadMin / span) * 100)
+  const spreadTo = clampPct(left + width + (spreadMax / span) * 100)
   return (
     <div className={styles.track} dir="ltr" aria-hidden="true">
+      {spreadTo - spreadFrom > width && (
+        <div className={styles.spread} style={{ left: `${spreadFrom}%`, width: `${spreadTo - spreadFrom}%` }} />
+      )}
       <div
         className={styles.fill}
         data-intro="bar"
         style={{ left: `${left}%`, width: `${width}%`, backgroundImage: `linear-gradient(90deg, ${rampStops(min, max)})` }}
       />
-      <div className={styles.spread} style={{ left: `${left - lowSpread}%`, width: `${lowSpread}%`, background: colorAt(min) }} />
-      <div className={styles.spread} style={{ left: `${left + width}%`, width: `${highSpread}%`, background: colorAt(max) }} />
-      {marker !== null && <div className={styles.now} style={{ left: `${Math.min(100, Math.max(0, marker))}%` }} />}
+      {marker !== null && <div className={styles.now} style={{ left: `${clampPct(marker)}%` }} />}
     </div>
   )
 }

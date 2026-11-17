@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>QA offline</title><style>body{margin:0}iframe{display:block;border:0}</style></head>
+<body>
+<!-- Dev-only QA helper for when Open-Meteo rate-limits (429). Same query as place.html (p, to, w, h), but first seeds
+     the forecast cache with the recorded fixture (a Jordan Valley point, 2026-11-17), stamped fresh, so the app renders
+     without a network fetch. Every place shows that same weather: use it for layout and contrast, not for accuracy. -->
+<script type="module">
+  import live from '/src/test/fixtures/forecast-multi-2026-11-17.json'
+  import { mapForecast } from '/src/data/openMeteo/mapForecast.ts'
+
+  const query = new URLSearchParams(location.search)
+  const place = JSON.parse(query.get('p'))
+  const forecast = { placeId: place.id, ...mapForecast(live), air: null, fetchedAt: Date.now(),
+    source: 'fixture', models: ['icon_seamless', 'ecmwf_ifs025'] }
+  localStorage.setItem('shamayim:place:v1', JSON.stringify(place))
+  localStorage.setItem(`shamayim:v3:${place.id}`, JSON.stringify(forecast))
+  const frame = document.createElement('iframe')
+  Object.assign(frame, { src: query.get('to') || '/', width: query.get('w') || 375, height: query.get('h') || 700 })
+  document.body.append(frame)
+</script>
+</body>
+</html>

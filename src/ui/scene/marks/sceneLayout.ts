@@ -28,11 +28,11 @@ export function shifts(max: number, step: number) {
 /** Width of a one-line label (Heebo-like digits and Hebrew run about half an em). */
 export function textWidth(text: string, fontPx: number) { return text.length * fontPx * .5 + 1 }
 
-/** The sun-event caption box (ValleyScene.module.css `.caption`: 13 px, top 4, 20 px in from its side). */
+/** The sun-event caption box (ValleyScene.module.css `.caption`: 13 px, top 12, 20 px in from its side). */
 export function captionBox(text: string, side: 'east' | 'west', width: number): Box {
   const w = textWidth(text, 13)
   const left = side === 'west' ? 20 : width - 20 - w
-  return { left, right: left + w, top: 4, bottom: 17 }
+  return { left, right: left + w, top: 12, bottom: 25 }
 }
 
 function fitBuilding(mark: PlacedMark, x: number, ground: Ground, dot: Point) {
