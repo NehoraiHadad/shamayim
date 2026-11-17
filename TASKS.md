@@ -238,10 +238,11 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
 - [x] App: `src/data/weatherApi.ts` (`VITE_WEATHER_API_BASE` switch, `X-Fetched-At` → `fetchedAt`),
       request.ts / terrain.ts / provider.ts wired; useForecast keeps a newer local copy over an older shared one
 - [x] Tests: worker 31, app weatherApi + provider; README section; CI `worker` job
-- [ ] Deploy (needs owner OK + `wrangler login`), live curl checks, `ALLOWED_ORIGINS` = production origin
+- [x] Deployed 2026-11-17 to workers.dev (`ALLOWED_ORIGINS` = shamayim.pages.dev + localhost:5173); live curl:
+      forecast MISS→HIT→HIT same X-Fetched-At, air MISS, 400, 404, preflight 204/403, GET with origin → ACAO
 - [ ] Set `VITE_WEATHER_API_BASE` in the app host's build settings (host not recorded in repo)
 - [ ] Optional: custom domain for the Worker — Cache API has no effect on *.workers.dev
-- [ ] PR against main
+- [x] PR against main
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

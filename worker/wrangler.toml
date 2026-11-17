@@ -11,7 +11,7 @@ workers_dev = true
 
 [vars]
 # Browser origins allowed to call the Worker (comma-separated). Add the production origin(s) of the app here.
-ALLOWED_ORIGINS = "http://localhost:5173"
+ALLOWED_ORIGINS = "https://shamayim.pages.dev,http://localhost:5173"
 
 [observability]
 enabled = true
