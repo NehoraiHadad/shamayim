@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Place } from '../config/place'
+import { pickerOpenOnLoad } from './devParams'
 import { PlacePicker } from './PlacePicker'
 import styles from './TopBar.module.css'
 
@@ -12,7 +13,7 @@ interface Props {
 
 /** Place and data freshness. The depth below sea level is told by the valley scene. */
 export function TopBar({ place, recent, onSelectPlace, status }: Props) {
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(pickerOpenOnLoad)
   return (
     <header className={styles.bar}>
       <div className={styles.location}>

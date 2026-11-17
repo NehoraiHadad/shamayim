@@ -8,6 +8,7 @@
 <script>
   const query = new URLSearchParams(location.search)
   localStorage.setItem('shamayim:place:v1', query.get('p'))
+  if (query.has('r')) localStorage.setItem('shamayim:recent-places:v1', query.get('r'))
   const to = query.get('to') || '/'
   if (query.has('w')) {
     const frame = document.createElement('iframe')
