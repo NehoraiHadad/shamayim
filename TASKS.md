@@ -146,7 +146,12 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [ ] After approval: absorb worship/water tower near the centre into the cluster (Umm al-Fahm lost its minarets
       behind the cluster); flat-desert rows must stay on the rim (Mitzpe Ramon drapes down the cliff)
 - [ ] `classify`: synagogue (religion=jewish) + vineyard filter, then re-run the landmarks workflow
-- [ ] Redraw turbine / mast / highrise / chimney in the px layer; curated cities get seat + light
+- [x] (`feat/illustration-glyphs`) All generic kinds in the px layer (`generic/industry|structures|nature.tsx`);
+      curated cities redrawn (`curated/*.tsx`); one-light rig (`LightRig.tsx`); far layer via HillMarks; old
+      `Landmarks.tsx` + `glyphs/` removed. Specimens + critique: `docs/design/qa/specimens-*.png`, `NOTES.md`
+- [ ] Waiting: coordinator's fresh critic over the specimen sheets
+- [ ] Follow-ups: Haifa elevation label covers the Báb shrine; Dagon dropped by placement; Tel Aviv dot off its towers;
+      Sarona twist reads flat at 1x; palms crowns still icon-like; verify the facts listed in `docs/design/qa/NOTES.md`
 - [ ] Regression stills for all 10 places; then merge to main
 
 ## Known gaps / polish
