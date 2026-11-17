@@ -9,6 +9,15 @@ describe('toFetchFailure', () => {
   it('a timeout is the network', () => {
     expect(toFetchFailure(new DOMException('timed out', 'TimeoutError')).cause).toBe('network')
   })
+  it('tells a daily or hourly limit apart from a busy minute', () => {
+    expect(toFetchFailure(new HttpError(429, 'h', 'Daily API request limit exceeded. Please try again tomorrow.')).cause)
+      .toBe('limit-day')
+    expect(toFetchFailure(new HttpError(429, 'h', 'Hourly API request limit exceeded. Please try again in the next hour.')).cause)
+      .toBe('limit-hour')
+    expect(toFetchFailure(new HttpError(429, 'h', 'Minutely API request limit exceeded. Please try again in one minute.')).cause)
+      .toBe('busy')
+    expect(toFetchFailure(new HttpError(503, 'h', 'Daily maintenance')).cause).toBe('busy')
+  })
   it('keeps the message for the console', () => {
     expect(toFetchFailure(new HttpError(429, 'api.open-meteo.com')).message).toBe('HTTP 429 for api.open-meteo.com')
     expect(toFetchFailure('boom').message).toBe('boom')

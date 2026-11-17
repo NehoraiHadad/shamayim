@@ -62,7 +62,7 @@ export default function App() {
       status={status}
       freshness={freshness}
       fetchedAt={forecast?.fetchedAt ?? null}
-      hasError={Boolean(error)}
+      failure={error?.cause ?? null}
       onRefresh={refresh}
     />
   )

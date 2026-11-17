@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Freshness } from '../data/cache'
+import type { FailureCause } from '../data/fetchFailure'
 import type { LoadStatus } from '../data/useForecast'
-import { freshnessText } from '../text/status'
+import { freshnessText, type UpdateProblem } from '../text/status'
 import styles from './StatusLine.module.css'
 
 interface Props {
   status: LoadStatus
   freshness: Freshness | null
   fetchedAt: number | null
-  hasError: boolean
+  /** Why the last update failed, if it did. */
+  failure: FailureCause | null
   onRefresh: () => void
 }
 
@@ -43,10 +45,12 @@ function usePhase(busy: boolean, failed: boolean, onRefresh: () => void): [Phase
   return [phase, start]
 }
 
-export function StatusLine({ status, freshness, fetchedAt, hasError, onRefresh }: Props) {
-  const offline = hasError || freshness === 'stale'
-  const [phase, start] = usePhase(status === 'refreshing' || status === 'loading', hasError, onRefresh)
-  const fresh = fetchedAt ? freshnessText(fetchedAt, offline) : { text: '', spoken: '' }
+export function StatusLine({ status, freshness, fetchedAt, failure, onRefresh }: Props) {
+  const problem: UpdateProblem = failure && failure !== 'network' ? 'service'
+    : failure || freshness === 'stale' ? 'offline' : null
+  const offline = problem !== null
+  const [phase, start] = usePhase(status === 'refreshing' || status === 'loading', Boolean(failure), onRefresh)
+  const fresh = fetchedAt ? freshnessText(fetchedAt, problem) : { text: '', spoken: '' }
   const busy = phase === 'busy'
   /** What the refresh itself is doing, for screen readers; the spinner and the check say it visually. */
   const update = busy ? 'מעדכן…' : phase === 'done' ? 'עודכן עכשיו' : ''
