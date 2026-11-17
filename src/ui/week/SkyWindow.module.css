@@ -1,0 +1,32 @@
+.window {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 40px;
+  padding-bottom: 6px; /* centre the icon in the sky above the ridge */
+  box-sizing: border-box;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--win-top), var(--win-low));
+}
+
+.icon { position: relative; z-index: 1; }
+
+.ridge {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--sheet);
+  transition: fill var(--d4);
+}
+
+/* On the dark paper the deep skies (overcast, rain) would sink into the navy: a faint light rim keeps the window. */
+:global(.dark-sheet) .window {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+@media (forced-colors: active) {
+  .window { border: 1px solid CanvasText; }
+}
