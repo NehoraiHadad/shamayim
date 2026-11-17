@@ -130,7 +130,24 @@ Brief: `docs/briefs/israel-landmarks.md`. Codex (sol), merged `feat/israel-landm
 - [ ] Abroad: OpenFreeMap vector tiles (z14: worship, castles/ruins, building `render_height`; no towers/masts)
       as the main source, Overpass as a bonus — next Codex round
 - [ ] Later: Cloudflare Pages Function for IMS (token server-side) once access is granted (asked 16.11)
-- [ ] Illustration upgrade: Fable critique + glyph redesign (houses that read, real silhouettes per place)
+- [~] Illustration upgrade → v7 below
+
+## v7 — illustration: marks that belong to the hill — 2026-11-17 (branch `feat/illustration`)
+Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: Codex drawings read "מודבק").
+- [x] QA stills of 10 places (day/night) → Fable critique: one tone, pins on the skyline edge, no depth, no sun side, no village
+- [x] Px-space hill layer `src/ui/scene/marks/HillMarks.tsx` (no stretch): seat on slope (`seat.ts`), planes behind/line/face
+      from north–south offset, sun-side lit strip, R3 colour tokens in `marks.module.css`
+- [x] Settlement cluster (`settlement.ts`, `SettlementGlyph.tsx`): tile / flat-hill / flat-desert / blocks, rows draped
+      down the slope, terraces, night windows; elevation label sits under the houses; dot seated on the drawn ridge
+- [x] Glyphs (`generic/buildings.tsx`): mosque (hall + dome + minaret, green lamp), synagogue, church, water tower, castle;
+      field patches (`generic/fields.tsx`): orchard, vineyard, solar
+- [x] OSM caps (minaret 2, mast 1, orchard 2, solar 1, highrise 4) + variety penalty; new kinds synagogue, vineyard
+- [x] Look test Karmei Tzur 10:00 / 21:00 at 375 px → sent to owner for approval
+- [ ] After approval: absorb worship/water tower near the centre into the cluster (Umm al-Fahm lost its minarets
+      behind the cluster); flat-desert rows must stay on the rim (Mitzpe Ramon drapes down the cliff)
+- [ ] `classify`: synagogue (religion=jewish) + vineyard filter, then re-run the landmarks workflow
+- [ ] Redraw turbine / mast / highrise / chimney in the px layer; curated cities get seat + light
+- [ ] Regression stills for all 10 places; then merge to main
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
