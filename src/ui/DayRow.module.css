@@ -120,6 +120,7 @@
   border-radius: var(--radius-well);
   border-color: transparent;
   background: color-mix(in srgb, var(--sheet-ink) 4%, transparent);
+  --win-ground: color-mix(in srgb, var(--sheet-ink) 4%, var(--sheet));
 }
 
 .open + .item { border-color: transparent; }
