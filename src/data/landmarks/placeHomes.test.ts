@@ -42,6 +42,17 @@ describe('place homes', () => {
     expect(nearby == null || Math.abs(nearby.xPct - 47) * 3.75 >= 27).toBe(true)
   })
 
+  it('absorbs the own minaret of the place into the cluster, clear of the dot', () => {
+    const homes = placeHomes({ ...place, featureCode: 'PPL' }, [])[0]
+    const minaret = { ...baseMark, id: 'own', kind: 'minaret' as const, lon: place.lon + .003, heightM: 25 }
+    const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, minaret], 375)
+    const own = marks.find((mark) => mark.id === 'own')!
+    expect(own.absorbed).toBe(true)
+    const offset = (own.xPct - 47) * 3.75
+    expect(offset).toBeGreaterThan(6)
+    expect(offset).toBeLessThan(27)
+  })
+
   it.each(['shadmot-mehola', 'jerusalem', 'tel-aviv', 'haifa'])('leaves curated %s marks unchanged', (id) => {
     const curated = CURATED.find((item) => item.id === id)!
     const city: Place = { ...place, id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }

@@ -25,6 +25,7 @@ const ROW_STEP: Record<SettlementStyle, number> = { tile: 5.5, 'flat-hill': 4, '
 const DOT_R = 5.5
 const LABEL_MAX = 116
 const LABEL_HALF = 23
+const RIM = 5
 
 export function settlementHalfWidth(size: SettlementSize) { return HALF[size] }
 
@@ -60,6 +61,8 @@ interface Input {
   ground: (x: number) => number
   litShare: number
   seed: number
+  /** Absorbed buildings (px x and width): the skyline house in their slot gives way. */
+  absorbed?: { x: number; w: number }[]
 }
 
 function dims(style: SettlementStyle, row: number, index: number, random: () => number) {
@@ -99,10 +102,13 @@ export function composeSettlement(input: Input): Settlement {
     const xs = offsets(count, row, PITCH[style], random).map((offset) => centerX + offset)
     xs.forEach((x, index) => {
       const size = dims(style, row, index, random)
+      /** Desert towns sit on the plateau rim in level rows; nothing climbs down the cliff. */
+      if (style === 'flat-desert' && Math.abs(ground(x) - centerY) > RIM) return
       const placed = seat(ground, x, size.w, row * step, true)
       if (!placed) return
       const house = { x, baseY: placed.baseY, w: placed.w, h: size.h + (row ? 0 : (random() - .5) * 2), row }
       if (house.baseY - house.h < 4 || house.baseY > 127 || hitsDot(house, centerX, centerY)) return
+      if (row === 0 && input.absorbed?.some((mark) => Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1)) return
       houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
     })
     if (row > 0 && (style === 'tile' || style === 'blocks')) {

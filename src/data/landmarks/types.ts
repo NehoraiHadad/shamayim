@@ -35,6 +35,8 @@ export interface PlacedMark {
   tall: boolean
   /** North–south offset in km (north = behind the section line). */
   dy: number
+  /** Stands among the place's own roofs (ILLUSTRATION.md R5): seated on the crest at its true x, the house there removed. */
+  absorbed?: boolean
 }
 
 export interface MarkLife {

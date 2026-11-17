@@ -64,8 +64,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     [place, terrain, landmarks, sceneWidth, showSea])
   const flat = useMemo(() => placed.filter((mark) => !isHillMark(mark)), [placed])
   const night = markLife.litShare > 0
-  const hill = useMemo(() => hillScene(place, terrain, landmarks, sceneWidth, markLife.litShare),
-    [place, terrain, landmarks, sceneWidth, markLife.litShare])
+  const hill = useMemo(() => hillScene(place, terrain, landmarks, placed, sceneWidth, markLife.litShare),
+    [place, terrain, landmarks, placed, sceneWidth, markLife.litShare])
   const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',

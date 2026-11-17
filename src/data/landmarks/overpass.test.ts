@@ -5,7 +5,7 @@ import { fetchOverpass, parseOverpass } from './overpass'
 afterEach(() => vi.unstubAllGlobals())
 
 describe('parseOverpass', () => {
-  it('classifies heights, towers and orchards and merges nearby duplicates', () => {
+  it('classifies heights, towers, worship halls and fields and merges nearby duplicates', () => {
     const elements = [
       { id: 1, lat: 32, lon: 35, tags: { building: 'yes', 'building:levels': '30' } },
       { id: 2, lat: 32, lon: 35.01, tags: { man_made: 'tower', 'tower:type': 'cooling' } },
@@ -15,6 +15,7 @@ describe('parseOverpass', () => {
       { id: 6, lat: 32, lon: 35.04, tags: { landuse: 'orchard' } },
       { id: 7, lat: 32, lon: 35.05, tags: { amenity: 'place_of_worship', religion: 'jewish', building: 'yes' } },
       { id: 8, lat: 32, lon: 35.06, tags: { amenity: 'place_of_worship', religion: 'muslim', building: 'yes' } },
+      { id: 9, lat: 32, lon: 35.07, tags: { landuse: 'vineyard' } },
     ]
     const marks = parseOverpass({ elements })
     expect(marks.find((mark) => mark.kind === 'highrise')?.heightM).toBe(96)
@@ -23,7 +24,8 @@ describe('parseOverpass', () => {
     expect(marks.find((mark) => mark.kind === 'chimney')?.heightM).toBe(90)
     expect(marks.some((mark) => mark.kind === 'palms')).toBe(true)
     expect(marks.some((mark) => mark.kind === 'orchard')).toBe(true)
-    expect(marks.some((mark) => mark.id === 'osm-7')).toBe(false)
+    expect(marks.find((mark) => mark.id === 'osm-7')?.kind).toBe('synagogue')
+    expect(marks.find((mark) => mark.id === 'osm-9')?.kind).toBe('vineyard')
     expect(marks.find((mark) => mark.id === 'osm-8')?.kind).toBe('minaret')
   })
 })

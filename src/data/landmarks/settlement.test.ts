@@ -31,6 +31,21 @@ describe('settlement cluster', () => {
     expect(new Set(settlement.houses.map((house) => house.row))).toEqual(new Set([0, 1, 2]))
   })
 
+  it('gives the absorbed building its skyline slot', () => {
+    const absorbed = [{ x: 200, w: 14 }]
+    const settlement = composeSettlement({ ...base, style: 'tile', absorbed })
+    const skyline = settlement.houses.filter((house) => house.row === 0)
+    expect(skyline.some((house) => Math.abs(house.x - 200) < (14 + house.w) / 2 + 1)).toBe(false)
+    expect(skyline.length).toBeGreaterThan(0)
+  })
+
+  it('keeps desert rows on the plateau rim instead of down the cliff', () => {
+    const cliff = (x: number) => x < 187.5 ? 40 : 40 + (x - 187.5) * 1.5
+    const settlement = composeSettlement({ ...base, size: 'medium', style: 'flat-desert', ground: cliff })
+    expect(settlement.houses.length).toBeGreaterThan(5)
+    for (const house of settlement.houses) expect(cliff(house.x)).toBeLessThanOrEqual(45)
+  })
+
   it('lights a stable share of houses at night', () => {
     const lit = (seed: number) => composeSettlement({ ...base, style: 'tile', litShare: .5, seed }).houses.map((h) => h.lit)
     expect(lit(3)).toEqual(lit(3))

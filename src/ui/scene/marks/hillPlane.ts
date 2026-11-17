@@ -8,6 +8,7 @@ export function isHillMark(mark: PlacedMark) {
 }
 
 export function planeOf(mark: PlacedMark): 'behind' | 'line' | 'face' {
+  if (mark.absorbed) return 'line'
   if (FIELD_KINDS.has(mark.kind) || mark.dy < -.3) return 'face'
   return mark.dy > .3 && !LOW.has(mark.kind) ? 'behind' : 'line'
 }

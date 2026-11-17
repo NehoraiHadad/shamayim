@@ -31,7 +31,7 @@ function Building({ mark, x, ground, sunX, night }: { mark: PlacedMark; x: numbe
   const depth = clamp(Math.abs(mark.dy) / 1.5)
   const h = spec.h(mark.hPx)
   const scale = plane === 'behind' ? 1 - .2 * depth : 1
-  const seated = seat(ground, x, spec.w * scale)
+  const seated = seat(ground, x, spec.w * scale, 0, Boolean(mark.absorbed))
   if (!seated) return null
   const base = plane === 'face' ? ground(x) + 3 + 9 * depth
     : seated.baseY + (plane === 'behind' ? .25 * depth * h * scale : 0)

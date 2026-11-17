@@ -34,6 +34,7 @@ function classify(tags: Record<string, string>): { kind: MarkKind; height: numbe
   if (tags.man_made === 'lighthouse') return { kind: 'lighthouse', height: height ?? 20 }
   if (tags['tower:type'] === 'minaret' || tags.building === 'mosque'
     || (tags.amenity === 'place_of_worship' && tags.religion === 'muslim')) return { kind: 'minaret', height: height ?? 30 }
+  if (tags.amenity === 'place_of_worship' && tags.religion === 'jewish' && tags.building) return { kind: 'synagogue', height: height ?? 9 }
   if (tags.man_made === 'water_tower') return { kind: 'waterTower', height: height ?? 25 }
   if (tags.building && (height ?? levels * 3.2) >= 40) return { kind: 'highrise', height: height ?? levels * 3.2 }
   if (/church|cathedral/.test(tags.building ?? '') && tags.amenity === 'place_of_worship') return { kind: 'church', height: height ?? 25 }
@@ -41,6 +42,7 @@ function classify(tags: Record<string, string>): { kind: MarkKind; height: numbe
   if (/castle|fort/.test(tags.historic ?? '')) return { kind: 'castle', height: height ?? 12 }
   if (tags.man_made === 'mast' || tags['tower:type'] === 'communication') return { kind: 'mast', height: height ?? 45 }
   if (tags.landuse === 'orchard') return { kind: tags.trees === 'date_palms' ? 'palms' : 'orchard', height: height ?? (tags.trees === 'date_palms' ? 15 : 5) }
+  if (tags.landuse === 'vineyard') return { kind: 'vineyard', height: height ?? 2 }
   if (tags.power === 'plant' && tags['plant:source'] === 'solar') return { kind: 'solar', height: height ?? 3 }
   if (tags.bridge && /cable-stayed|suspension/.test(tags['bridge:structure'] ?? '')) return { kind: 'bridge', height: height ?? 60 }
   return null
