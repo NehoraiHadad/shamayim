@@ -1,0 +1,60 @@
+.line {
+  display: block;
+  width: 100%;
+  max-width: 335px;
+  height: auto;
+  margin: 0 auto var(--space-2);
+  overflow: visible;
+}
+
+.rope {
+  fill: none;
+  stroke: var(--sheet-muted);
+  stroke-width: 1;
+}
+
+/* Cloth: paper-filled so the line passes behind it, outlined in ink; seams in a thinner muted line. */
+.item path,
+.item circle {
+  fill: color-mix(in srgb, var(--cloth) 30%, var(--sheet));
+  stroke: var(--sheet-ink);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.item :global(.seam) {
+  fill: none;
+  stroke: var(--sheet-muted);
+  stroke-width: 1;
+}
+
+.item :global(.seam.strong) {
+  stroke: var(--sheet-ink);
+  stroke-width: 1.4;
+}
+
+.item :global(.dot) {
+  fill: var(--sheet-ink);
+  stroke: none;
+}
+
+.peg {
+  fill: var(--sheet-accent);
+}
+
+/* Cloth sways on the line, each item out of phase: slow in still air, quicker and wider in wind. */
+.item {
+  transform-box: fill-box;
+  transform-origin: 50% 0; /* swing from the line */
+  animation: sway var(--sway-dur, 7s) var(--ease-in-out) infinite alternate;
+}
+
+@keyframes sway {
+  from { rotate: calc(-1 * var(--sway-amp, 1.2deg)); }
+  to { rotate: var(--sway-amp, 1.2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item { animation: none; }
+}
