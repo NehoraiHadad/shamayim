@@ -240,7 +240,9 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
 - [x] Tests: worker 31, app weatherApi + provider; README section; CI `worker` job
 - [x] Deployed 2026-11-17 to workers.dev (`ALLOWED_ORIGINS` = shamayim.pages.dev + localhost:5173); live curl:
       forecast MISS→HIT→HIT same X-Fetched-At, air MISS, 400, 404, preflight 204/403, GET with origin → ACAO
-- [ ] Owner: set `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` in the Pages build settings, rebuild
+- [x] `.env.production` sets `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` (Pages git builds pick it up);
+      `*.shamayim.pages.dev` allowed for preview builds (worker cors wildcard + test)
+- [ ] After merge: confirm shamayim.nehoraihadad.com calls shamayim-api in the network panel
 - [x] Custom domain `shamayim-api.nehoraihadad.com` (Cache API works there); origin shamayim.nehoraihadad.com added;
       live: MISS→HIT→HIT, 8 parallel connections all HIT with one X-Fetched-At, 400, preflight 204/403
 - [x] PR against main

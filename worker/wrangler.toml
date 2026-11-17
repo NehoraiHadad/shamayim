@@ -10,8 +10,9 @@ workers_dev = true
 routes = [{ pattern = "shamayim-api.nehoraihadad.com", custom_domain = true }]
 
 [vars]
-# Browser origins allowed to call the Worker (comma-separated). Add the production origin(s) of the app here.
-ALLOWED_ORIGINS = "https://shamayim.nehoraihadad.com,https://shamayim.pages.dev,http://localhost:5173"
+# Browser origins allowed to call the Worker (comma-separated); "https://*.host" allows one subdomain level
+# (Pages preview builds). Add any new production origin of the app here.
+ALLOWED_ORIGINS = "https://shamayim.nehoraihadad.com,https://shamayim.pages.dev,https://*.shamayim.pages.dev,http://localhost:5173"
 
 [observability]
 enabled = true
