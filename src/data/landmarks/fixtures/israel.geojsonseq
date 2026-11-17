@@ -1,0 +1,6 @@
+{"type":"Feature","id":"node/1","geometry":{"type":"Point","coordinates":[35.1009,31.6092]},"properties":{"man_made":"water_tower","height":"25","name:he":"מגדל מים"}}
+{"type":"Feature","id":"node/2","geometry":{"type":"Point","coordinates":[35.101,31.61]},"properties":{"man_made":"tower","tower:type":"minaret","height":"30"}}
+{"type":"Feature","id":"way/3","geometry":{"type":"Polygon","coordinates":[[[35.104,31.619],[35.106,31.619],[35.106,31.621],[35.104,31.621],[35.104,31.619]]]},"properties":{"building":"mosque","name:he":"מסגד"}}
+{"type":"Feature","id":"way/4","geometry":{"type":"Polygon","coordinates":[[[35.11,31.61],[35.112,31.61],[35.112,31.612],[35.11,31.612],[35.11,31.61]]]},"properties":{"building":"yes","height":"120","name:he":"מגדל"}}
+{"type":"Feature","id":"way/5","geometry":{"type":"Polygon","coordinates":[[[35.12,31.61],[35.122,31.61],[35.122,31.612],[35.12,31.612],[35.12,31.61]]]},"properties":{"building":"yes","height":"10"}}
+{"type":"Feature","id":"way/6","geometry":{"type":"Polygon","coordinates":[[[35.13,31.61],[35.132,31.61],[35.132,31.612],[35.13,31.612],[35.13,31.61]]]},"properties":{"amenity":"place_of_worship","religion":"jewish","building":"synagogue","name:he":"בית כנסת"}}

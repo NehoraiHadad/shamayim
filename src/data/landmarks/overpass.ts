@@ -1,23 +1,11 @@
 import type { Place } from '../../config/place'
+import { LANDMARK_FILTERS } from './filters'
 import { offsetKm } from './project'
 import type { Landmark, MarkKind } from './types'
 
 interface Element { id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }
 interface Response { elements?: Element[] }
 
-const selectors = [
-  'way[bridge]["bridge:structure"~"cable-stayed|suspension"]', 'nwr[man_made=cooling_tower]',
-  'nwr[man_made=tower]["tower:type"=cooling]', 'nwr[power=generator]["generator:source"=wind]',
-  'nwr[man_made=chimney]', 'nwr[man_made=lighthouse]', 'nwr[man_made=tower]["tower:type"=minaret]',
-  'nwr[building=mosque]', 'nwr[building][height]', 'nwr[building]["building:levels"]',
-  'nwr[man_made=water_tower]', 'nwr[amenity=place_of_worship][building~"church|cathedral"]',
-  'nwr[man_made=silo]', 'nwr[historic~"castle|fort"]', 'nwr[man_made=mast]',
-  'nwr[man_made=tower]["tower:type"=communication]', 'nwr[landuse=orchard]',
-  'nwr[power=plant]["plant:source"=solar]',
-  'nwr[amenity=place_of_worship][religion=jewish][building]',
-  'nwr[amenity=place_of_worship][religion=muslim][building]',
-]
-const farSelectors = selectors.slice(0, 10).concat(selectors.slice(14, 16))
 const HOSTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter']
 
@@ -30,8 +18,9 @@ function box(place: Place, eastKm: number, northKm: number) {
 export function buildQuery(place: Place): string {
   const near = box(place, 12, 1.5)
   const far = box(place, 30, 3)
-  const nearLines = selectors.map((selector) => `${selector}(${near});`).join('')
-  const tall = farSelectors.map((selector) => `${selector}(${far});`).join('')
+  const nearLines = LANDMARK_FILTERS.map(({ overpass }) => `${overpass}(${near});`).join('')
+  const tall = LANDMARK_FILTERS.filter(({ far: tall }) => tall)
+    .map(({ overpass }) => `${overpass}(${far});`).join('')
   return `[out:json][timeout:25];(${nearLines}${tall});out tags center 200;`
 }
 
