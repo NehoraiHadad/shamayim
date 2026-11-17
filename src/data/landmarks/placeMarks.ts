@@ -26,8 +26,10 @@ export function placeHomes(place: Place, osmMarks: Landmark[]): Landmark[] {
     lat: place.lat, lon: place.lon, heightM, source: 'place' }]
 }
 
+/** Adds the place's own houses, unless a curated set already draws them (Shadmot's homes glyph). */
 export function withPlaceHomes(place: Place, marks: Landmark[], curated = false): Landmark[] {
-  return curated ? marks : [...marks, ...placeHomes(place, marks)]
+  const ownHomes = curated && marks.some((mark) => mark.glyph?.endsWith('-homes'))
+  return ownHomes ? marks : [...marks, ...placeHomes(place, marks)]
 }
 
 export function isPlaceHomes(mark: Landmark) { return mark.kind === 'homes' && mark.source === 'place' }
@@ -76,6 +78,9 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width)
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
   const villageHalf = (homes ? settlementHalfWidth(settlementSize(homes)) : 7) * scale
+  /** Curated city landmarks stand among the city's own blocks: they only keep clear of the dot. */
+  const curatedCity = chosen.some((item) => item.mark.source === 'curated')
+  const keepClear = curatedCity ? 7 * scale : villageHalf
   const edge = 8 * scale
   const inside = [...absorbed].sort((a, b) => a.x - b.x).map((item) => {
     const clear = 8 * scale + item.width / 2
@@ -85,7 +90,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   const spaced = [...inside, ...(['far', 'near'] as const).flatMap((layer) => spread(
     chosen.filter((item) => item.layer === layer),
     6 * scale,
-    layer === 'near' ? [center - villageHalf, center + villageHalf] : undefined, scale,
+    layer === 'near' ? [center - keepClear, center + keepClear] : undefined, scale,
   ))].filter((item) => item.x - item.width / 2 >= edge && item.x + item.width / 2 <= 375 - edge)
   const labelRight = terrain.seaSide === 'west' ? 375 * .06 + 44 * scale
     : terrain.seaSide === 'east' ? 375 * .94 : 375 * .73
@@ -116,7 +121,8 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       lights: LIGHTS.has(item.mark.kind) || LIT_CUSTOM.has(item.mark.glyph ?? '') ? 4 : 0,
       tall: item.mark.heightM >= 60,
       dy: item.dy,
-      ...(absorbedIds.has(item.mark.id) ? { absorbed: true } : {}),
+      ...(absorbedIds.has(item.mark.id) || (homes && item.mark.source === 'curated' && item.layer === 'near'
+        && Math.abs(item.x - center) < villageHalf) ? { absorbed: true } : {}),
     }]
   })
 }
