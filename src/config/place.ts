@@ -9,6 +9,7 @@ export interface Place {
   usesOsm?: boolean
   population?: number
   featureCode?: string
+  settlementType?: string
 }
 
 export const SHADMOT_MEHOLA: Place = {

@@ -33,6 +33,7 @@ export function select(candidates: Candidate[], width: number): Candidate[] {
 
 export function spread(candidates: Candidate[], gap: number, blocked?: [number, number], scale = 1): Candidate[] {
   const placed: Candidate[] = []
+  const originalX = new Map(candidates.map((candidate) => [candidate.mark, candidate.x]))
   for (const original of [...candidates].sort((a, b) => a.x - b.x)) {
     const item = { ...original }
     const prior = placed.at(-1)
@@ -45,8 +46,20 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
     }
     const maxShift = item.mark.source === 'curated' ? 36 * scale : 24 * scale
     if (Math.abs(item.x - original.x) > maxShift) {
-      if (prior && prior.score < item.score) placed.pop()
+      const curatedCluster: Candidate[] = []
+      if (curatedPair) {
+        for (let i = placed.length - 1; i >= 0 && placed[i].mark.source === 'curated'; i--) {
+          curatedCluster.push(placed[i])
+        }
+      }
+      const sharedCuratedShift = curatedCluster.length > 0
+        && curatedCluster.reduce((total, candidate) => (
+          total + Math.abs(candidate.x - originalX.get(candidate.mark)!)
+        ), Math.abs(item.x - original.x)) <= (curatedCluster.length + 1) * maxShift
+      if (sharedCuratedShift) placed.push(item)
+      else if (prior && prior.score < item.score) placed.pop()
       else continue
+      if (sharedCuratedShift) continue
     }
     placed.push(item)
   }

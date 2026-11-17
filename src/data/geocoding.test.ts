@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { mapGeocodingResult } from './geocoding'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Place } from '../config/place'
+import { mapGeocodingResult, mapNominatimResult, mergePlaceResults, searchPlaces, type NominatimResult } from './geocoding'
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('mapGeocodingResult', () => {
   it('maps Hebrew name, preferred region and coordinates', () => {
@@ -27,5 +30,60 @@ describe('mapGeocodingResult', () => {
     const place = mapGeocodingResult({ id: 1, name: 'מקום', latitude: 1, longitude: 2, country: 'ישראל' })
     expect(place.regionHe).toBe('ישראל')
     expect(place.timezone).toBeTruthy()
+  })
+})
+
+const nominatim = (overrides: Partial<NominatimResult> = {}): NominatimResult => ({
+  osm_type: 'node', osm_id: 1, name: 'כרמי צור', lat: '31.6092242', lon: '35.1008772',
+  category: 'place', type: 'village', addresstype: 'village', address: { state: 'יהודה ושומרון' },
+  ...overrides,
+})
+
+describe('mapNominatimResult', () => {
+  it('maps the Karmei Tzur village fixture', () => {
+    expect(mapNominatimResult(nominatim({ extratags: { population: '1148' } }))).toMatchObject({
+      id: 'osm:node:1', nameHe: 'כרמי צור', regionHe: 'יהודה ושומרון',
+      lat: 31.6092242, lon: 35.1008772, usesOsm: true, featureCode: 'PPL',
+      settlementType: 'village', population: 1148,
+    })
+  })
+
+  it('maps a city and drops a non-place result', () => {
+    expect(mapNominatimResult(nominatim({ osm_id: 2, name: 'תל אביב-יפו', lat: '32.0809', lon: '34.7806',
+      type: 'city', addresstype: 'city' })))
+      .toMatchObject({ id: 'osm:node:2', lat: 32.0809, lon: 34.7806, featureCode: 'PPLA', settlementType: 'city' })
+    expect(mapNominatimResult(nominatim({ category: 'tourism', type: 'attraction', addresstype: 'tourism' }))).toBeNull()
+  })
+})
+
+describe('mergePlaceResults', () => {
+  const place = (id: string, nameHe: string, lat: number, lon: number): Place => ({
+    id, nameHe, lat, lon, regionHe: '', timezone: 'Asia/Jerusalem',
+  })
+
+  it('keeps Open-Meteo first and deduplicates by name or two-kilometre proximity', () => {
+    const open = [place('open', 'אפרת', 31.65, 35.15)]
+    const osm = [place('same-name', 'אפרת', 32, 35), place('nearby', 'שם אחר', 31.651, 35.151),
+      place('unique', 'כרמי צור', 31.6092, 35.1009)]
+    expect(mergePlaceResults(open, osm).map(({ id }) => id)).toEqual(['open', 'unique'])
+  })
+})
+
+describe('searchPlaces', () => {
+  it('keeps Nominatim results when Open-Meteo fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).includes('open-meteo')) throw new TypeError('offline')
+      return new Response(JSON.stringify([nominatim()]), { status: 200 })
+    }))
+    await expect(searchPlaces('כרמי צור')).resolves.toEqual([
+      expect.objectContaining({ id: 'osm:node:1', nameHe: 'כרמי צור' }),
+    ])
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not request either source for fewer than two characters', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    await expect(searchPlaces('א')).resolves.toEqual([])
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

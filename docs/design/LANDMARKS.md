@@ -4,8 +4,8 @@ Extends `ATMOSPHERE.md` (still wins) and `CALM-LIFE.md`. **Honest rule: a mark i
 there.** No data → the scene stays as it is today. Sizes are CSS px; the scene is 128 px high at every width, so only x is in %.
 
 ## 1. What gets drawn
-Three sources, first match wins per place: **curated** (place centre ≤ 8 km from a curated centre; match by distance, geocoder ids vary) →
-**OSM** (Overpass, everywhere else) → **place** (a `homes` glyph at the centre, only when the geocoder says it is a populated place).
+Curated places use their curated set (place centre ≤ 8 km from a curated centre; match by distance, geocoder ids vary). Everywhere else uses
+**OSM** (Overpass) plus **place** (a centred `homes` glyph whenever the geocoder says it is populated), so remote marks never replace the settlement itself.
 
 Curated, MVP. Coordinates and heights checked against OSM on 2026-11-17 unless marked `?`. `dx` = km east of the Open-Meteo geocoder centre.
 | Place (centre) | Mark | lat, lon | Height m | dx → x | Glyph |
@@ -14,14 +14,14 @@ Curated, MVP. Coordinates and heights checked against OSM on 2026-11-17 unless m
 | | YMCA tower (the "buildings") | 31.7743, 35.2216 | 46 `?` | +0.50 → 195 | stepped tower, small dome cap |
 | | Tower of David | 31.7761, 35.2281 | 30 `?` | +1.11 → 205 | crenellated wall + slim minaret |
 | | Western Wall + Dome of the Rock | 31.7768, 35.2344 | wall 20, dome top 34 `?` | +1.71 → 214 | coursed wall block, dome above it |
-| Tel Aviv (32.0809, 34.7806) | Shalom Meir Tower | 32.0642, 34.7697 | 130 (OSM; Wikipedia 142) | −1.03 → 171 | plain slab |
-| | Reading chimney | 32.1055, 34.7789 | 150 | −0.16 → 185 | chimney on a low block |
+| Tel Aviv (32.0809, 34.7806) | Shalom Meir Tower | 32.0642, 34.7697 | 142 | −1.03 → 171 | plain slab |
+| | Reading chimney (retired; chimney retained by plan) | 32.1055, 34.7789 | 150 `?` | −0.16 → 185 | chimney on a low block |
 | | Azrieli Sarona | 32.0719, 34.7885 `?` | 238 | +0.75 → 199 | tall twisted slab |
 | | Azrieli Center | 32.0746, 34.7916 | 187 / 169 / 154 | +1.04 → 204 | round + triangle + square tops, one glyph |
-| Haifa (32.8130, 34.9993) | Shrine of the Báb | 32.8146, 34.9871 | 40 | −1.14 → 170 | drum + dome, terrace step below |
-| | Dagon silo | 32.8232, 34.9948 | 47 | −0.42 → 181 | wide block, crenellated top |
+| Haifa (32.8130, 34.9993) | Shrine of the Báb | 32.8146, 34.9871 | 11 | −1.14 → 170 | drum + dome, terrace step below |
+| | Dagon silo | 32.82297, 34.99526 | 65 | −0.38 → 182 | wide block, crenellated top |
 | | Sail Tower | 32.8163, 35.0028 | 137 (OSM roof 113) | +0.33 → 193 | slab with curved sail edge |
-| | Refinery cooling towers ×2 | 32.7933, 35.0516 | 75 | +4.90 → 264 | two hyperboloids |
+| | Refinery cooling tower | 32.7933, 35.0516 | 75 `?` | +4.90 → 264 | one hyperboloid |
 | Shadmot Mehola (32.348, 35.535) | Date palms (grove at Mehola) | 32.3690, 35.5253 | 15 | x 160 | 3 palms |
 | | Synagogue among the homes | 32.3465, 35.5324 | 8 | x 170 | low roofs, one taller hall |
 | | Solar field | 32.3425, 35.5340 | 3 | x 187 | 4 tilted panels |
@@ -54,9 +54,10 @@ Near box: ±12 km east–west × ±1.5 km north–south. Far box: ±30 km × ±3
 `height` tag wins over the default. `score = weight + min(h, 200)/20 − 4·(|dy|/band) − |dx|/6 + (named ? 1 : 0)`; duplicates of one kind within
 300 m merge. Far layer accepts only `h ≥ 60` or chimney / cooling / turbine.
 - **Cache:** `localStorage` `shamayim:landmarks:v1:{placeId}`, the ≤ 8 ranked marks only, 30 days. Failure: store `{ failed: at }`, retry after
-  24 h, try `overpass.kumi.systems` once before giving up. While loading or failed: `place` fallback, never a guess.
-- **Place fallback:** `homes` at the centre when geocoder `feature_code` starts with `PPL`: population < 2 000 → 3 roofs (6 px); < 50 000 → 5
-  roofs + one 2-storey block (8 px); else 7 blocks of mixed height (≤ 14 px). Needs optional `population` on `Place`.
+  1 h. Try `overpass-api.de`, `overpass.private.coffee`, then `overpass.kumi.systems`, each with a 12 s timeout. Empty is a successful answer.
+- **Place homes:** `homes` at the centre when geocoder `feature_code` starts with `PPL`, in addition to OSM marks: population < 2 000 → 3 roofs
+  (6 px); < 50 000 → 5 roofs + one 2-storey block (8 px); else 7 blocks of mixed height (≤ 14 px). Without population, place type sets the size.
+  Large places omit homes only when OSM reports a highrise within 1 km. Needs optional `population` on `Place`.
 - **Attribution:** `נתוני ציוני דרך: © תורמי OpenStreetMap (ODbL)` linking to `openstreetmap.org/copyright`, shown where credits live whenever
   marks come from OSM (the curated list was checked against OSM, so show it there too). `Place.usesOsm` already exists; reuse it.
 
