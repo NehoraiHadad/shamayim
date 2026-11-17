@@ -8,19 +8,30 @@ import { Windows } from './parts'
  * docs/design/ILLUSTRATION.md §3. Bodies are ridge-toned so the sun-side strip from HillMarks gives them a lit face.
  */
 
-/** Slab with an off-centre roof plant and a lower rear slab, so a tower never stands alone as a bare pole (R5). */
+/**
+ * Office tower (reference: Ramat Gan / Petah Tikva towers of the 1990s–2010s): a podium, a glazed shaft with a
+ * window grid, and two setbacks near the top under a roof plant, so it never reads as a bare pole (R5) nor as a
+ * blank silo block.
+ */
 export function Highrise({ h, night, seed = 1, litShare = 1 }: BuildingProps) {
   const flip = seed % 2 ? -1 : 1
-  const slab = h - 1.5
-  const rear = Math.max(7, h * .6)
+  const [step1, step2] = [-h * .78, -h * .9]
+  const grid = Array.from({ length: Math.floor((-step1 - 3) / 2) }, (_, i) => -3 - 2 * (i + 1))
   return <g transform={flip < 0 ? 'scale(-1 1)' : undefined}>
-    <rect className={styles.backTone} x={.5} y={-rear} width={4.5} height={rear} />
-    <rect className={styles.wall} x={-4} y={-slab} width={6.5} height={slab} />
-    {/* Floor bands every ~3 storeys give the slab its scale; they stop short of the edges like real spandrels. */}
-    {Array.from({ length: Math.floor(slab / 3.2) - 1 }, (_, i) => <rect key={i} className={styles.shade} opacity={.35}
-      x={-3.5} y={-slab + 3.2 * (i + 1)} width={5.5} height={.5} />)}
-    <rect className={styles.solid} x={-2.5 + seeded(seed)() * 1.5} y={-h} width={2.5} height={1.5} />
-    {night && <Windows x={-3.25} top={-slab + 2} bottom={-2} cols={2} seed={seed} share={litShare} max={6} />}
+    <rect className={styles.wall} x={-5} y={-2.5} width={10} height={2.5} />
+    <rect className={styles.wall} x={-3.5} y={step1} width={7} height={-step1} />
+    <rect className={styles.wall} x={-2.75} y={step2} width={5.5} height={step1 - step2} />
+    <rect className={styles.wall} x={-2} y={-h + 1.2} width={4} height={h - 1.2 + step2} />
+    <rect className={styles.solid} x={-1.5 + seeded(seed)() * 1} y={-h} width={2} height={1.2} />
+    {[step1, step2].map((y) => <rect key={y} className={styles.shade} x={-3.5} y={y} width={7} height={.5}
+      opacity={.5} />)}
+    {/* Window grid: mullion columns and spandrel rows, read as a texture by day, lit cells at night. */}
+    {!night && <g className={styles.shade} opacity={.35}>
+      {[-2.4, -.6, 1.2].map((x) => <rect key={x} x={x} y={step1 + 1} width={1.2} height={-step1 - 3.5} />)}
+      {grid.map((y) => <rect key={y} x={-3.5} y={y} width={7} height={.5} />)}
+    </g>}
+    {night && <Windows x={-3} top={step1 + 1.5} bottom={-3} cols={3} stepX={2} stepY={2} seed={seed}
+      share={litShare} max={9} />}
   </g>
 }
 

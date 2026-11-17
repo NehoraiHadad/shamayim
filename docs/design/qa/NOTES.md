@@ -50,3 +50,22 @@ Bodies of stone, concrete and glass now use `--mark-wall` / `.glass` (sky-tinted
 Chords pylon lean direction and angle; YMCA / David / Wall heights; Reading chimney height and banding; Azrieli
 west → east order; which Sail edge faces west; which end of Dagon carries the head house; Báb total height (data says
 11 m, which Wikipedia gives for the drum only).
+
+## City glyphs, critic round 2 (`specimens-cities-r2.png`)
+Now self-lit (sun on the left, mirrored for an east sun; no LightRig mask): Azrieli, Sarona, YMCA, Tower of David,
+Dagon, palms (generic and Shadmot). Changes:
+- Azrieli: round tower has a 1.5 px lit band and a 1 px core shadow; the crown has a lit top, a body side and a shade
+  corner. The square tower stands 1 px lower. The podium, the triangle's lit edge, and the square's side face are drawn.
+- Western Wall: 0.5 px course lines at y −1.5 and −3, irregular ashlar joints per course, a hyssop tuft. The bridge
+  spacing is set by placement, not by this glyph, so it is left to the placement owner.
+- Sarona: a 0.6 px S-curve seam. The west block is lit along its curved edge; the east block sits in shade that follows the seam.
+- Palms: six tapered fronds per crown, all of different lengths (seeded), that arch and droop. West fronds take a lit
+  tint, east fronds a shade tint. Each crown has a knob of old frond bases, the trunks are bent, and each trunk has a
+  dark foot.
+- Highrise: podium, window grid (mullions and spandrels), two setbacks and roof plant; the rear slab was removed.
+  Dagon: four round-capped cylindrical bins, each lit, body and shade, plus a tall head house with a roof box and
+  stair windows.
+- YMCA: a straight square bell tower with a cornice, paired arched belfry openings, a drum and a small dome. Tower of
+  David: a minaret on a square footing, a round corbelled gallery, two stepped upper stages, a cap and a finial.
+Still weak: the Azrieli crown reads square at 1x. The palm lit tint is faint at 1x. Under overcast skies the palm lit tint
+turns to the wall tone (`.flat`). The YMCA belfry arches are 1 px wide, so they merge into the tower at 1x.

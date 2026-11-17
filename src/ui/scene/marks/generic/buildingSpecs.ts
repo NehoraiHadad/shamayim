@@ -44,7 +44,7 @@ export const BUILDINGS: Partial<Record<string, BuildingSpec>> = {
   mast: { w: 5, h: (hPx) => Math.max(14, hPx), Draw: Mast, litWidth: 0 },
   lighthouse: { w: 9, h: (hPx) => Math.max(14, hPx), Draw: Lighthouse, beacon: (h) => [-1.5, -h] },
   bridge: { w: 24, h: (hPx) => Math.max(14, hPx), Draw: Bridge, litWidth: 0 },
-  palms: { w: 12, h: (hPx) => Math.max(11, hPx), Draw: Palms, litWidth: 0 },
+  palms: { w: 12, h: (hPx) => Math.max(11, hPx), Draw: Palms, selfLit: true },
   ...CURATED_BUILDINGS,
 }
 

@@ -28,17 +28,26 @@ export function BabShrine({ h, night }: BuildingProps) {
 }
 
 /**
- * Dagon grain silo (1955) at the port, 65 m (data; one source says 70): a long block of concrete bins with a taller
- * elevator house. Which end carries the tall house is unverified; drawn at the east end.
+ * Dagon grain silo (1955) at the port, 65 m (data; one source says 70): a row of tall cylindrical concrete bins and
+ * the taller elevator head house with its roof box (photos from the port road). Which end carries the head house is
+ * unverified; drawn at the east end. Self-lit: each bin turns lit / body / shade so the row reads as cylinders.
  */
 export function DagonSilo({ h, night, seed = 1, litShare = 1 }: BuildingProps) {
-  const bins = h * .72
+  const bins = h * .7
   return <>
-    <rect className={styles.wall} x={-8} y={-bins} width={11} height={bins} />
-    {[-6, -3.5, -1, 1.5].map((x) => <rect key={x} className={styles.shade} x={x} y={-bins + 1} width={.6}
-      height={bins - 2} opacity={.5} />)}
-    <rect className={styles.wall} x={2.5} y={-h + 1.5} width={5.5} height={h - 1.5} />
-    <rect className={styles.wall} x={3.5} y={-h} width={3} height={1.5} />
+    {[-8, -5.6, -3.2, -.8].map((x) => <g key={x}>
+      <path className={styles.wall} d={`M${x} 0V${-bins}a1.2 .9 0 0 1 2.4 0V0z`} />
+      <rect className={styles.lit} x={x} y={-bins} width={.7} height={bins} />
+      <rect className={styles.shade} x={x + 1.8} y={-bins} width={.6} height={bins} />
+      <path className={styles.lit} d={`M${x} ${-bins}a1.2 .9 0 0 1 1.2 -.9v.9z`} />
+    </g>)}
+    {/* Head house: a tall plain block, a darker roof box, a vertical strip of stair windows. */}
+    <rect className={styles.wall} x={1.6} y={-h + 1.5} width={6.4} height={h - 1.5} />
+    <rect className={styles.lit} x={1.6} y={-h + 1.5} width={1.2} height={h - 1.5} />
+    <rect className={styles.shade} x={7} y={-h + 1.5} width={1} height={h - 1.5} />
+    <rect className={styles.solid} x={3} y={-h} width={3.4} height={1.5} />
+    {!night && [4, 7, 10].map((y) => <rect key={y} className={styles.shade} x={4.2} y={-h + y} width={1} height={1.4}
+      opacity={.6} />)}
     {night && <Windows x={3.5} top={-h + 4} bottom={-3} cols={2} seed={seed} share={litShare} max={4} />}
   </>
 }
