@@ -240,8 +240,9 @@ Goal: Open-Meteo request volume follows places, not users (free tier limits per 
 - [x] Tests: worker 31, app weatherApi + provider; README section; CI `worker` job
 - [x] Deployed 2026-11-17 to workers.dev (`ALLOWED_ORIGINS` = shamayim.pages.dev + localhost:5173); live curl:
       forecast MISS→HIT→HIT same X-Fetched-At, air MISS, 400, 404, preflight 204/403, GET with origin → ACAO
-- [ ] Set `VITE_WEATHER_API_BASE` in the app host's build settings (host not recorded in repo)
-- [ ] Optional: custom domain for the Worker — Cache API has no effect on *.workers.dev
+- [ ] Owner: set `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` in the Pages build settings, rebuild
+- [x] Custom domain `shamayim-api.nehoraihadad.com` (Cache API works there); origin shamayim.nehoraihadad.com added;
+      live: MISS→HIT→HIT, 8 parallel connections all HIT with one X-Fetched-At, 400, preflight 204/403
 - [x] PR against main
 
 ## Known gaps / polish

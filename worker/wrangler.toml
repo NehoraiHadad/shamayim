@@ -5,13 +5,13 @@ main = "src/index.ts"
 compatibility_date = "2026-11-01"
 workers_dev = true
 
-# Optional: a custom domain on a zone in this Cloudflare account. The Cache API only works on a custom domain or
-# route, not on *.workers.dev (there the Worker still coalesces and keeps a per-isolate memory cache).
-# routes = [{ pattern = "weather.example.com", custom_domain = true }]
+# Custom domain on a zone in this Cloudflare account: the Cache API only works on a custom domain or route, not on
+# *.workers.dev (there the Worker still coalesces and keeps a per-isolate memory cache).
+routes = [{ pattern = "shamayim-api.nehoraihadad.com", custom_domain = true }]
 
 [vars]
 # Browser origins allowed to call the Worker (comma-separated). Add the production origin(s) of the app here.
-ALLOWED_ORIGINS = "https://shamayim.pages.dev,http://localhost:5173"
+ALLOWED_ORIGINS = "https://shamayim.nehoraihadad.com,https://shamayim.pages.dev,http://localhost:5173"
 
 [observability]
 enabled = true

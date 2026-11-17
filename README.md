@@ -41,9 +41,9 @@ Open-Meteo's free tier limits requests per IP address, so many users behind one 
 - Upstream refusals with no cached copy are passed through unchanged (status + `{"error":true,"reason":…}`), so the app can still tell a daily/hourly limit from a busy minute.
 - Concurrent misses for the same key within one Worker isolate share one upstream request.
 - CORS: only origins in the `ALLOWED_ORIGINS` variable (`worker/wrangler.toml`); other browser origins get 403.
-- The Cache API only works on a custom domain/route, not on `*.workers.dev`; there the Worker falls back to a per-isolate memory cache.
+- Served at `https://shamayim-api.nehoraihadad.com` (custom domain, so the Cache API works; on `*.workers.dev` it would not, and only a per-isolate memory cache would remain).
 
-Build the app against it by setting `VITE_WEATHER_API_BASE` (e.g. `https://shamayim-weather.<sub>.workers.dev`) in the host's build settings. Unset, the app calls Open-Meteo directly (local dev, tests). Geocoding and Overpass/Nominatim are always called directly.
+Build the app against it by setting `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` in the host's build settings. Unset, the app calls Open-Meteo directly (local dev, tests). Geocoding and Overpass/Nominatim are always called directly.
 
 ```bash
 cd worker
