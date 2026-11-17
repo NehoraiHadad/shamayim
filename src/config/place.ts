@@ -7,6 +7,8 @@ export interface Place {
   timezone: string
   elevation?: number
   usesOsm?: boolean
+  population?: number
+  featureCode?: string
 }
 
 export const SHADMOT_MEHOLA: Place = {

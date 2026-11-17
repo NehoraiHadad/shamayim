@@ -1,6 +1,9 @@
-import { useId, type CSSProperties } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
+import type { MarkLife, Landmark } from '../../data/landmarks/types'
+import { placeMarks } from '../../data/landmarks/placeMarks'
 import type { SceneTerrain } from '../../data/terrain/terrain'
+import type { Place } from '../../config/place'
 import { clockOf, datePart } from '../../domain/time'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
@@ -8,6 +11,7 @@ import { nextSunEvent, twilight } from './sceneModel'
 import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
+import { Landmarks } from './marks/Landmarks'
 import styles from './ValleyScene.module.css'
 
 interface Props {
@@ -26,11 +30,24 @@ interface Props {
   /** Still morning mist, layered between the two ridge paths. */
   mist?: number
   mistColor?: string
+  place: Place
+  landmarks: Landmark[]
+  markLife: MarkLife
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0, mistColor = '#C9D2D8' }: Props) {
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0,
+  mistColor = '#C9D2D8', place, landmarks, markLife }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
+  const sceneRef = useRef<HTMLElement>(null)
+  const [sceneWidth, setSceneWidth] = useState(375)
+  useEffect(() => {
+    const node = sceneRef.current
+    if (!node) return
+    const observer = new ResizeObserver(([entry]) => setSceneWidth(entry.contentRect.width))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat) : null
@@ -40,6 +57,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const elevation = Math.round(forecast.elevation)
   const elevationText = `${elevation < 0 ? `−${Math.abs(elevation)}` : elevation} מ׳`
   const showSea = forecast.elevation < 50 || terrain.seaInView
+  const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
+    [place, terrain, landmarks, sceneWidth, showSea])
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
@@ -49,6 +68,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   return (
     <figure
       className={styles.scene}
+      ref={sceneRef}
       role="img"
       aria-label={label}
       data-scene
@@ -57,17 +77,21 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     >
       {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
       <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={cloudCover} coin={air.sunCoin} />
-      <svg className={styles.land} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
+      <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
         <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
           <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
         </foreignObject>
+      </svg>
+      <Landmarks marks={placed} layer="far" life={markLife} readout={Boolean(readout)} fade={air.haze.farFade} />
+      <svg className={`${styles.land} ${styles.landNear}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {showSea && (
           <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
       </svg>
+      <Landmarks marks={placed} layer="near" life={markLife} readout={Boolean(readout)} fade={air.haze.nearFade} />
       <span className={styles.village} style={{ left: terrain.centerLeft, top: terrain.centerY }} aria-hidden="true" />
       <span
         className={styles.depth}
@@ -78,7 +102,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       </span>
       {showSea && (
         <>
-          <span className={styles.seaLabel} style={{ top: terrain.seaY - 14 }} aria-hidden="true">פני הים</span>
+          <span className={styles.seaLabel} style={{ top: terrain.seaY - 14,
+            ...(terrain.seaSide === 'west' ? { left: '6%', right: 'auto' }
+              : terrain.seaSide === 'east' ? { right: '6%' } : {}) }} aria-hidden="true">פני הים</span>
         </>
       )}
       {readout && (

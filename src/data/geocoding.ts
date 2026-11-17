@@ -10,6 +10,8 @@ export interface GeocodingResult {
   admin1?: string
   admin2?: string
   country?: string
+  population?: number
+  feature_code?: string
 }
 
 interface GeocodingResponse {
@@ -30,6 +32,8 @@ export function mapGeocodingResult(result: GeocodingResult): Place {
     lon: result.longitude,
     timezone: result.timezone ?? deviceTimezone(),
     elevation: result.elevation,
+    ...(result.population == null ? {} : { population: result.population }),
+    ...(result.feature_code == null ? {} : { featureCode: result.feature_code }),
   }
 }
 
