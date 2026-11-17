@@ -24,7 +24,33 @@ Dev only: append `?at=2026-11-17T13:00` to preview another local time, and `?the
 
 - [Open-Meteo](https://open-meteo.com/) forecast API with two models in one request: `icon_seamless` (DWD ICON-EU ~7 km, then ICON Global) and `ecmwf_ifs025`. They are blended per day (ICON weighted 0.6 for the first 5 days, ECMWF 0.6 after); the difference between them sets each day's confidence. Days 6–7 are labelled "מגמה".
 - Open-Meteo air-quality API (CAMS) for PM10/dust, used only for haze wording.
-- Free tier is non-commercial; a store release needs an API key or proxy.
+- Free tier is non-commercial; a store release needs an API key. Attribution "נתונים: Open-Meteo" stays in the app.
+
+### Weather proxy (`worker/`)
+
+Open-Meteo's free tier limits requests per IP address, so many users behind one mobile-carrier IP can hit "Daily API request limit exceeded". A small Cloudflare Worker sits in between and caches each place's answer for everyone, so the request volume follows the number of places, not users.
+
+| Route | Upstream | Shared cache | Stale-if-error |
+|---|---|---|---|
+| `GET /v1/forecast` | `api.open-meteo.com/v1/forecast` | 15 min | up to 12 h |
+| `GET /v1/air-quality` | `air-quality-api.open-meteo.com/v1/air-quality` | 60 min | up to 12 h |
+| `GET /v1/elevation` | `api.open-meteo.com/v1/elevation` | 30 days | any age |
+
+- Only the query parameters the app sends are forwarded (per-route allowlist, coordinates checked and rounded to 4 decimals, at most 50 elevation points); anything else is a 400, unknown paths 404, non-GET 405.
+- `X-Fetched-At` (epoch ms) says when the data left Open-Meteo; the app uses it as `fetchedAt`, so a shared copy is not shown as "updated now". `X-Cache` is `HIT`, `MISS` or `STALE`.
+- Upstream refusals with no cached copy are passed through unchanged (status + `{"error":true,"reason":…}`), so the app can still tell a daily/hourly limit from a busy minute.
+- Concurrent misses for the same key within one Worker isolate share one upstream request.
+- CORS: only origins in the `ALLOWED_ORIGINS` variable (`worker/wrangler.toml`; `https://*.shamayim.pages.dev` covers Pages preview builds); other browser origins get 403.
+- Served at `https://shamayim-api.nehoraihadad.com` (custom domain, so the Cache API works; on `*.workers.dev` it would not, and only a per-isolate memory cache would remain).
+
+Production builds use it through `.env.production` (`VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com`), which Vite reads only for `vite build`. Unset (dev, tests), the app calls Open-Meteo directly. Geocoding and Overpass/Nominatim are always called directly.
+
+```bash
+cd worker
+npm install
+npm test           # allowlist, cache key, cache/stale/coalescing, CORS
+npx wrangler deploy
+```
 
 ## Structure
 
@@ -37,4 +63,5 @@ src/data     provider interface, Open-Meteo provider, cache, useForecast
 src/text     Hebrew sentence engine (facts → phrases → sentences)
 src/theme    sky themes + picker (contrast-tested)
 src/ui       components
+worker/      Cloudflare Worker: cached Open-Meteo proxy (own package)
 ```

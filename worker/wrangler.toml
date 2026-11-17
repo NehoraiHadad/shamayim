@@ -1,0 +1,18 @@
+# Shamayim weather proxy (Cloudflare Workers, free plan). No secrets: Open-Meteo's free tier needs no key.
+# The account is chosen by `wrangler login`; no account_id is committed.
+name = "shamayim-weather"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# Custom domain on a zone in this Cloudflare account: the Cache API only works on a custom domain or route, not on
+# *.workers.dev (there the Worker still coalesces and keeps a per-isolate memory cache).
+routes = [{ pattern = "shamayim-api.nehoraihadad.com", custom_domain = true }]
+
+[vars]
+# Browser origins allowed to call the Worker (comma-separated); "https://*.host" allows one subdomain level
+# (Pages preview builds). Add any new production origin of the app here.
+ALLOWED_ORIGINS = "https://shamayim.nehoraihadad.com,https://shamayim.pages.dev,https://*.shamayim.pages.dev,http://localhost:5173"
+
+[observability]
+enabled = true

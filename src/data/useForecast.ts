@@ -46,7 +46,9 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
       setStatus(cached ? 'refreshing' : 'loading')
       provider
         .getForecast(place, ctrl.signal)
-        .then((f) => {
+        .then((fetched) => {
+          // A shared stale copy (served while Open-Meteo refuses) can be older than what this device already has.
+          const f = cached && cached.fetchedAt > fetched.fetchedAt ? cached : fetched
           writeCache(f)
           setForecast(f)
           setError(null)

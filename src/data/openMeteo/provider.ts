@@ -2,18 +2,25 @@ import type { Place } from '../../config/place'
 import type { Forecast } from '../../domain/types'
 import { HttpError } from '../fetchFailure'
 import type { WeatherProvider } from '../WeatherProvider'
+import { fetchedAtOf } from '../weatherApi'
 import { mapAir } from './mapAir'
 import { mapForecast } from './mapForecast'
 import { airUrl, forecastUrl } from './request'
 
 const TIMEOUT_MS = 8000
 
-async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
+interface Fetched {
+  body: unknown
+  /** When the data left Open-Meteo (the Worker's shared copy may be older than this request). */
+  fetchedAt: number
+}
+
+async function getJson(url: string, signal?: AbortSignal): Promise<Fetched> {
   const timeout = AbortSignal.timeout(TIMEOUT_MS)
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout
   const res = await fetch(url, { signal: combined })
   if (!res.ok) throw new HttpError(res.status, new URL(url).host, await reasonOf(res))
-  return res.json()
+  return { body: await res.json(), fetchedAt: fetchedAtOf(res.headers) }
 }
 
 /** Open-Meteo explains a refusal as `{ "error": true, "reason": "…" }`; anything else gives no reason. */
@@ -27,7 +34,7 @@ async function reasonOf(res: Response): Promise<string> {
 }
 
 /** One retry with jitter for transient network failures (not for a 429). */
-async function getJsonRetry(url: string, signal?: AbortSignal): Promise<unknown> {
+async function getJsonRetry(url: string, signal?: AbortSignal): Promise<Fetched> {
   try {
     return await getJson(url, signal)
   } catch (err) {
@@ -46,11 +53,11 @@ export const openMeteoIcon: WeatherProvider = {
       getJson(airUrl(place), signal),
     ])
     if (forecastRes.status === 'rejected') throw forecastRes.reason
-    const mapped = mapForecast(forecastRes.value)
+    const mapped = mapForecast(forecastRes.value.body)
     let air = null
     if (airRes.status === 'fulfilled') {
       try {
-        air = mapAir(airRes.value)
+        air = mapAir(airRes.value.body)
       } catch (err) {
         console.warn('[shamayim] air data ignored', err)
       }
@@ -59,7 +66,7 @@ export const openMeteoIcon: WeatherProvider = {
       placeId: place.id,
       ...mapped,
       air,
-      fetchedAt: Date.now(),
+      fetchedAt: forecastRes.value.fetchedAt,
       source: 'Open-Meteo · DWD ICON + ECMWF',
       models: ['icon_seamless', 'ecmwf_ifs025'],
     }

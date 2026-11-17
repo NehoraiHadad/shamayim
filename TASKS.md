@@ -226,6 +226,27 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [ ] Not done: --warn token (no warning colour lives in these files); hourly band offsets stay px, so 200% text
       grows labels into the curve band; DayDetail sheet strip not captured in stills (needs a tap)
 
+## Weather proxy Worker — 2026-11-17 (branch `feat/weather-proxy-worker`)
+Goal: Open-Meteo request volume follows places, not users (free tier limits per IP; carriers share IPs).
+- [x] `worker/` package (wrangler, TS, vitest): `/v1/forecast`, `/v1/air-quality`, `/v1/elevation`, else 404
+- [x] Per-route param allowlist + value checks (`worker/src/routes.ts`, `validate.ts`), coords rounded to 4 dp,
+      ≤ 50 elevation points, canonical order = cache key = upstream query
+- [x] Shared cache (Cache API + per-isolate memory, `store.ts`), TTL 15 min / 60 min / 30 d, stale-if-error
+      12 h / 12 h / any age, `X-Cache: HIT|MISS|STALE`, `X-Stale-Reason`; in-isolate request coalescing (`proxy.ts`)
+- [x] Upstream refusals passed through (status + `reason`) when nothing is cached; timeout → 504 JSON
+- [x] CORS from `ALLOWED_ORIGINS` var, OPTIONS preflight, disallowed browser origins → 403
+- [x] App: `src/data/weatherApi.ts` (`VITE_WEATHER_API_BASE` switch, `X-Fetched-At` → `fetchedAt`),
+      request.ts / terrain.ts / provider.ts wired; useForecast keeps a newer local copy over an older shared one
+- [x] Tests: worker 31, app weatherApi + provider; README section; CI `worker` job
+- [x] Deployed 2026-11-17 to workers.dev (`ALLOWED_ORIGINS` = shamayim.pages.dev + localhost:5173); live curl:
+      forecast MISS→HIT→HIT same X-Fetched-At, air MISS, 400, 404, preflight 204/403, GET with origin → ACAO
+- [x] `.env.production` sets `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` (Pages git builds pick it up);
+      `*.shamayim.pages.dev` allowed for preview builds (worker cors wildcard + test)
+- [ ] After merge: confirm shamayim.nehoraihadad.com calls shamayim-api in the network panel
+- [x] Custom domain `shamayim-api.nehoraihadad.com` (Cache API works there); origin shamayim.nehoraihadad.com added;
+      live: MISS→HIT→HIT, 8 parallel connections all HIT with one X-Fetched-At, 400, preflight 204/403
+- [x] PR against main
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
