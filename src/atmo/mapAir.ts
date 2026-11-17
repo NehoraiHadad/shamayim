@@ -10,7 +10,7 @@ const NONE = { count: 0, speed: 0, length: 0, alpha: 0 }
 export function mapAir(i: AirInput): AirState {
   const u = windU(i.windDirection)
   const r = rainRate(i)
-  const st = {
+  const st: AirState = {
     calm: false,
     wind: {
       u,
@@ -28,7 +28,7 @@ export function mapAir(i: AirInput): AirState {
     rays: { alpha: rays(i, r) },
     thunder: i.weatherCode >= 95 && !i.preview,
     sunCoin: 0,
-  } satisfies AirState
+  }
   st.haze = haze(i, r, st.heat.bloom > 0)
   st.sunCoin = st.haze.color === '#D7BE8C' ? st.haze.farFade : 0
 
