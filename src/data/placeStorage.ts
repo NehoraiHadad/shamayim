@@ -43,7 +43,10 @@ export function readRecentPlaces(store: Store | null = storage()): Place[] {
 }
 
 export function persistPlace(place: Place, store: Store | null = storage()): Place[] {
-  const recent = [place, ...readRecentPlaces(store).filter(({ id }) => id !== place.id)].slice(0, MAX_RECENT)
+  // The place being left joins the recents too, so the default is never lost after the first switch.
+  const recent = [place, readPlace(store), ...readRecentPlaces(store)]
+    .filter((p, i, all) => all.findIndex(({ id }) => id === p.id) === i)
+    .slice(0, MAX_RECENT)
   try {
     store?.setItem(PLACE_KEY, JSON.stringify(place))
     store?.setItem(RECENT_KEY, JSON.stringify(recent))

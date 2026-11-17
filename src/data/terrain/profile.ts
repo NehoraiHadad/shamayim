@@ -15,21 +15,30 @@ const TOP = 18
 const BOTTOM_GAP = 24
 const MIN_RELIEF_METRES = 120
 
-/** Maps an ordered west-to-east elevation profile into a closed SVG land path. */
-export function profileToPath(
-  samples: readonly TerrainSample[],
-  w = 375,
-  h = 128,
-): string {
-  if (samples.length === 0) return gentleHillsPath(w, h)
-
+/** Profile points (x, y) west to east, lightly smoothed so sampling noise does not read as spikes. */
+export function profilePoints(samples: readonly TerrainSample[], w = 375, h = 128): [number, number][] {
   const values = samples.map(({ elevation }) => Number.isFinite(elevation) ? elevation : 0)
-  const points = values.map((value, index) => {
-    const x = values.length === 1 ? w / 2 : (index / (values.length - 1)) * w
-    return `${round(x)} ${round(profileY(samples, value, h))}`
-  })
+  const smooth = values.map((v, i) => i === 0 || i === values.length - 1 ? v : (values[i - 1] + 2 * v + values[i + 1]) / 4)
+  return smooth.map((value, index) => [
+    values.length === 1 ? w / 2 : (index / (values.length - 1)) * w,
+    profileY(samples, value, h),
+  ])
+}
 
-  return `M0 ${h}L${points.join('L')}L${w} ${h}Z`
+/** Maps an ordered west-to-east elevation profile into a closed SVG land path with soft curves. */
+export function profileToPath(samples: readonly TerrainSample[], w = 375, h = 128): string {
+  if (samples.length === 0) return gentleHillsPath(w, h)
+  const p = profilePoints(samples, w, h)
+  // Catmull-Rom through the points, written as cubic Béziers.
+  const curves = p.slice(1).map((b, i) => {
+    const a = p[i]
+    const before = p[i - 1] ?? a
+    const after = p[i + 2] ?? b
+    const c1 = [a[0] + (b[0] - before[0]) / 6, a[1] + (b[1] - before[1]) / 6]
+    const c2 = [b[0] - (after[0] - a[0]) / 6, b[1] - (after[1] - a[1]) / 6]
+    return `C${round(c1[0])} ${round(c1[1])} ${round(c2[0])} ${round(c2[1])} ${round(b[0])} ${round(b[1])}`
+  })
+  return `M0 ${h}L${round(p[0][0])} ${round(p[0][1])}${curves.join('')}L${w} ${h}Z`
 }
 
 /** Stable fallback used while terrain loads or when the elevation service is unavailable. */

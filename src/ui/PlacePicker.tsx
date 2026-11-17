@@ -25,6 +25,13 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
     return () => document.removeEventListener('keydown', escape)
   }, [open, onClose])
 
+  useEffect(() => () => {
+    // Each opening starts fresh: recents, not the last search.
+    setQuery('')
+    setResults([])
+    setError('')
+  }, [open])
+
   useEffect(() => {
     if (!open || query.trim().length < 2) return
     const controller = new AbortController()

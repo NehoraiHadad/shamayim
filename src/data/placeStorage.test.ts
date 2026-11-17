@@ -25,6 +25,11 @@ describe('place persistence', () => {
     expect(readRecentPlaces(storage).map(({ id }) => id)).toEqual(['three', 'five', 'four', 'two'])
   })
 
+  it('keeps the place being left in the recents', () => {
+    const storage = new MemoryStorage()
+    expect(persistPlace(place('one'), storage).map(({ id }) => id)).toEqual(['one', SHADMOT_MEHOLA.id])
+  })
+
   it('ignores malformed stored JSON', () => {
     const storage = new MemoryStorage()
     storage.setItem('shamayim:place:v1', '{')
