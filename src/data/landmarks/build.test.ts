@@ -20,7 +20,7 @@ describe('Israel landmark builder', () => {
     const result = await buildDataset(input, { outputDir, generatedAt: '2026-11-17T02:00:00.000Z',
       bbox: [31, 35, 32, 36] })
 
-    expect(result.marks).toBe(4)
+    expect(result.marks).toBe(5)
     expect(result.bytes).toBeLessThan(150_000)
     const index = JSON.parse(await readFile(join(outputDir, 'index.json'), 'utf8')) as LandmarkIndex
     expect(index).toEqual({ generatedAt: '2026-11-17T02:00:00.000Z',
@@ -31,6 +31,7 @@ describe('Israel landmark builder', () => {
       ['minaret', 31.61, 35.101, 30],
       ['minaret', 31.62, 35.105, 30, 'מסגד'],
       ['highrise', 31.611, 35.111, 120, 'מגדל'],
+      ['synagogue', 31.611, 35.131, 9, 'בית כנסת'],
     ]))
     expect(rows.some((row) => row[0] === 'highrise' && row[3] === 10)).toBe(false)
   })

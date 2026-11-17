@@ -125,12 +125,66 @@ Brief: `docs/briefs/israel-landmarks.md`. Codex (sol), merged `feat/israel-landm
       `/data/landmarks` (not precached)
 - [x] Verified on prod: כרמי צור loads index + 13 cells, 5 marks (Beit Ummar minarets), no Overpass call
 - [x] Custom domain https://shamayim.nehoraihadad.com (Pages domain + proxied CNAME via `cf`)
-- [ ] Stale service worker kept an old bundle on prod until unregistered → add an update prompt / skipWaiting
+- [x] Stale service worker kept an old bundle on prod until unregistered → skipWaiting + clientsClaim + update polling (`src/pwa.ts`)
 - [ ] Synagogues and water towers are in the data but have no glyph (illustration round)
 - [ ] Abroad: OpenFreeMap vector tiles (z14: worship, castles/ruins, building `render_height`; no towers/masts)
       as the main source, Overpass as a bonus — next Codex round
 - [ ] Later: Cloudflare Pages Function for IMS (token server-side) once access is granted (asked 16.11)
-- [ ] Illustration upgrade: Fable critique + glyph redesign (houses that read, real silhouettes per place)
+- [~] Illustration upgrade → v7 below
+
+## v7 — illustration: marks that belong to the hill — 2026-11-17 (branch `feat/illustration`)
+Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: Codex drawings read "מודבק").
+- [x] QA stills of 10 places (day/night) → Fable critique: one tone, pins on the skyline edge, no depth, no sun side, no village
+- [x] Px-space hill layer `src/ui/scene/marks/HillMarks.tsx` (no stretch): seat on slope (`seat.ts`), planes behind/line/face
+      from north–south offset, sun-side lit strip, R3 colour tokens in `marks.module.css`
+- [x] Settlement cluster (`settlement.ts`, `SettlementGlyph.tsx`): tile / flat-hill / flat-desert / blocks, rows draped
+      down the slope, terraces, night windows; elevation label sits under the houses; dot seated on the drawn ridge
+- [x] Glyphs (`generic/buildings.tsx`): mosque (hall + dome + minaret, green lamp), synagogue, church, water tower, castle;
+      field patches (`generic/fields.tsx`): orchard, vineyard, solar
+- [x] OSM caps (minaret 2, mast 1, orchard 2, solar 1, highrise 4) + variety penalty; new kinds synagogue, vineyard
+- [x] Look test Karmei Tzur 10:00 / 21:00 at 375 px → sent to owner for approval
+- [x] Absorb (eafd467): synagogue/water tower/minaret/church/silo within 0.6 km of the centre skip `select` and stand
+      at their true x inside the cluster (≥8 px from the dot, max 3), the skyline house in their slot gives way;
+      seated with `steepOk`, plane `line`. Umm al-Fahm shows its central mosque again
+- [x] flat-desert: houses only where ground is within 5 px of the rim (Mitzpe Ramon stays on the plateau)
+- [x] `classify`: synagogue (religion=jewish + building, 9 m), `landuse=vineyard` filter + kind
+- [ ] After merge to main: re-run the landmarks workflow (`workflow_dispatch`) so cells carry synagogues/vineyards
+- [ ] Mitzpe Ramon: the sun-event label (שקיעה) overlaps the westmost houses — move label or skip houses under it
+- QA tip: in the browser pane use `resize_window` mobile, then `scene.style.zoom=3` for readable stills
+- [x] Fresh-critic loop (anidoodle method): r1 → 60ca846, r2 → 4292ae4 (houses in the ridge tone, crescent domes,
+      hand-planted orchard, solar strips, stepped castle rubble, one light side per village). Sheets:
+      `docs/design/qa/specimens-mine*.png`; dev sheet at `/specimen.html`
+- [x] (`feat/illustration-glyphs`) All generic kinds in the px layer (`generic/industry|structures|nature.tsx`);
+      curated cities redrawn (`curated/*.tsx`); one-light rig (`LightRig.tsx`); far layer via HillMarks; old
+      `Landmarks.tsx` + `glyphs/` removed. Specimens + critique: `docs/design/qa/specimens-*.png`, `NOTES.md`
+- [x] Merged into feat/illustration; my five buildings keep their own lit faces (`selfLit`, mirrored, CastShadow),
+      other glyphs use LightRig. [ ] Fresh critic over `specimens-generic/curated.png`
+- [ ] Follow-ups: (Báb label fixed by placement) Dagon dropped by placement; Tel Aviv dot off its towers;
+      Sarona twist reads flat at 1x; palms crowns still icon-like; verify the facts listed in `docs/design/qa/NOTES.md`
+- [x] Critic on city glyphs (r1): ground skirt under line-plane marks (no sky wedge under Azrieli), Báb terraces as
+      one stair, wall/lit tones down to 18%/30% sky
+- [x] Placement (critic P0/P1, `fix/scene-placement`): `marks/sceneLayout.ts` fits the near hill to what shows above
+      the sheet (scene y < 102): label takes the nearest spot clear of every mark/house/dot/caption box; marks step
+      off the dot; bases within 6 px of the sheet are dropped (curated: lifted ≤ 6 px); fields slide onto the visible
+      face; no house under the sun-event caption. Stills `docs/design/qa/placement-{before,after}-*.png`
+      (dev helper `docs/design/qa/place.html` seeds the place for headless Chrome at a true 375 px)
+- [ ] Glyph follow-ups from the same critic: Azrieli round tower needs round shading; Western Wall stone courses
+- [ ] Regression stills for all 10 places; then merge to main
+
+- [x] Hill-town blocks ("מודבק" fix, Umm al-Fahm / Tiberias): `marks/blocks.tsx` draws a flat-roofed block of 2–5
+      storeys (`STOREY`/`PARAPET` in `settlement.ts`) with lit side, sky-lit parapet, a dark window row per storey by
+      day (lit by `litShare` at night), black tanks / heater / rebar; per-house wash (`.house` concrete, washed,
+      stone, basalt) and the crest row pulled toward the far ridge (`.recede`). Overcast (`.flat`): `.side` goes a step
+      darker and `.top` stays sky-lit, so houses keep two values (FlatRoof too). Layout: houses only where ground is
+      within `REACH` of the dot (blocks 22 up / 12 down, tile 14/12, desert 5/5); steep face (slope > .6) packs at
+      .6 pitch and leans the terraces uphill; nothing below the sheet (`floor`); retaining walls only under every
+      other stretch (`terraces.ts`). Cities (`settlementType: city`) take blocks even under 50 000
+- [x] Absorbed minaret (Umm al-Fahm): it was drawn in the `line` plane BEFORE the cluster, so lower rows painted over
+      it (only row 0 gave way) and it sat seated low on the steep west face. Now `hillScene.intoTown` slides it up to
+      the crest when its base falls below the houses' reach, houses round it stay under its roof (base − 6 px), and
+      HillMarks draws absorbed marks after the settlement. Stills `docs/design/qa/blocks-*.png`
+- [ ] Blocks follow-ups: Tiberias dot sits ~12 px above the sheet on a 1.3 slope, so its town is a small uphill
+      clump (terrain/dot placement, not the cluster); windows are sub-px at 1x; clear-day washes may read light
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
@@ -139,6 +193,8 @@ Brief: `docs/briefs/israel-landmarks.md`. Codex (sol), merged `feat/israel-landm
 - [ ] Lighthouse PWA/perf pass on a deployed build
 
 ## Next (proposed)
+- Future idea (owner, 2026-11-17): OSM-parametric building shapes (footprint width, `building:levels`,
+  `roof:shape`, colour) so each glyph matches its real building — parked, not now
 - IMS (Israel Meteorological Service) warnings
 - Radar (RainViewer tiles), Capacitor wrap
 - Verify blend weights against observed station data (IMS station near Shadmot Mehola / Tirat Zvi)

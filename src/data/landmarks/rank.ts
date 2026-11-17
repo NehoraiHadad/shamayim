@@ -2,8 +2,8 @@ import type { Landmark } from './types'
 
 const WEIGHTS: Record<Landmark['kind'], number> = {
   bridge: 9, cooling: 8, turbine: 8, chimney: 7, lighthouse: 7,
-  minaret: 7, highrise: 6, waterTower: 6, church: 5, silo: 5,
-  castle: 5, mast: 3, palms: 2, orchard: 2, solar: 2, homes: 1, custom: 6,
+  minaret: 7, highrise: 6, waterTower: 7, church: 5, silo: 5, synagogue: 6,
+  castle: 6, mast: 1, palms: 2, orchard: 2, vineyard: 2, solar: 2, homes: 1, custom: 6,
 }
 
 export interface Candidate {
@@ -27,8 +27,28 @@ export function select(candidates: Candidate[], width: number): Candidate[] {
   const far = candidates.filter((c) => c.layer === 'far' && (
     c.mark.heightM >= 60 || ['chimney', 'cooling', 'turbine'].includes(c.mark.kind)
   )).sort(desc).slice(0, 2)
-  const near = candidates.filter((c) => c.layer === 'near').sort(desc).slice(0, nearLimit)
+  const near = pick(candidates.filter((c) => c.layer === 'near'), nearLimit)
   return [...far, ...near]
+}
+
+const CAPS: Partial<Record<Landmark['kind'], number>> = { minaret: 2, mast: 1, orchard: 2, vineyard: 2, solar: 1, highrise: 4 }
+
+/** Best first, but OSM kinds are capped and each repeat of a kind costs 3 points, so the frame shows variety. */
+function pick(candidates: Candidate[], limit: number): Candidate[] {
+  const pool = [...candidates]
+  const chosen: Candidate[] = []
+  const counts = new Map<Landmark['kind'], number>()
+  const value = (c: Candidate) => c.score - (c.mark.source === 'osm' ? 3 * (counts.get(c.mark.kind) ?? 0) : 0)
+  while (chosen.length < limit && pool.length) {
+    pool.sort((a, b) => value(b) - value(a))
+    const next = pool.shift()!
+    const count = counts.get(next.mark.kind) ?? 0
+    const cap = next.mark.source === 'osm' ? CAPS[next.mark.kind] : undefined
+    if (cap != null && count >= cap) continue
+    chosen.push(next)
+    counts.set(next.mark.kind, count + 1)
+  }
+  return chosen
 }
 
 export function spread(candidates: Candidate[], gap: number, blocked?: [number, number], scale = 1): Candidate[] {

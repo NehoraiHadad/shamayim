@@ -11,7 +11,9 @@ import { nextSunEvent, twilight } from './sceneModel'
 import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
-import { Landmarks } from './marks/Landmarks'
+import { HillMarks } from './marks/HillMarks'
+import { hillScene } from './marks/hillScene'
+import { captionBox } from './marks/sceneLayout'
 import styles from './ValleyScene.module.css'
 
 interface Props {
@@ -59,6 +61,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const showSea = forecast.elevation < 50 || terrain.seaInView
   const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
     [place, terrain, landmarks, sceneWidth, showSea])
+  const night = markLife.litShare > 0
+  const captionText = event && !readout ? `${event.rise ? 'זריחה' : 'שקיעה'} ${clockOf(event.time)}` : null
+  const captionSide = event?.rise ? 'east' : 'west'
+  const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
+    caption: captionText ? captionBox(captionText, captionSide, sceneWidth) : null, label: { text: elevationText, below } }),
+  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, captionText, captionSide, elevationText, below])
+  const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
@@ -84,18 +93,20 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
           <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
         </foreignObject>
       </svg>
-      <Landmarks marks={placed} layer="far" life={markLife} readout={Boolean(readout)} fade={air.haze.farFade} />
+      <HillMarks layer="far" marks={hill.marks} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
+        night={night} life={markLife} readout={Boolean(readout)} />
       <svg className={`${styles.land} ${styles.landNear}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {showSea && (
           <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
       </svg>
-      <Landmarks marks={placed} layer="near" life={markLife} readout={Boolean(readout)} fade={air.haze.nearFade} />
-      <span className={styles.village} style={{ left: terrain.centerLeft, top: terrain.centerY }} aria-hidden="true" />
+      <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
+        life={markLife} readout={Boolean(readout)} />
+      <span className={styles.village} style={{ left: terrain.centerLeft, top: hill.centerY }} aria-hidden="true" />
       <span
         className={styles.depth}
-        style={{ left: terrain.centerLeft, top: below ? terrain.seaY + 6 : Math.min(116, terrain.centerY + 7) }}
+        style={{ left: hill.label.x, top: hill.label.y }}
         aria-hidden="true"
       >
         <bdi>{elevationText.replace(' מ׳', '')}</bdi> מ׳
@@ -110,8 +121,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       {readout && (
         <span className={styles.readout} aria-hidden="true">{isolateNumbers(readout)}</span>
       )}
-      {event && !readout && (
-        <span className={`${styles.caption} ${event.rise ? styles.east : styles.west}`} aria-hidden="true">
+      {event && captionText && (
+        <span className={`${styles.caption} ${styles[captionSide]}`} aria-hidden="true">
           {event.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(event.time)}</bdi>
         </span>
       )}

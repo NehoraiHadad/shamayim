@@ -2,12 +2,14 @@ import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
 import { groundY, markHeight, markWidth, offsetKm, toX } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
+import { settlementHalfWidth, type SettlementSize } from './settlement'
 import type { Landmark, PlacedMark } from './types'
 
 const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6, palms: 11 }
 const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minaret', 'lighthouse'])
 const LIT_CUSTOM = new Set(['jerusalem-ymca', 'jerusalem-david', 'jerusalem-wall', 'tel-aviv-shalom',
   'tel-aviv-sarona', 'tel-aviv-azrieli', 'haifa-bab', 'haifa-dagon', 'haifa-sail', 'shadmot-homes'])
+const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
 const SETTLEMENTS = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
 
 export function placeHomes(place: Place, osmMarks: Landmark[]): Landmark[] {
@@ -26,6 +28,12 @@ export function placeHomes(place: Place, osmMarks: Landmark[]): Landmark[] {
 
 export function withPlaceHomes(place: Place, marks: Landmark[], curated = false): Landmark[] {
   return curated ? marks : [...marks, ...placeHomes(place, marks)]
+}
+
+export function isPlaceHomes(mark: Landmark) { return mark.kind === 'homes' && mark.source === 'place' }
+
+export function settlementSize(homes: Landmark): SettlementSize {
+  return homes.glyph === 'homes-large' ? 'large' : homes.glyph === 'homes-medium' ? 'medium' : 'small'
 }
 
 function elevationAt(values: number[] | undefined, x: number): number | undefined {
@@ -61,21 +69,28 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       score: mark.kind === 'homes' && mark.source === 'place' ? Number.MAX_SAFE_INTEGER : score(mark, offset.dx, offset.dy, band),
     })
   }
-  const chosen = select(candidates, width)
+  const homes = marks.find(isPlaceHomes)
+  /** The place's own worship halls and towers skip the contest: they stand at their true x inside the cluster. */
+  const absorbed = new Set(homes ? candidates.filter((item) => item.layer === 'near' && ABSORB.has(item.mark.kind)
+    && Math.hypot(item.dx, item.dy) <= .6).sort((a, b) => b.score - a.score).slice(0, 3) : [])
+  const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width)
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
-  const villageHalf = 7 * scale
-  const anchored = chosen.filter((item) => item.mark.kind === 'homes' && item.mark.source === 'place')
-    .map((item) => ({ ...item, x: center }))
-  const spaced = (['far', 'near'] as const).flatMap((layer) => spread(
-    chosen.filter((item) => item.layer === layer && !(item.mark.kind === 'homes' && item.mark.source === 'place')),
-    (layer === 'near' ? 3 : 6) * scale,
+  const villageHalf = (homes ? settlementHalfWidth(settlementSize(homes)) : 7) * scale
+  const edge = 8 * scale
+  const inside = [...absorbed].sort((a, b) => a.x - b.x).map((item) => {
+    const clear = 8 * scale + item.width / 2
+    return Math.abs(item.x - center) >= clear ? item : { ...item, x: center + (item.x < center ? -clear : clear) }
+  }).filter((item, index, all) => all.slice(0, index).every((other) => Math.abs(other.x - item.x) >= (other.width + item.width) / 2))
+  const absorbedIds = new Set(inside.map((item) => item.mark.id))
+  const spaced = [...inside, ...(['far', 'near'] as const).flatMap((layer) => spread(
+    chosen.filter((item) => item.layer === layer),
+    6 * scale,
     layer === 'near' ? [center - villageHalf, center + villageHalf] : undefined, scale,
-  )).concat(anchored)
+  ))].filter((item) => item.x - item.width / 2 >= edge && item.x + item.width / 2 <= 375 - edge)
   const labelRight = terrain.seaSide === 'west' ? 375 * .06 + 44 * scale
     : terrain.seaSide === 'east' ? 375 * .94 : 375 * .73
   const labelLeft = labelRight - 44 * scale
   const clearLabel = spaced.flatMap((item) => {
-    if (item.mark.kind === 'homes' && item.mark.source === 'place') return [item]
     if (!terrain.seaInView) return [item]
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const base = groundY(points.map(([x, y]) => ({ x, y })), item.x)
@@ -100,6 +115,8 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       hPx,
       lights: LIGHTS.has(item.mark.kind) || LIT_CUSTOM.has(item.mark.glyph ?? '') ? 4 : 0,
       tall: item.mark.heightM >= 60,
+      dy: item.dy,
+      ...(absorbedIds.has(item.mark.id) ? { absorbed: true } : {}),
     }]
   })
 }

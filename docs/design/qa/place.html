@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>QA place</title><style>body{margin:0}iframe{display:block;border:0}</style></head>
+<body>
+<!-- Dev-only QA helper (served by the Vite dev server, never built). Headless Chrome has no app localStorage and lays
+     out at least ~500 px wide, so /docs/design/qa/place.html?p=<place JSON>&to=/?at=2026-11-17T10:00&w=375 stores the
+     place and shows the app in a w-px frame (without w it just opens the app). -->
+<script>
+  const query = new URLSearchParams(location.search)
+  localStorage.setItem('shamayim:place:v1', query.get('p'))
+  const to = query.get('to') || '/'
+  if (query.has('w')) {
+    const frame = document.createElement('iframe')
+    Object.assign(frame, { src: to, width: query.get('w'), height: query.get('h') || 700 })
+    document.body.append(frame)
+  } else location.replace(to)
+</script>
+</body>
+</html>

@@ -22,6 +22,7 @@ export const LANDMARK_FILTERS: LandmarkFilter[] = [
   { overpass: 'nwr[man_made=mast]', osmium: 'nwr/man_made=mast', far: true },
   { overpass: 'nwr[man_made=tower]["tower:type"=communication]', osmium: 'nwr/tower:type=communication', far: true },
   { overpass: 'nwr[landuse=orchard]', osmium: 'nwr/landuse=orchard' },
+  { overpass: 'nwr[landuse=vineyard]', osmium: 'nwr/landuse=vineyard' },
   { overpass: 'nwr[power=plant]["plant:source"=solar]', osmium: 'nwr/plant:source=solar' },
   { overpass: 'nwr[amenity=place_of_worship][religion=jewish][building]', osmium: 'nwr/religion=jewish' },
   { overpass: 'nwr[amenity=place_of_worship][religion=muslim][building]', osmium: 'nwr/religion=muslim' },
