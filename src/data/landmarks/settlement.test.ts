@@ -61,4 +61,15 @@ describe('settlement cluster', () => {
     }
     expect(seat((x) => x * 2, 50, 8)).toBeNull()
   })
+
+  it('keeps every house out from under the sun-event caption', () => {
+    const caption = { left: 120, right: 180, top: 0, bottom: 128 }
+    const open = composeSettlement({ ...base, style: 'tile' })
+    const kept = composeSettlement({ ...base, style: 'tile', keepOut: [caption] })
+    const under = (house: { x: number; w: number }) => house.x + house.w / 2 > caption.left - 2
+      && house.x - house.w / 2 < caption.right + 2
+    expect(open.houses.some(under)).toBe(true)
+    expect(kept.houses.some(under)).toBe(false)
+    expect(kept.houses.length).toBeGreaterThan(0)
+  })
 })

@@ -50,3 +50,6 @@ export const BUILDINGS: Partial<Record<string, BuildingSpec>> = {
 
 export const FIELD_KINDS = new Set(['orchard', 'vineyard', 'solar'])
 export function fieldWidth(kind: string) { return kind === 'solar' ? 18 : kind === 'vineyard' ? 20 : 22 }
+/** How far a field's lowest row reaches below its depth (fields.tsx: orchard rows 2.6 apart with r ≤ 1.6 trees,
+ * vine rows 2 apart, solar rows 2.2 apart and 1.5 thick). */
+export function fieldReach(kind: string) { return kind === 'solar' ? 5.9 : kind === 'vineyard' ? 6.5 : 7.3 }

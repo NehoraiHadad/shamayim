@@ -63,6 +63,8 @@ interface Input {
   seed: number
   /** Absorbed buildings (px x and width): the skyline house in their slot gives way. */
   absorbed?: { x: number; w: number }[]
+  /** Boxes no house may stand under (the sun-event caption), in px. */
+  keepOut?: { left: number; right: number; top: number; bottom: number }[]
 }
 
 function dims(style: SettlementStyle, row: number, index: number, random: () => number) {
@@ -109,6 +111,8 @@ export function composeSettlement(input: Input): Settlement {
       if (!placed) return
       const house = { x, baseY: placed.baseY, w: placed.w, h: size.h + (row ? 0 : (random() - .5) * 2), row }
       if (house.baseY - house.h < 4 || house.baseY > 127 || hitsDot(house, centerX, centerY)) return
+      if (input.keepOut?.some((box) => house.x + house.w / 2 > box.left - 2 && house.x - house.w / 2 < box.right + 2
+        && house.baseY > box.top - 2 && house.baseY - house.h - 1.8 < box.bottom + 2)) return
       if (row === 0 && input.absorbed?.some((mark) => Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1)) return
       houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
     })
