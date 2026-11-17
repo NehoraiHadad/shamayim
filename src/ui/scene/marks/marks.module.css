@@ -81,6 +81,11 @@
 .wall { fill: var(--mark-wall); }
 .lit { fill: var(--mark-lit); }
 .roof { fill: var(--mark-roof); }
+.roofLit { fill: color-mix(in srgb, #C8664A 72%, var(--ridge-near)); }
+.cast { fill: var(--mark-shade); opacity: .55; }
+/* No sun (overcast, haze, night): lit faces fall back to the body tone, so form comes from shape alone. */
+.flat .lit { fill: var(--mark-wall); }
+.flat .roofLit { fill: var(--mark-roof); }
 .green { fill: var(--mark-green); }
 .vine { fill: none; stroke: var(--mark-green); stroke-width: 1; stroke-linecap: round; }
 .panel { fill: var(--mark-panel); }
@@ -88,7 +93,10 @@
 .contour { fill: none; stroke: var(--mark-shade); stroke-width: 1; stroke-linecap: round; opacity: .7; }
 .win { fill: #FFD9A0; }
 .lamp { fill: #7CE0A0; }
-.back :is(.solid, .wall, .lit, .roof, .shade) { fill: var(--mark-back); }
-.maskWhite * { fill: #fff !important; stroke: none; }
+.back :is(.solid, .wall, .lit, .roof, .roofLit, .shade) { fill: var(--mark-back); }
 .night .roof { fill: color-mix(in srgb, #B5553C 18%, var(--ridge-near)); }
-.night .wall { fill: color-mix(in srgb, var(--sky-horizon) 25%, var(--ridge-near)); }
+.night .wall, .night .lit { fill: color-mix(in srgb, var(--sky-horizon) 25%, var(--ridge-near)); }
+.night .roofLit { fill: color-mix(in srgb, #B5553C 18%, var(--ridge-near)); }
+.night .green { fill: color-mix(in srgb, #5E7B4A 20%, var(--ridge-near)); }
+.night .vine { stroke: color-mix(in srgb, #5E7B4A 20%, var(--ridge-near)); }
+.night .panel { fill: color-mix(in srgb, #3E5C7A 22%, var(--ridge-near)); }

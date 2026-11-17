@@ -48,7 +48,7 @@ function Strip({ theme, scale, style }: { theme: ThemeId; scale: number; style: 
     background: 'linear-gradient(var(--sky-top), var(--sky-horizon))' }}>
     <svg viewBox={`0 0 ${W} 128`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
       <path d={ridge} fill="var(--ridge-near)" />
-      <circle cx={187} cy={ground(187)} r={3} fill="#fff" />
+      <circle cx={187} cy={ground(187)} r={4.5} fill="var(--ridge-near)" opacity={.7} /><circle cx={187} cy={ground(187)} r={2.5} fill="var(--accent)" />
     </svg>
     <HillMarks marks={marks} settlement={settlement} width={W} ground={ground} sunX={night ? null : 60} night={night} />
   </div>

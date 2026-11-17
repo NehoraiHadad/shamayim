@@ -1,9 +1,9 @@
-import { useId } from 'react'
 import type { Settlement } from '../../../data/landmarks/settlement'
 import { seat } from '../../../data/landmarks/seat'
 import type { PlacedMark } from '../../../data/landmarks/types'
 import { BUILDINGS, FIELD_KINDS, fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
+import { CastShadow } from './generic/shadow'
 import { isHillMark, planeOf } from './hillPlane'
 import { SettlementGlyph } from './SettlementGlyph'
 import styles from './marks.module.css'
@@ -25,7 +25,6 @@ interface Props {
 const clamp = (value: number) => Math.max(0, Math.min(1, value))
 
 function Building({ mark, x, ground, sunX, night }: { mark: PlacedMark; x: number } & Omit<Props, 'marks' | 'settlement' | 'width'>) {
-  const id = useId().replace(/[^a-zA-Z0-9]/g, '')
   const spec = BUILDINGS[mark.kind]!
   const plane = planeOf(mark)
   const depth = clamp(Math.abs(mark.dy) / 1.5)
@@ -33,24 +32,15 @@ function Building({ mark, x, ground, sunX, night }: { mark: PlacedMark; x: numbe
   const scale = plane === 'behind' ? 1 - .2 * depth : 1
   const seated = seat(ground, x, spec.w * scale, 0, Boolean(mark.absorbed))
   if (!seated) return null
-  const base = plane === 'face' ? ground(x) + 3 + 9 * depth
-    : seated.baseY + (plane === 'behind' ? .25 * depth * h * scale : 0)
-  const side = night || plane === 'behind' || sunX == null ? null
-    : sunX < x - 40 ? 'w' : sunX > x + 40 ? 'e' : 'top'
-  const half = spec.w / 2
-  const glyph = <spec.Draw h={h} night={night} />
-  return <g transform={`translate(${x.toFixed(1)} ${base.toFixed(1)}) scale(${scale})`}
-    className={plane === 'behind' ? styles.back : undefined}>
-    {plane === 'face' && !night && <rect className={styles.shade} x={side === 'w' ? -half : -half - 1} y={0}
-      width={spec.w + 1} height={1} />}
-    {glyph}
-    {side && <>
-      <mask id={id} maskUnits="userSpaceOnUse" x={-half - 1} y={-h - 1} width={spec.w + 2} height={h + 2}>
-        <g className={styles.maskWhite}><spec.Draw h={h} night={false} /></g>
-      </mask>
-      <rect className={styles.lit} mask={`url(#${id})`} x={side === 'w' ? -half : side === 'e' ? half * .3 : -half}
-        y={-h} width={side === 'top' ? spec.w : spec.w * .35} height={side === 'top' ? 1.5 : h} />
-    </>}
+  const base = .5 + (plane === 'face' ? ground(x) + 3 + 9 * depth
+    : seated.baseY + (plane === 'behind' ? .25 * depth * h * scale : 0))
+  /** Glyphs are drawn lit from the left; mirror them when the sun stands east of the mark. */
+  const mirror = sunX != null && sunX > x ? -1 : 1
+  const lit = sunX != null && !night && plane !== 'behind'
+  return <g transform={`translate(${x.toFixed(1)} ${base.toFixed(1)}) scale(${scale * mirror} ${scale})`}
+    className={[plane === 'behind' ? styles.back : '', lit ? '' : styles.flat].join(' ')}>
+    {lit && <CastShadow w={spec.w} h={h} />}
+    <spec.Draw h={h} night={night} />
   </g>
 }
 
