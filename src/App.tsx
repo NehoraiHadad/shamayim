@@ -75,7 +75,7 @@ export default function App() {
       </Sky>
       <main className="sky-area" data-air-band>
         <TopBar place={place} recent={recent} onSelectPlace={selectPlace} status={statusLine} />
-        {!forecast && status === 'error' && <ErrorState message={error} onRetry={refresh} />}
+        {!forecast && status === 'error' && <ErrorState failure={error} onRetry={refresh} />}
         {!forecast && status !== 'error' && <LoadingState />}
         {forecast && (
           <>
