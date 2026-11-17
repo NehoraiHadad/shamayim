@@ -8,6 +8,8 @@ import { clockOf, datePart } from '../../domain/time'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
+import { Moon } from './Moon'
+import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
@@ -34,11 +36,16 @@ interface Props {
   place: Place
   landmarks: Landmark[]
   markLife: MarkLife
+  first: LocalTime
+  last: LocalTime
+  onScrub: (time: LocalTime) => void
+  onRelease: () => void
+  onNow: () => void
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0,
-  mistColor = '#C9D2D8', place, landmarks, markLife }: Props) {
+  mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const sceneRef = useRef<HTMLElement>(null)
   const [sceneWidth, setSceneWidth] = useState(375)
@@ -52,7 +59,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat) : null
-  const glow = twilight(forecast.days.find((d) => d.date === datePart(now)), now)
+  const glow = twilight(day, at)
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
@@ -70,18 +77,19 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
     below ? `היישוב ${Math.abs(elevation)} מטר מתחת לפני הים.` : `גובה היישוב ${elevation} מטר.`,
   ].filter(Boolean).join(' ')
-
   return (
     <figure
       className={styles.scene}
       ref={sceneRef}
-      role="img"
+      role="group"
       aria-label={label}
       data-scene
       data-haze={air.haze.farFade > 0.5 ? 'heavy' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
     >
       {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
+      <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
+        farFade={air.haze.farFade} />
       <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
@@ -116,8 +124,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         </>
       )}
       {readout && (
-        <span className={styles.readout} aria-hidden="true">{isolateNumbers(readout)}</span>
+        <span className={styles.readout}>
+          <span aria-hidden="true">{isolateNumbers(readout)}</span>
+          <button type="button" onClick={onNow}>עכשיו</button>
+        </span>
       )}
+      <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
+        onNow={onNow} />
     </figure>
   )
 }

@@ -3,6 +3,7 @@ import type { Forecast, LocalTime } from '../domain/types'
 import { dayName } from '../text/format'
 import { DayRow } from './DayRow'
 import { DayDetail } from './week/DayDetail'
+import { middaySky } from './week/middaySky'
 import styles from './WeekList.module.css'
 
 interface Props {
@@ -25,7 +26,7 @@ export function WeekList({ forecast, now }: Props) {
 
   return (
     <section className={styles.week} aria-labelledby="week-title">
-      <h2 id="week-title" className={styles.title}>השבוע הקרוב</h2>
+      <h2 id="week-title" className="visually-hidden">השבוע הקרוב</h2>
       <ol className={styles.list}>
         {week.map((d, i) => {
           const isToday = d.date === today
@@ -33,6 +34,7 @@ export function WeekList({ forecast, now }: Props) {
             <DayRow
               key={d.date}
               day={d}
+              sky={middaySky(d, forecast)}
               index={i}
               name={dayName(d.date, today, tomorrow)}
               scaleMin={scaleMin}

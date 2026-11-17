@@ -1,12 +1,5 @@
 .week { margin-top: 0; }
 
-.title {
-  margin: 0 0 4px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--sheet-muted);
-}
-
 .list {
   container: week / inline-size; /* DayRow reflows against this width; see DayRow.module.css */
   list-style: none;

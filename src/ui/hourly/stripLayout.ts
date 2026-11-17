@@ -4,6 +4,7 @@ import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
 import { fillGaps, scaleY, type Pt } from './curve'
 import type { HourSlot, TimelineSlot } from './timeline'
+import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 
 export const SLOT_W = 54
 /**
@@ -38,6 +39,15 @@ export interface StripLayout {
 /** RTL: the first hour sits at the right edge. */
 const centerX = (width: number, i: number) => width - (i + 0.5) * SLOT_W
 
+/** Inverse RTL strip coordinates: the first hour is at the rightmost slot centre. */
+export function xAtTime(time: LocalTime, first: LocalTime, width: number): number {
+  return width - SLOT_W / 2 - minutesBetweenLocal(first, time) / 60 * SLOT_W
+}
+
+export function timeAtX(x: number, first: LocalTime, width: number): LocalTime {
+  return addMinutes(first, (width - SLOT_W / 2 - x) / SLOT_W * 60)
+}
+
 /** Hours on the x axis; sun events and midnights sit at their true time between hours. */
 export function layoutStrip(slots: TimelineSlot[]): StripLayout {
   const hours = slots.filter((s): s is HourSlot => s.type === 'hour')
@@ -62,9 +72,9 @@ export function layoutStrip(slots: TimelineSlot[]): StripLayout {
   return { hours, width, pts, suns, breaks, hasProb: hours.some((h) => h.prob !== null) }
 }
 
-/** "15:00, מעונן, 26°, רוח 14 קמ״ש" (the time first). */
-export function describeHour(h: HourSlot): string {
-  const parts = [h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), formatTemp(h.temp)]
+/** "15:00, מעונן, 26°, רוח 14 קמ״ש" (the time first; `at` names a minute inside the hour, for a moved time). */
+export function describeHour(h: HourSlot, at?: LocalTime): string {
+  const parts = [at ? clockOf(at) : h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), formatTemp(h.temp)]
   if (h.prob !== null) parts.push(`סיכוי לגשם ${formatProb(h.prob)}`)
   parts.push(`רוח ${Math.round(h.wind)} קמ״ש`)
   return parts.join(', ')

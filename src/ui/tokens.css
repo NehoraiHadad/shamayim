@@ -15,6 +15,7 @@
   --text-hero: clamp(4.5rem, 30vw, 7rem);
   --text-xl: 1.5rem;
   --text-place: 1.25rem;
+  --text-lead: 1.3125rem; /* the wear sentence on the sheet */
   --text-lg: 1.125rem;
   --text-md: 0.9375rem;
   --text-sm: 0.8125rem;
