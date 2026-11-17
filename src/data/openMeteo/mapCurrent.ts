@@ -18,5 +18,6 @@ export function mapCurrent(raw: Json): CurrentWeather {
     precipitation: numOrNull(current.precipitation) ?? 0,
     snowfall: numOrNull(current.snowfall) ?? 0,
     visibility: numOrNull(current.visibility),
+    humidity: numOrNull(current.relative_humidity_2m),
   }
 }

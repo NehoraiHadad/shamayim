@@ -17,6 +17,7 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
   const dayPoints: DayPoint[] = days.map((spec, i) => {
     const date = DATES[i]
     for (let h = 0; h < 24; h++) {
+      const overrides = spec.hour?.(h) ?? {}
       // Simple diurnal curve: min at 05:00, max at 14:00.
       const phase = Math.max(0, Math.sin(((h - 5) / 18) * Math.PI))
       hours.push({
@@ -28,7 +29,8 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
         cloudCover: 5,
         windSpeed: 8,
         windGusts: 15,
-        ...spec.hour?.(h),
+        ...overrides,
+        humidity: overrides.humidity === undefined ? 40 : overrides.humidity,
       })
     }
     return {
@@ -56,6 +58,7 @@ export function makeForecast(days: DaySpec[], pm10?: (date: string, h: number) =
       time: `${DATES[1]}T09:00`, temperature: 30, feelsLike: 30, isDay: true,
       weatherCode: 0, cloudCover: 5, windSpeed: 8, windGusts: 15,
       windDirection: 300, precipitation: 0, snowfall: 0, visibility: 24000,
+      humidity: 40,
     },
     hours,
     days: dayPoints,

@@ -5,11 +5,12 @@ export const FORECAST_MODELS = 'icon_seamless,ecmwf_ifs025'
 const CURRENT = [
   'temperature_2m', 'apparent_temperature', 'is_day', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m',
-  'precipitation', 'snowfall', 'visibility',
+  'precipitation', 'snowfall', 'visibility', 'relative_humidity_2m',
 ]
 const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m',
+  'relative_humidity_2m',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',

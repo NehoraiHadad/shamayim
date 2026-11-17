@@ -26,6 +26,15 @@
   transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
 }
 
+.mistObject { overflow: visible; }
+.mist {
+  width: 100%;
+  height: 100%;
+  opacity: calc(.55 * var(--mist, 0));
+  background: radial-gradient(ellipse 120px 18px at 30% 58%, var(--mist-color), transparent), radial-gradient(ellipse 180px 22px at 72% 65%, var(--mist-color), transparent), linear-gradient(transparent, var(--mist-color));
+  transition: opacity 1600ms linear;
+}
+
 /* Heavy haze turns the far ridge pale, so labels over it switch to dark ink. */
 .scene[data-haze='heavy'] :is(.depth, .seaLabel, .caption, .readout) {
   color: var(--ridge-near);
@@ -129,4 +138,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sun { transition: opacity var(--d1) linear; }
+  .mist { transition: none; }
 }

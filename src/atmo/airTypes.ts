@@ -1,5 +1,10 @@
 /** What the air renderer needs to know, already reduced from forecast data. */
 export interface AirInput {
+  /** Local ISO date and decimal local hour for seasonal life. */
+  date: string
+  localHour: number
+  /** Relative humidity, 0–100; null when unavailable. */
+  humidity: number | null
   temperature: number
   feelsLike: number
   /** 0–100 */

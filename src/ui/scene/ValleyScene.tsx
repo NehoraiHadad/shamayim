@@ -21,6 +21,9 @@ interface Props {
   air: AirState
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
+  /** Still morning mist, layered between the two ridge paths. */
+  mist?: number
+  mistColor?: string
 }
 
 // West (Samaria) on the left, east (Gilead, higher and steeper) on the right, as on a map.
@@ -30,7 +33,7 @@ const NEAR = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L23
 const VILLAGE_LEFT = `${((178 / SCENE_W) * 100).toFixed(1)}%`
 
 /** Cross-section of the Jordan Valley at Shadmot Mehola, with sea level drawn above the village. */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover }: Props) {
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, mist = 0, mistColor = '#C9D2D8' }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
@@ -59,6 +62,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <svg className={styles.land} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         <path d={FAR} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
+        <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
+          <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
+        </foreignObject>
         {below && (
           <line x1="96" x2="276" y1={SEA_Y} y2={SEA_Y} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
