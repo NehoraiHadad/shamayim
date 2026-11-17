@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Place } from '../config/place'
-import { reversePlace, searchPlaces } from '../data/geocoding'
+import { reversePlace } from '../data/geocoding'
 import styles from './PlacePicker.module.css'
+import { PlacePickerList } from './PlacePickerList'
+import { usePlaceSearch } from './PlacePickerSearch'
 
 interface Props {
   open: boolean
@@ -10,115 +12,99 @@ interface Props {
   onSelect: (place: Place) => void
 }
 
+/**
+ * A bottom sheet in a native modal <dialog>: the page behind is inert, Tab stays inside,
+ * Escape closes it, and focus returns to whatever opened it.
+ */
 export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Place[]>([])
-  const [error, setError] = useState('')
-  const [locating, setLocating] = useState(false)
+  const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
+  const search = usePlaceSearch(open)
+  const opener = useRef<HTMLElement | null>(null)
+  const [locating, setLocating] = useState(false)
 
   useEffect(() => {
-    if (!open) return
+    const element = dialog.current
+    if (!open || !element) return
+    const active = document.activeElement
+    // A focus already inside the dialog (StrictMode's second run) is not the opener.
+    if (active instanceof HTMLElement && !element.contains(active)) opener.current = active
+    element.showModal()
     input.current?.focus()
-    const escape = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
-    document.addEventListener('keydown', escape)
-    return () => document.removeEventListener('keydown', escape)
-  }, [open, onClose])
-
-  useEffect(() => () => {
-    // Each opening starts fresh: recents, not the last search.
-    setQuery('')
-    setResults([])
-    setError('')
+    return () => {
+      element.close()
+      setLocating(false)
+      opener.current?.focus()
+    }
   }, [open])
 
-  useEffect(() => {
-    if (!open || query.trim().length < 2) return
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      searchPlaces(query.trim(), controller.signal)
-        .then((places) => {
-          setResults(places)
-          setError(places.length ? '' : 'לא נמצאו מקומות')
-        })
-        .catch((cause: unknown) => {
-          if (!(cause instanceof DOMException && cause.name === 'AbortError')) setError('לא הצלחנו לחפש כרגע')
-        })
-    }, 550)
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [open, query])
-
-  if (!open) return null
   const choose = (place: Place) => {
     onSelect(place)
     onClose()
   }
+  const fail = (message: string) => {
+    search.setError(message)
+    setLocating(false)
+  }
   const locate = () => {
-    if (!navigator.geolocation) {
-      setError('שירותי המיקום אינם זמינים במכשיר הזה')
-      return
-    }
-    setError('')
+    if (locating) return
+    if (!navigator.geolocation) return fail('שירותי המיקום אינם זמינים במכשיר הזה')
+    search.setError('')
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => reversePlace(coords.latitude, coords.longitude).then(choose).catch(() => {
-        setError('לא הצלחנו לזהות את המיקום')
-        setLocating(false)
-      }),
-      () => {
-        setError('לא הצלחנו לקבל הרשאה למיקום')
-        setLocating(false)
-      },
+      ({ coords }) => reversePlace(coords.latitude, coords.longitude).then(choose).catch(() => fail('לא הצלחנו לזהות את המיקום')),
+      () => fail('לא הצלחנו לקבל הרשאה למיקום'),
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 300_000 },
     )
   }
+  const note = search.pending ? 'מחפש…' : search.error
 
   return (
-    <div className={styles.backdrop} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className={styles.sheet} role="dialog" aria-modal="true" aria-labelledby="place-title">
-        <div className={styles.heading}>
-          <h2 id="place-title">בחירת מקום</h2>
-          <button type="button" onClick={onClose} aria-label="סגירה">×</button>
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      aria-labelledby="place-title"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      onClick={(event) => event.target === event.currentTarget && onClose()}
+    >
+      {open && (
+        <div className={styles.panel}>
+          <div className={styles.heading}>
+            <h2 id="place-title">בחירת מקום</h2>
+            <button type="button" className={styles.close} onClick={onClose} aria-label="סגירה">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 3l10 10M13 3L3 13" />
+              </svg>
+            </button>
+          </div>
+          <button type="button" className={styles.well} onClick={locate} aria-disabled={locating}>
+            {locating ? 'מאתר מיקום…' : 'המיקום שלי'}
+          </button>
+          <label>
+            <span className="visually-hidden">חיפוש מקום</span>
+            <input
+              ref={input}
+              className={styles.input}
+              type="search"
+              value={search.query}
+              onChange={(event) => search.setQuery(event.target.value)}
+              placeholder="חיפוש יישוב"
+              autoComplete="off"
+            />
+          </label>
+          <div>
+            <p className={styles.note} role="status">{note}</p>
+            <PlacePickerList
+              title={search.results.length ? 'תוצאות' : 'מקומות אחרונים'}
+              places={search.results.length ? search.results : recent}
+              onSelect={choose}
+            />
+          </div>
         </div>
-        <button type="button" className={styles.locate} onClick={locate} disabled={locating}>
-          {locating ? 'מאתרת…' : 'המיקום שלי'}
-        </button>
-        <label className={styles.search}>
-          <span className="visually-hidden">חיפוש מקום</span>
-          <input
-            ref={input}
-            type="search"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setResults([])
-              setError('')
-            }}
-            placeholder="חיפוש יישוב"
-            autoComplete="off"
-          />
-        </label>
-        {error && <p className={styles.error} role="status">{error}</p>}
-        <PlaceList title={results.length ? 'תוצאות' : 'מקומות אחרונים'} places={results.length ? results : recent} onSelect={choose} />
-      </section>
-    </div>
-  )
-}
-
-function PlaceList({ title, places, onSelect }: { title: string; places: Place[]; onSelect: (place: Place) => void }) {
-  if (!places.length) return null
-  return (
-    <div className={styles.list}>
-      <h3>{title}</h3>
-      {places.map((place) => (
-        <button type="button" key={place.id} onClick={() => onSelect(place)}>
-          <span>{place.nameHe}</span>
-          {place.regionHe && <small>{place.regionHe}</small>}
-        </button>
-      ))}
-    </div>
+      )}
+    </dialog>
   )
 }
