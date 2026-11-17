@@ -178,6 +178,8 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [ ] Lighthouse PWA/perf pass on a deployed build
 
 ## Next (proposed)
+- Future idea (owner, 2026-11-17): OSM-parametric building shapes (footprint width, `building:levels`,
+  `roof:shape`, colour) so each glyph matches its real building — parked, not now
 - IMS (Israel Meteorological Service) warnings
 - Radar (RainViewer tiles), Capacitor wrap
 - Verify blend weights against observed station data (IMS station near Shadmot Mehola / Tirat Zvi)
