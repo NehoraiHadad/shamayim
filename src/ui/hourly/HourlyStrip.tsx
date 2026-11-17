@@ -79,12 +79,13 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
           {breaks.map((b) => (
             <span key={b.x} className={marks.break} style={{ left: b.x }} aria-hidden="true">{b.label}</span>
           ))}
-          {suns.map((s) => (
+          {suns.map((s, i) => (
             <span key={s.time} data-sun className={`${marks.sun} ${tone === 'sky' ? marks.sunSky : ''}`} style={{ left: s.x }} aria-hidden="true">
               {/* The hairline ends in its own name, so the marker explains itself; the sheet's day detail only needs the time. */}
               {tone === 'sheet'
                 ? <bdi>{clockOf(s.time)}</bdi>
-                : <span className={`${marks.chip} ${marks.sunLabel}`}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
+                // While the edge tag stands in for this marker, its own chip (half out of view) would print twice.
+                : <span className={`${marks.chip} ${marks.sunLabel}`} style={i === 0 && away ? { visibility: 'hidden' } : undefined}>{s.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(s.time)}</bdi></span>}
             </span>
           ))}
           <ol className={styles.slots} onKeyDown={onKey}>

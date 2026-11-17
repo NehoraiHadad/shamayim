@@ -296,7 +296,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
       `sheet-after-variety-day.png` + `sheet-after-variety-night-expanded.png` (synthetic rain/heat/dust/fog days)
 - [ ] Not verified: real rain/dust/heat weeks (only synthetic data); a phone; screen reader; 200% text checked by eye
       at night only; no component tests (vitest is node-only); the rows' tap affordance without chevrons is a judgment call
-- [ ] Later (Fable): the hard straight seam between valley and sheet
+- [x] Seam between valley and sheet (owner: "doesn't flow"; Fable diagnosis 2026-11-18): the cut is a drawn base line
+      (1 px hairline, 22% ink) and the clothesline is tied to it at both gutters on ground tabs (`.cleat`, `--ridge-near`),
+      rope END_Y 0 / SAG 22, SVG pulled up onto the cut (dead strip removed). Stills `docs/design/qa/seam-*`.
+      Also: the sun marker's own chip hides while the edge tag stands in for it (no double "שקיעה" at the strip edge)
+- [ ] Seam follow-up (Fable): drive `dark-sheet` from the sun altitude (dark below ~−4°) instead of the theme id, so at
+      dusk the paper does not go dark while the continuous sky is still light; keep two paper values for the contrast tests
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,
       + umbrella or rain jacket, + sun hat / water bottle); `wear.ts` returns `garments` + `wind`; pegged cloth skews
