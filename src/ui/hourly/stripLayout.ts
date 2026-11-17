@@ -4,6 +4,7 @@ import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
 import { fillGaps, scaleY, type Pt } from './curve'
 import type { HourSlot, TimelineSlot } from './timeline'
+import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 
 export const SLOT_W = 54
 /**
@@ -37,6 +38,15 @@ export interface StripLayout {
 
 /** RTL: the first hour sits at the right edge. */
 const centerX = (width: number, i: number) => width - (i + 0.5) * SLOT_W
+
+/** Inverse RTL strip coordinates: the first hour is at the rightmost slot centre. */
+export function xAtTime(time: LocalTime, first: LocalTime, width: number): number {
+  return width - SLOT_W / 2 - minutesBetweenLocal(first, time) / 60 * SLOT_W
+}
+
+export function timeAtX(x: number, first: LocalTime, width: number): LocalTime {
+  return addMinutes(first, (width - SLOT_W / 2 - x) / SLOT_W * 60)
+}
 
 /** Hours on the x axis; sun events and midnights sit at their true time between hours. */
 export function layoutStrip(slots: TimelineSlot[]): StripLayout {

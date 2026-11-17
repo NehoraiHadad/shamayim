@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { clockOf, hourOf } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
@@ -6,7 +6,7 @@ import { WeatherIcon } from '../WeatherIcon'
 import { smoothPath } from './curve'
 import marks from './markers.module.css'
 import styles from './HourlyStrip.module.css'
-import { BAND_H, BAND_TOP, describeHour, layoutStrip, SLOT_W } from './stripLayout'
+import { BAND_H, BAND_TOP, describeHour, layoutStrip, SLOT_W, timeAtX } from './stripLayout'
 import type { TimelineSlot } from './timeline'
 
 interface Props {
@@ -17,18 +17,46 @@ interface Props {
   /** When given, hours can be picked (tap or arrow keys). */
   selected?: LocalTime | null
   onSelect?: (time: LocalTime | null) => void
+  onScrub?: (time: LocalTime) => void
+  onRelease?: () => void
+  scrubbing?: boolean
 }
 
 /** Horizontally scrolling hours with a temperature curve; sunrise, sunset and midnight marked. */
-export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSelect }: Props) {
+export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSelect, onScrub, onRelease, scrubbing = false }: Props) {
   const gradId = useId()
   const [scrollerRef, away, bringNextSun] = useNextSunTag(tone === 'sky', slots)
+  const drag = useRef<number | null>(null)
+  const selectedHour = selected?.slice(0, 13)
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const hourTimes = slots.filter((slot) => slot.type === 'hour')
+    const index = hourTimes.findIndex((hour) => hour.time.slice(0, 13) === selectedHour)
+    if (!scroller || index < 0) return
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    scroller.querySelector<HTMLElement>(`[data-index="${index}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest',
+      behavior: scrubbing || reduced ? 'auto' : 'smooth' })
+  }, [selectedHour, scrubbing, slots, scrollerRef])
   if (!slots.some((s) => s.type === 'hour')) return null
   const { hours, width, pts, suns, breaks, hasProb } = layoutStrip(slots)
   const bandTop = hasProb ? BAND_TOP.withProb : BAND_TOP.withoutProb
   const line = smoothPath(pts)
   const area = `${line} L${pts[pts.length - 1].x},${BAND_H} L${pts[0].x},${BAND_H} Z`
-  const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time === selected : h.isNow)))
+  const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time.slice(0, 13) === selectedHour : h.isNow)))
+  const scrubAt = (e: PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect()
+    const x = Math.min(width - SLOT_W / 2, Math.max(SLOT_W / 2, e.clientX - box.left))
+    onScrub?.(timeAtX(x, hours[0].time, width))
+  }
+  const pointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch' || !onScrub) return
+    drag.current = e.pointerId; e.currentTarget.setPointerCapture(e.pointerId); scrubAt(e)
+  }
+  const pointerMove = (e: PointerEvent<HTMLDivElement>) => { if (drag.current === e.pointerId) scrubAt(e) }
+  const pointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    if (drag.current !== e.pointerId) return
+    drag.current = null; e.currentTarget.releasePointerCapture(e.pointerId); onRelease?.()
+  }
 
   const onKey = (e: KeyboardEvent<HTMLOListElement>) => {
     const last = hours.length - 1
@@ -45,7 +73,8 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   return (
     <section className={`${styles.strip} ${styles[tone]}`} aria-label={label} style={{ '--band-top': `${bandTop}px`, '--band-h': `${BAND_H}px` } as React.CSSProperties}>
       <div className={styles.scroller} ref={scrollerRef}>
-        <div className={styles.track} style={{ width, height: bandTop + BAND_H }}>
+        <div className={styles.track} style={{ width, height: bandTop + BAND_H }} onPointerDown={pointerDown}
+          onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}>
           <svg className={styles.curve} width={width} height={BAND_H} aria-hidden="true">
             <defs>
               <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
@@ -66,7 +95,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
             {tone === 'sky' && <path d={area} fill={`url(#${gradId})`} mask={`url(#${gradId}-mask)`} />}
             <path d={line} className={styles.line} pathLength={1} data-intro="curve" />
             {pts.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r={hours[i].time === selected ? 4.5 : hours[i].isNow ? 3.6 : 2} className={styles.dot} />
+              <circle key={i} cx={p.x} cy={p.y} r={hours[i].time.slice(0, 13) === selectedHour ? 4.5 : hours[i].isNow ? 3.6 : 2} className={styles.dot} />
             ))}
           </svg>
           {breaks.map((b) => (
@@ -99,7 +128,8 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
                   </span>
                 </>
               )
-              const cls = `${styles.slot} ${h.isNow ? styles.now : ''} ${h.time === selected ? styles.selected : ''}`
+              const picked = h.time.slice(0, 13) === selectedHour
+              const cls = `${styles.slot} ${h.isNow ? styles.now : ''} ${picked ? styles.selected : ''}`
               return (
                 <li key={h.time} style={{ width: SLOT_W, '--i': i } as React.CSSProperties} data-intro="label">
                   {onSelect ? (
@@ -108,8 +138,8 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
                       className={cls}
                       data-index={i}
                       tabIndex={i === focusIndex ? 0 : -1}
-                      aria-pressed={h.time === selected}
-                      onClick={() => onSelect(h.time === selected ? null : h.time)}
+                      aria-pressed={picked}
+                      onClick={() => onSelect(picked ? null : h.time)}
                     >
                       {content}
                     </button>

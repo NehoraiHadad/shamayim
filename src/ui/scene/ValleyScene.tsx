@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
 import type { AirState } from '../../atmo/airTypes'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
 import { placeMarks } from '../../data/landmarks/placeMarks'
@@ -6,6 +6,7 @@ import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { Place } from '../../config/place'
 import { clockOf, datePart } from '../../domain/time'
 import type { Forecast, LocalTime } from '../../domain/types'
+import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Shimmer } from './Shimmer'
@@ -34,11 +35,16 @@ interface Props {
   place: Place
   landmarks: Landmark[]
   markLife: MarkLife
+  first: LocalTime
+  last: LocalTime
+  onScrub: (time: LocalTime) => void
+  onRelease: () => void
+  onNow: () => void
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0,
-  mistColor = '#C9D2D8', place, landmarks, markLife }: Props) {
+  mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const sceneRef = useRef<HTMLElement>(null)
   const [sceneWidth, setSceneWidth] = useState(375)
@@ -52,7 +58,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const at = selected ?? now
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat) : null
-  const glow = twilight(forecast.days.find((d) => d.date === datePart(now)), now)
+  const glow = twilight(day, at)
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
@@ -70,12 +76,32 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
     below ? `היישוב ${Math.abs(elevation)} מטר מתחת לפני הים.` : `גובה היישוב ${elevation} מטר.`,
   ].filter(Boolean).join(' ')
+  const drag = useRef<{ id: number; x: number; at: LocalTime } | null>(null)
+  const clampTime = (time: LocalTime) => time < first ? first : time > last ? last : time
+  const pointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    drag.current = { id: e.pointerId, x: e.clientX, at }; e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const pointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (drag.current?.id !== e.pointerId) return
+    onScrub(clampTime(addMinutes(drag.current.at, (drag.current.x - e.clientX) * 4)))
+  }
+  const pointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    if (drag.current?.id !== e.pointerId) return
+    drag.current = null; e.currentTarget.releasePointerCapture(e.pointerId); onRelease()
+  }
+  const sliderKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const target = e.key === 'ArrowLeft' ? addMinutes(at, 60) : e.key === 'ArrowRight' ? addMinutes(at, -60)
+      : e.key === 'Home' ? first : e.key === 'End' ? last : null
+    if (e.key === 'Escape') { e.preventDefault(); onNow(); return }
+    if (!target) return
+    e.preventDefault(); onScrub(clampTime(target)); onRelease()
+  }
 
   return (
     <figure
       className={styles.scene}
       ref={sceneRef}
-      role="img"
+      role="group"
       aria-label={label}
       data-scene
       data-haze={air.haze.farFade > 0.5 ? 'heavy' : undefined}
@@ -116,8 +142,14 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         </>
       )}
       {readout && (
-        <span className={styles.readout} aria-hidden="true">{isolateNumbers(readout)}</span>
+        <span className={styles.readout} aria-hidden="true"><bdi>{clockOf(at)}</bdi> · {isolateNumbers(readout)}
+          <button type="button" onClick={onNow}>עכשיו</button></span>
       )}
+      <div className={styles.scrubber} role="slider" tabIndex={0} aria-label="שעה בעמק"
+        aria-valuemin={minutesBetweenLocal(now, first)} aria-valuemax={minutesBetweenLocal(now, last)}
+        aria-valuenow={minutesBetweenLocal(now, at)} aria-valuetext={readout ? `${clockOf(at)}, ${readout}` : `עכשיו, ${clockOf(now)}`}
+        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}
+        onKeyDown={sliderKey} />
     </figure>
   )
 }

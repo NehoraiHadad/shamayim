@@ -16,13 +16,18 @@ function airAt(air: AirPoint[] | null, at: LocalTime): AirPoint | undefined {
   return air?.find((a) => a.time === key)
 }
 
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
 /**
  * The input for "now", or for a selected hour (a preview). A preview takes rain, cloud,
  * wind and temperature from that hour and holds direction, snow and visibility from now.
  */
 export function airInput(forecast: Forecast, now: LocalTime, lat: number, selected: LocalTime | null): AirInput {
   const c = forecast.current
-  const hour = selected ? forecast.hours.find((h) => h.time === selected) : undefined
+  const floor = selected ? `${selected.slice(0, 13)}:00` : null
+  const hour = floor ? forecast.hours.find((h) => h.time === floor) : undefined
+  const next = hour ? forecast.hours[forecast.hours.indexOf(hour) + 1] : undefined
+  const fraction = selected ? Number(selected.slice(14, 16)) / 60 : 0
   const at = hour ? selected! : now
   const a = airAt(forecast.air, at)
   const base = {
@@ -36,16 +41,20 @@ export function airInput(forecast: Forecast, now: LocalTime, lat: number, select
     sunElevation: sunElevation(forecast, at, lat),
   }
   if (hour) {
+    const value = (field: 'temperature' | 'cloudCover' | 'windSpeed' | 'windGusts' | 'precipitation') =>
+      next ? lerp(hour[field], next[field], fraction) : hour[field]
+    const humidity = hour.humidity === null || next?.humidity === null || !next ? hour.humidity : lerp(hour.humidity, next.humidity, fraction)
+    const nearest = fraction < 0.5 || !next ? hour : next
     return {
       ...base,
-      temperature: hour.temperature,
-      feelsLike: hour.temperature,
-      cloudCover: hour.cloudCover,
-      windSpeed: hour.windSpeed,
-      windGusts: hour.windGusts,
-      precipitation: hour.precipitation,
-      weatherCode: hour.weatherCode,
-      humidity: hour.humidity,
+      temperature: value('temperature'),
+      feelsLike: value('temperature'),
+      cloudCover: value('cloudCover'),
+      windSpeed: value('windSpeed'),
+      windGusts: value('windGusts'),
+      precipitation: value('precipitation'),
+      weatherCode: nearest.weatherCode,
+      humidity,
       preview: true,
     }
   }

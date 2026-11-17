@@ -14,7 +14,8 @@ import { rollForward } from './domain/now'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
-import { DARK_SHEET, themeVars } from './theme/skyThemes'
+import { skyLight, skyLightVars } from './theme/skyLight'
+import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
 import { forcedTheme, forcedWeather } from './ui/devParams'
 import { Hero } from './ui/Hero'
@@ -29,7 +30,7 @@ import { Sky } from './ui/Sky'
 import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
-import { useHourSelection } from './ui/useHourSelection'
+import { useSceneTime } from './ui/scrub/useSceneTime'
 import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
@@ -43,18 +44,23 @@ export default function App() {
   const now = useNow(place.timezone)
   const forecast = useMemo(() => (raw ? rollForward(raw, now) : null), [raw, now])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
-  const themeId = forcedTheme() ?? (forecast ? pickTheme(forecast, today, now) : 'night')
+  const forced = forcedTheme()
+  const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')
   const sentences = useMemo(() => (forecast ? composeSummary(forecast, now) : []), [forecast, now])
   const hourly = useMemo(() => (forecast ? next24h(forecast, now) : []), [forecast, now])
   const wear = useMemo(() => (forecast ? wearTip(forecast, now) : null), [forecast, now])
-  const [selected, select] = useHourSelection()
-  const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time === selected)
+  const sceneTime = useSceneTime(now)
+  const selected = sceneTime.at
+  const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
   const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place.lat, selected), ...forcedWeather() } : null), [forecast, now, place.lat, selected])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
+  const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
+    cloudCover: shown.cloudCover, wet: shown.precipitation > 0, pm10: shown.pm10 }) : SKY_THEMES[themeId], [shown, themeId])
+  const palette = useMemo(() => forced ? SKY_THEMES[themeId] : { ...SKY_THEMES[themeId], ...light }, [forced, themeId, light])
   const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
   const markLife = useMemo(() => (shown && air ? mapMarks(shown, air) : null), [shown, air])
   const intro = useIntro(Boolean(forecast))
-  useThemeChrome(themeId)
+  useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
   const classes = ['app', DARK_SHEET.has(themeId) ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
   const statusLine = (
@@ -68,9 +74,10 @@ export default function App() {
   )
 
   return (
-    <div className={classes} style={themeVars(themeId)}>
-      <Sky theme={themeId} cloudCover={forecast?.current.cloudCover ?? 0}>
-        {air && <Atmosphere air={air} theme={themeId} night={themeId === 'night'} glide={selected ? 320 : 520} />}
+    <div className={classes} data-scrubbing={sceneTime.scrubbing || undefined} style={{ ...themeVars(themeId), ...(forced ? {} : skyLightVars(light)) }}>
+      <Sky altitude={shown?.sunElevation ?? -18} cloudCover={shown?.cloudCover ?? 0}>
+        {air && <Atmosphere air={air} palette={palette} night={(shown?.sunElevation ?? -18) < -6}
+          glide={sceneTime.scrubbing ? 120 : sceneTime.rewinding ? 900 : selected ? 320 : 520} />}
         {life && air && shown && <Life life={life} air={air} sunElevation={shown.sunElevation} intro={intro} />}
       </Sky>
       <main className="sky-area" data-air-band>
@@ -81,7 +88,8 @@ export default function App() {
           <>
             <Hero current={forecast.current} />
             <Sentence sentences={sentences} />
-            <HourlyStrip slots={hourly} label="24 השעות הקרובות" selected={selected} onSelect={select} />
+            <HourlyStrip slots={hourly} label="24 השעות הקרובות" selected={selected} onSelect={sceneTime.pick}
+              onScrub={sceneTime.scrub} onRelease={sceneTime.release} scrubbing={sceneTime.scrubbing} />
           </>
         )}
       </main>
@@ -101,6 +109,11 @@ export default function App() {
             place={place}
             landmarks={landmarks.marks}
             markLife={markLife!}
+            onScrub={sceneTime.scrub}
+            onRelease={sceneTime.release}
+            onNow={sceneTime.toNow}
+            first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
+            last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
           />
           <div className="paper" data-intro="sheet">
             <Sheet>

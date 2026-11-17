@@ -35,3 +35,5 @@
   border-radius: 50%;
   transition: opacity var(--d6) linear;
 }
+
+:global(.app[data-scrubbing]) .sky { transition: none; }
