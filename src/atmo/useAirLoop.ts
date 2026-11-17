@@ -40,6 +40,7 @@ export function useAirLoop(canvas: RefObject<HTMLCanvasElement | null>, state: A
     let raf = 0
     let last = start
     let lastAir = -1
+    let lastAnchor = ''
     let slow = 0
     let tier = 0
     let introDone = false
@@ -69,9 +70,13 @@ export function useAirLoop(canvas: RefObject<HTMLCanvasElement | null>, state: A
         cur.changed = false
       }
       motion.step(still ? t + 5 : t, still ? 0 : dt)
-      if (t - lastAir >= 1 / AIR_HZ || still) {
+      // The sky is fixed but the haze and cloud floor follow the scrolling scene: redraw at once when it moves, or
+      // the air trails the hill in 15 Hz steps while scrolling.
+      const anchor = `${L.w},${L.h},${L.bandTop},${L.bandBottom},${L.sceneTop}`
+      if (t - lastAir >= 1 / AIR_HZ || still || anchor !== lastAnchor) {
         r.drawAir(t, motion, L, cur.pal)
         lastAir = t
+        lastAnchor = anchor
       }
       r.drawFrame(t, motion, L, cur.pal)
       const settled = t - motion.lastSet > cur.glide / 1000 + 0.1
