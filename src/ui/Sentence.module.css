@@ -1,6 +1,7 @@
 .sentence {
-  margin: var(--space-5) 0 0;
+  margin: var(--space-5) auto 0;
   max-width: 30ch;
+  text-align: center; /* centred under the hero; text-wrap: balance keeps the lines even */
   font-family: var(--font-serif);
   font-weight: 500;
   font-size: var(--text-xl);

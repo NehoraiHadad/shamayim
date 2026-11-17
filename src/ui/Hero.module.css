@@ -1,6 +1,7 @@
 .hero {
   display: flex;
   align-items: flex-end;
+  justify-content: center; /* the hero is a centred block between the edge-aligned top bar and the strip */
   gap: var(--space-4);
   margin-top: var(--space-3);
 }
@@ -30,8 +31,7 @@
 }
 
 /* The condition belongs to the number, so it sits right beside it (proximity), start-aligned and resting on the
-   digits' baseline, instead of floating centred in whatever width is left. The open sky past it is left empty on
-   purpose: it is where the sun and the air are drawn. */
+   digits' baseline; the pair is then centred as one block, with open sky framing it on both sides. */
 .meta {
   min-width: 0;
   display: grid;
