@@ -4,7 +4,6 @@ import type { CurrentWeather } from '../domain/types'
 import { formatTemp } from '../text/format'
 import styles from './Hero.module.css'
 import { useCountUp } from './useCountUp'
-import { WeatherIcon } from './WeatherIcon'
 
 const SHOW_GUSTS_FROM = 20
 
@@ -16,7 +15,7 @@ function secondLine(c: CurrentWeather): string | null {
   return null
 }
 
-/** Now: one number, one icon, one condition, and at most one supporting fact. */
+/** Now: one number, one condition in words, and at most one supporting fact. The icon for now is in the strip below. */
 export function Hero({ current }: { current: CurrentWeather }) {
   const temp = useCountUp(Math.round(current.temperature))
   const kind = conditionOf(current.weatherCode)
@@ -32,7 +31,6 @@ export function Hero({ current }: { current: CurrentWeather }) {
         </span>
       </p>
       <div className={styles.meta} data-intro="cond">
-        <WeatherIcon kind={kind} isDay={current.isDay} size={32} className={styles.icon} decorative />
         <p className={styles.condition}>{conditionLabel(kind, current.isDay)}</p>
         {line && <p className={styles.line}>{line}</p>}
       </div>
