@@ -80,6 +80,19 @@ Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, f
       sampled (non-Shadmot) terrain uses the fixed y 72–105 band
 - [ ] Next: climate-relative thresholds (what is "hot"/"windy" depends on the place), place-aware sentences
 
+## Deploy — 2026-11-17
+- [x] Cloudflare Pages project `shamayim` → https://shamayim.pages.dev (free plan)
+- [x] Git-connected: every push to `main` builds (`npm run build`, Node from `.nvmrc`) and deploys to production;
+      preview deployments off, no PR comments
+- [x] `public/_headers`: no-cache for `sw.js`, manifest, index; immutable `/assets/*`; nosniff, geolocation self only
+- [ ] Optional: custom domain; Cloudflare Web Analytics
+- Later services fit here: Pages Functions / Workers (API proxy, IMS warnings, push), KV/D1, Cron Triggers
+
+## Next: landmarks (proposed, not started)
+- Real landmarks on the cross-section at their true west–east position (curated list for known cities,
+  OSM/Overpass towers, bridges, water towers, minarets, churches for small places); weather gives them life
+  (lit windows at night, flags in wind, wet sheen in rain, snow caps). Design first (Fable), then Codex.
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
@@ -89,5 +102,4 @@ Built by Codex (sol) in worktrees `feat/location`, `feat/calm-life`; reviewed, f
 ## Next (proposed)
 - IMS (Israel Meteorological Service) warnings
 - Radar (RainViewer tiles), Capacitor wrap
-- Deploy: Cloudflare Pages (static `dist`, `_headers` for sw.js) — waiting for the go-ahead
 - Verify blend weights against observed station data (IMS station near Shadmot Mehola / Tirat Zvi)
