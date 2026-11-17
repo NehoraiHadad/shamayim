@@ -66,3 +66,62 @@ export function profileY(samples: readonly TerrainSample[], value: number, h = 1
 function round(value: number): string {
   return (Math.round(value * 100) / 100).toString()
 }
+
+type Pt = [number, number]
+
+const lerp = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+const cubicAt = (p0: Pt, p1: Pt, p2: Pt, p3: Pt, t: number): Pt =>
+  lerp(lerp(lerp(p0, p1, t), lerp(p1, p2, t), t), lerp(lerp(p1, p2, t), lerp(p2, p3, t), t), t)
+
+/**
+ * The ridge line of a drawn land path, as points west to east: every corner, plus `steps` points along each curve.
+ * Reads the absolute M, L, H, V, C, S and Q commands the scene paths use; the vertical sides down to the bottom edge
+ * are left out. Marks and labels stand on these points, so they follow the line that is actually drawn.
+ */
+export function ridgePoints(d: string, steps = 6): Pt[] {
+  const tokens = d.match(/[MLHVCSQZ]|-?\d*\.?\d+/g) ?? []
+  const out: Pt[] = []
+  let at: Pt = [0, 0]
+  let lastControl: Pt | null = null
+  let i = 0
+  const num = () => Number(tokens[i++])
+  const pt = (): Pt => [num(), num()]
+  const add = (p: Pt) => {
+    const prev = out[out.length - 1]
+    if (prev && Math.abs(prev[0] - p[0]) < 0.01) prev[1] = Math.min(prev[1], p[1])
+    else out.push(p)
+  }
+  const curve = (c1: Pt, c2: Pt, end: Pt) => {
+    for (let s = 1; s <= steps; s++) add(cubicAt(at, c1, c2, end, s / steps))
+    lastControl = c2
+    at = end
+  }
+  let command = ''
+  while (i < tokens.length) {
+    if (/[A-Z]/.test(tokens[i])) command = tokens[i++]
+    if (command === 'Z') break
+    if (command === 'M') { at = pt(); lastControl = null; command = 'L'; continue }
+    if (command === 'L') { at = pt(); add(at); lastControl = null; continue }
+    if (command === 'H') { at = [num(), at[1]]; add(at); lastControl = null; continue }
+    if (command === 'V') { at = [at[0], num()]; lastControl = null; continue }
+    if (command === 'C') { const c1 = pt(); const c2 = pt(); curve(c1, c2, pt()); continue }
+    if (command === 'S') {
+      const c1: Pt = lastControl ? [2 * at[0] - lastControl[0], 2 * at[1] - lastControl[1]] : at
+      const c2 = pt()
+      curve(c1, c2, pt())
+      continue
+    }
+    if (command === 'Q') {
+      const q = pt()
+      const end = pt()
+      curve(lerp(at, q, 2 / 3), lerp(end, q, 2 / 3), end)
+      continue
+    }
+    i++ // unknown token: skip
+  }
+  // The path's first ridge point is where it leaves the bottom edge (after "M0 128V…").
+  const first = d.match(/^M\s*(-?[\d.]+)\s+[\d.]+\s*V\s*(-?[\d.]+)/)
+  if (first) out.unshift([Number(first[1]), Number(first[2])])
+  // The final "V128" drops to the bottom edge; it is not part of the ridge.
+  return out.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10])
+}

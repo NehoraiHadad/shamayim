@@ -8,13 +8,14 @@
 
 .location {
   min-width: 0;
+  flex: 1;
 }
 
 /* The place name opens the picker; the chevron says so. */
 .place {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   max-width: 100%;
   min-width: 44px;
   min-height: 44px;
@@ -23,12 +24,25 @@
   margin: 0;
   color: inherit;
   background: transparent;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* When space runs out the region gives way first, then the name; both end in an ellipsis. */
+.name,
+.region {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.name {
+  flex-shrink: 1;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: var(--text-place);
+  font-size: var(--text-lg);
   line-height: 1.2;
-  text-align: start;
-  cursor: pointer;
 }
 
 .chevron {
@@ -47,7 +61,7 @@
 }
 
 .region {
-  margin: 0;
+  flex-shrink: 100;
   font-size: var(--text-sm);
   opacity: 0.88;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { profilePoints, profileToPath } from './profile'
+import { gentleHillsPath, profilePoints, profileToPath, ridgePoints } from './profile'
 import { GENERIC_TERRAIN, terrainForPlace } from './terrain'
 
 const samples = (...elevations: number[]) => elevations.map((elevation) => ({ elevation }))
@@ -40,5 +40,27 @@ describe('profileToPath', () => {
     const east = terrainForPlace('east', { near: samples(20, 10, 1, 0), far: samples(3, 4, 5, 6) })
     expect({ visible: west.seaInView, side: west.seaSide }).toEqual({ visible: true, side: 'west' })
     expect({ visible: east.seaInView, side: east.seaSide }).toEqual({ visible: true, side: 'east' })
+  })
+})
+
+describe('ridgePoints', () => {
+  it('follows the drawn ridge west to east, without the sides down to the bottom edge', () => {
+    const pts = ridgePoints(gentleHillsPath())
+    expect(pts[0]).toEqual([0, 72])
+    expect(pts[pts.length - 1]).toEqual([375, 66])
+    expect(pts.every(([x], i) => i === 0 || x > pts[i - 1][0])).toBe(true)
+    expect(pts.every(([, y]) => y < 128)).toBe(true)
+  })
+
+  it('lands on every corner and between them traces the curve, not a straight chord', () => {
+    const pts = ridgePoints('M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96V128Z')
+    const at = (x: number) => pts.find(([px]) => px === x)?.[1]
+    expect(at(90)).toBe(62)
+    expect(at(150)).toBe(96)
+    expect(at(222)).toBe(98)
+    // The quadratic dips below both of its ends; a chord from 200 to 222 would not.
+    expect(Math.max(...pts.filter(([x]) => x > 200 && x < 222).map(([, y]) => y))).toBeGreaterThan(99.5)
+    // Halfway along the first curve (x 45) the line is near y 48.5; the old chord from (0,50) to (150,96) said 63.8.
+    expect(at(45)).toBeCloseTo(48.5, 1)
   })
 })

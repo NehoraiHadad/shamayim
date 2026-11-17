@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PlacedMark } from '../../../data/landmarks/types'
 import { markGeometry, overlaps, type Box } from './markBox'
-import { captionBox, fitMarks, hillBoxes, placeLabel, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './sceneLayout'
+import { fitMarks, hillBoxes, placeLabel, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './sceneLayout'
 
 const W = 375
 const mark = (glyph: string, x: number, extra: Partial<PlacedMark> = {}): PlacedMark => ({
@@ -35,12 +35,6 @@ describe('scene layout', () => {
     const below = placeLabel({ dot: { x: 160, y: 96 }, text: '−175 מ׳', top: 78, minTop: 74, obstacles: [palms], width: W })
     expect(below.y).toBeGreaterThanOrEqual(74)
     expect(overlaps(labelBox(below, '−175 מ׳'), palms)).toBe(false)
-  })
-
-  it('keeps the label clear of the sun-event caption', () => {
-    const caption = captionBox('שקיעה 16:42', 'west', W)
-    const spot = placeLabel({ dot: { x: 60, y: 10 }, text: '859 מ׳', top: 17, minTop: 0, obstacles: [caption], width: W })
-    expect(overlaps(labelBox(spot, '859 מ׳'), caption)).toBe(false)
   })
 
   it('drops a generic mark whose base meets the sheet edge, and lifts a curated one a little', () => {

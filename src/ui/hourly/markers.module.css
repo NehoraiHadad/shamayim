@@ -22,15 +22,79 @@
   white-space: nowrap;
 }
 
-.sunDot {
-  position: absolute;
-  bottom: 2px;
-  width: 7px;
-  height: 7px;
-  margin-left: -4px;
-  border-radius: 50%;
-  background: var(--curve);
+/* On the sky the hairline stops short of the band's foot and its label sits there, under the lowest the curve goes
+   (PAD), so the marker reads as one thing: line → "שקיעה 16:36". */
+.sunSky {
+  height: 42px; /* BAND_H − the 16px label row */
 }
+
+.sunLabel {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  transform: translateX(-50%);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+  text-shadow: 0 0 6px var(--sky-mid), 0 0 2px var(--sky-mid);
+}
+
+.sunSky bdi {
+  position: static;
+  transform: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* The next sun event when its marker is scrolled out of view: a small tag at that edge, on the label row. */
+.sunTag {
+  position: absolute;
+  top: calc(var(--band-top) + 40px);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sky-top) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: tag-in var(--d1) linear;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A 44 px hit area around the small tag. */
+.sunTag::before {
+  content: '';
+  position: absolute;
+  inset: -10px -4px;
+}
+
+.sunTag svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sunTag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.left { left: 12px; }
+.right { right: 12px; }
+
+@keyframes tag-in { from { opacity: 0; } }
 
 /* Midnight: a hairline with the new day's name at its foot (clear of the hour labels). */
 .break {

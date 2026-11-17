@@ -4,8 +4,8 @@ import { fieldWidth } from './generic/buildingSpecs'
 import { curated, isField, isHillMark } from './hillPlane'
 import { boxAround, fieldBox, fieldDepthOf, markGeometry, overlaps, type Box } from './markBox'
 
-/** The sheet rises 26 px over the scene (Sheet.module.css `margin: -26px …`): below this line nothing shows. */
-export const SHEET_OVERLAP = 26
+/** The sheet rises 14 px over the scene (Sheet.module.css `margin: -14px …`): below this line nothing shows. */
+export const SHEET_OVERLAP = 14
 export const VISIBLE_BOTTOM = SCENE_H - SHEET_OVERLAP
 /** A base closer than this to the sheet edge reads as a stub cut by the card. */
 export const SHEET_CLEAR = 6
@@ -27,13 +27,6 @@ export function shifts(max: number, step: number) {
 
 /** Width of a one-line label (Heebo-like digits and Hebrew run about half an em). */
 export function textWidth(text: string, fontPx: number) { return text.length * fontPx * .5 + 1 }
-
-/** The sun-event caption box (ValleyScene.module.css `.caption`: 13 px, top 12, 20 px in from its side). */
-export function captionBox(text: string, side: 'east' | 'west', width: number): Box {
-  const w = textWidth(text, 13)
-  const left = side === 'west' ? 20 : width - 20 - w
-  return { left, right: left + w, top: 12, bottom: 25 }
-}
 
 function fitBuilding(mark: PlacedMark, x: number, ground: Ground, dot: Point) {
   let at = x
@@ -95,7 +88,7 @@ interface LabelInput {
   width: number
 }
 
-/** The elevation label's centre x and top: the nearest spot to its own that overlaps no mark, house, dot or caption. */
+/** The elevation label's centre x and top: the nearest spot to its own that overlaps no mark, house, or dot. */
 export function placeLabel({ dot, text, top, minTop, obstacles, width }: LabelInput): Point {
   const w = textWidth(text, 11)
   const tops = [top, dot.y - DOT_R - 1 - LABEL_H].filter((y) => y >= minTop)

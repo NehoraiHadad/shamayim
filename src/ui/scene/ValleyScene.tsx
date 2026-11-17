@@ -13,7 +13,6 @@ import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
-import { captionBox } from './marks/sceneLayout'
 import styles from './ValleyScene.module.css'
 
 interface Props {
@@ -62,11 +61,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
     [place, terrain, landmarks, sceneWidth, showSea])
   const night = markLife.litShare > 0
-  const captionText = event && !readout ? `${event.rise ? 'זריחה' : 'שקיעה'} ${clockOf(event.time)}` : null
-  const captionSide = event?.rise ? 'east' : 'west'
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
-    caption: captionText ? captionBox(captionText, captionSide, sceneWidth) : null, label: { text: elevationText, below } }),
-  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, captionText, captionSide, elevationText, below])
+    label: { text: elevationText, below } }),
+  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
   const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
@@ -120,11 +117,6 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       )}
       {readout && (
         <span className={styles.readout} aria-hidden="true">{isolateNumbers(readout)}</span>
-      )}
-      {event && captionText && (
-        <span className={`${styles.caption} ${styles[captionSide]}`} aria-hidden="true">
-          {event.rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(event.time)}</bdi>
-        </span>
       )}
     </figure>
   )
