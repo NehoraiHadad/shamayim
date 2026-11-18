@@ -23,7 +23,7 @@
 
 .panel {
   display: grid;
-  grid-template-rows: auto minmax(170px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(170px, 1fr) auto auto;
   min-height: 100%;
   padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
 }
@@ -35,6 +35,13 @@
   justify-content: space-between;
   padding-inline: var(--gutter) var(--space-2);
   touch-action: none;
+}
+
+.story {
+  margin: 0;
+  padding: 0 var(--gutter) var(--space-3);
+  font: 400 var(--text-lg) / 1.45 var(--font-serif);
+  text-wrap: pretty;
 }
 
 .heading h2 { margin: 0; font: 500 var(--text-xl) / 1.25 var(--font-serif); }

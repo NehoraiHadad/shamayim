@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { frameAge, frameIsStale, rainWithinThreeHours } from './timing'
+import { clockIn, frameAge, frameIsStale, rainWithinThreeHours } from './timing'
 
 describe('rain within three hours', () => {
   const now = '2026-11-18T23:15'
@@ -35,5 +35,12 @@ describe('frame age', () => {
     expect(frameIsStale(null, now)).toBe(false)
     expect(frameIsStale(now - 45 * 60_000, now)).toBe(false)
     expect(frameIsStale(now - 45 * 60_000 - 1, now)).toBe(true)
+  })
+})
+
+describe('clock in', () => {
+  it('rounds to five minutes and crosses midnight', () => {
+    expect(clockIn('2026-11-18T15:12', 28)).toBe('15:40')
+    expect(clockIn('2026-11-18T23:50', 20)).toBe('00:10')
   })
 })

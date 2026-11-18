@@ -8,7 +8,12 @@ import type { Timeline } from './weatherLayers'
 import type { WeatherStatus } from './weatherViewport'
 import styles from './OverheadPage.module.css'
 
-export function OverheadPage({ open, place, onClose }: { open: boolean; place: Place; onClose: () => void }) {
+export function OverheadPage({ open, place, story, onClose }: {
+  open: boolean
+  place: Place
+  story: string | null
+  onClose: () => void
+}) {
   const dialog = useRef<HTMLDialogElement>(null)
   const close = useRef<HTMLButtonElement>(null)
   const title = useId()
@@ -29,13 +34,14 @@ export function OverheadPage({ open, place, onClose }: { open: boolean; place: P
   return (
     <dialog ref={dialog} dir="rtl" aria-labelledby={title} className={styles.dialog}
       onCancel={(event) => { event.preventDefault(); onClose() }}>
-      {open && <OverheadContent place={place} title={title} close={close} onClose={onClose} />}
+      {open && <OverheadContent place={place} story={story} title={title} close={close} onClose={onClose} />}
     </dialog>
   )
 }
 
-function OverheadContent({ place, title, close, onClose }: {
+function OverheadContent({ place, story, title, close, onClose }: {
   place: Place
+  story: string | null
   title: string
   close: React.RefObject<HTMLButtonElement | null>
   onClose: () => void
@@ -102,6 +108,8 @@ function OverheadContent({ place, title, close, onClose }: {
         <h2 id={title}>מבט מלמעלה</h2>
         <button type="button" ref={close} className={styles.close} onClick={onClose} aria-label="סגירה">✕</button>
       </header>
+      {/* Always rendered so the panel's grid rows stay put while the radar loads. */}
+      <p className={styles.story} aria-live="polite">{story}</p>
       <OverheadMap place={place} frame={frame} now={now} onTimeline={setTimeline}
         onReady={onReady} onMapError={onMapError} onStatus={setWeather} />
       <div className={styles.details}>

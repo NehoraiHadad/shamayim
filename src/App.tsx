@@ -7,12 +7,14 @@ import { mapLife } from './atmo/life/mapLife'
 import { mapMarks } from './atmo/life/mapMarks'
 import { useLandmarks } from './data/landmarks/useLandmarks'
 import { useObservedCloud } from './data/overhead/useObservedCloud'
+import { useRainOutlook } from './data/overhead/useRainOutlook'
 import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
+import { rainSentence } from './domain/rainSentence'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
@@ -28,7 +30,7 @@ import { next24h } from './ui/hourly/timeline'
 import { useIntro } from './ui/motion/useIntro'
 import { OverheadEntry } from './ui/overhead/OverheadEntry'
 import { OverheadPage } from './ui/overhead/OverheadPage'
-import { rainWithinThreeHours } from './ui/overhead/timing'
+import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { ValleyScene } from './ui/scene/ValleyScene'
 import { Sentence } from './ui/Sentence'
@@ -50,6 +52,7 @@ export default function App() {
   const landmarks = useLandmarks(place)
   const now = useNow(place.timezone)
   const observed = useObservedCloud(place)
+  const outlook = useRainOutlook(place)
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
   const forecast = useMemo(() => (raw ? withObservedCloud(rollForward(raw, now), observed, now) : null), [raw, now, observed])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
@@ -72,7 +75,10 @@ export default function App() {
   const paper = useSheetPaper(useMemo(() => sunElevation(now, place), [now, place]), themeId)
   const darkSheet = forced ? DARK_SHEET.has(themeId) : paper.dark
   const overhead = useOverheadDialog()
-  const rainy = forecast ? rainWithinThreeHours(forecast.hours, now) : false
+  const modelRain = forecast ? firstRainHour(forecast.hours, now) : undefined
+  // The radar's plain-words story of the rain nearby; the model only fills in when the radar sees nothing close.
+  const rainStory = outlook ? rainSentence(outlook, (m) => clockIn(now, m), modelRain?.time.slice(11, 16) ?? null) : null
+  const rainy = Boolean(modelRain) || Boolean(outlook && (outlook.now || outlook.arrivesIn !== null || (outlook.nearest?.km ?? 999) <= 80))
   useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
   const classes = ['app', darkSheet ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
@@ -130,16 +136,16 @@ export default function App() {
           />
           <div className="paper" data-intro="sheet">
             <Sheet>
-              <OverheadEntry rainy={rainy} position="top" onOpen={overhead.show} />
+              <OverheadEntry rainy={rainy} story={rainStory} position="top" onOpen={overhead.show} />
               <WearCard tip={wear} />
               <WeekList forecast={forecast} now={now} />
-              <OverheadEntry rainy={rainy} position="bottom" onOpen={overhead.show} />
+              <OverheadEntry rainy={rainy} story={rainStory} position="bottom" onOpen={overhead.show} />
             </Sheet>
             <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
           </div>
         </div>
       )}
-      <OverheadPage open={overhead.open} place={place} onClose={overhead.close} />
+      <OverheadPage open={overhead.open} place={place} story={rainStory} onClose={overhead.close} />
     </div>
   )
 }

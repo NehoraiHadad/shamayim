@@ -406,6 +406,14 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
       rAF while hidden). Stills: `docs/design/qa/overhead-v1.png` (before fixes), `overhead-v4.png` (after)
 - [ ] Not verified: a real rainy radar frame (dry today; recolour tested only on synthetic pixels); dark sheet at night;
       a phone; whether the no-echo legend "אין גשם במכ״ם" shows once radar loads
+- [x] Rain in plain words (owner: "not 'rain on radar' — tell people what will happen"): `src/domain/rainNowcast.ts`
+      finds how the rain moved between the newest RainViewer frame and the one 30 min before (best-overlap shift on a
+      ~4 km grid around the place, a 256 px image centred on it), carries it forward ≤ 90 min and says when it
+      arrives, how long it lasts, or where it is and which way it goes; `rainSentence.ts` turns that into Hebrew;
+      the model's first rainy hour fills in only when the radar sees nothing close. Shown at the top of the page and
+      as the sheet's entry row. Checked live (London, Paris, Munich, Glasgow, Seattle). Written by Claude Opus 5.5
+- [ ] Not verified: the nowcast over Israel on a rainy day (does RainViewer cover IMS radar well?); motion is in whole
+      cells (~8 km/h steps); a row with a long story on a phone
 - [ ] Later: proxy RainViewer/EUMETSAT through the Worker cache; NASA MODIS/VIIRS "photo of the day" layer (offered)
 
 ## Known gaps / polish
