@@ -21,16 +21,18 @@
 .landFar,
 .landNear { pointer-events: none; }
 
+/* Haze pales the ridges toward the air's colour, as real haze does; they stay opaque, so the sun and the twilight glow
+   behind them never show through a hazy mountain. Near land pales less than far land (its fade is smaller). */
+.land { --haze-air: color-mix(in oklab, var(--sky-mid), var(--sky-horizon) 45%); }
+
 .far {
-  fill: var(--ridge-far);
-  opacity: calc(1 - 0.95 * var(--far-fade, 0));
-  transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
+  fill: color-mix(in oklab, var(--ridge-far), var(--haze-air) calc(var(--far-fade, 0) * 90%));
+  transition: fill var(--d6) var(--ease-in-out);
 }
 
 .near {
-  fill: var(--ridge-near);
-  opacity: calc(1 - var(--near-fade, 0));
-  transition: fill var(--d6) var(--ease-in-out), opacity var(--d4) linear;
+  fill: color-mix(in oklab, var(--ridge-near), var(--haze-air) calc(var(--near-fade, 0) * 90%));
+  transition: fill var(--d6) var(--ease-in-out);
 }
 
 .mistObject { overflow: visible; }

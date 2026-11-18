@@ -337,6 +337,9 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   "paper = nearest lit ground" metaphor fights aerial perspective (near land is darker), so any blend reads as a cut. The
   sheet is now its own page over the landscape: top corners 22, faint shadow upward, no bank SVG; clothesline tied to tabs
   just inside its top edge (`END_Y 6`). Also fixed: phones scrolled sideways (scene `overflow-x: clip`, body too).
+- [x] Haze keeps ridges opaque (2026-11-18): the sun and glow showed through hazy ridges (far ridge faded by opacity to 5%).
+  Ridges now pale by colour toward `--haze-air` (sky mid + 45% horizon) by `--far-fade` / `--near-fade` × 90%, opacity 1.
+  QA: `docs/design/qa/haze-opaque-dusk.png`.
 - [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,
