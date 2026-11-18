@@ -2,8 +2,10 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { Place } from '../../config/place'
 import { OverheadMap } from './OverheadMap'
 import { RainLegend, TimeRail } from './TimeRail'
+import { overheadStatus } from './overheadStatus'
 import { frameAge, frameIsStale } from './timing'
 import { usePlayback } from './usePlayback'
+import { useSwipeClose } from './useSwipeClose'
 import type { Timeline } from './weatherLayers'
 import type { WeatherStatus } from './weatherViewport'
 import styles from './OverheadPage.module.css'
@@ -56,7 +58,6 @@ function OverheadContent({ place, story, title, close, onClose }: {
   const [weather, setWeather] = useState<WeatherStatus>()
   const onReady = useCallback(() => setReady(true), [])
   const onMapError = useCallback(() => setMapFailed(true), [])
-  const drag = useRef<{ pointer: number; x: number; y: number }>(null)
   const frames = timeline?.frames ?? []
   const { at, choose } = usePlayback(frames.length, ready, reduced)
   const frame = frames[at]
@@ -80,31 +81,18 @@ function OverheadContent({ place, story, title, close, onClose }: {
     }
   }, [])
 
-  const failed = [
-    ((timeline && radar === null) || weather?.radarFailed) && 'מכ״ם',
-    weather?.cloudFailed && 'לוויין',
-    mapFailed && 'מפה',
-  ].filter(Boolean)
-  const status = !online ? 'אין חיבור'
-    : failed.length ? `לא הצלחנו לטעון ${failed.join(' · ')}`
-      : !ready ? 'טוען תמונות…' : ''
+  const status = overheadStatus({
+    online,
+    radarFailed: Boolean((timeline && radar === null) || weather?.radarFailed),
+    cloudFailed: Boolean(weather?.cloudFailed),
+    mapFailed,
+    ready,
+  })
+  const swipe = useSwipeClose(onClose)
 
   return (
     <div className={styles.panel}>
-      <header className={styles.heading}
-        onPointerDown={(event) => {
-          if (event.pointerType !== 'touch' || (event.target as HTMLElement).closest('button')) return
-          drag.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY }
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerCancel={() => { drag.current = null }}
-        onPointerUp={(event) => {
-          const start = drag.current
-          drag.current = null
-          if (start?.pointer !== event.pointerId) return
-          const dy = event.clientY - start.y
-          if (dy > 56 && dy > Math.abs(event.clientX - start.x)) onClose()
-        }}>
+      <header className={styles.heading} {...swipe}>
         <h2 id={title}>מבט מלמעלה</h2>
         <button type="button" ref={close} className={styles.close} onClick={onClose} aria-label="סגירה">✕</button>
       </header>

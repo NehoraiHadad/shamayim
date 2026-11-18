@@ -1,5 +1,6 @@
 import type { StyleSpecification } from 'maplibre-gl'
-import { mapInk, POSITRON, restylePositron, TOWN_LABELS } from './mapStyle'
+import { mapInk, POSITRON, restylePositron } from './mapStyle'
+import { paperOf, repaintPaper } from './mapPaper'
 import { addRings, MAP_BOUNDS, openingZoom } from './placeMap'
 import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TileResult } from './tileProtocols'
 import { addWeatherLayers, showWeather, type Frame, type Timeline } from './weatherLayers'
@@ -35,10 +36,7 @@ export async function createOverheadMap({ container, marker, place, timeline, si
   }
   signal.throwIfAborted()
   const app = container.closest('.app')
-  const paper = () => ({
-    sheet: getComputedStyle(container).getPropertyValue('--sheet').trim(),
-    dark: app?.classList.contains('dark-sheet') ?? false,
-  })
+  const paper = () => paperOf(container)
   const { sheet, dark } = paper()
   const input = rawStyle as StyleSpecification | null
   const valid = input?.version === 8 && Array.isArray(input.layers) && input.sources
@@ -83,21 +81,7 @@ export async function createOverheadMap({ container, marker, place, timeline, si
     }
   }
   const queueReport = () => { if (!queued) queued = requestAnimationFrame(report) }
-  const updatePaper = () => {
-    if (!loaded) return
-    const theme = paper()
-    const ink = mapInk(theme.dark)
-    const paint = (id: string, property: string, value: string) => {
-      if (map.getLayer(id) && map.getPaintProperty(id, property) !== value) map.setPaintProperty(id, property, value)
-    }
-    paint('overhead-paper', 'background-color', ink.land ?? theme.sheet)
-    paint('overhead-water', 'fill-color', ink.water)
-    paint('overhead-water', 'fill-outline-color', ink.shore)
-    paint('overhead-rivers', 'line-color', ink.shore)
-    paint('overhead-distance', 'line-color', ink.shore)
-    paint(TOWN_LABELS, 'text-color', ink.text)
-    paint(TOWN_LABELS, 'text-halo-color', ink.land ?? theme.sheet)
-  }
+  const updatePaper = () => { if (loaded) repaintPaper(map, paper()) }
   const themeObserver = new MutationObserver(updatePaper)
   if (app) themeObserver.observe(app, { attributes: true, attributeFilter: ['class', 'style'] })
   map.once('style.load', () => {
