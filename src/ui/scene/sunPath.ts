@@ -1,5 +1,6 @@
 import { daylightFraction } from '../../domain/time'
 import type { LocalDate, LocalTime } from '../../domain/types'
+import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
 
 /** Scene drawing box (px). The SVG stretches horizontally; heights are fixed. */
 export const SCENE_W = 375
@@ -33,12 +34,11 @@ export interface SunPoint {
   y: number
 }
 
-/** Point on today's arc for a daylight fraction; the arc is lower in winter. */
-export function sunAt(t: number, date: LocalDate, lat: number): SunPoint {
-  const peakY = HORIZON_Y - 66 * (noonElevation(date, lat) / 90)
+/** Point on today's arc for a daylight fraction, lifted from the ridge at x; the arc is lower in winter. */
+export function sunAt(t: number, date: LocalDate, lat: number, skyline: Skyline = FLAT_SKYLINE): SunPoint {
   const x = (RISE_X - (RISE_X - SET_X) * t) / SCENE_W
-  const y = HORIZON_Y - (HORIZON_Y - peakY) * Math.sin(Math.PI * t)
-  return { t, x, y }
+  const altitude = noonElevation(date, lat) * Math.sin(Math.PI * t)
+  return { t, x, y: altitudeY(skyline, x, altitude) }
 }
 
 /** Where the sun is at `time`, or null when it is below the horizon. */
@@ -47,8 +47,9 @@ export function sunPosition(
   sunrise: LocalTime,
   sunset: LocalTime,
   lat: number,
+  skyline: Skyline = FLAT_SKYLINE,
 ): SunPoint | null {
   const t = daylightFraction(time, sunrise, sunset)
   if (t < 0 || t > 1) return null
-  return sunAt(t, time.slice(0, 10), lat)
+  return sunAt(t, time.slice(0, 10), lat, skyline)
 }

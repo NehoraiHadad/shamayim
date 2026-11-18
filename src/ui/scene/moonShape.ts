@@ -1,22 +1,22 @@
-import { HORIZON_Y, SCENE_W } from './sunPath'
+import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
+import { SCENE_W } from './sunPath'
 
 /** Where a body at (altitude, azimuth) sits in the scene: the same east–west projection the sun's arc uses. */
 export interface ScenePoint {
   /** Fraction of the scene width, 0 = west (left). */
   x: number
-  /** px from the scene top; the horizon is HORIZON_Y, hidden behind the ridges. */
+  /** px from the scene top; 0° altitude sits on the drawn ridge at x. */
   y: number
 }
 
 const MID_X = SCENE_W / 2
 /** Due east sits over the Gilead where the sun rises (x ≈ 322), due west over Samaria (x ≈ 53). */
 const EAST_SPAN = 135
-const ALT_SCALE = 66 / 90
 
 /** True west–east position: the east component of the direction (sin of the azimuth from north). */
-export function skyPoint(altitude: number, azimuth: number): ScenePoint {
-  const east = Math.sin((azimuth * Math.PI) / 180)
-  return { x: (MID_X + EAST_SPAN * east) / SCENE_W, y: HORIZON_Y - ALT_SCALE * altitude }
+export function skyPoint(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
+  const x = (MID_X + EAST_SPAN * Math.sin((azimuth * Math.PI) / 180)) / SCENE_W
+  return { x, y: altitudeY(skyline, x, altitude) }
 }
 
 /**

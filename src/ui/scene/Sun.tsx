@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import type { Skyline } from './skyline'
 import { sunAt, type SunPoint } from './sunPath'
 import styles from './ValleyScene.module.css'
 
@@ -13,6 +14,8 @@ interface Props {
   point: SunPoint | null
   date: string
   lat: number
+  /** The ridge line the sun rises from. */
+  skyline: Skyline
   /** 0–100; clouds veil the disc. */
   cloudCover: number
   /** 0–1; dust flattens the sun into a pale coin with no halo. */
@@ -20,7 +23,7 @@ interface Props {
 }
 
 /** The sun disc. On first appearance it travels up from behind the Gilead to where it is now. */
-export function Sun({ point, date, lat, cloudCover, coin = 0 }: Props) {
+export function Sun({ point, date, lat, skyline, cloudCover, coin = 0 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const travelled = useRef(false)
 
@@ -29,10 +32,10 @@ export function Sun({ point, date, lat, cloudCover, coin = 0 }: Props) {
     travelled.current = true
     if (reducedMotion()) return
     const frames = Array.from({ length: TRAVEL_STEPS + 1 }, (_, i) =>
-      place(sunAt((point.t * i) / TRAVEL_STEPS, date, lat)),
+      place(sunAt((point.t * i) / TRAVEL_STEPS, date, lat, skyline)),
     )
     ref.current.animate(frames, { duration: 900, easing: 'cubic-bezier(.22,.8,.2,1)' })
-  }, [point, date, lat])
+  }, [point, date, lat, skyline])
 
   return (
     <div

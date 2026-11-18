@@ -300,6 +300,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
       (1 px hairline, 22% ink) and the clothesline is tied to it at both gutters on ground tabs (`.cleat`, `--ridge-near`),
       rope END_Y 0 / SAG 22, SVG pulled up onto the cut (dead strip removed). Stills `docs/design/qa/seam-*`.
       Also: the sun marker's own chip hides while the edge tag stands in for it (no double "שקיעה" at the strip edge)
+- [x] Sun and moon clear the ridges (2026-11-18): 0° altitude now sits on the drawn ridge at the body's x (`ui/scene/skyline.ts`),
+  and by ~15° the body joins one shared arc (ARC_Y 46 → zenith 12). Before, 0° was a fixed line at y 70 under ridges that top
+  out at y 34–44, so in Karmei Tzur the sun showed only 09:00–13:30 and the moon only above ~36°. Moon phase checked: 18.11
+  is 60% lit and waxing, a day after first quarter (17.11), lit side towards the sun. The scrub readout moved from the sky band
+  onto the ground (it hid the sun) and takes the elevation label's place; "עכשיו" is a slim pill with a 44 px hit area.
+  QA: `docs/design/qa/sky-after-1500.png`, `sky-after-2000.png`. Unverified: on a real phone.
 - [ ] Seam follow-up (Fable): drive `dark-sheet` from the sun altitude (dark below ~−4°) instead of the theme id, so at
       dusk the paper does not go dark while the continuous sky is still light; keep two paper values for the contrast tests
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —

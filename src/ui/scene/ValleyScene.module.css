@@ -112,9 +112,13 @@
 
 .seaLabel { right: 27%; opacity: 0.42; }
 
+/* The readout takes the elevation label's place on the ground while it shows. */
+.scene[data-readout] .depth { visibility: hidden; }
+
+/* On the ground, not in the sky: while scrubbing, the sky band is where the sun and moon are moving. */
 .readout {
   position: absolute;
-  top: 4px;
+  bottom: 2px;
   right: 20px;
   left: 20px;
   text-align: center;
@@ -125,16 +129,20 @@
 }
 
 .readout button {
-  min-width: 44px;
-  min-height: 44px;
+  position: relative;
+  min-height: 26px;
+  padding: 0 10px;
   margin-inline-start: 8px;
   border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sky-mid) 78%, transparent);
+  background: color-mix(in srgb, var(--ridge-near) 70%, transparent);
   color: inherit;
   font: inherit;
   pointer-events: auto;
 }
+
+/* A slim pill to fit the ground strip, with a full 44 px touch target around it. */
+.readout button::after { content: ''; position: absolute; inset: -9px -4px; }
 
 .scrubber {
   position: absolute;

@@ -11,6 +11,7 @@ import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
 import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
+import { skylineOf } from './skyline'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
@@ -57,8 +58,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     return () => observer.disconnect()
   }, [])
   const at = selected ?? now
+  const skyline = useMemo(() => skylineOf(terrain.farPoints, terrain.nearPoints), [terrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
-  const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat) : null
+  const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline) : null
   const glow = twilight(day, at)
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
@@ -85,12 +87,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       aria-label={label}
       data-scene
       data-haze={air.haze.farFade > 0.5 ? 'heavy' : undefined}
+      data-readout={readout ? '' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
     >
       {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
       <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
-        farFade={air.haze.farFade} />
-      <Sun point={sun} date={datePart(at)} lat={lat} cloudCover={cloudCover} coin={air.sunCoin} />
+        farFade={air.haze.farFade} skyline={skyline} />
+      <Sun point={sun} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />

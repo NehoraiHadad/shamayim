@@ -3,6 +3,7 @@ import { moonIllumination, moonPosition } from '../../astro/moon'
 import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { LocalTime } from '../../domain/types'
+import type { Skyline } from './skyline'
 import { brightLimbAngle, litPath, moonLook, skyPoint } from './moonShape'
 import styles from './Moon.module.css'
 
@@ -16,6 +17,8 @@ interface Props {
   cloudCover: number
   /** Far-ridge haze fade, 0–1: thick haze takes the moon with it. */
   farFade: number
+  /** The ridge line it rises from and sets behind. */
+  skyline: Skyline
 }
 
 const R = 7
@@ -24,7 +27,7 @@ const R = 7
  * The moon at its true place in the sky, in its true phase, lit side turned towards the sun. Drawn before the ridges,
  * so it rises and sets behind them like the sun. Flat, no halo: a bone disc at night, a pale one by day.
  */
-export function Moon({ at, timeZone, lat, lon, cloudCover, farFade }: Props) {
+export function Moon({ at, timeZone, lat, lon, cloudCover, farFade, skyline }: Props) {
   const clip = `moon${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const sky = useMemo(() => {
     const instant = utcOf(at, timeZone)
@@ -35,8 +38,8 @@ export function Moon({ at, timeZone, lat, lon, cloudCover, farFade }: Props) {
   }, [at, timeZone, lat, lon])
   const look = moonLook({ altitude: sky.moon.altitude, fraction: sky.lit.fraction, sunAltitude: sky.sun.altitude, cloudCover, farFade })
   if (!look) return null
-  const point = skyPoint(sky.moon.altitude, sky.moon.azimuth)
-  const angle = brightLimbAngle(point, skyPoint(sky.sun.altitude, sky.sun.azimuth))
+  const point = skyPoint(sky.moon.altitude, sky.moon.azimuth, skyline)
+  const angle = brightLimbAngle(point, skyPoint(sky.sun.altitude, sky.sun.azimuth, skyline))
   const style = { left: `${(point.x * 100).toFixed(2)}%`, top: `${point.y.toFixed(1)}px`, opacity: look.opacity.toFixed(2),
     '--daylight': look.daylight.toFixed(2) } as CSSProperties
   return (
