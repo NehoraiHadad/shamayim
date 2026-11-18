@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { BuildingProps, BuildingSpec } from './generic/buildingSpecs'
 import styles from './marks.module.css'
 
-export type LightSide = 'w' | 'e' | 'top'
+export type LightSide = 'w' | 'e'
 
 /** Panorama scale: 250° of bearing across 375 px. */
 const PX_PER_DEG = 1.5
@@ -27,8 +27,7 @@ export const sunStyle = (k: number) => ({ '--sun-k': k }) as CSSProperties
 
 /**
  * The one named light (the sun) on a glyph, clipped to its own silhouette: a lit strip on the sun side (R4) and a
- * core shadow on the far side, so every body shows three tones (lit / body / shade). `top` (sun overhead) lights the
- * top edge only and casts no side shadow.
+ * core shadow on the far side, so every body shows three tones (lit / body / shade), both scaled by `--sun-k`.
  */
 export function LightRig({ id, spec, props, side }: { id: string; spec: BuildingSpec; props: BuildingProps; side: LightSide }) {
   return <SunStrip id={id} w={spec.w} h={props.h} litWidth={spec.litWidth ?? .35} side={side}>
@@ -46,14 +45,10 @@ export function SunStrip({ id, w, h, litWidth = .35, side, children }:
       <g className={styles.maskWhite}>{children}</g>
     </mask>
     <g mask={`url(#${id})`}>
-      {side === 'top'
-        ? <rect className={styles.lit} x={-half - 2} y={-h - 4} width={w + 4} height={5.5} />
-        : <>
-          <rect className={styles.lit} x={side === 'w' ? -half - 2 : half - w * litWidth} y={-h - 4}
-            width={w * litWidth + 2} height={h + 4} />
-          <rect className={styles.shade} style={{ opacity: 'calc(.55 * var(--sun-k, 1))' }} x={side === 'w' ? half - shadeWidth : -half - 2} y={-h - 4}
-            width={shadeWidth + 2} height={h + 4} />
-        </>}
+      <rect className={styles.lit} x={side === 'w' ? -half - 2 : half - w * litWidth} y={-h - 4}
+        width={w * litWidth + 2} height={h + 4} />
+      <rect className={styles.shade} style={{ opacity: 'calc(.55 * var(--sun-k, 1))' }}
+        x={side === 'w' ? half - shadeWidth : -half - 2} y={-h - 4} width={shadeWidth + 2} height={h + 4} />
     </g>
   </>
 }

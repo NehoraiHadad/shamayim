@@ -133,6 +133,8 @@
 .depth {
   transform: translateX(-50%);
   opacity: 0.68;
+  /* A halo in the land's own tone, so the figure reads where the skyline stands behind it. */
+  text-shadow: 0 0 2px var(--ridge-near), 0 0 4px var(--ridge-near);
 }
 
 .seaLabel { right: 27%; opacity: 0.42; }

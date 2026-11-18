@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { hashId } from '../../../data/landmarks/hash'
 import type { MarkLife, PlacedMark } from '../../../data/landmarks/types'
 import { CastShadow } from './generic/shadow'
-import { ContactShadow, LightRig, type LightSide } from './LightRig'
+import { ContactShadow, LightRig, sunLightOf, sunStyle, type LightSide } from './LightRig'
 import { markGeometry } from './markBox'
 import styles from './marks.module.css'
 
@@ -29,9 +29,8 @@ export function MarkBuilding({ mark, x, ground, sunX, night, life, motion, reado
   const geometry = markGeometry(mark, x, ground, far)
   if (!geometry) return null
   const { spec, plane, h, scale, base } = geometry
-  const side: LightSide | null = far || night || plane === 'behind' || sunX == null || spec.litWidth === 0
-    || shaded?.(x) ? null
-    : sunX < x - 40 ? 'w' : sunX > x + 40 ? 'e' : 'top'
+  const light = far || night || plane === 'behind' || spec.litWidth === 0 || shaded?.(x) ? null : sunLightOf(sunX, x)
+  const side: LightSide | null = light?.side ?? null
   const props = { h, night: night && !far, seed: hashId(mark.id), litShare: life.litShare,
     spin: motion && mark.kind === 'turbine' && life.turbinePeriodS != null, sway: motion && life.sway != null }
   const [beaconX, beaconY] = spec.beacon?.(h) ?? [0, -h]
@@ -43,11 +42,11 @@ export function MarkBuilding({ mark, x, ground, sunX, night, life, motion, reado
    */
   const self = spec.selfLit && !far
   const form = self && mark.kind !== 'custom' && props.seed % 2 ? -1 : 1
-  const asDrawn = self && side !== null && (side === 'top' || (side === 'w') === (form === 1))
-  const localSide: LightSide | null = side && side !== 'top' && form < 0 ? (side === 'w' ? 'e' : 'w') : side
+  const asDrawn = self && side !== null && (side === 'w') === (form === 1)
+  const localSide: LightSide | null = side && form < 0 ? (side === 'w' ? 'e' : 'w') : side
   const lit = !night && !far && plane !== 'behind'
   return <g transform={`translate(${x.toFixed(1)} ${(mark.layer === 'plain' ? base : base + .5).toFixed(1)}) scale(${scale * form} ${scale})`}
-    opacity={dim ? .35 : undefined}
+    opacity={dim ? .35 : undefined} style={light ? sunStyle(light.k) : undefined}
     className={[mark.layer === 'plain' ? styles.plainMark : '', plane === 'behind' ? styles.back : '', self && (!asDrawn || !lit) ? styles.flat : ''].join(' ') || undefined}>
     {/* Ground skirt: fills any dip of the ridge under a flat base, so no sky shows beneath the mark. */}
     {plane === 'line' && mark.layer !== 'plain' && <rect className={styles.skirt} x={-spec.w / 2 - 1} y={-.5} width={spec.w + 2}

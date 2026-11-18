@@ -693,9 +693,12 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
       in one frame. Now `sunLightOf` (LightRig.tsx) gives the side and a light share k = min(1, sin δ / sin 30°)
       (CSS `--sun-k`): the lit face, cast shadow and strip dim to the wall tone as the sun crosses behind the cluster,
       swap side at k ≈ 0, and brighten on the other side. SettlementGlyph + CityMass. Stills `docs/design/qa/sun-side/`.
-- [ ] Tuning: Tel Aviv day towers are tall needles near the scene top; elevation label overlaps the skyline in places.
-- [ ] MarkBuilding still uses its own ±40 px 'top' band (landmarks); consider `sunSideOf` there too.
-- [ ] Console shows some 403/429 resource errors in dev (DEM / rate limits); not investigated.
+- [x] Checked Tel Aviv towers: physically right (e.g. 118 m at 0.41 km = 15.9°, Azrieli Spiral 350 m at 1.46 km = 13.5°);
+      the tallest top stays ~12 px under the hourly strip. Needles come from the land's 6.5× vertical scale, by design.
+- [x] Elevation label: halo in the land tone (`.depth`), readable over the skyline.
+- [x] MarkBuilding (landmarks) uses `sunLightOf` + `--sun-k` too; the 'w' / 'top' / 'e' jumps and SunStrip's `top` are gone.
+- [x] Dev-console 403s are @fontsource files the worktree's Vite server refuses (node_modules outside its root):
+      dev-only, absent in builds. 429s are the forecast API rate limit while QA reloads many places.
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
