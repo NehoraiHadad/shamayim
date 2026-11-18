@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { airInput } from './atmo/airInput'
+import { airInput, sunElevation } from './atmo/airInput'
 import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
 import { Life } from './atmo/life/Life'
@@ -14,6 +14,7 @@ import { rollForward } from './domain/now'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
+import { sheetVars, useSheetPaper } from './theme/sheetLight'
 import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
@@ -60,9 +61,11 @@ export default function App() {
   const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
   const markLife = useMemo(() => (shown && air ? mapMarks(shown, air) : null), [shown, air])
   const intro = useIntro(Boolean(forecast))
+  const paper = useSheetPaper(useMemo(() => sunElevation(now, place), [now, place]), themeId)
+  const darkSheet = forced ? DARK_SHEET.has(themeId) : paper.dark
   useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
-  const classes = ['app', DARK_SHEET.has(themeId) ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
+  const classes = ['app', darkSheet ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
   const statusLine = (
     <StatusLine
       status={status}
@@ -74,7 +77,7 @@ export default function App() {
   )
 
   return (
-    <div className={classes} data-scrubbing={sceneTime.scrubbing || undefined} style={{ ...themeVars(themeId), ...(forced ? {} : skyLightVars(light)) }}>
+    <div className={classes} data-scrubbing={sceneTime.scrubbing || undefined} style={{ ...themeVars(themeId), ...(forced ? {} : { ...skyLightVars(light), ...sheetVars(paper) }) }}>
       <Sky altitude={shown?.sunElevation ?? -18} cloudCover={shown?.cloudCover ?? 0}>
         {air && <Atmosphere air={air} palette={palette} night={(shown?.sunElevation ?? -18) < -6}
           glide={sceneTime.scrubbing ? 120 : sceneTime.rewinding ? 900 : selected ? 320 : 520} />}

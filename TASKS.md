@@ -306,8 +306,15 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   is 60% lit and waxing, a day after first quarter (17.11), lit side towards the sun. The scrub readout moved from the sky band
   onto the ground (it hid the sun) and takes the elevation label's place; "עכשיו" is a slim pill with a 44 px hit area.
   QA: `docs/design/qa/sky-after-1500.png`, `sky-after-2000.png`. Unverified: on a real phone.
-- [ ] Seam follow-up (Fable): drive `dark-sheet` from the sun altitude (dark below ~−4°) instead of the theme id, so at
-      dusk the paper does not go dark while the continuous sky is still light; keep two paper values for the contrast tests
+- [x] Paper follows the sun (2026-11-18, Fable's plan): `theme/sheetLight.ts`. Two states with hysteresis (dark below −6°,
+  light above −4°), following real now only (not the scrub); weather no longer decides light/dark (rainy nights get dark paper).
+  Light paper warms to the dawn paper over the sun's last 10°; dark paper goes dusk #211A33 → night #12162B from −6° to −12°.
+  `.dark-sheet` is driven by the same flag. Contrast swept −18°…20° for every weather in `sheetLight.test.ts`.
+- [x] Seam, round 2 (Fable, from the owner's 06:06 phone screenshot): the straight full-bleed cut read as a card on a drawing.
+  The paper's top is now a low drawn bank (`Sheet.tsx`, SVG in `--sheet` with a hairline contour); the clothesline's tabs moved
+  up 3 px onto it. The scrub readout sits on its own dark pill 20 px up (it was clipped under the sheet's 14 px overlap).
+  QA: `docs/design/qa/bank-dawn.png`, `readout-pill.png`. Unverified on a phone; the bank path is a first shape to tune.
+- [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,
       + umbrella or rain jacket, + sun hat / water bottle); `wear.ts` returns `garments` + `wind`; pegged cloth skews

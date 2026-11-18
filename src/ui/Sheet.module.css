@@ -1,13 +1,34 @@
 .sheet {
   position: relative;
-  /* A straight, square cut with no corner radius or shadow: the valley is a cross-section, and the paper starts where
-     the section's ground is cut off, like the base line of a section drawing. The base line is drawn (a hairline that
-     softens the day edge and keeps the night edge legible) and it is structural: the wear card's clothesline is tied
-     to it, so the yard hangs from the land instead of floating below it. */
+  /* The paper is the nearest ground, lit: its top is a low bank drawn like the ridges (no straight card edge), and the
+     wear card's clothesline is tied to that bank, so the yard stands on the land instead of hanging below a cut. */
   margin: -14px -16px 0;
   padding: var(--space-4) var(--gutter) var(--space-2);
   background: var(--sheet);
   color: var(--sheet-ink);
-  border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 22%, var(--sheet));
-  transition: background-color var(--d6), color var(--d6), border-color var(--d6);
+  transition: background-color var(--d6), color var(--d6);
+}
+
+.bank {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  margin-bottom: -1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ground {
+  fill: var(--sheet);
+  transition: fill var(--d6);
+}
+
+.edge {
+  fill: none;
+  stroke: color-mix(in oklab, var(--sheet-ink) 22%, var(--sheet));
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition: stroke var(--d6);
 }

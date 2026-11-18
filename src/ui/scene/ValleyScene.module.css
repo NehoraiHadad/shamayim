@@ -39,7 +39,7 @@
 }
 
 /* Heavy haze turns the far ridge pale, so labels over it switch to dark ink. */
-.scene[data-haze='heavy'] :is(.depth, .seaLabel, .readout) {
+.scene[data-haze='heavy'] :is(.depth, .seaLabel) {
   color: var(--ridge-near);
 }
 
@@ -115,13 +115,26 @@
 /* The readout takes the elevation label's place on the ground while it shows. */
 .scene[data-readout] .depth { visibility: hidden; }
 
-/* On the ground, not in the sky: while scrubbing, the sky band is where the sun and moon are moving. */
+/*
+ * Low in the scene, not in the sky band (that is where the sun and moon move while scrubbing). It sits on its own
+ * dark pill so it reads over ridge, valley and sea line alike, and clears the 14 px the sheet overlaps the scene.
+ */
 .readout {
   position: absolute;
-  bottom: 2px;
-  right: 20px;
-  left: 20px;
-  text-align: center;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 3px;
+  padding-inline: 12px 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ridge-near) 86%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
+  white-space: nowrap;
   font-size: var(--text-sm);
   font-weight: 600;
   animation: readout-in var(--d1) linear;
@@ -132,16 +145,15 @@
   position: relative;
   min-height: 26px;
   padding: 0 10px;
-  margin-inline-start: 8px;
   border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ridge-near) 70%, transparent);
+  background: transparent;
   color: inherit;
   font: inherit;
   pointer-events: auto;
 }
 
-/* A slim pill to fit the ground strip, with a full 44 px touch target around it. */
+/* A slim pill, with a full 44 px touch target around it. */
 .readout button::after { content: ''; position: absolute; inset: -9px -4px; }
 
 .scrubber {
