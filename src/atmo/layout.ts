@@ -1,4 +1,3 @@
-import { SCENE_25D } from '../ui/sceneFlag'
 import type { Layout } from './gl/renderer'
 
 /**
@@ -15,10 +14,10 @@ export function readLayout(): Layout {
   const x0 = origin?.left ?? 0
   const band = document.querySelector('[data-air-band]')?.getBoundingClientRect()
   const scene = document.querySelector('[data-scene]')?.getBoundingClientRect()
-  // The hourly strip's sunrise/sunset marks also carry a bare `data-sun` and come first in the page, which hides the
-  // scene's disc. `?scene=25d` asks for the disc itself; production keeps the old lookup until this is signed off.
-  const sunEl = document.querySelector<HTMLElement>(SCENE_25D ? '[data-sun="up"]' : '[data-sun]')
-  const sunBox = sunEl && sunEl.dataset.sun === 'up' ? sunEl.getBoundingClientRect() : null
+  // Only the scene's disc while it is up: the hourly strip's sunrise/sunset marks also carry a bare `data-sun` and
+  // come first in the page, so `[data-sun]` used to find them and the air never saw the sun.
+  const sunEl = document.querySelector<HTMLElement>('[data-sun="up"]')
+  const sunBox = sunEl?.getBoundingClientRect() ?? null
   return {
     w,
     h,

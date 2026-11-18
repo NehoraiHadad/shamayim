@@ -470,6 +470,8 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       brighter than the sky and more opaque; thick cores darker (optical depth); low-sun reddening on the high layer
       (half on the low one); forward scattering: thick cloud before the disc darkens, thin edges get a silver lining;
       near noon the sun is behind the viewer (faces north) so light comes from above and clouds go flat and bright
+- [x] Production fix (owner approved): `atmo/layout.ts` now reads `[data-sun="up"]` for everyone, so the air sees
+      the disc again (sun bloom and rays return). Stills `bloom-compare.png` (left before, right after, 06:40 / 11:40)
 - [x] Found: `atmo/layout.ts` took the first `[data-sun]`, the hourly strip's sunset mark, so `L.sun` was null and
       the air never saw the disc (sun bloom/rays likely off in production too). Fixed under the flag only
       (`[data-sun="up"]`); production unchanged until signed off
