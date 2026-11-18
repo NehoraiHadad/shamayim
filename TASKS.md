@@ -597,7 +597,7 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       still the old west–east km projection (`toX`), not the bearing, so a mark may stand on a ridge in another
       direction; Shadmot's fixed-x curated marks (orchard at x 200) now sit on a slope; mist band still fixed y 72–105;
       the "next sunrise/sunset" label and twilight timing still use the flat-horizon times
-- [ ] Owner: is the computed Shadmot as good as the drawing (village now on the near hill due south)? Relief `mid` vs `high`?
+- [x] Owner (2026-11-18): computed Shadmot accepted; relief left to Claude → `high` kept (land reads at phone size; `mid` is near flat)
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
