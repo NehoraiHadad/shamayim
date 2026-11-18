@@ -72,7 +72,8 @@ async function fetchedTile(url: string, signal: AbortSignal) {
   return ctx
 }
 
-export function tileProtocol(results: Map<string, TileResult>, painter?: TilePainter): AddProtocolAction {
+/** `isDark` is read per tile, so after a theme change reloading the sources repaints them in the other ink. */
+export function tileProtocol(results: Map<string, TileResult>, isDark: () => boolean, painter?: TilePainter): AddProtocolAction {
   return async ({ url }, { signal }) => {
     const radar = url.startsWith(RADAR_PROTOCOL)
     const shadow = url.startsWith(`${SAT_PROTOCOL}://shadow/`)
@@ -86,12 +87,13 @@ export function tileProtocol(results: Map<string, TileResult>, painter?: TilePai
       const { width, height } = ctx.canvas
       const pixels = ctx.getImageData(0, 0, width, height)
       const echoes = radar ? new Uint8Array(ECHO_GRID ** 2) : undefined
+      const dark = isDark()
       if (echoes) recolorRadar(pixels.data, (i) => {
         const col = Math.floor(i % width * ECHO_GRID / width)
         const row = Math.floor(Math.floor(i / width) * ECHO_GRID / height)
         echoes[row * ECHO_GRID + col] = 1
-      })
-      else recolorClouds(pixels.data, shadow)
+      }, dark)
+      else recolorClouds(pixels.data, shadow, dark)
       ctx.putImageData(pixels, 0, 0)
       const data = await createImageBitmap(radar ? ctx.canvas : shadow ? offsetShadow(softened(ctx.canvas)) : cropped(softened(ctx.canvas)))
       if (signal.aborted) data.close()

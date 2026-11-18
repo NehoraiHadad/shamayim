@@ -1,7 +1,8 @@
-import type { Map as MapLibre, RasterLayerSpecification } from 'maplibre-gl'
+import type { Map as MapLibre, RasterLayerSpecification, RasterTileSource } from 'maplibre-gl'
 import { CLOUD_MASK_LAYER, latestSatelliteSlot, radarTiles, RADAR_MAX_ZOOM, satelliteMapUrl,
   satelliteSlotFor, type RadarIndex } from '../../data/overhead/sources'
 import { TOWN_LABELS } from './mapStyle'
+import { CLOUD_INK } from './recolor'
 import { RADAR_PROTOCOL, SAT_PROTOCOL, TILE_SIZE } from './tileProtocols'
 import { frameIsStale } from './timing'
 
@@ -41,18 +42,27 @@ export function addWeatherLayers(map: MapLibre, timeline: Timeline) {
   }
 }
 
-export function showWeather(map: MapLibre, timeline: Timeline, frame: Frame, now: number) {
+export function showWeather(map: MapLibre, timeline: Timeline, frame: Frame, now: number, dark: boolean) {
+  const cloud = CLOUD_INK[dark ? 'dark' : 'light']
   for (const { type, time, id } of timeline.layers) {
     const radar = type === 'radar'
     const visible = time === (radar ? frame.radar : frame.cloud)
     const stale = frameIsStale(radar ? timeline.latest.radar : timeline.latest.cloud, now)
     const paint: RasterLayerSpecification['paint'] = {
-      'raster-opacity': visible ? (type === 'shadow' ? 0.22 : 0.95) : 0,
+      'raster-opacity': visible ? (type === 'shadow' ? cloud.shadow : radar ? 0.95 : cloud.opacity) : 0,
       'raster-saturation': stale ? -1 : 0,
       'raster-brightness-max': stale && !radar ? 0.70 : 1,
     }
     for (const [property, value] of Object.entries(paint)) {
       if (map.getPaintProperty(id, property) !== value) map.setPaintProperty(id, property, value)
     }
+  }
+}
+
+/** Fetches every weather tile again (through the protocol), e.g. so a theme change repaints them in the other ink. */
+export function reloadWeather(map: MapLibre, timeline: Timeline) {
+  for (const { id, tiles } of timeline.layers) {
+    const source = map.getSource(id)
+    if (source && 'setTiles' in source) (source as RasterTileSource).setTiles(tiles)
   }
 }

@@ -4,7 +4,7 @@ import { paperOf, repaintPaper } from './mapPaper'
 import { addRings, hideTown, MAP_BOUNDS, openingZoom } from './placeMap'
 import { addPlaceMarks } from './placeMarks'
 import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TilePainter, type TileResult } from './tileProtocols'
-import { addWeatherLayers, showWeather, type Frame, type Timeline } from './weatherLayers'
+import { addWeatherLayers, reloadWeather, showWeather, type Frame, type Timeline } from './weatherLayers'
 import { weatherInView, type WeatherStatus } from './weatherViewport'
 import type { Place } from '../../config/place'
 
@@ -38,13 +38,14 @@ export async function createOverheadMap({ container, place, timeline, signal, on
   signal.throwIfAborted()
   const app = container.closest('.app')
   const paper = () => paperOf(container)
-  const { sheet, dark } = paper()
+  const { sheet, dark: darkAtOpen } = paper()
   const input = rawStyle as StyleSpecification | null
   const valid = input?.version === 8 && Array.isArray(input.layers) && input.sources
   if (!valid) onMapError()
-  const style = restylePositron(valid ? input : { version: 8, sources: {}, layers: [] }, sheet, dark)
+  const style = restylePositron(valid ? input : { version: 8, sources: {}, layers: [] }, sheet, darkAtOpen)
   const results = new Map<string, TileResult>()
-  const protocol = tileProtocol(results, painter)
+  let dark = darkAtOpen
+  const protocol = tileProtocol(results, () => dark, painter)
   const zoom = openingZoom(container.clientWidth, place.lat)
   const map = new maplibre.Map({
     container, style, center: [place.lon - 0.22, place.lat], zoom, minZoom: zoom, maxZoom: zoom + 1,
@@ -82,7 +83,15 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     }
   }
   const queueReport = () => { if (!queued) queued = requestAnimationFrame(report) }
-  const updatePaper = () => { if (loaded) repaintPaper(map, paper()) }
+  const updatePaper = () => {
+    if (!loaded) return
+    const theme = paper()
+    repaintPaper(map, theme)
+    if (theme.dark === dark) return
+    dark = theme.dark
+    reloadWeather(map, weather)
+    showWeather(map, weather, frame, now, dark)
+  }
   const themeObserver = new MutationObserver(updatePaper)
   if (app) themeObserver.observe(app, { attributes: true, attributeFilter: ['class', 'style'] })
   map.once('style.load', () => {
@@ -90,7 +99,7 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     addRings(map, place, mapInk(paper().dark).shore)
     hideTown(map, place.nameHe)
     addPlaceMarks(maplibre, map, place, zoom)
-    showWeather(map, weather, frame, now)
+    showWeather(map, weather, frame, now, dark)
     loaded = true
     updatePaper()
     queueReport()
@@ -115,7 +124,7 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     show(selected: Frame, at: number) {
       frame = selected
       now = at
-      if (loaded) showWeather(map, weather, frame, at)
+      if (loaded) showWeather(map, weather, frame, at, dark)
       queueReport()
     },
   }

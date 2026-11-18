@@ -20,7 +20,7 @@ describe('weather tile recoloring', () => {
     expect(echoes).toEqual(returns.map((_, i) => width + i))
     expect([...pixels.slice(0, 4)]).toEqual([0, 0, 0, 0])
     returns.forEach((rgba, i) => {
-      const [r, g, b, alpha] = RADAR_WASH[bands[i]]
+      const [r, g, b, alpha] = RADAR_WASH.light[bands[i]]
       const offset = (width + i) * 4
       expect([...pixels.slice(offset, offset + 4)]).toEqual([r, g, b, Math.round(rgba[3] * alpha)])
     })
