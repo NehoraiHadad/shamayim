@@ -1,4 +1,5 @@
 import type { Place } from '../config/place'
+import { withLocalRegion } from './region/israelRegion'
 export interface GeocodingResult {
   id: number
   name: string
@@ -28,13 +29,15 @@ export interface NominatimResult {
 }
 interface ReverseResponse { display_name?: string; address?: Record<string, string | undefined> }
 
+/** OSM maps some villages (e.g. מעלה חבר) only as a residential area, with the settlement kind in addresstype. */
+const SETTLEMENT_TYPES = new Set(['town', 'village', 'hamlet', 'isolated_dwelling'])
 const PLACE_TYPES = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
 const FEATURE_CODES: Record<string, string> = {
   city: 'PPLA', town: 'PPL', village: 'PPL', hamlet: 'PPL', isolated_dwelling: 'PPL',
   suburb: 'PPLX', neighbourhood: 'PPLX', locality: 'PPLL',
 }
 export function mapGeocodingResult(result: GeocodingResult): Place {
-  return {
+  return withLocalRegion({
     id: String(result.id),
     nameHe: result.name,
     regionHe: result.admin1 ?? result.admin2 ?? result.country ?? '',
@@ -44,21 +47,23 @@ export function mapGeocodingResult(result: GeocodingResult): Place {
     elevation: result.elevation,
     ...(result.population == null ? {} : { population: result.population }),
     ...(result.feature_code == null ? {} : { featureCode: result.feature_code }),
-  }
+  })
 }
 
 export function mapNominatimResult(result: NominatimResult): Place | null {
   const placeType = PLACE_TYPES.has(result.addresstype ?? '') ? result.addresstype! : result.type
   const isPlace = result.category === 'place' && PLACE_TYPES.has(result.type)
   const isBoundary = result.category === 'boundary' && result.type === 'administrative' && PLACE_TYPES.has(placeType)
-  if (!isPlace && !isBoundary) return null
+  const isResidential = result.category === 'landuse' && result.type === 'residential'
+    && SETTLEMENT_TYPES.has(result.addresstype ?? '')
+  if (!isPlace && !isBoundary && !isResidential) return null
   const lat = Number(result.lat)
   const lon = Number(result.lon)
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
   const name = result.name ?? result.display_name?.split(',')[0]
   if (!name) return null
   const population = Number(result.extratags?.population)
-  return {
+  return withLocalRegion({
     id: `osm:${result.osm_type}:${result.osm_id}`,
     nameHe: name,
     regionHe: result.address?.state ?? result.address?.county ?? '',
@@ -66,7 +71,7 @@ export function mapNominatimResult(result: NominatimResult): Place | null {
     featureCode: FEATURE_CODES[placeType] ?? FEATURE_CODES[result.type],
     settlementType: placeType,
     ...(Number.isFinite(population) && result.extratags?.population?.trim() ? { population } : {}),
-  }
+  })
 }
 
 export function mergePlaceResults(openMeteo: Place[], nominatim: Place[]): Place[] {
@@ -114,13 +119,13 @@ export async function reversePlace(lat: number, lon: number, signal?: AbortSigna
     const placeType = ['city', 'town', 'village'].find((type) => address[type])
     const name = address.city ?? address.town ?? address.village ?? address.municipality
       ?? body.display_name?.split(',')[0]
-    if (name) return {
+    if (name) return withLocalRegion({
       id: gpsId(lat, lon), nameHe: name,
       regionHe: address.state ?? address.county ?? address.country ?? '',
       lat, lon, timezone: deviceTimezone(), usesOsm: true,
       ...(placeType ? { featureCode: FEATURE_CODES[placeType] } : {}),
       ...(placeType ? { settlementType: placeType } : {}),
-    }
+    })
   } catch (error) {
     if (signal?.aborted) throw error
   }

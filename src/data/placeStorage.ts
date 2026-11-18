@@ -1,5 +1,6 @@
 import type { Place } from '../config/place'
 import { SHADMOT_MEHOLA } from '../config/place'
+import { withLocalRegion } from './region/israelRegion'
 
 const PLACE_KEY = 'shamayim:place:v1'
 const RECENT_KEY = 'shamayim:recent-places:v1'
@@ -26,7 +27,8 @@ export function readPlace(store: Store | null = storage()): Place {
   try {
     const value = store?.getItem(PLACE_KEY)
     const parsed: unknown = value ? JSON.parse(value) : null
-    return valid(parsed) ? parsed : SHADMOT_MEHOLA
+    // Places saved before local region names get them on read.
+    return valid(parsed) ? withLocalRegion(parsed) : SHADMOT_MEHOLA
   } catch {
     return SHADMOT_MEHOLA
   }
@@ -36,7 +38,7 @@ export function readRecentPlaces(store: Store | null = storage()): Place[] {
   try {
     const value = store?.getItem(RECENT_KEY)
     const parsed: unknown = value ? JSON.parse(value) : []
-    return Array.isArray(parsed) ? parsed.filter(valid).slice(0, MAX_RECENT) : []
+    return Array.isArray(parsed) ? parsed.filter(valid).slice(0, MAX_RECENT).map(withLocalRegion) : []
   } catch {
     return []
   }

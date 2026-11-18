@@ -18,7 +18,7 @@ describe('mapGeocodingResult', () => {
     })).toEqual({
       id: '281184',
       nameHe: 'ירושלים',
-      regionHe: 'מחוז ירושלים',
+      regionHe: '',
       lat: 31.77,
       lon: 35.22,
       elevation: 754,
@@ -42,7 +42,7 @@ const nominatim = (overrides: Partial<NominatimResult> = {}): NominatimResult =>
 describe('mapNominatimResult', () => {
   it('maps the Karmei Tzur village fixture', () => {
     expect(mapNominatimResult(nominatim({ extratags: { population: '1148' } }))).toMatchObject({
-      id: 'osm:node:1', nameHe: 'כרמי צור', regionHe: 'יהודה ושומרון',
+      id: 'osm:node:1', nameHe: 'כרמי צור', regionHe: 'גוש עציון',
       lat: 31.6092242, lon: 35.1008772, usesOsm: true, featureCode: 'PPL',
       settlementType: 'village', population: 1148,
     })
@@ -53,6 +53,13 @@ describe('mapNominatimResult', () => {
       type: 'city', addresstype: 'city' })))
       .toMatchObject({ id: 'osm:node:2', lat: 32.0809, lon: 34.7806, featureCode: 'PPLA', settlementType: 'city' })
     expect(mapNominatimResult(nominatim({ category: 'tourism', type: 'attraction', addresstype: 'tourism' }))).toBeNull()
+  })
+
+  it('keeps a village OSM maps only as a residential area, and drops a footway of the same name', () => {
+    const hever = nominatim({ osm_type: 'way', osm_id: 3, name: 'מעלה חבר', lat: '31.4858455', lon: '35.1651529',
+      category: 'landuse', type: 'residential', addresstype: 'village' })
+    expect(mapNominatimResult(hever)).toMatchObject({ nameHe: 'מעלה חבר', regionHe: 'הר חברון', settlementType: 'village' })
+    expect(mapNominatimResult({ ...hever, category: 'highway', type: 'footway', addresstype: 'road' })).toBeNull()
   })
 })
 

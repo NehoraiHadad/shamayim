@@ -529,6 +529,14 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       blue-black, wider blur, slivers < 12 units dropped (they were grey blots on snow). Still `sampled-places-snow.png`
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
+## Place search — local region names — 2026-11-18
+- [x] Search finds villages OSM maps only as `landuse=residential` with a settlement `addresstype` (e.g. מעלה חבר)
+- [x] Region label is local, not the API's: `src/data/region/` — land outline (no Gaza/Sinai/neighbours) +
+      nearest of ~230 settlement anchors in 25 regions (גולן, גליל, שומרון, בנימין, גוש עציון, הר חברון, בקעת הירדן…)
+- [x] Applied to search (Open-Meteo + Nominatim), GPS reverse lookup and saved/recent places on read
+- [x] Never "הגדה המערבית": niqqud stripped, foreign naming mapped to יהודה ושומרון outside the anchors' reach
+- [ ] Tune anchors if a place lands in the wrong region (add a settlement to `anchors.ts`)
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
