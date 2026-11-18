@@ -1,6 +1,6 @@
 import { useId, useMemo, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
-import type { CityColumns } from '../../data/city/types'
+import type { CityResult } from '../../data/city/types'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { Place } from '../../config/place'
@@ -24,6 +24,7 @@ import { useMoonlight } from './useMoonlight'
 import { useWidth } from './useWidth'
 import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
+import { FarCity } from './marks/city/FarCity'
 import { hillScene } from './marks/hillScene'
 import styles from './ValleyScene.module.css'
 
@@ -49,7 +50,7 @@ interface Props {
   mistColor?: string
   place: Place
   landmarks: Landmark[]
-  city?: CityColumns | null
+  city?: CityResult | null
   markLife: MarkLife
   first: LocalTime
   last: LocalTime
@@ -113,7 +114,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin}
         look={look} />
       <FarLand terrain={terrain} lighting={ridgeLit} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
-        snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor} />
+        snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor}
+        city={terrain.farElevations?.length ? <FarCity place={place} width={sceneWidth} ground={hill.ground}
+          farGround={hill.farGround} night={night} hideFar={markLife.hideFar} /> : null} />
       <HillMarks layer="far" marks={hill.marks} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
         night={night} life={markLife} readout={Boolean(readout)} />
       <svg className={`${styles.land} ${styles.landNear}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
@@ -127,7 +130,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray}
           noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}
       </svg>
-      <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers} width={sceneWidth}
+      <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
+        neighbours={hill.neighbours} width={sceneWidth}
         ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach}
         life={markLife} readout={Boolean(readout)} />

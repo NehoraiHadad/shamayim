@@ -1,5 +1,5 @@
 import type { Place } from '../config/place'
-import { withLocalRegion } from './region/israelRegion'
+import { israelRegionHe, withLocalRegion } from './region/israelRegion'
 export interface GeocodingResult {
   id: number
   name: string
@@ -74,11 +74,17 @@ export function mapNominatimResult(result: NominatimResult): Place | null {
   })
 }
 
+const inLand = (place: Place) => israelRegionHe(place.lat, place.lon) !== null
+
+/**
+ * Places in the land come first: the sources rank by population, so ערד in Romania (169 000) beat ערד in the Negev.
+ * A same-name result is a duplicate only on the same side of the border, so the Negev town is never dropped for it.
+ */
 export function mergePlaceResults(openMeteo: Place[], nominatim: Place[]): Place[] {
-  const unique = nominatim.filter((candidate) => !openMeteo.some((place) =>
-    place.nameHe.trim().toLocaleLowerCase() === candidate.nameHe.trim().toLocaleLowerCase()
-    || distanceKm(place, candidate) <= 2))
-  return [...openMeteo, ...unique].slice(0, 6)
+  const unique = nominatim.filter((candidate) => !openMeteo.some((place) => distanceKm(place, candidate) <= 2 ||
+    (place.nameHe.trim().toLocaleLowerCase() === candidate.nameHe.trim().toLocaleLowerCase() && inLand(place) === inLand(candidate))))
+  const merged = [...openMeteo, ...unique]
+  return [...merged.filter(inLand), ...merged.filter((place) => !inLand(place))].slice(0, 6)
 }
 
 async function requestOpenMeteo(url: URL, signal?: AbortSignal): Promise<GeocodingResult[]> {

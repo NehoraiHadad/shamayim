@@ -1,3 +1,5 @@
+import { RIDGE_WIDTH } from './ridgeProjection'
+
 export interface TerrainSample {
   elevation: number
   latitude?: number
@@ -16,7 +18,7 @@ const BOTTOM_GAP = 24
 const MIN_RELIEF_METRES = 120
 
 /** Profile points (x, y) west to east, lightly smoothed so sampling noise does not read as spikes. */
-export function profilePoints(samples: readonly TerrainSample[], w = 375, h = 128): [number, number][] {
+export function profilePoints(samples: readonly TerrainSample[], w = RIDGE_WIDTH, h = 128): [number, number][] {
   const values = samples.map(({ elevation }) => Number.isFinite(elevation) ? elevation : 0)
   const smooth = values.map((v, i) => i === 0 || i === values.length - 1 ? v : (values[i - 1] + 2 * v + values[i + 1]) / 4)
   return smooth.map((value, index) => [
@@ -26,7 +28,7 @@ export function profilePoints(samples: readonly TerrainSample[], w = 375, h = 12
 }
 
 /** Maps an ordered west-to-east elevation profile into a closed SVG land path with soft curves. */
-export function profileToPath(samples: readonly TerrainSample[], w = 375, h = 128): string {
+export function profileToPath(samples: readonly TerrainSample[], w = RIDGE_WIDTH, h = 128): string {
   if (samples.length === 0) return gentleHillsPath(w, h)
   const p = profilePoints(samples, w, h)
   // Catmull-Rom through the points, written as cubic Béziers.

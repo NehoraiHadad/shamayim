@@ -30,6 +30,17 @@
   transition: fill var(--d6) var(--ease-in-out);
 }
 
+.farCity {
+  fill: color-mix(in oklab, color-mix(in oklab, var(--ridge-far), #000 10%),
+    var(--haze-air) calc(var(--far-fade, 0) * 90%));
+  transition: fill var(--d6) var(--ease-in-out);
+}
+
+.farCityDots {
+  fill: #ffcf86;
+  opacity: calc(.6 * (1 - var(--far-fade, 0) * .9));
+}
+
 .near {
   fill: color-mix(in oklab, var(--ridge-near), var(--haze-air) calc(var(--near-fade, 0) * 90%));
   transition: fill var(--d6) var(--ease-in-out);
@@ -170,7 +181,7 @@
 
 .scrubber:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 
-:global(.app[data-scrubbing]) :is(.sun, .far, .near) { transition: none; }
+:global(.app[data-scrubbing]) :is(.sun, .far, .farCity, .near) { transition: none; }
 
 .ridgeCrescent { transition: fill var(--d6) var(--ease-in-out); }
 .ridgeRim { transition: stroke var(--d6) var(--ease-in-out), stroke-opacity var(--d6) var(--ease-in-out); }

@@ -2,14 +2,21 @@ import type { Place } from '../../config/place'
 import { offsetKm } from './project'
 import { seeded } from './hash'
 import { seat } from './seat'
+import { LABEL_MAX, shedDimensions, templateDimensions, templateRows, TWO_STOREY_RISE, type RowPlan } from './settlementPlan'
 import { terraceLine } from './terraces'
 import type { Landmark } from './types'
+
+export { PARAPET, STOREY } from './settlementPlan'
 
 /** The place's own houses, composed as one cluster draped over the crest (docs/design/ILLUSTRATION.md §4). */
 export type SettlementStyle = 'tile' | 'flat-hill' | 'flat-desert' | 'blocks'
 export type SettlementSize = 'small' | 'medium' | 'large'
 
-export interface House { x: number; baseY: number; w: number; h: number; row: number; lit: boolean; seed: number }
+export interface House {
+  x: number; baseY: number; w: number; h: number; row: number; lit: boolean; seed: number
+  /** A farm shed from the mapped big roofs; a two-storey house from the measured levels. */
+  kind?: 'shed'; storeys?: 2
+}
 export interface Settlement {
   style: SettlementStyle
   houses: House[]
@@ -22,10 +29,6 @@ export interface Settlement {
   detail?: { centerX: number; half: number }
 }
 
-const ROWS: Record<SettlementSize, number[]> = { small: [5, 4, 3], medium: [8, 7, 5], large: [10, 9, 7] }
-const HALF: Record<SettlementSize, number> = { small: 27, medium: 43, large: 62 }
-const PITCH: Record<SettlementStyle, number> = { tile: 9, 'flat-hill': 7, 'flat-desert': 7, blocks: 6.5 }
-const ROW_STEP: Record<SettlementStyle, number> = { tile: 5.5, 'flat-hill': 4, 'flat-desert': 6, blocks: 4.5 }
 /**
  * How far a house's ground may rise above / fall below the dot (px): houses spread along the contour near the crest
  * instead of running down a steep face in a staircase. Desert towns stay on the plateau rim.
@@ -33,10 +36,9 @@ const ROW_STEP: Record<SettlementStyle, number> = { tile: 5.5, 'flat-hill': 4, '
 const REACH: Record<SettlementStyle, { up: number; down: number }> = { tile: { up: 14, down: 12 },
   'flat-hill': { up: 14, down: 12 }, 'flat-desert': { up: 5, down: 5 }, blocks: { up: 40, down: 24 } }
 const DOT_R = 5.5
-const LABEL_MAX = 116
 const LABEL_HALF = 23
 
-export function settlementHalfWidth(size: SettlementSize) { return HALF[size] }
+export const desertSettlement = (place: Place) => place.lat < 31.25 || /נגב|ערבה|ים המלח/.test(place.regionHe)
 export function settlementReach(style: SettlementStyle) { return REACH[style] }
 
 export function settlementStyle(place: Place, size: SettlementSize, marks: Landmark[]): SettlementStyle {
@@ -44,7 +46,7 @@ export function settlementStyle(place: Place, size: SettlementSize, marks: Landm
   const close = marks.filter((mark) => Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= .7)
   const minarets = close.filter((mark) => mark.kind === 'minaret').length
   if (minarets >= 2 && !close.some((mark) => mark.kind === 'synagogue')) return 'flat-hill'
-  if (place.lat < 31.25 || /נגב|ערבה|ים המלח/.test(place.regionHe)) return 'flat-desert'
+  if (desertSettlement(place)) return 'flat-desert'
   /** A city (Umm al-Fahm, Tiberias) is concrete and stone blocks even under 50 000 people. */
   if (size === 'large' || place.settlementType === 'city') return 'blocks'
   return 'tile'
@@ -67,36 +69,11 @@ export interface SettlementInput {
   keepOut?: { left: number; right: number; top: number; bottom: number }[]
 }
 
-/** One storey of a block house in px (blocks.tsx draws a window row per storey). */
-export const STOREY = 2.8
-export const PARAPET = 1.5
-
-function dims(style: SettlementStyle, row: number, index: number, random: () => number) {
-  const shrink = row >= 2 ? .85 : 1
-  if (style === 'tile') return index % 3 === 2 ? { w: 9 * shrink, h: 7 * shrink } : { w: 7 * shrink, h: 6 * shrink }
-  if (style === 'blocks') {
-    /** Two to four storeys, the odd five; widths from a narrow stair-house to a wide family block. */
-    const roll = random()
-    const storeys = roll < .35 ? 2 : roll < .8 ? 3 : roll < .97 ? 4 : 5
-    const fewer = row >= 2 && storeys > 2 ? 1 : 0
-    return { w: 5 + random() * 6, h: PARAPET + (storeys - fewer) * STOREY }
-  }
-  return { w: (6 + random() * 2) * shrink, h: (5 + random() * 3) * shrink }
-}
-
 function hitsDot(house: Omit<House, 'lit' | 'seed'>, cx: number, cy: number) {
   const nx = Math.max(house.x - house.w / 2, Math.min(cx, house.x + house.w / 2))
   // Roof parapets and water heaters stand up to 1.8 px above the body.
   const ny = Math.max(house.baseY - house.h - 1.8, Math.min(cy, house.baseY))
   return Math.hypot(nx - cx, ny - cy) < DOT_R
-}
-
-function offsets(count: number, row: number, pitch: number, random: () => number) {
-  if (row === 0) {
-    return Array.from({ length: count }, (_, i) => (i % 2 ? 1 : -1) * (6 + 4.5 + Math.floor(i / 2) * pitch)
-      + (random() - .5) * 3)
-  }
-  return Array.from({ length: count }, (_, i) => (i - (count - 1) / 2) * pitch + (random() - .5) * 2)
 }
 
 export function underSettlementLabel(centerX: number, left: number, right: number) {
@@ -114,46 +91,42 @@ export function settlementLabel(houses: House[], centerX: number, centerY: numbe
   const top = Math.min(LABEL_MAX, Math.max(centerY + 7, ...above.map(house => house.baseY + 2)))
   return { top, houses: houses.filter(house => !overLabel(house) || house.baseY + 2 <= top) }
 }
-
-export function composeSettlement(input: SettlementInput): Settlement {
-  const { style, size, centerX, centerY, width, ground, litShare } = input
+export function composeSettlement(input: SettlementInput, plan?: RowPlan[]): Settlement {
+  const { style, centerX, centerY, ground, litShare } = input
   const random = seeded(input.seed)
-  const extra = Math.max(0, Math.floor((width - 375) / 120))
-  const step = ROW_STEP[style]
-  /** On a steep face the town packs tighter and its terraces climb from the dot, a mass rather than a single file. */
-  const fall = ground(centerX + 8) - ground(centerX - 8)
-  const steep = Math.abs(fall) / 16 > .6
-  const pitch = PITCH[style] * (steep ? .6 : 1)
-  const lean = steep ? -Math.sign(fall) * pitch * 3 : 0
-  const counts = style === 'blocks' ? [...ROWS[size], ROWS[size][2] - 1] : ROWS[size]
-  let rows = counts.map((count) => count + extra)
-  while (rows.length > 1 && centerY + 7 + step * (rows.length - 1) + 2 > LABEL_MAX) rows = rows.slice(0, -1)
-  const underLabel = (left: number, right: number) => underSettlementLabel(centerX, left, right)
+  const rows = plan ?? templateRows(input)
+  const floor = input.floor ?? 127
   const houses: House[] = []
   const contours: string[] = []
-  rows.forEach((count, row) => {
-    const xs = offsets(count, row, pitch, random).map((offset) => centerX + offset + (row ? lean : 0))
-    xs.forEach((x, index) => {
-      const size = dims(style, row, index, random)
+  rows.forEach(({ row, centers, sink, reach = 1, kind, dims }) => {
+    centers(random).forEach((x, index) => {
+      const { w, h, storeys } = kind ? shedDimensions(random) : dims?.(row, index, random) ?? templateDimensions(style, row, index, random)
       const rise = ground(x) - centerY
-      if (rise > REACH[style].down || -rise > REACH[style].up) return
-      const placed = seat(ground, x, size.w, row * step, true)
-      if (!placed) return
-      const house = { x, baseY: placed.baseY, w: placed.w, h: size.h + (row ? 0 : (random() - .5) * 2), row }
-      if (house.baseY - house.h < 4 || house.baseY > (input.floor ?? 127) || hitsDot(house, centerX, centerY)) return
-      if (input.keepOut?.some((box) => house.x + house.w / 2 > box.left - 2 && house.x - house.w / 2 < box.right + 2
-        && house.baseY > box.top - 2 && house.baseY - house.h - 1.8 < box.bottom + 2)) return
-      /** Houses round the absorbed hall stay no taller than it, so its minaret rises clear of the town. */
+      if (rise > REACH[style].down * reach || -rise > REACH[style].up * reach) return
+      const baseY = seat(ground, x, w, sink, true)?.baseY
+      if (baseY == null) return
+      const house = { x, baseY, w, h: h + (row || kind ? 0 : (random() - .5) * 2), row }
+      // Under the dot a two-storey house keeps one storey rather than vanish into it.
+      let floors = storeys
+      if (floors && hitsDot(house, centerX, centerY)) { house.h -= TWO_STOREY_RISE; floors = undefined }
+      if (baseY - house.h < 4 || baseY > floor || hitsDot(house, centerX, centerY) ||
+        input.keepOut?.some(b => x + w / 2 > b.left - 2 && x - w / 2 < b.right + 2 &&
+          baseY > b.top - 2 && baseY - house.h - 1.8 < b.bottom + 2)) return
       if (givesWay(house, input.absorbed)) return
-      houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
+      if (!kind && houses.some(other => other.kind && other.row === row && Math.abs(other.x - x) < (other.w + w) / 2 + .5)) return
+      // Sheds stay dark at night: no one lives in a chicken house.
+      const lit = random() < litShare && !kind
+      houses.push({ ...house, ...(kind && { kind }), ...(floors && { storeys: floors }), lit, seed: Math.floor(random() * 1e6) })
     })
-    if (row > 0 && (style === 'tile' || style === 'blocks')) {
-      const path = terraceLine(houses.filter((house) => house.row === row), (x) => ground(x) + row * step + 1,
-        (x, y) => (underLabel(x, x) && y > centerY + 4) || (style === 'blocks' && Math.floor(x / 10) % 2 !== row % 2))
+    if (!kind && row > 0 && (style === 'tile' || style === 'blocks')) {
+      const path = terraceLine(houses.filter((house) => house.row === row), (x) => ground(x) + sink + 1,
+        (x, y) => (underSettlementLabel(centerX, x, x) && y > centerY + 4) ||
+          (style === 'blocks' && Math.floor(x / 10) % 2 !== row % 2))
       if (path) contours.push(path)
     }
   })
   const { top: labelTop, houses: kept } = settlementLabel(houses, centerX, centerY)
-  const halfWidth = kept.reduce((max, house) => Math.max(max, Math.abs(house.x - centerX) + house.w / 2), 0)
+  const halfWidth = kept.reduce((max, house) =>
+    Math.max(max, Math.abs(house.x - centerX) + house.w / 2), 0)
   return { style, houses: kept, contours, labelTop, halfWidth }
 }

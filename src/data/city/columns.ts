@@ -1,5 +1,5 @@
 import type { Coordinate } from '../landmarks/project'
-import { cellKey, COLS, LON_STEP, ROWS, squareCentre } from './grid'
+import { cellKey, COLS, LON_STEP, ROWS, squareCentre, strideFor } from './grid'
 import type { CityColumns, CityTower, Column } from './types'
 
 export const BAND_WIDTH = 375
@@ -38,6 +38,7 @@ export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uin
   const rows: [Sum[], Sum[], Sum[]] = [makeRow(), makeRow(), makeRow()]
   for (const cell of cellsForBand(place)) {
     const bytes = grids.get(cell)
+    const stride = bytes ? strideFor(bytes) : 2
     for (let row = 0; row < ROWS; row++) {
       const { lat, lon: firstLon } = squareCentre({ cell, col: 0, row })
       if (lat < south || lat > north) continue
@@ -48,7 +49,7 @@ export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uin
         const x = (lon - west) * BAND_WIDTH / span
         if (x < 0 || x >= BAND_WIDTH) continue
         const bin = rows[depth][Math.floor(x / COLUMN_WIDTH)]
-        const i = (row * COLS + col) * 2
+        const i = (row * COLS + col) * stride
         const meta = bytes?.[i] ?? 0
         const share = (meta >> 4) / 15
         bin.count++

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NearbyHeights, resolveHeight, taggedHeight } from './heights'
+import { footprintHeight, footprintLevels, NearbyHeights, resolveHeight, taggedHeight } from './heights'
 
 const point = { lat: 32, lon: 34.8 }
 describe('building heights', () => {
@@ -43,4 +43,25 @@ describe('building heights', () => {
     expect(resolveHeight({ building: 'yes' }, true, { ...point, area: 2000 }, nearby).height).toBe(13)
     expect(resolveHeight({ building: 'apartments' }, false, point, nearby).height).toBe(12.8)
   })
+})
+
+it.each([[59, 3, 3], [60, 4, 6.4], [139, 4, 6.4], [140, 7, 9.6],
+  [299, 7, 9.6], [300, 5.5, 9.6], [599, 5.5, 9.6], [600, 6, 6]])(
+  'uses the village priors at %i square metres', (area, pitched, flat) => {
+    expect(footprintHeight(area, true, { rural: true, cover: .2 })).toBe(pitched)
+    expect(footprintHeight(area, false, { rural: true, faith: 4, cover: .2 })).toBe(flat)
+    for (const residential of [true, false]) {
+      expect(footprintHeight(area, residential, { rural: false, cover: .2 }))
+        .toBe(footprintLevels(area, residential) * 3.2)
+    }
+  })
+
+it('restricts the non-rural prior exception to residential town footprints from 150 to under 450 m²', () => {
+  const town = { rural: false, kind: 1, faith: 2, cover: .2 } as const
+  expect(footprintHeight(149, true, town)).toBe(6.4)
+  expect(footprintHeight(150, true, town)).toBe(9.6)
+  expect(footprintHeight(449, true, town)).toBe(9.6)
+  expect(footprintHeight(450, true, town)).toBeCloseTo(19.2)
+  expect(footprintHeight(150, false, town)).toBeCloseTo(9.6)
+  expect(footprintHeight(150, true, { ...town, kind: 0 })).toBe(12.8)
 })

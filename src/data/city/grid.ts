@@ -20,22 +20,24 @@ export function squareCentre({ cell, col, row }: Square) {
   return { lat: south / 10 + (row + 0.5) * LAT_STEP, lon: west / 10 + (col + 0.5) * LON_STEP }
 }
 
-export function encodeRuns(bytes: Uint8Array): Run[] {
+export const strideFor = (bytes: Uint8Array) => bytes.length === ROWS * COLS * 3 ? 3 : 2
+
+export function encodeRuns(bytes: Uint8Array, stride: 2 | 3 = strideFor(bytes)): Run[] {
   const runs: Run[] = []
   for (let row = 0; row < ROWS; row++) {
     let col = 0
     while (col < COLS) {
       const start = col
-      const offset = (row * COLS + start) * 2
-      if (!(bytes[offset] || bytes[offset + 1])) {
+      const offset = (row * COLS + start) * stride
+      if (!(bytes[offset] || bytes[offset + 1] || (stride === 3 && bytes[offset + 2]))) {
         col++
         continue
       }
       let raw = ''
       while (col < COLS) {
-        const i = (row * COLS + col) * 2
-        if (!(bytes[i] || bytes[i + 1])) break
-        raw += String.fromCharCode(bytes[i], bytes[i + 1])
+        const i = (row * COLS + col) * stride
+        if (!(bytes[i] || bytes[i + 1] || (stride === 3 && bytes[i + 2]))) break
+        for (let j = 0; j < stride; j++) raw += String.fromCharCode(bytes[i + j])
         col++
       }
       runs.push([row, start, btoa(raw)])
@@ -44,13 +46,13 @@ export function encodeRuns(bytes: Uint8Array): Run[] {
   return runs
 }
 
-export function decodeRuns(runs: Run[]): Uint8Array {
-  const bytes = new Uint8Array(ROWS * COLS * 2)
+export function decodeRuns(runs: Run[], stride: 2 | 3 = 2): Uint8Array {
+  const bytes = new Uint8Array(ROWS * COLS * stride)
   for (const [row, col, encoded] of runs) {
     const raw = atob(encoded)
     if (!Number.isInteger(row) || row < 0 || row >= ROWS || !Number.isInteger(col) || col < 0 ||
-      raw.length % 2 || col + raw.length / 2 > COLS) throw new Error('Invalid city grid run')
-    bytes.set(Uint8Array.from(raw, c => c.charCodeAt(0)), (row * COLS + col) * 2)
+      raw.length % stride || col + raw.length / stride > COLS) throw new Error('Invalid city grid run')
+    bytes.set(Uint8Array.from(raw, c => c.charCodeAt(0)), (row * COLS + col) * stride)
   }
   return bytes
 }

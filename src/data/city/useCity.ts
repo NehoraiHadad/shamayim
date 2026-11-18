@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
 import { COLUMN_COUNT } from './columns'
 import { loadCity } from './cityData'
-import type { CityColumns, CityTower } from './types'
+import { clustersForCache, validClusters } from './clusterCache'
+import type { CityResult, CityTower } from './types'
 
 const MONTH = 30 * 24 * 60 * 60 * 1000
-const cacheKey = (id: string) => `shamayim:city:v3:${id}`
+const cacheKey = (id: string) => `shamayim:city:v4:${id}`
 
 function validTower(tower: CityTower | null) {
   return tower && [tower.dx, tower.dy, tower.lat, tower.lon, tower.heightM].every(Number.isFinite) &&
@@ -13,11 +14,11 @@ function validTower(tower: CityTower | null) {
     (tower.name === undefined || typeof tower.name === 'string')
 }
 
-function readCache(id: string): CityColumns | null {
+function readCache(id: string): CityResult | null {
   try {
     const cache = JSON.parse(localStorage.getItem(cacheKey(id)) ?? 'null')
-    const columns = cache?.columns as CityColumns | undefined
-    if (columns && Date.now() - cache.at < MONTH && Number.isFinite(columns.west) &&
+    const columns = cache?.columns as CityResult | undefined
+    if (columns && validClusters(columns.clusters) && Date.now() - cache.at < MONTH && Number.isFinite(columns.west) &&
       Number.isFinite(columns.span) && columns.span > 0 && columns.rows?.length === 3 &&
       Array.isArray(columns.towers) && columns.towers.every(validTower) &&
       columns.rows.every(row => Array.isArray(row) && row.length === COLUMN_COUNT &&
@@ -28,13 +29,16 @@ function readCache(id: string): CityColumns | null {
 
 export function useCity({ id, lat, lon }: Place) {
   const cached = useMemo(() => readCache(id), [id])
-  const [loaded, setLoaded] = useState<{ id: string; columns: CityColumns } | null>(null)
+  const [loaded, setLoaded] = useState<{ id: string; columns: CityResult } | null>(null)
   useEffect(() => {
     if (cached) return
     const controller = new AbortController()
     const run = () => void loadCity({ lat, lon }, controller.signal).then(columns => {
       if (!columns || controller.signal.aborted) return
-      try { localStorage.setItem(cacheKey(id), JSON.stringify({ at: Date.now(), columns })) }
+      try {
+        const clusters = clustersForCache(columns.clusters)
+        if (clusters) localStorage.setItem(cacheKey(id), JSON.stringify({ at: Date.now(), columns: { ...columns, clusters } }))
+      }
       catch { /* Keep the result in memory. */ }
       setLoaded({ id, columns })
     }).catch(() => { /* The scene uses the settlement fallback. */ })

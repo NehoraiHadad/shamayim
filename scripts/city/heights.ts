@@ -44,6 +44,19 @@ export function footprintLevels(area: number, residential: boolean) {
   return area < 150 ? 2 : area < 450 ? 4 : area < 1200 ? 6 : 8
 }
 
+export type Setting = { rural: boolean; kind?: 0 | 1 | 2 | 3; faith?: number; cover: number }
+
+export function footprintHeight(area: number, residential: boolean, setting: Setting) {
+  const flat = setting.faith !== undefined && setting.faith >= 2 && setting.faith <= 4
+  if (!setting.rural) {
+    if (setting.kind === 1 && flat && residential && area >= 150 && area < 450) return 9.6
+    return footprintLevels(area, residential) * 3.2
+  }
+  // Heights are in metres. Pitched roofs use eaves plus half their rise.
+  return area < 60 ? 3 : area < 140 ? (flat ? 6.4 : 4) :
+    area < 300 ? (flat ? 9.6 : 7) : area < 600 ? (flat ? 9.6 : 5.5) : 6
+}
+
 export class NearbyHeights {
   private bins = new Map<string, (Coordinate & { height: number })[]>()
 

@@ -1,6 +1,9 @@
+import { useMemo } from 'react'
 import type { PlacedTower } from '../../../data/city/cityTowers'
+import type { NeighbourMass } from '../../../data/city/neighbours'
 import type { Settlement } from '../../../data/landmarks/settlement'
 import type { PlacedMark } from '../../../data/landmarks/types'
+import { CityMass } from './city/CityMass'
 import { CityTowers } from './city/CityTowers'
 import { fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
@@ -20,14 +23,21 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   marks: PlacedMark[]
   settlement: Settlement | null
   cityTowers?: readonly PlacedTower[]
+  neighbours?: NeighbourMass[]
   width: number
   layer?: 'near' | 'far'
 }
 
 const middle = (xs: number[]) => (Math.min(...xs) + Math.max(...xs)) / 2
 
-export function HillMarks({ marks, settlement, cityTowers, width, layer = 'near', ...context }: Props) {
+export function HillMarks({ marks, settlement, cityTowers, neighbours, width, layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
+  const masses = useMemo(() => ([0, 1, 2] as const).flatMap(row => (['flat', 'pitched'] as const).map(roof => {
+    const matching = neighbours?.filter(mass => mass.row === row && mass.roof === roof) ?? []
+    const houses = matching.flatMap(mass => mass.houses)
+    const blocks = new Set(matching.flatMap(mass => mass.blocks ? mass.houses : []))
+    return { row, roof, houses, neighbour: { blocks } }
+  })), [neighbours])
   if (layer === 'far' && context.life.hideFar) return null
   const far = layer === 'far'
   const shared = { ...context, motion: motion.allowed, far }
@@ -40,8 +50,14 @@ export function HillMarks({ marks, settlement, cityTowers, width, layer = 'near'
     <MarkBuilding key={`${mark.id}-${motion.generation}`} mark={mark} x={toPx(mark)} {...shared} />
   )
   const night = context.night && !far
+  const massAt = (row: number) => masses.filter(mass => mass.row === row && mass.houses.length).map(mass => {
+    const x = middle(mass.houses.map(house => house.x))
+    const sunWest = context.sunX == null || context.shaded?.(x) ? null : context.sunX <= x
+    return <CityMass key={mass.roof} {...mass} night={night} litShare={context.life.litShare} sunWest={sunWest} />
+  })
   return <svg className={`${styles.px} ${far ? styles.farLayer : ''} ${night ? styles.night : ''}`}
     viewBox={`0 0 ${width} 128`} style={lifeStyle(context.life)} data-hidden={motion.hidden || undefined} aria-hidden="true">
+    {!far && massAt(0)}
     {(far ? ['line'] : ['behind', 'line']).flatMap(byPlane).map(building)}
     {!far && <>
       {hill.filter(isField).map((mark) => (
@@ -49,12 +65,14 @@ export function HillMarks({ marks, settlement, cityTowers, width, layer = 'near'
           depth={fieldDepthOf(mark)} />
       ))}
       {byPlane('face').map(building)}
+      {massAt(1)}
       {settlement && <SettlementGlyph settlement={settlement} night={context.night} reach={context.reach}
         litShare={context.life.litShare}
         afterRow={cityTowers?.length ? row => <CityTowers towers={cityTowers.filter(tower => tower.row === row)}
           night={night} litShare={context.life.litShare} /> : undefined}
         sunX={context.shaded?.(middle(settlement.houses.map((house) => house.x))) ? null : context.sunX} />}
       {byPlane('inside').map(building)}
+      {massAt(2)}
     </>}
   </svg>
 }

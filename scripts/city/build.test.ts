@@ -6,21 +6,25 @@ import { decodeRuns } from '../../src/data/city/grid'
 import { buildCity } from './build'
 import { survey } from './survey'
 
+const places = resolve('scripts/city/fixtures/places.geojsonseq')
 const fixture = resolve('scripts/city/fixtures/sample.geojsonseq')
 
 it('streams the fixture through measurement, rasterization and the on-disk format', async () => {
   const output = await mkdtemp(join(tmpdir(), 'city-builder-'))
   try {
     await writeFile(join(output, '999_999.json'), '{}')
-    const report = await buildCity(fixture, output, '2026-11-18T00:00:00Z')
+    const report = await buildCity(fixture, output, '2026-11-18T00:00:00Z', places)
     const index = JSON.parse(await readFile(join(output, 'index.json'), 'utf8'))
     const cell = JSON.parse(await readFile(join(output, '320_348.json'), 'utf8'))
     expect(report.coverage).toEqual(await survey(fixture))
     expect(report.coverage[0]).toMatchObject({ buildings: 3, taggedShare: 2 / 3, typeShare: 1 / 3 })
     expect(index.cells).toEqual(['320_348'])
-    expect(cell.v).toBe(1)
+    expect(cell.v).toBe(2)
+    expect(cell.p).toEqual([[32.003, 34.803, 2, 1, 8, 'Fixture village']])
+    expect(report.bytes).toBeLessThanOrEqual(1_000_000)
+    expect(report.largest.bytes).toBeLessThanOrEqual(24 * 1024)
     expect(cell.t).toEqual([[32.00315, 34.80315, 48, 1, 'מגדל בדיקה'], [32.0031, 34.80406, 38.4, 0]])
-    expect(decodeRuns(cell.r).some(byte => byte > 0)).toBe(true)
+    expect(decodeRuns(cell.r, 3).some(byte => byte > 0)).toBe(true)
     await expect(readFile(join(output, '999_999.json'))).rejects.toMatchObject({ code: 'ENOENT' })
   } finally {
     for (const file of await readdir(output)) await unlink(join(output, file))

@@ -1,16 +1,17 @@
 import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
-import { composeCity, hasCityFabric } from '../../../data/city/fabric'
-import type { CityColumns } from '../../../data/city/types'
-import { isGenericHighrise, isPlaceHomes, placeMarks, settlementSize } from '../../../data/landmarks/placeMarks'
+import { composeCity } from '../../../data/city/fabric'
+import { composeNeighbours, neighbourBox } from '../../../data/city/neighbours'
+import { isGenericHighrise, placeMarks } from '../../../data/landmarks/placeMarks'
 import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
-import { composeSettlement, settlementReach, settlementStyle, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
+import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
 import { BUILDINGS } from './generic/buildingSpecs'
+import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
-import { DOT_R, fitMarks, hillBoxes, placeLabel, VISIBLE_BOTTOM } from './sceneLayout'
+import { DOT_R, fitMarks, hillBoxes, placeLabel, SHEET_CLEAR, VISIBLE_BOTTOM } from './sceneLayout'
 
 interface Input {
   place: Place
@@ -19,7 +20,7 @@ interface Input {
   placed?: PlacedMark[]
   width: number
   litShare: number
-  city?: CityColumns | null
+  city?: HomeCityData | null
   showSea?: boolean
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
@@ -60,44 +61,58 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
   const centerY = place.id === 'shadmot-mehola' ? terrain.centerY : ground(centerX)
   const dot = { x: centerX, y: centerY }
-  const homes = landmarks.find(isPlaceHomes)
-  const size = homes && settlementSize(homes)
-  const style = size && settlementStyle(place, size, landmarks)
-  const village = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
-  const cityMode = !village && city && (size === 'large' || style === 'blocks') && hasCityFabric(city, width, centerX)
-  const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width, Boolean(cityMode))
+  const mode = homeMode(place, landmarks, width, centerX, city)
+  const cityMode = mode?.kind === 'city'
+  const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
+  // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
+  const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
+  const input = mode && { style: mode.style, size: mode.size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,
+    centerX, centerY, seed: mode.kind === 'village' ? mode.seed : hashId(place.id),
+    keepOut: mode.kind === 'template' ? [] : keepOut }
+  // Fit the footprint before placing marks. Absorbed landmarks can cut holes afterward without
+  // pulling the surrounding marks into the space reserved by the initial layout.
+  const homeHalf = mode?.kind === 'village'
+    ? composeSettlement(input!, mode.plan).halfWidth : mode?.homeHalf ?? 7
+  const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width, homeHalf, cityMode)
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
   const candidates = cityMode ? projected.filter(mark => mark.layer === 'far' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
-  const marks = fitMarks(style ? intoTown(candidates, style, ground, dot, width) : candidates, ground, width, dot)
+  // Mapped houses and their absorbed marks follow the ridge at their projected positions.
+  const marks = fitMarks(mode && mode.kind !== 'village' ? intoTown(candidates, mode.style, ground, dot, width)
+    : candidates, ground, width, dot)
   let cityTowers: PlacedTower[] = []
   let settlement: Settlement | null = null
-  if (size && style) {
-    const input = {
-      style, size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,
-      centerX, centerY, seed: hashId(place.id), keepOut: [],
+  if (mode && input) {
+    const withMarks = {
+      ...input,
       absorbed: marks.flatMap((mark) => {
         const x = mark.xPct / 100 * width
         const base = mark.absorbed && BUILDINGS[mark.kind] && markGeometry(mark, x, ground)?.base
         return base ? [{ x, w: BUILDINGS[mark.kind]!.w, base, kind: mark.kind }] : []
       }),
     }
-    if (cityMode) {
-      const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
-      const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
-      settlement = composeCity({ ...input, columns: city, keepOut })
+    if (mode.kind === 'city') {
+      settlement = composeCity({ ...withMarks, columns: mode.columns })
       const curated = landmarks.filter(mark => mark.source === 'curated' && mark.glyph && BUILDINGS[mark.glyph])
-      cityTowers = placeCityTowers({ ...input, towers: city.towers, keepOut, curated })
+      cityTowers = placeCityTowers({ ...withMarks, towers: mode.columns.towers, curated })
     } else {
-      settlement = composeSettlement(input)
+      settlement = mode.kind === 'template' ? composeSettlement(withMarks) : composeSettlement(withMarks, mode.plan)
     }
   }
-  const houses = (settlement?.houses ?? []).map((house) => ({ left: house.x - house.w / 2, right: house.x + house.w / 2,
-    top: house.baseY - house.h - 1.8, bottom: house.baseY }))
+  const houses = (settlement?.houses ?? []).map(house => {
+    const { x, w, h, baseY } = house
+    return { left: x - w / 2, right: x + w / 2, top: baseY - h - 1.8, bottom: baseY }
+  })
+  const neighbours = city?.clusters && !cityMode ? composeNeighbours({
+    clusters: city.clusters, columns: city, ground, floor: VISIBLE_BOTTOM - SHEET_CLEAR,
+    width, centerX, centerY, litShare, keepOut, desert: desertSettlement(place),
+    homeZone: neighbourHomeZone(centerX, mode?.kind === 'village' ? settlement?.halfWidth ?? 0 : mode?.homeHalf ?? 0),
+    homeHouses: settlement?.houses,
+  }) : []
   const labelSpot = placeLabel({
     dot, text: label.text, width,
     top: label.below ? terrain.seaY + 6 : settlement?.labelTop ?? centerY + 7,
     minTop: label.below ? terrain.seaY + 2 : 0,
-    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox)],
+    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox), ...neighbours.map(neighbourBox)],
   })
-  return { ground, farGround, settlement, cityTowers, centerY, marks, label: labelSpot }
+  return { ground, farGround, settlement, cityTowers, neighbours, centerY, marks, label: labelSpot }
 }

@@ -16,6 +16,8 @@ interface Light {
   litShare: number
   /** The back row: a silhouette toned toward the far ridge, no day panes, sparse lights. */
   back: boolean
+  roof?: 'flat' | 'pitched'
+  neighbour?: { blocks: ReadonlySet<House> }
 }
 
 const PANE_W = .9
@@ -40,21 +42,29 @@ function paneGrid({ x, w, h, baseY }: House) {
   return cells
 }
 
-export function massPaths(houses: House[], { sunWest, night, litShare, back }: Light): MassPaths {
+export function massPaths(houses: House[], { sunWest, night, litShare, back, roof = 'flat', neighbour }: Light): MassPaths {
   const parts = { body: [] as string[], faces: [] as string[], roofs: [] as string[], panes: [] as string[], lights: [] as string[] }
   /** Day: about a fifth of the panes read as wall (curtains, shutters). Night: half the lit share, a quarter at the back. */
   const lightShare = litShare * (back ? .25 : .5)
   for (const house of houses) {
     const { x, w, h, baseY, seed } = house
     const left = x - w / 2
-    parts.body.push(box(left, baseY - h, w, h))
-    parts.roofs.push(box(left, baseY - h - .6, w, .6))
-    if (sunWest !== null && !night) {
+    const wall = roof === 'pitched' ? h * .55 : h
+    const eave = baseY - wall
+    parts.body.push(box(left, eave, w, wall))
+    parts.roofs.push(roof === 'pitched'
+      ? `M${n(left)} ${n(eave)}L${n(x)} ${n(baseY - h)}L${n(left + w)} ${n(eave)}z`
+      : box(left, eave - .6, w, .6))
+    if (sunWest !== null && !night && !(neighbour && back)) {
       const side = Math.min(2.2, w * .3)
-      parts.faces.push(box(sunWest ? left : x + w / 2 - side, baseY - h, side, h))
+      parts.faces.push(box(sunWest ? left : x + w / 2 - side, eave, side, wall))
     }
-    if (back && !night) continue
     const random = seeded(seed)
+    if (night && (neighbour || roof === 'pitched')) {
+      if (random() < lightShare) parts.lights.push(box(x - PANE_W / 2, baseY - (wall + PANE_H) / 2, PANE_W, PANE_H))
+      continue
+    }
+    if (!night && (back || roof === 'pitched' || (neighbour && !neighbour.blocks.has(house)))) continue
     for (const [px, py] of paneGrid(house)) {
       const roll = random()
       if (night ? roll < lightShare : roll >= .2) (night ? parts.lights : parts.panes).push(box(px, py, PANE_W, PANE_H))

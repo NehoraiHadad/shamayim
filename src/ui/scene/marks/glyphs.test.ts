@@ -6,6 +6,7 @@ import type { PlacedMark } from '../../../data/landmarks/types'
 import { BUILDINGS, type BuildingProps } from './generic/buildingSpecs'
 import { isHillMark, planeOf } from './hillPlane'
 import styles from './marks.module.css'
+import { Shed, TileHouse } from './houses'
 
 const draw = (key: string, props: Partial<BuildingProps> = {}) => {
   const spec = BUILDINGS[key]!
@@ -65,4 +66,12 @@ describe('curated sets in the px layer', () => {
     expect(planeOf(placed('shadmot-palms', 'palms', 2.3, 11))).toBe('line')
     expect(planeOf(placed('shadmot-solar', 'solar', -.6, 3))).toBe('face')
   })
+})
+
+it('a shed draws in at most 5 nodes and a tile house in at most 7, two storeys included', () => {
+  const nodes = (markup: string) => markup.match(/<(rect|path)/g)?.length ?? 0
+  expect(nodes(renderToStaticMarkup(createElement(Shed, { w: 12, h: 4 })))).toBeLessThanOrEqual(5)
+  for (const seed of [0, 1, 2, 3]) for (const storeys of [undefined, 2 as const]) {
+    expect(nodes(renderToStaticMarkup(createElement(TileHouse, { w: 9, h: 9.5, seed, storeys })))).toBeLessThanOrEqual(7)
+  }
 })

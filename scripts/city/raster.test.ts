@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { COLS, LAT_STEP, LON_STEP, squareCentre, squareOf } from '../../src/data/city/grid'
 import { contains, eastMetres, footprint, METRES } from './geometry'
+import { decodeForm } from '../../src/data/city/form'
 import { Raster } from './raster'
 
 const cell = '320_348'
@@ -9,7 +10,7 @@ const rectangle = (dx: number, dy: number) => [[[
   [lon - dx, lat - dy], [lon + dx, lat - dy], [lon + dx, lat + dy], [lon - dx, lat + dy],
   [lon - dx, lat - dy],
 ] as [number, number][]]]
-const share = (image: Raster, y: number, x: number) => image.bytes(cell)[(y * COLS + x) * 2] >> 4
+const share = (image: Raster, y: number, x: number) => image.bytes(cell)[(y * COLS + x) * 3] >> 4
 
 describe('city raster', () => {
   it('puts a 100 × 100 m footprint into its centre square', () => {
@@ -43,8 +44,19 @@ describe('city raster', () => {
     const large = footprint(rectangle(LON_STEP / 4, LAT_STEP / 4))!
     raster.building(large, 6.4)
     raster.building(small, 300)
-    const i = (6 * COLS + 6) * 2
+    const i = (6 * COLS + 6) * 3
     expect(raster.bytes(cell)[i] & 15).toBe(2)
     expect(raster.bytes(cell)[i + 1]).toBe(255)
+  })
+})
+
+it('packs the count median footprint and area-weighted large roof share', () => {
+  const raster = new Raster()
+  for (const area of [130, 130, 900]) {
+    const shape = footprint(rectangle(5 / eastMetres(lat), area / (20 * METRES)))!
+    raster.building(shape, 4)
+  }
+  expect(decodeForm(raster.bytes(cell)[(6 * COLS + 6) * 3 + 2])).toEqual({
+    size: 3, big: 3, roof: 0, evidence: false,
   })
 })

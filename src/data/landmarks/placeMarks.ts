@@ -2,7 +2,8 @@ import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
 import { groundY, markHeight, markWidth, offsetKm, toX } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
-import { settlementHalfWidth, type SettlementSize } from './settlement'
+import type { SettlementSize } from './settlement'
+import { templateHalf } from './settlementPlan'
 import type { Landmark, PlacedMark } from './types'
 
 export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
@@ -47,7 +48,14 @@ function elevationAt(values: number[] | undefined, x: number): number | undefine
   return values[left] + ((values[left + 1] ?? values[left]) - values[left]) * t
 }
 
-export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number, cityMode = false): PlacedMark[] {
+function legacyHomeHalf(marks: Landmark[]) {
+  const homes = marks.find(isPlaceHomes)
+  return homes ? templateHalf(settlementSize(homes)) : 7
+}
+
+// homeHalf is in display pixels, like the glyphs. The mark spread works in 375-wide scene units.
+export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
+  homeHalf = legacyHomeHalf(marks), cityMode = false): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
@@ -80,7 +88,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width,
     homes?.glyph === 'homes-large')
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
-  const villageHalf = (homes ? settlementHalfWidth(settlementSize(homes)) : 7) * scale
+  const villageHalf = homeHalf * scale
   /** Curated city landmarks stand among the city's own blocks: they only keep clear of the dot. */
   const curatedCity = chosen.some((item) => item.mark.source === 'curated'
     || (homes?.glyph === 'homes-large' && item.mark.kind === 'highrise' && Math.hypot(item.dx, item.dy) <= 3))

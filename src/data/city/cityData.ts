@@ -1,6 +1,7 @@
 import type { Coordinate } from '../landmarks/project'
-import type { CityCell, CityIndex } from './types'
+import type { CityCell, CityIndex, CityResult } from './types'
 import { cellsForBand, cityOffset, computeColumns } from './columns'
+import { findClusters } from './clusters'
 import { decodeRuns } from './grid'
 
 const ROOT = `${import.meta.env.BASE_URL}data/city/il`
@@ -28,7 +29,7 @@ function getIndex() {
   return indexPromise
 }
 
-export async function loadCity(place: Coordinate, signal: AbortSignal) {
+export async function loadCity(place: Coordinate, signal: AbortSignal): Promise<CityResult | null> {
   const index = await getIndex()
   if (!index || !inCoverage(index, place)) return null
   const available = new Set(index.cells)
@@ -39,13 +40,14 @@ export async function loadCity(place: Coordinate, signal: AbortSignal) {
     const response = await fetch(`${ROOT}/${cell}.json`, { signal })
     if (!response.ok) throw new Error(`City cell HTTP ${response.status}`)
     const data = await response.json() as CityCell
-    if (data.v !== 1) throw new Error('Unsupported city cell version')
+    if (data.v !== 1 && data.v !== 2) throw new Error('Unsupported city cell version')
     return { cell, data }
   }))
   const grids = new Map(loaded.filter(({ cell }) => fabricCells.has(cell))
-    .map(({ cell, data }) => [cell, decodeRuns(data.r)] as const))
+    .map(({ cell, data }) => [cell, decodeRuns(data.r, data.v === 2 ? 3 : 2)] as const))
   const towers = loaded.flatMap(({ data }) => data.t.map(([lat, lon, heightM, wClass, name]) => ({
     lat, lon, heightM, wClass, name, ...cityOffset(place, { lat, lon }),
   }))).filter(({ dx, dy, heightM }) => Math.abs(dx) <= 12 && Math.abs(dy) <= (heightM >= 100 ? 5 : 3))
-  return computeColumns(place, grids, towers)
+  const places = loaded.flatMap(({ data }) => data.v === 2 ? data.p : [])
+  return { ...computeColumns(place, grids, towers), clusters: findClusters(place, grids, places) }
 }

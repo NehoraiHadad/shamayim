@@ -37,9 +37,17 @@ jobs:
       - name: Filter and export city polygons
         run: |
           osmium tags-filter israel-and-palestine.osm.pbf a/building a/landuse=residential,commercial,industrial,retail -o city.osm.pbf
+          # osmium export retains OSM tags by default, including roof and building details.
           osmium export city.osm.pbf -f geojsonseq --geometry-types=polygon -o city.geojsonseq
+      - name: Filter and export place and worship nodes
+        run: |
+          osmium tags-filter israel-and-palestine.osm.pbf n/place n/amenity=place_of_worship -o places.osm.pbf
+          osmium export places.osm.pbf -f geojsonseq --geometry-types=point -o places.geojsonseq
+      - name: Measure city and village coverage
+        if: github.event_name == 'workflow_dispatch'
+        run: npx tsx scripts/city/measure.ts city.geojsonseq places.geojsonseq
       - name: Build static city cells
-        run: npx tsx scripts/city/build.ts city.geojsonseq
+        run: npx tsx scripts/city/build.ts city.geojsonseq places.geojsonseq
       - name: Commit changed landmark data
         shell: bash
         run: |

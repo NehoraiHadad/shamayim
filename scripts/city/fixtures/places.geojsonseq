@@ -1,0 +1,2 @@
+{"type":"Feature","geometry":{"type":"Point","coordinates":[34.803,32.003]},"properties":{"place":"village","name":"Fixture village"}}
+{"type":"Feature","geometry":{"type":"Point","coordinates":[34.803,32.003]},"properties":{"amenity":"place_of_worship","religion":"jewish"}}
