@@ -1,9 +1,31 @@
-import { cityOffset } from './columns'
+import { BAND_WIDTH, COLUMN_COUNT, COLUMN_WIDTH, cityOffset } from './columns'
 import { LAT_STEP, LON_STEP } from './grid'
 import { decodeForm } from './form'
 import type { BuiltSquare, Cluster, Extent } from './clusterTypes'
 import type { PlaceRow } from './types'
 import type { Coordinate } from '../landmarks/project'
+
+function componentColumns(squares: BuiltSquare[], toKm: (x: number) => number) {
+  const bins = new Map<number, { share: number; measured: number; levels: number; upper: number; count: number }>()
+  for (const { x, meta, upper } of squares) {
+    const index = Math.floor(BAND_WIDTH * (.5 + toKm(x) / 24) / COLUMN_WIDTH)
+    if (index < 0 || index >= COLUMN_COUNT) continue
+    const bin = bins.get(index) ?? { share: 0, measured: 0, levels: 0, upper: 0, count: 0 }
+    const share = meta >> 4, levels = meta & 15
+    bin.share += share
+    bin.count++
+    if (levels) {
+      bin.measured += share
+      bin.levels += share * levels
+    }
+    bin.upper = Math.max(bin.upper, upper)
+    bins.set(index, bin)
+  }
+  return new Map([...bins].map(([index, bin]) => [index, {
+    built: bin.share / (15 * bin.count), measured: bin.measured / (15 * bin.count),
+    levels: bin.measured ? bin.levels / bin.measured : 3, upper: bin.upper,
+  }]))
+}
 
 function runs(columns: number[], toKm: (x: number) => number): Extent[] {
   const merged: Extent[] = []
@@ -56,6 +78,7 @@ export function describeCluster(place: Coordinate, component: BuiltSquare[], nod
   const trim = Math.floor(xs.length * .02)
   const dx: Extent = [toKm(xs[trim] - .5), toKm(xs[xs.length - 1 - trim] + .5)]
   const dy: Extent = [baseY - height / 2, baseY + depth - height / 2]
+  const urban = dx[1] - dx[0] > 5.3 || squares.length > 400
   const denominator = measured || 1
   sizes.sort((a, b) => a - b)
   // Hash the actual southernmost square, breaking ties westward, independent of the viewer.
@@ -68,5 +91,5 @@ export function describeCluster(place: Coordinate, component: BuiltSquare[], nod
       dy: dy[1] - (i + .5) * depth / count, runs: runs(columns, toKm), big: runs(sheds, toKm),
     })),
     place: node && { kind: node[2], faith: node[3], name: node[5] },
-    urban: dx[1] - dx[0] > 5.3 || squares.length > 400 }
+    urban, ...(urban && { columns: componentColumns(squares, toKm) }) }
 }

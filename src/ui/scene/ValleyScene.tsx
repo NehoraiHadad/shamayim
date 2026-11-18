@@ -127,7 +127,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray}
           noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}
       </svg>
-      <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers} width={sceneWidth}
+      <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
+        neighbours={hill.neighbours} width={sceneWidth}
         ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach}
         life={markLife} readout={Boolean(readout)} />

@@ -48,7 +48,7 @@ function makeHouse(input: Input, depth: number, x: number, w: number, bin: Colum
     seed: Math.floor(random() * 1e6) }
 }
 
-function rowHouses(input: Input, depth: number, bins: Column[]) {
+export function rowHouses(input: Input, depth: number, bins: Column[], fits = cityHouseFits) {
   const { columns: { west, span }, width } = input
   const perPixel = span / width
   const packingStep = PACKING_SPAN / width
@@ -73,7 +73,7 @@ function rowHouses(input: Input, depth: number, bins: Column[]) {
         first >= 0 && last < bins.length && bins.slice(first, last + 1).every(b => b.built >= MIN_BUILT)) {
         const roll = random()
         const house = makeHouse(input, depth, x, w, bin, random)
-        if (house && cityHouseFits(house, input)) houses.push(house)
+        if (house && fits(house, input)) houses.push(house)
         const gap = gapFor(bin.built, roll)
         offset += (w + gap) * packingStep
       } else {

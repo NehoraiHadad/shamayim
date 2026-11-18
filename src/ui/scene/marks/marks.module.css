@@ -103,6 +103,7 @@
 .night .green { fill: color-mix(in srgb, #5E7B4A 20%, var(--ridge-near)); }
 .night .vine { stroke: color-mix(in srgb, #5E7B4A 20%, var(--ridge-near)); }
 .night .panel { fill: color-mix(in srgb, #3E5C7A 22%, var(--ridge-near)); }
+.neighbourBack :is(.wall, .top, .roof) { fill: var(--mark-back); }
 
 /* Far ridge marks: silhouettes in the far tone, fading and bleaching with the far ridge (ILLUSTRATION.md R1). */
 .px.farLayer { opacity: calc((1 - .95 * var(--far-fade, 0)) * var(--mark-bleach, 1)); }

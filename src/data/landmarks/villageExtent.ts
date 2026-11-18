@@ -1,4 +1,5 @@
-import type { Cluster, Extent } from '../city/clusterTypes'
+import type { Cluster } from '../city/clusterTypes'
+import { mergeRuns } from '../city/runs'
 import { seeded } from './hash'
 import type { SettlementInput, SettlementStyle } from './settlement'
 import { PITCH, ROW_STEP, type RowPlan } from './settlementPlan'
@@ -30,16 +31,6 @@ const FOOTPRINT_REACH = 2
 function rowOf(dy: number, bands: Cluster['bands']) {
   const order = [...bands].sort((a, b) => b.dy - a.dy).findIndex(band => band.dy === dy)
   return bands.length < 2 ? 0 : Math.round(order * 2 / (bands.length - 1))
-}
-
-function mergeRuns(runs: Extent[]) {
-  const merged: Extent[] = []
-  for (const [left, right] of runs.sort((a, b) => a[0] - b[0])) {
-    const last = merged.at(-1)
-    if (last && left <= last[1]) last[1] = Math.max(last[1], right)
-    else merged.push([left, right])
-  }
-  return merged
 }
 
 /**

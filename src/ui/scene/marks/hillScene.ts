@@ -1,16 +1,17 @@
 import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
 import { composeCity } from '../../../data/city/fabric'
+import { composeNeighbours, neighbourBox } from '../../../data/city/neighbours'
 import { isGenericHighrise, placeMarks } from '../../../data/landmarks/placeMarks'
 import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
-import { composeSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
+import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
 import { BUILDINGS } from './generic/buildingSpecs'
-import { homeMode, type HomeCityData } from './homeMode'
+import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
-import { DOT_R, fitMarks, hillBoxes, placeLabel, VISIBLE_BOTTOM } from './sceneLayout'
+import { DOT_R, fitMarks, hillBoxes, placeLabel, SHEET_CLEAR, VISIBLE_BOTTOM } from './sceneLayout'
 
 interface Input {
   place: Place
@@ -101,11 +102,17 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     const { x, w, h, baseY } = house
     return { left: x - w / 2, right: x + w / 2, top: baseY - h - 1.8, bottom: baseY }
   })
+  const neighbours = city?.clusters && !cityMode ? composeNeighbours({
+    clusters: city.clusters, columns: city, ground, floor: VISIBLE_BOTTOM - SHEET_CLEAR,
+    width, centerX, centerY, litShare, keepOut, desert: desertSettlement(place),
+    homeZone: neighbourHomeZone(centerX, mode?.kind === 'village' ? settlement?.halfWidth ?? 0 : mode?.homeHalf ?? 0),
+    homeHouses: settlement?.houses,
+  }) : []
   const labelSpot = placeLabel({
     dot, text: label.text, width,
     top: label.below ? terrain.seaY + 6 : settlement?.labelTop ?? centerY + 7,
     minTop: label.below ? terrain.seaY + 2 : 0,
-    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox)],
+    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox), ...neighbours.map(neighbourBox)],
   })
-  return { ground, farGround, settlement, cityTowers, centerY, marks, label: labelSpot }
+  return { ground, farGround, settlement, cityTowers, neighbours, centerY, marks, label: labelSpot }
 }

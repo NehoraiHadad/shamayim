@@ -1,5 +1,5 @@
 import type { Place } from '../../../config/place'
-import type { Cluster } from '../../../data/city/clusterTypes'
+import type { Cluster, Extent } from '../../../data/city/clusterTypes'
 import { hasCityFabric } from '../../../data/city/fabric'
 import { homeCluster, homeTier } from '../../../data/city/homeCluster'
 import type { CityColumns, CityResult } from '../../../data/city/types'
@@ -12,6 +12,10 @@ import type { Landmark } from '../../../data/landmarks/types'
 import { villageRows } from '../../../data/landmarks/villageExtent'
 
 export type HomeCityData = CityColumns & Partial<Pick<CityResult, 'clusters'>>
+
+export function neighbourHomeZone(centerX: number, halfWidth: number): Extent {
+  return [centerX - halfWidth - 6, centerX + halfWidth + 6]
+}
 
 function localRoof(place: Place, home: Cluster, marks: Landmark[]) {
   const local = marks.filter(mark => {

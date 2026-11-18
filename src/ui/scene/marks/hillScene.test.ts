@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import type { Place } from '../../../config/place'
 import { findClusters } from '../../../data/city/clusters'
 import { cellsForBand, computeColumns } from '../../../data/city/columns'
-import { decodeRuns } from '../../../data/city/grid'
+import { COLS, decodeRuns, squareOf } from '../../../data/city/grid'
 import { homeCluster, homeTier } from '../../../data/city/homeCluster'
 import type { CityCell, CityColumns, CityIndex } from '../../../data/city/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
@@ -83,8 +83,35 @@ it.each([karmei, petah])('preserves the pre-V3 house list for $id', place => {
   const scene = hillScene({ place, city, terrain: snapshotTerrain, landmarks: placeHomes(place), width: 375, litShare: .43,
     label: { text: '100', below: false } })
   expect(Boolean(scene.settlement?.detail)).toBe(place === petah)
+  if (place === petah) expect(scene.neighbours).toEqual([])
   expect(scene.settlement?.houses.length).toBeGreaterThan(0)
   expect(scene.settlement?.houses).toMatchSnapshot()
+})
+
+it.each([
+  ['nahalal', 32.69, 35.1967],
+  ['yagur', 32.7414, 35.0764],
+  ['kfar-vitkin', 32.3817, 34.8767],
+  ['karmei-tzur', 31.6092, 35.1009],
+])('composes mapped neighbours for %s', (id, lat, lon) => {
+  const place: Place = { ...common, id, lat, lon, settlementType: 'village' }
+  const city = cityAt(place)
+  const { neighbours } = hillScene({ place, city, terrain: snapshotTerrain,
+    landmarks: placeHomes(place), width: 375, litShare: .43, label: { text: '100', below: false } })
+  expect(neighbours.length).toBeGreaterThan(0)
+  if (id === 'nahalal') {
+    expect(neighbours.some(mass => /מגדל העמק|migdal/i.test(mass.name ?? '') &&
+      mass.houses.every(h => h.x > 187.5))).toBe(true)
+    const { cell, row, col } = squareOf(32.68206, 35.15225)
+    const cached = JSON.parse(readFileSync(root + cell + '.json', 'utf8')) as CityCell
+    expect(cached.v === 2 && cached.p.some(p => p[5] === 'כפר יהושע')).toBe(true)
+    expect(decodeRuns(cached.r, 3)[(row * COLS + col) * 3] >> 4).toBe(0)
+  }
+  if (id === 'yagur') {
+    expect(city.clusters.find(c => c.place?.name === 'נשר')?.centre.dy).toBeGreaterThan(3)
+    expect(neighbours.some(mass => mass.name === 'נשר')).toBe(false)
+  }
+  if (id === 'karmei-tzur') expect(neighbours.some(mass => mass.name === 'בית אומר' && mass.roof === 'flat')).toBe(true)
 })
 
 it('uses the Nahalal footprint for tier A and the original template for tier B', () => {
