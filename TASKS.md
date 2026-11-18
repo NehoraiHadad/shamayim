@@ -534,6 +534,8 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
 - [x] Big cities keep their blocks (Claude): `placeHomes` no longer drops a large place's houses when an OSM high-rise
       stands within 1 km (Petah Tikva showed 4 lone towers on an empty hill). High-rises within 0.6 km are absorbed
       into the cluster like a minaret; further ones stand beside it. Still `city-blocks-with-towers.png` (Petah Tikva, Ramat Gan)
+- [ ] City skyline redesign: plan in `docs/design/CITY-SKYLINE-PLAN.md` (Fable, reviewed). Hybrid: real towers at their x +
+      a built-form grid from OSM for extent/density/height; villages unchanged. Phase 1 (no new data) awaits owner go-ahead
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18
