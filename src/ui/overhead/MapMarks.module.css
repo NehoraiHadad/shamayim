@@ -1,0 +1,44 @@
+/* Marks drawn over the map as page text (no glyphs or RTL plugin needed). Colours: --map-* on the dialog. */
+
+.place {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.disc {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--sheet-ink);
+  box-shadow: 0 0 0 3px var(--sheet), 0 0 0 4px color-mix(in srgb, var(--sheet-ink) 25%, transparent);
+}
+
+.halo {
+  color: var(--map-text);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  text-shadow:
+    0 0 2px var(--map-land), 0 0 2px var(--map-land), 1px 1px 0 var(--map-land), -1px -1px 0 var(--map-land),
+    1px -1px 0 var(--map-land), -1px 1px 0 var(--map-land);
+}
+
+.name {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.ring {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.ring[hidden] { display: none; }

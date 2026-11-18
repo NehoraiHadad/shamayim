@@ -11,9 +11,9 @@ const nameHe: ExpressionSpecification = ['coalesce', ['get', 'name:he'], ['get',
 
 export function mapInk(dark: boolean) {
   return dark
-    ? { land: null, water: '#334760', shore: '#758ba0', text: '#f0f3f8' }
+    ? { land: null, water: '#334760', shore: '#9DB0C4', text: '#f0f3f8' }
     // A sand-toned land a step darker than the page, so white clouds still read over it.
-    : { land: '#E2DDD2', water: '#C8D8E2', shore: '#718a9c', text: '#28374a' }
+    : { land: '#E2DDD2', water: '#C8D8E2', shore: '#4F6578', text: '#28374a' }
 }
 
 export function restylePositron(style: StyleSpecification, sheet: string, dark: boolean): StyleSpecification {

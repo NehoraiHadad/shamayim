@@ -17,6 +17,8 @@
   --rain-2: #5361B3;
   --rain-3: #711B66;
   --map-cloud: #FCFBF6;
+  --map-text: #28374A;
+  --map-land: #E2DDD2;
 }
 
 :global(.dark-sheet) .dialog {
@@ -24,6 +26,8 @@
   --rain-2: #A99FF4;
   --rain-3: #FAB2E3;
   --map-cloud: #5C6379;
+  --map-text: #F0F3F8;
+  --map-land: var(--sheet);
 }
 
 .dialog[open] { animation: rise var(--d4) var(--ease-out) both; }
@@ -104,14 +108,6 @@
 
 .map canvas:focus-visible { outline-offset: -4px; }
 
-.village {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ridge-near) 70%, transparent);
-  pointer-events: none;
-}
 
 .details {
   padding: var(--space-2) var(--gutter) 0;

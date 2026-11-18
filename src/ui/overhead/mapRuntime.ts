@@ -1,7 +1,8 @@
 import type { StyleSpecification } from 'maplibre-gl'
 import { mapInk, POSITRON, restylePositron } from './mapStyle'
 import { paperOf, repaintPaper } from './mapPaper'
-import { addRings, MAP_BOUNDS, openingZoom } from './placeMap'
+import { addRings, hideTown, MAP_BOUNDS, openingZoom } from './placeMap'
+import { addPlaceMarks } from './placeMarks'
 import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TilePainter, type TileResult } from './tileProtocols'
 import { addWeatherLayers, showWeather, type Frame, type Timeline } from './weatherLayers'
 import { weatherInView, type WeatherStatus } from './weatherViewport'
@@ -15,7 +16,6 @@ export async function fetchJson(url: string, signal: AbortSignal): Promise<unkno
 
 interface Options {
   container: HTMLElement
-  marker: HTMLElement
   place: Place
   timeline: Promise<Timeline>
   signal: AbortSignal
@@ -25,7 +25,7 @@ interface Options {
   painter?: TilePainter
 }
 
-export async function createOverheadMap({ container, marker, place, timeline, signal, onReady, onMapError, onStatus, painter }: Options) {
+export async function createOverheadMap({ container, place, timeline, signal, onReady, onMapError, onStatus, painter }: Options) {
   const upstream = fetchJson(POSITRON, signal).catch(() => null)
   const [maplibre, , rawStyle, weather] = await Promise.all([
     import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css'), upstream, timeline,
@@ -88,7 +88,8 @@ export async function createOverheadMap({ container, marker, place, timeline, si
   map.once('style.load', () => {
     addWeatherLayers(map, weather)
     addRings(map, place, mapInk(paper().dark).shore)
-    new maplibre.Marker({ element: marker }).setLngLat([place.lon, place.lat]).addTo(map)
+    hideTown(map, place.nameHe)
+    addPlaceMarks(maplibre, map, place, zoom)
     showWeather(map, weather, frame, now)
     loaded = true
     updatePaper()

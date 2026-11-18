@@ -49,10 +49,7 @@ export function OverheadMap({ place, frame, now, onTimeline, onReady, onMapError
         if (!signal.aborted) onTimeline(data)
         return data
       })
-    const marker = document.createElement('span')
-    marker.className = styles.village
-    marker.setAttribute('aria-hidden', 'true')
-    createOverheadMap({ container: node, marker, place, timeline, signal, onReady, onMapError, onStatus,
+    createOverheadMap({ container: node, place, timeline, signal, onReady, onMapError, onStatus,
       painter: rain ? (url) => painter?.(url) ?? null : undefined })
       .then((controller) => {
         if (signal.aborted) return
