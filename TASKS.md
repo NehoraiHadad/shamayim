@@ -607,6 +607,17 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
 - [ ] Not verified: real sunrise in Shadmot against an observation; mist band still fixed y 72–105
 - [x] Owner (2026-11-18): computed Shadmot accepted; relief left to Claude → `high` kept (land reads at phone size; `mid` is near flat)
 
+
+## Moon visibility — 2026-11-18
+- [x] Cloud veils the moon only from 40 % cover up (smoothstep 40→100 %; overcast hides it). It used to fade from the
+      first cloud (50 % → 0.55, 70 % → 0.25), and the hour's cover counts thin high cloud and is one number for the
+      whole sky, so the moon kept fading for no visible reason. Cloud layers (low/mid/high) would be better but need
+      the Worker allowlist + `wrangler deploy` first — not done
+- [x] Day moon: 50 % (half) to 80 % (full) of its night strength instead of a flat 35 %, near-white not pale blue,
+      seas faintly kept; hidden by day only as a thin crescent (< 15 %) or above 85 % cloud
+- [x] Checked: the moon rising before sunset is real (first quarter → full). Test `moonrise through the month`:
+      Shadmot Nov 2026 rises 06:14 new moon, 12:20 first quarter, 16:15 full, 23:02 last quarter. Still `moon-visibility.png`
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

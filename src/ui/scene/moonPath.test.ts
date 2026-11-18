@@ -51,3 +51,19 @@ describe('moon pass', () => {
     expect(point(pass.set + 0.3 * H).y).toBeGreaterThan(point(pass.set).y)
   })
 })
+
+describe('moonrise through the month', () => {
+  // The moon rises ~50 min later each day: with the sun at new moon, near noon at first quarter, near sunset at full
+  // moon, near midnight at last quarter. So a moon rising before sunset (first quarter to full) is real, not an error.
+  const shadmot = { lat: 32.348, lon: 35.535 }
+  const riseLocal = (utc: string) => {
+    const rise = new Date(findMoonPass(Date.parse(utc), shadmot)!.rise + 2 * H)
+    return rise.getUTCHours() + rise.getUTCMinutes() / 60
+  }
+  it('rises at the hour its phase puts it', () => {
+    expect(riseLocal('2026-11-09T10:00Z')).toBeCloseTo(6.2, 0) // new moon: with the sun (sunrise ~06:05)
+    expect(riseLocal('2026-11-17T10:00Z')).toBeCloseTo(12.3, 0) // first quarter: about noon
+    expect(riseLocal('2026-11-24T14:00Z')).toBeCloseTo(16.25, 0) // full moon: about sunset (~16:35)
+    expect(riseLocal('2026-12-01T05:00Z')).toBeCloseTo(23, 0) // last quarter: about midnight
+  })
+})

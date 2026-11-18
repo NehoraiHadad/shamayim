@@ -63,17 +63,24 @@ export interface MoonLook {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+const smoothstep = (a: number, b: number, v: number) => { const k = clamp01((v - a) / (b - a)); return k * k * (3 - 2 * k) }
 
 /**
  * How the moon shows, or null when it does not: below the ridges, a thin crescent by day, or a day sky too cloudy.
- * Cloud veils it through opacity only (gone at about 85% cover); haze takes it with the far ridge.
+ *
+ * Cloud: the hour's cover is one number for the whole sky and counts thin high cloud too, which the moon shines through.
+ * So it only veils from 40 % up, more and more, and a fully overcast sky hides it; a broken sky leaves it almost whole.
+ * (It used to fade from the first cloud: half cover left half a moon.)
+ * Day: a moon in a clear day sky is plainly seen, the fuller the brighter; it keeps 50 % (a half moon) to 80 % (full)
+ * of its night strength. Haze takes it with the far ridge.
  */
 export function moonLook(o: { altitude: number; fraction: number; sunAltitude: number; cloudCover: number; farFade: number }): MoonLook | null {
   if (o.altitude < -4) return null
-  // −4° → night, +4° → day; in between the moon fades from bone to a pale disc at a third of its strength.
+  // −4° → night, +4° → day; in between the moon fades from bone to its day look.
   const daylight = clamp01((o.sunAltitude + 4) / 8)
-  if (daylight > 0.5 && (o.fraction < 0.15 || o.cloudCover > 60)) return null
-  const veil = clamp01(1 - (o.cloudCover / 85) ** 1.5) * (1 - 0.9 * o.farFade)
-  const opacity = veil * (1 - 0.65 * daylight)
+  if (daylight > 0.5 && (o.fraction < 0.15 || o.cloudCover > 85)) return null
+  const veil = (1 - smoothstep(40, 100, o.cloudCover)) * (1 - 0.9 * o.farFade)
+  const dayStrength = 0.35 + 0.45 * clamp01(o.fraction)
+  const opacity = veil * (1 - daylight * (1 - dayStrength))
   return opacity < 0.04 ? null : { opacity, daylight, ring: o.fraction < 0.25 }
 }
