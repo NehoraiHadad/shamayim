@@ -12,7 +12,7 @@ import { Field } from './generic/fields'
 import { isField, isHillMark, planeOf, specOf } from './hillPlane'
 import { fieldDepthOf } from './markBox'
 import { PLAIN_LABEL_FONT, type PlainLabel } from './plainLabels'
-import { sunSideOf } from './LightRig'
+import { sunLightOf, sunStyle } from './LightRig'
 import { MarkBuilding, type BuildingContext } from './MarkBuilding'
 import { SettlementGlyph } from './SettlementGlyph'
 import { lifeStyle, useMarkMotion } from './useMarkMotion'
@@ -66,9 +66,10 @@ export function HillMarks({ marks, settlement, cityTowers, citySkyline, neighbou
   const night = context.night && !far
   const massAt = (row: number) => masses.filter(mass => mass.row === row && mass.houses.length).map(mass => {
     const x = middle(mass.houses.map(house => house.x))
-    const side = context.shaded?.(x) ? null : sunSideOf(context.sunX, x)
-    const sunWest = side && side === 'w'
-    return <CityMass key={mass.roof} {...mass} night={night} litShare={context.life.litShare} sunWest={sunWest} />
+    const light = context.shaded?.(x) ? null : sunLightOf(context.sunX, x)
+    return <g key={mass.roof} style={light ? sunStyle(light.k) : undefined}>
+      <CityMass {...mass} night={night} litShare={context.life.litShare} sunWest={light && light.side === 'w'} />
+    </g>
   })
   return <svg className={`${styles.px} ${night ? styles.night : ''}`}
     viewBox={`0 0 ${width} 128`} style={lifeStyle(context.life)} data-hidden={motion.hidden || undefined} aria-hidden="true">

@@ -690,8 +690,9 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
       `ui/scene/marks/city/{Skyline.tsx,skylinePaths.ts,skylineLights.ts}`. Cross-section mode unchanged.
 - [x] Stills: `docs/design/qa/skyline/{before,after}-*.png` (Tel Aviv, Petah Tikva, Haifa, Jerusalem, Modi'in, Yagur; day+night).
 - [x] Bug "houses rotate" (כרמי צור, late morning): when the sun crossed the cluster's x every house swapped its lit face
-      in one frame. Now `sunSideOf` (LightRig.tsx) gives a backlit spell of ±15 px (~10°) where both faces go flat;
-      used by SettlementGlyph and CityMass. Stills `docs/design/qa/sun-side/`.
+      in one frame. Now `sunLightOf` (LightRig.tsx) gives the side and a light share k = min(1, sin δ / sin 30°)
+      (CSS `--sun-k`): the lit face, cast shadow and strip dim to the wall tone as the sun crosses behind the cluster,
+      swap side at k ≈ 0, and brighten on the other side. SettlementGlyph + CityMass. Stills `docs/design/qa/sun-side/`.
 - [ ] Tuning: Tel Aviv day towers are tall needles near the scene top; elevation label overlaps the skyline in places.
 - [ ] MarkBuilding still uses its own ±40 px 'top' band (landmarks); consider `sunSideOf` there too.
 - [ ] Console shows some 403/429 resource errors in dev (DEM / rate limits); not investigated.

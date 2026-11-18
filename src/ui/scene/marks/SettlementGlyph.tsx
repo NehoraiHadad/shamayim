@@ -4,7 +4,7 @@ import { BlockHouse } from './blocks'
 import { CityMass } from './city/CityMass'
 import { CastShadow } from './generic/shadow'
 import { FlatRoof, Shed, TileHouse } from './houses'
-import { ContactShadow, SunStrip, sunSideOf } from './LightRig'
+import { ContactShadow, SunStrip, sunLightOf, sunStyle } from './LightRig'
 import styles from './marks.module.css'
 
 /** The place's own houses (ILLUSTRATION.md §4), drawn in px in the shared overlay svg. */
@@ -65,9 +65,10 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
     && detail !== undefined && Math.abs(house.x - detail.centerX) > detail.half)), [houses, detail])
   const ordered = houses.filter(inDetail).sort((a, b) => a.row - b.row || a.baseY - b.baseY)
   const lit = sunX != null && !night
-  /** One light direction for the whole cluster, so no seam runs through the village at the sun's x; backlit near it. */
+  /** One light direction for the whole cluster, so no seam runs through the village at the sun's x. */
   const xs = houses.map((house) => house.x)
-  const side = lit ? sunSideOf(sunX, (Math.min(...xs) + Math.max(...xs)) / 2) : null
+  const light = lit ? sunLightOf(sunX, (Math.min(...xs) + Math.max(...xs)) / 2) : null
+  const side = light?.side ?? null
   const sunWest = side === 'w'
   const grow = style === 'tile' ? TILE_GROW : 1
   const drawHouse = (house: House, i: number) => {
@@ -92,7 +93,7 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
     </g>
   }
   const drawn = ordered.map(drawHouse)
-  return <g className={side ? undefined : styles.flat}>
+  return <g className={side ? undefined : styles.flat} style={light ? sunStyle(light.k) : undefined}>
     {contours.map((d) => <path key={d} className={styles.contour} d={d} />)}
     {afterRow || detail ? [0, 1, 2].map(row => <Fragment key={row}>
       <CityMass houses={mass[row]} row={row} sunWest={side && sunWest} night={night} litShare={litShare} />

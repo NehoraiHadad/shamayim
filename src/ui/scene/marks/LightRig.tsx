@@ -1,22 +1,29 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { BuildingProps, BuildingSpec } from './generic/buildingSpecs'
 import styles from './marks.module.css'
 
 export type LightSide = 'w' | 'e' | 'top'
 
-/**
- * Sun within this many px of a body's own x (10° of the 250° panorama at 375 px): we look at it against the light, so
- * its side faces take sin 10° × cos(altitude) < 0.17 of the beam, no more than skylight. Inside this spell it is drawn
- * backlit (both faces flat) and its lit side swaps there, instead of every house mirroring in one frame as the sun
- * crosses the cluster.
- */
-export const BACKLIT_PX = 15
+/** Panorama scale: 250° of bearing across 375 px. */
+const PX_PER_DEG = 1.5
+/** A side face takes its full drawn light from this angle between the sun and the body's bearing. */
+const FULL_LIGHT_DEG = 30
 
-/** Which side face takes the sun: west or east of the body, or null when backlit or no sun. */
-export function sunSideOf(sunX: number | null, x: number): 'w' | 'e' | null {
+/**
+ * Which side face takes the sun, and how much of its drawn light (`k`, 0–1, the CSS `--sun-k`). A side wall square to
+ * the line of sight gets the beam in proportion to sin δ, δ the sun's bearing off the body's: as the sun crosses
+ * behind the body the lit face dims to the wall tone, the side swaps at δ = 0 where nothing shows, and the other face
+ * brightens; no house ever mirrors in one frame.
+ */
+export function sunLightOf(sunX: number | null, x: number): { side: 'w' | 'e'; k: number } | null {
   if (sunX == null) return null
-  return sunX < x - BACKLIT_PX ? 'w' : sunX > x + BACKLIT_PX ? 'e' : null
+  const delta = (sunX - x) / PX_PER_DEG
+  const k = Math.min(1, Math.abs(Math.sin(delta * Math.PI / 180)) / Math.sin(FULL_LIGHT_DEG * Math.PI / 180))
+  return { side: delta <= 0 ? 'w' : 'e', k: Math.round(k * 100) / 100 }
 }
+
+/** The `--sun-k` style for a group whose lit faces, cast shadows and strips follow `sunLightOf`. */
+export const sunStyle = (k: number) => ({ '--sun-k': k }) as CSSProperties
 
 /**
  * The one named light (the sun) on a glyph, clipped to its own silhouette: a lit strip on the sun side (R4) and a
@@ -44,7 +51,7 @@ export function SunStrip({ id, w, h, litWidth = .35, side, children }:
         : <>
           <rect className={styles.lit} x={side === 'w' ? -half - 2 : half - w * litWidth} y={-h - 4}
             width={w * litWidth + 2} height={h + 4} />
-          <rect className={styles.shade} opacity={.55} x={side === 'w' ? half - shadeWidth : -half - 2} y={-h - 4}
+          <rect className={styles.shade} style={{ opacity: 'calc(.55 * var(--sun-k, 1))' }} x={side === 'w' ? half - shadeWidth : -half - 2} y={-h - 4}
             width={shadeWidth + 2} height={h + 4} />
         </>}
     </g>
