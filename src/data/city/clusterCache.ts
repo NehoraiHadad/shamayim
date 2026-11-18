@@ -13,6 +13,7 @@ function valid(cluster: Cluster | null) {
   return finite([cluster.id, centre.dx, centre.dy, cluster.squares, cluster.measured, cluster.shareSum,
     cluster.levels, cluster.upper, cluster.nearest, form.size, form.big, form.pitched, form.flat, form.evidence]) &&
     cluster.squares >= 4 && cluster.measured >= 0 && cluster.measured <= cluster.squares &&
+    (form.tagged === undefined || Number.isInteger(form.tagged) && form.tagged >= 0 && form.tagged <= cluster.measured) &&
     cluster.nearest >= 0 && typeof cluster.urban === 'boolean' &&
     (!place || typeof place.name === 'string' && [0, 1, 2, 3].includes(place.kind) &&
       [0, 1, 2, 3, 4, 5].includes(place.faith)) &&

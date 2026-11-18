@@ -12,7 +12,7 @@ export type Cluster = {
   levels: number
   upper: number
   // Form size is a class. Big, pitched, flat and evidence are fractions of mapped squares.
-  form: { size: number; big: number; pitched: number; flat: number; evidence: number }
+  form: { size: number; big: number; pitched: number; flat: number; evidence: number; tagged?: number }
   bands: { dy: number; runs: Extent[]; big: Extent[] }[]
   place?: { name: string; kind: PlaceRow[2]; faith: PlaceRow[3] }
   urban: boolean

@@ -1,6 +1,6 @@
 import { useId, useMemo, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
-import type { CityColumns } from '../../data/city/types'
+import type { CityResult } from '../../data/city/types'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { Place } from '../../config/place'
@@ -49,7 +49,7 @@ interface Props {
   mistColor?: string
   place: Place
   landmarks: Landmark[]
-  city?: CityColumns | null
+  city?: CityResult | null
   markLife: MarkLife
   first: LocalTime
   last: LocalTime

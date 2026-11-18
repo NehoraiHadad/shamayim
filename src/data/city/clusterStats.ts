@@ -25,7 +25,7 @@ export function describeCluster(place: Coordinate, component: BuiltSquare[], nod
   const count = depth < .35 ? 1 : depth < .8 ? 2 : 3
   const bands = Array.from({ length: count }, () => ({ columns: [] as number[], sheds: [] as number[] }))
   let shareSum = 0, measured = 0, weightedLevels = 0, measuredShare = 0, upper = 0
-  let big = 0, pitched = 0, flat = 0, evidence = 0, nearest = Infinity, cx = 0, cy = 0
+  let big = 0, pitched = 0, flat = 0, tagged = 0, evidence = 0, nearest = Infinity, cx = 0, cy = 0
   const sizes: number[] = []
   for (const square of squares) {
     const { x, y, meta } = square
@@ -48,6 +48,7 @@ export function describeCluster(place: Coordinate, component: BuiltSquare[], nod
     if (form.big >= 2) { big++; band.sheds.push(x) }
     if (form.roof & 1) pitched++
     if (form.roof & 2) flat++
+    if (form.roof) tagged++
     if (form.evidence) evidence++
   }
   const xs = squares.map(square => square.x).sort((a, b) => a - b)
@@ -62,7 +63,7 @@ export function describeCluster(place: Coordinate, component: BuiltSquare[], nod
   return { id, dx, dy, centre: { dx: cx / shareSum, dy: cy / shareSum }, nearest,
     squares: squares.length, measured, shareSum, levels: measuredShare ? weightedLevels / measuredShare : 0, upper,
     form: { size: sizes[Math.floor((sizes.length - 1) / 2)] ?? 0, big: big / denominator,
-      pitched: pitched / denominator, flat: flat / denominator, evidence: evidence / denominator },
+      pitched: pitched / denominator, flat: flat / denominator, evidence: evidence / denominator, tagged },
     bands: bands.map(({ columns, sheds }, i) => ({
       dy: dy[1] - (i + .5) * depth / count, runs: runs(columns, toKm), big: runs(sheds, toKm),
     })),

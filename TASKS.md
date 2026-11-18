@@ -554,7 +554,16 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       the dot merge into one path set per row (`city/massPath.ts`, `CityMass.tsx`: walls, sun face, roofs, day panes,
       night lights by `litShare`); budget 144 blocks at 375 px. `scripts/shot.mjs` takes `SHOT_TIME` for day/night stills.
       Still `docs/design/qa/25d/city-phase3.png` (top day 10:00, bottom night 21:00).
-      Not done: S5 DOM budget test, S6 owner look test. Next: phase 4 (far city, curated, neighbours). Codex runs must pin `-m gpt-6.2-sol`
+      Not done: S5 DOM budget test, S6 owner look test. Codex runs must pin `-m gpt-6.2-sol`
+      Phase 4V (villages from data, plan §10, branch `city-phase4`):
+      - [x] V0–V2 (9854c8f): v2 cells (form byte, place nodes), client clusters, home tier A/B/C
+      - [x] V3: tier-A villages draw rows from their mapped footprint (`villageExtent.ts` `villageRows`, `homeMode.ts`):
+            width = max(width law, template width), pitch 0.7×, rows by N–S band rank seated like the template
+            (sink = row·ROW_STEP), reach ×2, a 10.5 px gap at the dot only on the crest row. Karmei Tzur is tier A
+            from data (no hardcoded template). Checked in the pane: Nahalal, Yagur, Ein Mahil, Daliyat, Mizra, Karmei Tzur.
+            Known: Daliyat gets `tile` (no tagged worship nodes, faith 0); Karmei Tzur sparse on its steep face
+      - [ ] V4 house forms (sheds, big roofs) · V5 neighbours at true x · V6 marks/label/budget · V7 (owner yes) · V8 owner look
+      - [ ] Then F3, F1, F2, F5, F6
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18
