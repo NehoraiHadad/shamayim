@@ -3,28 +3,34 @@ import type { Hanging } from './garments'
 /** Rain and sun gear on the line: hooked things hang by their crook or loop, the hat by one peg on its brim. */
 export const GEAR = {
   // Closed umbrella hung by its crook: furled canopy held by a snapped strap, tip at the bottom; it drips.
+  // Drawn in its own frame (shaft on x = 0), then hung: the crook's inner top rests on the rope at (0, 0) and the whole
+  // umbrella turns until its weight (the furled canopy) hangs straight under that point.
   umbrella: {
     cloth: '#2A6AA8',
     weight: 1.1,
     pegs: [],
     hook: true,
-    drips: [[4.4, 46]],
+    drips: [[-2.1, 44.6]],
+    over: [-4.4, -1.4],
     body: (
-      <>
-        <path d="M-5 4.5A4.6 4.6 0 0 1 4.2 -1.5V8" className="seam strong" />
-        <path d="M4.2 8C-1.5 14-1.8 33 3.4 41.5 4 42.4 4.4 42.4 5 41.5 10.2 33 9.9 14 4.2 8Z" />
-        <path d="M4.6 10.4C8.4 17 8.6 31 5 39.6 7.2 31 7 18.4 4.6 10.4Z" className="shade" />
-        <path d="M4.2 11C2 18 2.3 31 4.2 38M4.2 11C6.6 20 7 29 5.6 36" className="seam" />
-        <path d="M1.2 22.6Q4.4 24.8 8.2 22.2" className="seam strong" />
-        <circle cx="4.6" cy="23.6" r="0.9" className="dot" />
-        <path d="M4.2 42v3" className="seam strong" />
-      </>
+      <g transform="rotate(6.2) translate(2.6 -3)">
+        <path d="M0 9V4.2A2.6 2.6 0 0 0-5.2 4.2V5.4Q-5.2 6.6-4.2 6.8" className="crook" />
+        <path d="M-0.5 4.2A2.1 2.1 0 0 0-4.7 4.2" className="glint" />
+        <path d="M-1.2 9H1.2L1.5 11.6H-1.5Z" className="dot" />
+        <path d="M0 11.4C-5.4 17-5.8 35-0.8 43.2 -0.3 44 0.3 44 0.8 43.2 5.8 35 5.4 17 0 11.4Z" />
+        <path d="M0.6 13.4C4.4 20 4.6 34 0.8 41.6 3.2 33 3 21 0.6 13.4Z" className="shade" />
+        <path d="M0 14C-2.4 21-2.1 33 0 40.6M0 14C2.4 23 2.8 32 1.4 38.6M-0.3 15.4Q-3.6 26-2.2 36.4" className="seam" />
+        <path d="M-3.8 25.6Q0 28 4.2 25.2" className="seam strong" />
+        <circle cx="0.4" cy="26.6" r="0.9" className="dot" />
+        <path d="M0 43.6v2.6" className="seam strong" />
+      </g>
     ),
   },
   // Light rain jacket: a hood falling back behind the neck, drawstrings, a zip, a storm flap pocket; it drips.
   rainJacket: {
     cloth: '#E8C230',
     weight: 1.1,
+    hem: 33.5,
     pegs: [-8.5, 8.5],
     drips: [[-6, 35.6], [7, 35.4], [-17.8, 29.4]],
     body: (
@@ -38,20 +44,27 @@ export const GEAR = {
       </>
     ),
   },
-  // Sun hat pegged by its brim: wide brim with its shaded underside, a band round the crown, a ribbon tail.
+  // Sun hat hung by its chin cord looped over the rope: the cord runs down behind the crown to the band; a wide
+  // brim with its shaded underside, a band round the crown, a ribbon tail.
   sunHat: {
     cloth: '#CDAE7C',
     weight: 0.5,
-    pegs: [0],
+    pegs: [],
+    hook: true,
+    over: [-2.6, -0.4],
     body: (
       <>
-        <path d="M7.4 9.4Q11.6 12 11.2 18.6L9.4 17 8 18.8Q8.2 13.4 5.6 10.4Z" />
-        <path d="M-15 12.5Q-14 6.5 0 6.2 14 6.5 15 12.5 9 16.5 0 16.5-9 16.5-15 12.5Z" />
-        <path d="M-12.6 13.6Q0 17.4 12.6 13.6 8 15.6 0 15.6-8 15.6-12.6 13.6Z" className="shade" />
-        <path d="M-8 10.8Q-8.2 1.5 0 1.2 8.2 1.5 8 10.8" />
-        <path d="M2.4 2.2Q6.8 3.6 7 9.6L3.4 9.8Q4 5 2.4 2.2Z" className="shade" />
-        <path d="M-8 8.6Q0 10.6 8 8.6" className="seam strong" />
-        <path d="M0 6.2V1.2M-12.2 12.6Q0 15.8 12.2 12.6" className="stitch" />
+        <path d="M-1.3 2.4A1.8 1.8 0 1 1 1.3 2.4L6.8 15.4M-1.3 2.4L-6.8 15.4" className="cord" />
+        <g transform="translate(0 8)">
+          <path d="M7.4 9.4Q11.6 12 11.2 18.6L9.4 17 8 18.8Q8.2 13.4 5.6 10.4Z" />
+          <path d="M-15 12.5Q-14 6.5 0 6.2 14 6.5 15 12.5 9 16.5 0 16.5-9 16.5-15 12.5Z" />
+          <path d="M-12.6 13.6Q0 17.4 12.6 13.6 8 15.6 0 15.6-8 15.6-12.6 13.6Z" className="shade" />
+          <path d="M-8 10.8Q-8.2 1.5 0 1.2 8.2 1.5 8 10.8" />
+          <path d="M2.4 2.2Q6.8 3.6 7 9.6L3.4 9.8Q4 5 2.4 2.2Z" className="shade" />
+          <path d="M-5.6 4.4Q-4.4 2.6-2.4 2.2" className="glint" />
+          <path d="M-8 8.6Q0 10.6 8 8.6" className="seam strong" />
+          <path d="M-0.6 1.6Q0 4 0 6.2M-12.2 12.6Q0 15.8 12.2 12.6" className="stitch" />
+        </g>
       </>
     ),
   },
@@ -61,12 +74,13 @@ export const GEAR = {
     weight: 1.3,
     pegs: [],
     hook: true,
+    over: [-4.2, -1.8],
     body: (
       <>
-        <path d="M-2.4 3.8A3 3 0 1 1 2.4 3.8" className="seam strong" />
+        <path d="M-2.4 3.4A3 3 0 1 1 2.4 3.4" className="crook" />
         <path d="M-2.6 4H2.6V7.5Q6 9.5 6 13V30Q6 32 4 32H-4Q-6 32-6 30V13Q-6 9.5-2.6 7.5Z" />
         <path d="M-5.2 17.4Q-2.6 16.2 0 17.4T5.2 17.4V29.6Q5.2 31.2 3.6 31.2H-3.6Q-5.2 31.2-5.2 29.6Z" className="water" />
-        <path d="M-2.6 6.2H2.6" className="seam" />
+        <path d="M-2.6 6.2H2.6M-1.3 4.2v2M0 4.2v2M1.3 4.2v2" className="seam" />
         <path d="M-3.8 12.6V27" className="glint" />
       </>
     ),

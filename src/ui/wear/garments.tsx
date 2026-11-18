@@ -16,6 +16,10 @@ export interface Hanging {
   hook?: boolean
   /** Points where rain gear drips from (local coords). */
   drips?: [number, number][]
+  /** Hooked things: the stretch of rope (local x) that runs in front of the hook's far arm, so the hook hangs over it. */
+  over?: [number, number]
+  /** Two-peg tops: where the hem hangs (local y), so gravity folds can fall from the pegs toward it. */
+  hem?: number
   /** How hard it pulls the line down, about 1 for a shirt (default 1). */
   weight?: number
 }

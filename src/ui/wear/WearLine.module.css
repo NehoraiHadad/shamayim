@@ -16,13 +16,20 @@
   stroke-linejoin: round;
 }
 
-/* A twisted cord: short pale lays riding the line. */
+/* A twisted cord: short pale lays slanted across the line. */
 .twist {
   fill: none;
-  stroke: color-mix(in srgb, var(--sheet-muted) 62%, var(--sheet));
-  stroke-width: 0.5;
-  stroke-dasharray: 0.8 2.4;
-  stroke-linejoin: round;
+  stroke: color-mix(in srgb, var(--sheet-muted) 45%, var(--sheet));
+  stroke-width: 0.45;
+  stroke-linecap: round;
+}
+
+/* The short stretch of rope that passes in front of a hook's far arm (in the garment's 1.3x space). */
+.ropeBit {
+  fill: none;
+  stroke: var(--sheet-muted);
+  stroke-width: 1.15;
+  stroke-linecap: round;
 }
 
 /* The line wrapped twice round each tab. */
@@ -69,6 +76,29 @@
   stroke-width: 1.15;
 }
 
+.item :global(.crook) {
+  fill: none;
+  stroke: color-mix(in srgb, var(--sheet-ink) 72%, var(--sheet));
+  stroke-width: 1.35;
+}
+
+.item :global(.cord) {
+  fill: none;
+  stroke: color-mix(in srgb, var(--cloth) 45%, var(--sheet-ink));
+  stroke-width: 0.7;
+}
+
+/* The inside of the garment's back, seen through the open neck: the cloth in its own shadow. */
+.item :global(.inner) {
+  fill: color-mix(in srgb, color-mix(in srgb, var(--cloth) 45%, var(--sheet)) 62%, #000);
+  stroke-width: 0.8;
+}
+
+.item :global(.tag) {
+  fill: color-mix(in srgb, var(--sheet) 88%, var(--sheet-ink));
+  stroke: none;
+}
+
 .item :global(.dot) {
   fill: color-mix(in srgb, var(--sheet-ink) 80%, var(--sheet));
   stroke: none;
@@ -81,7 +111,7 @@
 
 .item :global(.glint) {
   fill: none;
-  stroke: rgb(255 255 255 / 0.7);
+  stroke: rgb(255 255 255 / 0.55);
   stroke-width: 1;
 }
 
@@ -98,8 +128,27 @@
   stroke-width: 0.45;
 }
 
+.item .pegLight {
+  fill: none;
+  stroke: color-mix(in srgb, var(--sheet-accent) 20%, var(--sheet));
+  stroke-width: 0.4;
+  stroke-linecap: round;
+}
+
+.item .coil {
+  fill: none;
+  stroke: color-mix(in srgb, var(--sheet) 55%, var(--sheet-ink));
+  stroke-width: 0.25;
+}
+
 .item .spring {
   fill: color-mix(in srgb, var(--sheet-ink) 65%, var(--sheet));
+  stroke: none;
+}
+
+/* The weight of the cloth hanging from a peg: a soft fold that dies out toward the hem. */
+.item .fold {
+  fill: color-mix(in srgb, color-mix(in srgb, var(--cloth) 40%, var(--sheet)) 91%, #000);
   stroke: none;
 }
 
@@ -123,15 +172,22 @@
   animation: flap var(--sway-dur, 7s) var(--ease-in-out) infinite;
 }
 
-.item[data-hook] { animation-name: swing; }
+/* A hooked thing swings about its hook, which sits on the rope at its local origin. */
+.item[data-hook] {
+  animation-name: swing;
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
 
+/* The hem leads, the cloth fills with air (wider, a touch shorter) and sags back with a small overshoot. */
 @keyframes flap {
-  0%, 100% { transform: skewX(0deg); }
-  18% { transform: skewX(var(--sway-amp)); }
-  30% { transform: skewX(calc(var(--sway-amp) * 0.35)); }
-  48% { transform: skewX(calc(var(--sway-amp) * 0.9)); }
-  62% { transform: skewX(calc(var(--sway-amp) * -0.25)); }
-  80% { transform: skewX(calc(var(--sway-amp) * 0.6)); }
+  0%, 100% { transform: skewX(0deg) scale(1, 1); }
+  18% { transform: skewX(var(--sway-amp)) scale(calc(1 + var(--billow)), calc(1 - var(--billow) * 0.5)); }
+  30% { transform: skewX(calc(var(--sway-amp) * 0.35)) scale(1, 1); }
+  48% { transform: skewX(calc(var(--sway-amp) * 0.9)) scale(calc(1 + var(--billow) * 0.8), calc(1 - var(--billow) * 0.4)); }
+  62% { transform: skewX(calc(var(--sway-amp) * -0.25)) scale(calc(1 - var(--billow) * 0.3), 1); }
+  80% { transform: skewX(calc(var(--sway-amp) * 0.6)) scale(calc(1 + var(--billow) * 0.5), calc(1 - var(--billow) * 0.25)); }
+  90% { transform: skewX(calc(var(--sway-amp) * -0.12)) scale(1, 1); }
 }
 
 @keyframes swing {
@@ -141,11 +197,13 @@
   48% { transform: rotate(calc(var(--sway-amp) * -0.7)); }
   62% { transform: rotate(calc(var(--sway-amp) * 0.2)); }
   80% { transform: rotate(calc(var(--sway-amp) * -0.5)); }
+  90% { transform: rotate(calc(var(--sway-amp) * 0.15)); }
 }
 
-/* Rain gear drips: a drop swells at the hem, falls, fades. */
-.drip {
+/* Rain gear drips: a drop swells at the hem, falls, fades. It rides the swing of what it drips from. */
+.item .drip {
   fill: color-mix(in srgb, var(--cloth) 70%, var(--sheet));
+  stroke: none;
   transform-box: fill-box;
   transform-origin: center;
   animation: drip 2.4s ease-in infinite;
@@ -158,6 +216,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .item, .drip { animation: none; }
-  .drip { opacity: 0.8; }
+  .item, .item .drip { animation: none; }
+  .item .drip { opacity: 0.8; }
 }

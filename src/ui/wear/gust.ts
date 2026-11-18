@@ -29,6 +29,21 @@ export function rope(w: number, endY: number, sag: number, loads: Load[] = []) {
   return { y, d: pts.map((x, i) => `${i ? 'L' : 'M'}${x} ${y(x).toFixed(2)}`).join('') }
 }
 
+/** The lay of a twisted cord: short strokes slanted across the line every 2.4 px, following its bends. */
+export function twist(w: number, endY: number, sag: number, loads: Load[] = []) {
+  const { y } = rope(w, endY, sag, loads)
+  let d = ''
+  for (let x = 3; x < w - 3; x += 2.4) {
+    const m = y(x + 0.4) - y(x - 0.4)
+    const n = Math.hypot(0.8, m)
+    const [tx, ty] = [0.8 / n, m / n] // along the cord
+    const [nx, ny] = [-ty, tx] // across it
+    const [ax, ay] = [0.55 * tx + 0.7 * nx, 0.55 * ty + 0.7 * ny]
+    d += `M${(x - ax).toFixed(2)} ${(y(x) - ay).toFixed(2)}l${(2 * ax).toFixed(2)} ${(2 * ay).toFixed(2)}`
+  }
+  return d
+}
+
 /** SMIL attributes for one cycle: values per gust stop, smooth between stops. */
 export function smil(dur: string, values: string[]) {
   return {

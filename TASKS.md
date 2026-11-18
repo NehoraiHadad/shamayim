@@ -357,7 +357,17 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
         coat pulls hardest), a twisted-cord lay + knots round the tabs; real spring clothespins (`wear/peg.tsx`: levers,
         slit, wire spring, jaws on the cloth) at a hand-placed lean, cloth bunched in the jaws and drag creases toward
         the slack neck; each piece hangs square to the chord between its own pegs; tee sleeves droop.
-        Checked at 3-4x on light + night paper in the specimen (browser pane); PNG specimen not re-shot (no headless tool)
+        Checked at 3-4x on light + night paper in the specimen (browser pane)
+  - [x] Pass 4 (2026-11-18, owner: "more detail; the umbrella's join to the rope; the animation"): hooked things
+        hang from their real contact point — the umbrella's crook rests on the rope (drawn in its own frame, turned so
+        the canopy hangs plumb under the hook), the bottle's ring and the hat's new chin-cord loop likewise, and the rope
+        is redrawn over each hook's far arm (`over`) so it passes through; hooked things don't tilt with the line.
+        Twisted-cord lay is slanted ticks (`twist()` in gust.ts, morphs with the rope). Pegs: highlight + wire coil,
+        gravity folds from each peg to the hem (`hem`); crew necks show the inside back + care label; tee pocket hem.
+        Motion: hooked things swing about the hook (transform-box view-box, origin 0 0) a beat behind the line; cloth
+        billows (`--billow`, wider/shorter in gusts) with a small overshoot; drips ride the swing.
+        Stills: `docs/design/qa/wear-line-specimen.png` (rest) + `wear-line-gust.png` (t = 0.9 s), headless Chrome with
+        SMIL + CSS frozen at a time; swing checked over 3 frames (crook stays on the rope)
   - [ ] Not verified: real-time motion feel on a phone (only 3 headless frames checked); SMIL + CSS in Safari
   - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
 - Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
