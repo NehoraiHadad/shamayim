@@ -1,4 +1,4 @@
-import type { Layout } from './gl/renderer'
+import { MAX_SEEN, type Layout, type SeenCloud } from './gl/renderer'
 
 /**
  * Reads where the text band, the valley scene and the sun disc are, in the sky's own coordinates. The sky scrolls
@@ -27,6 +27,7 @@ export function readLayout(): Layout {
     sceneTop: scene ? scene.top - y0 : h * 0.55,
     afterglow: scene && sceneEl ? readAfterglow(sceneEl, scene.left - x0, scene.width) : null,
     moon: readMoon(x0, y0),
+    seen: scene && sceneEl ? readSeen(sceneEl.dataset.cloudSeen, scene.left - x0, scene.width, scene.top - y0) : [],
     sun: sunBox ? { x: sunBox.left - x0 + sunBox.width / 2, y: sunBox.top - y0 + sunBox.height / 2 } : null,
   }
 }
@@ -37,6 +38,31 @@ function readAfterglow(el: HTMLElement, left: number, width: number) {
   if (afterglow === undefined || afterglowX === undefined || !afterglowRgb) return null
   const rgb = afterglowRgb.split(',').map(Number) as [number, number, number]
   return { altitude: Number(afterglow), x: left + Number(afterglowX) * width, rgb }
+}
+
+/**
+ * Up from the scene's top for a cloud seen this high: a far cloud (a few degrees) sits just over the ridges, a near one
+ * (~30° and up) high in the sky, never into the top bar.
+ */
+export function seenY(altitude: number, sceneTop: number): number {
+  const low = sceneTop - 46, high = Math.max(sceneTop * 0.22, 48)
+  const t = Math.min(1, Math.max(0, (altitude - 3) / 35))
+  return low - (low - high) * Math.sqrt(t)
+}
+
+/** The single clouds the scene publishes (`ui/scene/cloudSeen.ts`: "x,altitude,half,strength;…"), in sky px. */
+export function readSeen(attr: string | undefined, left: number, width: number, sceneTop: number): SeenCloud[] {
+  if (!attr) return []
+  const out: SeenCloud[] = []
+  for (const part of attr.split(';').slice(0, MAX_SEEN)) {
+    const [x, altitude, half, strength] = part.split(',').map(Number)
+    if (![x, altitude, half, strength].every(Number.isFinite)) continue
+    const rx = half * width
+    // Fair-weather clouds are wider than tall, flatter the further off they are.
+    const ry = rx * (0.28 + 0.22 * Math.min(1, altitude / 30))
+    out.push({ x: left + x * width, y: seenY(altitude, sceneTop), rx, ry: Math.max(8, ry), strength })
+  }
+  return out
 }
 
 /** The moon disc's centre and its light on the clouds, as the scene publishes it (`data-moon-light`). */

@@ -34,6 +34,7 @@ uniform vec3 uHaze; uniform float uHazeAmt;
 uniform vec3 uMoon; // moon x, y, light on the clouds (lit scene, no sun)
 uniform vec3 uSun; uniform vec3 uSunCol; uniform float uRays, uBloom, uCoin;
 uniform vec2 uHeat;   // band height, amplitude
+uniform vec4 uSeen[3]; uniform vec3 uSeenRy; // single clouds the satellite sees: x, y, half-width, strength; half-heights
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) {
@@ -65,7 +66,7 @@ void main() {
   over(acc, uHaze, hz * 0.6 * k);
 
   drawTwilightArch(p, k, acc);
-  if (uCoverage > 0.0) drawClouds(p, band, k, acc);
+  if (uCoverage > 0.0 || uSeen[0].w + uSeen[1].w + uSeen[2].w > 0.003) drawClouds(p, band, k, acc);
   drawCrepuscular(p, k, acc);
 
   if (uSun.z > 0.0) {

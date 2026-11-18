@@ -22,7 +22,7 @@ export function mapAir(i: AirInput): AirState {
     rain: rain(r, i.windSpeed, u, i.weatherCode),
     snow: snow(i.snowfall),
     grains: grains(i),
-    cloud: cloud(i.cloudCover, r),
+    cloud: { ...cloud(i.cloudCover, r), seen: (i.cloudsSeen ?? 0) > 0 },
     heat: heat(i, r),
     haze: { farFade: 0, nearFade: 0, amount: 0, color: '' },
     rays: { alpha: rays(i, r) },
@@ -45,7 +45,7 @@ export function mapAir(i: AirInput): AirState {
   systems.filter((s) => s.on).slice(2).forEach((s) => s.off())
 
   st.calm =
-    st.cloud.coverage === 0 && st.rain.count + st.snow.count + st.grains.count + st.streaks.count === 0 &&
+    st.cloud.coverage === 0 && !st.cloud.seen && st.rain.count + st.snow.count + st.grains.count + st.streaks.count === 0 &&
     st.heat.band === 0 && st.wind.gustExcess === 0 && !st.thunder
   return st
 }

@@ -9,6 +9,8 @@ import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
+import { cloudSeenAttrs } from './cloudSeen'
+import type { WeightedSighting } from '../../domain/cloudSightings'
 import { FarLand } from './FarLand'
 import { FloorShadow } from './FloorShadow'
 import { RidgeLight } from './RidgeLight'
@@ -55,11 +57,13 @@ interface Props {
   onScrub: (time: LocalTime) => void
   onRelease: () => void
   onNow: () => void
+  /** Single clouds the satellite sees near the place right now (none while another hour is shown). */
+  seenClouds?: WeightedSighting[] | null
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, ridgeLight, snow = null, terrain, mist = 0,
-  mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
+  mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow, seenClouds = null }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
@@ -104,6 +108,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       aria-label={label}
       data-scene
       {...afterglow}
+      {...cloudSeenAttrs(selected ? null : seenClouds)}
       data-haze={air.haze.farFade > 0.5 || (snow?.falling && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2),
         ...world?.style } as CSSProperties}

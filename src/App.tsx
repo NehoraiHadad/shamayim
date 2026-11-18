@@ -14,6 +14,7 @@ import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
+import { sightingsNow } from './domain/cloudSightings'
 import { rainSentence } from './domain/rainSentence'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
@@ -22,7 +23,7 @@ import { sheetVars, useSheetPaper } from './theme/sheetLight'
 import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
-import { forcedTheme, forcedWeather } from './ui/devParams'
+import { forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
@@ -66,7 +67,14 @@ export default function App() {
   const sceneTime = useSceneTime(now)
   const selected = sceneTime.at
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
-  const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected), ...forcedWeather() } : null), [forecast, now, place, selected])
+  // Single clouds the satellite sees near the place: only for "now", on a mostly clear sky (see `cloudSightings.ts`).
+  const seenClouds = useMemo(() => {
+    const pinned = forcedSightings()
+    if (pinned) return pinned.map((s) => ({ ...s, strength: 1 }))
+    return forecast ? sightingsNow(observed, now, forecast.current.cloudCover) : []
+  }, [forecast, observed, now])
+  const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected),
+    cloudsSeen: selected ? 0 : seenClouds.length, ...forcedWeather() } : null), [forecast, now, place, selected, seenClouds])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
@@ -121,7 +129,7 @@ export default function App() {
           <ValleyScene
             forecast={forecast} now={now} selected={selected} lat={place.lat}
             readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
-            air={air!} cloudCover={shown?.cloudCover ?? 0}
+            air={air!} cloudCover={shown?.cloudCover ?? 0} seenClouds={seenClouds}
             ridgeLight={SCENE_25D && shown
               ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 }
               : undefined}

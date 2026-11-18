@@ -11,10 +11,23 @@ vec2 cloudWarp(vec2 p, float scale, float speed) {
   float warp = fbm(q * 0.5 + uTime * 0.008);
   return q + warp * 0.7 + vec2(0.0, uTime * 0.003);
 }
-float cloudLayer(vec2 p, float scale, float speed, float cov, vec2 offset, out float shade, out float depth) {
+// The single clouds the satellite sees near the place, as a lift on the noise: the fbm still makes their edges and
+// texture (and drifts through them), but the core stands where the cloud is, whatever the cover.
+float seenLift(vec2 p) {
+  float b = 0.0;
+  for (int i = 0; i < 3; i++) {
+    if (uSeen[i].w <= 0.003) continue;
+    vec2 d = (p - uSeen[i].xy) / vec2(uSeen[i].z, uSeenRy[i]);
+    // Flat-bottomed like a fair-weather cumulus: below its centre it ends sooner.
+    d.y *= d.y > 0.0 ? 1.6 : 1.0;
+    b = max(b, uSeen[i].w * exp(-dot(d, d)));
+  }
+  return 0.6 * b;
+}
+float cloudLayer(vec2 p, float scale, float speed, float cov, vec2 offset, float lift, out float shade, out float depth) {
   vec2 w = cloudWarp(p, scale, speed);
-  float n = fbm(w);
-  shade = clamp((n - fbm(w + offset)) * 5.0 + 0.7, 0.0, 1.0);
+  float n = fbm(w) + lift;
+  shade = clamp((n - lift - fbm(w + offset)) * 5.0 + 0.7, 0.0, 1.0);
   // Measured on the GPU, the warped fbm sits mostly in 0.22–0.6 (median ~0.34): the threshold walks that range so a
   // few clouds are its top tail (separate puffs) and overcast is nearly all of it.
   float t = mix(0.62, 0.20, cov);
@@ -25,7 +38,7 @@ float cloudLayer(vec2 p, float scale, float speed, float cov, vec2 offset, out f
 // How much cloud stands at a point, both layers, without shading: what the rays read to find the real gaps.
 float cloudAt(vec2 p) {
   float t = mix(0.62, 0.20, uCoverage), t2 = mix(0.62, 0.20, uCoverage * 0.9);
-  float hi = smoothstep(t - 0.03, t + 0.10, fbm(cloudWarp(p, 1.0, 0.6)));
+  float hi = smoothstep(t - 0.03, t + 0.10, fbm(cloudWarp(p, 1.0, 0.6)) + seenLift(p));
   float lo = uLow * smoothstep(t2 - 0.03, t2 + 0.10, fbm(cloudWarp(p + 91.0, 0.55, 1.0))) * smoothstep(80.0, 260.0, p.y);
   return max(hi * 0.85, lo) * (1.0 - smoothstep(uScene - 30.0, uScene + 60.0, p.y));
 }
@@ -58,8 +71,8 @@ void drawClouds(vec2 p, float band, float k, inout vec4 acc) {
     dir = normalize(mix(dir, vec2(0.0, -1.0), uFront) + vec2(0.0, -1e-3));
     offset = mix(offset, dir * 0.103, max(max(lit, glow), moon > 0.0 ? 1.0 : 0.0));
   }
-  float d = cloudLayer(p, 1.0, 0.6, uCoverage, offset, s1, z1);
-  float d2 = uLow * cloudLayer(p + 91.0, 0.55, 1.0, uCoverage * 0.9, offset, s2, z2) * smoothstep(80.0, 260.0, p.y);
+  float d = cloudLayer(p, 1.0, 0.6, uCoverage, offset, seenLift(p), s1, z1);
+  float d2 = uLow * cloudLayer(p + 91.0, 0.55, 1.0, uCoverage * 0.9, offset, 0.0, s2, z2) * smoothstep(80.0, 260.0, p.y);
   float shade = d2 > d ? s2 : s1;
   float dens = max(d * 0.85, d2) * prof;
   vec3 col = mix(uCloudShade, uCloudLit, mix(shade, shade * 0.4, band));

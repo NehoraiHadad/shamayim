@@ -40,3 +40,24 @@ describe('cloudShare', () => {
     expect(cloudShare(px)).toBeCloseTo(100 / 3)
   })
 })
+
+describe('observed cloud sampling', () => {
+  it('tries the newest slot that may be out (~15 min late) first, then older ones', async () => {
+    const { candidateSlots } = await import('./useObservedCloud')
+    const at = Date.UTC(2026, 10, 18, 15, 0)
+    expect(candidateSlots(at).map((t) => new Date(t).toISOString().slice(11, 16))).toEqual(['14:45', '14:30', '14:15'])
+  })
+  it('reads the middle 30 km for cover and the whole sample for single clouds', async () => {
+    const { readMask } = await import('./useObservedCloud')
+    const n = 24
+    const rgba = new Uint8ClampedArray(n * n * 4)
+    for (let k = 0; k < n * n; k++) rgba.set([0, 200, 0, 255], k * 4)
+    // One cloud pixel outside the middle 12×12: west, a little south.
+    rgba.set([255, 255, 255, 255], (13 * n + 2) * 4)
+    const got = readMask(rgba)!
+    expect(got.cover).toBe(0)
+    expect(got.sightings).toHaveLength(1)
+    expect(got.sightings![0].azimuth).toBeGreaterThan(260)
+    expect(got.sightings![0].azimuth).toBeLessThan(270)
+  })
+})

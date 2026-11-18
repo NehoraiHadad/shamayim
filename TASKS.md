@@ -430,6 +430,19 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
       as the sheet's entry row. Checked live (London, Paris, Munich, Glasgow, Seattle). Written by Claude Opus 5.5
 - [ ] Not verified: the nowcast over Israel on a rainy day (does RainViewer cover IMS radar well?); motion is in whole
       cells (~8 km/h steps); a row with a long story on a phone
+- [x] Single clouds the satellite sees (owner's photo, 18.11 16:27: one sunset-lit cloud over an almost empty sky; the
+      models said 40–45%, the satellite ~5%, so the scene drew nothing). `src/domain/cloudSightings.ts` finds the
+      connected cloud patches in a 24×24 px mask over 60 km (cover still read from the middle 30 km, unchanged), with
+      direction, distance and width; `ui/scene/cloudSeen.ts` places up to 3 in the scene (x = the sun/moon azimuth
+      projection, height from distance at an assumed 2 km base, width as seen); the air shader lifts its noise there
+      (`seenLift`), so fbm still makes the edges and the afterglow/sun light them. Only for "now", only under 50% cover,
+      fading with the image's age; north (behind the picture) left out. Dev: `?seen=az:km:width,...`.
+      Stills: `docs/design/qa/clouds-seen.png` (16:27 without / with the patches the mask had at 16:15, and midday)
+- [x] Fresher satellite: a slot is served ~15 min after its time (measured: 14:45 out at 15:00), not 30; the hook now
+      tries the newest that may be out first, polls every 5 min but asks only for a slot newer than the one it holds,
+      and checks again when the app comes back on screen or online
+- [ ] Not verified: on a phone GPU (headless swiftshader draws all clouds faint); whether the mask's ~4–5 km pixels
+      miss small cumulus often; cloud-top height (`msg_fes:cth`, same 15 min) could set the height instead of 2 km
 - [ ] Later: proxy RainViewer/EUMETSAT through the Worker cache; NASA MODIS/VIIRS "photo of the day" layer (offered)
 
 ## Illustration round — snow, small fixes, sun/moon — 2026-11-18 (branch `claude/illustration-round-81b0d0`)

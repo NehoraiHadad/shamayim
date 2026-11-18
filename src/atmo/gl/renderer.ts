@@ -19,7 +19,14 @@ export interface Layout {
   /** Lit scene: the moon's place and how strongly it lights the clouds (0..1), when it is up. */
   moon?: { x: number; y: number; light: number } | null
   afterglow?: { x: number; altitude: number; rgb: [number, number, number] } | null
+  /** Single clouds the satellite sees now, placed in sky px: centre, half-width, half-height, strength (0..1). */
+  seen?: SeenCloud[]
 }
+
+export interface SeenCloud { x: number; y: number; rx: number; ry: number; strength: number }
+
+/** At most this many single clouds (the shader's uniform array). */
+export const MAX_SEEN = 3
 
 const AIR_SCALE = 1 / 3
 
@@ -32,8 +39,14 @@ export class AirRenderer {
   private tri: WebGLBuffer
   private pbuf: WebGLBuffer
   private target: Target | null = null
+  /** The single clouds as drawn, easing toward the layout's so a new satellite slot moves them, never jumps. */
+  private seen = new Float32Array(MAX_SEEN * 4)
+  private seenRy = new Float32Array(MAX_SEEN)
+  private seenAt = -1
   dpr = 1
   octaves = 3
+  /** Reduced motion / save-data: changes show at once instead of easing. */
+  still = false
 
   private canvas: HTMLCanvasElement
 
@@ -102,7 +115,31 @@ export class AirRenderer {
     gl.uniform1f(u('uBloom'), c.bloom)
     gl.uniform1f(u('uCoin'), c.coin)
     gl.uniform2f(u('uHeat'), c.heatBand, c.heatAmp)
+    this.easeSeen(L.seen ?? [], t)
+    gl.uniform4fv(u('uSeen'), this.seen)
+    gl.uniform3fv(u('uSeenRy'), this.seenRy)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
+  }
+
+  /**
+   * Moves the drawn single clouds toward the target by elapsed time (~1.5 s to settle), so a still frame (reduced
+   * motion steps the clock 5 s ahead) or a loop that stops on a calm day still shows them in full.
+   */
+  private easeSeen(target: SeenCloud[], t: number) {
+    const dt = this.seenAt < 0 ? Infinity : Math.max(0, t - this.seenAt)
+    this.seenAt = t
+    const k = this.still ? 1 : 1 - Math.exp(-dt / 0.5)
+    for (let i = 0; i < MAX_SEEN; i++) {
+      const t = target[i]
+      const o = i * 4
+      if (!t) { this.seen[o + 3] += (0 - this.seen[o + 3]) * k; continue }
+      // A cloud that was not drawn starts where it is and only fades in.
+      const fresh = this.seen[o + 3] < 0.01
+      const ease = (j: number, v: number) => { this.seen[o + j] = fresh ? v : this.seen[o + j] + (v - this.seen[o + j]) * k }
+      ease(0, t.x); ease(1, t.y); ease(2, t.rx)
+      this.seenRy[i] = fresh ? t.ry : this.seenRy[i] + (t.ry - this.seenRy[i]) * k
+      this.seen[o + 3] += (t.strength - this.seen[o + 3]) * k
+    }
   }
 
   /** Composite the air and draw the particle fields (every displayed frame). */
