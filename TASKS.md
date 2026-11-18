@@ -352,6 +352,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
         hat ribbon + brim underside, water inside the bottle. Motion (`wear/gust.ts`): one gust cycle shared by the
         rope (SMIL: the line lifts in gusts, more in wind) and the cloth (hems flap out from the pegs, hooked things
         swing; calm days only drift); rain gear drips. Reduced motion: no SMIL, no CSS animation
+  - [x] Pass 3 (2026-11-18, owner: "draw the clothes, the rope and the joins better"): the line kinks under each
+        peg's load (`rope(..., loads)` in `gust.ts`, a polyline with the loads as vertices; per-garment `weight`, the
+        coat pulls hardest), a twisted-cord lay + knots round the tabs; real spring clothespins (`wear/peg.tsx`: levers,
+        slit, wire spring, jaws on the cloth) at a hand-placed lean, cloth bunched in the jaws and drag creases toward
+        the slack neck; each piece hangs square to the chord between its own pegs; tee sleeves droop.
+        Checked at 3-4x on light + night paper in the specimen (browser pane); PNG specimen not re-shot (no headless tool)
   - [ ] Not verified: real-time motion feel on a phone (only 3 headless frames checked); SMIL + CSS in Safari
   - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
 - Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;

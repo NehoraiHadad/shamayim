@@ -8,10 +8,25 @@ export const GUST = [0, 1, 0.35, 0.9, -0.25, 0.6, 0]
 /** How hard the day blows, 0..1: still below ~8 km/h, full by ~38 km/h. */
 export const blowOf = (speed: number) => Math.min(1, Math.max(0, (speed - 8) / 30))
 
-/** A sagging line between two posts as a quadratic; `sag` is the dip at the middle. */
-export function rope(w: number, endY: number, sag: number) {
-  const y = (x: number) => endY + 4 * sag * (x / w) * (1 - x / w)
-  return { y, d: `M0 ${endY}Q${w / 2} ${(endY + 2 * sag).toFixed(2)} ${w} ${endY}` }
+/** A weight hung on the line: where it pulls, and how far down. */
+export interface Load { x: number; drop: number }
+
+/** How far a point load drags its neighbours down with it (px): the line kinks at the peg and eases away. */
+const REACH = 24
+
+/**
+ * A sagging line between two posts; `sag` is the dip at the middle. Each load kinks the line down at its point (a
+ * pegged weight bends a cord to a corner, not a curve); the ends stay tied. Sampled as a polyline that always has
+ * the same points, so SMIL can morph between gust shapes; the load points are vertices, so the kinks stay sharp.
+ */
+export function rope(w: number, endY: number, sag: number, loads: Load[] = []) {
+  const y = (x: number) => {
+    const pull = loads.reduce((s, l) => s + l.drop * Math.exp(-Math.abs(x - l.x) / REACH), 0)
+    return endY + 4 * sag * (x / w) * (1 - x / w) + pull * Math.sin((Math.PI * x) / w)
+  }
+  const xs = [...Array.from({ length: Math.ceil(w / 5) + 1 }, (_, i) => Math.min(w, i * 5)), ...loads.map((l) => l.x)]
+  const pts = [...new Set(xs.map((x) => Math.round(x * 10) / 10))].sort((a, b) => a - b)
+  return { y, d: pts.map((x, i) => `${i ? 'L' : 'M'}${x} ${y(x).toFixed(2)}`).join('') }
 }
 
 /** SMIL attributes for one cycle: values per gust stop, smooth between stops. */

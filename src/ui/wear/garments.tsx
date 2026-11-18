@@ -16,6 +16,8 @@ export interface Hanging {
   hook?: boolean
   /** Points where rain gear drips from (local coords). */
   drips?: [number, number][]
+  /** How hard it pulls the line down, about 1 for a shirt (default 1). */
+  weight?: number
 }
 
 export const GARMENTS: Record<Garment, Hanging> = { ...TOPS, ...GEAR }

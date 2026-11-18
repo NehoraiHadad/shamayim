@@ -11,7 +11,25 @@
 .rope {
   fill: none;
   stroke: var(--sheet-muted);
-  stroke-width: 1.25;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A twisted cord: short pale lays riding the line. */
+.twist {
+  fill: none;
+  stroke: color-mix(in srgb, var(--sheet-muted) 62%, var(--sheet));
+  stroke-width: 0.5;
+  stroke-dasharray: 0.8 2.4;
+  stroke-linejoin: round;
+}
+
+/* The line wrapped twice round each tab. */
+.knot {
+  fill: none;
+  stroke: var(--sheet-muted);
+  stroke-width: 1.1;
   stroke-linecap: round;
 }
 
@@ -67,8 +85,34 @@
   stroke-width: 1;
 }
 
-.peg {
-  fill: var(--sheet-accent);
+/* The clothespin: two pale-edged prongs with a slit, a dark wire spring. */
+.item .peg {
+  fill: color-mix(in srgb, var(--sheet-accent) 52%, var(--sheet));
+  stroke: color-mix(in srgb, var(--sheet-accent) 60%, var(--sheet-ink));
+  stroke-width: 0.55;
+}
+
+.item .pegSlit {
+  fill: none;
+  stroke: color-mix(in srgb, var(--sheet-accent) 50%, var(--sheet-ink));
+  stroke-width: 0.45;
+}
+
+.item .spring {
+  fill: color-mix(in srgb, var(--sheet-ink) 65%, var(--sheet));
+  stroke: none;
+}
+
+/* Cloth bunched in the jaws, and the drag folds the pegs pull toward the slack middle. */
+.item .bunch {
+  fill: color-mix(in srgb, color-mix(in srgb, var(--cloth) 40%, var(--sheet)) 72%, #000);
+  stroke: none;
+}
+
+.item .crease {
+  fill: none;
+  stroke: color-mix(in srgb, var(--sheet-muted) 45%, var(--sheet));
+  stroke-width: 0.5;
 }
 
 /* Gusts flap the hem out from the pegs (top stays on the line); hooked things swing from the hook. The stops follow

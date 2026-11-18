@@ -10,14 +10,15 @@ export const TOPS = {
   // Short sleeves stick out, a chest pocket; the neck dips where the pegs pull the shoulders.
   tee: {
     cloth: '#E0A040',
+    weight: 0.8,
     pegs: [-8, 8],
     body: (
       <>
-        <path d="M-8 1L-17 6.5-14.2 13.5-10.4 11.6V33Q0 34.6 10.4 33V11.6L14.2 13.5 17 6.5 8 1Q0 7-8 1Z" />
+        <path d="M-8 1Q-13.4 3.2-16.2 7.6L-15 15.6Q-12.6 15.4-10.4 14.2V33Q-5 33.8 0 33.4T10.4 33V14.2Q12.6 15.4 15 15.6L16.2 7.6Q13.4 3.2 8 1Q0 7-8 1Z" />
         <path d="M7.6 2.6Q5.6 17 4.4 33.4Q7.4 33.3 9.6 33V11.2Z" className="shade" />
-        <path d="M11.2 10.6L14 12.2 15.6 8.6Q12.8 8.4 11.2 10.6Z" className="shade" />
+        <path d="M11.2 13.6Q12.6 14.6 14.4 14.8L15 9.4Q12.6 9.6 11.2 13.6Z" className="shade" />
         <path d={NECK} className="seam" />
-        <path d="M-15.2 11.8l3.8-1.8M15.2 11.8l-3.8-1.8M-9.6 31Q0 32.6 9.6 31" className="stitch" />
+        <path d="M-15.2 13.4Q-12.8 13.4-10.6 12.2M15.2 13.4Q12.8 13.4 10.6 12.2M-9.6 31Q0 32.6 9.6 31" className="stitch" />
         <path d="M-8.4 14.5h4.8v4.6h-4.8z" className="seam" />
       </>
     ),
@@ -25,6 +26,7 @@ export const TOPS = {
   // Thin long sleeve: the sleeves fall straight down beside the body, narrow cuffs.
   longSleeve: {
     cloth: '#7FA2BC',
+    weight: 0.9,
     pegs: [-8, 8],
     body: (
       <>
@@ -40,6 +42,7 @@ export const TOPS = {
   // Knit sweater: rounder, heavier, ribbed hem and cuffs, a double crew neck, a cable down the front.
   sweater: {
     cloth: '#B0543A',
+    weight: 1.4,
     pegs: [-8.5, 8.5],
     body: (
       <>
@@ -57,6 +60,7 @@ export const TOPS = {
   // Zip jacket: stand collar, a zip with its pull, two slanted pockets, banded cuffs.
   jacket: {
     cloth: '#2C6E7F',
+    weight: 1.4,
     pegs: [-8.5, 8.5],
     body: (
       <>
@@ -73,6 +77,7 @@ export const TOPS = {
   // Long coat: past the knees, lapels, two buttons, a belt, flap pockets.
   coat: {
     cloth: '#7A6650',
+    weight: 1.9,
     pegs: [-9, 9],
     body: (
       <>

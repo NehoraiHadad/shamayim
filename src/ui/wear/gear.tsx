@@ -5,6 +5,7 @@ export const GEAR = {
   // Closed umbrella hung by its crook: furled canopy held by a snapped strap, tip at the bottom; it drips.
   umbrella: {
     cloth: '#2A6AA8',
+    weight: 1.1,
     pegs: [],
     hook: true,
     drips: [[4.4, 46]],
@@ -23,6 +24,7 @@ export const GEAR = {
   // Light rain jacket: a hood falling back behind the neck, drawstrings, a zip, a storm flap pocket; it drips.
   rainJacket: {
     cloth: '#E8C230',
+    weight: 1.1,
     pegs: [-8.5, 8.5],
     drips: [[-6, 35.6], [7, 35.4], [-17.8, 29.4]],
     body: (
@@ -39,6 +41,7 @@ export const GEAR = {
   // Sun hat pegged by its brim: wide brim with its shaded underside, a band round the crown, a ribbon tail.
   sunHat: {
     cloth: '#CDAE7C',
+    weight: 0.5,
     pegs: [0],
     body: (
       <>
@@ -55,6 +58,7 @@ export const GEAR = {
   // Water bottle hanging by the loop of its cap: the water inside, a glint down the side.
   water: {
     cloth: '#7FD3EE',
+    weight: 1.3,
     pegs: [],
     hook: true,
     body: (
