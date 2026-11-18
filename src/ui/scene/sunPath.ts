@@ -30,11 +30,23 @@ export interface SunPoint {
   y: number
 }
 
-/** Point on today's arc for a daylight fraction, lifted from the ridge at x; the arc is lower in winter. */
+/** How fast the disc drops once below the ridge (px per day-fraction squared), so it slips out of sight quickly. */
+const SINK = 1800
+
+/**
+ * Point on today's arc for a daylight fraction. The arc is one smooth sine from the ridge where the sun rises to the
+ * ridge where it sets, peaking at the real noon height (lower in winter), so it never dips or kinks near the horizon.
+ * Past rise and set it keeps the same slope and then accelerates down behind the ridge.
+ */
 export function sunAt(t: number, date: LocalDate, lat: number, skyline: Skyline = FLAT_SKYLINE): SunPoint {
   const x = (RISE_X - (RISE_X - SET_X) * t) / SCENE_W
-  const altitude = noonElevation(date, lat) * Math.sin(Math.PI * t)
-  return { t, x, y: altitudeY(skyline, x, altitude) }
+  const riseY = skyline(RISE_X / SCENE_W)
+  const setY = skyline(SET_X / SCENE_W)
+  const noonY = altitudeY(skyline, 0.5, noonElevation(date, lat))
+  const lift = Math.max(0, (riseY + setY) / 2 - noonY)
+  const below = Math.max(0, -t, t - 1)
+  const y = riseY + (setY - riseY) * t - lift * Math.sin(Math.PI * t) + SINK * below * below
+  return { t, x, y }
 }
 
 /**

@@ -22,19 +22,21 @@ export interface Twilight {
   opacity: number
 }
 
-const PRE_DAWN_MIN = 60
-const AFTERGLOW_MIN = 25
+/** Minutes the glow builds before, and fades after, each event (it peaks as the sun meets the ridge). */
+const RISE_RAMP = { before: 60, after: 20 }
+const SET_RAMP = { before: 20, after: 35 }
 
-/** Light behind the ridge in the hour before sunrise and the minutes after sunset. */
+/** 0..1, rising linearly to 1 at the event and back to 0, so the glow never pops on or off. */
+function ramp(sinceEvent: number, { before, after }: { before: number; after: number }): number {
+  if (sinceEvent < -before || sinceEvent > after) return 0
+  return sinceEvent <= 0 ? 1 + sinceEvent / before : 1 - sinceEvent / after
+}
+
+/** Light behind the ridge around sunrise (east) and sunset (west), peaking as the sun touches the ridge. */
 export function twilight(day: DayPoint | undefined, now: LocalTime): Twilight | null {
   if (!day) return null
-  const toRise = minutesBetween(now, day.sunrise)
-  if (toRise > 0 && toRise <= PRE_DAWN_MIN) {
-    return { side: 'east', opacity: 0.5 * (1 - toRise / PRE_DAWN_MIN) }
-  }
-  const sinceSet = minutesBetween(day.sunset, now)
-  if (sinceSet >= 0 && sinceSet <= AFTERGLOW_MIN) {
-    return { side: 'west', opacity: 0.5 * (1 - sinceSet / AFTERGLOW_MIN) }
-  }
-  return null
+  const east = ramp(minutesBetween(day.sunrise, now), RISE_RAMP)
+  const west = ramp(minutesBetween(day.sunset, now), SET_RAMP)
+  if (east <= 0 && west <= 0) return null
+  return east >= west ? { side: 'east', opacity: 0.5 * east } : { side: 'west', opacity: 0.5 * west }
 }
