@@ -10,8 +10,9 @@ Only the sky and the disc say what time it is; cover the disc and dawn and dusk 
 nothing. That is the gap 2.5D should close. Everything else (flat fills, soft rolling line, tiny marks) is the identity
 and stays.
 
-Rule for the whole plan: **3D maths decides where a tone goes; the tone itself is always a flat fill with a drawn
-edge.** No gradients that read as gradients, no blur, no textures, no normal-mapped shading.
+Rule for the whole plan: **3D maths decides where a tone goes; the tone itself is a flat colour.** No textures, no
+normal-mapped shading. *Amended 2026-11-18 by the owner after seeing the spike on the phone: the light's lower edge
+and the rim are soft (a static blur); only the skyline stays a hard drawn edge.*
 
 ## 1. Sun geometry (read this first, it shapes the rest)
 

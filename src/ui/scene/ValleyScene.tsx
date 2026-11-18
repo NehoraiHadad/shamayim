@@ -9,6 +9,8 @@ import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
+import { RidgeLight } from './RidgeLight'
+import { useRidgeLighting, type RidgeLightInput } from './useRidgeLighting'
 import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
 import { SnowCap } from './SnowCap'
@@ -33,6 +35,8 @@ interface Props {
   air: AirState
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
+  /** Opt-in 2.5D sun lighting on the ridges (`?scene=25d`). */
+  ridgeLight?: RidgeLightInput
   /** Snow falling in the shown hour (null on any other day): white caps above its snow line. */
   snow?: SnowFall | null
   terrain: SceneTerrain
@@ -50,7 +54,7 @@ interface Props {
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, snow = null, terrain, mist = 0,
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, ridgeLight, snow = null, terrain, mist = 0,
   mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const sceneRef = useRef<HTMLElement>(null)
@@ -83,6 +87,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
     label: { text: elevationText, below } }),
   [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
+  const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
+    glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
+  const shimmer = air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined
   const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
@@ -106,7 +113,10 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
-        <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
+        {lighting?.far ? <RidgeLight path={terrain.far} points={terrain.farPoints} ray={lighting.ray}
+          noonWeight={lighting.noonWeight} rimX={lighting.far.rimAlpha ? lighting.rimX : null} depth={9}
+          tone={lighting.far} baseClass={styles.far} shimmer={shimmer} />
+          : <path d={terrain.far} className={styles.far} filter={shimmer} />}
         {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM} />}
         <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
           <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
@@ -119,6 +129,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
           <line {...seaSpan(terrain.nearPoints, terrain.seaY)} y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
+        {lighting?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={lighting.ray}
+          noonWeight={lighting.noonWeight} rimX={lighting.near.rimAlpha ? lighting.rimX : null} depth={16} tone={lighting.near} />}
         {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
       </svg>
       <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}

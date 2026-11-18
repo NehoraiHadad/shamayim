@@ -433,6 +433,24 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
 - [ ] Not in data: snow depth on the ground after snowfall stops (Open-Meteo `snow_depth` not fetched); light snow
       at +3 °C on כרמי צור shows no cap (line above the summit), by design
 
+## 2.5D scene spike — sun lighting on the ridges — 2026-11-18 (branch `claude/scene-2-5d-spike-e73d4b`)
+Flag: `?scene=25d` (read once at load, works in production, default off; without it the scene markup is unchanged).
+- [x] Design plan `docs/design/scene-2-5d-plan.md` — Fable (native Agent). First element: ridge lighting; clouds
+      (low/mid/high) and gyro parallax ("lean") come later, parallax last (iOS permission prompt)
+- [x] Technical plan + frame/battery budget `docs/design/scene-2-5d-tech.md` — Codex gpt-6.2-sol (outsourcerer).
+      SVG, not GL: pure TS over <=41 points per ridge, recomputed per shown minute, zero per-frame work, no network
+- [x] Build — Codex gpt-6.2-sol: `ridgeLighting.ts` (crescent, terminator, rim geometry), `ridgeLightTone.ts`
+      (oklab tone, contrast caps, nulls), `RidgeLight.tsx`, App/ValleyScene wiring, two test files
+- [x] Review fixes — Claude Opus 5.5: light height from the true sun altitude ×3 (the drawn disc gave ~24° at
+      dawn and lit every flat top, no terminator); bands taper to a point (were cut square); wiring moved to
+      `useRidgeLighting.ts` (ValleyScene back near its old size)
+- [x] Owner feedback from the phone: "the light should be softer, the lines are too sharp" — the wash's lower
+      edge and the rim are blurred (static SVG blur, depth/4 px), the skyline stays crisp via the clip
+- [x] Nulls checked in the DOM: no overlay at night (21:00), overcast (`wx=cloud:95`), heavy haze (`wx=vis:2`)
+- [x] Stills `docs/design/qa/25d/before-*.png` / `after-*.png` (06:40, 11:40, 16:25); tsc, 418 tests, lint, build
+- [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, then cloud
+      lit-side toward the sun (plan §7.2)
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

@@ -46,6 +46,8 @@ import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
 import { WeekList } from './ui/WeekList'
 
+const ridgeLightingEnabled = new URLSearchParams(window.location.search).get('scene') === '25d'
+
 export default function App() {
   const { place, recent, selectPlace } = usePlace()
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
@@ -123,6 +125,9 @@ export default function App() {
             readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
             air={air!}
             cloudCover={shown?.cloudCover ?? 0}
+            {...(ridgeLightingEnabled && shown ? {
+              ridgeLight: { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 },
+            } : {})}
             snow={shown ? snowFall(shown, forecast.elevation) : null}
             terrain={terrain}
             mist={life && life.mist >= .15 ? life.mist : 0}

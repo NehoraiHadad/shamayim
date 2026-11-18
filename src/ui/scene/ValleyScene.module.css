@@ -170,9 +170,14 @@
 
 :global(.app[data-scrubbing]) :is(.sun, .far, .near) { transition: none; }
 
+.ridgeCrescent { transition: fill var(--d6) var(--ease-in-out); }
+.ridgeRim { transition: stroke var(--d6) var(--ease-in-out), stroke-opacity var(--d6) var(--ease-in-out); }
+:global(.app[data-scrubbing]) :is(.ridgeCrescent, .ridgeRim) { transition: none; }
+
 @keyframes readout-in { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sun { transition: opacity var(--d1) linear; }
   .mist { transition: none; }
+  .ridgeCrescent, .ridgeRim { transition: none; }
 }
