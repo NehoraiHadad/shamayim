@@ -677,6 +677,9 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       under 5 %. Night lights use the contrast over 3× the range (Allard: lights carry ~3× the daytime range)
 - [ ] Not verified: real visibility values from Open-Meteo at Karmei Tzur (forecast API rate-limited today); by day
       at V≈60 km the plain is near-invisible (physically right; seen only on very clear days)
+- [ ] Open (owner thinking): the sea-level line below sea level (Shadmot) reads as "sea under the village" — the home
+      glyph sits on the near hill while the line is measured from the eye on far slopes. Options: drop it below sea
+      level (keep "−159 מ'"), or draw it on far slopes only with "פני הים (159 מ' מעליך)"
 - [ ] Next: camera rotation around the place (owner asked; needs 360° rays + design calls for the home and the sun arc)
 
 ## Known gaps / polish
