@@ -1,5 +1,6 @@
 import type { CurrentWeather } from '../../domain/types'
 import { expectUnit, num, numOrNull, obj, str, type Json } from './guards'
+import { thickCloud } from './mapHelpers'
 
 export function mapCurrent(raw: Json): CurrentWeather {
   const current = obj(raw.current, 'current')
@@ -12,6 +13,7 @@ export function mapCurrent(raw: Json): CurrentWeather {
     isDay: num(current.is_day, 'current.is_day') === 1,
     weatherCode: num(current.weather_code, 'current.weather_code'),
     cloudCover: num(current.cloud_cover, 'current.cloud_cover'),
+    thickCloud: thickCloud(numOrNull(current.cloud_cover_low), numOrNull(current.cloud_cover_mid)),
     windSpeed: num(current.wind_speed_10m, 'current.wind_speed_10m'),
     windGusts: num(current.wind_gusts_10m, 'current.wind_gusts_10m'),
     windDirection: numOrNull(current.wind_direction_10m) ?? 0,

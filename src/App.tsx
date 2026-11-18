@@ -35,6 +35,7 @@ import { OverheadPage } from './ui/overhead/OverheadPage'
 import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { ValleyScene } from './ui/scene/ValleyScene'
+import { moonCloud } from './ui/scene/moonShape'
 import { snowFall } from './ui/scene/snowLine'
 import { SCENE_25D } from './ui/sceneFlag'
 import { Sentence } from './ui/Sentence'
@@ -135,6 +136,7 @@ export default function App() {
             forecast={forecast} now={now} selected={selected} lat={place.lat}
             readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
             air={air!} cloudCover={shown?.cloudCover ?? 0} seenClouds={seenClouds}
+            moonCloud={shown ? moonCloud(shown.cloudCover, shown.thickCloud) : 0}
             ridgeLight={SCENE_25D && shown
               ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 }
               : undefined}

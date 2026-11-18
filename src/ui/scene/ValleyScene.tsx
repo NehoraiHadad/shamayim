@@ -39,6 +39,8 @@ interface Props {
   air: AirState
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
+  /** The cloud the moon is veiled by (`moonCloud`: low and mid cloud when known); the whole cover when absent. */
+  moonCloud?: number
   /** 2.5D sun lighting for the ridges, marks, disc and air (off with `?scene=flat`). */
   ridgeLight?: RidgeLightInput
   /** Snow falling in the shown hour (null on any other day): white caps above its snow line. */
@@ -61,7 +63,7 @@ interface Props {
 }
 
 /** A true-bearing horizon once the DEM is available, with a drawn cross-section while it loads. */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, ridgeLight, snow = null, terrain, mist = 0,
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight, snow = null, terrain, mist = 0,
   mistColor = '#C9D2D8', place, landmarks, city, markLife, first, last, onScrub, onRelease, onNow, seenClouds = null }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
@@ -89,7 +91,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, city, showSea, width: sceneWidth, litShare: markLife.litShare,
     label: { text: elevationText, below } }),
   [place, terrain, landmarks, city, showSea, sceneWidth, markLife.litShare, elevationText, below])
-  const moonlit = useMoonlight(ridgeLight, at, place, skyline, cloudCover, air.haze.farFade)
+  const moonlit = useMoonlight(ridgeLight, at, place, skyline, moonCloud, air.haze.farFade)
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
   // By night the moon takes the sun's place on the ridges: the same light, faint and silver.
@@ -116,7 +118,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         ...world?.style } as CSSProperties}
     >
       {glow && rim && <div className={styles.glow} style={{ opacity: glow.opacity, left: `${(rim.x * 100).toFixed(2)}%`, top: `${rim.y.toFixed(1)}px` }} />}
-      <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
+      <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={moonCloud}
         farFade={air.haze.farFade} skyline={skyline} />
       <Sun point={disc} travel={day ? (t: number) => sunAt(t, day.sunrise, day.sunset, place, skyline) : null} cloudCover={cloudCover} coin={air.sunCoin}
         look={look} />
