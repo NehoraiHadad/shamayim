@@ -16,6 +16,8 @@ html {
 
 body {
   margin: 0;
+  /* Nothing decorative may widen the page: a phone must never scroll sideways. */
+  overflow-x: clip;
   min-height: 100svh;
   font-family: var(--font-sans);
   font-size: 100%;

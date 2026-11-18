@@ -4,6 +4,9 @@
   margin: 0 -16px;
   /* Clipped at the sides and bottom only: the sun's halo may spread up into the sky above (behind the strip's text). */
   clip-path: inset(-72px 0 0 0);
+  /* clip-path only hides the paint; the layout box must not grow too, or the glow past the left edge makes the whole
+     RTL page scroll sideways. `clip` on x alone keeps y visible, so the halo still rises. */
+  overflow-x: clip;
   color: var(--ink);
   pointer-events: none;
 }
