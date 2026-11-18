@@ -228,6 +228,29 @@ type priors carry the rest. C0 on the extract confirms the numbers, fills the un
 usable `building=` type (the prior's real strength, unknown today). Optional C0b `?`: check whether an open height dataset (Overture
 buildings, Google Open Buildings 2.5D) covers Israel with a licence compatible with ODbL attribution; unverified, not assumed.
 
+**C0 on the extract (2026-11-18, `city.geojsonseq` from the Geofabrik extract, 1 029 425 features):**
+
+| Box | km2 | buildings | per km2 | levels % | height % | typed % | landuse |
+|---|---|---|---|---|---|---|---|
+| Gush Dan | 656 | 139 123 | 212 | 8.2 | 1.3 | 13.5 | 322 |
+| Tel Aviv core | 21 | 14 182 | 675 | 19.1 | 1.9 | 20.9 | 17 |
+| Petah Tikva | 29 | 14 040 | 478 | 11.7 | 0.5 | 26.9 | 18 |
+| Jerusalem | 84 | 31 099 | 369 | 1.9 | 0.5 | 5.2 | 82 |
+| Haifa | 94 | 17 690 | 189 | 4.8 | 0.5 | 7.4 | 322 |
+| Nazareth | 21 | 8 912 | 427 | 0.4 | 0.1 | 1.9 | 8 |
+| Umm al-Fahm | 17 | 301 | 18 | 0.3 | 0.3 | 0.3 | 2 |
+| Be'er Sheva | 44 | 13 933 | 313 | 6.0 | 0.8 | 5.3 | 32 |
+| Modiin | 25 | 5 800 | 230 | 4.4 | 0.3 | 17.5 | 173 |
+| Shadmot Mehola | 9 | 321 | 34 | 0.0 | 0.0 | 1.6 | 5 |
+| Beit Ummar | 9 | 56 | 6 | 0.0 | 0.0 | 0.0 | 2 |
+
+What changed because of it: (1) `building=yes`/`residential` carries no storey information (most of the 87–98 % untyped),
+so the chain is tag → explicit type (house 2, apartments 4 levels, employment 8 m) → median of >= 5 tagged within 500 m →
+footprint area in residential land (< 150 m2 2 levels, < 450 4, < 1 200 6, more 8; elsewhere 2–3) → 3 levels. The first
+build put the generic "residential = 3 levels" prior before the median and flattened 88 % of Gush Dan to 3 storeys.
+(2) Footprints are near-absent in Umm al-Fahm and Beit Ummar, so landuse-only squares are stored with levels 0 (unknown)
+and city mode needs mapped footprints at the dot (`measured >= built / 2`); such towns keep today's cluster.
+
 ## 9. Tasks (TASKS.md style)
 
 Lanes: **Codex** = plumbing and pure logic with tests. **Claude** = anything that draws SVG or decides how it looks. QA stills:
@@ -246,20 +269,20 @@ Reference places: Petah Tikva, Ramat Gan, Bnei Brak, Tel Aviv, Jerusalem, Haifa,
 - [ ] P1.5 After stills + owner look (Claude). `qa/city/p1-petah-tikva-{day,night}.png`, `p1-ramat-gan-*.png`, Karmei Tzur unchanged
 
 ### Phase 2: the fabric (continuous city)
-- [ ] C0 Coverage measurement (Codex). Files: `scripts/city/measure.ts`, workflow step (manual trigger). Output: the §8 table from the
+- [x] C0 Coverage measurement (Codex). Files: `scripts/city/measure.ts`, workflow step (manual trigger). Output: the §8 table from the
       extract, pasted here. Gate: numbers confirmed (or the height chain adjusted) before C2 ships data
-- [ ] C1 Grid maths (Codex). Files: `src/data/city/types.ts`, `grid.ts` (cell key, col/row <-> lat/lon, encode/decode runs), `grid.test.ts`.
+- [x] C1 Grid maths (Codex). Files: `src/data/city/types.ts`, `grid.ts` (cell key, col/row <-> lat/lon, encode/decode runs), `grid.test.ts`.
       Test: round trip; a point maps to the same cell key as `israelData.cellsForBox`
-- [ ] C2 Offline builder (Codex). Files: `scripts/city/build.ts` (stream + write), `raster.ts` (footprint -> cells), `heights.ts`
+- [x] C2 Offline builder (Codex). Files: `scripts/city/build.ts` (stream + write), `raster.ts` (footprint -> cells), `heights.ts`
       (height chain), `.github/workflows/landmarks.yml`. Tests: `heights.test.ts` (chain order, unnamed > 260 m reject), `raster.test.ts` (a 100 x 100 m
       square fills the right share). Gate: budgets of §3 printed and enforced
-- [ ] C3 Client loader + columns (Codex). Files: `src/data/city/cityData.ts`, `columns.ts`, `useCity.ts`, tests. Test: synthetic grid with
+- [x] C3 Client loader + columns (Codex). Files: `src/data/city/cityData.ts`, `columns.ts`, `useCity.ts`, tests. Test: synthetic grid with
       a built stripe 2-5 km west -> columns 31..78 px west of centre are built, others empty; three depth rows split at +-0.75 km
-- [ ] C4 `composeCity` layout (Codex for rules, Claude reviews numbers). Files: `src/data/city/fabric.ts`, `cityZones.ts` (dot, label,
+- [x] C4 `composeCity` layout (Codex for rules, Claude reviews numbers). Files: `src/data/city/fabric.ts`, `cityZones.ts` (dot, label,
       captions, sheet), `fabric.test.ts`. Tests: no block where `built < 0.12`; dot gap; label box clear; geographic seed stable across two places
-- [ ] C5 Draw the fabric with today's block look (Claude). Files: `src/ui/scene/marks/city/CityFabric.tsx`, `hillScene.ts`, `HillMarks.tsx`.
+- [x] C5 Draw the fabric with today's block look (Claude). Files: `src/ui/scene/marks/city/CityFabric.tsx`, `hillScene.ts`, `HillMarks.tsx`.
       Stills: `p2-petah-tikva`, `p2-ramat-gan`, `p2-bnei-brak`, `p2-beer-sheva`; Karmei Tzur and Umm al-Fahm pixel-equal to before
-- [ ] C6 Service worker runtime cache for `/data/city`, attribution unchanged (Codex). Files: `vite.config.ts`. Test: second load offline
+- [x] C6 Service worker runtime cache for `/data/city`, attribution unchanged (Codex). Files: `vite.config.ts`. Test: second load offline
 
 ### Phase 3: the skyline
 - [ ] S1 `skyHeight` + tower list (Codex). Files: `src/data/city/cityHeight.ts`, `towers.ts` (`selectTowers`), tests: table of §2;

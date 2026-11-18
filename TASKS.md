@@ -539,7 +539,15 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       `REACH.blocks` 40/24, `shortlist.ts` keeps 8 + 12 high-rises (3 km band, unnamed > 260 m dropped), large places
       reserve their 2 tallest towers within 3 km (cap 6). Still `city-phase1-after-before.png` (left after, right before:
       Petah Tikva shows Kiryat Arye behind its blocks; Ramat Gan's blocks fill round the Bursa towers).
-      Next: phase 2 (C0 coverage measurement, then the built-form grid). Codex runs must pin `-m gpt-6.2-sol`
+      Phase 2 done 2026-11-18 (Codex gpt-6.2-sol wrote C1–C4 + C6, Claude fixed the height chain and tuned C5): a
+      built-form grid per 0.1° cell (`public/data/city/il`, 280 cells, 678 KB, cell budget 24 KB) from the extract
+      (`scripts/city/build.ts`, workflow step after landmarks); `useCity` → 188 near columns × 3 depth rows;
+      `composeCity` packs blocks along the real built extent (gaps 0–3 px: a 1.5–2 km deep strip of >= 12 % cover is an
+      opaque silhouette; storeys from measured levels, a taller block now and then capped by the p90 height; budget 96).
+      City mode only where mapped footprints back the dot (Umm al-Fahm keeps its cluster). C0 table in the plan §8.
+      Still `docs/design/qa/25d/city-phase2.png` (Petah Tikva, Ramat Gan, Bnei Brak, Be'er Sheva, Karmei Tzur, Umm al-Fahm).
+      Not done: night stills; the dark translucent boxes on hill slopes predate phase 2 (seen on main too).
+      Next: phase 3 (skyline: real towers from `t` at their x, mass paths, skyHeight). Codex runs must pin `-m gpt-6.2-sol`
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18

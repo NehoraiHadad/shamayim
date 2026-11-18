@@ -1,0 +1,4 @@
+{"type":"Feature","properties":{"landuse":"residential"},"geometry":{"type":"Polygon","coordinates":[[[34.800,32.000],[34.812,32.000],[34.812,32.010],[34.800,32.010],[34.800,32.000]]]}}
+{"type":"Feature","properties":{"building":"apartments","height":"48","name:he":"מגדל בדיקה"},"geometry":{"type":"Polygon","coordinates":[[[34.803,32.003],[34.8033,32.003],[34.8033,32.0033],[34.803,32.0033],[34.803,32.003]]]}}
+{"type":"Feature","properties":{"building":"yes","building:levels":"12"},"geometry":{"type":"MultiPolygon","coordinates":[[[[34.804,32.003],[34.80412,32.003],[34.80412,32.0032],[34.804,32.0032],[34.804,32.003]]]]}}
+{"type":"Feature","properties":{"building":"house"},"geometry":{"type":"Polygon","coordinates":[[[34.806,32.005],[34.8061,32.005],[34.8061,32.0051],[34.806,32.0051],[34.806,32.005]]]}}

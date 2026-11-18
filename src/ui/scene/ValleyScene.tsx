@@ -1,5 +1,6 @@
 import { useId, useMemo, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
+import type { CityColumns } from '../../data/city/types'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
 import { placeMarks } from '../../data/landmarks/placeMarks'
 import type { SceneTerrain } from '../../data/terrain/terrain'
@@ -49,6 +50,7 @@ interface Props {
   mistColor?: string
   place: Place
   landmarks: Landmark[]
+  city?: CityColumns | null
   markLife: MarkLife
   first: LocalTime
   last: LocalTime
@@ -59,7 +61,7 @@ interface Props {
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, ridgeLight, snow = null, terrain, mist = 0,
-  mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
+  mistColor = '#C9D2D8', place, landmarks, city, markLife, first, last, onScrub, onRelease, onNow }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
@@ -81,8 +83,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     [place, terrain, landmarks, sceneWidth, showSea])
   const night = markLife.litShare > 0
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
-    label: { text: elevationText, below } }),
-  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
+    city, showSea, label: { text: elevationText, below } }),
+  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, city, showSea, elevationText, below])
   const moonlit = useMoonlight(ridgeLight, at, place, skyline, cloudCover, air.haze.farFade)
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })

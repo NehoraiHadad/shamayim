@@ -34,10 +34,16 @@ jobs:
           osmium export landmarks.osm.pbf -f geojsonseq --geometry-types=point,polygon -o landmarks.geojsonseq
       - name: Build static landmark cells
         run: npx tsx scripts/landmarks/build.ts landmarks.geojsonseq
+      - name: Filter and export city polygons
+        run: |
+          osmium tags-filter israel-and-palestine.osm.pbf a/building a/landuse=residential,commercial,industrial,retail -o city.osm.pbf
+          osmium export city.osm.pbf -f geojsonseq --geometry-types=polygon -o city.geojsonseq
+      - name: Build static city cells
+        run: npx tsx scripts/city/build.ts city.geojsonseq
       - name: Commit changed landmark data
         shell: bash
         run: |
-          git add public/data/landmarks/il
+          git add public/data/landmarks/il public/data/city/il
           if git diff --cached --quiet; then
             echo "Landmark data is unchanged."
             exit 0

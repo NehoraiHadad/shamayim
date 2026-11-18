@@ -48,7 +48,7 @@ export function settlementStyle(place: Place, size: SettlementSize, marks: Landm
   return 'tile'
 }
 
-interface Input {
+export interface SettlementInput {
   style: SettlementStyle
   size: SettlementSize
   centerX: number
@@ -97,7 +97,23 @@ function offsets(count: number, row: number, pitch: number, random: () => number
   return Array.from({ length: count }, (_, i) => (i - (count - 1) / 2) * pitch + (random() - .5) * 2)
 }
 
-export function composeSettlement(input: Input): Settlement {
+export function underSettlementLabel(centerX: number, left: number, right: number) {
+  return right > centerX - LABEL_HALF - 2 && left < centerX + LABEL_HALF + 2
+}
+
+export function givesWay(house: Pick<House, 'x' | 'w' | 'baseY' | 'h'>, absorbed: SettlementInput['absorbed']) {
+  return absorbed?.some(mark => mark.kind !== 'highrise' && Math.abs(mark.x - house.x) < (mark.w + house.w) / 2 + 1
+    && house.baseY - house.h - 1.8 < mark.base - 6) ?? false
+}
+
+export function settlementLabel(houses: House[], centerX: number, centerY: number) {
+  const overLabel = (house: House) => underSettlementLabel(centerX, house.x - house.w / 2, house.x + house.w / 2)
+  const above = houses.filter(overLabel)
+  const top = Math.min(LABEL_MAX, Math.max(centerY + 7, ...above.map(house => house.baseY + 2)))
+  return { top, houses: houses.filter(house => !overLabel(house) || house.baseY + 2 <= top) }
+}
+
+export function composeSettlement(input: SettlementInput): Settlement {
   const { style, size, centerX, centerY, width, ground, litShare } = input
   const random = seeded(input.seed)
   const extra = Math.max(0, Math.floor((width - 375) / 120))
@@ -110,7 +126,7 @@ export function composeSettlement(input: Input): Settlement {
   const counts = style === 'blocks' ? [...ROWS[size], ROWS[size][2] - 1] : ROWS[size]
   let rows = counts.map((count) => count + extra)
   while (rows.length > 1 && centerY + 7 + step * (rows.length - 1) + 2 > LABEL_MAX) rows = rows.slice(0, -1)
-  const underLabel = (left: number, right: number) => right > centerX - LABEL_HALF - 2 && left < centerX + LABEL_HALF + 2
+  const underLabel = (left: number, right: number) => underSettlementLabel(centerX, left, right)
   const houses: House[] = []
   const contours: string[] = []
   rows.forEach((count, row) => {
@@ -126,8 +142,7 @@ export function composeSettlement(input: Input): Settlement {
       if (input.keepOut?.some((box) => house.x + house.w / 2 > box.left - 2 && house.x - house.w / 2 < box.right + 2
         && house.baseY > box.top - 2 && house.baseY - house.h - 1.8 < box.bottom + 2)) return
       /** Houses round the absorbed hall stay no taller than it, so its minaret rises clear of the town. */
-      if (input.absorbed?.some((mark) => mark.kind !== 'highrise' && Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1
-        && house.baseY - house.h - 1.8 < mark.base - 6)) return
+      if (givesWay(house, input.absorbed)) return
       houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
     })
     if (row > 0 && (style === 'tile' || style === 'blocks')) {
@@ -136,10 +151,7 @@ export function composeSettlement(input: Input): Settlement {
       if (path) contours.push(path)
     }
   })
-  const above = houses.filter((house) => underLabel(house.x - house.w / 2, house.x + house.w / 2))
-  const labelTop = Math.min(LABEL_MAX, Math.max(centerY + 7, ...above.map((house) => house.baseY + 2)))
-  const kept = houses.filter((house) => !underLabel(house.x - house.w / 2, house.x + house.w / 2)
-    || house.baseY + 2 <= labelTop)
+  const { top: labelTop, houses: kept } = settlementLabel(houses, centerX, centerY)
   const halfWidth = kept.reduce((max, house) => Math.max(max, Math.abs(house.x - centerX) + house.w / 2), 0)
   return { style, houses: kept, contours, labelTop, halfWidth }
 }

@@ -6,6 +6,7 @@ import { Life } from './atmo/life/Life'
 import { mapLife } from './atmo/life/mapLife'
 import { mapMarks } from './atmo/life/mapMarks'
 import { useLandmarks } from './data/landmarks/useLandmarks'
+import { useCity } from './data/city/useCity'
 import { useObservedCloud } from './data/overhead/useObservedCloud'
 import { useRainOutlook } from './data/overhead/useRainOutlook'
 import { openMeteoIcon } from './data/openMeteo/provider'
@@ -52,6 +53,7 @@ export default function App() {
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
   const landmarks = useLandmarks(place)
+  const city = useCity(place)
   const now = useNow(place.timezone)
   const observed = useObservedCloud(place)
   const outlook = useRainOutlook(place)
@@ -129,7 +131,7 @@ export default function App() {
             terrain={terrain}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
-            place={place} landmarks={landmarks.marks} markLife={markLife!}
+            place={place} landmarks={landmarks.marks} city={city} markLife={markLife!}
             onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow}
             first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
             last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}

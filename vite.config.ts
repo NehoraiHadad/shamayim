@@ -41,12 +41,16 @@ export default defineConfig({
           urlPattern: /\/data\/landmarks\//,
           handler: 'StaleWhileRevalidate',
           options: { cacheName: 'landmark-data' },
+        }, {
+          urlPattern: /\/data\/city\//,
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'city-data' },
         }],
       },
     }),
   ],
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/city/**/*.test.ts'],
   },
 })

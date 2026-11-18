@@ -1,4 +1,6 @@
 import type { Place } from '../../../config/place'
+import { composeCity, hasCityFabric } from '../../../data/city/fabric'
+import type { CityColumns } from '../../../data/city/types'
 import { isPlaceHomes, settlementSize } from '../../../data/landmarks/placeMarks'
 import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
@@ -16,6 +18,8 @@ interface Input {
   placed: PlacedMark[]
   width: number
   litShare: number
+  city?: CityColumns | null
+  showSea?: boolean
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
 }
@@ -48,7 +52,7 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * Ground functions, the marks fitted to what is visible, the place's settlement cluster and the elevation label's
  * spot for the hill layer, in px at the scene's real width.
  */
-export function hillScene({ place, terrain, landmarks, placed, width, litShare, label }: Input) {
+export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city, showSea = terrain.seaInView }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
@@ -61,7 +65,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const marks = fitMarks(style ? intoTown(placed, style, ground, dot, width) : placed, ground, width, dot)
   let settlement: Settlement | null = null
   if (size && style) {
-    settlement = composeSettlement({
+    const input = {
       style, size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,
       centerX, centerY, seed: hashId(place.id), keepOut: [],
       absorbed: marks.flatMap((mark) => {
@@ -69,7 +73,15 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
         const base = mark.absorbed && BUILDINGS[mark.kind] && markGeometry(mark, x, ground)?.base
         return base ? [{ x, w: BUILDINGS[mark.kind]!.w, base, kind: mark.kind }] : []
       }),
-    })
+    }
+    const village = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
+    if (!village && city && (size === 'large' || style === 'blocks') && hasCityFabric(city, width, centerX)) {
+      const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
+      const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
+      settlement = composeCity({ ...input, columns: city, keepOut })
+    } else {
+      settlement = composeSettlement(input)
+    }
   }
   const houses = (settlement?.houses ?? []).map((house) => ({ left: house.x - house.w / 2, right: house.x + house.w / 2,
     top: house.baseY - house.h - 1.8, bottom: house.baseY }))
