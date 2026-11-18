@@ -11,7 +11,7 @@ import { templateHalf } from '../../../data/landmarks/settlementPlan'
 import type { Landmark } from '../../../data/landmarks/types'
 import { villageRows } from '../../../data/landmarks/villageExtent'
 
-export type HomeCityData = CityColumns & Partial<Pick<CityResult, 'clusters'>>
+export type HomeCityData = CityColumns & Partial<Pick<CityResult, 'clusters' | 'raster'>>
 
 export function neighbourHomeZone(centerX: number, halfWidth: number): Extent {
   return [centerX - halfWidth - 6, centerX + halfWidth + 6]
@@ -38,6 +38,7 @@ export function homeMode(place: Place, marks: Landmark[], width: number, centerX
   const size = settlementSize(homes)
   const style = settlementStyle(place, size, marks)
   const historicalHalf = templateHalf(size)
+  if (panorama) return { kind: 'template', size, style, homeHalf: historicalHalf } as const
   const home = homeCluster(city?.clusters ?? [])
   const tier = homeTier(home)
   const footprintStyle = home && clusterStyle(home, desertSettlement(place), home.place ? undefined : localRoof(place, home, marks))
@@ -45,7 +46,6 @@ export function homeMode(place: Place, marks: Landmark[], width: number, centerX
   // Longitude bins have already discarded the bearings of their constituent buildings.
   if (city && !rural && (size === 'large' || style === 'blocks' || (tier !== 'B' && footprintStyle === 'blocks')) &&
     hasCityFabric(city, width, centerX)) {
-    if (panorama) return { kind: 'template', size, style, homeHalf: historicalHalf } as const
     return { kind: 'city', size, style, homeHalf: historicalHalf, columns: city } as const
   }
   if (home && footprintStyle && tier === 'A') {

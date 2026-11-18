@@ -2,9 +2,33 @@ import { expect, it } from 'vitest'
 import { panoramaFarColumns } from './farData'
 import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from './farGrid'
 import { plainLights } from './plainLights'
+import { plainPatches } from './plainData'
 import { groundFn } from '../landmarks/seat'
 import { azimuthAt, computePanorama, destination } from '../terrain/panorama'
 import { terrainFromPanorama } from '../terrain/panoramaTerrain'
+
+it('retains the plain patch geometry for a synthetic one-cell ray', () => {
+  const place = { lat: 32, lon: 35 }
+  const grid = new Uint8Array(FAR_ROWS * FAR_COLS)
+  const target = destination(place.lat, place.lon, 6, 180)
+  const row = Math.floor((target.lat - FAR_SOUTH) / FAR_LAT_STEP)
+  const col = Math.floor((target.lon - FAR_WEST) / FAR_LON_STEP)
+  grid[row * FAR_COLS + col] = 0x83
+  const terrain = {
+    nearPoints: [[0, 105], [375, 105]], farPoints: [[0, 70], [375, 70]],
+    seenAt: () => ({ angle: 0, groundAngle: 0, y: 95, groundY: 95 }),
+  } satisfies Parameters<typeof plainPatches>[3]
+  expect(plainPatches(place, 2, grid, terrain)).toMatchObject([{
+    left: expect.closeTo(.964440729, 8), right: expect.closeTo(1.006355258, 8),
+    top: 94.5, bottom: 95.5, km: expect.closeTo(5.925335114, 8),
+    built: 8 / 15, area: expect.closeTo(.497595947, 8),
+  }])
+  const clipped = plainPatches(place, 2, grid, terrain, 6)
+  expect(clipped).toHaveLength(1)
+  expect(clipped[0].km).toBeGreaterThan(6)
+  expect(clipped[0].area).toBeLessThan(.497595947)
+  expect(plainPatches(place, 2, grid, terrain, 7)).toEqual([])
+})
 
 it('projects built cells onto seen ground and confines deterministic lights to those patches', () => {
   const place = { lat: 32, lon: 35 }

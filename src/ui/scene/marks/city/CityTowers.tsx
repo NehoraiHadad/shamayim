@@ -6,11 +6,12 @@ interface Props {
   towers: readonly PlacedTower[]
   night: boolean
   litShare: number
+  backRow?: number
 }
 
-export function CityTowers({ towers, night, litShare }: Props) {
+export function CityTowers({ towers, night, litShare, backRow = 0 }: Props) {
   return towers.map(({ x, baseY, w, h, row, seed }) => (
-    <g key={seed} className={row === 0 ? `${styles.house} ${styles.recede}` : undefined}
+    <g key={seed} className={row === backRow ? `${styles.house} ${styles.recede}` : undefined}
       transform={`translate(${x} ${baseY}) scale(${w / 7} 1)`}>
       <Highrise h={h} night={night} seed={seed} litShare={litShare} />
     </g>

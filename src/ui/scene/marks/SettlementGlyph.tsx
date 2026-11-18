@@ -4,7 +4,7 @@ import { BlockHouse } from './blocks'
 import { CityMass } from './city/CityMass'
 import { CastShadow } from './generic/shadow'
 import { FlatRoof, Shed, TileHouse } from './houses'
-import { ContactShadow, SunStrip } from './LightRig'
+import { ContactShadow, SunStrip, sunLightOf, sunStyle } from './LightRig'
 import styles from './marks.module.css'
 
 /** The place's own houses (ILLUSTRATION.md §4), drawn in px in the shared overlay svg. */
@@ -67,22 +67,25 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
   const lit = sunX != null && !night
   /** One light direction for the whole cluster, so no seam runs through the village at the sun's x. */
   const xs = houses.map((house) => house.x)
-  const sunWest = lit && sunX! <= (Math.min(...xs) + Math.max(...xs)) / 2
+  const light = lit ? sunLightOf(sunX, (Math.min(...xs) + Math.max(...xs)) / 2) : null
+  const side = light?.side ?? null
+  const sunWest = side === 'w'
   const grow = style === 'tile' ? TILE_GROW : 1
   const drawHouse = (house: House, i: number) => {
     const form = formOf(house)
     // Houses draw their lit face on the left; one that faces away goes flat and takes the rig's strip
     // on its own right (the sun's side in its local frame).
-    const asDrawn = sunWest === (form === 1)
+    const asDrawn = side !== null && sunWest === (form === 1)
     const tone = style === 'blocks' ? blockTone(house.seed, house.row === 0)
       : style === 'tile' ? [styles.house, styles.limestone, house.row === 0 ? styles.recede : ''].join(' ') : ''
     return <g key={`${house.row}-${house.x.toFixed(1)}`}>
       {/* The crest row stands furthest back: toned toward the ridge, still with its two faces. */}
       <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${form * (house.kind ? 1 : grow)} ${house.kind ? 1 : grow})`}
-        className={[tone, lit && !asDrawn ? styles.flat : ''].join(' ').trim() || undefined}>
-        {lit && (asDrawn ? <CastShadow w={house.w} h={house.h} reach={reach} /> : <ContactShadow w={house.w} side="e" />)}
+        className={[tone, side && !asDrawn ? styles.flat : ''].join(' ').trim() || undefined}>
+        {lit && (asDrawn ? <CastShadow w={house.w} h={house.h} reach={reach} />
+          : <ContactShadow w={house.w} side={side && 'e'} />)}
         <Body house={house} style={style} night={night} />
-        {lit && !asDrawn && <SunStrip id={`${id}h${i}`} w={house.w} h={house.h} side="e">
+        {side && !asDrawn && <SunStrip id={`${id}h${i}`} w={house.w} h={house.h} side="e">
           <Body house={house} style={style} night={false} />
         </SunStrip>}
       </g>
@@ -90,10 +93,10 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
     </g>
   }
   const drawn = ordered.map(drawHouse)
-  return <g className={lit ? undefined : styles.flat}>
+  return <g className={side ? undefined : styles.flat} style={light ? sunStyle(light.k) : undefined}>
     {contours.map((d) => <path key={d} className={styles.contour} d={d} />)}
     {afterRow || detail ? [0, 1, 2].map(row => <Fragment key={row}>
-      <CityMass houses={mass[row]} row={row} sunWest={lit ? sunWest : null} night={night} litShare={litShare} />
+      <CityMass houses={mass[row]} row={row} sunWest={side && sunWest} night={night} litShare={litShare} />
       {drawn.filter((_, i) => ordered[i].row === row)}
       {afterRow?.(row)}
     </Fragment>) : drawn}

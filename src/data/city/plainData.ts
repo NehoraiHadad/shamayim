@@ -1,10 +1,11 @@
 import { groundFn } from '../landmarks/seat'
-import { AZ_LEFT, AZ_RIGHT, azimuthAt, destination, FAR_KM, RAY_DISTANCES } from '../terrain/panorama'
+import { AZ_LEFT, AZ_RIGHT, azimuthAt, FAR_KM, RAY_DISTANCES } from '../terrain/panorama'
 import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import type { SceneTerrain } from '../terrain/terrain'
 import { COLUMN_WIDTH } from './columns'
 import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from './farGrid'
 import { bearingOf, type Coordinate } from '../landmarks/project'
+import { cellSpans, type RayGrid } from './rayWalk'
 
 export interface PlainPatch {
   left: number
@@ -19,44 +20,13 @@ export interface PlainPatch {
 export type PlainTerrain = Pick<SceneTerrain, 'seenAt' | 'nearPoints' | 'farPoints'>
 const SCENE_RADIANS = (AZ_LEFT - AZ_RIGHT) * Math.PI / 180
 const SHEET_TOP = 114
-const gridX = (lon: number) => (lon - FAR_WEST) / FAR_LON_STEP
-const gridY = (lat: number) => (lat - FAR_SOUTH) / FAR_LAT_STEP
-
-function cutAtGridEdges(a: number, b: number, cuts: number[]) {
-  for (let edge = Math.floor(Math.min(a, b)) + 1; edge < Math.max(a, b); edge++) {
-    cuts.push((edge - a) / (b - a))
-  }
-}
-
-/** The geodesic's chord over each kilometre is effectively straight at this raster's resolution. */
-function* cellSpans(place: Coordinate, az: number, from: number, to: number) {
-  const at = (km: number) => {
-    const point = destination(place.lat, place.lon, km, az)
-    return [gridX(point.lon), gridY(point.lat)]
-  }
-  let [a, b] = at(from)
-  while (from < to) {
-    const end = Math.min(from + 1, to)
-    const [c, d] = at(end)
-    const cuts = [0, 1]
-    cutAtGridEdges(a, c, cuts)
-    cutAtGridEdges(b, d, cuts)
-    cuts.sort((x, y) => x - y)
-    for (let i = 1; i < cuts.length; i++) {
-      if (cuts[i] - cuts[i - 1] < 1e-9) continue
-      const t = (cuts[i - 1] + cuts[i]) / 2
-      const col = Math.floor(a + (c - a) * t), row = Math.floor(b + (d - b) * t)
-      if (col < 0 || col >= FAR_COLS || row < 0 || row >= FAR_ROWS) continue
-      yield { index: row * FAR_COLS + col, start: from + cuts[i - 1] * (end - from), end: from + cuts[i] * (end - from) }
-    }
-    from = end
-    a = c
-    b = d
-  }
+const FAR_GRID: RayGrid = {
+  toGrid: (lat, lon) => [(lon - FAR_WEST) / FAR_LON_STEP, (lat - FAR_SOUTH) / FAR_LAT_STEP],
+  bounds: [FAR_COLS, FAR_ROWS],
 }
 
 export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
-  { seenAt, nearPoints, farPoints }: PlainTerrain): PlainPatch[] {
+  { seenAt, nearPoints, farPoints }: PlainTerrain, fromKm = RAY_DISTANCES[0]): PlainPatch[] {
   if (!seenAt || !(width > 0) || !Number.isFinite(width)) return []
   const patches: PlainPatch[] = []
   const nearY = groundFn(nearPoints, width), farY = groundFn(farPoints, width)
@@ -98,8 +68,9 @@ export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
       }
       run = undefined
     }
-    for (const span of cellSpans(place, azimuthAt(fraction), RAY_DISTANCES[0], FAR_KM)) {
-      if (!(grid[span.index] >> 4)) continue
+    for (const span of cellSpans(place, azimuthAt(fraction), fromKm, FAR_KM, FAR_GRID)) {
+      const index = span.row * FAR_COLS + span.col
+      if (!(grid[index] >> 4)) continue
       // A cell can straddle a shadow. Resolve the seen portion within the cell, keeping its actual foreshortening.
       const count = Math.ceil((span.end - span.start) / .125)
       const step = (span.end - span.start) / count
@@ -107,9 +78,9 @@ export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
         const start = span.start + i * step, end = start + step
         const point = seenAt(x, (start + end) / 2)
         if (!point || point.y < ceiling || point.y >= floor) continue
-        if (!run || run.index !== span.index || start - run.end > 1e-8) {
+        if (!run || run.index !== index || start - run.end > 1e-8) {
           flush()
-          run = { index: span.index, start, end, top: point.y, bottom: point.y }
+          run = { index, start, end, top: point.y, bottom: point.y }
         }
         const a = seenAt(x, start)?.y ?? point.y, b = seenAt(x, end)?.y ?? point.y
         run.end = end

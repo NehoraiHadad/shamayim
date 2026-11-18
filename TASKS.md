@@ -708,7 +708,28 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       under 5 %. Night lights use the contrast over 3× the range (Allard: lights carry ~3× the daytime range)
 - [ ] Not verified: real visibility values from Open-Meteo at Karmei Tzur (forecast API rate-limited today); by day
       at V≈60 km the plain is near-invisible (physically right; seen only on very clear days)
+- [ ] Open (owner thinking): the sea-level line below sea level (Shadmot) reads as "sea under the village" — the home
+      glyph sits on the near hill while the line is measured from the eye on far slopes. Options: drop it below sea
+      level (keep "−159 מ'"), or draw it on far slopes only with "פני הים (159 מ' מעליך)"
 - [ ] Next: camera rotation around the place (owner asked; needs 360° rays + design calls for the home and the sun arc)
+
+## Panorama near skyline + sun-side swap — 2026-11-19
+Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-sol (commits 6b0ff1d…90ffabf); sun-side fix by Claude.
+- [x] Panorama shows the built mass really seen along each true-bearing ray, 0.4–6 km, three depth bands, true apparent
+      angle (curvature + refraction), roofline eye ΔE, running-max occlusion; towers at true angle; night lights ≤ 220.
+      Files: `terrain/sightProfile.ts`, `city/{rayWalk,cityRaster,skylineHeight,skylineData,skylineRay,skylineTowers}.ts`,
+      `ui/scene/marks/city/{Skyline.tsx,skylinePaths.ts,skylineLights.ts}`. Cross-section mode unchanged.
+- [x] Stills: `docs/design/qa/skyline/{before,after}-*.png` (Tel Aviv, Petah Tikva, Haifa, Jerusalem, Modi'in, Yagur; day+night).
+- [x] Bug "houses rotate" (כרמי צור, late morning): when the sun crossed the cluster's x every house swapped its lit face
+      in one frame. Now `sunLightOf` (LightRig.tsx) gives the side and a light share k = min(1, sin δ / sin 30°)
+      (CSS `--sun-k`): the lit face, cast shadow and strip dim to the wall tone as the sun crosses behind the cluster,
+      swap side at k ≈ 0, and brighten on the other side. SettlementGlyph + CityMass. Stills `docs/design/qa/sun-side/`.
+- [x] Checked Tel Aviv towers: physically right (e.g. 118 m at 0.41 km = 15.9°, Azrieli Spiral 350 m at 1.46 km = 13.5°);
+      the tallest top stays ~12 px under the hourly strip. Needles come from the land's 6.5× vertical scale, by design.
+- [x] Elevation label: halo in the land tone (`.depth`), readable over the skyline.
+- [x] MarkBuilding (landmarks) uses `sunLightOf` + `--sun-k` too; the 'w' / 'top' / 'e' jumps and SunStrip's `top` are gone.
+- [x] Dev-console 403s are @fontsource files the worktree's Vite server refuses (node_modules outside its root):
+      dev-only, absent in builds. 429s are the forecast API rate limit while QA reloads many places.
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

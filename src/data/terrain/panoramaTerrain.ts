@@ -1,6 +1,7 @@
 import { anglePx } from './angleScale'
 import { apparentAngle, type HorizonPoint, type Panorama } from './panorama'
 import { pointsToPath } from './profile'
+import { sightProfiles } from './sightProfile'
 import type { SceneTerrain } from './terrain'
 import { visibilityAt } from './visibility'
 
@@ -72,7 +73,8 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
     const t = (lineM - base.elevation) / (crest.elevation - base.elevation)
     return [x, yOf(base.angle + t * (crest.angle - base.angle))]
   })
-  const seenAt = visibilityAt(p, yOf)
+  const profiles = sightProfiles(p)
+  const seenAt = visibilityAt(p, yOf, profiles)
   const sightAt = (x: number) => {
     const i = Math.min(n - 1, Math.max(0, Math.round((x / 375) * (n - 1))))
     const ray = p.rays[i]
@@ -95,5 +97,7 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
     snowEdge,
     sightAt,
     seenAt,
+    groundAt: profiles.groundAt,
+    angleY: yOf,
   }
 }

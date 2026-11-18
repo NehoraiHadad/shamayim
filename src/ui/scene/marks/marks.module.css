@@ -53,14 +53,15 @@
 .px * { transition: fill var(--d6) var(--ease-in-out); }
 .solid, .skirt { fill: var(--ridge-near); }
 .wall { fill: var(--mark-wall); }
-.lit { fill: var(--mark-lit); }
+/* `--sun-k` (LightRig `sunLightOf`, default 1): how much of its drawn light a sun-side face takes; 0 = wall tone. */
+.lit { fill: color-mix(in srgb, var(--mark-lit) calc(var(--sun-k, 1) * 100%), var(--mark-wall)); }
 .roof { fill: var(--mark-roof); }
-.roofLit { fill: color-mix(in srgb, #C8664A 72%, var(--ridge-near)); }
+.roofLit { fill: color-mix(in srgb, color-mix(in srgb, #C8664A 72%, var(--ridge-near)) calc(var(--sun-k, 1) * 100%), var(--mark-roof)); }
 /* Sheet-metal shed roofs: one grey tone, galvanised and weathered, leaning toward the ridge. */
 .metal { fill: color-mix(in srgb, #A4ABAE 60%, var(--ridge-near)); }
-.cast { fill: var(--mark-shade); opacity: .8; }
+.cast { fill: var(--mark-shade); opacity: calc(.8 * var(--sun-k, 1)); }
 /* House faces: the side face takes the sun; the parapet / roof edge always catches the sky. */
-.side { fill: var(--mark-lit); }
+.side { fill: color-mix(in srgb, var(--mark-lit) calc(var(--sun-k, 1) * 100%), var(--mark-wall)); }
 .top { fill: var(--mark-lit); }
 .pane { fill: color-mix(in srgb, #000 42%, var(--mark-wall)); }
 .tank { fill: color-mix(in srgb, #000 40%, var(--mark-wall)); }

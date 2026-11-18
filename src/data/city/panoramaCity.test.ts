@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { placeCityTowers } from './cityTowers'
 import { panoramaFarColumns } from './farData'
 import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from './farGrid'
 import { projectSight } from '../landmarks/project'
@@ -16,18 +15,6 @@ const towerAt = (km: number, azimuth: number): CityTower => ({
 })
 
 describe('city geometry on the true horizon', () => {
-  it('seats a near tower at the landmark bearing and skips hidden and behind-viewer towers', () => {
-    const near = towerAt(2, 140)
-    const hidden = towerAt(7, 140)
-    const behind = towerAt(2, 0)
-    const towers = placeCityTowers({
-      width, floor: 124, centerX: 187.5, centerY: 92, ground: () => 92, curated: [],
-      towers: [near, hidden, behind], panorama: { place, sightAt: sight },
-    })
-    expect(towers).toHaveLength(1)
-    expect(towers[0]).toMatchObject({ x: projectSight(place, near, sight)?.x, baseY: 93, row: 1 })
-  })
-
   it('samples far fabric on the visible crest and projects the far tower like a landmark', () => {
     const grid = new Uint8Array(FAR_ROWS * FAR_COLS)
     const target = destination(place.lat, place.lon, 12, azimuthAt(0.5))
@@ -41,5 +28,14 @@ describe('city geometry on the true horizon', () => {
     expect(result.towers).toEqual([{ x: projectSight(place, far, sight)?.x, heightM: 100 }])
     expect(panoramaFarColumns(place, width, { grid, towers: [[far.lat, far.lon, far.heightM]] },
       () => ({ ...sight(), farShows: false }))).toEqual({ columns: [], towers: [] })
+  })
+
+  it('leaves only towers beyond the skyline handoff in the far city', () => {
+    const grid = new Uint8Array(FAR_ROWS * FAR_COLS)
+    const data = { grid, towers: [towerAt(6, 180), towerAt(7, 180)].map(({ lat, lon, heightM }) =>
+      [lat, lon, heightM] as [number, number, number]) }
+    const crest = () => ({ nearKm: 3, farKm: 7, farShows: true })
+    expect(panoramaFarColumns(place, width, data, crest).towers).toHaveLength(2)
+    expect(panoramaFarColumns(place, width, data, crest, undefined, 6).towers).toHaveLength(1)
   })
 })

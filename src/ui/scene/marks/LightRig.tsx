@@ -1,13 +1,33 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { BuildingProps, BuildingSpec } from './generic/buildingSpecs'
 import styles from './marks.module.css'
 
-export type LightSide = 'w' | 'e' | 'top'
+export type LightSide = 'w' | 'e'
+
+/** Panorama scale: 250° of bearing across 375 px. */
+const PX_PER_DEG = 1.5
+/** A side face takes its full drawn light from this angle between the sun and the body's bearing. */
+const FULL_LIGHT_DEG = 30
+
+/**
+ * Which side face takes the sun, and how much of its drawn light (`k`, 0–1, the CSS `--sun-k`). A side wall square to
+ * the line of sight gets the beam in proportion to sin δ, δ the sun's bearing off the body's: as the sun crosses
+ * behind the body the lit face dims to the wall tone, the side swaps at δ = 0 where nothing shows, and the other face
+ * brightens; no house ever mirrors in one frame.
+ */
+export function sunLightOf(sunX: number | null, x: number): { side: 'w' | 'e'; k: number } | null {
+  if (sunX == null) return null
+  const delta = (sunX - x) / PX_PER_DEG
+  const k = Math.min(1, Math.abs(Math.sin(delta * Math.PI / 180)) / Math.sin(FULL_LIGHT_DEG * Math.PI / 180))
+  return { side: delta <= 0 ? 'w' : 'e', k: Math.round(k * 100) / 100 }
+}
+
+/** The `--sun-k` style for a group whose lit faces, cast shadows and strips follow `sunLightOf`. */
+export const sunStyle = (k: number) => ({ '--sun-k': k }) as CSSProperties
 
 /**
  * The one named light (the sun) on a glyph, clipped to its own silhouette: a lit strip on the sun side (R4) and a
- * core shadow on the far side, so every body shows three tones (lit / body / shade). `top` (sun overhead) lights the
- * top edge only and casts no side shadow.
+ * core shadow on the far side, so every body shows three tones (lit / body / shade), both scaled by `--sun-k`.
  */
 export function LightRig({ id, spec, props, side }: { id: string; spec: BuildingSpec; props: BuildingProps; side: LightSide }) {
   return <SunStrip id={id} w={spec.w} h={props.h} litWidth={spec.litWidth ?? .35} side={side}>
@@ -25,14 +45,10 @@ export function SunStrip({ id, w, h, litWidth = .35, side, children }:
       <g className={styles.maskWhite}>{children}</g>
     </mask>
     <g mask={`url(#${id})`}>
-      {side === 'top'
-        ? <rect className={styles.lit} x={-half - 2} y={-h - 4} width={w + 4} height={5.5} />
-        : <>
-          <rect className={styles.lit} x={side === 'w' ? -half - 2 : half - w * litWidth} y={-h - 4}
-            width={w * litWidth + 2} height={h + 4} />
-          <rect className={styles.shade} opacity={.55} x={side === 'w' ? half - shadeWidth : -half - 2} y={-h - 4}
-            width={shadeWidth + 2} height={h + 4} />
-        </>}
+      <rect className={styles.lit} x={side === 'w' ? -half - 2 : half - w * litWidth} y={-h - 4}
+        width={w * litWidth + 2} height={h + 4} />
+      <rect className={styles.shade} style={{ opacity: 'calc(.55 * var(--sun-k, 1))' }}
+        x={side === 'w' ? half - shadeWidth : -half - 2} y={-h - 4} width={shadeWidth + 2} height={h + 4} />
     </g>
   </>
 }

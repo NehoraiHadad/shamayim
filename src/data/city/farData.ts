@@ -64,19 +64,21 @@ export function farColumns(place: Coordinate, width: number, data: FarData): Far
 }
 
 export function panoramaFarColumns(place: Coordinate, width: number, data: FarData, sightAt: (x: number) => Sight,
-  terrain?: PlainTerrain): FarScene {
+  terrain?: PlainTerrain, fromKm?: number): FarScene {
   const columns: FarColumn[] = []
   if (!Number.isFinite(width) || width <= 0) return { columns, towers: [] }
   const towers = data.towers.flatMap<FarTowerPlacement>(([lat, lon, heightM]) => {
     const projected = projectSight(place, { lat, lon, heightM }, sightAt)
+    if (projected && fromKm !== undefined && projected.km <= fromKm + 1e-9) return []
     if (projected?.layer === 'plain') return [{ x: projected.x * width / RIDGE_WIDTH, heightM, y: projected.y, km: projected.km }]
     return projected?.layer === 'far' ? [{ x: projected.x * width / RIDGE_WIDTH, heightM }] : []
   })
-  if (terrain?.seenAt) return { columns, towers, patches: plainPatches(place, width, data.grid, terrain) }
+  if (terrain?.seenAt) return { columns, towers, patches: plainPatches(place, width, data.grid, terrain, fromKm) }
   for (let left = 0; left < width; left += COLUMN_WIDTH) {
     const right = Math.min(left + COLUMN_WIDTH, width)
     const fraction = (left + right) / (2 * width)
     const sight = sightAt(fraction * RIDGE_WIDTH)
+    if (fromKm !== undefined && sight.farKm <= fromKm) continue
     if (!sight.farShows || sight.farKm > FAR_RADIUS_KM || sight.farKm <= Math.max(sight.nearKm + 1, 2)) continue
     // The raster keeps coordinates. Sample it at the visible crest in this direction.
     const point = destination(place.lat, place.lon, sight.farKm, azimuthAt(fraction))
@@ -89,7 +91,8 @@ export function panoramaFarColumns(place: Coordinate, width: number, data: FarDa
   return { columns, towers }
 }
 
-export function useFarColumns({ lat, lon }: Coordinate, width: number, enabled: boolean, sightAt?: (x: number) => Sight, terrain?: PlainTerrain) {
+export function useFarColumns({ lat, lon }: Coordinate, width: number, enabled: boolean, sightAt?: (x: number) => Sight,
+  terrain?: PlainTerrain, fromKm?: number) {
   const [data, setData] = useState<FarData | null>(null)
   useEffect(() => {
     if (!enabled) return
@@ -99,6 +102,6 @@ export function useFarColumns({ lat, lon }: Coordinate, width: number, enabled: 
   }, [enabled])
   return useMemo(() => {
     if (!enabled || !data) return null
-    return sightAt ? panoramaFarColumns({ lat, lon }, width, data, sightAt, terrain) : farColumns({ lat, lon }, width, data)
-  }, [enabled, data, lat, lon, width, sightAt, terrain])
+    return sightAt ? panoramaFarColumns({ lat, lon }, width, data, sightAt, terrain, fromKm) : farColumns({ lat, lon }, width, data)
+  }, [enabled, data, lat, lon, width, sightAt, terrain, fromKm])
 }

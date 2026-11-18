@@ -31,13 +31,19 @@ export function useCity({ id, lat, lon }: Place) {
   const cached = useMemo(() => readCache(id), [id])
   const [loaded, setLoaded] = useState<{ id: string; columns: CityResult } | null>(null)
   useEffect(() => {
-    if (cached) return
     const controller = new AbortController()
     const run = () => void loadCity({ lat, lon }, controller.signal).then(columns => {
       if (!columns || controller.signal.aborted) return
+      if (cached) {
+        setLoaded({ id, columns: { ...cached, raster: columns.raster } })
+        return
+      }
       try {
+        const { rows, towers, west, span } = columns
         const clusters = clustersForCache(columns.clusters)
-        if (clusters) localStorage.setItem(cacheKey(id), JSON.stringify({ at: Date.now(), columns: { ...columns, clusters } }))
+        if (clusters) localStorage.setItem(cacheKey(id), JSON.stringify({
+          at: Date.now(), columns: { rows, towers, west, span, clusters },
+        }))
       }
       catch { /* Keep the result in memory. */ }
       setLoaded({ id, columns })

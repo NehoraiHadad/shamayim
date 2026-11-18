@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo, type ComponentProps, type CSSProperties } from 'react'
 import { MIN_PLAIN_CONTRAST, plainContrast } from '../../../data/city/plainHaze'
 import type { PlacedTower } from '../../../data/city/cityTowers'
 import type { NeighbourMass } from '../../../data/city/neighbours'
@@ -6,11 +6,13 @@ import type { Settlement } from '../../../data/landmarks/settlement'
 import type { PlacedMark } from '../../../data/landmarks/types'
 import { CityMass } from './city/CityMass'
 import { CityTowers } from './city/CityTowers'
+import { Skyline } from './city/Skyline'
 import { fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
 import { isField, isHillMark, planeOf, specOf } from './hillPlane'
 import { fieldDepthOf } from './markBox'
 import { PLAIN_LABEL_FONT, type PlainLabel } from './plainLabels'
+import { sunLightOf, sunStyle } from './LightRig'
 import { MarkBuilding, type BuildingContext } from './MarkBuilding'
 import { SettlementGlyph } from './SettlementGlyph'
 import { lifeStyle, useMarkMotion } from './useMarkMotion'
@@ -25,6 +27,7 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   marks: PlacedMark[]
   settlement: Settlement | null
   cityTowers?: readonly PlacedTower[]
+  citySkyline?: Omit<ComponentProps<typeof Skyline>, 'night' | 'litShare' | 'visibilityKm'> | null
   neighbours?: NeighbourMass[]
   labels?: PlainLabel[]
   width: number
@@ -34,7 +37,8 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
 
 const middle = (xs: number[]) => (Math.min(...xs) + Math.max(...xs)) / 2
 
-export function HillMarks({ marks, settlement, cityTowers, neighbours, labels, width, visibilityKm, layer = 'near', ...context }: Props) {
+export function HillMarks({ marks, settlement, cityTowers, citySkyline, neighbours, labels, width, visibilityKm,
+  layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
   const masses = useMemo(() => ([0, 1, 2] as const).flatMap(row => (['flat', 'pitched'] as const).map(roof => {
     const matching = neighbours?.filter(mass => mass.row === row && mass.roof === roof) ?? []
@@ -62,8 +66,10 @@ export function HillMarks({ marks, settlement, cityTowers, neighbours, labels, w
   const night = context.night && !far
   const massAt = (row: number) => masses.filter(mass => mass.row === row && mass.houses.length).map(mass => {
     const x = middle(mass.houses.map(house => house.x))
-    const sunWest = context.sunX == null || context.shaded?.(x) ? null : context.sunX <= x
-    return <CityMass key={mass.roof} {...mass} night={night} litShare={context.life.litShare} sunWest={sunWest} />
+    const light = context.shaded?.(x) ? null : sunLightOf(context.sunX, x)
+    return <g key={mass.roof} style={light ? sunStyle(light.k) : undefined}>
+      <CityMass {...mass} night={night} litShare={context.life.litShare} sunWest={light && light.side === 'w'} />
+    </g>
   })
   return <svg className={`${styles.px} ${night ? styles.night : ''}`}
     viewBox={`0 0 ${width} 128`} style={lifeStyle(context.life)} data-hidden={motion.hidden || undefined} aria-hidden="true">
@@ -87,12 +93,14 @@ export function HillMarks({ marks, settlement, cityTowers, neighbours, labels, w
       ))}
       {byPlane('face').map(building)}
       {massAt(1)}
+      {citySkyline && <Skyline {...citySkyline} night={night} litShare={context.life.litShare} visibilityKm={visibilityKm} />}
       {settlement && <SettlementGlyph settlement={settlement} night={context.night} reach={context.reach}
         litShare={context.life.litShare}
-        afterRow={cityTowers?.length ? row => <CityTowers towers={cityTowers.filter(tower => tower.row === row)}
+        afterRow={!citySkyline && cityTowers?.length ? row => <CityTowers towers={cityTowers.filter(tower => tower.row === row)}
           night={night} litShare={context.life.litShare} /> : undefined}
         sunX={context.shaded?.(middle(settlement.houses.map((house) => house.x))) ? null : context.sunX} />}
-      {!settlement && cityTowers?.length ? <CityTowers towers={cityTowers} night={night} litShare={context.life.litShare} /> : null}
+      {(!settlement || citySkyline) && cityTowers?.length ? <CityTowers towers={cityTowers}
+        night={night} litShare={context.life.litShare} backRow={citySkyline ? 2 : 0} /> : null}
       {byPlane('inside').map(building)}
       {massAt(2)}
     </>}

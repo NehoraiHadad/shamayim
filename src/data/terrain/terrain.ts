@@ -3,14 +3,15 @@ import type { Place } from '../../config/place'
 import type { Sight } from '../landmarks/project'
 import type { SeenPoint } from './visibility'
 import { terrainFromPanorama } from './panoramaTerrain'
-import { fetchDem } from './dem'
+import { fetchPanorama } from './fetchPanorama'
 import {
-  computePanorama, destination, packPanorama, unpackPanorama, type Panorama,
+  packPanorama, unpackPanorama, type Panorama,
   type StoredPanorama,
 } from './panorama'
 import { gentleHillsPath, ridgePoints } from './profile'
 
 export { terrainFromPanorama } from './panoramaTerrain'
+export { fetchPanorama, inRift } from './fetchPanorama'
 
 type Pt = [number, number]
 
@@ -34,6 +35,9 @@ export interface SceneTerrain {
    */
   horizonY?: number
   seenAt?: (x: number, km: number, heightM?: number) => SeenPoint | null
+  /** DEM height in metres relative to the eye, including ground in front of the near ridge. */
+  groundAt?: (x: number, km: number) => number | null
+  angleY?: (angle: number) => number
   /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
   snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
   /**
@@ -102,36 +106,6 @@ function writePanorama(placeId: string, panorama: Panorama): void {
 export function terrainForPlace(placeId: string, panorama: Panorama | null): SceneTerrain {
   if (panorama) return terrainFromPanorama(panorama)
   return placeId === 'shadmot-mehola' ? SHADMOT : GENERIC_TERRAIN
-}
-
-/**
- * The tiles carry the sea floor (the Mediterranean is −20 m a kilometre off Tel Aviv); what you see is its surface, so
- * land below 0 m is raised to it, except in the Jordan rift (Kinneret, Jordan Valley, Dead Sea, Arava), whose ground
- * and lakes really lie below sea level.
- */
-export function inRift(lat: number, lon: number): boolean {
-  return lat > 29.4 && lat < 33.4 && lon > 35.15 && lon < 35.85
-}
-
-/** Within this distance (km) the DEM is read at zoom 10 (~130 m a pixel); beyond, at zoom 8 (~520 m), for far ridges. */
-const NEAR_DEM_KM = 12
-
-/**
- * Builds a place's horizon panorama from the DEM tiles around it: 1–4 tiles at zoom 10 for the near land and 2–4 at
- * zoom 8 for the far horizon (~0.3–0.6 MB once per place; the result is kept for good, so it is never fetched again).
- */
-export async function fetchPanorama(place: Pick<Place, 'lat' | 'lon'>, signal?: AbortSignal): Promise<Panorama> {
-  const [near, far] = await Promise.all([
-    fetchDem(place.lat, place.lon, NEAR_DEM_KM + 0.5, 10, signal),
-    fetchDem(place.lat, place.lon, 61, 8, signal),
-  ])
-  const heightAt = (distanceKm: number, azimuth: number) => {
-    const point = destination(place.lat, place.lon, distanceKm, azimuth)
-    const height = (distanceKm <= NEAR_DEM_KM ? near : far).height(point.lat, point.lon)
-    return height < 0 && !inRift(point.lat, point.lon) ? 0 : height
-  }
-  const ground = near.height(place.lat, place.lon)
-  return computePanorama(heightAt, Number.isFinite(ground) ? ground : 0)
 }
 
 export function useTerrain(place: Place): SceneTerrain {
