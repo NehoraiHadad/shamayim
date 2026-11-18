@@ -10,6 +10,7 @@ import { Raster } from './raster'
 import { readPlaces } from './places'
 import { urbanRegions } from './regions'
 import { survey } from './survey'
+import { buildFar } from './far'
 
 const CELL_LIMIT = 24 * 1024
 const TOTAL_LIMIT = 1_000_000
@@ -91,4 +92,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   console.log(result.summary)
   console.table(result.coverage)
   console.table(result.comparison)
+  console.log(`far.json: ${await buildFar(values.out!)} bytes`)
 }

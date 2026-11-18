@@ -81,6 +81,8 @@ the skyline is stepped and the foot never floats. Columns whose ground elevation
 **Far layer (|dx| 12-30 km, 160 m/px).** Drawn only where `farY <= nearY - 4` (existing rule). Fabric = one stepped silhouette strip
 1.5-4 px high in `--ridge-far` (built share >= 0.25 over a 2 px bin), towers `>= 60 m` as 2.5 px slabs x 0.6. Night: 1 px warm dots,
 alpha .6, count proportional to built share: the far city glows. `farFade >= 0.85` hides it (existing `hideFar`).
+The elevation profile is a due west–east transect at the observer's latitude (dy = 0). Fabric uses the 1 km grid row
+containing that line and towers use the same row. At 375 px, the far projection is `x = 187.5 + 6.25 * dx` with dx in km.
 
 ## 3. Data pipeline
 
@@ -99,6 +101,11 @@ alpha .6, count proportional to built share: the far city glows. `farFade >= 0.8
   - `t`: every building `>= 40 m` or `>= 12` levels, **not merged**, `wClass` 0/1/2 from the footprint's east-west width (< 25 m, 25-50, > 50).
     Keep the tallest 250 per cell.
 - `public/data/city/il/far.json`: one national file, 500 m x 1 km grid, 1 byte (built share nibble + height class nibble), plus towers `>= 80 m`.
+  The regular geographic grid uses 31.5° N as its 500 m longitude reference. Source tiles contribute by area overlap,
+  with uncovered area counted as empty. Share is rounded to the nearest fifteenth. Class 0 is empty and classes 1–15
+  follow the nearest whole footprint-weighted storey count, capped at 15. Built area without levels uses three storeys.
+  The version 1 payload stores base64 runs (24-bit big-endian flat start, 8-bit length, nonzero tile bytes) and
+  tower triples `[lat, lon, heightM]`.
 - Budgets (to confirm in C2, fail the build if exceeded): cell <= 16 KB raw (~6 KB brotli); `far.json` <= 60 KB raw; whole set <= 1.5 MB raw.
   A place loads 4-8 near cells + `far.json` once: typical 5-15 KB, worst (central Tel Aviv) <= 50 KB on the wire.
 - Build prints a coverage report per region box (share of built cells whose height came from tags vs type vs default): the standing measure.

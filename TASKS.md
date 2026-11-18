@@ -562,8 +562,17 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
             (sink = row·ROW_STEP), reach ×2, a 10.5 px gap at the dot only on the crest row. Karmei Tzur is tier A
             from data (no hardcoded template). Checked in the pane: Nahalal, Yagur, Ein Mahil, Daliyat, Mizra, Karmei Tzur.
             Known: Daliyat gets `tile` (no tagged worship nodes, faith 0); Karmei Tzur sparse on its steep face
-      - [ ] V4 house forms (sheds, big roofs) · V5 neighbours at true x · V6 marks/label/budget · V7 (owner yes) · V8 owner look
-      - [ ] Then F3, F1, F2, F5, F6
+      - [x] V4 (6214eeb): sheds at the outer end of big-roof runs (not on the crest row by the dot), house size by
+            footprint class, storeys by levels (two-storey drops to one under the dot)
+      - [x] V5 (ff505ca, Codex): neighbouring clusters at true x, rows by centroid dy, pitched/flat mass
+      - [ ] V6 marks inside neighbours: owner deprioritised (2026-11-18) · V7 (owner yes) · V8 owner look
+      - [x] F1+F2 (Codex): `far.json` (36.6 KB, from the near cells: 500 m × 1 km grid + towers >= 80 m) built by
+            `scripts/city/far.ts`; `FarCity.tsx` stepped silhouette, slabs, night glow on the far ridge where the near
+            ridge does not hide it; far x = 187.5 + 6.25·dx, the far ridge samples dy = 0.
+            NOT seen in the pane: the elevation API was rate-limited on 2026-11-18 (generic terrain, no far ridge).
+            Check Rosh HaAyin / Modi'in at night when it is back
+      - [ ] Then F3, F5, F6
+      - [x] Search: places in the land sort first (ערד Negev before ערד Romania)
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18

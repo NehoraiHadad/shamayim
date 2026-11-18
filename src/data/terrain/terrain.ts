@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
 import { weatherUrl } from '../weatherApi'
+import { FAR_RADIUS_KM, NEAR_RADIUS_KM, ridgeLongitudeKm } from './ridgeProjection'
 import { gentleHillsPath, profilePoints, profileToPath, profileY, ridgePoints, sampleY, type TerrainSample } from './profile'
 
 export interface TerrainData {
@@ -103,7 +104,7 @@ export function terrainForPlace(placeId: string, data: TerrainData | null): Scen
 }
 
 function points(place: Place, radiusKm: number): { latitudes: string; longitudes: string } {
-  const longitudeKm = 111.32 * Math.max(0.1, Math.cos(place.lat * Math.PI / 180))
+  const longitudeKm = ridgeLongitudeKm(place.lat)
   const delta = radiusKm / longitudeKm
   const longitudes = Array.from({ length: 41 }, (_, index) => place.lon - delta + 2 * delta * index / 40)
   return { latitudes: Array(41).fill(place.lat).join(','), longitudes: longitudes.join(',') }
@@ -120,7 +121,9 @@ async function fetchLine(place: Place, radiusKm: number, signal: AbortSignal): P
 }
 
 async function fetchTerrain(place: Place, signal: AbortSignal): Promise<TerrainData> {
-  const [near, far] = await Promise.all([fetchLine(place, 12, signal), fetchLine(place, 30, signal)])
+  const [near, far] = await Promise.all([
+    fetchLine(place, NEAR_RADIUS_KM, signal), fetchLine(place, FAR_RADIUS_KM, signal),
+  ])
   return { near, far }
 }
 
