@@ -18,6 +18,7 @@ import type { SnowFall } from './snowLine'
 import { seaSpan } from './seaLine'
 import { skylineOf } from './skyline'
 import { Sun } from './Sun'
+import { worldLight } from './sceneLight'
 import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
@@ -89,6 +90,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
+  const world = useMemo(() => worldLight(lighting, terrain.nearPoints, sceneWidth, SCENE_W), [lighting, terrain, sceneWidth])
   const shimmer = air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined
   const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
@@ -105,12 +107,14 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       aria-label={label}
       data-scene
       data-haze={air.haze.farFade > 0.5 || (snow && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
-      style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
+      style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2),
+        ...world?.style } as CSSProperties}
     >
       {glow && rim && <div className={styles.glow} style={{ opacity: glow.opacity, left: `${(rim.x * 100).toFixed(2)}%`, top: `${rim.y.toFixed(1)}px` }} />}
       <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
         farFade={air.haze.farFade} skyline={skyline} />
-      <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin} />
+      <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin}
+        look={world?.disc} />
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         {lighting?.far ? <RidgeLight path={terrain.far} points={terrain.farPoints} ray={lighting.ray}
@@ -134,6 +138,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
       </svg>
       <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
+        shaded={world?.shaded} reach={world?.reach}
         life={markLife} readout={Boolean(readout)} />
       <span className={styles.village} style={{ left: terrain.centerLeft, top: hill.centerY }} aria-hidden="true" />
       <span

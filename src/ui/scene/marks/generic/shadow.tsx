@@ -4,9 +4,10 @@ import styles from '../marks.module.css'
  * Shadow thrown on the ground away from the sun, plus a contact line under the whole base so the form sits in the
  * ridge instead of on it (drawn before the body, local coords: sun on the left).
  */
-export function CastShadow({ w, h }: { w: number; h: number }) {
+export function CastShadow({ w, h, reach: perHeight }: { w: number; h: number; reach?: number }) {
   const half = w / 2
-  const reach = Math.min(8, .4 * h)
+  // `reach` (shadow length per unit height) follows the sun under `?scene=25d`; otherwise the fixed drawn length.
+  const reach = perHeight === undefined ? Math.min(8, .4 * h) : Math.min(14, perHeight * h)
   return <>
     <path className={styles.cast} d={`M${-half + 1} 0H${half}L${half + reach} .8L${half + reach - 1.2} 1.6H${-half + 1}z`} />
     <rect className={styles.shade} x={-half} y={-.1} width={w} height={.7} />

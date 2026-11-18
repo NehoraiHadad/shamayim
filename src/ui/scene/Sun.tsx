@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import type { WorldLight } from './sceneLight'
 import type { Skyline } from './skyline'
 import { sunAt, type SunPoint } from './sunPath'
 import styles from './ValleyScene.module.css'
@@ -20,10 +21,19 @@ interface Props {
   cloudCover: number
   /** 0–1; dust flattens the sun into a pale coin with no halo. */
   coin?: number
+  /** `?scene=25d`: the disc drawn from the true sun (air-mass colour, limb darkening, refraction squash). */
+  look?: WorldLight['disc']
 }
 
+/** The physical disc's paint: hot core to a darker, redder limb, squashed by refraction; the halo takes its colour. */
+const discStyle = (look: WorldLight['disc']) => ({
+  background: `radial-gradient(circle, ${look.core} 0%, ${look.core} 42%, ${look.limb} 100%)`,
+  transform: `scaleY(${look.flatten.toFixed(3)})`,
+  '--accent': look.halo,
+})
+
 /** The sun disc. On first appearance it travels up from behind the Gilead to where it is now. */
-export function Sun({ point, date, lat, skyline, cloudCover, coin = 0 }: Props) {
+export function Sun({ point, date, lat, skyline, cloudCover, coin = 0, look }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const travelled = useRef(false)
 
@@ -41,7 +51,8 @@ export function Sun({ point, date, lat, skyline, cloudCover, coin = 0 }: Props) 
     <div
       ref={ref}
       className={`${styles.sun} ${point ? '' : styles.set}`}
-      style={point ? ({ ...place(point), opacity: Math.max(0.12, 1 - 0.85 * (cloudCover / 100) ** 1.5 - 0.4 * coin), '--coin': coin } as React.CSSProperties) : undefined}
+      style={point ? ({ ...place(point), opacity: Math.max(0.12, 1 - 0.85 * (cloudCover / 100) ** 1.5 - 0.4 * coin), '--coin': coin,
+        ...(look && coin < .5 ? discStyle(look) : {}) } as React.CSSProperties) : undefined}
       data-sun={point ? 'up' : 'down'}
       aria-hidden="true"
     />

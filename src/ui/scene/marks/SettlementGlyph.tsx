@@ -7,7 +7,7 @@ import { ContactShadow, SunStrip } from './LightRig'
 import styles from './marks.module.css'
 
 /** The place's own houses (ILLUSTRATION.md §4), drawn in px in the shared overlay svg. */
-interface Props { settlement: Settlement; sunX: number | null; night: boolean }
+interface Props { settlement: Settlement; sunX: number | null; night: boolean; reach?: number }
 
 /** Night windows of the tile and flat villages (blocks draw their own window rows). */
 function Windows({ house, style }: { house: House; style: Settlement['style'] }) {
@@ -46,7 +46,7 @@ const TILE_GROW = 1.25
 /** A house's own way round (its gable end, heater, steps), fixed by its seed: houses never turn with the sun. */
 const formOf = (house: House) => (house.seed >> 7) & 1 ? -1 : 1
 
-export function SettlementGlyph({ settlement, sunX, night }: Props) {
+export function SettlementGlyph({ settlement, sunX, night, reach }: Props) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '')
   const { style, houses, contours } = settlement
   const ordered = [...houses].sort((a, b) => a.row - b.row || a.baseY - b.baseY)
@@ -68,7 +68,7 @@ export function SettlementGlyph({ settlement, sunX, night }: Props) {
         {/* The crest row stands furthest back: toned toward the ridge, still with its two faces. */}
         <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${form * grow} ${grow})`}
           className={[tone, lit && !asDrawn ? styles.flat : ''].join(' ').trim() || undefined}>
-          {lit && (asDrawn ? <CastShadow w={house.w} h={house.h} /> : <ContactShadow w={house.w} side="e" />)}
+          {lit && (asDrawn ? <CastShadow w={house.w} h={house.h} reach={reach} /> : <ContactShadow w={house.w} side="e" />)}
           <Body house={house} style={style} night={night} />
           {lit && !asDrawn && <SunStrip id={`${id}h${i}`} w={house.w} h={house.h} side="e">
             <Body house={house} style={style} night={false} />

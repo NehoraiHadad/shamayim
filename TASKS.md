@@ -475,8 +475,16 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       (`[data-sun="up"]`); production unchanged until signed off
 - [x] Stills `docs/design/qa/25d/clouds-before/after-*.png` + `clouds-compare.png` (`wx=cloud:70`); tsc, 421
       tests, lint, build
+- [x] One sun for the whole scene ("a world", owner) — Claude Opus 5.5, `ui/scene/sceneLight.ts` (+ tests):
+      light colour from Kasten–Young air mass × Rayleigh/aerosol depth per channel (white at noon, orange ~5°,
+      red at the ridge); the disc drawn from it (hot core, limb darkening stronger in blue, refraction squash
+      near 0°, halo in the sun's colour); houses' and landmarks' lit faces take that colour (`--sun-light`);
+      anything whose ground is in a ridge's shadow goes flat (the village sits in the Gilead's shadow at 06:40,
+      lit at noon); cast shadows lengthen as the sun drops. One shared terrain shadow test (`clearanceOf`)
+      for ridges and marks. Stills `world-after-*.png`, `world-compare.png`; tsc, 426 tests, lint, build
 - [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, the layout fix
-      for production (bloom returns), afterglow on high clouds after sunset
+      for production (bloom returns), afterglow on high clouds after sunset, shadow edge on the floor;
+      ValleyScene is 170 lines, split it when the spike graduates
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

@@ -1,3 +1,5 @@
+import { clearanceOf } from './sceneLight'
+
 type Point = readonly [number, number]
 
 export function smoothstep(low: number, high: number, value: number) {
@@ -53,14 +55,7 @@ export function ridgeLightPaths(profile: readonly Point[], { ray, noonWeight, ri
     const [left, right] = [points[i - 1] ?? points[i], points[i + 1] ?? points[i]]
     const slope = (left[1] - right[1]) / (right[0] - left[0] || 1)
     const facing = (up - slope * east) / Math.hypot(1, slope)
-    let clearance = Infinity
-    if (Math.abs(east) > .01) {
-      const direction = Math.sign(east)
-      for (let j = i + direction; j >= 0 && j < points.length; j += direction) {
-        const [otherX, otherY] = points[j]
-        clearance = Math.min(clearance, otherY - y + (otherX - x) * up / east)
-      }
-    }
+    const clearance = clearanceOf(points, x, y, [east, up])
     const strength = (1 - noonWeight) * Math.max(0, facing) + noonWeight * .2 / Math.hypot(1, slope)
     return { x, y, clearance, facing, amount: ray ? depth * strength * smoothstep(0, 1, clearance) : 0 }
   })

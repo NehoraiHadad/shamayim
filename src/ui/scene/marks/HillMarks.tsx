@@ -21,6 +21,8 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   layer?: 'near' | 'far'
 }
 
+const middle = (xs: number[]) => (Math.min(...xs) + Math.max(...xs)) / 2
+
 export function HillMarks({ marks, settlement, width, layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
   if (layer === 'far' && context.life.hideFar) return null
@@ -44,7 +46,8 @@ export function HillMarks({ marks, settlement, width, layer = 'near', ...context
           depth={fieldDepthOf(mark)} />
       ))}
       {byPlane('face').map(building)}
-      {settlement && <SettlementGlyph settlement={settlement} sunX={context.sunX} night={context.night} />}
+      {settlement && <SettlementGlyph settlement={settlement} night={context.night} reach={context.reach}
+        sunX={context.shaded?.(middle(settlement.houses.map((house) => house.x))) ? null : context.sunX} />}
       {byPlane('inside').map(building)}
     </>}
   </svg>
