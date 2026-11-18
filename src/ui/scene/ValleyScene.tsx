@@ -69,11 +69,11 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const at = selected ?? now
   const skyline = useMemo(() => skylineOf(terrain.farPoints, terrain.nearPoints), [terrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
-  const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline) : null
-  const disc = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline, 0.08) : null
+  const sun = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline) : null
+  const disc = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline, 0.08) : null
   const glow = twilight(day, at)
   // The glow stands on the ridge exactly where the sun rises (east) or has set (west) today.
-  const rim = glow ? sunAt(glow.side === 'east' ? 0 : 1, datePart(at), lat, skyline) : null
+  const rim = glow && day ? sunAt(glow.side === 'east' ? 0 : 1, day.sunrise, day.sunset, place, skyline) : null
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
@@ -116,7 +116,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       {glow && rim && <div className={styles.glow} style={{ opacity: glow.opacity, left: `${(rim.x * 100).toFixed(2)}%`, top: `${rim.y.toFixed(1)}px` }} />}
       <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
         farFade={air.haze.farFade} skyline={skyline} />
-      <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin}
+      <Sun point={disc} travel={day ? (t: number) => sunAt(t, day.sunrise, day.sunset, place, skyline) : null} cloudCover={cloudCover} coin={air.sunCoin}
         look={look} />
       <FarLand terrain={terrain} lighting={ridgeLit} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
         snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor} />

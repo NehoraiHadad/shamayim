@@ -1,23 +1,20 @@
 import { moonPosition } from '../../astro/moon'
 import { skyPoint, type ScenePoint } from './moonShape'
-import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
+import { FLAT_SKYLINE, type Skyline } from './skyline'
+import { horizonLine, projectSky } from './skyProjection'
 
-/** One pass of the moon over the place: when it rises and sets (UTC ms), where, and how high it climbs. */
+/** One pass of the moon over the place: when it rises and sets (UTC ms) and where. */
 export interface MoonPass {
   rise: number
   set: number
   riseAzimuth: number
   setAzimuth: number
-  /** Highest altitude of the pass, degrees. */
-  peak: number
 }
 
 const MIN = 60_000
 const STEP = 10 * MIN
 /** A pass lasts at most ~15 h at these latitudes; look a little further for its ends. */
 const REACH = 20 * 60 * MIN
-/** Like the sun: once past rise or set, the disc keeps its slope and then drops fast behind the ridge. */
-const SINK = 1800
 
 type Site = { lat: number; lon: number }
 const altitudeAt = (ms: number, s: Site) => moonPosition(new Date(ms), s.lat, s.lon).altitude
@@ -43,10 +40,8 @@ function nextCrossing(from: number, dir: 1 | -1, s: Site): number | null {
 }
 
 function passBetween(rise: number, set: number, s: Site): MoonPass {
-  let peak = 0
-  for (let t = rise; t <= set; t += STEP) peak = Math.max(peak, altitudeAt(t, s))
   return {
-    rise, set, peak,
+    rise, set,
     riseAzimuth: moonPosition(new Date(rise), s.lat, s.lon).azimuth,
     setAzimuth: moonPosition(new Date(set), s.lat, s.lon).azimuth,
   }
@@ -85,29 +80,12 @@ export function moonPassAt(at: number, s: Site): MoonPass | null {
 }
 
 /**
- * Where the moon is drawn, on the same kind of arc as the sun: across at an even pace from where it rises to where it
- * sets, up on one smooth sine that tops out at the pass's real highest altitude. Following the true altitude instead
- * made it shoot up and drop almost straight at rise and set, where it gains height fast but barely moves across.
+ * The moon's drawn place at an instant: its true altitude and azimuth in the sky projection, standing on the horizon
+ * line of its pass (from the ridge where it rises to the ridge where it sets).
  */
-export function moonArcPoint(pass: MoonPass, at: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
-  const t = (at - pass.rise) / (pass.set - pass.rise)
-  const riseX = skyPoint(0, pass.riseAzimuth).x
-  const setX = skyPoint(0, pass.setAzimuth).x
-  const riseY = skyline(riseX)
-  const setY = skyline(setX)
-  const topY = altitudeY(skyline, (riseX + setX) / 2, pass.peak)
-  const lift = Math.max(0, (riseY + setY) / 2 - topY)
-  const below = Math.max(0, -t, t - 1)
-  return {
-    x: riseX + (setX - riseX) * t,
-    y: riseY + (setY - riseY) * t - lift * Math.sin(Math.PI * t) + SINK * below * below,
-  }
-}
-
-/** The moon's drawn place at an instant: on its pass's arc, or (no pass found) straight from its altitude and azimuth. */
 export function moonScenePoint(at: Date, s: Site, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
-  const pass = moonPassAt(at.getTime(), s)
-  if (pass) return moonArcPoint(pass, at.getTime(), skyline)
   const { altitude, azimuth } = moonPosition(at, s.lat, s.lon)
-  return skyPoint(altitude, azimuth, skyline)
+  const pass = moonPassAt(at.getTime(), s)
+  if (!pass) return skyPoint(altitude, azimuth, skyline)
+  return projectSky(altitude, azimuth, horizonLine(pass.riseAzimuth, pass.setAzimuth, skyline))
 }

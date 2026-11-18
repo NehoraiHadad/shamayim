@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { moonPosition } from '../../astro/moon'
-import { findMoonPass, moonArcPoint, moonPassAt } from './moonPath'
+import { findMoonPass, moonPassAt, moonScenePoint } from './moonPath'
+import { skyPoint } from './moonShape'
 import { SCENE_W } from './sceneBox'
 import { skylineOf } from './skyline'
 
@@ -10,37 +11,37 @@ const bumpy = skylineOf([[0, 34], [60, 18], [110, 30], [170, 14], [230, 32], [29
 const H = 3_600_000
 
 describe('moon pass', () => {
-  // 2026-11-18 21:00 UTC: an evening moon over Jerusalem (up or near the horizon).
+  // 2026-11-18 21:00 UTC: an evening moon over Jerusalem.
   const at = Date.UTC(2026, 10, 18, 21, 0)
   const pass = findMoonPass(at, jerusalem)!
+  const point = (ms: number) => moonScenePoint(new Date(ms), jerusalem, bumpy)
 
   it('finds the rise and set where the moon really crosses the horizon', () => {
     expect(pass).not.toBeNull()
     expect(pass.set - pass.rise).toBeGreaterThan(8 * H)
     expect(pass.set - pass.rise).toBeLessThan(16 * H)
     for (const t of [pass.rise, pass.set]) expect(Math.abs(moonPosition(new Date(t), jerusalem.lat, jerusalem.lon).altitude)).toBeLessThan(0.3)
-    expect(pass.peak).toBeGreaterThan(20)
     expect(moonPassAt(at + H, jerusalem)).toBe(moonPassAt(at, jerusalem))
   })
 
-  it('rises east (right), sets west (left), on one smooth arc with a single top, over a bumpy ridge', () => {
-    const pts = Array.from({ length: 61 }, (_, i) => moonArcPoint(pass, pass.rise + ((pass.set - pass.rise) * i) / 60, bumpy))
-    expect(pts[0].x).toBeGreaterThan(pts[60].x)
+  it('stands at its true direction, rises and sets on the ridge', () => {
+    const { azimuth } = moonPosition(new Date(at), jerusalem.lat, jerusalem.lon)
+    expect(point(at).x).toBeCloseTo(skyPoint(0, azimuth).x, 3)
+    expect(point(pass.rise).y).toBeCloseTo(bumpy(point(pass.rise).x), 0)
+    expect(point(pass.set).y).toBeCloseTo(bumpy(point(pass.set).x), 0)
+  })
+
+  it('moves east to west on one smooth path over a bumpy ridge (no zigzag)', () => {
+    const pts = Array.from({ length: 61 }, (_, i) => point(pass.rise + ((pass.set - pass.rise) * i) / 60))
     for (let i = 1; i < pts.length; i++) expect(pts[i].x).toBeLessThan(pts[i - 1].x)
-    // y (down is +) falls to one minimum and climbs back: second differences never flip to a kink.
-    for (let i = 1; i < pts.length - 1; i++) expect(pts[i - 1].y + pts[i + 1].y - 2 * pts[i].y).toBeGreaterThan(-0.01)
+    for (let i = 1; i < pts.length - 1; i++) expect(Math.abs(pts[i + 1].y - 2 * pts[i].y + pts[i - 1].y)).toBeLessThan(1.5)
   })
 
-  it('climbs on a slant at rise, not straight up', () => {
-    const a = moonArcPoint(pass, pass.rise, bumpy)
-    const b = moonArcPoint(pass, pass.rise + 0.5 * H, bumpy)
-    const across = Math.abs(b.x - a.x) * SCENE_W
-    const up = a.y - b.y
-    expect(up).toBeGreaterThan(0)
-    expect(across).toBeGreaterThan(up / 4)
-  })
-
-  it('slips behind the ridge after it sets', () => {
-    expect(moonArcPoint(pass, pass.set + 0.3 * H, bumpy).y).toBeGreaterThan(moonArcPoint(pass, pass.set, bumpy).y)
+  it('rises on a slant near its true angle, not straight up, and slips behind the ridge after it sets', () => {
+    const a = point(pass.rise), b = point(pass.rise + 0.5 * H)
+    const angle = Math.atan2(a.y - b.y, Math.abs(b.x - a.x) * SCENE_W) * 180 / Math.PI
+    expect(angle).toBeGreaterThan(40)
+    expect(angle).toBeLessThan(72)
+    expect(point(pass.set + 0.3 * H).y).toBeGreaterThan(point(pass.set).y)
   })
 })
