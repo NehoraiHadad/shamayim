@@ -39,8 +39,10 @@ async function sample(site: Site, slot: number, signal: AbortSignal): Promise<nu
  * bytes), refreshed every 10 minutes. Null while unknown or when the service fails; the model then stands alone.
  */
 export function useObservedCloud(site: Site): CloudObservation | null {
-  const [obs, setObs] = useState<CloudObservation | null>(null)
   const { lat, lon, timezone } = site
+  const key = `${lat},${lon}`
+  // Keyed by place, so switching places never shows the last place's sky.
+  const [seen, setSeen] = useState<{ key: string; obs: CloudObservation } | null>(null)
   useEffect(() => {
     if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return
     const ctrl = new AbortController()
@@ -50,14 +52,13 @@ export function useObservedCloud(site: Site): CloudObservation | null {
       for (const slot of [latest, latest - step]) {
         try {
           const cover = await sample({ lat, lon, timezone }, slot, ctrl.signal)
-          if (cover != null) return setObs({ cover, at: nowIn(timezone, new Date(slot)) })
+          if (cover != null) return setSeen({ key: `${lat},${lon}`, obs: { cover, at: nowIn(timezone, new Date(slot)) } })
         } catch { if (ctrl.signal.aborted) return }
       }
     }
-    setObs(null)
     void run()
     const id = setInterval(run, REFRESH_MS)
     return () => { ctrl.abort(); clearInterval(id) }
   }, [lat, lon, timezone])
-  return obs
+  return seen?.key === key ? seen.obs : null
 }
