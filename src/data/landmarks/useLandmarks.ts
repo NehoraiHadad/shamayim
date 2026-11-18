@@ -4,8 +4,7 @@ import { curatedForPlace } from './curated'
 import { loadIsrael } from './israelData'
 import { fetchOverpass } from './overpass'
 import { withPlaceHomes } from './placeMarks'
-import { offsetKm, toX } from './project'
-import { score } from './rank'
+import { shortlist } from './shortlist'
 import type { Landmark } from './types'
 
 const MONTH = 30 * 24 * 60 * 60 * 1000
@@ -13,29 +12,12 @@ const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
 interface Cache { at?: number; failed?: number; marks?: Landmark[] }
 
-function key(id: string) { return `shamayim:landmarks:v2:${id}` }
+function key(id: string) { return `shamayim:landmarks:v3:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }
 function write(id: string, value: Cache) {
   try { localStorage.setItem(key(id), JSON.stringify(value)) } catch { /* Memory-only is fine. */ }
-}
-
-function ranked(place: Place, marks: Landmark[]) {
-  const ordered = marks.flatMap((mark) => {
-    const { dx, dy } = offsetKm(place, mark)
-    const layer = toX(dx)?.layer
-    if (!layer) return []
-    const band = layer === 'near' ? 1.5 : 3
-    if (Math.abs(dy) > band || (layer === 'far' && mark.heightM < 60
-      && !['chimney', 'cooling', 'turbine'].includes(mark.kind))) return []
-    return [{ mark, value: score(mark, dx, dy, band) }]
-  }).sort((a, b) => b.value - a.value)
-  const selected = ordered.slice(0, 8)
-  const skyline = ordered.find(({ mark }) => mark.kind === 'highrise'
-    && Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= 1)
-  if (skyline && !selected.includes(skyline)) selected.splice(7, 1, skyline)
-  return selected.map(({ mark }) => mark)
 }
 
 interface Loaders {
@@ -48,12 +30,12 @@ export async function loadLandmarkSource(place: Place, signal: AbortSignal, load
   if (curated) return { marks: curated.marks, curated: true }
   try {
     const israel = await (loaders.israel ?? loadIsrael)(place, signal)
-    if (israel !== null) return { marks: ranked(place, israel), curated: false }
+    if (israel !== null) return { marks: shortlist(place, israel), curated: false }
   } catch (error) {
     if (signal.aborted) throw error
   }
   const overpass = await (loaders.overpass ?? fetchOverpass)(place, signal)
-  return { marks: ranked(place, overpass), curated: false }
+  return { marks: shortlist(place, overpass), curated: false }
 }
 
 export function useLandmarks(place: Place) {

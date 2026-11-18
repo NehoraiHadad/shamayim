@@ -14,6 +14,7 @@ export interface Candidate {
   layer: 'near' | 'far'
   width: number
   score: number
+  reserved?: boolean
 }
 
 export function score(mark: Landmark, dx: number, dy: number, band: number): number {
@@ -22,30 +23,39 @@ export function score(mark: Landmark, dx: number, dy: number, band: number): num
     + (mark.glyph === 'tel-aviv-azrieli' ? 1 : 0)
 }
 
-export function select(candidates: Candidate[], width: number): Candidate[] {
+export function select(candidates: Candidate[], width: number, large = false): Candidate[] {
   const nearLimit = Math.min(8, 5 + Math.max(0, Math.floor((width - 375) / 150)))
   const far = candidates.filter((c) => c.layer === 'far' && (
     c.mark.heightM >= 60 || ['chimney', 'cooling', 'turbine'].includes(c.mark.kind)
   )).sort(desc).slice(0, 2)
-  const near = pick(candidates.filter((c) => c.layer === 'near'), nearLimit)
+  const nearCandidates = candidates.filter((c) => c.layer === 'near')
+  const reserved = large ? nearCandidates.filter((c) => c.mark.kind === 'highrise' && Math.hypot(c.dx, c.dy) <= 3)
+    .sort((a, b) => b.mark.heightM - a.mark.heightM).slice(0, 2) : []
+  const picked = pick(nearCandidates, nearLimit, reserved, large ? 6 : 4)
+  const near = picked.filter((candidate) => candidate.reserved || !picked.some((other) => other.reserved
+    && Math.abs(other.x - candidate.x) < (other.width + candidate.width) / 2 + 6))
   return [...far, ...near]
 }
 
-const CAPS: Partial<Record<Landmark['kind'], number>> = { minaret: 2, mast: 1, orchard: 2, vineyard: 2, solar: 1, highrise: 4 }
+const CAPS: Partial<Record<Landmark['kind'], number>> = { minaret: 2, mast: 1, orchard: 2, vineyard: 2, solar: 1 }
 
 /** Best first, but OSM kinds are capped and each repeat of a kind costs 3 points, so the frame shows variety. */
-function pick(candidates: Candidate[], limit: number): Candidate[] {
-  const pool = [...candidates]
-  const chosen: Candidate[] = []
+function pick(candidates: Candidate[], limit: number, reserved: Candidate[] = [], highriseCap = 4): Candidate[] {
+  const reservedSet = new Set(reserved)
+  const pool = candidates.filter((candidate) => !reservedSet.has(candidate))
+  const chosen: Candidate[] = reserved.map((candidate) => ({ ...candidate, reserved: true }))
   const counts = new Map<Landmark['kind'], number>()
+  reserved.forEach((candidate) => counts.set(candidate.mark.kind, (counts.get(candidate.mark.kind) ?? 0) + 1))
   const value = (c: Candidate) => c.score - (c.mark.source === 'osm' ? 3 * (counts.get(c.mark.kind) ?? 0) : 0)
-  while (chosen.length < limit && pool.length) {
+  let competitive = 0
+  while (competitive < limit && pool.length) {
     pool.sort((a, b) => value(b) - value(a))
     const next = pool.shift()!
     const count = counts.get(next.mark.kind) ?? 0
-    const cap = next.mark.source === 'osm' ? CAPS[next.mark.kind] : undefined
+    const cap = next.mark.source === 'osm' ? next.mark.kind === 'highrise' ? highriseCap : CAPS[next.mark.kind] : undefined
     if (cap != null && count >= cap) continue
     chosen.push(next)
+    competitive++
     counts.set(next.mark.kind, count + 1)
   }
   return chosen
@@ -62,7 +72,9 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
     const pairGap = curatedPair ? 0 : gap
     if (prior) item.x = Math.max(item.x, prior.x + (prior.width + item.width) / 2 + pairGap - overlap)
     if (blocked && item.x + item.width / 2 > blocked[0] && item.x - item.width / 2 < blocked[1]) {
-      item.x = blocked[1] + item.width / 2
+      const left = blocked[0] - item.width / 2
+      const right = blocked[1] + item.width / 2
+      item.x = item.reserved && Math.abs(item.x - left) <= Math.abs(right - item.x) ? left : right
     }
     const maxShift = item.mark.source === 'curated' ? 36 * scale : 24 * scale
     if (Math.abs(item.x - original.x) > maxShift) {
@@ -76,6 +88,12 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
         && curatedCluster.reduce((total, candidate) => (
           total + Math.abs(candidate.x - originalX.get(candidate.mark)!)
         ), Math.abs(item.x - original.x)) <= (curatedCluster.length + 1) * maxShift
+      if (prior?.reserved && !item.reserved) continue
+      if (item.reserved && prior && !prior.reserved) {
+        placed.pop()
+        placed.push(item)
+        continue
+      }
       if (sharedCuratedShift) placed.push(item)
       else if (prior && prior.score < item.score) placed.pop()
       else continue

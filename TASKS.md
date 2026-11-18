@@ -535,7 +535,11 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       stands within 1 km (Petah Tikva showed 4 lone towers on an empty hill). High-rises within 0.6 km are absorbed
       into the cluster like a minaret; further ones stand beside it. Still `city-blocks-with-towers.png` (Petah Tikva, Ramat Gan)
 - [ ] City skyline redesign: plan in `docs/design/CITY-SKYLINE-PLAN.md` (Fable, reviewed). Hybrid: real towers at their x +
-      a built-form grid from OSM for extent/density/height; villages unchanged. Phase 1 (no new data) awaits owner go-ahead
+      a built-form grid from OSM for extent/density/height; villages unchanged. Phase 1 done 2026-11-18 (Codex gpt-5.6-sol wrote P1.2–P1.4, Claude reviewed): high-rises never make houses give way,
+      `REACH.blocks` 40/24, `shortlist.ts` keeps 8 + 12 high-rises (3 km band, unnamed > 260 m dropped), large places
+      reserve their 2 tallest towers within 3 km (cap 6). Still `city-phase1-after-before.png` (left after, right before:
+      Petah Tikva shows Kiryat Arye behind its blocks; Ramat Gan's blocks fill round the Bursa towers).
+      Next: phase 2 (C0 coverage measurement, then the built-form grid). Codex runs must pin `-m gpt-6.2-sol`
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18

@@ -51,7 +51,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     const offset = offsetKm(place, mark)
     const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
     if (!projected) continue
-    const band = mark.source === 'curated' ? 3 : projected.layer === 'near' ? 1.5 : 3
+    const band = mark.kind === 'highrise' || mark.source === 'curated' ? 3 : projected.layer === 'near' ? 1.5 : 3
     if (Math.abs(offset.dy) > band) continue
     const points = projected.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const elevations = projected.layer === 'near' ? terrain.nearElevations : terrain.farElevations
@@ -73,11 +73,13 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   /** The place's own worship halls and towers skip the contest: they stand at their true x inside the cluster. */
   const absorbed = new Set(homes ? candidates.filter((item) => item.layer === 'near' && ABSORB.has(item.mark.kind)
     && Math.hypot(item.dx, item.dy) <= .6).sort((a, b) => b.score - a.score).slice(0, 3) : [])
-  const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width)
+  const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width,
+    homes?.glyph === 'homes-large')
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
   const villageHalf = (homes ? settlementHalfWidth(settlementSize(homes)) : 7) * scale
   /** Curated city landmarks stand among the city's own blocks: they only keep clear of the dot. */
-  const curatedCity = chosen.some((item) => item.mark.source === 'curated')
+  const curatedCity = chosen.some((item) => item.mark.source === 'curated'
+    || (homes?.glyph === 'homes-large' && item.mark.kind === 'highrise' && Math.hypot(item.dx, item.dy) <= 3))
   const keepClear = curatedCity ? 7 * scale : villageHalf
   const edge = 8 * scale
   const inside = [...absorbed].sort((a, b) => a.x - b.x).map((item) => {

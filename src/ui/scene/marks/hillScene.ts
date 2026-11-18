@@ -67,7 +67,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
       absorbed: marks.flatMap((mark) => {
         const x = mark.xPct / 100 * width
         const base = mark.absorbed && BUILDINGS[mark.kind] && markGeometry(mark, x, ground)?.base
-        return base ? [{ x, w: BUILDINGS[mark.kind]!.w, base }] : []
+        return base ? [{ x, w: BUILDINGS[mark.kind]!.w, base, kind: mark.kind }] : []
       }),
     })
   }

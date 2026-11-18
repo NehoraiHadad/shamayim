@@ -29,7 +29,7 @@ const ROW_STEP: Record<SettlementStyle, number> = { tile: 5.5, 'flat-hill': 4, '
  * instead of running down a steep face in a staircase. Desert towns stay on the plateau rim.
  */
 const REACH: Record<SettlementStyle, { up: number; down: number }> = { tile: { up: 14, down: 12 },
-  'flat-hill': { up: 14, down: 12 }, 'flat-desert': { up: 5, down: 5 }, blocks: { up: 22, down: 12 } }
+  'flat-hill': { up: 14, down: 12 }, 'flat-desert': { up: 5, down: 5 }, blocks: { up: 40, down: 24 } }
 const DOT_R = 5.5
 const LABEL_MAX = 116
 const LABEL_HALF = 23
@@ -58,7 +58,7 @@ interface Input {
   litShare: number
   seed: number
   /** Absorbed buildings (px x, width, base y): houses that would stand over or behind them give way. */
-  absorbed?: { x: number; w: number; base: number }[]
+  absorbed?: { x: number; w: number; base: number; kind: Landmark['kind'] }[]
   /** Lowest base a house may have: under it the sheet would cut the house to a stub. */
   floor?: number
   /** Boxes no house may stand under (the sun-event caption), in px. */
@@ -126,7 +126,7 @@ export function composeSettlement(input: Input): Settlement {
       if (input.keepOut?.some((box) => house.x + house.w / 2 > box.left - 2 && house.x - house.w / 2 < box.right + 2
         && house.baseY > box.top - 2 && house.baseY - house.h - 1.8 < box.bottom + 2)) return
       /** Houses round the absorbed hall stay no taller than it, so its minaret rises clear of the town. */
-      if (input.absorbed?.some((mark) => Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1
+      if (input.absorbed?.some((mark) => mark.kind !== 'highrise' && Math.abs(mark.x - x) < (mark.w + house.w) / 2 + 1
         && house.baseY - house.h - 1.8 < mark.base - 6)) return
       houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
     })

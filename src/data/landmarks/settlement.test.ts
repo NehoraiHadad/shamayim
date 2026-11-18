@@ -32,7 +32,7 @@ describe('settlement cluster', () => {
   })
 
   it('keeps houses round the absorbed hall below its roof, so its minaret stands clear inside the town', () => {
-    const absorbed = [{ x: 200, w: 14, base: 46 }]
+    const absorbed = [{ x: 200, w: 14, base: 46, kind: 'minaret' as const }]
     const open = composeSettlement({ ...base, style: 'tile' })
     const settlement = composeSettlement({ ...base, style: 'tile', absorbed })
     const inSlot = (house: { x: number; w: number }) => Math.abs(house.x - 200) < (14 + house.w) / 2 + 1
@@ -40,16 +40,19 @@ describe('settlement cluster', () => {
     expect(open.houses.some((house) => inSlot(house) && over(house))).toBe(true)
     expect(settlement.houses.some((house) => inSlot(house) && over(house))).toBe(false)
     expect(settlement.houses.filter((house) => house.row === 0).length).toBeGreaterThan(0)
+    const tower = composeSettlement({ ...base, style: 'tile', absorbed: [{ ...absorbed[0], kind: 'highrise' }] })
+    expect(tower.houses).toEqual(open.houses)
   })
 
   it('packs a steep face into terraces near the dot instead of a staircase down it', () => {
-    const face = (x: number) => 40 + (x - 187.5) * 1.3
-    const settlement = composeSettlement({ ...base, size: 'large', style: 'blocks', ground: face, floor: 70 })
+    const face = (x: number) => 40 + (x - 187.5) * Math.tan(25 * Math.PI / 180)
+    const floor = 90
+    const settlement = composeSettlement({ ...base, size: 'large', style: 'blocks', ground: face, floor })
     expect(settlement.houses.length).toBeGreaterThan(5)
+    expect(new Set(settlement.houses.map((house) => house.row)).size).toBeGreaterThanOrEqual(3)
     for (const house of settlement.houses) {
-      expect(face(house.x) - 40).toBeLessThanOrEqual(12)
-      expect(40 - face(house.x)).toBeLessThanOrEqual(22)
-      expect(house.baseY).toBeLessThanOrEqual(70)
+      expect(house.baseY - house.h).toBeGreaterThanOrEqual(4)
+      expect(house.baseY).toBeLessThanOrEqual(floor)
     }
   })
 
