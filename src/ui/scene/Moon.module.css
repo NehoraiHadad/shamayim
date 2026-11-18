@@ -4,8 +4,8 @@
   width: 16px;
   height: 16px;
   margin: -8px 0 0 -8px;
-  /* Bone at night, the day sky's own pale blue by day. */
-  --moon: color-mix(in srgb, #DCE6F2 calc(var(--daylight, 0) * 100%), #E9E4D4);
+  /* Bone at night; by day near white with a breath of the sky's blue, so it stands out of a blue sky as the real one does. */
+  --moon: color-mix(in srgb, #F3F6FA calc(var(--daylight, 0) * 100%), #E9E4D4);
   transition: left var(--d3) var(--ease-out), top var(--d3) var(--ease-out), opacity var(--d2) linear;
 }
 
@@ -16,7 +16,8 @@
 /* Seas a step darker than the face; quiet enough to read only as "the moon", not as a picture of it. */
 .maria {
   fill: color-mix(in srgb, var(--moon) 84%, #5A6070);
-  opacity: calc(1 - var(--daylight, 0));
+  /* Fainter by day, as the seas are in a bright sky, but still there. */
+  opacity: calc(1 - .6 * var(--daylight, 0));
 }
 
 /* The unlit disc of a thin crescent: one hairline, so it still reads as a moon. */

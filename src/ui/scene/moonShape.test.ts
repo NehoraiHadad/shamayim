@@ -46,12 +46,20 @@ describe('moonLook', () => {
   })
   it('hides below the ridges and under thick cloud', () => {
     expect(moonLook({ ...night, altitude: -5 })).toBeNull()
-    expect(moonLook({ ...night, cloudCover: 90 })).toBeNull()
+    expect(moonLook({ ...night, cloudCover: 100 })).toBeNull()
   })
-  it('by day: pale and weak, and not as a thin crescent or under cloud', () => {
-    expect(moonLook({ ...night, sunAltitude: 30 })?.opacity).toBeCloseTo(0.35)
+  it('shines through a broken sky: cloud veils it only as the sky closes over', () => {
+    expect(moonLook({ ...night, cloudCover: 30 })?.opacity).toBe(1)
+    expect(moonLook({ ...night, cloudCover: 50 })!.opacity).toBeGreaterThan(0.9)
+    expect(moonLook({ ...night, cloudCover: 70 })!.opacity).toBeCloseTo(0.5, 1)
+    expect(moonLook({ ...night, cloudCover: 90 })!.opacity).toBeLessThan(0.2)
+  })
+  it('by day: plainly seen, the fuller the brighter; not as a thin crescent or under a closed sky', () => {
+    expect(moonLook({ ...night, sunAltitude: 30 })!.opacity).toBeCloseTo(0.62, 2)
+    expect(moonLook({ ...night, sunAltitude: 30, fraction: 1 })!.opacity).toBeCloseTo(0.8, 2)
+    expect(moonLook({ ...night, sunAltitude: 30, fraction: 0.5 })!.opacity).toBeCloseTo(0.575, 2)
     expect(moonLook({ ...night, sunAltitude: 30, fraction: 0.1 })).toBeNull()
-    expect(moonLook({ ...night, sunAltitude: 30, cloudCover: 70 })).toBeNull()
+    expect(moonLook({ ...night, sunAltitude: 30, cloudCover: 90 })).toBeNull()
   })
   it('rings a thin crescent', () => {
     expect(moonLook({ ...night, fraction: 0.1 })?.ring).toBe(true)
