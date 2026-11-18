@@ -31,6 +31,12 @@ export interface SceneTerrain {
   horizonY?: number
   /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
   snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
+  /**
+   * What the land is like in the direction at scene x (panorama only): how far the near ridge and the far horizon are
+   * (km), and whether the far horizon shows above the near ridge there. Landmarks use it to stand on the ridge in their
+   * own direction, or to be left out when the land in front hides them.
+   */
+  sightAt?: (x: number) => { nearKm: number; farKm: number; farShows: boolean }
   /** The hand-drawn valley (its village sits on the drawn floor, its snow line is scaled from the place's depth). */
   drawn?: boolean
 }
@@ -132,6 +138,11 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
     const t = (lineM - base.elevation) / (crest.elevation - base.elevation)
     return [x, yOf(base.angle + t * (crest.angle - base.angle))]
   })
+  const sightAt = (x: number) => {
+    const i = Math.min(n - 1, Math.max(0, Math.round((x / 375) * (n - 1))))
+    const ray = p.rays[i]
+    return { nearKm: ray.near.distance, farKm: ray.far.distance, farShows: farAngles[i] > nearAngles[i] + 0.15 }
+  }
   return {
     near: pointsToPath(nearPoints),
     far: pointsToPath(farPoints),
@@ -146,6 +157,7 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
     farElevations: p.rays.map((ray) => (ray.far.angle > ray.near.angle ? ray.far : ray.near).elevation),
     horizonY,
     snowEdge,
+    sightAt,
   }
 }
 

@@ -9,8 +9,10 @@ export interface SunEvent {
 /** The next sunrise or sunset after `now` (by day the sunset, at night the coming sunrise). */
 export function nextSunEvent(days: DayPoint[], now: LocalTime): SunEvent | null {
   for (const d of days) {
-    if (d.sunrise > now) return { rise: true, time: d.sunrise }
-    if (d.sunset > now) return { rise: false, time: d.sunset }
+    const sunrise = d.visibleSunrise ?? d.sunrise
+    const sunset = d.visibleSunset ?? d.sunset
+    if (sunrise > now) return { rise: true, time: sunrise }
+    if (sunset > now) return { rise: false, time: sunset }
   }
   return null
 }
@@ -35,8 +37,8 @@ function ramp(sinceEvent: number, { before, after }: { before: number; after: nu
 /** Light behind the ridge around sunrise (east) and sunset (west), peaking as the sun touches the ridge. */
 export function twilight(day: DayPoint | undefined, now: LocalTime): Twilight | null {
   if (!day) return null
-  const east = ramp(minutesBetween(day.sunrise, now), RISE_RAMP)
-  const west = ramp(minutesBetween(day.sunset, now), SET_RAMP)
+  const east = ramp(minutesBetween(day.visibleSunrise ?? day.sunrise, now), RISE_RAMP)
+  const west = ramp(minutesBetween(day.visibleSunset ?? day.sunset, now), SET_RAMP)
   if (east <= 0 && west <= 0) return null
   return east >= west ? { side: 'east', opacity: 0.5 * east } : { side: 'west', opacity: 0.5 * west }
 }

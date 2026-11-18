@@ -593,10 +593,16 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       south, sea line where sea level meets the slopes (below sea level) or the coast (Tel Aviv: sea west)
 - [x] Tests: synthetic DEM (hill at bearing/distance → expected angle; curvature hides a far hill; near vs far),
       PNG decode (filters 0/2, below-sea and fractional heights), sea side, snow edge, sun over a 4° wall later
-- [ ] Not verified: real sunrise in Shadmot against an observation (only the computed ~17 min delay); landmark x is
-      still the old west–east km projection (`toX`), not the bearing, so a mark may stand on a ridge in another
-      direction; Shadmot's fixed-x curated marks (orchard at x 200) now sit on a slope; mist band still fixed y 72–105;
-      the "next sunrise/sunset" label and twilight timing still use the flat-horizon times
+- [x] Follow-ups (owner asked): landmarks by true bearing (`bearingOf`) on the ridge in their own direction
+      (`sightLayer`: near ridge ≤ its distance + 1 km or ≤ 2 km; far only where the far horizon shows and the mark is
+      within −4/+3 km of it; else hidden; north quarter out of view). OSM pick by bearing too (cache `landmarks:v3`).
+      Curated fixed-x marks: homes keep their spot by the dot, ones behind the viewer (Shadmot palms) keep their x,
+      the rest go by bearing (Shadmot orchard → flat floor east). Low fixed marks no longer dropped near the sides.
+      Visible sunrise/sunset per day (`withVisibleSun` → `DayPoint.visibleSunrise/Set`): strip marker and pill, scene
+      label, twilight glow, day detail "אור יום". Shadmot 18.11: 06:30 / 16:16 (flat 06:12 / 16:35); Tiberias sunset
+      15:30 under the western slopes. Still `followups-bearing-visible-sun.png`
+- [ ] Not verified: real sunrise in Shadmot against an observation; mist band still fixed y 72–105; theme/sentences
+      still use flat sunrise/sunset (only labels and the glow take the visible times)
 - [x] Owner (2026-11-18): computed Shadmot accepted; relief left to Claude → `high` kept (land reads at phone size; `mid` is near flat)
 
 ## Known gaps / polish

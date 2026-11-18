@@ -4,7 +4,7 @@ import { curatedForPlace } from './curated'
 import { loadIsrael } from './israelData'
 import { fetchOverpass } from './overpass'
 import { withPlaceHomes } from './placeMarks'
-import { offsetKm, toX } from './project'
+import { bearingOf, offsetKm } from './project'
 import { score } from './rank'
 import type { Landmark } from './types'
 
@@ -13,7 +13,8 @@ const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
 interface Cache { at?: number; failed?: number; marks?: Landmark[] }
 
-function key(id: string) { return `shamayim:landmarks:v2:${id}` }
+// v3: chosen by bearing for the horizon panorama (v2 kept a west–east band only).
+function key(id: string) { return `shamayim:landmarks:v3:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }
@@ -21,15 +22,20 @@ function write(id: string, value: Cache) {
   try { localStorage.setItem(key(id), JSON.stringify(value)) } catch { /* Memory-only is fine. */ }
 }
 
+/** Tall or eye-catching kinds worth a place on a far ridge. */
+const FAR_KINDS = ['chimney', 'cooling', 'turbine']
+
+/**
+ * The few OSM marks worth keeping for a place: those in the scene's view (by bearing, the northern quarter behind the
+ * viewer left out), within 5 km, or up to 30 km when tall enough to show on a far ridge; best scored first.
+ */
 function ranked(place: Place, marks: Landmark[]) {
   const ordered = marks.flatMap((mark) => {
-    const { dx, dy } = offsetKm(place, mark)
-    const layer = toX(dx)?.layer
-    if (!layer) return []
-    const band = layer === 'near' ? 1.5 : 3
-    if (Math.abs(dy) > band || (layer === 'far' && mark.heightM < 60
-      && !['chimney', 'cooling', 'turbine'].includes(mark.kind))) return []
-    return [{ mark, value: score(mark, dx, dy, band) }]
+    const bearing = bearingOf(place, mark)
+    if (!bearing || bearing.km > 30) return []
+    const far = bearing.km > 5
+    if (far && mark.heightM < 60 && !FAR_KINDS.includes(mark.kind)) return []
+    return [{ mark, value: score(mark, bearing.km, 0, far ? 3 : 1.5) }]
   }).sort((a, b) => b.value - a.value)
   const selected = ordered.slice(0, 8)
   const skyline = ordered.find(({ mark }) => mark.kind === 'highrise'

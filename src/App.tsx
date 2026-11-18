@@ -43,6 +43,7 @@ import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
 import { useSceneTime } from './ui/scrub/useSceneTime'
+import { withVisibleSun } from './ui/scene/visibleSun'
 import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
@@ -57,7 +58,9 @@ export default function App() {
   const observed = useObservedCloud(place)
   const outlook = useRainOutlook(place)
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
-  const forecast = useMemo(() => (raw ? withObservedCloud(rollForward(raw, now), observed, now) : null), [raw, now, observed])
+  // Each day also learns when the sun is really seen to rise and set over the land around (horizon panorama).
+  const forecast = useMemo(() => (raw ? withVisibleSun(withObservedCloud(rollForward(raw, now), observed, now), terrain, place) : null),
+    [raw, now, observed, terrain, place])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
   const forced = forcedTheme()
   const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')

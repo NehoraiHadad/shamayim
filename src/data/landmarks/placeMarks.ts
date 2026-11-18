@@ -1,6 +1,6 @@
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { groundY, markHeight, markWidth, offsetKm, toX } from './project'
+import { bearingOf, groundY, markHeight, markWidth, offsetKm, sightLayer, toX } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
 import { settlementHalfWidth, type SettlementSize } from './settlement'
 import type { Landmark, PlacedMark } from './types'
@@ -46,15 +46,35 @@ function elevationAt(values: number[] | undefined, x: number): number | undefine
   return values[left] + ((values[left + 1] ?? values[left]) - values[left]) * t
 }
 
+/**
+ * Where a mark goes: over a horizon panorama by its true bearing, on the ridge in its own direction (`sightLayer`);
+ * otherwise on the old west–east cross-section. `offset.dx` is its distance along the view, `offset.dy` how far it
+ * stands behind (+) or before (−) the line it is drawn on (the drawn plane and the ranking read both).
+ */
+function project(place: Place, mark: Landmark, terrain: SceneTerrain) {
+  if (terrain.sightAt) {
+    const bearing = bearingOf(place, mark)
+    // A curated village glyph (Shadmot's homes) keeps its spot by the dot, as does one behind the viewer (its palms).
+    if (mark.x != null && (mark.kind === 'homes' || !bearing)) return { x: mark.x, layer: 'near' as const, offset: { dx: 0, dy: 0 } }
+    if (!bearing) return null
+    const sight = sightLayer(bearing.km, terrain.sightAt(bearing.x))
+    if (!sight) return null
+    return { x: bearing.x, layer: sight.layer, offset: { dx: bearing.km, dy: Math.max(-3, Math.min(3, sight.behindKm)) } }
+  }
+  const offset = offsetKm(place, mark)
+  const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
+  return projected && { ...projected, offset }
+}
+
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
-    const offset = offsetKm(place, mark)
-    const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
-    if (!projected) continue
+    const placed = project(place, mark, terrain)
+    if (!placed) continue
+    const { offset, ...projected } = placed
     const band = mark.source === 'curated' ? 3 : projected.layer === 'near' ? 1.5 : 3
-    if (Math.abs(offset.dy) > band) continue
+    if (!terrain.sightAt && Math.abs(offset.dy) > band) continue
     const points = projected.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const elevations = projected.layer === 'near' ? terrain.nearElevations : terrain.farElevations
     if (Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
@@ -110,7 +130,9 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       ? 96 : groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const fixed = item.mark.kind === 'homes' ? Math.max(6, Math.min(14, item.mark.heightM)) : FIXED[item.mark.kind]
     let hPx = fixed ?? markHeight(item.mark.heightM, item.layer)
-    if (item.x < 110 || item.x > 265) {
+    // Near the sides a high ridge leaves little sky: a tall mark is cut down to fit, and dropped when too little is left.
+    // (Low fixed-size marks such as an orchard or a solar field always fit and stay.)
+    if ((item.x < 110 || item.x > 265) && hPx > baseY - 22) {
       hPx = Math.min(hPx, Math.floor(baseY - 22))
       if (hPx < 10) return []
     }

@@ -34,6 +34,13 @@ export function daylightFraction(now: LocalTime, sunrise: LocalTime, sunset: Loc
   return (n - r) / Math.max(1, s - r)
 }
 
+/** A local timestamp moved by whole minutes (rounded), kept on the same date (clamped to 00:00–23:59). */
+export function addMinutes(t: LocalTime, minutes: number): LocalTime {
+  const total = Math.min(24 * 60 - 1, Math.max(0, Math.round(minutesOfDay(t) + minutes)))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${datePart(t)}T${pad(Math.floor(total / 60))}:${pad(total % 60)}`
+}
+
 /** Minutes between two local timestamps on the same date; positive when b is later. */
 export function minutesBetween(a: LocalTime, b: LocalTime): number {
   return minutesOfDay(b) - minutesOfDay(a)

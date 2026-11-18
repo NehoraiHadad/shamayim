@@ -1,3 +1,4 @@
+import { AZ_LEFT, AZ_RIGHT } from '../terrain/panorama'
 import type { MarkKind, TerrainSample } from './types'
 
 export interface Coordinate { lat: number; lon: number }
@@ -8,6 +9,37 @@ export function offsetKm(place: Coordinate, mark: Coordinate) {
   return { dx, dy }
 }
 
+/**
+ * Where a mark stands in the horizon panorama: x by its true bearing from the place (the sky's and the land's own
+ * mapping: west-north-west at the left edge, south in the middle, east-north-east at the right), and how far it is.
+ * Null when it lies behind the viewer (the northern quarter the scene does not show).
+ */
+export function bearingOf(place: Coordinate, mark: Coordinate): { x: number; km: number } | null {
+  const { dx, dy } = offsetKm(place, mark)
+  const km = Math.hypot(dx, dy)
+  // Right at the place the bearing means nothing: the middle of the scene.
+  if (km < 0.15) return { x: 187.5, km }
+  const azimuth = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360
+  const span = (AZ_LEFT - AZ_RIGHT + 360) % 360
+  const along = (AZ_LEFT - azimuth + 360) % 360
+  return along > span ? null : { x: (375 * along) / span, km }
+}
+
+/** What the land is like in one direction of the panorama (see `SceneTerrain.sightAt`). */
+export interface Sight { nearKm: number; farKm: number; farShows: boolean }
+
+/**
+ * Which ridge a mark at `km` stands on in a direction: the near ridge when it is no further than just behind it (or
+ * within 2 km, a town's own buildings), the far horizon when that shows above the near ridge and the mark is within a
+ * few km of its crest, else none (the land in front hides it). `behindKm` is how far it stands behind (+) or before (−) that ridge.
+ */
+export function sightLayer(km: number, sight: Sight): { layer: 'near' | 'far'; behindKm: number } | null {
+  if (km <= Math.max(sight.nearKm + 1, 2)) return { layer: 'near', behindKm: km - sight.nearKm }
+  if (km <= 30 && sight.farShows && km >= sight.farKm - 4 && km <= sight.farKm + 3) return { layer: 'far', behindKm: km - sight.farKm }
+  return null
+}
+
+/** The old west–east cross-section projection (stand-in drawings, before a place's panorama is known). */
 export function toX(dx: number): { x: number; layer: 'near' | 'far' } | null {
   const distance = Math.abs(dx)
   if (distance > 30) return null

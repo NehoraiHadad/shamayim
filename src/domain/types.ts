@@ -50,6 +50,12 @@ export interface DayPoint {
   windGustsMax: number
   sunrise: LocalTime
   sunset: LocalTime
+  /**
+   * When the sun really comes over / goes behind the land around the place (later / earlier than the flat-horizon
+   * times above behind a mountain). Set by the scene once the horizon panorama is known; labels prefer it.
+   */
+  visibleSunrise?: LocalTime
+  visibleSunset?: LocalTime
   /** Days beyond the high-resolution ICON-EU horizon. */
   lowConfidence: boolean
   confidence: Confidence

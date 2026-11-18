@@ -19,7 +19,7 @@ import { SceneScrubber } from './SceneScrubber'
 import { SnowCap } from './SnowCap'
 import type { SnowFall } from './snowLine'
 import { seaSpan } from './seaLine'
-import { skylineOf, withHorizon } from './skyline'
+import { sceneSkyline } from './visibleSun'
 import { Sun } from './Sun'
 import { useSceneSun } from './useSceneSun'
 import { useMoonlight } from './useMoonlight'
@@ -67,7 +67,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
-  const skyline = useMemo(() => withHorizon(skylineOf(terrain.farPoints, terrain.nearPoints), terrain.horizonY), [terrain])
+  const skyline = useMemo(() => sceneSkyline(terrain), [terrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline) : null
   const disc = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline, 0.08) : null

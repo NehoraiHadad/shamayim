@@ -3,7 +3,7 @@ import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
 import { CURATED } from './curated'
 import { placeMarks } from './placeMarks'
-import { groundY, markHeight, offsetKm, toX } from './project'
+import { bearingOf, groundY, markHeight, offsetKm, sightLayer, toX } from './project'
 import { score, select, spread, type Candidate } from './rank'
 import type { Landmark } from './types'
 
@@ -143,5 +143,45 @@ describe('placement and selection', () => {
     const marks = placeMarks(city, { ...terrain, centerLeft: '47.5%' },
       CURATED.find((item) => item.id === city.id)!.marks, 375)
     expect(marks.find((mark) => mark.id === 'shadmot-homes')?.hPx).toBe(8)
+  })
+})
+
+describe('placement over a horizon panorama', () => {
+  // Near ridge 3 km away all round; the far horizon 20 km away shows above it only on the eastern half.
+  const panorama: SceneTerrain = { ...terrain, horizonY: 90,
+    sightAt: (x) => ({ nearKm: 3, farKm: 20, farShows: x > 187.5 }) }
+  const at = (id: string, km: number, azimuth: number, extra: Partial<Landmark> = {}): Landmark => ({ ...baseMark, id,
+    lat: place.lat + km * Math.cos(azimuth * Math.PI / 180) / 111.32,
+    lon: place.lon + km * Math.sin(azimuth * Math.PI / 180) / (111.32 * Math.cos(place.lat * Math.PI / 180)), ...extra })
+
+  it('puts a mark at its true bearing: south in the middle, east and west towards the edges, north out of view', () => {
+    expect(bearingOf(place, at('s', 2, 180))!.x).toBeCloseTo(187.5, 0)
+    expect(bearingOf(place, at('e', 2, 90))!.x).toBeCloseTo(322.5, 0)
+    expect(bearingOf(place, at('w', 2, 270))!.x).toBeCloseTo(52.5, 0)
+    expect(bearingOf(place, at('n', 2, 0))).toBeNull()
+  })
+
+  it('stands a mark on the ridge in its own direction, or leaves it out when the land in front hides it', () => {
+    expect(sightLayer(2.5, { nearKm: 3, farKm: 20, farShows: false })?.layer).toBe('near')
+    expect(sightLayer(19, { nearKm: 3, farKm: 20, farShows: true })?.layer).toBe('far')
+    expect(sightLayer(19, { nearKm: 3, farKm: 20, farShows: false })).toBeNull()
+    expect(sightLayer(10, { nearKm: 3, farKm: 20, farShows: true })).toBeNull()
+  })
+
+  it('places marks off the old west–east band too, by bearing', () => {
+    const marks = placeMarks(place, panorama, [at('south', 2.5, 170), at('north', 2, 10), at('hidden', 12, 260)], 375)
+    expect(marks.map((mark) => mark.id)).toEqual(['south'])
+    expect(marks[0].xPct / 100 * 375).toBeCloseTo(bearingOf(place, at('south', 2.5, 170))!.x, 0)
+  })
+
+  it('keeps a curated village glyph by the dot, and one behind the viewer at its drawn spot', () => {
+    const homes = at('homes', 0.3, 250, { kind: 'homes', source: 'curated', x: 170, heightM: 8 })
+    const behind = at('palms', 2.4, 350, { kind: 'palms', source: 'curated', x: 160, heightM: 15 })
+    const east = at('orchard', 2.4, 95, { kind: 'orchard', source: 'curated', x: 200, heightM: 5 })
+    const placed = placeMarks(place, panorama, [homes, behind, east], 375)
+    expect(placed.map((m) => m.id).sort()).toEqual(['homes', 'orchard', 'palms'])
+    const x = (id: string) => placed.find((mark) => mark.id === id)!.xPct / 100 * 375
+    expect(x('palms')).toBeCloseTo(160, 0)
+    expect(x('orchard')).toBeGreaterThan(300)
   })
 })
