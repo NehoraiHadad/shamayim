@@ -17,7 +17,7 @@ describe('place homes', () => {
   it('always adds Karmei Tzur homes alongside remote OSM marks', () => {
     const karmei: Place = { ...place, id: 'karmei-tzur', nameHe: 'כרמי צור', lat: 31.6092, lon: 35.1009,
       usesOsm: true, featureCode: 'PPL', settlementType: 'village' }
-    expect(placeHomes(karmei, [])[0].glyph).toBe('homes-small')
+    expect(placeHomes(karmei)[0].glyph).toBe('homes-small')
     const minaret: Landmark = { ...baseMark, id: 'west-minaret', kind: 'minaret',
       lat: karmei.lat, lon: karmei.lon - 6 / (111.32 * Math.cos(karmei.lat * Math.PI / 180)) }
     const combined = withPlaceHomes(karmei, [minaret])
@@ -25,16 +25,16 @@ describe('place homes', () => {
     expect(combined[1].glyph).toBe('homes-small')
   })
 
-  it('skips large-place homes only for a skyline within one kilometre', () => {
+  it("draws a large city's own blocks even when high-rises stand at its centre", () => {
     const city: Place = { ...place, featureCode: 'PPLA', settlementType: 'city' }
-    const near = { ...baseMark, kind: 'highrise' as const, lat: city.lat, lon: city.lon + .005 }
-    const far = { ...near, lon: city.lon + .02 }
-    expect(placeHomes(city, [near])).toEqual([])
-    expect(placeHomes(city, [far])[0].glyph).toBe('homes-large')
+    expect(placeHomes(city)[0].glyph).toBe('homes-large')
+    const tower = { ...baseMark, id: 'tower', kind: 'highrise' as const, lon: place.lon + .003, heightM: 120 }
+    const marks = placeMarks(city, { ...terrain, centerLeft: '47%' }, [placeHomes(city)[0], tower], 375)
+    expect(marks.find((mark) => mark.id === 'tower')?.absorbed).toBe(true)
   })
 
   it('leaves the place homes to the settlement cluster and keeps other marks out of it', () => {
-    const homes = placeHomes({ ...place, featureCode: 'PPL' }, [])[0]
+    const homes = placeHomes({ ...place, featureCode: 'PPL' })[0]
     const nextToCentre = { ...baseMark, id: 'nearby', lat: place.lat, lon: place.lon + .001 }
     const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, nextToCentre], 375)
     expect(marks.find((mark) => mark.kind === 'homes')).toBeUndefined()
@@ -43,7 +43,7 @@ describe('place homes', () => {
   })
 
   it('absorbs the own minaret of the place into the cluster, clear of the dot', () => {
-    const homes = placeHomes({ ...place, featureCode: 'PPL' }, [])[0]
+    const homes = placeHomes({ ...place, featureCode: 'PPL' })[0]
     const minaret = { ...baseMark, id: 'own', kind: 'minaret' as const, lon: place.lon + .003, heightM: 25 }
     const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, minaret], 375)
     const own = marks.find((mark) => mark.id === 'own')!

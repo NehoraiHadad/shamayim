@@ -9,18 +9,16 @@ const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6,
 const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minaret', 'lighthouse'])
 const LIT_CUSTOM = new Set(['jerusalem-david', 'jerusalem-wall', 'tel-aviv-shalom',
   'tel-aviv-sarona', 'tel-aviv-azrieli', 'haifa-bab', 'haifa-dagon', 'haifa-sail', 'shadmot-homes'])
-const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
+/** Towers too: a city's high-rises rise out of its blocks instead of standing alone beside an empty hill. */
+const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo', 'highrise'])
 const SETTLEMENTS = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
 
-export function placeHomes(place: Place, osmMarks: Landmark[]): Landmark[] {
+export function placeHomes(place: Place): Landmark[] {
   if (!place.featureCode?.startsWith('PPL') && !(place.usesOsm && SETTLEMENTS.has(place.settlementType ?? ''))) return []
   const size = place.population != null
     ? place.population < 2_000 ? 'small' : place.population < 50_000 ? 'medium' : 'large'
     : place.settlementType === 'city' || place.featureCode === 'PPLA' ? 'large'
       : place.settlementType === 'town' || place.featureCode === 'PPLX' ? 'medium' : 'small'
-  const skyline = size === 'large' && osmMarks.some((mark) => mark.kind === 'highrise'
-    && Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= 1)
-  if (skyline) return []
   const heightM = size === 'small' ? 6 : size === 'medium' ? 8 : 14
   return [{ id: `${place.id}-homes`, kind: 'homes', glyph: `homes-${size}`, nameHe: place.nameHe,
     lat: place.lat, lon: place.lon, heightM, source: 'place' }]
@@ -29,7 +27,7 @@ export function placeHomes(place: Place, osmMarks: Landmark[]): Landmark[] {
 /** Adds the place's own houses, unless a curated set already draws them (Shadmot's homes glyph). */
 export function withPlaceHomes(place: Place, marks: Landmark[], curated = false): Landmark[] {
   const ownHomes = curated && marks.some((mark) => mark.glyph?.endsWith('-homes'))
-  return ownHomes ? marks : [...marks, ...placeHomes(place, marks)]
+  return ownHomes ? marks : [...marks, ...placeHomes(place)]
 }
 
 export function isPlaceHomes(mark: Landmark) { return mark.kind === 'homes' && mark.source === 'place' }

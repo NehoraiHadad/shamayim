@@ -531,6 +531,9 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       `snowFall` caps while snow lies ≥ 1 cm, after the fall too, melting as the depth does; the cover reaches
       100 m + 300 m × (depth/30 cm) below the place. `falling` flag: only falling snow thickens the air (heavy haze).
       Dev `?wx=depth:0.3`. Still `snow-lying.png` (Majdal 40 cm | 3 cm, Jerusalem 10 cm morning | dusk)
+- [x] Big cities keep their blocks (Claude): `placeHomes` no longer drops a large place's houses when an OSM high-rise
+      stands within 1 km (Petah Tikva showed 4 lone towers on an empty hill). High-rises within 0.6 km are absorbed
+      into the cluster like a minaret; further ones stand beside it. Still `city-blocks-with-towers.png` (Petah Tikva, Ramat Gan)
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18
