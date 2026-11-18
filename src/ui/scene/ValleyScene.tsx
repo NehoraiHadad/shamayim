@@ -13,7 +13,7 @@ import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
 import { skylineOf } from './skyline'
 import { Sun } from './Sun'
-import { SCENE_H, SCENE_W, sunPosition } from './sunPath'
+import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
 import styles from './ValleyScene.module.css'
@@ -63,6 +63,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline) : null
   const disc = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline, 0.08) : null
   const glow = twilight(day, at)
+  // The glow stands on the ridge exactly where the sun rises (east) or has set (west) today.
+  const rim = glow ? sunAt(glow.side === 'east' ? 0 : 1, datePart(at), lat, skyline) : null
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
@@ -81,6 +83,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     below ? `היישוב ${Math.abs(elevation)} מטר מתחת לפני הים.` : `גובה היישוב ${elevation} מטר.`,
   ].filter(Boolean).join(' ')
   return (
+    <>
     <figure
       className={styles.scene}
       ref={sceneRef}
@@ -88,10 +91,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       aria-label={label}
       data-scene
       data-haze={air.haze.farFade > 0.5 ? 'heavy' : undefined}
-      data-readout={readout ? '' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
     >
-      {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
+      {glow && rim && <div className={styles.glow} style={{ opacity: glow.opacity, left: `${(rim.x * 100).toFixed(2)}%`, top: `${rim.y.toFixed(1)}px` }} />}
       <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
         farFade={air.haze.farFade} skyline={skyline} />
       <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin} />
@@ -127,14 +129,16 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
               : terrain.seaSide === 'east' ? { right: '6%' } : {}) }} aria-hidden="true">פני הים</span>
         </>
       )}
-      {readout && (
-        <span className={styles.readout}>
-          <span aria-hidden="true">{isolateNumbers(readout)}</span>
-          <button type="button" onClick={onNow}>עכשיו</button>
-        </span>
-      )}
       <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
         onNow={onNow} />
     </figure>
+    {/* Outside the drawing: pinned to the bottom of the screen while a time is shown, so the scene stays clear. */}
+    {readout && (
+      <span className={styles.readout}>
+        <span aria-hidden="true">{isolateNumbers(readout)}</span>
+        <button type="button" onClick={onNow}>עכשיו</button>
+      </span>
+    )}
+    </>
   )
 }

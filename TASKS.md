@@ -319,6 +319,10 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   a day past rise/set, so it slips behind the ridge instead of vanishing on it (moon until −4°). The scene clips only its
   sides and bottom (`clip-path`), so the noon halo spreads up behind the strip (`.sky-area` z-index 1). Scene box constants
   moved to `ui/scene/sceneBox.ts` (broke a sunPath ↔ skyline import cycle). QA: `docs/design/qa/sun-halo-noon.png`.
+- [x] Readout + twilight glow (2026-11-18): the scrub readout (time, weather, temp, wind + "עכשיו") is now a pill fixed to
+  the bottom of the screen (safe-area aware, 44px touch target on the button), outside the drawing, so it never covers the
+  scene. The dawn/dusk glow is centred on the ridge point where the sun rises (east, `sunAt(0)`) or set (west, `sunAt(1)`)
+  today, instead of a fixed side band. QA: `docs/design/qa/readout-pill.png`, `docs/design/qa/glow-dusk-west.png`.
 - [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,

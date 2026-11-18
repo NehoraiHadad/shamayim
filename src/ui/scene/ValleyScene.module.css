@@ -77,15 +77,12 @@
 
 .glow {
   position: absolute;
-  top: 0;
   width: 60%;
-  height: 100%;
-  background: radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--accent) 70%, transparent), transparent 65%);
+  height: 110px;
+  background: radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--accent) 70%, transparent), transparent 65%);
+  transform: translate(-50%, -50%);
   transition: opacity var(--d5) linear;
 }
-
-.glow.east { right: -10%; }
-.glow.west { left: -10%; }
 
 .village {
   position: absolute;
@@ -113,16 +110,15 @@
 
 .seaLabel { right: 27%; opacity: 0.42; }
 
-/* The readout takes the elevation label's place on the ground while it shows. */
-.scene[data-readout] .depth { visibility: hidden; }
 
 /*
- * Low in the scene, not in the sky band (that is where the sun and moon move while scrubbing). It sits on its own
- * dark pill so it reads over ridge, valley and sea line alike, and clears the 14 px the sheet overlaps the scene.
+ * Not in the drawing at all: a pill pinned to the bottom of the screen while a time is shown, so neither the sky band
+ * (where the sun and moon move) nor the valley's centre is covered. Its own dark ground keeps it legible on paper.
  */
 .readout {
-  position: absolute;
-  bottom: 20px;
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  max-width: calc(100vw - 32px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -139,7 +135,7 @@
   font-size: var(--text-sm);
   font-weight: 600;
   animation: readout-in var(--d1) linear;
-  z-index: 21;
+  z-index: 30;
 }
 
 .readout button {
