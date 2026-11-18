@@ -46,11 +46,11 @@ export function MarkBuilding({ mark, x, ground, sunX, night, life, motion, reado
   const asDrawn = self && side !== null && (side === 'top' || (side === 'w') === (form === 1))
   const localSide: LightSide | null = side && side !== 'top' && form < 0 ? (side === 'w' ? 'e' : 'w') : side
   const lit = !night && !far && plane !== 'behind'
-  return <g transform={`translate(${x.toFixed(1)} ${(base + .5).toFixed(1)}) scale(${scale * form} ${scale})`}
+  return <g transform={`translate(${x.toFixed(1)} ${(mark.layer === 'plain' ? base : base + .5).toFixed(1)}) scale(${scale * form} ${scale})`}
     opacity={dim ? .35 : undefined}
-    className={[plane === 'behind' ? styles.back : '', self && (!asDrawn || !lit) ? styles.flat : ''].join(' ') || undefined}>
+    className={[mark.layer === 'plain' ? styles.plainMark : '', plane === 'behind' ? styles.back : '', self && (!asDrawn || !lit) ? styles.flat : ''].join(' ') || undefined}>
     {/* Ground skirt: fills any dip of the ridge under a flat base, so no sky shows beneath the mark. */}
-    {plane === 'line' && <rect className={styles.skirt} x={-spec.w / 2 - 1} y={-.5} width={spec.w + 2}
+    {plane === 'line' && mark.layer !== 'plain' && <rect className={styles.skirt} x={-spec.w / 2 - 1} y={-.5} width={spec.w + 2}
       height={5 + (mark.lift ?? 0) / scale} />}
     {lit && (asDrawn ? <CastShadow w={spec.w} h={h} reach={reach} /> : <ContactShadow w={spec.w} side={localSide} />)}
     <spec.Draw {...props} />

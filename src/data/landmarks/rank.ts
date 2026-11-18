@@ -1,4 +1,4 @@
-import type { Landmark } from './types'
+import type { Landmark, MarkLayer } from './types'
 
 const WEIGHTS: Record<Landmark['kind'], number> = {
   bridge: 9, cooling: 8, turbine: 8, chimney: 7, lighthouse: 7,
@@ -11,7 +11,8 @@ export interface Candidate {
   dx: number
   dy: number
   x: number
-  layer: 'near' | 'far'
+  layer: MarkLayer
+  plain?: { baseY: number; hPx: number; visibleTopY?: number }
   width: number
   score: number
   reserved?: boolean
@@ -34,7 +35,12 @@ export function select(candidates: Candidate[], width: number, large = false): C
   const picked = pick(nearCandidates, nearLimit, reserved, large ? 6 : 4)
   const near = picked.filter((candidate) => candidate.reserved || !picked.some((other) => other.reserved
     && Math.abs(other.x - candidate.x) < (other.width + candidate.width) / 2 + 6))
-  return [...far, ...near]
+  const plain: Candidate[] = []
+  for (const candidate of candidates.filter(c => c.layer === 'plain').sort(desc)) {
+    if (plain.length >= 2) break
+    if (plain.every(other => Math.abs(other.x - candidate.x) >= (other.width + candidate.width) / 2 + 2)) plain.push(candidate)
+  }
+  return [...far, ...plain, ...near]
 }
 
 const CAPS: Partial<Record<Landmark['kind'], number>> = { minaret: 2, mast: 1, orchard: 2, vineyard: 2, solar: 1 }

@@ -69,9 +69,9 @@ export function fitMarks(marks: PlacedMark[], ground: Ground, width: number, dot
 
 /** Boxes of everything drawn on the near hill (buildings and fields), for labels to keep clear of. */
 export function hillBoxes(marks: PlacedMark[], ground: Ground, width: number): Box[] {
-  return marks.filter(isHillMark).flatMap((mark) => {
+  return marks.filter(mark => isHillMark(mark) || mark.layer === 'plain').flatMap((mark) => {
     const x = mark.xPct / 100 * width
-    if (isField(mark)) return [fieldBox(mark.kind, x, fieldWidth(mark.kind), fieldDepthOf(mark), ground)]
+    if (mark.layer === 'near' && isField(mark)) return [fieldBox(mark.kind, x, fieldWidth(mark.kind), fieldDepthOf(mark), ground)]
     const geometry = markGeometry(mark, x, ground)
     return geometry ? [geometry.box] : []
   })

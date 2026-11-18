@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useId, type CSSProperties, type ReactNode } from 'react'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import { RidgeLight } from './RidgeLight'
 import { Shimmer } from './Shimmer'
@@ -18,11 +18,12 @@ interface Props {
   snowPlaceM: number | null
   mist: number
   mistColor: string
-  city?: ReactNode
+  city?: (plainClip: string) => ReactNode
 }
 
 /** The far ridge (the Gilead): its sun light or plain fill, heat shimmer, snow cap, and the morning mist before it. */
 export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, mist, mistColor, city }: Props) {
+  const plainClip = useId()
   const shimmer = heat > 0 ? `url(#${shimmerId})` : undefined
   return (
     <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
@@ -33,7 +34,10 @@ export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, 
         : <path d={terrain.far} className={styles.far} filter={shimmer} />}
       {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM}
         edge={terrain.snowEdge?.('far', snow.lineM)} />}
-      {city}
+      {city && <>
+        <clipPath id={plainClip}><path d={terrain.far} /></clipPath>
+        {city(plainClip)}
+      </>}
       <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
         <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
       </foreignObject>

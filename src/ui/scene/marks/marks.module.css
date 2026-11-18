@@ -106,6 +106,18 @@
 .neighbourBack :is(.wall, .top, .roof) { fill: var(--mark-back); }
 
 /* Far ridge marks: silhouettes in the far tone, fading and bleaching with the far ridge (ILLUSTRATION.md R1). */
-.px.farLayer { opacity: calc((1 - .95 * var(--far-fade, 0)) * var(--mark-bleach, 1)); }
-.farLayer :not(.aviation) { fill: var(--ridge-far); stroke: none; }
+.farLayer { opacity: calc((1 - .95 * var(--far-fade, 0)) * var(--mark-bleach, 1)); }
+.farLayer :not(.aviation, .plainLabel) { fill: var(--ridge-far); stroke: none; }
+.plainLandmark .plainMark :not(.aviation) {
+  fill: color-mix(in oklab, var(--ridge-far), #17130e 25%);
+  fill-opacity: var(--plain-contrast);
+  stroke: none;
+}
+.plainLandmark .aviation { fill-opacity: var(--plain-light); }
+.plainLabel {
+  fill: var(--ink);
+  stroke: var(--ridge-far);
+  stroke-width: 1.5px;
+  paint-order: stroke;
+}
 .farLayer circle[fill='none'] { fill: none; }

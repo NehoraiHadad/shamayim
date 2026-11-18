@@ -23,13 +23,19 @@ export interface CuratedPlace {
   marks: Landmark[]
 }
 
+export type MarkLayer = 'near' | 'far' | 'plain'
+
 export interface PlacedMark {
   id: string
   kind: MarkKind
   glyph: string
-  layer: 'near' | 'far'
+  layer: MarkLayer
+  /** Geodesic distance of a mark on the plain. */
+  km?: number
   xPct: number
   baseY: number
+  /** True y of the visible top when intervening terrain hides the foot. */
+  visibleTopY?: number
   hPx: number
   lights: number
   tall: boolean

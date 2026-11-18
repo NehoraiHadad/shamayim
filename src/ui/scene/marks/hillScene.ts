@@ -11,6 +11,7 @@ import type { SceneTerrain } from '../../../data/terrain/terrain'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
+import { plainLabels } from './plainLabels'
 import { DOT_R, fitMarks, hillBoxes, placeLabel, SHEET_CLEAR, VISIBLE_BOTTOM } from './sceneLayout'
 
 interface Input {
@@ -76,7 +77,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width,
     terrain.sightAt ? undefined : homeHalf, cityMode)
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
-  const candidates = cityMode ? projected.filter(mark => mark.layer === 'far' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
+  const candidates = cityMode ? projected.filter(mark => mark.layer !== 'near' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
   // Mapped houses and their absorbed marks follow the ridge at their projected positions.
   const marks = fitMarks(mode && (terrain.sightAt || mode.kind !== 'village') ? intoTown(candidates, mode.style, ground, dot, width)
     : candidates, ground, width, dot)
@@ -116,11 +117,19 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     homeZone: neighbourHomeZone(centerX, mode?.kind === 'village' ? settlement?.halfWidth ?? 0 : mode?.homeHalf ?? 0),
     homeHouses: settlement?.houses,
   }) : []
+  const obstacles = [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox), ...neighbours.map(neighbourBox)]
   const labelSpot = placeLabel({
     dot, text: label.text, width,
     top: label.below ? terrain.seaY + 6 : settlement?.labelTop ?? centerY + 7,
     minTop: label.below ? terrain.seaY + 2 : 0,
-    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox), ...neighbours.map(neighbourBox)],
+    obstacles,
   })
-  return { ground, farGround, settlement, cityTowers, neighbours, centerY, marks, label: labelSpot }
+  const farBoxes = marks.flatMap(mark => {
+    if (mark.layer !== 'far') return []
+    const geometry = markGeometry(mark, mark.xPct / 100 * width, farGround, true)
+    return geometry ? [geometry.box] : []
+  })
+  const labels = terrain.seenAt ? plainLabels(marks, landmarks, width, ground, dot, labelSpot, label.text,
+    [...obstacles, ...keepOut, ...farBoxes]) : []
+  return { ground, farGround, settlement, cityTowers, neighbours, centerY, marks, label: labelSpot, labels }
 }

@@ -1,6 +1,7 @@
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { bearingOf, groundY, markHeight, markWidth, offsetKm, projectSight, toX } from './project'
+import { projectMark } from './markProjection'
+import { groundY, markHeight, markWidth } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
 import type { SettlementSize } from './settlement'
 import { templateHalf } from './settlementPlan'
@@ -53,26 +54,12 @@ function legacyHomeHalf(marks: Landmark[]) {
   return homes ? templateHalf(settlementSize(homes)) : 7
 }
 
-/** In panorama mode rank depth relative to the ridge in the direction of the mark. */
-function project(place: Place, mark: Landmark, terrain: SceneTerrain) {
-  if (terrain.sightAt) {
-    // A curated village glyph (Shadmot's homes) keeps its spot by the dot, as does one behind the viewer (its palms).
-    if (mark.x != null && (mark.kind === 'homes' || !bearingOf(place, mark))) return { x: mark.x, layer: 'near' as const, offset: { dx: 0, dy: 0 } }
-    const sight = projectSight(place, mark, terrain.sightAt)
-    if (!sight) return null
-    return { x: sight.x, layer: sight.layer, offset: { dx: sight.km, dy: Math.max(-3, Math.min(3, sight.behindKm)) } }
-  }
-  const offset = offsetKm(place, mark)
-  const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
-  return projected && { ...projected, offset }
-}
-
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
   homeHalf = legacyHomeHalf(marks), cityMode = false): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
-    const placed = project(place, mark, terrain)
+    const placed = projectMark(place, mark, terrain)
     if (!placed) continue
     const { offset, ...projected } = placed
     if (cityMode && projected.layer === 'near' && isGenericHighrise(mark.kind, mark.glyph)) continue
@@ -81,16 +68,21 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     if (!terrain.sightAt && Math.abs(offset.dy) > band) continue
     const points = projected.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const elevations = projected.layer === 'near' ? terrain.nearElevations : terrain.farElevations
-    if (Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
+    if (projected.plain) {
+      const { baseY, hPx, visibleTopY } = projected.plain
+      const nearY = groundY(terrain.nearPoints.map(([x, y]) => ({ x, y })), projected.x)
+      if (hPx < 3 || (visibleTopY ?? baseY) >= Math.min(nearY, 114)) continue
+    }
+    if (!projected.plain && Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
     if (projected.layer === 'far') {
       const farY = groundY(points.map(([x, y]) => ({ x, y })), projected.x)
       const nearY = groundY(terrain.nearPoints.map(([x, y]) => ({ x, y })), projected.x)
       if (farY > nearY - 4) continue
     }
     const fixed = mark.kind === 'homes' ? Math.max(6, Math.min(14, mark.heightM)) : FIXED[mark.kind]
-    const h = fixed ?? markHeight(mark.heightM, projected.layer)
+    const h = projected.plain?.hPx ?? fixed ?? markHeight(mark.heightM, projected.layer === 'near' ? 'near' : 'far')
     candidates.push({
-      mark, dx: offset.dx, dy: offset.dy, x: projected.x, layer: projected.layer,
+      mark, dx: offset.dx, dy: offset.dy, ...projected,
       width: markWidth(mark.kind, mark.glyph, h) * scale,
       score: mark.kind === 'homes' && mark.source === 'place' ? Number.MAX_SAFE_INTEGER : score(mark, offset.dx, offset.dy, band),
     })
@@ -114,7 +106,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     return Math.abs(item.x - center) >= clear ? item : { ...item, x: center + (item.x < center ? -clear : clear) }
   }).filter((item, index, all) => all.slice(0, index).every((other) => Math.abs(other.x - item.x) >= (other.width + item.width) / 2))
   const absorbedIds = new Set(inside.map((item) => item.mark.id))
-  const spaced = [...inside, ...(['far', 'near'] as const).flatMap((layer) => spread(
+  const spaced = [...inside, ...chosen.filter(item => item.plain), ...(['far', 'near'] as const).flatMap((layer) => spread(
     chosen.filter((item) => item.layer === layer),
     6 * scale,
     layer === 'near' ? [center - keepClear, center + keepClear] : undefined, scale,
@@ -125,28 +117,30 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   const clearLabel = spaced.flatMap((item) => {
     if (!terrain.seaInView) return [item]
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
-    const base = groundY(points.map(([x, y]) => ({ x, y })), item.x)
-    const top = base - markHeight(item.mark.heightM, item.layer)
+    const base = item.plain?.baseY ?? groundY(points.map(([x, y]) => ({ x, y })), item.x)
+    const top = item.plain?.visibleTopY ?? base - (item.plain?.hPx ?? markHeight(item.mark.heightM, item.layer === 'near' ? 'near' : 'far'))
     if (top >= terrain.seaY - 2 || base <= terrain.seaY - 14) return [item]
     const shifted = avoid(item, [labelLeft, labelRight], scale)
-    return shifted ? [shifted] : []
+    return shifted && (!item.plain || shifted === item) ? [shifted] : []
   })
   return clearLabel.flatMap((item) => {
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
-    const baseY = terrain.drawn && item.x >= 150 && item.x <= 200
-      ? 96 : groundY(points.map(([x, y]) => ({ x, y })), item.x)
+    const baseY = item.plain?.baseY ?? (terrain.drawn && item.x >= 150 && item.x <= 200
+      ? 96 : groundY(points.map(([x, y]) => ({ x, y })), item.x))
     const fixed = item.mark.kind === 'homes' ? Math.max(6, Math.min(14, item.mark.heightM)) : FIXED[item.mark.kind]
-    let hPx = fixed ?? markHeight(item.mark.heightM, item.layer)
+    let hPx = item.plain?.hPx ?? fixed ?? markHeight(item.mark.heightM, item.layer === 'near' ? 'near' : 'far')
     // Near the sides a high ridge leaves little sky: a tall mark is cut down to fit, and dropped when too little is left.
     // (Low fixed-size marks such as an orchard or a solar field always fit and stay.)
-    if ((item.x < 110 || item.x > 265) && hPx > baseY - 22) {
+    if (!item.plain && (item.x < 110 || item.x > 265) && hPx > baseY - 22) {
       hPx = Math.min(hPx, Math.floor(baseY - 22))
       if (hPx < 10) return []
     }
     return [{
       id: item.mark.id, kind: item.mark.kind, glyph: item.mark.glyph ?? item.mark.kind,
       layer: item.layer, xPct: item.x / 375 * 100, baseY,
+      ...(item.plain ? { km: item.dx } : {}),
       hPx,
+      ...(item.plain?.visibleTopY === undefined ? {} : { visibleTopY: item.plain.visibleTopY }),
       lights: LIGHTS.has(item.mark.kind) || LIT_CUSTOM.has(item.mark.glyph ?? '') ? 4 : 0,
       tall: item.mark.heightM >= 60,
       dy: item.dy,

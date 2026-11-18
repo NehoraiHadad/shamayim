@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
+import { MIN_PLAIN_CONTRAST, plainContrast } from '../../../data/city/plainHaze'
 import type { PlacedTower } from '../../../data/city/cityTowers'
 import type { NeighbourMass } from '../../../data/city/neighbours'
 import type { Settlement } from '../../../data/landmarks/settlement'
@@ -9,6 +10,7 @@ import { fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
 import { isField, isHillMark, planeOf, specOf } from './hillPlane'
 import { fieldDepthOf } from './markBox'
+import { PLAIN_LABEL_FONT, type PlainLabel } from './plainLabels'
 import { MarkBuilding, type BuildingContext } from './MarkBuilding'
 import { SettlementGlyph } from './SettlementGlyph'
 import { lifeStyle, useMarkMotion } from './useMarkMotion'
@@ -24,13 +26,15 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   settlement: Settlement | null
   cityTowers?: readonly PlacedTower[]
   neighbours?: NeighbourMass[]
+  labels?: PlainLabel[]
   width: number
+  visibilityKm?: number
   layer?: 'near' | 'far'
 }
 
 const middle = (xs: number[]) => (Math.min(...xs) + Math.max(...xs)) / 2
 
-export function HillMarks({ marks, settlement, cityTowers, neighbours, width, layer = 'near', ...context }: Props) {
+export function HillMarks({ marks, settlement, cityTowers, neighbours, labels, width, visibilityKm, layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
   const masses = useMemo(() => ([0, 1, 2] as const).flatMap(row => (['flat', 'pitched'] as const).map(roof => {
     const matching = neighbours?.filter(mass => mass.row === row && mass.roof === roof) ?? []
@@ -38,11 +42,17 @@ export function HillMarks({ marks, settlement, cityTowers, neighbours, width, la
     const blocks = new Set(matching.flatMap(mass => mass.blocks ? mass.houses : []))
     return { row, roof, houses, neighbour: { blocks } }
   })), [neighbours])
-  if (layer === 'far' && context.life.hideFar) return null
   const far = layer === 'far'
   const shared = { ...context, motion: motion.allowed, far }
   const toPx = (mark: PlacedMark) => mark.xPct / 100 * width
-  const hill = far ? marks.filter((mark) => mark.layer === 'far' && specOf(mark)) : marks.filter(isHillMark)
+  const plains = far ? marks.flatMap(mark => {
+    if (mark.layer !== 'plain' || !specOf(mark)) return []
+    const contrast = plainContrast(mark.km ?? 0, visibilityKm)
+    const light = Math.sqrt(contrast)
+    return contrast >= MIN_PLAIN_CONTRAST || (context.night && context.life.aviation && mark.tall && light >= MIN_PLAIN_CONTRAST)
+      ? [{ mark, contrast, light }] : []
+  }) : []
+  const hill = far ? marks.filter(mark => mark.layer === 'far' && !context.life.hideFar && specOf(mark)) : marks.filter(isHillMark)
   /** The place's own mosque or tower stands inside its cluster: drawn after the houses, in the gap they leave it. */
   const byPlane = (plane: string) => hill.filter((mark) => !isField(mark)
     && (far || (planeOf(mark) === plane && !mark.absorbed) || (plane === 'inside' && mark.absorbed)))
@@ -55,10 +65,21 @@ export function HillMarks({ marks, settlement, cityTowers, neighbours, width, la
     const sunWest = context.sunX == null || context.shaded?.(x) ? null : context.sunX <= x
     return <CityMass key={mass.roof} {...mass} night={night} litShare={context.life.litShare} sunWest={sunWest} />
   })
-  return <svg className={`${styles.px} ${far ? styles.farLayer : ''} ${night ? styles.night : ''}`}
+  return <svg className={`${styles.px} ${night ? styles.night : ''}`}
     viewBox={`0 0 ${width} 128`} style={lifeStyle(context.life)} data-hidden={motion.hidden || undefined} aria-hidden="true">
     {!far && massAt(0)}
-    {(far ? ['line'] : ['behind', 'line']).flatMap(byPlane).map(building)}
+    {far ? <>
+      <g className={styles.farLayer}>{byPlane('line').map(building)}</g>
+      {plains.map(({ mark, contrast, light }) => <g key={mark.id} className={styles.plainLandmark}
+        style={{ '--plain-contrast': contrast >= MIN_PLAIN_CONTRAST ? contrast : 0, '--plain-light': light } as CSSProperties}>
+        {building(mark)}
+      </g>)}
+      {labels?.map(({ id, text, x, y }) => {
+        const contrast = plains.find(({ mark }) => mark.id === id)?.contrast ?? 0
+        return contrast >= MIN_PLAIN_CONTRAST && <text key={id} x={x} y={y} textAnchor="middle"
+          fontSize={PLAIN_LABEL_FONT} opacity={contrast} className={styles.plainLabel}>{text}</text>
+      })}
+    </> : ['behind', 'line'].flatMap(byPlane).map(building)}
     {!far && <>
       {hill.filter(isField).map((mark) => (
         <Field key={mark.id} kind={mark.kind} x={toPx(mark)} ground={context.ground} width={fieldWidth(mark.kind)}

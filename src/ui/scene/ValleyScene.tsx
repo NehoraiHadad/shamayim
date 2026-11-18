@@ -85,6 +85,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   // The hand-drawn valley has no sampled heights: its ridges are scaled from the place's depth below the sea line.
   const snowPlaceM = terrain.drawn ? forecast.elevation : null
   const night = markLife.litShare > 0
+  const visibilityKm = air.haze.plainVisibilityKm ?? air.haze.visibilityKm
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, city, showSea, width: sceneWidth, litShare: markLife.litShare,
     label: { text: elevationText, below } }),
   [place, terrain, landmarks, city, showSea, sceneWidth, markLife.litShare, elevationText, below])
@@ -121,10 +122,11 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         look={look} />
       <FarLand terrain={terrain} lighting={ridgeLit} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
         snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor}
-        city={terrain.farElevations?.length ? <FarCity place={place} width={sceneWidth} ground={hill.ground}
-          farGround={hill.farGround} sightAt={terrain.sightAt} night={night} hideFar={markLife.hideFar} /> : null} />
-      <HillMarks layer="far" marks={hill.marks} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
-        night={night} life={markLife} readout={Boolean(readout)} />
+        city={terrain.farElevations?.length ? (plainClip) => <FarCity plainClip={plainClip} place={place} width={sceneWidth} ground={hill.ground}
+          farGround={hill.farGround} terrain={terrain} night={night} hideFar={markLife.hideFar}
+          visibilityKm={visibilityKm} /> : undefined} />
+      <HillMarks layer="far" marks={hill.marks} labels={hill.labels} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
+        night={night} life={markLife} visibilityKm={visibilityKm} readout={Boolean(readout)} />
       <NearLand terrain={terrain} showSea={showSea} snow={snow} snowPlaceM={snowPlaceM}
         lighting={lighting} ridgeLit={ridgeLit} />
       <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
