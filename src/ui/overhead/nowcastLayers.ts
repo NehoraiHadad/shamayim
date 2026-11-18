@@ -1,6 +1,8 @@
 import type { GeoJSONSource, Map as MapLibre } from 'maplibre-gl'
 import type { Place } from '../../config/place'
 import type { RainOutlook } from '../../domain/rainNowcast'
+import { edgePointer } from './edgePointer'
+import { destination } from './geo'
 import { motionArrow } from './motionArrow'
 
 export const ARROW = 'overhead-arrow'
@@ -29,4 +31,25 @@ export function showArrow(map: MapLibre, place: Place, outlook: RainOutlook | nu
     const visibility = lines ? 'visible' : 'none'
     if (map.getLayoutProperty(id, 'visibility') !== visibility) map.setLayoutProperty(id, 'visibility', visibility)
   }
+}
+
+export type Pointer = { x: number; y: number; angle: number; km: number }
+/** The nowcast grid reads ~265 km around the place; beyond that nothing is known, so nothing is pointed at. */
+const POINTER_KM = 265
+
+/**
+ * Where to put the "גשם · כ־230 ק״מ" chip: on the map's edge, on the line from the place toward the nearest rain,
+ * only when the newest frame shows no rain in view (the person cannot pan or zoom out to it).
+ */
+export function pointerFor(map: MapLibre, place: Place, outlook: RainOutlook | null, newest: boolean, clearView: boolean): Pointer | null {
+  const near = outlook?.nearest
+  if (!newest || !clearView || !near || near.km > POINTER_KM) return null
+  const origin = map.project([place.lon, place.lat])
+  const target = map.project(destination([place.lon, place.lat], near.km, near.bearing))
+  const { clientWidth, clientHeight } = map.getContainer()
+  const edge = edgePointer(origin, target, clientWidth, clientHeight, { x: 64, y: 22 })
+  if (!edge) return null
+  // The ring labels sit on the place's row east of it, its name just above: slide the chip below that row.
+  const y = edge.x > origin.x && Math.abs(edge.y - origin.y) < 28 ? origin.y + 28 : edge.y
+  return { ...edge, y, km: near.km }
 }

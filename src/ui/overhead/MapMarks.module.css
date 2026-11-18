@@ -42,3 +42,24 @@
 }
 
 .ring[hidden] { display: none; }
+
+/* "גשם · כ־230 ק״מ" at the map's edge, toward rain that is off the map. */
+.pointer {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding-inline: 10px;
+  border: 1px solid color-mix(in srgb, var(--sheet-ink) 20%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--sheet) 92%, transparent);
+  color: var(--sheet-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-shadow: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.pointer svg { flex: none; }

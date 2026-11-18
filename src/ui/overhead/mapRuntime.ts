@@ -1,20 +1,15 @@
 import type { StyleSpecification } from 'maplibre-gl'
+import { fetchJson, loadHebrewShaping } from './mapSupport'
 import { mapInk, POSITRON, restylePositron } from './mapStyle'
 import { paperOf, repaintPaper } from './mapPaper'
 import { addRings, hideTown, MAP_BOUNDS, openingZoom } from './placeMap'
 import { addPlaceMarks } from './placeMarks'
-import { addArrowLayers, showArrow } from './nowcastLayers'
+import { addArrowLayers, pointerFor, showArrow, type Pointer } from './nowcastLayers'
 import type { RainOutlook } from '../../domain/rainNowcast'
 import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TilePainter, type TileResult } from './tileProtocols'
 import { addWeatherLayers, reloadWeather, showWeather, type Frame, type Timeline } from './weatherLayers'
 import { weatherInView, type WeatherStatus } from './weatherViewport'
 import type { Place } from '../../config/place'
-
-export async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
-  const response = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]) })
-  if (!response.ok) throw new Error(`Weather service returned ${response.status}`)
-  return response.json()
-}
 
 interface Options {
   container: HTMLElement
@@ -24,19 +19,16 @@ interface Options {
   onReady: () => void
   onMapError: () => void
   onStatus: (status: WeatherStatus) => void
+  onPointer: (pointer: Pointer | null) => void
   painter?: TilePainter
 }
 
-export async function createOverheadMap({ container, place, timeline, signal, onReady, onMapError, onStatus, painter }: Options) {
+export async function createOverheadMap({ container, place, timeline, signal, onReady, onMapError, onStatus, onPointer, painter }: Options) {
   const upstream = fetchJson(POSITRON, signal).catch(() => null)
   const [maplibre, , rawStyle, weather] = await Promise.all([
     import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css'), upstream, timeline,
   ])
-  // Hebrew labels are shaped right-to-left only with this plugin (@mapbox/mapbox-gl-rtl-text 0.3.0, BSD-2, served
-  // from our own origin so it works offline too).
-  if (maplibre.getRTLTextPluginStatus() === 'unavailable') {
-    void maplibre.setRTLTextPlugin(new URL(`${import.meta.env.BASE_URL}vendor/mapbox-gl-rtl-text.js`, location.href).href, false)
-  }
+  loadHebrewShaping(maplibre)
   signal.throwIfAborted()
   const app = container.closest('.app')
   const paper = () => paperOf(container)
@@ -74,6 +66,7 @@ export async function createOverheadMap({ container, place, timeline, signal, on
       maplibre.MercatorCoordinate.fromLngLat(bounds.getSouthEast()),
     ], results, weather, frame)
     const { status } = view
+    point(status.echoes === 'clear')
     if (status.echoes !== previousStatus?.echoes || status.radarFailed !== previousStatus.radarFailed
       || status.cloudFailed !== previousStatus.cloudFailed) {
       previousStatus = status
@@ -86,10 +79,20 @@ export async function createOverheadMap({ container, place, timeline, signal, on
   }
   const queueReport = () => { if (!queued) queued = requestAnimationFrame(report) }
   let outlook: RainOutlook | null = null
+  let clearView = false
+  let pointed = ''
+  const point = (clear = clearView) => {
+    clearView = clear
+    const pointer = pointerFor(map, place, outlook, frame.radar === weather.latest.radar, clear)
+    const key = JSON.stringify(pointer)
+    if (key !== pointed) onPointer(pointer)
+    pointed = key
+  }
   const draw = () => {
     if (!loaded) return
     showWeather(map, weather, frame, now, dark)
     showArrow(map, place, outlook, frame.radar === weather.latest.radar)
+    point()
   }
   const updatePaper = () => {
     if (!loaded) return
