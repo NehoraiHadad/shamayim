@@ -26,15 +26,16 @@ interface Props {
 }
 
 /** The physical disc's paint: hot core to a darker, redder limb, squashed by refraction; the halo takes its colour. */
-const discStyle = (look: DiscLook) => ({
-  background: `radial-gradient(circle, ${look.core} 0%, ${look.core} 42%, ${look.limb} 100%)`,
-  transform: `scaleY(${look.flatten.toFixed(3)})`,
-  // No hard ring: the aureole (forward scattering off aerosol) falls off smoothly from the limb outward.
-  boxShadow: `0 0 6px 1px color-mix(in srgb, ${look.halo} 55%, transparent),
-    0 0 22px 6px color-mix(in srgb, ${look.halo} 28%, transparent),
-    0 0 48px 14px color-mix(in srgb, ${look.halo} 12%, transparent)`,
-  '--accent': look.halo,
-})
+const discStyle = (look: DiscLook) => {
+  const a = (alpha: number) => `color-mix(in srgb, ${look.halo} ${Math.round(Math.min(90, alpha * look.aureole))}%, transparent)`
+  return {
+    background: `radial-gradient(circle, ${look.core} 0%, ${look.core} 42%, ${look.limb} 100%)`,
+    transform: `scaleY(${look.flatten.toFixed(3)})`,
+    // No hard ring: the aureole (forward scattering off aerosol) falls off smoothly from the limb outward.
+    boxShadow: `0 0 6px 1px ${a(55)}, 0 0 22px 6px ${a(28)}, 0 0 48px 14px ${a(12)}`,
+    '--accent': look.halo,
+  }
+}
 
 /** The sun disc. On first appearance it travels up from behind the Gilead to where it is now. */
 export function Sun({ point, date, lat, skyline, cloudCover, coin = 0, look }: Props) {

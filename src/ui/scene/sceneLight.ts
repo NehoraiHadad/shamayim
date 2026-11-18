@@ -11,21 +11,45 @@ export function airMass(altitude: number) {
   return 1 / (Math.sin(h * Math.PI / 180) + 0.50572 * (h + 6.07995) ** -1.6364)
 }
 
-/** Vertical optical depth per channel (R, G, B): Rayleigh scattering (∝ λ⁻⁴) plus a little clean-air aerosol. */
-const DEPTH = [0.07, 0.12, 0.25] as const
+/** Vertical Rayleigh optical depth at 650, 550, 450 nm (∝ λ⁻⁴), a touch above sea-level values for −175 m. */
+const RAYLEIGH = [0.055, 0.099, 0.222] as const
+const WAVELENGTH = [650, 550, 450] as const
 const EXPOSURE = 4
 
-/** Direct sunlight colour at this altitude, normalised to its brightest channel, and its relative strength (0..1). */
-export function sunLight(altitude: number) {
+/** The hour's air: visibility (km) and whether its particles are coarse desert dust rather than fine haze. */
+export interface Aerosol { visibilityKm?: number; dust?: boolean }
+
+/**
+ * Vertical aerosol optical depth per channel from surface visibility. Koschmieder gives extinction 3.912 / V (km⁻¹);
+ * less the air's own Rayleigh share, times a ~1.5 km mixed layer. The Ångström exponent sets how much more blue it
+ * removes: fine haze (~1.3) reddens strongly, coarse dust (~0.3) is nearly grey and mostly dims.
+ */
+export function aerosolDepth({ visibilityKm = 40, dust = false }: Aerosol = {}) {
+  const extinction = Math.max(0, 3.912 / Math.max(1, visibilityKm) - 0.0116)
+  const tau550 = extinction * 1.5
+  const angstrom = dust ? 0.3 : 1.3
+  return WAVELENGTH.map((lambda) => tau550 * (lambda / 550) ** -angstrom)
+}
+
+/**
+ * Direct sunlight colour at this altitude through this hour's air, normalised to its brightest channel, and its
+ * strength against a clean noon (0..1). Dawn and dusk differ only as their air does: an evening of dust or haze
+ * turns the sun deep red and dim, a clean morning keeps it pale.
+ */
+export function sunLight(altitude: number, air: Aerosol = {}) {
   const m = airMass(altitude)
-  const t = DEPTH.map((tau) => Math.exp(-tau * m))
-  // The eye (like a camera) saturates on a bright sun: exposure tone-mapping keeps it white-yellow until it is low,
-  // then it passes smoothly through gold and orange to red, with no step between them.
-  const seen = t.map((v) => 1 - Math.exp(-EXPOSURE * v))
+  const aerosol = aerosolDepth(air)
+  const depth = RAYLEIGH.map((tau, i) => tau + aerosol[i])
+  const t = depth.map((tau) => Math.exp(-tau * m))
+  // The eye adapts to the dimmer dawn and saturates on the disc: tone-mapped against its brightest channel, the sun
+  // stays white-yellow until it is low, then passes smoothly through gold and orange to red.
+  const bright = Math.max(...t)
+  const seen = t.map((v) => 1 - Math.exp(-EXPOSURE * v / bright))
   const top = Math.max(...seen)
   const rgb = seen.map((v) => v / top) as [number, number, number]
   // Strength against noon, by luminance, so a low sun lights faces less as well as redder.
-  const noon = DEPTH.map((tau) => Math.exp(-tau))
+  const clean = aerosolDepth()
+  const noon = RAYLEIGH.map((tau, i) => Math.exp(-tau - clean[i]))
   const lum = (c: number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
   return { rgb, strength: Math.min(1, lum(t) / lum(noon)) }
 }
@@ -75,20 +99,22 @@ const mixRgb = (a: readonly number[], b: readonly number[], t: number) => a.map(
  * marks' lit faces mix in), the disc's look, which ground x (px) stands in a ridge's shadow, and cast-shadow length.
  */
 /** The disc's look from the true altitude alone, so it is drawn the same way from the first moment it shows. */
-export function discLook(altitude: number) {
-  const { rgb, strength } = sunLight(altitude)
+export function discLook(altitude: number, air: Aerosol = {}) {
+  const { rgb, strength } = sunLight(altitude, air)
   // Limb darkening (stronger in blue): the rim of the disc is dimmer and redder than its centre.
   const core = mixRgb(rgb, [1, 1, 1], .5 * strength)
   const limb = rgb.map((v, i) => v * [.86, .78, .66][i])
-  return { core: rgbCss(core), limb: rgbCss(limb), halo: rgbCss(rgb), flatten: sunFlattening(altitude) }
+  // The aureole is light scattered forward by aerosol: faint in clean air, wide and bright in haze.
+  const aureole = Math.min(1.6, .55 + aerosolDepth(air)[1])
+  return { core: rgbCss(core), limb: rgbCss(limb), halo: rgbCss(rgb), aureole, flatten: sunFlattening(altitude) }
 }
 export type DiscLook = ReturnType<typeof discLook>
 
 export function worldLight(light: { ray: Point | null; altitude: number } | null, near: readonly Point[], width: number,
-  sceneW: number) {
+  sceneW: number, air: Aerosol = {}) {
   if (!light?.ray) return null
   const ray = light.ray
-  const { rgb } = sunLight(light.altitude)
+  const { rgb } = sunLight(light.altitude, air)
   return {
     style: { '--sun-light': `color-mix(in oklab, ${rgbCss(rgb)} 60%, var(--sky-horizon))` },
     shaded: (x: number) => inShadow(near, ray, x * sceneW / width),

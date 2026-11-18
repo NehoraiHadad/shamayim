@@ -488,6 +488,11 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       aureole only); the disc colour is tone-mapped like the eye (a bright sun saturates to white-yellow) and
       drawn from the true altitude from its first moment (it used to fall back to the yellow disc until the light
       reached the land, then snap). Sequence `sun-colour-sequence.png` (06:25→08:30, 16:05→16:30); 427 tests
+- [x] Owner: "is a sunrise sun the same as a sunset sun?" — no; they differ by their air. The sun's colour now takes
+      the shown hour's aerosol: optical depth from visibility (Koschmieder 3.912/V less Rayleigh, ×1.5 km mixed
+      layer), Ångström 1.3 for fine haze (reddens) vs 0.3 for desert dust (greyer, dims); tone-mapped against the
+      brightest channel (the eye adapts); the aureole widens with aerosol. `haze.visibilityKm` added to AirState.
+      Stills `aerosol-compare.png` (left 40 km, right 8 km; 06:40 / 16:20)
 - [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, the layout fix
       for production (bloom returns), afterglow on high clouds after sunset, shadow edge on the floor;
       ValleyScene is 170 lines, split it when the spike graduates

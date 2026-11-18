@@ -54,7 +54,8 @@ export interface AirState {
   snow: Particles & { sway: number }
   grains: Particles
   cloud: { coverage: number; low: boolean; darken: number }
-  haze: { farFade: number; nearFade: number; amount: number; color: string }
+  /** `visibilityKm`: the hour's horizontal visibility (1–40 km, dust folded in), for the sun's aerosol colour. */
+  haze: { farFade: number; nearFade: number; amount: number; color: string; visibilityKm?: number }
   heat: { band: number; amplitude: number; bloom: number }
   rays: { alpha: number }
   /** In-cloud flashes (thunderstorm codes), never in preview. */

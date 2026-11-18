@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { airMass, inShadow, shadowReach, sunFlattening, sunLight, worldLight } from './sceneLight'
+import { airMass, discLook, inShadow, shadowReach, sunFlattening, sunLight, worldLight } from './sceneLight'
 
 type Point = [number, number]
 
@@ -42,9 +42,27 @@ describe('scene light', () => {
 describe('sun colour through the day', () => {
   it('changes in small steps, with no jump from yellow to red', () => {
     const green = (altitude: number) => sunLight(altitude).rgb[1]
-    for (let a = 0.5; a < 30; a += 0.5) {
-      expect(green(a + 0.5)).toBeGreaterThanOrEqual(green(a))
-      expect(green(a + 0.5) - green(a)).toBeLessThan(.09)
+    // Near the horizon in the Jordan Valley the sun climbs ~0.2° a minute: one shown minute is one step.
+    for (let a = 0.2; a < 30; a += 0.2) {
+      expect(green(a + 0.2)).toBeGreaterThanOrEqual(green(a))
+      expect(green(a + 0.2) - green(a)).toBeLessThan(.06)
     }
+  })
+})
+
+describe('the hour air in the sun colour', () => {
+  it('reddens a hazy sun more than a clean one at the same height, and dims it', () => {
+    const clean = sunLight(4, { visibilityKm: 40 })
+    const hazy = sunLight(4, { visibilityKm: 8 })
+    expect(hazy.rgb[1]).toBeLessThan(clean.rgb[1] - .2)
+    expect(hazy.strength).toBeLessThan(clean.strength)
+  })
+
+  it('keeps coarse dust greyer than fine haze of the same visibility', () => {
+    expect(sunLight(4, { visibilityKm: 6, dust: true }).rgb[1]).toBeGreaterThan(sunLight(4, { visibilityKm: 6 }).rgb[1])
+  })
+
+  it('widens the aureole as aerosol grows', () => {
+    expect(discLook(20, { visibilityKm: 8 }).aureole).toBeGreaterThan(discLook(20, { visibilityKm: 40 }).aureole)
   })
 })

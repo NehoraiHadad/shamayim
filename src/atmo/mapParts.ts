@@ -74,7 +74,7 @@ export function haze(i: AirInput, r: number, hot: boolean): AirState['haze'] {
   const farFade = clamp(Math.pow(clamp(1 - (v - 3) / 22), 1.5) + extra)
   const nearFade = 0.6 * clamp(1 - (v - 1) / 5)
   const color = dustLevel(i) >= 50 ? '#D7BE8C' : r >= 0.5 ? '#6F8FA0' : hot ? '#F2CF92' : '#C9D2D8'
-  return { farFade, nearFade, amount: farFade, color }
+  return { farFade, nearFade, amount: farFade, color, visibilityKm: v }
 }
 
 export function heat(i: AirInput, r: number): AirState['heat'] {

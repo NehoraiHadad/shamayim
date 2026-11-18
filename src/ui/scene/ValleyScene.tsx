@@ -93,9 +93,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
   const minute = at.slice(0, 16)
-  const look = useMemo(() => ridgeLight ? discLook(sunSky(utcOf(minute, place.timezone), place.lat, place.lon).altitude) : undefined,
-    [ridgeLight, minute, place.timezone, place.lat, place.lon])
-  const world = useMemo(() => worldLight(lighting, terrain.nearPoints, sceneWidth, SCENE_W), [lighting, terrain, sceneWidth])
+  const aerosol = useMemo(() => ({ visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 }),
+    [air.haze.visibilityKm, air.sunCoin])
+  const look = useMemo(() => ridgeLight
+    ? discLook(sunSky(utcOf(minute, place.timezone), place.lat, place.lon).altitude, aerosol) : undefined,
+  [ridgeLight, minute, place.timezone, place.lat, place.lon, aerosol])
+  const world = useMemo(() => worldLight(lighting, terrain.nearPoints, sceneWidth, SCENE_W, aerosol),
+    [lighting, terrain, sceneWidth, aerosol])
   const shimmer = air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined
   const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
   const label = [
