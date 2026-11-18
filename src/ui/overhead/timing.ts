@@ -1,4 +1,5 @@
 import { addMinutes } from '../../domain/minutes'
+import { RADAR_STALE_MIN } from '../../domain/outlookNow'
 import type { HourPoint, LocalTime } from '../../domain/types'
 
 type RainHour = Pick<HourPoint, 'time' | 'precipitation' | 'precipProb'>
@@ -27,4 +28,4 @@ export function frameAge(time: number | null, now: number): string {
 }
 
 export const frameIsStale = (time: number | null, now: number) =>
-  time !== null && now - time > 45 * 60_000
+  time !== null && now - time > RADAR_STALE_MIN * 60_000

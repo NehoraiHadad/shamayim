@@ -23,6 +23,8 @@ export interface RainOutlook {
   /** Strongest band of the current or coming rain. */
   band: Band
   nearest: { km: number; bearing: number; band: Band } | null
+  /** Where the rain that reaches the place (at `arrivesIn`) is at the radar frame's time; null when none is coming. */
+  approach: { km: number; bearing: number } | null
   /** Where the rain is moving to (degrees from north) and how fast; null when it cannot be measured. */
   motion: { kmh: number; heading: number } | null
 }
@@ -105,5 +107,9 @@ export function rainOutlook(older: EchoGrid | null, newer: EchoGrid, minutesApar
     }
     if (wetFrom !== null && lastsFor === null && moving) lastsFor = 'longer'
   }
-  return { now, arrivesIn, lastsFor, band, nearest: nearestEcho(newer, c), motion }
+  // The arriving rain sits upwind of the place by v·t, t being the minute it arrives.
+  const approach = moving && arrivesIn !== null
+    ? { km: Math.hypot(moving.vx, moving.vy) * arrivesIn * newer.kmPerCell, bearing: bearingOf(-moving.vx, -moving.vy) }
+    : null
+  return { now, arrivesIn, lastsFor, band, nearest: nearestEcho(newer, c), approach, motion }
 }

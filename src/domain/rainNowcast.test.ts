@@ -36,6 +36,18 @@ describe('radar nowcast', () => {
     expect(rainSentence(o, clock, null)).toMatch(/^גשם מתקרב ממערב\. הוא צפוי להגיע לאזור שלך בעוד כ־\d+ דקות, בסביבות \+\d+, ונראה שיימשך זמן רב\.$/)
   })
 
+  it('says where the arriving rain is at the radar frame’s time', () => {
+    const o = rainOutlook(grid([{ cx: -14, cy: 0, r: 3 }]), grid([{ cx: -10, cy: 0, r: 3 }]), 30)
+    // 32 km/h for `arrivesIn` minutes, straight west of the place.
+    expect(o.approach?.bearing).toBeCloseTo(270)
+    expect(o.approach?.km).toBeCloseTo((32 * o.arrivesIn!) / 60)
+  })
+
+  it('has no approach when nothing is heading here or the rain is already overhead', () => {
+    expect(rainOutlook(grid([{ cx: 0, cy: -14, r: 3 }]), grid([{ cx: 4, cy: -14, r: 3 }]), 30).approach).toBeNull()
+    expect(rainOutlook(grid([{ cx: -4, cy: 0, r: 3 }]), grid([{ cx: 0, cy: 0, r: 3 }]), 30).approach).toBeNull()
+  })
+
   it('says when rain over the place will stop', () => {
     const o = rainOutlook(grid([{ cx: -4, cy: 0, r: 3, band: 1 }]), grid([{ cx: 0, cy: 0, r: 3, band: 1 }]), 30)
     expect(o.now).toBe(1)

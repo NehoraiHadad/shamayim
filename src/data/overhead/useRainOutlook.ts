@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { rainOutlook, type EchoGrid, type RainOutlook } from '../../domain/rainNowcast'
+import { useEffect, useMemo, useState } from 'react'
+import { outlookNow, type RadarOutlook } from '../../domain/outlookNow'
+import { rainOutlook, type EchoGrid } from '../../domain/rainNowcast'
 import { radarBand } from './radarBand'
 import { parseRadarIndex, RAINVIEWER_INDEX, type RadarIndex } from './sources'
 
@@ -34,18 +35,8 @@ async function echoGrid(index: RadarIndex, path: string, site: Site, signal: Abo
   return { size, kmPerCell: (metresPerPx * CELL_PX) / 1000, cells }
 }
 
-/** Moves an outlook made at the radar frame's time to now. */
-function sinceFrame(o: RainOutlook, age: number): RainOutlook {
-  const less = (m: number) => Math.max(5, m - age)
-  return {
-    ...o,
-    arrivesIn: o.arrivesIn === null ? null : less(o.arrivesIn),
-    lastsFor: typeof o.lastsFor === 'number' && o.now ? less(o.lastsFor) : o.lastsFor,
-  }
-}
-
-/** Reads the two radar frames and returns the outlook as of now; null when the radar index has no frames. */
-export async function readOutlook(site: Site, signal: AbortSignal): Promise<RainOutlook | null> {
+/** Reads the two radar frames and returns the outlook at the newest frame's time; null when there are no frames. */
+export async function readOutlook(site: Site, signal: AbortSignal): Promise<RadarOutlook | null> {
   const index = parseRadarIndex(await (await fetch(RAINVIEWER_INDEX, { signal })).json())
   const newest = index.frames.at(-1)
   if (!newest) return null
@@ -56,18 +47,19 @@ export async function readOutlook(site: Site, signal: AbortSignal): Promise<Rain
   ])
   if (!b) return null
   const apart = older ? (newest.time - older.time) / 60_000 : APART_MIN
-  const age = Math.max(0, (Date.now() - newest.time) / 60_000)
-  return sinceFrame(rainOutlook(a, b, apart), age)
+  return { ...rainOutlook(a, b, apart), at: newest.time }
 }
 
 /**
  * The radar's view of rain around the place: the newest RainViewer frame and the one half an hour before, two
- * small images every five minutes. Null while unknown or offline; the page then says nothing rather than guess.
+ * small images every five minutes. Aged every minute, so times count from now; null while unknown, and again once
+ * the newest frame is over 45 minutes old (offline, or the radar stopped): the page then says nothing rather than guess.
  */
-export function useRainOutlook(site: Site): RainOutlook | null {
+export function useRainOutlook(site: Site): RadarOutlook | null {
   const { lat, lon } = site
   const key = `${lat},${lon}`
-  const [seen, setSeen] = useState<{ key: string; outlook: RainOutlook } | null>(null)
+  const [seen, setSeen] = useState<{ key: string; outlook: RadarOutlook } | null>(null)
+  const [clock, setClock] = useState(Date.now)
   useEffect(() => {
     if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return
     const ctrl = new AbortController()
@@ -75,11 +67,13 @@ export function useRainOutlook(site: Site): RainOutlook | null {
       try {
         const outlook = await readOutlook({ lat, lon }, ctrl.signal)
         if (outlook) setSeen({ key: `${lat},${lon}`, outlook })
-      } catch { /* offline or blocked: keep the last outlook */ }
+      } catch { /* offline or blocked: keep the last outlook until it is too old */ }
+      if (!ctrl.signal.aborted) setClock(Date.now())
     }
     void run()
     const id = setInterval(run, REFRESH_MS)
-    return () => { ctrl.abort(); clearInterval(id) }
+    const tick = setInterval(() => setClock(Date.now()), 60_000)
+    return () => { ctrl.abort(); clearInterval(id); clearInterval(tick) }
   }, [lat, lon])
-  return seen?.key === key ? seen.outlook : null
+  return useMemo(() => (seen?.key === key ? outlookNow(seen.outlook, clock) : null), [seen, key, clock])
 }
