@@ -601,8 +601,10 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       Visible sunrise/sunset per day (`withVisibleSun` → `DayPoint.visibleSunrise/Set`): strip marker and pill, scene
       label, twilight glow, day detail "אור יום". Shadmot 18.11: 06:30 / 16:16 (flat 06:12 / 16:35); Tiberias sunset
       15:30 under the western slopes. Still `followups-bearing-visible-sun.png`
-- [ ] Not verified: real sunrise in Shadmot against an observation; mist band still fixed y 72–105; theme/sentences
-      still use flat sunrise/sunset (only labels and the glow take the visible times)
+- [x] Decided (owner, 2026-11-18): sky theme and sentences stay on the flat sunrise/sunset. The sky's colour follows the
+      sun's true altitude (dawn light fills the sky while the sun is still behind the Gilead); the sentences use sunrise
+      only as the night/day boundary of the forecast windows. Direct light on the land already waits for the real ridge
+- [ ] Not verified: real sunrise in Shadmot against an observation; mist band still fixed y 72–105
 - [x] Owner (2026-11-18): computed Shadmot accepted; relief left to Claude → `high` kept (land reads at phone size; `mid` is near flat)
 
 ## Known gaps / polish
