@@ -4,7 +4,7 @@ import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { Place } from '../../config/place'
 import type { LocalTime } from '../../domain/types'
-import { skyPoint } from './moonShape'
+import { moonScenePoint } from './moonPath'
 import { moonlightStrength, moonRidgeLight } from './moonlight'
 import type { Skyline } from './skyline'
 import { SCENE_W } from './sunPath'
@@ -21,6 +21,7 @@ export function useMoonlight(input: RidgeLightInput | undefined, at: LocalTime, 
     const { altitude, azimuth } = moonPosition(instant, place.lat, place.lon)
     const moon = { altitude, azimuth, fraction: moonIllumination(instant).fraction }
     const strength = moonlightStrength(moon, sunSky(instant, place.lat, place.lon).altitude, cloudCover, farFade)
-    return moonRidgeLight(moon, strength, skyPoint(altitude, azimuth, skyline).x * SCENE_W)
+    // Lit from where the moon is drawn (its arc), not from the raw azimuth, so light and disc agree.
+    return moonRidgeLight(moon, strength, moonScenePoint(instant, place, skyline).x * SCENE_W)
   }, [on, minute, place.timezone, place.lat, place.lon, skyline, cloudCover, farFade])
 }
