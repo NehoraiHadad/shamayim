@@ -69,7 +69,9 @@ export default function App() {
   const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected), ...forcedWeather() } : null), [forecast, now, place, selected])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
-    cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10 }) : SKY_THEMES[themeId], [shown, themeId])
+    cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
+    air: SCENE_25D && air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],
+  [shown, themeId, air])
   const palette = useMemo(() => forced ? SKY_THEMES[themeId] : { ...SKY_THEMES[themeId], ...light }, [forced, themeId, light])
   const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
   const markLife = useMemo(() => (shown && air ? mapMarks(shown, air) : null), [shown, air])

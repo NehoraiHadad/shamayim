@@ -505,13 +505,24 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
 - [x] Split (Claude, Opus 5.5): `useSceneSun` (disc look, world light, marks' sun x, afterglow), `FarLand`,
       `useWidth` out of ValleyScene (171 → 154); cloud GLSL into `gl/cloudShader.ts` (airShader 141 → 81)
 - [x] Production (Claude, Opus 5.5): the lit scene is the default; `?scene=flat` brings back the old one
-- [ ] Owner judges on the phone (outdoors, dawn/dusk). Remaining sun/light ideas, by value:
-      1. Earth's shadow + belt of Venus: blue-grey band rising in the east after sunset, pink above it
-      2. Sky gradient from the same model (sunLight/aerosol) instead of the fixed palette per phase
-      3. Moonlight: ridge rim and cloud edges lit by the moon (phase × altitude), cool and faint
-      4. Crepuscular rays from cloud gaps at a low sun (the shader has the sun and cloud density)
-      5. Mist and snow take `--sun-light` (pink snow caps at dawn/dusk)
-      6. Shadow edge on the valley floor (the ridge's shadow line moving across the floor)
+- [x] Stars (Claude, Opus 5.5, owner: "stars appear too early"): three brightness classes (`ui/starField.ts`):
+      5 brightest from −4.5° (full −8°), 15 from −7° (full −12°), 26 faint from −11° (full −17°); used to be the whole
+      field from −4°. Twinkle from −10° (was −6°). The moon was checked and is right: 18.11 is a 60 % waxing gibbous,
+      rising ~12:50, so it really is up in the afternoon
+- [x] Earth's shadow + belt of Venus (Claude): `gl/twilightShader.ts`, opposite the sun from +1.5° to −7°;
+      the blue-grey band climbs ~1.1°/° of sun depression, pink band above. Still `earth-shadow-belt.png`
+- [x] Sky from the hour's air (Claude): `theme/skyAir.ts` whitens a hazy day horizon (Mie, dust buff) and reddens
+      the horizon at a hazy sunrise/sunset with the sun's own colour; lit scene only (`skyLight({ air })`)
+- [x] Moonlight (Claude): `moonlight.ts` strength = dark sky × fraction^2.5 (phase law) × height × cloud/haze;
+      a thin silver crest on the ridges via the same RidgeLight (no wash: the night eye sees little contrast);
+      cloud edges toward the moon silvered (`uMoon`, `data-moon-light`). Still `moonlight.png` (24.11 22:00)
+- [x] Crepuscular rays (Claude): `gl/raysShader.ts`, low sun + 15–90 % cloud, lit and shadow shafts fanning from
+      the disc; one noise lookup a pixel (no ray marching, for battery). Still `crepuscular-rays.png`
+- [x] Snow and mist take `--sun-light` (Claude): gold/rose snow at a low sun, white at noon; mist lit the same.
+      Still `snow-sunlit.png` (flat | 06:35 | 12:00)
+- [x] Ridge shadow on the valley floor (Claude): `FloorShadow` + `shadowRuns.ts`, a soft band along the ground
+      where the land toward the sun hides it, as deep as the light it takes. Still `floor-shadow.png` (06:35, 07:05, 15:55)
+- [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

@@ -1,7 +1,11 @@
 /* Snow on the ridge tops: near-white tinted by the sky (blue-grey at night), paled by haze like the ridges, more
    opaque the heavier the fall. It eases in when snow starts and never pops. */
 .snow {
-  fill: color-mix(in oklab, color-mix(in oklab, #F4F7FA, color-mix(in oklab, var(--sky-mid), var(--ridge-near)) 22%), var(--haze-air) calc(var(--far-fade, 0) * 60%));
+  /* Lit scene: snow takes the sun's light like the marks do (rose and gold caps at dawn and dusk, white at noon); with
+     no `--sun-light` (night, overcast, `?scene=flat`) the fallback is the snow's own white, so nothing changes. */
+  fill: color-mix(in oklab,
+    color-mix(in oklab, color-mix(in oklab, #F4F7FA, var(--sun-light, #F4F7FA) 40%), color-mix(in oklab, var(--sky-mid), var(--ridge-near)) 18%),
+    var(--haze-air) calc(var(--far-fade, 0) * 60%));
   opacity: calc(.5 + .45 * var(--snow, .5));
   transition: opacity var(--d6) var(--ease-in-out);
   animation: snow-in 2400ms var(--ease-out) both;

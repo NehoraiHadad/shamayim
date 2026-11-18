@@ -3,9 +3,10 @@ import { sunLight, type Aerosol } from './sceneLight'
 /**
  * Afterglow (and its dawn twin): once the sun is down, the valley lies in Earth's shadow but clouds above it still see
  * the sun. The shadow climbs as the sun sinks, so low clouds go grey first and the highest keep their colour longest.
- * From ~3° above the horizon until ~5° below it, when even cirrus at ~10 km falls into the shadow.
+ * From ~3° above the horizon until ~5° below it, when even cirrus at ~10 km falls into the shadow; published until
+ * ~7° below for Earth's shadow on the eastern (dawn: western) sky.
  */
-export const AFTERGLOW = { from: 3, to: -5 } as const
+export const AFTERGLOW = { from: 3, to: -7 } as const
 
 const smooth = (t: number) => {
   const c = Math.min(1, Math.max(0, t))

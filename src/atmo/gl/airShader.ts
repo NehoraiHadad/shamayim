@@ -1,4 +1,6 @@
 import { CLOUD_GLSL } from './cloudShader'
+import { RAYS_GLSL } from './raysShader'
+import { TWILIGHT_GLSL } from './twilightShader'
 
 /** Full-screen vertex shader shared by the air and blit passes. */
 export const FULL_VERT = `
@@ -29,6 +31,7 @@ uniform float uAfter; uniform vec2 uAfterAt; uniform vec3 uAfterCol; // afterglo
 uniform vec2 uBand;   // text band top, bottom
 uniform float uScene; // scene top
 uniform vec3 uHaze; uniform float uHazeAmt;
+uniform vec3 uMoon; // moon x, y, light on the clouds (lit scene, no sun)
 uniform vec3 uSun; uniform vec3 uSunCol; uniform float uRays, uBloom, uCoin;
 uniform vec2 uHeat;   // band height, amplitude
 
@@ -46,6 +49,10 @@ void over(inout vec4 acc, vec3 col, float a) { acc = vec4(col * a + acc.rgb * (1
 
 ${CLOUD_GLSL}
 
+${TWILIGHT_GLSL}
+
+${RAYS_GLSL}
+
 void main() {
   vec2 p = vec2(vUv.x, 1.0 - vUv.y) * uView;
   float band = smoothstep(uBand.x - 28.0, uBand.x, p.y) * (1.0 - smoothstep(uBand.y, uBand.y + 28.0, p.y));
@@ -57,7 +64,9 @@ void main() {
   float hz = uHazeAmt * smoothstep(uScene - 300.0, uScene + 72.0, p.y);
   over(acc, uHaze, hz * 0.6 * k);
 
+  drawTwilightArch(p, k, acc);
   if (uCoverage > 0.0) drawClouds(p, band, k, acc);
+  drawCrepuscular(p, k, acc);
 
   if (uSun.z > 0.0) {
     vec2 v = p - uSun.xy;

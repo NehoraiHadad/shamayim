@@ -19,6 +19,8 @@ export interface RidgeLighting {
   noonWeight: number
   /** True sun altitude in degrees, for the light's colour, the disc's shape and shadow lengths. */
   altitude: number
+  /** How strongly the sun lights the land (0..1): low at a sun just up or through haze; 0 for the moon. */
+  day: number
   near: RidgeTone | null
   far: RidgeTone | null
 }
@@ -66,7 +68,7 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, air, clo
     const rimX = point && daylight ? point.x * SCENE_W : glowX < 0 ? null : glowX * SCENE_W
     const tone = { ...sky, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
       palette: { mid, horizon, accent, ridgeFar, ridgeNear } }
-    return { ray, rimX, noonWeight, altitude: sky.altitude, near: ridgeLightTone({ ...tone, layer: 'near' }), far: ridgeLightTone({ ...tone, layer: 'far' }) }
+    return { ray, rimX, noonWeight, altitude: sky.altitude, day: daylight * direct, near: ridgeLightTone({ ...tone, layer: 'near' }), far: ridgeLightTone({ ...tone, layer: 'far' }) }
   }, [minute, sunrise, sunset, lat, skyline, place.timezone, place.lat, place.lon,
     mid, horizon, accent, ridgeFar, ridgeNear, cloudCover, wet, farFade, nearFade, glowOpacity, glowX, visibilityKm, dust])
 }

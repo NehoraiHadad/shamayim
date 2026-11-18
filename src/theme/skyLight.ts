@@ -1,6 +1,8 @@
 import { THRESHOLDS } from '../config/thresholds'
 import { ratio } from './contrast'
 import { hexToOklab, mixOklab, oklabToHex } from './oklab'
+import type { Aerosol } from '../ui/scene/sceneLight'
+import { skyAir } from './skyAir'
 import { SKY_THEMES, type SkyTheme } from './skyThemes'
 
 export interface SkyLightInput {
@@ -12,6 +14,8 @@ export interface SkyLightInput {
   /** How wet, 0–1 (a ramp, not a switch, so drizzle starting does not jump the colour). */
   wet: number
   pm10: number | null
+  /** The lit scene: the hour's aerosol, which whitens a hazy horizon by day and reddens it at sunrise and sunset. */
+  air?: Aerosol
 }
 export type SkyLight = Pick<SkyTheme, 'top' | 'mid' | 'horizon' | 'ink' | 'accent' | 'ridgeFar' | 'ridgeNear'>
 
@@ -67,7 +71,9 @@ function guard(background: string, inks: string[]): string {
 }
 
 export function skyLight(input: SkyLightInput): SkyLight {
-  const [top, mid, horizon] = keyframe(input.altitude, input.rising)
+  const [top, clearMid, clearHorizon] = keyframe(input.altitude, input.rising)
+  const { mid, horizon } = input.air ? skyAir({ mid: clearMid, horizon: clearHorizon }, input.altitude, input.air)
+    : { mid: clearMid, horizon: clearHorizon }
   const result = { top, mid, horizon } as SkyLight
   for (const field of ['ink', 'accent', 'ridgeFar', 'ridgeNear'] as const) result[field] = semantic(input.altitude, input.rising, field)
   const cloudWeight = smoothstep(30, 90, input.cloudCover) * 0.85

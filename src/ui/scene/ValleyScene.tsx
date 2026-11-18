@@ -10,6 +10,7 @@ import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
 import { FarLand } from './FarLand'
+import { FloorShadow } from './FloorShadow'
 import { RidgeLight } from './RidgeLight'
 import { useRidgeLighting, type RidgeLightInput } from './useRidgeLighting'
 import { SceneScrubber } from './SceneScrubber'
@@ -19,6 +20,7 @@ import { seaSpan } from './seaLine'
 import { skylineOf } from './skyline'
 import { Sun } from './Sun'
 import { useSceneSun } from './useSceneSun'
+import { useMoonlight } from './useMoonlight'
 import { useWidth } from './useWidth'
 import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
@@ -81,8 +83,11 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
     label: { text: elevationText, below } }),
   [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
+  const moonlit = useMoonlight(ridgeLight, at, place, skyline, cloudCover, air.haze.farFade)
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
+  // By night the moon takes the sun's place on the ridges: the same light, faint and silver.
+  const ridgeLit = lighting ?? moonlit
   const { look, world, sunX, afterglow } = useSceneSun({ on: Boolean(ridgeLight), at, place, air, lighting,
     near: terrain.nearPoints, width: sceneWidth, sun, night, cloudCover, rimX: rim?.x ?? null })
   const label = [
@@ -108,7 +113,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         farFade={air.haze.farFade} skyline={skyline} />
       <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin}
         look={look} />
-      <FarLand terrain={terrain} lighting={lighting} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
+      <FarLand terrain={terrain} lighting={ridgeLit} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
         snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor} />
       <HillMarks layer="far" marks={hill.marks} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
         night={night} life={markLife} readout={Boolean(readout)} />
@@ -117,8 +122,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
           <line {...seaSpan(terrain.nearPoints, terrain.seaY)} y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
-        {lighting?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={lighting.ray}
-          noonWeight={lighting.noonWeight} rimX={lighting.near.rimAlpha ? lighting.rimX : null} depth={16} tone={lighting.near} />}
+        {lighting && <FloorShadow path={terrain.near} points={terrain.nearPoints} ray={lighting.ray} day={lighting.day} />}
+        {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray}
+          noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}
         {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
       </svg>
       <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}

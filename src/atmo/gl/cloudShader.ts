@@ -32,17 +32,19 @@ void drawClouds(vec2 p, float band, float k, inout vec4 acc) {
   float clear = 1.0 - smoothstep(0.75, 0.95, uCoverage);
   float lit = uLit * uSun.z * clear;
   float glow = uAfter * clear;
+  // By night the moon lights cloud edges the same way, faint and silver (only without sun or afterglow).
+  float moon = uLit * uMoon.z * clear * (1.0 - uSun.z) * (1.0 - min(1.0, glow * 4.0));
   vec2 offset = vec2(0.05, 0.09);
-  if (lit > 0.0 || glow > 0.0) {
+  if (lit > 0.0 || glow > 0.0 || moon > 0.0) {
     // Once the disc is down the light comes from under the horizon, below the glow on the ridge.
-    vec2 src = uSun.z > 0.0 ? uSun.xy : vec2(uAfterAt.x, uScene + 60.0);
+    vec2 src = uSun.z > 0.0 ? uSun.xy : glow > 0.0 ? vec2(uAfterAt.x, uScene + 60.0) : uMoon.xy;
     // Layer shifts cancel in the direction vector, and normalization cancels each layer's scalar zoom.
     vec2 towardSun = (src - p) / CLOUD_STRETCH;
     vec2 dir = dot(towardSun, towardSun) > 0.0 ? normalize(towardSun) : vec2(0.0, -1.0);
     // Near noon the sun is high and south, behind the viewer (who faces north): light falls from above, not from the
     // disc's side of the picture.
     dir = normalize(mix(dir, vec2(0.0, -1.0), uFront) + vec2(0.0, -1e-3));
-    offset = mix(offset, dir * 0.103, max(lit, glow));
+    offset = mix(offset, dir * 0.103, max(max(lit, glow), moon > 0.0 ? 1.0 : 0.0));
   }
   float d = cloudLayer(p, 1.0, 0.6, uCoverage, offset, s1, z1);
   float d2 = uLow * cloudLayer(p + 91.0, 0.55, 1.0, uCoverage * 0.9, offset, s2, z2) * smoothstep(80.0, 260.0, p.y);
@@ -75,6 +77,10 @@ void drawClouds(vec2 p, float band, float k, inout vec4 acc) {
     cover = 1.0 + lit * (0.45 * edge - 0.15 * (1.0 - body)) * (1.0 - band);
     // ...and its thin edges glow (the silver lining), added like light, strongest where the cloud is half thin.
     silver = lit * fwd * (1.0 - depth) * 4.0 * dens * (1.0 - dens) * 0.45 * k;
+  }
+  if (moon > 0.0) {
+    float face = smoothstep(0.5, 0.9, clamp((shade - 0.7) * 2.0 + 0.5, 0.0, 1.0));
+    col = mix(col, uCloudLit * 1.9 + vec3(0.04, 0.05, 0.08), moon * face * 0.6 * mix(1.0, 0.4, band));
   }
   if (glow > 0.0) {
     // Afterglow: the faces toward the sunken sun take its gold-to-pink light, the far sides a dim wash of it, and

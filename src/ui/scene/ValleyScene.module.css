@@ -40,7 +40,9 @@
   width: 100%;
   height: 100%;
   opacity: calc(.55 * var(--mist, 0));
-  background: radial-gradient(ellipse 120px 18px at 30% 58%, var(--mist-color), transparent), radial-gradient(ellipse 180px 22px at 72% 65%, var(--mist-color), transparent), linear-gradient(transparent, var(--mist-color));
+  /* Lit scene: morning mist is lit by the same sun as the land (`--sun-light`); without it, its own colour. */
+  --mist-lit: color-mix(in oklab, var(--mist-color), var(--sun-light, var(--mist-color)) 35%);
+  background: radial-gradient(ellipse 120px 18px at 30% 58%, var(--mist-lit), transparent), radial-gradient(ellipse 180px 22px at 72% 65%, var(--mist-lit), transparent), linear-gradient(transparent, var(--mist-lit));
   transition: opacity 1600ms linear;
 }
 

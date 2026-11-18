@@ -31,4 +31,6 @@ export function setCloudLight(gl: WebGLRenderingContext, air: Program, L: Layout
   gl.uniform1f(air.u('uWarm'), on ? cloudWarmth(L.sun!.y, L.sceneTop) : 0)
   gl.uniform1f(air.u('uFront'), on ? cloudFront(L.sun!.x, L.w) : 0)
   setAfterglow(gl, air, L)
+  const moon = SCENE_25D && !L.sun ? L.moon : null
+  gl.uniform3f(air.u('uMoon'), moon?.x ?? 0, moon?.y ?? 0, moon?.light ?? 0)
 }

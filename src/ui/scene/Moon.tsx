@@ -4,6 +4,7 @@ import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { LocalTime } from '../../domain/types'
 import type { Skyline } from './skyline'
+import { moonlightStrength } from './moonlight'
 import { brightLimbAngle, litPath, moonLook, skyPoint, sunDirection } from './moonShape'
 import styles from './Moon.module.css'
 
@@ -43,7 +44,8 @@ export function Moon({ at, timeZone, lat, lon, cloudCover, farFade, skyline }: P
   const style = { left: `${(point.x * 100).toFixed(2)}%`, top: `${point.y.toFixed(1)}px`, opacity: look.opacity.toFixed(2),
     '--daylight': look.daylight.toFixed(2) } as CSSProperties
   return (
-    <div className={styles.moon} style={style} data-moon aria-hidden="true">
+    <div className={styles.moon} style={style} data-moon aria-hidden="true"
+      data-moon-light={moonlightStrength({ ...sky.moon, fraction: sky.lit.fraction }, sky.sun.altitude, cloudCover, farFade).toFixed(2)}>
       <svg width={2 * R + 2} height={2 * R + 2} viewBox={`${-R - 1} ${-R - 1} ${2 * R + 2} ${2 * R + 2}`}>
         <defs>
           <clipPath id={clip}>

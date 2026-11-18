@@ -48,7 +48,7 @@ export function mapLife(i: AirInput, air: AirState): LifeState {
   const wind = clamp(i.windSpeed / 20)
   return {
     mist: mistAmount(i, air),
-    twinkle: i.sunElevation <= -6 && starFactor >= 0.4 ? { amp: 0.25 + 0.3 * wind, period: 5.2 - 2.4 * wind } : null,
+    twinkle: i.sunElevation <= -10 && starFactor >= 0.4 ? { amp: 0.25 + 0.3 * wind, period: 5.2 - 2.4 * wind } : null,
     eligible,
     dir,
     autumn: month >= 7,

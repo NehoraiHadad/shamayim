@@ -4,7 +4,7 @@ import { afterglowAttrs, afterglowColour } from './afterglow'
 describe('afterglow', () => {
   it('only runs from just before sunset until the highest clouds are in shadow', () => {
     expect(afterglowAttrs(10, .9, {})).toEqual({})
-    expect(afterglowAttrs(-6, .9, {})).toEqual({})
+    expect(afterglowAttrs(-8, .9, {})).toEqual({})
     expect(afterglowAttrs(-2, null, {})).toEqual({})
     expect(afterglowAttrs(-2, .9, {})['data-afterglow']).toBe('-2.00')
   })

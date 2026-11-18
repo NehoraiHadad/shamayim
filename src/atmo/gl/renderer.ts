@@ -16,6 +16,8 @@ export interface Layout {
   sceneTop: number
   sun: { x: number; y: number } | null
   /** Lit scene: the sun just under (or over) the horizon still lighting the clouds; x in sky px. */
+  /** Lit scene: the moon's place and how strongly it lights the clouds (0..1), when it is up. */
+  moon?: { x: number; y: number; light: number } | null
   afterglow?: { x: number; altitude: number; rgb: [number, number, number] } | null
 }
 

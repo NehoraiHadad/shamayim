@@ -17,6 +17,7 @@ export const afterglowStrength = (altitude: number) => smooth((3 - altitude) / 2
 export function setAfterglow(gl: WebGLRenderingContext, air: Program, L: Layout) {
   const a = L.afterglow
   gl.uniform1f(air.u('uAfter'), a ? afterglowStrength(a.altitude) : 0)
-  gl.uniform2f(air.u('uAfterAt'), a?.x ?? 0, a?.altitude ?? 0)
+  // No afterglow: a high sun, so the shadow arch stays off as well.
+  gl.uniform2f(air.u('uAfterAt'), a?.x ?? 0, a?.altitude ?? 90)
   gl.uniform3fv(air.u('uAfterCol'), a?.rgb ?? [0, 0, 0])
 }
