@@ -15,13 +15,14 @@ export function moonlightStrength(moon: MoonSky, sunAltitude: number, cloudCover
   return dark * phase * height * (1 - smoothstep(60, 90, cloudCover)) * (1 - .8 * farFade)
 }
 
-const SILVER = '#B9C4DE'
-
 /**
- * The moon's tone on one ridge: only a thin silvered crest. The night eye sees no colour and little contrast on the
- * dark slopes, so there is no wash on the faces.
+ * The moon's tone on one ridge: no line on the crest. Moonlight is ~400 000× fainter than sunlight and the night eye
+ * (rods) sees little contrast and no colour, so a moonlit hill is only a touch lighter on the faces toward the moon,
+ * soft and wide; a bright crest line only appears with the moon right behind the ridge. A faint translucent wash,
+ * blurred like the sun's, over whatever colour the ridge is drawn in.
  */
-const moonTone = (strength: number): RidgeTone => ({ fill: null, rim: SILVER, rimAlpha: .2 * strength })
+const moonTone = (strength: number): RidgeTone =>
+  ({ fill: `rgba(185, 196, 222, ${(.09 * strength).toFixed(3)})`, rim: '#B9C4DE', rimAlpha: 0 })
 
 /** Ridge lighting from the moon, in the same shape as the sun's, or null when it is too faint to see. */
 export function moonRidgeLight(moon: MoonSky, strength: number, rimX: number) {

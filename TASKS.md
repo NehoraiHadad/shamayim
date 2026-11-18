@@ -514,7 +514,8 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
 - [x] Sky from the hour's air (Claude): `theme/skyAir.ts` whitens a hazy day horizon (Mie, dust buff) and reddens
       the horizon at a hazy sunrise/sunset with the sun's own colour; lit scene only (`skyLight({ air })`)
 - [x] Moonlight (Claude): `moonlight.ts` strength = dark sky × fraction^2.5 (phase law) × height × cloud/haze;
-      a thin silver crest on the ridges via the same RidgeLight (no wash: the night eye sees little contrast);
+      owner: "the crest line is hard, light is soft" → no crest line (a bright line only with the moon behind the
+      ridge); a faint translucent wash (9 % × strength), blurred, on faces toward the moon;
       cloud edges toward the moon silvered (`uMoon`, `data-moon-light`). Still `moonlight.png` (24.11 22:00)
 - [x] Crepuscular rays (Claude): `gl/raysShader.ts`, low sun + 15–90 % cloud, lit and shadow shafts fanning from
       the disc; one noise lookup a pixel (no ray marching, for battery). Still `crepuscular-rays.png`
