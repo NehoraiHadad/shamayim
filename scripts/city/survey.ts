@@ -1,26 +1,25 @@
+import { Cover } from './cover'
+import type { PlaceIndex } from './places'
 import { cellKey } from '../../src/data/city/grid'
 import { contains, features, LANDUSE, type Feature } from './geometry'
-import { NearbyHeights, resolveHeight, taggedHeight } from './heights'
+import { footprintHeight, NearbyHeights, resolveHeight, taggedHeight } from './heights'
 
-const regions = [
-  ['Gush Dan', 31.95, 34.7, 32.2, 34.95],
-  ['Jerusalem', 31.73, 35.17, 31.83, 35.25],
-  ['Haifa', 32.75, 34.95, 32.84, 35.05],
-  ['Nazareth', 32.68, 35.28, 32.72, 35.33],
-  ["Be'er Sheva", 31.22, 34.76, 31.28, 34.83],
-] as const
+import { urbanRegions as regions } from './regions'
 
 const isBuilding = ({ building }: Feature['tags']) => Boolean(building && building !== 'no')
 
 export async function survey(path: string, options: {
   landuse?: (feature: Feature) => void
-  building?: (feature: Feature, height: number, tagged?: number) => void
+  building?: (feature: Feature, height: number, tagged: number | undefined, original: number, evidence: boolean, urban: boolean) => void
+  places?: PlaceIndex
 } = {}) {
+  const cover = options.places && new Cover()
   const nearby = new NearbyHeights()
   const residential = new Map<string, Feature['polygons'][]>()
   for await (const feature of features(path)) {
     const { tags, polygons, shape } = feature
     if (isBuilding(tags)) {
+      cover?.add(shape)
       const height = taggedHeight(tags)
       if (height !== undefined) nearby.add({ lat: shape.lat, lon: shape.lon }, height)
     }
@@ -46,7 +45,17 @@ export async function survey(path: string, options: {
     const inResidential = tags.building === 'residential' || (tags.building === 'yes' &&
       (residential.get(cellKey(lat, lon)) ?? []).some(polygons => contains(polygons, lon, lat)))
     const { height, source } = resolveHeight(tags, inResidential, shape, nearby)
-    options.building?.(feature, height, source === 'tag' ? height : undefined)
+    if (options.building) {
+      const node = options.places?.nearest(shape)
+      // The cover fallback is only evaluated when no place is within twice its reach.
+      const density = node ? 0 : cover?.at(lat, lon) ?? 1
+      const rural = node ? node[2] >= 2 : density < .10
+      const setting = { rural, kind: node?.[2], faith: node?.[3], cover: density }
+      const adjusted = source === 'footprint' ? footprintHeight(shape.area, inResidential, setting) : height
+      // The non-rural town exception is tracked separately from the unchanged urban prior.
+      const urban = !rural && !(node?.[2] === 1 && adjusted !== height)
+      options.building(feature, adjusted, source === 'tag' ? height : undefined, height, source !== 'footprint', urban)
+    }
     regions.forEach(([, south, west, north, east], i) => {
       if (lat < south || lat > north || lon < west || lon > east) return
       counts[i].buildings++

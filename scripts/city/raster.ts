@@ -1,23 +1,26 @@
 import { COLS, ROWS, LAT_STEP, LON_STEP, squareCentre, squareOf } from '../../src/data/city/grid'
 import type { Square } from '../../src/data/city/types'
-import { METRES, eastMetres, type Footprint } from './geometry'
+import { encodeForm, sizeClass } from '../../src/data/city/form'
+import { distribute, slot, squareArea, squaresIn } from './cover'
+import type { Footprint, Tags } from './geometry'
 
-type Sample = { area: number; height: number }
-type Pixel = { samples?: Sample[]; land?: number }
-const squareArea = (lat: number) => LAT_STEP * LON_STEP * METRES * eastMetres(lat)
-const slot = ({ row, col }: Square) => row * COLS + col
+type Sample = { area: number; height: number; original: number; urban: boolean; evidence: boolean; big: boolean }
+type Pixel = { samples?: Sample[]; centred?: number[]; roof?: number; land?: number }
 
-export function* squaresIn(bounds: Pick<Footprint, 'south' | 'west' | 'north' | 'east'>) {
-  const first = squareOf(bounds.south, bounds.west), last = squareOf(bounds.north, bounds.east)
-  const [sy, sx] = first.cell.split('_').map(Number)
-  const [ny, ex] = last.cell.split('_').map(Number)
-  for (let y = sy * ROWS + first.row; y <= ny * ROWS + last.row; y++) {
-    for (let x = sx * COLS + first.col; x <= ex * COLS + last.col; x++) {
-      const cy = Math.floor(y / ROWS), cx = Math.floor(x / COLS)
-      const square = { cell: `${cy}_${cx}`, row: y - cy * ROWS, col: x - cx * COLS }
-      yield { square, ...squareCentre(square) }
-    }
-  }
+function roofBits(tags: Tags) {
+  const shape = tags['roof:shape'] ?? '', material = tags['roof:material'] ?? ''
+  const pitched = ['gabled', 'hipped', 'half-hipped', 'pyramidal', 'gambrel'].includes(shape) ||
+    material === 'roof_tiles' || material === 'tile'
+  return Number(pitched) | (Number(shape === 'flat' || material === 'concrete') << 1)
+}
+
+function heightBytes(samples: Sample[], area: number, field: 'height' | 'original') {
+  // v1 uses the lower area-weighted median and the nearest-rank count p90.
+  samples.sort((a, b) => a[field] - b[field])
+  let cumulative = 0
+  const median = samples.find(sample => (cumulative += sample.area) >= area / 2) ?? samples.at(-1)!
+  return { levels: Math.min(15, Math.round(median[field] / 3.2)), evidence: median.evidence,
+    upper: Math.min(255, Math.round(samples[Math.ceil(samples.length * .9) - 1][field])) }
 }
 
 export class Raster {
@@ -32,21 +35,14 @@ export class Raster {
     return pixel
   }
 
-  building(shape: Footprint, height: number) {
-    const add = (square: Square, area: number) => {
+  building(shape: Footprint, height: number, tags: Tags = {}, original = height, evidence = false, urban = true) {
+    const centre = this.pixel(squareOf(shape.lat, shape.lon))
+    ;(centre.centred ??= []).push(shape.area)
+    centre.roof = (centre.roof ?? 0) | roofBits(tags)
+    distribute(shape, (square, area) => {
       const pixel = this.pixel(square)
-      ;(pixel.samples ??= []).push({ area, height })
-    }
-    if (shape.area < squareArea(shape.lat)) {
-      add(squareOf(shape.lat, shape.lon), shape.area)
-      return
-    }
-    const boundsArea = (shape.east - shape.west) * (shape.north - shape.south)
-    for (const { square, lat, lon } of squaresIn(shape)) {
-      const dy = Math.min(lat + LAT_STEP / 2, shape.north) - Math.max(lat - LAT_STEP / 2, shape.south)
-      const dx = Math.min(lon + LON_STEP / 2, shape.east) - Math.max(lon - LON_STEP / 2, shape.west)
-      if (dx > 1e-12 && dy > 1e-12) add(square, shape.area * dx * dy / boundsArea)
-    }
+      ;(pixel.samples ??= []).push({ area, height, original, evidence, urban, big: shape.area >= 450 })
+    })
   }
 
   landuse(shape: Footprint, inside: (lon: number, lat: number) => boolean) {
@@ -61,22 +57,34 @@ export class Raster {
     }
   }
 
-  bytes(key: string) {
-    const bytes = new Uint8Array(COLS * ROWS * 2)
-    for (const [i, { land, samples }] of this.cells.get(key) ?? []) {
+  bytes(key: string, stride: 2 | 3 = 3,
+    compare?: (lat: number, lon: number, urban: boolean, changed: boolean) => void) {
+    const bytes = new Uint8Array(COLS * ROWS * stride)
+    for (const [i, { land, samples, centred, roof }] of this.cells.get(key) ?? []) {
+      const offset = i * stride
       if (!samples) {
-        // Zoned land with no mapped footprint: built share only, levels 0 = unknown, no measured height.
-        bytes[i * 2] = Math.round((land ?? 0) * 15) << 4
+        bytes[offset] = Math.round((land ?? 0) * 15) << 4
         continue
       }
-      const { lat } = squareCentre({ cell: key, row: Math.floor(i / COLS), col: i % COLS })
+      const { lat, lon } = squareCentre({ cell: key, row: Math.floor(i / COLS), col: i % COLS })
       const area = samples.reduce((sum, sample) => sum + sample.area, 0)
       const share = Math.max(1, Math.min(15, Math.round(area / squareArea(lat) * 15)))
-      samples.sort((a, b) => a.height - b.height)
-      let cumulative = 0
-      const median = samples.find(sample => (cumulative += sample.area) >= area / 2) ?? samples.at(-1)!
-      bytes[i * 2] = (share << 4) | Math.min(15, Math.round(median.height / 3.2))
-      bytes[i * 2 + 1] = Math.min(255, Math.round(samples[Math.ceil(samples.length * 0.9) - 1].height))
+      const current = heightBytes(samples, area, 'height')
+      bytes[offset] = (share << 4) | current.levels
+      bytes[offset + 1] = current.upper
+      if (stride === 3) {
+        const big = samples.reduce((sum, sample) => sum + (sample.big ? sample.area : 0), 0) / area
+        const sorted = centred?.sort((a, b) => a - b)
+        // Count median uses the average of the two middle footprint areas for even counts.
+        const size = sorted?.length ? sizeClass((sorted[Math.floor((sorted.length - 1) / 2)] +
+          sorted[Math.floor(sorted.length / 2)]) / 2) : 0
+        bytes[offset + 2] = encodeForm(size, big < .10 ? 0 : big < .40 ? 1 : big < .75 ? 2 : 3,
+          roof ?? 0, current.evidence)
+      }
+      if (compare) {
+        const old = heightBytes(samples, area, 'original')
+        compare(lat, lon, samples.every(sample => sample.urban), old.levels !== current.levels || old.upper !== current.upper)
+      }
     }
     return bytes
   }

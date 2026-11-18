@@ -321,7 +321,8 @@ Petah Tikva 32.087, 34.887 (city control).
 - [ ] V2 Client: decode `v2`, clusters (Codex). Files: `src/data/city/grid.ts`, `cityData.ts` (accept `v` 1 and 2, pass `p`),
       `clusters.ts` (new: `findClusters`, `splitByPlace`), `homeCluster.ts` (new: `homeCluster`, `homeTier`), `useCity.ts` (cache key
       `v3 -> v4`, validate `clusters`), `types.ts`. Tests with fixtures cut from real cells (`326_351` Nahalal, `316_351` Karmei Tzur,
-      `327_350` Yagur, `326_350` Daliyat + Isfiya): Nahalal home = 104 squares, 2.34 x 2.55 km, tier A; Karmei Tzur tier C (1 square);
+      `327_350` Yagur, `326_350` Daliyat + Isfiya, plus adjoining cells as needed): Nahalal home = 104 squares,
+      1.99 x 2.55 km at the 2nd–98th percentile, tier A; Karmei Tzur tier C (1 square);
       Daliyat and Isfiya come out as two clusters once `p` is present; no cluster under 4 squares; geographic ids stable from two places
 - [ ] V3 Home village from the footprint (Codex for rules, Claude judges the numbers on stills). Files:
       `src/data/landmarks/settlementPlan.ts` (new: today's `ROWS` / `HALF` / `offsets` moved out of `settlement.ts`, which is over 150
@@ -466,7 +467,7 @@ export function homeTier(home: Cluster | null): 'A' | 'B' | 'C'
   `halfWidth` is the kept houses' reach as now, and `placeMarks` takes it as `homeHalf`.
 - **Names.** `p` (below) gives each cluster its name. Names are not drawn at 375 px (a 46 px label per neighbour does not fit beside the
   dot label and the corner captions); they go into the mass group's `<title>` / `aria-label` and the QA overlay. A visible neighbour
-  label on wide screens is left open `?`.
+  label on wide screens remains a rendering decision beyond V2.
 
 ### 10.3 Data change: cells `v2`
 
@@ -475,15 +476,15 @@ export function homeTier(home: Cluster | null): 'A' | 'B' | 'C'
 | `r` runs | **3 bytes per square** (was 2). Bytes 0-1 unchanged: share nibble + levels nibble; p90 height in m | old fields untouched |
 | byte 2, bits 0-2 | size class: count-median footprint area of the buildings centred in the square: 0 none, 1 < 60 m2, 2 60-120, 3 120-220, 4 220-450, 5 450-1 200, 6 1 200-5 000, 7 more | house, villa, family house, block, hall |
 | byte 2, bits 3-4 | big-roof share: part of the square's footprint area in buildings >= 450 m2: 0 < 10 %, 1 10-40, 2 40-75, 3 more | farm yard, industry, apartment slabs |
-| byte 2, bits 5-6 | roof tags: 0 none, 1 pitched (`roof:shape` gabled / hipped / half-hipped / pyramidal / gambrel, or `roof:material` roof_tiles / tile), 2 flat (`roof:shape=flat` or `roof:material=concrete`), 3 both | the only direct roof evidence OSM has; expected rare `?` (V0) |
+| byte 2, bits 5-6 | roof tags: 0 none, 1 pitched (`roof:shape` gabled / hipped / half-hipped / pyramidal / gambrel, or `roof:material` roof_tiles / tile), 2 flat (`roof:shape=flat` or `roof:material=concrete`), 3 both | the only direct roof evidence OSM has; mostly absent in the reference boxes (§10.9) |
 | byte 2, bit 7 | height evidence: 1 when the square's median height came from a tag, an explicit type or tagged neighbours; 0 when from the footprint prior | the drawing knows what is measured |
 | `p` | `[[lat, lon, kind, faith, reach, "name"], ...]` per cell, from `n/place=city,town,village,hamlet,isolated_dwelling`. `kind` 0 city, 1 town, 2 village, 3 hamlet. `reach` in 0.1 km: `max(min, sqrt(pop / (pi * rho)))`, rho = 4 000 /km2 for city and town, 1 500 for village; min 2.0 / 1.0 / 0.5 / 0.3 km, x1.5 when `population` is missing. `faith`: worship places inside the reach by `religion`: 0 none mapped, 1 jewish, 2 muslim, 3 christian, 4 druze, 5 mixed (second faith >= 30 %) | names, the split, the style of §10.4, the setting of §10.5 |
 
-Workflow: one more `osmium tags-filter ... n/place=... nwr/amenity=place_of_worship -o places.osm.pbf` and a point + polygon export to
+Workflow: one more `osmium tags-filter ... n/place n/amenity=place_of_worship -o places.osm.pbf` and a point export to
 `places.geojsonseq`. `grid.ts`: `encodeRuns(bytes, stride)`, `decodeRuns(runs, stride)`; the client accepts `v` 1 (stride 2, no `p`)
 and 2, because the service worker may hold `v1` cells for a month.
 **Size (computed on today's cells):** runs grow from 354 404 to 478 804 base64 chars (3 bytes fill a base64 quad exactly); set
-671 834 -> 796 234 bytes; largest cell `320_348` 17 686 -> 21 250. `p`: about 2 000 nodes x ~45 bytes = ~90 KB `?`. Total about
+671 834 -> 796 234 bytes; largest cell `320_348` 17 686 -> 21 250. `p`: 2 187 rows, 94 881 bytes on the measured extract. Total about
 0.9 MB. Budgets: cell stays **<= 24 KB**, set **<= 1.0 MB** for village data (the 1.5 MB ceiling keeps room for `far.json`).
 Cached clusters: <= 24 per place, <= 6 KB in `shamayim:city:v4:{placeId}`.
 Rejected: per-settlement records only (no byte 2). Cheaper (~10 KB), but form then cannot differ inside one place (old core against
@@ -503,7 +504,7 @@ a new villa quarter), and the big-roof squares lose their position, which §10.4
 What is honest and what is not:
 - **Honest:** footprint size and big-roof share (geometry), storeys where bit 7 is set, roof tags where they exist, place kind,
   worship places that are mapped, latitude. Druze villages have no minaret, which is why Daliyat reads as `tile` under today's rule;
-  `religion=druze` on a khalwa fixes that from data. Coverage of worship tags per faith is checked in V0 `?`.
+  `religion=druze` on a khalwa fixes that from data. Worship tag counts and coverage limits are in §10.9.
 - **Not available, not pretended:** kibbutz against moshav as a label (OSM has `place=village` for both). They differ in the drawing
   only through what is measured:
   - *Sheds.* `shedCount = clamp(round(4 * big), 0, 4)` long low buildings (11-14 x 3.5-4.5 px), placed at the lensed x of the band's
@@ -606,4 +607,102 @@ pixel-equal; V5 then adds neighbours only outside the template's `halfWidth + 6`
 | Conurbation splits look arbitrary at the seam | The seam is a nearest-node line, drawn with no gap; styles may change across it, as they do on the ground |
 
 ### 10.9 V0 results
-(to be pasted here by V0)
+Local Israel and Palestine extracts, 2026-11-18. The reference boxes extend 1.5 km east, west,
+north and south. Buildings are counted by footprint centroid. The cover column uses the nine
+squares around the reference point and unquantized footprint area. At 32°N those squares span
+about 354 m east–west and 696 m north–south. Percentages exclude zoning.
+
+| Reference | Buildings | Footprint classes 1–7 | Roof shape / material / colour (%) | 3 × 3 cover (%) |
+| --- | --- | --- | --- | --- |
+| Nahalal | 974 | 63 / 147 / 324 / 238 / 110 / 86 / 6 | 0.00 / 0.00 / 0.00 | 17.78 |
+| Kfar Vitkin | 472 | 21 / 42 / 259 / 92 / 38 / 18 / 2 | 0.00 / 0.00 / 0.00 | 0.33 |
+| Yagur | 410 | 7 / 32 / 105 / 177 / 59 / 25 / 5 | 0.00 / 0.00 / 0.00 | 24.14 |
+| Mizra | 246 | 14 / 40 / 114 / 48 / 15 / 11 / 4 | 0.81 / 0.00 / 0.00 | 3.97 |
+| Ein Mahil | 452 | 6 / 21 / 194 / 142 / 82 / 6 / 1 | 0.00 / 0.00 / 0.00 | 1.78 |
+| Kafr Qara | 2 | 0 / 0 / 0 / 0 / 1 / 1 / 0 | 0.00 / 0.00 / 0.00 | 0.00 |
+| Daliyat al-Karmel | 4128 | 27 / 412 / 1943 / 1426 / 296 / 24 / 0 | 0.00 / 0.00 / 0.00 | 24.92 |
+| Karmei Tzur | 158 | 20 / 36 / 57 / 37 / 7 / 1 / 0 | 40.51 / 40.51 / 0.00 | 0.00 |
+| Petah Tikva | 7688 | 1004 / 627 / 1730 / 3105 / 1149 / 65 / 8 | 4.10 / 3.08 / 1.18 | 40.78 |
+
+| Place kind | Nodes | Population present |
+| --- | --- | --- |
+| city | 8 | 8 |
+| village | 1644 | 266 |
+| town | 179 | 106 |
+| suburb | 712 | 42 |
+| neighbourhood | 632 | 6 |
+| farm | 44 | 0 |
+| region | 13 | 0 |
+| quarter | 52 | 1 |
+| hamlet | 316 | 47 |
+| locality | 86 | 0 |
+| isolated_dwelling | 47 | 0 |
+| country | 2 | 1 |
+| state | 3 | 2 |
+| square | 34 | 0 |
+| proposed | 1 | 0 |
+| city_block | 4 | 0 |
+| island | 1 | 0 |
+| islet | 2 | 0 |
+| allotments | 1 | 0 |
+| unknown | 1 | 0 |
+| `*` | 1 | 0 |
+| borough | 1 | 0 |
+
+| Worship religion | Nodes |
+| --- | --- |
+| christian | 165 |
+| jewish | 607 |
+| druze | 8 |
+| muslim | 1177 |
+| (missing) | 96 |
+| multifaith | 1 |
+| buddhist | 1 |
+
+| Urban region | Buildings | Height tags (%) | Explicit types (%) |
+| --- | --- | --- | --- |
+| Gush Dan | 139103 | 8.26 | 9.09 |
+| Jerusalem | 31097 | 2.05 | 4.39 |
+| Haifa | 17690 | 4.84 | 5.15 |
+| Nazareth | 8915 | 0.44 | 1.70 |
+| Be'er Sheva | 13941 | 6.04 | 1.84 |
+
+Decisions from the measurements
+
+- Keep footprint size boundaries at 60, 120, 220, 450, 1,200 and 5,000 m². The 120–220 m²
+  class dominates Nahalal, Kfar Vitkin, Mizra, Ein Mahil and Daliyat, while the 220–450 m² class
+  leads in Yagur and Petah Tikva. Keep the 450 m² big-roof threshold and 10/40/75% class boundaries.
+- Keep both roof evidence bits and the five-tag style floor. Six of nine boxes have zero
+  shape or material tags. Karmei Tzur is a mapped exception at 40.51% for both tags.
+- Keep 0.10 for the rural fallback when no node is within twice its reach. Mapped villages
+  straddle that cover threshold, so place kind takes precedence where available. Petah Tikva is
+  at 40.78%. The proposed 0.12 urban villa guard remains outside V1.
+- Keep the 30% second-faith threshold. The 2,055 worship nodes include eight tagged Druze
+  and 96 without a religion. Presence is useful evidence, while zero mapped sites is
+  inconclusive. Keep the 1.5× missing-population multiplier since only 427 of the 2,194
+  eligible place nodes carry population.
+- Replace the estimated place payload with 2,187 written rows and 94,881 UTF-8 bytes for
+  the serialized arrays. The rebuilt set meets both budgets. Daliyat and Isfiya have faith 0 in the written
+  place rows because no supported worship node falls inside their reaches on this extract.
+- The wide-screen label question is a rendering decision for V3 or later. V0 does not set
+  a visual threshold for it.
+
+The V1 rebuild wrote 280 cells and 899,103 bytes including the index. The largest cell,
+`320_348`, was 23,085 bytes. In the urban-only comparison, the v1 raster and v2
+bytes 0–1 matched on every square.
+
+| Region | Urban-only squares | Changed squares across all settings | Urban-only changes |
+| --- | ---: | ---: | ---: |
+| Gush Dan | 8,528 | 1,115 | 0 |
+| Jerusalem | 2,301 | 24 | 0 |
+| Haifa | 1,654 | 30 | 0 |
+| Nazareth | 255 | 284 | 0 |
+| Be'er Sheva | 1,123 | 0 | 0 |
+| All | 43,460 | 42,925 | 0 |
+
+The V2 Nahalal fixture remains 104 mapped squares and tier A. Its east–west extent
+is 1.99 km after the 2% tail trim in §10.2, while its north–south extent is 2.55 km.
+The 2.34 km in the earlier table is the untrimmed bounding span.
+Karmei Tzur's one-square component is filtered before home selection, so it is tier C.
+The joined 682-square Daliyat–Isfiya component splits into 485 and 148 named squares
+and 49 unnamed squares.

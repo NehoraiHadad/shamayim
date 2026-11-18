@@ -1,6 +1,10 @@
+import type { Cluster } from './clusterTypes'
+
 export type Run = [row: number, col: number, bytes: string]
 export type Tower = [lat: number, lon: number, height: number, width: 0 | 1 | 2, name?: string]
-export type CityCell = { v: 1; r: Run[]; t: Tower[] }
+export type PlaceRow = [lat: number, lon: number, kind: 0 | 1 | 2 | 3, faith: 0 | 1 | 2 | 3 | 4 | 5,
+  reach: number, name: string]
+export type CityCell = { r: Run[]; t: Tower[] } & ({ v: 1 } | { v: 2; p: PlaceRow[] })
 export type Square = { cell: string; col: number; row: number }
 export type CityIndex = {
   generatedAt: string
@@ -30,3 +34,5 @@ export type CityColumns = {
   west: number
   span: number
 }
+
+export type CityResult = CityColumns & { clusters: Cluster[] }

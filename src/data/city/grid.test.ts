@@ -29,3 +29,11 @@ describe('city grid', () => {
     }
   })
 })
+
+it('preserves all three bytes across runs and row boundaries', () => {
+  const bytes = new Uint8Array(ROWS * COLS * 3)
+  bytes.set([255, 255, 255, 0, 0, 128], (COLS - 1) * 3)
+  const runs = encodeRuns(bytes, 3)
+  expect(runs.map(([row, col]) => [row, col])).toEqual([[0, COLS - 1], [1, 0]])
+  expect(decodeRuns(runs, 3)).toEqual(bytes)
+})

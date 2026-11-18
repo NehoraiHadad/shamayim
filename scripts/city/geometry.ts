@@ -61,7 +61,7 @@ export function contains(polygons: Polygon[], lon: number, lat: number) {
     !holes.some(ring => inRing(ring, lon, lat)))
 }
 
-export async function* features(path: string): AsyncGenerator<Feature> {
+export async function* records(path: string) {
   const stream = createReadStream(path, { encoding: 'utf8' })
   const lines = createInterface({ input: stream, crlfDelay: Infinity })
   try {
@@ -69,16 +69,22 @@ export async function* features(path: string): AsyncGenerator<Feature> {
       const record = line.replace(/^\s*\x1e/, '').trim()
       if (!record) continue
       const { geometry, properties: tags = {} } = JSON.parse(record) as {
-        geometry?: { type: string; coordinates: Polygon | Polygon[] }; properties?: Tags
+        geometry?: { type: string; coordinates: Position | Polygon | Polygon[] }; properties?: Tags
       }
-      const polygons = geometry?.type === 'Polygon' ? [geometry.coordinates as Polygon] :
-        geometry?.type === 'MultiPolygon' ? geometry.coordinates as Polygon[] : []
-      if (!polygons.length) continue
-      const shape = footprint(polygons)
-      if (shape) yield { tags, polygons, shape }
+      yield { geometry, tags }
     }
   } finally {
     lines.close()
     stream.destroy()
+  }
+}
+
+export async function* features(path: string): AsyncGenerator<Feature> {
+  for await (const { geometry, tags } of records(path)) {
+    const polygons = geometry?.type === 'Polygon' ? [geometry.coordinates as Polygon] :
+      geometry?.type === 'MultiPolygon' ? geometry.coordinates as Polygon[] : []
+    if (!polygons.length) continue
+    const shape = footprint(polygons)
+    if (shape) yield { tags, polygons, shape }
   }
 }
