@@ -3,10 +3,6 @@ import type { AirInput, AirState, Particles } from './airTypes'
 export const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v))
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * clamp(t)
 const ramp = (v: number, from: number, to: number) => clamp((v - from) / (to - from))
-const smoothstep = (a: number, b: number, v: number) => {
-  const t = ramp(v, a, b)
-  return t * t * (3 - 2 * t)
-}
 const NONE: Particles = { count: 0, speed: 0, length: 0, alpha: 0 }
 
 const RAIN_CODES = (c: number) => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95
@@ -94,7 +90,8 @@ export function heat(i: AirInput, r: number): AirState['heat'] {
 export function cloud(cover: number, r: number): AirState['cloud'] {
   const c = cover / 100
   const darken = Math.max(c > 0.85 ? (r > 2.5 ? 0.25 : 0.1) : 0, r >= 7.5 ? 0.08 : 0)
-  return { coverage: cover < 10 ? 0 : smoothstep(0.1, 0.9, c), low: cover > 30, darken }
+  // Linear, so 20% cover already shows a few separate clouds (smoothstep left anything under ~40% invisible).
+  return { coverage: cover < 10 ? 0 : c, low: cover > 30, darken }
 }
 
 export function rays(i: AirInput, r: number): number {

@@ -81,7 +81,7 @@ export class AirRenderer {
     gl.uniform1f(u('uCoverage'), c.coverage)
     gl.uniform1f(u('uLow'), c.low)
     gl.uniform1f(u('uDrift'), m.drift)
-    gl.uniform1f(u('uCloudAlpha'), (0.35 + 0.25 * c.coverage) * pal.night)
+    gl.uniform1f(u('uCloudAlpha'), (0.6 + 0.3 * c.coverage) * pal.night)
     gl.uniform1f(u('uDarken'), c.darken)
     gl.uniform1f(u('uFlash'), m.flash)
     gl.uniform3fv(u('uCloudLit'), pal.cloudLit)

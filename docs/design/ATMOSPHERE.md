@@ -29,7 +29,7 @@ Where they differ, the decision and the reason are given here. This file wins.
 - **Heat** `max(temp, feelsLike)`, daylight, cloud <60%, dry: 35–39 shimmer band 24 px/0.6 px;
   40–44: 40 px/1.2 px, sun bloom 32→56 px, horizon bleach +6%; ≥45: 56 px/1.8 px. Never above the scene.
 - **Cloud** `coverage = smoothstep(.1,.9,cover)` thresholds the noise (amount of sky, not opacity).
-  <10% none; high layer always, low layer >30%. Overcast = one soft deck. Night clouds `#2A2F5C` ≤55%,
+  <10% none; coverage is linear in cover (20% = a couple of separate clouds, 45% scattered, 80%+ mostly covered; threshold calibrated to the measured GPU fbm range 0.22–0.6); high layer always, low layer >30%. Overcast = one soft deck. Night clouds `#2A2F5C` ≤55%,
   stars × `(1 − .9·cover)`.
 - **Visibility** (`visibility`, else `1300/pm10` km, clamp 1–40): `farFade = (clamp(1−(v−3)/22))^1.5`,
   `nearFade = .6·clamp(1−(v−1)/5)`. Dust grains 60–200 at `6·kmh` px/s when dust ≥150 µg/m³.

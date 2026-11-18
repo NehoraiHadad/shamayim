@@ -46,9 +46,11 @@ float cloudLayer(vec2 p, float scale, float speed, float cov, out float shade) {
   float warp = fbm(q * 0.5 + uTime * 0.008);
   vec2 w = q + warp * 0.7 + vec2(0.0, uTime * 0.003);
   float n = fbm(w);
-  shade = clamp((n - fbm(w + vec2(0.05, 0.09))) * 5.0 + 0.55, 0.0, 1.0);
-  float t = mix(0.86, 0.12, cov);
-  return smoothstep(t - 0.06, t + 0.22, n);
+  shade = clamp((n - fbm(w + vec2(0.05, 0.09))) * 5.0 + 0.7, 0.0, 1.0);
+  // Measured on the GPU, the warped fbm sits mostly in 0.22–0.6 (median ~0.34): the threshold walks that range so a
+  // few clouds are its top tail (separate puffs) and overcast is nearly all of it.
+  float t = mix(0.62, 0.20, cov);
+  return smoothstep(t - 0.03, t + 0.10, n);
 }
 
 void main() {

@@ -358,6 +358,13 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
   glyphs stay with Claude) arrived after this PR was opened, so 6.2 is untested here. Apply it to the next UI pass.
 
+- [x] Few clouds were invisible (owner: "what does a few clouds look like?"): the shader threshold assumed fbm ~0.3–0.7,
+      but measured on the GPU it sits in 0.22–0.6 (median 0.34), and `cloud()` smoothstepped 20% cover to 0.04.
+      Now coverage = cover/100 and `t = mix(0.62, 0.20, cov)`; cloud alpha 0.6+0.3·cov. 20% = a couple of separate
+      clouds, 45% scattered, 80% mostly covered. Stills: `docs/design/qa/clouds-20.png`, `clouds-45.jpg`, `clouds-80.jpg`
+      (offscreen render of the shader over the page; the browser pane was hidden so the live loop did not draw)
+  - [ ] Not verified: on a real phone (mediump hash precision may shift the noise range a little); night clouds
+
 ## v8 scene/time lane — the valley plays the day — 2026-11-17 (branch `claude/scene-time-0f67a4`)
 Brief: `docs/briefs/scene-time.md` (decisions by Fable). Codex (sol): astro, scrub, light. Moon drawn by Claude.
 Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCard`, `week/`, `DayRow`).
