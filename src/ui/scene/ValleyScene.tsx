@@ -11,6 +11,8 @@ import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
 import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
+import { SnowCap } from './SnowCap'
+import type { SnowFall } from './snowLine'
 import { skylineOf } from './skyline'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
@@ -30,6 +32,8 @@ interface Props {
   air: AirState
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
+  /** Snow falling in the shown hour (null on any other day): white caps above its snow line. */
+  snow?: SnowFall | null
   terrain: SceneTerrain
   /** Still morning mist, layered between the two ridge paths. */
   mist?: number
@@ -45,7 +49,7 @@ interface Props {
 }
 
 /** West–east cross-section through the place (hand-drawn for Shadmot Mehola, sampled elsewhere). */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, terrain, mist = 0,
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, snow = null, terrain, mist = 0,
   mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const sceneRef = useRef<HTMLElement>(null)
@@ -70,6 +74,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const elevation = Math.round(forecast.elevation)
   const elevationText = `${elevation < 0 ? `−${Math.abs(elevation)}` : elevation} מ׳`
   const showSea = forecast.elevation < 50 || terrain.seaInView
+  // The hand-drawn valley has no sampled heights: its ridges are scaled from the place's depth below the sea line.
+  const snowPlaceM = place.id === 'shadmot-mehola' ? forecast.elevation : null
   const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
     [place, terrain, landmarks, sceneWidth, showSea])
   const night = markLife.litShare > 0
@@ -90,7 +96,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       role="group"
       aria-label={label}
       data-scene
-      data-haze={air.haze.farFade > 0.5 ? 'heavy' : undefined}
+      data-haze={air.haze.farFade > 0.5 || (snow && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2) } as CSSProperties}
     >
       {glow && rim && <div className={styles.glow} style={{ opacity: glow.opacity, left: `${(rim.x * 100).toFixed(2)}%`, top: `${rim.y.toFixed(1)}px` }} />}
@@ -100,6 +106,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
+        {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM} />}
         <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
           <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
         </foreignObject>
@@ -111,6 +118,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
           <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
+        {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
       </svg>
       <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
         life={markLife} readout={Boolean(readout)} />

@@ -44,7 +44,7 @@
   transition: opacity 1600ms linear;
 }
 
-/* Heavy haze turns the far ridge pale, so labels over it switch to dark ink. */
+/* Heavy haze (or snow lying where the place is) turns the land pale, so labels over it switch to dark ink. */
 .scene[data-haze='heavy'] :is(.depth, .seaLabel) {
   color: var(--ridge-near);
 }

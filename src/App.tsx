@@ -33,6 +33,7 @@ import { OverheadPage } from './ui/overhead/OverheadPage'
 import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { ValleyScene } from './ui/scene/ValleyScene'
+import { snowFall } from './ui/scene/snowLine'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
 import { Sky } from './ui/Sky'
@@ -122,6 +123,7 @@ export default function App() {
             readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
             air={air!}
             cloudCover={shown?.cloudCover ?? 0}
+            snow={shown ? snowFall(shown, forecast.elevation) : null}
             terrain={terrain}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
