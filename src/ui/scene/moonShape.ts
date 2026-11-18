@@ -13,8 +13,22 @@ const MID_X = SCENE_W / 2
 /** Due east sits over the Gilead where the sun rises (x ≈ 322), due west over Samaria (x ≈ 53). */
 const EAST_SPAN = 135
 
-/** True west–east position: the east component of the direction (sin of the azimuth from north). */
+/**
+ * West–east position, linear in the azimuth (east 90° → x ≈ 322, south → middle, west 270° → x ≈ 53), so a body that
+ * rises north of east keeps moving one way across the sky. (The east component, sin(azimuth), folds back at due east
+ * and due west: the moon then stopped at the end of its arc and dropped or climbed straight down.)
+ */
 export function skyPoint(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
+  const fromSouth = ((((azimuth - 180) % 360) + 540) % 360) - 180
+  const x = (MID_X - (EAST_SPAN * fromSouth) / 90) / SCENE_W
+  return { x, y: altitudeY(skyline, x, altitude) }
+}
+
+/**
+ * Where the sun points from, for turning the moon's lit side only: the east component (sin of the azimuth), which stays
+ * continuous while the sun passes north below the horizon at midnight (the linear position would jump edge to edge).
+ */
+export function sunDirection(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
   const x = (MID_X + EAST_SPAN * Math.sin((azimuth * Math.PI) / 180)) / SCENE_W
   return { x, y: altitudeY(skyline, x, altitude) }
 }

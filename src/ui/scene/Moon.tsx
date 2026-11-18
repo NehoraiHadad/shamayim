@@ -4,7 +4,7 @@ import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { LocalTime } from '../../domain/types'
 import type { Skyline } from './skyline'
-import { brightLimbAngle, litPath, moonLook, skyPoint } from './moonShape'
+import { brightLimbAngle, litPath, moonLook, skyPoint, sunDirection } from './moonShape'
 import styles from './Moon.module.css'
 
 interface Props {
@@ -39,7 +39,7 @@ export function Moon({ at, timeZone, lat, lon, cloudCover, farFade, skyline }: P
   const look = moonLook({ altitude: sky.moon.altitude, fraction: sky.lit.fraction, sunAltitude: sky.sun.altitude, cloudCover, farFade })
   if (!look) return null
   const point = skyPoint(sky.moon.altitude, sky.moon.azimuth, skyline)
-  const angle = brightLimbAngle(point, skyPoint(sky.sun.altitude, sky.sun.azimuth, skyline))
+  const angle = brightLimbAngle(point, sunDirection(sky.sun.altitude, sky.sun.azimuth, skyline))
   const style = { left: `${(point.x * 100).toFixed(2)}%`, top: `${point.y.toFixed(1)}px`, opacity: look.opacity.toFixed(2),
     '--daylight': look.daylight.toFixed(2) } as CSSProperties
   return (

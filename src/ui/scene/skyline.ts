@@ -9,8 +9,14 @@ export interface Skyline {
 /** Fallback when no ridge is known: the old fixed horizon line. */
 export const FLAT_SKYLINE: Skyline = Object.assign(() => HORIZON_Y, { peak: HORIZON_Y })
 
-/** The zenith's y: high enough that a summer noon sun still shows its whole halo. */
+/** The zenith's y over a low skyline: high enough that a summer noon sun still shows its whole halo. */
 const SKY_TOP = 12
+/**
+ * The zenith stands at least this far above the arc's base, so on a high ridge (a hill town, the ridge near the top
+ * of the box) a noon sun still climbs well clear of the houses instead of sitting on them. Above y 0 it rises into the
+ * sky over the scene, which the scene's clip leaves open (72 px).
+ */
+const MIN_RISE = 48
 const RAD = Math.PI / 180
 
 /** The ridge line a body rises from: the upper of the far and near ridges at each x (viewBox coordinates). */
@@ -48,5 +54,6 @@ export function altitudeY(skyline: Skyline, x: number, altitude: number): number
   // The base only ever rises (ridge → the arc's own base), so the path never dips on its way up or down.
   const arcBase = Math.min(ridge, Math.max(skyline.peak, ARC_FLOOR))
   const base = ridge + (arcBase - ridge) * smooth(altitude / 15)
-  return base - (base - SKY_TOP) * Math.sin(altitude * RAD) ** 0.8
+  const top = Math.min(SKY_TOP, arcBase - MIN_RISE)
+  return base - (base - top) * Math.sin(altitude * RAD) ** 0.8
 }

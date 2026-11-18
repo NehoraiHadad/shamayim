@@ -21,4 +21,9 @@ describe('skyline', () => {
     expect(altitudeY(sky, 0.5, 39)).toBeCloseTo(altitudeY(sky, 0.3, 39), 0)
     expect(altitudeY(sky, 0.5, 80)).toBeLessThan(altitudeY(sky, 0.5, 39))
   })
+
+  it('climbs well clear of a high ridge at noon (a hill town near the top of the box)', () => {
+    const high = skylineOf([[0, 40], [170, 22], [200, 20], [375, 36]])
+    expect(altitudeY(high, 0.5, 39)).toBeLessThan(high(0.5) - 25)
+  })
 })

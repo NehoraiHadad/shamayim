@@ -9,6 +9,12 @@ describe('skyPoint', () => {
     expect(skyPoint(0, 180).x).toBeCloseTo(0.5)
     expect(skyPoint(0, 90).y).toBe(HORIZON_Y)
   })
+  it('moves one way across the sky even when it rises north of east (no fold at due east or west)', () => {
+    const xs = [60, 75, 90, 120, 180, 240, 270, 285, 300].map((az) => skyPoint(10, az).x)
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeLessThan(xs[i - 1])
+    expect(xs[0] * 375).toBeLessThanOrEqual(375)
+    expect(xs.at(-1)! * 375).toBeGreaterThanOrEqual(0)
+  })
   it('rises with altitude', () => {
     expect(skyPoint(45, 180).y).toBeLessThan(skyPoint(10, 180).y)
   })
