@@ -26,6 +26,10 @@ import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
 import { next24h } from './ui/hourly/timeline'
 import { useIntro } from './ui/motion/useIntro'
+import { OverheadEntry } from './ui/overhead/OverheadEntry'
+import { OverheadPage } from './ui/overhead/OverheadPage'
+import { rainWithinThreeHours } from './ui/overhead/timing'
+import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { ValleyScene } from './ui/scene/ValleyScene'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
@@ -67,6 +71,8 @@ export default function App() {
   const intro = useIntro(Boolean(forecast))
   const paper = useSheetPaper(useMemo(() => sunElevation(now, place), [now, place]), themeId)
   const darkSheet = forced ? DARK_SHEET.has(themeId) : paper.dark
+  const overhead = useOverheadDialog()
+  const rainy = forecast ? rainWithinThreeHours(forecast.hours, now) : false
   useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
   const classes = ['app', darkSheet ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
@@ -124,13 +130,16 @@ export default function App() {
           />
           <div className="paper" data-intro="sheet">
             <Sheet>
+              <OverheadEntry rainy={rainy} position="top" onOpen={overhead.show} />
               <WearCard tip={wear} />
               <WeekList forecast={forecast} now={now} />
+              <OverheadEntry rainy={rainy} position="bottom" onOpen={overhead.show} />
             </Sheet>
             <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
           </div>
         </div>
       )}
+      <OverheadPage open={overhead.open} place={place} onClose={overhead.close} />
     </div>
   )
 }

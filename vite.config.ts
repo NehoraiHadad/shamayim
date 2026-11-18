@@ -34,6 +34,8 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        // Keep the map renderer off the network until the overhead page is opened.
+        globIgnores: ['**/maplibre-gl-*.{js,css}'],
         navigateFallback: 'index.html',
         runtimeCaching: [{
           urlPattern: /\/data\/landmarks\//,

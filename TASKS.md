@@ -389,6 +389,25 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
 - [ ] Reduced motion and VoiceOver/TalkBack on a device (slider announcements)
 - [ ] Golden hour on a clear day (fixture day is cloudy, so golden reads grey)
 
+## View from above — radar + satellite clouds — 2026-11-18
+- [x] Sources researched (live, 2026-11-18): RainViewer past radar (free tier since 2026: past 2 h only, no nowcast,
+      zoom ≤ 7, Universal Blue only, personal/educational licence); EUMETSAT EUMETView WMS (`msg_fes:clm` cloud mask,
+      15 min, ~20–35 min late, CORS open, "© EUMETSAT"); OpenFreeMap Positron basemap. NASA GIBS checked: its
+      geostationary layers are GOES/Himawari only (Israel not in view); MODIS/VIIRS true colour is 1–2 passes a day
+- [x] Satellite corrects now (`src/domain/observedCloud.ts`, `src/data/overhead/useObservedCloud.ts`): a 12×12 px
+      cloud-mask sample ~30 km around the place every 10 min; the difference from the model, weighted by age
+      (full ≤ 40 min, none at 100 min), capped ±40, fading to zero over 2.5 h; sky codes 0–3 follow the corrected cover
+- [x] Page "מבט מלמעלה" (`src/ui/overhead/`), design by Fable (`docs/design/overhead-brief.md`), UI code by Codex
+      gpt-6.2-sol; fixes by Claude Opus 5.5: Hebrew labels were mirrored (MapLibre RTL plugin, served from
+      `public/vendor/`), clouds were 4 km blocks (blur 3 px on padded tiles), white clouds vanished on white land
+      (sand land `#E2DDD2`, deeper water). Entry row at the top of the sheet when rain is due within 3 h, else a quiet
+      link at the end. MapLibre is a lazy chunk (273 kB gz) loaded only on open
+- [x] Headless phone stills: `node scripts/shot.mjs <url> <out.png> [waitMs] [clickText]` (the preview pane throttles
+      rAF while hidden). Stills: `docs/design/qa/overhead-v1.png` (before fixes), `overhead-v4.png` (after)
+- [ ] Not verified: a real rainy radar frame (dry today; recolour tested only on synthetic pixels); dark sheet at night;
+      a phone; whether the no-echo legend "אין גשם במכ״ם" shows once radar loads
+- [ ] Later: proxy RainViewer/EUMETSAT through the Worker cache; NASA MODIS/VIIRS "photo of the day" layer (offered)
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

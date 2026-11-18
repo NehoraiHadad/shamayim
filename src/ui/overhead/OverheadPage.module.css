@@ -1,0 +1,111 @@
+.dialog {
+  position: fixed;
+  inset: auto 0 0;
+  width: min(100%, 520px);
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--sheet);
+  color: var(--sheet-ink);
+  overscroll-behavior: contain;
+}
+
+.dialog[open] { animation: rise var(--d4) var(--ease-out) both; }
+.dialog::backdrop { background: rgb(5 9 20 / 50%); }
+@keyframes rise { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open] { animation: none; }
+}
+
+.panel {
+  display: grid;
+  grid-template-rows: auto minmax(170px, 1fr) auto auto;
+  min-height: 100%;
+  padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
+}
+
+.heading {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--gutter) var(--space-2);
+  touch-action: none;
+}
+
+.heading h2 { margin: 0; font: 500 var(--text-xl) / 1.25 var(--font-serif); }
+
+.close {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.map {
+  position: relative;
+  min-height: 0;
+  border-block: 1px solid color-mix(in srgb, var(--sheet-ink) 15%, transparent);
+  background: color-mix(in srgb, var(--sheet) 88%, var(--sheet-ink));
+}
+
+.map canvas:focus-visible { outline-offset: -4px; }
+
+.village {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ridge-near) 70%, transparent);
+  pointer-events: none;
+}
+
+.details {
+  padding: var(--space-2) var(--gutter) 0;
+  text-align: center;
+}
+
+.legend,
+.ages,
+.status {
+  margin: 0;
+  color: var(--sheet-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.ages { margin-block-start: var(--space-1); }
+.status { min-height: 1.45em; }
+
+.attribution {
+  padding-inline: var(--space-1);
+  border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
+  color: var(--sheet-muted);
+  font-size: 0.65625rem;
+  text-align: center;
+}
+
+.attribution a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: inherit;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+.close:focus-visible,
+.attribution a:focus-visible,
+.map canvas:focus-visible {
+  outline: 2px solid var(--sheet-ink);
+}
