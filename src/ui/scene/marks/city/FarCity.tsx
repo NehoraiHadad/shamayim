@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { skyHeight } from '../../../../data/city/cityHeight'
 import { farColumns, useFarColumns } from '../../../../data/city/farData'
+import { SKYLINE_TO_KM } from '../../../../data/city/skylineRay'
 import { dotPath, plainPaths, px } from './plainPaths'
 import type { SceneTerrain } from '../../../../data/terrain/terrain'
 import { hashId, seeded } from '../../../../data/landmarks/hash'
@@ -19,6 +20,7 @@ type Props = {
   visibilityKm?: number
   terrain?: SceneTerrain
   plainClip?: string
+  hasSkyline?: boolean
 }
 
 export function farCityPaths(data: ReturnType<typeof farColumns>, ground: Ground, farGround: Ground,
@@ -54,8 +56,9 @@ export function farCityPaths(data: ReturnType<typeof farColumns>, ground: Ground
   return { fabric, slabs, dots }
 }
 
-export function FarCity({ place, width, ground, farGround, night, hideFar, visibilityKm, terrain, plainClip }: Props) {
-  const columns = useFarColumns(place, width, !hideFar || Boolean(terrain?.seenAt), terrain?.sightAt, terrain)
+export function FarCity({ place, width, ground, farGround, night, hideFar, visibilityKm, terrain, plainClip, hasSkyline }: Props) {
+  const columns = useFarColumns(place, width, !hideFar || Boolean(terrain?.seenAt), terrain?.sightAt, terrain,
+    hasSkyline ? SKYLINE_TO_KM : undefined)
   const seed = hashId(place.id)
   const paths = useMemo(() => columns && !hideFar && farCityPaths(columns, ground, farGround, seed, night),
     [columns, ground, farGround, seed, night, hideFar])

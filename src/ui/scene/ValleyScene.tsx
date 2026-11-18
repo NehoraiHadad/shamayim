@@ -1,21 +1,14 @@
 import { useId, useMemo, type CSSProperties } from 'react'
-import type { AirState } from '../../atmo/airTypes'
-import type { MarkLife, Landmark } from '../../data/landmarks/types'
-import type { CityResult } from '../../data/city/types'
-import type { SceneTerrain } from '../../data/terrain/terrain'
-import type { Place } from '../../config/place'
+import { skylineData } from '../../data/city/skylineData'
 import { clockOf, datePart } from '../../domain/time'
-import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
 import { cloudSeenAttrs } from './cloudSeen'
-import type { WeightedSighting } from '../../domain/cloudSightings'
 import { FarLand } from './FarLand'
 import { NearLand } from './NearLand'
-import { useRidgeLighting, type RidgeLightInput } from './useRidgeLighting'
+import { useRidgeLighting } from './useRidgeLighting'
 import { SceneScrubber } from './SceneScrubber'
-import type { SnowFall } from './snowLine'
 import { sceneSkyline } from './visibleSun'
 import { Sun } from './Sun'
 import { useSceneSun } from './useSceneSun'
@@ -25,46 +18,12 @@ import { sunAt, sunOverRidge, sunPosition } from './sunPath'
 import { FarCity } from './marks/city/FarCity'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
+import type { ValleySceneProps } from './valleySceneTypes'
 import styles from './ValleyScene.module.css'
-
-interface Props {
-  forecast: Forecast
-  now: LocalTime
-  /** An hour picked in the strip; the sun moves there. */
-  selected: LocalTime | null
-  lat: number
-  /** Shown in place of the next sun event while an hour is selected. */
-  readout?: string | null
-  /** The air being shown (now or the selected hour): haze, dust coin, heat shimmer, cloud veil. */
-  air: AirState
-  /** Cloud cover of the shown hour, 0–100. */
-  cloudCover: number
-  /** The cloud the moon is veiled by (`moonCloud`: low and mid cloud when known); the whole cover when absent. */
-  moonCloud?: number
-  /** 2.5D sun lighting for the ridges, marks, disc and air (off with `?scene=flat`). */
-  ridgeLight?: RidgeLightInput
-  /** Snow falling in the shown hour (null on any other day): white caps above its snow line. */
-  snow?: SnowFall | null
-  terrain: SceneTerrain
-  /** Still morning mist, layered between the two ridge paths. */
-  mist?: number
-  mistColor?: string
-  place: Place
-  landmarks: Landmark[]
-  city?: CityResult | null
-  markLife: MarkLife
-  first: LocalTime
-  last: LocalTime
-  onScrub: (time: LocalTime) => void
-  onRelease: () => void
-  onNow: () => void
-  /** Single clouds the satellite sees near the place right now (none while another hour is shown). */
-  seenClouds?: WeightedSighting[] | null
-}
 
 /** A true-bearing horizon once the DEM is available, with a drawn cross-section while it loads. */
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight, snow = null, terrain, mist = 0,
-  mistColor = '#C9D2D8', place, landmarks, city, markLife, first, last, onScrub, onRelease, onNow, seenClouds = null }: Props) {
+  mistColor = '#C9D2D8', place, landmarks, city, markLife, first, last, onScrub, onRelease, onNow, seenClouds = null }: ValleySceneProps) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
@@ -88,9 +47,14 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const snowPlaceM = terrain.drawn ? forecast.elevation : null
   const night = markLife.litShare > 0
   const visibilityKm = air.haze.plainVisibilityKm ?? air.haze.visibilityKm
-  const hill = useMemo(() => hillScene({ place, terrain, landmarks, city, showSea, width: sceneWidth, litShare: markLife.litShare,
+  const raster = city?.raster
+  const towers = raster?.towers ?? city?.towers
+  const citySkyline = useMemo(() => skylineData(place, sceneWidth, raster, terrain, towers),
+    [place, sceneWidth, raster, terrain, towers])
+  const hill = useMemo(() => hillScene({ place, terrain, landmarks, city, skyline: citySkyline, showSea, width: sceneWidth,
+    litShare: markLife.litShare,
     label: { text: elevationText, below } }),
-  [place, terrain, landmarks, city, showSea, sceneWidth, markLife.litShare, elevationText, below])
+  [place, terrain, landmarks, city, citySkyline, showSea, sceneWidth, markLife.litShare, elevationText, below])
   const moonlit = useMoonlight(ridgeLight, at, place, skyline, moonCloud, air.haze.farFade)
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
@@ -126,12 +90,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor}
         city={terrain.farElevations?.length ? (plainClip) => <FarCity plainClip={plainClip} place={place} width={sceneWidth} ground={hill.ground}
           farGround={hill.farGround} terrain={terrain} night={night} hideFar={markLife.hideFar}
-          visibilityKm={visibilityKm} /> : undefined} />
+          visibilityKm={visibilityKm} hasSkyline={Boolean(hill.citySkyline)} /> : undefined} />
       <HillMarks layer="far" marks={hill.marks} labels={hill.labels} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
         night={night} life={markLife} visibilityKm={visibilityKm} readout={Boolean(readout)} />
       <NearLand terrain={terrain} showSea={showSea} snow={snow} snowPlaceM={snowPlaceM}
         lighting={lighting} ridgeLit={ridgeLit} />
       <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
+        citySkyline={hill.citySkyline} visibilityKm={visibilityKm}
         neighbours={hill.neighbours} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach}
         life={markLife} readout={Boolean(readout)} />

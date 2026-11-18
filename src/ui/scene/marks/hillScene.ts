@@ -2,7 +2,11 @@ import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
 import { composeCity } from '../../../data/city/fabric'
 import { composeNeighbours, neighbourBox } from '../../../data/city/neighbours'
+import { skylineData, type SkylineData } from '../../../data/city/skylineData'
+import { inSkylineReach } from '../../../data/city/skylineRay'
+import { sameTower, splitSkylineTowers } from '../../../data/city/skylineTowers'
 import { isGenericHighrise, placeMarks } from '../../../data/landmarks/placeMarks'
+import { distanceOf } from '../../../data/landmarks/project'
 import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
 import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
@@ -22,6 +26,7 @@ interface Input {
   width: number
   litShare: number
   city?: HomeCityData | null
+  skyline?: SkylineData | null
   showSea?: boolean
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
@@ -55,7 +60,8 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * Ground functions, the marks fitted to what is visible, the place's settlement cluster and the elevation label's
  * spot for the hill layer, in px at the scene's real width.
  */
-export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city, showSea = terrain.seaInView }: Input) {
+export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city,
+  skyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
@@ -74,7 +80,13 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // pulling the surrounding marks into the space reserved by the initial layout.
   const homeHalf = mode?.kind === 'village'
     ? composeSettlement(input!, mode.plan).halfWidth : mode?.homeHalf ?? 7
-  const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width,
+  const rasterTowers = skyline && (city?.raster?.towers ?? city?.towers)
+  const replaced = new Set(rasterTowers ? landmarks.filter(mark => {
+    if (mark.source !== 'osm' || !isGenericHighrise(mark.kind, mark.glyph)) return false
+    return inSkylineReach(distanceOf(place, mark)) && rasterTowers.some(tower => sameTower(mark, tower))
+  }).map(mark => mark.id) : [])
+  const projected = placed?.filter(mark => !replaced.has(mark.id)) ?? placeMarks(place,
+    { ...terrain, seaInView: showSea }, landmarks.filter(mark => !replaced.has(mark.id)), width,
     terrain.sightAt ? undefined : homeHalf, cityMode)
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
   const candidates = cityMode ? projected.filter(mark => mark.layer !== 'near' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
@@ -100,12 +112,11 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
       settlement = mode.kind === 'template' ? composeSettlement(withMarks) : composeSettlement(withMarks, mode.plan)
     }
   }
-  if (city && terrain.sightAt) {
-    const drawnIds = new Set(marks.filter(mark => mark.layer === 'near').map(mark => mark.id))
-    const curated = landmarks.filter(mark => mark.kind === 'highrise' && drawnIds.has(mark.id))
-    cityTowers = placeCityTowers({ width, ground, floor: VISIBLE_BOTTOM - 2, centerX, centerY, keepOut,
-      towers: city.towers, curated, panorama: { place, sightAt: terrain.sightAt } })
-  }
+  const drawn = skyline && new Set(marks.map(mark => mark.id))
+  const curatedTowers = drawn ? landmarks.filter(mark => drawn.has(mark.id) && mark.source === 'curated' &&
+    (mark.kind === 'highrise' || (mark.kind === 'custom' && mark.heightM >= 40))) : []
+  const skylineTowers = skyline && splitSkylineTowers(skyline.towers, curatedTowers)
+  if (skylineTowers) cityTowers = skylineTowers.glyphs
   const houses = (settlement?.houses ?? []).map(house => {
     const { x, w, h, baseY } = house
     return { left: x - w / 2, right: x + w / 2, top: baseY - h - 1.8, bottom: baseY }
@@ -131,5 +142,8 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   })
   const labels = terrain.seenAt ? plainLabels(marks, landmarks, width, ground, dot, labelSpot, label.text,
     [...obstacles, ...keepOut, ...farBoxes]) : []
-  return { ground, farGround, settlement, cityTowers, neighbours, centerY, marks, label: labelSpot, labels }
+  const citySkyline = skyline && skylineTowers && {
+    data: skyline, slabs: skylineTowers.slabs, centerX, homeHalf, seed: hashId(place.id),
+  }
+  return { ground, farGround, settlement, cityTowers, citySkyline, neighbours, centerY, marks, label: labelSpot, labels }
 }

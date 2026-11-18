@@ -11,17 +11,24 @@ export function offsetKm(place: Coordinate, mark: Coordinate) {
   return { dx, dy }
 }
 
+function greatCircle(place: Coordinate, mark: Coordinate) {
+  const rad = Math.PI / 180
+  const a = place.lat * rad, b = mark.lat * rad, lon = (mark.lon - place.lon) * rad
+  const dx = Math.sin(lon) * Math.cos(b)
+  const dy = Math.cos(a) * Math.sin(b) - Math.sin(a) * Math.cos(b) * Math.cos(lon)
+  const km = EARTH_R_KM * Math.atan2(Math.hypot(dx, dy), Math.sin(a) * Math.sin(b) + Math.cos(a) * Math.cos(b) * Math.cos(lon))
+  return { dx, dy, km }
+}
+
+export const distanceOf = (place: Coordinate, mark: Coordinate) => greatCircle(place, mark).km
+
 /**
  * Where a mark stands in the horizon panorama: x by its true bearing from the place (the sky's and the land's own
  * mapping: west-north-west at the left edge, south in the middle, east-north-east at the right), and how far it is.
  * Null when it lies behind the viewer (the northern quarter the scene does not show).
  */
 export function bearingOf(place: Coordinate, mark: Coordinate): { x: number; km: number } | null {
-  const rad = Math.PI / 180
-  const a = place.lat * rad, b = mark.lat * rad, lon = (mark.lon - place.lon) * rad
-  const dx = Math.sin(lon) * Math.cos(b)
-  const dy = Math.cos(a) * Math.sin(b) - Math.sin(a) * Math.cos(b) * Math.cos(lon)
-  const km = EARTH_R_KM * Math.atan2(Math.hypot(dx, dy), Math.sin(a) * Math.sin(b) + Math.cos(a) * Math.cos(b) * Math.cos(lon))
+  const { dx, dy, km } = greatCircle(place, mark)
   // Right at the place the bearing means nothing: the middle of the scene.
   if (km < 0.15) return { x: RIDGE_WIDTH / 2, km }
   const azimuth = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360

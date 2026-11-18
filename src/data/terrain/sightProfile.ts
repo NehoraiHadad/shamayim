@@ -55,7 +55,7 @@ export function sampleGround({ angles, heights }: Profile, km: number) {
   const i = left
   const distance = RAY_DISTANCES[i]
   const exact = Math.abs(distance - km) < 1e-9
-  const height = exact ? relativeHeight(angles[i], km)
+  const height = km === distance ? heights[i] : exact ? relativeHeight(angles[i], km)
     : mix(heights[i - 1], heights[i], (km - RAY_DISTANCES[i - 1]) / (distance - RAY_DISTANCES[i - 1]))
   return { i, exact, height }
 }
