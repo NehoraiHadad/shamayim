@@ -658,7 +658,7 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       the Worker allowlist + `wrangler deploy` first — not done
 - [x] Day moon: 50 % (half) to 80 % (full) of its night strength instead of a flat 35 %, near-white not pale blue,
       seas faintly kept; hidden by day only as a thin crescent (< 15 %) or above 85 % cloud
-- [~] Cloud layers for the moon (owner asked). Step 1 done on `main`: Worker allowlist takes `cloud_cover_low/mid/high`
+- [x] Cloud layers for the moon (owner asked; Worker deployed 2026-11-18, app query checked 200 end to end). Step 1 done on `main`: Worker allowlist takes `cloud_cover_low/mid/high`
       (hourly + current). Step 2: **deploy the Worker** (README, "Order when the app asks Open-Meteo for something new").
       Step 3: merge branch `feat/moon-cloud-layers` (the app asks for the layers) only after the curl check gives 200.
       On the branch: hourly + current `cloud_cover_low/mid/high` → `thickCloud` (low and mid as independent layers,
