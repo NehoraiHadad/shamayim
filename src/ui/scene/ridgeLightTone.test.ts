@@ -25,16 +25,18 @@ describe('ridge tones', () => {
     for (const cover of [90, 95, 100]) expect(ridgeLightTone({ ...clear, cover })).toBeNull()
   })
 
-  it('attenuates wet and hazy daylight and suppresses both layers in heavy haze', () => {
+  it('attenuates wet and hazy daylight and fades heavy haze smoothly', () => {
     const delta = (wet: boolean, nearFade: number) => {
       const base = mixOklab(clear.palette.ridgeNear, mixOklab(clear.palette.mid, clear.palette.horizon, .45), nearFade * .9)
       return lightness(ridgeLightTone({ ...clear, wet, nearFade, farFade: nearFade * 1.4 })!.fill!) - lightness(base)
     }
     expect(delta(true, 0)).toBeLessThan(delta(false, 0))
     expect(delta(true, .35)).toBeLessThan(delta(true, 0))
-    for (const layer of ['near', 'far'] as const) {
-      expect(ridgeLightTone({ ...clear, layer, farFade: .51 })).toBeNull()
-    }
+    // Heavy haze fades the light with the direct sun that gets through (`day`), never by a switch at one fade.
+    const far = (farFade: number, day = 1) => ridgeLightTone({ ...clear, layer: 'far', farFade, day })?.fill
+    expect(far(.51)).toBeTruthy()
+    expect(lightness(far(.51)!)).toBeCloseTo(lightness(far(.49)!), 2)
+    expect(ridgeLightTone({ ...clear, layer: 'far', farFade: .8, day: 0 })).toBeNull()
   })
 
   it('allows a weather-attenuated twilight rim and suppresses it at night or midday', () => {

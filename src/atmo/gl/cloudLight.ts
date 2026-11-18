@@ -1,3 +1,4 @@
+import { setAfterglow } from './afterglowLight'
 import { SCENE_25D } from '../../ui/sceneFlag'
 import type { Program } from './glUtil'
 import type { Layout } from './renderer'
@@ -23,10 +24,11 @@ export function cloudFront(sunX: number, width: number): number {
   return 1 - smooth((Math.abs(sunX / width - 0.5) - 0.08) / 0.27)
 }
 
-/** Sun-side cloud lighting uniforms (the `?scene=25d` spike); all zero without the flag, so the shader is unchanged. */
+/** Sun-side cloud lighting uniforms (the lit scene); all zero with `?scene=flat`, so the shader is unchanged. */
 export function setCloudLight(gl: WebGLRenderingContext, air: Program, L: Layout) {
   const on = SCENE_25D && L.sun !== null
   gl.uniform1f(air.u('uLit'), SCENE_25D ? 1 : 0)
   gl.uniform1f(air.u('uWarm'), on ? cloudWarmth(L.sun!.y, L.sceneTop) : 0)
   gl.uniform1f(air.u('uFront'), on ? cloudFront(L.sun!.x, L.w) : 0)
+  setAfterglow(gl, air, L)
 }

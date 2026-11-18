@@ -1,7 +1,7 @@
 type Point = readonly [number, number]
 
 /**
- * One sun for the whole scene (`?scene=25d`): every element takes its colour, its shadow side and whether it stands in
+ * One sun for the whole scene (the default; `?scene=flat` turns it off): every element takes its colour, its shadow side and whether it stands in
  * a ridge's shadow from here, so the ridges, the floor, the houses and the disc agree with each other.
  */
 
@@ -52,6 +52,16 @@ export function sunLight(altitude: number, air: Aerosol = {}) {
   const noon = RAYLEIGH.map((tau, i) => Math.exp(-tau - clean[i]))
   const lum = (c: number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
   return { rgb, strength: Math.min(1, lum(t) / lum(noon)) }
+}
+
+/**
+ * The share of direct sunlight that this hour's haze lets through, against clean air at the same height (0..1):
+ * how strongly anything can be sunlit, so heavy haze fades the light out instead of switching it off.
+ */
+export function hazeDirect(altitude: number, air: Aerosol) {
+  const m = airMass(Math.max(.5, altitude))
+  const extra = aerosolDepth(air)[1] - aerosolDepth()[1]
+  return Math.exp(-Math.max(0, extra) * Math.min(m, 12))
 }
 
 export const rgbCss = ([r, g, b]: readonly number[]) =>

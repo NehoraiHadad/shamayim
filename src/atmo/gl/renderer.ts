@@ -15,6 +15,8 @@ export interface Layout {
   bandBottom: number
   sceneTop: number
   sun: { x: number; y: number } | null
+  /** Lit scene: the sun just under (or over) the horizon still lighting the clouds; x in sky px. */
+  afterglow?: { x: number; altitude: number; rgb: [number, number, number] } | null
 }
 
 const AIR_SCALE = 1 / 3

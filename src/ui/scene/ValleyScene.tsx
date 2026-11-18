@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useId, useMemo, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
 import { placeMarks } from '../../data/landmarks/placeMarks'
@@ -9,18 +9,17 @@ import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
 import { Moon } from './Moon'
+import { FarLand } from './FarLand'
 import { RidgeLight } from './RidgeLight'
 import { useRidgeLighting, type RidgeLightInput } from './useRidgeLighting'
 import { SceneScrubber } from './SceneScrubber'
-import { Shimmer } from './Shimmer'
 import { SnowCap } from './SnowCap'
 import type { SnowFall } from './snowLine'
 import { seaSpan } from './seaLine'
 import { skylineOf } from './skyline'
 import { Sun } from './Sun'
-import { discLook, worldLight } from './sceneLight'
-import { sunPosition as sunSky } from '../../astro/sun'
-import { utcOf } from '../../astro/utc'
+import { useSceneSun } from './useSceneSun'
+import { useWidth } from './useWidth'
 import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
@@ -38,7 +37,7 @@ interface Props {
   air: AirState
   /** Cloud cover of the shown hour, 0–100. */
   cloudCover: number
-  /** Opt-in 2.5D sun lighting on the ridges (`?scene=25d`). */
+  /** 2.5D sun lighting for the ridges, marks, disc and air (off with `?scene=flat`). */
   ridgeLight?: RidgeLightInput
   /** Snow falling in the shown hour (null on any other day): white caps above its snow line. */
   snow?: SnowFall | null
@@ -60,15 +59,7 @@ interface Props {
 export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, ridgeLight, snow = null, terrain, mist = 0,
   mistColor = '#C9D2D8', place, landmarks, markLife, first, last, onScrub, onRelease, onNow }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
-  const sceneRef = useRef<HTMLElement>(null)
-  const [sceneWidth, setSceneWidth] = useState(375)
-  useEffect(() => {
-    const node = sceneRef.current
-    if (!node) return
-    const observer = new ResizeObserver(([entry]) => setSceneWidth(entry.contentRect.width))
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
+  const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
   const skyline = useMemo(() => skylineOf(terrain.farPoints, terrain.nearPoints), [terrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
@@ -92,16 +83,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, elevationText, below])
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
-  const minute = at.slice(0, 16)
-  const aerosol = useMemo(() => ({ visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 }),
-    [air.haze.visibilityKm, air.sunCoin])
-  const look = useMemo(() => ridgeLight
-    ? discLook(sunSky(utcOf(minute, place.timezone), place.lat, place.lon).altitude, aerosol) : undefined,
-  [ridgeLight, minute, place.timezone, place.lat, place.lon, aerosol])
-  const world = useMemo(() => worldLight(lighting, terrain.nearPoints, sceneWidth, SCENE_W, aerosol),
-    [lighting, terrain, sceneWidth, aerosol])
-  const shimmer = air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined
-  const sunX = sun && !night && cloudCover < 80 && air.haze.farFade <= .5 ? sun.x * sceneWidth : null
+  const { look, world, sunX, afterglow } = useSceneSun({ on: Boolean(ridgeLight), at, place, air, lighting,
+    near: terrain.nearPoints, width: sceneWidth, sun, night, cloudCover, rimX: rim?.x ?? null })
   const label = [
     sun && !selected ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(event.time)}.` : '',
@@ -115,6 +98,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       role="group"
       aria-label={label}
       data-scene
+      {...afterglow}
       data-haze={air.haze.farFade > 0.5 || (snow && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2),
         ...world?.style } as CSSProperties}
@@ -124,17 +108,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         farFade={air.haze.farFade} skyline={skyline} />
       <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin}
         look={look} />
-      <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
-        {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
-        {lighting?.far ? <RidgeLight path={terrain.far} points={terrain.farPoints} ray={lighting.ray}
-          noonWeight={lighting.noonWeight} rimX={lighting.far.rimAlpha ? lighting.rimX : null} depth={9}
-          tone={lighting.far} baseClass={styles.far} shimmer={shimmer} />
-          : <path d={terrain.far} className={styles.far} filter={shimmer} />}
-        {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM} />}
-        <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
-          <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
-        </foreignObject>
-      </svg>
+      <FarLand terrain={terrain} lighting={lighting} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
+        snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor} />
       <HillMarks layer="far" marks={hill.marks} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
         night={night} life={markLife} readout={Boolean(readout)} />
       <svg className={`${styles.land} ${styles.landNear}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">

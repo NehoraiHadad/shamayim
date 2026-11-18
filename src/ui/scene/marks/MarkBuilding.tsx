@@ -15,7 +15,7 @@ export interface BuildingContext {
   motion: boolean
   /** An hour readout sits at the top; marks reaching into it are dimmed. */
   readout: boolean
-  /** `?scene=25d`: whether ground at this px x stands in a ridge's shadow, and cast-shadow length per unit height. */
+  /** Lit scene: whether ground at this px x stands in a ridge's shadow, and cast-shadow length per unit height. */
   shaded?: (x: number) => boolean
   reach?: number
   /** Far ridge: silhouette at 0.6, no lit side, no windows, aviation light only (ILLUSTRATION.md R1). */

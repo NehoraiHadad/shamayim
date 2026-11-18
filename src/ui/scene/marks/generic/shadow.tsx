@@ -6,7 +6,7 @@ import styles from '../marks.module.css'
  */
 export function CastShadow({ w, h, reach: perHeight }: { w: number; h: number; reach?: number }) {
   const half = w / 2
-  // `reach` (shadow length per unit height) follows the sun under `?scene=25d`; otherwise the fixed drawn length.
+  // `reach` (shadow length per unit height) follows the sun in the lit scene; otherwise the fixed drawn length.
   const reach = perHeight === undefined ? Math.min(8, .4 * h) : Math.min(14, perHeight * h)
   return <>
     <path className={styles.cast} d={`M${-half + 1} 0H${half}L${half + reach} .8L${half + reach - 1.2} 1.6H${-half + 1}z`} />

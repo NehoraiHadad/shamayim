@@ -13,7 +13,8 @@ export function readLayout(): Layout {
   const y0 = origin?.top ?? 0
   const x0 = origin?.left ?? 0
   const band = document.querySelector('[data-air-band]')?.getBoundingClientRect()
-  const scene = document.querySelector('[data-scene]')?.getBoundingClientRect()
+  const sceneEl = document.querySelector<HTMLElement>('[data-scene]')
+  const scene = sceneEl?.getBoundingClientRect()
   // Only the scene's disc while it is up: the hourly strip's sunrise/sunset marks also carry a bare `data-sun` and
   // come first in the page, so `[data-sun]` used to find them and the air never saw the sun.
   const sunEl = document.querySelector<HTMLElement>('[data-sun="up"]')
@@ -24,6 +25,15 @@ export function readLayout(): Layout {
     bandTop: band ? band.top - y0 : 0,
     bandBottom: band ? band.bottom - y0 : h * 0.5,
     sceneTop: scene ? scene.top - y0 : h * 0.55,
+    afterglow: scene && sceneEl ? readAfterglow(sceneEl, scene.left - x0, scene.width) : null,
     sun: sunBox ? { x: sunBox.left - x0 + sunBox.width / 2, y: sunBox.top - y0 + sunBox.height / 2 } : null,
   }
+}
+
+/** The afterglow the scene publishes (see `ui/scene/afterglow.ts`), placed in sky px. */
+function readAfterglow(el: HTMLElement, left: number, width: number) {
+  const { afterglow, afterglowX, afterglowRgb } = el.dataset
+  if (afterglow === undefined || afterglowX === undefined || !afterglowRgb) return null
+  const rgb = afterglowRgb.split(',').map(Number) as [number, number, number]
+  return { altitude: Number(afterglow), x: left + Number(afterglowX) * width, rgb }
 }

@@ -493,9 +493,25 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       layer), Ångström 1.3 for fine haze (reddens) vs 0.3 for desert dust (greyer, dims); tone-mapped against the
       brightest channel (the eye adapts); the aureole widens with aerosol. `haze.visibilityKm` added to AirState.
       Stills `aerosol-compare.png` (left 40 km, right 8 km; 06:40 / 16:20)
-- [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, the layout fix
-      for production (bloom returns), afterglow on high clouds after sunset, shadow edge on the floor;
-      ValleyScene is 170 lines, split it when the spike graduates
+- [x] Heavy haze (Claude, Opus 5.5): no more on/off cutoff at farFade 0.5. `hazeDirect` (sceneLight) = the share
+      of direct sun the hour's aerosol lets through vs clean air, exp(−Δτ·m); it scales the ridge light, which fades
+      out smoothly (gone below 8 %). Still `heavy-haze-flat-vs-lit.png` (vis 4 km, 07:30)
+- [x] Afterglow on clouds (Claude, Opus 5.5): from 3° above to 5° below the horizon the scene publishes
+      `data-afterglow{,-x,-rgb}` (`ui/scene/afterglow.ts`); `layout.ts` reads it into `L.afterglow`;
+      `gl/afterglowLight.ts` sets uAfter/uAfterAt/uAfterCol. In the shader, clouds take light from under the
+      horizon below the glow, gold → pink as the sun sinks, gated by height: Earth's shadow climbs, clouds by the
+      ridge (~3 km) go grey by ~1.5° below, the top of the sky (~10 km) by ~3.5°. Dawn mirrors it.
+      Still `afterglow-sequence.png` (flat 16:46 | lit 16:40, 16:46, 16:52)
+- [x] Split (Claude, Opus 5.5): `useSceneSun` (disc look, world light, marks' sun x, afterglow), `FarLand`,
+      `useWidth` out of ValleyScene (171 → 154); cloud GLSL into `gl/cloudShader.ts` (airShader 141 → 81)
+- [x] Production (Claude, Opus 5.5): the lit scene is the default; `?scene=flat` brings back the old one
+- [ ] Owner judges on the phone (outdoors, dawn/dusk). Remaining sun/light ideas, by value:
+      1. Earth's shadow + belt of Venus: blue-grey band rising in the east after sunset, pink above it
+      2. Sky gradient from the same model (sunLight/aerosol) instead of the fixed palette per phase
+      3. Moonlight: ridge rim and cloud edges lit by the moon (phase × altitude), cool and faint
+      4. Crepuscular rays from cloud gaps at a low sun (the shader has the sun and cloud density)
+      5. Mist and snow take `--sun-light` (pink snow caps at dawn/dusk)
+      6. Shadow edge on the valley floor (the ridge's shadow line moving across the floor)
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

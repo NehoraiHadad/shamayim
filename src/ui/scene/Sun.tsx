@@ -21,7 +21,7 @@ interface Props {
   cloudCover: number
   /** 0–1; dust flattens the sun into a pale coin with no halo. */
   coin?: number
-  /** `?scene=25d`: the disc drawn from the true sun (air-mass colour, limb darkening, refraction squash). */
+  /** Lit scene: the disc drawn from the true sun (air-mass colour, limb darkening, refraction squash). */
   look?: DiscLook
 }
 

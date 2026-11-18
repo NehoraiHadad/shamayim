@@ -55,9 +55,10 @@ function limitStrength(strength: number, passes: (value: number) => boolean) {
 
 export function ridgeLightTone(input: ToneInput): RidgeTone | null {
   const { altitude, azimuth, day, noonWeight, glow, cover, wet, farFade, nearFade, layer, palette } = input
-  if (farFade > .5 || cover >= 90 || (day <= 0 && glow <= 0)) return null
+  if (cover >= 90 || (day <= 0 && glow <= 0)) return null
   const far = layer === 'far'
-  const weather = (1 - smoothstep(.5, .9, cover / 100)) * (1 - (far ? farFade : nearFade)) * (wet ? .5 : 1)
+  // Haze dims the sun itself (`day` already carries the direct share) and veils the far ridge in front of it.
+  const weather = (1 - smoothstep(.5, .9, cover / 100)) * (1 - (far ? farFade : nearFade) * .9) * (wet ? .5 : 1)
   const horizon = hexToOklab(palette.horizon)
   const accent = hexToOklab(palette.accent)
   const haze = mix(hexToOklab(palette.mid), horizon, .45)
