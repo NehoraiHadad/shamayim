@@ -1,5 +1,6 @@
 import type { AirMotion } from '../motion'
 import { AIR_FRAG, BLIT_FRAG, FULL_VERT } from './airShader'
+import { setCloudLight } from './cloudLight'
 import { fullScreenTriangle, program, renderTarget, type GL, type Program, type Target } from './glUtil'
 import type { AirPalette } from './palette'
 import { PARTICLE_FRAG, PARTICLE_VERT } from './particleShader'
@@ -92,6 +93,7 @@ export class AirRenderer {
     gl.uniform1f(u('uHazeAmt'), c.haze)
     gl.uniform3f(u('uSun'), L.sun?.x ?? 0, L.sun?.y ?? 0, L.sun ? 1 : 0)
     gl.uniform3fv(u('uSunCol'), pal.sun)
+    setCloudLight(gl, this.air, L)
     gl.uniform1f(u('uRays'), c.rays)
     gl.uniform1f(u('uBloom'), c.bloom)
     gl.uniform1f(u('uCoin'), c.coin)

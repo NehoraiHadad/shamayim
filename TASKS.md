@@ -464,8 +464,19 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       edge and the rim are blurred (static SVG blur, depth/4 px), the skyline stays crisp via the clip
 - [x] Nulls checked in the DOM: no overlay at night (21:00), overcast (`wx=cloud:95`), heavy haze (`wx=vis:2`)
 - [x] Stills `docs/design/qa/25d/before-*.png` / `after-*.png` (06:40, 11:40, 16:25); tsc, 418 tests, lint, build
-- [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, then cloud
-      lit-side toward the sun (plan §7.2)
+- [x] Clouds lit from the sun's side (plan §7.2), same flag. Base — Codex gpt-6.2-sol: `ui/sceneFlag.ts`, shade
+      offset toward the sun, painted body/edge steps, `uWarm`. Physics pass — Claude Opus 5.5 (`atmo/gl/cloudLight.ts`,
+      `airShader.ts`): shade re-centred so each cloud splits into a sun-facing and a self-shadowed half; sun face
+      brighter than the sky and more opaque; thick cores darker (optical depth); low-sun reddening on the high layer
+      (half on the low one); forward scattering: thick cloud before the disc darkens, thin edges get a silver lining;
+      near noon the sun is behind the viewer (faces north) so light comes from above and clouds go flat and bright
+- [x] Found: `atmo/layout.ts` took the first `[data-sun]`, the hourly strip's sunset mark, so `L.sun` was null and
+      the air never saw the disc (sun bloom/rays likely off in production too). Fixed under the flag only
+      (`[data-sun="up"]`); production unchanged until signed off
+- [x] Stills `docs/design/qa/25d/clouds-before/after-*.png` + `clouds-compare.png` (`wx=cloud:70`); tsc, 421
+      tests, lint, build
+- [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, the layout fix
+      for production (bloom returns), afterglow on high clouds after sunset
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

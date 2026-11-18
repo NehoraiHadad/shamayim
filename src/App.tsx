@@ -34,6 +34,7 @@ import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { ValleyScene } from './ui/scene/ValleyScene'
 import { snowFall } from './ui/scene/snowLine'
+import { SCENE_25D } from './ui/sceneFlag'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
 import { Sky } from './ui/Sky'
@@ -45,8 +46,6 @@ import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
 import { WeekList } from './ui/WeekList'
-
-const ridgeLightingEnabled = new URLSearchParams(window.location.search).get('scene') === '25d'
 
 export default function App() {
   const { place, recent, selectPlace } = usePlace()
@@ -118,26 +117,18 @@ export default function App() {
       {forecast && (
         <div className="lower">
           <ValleyScene
-            forecast={forecast}
-            now={now}
-            selected={selected}
-            lat={place.lat}
+            forecast={forecast} now={now} selected={selected} lat={place.lat}
             readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
-            air={air!}
-            cloudCover={shown?.cloudCover ?? 0}
-            {...(ridgeLightingEnabled && shown ? {
-              ridgeLight: { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 },
-            } : {})}
+            air={air!} cloudCover={shown?.cloudCover ?? 0}
+            ridgeLight={SCENE_25D && shown
+              ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 }
+              : undefined}
             snow={shown ? snowFall(shown, forecast.elevation) : null}
             terrain={terrain}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
-            place={place}
-            landmarks={landmarks.marks}
-            markLife={markLife!}
-            onScrub={sceneTime.scrub}
-            onRelease={sceneTime.release}
-            onNow={sceneTime.toNow}
+            place={place} landmarks={landmarks.marks} markLife={markLife!}
+            onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow}
             first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
             last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
           />
