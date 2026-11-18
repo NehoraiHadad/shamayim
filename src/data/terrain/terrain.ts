@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
-import { weatherUrl } from '../weatherApi'
-import { FAR_RADIUS_KM, NEAR_RADIUS_KM, ridgeLongitudeKm } from './ridgeProjection'
-import { gentleHillsPath, profilePoints, profileToPath, profileY, ridgePoints, sampleY, type TerrainSample } from './profile'
+import { terrainFromPanorama } from './panoramaTerrain'
+import { fetchDem } from './dem'
+import {
+  computePanorama, destination, packPanorama, unpackPanorama, type Panorama,
+  type StoredPanorama,
+} from './panorama'
+import { gentleHillsPath, ridgePoints } from './profile'
 
-export interface TerrainData {
-  near: TerrainSample[]
-  far: TerrainSample[]
-}
+export { terrainFromPanorama } from './panoramaTerrain'
+
+type Pt = [number, number]
 
 export interface SceneTerrain {
   near: string
@@ -17,16 +20,34 @@ export interface SceneTerrain {
   seaY: number
   seaInView: boolean
   seaSide: 'west' | 'east' | null
-  nearPoints: [number, number][]
-  farPoints: [number, number][]
+  nearPoints: Pt[]
+  farPoints: Pt[]
+  /** Height (m) of the ridge crest at each of the points' x, evenly across the scene (sampled terrain only). */
   nearElevations?: number[]
   farElevations?: number[]
+  /**
+   * y of eye level (0°) when the land is the horizon panorama, drawn on the sky's own vertical scale: the sun and moon
+   * stand on this line, so they hide behind the land exactly when the real land hides them. Absent for the stand-in
+   * drawings (loading, offline), where a body stands on the drawn ridge instead.
+   */
+  horizonY?: number
+  /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
+  snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
+  /**
+   * What the land is like in the direction at scene x (panorama only): how far the near ridge and the far horizon are
+   * (km), and whether the far horizon shows above the near ridge there. Landmarks use it to stand on the ridge in their
+   * own direction, or to be left out when the land in front hides them.
+   */
+  sightAt?: (x: number) => { nearKm: number; farKm: number; farShows: boolean }
+  /** The hand-drawn valley (its village sits on the drawn floor, its snow line is scaled from the place's depth). */
+  drawn?: boolean
 }
 
 const SHADMOT_FAR = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
 const SHADMOT_NEAR = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z'
 const GENERIC_FAR = 'M0 128V54C52 32 102 44 148 62S236 76 284 48S344 38 375 50V128Z'
 
+/** The hand-drawn Jordan Valley at Shadmot Mehola: shown until its panorama has loaded (and if it never can). */
 const SHADMOT: SceneTerrain = {
   far: SHADMOT_FAR,
   near: SHADMOT_NEAR,
@@ -38,6 +59,7 @@ const SHADMOT: SceneTerrain = {
   // Sampled from the drawn paths, so marks stand on the line you see (a few hand-picked corners missed the curves).
   nearPoints: ridgePoints(SHADMOT_NEAR),
   farPoints: ridgePoints(SHADMOT_FAR),
+  drawn: true,
 }
 
 export const GENERIC_TERRAIN: SceneTerrain = {
@@ -52,96 +74,77 @@ export const GENERIC_TERRAIN: SceneTerrain = {
   farPoints: ridgePoints(GENERIC_FAR),
 }
 
-function terrainKey(placeId: string): string {
-  return `shamayim:terrain:v1:${placeId}`
+function horizonKey(placeId: string): string {
+  return `shamayim:horizon:v2:${placeId}`
 }
 
-export function readTerrain(placeId: string): TerrainData | null {
+export function readPanorama(placeId: string): Panorama | null {
   try {
-    const parsed = JSON.parse(localStorage.getItem(terrainKey(placeId)) ?? 'null') as TerrainData | null
-    return parsed && Array.isArray(parsed.near) && Array.isArray(parsed.far) ? parsed : null
+    return unpackPanorama(JSON.parse(localStorage.getItem(horizonKey(placeId)) ?? 'null') as StoredPanorama | null)
   } catch {
     return null
   }
 }
 
-function writeTerrain(placeId: string, data: TerrainData): void {
+function writePanorama(placeId: string, panorama: Panorama): void {
   try {
-    localStorage.setItem(terrainKey(placeId), JSON.stringify(data))
+    localStorage.setItem(horizonKey(placeId), JSON.stringify(packPanorama(panorama)))
+    // The old west–east cross-section is no longer read.
+    localStorage.removeItem(`shamayim:terrain:v1:${placeId}`)
   } catch {
-    // Terrain gracefully remains memory-only when storage is unavailable.
+    // The panorama gracefully remains memory-only when storage is unavailable.
   }
 }
 
-/** Water rule: two adjacent ~0 m samples at either profile edge count as visible sea. */
-function seaAtEdge(samples: readonly TerrainSample[]): 'west' | 'east' | null {
-  const water = (sample: TerrainSample) => Math.abs(sample.elevation) <= 1
-  const hasWater = (edge: readonly TerrainSample[]) => edge.some((sample, index) =>
-    index > 0 && water(sample) && water(edge[index - 1]))
-  if (hasWater(samples.slice(0, 3))) return 'west'
-  if (hasWater(samples.slice(-3))) return 'east'
-  return null
+export function terrainForPlace(placeId: string, panorama: Panorama | null): SceneTerrain {
+  if (panorama) return terrainFromPanorama(panorama)
+  return placeId === 'shadmot-mehola' ? SHADMOT : GENERIC_TERRAIN
 }
 
-export function terrainForPlace(placeId: string, data: TerrainData | null): SceneTerrain {
-  if (placeId === 'shadmot-mehola') return SHADMOT
-  if (!data) return GENERIC_TERRAIN
-  const middle = Math.floor(data.near.length / 2)
-  const seaSide = seaAtEdge(data.near) ?? seaAtEdge(data.far)
-  return {
-    near: profileToPath(data.near),
-    far: profileToPath(data.far),
-    centerLeft: '50%',
-    centerY: sampleY(data.near, middle),
-    seaY: profileY(data.near, 0),
-    seaInView: seaSide !== null,
-    seaSide,
-    nearPoints: profilePoints(data.near),
-    farPoints: profilePoints(data.far),
-    nearElevations: data.near.map((sample) => sample.elevation),
-    farElevations: data.far.map((sample) => sample.elevation),
-  }
+/**
+ * The tiles carry the sea floor (the Mediterranean is −20 m a kilometre off Tel Aviv); what you see is its surface, so
+ * land below 0 m is raised to it, except in the Jordan rift (Kinneret, Jordan Valley, Dead Sea, Arava), whose ground
+ * and lakes really lie below sea level.
+ */
+export function inRift(lat: number, lon: number): boolean {
+  return lat > 29.4 && lat < 33.4 && lon > 35.15 && lon < 35.85
 }
 
-function points(place: Place, radiusKm: number): { latitudes: string; longitudes: string } {
-  const longitudeKm = ridgeLongitudeKm(place.lat)
-  const delta = radiusKm / longitudeKm
-  const longitudes = Array.from({ length: 41 }, (_, index) => place.lon - delta + 2 * delta * index / 40)
-  return { latitudes: Array(41).fill(place.lat).join(','), longitudes: longitudes.join(',') }
-}
+/** Within this distance (km) the DEM is read at zoom 10 (~130 m a pixel); beyond, at zoom 8 (~520 m), for far ridges. */
+const NEAR_DEM_KM = 12
 
-async function fetchLine(place: Place, radiusKm: number, signal: AbortSignal): Promise<TerrainSample[]> {
-  const { latitudes, longitudes } = points(place, radiusKm)
-  const query = new URLSearchParams({ latitude: latitudes, longitude: longitudes })
-  const response = await fetch(weatherUrl('elevation', query), { signal })
-  if (!response.ok) throw new Error(`Elevation HTTP ${response.status}`)
-  const body = await response.json() as { elevation?: unknown }
-  if (!Array.isArray(body.elevation) || body.elevation.length !== 41) throw new Error('Invalid elevation profile')
-  return body.elevation.map((value) => ({ elevation: typeof value === 'number' ? value : 0 }))
-}
-
-async function fetchTerrain(place: Place, signal: AbortSignal): Promise<TerrainData> {
+/**
+ * Builds a place's horizon panorama from the DEM tiles around it: 1–4 tiles at zoom 10 for the near land and 2–4 at
+ * zoom 8 for the far horizon (~0.3–0.6 MB once per place; the result is kept for good, so it is never fetched again).
+ */
+export async function fetchPanorama(place: Pick<Place, 'lat' | 'lon'>, signal?: AbortSignal): Promise<Panorama> {
   const [near, far] = await Promise.all([
-    fetchLine(place, NEAR_RADIUS_KM, signal), fetchLine(place, FAR_RADIUS_KM, signal),
+    fetchDem(place.lat, place.lon, NEAR_DEM_KM + 0.5, 10, signal),
+    fetchDem(place.lat, place.lon, 61, 8, signal),
   ])
-  return { near, far }
+  const heightAt = (distanceKm: number, azimuth: number) => {
+    const point = destination(place.lat, place.lon, distanceKm, azimuth)
+    const height = (distanceKm <= NEAR_DEM_KM ? near : far).height(point.lat, point.lon)
+    return height < 0 && !inRift(point.lat, point.lon) ? 0 : height
+  }
+  const ground = near.height(place.lat, place.lon)
+  return computePanorama(heightAt, Number.isFinite(ground) ? ground : 0)
 }
 
 export function useTerrain(place: Place): SceneTerrain {
-  const [loaded, setLoaded] = useState<{ placeId: string; data: TerrainData | null }>(() => ({
+  const [loaded, setLoaded] = useState<{ placeId: string; panorama: Panorama | null }>(() => ({
     placeId: place.id,
-    data: readTerrain(place.id),
+    panorama: readPanorama(place.id),
   }))
-  const data = loaded.placeId === place.id ? loaded.data : readTerrain(place.id)
+  const panorama = loaded.placeId === place.id ? loaded.panorama : readPanorama(place.id)
   useEffect(() => {
-    const cached = readTerrain(place.id)
-    if (place.id === 'shadmot-mehola' || cached) return
+    if (readPanorama(place.id)) return
     const controller = new AbortController()
-    fetchTerrain(place, controller.signal).then((next) => {
-      writeTerrain(place.id, next)
-      setLoaded({ placeId: place.id, data: next })
+    fetchPanorama(place, controller.signal).then((next) => {
+      writePanorama(place.id, next)
+      setLoaded({ placeId: place.id, panorama: next })
     }).catch(() => undefined)
     return () => controller.abort()
   }, [place])
-  return useMemo(() => terrainForPlace(place.id, data), [place.id, data])
+  return useMemo(() => terrainForPlace(place.id, panorama), [place.id, panorama])
 }

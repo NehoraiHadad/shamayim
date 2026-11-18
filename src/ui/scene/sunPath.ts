@@ -1,13 +1,11 @@
+import { sunPosition as sunSky } from '../../astro/sun'
+import { utcOf } from '../../astro/utc'
 import { daylightFraction } from '../../domain/time'
 import type { LocalDate, LocalTime } from '../../domain/types'
-import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
+import { FLAT_SKYLINE, type Skyline } from './skyline'
+import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
 
-import { SCENE_W } from './sceneBox'
 export { FLOOR_Y, HORIZON_Y, SCENE_H, SCENE_W, SEA_Y } from './sceneBox'
-
-/** Sun path: rises behind the Gilead (east, right) and sets behind Samaria (west, left). */
-const RISE_X = 322
-const SET_X = 53
 
 /** Solar declination in degrees for a date (simple cosine model, ±0.5°). */
 export function declination(date: LocalDate): number {
@@ -30,23 +28,57 @@ export interface SunPoint {
   y: number
 }
 
-/** How fast the disc drops once below the ridge (px per day-fraction squared), so it slips out of sight quickly. */
-const SINK = 1800
+/** Where the sky is seen from: coordinates and the zone the day's sunrise and sunset are written in. */
+export interface SunSite {
+  lat: number
+  lon: number
+  timezone: string
+}
+
+/** The sun's radius (deg): the disc is placed by its top edge, which is what first shows over a ridge and last goes. */
+const SUN_RADIUS = 0.267
 
 /**
- * Point on today's arc for a daylight fraction. The arc is one smooth sine from the ridge where the sun rises to the
- * ridge where it sets, peaking at the real noon height (lower in winter), so it never dips or kinks near the horizon.
- * Past rise and set it keeps the same slope and then accelerates down behind the ridge.
+ * The sun at a daylight fraction (0 = sunrise, 1 = sunset; outside that, before or after) as it really is: its true
+ * azimuth across and true altitude up (see `skyProjection.ts`), on the horizon line from the ridge where it rises
+ * today to the ridge where it sets. So in winter it rises south of east and stays low, in summer north of east and
+ * climbs high, and it rises and sets on a slant. Before sunrise and after sunset it sinks behind the ridge.
  */
-export function sunAt(t: number, date: LocalDate, lat: number, skyline: Skyline = FLAT_SKYLINE): SunPoint {
-  const x = (RISE_X - (RISE_X - SET_X) * t) / SCENE_W
-  const riseY = skyline(RISE_X / SCENE_W)
-  const setY = skyline(SET_X / SCENE_W)
-  const noonY = altitudeY(skyline, 0.5, noonElevation(date, lat))
-  const lift = Math.max(0, (riseY + setY) / 2 - noonY)
-  const below = Math.max(0, -t, t - 1)
-  const y = riseY + (setY - riseY) * t - lift * Math.sin(Math.PI * t) + SINK * below * below
+export function sunAt(t: number, sunrise: LocalTime, sunset: LocalTime, site: SunSite, skyline: Skyline = FLAT_SKYLINE): SunPoint {
+  const rise = utcOf(sunrise, site.timezone).getTime()
+  const set = utcOf(sunset, site.timezone).getTime()
+  const at = new Date(rise + (set - rise) * t)
+  const h = horizonLine(sunSky(new Date(rise), site.lat, site.lon).azimuth, sunSky(new Date(set), site.lat, site.lon).azimuth, skyline)
+  const { altitude, azimuth } = sunSky(at, site.lat, site.lon)
+  const { x, y } = projectSky(apparentAltitude(altitude) + SUN_RADIUS, azimuth, h)
   return { t, x, y }
+}
+
+/**
+ * Where the sun's track meets the drawn land at the start (edge 0) or end (edge 1) of the day: the point it really comes
+ * over the ridge or goes behind it, later than the flat-horizon sunrise behind a mountain (and earlier at sunset).
+ * Searched along the day fraction; the flat-horizon point when the land never rises above it.
+ */
+export function sunOverRidge(edge: 0 | 1, sunrise: LocalTime, sunset: LocalTime, site: SunSite, skyline: Skyline = FLAT_SKYLINE): SunPoint {
+  const above = (t: number) => { const p = sunAt(t, sunrise, sunset, site, skyline); return p.y <= skyline(p.x) }
+  const dir = edge === 0 ? 1 : -1
+  let inside = 0.5
+  let outside = edge === 0 ? -0.1 : 1.1
+  if (above(outside)) return sunAt(edge, sunrise, sunset, site, skyline)
+  if (!above(inside)) return sunAt(edge, sunrise, sunset, site, skyline)
+  // Walk in from the edge in small steps to the first moment it clears the land (a ridge may let it peek out briefly
+  // further along; the first crossing is the one you see), then bisect.
+  for (let t = outside + dir * 0.005; dir * (inside - t) > 0; t += dir * 0.005) {
+    if (above(t)) { inside = t; break }
+    outside = t
+  }
+  for (let i = 0; i < 20; i++) {
+    const t = (inside + outside) / 2
+    if (above(t)) inside = t
+    else outside = t
+  }
+  const p = sunAt(inside, sunrise, sunset, site, skyline)
+  return { ...p, y: skyline(p.x) }
 }
 
 /**
@@ -57,11 +89,11 @@ export function sunPosition(
   time: LocalTime,
   sunrise: LocalTime,
   sunset: LocalTime,
-  lat: number,
+  site: SunSite,
   skyline: Skyline = FLAT_SKYLINE,
   margin = 0,
 ): SunPoint | null {
   const t = daylightFraction(time, sunrise, sunset)
   if (t < -margin || t > 1 + margin) return null
-  return sunAt(t, time.slice(0, 10), lat, skyline)
+  return sunAt(t, sunrise, sunset, site, skyline)
 }

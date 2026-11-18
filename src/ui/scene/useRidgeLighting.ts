@@ -55,7 +55,7 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, air, clo
   return useMemo(() => {
     if (!mid || !horizon || !accent || !ridgeFar || !ridgeNear || !sunrise || !sunset ||
       cloudCover >= 90) return null
-    const point = sunPosition(minute, sunrise, sunset, lat, skyline)
+    const point = sunPosition(minute, sunrise, sunset, place, skyline)
     const daylight = point ? smoothstep(0, 2, skyline(point.x) - point.y) : 0
     if (!daylight && !glowOpacity) return null
     const sky = sunSky(utcOf(minute, place.timezone), place.lat, place.lon)
@@ -63,8 +63,8 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, air, clo
     const direct = hazeDirect(sky.altitude, { visibilityKm, dust })
     if (direct < .08 && !glowOpacity) return null
     const noonWeight = point ? 1 - smoothstep(0, .18, Math.abs(point.t - .5)) : 0
-    // The drawn arc is linear in x: t = 0 at the rising point (east, +1), t = 1 at the setting point (west, −1).
-    const ray = point && daylight ? ridgeLightRay(1 - 2 * point.t, sky.altitude) : null
+    // Light from the sun's true side: east +1 … west −1 (sin of the azimuth), as the disc is drawn.
+    const ray = point && daylight ? ridgeLightRay(Math.sin(sky.azimuth * Math.PI / 180), sky.altitude) : null
     const rimX = point && daylight ? point.x * SCENE_W : glowX < 0 ? null : glowX * SCENE_W
     const tone = { ...sky, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
       palette: { mid, horizon, accent, ridgeFar, ridgeNear } }

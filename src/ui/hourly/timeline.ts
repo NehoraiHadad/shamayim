@@ -61,7 +61,8 @@ export function buildTimeline(
     }
   })
   for (const d of f.days) {
-    for (const [time, rise] of [[d.sunrise, true], [d.sunset, false]] as const) {
+    // The times the sun is really seen to rise and set over the land around, when known.
+    for (const [time, rise] of [[d.visibleSunrise ?? d.sunrise, true], [d.visibleSunset ?? d.sunset, false]] as const) {
       if (time <= from || time >= to) continue
       const at = slots.findIndex((s) => s.time > time)
       if (at <= 0) continue

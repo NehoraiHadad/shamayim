@@ -10,6 +10,7 @@ export function Attribution({ withAir, withOsm = false, withLandmarks = false }:
           נתונים: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
           {', '}DWD ICON, ECMWF{withAir ? ', CAMS' : ''}
         </li>
+        <li>גבהי השטח: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Terrain Tiles</a> (SRTM ועוד)</li>
         {withOsm && <li>מיקום: <a href={OSM_COPYRIGHT} target="_blank" rel="noreferrer">OpenStreetMap</a></li>}
         {withLandmarks && (
           <li>נתוני ציוני דרך: <a href={OSM_COPYRIGHT} target="_blank" rel="noreferrer">© תורמי OpenStreetMap (ODbL)</a></li>

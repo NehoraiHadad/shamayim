@@ -4,15 +4,16 @@ import { curatedForPlace } from './curated'
 import { loadIsrael } from './israelData'
 import { fetchOverpass } from './overpass'
 import { withPlaceHomes } from './placeMarks'
-import { shortlist } from './shortlist'
+import { panoramaShortlist, shortlist } from './shortlist'
 import type { Landmark } from './types'
 
 const MONTH = 30 * 24 * 60 * 60 * 1000
 const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
-interface Cache { at?: number; failed?: number; marks?: Landmark[] }
+interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMarks?: Landmark[] }
 
-function key(id: string) { return `shamayim:landmarks:v3:${id}` }
+// v4 stores both projection-specific shortlists from the same source response.
+function key(id: string) { return `shamayim:landmarks:v4:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }
@@ -27,31 +28,33 @@ interface Loaders {
 
 export async function loadLandmarkSource(place: Place, signal: AbortSignal, loaders: Loaders = {}) {
   const curated = curatedForPlace(place)
-  if (curated) return { marks: curated.marks, curated: true }
+  if (curated) return { marks: curated.marks, panoramaMarks: curated.marks, curated: true }
+  const rank = (raw: Landmark[]) => ({ marks: shortlist(place, raw), panoramaMarks: panoramaShortlist(place, raw), curated: false })
   try {
     const israel = await (loaders.israel ?? loadIsrael)(place, signal)
-    if (israel !== null) return { marks: shortlist(place, israel), curated: false }
+    if (israel !== null) return rank(israel)
   } catch (error) {
     if (signal.aborted) throw error
   }
   const overpass = await (loaders.overpass ?? fetchOverpass)(place, signal)
-  return { marks: shortlist(place, overpass), curated: false }
+  return rank(overpass)
 }
 
-export function useLandmarks(place: Place) {
+export function useLandmarks(place: Place, panorama = false) {
   const curated = useMemo(() => curatedForPlace(place), [place])
-  const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[] } | null>(null)
+  const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[]; panoramaMarks: Landmark[] } | null>(null)
   const cached = useMemo(() => read(place.id), [place.id])
-  const fresh = useMemo(() => cached.at && SESSION_STARTED - cached.at < MONTH ? cached.marks ?? [] : null, [cached])
-  const available = loaded?.placeId === place.id ? loaded.marks : fresh
-  const marks = withPlaceHomes(place, curated?.marks ?? available ?? [], Boolean(curated))
+  const fresh = useMemo(() => cached.at && SESSION_STARTED - cached.at < MONTH ? cached : null, [cached])
+  const available = loaded?.placeId === place.id ? loaded : fresh
+  const marks = withPlaceHomes(place, curated?.marks ?? (panorama ? available?.panoramaMarks : available?.marks) ?? [], Boolean(curated))
 
   useEffect(() => {
     if (curated || fresh !== null || (cached.failed && SESSION_STARTED - cached.failed < HOUR)) return
     const controller = new AbortController()
-    const run = () => loadLandmarkSource(place, controller.signal).then(({ marks: next }) => {
-      write(place.id, { at: Date.now(), marks: next })
-      setLoaded({ placeId: place.id, marks: next })
+    const run = () => loadLandmarkSource(place, controller.signal).then(({ marks, panoramaMarks }) => {
+      if (controller.signal.aborted) return
+      write(place.id, { at: Date.now(), marks, panoramaMarks })
+      setLoaded({ placeId: place.id, marks, panoramaMarks })
     }).catch(() => { if (!controller.signal.aborted) write(place.id, { failed: Date.now() }) })
     const idle = window.requestIdleCallback?.(run, { timeout: 2_000 })
     if (idle == null) run()

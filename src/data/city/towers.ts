@@ -1,15 +1,16 @@
+import { NEAR_RADIUS_KM, ridgeX } from '../terrain/ridgeProjection'
 import { BAND_WIDTH } from './columns'
 import type { CityTower } from './types'
 
-export const towerX = (dx: number, width: number) => (187.5 + 15.625 * dx) * width / BAND_WIDTH
+export const towerX = (dx: number, width: number) => ridgeX(dx, NEAR_RADIUS_KM) * width / BAND_WIDTH
 
 const prominence = ({ heightM, dy, name }: CityTower) =>
   heightM * (1 - .15 * Math.min(Math.abs(dy), 5) / 3) + (name ? 10 : 0)
 
 const compareNames = (a = '', b = '') => a < b ? -1 : a > b ? 1 : 0
 
-export function selectTowers(towers: readonly CityTower[], width: number): CityTower[] {
-  const ranked = towers.map(tower => ({ tower, x: towerX(tower.dx, width), score: prominence(tower) }))
+export function selectTowers(towers: readonly CityTower[], width: number, project = (tower: CityTower) => towerX(tower.dx, width)): CityTower[] {
+  const ranked = towers.map(tower => ({ tower, x: project(tower), score: prominence(tower) }))
     .filter(({ x }) => x >= 0 && x <= width)
     .sort((a, b) => b.score - a.score || a.x - b.x || a.tower.dy - b.tower.dy ||
       a.tower.lat - b.tower.lat || a.tower.lon - b.tower.lon || b.tower.heightM - a.tower.heightM ||

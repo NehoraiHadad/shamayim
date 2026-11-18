@@ -4,6 +4,8 @@ import { HORIZON_Y, SCENE_W } from './sceneBox'
 export interface Skyline {
   (x: number): number
   peak: number
+  /** y of eye level (0°) when the ridges are the true horizon panorama; bodies then stand on it (`skyProjection.ts`). */
+  horizon?: number
 }
 
 /** Fallback when no ridge is known: the old fixed horizon line. */
@@ -38,6 +40,11 @@ export function skylineOf(...ridges: readonly (readonly [number, number])[][]): 
   return Object.assign(at, { peak })
 }
 
+/** The same skyline, with eye level at `horizonY` (when the ridges are a horizon panorama). */
+export function withHorizon(skyline: Skyline, horizonY: number | undefined): Skyline {
+  return horizonY === undefined ? skyline : Object.assign((x: number) => skyline(x), { peak: skyline.peak, horizon: horizonY })
+}
+
 /** The shared arc stands on the highest ridge point (never lower than this, to keep room for the arc itself). */
 const ARC_FLOOR = 28
 /** Below the horizon a body sinks this many px per degree, so it slips behind the ridge instead of vanishing on it. */
@@ -51,8 +58,10 @@ const smooth = (v: number) => { const k = Math.min(1, Math.max(0, v)); return k 
 export function altitudeY(skyline: Skyline, x: number, altitude: number): number {
   const ridge = skyline(x)
   if (altitude <= 0) return ridge - SINK * altitude
-  // The base only ever rises (ridge → the arc's own base), so the path never dips on its way up or down.
-  const arcBase = Math.min(ridge, Math.max(skyline.peak, ARC_FLOOR))
+  // The base only ever rises (ridge → the arc's own base), so the path never dips on its way up or down. It is one height
+  // for the whole arc: the highest ridge point, or the floor if that is lower. (It used to be the ridge under x wherever
+  // the ridge stood above the floor, so on a high bumpy ridge (Jerusalem) the moon's arc copied the bumps.)
+  const arcBase = Math.min(ridge, skyline.peak, ARC_FLOOR)
   const base = ridge + (arcBase - ridge) * smooth(altitude / 15)
   const top = Math.min(SKY_TOP, arcBase - MIN_RISE)
   return base - (base - top) * Math.sin(altitude * RAD) ** 0.8

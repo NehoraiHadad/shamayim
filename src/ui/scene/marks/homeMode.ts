@@ -32,7 +32,7 @@ function localRoof(place: Place, home: Cluster, marks: Landmark[]) {
     ? 'flat-hill' : undefined
 }
 
-export function homeMode(place: Place, marks: Landmark[], width: number, centerX: number, city?: HomeCityData | null) {
+export function homeMode(place: Place, marks: Landmark[], width: number, centerX: number, city?: HomeCityData | null, panorama = false) {
   const homes = marks.find(isPlaceHomes)
   if (!homes) return null
   const size = settlementSize(homes)
@@ -42,8 +42,12 @@ export function homeMode(place: Place, marks: Landmark[], width: number, centerX
   const tier = homeTier(home)
   const footprintStyle = home && clusterStyle(home, desertSettlement(place), home.place ? undefined : localRoof(place, home, marks))
   const rural = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
+  // Longitude bins have already discarded the bearings of their constituent buildings.
   if (city && !rural && (size === 'large' || style === 'blocks' || (tier !== 'B' && footprintStyle === 'blocks')) &&
-    hasCityFabric(city, width, centerX)) return { kind: 'city', size, style, homeHalf: historicalHalf, columns: city } as const
+    hasCityFabric(city, width, centerX)) {
+    if (panorama) return { kind: 'template', size, style, homeHalf: historicalHalf } as const
+    return { kind: 'city', size, style, homeHalf: historicalHalf, columns: city } as const
+  }
   if (home && footprintStyle && tier === 'A') {
     return { kind: 'village', size, style: footprintStyle, seed: home.id,
       plan: villageRows(home, footprintStyle, { width, centerX }, 2 * historicalHalf) } as const

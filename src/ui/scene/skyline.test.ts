@@ -26,4 +26,13 @@ describe('skyline', () => {
     const high = skylineOf([[0, 40], [170, 22], [200, 20], [375, 36]])
     expect(altitudeY(high, 0.5, 39)).toBeLessThan(high(0.5) - 25)
   })
+
+  it('keeps one smooth arc over a high, bumpy ridge: a body well up does not copy the ridge under it', () => {
+    // Jerusalem-like: the ridge climbs above y 28 in places, with dips between.
+    const bumpy = skylineOf([[0, 34], [60, 18], [110, 30], [170, 14], [230, 32], [290, 20], [375, 36]])
+    for (const altitude of [20, 40, 60]) {
+      const ys = Array.from({ length: 41 }, (_, i) => altitudeY(bumpy, i / 40, altitude))
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(0.01)
+    }
+  })
 })

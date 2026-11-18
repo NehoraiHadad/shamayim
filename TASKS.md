@@ -430,6 +430,19 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
       as the sheet's entry row. Checked live (London, Paris, Munich, Glasgow, Seattle). Written by Claude Opus 5.5
 - [ ] Not verified: the nowcast over Israel on a rainy day (does RainViewer cover IMS radar well?); motion is in whole
       cells (~8 km/h steps); a row with a long story on a phone
+- [x] Single clouds the satellite sees (owner's photo, 18.11 16:27: one sunset-lit cloud over an almost empty sky; the
+      models said 40–45%, the satellite ~5%, so the scene drew nothing). `src/domain/cloudSightings.ts` finds the
+      connected cloud patches in a 24×24 px mask over 60 km (cover still read from the middle 30 km, unchanged), with
+      direction, distance and width; `ui/scene/cloudSeen.ts` places up to 3 in the scene (x = the sun/moon azimuth
+      projection, height from distance at an assumed 2 km base, width as seen); the air shader lifts its noise there
+      (`seenLift`), so fbm still makes the edges and the afterglow/sun light them. Only for "now", only under 50% cover,
+      fading with the image's age; north (behind the picture) left out. Dev: `?seen=az:km:width,...`.
+      Stills: `docs/design/qa/clouds-seen.png` (16:27 without / with the patches the mask had at 16:15, and midday)
+- [x] Fresher satellite: a slot is served ~15 min after its time (measured: 14:45 out at 15:00), not 30; the hook now
+      tries the newest that may be out first, polls every 5 min but asks only for a slot newer than the one it holds,
+      and checks again when the app comes back on screen or online
+- [ ] Not verified: on a phone GPU (headless swiftshader draws all clouds faint); whether the mask's ~4–5 km pixels
+      miss small cumulus often; cloud-top height (`msg_fes:cth`, same 15 min) could set the height instead of 2 km
 - [ ] Later: proxy RainViewer/EUMETSAT through the Worker cache; NASA MODIS/VIIRS "photo of the day" layer (offered)
 
 ## Illustration round — snow, small fixes, sun/moon — 2026-11-18 (branch `claude/illustration-round-81b0d0`)
@@ -573,6 +586,14 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
             Check Rosh HaAyin / Modi'in at night when it is back
       - [ ] Then F3, F5, F6
       - [x] Search: places in the land sort first (ערד Negev before ערד Romania)
+- [x] Rays as in reality (Claude), `gl/raysShader.ts`: need part of the sun hidden + aerosol (`beamAir`: some haze
+      helps, heavy drowns) + facing the sun. Disc up: any hour with 12–95 % cloud (low sun stronger, midday/behind-
+      viewer weaker); where shafts go is read from the real cloud field on two rings round the disc (`cloudAt` in
+      cloudShader, shared `cloudWarp`), a fine angular pattern splits gaps into shafts; faint while the disc is clear,
+      full when it is behind cloud. Disc down (3° to −6.5°): twilight rays from below the skyline, gold/pink with
+      blue-grey shadow bands, from clouds past the horizon or (hazy air) the ridge, even with no cloud. Cost: 3 cloud
+      lookups a pixel only while disc rays are on. Still `rays-real.png` (clear sun | noon hidden | after sunset
+      cloud | after sunset hazy clear | dawn | clean clear = none)
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18
@@ -586,6 +607,47 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
 - [x] Fixed 2026-11-18: live forecast down for every place — app asked for hourly `snow_depth` (743d753), Worker
       allowlist did not; Worker redeployed. `src/data/openMeteo/workerContract.test.ts` now runs the app's real
       request URLs through the Worker validator, so a new parameter without a Worker change fails CI
+
+
+## Horizon panorama — the land as you really see it — 2026-11-18
+Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` = main e83e485, `after-*`, 375 px, DPR 2).
+- [x] Land = horizon panorama from the place (`src/data/terrain/panorama.ts`): 201 rays across the scene's own
+      azimuth span (305° at x 0, south in the middle, 55° at x 375, as `skyPoint`), 127 samples each out to 60 km;
+      angle = atan((h − eye − d²(1−k)/2R)/d), R 6371 km, k 0.13, eye 2 m above the DEM ground. Near layer = highest
+      within 5 km, far layer = highest at any distance (where it is not higher the near ridge hides it)
+- [x] DEM: AWS Terrain Tiles (terrarium), zoom 10 within 12 km + zoom 8 beyond, decoded without a canvas
+      (DecompressionStream + PNG unfilter, `dem.ts`; a canvas read can be noised by anti-fingerprinting). ~6–8 tiles,
+      0.3–0.6 MB once per place; stored packed (`shamayim:horizon:v2:<id>`, ~9 KB) forever. Why not Open-Meteo through
+      the Worker: it counts each point as a call, so 650+ points per place would hit the 600/min limit on the Worker IP.
+      The Worker is unchanged (no deploy needed); `/v1/elevation` is no longer called by the app
+- [x] Sea floor: tiles carry bathymetry (−20 m 1 km off Tel Aviv), raised to 0 except inside the Jordan rift box
+      (Kinneret, Jordan Valley, Dead Sea keep their real depth). Sea in view = ≥ 20 % of a side's rays reach sea ≤ 8 km
+- [x] One vertical scale for land and sky (`angleScale.ts`): px = 86·sin(a) + 50·tanh(a/6°) → 9.8 px/° at the
+      horizon (6.5×), the sky above keeps its shape, zenith ~136 px above eye level. Options shown in
+      `relief-options-*.png` (true 1.5 px/° is a 6 px strip; `mid` 6.5 px/°; `high` 9.8 px/°, chosen); `?relief=` in dev
+- [x] Over a panorama the sun and moon stand on eye level (`horizonY`), not on a line between ridge points, so a body is
+      hidden exactly when its altitude is below the drawn ridge. Refraction (Sæmundsson) lifts both; the sun is placed
+      by its top edge. Twilight glow stands where the sun really comes over / goes behind the ridge (`sunOverRidge`)
+- [x] Shadmot: the panorama replaces the hand drawing (kept as the stand-in while loading/offline). Measured: Gilead
+      3.4–4.1° at 9–13 km east, western hills 2.5–3.9° at 1–2 km. Sun on 18.11: flat sunrise 06:12, over the Gilead
+      ~06:29; behind the western hills ~16:20 (flat sunset 16:35) — `shadmot-rise-set-sequence.png`
+- [x] Snow line per direction on each slope (`snowEdge`, mask follows the land), village dot on the near ridge due
+      south, sea line where sea level meets the slopes (below sea level) or the coast (Tel Aviv: sea west)
+- [x] Tests: synthetic DEM (hill at bearing/distance → expected angle; curvature hides a far hill; near vs far),
+      PNG decode (filters 0/2, below-sea and fractional heights), sea side, snow edge, sun over a 4° wall later
+- [x] Follow-ups (owner asked): landmarks by true bearing (`bearingOf`) on the ridge in their own direction
+      (`sightLayer`: near ridge ≤ its distance + 1 km or ≤ 2 km; far only where the far horizon shows and the mark is
+      within −4/+3 km of it; else hidden; north quarter out of view). OSM pick by bearing too (cache `landmarks:v3`).
+      Curated fixed-x marks: homes keep their spot by the dot, ones behind the viewer (Shadmot palms) keep their x,
+      the rest go by bearing (Shadmot orchard → flat floor east). Low fixed marks no longer dropped near the sides.
+      Visible sunrise/sunset per day (`withVisibleSun` → `DayPoint.visibleSunrise/Set`): strip marker and pill, scene
+      label, twilight glow, day detail "אור יום". Shadmot 18.11: 06:30 / 16:16 (flat 06:12 / 16:35); Tiberias sunset
+      15:30 under the western slopes. Still `followups-bearing-visible-sun.png`
+- [x] Decided (owner, 2026-11-18): sky theme and sentences stay on the flat sunrise/sunset. The sky's colour follows the
+      sun's true altitude (dawn light fills the sky while the sun is still behind the Gilead); the sentences use sunrise
+      only as the night/day boundary of the forecast windows. Direct light on the land already waits for the real ridge
+- [ ] Not verified: real sunrise in Shadmot against an observation; mist band still fixed y 72–105
+- [x] Owner (2026-11-18): computed Shadmot accepted; relief left to Claude → `high` kept (land reads at phone size; `mid` is near flat)
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

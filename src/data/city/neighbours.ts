@@ -1,3 +1,4 @@
+import { NEAR_RADIUS_KM, ridgeX } from '../terrain/ridgeProjection'
 import { seeded } from '../landmarks/hash'
 import { givesWay, type House } from '../landmarks/settlement'
 import { cityBase } from './cityBase'
@@ -68,7 +69,7 @@ export function composeNeighbours(input: Input): NeighbourMass[] {
   const { clusters, width, homeZone } = input
   const home = homeCluster(clusters)
   const cap = Math.min(14, 8 + 2 * Math.max(0, Math.floor((width - 375) / 150)))
-  const project = (dx: number) => width * (.5 + dx / 24)
+  const project = (dx: number) => ridgeX(dx, NEAR_RADIUS_KM, width)
   const eligible = clusters.filter(cluster => cluster !== home && Math.abs(cluster.centre.dy) <= 3 &&
     project(cluster.dx[1]) - project(cluster.dx[0]) >= 4)
     .sort((a, b) => prominence(b) - prominence(a) || a.id - b.id)

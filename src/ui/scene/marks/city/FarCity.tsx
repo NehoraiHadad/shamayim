@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { skyHeight } from '../../../../data/city/cityHeight'
 import { farColumns, useFarColumns } from '../../../../data/city/farData'
+import type { SceneTerrain } from '../../../../data/terrain/terrain'
 import { hashId, seeded } from '../../../../data/landmarks/hash'
 import { RIDGE_WIDTH } from '../../../../data/terrain/ridgeProjection'
 import type { Place } from '../../../../config/place'
@@ -14,6 +15,7 @@ type Props = {
   farGround: Ground
   night: boolean
   hideFar: boolean
+  sightAt?: SceneTerrain['sightAt']
 }
 
 const px = (value: number) => Number(value.toFixed(3))
@@ -50,8 +52,8 @@ export function farCityPaths(data: ReturnType<typeof farColumns>, ground: Ground
   return { fabric, slabs, dots }
 }
 
-export function FarCity({ place, width, ground, farGround, night, hideFar }: Props) {
-  const columns = useFarColumns(place, width, !hideFar)
+export function FarCity({ place, width, ground, farGround, night, hideFar, sightAt }: Props) {
+  const columns = useFarColumns(place, width, !hideFar, sightAt)
   const seed = hashId(place.id)
   const paths = useMemo(() => columns && farCityPaths(columns, ground, farGround, seed, night),
     [columns, ground, farGround, seed, night])

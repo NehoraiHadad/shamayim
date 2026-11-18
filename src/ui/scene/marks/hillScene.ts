@@ -59,9 +59,9 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
-  const centerY = place.id === 'shadmot-mehola' ? terrain.centerY : ground(centerX)
+  const centerY = terrain.drawn ? terrain.centerY : ground(centerX)
   const dot = { x: centerX, y: centerY }
-  const mode = homeMode(place, landmarks, width, centerX, city)
+  const mode = homeMode(place, landmarks, width, centerX, city, Boolean(terrain.sightAt))
   const cityMode = mode?.kind === 'city'
   const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
   // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
@@ -73,11 +73,12 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // pulling the surrounding marks into the space reserved by the initial layout.
   const homeHalf = mode?.kind === 'village'
     ? composeSettlement(input!, mode.plan).halfWidth : mode?.homeHalf ?? 7
-  const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width, homeHalf, cityMode)
+  const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width,
+    terrain.sightAt ? undefined : homeHalf, cityMode)
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
   const candidates = cityMode ? projected.filter(mark => mark.layer === 'far' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
   // Mapped houses and their absorbed marks follow the ridge at their projected positions.
-  const marks = fitMarks(mode && mode.kind !== 'village' ? intoTown(candidates, mode.style, ground, dot, width)
+  const marks = fitMarks(mode && (terrain.sightAt || mode.kind !== 'village') ? intoTown(candidates, mode.style, ground, dot, width)
     : candidates, ground, width, dot)
   let cityTowers: PlacedTower[] = []
   let settlement: Settlement | null = null
@@ -98,11 +99,18 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
       settlement = mode.kind === 'template' ? composeSettlement(withMarks) : composeSettlement(withMarks, mode.plan)
     }
   }
+  if (city && terrain.sightAt) {
+    const drawnIds = new Set(marks.filter(mark => mark.layer === 'near').map(mark => mark.id))
+    const curated = landmarks.filter(mark => mark.kind === 'highrise' && drawnIds.has(mark.id))
+    cityTowers = placeCityTowers({ width, ground, floor: VISIBLE_BOTTOM - 2, centerX, centerY, keepOut,
+      towers: city.towers, curated, panorama: { place, sightAt: terrain.sightAt } })
+  }
   const houses = (settlement?.houses ?? []).map(house => {
     const { x, w, h, baseY } = house
     return { left: x - w / 2, right: x + w / 2, top: baseY - h - 1.8, bottom: baseY }
   })
-  const neighbours = city?.clusters && !cityMode ? composeNeighbours({
+  // Cached runs collapse depth to band midpoints and cannot resolve bearings within a run.
+  const neighbours = !terrain.sightAt && city?.clusters && !cityMode ? composeNeighbours({
     clusters: city.clusters, columns: city, ground, floor: VISIBLE_BOTTOM - SHEET_CLEAR,
     width, centerX, centerY, litShare, keepOut, desert: desertSettlement(place),
     homeZone: neighbourHomeZone(centerX, mode?.kind === 'village' ? settlement?.halfWidth ?? 0 : mode?.homeHalf ?? 0),

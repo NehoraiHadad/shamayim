@@ -30,7 +30,7 @@ export function DayDetail({ day, forecast, now, nextDate }: Props) {
   const facts = [
     { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)}, כ־${mm(day.precipSum)}` : 'לא צפוי' },
     { label: 'רוח', value: `משבים עד ${Math.round(day.windGustsMax)} קמ״ש` },
-    { label: 'אור יום', value: <bdi>{clockOf(day.sunrise)}–{clockOf(day.sunset)}</bdi> },
+    { label: 'אור יום', value: <bdi>{clockOf(day.visibleSunrise ?? day.sunrise)}–{clockOf(day.visibleSunset ?? day.sunset)}</bdi> },
   ]
   const air = (forecast.air ?? []).filter((a) => a.time.startsWith(day.date))
   const uv = air.map((a) => a.uv).filter((v): v is number => v !== null)

@@ -29,6 +29,8 @@ export interface AirInput {
   sunElevation: number
   /** Selected-hour preview: no lightning. */
   preview: boolean
+  /** How many single clouds the satellite sees near the place now (drawn from the scene's data, see `layout.ts`). */
+  cloudsSeen?: number
 }
 
 /** Particle field. Sizes and speeds in CSS px at the 375 × 812 reference viewport. */
@@ -55,7 +57,7 @@ export interface AirState {
   rain: Particles & { slant: number; breathe: boolean }
   snow: Particles & { sway: number }
   grains: Particles
-  cloud: { coverage: number; low: boolean; darken: number }
+  cloud: { coverage: number; low: boolean; darken: number; seen?: boolean }
   /** `visibilityKm`: the hour's horizontal visibility (1–40 km, dust folded in), for the sun's aerosol colour. */
   haze: { farFade: number; nearFade: number; amount: number; color: string; visibilityKm?: number }
   heat: { band: number; amplitude: number; bloom: number }

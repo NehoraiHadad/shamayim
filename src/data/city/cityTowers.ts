@@ -1,5 +1,6 @@
 import { hashId } from '../landmarks/hash'
-import type { Coordinate } from '../landmarks/project'
+import { projectSight, type Coordinate, type Sight } from '../landmarks/project'
+import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import { cityBase } from './cityBase'
 import { skyHeight } from './cityHeight'
 import { cityBox, cityBuildingFits, type CityZones } from './cityZones'
@@ -21,6 +22,7 @@ type Input = Omit<CityZones, 'absorbed'> & {
   towers: readonly CityTower[]
   ground: (x: number) => number
   curated: readonly Coordinate[]
+  panorama?: { place: Coordinate; sightAt: (x: number) => Sight }
 }
 
 const SHAFT_WIDTHS = [3.5, 5, 7]
@@ -35,10 +37,18 @@ export function placeCityTowers(input: Input): PlacedTower[] {
     const { dx, dy } = cityOffset(mark, tower)
     return Math.hypot(dx, dy) <= .25
   }))
-  return selectTowers(distinct, width).flatMap(tower => {
-    const x = towerX(tower.dx, width)
+  const { panorama } = input
+  const positions = new Map(distinct.map(tower => {
+    const sight = panorama && projectSight(panorama.place, tower, panorama.sightAt)
+    const x = panorama ? sight?.layer === 'near' ? sight.x * width / RIDGE_WIDTH : NaN : towerX(tower.dx, width)
+    return [tower, x]
+  }))
+  const project = (tower: CityTower) => positions.get(tower)!
+  return selectTowers(distinct, width, project).flatMap(tower => {
+    const x = project(tower)
     const w = SHAFT_WIDTHS[tower.wClass]
-    const row = depthRow(tower.dy)
+    // The panorama has a ridge in each direction, with no fixed north/south terrace.
+    const row = panorama ? 1 : depthRow(tower.dy)
     const baseY = cityBase(ground, floor, row, x, podiumWidth(w))
     if (baseY === null) return []
     const placed = { x, w, baseY, row, h: skyHeight(tower.heightM),

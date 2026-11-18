@@ -1,3 +1,4 @@
+import type { CloudSighting } from '../domain/cloudSightings'
 import type { LocalTime } from '../domain/types'
 import { SKY_THEMES, type ThemeId } from '../theme/skyThemes'
 
@@ -42,6 +43,18 @@ export function forcedWeather(): Record<string, number> | null {
   if ('temperature' in out) out.feelsLike = out.temperature
   if ('pm10' in out) out.dust = out.pm10
   return out
+}
+
+/**
+ * `?seen=250:8:6,95:20:4` pins the single clouds the satellite "sees" (azimuth°:distance km:width km, comma-separated),
+ * for visual QA on a day without them.
+ */
+export function forcedSightings(): CloudSighting[] | null {
+  const seen = param('seen')
+  if (!seen) return null
+  return seen.split(',').map((part) => part.split(':').map(Number))
+    .filter((v) => v.length === 3 && v.every(Number.isFinite))
+    .map(([azimuth, distanceKm, widthKm]) => ({ azimuth, distanceKm, widthKm }))
 }
 
 /** `?picker=open` opens the place picker on load, for screenshots of it. */

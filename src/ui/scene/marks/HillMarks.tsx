@@ -71,6 +71,7 @@ export function HillMarks({ marks, settlement, cityTowers, neighbours, width, la
         afterRow={cityTowers?.length ? row => <CityTowers towers={cityTowers.filter(tower => tower.row === row)}
           night={night} litShare={context.life.litShare} /> : undefined}
         sunX={context.shaded?.(middle(settlement.houses.map((house) => house.x))) ? null : context.sunX} />}
+      {!settlement && cityTowers?.length ? <CityTowers towers={cityTowers} night={night} litShare={context.life.litShare} /> : null}
       {byPlane('inside').map(building)}
       {massAt(2)}
     </>}

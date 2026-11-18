@@ -1,6 +1,6 @@
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { groundY, markHeight, markWidth, offsetKm, toX } from './project'
+import { bearingOf, groundY, markHeight, markWidth, offsetKm, projectSight, toX } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
 import type { SettlementSize } from './settlement'
 import { templateHalf } from './settlementPlan'
@@ -14,7 +14,7 @@ const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minare
 const LIT_CUSTOM = new Set(['jerusalem-david', 'jerusalem-wall', 'tel-aviv-shalom',
   'tel-aviv-sarona', 'tel-aviv-azrieli', 'haifa-bab', 'haifa-dagon', 'haifa-sail', 'shadmot-homes'])
 /** Towers too: a city's high-rises rise out of its blocks instead of standing alone beside an empty hill. */
-const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo', 'highrise'])
+const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
 const SETTLEMENTS = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
 
 export function placeHomes(place: Place): Landmark[] {
@@ -53,18 +53,32 @@ function legacyHomeHalf(marks: Landmark[]) {
   return homes ? templateHalf(settlementSize(homes)) : 7
 }
 
-// homeHalf is in display pixels, like the glyphs. The mark spread works in 375-wide scene units.
+/** In panorama mode rank depth relative to the ridge in the direction of the mark. */
+function project(place: Place, mark: Landmark, terrain: SceneTerrain) {
+  if (terrain.sightAt) {
+    // A curated village glyph (Shadmot's homes) keeps its spot by the dot, as does one behind the viewer (its palms).
+    if (mark.x != null && (mark.kind === 'homes' || !bearingOf(place, mark))) return { x: mark.x, layer: 'near' as const, offset: { dx: 0, dy: 0 } }
+    const sight = projectSight(place, mark, terrain.sightAt)
+    if (!sight) return null
+    return { x: sight.x, layer: sight.layer, offset: { dx: sight.km, dy: Math.max(-3, Math.min(3, sight.behindKm)) } }
+  }
+  const offset = offsetKm(place, mark)
+  const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
+  return projected && { ...projected, offset }
+}
+
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
   homeHalf = legacyHomeHalf(marks), cityMode = false): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
-    const offset = offsetKm(place, mark)
-    const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
-    if (!projected) continue
+    const placed = project(place, mark, terrain)
+    if (!placed) continue
+    const { offset, ...projected } = placed
     if (cityMode && projected.layer === 'near' && isGenericHighrise(mark.kind, mark.glyph)) continue
-    const band = mark.kind === 'highrise' || mark.source === 'curated' ? 3 : projected.layer === 'near' ? 1.5 : 3
-    if (Math.abs(offset.dy) > band) continue
+    const band = mark.source === 'curated' || (!terrain.sightAt && mark.kind === 'highrise')
+      ? 3 : projected.layer === 'near' ? 1.5 : 3
+    if (!terrain.sightAt && Math.abs(offset.dy) > band) continue
     const points = projected.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const elevations = projected.layer === 'near' ? terrain.nearElevations : terrain.farElevations
     if (Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
@@ -83,15 +97,16 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   }
   const homes = marks.find(isPlaceHomes)
   /** The place's own worship halls and towers skip the contest: they stand at their true x inside the cluster. */
-  const absorbed = new Set(homes ? candidates.filter((item) => item.layer === 'near' && ABSORB.has(item.mark.kind)
+  const absorbed = new Set(homes ? candidates.filter((item) => item.layer === 'near' && (ABSORB.has(item.mark.kind)
+    || (!terrain.sightAt && item.mark.kind === 'highrise'))
     && Math.hypot(item.dx, item.dy) <= .6).sort((a, b) => b.score - a.score).slice(0, 3) : [])
   const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width,
-    homes?.glyph === 'homes-large')
+    !terrain.sightAt && homes?.glyph === 'homes-large')
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
   const villageHalf = homeHalf * scale
   /** Curated city landmarks stand among the city's own blocks: they only keep clear of the dot. */
   const curatedCity = chosen.some((item) => item.mark.source === 'curated'
-    || (homes?.glyph === 'homes-large' && item.mark.kind === 'highrise' && Math.hypot(item.dx, item.dy) <= 3))
+    || (!terrain.sightAt && homes?.glyph === 'homes-large' && item.mark.kind === 'highrise' && Math.hypot(item.dx, item.dy) <= 3))
   const keepClear = curatedCity || cityMode ? 7 * scale : villageHalf
   const edge = 8 * scale
   const inside = [...absorbed].sort((a, b) => a.x - b.x).map((item) => {
@@ -118,11 +133,13 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   })
   return clearLabel.flatMap((item) => {
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
-    const baseY = place.id === 'shadmot-mehola' && item.x >= 150 && item.x <= 200
+    const baseY = terrain.drawn && item.x >= 150 && item.x <= 200
       ? 96 : groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const fixed = item.mark.kind === 'homes' ? Math.max(6, Math.min(14, item.mark.heightM)) : FIXED[item.mark.kind]
     let hPx = fixed ?? markHeight(item.mark.heightM, item.layer)
-    if (item.x < 110 || item.x > 265) {
+    // Near the sides a high ridge leaves little sky: a tall mark is cut down to fit, and dropped when too little is left.
+    // (Low fixed-size marks such as an orchard or a solar field always fit and stay.)
+    if ((item.x < 110 || item.x > 265) && hPx > baseY - 22) {
       hPx = Math.min(hPx, Math.floor(baseY - 22))
       if (hPx < 10) return []
     }

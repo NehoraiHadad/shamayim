@@ -34,6 +34,7 @@ export function useAirLoop(canvas: RefObject<HTMLCanvasElement | null>, state: A
     }
     const still = reducedMotion() || saveData()
     r.dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+    r.still = still
     // Particles begin after 260 ms and ramp in, so rain never hides the hero reveal.
     const motion = new AirMotion(withoutParticles(live.current.state))
     const start = performance.now()

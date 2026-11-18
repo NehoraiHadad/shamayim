@@ -30,7 +30,11 @@ export function profilePoints(samples: readonly TerrainSample[], w = RIDGE_WIDTH
 /** Maps an ordered west-to-east elevation profile into a closed SVG land path with soft curves. */
 export function profileToPath(samples: readonly TerrainSample[], w = RIDGE_WIDTH, h = 128): string {
   if (samples.length === 0) return gentleHillsPath(w, h)
-  const p = profilePoints(samples, w, h)
+  return pointsToPath(profilePoints(samples, w, h), w, h)
+}
+
+/** A closed land path through ridge points (west to east), with soft curves, down to the bottom edge. */
+export function pointsToPath(p: readonly (readonly [number, number])[], w = 375, h = 128): string {
   // Catmull-Rom through the points, written as cubic Béziers.
   const curves = p.slice(1).map((b, i) => {
     const a = p[i]

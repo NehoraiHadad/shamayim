@@ -1,10 +1,13 @@
 import { minutesBetweenLocal } from './minutes'
+import type { CloudSighting } from './cloudSightings'
 import type { Forecast, LocalTime } from './types'
 
 /** What the satellite saw around the place: the cloudy share of pixels (0–100) at a wall-clock time. */
 export interface CloudObservation {
   cover: number
   at: LocalTime
+  /** The single cloud patches near the place, biggest-looking first (see `cloudSightings`). */
+  sightings?: CloudSighting[]
 }
 
 /** The correction decays to nothing over this much forecast time, so later hours stay the model's. */

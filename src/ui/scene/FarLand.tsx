@@ -31,7 +31,8 @@ export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, 
         noonWeight={lighting.noonWeight} rimX={lighting.far.rimAlpha ? lighting.rimX : null} depth={9}
         tone={lighting.far} baseClass={styles.far} shimmer={shimmer} />
         : <path d={terrain.far} className={styles.far} filter={shimmer} />}
-      {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM} />}
+      {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM}
+        edge={terrain.snowEdge?.('far', snow.lineM)} />}
       {city}
       <foreignObject x="0" y="72" width={SCENE_W} height="33" className={styles.mistObject}>
         <div className={styles.mist} style={{ '--mist': mist.toFixed(3), '--mist-color': mistColor } as CSSProperties} />
