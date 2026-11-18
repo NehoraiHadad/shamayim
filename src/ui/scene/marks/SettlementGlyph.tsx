@@ -1,7 +1,9 @@
+import { useId } from 'react'
 import type { House, Settlement } from '../../../data/landmarks/settlement'
 import { BlockHouse } from './blocks'
 import { CastShadow } from './generic/shadow'
 import { FlatRoof, TileHouse } from './houses'
+import { ContactShadow, SunStrip } from './LightRig'
 import styles from './marks.module.css'
 
 /** The place's own houses (ILLUSTRATION.md §4), drawn in px in the shared overlay svg. */
@@ -41,27 +43,39 @@ function Body({ house, style, night }: { house: House; style: Settlement['style'
  */
 const TILE_GROW = 1.25
 
+/** A house's own way round (its gable end, heater, steps), fixed by its seed: houses never turn with the sun. */
+const formOf = (house: House) => (house.seed >> 7) & 1 ? -1 : 1
+
 export function SettlementGlyph({ settlement, sunX, night }: Props) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '')
   const { style, houses, contours } = settlement
   const ordered = [...houses].sort((a, b) => a.row - b.row || a.baseY - b.baseY)
   const lit = sunX != null && !night
   /** One light direction for the whole cluster, so no seam runs through the village at the sun's x. */
   const xs = houses.map((house) => house.x)
-  const mirror = lit && sunX! > (Math.min(...xs) + Math.max(...xs)) / 2 ? -1 : 1
+  const sunWest = lit && sunX! <= (Math.min(...xs) + Math.max(...xs)) / 2
   const grow = style === 'tile' ? TILE_GROW : 1
   return <g className={lit ? undefined : styles.flat}>
     {contours.map((d) => <path key={d} className={styles.contour} d={d} />)}
-    {ordered.map((house) => (
-      <g key={`${house.row}-${house.x.toFixed(1)}`}>
+    {ordered.map((house, i) => {
+      const form = formOf(house)
+      // Houses draw their lit face on the left; one that faces away goes flat and takes the rig's strip
+      // on its own right (the sun's side in its local frame).
+      const asDrawn = sunWest === (form === 1)
+      const tone = style === 'blocks' ? blockTone(house.seed, house.row === 0)
+        : style === 'tile' ? [styles.house, styles.limestone, house.row === 0 ? styles.recede : ''].join(' ') : ''
+      return <g key={`${house.row}-${house.x.toFixed(1)}`}>
         {/* The crest row stands furthest back: toned toward the ridge, still with its two faces. */}
-        <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${mirror * grow} ${grow})`}
-          className={style === 'blocks' ? blockTone(house.seed, house.row === 0)
-            : style === 'tile' ? [styles.house, styles.limestone, house.row === 0 ? styles.recede : ''].join(' ') : undefined}>
-          {lit && <CastShadow w={house.w} h={house.h} />}
+        <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${form * grow} ${grow})`}
+          className={[tone, lit && !asDrawn ? styles.flat : ''].join(' ').trim() || undefined}>
+          {lit && (asDrawn ? <CastShadow w={house.w} h={house.h} /> : <ContactShadow w={house.w} side="e" />)}
           <Body house={house} style={style} night={night} />
+          {lit && !asDrawn && <SunStrip id={`${id}h${i}`} w={house.w} h={house.h} side="e">
+            <Body house={house} style={style} night={false} />
+          </SunStrip>}
         </g>
         {night && house.lit && style !== 'blocks' && <Windows house={house} style={style} />}
       </g>
-    ))}
+    })}
   </g>
 }

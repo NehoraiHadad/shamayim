@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { BuildingProps, BuildingSpec } from './generic/buildingSpecs'
 import styles from './marks.module.css'
 
@@ -9,14 +10,19 @@ export type LightSide = 'w' | 'e' | 'top'
  * top edge only and casts no side shadow.
  */
 export function LightRig({ id, spec, props, side }: { id: string; spec: BuildingSpec; props: BuildingProps; side: LightSide }) {
-  const { w } = spec
-  const { h } = props
+  return <SunStrip id={id} w={spec.w} h={props.h} litWidth={spec.litWidth ?? .35} side={side}>
+    <spec.Draw {...props} night={false} spin={false} sway={false} />
+  </SunStrip>
+}
+
+/** The rig for any body: `children` is its silhouette (drawn white into the mask), `w` × `h` around the base point. */
+export function SunStrip({ id, w, h, litWidth = .35, side, children }:
+  { id: string; w: number; h: number; litWidth?: number; side: LightSide; children: ReactNode }) {
   const half = w / 2
-  const litWidth = spec.litWidth ?? .35
   const shadeWidth = w * .25
   return <>
     <mask id={id} maskUnits="userSpaceOnUse" x={-half - 2} y={-h - 4} width={w + 4} height={h + 12}>
-      <g className={styles.maskWhite}><spec.Draw {...props} night={false} spin={false} sway={false} /></g>
+      <g className={styles.maskWhite}>{children}</g>
     </mask>
     <g mask={`url(#${id})`}>
       {side === 'top'

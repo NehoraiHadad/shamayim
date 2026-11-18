@@ -428,7 +428,8 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
 - [x] QA: `docs/design/qa/stills.mjs` (headless Chrome, 375 px at 2×, reduced motion) + `sheet.py`; stills in
       `docs/design/qa/round/` (before-*, after-*, snow-*)
 - [ ] Skipped: Tiberias dot ~12 px above the sheet on a 1.3 slope (needs terrain/placement change, not a glyph fix)
-- [ ] Skipped: village houses still mirror cluster-wide with the sun (near-symmetric, so it barely reads)
+- [x] Village houses (tile, flat, blocks) no longer mirror with the sun either: form by seed, off-side sun via the rig
+      (`SunStrip` in `LightRig.tsx`); stills `houses-am-*` / `houses-pm-*`
 - [ ] Not in data: snow depth on the ground after snowfall stops (Open-Meteo `snow_depth` not fetched); light snow
       at +3 °C on כרמי צור shows no cap (line above the summit), by design
 
