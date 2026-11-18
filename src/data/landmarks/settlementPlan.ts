@@ -14,7 +14,18 @@ export type RowPlan = {
   sink: number
   // Footprint rows follow the mapped houses further up and down the slope than the template's REACH.
   reach?: number
+  // Farm sheds from the mapped big roofs (V4); houses of the same row keep clear of them.
+  kind?: 'shed'
+  // House sizes and storeys from the mapped cluster; the template's when absent.
+  dims?: (row: number, index: number, random: () => number) => Dimensions
 }
+
+export type Dimensions = { w: number; h: number; storeys?: 2 }
+/** A second storey raises a tile house's walls by 2.5 px. */
+export const TWO_STOREY_RISE = 2.5
+
+/** Chicken house, cowshed, packing house: 11-14 px long, 3.5-4.5 px to the ridge (plan §10.4). */
+export function shedDimensions(random: () => number): Dimensions { return { w: 11 + random() * 3, h: 3.5 + random() } }
 
 export function templateHalf(size: SettlementSize) { return HALF[size] }
 
@@ -46,7 +57,7 @@ export function templateRows({ style, size, centerX, centerY, width, ground }: S
 export const STOREY = 2.8
 export const PARAPET = 1.5
 
-export function templateDimensions(style: SettlementStyle, row: number, index: number, random: () => number) {
+export function templateDimensions(style: SettlementStyle, row: number, index: number, random: () => number): Dimensions {
   const shrink = row >= 2 ? .85 : 1
   if (style === 'tile') return index % 3 === 2 ? { w: 9 * shrink, h: 7 * shrink } : { w: 7 * shrink, h: 6 * shrink }
   if (style === 'blocks') {

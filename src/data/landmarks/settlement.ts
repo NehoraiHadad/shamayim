@@ -2,7 +2,7 @@ import type { Place } from '../../config/place'
 import { offsetKm } from './project'
 import { seeded } from './hash'
 import { seat } from './seat'
-import { LABEL_MAX, templateDimensions, templateRows, type RowPlan } from './settlementPlan'
+import { LABEL_MAX, shedDimensions, templateDimensions, templateRows, TWO_STOREY_RISE, type RowPlan } from './settlementPlan'
 import { terraceLine } from './terraces'
 import type { Landmark } from './types'
 
@@ -12,7 +12,11 @@ export { PARAPET, STOREY } from './settlementPlan'
 export type SettlementStyle = 'tile' | 'flat-hill' | 'flat-desert' | 'blocks'
 export type SettlementSize = 'small' | 'medium' | 'large'
 
-export interface House { x: number; baseY: number; w: number; h: number; row: number; lit: boolean; seed: number }
+export interface House {
+  x: number; baseY: number; w: number; h: number; row: number; lit: boolean; seed: number
+  /** A farm shed from the mapped big roofs; a two-storey house from the measured levels. */
+  kind?: 'shed'; storeys?: 2
+}
 export interface Settlement {
   style: SettlementStyle
   houses: House[]
@@ -94,21 +98,27 @@ export function composeSettlement(input: SettlementInput, plan?: RowPlan[]): Set
   const floor = input.floor ?? 127
   const houses: House[] = []
   const contours: string[] = []
-  rows.forEach(({ row, centers, sink, reach = 1 }) => {
+  rows.forEach(({ row, centers, sink, reach = 1, kind, dims }) => {
     centers(random).forEach((x, index) => {
-      const { w, h } = templateDimensions(style, row, index, random)
+      const { w, h, storeys } = kind ? shedDimensions(random) : dims?.(row, index, random) ?? templateDimensions(style, row, index, random)
       const rise = ground(x) - centerY
       if (rise > REACH[style].down * reach || -rise > REACH[style].up * reach) return
       const baseY = seat(ground, x, w, sink, true)?.baseY
       if (baseY == null) return
-      const house = { x, baseY, w, h: h + (row ? 0 : (random() - .5) * 2), row }
+      const house = { x, baseY, w, h: h + (row || kind ? 0 : (random() - .5) * 2), row }
+      // Under the dot a two-storey house keeps one storey rather than vanish into it.
+      let floors = storeys
+      if (floors && hitsDot(house, centerX, centerY)) { house.h -= TWO_STOREY_RISE; floors = undefined }
       if (baseY - house.h < 4 || baseY > floor || hitsDot(house, centerX, centerY) ||
         input.keepOut?.some(b => x + w / 2 > b.left - 2 && x - w / 2 < b.right + 2 &&
           baseY > b.top - 2 && baseY - house.h - 1.8 < b.bottom + 2)) return
       if (givesWay(house, input.absorbed)) return
-      houses.push({ ...house, lit: random() < litShare, seed: Math.floor(random() * 1e6) })
+      if (!kind && houses.some(other => other.kind && other.row === row && Math.abs(other.x - x) < (other.w + w) / 2 + .5)) return
+      // Sheds stay dark at night: no one lives in a chicken house.
+      const lit = random() < litShare && !kind
+      houses.push({ ...house, ...(kind && { kind }), ...(floors && { storeys: floors }), lit, seed: Math.floor(random() * 1e6) })
     })
-    if (row > 0 && (style === 'tile' || style === 'blocks')) {
+    if (!kind && row > 0 && (style === 'tile' || style === 'blocks')) {
       const path = terraceLine(houses.filter((house) => house.row === row), (x) => ground(x) + sink + 1,
         (x, y) => (underSettlementLabel(centerX, x, x) && y > centerY + 4) ||
           (style === 'blocks' && Math.floor(x / 10) % 2 !== row % 2))

@@ -2,8 +2,12 @@ import type { Cluster, Extent } from '../city/clusterTypes'
 import { seeded } from './hash'
 import type { SettlementInput, SettlementStyle } from './settlement'
 import { PITCH, ROW_STEP, type RowPlan } from './settlementPlan'
+import { shedCount, villageDims } from './villageForms'
 
 const PX_PER_KM = 15.625
+/** Half a shed's 11-14 px length. */
+const SHED_HALF = 6.5
+const CREST_SHED_CLEAR = 24
 
 export function villageWidth(km: number, width = 375) {
   return Math.max(PX_PER_KM * km, Math.min(83, Math.max(30, 36 * Math.sqrt(km)))) * width / 375
@@ -58,7 +62,23 @@ export function villageRows(home: Cluster, style: SettlementStyle, { width, cent
    */
   const pitch = PITCH[style] * .7
   const random = seeded(home.id)
+  const dims = villageDims(home, style)
+  // The longest big-roof runs, at their real side of the village, become the sheds.
+  const sheds = home.bands.flatMap(band => band.big.map(([a, b]) => ({ row: rowOf(band.dy, home.bands),
+    left: Math.max(a, home.dx[0]), right: Math.min(b, home.dx[1]) })))
+    .filter(run => run.right > run.left).sort((p, q) => (q.right - q.left) - (p.right - p.left)).slice(0, shedCount(home))
   return [0, 1, 2].flatMap(row => {
+    // Farm yards lie behind the houses on the village's outer edge: each shed stands at its run's far end from the
+    // centre (Nahalal's ring, a kibbutz yard at the fence), a shed's half-length inside it.
+    const shedCenters = sheds.filter(run => run.row === row).map(run => {
+      const left = project(run.left), right = project(run.right)
+      const inset = Math.min(SHED_HALF, (right - left) / 2)
+      const outerEast = Math.abs(run.right - home.centre.dx) > Math.abs(run.left - home.centre.dx)
+      return outerEast ? right - inset : left + inset
+      // Beside the dot the crest row's houses carry the village; a low shed there would read as an empty lot.
+    }).filter(x => row > 0 || Math.abs(x - centerX) >= CREST_SHED_CLEAR)
+    const shedPlan: RowPlan[] = shedCenters.length ? [{ row, sink: row * ROW_STEP[style], reach: FOOTPRINT_REACH,
+      kind: 'shed', centers: () => shedCenters }] : []
     // V2 bands represent depth by their midpoint. Union overlapping runs at the same draw depth.
     const runs = mergeRuns(home.bands.filter(band => rowOf(band.dy, home.bands) === row).flatMap(band => band.runs))
     const centers = runs.flatMap(([a, b]) => {
@@ -78,6 +98,7 @@ export function villageRows(home: Cluster, style: SettlementStyle, { width, cent
         return Array.from({ length: count }, (_, i) => start + (i + .5) * step + (random() - .5) * Math.min(2, step / 4))
       })
     })
-    return centers.length ? [{ row, sink: row * ROW_STEP[style], reach: FOOTPRINT_REACH, centers: () => centers }] : []
+    return [...shedPlan, ...(centers.length ? [{ row, sink: row * ROW_STEP[style], reach: FOOTPRINT_REACH, dims,
+      centers: () => centers }] : [])]
   })
 }

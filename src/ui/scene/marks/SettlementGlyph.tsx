@@ -3,7 +3,7 @@ import type { House, Settlement } from '../../../data/landmarks/settlement'
 import { BlockHouse } from './blocks'
 import { CityMass } from './city/CityMass'
 import { CastShadow } from './generic/shadow'
-import { FlatRoof, TileHouse } from './houses'
+import { FlatRoof, Shed, TileHouse } from './houses'
 import { ContactShadow, SunStrip } from './LightRig'
 import styles from './marks.module.css'
 
@@ -41,8 +41,9 @@ function blockTone(seed: number, back: boolean) {
 }
 
 function Body({ house, style, night }: { house: House; style: Settlement['style']; night: boolean }) {
+  if (house.kind === 'shed') return <Shed w={house.w} h={house.h} />
   if (style === 'blocks') return <BlockHouse w={house.w} h={house.h} seed={house.seed} night={night} lit={house.lit} />
-  if (style === 'tile') return <TileHouse w={house.w} h={house.h} seed={house.seed} />
+  if (style === 'tile') return <TileHouse w={house.w} h={house.h} seed={house.seed} storeys={house.storeys} />
   return <FlatRoof w={house.w} h={house.h} heater={house.seed % 10 < 4} />
 }
 
@@ -77,7 +78,7 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
       : style === 'tile' ? [styles.house, styles.limestone, house.row === 0 ? styles.recede : ''].join(' ') : ''
     return <g key={`${house.row}-${house.x.toFixed(1)}`}>
       {/* The crest row stands furthest back: toned toward the ridge, still with its two faces. */}
-      <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${form * grow} ${grow})`}
+      <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${form * (house.kind ? 1 : grow)} ${house.kind ? 1 : grow})`}
         className={[tone, lit && !asDrawn ? styles.flat : ''].join(' ').trim() || undefined}>
         {lit && (asDrawn ? <CastShadow w={house.w} h={house.h} reach={reach} /> : <ContactShadow w={house.w} side="e" />)}
         <Body house={house} style={style} night={night} />

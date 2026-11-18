@@ -56,6 +56,8 @@
 .lit { fill: var(--mark-lit); }
 .roof { fill: var(--mark-roof); }
 .roofLit { fill: color-mix(in srgb, #C8664A 72%, var(--ridge-near)); }
+/* Sheet-metal shed roofs: one grey tone, galvanised and weathered, leaning toward the ridge. */
+.metal { fill: color-mix(in srgb, #A4ABAE 60%, var(--ridge-near)); }
 .cast { fill: var(--mark-shade); opacity: .8; }
 /* House faces: the side face takes the sun; the parapet / roof edge always catches the sky. */
 .side { fill: var(--mark-lit); }
@@ -91,7 +93,7 @@
 .gold { fill: color-mix(in srgb, #E0AE3C 72%, var(--ridge-near)); }
 .cable { fill: none; stroke: var(--mark-wall); stroke-width: .6; }
 .lamp { fill: #7CE0A0; }
-.back :is(.solid, .wall, .lit, .side, .top, .roof, .roofLit, .shade, .backTone, .glass, .gold, .green, .panel) { fill: var(--mark-back); }
+.back :is(.solid, .wall, .lit, .side, .top, .roof, .roofLit, .metal, .shade, .backTone, .glass, .gold, .green, .panel) { fill: var(--mark-back); }
 .back .cable { stroke: var(--mark-back); }
 .maskWhite * { fill: #fff !important; stroke: none; }
 .night .roof { fill: color-mix(in srgb, #B5553C 18%, var(--ridge-near)); }

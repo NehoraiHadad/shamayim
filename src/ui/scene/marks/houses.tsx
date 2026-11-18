@@ -8,10 +8,10 @@ import styles from './marks.module.css'
  */
 interface Shape { w: number; h: number }
 
-function Gable({ w, h, turned }: Shape & { turned: boolean }) {
+function Gable({ w, h, turned, storeys }: Shape & { turned: boolean; storeys?: 2 }) {
   const left = -w / 2
   const end = w * .42
-  const wallH = h * .5
+  const wallH = h * (storeys === 2 ? .64 : .5)
   if (turned) {
     return <>
       <rect className={styles.lit} x={left} y={-wallH} width={w - end} height={wallH} />
@@ -31,9 +31,9 @@ function Gable({ w, h, turned }: Shape & { turned: boolean }) {
   </>
 }
 
-function Hip({ w, h }: Shape) {
+function Hip({ w, h, storeys }: Shape & { storeys?: 2 }) {
   const left = -w / 2
-  const wallH = h * .5
+  const wallH = h * (storeys === 2 ? .64 : .5)
   return <>
     <rect className={styles.wall} x={left + .3} y={-wallH} width={w - .6} height={wallH} />
     <rect className={styles.lit} x={left + .3} y={-wallH} width={w * .38} height={wallH} />
@@ -59,9 +59,25 @@ export function FlatRoof({ w, h, heater }: Shape & { heater: boolean }) {
 }
 
 /** A village house by its seed: gable, hip, turned gable, or a flat roof with a heater. */
-export function TileHouse({ w, h, seed }: Shape & { seed: number }) {
+export function TileHouse({ w, h, seed, storeys }: Shape & { seed: number; storeys?: 2 }) {
   const type = seed % 4
-  if (type === 1) return <Hip w={w} h={h} />
+  if (type === 1) return <Hip w={w} h={h} storeys={storeys} />
   if (type === 2) return <FlatRoof w={w} h={h * .75} heater />
-  return <Gable w={w} h={h} turned={type === 3} />
+  return <Gable w={w} h={h} turned={type === 3} storeys={storeys} />
+}
+
+/**
+ * A farm shed (chicken house, cowshed, packing house): long and low under a shallow sheet-metal roof, the sunward end
+ * lit. Five nodes, no windows: it stays dark at night.
+ */
+export function Shed({ w, h }: Shape) {
+  const left = -w / 2
+  const wallH = h * .6
+  return <>
+    <rect className={styles.wall} x={left} y={-wallH} width={w} height={wallH} />
+    <rect className={styles.lit} x={left} y={-wallH} width={1.4} height={wallH} />
+    <path className={styles.metal} d={`M${left - .4} ${-wallH}L${left + 1.4} ${-h}H${w / 2 - 1.4}L${w / 2 + .4} ${-wallH}z`} />
+    <rect className={styles.top} x={left + 1.4} y={-h} width={w - 2.8} height={.5} />
+    <rect className={styles.shade} x={left} y={-wallH} width={w} height={.5} />
+  </>
 }
