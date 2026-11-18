@@ -32,19 +32,25 @@ export function MarkBuilding({ mark, x, ground, sunX, night, life, motion, reado
     spin: motion && mark.kind === 'turbine' && life.turbinePeriodS != null, sway: motion && life.sway != null }
   const [beaconX, beaconY] = spec.beacon?.(h) ?? [0, -h]
   const dim = readout && base - h * scale < 22
-  /** Self-lit glyphs are drawn with the sun on the left: mirror for an east sun, flat tones without one. */
+  /**
+   * Self-lit glyphs draw their lit faces on the left. A building never turns round with the sun: curated landmarks keep
+   * the form they are drawn in, a generic one (a village mosque's minaret) faces one way by its seed. When the sun is
+   * on the drawn lit side the glyph shows its own faces; otherwise it goes flat and takes the rig's sun-side strip.
+   */
   const self = spec.selfLit && !far
-  const mirror = self && sunX != null && sunX > x ? -1 : 1
+  const form = self && mark.kind !== 'custom' && props.seed % 2 ? -1 : 1
+  const asDrawn = self && side !== null && (side === 'top' || (side === 'w') === (form === 1))
+  const localSide: LightSide | null = side && side !== 'top' && form < 0 ? (side === 'w' ? 'e' : 'w') : side
   const lit = !night && !far && plane !== 'behind'
-  return <g transform={`translate(${x.toFixed(1)} ${(base + .5).toFixed(1)}) scale(${scale * mirror} ${scale})`}
+  return <g transform={`translate(${x.toFixed(1)} ${(base + .5).toFixed(1)}) scale(${scale * form} ${scale})`}
     opacity={dim ? .35 : undefined}
-    className={[plane === 'behind' ? styles.back : '', self && (!side || !lit) ? styles.flat : ''].join(' ') || undefined}>
+    className={[plane === 'behind' ? styles.back : '', self && (!asDrawn || !lit) ? styles.flat : ''].join(' ') || undefined}>
     {/* Ground skirt: fills any dip of the ridge under a flat base, so no sky shows beneath the mark. */}
     {plane === 'line' && <rect className={styles.skirt} x={-spec.w / 2 - 1} y={-.5} width={spec.w + 2}
       height={5 + (mark.lift ?? 0) / scale} />}
-    {lit && (self ? side && <CastShadow w={spec.w} h={h} /> : <ContactShadow w={spec.w} side={side} />)}
+    {lit && (asDrawn ? <CastShadow w={spec.w} h={h} /> : <ContactShadow w={spec.w} side={localSide} />)}
     <spec.Draw {...props} />
-    {side && !self && <LightRig id={id} spec={spec} props={props} side={side} />}
+    {localSide && !asDrawn && <LightRig id={id} spec={spec} props={props} side={localSide} />}
     {life.aviation && mark.tall && <circle className={styles.aviation} cx={beaconX} cy={beaconY - .4}
       r={far ? 1.4 : .85} />}
   </g>
