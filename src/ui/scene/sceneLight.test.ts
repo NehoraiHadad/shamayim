@@ -12,7 +12,7 @@ describe('scene light', () => {
 
   it('reddens and dims a low sun; blue goes first', () => {
     const noon = sunLight(60)
-    const low = sunLight(3)
+    const low = sunLight(1)
     expect(noon.rgb[2]).toBeGreaterThan(.75)
     expect(low.rgb[2]).toBeLessThan(.1)
     expect(low.rgb[1]).toBeLessThan(noon.rgb[1])
@@ -36,5 +36,15 @@ describe('scene light', () => {
     expect(shadowReach([1, .2])).toBeGreaterThan(shadowReach([1, 2]))
     expect(worldLight(null, [], 375, 375)).toBeNull()
     expect(worldLight({ ray: null, altitude: 10 }, [], 375, 375)).toBeNull()
+  })
+})
+
+describe('sun colour through the day', () => {
+  it('changes in small steps, with no jump from yellow to red', () => {
+    const green = (altitude: number) => sunLight(altitude).rgb[1]
+    for (let a = 0.5; a < 30; a += 0.5) {
+      expect(green(a + 0.5)).toBeGreaterThanOrEqual(green(a))
+      expect(green(a + 0.5) - green(a)).toBeLessThan(.09)
+    }
   })
 })

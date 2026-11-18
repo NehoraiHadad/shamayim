@@ -482,6 +482,10 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       anything whose ground is in a ridge's shadow goes flat (the village sits in the Gilead's shadow at 06:40,
       lit at noon); cast shadows lengthen as the sun drops. One shared terrain shadow test (`clearanceOf`)
       for ridges and marks. Stills `world-after-*.png`, `world-compare.png`; tsc, 426 tests, lint, build
+- [x] Owner: "the halo is hard" and "the colour jumps from yellow to red" — the hard 6 px ring is gone (soft
+      aureole only); the disc colour is tone-mapped like the eye (a bright sun saturates to white-yellow) and
+      drawn from the true altitude from its first moment (it used to fall back to the yellow disc until the light
+      reached the land, then snap). Sequence `sun-colour-sequence.png` (06:25→08:30, 16:05→16:30); 427 tests
 - [ ] Owner judges on the phone (outdoors, dawn/dusk); then decide: cap strength, a sampled place, the layout fix
       for production (bloom returns), afterglow on high clouds after sunset, shadow edge on the floor;
       ValleyScene is 170 lines, split it when the spike graduates

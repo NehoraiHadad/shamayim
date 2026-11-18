@@ -13,13 +13,17 @@ export function airMass(altitude: number) {
 
 /** Vertical optical depth per channel (R, G, B): Rayleigh scattering (∝ λ⁻⁴) plus a little clean-air aerosol. */
 const DEPTH = [0.07, 0.12, 0.25] as const
+const EXPOSURE = 4
 
 /** Direct sunlight colour at this altitude, normalised to its brightest channel, and its relative strength (0..1). */
 export function sunLight(altitude: number) {
   const m = airMass(altitude)
   const t = DEPTH.map((tau) => Math.exp(-tau * m))
-  const top = Math.max(...t)
-  const rgb = t.map((v) => v / top) as [number, number, number]
+  // The eye (like a camera) saturates on a bright sun: exposure tone-mapping keeps it white-yellow until it is low,
+  // then it passes smoothly through gold and orange to red, with no step between them.
+  const seen = t.map((v) => 1 - Math.exp(-EXPOSURE * v))
+  const top = Math.max(...seen)
+  const rgb = seen.map((v) => v / top) as [number, number, number]
   // Strength against noon, by luminance, so a low sun lights faces less as well as redder.
   const noon = DEPTH.map((tau) => Math.exp(-tau))
   const lum = (c: number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
@@ -70,17 +74,23 @@ const mixRgb = (a: readonly number[], b: readonly number[], t: number) => a.map(
  * What the rest of the scene takes from the sun at the shown minute: the light's colour (as a CSS custom property the
  * marks' lit faces mix in), the disc's look, which ground x (px) stands in a ridge's shadow, and cast-shadow length.
  */
+/** The disc's look from the true altitude alone, so it is drawn the same way from the first moment it shows. */
+export function discLook(altitude: number) {
+  const { rgb, strength } = sunLight(altitude)
+  // Limb darkening (stronger in blue): the rim of the disc is dimmer and redder than its centre.
+  const core = mixRgb(rgb, [1, 1, 1], .5 * strength)
+  const limb = rgb.map((v, i) => v * [.86, .78, .66][i])
+  return { core: rgbCss(core), limb: rgbCss(limb), halo: rgbCss(rgb), flatten: sunFlattening(altitude) }
+}
+export type DiscLook = ReturnType<typeof discLook>
+
 export function worldLight(light: { ray: Point | null; altitude: number } | null, near: readonly Point[], width: number,
   sceneW: number) {
   if (!light?.ray) return null
   const ray = light.ray
-  const { rgb, strength } = sunLight(light.altitude)
-  // Limb darkening (stronger in blue): the rim of the disc is dimmer and redder than its centre.
-  const core = mixRgb(rgb, [1, 1, 1], .6 * strength)
-  const limb = rgb.map((v, i) => v * [.86, .78, .66][i])
+  const { rgb } = sunLight(light.altitude)
   return {
     style: { '--sun-light': `color-mix(in oklab, ${rgbCss(rgb)} 60%, var(--sky-horizon))` },
-    disc: { core: rgbCss(core), limb: rgbCss(limb), halo: rgbCss(rgb), flatten: sunFlattening(light.altitude) },
     shaded: (x: number) => inShadow(near, ray, x * sceneW / width),
     reach: shadowReach(ray),
   }

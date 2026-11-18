@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
-import type { WorldLight } from './sceneLight'
+import type { DiscLook } from './sceneLight'
 import type { Skyline } from './skyline'
 import { sunAt, type SunPoint } from './sunPath'
 import styles from './ValleyScene.module.css'
@@ -22,13 +22,17 @@ interface Props {
   /** 0–1; dust flattens the sun into a pale coin with no halo. */
   coin?: number
   /** `?scene=25d`: the disc drawn from the true sun (air-mass colour, limb darkening, refraction squash). */
-  look?: WorldLight['disc']
+  look?: DiscLook
 }
 
 /** The physical disc's paint: hot core to a darker, redder limb, squashed by refraction; the halo takes its colour. */
-const discStyle = (look: WorldLight['disc']) => ({
+const discStyle = (look: DiscLook) => ({
   background: `radial-gradient(circle, ${look.core} 0%, ${look.core} 42%, ${look.limb} 100%)`,
   transform: `scaleY(${look.flatten.toFixed(3)})`,
+  // No hard ring: the aureole (forward scattering off aerosol) falls off smoothly from the limb outward.
+  boxShadow: `0 0 6px 1px color-mix(in srgb, ${look.halo} 55%, transparent),
+    0 0 22px 6px color-mix(in srgb, ${look.halo} 28%, transparent),
+    0 0 48px 14px color-mix(in srgb, ${look.halo} 12%, transparent)`,
   '--accent': look.halo,
 })
 
