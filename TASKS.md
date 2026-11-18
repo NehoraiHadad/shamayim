@@ -531,6 +531,14 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       `snowFall` caps while snow lies ≥ 1 cm, after the fall too, melting as the depth does; the cover reaches
       100 m + 300 m × (depth/30 cm) below the place. `falling` flag: only falling snow thickens the air (heavy haze).
       Dev `?wx=depth:0.3`. Still `snow-lying.png` (Majdal 40 cm | 3 cm, Jerusalem 10 cm morning | dusk)
+- [x] Rays as in reality (Claude), `gl/raysShader.ts`: need part of the sun hidden + aerosol (`beamAir`: some haze
+      helps, heavy drowns) + facing the sun. Disc up: any hour with 12–95 % cloud (low sun stronger, midday/behind-
+      viewer weaker); where shafts go is read from the real cloud field on two rings round the disc (`cloudAt` in
+      cloudShader, shared `cloudWarp`), a fine angular pattern splits gaps into shafts; faint while the disc is clear,
+      full when it is behind cloud. Disc down (3° to −6.5°): twilight rays from below the skyline, gold/pink with
+      blue-grey shadow bands, from clouds past the horizon or (hazy air) the ridge, even with no cloud. Cost: 3 cloud
+      lookups a pixel only while disc rays are on. Still `rays-real.png` (clear sun | noon hidden | after sunset
+      cloud | after sunset hazy clear | dawn | clean clear = none)
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18

@@ -4,11 +4,15 @@
  */
 export const CLOUD_GLSL = `
 const vec2 CLOUD_STRETCH = vec2(300.0, 110.0);
-float cloudLayer(vec2 p, float scale, float speed, float cov, vec2 offset, out float shade, out float depth) {
+// Where a layer's noise is read for a point: drifting with the wind and slowly warped.
+vec2 cloudWarp(vec2 p, float scale, float speed) {
   vec2 q = p / CLOUD_STRETCH * scale;
   q.x -= uDrift * speed / 300.0;
   float warp = fbm(q * 0.5 + uTime * 0.008);
-  vec2 w = q + warp * 0.7 + vec2(0.0, uTime * 0.003);
+  return q + warp * 0.7 + vec2(0.0, uTime * 0.003);
+}
+float cloudLayer(vec2 p, float scale, float speed, float cov, vec2 offset, out float shade, out float depth) {
+  vec2 w = cloudWarp(p, scale, speed);
   float n = fbm(w);
   shade = clamp((n - fbm(w + offset)) * 5.0 + 0.7, 0.0, 1.0);
   // Measured on the GPU, the warped fbm sits mostly in 0.22–0.6 (median ~0.34): the threshold walks that range so a
@@ -16,6 +20,14 @@ float cloudLayer(vec2 p, float scale, float speed, float cov, vec2 offset, out f
   float t = mix(0.62, 0.20, cov);
   depth = clamp((n - t) / 0.22, 0.0, 1.0); // how far into the cloud: 0 at the edge, 1 in a thick core
   return smoothstep(t - 0.03, t + 0.10, n);
+}
+
+// How much cloud stands at a point, both layers, without shading: what the rays read to find the real gaps.
+float cloudAt(vec2 p) {
+  float t = mix(0.62, 0.20, uCoverage), t2 = mix(0.62, 0.20, uCoverage * 0.9);
+  float hi = smoothstep(t - 0.03, t + 0.10, fbm(cloudWarp(p, 1.0, 0.6)));
+  float lo = uLow * smoothstep(t2 - 0.03, t2 + 0.10, fbm(cloudWarp(p + 91.0, 0.55, 1.0))) * smoothstep(80.0, 260.0, p.y);
+  return max(hi * 0.85, lo) * (1.0 - smoothstep(uScene - 30.0, uScene + 60.0, p.y));
 }
 
 // Whether a cloud this high (screen y, sky top = highest) still sees the sunken sun. Earth's shadow climbs as the sun
