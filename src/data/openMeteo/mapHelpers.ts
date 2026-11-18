@@ -13,6 +13,15 @@ export function pairs(block: Json, key: string, length: number, path: string): P
   return icon.map((value, index) => ({ icon: numOrNull(value), ecmwf: numOrNull(ecmwf[index]) }))
 }
 
+/**
+ * Low and mid cloud together (0–100), the cloud the moon does not shine through: the two layers taken as independent,
+ * so 50 % low and 50 % mid cover 75 % of the sky. Null when either layer is unknown.
+ */
+export function thickCloud(low: number | null, mid: number | null): number | null {
+  if (low === null || mid === null) return null
+  return Math.round(100 * (1 - (1 - low / 100) * (1 - mid / 100)))
+}
+
 export function spread(pair: Pair): number {
   const icon = pair.icon ?? pair.ecmwf ?? 0
   const ecmwf = pair.ecmwf ?? pair.icon ?? 0

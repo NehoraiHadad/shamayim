@@ -66,6 +66,16 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const smoothstep = (a: number, b: number, v: number) => { const k = clamp01((v - a) / (b - a)); return k * k * (3 - 2 * k) }
 
 /**
+ * The cloud that counts for the moon (0–100). With the layers known, low and mid cloud count in full and the thin high
+ * cloud above them for a fifth (the moon shines through it, a little dimmed); without them, the whole cover.
+ */
+export function moonCloud(cloudCover: number, thickCloud?: number | null): number {
+  if (thickCloud == null) return cloudCover
+  const thick = Math.min(thickCloud, cloudCover)
+  return thick + 0.2 * (cloudCover - thick)
+}
+
+/**
  * How the moon shows, or null when it does not: below the ridges, a thin crescent by day, or a day sky too cloudy.
  *
  * Cloud: the hour's cover is one number for the whole sky and counts thin high cloud too, which the moon shines through.

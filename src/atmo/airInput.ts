@@ -22,6 +22,8 @@ function airAt(air: AirPoint[] | null, at: LocalTime): AirPoint | undefined {
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+/** Thick (low + mid) cloud, capped by the total it is part of. */
+const thick = (value: number | null, total: number) => (value === null ? null : Math.min(value, total))
 
 /**
  * The input for "now", or for a selected hour (a preview). A preview takes rain, cloud,
@@ -57,6 +59,8 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
       temperature: value('temperature'),
       feelsLike: value('temperature'),
       cloudCover: value('cloudCover'),
+      thickCloud: thick(hour.thickCloud == null || !next || next.thickCloud == null ? hour.thickCloud ?? null
+        : lerp(hour.thickCloud, next.thickCloud, fraction), value('cloudCover')),
       windSpeed: value('windSpeed'),
       windGusts: value('windGusts'),
       precipitation: value('precipitation'),
@@ -70,6 +74,8 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
     temperature: c.temperature,
     feelsLike: c.feelsLike,
     cloudCover: c.cloudCover,
+    // "Now" may have its total corrected by the satellite: the thick part can never be more than that.
+    thickCloud: thick(c.thickCloud ?? ground?.thickCloud ?? null, c.cloudCover),
     windSpeed: c.windSpeed,
     windGusts: c.windGusts,
     // The hourly sum is a true mm/h; current is a 15-minute sum (×4) and only a fallback.

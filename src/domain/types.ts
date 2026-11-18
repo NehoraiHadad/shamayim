@@ -11,6 +11,8 @@ export interface CurrentWeather {
   isDay: boolean
   weatherCode: number
   cloudCover: number
+  /** Low and mid cloud together, 0–100 (what hides the moon; thin high cloud does not). Null when not known. */
+  thickCloud?: number | null
   windSpeed: number
   windGusts: number
   /** Degrees the wind comes FROM (meteorological), 0 = north. */
@@ -32,6 +34,8 @@ export interface HourPoint {
   precipitation: number
   weatherCode: number
   cloudCover: number
+  /** Low and mid cloud together, 0–100; null when not known. */
+  thickCloud?: number | null
   windSpeed: number
   windGusts: number
   /** Relative humidity, 0–100; null when unavailable. */

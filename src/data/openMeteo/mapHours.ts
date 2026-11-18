@@ -1,7 +1,7 @@
 import { blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
 import type { HourPoint } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
-import { pairs } from './mapHelpers'
+import { pairs, thickCloud } from './mapHelpers'
 
 export function mapHours(raw: Json, today: string): HourPoint[] {
   const hourly = obj(raw.hourly, 'hourly')
@@ -14,6 +14,8 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
   const precipitation = pairs(hourly, 'precipitation', length, 'hourly')
   const weatherCode = pairs(hourly, 'weather_code', length, 'hourly')
   const cloudCover = pairs(hourly, 'cloud_cover', length, 'hourly')
+  const cloudLow = pairs(hourly, 'cloud_cover_low', length, 'hourly')
+  const cloudMid = pairs(hourly, 'cloud_cover_mid', length, 'hourly')
   const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
@@ -34,6 +36,7 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
       precipitation: blendNumber(precipitation[index], weight) ?? 0,
       weatherCode: blendWeatherCode(weatherCode[index], precipProb[index], weight) ?? 0,
       cloudCover: blendNumber(cloudCover[index], weight) ?? 0,
+      thickCloud: thickCloud(blendNumber(cloudLow[index], weight), blendNumber(cloudMid[index], weight)),
       windSpeed: blendNumber(windSpeed[index], weight) ?? 0,
       windGusts: blendNumber(windGusts[index], weight) ?? 0,
       humidity: blendNumber(humidity[index], weight),

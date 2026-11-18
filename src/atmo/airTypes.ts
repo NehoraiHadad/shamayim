@@ -9,6 +9,8 @@ export interface AirInput {
   feelsLike: number
   /** 0–100 */
   cloudCover: number
+  /** Low and mid cloud of the shown hour, 0–100 (never more than `cloudCover`); null when not known. */
+  thickCloud?: number | null
   windSpeed: number
   windGusts: number
   /** Degrees the wind comes from; 0 = north. */
