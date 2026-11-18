@@ -682,6 +682,20 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       level (keep "−159 מ'"), or draw it on far slopes only with "פני הים (159 מ' מעליך)"
 - [ ] Next: camera rotation around the place (owner asked; needs 360° rays + design calls for the home and the sun arc)
 
+## Panorama near skyline + sun-side swap — 2026-11-19
+Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-sol (commits 6b0ff1d…90ffabf); sun-side fix by Claude.
+- [x] Panorama shows the built mass really seen along each true-bearing ray, 0.4–6 km, three depth bands, true apparent
+      angle (curvature + refraction), roofline eye ΔE, running-max occlusion; towers at true angle; night lights ≤ 220.
+      Files: `terrain/sightProfile.ts`, `city/{rayWalk,cityRaster,skylineHeight,skylineData,skylineRay,skylineTowers}.ts`,
+      `ui/scene/marks/city/{Skyline.tsx,skylinePaths.ts,skylineLights.ts}`. Cross-section mode unchanged.
+- [x] Stills: `docs/design/qa/skyline/{before,after}-*.png` (Tel Aviv, Petah Tikva, Haifa, Jerusalem, Modi'in, Yagur; day+night).
+- [x] Bug "houses rotate" (כרמי צור, late morning): when the sun crossed the cluster's x every house swapped its lit face
+      in one frame. Now `sunSideOf` (LightRig.tsx) gives a backlit spell of ±15 px (~10°) where both faces go flat;
+      used by SettlementGlyph and CityMass. Stills `docs/design/qa/sun-side/`.
+- [ ] Tuning: Tel Aviv day towers are tall needles near the scene top; elevation label overlaps the skyline in places.
+- [ ] MarkBuilding still uses its own ±40 px 'top' band (landmarks); consider `sunSideOf` there too.
+- [ ] Console shows some 403/429 resource errors in dev (DEM / rate limits); not investigated.
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather
