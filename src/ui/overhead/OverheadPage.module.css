@@ -12,6 +12,18 @@
   background: var(--sheet);
   color: var(--sheet-ink);
   overscroll-behavior: contain;
+  /* Legend swatches: each rain wash as seen over cloud, and the cloud itself (docs/design/radar-ux-fable.md §2). */
+  --rain-1: #5C9ACF;
+  --rain-2: #5361B3;
+  --rain-3: #711B66;
+  --map-cloud: #FCFBF6;
+}
+
+:global(.dark-sheet) .dialog {
+  --rain-1: #4D92CA;
+  --rain-2: #A99FF4;
+  --rain-3: #FAB2E3;
+  --map-cloud: #5C6379;
 }
 
 .dialog[open] { animation: rise var(--d4) var(--ease-out) both; }
@@ -23,28 +35,52 @@
 
 .panel {
   display: grid;
-  grid-template-rows: auto auto minmax(170px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(240px, 1fr) auto auto;
   min-height: 100%;
   padding-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
 }
 
 .heading {
   display: flex;
-  min-height: 56px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   padding-inline: var(--gutter) var(--space-2);
   touch-action: none;
 }
 
-.story {
+.eyebrow {
   margin: 0;
+  color: var(--sheet-muted);
+  font: 600 var(--text-sm) / 1.3 var(--font-sans);
+}
+
+.verdict {
   padding: 0 var(--gutter) var(--space-3);
-  font: 400 var(--text-lg) / 1.45 var(--font-serif);
+}
+
+.verdict h2 {
+  margin: 0;
+  font: 500 1.75rem / 1.2 var(--font-serif);
+  text-wrap: balance;
+}
+
+.verdict h2:focus { outline: none; }
+.verdict h2:focus-visible { outline: 2px solid var(--sheet-ink); outline-offset: 4px; }
+.verdict .waiting { color: var(--sheet-muted); }
+
+.detail {
+  margin: var(--space-1) 0 0;
+  font: 400 var(--text-md) / 1.45 var(--font-sans);
   text-wrap: pretty;
 }
 
-.heading h2 { margin: 0; font: 500 var(--text-xl) / 1.25 var(--font-serif); }
+.basis {
+  margin: var(--space-1) 0 0;
+  color: var(--sheet-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
 
 .close {
   display: grid;
@@ -83,16 +119,14 @@
 }
 
 .legend,
-.ages,
 .status {
   margin: 0;
-  color: var(--sheet-muted);
   font-size: var(--text-sm);
   line-height: 1.45;
 }
 
-.ages { margin-block-start: var(--space-1); }
-.status { min-height: 1.45em; }
+.legend { padding-block: var(--space-2); }
+.status { color: var(--sheet-muted); }
 
 .attribution {
   padding-inline: var(--space-1);

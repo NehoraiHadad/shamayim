@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { motionBetween, rainOutlook, type EchoGrid } from './rainNowcast'
-import { rainSentence } from './rainSentence'
+import { rainVerdict } from './rainVerdict'
 
 const SIZE = 41
 const KM = 4
 const clock = (m: number) => `+${m}`
+const ok = { kind: 'ok' } as const
+const say = (o: Parameters<typeof rainVerdict>[1], model: string | null = null) => {
+  const v = rainVerdict(ok, o, clock, model)
+  return `${v.headline} | ${v.detail}`
+}
 
 /** A square blob of echoes whose centre is (cx, cy) cells off the place (x east, y south). */
 function grid(blobs: { cx: number; cy: number; r: number; band?: number }[]): EchoGrid {
@@ -33,7 +38,7 @@ describe('radar nowcast', () => {
     expect(o.arrivesIn).toBeLessThanOrEqual(55)
     expect(o.lastsFor).toBe('longer')
     expect(o.motion?.heading).toBeCloseTo(90)
-    expect(rainSentence(o, clock, null)).toMatch(/^גשם מתקרב ממערב\. הוא צפוי להגיע לאזור שלך בעוד כ־\d+ דקות, בסביבות \+\d+, ונראה שיימשך זמן רב\.$/)
+    expect(say(o)).toMatch(/^גשם בעוד כ־\d+ דקות \| מגיע ממערב, בסביבות \+\d+, ונראה שיימשך זמן רב\.$/)
   })
 
   it('says where the arriving rain is at the radar frame’s time', () => {
@@ -52,24 +57,24 @@ describe('radar nowcast', () => {
     const o = rainOutlook(grid([{ cx: -4, cy: 0, r: 3, band: 1 }]), grid([{ cx: 0, cy: 0, r: 3, band: 1 }]), 30)
     expect(o.now).toBe(1)
     expect(o.lastsFor).toBeGreaterThan(15)
-    expect(rainSentence(o, clock, null)).toMatch(/^יורד עכשיו גשם קל\. לפי תנועת העננים הוא צפוי להיפסק בעוד/)
+    expect(say(o)).toMatch(/^יורד עכשיו גשם קל \| צפוי להיפסק בעוד/)
   })
 
   it('says nearby rain is passing by when it moves away', () => {
     const o = rainOutlook(grid([{ cx: -8, cy: 0, r: 2 }]), grid([{ cx: -8, cy: -4, r: 2 }]), 30)
     expect(o.arrivesIn).toBeNull()
-    expect(rainSentence(o, clock, null)).toBe('יש גשם כ־30 ק״מ מערבית לך. הוא נע צפונה ולא צפוי להגיע אליך בשעה וחצי הקרובה.')
+    expect(say(o)).toBe('גשם קרוב, אבל לא בדרך אליך | כ־30 ק״מ מערבית לך, נע צפונה. לא צפוי להגיע בשעה וחצי הקרובה.')
   })
 
   it('without motion only says where the rain is', () => {
     const o = rainOutlook(null, grid([{ cx: 0, cy: 6, r: 2 }]), 30)
     expect(o.motion).toBeNull()
-    expect(rainSentence(o, clock, null)).toBe('יש גשם כ־15 ק״מ דרומית לך.')
+    expect(say(o)).toBe('גשם כ־15 ק״מ ממך | דרומית לך. לא ברור עדיין לאן הוא נע.')
   })
 
   it('falls back to the forecast when the radar is dry', () => {
     const dry = rainOutlook(null, grid([]), 30)
-    expect(rainSentence(dry, clock, '16:00')).toBe('עדיין אין גשם באזור, אבל התחזית צופה גשם בסביבות 16:00.')
-    expect(rainSentence(dry, clock, null)).toBe('אין גשם בכל הסביבה, עד מאות קילומטרים ממך.')
+    expect(say(dry, '16:00')).toBe('אין גשם כרגע | התחזית צופה גשם בסביבות 16:00.')
+    expect(say(dry)).toBe('לא נראה גשם בדרך אליך | אין גשם במכ״ם בכל הסביבה.')
   })
 })

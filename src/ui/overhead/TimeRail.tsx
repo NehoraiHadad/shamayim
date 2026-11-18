@@ -1,50 +1,69 @@
 import type { CSSProperties } from 'react'
-import { RADAR_WASH } from './recolor'
 import styles from './TimeRail.module.css'
 
-export function TimeRail({ at, count, age, reduced, choose }: {
+export interface FrameTime {
+  /** The place's clock at the frame ("14:40"). */
+  clock: string
+  /** Its age, short ("לפני 20 דק׳") and spelled out for screen readers ("לפני 20 דקות"). */
+  ago: string
+  spoken: string
+}
+
+/**
+ * The radar movie's controls: the frame's clock first (what people check against the wall), its age second; a rail
+ * from two hours ago (right, the reading start) to now (left); one play/pause button for everyone.
+ */
+export function TimeRail({ at, count, time, start, playing, toggle, choose }: {
   at: number
   count: number
-  age: string
-  reduced: boolean
+  time: FrameTime | null
+  /** The oldest frame's age, for the rail's start label. */
+  start: string
+  playing: boolean
+  toggle: () => void
   choose: (at: number) => void
 }) {
   const last = count - 1
+  const rail = { '--step': `${100 / Math.max(1, last)}%`, '--played': `${(at / Math.max(1, last)) * 100}%` } as CSSProperties
   return (
     <div className={styles.time}>
-      {reduced && last > 0 && <button type="button" disabled={at === 0} aria-label="תמונה קודמת"
-        onClick={() => choose(at - 1)}><span aria-hidden="true">›</span></button>}
-      <output className={styles.age} aria-live="off">{age}</output>
-      {reduced && last > 0 && <button type="button" disabled={at === last} aria-label="תמונה הבאה"
-        onClick={() => choose(at + 1)}><span aria-hidden="true">‹</span></button>}
-      {!reduced && last > 0 && (
-        <div className={styles.rail} style={{ '--step': `${100 / last}%` } as CSSProperties}>
-          <input type="range" min={0} max={last} value={at} dir="rtl" aria-label="זמן תמונת המכ״ם"
-            aria-valuetext={age} onPointerDown={() => choose(at)}
-            onChange={(event) => choose(event.currentTarget.valueAsNumber)}
-            onKeyDown={(event) => {
-              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-              event.preventDefault()
-              choose(Math.max(0, Math.min(last, at + (event.key === 'ArrowLeft' ? 1 : -1))))
-            }} />
+      <output className={styles.readout} aria-live="off">
+        {time ? <><span className={styles.clock}>{time.clock}</span><span className={styles.ago}> · {time.ago}</span></> : '—'}
+      </output>
+      {last > 0 && (
+        <div className={styles.controls}>
+          <button type="button" className={styles.play} onClick={toggle}
+            aria-label={playing ? 'עצירה' : 'הפעלת השעתיים האחרונות'}>
+            <span aria-hidden="true">{playing ? '❚❚' : '▶︎'}</span>
+          </button>
+          <div className={styles.rail} style={rail}>
+            <input type="range" min={0} max={last} value={at} dir="rtl" aria-label="זמן התמונה"
+              aria-valuetext={time ? `${time.clock}, ${time.spoken}` : undefined}
+              onPointerDown={() => choose(at)}
+              onChange={(event) => choose(event.currentTarget.valueAsNumber)}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+                event.preventDefault()
+                choose(Math.max(0, Math.min(last, at + (event.key === 'ArrowLeft' ? 1 : -1))))
+              }} />
+            <div className={styles.ends} aria-hidden="true"><span>{start}</span><span>עכשיו</span></div>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-export function RainLegend({ clear, stale }: { clear: boolean; stale: boolean }) {
-  if (clear) return <span>אין גשם במכ״ם</span>
-  const labels = ['קל', 'בינוני', 'חזק']
+export function RainLegend({ clear, stale, clouds }: { clear: boolean; stale: boolean; clouds: boolean }) {
+  const rain = clear ? [] : RAIN_STEPS
   return (
-    <span className={styles.legend}>
-      {RADAR_WASH.map(([r, g, b, opacity], index) => (
-        <span key={labels[index]}>
-          {index > 0 && <span aria-hidden="true"> · </span>}
-          <i aria-hidden="true" style={{ background: `rgb(${r} ${g} ${b} / ${opacity})`,
-            filter: stale ? 'grayscale(1)' : undefined }} />{labels[index]}
-        </span>
+    <ul className={styles.legend} data-stale={stale || undefined}>
+      {clouds && <li><i aria-hidden="true" className={styles.cloud} />עננים</li>}
+      {clear ? <li>אין גשם במכ״ם באזור המפה</li> : rain.map((label, index) => (
+        <li key={label}><i aria-hidden="true" style={{ background: `var(--rain-${index + 1})` }} />{label}</li>
       ))}
-    </span>
+    </ul>
   )
 }
+
+const RAIN_STEPS = ['גשם קל', 'בינוני', 'חזק']

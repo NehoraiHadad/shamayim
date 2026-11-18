@@ -18,7 +18,7 @@
 }
 
 .story {
-  font: 400 var(--text-lg) / 1.45 var(--font-serif);
+  font: 500 var(--text-lg) / 1.35 var(--font-serif);
   text-wrap: pretty;
 }
 

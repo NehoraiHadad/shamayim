@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { Place } from '../../config/place'
+import type { RadarOutlook } from '../../domain/outlookNow'
+import { rainVerdict } from '../../domain/rainVerdict'
 import { OverheadMap } from './OverheadMap'
+import { RAIN_MAP } from './rainMapName'
 import { RainLegend, TimeRail } from './TimeRail'
-import { overheadStatus } from './overheadStatus'
-import { frameAge, frameIsStale } from './timing'
+import { overheadStatus, radarState } from './overheadStatus'
+import { clockAt, frameAge, frameIsStale } from './timing'
+import { usePageEnv } from './usePageEnv'
 import { usePlayback } from './usePlayback'
 import { useSwipeClose } from './useSwipeClose'
 import type { Timeline } from './weatherLayers'
 import type { WeatherStatus } from './weatherViewport'
 import styles from './OverheadPage.module.css'
 
-export function OverheadPage({ open, place, story, onClose }: {
+
+interface Rain {
+  /** The radar outlook as of now (null while unknown, or once its frame is too old). */
+  outlook: RadarOutlook | null
+  /** The model's first rainy clock time within three hours. */
+  forecastRainAt: string | null
+  /** The place's clock `minutes` from now. */
+  clockIn: (minutes: number) => string
+}
+
+export function OverheadPage({ open, place, rain, onClose }: {
   open: boolean
   place: Place
-  story: string | null
+  rain: Rain
   onClose: () => void
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
-  const close = useRef<HTMLButtonElement>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
   const title = useId()
 
   useEffect(() => {
@@ -25,7 +39,8 @@ export function OverheadPage({ open, place, story, onClose }: {
     if (!open || !element) return
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     element.showModal()
-    close.current?.focus({ preventScroll: true })
+    // Start where the answer is: a screen reader reads the headline and its detail first.
+    heading.current?.focus({ preventScroll: true })
     return () => {
       element.close()
       const entry = opener?.isConnected ? opener : element.closest('.app')?.querySelector<HTMLElement>('[data-overhead-entry]')
@@ -36,22 +51,19 @@ export function OverheadPage({ open, place, story, onClose }: {
   return (
     <dialog ref={dialog} dir="rtl" aria-labelledby={title} className={styles.dialog}
       onCancel={(event) => { event.preventDefault(); onClose() }}>
-      {open && <OverheadContent place={place} story={story} title={title} close={close} onClose={onClose} />}
+      {open && <OverheadContent place={place} rain={rain} title={title} heading={heading} onClose={onClose} />}
     </dialog>
   )
 }
 
-function OverheadContent({ place, story, title, close, onClose }: {
+function OverheadContent({ place, rain, title, heading, onClose }: {
   place: Place
-  story: string | null
+  rain: Rain
   title: string
-  close: React.RefObject<HTMLButtonElement | null>
+  heading: React.RefObject<HTMLHeadingElement | null>
   onClose: () => void
 }) {
-  const [now, setNow] = useState(Date.now)
-  const [online, setOnline] = useState(() => navigator.onLine)
-  const motion = '(prefers-reduced-motion: reduce)'
-  const [reduced, setReduced] = useState(() => matchMedia(motion).matches)
+  const { now, online, reduced, slow } = usePageEnv()
   const [timeline, setTimeline] = useState<Timeline>()
   const [ready, setReady] = useState(false)
   const [mapFailed, setMapFailed] = useState(false)
@@ -59,51 +71,41 @@ function OverheadContent({ place, story, title, close, onClose }: {
   const onReady = useCallback(() => setReady(true), [])
   const onMapError = useCallback(() => setMapFailed(true), [])
   const frames = timeline?.frames ?? []
-  const { at, choose } = usePlayback(frames.length, ready, reduced)
+  const { at, playing, choose, toggle } = usePlayback(frames.length, ready, reduced)
   const frame = frames[at]
   const radar = frame?.radar ?? null
-  const cloud = frame?.cloud ?? null
-  const stale = frameIsStale(timeline?.latest.radar ?? null, now)
-
-  useEffect(() => {
-    const network = () => setOnline(navigator.onLine)
-    const preference = matchMedia(motion)
-    const changeMotion = () => setReduced(preference.matches)
-    const clock = setInterval(() => setNow(Date.now()), 15_000)
-    window.addEventListener('online', network)
-    window.addEventListener('offline', network)
-    preference.addEventListener('change', changeMotion)
-    return () => {
-      clearInterval(clock)
-      window.removeEventListener('online', network)
-      window.removeEventListener('offline', network)
-      preference.removeEventListener('change', changeMotion)
-    }
-  }, [])
-
-  const status = overheadStatus({
-    online,
-    radarFailed: Boolean((timeline && radar === null) || weather?.radarFailed),
-    cloudFailed: Boolean(weather?.cloudFailed),
-    mapFailed,
-    ready,
-  })
+  const shown = radar ?? frame?.cloud ?? null
+  const latestRadar = timeline?.latest.radar
+  const state = radarState({ online, radarFailed: Boolean(weather?.radarFailed), latestRadar,
+    hasOutlook: Boolean(rain.outlook), slow, now, timezone: place.timezone })
+  const verdict = rainVerdict(state, rain.outlook, rain.clockIn, rain.forecastRainAt)
+  const status = overheadStatus({ online, cloudFailed: Boolean(weather?.cloudFailed), mapFailed, ready })
   const swipe = useSwipeClose(onClose)
+  const time = shown === null ? null
+    : { clock: clockAt(shown, place.timezone), ago: frameAge(shown, now), spoken: frameAge(shown, now, true) }
 
   return (
     <div className={styles.panel}>
       <header className={styles.heading} {...swipe}>
-        <h2 id={title}>מבט מלמעלה</h2>
-        <button type="button" ref={close} className={styles.close} onClick={onClose} aria-label="סגירה">✕</button>
+        <p className={styles.eyebrow}>{RAIN_MAP}</p>
+        <button type="button" className={styles.close} onClick={onClose} aria-label="סגירה">✕</button>
       </header>
-      {/* Always rendered so the panel's grid rows stay put while the radar loads. */}
-      <p className={styles.story} aria-live="polite">{story}</p>
+      <div className={styles.verdict} aria-live="polite" aria-atomic="true">
+        <h2 id={title} ref={heading} tabIndex={-1} className={state.kind === 'loading' ? styles.waiting : undefined}>
+          {verdict.headline}
+        </h2>
+        {verdict.detail && <p className={styles.detail}>{verdict.detail}</p>}
+        {verdict.basis && <p className={styles.basis}>{verdict.basis}</p>}
+      </div>
       <OverheadMap place={place} frame={frame} now={now} onTimeline={setTimeline}
         onReady={onReady} onMapError={onMapError} onStatus={setWeather} />
       <div className={styles.details}>
-        <TimeRail at={at} count={frames.length} age={frameAge(radar ?? cloud, now)} reduced={reduced} choose={choose} />
-        <div className={styles.legend}><RainLegend clear={weather?.echoes === 'clear' && radar !== null} stale={stale} /></div>
-        <p className={styles.ages}>ענן: {frameAge(cloud, now)} · גשם: {frameAge(radar, now)}</p>
+        <TimeRail at={at} count={frames.length} time={time} start={frameAge(frames[0]?.radar ?? frames[0]?.cloud ?? null, now)}
+          playing={playing} toggle={toggle} choose={choose} />
+        <div className={styles.legend}>
+          <RainLegend clear={weather?.echoes === 'clear' && radar !== null} stale={frameIsStale(latestRadar ?? null, now)}
+            clouds={!weather?.cloudFailed} />
+        </div>
         <p className={styles.status} role="status">{status}</p>
       </div>
       <footer className={styles.attribution}>

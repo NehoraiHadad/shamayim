@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clockIn, frameAge, frameIsStale, rainWithinThreeHours } from './timing'
+import { agoText, clockAt, clockIn, frameAge, frameIsStale, rainWithinThreeHours } from './timing'
 
 describe('rain within three hours', () => {
   const now = '2026-11-18T23:15'
@@ -42,5 +42,23 @@ describe('clock in', () => {
   it('rounds to five minutes and crosses midnight', () => {
     expect(clockIn('2026-11-18T15:12', 28)).toBe('15:40')
     expect(clockIn('2026-11-18T23:50', 20)).toBe('00:10')
+  })
+})
+
+describe('picture age in words', () => {
+  it('rounds the way people say it, never "93 דק׳"', () => {
+    expect([3, 7, 22, 58, 76, 93, 118].map((m) => agoText(m)))
+      .toEqual(['עכשיו', 'לפני 5 דק׳', 'לפני 20 דק׳', 'לפני שעה', 'לפני שעה ורבע', 'לפני שעה וחצי', 'לפני שעתיים'])
+    expect(agoText(52)).toBe('לפני 50 דק׳')
+    expect(agoText(180)).toBe('לפני יותר משעתיים')
+  })
+
+  it('spells minutes out for screen readers', () => {
+    expect(agoText(22, true)).toBe('לפני 20 דקות')
+    expect(agoText(76, true)).toBe('לפני שעה ורבע')
+  })
+
+  it('gives the place’s clock for a frame', () => {
+    expect(clockAt(Date.UTC(2026, 10, 18, 12, 40), 'Asia/Jerusalem')).toBe('14:40')
   })
 })

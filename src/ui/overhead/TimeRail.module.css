@@ -1,40 +1,61 @@
 .time {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0 var(--space-3);
-  min-height: 44px;
+  display: grid;
+  justify-items: center;
 }
 
-.age {
+.readout {
+  min-height: 1.6em;
   padding-block-start: var(--space-1);
-  font: 500 var(--text-place) / 1.2 var(--font-serif);
-  min-width: 6ch;
-  text-align: center;
 }
+
+.clock { font: 500 1.25rem / 1.2 var(--font-serif); }
+.ago { color: var(--sheet-muted); font-size: var(--text-sm); }
+
+.controls {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.play {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid color-mix(in srgb, var(--sheet-ink) 25%, transparent);
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  font: 0.875rem / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.play > span { display: inline-block; direction: ltr; }
 
 .rail {
   position: relative;
-  width: 100%;
-  height: 44px;
+  flex: 1;
+  min-width: 0;
 }
 
+/* Track, one tick per frame, and the played part from the oldest frame (right) to the thumb. */
 .rail::before {
   content: '';
   position: absolute;
-  inset: 19px 8px;
+  inset: 16px 12px auto;
+  height: 12px;
   background:
-    repeating-linear-gradient(to left, var(--sheet-muted) 0 1px, transparent 1px var(--step)),
-    linear-gradient(var(--sheet-muted), var(--sheet-muted)) center / 100% 1px no-repeat;
-  border-inline-end: 1px solid var(--sheet-muted);
-  opacity: .65;
+    linear-gradient(to left, var(--sheet-accent) 0 var(--played), transparent var(--played)) center / 100% 2px no-repeat,
+    linear-gradient(color-mix(in srgb, var(--sheet-muted) 65%, transparent), color-mix(in srgb, var(--sheet-muted) 65%, transparent)) center / 100% 2px no-repeat,
+    repeating-linear-gradient(to left, color-mix(in srgb, var(--sheet-muted) 65%, transparent) 0 1px, transparent 1px var(--step)) center / 100% 6px no-repeat;
+  border-inline-end: 1px solid color-mix(in srgb, var(--sheet-muted) 65%, transparent);
   pointer-events: none;
 }
 
 .rail input {
   position: relative;
   appearance: none;
+  display: block;
   width: 100%;
   height: 44px;
   padding: 0;
@@ -44,50 +65,60 @@
   touch-action: none;
 }
 
-.rail input::-webkit-slider-runnable-track { height: 16px; }
-.rail input::-moz-range-track { height: 16px; }
+.rail input::-webkit-slider-runnable-track { height: 24px; }
+.rail input::-moz-range-track { height: 24px; }
 
 .rail input::-webkit-slider-thumb {
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   border: 2px solid var(--sheet);
   border-radius: 50%;
   background: var(--sheet-accent);
 }
 
 .rail input::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 20px;
+  height: 20px;
   border: 2px solid var(--sheet);
   border-radius: 50%;
   background: var(--sheet-accent);
 }
 
-.time button {
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  font: 1.5rem / 1 var(--font-sans);
-  cursor: pointer;
+.ends {
+  display: flex;
+  justify-content: space-between;
+  margin-block-start: -6px;
+  color: var(--sheet-muted);
+  font-size: var(--text-sm);
+  line-height: 18px;
 }
 
-.time button:disabled { opacity: .5; cursor: default; }
-.time button > span { display: inline-block; direction: ltr; }
-
-.time button:focus-visible,
+.play:focus-visible,
 .rail input:focus-visible {
   outline: 2px solid var(--sheet-ink);
   outline-offset: 2px;
 }
 
-.legend { display: inline-flex; gap: .25em; }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+
 .legend i {
   display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-inline-end: .25em;
+  width: 14px;
+  height: 14px;
   border: 1px solid color-mix(in srgb, var(--sheet-ink) 30%, transparent);
+  border-radius: 3px;
 }
+
+.legend .cloud { background: var(--map-cloud); }
+.legend[data-stale] i { filter: grayscale(1); }

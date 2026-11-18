@@ -16,7 +16,7 @@ import { useTerrain } from './data/terrain/terrain'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
 import { sightingsNow } from './domain/cloudSightings'
-import { rainSentence } from './domain/rainSentence'
+import { entryHeadline, rainIsNear } from './domain/rainVerdict'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
@@ -94,9 +94,11 @@ export default function App() {
   const darkSheet = forced ? DARK_SHEET.has(themeId) : paper.dark
   const overhead = useOverheadDialog()
   const modelRain = forecast ? firstRainHour(forecast.hours, now) : undefined
-  // The radar's plain-words story of the rain nearby; the model only fills in when the radar sees nothing close.
-  const rainStory = outlook ? rainSentence(outlook, (m) => clockIn(now, m), modelRain?.time.slice(11, 16) ?? null) : null
-  const rainy = Boolean(modelRain) || Boolean(outlook && (outlook.now || outlook.arrivesIn !== null || (outlook.nearest?.km ?? 999) <= 80))
+  // The radar's verdict on the rain nearby; the model only fills in when the radar sees nothing close.
+  const rain = useMemo(() => ({ outlook, forecastRainAt: modelRain?.time.slice(11, 16) ?? null,
+    clockIn: (m: number) => clockIn(now, m) }), [outlook, modelRain, now])
+  const rainHeadline = entryHeadline(outlook, rain.clockIn, rain.forecastRainAt)
+  const rainy = Boolean(modelRain) || rainIsNear(outlook)
   useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
   const classes = ['app', darkSheet ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
@@ -151,16 +153,16 @@ export default function App() {
           />
           <div className="paper" data-intro="sheet">
             <Sheet>
-              <OverheadEntry rainy={rainy} story={rainStory} position="top" onOpen={overhead.show} />
+              <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />
               <WearCard tip={wear} />
               <WeekList forecast={forecast} now={now} />
-              <OverheadEntry rainy={rainy} story={rainStory} position="bottom" onOpen={overhead.show} />
+              <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
             </Sheet>
             <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
           </div>
         </div>
       )}
-      <OverheadPage open={overhead.open} place={place} story={rainStory} onClose={overhead.close} />
+      <OverheadPage open={overhead.open} place={place} rain={rain} onClose={overhead.close} />
     </div>
   )
 }
