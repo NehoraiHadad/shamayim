@@ -51,8 +51,10 @@ const smooth = (v: number) => { const k = Math.min(1, Math.max(0, v)); return k 
 export function altitudeY(skyline: Skyline, x: number, altitude: number): number {
   const ridge = skyline(x)
   if (altitude <= 0) return ridge - SINK * altitude
-  // The base only ever rises (ridge → the arc's own base), so the path never dips on its way up or down.
-  const arcBase = Math.min(ridge, Math.max(skyline.peak, ARC_FLOOR))
+  // The base only ever rises (ridge → the arc's own base), so the path never dips on its way up or down. It is one height
+  // for the whole arc: the highest ridge point, or the floor if that is lower. (It used to be the ridge under x wherever
+  // the ridge stood above the floor, so on a high bumpy ridge (Jerusalem) the moon's arc copied the bumps.)
+  const arcBase = Math.min(ridge, skyline.peak, ARC_FLOOR)
   const base = ridge + (arcBase - ridge) * smooth(altitude / 15)
   const top = Math.min(SKY_TOP, arcBase - MIN_RISE)
   return base - (base - top) * Math.sin(altitude * RAD) ** 0.8
