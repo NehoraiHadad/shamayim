@@ -53,6 +53,22 @@ npm test           # allowlist, cache key, cache/stale/coalescing, CORS
 npx wrangler deploy
 ```
 
+**Order when the app asks Open-Meteo for something new** (a new hourly/current variable, a new parameter): the Worker
+refuses any name it does not list, so a production app that sends it before the Worker knows it gets 400 for every
+forecast (this took the forecast down on 2026-11-18). Always:
+
+1. Add the name to the Worker's allowlist (`worker/src/routes.ts`) and its test; merge to `main`. The Worker accepts
+   any subset of its list, so the app already in production keeps working.
+2. Deploy the Worker: `cd worker && npm ci && npm test && npx wrangler deploy` (needs `npx wrangler login` once on the
+   machine; the account is chosen there, nothing secret is in the repo).
+3. Check the deployed Worker answers the new query (example below), then merge the app change. Pages builds `main`.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev" \
+  "https://shamayim-api.nehoraihadad.com/v1/forecast?latitude=32.348&longitude=35.535&hourly=cloud_cover_high"
+# 200 = the Worker knows the name; 400 = not deployed yet (do not merge the app change)
+```
+
 ## Structure
 
 See [docs/PLAN.md](docs/PLAN.md) for the architecture and decisions, and [TASKS.md](TASKS.md) for status.

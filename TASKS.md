@@ -658,6 +658,9 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
       the Worker allowlist + `wrangler deploy` first — not done
 - [x] Day moon: 50 % (half) to 80 % (full) of its night strength instead of a flat 35 %, near-white not pale blue,
       seas faintly kept; hidden by day only as a thin crescent (< 15 %) or above 85 % cloud
+- [~] Cloud layers for the moon (owner asked). Step 1 done on `main`: Worker allowlist takes `cloud_cover_low/mid/high`
+      (hourly + current). Step 2: **deploy the Worker** (README, "Order when the app asks Open-Meteo for something new").
+      Step 3: merge branch `feat/moon-cloud-layers` (the app asks for the layers) only after the curl check gives 200
 - [x] Checked: the moon rising before sunset is real (first quarter → full). Test `moonrise through the month`:
       Shadmot Nov 2026 rises 06:14 new moon, 12:20 first quarter, 16:15 full, 23:02 last quarter. Still `moon-visibility.png`
 

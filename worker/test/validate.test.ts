@@ -54,6 +54,14 @@ describe('canonicalQuery', () => {
     if (result.ok) expect(result.query).toBe(APP_FORECAST.toString())
   })
 
+  it('accepts the cloud layers as well as the query without them (old and new app both pass)', () => {
+    const layered = new URLSearchParams(APP_FORECAST)
+    layered.set('hourly', `${APP_FORECAST.get('hourly')},cloud_cover_low,cloud_cover_mid,cloud_cover_high`)
+    layered.set('current', `${APP_FORECAST.get('current')},cloud_cover_low,cloud_cover_mid,cloud_cover_high`)
+    expect(query(forecast, layered).ok).toBe(true)
+    expect(query().ok).toBe(true)
+  })
+
   it('accepts both ends of the 15-minute forecast range', () => {
     for (const n of [1, 16]) {
       const p = new URLSearchParams(APP_FORECAST)
