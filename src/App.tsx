@@ -6,11 +6,13 @@ import { Life } from './atmo/life/Life'
 import { mapLife } from './atmo/life/mapLife'
 import { mapMarks } from './atmo/life/mapMarks'
 import { useLandmarks } from './data/landmarks/useLandmarks'
+import { useObservedCloud } from './data/overhead/useObservedCloud'
 import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
 import { rollForward } from './domain/now'
+import { withObservedCloud } from './domain/observedCloud'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
@@ -43,7 +45,9 @@ export default function App() {
   const terrain = useTerrain(place)
   const landmarks = useLandmarks(place)
   const now = useNow(place.timezone)
-  const forecast = useMemo(() => (raw ? rollForward(raw, now) : null), [raw, now])
+  const observed = useObservedCloud(place)
+  // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
+  const forecast = useMemo(() => (raw ? withObservedCloud(rollForward(raw, now), observed, now) : null), [raw, now, observed])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
   const forced = forcedTheme()
   const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')
