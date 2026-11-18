@@ -74,6 +74,12 @@ describe('mergePlaceResults', () => {
       place('unique', 'כרמי צור', 31.6092, 35.1009)]
     expect(mergePlaceResults(open, osm).map(({ id }) => id)).toEqual(['open', 'unique'])
   })
+
+  it('puts places in the land first: ערד in the Negev before ערד in Romania', () => {
+    const open = [place('arad-ro', 'ערד', 46.18, 21.31), place('arad-il', 'ערד', 31.26, 35.21)]
+    expect(mergePlaceResults(open, []).map(({ id }) => id)).toEqual(['arad-il', 'arad-ro'])
+    expect(mergePlaceResults([open[0]], [open[1]]).map(({ id }) => id)).toEqual(['arad-il', 'arad-ro'])
+  })
 })
 
 describe('searchPlaces', () => {
