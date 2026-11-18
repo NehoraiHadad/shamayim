@@ -457,9 +457,25 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
       `docs/design/qa/radar-fixture-{arrive,here,pass,far,still,none}.png` (night sheet)
 - QA in this cloud sandbox: run vite with `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` (Open-Meteo
   answers 429 here) and give Playwright's Chromium the agent proxy
-- [ ] Seen while testing: in headless mobile emulation the opening play-through sometimes stops on an old frame
-      (rAF); step B6 replaces it with a timer chain, check again there
-- [ ] Phase B (P0): verdict + rename, time, playback, marker + labels, colours + legend in both themes
+- [x] B4 Verdict: `src/domain/rainVerdict.ts` (headline + detail + basis, 14 states, replaces `rainSentence.ts`); the
+      headline is the dialog's h2 and takes focus; page renamed "מפת גשם ועננים"; the sheet's row shows the headline
+- [x] B5 Time: "21:40 · לפני שעה וחצי" (clock first, `agoText` rounding), rail end labels, 24 px thumb; ages line gone
+- [x] B6 Playback: timer chain (`playbackPlan.ts`), 400 ms a frame, rests on the newest; play/pause loops ≤ 3; reduced
+      motion: no autoplay, one pass at 800 ms. The headless rAF stall seen in A3 is gone with the rAF loop
+- [x] B7 Place disc + name, ring ink #4F6578 / #9DB0C4, "50 ק״מ" (25 after zoom). Ring labels at the EAST point,
+      not south as planned: the south point collided with Jerusalem's label
+- [x] B8 Rain ladders light/dark (Fable's values), slate cloud veil at night, theme change reloads weather tiles,
+      `radarWash.contrast.test.ts`; legend lists clouds. Stills `radar-ux-day.png`, `radar-ux-night.png`
+- [x] C9 Motion arrow (`motionArrow.ts`, newest frame only). Stills `radar-ux-arrow-{arrive,pass}.png`
+- [x] C10 Hidden map sentence, canvas label; checked in Chromium's accessibility tree and Tab order
+- [x] D11 Edge chip toward rain off the map (≤ 265 km, `edgePointer.ts`). Still `radar-ux-pointer.png`
+- [x] D12 Entry row: headline + "למפת הגשם ‹" (done with B4)
+- QA opens the page by clicking `[data-overhead-entry]` (the old click text "מבט מלמעלה" is gone)
+- [ ] Not verified: a real rainy day (Israel coverage, clutter, real motion, wash alphas on real tiles); VoiceOver /
+      TalkBack on a device; a real phone; a real sunset theme change while the page is open (the tile reload was
+      checked by toggling the class by hand)
+- [ ] Later, decided on a rainy day: nowcast frames on the rail (rejected for now), the 60-min motion baseline, and
+      using the strongest band near the nearest echo (its edge reads "light" for a heavy storm)
 ## Illustration round — snow, small fixes, sun/moon — 2026-11-18 (branch `claude/illustration-round-81b0d0`)
 - [x] Snow caps (`snowLine.ts`, `SnowCap.tsx`): only while it snows (codes 71–77, 85–86 or snowfall > 0); snow line =
       min(place, place + (T − 2 °C) / 6.5 °C·km⁻¹) − up to 100 m with intensity, mapped through the sampled ridge

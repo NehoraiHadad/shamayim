@@ -1,5 +1,9 @@
 # Radar page UX — merged plan (2026-11-18)
 
+**Status: steps 1–12 done** (see TASKS.md, "Rain map UX"). Step 13 waits for a rainy day. Changed on the way:
+ring labels sit at the rings' eastern point (the south point hit Jerusalem's label); the off-screen chip shows up to
+265 km (what the nowcast grid covers) and slides below the place's row when it lands on the ring labels.
+
 Merges `radar-ux-fable.md` (design lane, Fable) and `radar-ux-tech.md` (engineering lane). Brief:
 `docs/briefs/radar-ux.md`. Where they disagree, the decision here is final. Exact values this file does not repeat
 (copy table, colours, sizes) come from the Fable review; file layout, data changes and tests come from the tech review.
