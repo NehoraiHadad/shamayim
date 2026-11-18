@@ -329,6 +329,10 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   `Sheet.tsx`, stroke removed; clothesline cleats moved into it (`END_Y −6`). Brief: `docs/design/seam-brief.md`.
   Sun: `sunAt` is now one sine arc from the rise-ridge to the set-ridge y (no dip/kink at the horizon), accelerating below
   it after set. Twilight glow ramps up to each event and down after it (no pop at sunrise/sunset).
+- [x] Sky colours after real skies (2026-11-18): `skyLight.ts` anchors re-drawn. The sky turns blue once the sun is up
+  (was magenta-mauve until 4°); rose/orange only low on the horizon from −9° to +3° (dawn pinker, dusk more orange); the
+  clear-day horizon is pale whitish blue (`clearDay` top #11519B, horizon #BBD5EC, was beige all day); ridges lose the twilight tint by
+  +6° (was +10°). Per-0.5° continuity and ≥4.5 text contrast still tested. QA: `docs/design/qa/sky-real-0630.jpg`, `sky-real-1650.png`.
 - [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,

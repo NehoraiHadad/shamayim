@@ -22,13 +22,22 @@ const smoothstep = (lo: number, hi: number, value: number) => {
 
 type ColorRow = readonly [number, string, string, string]
 
+/**
+ * Clear-sky zenith / mid / horizon by sun altitude, after real skies: deep blue night; blue hour with a rose band low on
+ * the horizon (dawn pinker, dusk more orange); a warm horizon only in the few degrees around sunrise and sunset; then a
+ * quick turn to blue once the sun is up, with a pale whitish-blue horizon by day (beige comes only from haze or dust).
+ */
 function anchors(rising: boolean): ColorRow[] {
+  const dawn = rising
   return [
-    [-18, '#070B1E', '#131C3F', '#2A2F5C'], [-12, '#0B1230', '#1C2452', '#3A3A6A'],
-    [-6, '#1A2248', '#5A3A66', '#C9785A'],
-    rising ? [-2, '#1F2A52', '#7E3F62', '#F6B26B'] : [-2, '#2B2350', '#7E3A5E', '#F2994A'],
-    [0, '#24376E', '#8A4A66', '#F8BE78'], [4, '#1B4480', '#4A6A9C', '#F3CF98'],
-    [10, '#124A90', '#2F70B0', '#EDD5AC'], [20, '#0E4C96', '#2A74B8', '#E9D3A8'],
+    [-18, '#070B1E', '#131C3F', '#2A2F5C'], [-12, '#0A1130', '#19234F', '#33386A'],
+    [-9, '#0F1840', '#24305E', dawn ? '#604C78' : '#604874'],
+    [-6, '#14214F', '#363D72', dawn ? '#8C6282' : '#925C70'],
+    [-4, '#17275A', dawn ? '#40467E' : '#463F78', dawn ? '#B27882' : '#BA6C68'],
+    [-2, '#1C2F66', dawn ? '#4A5088' : '#504C84', dawn ? '#D69482' : '#DC845E'],
+    [0, '#20387A', dawn ? '#4E5C94' : '#565A8E', dawn ? '#F2AE84' : '#F29B5E'],
+    [3, '#22427F', '#3F649E', '#F5CB9C'], [7, '#1E4D90', '#3A6CA8', '#E6DCC6'],
+    [12, '#18559E', '#3570AE', '#CFDFEC'], [25, '#11519B', '#3172B0', '#BBD5EC'],
   ]
 }
 
@@ -46,7 +55,8 @@ function semantic(altitude: number, rising: boolean, field: keyof SkyLight): str
   const twilight = rising ? SKY_THEMES.dawn : SKY_THEMES.dusk
   if (altitude <= -12) return SKY_THEMES.night[field]
   if (altitude < -2) return mixOklab(SKY_THEMES.night[field], twilight[field], (altitude + 12) / 10)
-  if (altitude < 10) return mixOklab(twilight[field], SKY_THEMES.clearDay[field], (altitude + 2) / 12)
+  // Once the sun is up the land is lit: the twilight tint is gone by 6°, not an hour later.
+  if (altitude < 6) return mixOklab(twilight[field], SKY_THEMES.clearDay[field], (altitude + 2) / 8)
   return SKY_THEMES.clearDay[field]
 }
 

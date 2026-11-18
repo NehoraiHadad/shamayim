@@ -26,7 +26,7 @@ export const SKY_THEMES: Record<ThemeId, SkyTheme> = {
     sheet: '#FAF1EC', sheetAccent: '#8E4A6E', ...dayInk,
   },
   clearDay: {
-    top: '#0E4C96', mid: '#2A74B8', horizon: '#E9D3A8', ink: '#FFFFFF', accent: '#FFD23F',
+    top: '#11519B', mid: '#3172B0', horizon: '#BBD5EC', ink: '#FFFFFF', accent: '#FFD23F',
     ridgeFar: '#5B6F86', ridgeNear: '#2E3B4E',
     sheet: '#F3F5F7', sheetAccent: '#2A6AA8', ...dayInk,
   },
