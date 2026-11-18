@@ -1,6 +1,6 @@
 import type { GroundSample } from './panorama'
 
-// Preserve 0.02° steps around the horizon and use coarser steps for steep slopes.
+// Preserve 0.02Â° steps around the horizon and use coarser steps for steep slopes.
 const encode = (angle: number) => 1024 + Math.sign(angle) * (
   Math.abs(angle) <= 18 ? Math.round(Math.abs(angle) * 50) : 900 + Math.round((Math.abs(angle) - 18) * 1.5)
 )
