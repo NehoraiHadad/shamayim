@@ -17,6 +17,7 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
   const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
+  const snowDepth = pairs(hourly, 'snow_depth', length, 'hourly')
   const dates = [...new Set(time.map((value, index) => str(value, `hourly.time[${index}]`).slice(0, 10)))]
   const todayIndex = dates.indexOf(today)
 
@@ -36,6 +37,7 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
       windSpeed: blendNumber(windSpeed[index], weight) ?? 0,
       windGusts: blendNumber(windGusts[index], weight) ?? 0,
       humidity: blendNumber(humidity[index], weight),
+      snowDepth: blendNumber(snowDepth[index], weight) ?? 0,
     }]
   })
 }

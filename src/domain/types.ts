@@ -36,6 +36,8 @@ export interface HourPoint {
   windGusts: number
   /** Relative humidity, 0–100; null when unavailable. */
   humidity: number | null
+  /** Snow lying on the ground at the end of the hour, metres (0 when none or unknown). */
+  snowDepth: number
 }
 
 export interface DayPoint {

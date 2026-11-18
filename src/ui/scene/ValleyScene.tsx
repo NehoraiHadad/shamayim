@@ -104,7 +104,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       aria-label={label}
       data-scene
       {...afterglow}
-      data-haze={air.haze.farFade > 0.5 || (snow && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
+      data-haze={air.haze.farFade > 0.5 || (snow?.falling && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2),
         ...world?.style } as CSSProperties}
     >

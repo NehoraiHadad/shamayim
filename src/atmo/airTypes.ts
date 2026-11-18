@@ -17,6 +17,8 @@ export interface AirInput {
   precipitation: number
   /** cm/h */
   snowfall: number
+  /** Snow lying on the ground, metres. */
+  snowDepth: number
   /** km, null when unknown */
   visibilityKm: number | null
   /** µg/m³, null when unknown */

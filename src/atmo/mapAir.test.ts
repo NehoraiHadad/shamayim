@@ -6,7 +6,7 @@ import { visibilityKm, windU } from './mapParts'
 const calmDay: AirInput = {
   date: '2026-05-10', localHour: 12, humidity: 40,
   temperature: 22, feelsLike: 22, cloudCover: 0, windSpeed: 6, windGusts: 12, windDirection: 300,
-  precipitation: 0, snowfall: 0, visibilityKm: 30, pm10: 20, dust: null, weatherCode: 0,
+  precipitation: 0, snowfall: 0, snowDepth: 0, visibilityKm: 30, pm10: 20, dust: null, weatherCode: 0,
   sunElevation: 40, preview: false,
 }
 const air = (over: Partial<AirInput>) => mapAir({ ...calmDay, ...over })

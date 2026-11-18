@@ -25,7 +25,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
 /**
  * The input for "now", or for a selected hour (a preview). A preview takes rain, cloud,
- * wind and temperature from that hour and holds direction, snow and visibility from now.
+ * wind, temperature and lying snow from that hour and holds direction, falling snow and visibility from now.
  */
 export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, selected: LocalTime | null): AirInput {
   const c = forecast.current
@@ -35,11 +35,13 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
   const fraction = selected ? Number(selected.slice(14, 16)) / 60 : 0
   const at = hour ? selected! : now
   const a = airAt(forecast.air, at)
+  const ground = hour ?? forecast.hours.find((h) => h.time === `${now.slice(0, 13)}:00`)
   const base = {
     date: datePart(at),
     localHour: Number(at.slice(11, 13)) + Number(at.slice(14, 16)) / 60,
     windDirection: c.windDirection,
     snowfall: c.snowfall,
+    snowDepth: ground?.snowDepth ?? 0,
     visibilityKm: c.visibility === null ? null : c.visibility / 1000,
     pm10: a?.pm10 ?? null,
     dust: a?.dust ?? null,

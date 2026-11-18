@@ -6,7 +6,7 @@ import { mapMarks } from './mapMarks'
 const input: AirInput = {
   date: '2026-11-17', localHour: 12, humidity: 40, temperature: 24, feelsLike: 24,
   cloudCover: 0, windSpeed: 6, windGusts: 6, windDirection: 270, precipitation: 0,
-  snowfall: 0, visibilityKm: 40, pm10: 10, dust: 0, weatherCode: 0, sunElevation: 45, preview: false,
+  snowfall: 0, snowDepth: 0, visibilityKm: 40, pm10: 10, dust: 0, weatherCode: 0, sunElevation: 45, preview: false,
 }
 const life = (changes: Partial<AirInput>, airChanges: Partial<AirState> = {}) => {
   const value = { ...input, ...changes }

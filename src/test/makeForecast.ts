@@ -34,6 +34,7 @@ export function makeForecast(
         windGusts: 15,
         ...overrides,
         humidity: overrides.humidity === undefined ? 40 : overrides.humidity,
+        snowDepth: overrides.snowDepth ?? 0,
       })
     }
     return {

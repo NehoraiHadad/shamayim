@@ -8,7 +8,7 @@ const base: AirInput = {
   date: '2026-10-25', localHour: 12, humidity: 40,
   temperature: 22, feelsLike: 22, cloudCover: 0,
   windSpeed: 6, windGusts: 6, windDirection: 270,
-  precipitation: 0, snowfall: 0, visibilityKm: 30,
+  precipitation: 0, snowfall: 0, snowDepth: 0, visibilityKm: 30,
   pm10: 20, dust: null, weatherCode: 0, sunElevation: 45, preview: false,
 }
 const state = (over: Partial<AirInput> = {}, change?: (air: AirState) => AirState) => {

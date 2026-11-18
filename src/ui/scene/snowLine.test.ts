@@ -24,6 +24,20 @@ describe('snowFall', () => {
     const valley = snowFall({ weatherCode: 73, snowfall: 0, temperature: 1 }, -175)!
     expect(valley.lineM).toBeLessThan(-175)
   })
+
+  it('keeps a cover after the fall while snow lies on the ground, deeper reaching lower', () => {
+    const thin = snowFall({ ...dry, temperature: 4, snowDepth: .05 }, 1100)!
+    const deep = snowFall({ ...dry, temperature: 4, snowDepth: .5 }, 1100)!
+    expect(thin.falling).toBe(false)
+    expect(thin.lineM).toBeLessThanOrEqual(1100)
+    expect(deep.lineM).toBeLessThan(thin.lineM)
+    expect(deep.amount).toBeGreaterThan(thin.amount)
+  })
+
+  it('takes no cap from patches under a centimetre, and is falling while it snows', () => {
+    expect(snowFall({ ...dry, snowDepth: .005 }, 1100)).toBeNull()
+    expect(snowFall({ ...dry, weatherCode: 73, snowDepth: .2 }, 1100)!.falling).toBe(true)
+  })
 })
 
 describe('heightY', () => {

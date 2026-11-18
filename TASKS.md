@@ -527,6 +527,10 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       Eilat, Majdal Shams at dawn/noon/dusk/night hold up. Snow made to read everywhere: nearly opaque (.82–.98),
       whiter, drawn under the ridge light and floor shadow so caps take the same sun and shade; floor shadow
       blue-black, wider blur, slivers < 12 units dropped (they were grey blots on snow). Still `sampled-places-snow.png`
+- [x] Lying snow (Claude): hourly `snow_depth` (m, ICON + ECMWF blended) → `HourPoint.snowDepth` → `AirInput.snowDepth`;
+      `snowFall` caps while snow lies ≥ 1 cm, after the fall too, melting as the depth does; the cover reaches
+      100 m + 300 m × (depth/30 cm) below the place. `falling` flag: only falling snow thickens the air (heavy haze).
+      Dev `?wx=depth:0.3`. Still `snow-lying.png` (Majdal 40 cm | 3 cm, Jerusalem 10 cm morning | dusk)
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18
