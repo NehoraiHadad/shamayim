@@ -1,10 +1,13 @@
-import { HORIZON_Y, SCENE_W } from './sunPath'
+import { HORIZON_Y, SCENE_W } from './sceneBox'
 
-/** y (px) of the highest drawn ridge at a horizontal fraction of the scene (0 = west/left). */
-export type Skyline = (x: number) => number
+/** y (px) of the highest drawn ridge at a horizontal fraction of the scene (0 = west/left); `peak` is its highest y. */
+export interface Skyline {
+  (x: number): number
+  peak: number
+}
 
 /** Fallback when no ridge is known: the old fixed horizon line. */
-export const FLAT_SKYLINE: Skyline = () => HORIZON_Y
+export const FLAT_SKYLINE: Skyline = Object.assign(() => HORIZON_Y, { peak: HORIZON_Y })
 
 /** The zenith's y: high enough that a summer noon sun still shows its whole halo. */
 const SKY_TOP = 12
@@ -12,7 +15,7 @@ const RAD = Math.PI / 180
 
 /** The ridge line a body rises from: the upper of the far and near ridges at each x (viewBox coordinates). */
 export function skylineOf(...ridges: readonly (readonly [number, number])[][]): Skyline {
-  return (fraction) => {
+  const at = (fraction: number) => {
     const x = fraction * SCENE_W
     let top = Number.POSITIVE_INFINITY
     for (const points of ridges) {
@@ -25,10 +28,14 @@ export function skylineOf(...ridges: readonly (readonly [number, number])[][]): 
     }
     return Number.isFinite(top) ? top : HORIZON_Y
   }
+  const peak = Math.min(...Array.from({ length: 76 }, (_, i) => at(i / 75)))
+  return Object.assign(at, { peak })
 }
 
-/** Above this line the bodies share one arc, so a dip in the ridge line does not flatten the sun's path. */
-const ARC_Y = 46
+/** The shared arc stands on the highest ridge point (never lower than this, to keep room for the arc itself). */
+const ARC_FLOOR = 28
+/** Below the horizon a body sinks this many px per degree, so it slips behind the ridge instead of vanishing on it. */
+const SINK = 3
 const smooth = (v: number) => { const k = Math.min(1, Math.max(0, v)); return k * k * (3 - 2 * k) }
 
 /**
@@ -37,7 +44,9 @@ const smooth = (v: number) => { const k = Math.min(1, Math.max(0, v)); return k 
  */
 export function altitudeY(skyline: Skyline, x: number, altitude: number): number {
   const ridge = skyline(x)
-  const base = ridge + (Math.min(ridge, ARC_Y) - ridge) * smooth(altitude / 15)
-  const lift = Math.sign(altitude) * Math.abs(Math.sin(altitude * RAD)) ** 0.8
-  return base - (base - SKY_TOP) * lift
+  if (altitude <= 0) return ridge - SINK * altitude
+  // The base only ever rises (ridge → the arc's own base), so the path never dips on its way up or down.
+  const arcBase = Math.min(ridge, Math.max(skyline.peak, ARC_FLOOR))
+  const base = ridge + (arcBase - ridge) * smooth(altitude / 15)
+  return base - (base - SKY_TOP) * Math.sin(altitude * RAD) ** 0.8
 }

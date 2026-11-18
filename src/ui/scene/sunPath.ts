@@ -2,16 +2,12 @@ import { daylightFraction } from '../../domain/time'
 import type { LocalDate, LocalTime } from '../../domain/types'
 import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
 
-/** Scene drawing box (px). The SVG stretches horizontally; heights are fixed. */
-export const SCENE_W = 375
-export const SCENE_H = 128
-/** y of the sea-level line and of the valley floor where the village sits. */
-export const SEA_Y = 72
-export const FLOOR_Y = 96
+import { SCENE_W } from './sceneBox'
+export { FLOOR_Y, HORIZON_Y, SCENE_H, SCENE_W, SEA_Y } from './sceneBox'
+
 /** Sun path: rises behind the Gilead (east, right) and sets behind Samaria (west, left). */
 const RISE_X = 322
 const SET_X = 53
-export const HORIZON_Y = 70
 
 /** Solar declination in degrees for a date (simple cosine model, ±0.5°). */
 export function declination(date: LocalDate): number {
@@ -41,15 +37,19 @@ export function sunAt(t: number, date: LocalDate, lat: number, skyline: Skyline 
   return { t, x, y: altitudeY(skyline, x, altitude) }
 }
 
-/** Where the sun is at `time`, or null when it is below the horizon. */
+/**
+ * Where the sun is at `time`, or null when it is below the horizon. `margin` (a share of the day) keeps a point a little
+ * past sunrise and sunset, below the ridge, so the drawn disc sinks behind it instead of vanishing on it.
+ */
 export function sunPosition(
   time: LocalTime,
   sunrise: LocalTime,
   sunset: LocalTime,
   lat: number,
   skyline: Skyline = FLAT_SKYLINE,
+  margin = 0,
 ): SunPoint | null {
   const t = daylightFraction(time, sunrise, sunset)
-  if (t < 0 || t > 1) return null
+  if (t < -margin || t > 1 + margin) return null
   return sunAt(t, time.slice(0, 10), lat, skyline)
 }

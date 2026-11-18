@@ -39,7 +39,7 @@ describe('moonLook', () => {
     expect(moonLook(night)).toMatchObject({ opacity: 1, daylight: 0, ring: false })
   })
   it('hides below the ridges and under thick cloud', () => {
-    expect(moonLook({ ...night, altitude: -3 })).toBeNull()
+    expect(moonLook({ ...night, altitude: -5 })).toBeNull()
     expect(moonLook({ ...night, cloudCover: 90 })).toBeNull()
   })
   it('by day: pale and weak, and not as a thin crescent or under cloud', () => {

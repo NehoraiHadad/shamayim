@@ -2,7 +2,8 @@
   position: relative;
   height: 128px;
   margin: 0 -16px;
-  overflow: hidden;
+  /* Clipped at the sides and bottom only: the sun's halo may spread up into the sky above (behind the strip's text). */
+  clip-path: inset(-72px 0 0 0);
   color: var(--ink);
   pointer-events: none;
 }

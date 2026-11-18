@@ -1,5 +1,5 @@
 import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
-import { SCENE_W } from './sunPath'
+import { SCENE_W } from './sceneBox'
 
 /** Where a body at (altitude, azimuth) sits in the scene: the same east–west projection the sun's arc uses. */
 export interface ScenePoint {
@@ -55,7 +55,7 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
  * Cloud veils it through opacity only (gone at about 85% cover); haze takes it with the far ridge.
  */
 export function moonLook(o: { altitude: number; fraction: number; sunAltitude: number; cloudCover: number; farFade: number }): MoonLook | null {
-  if (o.altitude < -1.5) return null
+  if (o.altitude < -4) return null
   // −4° → night, +4° → day; in between the moon fades from bone to a pale disc at a third of its strength.
   const daylight = clamp01((o.sunAltitude + 4) / 8)
   if (daylight > 0.5 && (o.fraction < 0.15 || o.cloudCover > 60)) return null

@@ -40,6 +40,9 @@ bdi {
 }
 
 .sky-area {
+  /* Above the valley scene, so the sun's halo glows behind the strip's text, not over it. */
+  position: relative;
+  z-index: 1;
   padding: calc(env(safe-area-inset-top) + 8px) var(--gutter) 0;
 }
 

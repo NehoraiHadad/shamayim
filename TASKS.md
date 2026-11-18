@@ -314,6 +314,11 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   The paper's top is now a low drawn bank (`Sheet.tsx`, SVG in `--sheet` with a hairline contour); the clothesline's tabs moved
   up 3 px onto it. The scrub readout sits on its own dark pill 20 px up (it was clipped under the sheet's 14 px overlap).
   QA: `docs/design/qa/bank-dawn.png`, `readout-pill.png`. Unverified on a phone; the bank path is a first shape to tune.
+- [x] Sun path polish (2026-11-18): the arc's base only rises (ridge at 0° → the highest ridge point, floor y 28, by 15°), so
+  the path no longer dips where the ridge below it drops; below the horizon a body sinks 3 px/° and the drawn sun is kept 8% of
+  a day past rise/set, so it slips behind the ridge instead of vanishing on it (moon until −4°). The scene clips only its
+  sides and bottom (`clip-path`), so the noon halo spreads up behind the strip (`.sky-area` z-index 1). Scene box constants
+  moved to `ui/scene/sceneBox.ts` (broke a sunPath ↔ skyline import cycle). QA: `docs/design/qa/sun-halo-noon.png`.
 - [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,

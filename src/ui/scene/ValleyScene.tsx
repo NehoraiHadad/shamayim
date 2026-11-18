@@ -61,6 +61,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const skyline = useMemo(() => skylineOf(terrain.farPoints, terrain.nearPoints), [terrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline) : null
+  const disc = day ? sunPosition(at, day.sunrise, day.sunset, lat, skyline, 0.08) : null
   const glow = twilight(day, at)
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
@@ -93,7 +94,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       {glow && <div className={`${styles.glow} ${styles[glow.side]}`} style={{ opacity: glow.opacity }} />}
       <Moon at={at} timeZone={place.timezone} lat={place.lat} lon={place.lon} cloudCover={cloudCover}
         farFade={air.haze.farFade} skyline={skyline} />
-      <Sun point={sun} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin} />
+      <Sun point={disc} date={datePart(at)} lat={lat} skyline={skyline} cloudCover={cloudCover} coin={air.sunCoin} />
       <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {air.heat.amplitude > 0 && <Shimmer id={shimmerId} amplitude={air.heat.amplitude} />}
         <path d={terrain.far} className={styles.far} filter={air.heat.amplitude > 0 ? `url(#${shimmerId})` : undefined} />
