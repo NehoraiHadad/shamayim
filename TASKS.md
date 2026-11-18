@@ -445,6 +445,21 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
       miss small cumulus often; cloud-top height (`msg_fes:cth`, same 15 min) could set the height instead of 2 km
 - [ ] Later: proxy RainViewer/EUMETSAT through the Worker cache; NASA MODIS/VIIRS "photo of the day" layer (offered)
 
+
+## Rain map UX — 2026-11-18 (plan: `docs/design/RADAR-UX-PLAN.md`)
+- [x] Reviews: `docs/design/radar-ux-fable.md` (design, Fable), `radar-ux-tech.md` (engineering); merged into the plan
+- [x] A1 Splits, no visible change: `mapPaper.ts`, `useSwipeClose.ts`, `overheadStatus.ts` (+test), `geo.ts` (+test)
+- [x] A2 Outlook truth: `outlookNow` re-ages every minute and drops the outlook once the newest radar frame is over
+      45 min old (before, offline kept "rain in 25 min" forever); `rainOutlook` gains `approach` (where the arriving
+      rain is at frame time)
+- [x] A3 `?rain=` fixture (`src/data/overhead/syntheticRain.ts`, DEV only, not in the production bundle): synthetic
+      discs drive the real nowcast and are painted as Universal Blue tiles through the real recolour. Stills:
+      `docs/design/qa/radar-fixture-{arrive,here,pass,far,still,none}.png` (night sheet)
+- QA in this cloud sandbox: run vite with `VITE_WEATHER_API_BASE=https://shamayim-api.nehoraihadad.com` (Open-Meteo
+  answers 429 here) and give Playwright's Chromium the agent proxy
+- [ ] Seen while testing: in headless mobile emulation the opening play-through sometimes stops on an old frame
+      (rAF); step B6 replaces it with a timer chain, check again there
+- [ ] Phase B (P0): verdict + rename, time, playback, marker + labels, colours + legend in both themes
 ## Illustration round — snow, small fixes, sun/moon — 2026-11-18 (branch `claude/illustration-round-81b0d0`)
 - [x] Snow caps (`snowLine.ts`, `SnowCap.tsx`): only while it snows (codes 71–77, 85–86 or snowfall > 0); snow line =
       min(place, place + (T − 2 °C) / 6.5 °C·km⁻¹) − up to 100 m with intensity, mapped through the sampled ridge

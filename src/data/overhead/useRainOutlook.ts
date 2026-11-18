@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { outlookNow, type RadarOutlook } from '../../domain/outlookNow'
 import { rainOutlook, type EchoGrid } from '../../domain/rainNowcast'
+import { forcedRain } from '../../ui/devParams'
 import { radarBand } from './radarBand'
 import { parseRadarIndex, RAINVIEWER_INDEX, type RadarIndex } from './sources'
 
@@ -61,11 +62,15 @@ export function useRainOutlook(site: Site): RadarOutlook | null {
   const [seen, setSeen] = useState<{ key: string; outlook: RadarOutlook } | null>(null)
   const [clock, setClock] = useState(Date.now)
   useEffect(() => {
-    if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return
+    const rain = import.meta.env.DEV ? forcedRain() : null
+    if (!rain && (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined')) return
     const ctrl = new AbortController()
+    const read = import.meta.env.DEV && rain
+      ? async () => import('./syntheticRain').then((m) => m.syntheticOutlook(m.parseRain(rain), lat, Date.now()))
+      : () => readOutlook({ lat, lon }, ctrl.signal)
     const run = async () => {
       try {
-        const outlook = await readOutlook({ lat, lon }, ctrl.signal)
+        const outlook = await read()
         if (outlook) setSeen({ key: `${lat},${lon}`, outlook })
       } catch { /* offline or blocked: keep the last outlook until it is too old */ }
       if (!ctrl.signal.aborted) setClock(Date.now())

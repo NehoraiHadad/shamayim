@@ -18,7 +18,7 @@ npm test           # unit tests (sentence engine, mappers, theme contrast)
 npm run build      # production build + PWA service worker
 ```
 
-Dev only: append `?at=2026-11-17T13:00` to preview another local time, and `?theme=rain` (dawn, clearDay, heat, cloudy, rain, dust, dusk, night) to force a sky theme. `?relief=true|mid|high` compares how much the low degrees (land and low sky together) are stretched (default `high`).
+Dev only: append `?at=2026-11-17T13:00` to preview another local time, and `?theme=rain` (dawn, clearDay, heat, cloudy, rain, dust, dusk, night) to force a sky theme. `?relief=true|mid|high` compares how much the low degrees (land and low sky together) are stretched (default `high`). `?rain=arrive` (or `here`, `pass`, `far`, `still`, `none`, or `bearing:km:radiusKm:band[:towardDeg:kmh],…`) replaces the radar with synthetic moving rain, for the rainy states of the rain map.
 
 ## Data
 

@@ -61,3 +61,11 @@ export function forcedSightings(): CloudSighting[] | null {
 export function pickerOpenOnLoad(): boolean {
   return param('picker') === 'open'
 }
+
+/**
+ * `?rain=arrive` (or `here`, `pass`, `far`, `still`, `none`, or `bearing:km:radiusKm:band[:towardDeg:kmh],…`) replaces
+ * the radar with synthetic moving rain, for QA of the radar page's rainy states (see `data/overhead/syntheticRain.ts`).
+ */
+export function forcedRain(): string | null {
+  return param('rain')
+}

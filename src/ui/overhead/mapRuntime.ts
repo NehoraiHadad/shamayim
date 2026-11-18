@@ -2,7 +2,7 @@ import type { StyleSpecification } from 'maplibre-gl'
 import { mapInk, POSITRON, restylePositron } from './mapStyle'
 import { paperOf, repaintPaper } from './mapPaper'
 import { addRings, MAP_BOUNDS, openingZoom } from './placeMap'
-import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TileResult } from './tileProtocols'
+import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TilePainter, type TileResult } from './tileProtocols'
 import { addWeatherLayers, showWeather, type Frame, type Timeline } from './weatherLayers'
 import { weatherInView, type WeatherStatus } from './weatherViewport'
 import type { Place } from '../../config/place'
@@ -22,9 +22,10 @@ interface Options {
   onReady: () => void
   onMapError: () => void
   onStatus: (status: WeatherStatus) => void
+  painter?: TilePainter
 }
 
-export async function createOverheadMap({ container, marker, place, timeline, signal, onReady, onMapError, onStatus }: Options) {
+export async function createOverheadMap({ container, marker, place, timeline, signal, onReady, onMapError, onStatus, painter }: Options) {
   const upstream = fetchJson(POSITRON, signal).catch(() => null)
   const [maplibre, , rawStyle, weather] = await Promise.all([
     import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css'), upstream, timeline,
@@ -43,7 +44,7 @@ export async function createOverheadMap({ container, marker, place, timeline, si
   if (!valid) onMapError()
   const style = restylePositron(valid ? input : { version: 8, sources: {}, layers: [] }, sheet, dark)
   const results = new Map<string, TileResult>()
-  const protocol = tileProtocol(results)
+  const protocol = tileProtocol(results, painter)
   const zoom = openingZoom(container.clientWidth, place.lat)
   const map = new maplibre.Map({
     container, style, center: [place.lon - 0.22, place.lat], zoom, minZoom: zoom, maxZoom: zoom + 1,

@@ -6,6 +6,8 @@ export const ECHO_GRID = 32
 export const SAT_PROTOCOL = 'shamayim-sat'
 export const RADAR_PROTOCOL = 'shamayim-radar'
 export type TileResult = { echoes?: Uint8Array } | 'failed'
+/** Dev only (`?rain=`): paints a radar tile instead of fetching it; null for URLs it does not serve. */
+export type TilePainter = (url: string) => { pixels: Uint8ClampedArray; size: number } | null
 
 const SHADOW_MARGIN = 16
 
@@ -56,7 +58,21 @@ function offsetShadow(mask: HTMLCanvasElement) {
   return ctx.canvas
 }
 
-export function tileProtocol(results: Map<string, TileResult>): AddProtocolAction {
+async function fetchedTile(url: string, signal: AbortSignal) {
+  // Cloud tiles come padded so the blur (and the shadow) can reach across tile edges without seams.
+  const response = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]) })
+  if (!response.ok) throw new Error(`Weather tile returned ${response.status}`)
+  const original = await createImageBitmap(await response.blob())
+  const ctx = canvasOf(original.width, original.height)
+  try {
+    ctx.drawImage(original, 0, 0)
+  } finally {
+    original.close()
+  }
+  return ctx
+}
+
+export function tileProtocol(results: Map<string, TileResult>, painter?: TilePainter): AddProtocolAction {
   return async ({ url }, { signal }) => {
     const radar = url.startsWith(RADAR_PROTOCOL)
     const shadow = url.startsWith(`${SAT_PROTOCOL}://shadow/`)
@@ -64,19 +80,10 @@ export function tileProtocol(results: Map<string, TileResult>): AddProtocolActio
       const separator = url.indexOf('https://')
       if (separator === -1) throw new Error('Weather tile URL must use HTTPS')
       const upstream = url.slice(separator)
-      // Cloud tiles come padded so the blur (and the shadow) can reach across tile edges without seams.
-      const response = await fetch(radar ? upstream : paddedWmsUrl(upstream), {
-        signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
-      })
-      if (!response.ok) throw new Error(`Weather tile returned ${response.status}`)
-      const original = await createImageBitmap(await response.blob())
-      const { width, height } = original
-      const ctx = canvasOf(width, height)
-      try {
-        ctx.drawImage(original, 0, 0)
-      } finally {
-        original.close()
-      }
+      const painted = radar ? painter?.(upstream) : null
+      const ctx = painted ? canvasOf(painted.size, painted.size) : await fetchedTile(radar ? upstream : paddedWmsUrl(upstream), signal)
+      if (painted) ctx.putImageData(new ImageData(new Uint8ClampedArray(painted.pixels), painted.size), 0, 0)
+      const { width, height } = ctx.canvas
       const pixels = ctx.getImageData(0, 0, width, height)
       const echoes = radar ? new Uint8Array(ECHO_GRID ** 2) : undefined
       if (echoes) recolorRadar(pixels.data, (i) => {
