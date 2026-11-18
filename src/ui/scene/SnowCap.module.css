@@ -4,9 +4,10 @@
   /* Lit scene: snow takes the sun's light like the marks do (rose and gold caps at dawn and dusk, white at noon); with
      no `--sun-light` (night, overcast, `?scene=flat`) the fallback is the snow's own white, so nothing changes. */
   fill: color-mix(in oklab,
-    color-mix(in oklab, color-mix(in oklab, #F4F7FA, var(--sun-light, #F4F7FA) 40%), color-mix(in oklab, var(--sky-mid), var(--ridge-near)) 18%),
+    color-mix(in oklab, color-mix(in oklab, #F7F9FB, var(--sun-light, #F7F9FB) 35%), var(--sky-mid) 10%),
     var(--haze-air) calc(var(--far-fade, 0) * 60%));
-  opacity: calc(.5 + .45 * var(--snow, .5));
+  /* Lying snow hides the ground: nearly opaque even for a dusting (the soft ragged lower edge still lets it thin out). */
+  opacity: calc(.82 + .16 * var(--snow, .5));
   transition: opacity var(--d6) var(--ease-in-out);
   animation: snow-in 2400ms var(--ease-out) both;
 }

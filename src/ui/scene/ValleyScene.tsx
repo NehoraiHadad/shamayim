@@ -122,10 +122,11 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
           <line {...seaSpan(terrain.nearPoints, terrain.seaY)} y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
+        {/* Snow under the light and the floor shadow, so a cap takes the same sun and shade as the land. */}
+        {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
         {lighting && <FloorShadow path={terrain.near} points={terrain.nearPoints} ray={lighting.ray} day={lighting.day} />}
         {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray}
           noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}
-        {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
       </svg>
       <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach}

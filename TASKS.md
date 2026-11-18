@@ -523,6 +523,10 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       Still `snow-sunlit.png` (flat | 06:35 | 12:00)
 - [x] Ridge shadow on the valley floor (Claude): `FloorShadow` + `shadowRuns.ts`, a soft band along the ground
       where the land toward the sun hides it, as deep as the light it takes. Still `floor-shadow.png` (06:35, 07:05, 15:55)
+- [x] Sampled places checked (Claude): `SHOT_PLACE='<Place JSON>'` in `scripts/shot.mjs` opens any place; Jerusalem,
+      Eilat, Majdal Shams at dawn/noon/dusk/night hold up. Snow made to read everywhere: nearly opaque (.82–.98),
+      whiter, drawn under the ridge light and floor shadow so caps take the same sun and shade; floor shadow
+      blue-black, wider blur, slivers < 12 units dropped (they were grey blots on snow). Still `sampled-places-snow.png`
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Known gaps / polish

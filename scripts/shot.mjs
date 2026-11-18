@@ -1,5 +1,6 @@
 // Headless phone stills for visual QA (WebGL and animation frames run, unlike a hidden preview pane).
 // Usage: node scripts/shot.mjs <url> <out.png> [waitMs] [clickText]
+// SHOT_PLACE='<Place JSON>' opens that place instead of the default (stored as the app stores a picked place).
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -37,6 +38,10 @@ try {
   const send = (method, params = {}) => new Promise((r) => { id += 1; pending.set(id, r); ws.send(JSON.stringify({ id, method, params })) })
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 2, mobile: true })
   await send('Page.enable')
+  if (process.env.SHOT_PLACE) {
+    const place = JSON.stringify(process.env.SHOT_PLACE)
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('shamayim:place:v1', ${place})` })
+  }
   await send('Page.navigate', { url })
   await sleep(4000)
   if (clickText) {
