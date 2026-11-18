@@ -1,3 +1,5 @@
+export { packPanorama, unpackPanorama, type StoredPanorama } from './storedPanorama'
+
 /**
  * The horizon as seen from a place: for each direction across the scene, how high (in degrees) the land stands above
  * eye level. The scene draws it with the same vertical scale as the sky (`angleScale.ts`), so the sun or moon is hidden
@@ -60,7 +62,10 @@ export interface HorizonPoint {
   distance: number
 }
 
+export interface GroundSample { angle: number; seen: boolean }
+
 export interface HorizonRay {
+  profile: GroundSample[]
   azimuth: number
   near: HorizonPoint
   far: HorizonPoint
@@ -85,16 +90,18 @@ export function horizonRay(azimuth: number, heightAt: HeightAt, eyeM: number, di
   let near: HorizonPoint | null = null
   let far: HorizonPoint | null = null
   let seaKm: number | null = null
+  const profile: GroundSample[] = []
   for (const distance of distances) {
     const raw = heightAt(distance, azimuth)
     const elevation = Number.isFinite(raw) ? raw : 0
     if (seaKm === null && Number.isFinite(raw) && Math.abs(raw) < 0.5) seaKm = distance
     const point = { angle: apparentAngle(elevation, distance, eyeM), elevation, distance }
+    profile.push({ angle: point.angle, seen: !far || point.angle >= far.angle })
     if (distance <= NEAR_KM && (!near || point.angle > near.angle)) near = point
     if (!far || point.angle > far.angle) far = point
   }
   const flat = { angle: 0, elevation: eyeM, distance: 0 }
-  return { azimuth, near: near ?? far ?? flat, far: far ?? flat, seaKm }
+  return { azimuth, near: near ?? far ?? flat, far: far ?? flat, seaKm, profile }
 }
 
 /** The whole panorama from a place, over a height lookup around it. */
@@ -117,40 +124,4 @@ export function destination(lat: number, lon: number, distanceKm: number, azimut
   const lambda2 = lon * rad + Math.atan2(Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
     Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2))
   return { lat: phi2 / rad, lon: lambda2 / rad }
-}
-
-/** Compact stored form: per ray [near angle, near m, near km, far angle, far m, far km, km to the sea or -1], rounded. */
-export interface StoredPanorama {
-  v: 1
-  eyeM: number
-  groundM: number
-  rays: number[][]
-}
-
-const r2 = (v: number) => Math.round(v * 100) / 100
-const r1 = (v: number) => Math.round(v * 10) / 10
-
-export function packPanorama(p: Panorama): StoredPanorama {
-  return {
-    v: 1,
-    eyeM: Math.round(p.eyeM),
-    groundM: Math.round(p.groundM),
-    rays: p.rays.map(({ near, far, seaKm }) => [r2(near.angle), Math.round(near.elevation), r1(near.distance),
-      r2(far.angle), Math.round(far.elevation), r1(far.distance), seaKm === null ? -1 : r1(seaKm)]),
-  }
-}
-
-export function unpackPanorama(s: StoredPanorama | null | undefined): Panorama | null {
-  if (!s || s.v !== 1 || !Array.isArray(s.rays) || s.rays.length < 2) return null
-  if (s.rays.some((ray) => !Array.isArray(ray) || ray.length !== 7 || ray.some((v) => typeof v !== 'number'))) return null
-  return {
-    eyeM: s.eyeM,
-    groundM: s.groundM,
-    rays: s.rays.map((ray, i) => ({
-      azimuth: rayAzimuth(i, s.rays.length),
-      near: { angle: ray[0], elevation: ray[1], distance: ray[2] },
-      far: { angle: ray[3], elevation: ray[4], distance: ray[5] },
-      seaKm: ray[6] < 0 ? null : ray[6],
-    })),
-  }
 }

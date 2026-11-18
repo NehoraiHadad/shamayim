@@ -661,6 +661,18 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
 - [x] Checked: the moon rising before sunset is real (first quarter → full). Test `moonrise through the month`:
       Shadmot Nov 2026 rises 06:14 new moon, 12:20 first quarter, 16:15 full, 23:02 last quarter. Still `moon-visibility.png`
 
+## Plain seen from above — 2026-11-18 (branch `plain-view`)
+- [x] Panorama v3 keeps a per-ray visibility profile (angle of the ground at each sampled distance, seen or hidden);
+      stored ~57 KB per place. A third projection layer, `plain`, places targets beyond the near ridge at their true
+      apparent angle when their ground (or top) is seen. Karmei Tzur: Kiryat Gat x 52 y 100, Ashdod x 14, Ashkelon x 41
+- [x] Far city on the plain: built cells along each seen ray as pale patches (day, ≤ 3 paths) and amber dots (night,
+      ≤ 2 paths); shortlisted landmarks on the plain at their true y
+- [x] Haze by distance: Koschmieder contrast exp(−3.912·d/V), V = hourly visibility with dust, no 40 km cap; cut
+      under 5 %. Night lights use the contrast over 3× the range (Allard: lights carry ~3× the daytime range)
+- [ ] Not verified: real visibility values from Open-Meteo at Karmei Tzur (forecast API rate-limited today); by day
+      at V≈60 km the plain is near-invisible (physically right; seen only on very clear days)
+- [ ] Next: camera rotation around the place (owner asked; needs 360° rays + design calls for the home and the sun arc)
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

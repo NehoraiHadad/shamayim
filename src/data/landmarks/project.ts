@@ -1,4 +1,5 @@
-import { azimuthFraction } from '../terrain/panorama'
+import type { SeenPoint } from '../terrain/visibility'
+import { azimuthFraction, EARTH_R_KM } from '../terrain/panorama'
 import { FAR_RADIUS_KM, NEAR_RADIUS_KM, RIDGE_WIDTH, ridgeX } from '../terrain/ridgeProjection'
 import type { MarkKind, TerrainSample } from './types'
 
@@ -16,8 +17,11 @@ export function offsetKm(place: Coordinate, mark: Coordinate) {
  * Null when it lies behind the viewer (the northern quarter the scene does not show).
  */
 export function bearingOf(place: Coordinate, mark: Coordinate): { x: number; km: number } | null {
-  const { dx, dy } = offsetKm(place, mark)
-  const km = Math.hypot(dx, dy)
+  const rad = Math.PI / 180
+  const a = place.lat * rad, b = mark.lat * rad, lon = (mark.lon - place.lon) * rad
+  const dx = Math.sin(lon) * Math.cos(b)
+  const dy = Math.cos(a) * Math.sin(b) - Math.sin(a) * Math.cos(b) * Math.cos(lon)
+  const km = EARTH_R_KM * Math.atan2(Math.hypot(dx, dy), Math.sin(a) * Math.sin(b) + Math.cos(a) * Math.cos(b) * Math.cos(lon))
   // Right at the place the bearing means nothing: the middle of the scene.
   if (km < 0.15) return { x: RIDGE_WIDTH / 2, km }
   const azimuth = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360
@@ -26,24 +30,27 @@ export function bearingOf(place: Coordinate, mark: Coordinate): { x: number; km:
 }
 
 /** What the land is like in one direction of the panorama (see `SceneTerrain.sightAt`). */
-export interface Sight { nearKm: number; farKm: number; farShows: boolean }
+export interface Sight { nearKm: number; farKm: number; farShows: boolean; seenAt?: (km: number, heightM?: number) => SeenPoint | null }
 
 /**
  * Which ridge a mark at `km` stands on in a direction: the near ridge when it is no further than just behind it (or
  * within 2 km, a town's own buildings), the far horizon when that shows above the near ridge and the mark is within a
- * few km of its crest, else none (the land in front hides it). `behindKm` is how far it stands behind (+) or before (−) that ridge.
+ * few km of its crest, then visible ground or a visible top on the plain. `behindKm` is how far it stands behind (+) or before (−) that ridge.
  */
-export function sightLayer(km: number, sight: Sight): { layer: 'near' | 'far'; behindKm: number } | null {
+type Projection = { layer: 'near' | 'far'; behindKm: number } | ({ layer: 'plain'; behindKm: 0 } & SeenPoint)
+
+export function sightLayer(km: number, sight: Sight, heightM = 0): Projection | null {
   if (km <= Math.max(sight.nearKm + 1, 2)) return { layer: 'near', behindKm: km - sight.nearKm }
   if (km <= 30 && sight.farShows && km >= sight.farKm - 4 && km <= sight.farKm + 3) return { layer: 'far', behindKm: km - sight.farKm }
-  return null
+  const point = sight.seenAt?.(km, heightM)
+  return point ? { ...point, layer: 'plain', behindKm: 0 } : null
 }
 
 /** Use the ridge that the panorama actually draws in this direction. */
-export function projectSight(place: Coordinate, target: Coordinate, sightAt: (x: number) => Sight) {
+export function projectSight(place: Coordinate, target: Coordinate & { heightM?: number }, sightAt: (x: number) => Sight) {
   const bearing = bearingOf(place, target)
   if (!bearing) return null
-  const sight = sightLayer(bearing.km, sightAt(bearing.x))
+  const sight = sightLayer(bearing.km, sightAt(bearing.x), target.heightM)
   return sight && { ...bearing, ...sight }
 }
 

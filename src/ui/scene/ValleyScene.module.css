@@ -36,6 +36,15 @@
   transition: fill var(--d6) var(--ease-in-out);
 }
 
+.plainCity {
+  /* Limestone and concrete roofs are far brighter than the fields around them; the haze is applied as the band's
+     opacity (its Koschmieder contrast), so the colour itself stays the town's own pale tone. */
+  fill: color-mix(in oklab, #EEE9DF, var(--haze-air) 25%);
+  transition: fill var(--d6) var(--ease-in-out);
+}
+
+.plainDots { fill: #ffcf86; }
+
 .farCityDots {
   fill: #ffcf86;
   opacity: calc(.6 * (1 - var(--far-fade, 0) * .9));

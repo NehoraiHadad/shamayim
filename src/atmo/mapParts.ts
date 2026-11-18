@@ -63,9 +63,10 @@ export function grains(i: AirInput): Particles {
 }
 
 /** Visibility in km: the measured value, tightened by a rough dust estimate. */
+const dustVisibilityKm = (i: AirInput) => i.pm10 ? 1300 / i.pm10 : Infinity
+
 export function visibilityKm(i: AirInput): number {
-  const fromDust = i.pm10 ? 1300 / i.pm10 : 40
-  return clamp(Math.min(i.visibilityKm ?? 40, fromDust), 1, 40)
+  return clamp(Math.min(i.visibilityKm ?? 40, dustVisibilityKm(i)), 1, 40)
 }
 
 export function haze(i: AirInput, r: number, hot: boolean): AirState['haze'] {
@@ -74,7 +75,8 @@ export function haze(i: AirInput, r: number, hot: boolean): AirState['haze'] {
   const farFade = clamp(Math.pow(clamp(1 - (v - 3) / 22), 1.5) + extra)
   const nearFade = 0.6 * clamp(1 - (v - 1) / 5)
   const color = dustLevel(i) >= 50 ? '#D7BE8C' : r >= 0.5 ? '#6F8FA0' : hot ? '#F2CF92' : '#C9D2D8'
-  return { farFade, nearFade, amount: farFade, color, visibilityKm: v }
+  const plainVisibilityKm = Math.max(1, Math.min(i.visibilityKm ?? 25, dustVisibilityKm(i)))
+  return { farFade, nearFade, amount: farFade, color, visibilityKm: v, plainVisibilityKm }
 }
 
 export function heat(i: AirInput, r: number): AirState['heat'] {

@@ -21,6 +21,14 @@ export function boxAround(x: number, y: number, half: number): Box {
 export function markGeometry(mark: PlacedMark, x: number, ground: (x: number) => number, far = false) {
   const spec = specOf(mark)
   if (!spec) return null
+  if (mark.layer === 'plain') {
+    const h = spec.h(mark.hPx)
+    const scale = mark.hPx / h
+    const base = mark.visibleTopY === undefined ? mark.baseY : mark.visibleTopY + mark.hPx
+    const half = spec.w * scale / 2
+    return { spec, plane: 'line' as const, h, scale, base,
+      box: { left: x - half, right: x + half, top: base - mark.hPx, bottom: base } }
+  }
   const plane = far ? 'line' : planeOf(mark)
   const depth = clamp(Math.abs(mark.dy) / 1.5)
   const h = spec.h(far ? mark.hPx / FAR_SCALE : mark.hPx)

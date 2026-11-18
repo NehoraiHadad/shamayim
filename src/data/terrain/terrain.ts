@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
+import type { Sight } from '../landmarks/project'
+import type { SeenPoint } from './visibility'
 import { terrainFromPanorama } from './panoramaTerrain'
 import { fetchDem } from './dem'
 import {
@@ -31,6 +33,7 @@ export interface SceneTerrain {
    * drawings (loading, offline), where a body stands on the drawn ridge instead.
    */
   horizonY?: number
+  seenAt?: (x: number, km: number, heightM?: number) => SeenPoint | null
   /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
   snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
   /**
@@ -38,7 +41,7 @@ export interface SceneTerrain {
    * (km), and whether the far horizon shows above the near ridge there. Landmarks use it to stand on the ridge in their
    * own direction, or to be left out when the land in front hides them.
    */
-  sightAt?: (x: number) => { nearKm: number; farKm: number; farShows: boolean }
+  sightAt?: (x: number) => Sight
   /** The hand-drawn valley (its village sits on the drawn floor, its snow line is scaled from the place's depth). */
   drawn?: boolean
 }
@@ -75,7 +78,7 @@ export const GENERIC_TERRAIN: SceneTerrain = {
 }
 
 function horizonKey(placeId: string): string {
-  return `shamayim:horizon:v2:${placeId}`
+  return `shamayim:horizon:v3:${placeId}`
 }
 
 export function readPanorama(placeId: string): Panorama | null {
