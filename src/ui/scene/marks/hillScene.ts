@@ -53,7 +53,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
-  const centerY = place.id === 'shadmot-mehola' ? terrain.centerY : ground(centerX)
+  const centerY = terrain.drawn ? terrain.centerY : ground(centerX)
   const dot = { x: centerX, y: centerY }
   const homes = landmarks.find(isPlaceHomes)
   const size = homes && settlementSize(homes)

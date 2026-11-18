@@ -3,7 +3,7 @@ import { utcOf } from '../../astro/utc'
 import { daylightFraction } from '../../domain/time'
 import type { LocalDate, LocalTime } from '../../domain/types'
 import { FLAT_SKYLINE, type Skyline } from './skyline'
-import { horizonLine, projectSky } from './skyProjection'
+import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
 
 export { FLOOR_Y, HORIZON_Y, SCENE_H, SCENE_W, SEA_Y } from './sceneBox'
 
@@ -35,8 +35,8 @@ export interface SunSite {
   timezone: string
 }
 
-/** The API's sunrise and sunset are when the disc's top meets a flat horizon (refraction): its centre is this low. */
-const RISE_ALTITUDE = -0.833
+/** The sun's radius (deg): the disc is placed by its top edge, which is what first shows over a ridge and last goes. */
+const SUN_RADIUS = 0.267
 
 /**
  * The sun at a daylight fraction (0 = sunrise, 1 = sunset; outside that, before or after) as it really is: its true
@@ -50,8 +50,35 @@ export function sunAt(t: number, sunrise: LocalTime, sunset: LocalTime, site: Su
   const at = new Date(rise + (set - rise) * t)
   const h = horizonLine(sunSky(new Date(rise), site.lat, site.lon).azimuth, sunSky(new Date(set), site.lat, site.lon).azimuth, skyline)
   const { altitude, azimuth } = sunSky(at, site.lat, site.lon)
-  const { x, y } = projectSky(altitude - RISE_ALTITUDE, azimuth, h)
+  const { x, y } = projectSky(apparentAltitude(altitude) + SUN_RADIUS, azimuth, h)
   return { t, x, y }
+}
+
+/**
+ * Where the sun's track meets the drawn land at the start (edge 0) or end (edge 1) of the day: the point it really comes
+ * over the ridge or goes behind it, later than the flat-horizon sunrise behind a mountain (and earlier at sunset).
+ * Searched along the day fraction; the flat-horizon point when the land never rises above it.
+ */
+export function sunOverRidge(edge: 0 | 1, sunrise: LocalTime, sunset: LocalTime, site: SunSite, skyline: Skyline = FLAT_SKYLINE): SunPoint {
+  const above = (t: number) => { const p = sunAt(t, sunrise, sunset, site, skyline); return p.y <= skyline(p.x) }
+  const dir = edge === 0 ? 1 : -1
+  let inside = 0.5
+  let outside = edge === 0 ? -0.1 : 1.1
+  if (above(outside)) return sunAt(edge, sunrise, sunset, site, skyline)
+  if (!above(inside)) return sunAt(edge, sunrise, sunset, site, skyline)
+  // Walk in from the edge in small steps to the first moment it clears the land (a ridge may let it peek out briefly
+  // further along; the first crossing is the one you see), then bisect.
+  for (let t = outside + dir * 0.005; dir * (inside - t) > 0; t += dir * 0.005) {
+    if (above(t)) { inside = t; break }
+    outside = t
+  }
+  for (let i = 0; i < 20; i++) {
+    const t = (inside + outside) / 2
+    if (above(t)) inside = t
+    else outside = t
+  }
+  const p = sunAt(inside, sunrise, sunset, site, skyline)
+  return { ...p, y: skyline(p.x) }
 }
 
 /**

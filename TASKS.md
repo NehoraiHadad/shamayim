@@ -566,6 +566,39 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       allowlist did not; Worker redeployed. `src/data/openMeteo/workerContract.test.ts` now runs the app's real
       request URLs through the Worker validator, so a new parameter without a Worker change fails CI
 
+
+## Horizon panorama — the land as you really see it — 2026-11-18
+Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` = main e83e485, `after-*`, 375 px, DPR 2).
+- [x] Land = horizon panorama from the place (`src/data/terrain/panorama.ts`): 201 rays across the scene's own
+      azimuth span (305° at x 0, south in the middle, 55° at x 375, as `skyPoint`), 127 samples each out to 60 km;
+      angle = atan((h − eye − d²(1−k)/2R)/d), R 6371 km, k 0.13, eye 2 m above the DEM ground. Near layer = highest
+      within 5 km, far layer = highest at any distance (where it is not higher the near ridge hides it)
+- [x] DEM: AWS Terrain Tiles (terrarium), zoom 10 within 12 km + zoom 8 beyond, decoded without a canvas
+      (DecompressionStream + PNG unfilter, `dem.ts`; a canvas read can be noised by anti-fingerprinting). ~6–8 tiles,
+      0.3–0.6 MB once per place; stored packed (`shamayim:horizon:v2:<id>`, ~9 KB) forever. Why not Open-Meteo through
+      the Worker: it counts each point as a call, so 650+ points per place would hit the 600/min limit on the Worker IP.
+      The Worker is unchanged (no deploy needed); `/v1/elevation` is no longer called by the app
+- [x] Sea floor: tiles carry bathymetry (−20 m 1 km off Tel Aviv), raised to 0 except inside the Jordan rift box
+      (Kinneret, Jordan Valley, Dead Sea keep their real depth). Sea in view = ≥ 20 % of a side's rays reach sea ≤ 8 km
+- [x] One vertical scale for land and sky (`angleScale.ts`): px = 86·sin(a) + 50·tanh(a/6°) → 9.8 px/° at the
+      horizon (6.5×), the sky above keeps its shape, zenith ~136 px above eye level. Options shown in
+      `relief-options-*.png` (true 1.5 px/° is a 6 px strip; `mid` 6.5 px/°; `high` 9.8 px/°, chosen); `?relief=` in dev
+- [x] Over a panorama the sun and moon stand on eye level (`horizonY`), not on a line between ridge points, so a body is
+      hidden exactly when its altitude is below the drawn ridge. Refraction (Sæmundsson) lifts both; the sun is placed
+      by its top edge. Twilight glow stands where the sun really comes over / goes behind the ridge (`sunOverRidge`)
+- [x] Shadmot: the panorama replaces the hand drawing (kept as the stand-in while loading/offline). Measured: Gilead
+      3.4–4.1° at 9–13 km east, western hills 2.5–3.9° at 1–2 km. Sun on 18.11: flat sunrise 06:12, over the Gilead
+      ~06:29; behind the western hills ~16:20 (flat sunset 16:35) — `shadmot-rise-set-sequence.png`
+- [x] Snow line per direction on each slope (`snowEdge`, mask follows the land), village dot on the near ridge due
+      south, sea line where sea level meets the slopes (below sea level) or the coast (Tel Aviv: sea west)
+- [x] Tests: synthetic DEM (hill at bearing/distance → expected angle; curvature hides a far hill; near vs far),
+      PNG decode (filters 0/2, below-sea and fractional heights), sea side, snow edge, sun over a 4° wall later
+- [ ] Not verified: real sunrise in Shadmot against an observation (only the computed ~17 min delay); landmark x is
+      still the old west–east km projection (`toX`), not the bearing, so a mark may stand on a ridge in another
+      direction; Shadmot's fixed-x curated marks (orchard at x 200) now sit on a slope; mist band still fixed y 72–105;
+      the "next sunrise/sunset" label and twilight timing still use the flat-horizon times
+- [ ] Owner: is the computed Shadmot as good as the drawing (village now on the near hill due south)? Relief `mid` vs `high`?
+
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
 - [ ] Rain/dust/heat seen via `?wx=` overrides, not yet in real weather

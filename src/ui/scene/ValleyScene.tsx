@@ -19,12 +19,12 @@ import { SceneScrubber } from './SceneScrubber'
 import { SnowCap } from './SnowCap'
 import type { SnowFall } from './snowLine'
 import { seaSpan } from './seaLine'
-import { skylineOf } from './skyline'
+import { skylineOf, withHorizon } from './skyline'
 import { Sun } from './Sun'
 import { useSceneSun } from './useSceneSun'
 import { useMoonlight } from './useMoonlight'
 import { useWidth } from './useWidth'
-import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
+import { SCENE_H, SCENE_W, sunAt, sunOverRidge, sunPosition } from './sunPath'
 import { HillMarks } from './marks/HillMarks'
 import { hillScene } from './marks/hillScene'
 import styles from './ValleyScene.module.css'
@@ -67,20 +67,24 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
-  const skyline = useMemo(() => skylineOf(terrain.farPoints, terrain.nearPoints), [terrain])
+  const skyline = useMemo(() => withHorizon(skylineOf(terrain.farPoints, terrain.nearPoints), terrain.horizonY), [terrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline) : null
   const disc = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline, 0.08) : null
   const glow = twilight(day, at)
-  // The glow stands on the ridge exactly where the sun rises (east) or has set (west) today.
-  const rim = glow && day ? sunAt(glow.side === 'east' ? 0 : 1, day.sunrise, day.sunset, place, skyline) : null
+  // The glow stands on the ridge exactly where the sun comes over it (east) or goes behind it (west) today.
+  const glowSide = glow?.side
+  const sunrise = day?.sunrise
+  const sunset = day?.sunset
+  const rim = useMemo(() => glowSide && sunrise && sunset
+    ? sunOverRidge(glowSide === 'east' ? 0 : 1, sunrise, sunset, place, skyline) : null, [glowSide, sunrise, sunset, place, skyline])
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
   const elevationText = `${elevation < 0 ? `−${Math.abs(elevation)}` : elevation} מ׳`
   const showSea = forecast.elevation < 50 || terrain.seaInView
   // The hand-drawn valley has no sampled heights: its ridges are scaled from the place's depth below the sea line.
-  const snowPlaceM = place.id === 'shadmot-mehola' ? forecast.elevation : null
+  const snowPlaceM = terrain.drawn ? forecast.elevation : null
   const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
     [place, terrain, landmarks, sceneWidth, showSea])
   const night = markLife.litShare > 0
@@ -128,7 +132,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         )}
         <path d={terrain.near} className={styles.near} />
         {/* Snow under the light and the floor shadow, so a cap takes the same sun and shade as the land. */}
-        {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}
+        {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM}
+          edge={terrain.snowEdge?.('near', snow.lineM)} />}
         {lighting && <FloorShadow path={terrain.near} points={terrain.nearPoints} ray={lighting.ray} day={lighting.day} />}
         {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray}
           noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}

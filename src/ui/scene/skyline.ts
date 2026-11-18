@@ -4,6 +4,8 @@ import { HORIZON_Y, SCENE_W } from './sceneBox'
 export interface Skyline {
   (x: number): number
   peak: number
+  /** y of eye level (0°) when the ridges are the true horizon panorama; bodies then stand on it (`skyProjection.ts`). */
+  horizon?: number
 }
 
 /** Fallback when no ridge is known: the old fixed horizon line. */
@@ -36,6 +38,11 @@ export function skylineOf(...ridges: readonly (readonly [number, number])[][]): 
   }
   const peak = Math.min(...Array.from({ length: 76 }, (_, i) => at(i / 75)))
   return Object.assign(at, { peak })
+}
+
+/** The same skyline, with eye level at `horizonY` (when the ridges are a horizon panorama). */
+export function withHorizon(skyline: Skyline, horizonY: number | undefined): Skyline {
+  return horizonY === undefined ? skyline : Object.assign((x: number) => skyline(x), { peak: skyline.peak, horizon: horizonY })
 }
 
 /** The shared arc stands on the highest ridge point (never lower than this, to keep room for the arc itself). */

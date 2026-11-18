@@ -4,7 +4,9 @@ import { utcOf } from '../../astro/utc'
 import { skyPoint } from './moonShape'
 import { SCENE_W } from './sceneBox'
 import { skylineOf } from './skyline'
-import { ALT_PX } from './skyProjection'
+import { anglePx, horizonSlope } from '../../data/terrain/angleScale'
+import { withHorizon } from './skyline'
+import { sunOverRidge } from './sunPath'
 import { noonElevation, sunAt, sunPosition } from './sunPath'
 
 const LAT = 32.348
@@ -25,8 +27,9 @@ describe('sun path', () => {
     expect(at(winter, 1).x).toBeLessThan(0.4)
     expect(at(summer, 0).x).toBeGreaterThan(at(winter, 0).x)
     expect(at(summer, 1).x).toBeLessThan(at(winter, 1).x)
-    expect(at(winter, 0).y).toBeCloseTo(sky(at(winter, 0).x), 0)
-    expect(at(winter, 1).y).toBeCloseTo(sky(at(winter, 1).x), 0)
+    // At the flat-horizon times the disc's top edge stands on the line (within refraction's rounding).
+    expect(Math.abs(at(winter, 0).y - sky(at(winter, 0).x))).toBeLessThan(2.5)
+    expect(Math.abs(at(winter, 1).y - sky(at(winter, 1).x))).toBeLessThan(2.5)
   })
 
   it('stands at its true direction at every minute', () => {
@@ -39,15 +42,29 @@ describe('sun path', () => {
     expect(at(winter, 0.5).y).toBeLessThan(at(winter, 0.1).y)
     expect(at(summer, 0.5).y).toBeLessThan(at(winter, 0.5).y)
     const line = (at(winter, 0).y + at(winter, 1).y) / 2
-    expect(line - at(winter, 0.5).y).toBeGreaterThan(ALT_PX * Math.sin(36 * Math.PI / 180))
-    expect(line - at(winter, 0.5).y).toBeLessThan(ALT_PX * Math.sin(42 * Math.PI / 180))
+    expect(line - at(winter, 0.5).y).toBeGreaterThan(anglePx(36))
+    expect(line - at(winter, 0.5).y).toBeLessThan(anglePx(42))
   })
 
-  it('rises on a slant, at about its true angle (90° − latitude), not straight up', () => {
+  it('rises on a slant: its true angle (90° − latitude) on the stretched low-sky scale, easing as it climbs', () => {
     const a = at(winter, 0), b = at(winter, 0.05)
     const angle = Math.atan2(a.y - b.y, Math.abs(b.x - a.x) * SCENE_W) * 180 / Math.PI
-    expect(angle).toBeGreaterThan(45)
-    expect(angle).toBeLessThan(70)
+    // Up is stretched by horizonSlope / 1.5 at the horizon, so the true ~58° slant is drawn steeper.
+    const drawn = Math.atan((horizonSlope() / 1.5) * Math.tan(58 * Math.PI / 180)) * 180 / Math.PI
+    expect(angle).toBeGreaterThan(drawn - 14)
+    expect(angle).toBeLessThan(drawn + 2)
+    expect(angle).toBeLessThan(89)
+  })
+
+  it('comes over a mountain later than the flat-horizon sunrise, where the drawn ridge stands above it', () => {
+    // Eye level at y 96 and a 4° wall in the east (like the Gilead from the Jordan Valley).
+    const valley = withHorizon(skylineOf([[0, 96], [200, 96], [230, 96 - anglePx(4)], [375, 96 - anglePx(4)]]), 96)
+    const over = sunOverRidge(0, winter.rise, winter.set, site, valley)
+    expect(over.t).toBeGreaterThan(0.03)
+    expect(over.y).toBeCloseTo(valley(over.x), 5)
+    expect(sunAt(over.t - 0.01, winter.rise, winter.set, site, valley).y).toBeGreaterThan(valley(over.x))
+    // On eye level itself the flat-horizon moment stands.
+    expect(Math.abs(sunAt(0, winter.rise, winter.set, site, valley).y - 96)).toBeLessThan(2.5)
   })
 
   it('is null before sunrise and after sunset', () => {

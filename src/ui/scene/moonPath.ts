@@ -1,7 +1,7 @@
 import { moonPosition } from '../../astro/moon'
 import { skyPoint, type ScenePoint } from './moonShape'
 import { FLAT_SKYLINE, type Skyline } from './skyline'
-import { horizonLine, projectSky } from './skyProjection'
+import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
 
 /** One pass of the moon over the place: when it rises and sets (UTC ms) and where. */
 export interface MoonPass {
@@ -87,5 +87,5 @@ export function moonScenePoint(at: Date, s: Site, skyline: Skyline = FLAT_SKYLIN
   const { altitude, azimuth } = moonPosition(at, s.lat, s.lon)
   const pass = moonPassAt(at.getTime(), s)
   if (!pass) return skyPoint(altitude, azimuth, skyline)
-  return projectSky(altitude, azimuth, horizonLine(pass.riseAzimuth, pass.setAzimuth, skyline))
+  return projectSky(apparentAltitude(altitude), azimuth, horizonLine(pass.riseAzimuth, pass.setAzimuth, skyline))
 }

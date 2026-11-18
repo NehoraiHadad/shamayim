@@ -106,7 +106,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   })
   return clearLabel.flatMap((item) => {
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
-    const baseY = place.id === 'shadmot-mehola' && item.x >= 150 && item.x <= 200
+    const baseY = terrain.drawn && item.x >= 150 && item.x <= 200
       ? 96 : groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const fixed = item.mark.kind === 'homes' ? Math.max(6, Math.min(14, item.mark.heightM)) : FIXED[item.mark.kind]
     let hPx = fixed ?? markHeight(item.mark.heightM, item.layer)
