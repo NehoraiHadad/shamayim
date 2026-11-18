@@ -3,7 +3,7 @@
   width: 100%;
   max-width: 335px;
   height: auto;
-  /* The SVG's top edge sits on the cut (the sheet's top padding pulled back), so the rope's ends meet the base line. */
+  /* The SVG's top edge sits on the page's top edge (the sheet's top padding pulled back); the rope is tied just below it. */
   margin: calc(-1 * var(--space-4)) auto var(--space-2);
   overflow: visible;
 }

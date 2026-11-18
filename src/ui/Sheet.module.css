@@ -1,32 +1,15 @@
 .sheet {
   position: relative;
-  /* The paper is the nearest ground, lit: its top is a low bank drawn like the ridges (no straight card edge), and the
-     wear card's clothesline is tied to that bank, so the yard stands on the land instead of hanging below a cut. */
+  /* A page laid over the bottom of the landscape, not a piece of it: the paper is lighter than any near ground could be,
+     so it reads honestly as its own surface, with soft top corners and a faint shadow onto the valley below it. */
   margin: -14px -16px 0;
   padding: var(--space-4) var(--gutter) var(--space-2);
+  border-radius: 22px 22px 0 0;
   background: var(--sheet);
   color: var(--sheet-ink);
-  isolation: isolate;
+  box-shadow: 0 -4px 18px color-mix(in srgb, #000 20%, transparent);
   transition: background-color var(--d6), color var(--d6);
 }
 
-.bank {
-  position: absolute;
-  top: -12px;
-  left: 0;
-  z-index: -1;
-  width: 100%;
-  height: 34px;
-  overflow: visible;
-  pointer-events: none;
-}
 
-.ground {
-  fill: var(--sheet);
-  transition: fill var(--d6);
-}
 
-.yard {
-  fill: color-mix(in oklab, var(--ridge-far) 55%, var(--sheet));
-  transition: fill var(--d6);
-}

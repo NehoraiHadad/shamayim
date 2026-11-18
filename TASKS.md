@@ -333,6 +333,10 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
   (was magenta-mauve until 4°); rose/orange only low on the horizon from −9° to +3° (dawn pinker, dusk more orange); the
   clear-day horizon is pale whitish blue (`clearDay` top #11519B, horizon #BBD5EC, was beige all day); ridges lose the twilight tint by
   +6° (was +10°). Per-0.5° continuity and ≥4.5 text contrast still tested. QA: `docs/design/qa/sky-real-0630.jpg`, `sky-real-1650.png`.
+- [x] Sheet as a separate page (2026-11-18, owner's call): the yard strip and wavy bank felt like patches. Root cause: the
+  "paper = nearest lit ground" metaphor fights aerial perspective (near land is darker), so any blend reads as a cut. The
+  sheet is now its own page over the landscape: top corners 22, faint shadow upward, no bank SVG; clothesline tied to tabs
+  just inside its top edge (`END_Y 6`). Also fixed: phones scrolled sideways (scene `overflow-x: clip`, body too).
 - [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,

@@ -24,7 +24,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
  74  112px temperature, centred; מרגיש כמו 27° under it when it applies
 210  sentence, 24px serif, 1–3 lines, centred
 290  hourly strip, 120px  (selection readout line when an hour is tapped)
-418  VALLEY SCENE, 128px (the sheet overlaps the lowest 14px; a half-tone yard strip steps ridge → paper)
+418  VALLEY SCENE, 128px (the sheet, a separate page, overlaps the lowest 14px)
 526  sheet: wear note → "השבוע הקרוב" → today, tomorrow…
 ```
 
@@ -32,7 +32,7 @@ This spec merges two reviews: `review-fable.md` and `review-codex.md`. Where the
 
 - Type: 112/0.82 Karantina. 24/1.32, 18/1.4 and 20 Frank Ruhl Libre. 15/1.45, 13/1.4 and 11/1.3 Assistant. Numerals are tabular.
 - Space: 4, 8, 12, 16, 24, 32. Gutter 20 px in both the sky area and the sheet.
-- Radius: picker sheet 28, well 16, selected slot 12, pill 999. Nothing else is rounded. The sheet has no corner radius or shadow: its top is a wavy bank of near ground, a half-tone yard (far-ridge mixed into the paper) between the dark near ridge and the lit paper.
+- Radius: picker sheet 28, well 16, selected slot 12, pill 999. sheet top corners 22. Nothing else is rounded. The sheet is a separate page laid over the landscape (soft 18 px shadow upward), not a piece of ground: a lit paper can never read as near land, since near land is darker than far land.
 - Easing:
   - `--ease-out: cubic-bezier(.22,.8,.2,1)`
   - `--ease-in-out: cubic-bezier(.4,0,.2,1)`

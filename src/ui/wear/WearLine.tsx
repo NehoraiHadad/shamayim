@@ -6,8 +6,8 @@ import styles from './WearLine.module.css'
 
 const W = 335
 const H = 82
-/** The rope is tied to the paper's bank (y −3, where the bank meets the gutters), to two ground tabs at the gutters. */
-const END_Y = -6
+/** The rope is tied to two small tabs just inside the page's top edge, at the gutters. */
+const END_Y = 6
 const SAG = 22
 const STEP = 70
 /** Garments are drawn ~34 px wide; on a full-width line they read best a third larger. */
@@ -32,8 +32,8 @@ export function WearLine({ garments, wind }: Pick<WearTip, 'garments' | 'wind'>)
   const first = W / 2 + ((n - 1) * STEP) / 2
   return (
     <svg className={styles.line} viewBox={`0 0 ${W} ${H}`} style={air} aria-hidden="true">
-      <rect className={styles.cleat} x={-3} y={-7} width={6} height={5} rx={1} />
-      <rect className={styles.cleat} x={W - 3} y={-7} width={6} height={5} rx={1} />
+      <rect className={styles.cleat} x={-3} y={5} width={6} height={5} rx={1} />
+      <rect className={styles.cleat} x={W - 3} y={5} width={6} height={5} rx={1} />
       <path className={styles.rope} d={line.d}>
         {!still && <animate attributeName="d" {...smil(dur, sags.map((s) => rope(W, END_Y, s).d))} />}
       </path>
