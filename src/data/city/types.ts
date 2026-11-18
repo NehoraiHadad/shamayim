@@ -1,4 +1,5 @@
 import type { Cluster } from './clusterTypes'
+import type { CityRaster } from './cityRaster'
 
 export type Run = [row: number, col: number, bytes: string]
 export type Tower = [lat: number, lon: number, height: number, width: 0 | 1 | 2, name?: string]
@@ -35,4 +36,4 @@ export type CityColumns = {
   span: number
 }
 
-export type CityResult = CityColumns & { clusters: Cluster[] }
+export type CityResult = CityColumns & { clusters: Cluster[]; raster?: CityRaster }
