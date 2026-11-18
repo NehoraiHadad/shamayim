@@ -540,6 +540,10 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
 - [x] Applied to search (Open-Meteo + Nominatim), GPS reverse lookup and saved/recent places on read
 - [x] Never "הגדה המערבית": niqqud stripped, foreign naming mapped to יהודה ושומרון outside the anchors' reach
 - [ ] Tune anchors if a place lands in the wrong region (add a settlement to `anchors.ts`)
+- [x] Places inside the land use Asia/Jerusalem (OSM results used to carry the device's timezone)
+- [x] Fixed 2026-11-18: live forecast down for every place — app asked for hourly `snow_depth` (743d753), Worker
+      allowlist did not; Worker redeployed. `src/data/openMeteo/workerContract.test.ts` now runs the app's real
+      request URLs through the Worker validator, so a new parameter without a Worker change fails CI
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge

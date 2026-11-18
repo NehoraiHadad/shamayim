@@ -11,6 +11,7 @@ const LAND: readonly (readonly [number, number])[] = [
 ]
 /** Beyond this, the nearest anchor says little; keep the source's own region. */
 const MAX_ANCHOR_KM = 35
+const ISRAEL_TIMEZONE = 'Asia/Jerusalem'
 /** Cantillation and vowel points, but not the maqaf (U+05BE) that joins words. */
 const NIQQUD = /[֑-ֽֿ-ׂׄ-ׇ]/g
 const FOREIGN_NAMES: Record<string, string> = { 'הגדה המערבית': 'יהודה ושומרון', 'الأراضي الفلسطينية': 'יהודה ושומרון' }
@@ -50,8 +51,12 @@ export function cleanRegionHe(region: string): string {
   return FOREIGN_NAMES[plain] ?? plain
 }
 
-/** Gives a place its local region name; a region equal to the place's own name is dropped. */
+/**
+ * Gives a place its local region name (a region equal to the place's own name is dropped) and, inside the land,
+ * Israel's clock: OSM results carry the device's timezone, which is wrong for a traveller or a misset phone.
+ */
 export function withLocalRegion(place: Place): Place {
   const region = israelRegionHe(place.lat, place.lon) ?? cleanRegionHe(place.regionHe)
-  return { ...place, regionHe: region === place.nameHe ? '' : region }
+  const timezone = inside(place.lat, place.lon) ? ISRAEL_TIMEZONE : place.timezone
+  return { ...place, regionHe: region === place.nameHe ? '' : region, timezone }
 }

@@ -13,7 +13,7 @@ const APP_FORECAST = new URLSearchParams({
   current: 'temperature_2m,apparent_temperature,is_day,weather_code,cloud_cover,wind_speed_10m,wind_gusts_10m,'
     + 'wind_direction_10m,precipitation,snowfall,visibility,relative_humidity_2m',
   hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,'
-    + 'wind_gusts_10m,relative_humidity_2m',
+    + 'wind_gusts_10m,relative_humidity_2m,snow_depth',
   daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,'
     + 'wind_gusts_10m_max,sunrise,sunset',
   minutely_15: 'precipitation', forecast_minutely_15: '12',

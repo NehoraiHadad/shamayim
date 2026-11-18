@@ -55,4 +55,10 @@ describe('withLocalRegion', () => {
     expect(withLocalRegion({ ...place, nameHe: 'ג׳רש', regionHe: 'עַמָּאן', lat: 31.95, lon: 35.93 }).regionHe)
       .toBe('עמאן')
   })
+
+  it('sets the Israel clock inside the land and keeps the device clock abroad', () => {
+    const moscow = { ...place, timezone: 'Europe/Moscow', nameHe: 'מעלה חבר', regionHe: '' }
+    expect(withLocalRegion({ ...moscow, lat: 31.4858, lon: 35.1652 }).timezone).toBe('Asia/Jerusalem')
+    expect(withLocalRegion({ ...moscow, lat: 55.75, lon: 37.62 }).timezone).toBe('Europe/Moscow')
+  })
 })

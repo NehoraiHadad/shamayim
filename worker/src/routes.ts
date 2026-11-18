@@ -39,7 +39,7 @@ const CURRENT = [
 ]
 const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
-  'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m',
+  'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m', 'snow_depth',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
