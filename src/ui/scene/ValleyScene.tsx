@@ -13,6 +13,7 @@ import { SceneScrubber } from './SceneScrubber'
 import { Shimmer } from './Shimmer'
 import { SnowCap } from './SnowCap'
 import type { SnowFall } from './snowLine'
+import { seaSpan } from './seaLine'
 import { skylineOf } from './skyline'
 import { Sun } from './Sun'
 import { SCENE_H, SCENE_W, sunAt, sunPosition } from './sunPath'
@@ -115,7 +116,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         night={night} life={markLife} readout={Boolean(readout)} />
       <svg className={`${styles.land} ${styles.landNear}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
         {showSea && (
-          <line x1="96" x2="276" y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
+          <line {...seaSpan(terrain.nearPoints, terrain.seaY)} y1={terrain.seaY} y2={terrain.seaY} className={styles.sea} vectorEffect="non-scaling-stroke" />
         )}
         <path d={terrain.near} className={styles.near} />
         {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM} />}

@@ -100,9 +100,9 @@ Design: `docs/design/LANDMARKS.md` (Fable). Built by Codex (sol) in `feat/landma
       in thick fog, palm lean + 20 s sway in light dry wind, turbines; reduced motion → static
 - [x] Fixed: "פני הים" label now over the sea side (west/east), Shadmot unchanged
 - [x] Verified (Chrome): all four places by day, Jerusalem at night
-- [ ] Gaps: Haifa "69 מ׳" label touches the Dagon silo; OSM path not yet seen live on a small place; some curated
+- [ ] Gaps: (Haifa label fixed in the illustration round: label padding 2 px) OSM path not yet seen live on a small place; some curated
       heights unverified (YMCA, Tower of David, Azrieli Sarona); Haifa cooling towers' current existence unconfirmed
-- [ ] Deferred: snow caps (with a ridge snow line); gust-triggered re-sway
+- [ ] Deferred: gust-triggered re-sway (snow caps done in the illustration round)
 
 ## v6.1 — place detection — 2026-11-17
 Brief: `docs/briefs/place-detection.md`. Codex (sol), merged `feat/place-detection`.
@@ -111,7 +111,7 @@ Brief: `docs/briefs/place-detection.md`. Codex (sol), merged `feat/place-detecti
 - [x] Overpass: 3 hosts, 12 s timeout each, failure remembered 1 h, empty answer cached 30 days
 - [x] Curated data checked online with sources in comments: Báb 11 m, Dagon 65 m (moved), Shalom 142 m,
       one Bazan cooling tower; YMCA / Tower of David / Dome top / Reading chimney heights still unverified
-- [ ] Homes on כרמי צור are 12×6 px, ridge-coloured, under the village dot → invisible. Fix in illustration round.
+- [x] (illustration round: tile houses ×1.25 with a limestone wash) Homes on כרמי צור were 12×6 px, ridge-coloured, under the village dot → invisible. Fix in illustration round.
 - [x] Overpass public servers at capacity ("automated use: run your own") → solved for Israel in v6.2
 
 ## v6.2 — Israel landmark file — 2026-11-17
@@ -126,7 +126,7 @@ Brief: `docs/briefs/israel-landmarks.md`. Codex (sol), merged `feat/israel-landm
 - [x] Verified on prod: כרמי צור loads index + 13 cells, 5 marks (Beit Ummar minarets), no Overpass call
 - [x] Custom domain https://shamayim.nehoraihadad.com (Pages domain + proxied CNAME via `cf`)
 - [x] Stale service worker kept an old bundle on prod until unregistered → skipWaiting + clientsClaim + update polling (`src/pwa.ts`)
-- [ ] Synagogues and water towers are in the data but have no glyph (illustration round)
+- [x] Synagogues and water towers have glyphs (`buildingSpecs.ts`; synagogue seen on כרמי צור)
 - [ ] Abroad: OpenFreeMap vector tiles (z14: worship, castles/ruins, building `render_height`; no towers/masts)
       as the main source, Overpass as a bonus — next Codex round
 - [ ] Later: Cloudflare Pages Function for IMS (token server-side) once access is granted (asked 16.11)
@@ -149,7 +149,7 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
 - [x] flat-desert: houses only where ground is within 5 px of the rim (Mitzpe Ramon stays on the plateau)
 - [x] `classify`: synagogue (religion=jewish + building, 9 m), `landuse=vineyard` filter + kind
 - [ ] After merge to main: re-run the landmarks workflow (`workflow_dispatch`) so cells carry synagogues/vineyards
-- [ ] Mitzpe Ramon: the sun-event label (שקיעה) overlaps the westmost houses — move label or skip houses under it
+- [x] Verified in the illustration round (noon + dusk stills, no overlap). Mitzpe Ramon: the sun-event label (שקיעה) overlaps the westmost houses — move label or skip houses under it
 - QA tip: in the browser pane use `resize_window` mobile, then `scene.style.zoom=3` for readable stills
 - [x] Fresh-critic loop (anidoodle method): r1 → 60ca846, r2 → 4292ae4 (houses in the ridge tone, crescent domes,
       hand-planted orchard, solar strips, stepped castle rubble, one light side per village). Sheets:
@@ -168,7 +168,7 @@ Spec: `docs/design/ILLUSTRATION.md` (Fable). Drawn by Claude, not Codex (owner: 
       off the dot; bases within 6 px of the sheet are dropped (curated: lifted ≤ 6 px); fields slide onto the visible
       face; no house under the sun-event caption. Stills `docs/design/qa/placement-{before,after}-*.png`
       (dev helper `docs/design/qa/place.html` seeds the place for headless Chrome at a true 375 px)
-- [ ] Glyph follow-ups from the same critic: Azrieli round tower needs round shading; Western Wall stone courses
+- [x] Glyph follow-ups from the same critic: Azrieli round tower shaded in bands; Western Wall Herodian courses (illustration round)
 - [ ] Regression stills for all 10 places; then merge to main
 
 - [x] Hill-town blocks ("מודבק" fix, Umm al-Fahm / Tiberias): `marks/blocks.tsx` draws a flat-roofed block of 2–5
@@ -340,7 +340,7 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
 - [x] Haze keeps ridges opaque (2026-11-18): the sun and glow showed through hazy ridges (far ridge faded by opacity to 5%).
   Ridges now pale by colour toward `--haze-air` (sky mid + 45% horizon) by `--far-fade` / `--near-fade` × 90%, opacity 1.
   QA: `docs/design/qa/haze-opaque-dusk.png`.
-- [ ] Later (Fable): run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
+- [x] (illustration round, `seaLine.ts`) Run the sea-level dashed line until it meets the near ridge flanks, so it reads as a datum.
 - [x] Wear card clothesline (owner: "draw the clothes, not generic"): `wear/WearLine.tsx` + `wear/garments.tsx` —
       the day's clothes pegged on a sagging line in the sentence's order (tee / long sleeve / sweater / jacket / coat,
       + umbrella or rain jacket, + sun hat / water bottle); `wear.ts` returns `garments` + `wind`; pegged cloth skews
@@ -415,6 +415,22 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
 - [ ] Not verified: the nowcast over Israel on a rainy day (does RainViewer cover IMS radar well?); motion is in whole
       cells (~8 km/h steps); a row with a long story on a phone
 - [ ] Later: proxy RainViewer/EUMETSAT through the Worker cache; NASA MODIS/VIIRS "photo of the day" layer (offered)
+
+## Illustration round — snow, small fixes, sun/moon — 2026-11-18 (branch `claude/illustration-round-81b0d0`)
+- [x] Snow caps (`snowLine.ts`, `SnowCap.tsx`): only while it snows (codes 71–77, 85–86 or snowfall > 0); snow line =
+      min(place, place + (T − 2 °C) / 6.5 °C·km⁻¹) − up to 100 m with intensity, mapped through the sampled ridge
+      heights (Shadmot: below-sea scale); ragged gully edge, fades in over 2.4 s; labels go dark ink on snow
+- [x] Sun at noon on a high ridge climbs ≥ 48 px above the arc base (`skyline.ts` MIN_RISE)
+- [x] Moon x linear in azimuth, so its arc no longer folds back and drops/climbs straight at rise/set (`moonShape.ts`)
+- [x] Mosques no longer flip with the sun: fixed form per mark (curated as drawn, generic by seed); off-side sun lit by the rig
+- [x] כרמי צור houses larger + limestone; label padding 2 px (Haifa); Azrieli drum bands; Western Wall Herodian courses
+- [x] Sea-level line runs from flank to flank of the near ridge when the valley floor is below it (coast keeps 96–276)
+- [x] QA: `docs/design/qa/stills.mjs` (headless Chrome, 375 px at 2×, reduced motion) + `sheet.py`; stills in
+      `docs/design/qa/round/` (before-*, after-*, snow-*)
+- [ ] Skipped: Tiberias dot ~12 px above the sheet on a 1.3 slope (needs terrain/placement change, not a glyph fix)
+- [ ] Skipped: village houses still mirror cluster-wide with the sun (near-symmetric, so it barely reads)
+- [ ] Not in data: snow depth on the ground after snowfall stops (Open-Meteo `snow_depth` not fetched); light snow
+      at +3 °C on כרמי צור shows no cap (line above the summit), by design
 
 ## Known gaps / polish
 - [ ] Hero meta column hugs the left edge on wide phones; village dot tight against sheet edge
