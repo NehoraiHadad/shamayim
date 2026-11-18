@@ -5,6 +5,9 @@ import { avoid, score, select, spread, type Candidate } from './rank'
 import { settlementHalfWidth, type SettlementSize } from './settlement'
 import type { Landmark, PlacedMark } from './types'
 
+export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
+  kind === 'highrise' && (glyph === undefined || glyph === 'highrise')
+
 const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6, palms: 11 }
 const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minaret', 'lighthouse'])
 const LIT_CUSTOM = new Set(['jerusalem-david', 'jerusalem-wall', 'tel-aviv-shalom',
@@ -44,13 +47,14 @@ function elevationAt(values: number[] | undefined, x: number): number | undefine
   return values[left] + ((values[left + 1] ?? values[left]) - values[left]) * t
 }
 
-export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number): PlacedMark[] {
+export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number, cityMode = false): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
     const offset = offsetKm(place, mark)
     const projected = mark.x == null ? toX(offset.dx) : { x: mark.x, layer: 'near' as const }
     if (!projected) continue
+    if (cityMode && projected.layer === 'near' && isGenericHighrise(mark.kind, mark.glyph)) continue
     const band = mark.kind === 'highrise' || mark.source === 'curated' ? 3 : projected.layer === 'near' ? 1.5 : 3
     if (Math.abs(offset.dy) > band) continue
     const points = projected.layer === 'near' ? terrain.nearPoints : terrain.farPoints
@@ -80,7 +84,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   /** Curated city landmarks stand among the city's own blocks: they only keep clear of the dot. */
   const curatedCity = chosen.some((item) => item.mark.source === 'curated'
     || (homes?.glyph === 'homes-large' && item.mark.kind === 'highrise' && Math.hypot(item.dx, item.dy) <= 3))
-  const keepClear = curatedCity ? 7 * scale : villageHalf
+  const keepClear = curatedCity || cityMode ? 7 * scale : villageHalf
   const edge = 8 * scale
   const inside = [...absorbed].sort((a, b) => a.x - b.x).map((item) => {
     const clear = 8 * scale + item.width / 2

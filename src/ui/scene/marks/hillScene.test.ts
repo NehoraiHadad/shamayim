@@ -4,13 +4,14 @@ import { hashId } from '../../../data/landmarks/hash'
 import { placeHomes } from '../../../data/landmarks/placeMarks'
 import { composeSettlement } from '../../../data/landmarks/settlement'
 import type { CityColumns } from '../../../data/city/types'
+import type { PlacedMark } from '../../../data/landmarks/types'
 import { GENERIC_TERRAIN } from '../../../data/terrain/terrain'
 import { hillScene } from './hillScene'
 import { VISIBLE_BOTTOM } from './sceneLayout'
 
 const terrain = { ...GENERIC_TERRAIN, nearPoints: [[0, 75], [375, 75]] as [number, number][] }
 const place = { ...SHADMOT_MEHOLA, id: 'test-village', settlementType: 'village', featureCode: 'PPL' }
-const city: CityColumns = { west: 34.6, span: .25, rows: [0, 1, 2].map(() =>
+const city: CityColumns = { west: 34.6, span: .25, towers: [], rows: [0, 1, 2].map(() =>
   Array.from({ length: 188 }, () => ({ built: .8, measured: .8, levels: 4, upper: 16 }))) as CityColumns['rows'] }
 
 it('keeps the fallback settlement byte-for-byte, even with surrounding city data', () => {
@@ -31,4 +32,20 @@ it('replaces a large settlement with data-driven blocks across the ridge', () =>
   expect(fabric?.style).toBe('blocks')
   expect(fabric?.contours).toEqual([])
   expect(fabric?.halfWidth).toBeGreaterThan(140)
+})
+
+it('replaces generic near highrises only when the city fabric is active', () => {
+  const large = { ...place, id: 'test-city', settlementType: 'city', population: 100_000 }
+  const generic: PlacedMark = { id: 'osm-highrise', kind: 'highrise', glyph: 'highrise', layer: 'near',
+    xPct: 40, baseY: 75, hPx: 22, lights: 0, tall: true, dy: 0 }
+  const hand: PlacedMark = { ...generic, id: 'haifa-sail', kind: 'custom', glyph: 'haifa-sail', xPct: 70 }
+  const data = { ...city, towers: [{ dx: 2, dy: 0, heightM: 100, wClass: 1 as const, lat: 32, lon: 34.9 }] }
+  const input = { place: large, terrain, landmarks: placeHomes(large), placed: [generic, hand], width: 375,
+    litShare: .5, label: { text: '80 מ׳', below: false } }
+  const fallback = hillScene(input)
+  expect(fallback.cityTowers).toEqual([])
+  expect(fallback.marks.map(mark => mark.id)).toContain(generic.id)
+  const scene = hillScene({ ...input, city: data })
+  expect(scene.cityTowers).toMatchObject([{ x: 218.75, h: 22, row: 1 }])
+  expect(scene.marks.map(mark => mark.id)).toEqual([hand.id])
 })

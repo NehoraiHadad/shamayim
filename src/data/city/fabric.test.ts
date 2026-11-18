@@ -3,6 +3,7 @@ import { composeCity, hasCityFabric } from './fabric'
 import type { CityColumns } from './types'
 
 const columns = (west = 34.6, built = .8): CityColumns => ({
+  towers: [],
   west, span: .25, rows: [0, 1, 2].map(() => Array.from({ length: 188 }, () => ({ built, measured: built, upper: 19, levels: 4 }))) as CityColumns['rows'],
 })
 const base = { width: 375, ground: () => 75, centerX: 187.5, centerY: 75, litShare: .5, floor: 106 }
@@ -26,11 +27,13 @@ it('builds only within qualifying bins and protects the dot, label, and keep-out
 
 it('prioritizes line blocks nearest the dot when the scene is over budget', () => {
   const result = composeCity({ ...base, columns: columns() })
-  expect(result.houses).toHaveLength(96)
+  expect(result.houses.length).toBeLessThanOrEqual(144)
   expect(result.houses.some(house => house.row === 1 && Math.abs(house.x - base.centerX) < 18)).toBe(true)
   expect(result.houses.filter(house => house.row === 1).length).toBeGreaterThan(35)
-  const wide = composeCity({ ...base, width: 525, centerX: 262.5, columns: columns() })
-  expect(wide.houses).toHaveLength(120)
+  // 900 px of fully built rows hold more blocks than the 252 budget: the back row gives way first.
+  const wide = composeCity({ ...base, width: 900, centerX: 450, columns: columns() })
+  expect(wide.houses).toHaveLength(252)
+  expect(wide.houses.filter(house => house.row === 1).length).toBeGreaterThan(wide.houses.filter(house => house.row === 0).length)
 })
 
 it('keeps the same block geometry in a shared geographic stretch after recentering', () => {

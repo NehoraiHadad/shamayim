@@ -18,6 +18,8 @@ export interface Settlement {
   /** Top of the elevation label: just under the houses that stand above it. */
   labelTop: number
   halfWidth: number
+  /** City mode: houses within `half` px of `centerX` are drawn in full; the rest merge into a mass per row. */
+  detail?: { centerX: number; half: number }
 }
 
 const ROWS: Record<SettlementSize, number[]> = { small: [5, 4, 3], medium: [8, 7, 5], large: [10, 9, 7] }

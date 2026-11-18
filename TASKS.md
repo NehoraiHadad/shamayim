@@ -547,7 +547,14 @@ Flag: `?scene=25d` (read once at load, works in production, default off; without
       City mode only where mapped footprints back the dot (Umm al-Fahm keeps its cluster). C0 table in the plan §8.
       Still `docs/design/qa/25d/city-phase2.png` (Petah Tikva, Ramat Gan, Bnei Brak, Be'er Sheva, Karmei Tzur, Umm al-Fahm).
       Not done: night stills; the dark translucent boxes on hill slopes predate phase 2 (seen on main too).
-      Next: phase 3 (skyline: real towers from `t` at their x, mass paths, skyHeight). Codex runs must pin `-m gpt-6.2-sol`
+      Phase 3 done 2026-11-18 (Codex gpt-6.2-sol wrote S1 + tower placement, Claude wrote the mass and integration):
+      one height law `skyHeight = clamp(2.2·√m, 4, 34)` px for blocks and towers (`cityHeight.ts`); real towers from
+      the cells' `t` lists (>= 100 m, dy ±5 km) at their true x and depth row (`towers.ts`, `cityTowers.ts`: prominence,
+      2 reserved within 3 km, cap 10 at 375 px +2 per 150 px, max 16, curated dedupe 250 m); blocks beyond ±1.5 km of
+      the dot merge into one path set per row (`city/massPath.ts`, `CityMass.tsx`: walls, sun face, roofs, day panes,
+      night lights by `litShare`); budget 144 blocks at 375 px. `scripts/shot.mjs` takes `SHOT_TIME` for day/night stills.
+      Still `docs/design/qa/25d/city-phase3.png` (top day 10:00, bottom night 21:00).
+      Not done: S5 DOM budget test, S6 owner look test. Next: phase 4 (far city, curated, neighbours). Codex runs must pin `-m gpt-6.2-sol`
 - [ ] Owner judges on the phone (outdoors, dawn/dusk/night). ValleyScene is 160 lines (split further if it grows)
 
 ## Place search — local region names — 2026-11-18

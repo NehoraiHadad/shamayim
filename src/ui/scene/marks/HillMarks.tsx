@@ -1,5 +1,7 @@
+import type { PlacedTower } from '../../../data/city/cityTowers'
 import type { Settlement } from '../../../data/landmarks/settlement'
 import type { PlacedMark } from '../../../data/landmarks/types'
+import { CityTowers } from './city/CityTowers'
 import { fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
 import { isField, isHillMark, planeOf, specOf } from './hillPlane'
@@ -17,13 +19,14 @@ import styles from './marks.module.css'
 interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   marks: PlacedMark[]
   settlement: Settlement | null
+  cityTowers?: readonly PlacedTower[]
   width: number
   layer?: 'near' | 'far'
 }
 
 const middle = (xs: number[]) => (Math.min(...xs) + Math.max(...xs)) / 2
 
-export function HillMarks({ marks, settlement, width, layer = 'near', ...context }: Props) {
+export function HillMarks({ marks, settlement, cityTowers, width, layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
   if (layer === 'far' && context.life.hideFar) return null
   const far = layer === 'far'
@@ -47,6 +50,9 @@ export function HillMarks({ marks, settlement, width, layer = 'near', ...context
       ))}
       {byPlane('face').map(building)}
       {settlement && <SettlementGlyph settlement={settlement} night={context.night} reach={context.reach}
+        litShare={context.life.litShare}
+        afterRow={cityTowers?.length ? row => <CityTowers towers={cityTowers.filter(tower => tower.row === row)}
+          night={night} litShare={context.life.litShare} /> : undefined}
         sunX={context.shaded?.(middle(settlement.houses.map((house) => house.x))) ? null : context.sunX} />}
       {byPlane('inside').map(building)}
     </>}

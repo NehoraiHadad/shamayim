@@ -1,6 +1,7 @@
 import { hashId, seeded } from '../landmarks/hash'
-import { seat } from '../landmarks/seat'
-import { PARAPET, STOREY, settlementLabel, type House, type Settlement } from '../landmarks/settlement'
+import { settlementLabel, type House, type Settlement } from '../landmarks/settlement'
+import { cityBase } from './cityBase'
+import { skyHeight } from './cityHeight'
 import { cityHouseFits, type CityZones } from './cityZones'
 import { BAND_WIDTH, COLUMN_WIDTH } from './columns'
 import { LON_STEP } from './grid'
@@ -35,19 +36,15 @@ type Input = CityZones & { columns: CityColumns; ground: (x: number) => number; 
 const gapFor = (built: number, roll: number) => built >= .25 ? roll : 1 + 2 * roll
 
 function makeHouse(input: Input, depth: number, x: number, w: number, bin: Column, random: () => number): House | null {
-  const { ground } = input
-  // The downhill edge: a block on a slope sinks into the uphill side rather than floating off the downhill one.
-  const ridge = Math.max(ground(x - w / 2), ground(x), ground(x + w / 2))
-  const front = Math.min(5, input.floor - ridge)
-  if (depth === 2 && front < 2) return null
-  const baseY = depth === 0 ? ridge - 1 : depth === 1 ? seat(ground, x, w, 0, true)!.baseY : ridge + front
+  const baseY = cityBase(input.ground, input.floor, depth, x, w)
+  if (baseY === null) return null
   const typical = Math.round(bin.levels)
   // A taller block now and then, never above the tallest building measured in this stretch (p90 upper height).
   const tallest = Math.round(bin.upper / 3.2)
   const storeys = random() < .12 && tallest > typical + 1
     ? clamp(Math.min(tallest, typical + 2 + Math.floor(random() * 3)), 2, 8)
     : clamp(typical + Math.floor(random() * 3) - 1, 2, 6)
-  return { x, w, baseY, h: PARAPET + storeys * STOREY, row: depth, lit: random() < input.litShare,
+  return { x, w, baseY, h: skyHeight(storeys * 3.2), row: depth, lit: random() < input.litShare,
     seed: Math.floor(random() * 1e6) }
 }
 
@@ -91,11 +88,13 @@ const priority = [2, 0, 1]
 
 export function composeCity(input: Input): Settlement {
   const { width, centerX, centerY } = input
-  const budget = 96 + 24 * Math.max(0, Math.floor((width - 375) / 150))
+  const budget = 144 + 36 * Math.max(0, Math.floor((width - 375) / 150))
   const houses = input.columns.rows.flatMap((row, depth) => rowHouses(input, depth, row))
   houses.sort((a, b) => priority[a.row] - priority[b.row] || Math.abs(a.x - centerX) - Math.abs(b.x - centerX))
   const label = settlementLabel(houses.slice(0, budget), centerX, centerY)
   const kept = label.houses.sort((a, b) => a.row - b.row || a.x - b.x)
   const halfWidth = kept.reduce((max, house) => Math.max(max, Math.abs(house.x - centerX) + house.w / 2), 0)
-  return { style: 'blocks', houses: kept, contours: [], labelTop: label.top, halfWidth }
+  // Full detail within ±1.5 km of the dot (plan §2: distance changes level of detail, not size).
+  const detail = { centerX, half: 1.5 * 15.625 * width / BAND_WIDTH }
+  return { style: 'blocks', houses: kept, contours: [], labelTop: label.top, halfWidth, detail }
 }

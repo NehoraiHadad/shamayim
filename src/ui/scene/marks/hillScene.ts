@@ -1,7 +1,8 @@
 import type { Place } from '../../../config/place'
+import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
 import { composeCity, hasCityFabric } from '../../../data/city/fabric'
 import type { CityColumns } from '../../../data/city/types'
-import { isPlaceHomes, settlementSize } from '../../../data/landmarks/placeMarks'
+import { isGenericHighrise, isPlaceHomes, placeMarks, settlementSize } from '../../../data/landmarks/placeMarks'
 import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
 import { composeSettlement, settlementReach, settlementStyle, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
@@ -15,7 +16,7 @@ interface Input {
   place: Place
   terrain: SceneTerrain
   landmarks: Landmark[]
-  placed: PlacedMark[]
+  placed?: PlacedMark[]
   width: number
   litShare: number
   city?: CityColumns | null
@@ -62,7 +63,13 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const homes = landmarks.find(isPlaceHomes)
   const size = homes && settlementSize(homes)
   const style = size && settlementStyle(place, size, landmarks)
-  const marks = fitMarks(style ? intoTown(placed, style, ground, dot, width) : placed, ground, width, dot)
+  const village = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
+  const cityMode = !village && city && (size === 'large' || style === 'blocks') && hasCityFabric(city, width, centerX)
+  const projected = placed ?? placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, width, Boolean(cityMode))
+  // Data towers cover the near band; generic far-ridge marks still use the landmark data.
+  const candidates = cityMode ? projected.filter(mark => mark.layer === 'far' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
+  const marks = fitMarks(style ? intoTown(candidates, style, ground, dot, width) : candidates, ground, width, dot)
+  let cityTowers: PlacedTower[] = []
   let settlement: Settlement | null = null
   if (size && style) {
     const input = {
@@ -74,11 +81,12 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
         return base ? [{ x, w: BUILDINGS[mark.kind]!.w, base, kind: mark.kind }] : []
       }),
     }
-    const village = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
-    if (!village && city && (size === 'large' || style === 'blocks') && hasCityFabric(city, width, centerX)) {
+    if (cityMode) {
       const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
       const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
       settlement = composeCity({ ...input, columns: city, keepOut })
+      const curated = landmarks.filter(mark => mark.source === 'curated' && mark.glyph && BUILDINGS[mark.glyph])
+      cityTowers = placeCityTowers({ ...input, towers: city.towers, keepOut, curated })
     } else {
       settlement = composeSettlement(input)
     }
@@ -89,7 +97,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     dot, text: label.text, width,
     top: label.below ? terrain.seaY + 6 : settlement?.labelTop ?? centerY + 7,
     minTop: label.below ? terrain.seaY + 2 : 0,
-    obstacles: [...hillBoxes(marks, ground, width), ...houses],
+    obstacles: [...hillBoxes(marks, ground, width), ...houses, ...cityTowers.map(towerBox)],
   })
-  return { ground, farGround, settlement, centerY, marks, label: labelSpot }
+  return { ground, farGround, settlement, cityTowers, centerY, marks, label: labelSpot }
 }

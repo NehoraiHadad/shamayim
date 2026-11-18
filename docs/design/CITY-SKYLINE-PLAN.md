@@ -285,13 +285,13 @@ Reference places: Petah Tikva, Ramat Gan, Bnei Brak, Tel Aviv, Jerusalem, Haifa,
 - [x] C6 Service worker runtime cache for `/data/city`, attribution unchanged (Codex). Files: `vite.config.ts`. Test: second load offline
 
 ### Phase 3: the skyline
-- [ ] S1 `skyHeight` + tower list (Codex). Files: `src/data/city/cityHeight.ts`, `towers.ts` (`selectTowers`), tests: table of §2;
+- [x] S1 `skyHeight` + tower list (Codex). Files: `src/data/city/cityHeight.ts`, `towers.ts` (`selectTowers`), tests: table of §2;
       Petah Tikva fixture keeps Kiryat Arye; <= 10 at 375, <= 16 at 900; spacing >= 5 px
-- [ ] S2 Mass paths (Claude). Files: `src/ui/scene/marks/city/massPath.ts` (pure path strings), `CityMass.tsx`, `marks.module.css`.
+- [x] S2 Mass paths (Claude). Files: `src/ui/scene/marks/city/massPath.ts` (pure path strings), `CityMass.tsx`, `marks.module.css`.
       Test: `massPath.test.ts` node count <= 5 per row; base follows ground at both ends. Stills: day with sun west / east / noon
-- [ ] S3 Towers in city mode (Claude). Files: `city/CityTowers.tsx`, reuse `generic/industry.tsx` Highrise with `wClass` widths 3.5 / 5 / 7.
+- [x] S3 Towers in city mode (Claude). Files: `city/CityTowers.tsx`, reuse `generic/industry.tsx` Highrise with `wClass` widths 3.5 / 5 / 7.
       Stills: `p3-petah-tikva`, `p3-ramat-gan` (Diamond Exchange cluster reads as a cluster)
-- [ ] S4 Night (Claude). Files: `city/CityLights.tsx`. Stills at 21:00 and 03:00; fog still (`?wx=`) keeps lights over walls
+- [x] S4 Night (Claude). Files: `city/CityLights.tsx`. Stills at 21:00 and 03:00; fog still (`?wx=`) keeps lights over walls
 - [ ] S5 Node budget + scrub check (Codex). Test: DOM count <= 320 near for the Petah Tikva fixture; no path rebuild on hour change
 - [ ] S6 Owner look test on the phone: Petah Tikva, Ramat Gan, Be'er Sheva, day and night. If the carpet reads flat, tune 2.2 and jitter, not the data
 

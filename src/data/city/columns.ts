@@ -1,20 +1,25 @@
 import type { Coordinate } from '../landmarks/project'
 import { cellKey, COLS, LON_STEP, ROWS, squareCentre } from './grid'
-import type { CityColumns, Column } from './types'
+import type { CityColumns, CityTower, Column } from './types'
 
 export const BAND_WIDTH = 375
 export const COLUMN_WIDTH = 2
 export const COLUMN_COUNT = Math.ceil(BAND_WIDTH / COLUMN_WIDTH)
 const NORTH_KM = 111.32
+const eastScale = (lat: number) => NORTH_KM * Math.cos(lat * Math.PI / 180)
+export const depthRow = (dy: number): 0 | 1 | 2 => dy > .75 ? 0 : dy < -.75 ? 2 : 1
 
-export function nearBand(place: Coordinate) {
-  const eastKmPerDegree = NORTH_KM * Math.cos(place.lat * Math.PI / 180)
-  const half = 12 / eastKmPerDegree
-  return { west: place.lon - half, span: 2 * half, south: place.lat - 3 / NORTH_KM, north: place.lat + 3 / NORTH_KM }
+export function cityOffset(place: Coordinate, point: Coordinate) {
+  return { dx: (point.lon - place.lon) * eastScale(place.lat), dy: (point.lat - place.lat) * NORTH_KM }
 }
 
-export function cellsForBand(place: Coordinate) {
-  const { west, span, south, north } = nearBand(place)
+export function nearBand(place: Coordinate, depth = 3) {
+  const half = 12 / eastScale(place.lat)
+  return { west: place.lon - half, span: 2 * half, south: place.lat - depth / NORTH_KM, north: place.lat + depth / NORTH_KM }
+}
+
+export function cellsForBand(place: Coordinate, depth = 3) {
+  const { west, span, south, north } = nearBand(place, depth)
   const [sy, sx] = cellKey(south, west).split('_').map(Number)
   const [ny, ex] = cellKey(north, west + span).split('_').map(Number)
   const cells: string[] = []
@@ -28,7 +33,7 @@ const makeRow = () => Array.from({ length: COLUMN_COUNT },
 /** Storeys assumed for zoned urban land with no mapped footprints (the builder's 3-level prior). */
 const UNMEASURED_LEVELS = 3
 
-export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uint8Array>): CityColumns {
+export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uint8Array>, towers: CityTower[] = []): CityColumns {
   const { west, span, south, north } = nearBand(place)
   const rows: [Sum[], Sum[], Sum[]] = [makeRow(), makeRow(), makeRow()]
   for (const cell of cellsForBand(place)) {
@@ -37,7 +42,7 @@ export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uin
       const { lat, lon: firstLon } = squareCentre({ cell, col: 0, row })
       if (lat < south || lat > north) continue
       const dy = (lat - place.lat) * NORTH_KM
-      const depth = dy > .75 ? 0 : dy < -.75 ? 2 : 1
+      const depth = depthRow(dy)
       for (let col = 0; col < COLS; col++) {
         const lon = firstLon + col * LON_STEP
         const x = (lon - west) * BAND_WIDTH / span
@@ -60,5 +65,5 @@ export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uin
     built: count ? built / count : 0, measured: count ? measured / count : 0,
     levels: measured ? levels / measured : built ? UNMEASURED_LEVELS : 0, upper,
   }))
-  return { west, span, rows: [finish(rows[0]), finish(rows[1]), finish(rows[2])] }
+  return { west, span, rows: [finish(rows[0]), finish(rows[1]), finish(rows[2])], towers }
 }

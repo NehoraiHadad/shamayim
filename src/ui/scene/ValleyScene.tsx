@@ -2,7 +2,6 @@ import { useId, useMemo, type CSSProperties } from 'react'
 import type { AirState } from '../../atmo/airTypes'
 import type { CityColumns } from '../../data/city/types'
 import type { MarkLife, Landmark } from '../../data/landmarks/types'
-import { placeMarks } from '../../data/landmarks/placeMarks'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { Place } from '../../config/place'
 import { clockOf, datePart } from '../../domain/time'
@@ -79,12 +78,10 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const showSea = forecast.elevation < 50 || terrain.seaInView
   // The hand-drawn valley has no sampled heights: its ridges are scaled from the place's depth below the sea line.
   const snowPlaceM = place.id === 'shadmot-mehola' ? forecast.elevation : null
-  const placed = useMemo(() => placeMarks(place, { ...terrain, seaInView: showSea }, landmarks, sceneWidth),
-    [place, terrain, landmarks, sceneWidth, showSea])
   const night = markLife.litShare > 0
-  const hill = useMemo(() => hillScene({ place, terrain, landmarks, placed, width: sceneWidth, litShare: markLife.litShare,
+  const hill = useMemo(() => hillScene({ place, terrain, landmarks, width: sceneWidth, litShare: markLife.litShare,
     city, showSea, label: { text: elevationText, below } }),
-  [place, terrain, landmarks, placed, sceneWidth, markLife.litShare, city, showSea, elevationText, below])
+  [place, terrain, landmarks, sceneWidth, markLife.litShare, city, showSea, elevationText, below])
   const moonlit = useMoonlight(ridgeLight, at, place, skyline, cloudCover, air.haze.farFade)
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
@@ -130,7 +127,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray}
           noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}
       </svg>
-      <HillMarks marks={hill.marks} settlement={hill.settlement} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
+      <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers} width={sceneWidth}
+        ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach}
         life={markLife} readout={Boolean(readout)} />
       <span className={styles.village} style={{ left: terrain.centerLeft, top: hill.centerY }} aria-hidden="true" />

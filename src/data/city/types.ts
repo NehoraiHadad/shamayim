@@ -13,7 +13,18 @@ export type CityIndex = {
  * none mapped); levels: typical storeys of the measured part; upper: tallest p90 height in m.
  */
 export type Column = { built: number; measured: number; levels: number; upper: number }
+export type CityTower = {
+  /** East and north offsets in km from the place. */
+  dx: number
+  dy: number
+  heightM: number
+  wClass: 0 | 1 | 2
+  name?: string
+  lat: number
+  lon: number
+}
 export type CityColumns = {
+  towers: CityTower[]
   rows: [Column[], Column[], Column[]]
   /** West edge and longitude span of the near band. */
   west: number

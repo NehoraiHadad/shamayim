@@ -1,6 +1,7 @@
 // Headless phone stills for visual QA (WebGL and animation frames run, unlike a hidden preview pane).
 // Usage: node scripts/shot.mjs <url> <out.png> [waitMs] [clickText]
 // SHOT_PLACE='<Place JSON>' opens that place instead of the default (stored as the app stores a picked place).
+// SHOT_TIME='2026-11-19T10:00:00+02:00' runs the page's clock from that moment (Date shifted, still ticking).
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -41,6 +42,12 @@ try {
   if (process.env.SHOT_PLACE) {
     const place = JSON.stringify(process.env.SHOT_PLACE)
     await send('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('shamayim:place:v1', ${place})` })
+  }
+  if (process.env.SHOT_TIME) {
+    const at = JSON.stringify(process.env.SHOT_TIME)
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const R = Date, off = R.parse(${at}) - R.now()
+      class S extends R { constructor(...a) { super(...(a.length ? a : [R.now() + off])) } static now() { return R.now() + off } }
+      window.Date = S })()` })
   }
   await send('Page.navigate', { url })
   await sleep(4000)
