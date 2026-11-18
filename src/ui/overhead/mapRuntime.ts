@@ -3,6 +3,8 @@ import { mapInk, POSITRON, restylePositron } from './mapStyle'
 import { paperOf, repaintPaper } from './mapPaper'
 import { addRings, hideTown, MAP_BOUNDS, openingZoom } from './placeMap'
 import { addPlaceMarks } from './placeMarks'
+import { addArrowLayers, showArrow } from './nowcastLayers'
+import type { RainOutlook } from '../../domain/rainNowcast'
 import { RADAR_PROTOCOL, SAT_PROTOCOL, tileProtocol, type TilePainter, type TileResult } from './tileProtocols'
 import { addWeatherLayers, reloadWeather, showWeather, type Frame, type Timeline } from './weatherLayers'
 import { weatherInView, type WeatherStatus } from './weatherViewport'
@@ -54,7 +56,7 @@ export async function createOverheadMap({ container, place, timeline, signal, on
   })
   map.touchZoomRotate.disableRotation()
   map.keyboard.disableRotation()
-  map.getCanvas().setAttribute('aria-label', `מפת עננים וגשם סביב ${place.nameHe}`)
+  map.getCanvas().setAttribute('aria-label', `מפה סביב ${place.nameHe}. החיצים מזיזים, פלוס ומינוס מקרבים ומרחיקים.`)
   maplibre.addProtocol(SAT_PROTOCOL, protocol)
   maplibre.addProtocol(RADAR_PROTOCOL, protocol)
 
@@ -83,6 +85,12 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     }
   }
   const queueReport = () => { if (!queued) queued = requestAnimationFrame(report) }
+  let outlook: RainOutlook | null = null
+  const draw = () => {
+    if (!loaded) return
+    showWeather(map, weather, frame, now, dark)
+    showArrow(map, place, outlook, frame.radar === weather.latest.radar)
+  }
   const updatePaper = () => {
     if (!loaded) return
     const theme = paper()
@@ -90,7 +98,7 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     if (theme.dark === dark) return
     dark = theme.dark
     reloadWeather(map, weather)
-    showWeather(map, weather, frame, now, dark)
+    draw()
   }
   const themeObserver = new MutationObserver(updatePaper)
   if (app) themeObserver.observe(app, { attributes: true, attributeFilter: ['class', 'style'] })
@@ -98,14 +106,16 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     addWeatherLayers(map, weather)
     addRings(map, place, mapInk(paper().dark).shore)
     hideTown(map, place.nameHe)
+    addArrowLayers(map, { text: mapInk(dark).text, land: mapInk(dark).land ?? sheet })
     addPlaceMarks(maplibre, map, place, zoom)
-    showWeather(map, weather, frame, now, dark)
     loaded = true
+    draw()
     updatePaper()
     queueReport()
   })
   map.on('sourcedata', queueReport)
   map.on('moveend', queueReport)
+  map.on('zoomend', draw)
   map.on('idle', queueReport)
   map.on('error', (event) => {
     const { sourceId } = event as typeof event & { sourceId?: string }
@@ -124,8 +134,13 @@ export async function createOverheadMap({ container, place, timeline, signal, on
     show(selected: Frame, at: number) {
       frame = selected
       now = at
-      if (loaded) showWeather(map, weather, frame, at, dark)
+      draw()
       queueReport()
+    },
+    /** The radar outlook the headline speaks from, for the motion arrow. */
+    outlook(next: RainOutlook | null) {
+      outlook = next
+      draw()
     },
   }
 }

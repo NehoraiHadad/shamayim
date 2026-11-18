@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RainOutlook } from './rainNowcast'
-import { BASIS, entryHeadline, rainIsNear, rainVerdict, type RadarState } from './rainVerdict'
+import { BASIS, entryHeadline, mapSentence, rainIsNear, rainVerdict, type RadarState } from './rainVerdict'
 
 const clock = (m: number) => `+${m}`
 const ok: RadarState = { kind: 'ok' }
@@ -97,5 +97,16 @@ describe('rain verdict', () => {
     expect(entryHeadline({ ...dry, arrivesIn: 25, band: 2, motion: east }, clock, null)).toBe('גשם בעוד כ־25 דקות')
     expect(entryHeadline(null, clock, '16:00')).toBe('גשם צפוי בסביבות 16:00')
     expect(entryHeadline(null, clock, null)).toBe('גשם בדרך')
+  })
+
+  it('describes the map in words for screen readers', () => {
+    const base = 'במפה: שדמות מחולה במרכז, טבעות ב־25 וב־50 ק״מ.'
+    expect(mapSentence('שדמות מחולה', null)).toBe(base)
+    expect(mapSentence('שדמות מחולה', { ...dry, nearest: { km: 31, bearing: 315, band: 1 }, motion: east }))
+      .toBe(`${base} הגשם הקרוב כ־30 ק״מ צפון־מערבית לך, נע מזרחה.`)
+    expect(mapSentence('שדמות מחולה', { ...dry, nearest: { km: 31, bearing: 315, band: 1 } }))
+      .toBe(`${base} הגשם הקרוב כ־30 ק״מ צפון־מערבית לך.`)
+    expect(mapSentence('שדמות מחולה', { ...dry, nearest: { km: 230, bearing: 0, band: 1 } })).toBe(`${base} אין גשם במכ״ם באזור המפה.`)
+    expect(mapSentence('שדמות מחולה', { ...dry, now: 2 })).toBe(`${base} הגשם מעל שדמות מחולה.`)
   })
 })

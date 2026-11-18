@@ -100,3 +100,14 @@ export function entryHeadline(o: RainOutlook | null, clockIn: (minutes: number) 
   if (o) return rainVerdict({ kind: 'ok' }, o, clockIn, forecastRainAt).headline
   return forecastRainAt ? `גשם צפוי בסביבות ${forecastRainAt}` : 'גשם בדרך'
 }
+
+/** What a sighted person sees on the map, for screen readers (the canvas itself says nothing). */
+export function mapSentence(placeName: string, o: RainOutlook | null): string {
+  const base = `במפה: ${placeName} במרכז, טבעות ב־25 וב־50 ק״מ.`
+  if (!o) return base
+  if (o.now) return `${base} הגשם מעל ${placeName}.`
+  // About half the opening view (~350 km across): farther rain is off the map.
+  if (!o.nearest || o.nearest.km > 175) return `${base} אין גשם במכ״ם באזור המפה.`
+  const moving = o.motion && o.motion.kmh >= STILL_KMH ? `, נע ${goingTo(o.motion.heading)}` : ''
+  return `${base} הגשם הקרוב ${distance(o.nearest.km)} ${side(o.nearest.bearing)}${moving}.`
+}

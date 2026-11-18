@@ -1,5 +1,6 @@
 import type { Map as MapLibre } from 'maplibre-gl'
 import { mapInk, TOWN_LABELS } from './mapStyle'
+import { ARROW, ARROW_HALO } from './nowcastLayers'
 
 export type Paper = { sheet: string; dark: boolean }
 
@@ -24,4 +25,6 @@ export function repaintPaper(map: MapLibre, paper: Paper) {
   paint('overhead-distance', 'line-color', ink.shore)
   paint(TOWN_LABELS, 'text-color', ink.text)
   paint(TOWN_LABELS, 'text-halo-color', ink.land ?? paper.sheet)
+  paint(ARROW, 'line-color', ink.text)
+  paint(ARROW_HALO, 'line-color', ink.land ?? paper.sheet)
 }

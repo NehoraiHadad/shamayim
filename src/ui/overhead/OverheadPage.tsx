@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { Place } from '../../config/place'
 import type { RadarOutlook } from '../../domain/outlookNow'
-import { rainVerdict } from '../../domain/rainVerdict'
+import { mapSentence, rainVerdict } from '../../domain/rainVerdict'
 import { OverheadMap } from './OverheadMap'
 import { RAIN_MAP } from './rainMapName'
 import { RainLegend, TimeRail } from './TimeRail'
@@ -96,8 +96,9 @@ function OverheadContent({ place, rain, title, heading, onClose }: {
         </h2>
         {verdict.detail && <p className={styles.detail}>{verdict.detail}</p>}
         {verdict.basis && <p className={styles.basis}>{verdict.basis}</p>}
+        <p className="visually-hidden">{mapSentence(place.nameHe, state.kind === 'ok' ? rain.outlook : null)}</p>
       </div>
-      <OverheadMap place={place} frame={frame} now={now} onTimeline={setTimeline}
+      <OverheadMap place={place} frame={frame} now={now} outlook={state.kind === 'ok' ? rain.outlook : null} onTimeline={setTimeline}
         onReady={onReady} onMapError={onMapError} onStatus={setWeather} />
       <div className={styles.details}>
         <TimeRail at={at} count={frames.length} time={time} start={frameAge(frames[0]?.radar ?? frames[0]?.cloud ?? null, now)}

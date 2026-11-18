@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Place } from '../../config/place'
+import type { RainOutlook } from '../../domain/rainNowcast'
 import { parseRadarIndex, RAINVIEWER_INDEX } from '../../data/overhead/sources'
 import { forcedRain } from '../devParams'
 import { createOverheadMap, fetchJson } from './mapRuntime'
@@ -12,16 +13,24 @@ interface Props {
   place: Place
   frame?: Frame
   now: number
+  /** The outlook the headline speaks from; the map draws its motion arrow. */
+  outlook: RainOutlook | null
   onTimeline: (timeline: Timeline) => void
   onReady: () => void
   onMapError: () => void
   onStatus: (status: WeatherStatus) => void
 }
 
-export function OverheadMap({ place, frame, now, onTimeline, onReady, onMapError, onStatus }: Props) {
+export function OverheadMap({ place, frame, now, outlook, onTimeline, onReady, onMapError, onStatus }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const runtime = useRef<Awaited<ReturnType<typeof createOverheadMap>>>(null)
   const selection = useRef({ frame, now })
+  const latestOutlook = useRef(outlook)
+
+  useEffect(() => {
+    latestOutlook.current = outlook
+    runtime.current?.outlook(outlook)
+  }, [outlook])
 
   useEffect(() => {
     selection.current = { frame, now }
@@ -54,6 +63,7 @@ export function OverheadMap({ place, frame, now, onTimeline, onReady, onMapError
       .then((controller) => {
         if (signal.aborted) return
         runtime.current = controller
+        controller.outlook(latestOutlook.current)
         const selected = selection.current
         if (selected.frame) controller.show(selected.frame, selected.now)
       })
