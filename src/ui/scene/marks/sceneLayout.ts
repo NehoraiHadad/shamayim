@@ -88,6 +88,9 @@ interface LabelInput {
   width: number
 }
 
+/** Air between the label and any mark (px): glyphs such as the Báb's garden terraces spill past their box. */
+const LABEL_PAD = 2
+
 /** The elevation label's centre x and top: the nearest spot to its own that overlaps no mark, house, or dot. */
 export function placeLabel({ dot, text, top, minTop, obstacles, width }: LabelInput): Point {
   const w = textWidth(text, 11)
@@ -97,7 +100,7 @@ export function placeLabel({ dot, text, top, minTop, obstacles, width }: LabelIn
     for (const y of tops) {
       const box = { left: dot.x + shift - w / 2, right: dot.x + shift + w / 2, top: y, bottom: y + LABEL_H }
       if (box.left < 4 || box.right > width - 4 || box.bottom > VISIBLE_BOTTOM - 1) continue
-      if (all.every((other) => !overlaps(box, other, 1))) return { x: dot.x + shift, y }
+      if (all.every((other) => !overlaps(box, other, LABEL_PAD))) return { x: dot.x + shift, y }
     }
   }
   return { x: dot.x, y: Math.max(minTop, Math.min(top, VISIBLE_BOTTOM - 1 - LABEL_H)) }

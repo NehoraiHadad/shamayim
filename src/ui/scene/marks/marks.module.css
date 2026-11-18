@@ -78,6 +78,7 @@
 .house.recede { --house-base: color-mix(in srgb, var(--ridge-far) 35%, var(--ridge-near)); }
 .house.washed { --house-light: 23%; }
 .house.basalt { --house-light: 7%; }
+.house.limestone { --house-tint: #E6DCC6; --house-light: 34%; }
 .house.stone { --house-tint: color-mix(in srgb, #C9AE7E 45%, var(--sky-horizon)); --house-light: 20%; }
 .green { fill: var(--mark-green); }
 .vine { fill: none; stroke: var(--mark-green); stroke-width: 1; stroke-linecap: round; }

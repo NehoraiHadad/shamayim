@@ -9,7 +9,7 @@ import { dirname, join, resolve } from 'node:path'
 const CHROME = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const [prefix = 'docs/design/qa/still', port = '5179', at = '2026-11-18T12:00', wx = '', only = ''] = process.argv.slice(2)
 
-const il = (id, nameHe, lat, lon, extra = {}) => ({ id, nameHe, regionHe: '', lat, lon, timezone: 'Asia/Jerusalem', ...extra })
+const il = (id, nameHe, lat, lon, extra = {}) => ({ id, nameHe, regionHe: '', lat, lon, timezone: 'Asia/Jerusalem', featureCode: 'PPL', ...extra })
 const PLACES = {
   shadmot: il('shadmot-mehola', 'שדמות מחולה', 32.348, 35.535, { regionHe: 'בקעת הירדן' }),
   karmeitzur: il('osm:way:462664109', 'כרמי צור', 31.6092, 35.1009,
@@ -28,7 +28,7 @@ for (const [key, place] of Object.entries(PLACES)) {
   const url = `http://localhost:${port}/docs/design/qa/place.html?w=375&h=700&p=${encodeURIComponent(JSON.stringify(place))}`
     + `&to=${encodeURIComponent(`/?${query}`)}`
   const out = resolve(`${prefix}-${key}.png`)
-  execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=375,700', '--force-device-scale-factor=2',
+  execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=375,700', '--force-device-scale-factor=2', '--force-prefers-reduced-motion',
     '--virtual-time-budget=9000', `--user-data-dir=${join(tmpdir(), 'shamayim-qa-chrome', key)}`, `--screenshot=${out}`, url],
   { stdio: 'ignore' })
   console.log(out)

@@ -72,6 +72,8 @@ export function TowerOfDavid({ h, night }: BuildingProps) {
 }
 
 /** Courses bottom-up (height, joint offset): big Herodian ashlars below, the smaller later courses above. */
+/** The lower courses are Herodian ashlars with drafted margins; the ones above are later, smaller stones. */
+const HERODIAN = 3
 const COURSES: [number, number][] = [[1.9, 0], [1.9, 2.1], [1.7, .9], [1.3, 2.6], [1.1, 1.4], [1.1, .3]]
 
 /**
@@ -80,17 +82,28 @@ const COURSES: [number, number][] = [[1.9, 0], [1.9, 2.1], [1.7, .9], [1.3, 2.6]
  */
 export function WesternWall({ h, night }: BuildingProps) {
   const rows = COURSES.map(([height, offset], i) => ({
-    y: -COURSES.slice(0, i + 1).reduce((sum, [rise]) => sum + rise, 0), height, offset,
+    y: -COURSES.slice(0, i + 1).reduce((sum, [rise]) => sum + rise, 0), height, offset, herodian: i < HERODIAN,
   })).filter((row) => row.y >= -h - .1)
   const wallTop = rows.at(-1)!.y
+  /** Stones of a course as [left, right]: Herodian ashlars run long (about 2.6× their height), later ones shorter. */
+  const stones = (row: (typeof rows)[number]) => {
+    const step = row.height * (row.herodian ? 2.6 : 2)
+    return Array.from({ length: 9 }, (_, i) => -9 - row.offset + i * step).filter((x) => x < 9 && x + step > -9)
+      .map((x) => [Math.max(-9, x), Math.min(9, x + step)] as const)
+  }
   return <>
     <rect className={night ? styles.lit : styles.wall} x={-9} y={wallTop} width={18} height={-wallTop} />
     <rect className={styles.lit} x={-9} y={wallTop} width={18} height={.6} />
-    {rows.slice(1).map((row) => <rect key={row.y} className={styles.shade} x={-9} y={row.y + row.height - .2}
-      width={18} height={.4} opacity={.55} />)}
-    {rows.flatMap((row) => Array.from({ length: 5 }, (_, i) => -8.6 + row.offset + i * (3 + row.height))
-      .filter((x) => x < 8.6).map((x) => <rect key={`${row.y}${x}`} className={styles.shade} x={x} y={row.y}
-        width={.4} height={row.height} opacity={.4} />))}
+    {rows.flatMap((row) => stones(row).map(([left, right]) => <g key={`${row.y}${left}`}>
+      {/* Joint under each stone and at its far end. */}
+      <rect className={styles.shade} x={left} y={row.y + row.height - .35} width={right - left} height={.35} opacity={.6} />
+      <rect className={styles.shade} x={right - .35} y={row.y} width={.35} height={row.height} opacity={.5} />
+      {/* Herodian drafted margins: the chiselled band round each boss catches the light on top and on the sun side. */}
+      {row.herodian && !night && <>
+        <rect className={styles.lit} x={left} y={row.y} width={right - left - .35} height={.35} />
+        <rect className={styles.lit} x={left} y={row.y} width={.35} height={row.height - .35} />
+      </>}
+    </g>))}
     <rect className={styles.green} x={-6} y={-6.9} width={1.3} height={.7} />
     <rect className={styles.green} x={3.6} y={-5.2} width={1} height={.6} />
     <rect className={styles.green} x={-1.5} y={-8.3} width={.9} height={.5} />

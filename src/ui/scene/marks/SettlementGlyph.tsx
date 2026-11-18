@@ -35,6 +35,12 @@ function Body({ house, style, night }: { house: House; style: Settlement['style'
   return <FlatRoof w={house.w} h={house.h} heater={house.seed % 10 < 4} />
 }
 
+/**
+ * Red-tile houses are drawn a size up around their own base point (the layout keeps the spec's 7 × 6 footprint, so the
+ * dot, label and absorbed-hall clearances hold): at 1x the spec size vanished into the ridge (כרמי צור).
+ */
+const TILE_GROW = 1.25
+
 export function SettlementGlyph({ settlement, sunX, night }: Props) {
   const { style, houses, contours } = settlement
   const ordered = [...houses].sort((a, b) => a.row - b.row || a.baseY - b.baseY)
@@ -42,13 +48,15 @@ export function SettlementGlyph({ settlement, sunX, night }: Props) {
   /** One light direction for the whole cluster, so no seam runs through the village at the sun's x. */
   const xs = houses.map((house) => house.x)
   const mirror = lit && sunX! > (Math.min(...xs) + Math.max(...xs)) / 2 ? -1 : 1
+  const grow = style === 'tile' ? TILE_GROW : 1
   return <g className={lit ? undefined : styles.flat}>
     {contours.map((d) => <path key={d} className={styles.contour} d={d} />)}
     {ordered.map((house) => (
       <g key={`${house.row}-${house.x.toFixed(1)}`}>
         {/* The crest row stands furthest back: toned toward the ridge, still with its two faces. */}
-        <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${mirror} 1)`}
-          className={style === 'blocks' ? blockTone(house.seed, house.row === 0) : undefined}>
+        <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${mirror * grow} ${grow})`}
+          className={style === 'blocks' ? blockTone(house.seed, house.row === 0)
+            : style === 'tile' ? [styles.house, styles.limestone, house.row === 0 ? styles.recede : ''].join(' ') : undefined}>
           {lit && <CastShadow w={house.w} h={house.h} />}
           <Body house={house} style={style} night={night} />
         </g>
