@@ -133,13 +133,26 @@ try {
     const cdp2 = await moving.context.newCDPSession(moving.page)
     await cdp2.send('Emulation.setCPUThrottlingRate', { rate })
     await loadScene(moving.page, sceneUrl(server.url, { place, at: '2026-11-17T12:00', weather: 'thunder' }) + (paintMain ? '&paint=main' : ''), 180000)
-    await moving.page.evaluate(() => { window.__sceneStats.steps['anim.sky'] = [] })
+    // C7: the land animates too (falling rain, mist, smoke, water, the place's trees): both surfaces' frames are measured,
+    // and the animated frame is their sum (two loops on one main thread).
+    const firstBatches = await moving.page.evaluate(() => ({ sky: window.__sceneStats.steps['worker.sky'] ?? [],
+      land: window.__sceneStats.steps['worker.land'] ?? [] }))
+    await moving.page.evaluate(() => { window.__sceneStats.steps['anim.sky'] = []; window.__sceneStats.steps['anim.land'] = [] })
     await moving.page.waitForTimeout(10000)
-    const anim = await moving.page.evaluate(() => window.__sceneStats.steps['anim.sky'] ?? [])
-    const a50 = q(anim, 0.5), a95 = q(anim, 0.95)
+    const anims = await moving.page.evaluate(() => ({ sky: window.__sceneStats.steps['anim.sky'] ?? [],
+      land: window.__sceneStats.steps['anim.land'] ?? [] }))
+    for (const [name, anim] of Object.entries(anims)) {
+      console.log(`  anim.${name.padEnd(8)} p50 ${q(anim, 0.5).toFixed(2).padStart(7)}  p95 ${q(anim, 0.95).toFixed(2).padStart(7)} ms  (n ${anim.length}, 10 s, thunder)`)
+    }
+    const a50 = q(anims.sky, 0.5) + q(anims.land, 0.5), a95 = q(anims.sky, 0.95) + q(anims.land, 0.95)
     const overAnim = a95 > BUDGET.anim.ms * SLACK
     if (overAnim) failures.push(`${place} anim p95 ${a95.toFixed(1)} ms > ${(BUDGET.anim.ms * SLACK).toFixed(1)}`)
-    console.log(`  anim.sky     p50 ${a50.toFixed(2).padStart(7)}  p95 ${a95.toFixed(2).padStart(7)} ms  (n ${anim.length}, 10 s, thunder; budget ${BUDGET.anim.ms})${overAnim ? '  OVER' : ''}`)
+    console.log(`  anim frame   p50 ${a50.toFixed(2).padStart(7)}  p95 ${a95.toFixed(2).padStart(7)} ms  (sky + land; budget ${BUDGET.anim.ms})${overAnim ? '  OVER' : ''}`)
+    if (offThread) {
+      console.log(`  worker cold batch at thunder (ms): sky ${firstBatches.sky.map((v) => v.toFixed(0)).join('/') || '-'}, land ${firstBatches.land.map((v) => v.toFixed(0)).join('/') || '-'}`)
+    }
+    const mem = await moving.page.evaluate(() => window.__sceneStats.memory)
+    console.log(`  memory (thunder) ${(Object.values(mem).reduce((a, b) => a + b, 0) / 2 ** 20).toFixed(1)} MB`)
     await moving.context.close()
   }
 } finally {

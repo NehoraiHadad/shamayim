@@ -1,3 +1,4 @@
+import { frameAt, frameCount } from '../model/anim'
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Ctx2D, type Hand, type Painter } from '../paint'
 import { canvasSize, deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
@@ -24,6 +25,9 @@ interface Entry {
   rect: DeviceRect
   form: LayerCanvas
   light: LayerCanvas | null
+  /** A strip's frames painted so far on each canvas (C7): the main thread paints a frame when it is first laid. */
+  formFrames?: Set<number>
+  lightFrames?: Set<number>
 }
 
 export interface CacheOptions {
@@ -76,11 +80,32 @@ export class LayerCache {
     return entry ? { form: entry.form, light: entry.lightKey ? entry.light : null, ratio: entry.ratio, rect: entry.rect } : null
   }
 
-  private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number) {
+  private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number,
+    only?: readonly number[]) {
     paintPart(ctxOf(canvas), canvas, desc, ratio, rect, paint, phase, this.hand, (w, h) => {
       const scratch = this.factory(w, h)
       return { canvas: scratch, ctx: ctxOf(scratch) }
-    })
+    }, only)
+  }
+
+  /**
+   * A strip's frame at `phase` is painted (C7): on the main thread a strip is painted a frame at a time, the frame shown
+   * when its key changes and the others as the loop first lays them, so a scrub frame pays for one frame, not the strip.
+   */
+  ensureFrame(desc: LayerDesc, phase: number) {
+    if (frameCount(desc.animated) === 1) return
+    const entry = this.entries.get(desc.id)
+    const painter = this.painters(desc)
+    if (!entry || !painter) return
+    const f = frameAt(desc.animated, phase)
+    if (entry.formFrames && !entry.formFrames.has(f) && !this.formless(desc)) {
+      this.paintOn(entry.form, desc, entry.ratio, entry.rect, painter.form, phase, [f])
+      entry.formFrames.add(f)
+    }
+    if (entry.light && entry.lightKey && painter.light && entry.lightFrames && !entry.lightFrames.has(f)) {
+      this.paintOn(entry.light, desc, entry.ratio, entry.rect, painter.light, phase, [f])
+      entry.lightFrames.add(f)
+    }
   }
 
   /** Brings a layer's canvas up to date: what had to be painted (`none` is a cache hit). */
@@ -97,6 +122,8 @@ export class LayerCache {
     const start = this.now()
     const rect = deviceRect(desc, ratio)
     const { w, h } = canvasSize(desc, rect)
+    const strip = frameCount(desc.animated) > 1
+    const frame = frameAt(desc.animated, phase)
     const resized = !entry || entry.form.width !== w || entry.form.height !== h
     if (!entry || resized) {
       const form = this.factory(w, h)
@@ -109,14 +136,19 @@ export class LayerCache {
     if (entry.formKey !== formKey) {
       entry.rect = rect
       entry.ratio = ratio
-      if (painter) this.paintOn(entry.form, desc, ratio, rect, painter.form, phase)
-      else ctxOf(entry.form).clearRect(0, 0, w, h)
+      ctxOf(entry.form).clearRect(0, 0, w, h)
+      if (painter && !this.formless(desc)) this.paintOn(entry.form, desc, ratio, rect, painter.form, phase, strip ? [frame] : undefined)
+      entry.formFrames = strip ? new Set([frame]) : undefined
       entry.formKey = formKey
       painted = 'form'
     }
     if (lightKey && painter?.light) {
       entry.light ??= this.factory(w, h)
-      if (entry.lightKey !== lightKey) this.paintOn(entry.light, desc, ratio, entry.rect, painter.light, phase)
+      if (entry.lightKey !== lightKey) {
+        if (strip) ctxOf(entry.light).clearRect(0, 0, w, h)
+        this.paintOn(entry.light, desc, ratio, entry.rect, painter.light, phase, strip ? [frame] : undefined)
+        entry.lightFrames = strip ? new Set([frame]) : undefined
+      }
     }
     entry.lightKey = lightKey
     if (stat) {

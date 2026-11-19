@@ -239,14 +239,20 @@ describe('animation laid at composite time (C7)', () => {
   const smoke: LayerOf<'smoke'> = { kind: 'smoke', id: 'smoke.near', surface: 'land', z: 40, key: 'k', bounds: { x: 10, y: 20, w: 30, h: 40 },
     plumes: [], animated: { mode: 'frames', frames: { count: 4, fps: 8 } } }
 
-  it('paints a strip of frames, each at its own phase, down one canvas', () => {
+  it('paints a strip of frames, each at its own phase, down one canvas, a frame as it is first laid', () => {
     const phases: number[] = []
     const made: (LayerCanvas & { calls: unknown[][] })[] = []
     const cache = new LayerCache({ factory: (w, h) => { const c = argsCanvas(w, h); made.push(c); return c }, now: () => 0,
       painters: () => ({ form: (_ctx, _desc, env) => { phases.push(env.phase) } }) })
     cache.update(smoke, 2)
-    expect(phases).toEqual([0, 0.125, 0.25, 0.375])
+    // The main thread paints the frame shown, then the others as the loop first lays them (once each).
+    expect(phases).toEqual([0])
     expect([made[0].width, made[0].height]).toEqual([60, 320])
+    for (const phase of [0.3, 0.31, 0.4, 0.13, 0.5]) cache.ensureFrame(smoke, phase)
+    expect(phases).toEqual([0, 0.25, 0.375, 0.125])
+    // A new key starts the strip again from the frame shown.
+    cache.update({ ...smoke, key: 'k2' }, 2, 0.3)
+    expect(phases.at(-1)).toBe(0.25)
     // A change of frames is a change of what the canvas holds.
     expect(cache.update({ ...smoke, animated: { mode: 'frames', frames: { count: 6, fps: 8 } } }, 2)).toBe('form')
   })

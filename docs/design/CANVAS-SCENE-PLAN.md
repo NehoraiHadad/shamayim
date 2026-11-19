@@ -472,6 +472,7 @@ stills at golden, noon, night, overcast; the in-cloud lightning rebuilt as a fla
 dropped: owner decision 1).
 
 **C7. Weather — M (4).**
+**Done 2026-11-19** (§6; the animated frame within budget; the model's overs are C5's and C6's).
 Rain from the raining banks only, slanted by wind, shafts at their true azimuths (over the right ridge), the ground
 darkening and shining after it; snow fall; mist (`life.mist`) as a drifting band between planes; dust tint; smoke and
 tree lean; water ruffle. Reduced motion: one still frame.
@@ -1148,3 +1149,90 @@ the shipped app are unchanged (snapshots untouched; everything below runs only u
   fixture height); `OutsideView` gains `bounds`, `topM`, `beyond`, `baseKm`, `trees`, `fabric`, `roofs`;
   `WaterState.coastalSea` is filled from the place part; `WorldInput` gains `waterMask`, `bounds`, `cover`.
 
+
+**C7 done (2026-11-19): the weather.** Commits on the stage's branch (after merging C6 into C4, then C5 into it); the SVG
+baseline and the shipped app are unchanged (snapshots untouched; everything below runs only under `?canvas=1`).
+- *Drawing with the anidoodle skill* (owner decision 7): `SKILL.md`, `craft-bar.md`, `realism-and-craft.md`,
+  `determinism-and-contract.md`, `working-method.md`, `workflows/site-art.md` read first; real reference named in
+  `paint/weather.ts`'s header (rain shafts under a cumulus line 5–20 km off, near rain against dark ground and grey sky,
+  valley fog after a wet night, a cooling tower's plume in wind, wet limestone and roads, crepuscular rays through a
+  broken deck). The look proved on one still (Haifa 12:00 rain, wind from the west), critiqued on 2× crops (the near rain
+  first read as hard vertical panels: fixed by nested columns with their own marks, so the rain thins to its edges and
+  its top), then extended.
+- *World* (small, general): `rain.ts` `snowFrom` (snow falls only from the precipitating layer's banks, at their true
+  azimuths, slanted by the one wind: flakes fall ~1 m/s, so the slant is far larger than rain's); falling snow chooses
+  (or raises) its cloud layer by the rain's own rule, so `CloudLayer.rains` now also means "snows". `WorldState.snowfall`;
+  `keys.rain` covers it.
+- *Model* (`scene/model/weather.ts`, all from the one world state, no place named):
+  - **rain and snow** only from the banks `world.rain.cells` / `world.snowfall.cells` name, as their cloud layer draws
+    them (C6): banks low on the dome (< `NEAR_ALT` 30°) hang a curtain (`shafts`) from their base to the horizon, its
+    foot carried downwind by the slant, faded by the air at the bank's distance, on the cloud band (drifting with it);
+    the falling streaks inside each curtain (`fall.far`); banks overhead rain round the eye (`fall.near` on the sky,
+    `fall.land` over the land, z 60: over the houses), in nested columns under each bank. Fall speed and slant from the
+    rate and the one wind (vx = vy · tan slant), snow with a sway.
+  - **edge mark** (true-scene plan): it rains or snows but none of those banks is in view → a heavy shower cloud and its
+    curtain cut by the frame's edge on the side the nearest falling bank truly lies (the short way round the horizon),
+    standing over the highest crest under it. Static: it marks a direction (the bands drift round the horizon, so a
+    falling bank behind may come round later and rain in view; the mark is decided at the world's true positions).
+  - **wet ground**: the planes' darkening is C2's (`ground.wet`); `sheen` adds short level glints of the sky on the near
+    ridge's face, out of the text zones, by wetness and sky brightness.
+  - **snow** on the ground is C2's caps (the snow line); the fall above.
+  - **mist** (`mistiness`: humidity 84–99 % and visibility; never in dust): a level lake of mist in the valley between
+    the near ridge and the far one (z 20, its top rising from just over the near crest toward the far crest with the
+    mistiness), and, when the visibility is down to a few km, ground fog over the near ridge's foot (z 45); drifting
+    tiles with the ground wind.
+  - **dust** (`air.dust`): drifting grains over the land and the low sky (the tint is the air's, C3/C6); a gale without
+    dust (≥ 10 m/s) draws faint wind streaks in the sky.
+  - **crepuscular rays**: a sun from −3° to 10° behind broken low/mid cloud with the sky as a whole not closed, no dust:
+    seeded wedges from the sun, mostly cloud shadows, some lit beams, under the clouds (z 5.5).
+  - **smoke and steam** from every mark the world gives as a chimney or cooling tower (the one builder's, C5),
+    downwind, laid over in a gale, in the light and the air at its distance; a strip of 8 frames (1 s loop).
+  - **tree sway**: `Shine.sway` from the wind and gusts (none under 2.5 m/s); the outside builder's trees (and C4's
+    portrait, still used by nothing) rock about their lean in a strip of 4 frames at 2 fps.
+  - **water**: C3's ripples run downwind and rise and fall over a 1 s loop of 6 frames, the glint's sparks twinkle and
+    its core breathes; the same for C5's coastal sea on the outside layer.
+- *Compositor* (`compose/`): two composite-time animations besides C6's drift and flash. **Strips** (`AnimSpec.frames`):
+  a layer's canvas holds `count` frames stacked down it, each painted once at phase `i / fps` (`paintPart`, the same in the
+  worker and on the main thread; each frame clipped to its band), and the frame at the phase is laid with a source rect
+  (`frameAt`). **Falling tiles** (`AnimSpec.fall`): the layer's canvas is a small tile laid as a repeating pattern inside
+  its areas, the pattern offset by `fallAt` (the fall and the sway, whole device px), the areas drifting with their cloud
+  layer and repeated every `period`; each area takes the pattern at its own offset, so nested areas add marks. Nothing
+  is repainted per frame. A strip's frames are in its keys. The worker paints a strip whole; the main thread's cache
+  paints it a frame at a time (the frame shown when its key changes, the rest as the loop first lays them), so a scrub on
+  the fallback pays for one frame, not the strip.
+- *Tests* (`scene/model/weather.test.ts`, 46 over the 8 places; 2 in `compose.test.ts`): no shaft, fall or edge without a
+  raining or snowing bank (clear, overcast, broken, fog), every curtain under a falling bank low on the dome and every
+  fall area under one; rain slant, snow carry, curtain and edge lean signs = the wind's, the falling layers drift with
+  their cloud layer; the edge mark only when no falling bank is in view, on the nearest one's side; mist only with a damp
+  or foggy air (the valley first, ground fog only at low visibility), drifting with the wind; rays only at a low sun with
+  broken cloud (none at noon, under a clear or closed sky, in dust); smoke downwind, laid over more in a gale; sway only
+  in a wind; water and coastal-sea ripples downwind; sheen only when wet; `frameAt`/`fallAt` pure and periodic; painters'
+  calls the same twice and the same a loop later, and different half a loop on; descs structured-cloneable; a strip's
+  canvas and the frame laid at a phase; a fall's pattern offset.
+- *Pixel references*: all 53 re-recorded deliberately (after the C5 merge): rain, snow, mist, sheen and smoke where the
+  moments have them, and at phase 0 the water's ripples and the trees' sway change a little everywhere; 53/53 on both
+  paint paths. The harness lays the land at `phase` too, and has three more moments (`fog`, `showers`, `gale`).
+- *Stills* `qa/canvas/c7/` (dpr 2, overlay): Haifa 12:00 rain (the look still), 14:00 showers (edge mark left), 16:20
+  broken (rays), Jerusalem 12:00 showers (edge mark), snow, dust, Rosh Pina 12:00 gale, Tel Aviv 12:00 rain, Tiberias
+  07:30 fog and rain, 12:00 thunder; `strips/*-strip.png` (the lower half at phases 0, 0.25, 0.5, 0.75: Haifa rain,
+  Tiberias fog, Jerusalem snow, Rosh Pina gale, Tel Aviv rain); `contact-sheet.png`.
+- *Critique* (2× crops). Works: the near rain reads as rain sweeping in under the banks, thickening to their middle and
+  slanted the way the wind goes; the edge mark reads as a shower off to one side, its curtain leaning downwind behind the
+  ridge; valley fog at Tiberias lies level over the lake with the ridges standing out of it; snow has near and far flakes;
+  steam bends off the cooling towers downwind; rays at Haifa's sunset fan as shadows in a warm haze. Still wrong: far
+  curtains are rare in the fixture's moments (its rain decks are mid cloud, low on the dome only far off, so the curtains
+  are short and faint at the horizon: true to the data, but the v1b look of tall shafts over the ridge shows only when a
+  low deck rains 10–30° up); the near rain's streaks are a little uniform in weight; the sheen strokes read as dashes at
+  4×; the edge mark's cloud is a soft heap with no lit top; snow in the sky is dense at a heavy fall (an even scatter at a
+  glance); the dust grains barely show at 1×.
+- *Perf* (`qa/canvas/perf.md`, C7): the animated frame, sky + land, 1.1–1.8 ms p50, 2.9–3.1 ms p95 at the thunder moment
+  (budget 4); worker cold batch at thunder sky 282–384, land 147–466 ms; memory 25.5–33.3 MB. The weather's model is
+  ~0.1–0.16 ms of the model (unthrottled, node); the cold-model and scrub-model overs are C5's and C6's (below).
+- *Decisions and departures*:
+  - The plan's single `weather` layer kind became eight (`shafts`, `fall`, `mist`, `grains`, `rays`, `smoke`, `sheen`,
+    `edge`), each cached and animated its own way; `RainField`/`Shaft`/`MistBand` placeholders removed.
+  - Near rain is the falling banks overhead (≥ 30°), not the forecast's rate at the place as such: rain only from banks.
+  - The land-edge heat displacement of §1f is not built (C6's drifting shimmer lines stay the heat's only sign).
+  - Mist, smoke and sheen are all light over an empty form (the water's pattern), so a scrub repaints their light only;
+    the model test's scrub rule is held for the land's other layers (the weather comes and goes with the hour).
+  - No deploys needed for C7.

@@ -32,11 +32,11 @@ export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
  * and in the paint worker (`paintWorker.ts`), so both give the same pixels.
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
-  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch) {
+  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[]) {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
-  ctx.clearRect(0, 0, size.width, size.height)
+  if (!only) ctx.clearRect(0, 0, size.width, size.height)
   const canvas = (w: number, h: number) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
   const count = frameCount(desc.animated)
   if (count === 1) {
@@ -45,8 +45,11 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     return
   }
-  // A strip (C7): each frame painted at its own phase in its own band of the canvas, clipped to it.
+  // A strip (C7): each frame painted at its own phase in its own band of the canvas, clipped to it (`only`: those frames
+  // alone, each band cleared first; the main thread's cache paints a strip's frames as they are first laid).
   for (let i = 0; i < count; i++) {
+    if (only && !only.includes(i)) continue
+    if (only) ctx.clearRect(0, i * rect.h, rect.w, rect.h)
     ctx.save()
     ctx.beginPath()
     ctx.rect(0, i * rect.h, rect.w, rect.h)

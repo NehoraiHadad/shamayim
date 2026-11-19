@@ -415,3 +415,42 @@ part is 50–90 ms for a city (fabric from the land cover ~13 ms, the mass ~20 m
 mask ~1 ms, the towers beyond 2–20 ms) and ~10–20 ms for a village; it runs once per place (memoised), never per hour.
 Options left: cull the fabric cells hidden behind nearer ones before projecting the rest, build the shape in the paint
 worker, keep the items' array between scrub frames (only the marks change).
+
+## C7 (2026-11-19): the weather
+
+What is added: on the sky the curtains under the far falling banks (a band layer, drifting with its cloud layer), two
+falling tiles (far and near rain or snow: small tiles laid as moving patterns), rays, dust or wind streaks (a drifting
+tile); on the land the near fall (a tile), mist (drifting tiles), sheen, smoke (a strip of 8 frames); the water's and the
+place's layers become strips (6 frames, 4 frames) when they have ripples or trees in a wind. The perf runner now measures
+both surfaces' animation (`anim.sky`, `anim.land`; the animated frame is their sum) at the `thunder` moment, which has
+rain, flashes, mist and smoke.
+
+Worker path, CPU ×4, dpr 2.75 (haifa / tel-aviv / shadmot-mehola), after merging C5:
+
+```
+  modelCold     50.6 / 34.4 / 31.4 ms     (budget 10)  OVER (C5's outside builder and C6; the weather ~0.15 ms of it unthrottled)
+  firstPaint    27.8 / 30.7 / 24.2 ms     (budget 60)
+  scrub.model   p95 22.0 / 20.8 / 13.4 ms (budget 10)  OVER for the two cities (C5)
+  scrub.land    p95 1.1 / 1.0 / 1.3 ms
+  scrub.sky     p95 1.2 / 1.2 / 1.2 ms
+  anim.sky      p50 1.1 / 1.0 / 0.9   p95 1.8 / 1.7 / 1.9 ms
+  anim.land     p50 0.7 / 0.5 / 0.2   p95 1.3 / 1.2 / 1.2 ms
+  anim frame    p50 1.8 / 1.5 / 1.1   p95 3.1 / 2.9 / 3.1 ms   (sky + land, budget 4)
+  worker cold batch at thunder: sky 298 / 384 / 282 ms, land 466 / 240 / 147 ms
+  memory        29.4 / 25.6 / 24.1 MB; at thunder 33.3 / 31.8 / 25.5 MB (budget 48)
+```
+
+Reading:
+- **The animated frame stays within its budget**: the falling tiles are one pattern fill per area (nested columns: four
+  areas per raining bank overhead), the strips one sub-rect blit each; nothing is painted per frame. The loop ticked
+  111–229 times in 10 s per surface (not 300): the two surfaces' loops share the main thread with the compositor's
+  raster at ×4; on the phone to check with `?perf=1` (`anim.sky`, `anim.land`).
+- **The worker pays for the strips once per key**: a land batch at the thunder moment is 147–466 ms at ×4 (the smoke's 8
+  frames, the outside layer's 4 when its trees sway); while scrubbing the strips' light repaints, so the land's light
+  trails the hand more (scrub latency p50 250–810 ms at ×4, C6: 183–338, C5's outside layer among it).
+- Memory rises 2–4 MB at a stormy moment (the strips, the band-wide curtain layer).
+
+Main-thread fallback (`--paint=main`, Haifa): painting whole strips on every scrub tripled the land's scrub frame (p50 169
+→ 575 ms); the main thread's cache now paints a strip a frame at a time (the frame shown when its key changes, the others
+as the loop first lays them: `LayerCache.ensureFrame`), which brings it back (p50 167, p95 225 ms: over the gate as the
+fallback was before C7). The animated frame there is p50 1.1, p95 4.8 ms (the first loop paints the strips' frames once).

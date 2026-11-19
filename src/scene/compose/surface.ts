@@ -115,6 +115,8 @@ export class Surface {
     const d = this.dpr
     const cache = this.active
     for (const desc of [...layers].sort((a, b) => a.z - b.z)) {
+      // A strip's frame is painted when it is first laid (the main thread's cache; the worker paints whole strips).
+      if (cache instanceof LayerCache && desc.animated?.frames) cache.ensureFrame(desc, phase)
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const { form, light, ratio, rect } = cached
