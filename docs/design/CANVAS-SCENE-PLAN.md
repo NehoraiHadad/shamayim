@@ -1585,5 +1585,6 @@ and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
 - **Remaining** (for the owner's eye; none a point fix): Be'er Sheva's west is still a fairly level band (true to its data);
   Hadera's chimneys stay a thin pale line (true to their haze); Nahalal's SVG water tower is behind the true view; the baked
   silver drifts with its cloud; a far town block on Nahalal's ridge reads a little like a row of boxes on the skyline (the
-  raster's squares, ~120 × 230 m, at 3–5 km).
+  raster's squares, ~120 × 230 m, at 3–5 km). In fog (Tiberias 12:00, Nahalal 08:00) the rays and the glare come out strong, as fog beams
+  do (the haze term is full at 10 km); the owner may want them gentler there.
   - No deploys needed.
