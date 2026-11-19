@@ -1,0 +1,15 @@
+{
+  "film": "skyPromo",
+  "claims": [
+    { "text": "חיפה · השמש נעלמת מאחורי הכרמל 15:48", "source": "live app, Haifa, 19.11.2026 (capture/hfa-scrub-1605.png), checked against terrain: Carmel ~9.1° above the eye at az 240°, sun under it at ~15:44-15:48", "date": "2026-11-19" },
+    { "text": "תל אביב-יפו · 16:41", "source": "live app, Tel Aviv, 19.11.2026 (capture/tlv-scrub-1605.png)", "date": "2026-11-19" },
+    { "text": "ירושלים · 16:39", "source": "live app, Jerusalem, 19.11.2026 (capture/jlm-scrub-1605.png)", "date": "2026-11-19" },
+    { "text": "sky.nehoraihadad.com", "source": "owner, live site", "date": "2026-11-19" }
+  ],
+  "banned": [
+    "שקיעה בחיפה 15:48",
+    "the most accurate / any accuracy percentage",
+    "comparison with other weather apps",
+    "download from an app store"
+  ]
+}
