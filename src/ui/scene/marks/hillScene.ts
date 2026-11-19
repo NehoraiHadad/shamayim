@@ -13,6 +13,8 @@ import { composeSettlement, desertSettlement, settlementReach, type Settlement, 
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
 import { stageSettlement } from './stageScene'
+import { eyeHouses, groundYAt, TRUE_DOT_Y, trueScene } from '../../../dev/trueScene'
+import { SCENE_CAMERA } from '../../../domain/camera'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
@@ -63,13 +65,17 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * Ground functions, the marks fitted to what is visible, the place's settlement cluster and the elevation label's
  * spot for the hill layer, in px at the scene's real width.
  */
-export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city, withHome = true,
-  skyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
+export function hillScene({ place, terrain, landmarks: given, placed, width, litShare, label, city, withHome = true,
+  skyline: givenSkyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
+  // Prototype (`?truescene`): no hand-set positions, no drawn village glyph; the houses come from the raster below.
+  const eye = trueScene() && Boolean(terrain.sightAt)
+  const landmarks = eye ? given.filter(mark => mark.kind !== 'homes').map(({ x: _x, ...mark }) => mark as Landmark) : given
+  const skyline = eye ? null : givenSkyline
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
-  const centerY = terrain.stage ? terrain.stage.y : terrain.drawn ? terrain.centerY : ground(centerX)
+  const centerY = eye ? TRUE_DOT_Y : terrain.stage ? terrain.stage.y : terrain.drawn ? terrain.centerY : ground(centerX)
   // On a stage the place's own houses stand on its ground, seen from the pole; elsewhere on the drawn ridge.
   const homeGround: Ground = terrain.stage ? () => centerY : ground
   const dot = { x: centerX, y: centerY }
@@ -101,7 +107,17 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     ? { ...mark, lift: ground(mark.xPct / 100 * width) - centerY } : mark)
   // On a stage with the built-up map, the place's own buildings come from it (below), not from a homes glyph.
   const stageMap = Boolean(terrain.stage && city?.raster)
-  const marks = stageMap || !withHome ? fitted.filter(mark => mark.kind !== 'homes') : fitted
+  const kept = stageMap || !withHome ? fitted.filter(mark => mark.kind !== 'homes') : fitted
+  // Prototype: a mark within 3 km stands on the ground at its own distance, not on the ridge in its direction.
+  const byId = new Map(landmarks.map(mark => [mark.id, mark]))
+  const marks = !eye ? kept : kept.map(mark => {
+    const source = byId.get(mark.id)
+    const km = source ? distanceOf(place, source) : Infinity
+    if (mark.layer !== 'near' || km > 3) return mark
+    const x = mark.xPct / 100 * width
+    const y = groundYAt(terrain, mark.xPct / 100 * 375, km)
+    return y === null ? mark : { ...mark, lift: ground(x) - y }
+  })
   let cityTowers: PlacedTower[] = []
   let settlement: Settlement | null = null
   if (mode && input) {
@@ -124,6 +140,10 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // On a stage the place's own buildings come from the built-up map, seen from the pole (`stageVillage.ts`).
   if (!withHome) {
     settlement = null
+  } else if (eye) {
+    settlement = city?.raster ? { style: mode?.kind === 'city' ? 'blocks' : mode?.style ?? 'tile', contours: [], labelTop: TRUE_DOT_Y - 2,
+      halfWidth: 0, houses: eyeHouses(place, city.raster, terrain, terrain.camera ?? SCENE_CAMERA, width) } : null
+    cityTowers = []
   } else if (stageMap && terrain.camera && terrain.horizonY !== undefined) {
     settlement = stageSettlement(place, city!.raster!, terrain.camera, terrain.horizonY, width, mode?.style)
     cityTowers = []

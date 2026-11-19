@@ -6,6 +6,7 @@ import { pointsToPath } from './profile'
 import { sightProfiles } from './sightProfile'
 import type { SceneTerrain } from './terrain'
 import { visibilityAt } from './visibility'
+import { TRUE_HORIZON_Y, trueScene } from '../../dev/trueScene'
 
 type Pt = [number, number]
 
@@ -113,6 +114,7 @@ export function terrainFromPanorama(p: Panorama, view: { camera?: Camera; horizo
  * rise and fall as it turns.
  */
 export function sceneHorizonY(p: Panorama): number {
+  if (trueScene()) return TRUE_HORIZON_Y
   const mid = p.rays[Math.floor(p.rays.length / 2)]
   const lowestNear = Math.min(...p.rays.map((ray) => ray.near.angle))
   return Math.min(MIDDLE_Y + anglePx(mid.near.angle), LOWEST_Y + anglePx(lowestNear))

@@ -20,16 +20,20 @@ export interface Relief {
   px: number
   /** Over how many degrees it is spread (the stretch is strongest below this). */
   deg: number
+  /** Prototype (`?truescene`): the scale of the place's own houses and near marks, when not the land's. */
+  village?: Relief
 }
 
 /** The relief options shown to the owner; `?relief=true|mid|high` picks one in dev builds. */
-export const RELIEFS: Record<'true' | 'mid' | 'high', Relief> = {
+export const RELIEFS: Record<'true' | 'mid' | 'high' | 'split', Relief> = {
   /** No stretch: the land at its true angle on the sky's scale (very flat). */
   true: { px: 0, deg: 1 },
   /** ~6.5 px a degree at the horizon (4.3×). */
   mid: { px: 30, deg: 6 },
   /** ~9.8 px a degree at the horizon (6.5×). */
   high: { px: 50, deg: 6 },
+  /** Prototype: the land as today (high), the village in front of it at its true scale. */
+  split: { px: 50, deg: 6, village: { px: 0, deg: 1 } },
 }
 
 const DEFAULT_RELIEF: keyof typeof RELIEFS = 'high'
