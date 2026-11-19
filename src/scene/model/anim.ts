@@ -11,7 +11,7 @@ import type { AnimSpec, Pulse } from './types'
 export function driftAt(spec: AnimSpec | undefined, phase: number): number {
   if (!spec?.speed || !spec.period) return 0
   const d = (spec.speed * phase) % spec.period
-  return d < 0 ? d + spec.period : d
+  return d < 0 ? d + spec.period : d + 0
 }
 
 /** A flash's own light over time (s since it struck): a stroke, a dip, a weaker return stroke, then the fade. */

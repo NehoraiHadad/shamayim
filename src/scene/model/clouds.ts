@@ -113,7 +113,8 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
   const rains = layer.rains && raining.has(bank.id)
   const tones = tonesAt(world, box, stops, level, y - h / 2, union, rains, bank.distanceKm)
   const x = wrap(geom.x(bank.azimuth), geom.period)
-  const lit = litOf(light, geom.x(bank.azimuth), y - h / 2, w, thick)
+  // The light's direction the short way round the horizon (the bank's copy on the band nearest the source).
+  const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick)
   const body = mixRgb(tones.body, tones.shade, 0.5 * lit.backlit)
   return {
     id: `${level}:${bank.id}`, x, y, w, h, seed: bank.seed,

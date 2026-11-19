@@ -71,8 +71,14 @@ describe('scene model: layers', () => {
     const model = sceneModel(world, BOX)
     // C3: far water (here only the sea-level datum: the fixture's height is below sea level) and the far towns between
     // the far plane and the near ridge, the sea (within the near band) over the near plane.
-    expect(model.layers.map((layer) => layer.id)).toEqual(['sky', 'plane.far', 'water.far', 'farCities', 'plane.near', 'water.near'])
-    for (const layer of model.layers) {
+    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(['plane.far', 'water.far', 'farCities', 'plane.near', 'water.near'])
+    // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
+    const sky = layersOn(model, 'sky')
+    expect(sky[0].id).toBe('sky')
+    expect(model.layers.slice(0, sky.length)).toEqual(sky)
+    expect(sky.map((layer) => layer.z)).toEqual([...sky.map((layer) => layer.z)].sort((a, b) => a - b))
+    // A drifting band repeats round the horizon (wider than the box, laid every `period`); a disc may stand at the edge.
+    for (const layer of model.layers.filter((l) => !l.animated && l.kind !== 'bodies')) {
       const height = layer.surface === 'sky' ? BOX.skyHeight : BOX.landHeight
       expect(layer.bounds.x).toBeGreaterThanOrEqual(0)
       expect(layer.bounds.y).toBeGreaterThanOrEqual(0)

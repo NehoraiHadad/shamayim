@@ -2,17 +2,13 @@
 // throttled ×4 (CDP Emulation.setCPUThrottlingRate) at the reference phone's dpr (2.75): a cold load, 60 scrub frames
 // across the day and, once a layer animates (C6–C8), 10 s of animation. Prints p50 / p95 per step and fails a gated
 // step above 1.5 × its budget.
-<<<<<<< HEAD
-//   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu]
-// The animation (C6: the clouds drifting, lightning, shimmer) is measured on its own page with motion on, at a stormy
-// hour (`thunder`: every cloud layer drifting and flashes in the raining banks); the cold load and the scrub frames on a
-// page with reduced motion, so no loop races them.
-=======
 // With the paint worker (the default where the browser has one) the main thread only asks for layers and lays the bitmaps
 // it gets back: a step's time is the main thread's (asking, laying each arrival), and the wait for the worker is
 // reported beside it (`firstShown`, `scrub.latency`). `--paint=main` keeps the painting on the main thread to compare.
+// The animation (C6: the clouds drifting, lightning, shimmer) is measured on its own page with motion on, at a stormy
+// hour (`thunder`: every cloud layer drifting and flashes in the raining banks); the cold load and the scrub frames on a
+// page with reduced motion, so no loop races them.
 //   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main]
->>>>>>> origin/ccr-85ec24f0-9ayxgu
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 
 const args = process.argv.slice(2)
@@ -127,21 +123,16 @@ try {
     if (mb > BUDGET.memory.mb * SLACK) failures.push(`${place} memory ${mb.toFixed(1)} MB`)
     console.log(`  memory       ${mb.toFixed(1)} MB (budget ${BUDGET.memory.mb})`)
     console.log(`  scrub repainted: ${repainted.join(', ') || 'nothing'}`)
-<<<<<<< HEAD
-    console.log(`  last paint per layer (ms): ${layerMs}`)
-=======
     if (offThread) {
       console.log(`  worker batch (ms, the worker's own time, raster included): ${workerMs.map(([name, list]) =>
         `${name} p50 ${q(list, 0.5).toFixed(1)} p95 ${q(list, 0.95).toFixed(1)} (n ${list.length})`).join(', ')}`)
     } else console.log(`  last paint per layer (ms): ${layerMs}`)
-    console.log('  anim         no animated layer yet (C6–C8)')
->>>>>>> origin/ccr-85ec24f0-9ayxgu
     await context.close()
     // The sky's animation: 10 s at a stormy hour with the loop running.
     const moving = await openPage(browser, server.url, DPR, { motion: true })
     const cdp2 = await moving.context.newCDPSession(moving.page)
     await cdp2.send('Emulation.setCPUThrottlingRate', { rate })
-    await loadScene(moving.page, sceneUrl(server.url, { place, at: '2026-11-17T12:00', weather: 'thunder' }), 180000)
+    await loadScene(moving.page, sceneUrl(server.url, { place, at: '2026-11-17T12:00', weather: 'thunder' }) + (paintMain ? '&paint=main' : ''), 180000)
     await moving.page.evaluate(() => { window.__sceneStats.steps['anim.sky'] = [] })
     await moving.page.waitForTimeout(10000)
     const anim = await moving.page.evaluate(() => window.__sceneStats.steps['anim.sky'] ?? [])
