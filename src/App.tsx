@@ -13,8 +13,6 @@ import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
-import { useLand } from './data/land/useLand'
-import { useTurningView, useWorld } from './data/world/useWorld'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
 import { sightingsNow } from './domain/cloudSightings'
@@ -36,11 +34,10 @@ import { OverheadEntry } from './ui/overhead/OverheadEntry'
 import { OverheadPage } from './ui/overhead/OverheadPage'
 import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
-import { TurnScene } from './ui/scene/TurnScene'
 import { ValleyScene } from './ui/scene/ValleyScene'
 import { moonCloud } from './ui/scene/moonShape'
 import { snowFall } from './ui/scene/snowLine'
-import { SCENE_25D, TURN_VIEW } from './ui/sceneFlag'
+import { SCENE_25D } from './ui/sceneFlag'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
 import { Sky } from './ui/Sky'
@@ -58,19 +55,15 @@ export default function App() {
   const { place, recent, selectPlace } = usePlace()
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
-  // `?view=turn`: the whole horizon, seen from any heading, with the place on its stage.
-  const turning = useTurningView(useWorld(place, TURN_VIEW))
-  const sunTerrain = turning?.sunTerrain ?? terrain
-  const land = useLand(place, TURN_VIEW)
-  const landmarks = useLandmarks(place, Boolean(terrain.sightAt), TURN_VIEW)
+  const landmarks = useLandmarks(place, Boolean(terrain.sightAt))
   const city = useCity(place)
   const now = useNow(place.timezone)
   const observed = useObservedCloud(place)
   const outlook = useRainOutlook(place)
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
   // Each day also learns when the sun is really seen to rise and set over the land around (horizon panorama).
-  const forecast = useMemo(() => (raw ? withVisibleSun(withObservedCloud(rollForward(raw, now), observed, now), sunTerrain, place) : null),
-    [raw, now, observed, sunTerrain, place])
+  const forecast = useMemo(() => (raw ? withVisibleSun(withObservedCloud(rollForward(raw, now), observed, now), terrain, place) : null),
+    [raw, now, observed, terrain, place])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
   const forced = forcedTheme()
   const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')
@@ -156,10 +149,7 @@ export default function App() {
               first: hourly.find((slot) => slot.type === 'hour')?.time ?? now,
               last: [...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now,
             }
-            // `?view=turn`: the whole horizon, turned with the compass; otherwise the south panorama as always.
-            return turning
-              ? <TurnScene {...scene} sectors={turning.sectors} sunTerrain={turning.sunTerrain} land={land} rain={outlook} />
-              : <ValleyScene {...scene} terrain={terrain} />
+            return <ValleyScene {...scene} terrain={terrain} />
           })()}
           <div className="paper" data-intro="sheet">
             <Sheet>
@@ -168,8 +158,7 @@ export default function App() {
               <WeekList forecast={forecast} now={now} />
               <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
             </Sheet>
-            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm}
-              landDate={turning ? land.colour?.date ?? null : null} />
+            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
           </div>
         </div>
       )}

@@ -1,11 +1,9 @@
-import { azimuthAt, xOf, type Camera } from '../../domain/camera'
-import { hashId, seeded } from '../landmarks/hash'
+import { azimuthAt } from '../../domain/camera'
 import type { Coordinate } from '../landmarks/project'
 import { apparentAngle, destination, RAY_DISTANCES } from '../terrain/panorama'
 import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import type { SceneTerrain } from '../terrain/terrain'
-import { POLE, stagePxPerRad } from '../world/stage'
-import { COVER, LAND_STEP } from './grid'
+import { COVER } from './grid'
 import type { LandCover } from './landData'
 import { colourAt, REACH_M, type LandColour } from './satellite'
 
@@ -87,10 +85,10 @@ function collect() {
  * (left to the sheet under it). Hidden ground and the stage's band (under `floorY`) stay unpainted.
  */
 export function backdropLand(place: Coordinate, land: Land, terrain: SceneTerrain, width: number, toKm = 15): Paint[] {
-  const { groundAt, angleY, camera, stage } = terrain
+  const { groundAt, angleY, camera } = terrain
   if (!groundAt || !angleY || !camera || (!land.colour && !land.cover)) return []
   const out = collect()
-  const floorY = stage?.farY ?? Infinity
+  const floorY = Infinity
   const step = 3
   for (let left = 0; left < width; left += step) {
     const x = (left + step / 2) * RIDGE_WIDTH / width
@@ -117,59 +115,4 @@ export function backdropLand(place: Coordinate, land: Land, terrain: SceneTerrai
     }
   }
   return out.done()
-}
-
-/**
- * The stage's ground as the pole sees it: every land cell (~55 × 47 m) within `toM` of the place, as its true
- * four-cornered shape on the ground in this week's colour; trees as small round crowns standing on it (two or three a
- * cell, seeded inside it), as big as they look from there. Built cells are left to the houses.
- */
-export function stageLand(place: Coordinate, land: Land, camera: Camera, horizonY: number, toM = POLE.reachM): { ground: Paint[]; trees: Paint[] } {
-  const ground = collect(), trees = collect()
-  if (!land.cover && !land.colour) return { ground: [], trees: [] }
-  const pxPerRad = stagePxPerRad(camera.pxPerDeg)
-  const heading = (camera.heading * Math.PI) / 180
-  const fwd = [Math.sin(heading), Math.cos(heading)]
-  const pole = { e: -POLE.backM * fwd[0], n: -POLE.backM * fwd[1] }
-  const northM = 111_320, eastM = 111_320 * Math.cos((place.lat * Math.PI) / 180)
-  const project = (e: number, n: number) => {
-    const de = e - pole.e, dn = n - pole.n
-    const ahead = de * fwd[0] + dn * fwd[1]
-    if (ahead < 30) return null
-    const d = Math.hypot(de, dn)
-    return { x: xOf((Math.atan2(de, dn) * 180) / Math.PI, camera), y: horizonY + pxPerRad * Math.atan2(POLE.upM, d), d }
-  }
-  const rows = Math.ceil((toM + POLE.backM) / (LAND_STEP * northM)), cols = Math.ceil((toM + POLE.backM) / (LAND_STEP * eastM))
-  const row0 = Math.floor(place.lat / LAND_STEP), col0 = Math.floor(place.lon / LAND_STEP)
-  for (let row = row0 - rows; row <= row0 + rows; row++) {
-    for (let col = col0 - cols; col <= col0 + cols; col++) {
-      const lat = (row + .5) * LAND_STEP, lon = (col + .5) * LAND_STEP
-      const e0 = col * LAND_STEP * eastM - place.lon * eastM, n0 = row * LAND_STEP * northM - place.lat * northM
-      const e1 = e0 + LAND_STEP * eastM, n1 = n0 + LAND_STEP * northM
-      // The stage is the ground within its reach of the place; beyond, the backdrop paints the land.
-      if (Math.hypot((e0 + e1) / 2, (n0 + n1) / 2) > toM) continue
-      const corners = [project(e0, n0), project(e1, n0), project(e1, n1), project(e0, n1)]
-      if (corners.some(c => !c)) continue
-      const pts = corners as { x: number; y: number; d: number }[]
-      const d = Math.min(...pts.map(p => p.d))
-      if (pts.every(p => p.x < -4) || pts.every(p => p.x > camera.width + 4)) continue
-      const cover = land.cover?.coverAt(lat, lon) ?? 3
-      const colour = albedo(land, lat, lon, cover)
-      if (!colour) continue
-      const band = d < 400 ? 0 : 1
-      ground.add(cover === WATER ? 'water' : hex(colour), band,
-        `M${pts.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('L')}Z`)
-      if (cover !== TREE) continue
-      const random = seeded(hashId(`tree:${row}:${col}`))
-      const crown = hex(crownOf(colour))
-      for (let i = 0; i < 3; i++) {
-        const p = project(e0 + random() * (e1 - e0), n0 + random() * (n1 - n0))
-        if (!p) continue
-        const r = Math.max(.6, (pxPerRad * 3.2) / p.d)
-        const h = Math.max(1, (pxPerRad * 5) / p.d)
-        trees.add(crown, band, `M${(p.x - r).toFixed(1)} ${(p.y - h).toFixed(1)}a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(2 * r).toFixed(1)} 0a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(-2 * r).toFixed(1)} 0`)
-      }
-    }
-  }
-  return { ground: ground.done(), trees: trees.done() }
 }

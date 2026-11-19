@@ -71,9 +71,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     if (projected.plain) {
       const { baseY, hPx, visibleTopY } = projected.plain
       const nearY = groundY(terrain.nearPoints.map(([x, y]) => ({ x, y })), projected.x)
-      // A mark on the ground in front of the near ridge (a turning view's stage) is not hidden by it.
-      const front = 'front' in projected.plain
-      if (hPx < 3 || (visibleTopY ?? baseY) >= (front ? 114 : Math.min(nearY, 114))) continue
+      if (hPx < 3 || (visibleTopY ?? baseY) >= Math.min(nearY, 114)) continue
     }
     if (!projected.plain && Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
     if (projected.layer === 'far') {

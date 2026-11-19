@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
 import type { Camera } from '../../domain/camera'
-import type { Stage } from '../world/stage'
 import type { Sight } from '../landmarks/project'
 import type { SeenPoint } from './visibility'
 import { terrainFromPanorama } from './panoramaTerrain'
@@ -50,8 +49,6 @@ export interface SceneTerrain {
   sightAt?: (x: number) => Sight
   /** The camera the land is drawn for (`domain/camera.ts`); everything placed on it by direction asks the same one. */
   camera?: Camera
-  /** The place seen from a pole behind it (a turning view, `data/world/stage.ts`); absent in the south panorama. */
-  stage?: Stage
   /** The hand-drawn valley (its village sits on the drawn floor, its snow line is scaled from the place's depth). */
   drawn?: boolean
 }

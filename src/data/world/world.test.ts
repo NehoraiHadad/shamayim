@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { SCENE_CAMERA } from '../../domain/camera'
 import { computePanorama, type HeightAt } from '../terrain/panorama'
 import { terrainFromPanorama } from '../terrain/panoramaTerrain'
-import { stageAt, STAGE_HORIZON_Y } from './stage'
-import { stageHouses } from './stageVillage'
 import { computeWorld, horizonAngle, viewPanorama } from './world'
-import { turningCamera } from './useWorld'
+
+/** A true camera (azimuth grows to the right) at any heading, 120° across. */
+const turningCamera = (heading: number) => ({ ...SCENE_CAMERA, heading, handed: 1 as const, pxPerDeg: SCENE_CAMERA.width / 120 })
 
 /** A ridge to the east, a lower one to the north, a plain elsewhere. */
 const hills: HeightAt = (km, az) => 200 * Math.exp(-(((az - 90) / 25) ** 2)) * Math.min(1, km / 8)
@@ -39,27 +39,5 @@ describe('world', () => {
     const yAt = (x: number) => t.nearPoints.reduce((best, p) => Math.abs(p[0] - x) < Math.abs(best[0] - x) ? p : best)[1]
     // The east ridge stands higher (smaller y) on the left.
     expect(yAt(52.5)).toBeLessThan(yAt(322.5))
-  })
-
-  it('the stage hides only land lower than its far edge, and the eye level holds while turning', () => {
-    const stage = stageAt(STAGE_HORIZON_Y)
-    expect(stage.y).toBeGreaterThan(stage.farY)
-    expect(stage.farY).toBeGreaterThan(STAGE_HORIZON_Y)
-    for (const heading of [0, 90, 180, 270]) {
-      const camera = turningCamera(heading)
-      const t = terrainFromPanorama(viewPanorama(world, camera), { camera, horizonY: STAGE_HORIZON_Y, stage })
-      expect(t.horizonY).toBe(STAGE_HORIZON_Y)
-      expect(Math.max(...t.nearPoints.map(([, y]) => y))).toBeLessThanOrEqual(stage.farY + .05)
-    }
-  })
-
-  it('draws no houses where nothing is built', () => {
-    const empty = { at: () => ({ built: 0, levels: 0, p90: 0 }) }
-    expect(stageHouses({ lat: 30.585, lon: 34.81 }, empty, turningCamera(180), STAGE_HORIZON_Y).houses).toEqual([])
-    const village = { at: () => ({ built: .2, levels: 1, p90: 6 }) }
-    const seen = stageHouses({ lat: 32.35, lon: 35.53 }, village, turningCamera(180), STAGE_HORIZON_Y).houses
-    expect(seen.length).toBeGreaterThan(10)
-    // Nearer houses are drawn later and lower.
-    expect(seen.at(-1)!.baseY).toBeGreaterThan(seen[0].baseY)
   })
 })

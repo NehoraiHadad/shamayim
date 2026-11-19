@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { turningCamera } from '../world/useWorld'
-import { STAGE_HORIZON_Y } from '../world/stage'
-import { COVER, decodeLand, encodeLand, LAND_N } from './grid'
-import { stageLand } from './landPaint'
+import { decodeLand, encodeLand, LAND_N } from './grid'
 import type { LandColour } from './satellite'
 import { colourAt, REACH_M, STEP_M } from './satellite'
 import { toUtm } from './utm'
@@ -27,16 +24,5 @@ describe('land', () => {
     const colour: LandColour = { date: '2026-11-15', fetchedAt: 0, lat: 32, lon: 35, size, rgb }
     expect(colourAt(colour, 32 - 1e-6, 35 + 1e-6)).toEqual([10, 200, 30])
     expect(colourAt(colour, 32.2, 35)).toBeNull()
-  })
-
-  it('paints the stage only from what the data says: trees where trees are, nothing where nothing is known', () => {
-    const tree = COVER.indexOf('tree')
-    const land = { cover: { coverAt: () => tree }, colour: null }
-    const { ground, trees } = stageLand({ lat: 32.35, lon: 35.53 }, land, turningCamera(180), STAGE_HORIZON_Y)
-    expect(ground.length).toBeGreaterThan(0)
-    expect(trees.length).toBeGreaterThan(0)
-    // Everything on the stage lies below eye level.
-    for (const p of ground) for (const [, y] of p.d.matchAll(/[\d.]+ ([\d.]+)/g)) expect(Number(y)).toBeGreaterThan(STAGE_HORIZON_Y)
-    expect(stageLand({ lat: 32.35, lon: 35.53 }, { cover: null, colour: null }, turningCamera(180), STAGE_HORIZON_Y).ground).toEqual([])
   })
 })

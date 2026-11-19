@@ -27,7 +27,7 @@ export function NearLand({ terrain, showSea, snow, snowPlaceM, lighting, ridgeLi
       {/* Snow under the light and the floor shadow, so a cap takes the same sun and shade as the land. */}
       {snow && <SnowCap d={terrain.near} snow={snow} elevations={terrain.nearElevations} placeM={snowPlaceM}
         edge={terrain.snowEdge?.('near', snow.lineM)} />}
-      {lighting && !terrain.stage && <FloorShadow path={terrain.near} points={terrain.nearPoints} ray={lighting.ray} day={lighting.day} />}
+      {lighting && <FloorShadow path={terrain.near} points={terrain.nearPoints} ray={lighting.ray} day={lighting.day} />}
       {ridgeLit?.near && <RidgeLight path={terrain.near} points={terrain.nearPoints} ray={ridgeLit.ray} rayAt={ridgeLit.rayAt}
         noonWeight={ridgeLit.noonWeight} rimX={ridgeLit.near.rimAlpha ? ridgeLit.rimX : null} depth={16} tone={ridgeLit.near} />}
     </svg>
