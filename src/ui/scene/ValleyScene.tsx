@@ -1,3 +1,4 @@
+import { screenSide, SEA_LABEL_SIDE } from '../../domain/camera'
 import { useId, useMemo, type CSSProperties } from 'react'
 import { skylineData } from '../../data/city/skylineData'
 import { clockOf, datePart } from '../../domain/time'
@@ -51,6 +52,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const elevation = Math.round(forecast.elevation)
   const elevationText = `${elevation < 0 ? `−${Math.abs(elevation)}` : elevation} מ׳`
   const showSea = forecast.elevation < 50 || terrain.seaInView
+  const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
   // The hand-drawn valley has no sampled heights: its ridges are scaled from the place's depth below the sea line.
   const snowPlaceM = terrain.drawn ? forecast.elevation : null
   const night = markLife.litShare > 0
@@ -119,8 +121,9 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       {showSea && (
         <>
           <span className={styles.seaLabel} style={{ top: terrain.seaY - 14,
-            ...(terrain.seaSide === 'west' ? { left: '6%', right: 'auto' }
-              : terrain.seaSide === 'east' ? { right: '6%' } : {}) }} aria-hidden="true">פני הים</span>
+            ...(seaOn === 'left' ? { left: '6%', right: 'auto' }
+              : seaOn === 'right' ? { right: '6%' } : SEA_LABEL_SIDE === 'right' ? { right: '27%' } : { left: '27%' }) }}
+            aria-hidden="true">פני הים</span>
         </>
       )}
       <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}

@@ -131,3 +131,57 @@ export function ridgePoints(d: string, steps = 6): Pt[] {
   // The final "V128" drops to the bottom edge; it is not part of the ridge.
   return out.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10])
 }
+
+/**
+ * A path of absolute commands (M L H V C S Q Z) turned round across a `w`-wide box, redrawn from right to left so that
+ * `ridgePoints` still reads it left to right. Only for the closed ridge shapes here: `M0 h V… … w y V h Z`.
+ */
+export function mirrorPath(d: string, w = 375): string {
+  const tokens = d.match(/[MLHVCSQZ]|-?\d*\.?\d+/g) ?? []
+  // Rebuild as a list of absolute points per command, then mirror x and walk backwards.
+  type Seg = { cmd: string; pts: Pt[] }
+  const segs: Seg[] = []
+  let at: Pt = [0, 0]
+  let i = 0
+  let cmd = ''
+  const num = () => Number(tokens[i++])
+  while (i < tokens.length) {
+    if (/[A-Z]/.test(tokens[i])) cmd = tokens[i++]
+    if (cmd === 'Z') break
+    const take = cmd === 'C' ? 3 : cmd === 'S' || cmd === 'Q' ? 2 : cmd === 'M' || cmd === 'L' ? 1 : 0
+    if (cmd === 'H') { at = [num(), at[1]]; segs.push({ cmd: 'L', pts: [at] }); continue }
+    if (cmd === 'V') { at = [at[0], num()]; segs.push({ cmd: 'L', pts: [at] }); continue }
+    const pts: Pt[] = []
+    for (let k = 0; k < take; k++) pts.push([num(), num()])
+    at = pts[pts.length - 1]
+    segs.push({ cmd, pts })
+    if (cmd === 'M') cmd = 'L'
+  }
+  // Expand S (smooth cubic) into C with its reflected first control, so the reversed path stays exact.
+  let prevC: Pt | null = null
+  let start: Pt = [0, 0]
+  const full: { from: Pt; cmd: string; pts: Pt[] }[] = []
+  for (const seg of segs) {
+    if (seg.cmd === 'M') { start = seg.pts[0]; prevC = null; continue }
+    const from = start
+    if (seg.cmd === 'S') {
+      const c1: Pt = prevC ? [2 * from[0] - prevC[0], 2 * from[1] - prevC[1]] : from
+      full.push({ from, cmd: 'C', pts: [c1, seg.pts[0], seg.pts[1]] })
+      prevC = seg.pts[0]
+    } else {
+      full.push({ from, cmd: seg.cmd, pts: seg.pts })
+      prevC = seg.cmd === 'C' ? seg.pts[1] : null
+    }
+    start = seg.pts[seg.pts.length - 1]
+  }
+  const m = (p: Pt) => `${+(w - p[0]).toFixed(2)} ${+p[1].toFixed(2)}`
+  const end = start
+  let out = `M${m(end)}`
+  for (let k = full.length - 1; k >= 0; k--) {
+    const { from, cmd: c, pts } = full[k]
+    if (c === 'C') out += `C${m(pts[1])} ${m(pts[0])} ${m(from)}`
+    else if (c === 'Q') out += `Q${m(pts[0])} ${m(from)}`
+    else out += `L${m(from)}`
+  }
+  return `${out}Z`
+}

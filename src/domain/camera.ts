@@ -21,8 +21,22 @@ export interface Camera {
   width: number
 }
 
-/** The scene as drawn today: south in the middle, east on the right, 135 px per 90° over 375 px (250° in view). */
-export const SCENE_CAMERA: Camera = { heading: 180, handed: -1, pxPerDeg: 135 / 90, width: 375 }
+/**
+ * The scene: facing south, as an eye there sees it (east on the left, west on the right), 135 px per 90° over 375 px
+ * (250° in view). Until 2026-11 it was drawn mirrored (east on the right): see `STORED_CAMERA`.
+ */
+export const SCENE_CAMERA: Camera = { heading: 180, handed: 1, pxPerDeg: 135 / 90, width: 375 }
+
+/**
+ * The order the south panorama is stored and recorded in (west-north-west first): the old mirrored scene's. Fixed, so
+ * stored and recorded panoramas stay valid; `terrainFromPanorama` turns them into the scene's order.
+ */
+export const STORED_CAMERA: Camera = { heading: 180, handed: -1, pxPerDeg: 135 / 90, width: 375 }
+
+/** Which side of the screen a compass side (east or west) is on for a camera facing roughly south or north. */
+export function screenSide(side: 'east' | 'west', c: Camera = SCENE_CAMERA): 'left' | 'right' {
+  return xOf(side === 'east' ? 90 : 270, c) < c.width / 2 ? 'left' : 'right'
+}
 
 /** Degrees in (−180, 180]. */
 export function wrap180(degrees: number): number {
@@ -80,3 +94,9 @@ export function toward(azimuth: number, c: Camera = SCENE_CAMERA): number {
   const a = (azimuth * Math.PI) / 180
   return Math.cos(a) * cosH + Math.sin(a) * sinH
 }
+
+/**
+ * Where the "sea level" note stands below sea level (no sea in view): over the open side of the Rift, which was drawn
+ * on the right when east was; it follows east.
+ */
+export const SEA_LABEL_SIDE: 'left' | 'right' = screenSide('east')

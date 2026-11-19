@@ -9,7 +9,7 @@ import {
   packPanorama, unpackPanorama, type Panorama,
   type StoredPanorama,
 } from './panorama'
-import { gentleHillsPath, ridgePoints } from './profile'
+import { gentleHillsPath, mirrorPath, ridgePoints } from './profile'
 
 export { terrainFromPanorama } from './panoramaTerrain'
 export { fetchPanorama, inRift } from './fetchPanorama'
@@ -53,15 +53,23 @@ export interface SceneTerrain {
   drawn?: boolean
 }
 
-const SHADMOT_FAR = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
-const SHADMOT_NEAR = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z'
-const GENERIC_FAR = 'M0 128V54C52 32 102 44 148 62S236 76 284 48S344 38 375 50V128Z'
+const SHADMOT_FAR_DRAWN = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
+const SHADMOT_NEAR_DRAWN = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z'
+const GENERIC_FAR_DRAWN = 'M0 128V54C52 32 102 44 148 62S236 76 284 48S344 38 375 50V128Z'
+/**
+ * The stand-ins were drawn for the old mirrored scene (east on the right); the scene now faces south as an eye does
+ * (east on the left), so they are turned round across.
+ */
+const turned = (d: string) => mirrorPath(d)
+const SHADMOT_FAR = turned(SHADMOT_FAR_DRAWN)
+const SHADMOT_NEAR = turned(SHADMOT_NEAR_DRAWN)
+const GENERIC_FAR = turned(GENERIC_FAR_DRAWN)
 
 /** The hand-drawn Jordan Valley at Shadmot Mehola: shown until its panorama has loaded (and if it never can). */
 const SHADMOT: SceneTerrain = {
   far: SHADMOT_FAR,
   near: SHADMOT_NEAR,
-  centerLeft: '47.5%',
+  centerLeft: '52.5%',
   centerY: 96,
   seaY: 72,
   seaInView: false,
@@ -74,13 +82,13 @@ const SHADMOT: SceneTerrain = {
 
 export const GENERIC_TERRAIN: SceneTerrain = {
   far: GENERIC_FAR,
-  near: gentleHillsPath(),
+  near: turned(gentleHillsPath()),
   centerLeft: '50%',
   centerY: 74,
   seaY: 72,
   seaInView: false,
   seaSide: null,
-  nearPoints: ridgePoints(gentleHillsPath()),
+  nearPoints: ridgePoints(turned(gentleHillsPath())),
   farPoints: ridgePoints(GENERIC_FAR),
 }
 

@@ -4,16 +4,16 @@ import { HORIZON_Y } from './sunPath'
 
 describe('skyPoint', () => {
   it('puts due east over the Gilead and due west over Samaria, on the horizon', () => {
-    expect(skyPoint(0, 90).x * 375).toBeCloseTo(322.5)
-    expect(skyPoint(0, 270).x * 375).toBeCloseTo(52.5)
+    expect(skyPoint(0, 90).x * 375).toBeCloseTo(52.5)
+    expect(skyPoint(0, 270).x * 375).toBeCloseTo(322.5)
     expect(skyPoint(0, 180).x).toBeCloseTo(0.5)
     expect(skyPoint(0, 90).y).toBe(HORIZON_Y)
   })
   it('moves one way across the sky even when it rises north of east (no fold at due east or west)', () => {
     const xs = [60, 75, 90, 120, 180, 240, 270, 285, 300].map((az) => skyPoint(10, az).x)
-    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeLessThan(xs[i - 1])
-    expect(xs[0] * 375).toBeLessThanOrEqual(375)
-    expect(xs.at(-1)! * 375).toBeGreaterThanOrEqual(0)
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1])
+    expect(xs[0] * 375).toBeGreaterThanOrEqual(0)
+    expect(xs.at(-1)! * 375).toBeLessThanOrEqual(375)
   })
   it('rises with altitude', () => {
     expect(skyPoint(45, 180).y).toBeLessThan(skyPoint(10, 180).y)
@@ -35,7 +35,8 @@ describe('brightLimbAngle', () => {
     const moon = skyPoint(30, 160)
     const sunWest = skyPoint(-10, 250)
     const angle = brightLimbAngle(moon, sunWest)
-    expect(Math.abs(angle)).toBeGreaterThan(90)
+    // West is on the right: the lit side faces right (and down, the sun being lower).
+    expect(Math.abs(angle)).toBeLessThan(90)
   })
 })
 

@@ -1,4 +1,4 @@
-import { azimuthAt as cameraAzimuthAt, fractionOf, SCENE_CAMERA, type Camera } from '../../domain/camera'
+import { azimuthAt as cameraAzimuthAt, fractionOf, SCENE_CAMERA, STORED_CAMERA, type Camera } from '../../domain/camera'
 
 export { packPanorama, unpackPanorama, type StoredPanorama } from './storedPanorama'
 
@@ -44,7 +44,7 @@ export const RAY_DISTANCES: readonly number[] = [
  * (55°) last. Fixed: it is the order the panorama is stored in, whatever the camera does (`domain/camera.ts`).
  */
 export function rayAzimuth(i: number, rays = RAYS): number {
-  const az = azimuthAt(i / (rays - 1), SCENE_CAMERA)
+  const az = azimuthAt(i / (rays - 1), STORED_CAMERA)
   return (az + 360) % 360
 }
 

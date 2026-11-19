@@ -93,8 +93,11 @@ describe('scene terrain from a panorama', () => {
 
   it('draws each ridge at its angle on the sky’s own scale above eye level', () => {
     const east = valley.rays.findIndex((ray) => Math.abs(ray.azimuth - 90) < 1)
-    const [x, y] = terrain.farPoints[east]
-    expect(x).toBeCloseTo(375 * east / (RAYS - 1), 0)
+    // Stored west-north-west first; on screen east is on the left, so the ray stands at the mirrored index.
+    const onScreen = RAYS - 1 - east
+    const [x, y] = terrain.farPoints[onScreen]
+    expect(x).toBeCloseTo(375 * onScreen / (RAYS - 1), 0)
+    expect(x).toBeLessThan(375 / 2)
     expect(terrain.horizonY! - y).toBeCloseTo(anglePx(valley.rays[east].far.angle), 0)
     expect(valley.rays[east].far.angle).toBeGreaterThan(4)
   })
@@ -116,7 +119,7 @@ describe('scene terrain from a panorama', () => {
   })
 
   it('lays snow down the slopes to the snow line, and none on ridges below it', () => {
-    const east = valley.rays.findIndex((ray) => Math.abs(ray.azimuth - 90) < 1)
+    const east = RAYS - 1 - valley.rays.findIndex((ray) => Math.abs(ray.azimuth - 90) < 1)
     const far = terrain.snowEdge!('far', 400)
     const crestY = terrain.farPoints[east][1]
     expect(far[east][1]).toBeGreaterThan(crestY)

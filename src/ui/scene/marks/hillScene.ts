@@ -1,3 +1,4 @@
+import { screenSide, SEA_LABEL_SIDE } from '../../../domain/camera'
 import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
 import { composeCity } from '../../../data/city/fabric'
@@ -70,7 +71,8 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const dot = { x: centerX, y: centerY }
   const mode = homeMode(place, landmarks, width, centerX, city, Boolean(terrain.sightAt))
   const cityMode = mode?.kind === 'city'
-  const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
+  const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
+  const right = seaOn === 'left' ? width * .06 + 44 : width * (seaOn === 'right' ? .94 : SEA_LABEL_SIDE === 'right' ? .73 : .27) + (seaOn || SEA_LABEL_SIDE === 'right' ? 0 : 44)
   // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
   const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
   const input = mode && { style: mode.style, size: mode.size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,

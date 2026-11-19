@@ -7,8 +7,8 @@ import { skylineOf } from './skyline'
 import { anglePx, horizonSlope } from '../../data/terrain/angleScale'
 
 const jerusalem = { lat: 31.778, lon: 35.235 }
-// A high, bumpy ridge like the Judean hills.
-const bumpy = skylineOf([[0, 34], [60, 18], [110, 30], [170, 14], [230, 32], [290, 20], [375, 36]])
+// A high, bumpy ridge like the Judean hills (east on the left).
+const bumpy = skylineOf([[0, 36], [85, 20], [145, 32], [205, 14], [265, 30], [315, 18], [375, 34]])
 const H = 3_600_000
 
 describe('moon pass', () => {
@@ -38,7 +38,7 @@ describe('moon pass', () => {
 
   it('moves east to west on one smooth path over a bumpy ridge (no zigzag)', () => {
     const pts = Array.from({ length: 61 }, (_, i) => point(pass.rise + ((pass.set - pass.rise) * i) / 60))
-    for (let i = 1; i < pts.length; i++) expect(pts[i].x).toBeLessThan(pts[i - 1].x)
+    for (let i = 1; i < pts.length; i++) expect(pts[i].x).toBeGreaterThan(pts[i - 1].x)
     for (let i = 1; i < pts.length - 1; i++) expect(Math.abs(pts[i + 1].y - 2 * pts[i].y + pts[i - 1].y)).toBeLessThan(6)
   })
 

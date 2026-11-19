@@ -1,3 +1,4 @@
+import { screenSide, SEA_LABEL_SIDE } from '../../domain/camera'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
 import { projectMark } from './markProjection'
@@ -111,8 +112,9 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     6 * scale,
     layer === 'near' ? [center - keepClear, center + keepClear] : undefined, scale,
   ))].filter((item) => item.x - item.width / 2 >= edge && item.x + item.width / 2 <= 375 - edge)
-  const labelRight = terrain.seaSide === 'west' ? 375 * .06 + 44 * scale
-    : terrain.seaSide === 'east' ? 375 * .94 : 375 * .73
+  const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
+  const labelRight = seaOn === 'left' ? 375 * .06 + 44 * scale
+    : seaOn === 'right' ? 375 * .94 : SEA_LABEL_SIDE === 'right' ? 375 * .73 : 375 * .27 + 44 * scale
   const labelLeft = labelRight - 44 * scale
   const clearLabel = spaced.flatMap((item) => {
     if (!terrain.seaInView) return [item]

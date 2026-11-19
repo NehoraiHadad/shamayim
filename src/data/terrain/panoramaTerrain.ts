@@ -1,4 +1,4 @@
-import { SCENE_CAMERA, type Camera } from '../../domain/camera'
+import { leftAzimuth, SCENE_CAMERA, wrap180, type Camera } from '../../domain/camera'
 import { anglePx } from './angleScale'
 import { apparentAngle, type HorizonPoint, type Panorama } from './panorama'
 import { pointsToPath } from './profile'
@@ -26,12 +26,11 @@ const SEA_KM = 8
 /** A ray that reaches the sea (the DEM's sea floor is raised to the surface in `fetchPanorama`) close enough to see it. */
 const atSea = (ray: Panorama['rays'][number]) => ray.seaKm !== null && ray.seaKm <= SEA_KM
 
-/** Which side the sea is on: west or east rays that reach it. */
+/** Which side the sea is on: west or east rays that reach it (by azimuth, whatever the screen order). */
 function seaSideOf(p: Panorama): 'west' | 'east' | null {
-  const half = Math.floor(p.rays.length / 2)
   const share = (rays: Panorama['rays']) => rays.filter(atSea).length / rays.length
-  const west = share(p.rays.slice(0, half))
-  const east = share(p.rays.slice(half + 1))
+  const west = share(p.rays.filter((ray) => wrap180(ray.azimuth - 180) > 1e-6))
+  const east = share(p.rays.filter((ray) => wrap180(ray.azimuth - 180) < -1e-6))
   if (Math.max(west, east) < SEA_SHARE) return null
   return west >= east ? 'west' : 'east'
 }
@@ -40,7 +39,8 @@ function seaSideOf(p: Panorama): 'west' | 'east' | null {
  * The scene's land from a horizon panorama. Across, each ray sits at its azimuth's x (the sky's own mapping); up, each
  * ridge at its angle on the sky's scale (`anglePx`) above eye level, which stands at `horizonY`.
  */
-export function terrainFromPanorama(p: Panorama, view: { camera?: Camera; horizonY?: number } = {}): SceneTerrain {
+export function terrainFromPanorama(given: Panorama, view: { camera?: Camera; horizonY?: number } = {}): SceneTerrain {
+  const p = inViewOrder(given, view.camera ?? SCENE_CAMERA)
   const n = p.rays.length
   const xOf = (i: number) => (375 * i) / (n - 1)
   const mid = p.rays[Math.floor(n / 2)]
@@ -101,6 +101,16 @@ export function terrainFromPanorama(p: Panorama, view: { camera?: Camera; horizo
     angleY: yOf,
     camera: view.camera ?? SCENE_CAMERA,
   }
+}
+
+/**
+ * The panorama's rays from the camera's left edge to its right: a stored south panorama runs west-north-west first
+ * (`STORED_CAMERA`), so for the true view facing south (east on the left) it is turned round.
+ */
+export function inViewOrder(p: Panorama, camera: Camera = SCENE_CAMERA): Panorama {
+  const n = p.rays.length
+  const off = (azimuth: number) => Math.abs(wrap180(azimuth - leftAzimuth(camera)))
+  return n > 1 && off(p.rays[n - 1].azimuth) < off(p.rays[0].azimuth) ? { ...p, rays: [...p.rays].reverse() } : p
 }
 
 /**

@@ -30,7 +30,8 @@ describe('profileToPath', () => {
   })
 
   it('stands in with the drawn Shadmot valley or gentle hills until a panorama is known', () => {
-    expect(terrainForPlace('shadmot-mehola', null).centerLeft).toBe('47.5%')
+    // The village sits just west of the valley's middle: on the right, west being on the right.
+    expect(terrainForPlace('shadmot-mehola', null).centerLeft).toBe('52.5%')
     expect(terrainForPlace('shadmot-mehola', null).drawn).toBe(true)
     expect(terrainForPlace('shadmot-mehola', null).horizonY).toBeUndefined()
     expect(terrainForPlace('elsewhere', null)).toBe(GENERIC_TERRAIN)

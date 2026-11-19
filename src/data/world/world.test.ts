@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { SCENE_CAMERA } from '../../domain/camera'
+import { SCENE_CAMERA, STORED_CAMERA } from '../../domain/camera'
 import { computePanorama, type HeightAt } from '../terrain/panorama'
-import { terrainFromPanorama } from '../terrain/panoramaTerrain'
+import { inViewOrder, terrainFromPanorama } from '../terrain/panoramaTerrain'
 import { computeWorld, horizonAngle, viewPanorama } from './world'
 
 /** A true camera (azimuth grows to the right) at any heading, 120° across. */
@@ -16,9 +16,15 @@ describe('world', () => {
 
   it('holds today\'s south panorama exactly: the view at the scene camera is the same land', () => {
     const south = computePanorama(hills, 0)
+    // In the stored order (the old mirrored camera) it is the stored south panorama ray for ray.
+    const stored = viewPanorama(world, STORED_CAMERA)
+    expect(stored.rays.map((ray) => ray.azimuth)).toEqual(south.rays.map((ray) => ray.azimuth))
+    expect(stored.rays.map((ray) => ray.near)).toEqual(south.rays.map((ray) => ray.near))
+    // At the scene camera (east on the left) it is the same rays in screen order, and the same land.
     const view = viewPanorama(world, SCENE_CAMERA)
-    expect(view.rays.map((ray) => ray.azimuth)).toEqual(south.rays.map((ray) => ray.azimuth))
-    expect(view.rays.map((ray) => ray.near)).toEqual(south.rays.map((ray) => ray.near))
+    const turned = inViewOrder(south)
+    expect(view.rays.map((ray) => ray.azimuth)).toEqual(turned.rays.map((ray) => ray.azimuth))
+    expect(view.rays.map((ray) => ray.near)).toEqual(turned.rays.map((ray) => ray.near))
     expect(terrainFromPanorama(view).near).toBe(terrainFromPanorama(south).near)
   })
 

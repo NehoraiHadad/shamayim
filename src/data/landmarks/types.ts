@@ -13,7 +13,7 @@ export interface Landmark {
   lon: number
   heightM: number
   x?: number
-  source: 'curated' | 'osm' | 'place'
+  source: 'curated' | 'osm' | 'place' | 'cover'
 }
 
 export interface CuratedPlace {

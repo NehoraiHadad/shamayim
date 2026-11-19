@@ -11,7 +11,8 @@ import { noonElevation, sunAt, sunPosition } from './sunPath'
 
 const LAT = 32.348
 const site = { lat: LAT, lon: 35.535, timezone: 'Asia/Jerusalem' }
-const sky = skylineOf([[0, 54], [125, 54], [238, 68], [336, 34], [375, 34]])
+// East on the left: the high eastern ridge (y 34) on the left, the lower west on the right.
+const sky = skylineOf([[0, 34], [39, 34], [137, 68], [250, 54], [375, 54]])
 const winter = { rise: '2026-11-17T06:08', set: '2026-11-17T16:36' }
 const summer = { rise: '2026-06-21T05:33', set: '2026-06-21T19:49' }
 const at = (d: typeof winter, t: number) => sunAt(t, d.rise, d.set, site, sky)
@@ -23,10 +24,10 @@ describe('sun path', () => {
   })
 
   it('rises east and sets west on the ridge, south of east in winter and north of it in summer', () => {
-    expect(at(winter, 0).x).toBeGreaterThan(0.6)
-    expect(at(winter, 1).x).toBeLessThan(0.4)
-    expect(at(summer, 0).x).toBeGreaterThan(at(winter, 0).x)
-    expect(at(summer, 1).x).toBeLessThan(at(winter, 1).x)
+    expect(at(winter, 0).x).toBeLessThan(0.4)
+    expect(at(winter, 1).x).toBeGreaterThan(0.6)
+    expect(at(summer, 0).x).toBeLessThan(at(winter, 0).x)
+    expect(at(summer, 1).x).toBeGreaterThan(at(winter, 1).x)
     // At the flat-horizon times the disc's top edge stands on the line (within refraction's rounding).
     expect(Math.abs(at(winter, 0).y - sky(at(winter, 0).x))).toBeLessThan(2.5)
     expect(Math.abs(at(winter, 1).y - sky(at(winter, 1).x))).toBeLessThan(2.5)
@@ -57,8 +58,8 @@ describe('sun path', () => {
   })
 
   it('comes over a mountain later than the flat-horizon sunrise, where the drawn ridge stands above it', () => {
-    // Eye level at y 96 and a 4° wall in the east (like the Gilead from the Jordan Valley).
-    const valley = withHorizon(skylineOf([[0, 96], [200, 96], [230, 96 - anglePx(4)], [375, 96 - anglePx(4)]]), 96)
+    // Eye level at y 96 and a 4° wall in the east, on the left (like the Gilead from the Jordan Valley).
+    const valley = withHorizon(skylineOf([[0, 96 - anglePx(4)], [145, 96 - anglePx(4)], [175, 96], [375, 96]]), 96)
     const over = sunOverRidge(0, winter.rise, winter.set, site, valley)
     expect(over.t).toBeGreaterThan(0.03)
     expect(over.y).toBeCloseTo(valley(over.x), 5)

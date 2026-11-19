@@ -15,10 +15,10 @@ it('projects a visible plain with the same angle scale as the horizon', () => {
   const point = projectSight(from, target, terrain.sightAt!)
   const angle = apparentAngle(100, 31, 952)
   expect(angle).toBeCloseTo(-1.698, 2)
-  expect(point).toMatchObject({ layer: 'plain', x: expect.closeTo(52.5, 8), angle: expect.closeTo(angle, 8),
+  expect(point).toMatchObject({ layer: 'plain', x: expect.closeTo(322.5, 8), angle: expect.closeTo(angle, 8),
     groundAngle: expect.closeTo(angle, 8), y: expect.closeTo(terrain.horizonY! - anglePx(angle), 8) })
-  expect(terrain.seenAt!(52.5, 31.7)?.angle).toBeCloseTo(apparentAngle(100, 31.7, 952), 8)
-  expect(terrain.seenAt!(52.5, 60.01)).toBeNull()
+  expect(terrain.seenAt!(322.5, 31.7)?.angle).toBeCloseTo(apparentAngle(100, 31.7, 952), 8)
+  expect(terrain.seenAt!(322.5, 60.01)).toBeNull()
 })
 
 it('keeps terrain in shadow and lets a tall tower clear a lower foreground rise', () => {
@@ -36,8 +36,8 @@ it('keeps a shortlisted landmark at its geographic x and ground y', () => {
   const place = { ...from, id: 'test', nameHe: '', regionHe: '', timezone: 'Asia/Jerusalem' }
   const marks = placeMarks(place, terrain, [{ ...target, id: 'tower', kind: 'mast', source: 'osm', heightM: 150 }], 375)
   expect(marks).toHaveLength(1)
-  expect(marks[0]).toMatchObject({ layer: 'plain', xPct: expect.closeTo(14, 8),
-    baseY: expect.closeTo(terrain.seenAt!(52.5, 31)!.y, 8) })
+  expect(marks[0]).toMatchObject({ layer: 'plain', xPct: expect.closeTo(86, 8),
+    baseY: expect.closeTo(terrain.seenAt!(322.5, 31)!.y, 8) })
   expect(marks[0].hPx).toBeGreaterThanOrEqual(3)
 })
 
