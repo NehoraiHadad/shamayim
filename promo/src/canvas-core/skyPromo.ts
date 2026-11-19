@@ -74,19 +74,19 @@ import { filmScore } from "./score";
 import { filmScoreMat } from "./skyPromoScore";
 
 const DUR = 580; // 90 bpm: a beat is 20 frames, a bar 80; the landing is bar 7's downbeat (480 = 16.0 s)
-const PLACES = [["tlv", "תל אביב"], ["hfa", "חיפה"], ["jlm", "ירושלים"], ["mzr", "מצפה רמון"]] as const;
+const PLACES = [["tlv", "תל אביב"], ["mzr", "מצפה רמון"], ["hfa", "חיפה"], ["jlm", "ירושלים"]] as const; // grey, clear, clear, grey: each cut a change
 // the cue table: every frame number of the film lives here
 const CUE = {
   day: [0, 200], night: [200, 280], range: [280, 400], dawn: [400, 440], lift: [440, 480], end: [480, DUR],
   lines: [
-    { text: "תחזית שנראית כמו השמיים שמעליך.", from: 0, to: 60, enter: false },
-    { text: "מזיזים את האצבע והיום עובר.", from: 65, to: 125 },
-    { text: "השמש נעלמת מאחורי ההרים שממול.", from: 130, to: 195 },
+    { text: "תחזית שנראית כמו השמיים שמעליך.", from: 0, to: 55, enter: false },
+    { text: "מזיזים את האצבע והיום עובר.", from: 60, to: 110 },
+    { text: "השמש נעלמת מאחורי ההרים שממול.", from: 115, to: 195 },
     { text: "גם הירח, בדיוק איפה שהוא.", from: 205, to: 275 },
     { text: "לכל מקום, השמיים שלו.", from: 285, to: 395 },
     { text: "ומחר בבוקר, מעל הגלעד.", from: 400, to: 440 },
   ],
-  card: { iris: [455, 475], word: 480, line: 485, url: 485 },
+  card: { iris: [455, 470], word: 480, line: 485, url: 485 },
 } as const;
 (() => { // the grid checker, at load
   const nums: number[] = [];
@@ -135,11 +135,11 @@ const drawPhone = (ctx: Ctx, env: Env, pk: Pick, y: number) => {
 };
 const touchAt = (ctx: Ctx, x: number, y: number, vx: number, press: number) => {
   if (press <= 0) return;
-  const R = 24 * (0.7 + 0.3 * press);
+  const R = 30 * (0.7 + 0.3 * press);
   for (let i = 8; i >= 1; i--) { const t = i / 8; ctx.globalAlpha = 0.18 * (1 - t) * press; ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x + vx * t, y, R * 0.8 * (1 - 0.35 * t), 0, Math.PI * 2); ctx.fill(); }
   ctx.globalAlpha = 0.14 * press; ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 0.95 * press; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.95 * press; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 1;
 };
 
@@ -170,20 +170,21 @@ const ICON = { size: 300, x: 390, y: 500 };
 const iconSun = () => { const s = ICON.size / 512; return { x: ICON.x + 256 * s, y: ICON.y + 318 * s, r: 92 * s }; };
 // in two layers, so the sun can come up BETWEEN them: the tile's sky, then (the caller's sun), then the hills
 const iconClip = (ctx: Ctx, iris: number) => {
-  const s = ICON.size / 512; ctx.translate(ICON.x, ICON.y); ctx.scale(s, s);
+  const s = ICON.size / 512, k = 0.82 + 0.18 * iris; // the tile arrives square, growing to size
+  ctx.translate(ICON.x + 150, ICON.y + 150); ctx.scale(k, k); ctx.translate(-150, -150); ctx.scale(s, s);
   rr(ctx, 0, 0, 512, 512, 112); ctx.clip();
-  ctx.beginPath(); ctx.arc(256, 318, 92 + iris * 420, 0, Math.PI * 2); ctx.clip(); // the tile opens as an iris around where the sun will rest
 };
+const tileOn = (ctx: Ctx, iris: number) => { ctx.globalAlpha = iris; };
 const drawIconSky = (ctx: Ctx, iris: number) => {
-  ctx.save(); iconClip(ctx, iris);
+  ctx.save(); tileOn(ctx, iris); iconClip(ctx, iris);
   const g = ctx.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, "#1F2A52"); g.addColorStop(0.55, "#8E4A6E"); g.addColorStop(1, "#F6B26B");
   ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512); ctx.restore();
 };
 const drawIconHills = (ctx: Ctx, iris: number) => {
-  ctx.save(); iconClip(ctx, iris);
+  ctx.save(); tileOn(ctx, iris); iconClip(ctx, iris);
   ctx.fillStyle = "#3A2A4A"; ctx.beginPath(); ctx.moveTo(0, 330); ctx.bezierCurveTo(70, 300, 120, 312, 180, 290); ctx.bezierCurveTo(240, 268, 300, 250, 360, 270); ctx.bezierCurveTo(420, 290, 460, 300, 512, 286); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#1A1428"; ctx.beginPath(); ctx.moveTo(0, 372); ctx.bezierCurveTo(80, 356, 140, 366, 210, 348); ctx.bezierCurveTo(280, 330, 330, 330, 400, 344); ctx.bezierCurveTo(470, 358, 480, 360, 512, 352); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.closePath(); ctx.fill();
-  ctx.restore();
+  ctx.restore(); ctx.globalAlpha = 1;
 };
 const END = { top: "#1F2A52", low: "#121833" };
 const DAWN_SUN = { x: 289.6, y: 405.4, r: 7.7 }; // the sunrise's sun in the dawn footage's last frame (measured, CSS px)
@@ -203,7 +204,7 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
     }
     ground(ctx, col[0], col[1]);
     // the four places: a slow push in across the bar, so each cut lands on a moving picture
-    const push = f >= CUE.range[0] && f < CUE.range[1] ? 1 + 0.05 * lin(f, CUE.range[0], CUE.range[1]) : f >= CUE.dawn[0] ? 1 + 0.03 * Math.sin(Math.PI * lin(f, CUE.dawn[0], CUE.dawn[1])) : 1 + 0.012 * Math.sin((f / CUE.range[0]) * Math.PI); // a breath of camera over the day; a push into the sunrise
+    const push = f >= CUE.range[0] && f < CUE.range[1] ? 1 + 0.05 * lin((f - CUE.range[0]) % 30, 0, 30) : f >= CUE.dawn[0] ? 1 + 0.03 * Math.sin(Math.PI * lin(f, CUE.dawn[0], CUE.dawn[1])) : 1 + 0.012 * Math.sin((f / CUE.range[0]) * Math.PI); // a breath of camera over the day; a push into the sunrise
     ctx.save(); ctx.translate(540, P2.y + 400); ctx.scale(push, push); ctx.translate(-540, -(P2.y + 400));
     drawPhone(ctx, env, pk, P2.y);
     ctx.restore();
@@ -231,12 +232,13 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
   const dawnCol = SKY.dawn[60];
   if (f < CUE.end[0]) {
     ground(ctx, mix(dawnCol[0], END.top, ease(u)), mix(dawnCol[1], END.low, ease(u)));
-    const py = P2.y + inCubic(lin(f, CUE.lift[0], CUE.lift[1] - 8)) * 1500;
+    const py = P2.y + inCubic(lin(f, CUE.lift[0] + 2, CUE.lift[0] + 24)) * 1500;
     if (py < H) {
       drawPhone(ctx, env, { seq: "dawn", i: 60 }, py);
-      const sx = P2.x + DAWN_SUN.x * K, sy = py + DAWN_SUN.y * K, rg = ctx.createRadialGradient(sx, sy, 0, sx, sy, DAWN_SUN.r * K * 3);
-      rg.addColorStop(0, "#5a83b0"); rg.addColorStop(0.6, "rgba(84,128,173,1)"); rg.addColorStop(1, "rgba(80,124,171,0)");
-      ctx.save(); rr(ctx, P2.x, py, P2.w, TOP_H, 60); ctx.clip(); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, DAWN_SUN.r * K * 3, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      // the sun has left the phone: its sky closes over the disc and the glow (sampled 40-60 CSS px out)
+      const sx = P2.x + DAWN_SUN.x * K, sy = py + DAWN_SUN.y * K, pr = 62 * K, rg = ctx.createRadialGradient(sx, sy, 0, sx, sy, pr);
+      rg.addColorStop(0, "#4677ab"); rg.addColorStop(0.6, "rgba(66,115,170,1)"); rg.addColorStop(1, "rgba(60,109,168,0)");
+      ctx.save(); rr(ctx, P2.x, py, P2.w, TOP_H, 60); ctx.clip(); ctx.beginPath(); ctx.rect(P2.x, py + 300 * K, P2.w, 140 * K); ctx.clip(); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, pr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
     // the clock rides up and away with the last line of the morning
     texture(ctx, () => goldSlot(ctx, hhmm(CLOCK.dawn[60]), 1 - lin(f, CUE.lift[0], CUE.lift[0] + 10), -lin(f, CUE.lift[0], CUE.lift[0] + 10) * 40));
@@ -254,15 +256,24 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
   ctx.save(); ctx.translate(540, 820); ctx.scale(hold, hold); ctx.translate(-540, -820);
   // the sun: one object, from the phone's valley (440) out to the right of the phone, over, and down onto the icon (480)
   const a = { x: P2.x + DAWN_SUN.x * K, y: P2.y + DAWN_SUN.y * K, r: DAWN_SUN.r * K }, b = iconSun();
-  const v = ease(u), c1 = { x: a.x + 120, y: a.y - 260 }, c2 = { x: b.x + 40, y: b.y + 420 }; // up out of the valley, then up into place from below: it rises
-  const bz = (p0: number, p1: number, p2: number, p3: number) => (1 - v) ** 3 * p0 + 3 * (1 - v) ** 2 * v * p1 + 3 * (1 - v) * v * v * p2 + v ** 3 * p3;
-  const sx = bz(a.x, c1.x, c2.x, b.x), sy = bz(a.y, c1.y, c2.y, b.y), sr = a.r + (b.r - a.r) * v;
+  // three legs: up out of the valley (440-452), across to just under the icon while the phone falls away (452-470),
+  // then up into place from behind the icon's hills (470-480): the last thing it does is rise
+  const L0 = CUE.lift[0], a1 = { x: 1012, y: a.y - 30 }, p2 = { x: b.x, y: b.y + 225 }; // first out to the right, through the valley band, clear of the app's text
+  const leg = f < L0 + 16 ? [a, a1, ease(lin(f, L0, L0 + 16))] as const : f < L0 + 30 ? [a1, p2, ease(lin(f, L0 + 16, L0 + 30))] as const : [p2, b, outCubic(lin(f, L0 + 30, L0 + 40))] as const; // up out of the valley, then up into place from below: it rises
+  const sx = leg[0].x + (leg[1].x - leg[0].x) * leg[2], sy = leg[0].y + (leg[1].y - leg[0].y) * leg[2], sr = a.r + (b.r - a.r) * ease(lin(f, L0, L0 + 30));
   // the icon opens while the sun is on its way; the sun comes up from behind its hills into place (a sunrise)
   const iris = ease(lin(f, CUE.card.iris[0], CUE.card.iris[1]));
-  if (f >= CUE.card.iris[0]) drawIconSky(ctx, iris);
-  const glow = 1 - lin(f, CUE.end[0], CUE.end[0] + 10);
-  if (f < CUE.end[0]) sunDisc(ctx, sx, sy, sr, 1); else sunDisc(ctx, b.x, b.y, b.r, glow);
-  if (f >= CUE.card.iris[0]) drawIconHills(ctx, iris);
+  const glow = 1 - lin(f, CUE.end[0], CUE.end[0] + 10), on = f >= CUE.card.iris[0];
+  const sun = () => (f < CUE.end[0] ? sunDisc(ctx, sx, sy, sr, 1) : sunDisc(ctx, b.x, b.y, b.r, glow));
+  const tile = () => { ctx.beginPath(); rr(ctx, ICON.x, ICON.y, ICON.size, ICON.size, ICON.size * 112 / 512); };
+  if (!on) sun();
+  else {
+    // outside the tile: the sun over the night ground; inside: behind the icon's hills, so it comes up over the ridge
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); { const x = ICON.x, y = ICON.y, w = ICON.size, h = ICON.size, r = (ICON.size * 112) / 512; ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); } ctx.clip("evenodd"); sun(); ctx.restore();
+    drawIconSky(ctx, iris);
+    ctx.save(); tile(); ctx.clip(); sun(); ctx.restore();
+    drawIconHills(ctx, iris);
+  }
   if (f >= CUE.end[0]) {
     // the wordmark rises (no clip: the letters are never cut), the line, then the address
     const wq = outCubic(lin(f, CUE.card.word, CUE.card.word + 12));
