@@ -15,7 +15,7 @@ import { partKey } from './keys'
 import { lightOf } from './light'
 import { nightOf } from './night'
 import { placeOf } from './place'
-import { rainFrom, rainingLayer, rainOf } from './rain'
+import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { snowFall } from './snowLine'
@@ -100,12 +100,14 @@ export function makeWorldBuilder() {
       hour, preview, forced: 'windDirection' in forced }, camera)
     const rate = rainOf(shown)
     const { covers: given, source: cloudSource } = layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour })
-    const raining = rainingLayer(given, rate)
+    const snow = snowFall(shown, forecast.elevation)
+    // Falling snow needs a cloud to fall from, as the rain does (C7): the same layer rule, from the snowfall.
+    const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
     const covers = raining.covers
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
     const rain = rainFrom(clouds, rate, wind, shown.weatherCode, preview, hashId(`${place.id}:rain:${hourKey(at)}`))
-    const snow = snowFall(shown, forecast.elevation)
+    const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow:${hourKey(at)}`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
       wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10, air: { visibilityKm: air.visibilityKm, dust: air.dust } })
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
@@ -122,7 +124,7 @@ export function makeWorldBuilder() {
     return {
       place, at, preview, seed, camera,
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
-      bodies, light, air, clouds, rain, snow, wind,
+      bodies, light, air, clouds, rain, snow, snowfall, wind,
       terrain: planesOf(terrain, place.id),
       water,
       farCities: farCities.part,
@@ -137,7 +139,7 @@ export function makeWorldBuilder() {
         light: partKey(light, 3),
         air: partKey(air, 3),
         clouds: partKey(clouds, 2),
-        rain: partKey(rain, 2),
+        rain: partKey([rain, snowfall], 2),
         wind: partKey(wind, 2),
         terrain: terrainKey(terrain),
         water: partKey({ ...water, ripples: undefined }, 3),

@@ -139,10 +139,11 @@ function houseShadow(ctx: Ctx2D, h: HouseDesc, t: Tones, s: Shine) {
 }
 
 /** A tree: a round pine or olive (two lobes and a lit crown), a cypress (a flame, its lit half), a palm; leaning in the wind. */
-function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0) {
+function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, rock = 0) {
   const { x, base, w, h } = tr
   const r = rng(tr.seed)
-  const lean = s.lean * (0.6 + 0.4 * r())
+  // C7: the gusts rock each crown about its lean (`rock`, −1…1 over the strip's loop), a little out of step tree to tree.
+  const lean = s.lean * (0.6 + 0.4 * r()) + (s.sway ?? 0) * rock * (0.7 + 0.3 * Math.sin(tr.seed))
   ctx.save()
   ctx.translate(x, base)
   ctx.transform(1, 0, -lean, 1, 0, 0)
@@ -194,6 +195,17 @@ function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0) {
   ctx.restore()
 }
 
+/**
+ * A tree's sway at this frame of the portrait's strip (C7): a sine over the loop, its phase a quarter turn at most from
+ * its neighbours' (one gust passing), periodic over the loop; 0 for a still portrait.
+ */
+function rockOf(desc: LayerOf<'portrait'>, env: PaintEnv, seed: number): number {
+  const frames = desc.animated?.frames
+  if (!frames) return 0
+  const loop = frames.count / frames.fps
+  return Math.sin(2 * Math.PI * (env.phase / loop) + (Math.abs(seed) % 100) / 100 * (Math.PI / 2))
+}
+
 /** The village portrait and the marks among its roofs, back to front. */
 export function paintPortrait(ctx: Ctx2D, desc: LayerOf<'portrait'>, env: PaintEnv): void {
   const { tones: t, shine: s } = desc
@@ -203,7 +215,7 @@ export function paintPortrait(ctx: Ctx2D, desc: LayerOf<'portrait'>, env: PaintE
   const lamps: Lamp[] = []
   const items: { base: number; draw: () => void }[] = [
     ...desc.houses.map((h) => ({ base: h.base, draw: () => house(ctx, h, t, s, side, lamps) })),
-    ...desc.trees.map((tr) => ({ base: tr.base + 0.05, draw: () => tree(ctx, tr, t, s, side) })),
+    ...desc.trees.map((tr) => ({ base: tr.base + 0.05, draw: () => tree(ctx, tr, t, s, side, rockOf(desc, env, tr.seed)) })),
     // A field lies on the face under its first row; a building stands on its base.
     ...desc.glyphs.map((g) => ({ base: g.ground ? g.base - 0.5 : g.base, draw: () => { lamps.push(...drawGlyph(ctx, g, s)) } })),
   ]

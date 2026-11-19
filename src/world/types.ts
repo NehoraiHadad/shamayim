@@ -187,6 +187,15 @@ export interface Rain {
   thunder: boolean
 }
 
+/** Snow falling (C7): from the precipitating layer's banks, at their true azimuths, carried by the one wind. */
+export interface Snowfall {
+  /** 0-1, as the snow line's `amount`. */
+  amount: number
+  cells: RainCell[]
+  /** Rad from vertical, signed like `wind.across`. */
+  slant: number
+}
+
 export interface Wind {
   /** Where the 10 m wind comes from (deg) and where it goes. */
   fromDeg: number
@@ -396,6 +405,8 @@ export interface WorldState {
   clouds: CloudLayer[]
   rain: Rain | null
   snow: SnowFall | null
+  /** Snow falling now from the clouds (C7), or null. */
+  snowfall: Snowfall | null
   wind: Wind
   terrain: TerrainPlanes
   water: WaterState

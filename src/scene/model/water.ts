@@ -17,6 +17,8 @@ type WaterName = 'far' | 'near'
 
 /** Draw order on the land surface: far water lies on the far land (under its towns), near water over the near plane. */
 const Z: Record<WaterName, number> = { far: 15, near: 35 }
+/** The water's strip (C7): six frames at six a second, a one-second loop of ripples and sparks. */
+export const WATER_FRAMES = { count: 6, fps: 6 }
 /** The water's own colour where it sends back no sky: deep, a little green-blue (scaled by the light of the hour). */
 const DEEP: RGB = [0.06, 0.17, 0.21]
 /** The sun's path on the water in its own colour, the moon's silver. */
@@ -264,6 +266,9 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
     return [{ x, top: gTop, bottom: gTop + depth, spread, rgb: glintRgb, alpha, sparks }]
   })
 
+  // Over one loop a ripple runs a little way downwind (the one wind's side), more in more wind.
+  const drift = (Math.abs(world.wind.across) > 0.05 ? Math.sign(world.wind.across) : 0) * 2.4 * windiness * sx
+
   let datum: LayerOf<'water'>['datum'] = null
   if (datumOn) {
     const { x1, x2 } = seaSpan(world.terrain.near.points, world.terrain.seaY)
@@ -275,7 +280,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const bounds = { x: x0, y: y0, w: Math.max(1, Math.min(box.width, Math.ceil(right + 2)) - x0),
     h: Math.max(1, Math.min(box.landHeight, Math.ceil(bottom + 2)) - y0) }
   const lightKey = layerKey('water.light', name, world.keys.terrain, world.keys.water, world.keys.light, world.keys.air,
-    Math.round(world.wind.ms), world.keys.night, world.labels.height.below, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
+    Math.round(world.wind.ms), Math.sign(Math.round(world.wind.across * 20)), world.keys.night, world.labels.height.below, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
   return {
     kind: 'water', id: `water.${name}`, surface: 'land', z: Z[name], bounds,
     // All of the water is light (the sky it mirrors, the hour's glint, the wind's ripples, the datum in the ink of the
@@ -285,7 +290,9 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
     light: { key: bands.length ? lightKey : layerKey('water.datum', datum && colourKey(datum.rgb), landBoxKey(box)),
       blend: 'source-over', tint: bands[0]?.stops[0][1] ?? body, faces: [] },
     bands, ruffle: { light: aerial(mixRgb(sky(0.2), [1, 1, 1], 0.18 * (1 - dark)), median(spans.map(({ span }) => span.distanceKm))),
-      dark: mixRgb(sky(25), body, 0.5), lit, shade },
+      dark: mixRgb(sky(25), body, 0.5), lit, shade, drift },
+    // C7: the ripples run with the wind and the glint's sparks come and go, in a strip of frames (the light canvas only).
+    ...(lit.length + shade.length + glints.length ? { animated: { mode: 'frames' as const, frames: WATER_FRAMES } } : {}),
     glints, datum,
   }
 }

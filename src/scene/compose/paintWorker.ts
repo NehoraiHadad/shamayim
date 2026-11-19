@@ -1,5 +1,5 @@
 import { painterOf } from '../paint'
-import { paintPart, type PaintJob, type PaintReply, type PaintRequest, type PaintResult } from './paintJob'
+import { canvasSize, paintPart, type PaintJob, type PaintReply, type PaintRequest, type PaintResult } from './paintJob'
 
 /**
  * The paint worker (§1d, off the main thread): paints the parts of layers it is sent on its own `OffscreenCanvas`es with
@@ -19,8 +19,9 @@ const canvases = new Map<string, OffscreenCanvas>()
 function canvasFor(job: PaintJob): OffscreenCanvas {
   const name = `${job.id}:${job.part}`
   let canvas = canvases.get(name)
-  if (!canvas || canvas.width !== job.rect.w || canvas.height !== job.rect.h) {
-    canvas = new OffscreenCanvas(job.rect.w, job.rect.h)
+  const { w, h } = canvasSize(job.desc, job.rect)
+  if (!canvas || canvas.width !== w || canvas.height !== h) {
+    canvas = new OffscreenCanvas(w, h)
     canvases.set(name, canvas)
   }
   return canvas

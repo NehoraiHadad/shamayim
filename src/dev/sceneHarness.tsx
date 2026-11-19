@@ -49,6 +49,11 @@ const WEATHER: Record<string, Partial<AirInput>> = {
     humidity: 90 },
   hot: { temperature: 41, feelsLike: 43, cloudCover: 5, thickCloud: 0, precipitation: 0, weatherCode: 0, humidity: 20 },
   broken: { cloudCover: 50, thickCloud: 35, precipitation: 0, weatherCode: 2 },
+  // C7's moments: fog in the valleys, scattered showers (some banks rain, some do not), a gale with no rain.
+  fog: { humidity: 99, visibilityKm: 1.5, cloudCover: 60, thickCloud: 30, precipitation: 0, weatherCode: 45, windSpeed: 6, windGusts: 10 },
+  showers: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45, windDirection: 250,
+    humidity: 80 },
+  gale: { windSpeed: 50, windGusts: 75, windDirection: 270, cloudCover: 30, thickCloud: 10, precipitation: 0, weatherCode: 2 },
 }
 
 /** Where the land's figure stands in the sky (px), and so the still's height: the sky above it, the figure under. */
@@ -108,6 +113,8 @@ function Scene({ input }: { input: WorldInput }) {
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())
+  /** The land's surface, once `useSurface` made it (for laying the land at a phase). */
+  const landHold = useRef<Surface | null>(null)
   const onReady = useCallback((name: string) => {
     ready.current.add(name)
     if (ready.current.size < 2) return
@@ -116,13 +123,18 @@ function Scene({ input }: { input: WorldInput }) {
     const asked = new URLSearchParams(location.search).get('phase')
     const flash = sky.find((layer) => layer.kind === 'flash')?.animated?.pulse
     const phase = asked === 'flash' ? (flash ? strikes(flash)[0].at + 0.03 : 0) : Number(asked ?? 0) || 0
-    if (phase > 0) skySurface.current?.composite(onSkyCanvas(sky), phase)
+    // The land too (C7: falling rain, mist, smoke, water and trees in the wind), at the same phase.
+    if (phase > 0) {
+      skySurface.current?.composite(onSkyCanvas(sky), phase)
+      landHold.current?.composite(land, phase)
+    }
     void document.fonts.ready.then(() => { win.__sceneReady = true })
-  }, [sky])
+  }, [sky, land])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
   const size = { width: box.width, height: box.landHeight, dpr: box.dpr }
   const { ref, surface: landSurface } = useSurface('land', land, size, onLand)
+  useEffect(() => { landHold.current = landSurface.current })
   const skySurface = useRef<Surface | null>(null)
 
   useEffect(() => {

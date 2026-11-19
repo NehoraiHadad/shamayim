@@ -1,6 +1,6 @@
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Ctx2D, type Hand, type Painter } from '../paint'
-import { deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
+import { canvasSize, deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
 import type { SceneStats } from './stats'
 
 export { deviceRect, type DeviceRect } from './paintJob'
@@ -62,7 +62,7 @@ export class LayerCache {
   /** The layer's canvas is up to date for this desc and dpr. */
   fresh(desc: LayerDesc, dpr: number): boolean {
     const entry = this.entries.get(desc.id)
-    return Boolean(entry && entry.formKey === formKeyOf(desc, dpr).key && entry.lightKey === (desc.light?.key ?? null))
+    return Boolean(entry && entry.formKey === formKeyOf(desc, dpr).key && entry.lightKey === lightKeyOf(desc, this.painters(desc)))
   }
 
   /** The canvases last painted for a layer (possibly stale): its form, its light (if any), their ratio and place. */
@@ -96,7 +96,7 @@ export class LayerCache {
     }
     const start = this.now()
     const rect = deviceRect(desc, ratio)
-    const { w, h } = rect
+    const { w, h } = canvasSize(desc, rect)
     const resized = !entry || entry.form.width !== w || entry.form.height !== h
     if (!entry || resized) {
       const form = this.factory(w, h)

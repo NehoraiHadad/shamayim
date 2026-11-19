@@ -31,6 +31,37 @@ function paintStreaks(ctx: Ctx2D, streaks: readonly Streak[], rgb: readonly [num
   }
 }
 
+/** Where the water's loop stands (0–1) at this frame's phase (C7); 0 for a still. */
+function loopAt(desc: LayerOf<'water'>, env: PaintEnv): number {
+  const frames = desc.animated?.frames
+  if (!frames) return 0
+  const loop = frames.count / frames.fps
+  return ((env.phase / loop) % 1 + 1) % 1
+}
+
+/** A ripple's place in its own cycle: seeded by its index (golden ratio), one cycle per loop, so the loop has no seam. */
+const cycle = (i: number, t: number, offset: number) => (t + i * 0.618034 + offset) % 1
+
+/**
+ * The ripples at this point of the loop: each runs `drift` px downwind over its cycle, rising and falling as it goes (a
+ * ripple forms, travels and smooths out), so the water moves the way the wind does and every frame keeps as many.
+ */
+function running(streaks: readonly Streak[], t: number, drift: number, offset: number): Streak[] {
+  return streaks.map((s, i) => {
+    const u = cycle(i, t, offset)
+    return { ...s, x: s.x + drift * (u - 0.5), alpha: s.alpha * (0.3 + 0.7 * Math.sin(Math.PI * u)) }
+  })
+}
+
+/** The glint's sparks coming and going: each flashes once or twice a loop at its own seeded moment. */
+function twinkling(sparks: readonly Streak[], t: number): Streak[] {
+  return sparks.map((s, i) => {
+    const k = 1 + (i % 2)
+    const u = cycle(i, t * k, 0.25)
+    return { ...s, alpha: s.alpha * (0.25 + 0.75 * (0.5 + 0.5 * Math.cos(2 * Math.PI * u))) }
+  })
+}
+
 export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): void {
   // The surface: a wash from the far edge's mirrored horizon down to the near water's darker sky.
   for (const band of desc.bands) {
@@ -54,13 +85,16 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
     ctx.stroke()
   }
   const { ruffle } = desc
-  paintStreaks(ctx, ruffle.shade, ruffle.dark, hair)
-  paintStreaks(ctx, ruffle.lit, ruffle.light, hair)
+  const t = loopAt(desc, env)
+  paintStreaks(ctx, running(ruffle.shade, t, ruffle.drift, 0), ruffle.dark, hair)
+  paintStreaks(ctx, running(ruffle.lit, t, ruffle.drift, 0.5), ruffle.light, hair)
   for (const glint of desc.glints) {
-    // The path's soft core: a wedge under the light, widening toward the eye, in two strengths (a soft edge, no filter).
+    // The path's soft core: a wedge under the light, widening toward the eye, in two strengths (a soft edge, no filter),
+    // breathing a little with the waves over the loop.
     const depth = glint.bottom - glint.top
+    const breathe = 1 + 0.07 * Math.sin(2 * Math.PI * t)
     for (const [k, a] of [[1, 0.16], [0.45, 0.26]] as const) {
-      const top = 0.35 * k, foot = (0.5 + depth * glint.spread * 0.55) * k
+      const top = 0.35 * k, foot = (0.5 + depth * glint.spread * 0.55) * k * breathe
       ctx.beginPath()
       ctx.moveTo(glint.x - top, glint.top)
       ctx.lineTo(glint.x + top, glint.top)
@@ -70,7 +104,7 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
       ctx.fillStyle = css(glint.rgb, glint.alpha * a)
       ctx.fill()
     }
-    paintStreaks(ctx, glint.sparks, glint.rgb, hair * 1.2)
+    paintStreaks(ctx, twinkling(glint.sparks, t), glint.rgb, hair * 1.2)
   }
   ctx.globalCompositeOperation = 'source-over'
   paintDatum(ctx, desc)

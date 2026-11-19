@@ -33,8 +33,12 @@ export type Surface = 'sky' | 'land'
  * laid into the surface (`anim.ts`: a pure function of the spec and `phase`), so an animated frame repaints nothing.
  */
 export interface AnimSpec {
-  /** `drift`: the cached sprite is translated and/or pulsed (no repaint); `repaint`: the layer repaints its own canvas. */
-  mode: 'drift' | 'repaint'
+  /**
+   * `drift`: the cached sprite is translated and/or pulsed (no repaint); `frames`: the layer's canvas is a strip of
+   * pre-painted frames, one laid per tick (C7: water, smoke, swaying trees); `fall`: the canvas is a tile of falling marks
+   * laid as a moving pattern over `fall.areas` (C7: rain, snow). Never a repaint per frame.
+   */
+  mode: 'drift' | 'frames' | 'fall'
   /** Surface px/s across, for `drift` (+ left → right). */
   speed?: number
   /**
@@ -44,7 +48,23 @@ export interface AnimSpec {
   period?: number
   /** Flashes (lightning): the layer is laid with the alpha of a seeded schedule of flashes (`flashAt`). */
   pulse?: Pulse
+  /**
+   * A strip of `count` frames (C7), painted at phases `i / fps` and stacked down the layer's canvas (each `bounds` high);
+   * the frame at `phase` is laid (`frameAt`). The motion loops every `count / fps` s, so a painter's motion must be
+   * periodic over it.
+   */
+  frames?: { count: number; fps: number }
+  /** Falling marks (C7): the layer's canvas is a tile laid as a pattern over these areas, moving with the phase (`fallAt`). */
+  fall?: Fall
 }
+
+/**
+ * Rain or snow falling (C7): the tile (the layer's canvas, its `bounds` the tile's size at 0, 0) laid as a repeating
+ * pattern inside `areas` (closed polygons in surface px), the pattern moving `vx`, `vy` px/s (wrapped by the tile), swaying
+ * `sway` px across over `swayPeriod` s (snow). With the spec's `speed` and `period` the areas drift with their cloud layer,
+ * repeated every `period` px; `alpha` per area.
+ */
+export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]; sway?: number; swayPeriod?: number }
 
 /** A seeded schedule of short flashes: the first after `first` s, then every `every[0]`…`every[1]` s. */
 export interface Pulse { seed: number; first: number; every: [number, number] }
@@ -165,8 +185,11 @@ export interface WaterBand {
 }
 /** A short horizontal stroke on the water (a ripple, a spark): `x` its left end, `w` its length. */
 export interface Streak { x: number; y: number; w: number; alpha: number }
-/** Wind ruffle: ripples catching the low sky (`light`) and the high sky (`dark`), their number and length by the wind. */
-export interface Ruffle { light: RGB; dark: RGB; lit: Streak[]; shade: Streak[] }
+/**
+ * Wind ruffle: ripples catching the low sky (`light`) and the high sky (`dark`), their number and length by the wind; each
+ * ripple runs `drift` px downwind over one loop of the water's strip of frames (C7), rising and falling as it goes.
+ */
+export interface Ruffle { light: RGB; dark: RGB; lit: Streak[]; shade: Streak[]; drift: number }
 /** The light's path on the water under the sun or moon, widening toward the eye with the waves' slope. */
 export interface GlintPath { x: number; top: number; bottom: number; spread: number; rgb: RGB; alpha: number; sparks: Streak[] }
 export interface Line { x1: number; x2: number; y: number }
@@ -212,6 +235,8 @@ export interface Shine {
   windows: number
   aviation: boolean
   lean: number
+  /** C7: how far (rad) trees sway about their lean in the gusts, over the portrait's strip of frames; 0 in a calm. */
+  sway?: number
 }
 
 export interface GlyphDesc {
@@ -235,9 +260,34 @@ export interface GlyphDesc {
 export interface HouseDesc { x: number; base: number; w: number; h: number; storeys: number; roof: 'tile' | 'flat'; heater: boolean; tint: number; seed: number }
 /** A tree of the portrait (px): `x` its centre. */
 export interface TreeDesc { kind: 'tree' | 'cypress' | 'palm'; x: number; base: number; w: number; h: number; seed: number }
-export interface RainField { count: number; slant: number; rgb: RGB; alpha: number; seed: number }
-export interface Shaft { x: number; w: number; top: number; rgb: RGB; alpha: number }
-export interface MistBand { y: number; h: number; rgb: RGB; alpha: number }
+/*
+ * Weather (C7). Every shape here comes from the world: the raining (or snowing) banks, the one wind, the light, the air's
+ * humidity and visibility, the ground's wetness, the marks that smoke.
+ */
+/** Rain or snow falling. */
+export type Precip = 'rain' | 'snow'
+/**
+ * A curtain of rain or snow under a bank (sky px, on its cloud layer's band): from the cloud's base (`top`, under the bank)
+ * to the ground at the horizon (`bottom`), `w` wide under the bank, its foot carried `lean` px downwind by the one wind;
+ * the curtain's body in `rgb` at `alpha`, its striations seeded.
+ */
+export interface ShaftDesc { id: string; x: number; top: number; bottom: number; w: number; lean: number; rgb: RGB; alpha: number; seed: number }
+/** A mark in a falling tile (tile px): a rain streak `len` px long along the slant, or a snow flake of radius `r`. */
+export interface FallMark { x: number; y: number; len: number; r: number; alpha: number }
+/** A soft puff of mist in a band (tile px). */
+export interface MistPuff { x: number; y: number; rx: number; ry: number; alpha: number }
+/**
+ * A bank of mist lying level (land px): the body from `top` (fading in over `fade` px) down to `bottom`, and the soft
+ * puffs along its top that drift with the wind; laid over the tile's width, repeating.
+ */
+export interface MistBandDesc { top: number; fade: number; bottom: number; rgb: RGB; alpha: number; puffs: MistPuff[] }
+/** A crepuscular ray: a wedge from the source (rad from straight up, + toward the right), lit or shadowed. */
+export interface Ray { angle: number; width: number; alpha: number; lit: boolean }
+/** A plume of smoke or steam (land px): from its stack's top, carried by the wind (`dx`, `dy` px over its length). */
+export interface Plume { x: number; y: number; dx: number; dy: number; r0: number; r1: number; rgb: RGB; lit: RGB; alpha: number
+  puffs: number; seed: number }
+/** A wet sheen on the ground: a short level stroke catching the sky (land px). */
+export interface Sheen { x: number; y: number; w: number; alpha: number }
 
 export type LayerDesc =
   | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
@@ -257,7 +307,26 @@ export type LayerDesc =
       litSide: 'left' | 'right' | null }
   | LayerBase & { kind: 'outside'; mass: Pt[]; spires: Spire[]; glyphs: GlyphDesc[]; sea: Pt[] | null }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
-  | LayerBase & { kind: 'weather'; rain: RainField | null; shafts: Shaft[]; mist: MistBand[]; flash: number }
+  /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */
+  | LayerBase & { kind: 'shafts'; precip: Precip; shafts: ShaftDesc[]; period: number }
+  /** A tile of falling rain streaks or snow flakes, laid over its areas as a moving pattern (`animated.fall`). */
+  | LayerBase & { kind: 'fall'; precip: Precip; marks: FallMark[]; rgb: RGB; slant: number }
+  /** Mist and fog lying in the low ground, a tile drifting with the wind. */
+  | LayerBase & { kind: 'mist'; bands: MistBandDesc[] }
+  /** Dust in the wind, or wind streaks: a tile of fine streaks drifting across. */
+  | LayerBase & { kind: 'grains'; marks: FallMark[]; rgb: RGB }
+  /** Crepuscular rays from a low sun behind broken cloud: lit and shadowed wedges from `x`, `y`, fading over `reach`. */
+  | LayerBase & { kind: 'rays'; x: number; y: number; reach: number; rays: Ray[]; rgb: RGB; shade: RGB }
+  /** Chimney smoke and cooling-tower steam carried by the wind (a strip of frames). */
+  | LayerBase & { kind: 'smoke'; plumes: Plume[] }
+  /** The wet ground's sheen after rain. */
+  | LayerBase & { kind: 'sheen'; strokes: Sheen[]; rgb: RGB }
+  /**
+   * Rain or snow out of view: a heavy bank with its curtain cut by the frame's edge on the side the rain truly lies
+   * (`side`), over the horizon.
+   */
+  | LayerBase & { kind: 'edge'; precip: Precip; side: 'left' | 'right'; x: number; y: number; w: number; h: number; body: RGB; shade: RGB
+      curtain: RGB; alpha: number; lean: number; seed: number }
   | LayerBase & { kind: 'loading'; mode: 'mist' | 'ridge' | 'both'; ridge: Pt[] }
 
 export type LayerKind = LayerDesc['kind']

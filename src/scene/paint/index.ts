@@ -7,6 +7,7 @@ import { paintMarks, paintPortrait } from './marks'
 import { paintPlane, paintPlaneLight } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
+import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from './weather'
 
 export { HAND, type Ctx2D, type Hand, type PaintEnv, type Scratch } from './hand'
 
@@ -39,6 +40,14 @@ export const PAINTERS: Painters = {
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },
   marks: { form: paintNothing, light: paintMarks, formless: () => true },
   portrait: { form: paintNothing, light: paintPortrait, formless: () => true },
+  shafts: { form: paintShafts },
+  fall: { form: paintFall },
+  mist: { form: paintNothing, light: paintMist, formless: () => true },
+  grains: { form: paintGrains },
+  rays: { form: paintRays },
+  smoke: { form: paintNothing, light: paintSmoke, formless: () => true },
+  sheen: { form: paintNothing, light: paintSheen, formless: () => true },
+  edge: { form: paintEdge },
 }
 
 export function painterOf(desc: LayerDesc): Painter | undefined {

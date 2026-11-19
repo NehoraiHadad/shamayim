@@ -52,3 +52,32 @@ export function flashAt(spec: AnimSpec | undefined, phase: number): number {
   }
   return alpha
 }
+
+/** The frame of a strip laid at `phase` (C7): `floor(phase × fps)` round the strip; 0 without frames. */
+export function frameAt(spec: AnimSpec | undefined, phase: number): number {
+  const frames = spec?.frames
+  if (!frames || frames.count <= 1) return 0
+  return Math.floor(Math.max(0, phase) * frames.fps + 1e-6) % frames.count
+}
+
+/** The phase (s) a strip's frame `i` is painted at. */
+export const framePhase = (spec: AnimSpec | undefined, i: number) => (spec?.frames ? i / spec.frames.fps : 0)
+
+/** How many frames a layer's canvas holds (1 unless it is a strip). */
+export const frameCount = (spec: AnimSpec | undefined) => Math.max(1, spec?.frames?.count ?? 1)
+
+const wrapTo = (v: number, period: number) => {
+  const m = v % period
+  return m < 0 ? m + period : m + 0
+}
+
+/**
+ * Where a falling tile's pattern stands at `phase` (C7, surface px within `0…tile`): carried by its fall speed (the wind
+ * across, the fall down), swayed across by `sway` for snow. A pure function of the spec and the phase.
+ */
+export function fallAt(spec: AnimSpec | undefined, phase: number, tile: { w: number; h: number }): { x: number; y: number } {
+  const fall = spec?.fall
+  if (!fall) return { x: 0, y: 0 }
+  const sway = fall.sway && fall.swayPeriod ? fall.sway * Math.sin((2 * Math.PI * phase) / fall.swayPeriod) : 0
+  return { x: wrapTo(fall.vx * phase + sway, tile.w), y: wrapTo(fall.vy * phase, tile.h) }
+}

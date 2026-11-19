@@ -222,3 +222,53 @@ describe('loop', () => {
     expect(still).toEqual([0])
   })
 })
+
+describe('animation laid at composite time (C7)', () => {
+  /** A canvas whose context logs each call with its arguments. */
+  function argsCanvas(width: number, height: number) {
+    const calls: unknown[][] = []
+    const ctx = new Proxy({}, {
+      get: (_t, prop) => (...args: unknown[]) => {
+        calls.push([prop, ...args])
+        return prop === 'createPattern' ? { pattern: true } : undefined
+      },
+      set: (_t, prop, value) => { calls.push([`${String(prop)}=`, value]); return true },
+    })
+    return { width, height, calls, getContext: () => ctx } as unknown as LayerCanvas & { calls: unknown[][] }
+  }
+  const smoke: LayerOf<'smoke'> = { kind: 'smoke', id: 'smoke.near', surface: 'land', z: 40, key: 'k', bounds: { x: 10, y: 20, w: 30, h: 40 },
+    plumes: [], animated: { mode: 'frames', frames: { count: 4, fps: 8 } } }
+
+  it('paints a strip of frames, each at its own phase, down one canvas', () => {
+    const phases: number[] = []
+    const made: (LayerCanvas & { calls: unknown[][] })[] = []
+    const cache = new LayerCache({ factory: (w, h) => { const c = argsCanvas(w, h); made.push(c); return c }, now: () => 0,
+      painters: () => ({ form: (_ctx, _desc, env) => { phases.push(env.phase) } }) })
+    cache.update(smoke, 2)
+    expect(phases).toEqual([0, 0.125, 0.25, 0.375])
+    expect([made[0].width, made[0].height]).toEqual([60, 320])
+    // A change of frames is a change of what the canvas holds.
+    expect(cache.update({ ...smoke, animated: { mode: 'frames', frames: { count: 6, fps: 8 } } }, 2)).toBe('form')
+  })
+
+  it('lays the frame at the phase, and moves a falling tile as a pattern over its areas', () => {
+    const visible = argsCanvas(100, 100)
+    const surface = new Surface(visible, { factory: argsCanvas, now: () => 0, painters: () => ({ form: () => {} }) })
+    surface.resize(50, 50, 2)
+    surface.render([smoke], 0.3)
+    const blit = visible.calls.filter((c) => c[0] === 'drawImage')
+    // Frame 2 (0.3 s × 8 fps) of 4: the source rect starts two frames down.
+    expect(blit.at(-1)!.slice(2)).toEqual([0, 160, 60, 80, 20, 40, 60, 80])
+    const fall: LayerOf<'fall'> = { kind: 'fall', id: 'fall.land', surface: 'land', z: 60, key: 'f', precip: 'rain', marks: [], rgb: [1, 1, 1],
+      slant: 0, bounds: { x: 0, y: 0, w: 16, h: 24 },
+      animated: { mode: 'fall', fall: { vx: 0, vy: 40, areas: [[[0, 0], [20, 0], [20, 30], [0, 30]]], alphas: [0.5] } } }
+    visible.calls.length = 0
+    surface.render([fall], 0.25)
+    const names = visible.calls.map((c) => c[0])
+    expect(names).toContain('createPattern')
+    expect(names.filter((n) => n === 'fill').length).toBe(1)
+    // The pattern stands 10 px down (40 px/s × 0.25 s), in device px.
+    expect(visible.calls.find((c) => c[0] === 'setTransform' && c[6] === 20)).toBeTruthy()
+    expect(visible.calls.some((c) => c[0] === 'globalAlpha=' && c[1] === 0.5)).toBe(true)
+  })
+})

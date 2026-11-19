@@ -1,3 +1,4 @@
+import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
 import type { LayerDesc } from '../model/types'
 import type { Ctx2D, Hand, PaintEnv, Painter, Scratch } from '../paint'
@@ -15,11 +16,15 @@ export function deviceRect(desc: LayerDesc, ratio: number): DeviceRect {
 export function formKeyOf(desc: LayerDesc, dpr: number): { ratio: number; key: string } {
   const ratio = cacheRatio(dpr, desc.soft)
   const { x, y, w, h } = desc.bounds
-  return { ratio, key: `${desc.key}@${ratio}:${x},${y},${w},${h}` }
+  return { ratio, key: `${desc.key}@${ratio}:${x},${y},${w},${h}${stripKey(desc)}` }
 }
 
+/** A strip's frames are part of what its canvas holds (C7). */
+const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
+
 /** The key a layer's light canvas holds, or null when the layer has no light part (or no light painter). */
-export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) => (painter?.light && desc.light ? desc.light.key : null)
+export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
+  (painter?.light && desc.light ? desc.light.key + stripKey(desc) : null)
 
 /**
  * Paints one part of a layer (its form or its light) on a context of the layer's device size: cleared, then the painter
@@ -32,11 +37,30 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
   ctx.clearRect(0, 0, size.width, size.height)
-  ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-  const env: PaintEnv = { hand, phase, scale: ratio, canvas: (w, h) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h))) }
-  paint(ctx, desc, env)
+  const canvas = (w: number, h: number) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
+  const count = frameCount(desc.animated)
+  if (count === 1) {
+    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
+    paint(ctx, desc, { hand, phase, scale: ratio, canvas })
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    return
+  }
+  // A strip (C7): each frame painted at its own phase in its own band of the canvas, clipped to it.
+  for (let i = 0; i < count; i++) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, i * rect.h, rect.w, rect.h)
+    ctx.clip()
+    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
+    const env: PaintEnv = { hand, phase: framePhase(desc.animated, i), scale: ratio, canvas }
+    paint(ctx, desc, env)
+    ctx.restore()
+  }
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
+
+/** A layer's canvas in device px: its frame, times the frames of a strip stacked down it (C7). */
+export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h: rect.h * frameCount(desc.animated) })
 
 /** One part of one layer for the paint worker to paint. */
 export interface PaintJob {

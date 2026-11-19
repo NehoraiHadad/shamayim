@@ -12,6 +12,8 @@ import type { Box, GlyphDesc, HouseDesc, LayerOf, SceneBox, Shine, Tones, TreeDe
 /** Draw order on the land: the far ridge's and the plain's marks over the far towns, under the near ridge; the near ridge's
  * portrait (houses, trees, the marks among them) over the near ridge and its water. */
 const Z = { far: 17, near: 40 }
+/** The trees' sway (C7): four frames at two a second, a two-second rock about the lean. */
+export const SWAY_FRAMES = { count: 4, fps: 2 }
 
 /** Plaster, limestone and concrete; red clay tile; olive and pine foliage; a solar panel's blue; the Báb's gilding. */
 const STONE: RGB = [0.87, 0.84, 0.78]
@@ -77,6 +79,8 @@ export function shineOf(world: WorldState): Shine {
     windows: 0.4 * night.litShare * on,
     aviation: night.aviation || night.dark > 0.3,
     lean: Math.max(-0.22, Math.min(0.22, wind.across * Math.min(1, wind.ms / 14) * 0.22)),
+    // C7: the gusts rock the crowns about their lean, from a breeze up (the gust over the mean wind adds to it).
+    sway: wind.ms < 2.5 ? 0 : Math.min(0.09, 0.012 * wind.ms + 0.006 * Math.max(0, wind.gustMs - wind.ms)),
   }
 }
 
@@ -121,7 +125,7 @@ function boundsOf(boxes: { left: number; right: number; top: number; bottom: num
 
 const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
 const shineKey = (s: Shine) => [Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
-  Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), s.aviation, Math.round(s.lean * 100)]
+  Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), s.aviation, Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 
 /**
  * The glyphs, the landmarks and the village portrait (stage C4), as two layers in the one world light: the marks on the
@@ -161,8 +165,10 @@ export function marksLayers(world: WorldState, box: SceneBox): (LayerOf<'marks'>
     ...glyphs.map(reachOf),
   ], box)
   if (!bounds) return out
+  // C7: trees swaying in the wind, as a strip of frames (the light canvas only; houses and marks stand still in it).
+  const sways = trees.length > 0 && (shine.sway ?? 0) > 0.005
   out.push({ kind: 'portrait', id: 'portrait', surface: 'land', z: Z.near, bounds, key: formKey('portrait'), houses, trees, glyphs,
-    tones, shine, litSide: world.light.side,
+    tones, shine, litSide: world.light.side, ...(sways ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('portrait:light', formKey('portrait'), tonesKey(tones), glyphs.map((g) => tonesKey(g.tones)), world.light.side,
       shineKey(shine)), blend: 'source-over', tint: tones.wall, faces: [] } })
   return out

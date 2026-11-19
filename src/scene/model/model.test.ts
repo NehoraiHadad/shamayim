@@ -14,6 +14,8 @@ import type { SceneBox } from './types'
 /** Stage C1 (docs/design/CANVAS-SCENE-PLAN.md §4): the model's skeleton, the overlay and the scrub split. */
 const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T16:30', '2026-11-17T21:00']
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
+/** The weather's kinds (C7). */
+const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge'])
 let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {
@@ -66,7 +68,9 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const build = makeWorldBuilder()
     const input = worldInput(loaded.get(id)!, TIMES[0])
     const models = TIMES.map((at) => sceneModel(build({ ...input, selected: at }), BOX))
-    const land = models.map((model) => layersOn(model, 'land'))
+    // The weather comes and goes with the hour (C7: mist with the humidity, falling rain with the rain), so the scrub's
+    // rule is held for the rest of the land.
+    const land = models.map((model) => layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind)))
     for (const layers of land.slice(1)) {
       expect(layers.map((layer) => layer.key)).toEqual(land[0].map((layer) => layer.key))
     }
@@ -84,8 +88,9 @@ describe('scene model: layers', () => {
     // C3: far water (here only the sea-level datum: the fixture's height is below sea level) and the far towns between
     // the far plane and the near ridge, the sea (within the near band) over the near plane.
     expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(['plane.far', 'water.far', 'farCities', 'plane.near', 'water.near',
-      'portrait'])
-    // C4: the marks on the near ridge (the Báb, the Carmel's church and mosque) over it all, with the portrait.
+      'portrait', 'smoke.near'])
+    // C4: the marks on the near ridge (the Báb, the Carmel's church and mosque) over it all, with the portrait; C7: the
+    // cooling tower's steam over them.
     // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
     const sky = layersOn(model, 'sky')
     expect(sky[0].id).toBe('sky')

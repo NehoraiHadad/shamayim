@@ -1,4 +1,4 @@
-import { driftAt, flashAt } from '../model/anim'
+import { driftAt, fallAt, flashAt, frameAt } from '../model/anim'
 import type { LayerDesc } from '../model/types'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
@@ -125,14 +125,22 @@ export class Surface {
       const alpha = flashAt(anim, phase)
       if (alpha <= 0.003) continue
       ctx.globalAlpha = alpha
-      const period = anim?.mode === 'drift' && anim.period && k === 1 ? Math.round(anim.period * d) : 0
+      const period = (anim?.mode === 'drift' || anim?.mode === 'fall') && anim.period && k === 1 ? Math.round(anim.period * d) : 0
       const shift = period ? Math.round(driftAt(anim, phase) * d) : 0
+      if (anim?.mode === 'fall' && anim.fall) {
+        if (k === 1 && form) this.fall(form, desc, rect, phase, period, shift, alpha)
+        ctx.globalAlpha = 1
+        continue
+      }
       const draw = (image: CanvasImageSource | OffscreenCanvas) => {
         const source = image as CanvasImageSource
-        if (k !== 1) return ctx.drawImage(source, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
-        if (!period) return ctx.drawImage(source, rect.x, rect.y)
+        // A strip (C7): the frame at this phase, of the frames the canvas holds.
+        const held = Math.max(1, Math.round((image as { height: number }).height / rect.h))
+        const sy = held > 1 ? (frameAt(anim, phase) % held) * rect.h : 0
+        if (k !== 1) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
+        if (!period) return held > 1 ? ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h) : ctx.drawImage(source, rect.x, rect.y)
         for (let x = rect.x + shift - period * Math.ceil((rect.x + shift + rect.w) / period); x < this.canvas.width; x += period) {
-          if (x + rect.w > 0) ctx.drawImage(source, x, rect.y)
+          if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, rect.y, rect.w, rect.h)
         }
       }
       if (form && !cache.formless(desc)) draw(form)
@@ -145,11 +153,57 @@ export class Surface {
     }
   }
 
-  /** The animation state of the layers at `phase` (whole device px of drift, flash alpha steps). */
+  /**
+   * Falling marks (C7): the layer's tile laid as a repeating pattern inside its areas, the pattern carried by the fall in
+   * whole device px, the areas drifting with their cloud layer (copies every `period`). One pattern fill per area: nothing
+   * is repainted.
+   */
+  private fall(tile: CanvasImageSource | OffscreenCanvas, desc: LayerDesc, rect: { w: number; h: number }, phase: number,
+    period: number, shift: number, alpha: number) {
+    const fall = desc.animated!.fall!
+    const ctx = ctxOf(this.canvas)
+    const pattern = ctx.createPattern(tile as CanvasImageSource, 'repeat')
+    if (!pattern) return
+    const d = this.dpr
+    const off = fallAt(desc.animated, phase, { w: rect.w / d, h: rect.h / d })
+    const width = this.canvas.width
+    ctx.fillStyle = pattern
+    fall.areas.forEach((area, i) => {
+      if (area.length < 3) return
+      // Each area takes the pattern at its own offset, so nested areas add marks (a density that thins to the edge), not
+      // the same marks again.
+      const ox = Math.round((off.x + ((i * 0.381966) % 1) * rect.w / d) * d) % rect.w
+      const oy = Math.round((off.y + ((i * 0.618034) % 1) * rect.h / d) * d) % rect.h
+      ctx.setTransform(1, 0, 0, 1, ox, oy)
+      let left = Infinity, right = -Infinity
+      for (const [x] of area) { left = Math.min(left, x * d); right = Math.max(right, x * d) }
+      ctx.beginPath()
+      const from = period ? shift - period * Math.ceil((right + shift) / period) : 0
+      for (let cx = from; ; cx += period) {
+        if (left + cx < width && right + cx > 0) {
+          area.forEach(([x, y], j) => (j ? ctx.lineTo(x * d + cx - ox, y * d - oy) : ctx.moveTo(x * d + cx - ox, y * d - oy)))
+          ctx.closePath()
+        }
+        if (!period || left + cx >= width) break
+      }
+      ctx.globalAlpha = alpha * (fall.alphas?.[i] ?? 1)
+      ctx.fill()
+    })
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+  }
+
+  /** The animation state of the layers at `phase` (whole device px of drift, flash alpha steps, strip frames, falls). */
   private animState(layers: readonly LayerDesc[], phase: number) {
     let out = ''
     for (const layer of layers) {
-      if (layer.animated) out += `${Math.round(driftAt(layer.animated, phase) * this.dpr)}:${Math.round(flashAt(layer.animated, phase) * 255)};`
+      const anim = layer.animated
+      if (!anim) continue
+      out += `${Math.round(driftAt(anim, phase) * this.dpr)}:${Math.round(flashAt(anim, phase) * 255)}:${frameAt(anim, phase)}`
+      if (anim.fall) {
+        const off = fallAt(anim, phase, layer.bounds)
+        out += `:${Math.round(off.x * this.dpr)},${Math.round(off.y * this.dpr)}`
+      }
+      out += ';'
     }
     return out
   }
