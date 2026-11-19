@@ -77,16 +77,16 @@ const DUR = 580; // 90 bpm: a beat is 20 frames, a bar 80; the landing is bar 7'
 const PLACES = [["tlv", "תל אביב"], ["hfa", "חיפה"], ["jlm", "ירושלים"], ["mzr", "מצפה רמון"]] as const;
 // the cue table: every frame number of the film lives here
 const CUE = {
-  day: [0, 240], night: [240, 320], range: [320, 400], dawn: [400, 440], lift: [440, 480], end: [480, DUR],
+  day: [0, 200], night: [200, 280], range: [280, 400], dawn: [400, 440], lift: [440, 480], end: [480, DUR],
   lines: [
-    { text: "תחזית שנראית כמו השמיים שמעליך.", from: 0, to: 75, enter: false },
-    { text: "מזיזים את האצבע, והיום עובר.", from: 80, to: 130 },
-    { text: "השמש נעלמת מאחורי ההרים שמול הבית.", from: 135, to: 235 },
-    { text: "גם הירח, בדיוק איפה שהוא.", from: 245, to: 315 },
-    { text: "בכל מקום, השמיים שלו.", from: 325, to: 395 },
+    { text: "תחזית שנראית כמו השמיים שמעליך.", from: 0, to: 60, enter: false },
+    { text: "מזיזים את האצבע והיום עובר.", from: 65, to: 125 },
+    { text: "השמש נעלמת מאחורי ההרים שממול.", from: 130, to: 195 },
+    { text: "גם הירח, בדיוק איפה שהוא.", from: 205, to: 275 },
+    { text: "לכל מקום, השמיים שלו.", from: 285, to: 395 },
     { text: "ומחר בבוקר, מעל הגלעד.", from: 400, to: 440 },
   ],
-  card: { iris: [480, 495], word: 480, line: 485, url: 490 },
+  card: { iris: [455, 475], word: 480, line: 485, url: 485 },
 } as const;
 (() => { // the grid checker, at load
   const nums: number[] = [];
@@ -97,7 +97,7 @@ const CUE = {
   for (const k of ["day", "night", "range", "dawn", "lift", "end"] as const) if (CUE[k][0] % 20 !== 0) throw new Error(`section ${k} does not start on a beat`);
 })();
 
-const P2 = { x: 210, y: 545, w: 660 }; // the phone; above it the gold clock (baseline 365) and the line (baseline 505)
+const P2 = { x: 130, y: 545, w: 820 }; // the phone; above it the gold clock (baseline 365) and the line (baseline 505)
 const K = P2.w / 390, SPLIT = 470; // CSS px -> frame px; the footage's top/bottom split (CSS y)
 const TOP_H = SPLIT * K, BOT_H = (844 - SPLIT) * K;
 const ease = (u: number) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
@@ -108,9 +108,9 @@ const mix = (a: string, b: string, t: number) => { const A = hex(a), B = hex(b);
 
 type Pick = { seq: string; i: number };
 const pick = (f: number): Pick => {
-  if (f < CUE.day[1]) return { seq: "day", i: f };
+  if (f < CUE.day[1]) return { seq: "day", i: Math.round((f * 240) / 200) };
   if (f < CUE.night[1]) return { seq: "night", i: f - CUE.night[0] };
-  if (f < CUE.range[1]) return { seq: `range-${PLACES[Math.floor((f - CUE.range[0]) / 20)][0]}`, i: (f - CUE.range[0]) % 20 };
+  if (f < CUE.range[1]) return { seq: `range-${PLACES[Math.floor((f - CUE.range[0]) / 30)][0]}`, i: Math.min(19, (f - CUE.range[0]) % 30) };
   return { seq: "dawn", i: Math.min(60, 20 + f - CUE.dawn[0]) };
 };
 const N3 = (i: number) => String(i).padStart(3, "0");
@@ -135,53 +135,58 @@ const drawPhone = (ctx: Ctx, env: Env, pk: Pick, y: number) => {
 };
 const touchAt = (ctx: Ctx, x: number, y: number, vx: number, press: number) => {
   if (press <= 0) return;
-  const R = 36 * (0.7 + 0.3 * press);
+  const R = 24 * (0.7 + 0.3 * press);
   for (let i = 8; i >= 1; i--) { const t = i / 8; ctx.globalAlpha = 0.18 * (1 - t) * press; ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x + vx * t, y, R * 0.8 * (1 - 0.35 * t), 0, Math.PI * 2); ctx.fill(); }
-  ctx.globalAlpha = 0.28 * press; ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 0.9 * press; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 0.14 * press; ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.95 * press; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 1;
 };
 
 // a line SET in the app's serif: words rise into place from behind the baseline (quick: 8 frames, 1-frame stagger)
-const typeLine = (ctx: Ctx, text: string, f: number, from: number, to: number, enter = true, cx = 540, y = 505, px = 46) => {
+const typeLine = (ctx: Ctx, text: string, f: number, from: number, to: number, enter = true, cx = 540, y = 505, px = 54) => {
   if (f < from || f >= to) return;
   ctx.font = `500 ${px}px SkySerif`; ctx.direction = "rtl"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = C.ink;
   const words = text.split(" "), sp = ctx.measureText(" ").width, ws = words.map((w) => ctx.measureText(w).width);
   const total = ws.reduce((a, b) => a + b, 0) + sp * (words.length - 1);
   let xr = cx + total / 2;
-  ctx.save(); ctx.beginPath(); ctx.rect(cx - total / 2 - px, y - px * 1.25, total + 2 * px, px * 1.6); ctx.clip();
+  ctx.save();
   words.forEach((w, i) => {
     const inn = enter ? outCubic(lin(f, from + i, from + i + 8)) : 1, out = inCubic(lin(f, to - 8 + Math.min(4, words.length - 1 - i), to));
-    ctx.fillText(w, xr - ws[i], y + (1 - inn) * px * 1.25 + out * px * 1.3); xr -= ws[i] + sp;
+    ctx.globalAlpha = Math.min(inn, 1 - out);
+    ctx.fillText(w, xr - ws[i], y + (1 - inn) * px * 0.35 + out * px * 0.35); xr -= ws[i] + sp;
   });
-  ctx.restore();
+  ctx.restore(); ctx.globalAlpha = 1;
 };
 // the gold slot above the phone: the dragged clock, or the place's name (the app's display face)
 const goldSlot = (ctx: Ctx, text: string, alpha: number, dy = 0) => {
   if (alpha <= 0) return;
-  ctx.globalAlpha = alpha; ctx.font = "700 90px SkyNum"; ctx.direction = /[0-9]/.test(text) ? "ltr" : "rtl"; ctx.textAlign = "center"; ctx.fillStyle = C.gold;
+  ctx.globalAlpha = alpha; ctx.font = "700 74px SkyNum"; ctx.direction = /[0-9]/.test(text) ? "ltr" : "rtl"; ctx.textAlign = "center"; ctx.fillStyle = C.gold;
   ctx.fillText(text, 540, 362 + dy); ctx.globalAlpha = 1;
 };
 
 // the app's own icon (public/icon.svg), from its paths
 const ICON = { size: 300, x: 390, y: 500 };
 const iconSun = () => { const s = ICON.size / 512; return { x: ICON.x + 256 * s, y: ICON.y + 318 * s, r: 92 * s }; };
-const drawIcon = (ctx: Ctx, iris: number, ridge: number) => {
-  const s = ICON.size / 512;
-  ctx.save(); ctx.translate(ICON.x, ICON.y); ctx.scale(s, s);
+// in two layers, so the sun can come up BETWEEN them: the tile's sky, then (the caller's sun), then the hills
+const iconClip = (ctx: Ctx, iris: number) => {
+  const s = ICON.size / 512; ctx.translate(ICON.x, ICON.y); ctx.scale(s, s);
   rr(ctx, 0, 0, 512, 512, 112); ctx.clip();
-  ctx.beginPath(); ctx.arc(256, 318, 92 + iris * 420, 0, Math.PI * 2); ctx.clip(); // the iris opens from the sun
+  ctx.beginPath(); ctx.arc(256, 318, 92 + iris * 420, 0, Math.PI * 2); ctx.clip(); // the tile opens as an iris around where the sun will rest
+};
+const drawIconSky = (ctx: Ctx, iris: number) => {
+  ctx.save(); iconClip(ctx, iris);
   const g = ctx.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, "#1F2A52"); g.addColorStop(0.55, "#8E4A6E"); g.addColorStop(1, "#F6B26B");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
-  const sg = ctx.createRadialGradient(256, 318, 0, 256, 318, 92); sg.addColorStop(0, "#FFE7B0"); sg.addColorStop(1, "#FFC56A");
-  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(256, 318, 92, 0, Math.PI * 2); ctx.fill();
-  const rise = (1 - outCubic(ridge)) * 210, rise2 = (1 - outCubic(ridge)) * 230; // the ridges rise over the disc: the sun sets into the icon
-  ctx.fillStyle = "#3A2A4A"; ctx.beginPath(); ctx.moveTo(0, 330 + rise); ctx.bezierCurveTo(70, 300 + rise, 120, 312 + rise, 180, 290 + rise); ctx.bezierCurveTo(240, 268 + rise, 300, 250 + rise, 360, 270 + rise); ctx.bezierCurveTo(420, 290 + rise, 460, 300 + rise, 512, 286 + rise); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = "#1A1428"; ctx.beginPath(); ctx.moveTo(0, 372 + rise2); ctx.bezierCurveTo(80, 356 + rise2, 140, 366 + rise2, 210, 348 + rise2); ctx.bezierCurveTo(280, 330 + rise2, 330, 330 + rise2, 400, 344 + rise2); ctx.bezierCurveTo(470, 358 + rise2, 480, 360 + rise2, 512, 352 + rise2); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512); ctx.restore();
+};
+const drawIconHills = (ctx: Ctx, iris: number) => {
+  ctx.save(); iconClip(ctx, iris);
+  ctx.fillStyle = "#3A2A4A"; ctx.beginPath(); ctx.moveTo(0, 330); ctx.bezierCurveTo(70, 300, 120, 312, 180, 290); ctx.bezierCurveTo(240, 268, 300, 250, 360, 270); ctx.bezierCurveTo(420, 290, 460, 300, 512, 286); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#1A1428"; ctx.beginPath(); ctx.moveTo(0, 372); ctx.bezierCurveTo(80, 356, 140, 366, 210, 348); ctx.bezierCurveTo(280, 330, 330, 330, 400, 344); ctx.bezierCurveTo(470, 358, 480, 360, 512, 352); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.closePath(); ctx.fill();
   ctx.restore();
 };
 const END = { top: "#1F2A52", low: "#121833" };
-const DAWN_SUN = { x: 300.3, y: 378.0, r: 8 }; // the sunrise's sun in the dawn footage's last frame (measured, CSS px)
+const DAWN_SUN = { x: 289.6, y: 405.4, r: 7.7 }; // the sunrise's sun in the dawn footage's last frame (measured, CSS px)
 const sunDisc = (ctx: Ctx, x: number, y: number, r: number, glow: number) => {
   if (glow > 0) { const gl = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 2.4); gl.addColorStop(0, `rgba(255,210,65,${0.35 * glow})`); gl.addColorStop(1, "rgba(255,210,65,0)"); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, Math.PI * 2); ctx.fill(); }
   const sg = ctx.createRadialGradient(x, y, 0, x, y, r); sg.addColorStop(0, "#FFE7B0"); sg.addColorStop(1, "#FFC56A");
@@ -191,10 +196,14 @@ const sunDisc = (ctx: Ctx, x: number, y: number, r: number, glow: number) => {
 const drawFilm = (ctx: Ctx, f: number, env: Env) => {
   const s = env.scale; ctx.setTransform(s, 0, 0, s, 0, 0);
   if (f < CUE.lift[0]) {
-    const pk = pick(f), col = SKY[pk.seq][pk.i];
+    const pk = pick(f); let col = SKY[pk.seq][pk.i];
+    if (f >= CUE.range[0] && f < CUE.range[1] + 8) { // the ground eases from one place's sky to the next instead of jumping
+      const loc = (f - CUE.range[0]) % 30, prevF = f - loc - 1;
+      if (loc < 8 && prevF >= 0) { const pp = pick(prevF), pc = SKY[pp.seq][pp.i], t = ease(loc / 8); col = [mix(pc[0], col[0], t), mix(pc[1], col[1], t)] as [string, string]; }
+    }
     ground(ctx, col[0], col[1]);
     // the four places: a slow push in across the bar, so each cut lands on a moving picture
-    const push = f >= CUE.range[0] && f < CUE.range[1] ? 1 + 0.05 * lin(f, CUE.range[0], CUE.range[1]) : f >= CUE.dawn[0] ? 1 + 0.03 * lin(f, CUE.dawn[0], CUE.dawn[1]) : 1 + 0.012 * Math.sin((f / CUE.range[0]) * Math.PI); // a breath of camera over the day; a push into the sunrise
+    const push = f >= CUE.range[0] && f < CUE.range[1] ? 1 + 0.05 * lin(f, CUE.range[0], CUE.range[1]) : f >= CUE.dawn[0] ? 1 + 0.03 * Math.sin(Math.PI * lin(f, CUE.dawn[0], CUE.dawn[1])) : 1 + 0.012 * Math.sin((f / CUE.range[0]) * Math.PI); // a breath of camera over the day; a push into the sunrise
     ctx.save(); ctx.translate(540, P2.y + 400); ctx.scale(push, push); ctx.translate(-540, -(P2.y + 400));
     drawPhone(ctx, env, pk, P2.y);
     ctx.restore();
@@ -206,7 +215,7 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
     }
     // the gold slot: the clock the thumb moves; in the places bar, each place's name on its beat
     if (f >= CUE.range[0] && f < CUE.range[1]) {
-      const j = Math.floor((f - CUE.range[0]) / 20), loc = (f - CUE.range[0]) % 20;
+      const j = Math.floor((f - CUE.range[0]) / 30), loc = (f - CUE.range[0]) % 30;
       texture(ctx, () => goldSlot(ctx, PLACES[j][1], 1, (1 - outCubic(lin(loc, 0, 5))) * 30)); // a beat each: the app's own header names them too
     } else {
       const c = clockOf(pk);
@@ -222,7 +231,7 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
   const dawnCol = SKY.dawn[60];
   if (f < CUE.end[0]) {
     ground(ctx, mix(dawnCol[0], END.top, ease(u)), mix(dawnCol[1], END.low, ease(u)));
-    const py = P2.y + inCubic(lin(f, CUE.lift[0] + 2, CUE.lift[1] - 6)) * 1500;
+    const py = P2.y + inCubic(lin(f, CUE.lift[0], CUE.lift[1] - 8)) * 1500;
     if (py < H) {
       drawPhone(ctx, env, { seq: "dawn", i: 60 }, py);
       const sx = P2.x + DAWN_SUN.x * K, sy = py + DAWN_SUN.y * K, rg = ctx.createRadialGradient(sx, sy, 0, sx, sy, DAWN_SUN.r * K * 3);
@@ -245,15 +254,16 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
   ctx.save(); ctx.translate(540, 820); ctx.scale(hold, hold); ctx.translate(-540, -820);
   // the sun: one object, from the phone's valley (440) out to the right of the phone, over, and down onto the icon (480)
   const a = { x: P2.x + DAWN_SUN.x * K, y: P2.y + DAWN_SUN.y * K, r: DAWN_SUN.r * K }, b = iconSun();
-  const v = ease(u), c1 = { x: 1010, y: a.y - 80 }, c2 = { x: 900, y: b.y - 360 };
+  const v = ease(u), c1 = { x: a.x + 120, y: a.y - 260 }, c2 = { x: b.x + 40, y: b.y + 420 }; // up out of the valley, then up into place from below: it rises
   const bz = (p0: number, p1: number, p2: number, p3: number) => (1 - v) ** 3 * p0 + 3 * (1 - v) ** 2 * v * p1 + 3 * (1 - v) * v * v * p2 + v ** 3 * p3;
   const sx = bz(a.x, c1.x, c2.x, b.x), sy = bz(a.y, c1.y, c2.y, b.y), sr = a.r + (b.r - a.r) * v;
-  if (f < CUE.end[0]) sunDisc(ctx, sx, sy, sr, 1);
-  else {
-    const iris = ease(lin(f, CUE.card.iris[0], CUE.card.iris[1]));
-    drawIcon(ctx, iris, ease(lin(f, CUE.card.iris[0] + 4, CUE.card.iris[1] + 14)));
-    const gl = 1 - lin(f, CUE.end[0], CUE.end[0] + 10); // the flight's glow settles into the icon
-    if (gl > 0) { const g2 = ctx.createRadialGradient(b.x, b.y, b.r * 0.6, b.x, b.y, b.r * 2.4); g2.addColorStop(0, `rgba(255,210,65,${0.35 * gl})`); g2.addColorStop(1, "rgba(255,210,65,0)"); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2.4, 0, Math.PI * 2); ctx.fill(); }
+  // the icon opens while the sun is on its way; the sun comes up from behind its hills into place (a sunrise)
+  const iris = ease(lin(f, CUE.card.iris[0], CUE.card.iris[1]));
+  if (f >= CUE.card.iris[0]) drawIconSky(ctx, iris);
+  const glow = 1 - lin(f, CUE.end[0], CUE.end[0] + 10);
+  if (f < CUE.end[0]) sunDisc(ctx, sx, sy, sr, 1); else sunDisc(ctx, b.x, b.y, b.r, glow);
+  if (f >= CUE.card.iris[0]) drawIconHills(ctx, iris);
+  if (f >= CUE.end[0]) {
     // the wordmark rises (no clip: the letters are never cut), the line, then the address
     const wq = outCubic(lin(f, CUE.card.word, CUE.card.word + 12));
     ctx.globalAlpha = wq; ctx.font = "500 132px SkySerif"; ctx.direction = "rtl"; ctx.textAlign = "center"; ctx.fillStyle = C.ink;
@@ -261,9 +271,9 @@ const drawFilm = (ctx: Ctx, f: number, env: Env) => {
     typeLine(ctx, "השמיים שלך.", f, CUE.card.line, DUR + 99, true, 540, 1058, 54);
     if (f >= CUE.card.url) {
       const q = outCubic(lin(f, CUE.card.url, CUE.card.url + 10));
-      ctx.save(); ctx.beginPath(); ctx.rect(0, 1088, W, 90); ctx.clip();
-      ctx.font = "600 52px SkySans"; ctx.direction = "ltr"; ctx.textAlign = "center"; ctx.fillStyle = C.gold;
-      ctx.fillText("sky.nehoraihadad.com", 540, 1150 + (1 - q) * 70); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 1090, W, 100); ctx.clip();
+      ctx.font = "600 58px SkySans"; ctx.direction = "ltr"; ctx.textAlign = "center"; ctx.fillStyle = C.gold;
+      ctx.fillText("sky.nehoraihadad.com", 540, 1156 + (1 - q) * 70); ctx.restore();
     }
   }
   ctx.restore();
