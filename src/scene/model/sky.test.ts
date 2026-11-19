@@ -92,8 +92,10 @@ describe.each(SCENE_PLACES)('sky: $id', ({ id }) => {
           const x = bank.x + Math.round((sx - bank.x) / layer.period) * layer.period
           const [tx, ty] = bank.toward!
           const dx = sx - x, dy = sy - (bank.y - bank.h / 2)
-          if (Math.abs(dx) > 8) expect(Math.sign(tx)).toBe(Math.sign(dx))
-          if (Math.abs(dy) > 8) expect(Math.sign(ty)).toBe(Math.sign(dy))
+          // The model snaps the direction to 8° steps (the key's step): within half a step of the true one.
+          const off = Math.abs(((Math.atan2(ty, tx) - Math.atan2(dy, dx)) * 180 / Math.PI + 540) % 360 - 180)
+          expect(off).toBeLessThanOrEqual(4.01)
+          if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 0.2) expect(Math.sign(tx)).toBe(Math.sign(dx))
           checked++
         }
         if (w.bodies.sun.altitude < 3) expect(layer.banks.some((b) => b.under > 0.05)).toBe(true)
