@@ -17,6 +17,7 @@ import type { Forecast, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
+import type { GlyphKind } from './glyphSpecs'
 import type { SnowFall } from './snowLine'
 
 /**
@@ -285,6 +286,49 @@ export interface PlacePortrait {
   /** Only from roof evidence (5+ mapped roof shapes); else mixed (owner, 2026-11-19). */
   roofs: 'tile' | 'flat' | 'mixed'
   seed: number
+  /** The houses and trees round the dot (`portrait.ts`), at the layout width. */
+  plan: PortraitPlan
+}
+
+/** A house of the portrait: `x` its left edge, standing on `base`; `tint` 0–1 its plaster, `row` its contour row. */
+export interface PortraitHouse {
+  x: number; base: number; w: number; h: number; storeys: number; row: number
+  roof: 'tile' | 'flat'
+  /** A solar water heater on the flat roof. */
+  heater: boolean
+  tint: number
+  seed: number
+}
+/** A tree of the portrait: `x` its centre. */
+export interface PortraitTree { kind: 'tree' | 'cypress' | 'palm'; x: number; base: number; w: number; h: number; row: number; seed: number }
+export interface PortraitPlan {
+  /** Half the village (px): the falloff's reach. */
+  halfPx: number
+  houses: PortraitHouse[]
+  trees: PortraitTree[]
+}
+
+/**
+ * A mark as the world places it (stage C4, `marks.ts`): the data's placed mark, its glyph, and where it stands in scene
+ * px at the layout width.
+ */
+export interface WorldMark extends PlacedMark {
+  glyphKind: GlyphKind
+  /** Centre x and base y (px). */
+  x: number
+  base: number
+  /** Drawn height in glyph px, and px per glyph px (far marks 0.6, plain ones by distance). */
+  h: number
+  scale: number
+  /** Box width (px, after scale). */
+  w: number
+  /** A field: px under the crest its first row lies (its rows follow the ground). */
+  depth?: number
+  /** How far (km) it stands: the haze it takes. */
+  km: number
+  plane: 'near' | 'far' | 'plain'
+  /** A landmark, named (an unnamed mark is never one). */
+  named: boolean
 }
 
 /** A city seen from outside (variant B, `data/city/outsideView.ts`): mass of built squares and spires. */
@@ -357,8 +401,8 @@ export interface WorldState {
   water: WaterState
   farCities: FarCities
   place3: PlacePortrait | OutsideView
-  /** The marks after the portrait / outside rules (`hillScene` until stages C4–C5 rewrite it in `scene/model`). */
-  marks: PlacedMark[]
+  /** The marks after the portrait / outside rules (`marks.ts`), seated on the land they stand on. */
+  marks: WorldMark[]
   /** The height label and the notes on the land (the place part: independent of the hour). */
   labels: WorldLabels
   night: Night

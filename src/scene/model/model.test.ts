@@ -5,6 +5,8 @@ import type { LocalTime } from '../../domain/types'
 import { hillScene } from '../../ui/scene/marks/hillScene'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
+import { textWidth } from '../../world/layout'
+import { markBox } from '../../world/marks'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { layersOn, sceneModel } from '.'
 import type { SceneBox } from './types'
@@ -21,7 +23,7 @@ beforeAll(async () => {
 afterAll(() => { vi.unstubAllGlobals() })
 
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
-  it('places the overlay where the SVG scene puts its labels and notes', () => {
+  it('places the dot and the notes where the SVG scene puts them, the height label clear of the marks', () => {
     const place = loaded.get(id)!
     const input = worldInput(place, TIMES[1])
     const world = buildWorld(input)
@@ -35,7 +37,17 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
       litShare: 0, datum: elevation < 0, variant: outside ? 'b' : null,
       label: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 } })
     const { overlay } = sceneModel(world, BOX)
-    expect(overlay.find((item) => item.kind === 'height')).toMatchObject({ x: hill.label.x, y: hill.label.y })
+    // The height label (stage C4): the world's own layout, next to the dot and clear of the marks the canvas draws (the
+    // SVG scene placed it against its own houses, which the canvas does not draw).
+    const height = overlay.find((item) => item.kind === 'height')!
+    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y })
+    const w = textWidth(world.labels.height.text, 11)
+    for (const mark of world.marks.filter((m) => m.plane !== 'far')) {
+      const box = markBox(mark)
+      const clear = box.right <= height.x - w / 2 || box.left >= height.x + w / 2 || box.bottom <= height.y || box.top >= height.y + 11
+      // Where no spot is free the label keeps its own (`placeLabel`'s fallback, as the SVG layout's).
+      if (!clear) expect(height.y + 11, mark.id).toBeGreaterThan(110)
+    }
     expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',
       x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: hill.centerY })
     expect(overlay.filter((item) => item.kind === 'datum' || item.kind === 'water'))
@@ -71,7 +83,9 @@ describe('scene model: layers', () => {
     const model = sceneModel(world, BOX)
     // C3: far water (here only the sea-level datum: the fixture's height is below sea level) and the far towns between
     // the far plane and the near ridge, the sea (within the near band) over the near plane.
-    expect(model.layers.map((layer) => layer.id)).toEqual(['sky', 'plane.far', 'water.far', 'farCities', 'plane.near', 'water.near'])
+    // C4: the marks on the near ridge (the Báb, the Carmel's church and mosque) over it all, with the portrait.
+    expect(model.layers.map((layer) => layer.id)).toEqual(['sky', 'plane.far', 'water.far', 'farCities', 'plane.near', 'water.near',
+      'portrait'])
     for (const layer of model.layers) {
       const height = layer.surface === 'sky' ? BOX.skyHeight : BOX.landHeight
       expect(layer.bounds.x).toBeGreaterThanOrEqual(0)

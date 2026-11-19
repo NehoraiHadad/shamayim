@@ -1,4 +1,4 @@
-import type { MarkKind } from '../../data/landmarks/types'
+import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
 
 /**
@@ -134,24 +134,60 @@ export interface CityBlock { x: number; base: number; w: number; h: number; km: 
 export interface CityTier { km: number; lit: RGB; shade: RGB; mass: { alpha: number; boxes: Box[] }[]; blocks: CityBlock[] }
 /** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
 export interface CityLight { x: number; y: number; r: number; alpha: number }
-export interface PortraitItem { kind: 'house' | 'tree' | 'cypress'; x: number; base: number; w: number; h: number; tones: Tones; seed: number }
 export interface Spire { x: number; base: number; w: number; h: number; tones: Tones }
-export interface Tones { lit: RGB; shade: RGB; body: RGB; open: RGB; roof: RGB }
-export type IconKind = 'westernWall' | 'babShrine' | 'azrieli' | 'chordsBridge'
+export type { GlyphKind, IconKind }
+
+/**
+ * The colours a glyph, a house or a tree is painted in (stage C4), after the light and the air at its distance: the
+ * scene's hand cut from the ridge colour and lifted toward the sky (walls), the light's colour on the faces turned to
+ * it (`lit`), the sky-lit dark on the others (`shade`), and the materials (stone, glass, tile, foliage, panels, the Báb's
+ * gold, lamps).
+ */
+export interface Tones {
+  wall: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB; refl: RGB
+  roof: RGB; roofLit: RGB; stone: RGB; stoneLit: RGB; glass: RGB; glassLit: RGB; soot: RGB
+  green: RGB; greenLit: RGB; panel: RGB; gold: RGB
+  /** A lit window, a lamp. */
+  win: RGB
+  /** The foot mist: the air at the glyph's distance. */
+  mist: RGB
+}
+
+/**
+ * The light every glyph of a layer shares (one world light): how dark it is, how strong the direct light, the cast
+ * shadow (across per px of height, away from the light; `alpha` 0 under overcast), the share of windows lit, the
+ * aviation lights, the lean of trees and palms in the wind (rad, + leans right).
+ */
+export interface Shine {
+  night: number
+  direct: number
+  cast: { dx: number; length: number; alpha: number }
+  windows: number
+  aviation: boolean
+  lean: number
+}
+
 export interface GlyphDesc {
-  kind: MarkKind | IconKind
+  kind: GlyphKind
+  /** Centre x and base y (px); drawn height in glyph px; px per glyph px; box width (px). */
   x: number
   base: number
   h: number
+  scale: number
+  w: number
   seed: number
+  /** The side the light comes from: a glyph is drawn with the light on the left and mirrored for the right. */
   litSide: 'left' | 'right' | null
-  /** lit, shade, body, open, roof after light and haze. */
   tones: Tones
-  /** Lit windows by night. */
-  windows: number
-  lean: number
   famous: boolean
+  /** A field's ground under it: y (px, relative to `base`) every glyph px across its width, west to east. */
+  ground?: number[]
 }
+
+/** A house of the portrait (px): `x` its left edge. */
+export interface HouseDesc { x: number; base: number; w: number; h: number; storeys: number; roof: 'tile' | 'flat'; heater: boolean; tint: number; seed: number }
+/** A tree of the portrait (px): `x` its centre. */
+export interface TreeDesc { kind: 'tree' | 'cypress' | 'palm'; x: number; base: number; w: number; h: number; seed: number }
 export interface RainField { count: number; slant: number; rgb: RGB; alpha: number; seed: number }
 export interface Shaft { x: number; w: number; top: number; rgb: RGB; alpha: number }
 export interface MistBand { y: number; h: number; rgb: RGB; alpha: number }
@@ -166,9 +202,10 @@ export type LayerDesc =
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: (Line & { rgb: RGB; alpha: number }) | null }
   | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB }
-  | LayerBase & { kind: 'portrait'; items: PortraitItem[] }
+  | LayerBase & { kind: 'portrait'; houses: HouseDesc[]; trees: TreeDesc[]; glyphs: GlyphDesc[]; tones: Tones; shine: Shine
+      litSide: 'left' | 'right' | null }
   | LayerBase & { kind: 'outside'; mass: Pt[]; spires: Spire[]; glyphs: GlyphDesc[]; sea: Pt[] | null }
-  | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[] }
+  | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   | LayerBase & { kind: 'weather'; rain: RainField | null; shafts: Shaft[]; mist: MistBand[]; flash: number }
   | LayerBase & { kind: 'loading'; mode: 'mist' | 'ridge' | 'both'; ridge: Pt[] }
 

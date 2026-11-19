@@ -1,4 +1,4 @@
-import { DOT_R, textWidth } from '../../ui/scene/marks/sceneLayout'
+import { DOT_R, textWidth } from '../../world/layout'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import type { Box, OverlayItem, SceneBox } from './types'

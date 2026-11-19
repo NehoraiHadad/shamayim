@@ -56,7 +56,9 @@ interface Harness {
 type HarnessWindow = Window & { __sceneReady?: boolean; __sceneError?: string; __scene?: Harness; __world?: WorldState }
 const win = window as HarnessWindow
 
-async function loadInput(place: Place, at: LocalTime, weather: string): Promise<WorldInput> {
+// The glyph sheet (`glyphSheet.tsx`) loads its worlds the same way; a dev page, fast refresh does not matter.
+// oxlint-disable-next-line react/only-export-components
+export async function loadInput(place: Place, at: LocalTime, weather: string): Promise<WorldInput> {
   const signal = new AbortController().signal
   const stored = await panoramas[`../test/fixtures/scene/${place.id}.panorama.json`]?.()
   const panorama = stored && unpackPanorama(stored)

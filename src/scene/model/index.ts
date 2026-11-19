@@ -1,6 +1,7 @@
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { layoutOf } from './layout'
+import { marksLayers } from './marks'
 import { planeLayers } from './planes'
 import { skyLayer } from './sky'
 import type { LayerDesc, SceneBox, SceneModel } from './types'
@@ -20,7 +21,7 @@ export function sceneModel(world: WorldState, box: SceneBox): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
   const layers: LayerDesc[] = [...(sky ? [sky] : []), ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : [])]
+    ...(towns ? [towns] : []), ...marksLayers(world, box)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }

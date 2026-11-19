@@ -1,6 +1,7 @@
 import type { LayerDesc, LayerKind, LayerOf } from '../model/types'
 import type { Ctx2D, PaintEnv } from './hand'
 import { paintFarCities } from './farCities'
+import { paintMarks, paintPortrait } from './marks'
 import { paintPlane, paintPlaneLight } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
@@ -29,6 +30,8 @@ export const PAINTERS: Painters = {
   plane: { form: paintPlane, light: paintPlaneLight },
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },
+  marks: { form: paintNothing, light: paintMarks, formless: () => true },
+  portrait: { form: paintNothing, light: paintPortrait, formless: () => true },
 }
 
 export function painterOf(desc: LayerDesc): Painter | undefined {
