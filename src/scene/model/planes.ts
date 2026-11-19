@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
 import type { Plane, WorldState } from '../../world/types'
 import { SCENE_W } from '../../world/sceneBox'

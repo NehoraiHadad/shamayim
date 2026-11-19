@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { plainContrast } from '../../data/city/plainHaze'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
@@ -19,7 +20,11 @@ const TIER_KM = Array.from({ length: 19 }, (_, i) => 2 * 1.22 ** i)
 const MIN_CONTRAST = 0.05
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-const tierOf = (km: number) => Math.max(0, TIER_KM.findLastIndex((edge) => km >= edge))
+/** The last tier whose edge `km` reaches (0 below the first): a plain loop, run for every town box of a place. */
+const tierOf = (km: number) => {
+  for (let i = TIER_KM.length - 1; i > 0; i--) if (km >= TIER_KM[i]) return i
+  return 0
+}
 const hits = (clear: readonly Box[], x: number, y: number, w: number, h: number) =>
   clear.some((b) => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
 

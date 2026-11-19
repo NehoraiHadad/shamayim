@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { mixOklab, type Oklab } from '../../theme/oklab'
 import type { RGB } from '../../world/types'
 

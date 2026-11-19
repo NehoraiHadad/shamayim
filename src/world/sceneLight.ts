@@ -80,15 +80,50 @@ export const sunFlattening = (altitude: number) => 1 - 0.2 * Math.exp(-Math.max(
 export function clearanceOf(points: readonly Point[], x: number, y: number, [east, up]: Point) {
   if (Math.abs(east) <= .01) return Infinity
   let clearance = Infinity
+  if (sorted(points)) {
+    // Only the points toward the light count: on a profile sorted by x those are a run from x on (the same points and
+    // the same sums as the scan below, so the same number; half the work, which a scrub frame repeats ~500 times).
+    const from = east > 0 ? firstAtOrAfter(points, x) : 0
+    const to = east > 0 ? points.length : firstAtOrAfter(points, x) + 1
+    for (let i = from; i < Math.min(to, points.length); i++) {
+      const [otherX, otherY] = points[i]
+      if ((otherX - x) * east > 0) clearance = Math.min(clearance, otherY - y + (otherX - x) * up / east)
+    }
+    return clearance
+  }
   for (const [otherX, otherY] of points) {
     if ((otherX - x) * east > 0) clearance = Math.min(clearance, otherY - y + (otherX - x) * up / east)
   }
   return clearance
 }
 
+/** Whether a profile's x never falls (checked once per array). */
+const sortedness = new WeakMap<readonly Point[], boolean>()
+function sorted(points: readonly Point[]) {
+  let known = sortedness.get(points)
+  if (known === undefined) {
+    known = true
+    for (let i = 1; i < points.length; i++) if (!(points[i - 1][0] <= points[i][0])) { known = false; break }
+    sortedness.set(points, known)
+  }
+  return known
+}
+
+/** On a profile sorted by x: the first index whose x is ≥ x (its length when none is). */
+function firstAtOrAfter(points: readonly Point[], x: number) {
+  let lo = 0, hi = points.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (points[mid][0] >= x) hi = mid
+    else lo = mid + 1
+  }
+  return lo
+}
+
 /** The ground height of a profile at x, by straight lines between samples. */
 export function groundAt(points: readonly Point[], x: number) {
-  const i = points.findIndex(([px]) => px >= x)
+  const found = sorted(points) ? firstAtOrAfter(points, x) : -1
+  const i = found >= 0 ? (found < points.length ? found : -1) : points.findIndex(([px]) => px >= x)
   if (i <= 0) return points[Math.max(0, i)]?.[1] ?? 0
   const [[ax, ay], [bx, by]] = [points[i - 1], points[i]]
   return ay + (by - ay) * (x - ax) / (bx - ax || 1)

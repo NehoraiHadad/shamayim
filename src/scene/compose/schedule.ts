@@ -38,7 +38,7 @@ export function paintSliced(jobs: readonly SliceJob[], options: SliceOptions): S
   const { budgetMs = 8, frame, cancelFrame, now, phase = 0 } = options
   const queue = jobs.flatMap(({ surface, layers }) => layers.map((desc) => ({ surface, desc })))
     .sort((a, b) => PRIORITY[a.desc.kind] - PRIORITY[b.desc.kind] || a.desc.z - b.desc.z)
-  for (const { surface, layers } of jobs) surface.cache.prune(new Set(layers.map((layer) => layer.id)))
+  for (const { surface, layers } of jobs) surface.prune(new Set(layers.map((layer) => layer.id)))
   const report: SliceReport = { slices: [], totalMs: 0, painted: 0 }
   let handle: number | null = null
   let cancelled = false

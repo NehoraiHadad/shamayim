@@ -53,13 +53,32 @@ export interface LightInput {
   palette: SkyLight
 }
 
+/**
+ * Where the sun crosses a skyline at the start or end of a day: a search along the day (`sunOverRidge`, ~100 sun
+ * positions) that depends on the day, the site and the skyline only, never on the shown minute. Kept per skyline object
+ * (the world builder keeps one while the terrain is the same), so a scrub frame does not redo it (it cost 30–50 ms a
+ * frame through the twilight, CPU ×4).
+ */
+const crossings = new WeakMap<Skyline, Map<string, ReturnType<typeof sunOverRidge>>>()
+function crossingOf(edge: 0 | 1, day: DayPoint, site: LightInput['site'], skyline: Skyline) {
+  let known = crossings.get(skyline)
+  if (!known) crossings.set(skyline, (known = new Map()))
+  const key = `${edge}|${day.sunrise}|${day.sunset}|${site.lat}|${site.lon}|${site.timezone}`
+  let crossing = known.get(key)
+  if (!crossing) known.set(key, (crossing = sunOverRidge(edge, day.sunrise, day.sunset, site, skyline)))
+  return crossing
+}
+
 /** Where the twilight glow stands: where the sun really crosses the land today, drawn where that direction is in view. */
 function glowOf(input: LightInput): Light['glow'] {
   const { day, at, site, skyline, sunSkyline } = input
+  // Both crossings of the day are found on the first build that has the day (a cold world), not on the first scrub frame
+  // into a twilight (a 30–40 ms frame, CPU ×4): later builds read them back.
+  if (day) for (const edge of [0, 1] as const) crossingOf(edge, day, site, sunSkyline)
   const glow = twilight(day, at)
   if (!glow || !day) return null
   const edge = glow.side === 'east' ? 0 : 1
-  const crossing = sunOverRidge(edge, day.sunrise, day.sunset, site, sunSkyline)
+  const crossing = crossingOf(edge, day, site, sunSkyline)
   const point = sunSkyline === skyline ? crossing : { ...sunAt(crossing.t, day.sunrise, day.sunset, site, skyline), y: crossing.y }
   return { side: glow.side, opacity: glow.opacity, x: point.x * SCENE_W, y: point.y }
 }

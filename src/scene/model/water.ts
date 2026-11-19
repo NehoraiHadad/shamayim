@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { waterLayer } from '../../data/water/glint'
 import type { WaterSpan } from '../../data/water/waterInView'
 import { hashId, seeded } from '../../data/landmarks/hash'
