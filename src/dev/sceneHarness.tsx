@@ -15,9 +15,11 @@ import { loadWaterMask } from '../data/water/waterMask'
 import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
 import { layersOn, sceneModel } from '../scene/model'
+import { strikes } from '../scene/model/anim'
 import type { SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
+import { onSkyCanvas } from '../scene/paint/sky'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
 import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../test/scenePlaces'
@@ -42,6 +44,11 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   overcast: { cloudCover: 100, thickCloud: 100, precipitation: 0, weatherCode: 3 },
   dust: { pm10: 400, dust: 400, visibilityKm: 3 },
   snow: { snowfall: 2, precipitation: 2, temperature: -1, feelsLike: -4, cloudCover: 100, thickCloud: 100, weatherCode: 73 },
+  // C6's sky moments: a thunderstorm (lightning in the raining banks), a hot dry hour (heat shimmer), a broken sky.
+  thunder: { precipitation: 6, weatherCode: 95, cloudCover: 90, thickCloud: 85, windSpeed: 25, windGusts: 50, windDirection: 250,
+    humidity: 90 },
+  hot: { temperature: 41, feelsLike: 43, cloudCover: 5, thickCloud: 0, precipitation: 0, weatherCode: 0, humidity: 20 },
+  broken: { cloudCover: 50, thickCloud: 35, precipitation: 0, weatherCode: 2 },
 }
 
 /** Where the land's figure stands in the sky (px), and so the still's height: the sky above it, the figure under. */
@@ -104,8 +111,14 @@ function Scene({ input }: { input: WorldInput }) {
   const onReady = useCallback((name: string) => {
     ready.current.add(name)
     if (ready.current.size < 2) return
+    // `phase=<s>` (or `phase=flash`: a moment into the first lightning stroke) lays the sky as the loop would at that
+    // phase: a still of the animation, the same pixels every time.
+    const asked = new URLSearchParams(location.search).get('phase')
+    const flash = sky.find((layer) => layer.kind === 'flash')?.animated?.pulse
+    const phase = asked === 'flash' ? (flash ? strikes(flash)[0].at + 0.03 : 0) : Number(asked ?? 0) || 0
+    if (phase > 0) skySurface.current?.composite(onSkyCanvas(sky), phase)
     void document.fonts.ready.then(() => { win.__sceneReady = true })
-  }, [])
+  }, [sky])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
   const size = { width: box.width, height: box.landHeight, dpr: box.dpr }
@@ -121,7 +134,9 @@ function Scene({ input }: { input: WorldInput }) {
         const t1 = performance.now()
         const nextModel = sceneModel(next, box)
         const t2 = performance.now()
-        const skyLayers = layersOn(nextModel, 'sky'), landLayers = layersOn(nextModel, 'land')
+        // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the
+        // browser's to composite (not timed).
+        const skyLayers = onSkyCanvas(layersOn(nextModel, 'sky')), landLayers = layersOn(nextModel, 'land')
         const skyPainted = skySurface.current!.render(skyLayers)
         const tSky = performance.now()
         const landPainted = landSurface.current!.render(landLayers)

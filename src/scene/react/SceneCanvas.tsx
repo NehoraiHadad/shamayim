@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { isolateNumbers } from '../../ui/isolateNumbers'
 import { perfHud } from '../../ui/devParams'
@@ -11,6 +12,8 @@ import { layersOn, sceneModel } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
 import { SceneOverlay } from './SceneOverlay'
+import { SkyCanvas } from './SkyCanvas'
+import { useSkyHost } from './useSkyHost'
 import { useSurface } from './useSurface'
 
 interface Props {
@@ -28,14 +31,18 @@ interface Props {
 
 /**
  * The valley on canvas (§1e, `?canvas=1`): the figure keeps its role and label, hosts the LandSurface, the HTML overlay
- * placed from the model and the scrubber. The world is built once in App (`useWorld`).
+ * placed from the model and the scrubber. The world is built once in App (`useWorld`). From C6 the sky is drawn from the
+ * same model, into the app's sky (`ui/Sky.tsx`) through a portal, with the figure's place in it measured (`useSkyHost`).
  */
 export function SceneCanvas({ world, forecast, now, selected, readout = null, first, last, onScrub, onRelease, onNow }: Props) {
   const [sceneRef, width] = useWidth<HTMLElement>(375)
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
-  const box = useMemo(() => ({ width, skyHeight: 0, landTop: 0, landHeight: SCENE_H, dpr }), [width, dpr])
+  const host = useSkyHost(sceneRef)
+  const box = useMemo(() => ({ width, skyHeight: host?.height ?? 0, landTop: host?.landTop ?? 0, landHeight: SCENE_H, dpr,
+    skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
   const model = useMemo(() => sceneModel(world, box), [world, box])
   const land = useMemo(() => layersOn(model, 'land'), [model])
+  const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const { ref } = useSurface('land', land, { width, height: SCENE_H, dpr })
   const at = selected ?? now
   return (
@@ -55,6 +62,7 @@ export function SceneCanvas({ world, forecast, now, selected, readout = null, fi
         </span>
       )}
       {perfHud() && <PerfHud />}
+      {host && createPortal(<SkyCanvas layers={sky} size={{ width: host.width, height: host.height, dpr }} />, host.element)}
     </>
   )
 }

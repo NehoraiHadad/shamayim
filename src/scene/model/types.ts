@@ -15,21 +15,39 @@ import type { CloudLevel, Pt, RGB } from '../../world/types'
 
 export type { Pt, RGB }
 
-/** CSS px. `landTop` is where the land figure's top stands in the sky surface; `dpr` the device pixel ratio. */
-export interface SceneBox { width: number; skyHeight: number; landTop: number; landHeight: number; dpr: number }
+/**
+ * CSS px. `width` is the land figure's; `landTop` (and `landLeft`) where the figure's top-left stands in the sky surface;
+ * `skyWidth` the sky surface's width when it differs from the figure's (the app's sky spans the window, the figure a
+ * column); `dpr` the device pixel ratio.
+ */
+export interface SceneBox { width: number; skyHeight: number; landTop: number; landHeight: number; dpr: number
+  skyWidth?: number; landLeft?: number }
 
 export interface Box { x: number; y: number; w: number; h: number }
 
 export type LayerId = string
 export type Surface = 'sky' | 'land'
 
-/** An animated layer: the loop runs while one is present (C6–C8). */
+/**
+ * An animated layer: the loop runs while one is present (C6–C8). Everything here is applied when the cached canvas is
+ * laid into the surface (`anim.ts`: a pure function of the spec and `phase`), so an animated frame repaints nothing.
+ */
 export interface AnimSpec {
-  /** `drift`: the cached sprite is translated (no repaint); `repaint`: the layer repaints its own small canvas. */
+  /** `drift`: the cached sprite is translated and/or pulsed (no repaint); `repaint`: the layer repaints its own canvas. */
   mode: 'drift' | 'repaint'
-  /** Scene px/s across, for `drift`. */
+  /** Surface px/s across, for `drift` (+ left → right). */
   speed?: number
+  /**
+   * The drift repeats every `period` px: the layer's canvas is laid every `period` px across the surface (a tileable
+   * band: the clouds round the whole horizon, a shimmer tile). A whole number of device px.
+   */
+  period?: number
+  /** Flashes (lightning): the layer is laid with the alpha of a seeded schedule of flashes (`flashAt`). */
+  pulse?: Pulse
 }
+
+/** A seeded schedule of short flashes: the first after `first` s, then every `every[0]`…`every[1]` s. */
+export interface Pulse { seed: number; first: number; every: [number, number] }
 
 /**
  * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
@@ -79,12 +97,41 @@ interface LayerBase {
 }
 
 /* Shapes drawn from C2 on (placeholders, refined by the stage that draws them). */
-export interface Glow { x: number; y: number; r: number; rgb: RGB; alpha: number }
+/** A soft round glow (sky px): `alpha` at the centre falling to nothing at `r`; `ry` squashes it into an ellipse. */
+export interface Glow { x: number; y: number; r: number; rgb: RGB; alpha: number; ry?: number }
 export interface Band { y: number; h: number; rgb: RGB; alpha: number }
+/**
+ * Earth's shadow and the belt of Venus round sunset and sunrise, opposite the sun: a blue-grey band on the horizon
+ * (`shadow` px high) under a pink one (to `belt` px), fading sideways over `rx` px from `x`.
+ */
+export interface Arch { x: number; y: number; rx: number; shadow: number; belt: number; shadowRgb: RGB; beltRgb: RGB; alpha: number }
 export interface Star { x: number; y: number; r: number; alpha: number }
-export interface Disc { x: number; y: number; r: number; rgb: RGB; veil: number }
-export interface MoonDisc extends Disc { phase: number; tilt: number }
-export interface BankDesc { id: string; x: number; y: number; w: number; h: number; puffs: number; seed: number; lit: RGB; shade: RGB }
+/**
+ * The sun's disc (C6): its core and darker, redder limb (limb darkening), squashed by refraction (`flatten`), with a close
+ * aureole (`halo`, strength `aureole`) of forward-scattered light. `veil` 0–1: the cloud in front softens and dims it.
+ * `coin`: dust turns it into a flat pale coin with no halo.
+ */
+export interface Disc { x: number; y: number; r: number; rgb: RGB; veil: number; core: RGB; limb: RGB; halo: RGB; aureole: number;
+  flatten: number; coin: number }
+/**
+ * The moon (C6): its true phase (`fraction` lit), the lit limb turned toward the sun (`tilt`, deg), bone by night and
+ * sky-pale by day (`daylight`), `alpha` after cloud and haze; `ring`: the dark disc's hairline for a thin crescent;
+ * `earthshine`: the dark part's faint light by night.
+ */
+export interface MoonDisc { x: number; y: number; r: number; rgb: RGB; alpha: number; fraction: number; tilt: number; daylight: number
+  ring: boolean; earthshine: number }
+/**
+ * A cloud bank as drawn (C6), in sky px on its layer's band (`x` its centre in `0…period`, `y` its base): the shape
+ * (`kind`: heaped cumulus, a flat sheet of a deck, a cirrus streak), its tones after the light (`body` in the sky's light,
+ * `shade` on the side turned away, `lit` on the side toward the light with strength `litA`), the direction the light comes
+ * from on screen (`toward`, a unit vector; null under a sky with no direct light), a lit underside at a low sun (`under`),
+ * the silver edge of a bank near the sun (`silver`), and a darker base under a bank that rains.
+ */
+export interface BankDesc { id: string; x: number; y: number; w: number; h: number; puffs: number; seed: number
+  kind: 'heap' | 'sheet' | 'streak'; alpha: number; body: RGB; shade: RGB; lit: RGB; litA: number
+  toward: readonly [number, number] | null; under: number; silver: number; rains: boolean }
+/** A flat wash under a deck (overcast): the sky's cover between `top` and `bottom`, fading out toward the horizon. */
+export interface Veil { top: number; bottom: number; rgb: RGB; alpha: number }
 /** A filled shape; `soft` > 0 softens its edge over about that many px (stacked offset copies, no filter). */
 export interface Face { points: Pt[]; rgb: RGB; alpha: number; soft?: number }
 export type Path = Pt[]
@@ -193,10 +240,14 @@ export interface Shaft { x: number; w: number; top: number; rgb: RGB; alpha: num
 export interface MistBand { y: number; h: number; rgb: RGB; alpha: number }
 
 export type LayerDesc =
-  | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; band: Band | null }
+  | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
   | LayerBase & { kind: 'stars'; stars: Star[]; through: number }
   | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null }
-  | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[] }
+  | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[]; veil: Veil | null; period: number }
+  /** In-cloud lightning: one bank drawn lit from within, laid with a flash schedule's alpha and drifting with its layer. */
+  | LayerBase & { kind: 'flash'; bank: BankDesc; rgb: RGB; period: number }
+  /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
+  | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; gullies: Gully[];
       terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];

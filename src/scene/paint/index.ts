@@ -1,5 +1,7 @@
 import type { LayerDesc, LayerKind, LayerOf } from '../model/types'
 import type { Ctx2D, PaintEnv } from './hand'
+import { paintBodies, paintStars } from './bodies'
+import { paintClouds, paintFlash, paintShimmer } from './clouds'
 import { paintFarCities } from './farCities'
 import { paintMarks, paintPortrait } from './marks'
 import { paintPlane, paintPlaneLight } from './planes'
@@ -27,6 +29,11 @@ const paintNothing = () => {}
 /** One painter per layer kind; kinds without one yet (drawn from C2 on) are skipped. */
 export const PAINTERS: Painters = {
   sky: { form: paintSky },
+  stars: { form: paintStars },
+  bodies: { form: paintBodies },
+  clouds: { form: paintClouds },
+  flash: { form: paintFlash },
+  shimmer: { form: paintShimmer },
   plane: { form: paintPlane, light: paintPlaneLight },
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },

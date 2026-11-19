@@ -26,10 +26,12 @@ const MIN_MOON = 0.05
 /**
  * The share of direct light the cloud between the eye and the source lets through (0–1). The layers are independent;
  * thick low cloud blocks nearly all of it, mid cloud most, thin high cloud dims it a little. As an expected value over a
- * broken sky: 50 % low cloud lets about half through.
+ * broken sky: 50 % low cloud lets about half through. A mid layer that closes into a full deck (altostratus) is as thick as
+ * low cloud: the share it blocks rises to 0.95 at full cover (C6: until then a full mid and high overcast still let a
+ * shadow-casting sun through, hidden only by a NaN in the cover split, `layerCovers`).
  */
 export function cloudTransmit({ low, mid, high }: Covers): number {
-  return (1 - 0.95 * low) * (1 - 0.85 * mid) * (1 - 0.3 * high)
+  return (1 - 0.95 * low) * (1 - (0.85 + 0.1 * mid ** 4) * mid) * (1 - 0.3 * high)
 }
 
 /** −1 … 1 → the screen side the light comes from; null straight ahead or behind. */

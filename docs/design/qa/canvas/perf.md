@@ -332,3 +332,57 @@ fill; Haifa most, with its three marks and the Báb), the scrub latency is in th
 of the worker path stay within budget but Haifa's cold model (its range 13–40 ms over runs). worldCold in the browser
 (×4) 227–411 ms, reported only; in node the place part is now 1–10 ms for a portrait (was 4–9 with `hillScene`) and
 7–25 ms for a city (Tel Aviv 59 → 25: its `outsideSkyline`, C5's).
+
+## C6 (2026-11-19): the sky, the bodies, the stars, the clouds, lightning and shimmer
+
+What is added: the sky's base as the sky canvas's CSS background (gradient, glows, Earth's shadow, haze band: no canvas
+paint); on the sky canvas the stars, the sun and moon (two small layers round their discs), the clouds per level (bands
+round the whole horizon, 360° of the camera, drifting), up to two flash layers (thunder) and a shimmer tile (heat). The
+animation is applied at composite time (drift in whole device px, flash alpha), so an animated frame paints nothing. The
+cold load and the scrub run with reduced motion (no loop racing them); the animation is measured on its own page, 10 s at
+the `thunder` moment (every layer drifting, two flash layers), with motion on.
+
+Worker path (the default), three places, after the performance pass:
+
+```
+haifa / tel-aviv / shadmot-mehola  (CPU ×4, dpr 2.75, software raster, painted in the worker)
+  modelCold     30.3 / 17.9 / 17.6 ms              (budget 10)  OVER, as before C6 (13–30)
+  firstPaint    20.8 / 21.8 / 31.9 ms (main thread) (budget 60)
+  firstShown   164 / 143 / 199 ms                   (reported; was 134–172)
+  scrub.model  p50 6.1 / 5.5 / 6.8   p95 13.5 / 11.3 / 16.5 ms  (budget 10; Shadmot's p95 over ×1.5 by 1.5 ms)
+  scrub.land   p50 0.1               p95 0.9 / 1.5 / 1.0 ms
+  scrub.sky    p50 0.5 / 0.4 / 0.4   p95 1.2 / 1.1 / 1.3 ms      (gated from C6, budget 10)
+  scrub.latency p50 338 / 216 / 183  p95 407 / 251 / 246 ms      (reported)
+  worker batch  sky p50 560 / 621 / 383  p95 961 / 634 / 693 ms; land p50 141 / 91 / 74 ms
+  anim.sky     p50 0.6–0.7           p95 1.2 ms  (n 300, 10 s)  (budget 4)
+  memory        25.4 / 21.6 / 24.0 MB
+```
+
+Main-thread fallback (`--paint=main`):
+
+```
+  firstPaint    138 / 96 / 136 ms         (budget 60)  OVER
+  scrub.land    p50 22 / 13 / 18  p95 42 / 18 / 25 ms  OVER (as before C6)
+  scrub.sky     p50 167 / 145 / 145  p95 385 / 361 / 347 ms  OVER
+  clouds' paint: low 21–63, mid 33–39, high 10–30 ms
+  anim.sky      p95 1.2–1.3 ms
+```
+
+Reading:
+- **The main thread is within budget on the worker path**: a sky scrub frame is 0.4–0.5 ms p50 (C1–C3: 12–21 ms, the
+  gradient repainted whole), the animated frame 0.6–0.7 ms p50, 1.2 ms p95 (budget 4): drift and flashes are laid, never
+  painted. The sky's first paint adds nothing on the main thread (the base is CSS, the rest is asked of the worker).
+- **The clouds are the cost**: a scrub repaints them whenever their light crosses a key step (tones 1/64, strengths
+  1/20, the light's direction 8°), and the 60 frames of the runner step 12 minutes from dawn to dusk, so nearly every
+  frame does. In the worker that is 380–620 ms per sky batch at ×4 (the land's: 74–141), so the sky's light trails the
+  hand by ~0.2–0.4 s while scrubbing (newest ask wins; the last clouds stay laid); unthrottled about a quarter of that.
+  On the main-thread fallback it is 145–167 ms p50 a frame: over the gate, as the land's light was before the worker.
+- Tried, kept: a shared scratch sheet per paint and one puff sprite (no canvas allocated per bank), the rim from the mass
+  itself (2 blits, not 2 × N gradients), decks without per-puff washes, the clouds worked at 1 px per CSS px inside the
+  painter (`SOFT_SCALE`: 1.5 → 1 cut Haifa's main-thread cloud paint ~40 %; the gradient count was not the cost: a
+  shared sprite in place of per-puff gradients changed nothing measurable). Snapped light numbers (the key names exactly
+  what is painted) so a slow scrub repaints the clouds only on a step.
+- **Options left**: split the clouds' light from their form (the planes' split; a cloud's tones and light both change
+  with the hour, so it needs a recolouring the 2D canvas has no cheap way to do without `filter`), coarser steps while
+  scrubbing (repaint on release), fewer field sheets on the main-thread fallback, or the plan's own fallback for
+  phones without a worker canvas. To check on the phone (`?perf=1`: `worker.sky`, `latency.sky`).

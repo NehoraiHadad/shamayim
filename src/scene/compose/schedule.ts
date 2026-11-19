@@ -4,7 +4,7 @@ import type { Surface } from './surface'
 /** Cold-start order (§1d): sky, the planes, then the place and its marks, then clouds and weather. */
 export const PRIORITY: Record<LayerKind, number> = {
   sky: 0, stars: 1, bodies: 1, loading: 2, plane: 2, water: 3, farCities: 3, portrait: 4, outside: 4, marks: 4,
-  clouds: 5, weather: 6,
+  clouds: 5, flash: 6, shimmer: 6, weather: 6,
 }
 
 export interface SliceJob { surface: Surface; layers: readonly LayerDesc[] }

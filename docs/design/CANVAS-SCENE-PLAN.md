@@ -461,6 +461,7 @@ Dan) shows only itself; one rule for all places.
 skyline cities at 11:00 and 16:30; Eshkol Tower drawn as a glyph from Hadar.
 
 **C6. Sky, bodies, stars, clouds — L (5).**
+**Done 2026-11-19** (§6; the sky's own gates met, Haifa's cold model as before).
 `SkyCanvas` in `ui/Sky.tsx` under the flag: gradient from `theme/skyLight.ts` (contrast tests keep their colours),
 glow, afterglow, horizon band; sun and moon discs (phase, veil by cloud); stars only through clear sky; cloud banks by
 layer, lit undersides at low sun, drifting with the wind at their height; seen clouds (satellite) as banks; thunder
@@ -916,3 +917,117 @@ perf pass); the shipped app and the SVG baseline are unchanged (snapshots untouc
   label's layout depends on it and the model only scales it; one `portrait` layer holds the near marks with the houses
   (drawn back to front among them), so `marks` holds the far and plain ones only. The outside view itself (mass and
   spires, the coastal sea) is C5; C4 draws a city's marks and icons only.
+
+**C6 done (2026-11-19): the sky, the bodies, the stars, the clouds; lightning and heat shimmer rebuilt.** Commits on the
+stage's branch (merged by the coordinator onto `ccr-85ec24f0-9ayxgu`, after the performance pass); the SVG baseline and
+the shipped app are unchanged (snapshots untouched; everything below runs only under `?canvas=1`).
+- *Drawing with the anidoodle skill* (owner decision 7): `SKILL.md`, `craft-bar.md`, `realism-and-craft.md`,
+  `determinism-and-contract.md`, `working-method.md`, `site-art.md` read first; the look proved on one still (Haifa 16:20,
+  a broken sky at sunset), critiqued on 2× crops, then extended across hours and weather.
+- *World* (small changes, all general): `clouds.ts` spreads each layer's banks over the dome by a seeded altitude (3–78°,
+  more of them low) instead of a 4–80 km distance (which put every bank within ~30° of the horizon and left the sky
+  overhead bare at any cover); a bank's distance now follows from the deck's height, so a change of hour never moves it
+  across the sky. **Fixed**: `layerCovers` gave NaN to a layer with no cloud when the shown cover is full
+  (`1 ** Infinity`), which made a full overcast's direct light NaN (C2's "no shade under overcast" passed by that
+  accident). `light.ts` `cloudTransmit`: a mid layer that closes into a full deck blocks up to 0.95 (was 0.85 at any
+  cover: a full mid and high overcast let a shadow-casting sun through); partial covers change by < 1e-3 below 40 %.
+- *Model* (`scene/model/`): `sky.ts` (`skyGeom`: x through the camera scaled to the figure and offset to where it stands
+  in a wider sky, the bodies on the world's relief, the clouds on the relief up to 22° and the rest of the dome spread over
+  the sky above, since the relief's zenith is only ~135 px over the horizon; the base: gradient, a three-ring glow round
+  the sun after air mass and aerosol, weaker as it climbs, veiled by the cloud in front, none in dust, a bright patch
+  under a deck; the twilight glow at the sun's ridge crossing; a cool glow round the moon; Earth's shadow and the pink
+  belt opposite the sun; the haze band), `bodies.ts` (the sun's disc at the world's position: core and redder limb,
+  refraction squash, aureole by aerosol, veil by the cloud in front, a pale coin in dust; the moon as the SVG's
+  `moonLook` decides, its true phase turned to the sun, earthshine by night), `stars.ts` (one seeded field by area, the
+  app's three classes by sun depression, only the seeded subset through `night.starsThrough`, drowned near the horizon
+  and, the faint ones, by a bright moon), `clouds.ts` (per level: the world's banks as heaps (low, mid) or streaks
+  (high) at their true azimuths on a band round the whole horizon (`period`, 360° of the camera); the layer's field to
+  its cover (heaps, then sheets as low cloud closes, sheets for the mid layer, streaks for cirrus) with a wash once a
+  layer, or the whole sky, closes; tones: whiter than the sky by fair weather, the sky's own grey with a darker base as it
+  closes, darkest where it rains, faded toward the sky behind by the air at the bank's distance (`air.fade`), so dust
+  tints them; the light per layer: the sun after the layers above (a bank stands in a gap, fully lit, or under the deck,
+  seeded, as often as their cover says), the afterglow from under the horizon (`litUnderside`), the moon; the light's
+  direction the short way round the band, a silver edge near the sun, a backlit bank darker; the light-dependent numbers
+  snapped to the key's steps, so the key names exactly what is painted), the flash layers (thunder only: the two largest
+  raining banks in view) and the shimmer tile (`air.heat`); `anim.ts` (`driftAt`, `flashAt`, `strikes`: pure functions
+  of the spec and the phase).
+- *Painters* (`scene/paint/`): `sky.ts` keeps the performance pass's row painter for the gradient and band and lays the
+  arch and glows over it; `skyBackground` gives the same base as CSS backgrounds. `bodies.ts` (sun, moon, stars),
+  `clouds.ts` (each bank's mass laid from one soft puff sprite on a shared scratch sheet and tinted, then modelled on the
+  mass with `source-atop`: shade away from the light and underneath, the light's breath on each dome, the rim where the
+  mass faces the light (the mass less itself moved off the light, so only the outer edge catches it), a warm underside at
+  a low sun, a dark base where it rains, a silver edge; laid at the bank's strength; cirrus as combed strands; the whole
+  layer worked at 1 device px per CSS px and laid up into its 1:1 cache, `SOFT_SCALE`; the flash: the bank lit from
+  within; the shimmer: wavering lines tiling its tile). All worker-safe (no DOM); every desc structured-cloneable (a test).
+- *Compositor* (`compose/surface.ts`, small): an animated layer is laid where its drift has carried it at `phase`, in
+  whole device px, repeated every `period` across the surface, at its flash alpha; a tick that moved nothing a whole
+  pixel and repainted nothing leaves the canvas alone; an arriving worker batch is laid at the last phase.
+- *React*: `SkyCanvas` lays the `sky` layer as its canvas's CSS background (`skyBackground`) and paints the rest; in the
+  app `SceneCanvas` portals it into `ui/Sky.tsx`'s `[data-sky]` under the birds (`zIndex −1`), the figure's place in the
+  sky measured by `useSkyHost` (ResizeObserver on the sky, the figure and the page); `SceneBox` gains `skyWidth` and
+  `landLeft`. With `?canvas=1` App mounts no `Atmosphere` and no CSS stars.
+- *Harness and runners*: weather moments `thunder`, `hot`, `broken`; `phase=<s>|flash` lays the sky at a phase (a still
+  of the animation); `openPage` uses reduced motion (one still frame at phase 0, no loop racing a still or a scrub) unless
+  `motion`; stills take a full date (`place@2026-11-24T21:00@clear`: another phase of the moon) and a phase; the perf
+  runner measures `anim.sky` for 10 s at a stormy hour with motion on; `e2e/scene.world.mjs` prints a moment's world.
+- *Kept, rebuilt, dropped from the WebGL sky* (`atmo/gl/`, unmounted under the flag, deleted at C9): **kept** the
+  gradient (the same palette), the sun's glow and bloom (a hot day widens it), the twilight arch (Earth's shadow, belt of
+  Venus), the afterglow on clouds (now on the world's banks, by height), lit sun-side cloud faces, the moon lighting
+  cloud edges, the satellite's seen clouds (world banks), overcast darkening (the palette and the closing wash), haze
+  over the lower sky (the band); **rebuilt** the in-cloud lightning (flash layers on a seeded schedule, drifting with
+  their layer), the heat shimmer (a drifting tile of wavering lines over the far horizon, on the sky surface as the WebGL
+  had it; the land-edge displacement of §1f stays for C7), the moving noise (banks drifting with the wind at their
+  height, the right way: east on the left, a westerly moves right to left); **dropped for now** the crepuscular rays
+  (through cloud gaps, and from under the ridge at twilight) and the particle passes (rain, snow, dust grains, wind
+  streaks): the particles are C7's, the rays are listed for C7 with the shafts. The shipped WebGL sky's `windU` bug is
+  left as it is (owner decision 9: it goes at C9); the canvas drift reads the world's camera-aware wind, tested in
+  screen terms.
+- *Tests* (`scene/model/sky.test.ts`, 44 over the 8 places): the sun and moon discs at the world's position (x through
+  the camera within 1 px, y on the relief at the apparent altitude); stars none by day, none under full cover, fewer under
+  half cover and only from the clear field's subset; each cloud's light from the sun's side on screen (direction within
+  half the 8° key step), lit undersides at a low sun; drift sign = the wind at that height in screen terms (a westerly
+  right to left), speed = the world's drift, faster aloft, period = 360° of the camera; no flash without thunder (also
+  with rain but no thunder code), flashes only in raining banks, drifting with their layer; drift and flash pure
+  functions of the phase (strikes seeded, ≥ 7 s apart); painters' call logs the same twice; descs structured-cloneable.
+  `model.test.ts` updated for the sky's layers (the land's order unchanged).
+- *Pixel references*: all 53 rewritten deliberately for the sky: every reference's sky rows change (the sky is drawn:
+  glows, discs, stars, clouds as the fixture's covers say); the land rows change where the sky shows through over the
+  ridges, and on the land itself only where the light changed (the overcast NaN fix and the full mid deck: e.g. Haifa
+  rain, max 10/255; elsewhere ≤ 1/255 or a single pixel). 53/53 on re-run on the worker path and on the main-thread path
+  (`SCENE_PAINT=main`).
+- *Stills* `qa/canvas/c6/` (dpr 2, overlay): clear noon (Haifa, Ramon), broken noon (Shadmot), the fixture's noon
+  (Jerusalem), golden (Tiberias 06:20, Haifa and Rosh Pina 16:20), twilight (Ein Gedi 05:50, Jerusalem 17:00), night with
+  the moon at first quarter (Haifa 21:00), full (Rosh Pina, 24 Nov) and a thin crescent at dusk (Tel Aviv, 12 Nov),
+  overcast (Jerusalem), rain (Haifa), thunder with a flash (Tiberias, `@flash`), dust (Jerusalem), a hot day (Ein Gedi);
+  `contact-sheet.png` (all of them); `sheet-svg-canvas.png` (the app itself, SVG | canvas, sky included: Tiberias 06:20,
+  Jerusalem 12:00, Haifa 16:20, Haifa 21:00).
+- *Critique* (2× crops). Works: the sunrise over the Golan at Tiberias (the disc half over the far ridge, the warm
+  horizon, the afterglow pink on the banks); a broken sunset at Haifa where some banks stand in the mid deck's gaps and
+  take gold on their undersides while the rest sit in its shade; the moon's phases (a full moon rising in the east with
+  its glow and fewer faint stars; a thin crescent with the dark disc's hairline in the dusk); dust tints the clouds; the
+  overcast and the rain close into a grey deck with darker bases; the flash reads as a cloud lit from within. Still
+  wrong: the deck's sheets are soft lozenges, a little airbrushed at 4×, with no torn edges; the cirrus strands are too
+  regular (combed lines more than wisps); heaps near the horizon are small blobs; under the thunder moment the sun still
+  shows as a pale patch (the covers the fixture gives); a rain deck's top layer catches a bright rim that reads as a
+  plate; the clouds' wash at 1 px per CSS px is a little softer than the land at dpr 2.75; at Haifa 16:20 the moon the
+  SVG shows is hidden (the world's layers count the thick cloud higher than the shown cover the SVG uses).
+- *Perf* (`qa/canvas/perf.md`, C6): on the worker path the main thread is within its gates: the
+  sky's scrub frame 0.4–0.5 ms p50 / 1.1–1.3 p95 (C1–C3: 12–21 ms), the animated frame 0.6–0.7 / 1.2 ms (budget 4), first
+  paint 21–32 ms; the cold model as before (Haifa 30 ms, over; Shadmot's scrub.model p95 16.5, 1.5 ms over ×1.5). **The
+  clouds' repaint is the cost**: 380–620 ms per sky batch in the worker at ×4, so the sky's light trails a scrub by
+  0.2–0.4 s (the land's by 0.18–0.34); on the main-thread fallback 145–167 ms p50 a scrub frame, over the gate.
+- *Decisions where the plan was vague, and departures*:
+  - **The sky's base is CSS** (`skyBackground` on the sky canvas): the browser composites it off the main thread (on the
+    phone's GPU), where a full-surface canvas fill pays per pixel each time the light changes; `paintSky` stays and
+    paints the same desc where a canvas is wanted.
+  - **The dome**: clouds use the relief to 22° and spread the rest of the dome over the sky above (the bodies keep the
+    true scale); a cloud in front of a high sun is not at the sun's y (the disc's veil is the covers' expected share).
+  - **A layer's field** (clouds beyond the world's named banks, to the layer's cover) is drawn by the model from the
+    world's covers, seeded by place, level and index; the rain and the flashes come only from the world's banks.
+  - **Drift wraps round the whole horizon** (the band is 360° of the camera): nothing pops in, the clouds behind the
+    view come round. The speed is the world's (C0's 0.4 px/s per km/h at the layer's height): livelier than the true
+    angular speed of a cloud kilometres away.
+  - **Soft wash at 1 px per CSS px** inside the cloud painter, laid up into the 1:1 cache (the plan's soft-layer ratio,
+    done in the painter; the contract's "never scale a cached bitmap up" holds for the cache itself).
+  - **Stars do not turn with the hour** (one fixed seeded field, as the app's): the upper sky is not a projection.
+  - No deploys needed for C6.

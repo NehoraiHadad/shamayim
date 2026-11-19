@@ -5,6 +5,9 @@
 // With the paint worker (the default where the browser has one) the main thread only asks for layers and lays the bitmaps
 // it gets back: a step's time is the main thread's (asking, laying each arrival), and the wait for the worker is
 // reported beside it (`firstShown`, `scrub.latency`). `--paint=main` keeps the painting on the main thread to compare.
+// The animation (C6: the clouds drifting, lightning, shimmer) is measured on its own page with motion on, at a stormy
+// hour (`thunder`: every cloud layer drifting and flashes in the raining banks); the cold load and the scrub frames on a
+// page with reduced motion, so no loop races them.
 //   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main]
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 
@@ -31,8 +34,8 @@ const BUDGET = {
   'slice.sky': { ms: 8, gate: false },
   // A scrub frame on the land: its light canvases only.
   'scrub.land': { ms: 10, gate: true },
-  // The sky's gradient is repainted whole each scrub frame until C6 (the sky's own stage) takes it on.
-  'scrub.sky': { ms: 10, gate: false },
+  // C6: the sky's base is the canvas's CSS background; a scrub frame repaints the bodies, the stars and the clouds.
+  'scrub.sky': { ms: 10, gate: true },
   'scrub.world': { ms: 10, gate: false },
   // From a scrub frame's ask until its light shows (the worker's wait): reported. 33 ms (two frames at 60 Hz) is a
   // proposal, not in the plan's §3 table.
@@ -124,8 +127,20 @@ try {
       console.log(`  worker batch (ms, the worker's own time, raster included): ${workerMs.map(([name, list]) =>
         `${name} p50 ${q(list, 0.5).toFixed(1)} p95 ${q(list, 0.95).toFixed(1)} (n ${list.length})`).join(', ')}`)
     } else console.log(`  last paint per layer (ms): ${layerMs}`)
-    console.log('  anim         no animated layer yet (C6–C8)')
     await context.close()
+    // The sky's animation: 10 s at a stormy hour with the loop running.
+    const moving = await openPage(browser, server.url, DPR, { motion: true })
+    const cdp2 = await moving.context.newCDPSession(moving.page)
+    await cdp2.send('Emulation.setCPUThrottlingRate', { rate })
+    await loadScene(moving.page, sceneUrl(server.url, { place, at: '2026-11-17T12:00', weather: 'thunder' }) + (paintMain ? '&paint=main' : ''), 180000)
+    await moving.page.evaluate(() => { window.__sceneStats.steps['anim.sky'] = [] })
+    await moving.page.waitForTimeout(10000)
+    const anim = await moving.page.evaluate(() => window.__sceneStats.steps['anim.sky'] ?? [])
+    const a50 = q(anim, 0.5), a95 = q(anim, 0.95)
+    const overAnim = a95 > BUDGET.anim.ms * SLACK
+    if (overAnim) failures.push(`${place} anim p95 ${a95.toFixed(1)} ms > ${(BUDGET.anim.ms * SLACK).toFixed(1)}`)
+    console.log(`  anim.sky     p50 ${a50.toFixed(2).padStart(7)}  p95 ${a95.toFixed(2).padStart(7)} ms  (n ${anim.length}, 10 s, thunder; budget ${BUDGET.anim.ms})${overAnim ? '  OVER' : ''}`)
+    await moving.context.close()
   }
 } finally {
   await browser.close()

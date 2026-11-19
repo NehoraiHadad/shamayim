@@ -126,8 +126,9 @@ export default function App() {
 
   return (
     <div className={classes} data-scrubbing={sceneTime.scrubbing || undefined} style={{ ...themeVars(themeId), ...(forced ? {} : { ...skyLightVars(light), ...sheetVars(paper) }) }}>
-      <Sky altitude={shown?.sunElevation ?? -18} cloudCover={shown?.cloudCover ?? 0}>
-        {air && <Atmosphere air={air} palette={palette} night={(shown?.sunElevation ?? -18) < -6}
+      {/* The canvas scene (`?canvas=1`) draws the sky itself from C6: no WebGL air, no CSS stars. */}
+      <Sky altitude={shown?.sunElevation ?? -18} cloudCover={shown?.cloudCover ?? 0} stars={!canvas}>
+        {air && !canvas && <Atmosphere air={air} palette={palette} night={(shown?.sunElevation ?? -18) < -6}
           glide={sceneTime.scrubbing ? 120 : sceneTime.rewinding ? 900 : selected ? 320 : 520} />}
         {life && air && shown && <Life life={life} air={air} sunElevation={shown.sunElevation} intro={intro} />}
       </Sky>

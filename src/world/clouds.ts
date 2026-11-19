@@ -37,7 +37,8 @@ export function layerCovers(input: CoverInput): { covers: Covers; source: WorldS
     if (union <= 0) return { covers: { low: 0, mid: 0, high: 0 }, source: 'forecast' }
     // Scale each layer's clear share so the union is the shown total: (1 − c)^k for all three.
     const k = total >= 1 ? Infinity : Math.log(1 - total) / Math.log(1 - Math.min(union, 0.9999))
-    const scale = (c: number) => c >= 1 ? (total > 0 ? 1 : 0) : 1 - (1 - c) ** k
+    // A layer with none stays at none (1 ** Infinity is NaN when the shown cover is full).
+    const scale = (c: number) => c <= 0 ? 0 : c >= 1 ? (total > 0 ? 1 : 0) : 1 - (1 - c) ** k
     return { covers: { low: scale(covers.low), mid: scale(covers.mid), high: scale(covers.high) }, source: 'forecast' }
   }
   const knownThick = input.thickCloud != null
@@ -49,7 +50,16 @@ export function layerCovers(input: CoverInput): { covers: Covers; source: WorldS
 
 /** Banks round the whole horizon at full cover; fewer as the cover falls (the same first ones stay). */
 const MAX_BANKS: Record<CloudLevel, number> = { low: 16, mid: 12, high: 8 }
-const DISTANCE_KM: Record<CloudLevel, [number, number]> = { low: [4, 20], mid: [8, 40], high: [15, 80] }
+/**
+ * Altitudes (deg) the banks are spread over: the whole dome a cloud deck shows from below, with more of them low, where
+ * the far part of the deck is foreshortened and crowds together (stage C6; C0 spread them by distance, 4–80 km, which put
+ * every bank within ~30° of the horizon and left the sky overhead bare whatever the cover).
+ */
+const ALTITUDE: [number, number] = [3, 78]
+/** Steeper than 1: more banks low. */
+const ALTITUDE_BIAS = 1.7
+/** No bank is wider than this (deg): an overhead cloud is large, but one bank never spans the sky. */
+const MAX_W = 80
 const WIDTH_KM: Record<CloudLevel, [number, number]> = { low: [1.5, 5], mid: [3, 10], high: [6, 20] }
 const ASPECT: Record<CloudLevel, number> = { low: 0.35, mid: 0.25, high: 0.15 }
 const PUFFS: Record<CloudLevel, [number, number]> = { low: [4, 8], mid: [3, 6], high: [2, 3] }
@@ -85,12 +95,14 @@ export function banksOf(placeId: string, level: CloudLevel, cover: number, baseM
     const seed = hashId(`${placeId}:cloud:${id}`)
     const r = seeded(seed)
     const azimuth = (i * GOLDEN + (r() - 0.5) * 20 + 360) % 360
-    const distanceKm = between(r(), DISTANCE_KM[level])
+    // The bank's place on the dome is seeded; its distance follows from the deck's height (so a change of hour that
+    // moves the base moves the bank nearer or farther, never across the sky).
+    const altitude = between(r() ** ALTITUDE_BIAS, ALTITUDE)
+    const distanceKm = baseM / 1000 / Math.tan(altitude / DEG)
     const widthKm = between(r(), WIDTH_KM[level])
-    const w = 2 * Math.atan(widthKm / 2 / distanceKm) * DEG
+    const w = Math.min(MAX_W, 2 * Math.atan(widthKm / 2 / distanceKm) * DEG)
     return {
-      id, azimuth, distanceKm, seed,
-      altitude: Math.atan(baseM / 1000 / distanceKm) * DEG,
+      id, azimuth, distanceKm, seed, altitude,
       w, h: w * ASPECT[level],
       puffs: Math.round(between(r(), PUFFS[level])),
     }
