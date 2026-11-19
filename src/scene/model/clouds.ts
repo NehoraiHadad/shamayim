@@ -143,7 +143,7 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
   const body = mixRgb(tones.body, tones.shade, 0.5 * lit.backlit)
   return {
     id: `${level}:${bank.id}`, x, y, w, h, seed: bank.seed,
-    puffs: level === 'high' ? bank.puffs + 2 : 2 * bank.puffs + 3,
+    puffs: level === 'high' ? bank.puffs + 2 : bank.puffs + 6,
     kind: level === 'high' ? 'streak' : 'heap',
     alpha: (bank.seen ? 0.95 : 0.88) * (level === 'high' ? 0.55 : level === 'mid' ? 0.85 : 1),
     body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : body, litA: lit.litA, toward: lit.toward,
@@ -185,7 +185,7 @@ function deckOf(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number,
     const tones = tonesAt(world, box, stops, level, y - h / 2, union, rains, layer.baseM / 1000 / Math.tan((alt * Math.PI) / 180))
     const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick, hashId(`${world.place.id}:deck:${level}:${j}`))
     sheets.push({ id: `${level}:deck:${j}`, x, y, w, h, seed: hashId(`${world.place.id}:deck:${level}:${j}`),
-      puffs: kind === 'heap' ? Math.max(5, Math.round(w / 10)) : Math.max(3, Math.round(w / 18)), kind,
+      puffs: kind === 'heap' ? Math.max(5, Math.round(w / 12)) : Math.max(3, Math.round(w / 26)), kind,
       alpha: (0.55 + 0.35 * r()) * (level === 'high' ? 0.5 : 1),
       body: tones.body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body, litA: 0.6 * lit.litA, toward: lit.toward,
       under: light ? 0.6 * light.under * light.strength * lit.through : 0, silver: 0.4 * lit.silver, rains })

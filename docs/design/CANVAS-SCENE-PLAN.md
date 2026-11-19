@@ -460,6 +460,7 @@ Dan) shows only itself; one rule for all places.
 skyline cities at 11:00 and 16:30; Eshkol Tower drawn as a glyph from Hadar.
 
 **C6. Sky, bodies, stars, clouds — L (5).**
+**Done 2026-11-19** (§6; the sky's own gates met, Haifa's cold model as before).
 `SkyCanvas` in `ui/Sky.tsx` under the flag: gradient from `theme/skyLight.ts` (contrast tests keep their colours),
 glow, afterglow, horizon band; sun and moon discs (phase, veil by cloud); stars only through clear sky; cloud banks by
 layer, lit undersides at low sun, drifting with the wind at their height; seen clouds (satellite) as banks; thunder

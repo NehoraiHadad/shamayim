@@ -1,6 +1,6 @@
 import type { BankDesc, LayerOf, RGB, Veil } from '../model/types'
 import { rng } from './core'
-import { css, mix, type Ctx2D, type PaintEnv } from './hand'
+import { css, mix, type Ctx2D, type PaintEnv, type Scratch } from './hand'
 
 /**
  * MEDIUM: soft puff banks in the app's hand (after `prototypes/canvas-scene/styleRich.ts`): no outlines, washes only. Each
@@ -15,14 +15,69 @@ import { css, mix, type Ctx2D, type PaintEnv } from './hand'
  * drifts. Seeded by the bank only: the same bank is the same shape at every hour.
  */
 export function paintClouds(ctx: Ctx2D, desc: LayerOf<'clouds'>, env: PaintEnv): void {
+  softly(ctx, desc.bounds, env, (c, e) => paintCloudsAt(c, desc, e))
+}
+
+/**
+ * Device px per CSS px a soft wash is worked at: finer than the CSS pixel (no edge of a cloud is sharper than ~2 px), and
+ * a quarter of the pixels at a phone's dpr 2.75, which is what a scrub frame's repaint of the clouds pays for.
+ */
+const SOFT_SCALE = 1
+
+/**
+ * Paints a soft layer at `SOFT_SCALE` on a scratch sheet and lays it into the layer's canvas (the plan's "soft layers at a
+ * lower ratio", §1d, done inside the painter: the layer's cache stays at the device's ratio and is blitted 1:1).
+ */
+function softly(ctx: Ctx2D, bounds: { x: number; y: number; w: number; h: number }, env: PaintEnv, paint: (c: Ctx2D, e: PaintEnv) => void) {
+  const k = Math.min(env.scale, SOFT_SCALE)
+  if (k >= env.scale) { paint(ctx, env); return }
+  const { x, y, w, h } = bounds
+  const sheet = env.canvas(Math.ceil(w * k) + 1, Math.ceil(h * k) + 1)
+  sheet.ctx.setTransform(k, 0, 0, k, -x * k, -y * k)
+  paint(sheet.ctx, { ...env, scale: k })
+  ctx.drawImage(sheet.canvas as CanvasImageSource, x, y, sheet.canvas.width / k, sheet.canvas.height / k)
+}
+
+/**
+ * Two scratch sheets shared by every bank of one paint (a bank's mass, its rim), grown when a bank needs more, and the
+ * puff: one soft disc (the body's profile, white), drawn once per paint and laid for every puff of every mass.
+ */
+interface Sheets { get(slot: 0 | 1, w: number, h: number): Scratch; puff: Scratch['canvas'] }
+
+/** The puff's size (device px): larger than most puffs at a phone's ratio, so it is mostly laid smaller. */
+const PUFF = 128
+
+function sheetsOf(env: PaintEnv): Sheets {
+  const held: (Scratch | null)[] = [null, null]
+  const puff = env.canvas(PUFF, PUFF)
+  body(puff.ctx, { x: PUFF / 2, y: PUFF / 2, rx: PUFF / 2, ry: PUFF / 2 }, [1, 1, 1], 1)
+  return {
+    puff: puff.canvas,
+    get(slot, w, h) {
+      let s = held[slot]
+      if (!s || s.canvas.width < w || s.canvas.height < h) {
+        s = env.canvas(Math.max(w, s?.canvas.width ?? 0), Math.max(h, s?.canvas.height ?? 0))
+        held[slot] = s
+      }
+      s.ctx.setTransform(1, 0, 0, 1, 0, 0)
+      s.ctx.globalCompositeOperation = 'source-over'
+      s.ctx.globalAlpha = 1
+      s.ctx.clearRect(0, 0, w, h)
+      return s
+    },
+  }
+}
+
+function paintCloudsAt(ctx: Ctx2D, desc: LayerOf<'clouds'>, env: PaintEnv): void {
   if (desc.veil) paintVeil(ctx, desc.veil, desc.bounds)
+  const sheets = sheetsOf(env)
   const P = desc.period
   for (const bank of desc.banks) {
     const reach = bank.w * 0.75
     for (const shift of [0, -P, P]) {
       const x = bank.x + shift
       if (x + reach < 0 || x - reach > P) continue
-      paintBank(ctx, { ...bank, x }, env)
+      paintBank(ctx, { ...bank, x }, env, sheets)
     }
   }
 }
@@ -109,43 +164,32 @@ function body(ctx: Ctx2D, p: Puff, rgb: RGB, alpha: number) {
 }
 
 /** The bank on its own sheet (device px, whole pixels), laid on the layer at its strength. */
-function paintBank(ctx: Ctx2D, b: BankDesc, env: PaintEnv) {
+function paintBank(ctx: Ctx2D, b: BankDesc, env: PaintEnv, sheets: Sheets) {
   if (b.kind === 'streak') { paintStreak(ctx, b); return }
-  if (b.kind === 'sheet') { paintSheet(ctx, b); return }
-  const puffs = heapPuffs(b)
+  const puffs = b.kind === 'heap' ? heapPuffs(b) : sheetPuffs(b)
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const p of puffs) {
     x0 = Math.min(x0, p.x - p.rx); x1 = Math.max(x1, p.x + p.rx); y0 = Math.min(y0, p.y - p.ry); y1 = Math.max(y1, p.y + p.ry)
   }
   const k = env.scale
   x0 = Math.floor(x0 * k) / k; y0 = Math.floor(y0 * k) / k
-  const sheet = env.canvas(Math.ceil((x1 - x0) * k) + 1, Math.ceil((y1 - y0) * k) + 1)
+  const w = Math.ceil((x1 - x0) * k) + 1, h = Math.ceil((y1 - y0) * k) + 1
+  const sheet = sheets.get(0, w, h)
   const c = sheet.ctx
   c.setTransform(k, 0, 0, k, -x0 * k, -y0 * k)
-  for (const p of puffs) body(c, p, b.body, 1)
+  // The mass: the puff laid for each, then filled with the body's tone where it stands.
+  for (const p of puffs) c.drawImage(sheets.puff as CanvasImageSource, p.x - p.rx, p.y - p.ry, 2 * p.rx, 2 * p.ry)
+  c.globalCompositeOperation = 'source-in'
+  c.fillStyle = css(b.body)
+  c.fillRect(x0, y0, x1 - x0, y1 - y0)
   c.globalCompositeOperation = 'source-atop'
   modelBank(c, b, puffs, x0, y0, x1, y1)
   c.globalCompositeOperation = 'source-over'
-  if (b.litA > 0.01 && b.toward) rimLight(c, env, b, puffs, x0, y0, sheet.canvas.width, sheet.canvas.height)
+  if (b.litA > 0.01 && b.toward) rimLight(c, sheet.canvas, sheets, b, w, h, k)
   ctx.save()
   ctx.globalAlpha = b.alpha
-  ctx.drawImage(sheet.canvas as CanvasImageSource, x0, y0, sheet.canvas.width / k, sheet.canvas.height / k)
+  ctx.drawImage(sheet.canvas as CanvasImageSource, 0, 0, w, h, x0, y0, w / k, h / k)
   ctx.restore()
-}
-
-/**
- * A deck's sheet, laid straight on the layer (no sheet of its own: a deck has dozens and they are flat): each clump's
- * body, then its underside sinking into shade, its side toward the light a breath lighter, the base warm at a low sun.
- */
-function paintSheet(ctx: Ctx2D, b: BankDesc) {
-  const puffs = sheetPuffs(b)
-  const [tx, ty] = b.toward ?? [0, -1]
-  for (const p of puffs) body(ctx, p, b.body, b.alpha)
-  for (const p of puffs) {
-    wash(ctx, p, 0.95, p.x - tx * p.rx * 0.3, p.y + p.ry * 0.9, p.rx * 0.95, b.shade, 0.45 * b.alpha)
-    if (b.litA > 0.02 && b.toward) wash(ctx, p, 0.92, p.x + tx * p.rx * 0.65, p.y + ty * p.ry * 0.65, p.rx * 0.75, b.lit, Math.min(1, 1.1 * b.litA) * b.alpha)
-    if (b.under > 0.02) wash(ctx, p, 0.92, p.x, p.y + p.ry * 0.8, p.rx * 0.95, b.lit, Math.min(1, 1.4 * b.under) * b.alpha)
-  }
 }
 
 /** Shade, light, underside, rain and silver laid on the bank's mass (`source-atop`: nothing spills into the sky). */
@@ -170,7 +214,7 @@ function modelBank(c: Ctx2D, b: BankDesc, puffs: Puff[], x0: number, y0: number,
   // Each dome: a breath of its own shade on the far side, so the mass reads as heaped, not flat.
   if (heap) for (const p of puffs.slice(1)) wash(c, p, 1, p.x - tx * p.rx * 0.7, p.y - ty * p.ry * 0.7, p.rx * 0.9, b.shade, 0.22)
   // The light inside the mass: a breath on each dome's side toward it (the rim is laid after, `rimLight`).
-  if (b.litA > 0.01 && b.toward) {
+  if (heap && b.litA > 0.01 && b.toward) {
     for (const p of puffs) wash(c, p, 1, p.x + tx * p.rx * 0.6, p.y + ty * p.ry * 0.6, p.rx * 0.8, b.lit, 0.3 * b.litA)
   }
   // A low sun lights the bank from below: a warm wash along the base.
@@ -190,7 +234,7 @@ function modelBank(c: Ctx2D, b: BankDesc, puffs: Puff[], x0: number, y0: number,
     c.fillRect(x0, y0, x1 - x0, y1 - y0)
   }
   // The silver lining: the thin edge of a bank by the sun, light scattered forward through it.
-  if (b.silver > 0.02 && b.toward) {
+  if (heap && b.silver > 0.02 && b.toward) {
     for (const p of puffs) wash(c, p, 1, p.x + tx * p.rx * 0.95, p.y + ty * p.ry * 0.95, p.rx * 0.45, mix(b.lit, [1, 1, 1], 0.5), Math.min(1, b.silver))
   }
 }
@@ -200,29 +244,25 @@ function modelBank(c: Ctx2D, b: BankDesc, puffs: Puff[], x0: number, y0: number,
  * edge toward it, wide and faint, then narrow and bright, laid on the bank (`source-atop`). Only the outer silhouette
  * catches it, so the domes inside the mass do not each show a crescent.
  */
-function rimLight(c: Ctx2D, env: PaintEnv, b: BankDesc, puffs: Puff[], x0: number, y0: number, w: number, h: number) {
+function rimLight(c: Ctx2D, mass: Scratch['canvas'], sheets: Sheets, b: BankDesc, w: number, h: number, k: number) {
   const [tx, ty] = b.toward!
-  const k = env.scale
-  const rim = env.canvas(w, h)
+  const d = Math.max(4, Math.min(b.w, b.h * 2)) * 0.12 * k
+  const rim = sheets.get(1, w, h)
   const r = rim.ctx
-  const size = Math.max(4, Math.min(b.w, b.h * 2))
-  for (const [reach, alpha] of [[0.12, 0.6]] as const) {
-    const d = size * reach
-    r.setTransform(1, 0, 0, 1, 0, 0)
-    r.globalCompositeOperation = 'source-over'
-    r.clearRect(0, 0, w, h)
-    r.setTransform(k, 0, 0, k, -x0 * k, -y0 * k)
-    for (const p of puffs) body(r, p, b.lit, 1)
-    r.globalCompositeOperation = 'destination-out'
-    r.translate(-tx * d, -ty * d)
-    for (const p of puffs) body(r, p, b.lit, 1)
-    c.save()
-    c.setTransform(1, 0, 0, 1, 0, 0)
-    c.globalCompositeOperation = 'source-atop'
-    c.globalAlpha = Math.min(1, b.litA * alpha)
-    c.drawImage(rim.canvas as CanvasImageSource, 0, 0)
-    c.restore()
-  }
+  // The mass (its alpha is the bank's: the modelling went on atop) in the light's colour, less itself moved off the light.
+  r.fillStyle = css(b.lit)
+  r.fillRect(0, 0, w, h)
+  r.globalCompositeOperation = 'destination-in'
+  r.drawImage(mass as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
+  r.globalCompositeOperation = 'destination-out'
+  r.drawImage(mass as CanvasImageSource, 0, 0, w, h, -tx * d, -ty * d, w, h)
+  c.save()
+  c.setTransform(1, 0, 0, 1, 0, 0)
+  c.globalCompositeOperation = 'source-atop'
+  // A deck's flat sheet catches less of it on its edge than a heaped bank does.
+  c.globalAlpha = Math.min(1, b.litA * (b.kind === 'heap' ? 0.6 : 0.3))
+  c.drawImage(rim.canvas as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
+  c.restore()
 }
 
 /** Cirrus: fine strands combed one way along the bank, tapering at both ends, lit toward the light. */
@@ -256,7 +296,11 @@ function paintStreak(ctx: Ctx2D, b: BankDesc) {
  * In-cloud lightning: the bank lit from within, brightest low in its core where the stroke is, the light spilling a
  * little into the air round it. Laid with the flash schedule's alpha (`anim.ts`), so the painter draws one still sprite.
  */
-export function paintFlash(ctx: Ctx2D, desc: LayerOf<'flash'>, _env: PaintEnv): void {
+export function paintFlash(ctx: Ctx2D, desc: LayerOf<'flash'>, env: PaintEnv): void {
+  softly(ctx, desc.bounds, env, (c) => paintFlashAt(c, desc))
+}
+
+function paintFlashAt(ctx: Ctx2D, desc: LayerOf<'flash'>): void {
   const b = desc.bank
   const r = rng(b.seed ^ 0x5eed)
   const cx = b.x + (r() - 0.5) * b.w * 0.4, cy = b.y - b.h * (0.25 + 0.3 * r())
