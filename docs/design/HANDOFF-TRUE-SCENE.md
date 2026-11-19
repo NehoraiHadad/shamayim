@@ -1,5 +1,7 @@
 # Handoff: a truer valley scene (2026-11-19)
 
+> **Superseded by decisions:** see `TRUE-SCENE-PLAN.md` (2026-11-19): the place stays an illustration, the view is un-mirrored, the vertical scale stays.
+
 For the next session. The owner wants the main scene (the south panorama everyone sees) to stay as true to nature as
 possible, and to gain what proved good in the turning-view experiment. **First task: show the owner how it would look
 (stills), before building it** — see §5.
