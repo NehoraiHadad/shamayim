@@ -2,7 +2,10 @@ import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { layoutOf } from './layout'
 import { planeLayers } from './planes'
-import { skyLayer } from './sky'
+import { bodyLayers } from './bodies'
+import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
+import { skyGeom, skyLayer } from './sky'
+import { starsLayer } from './stars'
 import type { LayerDesc, SceneBox, SceneModel } from './types'
 import { waterLayers } from './water'
 
@@ -13,16 +16,28 @@ export type * from './types'
  * HTML overlay and the clear zones. Pure: no canvas, no DOM, no clock; runs in vitest under node.
  *
  * C1: the sky gradient and the overlay placed from the world's layout; C2: the land's planes in the enriched hand; C3: the
- * water, the far towns and the haze band at the horizon.
+ * water, the far towns and the haze band at the horizon; C6: the sky's glows, the sun and the moon, the stars, the clouds
+ * (drifting), the lightning and the heat shimmer.
  */
 export function sceneModel(world: WorldState, box: SceneBox): SceneModel {
-  const sky = skyLayer(world, box)
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
-  const layers: LayerDesc[] = [...(sky ? [sky] : []), ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
+  const layers: LayerDesc[] = [...skyLayers(world, box), ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : [])]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
+}
+
+/** The sky surface's layers (C6): the base, the stars, the bodies, the clouds by level, lightning, shimmer. */
+export function skyLayers(world: WorldState, box: SceneBox): LayerDesc[] {
+  const sky = skyLayer(world, box)
+  if (!sky) return []
+  const geom = skyGeom(world, box)
+  const stars = starsLayer(world, box, geom)
+  const clouds = cloudLayersOf(world, box, geom)
+  const shimmer = shimmerLayerOf(world, box, geom)
+  return [sky, ...(stars ? [stars] : []), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
+    ...(shimmer ? [shimmer] : [])]
 }
 
 /** The layers drawn on one surface, in draw order. */

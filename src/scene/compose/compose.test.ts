@@ -61,7 +61,7 @@ describe('layer cache', () => {
     expect(cache.update(plane('a', 'l1'), 3)).toBe('form')
     expect(count.form).toBe(2)
     const sky: LayerOf<'sky'> = { kind: 'sky', id: 'sky', surface: 'sky', z: 0, key: 's', soft: true,
-      bounds: { x: 0, y: 0, w: 375, h: 428 }, stops: [], glow: [], band: null }
+      bounds: { x: 0, y: 0, w: 375, h: 428 }, stops: [], glow: [], arch: null, band: null }
     cache.update(sky, 2.75)
     expect([made.at(-1)!.width, made.at(-1)!.height]).toEqual([1032, 1177])
     expect(cache.peek('sky')!.rect).toEqual({ x: 0, y: 0, w: 1032, h: 1177 })

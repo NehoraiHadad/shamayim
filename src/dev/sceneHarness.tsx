@@ -42,6 +42,11 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   overcast: { cloudCover: 100, thickCloud: 100, precipitation: 0, weatherCode: 3 },
   dust: { pm10: 400, dust: 400, visibilityKm: 3 },
   snow: { snowfall: 2, precipitation: 2, temperature: -1, feelsLike: -4, cloudCover: 100, thickCloud: 100, weatherCode: 73 },
+  // C6's sky moments: a thunderstorm (lightning in the raining banks), a hot dry hour (heat shimmer), a broken sky.
+  thunder: { precipitation: 6, weatherCode: 95, cloudCover: 90, thickCloud: 85, windSpeed: 25, windGusts: 50, windDirection: 250,
+    humidity: 90 },
+  hot: { temperature: 41, feelsLike: 43, cloudCover: 5, thickCloud: 0, precipitation: 0, weatherCode: 0, humidity: 20 },
+  broken: { cloudCover: 50, thickCloud: 35, precipitation: 0, weatherCode: 2 },
 }
 
 /** Where the land's figure stands in the sky (px), and so the still's height: the sky above it, the figure under. */

@@ -23,4 +23,5 @@ export function layerKey(...parts: unknown[]): string {
 /** The part of the box a land layer depends on. */
 export const landBoxKey = (box: SceneBox, soft = false) => [box.width, box.landHeight, cacheRatio(box.dpr, soft)]
 /** The part of the box a sky layer depends on. */
-export const skyBoxKey = (box: SceneBox, soft = false) => [box.width, box.skyHeight, box.landTop, cacheRatio(box.dpr, soft)]
+export const skyBoxKey = (box: SceneBox, soft = false) => [box.width, box.skyHeight, box.landTop, cacheRatio(box.dpr, soft),
+  box.skyWidth ?? box.width, box.landLeft ?? 0]

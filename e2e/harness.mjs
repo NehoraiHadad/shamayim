@@ -43,9 +43,14 @@ export function sceneUrl(base, { place, at, weather = '', overlay = false }) {
   return `${base}/scene.html?${q}`
 }
 
-/** A page at 375 × 812 and the given dpr; the forecast request answered from the fixture, other hosts refused. */
-export async function openPage(browser, base, dpr = 1) {
-  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr })
+/**
+ * A page at 375 × 812 and the given dpr; the forecast request answered from the fixture, other hosts refused. Reduced
+ * motion unless `motion` (C6): the scene then draws one still frame at phase 0 and runs no loop, so a still is the same
+ * pixels whenever it is taken and a scrub frame is not raced by the drifting clouds.
+ */
+export async function openPage(browser, base, dpr = 1, { motion = false } = {}) {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr,
+    reducedMotion: motion ? 'no-preference' : 'reduce' })
   const host = new URL(base).host
   await context.route('**/*', (route) => {
     const url = new URL(route.request().url())
