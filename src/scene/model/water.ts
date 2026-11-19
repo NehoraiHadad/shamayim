@@ -4,7 +4,6 @@ import type { WaterSpan } from '../../data/water/waterInView'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
-import { seaSpan } from '../../world/seaLine'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
@@ -203,13 +202,15 @@ export function openWaterTone(world: WorldState, box: SceneBox): (y: number, km:
  * - **ruffle** by the one wind (`ruffleOf`);
  * - **glint**: the light's path only where the world puts it (`water.glints`: the sun or moon over the span, above the land
  *   in its direction, strength by the wave slopes the wind raises), widening toward the eye, wider in more wind;
- * - **datum** (far layer): the dashed "פני הים" line where sea level meets the slopes, only below sea level.
+ * - **datum** (far layer): the dashed "פני הים" line where sea level meets the slopes, only below sea level (the
+ *   place's `labels.datum`: 0 m on the outside view's own rule, `world/datum.ts`).
  */
 export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, clear: readonly Box[]): LayerOf<'water'> | null {
   const { water, light, night } = world
   const sx = box.width / SCENE_W
   const spans = water.spans.map((span, index) => ({ span, index })).filter(({ span }) => waterLayer(span) === name)
-  const datumOn = name === 'far' && world.labels.height.below && world.terrain.near.points.length > 1
+  const line = name === 'far' && world.labels.height.below ? world.labels.datum ?? null : null
+  const datumOn = line !== null
   if (!spans.length && !datumOn) return null
 
   const sky = skyAt(world, box)
@@ -291,9 +292,8 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const drift = (Math.abs(world.wind.across) > 0.05 ? Math.sign(world.wind.across) : 0) * 2.4 * windiness * sx
 
   let datum: LayerOf<'water'>['datum'] = null
-  if (datumOn) {
-    const { x1, x2 } = seaSpan(world.terrain.near.points, world.terrain.seaY)
-    datum = { x1: x1 * sx, x2: x2 * sx, y: world.terrain.seaY, rgb: rgbOf(light.palette.ink), alpha: 0.38 }
+  if (line) {
+    datum = { x1: line.x1 * sx, x2: line.x2 * sx, y: line.y, rgb: rgbOf(light.palette.ink), alpha: 0.38 }
     left = Math.min(left, datum.x1); right = Math.max(right, datum.x2)
     top = Math.min(top, datum.y - 1); bottom = Math.max(bottom, datum.y + 1)
   }

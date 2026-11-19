@@ -54,7 +54,10 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     // outside.test.ts).
     expect(overlay.filter((item) => item.kind === 'datum'))
       .toEqual(world.labels.notes.filter((note) => note.kind === 'datum').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
-    expect(overlay.some((item) => item.kind === 'datum')).toBe(below)
+    // Below sea level only, and only where the picture's land reaches 0 m above the dot (`world/datum.ts`): the fixture's
+    // height is below sea level at every place, but the ground of most of them is not.
+    expect(overlay.some((item) => item.kind === 'datum')).toBe(below && Boolean(world.labels.datum))
+    if (world.labels.datum) expect(below).toBe(true)
     expect(overlay.filter((item) => item.kind === 'water'))
       .toEqual(world.labels.notes.filter((note) => note.kind === 'water').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
     // Scaled across with the figure, heights as they are.
@@ -89,11 +92,12 @@ describe('scene model: layers', () => {
   it('orders the surfaces and keeps every layer inside its box', () => {
     const world = buildWorld(worldInput(loaded.get('haifa')!, TIMES[2]))
     const model = sceneModel(world, BOX)
-    // C3: far water (here only the sea-level datum: the fixture's height is below sea level) and the far towns between
-    // the far plane and the near ridge, the sea (within the near band) over the near plane.
+    // C3: the far towns between the far plane and the near ridge, the sea (within the near band) over the near plane. (No
+    // far water: the fixture's height is below sea level, but Haifa's ground, from the Carmel to the bay, is not, so the
+    // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
     // C4–C5: the place seen from outside over it all, its marks (the Báb, the Carmel's church and mosque) among its mass;
     // C7: the weather the hour has over them.
-    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(['plane.far', 'water.far', 'farCities', 'plane.near', 'water.near',
+    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(['plane.far', 'farCities', 'plane.near', 'water.near',
       'outside', 'smoke.near'])
     // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
     const sky = layersOn(model, 'sky')

@@ -1686,3 +1686,37 @@ machinery, the skyline slabs and the WebGL air's leftovers; the rays in fog; the
   rule (the overhead map and the stored landmark cache still use them); `data/world/` (the turning view's 360° world,
   unused since that study, kept for `camera-fable.md`); the birds and meteors into the canvas (owner decision 6); the
   cold model and the cities' scrub model over budget (C5, C6). Deploys: the final list above (§5).
+
+**Fix: the "פני הים" datum at the height of 0 m in the picture (2026-11-19).** The owner's report: Tiberias's dot reads
+"−137 מ׳" on the town at the top of its land, and the dashed sea-level line lay far *below* it by the lake ("כנרת"), though
+sea level stands 137 m above the town.
+- *Cause:* the line's height was `terrain.seaY`, the panorama's own sea line: 0 m on the far ridges as seen from the
+  place's eye (each far slope taken as straight from the eye to its crest), a few px over eye level. But the place is
+  drawn from outside, its point (the dot) on the near ridge line (Tiberias's ridge there is +137 m, 2 km off), its rows
+  above and below the dot by their height over the place point's (`lieOf`'s `levelY`). Against the dot the panorama's
+  0 m fell 49 px under it. The line was also drawn against the near ridge with a height taken on the far one.
+- *Rule* (`world/datum.ts`, one rule for every place below sea level, no place named): sea level is a height like any
+  other, drawn by the rule that draws the dot and the rows. (1) The place's own 0 m contour: where its ground in the
+  frame (and boundary) crosses 0 m (`zeroCrossings` on the local grid every 125 m), each spot drawn at `levelY(dx, dy,
+  0)`. (2) Where the place's own ground never reaches 0 m (a village on the valley floor), the land round it as the
+  panorama draws it, at its true height and distance from the eye (`RELIEF.high`, curvature and refraction): along each
+  ray the nearest spot the eye sees where the ground passes up through 0 m (`panoramaTerrain.ts` `zeroContourOf`,
+  `terrain.zeroContour`; `terrain.seaY` below sea level is now its median, not the straight-slope guess). Of either, only
+  spots above the dot count (sea level stands over a place below it); the line at their median height. It runs from the
+  hollow at the dot to the drawn land rising through it (the near ridge and the place's own land, `outlineOf`;
+  `seaSpan` unchanged), where the slopes reach 0 m; an open side with no flank keeps `seaSpan`'s fixed end. Where neither
+  contour has a spot above the dot there is no line and no note (the label "−N מ׳" says the place is below sea level,
+  the spoken label says it in words); every harness place below sea level has one. The line is `labels.datum` (the far
+  water layer draws it, `model/water.ts`), "פני הים" stands over it within its span (`sceneNotes` `datumNote`), and the
+  height label keeps clear of it as of the marks (`besideDot`).
+- *Places checked* (`qa/canvas/datum/`, before / after at 12:00, Tiberias also 16:30; `sheet-before-after.png`):
+  Tiberias (own ground: 6 px over the dot, meets the town's slope west of it), Ein Gedi (own ground: 18 px over the dot,
+  meets the cliff), Shadmot Mehola, and four new harness places below sea level (`DATUM_PLACES`, panoramas recorded
+  from the DEM): Beit She'an, Jericho, Kalya, Neve Zohar (all by the land round them: the near ridge's face, the
+  Gilboa's and Gilead's feet, the cliffs). Every line stands above its dot.
+- *Tests:* `world/datum.test.ts` (8: the contour, the eye's 0 m on a synthetic slope and a hidden one, above the dot only,
+  the line's span, and at all seven places: above the dot, the note over the line, the label clear of it, Tiberias's line
+  meeting its slope). `water.test` and `model.test`: the datum only where the picture has 0 m above the dot (the
+  fixture's height is below sea level everywhere; Haifa's ground is not, so its far water layer is gone from the
+  order test). Pixel references re-recorded deliberately, the 20 with the datum: Tiberias's 10 (4 hours, 5 weathers,
+  12:00 at dpr 2), Ein Gedi's 5, Shadmot Mehola's 5; the two loading cases unchanged; 59/59.

@@ -24,7 +24,7 @@ import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { onSkyCanvas } from '../scene/paint/sky'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
-import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../test/scenePlaces'
+import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../test/scenePlaces'
 import { SCENE_H } from '../world/sceneBox'
 import type { WorldInput, WorldState } from '../world/types'
 import { withVisibleSun } from '../world/visibleSun'
@@ -220,7 +220,7 @@ export function SceneHarness() {
   const [input, setInput] = useState<WorldInput | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(location.search)
-    const place = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES].find((p) => p.id === (params.get('place') ?? 'shadmot-mehola'))
+    const place = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES].find((p) => p.id === (params.get('place') ?? 'shadmot-mehola'))
     const at = (params.get('at') ?? '2026-11-17T12:00') as LocalTime
     if (!place) { win.__sceneError = `unknown place ${params.get('place')}`; return }
     loadInput(place, at, params.get('weather') ?? '').then(setInput, (err: unknown) => {
