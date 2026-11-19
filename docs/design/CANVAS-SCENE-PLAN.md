@@ -310,7 +310,11 @@ importing it, until C9 deletes the WebGL air and moves what is left into `world/
 `ui/Sky.tsx` (hosts `SkyCanvas`); `data/landmarks/settlement.ts` (keeps style and roof rules; its row composition is
 redone in the hand's contour rows in `model/portrait.ts`).
 
-**Deleted at the switch (stage C9)**:
+**Deleted at the switch (stage C9)** — done (§6, "C9, the switch"), with these departures: `columns.ts` stays (the live
+city data, `cityData`, `useCity`, `clusters`, `clusterStats`, `farData`, `plainData`, still read its band; its removal
+waits for them to read the raster and grid directly); `mapParts.ts`/`mapAir.ts` moved into `world/` (`airParts.ts`,
+`mapAir.ts`) rather than into `world/air.ts` (the birds and the theme still read `AirState`); `cityTowers`, `cityZones`,
+`cityHeight`, `cityBase`, `towers` went too (the SVG's towers, left with no user):
 - SVG scene: `ui/scene/` `FarLand.tsx`, `NearLand.tsx`, `RidgeLight.tsx`, `FloorShadow.tsx`, `Shimmer.tsx`,
   `SnowCap.tsx`+`.module.css`, `Sun.tsx`, `Moon.tsx`+`.module.css`, `Water.tsx`, `waterPaths.ts`, most of
   `ValleyScene.module.css`; `marks/` `HillMarks.tsx`, `LightRig.tsx`,
@@ -398,8 +402,8 @@ recorded in `qa/canvas/perf.md` at each stage.
 
 ## 4. Stages
 
-Every commit keeps the app working. The canvas scene lives behind `?canvas=1` (`ui/devParams.ts`) and grows layer by
-layer; without the flag the app shows the SVG scene, frozen: **the SVG baseline stays byte-identical from C0 to C8**
+Every commit keeps the app working. The canvas scene lived behind `?canvas=1` (`ui/devParams.ts`) and grew layer by
+layer until C9 made it the default and deleted the SVG scene; without the flag the app shows the SVG scene, frozen: **the SVG baseline stays byte-identical from C0 to C8**
 (no improvements go into the SVG). Each stage ships stills to `qa/canvas/<stage>/`: the 8 places × 4 hours, canvas
 next to SVG, plus the stage's own moments. Sizes are relative (S = 1, M = 2–3, L = 4–5, XL = 6–8).
 
@@ -487,6 +491,7 @@ no land data ever: quiet mist (owner decision 2). The drawn stand-ins are no lon
 *Accept:* no layout jump when the land arrives; ≤ 4 ms per frame; a short clip for the owner.
 
 **C9. Parity, switch, delete — M (3).**
+**Done 2026-11-19** (§6; no `?svg=1`: git history is the way back, owner decision 12's note there).
 All pixel references reviewed by the owner (stills sheet per place); perf within budget on the reference phone and in
 CI; canvas becomes the default (`?svg=1` kept one release as the way out); then the deletions listed in §2 in their
 own commits (SVG scene, WebGL sky, stand-in machinery, flags, SVG snapshots). `glitter` in `src/data/water/glint.ts`
@@ -568,6 +573,9 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
 **Owner decisions (2026-11-19, at the C9 review):**
 12. **The C9 review pack is approved; the owner prefers the canvas scene.** The switch (C9: canvas the default, `?svg=1` kept
     one release as the way out, then the deletions of §2) may go ahead once the open defects of §6 are settled.
+    *Done at C9 without `?svg=1`* (the brief at the switch recommended none): the escape hatch would have kept the whole
+    SVG scene, the WebGL sky and the stand-in machinery shipping one more release; the way back is git (`a132d04` is the
+    last commit with the SVG scene).
 13. **Sun rays where they fit** ("something is missing in the sky — maybe sun rays where it fits"): the SVG scene shows soft
     rays round the sun, the canvas only C7's narrow crepuscular case. Rays wherever they really occur, as general rules from
     the world state: crepuscular shafts through the gaps whenever the sun is behind broken cloud with enough haze (not only
@@ -577,15 +585,36 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
     air at a high sun, none at night. Cheap (cached, laid at composite time), deterministic, in the anidoodle hand; tested;
     ray moments in the review pack.
 
-**Deploys pending for the owner** (in order; every later stage appends here instead of deploying):
-1. The forecast Worker (`worker/`) with C0's new hourly fields in its allowlist (`wind_direction_10m`, `visibility`,
-   wind speed and direction at 850 / 700 / 300 hPa).
-2. Then, after the README check answers 200 for the new fields, flip `ASK_SCENE_HOURLY` to `true` in
-   `src/data/openMeteo/request.ts` (an app change, shipped with the next release).
-3. (C5, data, not a server) Rebuild the landmark cells with the industrial-landmark rule (`scripts/landmarks/build.ts`
-   now applies `industrial.ts` from the tags) at the next monthly build, after C9 (the shipped cells are left as they
-   are, so the frozen SVG scene stays byte-identical; the canvas applies the rule to the rows meanwhile). Rebuild
-   `public/data/city/bounds.json` with it (`scripts/city/bounds.ts`) from the same extract.
+**Deploys pending for the owner** (final, at C9; in order; from the owner's machine with Cloudflare access; nothing here
+was deployed by the rebuild):
+1. **The forecast Worker with C0's new hourly fields** (`wind_direction_10m`, `visibility`, `wind_speed_` and
+   `wind_direction_` at `850hPa`, `700hPa`, `300hPa`; already in `worker/src/routes.ts` and its tests). After this
+   branch is merged to `main`:
+   ```bash
+   cd worker && npm ci && npm test && npx wrangler deploy      # `npx wrangler login` once on the machine
+   curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev" \
+     "https://shamayim-api.nehoraihadad.com/v1/forecast?latitude=32.348&longitude=35.535&hourly=wind_direction_10m,visibility,wind_speed_850hPa,wind_direction_850hPa,wind_speed_700hPa,wind_direction_700hPa,wind_speed_300hPa,wind_direction_300hPa"
+   # 200: the Worker knows them. 400: not deployed yet; stop here.
+   ```
+2. **Then flip `ASK_SCENE_HOURLY`** to `true` in `src/data/openMeteo/request.ts` (one line; `npm test` covers the
+   contract against the repo's Worker), merge to `main`; Pages builds it. Until then the world runs on its marked
+   fallbacks (cloud layers split from the cover, wind aloft from the 10 m wind, visibility from humidity).
+3. **Rebuild the landmark and city cells with the industrial-landmark rule** (C5; `scripts/landmarks/build.ts` applies
+   `industrial.ts` from the tags). Nothing to deploy by hand: run the monthly workflow now instead of waiting for the 1st
+   (`gh workflow run landmarks.yml`, or Actions → "Build Israel landmarks" → Run workflow); it commits
+   `public/data/landmarks/il` and `public/data/city/il` to `main`. Check the commit lands and Pages rebuilds.
+4. **Rebuild `public/data/city/bounds.json`** (C5 item 6) from the same Geofabrik extract (not in the workflow; needs
+   `osmium-tool`):
+   ```bash
+   curl -L --fail -o israel-and-palestine.osm.pbf https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+   osmium tags-filter israel-and-palestine.osm.pbf r/boundary=administrative -o admin.osm.pbf
+   osmium export admin.osm.pbf -f geojsonseq --geometry-types=polygon -o admin.geojsonseq
+   npx tsx scripts/city/bounds.ts admin.geojsonseq --cities public/data/city/il --out public/data/city/bounds.json
+   npm test && git add public/data/city/bounds.json && git commit -m "Data: place boundaries" && git push
+   ```
+   (after step 3's cells are on `main`, so the place points are the new cells'.)
+5. **The app itself** (the canvas switch, C9): merging this branch to `main` is the release (Pages). The service worker
+   updates itself (`autoUpdate`, `skipWaiting`); no cache to clear. No other server changes.
 
 **Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
 algorithms must handle every place correctly (see the rules at the top).
@@ -1588,3 +1617,72 @@ and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
   raster's squares, ~120 × 230 m, at 3–5 km). In fog (Tiberias 12:00, Nahalal 08:00) the rays and the glare come out strong, as fog beams
   do (the haze term is full at 10 km); the owner may want them gentler there.
   - No deploys needed.
+
+**C9, the switch (2026-11-19): the canvas scene is the default; the SVG scene, the WebGL sky and the stand-in are gone.**
+Commits on `ccr-85ec24f0-9ayxgu` (after the defects): the switch with the SVG scene and the WebGL sky; the stand-in
+machinery, the skyline slabs and the WebGL air's leftovers; the rays in fog; the docs and the smoke stills.
+- *The switch* (`App.tsx`): no `?canvas=1` gate; App always builds the world (`useWorld`) and draws the valley and the sky
+  on canvas. The scene still loads as its own chunk (`CanvasScene`, lazily), behind `scene/react/SceneFallback.tsx` (an
+  empty figure of the same size), so the text and the sky's CSS gradient paint first and nothing below moves when it
+  arrives (then C8's mist takes the land's place until the panorama). **No `?svg=1`** (owner decision 12's note): git is
+  the way back (`a132d04`). Kept: `?perf=1`, `?wx=`, `?at=`, `?theme=`, `?paint=main` (the main-thread paint path), the
+  harness `scene.html`. Gone: `?canvas=1`, `?scene=flat`, `?skyline=a|b|c`, `specimen.html`. `ui/Sky.tsx` keeps only the
+  gradient (the canvas draws the stars); the birds and meteors stay HTML (owner decision 6) and read their lanes from the
+  page (`atmo/life/lanes.ts`) instead of the WebGL layout.
+- *Accessibility, as the SVG scene had it* (checked on the built app by `e2e/scene.app.mjs`): the figure is
+  `role="group"` with the same spoken label (`sceneLabel.ts`: the sun over the horizon, the next sunrise or sunset, the
+  place's height); the canvas is `aria-hidden`; the hour slider (`SceneScrubber`, moved to `scene/react/`) keeps its
+  `role="slider"`, label "שעה בעמק", values in minutes from now and its text (the readout, else "עכשיו, HH:MM"), the
+  keyboard (← / → an hour, Home / End, Escape back to now) and the drag; the readout pill with its "עכשיו" button.
+- *Deleted* (verified unused by `tsc`, a reachability walk from every entry — `main.tsx`, `dev/scene.tsx`, `scripts/`,
+  `e2e/` — and vitest): 125 source and test files and the 18 SVG snapshots, ~35 200 lines (≈ 1 000 added: the moves,
+  the runner, the tests rewritten). The SVG scene (`src/ui/scene/` whole: ValleyScene and every component, the marks,
+  generic glyphs, curated icons, city skylines, hooks, `sceneBaseline` and its 16 baselines, `hillScene` and its
+  snapshot); the WebGL sky (`atmo/gl/*`, `Atmosphere`, `CssAir`, `useAirLoop`, `motion`, `layout`); `sceneFlag.ts`;
+  the SVG specimens (`specimen.html`, `dev/Sheet.tsx`, `qa/specimens.tsx`); C8's stand-in list whole (the drawn valleys,
+  `profile.ts`, `SceneTerrain.near/far/centerY/drawn` — `horizonY` is now always known —, `TerrainPlanes.drawn`, the
+  `?? HORIZON_Y` fallbacks, `world/portrait.ts`, `placeOf`'s portrait branch — the unknown place is `kind: 'unknown'` —,
+  the model's `portrait` layer and `paintPortrait`, `placeMarks`' drawn branch, `snowLine.heightY`, `fabric`,
+  `neighbours`, `neighbourOcclusion`, `runs`, `settlementPlan`, `villageForms`, `villageExtent`, `terraces`,
+  `composeSettlement`); the skyline slabs (`skylineData`, `skylineTowers`, `skylineRay`; `outsideView`'s variants A and
+  C); the SVG's city towers (`cityTowers`, `cityZones`, `cityHeight`, `cityBase`, `towers`, `farColumns`,
+  `useFarColumns`, `homeRoof`); SVG-only helpers (`glitter` and `waterGlints` — owner decision 10's sign slip dies with
+  them —, `afterglowAttrs`, `world/cloudSeen.ts`, `ridgeLightPaths`, `discLook`, `worldLight`, `litPath`,
+  `placeLabel`, `labelBox`, `rgbCss`, `MarkLife` and `mapMarks` but its lit windows); `e2e/scene.compare.mjs` (SVG |
+  canvas), replaced by `e2e/scene.app.mjs` (the app's stills, dev or `--built`, with the accessibility checks).
+- *Moved*: `villageStyle.ts` → `data/landmarks/` (the world's roof-evidence rule); `atmo/mapParts.ts` →
+  `world/airParts.ts` and `atmo/mapAir.ts` → `world/mapAir.ts` (the birds and the theme still read `AirState`); the
+  reach test and `sameTower` → `outsideView.ts`; `unknownLand` / `UNKNOWN_EYE_Y` → `data/terrain/terrain.ts`
+  (re-exported by `world/terrain.ts`); the star classes → `scene/model/starClasses.ts`; the scrubber, `useWidth` and the
+  figure's CSS → `scene/react/` (`Scene.module.css`, only the classes the canvas uses).
+- *Bugs that died with the old code*: **`windU`** (owner decision 9) now goes through the camera as the world's wind
+  does (a westerly moves right → left in the true view; the birds fly with it; `mapAir.test`, `mapLife.test` turned);
+  **`glitter`** deleted with the SVG (the canvas's `glintsOf` / `facetShare` take the mirror's geometry).
+- *The rays in fog* (the review's remaining item; `model/rays.ts` `beamThrough`, a general rule): fog scatters the light
+  but also blocks it. The light a sunbeam about 2.5 km off sends toward the eye grows with the air's extinction β and dims
+  on its way through the same air, β·d·e^(1−β·d) normalised to 1 at its peak (β·d = 1, ~10 km visibility) and held at 1
+  in clearer air; ~0.75 at 5 km, ~0.35 at 3 km, ~0.03 at 1.5 km. Every case (crepuscular, over the ridge, the
+  anticrepuscular through them, the glare) takes it. Tiberias 12:00 and Nahalal 08:00 in the harness's fog: no rays, the
+  aureole only (`qa/canvas/c9/tiberias-1200-fog.png`, `nahalal-0800-fog.png`). Tests in `c9.test.ts` (+1).
+- *Regression suite*: the SVG baseline's coverage (`sceneBaseline`: the 8 `SCENE_PLACES` × 06:20 / 12:00 / 16:30 /
+  21:00) is the pixel references' own first 32 cases (`e2e/cases.mjs` `PLACES` × `HOURS`, the same ids and hours), plus
+  the weather, dpr 2 and loading cases: 59/59 on both paint paths, none re-recorded at the switch. With the world and
+  model tests (108 files, 1 098 tests) they are the scene's regression suite.
+- *Bundle* (`npm run build`, bytes / gzip -9): before, the default page loaded `index` 565.6 kB / 196.9 kB and its CSS
+  53.1 / 12.0 (the canvas chunk built but never loaded); after, `index` 422.6 / 142.7 and CSS 39.6 / 9.0 first, then the
+  scene's chunk `CanvasScene` 212.1 / 80.1 and the paint worker 58.1 / 20.3 (was 60.6). All JS but MapLibre: 832 → 699 kB
+  (−16 %); the PWA precache 1 101 → 958 KiB. The default page now fetches 267 kB of JS (transfer) against 201 kB before:
+  the canvas scene is more code than the SVG scene was, and it no longer stays off the default path.
+- *First paint* (the built app on `vite preview`, Haifa 12:00, CPU ×4, dpr 2.75, median of 5 warm-cache loads): first
+  contentful paint 276 → 264 ms (the same, the text first); the scene's figure on screen 1 707 → 1 293 ms (the SVG
+  rendered with the main chunk; the canvas comes with its chunk, its world and its first layers).
+- *Perf* (`qa/canvas/perf.md`, C9 switch): as the defects run within the noise; OVERs are C5's and C6's, as before.
+- *Smoke* (`qa/canvas/c9/`): the built app (`node e2e/scene.app.mjs docs/design/qa/canvas/c9 jerusalem@06:20 haifa@12:00
+  tiberias@16:30 --built`): Jerusalem at sunrise, Haifa at noon, Tiberias at 16:30, each with the figure's label, the
+  slider stepping an hour on ← (aria-valuenow 0 → 60) and back on Escape, the readout shown, no page error, nothing
+  reaching Open-Meteo (the fixture is routed); `haifa-1200-page.png` the whole first screen; the two fog stills from the
+  dev server (`?wx=` is a dev override).
+- **Left for after C9** (none blocking): `columns.ts`'s band (above); `useLandmarks`' older pools and `rank.ts`'s `kind`
+  rule (the overhead map and the stored landmark cache still use them); `data/world/` (the turning view's 360° world,
+  unused since that study, kept for `camera-fable.md`); the birds and meteors into the canvas (owner decision 6); the
+  cold model and the cities' scrub model over budget (C5, C6). Deploys: the final list above (§5).

@@ -49,6 +49,10 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
    from behind it; the stand-in and its machinery are deleted at C9, list in that plan's §6).
 
 ## Status (2026-11-19, end of session)
+- **Superseded by the canvas rebuild** (`CANVAS-SCENE-PLAN.md`, stages C0–C9, done 2026-11-19): the valley is drawn on
+  canvas from one world state and is the app's only scene; the SVG scene, its baseline snapshots, the WebGL sky, the
+  drawn stand-ins and the `?skyline=` study flag are deleted (C9). The stages below are history; the "After" order
+  continues on the canvas pipeline. Deploys pending for the owner: `CANVAS-SCENE-PLAN.md` §5.
 - Stages 0, 1, 2 done on branch `ccr-85ec24f0-9ayxgu` (stills: `qa/true-scene/stage1`, `stage2`).
 - Owner decisions in stage 2: a **city is a portrait too** (its blocks round the dot, its landmarks among them by
   side; more polish later); the data skyline's faces (built squares at their true angle) are gone everywhere, towers
@@ -100,7 +104,7 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
   sea is behind the Carmel); Tel Aviv's own ground (a 25 m crest 0.9 km west of the point) hides the sea, Jerusalem
   (Mount of Olives) and Rosh Pina (a ridge 1.4 km south) see no water, nor Shadmot Mehola. Tiberias and Ein Gedi
   joined the baseline places. Wind for the glint is a fixed 5 m/s until the weather layer drives it.
-- Skyline study (2026-11-19, design only, dev flag `?skyline=a|b|c`): the place seen from outside, from its north
+- Skyline study (2026-11-19, design only, dev flag `?skyline=a|b|c`, removed at C9 with variants A and C): the place seen from outside, from its north
   side (everything in the place by true east–west and north–south, real heights), with three rules for dense towers.
   Stills, numbers and the recommendation (B, mass and spires): `qa/true-scene/skyline/SKYLINE.md`. Awaiting the owner.
 - Next: stage 4 (loading stand-in, as an animation: mist / a ridge line while the land loads; with it,

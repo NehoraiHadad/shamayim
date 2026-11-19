@@ -541,3 +541,23 @@ place, outside it; Ramat Gan keeps 891 of them), modelCold within the pack's noi
 Haifa over two runs). The rays are four small cached sky layers (a scrub repaints those that change: `rays`, `rays.ridge`,
 `rays.anti`, `rays.corona`, `bodies.aureole`, `bodies.sun.over`); the animated frame stays within its 4 ms budget, memory
 under 48 MB. The OVERs are C5's and C6's (cold model, the cities' scrub model), as before.
+
+## C9 switch (2026-11-19): canvas the default, the old code gone, rays in fog
+
+`npm run test:perf` (all places; CPU ×4, dpr 2.75, software raster, worker path), n = 1 for the cold rows:
+
+```
+                  worldCold   modelCold   scrub.model p95   firstPaint   anim frame p50 / p95   memory
+  haifa           467 ms      52 ms       21.9 ms           26.3 ms      1.30 / 2.50 ms         30.7 MB
+  tel-aviv        457         48          14.8              24.7         1.40 / 2.80            26.6
+  shadmot-mehola  228         26          11.4              23.3         0.50 / 1.90            24.4
+  loading (3 places)   world 37–38 ms, model 18–22, first paint 19–24, frame p95 1.1–1.5 ms
+```
+
+Within the defects run's noise (one cold sample each; Haifa's cold world came out lower, 467 against 555–601, not
+attributed; the rays' fog term is one exp per world). OVERs: Haifa, Tel Aviv and Shadmot modelCold, Haifa's scrub.model p95, C5's and C6's as before.
+
+The built app, first paint (`vite preview`, Haifa 12:00, CPU ×4, dpr 2.75, median of 5 warm loads): FCP 276 → 264 ms; the
+scene's figure on screen 1 707 → 1 293 ms; JS fetched by the default page 201 → 267 kB (transfer). Bundle before / after
+in CANVAS-SCENE-PLAN.md §6 ("C9, the switch").
+
