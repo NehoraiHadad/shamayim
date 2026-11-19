@@ -126,7 +126,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
               : terrain.seaSide === 'east' ? { right: '6%' } : {}) }} aria-hidden="true">פני הים</span>
         </>
       )}
-      {turn && terrain.camera && <Compass camera={terrain.camera} onTurn={turn.onTurn}
+      {turn && terrain.camera && <Compass camera={terrain.camera} onDrag={turn.onDrag} onGlide={turn.onGlide}
         sunAzimuth={sun ? sunSky(utcOf(at, place.timezone), place.lat, place.lon).azimuth : null} />}
       <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
         onNow={onNow} />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
@@ -46,6 +46,7 @@ import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
 import { useSceneTime } from './ui/scrub/useSceneTime'
+import { useHeading } from './ui/scene/useHeading'
 import { withVisibleSun } from './ui/scene/visibleSun'
 import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
@@ -57,8 +58,8 @@ export default function App() {
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
   // `?view=turn`: the whole horizon, seen from any heading, with the place on its stage.
-  const [heading, setHeading] = useState(180)
-  const turning = useTurningView(useWorld(place, TURN_VIEW), heading)
+  const view = useHeading(180)
+  const turning = useTurningView(useWorld(place, TURN_VIEW), view.heading)
   const sunTerrain = turning?.sunTerrain ?? terrain
   const landmarks = useLandmarks(place, Boolean(terrain.sightAt), TURN_VIEW)
   const city = useCity(place)
@@ -149,7 +150,7 @@ export default function App() {
               : undefined}
             snow={shown ? snowFall(shown, forecast.elevation) : null}
             terrain={turning?.terrain ?? terrain} sunTerrain={turning?.sunTerrain}
-            turn={turning ? { onTurn: (h: number) => setHeading(((h % 360) + 360) % 360) } : undefined}
+            turn={turning ? { onDrag: view.drag, onGlide: view.glide } : undefined}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
             place={place} landmarks={landmarks.marks} city={city} markLife={markLife!}

@@ -33,7 +33,7 @@ export interface ValleySceneProps {
    */
   sunTerrain?: SceneTerrain
   /** A turning view: the way it looks, and how to turn it (shows the compass). */
-  turn?: { onTurn: (heading: number) => void }
+  turn?: { onDrag: (heading: number) => void; onGlide: (heading: number) => void }
   /** Still morning mist, layered between the two ridge paths. */
   mist?: number
   mistColor?: string

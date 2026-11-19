@@ -2,42 +2,43 @@ import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { xOf, type Camera } from '../../domain/camera'
 import styles from './Compass.module.css'
 
-const POINTS: { az: number; label: string; name: string }[] = [
-  { az: 0, label: 'צ', name: 'צפון' }, { az: 45, label: '·', name: '' }, { az: 90, label: 'מז', name: 'מזרח' },
-  { az: 135, label: '·', name: '' }, { az: 180, label: 'ד', name: 'דרום' }, { az: 225, label: '·', name: '' },
-  { az: 270, label: 'מע', name: 'מערב' }, { az: 315, label: '·', name: '' },
-]
-const STEP = 15
-const nameOf = (heading: number) => ['צפון', 'צפון־מזרח', 'מזרח', 'דרום־מזרח', 'דרום', 'דרום־מערב', 'מערב', 'צפון־מערב'][Math.round(heading / 45) % 8]
+const LETTERS: Record<number, string> = { 0: 'צ', 90: 'מז', 180: 'ד', 270: 'מע' }
+const STEP = 45
+const NAMES = ['צפון', 'צפון־מזרח', 'מזרח', 'דרום־מזרח', 'דרום', 'דרום־מערב', 'מערב', 'צפון־מערב']
+const nameOf = (heading: number) => NAMES[Math.round(heading / 45) % 8]
 
 interface Props {
   camera: Camera
   /** The sun's azimuth while it is up, else null. */
   sunAzimuth: number | null
-  onTurn: (heading: number) => void
+  /** Follow a finger (every move). */
+  onDrag: (heading: number) => void
+  /** Turn softly to a heading. */
+  onGlide: (heading: number) => void
 }
 
 /**
- * Which way the view looks, and the way to turn it (the scene itself keeps its drag for time). The letters stand where
- * those directions are; drag the strip and the land follows the finger, or step with the arrows or the keyboard.
- * When the sun is out of view, a sun mark at the edge says which way it is; a tap turns the view to it.
+ * Which way the view looks, and the way to turn it: a quiet rule along the top of the sky with the four letters where
+ * those directions really are. Drag it and the land follows the finger (the scene's own drag stays time); the keyboard
+ * turns by eighths. When the sun is out of view, a small sun at the edge says which way it is; a tap turns to it.
  */
-export function Compass({ camera, sunAzimuth, onTurn }: Props) {
-  const drag = useRef<{ id: number; x: number; heading: number; scale: number } | null>(null)
+export function Compass({ camera, sunAzimuth, onDrag, onGlide }: Props) {
+  const drag = useRef<{ id: number; x: number; heading: number; scale: number; moved: boolean } | null>(null)
   const pct = (az: number) => (xOf(az, camera) / camera.width) * 100
   const down = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
     e.stopPropagation()
     const scale = e.currentTarget.getBoundingClientRect().width / camera.width
-    drag.current = { id: e.pointerId, x: e.clientX, heading: camera.heading, scale }
+    drag.current = { id: e.pointerId, x: e.clientX, heading: camera.heading, scale, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   const move = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current
     if (d?.id !== e.pointerId) return
     e.stopPropagation()
+    d.moved = true
     // The land follows the finger: dragging right brings what was on the left into the middle.
-    onTurn(d.heading - (camera.handed * (e.clientX - d.x)) / (d.scale * camera.pxPerDeg))
+    onDrag(d.heading - (camera.handed * (e.clientX - d.x)) / (d.scale * camera.pxPerDeg))
   }
   const up = (e: PointerEvent<HTMLDivElement>) => {
     if (drag.current?.id !== e.pointerId) return
@@ -48,32 +49,33 @@ export function Compass({ camera, sunAzimuth, onTurn }: Props) {
     const turn = { ArrowLeft: -STEP * camera.handed, ArrowRight: STEP * camera.handed }[e.key]
     if (turn === undefined) return
     e.preventDefault()
-    onTurn(camera.heading + turn)
+    onGlide(Math.round((camera.heading + turn) / STEP) * STEP)
+  }
+  const ticks: number[] = []
+  for (let az = 0; az < 360; az += 15) {
+    const at = pct(az)
+    if (at >= 0 && at <= 100) ticks.push(az)
   }
   const sunPct = sunAzimuth === null ? null : pct(sunAzimuth)
-  const sunOut = sunPct !== null && (sunPct < 0 || sunPct > 100)
+  const sunSide = sunPct === null ? null : sunPct < 2 ? 'left' : sunPct > 98 ? 'right' : 'in'
   return (
     <div className={styles.compass} role="slider" tabIndex={0} aria-label="כיוון המבט"
       aria-valuemin={0} aria-valuemax={359} aria-valuenow={Math.round(camera.heading)}
       aria-valuetext={`מבט ל${nameOf(camera.heading)}`}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}>
-      {POINTS.map(({ az, label }) => {
-        const at = pct(az)
-        return at < -2 || at > 102 ? null
-          : <span key={az} className={label === '·' ? styles.tick : styles.letter} style={{ left: `${at.toFixed(2)}%` }}
-            data-heading={az === camera.heading || undefined}>{label}</span>
+      {ticks.map((az) => {
+        const letter = LETTERS[az]
+        const style = { left: `${pct(az).toFixed(2)}%` }
+        return letter
+          ? <span key={az} className={styles.letter} style={style}>{letter}</span>
+          : <span key={az} className={az % 45 ? styles.tick : styles.major} style={style} />
       })}
-      {sunPct !== null && (
-        <button type="button" className={styles.sun} aria-label="להסתכל לשמש"
-          style={{ left: `${Math.min(97, Math.max(3, sunPct)).toFixed(2)}%` }} data-out={sunOut || undefined}
-          onPointerDown={(e) => e.stopPropagation()} onClick={() => onTurn(sunAzimuth!)}>
-          {sunOut ? (sunPct! < 0 ? '☀›' : '‹☀') : '☀'}
+      {sunSide && sunSide !== 'in' && (
+        <button type="button" className={styles.sun} data-side={sunSide} aria-label="להסתכל לשמש"
+          onPointerDown={(e) => e.stopPropagation()} onClick={() => onGlide(sunAzimuth!)}>
+          {sunSide === 'left' ? '‹' : null}<i />{sunSide === 'right' ? '›' : null}
         </button>
       )}
-      <button type="button" className={styles.arrow} data-side="left" aria-label="לסובב שמאלה"
-        onPointerDown={(e) => e.stopPropagation()} onClick={() => onTurn(camera.heading - STEP * camera.handed)}>‹</button>
-      <button type="button" className={styles.arrow} data-side="right" aria-label="לסובב ימינה"
-        onPointerDown={(e) => e.stopPropagation()} onClick={() => onTurn(camera.heading + STEP * camera.handed)}>›</button>
     </div>
   )
 }

@@ -18,8 +18,11 @@ export const POLE = {
   reachM: 400,
 }
 
-/** px below eye level of ground `m` ahead of the pole (true scale). */
-const groundPx = (m: number) => SKY_PX * Math.sin(Math.atan2(POLE.upM, m))
+/**
+ * px a radian on the stage: the camera's own scale across, used up and down too, so houses keep their true shape.
+ * (The sky keeps its own scale, `SKY_PX`; the stage is near and its angles are real.)
+ */
+export const stagePxPerRad = (pxPerDeg: number) => (pxPerDeg * 180) / Math.PI
 
 /** Eye level for a turning view: one y for every heading, leaving room for the stage under it. */
 export const STAGE_HORIZON_Y = 84
@@ -35,11 +38,13 @@ export interface Stage {
   groundY: (m: number) => number
 }
 
-export function stageAt(horizonY: number): Stage {
+export function stageAt(horizonY: number, pxPerRad = SKY_PX): Stage {
+  /** px below eye level of ground `m` ahead of the pole. */
+  const groundPx = (m: number) => pxPerRad * Math.atan2(POLE.upM, m)
   return {
     y: horizonY + groundPx(POLE.backM),
     farY: horizonY + groundPx(POLE.backM + POLE.reachM),
-    pxPerM: SKY_PX / POLE.backM,
+    pxPerM: pxPerRad / POLE.backM,
     groundY: (m: number) => horizonY + groundPx(Math.max(1, POLE.backM + m)),
   }
 }

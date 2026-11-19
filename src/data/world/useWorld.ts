@@ -5,7 +5,7 @@ import { fetchPanorama } from '../terrain/fetchPanorama'
 import { packPanorama, unpackPanorama, type Panorama } from '../terrain/panorama'
 import { terrainFromPanorama } from '../terrain/panoramaTerrain'
 import type { SceneTerrain } from '../terrain/terrain'
-import { stageAt, STAGE_HORIZON_Y } from './stage'
+import { stageAt, stagePxPerRad, STAGE_HORIZON_Y } from './stage'
 import { computeWorld, viewPanorama, WORLD_STEP } from './world'
 
 const key = (placeId: string) => `shamayim:world:v1:${placeId}`
@@ -40,10 +40,12 @@ export function useWorld(place: Place, enabled: boolean): Panorama | null {
   return world
 }
 
-/** The camera of a turning view: a true camera (azimuth grows to the right), on the world's 1.25° grid. */
+/** Degrees a turning view shows across: about what an eye takes in, so turning always brings something new in. */
+export const TURN_FOV = 120
+
+/** The camera of a turning view: a true camera (azimuth grows to the right), any heading (rays blend between). */
 export function turningCamera(heading: number): Camera {
-  const snapped = ((Math.round(heading / WORLD_STEP) * WORLD_STEP) % 360 + 360) % 360
-  return { ...SCENE_CAMERA, heading: snapped, handed: 1 }
+  return { ...SCENE_CAMERA, heading: ((heading % 360) + 360) % 360, handed: 1, pxPerDeg: SCENE_CAMERA.width / TURN_FOV }
 }
 
 /**
@@ -54,7 +56,7 @@ export function useTurningView(world: Panorama | null, heading: number): { terra
   const sunTerrain = useMemo(() => world && terrainFromPanorama(viewPanorama(world, SCENE_CAMERA), { horizonY: STAGE_HORIZON_Y }), [world])
   const camera = turningCamera(heading)
   const terrain = useMemo(() => world && terrainFromPanorama(viewPanorama(world, camera),
-    { camera, horizonY: STAGE_HORIZON_Y, stage: stageAt(STAGE_HORIZON_Y) }),
+    { camera, horizonY: STAGE_HORIZON_Y, stage: stageAt(STAGE_HORIZON_Y, stagePxPerRad(camera.pxPerDeg)) }),
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the camera is fully given by its heading
   [world, camera.heading])
   return world && terrain && sunTerrain ? { terrain, sunTerrain } : null

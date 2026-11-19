@@ -5,17 +5,19 @@ import { roofHeight } from '../city/skylineHeight'
 import { hashId, seeded } from '../landmarks/hash'
 import type { Coordinate } from '../landmarks/project'
 import type { House } from '../landmarks/settlement'
-import { SKY_PX } from '../terrain/angleScale'
-import { POLE } from './stage'
+import { POLE, stagePxPerRad } from './stage'
 
 export interface StageHouses { houses: House[]; blocks: boolean }
 
 /** Metres a degree of latitude, and of longitude at a latitude. */
 const NORTH_M = 111_320
 const eastM = (lat: number) => NORTH_M * Math.cos((lat * Math.PI) / 180)
-/** Footprint a drawn house stands for (m²): a village lot; a denser square gets more houses, up to `MAX_PER_SQUARE`. */
-const LOT_M2 = 700
-const MAX_PER_SQUARE = 9
+/**
+ * Built footprint a drawn house stands for (m²), up to `MAX_PER_SQUARE` a square: a few clear houses read as a
+ * village; one per real house reads as noise at this size.
+ */
+const LOT_M2 = 1800
+const MAX_PER_SQUARE = 4
 /** Houses nearer the pole than this (m) would fill the screen; the stage starts here. */
 const NEAREST_M = 60
 
@@ -30,6 +32,7 @@ const NEAREST_M = 60
  */
 export function stageHouses(place: Coordinate, raster: CityRaster, camera: Camera, horizonY: number): StageHouses {
   const east = eastM(place.lat)
+  const pxPerRad = stagePxPerRad(camera.pxPerDeg)
   const heading = (camera.heading * Math.PI) / 180
   // The pole: `backM` behind the place, against the view.
   const pole = { e: -POLE.backM * Math.sin(heading), n: -POLE.backM * Math.cos(heading) }
@@ -49,7 +52,7 @@ export function stageHouses(place: Coordinate, raster: CityRaster, camera: Camer
       if (roofHeight(levels, p90, .5) > 10) tallM2 += built * area
       const count = Math.min(MAX_PER_SQUARE, Math.max(1, Math.round((built * area) / LOT_M2)))
       // Each drawn house carries its share of the square's footprint.
-      const side = Math.min(40, Math.max(9, Math.sqrt((built * area) / count) * .8))
+      const side = Math.min(36, Math.max(11, Math.sqrt((built * area) / count) * .7))
       const random = seeded(hashId(`stage:${row}:${col}`))
       for (let i = 0; i < count; i++) {
         const e = (col + random()) * LON_STEP * east - place.lon * east
@@ -64,8 +67,8 @@ export function stageHouses(place: Coordinate, raster: CityRaster, camera: Camer
         const azimuth = (Math.atan2(de, dn) * 180) / Math.PI
         const x = xOf(azimuth, camera)
         if (x < -20 || x > camera.width + 20) continue
-        const below = (m: number) => SKY_PX * Math.sin(Math.atan2(POLE.upM - m, d))
-        houses.push({ x, baseY: horizonY + below(0), w: Math.max(1.2, (side / d) * SKY_PX), h: Math.max(1, below(0) - below(heightM)),
+        const below = (m: number) => pxPerRad * Math.atan2(POLE.upM - m, d)
+        houses.push({ x, baseY: horizonY + below(0), w: Math.min(Math.max(2, (side / d) * pxPerRad), Math.max(3, 2.6 * (below(0) - below(heightM)))), h: Math.max(1.5, below(0) - below(heightM)),
           row: 0, lit: seed % 3 !== 0, seed, storeys: heightM > 7 ? 2 : undefined, d })
       }
     }

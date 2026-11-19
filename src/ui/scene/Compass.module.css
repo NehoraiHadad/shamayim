@@ -1,51 +1,61 @@
+/* A quiet rule along the top of the scene: ticks every 15°, the four letters where those directions are. */
 .compass {
   position: absolute;
   inset: 0 0 auto 0;
-  height: 24px;
+  height: 26px;
   z-index: 3;
-  touch-action: none;
+  touch-action: pan-y;
   cursor: grab;
   color: var(--ink, #fff);
-  font-size: 11px;
-  line-height: 24px;
-  background: linear-gradient(to bottom, rgb(0 0 0 / .18), transparent);
+  -webkit-tap-highlight-color: transparent;
 }
-.compass:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.letter, .tick {
+.compass:active { cursor: grabbing; }
+.compass:focus { outline: none; }
+.compass:focus-visible { outline: 1.5px solid currentColor; outline-offset: -1.5px; border-radius: 4px; }
+.tick, .major, .letter {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
   pointer-events: none;
-  opacity: .85;
-  font-weight: 600;
 }
-.letter[data-heading] { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
-.tick { opacity: .5; }
+.tick, .major {
+  width: 1px;
+  height: 4px;
+  background: currentColor;
+  opacity: .28;
+}
+.major { height: 6px; opacity: .45; }
+.letter {
+  top: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .02em;
+  opacity: .72;
+  text-shadow: 0 1px 2px rgb(0 0 0 / .25);
+}
+/* The sun out of view: a small sun with a chevron at the edge, on the rule (never mistaken for the sun itself). */
 .sun {
   position: absolute;
-  top: 2px;
-  transform: translateX(-50%);
-  height: 20px;
+  top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  margin: 0;
   padding: 0 4px;
-  border: 0;
-  border-radius: 10px;
-  background: rgb(255 214 120 / .25);
-  color: #ffd678;
-  font-size: 12px;
-  line-height: 20px;
-}
-.sun[data-out] { background: rgb(255 214 120 / .4); }
-.arrow {
-  position: absolute;
-  top: 0;
-  width: 28px;
-  height: 24px;
   border: 0;
   background: none;
   color: inherit;
-  font-size: 18px;
-  line-height: 22px;
+  font-size: 13px;
+  line-height: 1;
   opacity: .8;
 }
-.arrow[data-side='left'] { left: 0; }
-.arrow[data-side='right'] { right: 0; }
+.sun i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f4c35f;
+}
+.sun[data-side='left'] { left: 0; }
+.sun[data-side='right'] { right: 0; }
