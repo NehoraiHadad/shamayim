@@ -57,14 +57,6 @@ export function forcedSightings(): CloudSighting[] | null {
     .map(([azimuth, distanceKm, widthKm]) => ({ azimuth, distanceKm, widthKm }))
 }
 
-/**
- * `?canvas=1` grows the canvas scene behind the SVG one (docs/design/CANVAS-SCENE-PLAN.md): from stage C0 it builds the
- * world state (`src/world/`); from C1 the valley is drawn on canvas (`scene/react/SceneCanvas.tsx`) in place of the SVG.
- */
-export function canvasScene(): boolean {
-  return param('canvas') === '1'
-}
-
 /** `?perf=1` shows the canvas scene's timings in a small HUD (`scene/react/PerfHud.tsx`). */
 export function perfHud(): boolean {
   return param('perf') === '1'

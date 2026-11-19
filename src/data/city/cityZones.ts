@@ -1,4 +1,4 @@
-import { DOT_R } from '../../ui/scene/marks/sceneLayout'
+import { DOT_R } from '../../world/layout'
 import { givesWay, underSettlementLabel, type House, type SettlementInput } from '../landmarks/settlement'
 
 export type CityZones = Pick<SettlementInput, 'centerX' | 'centerY' | 'width' | 'keepOut' | 'absorbed'> & {

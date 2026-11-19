@@ -22,10 +22,9 @@ interface Props {
 }
 
 /**
- * The canvas scene behind `?canvas=1` (dev only until the switch, stage C9): the world state built from App's inputs
- * (`useWorld`) and the valley drawn from it. App imports this module lazily, so the world, the model, the painters and
- * the compositor stay out of the production bundle until the switch. The world is left on `window.__world` for
- * inspection.
+ * The valley scene: the world state built from App's inputs (`useWorld`) and the valley drawn from it. App imports this
+ * module lazily, so the world, the model, the painters and the compositor load as their own chunk after the page's first
+ * paint. The world is left on `window.__world` for inspection.
  */
 export default function CanvasScene({ input, ...scene }: Props) {
   // The far towns' raster (`far.json`), loaded once; the world places the towns from it.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { STAR_CLASSES, starShare } from './starField'
+import { STAR_CLASSES, starShare } from './starClasses'
 
 describe('stars by twilight', () => {
   it('shows none while the sun is under 4.5° below, only the brightest at −6°, all by −17°', () => {

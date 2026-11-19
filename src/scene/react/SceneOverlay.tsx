@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import styles from '../../ui/scene/ValleyScene.module.css'
+import styles from './Scene.module.css'
 import own from './SceneOverlay.module.css'
 import type { OverlayItem } from '../model/types'
 

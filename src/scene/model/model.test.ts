@@ -1,8 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { seenFromOutside } from '../../data/city/outsideView'
-import { portraitReach } from '../../data/landmarks/portrait'
 import type { LocalTime } from '../../domain/types'
-import { hillScene } from '../../ui/scene/marks/hillScene'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { DOT_R, textWidth } from '../../world/layout'
@@ -26,19 +23,11 @@ beforeAll(async () => {
 afterAll(() => { vi.unstubAllGlobals() })
 
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
-  it('places the dot and the notes where the SVG scene puts them, the height label clear of the marks', () => {
+  it('places the dot and the notes, the height label clear of the marks', () => {
     const place = loaded.get(id)!
     const input = worldInput(place, TIMES[1])
     const world = buildWorld(input)
-    const elevation = input.forecast.elevation
-    const rounded = Math.round(elevation)
-    const towers = place.city?.raster?.towers ?? place.city?.towers ?? []
-    const outside = seenFromOutside(place.place, place.landmarks, towers, portraitReach(place.city?.clusters))
-    // The same layout the SVG scene runs (`ValleyScene` → `hillScene`), with the world's variant (B for a city seen from
-    // outside, the portrait otherwise).
-    const hill = hillScene({ place: place.place, terrain: place.terrain, landmarks: place.landmarks, city: place.city, width: 375,
-      litShare: 0, datum: elevation < 0, variant: outside ? 'b' : null,
-      label: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 } })
+    const below = input.forecast.elevation < 0
     const { overlay } = sceneModel(world, BOX)
     // The height label (stage C4; C9: beside the dot, level with it, on its backing, for every place seen from outside):
     // the world's own layout, clear of the marks the canvas draws.
@@ -60,10 +49,12 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     })
     expect(covered.length, covered.map((m) => m.id).join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
     expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',
-      x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: hill.centerY })
-    // The datum where the SVG scene writes it; the water's names on their water (C9, `notesOnWater`: outside.test.ts).
+      x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y })
+    // The datum only below sea level (the SVG scene's rule); the water's names on their water (C9, `notesOnWater`:
+    // outside.test.ts).
     expect(overlay.filter((item) => item.kind === 'datum'))
-      .toEqual(hill.notes.filter((note) => note.kind === 'datum').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
+      .toEqual(world.labels.notes.filter((note) => note.kind === 'datum').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
+    expect(overlay.some((item) => item.kind === 'datum')).toBe(below)
     expect(overlay.filter((item) => item.kind === 'water'))
       .toEqual(world.labels.notes.filter((note) => note.kind === 'water').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
     // Scaled across with the figure, heights as they are.

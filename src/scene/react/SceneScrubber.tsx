@@ -2,7 +2,7 @@ import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 import { clockOf } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
-import styles from './ValleyScene.module.css'
+import styles from './Scene.module.css'
 
 /** Minutes of the day per px of finger travel: a thumb's sweep across the valley covers about a day. */
 const MIN_PER_PX = 4

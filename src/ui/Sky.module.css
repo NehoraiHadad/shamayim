@@ -26,14 +26,4 @@
     --sky-horizon var(--d6) var(--ease-in-out);
 }
 
-.stars {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1.5px;
-  height: 1.5px;
-  border-radius: 50%;
-  transition: opacity var(--d6) linear;
-}
-
 :global(.app[data-scrubbing]) .sky { transition: none; }

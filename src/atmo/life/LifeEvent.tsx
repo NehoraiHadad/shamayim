@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { readLayout } from '../layout'
+import { readLanes } from './lanes'
 import { animateEvent } from './animateEvent'
 import { Bird } from './Bird'
 import { flockOffsets, rng } from './planEvent'
@@ -16,7 +16,7 @@ interface Props {
 }
 
 function lane(plan: EventPlan, seed: number) {
-  const layout = readLayout(); const random = rng(seed + 211)
+  const layout = readLanes(); const random = rng(seed + 211)
   if (plan.laneY === 'free') {
     const above = layout.bandTop
     const below = layout.sceneTop - layout.bandBottom

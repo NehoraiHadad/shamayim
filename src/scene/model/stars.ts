@@ -1,5 +1,5 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { STAR_CLASSES, starShare } from '../../ui/starField'
+import { STAR_CLASSES, starShare } from './starClasses'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
