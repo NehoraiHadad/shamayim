@@ -22,11 +22,12 @@ it('projects a westward stripe, includes empty squares, and splits the depth ban
   expect(rows.map(row => row.length)).toEqual([188, 188, 188])
   for (const [depth, row] of rows.entries()) {
     const built = row.flatMap((bin, index) => bin.built > 0 ? [index * 2 + 1] : [])
-    expect(Math.min(...built)).toBeGreaterThanOrEqual(109)
-    expect(Math.min(...built)).toBeLessThanOrEqual(113)
-    expect(Math.max(...built)).toBeGreaterThanOrEqual(153)
-    expect(Math.max(...built)).toBeLessThanOrEqual(157)
-    const bin = row[65]
+    // East on the left: the westward stripe lies right of the middle (the old 109–157, mirrored over 376 px).
+    expect(Math.min(...built)).toBeGreaterThanOrEqual(376 - 157)
+    expect(Math.min(...built)).toBeLessThanOrEqual(376 - 153)
+    expect(Math.max(...built)).toBeGreaterThanOrEqual(376 - 113)
+    expect(Math.max(...built)).toBeLessThanOrEqual(376 - 109)
+    const bin = row[187 - 65]
     expect(bin.built).toBeCloseTo(depth === 0 ? .5 : 1, 1)
     expect(bin.levels).toBeCloseTo(depth + 4)
     expect(bin.upper).toBe((depth + 4) * 4)

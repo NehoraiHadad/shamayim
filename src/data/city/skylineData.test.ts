@@ -44,7 +44,8 @@ it('projects a 150 m tower at its true bearing, and derives both its top and hei
   const footAngle = apparentAngle(-2, 2, 0)
   expect(tower.h).toBeCloseTo(anglePx(topAngle) - anglePx(footAngle), 9)
   expect(tower.baseY - tower.h).toBeCloseTo(flat.horizonY! - anglePx(topAngle), 9)
-  expect(tower.x).toBeCloseTo((305 - 140) / 250 * 375, 8)
+  // From the left edge (55°, east-north-east) clockwise.
+  expect(tower.x).toBeCloseTo((140 - 55) / 250 * 375, 8)
   expect(tower.w).toBeCloseTo(5 * 1.5 / 2, 9)
 })
 

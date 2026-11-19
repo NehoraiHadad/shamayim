@@ -26,7 +26,8 @@ it('uses the map origin and centroid depth even when the home dot moves', () => 
   expect(result.map(m => m.row)).toEqual([1, 0, 2])
   for (const mass of result) {
     const { centre } = clusters[Number(mass.name) - 1]
-    expect(Math.abs(mass.houses[0].x - (187.5 + 15.625 * centre.dx))).toBeLessThan(1)
+    // East (dx > 0) on the left.
+    expect(Math.abs(mass.houses[0].x - (187.5 - 15.625 * centre.dx))).toBeLessThan(1)
     expect(mass.houses[0].baseY).toBe([74, 76, 80][mass.row])
     expect(mass.houses[0].h).toBe(skyHeight(6.4))
   }
@@ -47,7 +48,8 @@ it('uses the flat city packer with only the component’s columns enabled', () =
   const urban = { ...cluster(1, 6, -1, 6), urban: true, shareSum: 120, levels: 4 }
   const [mass] = composeNeighbours({ ...scene, clusters: [urban] })
   expect(mass).toMatchObject({ row: 2, roof: 'flat', blocks: true })
-  const left = 187.5 + 15.625 * 3, right = 187.5 + 15.625 * 9
+  // 3–9 km east: left of the dot.
+  const left = 187.5 - 15.625 * 9, right = 187.5 - 15.625 * 3
   const masked = bins.map((bin, i) => (i + .5) * COLUMN_WIDTH >= left && (i + .5) * COLUMN_WIDTH <= right
     ? bin : { ...bin, built: 0 })
   const reference = rowHouses(scene, 2, masked, () => true)

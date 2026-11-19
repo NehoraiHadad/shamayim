@@ -16,17 +16,21 @@ describe('landmark projection', () => {
     const chords = offsetKm(jerusalem, { lat: 31.7885, lon: 35.2004 })
     expect(chords.dx).toBeCloseTo(-1.51, 1)
     expect(chords.dy).toBeCloseTo(2.16, 1)
-    expect(Math.abs((toX(chords.dx)?.x ?? 0) - 163.9)).toBeLessThan(.15)
+    // West of the place: on the right now that east is on the left (the mirror of 163.9).
+    expect(Math.abs((toX(chords.dx)?.x ?? 0) - 211.1)).toBeLessThan(.15)
     const azrieli = offsetKm(telAviv, { lat: 32.0746, lon: 34.7916 })
     expect(azrieli.dx).toBeCloseTo(1.04, 1)
     expect(azrieli.dy).toBeCloseTo(-.70, 1)
-    expect(Math.abs((toX(azrieli.dx)?.x ?? 0) - 203.8)).toBeLessThan(.15)
+    expect(Math.abs((toX(azrieli.dx)?.x ?? 0) - 171.2)).toBeLessThan(.15)
   })
 
   it('uses near and far scales and bounds', () => {
     expect(toX(0)).toEqual({ x: 187.5, layer: 'near' })
-    expect(toX(12)).toEqual({ x: 375, layer: 'near' })
-    expect(toX(30)).toEqual({ x: 375, layer: 'far' })
+    // East (dx > 0) runs to the left edge, west to the right.
+    expect(toX(12)).toEqual({ x: 0, layer: 'near' })
+    expect(toX(30)).toEqual({ x: 0, layer: 'far' })
+    expect(toX(-12)).toEqual({ x: 375, layer: 'near' })
+    expect(toX(-30)).toEqual({ x: 375, layer: 'far' })
     expect(toX(13)?.layer).toBe('far')
     expect(toX(31)).toBeNull()
   })
@@ -111,7 +115,8 @@ describe('placement and selection', () => {
     const marks = placeMarks(city, terrain, CURATED.find((item) => item.id === city.id)!.marks, width)
     const ids = marks.map((mark) => mark.id)
     expect(ids).toEqual(expect.arrayContaining(['tel-aviv-shalom', 'tel-aviv-azrieli']))
-    expect(ids.indexOf('tel-aviv-azrieli')).toBeGreaterThan(ids.indexOf('tel-aviv-sarona'))
+    // Azrieli Center stands east of Sarona: to its left.
+    expect(ids.indexOf('tel-aviv-azrieli')).toBeLessThan(ids.indexOf('tel-aviv-sarona'))
     expect(ids).toHaveLength(4)
   })
 
@@ -130,12 +135,13 @@ describe('placement and selection', () => {
   })
 
   it('uses the sea-side label box for collision avoidance', () => {
+    // Drawn at x 50 for the old mirrored scene: it now stands at 325, under the west (right-hand) sea label.
     const onWestLabel = { ...baseMark, id: 'west', source: 'curated' as const,
       lat: place.lat, lon: place.lon, x: 50 }
     const west = placeMarks(place, { ...terrain, seaInView: true, seaSide: 'west' }, [onWestLabel], 375)
     const legacy = placeMarks(place, { ...terrain, seaInView: true, seaSide: null }, [onWestLabel], 375)
-    expect(west[0].xPct * 3.75).not.toBe(50)
-    expect(legacy[0].xPct * 3.75).toBe(50)
+    expect(west[0].xPct * 3.75).not.toBe(325)
+    expect(legacy[0].xPct * 3.75).toBe(325)
   })
 
   it('renders the Shadmot homes and synagogue as an 8 px hall', () => {
@@ -156,8 +162,8 @@ describe('placement over a horizon panorama', () => {
 
   it('puts a mark at its true bearing: south in the middle, east and west towards the edges, north out of view', () => {
     expect(bearingOf(place, at('s', 2, 180))!.x).toBeCloseTo(187.5, 0)
-    expect(bearingOf(place, at('e', 2, 90))!.x).toBeCloseTo(322.5, 0)
-    expect(bearingOf(place, at('w', 2, 270))!.x).toBeCloseTo(52.5, 0)
+    expect(bearingOf(place, at('e', 2, 90))!.x).toBeCloseTo(52.5, 0)
+    expect(bearingOf(place, at('w', 2, 270))!.x).toBeCloseTo(322.5, 0)
     expect(bearingOf(place, at('n', 2, 0))).toBeNull()
   })
 
@@ -181,7 +187,8 @@ describe('placement over a horizon panorama', () => {
     const placed = placeMarks(place, panorama, [homes, behind, east], 375)
     expect(placed.map((m) => m.id).sort()).toEqual(['homes', 'orchard', 'palms'])
     const x = (id: string) => placed.find((mark) => mark.id === id)!.xPct / 100 * 375
-    expect(x('palms')).toBeCloseTo(160, 0)
-    expect(x('orchard')).toBeGreaterThan(300)
+    // Drawn at 160 for the old mirrored scene: mirrored to 215. East is on the left.
+    expect(x('palms')).toBeCloseTo(215, 0)
+    expect(x('orchard')).toBeLessThan(75)
   })
 })

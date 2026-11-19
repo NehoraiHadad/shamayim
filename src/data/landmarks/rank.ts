@@ -80,7 +80,9 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
     if (blocked && item.x + item.width / 2 > blocked[0] && item.x - item.width / 2 < blocked[1]) {
       const left = blocked[0] - item.width / 2
       const right = blocked[1] + item.width / 2
-      item.x = item.reserved && Math.abs(item.x - left) <= Math.abs(right - item.x) ? left : right
+      // To the nearer side, unless that runs into the mark already placed on the left.
+      const leftFree = !prior || left - item.width / 2 >= prior.x + prior.width / 2 + pairGap - overlap
+      item.x = leftFree && Math.abs(item.x - left) <= Math.abs(right - item.x) ? left : right
     }
     const maxShift = item.mark.source === 'curated' ? 36 * scale : 24 * scale
     if (Math.abs(item.x - original.x) > maxShift) {

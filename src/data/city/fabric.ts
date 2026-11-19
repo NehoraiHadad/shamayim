@@ -1,3 +1,4 @@
+import { SCENE_CAMERA } from '../../domain/camera'
 import { hashId, seeded } from '../landmarks/hash'
 import { settlementLabel, type House, type Settlement } from '../landmarks/settlement'
 import { cityBase } from './cityBase'
@@ -64,7 +65,9 @@ export function rowHouses(input: Input, depth: number, bins: Column[], fits = ci
       const col = Math.floor((lon + 1e-10) / LON_STEP)
       const random = seeded(hashId(`${col}:${depth}:${Math.round((lon - col * LON_STEP) / LON_STEP * 1000)}`))
       const w = 5 + 6 * random()
-      const x = (lon + w * packingStep / 2 - west) / perPixel
+      const along = (lon + w * packingStep / 2 - west) / perPixel
+      // East on the left when the scene faces south as an eye does (`SCENE_CAMERA`), like the columns.
+      const x = SCENE_CAMERA.handed === 1 ? width - along : along
       const left = x - w / 2
       const right = left + w
       const first = binAt(left), last = binAt(right - 1e-8)

@@ -19,7 +19,8 @@ it('retains the plain patch geometry for a synthetic one-cell ray', () => {
     seenAt: () => ({ angle: 0, groundAngle: 0, y: 95, groundY: 95 }),
   } satisfies Parameters<typeof plainPatches>[3]
   expect(plainPatches(place, 2, grid, terrain)).toMatchObject([{
-    left: expect.closeTo(.964440729, 8), right: expect.closeTo(1.006355258, 8),
+    // The mirror across the 2 px width of the old [.964440729, 1.006355258] (east now on the left).
+    left: expect.closeTo(.993644742, 8), right: expect.closeTo(1.035559271, 8),
     top: 94.5, bottom: 95.5, km: expect.closeTo(5.925335114, 8),
     built: 8 / 15, area: expect.closeTo(.497595947, 8),
   }])

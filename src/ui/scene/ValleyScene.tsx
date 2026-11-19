@@ -122,7 +122,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         <>
           <span className={styles.seaLabel} style={{ top: terrain.seaY - 14,
             ...(seaOn === 'left' ? { left: '6%', right: 'auto' }
-              : seaOn === 'right' ? { right: '6%' } : SEA_LABEL_SIDE === 'right' ? { right: '27%' } : { left: '27%' }) }}
+              : seaOn === 'right' ? { right: '6%' } : SEA_LABEL_SIDE === 'right' ? { right: '27%' } : { left: '27%', right: 'auto' }) }}
             aria-hidden="true">פני הים</span>
         </>
       )}

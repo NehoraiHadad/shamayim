@@ -1,7 +1,8 @@
+import { SCENE_CAMERA } from '../../domain/camera'
 import { useEffect, useMemo, useState } from 'react'
 import { projectSight, type Coordinate, type Sight } from '../landmarks/project'
 import { azimuthAt, destination } from '../terrain/panorama'
-import { FAR_RADIUS_KM, NEAR_RADIUS_KM, RIDGE_WIDTH, ridgeLongitudeKm, ridgeX } from '../terrain/ridgeProjection'
+import { FAR_RADIUS_KM, NEAR_RADIUS_KM, RIDGE_WIDTH, ridgeLongitudeKm } from '../terrain/ridgeProjection'
 import { plainPatches, type PlainPatch, type PlainTerrain } from './plainData'
 import { COLUMN_WIDTH } from './columns'
 import { decodeFarRuns, FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST,
@@ -36,7 +37,8 @@ export function farColumns(place: Coordinate, width: number, data: FarData): Far
   const row = Math.floor((place.lat - FAR_SOUTH) / FAR_LAT_STEP)
   if (!Number.isFinite(width) || width <= 0 || row < 0 || row >= FAR_ROWS) return { columns, towers }
   const longitudeKm = ridgeLongitudeKm(place.lat)
-  const toX = (dx: number) => ridgeX(dx, FAR_RADIUS_KM, width)
+  // Worked out west on the left (as the band is stored), then turned round when the scene has east on the left.
+  const toX = (dx: number) => width / 2 + width / (2 * FAR_RADIUS_KM) * dx
   const toGrid = (x: number) => (place.lon - FAR_WEST +
     (x / width * 2 - 1) * FAR_RADIUS_KM / longitudeKm) / FAR_LON_STEP
 
@@ -60,7 +62,9 @@ export function farColumns(place: Coordinate, width: number, data: FarData): Far
     const dx = (lon - place.lon) * longitudeKm
     if (Math.abs(dx) >= NEAR_RADIUS_KM && Math.abs(dx) <= FAR_RADIUS_KM) towers.push({ x: toX(dx), heightM })
   }
-  return { columns, towers }
+  if (SCENE_CAMERA.handed === -1) return { columns, towers }
+  return { columns: columns.map(bin => ({ ...bin, left: width - bin.right, right: width - bin.left })).reverse(),
+    towers: towers.map(tower => ({ ...tower, x: width - tower.x })) }
 }
 
 export function panoramaFarColumns(place: Coordinate, width: number, data: FarData, sightAt: (x: number) => Sight,

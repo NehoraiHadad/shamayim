@@ -22,7 +22,8 @@ it('caps dense scenes and orders equal scores geographically', () => {
   const candidates = Array.from({ length: 25 }, (_, i) => tower(i - 12, 0, 100))
   expect(selectTowers(candidates, 375)).toHaveLength(10)
   expect(selectTowers(candidates, 900)).toHaveLength(16)
-  expect(selectTowers(candidates, 900)[0].dx).toBe(-12)
+  // Left to right on screen: the easternmost (dx 12) first, east being on the left.
+  expect(selectTowers(candidates, 900)[0].dx).toBe(12)
 })
 
 it('ranks a named tower above a deeper tower of the same height in its slot', () => {

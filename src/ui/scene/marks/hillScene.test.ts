@@ -53,7 +53,8 @@ it('replaces generic near highrises only when the city fabric is active', () => 
   expect(fallback.cityTowers).toEqual([])
   expect(fallback.marks.map(mark => mark.id)).toContain(generic.id)
   const scene = hillScene({ ...input, city: data })
-  expect(scene.cityTowers).toMatchObject([{ x: 218.75, h: 22, row: 1 }])
+  // 2 km east: left of the dot (187.5 − 15.625 × 2).
+  expect(scene.cityTowers).toMatchObject([{ x: 156.25, h: 22, row: 1 }])
   expect(scene.marks.map(mark => mark.id)).toEqual([hand.id])
 })
 
@@ -100,8 +101,9 @@ it.each([
     landmarks: placeHomes(place), width: 375, litShare: .43, label: { text: '100', below: false } })
   expect(neighbours.length).toBeGreaterThan(0)
   if (id === 'nahalal') {
+    // Migdal HaEmek lies east of Nahalal: on the left.
     expect(neighbours.some(mass => /מגדל העמק|migdal/i.test(mass.name ?? '') &&
-      mass.houses.every(h => h.x > 187.5))).toBe(true)
+      mass.houses.every(h => h.x < 187.5))).toBe(true)
     const { cell, row, col } = squareOf(32.68206, 35.15225)
     const cached = JSON.parse(readFileSync(root + cell + '.json', 'utf8')) as CityCell
     expect(cached.v === 2 && cached.p.some(p => p[5] === 'כפר יהושע')).toBe(true)

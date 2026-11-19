@@ -42,7 +42,8 @@ it('keeps the same block geometry in a shared geographic stretch after recenteri
     const city = columns(west)
     city.span = span
     return composeCity({ ...base, columns: city }).houses.filter(house => house.row === 1).flatMap(house => {
-      const lon = west + house.x * city.span / base.width
+      // East on the left: x runs from the east edge of the band.
+      const lon = west + (base.width - house.x) * city.span / base.width
       return lon > 34.67 && lon < 34.705 ? [{ ...house, x: Number(lon.toFixed(7)) }] : []
     })
   }

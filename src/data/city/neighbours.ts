@@ -71,12 +71,12 @@ export function composeNeighbours(input: Input): NeighbourMass[] {
   const cap = Math.min(14, 8 + 2 * Math.max(0, Math.floor((width - 375) / 150)))
   const project = (dx: number) => ridgeX(dx, NEAR_RADIUS_KM, width)
   const eligible = clusters.filter(cluster => cluster !== home && Math.abs(cluster.centre.dy) <= 3 &&
-    project(cluster.dx[1]) - project(cluster.dx[0]) >= 4)
+    Math.abs(project(cluster.dx[1]) - project(cluster.dx[0])) >= 4)
     .sort((a, b) => prominence(b) - prominence(a) || a.id - b.id)
   const masses = eligible.flatMap(cluster => {
     const row = depthRow(cluster.centre.dy)
     const runs = mergeRuns(cluster.bands.flatMap(band => band.runs.map(([a, b]): Extent =>
-      [Math.max(0, project(a)), Math.min(width, project(b))])))
+      [Math.max(0, Math.min(project(a), project(b))), Math.min(width, Math.max(project(a), project(b)))])))
     const open = row === 0 ? runs : mergeRuns(runs.flatMap(([left, right]): Extent[] =>
       [[left, Math.min(right, homeZone[0])], [Math.max(left, homeZone[1]), right]]))
     if (open.reduce((sum, [left, right]) => sum + right - left, 0) < 4) return []
