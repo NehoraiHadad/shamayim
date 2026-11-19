@@ -177,6 +177,23 @@ function ruffleOf(world: WorldState, index: number, box: SceneBox, clear: readon
 }
 
 /**
+ * Open water's tone at a row of the screen `y` and a distance `km`, by C3's own rule for the surface (`waterOnPlane`):
+ * the sky mirrored at the angle the row is seen below eye level (the facets' tilt by the one wind added), by Fresnel over
+ * the water's own dark, then the air at that distance. No far shore to mirror (the open sea, out to its horizon: C5b).
+ */
+export function openWaterTone(world: WorldState, box: SceneBox): (y: number, km: number) => RGB {
+  const { light, night } = world
+  const sky = skyAt(world, box)
+  const aerial = aerialFor(world, hazeOf(world))
+  const body = mixRgb(mixRgb(rgbOf(light.palette.ridgeNear), DEEP, 0.55 * (1 - night.dark)), [0, 0, 0], 0.15)
+  const tilt = Math.atan(Math.sqrt(0.003 + 0.00512 * world.wind.ms)) * 180 / Math.PI
+  return (y, km) => {
+    const dep = Math.max(0.1, -angleAt(world, y))
+    return aerial(mixRgb(body, sky(dep + 1.6 * tilt), fresnel(dep + tilt)), km)
+  }
+}
+
+/**
  * The water of one plane (stage C3), from the world's spans (`data/water/`: each body at its true bearing and distance)
  * and its light, for every place alike:
  * - **surface**: still water mirrors the sky at the angle it is seen below the horizon (`fresnel`): the far edge the sky

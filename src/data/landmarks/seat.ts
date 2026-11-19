@@ -20,7 +20,10 @@ export function groundFn(points: [number, number][], width: number) {
     if (x <= scaled[0][0]) return scaled[0][1]
     const last = scaled.at(-1)!
     if (x >= last[0]) return last[1]
-    const i = scaled.findIndex(([px]) => px >= x)
+    // The first point at or past x (the points run west to east): a binary search, the same answer as a scan.
+    let lo = 0, hi = scaled.length - 1
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (scaled[mid][0] >= x) hi = mid; else lo = mid + 1 }
+    const i = lo
     const [ax, ay] = scaled[i - 1]
     const [bx, by] = scaled[i]
     return ay + (by - ay) * (x - ax) / (bx - ax)

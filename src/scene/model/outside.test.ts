@@ -13,7 +13,9 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../../test/scenePlaces'
 import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
-import { rowKm } from '../../world/outside'
+import { HOUSE_TOP_M } from '../../data/city/outsideView'
+import { STOREY_M } from '../../data/city/skylineHeight'
+import { ABOVE_PAD, legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
 import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
@@ -167,12 +169,43 @@ describe('the frame is the place’s own boundary (C5 item 6)', () => {
     expect(viewOf('shadmot-mehola').bounds.source).toBe('cell')
   })
 
-  it('draws Tel Aviv’s towers beyond Ramat Gan at their true bearing, with the same levels of detail', () => {
+  it('draws Tel Aviv’s towers beyond Ramat Gan where they truly are, with the same levels of detail', () => {
     const { beyond } = viewOf('ramat-gan')
     expect(beyond.length).toBeGreaterThan(20)
     expect(beyond.some((t) => t.lod === 'glyph')).toBe(true)
-    // West of Ramat Gan: right of the dot.
-    for (const t of beyond.filter((b) => b.lod === 'glyph')) expect(t.x).toBeGreaterThan(187.5)
+    // Tel Aviv lies west of Ramat Gan: its full towers right of the dot.
+    const west = beyond.filter((b) => b.lod === 'glyph' && b.dx! < -1)
+    expect(west.length).toBeGreaterThan(2)
+    for (const t of west) expect(t.x).toBeGreaterThan(187.5)
+  })
+
+  it.each(['ramat-gan', 'tel-aviv', 'haifa'])('%s: towers beyond the place are scaled and hazed by their true distance (C5b)', (id) => {
+    const view = viewOf(id)
+    const { frame, baseKm, beyond } = view
+    const look = lookOf(frame)
+    // Never nearer than the place's near edge: no larger a metre than the place's own there, never hazed less.
+    const nearK = frame.k * frame.midDepth / (frame.eyeN - frame.n)
+    for (const t of beyond) {
+      expect(t.h).toBeLessThanOrEqual(Math.max(2, look.px(t.heightM, nearK)) + 1e-6)
+      expect(t.km).toBeGreaterThanOrEqual(baseKm - 1e-9)
+      // In the outside view's own projection: east left, west right.
+      expect(Math.sign(t.x - frame.centerX)).toBe(-Math.sign(t.dx!))
+    }
+    // A tower beyond stands no taller than the place's own of its height would at the same depth (perspective only).
+    for (const t of beyond) {
+      const at = frame.k * frame.midDepth / (frame.eyeN - t.dy!)
+      expect(t.h).toBeLessThanOrEqual(Math.max(2, look.px(t.heightM, at)) + 1e-6)
+    }
+  })
+
+  it('no longer lets Tel Aviv’s towers outgrow Ramat Gan’s own (C5: up to 0.48 px a metre against 0.26)', () => {
+    const view = viewOf('ramat-gan')
+    const perM = (list: { h: number; heightM: number }[]) => list.filter((t) => t.heightM >= 150).map((t) => t.h / t.heightM)
+    const own = perM(view.skyline.towers), beyond = perM(view.beyond.filter((t) => t.dx! < -1))
+    expect(own.length && beyond.length).toBeTruthy()
+    const median = (v: number[]) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)]
+    expect(median(beyond)).toBeLessThanOrEqual(median(own) * 1.05)
+    expect(Math.max(...beyond)).toBeLessThan(1.25 * Math.max(...own))
   })
 })
 
@@ -195,6 +228,51 @@ describe('rows climb the slope (C5 item 2)', () => {
     expect(mean(low) - mean(high)).toBeGreaterThan(10)
   })
 
+  it.each(['zikhron-yaakov', 'rosh-pina', 'nahalal', 'shadmot-mehola'])('%s stands on its own ground, not on the ridge line’s undulation (C5b)', (id) => {
+    const view = viewOf(id)
+    const terrain = loaded.get(id)!.terrain
+    const ground = groundFn(terrain.nearPoints, 375)
+    const boxes = view.skyline.boxes.filter((b) => b.dx !== undefined)
+    // Two spots of the same row depth and the same ground stand at the same height wherever the ridge line is.
+    const key = (b: typeof boxes[number]) => `${Math.round(b.dy! * 20)}:${Math.round(terrain.heightNear!(b.dx!, b.dy!)! / 2)}`
+    const groups = new Map<string, typeof boxes>()
+    for (const b of boxes) groups.set(key(b), [...groups.get(key(b)) ?? [], b])
+    let pairs = 0
+    for (const list of groups.values()) {
+      for (let i = 1; i < list.length; i++) {
+        if (Math.abs(ground(list[i].x) - ground(list[0].x)) < 1.5) continue
+        // Unless the rise over the ridge line is capped where the line dips (a row never stands as a plateau in the sky).
+        if (list[i].foot <= ground(list[i].x) + 1 - ABOVE_PAD + .05 || list[0].foot <= ground(list[0].x) + 1 - ABOVE_PAD + .05) continue
+        pairs++
+        expect(Math.abs(list[i].foot - list[0].foot), id).toBeLessThan(1.6)
+      }
+    }
+    if (id === 'zikhron-yaakov' || id === 'rosh-pina') expect(pairs, id).toBeGreaterThan(0)
+    // Nothing floats: every base on the ridge line or on the place's own ground where it rises over it.
+    const land = view.land?.top
+    for (const b of boxes) {
+      const i = land ? Math.round(b.x - land[0][0]) : -1
+      const surface = land && i >= 0 && i < land.length ? Math.min(ground(b.x) + 1, land[i][1] + 1) : ground(b.x) + 1
+      expect(b.foot, id).toBeGreaterThanOrEqual(surface - ABOVE_PAD - 2.5)
+    }
+  })
+
+  it('builds Zikhron Ya’akov as a body of houses: several rows stepping up its hill, higher ground higher', () => {
+    const view = viewOf('zikhron-yaakov')
+    const terrain = loaded.get('zikhron-yaakov')!.terrain
+    const boxes = view.skyline.boxes.filter((b) => b.dx !== undefined)
+    const feet = boxes.map((b) => b.foot)
+    expect(Math.max(...feet) - Math.min(...feet)).toBeGreaterThan(8)
+    expect(new Set(feet.map((f) => Math.round(f / 2))).size).toBeGreaterThanOrEqual(4)
+    // Within a band of depth, higher ground stands higher on the screen (rank correlation of ground and foot < 0).
+    const band = boxes.filter((b) => Math.abs(b.dy!) < .4)
+    const hs = band.map((b) => terrain.heightNear!(b.dx!, b.dy!)!)
+    const rank = (v: number[]) => { const o = v.map((x, i) => [x, i] as const).sort((a, b) => a[0] - b[0]); const r = new Array(v.length); o.forEach(([, i], k) => { r[i] = k }); return r as number[] }
+    const rh = rank(hs), rf = rank(band.map((b) => b.foot)), n = band.length
+    const rho = 1 - 6 * rh.reduce((s, r, i) => s + (r - rf[i]) ** 2, 0) / (n * (n * n - 1))
+    expect(rho).toBeLessThan(-.5)
+  })
+
   it('keeps a flat city on its line (Tel Aviv: its rows within the room under the ridge)', () => {
     const view = viewOf('tel-aviv')
     const ground = groundFn(loaded.get('tel-aviv')!.terrain.nearPoints, 375)
@@ -203,14 +281,54 @@ describe('rows climb the slope (C5 item 2)', () => {
 })
 
 describe('the coastal sea (C5 item 1)', () => {
-  it.each(['tel-aviv', 'haifa', 'netanya'])('%s has its sea, from the coast to the edge', (id) => {
+  it.each(['tel-aviv', 'haifa', 'netanya'])('%s has its sea, from the shore out to the true sea horizon (C5b)', (id) => {
     const sea = worldAt(id).water.coastalSea
     expect(sea).not.toBeNull()
     expect(sea!.side).toBe('right')
     expect(Math.max(...sea!.points.map(([x]) => x))).toBeGreaterThanOrEqual(374.9)
-    // Along the foot of the land, down to the sheet's edge.
-    expect(sea!.bottom).toBeLessThanOrEqual(VISIBLE_BOTTOM + .01)
-    expect(sea!.top).toBeGreaterThan(sea!.bottom - 30)
+    // Its far edge is a level line at the panorama's own sea horizon (eye height, curvature, refraction), never above it.
+    expect(sea!.horizon).toBeCloseTo(seaHorizonY(loaded.get(id)!.terrain), 6)
+    expect(sea!.top).toBe(sea!.horizon)
+    for (const [, y] of sea!.points) expect(y).toBeGreaterThanOrEqual(sea!.horizon - 1e-9)
+    expect(sea!.points.filter(([, y]) => Math.abs(y - sea!.horizon) < 1e-9).length).toBeGreaterThanOrEqual(2)
+    // Down to the sheet and under it (no lower edge in view); the shore runs from the horizon down, never back up.
+    expect(sea!.bottom).toBeGreaterThanOrEqual(VISIBLE_BOTTOM)
+    expect(sea!.coast[0][1]).toBe(sea!.horizon)
+    for (let i = 1; i < sea!.coast.length; i++) expect(sea!.coast[i][1]).toBeGreaterThanOrEqual(sea!.coast[i - 1][1])
+    // Its distance falls from the horizon to the sheet: the haze grades down the water, as C3's does.
+    for (let i = 1; i < sea!.km.length; i++) {
+      expect(sea!.km[i][0]).toBeGreaterThan(sea!.km[i - 1][0])
+      expect(sea!.km[i][1]).toBeLessThanOrEqual(sea!.km[i - 1][1])
+    }
+    expect(sea!.km[0][1]).toBeGreaterThan(sea!.km.at(-1)![1] * 4)
+  })
+
+  it.each(['tel-aviv', 'netanya'])('%s: no slab on the land, the water a perspective toward the horizon (C5b)', (id) => {
+    const sea = worldAt(id).water.coastalSea!
+    // The shore recedes: far up the water it lies further toward the place's side than at the sheet (a straight edge
+    // under a level top would be the old slab's rectangle).
+    const xs = sea.coast.map(([x]) => x)
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(20)
+    // Tones by C3's rule for open water: the far water mirrors the low sky, nearer water shows more of its own dark.
+    const sea2 = layerOf(worldAt(id))!.sea!
+    const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
+    expect(lum(sea2.stops[0][1])).toBeGreaterThan(lum(sea2.stops.at(-1)![1]))
+    expect(sea2.horizon.x1 - sea2.horizon.x0).toBeGreaterThan(5)
+  })
+
+  it('keeps Haifa’s bay under its Carmel rows, in front of the city', () => {
+    const view = viewOf('haifa')
+    const sea = worldAt('haifa').water.coastalSea!
+    const terrain = loaded.get('haifa')!.terrain
+    const high = view.skyline.boxes.filter((b) => b.dx !== undefined && terrain.heightNear!(b.dx!, b.dy!)! > 200)
+    expect(high.length).toBeGreaterThan(20)
+    expect(sea.horizon).toBeGreaterThan(Math.max(...high.map((b) => b.foot)))
+  })
+
+  it('lays the light’s path toward the setting sun over Tel Aviv’s sea', () => {
+    const sea = layerOf(worldAt('tel-aviv', '2026-11-17T16:30'))!.sea!
+    expect(sea.glint).not.toBeNull()
+    expect(sea.glint!.sparks.length).toBeGreaterThan(3)
   })
 
   it.each(['jerusalem', 'beer-sheva', 'ramat-gan', 'rosh-pina', 'shadmot-mehola', 'nahalal'])('%s, inland, has none', (id) => {
@@ -246,6 +364,43 @@ describe('one builder for every place: the density continuum (owner, 2026-11-19)
       const lat = place.lat + b.dy! / 111.32, lon = place.lon + b.dx! / (111.32 * Math.cos(place.lat * Math.PI / 180))
       expect(cover.coverAt(lat, lon)).toBe(5)
     }
+  })
+
+  it.each(['rosh-pina', 'zikhron-yaakov', 'nahalal', 'shadmot-mehola'])('%s: houses stay legible, composed fewer and larger (C5b)', (id) => {
+    const view = viewOf(id)
+    const { frame } = view
+    const extent = Math.max(-frame.w, frame.e, (frame.n - frame.s) / 2)
+    const legible = legibleHouse(extent)
+    // The fabric's houses (a folded tower's box has no cell seed).
+    const houses = view.skyline.boxes.filter((b) => (b.heightM ?? 0) < HOUSE_TOP_M && b.seed !== undefined)
+    expect(houses.length).toBeGreaterThan(10)
+    for (const b of houses) {
+      const persp = frame.k * frame.midDepth / (frame.eyeN - b.dy!) / frame.k
+      expect(b.w).toBeGreaterThanOrEqual(legible.w * persp - 1e-6)
+      // A two-storey house at least the legible height (in its perspective).
+      if ((b.heightM ?? 0) >= 2 * STOREY_M + 1.5) expect(b.foot - b.top).toBeGreaterThanOrEqual(legible.h * persp - 1e-6)
+    }
+    // Rosh Pina's are no longer 2–3 px.
+    if (id === 'rosh-pina') expect(houses.map((b) => b.w).sort((a, b) => a - b)[Math.floor(houses.length / 2)]).toBeGreaterThan(3.5)
+  })
+
+  it('sizes the legible house continuously with the place: smaller for larger places, never a step', () => {
+    let last = legibleHouse(0)
+    for (let e = .1; e <= 8; e += .1) {
+      const h = legibleHouse(e)
+      expect(h.w).toBeLessThanOrEqual(last.w + 1e-9)
+      expect(last.w - h.w).toBeLessThan(.1)
+      last = h
+    }
+  })
+
+  it('keeps every height in its true order under the legible sizes (a 300 m tower over a 90 m one over a house)', () => {
+    const { frame } = viewOf('tel-aviv')
+    const look = lookOf(frame)
+    const hs = [3, 7.5, 12, 12.5, 13, 30, 90, 300].map((m) => look.px(m, frame.k))
+    for (let i = 1; i < hs.length; i++) expect(hs[i]).toBeGreaterThan(hs[i - 1])
+    // A tower stands about as tall as by the true perspective (only its lowest storeys take the legible floor).
+    expect(look.px(300, frame.k) / (300 * frame.k)).toBeLessThan(1.1)
   })
 
   it('draws nothing where a place has no built cells', () => {
@@ -318,6 +473,25 @@ describe('light on the place', () => {
       expect(layerOf(world)!.litSide).toBe(world.light.side)
       for (const item of layerOf(world)!.items) if (item.kind === 'mark') expect(item.glyph.litSide).toBe(world.light.side)
     }
+  })
+
+  it.each(['tel-aviv', 'jerusalem', 'beer-sheva'])('%s: gives the mass form from the sky under the cloud: tops lighter, feet darker (C5b)', (id) => {
+    for (const at of ['2026-11-17T11:00', '2026-11-17T16:30'] as LocalTime[]) {
+      const world = worldAt(id, at)
+      const layer = layerOf(world)!
+      const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
+      // The weaker the direct light, the more the form is the sky's.
+      expect(layer.form.strength).toBeGreaterThan(.35 * (1 - world.night.dark))
+      layer.form.tiers.forEach((t, i) => {
+        expect(lum(t.top)).toBeGreaterThan(lum(layer.tiers[i].wall))
+        expect(lum(t.foot)).toBeLessThan(lum(layer.tiers[i].wall))
+        expect(lum(t.face)).toBeGreaterThan(lum(layer.tiers[i].wall))
+      })
+      // The brighter half of the sky is the sun's: its side on the screen.
+      const sun = world.bodies.sun.x - 187.5
+      if (Math.abs(sun) > 20) expect(layer.form.side).toBe(sun < 0 ? 1 : -1)
+    }
+    expect(layerOf(worldAt(id, '2026-11-17T21:00'))!.form.strength).toBeLessThan(.05)
   })
 
   it('lights windows by night only, and hazes the far rows toward the air', () => {

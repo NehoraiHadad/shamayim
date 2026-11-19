@@ -51,6 +51,12 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
       const spec = GLYPH_SPECS[mark.glyphKind]
       if (mark.plane === 'plain') continue
       const ground = mark.plane === 'near' ? near : far
+      if (spec.field && world.place3.kind === 'outside' && mark.portrait) {
+        // Seen from outside (C5b), a field of the place lies on its own row's ground, at least a px down, over the sheet.
+        expect(mark.depth!, mark.id).toBeGreaterThanOrEqual(1)
+        expect(mark.base, mark.id).toBeLessThanOrEqual(VISIBLE_BOTTOM + 0.01)
+        continue
+      }
       if (spec.field) {
         // A field's first row lies on the face, under the crest.
         expect(mark.depth!, mark.id).toBeGreaterThanOrEqual(1)
@@ -61,9 +67,12 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
       }
       const low = Math.max(ground(mark.x - mark.w / 2), ground(mark.x + mark.w / 2))
       if (world.place3.kind === 'outside' && mark.portrait) {
-        // The outside view: on its row (the ridge line where the place's ground is highest, lower rows down the slope),
-        // never above the line by more than a rise of 4 px, never under the sheet's edge.
-        expect(mark.base - low, mark.id).toBeGreaterThanOrEqual(-4.01)
+        // The outside view (C5b): on its own row's ground, never floating over the land that stands where it is drawn (the
+        // ridge line, or the place's own ground where it rises over it), never under the sheet's edge.
+        const land = world.place3.land?.top
+        const i = land ? Math.round(mark.x - land[0][0]) : -1
+        const surface = land && i >= 0 && i < land.length ? Math.min(near(mark.x) + 1, land[i][1] + 1) : near(mark.x) + 1
+        expect(mark.base - surface, mark.id).toBeGreaterThanOrEqual(-0.51)
         expect(mark.base, mark.id).toBeLessThanOrEqual(VISIBLE_BOTTOM - SHEET_CLEAR + 0.01)
         continue
       }
