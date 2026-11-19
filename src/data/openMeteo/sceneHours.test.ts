@@ -28,6 +28,8 @@ describe('scene hours', () => {
     expect(hour).toMatchObject({ cloudLow: 95, cloudMid: 80, cloudHigh: 40, visibility: 4000, precipitation: 3.2 })
     // An afternoon hour: ICON 300°, ECMWF 310°, ICON weighted 0.6 on the near days.
     expect(hour.windDirection).toBe(304)
+    expect(hour.windAloft?.high?.fromDeg).toBe(254)
+    expect(hour.windAloft?.low?.speed).toBeGreaterThan(hour.windSpeed)
   })
 
   it('leaves them null when the answer has none (the recorded fixture, an older cache)', () => {
@@ -35,5 +37,6 @@ describe('scene hours', () => {
     expect(hour.cloudLow).toBeNull()
     expect(hour.windDirection).toBeNull()
     expect(hour.visibility).toBeNull()
+    expect(hour.windAloft).toBeNull()
   })
 })

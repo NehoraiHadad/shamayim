@@ -57,6 +57,14 @@ export function forcedSightings(): CloudSighting[] | null {
     .map(([azimuth, distanceKm, widthKm]) => ({ azimuth, distanceKm, widthKm }))
 }
 
+/**
+ * `?canvas=1` grows the canvas scene behind the SVG one (docs/design/CANVAS-SCENE-PLAN.md): from stage C0 it only builds
+ * the world state (`src/world/`), drawing nothing yet.
+ */
+export function canvasScene(): boolean {
+  return param('canvas') === '1'
+}
+
 /** `?picker=open` opens the place picker on load, for screenshots of it. */
 export function pickerOpenOnLoad(): boolean {
   return param('picker') === 'open'

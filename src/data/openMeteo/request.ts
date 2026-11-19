@@ -19,13 +19,19 @@ const HOURLY = [
 ]
 /**
  * Hourly fields the canvas scene's world state reads (`src/world/`, docs/design/CANVAS-SCENE-PLAN.md §1a): the wind's
- * direction and the visibility of each hour. The Worker's allowlist lists them (`worker/src/routes.ts`), but the
+ * direction, the visibility and the wind at cloud heights of each hour. The Worker's allowlist lists them (`worker/src/routes.ts`), but the
  * deployed Worker must know them before the app asks (README: "Order when the app asks Open-Meteo for something new"),
  * or every forecast gets a 400. So they stay off until the Worker is deployed and checked; until then the world falls
- * back to the current wind direction and to visibility from humidity (`src/world/air.ts`, `wind.ts`).
+ * back to the current wind direction, to visibility from humidity and to the wind aloft from the 10 m wind
+ * (`src/world/air.ts`, `wind.ts`).
  */
-export const SCENE_HOURLY = ['wind_direction_10m', 'visibility'] as const
-/** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility` with 200 (README check). */
+export const SCENE_HOURLY = [
+  'wind_direction_10m', 'visibility',
+  // Wind at the clouds' heights (low, mid, high cloud drift with it): owner decision 2026-11-19.
+  'wind_speed_850hPa', 'wind_direction_850hPa', 'wind_speed_700hPa', 'wind_direction_700hPa',
+  'wind_speed_300hPa', 'wind_direction_300hPa',
+] as const
+/** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility,wind_speed_850hPa` with 200. */
 export const ASK_SCENE_HOURLY = false
 
 const DAILY = [

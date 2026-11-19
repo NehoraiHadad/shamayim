@@ -6,7 +6,7 @@ import { composeNeighbours, neighbourBox } from '../../../data/city/neighbours'
 import { skylineData, type SkylineData } from '../../../data/city/skylineData'
 import { inSkylineReach } from '../../../data/city/skylineRay'
 import { sameTower, splitSkylineTowers } from '../../../data/city/skylineTowers'
-import { baseYAt, inFrame, outsideFrame, outsideProject, outsideSkyline, skylineVariantFlag,
+import { baseYAt, inFrame, outsideFrame, outsideProject, outsideSkyline, seenFromOutside, skylineVariantFlag,
   type OutsideSkyline, type SkylineVariant } from '../../../data/city/outsideView'
 import { isGenericHighrise, placeMarks } from '../../../data/landmarks/placeMarks'
 import { distanceOf, offsetKm } from '../../../data/landmarks/project'
@@ -190,8 +190,7 @@ function outsideScene(input: Input, variant: SkylineVariant) {
   const reachKm = portraitReach(city?.clusters)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   const towers = city?.raster?.towers ?? city?.towers ?? []
-  const isCity = input.landmarks.some(mark => mark.source === 'place' && mark.glyph === 'homes-large')
-    || towers.filter(tower => distanceOf(place, tower) <= reachKm).length >= 8
+  const isCity = seenFromOutside(place, input.landmarks, towers, reachKm)
   const frame = outsideFrame(city?.clusters, reachKm, centerX, width, isCity)
   const landmarks = input.landmarks.flatMap(mark => {
     if (mark.source === 'place' || mark.source === 'curated') return [mark]

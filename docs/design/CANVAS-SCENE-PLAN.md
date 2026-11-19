@@ -14,6 +14,11 @@ an illustration chosen automatically from data, with the side rule; roofs only f
 landmarks from wikidata/wikipedia with generic glyphs plus 4 hand icons; water from `src/data/water/`; the dashed
 "פני הים" datum only below sea level.
 
+**General rules, not point fixes** (owner, 2026-11-19): as few point fixes as possible. No special handling for
+particular places, mountains or settlements; every rule is written so the algorithm handles every place correctly from
+the data. Where a place looks wrong, the rule is fixed, not the place. (Items below that once named one place, Haifa's
+Carmel face, Ramat Gan's frame, the Haifa cooling tower, are written as general rules.)
+
 **One change of order.** The earlier order of work in `TRUE-SCENE-PLAN.md` began with "landmarks as a canvas layer
 inside today's scene". The owner's newer decision (replace everything from the infrastructure, no patch over the SVG)
 supersedes it. Landmarks still come early, but they are painted by the new pipeline, not inside the SVG.
@@ -134,14 +139,16 @@ Where each part comes from (moved, not rewritten, where the code is already pure
 | place3, marks | `data/landmarks/portrait.ts`, `markProjection.ts`, `coverMarks.ts`, `placeMarks.ts`, `settlement.ts` (style, roofs); `data/city/outsideView.ts` (B) |
 | night | `atmo/life/mapMarks.ts` (litShare, aviation), cloud cover |
 
-**Data the forecast does not give yet.** `HourPoint` (`domain/types.ts`) has no wind direction, no visibility and
-only `thickCloud`; `cloud_cover_high` is requested but not mapped. Add `cloudLow`, `cloudMid`, `cloudHigh`,
-`windDirection`, `visibility` to `HourPoint` (`data/openMeteo/mapHours.ts`, `request.ts`). The Worker must list the new
-hourly fields first (README: "Order when the app asks Open-Meteo for something new"). Record a new fixture
-`src/test/fixtures/forecast-layers-<date>.json` with them; the old fixture stays for the SVG baseline. Missing values
-fall back: layers from `cloudCover`/`thickCloud`, direction from `current.windDirection`, visibility from humidity.
-Wind aloft: derived from the 10 m wind (×1.4 low, ×2 mid, ×3 high, same direction) until the owner decides on
-requesting 850/500 hPa winds (open question).
+**Data the forecast does not give yet** (done in C0, see §6). `HourPoint` (`domain/types.ts`) gains `cloudLow`,
+`cloudMid`, `cloudHigh` (already asked, now mapped), `windDirection` (the two models blended round the circle,
+`blendDirection`), `visibility` and `windAloft` (850 / 700 / 300 hPa: low, mid, high cloud; owner decision 3). The
+Worker's allowlist lists the new hourly fields (`worker/src/routes.ts`), but the app asks for them only once the deployed
+Worker serves them (`ASK_SCENE_HOURLY` in `request.ts`, false until the README check answers 200). Fixture:
+`src/test/fixtures/forecast-layers-2026-11-17.json`, a **synthetic** copy of the recorded one with the new fields and a
+rain spell (its `_synthetic` note says what was added); the old fixture stays for the SVG baseline. Missing values fall
+back, and `WorldState.sources` marks every fallback: layers from `thickCloud` and the cover (`'thickCloud'`) or the
+cover alone (`'cover'`); direction from `current.windDirection`; visibility from now's, else from humidity
+(`visibilityFromHumidity`); wind aloft from the 10 m wind (×1.4 low, ×2 mid, ×3 high, same direction, `'derived'`).
 
 **Coherence checks live in the world.** One `Light` for every face and shadow; one `Wind` for rain slant, cloud drift,
 tree lean, smoke, glint wave slope (`glint.ts` takes `wind.ms` instead of its fixed 5 m/s); rain only with a `rains`
@@ -234,9 +241,10 @@ when `litSide === 'right'`; a glyph with text or asymmetry (Chords Bridge) has a
 - `SkyCanvas.tsx` inside `ui/Sky.tsx`. The CSS gradient stays under it as the first paint (no flash before the canvas
   is ready). The sky no longer reads the scene from the DOM: `atmo/layout.ts` (`readLayout`, `data-afterglow`,
   `data-cloud-seen`, `[data-sun="up"]`) is replaced by `box.landTop` measured once by a `ResizeObserver`.
-- `Life` (birds, meteors, `atmo/life/*`) stays HTML for now; its lanes read the model's cloud and ridge heights.
+- `Life` (birds, meteors, `atmo/life/*`) stays HTML until the switch, then moves into the canvas (owner decision 6); its
+  lanes read the model's cloud and ridge heights.
 
-### 1f. The sky: WebGL or canvas — recommendation: move to canvas, delete `src/atmo/gl/`
+### 1f. The sky: WebGL or canvas — decided (owner, 2026-11-19): canvas; `src/atmo/gl/` goes at C9
 
 - **Coherence.** In WebGL the clouds are a noise field (`cloudShader.ts`) with no positions: they cannot own the rain
   cells, cannot be the banks that hide the stars or veil the moon, and are lit by their own `cloudLight.ts`, not the
@@ -252,8 +260,8 @@ when `litSide === 'right'`; a glyph with text or asymmetry (Chords Bridge) has a
 - **Tests and robustness.** 2D canvas is deterministic in headless Chromium; WebGL under SwiftShader is not, and needs
   context-loss handling and the `CssAir` fallback. One compositor, one loop, one set of tests.
 - **Cost.** The animated fbm texture, heat shimmer and in-cloud lightning are redone as canvas layers (shimmer as a
-  small per-frame displacement of the horizon band; lightning as a flash alpha on the cloud layer) or dropped if the
-  owner does not miss them.
+  small per-frame displacement of the horizon band, C7; lightning as a flash alpha on the cloud layer, C6), so nothing
+  is lost (owner: rebuild them, do not drop them).
 
 ---
 
@@ -284,7 +292,11 @@ paths; `data/water/*` (`glint.ts` takes the world's wind); `data/landmarks/` `fa
 **Moved into `src/world/`** (pure already; tests move with them): `ui/scene/` `sunPath`, `moonPath`, `moonShape`,
 `visibleSun`, `skyProjection`, `skyline`, `sceneLight`, `ridgeLightTone`, `ridgeLighting`, `moonlight`, `afterglow`,
 `waterLight`, `snowLine`, `seaLine`, `shadowRuns`, `cloudSeen`, `sceneBox`, `sceneModel` (twilight); the haze/wind parts of
-`atmo/mapAir.ts`.
+`atmo/mapAir.ts`. Done in C0, with two departures: `sceneModel.ts` is now `world/twilight.ts` (the name clashed with
+`scene/model`), and `atmo/mapParts.ts` (`haze`, `heat`, `rainRate`, `visibilityKm`) stays where it is, the world
+importing it, until C9 deletes the WebGL air and moves what is left into `world/air.ts`. `data/city/villageStyle.ts`
+(`clusterStyle`, `clusterRoofs`) holds the roof-evidence rule the world uses (`world/place.ts`): it moves next to
+`settlement.ts` before C9 deletes the stand-in machinery, not with it.
 
 **Rewritten**: `ui/scene/marks/hillScene.ts` (→ `scene/model/portrait.ts`, `outside.ts`, `marks.ts`),
 `sceneLayout.ts`, `markBox.ts`, `homeMode.ts`, `hillPlane.ts`, `plainLabels.ts` (→ `model/layout.ts`); the hooks
@@ -324,8 +336,9 @@ redone in the hand's contour rows in `model/portrait.ts`).
 
 **Determinism.** Randomness only from `seeded(hashId(...))`; ids are stable (place id, mark id, bank index). The clock
 enters only as `world.at` and, for animated layers, `phase` seconds passed by the loop. `src/scene/purity.test.ts`
-greps `src/world`, `src/scene/model`, `src/scene/paint` for `Math.random`, `Date`, `performance.now`, `document`,
-`window` and fails on any hit.
+greps `src/world`, `src/scene/model`, `src/scene/paint` for `Math.random`, `Date.now`, an argument-less `new Date()`,
+`performance.now`, `document`, `window` and fails on any hit. (A `Date` made from a given instant, as the moved
+`sunPath`/`moonPath` do, is a value, not the clock: allowed.)
 
 **Tier 1, world and model unit tests (vitest, node, fast).** Structural assertions over the 8 baseline places
 (`test/scenePlaces.ts`) × fixed moments:
@@ -385,7 +398,8 @@ layer; without the flag the app shows the SVG scene, frozen: **the SVG baseline 
 next to SVG, plus the stage's own moments. Sizes are relative (S = 1, M = 2–3, L = 4–5, XL = 6–8).
 
 **C0. Data contracts and the world state — M (3).**
-`HourPoint` gains `cloudLow/Mid/High`, `windDirection`, `visibility` (Worker allowlist first); new fixture.
+**Done 2026-11-19** (§6). `HourPoint` gains `cloudLow/Mid/High`, `windDirection`, `visibility`, `windAloft` (Worker
+allowlist first); new fixture.
 `src/world/` built from the moved pure modules; `useWorld` in `App.tsx`, feeding nothing visible yet.
 *Accept:* world tests green (light side, wind sign, no rain without cloud); SVG baseline byte-identical; tests of moved
 modules pass unchanged.
@@ -420,13 +434,19 @@ Pina, Ein Gedi reviewed with the owner; icons take haze and lit side.
 
 **C5. Cities from outside: variant B and its open items — L (5).**
 `model/outside.ts` from `outsideView.ts` (B only): built squares as one jagged mass at real heights, towers fold or rise
-as spires (A's slot budget if spires crowd), famous / ≥ 150 m as full glyphs. Open items: (1) **coastal sea** for Tel
-Aviv and Netanya from the coast to the frame edge at the place's depth (`WaterState.coastalSea`, from the water mask,
-which the world loads for every place); (2) **Haifa's rows up the Carmel face**: depth may lift rows up the face, not
-only along the crest (rule in `outsideProject`, pending the owner's yes); (3) **towers beyond the frame** (5–6 km or
+as spires (A's slot budget if spires crowd), famous / ≥ 150 m as full glyphs. Open items: (1) **coastal sea** for every
+coastal place seen from outside (Tel Aviv and Netanya among them), from the coast to the frame edge at the place's depth (`WaterState.coastalSea`, from the water mask,
+which the world loads for every place); (2) **rows climb slopes**: for every place seen from outside, depth may lift
+rows up a slope the place stands on, not only along the crest (a general rule in `outsideProject`, from the ground's
+height under each row; owner: yes, as a rule, not a Haifa case); (3) **towers beyond the frame** (5–6 km or
 outside the home cluster) with the same levels of detail (Eshkol Tower as a glyph, not a stick); (4) **icons** take the
-same haze and lit side (falls out of C4's painters); (5) **"לבניה"**: a data fix in the landmarks build
-(`scripts/landmarks/`), giving the Haifa cooling tower its proper name in the shipped cells, not a new rule.
+same haze and lit side (falls out of C4's painters); (5) **when an industrial structure is a landmark**: a general rule in the
+landmarks build (`scripts/landmarks/`) for every chimney, cooling tower, silo or mast: it counts as a landmark (and
+takes a name) only from its own data (a name that is a name, not an operator, a status or a construction note such as
+"לבניה"; fame; height), never by a per-object fix; (6) **the frame is the place's own boundary**: the outside view's
+frame is cut at the place's boundary from data (its municipal / locality boundary where mapped, else the Voronoi cell of
+the place points round it) rather than at its contiguous built-up cluster, so a city grown into its neighbours (Gush
+Dan) shows only itself; one rule for all places.
 *Accept:* SKYLINE.md's B counts reproduced (Tel Aviv 10 / 54 / 237, Haifa 6 / 9 / 90 …) by a test; stills of the six
 skyline cities at 11:00 and 16:30; Eshkol Tower drawn as a glyph from Hadar.
 
@@ -436,7 +456,8 @@ glow, afterglow, horizon band; sun and moon discs (phase, veil by cloud); stars 
 layer, lit undersides at low sun, drifting with the wind at their height; seen clouds (satellite) as banks; thunder
 flash. With the flag, `Atmosphere` is not mounted.
 *Accept:* stars 0 under full cover; drift direction = wind; perf: animated frame ≤ 4 ms throttled; sky-vs-WebGL
-stills at golden, noon, night, overcast; owner confirms dropping WebGL (open question 2).
+stills at golden, noon, night, overcast; the in-cloud lightning rebuilt as a flash on the cloud layer (WebGL is
+dropped: owner decision 1).
 
 **C7. Weather — M (4).**
 Rain from the raining banks only, slanted by wind, shafts at their true azimuths (over the right ridge), the ground
@@ -445,11 +466,10 @@ tree lean; water ruffle. Reduced motion: one still frame.
 *Accept:* rain/wind tests; stills of the v1b rain moment rebuilt from data (Haifa, rain, wind from the west).
 
 **C8. Loading as an animation — S (2).**
-`model/loading.ts` + `paint/loading.ts`: while the panorama loads, mist drifting and/or a ridge line forming (drawn as
-a stroke that grows from the place's direction outward, then fills); the real planes cross-fade in when they arrive.
-Both modes built (`?loading=mist|ridge|both`) for the owner to choose. Offline (no panorama ever): the animation
-settles to a still (open question 1). The drawn stand-ins are no longer used by the canvas path.
-*Accept:* no layout jump when the land arrives; ≤ 4 ms per frame; a short clip of each mode for the owner.
+`model/loading.ts` + `paint/loading.ts`: while the panorama loads, mist drifting with a faint ridge line forming in it
+(a stroke that grows from the place's direction outward); the real planes cross-fade in when they arrive. Offline with
+no land data ever: quiet mist (owner decision 2). The drawn stand-ins are no longer used by the canvas path.
+*Accept:* no layout jump when the land arrives; ≤ 4 ms per frame; a short clip for the owner.
 
 **C9. Parity, switch, delete — M (3).**
 All pixel references reviewed by the owner (stills sheet per place); perf within budget on the reference phone and in
@@ -473,13 +493,70 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
 - Pixel references depend on the Chromium build; pin `chromium-1243` and re-record on upgrade only.
 - 19 glyph kinds + 4 icons + portrait in the new hand is the largest piece (C4); the SVG generic glyphs are the
   reference for sizes and silhouettes.
-- New hourly fields need the Worker first; until then fallbacks drive clouds and wind (less true).
+- New hourly fields need the Worker deployed first; until then fallbacks drive clouds, wind and visibility (less true,
+  marked in `WorldState.sources`).
 
-**Open questions for the owner.**
-1. Loading: mist, a ridge line forming, or both? And offline with no panorama ever: a settled still, or keep a drawn
-   valley?
-2. Drop the WebGL sky (and its moving noise texture, heat shimmer, lightning) for the canvas sky? Recommended.
-3. Wind aloft: request 850/500 hPa wind (a Worker change), or derive cloud drift from the 10 m wind?
-4. Haifa: may the outside view lift rows up the Carmel face (depth up the slope), or stay on the crest line?
-5. Very wide places (Ramat Gan): cut the frame at the place's boundary rather than its built-up cluster?
-6. Birds and meteors (`atmo/life`): stay HTML over the canvas, or move into the weather layer later?
+**Owner decisions (2026-11-19)**, answering the open questions:
+1. **Sky:** moves to canvas; `src/atmo/gl/` is deleted at C9, but its in-cloud lightning (C6) and heat shimmer (C7)
+   are rebuilt in canvas, so nothing is lost.
+2. **Loading (C8):** mist with a faint ridge line forming in it; offline with no land data ever: quiet mist.
+3. **Cloud drift:** the forecast's wind at cloud height (850 / 700 / 300 hPa, a Worker change: in the repo, not
+   deployed, see §6); until it arrives, derived from the 10 m wind as a marked fallback.
+4. **Rows climb slopes:** in the outside view, a place's rows may climb the slope it stands on (Haifa's Carmel face is
+   one case of it): a general rule, not a Haifa case (C5 item 2).
+5. **Frame at the place's own boundary:** the outside view's frame is cut at the place's boundary from data (municipal
+   / locality boundary, or the Voronoi cell of the place points), not at its contiguous built-up area (Ramat Gan is one
+   case of it): a general rule (C5 item 6).
+6. **Birds and meteors** (`atmo/life`): stay HTML now; move into the canvas after the switch (after C9).
+
+**Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
+algorithms must handle every place correctly (see the rules at the top).
+
+---
+
+## 6. Status
+
+**C0 done (2026-11-19).** Commits on `ccr-85ec24f0-9ayxgu`; the shipped app and the SVG baseline are unchanged
+(snapshots untouched; production never builds the world: `useWorld` runs only with `?canvas=1`, a dev-only param).
+- *Forecast contract:* `HourPoint` gains `cloudLow/Mid/High`, `windDirection` (`blendDirection`: the models' unit
+  vectors averaged), `visibility`, `windAloft` (850 / 700 / 300 hPa). The repo's Worker allowlist lists
+  `wind_direction_10m`, `visibility`, `wind_speed_/wind_direction_` at `850hPa`, `700hPa`, `300hPa`; the app asks for
+  them only when `ASK_SCENE_HOURLY` (`data/openMeteo/request.ts`) is flipped, after the Worker is deployed and the
+  README check answers 200. **Not deployed**: until then the world runs on the marked fallbacks. A contract test checks
+  the app's query with the new fields passes the repo's Worker.
+- *Moved:* the pure sky and light modules from `ui/scene/` into `src/world/` (§2), tests unchanged but for paths.
+- *World:* `src/world/` `types.ts`, `world.ts` (`buildWorld`, `makeWorldBuilder` keeping terrain, place and marks
+  while their inputs are the same objects), `bodies.ts`, `light.ts`, `air.ts`, `clouds.ts`, `rain.ts`, `wind.ts`,
+  `night.ts`, `terrain.ts`, `water.ts`, `place.ts`, `keys.ts`; `src/scene/react/useWorld.ts`, called in `App.tsx` under
+  `?canvas=1` (the world is left on `window.__world` for inspection).
+- *Decisions where the plan was vague:*
+  - `WorldState` adds `preview` and `sources` (every fallback marked: cloud layers, a cloud raised for rain, wind
+    direction, wind aloft, visibility). `Light` adds `ray` (the ridge lighting's direction), `noonWeight`, `rimX`,
+    `glow` and `palette` (the sky tones the moved `ridgeLightTone` mixes from), so C2 can reuse the SVG's tone rules.
+    `Wind` adds `towardDeg` and `aloftAcross` (the wind aloft may turn). `Body` x/y are where the SVG draws the disc.
+  - **Wind across is camera-aware** (`lateral` of where the wind goes): a westerly moves right → left in the true
+    (un-mirrored) view. The WebGL air's `windU` still assumes the old mirrored view (a westerly moves left → right);
+    it is frozen with the rest of the shipped scene and goes at C9.
+  - **Cloud layers:** the forecast's three layers scaled so together (independent layers) they make the shown cover
+    (the satellite may have corrected now's); fallback: low and mid split the thick cloud evenly, high takes the rest.
+    Banks are seeded by place, level and index only (never the hour), round the whole horizon, spread by the golden
+    angle so a growing cover fills the sky evenly; low cloud's base from the dew point (LCL, 300–2500 m).
+  - **Rain:** the forecast's rain is the truth. It falls from the low layer when that has ≥ 30 %, else the mid; when
+    neither has, the low layer is raised to 60 % (`sources.rainCloudRaised`). Cells are the raining layer's banks.
+  - **Light:** the sun when over the land in its own direction with ≥ 8 % through the haze, its direct share dimmed by
+    the cloud in front (low 95 %, mid 85 %, high 30 % blocking, as expected values); under 5 % direct it is `sky` (no
+    side, softness 1). Moon when its strength (`moonlightStrength`) is ≥ 0.05. Shadow softness 1 below 20 % direct.
+  - **Air:** visibility from the picked hour, else now's, else humidity (`40 × 10^−((RH−50)/50)^1.5` km), dust folded
+    in; `fade(km) = 1 − exp(−3.912 km / V)`.
+  - **Place:** a place is seen from outside (variant B) when `seenFromOutside` (moved out of `hillScene`, unchanged):
+    its homes read as a large town or 8+ towers stand within its reach; else a portrait with roofs by evidence. The
+    marks still come from `hillScene` (variant `b` or none) until C4–C5 rewrite it.
+  - **Ground wet:** the shown hour's rain and the three hours before it, fading by a quarter an hour.
+  - `buildWorld` cold costs 6–90 ms under node (the marks, as in the SVG scene; Tel Aviv the most); a change of hour
+    with the builder ~2 ms. The 15 ms budget is for the world without the marks rewrite; to recheck at C4.
+- *Tests:* `src/world/world.test.ts` (35, the 8 baseline places): sun and moon, light side and shadow direction at 4
+  hours, overcast, moonlight; air fade and visibility sources; cloud layers and fallbacks, no rain without a raining
+  layer, rain cells under raining banks, a cloud raised for rain; one wind sign for rain slant and drift, drift growing
+  with height, forecast wind aloft, glint with wind speed; lit share, darkness, stars through clear sky; portrait vs
+  outside view, east drawn left of the dot, water in view, ground wetness; part memoisation and stable keys.
+  `src/data/openMeteo/sceneHours.test.ts`: direction blending, the gated request, mapping the new fields.

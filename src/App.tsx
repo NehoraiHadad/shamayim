@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
@@ -26,7 +26,8 @@ import { sheetVars, useSheetPaper } from './theme/sheetLight'
 import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
-import { forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
+import { canvasScene, forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
+import { useWorld } from './scene/react/useWorld'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
@@ -87,6 +88,13 @@ export default function App() {
   const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected),
     cloudsSeen: selected ? 0 : seenClouds.length, ...forcedWeather() } : null), [forecast, now, place, selected, seenClouds])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
+  // The canvas scene's world state (`?canvas=1`, dev only; stage C0 builds it and draws nothing from it yet).
+  const canvas = canvasScene()
+  const world = useWorld(useMemo(() => (canvas && forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
+    seenClouds, forced: forcedWeather() } : null), [canvas, place, forecast, now, selected, terrain, marks, city, seenClouds]))
+  useEffect(() => {
+    if (world) (window as Window & { __world?: unknown }).__world = world
+  }, [world])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
     air: SCENE_25D && air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],

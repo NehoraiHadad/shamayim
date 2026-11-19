@@ -53,6 +53,17 @@ export interface HourPoint {
   windDirection?: number | null
   /** Horizontal visibility, metres; null or absent when not asked or not known. */
   visibility?: number | null
+  /**
+   * Wind at the clouds' heights: 850 hPa (~1.5 km, low cloud), 700 hPa (~3 km, mid), 300 hPa (~9 km, high). Null or
+   * absent when not asked or not known; the world then derives it from the 10 m wind (marked as a fallback).
+   */
+  windAloft?: { low: WindVector | null; mid: WindVector | null; high: WindVector | null } | null
+}
+
+/** A wind: speed in km/h and the direction it comes FROM (deg, 0 = north). */
+export interface WindVector {
+  speed: number
+  fromDeg: number
 }
 
 export interface DayPoint {

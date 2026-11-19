@@ -1,5 +1,5 @@
 import { blendDirection, blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
-import type { HourPoint } from '../../domain/types'
+import type { HourPoint, WindVector } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
 import { pairs, thickCloud } from './mapHelpers'
 
@@ -20,6 +20,10 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
   // Asked only once the Worker serves them (`request.ts`, ASK_SCENE_HOURLY); absent columns read as null.
   const windDirection = pairs(hourly, 'wind_direction_10m', length, 'hourly')
   const visibility = pairs(hourly, 'visibility', length, 'hourly')
+  const aloft = (['850hPa', '700hPa', '300hPa'] as const).map((level) => ({
+    speed: pairs(hourly, `wind_speed_${level}`, length, 'hourly'),
+    from: pairs(hourly, `wind_direction_${level}`, length, 'hourly'),
+  }))
   const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
@@ -50,6 +54,15 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
       cloudHigh: blendNumber(cloudHigh[index], weight),
       windDirection: blendDirection(windDirection[index], weight),
       visibility: blendNumber(visibility[index], weight),
+      windAloft: windAloft(aloft.map(({ speed, from }) => vector(blendNumber(speed[index], weight), blendDirection(from[index], weight)))),
     }]
   })
+}
+
+const vector = (speed: number | null, fromDeg: number | null): WindVector | null =>
+  speed === null || fromDeg === null ? null : { speed, fromDeg }
+
+/** The three levels, or null when none is known (the fields not asked yet). */
+function windAloft([low, mid, high]: (WindVector | null)[]): HourPoint['windAloft'] {
+  return low || mid || high ? { low, mid, high } : null
 }

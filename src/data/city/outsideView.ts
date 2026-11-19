@@ -5,7 +5,7 @@ import { LAT_STEP, LON_STEP } from './grid'
 import { roofHeight } from './skylineHeight'
 import type { CityTower } from './types'
 import { hashId, seeded } from '../landmarks/hash'
-import { offsetKm, type Coordinate } from '../landmarks/project'
+import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
 
@@ -68,6 +68,15 @@ export function outsideFrame(clusters: readonly Cluster[] | undefined, reachKm: 
   const f = halfPx * backKm / Math.max(-box.w, box.e)
   const midDepth = eyeN - (box.n + box.s) / 2
   return { ...box, eyeN, backKm, f, centerX, k: K_MID, midDepth }
+}
+
+/**
+ * A place is seen from outside as a city (its towers and built squares, variant B) when its own homes read as a large
+ * town, or when 8 or more towers stand within its portrait reach; otherwise it is a portrait.
+ */
+export function seenFromOutside(place: Coordinate, landmarks: readonly Landmark[], towers: readonly CityTower[], reachKm: number) {
+  return landmarks.some(mark => mark.source === 'place' && mark.glyph === 'homes-large')
+    || towers.filter(tower => distanceOf(place, tower) <= reachKm).length >= 8
 }
 
 export function inFrame(frame: OutsideFrame, dx: number, dy: number, marginKm = 0) {

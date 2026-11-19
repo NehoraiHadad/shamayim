@@ -45,6 +45,9 @@ const HOURLY = [
   'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high',
   // The canvas scene's world state: each hour's wind direction and visibility (app: `SCENE_HOURLY`).
   'wind_direction_10m', 'visibility',
+  // Wind at the clouds' heights (cloud drift): 850, 700 and 300 hPa.
+  'wind_speed_850hPa', 'wind_direction_850hPa', 'wind_speed_700hPa', 'wind_direction_700hPa',
+  'wind_speed_300hPa', 'wind_direction_300hPa',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
