@@ -36,8 +36,8 @@ export function launch({ gpu = false } = {}) {
   return chromium.launch({ executablePath, args })
 }
 
-export function sceneUrl(base, { place, at, weather = '', overlay = false }) {
-  const q = new URLSearchParams({ place, at, phase: '0' })
+export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0' }) {
+  const q = new URLSearchParams({ place, at, phase: String(phase) })
   if (weather) q.set('weather', weather)
   if (overlay) q.set('overlay', '1')
   // SCENE_PAINT=main: the layers painted on the main thread (the fallback where a browser has no paint worker).

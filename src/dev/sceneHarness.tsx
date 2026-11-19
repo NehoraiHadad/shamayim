@@ -15,6 +15,7 @@ import { loadWaterMask } from '../data/water/waterMask'
 import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
 import { layersOn, sceneModel } from '../scene/model'
+import { strikes } from '../scene/model/anim'
 import type { SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
@@ -108,8 +109,14 @@ function Scene({ input }: { input: WorldInput }) {
   const onReady = useCallback((name: string) => {
     ready.current.add(name)
     if (ready.current.size < 2) return
+    // `phase=<s>` (or `phase=flash`: a moment into the first lightning stroke) lays the sky as the loop would at that
+    // phase: a still of the animation, the same pixels every time.
+    const asked = new URLSearchParams(location.search).get('phase')
+    const flash = sky.find((layer) => layer.kind === 'flash')?.animated?.pulse
+    const phase = asked === 'flash' ? (flash ? strikes(flash)[0].at + 0.03 : 0) : Number(asked ?? 0) || 0
+    if (phase > 0) skySurface.current?.composite(onSkyCanvas(sky), phase)
     void document.fonts.ready.then(() => { win.__sceneReady = true })
-  }, [])
+  }, [sky])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
   const size = { width: box.width, height: box.landHeight, dpr: box.dpr }

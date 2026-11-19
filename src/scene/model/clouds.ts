@@ -260,8 +260,8 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
 const FLASH: RGB = [0.86, 0.9, 1]
 
 /**
- * In-cloud lightning, only when the world has thunder (`rain.thunder`): the banks that rain nearest the middle of the view
- * (two at most) each light from within on a seeded schedule of flashes (`anim.ts`), drifting with their layer.
+ * In-cloud lightning, only when the world has thunder (`rain.thunder`): the largest banks that rain in view (two at most)
+ * each light from within on a seeded schedule of flashes (`anim.ts`), drifting with their layer.
  */
 export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom = skyGeom(world, box)):
   LayerOf<'flash'>[] {
@@ -276,8 +276,11 @@ export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly
     const k = Math.round((mid - b.x) / geom.period)
     return b.x + k * geom.period
   }
+  // The largest raining banks in view (the near ones, high on the dome, where a flash shows over the land).
+  const half = box.width / 2
   const candidates = drawn.banks.filter((b) => cells.has(b.id)).map((b) => ({ b, x: inView(b) }))
-    .sort((a, c) => Math.abs(a.x - mid) - Math.abs(c.x - mid)).slice(0, 2)
+    .filter(({ b, x }) => Math.abs(x - mid) < half + b.w / 4)
+    .sort((a, c) => c.b.w * c.b.h - a.b.w * a.b.h).slice(0, 2)
   return candidates.map(({ b, x }, i) => {
     const pad = b.w * 0.45
     const bank = { ...b, x }
@@ -285,7 +288,7 @@ export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly
       kind: 'flash' as const, id: `flash.${i}`, surface: 'sky' as const, z: 9, soft: true, bank, rgb: FLASH, period: geom.period,
       bounds: { x: Math.floor(x - b.w / 2 - pad), y: Math.floor(b.y - b.h * 1.8 - pad * 0.5), w: Math.ceil(b.w + 2 * pad), h: Math.ceil(b.h * 2.3 + pad) },
       animated: { mode: 'drift' as const, speed: drawn.animated?.speed ?? 0, period: geom.period,
-        pulse: { seed: b.seed, first: 1.5 + (b.seed % 7), every: [7, 22] as [number, number] } },
+        pulse: { seed: b.seed, first: 1.5 + (Math.abs(b.seed) % 7), every: [7, 22] as [number, number] } },
       key: layerKey('flash', skyBoxKey(box, true), bankKey(bank)),
     }
   })
