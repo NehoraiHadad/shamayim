@@ -88,6 +88,7 @@ export function terrainFromPanorama(given: Panorama,
     groundAt: profiles.groundAt,
     ...(given.local ? { heightNear: (dx: number, dy: number) => localHeight(given.local!, dx, dy) } : {}),
     angleY: yOf,
+    eyeM: p.eyeM,
     camera: view.camera ?? SCENE_CAMERA,
   }
 }

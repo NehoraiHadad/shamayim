@@ -47,12 +47,14 @@ export interface LabelInput {
   minTop: number
   obstacles: Box[]
   width: number
+  /** One more top to try, last: over what the place builds round the dot (the outside view, C5b). */
+  over?: number
 }
 
 /** The elevation label's centre x and top: the nearest spot to its own that overlaps no mark and not the dot. */
-export function placeLabel({ dot, text, top, minTop, obstacles, width }: LabelInput): Point {
+export function placeLabel({ dot, text, top, minTop, obstacles, width, over }: LabelInput): Point {
   const w = textWidth(text, 11)
-  const tops = [top, dot.y - DOT_R - 1 - LABEL_H].filter((y) => y >= minTop)
+  const tops = [top, dot.y - DOT_R - 1 - LABEL_H, ...over === undefined ? [] : [over]].filter((y) => y >= minTop)
   const all = [...obstacles, boxAround(dot.x, dot.y, DOT_R)]
   for (const shift of shifts(60, 2)) {
     for (const y of tops) {

@@ -237,8 +237,13 @@ export interface SeaDesc {
   drift?: number
   light: RGB
   dark: RGB
+  /** The sea's horizon: a fine light line, level, from the shore to the edge (C5b). */
+  horizon: { y: number; x0: number; x1: number; rgb: RGB; alpha: number }
 }
 export type { GlyphKind, IconKind }
+
+/** The light the outside view's mass takes from the sky (C5b): its strength, the brighter sky's side, tones per tier. */
+export interface SkyForm { strength: number; side: -1 | 0 | 1; tiers: { top: RGB; face: RGB; foot: RGB }[] }
 
 /**
  * The colours a glyph, a house or a tree is painted in (stage C4), after the light and the air at its distance: the
@@ -339,7 +344,10 @@ export type LayerDesc =
   | LayerBase & { kind: 'portrait'; houses: HouseDesc[]; trees: TreeDesc[]; glyphs: GlyphDesc[]; tones: Tones; shine: Shine
       litSide: 'left' | 'right' | null }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
-      litSide: 'left' | 'right' | null }
+      litSide: 'left' | 'right' | null
+      /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */
+      land: { top: Pt[]; base: Pt[]; tone: RGB; rim: RGB } | null
+      form: SkyForm }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */
   | LayerBase & { kind: 'shafts'; precip: Precip; shafts: ShaftDesc[]; period: number }

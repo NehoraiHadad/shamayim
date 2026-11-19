@@ -454,3 +454,36 @@ Main-thread fallback (`--paint=main`, Haifa): painting whole strips on every scr
 → 575 ms); the main thread's cache now paints a strip a frame at a time (the frame shown when its key changes, the others
 as the loop first lays them: `LayerCache.ensureFrame`), which brings it back (p50 167, p95 225 ms: over the gate as the
 fallback was before C7). The animated frame there is p50 1.1, p95 4.8 ms (the first loop paints the strips' frames once).
+
+## C5b (2026-11-19): the outside view's polish, and the place part
+
+The place part of the world (`placeOf`, built once per place) in node, warm (4 builds; the first build of a city cold
+~90 / 50 ms for Tel Aviv / Haifa), before → after:
+
+```
+  tel-aviv 66 → 30   jerusalem 81 → 40   ramat-gan 77 → 14   haifa 55 → 30   beer-sheva 40 → 22   netanya 27 → 15 ms
+```
+
+Where it went (CPU profile of 4 Tel Aviv builds): `dedupeTowers` compared every tower with every kept one (114 ms over 4
+builds): now by 15 m buckets, the same answer; `groundFn` scanned the ridge's points per call: now a binary search, the
+same answer (shared with the SVG, whose snapshots stay byte-identical); the frame's four quantiles sorted a copy each: one
+typed sort per axis; each built cell's ground read once; the towers beyond no longer ask the panorama's projection
+(they are in the outside view's own, C5b item 5).
+
+In the browser, worker path, CPU ×4, dpr 2.75 (haifa / tel-aviv / shadmot-mehola; n = 1 per cold step, so noisy):
+
+```
+                    before (merged C6+C7)       after (C5b, three runs)
+  worldCold         785 / 684 / 262 ms          480–566 / 449–492 / 250   (reported only)
+  modelCold         43 / 31 / 24 ms   OVER      42–103 / 38–70 / 25   OVER (budget 10; the outside layer's first shape)
+  firstPaint        21 / 28 / 7 ms              36 / 26 / 25
+  scrub.model p95   34 / 24 / 19 ms   OVER      18–24 / 24–29 / 13   OVER for the cities
+  memory            —                           31 / 27 / 24 MB
+```
+
+Reading: the world's cold build is a quarter to a third shorter; the model's cold and scrub steps are as before within
+the noise (the sky's light on the mass adds three tones per haze tier, from the tier tones already made). Not done: the
+place part is still built on the main thread on the first paint's path (its inputs, the land cover, the city raster,
+the water mask and the boundaries, live there); moving `placeOf` into a worker, or building it when its own inputs
+arrive rather than with the first forecast, is the next step.
+

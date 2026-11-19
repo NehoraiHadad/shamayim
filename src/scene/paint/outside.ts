@@ -1,4 +1,4 @@
-import type { LayerOf, OutsideItem, SeaDesc, Shine, Tones } from '../model/types'
+import type { LayerOf, OutsideItem, SeaDesc, Shine, SkyForm, Tones } from '../model/types'
 import { rng } from './core'
 import { drawGlyph, drawLamps, glyphShadow } from './glyphs'
 import { AVIATION, type Lamp } from './glyphs/kit'
@@ -13,6 +13,8 @@ import { running, twinkling } from './water'
  * hill as small stone boxes with a lit face, dark window rows, a few towers), and photographs of Tel Aviv's and Haifa's
  * skylines from the north at dusk (towers as glass shafts with a bright edge on the sun's side, the low city a mottle of
  * pale blocks under them, window rows as fine horizontal texture, red lights on the tall tops by night).
+ * C5b: the place's own ground under it (its hill over the ridge line), the sea out to its horizon, the sky's light on the
+ * mass under any cloud (tops lighter, feet darker, the face to the brighter sky).
  * MEDIUM: the scene's flat opaque bodies cut from the ridge colour, hard edges, no outline; one light: the face toward
  * the true sun lit, the other in shade; haze in the tones (by row); a mass is many boxes, each its own plaster, its roof
  * edge catching the sky. ORDER: the coastal sea (wash down the band, ripples, the shore, the light's path) → the cast
@@ -56,6 +58,10 @@ function sea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
     }
   }
   ctx.restore()
+  // The horizon: the far water mirroring the sky at grazing angle, a fine light line, level.
+  const hz = s.horizon
+  ctx.fillStyle = css(hz.rgb, hz.alpha * (1 - .5 * shine.night))
+  ctx.fillRect(hz.x0, hz.y - .25, hz.x1 - hz.x0, .5)
   // The shore: a fine pale line where the land meets the water, broken where the sea's edge turns.
   ctx.strokeStyle = css(s.shore, .7 - .35 * shine.night)
   ctx.lineWidth = .55
@@ -64,17 +70,40 @@ function sea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
   ctx.stroke()
 }
 
+/** The place's own ground over the ridge line: the near land's tone, its crest catching the sky as the ridge's does. */
+function land(ctx: Ctx2D, l: NonNullable<LayerOf<'outside'>['land']>, shine: Shine) {
+  ctx.beginPath()
+  l.top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+  for (let i = l.base.length - 1; i >= 0; i--) ctx.lineTo(l.base[i][0], l.base[i][1])
+  ctx.closePath()
+  ctx.fillStyle = css(l.tone)
+  ctx.fill()
+  // The crest: a fine line where it stands over the ridge line, fading where it eases into it.
+  for (let i = 1; i < l.top.length; i++) {
+    const [x0, y0] = l.top[i - 1], [x1, y1] = l.top[i]
+    const rise = Math.min(1, (l.base[i][1] - 2 - y1) / 2)
+    if (rise <= 0) continue
+    ctx.strokeStyle = css(l.rim, .55 * rise * (1 - .5 * shine.night))
+    ctx.lineWidth = .5
+    ctx.beginPath()
+    ctx.moveTo(x0, y0 + .25)
+    ctx.lineTo(x1, y1 + .25)
+    ctx.stroke()
+  }
+}
+
 /**
  * One built cell: its plaster front, the face to the light, the shade, its window rows; a house its tile roof or flat
  * roof (with a heater on some), a block of the mass its roof edge.
  */
-function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: Shine, side: number, lamps: Lamp[]) {
+function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: Shine, side: number, lamps: Lamp[], f: SkyForm) {
   const r = rng(b.seed)
   const tint = r()
   const x0 = b.x - b.w / 2, h = b.foot - b.top
   const wall = mix(t.wall, t.stone, .1 + .45 * tint)
   ctx.fillStyle = css(wall)
   ctx.fillRect(x0, b.top, b.w, h)
+  skyLight(ctx, x0, b.top, b.w, h, f, b.tier)
   const face = Math.min(1.1, b.w * .3)
   if (side) {
     ctx.fillStyle = css(mix(t.lit, t.stoneLit, .3 * tint))
@@ -120,7 +149,7 @@ function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: 
     return
   }
   // A flat roof: its edge catches the sky (or the light), a parapet's dark line under it; a solar heater on some houses.
-  ctx.fillStyle = css(side ? mix(t.rim, t.lit, .3) : t.rim, (.55 + .3 * tint) * (1 - .45 * s.night))
+  ctx.fillStyle = css(side ? mix(t.rim, t.lit, .3) : mix(t.rim, f.tiers[b.tier].top, f.strength), (.55 + .3 * tint) * (1 - .45 * s.night))
   ctx.fillRect(x0, b.top, b.w, .45)
   ctx.fillStyle = css(t.deep, .35)
   ctx.fillRect(x0, b.top + .45, b.w, .3)
@@ -133,6 +162,27 @@ function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: 
     ctx.moveTo(hx - 1.2, b.top); ctx.lineTo(hx - .15, b.top - .8); ctx.lineTo(hx - .15, b.top)
     ctx.closePath()
     ctx.fill()
+  }
+}
+
+/**
+ * The sky's light on a wall (`SkyForm`): lighter toward its top, which sees more of the sky, darker toward its foot among
+ * the others; the side turned to the brighter half of the sky a little lighter, the other a little darker.
+ */
+function skyLight(ctx: Ctx2D, x0: number, top: number, w: number, h: number, f: SkyForm, tier: number) {
+  if (f.strength <= .02 || h < 1.2) return
+  const c = f.tiers[tier]
+  const a = f.strength
+  ctx.fillStyle = css(c.top, .8 * a)
+  ctx.fillRect(x0, top, w, Math.min(h * .3, 3))
+  ctx.fillStyle = css(c.top, .35 * a)
+  ctx.fillRect(x0, top + Math.min(h * .3, 3), w, Math.min(h * .25, 3))
+  ctx.fillStyle = css(c.foot, .75 * a)
+  ctx.fillRect(x0, top + h * .6, w, h * .4)
+  if (f.side && w >= 1.6) {
+    const fw = Math.min(1.2, w * .32)
+    ctx.fillStyle = css(c.face, .7 * a)
+    ctx.fillRect(f.side > 0 ? x0 : x0 + w - fw, top, fw, h)
   }
 }
 
@@ -163,7 +213,7 @@ function towerShadow(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t:
  * glass shaft brighter toward the sky, the floor bands, a lit edge on the light's side, its crown: a parapet, a setback
  * or a mast), windows lit by night, an aviation light on the tall.
  */
-function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones, s: Shine, side: number, lamps: Lamp[]) {
+function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones, s: Shine, side: number, lamps: Lamp[], f: SkyForm) {
   const r = rng(tw.seed * 7 + 1)
   const day = 1 - s.night
   const x0 = tw.x - tw.w / 2, top = tw.base - tw.h
@@ -192,6 +242,22 @@ function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones
     ctx.fillStyle = css(mix(t.wall, mix(t.glass, t.stone, .5), .35 * day))
     ctx.fillRect(x0, shaftTop, tw.w, tw.h - setback)
   }
+  if (f.strength > .02) {
+    // The sky's light down the shaft: brighter toward the top, which sees the most of it; the foot shaded by the mass.
+    const c = f.tiers[tw.tier]
+    const g = ctx.createLinearGradient(0, shaftTop, 0, tw.base)
+    g.addColorStop(0, css(c.top, .75 * f.strength))
+    g.addColorStop(.45, css(c.top, 0))
+    g.addColorStop(.7, css(c.foot, 0))
+    g.addColorStop(1, css(c.foot, .7 * f.strength))
+    ctx.fillStyle = g
+    ctx.fillRect(x0, shaftTop, tw.w, tw.base - shaftTop)
+    if (f.side) {
+      const fw = Math.max(.5, Math.min(1.5, tw.w * .28))
+      ctx.fillStyle = css(c.face, .75 * f.strength)
+      ctx.fillRect(f.side > 0 ? x0 : x0 + tw.w - fw, shaftTop, fw, tw.base - shaftTop)
+    }
+  }
   if (side) {
     // The face toward the light, and its outer edge catching it (a fine bright line, as glass and stone corners do).
     const lx = side > 0 ? x0 : x0 + tw.w - lit
@@ -214,7 +280,7 @@ function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones
     ctx.fillStyle = css(t.rim, .7 * (1 - .4 * s.night))
     ctx.fillRect(tw.x - cw / 2, top, cw, .4)
   }
-  ctx.fillStyle = css(side ? mix(t.rim, t.lit, .4) : t.rim, .8 * (1 - .4 * s.night))
+  ctx.fillStyle = css(side ? mix(t.rim, t.lit, .4) : mix(t.rim, f.tiers[tw.tier].top, f.strength), .8 * (1 - .4 * s.night))
   ctx.fillRect(x0, shaftTop, tw.w, .45)
   let tipY = top
   if (tw.crown === 2) {
@@ -248,6 +314,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const side = desc.litSide === 'left' ? 1 : desc.litSide === 'right' ? -1 : 0
   const frames = desc.animated?.frames
   const t = frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
+  if (desc.land) land(ctx, desc.land, s)
   if (desc.sea) sea(ctx, desc.sea, s, t)
   for (const item of desc.items) {
     if (item.kind === 'tower') towerShadow(ctx, item, tiers[item.tier], s)
@@ -255,8 +322,8 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   }
   const lamps: Lamp[] = []
   for (const item of desc.items) {
-    if (item.kind === 'box') box(ctx, item, tiers[item.tier], s, side, lamps)
-    else if (item.kind === 'tower') tower(ctx, item, tiers[item.tier], s, side, lamps)
+    if (item.kind === 'box') box(ctx, item, tiers[item.tier], s, side, lamps, desc.form)
+    else if (item.kind === 'tower') tower(ctx, item, tiers[item.tier], s, side, lamps, desc.form)
     else if (item.kind === 'tree') tree(ctx, item.tree, tiers[item.tier], s, side as 1 | -1 | 0, rockOf(desc, env, item.tree.seed))
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
   }

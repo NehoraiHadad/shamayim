@@ -443,7 +443,8 @@ dense at the dot, thinning at the edge), lit windows by `night.litShare`, tree l
 Pina, Ein Gedi reviewed with the owner; icons take haze and lit side.
 
 **C5. Cities from outside: variant B and its open items — L (5).**
-**Done 2026-11-19** (§6; widened by owner decision 11: every place by one builder; perf gates not all met).
+**Done 2026-11-19** (§6; widened by owner decision 11: every place by one builder; perf gates not all met); a polish pass,
+C5b (§6), reworked the coastal sea, the rows' ground, the houses' size, the sky's light on the mass and the towers beyond.
 `model/outside.ts` from `outsideView.ts` (B only): built squares as one jagged mass at real heights, towers fold or rise
 as spires (A's slot budget if spires crowd), famous / ≥ 150 m as full glyphs. Open items: (1) **coastal sea** for every
 coastal place seen from outside (Tel Aviv and Netanya among them), from the coast to the frame edge at the place's depth (`WaterState.coastalSea`, from the water mask,
@@ -1236,3 +1237,77 @@ baseline and the shipped app are unchanged (snapshots untouched; everything belo
   - Mist, smoke and sheen are all light over an empty form (the water's pattern), so a scrub repaints their light only;
     the model test's scrub rule is held for the land's other layers (the weather comes and goes with the hour).
   - No deploys needed for C7.
+
+**C5b done (2026-11-19): polish of the outside view, every item a general rule.** Commits on `ccr-85ec24f0-9ayxgu` (after
+merging C6 + C7 into it); the SVG baseline is unchanged (snapshots untouched; `groundFn`'s binary search and
+`dedupeTowers`' buckets give the same answers as before; the SVG's `baseYAt` and `outsideSkyline` without a `look` or a
+`lie.baseY` are as they were). Before/after: `qa/canvas/c5b/sheet-before-after.png` (the continuum places and the six
+cities at 11:00 and 16:30, C5 on the left, C5b on the right; the stills beside it, dpr 2, overlay).
+- *Drawing with the anidoodle skill* (owner decision 7): craft-bar, realism-and-craft and determinism read again; each
+  change looked at on 2–3× crops (Netanya's shore, Zikhron's and Rosh Pina's houses, Jerusalem and Tel Aviv's mass under
+  the cloud, Ramat Gan's towers beyond, Haifa's bay).
+- **The coastal sea is the sea seen from outside** (item 1, `world/outside.ts` `coastalSeaOf`, `model/outside.ts`
+  `seaOf`): water from the shore out to the true sea horizon, a level line at the panorama's own sea horizon
+  (`seaHorizonY`: the highest the sea surface is seen from the panorama's eye, curvature and refraction; `SceneTerrain`
+  gains `eyeM`), down to the sheet and under it. One perspective for the whole water (a row at depth d lies `C / d` below
+  the horizon); the shore from the water mask row by row through the place's depth, on south toward the horizon where the
+  mask has it, and on north straight toward the eye (perspective alone, so the water never spreads under the place's
+  foreground). On the sea the place's rows below the dot are stretched (one factor) so its shore lies at that horizon.
+  Tones by C3's own rule for open water (`openWaterTone`: Fresnel over the water's dark at each row's angle below eye
+  level, the air at its distance), graded from the horizon's ~15–24 km to the near water; a fine light horizon line, the
+  shore line, ripples shorter and fainter toward the horizon (C7's running ripples and glint twinkle kept), the light's
+  path widening toward the eye. Haifa's bay stays a wedge at the foot of the Carmel rows (its horizon under them).
+- **Every row stands on the place's own ground** (item 2, `lieOf`): the dot (the place point) on the ridge line where the
+  panorama draws it; every spot above or below it by its ground's height over the place point's (the panorama's local
+  grid) and by its depth, in the frame's perspective; below the dot pressed into the room to the sheet, above it into the
+  room up to the highest ridge line over the place's width, and never more than 6 px over the ridge line in view at its
+  own x (no plateau in the sky). The ridge line's undulation is no longer followed. Where the place's ground rises over
+  the ridge line it is drawn (`OutsideView.land`: its silhouette from the local ground, land only by the water mask, eased
+  into the line at its ends, the near land's tone, its crest catching the sky). `PlaceLie.baseY` and `lieBaseY` carry it
+  to the mass, towers, trees, marks (a mark moved across never floats over the land there) and fields. Zikhron Ya'akov
+  now reads as a body of houses round the dot, several rows stepping up its hill; Rosh Pina climbs its slope; Haifa still
+  climbs the Carmel from the bay.
+- **Houses stay legible** (item 3, `legibleHouse`, `lookOf`, `fabricBoxes`): the smallest legible two-storey house,
+  continuous in the place's extent (4.2 × 5.2 px for a place up to 1.5 km, 2.6 × 3.2 px for a 5 km city); the low fabric
+  (to 12.5 m) takes at least its px a metre, the rest the frame's own above it (every height in its true order, a 300 m
+  tower within 10 % of its true size); a house cell narrower on screen is not shrunk: houses are composed fewer and
+  larger, one per slot of the legible size, at the cell nearest the slot's middle (inside the footprint); trees sized
+  with them and one to a slot. Rosh Pina's houses are ~4.4 px wide (were 1.3–1.8).
+- **The mass has form from the sky under the cloud** (item 4, `skyFormOf`, painter `skyLight`): a roof sees the whole
+  sky, a wall half of it and its foot among the others less; the face turned to the sun's half of the sky (its side on
+  the screen, also with the sun behind cloud) sees the brighter half, in the sun's colour through the cloud. Its strength
+  grows as the direct light fades (0.35 + 0.65 × (1 − direct)), none by night: box tops and a tower's upper shaft
+  lighter, feet darker, the sky-side face lighter, flat roofs' edges in the sky's tone. No fake sun: the lit face and the
+  cast shadow still follow `light.direct` alone. Under the fixture's evening cloud the effect is real but modest (the
+  dusk sky itself is dark): Jerusalem at 16:30 reads as a backlit mass with lighter tops rather than flat grey.
+- **Towers beyond the place in the same perspective** (item 5, `beyondTowers`): at their true spot in the outside view's
+  own projection (x and base by the place's rule, never above the ridge line in view), their height by the perspective
+  at their depth, never nearer than the place's near edge (so never larger a metre than the place's own there), hazed by
+  their distance from the near edge (never less than the place's near row). Tel Aviv's towers seen from Ramat Gan fall
+  from up to 0.48 px a metre (C5) to ≤ 0.33 (Ramat Gan's own: 0.26–0.29); the panorama projection
+  (`projectSkylineTowers`) is no longer needed for them.
+- **Perf** (item 6, `qa/canvas/perf.md` C5b): the place part in node, warm, Tel Aviv 66 → 30 ms, Jerusalem 81 → 40,
+  Ramat Gan 77 → 14, Haifa 55 → 30, Be'er Sheva 40 → 22, Netanya 27 → 15 (cold first build 90 / 51 ms for Tel Aviv /
+  Haifa); in the browser at ×4 worldCold Haifa 785 → 480–566, Tel Aviv 684 → 449–492. From: `dedupeTowers` by 15 m
+  buckets (it was all-pairs, 114 ms of 4 Tel Aviv builds), `groundFn` by binary search, one sort for the frame's
+  quantiles, each cell's ground read once, the towers beyond without the panorama projection. modelCold stays over its
+  gate (31–55 ms for the cities, n = 1, noisy) and the scrub model's p95 too (23–28 ms): **not moved off the first paint
+  path nor into the worker** (the place part needs the land cover, raster, mask and boundaries, which live on the main
+  thread; the shape cache is per place view). The next step would be to build `placeOf` in the paint worker (or a
+  worker of its own) from transferable inputs, or to build it as soon as its own inputs arrive (before the forecast).
+- *Tests* (`scene/model/outside.test.ts`, 95, +22): the sea's level top at `seaHorizonY`, nothing above it, its shore
+  from the horizon down never back up, its distance falling down the water, the shore receding (no slab), tones darker
+  toward the eye, Haifa's bay under its Carmel rows, the light's path at 16:30; every village / town on its own ground
+  (same depth and ground → same height wherever the ridge line is, unless capped over a dip; nothing floats over the land
+  in view), Zikhron's body (≥ 4 row levels over > 8 px, higher ground higher by rank correlation); legible houses (width
+  and height at their depth, Rosh Pina's median > 3.5 px), the legible size continuous and falling with the extent, heights
+  in order under `look`; the sky's form (tops lighter, feet darker, the face to the sun's side, none by night); towers
+  beyond no larger a metre than the place's at its near edge or at their own depth, hazed no less than its near row, east
+  left / west right, Tel Aviv's from Ramat Gan no longer outgrowing Ramat Gan's. `marks.test.ts`: marks of a place seen
+  from outside stand on the land in view (fields on their own row).
+- *Pixel references*: re-recorded deliberately, 49 of 53 (all with an outside view; Ramon crater's four unchanged),
+  53/53 on both paint paths (worker and `SCENE_PAINT=main`).
+- *Not fixed*: the vertical tone edge in Tiberias' fog (C7's note) is not the place's boundary: it is the near plane's
+  haze turning over ~15 px where the near crest's distance jumps (`hazeKm`), which a fog makes stark; a planes-painter
+  matter, left. Departures: the towers beyond leave the panorama's projection for the outside view's (their x by the same
+  rule as the place's rows); the place's label now also avoids the mass round the dot and tries, last, a spot over it.

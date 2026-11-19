@@ -49,6 +49,8 @@ export interface SceneTerrain {
   /** DEM height in metres relative to the eye, including ground in front of the near ridge. */
   groundAt?: (x: number, km: number) => number | null
   angleY?: (angle: number) => number
+  /** The eye's height (m above sea level) the panorama was drawn for (panorama only). */
+  eyeM?: number
   /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
   snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
   /**

@@ -1,5 +1,5 @@
 import type { Place } from '../config/place'
-import { baseYAt, inFrame, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
+import { inFrame, lieBaseY, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import { sameTower } from '../data/city/skylineTowers'
 import { inSkylineReach } from '../data/city/skylineRay'
 import type { CityTower } from '../data/city/types'
@@ -14,7 +14,7 @@ import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
-import { rowKm } from './outside'
+import { lookOf, rowKm } from './outside'
 import type { WorldMark } from './types'
 
 /**
@@ -77,7 +77,9 @@ export interface MarksInput {
    * The outside view for a city seen from outside (variant B, `outside.ts`): its frame, its own boundary and slope
    * (`lie`), and the near ridge's distance at the dot (the haze of its nearest row); null for a portrait.
    */
-  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number } | null
+  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number
+    /** The place's own ground over the ridge line (C5b): a mark moved across stands on what is there. */
+    land?: { top: readonly (readonly [number, number])[] } | null } | null
 }
 
 /** Distance (km) of the land along a line of points at px x (the plane's own distances). */
@@ -212,6 +214,15 @@ export function marksOf(input: MarksInput): WorldMark[] {
   let marks = fitted(placed)
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
   const { frame, isCity, lie, baseKm } = outside
+  const look = lookOf(frame)
+  const landTop = outside.land?.top
+  /** The land's top at x: the ridge line, or the place's own ground where it rises over it. */
+  const surfaceAt = (x: number) => {
+    const line = ground(x) + 1
+    if (!landTop?.length || x < landTop[0][0] || x > landTop.at(-1)![0]) return line
+    const i = Math.min(landTop.length - 1, Math.max(0, Math.round(x - landTop[0][0])))
+    return Math.min(line, landTop[i][1] + 1)
+  }
   marks = marks.map((mark) => {
     const source = own.find((item) => item.id === mark.id)
     if (!source || !mark.portrait || !ownPlaced.has(mark.id)) return mark
@@ -219,29 +230,32 @@ export function marksOf(input: MarksInput): WorldMark[] {
     const at = outsideProject(frame, dx, dy)
     const scale = Math.max(.75, Math.min(1.3, at.k / frame.k))
     const tall = source.heightM >= 40 && (source.kind === 'custom' || source.kind === 'highrise')
-    const hPx = tall && isCity ? Math.round(source.heightM * at.k) : Math.round(mark.hPx * scale)
+    const hPx = tall && isCity ? Math.round(look.px(source.heightM, at.k)) : Math.round(mark.hPx * scale)
     const spec = GLYPH_SPECS[mark.glyphKind]
     // Clear of the dot, on its own side.
     const clear = DOT_R + 2 + spec.w / 2
     let x = Math.abs(at.x - dot.x) >= clear ? at.x : dot.x + (dx > 0 ? -clear : clear)
     // Out of the notes written on the land (the datum, the water's names), to the nearer side.
-    const lift0 = lie.lift?.(dx, dy) ?? 0
     for (const note of input.notes) {
-      const base = baseYAt(ground, x, at.near, floor, 0, lift0)
+      const base = lieBaseY(lie, ground, x, at.near, floor, 0, dx, dy)
       if (x + spec.w / 2 <= note.left || x - spec.w / 2 >= note.right || base <= note.top || base - spec.h(mark.hPx) >= note.bottom) continue
       const left = note.left - spec.w / 2 - 1, right = note.right + spec.w / 2 + 1
       x = Math.abs(x - left) <= Math.abs(right - x) ? left : right
     }
     const km = rowKm(frame, baseKm, dy)
-    const lift = lift0
     if (spec.field) {
-      // A field lies on the face under the crest at its depth, its row's drop added (down the slope with its row).
-      const under = Math.min(...[0, .25, .5, .75, 1].map((t) => ground(x - mark.w / 2 + t * mark.w)))
+      // A field lies on the face under the crest at its depth, its row's drop added (down the slope with its row); on the
+      // place's own ground (C5b) its row's ground is the crest it lies under.
+      const ridge = Math.min(...[0, .25, .5, .75, 1].map((t) => ground(x - mark.w / 2 + t * mark.w)))
+      const own = lie.baseY ? lieBaseY(lie, ground, x, at.near, floor, 0, dx, dy) - 1 : null
+      const under = own ?? ridge
+      const lift = own === null ? lie.lift?.(dx, dy) ?? 0 : 0
       const depth = Math.max(MIN_FIELD_DEPTH, Math.min((mark.depth ?? 2) + Math.max(0, lift), floor - under - fieldReach(mark.glyphKind)))
       return { ...mark, xPct: x / width * 100, x, base: under + depth, baseY: under + depth, depth, km }
     }
     const h = spec.h(hPx)
-    const base = baseYAt(ground, x, at.near, floor, 0, lift)
+    // On its own ground; moved across (off the dot, out of a note), never above the land that stands there.
+    const base = Math.max(lieBaseY(lie, ground, x, at.near, floor, 0, dx, dy), Math.min(floor, surfaceAt(x)))
     return { ...mark, xPct: x / width * 100, x, hPx, h, scale: 1, w: spec.w, base, baseY: base, km }
   }).filter((mark, i, all) => !mark.portrait || mark.absorbed || GLYPH_SPECS[mark.glyphKind].field
     || all.every((other, j) => j >= i || !other.portrait || GLYPH_SPECS[other.glyphKind].field || Math.abs(other.x - mark.x) >= 6))

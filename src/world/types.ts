@@ -269,10 +269,13 @@ export interface WaterState {
 }
 
 /**
- * A coastal place's own sea in the outside view (C5 item 1): from its coast to the screen's edge across the place's rows,
- * at sea level on the rows' line (layout px). `coast` runs far to near; `km` the haze at the far and near rows.
+ * A coastal place's own sea in the outside view (C5 item 1, C5b): the water from its shore out to the true sea horizon
+ * (`horizon`, a level line: the panorama's sea horizon), down to the sheet, on the sea's side of the place (layout px).
+ * `coast` runs from the horizon (far) to the sheet (near), along the shore where the place's land meets the water;
+ * `km` the water's distance at its rows (y → km, far to near): the horizon's, the place's far and near rows, the sheet's.
  */
-export interface CoastalSea { points: Pt[]; coast: Pt[]; side: 'left' | 'right'; top: number; bottom: number; km: [number, number] }
+export interface CoastalSea { points: Pt[]; coast: Pt[]; side: 'left' | 'right'; top: number; bottom: number; horizon: number
+  km: [number, number][] }
 
 /** A seen stretch of a built cell on the plain (`plainPatches`), with its cell's mean storeys (0 when unknown). */
 export interface FarPatch extends PlainPatch { level: number }
@@ -359,7 +362,10 @@ export interface WorldMark extends PlacedMark {
 export interface OutsideTreeSite { x: number; base: number; w: number; h: number; near: number; kind: 'tree' | 'cypress' | 'palm'
   seed: number; km: number }
 
-/** A tower beyond the place, at its true bearing and distance (C5 item 3), with the outside view's level of detail. */
+/**
+ * A tower beyond the place (C5 item 3): in the outside view's own perspective at its true spot (C5b: scaled and hazed by
+ * its true distance from that eye, never larger than the panorama shows it), with the outside view's level of detail.
+ */
 export interface BeyondTower extends OutsideTower { km: number }
 
 /** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
@@ -384,6 +390,11 @@ export interface OutsideView {
   fabric: 'cover' | 'raster'
   /** Its houses' roofs: by roof evidence (5+ mapped roofs), else mixed. */
   roofs: 'tile' | 'flat' | 'mixed'
+  /**
+   * The place's own ground where it rises over the ridge line (C5b): its silhouette from the local ground (`top`, west to
+   * east on screen, layout px) down to the ridge line (`base`); empty where the place lies under the line.
+   */
+  land: { top: Pt[]; base: Pt[]; km: number } | null
 }
 
 /**

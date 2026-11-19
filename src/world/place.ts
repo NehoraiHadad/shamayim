@@ -91,7 +91,7 @@ export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideVie
   const skyline = view?.skyline ?? null
   const marks = marksOf({ place, terrain, landmarks, width, dot, reachKm, homeHalf: portraitHalf(reachKm, known), style: style.style,
     notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
-    outside: view ? { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm } : null })
+    outside: view ? { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land } : null })
   // The portrait first (round the dot, out of the notes and the marks among its roofs), then the height label: under the
   // houses that stand over it (as the SVG scene's settlement label), clear of the marks; the houses and trees it would
   // cover give way to it. A place with no houses of its own (a point in a crater, a summit) has no portrait.
@@ -105,12 +105,22 @@ export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideVie
     : Math.min(VISIBLE_BOTTOM - 1 - LABEL_H, Math.max(dot.y + 7, ...over.map((h) => h.base + 2)))
   const obstacles = [...marks.filter((m) => m.plane !== 'far').map(markBox),
     ...[...skyline?.towers ?? [], ...view?.beyond ?? []].map((t) => ({ left: t.x - t.w / 2, right: t.x + t.w / 2, top: t.baseY - t.h, bottom: t.baseY }))]
-  const spot = placeLabel({ dot, text: label.text, width, top, minTop: label.below ? terrain.seaY + 2 : 0, obstacles })
+  // Seen from outside, the place's own mass and trees round the dot are obstacles too (the dot stands among its rows, C5b);
+  // the label tries last over the mass there, in the sky, rather than cutting a hole in it.
+  const reach = textWidth(label.text, 11) / 2 + 62
+  const massNear = view ? [...view.skyline.boxes.map((b) => ({ left: b.x - b.w / 2, right: b.x + b.w / 2, top: b.top - 2.5, bottom: b.foot })),
+    ...view.trees.map((t) => ({ left: t.x - t.w, right: t.x + t.w, top: t.base - t.h, bottom: t.base }))]
+    .filter((b) => b.right > dot.x - reach && b.left < dot.x + reach) : []
+  const half0 = textWidth(label.text, 11) / 2 + 2
+  const overMass = massNear.filter((b) => b.right > dot.x - half0 && b.left < dot.x + half0).concat(obstacles.filter((b) => b.right > dot.x - half0 && b.left < dot.x + half0))
+  const overTop = view && overMass.length ? Math.min(...overMass.map((b) => b.top)) - LABEL_H - 3 : undefined
+  const spot = placeLabel({ dot, text: label.text, width, top, minTop: label.below ? terrain.seaY + 2 : 0,
+    obstacles: [...obstacles, ...massNear], ...(overTop !== undefined ? { over: overTop } : {}) })
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y }, notes }
   if (view && frame && skyline) {
     return { marks, labels, ownSkyline, coastalSea: view.sea, place3: { kind: 'outside', dot, reachKm, seed, skyline, frame,
       bounds: view.bounds, topM: view.topM, beyond: view.beyond, baseKm: view.baseKm, trees: view.trees, fabric: view.fabric,
-      roofs: style.roofs } }
+      roofs: style.roofs, land: view.land } }
   }
   const text = labelBox(labels.height)
   const clear = (b: { left: number; right: number; top: number; bottom: number }) => !overlaps(b, text, 0.5)
