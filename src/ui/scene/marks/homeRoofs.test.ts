@@ -37,31 +37,21 @@ const nahalal = village('nahalal', 'נהלל', 32.69, 35.1967)
 const shadmot = village('shadmot-mehola', 'שדמות מחולה', 32.3465, 35.5325)
 const roshPina = village('rosh-pina', 'ראש פינה', 32.9686, 35.5422, 'town', 3100)
 
-it('gives Arab and Druze places flat roofs from their CBS population group', () => {
-  for (const place of [daliyat, tamra]) {
+it('draws mixed roofs where none of the roofs are mapped, whoever lives there', () => {
+  for (const place of [daliyat, tamra, nahalal, shadmot, roshPina]) {
     const { mode, home } = roofs(place)
     expect(home?.place?.name).toBe(place.nameHe)
-    expect(home?.place?.faith).toBe(2)
-    expect(mode).toMatchObject({ kind: 'template', style: 'flat-hill', mixed: false })
+    expect(home?.form.tagged).toBeLessThan(5)
+    expect(mode).toMatchObject({ kind: 'template', style: 'tile', mixed: true })
   }
 })
 
-it('gives Jewish villages red tiles, not a mix, when their footprints say nothing', () => {
-  for (const place of [nahalal, shadmot]) {
-    const { mode, home } = roofs(place)
-    expect(home?.place?.name).toBe(place.nameHe)
-    expect(home?.place?.faith).toBe(1)
-    expect(mode).toMatchObject({ kind: 'template', style: 'tile', mixed: false })
+it('never reads the roofs from the faith of the place', () => {
+  for (const faith of [1, 2, 3, 4, 5] as const) {
+    const as = (rows: PlaceRow[]) => rows.forEach(row => { row[3] = faith })
+    expect(roofs(daliyat, as).mode).toMatchObject({ kind: 'template', style: 'tile', mixed: true })
+    expect(roofs(nahalal, as).mode).toMatchObject({ kind: 'template', style: 'tile', mixed: true })
   }
-})
-
-it('keeps Rosh Pina as it was', () => {
-  expect(roofs(roshPina).mode).toMatchObject({ kind: 'template', style: 'tile', mixed: false })
-})
-
-it('stays mixed where nothing is known of the place', () => {
-  const unknown = (rows: PlaceRow[]) => rows.forEach(row => { row[3] = 0 })
-  expect(roofs(nahalal, unknown).mode).toMatchObject({ kind: 'template', style: 'tile', mixed: true })
 })
 
 it('ships every place row with a faith the cache accepts', () => {

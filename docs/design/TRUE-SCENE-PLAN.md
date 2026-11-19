@@ -51,16 +51,22 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
 - Stages 0, 1, 2 done on branch `ccr-85ec24f0-9ayxgu` (stills: `qa/true-scene/stage1`, `stage2`).
 - Owner decisions in stage 2: a **city is a portrait too** (its blocks round the dot, its landmarks among them by
   side; more polish later); the data skyline's faces (built squares at their true angle) are gone everywhere, towers
-  stay; roofs come from the data where it knows them, from the marks round the place (a minaret and no synagogue:
-  flat) where it does not, and are **mixed** (half red-tiled, half flat) where nothing is known.
-- (a) done (2026-11-19, stills: `qa/true-scene/stage2b`): each place's population group from the CBS localities list
-  (`bycode2022.xlsx`, cut to `scripts/city/cbs-localities.json`: code, point, group, names) is joined to the OSM place
-  rows by name near the point (`scripts/city/population.ts`: 1190 of 2187 rows, 1186 of 1246 localities) and sets the
-  row's faith: Jewish 1, Arab / Druze / Bedouin 2 (or the worship's Muslim, Christian, Druze), mixed cities 5. Runs in
-  the build and, without the OSM extract, on the shipped cells (`npx tsx scripts/city/population.ts`). Roofs now: enough
-  mapped roof shapes (5+) decide either way; then the CBS group (Arab, Druze, Bedouin flat; Jewish red tiles); then the
-  marks round a nameless cluster; mixed only where nothing is known. Daliyat al-Karmel and Tamra are flat, Shadmot
-  Mehola and Nahalal red-tiled.
+  stay; roofs are **mixed** (half red-tiled, half flat) where nothing is known.
+- Owner decision (2026-11-19): **roofs have nothing to do with who lives in a place, only with which roofs it has.**
+  Roofs come only from evidence about the roofs: 5+ mapped OSM roof shapes (the majority decides; a town of blocks,
+  a desert place flat), else mixed. Removed: the CBS population-group join (98bdf12: `scripts/city/population.ts`,
+  `cbs-localities.json`, its patch of the shipped faith; reverted, roofs were its only use), the faith of the worship
+  round the place as a roof rule, and the marks rule (a minaret and no synagogue: flat). The place rows keep their
+  worship faith: the city build still uses it for footprint heights (`scripts/city/heights.ts`). Daliyat al-Karmel,
+  Tamra, Nahalal, Shadmot Mehola and Rosh Pina are all mixed now (none has 5 mapped roof shapes; stills:
+  `qa/true-scene/stage2d`). The drawn stand-in (no panorama) keeps its red tiles, as before.
+- Roofs from satellite colour: tried, **not wired in** (`scripts/city/roofColour.ts`). EOX Sentinel-2 cloudless 2017
+  (10 m, CC BY 4.0), share of reddish pixels over each place's built squares. Tile / flat: Nahalal .67 / Daliyat .52,
+  Shadmot .69 / Tamra .15, Rosh Pina .87 / Umm al-Fahm .49, Zikhron .68 / Sakhnin .45, Kfar Tavor .79 / Dimona .00 —
+  a cut at .54 splits these and a second set of 15 Galilee places, but a third set fails 9 of 18 (Omer .17, Lehavim
+  .18, Meitar .23, Savyon .28, Kfar Shmaryahu .35 read flat; Qalansawe .60, Jaljulia .65, Mas'ade .70 read tiled):
+  at 10 m a pixel is mostly garden, road and soil, so the share follows the soil, not the roofs. Needs imagery of
+  ~1 m that is openly licensed (none found) before it can say anything.
 - (b) done (2026-11-19, stills: `qa/true-scene/stage2c`, before/after): landmarks are chosen from the data for every
   place, the three curated cities too (no more curated-only short cut). **Fame** (`src/data/landmarks/fame.ts`): an OSM
   object with a Wikipedia link (`wikipedia`, `wikipedia:<lang>`) is 2, with only a Wikidata item 1; it adds 3 / 2 to
@@ -75,8 +81,8 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
   from the 2026-11-19 extract without a rebuild (`scripts/landmarks/fame.ts`; 226 rows); the monthly build keeps it.
   Cache key `shamayim:landmarks:v7`. Jerusalem's satellite groves go when the map names a grove it then does not draw
   (Gethsemane): to look at with vegetation.
-- Next: stage 3 (water), stage 4 (loading stand-in: with it, remove the stand-in-only machinery: city fabric, columns,
-  neighbours, village plans).
+- Next: stage 3 (water), stage 4 (loading stand-in, as an animation: mist / a ridge line while the land loads; with it,
+  remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
 
 ## After (agreed order)
 Land colour (season / this week, a subtle tint) → vegetation (orchards, trees, fields where WorldCover says) → rain in

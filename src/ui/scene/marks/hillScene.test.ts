@@ -115,7 +115,8 @@ it.each([
     expect(city.clusters.find(c => c.place?.name === 'נשר')?.centre.dy).toBeGreaterThan(3)
     expect(neighbours.some(mass => mass.name === 'נשר')).toBe(false)
   }
-  if (id === 'karmei-tzur') expect(neighbours.some(mass => mass.name === 'בית אומר' && mass.roof === 'flat')).toBe(true)
+  // Beit Ummar's roofs are not mapped and its faith says nothing of them: the stand-in's default red tiles.
+  if (id === 'karmei-tzur') expect(neighbours.some(mass => mass.name === 'בית אומר' && mass.roof === 'pitched')).toBe(true)
 })
 
 it('uses the Nahalal footprint for tier A and the original template for tier B', () => {
