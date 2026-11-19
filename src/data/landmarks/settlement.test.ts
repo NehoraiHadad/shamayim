@@ -2,20 +2,17 @@ import { describe, expect, it } from 'vitest'
 import type { Place } from '../../config/place'
 import { seat } from './seat'
 import { composeSettlement, settlementStyle } from './settlement'
-import type { Landmark } from './types'
 
 const karmei: Place = { id: 'osm:way:462664109', nameHe: 'כרמי צור', regionHe: 'יהודה ושומרון', lat: 31.6092,
   lon: 35.1009, timezone: 'Asia/Jerusalem', usesOsm: true, featureCode: 'PPL', settlementType: 'village' }
-const minaret = (id: string, lon: number): Landmark => ({ id, kind: 'minaret', lat: karmei.lat, lon, heightM: 24, source: 'osm' })
 const hill = (x: number) => 40 + Math.abs(x - 187.5) * .4
 const base = { size: 'small' as const, centerX: 187.5, centerY: 40, width: 375, ground: hill, litShare: 0, seed: 7 }
 
 describe('settlement cluster', () => {
-  it('picks a roof style from the data we have', () => {
-    expect(settlementStyle(karmei, 'small', [minaret('a', 35.09), minaret('b', 35.089)])).toBe('tile')
-    expect(settlementStyle(karmei, 'small', [minaret('a', 35.1012), minaret('b', 35.1003)])).toBe('flat-hill')
-    expect(settlementStyle({ ...karmei, lat: 30.61, regionHe: 'נגב' }, 'medium', [])).toBe('flat-desert')
-    expect(settlementStyle({ ...karmei, lat: 32.08 }, 'large', [])).toBe('blocks')
+  it('picks a roof style from the place alone, never from the marks round it', () => {
+    expect(settlementStyle(karmei, 'small')).toBe('tile')
+    expect(settlementStyle({ ...karmei, lat: 30.61, regionHe: 'נגב' }, 'medium')).toBe('flat-desert')
+    expect(settlementStyle({ ...karmei, lat: 32.08 }, 'large')).toBe('blocks')
   })
 
   it('drapes a small tile village over the crest, clear of the dot and the label', () => {

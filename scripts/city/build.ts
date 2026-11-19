@@ -8,7 +8,6 @@ import { contains, eastMetres } from './geometry'
 import { taggedLevels } from './heights'
 import { Raster } from './raster'
 import { readPlaces } from './places'
-import { readLocalities } from './population'
 import { urbanRegions } from './regions'
 import { survey } from './survey'
 import { buildFar } from './far'
@@ -18,7 +17,7 @@ const TOTAL_LIMIT = 1_000_000
 const rounded = (value: number, places: number) => Number(value.toFixed(places))
 
 export async function buildCity(input: string, outputDir: string, generatedAt = new Date().toISOString(), placesPath?: string) {
-  const places = await readPlaces(placesPath, placesPath ? await readLocalities() : [])
+  const places = await readPlaces(placesPath)
   const raster = new Raster()
   const towers = new Map<string, Tower[]>()
   const coverage = await survey(input, {
