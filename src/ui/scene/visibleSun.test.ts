@@ -37,9 +37,12 @@ describe('visible sunrise and sunset', () => {
     expect(withVisibleSun(forecast, GENERIC_TERRAIN, site)).toBe(forecast)
   })
 
-  it('is what the scene label and the twilight glow go by', () => {
+  it('is what the twilight glow goes by, while the label keeps the calendar times', () => {
     const shown = withVisibleSun(forecast, walls(4, 3), site).days
-    expect(nextSunEvent(shown, '2026-11-18T06:20')).toEqual({ rise: true, time: shown[0].visibleSunrise })
+    // Between the flat sunrise and the sun clearing the Gilead the coming event is the sunset, at its calendar time.
+    expect(nextSunEvent(shown, '2026-11-18T06:20')).toEqual({ rise: false, time: day.sunset })
+    expect(nextSunEvent(shown, '2026-11-18T05:00')).toEqual({ rise: true, time: day.sunrise })
+    expect(nextSunEvent(shown, '2026-11-18T16:31')).toEqual({ rise: false, time: day.sunset })
     // The glow peaks as the sun really meets the ridge.
     expect(twilight(shown[0], shown[0].visibleSunrise!)!.opacity).toBeCloseTo(0.5)
   })

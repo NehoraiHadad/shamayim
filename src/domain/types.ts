@@ -56,7 +56,9 @@ export interface DayPoint {
   sunset: LocalTime
   /**
    * When the sun really comes over / goes behind the land around the place (later / earlier than the flat-horizon
-   * times above behind a mountain). Set by the scene once the horizon panorama is known; labels prefer it.
+   * times above behind a mountain). Set by the scene once the horizon panorama is known. Only the scene's sun, glow and
+   * light go by it; every label ("זריחה"/"שקיעה", "אור יום") keeps the calendar times above
+   * (docs/design/VISIBLE-SUN-WORDING.md).
    */
   visibleSunrise?: LocalTime
   visibleSunset?: LocalTime
