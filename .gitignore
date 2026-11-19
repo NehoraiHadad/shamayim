@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Canvas scene runners (e2e/): failed stills and diffs
+test-results

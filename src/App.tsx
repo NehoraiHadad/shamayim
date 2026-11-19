@@ -27,6 +27,7 @@ import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
 import { canvasScene, forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
+import { SceneCanvas } from './scene/react/SceneCanvas'
 import { useWorld } from './scene/react/useWorld'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
@@ -88,7 +89,7 @@ export default function App() {
   const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected),
     cloudsSeen: selected ? 0 : seenClouds.length, ...forcedWeather() } : null), [forecast, now, place, selected, seenClouds])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
-  // The canvas scene's world state (`?canvas=1`, dev only; stage C0 builds it and draws nothing from it yet).
+  // The canvas scene's world state (`?canvas=1`, dev only): from stage C1 it draws the valley in place of the SVG one.
   const canvas = canvasScene()
   const world = useWorld(useMemo(() => (canvas && forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
     seenClouds, forced: forcedWeather() } : null), [canvas, place, forecast, now, selected, terrain, marks, city, seenClouds]))
@@ -162,6 +163,8 @@ export default function App() {
               first: hourly.find((slot) => slot.type === 'hour')?.time ?? now,
               last: [...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now,
             }
+            if (world) return <SceneCanvas world={world} forecast={forecast} now={now} selected={selected} readout={scene.readout}
+              first={scene.first} last={scene.last} onScrub={scene.onScrub} onRelease={scene.onRelease} onNow={scene.onNow} />
             return <ValleyScene {...scene} terrain={terrain} />
           })()}
           <div className="paper" data-intro="sheet">

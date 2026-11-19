@@ -5,6 +5,7 @@ import type { CityResult } from '../data/city/types'
 import type { SettlementSize, SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { Relief } from '../data/terrain/angleScale'
+import type { SceneNote } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
@@ -253,6 +254,17 @@ export interface OutsideView {
   seed: number
 }
 
+/**
+ * The text the scene keeps on the land, where the place's layout puts it (scene px at the layout width): the place's
+ * height (under the sea line below sea level) and the notes (the "פני הים" datum, the water's names). The HTML overlay
+ * shows them; the drawing keeps clear of them.
+ */
+export interface WorldLabels {
+  /** `x` is the label's centre, `y` its top. */
+  height: { text: string; below: boolean; x: number; y: number }
+  notes: SceneNote[]
+}
+
 export interface Night {
   /** Share of windows lit (`atmo/life/mapMarks.ts`). */
   litShare: number
@@ -302,6 +314,8 @@ export interface WorldState {
   place3: PlacePortrait | OutsideView
   /** The marks after the portrait / outside rules (`hillScene` until stages C4–C5 rewrite it in `scene/model`). */
   marks: PlacedMark[]
+  /** The height label and the notes on the land (the place part: independent of the hour). */
+  labels: WorldLabels
   night: Night
   ground: { wet: number; snowLineM: number | null }
   sources: WorldSources

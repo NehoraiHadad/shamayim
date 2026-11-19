@@ -199,7 +199,8 @@ the sun stands on the same line in the sky and behind the ridge.
 
 ### 1c. Painters (`src/scene/paint/`)
 
-`paint<Kind>(ctx: CanvasRenderingContext2D, desc, hand: Hand, phase?: number): void`, one per layer kind. `hand.ts`
+`paint<Kind>(ctx: CanvasRenderingContext2D, desc, env: PaintEnv): void`, one per layer kind (C1: `env` holds the
+`hand`, the `phase`, the device `scale` and `canvas(w, h)` for scratch surfaces, after the anidoodle skill's `Env`). `hand.ts`
 holds the enriched hand from `styleRich.ts`/`sceneGlyphs.ts` (`mix`, `css`, `tonesOf`, the grain, the puff bank
 shape, the low-frequency ground texture), parameterised by tones from the model, never by moment names. Glyphs:
 `paint/glyphs/<kind>.ts` for all 19 `MarkKind`s (8 ported from `sceneGlyphs.ts`: minaret, church, synagogue,
@@ -405,6 +406,7 @@ allowlist first); new fixture.
 modules pass unchanged.
 
 **C1. Canvas infrastructure — M (4).**
+**Done 2026-11-19** (§6).
 `scene/model/types.ts`, compositor (surfaces, layer cache, loop, schedule, stats), `SceneCanvas` + `SceneOverlay`
 behind `?canvas=1`, harness page, Playwright config, purity test, perf spec. First layers flat: the planes as single
 fills, overlay labels placed from the model.
@@ -509,6 +511,35 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
    case of it): a general rule (C5 item 6).
 6. **Birds and meteors** (`atmo/life`): stay HTML now; move into the canvas after the switch (after C9).
 
+**Owner decisions (2026-11-19, at C1):**
+7. **Drawing with the anidoodle skill.** All drawing work in this rebuild uses the anidoodle skill (base
+   `/root/.claude/plugins/cache/alexgreensh-anidoodle/anidoodle/0.10.1/skills/anidoodle`: `SKILL.md`,
+   `references/craft-bar.md`, `references/realism-and-craft.md`, `references/determinism-and-contract.md`,
+   `references/working-method.md`, `references/styles.md`, `references/workflows/site-art.md`, and the engine's
+   `engine/src/canvas-core` helpers); the prototype (`prototypes/canvas-scene/`) was made with it. **Every drawing stage
+   (C2–C8) reads those references first and runs the craft-bar detail pass on 2× crops of its stills before review.**
+   Painters follow the skill's contract (C1 built the interface and the test for it, §6): a painter is pure in its
+   inputs (`desc`, `env`), randomness only seeded, no clock (time is `phase`), no DOM, no `ctx.filter`, no surface or
+   image made by the painter (scratch surfaces come from `env.canvas()`), caches keyed by everything their pixels
+   depend on, a cached bitmap never scaled up.
+   *Helpers to port* from `engine/src/canvas-core/core.ts` into `scene/paint/hand.ts` (or `paint/core.ts`) at C2, as the
+   prototype uses them: `rng` (or keep `data/landmarks/hash.ts` `seeded`, one generator for the world and the paint),
+   `fractal` (seeded, tileable gradient noise: ground texture, grain, cloud puffs), `sample` (resampling a polyline:
+   ridges, gullies), `jitter` and `displace` (the hand's wobble on edges), `oval`/`softBox` (puffs, tree crowns),
+   `line`/`tube` (strokes with a bow or a width: gullies, terraces, rain shafts). The film machinery (cues, score, Gfx,
+   probe) is not ported.
+8. **Deploys are the owner's.** Server and Worker deploys are done by the owner from their own computer (Cloudflare
+   access) at the end of the rebuild. No stage deploys; each appends what it needs to "Deploys pending for the owner"
+   below.
+9. **The shipped WebGL sky's wind direction** (`windU` in `atmo/mapParts.ts`, which still assumes the old mirrored
+   view): left as it is; fixed, with the rest of the sky, at C6.
+
+**Deploys pending for the owner** (in order; every later stage appends here instead of deploying):
+1. The forecast Worker (`worker/`) with C0's new hourly fields in its allowlist (`wind_direction_10m`, `visibility`,
+   wind speed and direction at 850 / 700 / 300 hPa).
+2. Then, after the README check answers 200 for the new fields, flip `ASK_SCENE_HOURLY` to `true` in
+   `src/data/openMeteo/request.ts` (an app change, shipped with the next release).
+
 **Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
 algorithms must handle every place correctly (see the rules at the top).
 
@@ -560,3 +591,76 @@ algorithms must handle every place correctly (see the rules at the top).
   with height, forecast wind aloft, glint with wind speed; lit share, darkness, stars through clear sky; portrait vs
   outside view, east drawn left of the dot, water in view, ground wetness; part memoisation and stable keys.
   `src/data/openMeteo/sceneHours.test.ts`: direction blending, the gated request, mapping the new fields.
+
+**C1 done (2026-11-19).** Commit on `ccr-85ec24f0-9ayxgu`; the shipped app and the SVG baseline are unchanged (snapshots
+untouched; `SceneCanvas` replaces `ValleyScene` only under `?canvas=1`, a dev-only param; the harness page is dev-only
+and not a build input).
+- *Model* (`src/scene/model/`): `types.ts` (every layer kind of §1b declared; shapes drawn from C2 on are placeholders
+  the drawing stage refines), `sky.ts` (gradient from the light's palette, horizon at the land's eye level + `landTop`),
+  `planes.ts` (back / far / near as flat fills: the form keyed by terrain and box only, the tone after light and haze as
+  the light part; C1 keeps the SVG's tone rule, a ridge tone paled by the plane's fade), `layout.ts` (overlay and clear
+  zones), `keys.ts`, `tone.ts` (hex → RGB, Oklab mix), `index.ts` (`sceneModel`, `layersOn`).
+- *Painters* (`src/scene/paint/`): `hand.ts` (`Hand`, `PaintEnv`, `css`, `mix`, `outline`), `sky.ts`, `planes.ts`
+  (`paintPlane` form, `paintPlaneLight` light, clipped to the outline), `index.ts` (registry: form and optional light
+  painter per kind; kinds without one are skipped).
+- *Compositor* (`src/scene/compose/`): `layerCache.ts` (one offscreen canvas per layer, `OffscreenCanvas` or a detached
+  canvas through an injectable factory; repaint only on a key change; a layer's key + its ratio + its bounds is what the
+  canvas holds), `surface.ts` (visible canvas at dpr, z-ordered 1:1 blits), `schedule.ts` (cold start in priority
+  order, ≤ 8 ms slices, composite after each), `loop.ts` (one rAF loop, only with an animated layer and a visible page,
+  30 fps cap, one still frame under reduced motion / save-data, phase in seconds from its start), `stats.ts`
+  (`performance.mark/measure`, samples for p50/p95, per-layer paints and hits, memory; `window.__sceneStats`).
+- *Scrub split:* a light-dependent layer has a form canvas (key without light) and a light canvas (`desc.light.key`);
+  a change of light repaints the light canvas only, laid over the form at composite time with `light.blend` (C1
+  `source-over`; C2 may `multiply`). The light painter keeps inside the form's shape itself (clip to the outline), so
+  nothing is recombined per frame; a new form repaints its light too. Measured: a scrub repaints `plane.far:light`,
+  `plane.near:light` and the sky; the land forms never.
+- *React* (`src/scene/react/`): `useSurface.ts` (surface per canvas, cold start sliced, warm frames synchronous, the
+  loop), `SceneCanvas.tsx` (the figure with its role and spoken label, the LandSurface, the overlay, the scrubber and
+  the readout; `?perf=1` shows `PerfHud.tsx`), `SceneOverlay.tsx` (the dot, height label, datum and water notes in the
+  SVG scene's classes; x in % of the figure), `SkyCanvas.tsx` (the SkySurface: in the harness until C6 mounts it in
+  `ui/Sky.tsx`), `sceneLabel.ts`. App renders `SceneCanvas` instead of `ValleyScene` when the world exists
+  (`?canvas=1`); the WebGL sky stays until C6.
+- *World:* gains `labels` (the height label's text and spot, the notes on the land) from the same `hillScene` call
+  that gives the marks (C4 moves the layout into `model/layout.ts`); `keys.place` covers them.
+- *Harness:* `scene.html` → `src/dev/scene.tsx` → `src/dev/sceneHarness.tsx`: `?place=&at=&weather=&phase=0
+  [&overlay=1]`; the baseline places' recorded panoramas, the bundled water, landmark and city data, and the forecast
+  from the app's own request (`forecastUrl`), which the runners answer with `forecast-layers-2026-11-17.json` by route
+  interception (every other off-server request is refused: nothing reaches Open-Meteo). One recorded forecast serves
+  every place, its height set to the place's own ground (the panorama's `groundM`), as the real answer would give it.
+  Weather moments (`clear`, `rain`, `overcast`, `dust`, `snow`) are overrides of the shown air, like `?wx=`. Still:
+  375 × 428 (sky 300 px over the 128 px figure). `window.__sceneReady`; `window.__scene.scrub(at)` (one synchronous
+  frame, timed).
+- *Pixel runner:* `npm run test:pixels [-- --update] [-- --only=<text>]` (`e2e/scene.pixels.mjs`): 53 moments (8
+  places × 4 hours, 5 weather moments at Haifa, Jerusalem, Tiberias, 6 at dpr 2), references in `e2e/__pixels__/`
+  (1.1 MB); comparison in the browser (YIQ threshold 0.1, fail above 0.3 % of pixels or a 16 × 16 tile above 5 %);
+  failures leave the still and a diff in `test-results/pixels/` (ignored). 53/53 in ~45 s, repeat runs 0.000 %.
+  Stills for review: `node e2e/scene.stills.mjs <dir> <place>@<HH:MM>[@weather] …` (with the overlay).
+- *Perf runner:* `npm run test:perf [-- --place=…] [-- --rate=4] [-- --gpu]` (`e2e/scene.perf.mjs`); numbers in
+  `qa/canvas/perf.md`. Green on the gated steps (model, first paint, land scrub frame, memory).
+- *Tests:* `src/scene/model/model.test.ts` (overlay = the SVG layout's label, dot and notes for the 8 places, scaled
+  with the width; pure output; land form keys unchanged through a scrub, light and sky keys moving; z order, bounds,
+  box/dpr in keys), `src/scene/compose/compose.test.ts` (cache hit on an unchanged key, light-only repaint, ratio and
+  device-pixel sizing, stats and pruning, sliced cold start under the budget, the loop's cap, phase and still frame),
+  `src/scene/purity.test.ts` (the contract scan below). Shared loader `src/test/sceneWorld.ts`.
+- *Stills:* `qa/canvas/c1/` haifa-1630, jerusalem-0620, tiberias-1200, ein-gedi-2100 (dpr 2, with the overlay): the
+  placeholder (sky gradient, flat far and near planes); the dot, label and notes sit where the SVG scene puts them.
+- *Decisions where the plan was vague, and departures:*
+  - **No `@playwright/test`, no `playwright.config.ts`**: the runners are plain Node scripts on the preinstalled
+    Playwright library (`require('playwright')`, browsers in `/opt/pw-browsers`; nothing installed). Hence
+    `e2e/scene.pixels.mjs` / `scene.perf.mjs` (+ `harness.mjs`, `cases.mjs`, `compare.mjs`, `scene.stills.mjs`) instead
+    of `.spec.ts`; no traces are recorded. The comparison runs in the browser, so no image library is needed.
+  - **Painter signature** `(ctx, desc, env)` (see §1c), for the anidoodle contract (owner decision 7).
+  - **Purity scan** (`src/scene/purity.test.ts`) over `src/world`, `src/scene/model`, `src/scene/paint`, comments left
+    out: `Math.random`, `Date.now`, an argument-less `new Date()`, `performance.now`, `requestAnimationFrame`,
+    `document`, `window`, `navigator`, `localStorage`, `fetch`; in painters also `ctx.filter`, `new OffscreenCanvas` /
+    `new Image`, `createElement`. `new Date(instant)` stays allowed (C0's exception).
+  - **No soft-layer cap at dpr 2**: every cache is at the device's ratio, in whole device pixels, blitted 1:1. A cached
+    bitmap is never scaled up (anidoodle), and a scaled `drawImage` was the slow path (22 ms vs 2 ms for the sky, ×4).
+    Memory stays well under budget (12–14 MB at dpr 2.75); a later cap may only scale down.
+  - **Overlay x** in % of the figure from the 375 px layout (the world lays out at the reference width, C0); y in px.
+  - **App under `?canvas=1`**: the land is canvas, the sky stays the WebGL one until C6 (no sky surface in the app yet).
+  - **Perf gates for C1**: the cold world (marks, C4), the world rebuilt per scrub frame, the sky's scrub frame and the
+    cold slices are reported, not gated: a full-surface gradient is ~15 ms in software raster ×4 whatever the path, and
+    a 2D canvas defers raster to the first blit, so a slice holds a whole layer. To recheck on the phone (`?perf=1`) and
+    at C6, which owns the sky (options: the gradient painted where it changes only, a smaller sky surface behind the
+    text, or the plan's fallback of capping light canvases while scrubbing).

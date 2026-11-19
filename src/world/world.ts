@@ -68,7 +68,7 @@ export function makeWorldBuilder() {
   const placePart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
     city: WorldInput['city'], width: number, elevation: number) => {
     const part = placeOf({ place, terrain, landmarks, city, width, elevation })
-    return { ...part, placeKey: partKey(part.place3, 1), marksKey: partKey(part.marks, 1) }
+    return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey(part.marks, 1) }
   })
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
 
@@ -120,6 +120,7 @@ export function makeWorldBuilder() {
       water,
       place3: placePartResult.place3,
       marks: placePartResult.marks,
+      labels: placePartResult.labels,
       night, ground,
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
         windAloft: windSources.windAloft, visibility: visibilitySource },
