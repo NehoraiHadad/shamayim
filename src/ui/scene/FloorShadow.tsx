@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
-import { DEPTH, STEP, shadowRuns } from './shadowRuns'
-import { groundAt } from './sceneLight'
+import { DEPTH, STEP, shadowRuns } from '../../world/shadowRuns'
+import { groundAt } from '../../world/sceneLight'
 
 type Point = readonly [number, number]
 

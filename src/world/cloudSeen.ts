@@ -1,5 +1,5 @@
-import type { WeightedSighting } from '../../domain/cloudSightings'
-import { SCENE_CAMERA, type Camera } from '../../domain/camera'
+import type { WeightedSighting } from '../domain/cloudSightings'
+import { SCENE_CAMERA, type Camera } from '../domain/camera'
 import { skyPoint } from './moonShape'
 import { SCENE_W } from './sceneBox'
 

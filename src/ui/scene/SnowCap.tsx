@@ -1,6 +1,6 @@
 import { useId, type CSSProperties } from 'react'
-import { SCENE_H, SCENE_W } from './sceneBox'
-import { heightY, type SnowFall } from './snowLine'
+import { SCENE_H, SCENE_W } from '../../world/sceneBox'
+import { heightY, type SnowFall } from '../../world/snowLine'
 import styles from './SnowCap.module.css'
 
 interface Props {

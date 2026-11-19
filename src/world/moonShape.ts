@@ -1,4 +1,4 @@
-import { lateral, SCENE_CAMERA, xOf } from '../../domain/camera'
+import { lateral, SCENE_CAMERA, xOf } from '../domain/camera'
 import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
 import { SCENE_W } from './sceneBox'
 

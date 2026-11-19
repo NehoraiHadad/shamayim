@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { anglePx } from '../../data/terrain/angleScale'
-import { GENERIC_TERRAIN, type SceneTerrain } from '../../data/terrain/terrain'
-import { addMinutes } from '../../domain/time'
-import type { DayPoint, Forecast } from '../../domain/types'
-import { nextSunEvent, twilight } from './sceneModel'
+import { anglePx } from '../data/terrain/angleScale'
+import { GENERIC_TERRAIN, type SceneTerrain } from '../data/terrain/terrain'
+import { addMinutes } from '../domain/time'
+import type { DayPoint, Forecast } from '../domain/types'
+import { nextSunEvent, twilight } from './twilight'
 import { withVisibleSun } from './visibleSun'
 
 const site = { lat: 32.348, lon: 35.535, timezone: 'Asia/Jerusalem' }

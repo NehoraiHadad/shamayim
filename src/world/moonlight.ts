@@ -1,4 +1,4 @@
-import { lateral, SCENE_CAMERA, type Camera } from '../../domain/camera'
+import { lateral, SCENE_CAMERA, type Camera } from '../domain/camera'
 import { ridgeLightRay, smoothstep } from './ridgeLighting'
 import type { RidgeTone } from './ridgeLightTone'
 

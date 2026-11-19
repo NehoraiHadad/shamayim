@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
-import type { DiscLook } from './sceneLight'
-import type { SunPoint } from './sunPath'
+import type { DiscLook } from '../../world/sceneLight'
+import type { SunPoint } from '../../world/sunPath'
 import styles from './ValleyScene.module.css'
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false

@@ -1,4 +1,4 @@
-import { profileY } from '../../data/terrain/profile'
+import { profileY } from '../data/terrain/profile'
 import { FLOOR_Y, SEA_Y } from './sceneBox'
 
 /** Snow on the ridges for the shown hour: how much, and the height (m) above which it lies. */

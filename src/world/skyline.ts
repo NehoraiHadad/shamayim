@@ -1,4 +1,4 @@
-import type { Camera } from '../../domain/camera'
+import type { Camera } from '../domain/camera'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
 
 /** y (px) of the highest drawn ridge at a horizontal fraction of the scene (0 = west/left); `peak` is its highest y. */

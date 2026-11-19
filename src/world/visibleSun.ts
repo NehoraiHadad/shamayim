@@ -1,6 +1,6 @@
-import type { SceneTerrain } from '../../data/terrain/terrain'
-import { addMinutes, minutesBetween } from '../../domain/time'
-import type { Forecast } from '../../domain/types'
+import type { SceneTerrain } from '../data/terrain/terrain'
+import { addMinutes, minutesBetween } from '../domain/time'
+import type { Forecast } from '../domain/types'
 import { skylineOf, withHorizon, type Skyline } from './skyline'
 import { sunOverRidge, type SunSite } from './sunPath'
 

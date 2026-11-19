@@ -1,4 +1,4 @@
-import { moonPosition } from '../../astro/moon'
+import { moonPosition } from '../astro/moon'
 import { skyPoint, type ScenePoint } from './moonShape'
 import { FLAT_SKYLINE, type Skyline } from './skyline'
 import { apparentAltitude, horizonLine, projectSky } from './skyProjection'

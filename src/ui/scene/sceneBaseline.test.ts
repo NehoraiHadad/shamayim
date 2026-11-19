@@ -23,7 +23,7 @@ import { skyLight } from '../../theme/skyLight'
 import { SKY_THEMES } from '../../theme/skyThemes'
 import live from '../../test/fixtures/forecast-multi-2026-11-17.json'
 import { SCENE_PLACES } from '../../test/scenePlaces'
-import { withVisibleSun } from './visibleSun'
+import { withVisibleSun } from '../../world/visibleSun'
 import { ValleyScene } from './ValleyScene'
 
 /**

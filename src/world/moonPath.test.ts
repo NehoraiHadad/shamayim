@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { moonPosition } from '../../astro/moon'
+import { moonPosition } from '../astro/moon'
 import { findMoonPass, moonPassAt, moonScenePoint } from './moonPath'
 import { skyPoint } from './moonShape'
 import { SCENE_W } from './sceneBox'
 import { skylineOf } from './skyline'
-import { anglePx, horizonSlope } from '../../data/terrain/angleScale'
+import { anglePx, horizonSlope } from '../data/terrain/angleScale'
 
 const jerusalem = { lat: 31.778, lon: 35.235 }
 // A high, bumpy ridge like the Judean hills (east on the left).

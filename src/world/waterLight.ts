@@ -1,10 +1,10 @@
-import { moonIllumination, moonPosition } from '../../astro/moon'
-import { sunPosition } from '../../astro/sun'
-import { utcOf } from '../../astro/utc'
-import { fractionOf } from '../../domain/camera'
-import type { LocalTime } from '../../domain/types'
-import type { WaterLight } from '../../data/water/glint'
-import type { SceneTerrain } from '../../data/terrain/terrain'
+import { moonIllumination, moonPosition } from '../astro/moon'
+import { sunPosition } from '../astro/sun'
+import { utcOf } from '../astro/utc'
+import { fractionOf } from '../domain/camera'
+import type { LocalTime } from '../domain/types'
+import type { WaterLight } from '../data/water/glint'
+import type { SceneTerrain } from '../data/terrain/terrain'
 import type { Skyline } from './skyline'
 
 /** Cloud cover (%) from which the sun's path on the water starts to dim, and at which it is gone. */

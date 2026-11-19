@@ -5,11 +5,11 @@ import { utcOf } from '../../astro/utc'
 import type { Place } from '../../config/place'
 import type { DayPoint, LocalTime } from '../../domain/types'
 import { azimuthAt, lateral } from '../../domain/camera'
-import { ridgeLightRay, smoothstep } from './ridgeLighting'
-import { hazeDirect } from './sceneLight'
-import { ridgeLightTone, type RidgePalette, type RidgeTone } from './ridgeLightTone'
-import type { Skyline } from './skyline'
-import { SCENE_W, sunPosition } from './sunPath'
+import { ridgeLightRay, smoothstep } from '../../world/ridgeLighting'
+import { hazeDirect } from '../../world/sceneLight'
+import { ridgeLightTone, type RidgePalette, type RidgeTone } from '../../world/ridgeLightTone'
+import type { Skyline } from '../../world/skyline'
+import { SCENE_W, sunPosition } from '../../world/sunPath'
 
 /** The lit scene: ridge lighting needs the shown sky palette and whether the shown hour is wet. */
 export interface RidgeLightInput { palette: RidgePalette; wet: boolean }

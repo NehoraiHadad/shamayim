@@ -1,5 +1,5 @@
 import type { PlacedMark } from '../../../data/landmarks/types'
-import { SCENE_H } from '../sunPath'
+import { SCENE_H } from '../../../world/sunPath'
 import { fieldWidth } from './generic/buildingSpecs'
 import { curated, isField, isHillMark } from './hillPlane'
 import { boxAround, fieldBox, fieldDepthOf, markGeometry, overlaps, type Box } from './markBox'

@@ -16,7 +16,7 @@ import { composeSettlement, desertSettlement, settlementReach, type Settlement, 
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import { noteBoxes, sceneNotes } from '../../../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
-import { seaSpan } from '../seaLine'
+import { seaSpan } from '../../../world/seaLine'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { isField } from './hillPlane'

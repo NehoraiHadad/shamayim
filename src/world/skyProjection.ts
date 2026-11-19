@@ -1,4 +1,4 @@
-import { anglePx, SKY_PX } from '../../data/terrain/angleScale'
+import { anglePx, SKY_PX } from '../data/terrain/angleScale'
 import { skyPoint, type ScenePoint } from './moonShape'
 import type { Skyline } from './skyline'
 

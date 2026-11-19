@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { hexToOklab, mixOklab, oklabToHex } from '../../theme/oklab'
-import { skyLight } from '../../theme/skyLight'
-import { SKY_THEMES } from '../../theme/skyThemes'
+import { hexToOklab, mixOklab, oklabToHex } from '../theme/oklab'
+import { skyLight } from '../theme/skyLight'
+import { SKY_THEMES } from '../theme/skyThemes'
 import { ridgeLightTone } from './ridgeLightTone'
 
 const clear = { altitude: 3, azimuth: 114, day: 1, noonWeight: 0, glow: 0, cover: 0, wet: false,

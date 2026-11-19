@@ -4,10 +4,10 @@ import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { Place } from '../../config/place'
 import type { LocalTime } from '../../domain/types'
-import { afterglowAttrs } from './afterglow'
-import { discLook, worldLight } from './sceneLight'
+import { afterglowAttrs } from '../../world/afterglow'
+import { discLook, worldLight } from '../../world/sceneLight'
 import type { RidgeLighting } from './useRidgeLighting'
-import { SCENE_W, type SunPoint } from './sunPath'
+import { SCENE_W, type SunPoint } from '../../world/sunPath'
 
 type Point = readonly [number, number]
 

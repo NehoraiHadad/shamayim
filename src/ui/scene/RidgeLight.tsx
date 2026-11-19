@@ -1,7 +1,7 @@
 import { useId, useMemo } from 'react'
 import { ridgePoints } from '../../data/terrain/profile'
-import { ridgeLightPaths } from './ridgeLighting'
-import type { RidgeTone } from './ridgeLightTone'
+import { ridgeLightPaths } from '../../world/ridgeLighting'
+import type { RidgeTone } from '../../world/ridgeLightTone'
 import styles from './ValleyScene.module.css'
 
 interface Props {

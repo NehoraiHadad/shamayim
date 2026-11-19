@@ -1,6 +1,6 @@
-import { SCENE_CAMERA, toward, type Camera } from '../../domain/camera'
-import { hexToOklab, oklabToHex, type Oklab } from '../../theme/oklab'
-import type { SkyLight } from '../../theme/skyLight'
+import { SCENE_CAMERA, toward, type Camera } from '../domain/camera'
+import { hexToOklab, oklabToHex, type Oklab } from '../theme/oklab'
+import type { SkyLight } from '../theme/skyLight'
 import { smoothstep } from './ridgeLighting'
 
 export type RidgePalette = Pick<SkyLight, 'mid' | 'horizon' | 'accent' | 'ridgeFar' | 'ridgeNear'>

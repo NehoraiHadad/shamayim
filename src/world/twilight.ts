@@ -1,5 +1,5 @@
-import { minutesBetween } from '../../domain/time'
-import type { DayPoint, LocalTime } from '../../domain/types'
+import { minutesBetween } from '../domain/time'
+import type { DayPoint, LocalTime } from '../domain/types'
 
 export interface SunEvent {
   rise: boolean

@@ -5,7 +5,7 @@ import type { Landmark, MarkLife } from '../../data/landmarks/types'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { WeightedSighting } from '../../domain/cloudSightings'
 import type { Forecast, LocalTime } from '../../domain/types'
-import type { SnowFall } from './snowLine'
+import type { SnowFall } from '../../world/snowLine'
 import type { RidgeLightInput } from './useRidgeLighting'
 
 export interface ValleySceneProps {

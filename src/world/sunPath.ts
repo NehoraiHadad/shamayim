@@ -1,7 +1,7 @@
-import { sunPosition as sunSky } from '../../astro/sun'
-import { utcOf } from '../../astro/utc'
-import { daylightFraction } from '../../domain/time'
-import type { LocalDate, LocalTime } from '../../domain/types'
+import { sunPosition as sunSky } from '../astro/sun'
+import { utcOf } from '../astro/utc'
+import { daylightFraction } from '../domain/time'
+import type { LocalDate, LocalTime } from '../domain/types'
 import { FLAT_SKYLINE, type Skyline } from './skyline'
 import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
 
