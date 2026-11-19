@@ -25,7 +25,7 @@ const LAT = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0
   add("SkySans", asH as FontFile, HEB); add("SkySans", asL as FontFile, LAT);
 })();
 
-const W = 1080, H = 1920, FPS = 30, BPM = 90, DURATION = 480;
+export const W = 1080, H = 1920, FPS = 30, BPM = 90, DURATION = 480;
 const C = { ground: "#0F1730", ground2: "#16214A", ink: "#F3F5F7", muted: "#A9B4CC", gold: "#FFD241", hair: "rgba(243,245,247,0.14)" };
 // safe rectangle for 9x16 (top 14 %, bottom 25 %, right 14 %)
 const SAFE = { top: Math.round(H * 0.14), bottom: Math.round(H * 0.75), right: Math.round(W * 0.86) };
@@ -39,7 +39,7 @@ const rr = (ctx: Ctx, x: number, y: number, w: number, h: number, r: number) => 
 // sits above y 1290
 const PHONE = { x: 180, y: 250, w: 721 }; const PH = Math.round(PHONE.w * 2532 / 1170); const CSS = PHONE.w / 390;
 // the frame's ground takes the app's sky at that moment, so the phone reads as a window in the same sky
-const SKY_0615 = { top: "#203779", mid: "#4e5b93", low: "#1b2350" };
+export const SKY_0615 = { top: "#203779", mid: "#4e5b93", low: "#1b2350" };
 
 const touch = (ctx: Ctx, x: number, y: number, trail: number) => {
   // a touch indicator, as screen recordings show one: a soft disc with a fading trail behind the way it came
@@ -49,7 +49,7 @@ const touch = (ctx: Ctx, x: number, y: number, trail: number) => {
   ctx.globalAlpha = 1;
 };
 
-const phoneFrame = (ctx: Ctx, env: Env, key: string, sky: { top: string; mid: string; low: string }) => {
+export const phoneFrame = (ctx: Ctx, env: Env, key: string, sky: { top: string; mid: string; low: string }) => {
   const s = env.scale; ctx.setTransform(s, 0, 0, s, 0, 0);
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sky.top); g.addColorStop(0.55, sky.mid); g.addColorStop(1, sky.low);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -70,3 +70,4 @@ export const skyPromo: Film = {
   assets: { images: { sdm0615: "assets/shots/sdm-0615.jpg" } },
   shots: [{ id: "look", start: 0, end: DURATION, draw: (ctx: Ctx, _local: number, env: Env) => phoneFrame(ctx, env, "sdm0615", SKY_0615) }],
 };
+
