@@ -1,4 +1,4 @@
-import { blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
+import { blendDirection, blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
 import type { HourPoint } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
 import { pairs, thickCloud } from './mapHelpers'
@@ -16,6 +16,10 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
   const cloudCover = pairs(hourly, 'cloud_cover', length, 'hourly')
   const cloudLow = pairs(hourly, 'cloud_cover_low', length, 'hourly')
   const cloudMid = pairs(hourly, 'cloud_cover_mid', length, 'hourly')
+  const cloudHigh = pairs(hourly, 'cloud_cover_high', length, 'hourly')
+  // Asked only once the Worker serves them (`request.ts`, ASK_SCENE_HOURLY); absent columns read as null.
+  const windDirection = pairs(hourly, 'wind_direction_10m', length, 'hourly')
+  const visibility = pairs(hourly, 'visibility', length, 'hourly')
   const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
@@ -41,6 +45,11 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
       windGusts: blendNumber(windGusts[index], weight) ?? 0,
       humidity: blendNumber(humidity[index], weight),
       snowDepth: blendNumber(snowDepth[index], weight) ?? 0,
+      cloudLow: blendNumber(cloudLow[index], weight),
+      cloudMid: blendNumber(cloudMid[index], weight),
+      cloudHigh: blendNumber(cloudHigh[index], weight),
+      windDirection: blendDirection(windDirection[index], weight),
+      visibility: blendNumber(visibility[index], weight),
     }]
   })
 }

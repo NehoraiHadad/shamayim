@@ -42,6 +42,17 @@ export interface HourPoint {
   humidity: number | null
   /** Snow lying on the ground at the end of the hour, metres (0 when none or unknown). */
   snowDepth: number
+  /**
+   * Cloud by layer, 0–100 each (low < 2 km, mid 2–6 km, high above); null or absent when not known (an older cached
+   * answer, or a model without them). Read by the canvas scene's world state (`src/world/clouds.ts`).
+   */
+  cloudLow?: number | null
+  cloudMid?: number | null
+  cloudHigh?: number | null
+  /** Degrees the 10 m wind comes FROM (meteorological, 0 = north); null or absent when not asked or not known. */
+  windDirection?: number | null
+  /** Horizontal visibility, metres; null or absent when not asked or not known. */
+  visibility?: number | null
 }
 
 export interface DayPoint {

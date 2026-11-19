@@ -12,6 +12,20 @@ export function blendNumber(pair: ModelPair<number>, weight: number): number | n
   return pair.icon * weight + pair.ecmwf * (1 - weight)
 }
 
+/**
+ * A direction (deg, 0 = north) from the two models: the weighted mean of their unit vectors, so 350° and 10° blend to
+ * north, not south. When they cancel out (opposite and equal weights) the higher-weighted model's own value is kept.
+ */
+export function blendDirection(pair: ModelPair<number>, weight: number): number | null {
+  if (pair.icon === null) return pair.ecmwf
+  if (pair.ecmwf === null) return pair.icon
+  const rad = Math.PI / 180
+  const x = weight * Math.sin(pair.icon * rad) + (1 - weight) * Math.sin(pair.ecmwf * rad)
+  const y = weight * Math.cos(pair.icon * rad) + (1 - weight) * Math.cos(pair.ecmwf * rad)
+  if (Math.hypot(x, y) < 1e-6) return weight >= 0.5 ? pair.icon : pair.ecmwf
+  return Math.round(((Math.atan2(x, y) / rad) + 360) % 360)
+}
+
 export function blendWeatherCode(
   code: ModelPair<number>, precipProb: ModelPair<number>, weight: number,
 ): number | null {

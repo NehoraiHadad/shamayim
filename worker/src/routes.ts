@@ -43,6 +43,8 @@ const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m', 'snow_depth',
   'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high',
+  // The canvas scene's world state: each hour's wind direction and visibility (app: `SCENE_HOURLY`).
+  'wind_direction_10m', 'visibility',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
