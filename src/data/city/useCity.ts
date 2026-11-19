@@ -6,7 +6,7 @@ import { clustersForCache, validClusters } from './clusterCache'
 import type { CityResult, CityTower } from './types'
 
 const MONTH = 30 * 24 * 60 * 60 * 1000
-const cacheKey = (id: string) => `shamayim:city:v4:${id}`
+const cacheKey = (id: string) => `shamayim:city:v5:${id}`
 
 function validTower(tower: CityTower | null) {
   return tower && [tower.dx, tower.dy, tower.lat, tower.lon, tower.heightM].every(Number.isFinite) &&

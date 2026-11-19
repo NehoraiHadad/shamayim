@@ -27,6 +27,13 @@ it('uses five unique roof tags and requires a flat majority', () => {
   expect(clusterStyle({ ...base, form: { ...form, flat: .5, tagged: undefined } }, false)).toBe('flat-hill')
 })
 
+it('lets enough mapped roof shapes beat the place faith either way', () => {
+  const pitched = { ...base.form, flat: .1, pitched: .6, tagged: 5 }
+  expect(clusterStyle({ ...base, form: pitched, place: node(2, 2) }, false)).toBe('tile')
+  expect(clusterStyle({ ...base, form: { ...pitched, tagged: 4 }, place: node(2, 2) }, false)).toBe('flat-hill')
+  expect(clusterStyle({ ...base, form: { ...pitched, flat: .7 }, place: node(2, 1) }, false)).toBe('flat-hill')
+})
+
 it('uses faith and the unnamed-cluster fallback after the desert rule', () => {
   for (const faith of [2, 3, 4] as const) {
     expect(clusterStyle({ ...base, place: node(2, faith) }, false)).toBe('flat-hill')

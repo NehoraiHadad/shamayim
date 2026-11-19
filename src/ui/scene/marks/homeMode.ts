@@ -41,8 +41,9 @@ export function homeMode(place: Place, marks: Landmark[], width: number, centerX
   const home = homeCluster(city?.clusters ?? [])
   const tier = homeTier(home)
   const footprintStyle = home && clusterStyle(home, desertSettlement(place), home.place ? undefined : localRoof(place, home, marks))
-  // The roofs come from the data where it knows them (the faith of the place's worship, its mapped roof shapes, a
-  // town of blocks); where it knows nothing, from the marks around (minarets and no synagogue: flat roofs).
+  // The roofs come from the data where it knows them (its mapped roof shapes, the place's CBS population group or else
+  // the faith of its worship, a town of blocks); where it knows nothing, from the marks around (minarets and no
+  // synagogue: flat roofs).
   const known = home && footprintStyle && (footprintStyle !== 'tile' || (home.form.tagged ?? 0) >= 5 || (home.place?.faith ?? 0) > 0)
   // Nothing known and no rule applies (the default red tiles): a mix of red-tiled and flat roofs, not a guess.
   if (panorama) return { kind: 'template', size, style: known ? footprintStyle : style, homeHalf: historicalHalf,

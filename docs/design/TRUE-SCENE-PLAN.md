@@ -53,9 +53,15 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
   side; more polish later); the data skyline's faces (built squares at their true angle) are gone everywhere, towers
   stay; roofs come from the data where it knows them, from the marks round the place (a minaret and no synagogue:
   flat) where it does not, and are **mixed** (half red-tiled, half flat) where nothing is known.
-- Next, before stage 3 (agreed): (a) each place's religion / population group from the CBS localities list into the
-  city data build (`scripts/city`), so roofs are right everywhere (Daliyat al-Karmel, Tamra still mixed);
-  (b) famous landmarks chosen automatically (OSM wikidata / wikipedia tags), drawn with the generic glyph of their
+- (a) done (2026-11-19, stills: `qa/true-scene/stage2b`): each place's population group from the CBS localities list
+  (`bycode2022.xlsx`, cut to `scripts/city/cbs-localities.json`: code, point, group, names) is joined to the OSM place
+  rows by name near the point (`scripts/city/population.ts`: 1190 of 2187 rows, 1186 of 1246 localities) and sets the
+  row's faith: Jewish 1, Arab / Druze / Bedouin 2 (or the worship's Muslim, Christian, Druze), mixed cities 5. Runs in
+  the build and, without the OSM extract, on the shipped cells (`npx tsx scripts/city/population.ts`). Roofs now: enough
+  mapped roof shapes (5+) decide either way; then the CBS group (Arab, Druze, Bedouin flat; Jewish red tiles); then the
+  marks round a nameless cluster; mixed only where nothing is known. Daliyat al-Karmel and Tamra are flat, Shadmot
+  Mehola and Nahalal red-tiled.
+- Next, before stage 3 (agreed): (b) famous landmarks chosen automatically (OSM wikidata / wikipedia tags), drawn with the generic glyph of their
   kind; the hand-drawn art stays only for a few icons. Then stage 3 (water), stage 4 (loading stand-in: with it,
   remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
 

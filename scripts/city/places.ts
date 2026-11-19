@@ -2,6 +2,7 @@ import { cellKey } from '../../src/data/city/grid'
 import type { PlaceRow } from '../../src/data/city/types'
 import { offsetKm, type Coordinate } from '../../src/data/landmarks/project'
 import { records } from './geometry'
+import { applyPopulation, type Locality } from './population'
 
 const kinds: Record<string, PlaceRow[2]> = { city: 0, town: 1, village: 2, hamlet: 3, isolated_dwelling: 3 }
 const religions = ['jewish', 'muslim', 'christian', 'druze']
@@ -63,7 +64,8 @@ export class PlaceIndex {
   }
 }
 
-export async function readPlaces(path?: string) {
+/** Place nodes, their faith from the worship round them and then, where the CBS list knows the place, from its group. */
+export async function readPlaces(path?: string, localities: Locality[] = []) {
   const rows: PlaceRow[] = []
   const worship: (Coordinate & { religion: number })[] = []
   if (!path) return new PlaceIndex()
@@ -84,5 +86,6 @@ export async function readPlaces(path?: string) {
     for (const node of worship) if (distance(coordinate(row), node) <= row[4] / 10) counts[node.religion]++
     row[3] = faith(counts)
   }
+  applyPopulation(rows, localities)
   return new PlaceIndex(rows)
 }
