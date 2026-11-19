@@ -51,7 +51,14 @@ function taperEnds(samples: { x: number; amount: number }[]) {
 
 const xy = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`
 
-export function ridgeLightPaths(profile: readonly Point[], { ray, rayAt, noonWeight, rimX, depth, outline = profile }: Lighting) {
+export interface RidgeSample { x: number; y: number; clearance: number; facing: number; amount: number }
+
+/**
+ * The ridge lighting per profile point: how squarely the face below it turns to the light (`facing`, −1…1), how high the
+ * land toward the light stands over it (`clearance`, negative in another ridge's shadow) and the lit band's depth below
+ * the crest (`amount`, tapered at each band's ends). The SVG crescents and the canvas scene's lit faces share it.
+ */
+export function ridgeLightSamples(profile: readonly Point[], { ray, rayAt, noonWeight, depth }: Omit<Lighting, 'rimX' | 'outline'>): RidgeSample[] {
   const points = profile.filter(([x, y], i) =>
     Number.isFinite(x) && Number.isFinite(y) && (!i || x > profile[i - 1][0]))
   const unit = (r: Point): [number, number] => { const length = Math.hypot(...r); return length ? [r[0] / length, r[1] / length] : [0, 1] }
@@ -66,6 +73,11 @@ export function ridgeLightPaths(profile: readonly Point[], { ray, rayAt, noonWei
     return { x, y, clearance, facing, amount: ray ? depth * strength * smoothstep(0, 1, clearance) : 0 }
   })
   taperEnds(samples)
+  return samples
+}
+
+export function ridgeLightPaths(profile: readonly Point[], { ray, rayAt, noonWeight, rimX, depth, outline = profile }: Lighting) {
+  const samples = ridgeLightSamples(profile, { ray, rayAt, noonWeight, depth })
 
   let crescent = ''
   let rim = ''

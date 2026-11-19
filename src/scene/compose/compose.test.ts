@@ -19,8 +19,9 @@ function fakeCanvas(width: number, height: number) {
 
 function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane'> {
   return { kind: 'plane', plane: 'near', id, surface: 'land', z: 30, key, bounds: { x: 0, y: 40, w: 375, h: 88 },
-    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4], faces: [], gullies: [], terraces: [], scrub: [],
-    grain: { amount: 0, seed: 1 }, light: { key: lightKey, blend: 'source-over', tint: [0.2, 0.2, 0.3], faces: [] } }
+    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4], gullies: [], terraces: [], scrub: [],
+    grain: { amount: 0, seed: 1 }, light: { key: lightKey, blend: 'source-over', tint: [0.2, 0.2, 0.3], faces: [], tones: [],
+      shade: [], lit: [], rims: [], snow: null, lift: null } }
 }
 
 function counting() {

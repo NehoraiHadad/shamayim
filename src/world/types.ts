@@ -13,6 +13,8 @@ import type { Camera } from '../domain/camera'
 import type { WeightedSighting } from '../domain/cloudSightings'
 import type { Forecast, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
+import type { PlaneFace } from './face'
+import type { LandForm } from './land'
 import type { SnowFall } from './snowLine'
 
 /**
@@ -200,6 +202,11 @@ export interface Plane {
   elevations?: number[]
   /** Distance (km) of the land at each point. */
   distanceKm: number[]
+  /**
+   * The distances smoothed along the crest (a running median, then a mean, over ~±12 px): what the plane's haze follows,
+   * so where a nearer hill takes over from a farther one inside one plane the tone turns over a stretch, not at a seam.
+   */
+  hazeKm?: number[]
 }
 
 export interface TerrainPlanes {
@@ -216,6 +223,10 @@ export interface TerrainPlanes {
   seenAt?: SceneTerrain['seenAt']
   groundAt?: SceneTerrain['groundAt']
   snowEdge?: SceneTerrain['snowEdge']
+  /** The ground that shows on each plane's face, from the terrain data (`face.ts`); empty for the drawn stand-in. */
+  faces: Record<'near' | 'far', PlaneFace>
+  /** The gullies, terraces and scrub on each plane, placed from the faces and seeded by the place (`land.ts`). */
+  land: Record<'near' | 'far', LandForm>
 }
 
 export interface WaterState {

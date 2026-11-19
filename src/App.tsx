@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
@@ -27,8 +27,6 @@ import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
 import { canvasScene, forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
-import { SceneCanvas } from './scene/react/SceneCanvas'
-import { useWorld } from './scene/react/useWorld'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
@@ -54,6 +52,9 @@ import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
 import { WeekList } from './ui/WeekList'
+
+/** The canvas scene (`?canvas=1`, dev only): loaded on demand, so it stays out of the production bundle until the switch. */
+const CanvasScene = lazy(() => import('./scene/react/CanvasScene'))
 
 export default function App() {
   const { place, recent, selectPlace } = usePlace()
@@ -91,11 +92,8 @@ export default function App() {
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The canvas scene's world state (`?canvas=1`, dev only): from stage C1 it draws the valley in place of the SVG one.
   const canvas = canvasScene()
-  const world = useWorld(useMemo(() => (canvas && forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
-    seenClouds, forced: forcedWeather() } : null), [canvas, place, forecast, now, selected, terrain, marks, city, seenClouds]))
-  useEffect(() => {
-    if (world) (window as Window & { __world?: unknown }).__world = world
-  }, [world])
+  const worldInput = useMemo(() => (canvas && forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
+    seenClouds, forced: forcedWeather() } : null), [canvas, place, forecast, now, selected, terrain, marks, city, seenClouds])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
     air: SCENE_25D && air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],
@@ -163,9 +161,14 @@ export default function App() {
               first: hourly.find((slot) => slot.type === 'hour')?.time ?? now,
               last: [...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now,
             }
-            if (world) return <SceneCanvas world={world} forecast={forecast} now={now} selected={selected} readout={scene.readout}
-              first={scene.first} last={scene.last} onScrub={scene.onScrub} onRelease={scene.onRelease} onNow={scene.onNow} />
-            return <ValleyScene {...scene} terrain={terrain} />
+            const svg = <ValleyScene {...scene} terrain={terrain} />
+            if (worldInput) return (
+              <Suspense fallback={svg}>
+                <CanvasScene input={worldInput} forecast={forecast} now={now} selected={selected} readout={scene.readout}
+                  first={scene.first} last={scene.last} onScrub={scene.onScrub} onRelease={scene.onRelease} onNow={scene.onNow} />
+              </Suspense>
+            )
+            return svg
           })()}
           <div className="paper" data-intro="sheet">
             <Sheet>

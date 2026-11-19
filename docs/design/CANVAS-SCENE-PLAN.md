@@ -414,6 +414,7 @@ fills, overlay labels placed from the model.
 perf runners green; a cache-hit test (unchanged key → no repaint).
 
 **C2. Land: planes and the near ridge in the enriched hand — L (5).**
+**Done 2026-11-19** (§6; perf gates not all met, see there).
 Back/far/near planes with aerial perspective from `air`; on the near ridge: lit faces by `light`, gullies, terraces on
 the lower slopes, scrub drifts, ground texture; ridge shadow and floor shadow; snow caps (`snowEdge`); wet ground.
 Form/light split for scrubbing.
@@ -664,3 +665,84 @@ and not a build input).
     a 2D canvas defers raster to the first blit, so a slice holds a whole layer. To recheck on the phone (`?perf=1`) and
     at C6, which owns the sky (options: the gradient painted where it changes only, a smaller sky surface behind the
     text, or the plan's fallback of capping light canvases while scrubbing).
+
+**C2 done (2026-11-19), with the perf gates not all met (below).** Commit on `ccr-85ec24f0-9ayxgu`; the shipped app and the
+SVG baseline are unchanged (snapshots untouched; the canvas scene is now a lazy chunk, see *App*).
+- *Drawing with the anidoodle skill* (owner decision 7): `SKILL.md`, `craft-bar.md`, `realism-and-craft.md`,
+  `determinism-and-contract.md`, `working-method.md`, `styles.md`, `workflows/site-art.md` read first. Helpers ported to
+  `scene/paint/core.ts` with the Apache-2.0 provenance header (`rng` = the world's `seeded`, one generator; `fractal`,
+  `sample`, `jitter`, `displace`, `oval`, `softBox`, `line`, `tube`; `noise2` rewritten without per-call closures, the same
+  numbers as the original, checked against it to 1e-12). The look was proved on one still (Shadmot 08:00), critiqued on 2×
+  crops, then extended to every place.
+- *World* (terrain analysis, built once with the terrain's planes, so a change of hour never redoes it):
+  `world/face.ts` (each plane's face from the panorama's ground profiles, `terrain.groundAt`: per 3 px column the ground
+  that shows between the crest and the foot, with distance, height and the slope away from the eye; the face's contours at
+  a height step giving ~14 levels), `world/land.ts` (gullies, terraces and scrub placed on the face by general rules and
+  seeded by the place: gullies down the face's re-entrants, where contours bend back toward the crest, chained contour to
+  contour, and from notches in the crest; terraces along the face's own contours on the lower, moderate slopes in short
+  seeded runs; scrub drifts weighted to moderate slopes, thinner on flat floors, none on cliffs, larger when near),
+  `Plane.hazeKm` (distances smoothed along the crest). `TerrainPlanes` gains `faces` and `land`.
+  `world/ridgeLighting.ts` exports `ridgeLightSamples` (the SVG crescent's per-point facing, clearance and band depth,
+  moved out of `ridgeLightPaths` unchanged; the SVG output is byte-identical).
+- *Model* (`scene/model/`): `planes.ts` (form: outline, the world's ground kept out of the text zones by `ground.ts`, a
+  neutral fill and the texture's seed, keyed by terrain + place + box only; a plane behind the near ridge is cut to just
+  under it, the rest hidden), `planeLight.ts` (the light part, for every place alike: tone by each direction's distance,
+  `mix(ridgeNear → the sky's horizon air tinted by air.haze, 0.88·fade(km)²)`, `fade` Koschmieder from the visibility; wet
+  ground darker and richer; lit and shade washes below the crest from `light.ray` (`ridgeLightSamples`, faces turned to
+  the light take the light's colour no lighter than the sky behind allows, faces turned away and ground in another
+  ridge's shadow sink to sky-lit shade, strength by `light.direct`); the floor shadow (`shadowRuns`, low sun); the crest rim
+  where it turns to the light, brighter near `rimX` at a low sun; snow above `snowEdge` with a ragged edge (displaced
+  geometry) fading with distance; the `lift` (side and colour the scrub and gully lips catch the light on). Keyed by the
+  inputs (world light, air, ground, night, snow, terrain, box), not the shapes. `tone.ts` gains Oklab on RGB.
+- *Painters* (`scene/paint/planes.ts`, header after the skill's "name the medium"): form = neutral 0.5 grey, a soft
+  mottle and grain (two octaves of seeded value noise per 3 px texel, drawn small and back up: the skill's blur without a
+  filter), gullies as tapered displaced tubes fading downhill, terrace shade lines, scrub dots with contact shade; light =
+  the tone, then (`source-atop`, so everything takes the plane's own antialiased edge, no clip and no fringe) snow, shade
+  and lit washes (5 nested bands), floor shadow (stacked offset copies), rim, lifts. The light canvas is laid over the
+  form with **`overlay`**: a neutral form shows the light's colours exactly, its marks darken or tint them.
+- *Tests* (`scene/model/planes.test.ts`, 37): lit side = the light's side at every hour for every place with steep crest
+  stretches (lit depth on slopes facing the light > on slopes facing away; lift toward the light; none without a side);
+  gullies, terraces and scrub under the crest and out of every text zone; texture deterministic (model and the painter's
+  call log twice); tone monotone toward the air with distance, far planes nearer the air than the near one; far planes
+  fade more at 5 km than at 40 km; wet ground darker; snow only with snow; no light, shade, rim or floor shadow under
+  full overcast; floor shadows at a low sun.
+- *Pixel references*: all 53 rewritten (`--update`), the land only: the sky rows (y < 300) of every reference are
+  byte-identical to C1's, every reference's land changed (the planes in the hand). 53/53 on re-run. 2.4 MB.
+- *Stills* `qa/canvas/c2/` (dpr 2, with the overlay): the 8 places at 08:00, 15:00, 21:00; Haifa 12:00 rain and dust (3 km,
+  the low-visibility counterpart; the 5 vs 40 km pair is a unit test, the harness has no visibility override); Jerusalem
+  12:00 snow; `sheet-svg-canvas.png` (the app itself, SVG | canvas: Haifa 08:00, Rosh Pina 15:00, Tiberias 21:00; new
+  runner `e2e/scene.compare.mjs`, the app on the dev server with the place, its panorama and the clock set, the forecast
+  from the fixture at the place's height). The canvas column has no sun disc, water, marks or portrait yet (C3–C6).
+- *Critique of the look still* (Shadmot 08:00, 2× crops, craft-bar detail pass). Works: layered planes read by distance
+  (the backlit Gilead pale in the morning haze, the near ridge dark); the lit side is the sun's (slopes facing east take a
+  band of light, slopes facing west sink); a fine rim on the sunlit crest; the ground has a soft mottle, not a flat field;
+  nothing touches the label or the dot. Still wrong: the lit band shows faint strata at 4× (5 nested bands, a cost
+  compromise, below); gullies are few and read as hairline cuts more than valleys; scrub reads as sprinkled dots, not
+  drifts with mass; terraces are near invisible at 1×; the near ridge is greyer than v1b's indigo by day (the palette's
+  `ridgeNear` plus haze); the morning light is near white (the sun's colour at 19°), so v1b's warmth only comes at a low
+  sun; the far planes have no texture (haze takes it; a cost choice too). Under snow the near and far ridges part by haze
+  only. For the owner's review against `qa/styles/v1b/`.
+- *App*: the canvas scene is a lazy import (`scene/react/CanvasScene.tsx`, default export: `useWorld` + `SceneCanvas`;
+  `App.tsx` holds only the world's input and `lazy(() => import(...))` under `?canvas=1`, the SVG scene as the fallback).
+  Production build: a separate `CanvasScene-*.js` chunk (39.7 kB, 16.9 kB gzip), not loaded without the flag.
+- *Perf* (`qa/canvas/perf.md`, C2): within budget: the model (cold 11–13 ms, scrub p95 7–13 ms), memory (12–14 MB).
+  **Over the gate**: the land's scrub frame (p50 10–17 ms, p95 15–23 ms against a gate of 15) and the first paint (63–117 ms
+  against 90; sky 39–46 ms of it, C1's), over several runs. Cause: software raster ×4 at dpr 2.75 pays per pixel for every full-plane pass
+  (the tone fill ~4 ms, the overlay blits, the washes ~2 ms, rims and lifts ~2 ms, p95 spikes from the world's per-frame
+  garbage); the first paint's land is the texture and the cold JIT of the new painters. Done to get here: the face and the
+  ground placement moved to the world (terrain part), memoised outlines and distances, light key from inputs, washes
+  batched per band and laid with `source-atop` (a clip made every later fill pay ~3×), far plane cut to what shows, far
+  texture dropped, texture at 3 px texels with value noise, foot-of-plane haze gradient dropped. Options left (owner /
+  next stage): cap the light canvases at dpr 2 while scrubbing (the plan's fallback; a scaled blit is the slow path in
+  software, to measure), quantise the light key while scrubbing, recheck on the phone with `?perf=1` (GPU raster).
+  The runner exits non-zero on these; the branch was not pushed for that reason (C2's own rule: push once all passes).
+- *Decisions where the plan was vague, and departures*:
+  - **No back plane**: the panorama gives two lines (near ridge, far horizon); `terrain.back` stays empty, the painters
+    take it when data gives one. Aerial perspective comes instead from each direction's own distance along each plane.
+  - **Overlay split**: the form is light-free values round grey; the light canvas carries every colour. The plan's
+    `Face[]` / `faces` of the plane became `Wash` (bands hanging from the crest), `Face` (floor shadow), `Rim`, `SnowCap`,
+    `Lift`; `Gully` gained width and strength. C1's `light.blend` is `overlay` for planes.
+  - **Ridge shadow**: the shade wash (faces turned away, and ground in another ridge's shadow by `clearance`); the floor
+    shadow as the SVG's (`shadowRuns`, runs ≥ 12 px, 16 px deep, sky-shade blue at 0.3 · direct).
+  - **Text zones** are honoured by the form (gullies cut, terraces split, scrub left out); the plane's fill and light pass
+    under the labels as the land does.

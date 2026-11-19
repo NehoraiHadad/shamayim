@@ -116,7 +116,7 @@ export function makeWorldBuilder() {
       place, at, preview, seed, camera,
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
       bodies, light, air, clouds, rain, snow, wind,
-      terrain: planesOf(terrain),
+      terrain: planesOf(terrain, place.id),
       water,
       place3: placePartResult.place3,
       marks: placePartResult.marks,

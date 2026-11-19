@@ -9,8 +9,8 @@ import type { CloudLevel, Pt, RGB } from '../../world/types'
  * (the figure's box, `0…box.width × 0…box.landHeight`; the world's 375 px reference width scaled by `box.width`, heights
  * as they are). The sky's horizon is the land's eye level offset by `box.landTop`. Colours are sRGB 0–1.
  *
- * Stage C1 is the skeleton: every kind is declared, the sky and the planes are filled in (flat); the shapes marked
- * "C2…C8" are placeholders for the stage that draws them and will be refined there.
+ * Every kind is declared; the sky (C1) and the planes (C2) are drawn. The shapes of the kinds drawn from C3 on are
+ * placeholders for the stage that draws them and will be refined there.
  */
 
 export type { Pt, RGB }
@@ -38,11 +38,29 @@ export interface AnimSpec {
  */
 export interface LightPart {
   key: string
-  /** How the light canvas meets the form under it: C1 covers it (`source-over`); C2's lit faces may `multiply`. */
+  /** How the light canvas meets the form under it (`source-over` covers it; the planes lay theirs on with `overlay`). */
   blend: 'source-over' | 'multiply' | 'screen' | 'overlay' | 'soft-light'
-  /** The plane's tone after light and haze over its whole shape (C1: flat; C2 adds lit faces and shadows). */
+  /** The layer's tone after light and haze (its mean, where it varies). */
   tint: RGB
   faces: Face[]
+}
+
+/**
+ * A plane's light part (C2). The form under it is light-free and laid down in values round a neutral 0.5 grey (texture,
+ * gullies, terraces, scrub darken it); this canvas holds the colours after light and haze and is laid over the form with
+ * `overlay`, so a neutral form shows these colours exactly and the form's marks darken (or tint) them.
+ */
+export interface PlaneLight extends LightPart {
+  /** The tone at the crest across the plane (x px → colour): aerial perspective by each direction's distance. */
+  tones: [number, RGB][]
+  /** Shade on the faces turned from the light, then light on the faces turned to it. */
+  shade: Wash[]
+  lit: Wash[]
+  /** Faces after the washes: the ridge's shadow on the floor. */
+  faces: Face[]
+  rims: Rim[]
+  snow: SnowCap | null
+  lift: Lift | null
 }
 
 interface LayerBase {
@@ -67,10 +85,22 @@ export interface Star { x: number; y: number; r: number; alpha: number }
 export interface Disc { x: number; y: number; r: number; rgb: RGB; veil: number }
 export interface MoonDisc extends Disc { phase: number; tilt: number }
 export interface BankDesc { id: string; x: number; y: number; w: number; h: number; puffs: number; seed: number; lit: RGB; shade: RGB }
-export interface Face { points: Pt[]; rgb: RGB; alpha: number }
+/** A filled shape; `soft` > 0 softens its edge over about that many px (stacked offset copies, no filter). */
+export interface Face { points: Pt[]; rgb: RGB; alpha: number; soft?: number }
 export type Path = Pt[]
 export interface Dot { x: number; y: number; r: number; rgb: RGB }
+/** The ground's low-frequency mottle and fine grain on a plane's form: strength 0–1 and its seed. */
 export interface Grain { amount: number; seed: number }
+/** A gully: a tapered cut down a slope, `w` px wide at its top, darkening the ground by `alpha`. */
+export interface Gully { points: Pt[]; w: number; alpha: number }
+/** A wash hanging from a line (a lit or shaded band below a crest): `depth[i]` px below `top[i]`, fading downward. */
+export interface Wash { top: Pt[]; depth: number[]; rgb: RGB; alpha: number }
+/** A fine stroke along a crest where it catches the light. */
+export interface Rim { points: Pt[]; rgb: RGB; alpha: number }
+/** Where the small things of the ground catch the light: toward (dx, dy), in this colour and strength. */
+export interface Lift { dx: number; dy: number; rgb: RGB; alpha: number }
+/** Snow over a plane above its snow line (`edge`, west to east), lit by the scene's light. */
+export interface SnowCap { edge: Pt[]; rgb: RGB; alpha: number }
 export interface WaterBand { points: Pt[]; rgb: RGB }
 export interface GlintPath { points: Pt[]; rgb: RGB; alpha: number }
 export interface Line { x1: number; x2: number; y: number }
@@ -102,8 +132,8 @@ export type LayerDesc =
   | LayerBase & { kind: 'stars'; stars: Star[]; through: number }
   | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null }
   | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[] }
-  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; faces: Face[]; gullies: Path[];
-      terraces: Path[]; scrub: Dot[]; snow?: Pt[]; grain: Grain; light: LightPart }
+  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; gullies: Gully[];
+      terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; glint: GlintPath | null; datum: Line | null }
   | LayerBase & { kind: 'farCities'; lights: Dot[]; blocks: Rect[] }
   | LayerBase & { kind: 'portrait'; items: PortraitItem[] }

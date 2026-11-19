@@ -5,15 +5,15 @@ export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
 /**
  * The enriched hand (§1c): what painters add on top of the model's geometry and colours. Parameterised by tones from the
- * model, never by moment names. Stage C1 holds only the colour helpers; C2 brings the grain, the soft edges and the
- * ground texture from `prototypes/canvas-scene/styleRich.ts`.
+ * model, never by moment names. The drawing helpers ported from the anidoodle skill are in `core.ts`; the land's
+ * texture, washes and soft edges in `planes.ts` (after `prototypes/canvas-scene/styleRich.ts`).
  */
 export interface Hand {
-  /** Grain strength (0: none). */
+  /** The ground texture's strength (0: none, 1: as the model gives it). */
   grain: number
 }
 
-export const HAND: Hand = { grain: 0 }
+export const HAND: Hand = { grain: 1 }
 
 /** A scratch surface a painter may ask for (a glyph sprite, a puff): the painter never creates one itself. */
 export interface Scratch { canvas: OffscreenCanvas | HTMLCanvasElement; ctx: Ctx2D }
