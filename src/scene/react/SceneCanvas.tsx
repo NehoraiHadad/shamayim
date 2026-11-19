@@ -31,7 +31,7 @@ interface Props {
 }
 
 /**
- * The valley on canvas (§1e, `?canvas=1`): the figure keeps its role and label, hosts the LandSurface, the HTML overlay
+ * The valley on canvas (§1e): the figure keeps its role and label (as the SVG scene's, C9), hosts the LandSurface, the HTML overlay
  * placed from the model and the scrubber. The world is built once in App (`useWorld`). From C6 the sky is drawn from the
  * same model, into the app's sky (`ui/Sky.tsx`) through a portal, with the figure's place in it measured (`useSkyHost`).
  * From C8, while the place's land is not known the land's place holds a mist and the labels wait; the land's arrival is

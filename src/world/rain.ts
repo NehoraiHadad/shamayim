@@ -1,5 +1,5 @@
 import type { AirInput } from '../atmo/airTypes'
-import { rainRate } from '../atmo/mapParts'
+import { rainRate } from './airParts'
 import { seeded } from '../data/landmarks/hash'
 import type { Covers } from './clouds'
 import type { SnowFall } from './snowLine'

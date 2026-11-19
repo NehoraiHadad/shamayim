@@ -1,7 +1,5 @@
 import type { Place } from '../config/place'
-import { inFrame, lieBaseY, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
-import { sameTower } from '../data/city/skylineTowers'
-import { inSkylineReach, SKYLINE_TO_KM } from '../data/city/skylineRay'
+import { inFrame, inSkylineReach, lieBaseY, outsideProject, sameTower, SKYLINE_TO_KM, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import type { CityTower } from '../data/city/types'
 import { industrialNamed, landmarkBeyond } from '../data/landmarks/industrial'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
@@ -20,9 +18,9 @@ import type { WorldMark } from './types'
 /**
  * The place's marks (stage C4): which landmarks show, where and how large, by the portrait and outside rules, for every
  * place alike. The choice is the data layer's (`placeMarks`: rank, fame, the side rule of the portrait, the few
- * landmarks a portrait keeps); this module seats each on the land it stands on and fits it to what shows. It replaces
- * the SVG scene's `hillScene` for the canvas (the SVG scene keeps its own until C9) and runs without composing the SVG's
- * settlement, neighbours or data skyline, which is what made the cold world slow.
+ * landmarks a portrait keeps); this module seats each on the land it stands on and fits it to what shows. It replaced
+ * the SVG scene's `hillScene` (deleted at C9) and runs without composing a settlement, neighbours or a data skyline,
+ * which is what made the cold world slow.
  */
 
 /** How much a mark of the place may be lifted off the sheet edge (px) rather than dropped. */
@@ -156,7 +154,7 @@ function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGround: Gro
   const common = { ...mark, glyphKind: kind, named, plane: mark.layer, km }
   if (mark.layer === 'near' && spec.field) {
     // A field slides onto the visible face under the crest, out of the dot.
-    const want = mark.fieldDepth ?? 2 + 6 * clamp01(Math.abs(mark.dy) / 1.5)
+    const want = 2 + 6 * clamp01(Math.abs(mark.dy) / 1.5)
     const field = kind as 'orchard' | 'vineyard' | 'solar'
     for (const at of shifts(48, 4).map((shift) => x + shift)) {
       if (at - spec.w / 2 < 8 || at + spec.w / 2 > width - 8) continue

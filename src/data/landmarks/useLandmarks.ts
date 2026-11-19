@@ -46,7 +46,7 @@ export async function loadLandmarkSource(place: Place, signal: AbortSignal, load
   return rank(overpass)
 }
 
-/** `scene`: the canvas scene's pool over a panorama (beyond the place only landmarks, C5); the SVG scene's otherwise. */
+/** `scene`: the scene's pool over a panorama (beyond the place only landmarks, C5); the older panorama pool otherwise. */
 export function useLandmarks(place: Place, panorama = false, around = false, scene = false) {
   const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[]; panoramaMarks: Landmark[]; aroundMarks: Landmark[];
     sceneMarks: Landmark[] } | null>(null)

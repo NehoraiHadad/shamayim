@@ -7,7 +7,7 @@ const pct = (x: number, width: number) => `${(x / width * 100).toFixed(2)}%`
 
 /**
  * The HTML over the land (§1e), placed from `model.overlay`: the village dot, the height label, the "פני הים" datum
- * note and the water's names, in the SVG scene's classes; x in % of the figure, y in px. `style` is laid on every item (C8:
+ * note and the water's names, in the SVG scene's classes (`Scene.module.css`); x in % of the figure, y in px. `style` is laid on every item (C8:
  * hidden while the land arrives, then faded in).
  */
 export function SceneOverlay({ items, width, style }: { items: readonly OverlayItem[]; width: number; style?: CSSProperties }) {

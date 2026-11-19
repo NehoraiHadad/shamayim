@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { brightLimbAngle, litPath, moonLook, skyPoint } from './moonShape'
+import { brightLimbAngle, moonLook, skyPoint } from './moonShape'
 import { HORIZON_Y } from './sunPath'
 
 describe('skyPoint', () => {
@@ -17,16 +17,6 @@ describe('skyPoint', () => {
   })
   it('rises with altitude', () => {
     expect(skyPoint(45, 180).y).toBeLessThan(skyPoint(10, 180).y)
-  })
-})
-
-describe('litPath', () => {
-  it('is a full disc at full moon and a hairline at new moon', () => {
-    expect(litPath(1, 7)).toBe('M0 -7 A7 7 0 0 1 0 7 A7 7 0 0 1 0 -7 Z')
-    expect(litPath(0, 7)).toBe('M0 -7 A7 7 0 0 1 0 7 A7 7 0 0 0 0 -7 Z')
-  })
-  it('has a straight terminator at the half moon', () => {
-    expect(litPath(0.5, 7)).toContain('A0 7')
   })
 })
 

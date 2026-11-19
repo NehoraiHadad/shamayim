@@ -8,7 +8,7 @@ import type { RGB, WorldMark, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
 import { mixRgb, rgbOf } from './tone'
-import type { Box, GlyphDesc, HouseDesc, LayerOf, SceneBox, Shine, Tones, TreeDesc } from './types'
+import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
 
 /** Draw order on the land: the far ridge's and the plain's marks over the far towns, under the near ridge; the near ridge's
  * portrait (houses, trees, the marks among them) over the near ridge and its water. */
@@ -158,49 +158,22 @@ const shineKey = (s: Shine) => [Math.round(s.night * 64), Math.round(s.direct * 
   Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), s.aviation, Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 
 /**
- * The glyphs, the landmarks and the village portrait (stage C4), as two layers in the one world light: the marks on the
- * far ridge and the plain (`marks.far`), and on the near ridge the portrait's houses and trees with the marks that stand
- * among them (`portrait`), drawn back to front. Their shapes follow from the place and the box; every colour, side and
- * shadow is light (a layer all of light, repainted alone while scrubbing over an empty form, as the far towns).
+ * The glyphs and the landmarks on the far ridge and the plain (stage C4), as one layer in the one world light
+ * (`marks.far`): their shapes follow from the place and the box; every colour, side and shadow is light (a layer all of
+ * light, repainted alone while scrubbing over an empty form, as the far towns). The place's own marks stand among its
+ * mass, in the outside view's layer (`outside.ts`, C5).
  */
-export function marksLayers(world: WorldState, box: SceneBox): (LayerOf<'marks'> | LayerOf<'portrait'>)[] {
+export function marksLayers(world: WorldState, box: SceneBox): LayerOf<'marks'>[] {
   const sx = box.width / SCENE_W
   const shine = shineOf(world)
-  const out: (LayerOf<'marks'> | LayerOf<'portrait'>)[] = []
   const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box))
-  // Far and plain marks: each by its own distance (tones quantised to a few distances, so a scrub reuses them).
+  // Each by its own distance (tones quantised to a few distances, so a scrub reuses them).
   const far = world.marks.filter((m) => m.plane !== 'near')
-  if (far.length) {
-    const glyphs = far.map((m) => glyphOf(world, m, sx, tonesAt(world, m.km)))
-    const bounds = boundsOf(glyphs.map(reachOf), box)
-    if (bounds) {
-      out.push({ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,
-        light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)), world.light.side, shineKey(shine)),
-          blend: 'source-over', tint: glyphs[0].tones.wall, faces: [] } })
-    }
-  }
-  // Seen from outside, the place's own marks stand among its mass (`outside.ts`, C5).
-  const near = world.place3.kind === 'outside' ? [] : world.marks.filter((m) => m.plane === 'near')
-  const plan = world.place3.kind === 'portrait' ? world.place3.plan : null
-  if (!near.length && !plan?.houses.length && !plan?.trees.length) return out
-  // The portrait at the place's own distance: the near ridge under the dot (the village is here).
-  const km = Math.min(world.place3.reachKm, world.terrain.sightAt?.(world.place3.dot.x).nearKm ?? 1)
-  const tones = tonesAt(world, km)
-  const houses: HouseDesc[] = (plan?.houses ?? []).map((h) => ({ x: h.x * sx, base: h.base, w: h.w * sx, h: h.h, storeys: h.storeys,
-    roof: h.roof, heater: h.heater, tint: h.tint, seed: h.seed }))
-  const trees: TreeDesc[] = (plan?.trees ?? []).map((t) => ({ kind: t.kind, x: t.x * sx, base: t.base, w: t.w, h: t.h, seed: t.seed }))
-  const glyphs = near.map((m) => glyphOf(world, m, sx, tonesAt(world, m.km)))
-  const bounds = boundsOf([
-    ...houses.map((h) => ({ left: h.x - 9, right: h.x + h.w + 9, top: h.base - h.h - 3, bottom: h.base + 1.5 })),
-    ...trees.map((t) => ({ left: t.x - t.w - 3, right: t.x + t.w + 3, top: t.base - t.h - 2, bottom: t.base + 1.5 })),
-    ...glyphs.map(reachOf),
-  ], box)
-  if (!bounds) return out
-  // C7: trees swaying in the wind, as a strip of frames (the light canvas only; houses and marks stand still in it).
-  const sways = trees.length > 0 && (shine.sway ?? 0) > 0.005
-  out.push({ kind: 'portrait', id: 'portrait', surface: 'land', z: Z.near, bounds, key: formKey('portrait'), houses, trees, glyphs,
-    tones, shine, litSide: world.light.side, ...(sways ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
-    light: { key: layerKey('portrait:light', formKey('portrait'), tonesKey(tones), glyphs.map((g) => tonesKey(g.tones)), world.light.side,
-      shineKey(shine)), blend: 'source-over', tint: tones.wall, faces: [] } })
-  return out
+  if (!far.length) return []
+  const glyphs = far.map((m) => glyphOf(world, m, sx, tonesAt(world, m.km)))
+  const bounds = boundsOf(glyphs.map(reachOf), box)
+  if (!bounds) return []
+  return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,
+    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)), world.light.side, shineKey(shine)),
+      blend: 'source-over', tint: glyphs[0].tones.wall, faces: [] } }]
 }

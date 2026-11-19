@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { AirInput } from './airTypes'
+import type { AirInput } from '../atmo/airTypes'
 import { mapAir } from './mapAir'
-import { visibilityKm, windU } from './mapParts'
+import { litShareOf } from './night'
+import { visibilityKm, windU } from './airParts'
 
 const calmDay: AirInput = {
   date: '2026-05-10', localHour: 12, humidity: 40,
@@ -18,16 +19,16 @@ describe('mapAir', () => {
     expect(s.streaks.count + s.rain.count + s.grains.count).toBe(0)
   })
 
-  it('wind direction maps to screen drift (westerly moves right, easterly left)', () => {
-    expect(windU(270)).toBeCloseTo(1)
-    expect(windU(90)).toBeCloseTo(-1)
+  it('wind direction maps to screen drift in the true view (a westerly moves left, an easterly right)', () => {
+    expect(windU(270)).toBeCloseTo(-1)
+    expect(windU(90)).toBeCloseTo(1)
     expect(Math.abs(windU(0))).toBeLessThan(1e-9)
   })
 
-  it('dry 40 km/h easterly gives long right-to-left streaks', () => {
+  it('dry 40 km/h easterly gives long left-to-right streaks', () => {
     const s = air({ windSpeed: 40, windGusts: 60, windDirection: 90 })
     expect(s.streaks.count).toBeGreaterThan(20)
-    expect(s.wind.u).toBeLessThan(0)
+    expect(s.wind.u).toBeGreaterThan(0)
     expect(s.wind.gustExcess).toBe(20)
     expect(s.calm).toBe(false)
   })
@@ -44,8 +45,8 @@ describe('mapAir', () => {
     expect(drizzle.count).toBeLessThan(60)
     expect(pour.count).toBe(450)
     expect(pour.speed).toBeGreaterThan(drizzle.speed * 2)
-    expect(pour.slant).toBeGreaterThan(0.5)
-    expect(drizzle.slant).toBeLessThan(pour.slant)
+    expect(Math.abs(pour.slant)).toBeGreaterThan(0.5)
+    expect(Math.abs(drizzle.slant)).toBeLessThan(Math.abs(pour.slant))
   })
 
   it('a rain code with no measured rate still shows drizzle', () => {
@@ -94,5 +95,15 @@ describe('mapAir', () => {
     const s = air({ snowfall: 1, precipitation: 1.5, temperature: 0, weatherCode: 73 })
     expect(s.snow.count).toBe(90)
     expect(s.rain.count).toBe(0)
+  })
+})
+
+describe('lit windows', () => {
+  const lit = (over: Partial<AirInput>) => litShareOf({ ...calmDay, ...over }, air(over))
+  it('by the night\'s hour, and by day only under a storm', () => {
+    expect(lit({ sunElevation: -10, localHour: 21 })).toBe(1)
+    expect(lit({ sunElevation: -10, localHour: 3 })).toBe(.2)
+    expect(lit({ sunElevation: 30, weatherCode: 95 })).toBe(.3)
+    expect(lit({ sunElevation: 30 })).toBe(0)
   })
 })

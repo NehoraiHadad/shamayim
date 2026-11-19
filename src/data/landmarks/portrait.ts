@@ -1,6 +1,5 @@
 import type { Cluster } from '../city/clusterTypes'
 import { homeCluster } from '../city/homeCluster'
-import type { SkylineData } from '../city/skylineData'
 
 /**
  * The place's portrait (docs/design/TRUE-SCENE-PLAN.md): what lies within its reach belongs to the illustration round
@@ -24,22 +23,3 @@ export function portraitReach(clusters: readonly Cluster[] | undefined): number 
 
 /** The widest a portrait reaches: what the landmark shortlist keeps in every direction (north too). */
 export const PORTRAIT_MAX_KM = MAX_KM
-
-/**
- * A village's own houses are its portrait, so the data skyline (built squares at their true angle, made for a city's
- * towers) keeps only what lies beyond it: other towns. Within it, on the vertical stretch, a village's houses read
- * as grey pillars hanging off the ridge.
- */
-export function beyondPortrait(skyline: SkylineData, reachKm: number): SkylineData {
-  return { ...skyline, columns: skyline.columns.map(column => ({ ...column,
-    faces: column.faces.map(face => face && face.km < reachKm ? null : face) as typeof column.faces })) }
-}
-
-/**
- * A city is its own portrait: its built squares fill the view near it (more than one face a column within the portrait,
- * Tel Aviv, Jerusalem, Haifa), and the data skyline already reads as the city. A village or a town is not.
- */
-export function skylineIsCity(skyline: SkylineData, reachKm: number): boolean {
-  const near = skyline.columns.reduce((sum, column) => sum + column.faces.filter(face => face && face.km < Math.max(reachKm, 3)).length, 0)
-  return near >= 1.2 * skyline.columns.length
-}

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
-import { mapAir } from './atmo/mapAir'
+import { mapAir } from './world/mapAir'
 import { Life } from './atmo/life/Life'
 import { mapLife } from './atmo/life/mapLife'
 import { useLandmarks } from './data/landmarks/useLandmarks'

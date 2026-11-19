@@ -7,7 +7,6 @@ import { PORTRAIT_MARGIN_KM } from './portrait'
 import { groundY, markHeight, markWidth } from './project'
 import { avoid, score, select, spread, type Candidate, type FarRule } from './rank'
 import type { SettlementSize } from './settlement'
-import { templateHalf } from './settlementPlan'
 import type { Landmark, PlacedMark } from './types'
 
 export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
@@ -64,9 +63,12 @@ function elevationAt(values: number[] | undefined, x: number): number | undefine
   return values[left] + ((values[left + 1] ?? values[left]) - values[left]) * t
 }
 
+/** Half a place's own houses (px) by its size, where its built-up reach is not known. */
+const HOME_HALF: Record<SettlementSize, number> = { small: 27, medium: 43, large: 62 }
+
 function legacyHomeHalf(marks: Landmark[]) {
   const homes = marks.find(isPlaceHomes)
-  return homes ? templateHalf(settlementSize(homes)) : 7
+  return homes ? HOME_HALF[settlementSize(homes)] : 7
 }
 
 /**
@@ -160,8 +162,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   })
   return fewLandmarks(clearLabel).flatMap((item) => {
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
-    const baseY = item.plain?.baseY ?? (terrain.drawn && item.x >= 150 && item.x <= 200
-      ? 96 : groundY(points.map(([x, y]) => ({ x, y })), item.x))
+    const baseY = item.plain?.baseY ?? groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const fixed = item.mark.kind === 'homes' ? Math.max(6, Math.min(14, item.mark.heightM)) : FIXED[item.mark.kind]
     let hPx = item.plain?.hPx ?? fixed ?? markHeight(item.mark.heightM, item.layer === 'near' ? 'near' : 'far')
     // Near the sides a high ridge leaves little sky: a tall mark is cut down to fit, and dropped when too little is left.

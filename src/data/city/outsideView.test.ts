@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { baseYAt, budget, dedupeTowers, outsideFrame, outsideProject, outsideSkyline, SKYLINE_VARIANTS } from './outsideView'
+import { baseYAt, budget, dedupeTowers, outsideFrame, outsideProject, outsideSkyline } from './outsideView'
 import type { CityTower } from './types'
 
 const place = { lat: 32.08, lon: 34.78 }
@@ -48,10 +48,10 @@ describe('the place seen from outside', () => {
     expect(budget(1, 6)).toBe(1)
   })
 
-  it.each(SKYLINE_VARIANTS)('variant %s accounts for every tower in the place', (variant) => {
+  it('accounts for every tower in the place', () => {
     const towers = Array.from({ length: 60 }, (_, i) => tower(-2 + (i % 12) * .3, -2 + Math.floor(i / 12) * .8,
       40 + (i * 37) % 200))
-    const result = outsideSkyline({ variant, place, towers, landmarks: [], frame, ground: () => 100, floor: 120, width: 390 })
+    const result = outsideSkyline({ place, towers, landmarks: [], frame, ground: () => 100, floor: 120, width: 390 })
     const { inPlace, glyph, silhouette, folded, dropped } = result.stats
     expect(inPlace).toBe(60)
     expect(glyph + silhouette + folded + dropped).toBe(inPlace)

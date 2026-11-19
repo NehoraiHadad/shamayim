@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { heightY, snowFall } from './snowLine'
+import { snowFall } from './snowLine'
 
 const dry = { weatherCode: 3, snowfall: 0, temperature: 1 }
 
@@ -37,17 +37,5 @@ describe('snowFall', () => {
   it('takes no cap from patches under a centimetre, and is falling while it snows', () => {
     expect(snowFall({ ...dry, snowDepth: .005 }, 1100)).toBeNull()
     expect(snowFall({ ...dry, weatherCode: 73, snowDepth: .2 }, 1100)!.falling).toBe(true)
-  })
-})
-
-describe('heightY', () => {
-  const ridge = [200, 600, 1000, 600, 200]
-  it('maps metres on the ridge profile (higher = smaller y)', () => {
-    expect(heightY(900, ridge, null)!).toBeLessThan(heightY(400, ridge, null)!)
-  })
-  it('scales the hand-drawn valley from the sea line and the floor, and knows nothing elsewhere', () => {
-    expect(heightY(0, undefined, -175)).toBe(72)
-    expect(heightY(-175, undefined, -175)).toBeCloseTo(96)
-    expect(heightY(500, undefined, null)).toBeNull()
   })
 })

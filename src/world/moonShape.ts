@@ -34,20 +34,6 @@ export function sunDirection(altitude: number, azimuth: number, skyline: Skyline
   return { x, y: altitudeY(skyline, x, altitude) }
 }
 
-/**
- * Outline of the lit part of a disc of radius r centred on (0, 0), lit side towards +x (rotate it into place).
- * Lit limb: a semicircle. Terminator: a half-ellipse whose width follows the lit fraction, so the shape
- * changes continuously from a hairline crescent through the half moon to the full disc.
- */
-export function litPath(fraction: number, r: number): string {
-  const k = Math.min(1, Math.max(0, fraction))
-  const rx = Math.abs(1 - 2 * k) * r
-  // Crescent: the terminator bulges towards the lit side; gibbous: away from it.
-  const sweep = k < 0.5 ? 0 : 1
-  const f = (n: number) => Number(n.toFixed(3))
-  return `M0 ${f(-r)} A${f(r)} ${f(r)} 0 0 1 0 ${f(r)} A${f(rx)} ${f(r)} 0 0 ${sweep} 0 ${f(-r)} Z`
-}
-
 /** Screen angle (degrees, SVG rotation) from the moon towards the sun: the lit limb faces it. */
 export function brightLimbAngle(moon: ScenePoint, sun: ScenePoint): number {
   const dx = (sun.x - moon.x) * SCENE_W

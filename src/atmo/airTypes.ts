@@ -31,7 +31,7 @@ export interface AirInput {
   sunElevation: number
   /** Selected-hour preview: no lightning. */
   preview: boolean
-  /** How many single clouds the satellite sees near the place now (drawn from the scene's data, see `layout.ts`). */
+  /** How many single clouds the satellite sees near the place now (the scene draws them, `world/clouds.ts`). */
   cloudsSeen?: number
 }
 

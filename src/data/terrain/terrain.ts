@@ -5,13 +5,12 @@ import type { Sight } from '../landmarks/project'
 import type { SeenPoint } from './visibility'
 import { waterAround, type WaterLookup, type WaterSpan } from '../water/waterInView'
 import { loadWaterMask, type WaterMask } from '../water/waterMask'
-import { terrainFromPanorama } from './panoramaTerrain'
+import { MIDDLE_Y, terrainFromPanorama } from './panoramaTerrain'
 import { fetchPanorama } from './fetchPanorama'
 import {
   packPanorama, unpackPanorama, type Panorama,
   type StoredPanorama,
 } from './panorama'
-import { gentleHillsPath, mirrorPath, ridgePoints } from './profile'
 
 export { terrainFromPanorama } from './panoramaTerrain'
 export { fetchPanorama, inRift } from './fetchPanorama'
@@ -21,16 +20,12 @@ type Pt = [number, number]
 /**
  * Where the place's land stands (C8): `ready` once its panorama is in (from storage or fetched), `loading` while it is
  * being fetched, `offline` when the fetch failed and none is stored (no land data, ever, until the network returns). The
- * canvas scene draws a mist in the land's place until it is `ready` (`scene/model/loading.ts`); the SVG scene keeps its
- * drawn stand-in until C9.
+ * scene draws a mist in the land's place until it is `ready` (`scene/model/loading.ts`).
  */
 export type LandStatus = 'ready' | 'loading' | 'offline'
 
 export interface SceneTerrain {
-  near: string
-  far: string
   centerLeft: string
-  centerY: number
   seaY: number
   /** The sea (not a lake) is in view, on this side (`water`). */
   seaInView: boolean
@@ -43,11 +38,10 @@ export interface SceneTerrain {
   nearElevations?: number[]
   farElevations?: number[]
   /**
-   * y of eye level (0°) when the land is the horizon panorama, drawn on the sky's own vertical scale: the sun and moon
-   * stand on this line, so they hide behind the land exactly when the real land hides them. Absent for the stand-in
-   * drawings (loading, offline), where a body stands on the drawn ridge instead.
+   * y of eye level (0°), on the sky's own vertical scale: the sun and moon stand on this line, so they hide behind the
+   * land exactly when the real land hides them. While the land is unknown, a guess (`UNKNOWN_EYE_Y`).
    */
-  horizonY?: number
+  horizonY: number
   seenAt?: (x: number, km: number, heightM?: number) => SeenPoint | null
   /**
    * Ground height (m above sea level) at km east / north of the place, in every direction (north too), within the
@@ -69,49 +63,26 @@ export interface SceneTerrain {
   sightAt?: (x: number) => Sight
   /** The camera the land is drawn for (`domain/camera.ts`); everything placed on it by direction asks the same one. */
   camera?: Camera
-  /** The hand-drawn valley (its village sits on the drawn floor, its snow line is scaled from the place's depth). */
-  drawn?: boolean
-  /** Whether the land is known yet (`useTerrain`); absent: known when it is a panorama (`horizonY`), else loading. */
+  /** Whether the land is known yet (`useTerrain`); absent: known (a panorama). */
   status?: LandStatus
 }
 
-const SHADMOT_FAR_DRAWN = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
-const SHADMOT_NEAR_DRAWN = 'M0 128V50C30 44 60 48 90 62S134 90 150 96L200 97Q212 103 222 98L236 96C256 82 272 58 296 44S348 30 375 32V128Z'
-const GENERIC_FAR_DRAWN = 'M0 128V54C52 32 102 44 148 62S236 76 284 48S344 38 375 50V128Z'
 /**
- * The stand-ins were drawn for the old mirrored scene (east on the right); the scene now faces south as an eye does
- * (east on the left), so they are turned round across.
+ * Eye level while the land is unknown (C8): where the panorama puts it when the near ridge due south stands at eye level
+ * (`MIDDLE_Y`), the middle of the places' range (66–105 over the baseline and still places). The sky stands on it until the
+ * land arrives, then settles to the land's own (`scene/model/loading.ts`, the glide).
  */
-const turned = (d: string) => mirrorPath(d)
-const SHADMOT_FAR = turned(SHADMOT_FAR_DRAWN)
-const SHADMOT_NEAR = turned(SHADMOT_NEAR_DRAWN)
-const GENERIC_FAR = turned(GENERIC_FAR_DRAWN)
+export const UNKNOWN_EYE_Y = MIDDLE_Y
 
-/** The hand-drawn Jordan Valley at Shadmot Mehola: shown until its panorama has loaded (and if it never can). */
-const SHADMOT: SceneTerrain = {
-  far: SHADMOT_FAR,
-  near: SHADMOT_NEAR,
-  centerLeft: '52.5%',
-  centerY: 96,
-  seaY: 72,
-  seaInView: false,
-  seaSide: null,
-  // Sampled from the drawn paths, so marks stand on the line you see (a few hand-picked corners missed the curves).
-  nearPoints: ridgePoints(SHADMOT_NEAR),
-  farPoints: ridgePoints(SHADMOT_FAR),
-  drawn: true,
-}
-
-export const GENERIC_TERRAIN: SceneTerrain = {
-  far: GENERIC_FAR,
-  near: turned(gentleHillsPath()),
-  centerLeft: '50%',
-  centerY: 74,
-  seaY: 72,
-  seaInView: false,
-  seaSide: null,
-  nearPoints: ridgePoints(turned(gentleHillsPath())),
-  farPoints: ridgePoints(GENERIC_FAR),
+/**
+ * The land the world stands on while the place's own is not known (loading, or offline with none stored): no ridge,
+ * eye level at `UNKNOWN_EYE_Y`, so the sun and moon set at their true horizon (0°) and nothing is placed on a guessed
+ * shape. Nothing is drawn of it: the scene shows a mist in its place (C8).
+ */
+export function unknownLand(status: Exclude<LandStatus, 'ready'>): SceneTerrain {
+  const flat: Pt[] = [[0, UNKNOWN_EYE_Y], [375, UNKNOWN_EYE_Y]]
+  return { centerLeft: '50%', seaY: UNKNOWN_EYE_Y, seaInView: false, seaSide: null, nearPoints: flat, farPoints: flat,
+    horizonY: UNKNOWN_EYE_Y, status }
 }
 
 function horizonKey(placeId: string): string {
@@ -136,9 +107,9 @@ function writePanorama(placeId: string, panorama: Panorama): void {
   }
 }
 
-export function terrainForPlace(placeId: string, panorama: Panorama | null, water: WaterLookup | null = null): SceneTerrain {
-  if (panorama) return terrainFromPanorama(panorama, { water })
-  return placeId === 'shadmot-mehola' ? SHADMOT : GENERIC_TERRAIN
+/** The place's land: its panorama once known, else the unknown land of its status (C8). */
+export function terrainForPlace(panorama: Panorama | null, status: Exclude<LandStatus, 'ready'>, water: WaterLookup | null = null): SceneTerrain {
+  return panorama ? { ...terrainFromPanorama(panorama, { water }), status: 'ready' } : unknownLand(status)
 }
 
 export function useTerrain(place: Place): SceneTerrain {
@@ -176,7 +147,6 @@ export function useTerrain(place: Place): SceneTerrain {
     loadWaterMask().then((mask) => { if (live) setWater(mask) }).catch(() => undefined)
     return () => { live = false }
   }, [])
-  const status: LandStatus = panorama ? 'ready' : failed ? 'offline' : 'loading'
-  return useMemo(() => ({ ...terrainForPlace(place.id, panorama, water && waterAround(place, water)), status }),
-    [place, panorama, water, status])
+  const status = failed ? 'offline' : 'loading'
+  return useMemo(() => terrainForPlace(panorama, status, water && waterAround(place, water)), [place, panorama, water, status])
 }

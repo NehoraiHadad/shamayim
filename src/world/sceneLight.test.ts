@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { airMass, discLook, inShadow, shadowReach, sunFlattening, sunLight, worldLight } from './sceneLight'
+import { aerosolDepth, airMass, inShadow, shadowReach, sunFlattening, sunLight } from './sceneLight'
 
 type Point = [number, number]
 
@@ -34,8 +34,7 @@ describe('scene light', () => {
 
   it('casts longer shadows at a low sun and gives nothing without a sun', () => {
     expect(shadowReach([1, .2])).toBeGreaterThan(shadowReach([1, 2]))
-    expect(worldLight(null, [], 375, 375)).toBeNull()
-    expect(worldLight({ ray: null, altitude: 10 }, [], 375, 375)).toBeNull()
+    expect(shadowReach(null)).toBe(.4)
   })
 })
 
@@ -62,7 +61,7 @@ describe('the hour air in the sun colour', () => {
     expect(sunLight(4, { visibilityKm: 6, dust: true }).rgb[1]).toBeGreaterThan(sunLight(4, { visibilityKm: 6 }).rgb[1])
   })
 
-  it('widens the aureole as aerosol grows', () => {
-    expect(discLook(20, { visibilityKm: 8 }).aureole).toBeGreaterThan(discLook(20, { visibilityKm: 40 }).aureole)
+  it('deepens the aerosol as the air grows hazier', () => {
+    expect(aerosolDepth({ visibilityKm: 8 })[1]).toBeGreaterThan(aerosolDepth({ visibilityKm: 40 })[1])
   })
 })

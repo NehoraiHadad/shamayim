@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { anglePx } from '../data/terrain/angleScale'
-import { GENERIC_TERRAIN, type SceneTerrain } from '../data/terrain/terrain'
+import { unknownLand, type SceneTerrain } from '../data/terrain/terrain'
 import { addMinutes } from '../domain/time'
 import type { DayPoint, Forecast } from '../domain/types'
 import { nextSunEvent, twilight } from './twilight'
@@ -13,7 +13,7 @@ const forecast = { days: [day] } as Forecast
 const walls = (east: number, west: number): SceneTerrain => {
   const y = (deg: number) => 96 - anglePx(deg)
   const points: [number, number][] = [[0, y(west)], [120, y(west)], [150, 96], [230, 96], [260, y(east)], [375, y(east)]]
-  return { ...GENERIC_TERRAIN, nearPoints: points, farPoints: points, horizonY: 96 }
+  return { ...unknownLand('loading'), status: 'ready', nearPoints: points, farPoints: points, horizonY: 96 }
 }
 
 describe('visible sunrise and sunset', () => {
@@ -34,7 +34,7 @@ describe('visible sunrise and sunset', () => {
   it('stays the flat time over a flat horizon, and is unknown before a panorama is', () => {
     const flat = withVisibleSun(forecast, walls(0, 0), site).days[0]
     expect(Math.abs(Number(flat.visibleSunrise!.slice(-2)) - 12)).toBeLessThanOrEqual(4)
-    expect(withVisibleSun(forecast, GENERIC_TERRAIN, site)).toBe(forecast)
+    expect(withVisibleSun(forecast, unknownLand('loading'), site)).toBe(forecast)
   })
 
   it('is what the twilight glow goes by, while the label keeps the calendar times', () => {

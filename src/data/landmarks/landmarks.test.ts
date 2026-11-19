@@ -53,7 +53,7 @@ describe('landmark projection', () => {
 })
 
 const terrain: SceneTerrain = {
-  near: '', far: '', centerLeft: '50%', centerY: 60, seaY: 60, seaInView: false,
+  centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false,
   seaSide: null,
   nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20],

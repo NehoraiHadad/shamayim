@@ -21,8 +21,8 @@ export interface HorizonLine {
 
 /**
  * The horizon for a pass that rises and sets at these azimuths. Over a horizon panorama it is eye level itself (one
- * level line under the whole sky, which the land rises above at its true angles); over a stand-in drawing it runs from
- * the drawn ridge where the body rises to the drawn ridge where it sets.
+ * level line under the whole sky, which the land rises above at its true angles); over a skyline with no eye level it
+ * runs from the ridge where the body rises to the ridge where it sets.
  */
 export function horizonLine(riseAzimuth: number, setAzimuth: number, skyline: Skyline): HorizonLine {
   const riseX = skyPoint(0, riseAzimuth, skyline).x

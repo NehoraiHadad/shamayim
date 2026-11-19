@@ -1,6 +1,6 @@
 import { panoramaFarColumns, type FarData } from '../data/city/farData'
 import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from '../data/city/farGrid'
-import { SKYLINE_TO_KM } from '../data/city/skylineRay'
+import { SKYLINE_TO_KM } from '../data/city/outsideView'
 import { plainLights } from '../data/city/plainLights'
 import { hashId, seeded } from '../data/landmarks/hash'
 import type { Coordinate } from '../data/landmarks/project'
@@ -26,7 +26,7 @@ function topOver(terrain: SceneTerrain, base: number, km: number, heightM: numbe
   return horizonY - anglePx((lo + hi) / 2 + rise)
 }
 
-/** No far towns: no data yet, or a drawn stand-in with no panorama to place them on. */
+/** No far towns: no data yet, or no panorama to place them on. */
 export const NO_FAR_CITIES: FarCities = { patches: [], towers: [], fromKm: null, shapes: { mass: [], blocks: [], lights: [] } }
 
 /**

@@ -4,7 +4,7 @@ import { paintBodies, paintStars } from './bodies'
 import { paintClouds, paintFlash, paintShimmer } from './clouds'
 import { paintFarCities } from './farCities'
 import { paintLoading } from './loading'
-import { paintMarks, paintPortrait } from './marks'
+import { paintMarks } from './marks'
 import { paintOutside } from './outside'
 import { paintPlane, paintPlaneLight } from './planes'
 import { paintSky } from './sky'
@@ -41,7 +41,6 @@ export const PAINTERS: Painters = {
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },
   marks: { form: paintNothing, light: paintMarks, formless: () => true },
-  portrait: { form: paintNothing, light: paintPortrait, formless: () => true },
   outside: { form: paintNothing, light: paintOutside, formless: () => true },
   shafts: { form: paintShafts },
   fall: { form: paintFall },

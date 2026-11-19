@@ -7,7 +7,6 @@ import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/ou
 import type { FarData } from '../data/city/farData'
 import type { PlainPatch } from '../data/city/plainData'
 import type { CityResult } from '../data/city/types'
-import type { SettlementSize, SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { Relief } from '../data/terrain/angleScale'
 import type { SceneNote } from '../data/terrain/sceneNotes'
@@ -78,7 +77,7 @@ export interface WorldSources {
 /** Angle → y, shared by land and sky: the vertical scale (`RELIEF`) above eye level. */
 export interface WorldRelief {
   scale: Relief
-  /** y of eye level (0°): the panorama's, or the old fixed horizon for the drawn stand-in. */
+  /** y of eye level (0°): the panorama's, or the guess while the land is unknown (`UNKNOWN_EYE_Y`). */
   horizonY: number
   /** y of an (apparent) altitude above eye level. */
   y: (altitude: number) => number
@@ -147,7 +146,7 @@ export interface Air {
   haze: RGB
   /** Aerial perspective: 0 near … 1 lost, Koschmieder from `visibilityKm` (contrast 2 % at the visibility). */
   fade: (km: number) => number
-  /** The SVG scene's fades of the far and near planes (`atmo/mapParts.ts`), for tones carried over. */
+  /** The fades of the far and near planes (`world/airParts.ts` `haze`), for tones carried over from the SVG scene. */
   farFade: number
   nearFade: number
   horizonBand: { rgb: RGB; alpha: number }
@@ -240,10 +239,8 @@ export interface TerrainPlanes {
   back?: Plane
   floorY: number
   seaY: number
-  /** Eye level (panorama only). */
-  horizonY?: number
-  /** The hand-drawn stand-in (no panorama yet). */
-  drawn: boolean
+  /** Eye level (the panorama's, or the unknown land's guess). */
+  horizonY: number
   /**
    * Whether the place's land is known (C8): `loading` or `offline`, the world stands on `unknownLand` (no ridge, a guessed
    * eye level) and the scene draws a mist in the land's place; `ready`, the panorama's planes.
@@ -253,7 +250,7 @@ export interface TerrainPlanes {
   seenAt?: SceneTerrain['seenAt']
   groundAt?: SceneTerrain['groundAt']
   snowEdge?: SceneTerrain['snowEdge']
-  /** The ground that shows on each plane's face, from the terrain data (`face.ts`); empty for the drawn stand-in. */
+  /** The ground that shows on each plane's face, from the terrain data (`face.ts`); empty for the unknown land. */
   faces: Record<'near' | 'far', PlaneFace>
   /** The gullies, terraces and scrub on each plane, placed from the faces and seeded by the place (`land.ts`). */
   land: Record<'near' | 'far', LandForm>
@@ -309,37 +306,15 @@ export interface FarCities {
 
 export interface Dot { x: number; y: number }
 
-/** A place drawn as its portrait round the dot (a village, a small town). */
-export interface PlacePortrait {
-  kind: 'portrait'
+/**
+ * The place while its land is not known (C8, `world.ts` `unknownPlace`): nothing is placed on a guessed ridge; the dot
+ * waits at the guessed eye level.
+ */
+export interface PlaceUnknown {
+  kind: 'unknown'
   dot: Dot
-  /** Its built-up area out to its farthest corner, plus the fields (`portrait.ts`). */
   reachKm: number
-  style: SettlementStyle
-  size: SettlementSize
-  /** Only from roof evidence (5+ mapped roof shapes); else mixed (owner, 2026-11-19). */
-  roofs: 'tile' | 'flat' | 'mixed'
   seed: number
-  /** The houses and trees round the dot (`portrait.ts`), at the layout width. */
-  plan: PortraitPlan
-}
-
-/** A house of the portrait: `x` its left edge, standing on `base`; `tint` 0–1 its plaster, `row` its contour row. */
-export interface PortraitHouse {
-  x: number; base: number; w: number; h: number; storeys: number; row: number
-  roof: 'tile' | 'flat'
-  /** A solar water heater on the flat roof. */
-  heater: boolean
-  tint: number
-  seed: number
-}
-/** A tree of the portrait: `x` its centre. */
-export interface PortraitTree { kind: 'tree' | 'cypress' | 'palm'; x: number; base: number; w: number; h: number; row: number; seed: number }
-export interface PortraitPlan {
-  /** Half the village (px): the falloff's reach. */
-  halfPx: number
-  houses: PortraitHouse[]
-  trees: PortraitTree[]
 }
 
 /**
@@ -421,7 +396,7 @@ export interface WorldLabels {
 }
 
 export interface Night {
-  /** Share of windows lit (`atmo/life/mapMarks.ts`). */
+  /** Share of windows lit (`night.ts` `litShareOf`). */
   litShare: number
   /** 0–1: the clear share of the sky, which the stars show through (0 under full cover). */
   starsThrough: number
@@ -470,7 +445,7 @@ export interface WorldState {
   terrain: TerrainPlanes
   water: WaterState
   farCities: FarCities
-  place3: PlacePortrait | OutsideView
+  place3: PlaceUnknown | OutsideView
   /** The marks after the portrait / outside rules (`marks.ts`), seated on the land they stand on. */
   marks: WorldMark[]
   /** The height label and the notes on the land (the place part: independent of the hour). */

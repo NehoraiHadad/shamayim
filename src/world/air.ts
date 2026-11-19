@@ -1,5 +1,5 @@
 import type { AirInput } from '../atmo/airTypes'
-import { haze, heat, rainRate, visibilityKm } from '../atmo/mapParts'
+import { haze, heat, rainRate, visibilityKm } from './airParts'
 import type { Air, RGB, WorldSources } from './types'
 
 /** sRGB 0–1 of a `#rrggbb` colour. */

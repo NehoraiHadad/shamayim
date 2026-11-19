@@ -457,7 +457,7 @@ describe('the variant B counts of the skyline study (SKYLINE.md), with the study
     const landmarks = (await loadLandmarkSource(place, new AbortController().signal, { israel: loadIsrael })).panoramaMarks
     const reachKm = portraitReach(city?.clusters)
     const frame = outsideFrame(city?.clusters, reachKm, Number.parseFloat(terrain.centerLeft) / 100 * 375, 375, true)
-    const out = outsideSkyline({ variant: 'b', place, towers: city?.raster?.towers ?? city?.towers ?? [], landmarks,
+    const out = outsideSkyline({ place, towers: city?.raster?.towers ?? city?.towers ?? [], landmarks,
       raster: city?.raster ?? undefined, frame, ground: groundFn(terrain.nearPoints, 375), floor: VISIBLE_BOTTOM - SHEET_CLEAR, width: 375 })
     // The study's stills were made on the live panorama in the app; the recorded fixture's ridge differs by a fraction of
     // a px here and there, which moves a spire or two across the 7 px rise: the counts within 2 of the study's.

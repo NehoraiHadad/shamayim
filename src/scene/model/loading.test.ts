@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { GENERIC_TERRAIN } from '../../data/terrain/terrain'
+import { unknownLand } from '../../data/terrain/terrain'
 import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
@@ -34,9 +34,9 @@ afterAll(() => { vi.unstubAllGlobals() })
 
 const at = (hour: string) => `${DAY}T${hour}` as LocalTime
 const input = (id: string, hour: string, forced: WorldInput['forced'] = null) => ({ ...worldInput(loaded.get(id)!, at(hour)), forced })
-/** The world while the land is not known: App hands the drawn stand-in with its status; the world must not use its shape. */
+/** The world while the land is not known: App hands the unknown land of its status (`useTerrain`). */
 const unknown = (id: string, hour: string, status: 'loading' | 'offline', forced: WorldInput['forced'] = null): WorldState =>
-  buildWorld({ ...input(id, hour, forced), terrain: { ...GENERIC_TERRAIN, status } })
+  buildWorld({ ...input(id, hour, forced), terrain: unknownLand(status) })
 const known = (id: string, hour: string, forced: WorldInput['forced'] = null) => buildWorld(input(id, hour, forced))
 const land = (model: SceneModel) => model.layers.filter((l) => l.surface === 'land')
 const RAIN = { precipitation: 4, weatherCode: 63, cloudCover: 95, thickCloud: 90, windSpeed: 35, windGusts: 55, windDirection: 270, humidity: 95 }
@@ -58,7 +58,7 @@ describe.each(SCENE_PLACES)('loading: $id', ({ id }) => {
       expect(w.water.spans).toEqual([])
       expect(w.farCities.patches).toEqual([])
       expect(w.labels.notes).toEqual([])
-      expect(w.place3.kind === 'portrait' && w.place3.plan.houses.length + w.place3.plan.trees.length).toBe(0)
+      expect(w.place3.kind).toBe('unknown')
     }
     expect(known(id, '12:00').terrain.status).toBe('ready')
   })

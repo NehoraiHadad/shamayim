@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AirInput, AirState } from '../airTypes'
-import { mapAir } from '../mapAir'
+import { mapAir } from '../../world/mapAir'
 import { flockOffsets, planEvent } from './planEvent'
 import { mapLife } from './mapLife'
 
@@ -62,8 +62,8 @@ describe('calm life mapping', () => {
   })
 
   it('follows the verified screen-direction convention, with a stable seeded fallback', () => {
-    expect(state({ windSpeed: 10, windDirection: 270 }).dir).toBe(1)
-    expect(state({ windSpeed: 10, windDirection: 90 }).dir).toBe(-1)
+    expect(state({ windSpeed: 10, windDirection: 270 }).dir).toBe(-1)
+    expect(state({ windSpeed: 10, windDirection: 90 }).dir).toBe(1)
     const along = state({ windSpeed: 10, windDirection: 0 })
     expect(state({ windSpeed: 10, windDirection: 0 }).dir).toBe(along.dir)
   })

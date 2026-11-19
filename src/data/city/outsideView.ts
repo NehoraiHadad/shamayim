@@ -3,11 +3,21 @@ import type { Cluster } from './clusterTypes'
 import type { CityRaster } from './cityRaster'
 import { LAT_STEP, LON_STEP } from './grid'
 import { roofHeight } from './skylineHeight'
+import { RAY_DISTANCES } from '../terrain/panorama'
 import type { CityTower } from './types'
 import { hashId, seeded } from '../landmarks/hash'
 import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
+
+/** The outside view's reach (km): a city's own skyline from the panorama's first ray out to 6 km; the far towns beyond. */
+export const SKYLINE_FROM_KM = RAY_DISTANCES[0]
+export const SKYLINE_TO_KM = 6
+const DISTANCE_EPSILON = 1e-9
+export const inSkylineReach = (km: number) => km >= SKYLINE_FROM_KM - DISTANCE_EPSILON && km <= SKYLINE_TO_KM + DISTANCE_EPSILON
+
+/** The same tower twice (OSM and the raster, or two OSM points): within 250 m. */
+export const sameTower = (a: Coordinate, b: Coordinate) => distanceOf(a, b) <= .25
 
 /**
  * Design study (dev only, `?skyline=a|b|c`; docs/design/qa/true-scene/skyline/): the place seen from outside.
@@ -26,8 +36,6 @@ import type { Landmark } from '../landmarks/types'
  *   rise; lone towers stand alone.
  * In all three, the famous (named and linked to Wikipedia / Wikidata) and the very tall get the full high-rise glyph.
  */
-export type SkylineVariant = 'a' | 'b' | 'c'
-export const SKYLINE_VARIANTS: readonly SkylineVariant[] = ['a', 'b', 'c']
 
 export interface OutsideFrame {
   /** The place's box in km from the place point: west, east, south, north. */
@@ -90,14 +98,6 @@ export function frameOfBox(extent: { w: number; e: number; s: number; n: number 
  */
 export interface FrameScale { halfPx: (extentKm: number) => number; k: (extentKm: number) => number }
 
-/**
- * A place is seen from outside as a city (its towers and built squares, variant B) when its own homes read as a large
- * town, or when 8 or more towers stand within its portrait reach; otherwise it is a portrait.
- */
-export function seenFromOutside(place: Coordinate, landmarks: readonly Landmark[], towers: readonly CityTower[], reachKm: number) {
-  return landmarks.some(mark => mark.source === 'place' && mark.glyph === 'homes-large')
-    || towers.filter(tower => distanceOf(place, tower) <= reachKm).length >= 8
-}
 
 export function inFrame(frame: OutsideFrame, dx: number, dy: number, marginKm = 0) {
   return dx >= frame.w - marginKm && dx <= frame.e + marginKm && dy >= frame.s - marginKm && dy <= frame.n + marginKm
@@ -275,8 +275,6 @@ function glyphs(towers: readonly Prepared[]) {
 
 /** Soft budget per slot of the screen: more drawn where there are more, but never more than `cap` (no mush). */
 export const budget = (count: number, cap: number) => Math.min(count, Math.ceil(cap * (1 - Math.exp(-count / cap))))
-const SLOT = 10
-const SLOT_CAP = 6
 
 interface MassInput {
   place: Coordinate; raster: CityRaster | undefined; frame: OutsideFrame; ground: Ground; floor: number; width: number
@@ -355,7 +353,6 @@ const asBox = (tower: OutsideTower, kind: OutsideBox['kind'], top = tower.baseY 
   ({ x: tower.x, w: tower.w, top, foot: tower.baseY, near: tower.near, kind, heightM: tower.heightM, dx: tower.dx, dy: tower.dy })
 
 export interface OutsideSkylineInput {
-  variant: SkylineVariant
   place: Coordinate
   towers: readonly CityTower[]
   landmarks: readonly Landmark[]
@@ -413,108 +410,52 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
 }
 
 export interface OutsideSkyline {
-  variant: SkylineVariant
   towers: OutsideTower[]
   boxes: OutsideBox[]
   /** Counts for the design sheet: towers in the place, drawn as glyphs, silhouettes, folded into blocks or mass. */
   stats: { inPlace: number; glyph: number; silhouette: number; folded: number; dropped: number; duplicates: number }
 }
 
-/** Low-rise fabric of the place under every variant: the built squares, roofs to 16 m. */
-const FABRIC_M = 16
-/** A tower must clear the mass by this many px to rise as a spire (`b`). */
+/** The mass's roofs reach this high at most (m): higher towers rise as spires or fold into it. */
+const MASS_M = 60
+/** A tower must clear the mass by this many px to rise as a spire. */
 const RISE_PX = 7
-/** Towers within this many px of each other on the screen make one cluster (`c`), of at least `CLUSTER_MIN`. */
-const CLUSTER_GAP = 3
-const CLUSTER_MIN = 4
 
 export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
-  const { variant, place, towers, landmarks, raster, frame, ground, floor, width, lie = {}, look } = input
+  const { place, towers, landmarks, raster, frame, ground, floor, width, lie = {}, look } = input
   const deduped = dedupeTowers(towers)
   const prepared = prepare(place, towers, landmarks, frame, lie)
   const inPlace = prepared.length
   const fullGlyphs = glyphs(prepared)
   const mass: MassInput = { place, raster, frame, ground, floor, width, lie,
-    capM: variant === 'b' ? 60 : FABRIC_M, kind: variant === 'b' ? 'mass' : 'fabric' }
+    capM: MASS_M, kind: 'mass' }
   let boxes = input.fabric ? fabricBoxes(input.fabric, mass, input.look) : rasterBoxes(mass)
   const out: OutsideTower[] = []
   let folded = 0, dropped = 0
   const ranked = [...prepared].sort(byRank)
-  if (variant === 'a') {
-    const slots = new Map<number, Prepared[]>()
-    for (const tower of ranked) {
-      const slot = Math.floor(tower.x / SLOT)
-      slots.set(slot, [...slots.get(slot) ?? [], tower])
-    }
-    for (const list of slots.values()) {
-      const room = budget(list.length, SLOT_CAP)
-      list.forEach((tower, i) => {
-        if (fullGlyphs.has(tower)) out.push(placed(tower, 'glyph', ground, floor, look))
-        else if (i < room) out.push(placed(tower, 'silhouette', ground, floor, look))
-        else dropped++
-      })
-    }
-  } else if (variant === 'b') {
-    // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
-    const index = new MassIndex(boxes)
-    const massTop = (_boxes: readonly OutsideBox[], x: number) => index.top(x)
-    const fold = (tower: OutsideTower) => { const box = asBox(tower, 'mass'); boxes.push(box); index.add(box); folded++ }
-    for (const tower of [...ranked].reverse()) {
-      if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, look)); continue }
-      const drawn = placed(tower, 'silhouette', ground, floor, look)
-      if (drawn.baseY - drawn.h < massTop(boxes, drawn.x) - RISE_PX) out.push(drawn)
-      else fold(drawn)
-    }
-    // A spire placed before the mass rose round it may no longer clear it: it folds in too.
-    for (let i = out.length - 1; i >= 0; i--) {
-      const tower = out[i]
-      if (tower.lod === 'silhouette' && tower.baseY - tower.h >= massTop(boxes, tower.x) - RISE_PX) {
-        out.splice(i, 1)
-        fold(tower)
-      }
-    }
-    boxes = visible(boxes, width)
-  } else {
-    const rest = ranked.filter(tower => !fullGlyphs.has(tower)).map(tower => placed(tower, 'silhouette', ground, floor, look))
-    for (const tower of ranked) if (fullGlyphs.has(tower)) out.push(placed(tower, 'glyph', ground, floor, look))
-    rest.sort((a, b) => a.x - b.x)
-    const clusters: OutsideTower[][] = []
-    for (const tower of rest) {
-      const last = clusters.at(-1)
-      const prev = last?.at(-1)
-      if (last && prev && tower.x - tower.w / 2 <= prev.x + prev.w / 2 + CLUSTER_GAP) last.push(tower)
-      else clusters.push([tower])
-    }
-    for (const cluster of clusters) {
-      if (cluster.length < CLUSTER_MIN) { out.push(...cluster); continue }
-      const tallest = [...cluster].sort((a, b) => b.heightM - a.heightM)
-      const rising = tallest.slice(0, cluster.length >= 12 ? 2 : 1)
-      out.push(...rising)
-      const members = tallest.slice(rising.length)
-      folded += members.length
-      // A block reads as one building group: its steps a little under the towers' own tops, its gaps closed.
-      const block = members.map(tower => asBox(tower, 'block', tower.baseY - .9 * tower.h)).sort((a, b) => a.x - b.x)
-      const near = Math.max(...block.map(box => box.near))
-      for (let i = 1; i < block.length; i++) {
-        const [a, b] = [block[i - 1], block[i]]
-        const gap = (b.x - b.w / 2) - (a.x + a.w / 2)
-        if (gap > 0) boxes.push({ x: (a.x + a.w / 2 + b.x - b.w / 2) / 2, w: gap + .2, top: Math.max(a.top, b.top),
-          foot: Math.max(a.foot, b.foot), near, kind: 'block' })
-      }
-      boxes.push(...block.map(box => ({ ...box, near })))
+  // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
+  const index = new MassIndex(boxes)
+  const massTop = (_boxes: readonly OutsideBox[], x: number) => index.top(x)
+  const fold = (tower: OutsideTower) => { const box = asBox(tower, 'mass'); boxes.push(box); index.add(box); folded++ }
+  for (const tower of [...ranked].reverse()) {
+    if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, look)); continue }
+    const drawn = placed(tower, 'silhouette', ground, floor, look)
+    if (drawn.baseY - drawn.h < massTop(boxes, drawn.x) - RISE_PX) out.push(drawn)
+    else fold(drawn)
+  }
+  // A spire placed before the mass rose round it may no longer clear it: it folds in too.
+  for (let i = out.length - 1; i >= 0; i--) {
+    const tower = out[i]
+    if (tower.lod === 'silhouette' && tower.baseY - tower.h >= massTop(boxes, tower.x) - RISE_PX) {
+      out.splice(i, 1)
+      fold(tower)
     }
   }
+  boxes = visible(boxes, width)
   const stats = {
     inPlace, glyph: out.filter(t => t.lod === 'glyph').length, silhouette: out.filter(t => t.lod === 'silhouette').length,
     folded, dropped, duplicates: towers.length - deduped.length,
   }
   // Painter's order: far first.
-  return { variant, towers: out.sort((a, b) => a.near - b.near || a.x - b.x), boxes, stats }
-}
-
-/** The dev flag (`?skyline=a|b|c`). */
-export function skylineVariantFlag(): SkylineVariant | null {
-  if (typeof window === 'undefined' || !import.meta.env?.DEV) return null
-  const value = new URLSearchParams(window.location.search).get('skyline')
-  return value === 'a' || value === 'b' || value === 'c' ? value : null
+  return { towers: out.sort((a, b) => a.near - b.near || a.x - b.x), boxes, stats }
 }

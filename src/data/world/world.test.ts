@@ -25,7 +25,7 @@ describe('world', () => {
     const turned = inViewOrder(south)
     expect(view.rays.map((ray) => ray.azimuth)).toEqual(turned.rays.map((ray) => ray.azimuth))
     expect(view.rays.map((ray) => ray.near)).toEqual(turned.rays.map((ray) => ray.near))
-    expect(terrainFromPanorama(view).near).toBe(terrainFromPanorama(south).near)
+    expect(terrainFromPanorama(view).nearPoints).toEqual(terrainFromPanorama(south).nearPoints)
   })
 
   it('knows the land behind the old view (north), and the same angle from every heading', () => {

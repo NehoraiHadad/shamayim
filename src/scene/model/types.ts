@@ -319,9 +319,7 @@ export interface GlyphDesc {
   ground?: number[]
 }
 
-/** A house of the portrait (px): `x` its left edge. */
-export interface HouseDesc { x: number; base: number; w: number; h: number; storeys: number; roof: 'tile' | 'flat'; heater: boolean; tint: number; seed: number }
-/** A tree of the portrait (px): `x` its centre. */
+/** A tree (px): `x` its centre. */
 export interface TreeDesc { kind: 'tree' | 'cypress' | 'palm'; x: number; base: number; w: number; h: number; seed: number }
 /*
  * Weather (C7). Every shape here comes from the world: the raining (or snowing) banks, the one wind, the light, the air's
@@ -371,8 +369,6 @@ export type LayerDesc =
       datum: (Line & { rgb: RGB; alpha: number }) | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
   | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB; litFace?: number }
-  | LayerBase & { kind: 'portrait'; houses: HouseDesc[]; trees: TreeDesc[]; glyphs: GlyphDesc[]; tones: Tones; shine: Shine
-      litSide: 'left' | 'right' | null }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       litSide: 'left' | 'right' | null
       /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */

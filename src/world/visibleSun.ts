@@ -11,11 +11,11 @@ export function sceneSkyline(terrain: SceneTerrain): Skyline {
 
 /**
  * The forecast with each day's visible sunrise and sunset: when the drawn sun comes over the land of the horizon panorama
- * and goes behind it. Unchanged until a panorama is known (the stand-in drawings say nothing about the real land).
+ * and goes behind it. Unchanged until a panorama is known (the unknown land says nothing about the real land).
  * The flat-horizon `sunrise`/`sunset` stay as they are; the sun's path is measured from them.
  */
 export function withVisibleSun(forecast: Forecast, terrain: SceneTerrain, site: SunSite): Forecast {
-  if (terrain.horizonY === undefined) return forecast
+  if ((terrain.status ?? 'ready') !== 'ready') return forecast
   const skyline = sceneSkyline(terrain)
   const days = forecast.days.map((day) => {
     const length = minutesBetween(day.sunrise, day.sunset)

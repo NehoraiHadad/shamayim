@@ -64,9 +64,6 @@ export function hazeDirect(altitude: number, air: Aerosol) {
   return Math.exp(-Math.max(0, extra) * Math.min(m, 12))
 }
 
-export const rgbCss = ([r, g, b]: readonly number[]) =>
-  `rgb(${Math.round(r * 255)} ${Math.round(g * 255)} ${Math.round(b * 255)})`
-
 /**
  * Refraction lifts the disc's lower limb more than its upper one, so near the horizon the sun is squashed: about 0.8
  * of its width at 0°, ~0.9 by 1.5°, round again above ~6°.
@@ -136,35 +133,3 @@ export const inShadow = (points: readonly Point[], ray: Point, x: number) =>
 /** How far a body's cast shadow reaches per unit of its height: long at a low sun, short when it climbs. */
 export const shadowReach = (ray: Point | null) =>
   ray ? Math.min(3, Math.abs(ray[0]) / Math.max(ray[1], .05)) : .4
-
-const mixRgb = (a: readonly number[], b: readonly number[], t: number) => a.map((v, i) => v + (b[i] - v) * t)
-
-/**
- * What the rest of the scene takes from the sun at the shown minute: the light's colour (as a CSS custom property the
- * marks' lit faces mix in), the disc's look, which ground x (px) stands in a ridge's shadow, and cast-shadow length.
- */
-/** The disc's look from the true altitude alone, so it is drawn the same way from the first moment it shows. */
-export function discLook(altitude: number, air: Aerosol = {}) {
-  const { rgb, strength } = sunLight(altitude, air)
-  // Limb darkening (stronger in blue): the rim of the disc is dimmer and redder than its centre.
-  const core = mixRgb(rgb, [1, 1, 1], .5 * strength)
-  const limb = rgb.map((v, i) => v * [.86, .78, .66][i])
-  // The aureole is light scattered forward by aerosol: faint in clean air, wide and bright in haze.
-  const aureole = Math.min(1.6, .55 + aerosolDepth(air)[1])
-  return { core: rgbCss(core), limb: rgbCss(limb), halo: rgbCss(rgb), aureole, flatten: sunFlattening(altitude) }
-}
-export type DiscLook = ReturnType<typeof discLook>
-
-export function worldLight(light: { ray: Point | null; altitude: number } | null, near: readonly Point[], width: number,
-  sceneW: number, air: Aerosol = {}) {
-  if (!light?.ray) return null
-  const ray = light.ray
-  const { rgb } = sunLight(light.altitude, air)
-  return {
-    style: { '--sun-light': `color-mix(in oklab, ${rgbCss(rgb)} 60%, var(--sky-horizon))` },
-    shaded: (x: number) => inShadow(near, ray, x * sceneW / width),
-    reach: shadowReach(ray),
-  }
-}
-
-export type WorldLight = NonNullable<ReturnType<typeof worldLight>>

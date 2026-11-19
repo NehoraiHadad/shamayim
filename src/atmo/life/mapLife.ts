@@ -1,5 +1,5 @@
 import type { AirInput, AirState } from '../airTypes'
-import { clamp } from '../mapParts'
+import { clamp } from '../../world/airParts'
 import type { EventKind, LifeState } from './types'
 
 export function hashSeed(value: string): number {

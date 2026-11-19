@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SKYLINE_TO_KM } from '../../data/city/skylineRay'
+import { SKYLINE_TO_KM } from '../../data/city/outsideView'
 import { offsetKm } from '../../data/landmarks/project'
 import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'

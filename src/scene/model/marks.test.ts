@@ -4,8 +4,7 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { GLYPH_SPECS } from '../../world/glyphSpecs'
-import { DOT_R, SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
-import { composePortrait } from '../../world/portrait'
+import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
 import type { WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
@@ -36,11 +35,9 @@ function worldAt(id: string, at: LocalTime = TIMES[1]) {
   return world
 }
 
-const layerOf = <K extends 'marks' | 'portrait'>(world: WorldState, kind: K) =>
+const layerOf = <K extends 'marks' | 'outside'>(world: WorldState, kind: K) =>
   sceneModel(world, BOX).layers.find((l) => l.kind === kind) as LayerOf<K> | undefined
 const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
-const boxDistance = (b: Box, x: number, y: number) =>
-  Math.hypot(Math.max(b.x, Math.min(x, b.x + b.w)) - x, Math.max(b.y, Math.min(y, b.y + b.h)) - y)
 
 describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
   it('seats every mark on the land it stands on', () => {
@@ -87,29 +84,18 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
     for (const at of TIMES) {
       const world = worldAt(id, at)
       for (const layer of sceneModel(world, BOX).layers) {
-        if (layer.kind !== 'marks' && layer.kind !== 'portrait') continue
+        if (layer.kind !== 'marks') continue
         for (const glyph of layer.glyphs) expect(glyph.litSide).toBe(world.light.side)
-        if (layer.kind === 'portrait') expect(layer.litSide).toBe(world.light.side)
         if (world.light.side && layer.shine.cast.alpha > 0) expect(Math.sign(layer.shine.cast.dx)).toBe(world.light.side === 'left' ? 1 : -1)
       }
     }
   })
 
-  it('keeps everything drawn out of the text zones and the dot’s clearing', () => {
+  it('keeps the far marks out of the height label', () => {
     const world = worldAt(id)
     const model = sceneModel(world, BOX)
-    const [dotZone, ...text] = model.clear
-    const dot = { x: dotZone.x + dotZone.w / 2, y: dotZone.y + dotZone.h / 2 }
-    const portrait = layerOf(world, 'portrait')
-    const boxes: Box[] = [
-      ...(portrait?.houses ?? []).map((h) => ({ x: h.x, y: h.base - h.h - (h.roof === 'tile' ? 2.2 : 1), w: h.w, h: h.h + (h.roof === 'tile' ? 2.2 : 1) })),
-      ...(portrait?.trees ?? []).map((t) => ({ x: t.x - t.w / 2, y: t.base - t.h, w: t.w, h: t.h })),
-    ]
-    for (const box of boxes) {
-      expect(boxDistance(box, dot.x, dot.y)).toBeGreaterThan(DOT_R + 0.99)
-      for (const zone of text) expect(overlap(box, zone), JSON.stringify({ box, zone })).toBe(false)
-    }
-    for (const glyph of [...(portrait?.glyphs ?? []), ...(layerOf(world, 'marks')?.glyphs ?? [])]) {
+    const [, ...text] = model.clear
+    for (const glyph of layerOf(world, 'marks')?.glyphs ?? []) {
       const box = { x: glyph.x - glyph.w / 2, y: glyph.base - glyph.h * glyph.scale, w: glyph.w, h: glyph.h * glyph.scale }
       for (const zone of text.slice(0, 1)) expect(overlap(box, zone), `${glyph.kind} under the label`).toBe(false)
     }
@@ -157,19 +143,6 @@ describe.each(PORTRAITS)('village seen from outside: %s', (id) => {
 })
 
 describe('the portrait rule', () => {
-  it('composes the same village for the same input, and none in a blocked zone', () => {
-    const ground = (x: number) => 80 + Math.abs(x - 188) * 0.2
-    const input = { dot: { x: 188, y: 80 }, ground, width: 375, style: 'tile' as const, roofs: 'mixed' as const, reachKm: 2, known: true,
-      seed: 7, blocked: [{ left: 200, right: 240, top: 85, bottom: 96 }], floor: 112 }
-    const a = composePortrait(input), b = composePortrait(input)
-    expect(b).toEqual(a)
-    for (const h of a.houses) {
-      expect(h.x + h.w <= 200.5 || h.x >= 239.5 || h.base <= 85.5 || h.base - h.h - 2.2 >= 95.5).toBe(true)
-      // Standing on the face, never above the crest.
-      expect(h.base).toBeGreaterThan(ground(h.x + h.w / 2) - 0.6)
-    }
-  })
-
   it('draws nothing for a place with no houses of its own', () => {
     const layer = sceneModel(worldAt('ramon-crater'), BOX).layers.find((l) => l.kind === 'outside') as LayerOf<'outside'> | undefined
     expect((layer?.items ?? []).filter((i) => i.kind === 'box').length).toBe(0)
@@ -182,7 +155,7 @@ describe('icons and glyph tones', () => {
     const near = labOf(tonesAt(world, 1).wall), far = labOf(tonesAt(world, 25).wall)
     const air = labOf(tonesAt(world, 1).mist)
     expect(Math.abs(far.l - air.l)).toBeLessThan(Math.abs(near.l - air.l))
-    const icons = sceneModel(world, BOX).layers.flatMap((l) => l.kind === 'marks' || l.kind === 'portrait' ? l.glyphs
+    const icons = sceneModel(world, BOX).layers.flatMap((l) => l.kind === 'marks' ? l.glyphs
       : l.kind === 'outside' ? l.items.flatMap((i) => i.kind === 'mark' ? [i.glyph] : []) : [])
       .filter((g) => ['westernWall', 'chordsBridge', 'azrieli', 'babShrine'].includes(g.kind))
     expect(icons.length).toBeGreaterThan(0)
@@ -190,7 +163,7 @@ describe('icons and glyph tones', () => {
   })
 
   it('keeps the layers’ shapes through a scrub; only their light moves', () => {
-    const keys = TIMES.map((at) => sceneModel(worldAt('rosh-pina', at), BOX).layers.filter((l) => l.kind === 'portrait' || l.kind === 'marks'
+    const keys = TIMES.map((at) => sceneModel(worldAt('rosh-pina', at), BOX).layers.filter((l) => l.kind === 'marks'
       || l.kind === 'outside'))
     for (const layers of keys.slice(1)) {
       expect(layers.map((l) => l.key)).toEqual(keys[0].map((l) => l.key))

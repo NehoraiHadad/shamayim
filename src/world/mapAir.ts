@@ -1,5 +1,5 @@
-import type { AirInput, AirState } from './airTypes'
-import { cloud, grains, haze, heat, rain, rainRate, rays, snow, streaks, windU } from './mapParts'
+import type { AirInput, AirState } from '../atmo/airTypes'
+import { cloud, grains, haze, heat, rain, rainRate, rays, snow, streaks, windU } from './airParts'
 
 const NONE = { count: 0, speed: 0, length: 0, alpha: 0 }
 

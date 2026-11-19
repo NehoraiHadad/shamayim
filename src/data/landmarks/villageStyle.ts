@@ -1,5 +1,5 @@
-import type { SettlementStyle } from '../landmarks/settlement'
-import type { Cluster } from './clusterTypes'
+import type { SettlementStyle } from './settlement'
+import type { Cluster } from '../city/clusterTypes'
 
 /**
  * What the cluster's roofs are known to be, from evidence about the roofs themselves only (never from who lives

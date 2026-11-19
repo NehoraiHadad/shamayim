@@ -27,8 +27,8 @@ export function score(mark: Landmark, dx: number, dy: number, band: number): num
 }
 
 /**
- * How the far ridge's marks are chosen: `kind`, the SVG scene's (60 m and up, or any chimney, cooling tower or turbine,
- * frozen until C9); `landmark`, the canvas scene's (CANVAS-SCENE-PLAN.md C5): the caller has kept only landmarks beyond
+ * How the far ridge's marks are chosen: `kind`, the SVG scene's (60 m and up, or any chimney, cooling tower or turbine;
+ * the overhead map's and the old pools'); `landmark`, the canvas scene's (CANVAS-SCENE-PLAN.md C5): the caller has kept only landmarks beyond
  * the place (`industrial.ts` `landmarkBeyond`), and the best two of them by score stand, no kind kept by its weight.
  */
 export type FarRule = 'kind' | 'landmark'

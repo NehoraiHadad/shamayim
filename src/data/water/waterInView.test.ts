@@ -3,7 +3,8 @@ import { anglePx } from '../terrain/angleScale'
 import { computePanorama, FAR_KM, type HeightAt } from '../terrain/panorama'
 import { inViewOrder } from '../terrain/panoramaTerrain'
 import { sceneNotes } from '../terrain/sceneNotes'
-import { glitter, waterGlints } from './glint'
+import { facetShare, glintsOf } from '../../world/water'
+import { SCENE_CAMERA } from '../../domain/camera'
 import { seaSideOf, waterInView, type WaterLookup } from './waterInView'
 
 const xOf = (n: number) => (i: number) => (375 * i) / (n - 1)
@@ -59,18 +60,18 @@ describe('water in view', () => {
 
 describe('the light on the water', () => {
   it('glitters under a low sun and hardly at all under a high one', () => {
-    expect(glitter(2, 1)).toBeGreaterThan(0.9)
-    expect(glitter(35, 1)).toBeLessThan(0.05)
+    expect(facetShare(2, 1, 5)).toBeGreaterThan(0.9)
+    expect(facetShare(35, 1, 5)).toBeLessThan(0.05)
   })
 
   it('lies only on water under the light, when the light reaches it', () => {
     const spans = spansOf(lakeLand(), lake)
     const low = { azimuth: 95, altitude: 3, strength: 1 }
-    const [glint] = waterGlints(spans, low, true)
+    const [glint] = glintsOf(spans, low, true, SCENE_CAMERA, 5)
     expect(glint.x).toBeGreaterThan(spans[0].from)
     expect(glint.x).toBeLessThan(spans[0].to)
-    expect(waterGlints(spans, low, false)).toEqual([])
-    expect(waterGlints(spans, { ...low, azimuth: 250 }, true)).toEqual([])
+    expect(glintsOf(spans, low, false, SCENE_CAMERA, 5)).toEqual([])
+    expect(glintsOf(spans, { ...low, azimuth: 250 }, true, SCENE_CAMERA, 5)).toEqual([])
   })
 })
 

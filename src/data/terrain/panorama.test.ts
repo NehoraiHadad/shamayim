@@ -98,14 +98,14 @@ describe('scene terrain from a panorama', () => {
     const [x, y] = terrain.farPoints[onScreen]
     expect(x).toBeCloseTo(375 * onScreen / (RAYS - 1), 0)
     expect(x).toBeLessThan(375 / 2)
-    expect(terrain.horizonY! - y).toBeCloseTo(anglePx(valley.rays[east].far.angle), 0)
+    expect(terrain.horizonY - y).toBeCloseTo(anglePx(valley.rays[east].far.angle), 0)
     expect(valley.rays[east].far.angle).toBeGreaterThan(4)
   })
 
   it('puts eye level under the village and the sea line on the slopes below sea level', () => {
-    expect(terrain.centerY).toBeCloseTo(96, 0)
+    expect(terrain.nearPoints[Math.floor(terrain.nearPoints.length / 2)][1]).toBeCloseTo(96, 0)
     expect(terrain.seaInView).toBe(false)
-    expect(terrain.seaY).toBeLessThan(terrain.horizonY!)
+    expect(terrain.seaY).toBeLessThan(terrain.horizonY)
     expect(terrain.seaY).toBeGreaterThan(terrain.farPoints.reduce((top, [, y]) => Math.min(top, y), 128))
   })
 
@@ -135,7 +135,7 @@ describe('scene terrain from a panorama', () => {
   })
 
   it('is used whenever a panorama is known, Shadmot included', () => {
-    expect(terrainForPlace('shadmot-mehola', valley).horizonY).toBe(terrain.horizonY)
+    expect(terrainForPlace(valley, 'loading').horizonY).toBe(terrain.horizonY)
   })
 })
 

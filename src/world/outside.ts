@@ -1,15 +1,14 @@
 import { boundsHoldKm, placeBounds, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
 import { LAT_STEP, LON_STEP } from '../data/city/grid'
 import {
-  baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
-  outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
+  baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
+  outsideProject, outsideSkyline, SILHOUETTE_W, SKYLINE_TO_KM, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
   type OutsideLook, type OutsideSkyline, type PlaceLie,
 } from '../data/city/outsideView'
 import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
 import { hashId, seeded } from '../data/landmarks/hash'
 import { COVER, LAND_STEP } from '../data/land/grid'
 import type { LandCover } from '../data/land/landData'
-import { inSkylineReach, SKYLINE_TO_KM } from '../data/city/skylineRay'
 import type { CityResult } from '../data/city/types'
 import { offsetKm, type Coordinate } from '../data/landmarks/project'
 import type { Landmark } from '../data/landmarks/types'
@@ -657,7 +656,7 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
   const { frame, lie, topM, bounds, fabric, levelY, land } = lieOf(input)
   const look = lookOf(frame)
   const towers = city?.raster?.towers ?? city?.towers ?? []
-  const skyline = outsideSkyline({ variant: 'b', place, towers, landmarks, raster: city?.raster ?? undefined, frame, ground,
+  const skyline = outsideSkyline({ place, towers, landmarks, raster: city?.raster ?? undefined, frame, ground,
     floor, width, lie, fabric: fabric.cells, look })
   const baseKm = terrain.sightAt?.(centerX * 375 / width).nearKm ?? 1
   // Trees in the frame, back to front, each standing on its row (hidden ones are left to the painter's order); sized as

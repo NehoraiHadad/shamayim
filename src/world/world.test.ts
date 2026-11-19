@@ -291,7 +291,6 @@ describe('place, marks and water', () => {
     const telAviv = worldAt('tel-aviv', '2026-11-17T12:00')
     expect(telAviv.place3.kind).toBe('outside')
     if (telAviv.place3.kind === 'outside') {
-      expect(telAviv.place3.skyline.variant).toBe('b')
       expect(telAviv.place3.skyline.towers.length).toBeGreaterThan(0)
     }
   })

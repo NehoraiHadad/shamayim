@@ -8,7 +8,7 @@ import type { Landmark } from './types'
 const place: Place = { id: 'x', nameHe: 'מקום', regionHe: '', lat: 32, lon: 35, timezone: 'Asia/Jerusalem' }
 const baseMark: Landmark = { id: 'm', kind: 'mast', lat: 32, lon: 35, heightM: 60, source: 'osm' }
 const terrain: SceneTerrain = {
-  near: '', far: '', centerLeft: '50%', centerY: 60, seaY: 60, seaInView: false, seaSide: null,
+  centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false, seaSide: null,
   nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20],
 }

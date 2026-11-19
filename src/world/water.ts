@@ -17,9 +17,6 @@ const MIN_SHARE = 0.004
  * level: a facet must tilt from level by half the angle between the incoming and the reflected ray, (altitude −
  * depression) / 2 (a flat mirror sends the light back where depression = altitude), and the share tilted that far falls
  * off as Cox and Munk measured (slope variance 0.003 + 0.00512 × wind in m/s).
- *
- * (`data/water/glint.ts`'s `glitter`, which the frozen SVG scene uses, adds the two angles; the canvas scene takes the
- * mirror's own geometry. The SVG's is left as it is until it goes, stage C9.)
  */
 export function facetShare(altitudeDeg: number, depressionDeg: number, windMs: number): number {
   const tilt = ((altitudeDeg - depressionDeg) / 2) * (Math.PI / 180)

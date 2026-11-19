@@ -16,7 +16,7 @@ import { lightOf } from './light'
 import { nightOf } from './night'
 import { placeOf } from './place'
 import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
-import { HORIZON_Y, SCENE_W } from './sceneBox'
+import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { snowFall } from './snowLine'
 import { landStatusOf, terrainPlanes, unknownLand } from './terrain'
@@ -51,16 +51,15 @@ export function groundWet(hours: readonly HourPoint[], at: LocalTime, shownRate:
 const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('offline') } as const
 
 /**
- * The place while its land is not known (C8): nothing placed (no portrait, no marks, no notes: they stand on the land),
+ * The place while its land is not known (C8): nothing placed (no houses, no marks, no notes: they stand on the land),
  * so nothing is built on a guessed ridge; the scene shows the mist and keeps its labels back until the land arrives.
  */
 function unknownPlace(place: WorldInput['place'], elevation: number) {
   const rounded = Math.round(elevation)
   const labels: WorldLabels = { height: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0, x: SCENE_W / 2,
     y: 0 }, notes: [] }
-  const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.centerY }
-  return { place3: { kind: 'portrait' as const, dot, reachKm: 0, seed: hashId(place.id), style: 'tile' as const, size: 'small' as const,
-    roofs: 'mixed' as const, plan: { halfPx: 0, houses: [], trees: [] } }, marks: [], labels, ownSkyline: false, coastalSea: null,
+  const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }
+  return { place3: { kind: 'unknown' as const, dot, reachKm: 0, seed: hashId(place.id) }, marks: [], labels, ownSkyline: false, coastalSea: null,
   placeKey: 'unknown', marksKey: 'unknown' }
 }
 
@@ -141,7 +140,7 @@ export function makeWorldBuilder() {
     const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
       input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
     const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
-    const horizonY = terrain.horizonY ?? HORIZON_Y
+    const horizonY = terrain.horizonY
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance }, moon }
 
     return {

@@ -24,12 +24,3 @@ export function afterglowColour(altitude: number, air: Aerosol = {}) {
   return rgb.map((v, i) => v + (pink[i] - v) * t) as [number, number, number]
 }
 
-/** The data attributes the air reads for the afterglow, or none when it is not the hour for one. */
-export function afterglowAttrs(altitude: number | null, x: number | null, air: Aerosol) {
-  if (altitude === null || x === null || altitude >= AFTERGLOW.from || altitude <= AFTERGLOW.to) return {}
-  return {
-    'data-afterglow': altitude.toFixed(2),
-    'data-afterglow-x': x.toFixed(3),
-    'data-afterglow-rgb': afterglowColour(altitude, air).map((v) => v.toFixed(3)).join(','),
-  }
-}

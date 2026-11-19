@@ -1,5 +1,3 @@
-import { profileY } from '../data/terrain/profile'
-import { FLOOR_Y, SEA_Y } from './sceneBox'
 
 /** Snow on the ridges for the shown hour: how much, and the height (m) above which it lies. */
 export interface SnowFall {
@@ -55,14 +53,4 @@ export function snowFall(air: SnowAir, elevationM: number): SnowFall | null {
     lineM: Math.min(falling ? fallLine : Infinity, lying ? coverLine : Infinity),
     falling,
   }
-}
-
-/**
- * The y (px) of a height on a ridge: through the ridge's own sampled profile when known, else (the hand-drawn valley)
- * from the sea line and the valley floor where the place stands. Null when no ridge height is known at all.
- */
-export function heightY(metres: number, elevations: readonly number[] | undefined, placeM: number | null): number | null {
-  if (elevations?.length) return profileY(elevations.map((elevation) => ({ elevation })), metres)
-  if (placeM === null || placeM >= 0) return null
-  return SEA_Y - (metres / -placeM) * (FLOOR_Y - SEA_Y)
 }

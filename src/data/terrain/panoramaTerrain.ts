@@ -2,7 +2,6 @@ import { leftAzimuth, SCENE_CAMERA, wrap180, type Camera } from '../../domain/ca
 import { seaSideOf, waterInView, type WaterLookup } from '../water/waterInView'
 import { anglePx } from './angleScale'
 import { apparentAngle, localHeight, type HorizonPoint, type Panorama } from './panorama'
-import { pointsToPath } from './profile'
 import { sightProfiles } from './sightProfile'
 import type { SceneTerrain } from './terrain'
 import { visibilityAt } from './visibility'
@@ -29,7 +28,6 @@ export function terrainFromPanorama(given: Panorama,
   const p = inViewOrder(given, view.camera ?? SCENE_CAMERA)
   const n = p.rays.length
   const xOf = (i: number) => (375 * i) / (n - 1)
-  const mid = p.rays[Math.floor(n / 2)]
   const horizonY = view.horizonY ?? sceneHorizonY(p)
   const yOf = (angle: number) => horizonY - anglePx(angle)
   const round = (v: number) => Math.round(v * 10) / 10
@@ -69,10 +67,7 @@ export function terrainFromPanorama(given: Panorama,
       seenAt: (km: number, heightM?: number) => seenAt(x, km, heightM) }
   }
   return {
-    near: pointsToPath(nearPoints),
-    far: pointsToPath(farPoints),
     centerLeft: '50%',
-    centerY: yOf(mid.near.angle),
     seaY: Number.isFinite(seaY) ? seaY : horizonY,
     seaInView: seaSide !== null,
     seaSide,

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import type { Cluster } from './clusterTypes'
+import type { Cluster } from '../city/clusterTypes'
 import { clusterRoofs, clusterStyle } from './villageStyle'
 
 const base: Cluster = {
