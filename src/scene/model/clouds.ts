@@ -23,7 +23,8 @@ const DECK_GREY: RGB = [0.5, 0.55, 0.61]
 const RAIN_GREY: RGB = [0.29, 0.34, 0.39]
 
 /** Where the light that reaches a layer comes from (sky px), its colour and strength, and how much is direct sun. */
-interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number }
+/** `above`: the share of the light the layers above let through (as an expected value: a bank is in a gap or not, `litOf`). */
+interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number }
 
 /**
  * The light on one layer: the sun while it is up, its strength after the cloud above the layer (a low bank under an
@@ -39,17 +40,17 @@ function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLa
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
-    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * above * (1 - 0.7 * coinOf(world)), sun: true,
+    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world)), above, sun: true,
       under: layer.litUnderside }
   }
   const after = world.light.afterglow
   if (after && layer.litUnderside > 0.02) {
-    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, strength: layer.litUnderside * above, sun: false,
+    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, strength: layer.litUnderside, above, sun: false,
       under: layer.litUnderside }
   }
   if (moon.up && world.night.dark > 0.1 && moon.illumination > 0.05) {
     return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, rgb: MOON_RGB,
-      strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark * above, sun: false, under: 0 }
+      strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark, above, sun: false, under: 0 }
   }
   return null
 }
@@ -64,8 +65,27 @@ const wrap = (x: number, period: number) => ((x % period) + period) % period
  * The tones of a bank at its place on the sky: its body in the sky's own light (whiter by day, the sky's horizon grey by
  * night), darker as the cover closes and darkest where it rains; its shade side; its lit side by the layer's light.
  */
-function tonesAt(world: WorldState, box: SceneBox, stops: [number, RGB][], level: CloudLevel, y: number, union: number, rains: boolean,
-  km: number) {
+type Tones = { body: RGB; shade: RGB; behind: RGB; fade: number }
+/** The tones of a world, by what they depend on (rounded to what shows): many banks share a row of the sky. */
+const toneMemo = new WeakMap<WorldState, Map<string, Tones>>()
+
+function tonesAt(world: WorldState, box: SceneBox, stops: [number, RGB][], level: CloudLevel, y0: number, union: number, rains: boolean,
+  km0: number): Tones {
+  // The sky behind changes slowly down the sky, the haze slowly with distance: 4 px rows, 5 % steps of distance.
+  const y = Math.round(y0 / 4) * 4
+  const km = Math.exp(Math.round(Math.log(Math.max(0.1, km0)) / 0.05) * 0.05)
+  const key = `${box.skyHeight}:${box.landTop}:${level}:${y}:${union.toFixed(3)}:${rains}:${km.toFixed(3)}`
+  let memo = toneMemo.get(world)
+  if (!memo) toneMemo.set(world, (memo = new Map()))
+  const hit = memo.get(key)
+  if (hit) return hit
+  const tones = tonesOf(world, box, stops, level, y, union, rains, km)
+  memo.set(key, tones)
+  return tones
+}
+
+function tonesOf(world: WorldState, box: SceneBox, stops: [number, RGB][], level: CloudLevel, y: number, union: number, rains: boolean,
+  km: number): Tones {
   const behind = stopAt(stops, clamp01(y / Math.max(1, box.skyHeight)))
   const { palette } = world.light
   const thick = THICK[level]
@@ -84,18 +104,23 @@ function tonesAt(world: WorldState, box: SceneBox, stops: [number, RGB][], level
 }
 
 /** The light's side of a bank: toward the source, its strength, a silver edge near the sun (forward scattering). */
-function litOf(light: CloudLight | null, cx: number, cy: number, w: number, thick: number) {
-  if (!light || light.strength < 0.02) return { toward: null, litA: 0, silver: 0, backlit: 0 }
+function litOf(light: CloudLight | null, cx: number, cy: number, w: number, thick: number, seed: number) {
+  if (!light || light.strength < 0.02) return { toward: null, litA: 0, silver: 0, backlit: 0, through: 0 }
+  // The layers above are broken: a bank stands in one of their gaps (fully lit) or under them (in their shade), as often as
+  // their cover says (seeded by the bank, so the same banks stay lit).
+  const through = seeded(seed ^ 0x9e3779b9)() < light.above ? 1 : 0.12
+  const strength = light.strength * through
   const dx = light.x - cx, dy = light.y - cy
   const d = Math.hypot(dx, dy) || 1
   const gap = Math.max(0, d - w / 2)
   const near = light.sun ? Math.exp(-gap / 70) : 0
   return {
     toward: [dx / d, dy / d] as const,
-    litA: light.strength * (0.55 + 0.3 * thick),
-    silver: 0.9 * near * light.strength * (1 - 0.4 * thick),
+    litA: strength * (0.55 + 0.3 * thick),
+    silver: 0.9 * near * strength * (1 - 0.4 * thick),
     // A thick bank right in front of the sun is seen from its shadowed side.
-    backlit: light.sun ? Math.exp(-gap / 110) * light.strength * thick : 0,
+    backlit: light.sun ? Math.exp(-gap / 110) * strength * thick : 0,
+    through,
   }
 }
 
@@ -114,7 +139,7 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
   const tones = tonesAt(world, box, stops, level, y - h / 2, union, rains, bank.distanceKm)
   const x = wrap(geom.x(bank.azimuth), geom.period)
   // The light's direction the short way round the horizon (the bank's copy on the band nearest the source).
-  const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick)
+  const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick, bank.seed)
   const body = mixRgb(tones.body, tones.shade, 0.5 * lit.backlit)
   return {
     id: `${level}:${bank.id}`, x, y, w, h, seed: bank.seed,
@@ -122,7 +147,7 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
     kind: level === 'high' ? 'streak' : 'heap',
     alpha: (bank.seen ? 0.95 : 0.88) * (level === 'high' ? 0.55 : level === 'mid' ? 0.85 : 1),
     body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : body, litA: lit.litA, toward: lit.toward,
-    under: light ? light.under * light.strength : 0, silver: lit.silver, rains,
+    under: light ? light.under * light.strength * lit.through : 0, silver: lit.silver, rains,
   }
 }
 
@@ -158,12 +183,12 @@ function deckOf(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number,
     const h = heap ? w * (0.32 + 0.18 * up) : (level === 'high' ? 2.5 : 5) + (level === 'high' ? 5 : 20) * up * (0.6 + 0.8 * r())
     const x = r() * geom.period
     const tones = tonesAt(world, box, stops, level, y - h / 2, union, rains, layer.baseM / 1000 / Math.tan((alt * Math.PI) / 180))
-    const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick)
+    const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick, hashId(`${world.place.id}:deck:${level}:${j}`))
     sheets.push({ id: `${level}:deck:${j}`, x, y, w, h, seed: hashId(`${world.place.id}:deck:${level}:${j}`),
       puffs: kind === 'heap' ? Math.max(5, Math.round(w / 10)) : Math.max(3, Math.round(w / 18)), kind,
       alpha: (0.55 + 0.35 * r()) * (level === 'high' ? 0.5 : 1),
       body: tones.body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body, litA: 0.6 * lit.litA, toward: lit.toward,
-      under: light ? 0.6 * light.under * light.strength : 0, silver: 0.4 * lit.silver, rains })
+      under: light ? 0.6 * light.under * light.strength * lit.through : 0, silver: 0.4 * lit.silver, rains })
   }
   sheets.sort((a, b) => b.y - a.y)
   // The wash: this layer's own deck, or (on the lowest layer there is) the whole sky closing over, whatever the layers.
@@ -174,11 +199,24 @@ function deckOf(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number,
 }
 
 const q = (v: number, step: number) => Math.round(v / step)
-const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 128))
+/** Tones in 1/64 steps: a cloud's soft wash shows no step finer (and a scrub repaints less often). */
+const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
+
+/**
+ * A bank's light-dependent numbers snapped to the steps its key counts (tones 1/64, strengths 1/20, the light's direction
+ * 8°): the key names exactly what the pixels are painted from, and a scrub repaints the clouds only when a step is crossed.
+ */
+function snap(b: BankDesc): BankDesc {
+  const t = (rgb: RGB): RGB => [Math.round(rgb[0] * 64) / 64, Math.round(rgb[1] * 64) / 64, Math.round(rgb[2] * 64) / 64]
+  const s20 = (v: number) => Math.round(v * 20) / 20
+  const angle = b.toward ? Math.round((Math.atan2(b.toward[1], b.toward[0]) * 180) / Math.PI / 8) * 8 * (Math.PI / 180) : 0
+  return { ...b, body: t(b.body), shade: t(b.shade), lit: t(b.lit), litA: s20(b.litA), under: s20(b.under), silver: s20(b.silver),
+    toward: b.toward ? [Math.cos(angle), Math.sin(angle)] : null }
+}
 
 function bankKey(b: BankDesc) {
-  return [b.id, q(b.x, 0.5), q(b.y, 0.5), q(b.w, 1), q(b.h, 0.5), b.alpha.toFixed(2), tone(b.body), tone(b.shade), tone(b.lit), q(b.litA, 1 / 32),
-    b.toward ? q(Math.atan2(b.toward[1], b.toward[0]) * 57.3, 4) : null, q(b.under, 1 / 32), q(b.silver, 1 / 32), b.rains]
+  return [b.id, q(b.x, 0.5), q(b.y, 0.5), q(b.w, 1), q(b.h, 0.5), b.alpha.toFixed(2), tone(b.body), tone(b.shade), tone(b.lit), q(b.litA, 1 / 20),
+    b.toward ? q(Math.atan2(b.toward[1], b.toward[0]) * 57.3, 8) : null, q(b.under, 1 / 20), q(b.silver, 1 / 20), b.rains]
 }
 
 /**
@@ -200,7 +238,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     const light = lightOn(world, box, geom, layer)
     const banks = layer.banks.map((bank) => bankDesc(world, box, geom, stops, layer, bank, light, union, raining))
     const { sheets, veil } = deckOf(world, box, geom, stops, layer, light, union, layer === lowest)
-    const all = [...sheets, ...banks]
+    const all = [...sheets, ...banks].map(snap)
     if (!all.length && !veil) continue
     const top = veil ? 0 : Math.max(0, Math.floor(Math.min(...all.map((b) => b.y - b.h * 1.6)) - 4))
     const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(veil?.bottom ?? 0, ...all.map((b) => b.y + b.h * 0.5)) + 6))

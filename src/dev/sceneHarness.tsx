@@ -18,6 +18,7 @@ import { layersOn, sceneModel } from '../scene/model'
 import type { SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
+import { onSkyCanvas } from '../scene/paint/sky'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
 import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../test/scenePlaces'
@@ -124,7 +125,9 @@ function Scene({ input }: { input: WorldInput }) {
         const t1 = performance.now()
         const nextModel = sceneModel(next, box)
         const t2 = performance.now()
-        const skyLayers = layersOn(nextModel, 'sky'), landLayers = layersOn(nextModel, 'land')
+        // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the
+        // browser's to composite (not timed).
+        const skyLayers = onSkyCanvas(layersOn(nextModel, 'sky')), landLayers = layersOn(nextModel, 'land')
         const skyPainted = skySurface.current!.render(skyLayers)
         const tSky = performance.now()
         const landPainted = landSurface.current!.render(landLayers)

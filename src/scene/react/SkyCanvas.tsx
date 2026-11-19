@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { Surface } from '../compose/surface'
 import type { LayerDesc, LayerOf } from '../model/types'
-import { skyBackground } from '../paint/sky'
+import { onSkyCanvas, skyBackground } from '../paint/sky'
 import { useSurface, type SurfaceSize } from './useSurface'
 
 interface Props {
@@ -22,7 +22,7 @@ interface Props {
  */
 export function SkyCanvas({ layers, size, onReady, surfaceRef }: Props) {
   const base = layers.find((layer): layer is LayerOf<'sky'> => layer.kind === 'sky') ?? null
-  const rest = useMemo(() => layers.filter((layer) => layer.kind !== 'sky'), [layers])
+  const rest = useMemo(() => onSkyCanvas(layers), [layers])
   const background = useMemo(() => (base ? skyBackground(base) : undefined), [base])
   const { ref, surface } = useSurface('sky', rest, size, onReady)
   useEffect(() => { if (surfaceRef) surfaceRef.current = surface.current })

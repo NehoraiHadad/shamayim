@@ -1,5 +1,6 @@
 // Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/), with the HTML overlay.
-//   node e2e/scene.stills.mjs <outDir> <place>@<HH:MM>[@<weather>] … [--dpr=2]
+//   node e2e/scene.stills.mjs <outDir> <place>@<HH:MM | YYYY-MM-DDTHH:MM>[@<weather>] … [--dpr=2]
+// (A full date picks another day: the moon in another phase. The fixture's forecast is rolled to it.)
 import fs from 'node:fs'
 import path from 'node:path'
 import { caseName, CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from './harness.mjs'
@@ -18,10 +19,11 @@ const browser = await launch()
 try {
   for (const moment of moments) {
     const [place, hour, weather = ''] = moment.split('@')
-    const c = { place, at: `2026-11-17T${hour}`, weather, dpr }
+    const c = { place, at: hour.includes('T') ? hour : `2026-11-17T${hour}`, weather, dpr }
     const { context, page } = await openPage(browser, server.url, dpr)
     await loadScene(page, sceneUrl(server.url, { ...c, overlay: true }))
-    const file = path.join(out, `${caseName({ ...c, dpr: 1 })}.png`)
+    const day = hour.includes('T') ? `${hour.slice(5, 10).replace('-', '')}-` : ''
+    const file = path.join(out, `${day}${caseName({ ...c, dpr: 1 })}.png`)
     fs.writeFileSync(file, await page.screenshot({ clip: CLIP }))
     console.log('saved', path.relative(root, file))
     await context.close()

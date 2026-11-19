@@ -1,4 +1,4 @@
-import type { Arch, Band, Glow, LayerOf } from '../model/types'
+import type { Arch, Band, Glow, LayerDesc, LayerOf } from '../model/types'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /**
@@ -164,3 +164,6 @@ export function skyBackground(desc: LayerOf<'sky'>): string {
   out.push(`linear-gradient(180deg, ${desc.stops.map(([at, rgb]) => `${css(rgb)} ${px(Math.min(1, Math.max(0, at)) * h)}`).join(', ')})`)
   return out.join(', ')
 }
+
+/** The sky layers the canvas paints: all but the base, which is laid as the canvas's CSS background (`skyBackground`). */
+export const onSkyCanvas = (layers: readonly LayerDesc[]) => layers.filter((layer) => layer.kind !== 'sky')

@@ -111,7 +111,8 @@ function body(ctx: Ctx2D, p: Puff, rgb: RGB, alpha: number) {
 /** The bank on its own sheet (device px, whole pixels), laid on the layer at its strength. */
 function paintBank(ctx: Ctx2D, b: BankDesc, env: PaintEnv) {
   if (b.kind === 'streak') { paintStreak(ctx, b); return }
-  const puffs = b.kind === 'heap' ? heapPuffs(b) : sheetPuffs(b)
+  if (b.kind === 'sheet') { paintSheet(ctx, b); return }
+  const puffs = heapPuffs(b)
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const p of puffs) {
     x0 = Math.min(x0, p.x - p.rx); x1 = Math.max(x1, p.x + p.rx); y0 = Math.min(y0, p.y - p.ry); y1 = Math.max(y1, p.y + p.ry)
@@ -130,6 +131,21 @@ function paintBank(ctx: Ctx2D, b: BankDesc, env: PaintEnv) {
   ctx.globalAlpha = b.alpha
   ctx.drawImage(sheet.canvas as CanvasImageSource, x0, y0, sheet.canvas.width / k, sheet.canvas.height / k)
   ctx.restore()
+}
+
+/**
+ * A deck's sheet, laid straight on the layer (no sheet of its own: a deck has dozens and they are flat): each clump's
+ * body, then its underside sinking into shade, its side toward the light a breath lighter, the base warm at a low sun.
+ */
+function paintSheet(ctx: Ctx2D, b: BankDesc) {
+  const puffs = sheetPuffs(b)
+  const [tx, ty] = b.toward ?? [0, -1]
+  for (const p of puffs) body(ctx, p, b.body, b.alpha)
+  for (const p of puffs) {
+    wash(ctx, p, 0.95, p.x - tx * p.rx * 0.3, p.y + p.ry * 0.9, p.rx * 0.95, b.shade, 0.45 * b.alpha)
+    if (b.litA > 0.02 && b.toward) wash(ctx, p, 0.92, p.x + tx * p.rx * 0.65, p.y + ty * p.ry * 0.65, p.rx * 0.75, b.lit, Math.min(1, 1.1 * b.litA) * b.alpha)
+    if (b.under > 0.02) wash(ctx, p, 0.92, p.x, p.y + p.ry * 0.8, p.rx * 0.95, b.lit, Math.min(1, 1.4 * b.under) * b.alpha)
+  }
 }
 
 /** Shade, light, underside, rain and silver laid on the bank's mass (`source-atop`: nothing spills into the sky). */
@@ -190,7 +206,7 @@ function rimLight(c: Ctx2D, env: PaintEnv, b: BankDesc, puffs: Puff[], x0: numbe
   const rim = env.canvas(w, h)
   const r = rim.ctx
   const size = Math.max(4, Math.min(b.w, b.h * 2))
-  for (const [reach, alpha] of [[0.22, 0.5], [0.09, 0.85]] as const) {
+  for (const [reach, alpha] of [[0.12, 0.6]] as const) {
     const d = size * reach
     r.setTransform(1, 0, 0, 1, 0, 0)
     r.globalCompositeOperation = 'source-over'
