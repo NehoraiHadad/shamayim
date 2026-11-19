@@ -47,6 +47,19 @@ export function mixRgb(from: RGB, to: RGB, amount: number): RGB {
   return rgbOfLab({ l: a.l + (b.l - a.l) * t, a: a.a + (b.a - a.a) * t, b: a.b + (b.b - a.b) * t })
 }
 
+/**
+ * Two sRGB colours mixed as light (in linear light): a share of one light added to the rest of another, as a mirror's
+ * Fresnel share of the sky over the water's own dark (C9). A perceptual mix of a light and a near-black reads far darker.
+ */
+export function mixLight(from: RGB, to: RGB, amount: number): RGB {
+  const t = Math.min(1, Math.max(0, amount))
+  return [0, 1, 2].map((i) => Math.min(1, Math.max(0, toSrgb(toLinear(from[i]) + (toLinear(to[i]) - toLinear(from[i])) * t)))) as unknown as RGB
+}
+
+/** An sRGB colour's light scaled by `k` (in linear light): what a surface of albedo `k` gives back of it. */
+export const scaleLight = (c: RGB, k: number): RGB =>
+  [0, 1, 2].map((i) => Math.min(1, Math.max(0, toSrgb(toLinear(c[i]) * k)))) as unknown as RGB
+
 /** Oklab lightness of an sRGB colour (0 black … 1 white). */
 export const lightness = (rgb: RGB) => labOf(rgb).l
 

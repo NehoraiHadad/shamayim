@@ -178,7 +178,13 @@ export function townShapes(patches: readonly FarPatch[], towers: readonly FarTow
   }
   for (const tower of towers) {
     const w = 0.85
-    blocks.push({ x: tower.x - w / 2, base: tower.base, w, h: Math.max(1.2, tower.base - tower.top), km: tower.km })
+    const h = Math.max(1.2, tower.base - tower.top)
+    // C9 (defect 9): a far tower stands on its own works or block, never a bare stick out of the ground: a low hall at its
+    // foot, a few times its width (seeded by its spot), as the towers' own podiums are drawn near.
+    const random = seeded(hashId(`${placeId}:far-foot:${Math.round(tower.x * 4)}:${Math.round(tower.km * 10)}`))
+    const fw = w * (2.6 + 1.6 * random()), fh = Math.min(2.2, Math.max(.6, h * (.08 + .05 * random())))
+    blocks.push({ x: tower.x - fw * (.3 + .4 * random()), base: tower.base, w: fw, h: fh, km: tower.km })
+    blocks.push({ x: tower.x - w / 2, base: tower.base, w, h, km: tower.km })
   }
   const lights = plainLights([...patches], hashId(`${placeId}:far:lights`))
     .map((dot) => ({ x: dot.x, y: dot.y, r: dot.size * 0.5, alpha: dot.alpha, km: dot.km }))

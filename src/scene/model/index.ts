@@ -6,7 +6,7 @@ import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
 import { outsideLayer } from './outside'
 import { planeLayers } from './planes'
-import { bodyLayers } from './bodies'
+import { bodiesOverPlace, bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
@@ -52,7 +52,8 @@ function knownModel(world: WorldState, box: SceneBox): SceneModel {
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const outside = outsideLayer(world, box, layout.clear)
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : []), ...marksLayers(world, box), ...(outside ? [outside] : []), ...weatherLayers(world, box, clouds, layout.clear)]
+    ...(towns ? [towns] : []), ...marksLayers(world, box), ...(outside ? [outside] : []), ...bodiesOverPlace(world, box, outside),
+    ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }

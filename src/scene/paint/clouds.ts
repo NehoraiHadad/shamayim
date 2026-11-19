@@ -185,7 +185,7 @@ function paintBank(ctx: Ctx2D, b: BankDesc, env: PaintEnv, sheets: Sheets) {
   c.globalCompositeOperation = 'source-atop'
   modelBank(c, b, puffs, x0, y0, x1, y1)
   c.globalCompositeOperation = 'source-over'
-  if (b.litA > 0.01 && b.toward) rimLight(c, sheet.canvas, sheets, b, w, h, k)
+  if ((b.litA > 0.01 || b.silver > 0.02) && b.toward) rimLight(c, sheet.canvas, sheets, b, w, h, k)
   ctx.save()
   ctx.globalAlpha = b.alpha
   ctx.drawImage(sheet.canvas as CanvasImageSource, 0, 0, w, h, x0, y0, w / k, h / k)
@@ -234,7 +234,7 @@ function modelBank(c: Ctx2D, b: BankDesc, puffs: Puff[], x0: number, y0: number,
     c.fillRect(x0, y0, x1 - x0, y1 - y0)
   }
   // The silver lining: the thin edge of a bank by the sun, light scattered forward through it.
-  if (heap && b.silver > 0.02 && b.toward) {
+  if (b.silver > 0.02 && b.toward) {
     for (const p of puffs) wash(c, p, 1, p.x + tx * p.rx * 0.95, p.y + ty * p.ry * 0.95, p.rx * 0.45, mix(b.lit, [1, 1, 1], 0.5), Math.min(1, b.silver))
   }
 }
@@ -260,7 +260,8 @@ function rimLight(c: Ctx2D, mass: Scratch['canvas'], sheets: Sheets, b: BankDesc
   c.setTransform(1, 0, 0, 1, 0, 0)
   c.globalCompositeOperation = 'source-atop'
   // A deck's flat sheet catches less of it on its edge than a heaped bank does.
-  c.globalAlpha = Math.min(1, b.litA * (b.kind === 'heap' ? 0.6 : 0.3))
+  // By the sun the edge is its silver lining: light come through the thin cloud from behind (C9), whatever lights its top.
+  c.globalAlpha = Math.min(1, Math.max(b.litA * (b.kind === 'heap' ? 0.6 : 0.3), 0.85 * b.silver))
   c.drawImage(rim.canvas as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
   c.restore()
 }

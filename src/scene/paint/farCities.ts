@@ -28,8 +28,8 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
     if (!desc.litSide) continue
     ctx.beginPath()
     for (const b of tier.blocks) {
-      // The lit face: the half of the block toward the light, at least a device px.
-      const w = Math.max(hair, b.w * 0.55)
+      // The lit face: the half of the block toward the light (against the light a rim), at least a device px.
+      const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
       ctx.rect(desc.litSide === 'left' ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
     }
     ctx.fillStyle = css(tier.lit)

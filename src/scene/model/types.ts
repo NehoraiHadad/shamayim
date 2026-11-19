@@ -236,7 +236,9 @@ export interface CityLight { x: number; y: number; r: number; alpha: number }
 export type OutsideItem =
   | { kind: 'box'; x: number; w: number; top: number; foot: number; tier: number; seed: number; storeys: number; folded: boolean
       /** A house's roof (tile or flat, a heater on some flat ones); null for a block of the mass. */
-      roof: 'tile' | 'flat' | null; heater: boolean }
+      roof: 'tile' | 'flat' | null; heater: boolean
+      /** C9: a block of a town beyond the place (drawn behind it, far first). */
+      beyond?: true }
   | { kind: 'tree'; tree: TreeDesc; tier: number }
   | { kind: 'tower'; x: number; base: number; w: number; h: number; tier: number; seed: number; crown: 0 | 1 | 2; full: boolean
       famous: boolean; storeys: number }
@@ -353,7 +355,11 @@ export interface Sheen { x: number; y: number; w: number; alpha: number }
 export type LayerDesc =
   | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
   | LayerBase & { kind: 'stars'; stars: Star[]; through: number }
-  | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null }
+  /**
+   * The sun or the moon round its disc; `part` (C9): `aureole`, the sun's aureole alone, laid over the clouds; `over`, the
+   * disc with its inner glow on the land, over the place's own mass (`bodiesOverPlace`).
+   */
+  | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null; part?: 'aureole' | 'over' }
   | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[]; veil: Veil | null; period: number }
   /** In-cloud lightning: one bank drawn lit from within, laid with a flash schedule's alpha and drifting with its layer. */
   | LayerBase & { kind: 'flash'; bank: BankDesc; rgb: RGB; period: number }
@@ -363,7 +369,8 @@ export type LayerDesc =
       terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: (Line & { rgb: RGB; alpha: number }) | null }
-  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB }
+  /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB; litFace?: number }
   | LayerBase & { kind: 'portrait'; houses: HouseDesc[]; trees: TreeDesc[]; glyphs: GlyphDesc[]; tones: Tones; shine: Shine
       litSide: 'left' | 'right' | null }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
@@ -383,7 +390,9 @@ export type LayerDesc =
   /** Dust in the wind, or wind streaks: a tile of fine streaks drifting across. */
   | LayerBase & { kind: 'grains'; marks: FallMark[]; rgb: RGB }
   /** Crepuscular rays from a low sun behind broken cloud: lit and shadowed wedges from `x`, `y`, fading over `reach`. */
-  | LayerBase & { kind: 'rays'; x: number; y: number; reach: number; rays: Ray[]; rgb: RGB; shade: RGB }
+  | LayerBase & { kind: 'rays'; x: number; y: number; reach: number; rays: Ray[]; rgb: RGB; shade: RGB
+    /** C9: `fan` (beams and shadows fading along their length) or `corona` (fine glare round the disc, brightest near it). */
+    look?: 'fan' | 'corona' }
   /** Chimney smoke and cooling-tower steam carried by the wind (a strip of frames). */
   | LayerBase & { kind: 'smoke'; plumes: Plume[] }
   /** The wet ground's sheen after rain. */
@@ -408,7 +417,7 @@ export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
 /** HTML over the land, placed from the model: positions in scene px (x as `box.width` scales it). */
 export type OverlayItem =
   /** `x` the label's centre, `y` its top. */
-  | { kind: 'height'; text: string; x: number; y: number; below: boolean }
+  | { kind: 'height'; text: string; x: number; y: number; below: boolean; backed?: boolean }
   /** `x` the note's left edge, `y` its top. */
   | { kind: 'datum' | 'water'; text: string; x: number; y: number }
   | { kind: 'dot'; x: number; y: number }

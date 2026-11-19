@@ -95,6 +95,8 @@ export interface Body {
   up: boolean
   /** Above the land in its own direction (behind a ridge it is up but not over the land). */
   overLand: boolean
+  /** How far (scene px) it stands over the land in its direction, negative behind it (the sun's, `sunBody`). */
+  clearance?: number
 }
 
 export interface MoonBody extends Body {
@@ -373,6 +375,9 @@ export interface OutsideTreeSite { x: number; base: number; w: number; h: number
  */
 export interface BeyondTower extends OutsideTower { km: number }
 
+/** A built square of a town beyond the place (C9), in the outside view: its middle x, base, width and height (px). */
+export interface BeyondBlock { x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
+
 /** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
 export interface OutsideView {
   kind: 'outside'
@@ -387,6 +392,8 @@ export interface OutsideView {
   topM: number | null
   /** The towers beyond the place within 6 km, at their true bearing. */
   beyond: BeyondTower[]
+  /** C9: the towns beyond the place within 6 km (its neighbours' built squares), as the towers beyond: far first. */
+  beyondTowns?: BeyondBlock[]
   /** The near ridge's distance at the dot (km): the haze of the place's nearest row. */
   baseKm: number
   /** The place's trees (from the land cover near its built cells). */
@@ -408,8 +415,8 @@ export interface OutsideView {
  * shows them; the drawing keeps clear of them.
  */
 export interface WorldLabels {
-  /** `x` is the label's centre, `y` its top. */
-  height: { text: string; below: boolean; x: number; y: number }
+  /** `x` is the label's centre, `y` its top; `backed` (C9): beside the dot on a small backing, over the place's mass. */
+  height: { text: string; below: boolean; x: number; y: number; backed?: boolean }
   notes: SceneNote[]
 }
 

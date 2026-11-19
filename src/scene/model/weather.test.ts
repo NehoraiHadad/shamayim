@@ -158,25 +158,30 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
     }
   })
 
-  it('casts rays only from a low sun behind broken cloud', () => {
+  it('casts rays only where they really occur, from the sun\'s true spot (C7, C9)', () => {
     const rays = (hour: string, forced: WorldInput['forced']) => ofKind(sceneModel(world(id, hour, forced), BOX), 'rays')
-    for (const hour of ['09:00', '12:00', '14:00']) expect(rays(hour, BROKEN)).toEqual([])
-    for (const hour of ['06:20', '16:30', '21:00']) {
-      expect(rays(hour, CLEAR)).toEqual([])
-      expect(rays(hour, OVERCAST)).toEqual([])
+    // None by night, none from a coin of a sun in dust, none through a closed sky.
+    expect(rays('21:00', BROKEN)).toEqual([])
+    for (const hour of ['06:20', '12:00', '16:30']) {
       expect(rays(hour, DUST)).toEqual([])
+      expect(rays(hour, OVERCAST).filter((l) => l.id !== 'rays.ridge')).toEqual([])
     }
-    // At a low sun behind broken cloud the rays fan from the sun.
-    for (const hour of ['06:20', '16:30']) {
+    // Clear, dry air at a high sun: nothing scatters enough.
+    expect(rays('12:00', { ...CLEAR, visibilityKm: 40 })).toEqual([])
+    for (const hour of ['06:20', '09:00', '12:00', '16:30']) {
       const w = world(id, hour, BROKEN)
-      const alt = w.bodies.sun.altitude
-      const got = rays(hour, BROKEN)
-      if (alt > -0.5 && alt < 6) {
-        expect(got.length).toBe(1)
-        expect(got[0].x).toBeCloseTo(skyGeom(w, BOX).left + w.bodies.sun.x * skyGeom(w, BOX).s, 6)
+      const geom = skyGeom(w, BOX)
+      const sunX = geom.left + w.bodies.sun.x * geom.s, sunY = BOX.landTop + w.bodies.sun.y
+      for (const layer of rays(hour, BROKEN)) {
+        // The gaps' beams, the ridge's and the glare fan from the sun's true spot; the anticrepuscular converge opposite it.
+        if (layer.id === 'rays.anti') expect(layer.x).toBeCloseTo(geom.x(w.bodies.sun.azimuth + 180), 6)
+        else expect([layer.x, layer.y]).toEqual([sunX, sunY])
       }
-      if (alt > 10 || alt < -3) expect(got).toEqual([])
     }
+    // Behind broken cloud in a hazy air the gaps cast rays at any height of the sun, stronger when it is low.
+    const hazy = { ...BROKEN, visibilityKm: 10 }
+    const noon = rays('12:00', hazy).find((l) => l.id === 'rays')
+    expect(noon).toBeTruthy()
   })
 })
 

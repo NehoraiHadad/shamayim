@@ -89,9 +89,15 @@ export function ripplesOf(spans: readonly WaterSpan[], placeId: string): Ripple[
  * (or the moon by night), its strength by the wave slopes the one wind raises.
  */
 export function waterOf(at: LocalTime, site: { lat: number; lon: number; timezone: string }, terrain: SceneTerrain,
-  skyline: Skyline, cloudCover: number, camera: Camera, windMs: number, ripples: Ripple[][] = []): WaterState {
+  skyline: Skyline, cloudCover: number, camera: Camera, windMs: number, ripples: Ripple[][] = [], sunDirect?: number, sunSeen?: boolean): WaterState {
   const spans = terrain.water ?? []
   if (!spans.length) return { spans: [], glints: [], ripples: [], light: null, lit: false, byMoon: false, coastalSea: null }
-  const { light, lit, moon } = waterLight(at, site, terrain, skyline, cloudCover)
+  const given = waterLight(at, site, terrain, skyline, cloudCover)
+  const { moon } = given
+  // C9 (defect 7): the sun's path takes the one world light's direct share (cloud in front, haze, air mass), as every lit
+  // face does, not a second rule from the cloud cover alone (which left a low sun seen through a broken sky with no path);
+  // and it is there when the world's sun stands over the land (`overLand`, the disc as drawn), not by a second judgement.
+  const lit = !moon && sunSeen !== undefined ? sunSeen : given.lit
+  const light = given.light && !moon && sunDirect !== undefined ? { ...given.light, strength: Math.min(1, Math.max(0, sunDirect)) } : given.light
   return { spans, glints: glintsOf(spans, light, lit, camera, windMs), ripples, light, lit, byMoon: moon, coastalSea: null }
 }

@@ -134,14 +134,15 @@ export function makeWorldBuilder() {
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
       aerosol: { visibilityKm: air.visibilityKm, dust: air.dust }, covers, cloudCover: shown.cloudCover,
       thickCloud: shown.thickCloud ?? null, farFade: air.farFade, palette })
-    const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id))
+    const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id),
+      light.source === 'sun' ? light.direct : 0, sun.overLand)
     const night = nightOf(shown, covers)
     const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
     const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
       input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
     const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY ?? HORIZON_Y
-    const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand }, moon }
+    const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance }, moon }
 
     return {
       place, at, preview, seed, camera,

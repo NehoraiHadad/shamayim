@@ -9,23 +9,29 @@ import { css, type Ctx2D, type PaintEnv } from './hand'
  * the brightest with a breath of halo.
  */
 export function paintBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>, _env: PaintEnv): void {
+  if (desc.sun && desc.part === 'aureole') { paintAureole(ctx, desc.sun); return }
   if (desc.sun) paintSun(ctx, desc.sun)
   if (desc.moon) paintMoon(ctx, desc.moon)
 }
 
-function paintSun(ctx: Ctx2D, d: Disc) {
+/**
+ * The aureole: forward-scattered light round the limb, wide in haze, taken by the cloud in front (its own layer over the
+ * clouds, C9: the air between the eye and any cloud glows too).
+ */
+function paintAureole(ctx: Ctx2D, d: Disc) {
   const { x, y, r } = d
   const clear = 1 - d.veil
-  // The aureole: forward-scattered light round the limb, wide in haze, taken by the cloud in front.
-  if (d.aureole > 0) {
-    for (const [reach, a] of [[2.6, 0.2], [1.6, 0.42]] as const) {
-      const g = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * reach)
-      g.addColorStop(0, css(d.halo, a * d.aureole * clear))
-      g.addColorStop(1, css(d.halo, 0))
-      ctx.fillStyle = g
-      ctx.fillRect(x - r * reach, y - r * reach, 2 * r * reach, 2 * r * reach)
-    }
+  for (const [reach, a] of [[2.6, 0.2], [1.6, 0.42]] as const) {
+    const g = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * reach)
+    g.addColorStop(0, css(d.halo, a * d.aureole * clear))
+    g.addColorStop(1, css(d.halo, 0))
+    ctx.fillStyle = g
+    ctx.fillRect(x - r * reach, y - r * reach, 2 * r * reach, 2 * r * reach)
   }
+}
+
+function paintSun(ctx: Ctx2D, d: Disc) {
+  const { x, y, r } = d
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(1, d.flatten)

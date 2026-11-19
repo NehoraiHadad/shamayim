@@ -21,7 +21,10 @@ import { buildWorld } from '../../world/world'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import { SCENE_CAMERA, xOf } from '../../domain/camera'
 import { sceneModel } from '.'
-import { tonesAt } from './marks'
+import { againstLight, tonesAt } from './marks'
+import { landBehind } from './outside'
+import { toneAt } from './planeLight'
+import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
 
 /**
@@ -96,7 +99,7 @@ describe.each(CITIES)('outside view: %s', (id) => {
     const mean = (list: typeof items) => list.reduce((s, b) => s + px(b), 0) / list.length
     expect(mean(north)).toBeGreaterThan(mean(south))
     // The painter's order: the layer draws its own things back to front by where they stand.
-    const own = layerOf(worldAt(id))!.items.filter((i) => i.kind === 'box')
+    const own = layerOf(worldAt(id))!.items.filter((i): i is Extract<typeof i, { kind: 'box' }> => i.kind === 'box' && !i.beyond)
     for (let i = 1; i < own.length; i++) expect(own[i].foot).toBeGreaterThanOrEqual(own[i - 1].foot - .01)
   })
 
@@ -376,7 +379,8 @@ describe('the coastal sea (C5 item 1)', () => {
 
 describe('one builder for every place: the density continuum (owner, 2026-11-19)', () => {
   const kinds = (id: string) => {
-    const items = layerOf(worldAt(id))?.items ?? []
+    // The place's own (not the towns beyond it, C9).
+    const items = (layerOf(worldAt(id))?.items ?? []).filter((i) => i.kind !== 'box' || !i.beyond)
     return { houses: items.filter((i) => i.kind === 'box' && i.roof).length, blocks: items.filter((i) => i.kind === 'box' && !i.roof).length,
       trees: items.filter((i) => i.kind === 'tree').length }
   }
@@ -513,23 +517,82 @@ describe('light on the place', () => {
     }
   })
 
-  it.each(['tel-aviv', 'jerusalem', 'beer-sheva'])('%s: gives the mass form from the sky under the cloud: tops lighter, feet darker (C5b)', (id) => {
+  it.each(['tel-aviv', 'jerusalem', 'beer-sheva'])('%s: gives the mass form from the sky under the cloud: tops lighter, feet darker (C5b, C9)', (id) => {
     for (const at of ['2026-11-17T11:00', '2026-11-17T16:30'] as LocalTime[]) {
       const world = worldAt(id, at)
       const layer = layerOf(world)!
       const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
       // The weaker the direct light, the more the form is the sky's.
       expect(layer.form.strength).toBeGreaterThan(.35 * (1 - world.night.dark))
+      const sky = skyAt(world, BOX)(8)
       layer.form.tiers.forEach((t, i) => {
-        expect(lum(t.top)).toBeGreaterThan(lum(layer.tiers[i].wall))
+        expect(lum(t.top)).toBeGreaterThanOrEqual(lum(layer.tiers[i].wall))
         expect(lum(t.foot)).toBeLessThan(lum(layer.tiers[i].wall))
-        expect(lum(t.face)).toBeGreaterThan(lum(layer.tiers[i].wall))
+        expect(lum(t.face)).toBeGreaterThanOrEqual(lum(layer.tiers[i].wall))
+        // C9: a wall gives back its albedo's share of the sky it faces, never the sky's own light.
+        expect(lum(t.top)).toBeLessThan(lum(sky))
       })
       // The brighter half of the sky is the sun's: its side on the screen.
       const sun = world.bodies.sun.x - 187.5
       if (Math.abs(sun) > 20) expect(layer.form.side).toBe(sun < 0 ? 1 : -1)
     }
     expect(layerOf(worldAt(id, '2026-11-17T21:00'))!.form.strength).toBeLessThan(.05)
+  })
+
+  it.each(['jerusalem', 'tel-aviv', 'haifa', 'beer-sheva'])('%s: against the light the mass is a dark silhouette on its ridge (C9)', (id) => {
+    const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
+    const worst = (at: LocalTime) => {
+      const world = worldAt(id, at)
+      const layer = layerOf(world)!
+      const behind = landBehind(world)
+      let most = -1, seen = 0
+      for (const item of layer.items) {
+        if (item.kind !== 'box' || item.beyond) continue
+        const km = behind(item.x, item.foot)
+        if (!Number.isFinite(km)) continue
+        seen++
+        most = Math.max(most, lum(layer.tiers[item.tier].wall) - lum(toneAt(world, km)))
+      }
+      expect(seen).toBeGreaterThan(50)
+      return { most, against: againstLight(world) }
+    }
+    // A low sun beyond the land: the walls the eye sees face away from it, about the ridge's own dark.
+    for (const at of ['2026-11-17T06:20', '2026-11-17T16:30'] as LocalTime[]) {
+      const { most, against } = worst(at)
+      expect(against).toBeGreaterThan(.8)
+      expect(most, at).toBeLessThan(.05)
+    }
+    // A high sun: lit stone, lighter than the scrub round it.
+    const noon = worst('2026-11-17T11:00')
+    expect(noon.against).toBeLessThan(.2)
+    expect(noon.most).toBeGreaterThan(.08)
+  })
+
+  it('takes no more haze on a thing than the land it is seen against (C9)', () => {
+    for (const id of CITIES) {
+      const world = worldAt(id)
+      const behind = landBehind(world)
+      const near = world.terrain.near
+      // Under the near crest: no farther than that land (the place's own ground over it, nearer still); over every crest:
+      // the sky's (no bound).
+      const i = Math.floor(near.points.length / 2)
+      const [x, crest] = near.points[i]
+      expect(behind(x, crest + 10)).toBeLessThanOrEqual((near.hazeKm ?? near.distanceKm)[i] + 1e-6)
+      expect(behind(x, -50)).toBe(Infinity)
+      // Every box seen against the land takes the haze of a distance (the layer's 0.5 km steps) no farther than that land.
+      const layer = layerOf(world)!
+      const walls = new Map<number, string>()
+      const wallAt = (q: number) => { if (!walls.has(q)) walls.set(q, JSON.stringify(tonesAt(world, q).wall)); return walls.get(q)! }
+      for (const item of layer.items.filter((i) => i.kind === 'box').slice(0, 400)) {
+        if (item.kind !== 'box') continue
+        const km = behind(item.x, item.foot)
+        if (!Number.isFinite(km)) continue
+        const wall = JSON.stringify(layer.tiers[item.tier].wall)
+        let found = false
+        for (let q = 0; q <= Math.round(km / .5) * .5 + 1e-9 && !found; q += .5) found = wallAt(q) === wall
+        expect(found, `${id} box at ${item.x.toFixed(0)}`).toBe(true)
+      }
+    }
   })
 
   it('lights windows by night only, and hazes the far rows toward the air', () => {

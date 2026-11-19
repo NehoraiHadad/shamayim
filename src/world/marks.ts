@@ -1,7 +1,7 @@
 import type { Place } from '../config/place'
 import { inFrame, lieBaseY, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import { sameTower } from '../data/city/skylineTowers'
-import { inSkylineReach } from '../data/city/skylineRay'
+import { inSkylineReach, SKYLINE_TO_KM } from '../data/city/skylineRay'
 import type { CityTower } from '../data/city/types'
 import { industrialNamed, landmarkBeyond } from '../data/landmarks/industrial'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
@@ -44,6 +44,9 @@ export function namedOnly(landmarks: readonly Landmark[]): Landmark[] {
     return mark.source === 'place' || mark.source === 'curated' || mark.nameHe || !mark.fame ? mark : { ...mark, fame: undefined }
   })
 }
+
+/** A structure beyond the place this tall (m) shows within the skyline's reach, named or not (C9). */
+const NEAR_BEYOND_M = 20
 
 /** Whether a mark is of the place: in its frame and within its own boundary (seen from outside), or in its reach (+1 km). */
 function ofPlace(place: Place, mark: Landmark, reachKm: number, outside: MarksInput['outside']) {
@@ -196,7 +199,13 @@ export function marksOf(input: MarksInput): WorldMark[] {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   // Beyond the place only landmarks, for every place (SKYLINE.md's rule, C5): a name and fame, or truly huge.
-  const landmarks = namedOnly(input.landmarks).filter((mark) => ofPlace(place, mark, input.reachKm, outside) || landmarkBeyond(mark))
+  // C9 (defect 8): within the skyline's reach (6 km), where the outside view draws the neighbours' towers and towns, a
+  // tall structure of theirs (a chimney, a water tower, a silo, a minaret: 20 m and more) shows as it truly stands, named or
+  // not; the far rule (name and fame, or huge) is for the far towns' range beyond it.
+  const nearBeyond = (mark: Landmark) => Boolean(outside) && mark.heightM >= NEAR_BEYOND_M
+    && Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= SKYLINE_TO_KM
+  const landmarks = namedOnly(input.landmarks).filter((mark) => ofPlace(place, mark, input.reachKm, outside) || landmarkBeyond(mark)
+    || nearBeyond(mark))
   const replaced = rasterReplaced(place, landmarks, input.rasterTowers)
   const kept = landmarks.filter((mark) => !replaced.has(mark.id))
   const inBox = (mark: WorldMark) => mark.x - mark.w / 2 >= 0 && mark.x + mark.w / 2 <= width

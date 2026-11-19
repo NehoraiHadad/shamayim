@@ -5,7 +5,8 @@ import type { LocalTime } from '../../domain/types'
 import { hillScene } from '../../ui/scene/marks/hillScene'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
-import { textWidth } from '../../world/layout'
+import { DOT_R, textWidth } from '../../world/layout'
+import { BACKING_PAD } from '../../world/place'
 import { markBox } from '../../world/marks'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { layersOn, sceneModel } from '.'
@@ -39,21 +40,32 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
       litShare: 0, datum: elevation < 0, variant: outside ? 'b' : null,
       label: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 } })
     const { overlay } = sceneModel(world, BOX)
-    // The height label (stage C4): the world's own layout, next to the dot and clear of the marks the canvas draws (the
-    // SVG scene placed it against its own houses, which the canvas does not draw).
+    // The height label (stage C4; C9: beside the dot, level with it, on its backing, for every place seen from outside):
+    // the world's own layout, clear of the marks the canvas draws.
     const height = overlay.find((item) => item.kind === 'height')!
-    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y })
+    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, backed: true })
     const w = textWidth(world.labels.height.text, 11)
-    for (const mark of world.marks.filter((m) => m.plane !== 'far')) {
+    const dot = world.place3.dot
+    expect(Math.abs(height.y + 11 / 2 - dot.y), 'level with the dot').toBeLessThanOrEqual(15.5)
+    // Beside it: its backing 2 px off the dot's ring, or a few px farther out where a mark stands there.
+    const gap = Math.abs(height.x - dot.x) - (DOT_R + 2 + BACKING_PAD + w / 2)
+    expect(gap, 'beside the dot').toBeGreaterThan(-0.01)
+    expect(gap, 'beside the dot').toBeLessThan(14.01)
+    // Where the dot is ringed by marks (Tel Aviv: Azrieli, the Reading chimney, a church, a minaret) no spot beside it is
+    // free: the label takes the one that covers least, one mark at most, on its backing.
+    const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => {
       const box = markBox(mark)
-      const clear = box.right <= height.x - w / 2 || box.left >= height.x + w / 2 || box.bottom <= height.y || box.top >= height.y + 11
-      // Where no spot is free the label keeps its own (`placeLabel`'s fallback, as the SVG layout's).
-      if (!clear) expect(height.y + 11, mark.id).toBeGreaterThan(110)
-    }
+      return !(box.right <= height.x - w / 2 - BACKING_PAD || box.left >= height.x + w / 2 + BACKING_PAD
+        || box.bottom <= height.y - BACKING_PAD || box.top >= height.y + 11 + BACKING_PAD)
+    })
+    expect(covered.length, covered.map((m) => m.id).join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
     expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',
       x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: hill.centerY })
-    expect(overlay.filter((item) => item.kind === 'datum' || item.kind === 'water'))
-      .toEqual(hill.notes.map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
+    // The datum where the SVG scene writes it; the water's names on their water (C9, `notesOnWater`: outside.test.ts).
+    expect(overlay.filter((item) => item.kind === 'datum'))
+      .toEqual(hill.notes.filter((note) => note.kind === 'datum').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
+    expect(overlay.filter((item) => item.kind === 'water'))
+      .toEqual(world.labels.notes.filter((note) => note.kind === 'water').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
     // Scaled across with the figure, heights as they are.
     const wide = sceneModel(world, { ...BOX, width: 750 }).overlay
     overlay.forEach((item, i) => expect(wide[i]).toMatchObject({ x: item.x * 2, y: item.y }))
@@ -70,7 +82,8 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const models = TIMES.map((at) => sceneModel(build({ ...input, selected: at }), BOX))
     // The weather comes and goes with the hour (C7: mist with the humidity, falling rain with the rain), so the scrub's
     // rule is held for the rest of the land.
-    const land = models.map((model) => layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind)))
+    // C9: a sky body laid over the place's mass (`bodiesOverPlace`) comes and goes with the hour, as the sky does.
+    const land = models.map((model) => layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind) && layer.kind !== 'bodies'))
     for (const layers of land.slice(1)) {
       expect(layers.map((layer) => layer.key)).toEqual(land[0].map((layer) => layer.key))
     }

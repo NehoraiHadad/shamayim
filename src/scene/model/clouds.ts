@@ -4,7 +4,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { coinOf, coversOf, skyGeom, skyStops, stopAt, type SkyGeom } from './sky'
+import { coinOf, coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
 import { mixRgb, rgbOf } from './tone'
 import type { BankDesc, LayerOf, RGB, SceneBox, Veil } from './types'
 
@@ -24,7 +24,9 @@ const RAIN_GREY: RGB = [0.29, 0.34, 0.39]
 
 /** Where the light that reaches a layer comes from (sky px), its colour and strength, and how much is direct sun. */
 /** `above`: the share of the light the layers above let through (as an expected value: a bank is in a gap or not, `litOf`). */
-interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number }
+interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number
+  /** The sun's disc as the eye sees it through the cloud (1 − its veil): what lights a bank's edge from behind. */
+  seen: number }
 
 /**
  * The light on one layer: the sun while it is up, its strength after the cloud above the layer (a low bank under an
@@ -41,16 +43,16 @@ function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLa
     const up = smoothstep(-0.5, 2, sun.altitude)
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
     return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world)), above, sun: true,
-      under: layer.litUnderside }
+      under: layer.litUnderside, seen: 1 - veilOf(world) }
   }
   const after = world.light.afterglow
   if (after && layer.litUnderside > 0.02) {
     return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, strength: layer.litUnderside, above, sun: false,
-      under: layer.litUnderside }
+      under: layer.litUnderside, seen: 0 }
   }
   if (moon.up && world.night.dark > 0.1 && moon.illumination > 0.05) {
     return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, rgb: MOON_RGB,
-      strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark, above, sun: false, under: 0 }
+      strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark, above, sun: false, under: 0, seen: 0 }
   }
   return null
 }
@@ -103,9 +105,18 @@ function tonesOf(world: WorldState, box: SceneBox, stops: [number, RGB][], level
   return { body: mixRgb(near, behind, fade), shade: mixRgb(nearShade, behind, fade), behind, fade }
 }
 
-/** The light's side of a bank: toward the source, its strength, a silver edge near the sun (forward scattering). */
-function litOf(light: CloudLight | null, cx: number, cy: number, w: number, thick: number, seed: number) {
-  if (!light || light.strength < 0.02) return { toward: null, litA: 0, silver: 0, backlit: 0, through: 0 }
+/** How far round the sun its light comes through a bank's thin edges (px): the aureole's reach (`SUN_R` 9 × 3.2). */
+const BEHIND_REACH = 29
+
+/**
+ * The light's side of a bank: toward the source, its strength, a silver edge near the sun (forward scattering).
+ * C9 (defect 2): a bank standing in front of the sun is lit from behind along the very line the eye sees the disc by, so
+ * its thin edges toward the sun glow (the silver lining) as the disc shows through the cloud (`seen`; its square root, as the
+ * veil counts the bank itself, whose edge is lit before its own cloud takes the light), whatever the layers above make of
+ * its light from above (`through`). The aureole lies over it (`bodies.aureole`).
+ */
+function litOf(light: CloudLight | null, cx: number, cy: number, w: number, h: number, thick: number, seed: number) {
+  if (!light || light.strength < 0.02) return { toward: null, litA: 0, silver: 0, backlit: 0, through: 0, front: 0 }
   // The layers above are broken: a bank stands in one of their gaps (fully lit) or under them (in their shade), as often as
   // their cover says (seeded by the bank, so the same banks stay lit).
   const through = seeded(seed ^ 0x9e3779b9)() < light.above ? 1 : 0.12
@@ -114,13 +125,17 @@ function litOf(light: CloudLight | null, cx: number, cy: number, w: number, thic
   const d = Math.hypot(dx, dy) || 1
   const gap = Math.max(0, d - w / 2)
   const near = light.sun ? Math.exp(-gap / 70) : 0
+  // The sun behind the bank's outline (an ellipse w × h round its middle) or within the aureole's reach of it.
+  const outside = Math.max(0, Math.hypot(dx / (w / 2), dy / Math.max(1, h / 2)) - 1) * Math.min(w / 2, Math.max(1, h / 2))
+  const front = light.sun ? light.strength * Math.sqrt(light.seen) * Math.exp(-outside / BEHIND_REACH) : 0
   return {
     toward: [dx / d, dy / d] as const,
     litA: strength * (0.55 + 0.3 * thick),
-    silver: 0.9 * near * strength * (1 - 0.4 * thick),
+    silver: Math.max(0.9 * near * strength * (1 - 0.4 * thick), 0.9 * front),
     // A thick bank right in front of the sun is seen from its shadowed side.
     backlit: light.sun ? Math.exp(-gap / 110) * strength * thick : 0,
     through,
+    front: Math.min(1, front),
   }
 }
 
@@ -139,7 +154,7 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
   const tones = tonesAt(world, box, stops, level, y - h / 2, union, rains, bank.distanceKm)
   const x = wrap(geom.x(bank.azimuth), geom.period)
   // The light's direction the short way round the horizon (the bank's copy on the band nearest the source).
-  const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick, bank.seed)
+  const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, h, thick, bank.seed)
   const body = mixRgb(tones.body, tones.shade, 0.5 * lit.backlit)
   return {
     id: `${level}:${bank.id}`, x, y, w, h, seed: bank.seed,
@@ -183,12 +198,12 @@ function deckOf(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number,
     const h = heap ? w * (0.32 + 0.18 * up) : (level === 'high' ? 2.5 : 5) + (level === 'high' ? 5 : 20) * up * (0.6 + 0.8 * r())
     const x = r() * geom.period
     const tones = tonesAt(world, box, stops, level, y - h / 2, union, rains, layer.baseM / 1000 / Math.tan((alt * Math.PI) / 180))
-    const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, thick, hashId(`${world.place.id}:deck:${level}:${j}`))
+    const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, h, thick, hashId(`${world.place.id}:deck:${level}:${j}`))
     sheets.push({ id: `${level}:deck:${j}`, x, y, w, h, seed: hashId(`${world.place.id}:deck:${level}:${j}`),
       puffs: kind === 'heap' ? Math.max(5, Math.round(w / 12)) : Math.max(3, Math.round(w / 26)), kind,
       alpha: (0.55 + 0.35 * r()) * (level === 'high' ? 0.5 : 1),
       body: tones.body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body, litA: 0.6 * lit.litA, toward: lit.toward,
-      under: light ? 0.6 * light.under * light.strength * lit.through : 0, silver: 0.4 * lit.silver, rains })
+      under: light ? 0.6 * light.under * light.strength * lit.through : 0, silver: Math.max(0.4 * lit.silver, 0.9 * lit.front), rains })
   }
   sheets.sort((a, b) => b.y - a.y)
   // The wash: this layer's own deck, or (on the lowest layer there is) the whole sky closing over, whatever the layers.

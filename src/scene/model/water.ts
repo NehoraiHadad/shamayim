@@ -10,7 +10,7 @@ import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf, toneAt } from './planeLight'
 import { skyAt } from './sky'
-import { mixRgb, rgbOf } from './tone'
+import { mixLight, mixRgb, rgbOf } from './tone'
 import type { Box, GlintPath, LayerOf, Pt, RGB, SceneBox, Streak, WaterBand } from './types'
 
 type WaterName = 'far' | 'near'
@@ -189,7 +189,7 @@ export function openWaterTone(world: WorldState, box: SceneBox): (y: number, km:
   const tilt = Math.atan(Math.sqrt(0.003 + 0.00512 * world.wind.ms)) * 180 / Math.PI
   return (y, km) => {
     const dep = Math.max(0.1, -angleAt(world, y))
-    return aerial(mixRgb(body, sky(dep + 1.6 * tilt), fresnel(dep + tilt)), km)
+    return aerial(mixLight(body, sky(dep + 1.6 * tilt), fresnel(dep + tilt)), km)
   }
 }
 
@@ -225,12 +225,16 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const tilt = Math.atan(Math.sqrt(0.003 + 0.00512 * world.wind.ms)) * 180 / Math.PI
   const surface = surfaceOf(world, box)
   const land = surface.land
-  const landTone = toneAt(world, land.km, haze)
-  // The surface at a row: seen that far below eye level and that far away.
+  // The surface at a row: seen that far below eye level and that far away. C9 (defect 7): the land it mirrors is seen
+  // along the eye → water → shore path, whose air is the land's own distance in all: the land's tone takes only the air
+  // between the water and the shore, the row's air is laid on after (it was the land's whole air twice over, so a far shore
+  // and its mirror image came out one pale tone, and the water barely parted from the ridge behind it at a low sun).
   const surfaceAt = (y: number) => {
     const dep = Math.max(0.1, -angleAt(world, y))
+    const km = surface.kmAt(y)
+    const landTone = toneAt(world, Math.max(0, land.km - km), haze)
     const mirrored = mixRgb(sky(dep + 1.6 * tilt), landTone, still * smoothstep(dep - 0.2, dep + 0.2, land.angle))
-    return aerial(mixRgb(body, mirrored, fresnel(dep + tilt)), surface.kmAt(y))
+    return aerial(mixLight(body, mirrored, fresnel(dep + tilt)), km)
   }
   const bands: WaterBand[] = []
   const lit: Streak[] = [], shade: Streak[] = []

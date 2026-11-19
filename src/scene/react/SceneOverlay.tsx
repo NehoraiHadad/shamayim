@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import styles from '../../ui/scene/ValleyScene.module.css'
+import own from './SceneOverlay.module.css'
 import type { OverlayItem } from '../model/types'
 
 const pct = (x: number, width: number) => `${(x / width * 100).toFixed(2)}%`
@@ -17,7 +18,7 @@ export function SceneOverlay({ items, width, style }: { items: readonly OverlayI
         return <span key="dot" className={styles.village} style={at(item)} aria-hidden="true" />
       case 'height':
         return (
-          <span key="height" className={styles.depth} style={at(item)} aria-hidden="true">
+          <span key="height" className={item.backed ? `${styles.depth} ${own.backed}` : styles.depth} style={at(item)} aria-hidden="true">
             <bdi>{item.text.replace(' מ׳', '')}</bdi> מ׳
           </span>
         )

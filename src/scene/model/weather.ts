@@ -2,13 +2,13 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
-import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, RainCell, WorldState } from '../../world/types'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
 import { coinOf, coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
+import { rayLayersOf } from './rays'
 import { mixRgb } from './tone'
-import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, MistBandDesc, MistPuff, Plume, Precip, Pt, Ray, RGB, SceneBox, Sheen,
+import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, MistBandDesc, MistPuff, Plume, Precip, Pt, RGB, SceneBox, Sheen,
   ShaftDesc } from './types'
 
 /*
@@ -354,38 +354,6 @@ export function brokenness(world: WorldState): number {
   return smoothstep(0.18, 0.4, u) * (1 - smoothstep(0.78, 0.93, all))
 }
 
-/**
- * Crepuscular rays: a low sun (−3° to 10°) behind broken cloud sends lit wedges through the gaps and the clouds' shadows
- * between them, fanning from the sun over the sky (from under the ridge when it is behind it). None in dust (the sun is
- * a coin), none under a clear or a closed sky.
- */
-export function raysLayer(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'rays'> | null {
-  const sun = world.bodies.sun
-  const low = smoothstep(-3, -0.5, sun.altitude) * (1 - smoothstep(6, 10, sun.altitude))
-  const strength = low * brokenness(world) * (1 - coinOf(world))
-  if (strength < 0.05) return null
-  const x = geom.left + sun.x * geom.s
-  const y = box.landTop + sun.y
-  const reach = Math.min(box.skyHeight, 240)
-  const r = seeded(hashId(`${world.place.id}:rays`))
-  const rays: Ray[] = []
-  for (let a = -1.45; a < 1.45;) {
-    const width = 0.04 + 0.12 * r()
-    // Mostly the clouds' shadows across a lit haze; a few lit beams, narrower.
-    const lit = r() < 0.35
-    rays.push({ angle: a + width / 2, width: lit ? width * 0.6 : width, alpha: (0.3 + 0.7 * r()) * strength, lit })
-    a += width + 0.04 + 0.14 * r()
-  }
-  const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), { visibilityKm: world.air.visibilityKm, dust: world.air.dust }).rgb, WHITE, 0.3)
-  const shade = mixRgb(skyAt(world, box)(4), [0.2, 0.22, 0.3], 0.35)
-  const x0 = Math.max(0, Math.floor(x - reach)), x1 = Math.min(geom.width, Math.ceil(x + reach))
-  const y0 = Math.max(0, Math.floor(y - reach)), y1 = Math.min(box.skyHeight, Math.ceil(geom.horizon + 2))
-  if (x1 <= x0 || y1 <= y0) return null
-  return { kind: 'rays', id: 'rays', surface: 'sky', z: 5.5, soft: true, x, y, reach, rays, rgb, shade,
-    bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 },
-    key: layerKey('rays', skyBoxKey(box, true), q(x, 0.5), q(y, 0.5), q(strength, 0.02), tone(rgb), tone(shade)) }
-}
-
 /** Smoke and steam: a strip this many frames, at this rate (a 1 s loop). */
 const SMOKE_FRAMES = { count: 8, fps: 8 }
 
@@ -473,9 +441,9 @@ export function sheenLayer(world: WorldState, box: SceneBox, clear: readonly Box
 /** Every weather layer of the scene (C7), on both surfaces. */
 export function weatherLayers(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], clear: readonly Box[],
   geom: SkyGeom = skyGeom(world, box)): LayerDesc[] {
-  const rays = raysLayer(world, box, geom)
+  const rays = rayLayersOf(world, box, geom)
   const sheen = sheenLayer(world, box, clear)
-  return [...precipLayers(world, box, clouds, geom), ...(rays ? [rays] : []), ...mistLayers(world, box), ...grainLayers(world, box, geom),
+  return [...precipLayers(world, box, clouds, geom), ...rays, ...mistLayers(world, box), ...grainLayers(world, box, geom),
     ...smokeLayers(world, box), ...(sheen ? [sheen] : [])]
 }
 
