@@ -1,0 +1,92 @@
+import type { LayerOf, Streak } from '../model/types'
+import { css, outline, type Ctx2D, type PaintEnv } from './hand'
+
+/*
+ * Water in the enriched hand (prototype `styleRich.ts`'s bay, after the anidoodle skill's craft notes). MEDIUM: the
+ * scene's own hand, flat bodies, soft light, haze by distance, no outlines. ORDER: the surface as one wash down its depth
+ * (the mirrored sky over the water's dark, as the model mixed it), then on the water only (`source-atop`, so every mark
+ * takes the surface's own antialiased edge, no clip): the light rim along the far edge, the wind's ripples (light and dark
+ * strokes, horizontal, shorter toward the far edge), the light's path (a soft core and its sparks); last the dashed
+ * sea-level datum. Every mark comes from the model: the painter only lays it down.
+ */
+
+/** Strokes of one tone, batched by strength (four steps: the eye cannot tell finer ones on a 1 px stroke). */
+function paintStreaks(ctx: Ctx2D, streaks: readonly Streak[], rgb: readonly [number, number, number], height: number) {
+  if (!streaks.length) return
+  const steps = [0.25, 0.5, 0.75, 1]
+  const peak = Math.max(...streaks.map((s) => s.alpha))
+  if (peak <= 0.005) return
+  for (const step of steps) {
+    ctx.beginPath()
+    let any = false
+    for (const s of streaks) {
+      const k = s.alpha / peak
+      if (k > step || k <= step - 0.25) continue
+      ctx.rect(s.x, s.y - height / 2, s.w, height)
+      any = true
+    }
+    if (!any) continue
+    ctx.fillStyle = css(rgb, peak * (step - 0.125))
+    ctx.fill()
+  }
+}
+
+export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): void {
+  // The surface: a wash from the far edge's mirrored horizon down to the near water's darker sky.
+  for (const band of desc.bands) {
+    const gradient = ctx.createLinearGradient(0, band.top, 0, Math.max(band.top + 0.5, band.bottom))
+    for (const [at, rgb] of band.stops) gradient.addColorStop(at, css(rgb))
+    outline(ctx, band.points)
+    ctx.fillStyle = gradient
+    ctx.fill()
+  }
+  // A hair is the device's px: strokes on the water are one device px thick at least, never thinner.
+  const hair = Math.max(0.5, 1 / env.scale)
+  ctx.globalCompositeOperation = 'source-atop'
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (const band of desc.bands) {
+    if (band.rim.alpha < 0.02 || band.far.length < 2) continue
+    ctx.beginPath()
+    band.far.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + hair / 2) : ctx.moveTo(x, y + hair / 2)))
+    ctx.strokeStyle = css(band.rim.rgb, band.rim.alpha)
+    ctx.lineWidth = hair * 1.5
+    ctx.stroke()
+  }
+  const { ruffle } = desc
+  paintStreaks(ctx, ruffle.shade, ruffle.dark, hair)
+  paintStreaks(ctx, ruffle.lit, ruffle.light, hair)
+  for (const glint of desc.glints) {
+    // The path's soft core: a wedge under the light, widening toward the eye, in two strengths (a soft edge, no filter).
+    const depth = glint.bottom - glint.top
+    for (const [k, a] of [[1, 0.16], [0.45, 0.26]] as const) {
+      const top = 0.35 * k, foot = (0.5 + depth * glint.spread * 0.55) * k
+      ctx.beginPath()
+      ctx.moveTo(glint.x - top, glint.top)
+      ctx.lineTo(glint.x + top, glint.top)
+      ctx.lineTo(glint.x + foot, glint.bottom)
+      ctx.lineTo(glint.x - foot, glint.bottom)
+      ctx.closePath()
+      ctx.fillStyle = css(glint.rgb, glint.alpha * a)
+      ctx.fill()
+    }
+    paintStreaks(ctx, glint.sparks, glint.rgb, hair * 1.2)
+  }
+  ctx.globalCompositeOperation = 'source-over'
+  paintDatum(ctx, desc)
+}
+
+/** The sea-level datum: a quiet dashed note one css px wide, in the hour's ink, as the SVG scene's (below sea level only). */
+function paintDatum(ctx: Ctx2D, desc: LayerOf<'water'>) {
+  const datum = desc.datum
+  if (!datum) return
+  ctx.beginPath()
+  ctx.moveTo(datum.x1, datum.y)
+  ctx.lineTo(datum.x2, datum.y)
+  ctx.setLineDash([1, 4])
+  ctx.lineWidth = 1
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = css(datum.rgb, datum.alpha)
+  ctx.stroke()
+  ctx.setLineDash([])
+}

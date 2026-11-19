@@ -69,7 +69,9 @@ describe('scene model: layers', () => {
   it('orders the surfaces and keeps every layer inside its box', () => {
     const world = buildWorld(worldInput(loaded.get('haifa')!, TIMES[2]))
     const model = sceneModel(world, BOX)
-    expect(model.layers.map((layer) => layer.id)).toEqual(['sky', 'plane.far', 'plane.near'])
+    // C3: far water (here only the sea-level datum: the fixture's height is below sea level) and the far towns between
+    // the far plane and the near ridge, the sea (within the near band) over the near plane.
+    expect(model.layers.map((layer) => layer.id)).toEqual(['sky', 'plane.far', 'water.far', 'farCities', 'plane.near', 'water.near'])
     for (const layer of model.layers) {
       const height = layer.surface === 'sky' ? BOX.skyHeight : BOX.landHeight
       expect(layer.bounds.x).toBeGreaterThanOrEqual(0)
@@ -93,6 +95,6 @@ describe('scene model: layers', () => {
     const world = buildWorld(worldInput(loaded.get('jerusalem')!, TIMES[1]))
     const model = sceneModel(world, { ...BOX, skyHeight: 0, landTop: 0 })
     expect(layersOn(model, 'sky')).toEqual([])
-    expect(layersOn(model, 'land').length).toBe(2)
+    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(layersOn(sceneModel(world, BOX), 'land').map((layer) => layer.id))
   })
 })

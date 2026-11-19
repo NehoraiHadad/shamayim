@@ -79,6 +79,11 @@ export class LayerCache {
   }
 
   /** The canvases last painted for a layer (possibly stale): its form, its light (if any), their ratio and place. */
+  /** The layer's form draws nothing under its light (`Painter.formless`): the surface lays its light alone. */
+  formless(desc: LayerDesc): boolean {
+    return Boolean(desc.light && this.painters(desc)?.formless?.(desc))
+  }
+
   peek(id: string): { form: LayerCanvas; light: LayerCanvas | null; ratio: number; rect: DeviceRect } | null {
     const entry = this.entries.get(id)
     return entry ? { form: entry.form, light: entry.lightKey ? entry.light : null, ratio: entry.ratio, rect: entry.rect } : null

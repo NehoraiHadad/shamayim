@@ -53,7 +53,7 @@ export class Surface {
       const k = d / ratio
       const draw = (canvas: typeof form) => k === 1 ? ctx.drawImage(canvas, rect.x, rect.y)
         : ctx.drawImage(canvas, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
-      draw(form)
+      if (!this.cache.formless(desc)) draw(form)
       if (light && desc.light) {
         ctx.globalCompositeOperation = desc.light.blend
         draw(light)

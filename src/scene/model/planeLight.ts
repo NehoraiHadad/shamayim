@@ -52,6 +52,19 @@ function toneFor(world: WorldState, haze: RGB): (km: number) => RGB {
   }
 }
 
+/**
+ * Aerial perspective for anything on the land (water, far towns): its own colour carried toward the air by the same rule
+ * as the ground (`AERIAL · fade(km)²`, Koschmieder from the visibility), so everything at one distance fades alike.
+ */
+export function aerialFor(world: WorldState, haze = hazeOf(world)): (rgb: RGB, km: number) => RGB {
+  const air = labOf(haze)
+  return (rgb, km) => {
+    const t = AERIAL * world.air.fade(km) ** 2
+    const own = labOf(rgb)
+    return rgbOfLab({ l: own.l + (air.l - own.l) * t, a: own.a + (air.a - own.a) * t, b: own.b + (air.b - own.b) * t })
+  }
+}
+
 /** Mixes `from` toward `to` by `t`, but no lighter than `cap` (Oklab lightness), so a lit crest keeps clear of the sky. */
 function capped(from: RGB, to: RGB, t: number, cap: number): RGB {
   let mixed = mixRgb(from, to, t)

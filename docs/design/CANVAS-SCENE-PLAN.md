@@ -422,6 +422,7 @@ Form/light split for scrubbing.
 frame within budget; owner review of the hand against `qa/styles/v1b/`.
 
 **C3. Water, haze, far cities — M (3).**
+**Done 2026-11-19** (§6; perf gates as at C2, not met).
 Water bands from `WaterSpan`s, glint path under sun or moon with the world's wind, the "פני הים" datum and water names
 in the overlay; horizon band; far cities with their lights.
 *Accept:* Tiberias, Ein Gedi, Haifa water at the same bearings as stage 3 stills; glint gone at noon, strong at 07:30;
@@ -746,3 +747,51 @@ SVG baseline are unchanged (snapshots untouched; the canvas scene is now a lazy 
     shadow as the SVG's (`shadowRuns`, runs ≥ 12 px, 16 px deep, sky-shade blue at 0.3 · direct).
   - **Text zones** are honoured by the form (gullies cut, terraces split, scrub left out); the plane's fill and light pass
     under the labels as the land does.
+
+**C3 done (2026-11-19), with the perf gates as at C2 (not met, below).** Commit on `ccr-85ec24f0-9ayxgu`; the shipped app and
+the SVG baseline are unchanged (snapshots untouched, `far.json`'s patches untouched).
+- *Drawing with the anidoodle skill* (owner decision 7): the references read again; the look proved on one still
+  (Tiberias 07:30), critiqued on 2× crops, then extended (Ein Gedi, Masada, Haifa, Tel Aviv, Ramat Gan).
+- *World*: `world/water.ts` computes the glint itself (`glintsOf`, `facetShare`): the facet tilt is (altitude −
+  depression) / 2, the mirror's own geometry. **`data/water/glint.ts`'s `glitter` adds the two angles**, a sign slip in
+  the frozen SVG scene (its glint is weaker and peaks in the wrong place); left as it is (SVG frozen), goes at C9. The
+  floor is a 0.4 % facet share (a share of the sun itself is bright). `ripplesOf`: the places ripples can take on each
+  span (seeded, with a low-frequency gate for patches and slicks), built once with the terrain. `world/farCities.ts`:
+  the far raster (`far.json`, now a `WorldInput.far`, loaded by the harness, the tests and `CanvasScene`) placed by
+  `panoramaFarColumns` as the SVG does (beyond `SKYLINE_TO_KM` when the place has its own skyline), each stretch with its
+  cell's storeys, towers with tops and feet (plain: `seenAt`; far crest: its angle + the tower's), and `townShapes`.
+- *Model*: `water.ts` (layers `water.far` z 15 with the datum, `water.near` z 35, by `waterLayer`): the surface's tone is
+  a function of the screen row alone, shared by every span: the sky mirrored at the row's depression plus the waves'
+  mean tilt (Cox–Munk), by Schlick's Fresnel share over the water's own dark, the land over the far shores mirrored
+  where calm (by wind) and higher than the row's depression, then the land's own aerial rule (`aerialFor`) at the row's
+  distance; a light rim at the far edge; ripples by the one wind (count, length, light/dark share); the glint where the
+  world puts it, alpha `1 − e^(−12·share)`, widening by the wave slope, sparks seeded; the datum in the hour's ink.
+  `farCities.ts` (z 16): the towns as the eye resolves them: the built share laid into a 1 px × ½ px field, smoothed,
+  drawn as runs at five strengths (a lone shed is a breath of tone, never a speck); blocks of true height (storeys ×
+  3.2 m on the relief) only where the smoothed share ≥ 0.3; towers ≥ 80 m; lit face on the light's side; tones by 19
+  distance tiers through `aerialFor`; nothing past 5 % contrast; lights by `plainLights` with Allard's cube root, by night.
+  `sky.ts`: `skyStops`, `skyAt`, and the haze band (`air.horizonBand`, night-aware) at eye level.
+- *Compose*: `Painter.formless` lets a light-only layer (water, towns) skip blitting its empty form.
+- *Tests* (`scene/model/water.test.ts`, 13): water only where the world has it, at the spans' bearings (none at Tel Aviv,
+  Jerusalem, Rosh Pina, Shadmot); the datum only below sea level; glints only with the light up, above the land and over
+  the span, strong at 07:30 at Tiberias and Ein Gedi, gone at noon; glint spread and ripples by wind; Fresnel; haze
+  monotone with distance for any tone, town tiers toward the air, fewer towns at 6 km; band stronger in haze; towns by
+  day, lights by night; ripples, sparks, blocks, masses and lights out of every text zone; determinism and form/light keys.
+- *Pixel references*: all 53 rewritten deliberately: the haze band changes every sky (and the land rows above the
+  ridges, where the sky shows through); water, datum and far towns at Tiberias, Ein Gedi, Haifa, Tel Aviv, Jerusalem,
+  Rosh Pina; 53/53 on re-run.
+- *Stills* `qa/canvas/c3/` (dpr 2, overlay): Tiberias 07:30, Ein Gedi 07:30, Masada 11:00, Haifa 16:30, Tel Aviv 16:30,
+  Ramat Gan 11:00; `sheet-svg-canvas.png` (Tiberias, Ein Gedi 07:30, Haifa, Tel Aviv 16:30). New panorama fixtures
+  for Ramat Gan and Masada (`STILL_PLACES`; `recordPanoramas.ts` takes study and still places by id); the harness knows them.
+- *Critique* (2× crops). Works: the lakes read as water: lighter than the hills, a fine light shore line, ripples in
+  patches with slicks between, and a glitter path under the morning sun that widens toward the eye (Ein Gedi best);
+  far water of one height has one tone however the spans split; Tel Aviv from Ramat Gan reads as a distant city (a pale
+  mass, a ragged roofline, its towers); Haifa's Krayot by night as a field of lit windows. Still wrong: the glint's soft
+  core reads a little like a vertical bar; night water is near the night land's tone (no moon glint in these stills);
+  far towns at dusk (Tel Aviv 16:30) all but vanish (true to the haze, but thin); Masada's Dead Sea shows the Lisan land
+  between the basins as a darker lens, data-true but busy; town blocks are a regular picket at 4×.
+- *Not in C3*: the coastal sea for coastal places seen from outside (Tel Aviv, Netanya) is C5 item 1
+  (`WaterState.coastalSea` stays null); glint shimmer and animated ripples wait for C7 (still frames now).
+- *Perf* (`qa/canvas/perf.md`, C3): modelCold 18–32 ms, scrub.model p95 9–14 ms, scrub.land p50 13–19 / p95 18–25 ms,
+  first paint 80–142 ms (C2 the same day: scrub.land p95 17–25, first paint 80–113). Over the gates as at C2; the
+  towns' field and the ripple places moved to the world's terrain part (model cold was 83–116 ms with them in the model).

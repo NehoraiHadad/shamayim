@@ -3,6 +3,7 @@ import path from 'node:path'
 import { vi } from 'vitest'
 import type { Place } from '../config/place'
 import { loadCity } from '../data/city/cityData'
+import { loadFar, type FarData } from '../data/city/farData'
 import type { CityResult } from '../data/city/types'
 import { loadIsrael } from '../data/landmarks/israelData'
 import { withPlaceHomes } from '../data/landmarks/placeMarks'
@@ -27,7 +28,7 @@ import { SCENE_PLACES } from './scenePlaces'
  */
 const root = path.resolve(__dirname, '../..')
 
-export interface LoadedPlace { place: Place; terrain: SceneTerrain; landmarks: Landmark[]; city: CityResult | null }
+export interface LoadedPlace { place: Place; terrain: SceneTerrain; landmarks: Landmark[]; city: CityResult | null; far: FarData | null }
 
 export function stubPublicFetch() {
   vi.stubGlobal('document', { hidden: false })
@@ -41,18 +42,19 @@ export async function loadPlaces(places: readonly Place[] = SCENE_PLACES): Promi
   const mask = waterMask(JSON.parse(fs.readFileSync(path.join(root, 'public/data/land/water.json'), 'utf8')) as WaterMaskFile)
   const signal = new AbortController().signal
   const out = new Map<string, LoadedPlace>()
+  const far = await loadFar()
   for (const place of places) {
     const stored = JSON.parse(fs.readFileSync(path.join(root, `src/test/fixtures/scene/${place.id}.panorama.json`), 'utf8')) as StoredPanorama
     const terrain = terrainFromPanorama(unpackPanorama(stored)!, { water: waterAround(place, mask) })
     const source = await loadLandmarkSource(place, signal, { israel: loadIsrael })
-    out.set(place.id, { place, terrain, landmarks: withPlaceHomes(place, source.panoramaMarks), city: await loadCity(place, signal) })
+    out.set(place.id, { place, terrain, landmarks: withPlaceHomes(place, source.panoramaMarks), city: await loadCity(place, signal), far })
   }
   return out
 }
 
 export function worldInput(loaded: LoadedPlace, now: LocalTime, selected: LocalTime | null = null): WorldInput {
-  const { place, terrain, landmarks, city } = loaded
+  const { place, terrain, landmarks, city, far } = loaded
   const base: Forecast = { ...mapForecast(layersFixture), placeId: place.id, air: null, nowcast: null, normals: null,
     fetchedAt: 0, source: 'fixture', models: [] }
-  return { place, forecast: withVisibleSun(rollForward(base, now), terrain, place), now, selected, terrain, landmarks, city }
+  return { place, forecast: withVisibleSun(rollForward(base, now), terrain, place), now, selected, terrain, landmarks, city, far }
 }

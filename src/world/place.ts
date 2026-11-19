@@ -46,7 +46,8 @@ export interface PlaceInput {
  * stages C4–C5 rewrite as `scene/model/portrait.ts`, `outside.ts`, `marks.ts`. Independent of the hour (lit windows
  * are `night.litShare`).
  */
-export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideView; marks: PlacedMark[]; labels: WorldLabels } {
+export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideView; marks: PlacedMark[]; labels: WorldLabels;
+  ownSkyline: boolean } {
   const { place, terrain, city, width, elevation } = input
   const landmarks = [...input.landmarks]
   const reachKm = portraitReach(city?.clusters)
@@ -61,9 +62,11 @@ export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideVie
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   const dot = { x: centerX, y: scene.centerY }
   const seed = hashId(place.id)
+  // The place's own city skyline (its towers within reach): the far towns start beyond it.
+  const ownSkyline = Boolean(scene.citySkyline)
   if (outside && scene.outside) {
-    return { marks: scene.marks, labels, place3: { kind: 'outside', dot, reachKm, seed, skyline: scene.outside,
+    return { marks: scene.marks, labels, ownSkyline, place3: { kind: 'outside', dot, reachKm, seed, skyline: scene.outside,
       frame: outsideFrame(city?.clusters, reachKm, centerX, width, true) } }
   }
-  return { marks: scene.marks, labels, place3: { kind: 'portrait', dot, reachKm, seed, ...portraitStyle(place, landmarks, city) } }
+  return { marks: scene.marks, labels, ownSkyline, place3: { kind: 'portrait', dot, reachKm, seed, ...portraitStyle(place, landmarks, city) } }
 }

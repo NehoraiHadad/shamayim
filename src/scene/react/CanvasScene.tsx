@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { loadFar, type FarData } from '../../data/city/farData'
 import type { Forecast, LocalTime } from '../../domain/types'
 import type { WorldInput } from '../../world/types'
 import { SceneCanvas } from './SceneCanvas'
@@ -24,7 +25,15 @@ interface Props {
  * inspection.
  */
 export default function CanvasScene({ input, ...scene }: Props) {
-  const world = useWorld(input)
+  // The far towns' raster (`far.json`), loaded once; the world places the towns from it.
+  const [far, setFar] = useState<FarData | null>(null)
+  useEffect(() => {
+    let active = true
+    void loadFar().then((data) => { if (active) setFar(data) })
+    return () => { active = false }
+  }, [])
+  const full = useMemo(() => ({ ...input, far }), [input, far])
+  const world = useWorld(full)
   useEffect(() => {
     if (world) (window as Window & { __world?: unknown }).__world = world
   }, [world])

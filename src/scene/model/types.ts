@@ -101,10 +101,39 @@ export interface Rim { points: Pt[]; rgb: RGB; alpha: number }
 export interface Lift { dx: number; dy: number; rgb: RGB; alpha: number }
 /** Snow over a plane above its snow line (`edge`, west to east), lit by the scene's light. */
 export interface SnowCap { edge: Pt[]; rgb: RGB; alpha: number }
-export interface WaterBand { points: Pt[]; rgb: RGB }
-export interface GlintPath { points: Pt[]; rgb: RGB; alpha: number }
+/**
+ * One stretch of water in view (C3): its surface between the far edge and the near edge (land px), and its colours down
+ * the surface: the sky it mirrors (by the Fresnel share at that depression, the higher sky nearer the eye) over the
+ * water's own dark, after the air at that distance. `rim`: the fine light line where the far edge meets the land or the
+ * sea's own horizon.
+ */
+export interface WaterBand {
+  points: Pt[]
+  far: Pt[]
+  top: number
+  bottom: number
+  /** 0 at `top` … 1 at `bottom`. */
+  stops: [number, RGB][]
+  rim: { rgb: RGB; alpha: number }
+}
+/** A short horizontal stroke on the water (a ripple, a spark): `x` its left end, `w` its length. */
+export interface Streak { x: number; y: number; w: number; alpha: number }
+/** Wind ruffle: ripples catching the low sky (`light`) and the high sky (`dark`), their number and length by the wind. */
+export interface Ruffle { light: RGB; dark: RGB; lit: Streak[]; shade: Streak[] }
+/** The light's path on the water under the sun or moon, widening toward the eye with the waves' slope. */
+export interface GlintPath { x: number; top: number; bottom: number; spread: number; rgb: RGB; alpha: number; sparks: Streak[] }
 export interface Line { x1: number; x2: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number; rgb: RGB }
+/** A block of a far town (or a far tower), standing on `base`, `km` away. */
+export interface CityBlock { x: number; base: number; w: number; h: number; km: number }
+/**
+ * The far towns at one distance (C3): their mass (the town as the eye resolves it: cells of the built-share field, one
+ * strength step each) and the blocks rising from it with a lit face toward the light, in tones after the air at `km`;
+ * drawn far to near.
+ */
+export interface CityTier { km: number; lit: RGB; shade: RGB; mass: { alpha: number; boxes: Box[] }[]; blocks: CityBlock[] }
+/** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
+export interface CityLight { x: number; y: number; r: number; alpha: number }
 export interface PortraitItem { kind: 'house' | 'tree' | 'cypress'; x: number; base: number; w: number; h: number; tones: Tones; seed: number }
 export interface Spire { x: number; base: number; w: number; h: number; tones: Tones }
 export interface Tones { lit: RGB; shade: RGB; body: RGB; open: RGB; roof: RGB }
@@ -134,8 +163,9 @@ export type LayerDesc =
   | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[] }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; gullies: Gully[];
       terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
-  | LayerBase & { kind: 'water'; bands: WaterBand[]; glint: GlintPath | null; datum: Line | null }
-  | LayerBase & { kind: 'farCities'; lights: Dot[]; blocks: Rect[] }
+  | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
+      datum: (Line & { rgb: RGB; alpha: number }) | null }
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB }
   | LayerBase & { kind: 'portrait'; items: PortraitItem[] }
   | LayerBase & { kind: 'outside'; mass: Pt[]; spires: Spire[]; glyphs: GlyphDesc[]; sea: Pt[] | null }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[] }

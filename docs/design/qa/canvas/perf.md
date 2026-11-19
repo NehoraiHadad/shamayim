@@ -133,3 +133,42 @@ Reading:
 - Options for the owner / the next stage: the plan's fallback (light canvases capped at dpr 2 while scrubbing; to
   measure, a scaled blit being the slow path in software), quantising the light key while scrubbing, and the real phone
   (`?perf=1`, GPU raster), where per-pixel passes cost far less than here.
+
+## C3 (2026-11-19): water, haze band, far towns
+
+What is added: the haze band in the sky layer; per place the far towns (`farCities`, light-only) and the water
+(`water.far` with the sea-level datum, `water.near`), both light-only layers whose empty form is not blitted
+(`Painter.formless`). The towns' field and the ripples' places are built once with the terrain in the world, so neither a
+cold model nor a scrub frame recomputes them.
+
+```
+haifa  (CPU ×4, dpr 2.75, software raster)
+  modelCold    p50   31.80 ms  (budget 10)  OVER
+  firstPaint   p50  118.40 ms  (budget 60)  OVER
+  scrub.model  p50    9.90  p95   14.40 ms  (budget 10)
+  scrub.land   p50   18.60  p95   25.40 ms  (budget 10)  OVER
+  scrub repainted: farCities:light, plane.far:light, plane.near:light, sky:form, water.near:light
+tel-aviv
+  modelCold    p50   17.90 ms  OVER
+  firstPaint   p50   80.20 ms
+  scrub.model  p50    3.90  p95    9.70 ms
+  scrub.land   p50   12.60  p95   18.40 ms  OVER
+  scrub repainted: farCities:light, plane.far:light, plane.near:light, sky:form
+shadmot-mehola
+  modelCold    p50   21.80 ms  OVER
+  firstPaint   p50  141.90 ms  OVER (105–142 over runs)
+  scrub.model  p50    4.00  p95    8.50 ms
+  scrub.land   p50   19.10  p95   25.00 ms  OVER
+  scrub repainted: plane.far:light, plane.near:light, sky:form, water.far:light (the datum, when the ink turns)
+```
+
+Reading:
+- **C2 on the same machine the same day, before C3**: haifa modelCold 21.6, firstPaint 112.9, scrub.land p50 15.0 /
+  p95 19.6; tel-aviv 12.6, 79.9, 11.6 / 16.8; shadmot 21.4, 111.5, 16.6 / 24.9. So C3 adds ~3–6 ms to a scrub frame
+  where water and towns repaint (Haifa, both), little elsewhere; first paint and the cold model are within the run-to-run
+  noise (±20 %) at Tel Aviv and Shadmot, Haifa's cold model ~+10 ms (the water's surface and the towns' tiers).
+- **Not recovered**: the land scrub frame and the first paint stay over their gates, as at C2. The per-layer paint times
+  are under 1 ms (towns 2.3 ms); the frame is the composite (software raster defers each canvas's raster to its blit),
+  dominated by the planes' `overlay` light. Tried and dropped: the sky gradient as a one-column pattern laid across
+  (no change: 40–45 ms either way).
+- First version of the towns computed their field in the model: modelCold 83–116 ms; moved to the world's terrain part.

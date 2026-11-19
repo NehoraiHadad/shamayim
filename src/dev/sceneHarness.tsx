@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
 import { loadCity } from '../data/city/cityData'
+import { loadFar } from '../data/city/farData'
 import { loadIsrael } from '../data/landmarks/israelData'
 import { withPlaceHomes } from '../data/landmarks/placeMarks'
 import { loadLandmarkSource } from '../data/landmarks/useLandmarks'
@@ -19,7 +20,7 @@ import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
-import { SCENE_PLACES } from '../test/scenePlaces'
+import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../test/scenePlaces'
 import { SCENE_H } from '../world/sceneBox'
 import type { WorldInput, WorldState } from '../world/types'
 import { withVisibleSun } from '../world/visibleSun'
@@ -62,9 +63,10 @@ async function loadInput(place: Place, at: LocalTime, weather: string): Promise<
   if (!panorama) throw new Error(`no panorama fixture for ${place.id}`)
   const mask = await loadWaterMask()
   const terrain = terrainFromPanorama(panorama, { water: mask ? waterAround(place, mask) : undefined })
-  const [source, city, raw] = await Promise.all([
+  const [source, city, far, raw] = await Promise.all([
     loadLandmarkSource(place, signal, { israel: loadIsrael }),
     loadCity(place, signal),
+    loadFar(),
     fetch(forecastUrl(place)).then((res) => {
       if (!res.ok) throw new Error(`forecast ${res.status}`)
       return res.json() as Promise<unknown>
@@ -76,7 +78,7 @@ async function loadInput(place: Place, at: LocalTime, weather: string): Promise<
     source: 'fixture', models: [] }
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
   return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.panoramaMarks), city,
-    forced: WEATHER[weather] ?? null }
+    far, forced: WEATHER[weather] ?? null }
 }
 
 function Scene({ input }: { input: WorldInput }) {
@@ -144,7 +146,7 @@ export function SceneHarness() {
   const [input, setInput] = useState<WorldInput | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(location.search)
-    const place = SCENE_PLACES.find((p) => p.id === (params.get('place') ?? 'shadmot-mehola'))
+    const place = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES].find((p) => p.id === (params.get('place') ?? 'shadmot-mehola'))
     const at = (params.get('at') ?? '2026-11-17T12:00') as LocalTime
     if (!place) { win.__sceneError = `unknown place ${params.get('place')}`; return }
     loadInput(place, at, params.get('weather') ?? '').then(setInput, (err: unknown) => {

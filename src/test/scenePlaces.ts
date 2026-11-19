@@ -35,3 +35,11 @@ export const SKYLINE_STUDY_PLACES: Place[] = [
   { id: 'netanya', nameHe: 'נתניה', regionHe: 'השרון', lat: 32.33291, lon: 34.85992, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'city', population: 230000 },
 ]
+
+/**
+ * Places the canvas scene's review stills add (docs/design/qa/canvas/): a point over the Dead Sea that is no settlement
+ * (Masada's summit). Not in the baseline; their panoramas are recorded beside the baseline's.
+ */
+export const STILL_PLACES: Place[] = [
+  { id: 'masada', nameHe: 'מצדה', regionHe: 'ים המלח', lat: 31.3156, lon: 35.3536, timezone: 'Asia/Jerusalem' },
+]

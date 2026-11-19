@@ -10,6 +10,7 @@ import { skyLight } from '../theme/skyLight'
 import { airOf } from './air'
 import { moonBody, sunBody } from './bodies'
 import { cloudLayers, layerCovers } from './clouds'
+import { farCitiesOf } from './farCities'
 import { partKey } from './keys'
 import { lightOf } from './light'
 import { nightOf } from './night'
@@ -21,7 +22,7 @@ import { snowFall } from './snowLine'
 import { terrainPlanes } from './terrain'
 import type { WorldInput, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
-import { waterOf } from './water'
+import { ripplesOf, waterOf } from './water'
 import { windOf } from './wind'
 
 const hourKey = (at: LocalTime) => `${at.slice(0, 13)}:00`
@@ -70,6 +71,11 @@ export function makeWorldBuilder() {
     const part = placeOf({ place, terrain, landmarks, city, width, elevation })
     return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey(part.marks, 1) }
   })
+  const farCitiesPart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {
+    const part = farCitiesOf(place, terrain, far, ownSkyline)
+    return { part, key: partKey([part.patches.length, part.towers.length, part.fromKm, far ? 1 : 0], 1) }
+  })
+  const ripplesPart = memoOne((terrain: SceneTerrain, placeId: string) => ripplesOf(terrain.water ?? [], placeId))
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
 
   return function buildWorld(input: WorldInput): WorldState {
@@ -105,10 +111,11 @@ export function makeWorldBuilder() {
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
       aerosol: { visibilityKm: air.visibilityKm, dust: air.dust }, covers, cloudCover: shown.cloudCover,
       thickCloud: shown.thickCloud ?? null, farFade: air.farFade, palette })
-    const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms)
+    const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id))
     const night = nightOf(shown, covers)
     const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
     const placePartResult = placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation)
+    const farCities = farCitiesPart(place, terrain, input.far, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY ?? HORIZON_Y
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand }, moon }
 
@@ -118,6 +125,7 @@ export function makeWorldBuilder() {
       bodies, light, air, clouds, rain, snow, wind,
       terrain: planesOf(terrain, place.id),
       water,
+      farCities: farCities.part,
       place3: placePartResult.place3,
       marks: placePartResult.marks,
       labels: placePartResult.labels,
@@ -132,7 +140,8 @@ export function makeWorldBuilder() {
         rain: partKey(rain, 2),
         wind: partKey(wind, 2),
         terrain: terrainKey(terrain),
-        water: partKey(water, 3),
+        water: partKey({ ...water, ripples: undefined }, 3),
+        farCities: `${terrainKey(terrain)}:${farCities.key}`,
         place: placePartResult.placeKey,
         marks: placePartResult.marksKey,
         night: partKey(night, 2),

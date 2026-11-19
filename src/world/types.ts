@@ -1,6 +1,8 @@
 import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
 import type { OutsideFrame, OutsideSkyline } from '../data/city/outsideView'
+import type { FarData } from '../data/city/farData'
+import type { PlainPatch } from '../data/city/plainData'
 import type { CityResult } from '../data/city/types'
 import type { SettlementSize, SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
@@ -41,6 +43,8 @@ export interface WorldInput {
   /** Landmarks, the place's own homes and the satellite's groves (App's `marks`). */
   landmarks: readonly Landmark[]
   city?: CityResult | null
+  /** The far raster (`far.json`: built share and storeys per ~0.5 km cell, towers of 80 m+); the far towns need it. */
+  far?: FarData | null
   /** Single clouds the satellite sees near the place now (`sightingsNow`). */
   seenClouds?: readonly WeightedSighting[] | null
   /** The figure's width in px the marks are laid out for; 375 (the reference) when absent. */
@@ -229,15 +233,43 @@ export interface TerrainPlanes {
   land: Record<'near' | 'far', LandForm>
 }
 
+/** A place a ripple can take on the water (`ripplesOf`): its spot, place down the surface and seeded draws. */
+export interface Ripple { x: number; y: number; v: number; length: number; side: number; strength: number; gate: number }
+
 export interface WaterState {
   spans: WaterSpan[]
   glints: Glint[]
+  /** Per span, where ripples can show (independent of the hour; the wind picks how many). */
+  ripples: Ripple[][]
   /** The light over the water (sun, or moon by night) and whether it stands above the land in its direction. */
   light: WaterLight | null
   lit: boolean
   byMoon: boolean
   /** The sea from the coast to the frame edge for a coastal city seen from outside (stage C5). */
   coastalSea: null
+}
+
+/** A seen stretch of a built cell on the plain (`plainPatches`), with its cell's mean storeys (0 when unknown). */
+export interface FarPatch extends PlainPatch { level: number }
+
+/** A tower of the far raster in view: on the plain, or on the far ridge's crest (scene px; `km` from the eye). */
+export interface FarTowerSite { x: number; top: number; base: number; km: number; heightM: number; onRidge: boolean }
+
+/**
+ * The towns beyond the near ridge (`farCities.ts`): the seen stretches of built cells on the plain, with their distance,
+ * built share and storeys, and the far raster's towers in view. Independent of the hour.
+ */
+export interface FarCities {
+  patches: FarPatch[]
+  towers: FarTowerSite[]
+  /** A place seen from outside keeps its own city to the outside view: the far towns start here (km), else null. */
+  fromKm: number | null
+  /** What is drawn of them (`townShapes`): the towns' mass by strength step, their blocks and towers, their lights. */
+  shapes: {
+    mass: { x: number; y: number; w: number; h: number; km: number; step: number }[]
+    blocks: { x: number; base: number; w: number; h: number; km: number }[]
+    lights: { x: number; y: number; r: number; alpha: number; km: number }[]
+  }
 }
 
 export interface Dot { x: number; y: number }
@@ -296,6 +328,7 @@ export interface WorldKeys {
   wind: string
   terrain: string
   water: string
+  farCities: string
   place: string
   marks: string
   night: string
@@ -322,6 +355,7 @@ export interface WorldState {
   wind: Wind
   terrain: TerrainPlanes
   water: WaterState
+  farCities: FarCities
   place3: PlacePortrait | OutsideView
   /** The marks after the portrait / outside rules (`hillScene` until stages C4–C5 rewrite it in `scene/model`). */
   marks: PlacedMark[]
