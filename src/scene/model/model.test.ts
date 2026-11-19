@@ -83,9 +83,9 @@ describe('scene model: layers', () => {
     const model = sceneModel(world, BOX)
     // C3: far water (here only the sea-level datum: the fixture's height is below sea level) and the far towns between
     // the far plane and the near ridge, the sea (within the near band) over the near plane.
-    // C4: the marks on the near ridge (the Báb, the Carmel's church and mosque) over it all, with the portrait.
+    // C4–C5: the place seen from outside over it all, its marks (the Báb, the Carmel's church and mosque) among its mass.
     expect(model.layers.map((layer) => layer.id)).toEqual(['sky', 'plane.far', 'water.far', 'farCities', 'plane.near', 'water.near',
-      'portrait'])
+      'outside'])
     for (const layer of model.layers) {
       const height = layer.surface === 'sky' ? BOX.skyHeight : BOX.landHeight
       expect(layer.bounds.x).toBeGreaterThanOrEqual(0)

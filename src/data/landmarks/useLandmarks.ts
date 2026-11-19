@@ -10,7 +10,8 @@ import type { Landmark } from './types'
 const MONTH = 30 * 24 * 60 * 60 * 1000
 const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
-interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMarks?: Landmark[]; aroundMarks?: Landmark[] }
+interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMarks?: Landmark[]; aroundMarks?: Landmark[]
+  sceneMarks?: Landmark[] }
 
 // v7: landmarks carry their fame (wikidata / wikipedia), and the three curated cities are read from the data too.
 function key(id: string) { return `shamayim:landmarks:v7:${id}` }
@@ -31,7 +32,9 @@ export async function loadLandmarkSource(place: Place, signal: AbortSignal, load
   const rank = (mapped: Landmark[]) => {
     const raw = withIcons(place, mapped)
     return { marks: shortlist(place, raw), panoramaMarks: panoramaShortlist(place, raw),
-      aroundMarks: panoramaShortlist(place, raw, true) }
+      aroundMarks: panoramaShortlist(place, raw, true),
+      // The canvas scene's pool (C5): beyond the place only landmarks.
+      sceneMarks: panoramaShortlist(place, raw, false, 'landmark') }
   }
   try {
     const israel = await (loaders.israel ?? loadIsrael)(place, signal)
@@ -43,21 +46,24 @@ export async function loadLandmarkSource(place: Place, signal: AbortSignal, load
   return rank(overpass)
 }
 
-export function useLandmarks(place: Place, panorama = false, around = false) {
-  const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[]; panoramaMarks: Landmark[]; aroundMarks: Landmark[] } | null>(null)
+/** `scene`: the canvas scene's pool over a panorama (beyond the place only landmarks, C5); the SVG scene's otherwise. */
+export function useLandmarks(place: Place, panorama = false, around = false, scene = false) {
+  const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[]; panoramaMarks: Landmark[]; aroundMarks: Landmark[];
+    sceneMarks: Landmark[] } | null>(null)
   const cached = useMemo(() => read(place.id), [place.id])
   const fresh = useMemo(() => cached.at && SESSION_STARTED - cached.at < MONTH ? cached : null, [cached])
   const available = loaded?.placeId === place.id ? loaded : fresh
-  const pool = around ? available?.aroundMarks : panorama ? available?.panoramaMarks : available?.marks
+  const pool = around ? available?.aroundMarks : panorama ? (scene ? available?.sceneMarks ?? available?.panoramaMarks
+    : available?.panoramaMarks) : available?.marks
   const marks = useMemo(() => withPlaceHomes(place, pool ?? []), [place, pool])
 
   useEffect(() => {
     if (fresh !== null || (cached.failed && SESSION_STARTED - cached.failed < HOUR)) return
     const controller = new AbortController()
-    const run = () => loadLandmarkSource(place, controller.signal).then(({ marks, panoramaMarks, aroundMarks }) => {
+    const run = () => loadLandmarkSource(place, controller.signal).then(({ marks, panoramaMarks, aroundMarks, sceneMarks }) => {
       if (controller.signal.aborted) return
-      write(place.id, { at: Date.now(), marks, panoramaMarks, aroundMarks })
-      setLoaded({ placeId: place.id, marks, panoramaMarks, aroundMarks })
+      write(place.id, { at: Date.now(), marks, panoramaMarks, aroundMarks, sceneMarks })
+      setLoaded({ placeId: place.id, marks, panoramaMarks, aroundMarks, sceneMarks })
     }).catch(() => { if (!controller.signal.aborted) write(place.id, { failed: Date.now() }) })
     const idle = window.requestIdleCallback?.(run, { timeout: 2_000 })
     if (idle == null) run()

@@ -1,6 +1,6 @@
 import type { Coordinate } from '../landmarks/project'
 import { fetchDem } from './dem'
-import { computePanorama, destination, type HeightAt, type Panorama } from './panorama'
+import { computePanorama, destination, localGround, type HeightAt, type Panorama } from './panorama'
 
 /**
  * The tiles carry the sea floor. Raise land below 0 m to the surface, except in the Jordan rift
@@ -26,5 +26,10 @@ export async function fetchPanorama(place: Coordinate, signal?: AbortSignal,
     return height < 0 && !inRift(point.lat, point.lon) ? 0 : height
   }
   const ground = near.height(place.lat, place.lon)
-  return compute(heightAt, Number.isFinite(ground) ? ground : 0)
+  const panorama = compute(heightAt, Number.isFinite(ground) ? ground : 0)
+  // The ground round the place in every direction, for the place seen from outside (its rows climb the slope under them).
+  return { ...panorama, local: localGround(place, (lat, lon) => {
+    const height = near.height(lat, lon)
+    return height < 0 && !inRift(lat, lon) ? 0 : height
+  }) }
 }

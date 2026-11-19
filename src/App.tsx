@@ -60,7 +60,8 @@ export default function App() {
   const { place, recent, selectPlace } = usePlace()
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
-  const landmarks = useLandmarks(place, Boolean(terrain.sightAt))
+  // The canvas scene (`?canvas=1`) takes its own pool: beyond the place only landmarks (C5).
+  const landmarks = useLandmarks(place, Boolean(terrain.sightAt), false, canvasScene())
   // Trees the satellite sees round the place, where the map names no grove: part of the place's portrait.
   const cover = useLandCover(place)
   const marks = useMemo(() => [...landmarks.marks, ...coverMarks(place, cover, landmarks.marks)], [landmarks.marks, place, cover])

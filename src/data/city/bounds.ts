@@ -1,0 +1,187 @@
+import type { Coordinate } from '../landmarks/project'
+
+/**
+ * The place's own boundary (CANVAS-SCENE-PLAN.md C5 item 6, owner decision 5): the outside view's frame is cut at the
+ * place's boundary from data, not at its contiguous built-up cluster, so a city grown into its neighbours (Gush Dan)
+ * shows only itself. One rule for every place:
+ *
+ * - **Where mapped, its administrative boundary.** OSM's `boundary=administrative` polygons (the Geofabrik extract the
+ *   city and landmark data are built from, `scripts/city/bounds.ts`). A place's boundary is the largest polygon that
+ *   holds its point and no rival place: no other place point of its own rank or higher (a town or city rivals any
+ *   place; a village rivals a village). So a municipality is a city's (Tel Aviv–Yafo, Ramat Gan), a kibbutz's own
+ *   polygon a kibbutz's (its regional council holds rival villages), and a district, holding other towns, nobody's.
+ * - **Else the cell of the place points round it**: the land that is nearer to this place than to any other, distance
+ *   weighted by each place's reach (the rule the built-up clusters are already split by, `clusters.ts`).
+ *
+ * Served from `public/data/city/bounds.json` (simplified rings, ~40 m), loaded only by the canvas scene.
+ */
+
+/** [lat, lon, kind (0 city … 3 hamlet), reach (0.1 km)]: every place point of the city data. */
+export type BoundsPoint = [lat: number, lon: number, kind: number, reach: number]
+
+export interface BoundsFile {
+  v: 1
+  source: string
+  generatedAt: string
+  points: BoundsPoint[]
+  /**
+   * Boundaries by place point: `at` its index in `points`, `level` OSM's admin level, rings as flat integer lists
+   * (lat, lon in 1e-5°, the first pair absolute and the rest deltas), outer rings and holes alike (even–odd).
+   */
+  bounds: { at: number; level: number; name?: string; rings: number[][] }[]
+}
+
+export interface PlaceBounds {
+  source: 'boundary' | 'cell'
+  /** The place point it was found for (the nearest owner of the place's own point). */
+  point: BoundsPoint
+  name?: string
+  contains: (lat: number, lon: number) => boolean
+  /** Its extent in km from the place: west, east, south, north. */
+  box: { w: number; e: number; s: number; n: number }
+}
+
+const SCALE = 1e5
+
+export function decodeRing(flat: readonly number[]): [lat: number, lon: number][] {
+  const out: [number, number][] = []
+  let lat = 0, lon = 0
+  for (let i = 0; i + 1 < flat.length; i += 2) {
+    lat += flat[i]
+    lon += flat[i + 1]
+    out.push([lat / SCALE, lon / SCALE])
+  }
+  return out
+}
+
+export function encodeRing(ring: readonly (readonly [number, number])[]): number[] {
+  const out: number[] = []
+  let lat = 0, lon = 0
+  for (const [a, b] of ring) {
+    const la = Math.round(a * SCALE), lo = Math.round(b * SCALE)
+    out.push(la - lat, lo - lon)
+    lat = la
+    lon = lo
+  }
+  return out
+}
+
+/** Even–odd over every ring: inside an outer ring and not in one of its holes. */
+export function inRings(rings: readonly (readonly [number, number])[][], lat: number, lon: number) {
+  let inside = false
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [ay, ax] = ring[i], [by, bx] = ring[j]
+      if ((ay > lat) !== (by > lat) && lon < ax + (bx - ax) * (lat - ay) / (by - ay)) inside = !inside
+    }
+  }
+  return inside
+}
+
+/** Km east / north of the place per degree (the frame's own flat measure, as `offsetKm`). */
+const kmPer = (place: Coordinate) => ({ x: 111.32 * Math.cos(place.lat * Math.PI / 180), y: 111.32 })
+
+/** How strongly a place point claims a spot (km offsets): distance over its reach (the clusters' rule, `splitByPlace`). */
+const claim = (px: number, py: number, reach: number, x: number, y: number) => Math.hypot(x - px, y - py) * 10 / Math.max(1, reach)
+
+/** The mask's cell (km): finer than a built square of the city raster (~118 × 232 m). */
+const STEP = .05
+
+/**
+ * The bounds as a mask over the square of `reachKm` round the place (cells of `STEP` km), with its extent; a spot outside
+ * the square answers by the exact rule.
+ */
+function masked(place: Coordinate, reachKm: number, fill: (row: number, y: number, set: (x0: number, x1: number) => void) => void,
+  exact: (x: number, y: number) => boolean) {
+  const n = Math.ceil(2 * reachKm / STEP)
+  const bits = new Uint8Array(n * n)
+  let w = Infinity, e = -Infinity, s = Infinity, nn = -Infinity
+  for (let row = 0; row < n; row++) {
+    const y = -reachKm + (row + .5) * STEP
+    fill(row, y, (x0, x1) => {
+      const c0 = Math.max(0, Math.ceil((x0 + reachKm) / STEP - .5)), c1 = Math.min(n - 1, Math.floor((x1 + reachKm) / STEP - .5))
+      for (let col = c0; col <= c1; col++) bits[row * n + col] = 1
+      if (c1 >= c0) {
+        w = Math.min(w, -reachKm + (c0 + .5) * STEP); e = Math.max(e, -reachKm + (c1 + .5) * STEP)
+        s = Math.min(s, y); nn = Math.max(nn, y)
+      }
+    })
+  }
+  const per = kmPer(place)
+  const contains = (lat: number, lon: number) => {
+    const x = (lon - place.lon) * per.x, y = (lat - place.lat) * per.y
+    const col = Math.floor((x + reachKm) / STEP), row = Math.floor((y + reachKm) / STEP)
+    return col >= 0 && col < n && row >= 0 && row < n ? bits[row * n + col] === 1 : exact(x, y)
+  }
+  return { contains, box: Number.isFinite(w) ? { w, e, s, n: nn } : null }
+}
+
+/**
+ * The place's boundary: the mapped boundary that holds the place (the smallest, if nested), else the weighted cell of
+ * the place point that claims the place most strongly. Null when there are no place points near it at all. The mask
+ * covers `reachKm` round the place (the outside view's frame never reaches further).
+ */
+export function placeBounds(place: Coordinate, file: BoundsFile | null | undefined, reachKm: number): PlaceBounds | null {
+  if (!file?.points.length) return null
+  const per = kmPer(place)
+  const km = ([lat, lon]: readonly [number, number] | BoundsPoint) => [(lon - place.lon) * per.x, (lat - place.lat) * per.y] as const
+  const reach = reachKm + .5
+  let best: { b: BoundsFile['bounds'][number]; rings: (readonly [number, number])[][]; size: number } | null = null
+  for (const b of file.bounds) {
+    const [px, py] = km(file.points[b.at])
+    if (Math.hypot(px, py) > 40) continue
+    const rings = b.rings.map(decodeRing)
+    if (!inRings(rings, place.lat, place.lon)) continue
+    const size = rings.reduce((sum, ring) => sum + ring.length, 0)
+    if (!best || size < best.size) best = { b, rings, size }
+  }
+  if (best) {
+    const rings = best.rings.map((ring) => ring.map(km))
+    const { contains, box } = masked(place, reach, (_row, y, set) => {
+      const xs: number[] = []
+      for (const ring of rings) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const [ax, ay] = ring[i], [bx, by] = ring[j]
+          if ((ay > y) !== (by > y)) xs.push(ax + (bx - ax) * (y - ay) / (by - ay))
+        }
+      }
+      xs.sort((a, b) => a - b)
+      for (let i = 0; i + 1 < xs.length; i += 2) set(xs[i], xs[i + 1])
+    }, (x, y) => inRings(best.rings, place.lat + y / per.y, place.lon + x / per.x))
+    if (box) return { source: 'boundary', point: file.points[best.b.at], name: best.b.name, contains, box }
+  }
+  // Rivals that could claim a spot within the reach (a city's own reach is up to ~8 km).
+  const near = file.points.map((p) => ({ p, at: km(p) })).filter(({ at }) => Math.hypot(at[0], at[1]) <= reach + 12)
+  if (!near.length) return null
+  const owner = near.reduce((a, b) => claim(b.at[0], b.at[1], b.p[3], 0, 0) < claim(a.at[0], a.at[1], a.p[3], 0, 0) ? b : a)
+  const owns = (x: number, y: number) => {
+    const mine = claim(owner.at[0], owner.at[1], owner.p[3], x, y)
+    return near.every((o) => o === owner || claim(o.at[0], o.at[1], o.p[3], x, y) >= mine)
+  }
+  const { contains, box } = masked(place, reach, (_row, y, set) => {
+    let from: number | null = null
+    for (let x = -reach + STEP / 2; x < reach; x += STEP) {
+      if (owns(x, y)) from ??= x
+      else if (from !== null) { set(from, x - STEP); from = null }
+    }
+    if (from !== null) set(from, reach)
+  }, owns)
+  return box ? { source: 'cell', point: owner.p, contains, box } : null
+}
+
+/** Whether a spot given as km east / north of the place lies within its bounds. */
+export function boundsHoldKm(bounds: PlaceBounds, place: Coordinate, dx: number, dy: number) {
+  const per = kmPer(place)
+  return bounds.contains(place.lat + dy / per.y, place.lon + dx / per.x)
+}
+
+let boundsPromise: Promise<BoundsFile | null> | undefined
+
+/** The boundaries, fetched once per session; null when they cannot be had (the frame falls back to the built-up area). */
+export function loadBounds(): Promise<BoundsFile | null> {
+  boundsPromise ??= fetch(`${import.meta.env.BASE_URL}data/city/bounds.json`)
+    .then((r) => r.ok ? r.json() as Promise<BoundsFile> : null)
+    .then((file) => file?.v === 1 ? file : null)
+    .catch(() => { boundsPromise = undefined; return null })
+  return boundsPromise
+}

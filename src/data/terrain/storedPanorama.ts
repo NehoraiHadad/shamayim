@@ -1,4 +1,4 @@
-import { RAY_DISTANCES, rayAzimuth, type Panorama } from './panorama'
+import { RAY_DISTANCES, rayAzimuth, type LocalGround, type Panorama } from './panorama'
 import { packProfiles, unpackProfiles } from './profilePacking'
 
 /** Compact stored form: per ray [near angle, near m, near km, far angle, far m, far km, km to the sea or -1], rounded. */
@@ -8,6 +8,8 @@ export interface StoredPanorama {
   groundM: number
   rays: number[][]
   profiles: string
+  /** The local ground grid (`LocalGround`): step (km), n, then the heights; absent in panoramas stored before C5. */
+  g?: number[]
 }
 
 const r2 = (v: number) => Math.round(v * 100) / 100
@@ -21,7 +23,15 @@ export function packPanorama(p: Panorama): StoredPanorama {
     groundM: Math.round(p.groundM),
     rays: p.rays.map(({ near, far, seaKm }) => [r2(near.angle), Math.round(near.elevation), r1(near.distance),
       r2(far.angle), Math.round(far.elevation), r1(far.distance), seaKm === null ? -1 : r1(seaKm)]),
+    ...(p.local ? { g: [p.local.stepKm, p.local.n, ...p.local.heights] } : {}),
   }
+}
+
+function unpackLocal(g: unknown): LocalGround | undefined {
+  if (!Array.isArray(g) || g.length < 2) return undefined
+  const [stepKm, n] = g as number[]
+  if (!(stepKm > 0) || !Number.isInteger(n) || n < 2 || g.length !== 2 + n * n || g.some((v) => !Number.isFinite(v))) return undefined
+  return { stepKm, n, heights: (g as number[]).slice(2) }
 }
 
 export function unpackPanorama(value: unknown, azimuthOf: (i: number, rays: number) => number = rayAzimuth): Panorama | null {
@@ -41,5 +51,6 @@ export function unpackPanorama(value: unknown, azimuthOf: (i: number, rays: numb
       far: { angle: ray[3], elevation: ray[4], distance: ray[5] },
       seaKm: ray[6] < 0 ? null : ray[6],
     })),
+    ...(unpackLocal(s.g) ? { local: unpackLocal(s.g) } : {}),
   }
 }

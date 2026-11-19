@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import { evidenceOf, industrialNamed } from '../../src/data/landmarks/industrial'
 import { parseOverpass } from '../../src/data/landmarks/overpass'
 import type { Row } from '../../src/data/landmarks/israelData'
 import { score } from '../../src/data/landmarks/rank'
@@ -58,7 +59,8 @@ export function parseGeoJsonSequence(input: string): Landmark[] {
     const rawId = feature.id ?? properties['@id'] as string | number | undefined
     return [{ id: numericId(rawId, index), center: point, tags }]
   })
-  return parseOverpass({ elements })
+  // An industrial structure is a landmark only by its own data: a name that is a name, then fame or size.
+  return parseOverpass({ elements }, { name: (mark, tags) => industrialNamed(mark, evidenceOf(tags)) })
 }
 
 export function row(mark: Landmark): Row {

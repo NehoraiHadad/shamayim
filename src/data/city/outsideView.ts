@@ -57,18 +57,38 @@ export function outsideFrame(clusters: readonly Cluster[] | undefined, reachKm: 
   city: boolean): OutsideFrame {
   const home = clusters?.length ? homeCluster([...clusters]) : null
   const margin = city ? 0 : PORTRAIT_MARGIN_KM
+  const extent = home ? { w: home.dx[0] - margin, e: home.dx[1] + margin, s: home.dy[0] - margin, n: home.dy[1] + margin } : null
+  return frameOfBox(extent, reachKm, centerX, width, city)
+}
+
+/**
+ * The frame round a box of the place (km from the place point: west, east, south, north), clipped to its reach; the
+ * whole reach when there is no box. `outsideFrame` gives the box of the home cluster; the canvas scene the built-up part
+ * of the place within its own boundary (`world/outside.ts`, C5 item 6).
+ */
+export function frameOfBox(extent: { w: number; e: number; s: number; n: number } | null, reachKm: number, centerX: number,
+  width: number, city: boolean, scale?: FrameScale): OutsideFrame {
   const clip = (v: number) => Math.max(-reachKm, Math.min(reachKm, v))
-  const [w, e] = home ? [clip(home.dx[0] - margin), clip(home.dx[1] + margin)] : [-reachKm, reachKm]
-  const [s, n] = home ? [clip(home.dy[0] - margin), clip(home.dy[1] + margin)] : [-reachKm, reachKm]
+  const [w, e] = extent ? [clip(extent.w), clip(extent.e)] : [-reachKm, reachKm]
+  const [s, n] = extent ? [clip(extent.s), clip(extent.n)] : [-reachKm, reachKm]
   const box = { w: Math.min(-.5, w), e: Math.max(.5, e), s: Math.min(-.5, s), n: Math.max(.5, n) }
   const backKm = BACK * Math.max(box.n - box.s, (box.e - box.w) / 2)
   const eyeN = box.n + backKm
   // A city fills the width; a village keeps to the middle, the land round it.
-  const halfPx = city ? .45 * width : Math.min(.45 * width, 40 + 25 * Math.max(-box.w, box.e))
+  const halfPx = scale ? Math.min(.45 * width, scale.halfPx(Math.max(-box.w, box.e)))
+    : city ? .45 * width : Math.min(.45 * width, 40 + 25 * Math.max(-box.w, box.e))
   const f = halfPx * backKm / Math.max(-box.w, box.e)
   const midDepth = eyeN - (box.n + box.s) / 2
-  return { ...box, eyeN, backKm, f, centerX, k: K_MID, midDepth }
+  // Heights: the study's fixed 0.18 px a metre, or the scale's for a place of this extent (one rule for every place).
+  const k = scale ? scale.k(Math.max(-box.w, box.e, (box.n - box.s) / 2)) : K_MID
+  return { ...box, eyeN, backKm, f, centerX, k, midDepth }
 }
+
+/**
+ * How a frame takes the screen and its heights (the canvas scene, C5): half the width (px) a place `extentKm` wide (its
+ * larger half-width) is given, and its px per metre of height at the middle depth.
+ */
+export interface FrameScale { halfPx: (extentKm: number) => number; k: (extentKm: number) => number }
 
 /**
  * A place is seen from outside as a city (its towers and built squares, variant B) when its own homes read as a large
@@ -92,9 +112,24 @@ export function outsideProject(frame: OutsideFrame, dx: number, dy: number) {
 }
 
 export type Ground = (x: number) => number
-/** A base stands on the lower edge of its footprint (as `seat.ts` does), nearer rows lower. */
-export const baseYAt = (ground: Ground, x: number, near: number, floor: number, w = 0) =>
-  Math.min(floor, Math.max(ground(x - w / 2), ground(x + w / 2)) + 1 + near * NEAR_DROP)
+/**
+ * A base stands on the lower edge of its footprint (as `seat.ts` does), nearer rows lower; `lift` px further down where
+ * its row's ground lies below the place's top (the rows climb the slope the place stands on, C5 item 2).
+ */
+export const baseYAt = (ground: Ground, x: number, near: number, floor: number, w = 0, lift = 0) =>
+  Math.min(floor, Math.max(ground(x - w / 2), ground(x + w / 2)) + 1 + near * NEAR_DROP + lift)
+
+/**
+ * The place's own lie of the land in the outside view (C5 items 2 and 6): which spots (km east / north) are of the
+ * place (its own boundary), and how far (px) a row's base drops below the ridge line where its ground lies below the
+ * place's top. The ridge line is where the place's highest ground stands; a row lower on the slope stands lower by its
+ * real height difference in the view's perspective (the same px per m as the towers), so a city on a slope climbs it
+ * instead of lining the crest. Absent (the SVG study): the whole frame, flat on the line.
+ */
+export interface PlaceLie {
+  inPlace?: (dx: number, dy: number) => boolean
+  lift?: (dx: number, dy: number) => number
+}
 
 export type TowerLod = 'glyph' | 'silhouette' | 'block'
 export interface OutsideTower {
@@ -102,19 +137,28 @@ export interface OutsideTower {
   heightM: number; seed: number; name?: string; famous: boolean; lod: TowerLod
   /** A crown on the silhouette: 0 flat, 1 a setback, 2 a mast (the tall ones). */
   crown: 0 | 1 | 2
+  /** Where it stands: km east / north of the place. */
+  dx?: number
+  dy?: number
 }
 /**
  * One box of the place's built fabric (a built square, ~118 × 232 m, at its real width on the screen), a tower folded into
  * the mass (`b`), or one member of a tower block (`c`, drawn in one tone so the block reads as one stepped shape).
  */
-export interface OutsideBox { x: number; w: number; top: number; foot: number; near: number; kind: 'fabric' | 'mass' | 'block' }
+export interface OutsideBox { x: number; w: number; top: number; foot: number; near: number; kind: 'fabric' | 'mass' | 'block'
+  /** Its roof's real height (m): a built square's, or a folded tower's. */
+  heightM?: number
+  seed?: number
+  /** Where it stands: km east / north of the place (the fabric's cells and folded towers). */
+  dx?: number
+  dy?: number }
 
 /** Glyph shaft widths by width class (`SHAFT_WIDTHS` is 3.5 / 5 / 7; seen from outside they read a little narrower). */
-const GLYPH_W = [4.5, 5.5, 7] as const
+export const GLYPH_W = [4.5, 5.5, 7] as const
 /** An ordinary tower's silhouette, by width class. */
-const SILHOUETTE_W = [2, 2.5, 3.5] as const
-const GLYPH_M = 150
-const MAX_GLYPHS = 10
+export const SILHOUETTE_W = [2, 2.5, 3.5] as const
+export const GLYPH_M = 150
+export const MAX_GLYPHS = 10
 
 /** Two raster rows of one building (`G Tel Aviv` twice, 1 m apart): within 15 m and of about the same height. */
 export function dedupeTowers(towers: readonly CityTower[]): CityTower[] {
@@ -128,37 +172,49 @@ export function dedupeTowers(towers: readonly CityTower[]): CityTower[] {
   return kept
 }
 
-interface Prepared extends CityTower { famous: boolean; seed: number; x: number; near: number; k: number }
+interface Prepared extends CityTower { famous: boolean; seed: number; x: number; near: number; k: number; lift: number }
 
-/**
- * The place's towers, deduped, without those a hand-drawn icon stands for (Azrieli), each with its fame from the
- * famous high-rise marks of the map (the nearest tower within 120 m of one takes its name and fame).
- */
-function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: readonly Landmark[], frame: OutsideFrame) {
-  const famous = landmarks.filter(mark => mark.source === 'osm' && mark.kind === 'highrise' && mark.fame && mark.nameHe)
-  // A hand-drawn icon stands for the towers at its spot (Azrieli) when it is about as tall as they are; a bridge is not.
+/** A hand-drawn icon stands for the towers at its spot (Azrieli) when it is about as tall as they are; a bridge is not. */
+function iconStandsFor(place: Coordinate, landmarks: readonly Landmark[]) {
   const icons = landmarks.filter(mark => mark.source === 'curated' && mark.heightM >= 40)
-  const own = dedupeTowers(towers.map(tower => ({ ...tower, ...offsetKm(place, tower) })))
-    .filter(tower => inFrame(frame, tower.dx, tower.dy))
-    .filter(tower => !icons.some(mark => {
-      const { dx, dy } = offsetKm(place, mark)
-      return Math.hypot(dx - tower.dx, dy - tower.dy) <= .25 && tower.heightM >= .7 * mark.heightM
-        && tower.heightM <= 1.3 * mark.heightM
-    }))
-  const fameOf = new Map<CityTower, Landmark>()
+  return (tower: CityTower) => icons.some(mark => {
+    const { dx, dy } = offsetKm(place, mark)
+    return Math.hypot(dx - tower.dx, dy - tower.dy) <= .25 && tower.heightM >= .7 * mark.heightM
+      && tower.heightM <= 1.3 * mark.heightM
+  })
+}
+
+/** Each tower's fame from the famous high-rise marks of the map: the nearest tower within 120 m of one takes it. */
+export function towerFame<T extends CityTower>(place: Coordinate, towers: readonly T[], landmarks: readonly Landmark[]) {
+  const famous = landmarks.filter(mark => mark.source === 'osm' && mark.kind === 'highrise' && mark.fame && mark.nameHe)
+  const fameOf = new Map<T, Landmark>()
   for (const mark of famous) {
     const { dx, dy } = offsetKm(place, mark)
-    let best: CityTower | undefined, bestKm = .12
-    for (const tower of own) {
+    let best: T | undefined, bestKm = .12
+    for (const tower of towers) {
       const km = Math.hypot(tower.dx - dx, tower.dy - dy)
       if (km < bestKm && !fameOf.has(tower)) { best = tower; bestKm = km }
     }
     if (best) fameOf.set(best, mark)
   }
+  return fameOf
+}
+
+/**
+ * The place's towers, deduped, without those a hand-drawn icon stands for (Azrieli), each with its fame from the
+ * famous high-rise marks of the map (the nearest tower within 120 m of one takes its name and fame).
+ */
+function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: readonly Landmark[], frame: OutsideFrame,
+  lie: PlaceLie = {}) {
+  const icon = iconStandsFor(place, landmarks)
+  const own = dedupeTowers(towers.map(tower => ({ ...tower, ...offsetKm(place, tower) })))
+    .filter(tower => inFrame(frame, tower.dx, tower.dy) && (lie.inPlace?.(tower.dx, tower.dy) ?? true))
+    .filter(tower => !icon(tower))
+  const fameOf = towerFame(place, own, landmarks)
   return own.map((tower): Prepared => {
     const mark = fameOf.get(tower)
     const { x, near, k } = outsideProject(frame, tower.dx, tower.dy)
-    return { ...tower, name: mark?.nameHe ?? tower.name, famous: Boolean(mark), x, near, k,
+    return { ...tower, name: mark?.nameHe ?? tower.name, famous: Boolean(mark), x, near, k, lift: lie.lift?.(tower.dx, tower.dy) ?? 0,
       seed: hashId(`${tower.lat.toFixed(5)}:${tower.lon.toFixed(5)}`) }
   })
 }
@@ -168,8 +224,8 @@ const byRank = (a: Prepared, b: Prepared) => Number(b.famous) - Number(a.famous)
 function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number): OutsideTower {
   const w = lod === 'glyph' ? GLYPH_W[tower.wClass] : SILHOUETTE_W[tower.wClass]
   const h = Math.max(4, tower.heightM * tower.k)
-  return { x: tower.x, baseY: baseYAt(ground, tower.x, tower.near, floor, w), w, h, near: tower.near, heightM: tower.heightM,
-    seed: tower.seed, name: tower.name, famous: tower.famous, lod,
+  return { x: tower.x, baseY: baseYAt(ground, tower.x, tower.near, floor, w, tower.lift), w, h, near: tower.near, heightM: tower.heightM,
+    seed: tower.seed, name: tower.name, famous: tower.famous, lod, dx: tower.dx, dy: tower.dy,
     crown: tower.heightM >= 180 ? 2 : (tower.seed >>> 3) % 3 === 0 ? 1 : 0 }
 }
 
@@ -185,6 +241,7 @@ const SLOT_CAP = 6
 
 interface MassInput {
   place: Coordinate; raster: CityRaster | undefined; frame: OutsideFrame; ground: Ground; floor: number; width: number
+  lie: PlaceLie
   /** Metres a roof may reach in this mass. */
   capM: number
   kind: 'fabric' | 'mass'
@@ -194,7 +251,7 @@ interface MassInput {
  * The built squares of the place (`CityRaster`) as boxes in the outside view: each at its real width on the screen, its
  * roof at its real height (capped), standing on its own ground. Boxes wholly hidden behind nearer ones are left out.
  */
-function rasterBoxes({ place, raster, frame, ground, floor, width, capM, kind }: MassInput): OutsideBox[] {
+function rasterBoxes({ place, raster, frame, ground, floor, width, capM, kind, lie }: MassInput): OutsideBox[] {
   if (!raster) return []
   const south = place.lat + frame.s / 111.32, north = place.lat + frame.n / 111.32
   const cos = Math.cos(place.lat * Math.PI / 180)
@@ -207,6 +264,7 @@ function rasterBoxes({ place, raster, frame, ground, floor, width, capM, kind }:
       const { built, levels, p90 } = raster.at(lat, lon)
       if (built < .2) continue
       const { dx, dy } = offsetKm(place, { lat, lon })
+      if (lie.inPlace && !lie.inPlace(dx, dy)) continue
       const { x, near, k } = outsideProject(frame, dx, dy)
       if (x < -4 || x > width + 4) continue
       const random = seeded(hashId(`${row}:${col}`))
@@ -214,8 +272,8 @@ function rasterBoxes({ place, raster, frame, ground, floor, width, capM, kind }:
       // A sparse square is a narrower box: some ground shows between.
       const w = Math.max(1.2, 2 * frame.f * halfKm / (frame.eyeN - dy) * Math.min(1, built + .25))
       const at = x + (random() - .5) * w * .3
-      const foot = baseYAt(ground, at, near, floor, w)
-      boxes.push({ x: at, w, top: foot - Math.max(1.5, heightM * k), foot, near, kind })
+      const foot = baseYAt(ground, at, near, floor, w, lie.lift?.(dx, dy) ?? 0)
+      boxes.push({ x: at, w, top: foot - Math.max(1.5, heightM * k), foot, near, kind, heightM })
     }
   }
   return visible(boxes, width)
@@ -236,15 +294,26 @@ function visible(boxes: OutsideBox[], width: number): OutsideBox[] {
   return kept
 }
 
-/** The mass's top at x (the highest box over it). */
-function massTop(boxes: readonly OutsideBox[], x: number) {
-  let top = Infinity
-  for (const box of boxes) if (Math.abs(box.x - x) <= box.w / 2) top = Math.min(top, box.top)
-  return top
+/** The mass's top at x (the highest box over it), boxes bucketed by the px columns they span (the same answer, faster). */
+class MassIndex {
+  private columns = new Map<number, OutsideBox[]>()
+  constructor(boxes: readonly OutsideBox[]) { for (const box of boxes) this.add(box) }
+  add(box: OutsideBox) {
+    for (let px = Math.floor(box.x - box.w / 2); px <= Math.floor(box.x + box.w / 2); px++) {
+      const list = this.columns.get(px)
+      if (list) list.push(box)
+      else this.columns.set(px, [box])
+    }
+  }
+  top(x: number) {
+    let top = Infinity
+    for (const box of this.columns.get(Math.floor(x)) ?? []) if (Math.abs(box.x - x) <= box.w / 2) top = Math.min(top, box.top)
+    return top
+  }
 }
 
 const asBox = (tower: OutsideTower, kind: OutsideBox['kind'], top = tower.baseY - tower.h): OutsideBox =>
-  ({ x: tower.x, w: tower.w, top, foot: tower.baseY, near: tower.near, kind })
+  ({ x: tower.x, w: tower.w, top, foot: tower.baseY, near: tower.near, kind, heightM: tower.heightM, dx: tower.dx, dy: tower.dy })
 
 export interface OutsideSkylineInput {
   variant: SkylineVariant
@@ -256,6 +325,31 @@ export interface OutsideSkylineInput {
   ground: Ground
   floor: number
   width: number
+  /** The place's own boundary and slope (C5); absent: the whole frame, flat on the line. */
+  lie?: PlaceLie
+  /**
+   * The place's built fabric as finer cells (C5: the land cover's built cells, ~60 × 50 m, heights from the city raster),
+   * in place of the raster's squares; each a box at its real width and roof height.
+   */
+  fabric?: readonly FabricCell[]
+}
+
+/** One built cell of the place: km east / north, its width (km), its roof's height (m) and a seed. */
+export interface FabricCell { dx: number; dy: number; wKm: number; heightM: number; seed: number }
+
+/** The fabric cells as boxes in the outside view (as `rasterBoxes`), hidden ones left out. */
+function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput): OutsideBox[] {
+  const boxes: OutsideBox[] = []
+  for (const cell of cells) {
+    if (!inFrame(frame, cell.dx, cell.dy)) continue
+    const { x, near, k, depth } = outsideProject(frame, cell.dx, cell.dy)
+    const w = Math.max(.9, frame.f * cell.wKm / depth)
+    if (x + w / 2 < -4 || x - w / 2 > width + 4) continue
+    const heightM = Math.min(capM, cell.heightM)
+    const foot = baseYAt(ground, x, near, floor, w, lie.lift?.(cell.dx, cell.dy) ?? 0)
+    boxes.push({ x, w, top: foot - Math.max(1, heightM * k), foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy })
+  }
+  return visible(boxes, width)
 }
 
 export interface OutsideSkyline {
@@ -275,13 +369,14 @@ const CLUSTER_GAP = 3
 const CLUSTER_MIN = 4
 
 export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
-  const { variant, place, towers, landmarks, raster, frame, ground, floor, width } = input
+  const { variant, place, towers, landmarks, raster, frame, ground, floor, width, lie = {} } = input
   const deduped = dedupeTowers(towers)
-  const prepared = prepare(place, towers, landmarks, frame)
+  const prepared = prepare(place, towers, landmarks, frame, lie)
   const inPlace = prepared.length
   const fullGlyphs = glyphs(prepared)
-  let boxes = rasterBoxes({ place, raster, frame, ground, floor, width,
-    capM: variant === 'b' ? 60 : FABRIC_M, kind: variant === 'b' ? 'mass' : 'fabric' })
+  const mass: MassInput = { place, raster, frame, ground, floor, width, lie,
+    capM: variant === 'b' ? 60 : FABRIC_M, kind: variant === 'b' ? 'mass' : 'fabric' }
+  let boxes = input.fabric ? fabricBoxes(input.fabric, mass) : rasterBoxes(mass)
   const out: OutsideTower[] = []
   let folded = 0, dropped = 0
   const ranked = [...prepared].sort(byRank)
@@ -301,7 +396,9 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
     }
   } else if (variant === 'b') {
     // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
-    const fold = (tower: OutsideTower) => { boxes.push(asBox(tower, 'mass')); folded++ }
+    const index = new MassIndex(boxes)
+    const massTop = (_boxes: readonly OutsideBox[], x: number) => index.top(x)
+    const fold = (tower: OutsideTower) => { const box = asBox(tower, 'mass'); boxes.push(box); index.add(box); folded++ }
     for (const tower of [...ranked].reverse()) {
       if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor)); continue }
       const drawn = placed(tower, 'silhouette', ground, floor)

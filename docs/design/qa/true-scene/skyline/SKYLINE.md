@@ -75,3 +75,11 @@ its true view sees the sea just past the city.
    boundary rather than its built-up cluster.
 6. Canvas layer (TRUE-SCENE-PLAN, order of work 1–2): the boxes and silhouettes are plain rects, ready for it; the
    fabric is ~400–900 boxes a city after culling.
+
+## Done in the canvas (C5, 2026-11-19)
+B became the canvas scene's rule for every place, villages included (one builder, owner decision 11 in
+`CANVAS-SCENE-PLAN.md`); items 2–5 above are answered there (towers beyond the frame with the same levels of detail,
+rows climbing the slope, the coastal sea, icons in the hour's light, the frame cut at the place's own boundary). The
+"לבניה" cooling tower is a named landmark by its own data (its article "הלבניות", Halebeniyot). Comparison sheet:
+`qa/canvas/c5/sheet-skyline-b.png`.
+

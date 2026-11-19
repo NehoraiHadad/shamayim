@@ -332,3 +332,32 @@ fill; Haifa most, with its three marks and the Báb), the scrub latency is in th
 of the worker path stay within budget but Haifa's cold model (its range 13–40 ms over runs). worldCold in the browser
 (×4) 227–411 ms, reported only; in node the place part is now 1–10 ms for a portrait (was 4–9 with `hillScene`) and
 7–25 ms for a city (Tel Aviv 59 → 25: its `outsideSkyline`, C5's).
+
+## C5 (2026-11-19): every place seen from outside, one builder
+
+What is added: one light-only layer (`outside`, z 38) for every place over a panorama: its built cells from the land
+cover (a city's 12–13 k cells culled to 1–3 k drawn boxes), towers, trees (≤ 900), marks, the towers beyond and the
+coastal sea. Its shapes are cached per place view, width and text zones, so a scrub only redoes the tones (per haze tier)
+and the marks' glyph tones; the place part of the world (boundary mask, land-cover fabric, mass and spires, towers beyond)
+is built once per place.
+
+```
+worker (default)          haifa            tel-aviv         shadmot-mehola
+  worldCold p50 (×4)      759              649              255           (C4: 227–411, reported only)
+  modelCold p50           41.2 OVER        39.8 OVER        12.3
+  firstPaint p50          29.5             23.2             16.6
+  firstShown p50          139.5            153.3            178.6
+  scrub.model p50/p95     8.1 / 17.2 OVER  7.1 / 17.0 OVER  3.8 / 10.7
+  scrub.land p50/p95      0.1 / 0.9        0.1 / 1.4        0.1 / 1.3
+  scrub.latency p50/p95   461 / 511        253 / 387        230 / 285
+  worker land batch p50   202.1            122.5            94.9
+  memory                  15.0 MB          12.7 MB          13.3 MB
+```
+
+Reading: the gated paint steps stay within budget; **over**: the cold model of the two cities (the outside layer's first
+shape: a pass over 1–3 k boxes, ~1.5 k trees and the clear zones) and the scrub model's p95 (p50 within; the copy of the
+cached items per frame and the GC). Before the shape cache the scrub model was 9.5 / 22.5 (Tel Aviv). In node the place
+part is 50–90 ms for a city (fabric from the land cover ~13 ms, the mass ~20 ms with the column index, the boundary
+mask ~1 ms, the towers beyond 2–20 ms) and ~10–20 ms for a village; it runs once per place (memoised), never per hour.
+Options left: cull the fabric cells hidden behind nearer ones before projecting the rest, build the shape in the paint
+worker, keep the items' array between scrub frames (only the marks change).

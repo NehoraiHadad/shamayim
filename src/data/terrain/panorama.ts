@@ -81,6 +81,46 @@ export interface Panorama {
   /** Ground at the place (m). */
   groundM: number
   rays: HorizonRay[]
+  /** The ground round the place in every direction (north too), for the place seen from outside (`LocalGround`). */
+  local?: LocalGround
+}
+
+/**
+ * Ground heights (m) on a square grid round the place, km east and north of it: `n` × `n` samples every `stepKm`, row by
+ * row from the south-west corner, centred on the place. The panorama's rays see only the south and its sides; the place
+ * seen from outside (stage C5) lifts its rows by the ground under each of them, north of the place too.
+ */
+export interface LocalGround { stepKm: number; n: number; heights: number[] }
+
+/** The grid's reach (km) and step: the outside view's frame never reaches past 5 km and its built squares are ~0.2 km. */
+export const LOCAL_REACH_KM = 6
+export const LOCAL_STEP_KM = 0.25
+
+/** Samples the ground round a place on the local grid. */
+export function localGround(place: { lat: number; lon: number }, height: (lat: number, lon: number) => number,
+  reachKm = LOCAL_REACH_KM, stepKm = LOCAL_STEP_KM): LocalGround {
+  const n = 2 * Math.round(reachKm / stepKm) + 1
+  const half = (n - 1) / 2
+  const cos = Math.cos(place.lat * Math.PI / 180)
+  const heights: number[] = []
+  for (let row = 0; row < n; row++) {
+    for (let col = 0; col < n; col++) {
+      const h = height(place.lat + (row - half) * stepKm / 111.32, place.lon + (col - half) * stepKm / (111.32 * cos))
+      heights.push(Number.isFinite(h) ? Math.round(h) : 0)
+    }
+  }
+  return { stepKm, n, heights }
+}
+
+/** The ground (m) at km east / north of the place, bilinear on the grid; null beyond it. */
+export function localHeight(ground: LocalGround, dx: number, dy: number): number | null {
+  const half = (ground.n - 1) / 2
+  const fx = dx / ground.stepKm + half, fy = dy / ground.stepKm + half
+  if (fx < 0 || fy < 0 || fx > ground.n - 1 || fy > ground.n - 1) return null
+  const x0 = Math.min(ground.n - 2, Math.floor(fx)), y0 = Math.min(ground.n - 2, Math.floor(fy))
+  const tx = fx - x0, ty = fy - y0
+  const at = (x: number, y: number) => ground.heights[y * ground.n + x]
+  return (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) + (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty
 }
 
 /**

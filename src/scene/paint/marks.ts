@@ -38,7 +38,7 @@ function grainTile(env: PaintEnv, seed: number): Scratch {
 }
 
 /** The grain over everything drawn so far on the layer (device px, anchored to the layer). */
-function grain(ctx: Ctx2D, env: PaintEnv, seed: number, amount: number) {
+export function grain(ctx: Ctx2D, env: PaintEnv, seed: number, amount: number) {
   const pattern = ctx.createPattern(grainTile(env, seed).canvas as CanvasImageSource, 'repeat')
   if (!pattern) return
   ctx.save()
@@ -139,7 +139,7 @@ function houseShadow(ctx: Ctx2D, h: HouseDesc, t: Tones, s: Shine) {
 }
 
 /** A tree: a round pine or olive (two lobes and a lit crown), a cypress (a flame, its lit half), a palm; leaning in the wind. */
-function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0) {
+export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0) {
   const { x, base, w, h } = tr
   const r = rng(tr.seed)
   const lean = s.lean * (0.6 + 0.4 * r())

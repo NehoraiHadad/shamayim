@@ -1,6 +1,9 @@
 import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
-import type { OutsideFrame, OutsideSkyline } from '../data/city/outsideView'
+import type { BoundsFile } from '../data/city/bounds'
+import type { LandCover } from '../data/land/landData'
+import type { WaterMask } from '../data/water/waterMask'
+import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/outsideView'
 import type { FarData } from '../data/city/farData'
 import type { PlainPatch } from '../data/city/plainData'
 import type { CityResult } from '../data/city/types'
@@ -52,6 +55,12 @@ export interface WorldInput {
   width?: number
   /** Dev overrides of the shown air (`?wx=`), applied as App applies them. */
   forced?: Partial<AirInput> | null
+  /** The large water round Israel (`water.json`): a coastal place's own sea seen from outside (C5). */
+  waterMask?: WaterMask | null
+  /** The places' own boundaries (`bounds.json`): the outside view's frame is cut at them (C5). */
+  bounds?: BoundsFile | null
+  /** The land cover round the place (WorldCover, ~6 km): its built cells and trees, the fabric every place is built from (C5). */
+  cover?: LandCover | null
 }
 
 /** Where a field came from when the forecast did not give it: fallbacks are marked, never silent. */
@@ -246,9 +255,15 @@ export interface WaterState {
   light: WaterLight | null
   lit: boolean
   byMoon: boolean
-  /** The sea from the coast to the frame edge for a coastal city seen from outside (stage C5). */
-  coastalSea: null
+  /** The sea from the coast to the frame edge for a coastal city seen from outside (stage C5, `outside.ts`). */
+  coastalSea: CoastalSea | null
 }
+
+/**
+ * A coastal place's own sea in the outside view (C5 item 1): from its coast to the screen's edge across the place's rows,
+ * at sea level on the rows' line (layout px). `coast` runs far to near; `km` the haze at the far and near rows.
+ */
+export interface CoastalSea { points: Pt[]; coast: Pt[]; side: 'left' | 'right'; top: number; bottom: number; km: [number, number] }
 
 /** A seen stretch of a built cell on the plain (`plainPatches`), with its cell's mean storeys (0 when unknown). */
 export interface FarPatch extends PlainPatch { level: number }
@@ -331,7 +346,14 @@ export interface WorldMark extends PlacedMark {
   named: boolean
 }
 
-/** A city seen from outside (variant B, `data/city/outsideView.ts`): mass of built squares and spires. */
+/** A tree of the place seen from outside (layout px): `x` its centre on `base`, `km` its haze. */
+export interface OutsideTreeSite { x: number; base: number; w: number; h: number; near: number; kind: 'tree' | 'cypress' | 'palm'
+  seed: number; km: number }
+
+/** A tower beyond the place, at its true bearing and distance (C5 item 3), with the outside view's level of detail. */
+export interface BeyondTower extends OutsideTower { km: number }
+
+/** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
 export interface OutsideView {
   kind: 'outside'
   dot: Dot
@@ -339,6 +361,20 @@ export interface OutsideView {
   frame: OutsideFrame
   skyline: OutsideSkyline
   seed: number
+  /** Where the frame was cut: the place's mapped boundary, its cell among the place points, or (no data) its cluster. */
+  bounds: { source: 'boundary' | 'cell' | 'cluster'; name?: string }
+  /** The ground (m) the ridge line stands for (the place's top); null without the local ground. */
+  topM: number | null
+  /** The towers beyond the place within 6 km, at their true bearing. */
+  beyond: BeyondTower[]
+  /** The near ridge's distance at the dot (km): the haze of the place's nearest row. */
+  baseKm: number
+  /** The place's trees (from the land cover near its built cells). */
+  trees: OutsideTreeSite[]
+  /** Where its fabric came from: the land cover's built cells (heights from the city raster), or the raster's squares. */
+  fabric: 'cover' | 'raster'
+  /** Its houses' roofs: by roof evidence (5+ mapped roofs), else mixed. */
+  roofs: 'tile' | 'flat' | 'mixed'
 }
 
 /**

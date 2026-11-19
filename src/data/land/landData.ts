@@ -1,5 +1,5 @@
 import type { Coordinate } from '../landmarks/project'
-import { decodeLand, LAND_N, LAND_STEP, landCellKey } from './grid'
+import { decodeLand, LAND_N, LAND_STEP } from './grid'
 
 const ROOT = `${import.meta.env.BASE_URL}data/land/il`
 let indexPromise: Promise<{ cells: string[] } | null> | undefined
@@ -29,9 +29,14 @@ export async function loadLandCover(place: Coordinate, signal?: AbortSignal, rad
     const cell = await response.json() as { v: number; r: string }
     return [key, decodeLand(cell.r)] as const
   })))
+  // Cells by a numeric key (row × 10 000 + col of the 0.1° cell): no string per lookup (the outside view reads ~30 000).
+  const byNumber = new Map([...grids].map(([key, grid]) => {
+    const [row, col] = key.split('_').map(Number)
+    return [row * 10_000 + col, grid] as const
+  }))
   return {
     coverAt(lat, lon) {
-      const grid = grids.get(landCellKey(lat, lon))
+      const grid = byNumber.get(Math.floor(lat * 10) * 10_000 + Math.floor(lon * 10))
       if (!grid) return 0
       const row = LAND_N - 1 - Math.floor((lat - Math.floor(lat * 10) / 10) / LAND_STEP)
       const col = Math.floor((lon - Math.floor(lon * 10) / 10) / LAND_STEP)

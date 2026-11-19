@@ -67,8 +67,9 @@ export function makeWorldBuilder() {
   const sunSkylineOf = memoOne((terrain: SceneTerrain): Skyline => sceneSkyline(terrain))
   const planesOf = memoOne(terrainPlanes)
   const placePart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
-    city: WorldInput['city'], width: number, elevation: number) => {
-    const part = placeOf({ place, terrain, landmarks, city, width, elevation })
+    city: WorldInput['city'], width: number, elevation: number, bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'],
+    cover: WorldInput['cover']) => {
+    const part = placeOf({ place, terrain, landmarks, city, width, elevation, bounds, waterMask, cover })
     return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey(part.marks, 1) }
   })
   const farCitiesPart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {
@@ -114,7 +115,8 @@ export function makeWorldBuilder() {
     const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id))
     const night = nightOf(shown, covers)
     const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
-    const placePartResult = placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation)
+    const placePartResult = placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation, input.bounds,
+      input.waterMask, input.cover)
     const farCities = farCitiesPart(place, terrain, input.far, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY ?? HORIZON_Y
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand }, moon }
@@ -124,7 +126,7 @@ export function makeWorldBuilder() {
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
       bodies, light, air, clouds, rain, snow, wind,
       terrain: planesOf(terrain, place.id),
-      water,
+      water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part,
       place3: placePartResult.place3,
       marks: placePartResult.marks,
@@ -140,7 +142,7 @@ export function makeWorldBuilder() {
         rain: partKey(rain, 2),
         wind: partKey(wind, 2),
         terrain: terrainKey(terrain),
-        water: partKey({ ...water, ripples: undefined }, 3),
+        water: partKey({ ...water, ripples: undefined, coastalSea: placePartResult.placeKey }, 3),
         farCities: `${terrainKey(terrain)}:${farCities.key}`,
         place: placePartResult.placeKey,
         marks: placePartResult.marksKey,

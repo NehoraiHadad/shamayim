@@ -41,6 +41,11 @@ export interface SceneTerrain {
    */
   horizonY?: number
   seenAt?: (x: number, km: number, heightM?: number) => SeenPoint | null
+  /**
+   * Ground height (m above sea level) at km east / north of the place, in every direction (north too), within the
+   * panorama's local grid (`LocalGround`, ~6 km); null beyond it or for a panorama stored without it.
+   */
+  heightNear?: (dx: number, dy: number) => number | null
   /** DEM height in metres relative to the eye, including ground in front of the near ridge. */
   groundAt?: (x: number, km: number) => number | null
   angleY?: (angle: number) => number

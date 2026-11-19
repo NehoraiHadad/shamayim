@@ -134,7 +134,38 @@ export interface CityBlock { x: number; base: number; w: number; h: number; km: 
 export interface CityTier { km: number; lit: RGB; shade: RGB; mass: { alpha: number; boxes: Box[] }[]; blocks: CityBlock[] }
 /** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
 export interface CityLight { x: number; y: number; r: number; alpha: number }
-export interface Spire { x: number; base: number; w: number; h: number; tones: Tones }
+/**
+ * One thing of the place seen from outside (stage C5), in paint order (back to front), screen px, its tones by `tier`
+ * (the layer's tones per distance): a built square of the mass (`box`: its front from `top` to `foot`, `storeys` from its
+ * real roof height, `folded` a tower folded into the mass), a tower (`full`: the famous or ≥ 150 m, a full tower; else a
+ * spire's silhouette; `crown` 0 flat, 1 a setback, 2 a mast), or a mark of the place (a glyph or an icon, its own tones).
+ */
+export type OutsideItem =
+  | { kind: 'box'; x: number; w: number; top: number; foot: number; tier: number; seed: number; storeys: number; folded: boolean
+      /** A house's roof (tile or flat, a heater on some flat ones); null for a block of the mass. */
+      roof: 'tile' | 'flat' | null; heater: boolean }
+  | { kind: 'tree'; tree: TreeDesc; tier: number }
+  | { kind: 'tower'; x: number; base: number; w: number; h: number; tier: number; seed: number; crown: 0 | 1 | 2; full: boolean
+      famous: boolean; storeys: number }
+  | { kind: 'mark'; glyph: GlyphDesc }
+
+/**
+ * A coastal place's own sea seen from outside (C5): its outline (screen px), the water's tones down the band (far → near:
+ * the sky mirrored by Fresnel over the water's dark, after the air), the shore's tone along the coast, the light's path
+ * on it, ripples catching the low sky (`light`) and the high (`dark`).
+ */
+export interface SeaDesc {
+  points: Pt[]
+  coast: Pt[]
+  top: number
+  bottom: number
+  stops: [number, RGB][]
+  shore: RGB
+  glint: { x: number; rgb: RGB; alpha: number; sparks: Streak[] } | null
+  ripples: Streak[]
+  light: RGB
+  dark: RGB
+}
 export type { GlyphKind, IconKind }
 
 /**
@@ -204,7 +235,8 @@ export type LayerDesc =
   | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB }
   | LayerBase & { kind: 'portrait'; houses: HouseDesc[]; trees: TreeDesc[]; glyphs: GlyphDesc[]; tones: Tones; shine: Shine
       litSide: 'left' | 'right' | null }
-  | LayerBase & { kind: 'outside'; mass: Pt[]; spires: Spire[]; glyphs: GlyphDesc[]; sea: Pt[] | null }
+  | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
+      litSide: 'left' | 'right' | null }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   | LayerBase & { kind: 'weather'; rain: RainField | null; shafts: Shaft[]; mist: MistBand[]; flash: number }
   | LayerBase & { kind: 'loading'; mode: 'mist' | 'ridge' | 'both'; ridge: Pt[] }

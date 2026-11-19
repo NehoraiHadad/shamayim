@@ -145,7 +145,8 @@ export function marksLayers(world: WorldState, box: SceneBox): (LayerOf<'marks'>
           blend: 'source-over', tint: glyphs[0].tones.wall, faces: [] } })
     }
   }
-  const near = world.marks.filter((m) => m.plane === 'near')
+  // Seen from outside, the place's own marks stand among its mass (`outside.ts`, C5).
+  const near = world.place3.kind === 'outside' ? [] : world.marks.filter((m) => m.plane === 'near')
   const plan = world.place3.kind === 'portrait' ? world.place3.plan : null
   if (!near.length && !plan?.houses.length && !plan?.trees.length) return out
   // The portrait at the place's own distance: the near ridge under the dot (the village is here).
