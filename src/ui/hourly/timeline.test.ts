@@ -27,6 +27,12 @@ describe('next24h', () => {
     expect(slots[i - 1].time < slots[i].time && slots[i].time < slots[i + 1].time).toBe(true)
   })
 
+  it('labels the calendar sunset, not the earlier time the sun goes behind the land', () => {
+    const behind = { ...f, days: f.days.map((d, i) => i === 0 ? { ...d, visibleSunset: `${TODAY}T18:56` } : d) }
+    const sun = next24h(behind, `${TODAY}T09:20`).filter((s) => s.type === 'sun')
+    expect(sun.map((s) => s.time)).toEqual([`${TODAY}T19:45`, '2026-07-16T05:40'])
+  })
+
   it('marks night hours', () => {
     const slots = next24h(f, `${TODAY}T09:20`)
     const at = (t: string) => slots.find((s) => s.type === 'hour' && s.time === t)

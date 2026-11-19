@@ -6,13 +6,15 @@ export interface SunEvent {
   time: LocalTime
 }
 
-/** The next sunrise or sunset after `now` (by day the sunset, at night the coming sunrise). */
+/**
+ * The next sunrise or sunset after `now` (by day the sunset, at night the coming sunrise). Always the calendar time
+ * (flat horizon): the words "זריחה"/"שקיעה" never go with the time the sun comes over or goes behind the land, which
+ * only the scene shows (docs/design/VISIBLE-SUN-WORDING.md).
+ */
 export function nextSunEvent(days: DayPoint[], now: LocalTime): SunEvent | null {
   for (const d of days) {
-    const sunrise = d.visibleSunrise ?? d.sunrise
-    const sunset = d.visibleSunset ?? d.sunset
-    if (sunrise > now) return { rise: true, time: sunrise }
-    if (sunset > now) return { rise: false, time: sunset }
+    if (d.sunrise > now) return { rise: true, time: d.sunrise }
+    if (d.sunset > now) return { rise: false, time: d.sunset }
   }
   return null
 }

@@ -681,6 +681,15 @@ Branch `feat/horizon-panorama`. Stills in `docs/design/qa/horizon/` (`before-*` 
 - [x] Owner (2026-11-18): computed Shadmot accepted; relief left to Claude → `high` kept (land reads at phone size; `mid` is near flat)
 
 
+## Sunset behind the hill: wording — 2026-11-19
+Branch `feat/visible-sun-wording`. Design and decision in `docs/design/VISIBLE-SUN-WORDING.md`, stills in
+`docs/design/qa/visible-sun/`.
+- [x] Haifa said "שקיעה 15:48" (Carmel hides the sun at the geocoder point) against 16:37 in every calendar. Owner:
+      "זריחה"/"שקיעה" always mean the calendar time (strip markers, edge pill, screen-reader list, "אור יום", scene
+      label); the time behind the land is shown only by the scene (disc, glow, light), with no extra number or words
+- [ ] Not done on purpose (owner, too much data): second time in the chip, "שמש ישירה" row, elevation line, scrub phrase
+
+
 
 ## Moon visibility — 2026-11-18
 - [x] Cloud veils the moon only from 40 % cover up (smoothstep 40→100 %; overcast hides it). It used to fade from the

@@ -61,8 +61,9 @@ export function buildTimeline(
     }
   })
   for (const d of f.days) {
-    // The times the sun is really seen to rise and set over the land around, when known.
-    for (const [time, rise] of [[d.visibleSunrise ?? d.sunrise, true], [d.visibleSunset ?? d.sunset, false]] as const) {
+    // The calendar sunrise and sunset, labelled "זריחה"/"שקיעה". The time the sun goes behind the land around (visibleSunset)
+    // is shown only by the scene: next to that word it reads as a wrong sunset (docs/design/VISIBLE-SUN-WORDING.md).
+    for (const [time, rise] of [[d.sunrise, true], [d.sunset, false]] as const) {
       if (time <= from || time >= to) continue
       const at = slots.findIndex((s) => s.time > time)
       if (at <= 0) continue
