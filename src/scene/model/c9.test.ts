@@ -8,7 +8,7 @@ import { VISIBLE_BOTTOM } from '../../world/layout'
 import type { OutsideView, WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
-import { rayStrengths } from './rays'
+import { beamThrough, rayStrengths } from './rays'
 import { skyGeom } from './sky'
 import { mixLight, mixRgb, lightness } from './tone'
 import type { LayerKind, LayerOf, SceneBox } from './types'
@@ -234,6 +234,23 @@ describe('C9: sun rays where they really occur (the owner\'s item 11)', () => {
     expect(low).toBeGreaterThan(high)
     expect(hazy).toBeGreaterThan(high)
     expect(rayStrengths(worldAt('tel-aviv', '12:00', { ...BROKEN, cloudCover: 0, thickCloud: 0 })).crepuscular).toBe(0)
+  })
+
+  it('fades the rays and the glare again in fog: the air that scatters the beam also blocks it', () => {
+    expect(beamThrough(worldAt('tel-aviv', '12:00', { ...BROKEN, visibilityKm: 10 }))).toBeCloseTo(1, 1)
+    expect(beamThrough(worldAt('tel-aviv', '12:00', { ...BROKEN, visibilityKm: 25 }))).toBe(1)
+    const at = (km: number) => rayStrengths(worldAt('tel-aviv', '09:00', { ...BROKEN, humidity: 95, visibilityKm: km }))
+    const haze = at(10), mist = at(4), fog = at(1.5)
+    expect(haze.crepuscular).toBeGreaterThan(mist.crepuscular)
+    expect(mist.crepuscular).toBeGreaterThan(fog.crepuscular)
+    expect(fog.crepuscular).toBeLessThan(.1 * haze.crepuscular)
+    expect(fog.corona).toBeLessThanOrEqual(.1 * Math.max(haze.corona, .05))
+    // The review's two fog moments (Tiberias 12:00, Nahalal 08:00, the harness's fog): gentle, not full.
+    const FOG = { humidity: 99, visibilityKm: 1.5, cloudCover: 60, thickCloud: 30, precipitation: 0, weatherCode: 45, windSpeed: 6, windGusts: 10 }
+    for (const [id, hour] of [['tiberias', '12:00'], ['nahalal', '08:00']]) {
+      const s = rayStrengths(worldAt(id, hour, FOG))
+      expect(Math.max(s.crepuscular, s.corona, s.ridge), id).toBeLessThan(.05)
+    }
   })
 
   it('fans rays over the crest when the sun stands just at it, and a glare round a sun seen clear', () => {

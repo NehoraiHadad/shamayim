@@ -23,6 +23,8 @@ import { brokenness } from './weather'
  *   converging there below the far horizon, only at a low sun when the crepuscular rays are strong;
  * - **glare** (`rays.corona`): the soft corona of fine rays round a directly seen sun, what the eye's own lens and the haze
  *   make of a bright source: by how clear the disc shows and how much the air scatters, none at a high sun in clean air.
+ * In fog every case fades again (`beamThrough`): the air that scatters the beam also blocks it, and the rays need gaps and
+ * contrast that a fog fills in.
  */
 
 const WHITE: RGB = [1, 1, 1]
@@ -40,6 +42,23 @@ export function hazeOfRays(world: WorldState): number {
   return smoothstep(0.08, 0.6, tau)
 }
 
+/** How far off (km) the beams the eye sees stand, on the whole: the scattering that shows them comes from about here. */
+const BEAM_KM = 2.5
+
+/**
+ * What reaches the eye of a beam in the air (0–1): fog scatters the light but also blocks it. The light a sunbeam sends
+ * toward the eye grows with the air's extinction β (more scattering) and dims on its way through the same air, as
+ * β·d·e^(−β·d) for a beam `BEAM_KM` off, which peaks at β·d = 1 (a ~10 km visibility) and is held at 1 in clearer air
+ * (there `hazeOfRays` takes the clean end down). Past it the beam fades: ~0.75 at 5 km, ~0.35 at 3 km, nearly none in a
+ * fog of 1.5 km, where the light is already spread through the whole air and no gap or shadow keeps its contrast. The
+ * glare round the disc goes the same way: it is the direct light scattered just off the disc.
+ */
+export function beamThrough(world: WorldState): number {
+  const beta = 3.912 / Math.max(0.05, world.air.visibilityKm)
+  const x = beta * BEAM_KM
+  return x <= 1 ? 1 : x * Math.exp(1 - x)
+}
+
 /** The sun's height as a path through the air: 1 at the horizon, falling to 0 by 45°. */
 const lowness = (altitude: number) => 1 - smoothstep(8, 45, altitude)
 
@@ -48,18 +67,20 @@ export function rayStrengths(world: WorldState) {
   const sun = world.bodies.sun
   const dark = world.night.dark
   const haze = hazeOfRays(world)
+  // Fog scatters the beams and blocks them: every case is seen through the same air (`beamThrough`).
+  const beam = beamThrough(world)
   const low = lowness(sun.altitude)
   const coin = coinOf(world)
   const up = smoothstep(-3, -0.5, sun.altitude) * (1 - dark)
   const seen = 1 - veilOf(world)
   // Through cloud gaps: a low sun's long path shows them in any air; higher, only as the haze has it.
-  const crepuscular = up * brokenness(world) * (1 - coin) * (low + (1 - low) * haze) * (0.55 + 0.45 * haze)
+  const crepuscular = up * brokenness(world) * (1 - coin) * (low + (1 - low) * haze) * (0.55 + 0.45 * haze) * beam
   // Over the crest: within ~10 px under it to a few px over it (the clearance on the drawn land), at a low sun.
   const c = sun.clearance ?? (sun.overLand ? 20 : -20)
   const atCrest = smoothstep(-10, -1, c) * (1 - smoothstep(3, 9, c)) * smoothstep(-3, -1, sun.altitude) * (1 - smoothstep(6, 10, sun.altitude))
-  const ridge = atCrest * (1 - coin) * (1 - dark) * seen * (0.3 + 0.7 * haze)
+  const ridge = atCrest * (1 - coin) * (1 - dark) * seen * (0.3 + 0.7 * haze) * beam
   const anti = crepuscular >= 0.25 ? crepuscular * 0.55 * smoothstep(0.5, 0.9, low) : 0
-  const corona = (sun.overLand ? 1 : 0) * up * seen * (1 - coin) * smoothstep(0.1, 0.7, haze + 0.6 * low)
+  const corona = (sun.overLand ? 1 : 0) * up * seen * (1 - coin) * smoothstep(0.1, 0.7, haze + 0.6 * low) * beam
   return { crepuscular, ridge, anti, corona }
 }
 
