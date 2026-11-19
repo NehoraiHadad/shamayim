@@ -73,7 +73,7 @@ export const sampleScore = (): Material => ({
 /** The film's score: 7 bars at 90 bpm (18.67 s), the landing on bar 7's downbeat (16.0 s, frame 480). */
 export const filmScoreMat = (): Material => ({
   ...base("Shamayim, the sky over home"),
-  grooves: { main: { family: "halfTime", density: 0.32, variation: 0.35 }, lift: { family: "halfTime", density: 0.48, variation: 0.4 } },
+  grooves: { main: { family: "halfTime", density: 0.32, variation: 0.35, fill: false }, lift: { family: "halfTime", density: 0.48, variation: 0.4, fill: false } },
   sections: [
     // bar 1 · now, the cranes cross: the piano alone
     { kind: "intro", bars: 1, harmony: ["Home"], lead: ["rise"], comp: ["x:2 x:2@0.8"], chordVel: 0.5, energy: 0.42 },

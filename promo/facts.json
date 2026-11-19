@@ -1,15 +1,21 @@
 {
   "film": "skyPromo",
+  "captured": "2026-11-19 09:30 Israel time, live site https://sky.nehoraihadad.com/ (capture/film.cjs, capture/log-drag.json)",
   "claims": [
-    { "text": "חיפה · השמש נעלמת מאחורי הכרמל 15:48", "source": "live app, Haifa, 19.11.2026 (capture/hfa-scrub-1605.png), checked against terrain: Carmel ~9.1° above the eye at az 240°, sun under it at ~15:44-15:48", "date": "2026-11-19" },
-    { "text": "תל אביב-יפו · 16:41", "source": "live app, Tel Aviv, 19.11.2026 (capture/tlv-scrub-1605.png)", "date": "2026-11-19" },
-    { "text": "ירושלים · 16:39", "source": "live app, Jerusalem, 19.11.2026 (capture/jlm-scrub-1605.png)", "date": "2026-11-19" },
-    { "text": "sky.nehoraihadad.com", "source": "owner, live site", "date": "2026-11-19" }
+    { "text": "תחזית שנראית כמו השמיים שמעליך.", "source": "the app's sky scene follows the real sun, moon and conditions (README: a live valley sky that follows the real sun position and conditions)" },
+    { "text": "מזיזים את האצבע, והיום עובר.", "source": "the valley scrubber: a horizontal drag moves time (src/ui/scene/SceneScrubber.tsx), shown on the real app in the film" },
+    { "text": "השמש נעלמת מאחורי ההרים שמול הבית.", "source": "visible sunset from the real-terrain horizon panorama (src/ui/scene/visibleSun.ts); in Shadmot the sun goes behind the Samaria ridge before the calendar sunset (16:35), seen in the footage around 16:18" },
+    { "text": "גם הירח, בדיוק איפה שהוא.", "source": "moon position and phase drawn from astronomy (src/ui/scene/moonPath.ts, moonShape.ts); visible in the night footage" },
+    { "text": "בכל מקום, השמיים שלו. (תל אביב, חיפה, ירושלים, מצפה רמון)", "source": "any place (place picker) with its own terrain panorama and skyline; the four places captured live the same morning" },
+    { "text": "ומחר בבוקר, מעל הגלעד.", "source": "tomorrow's sunrise in Shadmot Mehola rises over the Gilead (east); in the dawn footage" },
+    { "text": "sky.nehoraihadad.com", "source": "owner, live site" }
   ],
+  "on_screen_numbers": "every number inside the phone is the live app's own output on 19.11.2026 (forecast changes daily)",
   "banned": [
-    "שקיעה בחיפה 15:48",
+    "a Haifa 'sunset at 15:48' (it is the sun going behind the Carmel for lower Haifa)",
     "the most accurate / any accuracy percentage",
     "comparison with other weather apps",
-    "download from an app store"
+    "download from an app store (it is a web app)",
+    "cranes in the picture or the sound unless the app showed them in the capture (none flew on 19.11's cloudy morning)"
   ]
 }

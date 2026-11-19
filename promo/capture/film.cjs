@@ -45,7 +45,7 @@ const nowMin = () => { const d = new Date(new Date().toLocaleString('en-US', { t
   const log = {};
 
   // 1. LIVE: Shadmot at rest, the crane V crossing (the app's own event; it starts 5-9 s after load, ~21 s across)
-  if (!only || only === 'live') {
+  if (only === 'live-alone') {
     const { ctx, p, step } = await open(b, SDM), d = dirOf('live');
     let waited = 0;
     while (waited < 20000) { await step(100); waited += 100; if (await p.evaluate(() => !!document.querySelector('[data-life-event]'))) break; }
@@ -58,18 +58,24 @@ const nowMin = () => { const d = new Date(new Date().toLocaleString('en-US', { t
   // 2. DRAG: Shadmot, one held drag from now through the evening and night, then on to tomorrow's sunrise
   if (!only || only === 'drag') {
     const { ctx, p, step, act, mouse } = await open(b, SDM);
+    // LIVE first, in the same page: the crane V crossing at rest, so the drag continues the very same sky
+    if (process.env.WITH_LIVE) { const d = dirOf('live'); let waited = 0;
+      while (waited < 20000) { await step(100); waited += 100; if (await p.evaluate(() => !!document.querySelector('[data-life-event]'))) break; }
+      for (let k = 0; k < 60; k++) await step(100);
+      for (let i = 0; i < 80; i++) { await shoot(p, d, i, i % 4 === 0); await step(1000 / FPS); }
+      log.live = { frames: 80, eventAfterMs: waited }; }
     const box = await p.locator('[role=slider][aria-label="שעה בעמק"]').boundingBox();
-    const y = box.y + box.height / 2, x0 = box.x + box.width - 6, now = nowMin();
+    const y = box.y + box.height / 2, x0 = box.x + box.width - 6, now = nowMin(); log.now = now; log.x0 = x0; log.clock = {};
     const xAt = (clock) => { let m = clock - now; if (m < 0) m += 1440; return x0 - m / 4; }; // 4 min per px, RTL: left = later
     await act(() => mouse('mouseMoved', x0, y)); await act(() => mouse('mousePressed', x0, y));
     // the clock as keys, each [frame, minutes since midnight today]; >1440 is tomorrow
     const seqs = [
-      { seq: 'day', keys: [[0, now], [55, 15 * 60 + 40], [125, 16 * 60 + 35], [160, 17 * 60 + 25]] },
-      { seq: 'night', keys: [[0, 17 * 60 + 25], [80, 21 * 60 + 40]] },
+      { seq: 'day', keys: [[0, now], [16, now + 12], [110, 15 * 60 + 50], [190, 16 * 60 + 45], [240, 17 * 60 + 30]] },
+      { seq: 'night', keys: [[0, 17 * 60 + 30], [80, 21 * 60 + 40]] },
       { seq: 'dawn', keys: [[0, 1440 + 5 * 60 + 55], [40, 1440 + 6 * 60 + 40], [60, 1440 + 6 * 60 + 52]] },
     ];
     for (const { seq, keys } of seqs) {
-      const d = dirOf(seq), last = keys[keys.length - 1][0];
+      const d = dirOf(seq), last = keys[keys.length - 1][0]; log.clock[seq] = [];
       // jump (uncaptured) to the sequence's first moment in small moves, so the app follows the pointer
       const from = xAt(keys[0][1] % 1440), cur = (await p.evaluate(() => 0)) || 0; void cur;
       await act(() => mouse('mouseMoved', from, y)); for (let k = 0; k < 20; k++) await step(1000 / FPS);
@@ -77,7 +83,7 @@ const nowMin = () => { const d = new Date(new Date().toLocaleString('en-US', { t
         let j = 0; while (j < keys.length - 2 && f > keys[j + 1][0]) j++;
         const [fa, ca] = keys[j], [fb, cb] = keys[j + 1], u = ease(Math.min(1, (f - fa) / (fb - fa)));
         const clock = ca + (cb - ca) * u;
-        await act(() => mouse('mouseMoved', xAt(clock % 1440), y));
+        await act(() => mouse('mouseMoved', xAt(clock % 1440), y)); log.clock[seq].push(Math.round(clock * 10) / 10);
         await shoot(p, d, f, f % 4 === 0);
       }
       log[seq] = { frames: last + 1, readout: await p.locator('[role=slider][aria-label="שעה בעמק"]').getAttribute('aria-valuetext') };
@@ -96,6 +102,7 @@ const nowMin = () => { const d = new Date(new Date().toLocaleString('en-US', { t
       await ctx.close();
     }
   }
-  console.log(JSON.stringify({ capturedAt: new Date().toISOString(), ...log }, null, 1));
+  fs.writeFileSync(path.join(__dirname, `log-${only || 'all'}.json`), JSON.stringify({ capturedAt: new Date().toISOString(), ...log }));
+  console.log('ok', Object.keys(log).join(' '));
   await b.close();
 })();
