@@ -522,3 +522,22 @@ known one (no place part, no far towns); the loading model is mostly the sky's c
 (Haifa's and Tel Aviv's other rows fell off the captured output.) Within C5b's and C8's ranges: the visibility test of a
 tower beyond is one `seenAt` a tower in the world's place part; `hazeAlong` is linear in the crest's points. The OVERs
 are C5's and C6's (cold model, scrub model for the cities and now Rosh Pina and Tiberias at ~1.05×, within the noise).
+
+## C9 defects (2026-11-19): the mass against the light, the towns beyond, water names, rays
+
+`npm run test:perf` (all places) and `node e2e/scene.perf.mjs --place=haifa,tel-aviv,ramat-gan` (CPU ×4, dpr 2.75, software
+raster, worker path), n = 1 for the cold rows:
+
+```
+                  worldCold   modelCold   scrub.model p95   firstPaint   anim frame p50 / p95   memory
+  haifa           555–601 ms  59–80 ms    16.6–20.6 ms      31.1 ms      1.40 / 3.00 ms         30.7 MB
+  tel-aviv        515         42–57       15.6–20.4         24.7         1.50 / 3.10            26.6
+  ramat-gan       476         54          14.7              26.8         1.50 / 3.00            23.6
+  shadmot-mehola  221         24          13.0              21.1         1.00 / 2.50            24.4
+```
+
+The world's cold build is up by ~10 % for the cities (the towns beyond: one `seenAt` per raster square within 6 km of the
+place, outside it; Ramat Gan keeps 891 of them), modelCold within the pack's noise (one cold sample: 45 → 59 / 80 ms for
+Haifa over two runs). The rays are four small cached sky layers (a scrub repaints those that change: `rays`, `rays.ridge`,
+`rays.anti`, `rays.corona`, `bodies.aureole`, `bodies.sun.over`); the animated frame stays within its 4 ms budget, memory
+under 48 MB. The OVERs are C5's and C6's (cold model, the cities' scrub model), as before.

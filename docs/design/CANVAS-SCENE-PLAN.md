@@ -565,6 +565,18 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
     dense high-rise the jagged mass with spires (B). Houses are never placed outside the real built footprint. The composed
     portrait round the dot (`world/portrait.ts`) is kept only for the drawn stand-in (no panorama, no positions).
 
+**Owner decisions (2026-11-19, at the C9 review):**
+12. **The C9 review pack is approved; the owner prefers the canvas scene.** The switch (C9: canvas the default, `?svg=1` kept
+    one release as the way out, then the deletions of §2) may go ahead once the open defects of §6 are settled.
+13. **Sun rays where they fit** ("something is missing in the sky — maybe sun rays where it fits"): the SVG scene shows soft
+    rays round the sun, the canvas only C7's narrow crepuscular case. Rays wherever they really occur, as general rules from
+    the world state: crepuscular shafts through the gaps whenever the sun is behind broken cloud with enough haze (not only
+    at a low sun), fanning from the sun's true spot; rays fanning over the ridge when the sun sits just behind or at the
+    crest at sunrise or sunset; anticrepuscular rays opposite the sun at a low sun when the crepuscular are strong; a soft
+    glare round a directly seen sun by the haze (what the eye sees), subtle, never a cartoon starburst; none in clear dry
+    air at a high sun, none at night. Cheap (cached, laid at composite time), deterministic, in the anidoodle hand; tested;
+    ray moments in the review pack.
+
 **Deploys pending for the owner** (in order; every later stage appends here instead of deploying):
 1. The forecast Worker (`worker/`) with C0's new hourly fields in its allowlist (`wind_direction_10m`, `visibility`,
    wind speed and direction at 850 / 700 / 300 hPa).
@@ -1473,4 +1485,105 @@ below runs only under `?canvas=1`). Pack: `qa/canvas/c9-review/index.md` (7 shee
   9. Zikhron Ya'akov: the far chimneys at Hadera show as a pale bare stick at the sea's edge.
   10. Be'er Sheva: the mass's west part is a flat, even wall.
   - Under `?wx=` rain and thunder the sun shows veiled in both scenes (no thick-cloud key in `?wx=`); a pack artefact.
+  - No deploys needed.
+
+**C9, the review's defects fixed (2026-11-19): every one by a general rule, and the owner's rays.** Commits on
+`ccr-85ec24f0-9ayxgu` (after the pack); the SVG baseline and the shipped app are unchanged (snapshots untouched; nothing in
+`src/ui` or `src/data` changed; everything below runs only under `?canvas=1`). The pack regenerated with the same runner
+and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
+- *Drawing with the anidoodle skill* (owner decision 7): `craft-bar.md` ("parts floating off": the far tower's foot and the
+  towns at the towers' feet; "text is never set over a busy picture without a plate under it": the label's backing;
+  "gradient sky, disc sun": the glare and rays as light, not a starburst), `realism-and-craft.md` ("form, then colour: one
+  named light", the one world light for the mass, the water's path and the rays) and `determinism-and-contract.md` (every
+  new layer's key names what its pixels depend on; randomness seeded by the place) read again; each fix looked at on 2–2.5× crops (Jerusalem and Tel Aviv at 06:20 / 16:30, Jerusalem and Haifa
+  in rain, Haifa's thunder lobe, Haifa's sunrise, the labels, Netanya's and Tiberias's water names, Ramat Gan's edges,
+  Masada's lake, Nahalal's ridge, Hadera's chimneys, Be'er Sheva's west, the rays at Haifa 08:00, Ein Gedi and Tel Aviv).
+1. **A wall faces the sky behind the eye; it gives back its albedo's share of it** (`model/marks.ts` `againstLight`,
+   `wallShade`; `model/outside.ts` `skyFormOf`, `landBehind`). *Against the light* (the sun low in the half of the sky the
+   eye looks into, 1 at sunrise and sunset over the land, falling by 40° and toward the eye's side, through twilight) the
+   walls the eye sees face away from the sun and the bright sky: no stone lift, less of the air's tone, the glass mirroring
+   the dim sky; under a dull sky (direct < 0.4) they see the dim horizon half of the overcast and give back about what the
+   ground does. The sky's form on the mass (C5b) is now by albedo in linear light (0.45 × 0.62 of the sky they face for the
+   tops, 0.55 for the face to the sun's side; against the light the sky behind the eye, 0.45 of the view's): tops and rims
+   catch a little light, never the sky's own. And **nothing is hazier than the land it is seen against**: a box, tower,
+   tree or mark whose foot shows in front of a plane (the near ridge with the lie's 6 px over it, the place's own drawn
+   ground, the far planes) takes no more than that land's distance of air; the far rows of a deep city (Jerusalem's 10 km)
+   had taken up to 13 km of it over a ridge 3 km off. Result: Jerusalem and Tel Aviv at 06:20 / 16:30 read as dark masses on
+   their ridge, a rim on the sun's side, the walls within 0.03 (luminance) of the ridge at their distance (were 0.1–0.3
+   over it); at 11:00 lit stone stays 0.10 over the ridge; in rain the mass reads a little lighter than the hill, not pale.
+   The far towns take the same shade (`model/farCities.ts`: their shade's stone by `wallShade`, their lit face a rim against
+   the light).
+2. **The aureole is the air's, nearer than any cloud; a bank in front of the sun has its silver** (`model/bodies.ts`
+   `bodies.aureole` at z 8.6 over the clouds, the disc still at 5 under them; `model/clouds.ts` `litOf`: a bank whose outline
+   comes within the aureole's reach of the sun takes a silver edge of 0.9 × the sun's strength × √(the disc's visibility),
+   whatever lights its top (`through`); the painter's rim and silver wash on every heaped or sheet bank). Haifa 15:00 thunder:
+   the lobe over the disc reads as a cloud passing the sun, its edge toward it lit, the glow lying over it, not a black coin
+   in a ring. (The silver is baked into the drifting layer as C6's was: over a minute's drift it slides with its bank.)
+3. **The place's own mass never hides a body the place's eye sees** (`model/bodies.ts` `bodiesOverPlace`). The outside view
+   draws the place from an eye north of it, the sky from the place itself; where the sun (or moon) is `overLand` from the
+   place (judged on the panorama's own skyline, as the SVG shows it) and the place's mass, towers or marks would cover the
+   disc, the disc is laid again on the land over the mass (its aureole stays on the sky, glare round the mass's edge). A body
+   behind the true land stays hidden (Haifa 16:30, Ein Gedi's cliffs). Haifa 06:20: the sun shows low over the lower city by
+   the bay.
+4. **The height label sits beside the dot, level with it, on a small backing** (`world/place.ts` `besideDot`,
+   `BACKING_PAD`; `scene/react/SceneOverlay.module.css` `.backed`), for every place seen from outside: right of the dot,
+   else left, else a few px up or down, then a little farther out; clear of the marks and the notes; where the dot is ringed
+   by marks (Tel Aviv) the spot that covers least. The backing (the near land's tone at 72 %) carries it over the mass, which
+   no longer gives way to it (no clear zone for a backed label).
+5. **A water name is written on its water's surface as drawn** (`world/place.ts` `notesOnWater`): along its own stretch
+   where the surface shows deep enough under the far shore for the letters (the shore's raggedness under a letter or two let
+   pass), nearest the stretch's middle, clear of the place's mass, towers, trees, the towns and towers beyond and the dot;
+   else, for the sea, on the outside view's coastal sea (its polygon, from the open side); else unnamed. Netanya's and
+   Haifa's "ים" now lie on the sea, Tiberias's "כנרת" and Masada's "ים המלח" on the lake (Masada's was dropped); Ramat Gan's
+   sea, only seen among Tel Aviv's towers, goes unnamed. (`sceneNotes` itself is the SVG's and unchanged.)
+6. **The towns 0–6 km out are drawn by the outside view, as the towers beyond** (`world/outside.ts` `beyondTowns`): every
+   built square of the city raster (≥ 20 %) outside the place within the skyline's reach, at its true spot in the outside
+   projection, as wide as it is there, its roof by the perspective (never larger a metre than the place's near edge), no
+   more than the panorama sees of it over the land in front, hazed by its distance; drawn behind the place with the towers
+   beyond, far first. The far towns still start at 6 km: the two now meet. Ramat Gan's frame-edge towers stand in Bnei Brak's
+   and Givatayim's blocks (891 squares; Tel Aviv 203, Haifa 103, Nahalal 102 on its ridges).
+7. **Water mirrors in linear light; the sun's path takes the one light** (`model/tone.ts` `mixLight`, `model/water.ts`;
+   `world/water.ts` `waterOf`). The Fresnel share of the mirrored sky (or land) over the water's dark is a share of light, so
+   it is mixed in linear light (a perceptual mix of a light and a near-black read far darker): far water is the bright mirror
+   it is. The mirrored land takes only the air between the water and its shore (it took the land's whole air, then the
+   water's again). The sun's path on the water takes the world's direct light and its `overLand`, not a second rule from the
+   cloud cover alone (which left Masada's sunrise sun, seen through broken cloud, with no path). Masada 06:20: the lake reads
+   as a light sheet under the backlit Moab with its path; every lake and sea is a little brighter.
+8. **Within the reach a neighbour's tall structure shows, named or not** (`world/marks.ts` `nearBeyond`, ≥ 20 m within 6 km;
+   the far rule, a name and fame or huge, stays for the far towns' range). Nahalal: the chimney on its eastern ridge is back,
+   with its smoke. Its "water tower" in the SVG is the one 1.6 km *north* of it: behind the eye in the true view (the SVG's
+   portrait placed it by side); the minarets and churches of Nazareth (9.5–10 km, named) stay hidden by the land in front.
+9. **A far tower stands on its own works** (`world/farCities.ts` `townShapes`: a low hall 2.6–4.2 × its width at its foot,
+   seeded) and takes the far towns' backlit shade. Zikhron's Hadera chimneys (250 m, 13 km): their foot is under the coastal
+   ridge's line as the panorama sees it (so the hall is hidden there); they stay a thin hazy silhouette over the sea's edge,
+   which is what 13 km of a 30 km visibility makes of them (darker than the sky, lighter than the far sea at 16:30).
+10. **A built cell is as wide as its buildings' frontage** (`world/outside.ts` `fabricOf`: the cell's width × 1.6 √(its
+    raster square's built share), at least 0.4, at a seeded spot in the cell): the streets and yards open and the rows behind
+    show through with their own heights. Be'er Sheva's west (squares 7–20 % built, 4 storeys, p90 13–16 m) breaks a little;
+    the data's own heights there are even (the four-storey estates are), so it stays a low, fairly level band.
+11. **Sun rays wherever they really occur** (owner decision 13; `model/rays.ts`, `paint/weather.ts` `paintRays` with a
+    `corona` look): `hazeOfRays` from the aerosol optical depth (none ≤ 0.08, full at 0.6: 40 km → 10 km), `rayStrengths`:
+    *crepuscular* (`rays`, z 5.5) = sun up × brokenness × (lowness + (1 − lowness) × haze) × (0.55 + 0.45 haze), at any height
+    in a hazy air; *over the ridge* (`rays.ridge`, 5.45) when the sun's clearance over its land is −10…+9 px at −3…10°,
+    by the disc's visibility and the haze; *anticrepuscular* (`rays.anti`, 5.4) converging on the point opposite the sun
+    (as far under the horizon as the sun is over it), when the crepuscular are ≥ 0.25 at a low sun; *glare* (`rays.corona`,
+    5.3): 30 fine short rays round a sun seen over its land, by its visibility and the haze, brightest just off the limb.
+    None by night or from a dust coin. Each its own small cached layer, seeded by the place; laid at composite time.
+- *Tests* (`scene/model/c9.test.ts`, 24; `outside.test.ts` +5; `model.test.ts`, `weather.test.ts` rewritten for the label
+  and the rays): the aureole over the clouds and the disc under; silver on the banks by the sun under thunder; the disc
+  over Haifa's mass at sunrise, none behind the land; water names on their water (letters inside the stretch or the coastal
+  sea, never over the place's blocks, under the sheet's edge); the towns beyond (count, scale, far first, Ramat Gan's edge
+  towers footed); `mixLight`; Masada's path by the world's light; Nahalal's chimney, no low unnamed mark beyond; the far
+  towers' foot; Be'er Sheva's frontage; rays none by night or in clear dry air at noon, crepuscular more at a low sun and in
+  haze, the ridge's at Ein Gedi's sunrise, the glare only for a seen sun, the anticrepuscular at the antisolar point; the
+  mass against the light within 0.05 of its ridge (Jerusalem, Tel Aviv, Haifa, Be'er Sheva at 06:20 and 16:30; > 0.08 at
+  11:00), no box hazier than the land behind it; the label beside the dot, level, clear of the marks (Tel Aviv: one at most).
+- *Pixel references:* re-recorded deliberately, 58 of 59 (the mass and the far towns' shade, the water's mirror, the rays,
+  the aureole, the label's clear zone, the towns beyond); 59/59 on both paint paths (worker and `SCENE_PAINT=main`).
+- *Perf* (`qa/canvas/perf.md`, C9 defects): within the noise of the pack's run but for the world's place part (the towns
+  beyond: one `seenAt` a raster square within 6 km), see there.
+- **Remaining** (for the owner's eye; none a point fix): Be'er Sheva's west is still a fairly level band (true to its data);
+  Hadera's chimneys stay a thin pale line (true to their haze); Nahalal's SVG water tower is behind the true view; the baked
+  silver drifts with its cloud; a far town block on Nahalal's ridge reads a little like a row of boxes on the skyline (the
+  raster's squares, ~120 × 230 m, at 3–5 km).
   - No deploys needed.

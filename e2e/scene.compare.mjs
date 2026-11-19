@@ -23,6 +23,9 @@ const WX = {
   fog: 'hum:99,vis:1.5,cloud:60,rain:0,code:45,wind:6,gust:10',
   showers: 'rain:0.6,code:80,cloud:55,wind:25,gust:45,dir:250,hum:80',
   gale: 'wind:50,gust:75,dir:270,cloud:30,rain:0,code:2',
+  // C9 rays: a broken sky in an ordinary air, and in a hazy one.
+  broken: 'cloud:50,rain:0,code:2,hum:60,vis:25',
+  hazy: 'cloud:50,rain:0,code:2,hum:70,vis:12',
 }
 const [out, ...moments] = args.filter((a) => !a.startsWith('--'))
 if (!out || !moments.length) {
