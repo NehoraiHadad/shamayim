@@ -84,6 +84,27 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
 - Next: stage 3 (water), stage 4 (loading stand-in, as an animation: mist / a ridge line while the land loads; with it,
   remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
 
+## Rendering: the current hand, enriched, in canvas (owner, 2026-11-19)
+Five hands for the whole view were compared (`qa/styles/styles-sheet-v1.png`); the owner chose the **current hand,
+enriched and drawn end to end in canvas** (`qa/styles/v1b/`, prototype `prototypes/canvas-scene/`), to be improved
+further. Text and the UI stay HTML/CSS; the scene behind them becomes cached canvas layers fed from the same data.
+
+**Physical coherence (owner):** every element answers to one world state, never drawn on its own. One light model and
+one weather state drive everything:
+- *Light:* the sun or moon's true azimuth and altitude set the light's side, colour and strength; lit and shade faces of
+  ridges, houses, trees and landmarks; shadow direction and length; cloud lighting (undersides lit when the sun is low);
+  the glint on water. Cloud cover between the eye and the sun dims direct light and softens shadows to none under
+  overcast.
+- *Air:* humidity, haze and visibility set the aerial perspective (how fast far planes fade) and the horizon band.
+- *Clouds:* amount and height from the forecast layers; they drift with the wind at their height.
+- *Rain:* falls from the clouds that make it (no rain under a clear sky), slants with the wind, shafts where the cells
+  are, in its true direction (over the right ridge if it is there); the ground darkens and shines after it.
+- *Wind:* one direction and speed bend rain, move clouds, lean trees, carry dust or chimney smoke, ruffle water.
+- *Night:* moonlight by phase and altitude, lit windows by the place's lit share, stars only through clear sky.
+Order of work: (1) landmarks as a canvas layer inside today's scene; (2) the near ridge and the settlement; (3) far
+planes, water and haze; (4) the sky; (5) the weather layer; (6) pixel-hash and structural tests in place of the SVG
+snapshots, tuned on a mid-range phone. Layers redraw only when their inputs change.
+
 ## After (agreed order)
 Land colour (season / this week, a subtle tint) → vegetation (orchards, trees, fields where WorldCover says) → rain in
 its true direction (cloud over the right ridge; an edge mark when out of view) → wind (dust, cloud drift, tree lean).
