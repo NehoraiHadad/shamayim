@@ -230,6 +230,11 @@ when `litSide === 'right'`; a glyph with text or asymmetry (Chords Bridge) has a
 - Scrubbing changes `at` every frame: light-dependent layers are split into a light-free **form** canvas (fills,
   texture; key without light) and a cheap **light** canvas (lit faces, shadows, glints; key with light), so a scrub
   frame repaints only light canvases.
+- `paintWorker.ts`, `remoteCache.ts` (added before C4, §6): where the browser has a module worker with a 2D
+  `OffscreenCanvas`, every layer part is painted in a paint worker (one per surface) by the same painters and handed back
+  as an `ImageBitmap`; the main thread asks for the stale parts (the same keys) and lays the bitmaps. A scrub frame lays
+  the last light until the new one arrives; a cold start shows each batch as it lands. Elsewhere (or if the worker
+  fails) the cache above paints on the main thread, sliced as described. `?paint=main` forces the main thread.
 
 ### 1e. React shell and HTML overlay (`src/scene/react/`)
 
@@ -478,7 +483,8 @@ no land data ever: quiet mist (owner decision 2). The drawn stand-ins are no lon
 **C9. Parity, switch, delete — M (3).**
 All pixel references reviewed by the owner (stills sheet per place); perf within budget on the reference phone and in
 CI; canvas becomes the default (`?svg=1` kept one release as the way out); then the deletions listed in §2 in their
-own commits (SVG scene, WebGL sky, stand-in machinery, flags, SVG snapshots).
+own commits (SVG scene, WebGL sky, stand-in machinery, flags, SVG snapshots). `glitter` in `src/data/water/glint.ts`
+(owner decision 10: its sign slip) is deleted with the SVG scene, or fixed if anything still imports it.
 *Accept:* `npm test`, `npm run typecheck`, `npm run lint`, `npm run test:pixels` green; no import of a deleted module;
 bundle smaller than before (record the size).
 
@@ -493,6 +499,8 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
 **Risks.**
 - Scrubbing relights the land every frame; mitigated by the form/light split, but the near ridge's lit faces and
   the portrait's faces may still exceed 10 ms at dpr 2.75. Fallback: cap the light canvases at dpr 2 while scrubbing.
+  *Measured before C4 (§6):* the planes' light is path-bound, so ratio 2 saved ~1.5 ms a plane after the scaled blit;
+  not taken. The paint worker took the light off the main thread instead; its cost is the light trailing the hand.
 - Canvas memory at dpr 3 (a full-screen layer is ~11 MB); layers are cut to their bounds and soft ones capped at dpr 2.
 - Pixel references depend on the Chromium build; pin `chromium-1243` and re-record on upgrade only.
 - 19 glyph kinds + 4 icons + portrait in the new hand is the largest piece (C4); the SVG generic glyphs are the
@@ -535,6 +543,11 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
    below.
 9. **The shipped WebGL sky's wind direction** (`windU` in `atmo/mapParts.ts`, which still assumes the old mirrored
    view): left as it is; fixed, with the rest of the sky, at C6.
+10. **The shipped SVG glint's sign slip** (`glitter` in `src/data/water/glint.ts` adds the light's altitude and the view's
+    depression where the mirror's geometry subtracts them, so the frozen SVG scene's glint is weaker and peaks in the
+    wrong place): left unfixed until the canvas switch (C9), like `windU`; the shipped scene stays frozen. The canvas has
+    its own (`world/water.ts`: `glintsOf`, `facetShare`). At C9 `glitter` is deleted with the SVG scene, or fixed if
+    anything still imports it (C9's checklist).
 
 **Deploys pending for the owner** (in order; every later stage appends here instead of deploying):
 1. The forecast Worker (`worker/`) with C0's new hourly fields in its allowlist (`wind_direction_10m`, `visibility`,
@@ -795,3 +808,38 @@ the SVG baseline are unchanged (snapshots untouched, `far.json`'s patches untouc
 - *Perf* (`qa/canvas/perf.md`, C3): modelCold 18–32 ms, scrub.model p95 9–14 ms, scrub.land p50 13–19 / p95 18–25 ms,
   first paint 80–142 ms (C2 the same day: scrub.land p95 17–25, first paint 80–113). Over the gates as at C2; the
   towns' field and the ripple places moved to the world's terrain part (model cold was 83–116 ms with them in the model).
+
+**Performance pass before C4 (2026-11-19): the gates met but Haifa's cold model.** Commit on `ccr-85ec24f0-9ayxgu`; the
+look unchanged (53/53 pixel references at the same tolerance, painted in the worker and on the main thread; worker and
+main-thread stills pixel-identical), the SVG baseline unchanged (snapshots untouched; the shared `astro/utc.ts`,
+`world/sceneLight.ts` changes give the same numbers). Numbers and method: `qa/canvas/perf.md`, "Performance pass".
+- *The world's scrub frame* (p95 61–87 → 5–13 ms): one `Intl.DateTimeFormat` per time zone (`astro/utc.ts`: one was built
+  per call, ~100 a frame); the twilight's ridge crossing kept per skyline and day (`world/light.ts`, found on the cold
+  build); `clearanceOf` / `groundAt` scan only a sorted profile's run toward the light and bisect for x (same numbers).
+- *The sky in rows* (`paint/sky.ts`): each device row's colour written with a 32-bit fill into a reused `ImageData`
+  (4–6 ms against 13–20 for the gradient fill; largest change 2/255). Painters stay pure: no clock, no DOM, the scratch
+  pixels are written whole each paint.
+- *The paint worker* (§1d): `compose/paintJob.ts` (the shared `paintPart`, keys, job types), `paintWorker.ts`,
+  `remoteCache.ts` (the cache's keys, one batch in flight, newest ask wins, the last light laid until the new one lands),
+  `worker.ts` (feature check; the two workers start as the chunk loads); `Surface` takes a `worker` and falls back to its
+  own `LayerCache` when there is none or it fails. `useSurface` records `firstPaint.<name>` as the main thread's time,
+  `firstShown`, `arrive`, `latency`, `worker` per surface. Harness: `__scene.settled()`, `__scene.offThread`; runners:
+  `--paint=main` (perf), `SCENE_PAINT=main` (pixels, stills). Tests: three in `compose.test.ts` (a cold batch, a scrub that
+  keeps the last light and coalesces, arrivals laid and the fallback on a worker error).
+- *Compile hint*: `//# allFunctionsCalledOnLoad` heads `scene/model/*.ts` and the built `CanvasScene` chunk
+  (`vite.config.ts`); the paint worker builds to its own file (`paintWorker-*.js`, 11.7 kB).
+- *Result at ×4* (ranges over three runs; Haifa / Tel Aviv / Shadmot): first paint, main thread 21–33 / 21–26 / 17–25 ms
+  (was 110 / 92 / 105); scrub.land p95 1.3–1.4 / 0.8–1.1 / 0.8–1.4 (was 28 / 20 / 24); scrub.model p95 8–14 (gate 15);
+  cold model 13–30 / 7–11 / 2–7 (was 34 / 18 / 14). **Haifa's cold model stays over** its gate in three runs of four: first-run code (the same
+  model on a fresh place in a warm page is 3–7 ms); to recheck in a production build on the phone.
+- *Costs, reported*: the light trails the hand while scrubbing (p50 116–400 ms at ×4, 6–10 ms unthrottled; the ×4
+  emulation slows the worker more than four-fold, see perf.md), and everything shows a little later on a cold start
+  (`firstShown` 134–172 ms at ×4 against 92–144 for the sliced paint; 30–35 ms unthrottled); the exact light lands when
+  the hand stops. To check on the phone (`?perf=1`: `latency.land`, `worker.land`).
+- *Measured and not taken*: the light canvases at ratio 2 while scrubbing (path-bound light: ~1.5 ms a plane saved after
+  the scaled `overlay` blit), a quantised light key while scrubbing (every step still a whole paint: p95 unchanged),
+  merging the far plane's form and light (the form would repaint every frame). `--gpu` is SwiftShader here and no faster:
+  the gates stay on the software run.
+- *Main-thread fallback* (`--paint=main`): the sky's scrub frame 12–13 ms p50 (was 19–21), the world's as above; the
+  land's light as before, over the gates (scrub.land p95 19–32, first paint 92–144). Where a browser has no worker 2D
+  canvas (old Safari), C4's glyph layers should keep their light parts small.

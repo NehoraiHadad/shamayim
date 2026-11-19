@@ -40,6 +40,8 @@ export function sceneUrl(base, { place, at, weather = '', overlay = false }) {
   const q = new URLSearchParams({ place, at, phase: '0' })
   if (weather) q.set('weather', weather)
   if (overlay) q.set('overlay', '1')
+  // SCENE_PAINT=main: the layers painted on the main thread (the fallback where a browser has no paint worker).
+  if (process.env.SCENE_PAINT === 'main') q.set('paint', 'main')
   return `${base}/scene.html?${q}`
 }
 

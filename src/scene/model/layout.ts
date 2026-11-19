@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { DOT_R, textWidth } from '../../ui/scene/marks/sceneLayout'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'

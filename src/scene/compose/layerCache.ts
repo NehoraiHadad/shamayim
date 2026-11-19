@@ -1,7 +1,9 @@
-import { cacheRatio } from '../model/keys'
 import type { LayerDesc } from '../model/types'
-import { HAND, painterOf, type Ctx2D, type Hand, type PaintEnv, type Painter } from '../paint'
+import { HAND, painterOf, type Ctx2D, type Hand, type Painter } from '../paint'
+import { deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
 import type { SceneStats } from './stats'
+
+export { deviceRect, type DeviceRect } from './paintJob'
 
 /** A canvas a layer is cached on: an `OffscreenCanvas` where there is one, else a detached `<canvas>`. */
 export type LayerCanvas = HTMLCanvasElement | OffscreenCanvas
@@ -13,15 +15,6 @@ export function defaultFactory(): CanvasFactory {
 }
 
 export const ctxOf = (canvas: LayerCanvas) => (canvas as HTMLCanvasElement).getContext('2d') as unknown as Ctx2D
-
-/** A layer's canvas in device px: whole pixels, so it is laid into the surface 1:1. */
-export interface DeviceRect { x: number; y: number; w: number; h: number }
-
-export function deviceRect(desc: LayerDesc, ratio: number): DeviceRect {
-  const { x, y, w, h } = desc.bounds
-  const x0 = Math.floor(x * ratio + 1e-6), y0 = Math.floor(y * ratio + 1e-6)
-  return { x: x0, y: y0, w: Math.max(1, Math.ceil((x + w) * ratio - 1e-6) - x0), h: Math.max(1, Math.ceil((y + h) * ratio - 1e-6) - y0) }
-}
 
 interface Entry {
   /** The key the form canvas holds (the layer's key, its pixel ratio and bounds). */
@@ -66,16 +59,10 @@ export class LayerCache {
     this.now = options.now ?? (() => performance.now())
   }
 
-  private formKeyOf(desc: LayerDesc, dpr: number) {
-    const ratio = cacheRatio(dpr, desc.soft)
-    const { x, y, w, h } = desc.bounds
-    return { ratio, key: `${desc.key}@${ratio}:${x},${y},${w},${h}` }
-  }
-
   /** The layer's canvas is up to date for this desc and dpr. */
   fresh(desc: LayerDesc, dpr: number): boolean {
     const entry = this.entries.get(desc.id)
-    return Boolean(entry && entry.formKey === this.formKeyOf(desc, dpr).key && entry.lightKey === (desc.light?.key ?? null))
+    return Boolean(entry && entry.formKey === formKeyOf(desc, dpr).key && entry.lightKey === (desc.light?.key ?? null))
   }
 
   /** The canvases last painted for a layer (possibly stale): its form, its light (if any), their ratio and place. */
@@ -90,26 +77,18 @@ export class LayerCache {
   }
 
   private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number) {
-    const ctx = ctxOf(canvas)
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.globalAlpha = 1
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    const env: PaintEnv = { hand: this.hand, phase, scale: ratio, canvas: (w, h) => {
-      const scratch = this.factory(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
+    paintPart(ctxOf(canvas), canvas, desc, ratio, rect, paint, phase, this.hand, (w, h) => {
+      const scratch = this.factory(w, h)
       return { canvas: scratch, ctx: ctxOf(scratch) }
-    } }
-    paint(ctx, desc, env)
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    })
   }
 
   /** Brings a layer's canvas up to date: what had to be painted (`none` is a cache hit). */
   update(desc: LayerDesc, dpr: number, phase = 0): Painted {
     const stat = this.stats?.layer(desc.id)
     const painter = this.painters(desc)
-    const { ratio, key: formKey } = this.formKeyOf(desc, dpr)
-    const lightKey = painter?.light && desc.light ? desc.light.key : null
+    const { ratio, key: formKey } = formKeyOf(desc, dpr)
+    const lightKey = lightKeyOf(desc, painter)
     let entry = this.entries.get(desc.id)
     if (entry && entry.formKey === formKey && entry.lightKey === lightKey) {
       if (stat) stat.hits++

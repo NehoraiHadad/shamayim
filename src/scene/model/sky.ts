@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { xOf } from '../../domain/camera'
 import { cloudTransmit } from '../../world/light'
 import { sunLight } from '../../world/sceneLight'

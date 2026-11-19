@@ -4,6 +4,8 @@ import type { Painter } from '../paint'
 import { LayerCache, type LayerCanvas } from './layerCache'
 import { makeLoop } from './loop'
 import { paintSliced } from './schedule'
+import type { PaintReply, PaintRequest } from './paintJob'
+import { RemoteCache, type WorkerLike } from './remoteCache'
 import { makeStats } from './stats'
 import { Surface } from './surface'
 
@@ -109,6 +111,97 @@ describe('surface and schedule', () => {
     surface.render(layers(3))
     expect(surface.render(layers(3))).toEqual(['none', 'none', 'none'])
     expect(count.form).toBe(3)
+  })
+})
+
+/** A worker that keeps what it is sent and answers when told (node has no worker). */
+function fakeWorker() {
+  const sent: PaintRequest[] = []
+  const closed: string[] = []
+  const worker: WorkerLike & { sent: PaintRequest[]; closed: string[]; answer(): void; terminated: boolean } = {
+    sent, closed, terminated: false,
+    postMessage: (message) => { sent.push(message) },
+    onmessage: null,
+    onerror: null,
+    terminate() { worker.terminated = true },
+    answer() {
+      const request = sent.shift()!
+      const reply: PaintReply = { batch: request.batch, results: request.jobs.map((job) => ({ id: job.id, part: job.part, key: job.key,
+        formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 1,
+        bitmap: { width: job.rect.w, height: job.rect.h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap })) }
+      worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
+    },
+  }
+  return worker
+}
+
+describe('painting in the worker', () => {
+  const painters = () => ({ form: () => {}, light: () => {} })
+
+  it('asks for a cold layer\'s form and light in one batch and shows them once they arrive', async () => {
+    const worker = fakeWorker()
+    const arrivals: boolean[] = []
+    const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: ({ settled }) => arrivals.push(settled), onFail: () => {} })
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('form')
+    cache.flush()
+    expect(worker.sent).toHaveLength(1)
+    expect(worker.sent[0].jobs.map((job) => job.part)).toEqual(['form', 'light'])
+    expect(cache.peek('plane.near')).toBeNull()
+    expect(cache.fresh(plane('a', 'l1'), 2)).toBe(false)
+    const settled = cache.whenSettled()
+    worker.answer()
+    await settled
+    expect(arrivals).toEqual([true])
+    expect(cache.fresh(plane('a', 'l1'), 2)).toBe(true)
+    expect(cache.peek('plane.near')).toMatchObject({ ratio: 2, rect: { x: 0, y: 80, w: 750, h: 176 } })
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('none')
+    cache.flush()
+    expect(worker.sent).toHaveLength(0)
+  })
+
+  it('keeps the last light while a scrub frame\'s light is painted, and sends only the newest ask after a batch', () => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: () => {}, onFail: () => {} })
+    cache.update(plane('a', 'l1'), 2)
+    cache.flush()
+    worker.answer()
+    const shown = cache.peek('plane.near')!.light
+    expect(cache.update(plane('a', 'l2'), 2)).toBe('light')
+    cache.flush()
+    expect(worker.sent[0].jobs.map((job) => [job.part, job.key])).toEqual([['light', 'l2']])
+    // While l2 is on its way the hand moves on twice: only the newest is sent, once l2 is back.
+    cache.update(plane('a', 'l3'), 2)
+    cache.flush()
+    cache.update(plane('a', 'l4'), 2)
+    cache.flush()
+    expect(worker.sent).toHaveLength(1)
+    expect(cache.peek('plane.near')!.light).toBe(shown)
+    worker.answer()
+    expect(worker.sent.map((request) => request.jobs.map((job) => job.key))).toEqual([['l4']])
+    expect(worker.closed).toEqual(['plane.near:light:l1'])
+    worker.answer()
+    expect(cache.fresh(plane('a', 'l4'), 2)).toBe(true)
+    expect(cache.settled()).toBe(true)
+  })
+
+  it('lays the arrivals on the surface, and paints on the main thread once the worker fails', () => {
+    const worker = fakeWorker()
+    const { count, painters: counted } = counting()
+    let laid = 0
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, now: () => 0, worker: () => worker,
+      onArrive: () => { laid++ } })
+    surface.resize(375, 128, 2)
+    surface.render([plane('a', 'l1')])
+    expect(count).toEqual({ form: 0, light: 0 })
+    worker.answer()
+    expect(laid).toBe(1)
+    expect(surface.fresh(plane('a', 'l1'))).toBe(true)
+    surface.render([plane('a', 'l2')])
+    worker.onerror?.(new Event('error'))
+    expect(worker.terminated).toBe(true)
+    expect(surface.remote).toBeNull()
+    expect(count).toEqual({ form: 1, light: 1 })
+    expect(surface.fresh(plane('a', 'l2'))).toBe(true)
   })
 })
 

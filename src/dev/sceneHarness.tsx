@@ -55,8 +55,15 @@ const LAND_TOP = 300
 const panoramas = import.meta.glob<StoredPanorama>('../test/fixtures/scene/*.panorama.json', { import: 'default' })
 
 interface Harness {
-  /** Times (ms) of one scrub frame: the world, the model, the paint of both surfaces and of each. */
+  /**
+   * Times (ms) of one scrub frame: the world, the model, the paint of both surfaces and of each (with the paint worker:
+   * asking for the stale layers and laying what is there; what arrives later is laid outside this frame).
+   */
   scrub(at: LocalTime): { world: number; model: number; paint: number; sky: number; land: number; painted: string[] }
+  /** Resolves once the paint worker has delivered everything asked of it (at once without one). */
+  settled(): Promise<void>
+  /** Whether the layers are painted in the paint worker. */
+  offThread: boolean
 }
 type HarnessWindow = Window & { __sceneReady?: boolean; __sceneError?: string; __scene?: Harness; __world?: WorldState }
 const win = window as HarnessWindow
@@ -131,6 +138,8 @@ function Scene({ input }: { input: WorldInput }) {
             ...landLayers.map((layer, i) => [layer.id, landPainted[i]] as const)]
             .filter(([, kind]) => kind !== 'none').map(([id, kind]) => `${id}:${kind}`) }
       },
+      settled: () => Promise.all([skySurface.current!.settled(), landSurface.current!.settled()]).then(() => {}),
+      get offThread() { return Boolean(skySurface.current?.remote && landSurface.current?.remote) },
     }
   }, [world, build, input, box, landSurface])
 
