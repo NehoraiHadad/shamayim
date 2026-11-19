@@ -23,8 +23,8 @@ possible, and to gain what proved good in the turning-view experiment. **First t
   `land.yml`) and this week's colour (Sentinel-2 L2A window read in the browser, `geotiff` lazy-loaded, 5-day cache).
 - `src/data/world/rainView.ts` — rain along any direction from the radar grid (`RadarOutlook.grid`), cloud base and
   storm-top heights; `rainMark` (the one-line Hebrew summary).
-- `src/ui/scene/sceneBaseline.test.ts` — six real places (recorded panoramas) × four hours, pinned (React ids
-  normalised). Any visible change to the main scene shows here and needs stills + re-record in the same commit.
+- (Deleted at C9 with the SVG scene: `src/ui/scene/sceneBaseline.test.ts`. The canvas scene's regression suite is the
+  pixel references, `npm run test:pixels`, the same places × hours and more, with the world and model tests.)
 - `ridgeLightPaths` takes an optional per-x light direction (`rayAt`).
 
 ## 3. What is not true in the main scene today
