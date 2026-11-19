@@ -506,3 +506,19 @@ cached canvas in up to 11 blits, a whole-pixel offset), nothing repainted per fr
 known one (no place part, no far towns); the loading model is mostly the sky's cold model. The rest of the run as at C5b
 (cold and scrub model OVER for the cities, C5's and C6's).
 
+
+## C9 review pack (2026-11-19): towers beyond seen from the eye, haze along a crest, snow on the place's ground
+
+`node e2e/scene.perf.mjs --place=haifa,tel-aviv,rosh-pina,tiberias` (CPU ×4, dpr 2.75, software raster, worker path):
+
+```
+                  modelCold   scrub.model p95   firstPaint   anim frame p50 / p95   memory
+  haifa           45.1 ms     17.9 ms           —            —                      —
+  tel-aviv        42.5        23.6              —            1.40 / 2.90            32.7 MB (thunder)
+  rosh-pina       38.5        15.8              25.3         1.50 / 3.30            25.5 MB
+  tiberias        30.5        15.8              23.1         1.40 / 2.80            26.2 MB
+```
+
+(Haifa's and Tel Aviv's other rows fell off the captured output.) Within C5b's and C8's ranges: the visibility test of a
+tower beyond is one `seenAt` a tower in the world's place part; `hazeAlong` is linear in the crest's points. The OVERs
+are C5's and C6's (cold model, scrub model for the cities and now Rosh Pina and Tiberias at ~1.05×, within the noise).

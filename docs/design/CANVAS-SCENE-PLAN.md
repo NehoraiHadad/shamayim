@@ -1421,3 +1421,56 @@ baseline and the shipped app are unchanged (snapshots untouched; everything belo
   the stand-in-only machinery §2 lists (`fabric`, `neighbours`, `neighbourOcclusion`, `columns`, `villageStyle` after its
   move, `settlementPlan`, `villageForms`, `villageExtent`, `terraces`).
   - No deploys needed for C8.
+
+**C9, the review pack (2026-11-19): two general fixes and the stills for the owner; no switch yet.** Commits on
+`ccr-85ec24f0-9ayxgu` (after C8); the SVG baseline and the shipped app are unchanged (snapshots untouched; everything
+below runs only under `?canvas=1`). Pack: `qa/canvas/c9-review/index.md` (7 sheets, SVG | canvas from the app itself).
+- *Drawing with the anidoodle skill* (owner decision 7): `craft-bar.md` ("parts floating off", "a line that stops in the
+  air") and `determinism-and-contract.md` read again; each fix looked at on 2–3× crops (Rosh Pina's crest, Ramat Gan's
+  frame edges, Tiberias's fog, Shadmot's Gilead at sunrise, Jerusalem's and Rosh Pina's snow).
+- **The posts on Rosh Pina's crest were towers beyond the place** (C5b item 5, `beyondTowers`): Safed's 12–14 storey
+  buildings 3.4–5.1 km west, whose own ground (Mt Canaan, over 850 m) the place's rule lifts over the ridge line in view,
+  so the "never above the ridge line" clamp stood them on the bare crest at the place's own px a metre (11–14 px). From
+  Rosh Pina the land in front hides every one of them. **Rule** (`world/outside.ts` `overTheCrest`): a tower beyond the
+  place is never more than the panorama truly sees of it over the land in front (from the eye, at its true bearing and
+  distance, on the land's own scale: `seenAt`, as the far towns are placed), and is left out when it shows less than
+  2.5 px; one in front of the near ridge stands whole as before. Over the places: Rosh Pina 9 → 0, Jerusalem 2 → 0,
+  Haifa 15 → 5 (Eshkol Tower kept as a glyph), Tel Aviv 32 → 30, Ramat Gan 66 → 61 (its lone 38–50 px sticks at the frame's
+  edges fall to 6–12 px or go: the hidden ones). No house, tree, mark or field of the place stands over the ridge line
+  without its own drawn ground (checked on every place: the C5b 6 px rule lifts rows only onto `OutsideView.land`).
+- **Haze continuous across a jump in a crest's distance** (`scene/model/planeLight.ts` `hazeAlong`, `HAZE_SLOPE` 0.006
+  a px): the air's share in a plane's tone (`AERIAL · fade(km)²`) along the crest is the mean of the lowest and highest
+  curves within that slope of the shares (two passes each way), so a jump turns over a stretch as wide as it is deep: a
+  few px in a clear air (unchanged where the shares already change gently), ~100 px in Tiberias's fog (it was ~15). The
+  same rule took out a seam in Shadmot's Gilead at sunrise.
+- **Found in the review and fixed: the place's own ground in snow** (`world/outside.ts` `landOf` keeps each top point's
+  ground height; `model/outside.ts` `landSnow`; `planeLight.ts` `snowOnGround`, the planes' own snow look): where its
+  crest stands at or over the snow line it takes the snow the ridge takes; it stood as a dark band over the snowy ridge
+  (Jerusalem, Rosh Pina, Tiberias).
+- *Runner:* `scene.compare.mjs` takes `place@HH:MM@weather` (the harness's moments as the app's `?wx=`), `--title=`, and
+  writes `.jpg` sheets.
+- *Tests:* `outside.test.ts` (+13): Rosh Pina has no tower beyond; every place's towers beyond show no more than the
+  panorama sees of them; snow on the place's own ground under a fall, none without. `planes.test.ts` (+1): `hazeAlong`
+  holds the slope and keeps a gentle run; Tiberias's fog turns its near plane's tone ≤ 0.004 Oklab a px (0.011 before).
+- *Pixel references:* re-recorded deliberately, 31 of 59 (the haze rule: Shadmot, Ein Gedi 06:20, Jerusalem, Haifa,
+  Tel Aviv where a crest's distance jumps; the towers beyond: Tel Aviv, Haifa, Jerusalem, Rosh Pina; the snow: Jerusalem,
+  Tiberias, Haifa); 59/59 on both paint paths.
+- *Perf* (`qa/canvas/perf.md`, C9 pack): as at C8 within the noise.
+- **Open defects seen in the pack, ranked** (none fixed, each wants a rule or the owner's eye):
+  1. A backlit or overcast city mass reads pale against its dark ridge (Jerusalem and Tel Aviv at 06:20 and 16:30,
+     Jerusalem and Haifa in rain): the C5b sky light on the mass lifts its tops more than a backlit wall would take.
+  2. A dark cloud lobe right over the sun with the sun's glow round it reads as a black disc in a ring (Haifa 15:00
+     thunder): the bank over the disc has no silver lining.
+  3. Haifa at 06:20: the city mass on the Carmel stands over the sun's true spot, so no disc shows at sunrise (the
+     SVG shows it over the bay).
+  4. The height label floats well above the dot over the mass (Rosh Pina, Haifa, Tel Aviv, Ramat Gan, Be'er Sheva): C5b's
+     last-resort spot over the mass reads detached.
+  5. Water names: Netanya's "ים" sits in the sky just over its coastal sea's horizon; Ramat Gan's among Tel Aviv's towers.
+  6. Ramat Gan's frame edges keep a few 6–12 px towers (true, seen) with no town at their feet: the towns 4–6 km out are
+     drawn by neither the outside view nor the far towns (which start at 6 km).
+  7. Masada at 06:20: the Dead Sea's shapes barely part from the far plane.
+  8. Nahalal: its water tower and the ridge's chimney / tower marks of the SVG are gone (C5's far-mark rule).
+  9. Zikhron Ya'akov: the far chimneys at Hadera show as a pale bare stick at the sea's edge.
+  10. Be'er Sheva: the mass's west part is a flat, even wall.
+  - Under `?wx=` rain and thunder the sun shows veiled in both scenes (no thick-cloud key in `?wx=`); a pack artefact.
+  - No deploys needed.
