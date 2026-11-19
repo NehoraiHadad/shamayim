@@ -26,9 +26,16 @@ export function score(mark: Landmark, dx: number, dy: number, band: number): num
     - 4 * Math.abs(dy) / band - Math.abs(dx) / 6 + (mark.nameHe ? 1 : 0) + fameBonus(mark)
 }
 
-export function select(candidates: Candidate[], width: number, large = false): Candidate[] {
+/**
+ * How the far ridge's marks are chosen: `kind`, the SVG scene's (60 m and up, or any chimney, cooling tower or turbine,
+ * frozen until C9); `landmark`, the canvas scene's (CANVAS-SCENE-PLAN.md C5): the caller has kept only landmarks beyond
+ * the place (`industrial.ts` `landmarkBeyond`), and the best two of them by score stand, no kind kept by its weight.
+ */
+export type FarRule = 'kind' | 'landmark'
+
+export function select(candidates: Candidate[], width: number, large = false, farRule: FarRule = 'kind'): Candidate[] {
   const nearLimit = Math.min(8, 5 + Math.max(0, Math.floor((width - 375) / 150)))
-  const far = candidates.filter((c) => c.layer === 'far' && (
+  const far = candidates.filter((c) => c.layer === 'far' && (farRule === 'landmark' ||
     c.mark.heightM >= 60 || ['chimney', 'cooling', 'turbine'].includes(c.mark.kind)
   )).sort(desc).slice(0, 2)
   const nearCandidates = candidates.filter((c) => c.layer === 'near')

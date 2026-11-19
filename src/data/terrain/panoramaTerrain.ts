@@ -1,7 +1,7 @@
 import { leftAzimuth, SCENE_CAMERA, wrap180, type Camera } from '../../domain/camera'
 import { seaSideOf, waterInView, type WaterLookup } from '../water/waterInView'
 import { anglePx } from './angleScale'
-import { apparentAngle, type HorizonPoint, type Panorama } from './panorama'
+import { apparentAngle, localHeight, type HorizonPoint, type Panorama } from './panorama'
 import { pointsToPath } from './profile'
 import { sightProfiles } from './sightProfile'
 import type { SceneTerrain } from './terrain'
@@ -86,6 +86,7 @@ export function terrainFromPanorama(given: Panorama,
     sightAt,
     seenAt,
     groundAt: profiles.groundAt,
+    ...(given.local ? { heightNear: (dx: number, dy: number) => localHeight(given.local!, dx, dy) } : {}),
     angleY: yOf,
     camera: view.camera ?? SCENE_CAMERA,
   }

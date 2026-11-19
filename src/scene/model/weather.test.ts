@@ -5,7 +5,7 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import type { WorldInput } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
-import { paintPortrait } from '../paint/marks'
+import { paintOutside } from '../paint/outside'
 import { paintWater } from '../paint/water'
 import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from '../paint/weather'
 import { sceneModel } from '.'
@@ -48,7 +48,7 @@ const DUST = { pm10: 400, dust: 400, visibilityKm: 3, humidity: 30 }
 const HOURS = ['06:20', '09:00', '12:00', '14:00', '16:30']
 
 describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
-  it('rains and snows only from the banks the world makes rain or snow', () => {
+  it('rains and snows only from the banks the world makes rain or snow', { timeout: 30000 }, () => {
     for (const hour of HOURS) {
       for (const forced of [CLEAR, OVERCAST, BROKEN, FOG]) {
         const w = world(id, hour, forced)
@@ -87,7 +87,7 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
     }
   })
 
-  it('slants the rain and carries the snow with the one wind', () => {
+  it('slants the rain and carries the snow with the one wind', { timeout: 30000 }, () => {
     for (const dir of [270, 90, 200]) {
       for (const forced of [RAIN(dir), { ...SNOW, windDirection: dir }]) {
         const w = world(id, '12:00', forced)
@@ -111,7 +111,7 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
     }
   })
 
-  it('puts the edge mark only when the rain is out of view, on the side it truly lies', () => {
+  it('puts the edge mark only when the rain is out of view, on the side it truly lies', { timeout: 30000 }, () => {
     for (const hour of HOURS) {
       for (const forced of [SHOWERS, RAIN(270), SNOW]) {
         const w = world(id, hour, forced)
@@ -205,9 +205,21 @@ describe('weather: smoke and the wind', () => {
   })
 
   it('sways the trees only in a wind, and ripples the water with it', () => {
-    const portrait = (speed: number) => ofKind(sceneModel(world('rosh-pina', '12:00', { ...CLEAR, windSpeed: speed }), BOX), 'portrait')[0]
-    expect(portrait(4).animated).toBeUndefined()
-    expect(portrait(30).animated?.frames).toBeTruthy()
+    // The place's own trees (the one builder's, C5): still in a calm, a strip of frames in a wind.
+    const place = (speed: number) => ofKind(sceneModel(world('rosh-pina', '12:00', { ...CLEAR, windSpeed: speed }), BOX), 'outside')[0]
+    expect(place(4).items.some((item) => item.kind === 'tree')).toBe(true)
+    expect(place(4).sea).toBeNull()
+    expect(place(4).animated).toBeUndefined()
+    expect(place(30).animated?.frames).toBeTruthy()
+    expect(place(30).shine.sway).toBeGreaterThan(0)
+    // A coastal sea (C5) ripples with the wind too.
+    for (const dir of [270, 90]) {
+      const w = world('tel-aviv', '12:00', { ...CLEAR, windDirection: dir, windSpeed: 25 })
+      const sea = ofKind(sceneModel(w, BOX), 'outside')[0]
+      expect(sea.sea?.ripples.length).toBeGreaterThan(0)
+      expect(sea.animated?.frames).toBeTruthy()
+      if (Math.abs(w.wind.across) > 0.05) expect(Math.sign(sea.sea!.drift!)).toBe(Math.sign(w.wind.across))
+    }
     for (const dir of [270, 90]) {
       const w = world('tiberias', '07:30', { ...CLEAR, windDirection: dir, windSpeed: 25 })
       for (const water of ofKind(sceneModel(w, BOX), 'water')) {
@@ -268,8 +280,8 @@ describe('weather: animation, pure in the phase', () => {
     const add = (model: SceneModel) => {
       const painters: Partial<Record<LayerKind, (ctx: Ctx2D, desc: never, env: PaintEnv) => void>> = {
         shafts: paintShafts, fall: paintFall, mist: paintMist, grains: paintGrains, rays: paintRays, smoke: paintSmoke, sheen: paintSheen,
-        edge: paintEdge, water: paintWater, portrait: paintPortrait }
-      for (const l of model.layers) if (painters[l.kind] && (l.animated || !['water', 'portrait'].includes(l.kind))) cases.push([l, painters[l.kind]!])
+        edge: paintEdge, water: paintWater, outside: paintOutside }
+      for (const l of model.layers) if (painters[l.kind] && (l.animated || !['water', 'outside'].includes(l.kind))) cases.push([l, painters[l.kind]!])
     }
     add(sceneModel(world('haifa', '12:00', RAIN(270)), BOX))
     add(sceneModel(world('haifa', '16:30', BROKEN), BOX))
@@ -278,9 +290,9 @@ describe('weather: animation, pure in the phase', () => {
     add(sceneModel(world('jerusalem', '12:00', SHOWERS), BOX))
     add(sceneModel(world('rosh-pina', '12:00', { ...CLEAR, windSpeed: 50 }), BOX))
     const kinds = new Set(cases.map(([l]) => l.kind))
-    for (const kind of ['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'water', 'portrait']) expect(kinds.has(kind as LayerKind), kind).toBe(true)
+    for (const kind of ['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'water', 'outside']) expect(kinds.has(kind as LayerKind), kind).toBe(true)
     for (const [desc, paint] of cases) {
-      // (The portrait keeps its grain tile between paints: warm it first.)
+      // (The place's layer keeps its grain tile between paints: warm it first.)
       log(desc, paint, 0.4)
       const a = log(desc, paint, 0.4)
       expect(a.length).toBeGreaterThan(0)

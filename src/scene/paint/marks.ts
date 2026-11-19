@@ -38,7 +38,7 @@ function grainTile(env: PaintEnv, seed: number): Scratch {
 }
 
 /** The grain over everything drawn so far on the layer (device px, anchored to the layer). */
-function grain(ctx: Ctx2D, env: PaintEnv, seed: number, amount: number) {
+export function grain(ctx: Ctx2D, env: PaintEnv, seed: number, amount: number) {
   const pattern = ctx.createPattern(grainTile(env, seed).canvas as CanvasImageSource, 'repeat')
   if (!pattern) return
   ctx.save()
@@ -139,7 +139,7 @@ function houseShadow(ctx: Ctx2D, h: HouseDesc, t: Tones, s: Shine) {
 }
 
 /** A tree: a round pine or olive (two lobes and a lit crown), a cypress (a flame, its lit half), a palm; leaning in the wind. */
-function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, rock = 0) {
+export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, rock = 0) {
   const { x, base, w, h } = tr
   const r = rng(tr.seed)
   // C7: the gusts rock each crown about its lean (`rock`, −1…1 over the strip's loop), a little out of step tree to tree.
@@ -199,7 +199,7 @@ function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, ro
  * A tree's sway at this frame of the portrait's strip (C7): a sine over the loop, its phase a quarter turn at most from
  * its neighbours' (one gust passing), periodic over the loop; 0 for a still portrait.
  */
-function rockOf(desc: LayerOf<'portrait'>, env: PaintEnv, seed: number): number {
+export function rockOf(desc: { animated?: LayerOf<'portrait'>['animated'] }, env: PaintEnv, seed: number): number {
   const frames = desc.animated?.frames
   if (!frames) return 0
   const loop = frames.count / frames.fps

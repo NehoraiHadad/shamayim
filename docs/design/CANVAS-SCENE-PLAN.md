@@ -443,6 +443,7 @@ dense at the dot, thinning at the edge), lit windows by `night.litShare`, tree l
 Pina, Ein Gedi reviewed with the owner; icons take haze and lit side.
 
 **C5. Cities from outside: variant B and its open items — L (5).**
+**Done 2026-11-19** (§6; widened by owner decision 11: every place by one builder; perf gates not all met).
 `model/outside.ts` from `outsideView.ts` (B only): built squares as one jagged mass at real heights, towers fold or rise
 as spires (A's slot budget if spires crowd), famous / ≥ 150 m as full glyphs. Open items: (1) **coastal sea** for every
 coastal place seen from outside (Tel Aviv and Netanya among them), from the coast to the frame edge at the place's depth (`WaterState.coastalSea`, from the water mask,
@@ -551,11 +552,25 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
     its own (`world/water.ts`: `glintsOf`, `facetShare`). At C9 `glitter` is deleted with the SVG scene, or fixed if
     anything still imports it (C9's checklist).
 
+**Owner decisions (2026-11-19, at C5):**
+11. **One algorithm for every place** ("why is the village built separately from the city?"): no village/city split, no
+    `seenFromOutside` threshold between two builders. Every place over a panorama is seen from outside (the eye on its
+    north, looking south) and built from its own data by one builder (`world/outside.ts`): its built cells (the land
+    cover's, ~60 × 50 m) at their real heights from the city raster, its towers, its trees (the land cover's, near its
+    built cells), its marks, placed by true east–west and north–south. What it looks like follows from the data on a
+    continuum: low cells are houses with roofs (tile / flat by evidence, else mixed) and trees between; higher ones blocks;
+    dense high-rise the jagged mass with spires (B). Houses are never placed outside the real built footprint. The composed
+    portrait round the dot (`world/portrait.ts`) is kept only for the drawn stand-in (no panorama, no positions).
+
 **Deploys pending for the owner** (in order; every later stage appends here instead of deploying):
 1. The forecast Worker (`worker/`) with C0's new hourly fields in its allowlist (`wind_direction_10m`, `visibility`,
    wind speed and direction at 850 / 700 / 300 hPa).
 2. Then, after the README check answers 200 for the new fields, flip `ASK_SCENE_HOURLY` to `true` in
    `src/data/openMeteo/request.ts` (an app change, shipped with the next release).
+3. (C5, data, not a server) Rebuild the landmark cells with the industrial-landmark rule (`scripts/landmarks/build.ts`
+   now applies `industrial.ts` from the tags) at the next monthly build, after C9 (the shipped cells are left as they
+   are, so the frozen SVG scene stays byte-identical; the canvas applies the rule to the rows meanwhile). Rebuild
+   `public/data/city/bounds.json` with it (`scripts/city/bounds.ts`) from the same extract.
 
 **Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
 algorithms must handle every place correctly (see the rules at the top).
@@ -1031,3 +1046,105 @@ the shipped app are unchanged (snapshots untouched; everything below runs only u
     done in the painter; the contract's "never scale a cached bitmap up" holds for the cache itself).
   - **Stars do not turn with the hour** (one fixed seeded field, as the app's): the upper sky is not a projection.
   - No deploys needed for C6.
+
+**C5 done (2026-11-19): every place seen from outside, one builder (owner decision 11), with B's open items.** Commits on
+`ccr-85ec24f0-9ayxgu`; the shipped app and the SVG baseline are unchanged (snapshots untouched; the SVG's landmark pool,
+`select()` and `panoramaShortlist` keep their old rule by default; the panorama's new local grid is ignored by the SVG).
+- *Drawing with the anidoodle skill* (owner decision 7): the references read again; the look proved on one still (Tel
+  Aviv 16:30), critiqued on 2–3× crops, then extended to the six skyline cities and the continuum places.
+- *Rules implemented* (all general, no place named in code):
+  - **One builder** (`world/outside.ts`, `outsidePlace`): every place over a panorama. Its fabric is the land cover's
+    built cells (WorldCover, ~60 × 50 m, `WorldInput.cover`) within its own boundary, each a box at its real width and
+    roof height (the city raster's storeys / p90 under it, else a one- or two-storey house); towers fold into the mass
+    or rise as spires (B, `outsideSkyline` with `fabric`); trees where the cover has them within 120 m of a built cell
+    (≤ 900, nearest first). In the model (`model/outside.ts`) a cell under 12.5 m is a house (tile / flat roof by the
+    roof evidence, mixed half and half otherwise, heaters on some flat roofs), above it a block of the mass. Without the
+    land cover the raster's squares stand in.
+  - **Frame at the place's own boundary** (item 6, `data/city/bounds.ts`): the mapped administrative boundary that holds
+    the place (the smallest, if nested); else the weighted cell of the place points (distance over reach, the clusters'
+    own rule). The frame is the extent of the place's built cells inside it (2nd–98th percentile each way, so a lone
+    outlier does not widen it), clipped to the reach. **Data source**: OSM `boundary=administrative` relations in the
+    Geofabrik extract the city and landmark data are built from (`osmium tags-filter … r/boundary=administrative`,
+    `osmium export`), reduced by `scripts/city/bounds.ts` to `public/data/city/bounds.json` (203 kB, 252 boundaries for
+    the 2187 place points of the city data, rings simplified to 40 m): a place's boundary is the largest polygon (admin
+    level ≥ 6) holding its point and no rival point (another place of its rank or higher, a town ranking with a city), so a
+    municipality is a city's, a kibbutz's own polygon a kibbutz's, and a regional council (holding rival villages) or a
+    district nobody's. Loaded only by the canvas (`loadBounds`).
+  - **Rows climb the slope** (item 2): the panorama gains a local ground grid (`Panorama.local`, 49 × 49 at 250 m, every
+    direction; `terrain.heightNear`; stored as the optional `g`, recorded into the fixtures by
+    `scripts/fixtures/recordLocalGround.ts` without touching their rays). The place's top (95th percentile of its built
+    cells' ground) stands on the ridge line; each row lower by its height under that top at the view's px per metre;
+    the near drop and the slope pressed by one factor into the room between the ridge line at the dot and the sheet.
+  - **One frame scale**, continuous in the place's extent: half width `30 + 35·extent` px; heights `0.18·(5/extent)^0.8`
+    px per metre (Tel Aviv as the study had it; a village of 0.6 km ~1 px a metre). Haze per row: the near ridge's
+    distance at the dot plus how far south of the near edge it is.
+  - **Towers beyond the place** (item 3): within 6 km, outside the frame or the boundary, at their true bearing on the
+    true land (`projectSkylineTowers`), famous / ≥ 150 m as full towers, others as silhouettes thinned by A's soft slot
+    budget (cap 2 per 10 px).
+  - **Coastal sea** (item 1): where the water mask's *sea* reaches the screen's edge across the place's rows with its
+    coast within a km of the frame: a level band along the foot of the land from the coast to the edge (never above the
+    land's line), its tones the sky mirrored by Fresnel over the water's dark after the air, a shore line, ripples by the
+    wind, the light's path where the sun or moon stands over it. A lake stays true water in view (not a band).
+  - **Icons** (item 4): the place's own marks (icons included) are items of the outside layer, drawn back to front with
+    the mass in the hour's light and haze (lit side = the world's).
+  - **Industrial landmarks** (item 5, `data/landmarks/industrial.ts`): a chimney, cooling tower, silo, mast or turbine
+    keeps its name only when it is a name (not its operator / owner / brand, not a status or construction note, not its
+    bare kind), unless its own article's title carries the word; fame only with that name; a landmark beyond the place
+    needs name + fame or ≥ 200 m. Applied by the landmarks build from the tags (`parseOverpass`'s `name` option) and by
+    the world to the rows (fame 2 standing for the article). **Finding**: OSM's "לבניה" cooling tower (32.79335,
+    35.05157) is not a construction note: it carries `wikidata=Q47466318` ("הלבניות", Halebeniyot, "צמד מגדלי קירור
+    בחיפה") and `wikipedia=he:הלבניות`; its article confirms the name, so by the rule it stays a named, famous landmark of
+    Haifa. No per-object fix was made; if the owner wants it gone, the rule (not the object) must change.
+  - **Far-mark rule everywhere** (coordinator's addition): beyond the place (portrait reach + 1 km, or the outside
+    frame / boundary) the canvas keeps only landmarks (`landmarkBeyond`); `select()` takes `farRule: 'landmark'` (no
+    chimney / cooling / turbine kept by kind), `panoramaShortlist(…, 'landmark')` gives the canvas its own pool
+    (`sceneMarks`, `useLandmarks(…, scene)`). The SVG path keeps `kind` (default). Rosh Pina's unnamed Golan turbines are
+    gone from the canvas.
+- *Numbers per place* (16:30, the test fixtures; towers in the place, B glyph / spire / folded; items drawn after the
+  text zones): Tel Aviv: boundary תל־אביב–יפו, 194 towers (was 301 in the cluster frame) 10 / 17 / 167; 463 blocks, 174
+  houses, 771 trees, 34 towers drawn; 17 beyond (10 full); sea. Ramat Gan: boundary רמת גן, 69 towers 5 / 35 / 29; 261
+  blocks, 51 houses; 69 beyond (Tel Aviv's, 10 full, at their bearing); no sea. Haifa: boundary חיפה, 96 towers 5 / 4 /
+  87; 1395 blocks, 1140 houses, 892 trees; 3 beyond (Eshkol Tower full, 5.8 km); sea. Jerusalem: boundary ירושלים, 97
+  towers 3 / 6 / 88; 710 blocks, 359 houses. Be'er Sheva: boundary באר שבע, 104 towers 0 / 14 / 90; 370 blocks, 173
+  houses. Netanya: boundary נתניה, 95 towers 2 / 22 / 71; 151 blocks, 86 houses; sea. Continuum: Shadmot (cell) 36
+  houses, 11 trees; Nahalal (cell) 69 houses, 84 trees; Rosh Pina (boundary) 215 houses, 382 trees; Zikhron Ya'akov
+  (boundary) 270 houses, 18 blocks, 687 trees. The study's B counts reproduce within 2 per class with the study's
+  frame (Tel Aviv 10 / 52 / 239 against 10 / 54 / 237; the fixture's ridge differs from the live one by fractions of a px).
+- *Tests*: `scene/model/outside.test.ts` (73): per city: seen from outside at its mapped boundary from the land cover;
+  east left / west right of the dot and, row by row, east further left; depth by north–south (north nearer, larger per
+  metre, drawn later); 300 m over 90 m; no duplicate tower, none dropped (glyph + spire + folded = in place); nothing
+  under the label, notes or the dot's clearing; bases above the sheet. Ramat Gan cut at its boundary (no Tel Aviv spot
+  in it, a narrower frame than its cluster's), the cell fallback, Tel Aviv's towers beyond it at their bearing; Eshkol
+  Tower a full tower; Haifa's bay rows > 10 px below its Carmel rows, Tel Aviv flat on its line; coastal sea for Tel Aviv,
+  Haifa, Netanya, none for six inland places; the continuum (villages: houses and trees, no blocks; block share
+  village < town < city; houses only on built cells; nothing in Ramon crater); the study's B counts; the far-mark and
+  industrial rules (incl. the SVG pool unchanged); light side, windows by night, haze by row. C4's portrait tests now
+  test the village seen from outside; `world.test.ts`'s portrait/outside test is the one-builder test.
+- *Pixel references*: all rewritten deliberately but Ramon crater's four (no built cells, unchanged: restored byte for
+  byte, their only difference was ±1 sky noise): every place's land now carries its outside view (houses, blocks, mass,
+  trees, marks among them, the coastal sea at Haifa); the sky rows differ by ±1 only. 53/53 on both paint paths.
+- *Stills* `qa/canvas/c5/` (dpr 2, overlay): the six skyline cities at 11:00, 16:30, 21:00; Shadmot, Rosh Pina,
+  Nahalal, Zikhron Ya'akov at 11:00 and 16:30; `sheet-svg-canvas.png` (the app, SVG | canvas: Tel Aviv and Netanya
+  16:30, Ramat Gan, Haifa, Jerusalem, Be'er Sheva 11:00); `sheet-skyline-b.png` (the `?skyline=b` study's B panel |
+  C5, the six cities at 11:00); `sheet-continuum.png` (village → moshav → town → city at 11:00). New panorama fixtures:
+  Be'er Sheva, Netanya, Nahalal, Zikhron Ya'akov.
+- *Critique* (2–3× crops). Works: one picture rule from Shadmot to Tel Aviv: villages read as tiled houses among trees
+  on their slope, Zikhron as a town strung along its ridge, Netanya and Tel Aviv as dense mass with spires; Haifa climbs
+  the Carmel from the bay to the crest (the open item answered); Ramat Gan is only Ramat Gan, Tel Aviv standing beside it
+  at its bearing; by night the windows and the red aviation lights read well; the setting sun's path lies on Tel Aviv's
+  sea. Still wrong: under the fixture's cloud the lit faces are faint (direct 0.06–0.10 at 15:00–16:30), so the cities
+  read grey; the towers beyond Ramat Gan are large (true angle and the land's relief scale) and compete with the place;
+  the mass's boxes are a regular stipple of window rows at 3×; villages are small (Rosh Pina's houses 2–3 px) where
+  their built cells spread wide; Zikhron's rows follow the true ridge line's undulation, which reads as a string of houses
+  rather than a town on a hill (the place sits on the true near ridge's line, the SVG study's rule, kept); the coastal
+  band is thin (7 px) by design.
+- *Perf* (`qa/canvas/perf.md`, C5): paint gates within budget; over: cold model of the cities (40 ms) and the scrub
+  model's p95 (17 ms; p50 7–8); the world's place part 50–90 ms in node for a city, once per place.
+- *Departures and decisions where the plan was vague*: the scope change (decision 11) replaces the portrait / outside
+  split; the frame's halfwidth and height scale became continuous functions of the extent (the study's fixed 0.18 px a
+  metre and 90 % width are the 5 km end of them); the sea band lies along the foot of the land (as v1b's bay), not on
+  the ridge line, where it floated as a slab over Haifa's Carmel; lakes are left to the true water layer; a mark under
+  the label when the label found no free spot gives way to the text (it happens only in the tests' below-sea-level
+  fixture height); `OutsideView` gains `bounds`, `topM`, `beyond`, `baseKm`, `trees`, `fabric`, `roofs`;
+  `WaterState.coastalSea` is filled from the place part; `WorldInput` gains `waterMask`, `bounds`, `cover`.
+

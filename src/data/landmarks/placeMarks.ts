@@ -5,7 +5,7 @@ import { isLandmark } from './fame'
 import { projectMark, type Portrait } from './markProjection'
 import { PORTRAIT_MARGIN_KM } from './portrait'
 import { groundY, markHeight, markWidth } from './project'
-import { avoid, score, select, spread, type Candidate } from './rank'
+import { avoid, score, select, spread, type Candidate, type FarRule } from './rank'
 import type { SettlementSize } from './settlement'
 import { templateHalf } from './settlementPlan'
 import type { Landmark, PlacedMark } from './types'
@@ -74,7 +74,8 @@ function legacyHomeHalf(marks: Landmark[]) {
  * the real width; a mark standing in one moves aside, or is left out.
  */
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
-  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait, notes: readonly NoteBox[] = []): PlacedMark[] {
+  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait, notes: readonly NoteBox[] = [],
+  farRule: FarRule = 'kind'): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
@@ -119,7 +120,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       && Math.hypot(item.dx, item.dy) <= Math.max(.6, (portrait?.reachKm ?? 0) - PORTRAIT_MARGIN_KM)))
     .sort(byPriority).slice(0, 4) : [])
   const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width,
-    !terrain.sightAt && homes?.glyph === 'homes-large')
+    !terrain.sightAt && homes?.glyph === 'homes-large', farRule)
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
   const villageHalf = homeHalf * scale
   /** Curated city landmarks stand among the city's own blocks: they only keep clear of the dot. */

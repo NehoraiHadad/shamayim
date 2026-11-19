@@ -3,6 +3,7 @@ import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { layoutOf } from './layout'
 import { marksLayers } from './marks'
+import { outsideLayer } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
@@ -19,7 +20,8 @@ export type * from './types'
  * HTML overlay and the clear zones. Pure: no canvas, no DOM, no clock; runs in vitest under node.
  *
  * C1: the sky gradient and the overlay placed from the world's layout; C2: the land's planes in the enriched hand; C3: the
- * water, the far towns and the haze band at the horizon; C6: the sky's glows, the sun and the moon, the stars, the clouds
+ * water, the far towns and the haze band at the horizon; C4: the marks and the village portrait; C5: the city seen from
+ * outside (its mass, spires, towers, marks and coastal sea); C6: the sky's glows, the sun and the moon, the stars, the clouds
  * (drifting), the lightning and the heat shimmer; C7: the weather (rain and snow from their banks, mist, dust, rays, smoke,
  * the wet ground's sheen).
  */
@@ -28,8 +30,9 @@ export function sceneModel(world: WorldState, box: SceneBox): SceneModel {
   const towns = farCitiesLayer(world, box, layout.clear)
   const sky = skyLayers(world, box)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
+  const outside = outsideLayer(world, box, layout.clear)
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : []), ...marksLayers(world, box), ...weatherLayers(world, box, clouds, layout.clear)]
+    ...(towns ? [towns] : []), ...marksLayers(world, box), ...(outside ? [outside] : []), ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }

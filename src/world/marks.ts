@@ -1,9 +1,11 @@
 import type { Place } from '../config/place'
-import { baseYAt, inFrame, outsideProject, type OutsideFrame } from '../data/city/outsideView'
+import { baseYAt, inFrame, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import { sameTower } from '../data/city/skylineTowers'
 import { inSkylineReach } from '../data/city/skylineRay'
 import type { CityTower } from '../data/city/types'
+import { industrialNamed, landmarkBeyond } from '../data/landmarks/industrial'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
+import { PORTRAIT_MARGIN_KM } from '../data/landmarks/portrait'
 import { distanceOf, offsetKm } from '../data/landmarks/project'
 import { groundFn, seat } from '../data/landmarks/seat'
 import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
@@ -12,6 +14,7 @@ import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
+import { rowKm } from './outside'
 import type { WorldMark } from './types'
 
 /**
@@ -22,8 +25,6 @@ import type { WorldMark } from './types'
  * settlement, neighbours or data skyline, which is what made the cold world slow.
  */
 
-/** A far mark beyond an outside view's place needs a name and fame, or to be truly huge (SKYLINE.md). */
-const HUGE_M = 200
 /** How much a mark of the place may be lifted off the sheet edge (px) rather than dropped. */
 const MAX_LIFT = 6
 const FAR_SCALE = .6
@@ -33,22 +34,22 @@ type Ground = (x: number) => number
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
 /**
- * A landmark needs a name (owner, 2026-11-19): an unnamed mark keeps its kind, not its fame, for every place. The place's
- * own houses and the hand-drawn icons are named by definition.
+ * A landmark needs a name (owner, 2026-11-19): an unnamed mark keeps its kind, not its fame, for every place; an
+ * industrial structure's name must be a name (`industrial.ts`: not a status or construction note, not its operator),
+ * else it is unnamed too. The place's own houses and the hand-drawn icons are named by definition.
  */
 export function namedOnly(landmarks: readonly Landmark[]): Landmark[] {
-  return landmarks.map((mark) => mark.source === 'place' || mark.source === 'curated' || mark.nameHe || !mark.fame
-    ? mark : { ...mark, fame: undefined })
+  return landmarks.map((given) => {
+    const mark = industrialNamed(given)
+    return mark.source === 'place' || mark.source === 'curated' || mark.nameHe || !mark.fame ? mark : { ...mark, fame: undefined }
+  })
 }
 
-/** What an outside view keeps beyond its place: a far mark needs a name and fame, or to be ≥ 200 m. */
-function outsideLandmarks(place: Place, landmarks: readonly Landmark[], frame: OutsideFrame, reachKm: number) {
-  return landmarks.filter((mark) => {
-    if (mark.source === 'place' || mark.source === 'curated') return true
-    const { dx, dy } = offsetKm(place, mark)
-    if (inFrame(frame, dx, dy, 1) || Math.hypot(dx, dy) <= reachKm + 1) return true
-    return (mark.fame && mark.nameHe) || mark.heightM >= HUGE_M
-  })
+/** Whether a mark is of the place: in its frame and within its own boundary (seen from outside), or in its reach (+1 km). */
+function ofPlace(place: Place, mark: Landmark, reachKm: number, outside: MarksInput['outside']) {
+  const { dx, dy } = offsetKm(place, mark)
+  if (!outside) return Math.hypot(dx, dy) <= reachKm + PORTRAIT_MARGIN_KM
+  return inFrame(outside.frame, dx, dy, outside.lie.inPlace ? 0 : 1) && (outside.lie.inPlace?.(dx, dy) ?? true)
 }
 
 /** A generic high-rise the place's own raster towers stand for (the outside view draws those; C5). */
@@ -72,8 +73,11 @@ export interface MarksInput {
   notes: readonly NoteBox[]
   /** The place's own raster towers when it has a skyline (their generic OSM twins are left to them). */
   rasterTowers: readonly CityTower[] | null
-  /** The outside view's frame for a city seen from outside (variant B); null for a portrait. */
-  outside: { frame: OutsideFrame; isCity: boolean } | null
+  /**
+   * The outside view for a city seen from outside (variant B, `outside.ts`): its frame, its own boundary and slope
+   * (`lie`), and the near ridge's distance at the dot (the haze of its nearest row); null for a portrait.
+   */
+  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number } | null
 }
 
 /** Distance (km) of the land along a line of points at px x (the plane's own distances). */
@@ -189,36 +193,58 @@ export function marksOf(input: MarksInput): WorldMark[] {
   const { place, terrain, width, dot, outside } = input
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
-  let landmarks = namedOnly(input.landmarks)
-  if (outside) landmarks = outsideLandmarks(place, landmarks, outside.frame, input.reachKm)
+  // Beyond the place only landmarks, for every place (SKYLINE.md's rule, C5): a name and fame, or truly huge.
+  const landmarks = namedOnly(input.landmarks).filter((mark) => ofPlace(place, mark, input.reachKm, outside) || landmarkBeyond(mark))
   const replaced = rasterReplaced(place, landmarks, input.rasterTowers)
   const kept = landmarks.filter((mark) => !replaced.has(mark.id))
-  const placed = placeMarks(place, terrain, kept, width, outside ? undefined : input.homeHalf, false,
-    { reachKm: input.reachKm }, input.notes)
   const inBox = (mark: WorldMark) => mark.x - mark.w / 2 >= 0 && mark.x + mark.w / 2 <= width
-  let marks = placed.flatMap((mark) => fit(mark, input, ground, farGround) ?? [])
-  if (!outside) return marks.filter(inBox)
-  // The outside view: the place's marks by the one projection; then a city's own high-rises are its towers (C5).
+  const fitted = (placed: PlacedMark[]) => placed.flatMap((mark) => fit(mark, input, ground, farGround) ?? [])
+  if (!outside) {
+    return fitted(placeMarks(place, terrain, kept, width, input.homeHalf, false, { reachKm: input.reachKm }, input.notes, 'landmark'))
+      .filter(inBox)
+  }
+  // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
+  const own = kept.filter((mark) => ofPlace(place, mark, input.reachKm, outside))
+  const beyond = kept.filter((mark) => !own.includes(mark))
+  const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
+  const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
+  const placed = [...ownMarks, ...placeMarks(place, terrain, beyond, width, undefined, false, undefined, input.notes, 'landmark')]
+  let marks = fitted(placed)
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
-  const { frame, isCity } = outside
+  const { frame, isCity, lie, baseKm } = outside
   marks = marks.map((mark) => {
-    const source = kept.find((item) => item.id === mark.id)
-    if (!source || !mark.portrait) return mark
+    const source = own.find((item) => item.id === mark.id)
+    if (!source || !mark.portrait || !ownPlaced.has(mark.id)) return mark
     const { dx, dy } = offsetKm(place, source)
     const at = outsideProject(frame, dx, dy)
     const scale = Math.max(.75, Math.min(1.3, at.k / frame.k))
     const tall = source.heightM >= 40 && (source.kind === 'custom' || source.kind === 'highrise')
     const hPx = tall && isCity ? Math.round(source.heightM * at.k) : Math.round(mark.hPx * scale)
-    const clear = DOT_R + 5
-    const x = Math.abs(at.x - dot.x) >= clear ? at.x : dot.x + (dx > 0 ? -clear : clear)
     const spec = GLYPH_SPECS[mark.glyphKind]
+    // Clear of the dot, on its own side.
+    const clear = DOT_R + 2 + spec.w / 2
+    let x = Math.abs(at.x - dot.x) >= clear ? at.x : dot.x + (dx > 0 ? -clear : clear)
+    // Out of the notes written on the land (the datum, the water's names), to the nearer side.
+    const lift0 = lie.lift?.(dx, dy) ?? 0
+    for (const note of input.notes) {
+      const base = baseYAt(ground, x, at.near, floor, 0, lift0)
+      if (x + spec.w / 2 <= note.left || x - spec.w / 2 >= note.right || base <= note.top || base - spec.h(mark.hPx) >= note.bottom) continue
+      const left = note.left - spec.w / 2 - 1, right = note.right + spec.w / 2 + 1
+      x = Math.abs(x - left) <= Math.abs(right - x) ? left : right
+    }
+    const km = rowKm(frame, baseKm, dy)
+    const lift = lift0
     if (spec.field) {
-      return { ...mark, xPct: x / width * 100, x, base: mark.base - ground(mark.x) + ground(x), baseY: ground(x) }
+      // A field lies on the face under the crest at its depth, its row's drop added (down the slope with its row).
+      const under = Math.min(...[0, .25, .5, .75, 1].map((t) => ground(x - mark.w / 2 + t * mark.w)))
+      const depth = Math.max(MIN_FIELD_DEPTH, Math.min((mark.depth ?? 2) + Math.max(0, lift), floor - under - fieldReach(mark.glyphKind)))
+      return { ...mark, xPct: x / width * 100, x, base: under + depth, baseY: under + depth, depth, km }
     }
     const h = spec.h(hPx)
-    const base = baseYAt(ground, x, at.near, floor)
-    return { ...mark, xPct: x / width * 100, x, hPx, h, scale: 1, w: spec.w, base, baseY: base }
+    const base = baseYAt(ground, x, at.near, floor, 0, lift)
+    return { ...mark, xPct: x / width * 100, x, hPx, h, scale: 1, w: spec.w, base, baseY: base, km }
   }).filter((mark, i, all) => !mark.portrait || mark.absorbed || GLYPH_SPECS[mark.glyphKind].field
     || all.every((other, j) => j >= i || !other.portrait || GLYPH_SPECS[other.glyphKind].field || Math.abs(other.x - mark.x) >= 6))
-  return (isCity ? marks.filter((mark) => !(mark.portrait && isGenericHighrise(mark.kind, mark.glyph))) : marks).filter(inBox)
+  return (isCity ? marks.filter((mark) => !(mark.portrait && ownPlaced.has(mark.id) && isGenericHighrise(mark.kind, mark.glyph)))
+    : marks).filter(inBox)
 }

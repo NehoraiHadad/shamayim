@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
+import { loadBounds } from '../data/city/bounds'
 import { loadCity } from '../data/city/cityData'
+import { loadLandCover } from '../data/land/landData'
 import { loadFar } from '../data/city/farData'
 import { loadIsrael } from '../data/landmarks/israelData'
 import { withPlaceHomes } from '../data/landmarks/placeMarks'
@@ -84,10 +86,12 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   if (!panorama) throw new Error(`no panorama fixture for ${place.id}`)
   const mask = await loadWaterMask()
   const terrain = terrainFromPanorama(panorama, { water: mask ? waterAround(place, mask) : undefined })
-  const [source, city, far, raw] = await Promise.all([
+  const [source, city, far, bounds, cover, raw] = await Promise.all([
     loadLandmarkSource(place, signal, { israel: loadIsrael }),
     loadCity(place, signal),
     loadFar(),
+    loadBounds(),
+    loadLandCover(place, signal, 6),
     fetch(forecastUrl(place)).then((res) => {
       if (!res.ok) throw new Error(`forecast ${res.status}`)
       return res.json() as Promise<unknown>
@@ -98,8 +102,8 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   const base: Forecast = { ...mapForecast(raw), elevation: panorama.groundM, placeId: place.id, air: null, nowcast: null, normals: null, fetchedAt: 0,
     source: 'fixture', models: [] }
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
-  return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.panoramaMarks), city,
-    far, forced: WEATHER[weather] ?? null }
+  return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks), city,
+    far, forced: WEATHER[weather] ?? null, waterMask: mask, bounds, cover }
 }
 
 function Scene({ input }: { input: WorldInput }) {

@@ -285,9 +285,9 @@ describe('night', () => {
 })
 
 describe('place, marks and water', () => {
-  it('draws a village as its portrait and a city from outside (variant B)', () => {
+  it('sees every place from outside, by one builder (C5): a village and a city alike', () => {
     const shadmot = worldAt('shadmot-mehola', '2026-11-17T12:00')
-    expect(shadmot.place3).toMatchObject({ kind: 'portrait', roofs: 'mixed' })
+    expect(shadmot.place3).toMatchObject({ kind: 'outside', roofs: 'mixed' })
     const telAviv = worldAt('tel-aviv', '2026-11-17T12:00')
     expect(telAviv.place3.kind).toBe('outside')
     if (telAviv.place3.kind === 'outside') {
@@ -296,7 +296,9 @@ describe('place, marks and water', () => {
     }
   })
 
-  it.each(['shadmot-mehola', 'rosh-pina', 'tel-aviv', 'jerusalem'])('%s: what is east of the place is drawn left of the dot', (id) => {
+  // The villages' own marks are checked by the outside view's order of everything (`scene/model/outside.test.ts`): beyond
+  // the place they keep only landmarks now, and Shadmot and Rosh Pina have none east or west of them.
+  it.each(['tel-aviv', 'jerusalem', 'haifa'])('%s: what is east of the place is drawn left of the dot', (id) => {
     const world = worldAt(id, '2026-11-17T12:00')
     const { landmarks, place, terrain } = loaded.get(id)!
     const width = 375

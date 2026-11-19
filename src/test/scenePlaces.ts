@@ -38,8 +38,13 @@ export const SKYLINE_STUDY_PLACES: Place[] = [
 
 /**
  * Places the canvas scene's review stills add (docs/design/qa/canvas/): a point over the Dead Sea that is no settlement
- * (Masada's summit). Not in the baseline; their panoramas are recorded beside the baseline's.
+ * (Masada's summit), a moshav and a mid-size town. Not in the baseline; their panoramas are recorded beside the baseline's.
  */
 export const STILL_PLACES: Place[] = [
   { id: 'masada', nameHe: 'מצדה', regionHe: 'ים המלח', lat: 31.3156, lon: 35.3536, timezone: 'Asia/Jerusalem' },
+  // The density continuum (C5): a moshav of farmsteads round its ring and a mid-size town on a ridge.
+  { id: 'nahalal', nameHe: 'נהלל', regionHe: 'עמק יזרעאל', lat: 32.6897, lon: 35.1953, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'village', population: 1400 },
+  { id: 'zikhron-yaakov', nameHe: 'זכרון יעקב', regionHe: 'רמת הנדיב', lat: 32.5714, lon: 34.9522, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'town', population: 24000 },
 ]

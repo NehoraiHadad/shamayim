@@ -46,7 +46,7 @@ const cycle = (i: number, t: number, offset: number) => (t + i * 0.618034 + offs
  * The ripples at this point of the loop: each runs `drift` px downwind over its cycle, rising and falling as it goes (a
  * ripple forms, travels and smooths out), so the water moves the way the wind does and every frame keeps as many.
  */
-function running(streaks: readonly Streak[], t: number, drift: number, offset: number): Streak[] {
+export function running(streaks: readonly Streak[], t: number, drift: number, offset: number): Streak[] {
   return streaks.map((s, i) => {
     const u = cycle(i, t, offset)
     return { ...s, x: s.x + drift * (u - 0.5), alpha: s.alpha * (0.3 + 0.7 * Math.sin(Math.PI * u)) }
@@ -54,7 +54,7 @@ function running(streaks: readonly Streak[], t: number, drift: number, offset: n
 }
 
 /** The glint's sparks coming and going: each flashes once or twice a loop at its own seeded moment. */
-function twinkling(sparks: readonly Streak[], t: number): Streak[] {
+export function twinkling(sparks: readonly Streak[], t: number): Streak[] {
   return sparks.map((s, i) => {
     const k = 1 + (i % 2)
     const u = cycle(i, t * k, 0.25)

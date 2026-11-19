@@ -1,6 +1,6 @@
 import type { Place } from '../config/place'
 import { homeCluster } from '../data/city/homeCluster'
-import { outsideFrame, outsideSkyline, seenFromOutside } from '../data/city/outsideView'
+import type { BoundsFile } from '../data/city/bounds'
 import type { CityResult } from '../data/city/types'
 import { clusterRoofs, clusterStyle } from '../data/city/villageStyle'
 import { hashId } from '../data/landmarks/hash'
@@ -11,11 +11,14 @@ import { desertSettlement, settlementStyle } from '../data/landmarks/settlement'
 import type { Landmark } from '../data/landmarks/types'
 import { noteBoxes, sceneNotes } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
+import type { LandCover } from '../data/land/landData'
+import type { WaterMask } from '../data/water/waterMask'
 import { LABEL_H, labelBox, overlaps, placeLabel, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, marksOf } from './marks'
+import { outsidePlace } from './outside'
 import { composePortrait, portraitHalf } from './portrait'
 import { seaSpan } from './seaLine'
-import type { OutsideView, PlacePortrait, WorldLabels, WorldMark } from './types'
+import type { CoastalSea, OutsideView, PlacePortrait, WorldLabels, WorldMark } from './types'
 
 /**
  * The house style and roofs of a portrait. Roofs only from evidence about the roofs (5+ mapped roof shapes, the majority
@@ -42,22 +45,31 @@ export interface PlaceInput {
   width: number
   /** The place's height (m): the label it keeps clear of, and the "פני הים" datum below sea level. */
   elevation: number
+  /** The places' own boundaries (C5: the outside view's frame is cut at the place's). */
+  bounds?: BoundsFile | null
+  /** The large water (C5: a coastal place's own sea seen from outside). */
+  waterMask?: WaterMask | null
+  /** The land cover (C5: every place's built cells and trees). */
+  cover?: LandCover | null
 }
 
 /**
- * The place and its marks (stage C4). A city (its homes read as a large town, or 8+ towers within its reach) over a
- * panorama is seen from outside (variant B: mass and spires, `outsideView.ts`; drawn at C5); any other place is its
- * portrait round the dot (`portrait.ts`). The marks by the portrait and outside rules (`marks.ts`); the height label
+ * The place and its marks (stages C4–C5). Every place over a panorama is seen from outside and built from its own data
+ * by one builder (`outside.ts`, owner 2026-11-19): its built cells at their real heights (houses with roofs where low and
+ * sparse, blocks where dense, the jagged mass with spires where high), its trees, towers and marks, by true east–west and
+ * north–south. Only the drawn stand-in (no panorama, no positions) keeps the composed portrait round the dot
+ * (`portrait.ts`). The marks by the portrait and outside rules (`marks.ts`); the height label
  * next to the dot, clear of the marks; the portrait composed round them both. Independent of the hour (lit windows
  * are `night.litShare`). No longer the SVG scene's `hillScene`: the SVG scene keeps its own layout until C9.
  */
 export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideView; marks: WorldMark[]; labels: WorldLabels;
-  ownSkyline: boolean } {
+  ownSkyline: boolean; coastalSea: CoastalSea | null } {
   const { place, terrain, city, width, elevation } = input
   const landmarks = [...input.landmarks]
   const reachKm = portraitReach(city?.clusters)
   const towers = city?.raster?.towers ?? city?.towers ?? []
-  const outside = Boolean(terrain.sightAt) && seenFromOutside(place, landmarks, towers, reachKm)
+  // One builder for every place over a panorama (owner, 2026-11-19, C5): seen from outside, built from its own data.
+  const outside = Boolean(terrain.sightAt)
   const rounded = Math.round(elevation)
   const label = { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 }
   const datum = elevation < 0
@@ -71,12 +83,15 @@ export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideVie
   const ownSkyline = Boolean(city?.raster && terrain.groundAt && terrain.angleY && terrain.sightAt)
   const style = portraitStyle(place, landmarks, city)
   const known = Boolean(homeCluster([...city?.clusters ?? []]))
-  const frame = outside ? outsideFrame(city?.clusters, reachKm, centerX, width, true) : null
-  const marks = marksOf({ place, terrain, landmarks, width, dot, reachKm, homeHalf: portraitHalf(reachKm, known), style: style.style,
-    notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null, outside: frame ? { frame, isCity: true } : null })
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
-  const skyline = frame ? outsideSkyline({ variant: 'b', place, towers, landmarks, raster: city?.raster ?? undefined, frame,
-    ground, floor, width }) : null
+  // A city seen from outside (C5): its own frame, boundary and slope, its mass and spires, the towers beyond, its sea.
+  const view = outside ? outsidePlace({ place, terrain, landmarks, city, width, centerX, reachKm, ground, floor,
+    bounds: input.bounds, mask: input.waterMask, cover: input.cover }) : null
+  const frame = view?.frame ?? null
+  const skyline = view?.skyline ?? null
+  const marks = marksOf({ place, terrain, landmarks, width, dot, reachKm, homeHalf: portraitHalf(reachKm, known), style: style.style,
+    notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
+    outside: view ? { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm } : null })
   // The portrait first (round the dot, out of the notes and the marks among its roofs), then the height label: under the
   // houses that stand over it (as the SVG scene's settlement label), clear of the marks; the houses and trees it would
   // cover give way to it. A place with no houses of its own (a point in a crater, a summit) has no portrait.
@@ -89,16 +104,18 @@ export function placeOf(input: PlaceInput): { place3: PlacePortrait | OutsideVie
   const top = label.below ? terrain.seaY + 6
     : Math.min(VISIBLE_BOTTOM - 1 - LABEL_H, Math.max(dot.y + 7, ...over.map((h) => h.base + 2)))
   const obstacles = [...marks.filter((m) => m.plane !== 'far').map(markBox),
-    ...(skyline?.towers ?? []).map((t) => ({ left: t.x - t.w / 2, right: t.x + t.w / 2, top: t.baseY - t.h, bottom: t.baseY }))]
+    ...[...skyline?.towers ?? [], ...view?.beyond ?? []].map((t) => ({ left: t.x - t.w / 2, right: t.x + t.w / 2, top: t.baseY - t.h, bottom: t.baseY }))]
   const spot = placeLabel({ dot, text: label.text, width, top, minTop: label.below ? terrain.seaY + 2 : 0, obstacles })
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y }, notes }
-  if (frame && skyline) {
-    return { marks, labels, ownSkyline, place3: { kind: 'outside', dot, reachKm, seed, skyline, frame } }
+  if (view && frame && skyline) {
+    return { marks, labels, ownSkyline, coastalSea: view.sea, place3: { kind: 'outside', dot, reachKm, seed, skyline, frame,
+      bounds: view.bounds, topM: view.topM, beyond: view.beyond, baseKm: view.baseKm, trees: view.trees, fabric: view.fabric,
+      roofs: style.roofs } }
   }
   const text = labelBox(labels.height)
   const clear = (b: { left: number; right: number; top: number; bottom: number }) => !overlaps(b, text, 0.5)
   const plan = { halfPx: composed.halfPx,
     houses: composed.houses.filter((h) => clear({ left: h.x, right: h.x + h.w, top: h.base - h.h - (h.roof === 'tile' ? 2.2 : 1), bottom: h.base })),
     trees: composed.trees.filter((t) => clear({ left: t.x - t.w / 2, right: t.x + t.w / 2, top: t.base - t.h, bottom: t.base })) }
-  return { marks, labels, ownSkyline, place3: { kind: 'portrait', dot, reachKm, seed, ...style, plan } }
+  return { marks, labels, ownSkyline, coastalSea: null, place3: { kind: 'portrait', dot, reachKm, seed, ...style, plan } }
 }
