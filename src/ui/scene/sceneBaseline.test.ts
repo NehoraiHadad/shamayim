@@ -14,6 +14,8 @@ import { loadLandmarkSource } from '../../data/landmarks/useLandmarks'
 import { mapForecast } from '../../data/openMeteo/mapForecast'
 import { unpackPanorama, type StoredPanorama } from '../../data/terrain/panorama'
 import { terrainFromPanorama } from '../../data/terrain/panoramaTerrain'
+import { waterAround } from '../../data/water/waterInView'
+import { waterMask, type WaterMaskFile } from '../../data/water/waterMask'
 import { SKYLINE_TO_KM } from '../../data/city/skylineRay'
 import { rollForward } from '../../domain/now'
 import type { Forecast, LocalTime } from '../../domain/types'
@@ -48,6 +50,10 @@ export function normalizeIds(html: string) {
 const panoramaOf = (id: string) => unpackPanorama(JSON.parse(
   fs.readFileSync(path.resolve(__dirname, `../../test/fixtures/scene/${id}.panorama.json`), 'utf8')) as StoredPanorama)!
 
+const mask = waterMask(JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../public/data/land/water.json'), 'utf8')) as WaterMaskFile)
+const terrainOf = (place: { id: string; lat: number; lon: number }) =>
+  terrainFromPanorama(panoramaOf(place.id), { water: waterAround(place, mask) })
+
 const forecastFor = (placeId: string): Forecast => ({ ...mapForecast(live), placeId, air: null, nowcast: null, normals: null,
   fetchedAt: 0, source: 'fixture', models: [] })
 
@@ -65,7 +71,7 @@ afterAll(() => { vi.unstubAllGlobals() })
 describe.each(SCENE_PLACES)('scene baseline: $id', (place) => {
   it('renders the same scene at four hours', async () => {
     const signal = new AbortController().signal
-    const terrain = terrainFromPanorama(panoramaOf(place.id))
+    const terrain = terrainOf(place)
     const source = await loadLandmarkSource(place, signal, { israel: loadIsrael })
     const landmarks = withPlaceHomes(place, source.panoramaMarks)
     const city = await loadCity(place, signal)
@@ -87,7 +93,7 @@ describe.each(SCENE_PLACES)('scene baseline: $id', (place) => {
   })
 
   it('places the far city the same way', async () => {
-    const terrain = terrainFromPanorama(panoramaOf(place.id))
+    const terrain = terrainOf(place)
     const far = await loadFar()
     expect(far).not.toBeNull()
     const round = (value: unknown) => JSON.stringify(value, (_, v: unknown) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)

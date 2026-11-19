@@ -1,5 +1,4 @@
 import { beyondPortrait, portraitReach, skylineIsCity } from '../../../data/landmarks/portrait'
-import { screenSide, SEA_LABEL_SIDE } from '../../../domain/camera'
 import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
 import { composeCity } from '../../../data/city/fabric'
@@ -13,7 +12,9 @@ import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
 import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
+import { noteBoxes, sceneNotes } from '../../../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
+import { seaSpan } from '../seaLine'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
@@ -29,7 +30,8 @@ interface Input {
   litShare: number
   city?: HomeCityData | null
   skyline?: SkylineData | null
-  showSea?: boolean
+  /** The sea-level datum is drawn (the place is below sea level): its note is kept clear. */
+  datum?: boolean
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
 }
@@ -70,7 +72,7 @@ const CITY_TRUE = typeof window !== 'undefined' && Boolean(import.meta.env?.DEV)
   && new URLSearchParams(window.location.search).has('citytrue')
 
 export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city,
-  skyline: givenSkyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
+  skyline: givenSkyline = skylineData(place, width, city?.raster, terrain, city?.towers), datum = false }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
@@ -86,10 +88,9 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // The data skyline's faces (built squares at their true angle, on the vertical stretch) read as grey pillars and
   // dashes: only its towers stay. Far towns are drawn by the far city (`FarCity`).
   const skyline = givenSkyline && !isCity ? beyondPortrait(givenSkyline, Infinity) : givenSkyline
-  const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
-  const right = seaOn === 'left' ? width * .06 + 44 : width * (seaOn === 'right' ? .94 : SEA_LABEL_SIDE === 'right' ? .73 : .27) + (seaOn || SEA_LABEL_SIDE === 'right' ? 0 : 44)
-  // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
-  const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
+  // The time readout is outside the drawing. The notes on the land (the datum, the water's names) are kept clear.
+  const notes = sceneNotes(terrain, datum, width, datum ? seaSpan(terrain.nearPoints, terrain.seaY) : undefined)
+  const keepOut = noteBoxes(notes)
   const input = mode && { style: mode.style, size: mode.size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,
     centerX, centerY, seed: mode.kind === 'village' ? mode.seed : hashId(place.id),
     keepOut: mode.kind === 'template' ? [] : keepOut }
@@ -103,8 +104,8 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     return inSkylineReach(distanceOf(place, mark)) && rasterTowers.some(tower => sameTower(mark, tower))
   }).map(mark => mark.id) : [])
   const projected = placed?.filter(mark => !replaced.has(mark.id)) ?? placeMarks(place,
-    { ...terrain, seaInView: showSea }, landmarks.filter(mark => !replaced.has(mark.id)), width,
-    terrain.sightAt ? undefined : homeHalf, cityMode, isCity ? undefined : { reachKm })
+    terrain, landmarks.filter(mark => !replaced.has(mark.id)), width,
+    terrain.sightAt ? undefined : homeHalf, cityMode, isCity ? undefined : { reachKm }, keepOut)
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
   const candidates = cityMode ? projected.filter(mark => mark.layer !== 'near' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
   // Mapped houses and their absorbed marks follow the ridge at their projected positions.
@@ -163,5 +164,5 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const citySkyline = skyline && skylineTowers && {
     data: skyline, slabs: skylineTowers.slabs, centerX, homeHalf, seed: hashId(place.id),
   }
-  return { ground, farGround, settlement, cityTowers, citySkyline, neighbours, centerY, marks, label: labelSpot, labels }
+  return { ground, farGround, settlement, cityTowers, citySkyline, neighbours, centerY, marks, label: labelSpot, labels, notes }
 }

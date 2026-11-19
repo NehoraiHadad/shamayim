@@ -41,7 +41,7 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
    in `placeMarks`/`hillScene`; hand-set `curated.x` removed; place points moved to village centres where they are off
    (from the built-up raster). Checked on the six baseline places and a handful of others; Shadmot reviewed with the
    owner.
-3. **Water (true).** The Mediterranean, the Kinneret and the Dead Sea where they are really in view, at their bearing
+3. **Water (true)** (done). The Mediterranean, the Kinneret and the Dead Sea where they are really in view, at their bearing
    and distance, from WorldCover's water class (the DEM sees the lakes as low land; today only a sea within 8 km of a
    coast is drawn). The dashed "פני הים" line below sea level stays: it is a datum, not water.
 4. **Loading stand-in.** The hand-drawn cross-section that pops to the real land: replace with a quiet placeholder
@@ -81,7 +81,25 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
   from the 2026-11-19 extract without a rebuild (`scripts/landmarks/fame.ts`; 226 rows); the monthly build keeps it.
   Cache key `shamayim:landmarks:v7`. Jerusalem's satellite groves go when the map names a grove it then does not draw
   (Gethsemane): to look at with vegetation.
-- Next: stage 3 (water), stage 4 (loading stand-in, as an animation: mist / a ridge line while the land loads; with it,
+- Stage 3 done (2026-11-19, stills: `qa/true-scene/stage3`, 11:00 and 16:30, and 07:30 for the glint). Water is drawn
+  where the line of sight really reaches it. **Data:** `public/data/land/water.json` (~11 kB, `scripts/land/water.ts`):
+  WorldCover's water class from the land cells, coarsened to ~250 m, bodies under 8 km² dropped, named (ים, כנרת, ים
+  המלח with its ponds, מפרץ אילת); open sea past the mask's west edge. **Domain** (`src/data/water/`, for the canvas
+  layer to feed from): `waterInView` walks each panorama ray's stored ground samples (their `seen` flag is the line of
+  sight); the first seen sample on a body starts its water, which runs on over the body (land narrower than 2.5 km does
+  not break it) to its last seen sample — the far shore, or the sea's own horizon. Neighbouring rays make a span
+  (`{from, to, fromAzimuth, toAzimuth, distanceKm, kind, name, edges}`, screen order; under 4 rays or 1 px deep is a
+  glimpse, left out). `glint.ts`: the light's path straight under the sun (or the moon by night, by phase) when it is
+  over the water and above the land in its direction, its strength by Cox–Munk wave slopes (bright under a low sun,
+  gone at noon). `sceneNotes.ts`: the water's names and the datum's note, which marks keep clear of. **Drawn** (SVG,
+  `Water.tsx`): a flat band from near edge to far edge in the sky's tone, on the far plane beyond 5 km, else the near.
+  The old rule (sea within 8 km of the coast along a ray; and the "פני הים" line at any place under 50 m) is gone; the
+  dashed "פני הים" datum stays, only below sea level. Now: Tiberias sees the Kinneret (east, 2–11 km), Ein Gedi and
+  Masada the Dead Sea (east and south-east), Haifa (Hadar) the port and the bay's south end (ENE–E, 2–3 km; the open
+  sea is behind the Carmel); Tel Aviv's own ground (a 25 m crest 0.9 km west of the point) hides the sea, Jerusalem
+  (Mount of Olives) and Rosh Pina (a ridge 1.4 km south) see no water, nor Shadmot Mehola. Tiberias and Ein Gedi
+  joined the baseline places. Wind for the glint is a fixed 5 m/s until the weather layer drives it.
+- Next: stage 4 (loading stand-in, as an animation: mist / a ridge line while the land loads; with it,
   remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
 
 ## Rendering: the current hand, enriched, in canvas (owner, 2026-11-19)

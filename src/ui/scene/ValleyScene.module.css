@@ -55,6 +55,19 @@
   transition: fill var(--d6) var(--ease-in-out);
 }
 
+/* Still water mirrors the sky: the far part the sky at the horizon, nearer a little of the sky above it and the deep
+   water's own darkness; paled by the haze like the land on its plane. */
+.water {
+  fill: color-mix(in oklab, color-mix(in oklab, color-mix(in oklab, var(--sky-horizon), var(--sky-mid) var(--water-sky)),
+    var(--ridge-far) var(--water-deep)), var(--haze-air) calc(var(--water-fade) * 70%));
+  transition: fill var(--d6) var(--ease-in-out);
+}
+.waterFar { --water-sky: 15%; --water-deep: 14%; --water-fade: var(--far-fade, 0); }
+.waterNear { --water-sky: 35%; --water-deep: 24%; --water-fade: var(--near-fade, 0); }
+/* The light's own colour on the water: the sun's (gold when it is low), or the moon's silver. */
+.glint { fill: var(--sun-light, #FFF4D6); }
+.glint[data-light='moon'] { fill: #E6ECF2; }
+
 .mistObject { overflow: visible; }
 .mist {
   width: 100%;
@@ -67,7 +80,7 @@
 }
 
 /* Heavy haze (or snow lying where the place is) turns the land pale, so labels over it switch to dark ink. */
-.scene[data-haze='heavy'] :is(.depth, .seaLabel) {
+.scene[data-haze='heavy'] :is(.depth, .seaLabel, .waterLabel) {
   color: var(--ridge-near);
 }
 
@@ -122,7 +135,8 @@
 }
 
 .depth,
-.seaLabel {
+.seaLabel,
+.waterLabel {
   position: absolute;
   font-size: var(--text-xs);
   font-weight: 600;
@@ -137,7 +151,13 @@
   text-shadow: 0 0 2px var(--ridge-near), 0 0 4px var(--ridge-near);
 }
 
-.seaLabel { right: 27%; opacity: 0.42; }
+.seaLabel { opacity: 0.42; }
+/* A water body's name, over its far edge: a note like the datum's, a little firmer (it names what is drawn). */
+.waterLabel {
+  opacity: 0.55;
+  /* A halo in the near land's tone, as the elevation figure has: the name reads over the water and the shore alike. */
+  text-shadow: 0 0 2px var(--ridge-near), 0 0 4px var(--ridge-near);
+}
 
 
 /*

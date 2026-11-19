@@ -109,13 +109,21 @@ describe('scene terrain from a panorama', () => {
     expect(terrain.seaY).toBeGreaterThan(terrain.farPoints.reduce((top, [, y]) => Math.min(top, y), 128))
   })
 
-  it('finds the sea on the side whose horizon lies at sea level', () => {
-    // A coast: sea (0 m) west of the place, land rising gently to the east.
+  it('finds the sea where the water in view is the sea, on its side', () => {
+    // A coast: sea (0 m) west of the place, land rising gently to the east; the water mask says the same.
+    const sea = (west: boolean) => ({ bodies: [{ name: 'ים', kind: 'sea' as const }],
+      bodyAlong: (_: number, az: number) => (Math.sin(az / DEG) < 0) === west ? 0 : null })
     const coast = computePanorama((d, az) => (Math.sin(az / DEG) < 0 ? 0 : 15 + 20 * d), 15)
-    const t = terrainFromPanorama(coast)
+    const t = terrainFromPanorama(coast, { water: sea(true) })
     expect({ visible: t.seaInView, side: t.seaSide }).toEqual({ visible: true, side: 'west' })
-    const mirrored = terrainFromPanorama(computePanorama((d, az) => (Math.sin(az / DEG) > 0 ? 0 : 15 + 20 * d), 15))
+    expect(t.water!.map((span) => span.name)).toEqual(['ים'])
+    // West is on the right of the true view facing south.
+    expect(t.water![0].from).toBeGreaterThan(375 / 2)
+    const mirrored = terrainFromPanorama(computePanorama((d, az) => (Math.sin(az / DEG) > 0 ? 0 : 15 + 20 * d), 15),
+      { water: sea(false) })
     expect(mirrored.seaSide).toBe('east')
+    // Without the mask, no water is guessed from the heights.
+    expect(terrainFromPanorama(coast).seaInView).toBe(false)
   })
 
   it('lays snow down the slopes to the snow line, and none on ridges below it', () => {

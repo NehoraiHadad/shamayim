@@ -1,6 +1,6 @@
-import { screenSide, SEA_LABEL_SIDE } from '../../domain/camera'
 import { useId, useMemo, type CSSProperties } from 'react'
 import { skylineData } from '../../data/city/skylineData'
+import { waterGlints, waterLayer } from '../../data/water/glint'
 import { clockOf, datePart } from '../../domain/time'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
@@ -15,6 +15,8 @@ import { Sun } from './Sun'
 import { useSceneSun } from './useSceneSun'
 import { useMoonlight } from './useMoonlight'
 import { useWidth } from './useWidth'
+import { Water } from './Water'
+import { waterLight } from './waterLight'
 import { sunAt, sunOverRidge, sunPosition } from './sunPath'
 import { FarCity } from './marks/city/FarCity'
 import { HillMarks } from './marks/HillMarks'
@@ -51,8 +53,18 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
   const elevationText = `${elevation < 0 ? `−${Math.abs(elevation)}` : elevation} מ׳`
-  const showSea = forecast.elevation < 50 || terrain.seaInView
-  const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
+  // The sea-level datum is a note on the land below sea level; water in view is drawn as water (`Water`).
+  const datum = below
+  const water = terrain.water
+  const light = useMemo(() => water?.length ? waterLight(at, place, terrain, skyline, cloudCover) : null,
+    [water, at, place, terrain, skyline, cloudCover])
+  const glints = useMemo(() => water && light ? waterGlints(water, light.light, light.lit, terrain.camera) : [],
+    [water, light, terrain.camera])
+  const waterOn = (layer: 'near' | 'far') => {
+    const spans = water?.filter((span) => waterLayer(span) === layer) ?? []
+    return spans.length ? <Water spans={spans} layer={layer} moon={light?.moon}
+      glints={glints.filter((glint) => waterLayer(water![glint.span]) === layer)} /> : undefined
+  }
   // The hand-drawn valley has no sampled heights: its ridges are scaled from the place's depth below the sea line.
   const snowPlaceM = terrain.drawn ? forecast.elevation : null
   const night = markLife.litShare > 0
@@ -61,10 +73,10 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const towers = raster?.towers ?? city?.towers
   const citySkyline = useMemo(() => skylineData(place, sceneWidth, raster, terrain, towers),
     [place, sceneWidth, raster, terrain, towers])
-  const hill = useMemo(() => hillScene({ place, terrain, landmarks, city, skyline: citySkyline, showSea, width: sceneWidth,
+  const hill = useMemo(() => hillScene({ place, terrain, landmarks, city, skyline: citySkyline, datum, width: sceneWidth,
     litShare: markLife.litShare,
     label: { text: elevationText, below } }),
-  [place, terrain, landmarks, city, citySkyline, showSea, sceneWidth, markLife.litShare, elevationText, below])
+  [place, terrain, landmarks, city, citySkyline, datum, sceneWidth, markLife.litShare, elevationText, below])
   const moonlit = useMoonlight(ridgeLight, at, place, skyline, moonCloud, air.haze.farFade)
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, sunSkyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
@@ -97,13 +109,13 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <Sun point={disc} travel={day ? (t: number) => sunAt(t, day.sunrise, day.sunset, place, skyline) : null} cloudCover={cloudCover} coin={air.sunCoin}
         look={look} />
       <FarLand terrain={terrain} lighting={ridgeLit} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
-        snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor}
+        snowPlaceM={snowPlaceM} mist={mist} mistColor={mistColor} water={waterOn('far')}
         city={terrain.farElevations?.length ? (plainClip) => <FarCity plainClip={plainClip} place={place} width={sceneWidth} ground={hill.ground}
           farGround={hill.farGround} terrain={terrain} night={night} hideFar={markLife.hideFar}
           visibilityKm={visibilityKm} hasSkyline={Boolean(hill.citySkyline)} /> : undefined} />
       <HillMarks layer="far" marks={hill.marks} labels={hill.labels} settlement={null} width={sceneWidth} ground={hill.farGround} sunX={null}
         night={night} life={markLife} visibilityKm={visibilityKm} readout={Boolean(readout)} />
-      <NearLand terrain={terrain} showSea={showSea} snow={snow} snowPlaceM={snowPlaceM}
+      <NearLand terrain={terrain} datum={datum} water={waterOn('near')} snow={snow} snowPlaceM={snowPlaceM}
         lighting={lighting} ridgeLit={ridgeLit} />
       <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
         citySkyline={hill.citySkyline} visibilityKm={visibilityKm}
@@ -118,14 +130,10 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       >
         <bdi>{elevationText.replace(' מ׳', '')}</bdi> מ׳
       </span>
-      {showSea && (
-        <>
-          <span className={styles.seaLabel} style={{ top: terrain.seaY - 14,
-            ...(seaOn === 'left' ? { left: '6%', right: 'auto' }
-              : seaOn === 'right' ? { right: '6%' } : SEA_LABEL_SIDE === 'right' ? { right: '27%' } : { left: '27%', right: 'auto' }) }}
-            aria-hidden="true">פני הים</span>
-        </>
-      )}
+      {hill.notes.map((note) => (
+        <span key={note.text} className={note.kind === 'datum' ? styles.seaLabel : styles.waterLabel}
+          style={{ left: `${(note.left / sceneWidth * 100).toFixed(2)}%`, top: note.top }} aria-hidden="true">{note.text}</span>
+      ))}
       <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
         onNow={onNow} />
     </figure>

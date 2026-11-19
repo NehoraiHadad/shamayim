@@ -1,5 +1,5 @@
-import { screenSide, SEA_LABEL_SIDE } from '../../domain/camera'
 import type { Place } from '../../config/place'
+import type { NoteBox } from '../terrain/sceneNotes'
 import type { SceneTerrain } from '../terrain/terrain'
 import { isLandmark } from './fame'
 import { projectMark, type Portrait } from './markProjection'
@@ -69,8 +69,12 @@ function legacyHomeHalf(marks: Landmark[]) {
   return homes ? templateHalf(settlementSize(homes)) : 7
 }
 
+/**
+ * `notes`: the boxes of the notes written on the land (`sceneNotes`: the sea-level datum, the water's names), in px at
+ * the real width; a mark standing in one moves aside, or is left out.
+ */
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
-  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait): PlacedMark[] {
+  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait, notes: readonly NoteBox[] = []): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
@@ -138,19 +142,20 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     // What stands among the roofs keeps its spot: a near building spread onto it gives way.
     .filter((item) => inside.includes(item) || item.layer !== 'near' || FIXED[item.mark.kind] !== undefined
       || inside.every((other) => Math.abs(other.x - item.x) >= (other.width + item.width) / 2))
-  const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
-  const labelRight = seaOn === 'left' ? 375 * .06 + 44 * scale
-    : seaOn === 'right' ? 375 * .94 : SEA_LABEL_SIDE === 'right' ? 375 * .73 : 375 * .27 + 44 * scale
-  const labelLeft = labelRight - 44 * scale
+  const boxes = notes.map((box) => ({ ...box, left: box.left * scale, right: box.right * scale }))
   const clearLabel = spaced.flatMap((item) => {
     // The place's own portrait is composed round the dot and stays: the note gives way to it, not the reverse.
-    if (!terrain.seaInView || item.portrait) return [item]
+    if (item.portrait) return [item]
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const base = item.plain?.baseY ?? groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const top = item.plain?.visibleTopY ?? base - (item.plain?.hPx ?? markHeight(item.mark.heightM, item.layer === 'near' ? 'near' : 'far'))
-    if (top >= terrain.seaY - 2 || base <= terrain.seaY - 14) return [item]
-    const shifted = avoid(item, [labelLeft, labelRight], scale)
-    return shifted && (!item.plain || shifted === item) ? [shifted] : []
+    let moved: Candidate | null = item
+    for (const box of boxes) {
+      if (!moved || top >= box.bottom || base <= box.top) continue
+      const shifted: Candidate | null = avoid(moved, [box.left, box.right], scale)
+      moved = shifted && (!item.plain || shifted === moved) ? shifted : null
+    }
+    return moved ? [moved] : []
   })
   return fewLandmarks(clearLabel).flatMap((item) => {
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints

@@ -19,10 +19,12 @@ interface Props {
   mist: number
   mistColor: string
   city?: (plainClip: string) => ReactNode
+  /** The water on the far plane (`Water`). */
+  water?: ReactNode
 }
 
 /** The far ridge (the Gilead): its sun light or plain fill, heat shimmer, snow cap, and the morning mist before it. */
-export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, mist, mistColor, city }: Props) {
+export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, mist, mistColor, city, water }: Props) {
   const plainClip = useId()
   const shimmer = heat > 0 ? `url(#${shimmerId})` : undefined
   return (
@@ -34,6 +36,7 @@ export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, 
         : <path d={terrain.far} className={styles.far} filter={shimmer} />}
       {snow && <SnowCap d={terrain.far} snow={snow} elevations={terrain.farElevations} placeM={snowPlaceM}
         edge={terrain.snowEdge?.('far', snow.lineM)} />}
+      {water}
       {city && <>
         <clipPath id={plainClip}><path d={terrain.far} /></clipPath>
         {city(plainClip)}

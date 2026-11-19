@@ -1,4 +1,5 @@
 import { leftAzimuth, SCENE_CAMERA, wrap180, type Camera } from '../../domain/camera'
+import { seaSideOf, waterInView, type WaterLookup } from '../water/waterInView'
 import { anglePx } from './angleScale'
 import { apparentAngle, type HorizonPoint, type Panorama } from './panorama'
 import { pointsToPath } from './profile'
@@ -12,8 +13,6 @@ type Pt = [number, number]
 const MIDDLE_Y = 96
 /** ...unless the lowest near ridge (looking down from a hilltop) would then fall below this y (under the sheet). */
 const LOWEST_Y = 110
-/** A far horizon this share of the way along a side, lying at sea level, means the sea is in view on that side. */
-const SEA_SHARE = 0.2
 
 const median = (values: number[]) => {
   if (!values.length) return Number.NaN
@@ -21,25 +20,12 @@ const median = (values: number[]) => {
   return sorted[Math.floor(sorted.length / 2)]
 }
 
-/** Sea within this distance (km) along a ray counts as sea in view (a city's own ground may hide its surface). */
-const SEA_KM = 8
-/** A ray that reaches the sea (the DEM's sea floor is raised to the surface in `fetchPanorama`) close enough to see it. */
-const atSea = (ray: Panorama['rays'][number]) => ray.seaKm !== null && ray.seaKm <= SEA_KM
-
-/** Which side the sea is on: west or east rays that reach it (by azimuth, whatever the screen order). */
-function seaSideOf(p: Panorama): 'west' | 'east' | null {
-  const share = (rays: Panorama['rays']) => rays.filter(atSea).length / rays.length
-  const west = share(p.rays.filter((ray) => wrap180(ray.azimuth - 180) > 1e-6))
-  const east = share(p.rays.filter((ray) => wrap180(ray.azimuth - 180) < -1e-6))
-  if (Math.max(west, east) < SEA_SHARE) return null
-  return west >= east ? 'west' : 'east'
-}
-
 /**
  * The scene's land from a horizon panorama. Across, each ray sits at its azimuth's x (the sky's own mapping); up, each
  * ridge at its angle on the sky's scale (`anglePx`) above eye level, which stands at `horizonY`.
  */
-export function terrainFromPanorama(given: Panorama, view: { camera?: Camera; horizonY?: number } = {}): SceneTerrain {
+export function terrainFromPanorama(given: Panorama,
+  view: { camera?: Camera; horizonY?: number; water?: WaterLookup | null } = {}): SceneTerrain {
   const p = inViewOrder(given, view.camera ?? SCENE_CAMERA)
   const n = p.rays.length
   const xOf = (i: number) => (375 * i) / (n - 1)
@@ -54,12 +40,13 @@ export function terrainFromPanorama(given: Panorama, view: { camera?: Camera; ho
   const farAngles = smooth(p.rays.map((ray) => Math.max(ray.far.angle, ray.near.angle))).map((a, i) => Math.max(a, nearAngles[i]))
   const nearPoints = nearAngles.map((angle, i): Pt => [round(xOf(i)), round(yOf(angle))])
   const farPoints = farAngles.map((angle, i): Pt => [round(xOf(i)), round(yOf(angle))])
-  const seaSide = seaSideOf(p)
-  // The sea line: on a coast, the sea horizon; below sea level, where sea level meets the slopes around (each slope
-  // taken as straight from the eye up to its crest); otherwise eye level.
-  const seaRays = p.rays.filter(atSea)
+  // The water really in view (WorldCover's water along the rays, where the line of sight reaches it).
+  const water = view.water ? waterInView(p, view.water, xOf, yOf) : []
+  const seaSide = seaSideOf(water)
+  // The sea line: with the sea in view, its horizon; below sea level, where sea level meets the slopes around (each
+  // slope taken as straight from the eye up to its crest); otherwise eye level.
   const below = p.rays.filter((ray) => ray.far.elevation > 0 && p.eyeM < 0)
-  const seaY = seaSide ? median(seaRays.map((ray) => yOf(Math.max(apparentAngle(0, ray.seaKm!, p.eyeM), ray.far.elevation <= 1 ? ray.far.angle : -90))))
+  const seaY = seaSide ? median(water.filter((span) => span.kind === 'sea').flatMap((span) => span.edges.map((edge) => edge.farY)))
     : below.length ? median(below.map((ray) => yOf(ray.far.angle * (0 - p.eyeM) / (ray.far.elevation - p.eyeM))))
       : horizonY
   const ground: HorizonPoint = { angle: apparentAngle(p.groundM, 0.4, p.eyeM), elevation: p.groundM, distance: 0 }
@@ -89,6 +76,7 @@ export function terrainFromPanorama(given: Panorama, view: { camera?: Camera; ho
     seaY: Number.isFinite(seaY) ? seaY : horizonY,
     seaInView: seaSide !== null,
     seaSide,
+    water,
     nearPoints,
     farPoints,
     nearElevations: p.rays.map((ray) => ray.near.elevation),

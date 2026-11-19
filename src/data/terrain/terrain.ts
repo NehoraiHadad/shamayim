@@ -3,6 +3,8 @@ import type { Place } from '../../config/place'
 import type { Camera } from '../../domain/camera'
 import type { Sight } from '../landmarks/project'
 import type { SeenPoint } from './visibility'
+import { waterAround, type WaterLookup, type WaterSpan } from '../water/waterInView'
+import { loadWaterMask, type WaterMask } from '../water/waterMask'
 import { terrainFromPanorama } from './panoramaTerrain'
 import { fetchPanorama } from './fetchPanorama'
 import {
@@ -22,8 +24,11 @@ export interface SceneTerrain {
   centerLeft: string
   centerY: number
   seaY: number
+  /** The sea (not a lake) is in view, on this side (`water`). */
   seaInView: boolean
   seaSide: 'west' | 'east' | null
+  /** Large water really in view, at its true bearing and distance (panorama only, once the water mask is known). */
+  water?: WaterSpan[]
   nearPoints: Pt[]
   farPoints: Pt[]
   /** Height (m) of the ridge crest at each of the points' x, evenly across the scene (sampled terrain only). */
@@ -114,8 +119,8 @@ function writePanorama(placeId: string, panorama: Panorama): void {
   }
 }
 
-export function terrainForPlace(placeId: string, panorama: Panorama | null): SceneTerrain {
-  if (panorama) return terrainFromPanorama(panorama)
+export function terrainForPlace(placeId: string, panorama: Panorama | null, water: WaterLookup | null = null): SceneTerrain {
+  if (panorama) return terrainFromPanorama(panorama, { water })
   return placeId === 'shadmot-mehola' ? SHADMOT : GENERIC_TERRAIN
 }
 
@@ -134,5 +139,12 @@ export function useTerrain(place: Place): SceneTerrain {
     }).catch(() => undefined)
     return () => controller.abort()
   }, [place])
-  return useMemo(() => terrainForPlace(place.id, panorama), [place.id, panorama])
+  // The water mask is one small file for every place: the land is drawn at once, its water when the mask is in.
+  const [water, setWater] = useState<WaterMask | null>(null)
+  useEffect(() => {
+    let live = true
+    loadWaterMask().then((mask) => { if (live) setWater(mask) }).catch(() => undefined)
+    return () => { live = false }
+  }, [])
+  return useMemo(() => terrainForPlace(place.id, panorama, water && waterAround(place, water)), [place, panorama, water])
 }
