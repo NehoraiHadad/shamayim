@@ -34,7 +34,10 @@ export function panoramaShortlist(place: Place, marks: Landmark[], around = fals
   const kinds = new Set<string>()
   const portrait = ordered.filter(({ mark }) => PORTRAIT_KINDS.has(mark.kind) && distanceOf(place, mark) <= PORTRAIT_MAX_KM
     && !selected.some(item => item.mark === mark) && !kinds.has(mark.kind) && kinds.add(mark.kind)).slice(0, 6)
-  return [...selected, ...portrait].map(({ mark }) => mark)
+  // A hand-drawn icon (`curated.ts`) in that reach is the place's own sign: always offered.
+  const icons = ordered.filter(({ mark }) => mark.source === 'curated' && distanceOf(place, mark) <= PORTRAIT_MAX_KM
+    && !selected.some(item => item.mark === mark))
+  return [...selected, ...portrait, ...icons].map(({ mark }) => mark)
 }
 
 export function shortlist(place: Place, marks: Landmark[]) {

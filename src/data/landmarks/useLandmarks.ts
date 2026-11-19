@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Place } from '../../config/place'
-import { curatedForPlace } from './curated'
+import { withIcons } from './curated'
 import { loadIsrael } from './israelData'
 import { fetchOverpass } from './overpass'
 import { withPlaceHomes } from './placeMarks'
@@ -12,8 +12,8 @@ const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
 interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMarks?: Landmark[]; aroundMarks?: Landmark[] }
 
-// v6: the panorama shortlist keeps marks in every direction within a portrait's reach (north too).
-function key(id: string) { return `shamayim:landmarks:v6:${id}` }
+// v7: landmarks carry their fame (wikidata / wikipedia), and the three curated cities are read from the data too.
+function key(id: string) { return `shamayim:landmarks:v7:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }
@@ -26,11 +26,13 @@ interface Loaders {
   overpass?: typeof fetchOverpass
 }
 
+/** Every place alike: its mapped landmarks, ranked by kind, size and fame, with the hand-drawn icons in reach. */
 export async function loadLandmarkSource(place: Place, signal: AbortSignal, loaders: Loaders = {}) {
-  const curated = curatedForPlace(place)
-  if (curated) return { marks: curated.marks, panoramaMarks: curated.marks, aroundMarks: curated.marks, curated: true }
-  const rank = (raw: Landmark[]) => ({ marks: shortlist(place, raw), panoramaMarks: panoramaShortlist(place, raw),
-    aroundMarks: panoramaShortlist(place, raw, true), curated: false })
+  const rank = (mapped: Landmark[]) => {
+    const raw = withIcons(place, mapped)
+    return { marks: shortlist(place, raw), panoramaMarks: panoramaShortlist(place, raw),
+      aroundMarks: panoramaShortlist(place, raw, true) }
+  }
   try {
     const israel = await (loaders.israel ?? loadIsrael)(place, signal)
     if (israel !== null) return rank(israel)
@@ -42,16 +44,15 @@ export async function loadLandmarkSource(place: Place, signal: AbortSignal, load
 }
 
 export function useLandmarks(place: Place, panorama = false, around = false) {
-  const curated = useMemo(() => curatedForPlace(place), [place])
   const [loaded, setLoaded] = useState<{ placeId: string; marks: Landmark[]; panoramaMarks: Landmark[]; aroundMarks: Landmark[] } | null>(null)
   const cached = useMemo(() => read(place.id), [place.id])
   const fresh = useMemo(() => cached.at && SESSION_STARTED - cached.at < MONTH ? cached : null, [cached])
   const available = loaded?.placeId === place.id ? loaded : fresh
   const pool = around ? available?.aroundMarks : panorama ? available?.panoramaMarks : available?.marks
-  const marks = useMemo(() => withPlaceHomes(place, curated?.marks ?? pool ?? [], Boolean(curated)), [place, curated, pool])
+  const marks = useMemo(() => withPlaceHomes(place, pool ?? []), [place, pool])
 
   useEffect(() => {
-    if (curated || fresh !== null || (cached.failed && SESSION_STARTED - cached.failed < HOUR)) return
+    if (fresh !== null || (cached.failed && SESSION_STARTED - cached.failed < HOUR)) return
     const controller = new AbortController()
     const run = () => loadLandmarkSource(place, controller.signal).then(({ marks, panoramaMarks, aroundMarks }) => {
       if (controller.signal.aborted) return
@@ -61,6 +62,6 @@ export function useLandmarks(place: Place, panorama = false, around = false) {
     const idle = window.requestIdleCallback?.(run, { timeout: 2_000 })
     if (idle == null) run()
     return () => { controller.abort(); if (idle != null) window.cancelIdleCallback?.(idle) }
-  }, [cached.failed, curated, fresh, place])
-  return { marks, usesOsm: Boolean(curated || marks.some((mark) => mark.source === 'osm')) }
+  }, [cached.failed, fresh, place])
+  return { marks, usesOsm: marks.some((mark) => mark.source === 'osm' || mark.source === 'curated') }
 }

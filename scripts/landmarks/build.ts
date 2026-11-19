@@ -2,13 +2,13 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { parseOverpass } from '../../src/data/landmarks/overpass'
+import type { Row } from '../../src/data/landmarks/israelData'
 import { score } from '../../src/data/landmarks/rank'
 import type { Landmark, MarkKind } from '../../src/data/landmarks/types'
 
 type Position = [number, number]
 type Geometry = { type: string; coordinates: unknown }
 interface Feature { id?: string | number; geometry?: Geometry; properties?: Record<string, unknown> }
-type Row = [MarkKind, number, number, number] | [MarkKind, number, number, number, string]
 export interface LandmarkIndex {
   generatedAt: string
   source: 'OpenStreetMap via Geofabrik (ODbL)'
@@ -61,9 +61,10 @@ export function parseGeoJsonSequence(input: string): Landmark[] {
   return parseOverpass({ elements })
 }
 
-function row(mark: Landmark): Row {
+export function row(mark: Landmark): Row {
   const base: [MarkKind, number, number, number] = [mark.kind, Number(mark.lat.toFixed(5)),
     Number(mark.lon.toFixed(5)), Number(mark.heightM.toFixed(2))]
+  if (mark.fame) return [...base, mark.nameHe ?? '', mark.fame]
   return mark.nameHe ? [...base, mark.nameHe] : base
 }
 

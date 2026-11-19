@@ -1,9 +1,10 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { CURATED } from '../../../data/landmarks/curated'
+import { ICONS } from '../../../data/landmarks/curated'
 import type { PlacedMark } from '../../../data/landmarks/types'
-import { BUILDINGS, type BuildingProps } from './generic/buildingSpecs'
+import { CURATED_BUILDINGS } from './curated'
+import { BUILDINGS, FIELD_KINDS, type BuildingProps } from './generic/buildingSpecs'
 import { isHillMark, planeOf } from './hillPlane'
 import styles from './marks.module.css'
 import { Shed, TileHouse } from './houses'
@@ -37,7 +38,7 @@ describe('px glyph specs', () => {
 
   it('lights windows only at night', () => {
     expect(styles.win).toMatch(/win/)
-    for (const key of ['highrise', 'tel-aviv-azrieli', 'tel-aviv-shalom', 'haifa-sail']) {
+    for (const key of ['highrise', 'tel-aviv-azrieli']) {
       expect(draw(key)).not.toContain(styles.win)
       expect(draw(key, { night: true })).toContain(styles.win)
     }
@@ -52,16 +53,25 @@ describe('px glyph specs', () => {
   })
 })
 
+describe('generic glyphs for every mapped kind', () => {
+  it('draws each kind a famous OSM object can be read as (src/data/landmarks/overpass.ts) with its generic glyph', () => {
+    const kinds: PlacedMark['kind'][] = ['highrise', 'chimney', 'cooling', 'mast', 'waterTower', 'minaret', 'church',
+      'silo', 'lighthouse', 'turbine', 'bridge', 'castle', 'palms', 'synagogue', 'orchard', 'vineyard', 'solar']
+    for (const kind of kinds) expect(Boolean(BUILDINGS[kind]) || FIELD_KINDS.has(kind)).toBe(true)
+  })
+})
+
 describe('curated sets in the px layer', () => {
-  it('draw every curated mark of the three cities', () => {
-    const marks = CURATED.flatMap((city) => city.marks)
-    expect(marks).toHaveLength(11)
+  it('draw every hand-drawn icon, and only those', () => {
+    const marks = ICONS.map(({ mark }) => mark)
+    expect(marks).toHaveLength(4)
     for (const mark of marks) expect(isHillMark(placed(mark.glyph!, mark.kind))).toBe(true)
+    expect(Object.keys(CURATED_BUILDINGS).sort()).toEqual(marks.map(mark => mark.glyph).sort())
   })
 
   it('keep landmarks on the skyline unless tall and well behind it', () => {
     expect(planeOf(placed('jerusalem-bridge', 'custom', 2.16, 26))).toBe('behind')
-    expect(planeOf(placed('jerusalem-david', 'custom', .5, 19))).toBe('line')
+    expect(planeOf(placed('jerusalem-wall', 'custom', .5, 9))).toBe('line')
     expect(planeOf(placed('tel-aviv-azrieli', 'custom', -.7, 31))).toBe('line')
     expect(planeOf(placed('palms', 'palms', 0, 11))).toBe('line')
     expect(planeOf(placed('solar', 'solar', -.6, 3))).toBe('face')

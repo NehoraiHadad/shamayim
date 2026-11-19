@@ -39,7 +39,7 @@ function fitBuilding(mark: PlacedMark, x: number, ground: Ground, dot: Point) {
   }
   const need = geometry.base - (VISIBLE_BOTTOM - SHEET_CLEAR)
   if (need <= 0) return { mark, x: at }
-  return (curated(mark) || mark.absorbed) && need <= MAX_LIFT ? { mark: { ...mark, lift: need }, x: at } : null
+  return (curated(mark) || mark.landmark || mark.absorbed) && need <= MAX_LIFT ? { mark: { ...mark, lift: need }, x: at } : null
 }
 
 function fitField(mark: PlacedMark, x: number, ground: Ground, width: number, dot: Point) {

@@ -47,6 +47,13 @@ describe('scene layout', () => {
     expect(fitMarks([high], flat(60), W, { x: 20, y: 0 })).toEqual([high])
   })
 
+  it('lifts a famous generic mark a little too (a landmark), like a hand-drawn one', () => {
+    const ground = flat(VISIBLE_BOTTOM - SHEET_CLEAR + 2)
+    const [cooling] = fitMarks([mark('cooling', 100, { landmark: true })], ground, W, { x: 20, y: 0 })
+    expect(cooling.lift).toBeGreaterThan(0)
+    expect(fitMarks([mark('cooling', 100)], ground, W, { x: 20, y: 0 })).toEqual([])
+  })
+
   it('steps a mark off the village dot', () => {
     const dot = { x: 187, y: 41 }
     const [palms] = fitMarks([mark('palms', 190)], ridge, W, dot)

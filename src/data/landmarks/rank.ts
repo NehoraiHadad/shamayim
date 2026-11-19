@@ -1,3 +1,4 @@
+import { fameBonus } from './fame'
 import type { Landmark, MarkLayer } from './types'
 
 const WEIGHTS: Record<Landmark['kind'], number> = {
@@ -19,10 +20,10 @@ export interface Candidate {
   portrait?: boolean
 }
 
+/** Kind, height, nearness to the section line and to the place, a name, and fame (`fame.ts`). */
 export function score(mark: Landmark, dx: number, dy: number, band: number): number {
   return WEIGHTS[mark.kind] + Math.min(mark.heightM, 200) / 20
-    - 4 * Math.abs(dy) / band - Math.abs(dx) / 6 + (mark.nameHe ? 1 : 0)
-    + (mark.glyph === 'tel-aviv-azrieli' ? 1 : 0)
+    - 4 * Math.abs(dy) / band - Math.abs(dx) / 6 + (mark.nameHe ? 1 : 0) + fameBonus(mark)
 }
 
 export function select(candidates: Candidate[], width: number, large = false): Candidate[] {
@@ -68,6 +69,9 @@ function pick(candidates: Candidate[], limit: number, reserved: Candidate[] = []
   return chosen
 }
 
+/** Fields lie on the face at their own depth (sceneLayout.ts): they may share a stretch of ridge with a building. */
+const FIELDS = new Set<Landmark['kind']>(['orchard', 'vineyard', 'solar'])
+
 export function spread(candidates: Candidate[], gap: number, blocked?: [number, number], scale = 1): Candidate[] {
   const placed: Candidate[] = []
   const originalX = new Map(candidates.map((candidate) => [candidate.mark, candidate.x]))
@@ -87,6 +91,11 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
       const centre = (blocked[0] + blocked[1]) / 2
       item.x = item.portrait ? (original.x < centre ? left : right)
         : leftFree && Math.abs(item.x - left) <= Math.abs(right - item.x) ? left : right
+      // Two portrait elements pushed to the same side of the village: the better one keeps the spot.
+      if (item.portrait && item.x === left && !leftFree && !FIELDS.has(item.mark.kind) && !FIELDS.has(prior.mark.kind)) {
+        if (prior.score >= item.score) continue
+        placed.pop()
+      }
     }
     const maxShift = item.mark.source === 'curated' ? 36 * scale : 24 * scale
     if (Math.abs(item.x - original.x) > maxShift) {

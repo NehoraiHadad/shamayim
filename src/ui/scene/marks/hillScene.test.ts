@@ -47,7 +47,7 @@ it('replaces generic near highrises only when the city fabric is active', () => 
   const large = { ...place, id: 'test-city', settlementType: 'city', population: 100_000 }
   const generic: PlacedMark = { id: 'osm-highrise', kind: 'highrise', glyph: 'highrise', layer: 'near',
     xPct: 40, baseY: 75, hPx: 22, lights: 0, tall: true, dy: 0 }
-  const hand: PlacedMark = { ...generic, id: 'haifa-sail', kind: 'custom', glyph: 'haifa-sail', xPct: 70 }
+  const hand: PlacedMark = { ...generic, id: 'haifa-bab', kind: 'custom', glyph: 'haifa-bab', xPct: 70 }
   const data = { ...city, towers: [{ dx: 2, dy: 0, heightM: 100, wClass: 1 as const, lat: 32, lon: 34.9 }] }
   const input = { place: large, terrain, landmarks: placeHomes(large), placed: [generic, hand], width: 375,
     litShare: .5, label: { text: '80 מ׳', below: false } }

@@ -103,6 +103,6 @@ export function markHeight(heightM: number, layer: 'near' | 'far' = 'near'): num
 
 export function markWidth(kind: MarkKind, glyph: string | undefined, height: number): number {
   const broadKind = ['bridge', 'homes', 'palms', 'orchard', 'solar', 'cooling', 'silo', 'castle'].includes(kind)
-  const broadGlyph = /azrieli|cooling|bridge|wall|dagon|bab/.test(glyph ?? '')
+  const broadGlyph = /azrieli|bridge|wall|bab/.test(glyph ?? '')
   return broadKind || broadGlyph ? Math.max(12, height * .95) : Math.max(7, height * .65)
 }

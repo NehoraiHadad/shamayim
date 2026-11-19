@@ -2,6 +2,7 @@ import type { Place } from '../../config/place'
 import { screenSide } from '../../domain/camera'
 import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import type { SceneTerrain } from '../terrain/terrain'
+import { isLandmark } from './fame'
 import { PORTRAIT_MARGIN_KM } from './portrait'
 import { markHeight, offsetKm, projectSight, toX } from './project'
 import type { Landmark, MarkKind } from './types'
@@ -37,7 +38,7 @@ function portraitKm(kind: MarkKind, reachKm: number) {
 function portraitX(mark: Landmark, dx: number, km: number, reachKm: number, innerPx = 14) {
   const east = screenSide('east') === 'left' ? -1 : 1
   const side = dx >= 0 ? east : -east
-  const among = AMONG_ROOFS.has(mark.kind) || mark.source === 'curated'
+  const among = AMONG_ROOFS.has(mark.kind) || isLandmark(mark)
   const from = among ? 4 + Math.max(10, innerPx - 4) * Math.min(1, km / Math.max(.6, reachKm - PORTRAIT_MARGIN_KM))
     : innerPx + 8 + 8 * Math.min(1, km / (reachKm + 1))
   return RIDGE_WIDTH / 2 + side * from
@@ -46,7 +47,8 @@ function portraitX(mark: Landmark, dx: number, km: number, reachKm: number, inne
 /** In panorama mode rank depth relative to the ridge in the direction of the mark. */
 export function projectMark(place: Place, mark: Landmark, terrain: SceneTerrain, portrait?: Portrait) {
   if (terrain.sightAt) {
-    if (portrait && (PORTRAIT_KINDS.has(mark.kind) || mark.source === 'curated')) {
+    // The place's famous landmarks (a city's towers among them) are part of its portrait too.
+    if (portrait && (PORTRAIT_KINDS.has(mark.kind) || isLandmark(mark))) {
       const { dx, dy } = offsetKm(place, mark)
       const km = Math.hypot(dx, dy)
       // A hall or tower just beyond the village is a neighbour's: not this place's portrait, and next to it on the

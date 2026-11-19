@@ -13,7 +13,14 @@ export interface Landmark {
   lon: number
   heightM: number
   source: 'curated' | 'osm' | 'place' | 'cover'
+  /**
+   * How well known it is (`fame.ts`): 2 when OpenStreetMap links it to a Wikipedia article, 1 to a Wikidata item only;
+   * absent when anonymous.
+   */
+  fame?: Fame
 }
+
+export type Fame = 1 | 2
 
 export interface CuratedPlace {
   id: string
@@ -42,6 +49,8 @@ export interface PlacedMark {
   dy: number
   /** Stands among the place's own roofs (ILLUSTRATION.md R5): seated on the crest at its true x, the house there removed. */
   absorbed?: boolean
+  /** Famous or hand-drawn (`fame.ts` `isLandmark`): lifted a little off the sheet edge rather than dropped. */
+  landmark?: boolean
   /** Part of the place's portrait (composed by side, `markProjection.ts`): seated even on a steep face, like its houses. */
   portrait?: boolean
   /** Px the base is raised off low ground so the sheet edge does not cut it (src/ui/scene/marks/sceneLayout.ts). */

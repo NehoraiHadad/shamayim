@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { CURATED } from './curated'
-import { placeMarks } from './placeMarks'
+import { withIcons } from './curated'
+import { placeMarks, PORTRAIT_LANDMARKS } from './placeMarks'
 import { bearingOf, groundY, markHeight, offsetKm, sightLayer, toX } from './project'
-import { score, select, spread, type Candidate } from './rank'
+import { select, spread, type Candidate } from './rank'
 import type { Landmark } from './types'
 
 const jerusalem = { lat: 31.7690, lon: 35.2163 }
@@ -110,27 +110,23 @@ describe('placement and selection', () => {
     })
   })
 
-  it.each([375, 520])('keeps iconic Tel Aviv marks at %d px', (width) => {
+  it.each([375, 520])('keeps the Azrieli icon and Tel Aviv\'s famous tower at %d px', (width) => {
     const city: Place = { ...place, id: 'tel-aviv', lat: 32.0809, lon: 34.7806 }
-    const marks = placeMarks(city, terrain, CURATED.find((item) => item.id === city.id)!.marks, width)
-    const ids = marks.map((mark) => mark.id)
-    expect(ids).toEqual(expect.arrayContaining(['tel-aviv-shalom', 'tel-aviv-azrieli']))
-    // Azrieli Center stands east of Sarona: to its left.
-    expect(ids.indexOf('tel-aviv-azrieli')).toBeLessThan(ids.indexOf('tel-aviv-sarona'))
-    expect(ids).toHaveLength(4)
+    const anonymous: Landmark = { ...baseMark, id: 'osm-spiral', kind: 'highrise', lat: 32.0758, lon: 34.7925, heightM: 350 }
+    const shalom: Landmark = { ...baseMark, id: 'osm-shalom', kind: 'highrise', lat: 32.0642, lon: 34.7697, heightM: 130,
+      nameHe: 'מגדל שלום מאיר', fame: 2 }
+    const ids = placeMarks(city, terrain, withIcons(city, [anonymous, shalom]), width).map((mark) => mark.id)
+    // The icon stands in for the anonymous tower at its spot; the famous one is drawn with the generic glyph.
+    expect(ids).toEqual(expect.arrayContaining(['tel-aviv-azrieli', 'osm-shalom']))
+    expect(ids).not.toContain('osm-spiral')
   })
 
-  it('ranks Azrieli Center above Sarona', () => {
-    const marks = CURATED.find((item) => item.id === 'tel-aviv')!.marks
-    const sarona = marks.find((mark) => mark.id === 'tel-aviv-sarona')!
-    const azrieli = marks.find((mark) => mark.id === 'tel-aviv-azrieli')!
-    expect(score(azrieli, 0, 0, 3)).toBeGreaterThan(score(sarona, 0, 0, 3))
-  })
-
-  it.each([375, 520])('keeps the central Haifa trio at %d px', (width) => {
+  it.each([375, 520])('keeps the Báb among Haifa\'s famous marks at %d px', (width) => {
     const city: Place = { ...place, id: 'haifa', lat: 32.8130, lon: 34.9993 }
-    const marks = placeMarks(city, terrain, CURATED.find((item) => item.id === city.id)!.marks, width)
-    expect(marks.map((mark) => mark.id)).toEqual(expect.arrayContaining(['haifa-bab', 'haifa-dagon', 'haifa-sail']))
+    const dagon: Landmark = { ...baseMark, id: 'osm-dagon', kind: 'highrise', lat: 32.8232, lon: 34.9948, heightM: 46.8, fame: 2 }
+    const sail: Landmark = { ...baseMark, id: 'osm-sail', kind: 'highrise', lat: 32.8163, lon: 35.0028, heightM: 112.8, fame: 1 }
+    const marks = placeMarks(city, terrain, withIcons(city, [dagon, sail]), width)
+    expect(marks.map((mark) => mark.id)).toEqual(expect.arrayContaining(['haifa-bab', 'osm-dagon', 'osm-sail']))
     expect(marks.find((mark) => mark.id === 'haifa-bab')!.hPx).toBeGreaterThanOrEqual(10)
   })
 
@@ -193,4 +189,17 @@ describe('placement over a horizon panorama', () => {
     expect(x('far')).toBeCloseTo(bearingOf(place, far)!.x, 0)
   })
 
+
+  it('shows a portrait\'s few best-known landmarks, an icon first, and keeps them apart', () => {
+    const portrait = { reachKm: 4 }
+    const famous = Array.from({ length: 8 }, (_, i) => at(`church${i}`, .8 + i * .3, i % 2 ? 80 : 280,
+      { kind: 'church', heightM: 25, fame: 2 }))
+    const icon = at('icon', 1.5, 100, { kind: 'custom', glyph: 'haifa-bab', heightM: 11, source: 'curated', fame: 2 })
+    const placed = placeMarks(place, panorama, [...famous, icon], 375, undefined, false, portrait)
+    const landmarks = placed.filter((mark) => mark.landmark)
+    expect(landmarks.length).toBeLessThanOrEqual(PORTRAIT_LANDMARKS)
+    expect(landmarks.map((mark) => mark.id)).toContain('icon')
+    const xs = placed.map((mark) => mark.xPct * 3.75).sort((a, b) => a - b)
+    xs.slice(1).forEach((x, i) => expect(x - xs[i]).toBeGreaterThanOrEqual(6))
+  })
 })

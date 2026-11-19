@@ -61,9 +61,22 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
   mapped roof shapes (5+) decide either way; then the CBS group (Arab, Druze, Bedouin flat; Jewish red tiles); then the
   marks round a nameless cluster; mixed only where nothing is known. Daliyat al-Karmel and Tamra are flat, Shadmot
   Mehola and Nahalal red-tiled.
-- Next, before stage 3 (agreed): (b) famous landmarks chosen automatically (OSM wikidata / wikipedia tags), drawn with the generic glyph of their
-  kind; the hand-drawn art stays only for a few icons. Then stage 3 (water), stage 4 (loading stand-in: with it,
-  remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
+- (b) done (2026-11-19, stills: `qa/true-scene/stage2c`, before/after): landmarks are chosen from the data for every
+  place, the three curated cities too (no more curated-only short cut). **Fame** (`src/data/landmarks/fame.ts`): an OSM
+  object with a Wikipedia link (`wikipedia`, `wikipedia:<lang>`) is 2, with only a Wikidata item 1; it adds 3 / 2 to
+  the score, so a famous mark beats an anonymous one of its kind (and of duplicates within 300 m the famous one is
+  kept). A famous building or structure is a **landmark** of its place: in the portrait it stands among the roofs like
+  the old curated marks, at most 4 per portrait (`PORTRAIT_LANDMARKS`, icons first), and it is lifted off the sheet edge
+  rather than dropped. Drawn with its kind's generic glyph (Tower of David → castle, Shalom Meir, Sail Tower, Dagon →
+  towers, Reading → chimney, Bazan → cooling tower). Hand-drawn **icons** left (`curated.ts`): the Western Wall (no
+  kind for a wall; standing in for the Wall's own place of worship and the Temple Mount mosques, as decided
+  2026-11-17), the Shrine of the Báb (no kind for a Bahá'í shrine), Azrieli Center (three towers as one sign; standing
+  in for the towers at its spot), the Chords Bridge (bridges are lines, not in the data). The shipped cells got fame
+  from the 2026-11-19 extract without a rebuild (`scripts/landmarks/fame.ts`; 226 rows); the monthly build keeps it.
+  Cache key `shamayim:landmarks:v7`. Jerusalem's satellite groves go when the map names a grove it then does not draw
+  (Gethsemane): to look at with vegetation.
+- Next: stage 3 (water), stage 4 (loading stand-in: with it, remove the stand-in-only machinery: city fabric, columns,
+  neighbours, village plans).
 
 ## After (agreed order)
 Land colour (season / this week, a subtle tint) → vegetation (orchards, trees, fields where WorldCover says) → rain in

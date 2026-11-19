@@ -1,4 +1,5 @@
 import type { Place } from '../../config/place'
+import { fameOf, outranks } from './fame'
 import { LANDMARK_FILTERS } from './filters'
 import { offsetKm } from './project'
 import type { Landmark, MarkKind } from './types'
@@ -58,12 +59,14 @@ export function parseOverpass(json: unknown): Landmark[] {
     const lat = element.lat ?? element.center?.lat
     const lon = element.lon ?? element.center?.lon
     if (!value || lat == null || lon == null) continue
+    const fame = fameOf(tags)
     const candidate: Landmark = { id: `osm-${element.id}`, kind: value.kind, nameHe: tags['name:he'] ?? tags.name,
-      lat, lon, heightM: value.height, source: 'osm' }
+      lat, lon, heightM: value.height, source: 'osm', ...(fame ? { fame } : {}) }
     const duplicate = found.find((mark) => mark.kind === candidate.kind
       && Math.hypot(offsetKm(mark, candidate).dx, offsetKm(mark, candidate).dy) < .3)
     if (!duplicate) found.push(candidate)
-    else if (candidate.heightM > duplicate.heightM) Object.assign(duplicate, candidate)
+    // Of two of a kind side by side the famous one stays (a tower with its own article over its taller neighbour).
+    else if (outranks(candidate, duplicate)) Object.assign(duplicate, candidate)
   }
   return found
 }

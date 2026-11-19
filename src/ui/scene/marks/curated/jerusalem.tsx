@@ -6,13 +6,6 @@ import type { BuildingProps } from '../generic/buildingSpecs'
  * photos and simplified to a 1.5 px minimum feature, not surveyed.
  */
 
-/** Crenellated top edge from x0 to x1 at y, merlons 1.5 wide every 3 px. */
-function merlons(x0: number, x1: number, y: number) {
-  let d = ''
-  for (let x = x0; x + 1.5 <= x1; x += 3) d += `M${x} ${y}h1.5v-1.5h-1.5z`
-  return d
-}
-
 /**
  * Chords Bridge (Calatrava, 2008): one white inclined pylon, a harp of stays fanning down to the curved deck on one
  * side and back-stays to the ground on the other. Mast 118 m (data). Lean direction relative to our south view and
@@ -34,40 +27,6 @@ export function ChordsBridge({ h }: BuildingProps) {
       })}
       {[.86].map((t) => { const [x, y] = along(t); return <line key={t} x1={x - .4} y1={y} x2={-8} y2={deck} /> })}
     </g>
-  </>
-}
-
-/**
- * Tower of David citadel: crenellated walls, the square Phasael tower, and the Ottoman minaret (1655) that gives the
- * citadel its silhouette: a slim shaft, a round corbelled gallery, a narrower stepped upper stage and a small domed
- * cap with a finial (photos from Jaffa Gate). Self-lit with the sun on the left.
- */
-export function TowerOfDavid({ h, night }: BuildingProps) {
-  const gallery = -h + 6.5
-  return <>
-    <path className={styles.wall} d={`M-8 0V-6H8V0z${merlons(-8, 8, -6)}`} />
-    <rect className={styles.lit} x={-8} y={-6} width={1.5} height={6} />
-    <path className={styles.wall} d={`M-7.5 0V-10H-2V0z${merlons(-7.5, -2, -10)}`} />
-    <rect className={styles.lit} x={-7.5} y={-10} width={1.5} height={10} />
-    <rect className={styles.shade} x={-2.8} y={-10} width={.8} height={10} />
-    {/* Minaret: square footing on the wall, slim shaft up to the gallery. */}
-    <rect className={styles.wall} x={2.6} y={-7.5} width={2.8} height={1.5} />
-    <rect className={styles.wall} x={3} y={gallery} width={2} height={-7.5 - gallery} />
-    <rect className={styles.lit} x={3} y={gallery} width={.8} height={-7.5 - gallery} />
-    {/* Round gallery: a balcony drum with its corbelled underside in shade. */}
-    <path className={styles.shade} d={`M2.2 ${gallery + .7}h3.6q-1.8 1.4 -3.6 0z`} />
-    <rect className={styles.wall} x={2.2} y={gallery - .5} width={3.6} height={1.2} />
-    <rect className={styles.lit} x={2.2} y={gallery - .5} width={1.1} height={1.2} />
-    {/* Stepped top: a narrower stage, a narrower lantern, then the cap and finial. */}
-    <rect className={styles.wall} x={3.2} y={gallery - 2.6} width={1.6} height={2.1} />
-    <rect className={styles.lit} x={3.2} y={gallery - 2.6} width={.6} height={2.1} />
-    <rect className={styles.wall} x={3.45} y={gallery - 3.8} width={1.1} height={1.2} />
-    <path className={styles.lit} d={`M3.25 ${gallery - 3.8}a.75 .9 0 0 1 1.5 0z`} />
-    <rect className={styles.solid} x={3.8} y={-h} width={.4} height={1.6} />
-    {night && <>
-      <rect className={styles.win} x={-5.5} y={-7.5} width={1.5} height={1.5} />
-      <rect className={styles.win} x={3.25} y={gallery + 3} width={1.5} height={1.5} />
-    </>}
   </>
 }
 

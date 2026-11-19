@@ -4,3 +4,5 @@
 {"type":"Feature","id":"way/4","geometry":{"type":"Polygon","coordinates":[[[35.11,31.61],[35.112,31.61],[35.112,31.612],[35.11,31.612],[35.11,31.61]]]},"properties":{"building":"yes","height":"120","name:he":"מגדל"}}
 {"type":"Feature","id":"way/5","geometry":{"type":"Polygon","coordinates":[[[35.12,31.61],[35.122,31.61],[35.122,31.612],[35.12,31.612],[35.12,31.61]]]},"properties":{"building":"yes","height":"10"}}
 {"type":"Feature","id":"way/6","geometry":{"type":"Polygon","coordinates":[[[35.13,31.61],[35.132,31.61],[35.132,31.612],[35.13,31.612],[35.13,31.61]]]},"properties":{"amenity":"place_of_worship","religion":"jewish","building":"synagogue","name:he":"בית כנסת"}}
+{"type":"Feature","id":"way/7","geometry":{"type":"Polygon","coordinates":[[[35.14,31.61],[35.142,31.61],[35.142,31.612],[35.14,31.612],[35.14,31.61]]]},"properties":{"amenity":"place_of_worship","religion":"christian","building":"church","wikipedia":"he:כנסייה"}}
+{"type":"Feature","id":"node/8","geometry":{"type":"Point","coordinates":[35.15,31.61]},"properties":{"man_made":"water_tower","height":"20","name:he":"מגדל מים ידוע","wikidata":"Q1"}}

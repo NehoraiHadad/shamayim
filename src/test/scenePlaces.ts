@@ -1,7 +1,7 @@
 import type { Place } from '../config/place'
 
 /**
- * Places the scene is checked at (baseline snapshots, camera migration): the hand-curated valley, three curated cities,
+ * Places the scene is checked at (baseline snapshots, camera migration): the hand-curated valley, three cities with icons,
  * a village read from the Israel landmark data, and a point in Makhtesh Ramon that is no settlement at all.
  */
 export const SCENE_PLACES: Place[] = [

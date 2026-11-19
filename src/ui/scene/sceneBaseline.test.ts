@@ -67,7 +67,7 @@ describe.each(SCENE_PLACES)('scene baseline: $id', (place) => {
     const signal = new AbortController().signal
     const terrain = terrainFromPanorama(panoramaOf(place.id))
     const source = await loadLandmarkSource(place, signal, { israel: loadIsrael })
-    const landmarks = withPlaceHomes(place, source.panoramaMarks, source.curated)
+    const landmarks = withPlaceHomes(place, source.panoramaMarks)
     const city = await loadCity(place, signal)
     const out: string[] = []
     for (const now of TIMES) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { CURATED } from './curated'
+import { ICONS } from './curated'
 import { placeHomes, placeMarks, withPlaceHomes } from './placeMarks'
 import type { Landmark } from './types'
 
@@ -53,11 +53,11 @@ describe('place homes', () => {
     expect(offset).toBeLessThan(27)
   })
 
-  it.each(['jerusalem', 'tel-aviv', 'haifa'])('gives curated %s its own city blocks too', (id) => {
-    const curated = CURATED.find((item) => item.id === id)!
-    const city: Place = { ...place, id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }
-    const marks = withPlaceHomes(city, curated.marks, true)
-    expect(marks.slice(0, -1)).toEqual(curated.marks)
+  it.each(ICONS.map(({ mark }) => mark.id))('gives the city round the icon %s its own city blocks too', (id) => {
+    const icon = ICONS.find(({ mark }) => mark.id === id)!.mark
+    const city: Place = { ...place, id, lat: icon.lat, lon: icon.lon, featureCode: 'PPLA' }
+    const marks = withPlaceHomes(city, [icon])
+    expect(marks.slice(0, -1)).toEqual([icon])
     expect(marks.at(-1)).toMatchObject({ kind: 'homes', glyph: 'homes-large' })
   })
 })

@@ -1,7 +1,8 @@
 import type { Place } from '../../config/place'
-import type { Landmark, MarkKind } from './types'
+import type { Fame, Landmark, MarkKind } from './types'
 
-type Row = [MarkKind, number, number, number, string?]
+/** kind, lat, lon, height, name ('' when it has none but is famous), fame (`fame.ts`). */
+export type Row = [MarkKind, number, number, number, string?, Fame?]
 export interface IsraelLandmarkIndex {
   generatedAt: string
   source: 'OpenStreetMap via Geofabrik (ODbL)'
@@ -56,8 +57,8 @@ export async function loadIsrael(place: Place, signal: AbortSignal): Promise<Lan
   if (!index || !inCoverage(index, place)) return null
   const cells = cellsForStrip(place).filter((cell) => index.cells.includes(cell))
   const rows = (await Promise.all(cells.map((cell) => loadCell(cell, signal)))).flat()
-  return rows.map(([kind, lat, lon, heightM, nameHe]) => ({ id: `il-${kind}-${lat}-${lon}`,
-    kind, lat, lon, heightM, ...(nameHe ? { nameHe } : {}), source: 'osm' }))
+  return rows.map(([kind, lat, lon, heightM, nameHe, fame]) => ({ id: `il-${kind}-${lat}-${lon}`,
+    kind, lat, lon, heightM, ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}) }))
 }
 
 export function resetIsraelDataForTests() { indexPromise = null }
