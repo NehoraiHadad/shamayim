@@ -38,10 +38,13 @@ export function homeMode(place: Place, marks: Landmark[], width: number, centerX
   const size = settlementSize(homes)
   const style = settlementStyle(place, size, marks)
   const historicalHalf = templateHalf(size)
-  if (panorama) return { kind: 'template', size, style, homeHalf: historicalHalf } as const
   const home = homeCluster(city?.clusters ?? [])
   const tier = homeTier(home)
   const footprintStyle = home && clusterStyle(home, desertSettlement(place), home.place ? undefined : localRoof(place, home, marks))
+  // The roofs come from the data where it knows them (the faith of the place's worship, its mapped roof shapes, a
+  // town of blocks); where it knows nothing, from the marks around (minarets and no synagogue: flat roofs).
+  const known = home && footprintStyle && (footprintStyle !== 'tile' || (home.form.tagged ?? 0) >= 5 || (home.place?.faith ?? 0) > 0)
+  if (panorama) return { kind: 'template', size, style: known ? footprintStyle : style, homeHalf: historicalHalf } as const
   const rural = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
   // Longitude bins have already discarded the bearings of their constituent buildings.
   if (city && !rural && (size === 'large' || style === 'blocks' || (tier !== 'B' && footprintStyle === 'blocks')) &&

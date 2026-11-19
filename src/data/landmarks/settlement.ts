@@ -43,9 +43,11 @@ export function settlementReach(style: SettlementStyle) { return REACH[style] }
 
 export function settlementStyle(place: Place, size: SettlementSize, marks: Landmark[]): SettlementStyle {
   /** Inside the place itself: neighbouring villages a kilometre away must not set the roofs. */
-  const close = marks.filter((mark) => Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= .7)
+  // A town spreads further than a village: its own mosques may stand a kilometre or more from its point.
+  const within = size === 'small' ? .7 : size === 'medium' ? 1.3 : 2
+  const close = marks.filter((mark) => Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= within)
   const minarets = close.filter((mark) => mark.kind === 'minaret').length
-  if (minarets >= 2 && !close.some((mark) => mark.kind === 'synagogue')) return 'flat-hill'
+  if (minarets >= 1 && !close.some((mark) => mark.kind === 'synagogue')) return 'flat-hill'
   if (desertSettlement(place)) return 'flat-desert'
   /** A city (Umm al-Fahm, Tiberias) is concrete and stone blocks even under 50 000 people. */
   if (size === 'large' || place.settlementType === 'city') return 'blocks'

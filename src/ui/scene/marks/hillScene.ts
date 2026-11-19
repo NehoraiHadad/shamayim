@@ -83,7 +83,9 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // a city is drawn true, its own houses in the data skyline.
   const reachKm = portraitReach(city?.clusters)
   const isCity = CITY_TRUE && (givenSkyline ? skylineIsCity(givenSkyline, reachKm) : cityMode)
-  const skyline = givenSkyline && !isCity ? beyondPortrait(givenSkyline, reachKm) : givenSkyline
+  // The data skyline's faces (built squares at their true angle, on the vertical stretch) read as grey pillars and
+  // dashes: only its towers stay. Far towns are drawn by the far city (`FarCity`).
+  const skyline = givenSkyline && !isCity ? beyondPortrait(givenSkyline, Infinity) : givenSkyline
   const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
   const right = seaOn === 'left' ? width * .06 + 44 : width * (seaOn === 'right' ? .94 : SEA_LABEL_SIDE === 'right' ? .73 : .27) + (seaOn || SEA_LABEL_SIDE === 'right' ? 0 : 44)
   // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
