@@ -434,6 +434,7 @@ in the overlay; horizon band; far cities with their lights.
 no water at Tel Aviv, Jerusalem, Rosh Pina, Shadmot.
 
 **C4. Glyphs, landmarks and the village portrait — XL (8).**
+**Done 2026-11-19** (§6; the portrait composed in the world, see there).
 First the glyph library (owner's "landmarks first"): 19 kinds + 4 icons in `paint/glyphs`, `paint/icons`, with a
 glyph sheet still (`qa/canvas/c4/glyphs.png`) like `qa/glyphs/sheet-v1.png`. Then marks on the ridge (`model/marks.ts`)
 and the village portrait in contour rows (streets as gaps, roofs by evidence or mixed, trees and cypresses between,
@@ -843,3 +844,75 @@ main-thread stills pixel-identical), the SVG baseline unchanged (snapshots untou
 - *Main-thread fallback* (`--paint=main`): the sky's scrub frame 12–13 ms p50 (was 19–21), the world's as above; the
   land's light as before, over the gates (scrub.land p95 19–32, first paint 92–144). Where a browser has no worker 2D
   canvas (old Safari), C4's glyph layers should keep their light parts small.
+
+**C4 done (2026-11-19): glyphs, icons, landmarks and the village portrait.** Commits on the C4 branch (merged with the
+perf pass); the shipped app and the SVG baseline are unchanged (snapshots untouched; the SVG scene still runs `hillScene`).
+- *Drawing with the anidoodle skill* (owner decision 7): `SKILL.md`, `craft-bar.md`, `realism-and-craft.md`,
+  `determinism-and-contract.md`, `working-method.md`, `workflows/site-art.md` read first; real references per glyph in
+  each painter's header (from the prototype's `brief-glyphs.md`, the SVG `generic/*` and `curated/*`). The look proved on
+  one still (Rosh Pina and Shadmot 16:30, then 08:00), critiqued on 3× crops of the 2× stills, then extended.
+- *World* (the place part, independent of the hour; **no longer `hillScene`**): `world/marks.ts` seats the data layer's
+  choice (`placeMarks`: rank, fame, the portrait's side rule, the few landmarks) on the land it stands on (`seat`, the
+  R1 planes, into the town for the marks among the roofs, off the dot, lifted ≤ 6 px off the sheet edge or dropped,
+  fields slid onto the visible face); the outside view's rules as `outsideScene` had them (far marks need a name and
+  fame or ≥ 200 m, the place's marks by `outsideProject`, a city's own high-rises left to its towers). **A landmark needs
+  a name** for every place (`namedOnly`: an unnamed mark keeps its kind, not its fame). `WorldMark` carries the glyph,
+  x, base, drawn height, scale, width, distance (km). `world/portrait.ts`: the village in contour rows hanging from the
+  near ridge's own line (row 0 on the crest), outward from the dot on both sides, the houses thinned by a falloff of
+  their distance (`e^−1.5·d²`) turned into houses by error diffusion along the row (a due spot that is blocked stays
+  empty, so the density keeps to the falloff), streets every 3–5 houses with a tree in most, trees and cypresses in
+  the spots left, a fringe of trees past the edge; its half width from the built-up reach (`20 + 18·(reach − 1 km)`,
+  24–64 px), its vertical reach from the style (`settlementReach`) or the width; roofs by the roof rule (tile ≥ 90 %,
+  flat, or mixed half and half; blocks flat), heaters on flat roofs; no portrait for a place with no houses of its own.
+  `world/layout.ts`: the label's placement (`placeLabel`, as `sceneLayout`'s) under the houses that stand over it, clear
+  of the marks; the houses and trees it would cover give way. `world/glyphSpecs.ts`: sizes per kind and icon.
+- *Model* (`model/marks.ts`): two layers, all light over an empty form (as the far towns): `marks.far` (z 17, the far
+  ridge's and the plain's marks) and `portrait` (z 40, over the near ridge and its water: houses, trees and the near
+  marks back to front). `tonesAt(world, km)`: walls are the land's own dark lifted toward the air and stone by day (the
+  visible face of a building faces north, toward the eye: sky-lit, never sunlit in Israel's winter); the face toward the
+  light takes its colour by the direct share (none with no side: a soft sky lift), shade toward a sky-lit dark, the
+  materials (stone, tile, glass, foliage, panels, the Báb's gold), every tone but the lamps carried toward the air by the
+  land's aerial rule at that distance. `shineOf`: dark, direct light, the cast shadow (`light.shadow`, alpha 0 under
+  overcast), lit windows (`0.4 · litShare` after dusk), aviation lights, lean (`wind.across`, ±0.22). Bounds take the
+  longest shadow on either side, so a scrub never resizes the layer (a resize repaints it whole).
+- *Painters*: `paint/glyphs/` (`kit.ts`, `buildings.ts`, `industry.ts`, `structures.ts`, `nature.ts`, `index.ts`): the
+  18 drawn kinds (minaret, church, synagogue, water tower, castle, homes, chimney, high-rise, cooling, silo, mast,
+  lighthouse, turbine, bridge, palms, orchard, vineyard, solar; the 8 of `sceneGlyphs.ts` ported, the rest new in the same
+  hand) and `paint/icons/` (Western Wall, Shrine of the Báb, Azrieli Center, Chords Bridge). A glyph is drawn with the
+  light on the left and mirrored for the right; the asymmetric icons (Wall, Azrieli, Chords Bridge) and the fields keep
+  their shape and take the side as a parameter. `paint/marks.ts`: cast shadows first, bodies back to front, the material
+  grain over all (one `source-atop` pattern of a 64 px seeded tile in device px), lamps and halos last. Worker-safe
+  (scratch surfaces from `env.canvas()`, plain-data descs).
+- *Tests* (`model/marks.test.ts`, 46; `model.test.ts` updated): every mark seated on its ridge (on the line within 1 px,
+  lifted ≤ 6, down the face ≤ 12; fields on the face at their depth; outside rows ≤ the near drop); lit side = the world
+  light's side at 4 hours and the shadow away from it; no house or tree in the dot's clearing or a text zone, no glyph under
+  the label; no unnamed landmark; density from the dot (inner two thirds > 2 × the outer, inner ≥ outer); roofs by the rule;
+  windows lit by night only; the composition deterministic and out of a blocked zone, standing on the face; no portrait
+  without houses; tones toward the air with distance, icons lit from the world's side; keys and bounds stable through a
+  scrub. The overlay test keeps the dot and notes equal to the SVG layout; the height label is now the world's (it was
+  placed against the SVG's own houses).
+- *Pixel references*: all rewritten deliberately but Ramon crater's four (no marks, no houses; unchanged) and Ein Gedi
+  21:00 (under the threshold): marks and houses added on the land; sky and planes as before. 53/53 on re-run, on both
+  paint paths (the worker and `SCENE_PAINT=main`).
+- *Stills* `qa/canvas/c4/` (dpr 2, overlay): the 8 baseline places at 08:00, 16:30, 21:00; `glyphs.png` (every kind and
+  icon in Rosh Pina's light at 08:00 / 14:00 / 16:30 / 21:00 and at 4×, `node e2e/scene.glyphs.mjs`,
+  `scene.html?sheet=glyphs`); `sheet-svg-canvas.png` (Shadmot 16:30, Rosh Pina 08:00, Tel Aviv 16:30, Jerusalem 08:00,
+  Ein Gedi 21:00).
+- *Critique* (3× crops of the 2× stills, craft-bar detail pass). Works: Rosh Pina reads as a village climbing its slope,
+  rows hanging from the crest with streets and trees between, the synagogue among its roofs; the lit faces turn with the
+  sun (left in the morning, right in the afternoon, none after sunset); by night the walls sink and a few windows glow, the
+  minaret's lamp and the aviation lights show; the icons stand in the same haze and light as the hills (Azrieli's
+  glass, the Báb's gold, the Wall's margins); palms lean with the wind. Still wrong: houses on a steep face stack into
+  vertical columns; the walls read a touch pale against a dark dusk ridge; small villages are sparse (Shadmot 15 houses)
+  because the dot, the label, the notes and the marks among the roofs take the middle; the cast shadows barely show at
+  1×; fields on the near face are dark on dark (orchards read, vineyards hardly); at night far glyphs are near the
+  ridge's tone (true to the light, but they vanish); Jerusalem's label went above the dot (the marks take the spot
+  under it).
+- *Perf* (`qa/canvas/perf.md`, C4): the worker path within the gates but Haifa's cold model (40 ms, its range 13–40);
+  worker land batch p50 87–179 ms (perf pass 70–124), scrub latency p50 179–366 ms; main thread: portrait paint 1.9–2.6
+  ms, scrub.land p95 30–48. The place part of the world in node: 1–10 ms for a portrait, 7–25 ms for a city (Tel
+  Aviv's `outsideSkyline`), was 4–59 ms with `hillScene`.
+- *Departures*: the portrait is composed in the world (the place part, memoised), not in `model/portrait.ts`: the
+  label's layout depends on it and the model only scales it; one `portrait` layer holds the near marks with the houses
+  (drawn back to front among them), so `marks` holds the far and plain ones only. The outside view itself (mass and
+  spires, the coastal sea) is C5; C4 draws a city's marks and icons only.

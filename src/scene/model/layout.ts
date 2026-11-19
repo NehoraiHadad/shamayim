@@ -9,8 +9,8 @@ const LABEL_PX = 11
 
 /**
  * The HTML overlay and the zones the drawing keeps clear (land px): the height label, the notes on the land (the
- * "פני הים" datum, the water's names) and the village dot, where the place's layout puts them (`world.labels`, the
- * same layout as the SVG scene's `hillScene` until stage C4 moves it here), x scaled from the reference width.
+ * "פני הים" datum, the water's names) and the village dot, where the place's layout puts them (`world.labels`, laid out
+ * by the world with its marks and portrait since C4, `world/place.ts`), x scaled from the reference width.
  */
 export function layoutOf(world: WorldState, box: SceneBox): { overlay: OverlayItem[]; clear: Box[] } {
   const sx = box.width / SCENE_W

@@ -304,3 +304,31 @@ Reading:
   So neither run stands for a phone's GPU raster; the gates stay on the software run, the conservative one.
 - **Memory** counts the bitmaps the main thread holds (11.8–14.2 MB); the workers hold a canvas per layer part besides,
   blank between paints (a transfer takes its pixels), so at most as much again while a batch is painted.
+
+## C4 (2026-11-19): glyphs, icons, landmarks, the village portrait
+
+What is added: two light-only layers (`marks.far`, `portrait`), repainted on every scrub frame (their light), bounds fixed
+across hours; the world's place part without `hillScene`.
+
+```
+worker (default)          haifa            tel-aviv         shadmot-mehola
+  modelCold p50           39.7 OVER        11.0             12.3
+  firstPaint p50          30.5             15.9             21.0
+  firstShown p50          176.3            138.6            149.8
+  scrub.model p50/p95     4.5 / 12.8       3.3 / 9.9        3.7 / 13.9
+  scrub.land p50/p95      0.1 / 0.9        0.1 / 0.9        0.1 / 1.1
+  scrub.latency p50/p95   366 / 410        179 / 298        213 / 289
+  worker land batch p50   179.0            86.8             86.9
+  memory                  14.7 MB          12.0 MB          13.5 MB
+main thread (--paint=main)
+  modelCold p50           27.8 OVER        12.7             10.0
+  firstPaint p50          124.5 OVER       113.7 OVER       146.3 OVER
+  scrub.land p50/p95      23.4 / 47.7 OVER 16.5 / 29.7 OVER 24.4 / 40.8 OVER
+  portrait paint (ms)     1.9              2.3              2.6
+```
+
+Reading: against the perf pass the same day, the worker's land batch grows 15–55 ms (the portrait's light and its grain
+fill; Haifa most, with its three marks and the Báb), the scrub latency is in the same range; the gated main-thread steps
+of the worker path stay within budget but Haifa's cold model (its range 13–40 ms over runs). worldCold in the browser
+(×4) 227–411 ms, reported only; in node the place part is now 1–10 ms for a portrait (was 4–9 with `hillScene`) and
+7–25 ms for a city (Tel Aviv 59 → 25: its `outsideSkyline`, C5's).
