@@ -480,6 +480,7 @@ tree lean; water ruffle. Reduced motion: one still frame.
 *Accept:* rain/wind tests; stills of the v1b rain moment rebuilt from data (Haifa, rain, wind from the west).
 
 **C8. Loading as an animation — S (2).**
+**Done 2026-11-19** (§6; no layout jump, the loading and arrival frames within budget).
 `model/loading.ts` + `paint/loading.ts`: while the panorama loads, mist drifting with a faint ridge line forming in it
 (a stroke that grows from the place's direction outward); the real planes cross-fade in when they arrive. Offline with
 no land data ever: quiet mist (owner decision 2). The drawn stand-ins are no longer used by the canvas path.
@@ -1311,3 +1312,112 @@ cities at 11:00 and 16:30, C5 on the left, C5b on the right; the stills beside i
   haze turning over ~15 px where the near crest's distance jumps (`hazeKm`), which a fog makes stark; a planes-painter
   matter, left. Departures: the towers beyond leave the panorama's projection for the outside view's (their x by the same
   rule as the place's rows); the place's label now also avoids the mass round the dot and tries, last, a spot over it.
+
+**C8 done (2026-11-19): loading as an animation.** Commits on the stage's branch (after C7, merged with C5b); the SVG
+baseline and the shipped app are unchanged (snapshots untouched; everything below runs only under `?canvas=1`, but for
+`useTerrain`, which now also says whether the land is loading or offline: the SVG scene reads nothing new).
+- *Drawing with the anidoodle skill* (owner decision 7): `SKILL.md`, `craft-bar.md`, `realism-and-craft.md`,
+  `determinism-and-contract.md`, `motion-grammar.md`, `working-method.md` read first; real reference named in
+  `paint/loading.ts`'s header (a valley filling with morning fog seen from a ridge road, the far crest a soft darker line
+  through it, lost in places, its mass a breath darker beneath, the bank's tops catching a low sun). The look proved on one
+  still (Jerusalem 16:30 loading) and one phase strip (its arrival), critiqued on 2× crops, then extended. The craft bar's
+  "fade-in" and "never dissolve two copies of one thing" shaped the arrival: the ridge line is *made* from the place
+  outward (not faded in), the guess is unmade over the same front as the true crest is drawn (no ghost of two lines), and
+  the land comes up *under* a thinning mist (revealed from behind) rather than dissolving over the sky.
+- *Data* (`data/terrain/terrain.ts`): `LandStatus` (`ready | loading | offline`); `useTerrain` returns it on the terrain
+  (`SceneTerrain.status`): `offline` when the fetch failed with no stored panorama, retried on the `online` event.
+- *World*: `world/terrain.ts` `landStatusOf`, `UNKNOWN_EYE_Y` (= `MIDDLE_Y`, 96: where the panorama puts eye level when
+  the near ridge due south stands at it, the middle of the places' range 66–105) and `unknownLand(status)`: while the land
+  is not known the world stands on **no land** (a flat eye level, no ridge), whatever terrain App hands it (today the drawn
+  stand-in, ignored): the sun and moon set at their true horizon, nothing is placed (`unknownPlace`: no portrait, no marks,
+  no notes, no far towns, no water), and the world is cheap (43–54 ms cold at ×4 against 230–560 ms with the land).
+  `TerrainPlanes.status`; `keys.terrain` carries it. **The drawn stand-ins are no longer used by the canvas path.**
+- *Model* (`scene/model/loading.ts`, `index.ts`): `sceneModel(world, box, clock?)`.
+  - **Not known** (`unknownModel`): the sky and the weather that needs no land (`fall.land`, `grains.land`) as they are;
+    in the land's place the **mist** (`loading.mist`, z 48, under the near rain): wisps, a dense bank from a little over the
+    guessed eye level, a darker foot (the land under it), puffs along the tops lit by a low sun through the cloud; a
+    300 px tile drifting with the ground wind, slower offline; its tones only from what does not depend on the land
+    (palette, air, the sun's true altitude, the covers), so it is the same canvas before and through the arrival. While
+    loading (not offline) the **guess** line (`loading.guess`, z 49): a generic soft ridge round the guessed eye level
+    (seeded value noise at two scales, never the place's shape, never a sine), its mass a breath darker beneath, the line
+    thick-thin and lost in places; made from the place outward over 2.8 s after a 0.5 s mist, then breathing. No overlay,
+    no clear zones: **the labels wait for the land**. Offline: the mist alone, quiet.
+  - **Arriving** (`arrivingLayers`, `ARRIVAL`, `ARRIVAL_END` 1.9 s): the known land's model, unchanged (same layers, same
+    keys: nothing repainted for it) with: every land layer that stands on the land (planes, water, far towns, marks, the
+    outside view with its own land, sheen, smoke, the coastal sea: everything but the near rain and the dust) fading 0 → 1
+    over 0.3–1.7 s; the mist 1 → 0 over 0.35–1.85 s; the true near crest (`loading.crest`) drawn from the place outward
+    over 0–0.9 s while the guess is unmade over the same front, both gone by 1.9 s; every sky layer gliding from the guessed
+    eye level to the land's (`fromHorizonY − relief.horizonY`, −30…+9 px over the places) over 0.3–1.7 s. Held at its
+    start (land alpha 0, mist whole) while the land's layers are still being painted.
+- *Compositor*: `AnimSpec` gains `mode: 'settle'` and `fade` (a `Ramp`), `reveal` (a window from `x`, feathered in 5
+  slices, `erase` for its complement, `still: whole | hide`), `glide` (applied only to a canvas painted for its desc: a
+  stale one stands where it was painted), `breath`; `anim.ts` `ease`, `rampAt`, `fadeAt`, `glideAt`, `revealAt`,
+  `settleEnd`, all pure. `Surface.composite(layers, phase, still)`: reduced motion lays drifts, strips, falls and flashes
+  at phase 0, no glide, no window (the guess whole, the crest hidden), but runs the fades; `makeLoop` runs, still, to
+  `settleEnd` under reduced motion so the arrival's **simple fade** plays, then stops. **One scene clock**: every loop's
+  phase now runs from `SCENE_EPOCH` (`useSurface.ts`, the page's `performance.now()` when the scene loaded) instead of
+  from the loop's start, so a new model (a scrub, a world part arriving, the reveal) no longer starts the drifts again
+  (before C8 the clouds stepped back on every model change).
+- *React*: `useLandClock(world)`: the one place the arrival touches the clock: when the mist began and when the reveal
+  began, as phases of the scene clock (`LandClock`); the reveal waits for both surfaces to report the land painted (4 s at
+  most), the model then drops it after `ARRIVAL_END`. The status change is taken while rendering, so no frame shows the
+  land before its reveal is set up. `SkyCanvas` glides its CSS base by its background position (the uncovered edge in the
+  base's own colour; `backgroundImage` + longhands, the same pixels at rest). `SceneOverlay` takes a style: the labels
+  hidden until the reveal starts, then a CSS fade from 1.14 s.
+- *Harness and runners*: `land=loading|offline|arrive` (`&from=<s>`: the reveal's phase), `window.__sceneStill` (the
+  harness lays its own stills under reduced motion: no loop), `__scene.lay(phase)`; `scene.stills.mjs` takes a 5th field
+  (`place@HH:MM@weather@phase@land`); `e2e/scene.clip.mjs` makes a clip (loading 3.5 s then the arrival on one clock,
+  ffmpeg); the perf runner measures, per place, the loading and arrival pages with motion on.
+- *Tests* (`scene/model/loading.test.ts`, 39 over the 8 places): the world stands on no land while loading or offline
+  (flat eye level, nothing placed, the stand-in's shape unused); no land layer before the data (4 hours × clear, rain,
+  dust × loading, offline), the mist present in both, the guess only while loading, the near rain in front of the mist;
+  no labels or clear zones until the land; the arrival monotonic (each land layer's alpha 0 → 1 non-decreasing, the mist
+  1 → 0 non-increasing, the crest's window non-decreasing and the guess's erased over the same front, the sky's glide
+  shrinking to 0, all done by `ARRIVAL_END`), the known model's layers and keys unchanged under it and the mist's and
+  guess's keys equal to the loading model's (no repaint, no pop); held while painting; time-shift invariance on the one
+  clock; offline → ready revealed without a guess; reduced motion (guess whole, crest hidden, no glide, fades run, the
+  still loop runs to the end and stops); model and painter calls pure, descs structured-cloneable; the compositor's window
+  (core + feathers, the complement for `erase`, nothing under reduced motion) and glide.
+- *Pixel references*: 6 new (59 in all): Haifa 16:30 loading, Jerusalem 12:00 offline, Ein Gedi 21:00 loading, Tiberias
+  12:00 rain loading, Haifa 16:30 arriving at 0.7 s, Rosh Pina 06:20 arriving at 1.2 s; the 53 earlier ones unchanged
+  (after the C5b merge, its references). 59/59 on both paint paths.
+- *Stills* `qa/canvas/c8/` (dpr 2, overlay): loading and offline at day (Jerusalem 12:00), golden (Haifa 16:30), night
+  (Ein Gedi 21:00) and rain (Tiberias 12:00), the line formed (phase 4); `strips/*-loading-strip.jpg` (the line forming:
+  0.5, 1.4, 2.3, 3.5 s), `strips/*-arrive-strip.jpg` (0, 0.4, 0.8, 1.2, 1.6, 2.2 s into the reveal), `strips/jerusalem-
+  1200-offline-strip.jpg` (0, 2, 4, 6 s); clips for the owner `haifa-1630-arrival.mp4`, `tiberias-1200-rain-arrival.mp4`
+  (5.9 s each: the mist and the line forming, then the land coming in).
+- *Critique* (2× crops). Works: the bank takes the hour (the dusk's grey-violet with the sun's glow in it, a pale
+  noon fog, a dark night bank that still reads as one); the guess reads as a ridge glimpsed through fog, not a wire (its
+  mass beneath, the line lost in places); the arrival reads as the fog clearing from the place outward: the true crest
+  drawn where the guess was, the land coming up under it, the sky settling a few px; the near rain keeps falling in front
+  through it all; no labels pop before the land. Still wrong: where the true crest stands far above the bank (Ein Gedi's
+  cliffs, Tiberias's Arbel side) the land's upper part shows half faded against the sky for ~0.5 s before the mist would
+  have hidden it: a fade, not a reveal, there; the guess and the crest are separate lines at the moving front (a short gap
+  where they differ in height), not one line morphing; the offline drift is quiet enough to read as still over a few
+  seconds (by intent; the clouds above move); a sun behind the true ridge shows through the fading land as a glow for a
+  moment before the land covers it.
+- *Perf* (`qa/canvas/perf.md`, C8; CPU ×4, dpr 2.75, worker path): loading frames (mist drift, line forming, the sky's
+  clouds) p50 0.5–0.6 ms, p95 1.8–2.1 ms; arrival frames p50 0.7–0.8, p95 2.1–2.3 ms (budget 4); the loading world 44–54
+  ms and model 24–43 ms cold (the sky's cold model is most of it), first paint 22–24 ms. The model overs reported by the
+  runner are C5's and C6's (cold model, scrub model), unchanged.
+- *Decisions and departures*:
+  - **The plan's `loading` kind** (`mode: mist | ridge | both`) became `part: 'mist' | 'ridge'` (three layers: the mist,
+    the guess, the crest), each cached once and laid at composite time.
+  - **No coarse elevation estimate** exists before the panorama (the forecast's height is one number; the far DEM tiles
+    come with the near ones): the guess is a generic line round the eye level the panorama would give a ridge at 0°.
+  - **The sky glides** rather than jumping when the land's eye level differs from the guess (up to 30 px at Masada).
+  - **Cross-fade, as the brief asks**, but staged as a reveal from behind the mist; the land's layers keep their keys.
+  - **The scene clock** (above) replaces "phase from the loop's start"; C6/C7's motions are unchanged in form.
+- **For C9 to delete (the old stand-in):** in `data/terrain/terrain.ts` the drawn valleys (`SHADMOT`, `GENERIC_TERRAIN`,
+  `SHADMOT_FAR_DRAWN`, `SHADMOT_NEAR_DRAWN`, `GENERIC_FAR_DRAWN`, `turned`), `terrainForPlace`'s stand-in branch (no
+  panorama → `unknownLand(status)` from `world/terrain.ts`, or null), `SceneTerrain.drawn` and the `centerY` it uses;
+  `data/terrain/profile.ts` `gentleHillsPath`, `mirrorPath` (and `ridgePoints` if nothing else uses it); in the world
+  `TerrainPlanes.drawn`, `STAND_IN_KM`, the `?? HORIZON_Y` fallbacks (every terrain then has an eye level),
+  `world/place.ts`'s portrait branch and `terrain.drawn ? terrain.centerY`, `world/portrait.ts` (`composePortrait`, kept only
+  for the stand-in: unreachable from the canvas path now) with the model's `portrait` layer and `paint/marks.ts`
+  `paintPortrait`; `data/landmarks/placeMarks.ts`'s `terrain.drawn` branch; the SVG's `ValleyScene.tsx` `snowPlaceM` and
+  `hillScene.ts` `terrain.drawn` (with the SVG scene); the tests that use the stand-in (`profile.test.ts`'s stand-in cases,
+  `hillScene.test.ts`, `visibleSun.test.ts` and `loading.test.ts`'s `GENERIC_TERRAIN` input, to become `unknownLand`); and
+  the stand-in-only machinery §2 lists (`fabric`, `neighbours`, `neighbourOcclusion`, `columns`, `villageStyle` after its
+  move, `settlementPlan`, `villageForms`, `villageExtent`, `terraces`).
+  - No deploys needed for C8.

@@ -45,7 +45,8 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
    and distance, from WorldCover's water class (the DEM sees the lakes as low land; today only a sea within 8 km of a
    coast is drawn). The dashed "פני הים" line below sea level stays: it is a datum, not water.
 4. **Loading stand-in.** The hand-drawn cross-section that pops to the real land: replace with a quiet placeholder
-   (open, low priority).
+   (done in the canvas scene, stage C8 of `CANVAS-SCENE-PLAN.md`: a mist with a ridge line forming, the land revealed
+   from behind it; the stand-in and its machinery are deleted at C9, list in that plan's §6).
 
 ## Status (2026-11-19, end of session)
 - Stages 0, 1, 2 done on branch `ccr-85ec24f0-9ayxgu` (stills: `qa/true-scene/stage1`, `stage2`).

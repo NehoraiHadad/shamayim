@@ -162,7 +162,7 @@ function Scene({ input: given }: { input: WorldInput }) {
     // The land too (C7: falling rain, mist, smoke, water and trees in the wind), at the same phase.
     if (phase > 0) lay(phase)
     void document.fonts.ready.then(() => { win.__sceneReady = true })
-  }, [sky, land, lay])
+  }, [sky, lay])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
   const size = { width: box.width, height: box.landHeight, dpr: box.dpr }

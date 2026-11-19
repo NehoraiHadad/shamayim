@@ -487,3 +487,22 @@ place part is still built on the main thread on the first paint's path (its inpu
 the water mask and the boundaries, live there); moving `placeOf` into a worker, or building it when its own inputs
 arrive rather than with the first forecast, is the next step.
 
+## C8 (2026-11-19): loading as an animation
+
+`npm run test:perf` (CPU ×4, dpr 2.75, software raster, worker path), after the C5b merge. The new rows measure, per place,
+the harness's `land=loading` page (6 s with motion: the mist drifting, the line forming, the sky's clouds) and its
+`land=arrive` page (2.5 s from the reveal's start: the land's layers fading up, the mist thinning, the crest drawn, the
+sky gliding), each frame the sky's and the land's loops summed:
+
+```
+                  loading: world / model / first paint, frame p50 / p95     arrive: frame p50 / p95
+  haifa           54.3 / 25.6 / 21.6 ms, 0.50 / 2.00 ms                     0.80 / 2.10 ms
+  tel-aviv        43.9 / 42.5 / 23.2 ms, 0.60 / 1.80 ms                     0.70 / 2.30 ms
+  shadmot-mehola  48.1 / 24.4 / 23.7 ms, 0.60 / 2.10 ms                     0.70 / 2.10 ms
+```
+
+Within the 4 ms animated-frame budget: every motion of the arrival is laid at composite time (alpha, a window of a
+cached canvas in up to 11 blits, a whole-pixel offset), nothing repainted per frame. The loading world is a tenth of the
+known one (no place part, no far towns); the loading model is mostly the sky's cold model. The rest of the run as at C5b
+(cold and scrub model OVER for the cities, C5's and C6's).
+
