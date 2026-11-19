@@ -1,4 +1,4 @@
-import type { FallMark, LayerOf, ShaftDesc } from '../model/types'
+import type { FallMark, LayerOf, MistBandDesc, ShaftDesc } from '../model/types'
 import { rng } from './core'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
@@ -152,7 +152,7 @@ export function paintFall(ctx: Ctx2D, desc: LayerOf<'fall'>, env: PaintEnv): voi
 const m0 = (marks: readonly FallMark[]) => marks.reduce((max, m) => Math.max(max, m.len), 0)
 
 /** A soft ellipse: a radial gradient squashed by the transform (no filter). */
-function soft(ctx: Ctx2D, x: number, y: number, rx: number, ry: number, rgb: readonly [number, number, number], alpha: number) {
+export function soft(ctx: Ctx2D, x: number, y: number, rx: number, ry: number, rgb: readonly [number, number, number], alpha: number) {
   if (rx <= 0 || ry <= 0 || alpha <= 0.003) return
   ctx.save()
   ctx.translate(x, y)
@@ -170,8 +170,13 @@ function soft(ctx: Ctx2D, x: number, y: number, rx: number, ry: number, rgb: rea
 
 /** Mist lying level: its body fading in at its top, the soft puffs along the top (wrapping round the tile). */
 export function paintMist(ctx: Ctx2D, desc: LayerOf<'mist'>, _env: PaintEnv): void {
-  const { x: bx, w } = desc.bounds
-  for (const band of desc.bands) {
+  mistBands(ctx, desc.bands, desc.bounds)
+}
+
+/** Bands of mist over a tile `bounds` wide (C7's mist, C8's loading bank): each body, then the puffs along its top. */
+export function mistBands(ctx: Ctx2D, bands: readonly MistBandDesc[], bounds: { x: number; w: number }) {
+  const { x: bx, w } = bounds
+  for (const band of bands) {
     const g = ctx.createLinearGradient(0, band.top - band.fade, 0, band.bottom)
     const span = Math.max(1, band.bottom - (band.top - band.fade))
     g.addColorStop(0, css(band.rgb, 0))

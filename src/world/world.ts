@@ -19,8 +19,8 @@ import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { snowFall } from './snowLine'
-import { terrainPlanes } from './terrain'
-import type { WorldInput, WorldState } from './types'
+import { landStatusOf, terrainPlanes, unknownLand } from './terrain'
+import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf, waterOf } from './water'
 import { windOf } from './wind'
@@ -45,6 +45,23 @@ export function groundWet(hours: readonly HourPoint[], at: LocalTime, shownRate:
   let wet = Math.min(1, shownRate / 0.8)
   for (let k = 1; k <= 3 && index - k >= 0; k++) wet = Math.max(wet, Math.min(1, hours[index - k].precipitation / 0.8) * (1 - k / 4))
   return wet
+}
+
+/** The land the world stands on while the place's own is not known (C8): one object per status, so the parts keep. */
+const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('offline') } as const
+
+/**
+ * The place while its land is not known (C8): nothing placed (no portrait, no marks, no notes: they stand on the land),
+ * so nothing is built on a guessed ridge; the scene shows the mist and keeps its labels back until the land arrives.
+ */
+function unknownPlace(place: WorldInput['place'], elevation: number) {
+  const rounded = Math.round(elevation)
+  const labels: WorldLabels = { height: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0, x: SCENE_W / 2,
+    y: 0 }, notes: [] }
+  const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.centerY }
+  return { place3: { kind: 'portrait' as const, dot, reachKm: 0, seed: hashId(place.id), style: 'tile' as const, size: 'small' as const,
+    roofs: 'mixed' as const, plan: { halfPx: 0, houses: [], trees: [] } }, marks: [], labels, ownSkyline: false, coastalSea: null,
+  placeKey: 'unknown', marksKey: 'unknown' }
 }
 
 /** Remembers its last result while every argument is the same object or value. */
@@ -80,14 +97,17 @@ export function makeWorldBuilder() {
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
 
   return function buildWorld(input: WorldInput): WorldState {
-    const { place, forecast, now, selected, terrain } = input
+    const { place, forecast, now, selected } = input
+    // Until the place's land is known (C8) the world stands on no land: no ridge, a guessed eye level, nothing placed.
+    const status = landStatusOf(input.terrain)
+    const terrain = status === 'ready' ? input.terrain : UNKNOWN[status]
     const at = selected ?? now
     const preview = selected !== null
     const camera = terrain.camera ?? SCENE_CAMERA
     const width = input.width ?? SCENE_W
     const seed = hashId(place.id)
     const skyline = skylineOf(terrain)
-    const sunSkyline = input.sunTerrain ? sunSkylineOf(input.sunTerrain) : skyline
+    const sunSkyline = input.sunTerrain && status === 'ready' ? sunSkylineOf(input.sunTerrain) : skyline
     const shown = shownAir(input)
     const hour = forecast.hours.find((h) => h.time === hourKey(at))
     const day = forecast.days.find((d) => d.date === datePart(at))
@@ -117,9 +137,9 @@ export function makeWorldBuilder() {
     const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id))
     const night = nightOf(shown, covers)
     const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
-    const placePartResult = placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation, input.bounds,
-      input.waterMask, input.cover)
-    const farCities = farCitiesPart(place, terrain, input.far, placePartResult.ownSkyline)
+    const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
+      input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
+    const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY ?? HORIZON_Y
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand }, moon }
 
@@ -143,7 +163,7 @@ export function makeWorldBuilder() {
         clouds: partKey(clouds, 2),
         rain: partKey([rain, snowfall], 2),
         wind: partKey(wind, 2),
-        terrain: terrainKey(terrain),
+        terrain: `${status}:${terrainKey(terrain)}`,
         water: partKey({ ...water, ripples: undefined, coastalSea: placePartResult.placeKey }, 3),
         farCities: `${terrainKey(terrain)}:${farCities.key}`,
         place: placePartResult.placeKey,

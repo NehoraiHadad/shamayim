@@ -10,4 +10,9 @@ export const CASES = [
   ...['haifa', 'jerusalem', 'tiberias'].flatMap((place) => WEATHER.map(([weather, hour]) => ({ place, at: `${DAY}T${hour}`, weather }))),
   ...[['haifa', '16:30'], ['jerusalem', '06:20'], ['tiberias', '12:00'], ['tel-aviv', '12:00'], ['ein-gedi', '16:30'],
     ['shadmot-mehola', '06:20']].map(([place, hour]) => ({ place, at: `${DAY}T${hour}`, dpr: 2 })),
+  // C8: the land not known yet (the mist and the forming line, still: the line whole), offline (the quiet mist), loading
+  // in rain, and the land arriving part way (its reveal 0.7 s in, laid with motion).
+  ...[['haifa', '16:30', 'loading'], ['jerusalem', '12:00', 'offline'], ['ein-gedi', '21:00', 'loading'],
+    ['tiberias', '12:00', 'loading', 'rain'], ['haifa', '16:30', 'arrive', '', '0.7'], ['rosh-pina', '06:20', 'arrive', '', '1.2']]
+    .map(([place, hour, land, weather = '', phase = '0']) => ({ place, at: `${DAY}T${hour}`, land, weather, phase })),
 ]

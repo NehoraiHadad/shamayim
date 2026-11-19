@@ -2,6 +2,7 @@
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { layoutOf } from './layout'
+import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
 import { outsideLayer } from './outside'
 import { planeLayers } from './planes'
@@ -9,7 +10,7 @@ import { bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
-import type { LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
+import type { LandClock, LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
 
@@ -23,9 +24,28 @@ export type * from './types'
  * water, the far towns and the haze band at the horizon; C4: the marks and the village portrait; C5: the city seen from
  * outside (its mass, spires, towers, marks and coastal sea); C6: the sky's glows, the sun and the moon, the stars, the clouds
  * (drifting), the lightning and the heat shimmer; C7: the weather (rain and snow from their banks, mist, dust, rays, smoke,
- * the wet ground's sheen).
+ * the wet ground's sheen); C8: while the land is not known, a mist in its place with a ridge line forming (`loading.ts`),
+ * and the land's arrival timed by the shell's `clock` (no clock: the land shown as it is, the mist from phase 0).
  */
-export function sceneModel(world: WorldState, box: SceneBox): SceneModel {
+export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null): SceneModel {
+  if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 })
+  const model = knownModel(world, box)
+  return clock?.reveal ? { ...model, layers: arrivingLayers(world, box, model.layers, clock) } : model
+}
+
+/**
+ * The land not known yet (C8): the sky and the weather that needs no land as they are; in the land's place the mist and
+ * the forming line; no labels (they stand on the land), no clear zones.
+ */
+function unknownModel(world: WorldState, box: SceneBox, clock: LandClock): SceneModel {
+  const sky = skyLayers(world, box)
+  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
+  const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, clouds, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
+    .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
+  return { layers, overlay: [], clear: [] }
+}
+
+function knownModel(world: WorldState, box: SceneBox): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
   const sky = skyLayers(world, box)

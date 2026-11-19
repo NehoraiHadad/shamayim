@@ -8,7 +8,10 @@
 // The animation (C6: the clouds drifting, lightning, shimmer) is measured on its own page with motion on, at a stormy
 // hour (`thunder`: every cloud layer drifting and flashes in the raining banks); the cold load and the scrub frames on a
 // page with reduced motion, so no loop races them.
-//   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main]
+// C8: the land not known yet, on its own pages with motion on: the cold world, model and first paint of the mist, its
+// frames for 6 s (the bank drifting, the line forming), and the frames of the land's arrival (2.5 s from the start of its
+// reveal: the land's layers fading up, the mist thinning, the crest drawn, the sky gliding).
+//   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main] [-- --no-land]
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 
 const args = process.argv.slice(2)
@@ -154,6 +157,25 @@ try {
     const mem = await moving.page.evaluate(() => window.__sceneStats.memory)
     console.log(`  memory (thunder) ${(Object.values(mem).reduce((a, b) => a + b, 0) / 2 ** 20).toFixed(1)} MB`)
     await moving.context.close()
+    if (!args.includes('--no-land')) for (const [land, seconds] of [['loading', 6], ['arrive', 2.5]]) {
+      const page = await openPage(browser, server.url, DPR, { motion: true })
+      const cdp3 = await page.context.newCDPSession(page.page)
+      await cdp3.send('Emulation.setCPUThrottlingRate', { rate })
+      await loadScene(page.page, sceneUrl(server.url, { place, at: '2026-11-17T16:30', land }) + (paintMain ? '&paint=main' : ''), 180000)
+      const coldLand = await page.page.evaluate(() => window.__sceneStats.steps)
+      await page.page.evaluate(() => { window.__sceneStats.steps['anim.sky'] = []; window.__sceneStats.steps['anim.land'] = [] })
+      await page.page.waitForTimeout(seconds * 1000)
+      const frames = await page.page.evaluate(() => ({ sky: window.__sceneStats.steps['anim.sky'] ?? [],
+        land: window.__sceneStats.steps['anim.land'] ?? [] }))
+      const f50 = q(frames.sky, 0.5) + q(frames.land, 0.5), f95 = q(frames.sky, 0.95) + q(frames.land, 0.95)
+      const over = f95 > BUDGET.anim.ms * SLACK
+      if (over) failures.push(`${place} ${land} frame p95 ${f95.toFixed(1)} ms > ${(BUDGET.anim.ms * SLACK).toFixed(1)}`)
+      const first = (coldLand['firstPaint.sky']?.[0] ?? 0) + (coldLand['firstPaint.land']?.[0] ?? 0)
+      console.log(`  ${land.padEnd(8)} world ${(coldLand.worldCold?.[0] ?? NaN).toFixed(1)} ms, model ${(coldLand.modelCold?.[0] ?? NaN).toFixed(1)} ms,`
+        + ` first paint ${first.toFixed(1)} ms; frame p50 ${f50.toFixed(2)} p95 ${f95.toFixed(2)} ms (sky ${q(frames.sky, 0.5).toFixed(2)}/${q(frames.sky, 0.95).toFixed(2)},`
+        + ` land ${q(frames.land, 0.5).toFixed(2)}/${q(frames.land, 0.95).toFixed(2)}, n ${frames.land.length}, ${seconds} s; budget ${BUDGET.anim.ms})${over ? '  OVER' : ''}`)
+      await page.context.close()
+    }
   }
 } finally {
   await browser.close()

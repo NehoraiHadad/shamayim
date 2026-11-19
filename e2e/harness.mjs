@@ -36,9 +36,10 @@ export function launch({ gpu = false } = {}) {
   return chromium.launch({ executablePath, args })
 }
 
-export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0' }) {
+export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0', land = '' }) {
   const q = new URLSearchParams({ place, at, phase: String(phase) })
   if (weather) q.set('weather', weather)
+  if (land) q.set('land', land)
   if (overlay) q.set('overlay', '1')
   // SCENE_PAINT=main: the layers painted on the main thread (the fallback where a browser has no paint worker).
   if (process.env.SCENE_PAINT === 'main') q.set('paint', 'main')
@@ -81,5 +82,5 @@ export async function loadScene(page, url, timeout = 60000) {
   }
 }
 
-export const caseName = ({ place, at, weather, dpr = 1 }) =>
-  `${place}-${at.slice(11).replace(':', '')}${weather ? `-${weather}` : ''}${dpr !== 1 ? `@${dpr}x` : ''}`
+export const caseName = ({ place, at, weather, dpr = 1, land = '', phase = '0' }) =>
+  `${place}-${at.slice(11).replace(':', '')}${weather ? `-${weather}` : ''}${land ? `-${land}${phase !== '0' ? `-${phase}` : ''}` : ''}${dpr !== 1 ? `@${dpr}x` : ''}`

@@ -1,5 +1,5 @@
 import { seeded } from '../../data/landmarks/hash'
-import type { AnimSpec, Pulse } from './types'
+import type { AnimSpec, Pulse, Ramp } from './types'
 
 /**
  * The animation of a layer at `phase` (seconds from the loop's start, never the clock), applied when its cached canvas is
@@ -80,4 +80,65 @@ export function fallAt(spec: AnimSpec | undefined, phase: number, tile: { w: num
   if (!fall) return { x: 0, y: 0 }
   const sway = fall.sway && fall.swayPeriod ? fall.sway * Math.sin((2 * Math.PI * phase) / fall.swayPeriod) : 0
   return { x: wrapTo(fall.vx * phase + sway, tile.w), y: wrapTo(fall.vy * phase, tile.h) }
+}
+
+/** Eased in and out (smoothstep), exactly 0 at or before 0 and exactly 1 at or past 1. */
+export function ease(t: number): number {
+  if (t <= 0) return 0
+  if (t >= 1) return 1
+  return t * t * (3 - 2 * t)
+}
+
+const progress = (at: number, dur: number, phase: number) => (dur > 0 ? (phase - at) / dur : phase >= at ? 1 : 0)
+
+/** A ramp's value at `phase` (C8): `from` before `at`, `to` after `at + dur`, eased between. */
+export function rampAt(ramp: Ramp, phase: number): number {
+  return ramp.from + (ramp.to - ramp.from) * ease(progress(ramp.at, ramp.dur, phase))
+}
+
+/**
+ * The alpha a layer is laid with at `phase` besides its flashes (C8): its fade (the land coming in, the mist going) and its
+ * breath (the forming line). 1 for a layer with neither. Under reduced motion (`still`) the fade still runs (a simple fade
+ * is all that is left of the arrival); the breath does not.
+ */
+export function fadeAt(spec: AnimSpec | undefined, phase: number, still = false): number {
+  if (!spec) return 1
+  const fade = spec.fade ? rampAt(spec.fade, phase) : 1
+  const b = spec.breath && !still ? 1 - spec.breath.depth * 0.5 * (1 - Math.cos((2 * Math.PI * phase) / spec.breath.period)) : 1
+  return Math.min(1, Math.max(0, fade * b))
+}
+
+/** How far (surface px) a gliding layer still stands off its place at `phase` (C8); 0 without a glide, or under reduced motion. */
+export function glideAt(spec: AnimSpec | undefined, phase: number, still = false): number {
+  const glide = spec?.glide
+  if (!glide || still) return 0
+  return glide.dy * (1 - ease(progress(glide.at, glide.dur, phase)))
+}
+
+/**
+ * How far either side of `reveal.x` a forming layer reaches at `phase` (C8, surface px): 0 before `at`, everything at
+ * `at + dur`, eased out (quick from the place, slowing toward the edges). Infinity for a layer with no reveal; under
+ * reduced motion the whole layer (`still: 'whole'`) or none of it (`'hide'`, which gives −1).
+ */
+export function revealAt(spec: AnimSpec | undefined, phase: number, width: number, still = false): number {
+  const reveal = spec?.reveal
+  if (!reveal) return Infinity
+  if (still) return reveal.still === 'whole' ? Infinity : -1
+  const t = progress(reveal.at, reveal.dur, phase)
+  if (t >= 1) return Infinity
+  if (t <= 0) return 0
+  const reach = Math.max(reveal.x, width - reveal.x) + reveal.feather
+  return reach * (1 - (1 - t) ** 2.2)
+}
+
+/** The end (s of the phase) of the layers' timed arrival motions: the loop runs to it, even under reduced motion. */
+export function settleEnd(specs: readonly (AnimSpec | undefined)[]): number {
+  let end = 0
+  for (const spec of specs) {
+    if (!spec) continue
+    if (spec.fade) end = Math.max(end, spec.fade.at + spec.fade.dur)
+    if (spec.glide) end = Math.max(end, spec.glide.at + spec.glide.dur)
+    if (spec.reveal) end = Math.max(end, spec.reveal.at + spec.reveal.dur)
+  }
+  return end
 }

@@ -17,8 +17,8 @@ import { loadWaterMask } from '../data/water/waterMask'
 import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
 import { layersOn, sceneModel } from '../scene/model'
-import { strikes } from '../scene/model/anim'
-import type { SceneBox } from '../scene/model/types'
+import { glideAt, strikes } from '../scene/model/anim'
+import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { onSkyCanvas } from '../scene/paint/sky'
@@ -29,6 +29,8 @@ import { SCENE_H } from '../world/sceneBox'
 import type { WorldInput, WorldState } from '../world/types'
 import { withVisibleSun } from '../world/visibleSun'
 import { makeWorldBuilder } from '../world/world'
+import { UNKNOWN_EYE_Y } from '../world/terrain'
+import { ARRIVAL } from '../scene/model/loading'
 
 /**
  * The canvas scene alone, for pixel and performance tests (docs/design/CANVAS-SCENE-PLAN.md §3): `scene.html?place=haifa
@@ -36,6 +38,10 @@ import { makeWorldBuilder } from '../world/world'
  * landmark and city data, and the forecast from the app's own request (the runners serve the fixture for it: nothing
  * reaches Open-Meteo). No UI text unless `overlay=1`. Sets `window.__sceneReady` once both surfaces are painted;
  * `window.__scene.scrub(at)` rebuilds and repaints one frame synchronously (perf runner).
+ *
+ * `land=loading|offline|arrive` (C8): the land not known yet (the mist with the line forming, from phase 0), offline with
+ * none (the quiet mist), or arriving (its reveal begun at phase 0, after a mist shown for 3.5 s): with `phase`, a still of
+ * that moment.
  */
 
 /** Weather moments as overrides of the shown air (like `?wx=`). */
@@ -73,9 +79,14 @@ interface Harness {
   settled(): Promise<void>
   /** Whether the layers are painted in the paint worker. */
   offThread: boolean
+  /** Lays both surfaces at a phase, with motion (a frame of a clip, `e2e/scene.clip.mjs`): nothing is repainted. */
+  lay(phase: number): void
 }
-type HarnessWindow = Window & { __sceneReady?: boolean; __sceneError?: string; __scene?: Harness; __world?: WorldState }
+type HarnessWindow = Window & { __sceneReady?: boolean; __sceneError?: string; __scene?: Harness; __world?: WorldState
+  __sceneStill?: boolean }
 const win = window as HarnessWindow
+// Under reduced motion (the runners' stills) the harness lays every frame itself: no loop, not even the arrival's.
+win.__sceneStill = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
 // The glyph sheet (`glyphSheet.tsx`) loads its worlds the same way; a dev page, fast refresh does not matter.
 // oxlint-disable-next-line react/only-export-components
@@ -106,19 +117,40 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
     far, forced: WEATHER[weather] ?? null, waterMask: mask, bounds, cover }
 }
 
-function Scene({ input }: { input: WorldInput }) {
+/** The land's moment (`land=`): its status for the world, and the clock the model is built with. */
+function landMoment(asked: string | null): { status: 'loading' | 'offline' | null; clock: LandClock | null } {
+  if (asked === 'loading' || asked === 'offline') return { status: asked, clock: { loadingAt: 0 } }
+  // The reveal at `from` (default 0) after 3.5 s of mist: a clip lays the loading part, then this from 3.5 on (one clock).
+  const from = Number(new URLSearchParams(location.search).get('from') ?? 0) || 0
+  if (asked === 'arrive') return { status: null, clock: { loadingAt: from - 3.5, reveal: { at: from, fromHorizonY: UNKNOWN_EYE_Y, guessed: true } } }
+  return { status: null, clock: null }
+}
+
+function Scene({ input: given }: { input: WorldInput }) {
   const params = new URLSearchParams(location.search)
   const overlay = params.get('overlay') === '1'
   const [build] = useState(makeWorldBuilder)
+  const moment = useMemo(() => landMoment(new URLSearchParams(location.search).get('land')), [])
+  const input = useMemo(() => (moment.status ? { ...given, terrain: { ...given.terrain, status: moment.status } } : given),
+    [given, moment])
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
-  const model = useMemo(() => SCENE_STATS.time('modelCold', () => sceneModel(world, box)), [world, box])
+  const model = useMemo(() => SCENE_STATS.time('modelCold', () => sceneModel(world, box, moment.clock)), [world, box, moment])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())
   /** The land's surface, once `useSurface` made it (for laying the land at a phase). */
   const landHold = useRef<Surface | null>(null)
+  /** Both surfaces laid at a phase as the loop lays them with motion on (`still` false), whatever the page's reduced motion. */
+  const lay = useCallback((phase: number) => {
+    skySurface.current?.composite(onSkyCanvas(sky), phase, false)
+    landHold.current?.composite(land, phase, false)
+    // The sky's base glides by its background's position (C8), as `SkyCanvas` lays it.
+    const base = sky.find((layer): layer is LayerOf<'sky'> => layer.kind === 'sky')
+    const canvas = skySurface.current?.canvas as HTMLCanvasElement | undefined
+    if (base?.animated?.glide && canvas?.style) canvas.style.backgroundPosition = `0 ${glideAt(base.animated, phase).toFixed(2)}px`
+  }, [sky, land])
   const onReady = useCallback((name: string) => {
     ready.current.add(name)
     if (ready.current.size < 2) return
@@ -128,12 +160,9 @@ function Scene({ input }: { input: WorldInput }) {
     const flash = sky.find((layer) => layer.kind === 'flash')?.animated?.pulse
     const phase = asked === 'flash' ? (flash ? strikes(flash)[0].at + 0.03 : 0) : Number(asked ?? 0) || 0
     // The land too (C7: falling rain, mist, smoke, water and trees in the wind), at the same phase.
-    if (phase > 0) {
-      skySurface.current?.composite(onSkyCanvas(sky), phase)
-      landHold.current?.composite(land, phase)
-    }
+    if (phase > 0) lay(phase)
     void document.fonts.ready.then(() => { win.__sceneReady = true })
-  }, [sky, land])
+  }, [sky, land, lay])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
   const size = { width: box.width, height: box.landHeight, dpr: box.dpr }
@@ -148,7 +177,7 @@ function Scene({ input }: { input: WorldInput }) {
         const t0 = performance.now()
         const next = build({ ...input, selected: at })
         const t1 = performance.now()
-        const nextModel = sceneModel(next, box)
+        const nextModel = sceneModel(next, box, moment.clock)
         const t2 = performance.now()
         // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the
         // browser's to composite (not timed).
@@ -168,9 +197,12 @@ function Scene({ input }: { input: WorldInput }) {
       },
       settled: () => Promise.all([skySurface.current!.settled(), landSurface.current!.settled()]).then(() => {}),
       get offThread() { return Boolean(skySurface.current?.remote && landSurface.current?.remote) },
+      lay,
     }
-  }, [world, build, input, box, landSurface])
+  }, [world, build, input, box, landSurface, moment, lay])
 
+  // The labels wait for the land as the app's do (`useLandClock`): an arriving still shows them once it has settled.
+  const labelsShown = !moment.clock?.reveal || (Number(params.get('phase')) || 0) >= ARRIVAL.land.at + ARRIVAL.land.dur * 0.6 + 0.3
   const palette = world.light.palette
   const vars = { '--ink': palette.ink, '--ridge-near': palette.ridgeNear, '--accent': palette.accent } as CSSProperties
   return (
@@ -178,7 +210,7 @@ function Scene({ input }: { input: WorldInput }) {
       <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        {overlay && <SceneOverlay items={model.overlay} width={box.width} />}
+        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
       </div>
     </div>
   )

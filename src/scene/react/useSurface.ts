@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { animates, makeLoop } from '../compose/loop'
+import { settleEnd } from '../model/anim'
 import { paintSliced } from '../compose/schedule'
 import { makeStats, type SceneStats } from '../compose/stats'
 import { Surface } from '../compose/surface'
@@ -12,6 +13,22 @@ if (typeof window !== 'undefined') (window as Window & { __sceneStats?: SceneSta
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   || Boolean((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData)
+
+/**
+ * The scene's one animation clock (C8): every loop's phase runs from here (`performance.now()` when the scene's code
+ * loaded, the frame callback's timeline), so a motion carries on through a new model, and the land's clock
+ * (`useLandClock`) names its moments as phases of it.
+ */
+export const SCENE_EPOCH = typeof performance === 'undefined' ? 0 : performance.now()
+
+/** The scene clock's phase now (s). */
+export const scenePhase = () => (performance.now() - SCENE_EPOCH) / 1000
+
+/**
+ * The scene harness lays its stills itself (a frame at a given phase, `window.__sceneStill`): no loop then, not even the
+ * arrival's settling one under reduced motion, which would lay its own phase over the still.
+ */
+const harnessStill = () => typeof window !== 'undefined' && (window as Window & { __sceneStill?: boolean }).__sceneStill === true
 
 /** `?paint=main` keeps the painting on the main thread (to compare; the perf runner's `--paint=main`). */
 const offThread = () => typeof location === 'undefined' || new URLSearchParams(location.search).get('paint') !== 'main'
@@ -33,13 +50,16 @@ export interface SurfaceSize { width: number; height: number; dpr: number }
  * worker, asking and laying the arrivals), `firstShown.<name>` the time until every layer shows, `arrive.<name>` and
  * `latency.<name>` each batch's laying and wait.
  */
-export function useSurface(name: string, layers: readonly LayerDesc[], size: SurfaceSize, onReady?: () => void) {
+export function useSurface(name: string, layers: readonly LayerDesc[], size: SurfaceSize, onReady?: () => void,
+  onLaid?: (phase: number, still: boolean, canvas: HTMLCanvasElement) => void) {
   const ref = useRef<HTMLCanvasElement>(null)
   const surfaceRef = useRef<Surface | null>(null)
   const ready = useRef(onReady)
   /** The main thread's time laying the worker's arrivals since the last cold start. */
   const arrived = useRef(0)
+  const laid = useRef(onLaid)
   useEffect(() => { ready.current = onReady }, [onReady])
+  useEffect(() => { laid.current = onLaid }, [onLaid])
   const { width, height, dpr } = size
 
   useEffect(() => {
@@ -54,6 +74,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
         SCENE_STATS.memory[name] = surface.bytes()
       } }))
     surface.resize(width, height, dpr)
+    surface.still = reducedMotion()
     const done = () => {
       SCENE_STATS.memory[name] = surface.bytes()
       ready.current?.()
@@ -85,10 +106,15 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       SCENE_STATS.time(`frame.${name}`, () => surface.render(layers))
       done()
     }
-    if (!animates(layers)) return cancel
-    const loop = makeLoop((phase) => SCENE_STATS.time(`anim.${name}`, () => surface.render(layers, phase)), {
+    laid.current?.(0, reducedMotion(), canvas)
+    if (!animates(layers) || harnessStill()) return cancel
+    const loop = makeLoop((phase, still) => {
+      SCENE_STATS.time(`anim.${name}`, () => surface.render(layers, phase, still))
+      laid.current?.(phase, still, canvas)
+    }, {
       frame: (cb) => requestAnimationFrame(cb), cancelFrame: cancelAnimationFrame,
-      visible: () => document.visibilityState === 'visible', still: reducedMotion })
+      visible: () => document.visibilityState === 'visible', still: reducedMotion }, 30, settleEnd(layers.map((layer) => layer.animated)),
+    SCENE_EPOCH)
     loop.start()
     const onVisible = () => (document.visibilityState === 'visible' ? loop.start() : loop.stop())
     document.addEventListener('visibilitychange', onVisible)

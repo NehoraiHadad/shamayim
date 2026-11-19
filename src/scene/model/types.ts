@@ -36,9 +36,10 @@ export interface AnimSpec {
   /**
    * `drift`: the cached sprite is translated and/or pulsed (no repaint); `frames`: the layer's canvas is a strip of
    * pre-painted frames, one laid per tick (C7: water, smoke, swaying trees); `fall`: the canvas is a tile of falling marks
-   * laid as a moving pattern over `fall.areas` (C7: rain, snow). Never a repaint per frame.
+   * laid as a moving pattern over `fall.areas` (C7: rain, snow); `settle`: the layer is only laid with the arrival's own
+   * motions below (C8). Never a repaint per frame.
    */
-  mode: 'drift' | 'frames' | 'fall'
+  mode: 'drift' | 'frames' | 'fall' | 'settle'
   /** Surface px/s across, for `drift` (+ left → right). */
   speed?: number
   /**
@@ -56,7 +57,29 @@ export interface AnimSpec {
   frames?: { count: number; fps: number }
   /** Falling marks (C7): the layer's canvas is a tile laid as a pattern over these areas, moving with the phase (`fallAt`). */
   fall?: Fall
+  /** The layer's alpha goes from `from` to `to` over `at … at + dur` s of the phase, eased (C8: the land in, the mist out). */
+  fade?: Ramp
+  /**
+   * A line made from the place outward (C8): the layer is laid only within `x ± reach(phase)`, its ends feathered, the
+   * reach growing over `at … at + dur` s to the whole width; `erase` lays it only outside that window (the guess unmade as
+   * the true line is drawn over the same front). Under reduced motion `still` says what shows: the whole layer, or nothing.
+   */
+  reveal?: Reveal
+  /**
+   * The layer is laid `dy` surface px off its place, gliding to its place over `at … at + dur` s (C8: the sky, drawn on
+   * the land's own eye level once the land is known, settles there from the guessed one). Applied only to a canvas painted
+   * for this desc (a stale one stands where it was painted).
+   */
+  glide?: { dy: number; at: number; dur: number }
+  /** A slow breath of the alpha, `1 − depth … 1` over `period` s (C8: the forming ridge line). */
+  breath?: { depth: number; period: number }
 }
+
+/** A timed ramp of the phase (s): from `from` to `to` over `at … at + dur`, eased in and out. */
+export interface Ramp { at: number; dur: number; from: number; to: number }
+
+/** A window grown from `x` (surface px) outward over `at … at + dur` s of the phase (`anim.ts` `revealAt`). */
+export interface Reveal { x: number; at: number; dur: number; erase?: boolean; still: 'whole' | 'hide'; feather: number }
 
 /**
  * Rain or snow falling (C7): the tile (the layer's canvas, its `bounds` the tile's size at 0, 0) laid as a repeating
@@ -361,7 +384,13 @@ export type LayerDesc =
    */
   | LayerBase & { kind: 'edge'; precip: Precip; side: 'left' | 'right'; x: number; y: number; w: number; h: number; body: RGB; shade: RGB
       curtain: RGB; alpha: number; lean: number; seed: number }
-  | LayerBase & { kind: 'loading'; mode: 'mist' | 'ridge' | 'both'; ridge: Pt[] }
+  /**
+   * The land not known yet (C8): `mist` the bank lying in the land's place, in the hour's air and light (a tile drifting
+   * with the ground wind); `ridge` a faint ridge line forming in it (`guess`: a generic soft line while the land loads;
+   * `crest`: the true near crest, drawn over the same front as the land arrives), its glimpsed mass under it.
+   */
+  | LayerBase & { kind: 'loading'; part: 'mist'; bands: MistBandDesc[]; lit: RGB; litAlpha: number }
+  | LayerBase & { kind: 'loading'; part: 'ridge'; line: Pt[]; rgb: RGB; alpha: number; mass: number; seed: number }
 
 export type LayerKind = LayerDesc['kind']
 export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
@@ -373,6 +402,16 @@ export type OverlayItem =
   /** `x` the note's left edge, `y` its top. */
   | { kind: 'datum' | 'water'; text: string; x: number; y: number }
   | { kind: 'dot'; x: number; y: number }
+
+/**
+ * The land's arrival in time (C8), kept by the React shell, which alone reads the clock, as phases of the scene's one
+ * animation clock (s from the page's scene epoch, the phase every loop lays at, so a new model never starts a motion
+ * again): when the mist began (`loadingAt`), and once the land is in, when its reveal began (`reveal.at`; null while the
+ * land's layers are still being painted: held at its start), the eye level the sky stood on before it (`fromHorizonY`,
+ * land px) and whether a guess line was forming (`guessed`: not offline). A frame is a pure function of the model and
+ * the phase.
+ */
+export interface LandClock { loadingAt: number; reveal?: { at: number | null; fromHorizonY: number; guessed: boolean } | null }
 
 export interface SceneModel {
   layers: LayerDesc[]

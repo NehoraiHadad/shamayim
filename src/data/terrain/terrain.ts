@@ -18,6 +18,14 @@ export { fetchPanorama, inRift } from './fetchPanorama'
 
 type Pt = [number, number]
 
+/**
+ * Where the place's land stands (C8): `ready` once its panorama is in (from storage or fetched), `loading` while it is
+ * being fetched, `offline` when the fetch failed and none is stored (no land data, ever, until the network returns). The
+ * canvas scene draws a mist in the land's place until it is `ready` (`scene/model/loading.ts`); the SVG scene keeps its
+ * drawn stand-in until C9.
+ */
+export type LandStatus = 'ready' | 'loading' | 'offline'
+
 export interface SceneTerrain {
   near: string
   far: string
@@ -61,6 +69,8 @@ export interface SceneTerrain {
   camera?: Camera
   /** The hand-drawn valley (its village sits on the drawn floor, its snow line is scaled from the place's depth). */
   drawn?: boolean
+  /** Whether the land is known yet (`useTerrain`); absent: known when it is a panorama (`horizonY`), else loading. */
+  status?: LandStatus
 }
 
 const SHADMOT_FAR_DRAWN = 'M0 128V38C34 28 70 32 104 48S160 80 190 86S236 76 262 52S326 16 375 20V128Z'
@@ -130,20 +140,33 @@ export function terrainForPlace(placeId: string, panorama: Panorama | null, wate
 }
 
 export function useTerrain(place: Place): SceneTerrain {
-  const [loaded, setLoaded] = useState<{ placeId: string; panorama: Panorama | null }>(() => ({
+  const [loaded, setLoaded] = useState<{ placeId: string; panorama: Panorama | null; failed: boolean }>(() => ({
     placeId: place.id,
     panorama: readPanorama(place.id),
+    failed: false,
   }))
-  const panorama = loaded.placeId === place.id ? loaded.panorama : readPanorama(place.id)
+  const mine = loaded.placeId === place.id
+  const panorama = mine ? loaded.panorama : readPanorama(place.id)
+  const failed = mine && loaded.failed
+  // A failed fetch (offline, no stored panorama) is tried again when the network comes back.
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    if (!failed) return
+    const retry = () => setAttempt((n) => n + 1)
+    window.addEventListener('online', retry)
+    return () => window.removeEventListener('online', retry)
+  }, [failed])
   useEffect(() => {
     if (readPanorama(place.id)) return
     const controller = new AbortController()
     fetchPanorama(place, controller.signal).then((next) => {
       writePanorama(place.id, next)
-      setLoaded({ placeId: place.id, panorama: next })
-    }).catch(() => undefined)
+      setLoaded({ placeId: place.id, panorama: next, failed: false })
+    }).catch(() => {
+      if (!controller.signal.aborted) setLoaded({ placeId: place.id, panorama: null, failed: true })
+    })
     return () => controller.abort()
-  }, [place])
+  }, [place, attempt])
   // The water mask is one small file for every place: the land is drawn at once, its water when the mask is in.
   const [water, setWater] = useState<WaterMask | null>(null)
   useEffect(() => {
@@ -151,5 +174,7 @@ export function useTerrain(place: Place): SceneTerrain {
     loadWaterMask().then((mask) => { if (live) setWater(mask) }).catch(() => undefined)
     return () => { live = false }
   }, [])
-  return useMemo(() => terrainForPlace(place.id, panorama, water && waterAround(place, water)), [place, panorama, water])
+  const status: LandStatus = panorama ? 'ready' : failed ? 'offline' : 'loading'
+  return useMemo(() => ({ ...terrainForPlace(place.id, panorama, water && waterAround(place, water)), status }),
+    [place, panorama, water, status])
 }

@@ -11,7 +11,7 @@ import type { SettlementSize, SettlementStyle } from '../data/landmarks/settleme
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { Relief } from '../data/terrain/angleScale'
 import type { SceneNote } from '../data/terrain/sceneNotes'
-import type { SceneTerrain } from '../data/terrain/terrain'
+import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
 import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
 import type { Camera } from '../domain/camera'
@@ -242,6 +242,11 @@ export interface TerrainPlanes {
   horizonY?: number
   /** The hand-drawn stand-in (no panorama yet). */
   drawn: boolean
+  /**
+   * Whether the place's land is known (C8): `loading` or `offline`, the world stands on `unknownLand` (no ridge, a guessed
+   * eye level) and the scene draws a mist in the land's place; `ready`, the panorama's planes.
+   */
+  status: LandStatus
   sightAt?: SceneTerrain['sightAt']
   seenAt?: SceneTerrain['seenAt']
   groundAt?: SceneTerrain['groundAt']

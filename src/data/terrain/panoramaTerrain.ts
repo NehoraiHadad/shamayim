@@ -10,7 +10,7 @@ import { visibilityAt } from './visibility'
 type Pt = [number, number]
 
 /** Where the village sits: the near ridge due south stands at this y... */
-const MIDDLE_Y = 96
+export const MIDDLE_Y = 96
 /** ...unless the lowest near ridge (looking down from a hilltop) would then fall below this y (under the sheet). */
 const LOWEST_Y = 110
 

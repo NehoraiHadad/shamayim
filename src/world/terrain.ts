@@ -1,9 +1,10 @@
 import { NEAR_KM } from '../data/terrain/panorama'
-import type { SceneTerrain } from '../data/terrain/terrain'
+import { MIDDLE_Y } from '../data/terrain/panoramaTerrain'
+import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
 import { anglePx } from '../data/terrain/angleScale'
 import { facesOf } from './face'
 import { landOf } from './land'
-import { FLOOR_Y, HORIZON_Y } from './sceneBox'
+import { FLOOR_Y, HORIZON_Y, SCENE_W } from './sceneBox'
 import type { Plane, Pt, TerrainPlanes } from './types'
 
 /** Distances for the drawn stand-in, which knows none: the near ridge at the near band's edge, the far land beyond. */
@@ -24,6 +25,27 @@ function smooth(km: number[]): number[] {
   return med.map((_, i) => { const w = around(i, med); return w.reduce((a, b) => a + b, 0) / w.length })
 }
 
+/** Whether the land is known: a terrain's own status, else known when it is a panorama (it has an eye level). */
+export const landStatusOf = (terrain: SceneTerrain): LandStatus => terrain.status ?? (terrain.horizonY === undefined ? 'loading' : 'ready')
+
+/**
+ * Eye level while the land is unknown (C8): where the panorama puts it when the near ridge due south stands at eye level
+ * (`MIDDLE_Y`), the middle of the places' range (66–105 over the baseline and still places). The sky stands on it until the
+ * land arrives, then settles to the land's own (`scene/model/loading.ts`, the glide).
+ */
+export const UNKNOWN_EYE_Y = MIDDLE_Y
+
+/**
+ * The land the world stands on while the place's own is not known (loading, or offline with none stored): no ridge,
+ * eye level at `UNKNOWN_EYE_Y`, so the sun and moon set at their true horizon (0°) and nothing is placed on a guessed
+ * shape. Nothing is drawn of it: the scene shows a mist in its place (C8). Replaces the drawn stand-ins in the canvas path.
+ */
+export function unknownLand(status: Exclude<LandStatus, 'ready'>): SceneTerrain {
+  const flat: [number, number][] = [[0, UNKNOWN_EYE_Y], [SCENE_W, UNKNOWN_EYE_Y]]
+  return { near: '', far: '', centerLeft: '50%', centerY: UNKNOWN_EYE_Y, seaY: UNKNOWN_EYE_Y, seaInView: false, seaSide: null,
+    nearPoints: flat, farPoints: flat, horizonY: UNKNOWN_EYE_Y, status }
+}
+
 /**
  * The land as planes: the near ridge and the far horizon, each point with its distance (from the panorama's rays), and
  * the ground that shows on each face (on the world's relief: eye level at `horizonY`), with its gullies, terraces and
@@ -41,6 +63,7 @@ export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlane
     seaY: terrain.seaY,
     horizonY: terrain.horizonY,
     drawn: Boolean(terrain.drawn) || terrain.horizonY === undefined,
+    status: landStatusOf(terrain),
     sightAt: terrain.sightAt,
     seenAt: terrain.seenAt,
     groundAt: terrain.groundAt,

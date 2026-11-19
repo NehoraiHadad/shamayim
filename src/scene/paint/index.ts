@@ -3,6 +3,7 @@ import type { Ctx2D, PaintEnv } from './hand'
 import { paintBodies, paintStars } from './bodies'
 import { paintClouds, paintFlash, paintShimmer } from './clouds'
 import { paintFarCities } from './farCities'
+import { paintLoading } from './loading'
 import { paintMarks, paintPortrait } from './marks'
 import { paintOutside } from './outside'
 import { paintPlane, paintPlaneLight } from './planes'
@@ -50,6 +51,7 @@ export const PAINTERS: Painters = {
   smoke: { form: paintNothing, light: paintSmoke, formless: () => true },
   sheen: { form: paintNothing, light: paintSheen, formless: () => true },
   edge: { form: paintEdge },
+  loading: { form: paintLoading },
 }
 
 export function painterOf(desc: LayerDesc): Painter | undefined {
