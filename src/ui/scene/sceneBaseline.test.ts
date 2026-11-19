@@ -32,6 +32,19 @@ import { ValleyScene } from './ValleyScene'
  */
 const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T16:30', '2026-11-17T21:00']
 
+/**
+ * React's `useId` values (R…r) follow the component tree's shape, not the picture: renumber them by first appearance
+ * so a new, empty slot in the tree does not read as a change of the scene.
+ */
+export function normalizeIds(html: string) {
+  const ids = [...new Set([...html.matchAll(/ id="([^"]+)"/g)].map(m => m[1]))]
+  let out = html
+  ids.forEach((id, n) => {
+    out = out.split(`"${id}"`).join(`"id${n}"`).split(`#${id})`).join(`#id${n})`).split(`#${id}"`).join(`#id${n}"`)
+  })
+  return out
+}
+
 const panoramaOf = (id: string) => unpackPanorama(JSON.parse(
   fs.readFileSync(path.resolve(__dirname, `../../test/fixtures/scene/${id}.panorama.json`), 'utf8')) as StoredPanorama)!
 
@@ -68,7 +81,7 @@ describe.each(SCENE_PLACES)('scene baseline: $id', (place) => {
         ridgeLight: { palette, wet: false }, terrain, place, landmarks, city, markLife: mapMarks(shown, air),
         first: now, last: now, onScrub: () => {}, onRelease: () => {}, onNow: () => {},
       }))
-      out.push(`<!-- ${now} -->\n${html.replace(/></g, '>\n<')}`)
+      out.push(`<!-- ${now} -->\n${normalizeIds(html).replace(/></g, '>\n<')}`)
     }
     await expect(out.join('\n\n')).toMatchFileSnapshot(`__snapshots__/baseline/${place.id}.html`)
   })

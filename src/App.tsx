@@ -13,6 +13,7 @@ import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
+import { useLand } from './data/land/useLand'
 import { useTurningView, useWorld } from './data/world/useWorld'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
@@ -61,6 +62,7 @@ export default function App() {
   const view = useHeading(180)
   const turning = useTurningView(useWorld(place, TURN_VIEW), view.heading)
   const sunTerrain = turning?.sunTerrain ?? terrain
+  const land = useLand(place, TURN_VIEW)
   const landmarks = useLandmarks(place, Boolean(terrain.sightAt), TURN_VIEW)
   const city = useCity(place)
   const now = useNow(place.timezone)
@@ -149,7 +151,7 @@ export default function App() {
               ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 }
               : undefined}
             snow={shown ? snowFall(shown, forecast.elevation) : null}
-            terrain={turning?.terrain ?? terrain} sunTerrain={turning?.sunTerrain}
+            terrain={turning?.terrain ?? terrain} sunTerrain={turning?.sunTerrain} land={turning ? land : undefined}
             turn={turning ? { onDrag: view.drag, onGlide: view.glide } : undefined}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
@@ -165,7 +167,8 @@ export default function App() {
               <WeekList forecast={forecast} now={now} />
               <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
             </Sheet>
-            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
+            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm}
+              landDate={turning ? land.colour?.date ?? null : null} />
           </div>
         </div>
       )}

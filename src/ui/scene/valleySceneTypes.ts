@@ -2,6 +2,7 @@ import type { AirState } from '../../atmo/airTypes'
 import type { Place } from '../../config/place'
 import type { CityResult } from '../../data/city/types'
 import type { Landmark, MarkLife } from '../../data/landmarks/types'
+import type { Land } from '../../data/land/landPaint'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { WeightedSighting } from '../../domain/cloudSightings'
 import type { Forecast, LocalTime } from '../../domain/types'
@@ -32,6 +33,8 @@ export interface ValleySceneProps {
    * which always holds the sun's path. Absent: `terrain`.
    */
   sunTerrain?: SceneTerrain
+  /** The land's real cover and this week's colour (turning view). */
+  land?: Land
   /** A turning view: the way it looks, and how to turn it (shows the compass). */
   turn?: { onDrag: (heading: number) => void; onGlide: (heading: number) => void }
   /** Still morning mist, layered between the two ridge paths. */

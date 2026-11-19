@@ -34,8 +34,9 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
-        // Keep the map renderer off the network until the overhead page is opened.
-        globIgnores: ['**/maplibre-gl-*.{js,css}'],
+        // Keep the map renderer off the network until the overhead page is opened, and the satellite reader (GeoTIFF and
+        // its decoders) until a turning view asks for this week's land colours.
+        globIgnores: ['**/maplibre-gl-*.{js,css}', '**/{geotiff,pako.esm,lerc,basedecoder,deflate,jpeg,lzw,packbits,raw,webimage}-*.js'],
         navigateFallback: 'index.html',
         runtimeCaching: [{
           urlPattern: /\/data\/landmarks\//,
@@ -45,6 +46,10 @@ export default defineConfig({
           urlPattern: /\/data\/city\//,
           handler: 'StaleWhileRevalidate',
           options: { cacheName: 'city-data' },
+        }, {
+          urlPattern: /\/data\/land\//,
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'land-data' },
         }],
       },
     }),

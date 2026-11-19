@@ -6,6 +6,7 @@ import { nextSunEvent, twilight } from './sceneModel'
 import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import { Compass } from './Compass'
+import { LandLayer } from './LandLayer'
 import { Moon } from './Moon'
 import { cloudSeenAttrs } from './cloudSeen'
 import { FarLand } from './FarLand'
@@ -25,7 +26,7 @@ import type { ValleySceneProps } from './valleySceneTypes'
 import styles from './ValleyScene.module.css'
 
 /** A true-bearing horizon once the DEM is available, with a drawn cross-section while it loads. */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight, snow = null, terrain, sunTerrain, turn, mist = 0,
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight, snow = null, terrain, sunTerrain, turn, land, mist = 0,
   mistColor = '#C9D2D8', place, landmarks, city, markLife, first, last, onScrub, onRelease, onNow, seenClouds = null }: ValleySceneProps) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
@@ -106,6 +107,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
         night={night} life={markLife} visibilityKm={visibilityKm} readout={Boolean(readout)} />
       <NearLand terrain={terrain} showSea={showSea} snow={snow} snowPlaceM={snowPlaceM}
         lighting={lighting} ridgeLit={ridgeLit} />
+      {land && <LandLayer place={place} land={land} terrain={terrain} nearFade={air.haze.nearFade} farFade={air.haze.farFade}
+        day={sun ? .55 + .45 * (lighting?.day ?? 0) : 0} />}
       <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
         citySkyline={hill.citySkyline} visibilityKm={visibilityKm}
         neighbours={hill.neighbours} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
