@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
 import { groundFn } from '../../data/landmarks/seat'
 import { smoothstep } from '../../world/ridgeLighting'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { partKey } from '../../world/keys'
 import type { RGB } from '../../world/types'
 import type { SceneBox } from './types'

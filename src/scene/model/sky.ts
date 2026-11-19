@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './planeLight'

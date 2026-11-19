@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
 import { ridgeLightSamples, smoothstep, type RidgeSample } from '../../world/ridgeLighting'
 import { groundAt as lineAt } from '../../world/sceneLight'

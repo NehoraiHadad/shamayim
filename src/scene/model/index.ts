@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { layoutOf } from './layout'

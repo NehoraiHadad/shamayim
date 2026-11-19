@@ -1,11 +1,31 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/**
+ * Chrome's explicit compile hint (`//# allFunctionsCalledOnLoad` as a script's first line): every function of the canvas
+ * scene's chunk is called while its first scene is built, so V8 compiles them all as the chunk loads (off the main thread
+ * while it streams) instead of one by one on first call. Measured on the scene model (`src/scene/model/*`, which carry
+ * the same line for the dev server): its cold run at Shadmot 12–15 → 6–8 ms, Tel Aviv 18–32 → 7–17 (CPU ×4). Other browsers read a comment.
+ */
+const compileHint = (): Plugin => ({
+  name: 'scene-compile-hint',
+  apply: 'build',
+  enforce: 'post',
+  generateBundle(_, bundle) {
+    for (const chunk of Object.values(bundle)) {
+      if (chunk.type === 'chunk' && chunk.name === 'CanvasScene' && !chunk.code.startsWith('//# allFunctionsCalledOnLoad')) {
+        chunk.code = `//# allFunctionsCalledOnLoad\n${chunk.code}`
+      }
+    }
+  },
+})
 
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [
+    compileHint(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
