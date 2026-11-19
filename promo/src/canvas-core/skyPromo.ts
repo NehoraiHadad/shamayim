@@ -1,5 +1,5 @@
 // SHAMAYIM · social film (9x16). Clean register: the live app's own frames are the star; one accent, the app's gold.
-// LOOK STILL stage: one frame, the triptych of three skies at 16:05 on 19.11.2026. See promo/BRIEF.md.
+// LOOK STILL stage: the opening frame, Shadmot Mehola before sunrise (06:15, 20.11.2026, scrubbed on the live app). See promo/BRIEF.md.
 import type { Ctx, Env } from "./core";
 import type { Film } from "./film";
 import karH from "../../assets/fonts/karantina-hebrew-700-normal.woff2";
@@ -30,50 +30,43 @@ const C = { ground: "#0F1730", ground2: "#16214A", ink: "#F3F5F7", muted: "#A9B4
 // safe rectangle for 9x16 (top 14 %, bottom 25 %, right 14 %)
 const SAFE = { top: Math.round(H * 0.14), bottom: Math.round(H * 0.75), right: Math.round(W * 0.86) };
 
-// the three places, top to bottom in the order their sun goes down
-const PLACES = [
-  { key: "hfa", name: "חיפה", note: "מאחורי הכרמל", time: "15:48" },
-  { key: "jlm", name: "ירושלים", note: "", time: "16:39" },
-  { key: "tlv", name: "תל אביב-יפו", note: "אל הים", time: "16:41" },
-];
-
 const rr = (ctx: Ctx, x: number, y: number, w: number, h: number, r: number) => {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 };
 
-const triptych = (ctx: Ctx, env: Env) => {
+// the phone: the live app's own frame (390x844 CSS at 3x), kept inside the safe width; its lower part (the week
+// list) may run into the bottom zone, everything a viewer must read (place, number, line, strip, valley, clothesline)
+// sits above y 1290
+const PHONE = { x: 180, y: 250, w: 721 }; const PH = Math.round(PHONE.w * 2532 / 1170); const CSS = PHONE.w / 390;
+// the frame's ground takes the app's sky at that moment, so the phone reads as a window in the same sky
+const SKY_0615 = { top: "#203779", mid: "#4e5b93", low: "#1b2350" };
+
+const touch = (ctx: Ctx, x: number, y: number, trail: number) => {
+  // a touch indicator, as screen recordings show one: a soft disc with a fading trail behind the way it came
+  for (let i = 8; i >= 1; i--) { const t = i / 8; ctx.globalAlpha = 0.16 * (1 - t); ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x + trail * t, y, 30 * (1 - 0.35 * t), 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 0.28; ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(x, y, 38, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.9; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 38, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
+};
+
+const phoneFrame = (ctx: Ctx, env: Env, key: string, sky: { top: string; mid: string; low: string }) => {
   const s = env.scale; ctx.setTransform(s, 0, 0, s, 0, 0);
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, C.ground2); g.addColorStop(1, C.ground);
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sky.top); g.addColorStop(0.55, sky.mid); g.addColorStop(1, sky.low);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-
-  // the shared clock: the one thing the thumb moves
-  const left = 60, right = SAFE.right - 10, bandX = 40, bandW = W - 80;
-  ctx.direction = "ltr"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = C.ink; ctx.font = `700 150px SkyNum`;
-  ctx.fillText("16:05", (left + right) / 2, SAFE.top + 128);
-  ctx.direction = "rtl"; ctx.textAlign = "center"; ctx.fillStyle = C.muted; ctx.font = `600 32px SkySans`;
-  ctx.fillText("אותו רגע. שלושה שמיים.", (left + right) / 2, SAFE.top + 182);
-
-  // three bands, each the live app's valley scene at that moment, with its own label row
-  const imgAspect = 231 / 1170, bandH = Math.round(bandW * imgAspect), labelH = 58, gap = 48;
-  let y = SAFE.top + 250;
-  for (const p of PLACES) {
-    ctx.direction = "rtl"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = C.ink; ctx.font = `500 42px SkySerif`; ctx.fillText(p.name, right - 6, y + 40);
-    ctx.direction = "rtl"; ctx.textAlign = "left"; ctx.fillStyle = C.gold; ctx.font = `600 32px SkySans`;
-    ctx.fillText(p.note ? `השמש נעלמת ${p.note} · ${p.time}` : `השמש נעלמת · ${p.time}`, left + 6, y + 38);
-    const by = y + labelH;
-    const img = env.image?.(p.key);
-    ctx.save(); rr(ctx, bandX, by, bandW, bandH, 26); ctx.clip();
-    if (img) ctx.drawImage(img, bandX, by, bandW, bandH); else { ctx.fillStyle = "#2a538c"; ctx.fillRect(bandX, by, bandW, bandH); }
-    ctx.restore();
-    ctx.strokeStyle = C.hair; ctx.lineWidth = 2; rr(ctx, bandX, by, bandW, bandH, 26); ctx.stroke();
-    y = by + bandH + gap;
-  }
+  // a soft shadow under the phone (stacked translucent rounded rects; no ctx.filter)
+  for (let i = 6; i >= 1; i--) { ctx.globalAlpha = 0.05; ctx.fillStyle = "#070b1c"; rr(ctx, PHONE.x - i * 5, PHONE.y + 18 - i * 3, PHONE.w + i * 10, PH + i * 8, 64 + i * 5); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  const img = env.image?.(key);
+  ctx.save(); rr(ctx, PHONE.x, PHONE.y, PHONE.w, PH, 64); ctx.clip();
+  if (img) ctx.drawImage(img, PHONE.x, PHONE.y, PHONE.w, PH); else { ctx.fillStyle = sky.mid; ctx.fillRect(PHONE.x, PHONE.y, PHONE.w, PH); }
+  ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 2; rr(ctx, PHONE.x, PHONE.y, PHONE.w, PH, 64); ctx.stroke();
+  // the thumb on the valley (CSS y ~390), mid-drag toward later (leftward in RTL)
+  touch(ctx, PHONE.x + 300 * CSS, PHONE.y + 392 * CSS, 150);
 };
 
 export const skyPromo: Film = {
   meta: { title: "skyPromo", W, H, fps: FPS, bpm: BPM, durationFrames: DURATION },
-  assets: { images: { hfa: "assets/shots/hfa-1605.png", jlm: "assets/shots/jlm-1605.png", tlv: "assets/shots/tlv-1605.png" } },
-  shots: [{ id: "look", start: 0, end: DURATION, draw: (ctx: Ctx, _local: number, env: Env) => triptych(ctx, env) }],
+  assets: { images: { sdm0615: "assets/shots/sdm-0615.jpg" } },
+  shots: [{ id: "look", start: 0, end: DURATION, draw: (ctx: Ctx, _local: number, env: Env) => phoneFrame(ctx, env, "sdm0615", SKY_0615) }],
 };
