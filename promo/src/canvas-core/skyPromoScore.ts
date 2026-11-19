@@ -33,7 +33,15 @@ const MOTIFS: Material["motifs"] = {
   // the answer: a step higher, through the lydian A, home to D (the 7th of home, open)
   answer: "r:.5 C5:.5 D5:.5 A5:1 G5:.5 F5:1",
   // sequence a third up, the high point late
-  higher: "r:1 D5:.5 Eb5:.5 A5:1 Bb5:1",
+  higher: "r:1 D5:.5 Eb5:.5 A5:1 G5:1",
+  // night: the rise turned upside down, the sun going down
+  set: "r:1 F5:.5 Eb5:.5 Bb4:1.5 C5:.5",
+  // the other places, one per beat (one per cut): the pickup-and-leap cell sequenced up
+  places: "Bb4:.5 Eb5:.5 C5:.5 F5:.5 D5:.5 G5:.5 Eb5:.5 A5:.5",
+  // dawn tomorrow: the rise again, leaning (G5 over the sus chord) into the landing
+  dawn: "r:1 Bb4:.5 C5:.5 F5:1.5 G5:.5",
+  // the landing: home, held (the sun becomes the degree mark on this downbeat)
+  last: "Bb5:1.5 G5:.5 Eb5:2",
   rest: "r:4",
 };
 
@@ -59,5 +67,25 @@ export const sampleScore = (): Material => ({
   sections: [
     { kind: "intro", bars: 1, harmony: ["Home"], lead: ["rise"], comp: ["x:2 x:2@0.8"], chordVel: 0.5, energy: 0.42 },
     { kind: "groove", bars: 2, harmony: ["Light", "Day"], lead: ["answer", "higher"], comp: ["x:1.5 x:1 r:.5 x:1", "x:1.5 x:1 r:.5 x:1"], groove: "main", energy: 0.52 },
+  ],
+});
+
+/** The film's score: 7 bars at 90 bpm (18.67 s), the landing on bar 7's downbeat (16.0 s, frame 480). */
+export const filmScoreMat = (): Material => ({
+  ...base("Shamayim, the sky over home"),
+  grooves: { main: { family: "halfTime", density: 0.32, variation: 0.35 }, lift: { family: "halfTime", density: 0.48, variation: 0.4 } },
+  sections: [
+    // bar 1 · now, the cranes cross: the piano alone
+    { kind: "intro", bars: 1, harmony: ["Home"], lead: ["rise"], comp: ["x:2 x:2@0.8"], chordVel: 0.5, energy: 0.42 },
+    // bars 2-3 · the thumb drags the day; the sun goes behind the ridge on bar 3
+    { kind: "groove", bars: 2, harmony: ["Light", "Day"], lead: ["answer", "higher"], comp: ["x:1.5 x:1 r:.5 x:1", "x:1.5 x:1 r:.5 x:1"], groove: "main", energy: 0.52 },
+    // bar 4 · night: drums out, the borrowed Ab, the motif upside down
+    { kind: "breath", bars: 1, harmony: ["Dusk"], lead: ["set"], comp: ["x:3 x:1@0.7"], energy: 0.44 },
+    // bar 5 · four places, one per beat: the groove back, a step denser
+    { kind: "hook", bars: 1, harmony: ["Light Day"], lead: ["places"], comp: ["x:1 x:1 x:1 x:1"], bass: ["Eb2:1 Eb2:1 C2:1 C2:1"], groove: "lift", energy: 0.6 },
+    // bar 6 · tomorrow's sunrise: the lean
+    { kind: "build", bars: 1, harmony: ["Lean"], lead: ["dawn"], comp: ["x:2 x:1 x:1"], groove: "main", energy: 0.56 },
+    // bar 7 · the sun lands as the degree mark: home, held
+    { kind: "outro", bars: 1, harmony: ["Home"], lead: ["last"], comp: ["x:4"], energy: 0.55 },
   ],
 });

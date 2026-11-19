@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-angle=swiftshader','--enable-unsafe-swiftshader'] });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1.85 });
+  const p = await ctx.newPage();
+  await p.goto('https://sky.nehoraihadad.com/', { waitUntil: 'networkidle', timeout: 90000 });
+  await p.waitForTimeout(2500);
+  const cdp = await ctx.newCDPSession(p);
+  await cdp.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
+  const step = (ms) => new Promise((res) => { cdp.once('Emulation.virtualTimeBudgetExpired', res); cdp.send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: ms }); });
+  console.log('A'); 
+  const box = await p.locator('[role=slider][aria-label="שעה בעמק"]').boundingBox(); console.log('B', box);
+  const t = Date.now();
+  const mv = (x,y,type) => cdp.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type==='mouseReleased'?0:1, clickCount: 1 });
+  await Promise.all([mv(380, 390, 'mousePressed'), step(33)]); console.log('C', Date.now()-t);
+  await Promise.all([mv(370, 390, 'mouseMoved'), step(33)]); console.log('D', Date.now()-t);
+  await step(33);
+  console.log(await p.locator('[role=slider]').getAttribute('aria-valuetext'));
+  await b.close();
+})();
