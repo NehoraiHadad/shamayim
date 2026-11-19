@@ -1,4 +1,4 @@
-import { lateral } from '../../domain/camera'
+import { lateral, SCENE_CAMERA, type Camera } from '../../domain/camera'
 import { ridgeLightRay, smoothstep } from './ridgeLighting'
 import type { RidgeTone } from './ridgeLightTone'
 
@@ -26,10 +26,10 @@ const moonTone = (strength: number): RidgeTone =>
   ({ fill: `rgba(185, 196, 222, ${(.09 * strength).toFixed(3)})`, rim: '#B9C4DE', rimAlpha: 0 })
 
 /** Ridge lighting from the moon, in the same shape as the sun's, or null when it is too faint to see. */
-export function moonRidgeLight(moon: MoonSky, strength: number, rimX: number) {
+export function moonRidgeLight(moon: MoonSky, strength: number, rimX: number, camera: Camera = SCENE_CAMERA) {
   if (strength < .05) return null
   return {
-    ray: ridgeLightRay(lateral(moon.azimuth), moon.altitude),
+    ray: ridgeLightRay(lateral(moon.azimuth, camera), moon.altitude),
     rimX,
     noonWeight: 0,
     altitude: moon.altitude,

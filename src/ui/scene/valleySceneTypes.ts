@@ -27,6 +27,13 @@ export interface ValleySceneProps {
   /** Snow falling in the shown hour (null on any other day): white caps above its snow line. */
   snow?: SnowFall | null
   terrain: SceneTerrain
+  /**
+   * The land the sun's rising, setting and light are judged against when the view turns: the place's south panorama,
+   * which always holds the sun's path. Absent: `terrain`.
+   */
+  sunTerrain?: SceneTerrain
+  /** A turning view: the way it looks, and how to turn it (shows the compass). */
+  turn?: { onTurn: (heading: number) => void }
   /** Still morning mist, layered between the two ridge paths. */
   mist?: number
   mistColor?: string

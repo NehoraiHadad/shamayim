@@ -16,7 +16,7 @@ const BAND_ENDS = [1.2, 3, SKYLINE_TO_KM] as const
 export type SkylineBand = 0 | 1 | 2
 export const skylineBand = (km: number): SkylineBand => km < BAND_ENDS[0] ? 0 : km < BAND_ENDS[1] ? 1 : 2
 
-export type SkylineView = Required<Pick<SceneTerrain, 'sightAt' | 'groundAt' | 'angleY'>> & {
+export type SkylineView = Required<Pick<SceneTerrain, 'sightAt' | 'groundAt' | 'angleY'>> & Pick<SceneTerrain, 'camera'> & {
   ground: (x: number) => number
 }
 
@@ -29,7 +29,7 @@ export function skylineRay(view: SkylineView, x: number, width: number, eyeLiftM
   const angle = (height: number, km: number) => apparentAngle(height - eyeLiftM, km, 0)
   let i = 0, horizon = -Infinity
   return {
-    azimuth: azimuthAt(fraction),
+    azimuth: azimuthAt(fraction, view.camera),
     terrainAt(km: number) {
       // Include every DEM vertex in front, even in empty cells or narrower than the city step.
       while (RAY_DISTANCES[i] <= km) {

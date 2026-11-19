@@ -11,8 +11,6 @@ export interface ScenePoint {
 }
 
 const MID_X = SCENE_W / 2
-/** Scene px for a direction a quarter turn to the side (due east and west today: x ≈ 322 and 53). */
-const QUARTER_PX = SCENE_CAMERA.pxPerDeg * 90
 
 /**
  * Position across, linear in the azimuth through the camera (today east 90° → x ≈ 322, south → middle, west 270° →
@@ -21,7 +19,7 @@ const QUARTER_PX = SCENE_CAMERA.pxPerDeg * 90
  * down.)
  */
 export function skyPoint(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
-  const x = xOf(azimuth) / SCENE_W
+  const x = xOf(azimuth, skyline.camera ?? SCENE_CAMERA) / SCENE_W
   return { x, y: altitudeY(skyline, x, altitude) }
 }
 
@@ -30,7 +28,9 @@ export function skyPoint(altitude: number, azimuth: number, skyline: Skyline = F
  * continuous while the sun passes north below the horizon at midnight (the linear position would jump edge to edge).
  */
 export function sunDirection(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
-  const x = (MID_X + QUARTER_PX * lateral(azimuth)) / SCENE_W
+  // A quarter turn to the side is this many px (due east and west today: x ≈ 322 and 53).
+  const camera = skyline.camera ?? SCENE_CAMERA
+  const x = (MID_X + camera.pxPerDeg * 90 * lateral(azimuth, camera)) / SCENE_W
   return { x, y: altitudeY(skyline, x, altitude) }
 }
 

@@ -1,4 +1,5 @@
 import type { SeenPoint } from '../terrain/visibility'
+import { SCENE_CAMERA, type Camera } from '../../domain/camera'
 import { azimuthFraction, EARTH_R_KM } from '../terrain/panorama'
 import { FAR_RADIUS_KM, NEAR_RADIUS_KM, RIDGE_WIDTH, ridgeX } from '../terrain/ridgeProjection'
 import type { MarkKind, TerrainSample } from './types'
@@ -27,12 +28,12 @@ export const distanceOf = (place: Coordinate, mark: Coordinate) => greatCircle(p
  * mapping: west-north-west at the left edge, south in the middle, east-north-east at the right), and how far it is.
  * Null when it lies behind the viewer (the northern quarter the scene does not show).
  */
-export function bearingOf(place: Coordinate, mark: Coordinate): { x: number; km: number } | null {
+export function bearingOf(place: Coordinate, mark: Coordinate, camera: Camera = SCENE_CAMERA): { x: number; km: number } | null {
   const { dx, dy, km } = greatCircle(place, mark)
   // Right at the place the bearing means nothing: the middle of the scene.
   if (km < 0.15) return { x: RIDGE_WIDTH / 2, km }
   const azimuth = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360
-  const fraction = azimuthFraction(azimuth)
+  const fraction = azimuthFraction(azimuth, camera)
   return fraction > 1 ? null : { x: RIDGE_WIDTH * fraction, km }
 }
 
@@ -54,8 +55,9 @@ export function sightLayer(km: number, sight: Sight, heightM = 0): Projection | 
 }
 
 /** Use the ridge that the panorama actually draws in this direction. */
-export function projectSight(place: Coordinate, target: Coordinate & { heightM?: number }, sightAt: (x: number) => Sight) {
-  const bearing = bearingOf(place, target)
+export function projectSight(place: Coordinate, target: Coordinate & { heightM?: number }, sightAt: (x: number) => Sight,
+  camera: Camera = SCENE_CAMERA) {
+  const bearing = bearingOf(place, target, camera)
   if (!bearing) return null
   const sight = sightLayer(bearing.km, sightAt(bearing.x), target.heightM)
   return sight && { ...bearing, ...sight }

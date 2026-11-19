@@ -33,6 +33,11 @@ interface Args {
   place: Place
   lat: number
   skyline: Skyline
+  /**
+   * The land the sun is judged against (whether it is over the ridge in its own direction): the place's south panorama,
+   * which holds the sun's whole path. Absent: `skyline` (the view is that panorama).
+   */
+  sunSkyline?: Skyline
   air: AirState
   cloudCover: number
   /** Twilight glow opacity and its x (scene fraction), or null when there is none. */
@@ -43,7 +48,7 @@ interface Args {
  * Sun lighting for both ridge layers at the shown minute, or null when the flag is off or nothing is lit
  * (night, overcast, heavy haze). Recomputed per shown minute, never per frame.
  */
-export function useRidgeLighting({ input, at, day, place, lat, skyline, air, cloudCover, glow }: Args): RidgeLighting | null {
+export function useRidgeLighting({ input, at, day, place, lat, skyline, sunSkyline, air, cloudCover, glow }: Args): RidgeLighting | null {
   const { mid, horizon, accent, ridgeFar, ridgeNear } = input?.palette ?? {}
   const wet = input?.wet ?? false
   const { farFade, nearFade, visibilityKm } = air.haze
@@ -57,7 +62,8 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, air, clo
     if (!mid || !horizon || !accent || !ridgeFar || !ridgeNear || !sunrise || !sunset ||
       cloudCover >= 90) return null
     const point = sunPosition(minute, sunrise, sunset, place, skyline)
-    const daylight = point ? smoothstep(0, 2, skyline(point.x) - point.y) : 0
+    const seen = sunSkyline ? sunPosition(minute, sunrise, sunset, place, sunSkyline) : point
+    const daylight = seen ? smoothstep(0, 2, (sunSkyline ?? skyline)(seen.x) - seen.y) : 0
     if (!daylight && !glowOpacity) return null
     const sky = sunSky(utcOf(minute, place.timezone), place.lat, place.lon)
     // Only the light that gets through the haze lights the land; too little left and nothing is lit.
@@ -65,11 +71,11 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, air, clo
     if (direct < .08 && !glowOpacity) return null
     const noonWeight = point ? 1 - smoothstep(0, .18, Math.abs(point.t - .5)) : 0
     // Light from the sun's side as the camera sees it (+1 from the right … −1 from the left), as the disc is drawn.
-    const ray = point && daylight ? ridgeLightRay(lateral(sky.azimuth), sky.altitude) : null
+    const ray = point && daylight ? ridgeLightRay(lateral(sky.azimuth, skyline.camera), sky.altitude) : null
     const rimX = point && daylight ? point.x * SCENE_W : glowX < 0 ? null : glowX * SCENE_W
-    const tone = { ...sky, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
+    const tone = { ...sky, camera: skyline.camera, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
       palette: { mid, horizon, accent, ridgeFar, ridgeNear } }
     return { ray, rimX, noonWeight, altitude: sky.altitude, day: daylight * direct, near: ridgeLightTone({ ...tone, layer: 'near' }), far: ridgeLightTone({ ...tone, layer: 'far' }) }
   }, [minute, sunrise, sunset, lat, skyline, place.timezone, place.lat, place.lon,
-    mid, horizon, accent, ridgeFar, ridgeNear, cloudCover, wet, farFade, nearFade, glowOpacity, glowX, visibilityKm, dust])
+    sunSkyline, mid, horizon, accent, ridgeFar, ridgeNear, cloudCover, wet, farFade, nearFade, glowOpacity, glowX, visibilityKm, dust])
 }

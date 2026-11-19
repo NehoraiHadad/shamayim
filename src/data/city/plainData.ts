@@ -1,5 +1,5 @@
 import { groundFn } from '../landmarks/seat'
-import { spanDeg } from '../../domain/camera'
+import { SCENE_CAMERA, spanDeg } from '../../domain/camera'
 import { azimuthAt, FAR_KM, RAY_DISTANCES } from '../terrain/panorama'
 import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import type { SceneTerrain } from '../terrain/terrain'
@@ -18,8 +18,7 @@ export interface PlainPatch {
   area: number
 }
 
-export type PlainTerrain = Pick<SceneTerrain, 'seenAt' | 'nearPoints' | 'farPoints'>
-const SCENE_RADIANS = spanDeg() * Math.PI / 180
+export type PlainTerrain = Pick<SceneTerrain, 'seenAt' | 'nearPoints' | 'farPoints' | 'camera'>
 const SHEET_TOP = 114
 const FAR_GRID: RayGrid = {
   toGrid: (lat, lon) => [(lon - FAR_WEST) / FAR_LON_STEP, (lat - FAR_SOUTH) / FAR_LAT_STEP],
@@ -27,7 +26,8 @@ const FAR_GRID: RayGrid = {
 }
 
 export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
-  { seenAt, nearPoints, farPoints }: PlainTerrain, fromKm = RAY_DISTANCES[0]): PlainPatch[] {
+  { seenAt, nearPoints, farPoints, camera = SCENE_CAMERA }: PlainTerrain, fromKm = RAY_DISTANCES[0]): PlainPatch[] {
+  const SCENE_RADIANS = spanDeg(camera) * Math.PI / 180
   if (!seenAt || !(width > 0) || !Number.isFinite(width)) return []
   const patches: PlainPatch[] = []
   const nearY = groundFn(nearPoints, width), farY = groundFn(farPoints, width)
@@ -48,7 +48,7 @@ export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
       if (!bounds) {
         const row = Math.floor(run.index / FAR_COLS), col = run.index % FAR_COLS
         const xs = [row, row + 1].flatMap(r => [col, col + 1].map(c => {
-          const corner = bearingOf(place, { lat: FAR_SOUTH + r * FAR_LAT_STEP, lon: FAR_WEST + c * FAR_LON_STEP })
+          const corner = bearingOf(place, { lat: FAR_SOUTH + r * FAR_LAT_STEP, lon: FAR_WEST + c * FAR_LON_STEP }, camera)
           return corner ? corner.x * width / RIDGE_WIDTH : fraction < .5 ? 0 : width
         }))
         bounds = [Math.min(...xs), Math.max(...xs)]
@@ -69,7 +69,7 @@ export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
       }
       run = undefined
     }
-    for (const span of cellSpans(place, azimuthAt(fraction), fromKm, FAR_KM, FAR_GRID)) {
+    for (const span of cellSpans(place, azimuthAt(fraction, camera), fromKm, FAR_KM, FAR_GRID)) {
       const index = span.row * FAR_COLS + span.col
       if (!(grid[index] >> 4)) continue
       // A cell can straddle a shadow. Resolve the seen portion within the cell, keeping its actual foreshortening.

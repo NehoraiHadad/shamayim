@@ -24,7 +24,7 @@ export function packPanorama(p: Panorama): StoredPanorama {
   }
 }
 
-export function unpackPanorama(value: unknown): Panorama | null {
+export function unpackPanorama(value: unknown, azimuthOf: (i: number, rays: number) => number = rayAzimuth): Panorama | null {
   const s = value as StoredPanorama | null | undefined
   if (!s || s.v !== 3 || !Number.isFinite(s.eyeM) || !Number.isFinite(s.groundM)
     || typeof s.profiles !== 'string' || !Array.isArray(s.rays) || s.rays.length < 2) return null
@@ -35,7 +35,7 @@ export function unpackPanorama(value: unknown): Panorama | null {
     eyeM: s.eyeM,
     groundM: s.groundM,
     rays: s.rays.map((ray, i) => ({
-      azimuth: rayAzimuth(i, s.rays.length),
+      azimuth: azimuthOf(i, s.rays.length),
       profile: profiles.slice(i * RAY_DISTANCES.length, (i + 1) * RAY_DISTANCES.length),
       near: { angle: ray[0], elevation: ray[1], distance: ray[2] },
       far: { angle: ray[3], elevation: ray[4], distance: ray[5] },

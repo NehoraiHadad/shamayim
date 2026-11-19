@@ -26,7 +26,7 @@ function Gable({ w, h, turned, storeys }: Shape & { turned: boolean; storeys?: 2
     <path className={styles.lit} d={`M${left} ${-wallH}h${end}l${-end / 2} ${wallH - h}z`} />
     <rect className={styles.wall} x={left + end} y={-wallH} width={w - end} height={wallH} />
     <path className={styles.roof} d={`M${left + end / 2} ${-h}H${w / 2 - .6}L${w / 2 + .3} ${-wallH}H${left + end}z`} />
-    <rect className={styles.roofLit} x={left + end / 2} y={-h} width={w / 2 - .6 - left - end / 2} height={.6} />
+    <rect className={styles.roofLit} x={left + end / 2} y={-h} width={Math.max(0, w / 2 - .6 - left - end / 2)} height={.6} />
     <rect className={styles.shade} x={left + end} y={-wallH} width={w - end} height={.5} />
   </>
 }

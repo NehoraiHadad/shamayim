@@ -1,4 +1,4 @@
-import { toward } from '../../domain/camera'
+import { SCENE_CAMERA, toward, type Camera } from '../../domain/camera'
 import { hexToOklab, oklabToHex, type Oklab } from '../../theme/oklab'
 import type { SkyLight } from '../../theme/skyLight'
 import { smoothstep } from './ridgeLighting'
@@ -8,6 +8,8 @@ export type RidgePalette = Pick<SkyLight, 'mid' | 'horizon' | 'accent' | 'ridgeF
 interface ToneInput {
   altitude: number
   azimuth: number
+  /** The camera the land is drawn for: "in the view's direction" is its heading. */
+  camera?: Camera
   day: number
   noonWeight: number
   glow: number
@@ -72,7 +74,7 @@ export function ridgeLightTone(input: ToneInput): RidgeTone | null {
 
   const warm = 1 - smoothstep(4, 18, altitude)
   // How much the sun stands in the view's direction (behind the ridges, lighting them from the back).
-  const south = Math.max(0, Math.cos(altitude * radians) * toward(azimuth))
+  const south = Math.max(0, Math.cos(altitude * radians) * toward(azimuth, input.camera ?? SCENE_CAMERA))
   const light = mix(horizon, accent, warm * .55)
   const neutral = { ...base, l: base.l + .03 * south }
   const band = mix(mix(base, light, far ? .28 : .20), neutral, noonWeight)

@@ -1,3 +1,5 @@
+import { SCENE_CAMERA, type Camera } from '../../domain/camera'
+import type { Stage } from '../world/stage'
 import { anglePx } from './angleScale'
 import { apparentAngle, type HorizonPoint, type Panorama } from './panorama'
 import { pointsToPath } from './profile'
@@ -39,12 +41,11 @@ function seaSideOf(p: Panorama): 'west' | 'east' | null {
  * The scene's land from a horizon panorama. Across, each ray sits at its azimuth's x (the sky's own mapping); up, each
  * ridge at its angle on the sky's scale (`anglePx`) above eye level, which stands at `horizonY`.
  */
-export function terrainFromPanorama(p: Panorama): SceneTerrain {
+export function terrainFromPanorama(p: Panorama, view: { camera?: Camera; horizonY?: number; stage?: Stage } = {}): SceneTerrain {
   const n = p.rays.length
   const xOf = (i: number) => (375 * i) / (n - 1)
   const mid = p.rays[Math.floor(n / 2)]
-  const lowestNear = Math.min(...p.rays.map((ray) => ray.near.angle))
-  const horizonY = Math.min(MIDDLE_Y + anglePx(mid.near.angle), LOWEST_Y + anglePx(lowestNear))
+  const horizonY = view.horizonY ?? sceneHorizonY(p)
   const yOf = (angle: number) => horizonY - anglePx(angle)
   const round = (v: number) => Math.round(v * 10) / 10
   // A light 1-2-1 smoothing over neighbouring rays (±1.25°) takes the DEM's pixel steps out of the line; the sun and
@@ -52,8 +53,10 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
   const smooth = (values: number[]) => values.map((v, i) => (values[Math.max(0, i - 1)] + 2 * v + values[Math.min(values.length - 1, i + 1)]) / 4)
   const nearAngles = smooth(p.rays.map((ray) => ray.near.angle))
   const farAngles = smooth(p.rays.map((ray) => Math.max(ray.far.angle, ray.near.angle))).map((a, i) => Math.max(a, nearAngles[i]))
-  const nearPoints = nearAngles.map((angle, i): Pt => [round(xOf(i)), round(yOf(angle))])
-  const farPoints = farAngles.map((angle, i): Pt => [round(xOf(i)), round(yOf(angle))])
+  // With a stage in front, the ground between the pole and the stage's far edge hides any land lower than that edge.
+  const front = view.stage ? (y: number) => Math.min(y, view.stage!.farY) : (y: number) => y
+  const nearPoints = nearAngles.map((angle, i): Pt => [round(xOf(i)), round(front(yOf(angle)))])
+  const farPoints = farAngles.map((angle, i): Pt => [round(xOf(i)), round(front(yOf(angle)))])
   const seaSide = seaSideOf(p)
   // The sea line: on a coast, the sea horizon; below sea level, where sea level meets the slopes around (each slope
   // taken as straight from the eye up to its crest); otherwise eye level.
@@ -99,5 +102,18 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
     seenAt,
     groundAt: profiles.groundAt,
     angleY: yOf,
+    camera: view.camera ?? SCENE_CAMERA,
+    stage: view.stage,
   }
+}
+
+/**
+ * Eye level (y) for the south panorama: the near ridge due south at `MIDDLE_Y`, unless the lowest near ridge would then
+ * fall under `LOWEST_Y`. A turning view keeps the one eye level of its place (`worldHorizonY`), so the land does not
+ * rise and fall as it turns.
+ */
+export function sceneHorizonY(p: Panorama): number {
+  const mid = p.rays[Math.floor(p.rays.length / 2)]
+  const lowestNear = Math.min(...p.rays.map((ray) => ray.near.angle))
+  return Math.min(MIDDLE_Y + anglePx(mid.near.angle), LOWEST_Y + anglePx(lowestNear))
 }

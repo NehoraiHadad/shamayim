@@ -1,4 +1,4 @@
-import { azimuthAt as cameraAzimuthAt, fractionOf } from '../../domain/camera'
+import { azimuthAt as cameraAzimuthAt, fractionOf, SCENE_CAMERA, type Camera } from '../../domain/camera'
 
 export { packPanorama, unpackPanorama, type StoredPanorama } from './storedPanorama'
 
@@ -24,8 +24,8 @@ export const EYE_M = 2
 /** Rays across the scene, evenly in azimuth from x = 0 to x = 375 (the camera's mapping, `domain/camera.ts`). */
 export const RAYS = 201
 /** Azimuth (deg) at a fraction of the scene's width, and the reverse (above 1 out of view); see `domain/camera.ts`. */
-export const azimuthAt = (fraction: number) => cameraAzimuthAt(fraction)
-export const azimuthFraction = (azimuth: number) => fractionOf(azimuth)
+export const azimuthAt = (fraction: number, camera: Camera = SCENE_CAMERA) => cameraAzimuthAt(fraction, camera)
+export const azimuthFraction = (azimuth: number, camera: Camera = SCENE_CAMERA) => fractionOf(azimuth, camera)
 /** Ridges closer than this (km) make the near layer; beyond is only in the far horizon. */
 export const NEAR_KM = 5
 /** How far the rays reach (km); past ~60 km even Hermon sinks under the curve from most places. */
@@ -39,9 +39,12 @@ export const RAY_DISTANCES: readonly number[] = [
   ...Array.from({ length: 39 }, (_, i) => 23 + i * 1), // 23 – 61 km every 1 km
 ].filter((d) => d <= FAR_KM + 1e-9)
 
-/** Azimuth (deg) of ray i: west-north-west at the left edge, south in the middle, east-north-east at the right. */
+/**
+ * Azimuth (deg) of ray i of the stored south panorama: west-north-west (305°) first, south in the middle, east-north-east
+ * (55°) last. Fixed: it is the order the panorama is stored in, whatever the camera does (`domain/camera.ts`).
+ */
 export function rayAzimuth(i: number, rays = RAYS): number {
-  const az = azimuthAt(i / (rays - 1))
+  const az = azimuthAt(i / (rays - 1), SCENE_CAMERA)
   return (az + 360) % 360
 }
 
@@ -104,12 +107,13 @@ export function horizonRay(azimuth: number, heightAt: HeightAt, eyeM: number, di
 }
 
 /** The whole panorama from a place, over a height lookup around it. */
-export function computePanorama(heightAt: HeightAt, groundM: number, rays = RAYS): Panorama {
+export function computePanorama(heightAt: HeightAt, groundM: number, rays = RAYS,
+  azimuthOf: (i: number) => number = (i) => rayAzimuth(i, rays)): Panorama {
   const eyeM = groundM + EYE_M
   return {
     eyeM,
     groundM,
-    rays: Array.from({ length: rays }, (_, i) => horizonRay(rayAzimuth(i, rays), heightAt, eyeM)),
+    rays: Array.from({ length: rays }, (_, i) => horizonRay(azimuthOf(i), heightAt, eyeM)),
   }
 }
 

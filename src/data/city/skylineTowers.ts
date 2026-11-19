@@ -13,7 +13,7 @@ export const sameTower = (a: Coordinate, b: Coordinate) => distanceOf(a, b) <= .
 export function projectSkylineTowers(place: Coordinate, raster: CityRaster, view: SkylineView, width: number,
   eyeLiftM: number, towers: readonly CityTower[]): SkylineTower[] {
   return towers.flatMap(tower => {
-    const bearing = bearingOf(place, tower)
+    const bearing = bearingOf(place, tower, view.camera)
     if (!bearing || !inSkylineReach(bearing.km)) return []
     const km = Math.max(SKYLINE_FROM_KM, Math.min(SKYLINE_TO_KM, bearing.km))
     const x = bearing.x * width / RIDGE_WIDTH

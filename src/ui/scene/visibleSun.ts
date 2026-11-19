@@ -6,7 +6,7 @@ import { sunOverRidge, type SunSite } from './sunPath'
 
 /** The skyline the scene draws for a terrain (the upper of its two ridges, with eye level when it is a panorama). */
 export function sceneSkyline(terrain: SceneTerrain): Skyline {
-  return withHorizon(skylineOf(terrain.farPoints, terrain.nearPoints), terrain.horizonY)
+  return withHorizon(skylineOf(terrain.farPoints, terrain.nearPoints), terrain.horizonY, terrain.camera)
 }
 
 /**

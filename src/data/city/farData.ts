@@ -68,7 +68,7 @@ export function panoramaFarColumns(place: Coordinate, width: number, data: FarDa
   const columns: FarColumn[] = []
   if (!Number.isFinite(width) || width <= 0) return { columns, towers: [] }
   const towers = data.towers.flatMap<FarTowerPlacement>(([lat, lon, heightM]) => {
-    const projected = projectSight(place, { lat, lon, heightM }, sightAt)
+    const projected = projectSight(place, { lat, lon, heightM }, sightAt, terrain?.camera)
     if (projected && fromKm !== undefined && projected.km <= fromKm + 1e-9) return []
     if (projected?.layer === 'plain') return [{ x: projected.x * width / RIDGE_WIDTH, heightM, y: projected.y, km: projected.km }]
     return projected?.layer === 'far' ? [{ x: projected.x * width / RIDGE_WIDTH, heightM }] : []
@@ -81,7 +81,7 @@ export function panoramaFarColumns(place: Coordinate, width: number, data: FarDa
     if (fromKm !== undefined && sight.farKm <= fromKm) continue
     if (!sight.farShows || sight.farKm > FAR_RADIUS_KM || sight.farKm <= Math.max(sight.nearKm + 1, 2)) continue
     // The raster keeps coordinates. Sample it at the visible crest in this direction.
-    const point = destination(place.lat, place.lon, sight.farKm, azimuthAt(fraction))
+    const point = destination(place.lat, place.lon, sight.farKm, azimuthAt(fraction, terrain?.camera))
     const row = Math.floor((point.lat - FAR_SOUTH) / FAR_LAT_STEP)
     const col = Math.floor((point.lon - FAR_WEST) / FAR_LON_STEP)
     if (row < 0 || row >= FAR_ROWS || col < 0 || col >= FAR_COLS) continue

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { Atmosphere } from './atmo/Atmosphere'
 import { mapAir } from './atmo/mapAir'
@@ -13,6 +13,7 @@ import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
+import { useTurningView, useWorld } from './data/world/useWorld'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
 import { sightingsNow } from './domain/cloudSightings'
@@ -37,7 +38,7 @@ import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { ValleyScene } from './ui/scene/ValleyScene'
 import { moonCloud } from './ui/scene/moonShape'
 import { snowFall } from './ui/scene/snowLine'
-import { SCENE_25D } from './ui/sceneFlag'
+import { SCENE_25D, TURN_VIEW } from './ui/sceneFlag'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
 import { Sky } from './ui/Sky'
@@ -55,15 +56,19 @@ export default function App() {
   const { place, recent, selectPlace } = usePlace()
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
-  const landmarks = useLandmarks(place, Boolean(terrain.sightAt))
+  // `?view=turn`: the whole horizon, seen from any heading, with the place on its stage.
+  const [heading, setHeading] = useState(180)
+  const turning = useTurningView(useWorld(place, TURN_VIEW), heading)
+  const sunTerrain = turning?.sunTerrain ?? terrain
+  const landmarks = useLandmarks(place, Boolean(terrain.sightAt), TURN_VIEW)
   const city = useCity(place)
   const now = useNow(place.timezone)
   const observed = useObservedCloud(place)
   const outlook = useRainOutlook(place)
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
   // Each day also learns when the sun is really seen to rise and set over the land around (horizon panorama).
-  const forecast = useMemo(() => (raw ? withVisibleSun(withObservedCloud(rollForward(raw, now), observed, now), terrain, place) : null),
-    [raw, now, observed, terrain, place])
+  const forecast = useMemo(() => (raw ? withVisibleSun(withObservedCloud(rollForward(raw, now), observed, now), sunTerrain, place) : null),
+    [raw, now, observed, sunTerrain, place])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
   const forced = forcedTheme()
   const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')
@@ -143,7 +148,8 @@ export default function App() {
               ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 }
               : undefined}
             snow={shown ? snowFall(shown, forecast.elevation) : null}
-            terrain={terrain}
+            terrain={turning?.terrain ?? terrain} sunTerrain={turning?.sunTerrain}
+            turn={turning ? { onTurn: (h: number) => setHeading(((h % 360) + 360) % 360) } : undefined}
             mist={life && life.mist >= .15 ? life.mist : 0}
             mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
             place={place} landmarks={landmarks.marks} city={city} markLife={markLife!}

@@ -34,7 +34,7 @@ export function skylineData(place: Coordinate, width: number, raster: CityRaster
   towers: readonly CityTower[] = []) {
   const { groundAt, angleY, sightAt } = terrain
   if (!raster || !groundAt || !angleY || !sightAt || !(width > 0) || !Number.isFinite(width)) return null
-  const view = { ground: groundFn(terrain.nearPoints, width), groundAt, angleY, sightAt }
+  const view = { ground: groundFn(terrain.nearPoints, width), groundAt, angleY, sightAt, camera: terrain.camera }
   const eyeLiftM = homeRoof(place, raster)
   const columns: SkylineColumn[] = []
   for (let left = 0; left < width; left += COLUMN_WIDTH) {

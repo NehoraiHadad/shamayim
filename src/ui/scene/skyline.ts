@@ -1,3 +1,4 @@
+import type { Camera } from '../../domain/camera'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
 
 /** y (px) of the highest drawn ridge at a horizontal fraction of the scene (0 = west/left); `peak` is its highest y. */
@@ -6,6 +7,8 @@ export interface Skyline {
   peak: number
   /** y of eye level (0°) when the ridges are the true horizon panorama; bodies then stand on it (`skyProjection.ts`). */
   horizon?: number
+  /** The camera the land is drawn for: the sky is placed across by the same one (`domain/camera.ts`). */
+  camera?: Camera
 }
 
 /** Fallback when no ridge is known: the old fixed horizon line. */
@@ -41,8 +44,9 @@ export function skylineOf(...ridges: readonly (readonly [number, number])[][]): 
 }
 
 /** The same skyline, with eye level at `horizonY` (when the ridges are a horizon panorama). */
-export function withHorizon(skyline: Skyline, horizonY: number | undefined): Skyline {
-  return horizonY === undefined ? skyline : Object.assign((x: number) => skyline(x), { peak: skyline.peak, horizon: horizonY })
+export function withHorizon(skyline: Skyline, horizonY: number | undefined, camera?: Camera): Skyline {
+  const base = camera ? Object.assign((x: number) => skyline(x), { peak: skyline.peak, camera }) : skyline
+  return horizonY === undefined ? base : Object.assign((x: number) => skyline(x), { peak: skyline.peak, horizon: horizonY, camera })
 }
 
 /** The shared arc stands on the highest ridge point (never lower than this, to keep room for the arc itself). */

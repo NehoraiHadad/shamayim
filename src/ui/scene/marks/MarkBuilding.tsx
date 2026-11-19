@@ -50,7 +50,7 @@ export function MarkBuilding({ mark, x, ground, sunX, night, life, motion, reado
     className={[mark.layer === 'plain' ? styles.plainMark : '', plane === 'behind' ? styles.back : '', self && (!asDrawn || !lit) ? styles.flat : ''].join(' ') || undefined}>
     {/* Ground skirt: fills any dip of the ridge under a flat base, so no sky shows beneath the mark. */}
     {plane === 'line' && mark.layer !== 'plain' && <rect className={styles.skirt} x={-spec.w / 2 - 1} y={-.5} width={spec.w + 2}
-      height={5 + (mark.lift ?? 0) / scale} />}
+      height={Math.max(5, 5 + (mark.lift ?? 0) / scale)} />}
     {lit && (asDrawn ? <CastShadow w={spec.w} h={h} reach={reach} /> : <ContactShadow w={spec.w} side={localSide} />)}
     <spec.Draw {...props} />
     {localSide && !asDrawn && <LightRig id={id} spec={spec} props={props} side={localSide} />}

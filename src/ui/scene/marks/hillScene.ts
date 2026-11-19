@@ -12,6 +12,7 @@ import { hashId } from '../../../data/landmarks/hash'
 import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
+import { stageHouses } from '../../../data/world/stageVillage'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
@@ -66,14 +67,16 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   /** The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve). */
-  const centerY = terrain.drawn ? terrain.centerY : ground(centerX)
+  const centerY = terrain.stage ? terrain.stage.y : terrain.drawn ? terrain.centerY : ground(centerX)
+  // On a stage the place's own houses stand on its ground, seen from the pole; elsewhere on the drawn ridge.
+  const homeGround: Ground = terrain.stage ? () => centerY : ground
   const dot = { x: centerX, y: centerY }
   const mode = homeMode(place, landmarks, width, centerX, city, Boolean(terrain.sightAt))
   const cityMode = mode?.kind === 'city'
   const right = terrain.seaSide === 'west' ? width * .06 + 44 : width * (terrain.seaSide === 'east' ? .94 : .73)
   // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
   const keepOut = showSea ? [{ left: right - 44, right, top: terrain.seaY - 14, bottom: terrain.seaY - 2 }] : []
-  const input = mode && { style: mode.style, size: mode.size, width, ground, litShare, floor: VISIBLE_BOTTOM - 2,
+  const input = mode && { style: mode.style, size: mode.size, width, ground: homeGround, litShare, floor: VISIBLE_BOTTOM - 2,
     centerX, centerY, seed: mode.kind === 'village' ? mode.seed : hashId(place.id),
     keepOut: mode.kind === 'template' ? [] : keepOut }
   // Fit the footprint before placing marks. Absorbed landmarks can cut holes afterward without
@@ -91,8 +94,12 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
   const candidates = cityMode ? projected.filter(mark => mark.layer !== 'near' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
   // Mapped houses and their absorbed marks follow the ridge at their projected positions.
-  const marks = fitMarks(mode && (terrain.sightAt || mode.kind !== 'village') ? intoTown(candidates, mode.style, ground, dot, width)
-    : candidates, ground, width, dot)
+  const fitted = fitMarks(mode && (terrain.sightAt || mode.kind !== 'village') ? intoTown(candidates, mode.style, homeGround, dot, width)
+    : candidates, ground, width, dot).map(mark => terrain.stage && mark.kind === 'homes'
+    ? { ...mark, lift: ground(mark.xPct / 100 * width) - centerY } : mark)
+  // On a stage with the built-up map, the place's own buildings come from it (below), not from a homes glyph.
+  const stageMap = Boolean(terrain.stage && city?.raster)
+  const marks = stageMap ? fitted.filter(mark => mark.kind !== 'homes') : fitted
   let cityTowers: PlacedTower[] = []
   let settlement: Settlement | null = null
   if (mode && input) {
@@ -111,6 +118,12 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     } else {
       settlement = mode.kind === 'template' ? composeSettlement(withMarks) : composeSettlement(withMarks, mode.plan)
     }
+  }
+  // On a stage the place's own buildings come from the built-up map, seen from the pole (`stageVillage.ts`).
+  if (stageMap && terrain.camera && terrain.horizonY !== undefined) {
+    const { houses, blocks } = stageHouses(place, city!.raster!, terrain.camera, terrain.horizonY)
+    settlement = { style: blocks ? 'blocks' : mode?.style ?? 'tile', contours: [], labelTop: centerY + 7, halfWidth: 0, houses }
+    cityTowers = []
   }
   const drawn = skyline && new Set(marks.map(mark => mark.id))
   const curatedTowers = drawn ? landmarks.filter(mark => drawn.has(mark.id) && mark.source === 'curated' &&

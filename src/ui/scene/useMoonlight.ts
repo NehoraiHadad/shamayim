@@ -22,6 +22,6 @@ export function useMoonlight(input: RidgeLightInput | undefined, at: LocalTime, 
     const moon = { altitude, azimuth, fraction: moonIllumination(instant).fraction }
     const strength = moonlightStrength(moon, sunSky(instant, place.lat, place.lon).altitude, cloudCover, farFade)
     // Lit from where the moon is drawn (its arc), not from the raw azimuth, so light and disc agree.
-    return moonRidgeLight(moon, strength, moonScenePoint(instant, place, skyline).x * SCENE_W)
+    return moonRidgeLight(moon, strength, moonScenePoint(instant, place, skyline).x * SCENE_W, skyline.camera)
   }, [on, minute, place.timezone, place.lat, place.lon, skyline, cloudCover, farFade])
 }

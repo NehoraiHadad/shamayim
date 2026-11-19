@@ -15,6 +15,8 @@ export interface HorizonLine {
   riseY: number
   setX: number
   setY: number
+  /** The sky's camera (the skyline's). */
+  camera?: Skyline['camera']
 }
 
 /**
@@ -23,10 +25,11 @@ export interface HorizonLine {
  * the drawn ridge where the body rises to the drawn ridge where it sets.
  */
 export function horizonLine(riseAzimuth: number, setAzimuth: number, skyline: Skyline): HorizonLine {
-  const riseX = skyPoint(0, riseAzimuth).x
-  const setX = skyPoint(0, setAzimuth).x
-  if (skyline.horizon !== undefined) return { riseX, riseY: skyline.horizon, setX, setY: skyline.horizon }
-  return { riseX, riseY: skyline(riseX), setX, setY: skyline(setX) }
+  const riseX = skyPoint(0, riseAzimuth, skyline).x
+  const setX = skyPoint(0, setAzimuth, skyline).x
+  const { camera } = skyline
+  if (skyline.horizon !== undefined) return { riseX, riseY: skyline.horizon, setX, setY: skyline.horizon, camera }
+  return { riseX, riseY: skyline(riseX), setX, setY: skyline(setX), camera }
 }
 
 /** The horizon's y at x: straight between the ends (one line, so the path never copies the bumps of the ridge). */
@@ -57,6 +60,6 @@ export function apparentAltitude(altitude: number): number {
  * behind the land.
  */
 export function projectSky(altitude: number, azimuth: number, h: HorizonLine): ScenePoint {
-  const { x } = skyPoint(0, azimuth)
+  const { x } = skyPoint(0, azimuth, h.camera ? Object.assign(() => 0, { peak: 0, camera: h.camera }) : undefined)
   return { x, y: horizonAt(h, x) - anglePx(altitude) }
 }

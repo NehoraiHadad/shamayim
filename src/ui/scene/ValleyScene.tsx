@@ -3,6 +3,9 @@ import { skylineData } from '../../data/city/skylineData'
 import { clockOf, datePart } from '../../domain/time'
 import { isolateNumbers } from '../isolateNumbers'
 import { nextSunEvent, twilight } from './sceneModel'
+import { sunPosition as sunSky } from '../../astro/sun'
+import { utcOf } from '../../astro/utc'
+import { Compass } from './Compass'
 import { Moon } from './Moon'
 import { cloudSeenAttrs } from './cloudSeen'
 import { FarLand } from './FarLand'
@@ -22,12 +25,14 @@ import type { ValleySceneProps } from './valleySceneTypes'
 import styles from './ValleyScene.module.css'
 
 /** A true-bearing horizon once the DEM is available, with a drawn cross-section while it loads. */
-export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight, snow = null, terrain, mist = 0,
+export function ValleyScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight, snow = null, terrain, sunTerrain, turn, mist = 0,
   mistColor = '#C9D2D8', place, landmarks, city, markLife, first, last, onScrub, onRelease, onNow, seenClouds = null }: ValleySceneProps) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   const at = selected ?? now
   const skyline = useMemo(() => sceneSkyline(terrain), [terrain])
+  // Physics first: whether the sun is over the land is decided against the land in its own direction (`sunTerrain`).
+  const sunSkyline = useMemo(() => sunTerrain ? sceneSkyline(sunTerrain) : undefined, [sunTerrain])
   const day = forecast.days.find((d) => d.date === datePart(at))
   const sun = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline) : null
   const disc = day ? sunPosition(at, day.sunrise, day.sunset, place, skyline, 0.08) : null
@@ -36,8 +41,14 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
   const glowSide = glow?.side
   const sunrise = day?.sunrise
   const sunset = day?.sunset
-  const rim = useMemo(() => glowSide && sunrise && sunset
-    ? sunOverRidge(glowSide === 'east' ? 0 : 1, sunrise, sunset, place, skyline) : null, [glowSide, sunrise, sunset, place, skyline])
+  const rim = useMemo(() => {
+    if (!glowSide || !sunrise || !sunset) return null
+    const edge = glowSide === 'east' ? 0 : 1
+    if (!sunSkyline) return sunOverRidge(edge, sunrise, sunset, place, skyline)
+    // Where the sun really crosses the land, drawn where that direction stands in the view (same height: one eye level).
+    const crossing = sunOverRidge(edge, sunrise, sunset, place, sunSkyline)
+    return { ...sunAt(crossing.t, sunrise, sunset, place, skyline), y: crossing.y }
+  }, [glowSide, sunrise, sunset, place, skyline, sunSkyline])
   const event = nextSunEvent(forecast.days, now)
   const below = forecast.elevation < 0
   const elevation = Math.round(forecast.elevation)
@@ -56,7 +67,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
     label: { text: elevationText, below } }),
   [place, terrain, landmarks, city, citySkyline, showSea, sceneWidth, markLife.litShare, elevationText, below])
   const moonlit = useMoonlight(ridgeLight, at, place, skyline, moonCloud, air.haze.farFade)
-  const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, air, cloudCover,
+  const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, sunSkyline, air, cloudCover,
     glow: glow && rim ? { opacity: glow.opacity, x: rim.x } : null })
   // By night the moon takes the sun's place on the ridges: the same light, faint and silver.
   const ridgeLit = lighting ?? moonlit
@@ -76,7 +87,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       aria-label={label}
       data-scene
       {...afterglow}
-      {...cloudSeenAttrs(selected ? null : seenClouds)}
+      {...cloudSeenAttrs(selected ? null : seenClouds, terrain.camera)}
       data-haze={air.haze.farFade > 0.5 || (snow?.falling && snow.lineM <= forecast.elevation) ? 'heavy' : undefined}
       style={{ '--far-fade': air.haze.farFade.toFixed(2), '--near-fade': air.haze.nearFade.toFixed(2),
         ...world?.style } as CSSProperties}
@@ -115,6 +126,8 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
               : terrain.seaSide === 'east' ? { right: '6%' } : {}) }} aria-hidden="true">פני הים</span>
         </>
       )}
+      {turn && terrain.camera && <Compass camera={terrain.camera} onTurn={turn.onTurn}
+        sunAzimuth={sun ? sunSky(utcOf(at, place.timezone), place.lat, place.lon).azimuth : null} />}
       <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
         onNow={onNow} />
     </figure>
