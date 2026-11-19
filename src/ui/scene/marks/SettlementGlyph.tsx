@@ -58,7 +58,9 @@ const formOf = (house: House) => (house.seed >> 7) & 1 ? -1 : 1
 
 export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litShare = 0 }: Props) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const { style, houses, contours, detail } = settlement
+  const { style: given, houses, contours, detail, mixed } = settlement
+  /** A mixed village (nothing known of its roofs): a house's own roof by its seed, red tiles or flat. */
+  const styleOf = (house: House): Settlement['style'] => mixed && given === 'tile' && (house.seed >> 3) % 2 ? 'flat-hill' : given
   const inDetail = (house: House) => !detail || Math.abs(house.x - detail.centerX) <= detail.half
   /** Stable per settlement, so the merged paths rebuild only when the city or the light changes. */
   const mass = useMemo(() => [0, 1, 2].map(row => houses.filter(house => house.row === row
@@ -70,8 +72,9 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
   const light = lit ? sunLightOf(sunX, (Math.min(...xs) + Math.max(...xs)) / 2) : null
   const side = light?.side ?? null
   const sunWest = side === 'w'
-  const grow = style === 'tile' ? TILE_GROW : 1
   const drawHouse = (house: House, i: number) => {
+    const style = styleOf(house)
+    const grow = style === 'tile' ? TILE_GROW : 1
     const form = formOf(house)
     // Houses draw their lit face on the left; one that faces away goes flat and takes the rig's strip
     // on its own right (the sun's side in its local frame).

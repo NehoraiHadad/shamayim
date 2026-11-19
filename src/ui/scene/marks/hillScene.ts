@@ -126,7 +126,8 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
       const curated = landmarks.filter(mark => mark.source === 'curated' && mark.glyph && BUILDINGS[mark.glyph])
       cityTowers = placeCityTowers({ ...withMarks, towers: mode.columns.towers, curated })
     } else {
-      settlement = mode.kind === 'template' ? composeSettlement(withMarks) : composeSettlement(withMarks, mode.plan)
+      settlement = mode.kind === 'template' ? { ...composeSettlement(withMarks), mixed: 'mixed' in mode && mode.mixed }
+        : composeSettlement(withMarks, mode.plan)
     }
   }
   const drawn = skyline && new Set(marks.map(mark => mark.id))

@@ -26,8 +26,10 @@ it('keeps the fallback settlement byte-for-byte, even with surrounding city data
     label: { text: '80 מ׳', below: false } }
   const expected = composeSettlement({ style: 'tile', size: 'small', width: 375, ground: () => 75,
     centerX: 187.5, centerY: 75, litShare: .5, seed: hashId(place.id), floor: VISIBLE_BOTTOM - 2, keepOut: [], absorbed: [] })
-  expect(JSON.stringify(hillScene(input).settlement)).toBe(JSON.stringify(expected))
-  expect(JSON.stringify(hillScene({ ...input, city }).settlement)).toBe(JSON.stringify(expected))
+  // The drawn stand-in (no panorama) keeps its red tiles; mixed roofs are for the panorama's portrait.
+  const same = { ...expected, mixed: false }
+  expect(JSON.stringify(hillScene(input).settlement)).toBe(JSON.stringify(same))
+  expect(JSON.stringify(hillScene({ ...input, city }).settlement)).toBe(JSON.stringify(same))
 })
 
 it('replaces a large settlement with data-driven blocks across the ridge', () => {

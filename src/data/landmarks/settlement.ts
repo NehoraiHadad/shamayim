@@ -25,6 +25,11 @@ export interface Settlement {
   /** Top of the elevation label: just under the houses that stand above it. */
   labelTop: number
   halfWidth: number
+  /**
+   * Nothing in the data says what the roofs are like: half the houses red-tiled, half flat (drawn so by seed), rather
+   * than guessing every place is a red-tiled moshav.
+   */
+  mixed?: boolean
   /** City mode: houses within `half` px of `centerX` are drawn in full; the rest merge into a mass per row. */
   detail?: { centerX: number; half: number }
 }

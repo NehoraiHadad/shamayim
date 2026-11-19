@@ -44,7 +44,9 @@ export function homeMode(place: Place, marks: Landmark[], width: number, centerX
   // The roofs come from the data where it knows them (the faith of the place's worship, its mapped roof shapes, a
   // town of blocks); where it knows nothing, from the marks around (minarets and no synagogue: flat roofs).
   const known = home && footprintStyle && (footprintStyle !== 'tile' || (home.form.tagged ?? 0) >= 5 || (home.place?.faith ?? 0) > 0)
-  if (panorama) return { kind: 'template', size, style: known ? footprintStyle : style, homeHalf: historicalHalf } as const
+  // Nothing known and no rule applies (the default red tiles): a mix of red-tiled and flat roofs, not a guess.
+  if (panorama) return { kind: 'template', size, style: known ? footprintStyle : style, homeHalf: historicalHalf,
+    mixed: !known && style === 'tile' } as const
   const rural = place.settlementType === 'village' || place.settlementType === 'hamlet' || place.settlementType === 'isolated_dwelling'
   // Longitude bins have already discarded the bearings of their constituent buildings.
   if (city && !rural && (size === 'large' || style === 'blocks' || (tier !== 'B' && footprintStyle === 'blocks')) &&

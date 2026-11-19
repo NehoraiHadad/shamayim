@@ -47,6 +47,18 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
 4. **Loading stand-in.** The hand-drawn cross-section that pops to the real land: replace with a quiet placeholder
    (open, low priority).
 
+## Status (2026-11-19, end of session)
+- Stages 0, 1, 2 done on branch `ccr-85ec24f0-9ayxgu` (stills: `qa/true-scene/stage1`, `stage2`).
+- Owner decisions in stage 2: a **city is a portrait too** (its blocks round the dot, its landmarks among them by
+  side; more polish later); the data skyline's faces (built squares at their true angle) are gone everywhere, towers
+  stay; roofs come from the data where it knows them, from the marks round the place (a minaret and no synagogue:
+  flat) where it does not, and are **mixed** (half red-tiled, half flat) where nothing is known.
+- Next, before stage 3 (agreed): (a) each place's religion / population group from the CBS localities list into the
+  city data build (`scripts/city`), so roofs are right everywhere (Daliyat al-Karmel, Tamra still mixed);
+  (b) famous landmarks chosen automatically (OSM wikidata / wikipedia tags), drawn with the generic glyph of their
+  kind; the hand-drawn art stays only for a few icons. Then stage 3 (water), stage 4 (loading stand-in: with it,
+  remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
+
 ## After (agreed order)
 Land colour (season / this week, a subtle tint) → vegetation (orchards, trees, fields where WorldCover says) → rain in
 its true direction (cloud over the right ridge; an edge mark when out of view) → wind (dust, cloud drift, tree lean).
