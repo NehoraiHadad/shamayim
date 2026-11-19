@@ -399,7 +399,7 @@ export interface OutsideView {
    * The place's own ground where it rises over the ridge line (C5b): its silhouette from the local ground (`top`, west to
    * east on screen, layout px) down to the ridge line (`base`); empty where the place lies under the line.
    */
-  land: { top: Pt[]; base: Pt[]; km: number } | null
+  land: { top: Pt[]; base: Pt[]; km: number; /** The ground's height (m) at each top point (its snow). */ heightM?: number[] } | null
 }
 
 /**

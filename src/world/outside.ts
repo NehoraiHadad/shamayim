@@ -16,8 +16,10 @@ import type { Landmark } from '../data/landmarks/types'
 import { apparentAngle } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
+import { SCENE_CAMERA, xOf } from '../domain/camera'
 import { VISIBLE_BOTTOM } from './layout'
-import { SCENE_H } from './sceneBox'
+import { SCENE_H, SCENE_W } from './sceneBox'
+import { groundAt as lineAt } from './sceneLight'
 import type { BeyondTower, CoastalSea, OutsideTreeSite, OutsideView, Pt } from './types'
 
 /**
@@ -351,12 +353,15 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
   const cos = Math.cos(place.lat * Math.PI / 180)
   const wet = (dx: number, dy: number) => mask ? mask.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos)) !== null : false
   const top = new Float64Array(Math.ceil(width) + 1).fill(Infinity)
+  // The ground's height (m) at each column's crest: the snow on it, as on the ridge (C9).
+  const crestM = new Float64Array(top.length).fill(NaN)
   let left = Infinity, right = -Infinity
   for (const g of samples) {
     if (wet(g.dx, g.dy)) continue
     const x = Math.round(outsideProject(frame, g.dx, g.dy).x)
     if (x < 0 || x > width) continue
-    top[x] = Math.min(top[x], baseY(g.dx, g.dy))
+    const y = baseY(g.dx, g.dy)
+    if (y < top[x]) { top[x] = y; crestM[x] = g.h }
     left = Math.min(left, x); right = Math.max(right, x)
   }
   if (!(right > left)) return null
@@ -364,11 +369,15 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
   let last = -1
   for (let x = left; x <= right; x++) {
     if (!Number.isFinite(top[x])) continue
-    if (last >= 0 && x - last > 1) for (let i = last + 1; i < x; i++) top[i] = top[last] + (top[x] - top[last]) * (i - last) / (x - last)
+    if (last >= 0 && x - last > 1) for (let i = last + 1; i < x; i++) {
+      top[i] = top[last] + (top[x] - top[last]) * (i - last) / (x - last)
+      crestM[i] = crestM[last] + (crestM[x] - crestM[last]) * (i - last) / (x - last)
+    }
     last = x
   }
   const pts: Pt[] = []
   const base: Pt[] = []
+  const heightM: number[] = []
   let rises = false
   for (let x = Math.max(0, left - LAND_EASE); x <= Math.min(width, right + LAND_EASE); x++) {
     const own = top[Math.min(right, Math.max(left, x))]
@@ -379,8 +388,31 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
     if (y < line - .4) rises = true
     pts.push([x, y])
     base.push([x, line + 2])
+    heightM.push(crestM[Math.min(right, Math.max(left, x))])
   }
-  return rises ? { top: pts, base, km: input.terrain.sightAt?.(frame.centerX * 375 / width).nearKm ?? 1 } : null
+  return rises ? { top: pts, base, heightM, km: input.terrain.sightAt?.(frame.centerX * 375 / width).nearKm ?? 1 } : null
+}
+
+/** A tower beyond the crest shows when the panorama sees at least this many px of it over the land in front. */
+const BEYOND_MIN_PX = 2.5
+
+/**
+ * Px of a thing (`heightM` tall, at km east / north of the place) the panorama truly sees over the near ridge from the
+ * eye, at its true bearing and distance on the land's own scale (`seenAt`, as the far towns are placed); 0 when the land
+ * in front hides it or the panorama cannot say, unbounded when it stands in front of the near ridge.
+ */
+function overTheCrest(terrain: SceneTerrain, dx: number, dy: number, heightM: number): number {
+  const { seenAt } = terrain
+  if (!seenAt) return 0
+  const camera = terrain.camera ?? SCENE_CAMERA
+  const x = xOf(Math.atan2(dx, dy) * 180 / Math.PI, camera) * SCENE_W / camera.width
+  if (x < 0 || x > SCENE_W) return 0
+  const km = Math.hypot(dx, dy)
+  // In front of the near ridge: the whole of it stands on the land in view.
+  if (terrain.sightAt && km <= terrain.sightAt(x).nearKm) return Infinity
+  const seen = seenAt(x, km, heightM)
+  if (!seen) return 0
+  return Math.max(0, Math.min(seen.groundY, lineAt(terrain.nearPoints, x)) - seen.y)
 }
 
 /**
@@ -404,7 +436,12 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, l
     // Beyond the place, never nearer than its near edge: the perspective's px a metre no larger than there.
     const k = Math.min(at.k, outsideProject(frame, 0, frame.n).k)
     const mark = fame.get(tower)
-    const h = look.px(tower.heightM, k)
+    // Beyond the place, it is never more than the panorama truly sees of it over the land in front (from the eye, at its
+    // true bearing and distance, on the land's own scale, as the far towns are placed), and not there at all when the land
+    // hides it: never a post on a bare skyline that the eye could not see.
+    const over = overTheCrest(input.terrain, tower.dx, tower.dy, tower.heightM)
+    if (over < BEYOND_MIN_PX) return []
+    const h = Math.min(look.px(tower.heightM, k), over)
     const km = Math.max(baseKm + Math.max(0, Math.hypot(tower.dx, frame.eyeN - tower.dy) - (frame.eyeN - frame.n)), rowKm(frame, baseKm, tower.dy))
     return [{ tower, at: { ...at, k }, h, km, famous: Boolean(mark), name: mark?.nameHe ?? tower.name,
       seed: hashId(`${tower.lat.toFixed(5)}:${tower.lon.toFixed(5)}`) }]

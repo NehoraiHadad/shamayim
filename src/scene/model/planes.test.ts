@@ -10,7 +10,7 @@ import { buildWorld } from '../../world/world'
 import { paintPlane } from '../paint/planes'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
-import { hazeOf, toneAt } from './planeLight'
+import { HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './planeLight'
 import { hexOf } from './tone'
 import type { LayerOf, SceneBox, SceneModel } from './types'
 
@@ -127,6 +127,24 @@ describe('planes: the air, the ground and the light', () => {
       }
       expect(gap(5)).toBeLessThan(gap(40))
     }
+  })
+
+  it('turns the air over a jump in a crest’s distance as wide as the jump is deep, never at a seam (C9)', () => {
+    // The rule itself: a step of 0.6 spreads over ≥ 0.6 / HAZE_SLOPE px; a gentle run is kept as it is.
+    const xs = Array.from({ length: 200 }, (_, i) => i * 1.875)
+    const step = hazeAlong(xs, xs.map((x) => (x < 180 ? 0.8 : 0.2)))
+    for (let i = 1; i < xs.length; i++) expect(Math.abs(step[i] - step[i - 1])).toBeLessThanOrEqual(HAZE_SLOPE * 1.875 + 1e-9)
+    expect(step[0]).toBeCloseTo(0.8)
+    expect(step.at(-1)).toBeCloseTo(0.2)
+    const gentle = xs.map((x) => 0.3 + 0.001 * x)
+    expect(hazeAlong(xs, gentle)).toEqual(gentle)
+    // Tiberias in a fog (visibility 1.5 km): the near crest's distance jumps from ~1.5 km to 0.4 km by the town, and its
+    // tone turns over the whole stretch, a little at each stop, never a stark step between two stops ~16 px apart (a
+    // step of the old ~25 px smoothing was 0.011 a px).
+    const w = world('tiberias', '12:00', { humidity: 99, visibilityKm: 1.5, cloudCover: 60, thickCloud: 30, weatherCode: 45 })
+    const tones = near(sceneModel(w, BOX)).light.tones
+    const steps = tones.slice(1).map(([x, rgb], i) => deltaE(hexOf(rgb), hexOf(tones[i][1])) / (x - tones[i][0]))
+    expect(Math.max(...steps)).toBeLessThan(0.004)
   })
 
   it('darkens wet ground', () => {

@@ -369,7 +369,9 @@ export type LayerDesc =
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       litSide: 'left' | 'right' | null
       /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */
-      land: { top: Pt[]; base: Pt[]; tone: RGB; rim: RGB } | null
+      land: { top: Pt[]; base: Pt[]; tone: RGB; rim: RGB
+        /** Snow lying on it (C9): its colour and cover, over the runs of top points (first, last index) at or over the line. */
+        snow: { rgb: RGB; alpha: number; runs: [number, number][] } | null } | null
       form: SkyForm }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */

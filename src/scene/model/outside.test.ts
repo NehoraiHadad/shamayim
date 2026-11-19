@@ -18,6 +18,8 @@ import { STOREY_M } from '../../data/city/skylineHeight'
 import { ABOVE_PAD, legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
 import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
+import { groundAt as lineAt } from '../../world/sceneLight'
+import { SCENE_CAMERA, xOf } from '../../domain/camera'
 import { sceneModel } from '.'
 import { tonesAt } from './marks'
 import type { Box, LayerOf, SceneBox } from './types'
@@ -214,6 +216,42 @@ describe('towers beyond the frame (C5 item 3)', () => {
     const eshkol = viewOf('haifa').beyond.find((t) => t.name === 'מגדל אשכול')
     expect(eshkol?.lod).toBe('glyph')
     expect(eshkol!.km).toBeGreaterThan(5)
+  })
+})
+
+describe('nothing beyond the place stands on a bare skyline the eye cannot see (C9)', () => {
+  /** Px the panorama sees of a thing over the near ridge from the eye, at its true bearing and distance. */
+  const seenOver = (id: string, dx: number, dy: number, heightM: number) => {
+    const terrain = loaded.get(id)!.terrain
+    const x = xOf(Math.atan2(dx, dy) * 180 / Math.PI, terrain.camera ?? SCENE_CAMERA) * 375 / (terrain.camera ?? SCENE_CAMERA).width
+    const km = Math.hypot(dx, dy)
+    if (km <= terrain.sightAt!(x).nearKm) return Infinity
+    const seen = terrain.seenAt!(x, km, heightM)
+    return seen ? Math.min(seen.groundY, lineAt(terrain.nearPoints, x)) - seen.y : 0
+  }
+
+  it('leaves out Safed’s buildings behind the crest over Rosh Pina: the land in front hides them', () => {
+    expect(viewOf('rosh-pina').beyond).toEqual([])
+  })
+
+  it.each([...CITIES, ...VILLAGES, 'zikhron-yaakov'])('%s: a tower beyond shows no more of itself than the panorama sees', (id) => {
+    for (const t of viewOf(id).beyond) {
+      const over = seenOver(id, t.dx!, t.dy!, t.heightM)
+      expect(over).toBeGreaterThan(2)
+      expect(t.h).toBeLessThanOrEqual(Math.max(2, over) + 1e-6)
+    }
+  })
+})
+
+describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
+  it.each(['jerusalem', 'rosh-pina'])('%s: snow lies on its ground over the ridge line, none without snow', (id) => {
+    const snowy = buildWorld({ ...worldInput(loaded.get(id)!, NOON), forced: { snowfall: 2, precipitation: 2, temperature: -1,
+      feelsLike: -4, cloudCover: 100, thickCloud: 100, weatherCode: 73 } })
+    const land = layerOf(snowy)!.land!
+    expect(land.snow?.runs.length).toBeGreaterThan(0)
+    const light = (c: readonly number[]) => c[0] + c[1] + c[2]
+    expect(light(land.snow!.rgb)).toBeGreaterThan(light(land.tone) + 0.5)
+    expect(layerOf(worldAt(id))!.land?.snow ?? null).toBeNull()
   })
 })
 

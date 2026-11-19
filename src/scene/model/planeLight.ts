@@ -44,13 +44,44 @@ export function toneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB
 
 /** `toneAt` for one world and air, its colours converted once (a plane asks for a tone every ~16 px). */
 function toneFor(world: WorldState, haze: RGB): (km: number) => RGB {
+  const of = toneOfHaze(world, haze)
+  return (km) => of(hazeAt(world, km))
+}
+
+/** How far toward the air the ground at a distance (km) goes: `AERIAL · fade(km)²`. */
+const hazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
+
+/** The ground's tone for a share `t` of the air in it (`hazeAt`). */
+function toneOfHaze(world: WorldState, haze: RGB): (t: number) => RGB {
   const base = labOf(rgbOf(world.light.palette.ridgeNear)), air = labOf(haze)
   const wet = world.ground.wet, k = 1 - 0.16 * wet, chroma = 1 + 0.2 * wet
-  return (km) => {
-    const t = AERIAL * world.air.fade(km) ** 2
-    return rgbOfLab({ l: (base.l + (air.l - base.l) * t) * k, a: (base.a + (air.a - base.a) * t) * chroma,
-      b: (base.b + (air.b - base.b) * t) * chroma })
+  return (t) => rgbOfLab({ l: (base.l + (air.l - base.l) * t) * k, a: (base.a + (air.a - base.a) * t) * chroma,
+    b: (base.b + (air.b - base.b) * t) * chroma })
+}
+
+/** The most the air's share in a plane's tone changes a px across (reference width): a jump spreads over ≥ 1/this px. */
+export const HAZE_SLOPE = 0.006
+
+/**
+ * The air's share along a crest, continuous across a jump in distance (a nearer hill taking over from a farther one):
+ * no steeper than `HAZE_SLOPE` a px, whatever the air. The mean of the lowest and the highest curve within that slope
+ * of the shares (two passes each way), so where the shares already change gently they are kept as they are, and a jump
+ * turns over a stretch as wide as the jump is deep: a few px in a clear air, a hundred in a fog.
+ */
+export function hazeAlong(xs: readonly number[], shares: readonly number[], slope = HAZE_SLOPE): number[] {
+  const n = shares.length
+  const low = [...shares], high = [...shares]
+  for (let i = 1; i < n; i++) {
+    const d = slope * Math.abs(xs[i] - xs[i - 1])
+    low[i] = Math.min(low[i], low[i - 1] + d)
+    high[i] = Math.max(high[i], high[i - 1] - d)
   }
+  for (let i = n - 2; i >= 0; i--) {
+    const d = slope * Math.abs(xs[i + 1] - xs[i])
+    low[i] = Math.min(low[i], low[i + 1] + d)
+    high[i] = Math.max(high[i], high[i + 1] - d)
+  }
+  return low.map((v, i) => (v + high[i]) / 2)
 }
 
 /**
@@ -148,17 +179,18 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
   const haze = hazeOf(world)
   const tone = toneFor(world, haze)
 
-  // Aerial perspective along the crest, a stop every ~16 px, by each direction's distance smoothed over ~25 px: where a
-  // nearer hill takes over from a farther one inside one plane, the tone turns over a stretch, not at a seam.
+  // Aerial perspective along the crest, a stop every ~16 px, by each direction's distance smoothed over ~25 px, its air
+  // no steeper across than `HAZE_SLOPE` (`hazeAlong`): where a nearer hill takes over from a farther one inside one plane,
+  // the tone turns over a stretch, not at a seam, and the thicker the air the wider that stretch (a fog's is ~100 px).
   const kms = plane.hazeKm ?? plane.distanceKm
+  const shares = hazeAlong(plane.points.map(([x]) => x), kms.map((km) => hazeAt(world, km)))
+  const toneOf = toneOfHaze(world, haze)
   const every = Math.max(1, Math.round(plane.points.length / 24))
   const tones: [number, RGB][] = plane.points.flatMap(([x], i): [number, RGB][] =>
-    i % every === 0 || i === plane.points.length - 1 ? [[x * sx, tone(kms[i])]] : [])
+    i % every === 0 || i === plane.points.length - 1 ? [[x * sx, toneOf(shares[i])]] : [])
   const tint = tone(median(plane.distanceKm))
-  // The light's colour on the land: the sun's (after air mass) through the sky's horizon, warmer toward a low sun.
   const sky = rgbOf(palette.horizon)
-  const warm = 1 - smoothstep(4, 18, light.altitude)
-  const lightTint = mixRgb(mixRgb(sky, light.colour, 0.55), rgbOf(palette.accent), light.source === 'sun' ? warm * 0.4 : 0)
+  const lightTint = lightTintOf(world)
   const cap = Math.min(lightness(tint) + (name === 'near' ? 0.12 : 0.1), lightness(sky) - 0.05)
   const strength = clamp01(light.direct * 1.3)
 
@@ -229,7 +261,7 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
 
 /** Snow above the snow line (`terrain.snowEdge`), its lower edge ragged by seeded displacement (no filter). */
 function snowOf(world: WorldState, box: SceneBox, name: PlaneName, strength: number, lightTint: RGB): SnowCap | null {
-  const { snow, terrain, light } = world
+  const { snow, terrain } = world
   if (!snow || name === 'back' || !terrain.snowEdge) return null
   const edge = terrain.snowEdge(name, snow.lineM)
   // An edge above the crest is a ray with no snow; one under the box is snow down to the foot.
@@ -238,11 +270,33 @@ function snowOf(world: WorldState, box: SceneBox, name: PlaneName, strength: num
   const sx = box.width / SCENE_W
   const seed = hashId(`${world.place.id}:${name}:snow`)
   const ragged = edge.map(([x, y]): Pt => [x * sx, Math.min(box.landHeight + 6, y) + (fractal(seed, x, y, 0.05, 0.05, 2) - 0.5) * 9])
+  // Snow fades with distance like the land under it (aerial perspective), so a far snowy ridge stands apart from a near one.
+  return { edge: ragged, ...snowLook(world, median(terrain[name].distanceKm), strength, lightTint) }
+}
+
+/** Lying snow's colour and cover at a distance (km), lit as the land: by the light's colour and share, hazed by the air. */
+function snowLook(world: WorldState, km: number, strength: number, lightTint: RGB): { rgb: RGB; alpha: number } {
+  const { light } = world
   const white: RGB = [0.95, 0.96, 0.98]
   const rgb = light.source === 'sky' || light.source === 'moon' && strength < 0.2
     ? mixRgb(white, rgbOf(light.palette.mid), 0.35 + 0.4 * world.night.dark)
     : mixRgb(white, lightTint, 0.2 + 0.2 * (1 - strength))
-  // Snow fades with distance like the land under it (aerial perspective), so a far snowy ridge stands apart from a near one.
-  const km = median(terrain[name].distanceKm)
-  return { edge: ragged, rgb: mixRgb(rgb, hazeOf(world), AERIAL * world.air.fade(km) ** 2), alpha: 0.55 + 0.4 * snow.amount }
+  return { rgb: mixRgb(rgb, hazeOf(world), AERIAL * world.air.fade(km) ** 2), alpha: 0.55 + 0.4 * (world.snow?.amount ?? 0) }
+}
+
+/**
+ * Lying snow on any ground at a distance (km) as the planes take it (C9): the same light and haze, so the place's own
+ * ground seen from outside whitens with the ridge under it. Null with no snow lying.
+ */
+export function snowOnGround(world: WorldState, km: number): { rgb: RGB; alpha: number } | null {
+  if (!world.snow) return null
+  const { light } = world
+  return snowLook(world, km, light.ray ? clamp01(light.direct * 1.3) : 0, lightTintOf(world))
+}
+
+/** The light's colour on the land: the sun's (after air mass) through the sky's horizon, warmer toward a low sun. */
+function lightTintOf(world: WorldState): RGB {
+  const { light } = world
+  const warm = 1 - smoothstep(4, 18, light.altitude)
+  return mixRgb(mixRgb(rgbOf(light.palette.horizon), light.colour, 0.55), rgbOf(light.palette.accent), light.source === 'sun' ? warm * 0.4 : 0)
 }
