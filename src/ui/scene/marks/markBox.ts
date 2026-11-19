@@ -33,7 +33,7 @@ export function markGeometry(mark: PlacedMark, x: number, ground: (x: number) =>
   const depth = clamp(Math.abs(mark.dy) / 1.5)
   const h = spec.h(far ? mark.hPx / FAR_SCALE : mark.hPx)
   const scale = far ? FAR_SCALE : plane === 'behind' ? 1 - .2 * depth : 1
-  const seated = seat(ground, x, spec.w * scale, 0, far || curated(mark) || Boolean(mark.absorbed))
+  const seated = seat(ground, x, spec.w * scale, 0, far || curated(mark) || Boolean(mark.absorbed) || Boolean(mark.portrait))
   if (!seated) return null
   const base = (plane === 'face' ? ground(x) + 3 + 9 * depth
     : seated.baseY + (plane === 'behind' ? .25 * depth * h * scale : 0)) - (mark.lift ?? 0)

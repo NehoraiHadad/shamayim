@@ -1,5 +1,7 @@
 import type { Place } from '../../config/place'
 import { bearingOf, distanceOf, offsetKm, toX } from './project'
+import { PORTRAIT_KINDS } from './markProjection'
+import { PORTRAIT_MAX_KM } from './portrait'
 import { score } from './rank'
 import type { Landmark } from './types'
 
@@ -11,7 +13,9 @@ const FAR_KINDS = ['chimney', 'cooling', 'turbine']
  */
 export function panoramaShortlist(place: Place, marks: Landmark[], around = false) {
   const ordered = marks.flatMap(mark => {
-    const bearing = around ? { km: distanceOf(place, mark) } : bearingOf(place, mark)
+    // Within a portrait's widest reach every direction counts (north too): the portrait shows a mark by its side.
+    const km = distanceOf(place, mark)
+    const bearing = around || km <= PORTRAIT_MAX_KM ? { km } : bearingOf(place, mark)
     if (!bearing || bearing.km > 30) return []
     const far = bearing.km > 5
     if (far && mark.heightM < 60 && !FAR_KINDS.includes(mark.kind)) return []
@@ -25,7 +29,12 @@ export function panoramaShortlist(place: Place, marks: Landmark[], around = fals
     return Math.hypot(dx, dy) <= 1
   })
   if (skyline && !selected.includes(skyline)) selected.splice(limit - 1, 1, skyline)
-  return selected.map(({ mark }) => mark)
+  // The portrait's own elements (groves, a solar field, a water tower...) would lose to taller marks: the best of each
+  // kind within a portrait's widest reach is kept as well.
+  const kinds = new Set<string>()
+  const portrait = ordered.filter(({ mark }) => PORTRAIT_KINDS.has(mark.kind) && distanceOf(place, mark) <= PORTRAIT_MAX_KM
+    && !selected.some(item => item.mark === mark) && !kinds.has(mark.kind) && kinds.add(mark.kind)).slice(0, 6)
+  return [...selected, ...portrait].map(({ mark }) => mark)
 }
 
 export function shortlist(place: Place, marks: Landmark[]) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Place } from '../../config/place'
-import { loadLandCover } from './landData'
+import { loadLandCover, type LandCover } from './landData'
 import type { Land } from './landPaint'
 import { fetchLandColour, type LandColour } from './satellite'
 
@@ -45,4 +45,17 @@ export function useLand(place: Place, enabled: boolean): Land {
     return () => controller.abort()
   }, [place, enabled])
   return land.id === place.id ? land : { cover: null, colour: null }
+}
+
+/** Only the land cover round a place (within `radiusKm`), for its portrait (`coverMarks`); null until known or outside. */
+export function useLandCover(place: Place, radiusKm = 2): LandCover | null {
+  const [cover, setCover] = useState<{ id: string; cover: LandCover | null } | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    loadLandCover(place, controller.signal, radiusKm).then(next => {
+      if (!controller.signal.aborted) setCover({ id: place.id, cover: next })
+    }).catch(() => undefined)
+    return () => controller.abort()
+  }, [place, radiusKm])
+  return cover?.id === place.id ? cover.cover : null
 }

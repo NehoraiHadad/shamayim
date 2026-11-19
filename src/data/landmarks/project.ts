@@ -1,5 +1,5 @@
 import type { SeenPoint } from '../terrain/visibility'
-import { SCENE_CAMERA, STORED_CAMERA, type Camera } from '../../domain/camera'
+import { SCENE_CAMERA, type Camera } from '../../domain/camera'
 import { azimuthFraction, EARTH_R_KM } from '../terrain/panorama'
 import { FAR_RADIUS_KM, NEAR_RADIUS_KM, RIDGE_WIDTH, ridgeX } from '../terrain/ridgeProjection'
 import type { MarkKind, TerrainSample } from './types'
@@ -106,6 +106,3 @@ export function markWidth(kind: MarkKind, glyph: string | undefined, height: num
   const broadGlyph = /azrieli|cooling|bridge|wall|dagon|bab/.test(glyph ?? '')
   return broadKind || broadGlyph ? Math.max(12, height * .95) : Math.max(7, height * .65)
 }
-
-/** A hand-set x (`curated.ts`), drawn for the old mirrored scene (east on the right), in the scene's own order. */
-export const drawnX = (x: number) => SCENE_CAMERA.handed === STORED_CAMERA.handed ? x : RIDGE_WIDTH - x

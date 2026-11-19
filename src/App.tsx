@@ -6,6 +6,8 @@ import { Life } from './atmo/life/Life'
 import { mapLife } from './atmo/life/mapLife'
 import { mapMarks } from './atmo/life/mapMarks'
 import { useLandmarks } from './data/landmarks/useLandmarks'
+import { coverMarks } from './data/landmarks/coverMarks'
+import { useLandCover } from './data/land/useLand'
 import { useCity } from './data/city/useCity'
 import { useObservedCloud } from './data/overhead/useObservedCloud'
 import { useRainOutlook } from './data/overhead/useRainOutlook'
@@ -56,6 +58,9 @@ export default function App() {
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
   const landmarks = useLandmarks(place, Boolean(terrain.sightAt))
+  // Trees the satellite sees round the place, where the map names no grove: part of the place's portrait.
+  const cover = useLandCover(place)
+  const marks = useMemo(() => [...landmarks.marks, ...coverMarks(place, cover, landmarks.marks)], [landmarks.marks, place, cover])
   const city = useCity(place)
   const now = useNow(place.timezone)
   const observed = useObservedCloud(place)
@@ -144,7 +149,7 @@ export default function App() {
               snow: shown ? snowFall(shown, forecast.elevation) : null,
               mist: life && life.mist >= .15 ? life.mist : 0,
               mistColor: shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8',
-              place, landmarks: landmarks.marks, city, markLife: markLife!,
+              place, landmarks: marks, city, markLife: markLife!,
               onScrub: sceneTime.scrub, onRelease: sceneTime.release, onNow: sceneTime.toNow,
               first: hourly.find((slot) => slot.type === 'hour')?.time ?? now,
               last: [...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now,

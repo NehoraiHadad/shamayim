@@ -12,7 +12,6 @@ export interface Landmark {
   lat: number
   lon: number
   heightM: number
-  x?: number
   source: 'curated' | 'osm' | 'place' | 'cover'
 }
 
@@ -43,6 +42,8 @@ export interface PlacedMark {
   dy: number
   /** Stands among the place's own roofs (ILLUSTRATION.md R5): seated on the crest at its true x, the house there removed. */
   absorbed?: boolean
+  /** Part of the place's portrait (composed by side, `markProjection.ts`): seated even on a steep face, like its houses. */
+  portrait?: boolean
   /** Px the base is raised off low ground so the sheet edge does not cut it (src/ui/scene/marks/sceneLayout.ts). */
   lift?: number
   /** Px a field patch sits under the crest, fitted to the visible face (sceneLayout.ts); else from dy. */

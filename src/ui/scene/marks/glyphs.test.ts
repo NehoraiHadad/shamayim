@@ -53,9 +53,9 @@ describe('px glyph specs', () => {
 })
 
 describe('curated sets in the px layer', () => {
-  it('draw every curated mark of the four cities', () => {
+  it('draw every curated mark of the three cities', () => {
     const marks = CURATED.flatMap((city) => city.marks)
-    expect(marks).toHaveLength(15)
+    expect(marks).toHaveLength(11)
     for (const mark of marks) expect(isHillMark(placed(mark.glyph!, mark.kind))).toBe(true)
   })
 
@@ -63,8 +63,8 @@ describe('curated sets in the px layer', () => {
     expect(planeOf(placed('jerusalem-bridge', 'custom', 2.16, 26))).toBe('behind')
     expect(planeOf(placed('jerusalem-david', 'custom', .5, 19))).toBe('line')
     expect(planeOf(placed('tel-aviv-azrieli', 'custom', -.7, 31))).toBe('line')
-    expect(planeOf(placed('shadmot-palms', 'palms', 2.3, 11))).toBe('line')
-    expect(planeOf(placed('shadmot-solar', 'solar', -.6, 3))).toBe('face')
+    expect(planeOf(placed('palms', 'palms', 0, 11))).toBe('line')
+    expect(planeOf(placed('solar', 'solar', -.6, 3))).toBe('face')
   })
 })
 

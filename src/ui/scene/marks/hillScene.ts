@@ -1,4 +1,4 @@
-import { beyondPortrait, skylineIsCity } from '../../../data/landmarks/portrait'
+import { beyondPortrait, portraitReach, skylineIsCity } from '../../../data/landmarks/portrait'
 import { screenSide, SEA_LABEL_SIDE } from '../../../domain/camera'
 import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
@@ -72,8 +72,11 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const dot = { x: centerX, y: centerY }
   const mode = homeMode(place, landmarks, width, centerX, city, Boolean(terrain.sightAt))
   const cityMode = mode?.kind === 'city'
-  // A village is drawn as its portrait round the dot; only a city keeps its own houses in the data skyline.
-  const skyline = givenSkyline && !skylineIsCity(givenSkyline) ? beyondPortrait(givenSkyline) : givenSkyline
+  // A village is drawn as its portrait round the dot, out to its reach (its built-up area and the fields round it);
+  // a city is drawn true, its own houses in the data skyline.
+  const reachKm = portraitReach(city?.clusters)
+  const isCity = givenSkyline ? skylineIsCity(givenSkyline, reachKm) : cityMode
+  const skyline = givenSkyline && !isCity ? beyondPortrait(givenSkyline, reachKm) : givenSkyline
   const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
   const right = seaOn === 'left' ? width * .06 + 44 : width * (seaOn === 'right' ? .94 : SEA_LABEL_SIDE === 'right' ? .73 : .27) + (seaOn || SEA_LABEL_SIDE === 'right' ? 0 : 44)
   // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
@@ -92,7 +95,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   }).map(mark => mark.id) : [])
   const projected = placed?.filter(mark => !replaced.has(mark.id)) ?? placeMarks(place,
     { ...terrain, seaInView: showSea }, landmarks.filter(mark => !replaced.has(mark.id)), width,
-    terrain.sightAt ? undefined : homeHalf, cityMode)
+    terrain.sightAt ? undefined : homeHalf, cityMode, isCity ? undefined : { reachKm })
   // Data towers cover the near band; generic far-ridge marks still use the landmark data.
   const candidates = cityMode ? projected.filter(mark => mark.layer !== 'near' || !isGenericHighrise(mark.kind, mark.glyph)) : projected
   // Mapped houses and their absorbed marks follow the ridge at their projected positions.

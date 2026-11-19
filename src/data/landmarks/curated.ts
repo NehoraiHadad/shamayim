@@ -23,12 +23,6 @@ export const CURATED: CuratedPlace[] = [
     mark({ id: 'haifa-sail', kind: 'custom', glyph: 'haifa-sail', nameHe: 'מגדל המפרש', lat: 32.8163, lon: 35.0028, heightM: 137 }),
     mark({ id: 'haifa-cooling', kind: 'custom', glyph: 'haifa-cooling', nameHe: 'מגדל הקירור בבזן', lat: 32.7933, lon: 35.0516, heightM: 75 }), // One tower remains; height unverified. https://www.timesofisrael.com/iconic-haifa-oil-refinery-tower-collapses/
   ] },
-  { id: 'shadmot-mehola', lat: 32.348, lon: 35.535, marks: [
-    mark({ id: 'shadmot-palms', kind: 'palms', glyph: 'shadmot-palms', nameHe: 'מטע תמרים', lat: 32.3690, lon: 35.5253, heightM: 15, x: 160 }),
-    mark({ id: 'shadmot-homes', kind: 'homes', glyph: 'shadmot-homes', nameHe: 'בתי שדמות מחולה', lat: 32.3465, lon: 35.5324, heightM: 8, x: 170 }),
-    mark({ id: 'shadmot-solar', kind: 'solar', glyph: 'shadmot-solar', nameHe: 'שדה סולארי', lat: 32.3425, lon: 35.5340, heightM: 3, x: 187 }),
-    mark({ id: 'shadmot-orchard', kind: 'orchard', glyph: 'shadmot-orchard', nameHe: 'מטע', lat: 32.3460, lon: 35.5605, heightM: 5, x: 200 }),
-  ] },
 ]
 
 export function curatedForPlace(place: Pick<Place, 'lat' | 'lon'>): CuratedPlace | null {

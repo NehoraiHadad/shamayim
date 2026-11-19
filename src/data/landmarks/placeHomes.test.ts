@@ -53,12 +53,6 @@ describe('place homes', () => {
     expect(offset).toBeLessThan(27)
   })
 
-  it('leaves Shadmot, whose curated set draws its own homes, unchanged', () => {
-    const curated = CURATED.find((item) => item.id === 'shadmot-mehola')!
-    const city: Place = { ...place, id: curated.id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }
-    expect(withPlaceHomes(city, curated.marks, true)).toEqual(curated.marks)
-  })
-
   it.each(['jerusalem', 'tel-aviv', 'haifa'])('gives curated %s its own city blocks too', (id) => {
     const curated = CURATED.find((item) => item.id === id)!
     const city: Place = { ...place, id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }

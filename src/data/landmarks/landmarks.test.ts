@@ -135,20 +135,13 @@ describe('placement and selection', () => {
   })
 
   it('uses the sea-side label box for collision avoidance', () => {
-    // Drawn at x 50 for the old mirrored scene: it now stands at 325, under the west (right-hand) sea label.
-    const onWestLabel = { ...baseMark, id: 'west', source: 'curated' as const,
-      lat: place.lat, lon: place.lon, x: 50 }
+    // 8.8 km due west stands at x 325 on the old cross-section (east on the left), under a west (right-hand) sea label.
+    const onWestLabel = { ...baseMark, id: 'west', lat: place.lat,
+      lon: place.lon - 8.8 / (111.32 * Math.cos(place.lat * Math.PI / 180)), heightM: 120 }
     const west = placeMarks(place, { ...terrain, seaInView: true, seaSide: 'west' }, [onWestLabel], 375)
     const legacy = placeMarks(place, { ...terrain, seaInView: true, seaSide: null }, [onWestLabel], 375)
-    expect(west[0].xPct * 3.75).not.toBe(325)
-    expect(legacy[0].xPct * 3.75).toBe(325)
-  })
-
-  it('renders the Shadmot homes and synagogue as an 8 px hall', () => {
-    const city: Place = { ...place, id: 'shadmot-mehola', lat: 32.348, lon: 35.535 }
-    const marks = placeMarks(city, { ...terrain, centerLeft: '47.5%' },
-      CURATED.find((item) => item.id === city.id)!.marks, 375)
-    expect(marks.find((mark) => mark.id === 'shadmot-homes')?.hPx).toBe(8)
+    expect(west[0]?.xPct * 3.75).not.toBeCloseTo(325, 0)
+    expect(legacy[0].xPct * 3.75).toBeCloseTo(325, 0)
   })
 })
 
@@ -180,15 +173,24 @@ describe('placement over a horizon panorama', () => {
     expect(marks[0].xPct / 100 * 375).toBeCloseTo(bearingOf(place, at('south', 2.5, 170))!.x, 0)
   })
 
-  it('keeps a curated village glyph by the dot, and one behind the viewer at its drawn spot', () => {
-    const homes = at('homes', 0.3, 250, { kind: 'homes', source: 'curated', x: 170, heightM: 8 })
-    const behind = at('palms', 2.4, 350, { kind: 'palms', source: 'curated', x: 160, heightM: 15 })
-    const east = at('orchard', 2.4, 95, { kind: 'orchard', source: 'curated', x: 200, heightM: 5 })
-    const placed = placeMarks(place, panorama, [homes, behind, east], 375)
-    expect(placed.map((m) => m.id).sort()).toEqual(['homes', 'orchard', 'palms'])
+  it('draws the place\'s own marks in its portrait by side: east of it on the left, west on the right, north too', () => {
+    const portrait = { reachKm: 2 }
+    const north = at('palms', 1.5, 350, { kind: 'palms', heightM: 15 })
+    const east = at('orchard', 1.2, 95, { kind: 'orchard', heightM: 5 })
+    const solar = at('solar', .6, 190, { kind: 'solar', heightM: 3 })
+    const far = at('far', 3.5, 120, { kind: 'orchard', heightM: 5 })
+    const placed = placeMarks(place, panorama, [north, east, solar, far], 375, undefined, false, portrait)
     const x = (id: string) => placed.find((mark) => mark.id === id)!.xPct / 100 * 375
-    // Drawn at 160 for the old mirrored scene: mirrored to 215. East is on the left.
-    expect(x('palms')).toBeCloseTo(215, 0)
-    expect(x('orchard')).toBeLessThan(75)
+    // North-north-west: west of the place, so on the right, though it is behind the viewer.
+    expect(x('palms')).toBeGreaterThan(187.5)
+    expect(x('orchard')).toBeLessThan(187.5)
+    // Due south, a little west: right of the dot, nearer it than the farther palms.
+    expect(x('solar')).toBeGreaterThan(187.5)
+    expect(x('solar')).toBeLessThan(x('palms'))
+    // Beyond the reach (fields: a km past the village's) the scene is true: at its own bearing.
+    expect(placed.find((mark) => mark.id === 'far')!.portrait).toBeUndefined()
+    // East-south-east: at its own bearing, left of the dot.
+    expect(x('far')).toBeCloseTo(bearingOf(place, far)!.x, 0)
   })
+
 })

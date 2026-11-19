@@ -1,9 +1,7 @@
 import type { BuildingSpec } from '../generic/buildingSpecs'
 import { Cooling } from '../generic/industry'
-import { Palms } from '../generic/nature'
 import { BabShrine, DagonSilo, SailTower } from './haifa'
 import { ChordsBridge, TowerOfDavid, WesternWall } from './jerusalem'
-import { ShadmotHomes } from './shadmot'
 import { AzrieliCenter, ReadingChimney, Sarona, ShalomMeir } from './telAviv'
 
 /** Curated city marks keyed by glyph (src/data/landmarks/curated.ts). Widths match their drawn bodies. */
@@ -20,6 +18,4 @@ export const CURATED_BUILDINGS: Record<string, BuildingSpec> = {
   'haifa-dagon': { w: 16, h: (hPx) => Math.max(18, hPx), Draw: DagonSilo, selfLit: true, beacon: (h) => [5, -h] },
   'haifa-sail': { w: 9, h: (hPx) => Math.max(22, hPx), Draw: SailTower, beacon: (h) => [-3.2, -h] },
   'haifa-cooling': { w: 17, h: () => 20, Draw: Cooling, litWidth: .4 },
-  'shadmot-palms': { w: 12, h: (hPx) => Math.max(11, hPx), Draw: Palms, selfLit: true },
-  'shadmot-homes': { w: 30, h: () => 9, Draw: ShadmotHomes },
 }

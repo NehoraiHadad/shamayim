@@ -23,6 +23,12 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
 - **One truth it keeps: the side.** An element east of the village is drawn on the east side, west on the west side.
   Distances and sizes are composed. Nothing north of the place is excluded: the portrait is not a view.
 - The dot stands at the village's centre (today some place points sit at an edge: Shadmot's is ~300 m east of it).
+- **The portrait's reach comes from the data, not a fixed number** (owner, 2026-11-19): the place's own built-up area
+  (its home cluster in the built-up map) out to its farthest corner, plus 1 km for its fields; groves and solar fields
+  a km further; halls and towers only within the built-up area (beyond it they are another place's, drawn true). A
+  city (its built squares fill the view near it) is drawn true: its skyline is its portrait.
+- Done in stage 2 (`src/data/landmarks/portrait.ts`, `markProjection.ts`, `coverMarks.ts`): Shadmot's hand-set list
+  removed; trees seen by the satellite (WorldCover) added where the map names no grove.
 
 ## Stages, in order (each: stills of the six baseline places × four hours, baseline re-recorded in the same commit)
 0. **Clean up.** Remove the turning view's UI (TurnScene, Backdrop, Compass, stage, useHeading, sector strip, the

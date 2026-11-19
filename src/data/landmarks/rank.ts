@@ -16,6 +16,7 @@ export interface Candidate {
   width: number
   score: number
   reserved?: boolean
+  portrait?: boolean
 }
 
 export function score(mark: Landmark, dx: number, dy: number, band: number): number {

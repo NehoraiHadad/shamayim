@@ -12,8 +12,8 @@ const HOUR = 60 * 60 * 1000
 const SESSION_STARTED = Date.now()
 interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMarks?: Landmark[]; aroundMarks?: Landmark[] }
 
-// v5 stores the projection-specific shortlists (and the one for a turning view) from the same source response.
-function key(id: string) { return `shamayim:landmarks:v5:${id}` }
+// v6: the panorama shortlist keeps marks in every direction within a portrait's reach (north too).
+function key(id: string) { return `shamayim:landmarks:v6:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }

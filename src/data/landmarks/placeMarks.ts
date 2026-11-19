@@ -1,7 +1,7 @@
 import { screenSide, SEA_LABEL_SIDE } from '../../domain/camera'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { projectMark } from './markProjection'
+import { projectMark, type Portrait } from './markProjection'
 import { groundY, markHeight, markWidth } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
 import type { SettlementSize } from './settlement'
@@ -14,7 +14,7 @@ export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
 const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6, palms: 11 }
 const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minaret', 'lighthouse'])
 const LIT_CUSTOM = new Set(['jerusalem-david', 'jerusalem-wall', 'tel-aviv-shalom',
-  'tel-aviv-sarona', 'tel-aviv-azrieli', 'haifa-bab', 'haifa-dagon', 'haifa-sail', 'shadmot-homes'])
+  'tel-aviv-sarona', 'tel-aviv-azrieli', 'haifa-bab', 'haifa-dagon', 'haifa-sail'])
 /** Towers too: a city's high-rises rise out of its blocks instead of standing alone beside an empty hill. */
 const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
 const SETTLEMENTS = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
@@ -56,11 +56,11 @@ function legacyHomeHalf(marks: Landmark[]) {
 }
 
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
-  homeHalf = legacyHomeHalf(marks), cityMode = false): PlacedMark[] {
+  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
-    const placed = projectMark(place, mark, terrain)
+    const placed = projectMark(place, mark, terrain, portrait && { ...portrait, innerPx: homeHalf * scale })
     if (!placed) continue
     const { offset, ...projected } = placed
     if (cityMode && projected.layer === 'near' && isGenericHighrise(mark.kind, mark.glyph)) continue
@@ -117,7 +117,8 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     : seaOn === 'right' ? 375 * .94 : SEA_LABEL_SIDE === 'right' ? 375 * .73 : 375 * .27 + 44 * scale
   const labelLeft = labelRight - 44 * scale
   const clearLabel = spaced.flatMap((item) => {
-    if (!terrain.seaInView) return [item]
+    // The place's own portrait is composed round the dot and stays: the note gives way to it, not the reverse.
+    if (!terrain.seaInView || item.portrait) return [item]
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const base = item.plain?.baseY ?? groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const top = item.plain?.visibleTopY ?? base - (item.plain?.hPx ?? markHeight(item.mark.heightM, item.layer === 'near' ? 'near' : 'far'))
@@ -146,6 +147,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       lights: LIGHTS.has(item.mark.kind) || LIT_CUSTOM.has(item.mark.glyph ?? '') ? 4 : 0,
       tall: item.mark.heightM >= 60,
       dy: item.dy,
+      ...(item.portrait ? { portrait: true } : {}),
       ...(absorbedIds.has(item.mark.id) || (homes && item.mark.source === 'curated' && item.layer === 'near'
         && Math.abs(item.x - center) < villageHalf) ? { absorbed: true } : {}),
     }]
