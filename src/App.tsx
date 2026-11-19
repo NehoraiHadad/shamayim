@@ -36,6 +36,7 @@ import { OverheadEntry } from './ui/overhead/OverheadEntry'
 import { OverheadPage } from './ui/overhead/OverheadPage'
 import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
+import { TurnScene } from './ui/scene/TurnScene'
 import { ValleyScene } from './ui/scene/ValleyScene'
 import { moonCloud } from './ui/scene/moonShape'
 import { snowFall } from './ui/scene/snowLine'
@@ -47,7 +48,6 @@ import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
 import { useSceneTime } from './ui/scrub/useSceneTime'
-import { useHeading } from './ui/scene/useHeading'
 import { withVisibleSun } from './ui/scene/visibleSun'
 import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
@@ -59,8 +59,7 @@ export default function App() {
   const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
   const terrain = useTerrain(place)
   // `?view=turn`: the whole horizon, seen from any heading, with the place on its stage.
-  const view = useHeading(180)
-  const turning = useTurningView(useWorld(place, TURN_VIEW), view.heading)
+  const turning = useTurningView(useWorld(place, TURN_VIEW))
   const sunTerrain = turning?.sunTerrain ?? terrain
   const land = useLand(place, TURN_VIEW)
   const landmarks = useLandmarks(place, Boolean(terrain.sightAt), TURN_VIEW)
@@ -142,24 +141,26 @@ export default function App() {
       </main>
       {forecast && (
         <div className="lower">
-          <ValleyScene
-            forecast={forecast} now={now} selected={selected} lat={place.lat}
-            readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
-            air={air!} cloudCover={shown?.cloudCover ?? 0} seenClouds={seenClouds}
-            moonCloud={shown ? moonCloud(shown.cloudCover, shown.thickCloud) : 0}
-            ridgeLight={SCENE_25D && shown
-              ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 }
-              : undefined}
-            snow={shown ? snowFall(shown, forecast.elevation) : null}
-            terrain={turning?.terrain ?? terrain} sunTerrain={turning?.sunTerrain} land={turning ? land : undefined}
-            turn={turning ? { onDrag: view.drag, onGlide: view.glide } : undefined}
-            mist={life && life.mist >= .15 ? life.mist : 0}
-            mistColor={shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8'}
-            place={place} landmarks={landmarks.marks} city={city} markLife={markLife!}
-            onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow}
-            first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
-            last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
-          />
+          {(() => {
+            const scene = {
+              forecast, now, selected, lat: place.lat,
+              readout: selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null,
+              air: air!, cloudCover: shown?.cloudCover ?? 0, seenClouds,
+              moonCloud: shown ? moonCloud(shown.cloudCover, shown.thickCloud) : 0,
+              ridgeLight: SCENE_25D && shown ? { palette, wet: shown.precipitation > 0 || shown.snowfall > 0 } : undefined,
+              snow: shown ? snowFall(shown, forecast.elevation) : null,
+              mist: life && life.mist >= .15 ? life.mist : 0,
+              mistColor: shown && shown.sunElevation < 0 ? '#8E97B8' : shown && shown.sunElevation < 6 ? '#E6D3C4' : '#C9D2D8',
+              place, landmarks: landmarks.marks, city, markLife: markLife!,
+              onScrub: sceneTime.scrub, onRelease: sceneTime.release, onNow: sceneTime.toNow,
+              first: hourly.find((slot) => slot.type === 'hour')?.time ?? now,
+              last: [...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now,
+            }
+            // `?view=turn`: the whole horizon, turned with the compass; otherwise the south panorama as always.
+            return turning
+              ? <TurnScene {...scene} sectors={turning.sectors} sunTerrain={turning.sunTerrain} land={land} />
+              : <ValleyScene {...scene} terrain={terrain} />
+          })()}
           <div className="paper" data-intro="sheet">
             <Sheet>
               <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />

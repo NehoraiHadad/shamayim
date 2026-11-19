@@ -48,7 +48,7 @@ export function useLandmarks(place: Place, panorama = false, around = false) {
   const fresh = useMemo(() => cached.at && SESSION_STARTED - cached.at < MONTH ? cached : null, [cached])
   const available = loaded?.placeId === place.id ? loaded : fresh
   const pool = around ? available?.aroundMarks : panorama ? available?.panoramaMarks : available?.marks
-  const marks = withPlaceHomes(place, curated?.marks ?? pool ?? [], Boolean(curated))
+  const marks = useMemo(() => withPlaceHomes(place, curated?.marks ?? pool ?? [], Boolean(curated)), [place, curated, pool])
 
   useEffect(() => {
     if (curated || fresh !== null || (cached.failed && SESSION_STARTED - cached.failed < HOUR)) return

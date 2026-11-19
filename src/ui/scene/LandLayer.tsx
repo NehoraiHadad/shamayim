@@ -13,6 +13,8 @@ interface Props {
   /** Haze over the middle distance and the far land (0..1). */
   nearFade: number
   farFade: number
+  /** Draw only the backdrop's ground (a sector of the strip) or only the stage's (the current heading). */
+  part?: 'backdrop' | 'stage'
 }
 
 /** Opacity of the land's own colour by distance band: haze takes the far part first. */
@@ -26,10 +28,10 @@ const bandAlpha = (band: number, nearFade: number, farFade: number) => {
  * The land in its real cover and this week's colour (`data/land`): the backdrop's visible ground and the stage's
  * ground and trees, laid over the land's own tone. By day the colour shows; toward night it fades into the tone.
  */
-export function LandLayer({ place, land, terrain, day, nearFade, farFade }: Props) {
-  const back = useMemo(() => backdropLand(place, land, terrain, 375), [place, land, terrain])
-  const stage = useMemo(() => terrain.stage && terrain.camera && terrain.horizonY !== undefined
-    ? stageLand(place, land, terrain.camera, terrain.horizonY) : null, [place, land, terrain])
+export function LandLayer({ place, land, terrain, day, nearFade, farFade, part }: Props) {
+  const back = useMemo(() => part === 'stage' ? [] : backdropLand(place, land, terrain, 375), [place, land, terrain, part])
+  const stage = useMemo(() => part !== 'backdrop' && terrain.stage && terrain.camera && terrain.horizonY !== undefined
+    ? stageLand(place, land, terrain.camera, terrain.horizonY) : null, [place, land, terrain, part])
   if (!back.length && !stage) return null
   // A tint over the land's own tone: full by day, a trace at night (the tone itself carries the hour).
   const strength = .15 + .85 * Math.max(0, Math.min(1, day))

@@ -3,7 +3,10 @@
   position: absolute;
   inset: 0 0 auto 0;
   height: 26px;
-  z-index: 3;
+  /* Over the time scrubber (z 20), which covers the whole scene. */
+  z-index: 21;
+  /* The scene ignores the pointer (its scrubber takes it); the compass must take it itself. */
+  pointer-events: auto;
   touch-action: pan-y;
   cursor: grab;
   color: var(--ink, #fff);

@@ -4,7 +4,7 @@ import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { Place } from '../../config/place'
 import type { DayPoint, LocalTime } from '../../domain/types'
-import { lateral } from '../../domain/camera'
+import { azimuthAt, lateral } from '../../domain/camera'
 import { ridgeLightRay, smoothstep } from './ridgeLighting'
 import { hazeDirect } from './sceneLight'
 import { ridgeLightTone, type RidgePalette, type RidgeTone } from './ridgeLightTone'
@@ -16,6 +16,8 @@ export interface RidgeLightInput { palette: RidgePalette; wet: boolean }
 
 export interface RidgeLighting {
   ray: [number, number] | null
+  /** Per x (scene units): the light's direction where each column looks its own way (a turning view's strip). */
+  rayAt?: (x: number) => [number, number]
   rimX: number | null
   noonWeight: number
   /** True sun altitude in degrees, for the light's colour, the disc's shape and shadow lengths. */
@@ -38,6 +40,11 @@ interface Args {
    * which holds the sun's whole path. Absent: `skyline` (the view is that panorama).
    */
   sunSkyline?: Skyline
+  /**
+   * Light each column by the sun's turn from that column's own direction (a strip of a turning view), so sectors
+   * side by side agree where they meet. Off: one side for the whole scene (the drawn disc's).
+   */
+  perColumn?: boolean
   air: AirState
   cloudCover: number
   /** Twilight glow opacity and its x (scene fraction), or null when there is none. */
@@ -48,7 +55,7 @@ interface Args {
  * Sun lighting for both ridge layers at the shown minute, or null when the flag is off or nothing is lit
  * (night, overcast, heavy haze). Recomputed per shown minute, never per frame.
  */
-export function useRidgeLighting({ input, at, day, place, lat, skyline, sunSkyline, air, cloudCover, glow }: Args): RidgeLighting | null {
+export function useRidgeLighting({ input, at, day, place, lat, skyline, sunSkyline, perColumn = false, air, cloudCover, glow }: Args): RidgeLighting | null {
   const { mid, horizon, accent, ridgeFar, ridgeNear } = input?.palette ?? {}
   const wet = input?.wet ?? false
   const { farFade, nearFade, visibilityKm } = air.haze
@@ -72,10 +79,15 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, sunSkyli
     const noonWeight = point ? 1 - smoothstep(0, .18, Math.abs(point.t - .5)) : 0
     // Light from the sun's side as the camera sees it (+1 from the right … −1 from the left), as the disc is drawn.
     const ray = point && daylight ? ridgeLightRay(lateral(sky.azimuth, skyline.camera), sky.altitude) : null
+    const camera = skyline.camera
+    const rayAt = ray && perColumn && camera
+      ? (x: number) => ridgeLightRay(lateral(sky.azimuth, { ...camera, heading: azimuthAt(x / camera.width, camera) }), sky.altitude)
+      : undefined
     const rimX = point && daylight ? point.x * SCENE_W : glowX < 0 ? null : glowX * SCENE_W
-    const tone = { ...sky, camera: skyline.camera, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
+    // A strip's sectors share one tone (the scene's own reference), so neighbours match where they meet.
+    const tone = { ...sky, camera: perColumn ? undefined : skyline.camera, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
       palette: { mid, horizon, accent, ridgeFar, ridgeNear } }
-    return { ray, rimX, noonWeight, altitude: sky.altitude, day: daylight * direct, near: ridgeLightTone({ ...tone, layer: 'near' }), far: ridgeLightTone({ ...tone, layer: 'far' }) }
+    return { ray, rayAt, rimX, noonWeight, altitude: sky.altitude, day: daylight * direct, near: ridgeLightTone({ ...tone, layer: 'near' }), far: ridgeLightTone({ ...tone, layer: 'far' }) }
   }, [minute, sunrise, sunset, lat, skyline, place.timezone, place.lat, place.lon,
-    sunSkyline, mid, horizon, accent, ridgeFar, ridgeNear, cloudCover, wet, farFade, nearFade, glowOpacity, glowX, visibilityKm, dust])
+    sunSkyline, perColumn, mid, horizon, accent, ridgeFar, ridgeNear, cloudCover, wet, farFade, nearFade, glowOpacity, glowX, visibilityKm, dust])
 }

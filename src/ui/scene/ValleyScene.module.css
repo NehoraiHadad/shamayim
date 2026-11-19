@@ -215,3 +215,26 @@
   pointer-events: none;
 }
 .landWater { fill: color-mix(in oklab, var(--sky-horizon) 70%, var(--sky-mid)); }
+
+/* Turning view: the backdrop strip (three fixed sectors side by side) that a turn slides; clipped to the scene. */
+.strip {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.stripClip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sector {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+/* Each static layer of a sector is its own compositing layer: a sway or the mist re-rasters only its own layer, and a
+   turn moves the rasters it already has. */
+.sector > svg { will-change: transform; }
+.stageLayer { position: absolute; inset: 0; pointer-events: none; }

@@ -22,6 +22,11 @@ export function ridgeLightRay(lateral: number, altitude: number): [number, numbe
 
 interface Lighting {
   ray: Point | null
+  /**
+   * The light's direction at each x, when it is not one for the whole line: a turning view's strip, where each column
+   * looks its own way, so the sun's side is the sun's turn from that column (`useRidgeLighting`).
+   */
+  rayAt?: (x: number) => Point
   noonWeight: number
   rimX: number | null
   depth: number
@@ -46,12 +51,13 @@ function taperEnds(samples: { x: number; amount: number }[]) {
 
 const xy = (x: number, y: number) => `${Math.round(x * 100) / 100},${Math.round(y * 100) / 100}`
 
-export function ridgeLightPaths(profile: readonly Point[], { ray, noonWeight, rimX, depth, outline = profile }: Lighting) {
+export function ridgeLightPaths(profile: readonly Point[], { ray, rayAt, noonWeight, rimX, depth, outline = profile }: Lighting) {
   const points = profile.filter(([x, y], i) =>
     Number.isFinite(x) && Number.isFinite(y) && (!i || x > profile[i - 1][0]))
-  const length = ray ? Math.hypot(...ray) : 0
-  const [east, up] = ray && length ? [ray[0] / length, ray[1] / length] : [0, 1]
+  const unit = (r: Point): [number, number] => { const length = Math.hypot(...r); return length ? [r[0] / length, r[1] / length] : [0, 1] }
+  const unitRay = ray ? unit(ray) : [0, 1] as [number, number]
   const samples = points.map(([x, y], i) => {
+    const [east, up] = rayAt && ray ? unit(rayAt(x)) : unitRay
     const [left, right] = [points[i - 1] ?? points[i], points[i + 1] ?? points[i]]
     const slope = (left[1] - right[1]) / (right[0] - left[0] || 1)
     const facing = (up - slope * east) / Math.hypot(1, slope)

@@ -78,7 +78,7 @@ export function SettlementGlyph({ settlement, sunX, night, reach, afterRow, litS
     const asDrawn = side !== null && sunWest === (form === 1)
     const tone = style === 'blocks' ? blockTone(house.seed, house.row === 0)
       : style === 'tile' ? [styles.house, styles.limestone, house.row === 0 ? styles.recede : ''].join(' ') : ''
-    return <g key={`${house.row}-${house.x.toFixed(1)}-${house.seed}`}>
+    return <g key={`${house.row}-${house.seed}`}>
       {/* The crest row stands furthest back: toned toward the ridge, still with its two faces. */}
       <g transform={`translate(${house.x.toFixed(1)} ${(house.baseY + .5).toFixed(1)}) scale(${form * (house.kind ? 1 : grow)} ${house.kind ? 1 : grow})`}
         className={[tone, side && !asDrawn ? styles.flat : ''].join(' ').trim() || undefined}>

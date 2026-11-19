@@ -12,7 +12,7 @@ import { hashId } from '../../../data/landmarks/hash'
 import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../../../data/landmarks/types'
 import type { SceneTerrain } from '../../../data/terrain/terrain'
-import { stageHouses } from '../../../data/world/stageVillage'
+import { stageSettlement } from './stageScene'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
 import { markGeometry } from './markBox'
@@ -31,6 +31,8 @@ interface Input {
   showSea?: boolean
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
+  /** False for a backdrop sector of a turning view: the place's own homes belong to the stage (`stageScene`). */
+  withHome?: boolean
 }
 
 type Ground = (x: number) => number
@@ -61,7 +63,7 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * Ground functions, the marks fitted to what is visible, the place's settlement cluster and the elevation label's
  * spot for the hill layer, in px at the scene's real width.
  */
-export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city,
+export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city, withHome = true,
   skyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
@@ -99,7 +101,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     ? { ...mark, lift: ground(mark.xPct / 100 * width) - centerY } : mark)
   // On a stage with the built-up map, the place's own buildings come from it (below), not from a homes glyph.
   const stageMap = Boolean(terrain.stage && city?.raster)
-  const marks = stageMap ? fitted.filter(mark => mark.kind !== 'homes') : fitted
+  const marks = stageMap || !withHome ? fitted.filter(mark => mark.kind !== 'homes') : fitted
   let cityTowers: PlacedTower[] = []
   let settlement: Settlement | null = null
   if (mode && input) {
@@ -120,9 +122,10 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
     }
   }
   // On a stage the place's own buildings come from the built-up map, seen from the pole (`stageVillage.ts`).
-  if (stageMap && terrain.camera && terrain.horizonY !== undefined) {
-    const { houses, blocks } = stageHouses(place, city!.raster!, terrain.camera, terrain.horizonY)
-    settlement = { style: blocks ? 'blocks' : mode?.style ?? 'tile', contours: [], labelTop: centerY + 7, halfWidth: 0, houses }
+  if (!withHome) {
+    settlement = null
+  } else if (stageMap && terrain.camera && terrain.horizonY !== undefined) {
+    settlement = stageSettlement(place, city!.raster!, terrain.camera, terrain.horizonY, width, mode?.style)
     cityTowers = []
   }
   const drawn = skyline && new Set(marks.map(mark => mark.id))

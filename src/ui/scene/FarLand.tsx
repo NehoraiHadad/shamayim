@@ -28,7 +28,7 @@ export function FarLand({ terrain, lighting, heat, shimmerId, snow, snowPlaceM, 
   return (
     <svg className={`${styles.land} ${styles.landFar}`} viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} preserveAspectRatio="none" aria-hidden="true">
       {heat > 0 && <Shimmer id={shimmerId} amplitude={heat} />}
-      {lighting?.far ? <RidgeLight path={terrain.far} points={terrain.farPoints} ray={lighting.ray}
+      {lighting?.far ? <RidgeLight path={terrain.far} points={terrain.farPoints} ray={lighting.ray} rayAt={lighting.rayAt}
         noonWeight={lighting.noonWeight} rimX={lighting.far.rimAlpha ? lighting.rimX : null} depth={9}
         tone={lighting.far} baseClass={styles.far} shimmer={shimmer} />
         : <path d={terrain.far} className={styles.far} filter={shimmer} />}
