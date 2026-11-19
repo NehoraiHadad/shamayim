@@ -62,6 +62,13 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * Ground functions, the marks fitted to what is visible, the place's settlement cluster and the elevation label's
  * spot for the hill layer, in px at the scene's real width.
  */
+/**
+ * A city is a portrait like any place (owner, 2026-11-19: the data skyline near it read as noise). `?citytrue` (dev)
+ * shows it the old way, drawn true from its built squares, for comparison.
+ */
+const CITY_TRUE = typeof window !== 'undefined' && Boolean(import.meta.env?.DEV)
+  && new URLSearchParams(window.location.search).has('citytrue')
+
 export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city,
   skyline: givenSkyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
@@ -75,7 +82,7 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   // A village is drawn as its portrait round the dot, out to its reach (its built-up area and the fields round it);
   // a city is drawn true, its own houses in the data skyline.
   const reachKm = portraitReach(city?.clusters)
-  const isCity = givenSkyline ? skylineIsCity(givenSkyline, reachKm) : cityMode
+  const isCity = CITY_TRUE && (givenSkyline ? skylineIsCity(givenSkyline, reachKm) : cityMode)
   const skyline = givenSkyline && !isCity ? beyondPortrait(givenSkyline, reachKm) : givenSkyline
   const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
   const right = seaOn === 'left' ? width * .06 + 44 : width * (seaOn === 'right' ? .94 : SEA_LABEL_SIDE === 'right' ? .73 : .27) + (seaOn || SEA_LABEL_SIDE === 'right' ? 0 : 44)

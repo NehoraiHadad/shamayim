@@ -39,16 +39,19 @@ function portraitX(mark: Landmark, dx: number, km: number, reachKm: number, inne
   const side = dx >= 0 ? east : -east
   const among = AMONG_ROOFS.has(mark.kind)
   const from = among ? 4 + Math.max(10, innerPx - 4) * Math.min(1, km / Math.max(.6, reachKm - PORTRAIT_MARGIN_KM))
-    : innerPx + 12 + 26 * Math.min(1, km / (reachKm + 1))
+    : innerPx + 8 + 8 * Math.min(1, km / (reachKm + 1))
   return RIDGE_WIDTH / 2 + side * from
 }
 
 /** In panorama mode rank depth relative to the ridge in the direction of the mark. */
 export function projectMark(place: Place, mark: Landmark, terrain: SceneTerrain, portrait?: Portrait) {
   if (terrain.sightAt) {
-    if (portrait && mark.source !== 'curated' && PORTRAIT_KINDS.has(mark.kind)) {
+    if (portrait && (PORTRAIT_KINDS.has(mark.kind) || mark.source === 'curated')) {
       const { dx, dy } = offsetKm(place, mark)
       const km = Math.hypot(dx, dy)
+      // A hall or tower just beyond the village is a neighbour's: not this place's portrait, and next to it on the
+      // ridge it reads as a second village. Left out.
+      if (AMONG_ROOFS.has(mark.kind) && km > portraitKm(mark.kind, portrait.reachKm) && km <= portrait.reachKm + 1) return null
       if (km <= portraitKm(mark.kind, portrait.reachKm)) {
         // On the village's own line (dy 0): in a portrait, north and south are composed, like distance.
         return { x: portraitX(mark, dx, km, portrait.reachKm, portrait.innerPx), layer: 'near' as const,

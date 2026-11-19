@@ -83,7 +83,10 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
       const right = blocked[1] + item.width / 2
       // To the nearer side, unless that runs into the mark already placed on the left.
       const leftFree = !prior || left - item.width / 2 >= prior.x + prior.width / 2 + pairGap - overlap
-      item.x = leftFree && Math.abs(item.x - left) <= Math.abs(right - item.x) ? left : right
+      // A portrait element never crosses to the other side of the village: its side is the one truth it keeps.
+      const centre = (blocked[0] + blocked[1]) / 2
+      item.x = item.portrait ? (original.x < centre ? left : right)
+        : leftFree && Math.abs(item.x - left) <= Math.abs(right - item.x) ? left : right
     }
     const maxShift = item.mark.source === 'curated' ? 36 * scale : 24 * scale
     if (Math.abs(item.x - original.x) > maxShift) {
