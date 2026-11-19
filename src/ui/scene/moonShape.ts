@@ -1,3 +1,4 @@
+import { lateral, SCENE_CAMERA, xOf } from '../../domain/camera'
 import { altitudeY, FLAT_SKYLINE, type Skyline } from './skyline'
 import { SCENE_W } from './sceneBox'
 
@@ -10,17 +11,17 @@ export interface ScenePoint {
 }
 
 const MID_X = SCENE_W / 2
-/** Due east sits over the Gilead where the sun rises (x ≈ 322), due west over Samaria (x ≈ 53). */
-const EAST_SPAN = 135
+/** Scene px for a direction a quarter turn to the side (due east and west today: x ≈ 322 and 53). */
+const QUARTER_PX = SCENE_CAMERA.pxPerDeg * 90
 
 /**
- * West–east position, linear in the azimuth (east 90° → x ≈ 322, south → middle, west 270° → x ≈ 53), so a body that
- * rises north of east keeps moving one way across the sky. (The east component, sin(azimuth), folds back at due east
- * and due west: the moon then stopped at the end of its arc and dropped or climbed straight down.)
+ * Position across, linear in the azimuth through the camera (today east 90° → x ≈ 322, south → middle, west 270° →
+ * x ≈ 53), so a body that rises north of east keeps moving one way across the sky. (The east component, sin(azimuth),
+ * folds back at due east and due west: the moon then stopped at the end of its arc and dropped or climbed straight
+ * down.)
  */
 export function skyPoint(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
-  const fromSouth = ((((azimuth - 180) % 360) + 540) % 360) - 180
-  const x = (MID_X - (EAST_SPAN * fromSouth) / 90) / SCENE_W
+  const x = xOf(azimuth) / SCENE_W
   return { x, y: altitudeY(skyline, x, altitude) }
 }
 
@@ -29,7 +30,7 @@ export function skyPoint(altitude: number, azimuth: number, skyline: Skyline = F
  * continuous while the sun passes north below the horizon at midnight (the linear position would jump edge to edge).
  */
 export function sunDirection(altitude: number, azimuth: number, skyline: Skyline = FLAT_SKYLINE): ScenePoint {
-  const x = (MID_X + EAST_SPAN * Math.sin((azimuth * Math.PI) / 180)) / SCENE_W
+  const x = (MID_X + QUARTER_PX * lateral(azimuth)) / SCENE_W
   return { x, y: altitudeY(skyline, x, altitude) }
 }
 

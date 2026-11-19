@@ -1,11 +1,12 @@
 import type { WeightedSighting } from '../../domain/cloudSightings'
+import { SCENE_CAMERA } from '../../domain/camera'
 import { skyPoint } from './moonShape'
 import { SCENE_W } from './sceneBox'
 
 /** Assumed height of a fair-weather cloud above the valley, km (Jordan Valley cumulus bases ~1.5–2.5 km). */
 const CLOUD_KM = 2
-/** Scene px per degree of azimuth (the sun/moon projection: 135 px per 90°). */
-const PX_PER_DEG = 135 / 90
+/** Scene px per degree of azimuth (the camera's, as the sun and moon). */
+const PX_PER_DEG = SCENE_CAMERA.pxPerDeg
 
 export interface SeenPuff {
   /** Fraction of the scene width, 0 = west (left). */

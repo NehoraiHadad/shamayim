@@ -1,5 +1,6 @@
 import { groundFn } from '../landmarks/seat'
-import { AZ_LEFT, AZ_RIGHT, azimuthAt, FAR_KM, RAY_DISTANCES } from '../terrain/panorama'
+import { spanDeg } from '../../domain/camera'
+import { azimuthAt, FAR_KM, RAY_DISTANCES } from '../terrain/panorama'
 import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import type { SceneTerrain } from '../terrain/terrain'
 import { COLUMN_WIDTH } from './columns'
@@ -18,7 +19,7 @@ export interface PlainPatch {
 }
 
 export type PlainTerrain = Pick<SceneTerrain, 'seenAt' | 'nearPoints' | 'farPoints'>
-const SCENE_RADIANS = (AZ_LEFT - AZ_RIGHT) * Math.PI / 180
+const SCENE_RADIANS = spanDeg() * Math.PI / 180
 const SHEET_TOP = 114
 const FAR_GRID: RayGrid = {
   toGrid: (lat, lon) => [(lon - FAR_WEST) / FAR_LON_STEP, (lat - FAR_SOUTH) / FAR_LAT_STEP],

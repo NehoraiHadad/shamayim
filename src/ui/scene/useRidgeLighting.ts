@@ -4,6 +4,7 @@ import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { Place } from '../../config/place'
 import type { DayPoint, LocalTime } from '../../domain/types'
+import { lateral } from '../../domain/camera'
 import { ridgeLightRay, smoothstep } from './ridgeLighting'
 import { hazeDirect } from './sceneLight'
 import { ridgeLightTone, type RidgePalette, type RidgeTone } from './ridgeLightTone'
@@ -63,8 +64,8 @@ export function useRidgeLighting({ input, at, day, place, lat, skyline, air, clo
     const direct = hazeDirect(sky.altitude, { visibilityKm, dust })
     if (direct < .08 && !glowOpacity) return null
     const noonWeight = point ? 1 - smoothstep(0, .18, Math.abs(point.t - .5)) : 0
-    // Light from the sun's true side: east +1 … west −1 (sin of the azimuth), as the disc is drawn.
-    const ray = point && daylight ? ridgeLightRay(Math.sin(sky.azimuth * Math.PI / 180), sky.altitude) : null
+    // Light from the sun's side as the camera sees it (+1 from the right … −1 from the left), as the disc is drawn.
+    const ray = point && daylight ? ridgeLightRay(lateral(sky.azimuth), sky.altitude) : null
     const rimX = point && daylight ? point.x * SCENE_W : glowX < 0 ? null : glowX * SCENE_W
     const tone = { ...sky, day: daylight * direct, noonWeight, glow: glowOpacity, cover: cloudCover, wet, farFade, nearFade,
       palette: { mid, horizon, accent, ridgeFar, ridgeNear } }

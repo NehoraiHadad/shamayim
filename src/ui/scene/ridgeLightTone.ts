@@ -1,3 +1,4 @@
+import { toward } from '../../domain/camera'
 import { hexToOklab, oklabToHex, type Oklab } from '../../theme/oklab'
 import type { SkyLight } from '../../theme/skyLight'
 import { smoothstep } from './ridgeLighting'
@@ -70,7 +71,8 @@ export function ridgeLightTone(input: ToneInput): RidgeTone | null {
   if (limit <= paintedBase) return null
 
   const warm = 1 - smoothstep(4, 18, altitude)
-  const south = Math.max(0, -Math.cos(altitude * radians) * Math.cos(azimuth * radians))
+  // How much the sun stands in the view's direction (behind the ridges, lighting them from the back).
+  const south = Math.max(0, Math.cos(altitude * radians) * toward(azimuth))
   const light = mix(horizon, accent, warm * .55)
   const neutral = { ...base, l: base.l + .03 * south }
   const band = mix(mix(base, light, far ? .28 : .20), neutral, noonWeight)

@@ -3,8 +3,8 @@ import { skyPoint, type ScenePoint } from './moonShape'
 import type { Skyline } from './skyline'
 
 /**
- * Scene px per unit of sin(altitude) in the sky's own (unstretched) part. Across, the sky is 135 px per 90° of azimuth
- * (1.5 px a degree). Up, every altitude goes through `anglePx` (`data/terrain/angleScale.ts`): the sky's sine scale
+ * Scene px per unit of sin(altitude) in the sky's own (unstretched) part. Across, the sky follows the camera
+ * (`domain/camera.ts`, 1.5 px a degree today). Up, every altitude goes through `anglePx` (`data/terrain/angleScale.ts`): the sky's sine scale
  * plus a stretch of the first few degrees, the same one the land of the horizon panorama is drawn with.
  */
 export const ALT_PX = SKY_PX
@@ -52,8 +52,8 @@ export function apparentAltitude(altitude: number): number {
 }
 
 /**
- * Where a body at its (apparent) altitude and true azimuth is drawn: across by its direction (west left, south middle,
- * east right), up from the horizon line by its altitude on the shared angle scale. Below the horizon it goes on down,
+ * Where a body at its (apparent) altitude and true azimuth is drawn: across by its direction (through the camera:
+ * today west left, south middle, east right), up from the horizon line by its altitude on the shared angle scale. Below the horizon it goes on down,
  * behind the land.
  */
 export function projectSky(altitude: number, azimuth: number, h: HorizonLine): ScenePoint {

@@ -1,3 +1,5 @@
+import { azimuthAt as cameraAzimuthAt, fractionOf } from '../../domain/camera'
+
 export { packPanorama, unpackPanorama, type StoredPanorama } from './storedPanorama'
 
 /**
@@ -19,14 +21,11 @@ export const REFRACTION_K = 0.13
 /** Eye above the ground at the place (m). */
 export const EYE_M = 2
 
-/** Rays across the scene, evenly in azimuth from x = 0 to x = 375 (same mapping as the sky, `skyPoint`). */
+/** Rays across the scene, evenly in azimuth from x = 0 to x = 375 (the camera's mapping, `domain/camera.ts`). */
 export const RAYS = 201
-/** Azimuth (deg) at the scene's left edge (x = 0), through south in the middle, to the right edge (x = 375). */
-export const AZ_LEFT = 305
-export const AZ_RIGHT = 55
-const AZ_SPAN = AZ_LEFT - AZ_RIGHT
-export const azimuthAt = (fraction: number) => AZ_LEFT - AZ_SPAN * fraction
-export const azimuthFraction = (azimuth: number) => ((AZ_LEFT - azimuth + 360) % 360) / AZ_SPAN
+/** Azimuth (deg) at a fraction of the scene's width, and the reverse (above 1 out of view); see `domain/camera.ts`. */
+export const azimuthAt = (fraction: number) => cameraAzimuthAt(fraction)
+export const azimuthFraction = (azimuth: number) => fractionOf(azimuth)
 /** Ridges closer than this (km) make the near layer; beyond is only in the far horizon. */
 export const NEAR_KM = 5
 /** How far the rays reach (km); past ~60 km even Hermon sinks under the curve from most places. */
