@@ -29,8 +29,9 @@ describe('world', () => {
       const view = viewPanorama(world, camera)
       return view.rays.find((ray) => Math.abs(ray.azimuth - 90) < 1e-6)!.near.angle
     }
-    expect(east(90)).toBe(east(180))
-    expect(east(30)).toBe(east(90))
+    // East is in the middle, at the right edge and at the left edge of these three views.
+    expect(east(90)).toBe(east(30))
+    expect(east(150)).toBe(east(90))
   })
 
   it('a true camera facing south has east on the left', () => {
