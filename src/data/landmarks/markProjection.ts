@@ -37,7 +37,7 @@ function portraitKm(kind: MarkKind, reachKm: number) {
 function portraitX(mark: Landmark, dx: number, km: number, reachKm: number, innerPx = 14) {
   const east = screenSide('east') === 'left' ? -1 : 1
   const side = dx >= 0 ? east : -east
-  const among = AMONG_ROOFS.has(mark.kind)
+  const among = AMONG_ROOFS.has(mark.kind) || mark.source === 'curated'
   const from = among ? 4 + Math.max(10, innerPx - 4) * Math.min(1, km / Math.max(.6, reachKm - PORTRAIT_MARGIN_KM))
     : innerPx + 8 + 8 * Math.min(1, km / (reachKm + 1))
   return RIDGE_WIDTH / 2 + side * from

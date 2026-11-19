@@ -2,6 +2,7 @@ import { screenSide, SEA_LABEL_SIDE } from '../../domain/camera'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
 import { projectMark, type Portrait } from './markProjection'
+import { PORTRAIT_MARGIN_KM } from './portrait'
 import { groundY, markHeight, markWidth } from './project'
 import { avoid, score, select, spread, type Candidate } from './rank'
 import type { SettlementSize } from './settlement'
@@ -92,7 +93,11 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   /** The place's own worship halls and towers skip the contest: they stand at their true x inside the cluster. */
   const absorbed = new Set(homes ? candidates.filter((item) => item.layer === 'near' && (ABSORB.has(item.mark.kind)
     || (!terrain.sightAt && item.mark.kind === 'highrise'))
-    && Math.hypot(item.dx, item.dy) <= .6).sort((a, b) => b.score - a.score).slice(0, 3) : [])
+    && Math.hypot(item.dx, item.dy) <= .6
+    // A city's own landmarks (Tower of David, Azrieli, the Báb) stand among its blocks, anywhere in its built-up area.
+    || (item.portrait && item.mark.source === 'curated'
+      && Math.hypot(item.dx, item.dy) <= Math.max(.6, (portrait?.reachKm ?? 0) - PORTRAIT_MARGIN_KM)))
+    .sort((a, b) => b.score - a.score).slice(0, 4) : [])
   const chosen = select(candidates.filter((item) => !isPlaceHomes(item.mark) && !absorbed.has(item)), width,
     !terrain.sightAt && homes?.glyph === 'homes-large')
   const center = Number.parseFloat(terrain.centerLeft) / 100 * 375
