@@ -7,7 +7,10 @@ import type { Land } from '../../data/land/landPaint'
 import type { Landmark, MarkLife } from '../../data/landmarks/types'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { DayPoint, LocalTime } from '../../domain/types'
+import type { EchoGrid } from '../../domain/rainNowcast'
+import { rainColumns } from '../../data/world/rainView'
 import { FarLand } from './FarLand'
+import { RainLayer } from './RainLayer'
 import { LandLayer } from './LandLayer'
 import { FarCity } from './marks/city/FarCity'
 import { HillMarks } from './marks/HillMarks'
@@ -48,6 +51,8 @@ interface Props {
   showSea: boolean
   glowOpacity: number | null
   glowSide: 'east' | 'west' | null
+  /** The newest radar frame around the place: rain drawn where it is. */
+  rainGrid?: EchoGrid
 }
 
 /**
@@ -56,7 +61,7 @@ interface Props {
  * nothing here is redrawn until the minute, the weather or the light changes.
  */
 export const Backdrop = memo(function Backdrop({ slot, margin, terrain, sunTerrain, day, at, place, lat, air, cloudCover, moonCloud,
-  ridgeLight, snow, mist, mistColor, landmarks, city, markLife, land, width, readout, showSea, glowOpacity, glowSide }: Props) {
+  ridgeLight, snow, mist, mistColor, landmarks, city, markLife, land, width, readout, showSea, glowOpacity, glowSide, rainGrid }: Props) {
   const shimmerId = `shimmer${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const skyline = useMemo(() => sceneSkyline(terrain), [terrain])
   const sunSkyline = useMemo(() => sceneSkyline(sunTerrain), [sunTerrain])
@@ -79,11 +84,15 @@ export const Backdrop = memo(function Backdrop({ slot, margin, terrain, sunTerra
   const lighting = useRidgeLighting({ input: ridgeLight, at, day, place, lat, skyline, sunSkyline, perColumn: true, air, cloudCover,
     glow: glowOpacity !== null && rim ? { opacity: glowOpacity, x: rim.x } : null })
   const ridgeLit = lighting ?? moonlit
+  const rain = useMemo(() => rainGrid && terrain.camera && terrain.angleY ? rainColumns(rainGrid, terrain.camera, terrain.angleY) : [],
+    [rainGrid, terrain])
+  const sightAt = terrain.sightAt
   const { world, sunX } = useSceneSun({ on: Boolean(ridgeLight), at, place, air, lighting,
     near: terrain.nearPoints, width, sun, night, cloudCover, rimX: rim?.x ?? null })
   return (
     <div className={styles.sector} style={{ left: `${((slot - margin) * 100).toFixed(4)}%`, width: `${((1 + 2 * margin) * 100).toFixed(4)}%`,
       clipPath: `inset(-80px ${(margin / (1 + 2 * margin) * 100).toFixed(4)}% 0)`, ...world?.style }}>
+      {sightAt && rain.length > 0 && <RainLayer columns={rain} sightAt={sightAt} depth="behind" />}
       <FarLand terrain={terrain} lighting={ridgeLit} heat={air.heat.amplitude} shimmerId={shimmerId} snow={snow}
         snowPlaceM={null} mist={mist} mistColor={mistColor}
         city={terrain.farElevations?.length ? (plainClip) => <FarCity plainClip={plainClip} place={place} width={width} ground={hill.ground}
@@ -91,9 +100,11 @@ export const Backdrop = memo(function Backdrop({ slot, margin, terrain, sunTerra
           visibilityKm={visibilityKm} hasSkyline={Boolean(hill.citySkyline)} /> : undefined} />
       <HillMarks layer="far" marks={hill.marks} labels={hill.labels} settlement={null} width={width} ground={hill.farGround} sunX={null}
         night={night} life={markLife} visibilityKm={visibilityKm} readout={readout} />
+      {sightAt && rain.length > 0 && <RainLayer columns={rain} sightAt={sightAt} depth="between" />}
       <NearLand terrain={terrain} showSea={showSea} snow={snow} snowPlaceM={null} lighting={lighting} ridgeLit={ridgeLit} />
       {land && <LandLayer place={place} land={land} terrain={terrain} nearFade={air.haze.nearFade} farFade={air.haze.farFade}
         day={sun ? .55 + .45 * (lighting?.day ?? 0) : 0} part="backdrop" />}
+      {sightAt && rain.length > 0 && <RainLayer columns={rain} sightAt={sightAt} depth="front" />}
       <HillMarks marks={hill.marks} settlement={null} cityTowers={hill.cityTowers} citySkyline={hill.citySkyline}
         visibilityKm={visibilityKm} width={width} ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach} life={markLife} readout={readout} />

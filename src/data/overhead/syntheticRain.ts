@@ -62,7 +62,8 @@ export function syntheticOutlook(blobs: RainBlob[], lat: number, nowMs: number):
     return { size, kmPerCell, cells }
   }
   const at = newestFrame(nowMs)
-  return { ...rainOutlook(grid(at - 30 * 60_000), grid(at), 30), at }
+  const newest = grid(at)
+  return { ...rainOutlook(grid(at - 30 * 60_000), newest, 30), at, grid: newest }
 }
 
 /** A RainViewer-shaped index of 13 frames, 10 minutes apart, served by the synthetic painter. */

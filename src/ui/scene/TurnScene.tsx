@@ -2,9 +2,10 @@ import { useMemo, type CSSProperties } from 'react'
 import { sunPosition as sunSky } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import type { SceneTerrain } from '../../data/terrain/terrain'
-import { SECTOR_HEADINGS, SECTOR_MARGIN, SECTOR_SPAN, turnView } from '../../data/world/useWorld'
+import { SECTOR_MARGIN, SECTOR_SPAN, turnView } from '../../data/world/useWorld'
 import { clockOf, datePart } from '../../domain/time'
 import { isolateNumbers } from '../isolateNumbers'
+import { rainMark } from '../../data/world/rainView'
 import { Backdrop } from './Backdrop'
 import { cloudSeenAttrs } from './cloudSeen'
 import { Compass } from './Compass'
@@ -41,7 +42,7 @@ const SECTOR_DEG = 120
  * the pole) and the compass. The sun is judged against the land in its own direction (`sunTerrain`), never the screen.
  */
 export function TurnScene({ forecast, now, selected, lat, readout = null, air, cloudCover, moonCloud = cloudCover, ridgeLight,
-  snow = null, sectors, sunTerrain, land, mist = 0, mistColor = '#C9D2D8', place, landmarks, city, markLife,
+  snow = null, sectors, sunTerrain, land, rain = null, mist = 0, mistColor = '#C9D2D8', place, landmarks, city, markLife,
   first, last, onScrub, onRelease, onNow, seenClouds = null }: Props) {
   const [sceneRef, sceneWidth] = useWidth<HTMLElement>(375)
   // The heading lives here: a turn redraws only this scene's heading-bound parts, never the rest of the page.
@@ -100,7 +101,8 @@ export function TurnScene({ forecast, now, selected, lat, readout = null, air, c
             lat={lat} air={air} cloudCover={cloudCover} moonCloud={moonCloud} ridgeLight={ridgeLight} snow={snow} mist={mist}
             mistColor={mistColor} landmarks={landmarks} city={city} markLife={markLife} land={land} width={sceneWidth * SECTOR_SPAN / SECTOR_DEG}
             margin={SECTOR_MARGIN / SECTOR_DEG}
-            readout={Boolean(readout)} showSea={showSea} glowOpacity={glow?.opacity ?? null} glowSide={glow?.side ?? null} />
+            readout={Boolean(readout)} showSea={showSea} glowOpacity={glow?.opacity ?? null} glowSide={glow?.side ?? null}
+            rainGrid={rain?.grid} />
         ))}
       </div>
       </div>
@@ -117,7 +119,7 @@ export function TurnScene({ forecast, now, selected, lat, readout = null, air, c
       <span className={styles.depth} style={{ left: stage.label.x, top: stage.label.y }} aria-hidden="true">
         <bdi>{elevationText.replace(' מ׳', '')}</bdi> מ׳
       </span>
-      <Compass camera={view.camera} onDrag={drag} onGlide={glide}
+      <Compass camera={view.camera} onDrag={drag} onGlide={glide} rain={rainMark(rain)}
         sunAzimuth={sun ? sunSky(utcOf(at, place.timezone), place.lat, place.lon).azimuth : null} />
       <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease} onNow={onNow} />
     </figure>
@@ -131,4 +133,3 @@ export function TurnScene({ forecast, now, selected, lat, readout = null, air, c
   )
 }
 
-export { SECTOR_HEADINGS }

@@ -158,7 +158,7 @@ export default function App() {
             }
             // `?view=turn`: the whole horizon, turned with the compass; otherwise the south panorama as always.
             return turning
-              ? <TurnScene {...scene} sectors={turning.sectors} sunTerrain={turning.sunTerrain} land={land} />
+              ? <TurnScene {...scene} sectors={turning.sectors} sunTerrain={turning.sunTerrain} land={land} rain={outlook} />
               : <ValleyScene {...scene} terrain={terrain} />
           })()}
           <div className="paper" data-intro="sheet">

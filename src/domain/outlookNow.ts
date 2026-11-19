@@ -1,7 +1,10 @@
-import type { RainOutlook } from './rainNowcast'
+import type { EchoGrid, RainOutlook } from './rainNowcast'
 
-/** A radar outlook and the time (UTC epoch ms) of the radar frame it was read from. */
-export type RadarOutlook = RainOutlook & { at: number }
+/**
+ * A radar outlook and the time (UTC epoch ms) of the radar frame it was read from; `grid` is that frame's echoes
+ * around the place (a turning view draws the rain where it is).
+ */
+export type RadarOutlook = RainOutlook & { at: number; grid?: EchoGrid }
 
 /** A radar picture older than this cannot say what is happening now. */
 export const RADAR_STALE_MIN = 45

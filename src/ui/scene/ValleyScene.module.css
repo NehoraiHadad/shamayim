@@ -238,3 +238,10 @@
    turn moves the rasters it already has. */
 .sector > svg { will-change: transform; }
 .stageLayer { position: absolute; inset: 0; pointer-events: none; }
+
+/* Rain curtains (turning view): the sky's own tones, darkened, so they belong to the hour's light. */
+.rainTop { stop-color: color-mix(in oklab, var(--sky-mid) 20%, #333b47); }
+.rainFoot { stop-color: color-mix(in oklab, var(--sky-horizon) 35%, #4a5462); stop-opacity: .75; }
+.rainStreak { stroke: color-mix(in oklab, var(--sky-horizon) 60%, #dfe7f2); stroke-width: .35; }
+.rainCloud { fill: color-mix(in oklab, var(--sky-mid) 30%, #232c3a); }
+.rainMass { fill: color-mix(in oklab, var(--sky-mid) 15%, #2b323c); }

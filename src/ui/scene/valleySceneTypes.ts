@@ -3,6 +3,7 @@ import type { Place } from '../../config/place'
 import type { CityResult } from '../../data/city/types'
 import type { Landmark, MarkLife } from '../../data/landmarks/types'
 import type { Land } from '../../data/land/landPaint'
+import type { RadarOutlook } from '../../domain/outlookNow'
 import type { SceneTerrain } from '../../data/terrain/terrain'
 import type { WeightedSighting } from '../../domain/cloudSightings'
 import type { Forecast, LocalTime } from '../../domain/types'
@@ -35,6 +36,8 @@ export interface ValleySceneProps {
   sunTerrain?: SceneTerrain
   /** The land's real cover and this week's colour (turning view). */
   land?: Land
+  /** The radar's outlook, with its newest frame (turning view: rain drawn where it is, the compass points to it). */
+  rain?: RadarOutlook | null
   /** A turning view: the way it looks, and how to turn it (shows the compass). */
   turn?: { onDrag: (heading: number) => void; onGlide: (heading: number) => void }
   /** Still morning mist, layered between the two ridge paths. */

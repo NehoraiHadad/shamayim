@@ -15,6 +15,8 @@ interface Props {
   onDrag: (heading: number) => void
   /** Turn softly to a heading. */
   onGlide: (heading: number) => void
+  /** Where the rain is (the nearest, or the one on its way here), and the line that says so; null when there is none. */
+  rain?: { azimuth: number; text: string } | null
 }
 
 /**
@@ -22,7 +24,7 @@ interface Props {
  * those directions really are. Drag it and the land follows the finger (the scene's own drag stays time); the keyboard
  * turns by eighths. When the sun is out of view, a small sun at the edge says which way it is; a tap turns to it.
  */
-export function Compass({ camera, sunAzimuth, onDrag, onGlide }: Props) {
+export function Compass({ camera, sunAzimuth, onDrag, onGlide, rain = null }: Props) {
   const drag = useRef<{ id: number; x: number; heading: number; scale: number; moved: boolean } | null>(null)
   const pct = (az: number) => (xOf(az, camera) / camera.width) * 100
   const down = (e: PointerEvent<HTMLDivElement>) => {
@@ -58,6 +60,8 @@ export function Compass({ camera, sunAzimuth, onDrag, onGlide }: Props) {
   }
   const sunPct = sunAzimuth === null ? null : pct(sunAzimuth)
   const sunSide = sunPct === null ? null : sunPct < 2 ? 'left' : sunPct > 98 ? 'right' : 'in'
+  const rainPct = rain ? pct(rain.azimuth) : null
+  const rainSide = rainPct === null ? null : rainPct < 4 ? 'left' : rainPct > 96 ? 'right' : 'in'
   return (
     <div className={styles.compass} role="slider" tabIndex={0} aria-label="כיוון המבט"
       aria-valuemin={0} aria-valuemax={359} aria-valuenow={Math.round(camera.heading)}
@@ -70,6 +74,18 @@ export function Compass({ camera, sunAzimuth, onDrag, onGlide }: Props) {
           ? <span key={az} className={styles.letter} style={style}>{letter}</span>
           : <span key={az} className={az % 45 ? styles.tick : styles.major} style={style} />
       })}
+      {rain && rainSide && (
+        <button type="button" className={styles.rain} data-side={rainSide} aria-label={`להסתכל לגשם: ${rain.text}`}
+          style={rainSide === 'in' ? { left: `${rainPct!.toFixed(2)}%` } : undefined}
+          onPointerDown={(e) => e.stopPropagation()} onClick={() => onGlide(rain.azimuth)}>
+          {rainSide === 'left' ? '‹' : null}<i aria-hidden="true" />{rainSide === 'right' ? '›' : null}
+        </button>
+      )}
+      {rain && (
+        <button type="button" className={styles.caption} onPointerDown={(e) => e.stopPropagation()} onClick={() => onGlide(rain.azimuth)}>
+          {rain.text}
+        </button>
+      )}
       {sunSide && sunSide !== 'in' && (
         <button type="button" className={styles.sun} data-side={sunSide} aria-label="להסתכל לשמש"
           onPointerDown={(e) => e.stopPropagation()} onClick={() => onGlide(sunAzimuth!)}>
