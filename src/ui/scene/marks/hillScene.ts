@@ -1,3 +1,4 @@
+import { beyondPortrait, skylineIsCity } from '../../../data/landmarks/portrait'
 import { screenSide, SEA_LABEL_SIDE } from '../../../domain/camera'
 import type { Place } from '../../../config/place'
 import { placeCityTowers, towerBox, type PlacedTower } from '../../../data/city/cityTowers'
@@ -62,7 +63,7 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
  * spot for the hill layer, in px at the scene's real width.
  */
 export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city,
-  skyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
+  skyline: givenSkyline = skylineData(place, width, city?.raster, terrain, city?.towers), showSea = terrain.seaInView }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
@@ -71,6 +72,8 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const dot = { x: centerX, y: centerY }
   const mode = homeMode(place, landmarks, width, centerX, city, Boolean(terrain.sightAt))
   const cityMode = mode?.kind === 'city'
+  // A village is drawn as its portrait round the dot; only a city keeps its own houses in the data skyline.
+  const skyline = givenSkyline && !skylineIsCity(givenSkyline) ? beyondPortrait(givenSkyline) : givenSkyline
   const seaOn = terrain.seaSide ? screenSide(terrain.seaSide, terrain.camera) : null
   const right = seaOn === 'left' ? width * .06 + 44 : width * (seaOn === 'right' ? .94 : SEA_LABEL_SIDE === 'right' ? .73 : .27) + (seaOn || SEA_LABEL_SIDE === 'right' ? 0 : 44)
   // The time readout is outside the drawing. The in-scene sea label uses the existing city padding.
