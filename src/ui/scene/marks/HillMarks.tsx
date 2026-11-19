@@ -6,6 +6,8 @@ import type { Settlement } from '../../../data/landmarks/settlement'
 import type { PlacedMark } from '../../../data/landmarks/types'
 import { CityMass } from './city/CityMass'
 import { CityTowers } from './city/CityTowers'
+import { OutsideSkyline } from './city/OutsideSkyline'
+import type { OutsideSkyline as OutsideData } from '../../../data/city/outsideView'
 import { Skyline } from './city/Skyline'
 import { fieldWidth } from './generic/buildingSpecs'
 import { Field } from './generic/fields'
@@ -29,6 +31,8 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
   cityTowers?: readonly PlacedTower[]
   citySkyline?: Omit<ComponentProps<typeof Skyline>, 'night' | 'litShare' | 'visibilityKm'> | null
   neighbours?: NeighbourMass[]
+  /** Design study (`?skyline=a|b|c`): the place seen from outside (`outsideView.ts`). */
+  outside?: OutsideData | null
   labels?: PlainLabel[]
   width: number
   visibilityKm?: number
@@ -37,7 +41,7 @@ interface Props extends Omit<BuildingContext, 'motion' | 'far'> {
 
 const middle = (xs: number[]) => (Math.min(...xs) + Math.max(...xs)) / 2
 
-export function HillMarks({ marks, settlement, cityTowers, citySkyline, neighbours, labels, width, visibilityKm,
+export function HillMarks({ marks, settlement, cityTowers, citySkyline, neighbours, outside, labels, width, visibilityKm,
   layer = 'near', ...context }: Props) {
   const motion = useMarkMotion()
   const masses = useMemo(() => ([0, 1, 2] as const).flatMap(row => (['flat', 'pitched'] as const).map(roof => {
@@ -94,6 +98,8 @@ export function HillMarks({ marks, settlement, cityTowers, citySkyline, neighbou
       {byPlane('face').map(building)}
       {massAt(1)}
       {citySkyline && <Skyline {...citySkyline} night={night} litShare={context.life.litShare} visibilityKm={visibilityKm} />}
+      {outside && <OutsideSkyline skyline={outside} night={night} litShare={context.life.litShare}
+        sunX={context.shaded?.(width / 2) ? null : context.sunX ?? null} />}
       {settlement && <SettlementGlyph settlement={settlement} night={context.night} reach={context.reach}
         litShare={context.life.litShare}
         afterRow={!citySkyline && cityTowers?.length ? row => <CityTowers towers={cityTowers.filter(tower => tower.row === row)}

@@ -99,6 +99,9 @@ Follows `HANDOFF-TRUE-SCENE.md`. Stills that led here: `qa/true-scene/` (prototy
   sea is behind the Carmel); Tel Aviv's own ground (a 25 m crest 0.9 km west of the point) hides the sea, Jerusalem
   (Mount of Olives) and Rosh Pina (a ridge 1.4 km south) see no water, nor Shadmot Mehola. Tiberias and Ein Gedi
   joined the baseline places. Wind for the glint is a fixed 5 m/s until the weather layer drives it.
+- Skyline study (2026-11-19, design only, dev flag `?skyline=a|b|c`): the place seen from outside, from its north
+  side (everything in the place by true east–west and north–south, real heights), with three rules for dense towers.
+  Stills, numbers and the recommendation (B, mass and spires): `qa/true-scene/skyline/SKYLINE.md`. Awaiting the owner.
 - Next: stage 4 (loading stand-in, as an animation: mist / a ridge line while the land loads; with it,
   remove the stand-in-only machinery: city fabric, columns, neighbours, village plans).
 

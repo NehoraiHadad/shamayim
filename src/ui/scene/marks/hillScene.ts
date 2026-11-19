@@ -6,8 +6,10 @@ import { composeNeighbours, neighbourBox } from '../../../data/city/neighbours'
 import { skylineData, type SkylineData } from '../../../data/city/skylineData'
 import { inSkylineReach } from '../../../data/city/skylineRay'
 import { sameTower, splitSkylineTowers } from '../../../data/city/skylineTowers'
+import { baseYAt, inFrame, outsideFrame, outsideProject, outsideSkyline, skylineVariantFlag,
+  type OutsideSkyline, type SkylineVariant } from '../../../data/city/outsideView'
 import { isGenericHighrise, placeMarks } from '../../../data/landmarks/placeMarks'
-import { distanceOf } from '../../../data/landmarks/project'
+import { distanceOf, offsetKm } from '../../../data/landmarks/project'
 import { groundFn } from '../../../data/landmarks/seat'
 import { hashId } from '../../../data/landmarks/hash'
 import { composeSettlement, desertSettlement, settlementReach, type Settlement, type SettlementStyle } from '../../../data/landmarks/settlement'
@@ -17,6 +19,7 @@ import type { SceneTerrain } from '../../../data/terrain/terrain'
 import { seaSpan } from '../seaLine'
 import { BUILDINGS } from './generic/buildingSpecs'
 import { homeMode, neighbourHomeZone, type HomeCityData } from './homeMode'
+import { isField } from './hillPlane'
 import { markGeometry } from './markBox'
 import { plainLabels } from './plainLabels'
 import { DOT_R, fitMarks, hillBoxes, placeLabel, SHEET_CLEAR, VISIBLE_BOTTOM } from './sceneLayout'
@@ -34,6 +37,8 @@ interface Input {
   datum?: boolean
   /** The elevation label's text; below sea level it hangs under the sea line. */
   label: { text: string; below: boolean }
+  /** Design study (`?skyline=a|b|c`, dev only): the place seen from outside (`outsideView.ts`). */
+  variant?: SkylineVariant | null
 }
 
 type Ground = (x: number) => number
@@ -71,7 +76,12 @@ function intoTown(marks: PlacedMark[], style: SettlementStyle, ground: Ground, d
 const CITY_TRUE = typeof window !== 'undefined' && Boolean(import.meta.env?.DEV)
   && new URLSearchParams(window.location.search).has('citytrue')
 
-export function hillScene({ place, terrain, landmarks, placed, width, litShare, label, city,
+export function hillScene(input: Input) {
+  const variant = input.variant === undefined ? skylineVariantFlag() : input.variant
+  return variant && input.terrain.sightAt ? outsideScene(input, variant) : trueScene(input)
+}
+
+function trueScene({ place, terrain, landmarks, placed, width, litShare, label, city,
   skyline: givenSkyline = skylineData(place, width, city?.raster, terrain, city?.towers), datum = false }: Input) {
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
@@ -164,5 +174,71 @@ export function hillScene({ place, terrain, landmarks, placed, width, litShare, 
   const citySkyline = skyline && skylineTowers && {
     data: skyline, slabs: skylineTowers.slabs, centerX, homeHalf, seed: hashId(place.id),
   }
-  return { ground, farGround, settlement, cityTowers, citySkyline, neighbours, centerY, marks, label: labelSpot, labels, notes }
+  return { ground, farGround, settlement, cityTowers, citySkyline, neighbours, centerY, marks, label: labelSpot, labels, notes,
+    outside: null as OutsideSkyline | null }
+}
+
+/** What the outside view keeps beyond the place: a far mark needs a name and fame, or to be truly huge (≥ 200 m). */
+const HUGE_M = 200
+
+/**
+ * The design study's scene (`outsideView.ts`): the same scene, but the place's towers, built squares and portrait marks
+ * placed by the one outside view; far marks need a name and fame (or to be huge), a landmark needs a name.
+ */
+function outsideScene(input: Input, variant: SkylineVariant) {
+  const { place, terrain, city, width } = input
+  const reachKm = portraitReach(city?.clusters)
+  const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
+  const towers = city?.raster?.towers ?? city?.towers ?? []
+  const isCity = input.landmarks.some(mark => mark.source === 'place' && mark.glyph === 'homes-large')
+    || towers.filter(tower => distanceOf(place, tower) <= reachKm).length >= 8
+  const frame = outsideFrame(city?.clusters, reachKm, centerX, width, isCity)
+  const landmarks = input.landmarks.flatMap(mark => {
+    if (mark.source === 'place' || mark.source === 'curated') return [mark]
+    // A landmark needs a name: an unnamed mark keeps its kind, not its fame.
+    const named = mark.nameHe ? mark : { ...mark, fame: undefined }
+    const { dx, dy } = offsetKm(place, mark)
+    // In the place, or in its portrait's reach (its fields a km beyond it): part of the place.
+    if (inFrame(frame, dx, dy, 1) || Math.hypot(dx, dy) <= reachKm + 1) return [named]
+    return (named.fame && named.nameHe) || mark.heightM >= HUGE_M ? [named] : []
+  })
+  const base = trueScene({ ...input, landmarks,
+    // The place's own towers are drawn by the outside view; the true skyline keeps what lies beyond the place.
+    skyline: input.skyline === undefined ? skylineData(place, width, city?.raster, terrain, city?.towers) : input.skyline })
+  const ground = base.ground
+  const floor = VISIBLE_BOTTOM - SHEET_CLEAR
+  // Portrait marks: by the outside view, not by side (one rule for everything in the place).
+  const marks = base.marks.map(mark => {
+    const source = landmarks.find(item => item.id === mark.id)
+    if (!source || !mark.portrait) return mark
+    const { dx, dy } = offsetKm(place, source)
+    const at = outsideProject(frame, dx, dy)
+    const scale = Math.max(.75, Math.min(1.3, at.k / frame.k))
+    const tall = source.heightM >= 40 && (source.kind === 'custom' || source.kind === 'highrise')
+    const hPx = tall && isCity ? Math.round(source.heightM * at.k) : Math.round(mark.hPx * scale)
+    // Clear of the dot, on its own side.
+    const clear = DOT_R + 5
+    const x = Math.abs(at.x - centerX) >= clear ? at.x : centerX + (dx > 0 ? -clear : clear)
+    return { ...mark, xPct: x / width * 100, hPx, baseY: baseYAt(ground, x, at.near, floor) }
+  }).filter((mark, i, all) => !mark.portrait || mark.absorbed || isField(mark) || all.every((other, j) => j >= i
+    || !other.portrait || isField(other) || Math.abs(other.xPct - mark.xPct) / 100 * width >= 6))
+  if (!isCity) return { ...base, marks, outside: null }
+  // A city's own high-rises are its towers (`outsideSkyline`, which takes their names and fame): not marks too.
+  const own = marks.filter(mark => !(mark.portrait && isGenericHighrise(mark.kind, mark.glyph)))
+  const outside = outsideSkyline({ variant, place, towers, landmarks, raster: city?.raster ?? undefined, frame,
+    ground, floor, width })
+  // Beyond the place the skyline stays true: its towers outside the frame keep their true bearing (slabs).
+  const beyond = base.citySkyline?.data.towers.filter(tower => {
+    const { dx, dy } = offsetKm(place, tower.location)
+    return !inFrame(frame, dx, dy)
+  }) ?? []
+  const citySkyline = base.citySkyline && { ...base.citySkyline, slabs: beyond }
+  // The elevation label keeps clear of the towers and marks (the low fabric round the dot may lie under it).
+  const dot = { x: centerX, y: base.centerY }
+  const label = placeLabel({ dot, text: input.label.text, width,
+    top: input.label.below ? terrain.seaY + 6 : base.centerY + 7, minTop: input.label.below ? terrain.seaY + 2 : 0,
+    obstacles: [...hillBoxes(own, ground, width), ...outside.towers.map(tower => ({ left: tower.x - tower.w / 2,
+      right: tower.x + tower.w / 2, top: tower.baseY - tower.h, bottom: tower.baseY }))] })
+  // The place's own blocks are its built squares in the outside view: the composed blocks round the dot go.
+  return { ...base, marks: own, cityTowers: [], citySkyline, settlement: null, outside, label }
 }

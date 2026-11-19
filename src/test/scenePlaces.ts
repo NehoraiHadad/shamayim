@@ -22,3 +22,16 @@ export const SCENE_PLACES: Place[] = [
   { id: 'ein-gedi', nameHe: 'עין גדי', regionHe: 'ים המלח', lat: 31.4524, lon: 35.3848, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'village', population: 650 },
 ]
+
+/**
+ * Three more cities for the skyline study (`?skyline=a|b|c`, docs/design/qa/true-scene/skyline/): dense with towers
+ * (Ramat Gan, Netanya) and a desert city of mid-rise blocks (Be'er Sheva). Not in the baseline (no panorama fixtures).
+ */
+export const SKYLINE_STUDY_PLACES: Place[] = [
+  { id: 'ramat-gan', nameHe: 'רמת גן', regionHe: 'גוש דן', lat: 32.08227, lon: 34.81065, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'city', population: 170000 },
+  { id: 'beer-sheva', nameHe: 'באר שבע', regionHe: 'הנגב', lat: 31.25181, lon: 34.7913, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPLA', settlementType: 'city', population: 210000 },
+  { id: 'netanya', nameHe: 'נתניה', regionHe: 'השרון', lat: 32.33291, lon: 34.85992, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'city', population: 230000 },
+]

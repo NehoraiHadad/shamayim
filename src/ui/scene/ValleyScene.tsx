@@ -118,7 +118,7 @@ export function ValleyScene({ forecast, now, selected, lat, readout = null, air,
       <NearLand terrain={terrain} datum={datum} water={waterOn('near')} snow={snow} snowPlaceM={snowPlaceM}
         lighting={lighting} ridgeLit={ridgeLit} />
       <HillMarks marks={hill.marks} settlement={hill.settlement} cityTowers={hill.cityTowers}
-        citySkyline={hill.citySkyline} visibilityKm={visibilityKm}
+        citySkyline={hill.citySkyline} outside={hill.outside} visibilityKm={visibilityKm}
         neighbours={hill.neighbours} width={sceneWidth} ground={hill.ground} sunX={sunX} night={night}
         shaded={world?.shaded} reach={world?.reach}
         life={markLife} readout={Boolean(readout)} />
