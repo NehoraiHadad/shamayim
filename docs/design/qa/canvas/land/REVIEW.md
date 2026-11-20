@@ -277,6 +277,18 @@ The stage adds no painter or pure model changes, unseeded randomness, or live re
 
 **Verdict:** changes requested
 
+### **Answers (round 5)**
+
+- `src/data/land/useLand.ts:65` — fixed in `845929a`: exported `loadFootprintLandCoverResult` (`landData.ts`) returning explicit `{ cover, complete, nextCheckAt }` metadata (`complete: true` only for the full regional fast path or a confirmed complete remote footprint) and wired `createCoverWatcher` (`gridWatch.ts`) into `useLand.ts` so a cold SAS failure with partial regional coverage leaves `nextCheckAt = null` and retries on refocus while complete footprints defer for 30 d; tested cold SAS 503 + partial regional overlap followed by focus recovery and post-completion quiet focus (`worldCoverRecovery.test.ts`).
+- `src/data/land/worldCoverCog.ts:60` — fixed in `845929a`: extracted `worldCoverSas.ts` giving the shared Planetary Computer SAS token request its own `AbortController` + deadline timer wrapped with `raceAbort` (aborting hung fetches and hung `res.json()` bodies and clearing `sasInFlight` on timeout/failure so later callers start a fresh request) and enforcing the same `raceAbort` deadline on abort-ignoring injected fetches; tested hung shared fetch, hung shared response body, recovery on next caller, and abort-ignoring injected fetch (`worldCoverRecovery.test.ts`).
+- `src/data/land/landCache.ts:129` — fixed in `845929a`: bumped cover records independently to `COVER_CACHE_VERSION = 4` (dropping pre-fix `v: 3` records lacking completeness metadata on read), stored `complete: boolean` in the record and payload, and gave partial mosaics a short 1 h TTL (`COVER_PARTIAL_TTL_MS = 3_600_000`) instead of 30 d (`COVER_TTL_MS`); tested legacy v3 cache drop + two-tile recovery (`worldCoverRecovery.test.ts`) and 1 h partial TTL vs 30 d complete TTL (`worldCoverCog.test.ts`).
+- `src/data/land/landData.ts:110` — fixed in `845929a`: started `readCachedCover` concurrently with `loadLandCover` and `loadRegionalCoarse` and published the decoded cached cover immediately via `onUpdate` before local assets settle, then merged local layers once they finish; tested deferred `coarse.json` immediate stale publication (`worldCoverRecovery.test.ts`).
+- `src/data/land/worldCoverCog.ts:133` — fixed in `845929a`: removed the `!grid.some((v) => v > 0)` guard so a refresh where every footprint tile resolves to nodata or 404 is preserved as an authoritative all-zero complete mosaic (`complete: true`), while attempts resolving zero tiles (`!resolvedAny`) still return `null` and keep stale data; tested stale built-up -> authoritative all-nodata replacement vs all-503 preservation (`worldCoverRecovery.test.ts`).
+- `src/data/land/recentWeather.ts:118` — fixed in `91d6f14`: replaced the misapplied WMO-No. 1203 §4.2.1 citation with an explicit description of `80 %` as a heuristic threshold for this dryness index and stated that `sum / cov` scaling assumes missing days have the observed mean rain rate.
+- `src/data/land/worldCoverGrid.ts:103` — fixed in `91d6f14`: removed the unused `validCells` counter and changed `aggregateWorldCoverTile` to return `void`; asserted `undefined` return in `worldCoverGrid.test.ts`.
+
+**Re-verification (exact counts):** `npx tsc -b`: PASS (0 errors); `npm run lint`: PASS (0 errors, 0 warnings in touched files); `npx vitest run --maxWorkers=2`: **133/133 test files, 1279/1279 tests passed** (focused land suite: **23/23 files, 112/112 tests passed**); `npm run build`: PASS (431 modules transformed); max file size under `src/data/land/` is 150 lines. (Worker untouched in round 5.)
+
 ## Stage 2: world state
 
 ## Stage 3: land colour painting

@@ -766,16 +766,15 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [~] Stage 1: data layer — round-4 review fixes pushed, awaiting re-review (all 6 Codex round-4 findings fixed across
-      `2993193`..`bf095e5`: typed `CogHttpError` / `createOpenTiff` distinguishing HTTP 404 absent WorldCover tiles from
-      transient 5xx/network/timeout failures, `missingTiles` selective retry without full 30 d TTL, stale-slice
-      preservation on partial refresh failure, and updated two-tile Paris fixture; immediate publication of eligible
-      cached cover including 30–90 d stale entries via `onUpdate` while a time-limited COG refresh runs independently;
-      exact spherical `footprintBbox` matching `panorama.ts` (`EARTH_R_KM = 6371`, `FAR_KM = 60`) with half-open outward
-      snapping and exact 2D overlap-area-weighted overview aggregation in `worldCoverGrid.ts`; `>= 80 %` rain window
-      completeness (WMO-No. 1203 §4.2.1) with coverage-normalized dryness; removed unused `nearAt`/`nearCellCenter`
-      forwarding exports from `satellite.ts`; all files under `src/data/land/` ≤ 149 lines; 132/132 files, 1275/1275
-      root tests + build pass)
+- [~] Stage 1: data layer — round-5 review fixes pushed, awaiting re-review (all 7 Codex round-5 findings fixed across
+      `91d6f14`..`845929a`: `COVER_CACHE_VERSION = 4` dropping pre-completeness v3 cover records, explicit `complete`
+      metadata stored in cover records with short 1 h `COVER_PARTIAL_TTL_MS` vs 30 d `COVER_TTL_MS`; `worldCoverSas.ts`
+      independent `AbortController` deadline + `raceAbort` clearing `sasInFlight` on hung shared fetch/body and enforcing
+      deadline on abort-ignoring injected fetch; authoritative all-nodata/404 `complete: true` preservation; concurrent
+      `readCachedCover` immediate publish before deferred `coarse.json`; `loadFootprintLandCoverResult` + `createCoverWatcher`
+      in `gridWatch.ts`/`useLand.ts` so cold SAS failure with partial regional overlap retries on focus; heuristic 80 %
+      rain-completeness comment in `recentWeather.ts`; `void` return on `aggregateWorldCoverTile`; all files under
+      `src/data/land/` ≤ 150 lines; 133/133 files, 1279/1279 root tests + build pass)
 - [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
