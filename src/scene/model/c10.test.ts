@@ -6,7 +6,7 @@ import type { LocalTime } from '../../domain/types'
 import { buildWorld } from '../../world/world'
 import { trackAt } from './anim'
 import { sceneModel } from './index'
-import { landTopOf } from './life'
+import { inFrontOf } from './life'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerOf, SceneBox } from './types'
 
@@ -30,42 +30,44 @@ function at(id: string, when: LocalTime, forced: Partial<AirInput> | null = null
 const ofKind = <K extends LayerDesc['kind']>(layers: readonly LayerDesc[], kind: K) => layers.filter((l): l is LayerOf<K> => l.kind === kind)
 
 describe('C10: the sky life in the model', () => {
-  it('keeps every flock and every low plane above the land and what stands on it, at phase 0', () => {
-    let seen = 0
+  it('lays a flock or a plane in front of the land only where it is nearer than that land, else the land hides it', { timeout: 60_000 }, () => {
+    let seen = 0, front = 0
     for (const place of SCENE_PLACES) {
-      for (const hour of ['07:30', '12:00', '16:00']) {
+      for (const hour of ['07:30', '09:00', '12:00', '14:00', '16:00']) {
         const { world, model } = at(place.id, `2026-11-17T${hour}`)
-        const top = landTopOf(world, BOX, skyGeom(world, BOX), model.layers.filter((l) => l.surface === 'land'))
-        for (const a of ofKind(model.layers, 'aircraft').filter((p) => p.id.startsWith('aircraft.low'))) {
-          seen++
-          expect(a.y, `${a.id} at ${place.id} ${hour}`).toBeLessThanOrEqual(top(a.x))
-        }
-        for (const l of ofKind(model.layers, 'birds')) {
-          seen++
-          const off = trackAt(l.animated?.flight, 0, true)!
-          for (const x of [l.bounds.x + 2, l.bounds.x + l.bounds.w / 2, l.bounds.x + l.bounds.w - 2]) {
-            if (x < 0 || x > BOX.width) continue
-            expect(l.bounds.y + off.y + l.bounds.h, `${l.id} at ${place.id} ${hour}`).toBeLessThanOrEqual(top(x) + 3)
-          }
+        const geom = skyGeom(world, BOX)
+        for (const l of model.layers.filter((x): x is LayerOf<'birds'> | LayerOf<'aircraft'> => x.kind === 'birds' || x.kind === 'aircraft')) {
+          expect(l.lay, l.id).toBeDefined()
+          if (l.surface === 'sky') { seen++; continue }
+          front++
+          // A copy in front of the land: its sky copy laid only over the land's figure, and it truly nearer than the land.
+          const sky = model.layers.find((x) => x.id === l.id.replace(/\.front$/, ''))!
+          expect(sky.lay!.above).toBe(BOX.landTop)
+          const km = l.kind === 'birds' ? world.life.birds.find((b) => `birds.${b.id}.front` === l.id)!.distanceM / 1000 : null
+          if (km !== null) expect(inFrontOf(world, geom, sky.lay!.x, km), l.id).not.toBeNull()
         }
       }
     }
     expect(seen).toBeGreaterThan(5)
+    expect(front).toBeGreaterThan(0)
   })
 
   it('has no birds in heavy rain', () => {
     for (const id of ['haifa', 'jerusalem', 'tiberias']) expect(ofKind(at(id, '2026-11-17T12:00', RAIN).model.layers, 'birds')).toEqual([])
   })
 
-  it('flies a flock across at its true angular speed, wing beats on a strip that loops', () => {
-    const birds = ofKind(at('tel-aviv', '2026-11-17T07:30').model.layers, 'birds')
+  it('flaps and wheels a flock on a strip that loops, swaying round its place', () => {
+    const birds = ['10:30', '12:30', '14:30'].flatMap((h) => ofKind(at('tel-aviv', `2026-11-17T${h}`).model.layers, 'birds'))
     expect(birds.length).toBeGreaterThan(0)
     for (const b of birds) {
       const frames = b.animated!.frames!
       expect(b.flap * b.loop).toBeCloseTo(Math.round(b.flap * b.loop), 6)
       expect(frames.count / frames.fps).toBeCloseTo(b.loop, 6)
-      const track = b.animated!.flight
-      if (track) expect(trackAt(track, 0)).toEqual({ x: expect.closeTo(0, 6), y: expect.closeTo(0, 6) })
+      // Its sway is a closed loop round its place: at its place at phase 0 and again after each cycle, never off it.
+      const sway = b.animated!.flight!
+      expect(trackAt(sway, 0)).toEqual({ x: expect.closeTo(0, 6), y: expect.closeTo(0, 6) })
+      expect(trackAt(sway, sway.cycle)).toEqual({ x: expect.closeTo(0, 6), y: expect.closeTo(0, 6) })
+      for (let t = 0; t < sway.cycle; t += 1.7) expect(trackAt(sway, t)).not.toBeNull()
     }
   })
 

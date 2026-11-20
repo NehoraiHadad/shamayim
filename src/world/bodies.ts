@@ -28,7 +28,8 @@ function sunPoint(at: LocalTime, day: DayPoint | undefined, site: Site, skyline:
 
 /**
  * The sun: true azimuth and altitude, its drawn point on the view's land (`skyline`), and whether it stands over the land
- * in its own direction, judged against `sunSkyline` (the land that holds its path; the view's own when absent).
+ * in its own direction, judged against `sunSkyline`: the top of the land and structures the scene draws in front of it
+ * (`drawnSkyline.ts`, the view's own skyline when absent), so the light and the picture agree.
  */
 export function sunBody(at: LocalTime, day: DayPoint | undefined, site: Site, skyline: Skyline, sunSkyline: Skyline = skyline): Body & { clearance: number; t: number | null } {
   const { altitude, azimuth } = sunSky(utcOf(at, site.timezone), site.lat, site.lon)
@@ -44,8 +45,11 @@ export function sunBody(at: LocalTime, day: DayPoint | undefined, site: Site, sk
   }
 }
 
-/** The moon: true position, its drawn point on its pass, phase, lit fraction and the lit limb's screen angle. */
-export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { altitude: number; azimuth: number }): MoonBody {
+/**
+ * The moon: true position, its drawn point on its pass, phase, lit fraction and the lit limb's screen angle; over the land
+ * judged against `judge` (the drawn land's top, `drawnSkyline.ts`; the view's own skyline when absent).
+ */
+export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { altitude: number; azimuth: number }, judge: Skyline = skyline): MoonBody {
   const instant = utcOf(at, site.timezone)
   const { altitude, azimuth } = moonPosition(instant, site.lat, site.lon)
   const { fraction, phase } = moonIllumination(instant)
@@ -53,7 +57,7 @@ export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { alt
   return {
     azimuth, altitude, x: point.x * SCENE_W, y: point.y,
     up: apparentAltitude(altitude) > 0,
-    overLand: skyline(point.x) - point.y > 0,
+    overLand: judge(point.x) - point.y > 0,
     phase, illumination: fraction,
     tilt: brightLimbAngle(point, sunDirection(sun.altitude, sun.azimuth, skyline)),
   }

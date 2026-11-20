@@ -12,7 +12,7 @@ import { moonBody, sunBody } from './bodies'
 import { cloudLayers, layerCovers } from './clouds'
 import { farCitiesOf } from './farCities'
 import { partKey } from './keys'
-import { lightOf } from './light'
+import { lightOf, visibleDay } from './light'
 import { nightOf } from './night'
 import { placeOf } from './place'
 import { drawnTerrain } from './outside'
@@ -25,7 +25,11 @@ import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf, waterOf } from './water'
 import { windOf } from './wind'
-import { skyLifeOf } from './life'
+import type { LifeInput } from './life'
+import { makeLifeDays } from './lifeDay'
+import { altitudeOver } from './lifeSchedule'
+import { drawnSkyline } from './drawnSkyline'
+import { xOf } from '../domain/camera'
 import { nightSkyOf } from './nightSky'
 import { opticsOf } from './optics'
 import { placeEnvOf } from './placeEnv'
@@ -85,7 +89,13 @@ function memoOne<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) =>
  */
 export function makeWorldBuilder() {
   const skylineOf = memoOne((terrain: SceneTerrain): Skyline => sceneSkyline(terrain))
-  const sunSkylineOf = memoOne((terrain: SceneTerrain): Skyline => sceneSkyline(terrain))
+  // The sun, the moon and the light are judged on the drawn land (`drawnSkyline.ts`): the near land as drawn, the far land,
+  // the place's rows and towers, the marks; kept while those are the same objects.
+  const judgeOf = memoOne(drawnSkyline)
+  const lifeDays = makeLifeDays()
+  /** The lowest a flock passes at its closest in a direction: a little over the drawn land there (deg). */
+  const floorOf = memoOne((judge: Skyline, camera: WorldState['camera'], horizonY: number) => (azimuth: number) =>
+    altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => horizonY - anglePx(altitude)))
   const planesOf = memoOne(terrainPlanes)
   const placePart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
     city: WorldInput['city'], width: number, elevation: number, bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'],
@@ -116,14 +126,22 @@ export function makeWorldBuilder() {
     const width = input.width ?? SCENE_W
     const seed = hashId(place.id)
     const skyline = skylineOf(terrain)
-    const sunSkyline = input.sunTerrain && status === 'ready' ? sunSkylineOf(input.sunTerrain) : skyline
     const shown = shownAir(input)
     const hour = forecast.hours.find((h) => h.time === hourKey(at))
-    const day = forecast.days.find((d) => d.date === datePart(at))
+    const dayGiven = forecast.days.find((d) => d.date === datePart(at))
     const forced = input.forced ?? {}
 
+    const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
+      input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
+    const drawn = drawnOf(terrain, placePartResult.nearLine)
+    // The far towns are the far land's: placed on the panorama's own terrain (its eye's view), drawn behind the near land.
+    const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
+    // Everything in the sky is hidden by the land and structures drawn in front of it: its top is the line the sun and the
+    // moon rise and set on, for the picture and the light alike (the owner's report of 2026-11-20).
+    const sunSkyline = status === 'ready' ? judgeOf(drawn, placePartResult.place3, placePartResult.marks, farCities.part, skyline) : skyline
+    const day = dayGiven && status === 'ready' ? visibleDay(dayGiven, place, sunSkyline) : dayGiven
     const sun = sunBody(at, day, place, skyline, sunSkyline)
-    const moon = moonBody(at, place, skyline, sun)
+    const moon = moonBody(at, place, skyline, sun, sunSkyline)
     const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: hour?.visibility, preview,
       forcedVisibility: 'visibilityKm' in forced })
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
@@ -149,19 +167,18 @@ export function makeWorldBuilder() {
       light.source === 'sun' ? light.direct : 0, sun.overLand)
     const night = nightOf(shown, covers)
     const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
-    const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
-      input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
-    const drawn = drawnOf(terrain, placePartResult.nearLine)
-    // The far towns are the far land's: placed on the panorama's own terrain (its eye's view), drawn behind the near land.
-    const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY
     // C10: the life of the sky, its true night objects and its optics, from the same state.
     const env = envPart(place, input.cover, input.far, input.waterMask)
-    const life = skyLifeOf({ placeId: place.id, lat: place.lat, lon: place.lon, at, timezone: place.timezone, camera,
+    const lifeInput: LifeInput = { placeId: place.id, lat: place.lat, lon: place.lon, at, timezone: place.timezone, camera,
       groundM: forecast.elevation, env, sun, direct: light.source === 'sun' ? light.direct : 0, dark: night.dark,
       temperature: shown.temperature, covers, rainMmH: Math.max(rate, shown.precipitation), thunder: rain?.thunder ?? false,
-      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs }, highDrift: clouds[2]?.drift ?? 0,
-      hour, starsThrough: night.starsThrough, moon, visibilityKm: air.visibilityKm })
+      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs }, hour, starsThrough: night.starsThrough, moon,
+      visibilityKm: air.visibilityKm }
+    // The life is a process in time (`lifeSchedule.ts`): the day's events drawn once per place, day and inputs, and shown
+    // where each one's path has brought it at this minute.
+    const life = lifeDays(input, at, lifeInput, { camera, env }, status === 'ready' ? floorOf(sunSkyline, camera, horizonY) : undefined,
+      [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
     const optics = opticsOf({ sun, direct: light.source === 'sun' ? light.direct : 0, sunLights: light.source === 'sun', covers,

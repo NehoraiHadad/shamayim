@@ -1,4 +1,5 @@
 import { lateral, type Camera } from '../domain/camera'
+import { addMinutes, minutesBetween } from '../domain/time'
 import type { DayPoint, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
 import { rgbOf } from './air'
@@ -69,6 +70,17 @@ function crossingOf(edge: 0 | 1, day: DayPoint, site: LightInput['site'], skylin
   let crossing = known.get(key)
   if (!crossing) known.set(key, (crossing = sunOverRidge(edge, day.sunrise, day.sunset, site, skyline)))
   return crossing
+}
+
+/**
+ * The day with its visible sunrise and sunset judged on `skyline` (the drawn land): when the sun's top clears it and goes
+ * behind it. Kept with the crossings, so a scrub reads it back.
+ */
+export function visibleDay(day: DayPoint, site: LightInput['site'], skyline: Skyline): DayPoint {
+  const length = minutesBetween(day.sunrise, day.sunset)
+  if (length <= 0) return day
+  const rise = crossingOf(0, day, site, skyline), set = crossingOf(1, day, site, skyline)
+  return { ...day, visibleSunrise: addMinutes(day.sunrise, rise.t * length), visibleSunset: addMinutes(day.sunrise, set.t * length) }
 }
 
 /** Where the twilight glow stands: where the sun really crosses the land today, drawn where that direction is in view. */

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { SCENE_CAMERA } from '../domain/camera'
 import { AIRPORTS, pathPoint, runwayInUse } from './airports'
 import { contrailAir, cruiseClimate, thresholds } from './contrails'
-import { birdScores, birdsOf, dayOfYear, flyingWeather, lowPlanesOf, meteorsOf, season, type LifeInput } from './life'
+import { birdScores, dayOfYear, flyingWeather, lowPlanesOf, meteorsOf, season, type LifeInput } from './life'
+import { birdsOf } from './lifeSchedule'
 import { milkyWayStrength, planetsOf, skyLimit, type NightSkyInput } from './nightSky'
 import { BOW, haloOf, onCircle, rainbowOf, separation, sunDogOffset, type OpticsInput } from './optics'
 import type { PlaceEnv } from './placeEnv'
@@ -14,7 +15,7 @@ function life(over: Partial<LifeInput> = {}): LifeInput {
   return {
     placeId: 'test', lat: 32.35, lon: 35.5, at: '2026-04-10T11:00', timezone: 'Asia/Jerusalem', camera: SCENE_CAMERA, groundM: 0,
     env: ENV, sun: { altitude: 55, azimuth: 160 }, direct: 0.9, dark: 0, temperature: 24, covers: { low: 0, mid: 0, high: 0 }, rainMmH: 0,
-    thunder: false, wind: { fromDeg: 270, towardDeg: 90, ms: 3, gustMs: 5 }, highDrift: 0, starsThrough: 1,
+    thunder: false, wind: { fromDeg: 270, towardDeg: 90, ms: 3, gustMs: 5 }, starsThrough: 1,
     moon: { altitude: -20, illumination: 0 }, visibilityKm: 30, ...over,
   }
 }

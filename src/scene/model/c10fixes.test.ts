@@ -137,13 +137,14 @@ describe('C10 fix: contrails are straight', () => {
     let seen = 0
     for (const hour of ['09:00', '11:00', '13:00']) {
       const { model } = at('jerusalem', `2026-11-17T${hour}`, CIRRUS, true)
-      for (const t of ofKind(model.layers, 'contrail').filter((c) => /^contrail\.\d/.test(c.id))) {
-        const plane = ofKind(model.layers, 'aircraft').find((a) => a.id === `aircraft.high.${t.id.split('.')[1]}`)!
+      for (const t of ofKind(model.layers, 'contrail')) {
+        const plane = ofKind(model.layers, 'aircraft').find((a) => a.id === `aircraft.high.${t.id.slice('contrail.'.length)}`)
+        if (!plane) continue
         seen++
-        expect(t.animated?.wake?.head).toBeCloseTo(plane.x, 6)
-        // Its old end (the run's start) is wider than near the plane.
-        const near = t.points.reduce((best, [x, y], i) => (Math.hypot(x - plane.x, y - plane.y) < Math.hypot(t.points[best][0] - plane.x, t.points[best][1] - plane.y) ? i : best), 0)
-        expect(t.widths[0]).toBeGreaterThanOrEqual(t.widths[near])
+        // Its newest puff is at the plane (the trail grows from it), its old end wider than there.
+        const [hx, hy] = t.points.at(-1)!
+        expect(Math.hypot(hx - plane.lay!.x, hy - plane.lay!.y)).toBeLessThan(2)
+        expect(t.widths[0]).toBeGreaterThanOrEqual(t.widths.at(-1)!)
       }
     }
     expect(seen).toBeGreaterThan(0)

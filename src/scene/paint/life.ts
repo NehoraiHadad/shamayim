@@ -212,7 +212,9 @@ export function paintContrail(ctx: Ctx2D, desc: LayerOf<'contrail'>, _env: Paint
     w /= end - i + 1
     a /= end - i + 1
     if (a < 0.01) continue
-    const lump = 0.9 + 0.2 * r()
+    // Each puff keeps its own lump as the trail ages (seeded by when it was laid); else the run's.
+    const own = r()
+    const lump = desc.lumps?.[i] ?? 0.9 + 0.2 * own
     const run = points.slice(i, end + 1)
     const below = run.map(([x, y]): Pt => [x, y + w * 0.3])
     // A spread trail is a soft band: a broad faint veil round it first.

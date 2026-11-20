@@ -76,8 +76,8 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const models = TIMES.map((at) => sceneModel(build({ ...input, selected: at }), BOX))
     // The weather comes and goes with the hour (C7: mist with the humidity, falling rain with the rain), so the scrub's
     // rule is held for the rest of the land.
-    // C9: a sky body laid over the place's mass (`bodiesOverPlace`) comes and goes with the hour, as the sky does.
-    const land = models.map((model) => layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind) && layer.kind !== 'bodies'))
+    // C10: what flies in front of the land (a flock's or a plane's copy there) comes and goes with the minute, as the sky does.
+    const land = models.map((model) => layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind) && !layer.lay))
     for (const layers of land.slice(1)) {
       expect(layers.map((layer) => layer.key)).toEqual(land[0].map((layer) => layer.key))
     }
@@ -96,8 +96,8 @@ describe('scene model: layers', () => {
     // far water: the fixture's height is below sea level, but Haifa's ground, from the Carmel to the bay, is not, so the
     // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
     // C4–C5: the place seen from outside over it all, its marks (the Báb, the Carmel's church and mosque) among its mass;
-    // C7: the weather the hour has over them.
-    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(['plane.far', 'farCities', 'plane.near', 'water.near',
+    // C7: the weather the hour has over them. (What flies in front of the land, laid where it is, comes and goes.)
+    expect(layersOn(model, 'land').filter((layer) => !layer.lay).map((layer) => layer.id)).toEqual(['plane.far', 'farCities', 'plane.near', 'water.near',
       'outside', 'smoke.near'])
     // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
     const sky = layersOn(model, 'sky')
@@ -105,7 +105,7 @@ describe('scene model: layers', () => {
     expect(model.layers.slice(0, sky.length)).toEqual(sky)
     expect(sky.map((layer) => layer.z)).toEqual([...sky.map((layer) => layer.z)].sort((a, b) => a - b))
     // A drifting band repeats round the horizon (wider than the box, laid every `period`); a disc may stand at the edge.
-    for (const layer of model.layers.filter((l) => !l.animated && l.kind !== 'bodies')) {
+    for (const layer of model.layers.filter((l) => !l.animated && l.kind !== 'bodies' && !l.lay)) {
       const height = layer.surface === 'sky' ? BOX.skyHeight : BOX.landHeight
       expect(layer.bounds.x).toBeGreaterThanOrEqual(0)
       expect(layer.bounds.y).toBeGreaterThanOrEqual(0)
@@ -128,6 +128,7 @@ describe('scene model: layers', () => {
     const world = buildWorld(worldInput(loaded.get('jerusalem')!, TIMES[1]))
     const model = sceneModel(world, { ...BOX, skyHeight: 0, landTop: 0 })
     expect(layersOn(model, 'sky')).toEqual([])
-    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(layersOn(sceneModel(world, BOX), 'land').map((layer) => layer.id))
+    // (Less what the sky lays in front of the land: with no sky, nothing flies.)
+    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(layersOn(sceneModel(world, BOX), 'land').filter((layer) => !layer.lay).map((layer) => layer.id))
   })
 })

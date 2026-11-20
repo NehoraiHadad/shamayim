@@ -72,25 +72,13 @@ describe('C9: the sun behind a cloud and its glow (defect 2)', () => {
   })
 })
 
-describe('C9: the sky\'s bodies over the place\'s own mass (defect 3)', () => {
-  it('shows the disc the place\'s eye sees over its land, over the mass that would hide it', () => {
-    const world = worldAt('haifa', '06:20')
-    expect(world.bodies.sun.overLand).toBe(true)
-    const model = sceneModel(world, BOX)
-    const over = model.layers.find((l) => l.id === 'bodies.sun.over') as LayerOf<'bodies'> | undefined
-    const outside = model.layers.find((l) => l.kind === 'outside')!
-    expect(over).toBeTruthy()
-    expect(over!.surface).toBe('land')
-    expect(over!.z).toBeGreaterThan(outside.z)
-    expect(over!.sun!.x).toBeCloseTo(skyGeom(world, BOX).left + world.bodies.sun.x * skyGeom(world, BOX).s - skyGeom(world, BOX).left, 6)
-    expect(over!.sun!.y).toBeCloseTo(world.bodies.sun.y, 6)
-  })
-
-  it('leaves a body behind the true land hidden', () => {
-    for (const [id, hour] of [['haifa', '16:30'], ['ein-gedi', '16:30'], ['jerusalem', '11:00']] as const) {
+describe('C9 defect 3, superseded (2026-11-20): the place\'s own mass hides a body behind it, as any drawn land', () => {
+  it('lays no disc over the place\'s mass; the sun is judged on the drawn land, the mass included', () => {
+    for (const [id, hour] of [['haifa', '06:20'], ['haifa', '16:30'], ['ein-gedi', '16:30'], ['jerusalem', '11:00'], ['jerusalem', '16:20']] as const) {
       const world = worldAt(id, hour)
-      const over = sceneModel(world, BOX).layers.filter((l) => l.id === 'bodies.sun.over')
-      if (!world.bodies.sun.overLand) expect(over, `${id} ${hour}`).toEqual([])
+      const model = sceneModel(world, BOX)
+      expect(model.layers.filter((l) => l.kind === 'bodies' && l.surface === 'land'), `${id} ${hour}`).toEqual([])
+      if (world.light.source === 'sun') expect(world.bodies.sun.overLand).toBe(true)
     }
   })
 })

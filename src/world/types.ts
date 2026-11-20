@@ -47,7 +47,10 @@ export interface WorldInput {
   /** An hour picked in the strip (a preview), or null for now. */
   selected: LocalTime | null
   terrain: SceneTerrain
-  /** The land the sun is judged against when it differs from the view's (a turning view); absent: `terrain`. */
+  /**
+   * Unused since 2026-11-20: the sun and moon are judged on the land as drawn (`drawnSkyline.ts`), whatever panorama it
+   * came from. Kept for the turning view (`camera-fable.md`), which will judge on its own drawn land.
+   */
   sunTerrain?: SceneTerrain
   /** Landmarks, the place's own homes and the satellite's groves (App's `marks`). */
   landmarks: readonly Landmark[]

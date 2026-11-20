@@ -167,13 +167,3 @@ export function trackAt(track: Track | undefined, phase: number, still = false):
   const [x0, y0] = track.path[i], [x1, y1] = track.path[j]
   return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k }
 }
-
-/** The x range (surface px) a wake is laid over at `phase` (C10): from its tail to its plane, the whole trail once it has gone. */
-export function wakeAt(spec: AnimSpec | undefined, phase: number, still = false): [number, number] | null {
-  const wake = spec?.wake
-  if (!wake) return null
-  const at = trackAt(wake, phase, still)
-  const last = wake.path.at(-1) ?? [0, 0]
-  const head = wake.head + (at ? at.x : last[0])
-  return [Math.min(wake.tail, head), Math.max(wake.tail, head)]
-}

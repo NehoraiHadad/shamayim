@@ -1,11 +1,10 @@
 import { horizontalPosition } from '../astro/sun'
 import { showerOn } from '../astro/showers'
 import { utcOf } from '../astro/utc'
-import { hashId, seeded } from '../data/landmarks/hash'
 import type { Camera } from '../domain/camera'
 import type { HourPoint, LocalTime } from '../domain/types'
 import { AIRPORTS, enuKm, pathPoint, runwayInUse, type Airport } from './airports'
-import { contrailAir, cruiseClimate, type ContrailAir } from './contrails'
+import type { ContrailAir } from './contrails'
 import type { PlaceEnv } from './placeEnv'
 import { skyLimit } from './nightSky'
 import { smoothstep } from './ridgeLighting'
@@ -16,8 +15,10 @@ import type { Covers } from './clouds'
  * The life of the sky (C10), chosen from the one world state by general rules: which birds fly (by season, hour, region,
  * weather and the land under them), which aircraft are up (airliners at cruise with their contrails when the Schmidt–
  * Appleman criterion holds; the approach and departure traffic of the airports within reach, on the runway the wind
- * picks), and the meteors of a shower night. Everything here is in the world's terms (azimuths, altitudes, distances,
- * speeds); the scene model turns it into px and motion.
+ * picks), and the meteors of a shower night. These are the rates: how likely each kind is at a moment. The life itself is a
+ * process in time drawn from them (`lifeSchedule.ts`: a day's events, each on its own path), so it never pops in or out
+ * with the hour. Everything here is in the world's terms (azimuths, altitudes, distances, speeds); the scene model turns
+ * it into px and motion.
  */
 
 const RAD = Math.PI / 180
@@ -25,18 +26,24 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 export type BirdKind = 'stork' | 'crane' | 'swift' | 'gull' | 'raptor' | 'crow' | 'pigeon' | 'bat'
 
-/** A flock (or a lone bird) in the sky at the shown hour. */
+/** A flock (or a lone bird) under way at the shown moment (`lifeSchedule.ts` `flockAt`). */
 export interface Flock {
+  /** Its event's id: the same flock from minute to minute. */
+  id: string
   kind: BirdKind
   count: number
-  /** Where its middle is (deg) and how far (m). */
+  /** Where its middle is now (deg) and how far (m). */
   azimuth: number
   altitude: number
   distanceM: number
-  /** Its way over the ground: heading (deg) and speed (m/s); circling kinds drift this way between turns. */
+  /** Its distance at its closest (m): drawn at its full size there, smaller as it goes. */
+  nearM: number
+  /** 1 … 0 as it comes from or goes into the distance (gone into the haze at its session's ends). */
+  fade: number
+  /** Its way over the ground: heading (deg) and its group's speed (m/s). */
   headingDeg: number
   speedMs: number
-  /** 0–1: how likely the kind is at this hour and place (what chose it). */
+  /** 0–1: how likely the kind was when it came (what chose it). */
   score: number
   seed: number
 }
@@ -82,17 +89,14 @@ export interface LifeInput {
   rainMmH: number
   thunder: boolean
   wind: { fromDeg: number; towardDeg: number; ms: number; gustMs: number }
-  /** The high cloud layer's drift (scene px/s across): contrails drift with it. */
-  highDrift: number
+  /** The wind at cruise level (deg toward, m/s): the contrails drift with it; absent, the surface wind's way, stronger. */
+  highWind?: { towardDeg: number; ms: number }
   hour?: Pick<HourPoint, 'cruise'>
   /** The clear share of the sky (stars, planets and meteors show through it). */
   starsThrough: number
   moon: { altitude: number; illumination: number }
   visibilityKm: number
 }
-
-/** The hour's own seed: the same hour at the same place shows the same life. */
-const hourSeed = (input: LifeInput, part: string) => hashId(`${input.placeId}:${part}:${input.at.slice(0, 13)}`)
 
 /** How much the weather lets birds fly (0 none … 1 fine): none in heavy rain, a storm or a gale. */
 export function flyingWeather(input: Pick<LifeInput, 'rainMmH' | 'thunder' | 'wind'>): number {
@@ -151,7 +155,7 @@ export function birdScores(input: LifeInput): Record<BirdKind, number> {
 
 interface KindShape { count: [number, number]; distanceM: [number, number]; altitude: [number, number]; speedMs: number }
 
-const SHAPES: Record<BirdKind, KindShape> = {
+export const SHAPES: Record<BirdKind, KindShape> = {
   stork: { count: [14, 38], distanceM: [1400, 3000], altitude: [16, 40], speedMs: 9 },
   crane: { count: [9, 28], distanceM: [1800, 4000], altitude: [12, 32], speedMs: 15 },
   swift: { count: [5, 12], distanceM: [150, 400], altitude: [24, 55], speedMs: 20 },
@@ -163,7 +167,7 @@ const SHAPES: Record<BirdKind, KindShape> = {
 }
 
 /** The way a kind goes: migrants north in spring and south in autumn, raptors with the wind, the rest seeded. */
-function headingOf(kind: BirdKind, input: LifeInput, r: () => number): number {
+export function headingOf(kind: BirdKind, input: LifeInput, r: () => number): number {
   const doy = dayOfYear(input.at)
   const spring = doy < 182
   if (kind === 'stork' || kind === 'crane') {
@@ -180,138 +184,75 @@ function headingOf(kind: BirdKind, input: LifeInput, r: () => number): number {
  * How often a kind that can be about is in view in a given hour: residents round a place most hours, a passage of migrants
  * a few hours of its best days (flocks pass in waves).
  */
-const PREVALENCE: Record<BirdKind, number> = { stork: 0.55, crane: 0.35, swift: 0.9, gull: 0.85, raptor: 0.6, crow: 0.75, pigeon: 0.8, bat: 0.8 }
-
-/**
- * The birds in the sky at the shown hour: each kind is up with its likelihood (an hour's seeded draw against its score), at
- * most two kinds, the likelier first. None in heavy rain, a storm or a gale.
- */
-export function birdsOf(input: LifeInput): Flock[] {
-  const scores = birdScores(input)
-  const r = seeded(hourSeed(input, 'birds'))
-  const up = (Object.keys(scores) as BirdKind[])
-    .map((kind) => ({ kind, score: scores[kind], draw: r() }))
-    .filter((k) => k.score > 0.05 && k.draw < k.score * PREVALENCE[k.kind])
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 2)
-  return up.map(({ kind, score }, i) => {
-    const s = SHAPES[kind]
-    const q = seeded(hourSeed(input, `flock:${kind}`))
-    const t = q()
-    const count = Math.round(s.count[0] + (s.count[1] - s.count[0]) * q() * (0.5 + 0.5 * score))
-    return {
-      kind, score,
-      count: Math.max(1, count),
-      // In front, within ±95° of the view's heading.
-      azimuth: input.camera.heading + (i === 0 ? 1 : -1) * (q() < 0.5 ? -1 : 1) * (10 + 85 * q()),
-      altitude: s.altitude[0] + (s.altitude[1] - s.altitude[0]) * q(),
-      distanceM: s.distanceM[0] + (s.distanceM[1] - s.distanceM[0]) * t,
-      headingDeg: headingOf(kind, input, q),
-      speedMs: s.speedMs * (0.85 + 0.3 * q()),
-      seed: hourSeed(input, `seed:${kind}`),
-    }
-  })
-}
+export const PREVALENCE: Record<BirdKind, number> = { stork: 0.55, crane: 0.35, swift: 0.9, gull: 0.85, raptor: 0.6, crow: 0.75, pigeon: 0.8, bat: 0.8 }
 
 /* Aircraft. */
 
 /** Cruise level (m above sea level) of airliners over the Levant (FL340). */
 export const CRUISE_M = 10_400
-const CRUISE_MS = 230
 
-/** A straight line at a height (m above the place): a point (km east, north of the place), a heading, the stretch along it (km). */
-export interface TrackLine { e: number; n: number; headingDeg: number; from: number; to: number; heightM: number }
+/** A puff of a contrail: where the upper wind has carried it (km east, north; m up) and its age (s). */
+export interface TrailPuff { e: number; n: number; up: number; ageS: number; seed: number }
 
-/** An airliner at cruise with its contrail (the trail runs `trailKm` behind it; old trails have no plane). */
+/** An airliner at cruise at the shown moment (`lifeSchedule.ts` `highAt`): the plane while it crosses, its trail's puffs. */
 export interface HighPlane {
-  track: TrackLine
-  /** Where the plane is on its track at phase 0 (km along it). */
-  atKm: number
+  id: string
+  /** The plane (km east, north; m up), or null once it has flown beyond the reach (its trail lives on). */
+  plane: { e: number; n: number; up: number } | null
+  headingDeg: number
   speedMs: number
-  /** The trail's length behind the plane (km); spread (m) of its width at its old end. */
-  trailKm: number
+  persists: boolean
+  /** A short trail's length behind the plane (km), for air where trails do not persist. */
+  shortKm: number
+  /** A persistent trail's life (s) and the width (m) it spreads to by then. */
+  lifeS: number
   spreadM: number
+  /** Old to new. */
+  trail: TrailPuff[]
   seed: number
 }
 
-/** An old persistent contrail with no plane at its head any more: spread wide, drifting with the upper wind. */
-export interface OldTrail { track: TrackLine; spreadM: number; ageMin: number; seed: number }
-
-/** An airliner or a light plane on approach or climb-out near an airport within reach. */
+/** An approach or departure at the shown moment (`lifeSchedule.ts` `lowAt`): where it is (km, m) and a little ahead. */
 export interface LowPlane {
+  id: string
   airport: string
   kind: 'arrive' | 'depart'
   light: boolean
-  /** The path near the place: points every 0.5 km along it, km east and north of the place, height (m above the place). */
+  speedMs: number
+  at: { e: number; n: number; up: number }
+  ahead: { e: number; n: number; up: number }
+  /** How far along its path from the runway it is (km), and how high over the field (m): on the ground at 0. */
+  fieldKm: number
+  overFieldM: number
+  /** Its whole path's length (km). */
+  pathKm: number
+  seed: number
+}
+
+/** A route near an airport within reach, on the runway the wind picks: its path out from the field (every 0.5 km). */
+export interface LowRoute {
+  airport: string
+  kind: 'arrive' | 'depart'
+  light: boolean
+  heading: number
+  /** km east and north of the place, height (m above the place), from the runway outward. */
   path: { e: number; n: number; up: number }[]
   speedMs: number
-  /** Seconds between movements on this path (the airport's rate, by day or by night, split between arrivals and departures). */
-  everyS: number
-  /** Where along the path (0–1) one stands at phase 0. */
-  at0: number
-  seed: number
 }
 
 export interface Aircraft {
   /** The air at cruise and where it came from. */
   cruise: ContrailAir & { temperature: number; humidity: number; source: 'forecast' | 'climate' }
   high: HighPlane[]
-  old: OldTrail[]
   low: LowPlane[]
-  /** The high cloud's drift (scene px/s across): the contrails drift with it. */
-  drift: number
 }
 
 /** The contrails' light: they show by day and in the twilight while the sun still reaches cruise level (to ~−4°). */
-const trailLight = (sunAlt: number) => smoothstep(-4.5, -1.5, sunAlt)
+export const trailLight = (sunAlt: number) => smoothstep(-4.5, -1.5, sunAlt)
 
-/** The aircraft in the sky at the shown hour. */
-export function aircraftOf(input: LifeInput): Aircraft {
-  const doy = dayOfYear(input.at)
-  const given = input.hour?.cruise ?? null
-  const air = given ?? cruiseClimate(doy, input.covers.high)
-  const sa = contrailAir(air.temperature, air.humidity)
-  const cruise = { ...sa, ...air, source: given ? 'forecast' as const : 'climate' as const }
-  const high: HighPlane[] = []
-  const old: OldTrail[] = []
-  const r = seeded(hourSeed(input, 'aircraft'))
-  // Airliners at cruise: one to three crossing the sky in view in an hour's look, only drawn with their contrail (a plane
-  // alone at 10 km is a speck no one sees); and not through a deck (low or mid cloud hides them).
-  const seen = trailLight(input.sun.altitude) * (1 - smoothstep(0.55, 0.85, 1 - (1 - input.covers.low) * (1 - input.covers.mid)))
-  if (sa.forms && seen > 0.05) {
-    // How many: by how surely the air makes trails (its margin under the threshold), one to three.
-    const n = 1 + Math.floor(r() * (1 + 1.4 * smoothstep(1, 8, sa.margin)))
-    for (let i = 0; i < n; i++) {
-      const heading = r() * 360
-      // Its closest approach (km, ahead of the eye in the view's half) and where it is now along the track.
-      const side = 6 + 34 * r()
-      const toward = input.camera.heading + (r() - 0.5) * 160
-      const e = side * Math.sin(toward * RAD), nn = side * Math.cos(toward * RAD)
-      const atKm = (r() - 0.5) * 40
-      const persist = sa.persists
-      const trailKm = persist ? 40 + 60 * r() : 0.6 + Math.min(4, sa.margin / 3) * (0.6 + 0.4 * r())
-      high.push({ track: { e, n: nn, headingDeg: heading, from: atKm - trailKm - 1, to: atKm + 60, heightM: CRUISE_M - input.groundM }, atKm, speedMs: CRUISE_MS,
-        trailKm, spreadM: persist ? 300 + 600 * r() : 60, seed: hourSeed(input, `plane:${i}`) })
-    }
-    if (sa.persists) {
-      // Old spread trails by how supersaturated the air is over ice: none to two (with the live ones, at most four drawn).
-      const m = Math.floor(r() * (1 + 1.9 * smoothstep(1, 1.25, sa.rhIce)))
-      for (let i = 0; i < m; i++) {
-        const heading = r() * 360
-        const side = 8 + 40 * r()
-        const toward = input.camera.heading + (r() - 0.5) * 200
-        const mid = (r() - 0.5) * 30
-        old.push({ track: { e: side * Math.sin(toward * RAD), n: side * Math.cos(toward * RAD), headingDeg: heading, from: mid - 50, to: mid + 50,
-          heightM: CRUISE_M - 300 * r() - input.groundM }, spreadM: 800 + 2500 * r(), ageMin: 10 + 50 * r(), seed: hourSeed(input, `trail:${i}`) })
-      }
-    }
-  }
-  return { cruise, high, old, low: lowPlanesOf(input), drift: input.highDrift }
-}
-
-/** Approach and departure traffic of the airports within reach, on the runway the wind picks. */
-export function lowPlanesOf(input: LifeInput): LowPlane[] {
-  const out: LowPlane[] = []
+/** The routes of the airports within reach at this input's wind, out to `km` from the field. */
+export function lowPlanesOf(input: LifeInput, km = 22): LowRoute[] {
+  const out: LowRoute[] = []
   const night = input.dark > 0.5
   for (const airport of AIRPORTS) {
     const { e: ae, n: an } = enuKm(input, airport)
@@ -319,25 +260,21 @@ export function lowPlanesOf(input: LifeInput): LowPlane[] {
     if (dist > airport.reachKm + 20) continue
     const rate = night ? airport.perHour.night : airport.perHour.day
     if (rate <= 0) continue
-    // Under a low deck the traffic is in the cloud; heavy weather does not stop it.
-    if (input.covers.low > 0.85) continue
     const heading = runwayInUse(airport, input.wind.fromDeg, input.wind.ms)
     for (const kind of ['arrive', 'depart'] as const) {
-      const path = pathOf(airport, kind, heading, ae, an, input.groundM)
+      const path = pathOf(airport, kind, heading, ae, an, input.groundM, km)
       if (!path.some((p) => Math.hypot(p.e, p.n) <= airport.reachKm)) continue
-      const r = seeded(hourSeed(input, `${airport.icao}:${kind}`))
-      out.push({ airport: airport.icao, kind, light: airport.light, path, speedMs: airport.light ? 45 : kind === 'arrive' ? 75 : 95,
-        everyS: 3600 / (rate / 2), at0: 0.15 + 0.7 * r(), seed: hourSeed(input, `${airport.icao}:${kind}:seed`) })
+      out.push({ airport: airport.icao, kind, light: airport.light, heading, path, speedMs: airport.light ? 45 : kind === 'arrive' ? 75 : 95 })
     }
   }
   return out
 }
 
-function pathOf(airport: Airport, kind: 'arrive' | 'depart', heading: number, ae: number, an: number, groundM: number) {
+function pathOf(airport: Airport, kind: 'arrive' | 'depart', heading: number, ae: number, an: number, groundM: number, km: number) {
   const pts: { e: number; n: number; up: number }[] = []
-  // Out to 22 km from the field (an arrival is still on its approach, a departure has not yet turned away).
-  for (let km = 1; km <= 22; km += 0.5) {
-    const p = pathPoint(kind, heading, km, airport.light)
+  // Out from the field (an arrival is still on its approach, a departure has not yet turned away).
+  for (let d = 0; d <= km; d += 0.5) {
+    const p = pathPoint(kind, heading, d, airport.light)
     pts.push({ e: ae + p.e, n: an + p.n, up: airport.elevationM + p.up - groundM })
   }
   return pts
@@ -354,7 +291,11 @@ export interface Meteors {
   radiant: { azimuth: number; altitude: number }
   /** Entry speed (km/s). */
   speed: number
+  /** The meteors of the next minutes (`METEOR_WINDOW_S`), each this many seconds on, with its own seed. */
+  flashes: MeteorFlash[]
 }
+
+export interface MeteorFlash { id: string; inS: number; seed: number }
 
 /**
  * The naked-eye limiting magnitude for meteors (C10): the sky's own (`skyLimit`: the twilight, the moon) less what the
@@ -365,7 +306,7 @@ export function limitingMagnitude(sunAlt: number, moon: { altitude: number; illu
 }
 
 /** The meteors of a shower night: only when the night is dark and a shower is on; the rate by the radiant, moon, glow, cloud. */
-export function meteorsOf(input: LifeInput): Meteors | null {
+export function meteorsOf(input: LifeInput): Omit<Meteors, 'flashes'> | null {
   if (input.dark < 0.85) return null
   // The night's date: the small hours belong to the evening before.
   const hour = Number(input.at.slice(11, 13))
@@ -386,7 +327,3 @@ export function meteorsOf(input: LifeInput): Meteors | null {
 }
 
 export interface SkyLife { birds: Flock[]; aircraft: Aircraft; meteors: Meteors | null }
-
-export function skyLifeOf(input: LifeInput): SkyLife {
-  return { birds: birdsOf(input), aircraft: aircraftOf(input), meteors: meteorsOf(input) }
-}

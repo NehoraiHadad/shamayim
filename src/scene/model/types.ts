@@ -75,16 +75,20 @@ export interface AnimSpec {
   /** A slow breath of the alpha, `1 − depth … 1` over `period` s (C8: the forming ridge line). */
   breath?: { depth: number; period: number }
   /**
-   * C10: the layer flies along a track (a flock, a plane): laid offset by the track's point at the phase, and only while it
-   * is on it (`anim.ts` `trackAt`). Combined with `frames` for the wing beats and the flock's own motion.
+   * C10: the layer is laid offset by a track's point at the phase, and only while it is on it (`anim.ts` `trackAt`): a
+   * flock's slow sway round its place is a closed one (its place itself is the shown minute's, `lay`). Combined with
+   * `frames` for the wing beats and the flock's own motion.
    */
   flight?: Track
-  /**
-   * C10: a contrail being laid by its plane: the layer is laid only between its tail (`tail`, surface px) and the plane's
-   * x on the track at the phase (its x at phase 0 is `head`); once the plane has flown off the track the whole trail stays.
-   */
-  wake?: Track & { tail: number; head: number }
 }
+
+/**
+ * Where a layer painted round its own origin is laid (the sky's life, continuous in time): its canvas laid with its origin at
+ * (`x`, `y`) surface px, scaled by `scale` (≤ 1: an object drawn at its nearest, smaller as it goes) and faded by `alpha`
+ * at composite time, so a change of place, size or haze repaints nothing. `above`: laid only over this y (surface px),
+ * where a copy on the other surface takes the rest.
+ */
+export interface Lay { x: number; y: number; scale: number; alpha: number; above?: number }
 
 /**
  * A path in time (C10): offsets (surface px) from where the layer stands at phase 0, one every `step` s from the start of a
@@ -158,6 +162,8 @@ interface LayerBase {
   /** Cached at `min(dpr, 2)`: soft layers (sky, clouds, mist) lose nothing to it. */
   soft?: boolean
   light?: LightPart
+  /** Laid where its object is now (`Lay`): the layer's bounds and coordinates are round its own origin. */
+  lay?: Lay
 }
 
 /* Shapes drawn from C2 on (placeholders, refined by the stage that draws them). */
@@ -389,10 +395,10 @@ export type LayerDesc =
   | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
   | LayerBase & { kind: 'stars'; stars: Star[]; through: number }
   /**
-   * The sun or the moon round its disc; `part` (C9): `aureole`, the sun's aureole alone, laid over the clouds; `over`, the
-   * disc with its inner glow on the land, over the place's own mass (`bodiesOverPlace`).
+   * The sun or the moon round its disc; `part` (C9): `aureole`, the sun's aureole alone, laid over the clouds. (A disc laid
+   * again over the place's own mass, C9's `over`, is gone: whatever is drawn in front of a body hides it.)
    */
-  | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null; part?: 'aureole' | 'over' }
+  | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null; part?: 'aureole' }
   | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[]; veil: Veil | null; period: number }
   /** In-cloud lightning: one bank drawn lit from within, laid with a flash schedule's alpha and drifting with its layer. */
   | LayerBase & { kind: 'flash'; bank: BankDesc; rgb: RGB; period: number }
@@ -442,8 +448,9 @@ export type LayerDesc =
   | LayerBase & { kind: 'loading'; part: 'mist'; bands: MistBandDesc[]; lit: RGB; litAlpha: number }
   | LayerBase & { kind: 'loading'; part: 'ridge'; line: Pt[]; rgb: RGB; alpha: number; mass: number; seed: number }
   /**
-   * C10: a flock (or a lone bird) in the sky, a strip of frames (`animated.frames`: its wing beats and its own wheeling,
-   * periodic over the strip's `loop` s) flown along its track (`animated.flight`); `flap` beats a second, `soar` 0–1 the
+   * C10: a flock (or a lone bird) in the sky, painted round its middle and laid where it is (`lay`), a strip of frames
+   * (`animated.frames`: its wing beats and its own wheeling, periodic over the strip's `loop` s) and a slow sway round its
+   * place (`animated.flight`, a closed loop); `flap` beats a second, `soar` 0–1 the
    * share of time the wings are held (storks, raptors), the flock's tones (`rgb` its dark, `lit` the sunlit underside).
    */
   | LayerBase & { kind: 'birds'; bird: BirdKind; birds: BirdDesc[]; loop: number; flap: number; soar: number; rgb: RGB; lit: RGB;
@@ -456,7 +463,9 @@ export type LayerDesc =
   | LayerBase & { kind: 'aircraft'; x: number; y: number; angle: number; size: number; rgb: RGB; lit: RGB; lights: number; landing: boolean
       trail: number; trailRgb: RGB; seed: number }
   /** C10: a contrail (sky px) along its projected track: its points, its width (px) and alpha at each, its lit and shade tones. */
-  | LayerBase & { kind: 'contrail'; points: Pt[]; widths: number[]; alphas: number[]; rgb: RGB; shade: RGB; seed: number }
+  | LayerBase & { kind: 'contrail'; points: Pt[]; widths: number[]; alphas: number[]; rgb: RGB; shade: RGB; seed: number
+      /** Each puff's own lumpiness (seeded by the moment it was laid, so it keeps its shape from minute to minute). */
+      lumps?: number[] }
   /** C10: a meteor's streak from `x0`, `y0` to its end, laid with its pulse (`animated.pulse`, the meteor look). */
   | LayerBase & { kind: 'meteor'; x0: number; y0: number; x1: number; y1: number; width: number; rgb: RGB }
   /** C10: the planets, steady points (they do not twinkle). */

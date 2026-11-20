@@ -4,7 +4,7 @@ import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coinOf, coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
-import type { Disc, LayerDesc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
+import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
 const WHITE: RGB = [1, 1, 1]
 /** The discs' radii (px), as the SVG scene draws them (an 18 px sun, a 14 px moon). */
@@ -17,7 +17,8 @@ const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
  * The sun's disc where the world puts it (`bodies.sun`: its true azimuth across, its apparent altitude up on the shared
  * relief), while it is up: hot core, redder limb, squashed by refraction near the horizon, a close aureole as wide as the
  * aerosol makes it; veiled by the cloud in front (the share of its direct light the layers take). Behind a ridge it is
- * still drawn: the land in front hides it.
+ * still drawn: whatever land and structures are drawn in front of it hide it (the land surface lies over the sky), and the
+ * light judges it on that same drawn line (`world/drawnSkyline.ts`).
  */
 export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): Disc | null {
   const sun = world.bodies.sun
@@ -86,52 +87,6 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
         bounds: { x: Math.floor(sun.x - reach), y: Math.floor(sun.y - reach), w: 2 * reach + 1, h: 2 * reach + 1 },
         key: layerKey('aureole', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.halo), Math.round(sun.veil * 100),
           Math.round(sun.aureole * 50)) })
-    }
-  }
-  return out
-}
-
-/** Over the place seen from outside (38) and its marks, under the weather on the land. */
-const OVER_PLACE_Z = 38.6
-
-/**
- * The sky's bodies the place's own eye sees, over the place seen from outside (C9 defect 3). The outside view draws the
- * place from an eye north of it, the sky from the place itself: where the place's own mass rises over the ridge line it
- * would stand between that eye and a sun or moon the place sees over its land (`overLand`, judged on the panorama's own
- * skyline). The rule: **the place's own built mass never hides a body its eye sees**; the disc is laid again on the land
- * over the mass, where the mass would cover it (its aureole stays on the sky, under the mass's edge, as glare round it). A body behind the true land stays hidden.
- */
-export function bodiesOverPlace(world: WorldState, box: SceneBox, outside: LayerOf<'outside'> | null): LayerDesc[] {
-  if (!outside) return []
-  const geom = skyGeom(world, box)
-  const out: LayerDesc[] = []
-  const covered = (x: number, y: number, r: number) => outside.items.some((item) =>
-    item.kind === 'box' ? x + r > item.x - item.w / 2 && x - r < item.x + item.w / 2 && y + r > item.top && y - r < item.foot
-      : item.kind === 'tower' ? x + r > item.x - item.w / 2 && x - r < item.x + item.w / 2 && y + r > item.base - item.h && y - r < item.base
-        : item.kind === 'mark' ? x + r > item.glyph.x - item.glyph.w / 2 && x - r < item.glyph.x + item.glyph.w / 2
-          && y + r > item.glyph.base - item.glyph.h * item.glyph.scale && y - r < item.glyph.base
-          : false)
-  const toLand = (x: number, y: number) => [x - geom.left, y - box.landTop] as const
-  const sun = sunDisc(world, box, geom)
-  if (sun && world.bodies.sun.overLand) {
-    const [x, y] = toLand(sun.x, sun.y)
-    if (covered(x, y, sun.r)) {
-      const pad = Math.ceil(SUN_R * 2.6) + 1
-      out.push({ kind: 'bodies', id: 'bodies.sun.over', surface: 'land', z: OVER_PLACE_Z, sun: { ...sun, x, y }, moon: null, part: 'over',
-        bounds: { x: Math.floor(x - pad), y: Math.floor(y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
-        key: layerKey('sun.over', box.width, box.landHeight, box.dpr, r1(x), r1(y), colourKey(sun.core), colourKey(sun.limb),
-          Math.round(sun.veil * 100), Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50)) })
-    }
-  }
-  const moon = moonDisc(world, box, geom)
-  if (moon && world.bodies.moon.overLand) {
-    const [x, y] = toLand(moon.x, moon.y)
-    if (covered(x, y, moon.r)) {
-      const pad = MOON_R + 3
-      out.push({ kind: 'bodies', id: 'bodies.moon.over', surface: 'land', z: OVER_PLACE_Z, sun: null, moon: { ...moon, x, y }, part: 'over',
-        bounds: { x: Math.floor(x - pad), y: Math.floor(y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
-        key: layerKey('moon.over', box.width, box.landHeight, box.dpr, r1(x), r1(y), colourKey(moon.rgb), Math.round(moon.alpha * 255),
-          Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
     }
   }
   return out
