@@ -252,6 +252,31 @@ The stage adds no painter or pure model changes, unseeded randomness, or live re
 
 **Re-verification (exact counts):** `npx tsc -b`: PASS (0 errors); `npm run lint`: PASS (0 errors, 0 warnings in touched files); `npx vitest run --maxWorkers=2`: **132/132 test files, 1275/1275 tests passed**; `npm run build`: PASS (430 modules transformed); max file size under `src/data/land/` is 149 lines. (Worker untouched in round 4.)
 
+### **Review (Codex, round 5)**
+
+**Round 4 answers checked, in the writer's order**
+
+1. **Partially resolved — partial-tile recovery.** New partial mosaics preserve usable sibling slices, retry only the failed tile within the fresh window, and complete once it recovers. A 404 beside a valid tile is cached as absence. The range adapter decoded a 206 response from an in-memory TIFF. Legacy partial records, retry suppression in the hook, and the all-nodata refresh case remain open.
+2. **Partially resolved — stale publication and time limit.** The stale callback runs before the live COG opens and fires while that read is pending. It still waits for local assets, and a hung shared SAS request defeats subsequent attempts.
+3. **Resolved — footprint bounds.** The snap now covers the reported spherical ray tip at 49.400393° N and the tested cell and tile boundaries. The regional fast path still covers the tested footprints.
+4. **Resolved — overlap weighting.** The shifted 562×562 fixture verifies the valid-area threshold and the winning class when the same six touched pixels would yield the opposite result with whole-pixel votes.
+5. **Resolved for the reported rain bias.** The 50%-covered window defers to soil moisture or climatology. The 12/14-day and 50/60-day cases match full coverage at a constant rain rate. The citation needs correction.
+6. **Resolved — forwarding exports.** `nearAt` and `nearCellCenter` are imported directly from `nearGrid.ts` where used. The `satellite.ts` aliases are gone.
+
+**Checks.** `npx tsc -b` passed. `npx vitest run --maxWorkers=2` passed 1,275 tests across 132 files. The focused land suite passed 108 tests across 22 files. Additional probes used stubbed fetches and in-memory fixtures. The round changes no painter, pure model, or scrub path, and the changed land TypeScript files stay under 150 lines.
+
+**Findings**
+
+- `src/data/land/useLand.ts:65` · major · Any returned cover with a cache miss is treated as ready for 30 days. A cold request whose panorama only partly overlaps the regional asset publishes that partial fallback when SAS fails, then skips the next focus check. An offline hook probe published regional cover after a 503 and recorded one SAS request across mount and refocus. · Return explicit completion metadata from the loader. Set the ready timestamp only for the full regional fast path or a confirmed complete remote footprint. Test a cold failure with partial regional coverage followed by a successful focus retry.
+- `src/data/land/worldCoverCog.ts:60` · major · The timeout releases the caller while the shared SAS request keeps running without its own deadline. A hung fetch or response body leaves every later place and focus retry waiting on the same promise. Two timed-out production-path calls made one token request and zero COG opens in an offline probe. An injected fetch that ignores abort also leaves the loader pending at line 59. · Give the shared request an independent deadline that aborts it and releases its slot. Enforce the deadline around the injected path too. Test recovery after the first SAS request hangs.
+- `src/data/land/landCache.ts:129` · major · Cover records written before `bf095e5` use the same cache version and have no completeness metadata, so an earlier incomplete mosaic can still pass as fresh for 30 days. An offline probe seeded an old two-tile record whose snapped bounds match the new bounds. It returned class 0 on the failed side and made zero tile reads after recovery. · Version the cover payload independently and read legacy mosaics as stale fallbacks that require a full refresh. Seed a legacy entry in the recovery test.
+- `src/data/land/landData.ts:110` · minor · The stale cache callback still sits behind both local asset requests. A deferred `coarse.json` kept a usable stale entry unpublished in an offline probe. · Read the persisted footprint concurrently and publish it as soon as it decodes, then merge the local layers as they finish. Add a deferred local-asset case.
+- `src/data/land/worldCoverCog.ts:133` · minor · The positive-cell guard drops an authoritative refresh when resolved nodata or 404s clear the last positive slice. An offline stale refresh whose tiles both decoded entirely to nodata returned the previous built-up class and kept its timestamp. · Preserve completed all-zero mosaics as authoritative absence and distinguish them from an attempt that resolved no tiles. Add a stale-to-nodata test through the loader.
+- `src/data/land/recentWeather.ts:118` · minor · The cited WMO 80% threshold applies to the number of years with valid monthly values for a climate normal (§4.4.2). WMO addresses missing daily rainfall in monthly sums separately in §4.4.1(c). · Describe 80% as a heuristic for this dryness index and state that the scaling assumes missing days have the observed mean rain rate. [WMO-No. 1203](https://www.ncei.noaa.gov/pub/data/normals/WMO/Guidelines%20for%20the%20Calculation%20of%20Climate%20Normals.WMO%20No1203_en.pdf).
+- `src/data/land/worldCoverGrid.ts:103` · nit · The old valid-cell count is still incremented and returned after the caller switched to checking the grid directly. No caller reads it. · Remove the count and make the aggregation return `void`.
+
+**Verdict:** changes requested
+
 ## Stage 2: world state
 
 ## Stage 3: land colour painting
