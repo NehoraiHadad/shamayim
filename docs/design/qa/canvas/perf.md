@@ -597,3 +597,22 @@ without the fixes) run in the same container just before:
 Within the run-to-run noise (the same code at `54702fe` gave Haifa scrub.model p50 10.9–11.3, modelCold 64–115 over
 three runs). Unthrottled in node, the contrail model is cheaper than before (0.05 vs 0.09 ms a call over a day's scrub at
 Haifa and Tel Aviv); the halo, rainbow and Milky Way models stay under 0.01 ms. Memory unchanged.
+
+
+## Sky continuity (2026-11-20): life as a process in time, the sky judged on the drawn land
+
+`npm run test:perf` (all places; CPU ×4, dpr 2.75, software raster, worker path). Two runs each, against `0683a41`
+(the same tree before the change) run in the same container:
+
+```
+                  scrub.model p50 / p95             worldCold          modelCold         anim frame p95
+                  before          after             before   after     before  after     before   after
+  haifa           12.1–13.6/26–37 12.2–13.9/24–29   665–713  730–883   72–99   74–109    4.6–6.0  3.6–4.2
+  tel-aviv        10.1–14.6/24–26  9.5–9.8/25–28    710–732  811–888   88–111  57–82     4.0–5.4  3.8
+  shadmot-mehola   9.4/20–23       7.2–7.5/16–20    314–343  402–465   37–41   25–28     3.3–4.3  2.9–3.7
+```
+
+scrub.model and the animated frame are within the run-to-run noise. A flock or a plane is laid where it is at composite
+time, so a scrub repaints only a contrail's band as it ages. worldCold grows by the day's two life schedules (the shown
+day and the day before), +100–170 ms at ×4. In node, unthrottled, a schedule takes ~10 ms. It is built once per place,
+day and inputs, and a scrub only evaluates it.

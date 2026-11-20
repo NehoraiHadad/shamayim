@@ -381,8 +381,8 @@ function aircraftLayer(box: SceneBox, id: string, z: number, angle: number, size
   }
 }
 
-/** The ground haze's depth over an airfield (m): a plane under it is faint, gone on the runway. */
-const LOW_HAZE_M = 3000
+/** Near the field a movement shows over this long of its flight (s): lifting out of the land's haze, or sinking into it. */
+const NEAR_FIELD_S = 300
 
 /**
  * The approach and departure traffic of the airports within reach at the shown minute: each movement where its glide or
@@ -399,10 +399,11 @@ export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
     if (x < -10 || x > geom.width + 10) continue
     // Close enough to make out (by night its lights carry farther): it fades into the air before that, never cut.
     const reach = night > 0.5 ? 50 : plane.light ? 18 : 45
-    // Low over the field it is in the ground's haze (the air's lowest, densest layer): it climbs out of it, or sinks into it
-    // on its approach, over minutes, never cut on the runway.
-    // The far end of its path is beyond that: it has shrunk into the distance before its path ends there.
-    const alpha = (1 - smoothstep(0.2 * reach, reach, d.km)) * smoothstep(0, LOW_HAZE_M, plane.overFieldM) *
+    // Low over the field it is in the ground's haze among the land's own things: it climbs out of it, or sinks into it on
+    // its approach, over the minutes its climb or glide takes through the lowest air (by its own vertical speed), never
+    // cut on the runway. The far end of its path is beyond its reach: it has shrunk into the distance before it ends.
+    const vertical = plane.speedMs * Math.max(0.02, plane.overFieldM / Math.max(500, plane.fieldKm * 1000))
+    const alpha = (1 - smoothstep(0.2 * reach, reach, d.km)) * smoothstep(0, NEAR_FIELD_S * vertical, plane.overFieldM) *
       smoothstep(0, 0.25 * plane.pathKm, plane.pathKm - plane.fieldKm)
     if (alpha < 0.01) continue
     const angle = Math.atan2(geom.y(n.altitude) - y, geom.x(n.azimuth) - x)

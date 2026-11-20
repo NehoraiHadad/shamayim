@@ -2022,7 +2022,7 @@ Zohar, Ein Gedi).
   near ridge never shows through; where the eye truly sees far land over it, the panorama's far line stays. The near
   snow is on the place's scale there (from each crest down by `(crest m − snow line m) × s`). `s` now also holds the
   land round the place (`hiM`, and the dot's room above). The world draws the near plane, its faces, the marks and the
-  datum on this land (`world.ts` `drawnOf`); the sun's and moon's skyline and the far towns keep the panorama's own (the
+  datum on this land (`world.ts` `drawnOf`); the far towns keep the panorama's own, and so did the sun's and moon's skyline until the sky continuity fix below, which judges them on the land as drawn (the
   far towns are the far land's, drawn behind the near land). `landOf` (the place's land over the ridge) now rarely
   draws: the near line holds it.
 - *The datum only on land* (`world/datum.ts` `datumOnLand`): a contour lies on land, so the row's line is drawn only where
@@ -2070,3 +2070,142 @@ Zohar, Ein Gedi).
 - *Stills*: `qa/canvas/vscale/after2/` (the 14 places at 12:00 and Tiberias at 16:30), `sheet-2.png` (before = `2d35366`,
   `qa/canvas/vscale/after/`).
 
+
+
+**Sky continuity (2026-11-20): life is a process in time; the sky is hidden by the land as drawn.** Commits on
+`ccr-sky-continuity` (from `0683a41`). Two owner reports, each fixed by one general rule (no place named).
+
+*1. Life popped in and out as the 24 h slider was scrubbed* (each hour drew its own birds, planes and trails). **Rule: the
+sky's life is a continuous process in time, never a per-hour draw.**
+- *Schedule* (`world/lifeSchedule.ts`): for each place and day there is one deterministic schedule of events, seeded by
+  the place and the date. A thinned Poisson process draws it, with a rate that follows the existing likelihoods
+  (`birdScores` × prevalence, the Schmidt–Appleman margin and the trails' light, the airports' movements by day and by
+  night under the low deck, the shower rate). The rates are sampled every 10 min and read straight between samples, so a
+  gate (rain, storm, gusts, night) ramps the rate. It never cuts off an event already in the air. The kinds of events:
+  - a flock's session: a straight path at its height. Its closest point is square to its way, on the side toward the
+    view, and over the drawn land there (`floorAlt`). It begins and ends `reach` × its closest distance away (4–6×), where
+    it has shrunk and faded into the haze (`fade` 0 at both ends). Migrants pass at their glide. Residents' centres
+    wander at 0.5–2 m/s (a raptor drifts downwind), so they move at most ~25° a minute at their closest. Their fast
+    motion is the composite loop.
+  - an airliner's crossing: 150 km out to 150 km out, its closest point 15–60 km ahead.
+  - a movement on the runway in use at its start: an arrival 50 km down its 3° glide to the runway, a departure up its
+    climb (light planes out to 25 km).
+  - a meteor: a moment of the night.
+  At most three flocks and four persistent trails are under way at once: a newcomer waits while the sky is full.
+- *Inputs* (`world/lifeDay.ts` `lifeInputAt`): the schedule reads the world's life input at any moment, built from the
+  forecast's hours as a picked hour reads them, with the sun and moon at that moment. It never reads `now`: a moment past
+  the forecast takes the nearest hour. The world builder keeps the schedules per date while their inputs stay the same
+  objects (`makeLifeDays`). A minute's world evaluates the day's events and the day before's (`lifeAt`), so what flies
+  past midnight flies on.
+- *Rendering at t*: `world.life` holds only the events under way at t, where their paths have brought them:
+  - flocks by azimuth, altitude and distance, with their closest distance and fade;
+  - airliners and each puff of their trail;
+  - movements, with their height over the field;
+  - the meteors of the next 15 min.
+
+  The model paints a flock or a plane once, round its own origin, at its full size (its closest distance). It is laid at
+  composite time (`LayerBase.lay`) where its path puts it, scaled by closest ÷ present distance and faded by the air's haze
+  and its session's ends. A scrub therefore moves it without a repaint.
+- *Contrails* grow from their plane on a fixed grid of emission moments (20 s), one puff per moment. Each puff keeps its
+  own seed and lump. It is carried by the upper wind from when it was laid (the 300 hPa wind where the forecast gives it),
+  and spreads and fades by its own age. A persistent trail lives 18–48 min and stays after its plane has gone. Every trail
+  is still a straight line in the tangent frame (one wind carries a straight track). The `wake` primitive is gone.
+- *Airport traffic* follows its glide or climb in time. Near the field it shows over the five minutes its own vertical
+  speed takes through the lowest air: it lifts out of the land's haze, or sinks into it, and is never cut on the runway.
+  Far off it fades by distance before its path ends.
+- *Meteors* stay brief flashes, tied to t: the meteors of the next 15 min are drawn, each flashing once that many seconds
+  into the composite loop. None show under reduced motion.
+- *Ambient animation*: the flock's strip of wing beats and wheeling stays as before. Its drift is now a closed sway
+  (`flight`, a 24 s loop of a few px round its place), so it never fights the scrub position. Planes keep only their night
+  strobes. Reduced motion shows the picture at t.
+- *Depth*: an object is hidden by the land drawn in front of it (the land surface lies over the sky). Where it is nearer
+  than the land at its x (its distance against the near and far planes' `distanceKm`, `inFrontOf`) and reaches down into
+  the land's figure, a copy is laid on the land surface:
+  - nearer than the near land: over everything there (z 40.5);
+  - nearer than the far land only: between the far and near land (z 18).
+
+  The sky copy is then laid only above the figure's top (`lay.above`). Nothing is clamped over the crest any more.
+
+*2. A low sun was drawn over the near hill and the town* (Jerusalem-like land). The near land is the place's own ground
+since decision 14's follow-up, but the sun and moon were still judged on the panorama's skyline. On top of that, C9's
+`bodiesOverPlace` laid the disc again over the place's mass. **Rule: everything in the sky is hidden by whatever land and
+structures are actually drawn in front of it, and the light judges the bodies on that same line.**
+- `world/drawnSkyline.ts` is the top of what is drawn, rasterised every half px:
+  - the near and far land as drawn;
+  - the place's own ground over the ridge;
+  - its boxes, towers, trees, the towers and towns beyond it;
+  - the marks and the far towns' towers.
+
+  It keeps the panorama's eye level, camera and peak, so the bodies are placed exactly as before and only judged against
+  it. The sun's `overLand` and `clearance` use it, and with them the light's source and direct light, the water's sun path,
+  the ridge rays and glare (`rayStrengths`) and the marks' `againstLight`. So do the moon's `overLand`, the twilight glow's
+  crossing, and the day's visible sunrise and sunset (`light.ts` `visibleDay`, kept with the crossings).
+  `bodiesOverPlace` and the `over` body part are removed. The stars, planets, Milky Way, halo, bows, rays and aureole are
+  on the sky surface, under the land.
+- Checked at sunrise and sunset at the 8 base places and the 4 `DATUM_PLACES`: the judged state equals what the model
+  draws (the disc's top against the model's land top, `landTopOf`) at every moment more than 1.5 px from the line.
+
+*Tests*:
+- `world/lifeSchedule.test.ts` (8):
+  - determinism (same place and day equal, another day or place differs);
+  - every flock fades to 0 at both ends and is nearest at its middle, under 25° a minute;
+  - rate ramps (no flock starts in heavy rain from its hour, some flock already up flies on through it);
+  - the caps;
+  - no airliner where the air makes no trail, none by night;
+  - a trail's newest puff at its plane, a puff two minutes older and carried 3.6 km by a 30 m/s wind, the trail outliving
+    its plane then gone by age;
+  - arrivals descending in time, more traffic by day;
+  - the day before evaluated past midnight.
+- `scene/model/continuity.test.ts` (4): minute-by-minute scrubs (06:00–17:00) at Tel Aviv, Haifa and Jerusalem.
+  - A minute moves a bird under 45 px and an aircraft under 200 px (its true angular speed near an airport).
+  - Scale and alpha change by bounded steps.
+  - Nothing appears or vanishes unless faint (alpha ≤ 0.2 or scale ≤ 0.25), at the frame's edge or hidden by the land.
+  - A jump of hours gives the same `life` as a fresh build.
+- `world/drawnSkyline.test.ts` (2):
+  - at all 12 places, sunrise −10…+50 min and sunset −100…+20 min every 10 min, the judged `overLand` equals the drawn
+    picture;
+  - no sunlight and no glare from a sun behind the land;
+  - no body layer on the land;
+  - each edge of the day crosses once;
+  - the moon by the same line.
+- Updated: `c10.test.ts` (front copies only where the object is nearer than the land; the sway is a closed loop),
+  `c10fixes.test.ts` (the trail's newest puff at its plane, widest at its old end), `c9.test.ts` (defect 3 superseded: no
+  disc over the place's mass), `model.test.ts`, `c10rules.test.ts` (`birdsOf` now from a schedule with the hour held all
+  day).
+
+*Pixel references* re-recorded deliberately, 24 of 59: the new life (birds, planes and trails where the schedule puts them)
+and the sun now behind the drawn land at `jerusalem-1630` and `haifa-0620`. The 24:
+`ein-gedi-1200`, `ein-gedi-1630@2x`, `haifa-0620`, `haifa-1200`, `haifa-1200-dust`, `haifa-1200-overcast`,
+`jerusalem-0620@2x`, `jerusalem-1200`, `jerusalem-1200-dust`, `jerusalem-1200-offline`, `jerusalem-1200-overcast`,
+`jerusalem-1630`, `ramon-crater-1200`, `rosh-pina-0620`, `rosh-pina-0620-arrive-1.2`, `shadmot-mehola-0620@2x`,
+`shadmot-mehola-1200`, `tel-aviv-0620`, `tel-aviv-1200`, `tel-aviv-1200@2x`, `tel-aviv-2100`, `tiberias-1200`,
+`tiberias-1200@2x`, `tiberias-1200-overcast`. 59/59.
+
+*Perf* (`npm run test:perf`, two runs each, against `0683a41` in the same container; `qa/canvas/perf.md`):
+- scrub.model p95 is within the run-to-run noise:
+  - Haifa: before 26–37, after 24–29;
+  - Tel Aviv: before 24–26, after 25–28;
+  - Shadmot: before 20–23, after 16–20.
+- The animated frame is within its 4 ms at p95.
+- worldCold grows by the two day schedules: +100–170 ms at CPU ×4 (Haifa 665–713 → 730–883, Tel Aviv 710–732 → 811–888,
+  Shadmot 314–343 → 402–465). Unthrottled in node, a day's schedule takes ~10 ms (once per place, day and inputs).
+- Per scrub frame, a flock or plane is laid, not repainted; only a contrail's band is repainted as it ages.
+
+*Stills* (`qa/canvas/continuity/`):
+- `strip-flock-crossing.png`: Jerusalem 08:14–08:44 every 3 min, two crane flocks flying in past the left edge, passing
+  and receding.
+- `strip-plane-approach.png`: Shadmot Mehola 08:16–08:36 every 2 min. An airliner comes up small and faint from far off,
+  crosses and recedes; a crane flock enters past the edge and recedes into the haze.
+- `strip-contrail-aging.png`: Jerusalem 10:44–12:24 every 10 min, trails growing from their planes, spreading, drifting
+  and fading by age.
+- `strip-sunset-{jerusalem,haifa,tiberias}.png`: before (`0683a41`) and after, the disc and its glare over the town
+  before, sinking behind the drawn land after.
+- `strip-sunrise-{jerusalem,haifa,tiberias}.png`.
+
+*Remaining* (for the owner's eye):
+- An event moves at its true speed (a resident flock's centre at its wander), and the slider steps by whole minutes. A
+  jet near an airport, or an airliner at its closest, therefore still jumps tens of px a minute, continuously along its
+  path.
+- The approaches into Ben Gurion seen from Tel Aviv are mostly behind the city's own drawn land, or faint near the
+  horizon.
+- The cap and the day's start are judged per day: around midnight, the day before's events may add one to the caps.
