@@ -3,7 +3,7 @@ import { airInput, sunElevation } from './atmo/airInput'
 import { mapAir } from './world/mapAir'
 import { useLandmarks } from './data/landmarks/useLandmarks'
 import { coverMarks } from './data/landmarks/coverMarks'
-import { useLandCover } from './data/land/useLand'
+import { useLand, useLandCover } from './data/land/useLand'
 import { useCity } from './data/city/useCity'
 import { useObservedCloud } from './data/overhead/useObservedCloud'
 import { useRainOutlook } from './data/overhead/useRainOutlook'
@@ -60,6 +60,8 @@ export default function App() {
   const landmarks = useLandmarks(place, Boolean(terrain.sightAt), false, true)
   // Trees the satellite sees round the place, where the map names no grove: part of the place's portrait.
   const cover = useLandCover(place)
+  // Living-land observations (WorldCover, near S2, far GIBS, recent weather); never blocks first paint.
+  const land = useLand(place, true)
   const marks = useMemo(() => [...landmarks.marks, ...coverMarks(place, cover, landmarks.marks)], [landmarks.marks, place, cover])
   const city = useCity(place)
   const now = useNow(place.timezone)
@@ -89,7 +91,7 @@ export default function App() {
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
   const worldInput = useMemo(() => (forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
-    seenClouds, forced: forcedWeather() } : null), [place, forecast, now, selected, terrain, marks, city, seenClouds])
+    seenClouds, forced: forcedWeather(), land } : null), [place, forecast, now, selected, terrain, marks, city, seenClouds, land])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
     air: air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],

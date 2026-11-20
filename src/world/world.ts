@@ -1,6 +1,7 @@
 import { airInput } from '../atmo/airInput'
 import type { AirInput } from '../atmo/airTypes'
 import { hashId } from '../data/landmarks/hash'
+import type { LandData } from '../data/land/types'
 import { anglePx, RELIEF } from '../data/terrain/angleScale'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { SCENE_CAMERA } from '../domain/camera'
@@ -36,6 +37,8 @@ import { xOf } from '../domain/camera'
 import { nightSkyOf } from './nightSky'
 import { opticsOf } from './optics'
 import { placeEnvOf } from './placeEnv'
+import { livingLandOf } from './landLiving'
+import { livingLandKey } from './landTerrainNormal'
 
 const hourKey = (at: LocalTime) => `${at.slice(0, 13)}:00`
 
@@ -137,6 +140,16 @@ export function makeWorldBuilder() {
   const ripplesPart = memoOne((terrain: SceneTerrain, placeId: string) => ripplesOf(terrain.water ?? [], placeId))
   const envPart = memoOne((place: WorldInput['place'], cover: WorldInput['cover'], far: WorldInput['far'], waterMask: WorldInput['waterMask']) =>
     placeEnvOf(place, { cover, far, waterMask }))
+  // Living-land state: keyed strictly by coordinates, elevation, shown calendar date, camera, terrain and data sources
+  // (never place name/id, never hour of day) so scrubbing hours reuses the exact same object.
+  const landPart = memoOne((
+    lat: number, lon: number, elevationM: number, shownDate: string,
+    camera: WorldState['camera'], terrain: SceneTerrain,
+    cover: LandData['cover'], near: LandData['near'], far: LandData['far'], weather: LandData['weather'],
+  ) => {
+    const part = livingLandOf({ lat, lon, elevationM, shownDate, camera, terrain, data: { cover, near, far, weather } })
+    return { part, key: livingLandKey(part) }
+  })
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
   // The land as drawn (owner decision 14's follow-up): the near ridge within the place's span is the place's own near land
   // (`outside.ts` `nearLineOf`), the panorama's beyond it. The sun and moon still set behind the panorama's own skyline.
@@ -226,6 +239,10 @@ export function makeWorldBuilder() {
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
     const optics = opticsOf({ sun, direct: light.shares.sun, sunLights: light.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
+    const land = landPart(
+      place.lat, place.lon, forecast.elevation, datePart(at), camera, terrain,
+      input.land?.cover ?? input.cover ?? null, input.land?.near ?? null, input.land?.far ?? null, input.land?.weather ?? null,
+    )
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,
       visible: sun.visible }, moon }
 
@@ -240,6 +257,7 @@ export function makeWorldBuilder() {
       marks: placePartResult.marks,
       labels: placePartResult.labels,
       night, ground, env, life, nightSky, optics, shadows,
+      land: land.part,
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
         windAloft: windSources.windAloft, visibility: visibilitySource, cruise: life.aircraft.cruise.source, glow: env.sources.glow },
       keys: {
@@ -259,6 +277,7 @@ export function makeWorldBuilder() {
         life: partKey(life, 2),
         nightSky: partKey(nightSky, 2),
         optics: partKey(optics, 2),
+        land: land.key,
       },
     }
   }

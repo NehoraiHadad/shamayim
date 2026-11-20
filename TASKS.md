@@ -766,16 +766,15 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [x] Stage 1: data layer — round-5 review fixes pushed, awaiting re-review (all 7 Codex round-5 findings fixed across
-      `91d6f14`..`845929a`: `COVER_CACHE_VERSION = 4` dropping pre-completeness v3 cover records, explicit `complete`
-      metadata stored in cover records with short 1 h `COVER_PARTIAL_TTL_MS` vs 30 d `COVER_TTL_MS`; `worldCoverSas.ts`
-      independent `AbortController` deadline + `raceAbort` clearing `sasInFlight` on hung shared fetch/body and enforcing
-      deadline on abort-ignoring injected fetch; authoritative all-nodata/404 `complete: true` preservation; concurrent
-      `readCachedCover` immediate publish before deferred `coarse.json`; `loadFootprintLandCoverResult` + `createCoverWatcher`
-      in `gridWatch.ts`/`useLand.ts` so cold SAS failure with partial regional overlap retries on focus; heuristic 80 %
-      rain-completeness comment in `recentWeather.ts`; `void` return on `aggregateWorldCoverTile`; all files under
-      `src/data/land/` ≤ 150 lines; 133/133 files, 1279/1279 root tests + build pass)
-- [~] Stage 2: world state (`land` per place, by ray distance, age blend)
+- [x] Stage 1: data layer — approved (Codex round 6) + round-6 minors/nit folded in (`f3f3f77`: v4 cover cache payload
+      validation via `isValidCoarseCoverJson`, bounded local asset deadlines releasing hung shared slots via `withDeadline`,
+      raw TTL tables restricted to near/far/weather).
+- [~] Stage 2: world state — implemented & pushed, awaiting Codex review (`src/world/{landDelight,landAgeBlend,landTerrainNormal,landLiving}.ts`
+      wired into `WorldState`/`makeWorldBuilder` and `useLand` into `App.tsx`; pure structured-cloneable `world.land` sampled
+      along 41 panorama rays × 10 `RAY_DISTANCES` bands in metres + 3×3 local ground; empirically verified S2 L2A TCI 0..0.25
+      BOA reflectance + clamped Lambertian terrain de-lighting with explicit `:no-delight` / `delit` status when geometry is
+      missing; age blending with `|age|` and per-variable `tau` 30/25/10/5 d toward shown-date climatology; data-only rule;
+      zero rebuild on hour scrub; allocation-free FNV-1a `livingLandKey`)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
 - [ ] Stage 5: wind on land

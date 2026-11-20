@@ -2,6 +2,7 @@ import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
 import type { BoundsFile } from '../data/city/bounds'
 import type { LandCover } from '../data/land/landData'
+import type { LandData } from '../data/land/types'
 import type { WaterMask } from '../data/water/waterMask'
 import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/outsideView'
 import type { FarData } from '../data/city/farData'
@@ -20,6 +21,7 @@ import type { Forecast, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
+import type { LivingLand } from './landLiving'
 import type { GlyphKind } from './glyphSpecs'
 import type { SnowFall } from './snowLine'
 
@@ -71,6 +73,8 @@ export interface WorldInput {
   bounds?: BoundsFile | null
   /** The land cover round the place (WorldCover, ~6 km): its built cells and trees, the fabric every place is built from (C5). */
   cover?: LandCover | null
+  /** Living-land data bundle (`useLand`): WorldCover, near S2, far GIBS and recent weather; closures stay on the data side. */
+  land?: LandData | null
 }
 
 /** Where a field came from when the forecast did not give it: fallbacks are marked, never silent. */
@@ -469,6 +473,7 @@ export interface WorldKeys {
   life: string
   nightSky: string
   optics: string
+  land: string
 }
 
 export interface WorldState {
@@ -511,6 +516,8 @@ export interface WorldState {
   optics: Optics
   /** The living light: the low cloud's shadows on the land. */
   shadows: CloudShadows
+  /** Living-land surface state sampled along panorama rays and over local ground for the shown date (structured-cloneable). */
+  land: LivingLand
   sources: WorldSources
   keys: WorldKeys
 }
