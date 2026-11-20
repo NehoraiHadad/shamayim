@@ -766,14 +766,14 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [~] Stage 1: data layer — round-1 review fixes pushed, awaiting re-review (all 16 Codex findings fixed across
-      `62f8ee3`..`c425f85`: harmonised S2 BOA offset polarity & live check; persisted UTM transform + `fromUtm`;
-      multi-date fallback & per-granule solar geometry; independent per-band support + SCL-11 snow fraction; shared
-      `cogReader.ts`; GIBS blank-200/partial/RGB-only resilience + lossless PLTE/tRNS fixture; dedicated narrow
-      `/v1/land-weather` Worker route + completed-day liquid rain parser; global 3°×2.5° Beck et al. Köppen–Geiger
-      climatology with precip-aware snow; coarse ±60 km WorldCover overview; resilient IDB cache & upstream weather
-      freshness/expiry recheck; lazy per-value sampler with per-field dates; all files ≤ 150 lines; 1258/1258 root
-      + 51/51 worker tests pass)
+- [~] Stage 1: data layer — round-2 review fixes pushed, awaiting re-review (all 14 Codex round-2 findings fixed across
+      `c107224`..`c65cb76`: generated 0.5° Beck et al. 2018 Köppen–Geiger table with SHA-256 verification; full-footprint
+      `[28.8,33.4,34.0,36.8]` ESA WorldCover coarse overview preserving water and explicit nodata + resilient `loadShared`;
+      exact band-to-SCL lattice alignment & phase-independent area-weighted 40 m→100 m support; multi-date newest-first
+      compositing with per-channel dates & strict contributor sun geometry; decoupled RGB/NDVI cover means; GIBS MODIS_NDVI
+      color-matched palette & 256×256 tile validation; calendar-indexed rain + strict liquid phase + required Worker
+      `forecast_days` + body-checking deploy curl; active-tab 24 h weather expiry watcher & coalescing; test splits so all
+      land/script files are ≤ 150 lines; 1262/1262 root + 51/51 worker tests pass)
 - [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
