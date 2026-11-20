@@ -6,7 +6,8 @@ import type { ClimateZone } from './types'
  * coordinates `(lat, lon, elevationM)`, month (1–12) and WorldCover class index (`COVER` 0..10).
  *
  * Provenance:
- * - Global 3°×5° Köppen–Geiger table (`koppenGrid.ts`): coarsened from Beck et al. (2018), *Sci. Data* 5:180214.
+ * - Global 0.5°×0.5° Köppen–Geiger table (`koppenGrid.ts`, `koppenTable.json`): generated from
+ *   Beck et al. (2018), *Sci. Data* 5:180214 (`Beck_KG_V1_present_0p5.tif`) via `scripts/land/buildKoppen.ts`.
  * - Zonal sea-level mean temperature & amplitude: Peixoto & Oort (1992), *Physics of Climate*, Fig. 7.3 & 7.4.
  * - Environmental lapse rate: ISO 2533 International Standard Atmosphere (−6.5 °C / km).
  * - Per-cover NDVI bounds anchored to MODIS MOD13Q1 / MCD43A3 (Huete et al. 2002; Schaaf et al. 2002);
