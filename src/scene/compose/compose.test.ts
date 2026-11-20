@@ -221,6 +221,18 @@ describe('loop', () => {
     makeLoop((phase) => still.push(phase), { ...deps, still: () => true }).start()
     expect(still).toEqual([0])
   })
+
+  it('stops with a pending frame through an unbound cancel (the browser cancelAnimationFrame throws on a foreign this)', () => {
+    const cancelled: number[] = []
+    function cancelFrame(this: unknown, id: number) {
+      if (this !== undefined) throw new TypeError('Illegal invocation')
+      cancelled.push(id)
+    }
+    const loop = makeLoop(() => {}, { frame: () => 7, cancelFrame, visible: () => true, still: () => false })
+    loop.start()
+    expect(() => loop.stop()).not.toThrow()
+    expect(cancelled).toEqual([7])
+  })
 })
 
 describe('animation laid at composite time (C7)', () => {
