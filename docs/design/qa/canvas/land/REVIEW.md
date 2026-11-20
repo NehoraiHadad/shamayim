@@ -315,6 +315,36 @@ The stage adds no painter or pure model changes, unseeded randomness, or live re
 
 ## Stage 2: world state
 
+### Handoff (2026-11-20)
+
+**Who wrote what:** `f3f3f77`, `efa7088`, `c6aeb96` by Antigravity (Gemini 4 Neon); the uncommitted refactor after them by
+Antigravity (Claude Opus 5.5), both cut off by the Antigravity quota; finished and committed by the orchestrator (Claude
+Code) in `5e0f7e1`.
+
+**What changed:**
+- Stage 1 round-6 leftovers folded in (`f3f3f77`: v4 cover payload validation, bounded local reads, raw TTL tables narrowed).
+- `src/world/landLiving.ts` (`livingLandOf`): one pure, structured-cloneable `land` per place and shown date: local ground
+  (9 points) + panorama rays sampled at `RAY_DISTANCES` (metres). Each sample: cover, albedo (linear → sRGB 0..1, de-lit),
+  NDVI, dryness, snow, per-value source and date, de-lighting status.
+- `landDelight.ts`: TCI → BOA reflectance (0..0.25 → 0..255, verified on the fixture: ratio 0.250, residual < 0.0005;
+  the brief's 0.2 was the old Sen2Cor value), Lambert topographic correction with clamps, skip + source mark when geometry
+  is missing. `landTerrainNormal.ts`: terrain normal from the panorama.
+- `landReflectance.ts`: one reflectance scale for every source; far GIBS JPEG cross-calibrated per channel on the near overlap
+  (`assumed-tci` flag when overlap is too small).
+- `landAgeBlend.ts`: `w = exp(-|age|/τ)`, τ albedo 30 d, NDVI 25 d, dryness 10 d, snow 5 d; snaps to climatology below 0.02.
+- Wired into `WorldState.land` + `keys.land`, `makeWorldBuilder` (rebuilt only when date/data change), `useLand` in `App.tsx`.
+
+**How tested (orchestrator re-run on `5e0f7e1`):** `npx tsc -b` pass; `npx vitest run --maxWorkers=2` 136 files / 1295 tests
+pass; `npm run build` pass; `npm run test:pixels` 66/66 (no pixel change, as expected: no painter yet).
+- `livingLandOf` alone: median 6.1 ms, max 22 ms (node); state ≈ 194 KB as JSON.
+- `scripts/land/benchWorld.ts`: `buildWorld` cold median 64 ms (marks dominate, as at C0), hour scrub median 0.72 ms / p95 1.5 ms.
+- `npm run test:perf` on this Windows machine, branch vs `origin/main` (same machine, same run settings): both exceed the
+  model budgets here (machine, not branch); shadmot `scrub.model` p50 11.7 vs 10.5 ms, `modelCold` 27.4 vs 39.7 ms;
+  haifa `scrub.model` p95 48.8 vs 33.2 ms (single-run noise range). No consistent regression.
+
+**Open questions for Stage 3:** the state is ~194 KB; the model must pass compact per-band tones to the painters, not the
+whole state, and never clone it per scrub frame.
+
 ## Stage 3: land colour painting
 
 ## Stage 4: vegetation
