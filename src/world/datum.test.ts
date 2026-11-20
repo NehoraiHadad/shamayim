@@ -135,7 +135,9 @@ describe('the datum at every place below sea level', () => {
           // Back from the screen to the row (dy = 0): x = centerX − f·dx / eyeN.
           const dx = (frame.centerX - x) * frame.eyeN / frame.f
           const crossing = Math.abs(heightNear(dx, 0) ?? Infinity) < 15
-          const landEdge = Math.min(...[-1.5, 0, 1.5].map((d) => Math.abs(landTop(x + d) - line.y))) < 2
+          // Or the land's edge crosses the line within a px and a half of it.
+          const landEdge = (landTop(x - 1.5) - line.y) * (landTop(x + 1.5) - line.y) <= 0
+            || Math.min(...[-1.5, 0, 1.5].map((d) => Math.abs(landTop(x + d) - line.y))) < 2
           expect(crossing || landEdge, `${id} end ${x}`).toBe(true)
         }
       }

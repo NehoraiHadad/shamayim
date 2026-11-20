@@ -2002,3 +2002,70 @@ huge arches, loops and hooks; the Milky Way a stiff column of stripes.
   `qa/canvas/c10/fixes/`: `halo-jerusalem-1100.png`, `halo-jerusalem-0830.png` (the low sun's V gone),
   `contrails-jerusalem-1100.png`, `contrails-jerusalem-0830.png`, `milky-way-ramon.png`, `milky-way-shadmot.png`,
   `rainbow-tel-aviv-0800.png`.
+
+**Decision 14, follow-up (2026-11-20): the near land is the place's own; the datum only on land.** Commits on
+`ccr-85ec24f0-9ayxgu` (from `2d35366`; the C10 fixes merged in at the end, their 7 references re-recorded on the merged code).
+From the review of `qa/canvas/vscale/sheet-before-after.png`: the near ridge and the place were still on two scales (the
+ridge the panorama's, from the place's own eye), so the ridge dwarfed the place (Haifa's Carmel hump bare and dark over a
+city whose own built cells reach its top; Rosh Pina, Ein Gedi); and the datum floated in the sky (Jericho, Kalya, Neve
+Zohar, Ein Gedi).
+- *The near land* (`world/outside.ts` `nearLineOf`, `landAround`, `drawnTerrain`; one rule, no place named): within the
+  place's span the land drawn is the place's own ground on its scale `s`, through the same lie its rows stand on (`levelY`:
+  its ground spots and its built cells' own ground), and the land truly behind or beside it: the local ground south of
+  the frame, or east or west of it (never in front of its near edge), at its true depth through the same lie, a metre
+  beyond the frame's far edge smaller by its depth (decision 14: one scale *at the same distance*), laid as continuous
+  row profiles of the 250 m local grid. The panorama's ridge rises over the place only where that real land is higher.
+  The land beside it is laid `NEAR_MARGIN` (40 px) past the place's span; past that the line eases into the panorama's
+  ridge over at least `NEAR_BLEND` (24 px), wider where the two stand far apart (a slope of about 1 px a px at most). The
+  far line follows it where the panorama's far horizon is that near ridge itself (`farShows` false), so the panorama's
+  near ridge never shows through; where the eye truly sees far land over it, the panorama's far line stays. The near
+  snow is on the place's scale there (from each crest down by `(crest m − snow line m) × s`). `s` now also holds the
+  land round the place (`hiM`, and the dot's room above). The world draws the near plane, its faces, the marks and the
+  datum on this land (`world.ts` `drawnOf`); the sun's and moon's skyline and the far towns keep the panorama's own (the
+  far towns are the far land's, drawn behind the near land). `landOf` (the place's land over the ridge) now rarely
+  draws: the near line holds it.
+- *The datum only on land* (`world/datum.ts` `datumOnLand`): a contour lies on land, so the row's line is drawn only where
+  it stands over the drawn land (the near land, or far land showing over it), in pieces (under 10 px dropped); a piece
+  cut by the land's edge ends there with no fade, a surviving open end keeps its fade. With no piece left: no line and no
+  note. The note stands over the dot's piece, else the widest, centred on one shorter than the text.
+- *Measured at 12:00* (before = `2d35366`; "ridge over rows": how far the drawn near land stands over the highest of the
+  place's rows in a 3 px column, max, and the columns where it is over 4 px; rows: the spread of the rows' feet):
+
+  ```
+                    s              rows px    ridge over rows (max; cols > 4 px)   datum pieces (px at 375)
+  tel-aviv          0.261 → 0.249  18 → 18     4 → 16   (1 → 52 of 77)              –
+  netanya           0.272 → 0.264  16 → 16     3 → 10   (0 → 21 of 46)              –
+  haifa             0.100 → 0.090  49 → 45    56 → 20   (40 → 32 of 97)             –
+  beer-sheva        0.165 → 0.165  28 → 28     2 → 15   (0 → 74 of 97)              –
+  jerusalem         0.122 → 0.107  40 → 36    18 → 27   (5 → 30 of 92)              –
+  rosh-pina         0.133 → 0.077  38 → 25    12 → 13   (16 → 29 of 44)             –
+  shadmot-mehola    0.144 → 0.144  11 → 11    22 → 21   (18 → 18 of 18)             122–254 → none (no land under it)
+  tiberias          0.092 → 0.092  44 → 44    29 → 37   (44 → 22 of 47)             122–224 → 132–224
+  ein-gedi          0.073 → 0.071  13 → 13     8 → 15   (1 → 21 of 24)              122–271 → 124–138, 225–271
+  beit-shean        0.170 → 0.170  13 → 13     9 → 9    (9 → 5 of 33)               122–254 → 241–254
+  jericho           0.119 → 0.119  12 → 12    12 → 14   (8 → 12 of 63)              122–333 → 265–302, 305–333
+  kalya             0.101 → 0.101   5 → 5      1 → 3    (0 → 0 of 26)               122–321 → 272–321
+  neve-zohar        0.100 → 0.100  16 → 16    19 → 19   (21 → 19 of 21)             122–305 → 259–305
+  ramon-crater      no built cells: the panorama's ridge as it is (unchanged)
+  ```
+  Haifa: the bare Carmel hump over the city is gone; the city's rows reach the top of its own land (their top at the
+  silhouette, 56 px of the old hump down to 20, which is the Carmel truly behind it, south of the frame). The other
+  places' "ridge over rows" now measures real land behind or beside them at the place's scale (Tiberias's hills to the
+  west, Be'er Sheva's and Tel Aviv's low rises beyond the frame), not the panorama's; it grew where the panorama's ridge
+  had stood lower than that land at `s`. Rosh Pina's `s` falls (0.133 → 0.077) because Mount Canaan beside it (827 m) is
+  now in the picture on the same scale; its rows keep 25 px. Every datum piece lies on land; Shadmot Mehola's sea level
+  stands over no drawn land, so it has no line and no note (its label still says −175 m).
+- *Tests*: `world/vscale.test.ts` as before (the mountain places' rows over 20 px: Rosh Pina's 25). `world/datum.test.ts`:
+  the line on land only, each hard end at the row's 0 m crossing or the land's edge; Tiberias, Ein Gedi and at least five
+  of the seven keep a line; no line and no note with no land under it (`datumOnLand`, unit). `scene/model/outside.test.ts`:
+  rows stand on the drawn near land (none floats); the near snow on the place's scale at the dot. Pixel references
+  re-recorded deliberately (the 51 that show a place's own ground or its arrival, on the merged code: every case of
+  Shadmot Mehola, Tel Aviv, Jerusalem, Haifa, Rosh Pina, Tiberias, Ein Gedi, `haifa-1630-arrive-0.7` and
+  `rosh-pina-0620-arrive-1.2`); Ramon crater and the loading / offline cases unchanged; 59/59.
+- *Perf*: the near line has as many points as the panorama's ridge (201) and the land round the place is sampled on the
+  local grid's own 250 m. `npm run test:perf` (Haifa, Tel Aviv, Shadmot Mehola, two runs each) against `d31e253` in the
+  same container: worldCold 554–661 / 287–309 ms vs 631–676 / 304–322 (Haifa and Tel Aviv / Shadmot), scrub.model p95
+  25–29 / 16–23 / 15–19 vs 26–28 / 20–26 / 15–17: within the run-to-run noise; the OVERs are C5's and C6's, as before.
+- *Stills*: `qa/canvas/vscale/after2/` (the 14 places at 12:00 and Tiberias at 16:30), `sheet-2.png` (before = `2d35366`,
+  `qa/canvas/vscale/after/`).
+

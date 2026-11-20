@@ -13,7 +13,7 @@ import type { LandCover } from '../data/land/landData'
 import type { CityResult } from '../data/city/types'
 import { offsetKm, type Coordinate } from '../data/landmarks/project'
 import type { Landmark } from '../data/landmarks/types'
-import { apparentAngle, LOCAL_REACH_KM } from '../data/terrain/panorama'
+import { apparentAngle, LOCAL_REACH_KM, LOCAL_STEP_KM } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
 import { SCENE_CAMERA, xOf } from '../domain/camera'
@@ -83,7 +83,7 @@ export interface OutsidePlace {
   seaLevelY: number | null
   /**
    * The near land as drawn (`nearLineOf`: the place's own ground and the terrain behind it on its scale, the panorama's
-   * ridge beyond its span), every px at 375, with its height (m); the world draws the near plane on it. Null: the
+   * ridge beyond its span), as many points as the panorama's ridge, with its height (m); the world draws the near plane on it. Null: the
    * panorama's ridge as it is (no local ground).
    */
   nearLine: NearLine | null
@@ -433,7 +433,7 @@ function lieOf(input: OutsideInput) {
   return { frame, lie, topM, fabric, bounds, levelY, spots, around, baseY, vscale: { s, dotY: yDot - 1, h0 } }
 }
 
-/** The land as the outside view draws it: the near line and the far line (every px at 375), each with its heights (m). */
+/** The land as the outside view draws it: the near line and the far line (as many points as the panorama's ridge, evenly across 375 px), each with its heights (m). */
 export interface NearLine {
   points: [number, number][]; elevations: number[]; farPoints: [number, number][]; farElevations: number[]
   /** How much of each point is the place's near land (1) rather than the panorama's ridge (0), and the place's scale. */
@@ -469,15 +469,6 @@ export function drawnTerrain(terrain: SceneTerrain, nearLine: NearLine | null): 
 export const NEAR_MARGIN = 40
 export const NEAR_BLEND = 24
 
-/**
- * The near land in the outside view (owner decision 14, follow-up): within the place's span the land seen is the place's
- * own ground on its own scale (`spots` through the lie, `levelY`: the same data its rows stand on), and the terrain truly
- * behind it or beside it (the local ground south of its frame, or east or west of it, never in front of it, at its true
- * depth, through the same lie) wherever that stands higher on the screen; never the panorama's ridge, which is the place's eye's view on another
- * scale. The terrain beside it is laid `NEAR_MARGIN` px beyond the place's span; past that, eased into the panorama's near
- * ridge. Points every px at 375, with the land's height (m) at each (its snow). Null where the place has no local ground
- * (the panorama's ridge as it is).
- */
 /** A spot of the land round the place: km east and north, its height (m) and its x on the screen (layout px). */
 interface AroundSpot { dx: number; dy: number; h: number; x: number }
 
@@ -485,7 +476,7 @@ interface AroundSpot { dx: number; dy: number; h: number; x: number }
  * The land round the place the outside view lays on the place's scale (owner decision 14, follow-up): the local ground
  * behind it (south of its frame) and beside it (east or west of its frame, never in front of its near edge), out to the
  * local ground's reach, as rows of the grid (a gap where the place's own frame or the unknown breaks a row); and the
- * screen span it is laid over: the place's own span (`spots`) widened by `NEAR_MARGIN` px each side.
+ * screen span it is laid over (on the local grid's own 250 m): the place's own span (`spots`) widened by `NEAR_MARGIN` px each side.
  */
 function landAround(frame: OutsideFrame, heightNear: (dx: number, dy: number) => number | null,
   spots: readonly { dx: number; dy: number }[], width: number): { rows: (AroundSpot | null)[][]; left: number; right: number; own: [number, number] } {
@@ -497,9 +488,9 @@ function landAround(frame: OutsideFrame, heightNear: (dx: number, dy: number) =>
   const margin = NEAR_MARGIN * width / 375
   const left = Math.max(0, Math.floor(own0 - margin)), right = Math.min(Math.ceil(width), Math.ceil(own1 + margin))
   const rows: (AroundSpot | null)[][] = []
-  for (let dy = frame.n; dy >= -LOCAL_REACH_KM; dy -= GROUND_STEP) {
+  for (let dy = frame.n; dy >= -LOCAL_REACH_KM; dy -= LOCAL_STEP_KM) {
     const row: (AroundSpot | null)[] = []
-    for (let dx = -LOCAL_REACH_KM; dx <= LOCAL_REACH_KM + 1e-9; dx += GROUND_STEP) {
+    for (let dx = -LOCAL_REACH_KM; dx <= LOCAL_REACH_KM + 1e-9; dx += LOCAL_STEP_KM) {
       // Within the frame's box the land is the place's own ground.
       const h = dx >= frame.w && dx <= frame.e && dy >= frame.s ? null : heightNear(dx, dy)
       row.push(h === null ? null : { dx, dy, h, x: outsideProject(frame, dx, dy).x })
@@ -514,7 +505,7 @@ function landAround(frame: OutsideFrame, heightNear: (dx: number, dy: number) =>
  * own ground on its own scale (`spots` through the lie, `levelY`: the same data its rows stand on), and the land round it
  * (`landAround`: behind it or beside it, at its true depth, through the same lie) wherever that stands higher on the
  * screen; never the panorama's ridge, which is the place's eye's view on another scale. Past the span, eased into the
- * panorama's near ridge. Points every px at 375, with the land's height (m) at each (its snow). Null where the place has
+ * panorama's near ridge. Points evenly across (as many as the panorama's ridge), with the land's height (m) at each (its snow). Null where the place has
  * no local ground (the panorama's ridge as it is).
  */
 function nearLineOf(input: OutsideInput, spots: readonly { dx: number; dy: number; h: number }[],
@@ -568,16 +559,22 @@ function nearLineOf(input: OutsideInput, spots: readonly { dx: number; dy: numbe
   const ridgeM = ridgeHeightAt(terrain.nearPoints, terrain.nearElevations)
   const ease = (edge: number) => Math.max(NEAR_BLEND * width / 375, 1.2 * Math.abs(line(edge) - input.ground(edge)))
   const blendL = ease(lo), blendR = ease(hi)
+  // As many points as the panorama's own ridge (its rays, evenly across), each the highest of the columns it stands for.
+  const steps = Math.max(2, terrain.nearPoints.length - 1)
+  const half = width / steps / 2
   const points: [number, number][] = [], elevations: number[] = [], own: number[] = []
-  for (let i = 0; i <= 375; i++) {
-    const x = i * width / 375
-    const pano = input.ground(x), panoM = ridgeM(i)
+  for (let i = 0; i <= steps; i++) {
+    const x375 = i * 375 / steps, x = x375 * width / 375
+    const pano = input.ground(x), panoM = ridgeM(x375)
     const edge = x < lo ? lo : x > hi ? hi : Math.round(x)
     const blend = x < lo ? blendL : blendR
-    const t = Math.max(0, 1 - Math.abs(x - edge) / blend)
+    const t = x >= lo && x <= hi ? 1 : Math.max(0, 1 - Math.abs(x - edge) / blend)
     const k = t * t * (3 - 2 * t)
-    const ownY = line(edge), ownH = topM[edge]
-    points.push([i, pano + (ownY - pano) * k])
+    let ownY = line(edge), ownH = topM[edge]
+    if (x >= lo && x <= hi) for (let c = Math.max(lo, Math.ceil(x - half)); c <= Math.min(hi, Math.floor(x + half)); c++) {
+      if (line(c) < ownY) { ownY = line(c); ownH = topM[c] }
+    }
+    points.push([x375, pano + (ownY - pano) * k])
     own.push(k)
     elevations.push(Number.isFinite(panoM) && Number.isFinite(ownH) ? panoM + (ownH - panoM) * k : Number.isFinite(ownH) && k > 0 ? ownH : panoM)
   }
@@ -585,10 +582,11 @@ function nearLineOf(input: OutsideInput, spots: readonly { dx: number; dy: numbe
   // near ridge itself, it is the near land as drawn (hidden behind it), never the panorama's near ridge showing through.
   const farY = groundFn(terrain.farPoints, 375), farM = ridgeHeightAt(terrain.farPoints, terrain.farElevations)
   const farPoints: [number, number][] = [], farElevations: number[] = []
-  for (let i = 0; i <= 375; i++) {
-    const shows = terrain.sightAt?.(i).farShows ?? true
-    farPoints.push([i, shows ? farY(i) : Math.max(farY(i), points[i][1])])
-    farElevations.push(shows ? farM(i) : elevations[i])
+  for (let i = 0; i <= steps; i++) {
+    const x375 = i * 375 / steps
+    const shows = terrain.sightAt?.(x375).farShows ?? true
+    farPoints.push([x375, shows ? farY(x375) : Math.max(farY(x375), points[i][1])])
+    farElevations.push(shows ? farM(x375) : elevations[i])
   }
   return { points, elevations, farPoints, farElevations, own, s: scale }
 }

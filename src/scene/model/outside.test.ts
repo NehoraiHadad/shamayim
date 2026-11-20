@@ -255,9 +255,11 @@ describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
     expect(snow).not.toBeNull()
     // At the dot the near land is the place's own: its snow runs from the crest down by (crest m − snow line m) × s.
     const { terrain } = snowy, view = snowy.place3 as OutsideView
-    const x = Math.round(view.dot.x), crestM = terrain.near.elevations![x], lineM = snowy.snow!.lineM
-    const edge = terrain.snowEdge!('near', lineM).find(([ex]) => ex === x)!
-    const want = crestM >= lineM ? terrain.near.points[x][1] + (crestM - lineM) * view.vscale!.s : terrain.near.points[x][1] - 2
+    const pts = terrain.near.points
+    const i = pts.reduce((best, [px], k) => Math.abs(px - view.dot.x) < Math.abs(pts[best][0] - view.dot.x) ? k : best, 0)
+    const crestM = terrain.near.elevations![i], lineM = snowy.snow!.lineM
+    const edge = terrain.snowEdge!('near', lineM)[i]
+    const want = crestM >= lineM ? pts[i][1] + (crestM - lineM) * view.vscale!.s : pts[i][1] - 2
     expect(edge[1]).toBeCloseTo(want, 6)
     expect(near(worldAt(id)).light.snow ?? null).toBeNull()
   })
