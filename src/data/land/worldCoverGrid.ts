@@ -14,7 +14,9 @@ export type Bbox = [number, number, number, number] // [south, west, north, east
 
 export interface CoarseCoverJson {
   v: number; bbox: Bbox; stepDeg: number; rows: number; cols: number; r: string
-  /** Tile codes that failed transiently on last fetch and still need retry; absent/empty = complete. */
+  /** True only when every footprint tile resolved (data or authoritative 404/nodata). */
+  complete?: boolean
+  /** Tile codes that failed transiently on last fetch and still need retry; absent/empty when complete. */
   missingTiles?: string[]
 }
 
@@ -94,13 +96,12 @@ export function clearWorldCoverSlice(bbox: Bbox, slice: Bbox, grid: Uint8Array, 
 export function aggregateWorldCoverTile(
   raw: ArrayLike<number>, winW: number, winH: number, x0: number, y0: number, pxX: number, pxY: number,
   tLat: number, tLon: number, bbox: Bbox, slice: Bbox, grid: Uint8Array, cols: number,
-): number {
+): void {
   clearWorldCoverSlice(bbox, slice, grid, cols)
   const [, west, north] = bbox, [s, w, n, e] = slice
   const r0 = Math.round((north - n) * CELLS_PER_DEG), r1 = Math.round((north - s) * CELLS_PER_DEG)
   const c0 = Math.round((w - west) * CELLS_PER_DEG), c1 = Math.round((e - west) * CELLS_PER_DEG)
   const weights = new Float64Array(16)
-  let validCells = 0
   for (let row = r0; row < r1; row++) {
     const cN = north - row * WORLDCOVER_STEP_DEG, cS = cN - WORLDCOVER_STEP_DEG
     const cy0 = (tLat + 3 - cN) * pxY, cy1 = (tLat + 3 - cS) * pxY
@@ -130,9 +131,8 @@ export function aggregateWorldCoverTile(
       if (totalArea > 0 && validArea * 2 >= totalArea - 1e-12) {
         let best = 0
         for (let k = 1; k < 16; k++) if (weights[k] > weights[best]) best = k
-        if (best > 0) { grid[row * cols + col] = best; validCells++ }
+        if (best > 0) grid[row * cols + col] = best
       }
     }
   }
-  return validCells
 }

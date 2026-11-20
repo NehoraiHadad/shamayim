@@ -55,7 +55,7 @@ describe('worldCoverGrid spherical footprint and area-weighted aggregation', () 
     rawNodataMix[2] = 50 // row 0, gx=2 -> built (class 5)
     rawNodataMix[winW + 2] = 50 // row 1, gx=2 -> built (class 5) => 53.38% of cell area!
     const gridA = new Uint8Array(rows * cols)
-    aggregateWorldCoverTile(rawNodataMix, winW, winH, 0, 0, pxPerDeg, pxPerDeg, tLat, tLon, bbox, bbox, gridA, cols)
+    expect(aggregateWorldCoverTile(rawNodataMix, winW, winH, 0, 0, pxPerDeg, pxPerDeg, tLat, tLon, bbox, bbox, gridA, cols)).toBeUndefined()
     expect(gridA[1]).toBe(5)
 
     // Same 6 touched pixels, now 2 middle-column pixels are forest (10 -> class 1, 53.38% area)

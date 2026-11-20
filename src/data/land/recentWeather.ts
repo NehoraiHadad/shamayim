@@ -115,9 +115,10 @@ export function mapRecentWeather(body: unknown, fetchedAt: number): RecentLandWe
 
 /**
  * Surface dryness index `[0, 1]` (0 = wet, 1 = parched); returns null when neither soil moisture nor
- * a >= 80 % complete rain window exists (WMO-No. 1203 §4.2.1). Soil bounds: FAO-56 Table 19 (Allen
- * et al. 1998, wilting ~0.08, field capacity ~0.34 m³/m³). Within [0.8, 1] coverage, rain totals are
- * normalized (`sum / cov`, approximating missing days at the observed mean rate) against heuristic 35/120 mm scales.
+ * a rain window meeting our heuristic >= 80 % completeness threshold exists. Soil bounds: FAO-56
+ * Table 19 (Allen et al. 1998, wilting ~0.08, field capacity ~0.34 m³/m³). Within [0.8, 1] coverage,
+ * rain totals are scaled (`sum / cov`, assuming missing days have the observed mean rain rate)
+ * against heuristic 35/120 mm scales.
  */
 export function drynessFromWeather(w: RecentLandWeather): number | null {
   let rainDry: number | null = null
