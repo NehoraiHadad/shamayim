@@ -1713,7 +1713,70 @@ machinery, the skyline slabs and the WebGL air's leftovers; the rays in fog; the
   unused since that study, kept for `camera-fable.md`); the birds and meteors into the canvas (owner decision 6: done at C10); the
   cold model and the cities' scrub model over budget (C5, C6). Deploys: the final list above (§5).
 
-**C10 done (2026-11-20): sky life and optics.** Commits on the C10 branch (from `0173702`, C9 merged in at `0338fec`).
+**Fix: the "פני הים" datum at the height of 0 m in the picture (2026-11-19).** The owner's report: Tiberias's dot reads
+"−137 מ׳" on the town at the top of its land, and the dashed sea-level line lay far *below* it by the lake ("כנרת"), though
+sea level stands 137 m above the town.
+- *Cause:* the line's height was `terrain.seaY`, the panorama's own sea line: 0 m on the far ridges as seen from the
+  place's eye (each far slope taken as straight from the eye to its crest), a few px over eye level. But the place is
+  drawn from outside, its point (the dot) on the near ridge line (Tiberias's ridge there is +137 m, 2 km off), its rows
+  above and below the dot by their height over the place point's (`lieOf`'s `levelY`). Against the dot the panorama's
+  0 m fell 49 px under it. The line was also drawn against the near ridge with a height taken on the far one.
+- *Rule* (`world/datum.ts`, one rule for every place below sea level, no place named): sea level is a height like any
+  other, drawn by the rule that draws the dot and the rows. (1) The place's own 0 m contour: where its ground in the
+  frame (and boundary) crosses 0 m (`zeroCrossings` on the local grid every 125 m), each spot drawn at `levelY(dx, dy,
+  0)`. (2) Where the place's own ground never reaches 0 m (a village on the valley floor), the land round it as the
+  panorama draws it, at its true height and distance from the eye (`RELIEF.high`, curvature and refraction): along each
+  ray the nearest spot the eye sees where the ground passes up through 0 m (`panoramaTerrain.ts` `zeroContourOf`,
+  `terrain.zeroContour`; `terrain.seaY` below sea level is now its median, not the straight-slope guess). Of either, only
+  spots above the dot count (sea level stands over a place below it); the line at their median height. It runs from the
+  hollow at the dot to the drawn land rising through it (the near ridge and the place's own land, `outlineOf`;
+  `seaSpan` unchanged), where the slopes reach 0 m; an open side with no flank keeps `seaSpan`'s fixed end. Where neither
+  contour has a spot above the dot there is no line and no note (the label "−N מ׳" says the place is below sea level,
+  the spoken label says it in words); every harness place below sea level has one. The line is `labels.datum` (the far
+  water layer draws it, `model/water.ts`), "פני הים" stands over it within its span (`sceneNotes` `datumNote`), and the
+  height label keeps clear of it as of the marks (`besideDot`).
+- *Places checked* (`qa/canvas/datum/`, before / after at 12:00, Tiberias also 16:30; `sheet-before-after.png`):
+  Tiberias (own ground: 6 px over the dot, meets the town's slope west of it), Ein Gedi (own ground: 18 px over the dot,
+  meets the cliff), Shadmot Mehola, and four new harness places below sea level (`DATUM_PLACES`, panoramas recorded
+  from the DEM): Beit She'an, Jericho, Kalya, Neve Zohar (all by the land round them: the near ridge's face, the
+  Gilboa's and Gilead's feet, the cliffs). Every line stands above its dot.
+- *Tests:* `world/datum.test.ts` (8: the contour, the eye's 0 m on a synthetic slope and a hidden one, above the dot only,
+  the line's span, and at all seven places: above the dot, the note over the line, the label clear of it, Tiberias's line
+  meeting its slope). `water.test` and `model.test`: the datum only where the picture has 0 m above the dot (the
+  fixture's height is below sea level everywhere; Haifa's ground is not, so its far water layer is gone from the
+  order test). Pixel references re-recorded deliberately, the 20 with the datum: Tiberias's 10 (4 hours, 5 weathers,
+  12:00 at dpr 2), Ein Gedi's 5, Shadmot Mehola's 5; the two loading cases unchanged; 59/59.
+- *Follow-up (review of the sheet): the line only where land really crosses 0 m* (`datumLineOf`). The fixed open-side
+  end (x = 96, `seaSpan`'s fallback) is gone (`seaLine.ts` with it). The line is a set of segments, each through a
+  hollow under it from one real crossing to the next: a crossing is where the drawn land (near ridge, or the place's own
+  land) rises through the line *and* its height there is ≥ 0 m; land drawn through the line while below 0 m (the place's
+  land pressed up to the ridge line) is not one, the line runs on behind it, hidden. A hollow open to the frame's edge
+  on a side carries no segment, except the dot's own: it ends that side `OPEN_REACH` (66 px, 1.5 × the note) past the
+  dot, fading out over its last 40 px (the painter's gradient; the fade leaves the note's 44 px solid). Segments wholly
+  hidden behind land are dropped. The note stands over the dot's segment, on its open side (away from the place).
+  Results (`qa/canvas/datum/sheet-before-after-2.png`, before = 447d33f): Neve Zohar's line no longer floats over Moab
+  (121–325, fading west, meeting the cliff at 0 m); Beit She'an's no longer crosses the valley (a short stretch round the
+  dot fading both ways: no near land reaches 0 m); Tiberias, Ein Gedi, Shadmot Mehola, Jericho one-sided, fading toward
+  the lake / valley; Kalya both sides (its near cliff crest within 5 km is −55…−128 m). Tests: `datum.test.ts` +2 (10).
+  Pixel references re-recorded again, the same 20.
+- *Open, for the owner: the vertical scale of the place and its surroundings is not one rule.* Measured at 12:00
+  (`lieOf`), the place's ground is drawn at the frame's `k0` px/m (`FRAME_SCALE.k`, 0.18–1.2, a view exaggeration chosen
+  for houses), then pressed separately above the dot (into the room up to the highest ridge line + 6 px) and below it
+  (into the room down to the sheet, or stretched to the sea horizon on a coast), then capped 6 px over the ridge line at
+  each x. The two factors differ: below/above px per metre = 5.7 at Tiberias (0.31 vs 0.054) and Haifa (0.49 vs 0.086),
+  2.4 Neve Zohar, 1.6 Be'er Sheva, 1.2 Ein Gedi; the other way round 0.2 Rosh Pina, 0.4 Shadmot Mehola, 0.5 Jerusalem,
+  Jericho, Beit She'an. And the dot itself is laid on the near ridge's crest at the centre whatever that crest's height:
+  Tiberias's crest there is +137 m, 2 km off (274 m above the place, ~28 px on the panorama's own scale), so the "cliff"
+  under the dot is the ridge's, not the town's 73 m over the lake. A consistent rule (proposal, not implemented: it
+  moves the dot off the ridge line and changes every place's look): the place's ground on the panorama's own scale at
+  the outside eye's distance, s = 9.83 px/° × (180/π)/(1000·D) ≈ 0.563/D px/m (D = `frame.eyeN`, 3–19 km), the same
+  above and below the dot, no press and no cap; the dot below/above the ridge line at its crest by (crest − place) × s.
+  Its relief (px, now → proposed): Tiberias 41 → 40, Ein Gedi 52 → 58, Haifa 68 → 18, Rosh Pina 47 → 24, Jerusalem
+  30 → 9, Be'er Sheva 19 → 7, Tel Aviv 16 → 2, Netanya 19 → 2, Shadmot Mehola 38 → 15, Kalya 39 → 15, Neve Zohar 40 → 14,
+  Beit She'an 20 → 6, Jericho 17 → 7 (Ramon crater has no local ground). The panorama's px/m at the near crest itself is
+  not usable for it (crests 0.4 km off give 1.4 px/m: Tel Aviv's 61 m would be 84 px).
+
+**C10 done (2026-11-20): sky life and optics.** Commits on the C10 branch (from `0173702`; C9 merged in at `0338fec`, the datum work at `addf3be`; the 7 references both touched re-recorded on the merged code).
 - *World* (`src/world/`, every rule general, from the one state):
   - `placeEnv.ts`: the land round the place (once per place): the sea's and the nearest lake's distance (the water mask, 24
     bearings to 20 km), the built and open shares within 2 km (the land cover), and the towns' **sky glow**, Walker's law

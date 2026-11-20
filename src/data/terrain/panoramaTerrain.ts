@@ -1,8 +1,8 @@
 import { leftAzimuth, SCENE_CAMERA, wrap180, type Camera } from '../../domain/camera'
 import { seaSideOf, waterInView, type WaterLookup } from '../water/waterInView'
 import { anglePx } from './angleScale'
-import { apparentAngle, localHeight, type HorizonPoint, type Panorama } from './panorama'
-import { sightProfiles } from './sightProfile'
+import { apparentAngle, localHeight, RAY_DISTANCES, type HorizonPoint, type Panorama } from './panorama'
+import { relativeHeight, sightProfiles } from './sightProfile'
 import type { SceneTerrain } from './terrain'
 import { visibilityAt } from './visibility'
 
@@ -41,11 +41,12 @@ export function terrainFromPanorama(given: Panorama,
   // The water really in view (WorldCover's water along the rays, where the line of sight reaches it).
   const water = view.water ? waterInView(p, view.water, xOf, yOf) : []
   const seaSide = seaSideOf(water)
-  // The sea line: with the sea in view, its horizon; below sea level, where sea level meets the slopes around (each
-  // slope taken as straight from the eye up to its crest); otherwise eye level.
-  const below = p.rays.filter((ray) => ray.far.elevation > 0 && p.eyeM < 0)
+  // Below sea level, where the land passes up through 0 m as the eye sees it (`zeroContourOf`).
+  const zeroContour = p.eyeM < 0 ? zeroContourOf(p, xOf, yOf) : []
+  // The sea line: with the sea in view, its horizon; below sea level, the median of the 0 m the eye sees on the slopes
+  // around; otherwise eye level. (The canvas scene's datum is the place's: `world/datum.ts`.)
   const seaY = seaSide ? median(water.filter((span) => span.kind === 'sea').flatMap((span) => span.edges.map((edge) => edge.farY)))
-    : below.length ? median(below.map((ray) => yOf(ray.far.angle * (0 - p.eyeM) / (ray.far.elevation - p.eyeM))))
+    : zeroContour.length ? median(zeroContour.map(([, y]) => y))
       : horizonY
   const ground: HorizonPoint = { angle: apparentAngle(p.groundM, 0.4, p.eyeM), elevation: p.groundM, distance: 0 }
   const snowEdge = (layer: 'near' | 'far', lineM: number): Pt[] => p.rays.map((ray, i): Pt => {
@@ -84,8 +85,37 @@ export function terrainFromPanorama(given: Panorama,
     ...(given.local ? { heightNear: (dx: number, dy: number) => localHeight(given.local!, dx, dy) } : {}),
     angleY: yOf,
     eyeM: p.eyeM,
+    ...(p.eyeM < 0 ? { zeroContour } : {}),
     camera: view.camera ?? SCENE_CAMERA,
   }
+}
+
+/**
+ * Sea level on the land, as the eye sees it, for an eye below it: along each ray (in view order, at its x) the nearest
+ * spot where the ground passes up through 0 m that the eye sees (nothing nearer stands as high in its sight), linearly
+ * between two samples of the ray's profile; at its apparent angle (curvature and refraction) on the land's vertical
+ * scale (`yOf`). A ray whose land never rises to 0 m in sight has none.
+ */
+export function zeroContourOf(p: Panorama, xOf: (i: number) => number, yOf: (angle: number) => number): Pt[] {
+  const out: Pt[] = []
+  p.rays.forEach((ray, i) => {
+    const profile = ray.profile
+    if (profile?.length !== RAY_DISTANCES.length) return
+    let top = -Infinity
+    let last = Number.NaN
+    for (let j = 0; j < profile.length; j++) {
+      const { angle } = profile[j]
+      const height = p.eyeM + relativeHeight(angle, RAY_DISTANCES[j])
+      if (j > 0 && last < 0 && height >= 0) {
+        const t = -last / (height - last)
+        const at = profile[j - 1].angle + t * (angle - profile[j - 1].angle)
+        if (at >= top) { out.push([Math.round(xOf(i) * 10) / 10, Math.round(yOf(at) * 10) / 10]); return }
+      }
+      top = Math.max(top, angle)
+      last = height
+    }
+  })
+  return out
 }
 
 /**

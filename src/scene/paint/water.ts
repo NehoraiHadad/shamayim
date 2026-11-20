@@ -110,17 +110,31 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
   paintDatum(ctx, desc)
 }
 
-/** The sea-level datum: a quiet dashed note one css px wide, in the hour's ink, as the SVG scene's (below sea level only). */
+/**
+ * The sea-level datum: a quiet dashed note one css px wide, in the hour's ink (below sea level only), segment by segment;
+ * an end that meets no land fades out to nothing.
+ */
 function paintDatum(ctx: Ctx2D, desc: LayerOf<'water'>) {
   const datum = desc.datum
   if (!datum) return
-  ctx.beginPath()
-  ctx.moveTo(datum.x1, datum.y)
-  ctx.lineTo(datum.x2, datum.y)
   ctx.setLineDash([1, 4])
   ctx.lineWidth = 1
   ctx.lineCap = 'round'
-  ctx.strokeStyle = css(datum.rgb, datum.alpha)
-  ctx.stroke()
+  for (const seg of datum.segments) {
+    ctx.beginPath()
+    ctx.moveTo(seg.x1, datum.y)
+    ctx.lineTo(seg.x2, datum.y)
+    if (seg.fadeLeft || seg.fadeRight) {
+      const fade = ctx.createLinearGradient(seg.x1, 0, seg.x2, 0)
+      const solid = css(datum.rgb, datum.alpha), none = css(datum.rgb, 0)
+      const length = Math.max(1e-6, seg.x2 - seg.x1)
+      fade.addColorStop(0, seg.fadeLeft ? none : solid)
+      if (seg.fadeLeft) fade.addColorStop(Math.min(1, seg.fadeLeft / length), solid)
+      if (seg.fadeRight) fade.addColorStop(Math.max(0, 1 - seg.fadeRight / length), solid)
+      fade.addColorStop(1, seg.fadeRight ? none : solid)
+      ctx.strokeStyle = fade
+    } else ctx.strokeStyle = css(datum.rgb, datum.alpha)
+    ctx.stroke()
+  }
   ctx.setLineDash([])
 }

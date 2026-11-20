@@ -16,6 +16,7 @@ import { apparentAngle } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
 import { SCENE_CAMERA, xOf } from '../domain/camera'
+import { placeContour, zeroCrossings } from './datum'
 import { VISIBLE_BOTTOM } from './layout'
 import { SCENE_H, SCENE_W } from './sceneBox'
 import { groundAt as lineAt } from './sceneLight'
@@ -72,6 +73,11 @@ export interface OutsidePlace {
   fabric: 'cover' | 'raster'
   /** The place's own ground where it rises over the ridge line (C5b). */
   land: OutsideView['land']
+  /**
+   * The place's 0 m contour drawn by its own rule (`datum.ts`): where its ground in the frame crosses 0 m, at the y its
+   * rows give 0 m there; empty when its ground never crosses 0 m in the frame or is not known. Worked out when asked.
+   */
+  zeroContour: () => Pt[]
 }
 
 export interface OutsideInput {
@@ -313,7 +319,7 @@ function lieOf(input: OutsideInput) {
     const lift = press < 1 ? (dx: number, dy: number) => -(1 - press) * outsideProject(frame, dx, dy).near * NEAR_DROP : undefined
     const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), ...(lift ? { lift } : {}) }
     const levelY = (dx: number, dy: number) => baseYAt(ground, centerX, outsideProject(frame, dx, dy).near, floor, 0, lift?.(dx, dy) ?? 0)
-    return { frame, lie, topM, fabric, bounds, levelY, land: null }
+    return { frame, lie, topM, fabric, bounds, levelY, land: null, zeroContour: () => [] }
   }
   const h0 = heightNear(0, 0) ?? topM
   const near0 = outsideProject(frame, 0, 0).near
@@ -354,7 +360,10 @@ function lieOf(input: OutsideInput) {
   }
   const baseY = (dx: number, dy: number) => levelY(dx, dy, heightNear(dx, dy) ?? h0)
   const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), baseY }
-  return { frame, lie, topM, fabric, bounds, levelY, land: landOf(input, frame, samples, baseY) }
+  // Sea level by the same rule (the datum below sea level): 0 m where the place's ground in the frame crosses it.
+  const zeroContour = () => placeContour(zeroCrossings(heightNear, frame, GROUND_STEP, inPlace),
+    (dx, dy) => outsideProject(frame, dx, dy).x, levelY)
+  return { frame, lie, topM, fabric, bounds, levelY, land: landOf(input, frame, samples, baseY), zeroContour }
 }
 
 /**
@@ -653,7 +662,7 @@ const TREE_SLOT = .9
 /** The place seen from outside: its frame, its own boundary and slope, mass and spires, the towers beyond, its sea. */
 export function outsidePlace(input: OutsideInput): OutsidePlace {
   const { place, landmarks, city, ground, floor, width, terrain, centerX } = input
-  const { frame, lie, topM, bounds, fabric, levelY, land } = lieOf(input)
+  const { frame, lie, topM, bounds, fabric, levelY, land, zeroContour } = lieOf(input)
   const look = lookOf(frame)
   const towers = city?.raster?.towers ?? city?.towers ?? []
   const skyline = outsideSkyline({ place, towers, landmarks, raster: city?.raster ?? undefined, frame, ground,
@@ -675,5 +684,5 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
   })
   return { frame, skyline, bounds, topM, lie, beyond: beyondTowers(input, frame, lie, look, baseKm),
     beyondTowns: beyondTowns(input, frame, lie, look, baseKm), trees, fabric: fabric.source,
-    sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land }
+    sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land, zeroContour }
 }

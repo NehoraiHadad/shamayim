@@ -48,3 +48,18 @@ export const STILL_PLACES: Place[] = [
   { id: 'zikhron-yaakov', nameHe: 'זכרון יעקב', regionHe: 'רמת הנדיב', lat: 32.5714, lon: 34.9522, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'town', population: 24000 },
 ]
+
+/**
+ * Places below sea level the "פני הים" datum is checked at (`qa/canvas/datum/`), beside Tiberias, Ein Gedi and Shadmot
+ * Mehola: a town in the Beit She'an valley, Jericho and two Dead Sea places. Harness only; not in the tests' place loops.
+ */
+export const DATUM_PLACES: Place[] = [
+  { id: 'beit-shean', nameHe: 'בית שאן', regionHe: 'עמק בית שאן', lat: 32.4975, lon: 35.4964, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'town', population: 18000 },
+  { id: 'jericho', nameHe: 'יריחו', regionHe: 'בקעת הירדן', lat: 31.8569, lon: 35.4597, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'city', population: 20000 },
+  { id: 'kalya', nameHe: 'קליה', regionHe: 'ים המלח', lat: 31.7597, lon: 35.4706, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'village', population: 400 },
+  { id: 'neve-zohar', nameHe: 'נווה זוהר', regionHe: 'ים המלח', lat: 31.15, lon: 35.365, timezone: 'Asia/Jerusalem',
+    featureCode: 'PPL', settlementType: 'village', population: 100 },
+]

@@ -53,6 +53,11 @@ export interface SceneTerrain {
   angleY?: (angle: number) => number
   /** The eye's height (m above sea level) the panorama was drawn for (panorama only). */
   eyeM?: number
+  /**
+   * Below sea level (panorama only): where the land passes up through 0 m along each ray as the eye sees it (x, y on the
+   * land's vertical scale), the nearest such spot the eye sees on each ray; the "פני הים" datum's land (`world/datum.ts`).
+   */
+  zeroContour?: Pt[]
   /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
   snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
   /**

@@ -27,10 +27,19 @@ const MIN_LABEL_SPAN = 24
 /** Clear of the sheet's edges (px). */
 const EDGE = 6
 
-/** The datum's note stands over the open side of the Rift (east), as it always has. */
-function datumNote(seaY: number, width: number): SceneNote {
+/**
+ * The datum's note stands over the open side of the Rift (east), as it always has; with its line known, over the line:
+ * slid along it to lie within its span (centred on a span shorter than the text).
+ */
+function datumNote(seaY: number, width: number, line?: Omit<DatumLine, 'y'>): SceneNote {
   const w = textWidth('פני הים')
-  const left = SEA_LABEL_SIDE === 'right' ? width * .73 - w : width * .27
+  let left = SEA_LABEL_SIDE === 'right' ? width * .73 - w : width * .27
+  if (line) {
+    const scale = width / 375
+    const [x1, x2] = [line.x1 * scale, line.x2 * scale]
+    left = x2 - x1 < w ? (x1 + x2 - w) / 2 : Math.max(x1, Math.min(x2 - w, left))
+    left = Math.max(EDGE, Math.min(width - EDGE - w, left))
+  }
   return { text: 'פני הים', kind: 'datum', left, top: seaY - 14, width: w, height: HEIGHT }
 }
 
@@ -93,7 +102,7 @@ export interface DatumLine { x1: number; x2: number; y: number }
  */
 export function sceneNotes(terrain: Pick<SceneTerrain, 'seaY' | 'water'>, datum: boolean, width: number,
   line?: Omit<DatumLine, 'y'>): SceneNote[] {
-  const datumNotes = datum ? [datumNote(terrain.seaY, width)] : []
+  const datumNotes = datum ? [datumNote(terrain.seaY, width, line)] : []
   return [...datumNotes, ...waterNotes(terrain.water ?? [], width, datumNotes,
     datum && line ? { ...line, y: terrain.seaY } : null)]
 }
