@@ -124,6 +124,8 @@ export interface LandSample {
   rgb: [number, number, number]
   rgbSource: LandSource
   rgbDate: string | null
+  /** Acquisition solar geometry (deg) when `rgb` comes directly from a near S2 cell, else undefined. */
+  rgbSunElevation?: number; rgbSunAzimuth?: number
   ndvi: number
   ndviSource: LandSource
   ndviDate: string | null
