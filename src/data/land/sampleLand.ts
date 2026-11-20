@@ -9,11 +9,11 @@ import type { LandData, LandSample, LandSource } from './types'
  * Unified living-land sampler with explicit provenance & observation date on every resolved value.
  *
  * Fallback priority (evaluated lazily per channel so direct near-S2 hits skip far/mean/climatology):
- * - RGB albedo: near S2 (`s2:<date>`) → far GIBS SR (`gibs:<rgbDate>`) → per-cover S2 mean
- *   (`s2-mean:<date>`, known WorldCover classes `1..10` only) → climatology.
- * - NDVI: near S2 (`s2:<date>`) → far GIBS NDVI (`gibs:<date>`) → per-cover S2 mean → climatology.
- * - NDSI: near S2 (`s2:<date>`) only; missing NDSI is explicit (`ndsi: null, ndsiSource: null`).
- * - Snow: near S2 SCL-11 land fraction (`s2:<date>`, open water SCL-6 = 0) → elevation-aware climatology.
+ * - RGB albedo: near S2 (`s2:<rgbDate>`) → far GIBS SR (`gibs:<rgbDate>`) → per-cover S2 mean
+ *   (`s2-mean:<rgbDate>`, known WorldCover classes `1..10` only) → climatology.
+ * - NDVI: near S2 (`s2:<ndviDate>`) → far GIBS NDVI (`gibs:<date>`) → per-cover S2 mean → climatology.
+ * - NDSI: near S2 (`s2:<ndsiDate>`) only; missing NDSI is explicit (`ndsi: null, ndsiSource: null`).
+ * - Snow: near S2 SCL-11 land fraction (`s2:<snowDate>`, open water SCL-6 = 0) → elevation-aware climatology.
  * - Dryness: precomputed Open-Meteo liquid rain + soil moisture (`open-meteo:<date>`) → climatology.
  */
 export { computeCoverMeans, MIN_CELL_VALID, type CoverMean, type CoverMeansTable }
@@ -45,15 +45,15 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       let rgb: [number, number, number] | null = null
       let rgbSource: LandSource = 'climatology'
       let rgbDate: string | null = null
-      if (near && near.rgb && near.rgbValid >= MIN_CELL_VALID) {
-        rgb = near.rgb; rgbSource = near.source; rgbDate = near.date
+      if (near && near.rgb && near.rgbValid >= MIN_CELL_VALID && near.rgbSource) {
+        rgb = near.rgb; rgbSource = near.rgbSource; rgbDate = near.rgbDate
       }
 
       let ndvi: number | null = null
       let ndviSource: LandSource = 'climatology'
       let ndviDate: string | null = null
-      if (near && near.ndvi !== null && near.ndviValid >= MIN_CELL_VALID) {
-        ndvi = near.ndvi; ndviSource = near.source; ndviDate = near.date
+      if (near && near.ndvi !== null && near.ndviValid >= MIN_CELL_VALID && near.ndviSource) {
+        ndvi = near.ndvi; ndviSource = near.ndviSource; ndviDate = near.ndviDate
       }
 
       if (rgb === null || ndvi === null) {
@@ -69,21 +69,25 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       if ((rgb === null || ndvi === null) && cover !== null) {
         const m = getMeans()
         const cm = m?.byCover[cover] ?? null
-        if (rgb === null && cm && m) { rgb = cm.rgb; rgbSource = m.source; rgbDate = m.date }
+        if (rgb === null && cm?.rgb && m) {
+          const d = cm.rgbDate ?? m.date
+          rgb = cm.rgb; rgbSource = `s2-mean:${d}`; rgbDate = d
+        }
         if (ndvi === null && cm?.ndvi !== null && cm?.ndvi !== undefined && m) {
-          ndvi = cm.ndvi; ndviSource = m.source; ndviDate = m.date
+          const d = cm.ndviDate ?? m.date
+          ndvi = cm.ndvi; ndviSource = `s2-mean:${d}`; ndviDate = d
         }
       }
 
-      const hasNearNdsi = Boolean(near && near.ndsi !== null && near.ndsiValid >= MIN_CELL_VALID)
+      const hasNearNdsi = Boolean(near && near.ndsi !== null && near.ndsiValid >= MIN_CELL_VALID && near.ndsiSource)
       const ndsi = hasNearNdsi ? near!.ndsi : null
-      const ndsiSource: LandSource | null = hasNearNdsi ? near!.source : null
-      const ndsiDate: string | null = hasNearNdsi ? near!.date : null
+      const ndsiSource: LandSource | null = hasNearNdsi ? near!.ndsiSource : null
+      const ndsiDate: string | null = hasNearNdsi ? near!.ndsiDate : null
 
-      const hasNearSnow = Boolean(near && near.snow !== null && near.valid >= MIN_CELL_VALID)
+      const hasNearSnow = Boolean(near && near.snow !== null && near.valid >= MIN_CELL_VALID && near.snowSource)
       let snowProb = hasNearSnow ? near!.snow! : -1
-      let snowSource: LandSource = hasNearSnow ? near!.source : 'climatology'
-      let snowDate: string | null = hasNearSnow ? near!.date : null
+      let snowSource: LandSource = hasNearSnow ? near!.snowSource! : 'climatology'
+      let snowDate: string | null = hasNearSnow ? near!.snowDate : null
 
       let dryness = weatherDryness
       let drynessSource: LandSource = weatherSource ?? 'climatology'

@@ -24,8 +24,11 @@ function sampleNear(): NearLandGrid {
     rgbValid: Float32Array.from([1, 0.5, 0, 0.8]),
     ndviValid: Float32Array.from([1, 0.5, 0, 0.8]),
     ndsiValid: Float32Array.from([1, 0.5, 0, 0.8]),
-    acquisitions: [{ sunElevation: 38.0, sunAzimuth: 164.0 }],
+    acquisitions: [{ date: '2026-11-15', sunElevation: 38.0, sunAzimuth: 164.0 }],
     acqIndex: Uint8Array.from([0, 0, 255, 0]),
+    ndviAcqIndex: Uint8Array.from([0, 0, 255, 0]),
+    ndsiAcqIndex: Uint8Array.from([0, 0, 255, 0]),
+    snowAcqIndex: Uint8Array.from([0, 0, 255, 0]),
     sunElevation: 38.0, sunAzimuth: 164.0,
   }
 }

@@ -41,20 +41,24 @@ describe('land', () => {
     const valid = new Float32Array(n), rgbValid = new Float32Array(n)
     const ndviValid = new Float32Array(n), ndsiValid = new Float32Array(n)
     const acqIndex = new Uint8Array(n).fill(255)
+    const ndviAcqIndex = new Uint8Array(n).fill(255)
+    const ndsiAcqIndex = new Uint8Array(n).fill(255)
+    const snowAcqIndex = new Uint8Array(n).fill(255)
 
     // Target a cell 4.5 km north of center (row 5, col 50) where ~1.36° convergence shifts true north ~107 m east.
     const row = 5, col = 50, idx = row * size + col
     rgb.set([10, 200, 30], idx * 3)
     ndvi[idx] = 0.62; ndsi[idx] = -0.18; snow[idx] = 0
     valid[idx] = 0.9; rgbValid[idx] = 0.9; ndviValid[idx] = 0.9; ndsiValid[idx] = 0.9
-    acqIndex[idx] = 0
+    acqIndex[idx] = 0; ndviAcqIndex[idx] = 0; ndsiAcqIndex[idx] = 0; snowAcqIndex[idx] = 0
     const grid: NearLandGrid = {
       date: '2026-11-15', source: 's2:2026-11-15', fetchedAt: 0,
       lat: lat0, lon: lon0, utmZone, utmSouth: false,
       originE: c.e - REACH_M, originN: c.n + REACH_M,
       reachM: REACH_M, stepM: STEP_M, size,
       rgb, ndvi, ndsi, snow, valid, rgbValid, ndviValid, ndsiValid,
-      acquisitions: [{ sunElevation: 38, sunAzimuth: 165 }], acqIndex,
+      acquisitions: [{ date: '2026-11-15', sunElevation: 38, sunAzimuth: 165 }],
+      acqIndex, ndviAcqIndex, ndsiAcqIndex, snowAcqIndex,
       sunElevation: 38, sunAzimuth: 165,
     }
 

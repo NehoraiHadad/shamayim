@@ -15,7 +15,7 @@ export const WEATHER_TTL_MS = 6 * 3_600_000
 export const MAX_STALE_MS = 30 * 86_400_000
 export const WEATHER_MAX_STALE_MS = 24 * 3_600_000
 
-const CACHE_VERSION = 2
+const CACHE_VERSION = 3
 
 export type LandCacheKind = 'near' | 'far' | 'weather'
 export type WeatherFreshness = 'fresh' | 'stale' | 'expired'

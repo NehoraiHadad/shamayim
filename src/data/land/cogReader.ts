@@ -98,14 +98,14 @@ function reprojectBox(box: UtmBox, from: UtmCrs, to: UtmCrs): UtmBox {
   }
 }
 
-/** Reads the clipped georeferenced pixel window covering `targetBox` (in `targetCrs`) from a UTM COG. */
+/** Reads the clipped georeferenced pixel window covering `targetBox` at the overview's native lattice. */
 export async function readCogWindow(
   href: string,
   targetBox: UtmBox,
   targetCrs: UtmCrs,
   maxResM: number,
   openTiff: OpenTiffFn,
-  opts: { signal?: AbortSignal; forceSize?: { width: number; height: number } } = {},
+  opts: { signal?: AbortSignal } = {},
 ): Promise<CogWindow | null> {
   const tiff = await openTiff(href, opts.signal)
   const { full, img, bbox } = await selectOverview(tiff, maxResM)
@@ -113,27 +113,25 @@ export async function readCogWindow(
   if (!itemCrs) return null
   const [tileWest, tileSouth, tileEast, tileNorth] = bbox
   const imgW = img.getWidth(), imgH = img.getHeight()
-  const rawResX = (tileEast - tileWest) / imgW
-  const rawResY = (tileNorth - tileSouth) / imgH
+  const resX = (tileEast - tileWest) / imgW
+  const resY = (tileNorth - tileSouth) / imgH
   const box = reprojectBox(targetBox, targetCrs, itemCrs)
 
-  const x0 = Math.max(0, Math.floor((box.minE - tileWest) / rawResX))
-  const y0 = Math.max(0, Math.floor((tileNorth - box.maxN) / rawResY))
-  const x1 = Math.min(imgW, Math.ceil((box.maxE - tileWest) / rawResX))
-  const y1 = Math.min(imgH, Math.ceil((tileNorth - box.minN) / rawResY))
+  const x0 = Math.max(0, Math.floor((box.minE - tileWest) / resX))
+  const y0 = Math.max(0, Math.floor((tileNorth - box.maxN) / resY))
+  const x1 = Math.min(imgW, Math.ceil((box.maxE - tileWest) / resX))
+  const y1 = Math.min(imgH, Math.ceil((tileNorth - box.minN) / resY))
   if (x1 <= x0 || y1 <= y0) return null
 
-  const width = opts.forceSize?.width ?? (x1 - x0)
-  const height = opts.forceSize?.height ?? (y1 - y0)
+  const width = x1 - x0, height = y1 - y0
   const data = await img.readRasters({
     window: [x0, y0, x1, y1], width, height, interleave: true, signal: opts.signal, fillValue: 0,
   })
-  const west = tileWest + x0 * rawResX
-  const north = tileNorth - y0 * rawResY
   return {
-    data, width, height, west, north,
-    resX: ((x1 - x0) * rawResX) / width,
-    resY: ((y1 - y0) * rawResY) / height,
+    data, width, height,
+    west: tileWest + x0 * resX,
+    north: tileNorth - y0 * resY,
+    resX, resY,
     zone: itemCrs.zone, south: itemCrs.south,
   }
 }

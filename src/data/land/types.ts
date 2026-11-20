@@ -8,11 +8,12 @@ export type LandSource =
 export type ClimateZone =
   | 'arid' | 'semiarid' | 'mediterranean' | 'humid-subtropical' | 'temperate' | 'continental' | 'tropical' | 'alpine'
 
-/** Solar geometry of one contributing Sentinel-2 STAC granule (degrees, from `view:sun_*`). */
-export interface AcquisitionGeometry { sunElevation?: number; sunAzimuth?: number }
+/** Solar geometry and acquisition date of one contributing Sentinel-2 STAC granule (degrees, from `view:sun_*`). */
+export interface AcquisitionGeometry { date: string; sunElevation?: number; sunAzimuth?: number }
 
 /** Near-field Sentinel-2 L2A grid (±5 km at 100 m steps) in its native UTM projection. */
 export interface NearLandGrid {
+  /** Newest contributing acquisition date (`YYYY-MM-DD`). */
   date: string
   source: `s2:${string}`
   fetchedAt: number
@@ -27,28 +28,32 @@ export interface NearLandGrid {
   reachM: number
   stepM: number
   size: number
-  /** Mean valid-ground sRGB bytes (`size * size * 3`), 0 when no valid RGB pixel. */
+  /** Area-weighted mean valid-ground sRGB bytes (`size * size * 3`), 0 when no valid RGB pixel. */
   rgb: Uint8Array
-  /** Mean valid-ground NDVI `[-1, 1]` (`size * size`), NaN when unavailable. */
+  /** Area-weighted mean valid-ground NDVI `[-1, 1]` (`size * size`), NaN when unavailable. */
   ndvi: Float32Array
-  /** Mean valid-ground NDSI `[-1, 1]` (`size * size`), NaN when unavailable. */
+  /** Area-weighted mean valid-ground NDSI `[-1, 1]` (`size * size`), NaN when unavailable. */
   ndsi: Float32Array
   /** Observed snow fraction from SCL class 11 among valid non-water pixels (`[0, 1]`, NaN when unknown). */
   snow: Float32Array
-  /** SCL-valid and per-measurement overview support fractions `[0, 1]`. */
+  /** Area-weighted SCL-valid and per-measurement support fractions `[0, 1]`. */
   valid: Float32Array
   rgbValid: Float32Array
   ndviValid: Float32Array
   ndsiValid: Float32Array
-  /** Solar geometry of contributing granules; `acqIndex[i]` indexes here (`255` = none). */
+  /** Contributing granules; per-channel `*AcqIndex[i]` indexes here (`255` = none). */
   acquisitions: AcquisitionGeometry[]
+  /** RGB contributor index into `acquisitions` (`255` = none). */
   acqIndex: Uint8Array
-  /** Dominant acquisition solar geometry (degrees, from STAC `view:sun_*`), for Stage 2 de-lighting. */
+  ndviAcqIndex: Uint8Array
+  ndsiAcqIndex: Uint8Array
+  snowAcqIndex: Uint8Array
+  /** Dominant RGB acquisition solar geometry (degrees, from STAC `view:sun_*`). */
   sunElevation?: number
   sunAzimuth?: number
 }
 
-/** One sampled cell from a `NearLandGrid`, with independent per-measurement validity and solar geometry. */
+/** One sampled cell from a `NearLandGrid`, with independent per-measurement validity, date and solar geometry. */
 export interface NearCell {
   rgb: [number, number, number] | null
   ndvi: number | null
@@ -58,10 +63,19 @@ export interface NearCell {
   rgbValid: number
   ndviValid: number
   ndsiValid: number
+  /** Solar geometry of the actual RGB contributor (undefined when that contributor lacks the angle). */
   sunElevation?: number
   sunAzimuth?: number
   date: string
   source: `s2:${string}`
+  rgbDate: string | null
+  rgbSource: `s2:${string}` | null
+  ndviDate: string | null
+  ndviSource: `s2:${string}` | null
+  ndsiDate: string | null
+  ndsiSource: `s2:${string}` | null
+  snowDate: string | null
+  snowSource: `s2:${string}` | null
 }
 
 /** Far-field NASA GIBS grid (±60 km at 2 km steps) for panorama land tens of km out. */
