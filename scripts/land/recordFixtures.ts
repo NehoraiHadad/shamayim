@@ -1,23 +1,24 @@
 /**
  * One-shot fixture recorder for living-land Stage 1 unit tests (hits live STAC/COG, NASA GIBS and
- * Open-Meteo ONCE; unit tests never touch the network).
+ * Open-Meteo ONCE; unit tests never touch the network). Reuses `cogReader.ts` so the recorder and
+ * production Sentinel-2 reader share identical CRS and window math.
  *
  * Usage: `npx tsx scripts/land/recordFixtures.ts`
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { fromUrl } from 'geotiff'
 import { SHADMOT_MEHOLA } from '../../src/config/place'
+import { defaultOpenTiff, readCogWindow } from '../../src/data/land/cogReader'
 import { gibsNdviUrl, GIBS_ZOOM } from '../../src/data/land/gibs'
-import { decodeGibsNdviPng } from '../../src/data/land/gibsDecode'
+import { parseIndexedPng } from '../../src/data/land/gibsDecode'
 import { recentWeatherUrl } from '../../src/data/land/recentWeather'
-import { STAC_SEARCH } from '../../src/data/land/satellite'
-import { toUtm } from '../../src/data/land/utm'
+import { MAX_OVERVIEW_RES_M, STAC_SEARCH } from '../../src/data/land/satellite'
+import { toUtm, utmBoxToWgs84Bbox, utmZoneOf } from '../../src/data/land/utm'
 import { tileXY } from '../../src/data/terrain/dem'
 
 const OUT_DIR = path.resolve('src/test/fixtures')
-const PATCH = 10
+const PATCH_HALF_M = 200 // 400 m × 400 m => 10×10 px at 40 m overview
 
 function crc32(buf: Uint8Array): number {
   let c = 0xffffffff
@@ -38,31 +39,39 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
   return out
 }
 
-/** Encodes a tiny valid colorType=3 indexed PNG (filter 0) from raw palette indices. */
-function encodeIndexedPng(width: number, height: number, indices: Uint8Array): Uint8Array {
-  const sig = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10])
+/** Losslessly encodes an indexed PNG preserving the original GIBS `PLTE` and `tRNS` chunks. */
+function encodeIndexedPng(width: number, height: number, indices: Uint8Array, plte: Uint8Array, trns: Uint8Array): Uint8Array {
   const ihdr = new Uint8Array(13)
-  const dv = new DataView(ihdr.buffer)
-  dv.setUint32(0, width); dv.setUint32(4, height)
-  ihdr[8] = 8; ihdr[9] = 3 // 8-bit indexed
+  new DataView(ihdr.buffer).setUint32(0, width)
+  new DataView(ihdr.buffer).setUint32(4, height)
+  ihdr[8] = 8; ihdr[9] = 3
   const raw = new Uint8Array(height * (width + 1))
   for (let y = 0; y < height; y++) {
     raw[y * (width + 1)] = 0
     raw.set(indices.subarray(y * width, (y + 1) * width), y * (width + 1) + 1)
   }
-  const idat = new Uint8Array(zlib.deflateSync(raw))
-  const parts = [sig, pngChunk('IHDR', ihdr), pngChunk('IDAT', idat), pngChunk('IEND', new Uint8Array(0))]
-  const total = parts.reduce((s, p) => s + p.length, 0)
-  const out = new Uint8Array(total)
+  const parts = [
+    Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('PLTE', plte),
+    ...(trns.length > 0 ? [pngChunk('tRNS', trns)] : []),
+    pngChunk('IDAT', new Uint8Array(zlib.deflateSync(raw))),
+    pngChunk('IEND', new Uint8Array(0)),
+  ]
+  const out = new Uint8Array(parts.reduce((s, p) => s + p.length, 0))
   parts.reduce((off, p) => { out.set(p, off); return off + p.length }, 0)
   return out
 }
 
 async function recordSentinel2() {
   const place = SHADMOT_MEHOLA
+  const zone = utmZoneOf(place.lon), south = place.lat < 0
+  const center = toUtm(place.lat, place.lon, zone, south)
+  const box = { minE: center.e - PATCH_HALF_M, minN: center.n - PATCH_HALF_M, maxE: center.e + PATCH_HALF_M, maxN: center.n + PATCH_HALF_M }
+  const bbox = utmBoxToWgs84Bbox(box.minE, box.minN, box.maxE, box.maxN, zone, south)
   const query = new URLSearchParams({
     collections: 'sentinel-2-l2a', limit: '1', sortby: '-properties.datetime',
-    bbox: `${place.lon - 0.05},${place.lat - 0.05},${place.lon + 0.05},${place.lat + 0.05}`,
+    bbox: bbox.map((v) => v.toFixed(6)).join(','),
     query: JSON.stringify({ 'eo:cloud_cover': { lt: 20 } }),
   })
   const item = ((await (await fetch(`${STAC_SEARCH}?${query}`)).json()) as { features: Record<string, unknown>[] }).features[0]
@@ -70,42 +79,23 @@ async function recordSentinel2() {
   const assets = item.assets as Record<string, { href: string; 'raster:bands'?: unknown[] }>
 
   const readPatch = async (key: string) => {
-    const tiff = await fromUrl(assets[key].href, { allowFullFile: false })
-    const full = await tiff.getImage(0)
-    const [west, , east, north] = full.getBoundingBox()
-    const fullRes = (east - west) / full.getWidth()
-    const count = await tiff.getImageCount()
-    let img = full, res = fullRes
-    for (let i = 1; i < count; i++) {
-      const c = await tiff.getImage(i)
-      const cr = fullRes * (full.getWidth() / c.getWidth())
-      if (cr <= 50 && cr > res) { img = c; res = cr }
+    const win = await readCogWindow(assets[key].href, box, { zone, south }, MAX_OVERVIEW_RES_M, defaultOpenTiff)
+    if (!win) throw new Error(`Missing COG window for ${key}`)
+    return {
+      res: win.resX, west: win.west, north: win.north, width: win.width, height: win.height,
+      data: Array.from(win.data), rasterBands: assets[key]['raster:bands'] ?? [],
     }
-    const zone = Number(full.getGeoKeys().ProjectedCSTypeGeoKey) - 32600
-    const p = toUtm(place.lat, place.lon, zone)
-    const cx = Math.round((p.e - west) / res), cy = Math.round((north - p.n) / res)
-    const half = PATCH / 2
-    const data = await img.readRasters({ window: [cx - half, cy - half, cx + half, cy + half], interleave: true, fillValue: 0 })
-    return { res, data: Array.from(data as ArrayLike<number>), rasterBands: assets[key]['raster:bands'] ?? [] }
   }
-
   const [visual, red, nir, green, swir16, scl] = await Promise.all([
     readPatch('visual'), readPatch('red'), readPatch('nir'), readPatch('green'), readPatch('swir16'), readPatch('scl'),
   ])
-
   const fixture = {
     _note: 'Recorded from Element84 Earth Search Sentinel-2 L2A COGs at 40 m overview around 32.3465,35.5325',
-    id: item.id,
-    lat: place.lat,
-    lon: place.lon,
-    width: PATCH,
-    height: PATCH,
+    id: item.id, lat: place.lat, lon: place.lon, width: scl.width, height: scl.height,
     properties: {
-      datetime: props.datetime,
-      's2:processing_baseline': props['s2:processing_baseline'],
+      datetime: props.datetime, 's2:processing_baseline': props['s2:processing_baseline'],
       'earthsearch:boa_offset_applied': props['earthsearch:boa_offset_applied'],
-      'view:sun_elevation': props['view:sun_elevation'],
-      'view:sun_azimuth': props['view:sun_azimuth'],
+      'view:sun_elevation': props['view:sun_elevation'], 'view:sun_azimuth': props['view:sun_azimuth'],
     },
     bands: { visual, red, nir, green, swir16, scl },
   }
@@ -122,34 +112,28 @@ async function recordGibs() {
   const url = gibsNdviUrl(date, GIBS_ZOOM, row, col)
   const res = await fetch(url)
   if (!res.ok) throw new Error(`GIBS HTTP ${res.status} for ${url}`)
-  const png = new Uint8Array(await res.arrayBuffer())
-  const decoded = await decodeGibsNdviPng(png)
-  // Extract a small 16×16 window around the place pixel and also capture raw palette refs for a tiny PNG fixture.
+  const parsed = await parseIndexedPng(new Uint8Array(await res.arrayBuffer()))
   const size = 16, x0 = Math.max(0, px - 8), y0 = Math.max(0, py - 8)
-  const ndviCrop: (number | null)[] = []
-  for (let y = y0; y < y0 + size; y++) {
-    for (let x = x0; x < x0 + size; x++) {
-      const v = decoded[y * 256 + x]
-      ndviCrop.push(Number.isFinite(v) ? Math.round(v * 10000) / 10000 : null)
-    }
+  const cropIndices = new Uint8Array(size * size)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) cropIndices[y * size + x] = parsed.indices[(y0 + y) * parsed.width + (x0 + x)]
   }
-  // Also record a tiny 8×8 indexed PNG encoded from representative MODIS_NDVI palette refs (0, 2, 23, 55, 89, 123, 142).
-  const sampleRefs = Uint8Array.from({ length: 64 }, (_, i) => [0, 1, 2, 23, 55, 89, 123, 142][i % 8])
-  const samplePngBase64 = Buffer.from(encodeIndexedPng(8, 8, sampleRefs)).toString('base64')
+  const cropPngBase64 = Buffer.from(encodeIndexedPng(size, size, cropIndices, parsed.plte, parsed.trns)).toString('base64')
+  // Blank 8×8 tile using the exact GIBS PLTE + tRNS with all pixels set to transparent index 0.
+  const blankPngBase64 = Buffer.from(encodeIndexedPng(8, 8, new Uint8Array(64), parsed.plte, parsed.trns)).toString('base64')
   const fixture = {
-    _note: 'Recorded from NASA GIBS MODIS_Terra_NDVI_8Day WMTS (z8) + 8x8 indexed PNG built with exact MODIS_NDVI refs',
-    url, date, zoom: GIBS_ZOOM, row, col, cropOrigin: { x0, y0, size }, ndviCrop, samplePngBase64,
+    _note: 'Lossless 16×16 crop of a genuine NASA GIBS MODIS_Terra_NDVI_8Day PNG preserving its exact PLTE and tRNS chunks',
+    url, date, zoom: GIBS_ZOOM, row, col, cropOrigin: { x0, y0, size },
+    cropIndices: Array.from(cropIndices), cropPngBase64, blankPngBase64,
   }
   fs.writeFileSync(path.join(OUT_DIR, 'land-gibs-ndvi.json'), JSON.stringify(fixture, null, 2))
-  console.log('Wrote land-gibs-ndvi.json', date, 'valid crop px:', ndviCrop.filter((v) => v !== null).length)
+  console.log('Wrote land-gibs-ndvi.json', date, 'plte entries:', parsed.plte.length / 3, 'trns len:', parsed.trns.length)
 }
 
 async function recordRecentWeather() {
-  const url = recentWeatherUrl(SHADMOT_MEHOLA, '')
-  const res = await fetch(url)
+  const res = await fetch(recentWeatherUrl(SHADMOT_MEHOLA, ''))
   if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`)
-  const body = await res.json()
-  fs.writeFileSync(path.join(OUT_DIR, 'land-weather-shadmot.json'), JSON.stringify(body, null, 2))
+  fs.writeFileSync(path.join(OUT_DIR, 'land-weather-shadmot.json'), JSON.stringify(await res.json(), null, 2))
   console.log('Wrote land-weather-shadmot.json')
 }
 

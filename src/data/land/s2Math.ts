@@ -3,17 +3,22 @@
  *
  * Provenance:
  * - ESA Sentinel-2 L2A Product Definition (S2-PDGS-MPC-L2A-PDD-V2.11):
- *   QUANTIFICATION_VALUE = 10000 (scale = 1e-4). Processing Baseline >= 04.00 (2022-01-25) adds
- *   +1000 DN to BOA reflectance bands (BOA_ADD_OFFSET = -1000 DN, reflectance offset = -0.1):
- *   rho = (DN + BOA_ADD_OFFSET) / 10000 = DN * 0.0001 - 0.1. DN = 0 is NO_DATA.
- * - SCL classes: 0 NO_DATA, 1 SATURATED/DEFECTIVE, 2 DARK/CAST_SHADOW, 3 CLOUD_SHADOW,
- *   4 VEGETATION, 5 BARE, 6 WATER, 7 UNCLASSIFIED, 8 CLOUD_MED, 9 CLOUD_HIGH, 10 CIRRUS, 11 SNOW.
- *   Valid ground keeps {4, 5, 6, 7, 11}; masks out {0, 1, 2, 3, 8, 9, 10}.
+ *   QUANTIFICATION_VALUE = 10000 (`L2A_SCALE = 1e-4`). Processing Baseline >= 04.00 (2022-01-25)
+ *   adds +1000 DN (`BOA_ADD_OFFSET = -1000 DN`, `-0.1` reflectance) to unharmonised ESA products.
+ * - Element84 Earth Search `sentinel-2-l2a` v1 (github.com/Element84/earth-search/issues/71,
+ *   verified live on `S2B_36SXB_20261115_1_L2A` PB 05.13): when `earthsearch:boa_offset_applied` is
+ *   `true`, Earth Search has ALREADY subtracted 1000 DN in the COG pixels (open sea B04 reads DN 1–21,
+ *   land ~700), even though `raster:bands[0].offset` still reports `-0.1` from ESA metadata. Do NOT
+ *   subtract `-0.1` a second time when `boa_offset_applied === true`.
+ * - SCL classes (Sen2Cor ATBD): 0 NO_DATA, 1 SATURATED, 2 DARK/SHADOW, 3 CLOUD_SHADOW, 4 VEGETATION,
+ *   5 BARE, 6 WATER, 7 UNCLASSIFIED, 8 CLOUD_MED, 9 CLOUD_HIGH, 10 CIRRUS, 11 SNOW/ICE.
+ *   Valid ground keeps `{4, 5, 6, 7, 11}`; snow fraction is SCL 11 over valid non-water `{4, 5, 7, 11}`.
  * - NDVI = (B08 - B04) / (B08 + B04) (Rouse et al. 1974); NDSI = (B03 - B11) / (B03 + B11) (Hall et al. 1995).
  */
 export const SCL_VALID: ReadonlySet<number> = new Set([4, 5, 6, 7, 11])
 export const L2A_SCALE = 1 / 10_000
 export const PB04_OFFSET = -1000 * L2A_SCALE
+const PB04_START_DATE = '2022-01-25'
 
 export interface BandScaling { scale: number; offset: number; nodata: number }
 export interface StacBandMeta { scale?: number; offset?: number; nodata?: number }
@@ -29,15 +34,43 @@ export interface StacItemProps {
 
 export const isValidScl = (code: number): boolean => SCL_VALID.has(code)
 
-/** Resolves `rho = DN * scale + offset` from asset `raster:bands[0]` or STAC item baseline properties. */
-export function bandScalingOf(props: StacItemProps, band?: StacBandMeta): BandScaling {
+/**
+ * Resolves `rho = DN * scale + offset` for the actual COG pixel representation.
+ * Returns `null` when metadata is contradictory or ambiguous so callers skip unreliable items.
+ */
+export function bandScalingOf(props: StacItemProps, band?: StacBandMeta): BandScaling | null {
   const nodata = typeof band?.nodata === 'number' ? band.nodata : 0
   const scale = typeof band?.scale === 'number' && band.scale > 0 ? band.scale : L2A_SCALE
+  const boaApplied = props['earthsearch:boa_offset_applied']
+  const baseline = Number.parseFloat(String(props['s2:processing_baseline'] ?? ''))
+  const hasBaseline = Number.isFinite(baseline)
+  const isPb04 = hasBaseline && baseline >= 4
+
+  // Earth Search harmonized COGs already have the -1000 DN offset applied in pixel values.
+  if (boaApplied === true) return { scale, offset: 0, nodata }
+
+  if (boaApplied === false) {
+    if (typeof band?.offset === 'number') {
+      return isPb04 && band.offset === 0 ? null : { scale, offset: band.offset, nodata }
+    }
+    if (typeof props['s2:boa_add_offset'] === 'number') {
+      return { scale, offset: props['s2:boa_add_offset'] * scale, nodata }
+    }
+    if (hasBaseline) return { scale, offset: isPb04 ? PB04_OFFSET : 0, nodata }
+    const day = props.datetime?.slice(0, 10)
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null
+    return { scale, offset: day >= PB04_START_DATE ? PB04_OFFSET : 0, nodata }
+  }
+
+  // Non-Earth-Search / unspecified `boa_offset_applied`:
+  if (hasBaseline && !isPb04) {
+    return typeof band?.offset === 'number' && band.offset !== 0 ? null : { scale, offset: 0, nodata }
+  }
   if (typeof band?.offset === 'number') return { scale, offset: band.offset, nodata }
   if (typeof props['s2:boa_add_offset'] === 'number') return { scale, offset: props['s2:boa_add_offset'] * scale, nodata }
-  const baseline = Number.parseFloat(String(props['s2:processing_baseline'] ?? ''))
-  const hasOffset = props['earthsearch:boa_offset_applied'] === true || (Number.isFinite(baseline) && baseline >= 4)
-  return { scale, offset: hasOffset ? PB04_OFFSET : 0, nodata }
+  if (isPb04) return { scale, offset: PB04_OFFSET, nodata }
+  const day = props.datetime?.slice(0, 10)
+  return day && /^\d{4}-\d{2}-\d{2}$/.test(day) && day < PB04_START_DATE ? { scale, offset: 0, nodata } : null
 }
 
 /** Converts a raw L2A uint16 DN to surface reflectance clamped to >= 0, or null for nodata. */
@@ -59,69 +92,4 @@ export const computeNdvi = (redDn: number, nirDn: number, redS: BandScaling, nir
 export const computeNdsi = (greenDn: number, swirDn: number, greenS: BandScaling, swirS: BandScaling): number | null =>
   normalizedDiff(dnToReflectance(greenDn, greenS), dnToReflectance(swirDn, swirS))
 
-export interface PatchBands {
-  width: number
-  height: number
-  visual: Uint8Array
-  red: ArrayLike<number>
-  nir: ArrayLike<number>
-  scl: Uint8Array
-  redScale: BandScaling
-  nirScale: BandScaling
-  green?: ArrayLike<number>
-  swir?: ArrayLike<number>
-  greenScale?: BandScaling
-  swirScale?: BandScaling
-}
-
-export interface GridBuffers {
-  size: number
-  rgb: Uint8Array
-  ndvi: Float32Array
-  ndsi: Float32Array
-  valid: Float32Array
-}
-
-/** Aggregates aligned patch pixels into `size × size` cells, masking by SCL; prefers higher valid fraction. */
-export function aggregatePatch(patch: PatchBands, out: GridBuffers): void {
-  const { size } = out
-  const { width, height, visual, red, nir, scl, redScale, nirScale, green, swir, greenScale, swirScale } = patch
-  const hasNdsi = Boolean(green && swir && greenScale && swirScale)
-  const stepX = width / size, stepY = height / size
-
-  for (let row = 0; row < size; row++) {
-    const y0 = Math.floor(row * stepY), y1 = Math.max(y0 + 1, Math.floor((row + 1) * stepY))
-    for (let col = 0; col < size; col++) {
-      const x0 = Math.floor(col * stepX), x1 = Math.max(x0 + 1, Math.floor((col + 1) * stepX))
-      let r = 0, g = 0, b = 0, rgbN = 0, ndviSum = 0, ndviN = 0, ndsiSum = 0, ndsiN = 0, validN = 0, totalN = 0
-      for (let y = y0; y < y1 && y < height; y++) {
-        for (let x = x0; x < x1 && x < width; x++) {
-          const p = y * width + x
-          totalN++
-          if (!isValidScl(scl[p])) continue
-          validN++
-          const v = p * 3
-          if (visual[v] || visual[v + 1] || visual[v + 2]) {
-            r += visual[v]; g += visual[v + 1]; b += visual[v + 2]; rgbN++
-          }
-          const ndvi = computeNdvi(red[p], nir[p], redScale, nirScale)
-          if (ndvi !== null) { ndviSum += ndvi; ndviN++ }
-          if (hasNdsi) {
-            const ndsi = computeNdsi(green![p], swir![p], greenScale!, swirScale!)
-            if (ndsi !== null) { ndsiSum += ndsi; ndsiN++ }
-          }
-        }
-      }
-      const frac = totalN > 0 ? validN / totalN : 0
-      const idx = row * size + col
-      if (frac <= out.valid[idx] || rgbN === 0) continue
-      out.valid[idx] = frac
-      const o = idx * 3
-      out.rgb[o] = Math.round(r / rgbN)
-      out.rgb[o + 1] = Math.round(g / rgbN)
-      out.rgb[o + 2] = Math.round(b / rgbN)
-      out.ndvi[idx] = ndviN > 0 ? ndviSum / ndviN : Number.NaN
-      out.ndsi[idx] = ndsiN > 0 ? ndsiSum / ndsiN : Number.NaN
-    }
-  }
-}
+export { aggregatePatch, type GridBuffers, type GridTransform, type PatchBands } from './s2Aggregate'
