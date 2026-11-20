@@ -289,6 +289,28 @@ The stage adds no painter or pure model changes, unseeded randomness, or live re
 
 **Re-verification (exact counts):** `npx tsc -b`: PASS (0 errors); `npm run lint`: PASS (0 errors, 0 warnings in touched files); `npx vitest run --maxWorkers=2`: **133/133 test files, 1279/1279 tests passed** (focused land suite: **23/23 files, 112/112 tests passed**); `npm run build`: PASS (431 modules transformed); max file size under `src/data/land/` is 150 lines. (Worker untouched in round 5.)
 
+### **Review (Codex, round 6)**
+
+**Round 5 answers checked, in the writer's order**
+
+1. **Resolved — cold focus retry.** A 503 with partial regional coverage leaves the next focus check eligible. The offline regression test recovers the missing area on that check and confirms the next focus stays quiet after completion.
+2. **Resolved — SAS deadline.** The shared deadline releases the in-flight slot after a hung fetch or response body. The next request obtains a token and reads the COGs. The per-load deadline also bounds an injected SAS fetch that ignores abort.
+3. **Resolved — cache version and completeness.** The cover format rejects v3 entries and fetches both tiles again. This discards the old mosaic during migration. A v4 partial mosaic gets a one-hour fresh window, and a complete mosaic gets 30 days.
+4. **Resolved — early cached publication.** The deferred-coarse test confirms a stale mosaic publishes before the local asset resolves. The refresh can still stall as described below.
+5. **Resolved — authoritative absence.** A successful all-nodata refresh clears stale built-up cells and stores a complete, fresh zero mosaic. An all-503 refresh preserves the prior cache. The 404 path also records known absence.
+6. **Resolved — rain completeness comment.** The comment now calls 80% a heuristic and states the assumption behind scaling partial totals.
+7. **Resolved — unused aggregation count.** The counter and return value are gone. The test still checks the area-weighted output.
+
+**Findings for Stage 2**
+
+- `src/data/land/landData.ts:101` · minor · The parallel cache read catches storage errors, but the subsequent decode can reject outside that handler. An offline probe with a v4 record missing its payload made zero SAS calls outside the regional footprint. With full regional coverage, the probe got the correct regional cover and an unhandled rejection. · Validate the payload before decoding and route invalid entries through the cache-miss path. Test recovery with a malformed v4 record and the regional fast path.
+- `src/data/land/landData.ts:107` · minor · A local asset that never settles holds the refresh before the COG deadline starts. In an offline probe, the cached mosaic published while `coarse.json` hung, but the next focus joined the same pending check and no SAS request started. A cold load in that state keeps the climatology fallback. · Bound the local reads and release failed shared asset requests so remote refresh and later focus retries can proceed. Test a hung local request through the watcher.
+- `src/data/land/landCache.ts:45` · nit · Both generic TTL tables still carry cover entries after cover moved to its own reader. `readRaw` has no cover caller. · Restrict the generic reader and tables to near, far and weather, and keep the cover key for the dedicated reader.
+
+**Checks.** `npx tsc -b` passed. `npx vitest run --maxWorkers=2` passed 1,279 tests across 133 files. The focused land suite passed 112 tests across 23 files. The two additional probes used stubbed fetches and an in-memory store. The round changes no painter, scene model or scrub path. All land TypeScript files changed this round are at or below 150 lines.
+
+**Verdict:** approved
+
 ## Stage 2: world state
 
 ## Stage 3: land colour painting
