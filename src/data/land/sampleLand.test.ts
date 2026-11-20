@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { encodeLand } from './grid'
-import { coarseCoverFromJson, combineLandCovers } from './landData'
 import { computeCoverMeans, MIN_CELL_VALID, sampleLandAt } from './sampleLand'
 import type { FarLandGrid, NearLandGrid, RecentLandWeather } from './types'
 import { toUtm, utmZoneOf } from './utm'
+import { coarseCoverFromJson, combineLandCovers } from './worldCoverGrid'
 
 function makeNear(opts: {
   validFrac?: number; rgbValid?: number; ndviValid?: number; ndsi?: number; snow?: number
