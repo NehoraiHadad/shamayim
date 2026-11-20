@@ -250,10 +250,12 @@ describe('C9: sun rays where they really occur (the owner\'s item 11)', () => {
     const seen = worldAt('jerusalem', '06:20')
     expect(seen.bodies.sun.overLand).toBe(true)
     expect(rayStrengths(seen).corona).toBeGreaterThan(.2)
-    // A sun behind the land has no glare.
+    // A sun behind the land has no glare (the living light: the glare goes with the share of the disc still over the land,
+    // so a disc just behind the line keeps a trace of it, none once wholly behind).
     const behind = worldAt('haifa', '16:30')
     expect(behind.bodies.sun.overLand).toBe(false)
-    expect(rayStrengths(behind).corona).toBe(0)
+    expect(rayStrengths(behind).corona).toBeLessThanOrEqual(0.5 * behind.bodies.sun.visible!)
+    expect(rayStrengths(behind).corona).toBeLessThan(0.05)
   })
 
   it('converges the anticrepuscular rays on the point opposite the sun, only with strong rays at a low sun', () => {

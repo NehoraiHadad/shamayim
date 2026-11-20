@@ -4,7 +4,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { FarCities, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { againstLight, wallShade } from './marks'
+import { againstLight, shineOf, wallShade } from './marks'
 import { aerialFor } from './planeLight'
 import { mixRgb, rgbOf } from './tone'
 import type { Box, CityBlock, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
@@ -121,7 +121,7 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   })
   // Far first: nearer blocks stand in front.
   tiers.sort((a, b) => b.km - a.km)
-  const on = night.litShare > 0 ? 0.35 + 0.65 * smoothstep(0.1, 0.7, dark) : 0
+  const on = smoothstep(0, 0.12, night.litShare) * (0.35 + 0.65 * smoothstep(0.1, 0.7, dark))
   const lights: CityLight[] = on <= 0 ? [] : geometry.lights.flatMap((dot) => {
     const transmission = Math.cbrt(plainContrast(dot.km, visibility))
     if (transmission < MIN_CONTRAST) return []
@@ -129,8 +129,14 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   })
   const bounds = geometry.bounds
   if (!bounds) return null
+  // The living light: the lit face's side and how strongly it stands out (the difference of the two sides' light), so the
+  // blocks turn from even to sided as the light comes round, never flip.
+  const faces = shineOf(world).faces!
+  const sideK = Math.abs(faces.left - faces.right)
+  const litSide = faces.left > faces.right ? 'left' as const : faces.right > faces.left ? 'right' as const : null
   const lightKey = layerKey('farCities.light', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box),
-    tiers.map((t) => [colourKey(t.lit), colourKey(t.shade), t.blocks.length, t.mass.map((m) => m.boxes.length)]), light.side,
+    tiers.map((t) => [colourKey(t.lit), colourKey(t.shade), t.blocks.length, t.mass.map((m) => m.boxes.length)]), litSide,
+    Math.round(sideK * 64),
     Math.round(againstLight(world) * 32),
     lights.length, Math.round(on * 64), Math.round(visibility * 4))
   return {
@@ -139,6 +145,6 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
     // repainted alone while scrubbing (§1d), over an empty form.
     key: layerKey('farCities', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box)),
     light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? litOwn, faces: [] },
-    tiers, litSide: light.side, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
+    tiers, litSide, sideK, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
   }
 }

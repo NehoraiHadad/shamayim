@@ -132,7 +132,7 @@ export class Surface {
       // it is repainted.
       const k = d / ratio
       const anim = desc.animated
-      const alpha = flashAt(anim, motion) * fadeAt(anim, phase, still)
+      const alpha = flashAt(anim, motion) * fadeAt(anim, phase, still) * (anim?.alpha ?? 1)
       if (alpha <= 0.003) continue
       const reach = revealAt(anim, phase, this.width, still)
       if (reach < 0) continue
@@ -193,7 +193,9 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
+      if (desc.blend) ctx.globalCompositeOperation = desc.blend
       if (form && !cache.formless(desc)) draw(form)
+      if (desc.blend) ctx.globalCompositeOperation = 'source-over'
       if (light && desc.light) {
         ctx.globalCompositeOperation = desc.light.blend
         draw(light)

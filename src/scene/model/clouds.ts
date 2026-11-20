@@ -160,7 +160,7 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
     id: `${level}:${bank.id}`, x, y, w, h, seed: bank.seed,
     puffs: level === 'high' ? bank.puffs + 2 : bank.puffs + 6,
     kind: level === 'high' ? 'streak' : 'heap',
-    alpha: (bank.seen ? 0.95 : 0.88) * (level === 'high' ? 0.55 : level === 'mid' ? 0.85 : 1),
+    alpha: (bank.seen ? 0.95 : 0.88) * (level === 'high' ? 0.55 : level === 'mid' ? 0.85 : 1) * (bank.share ?? 1),
     body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : body, litA: lit.litA, toward: lit.toward,
     under: light ? light.under * light.strength * lit.through : 0, silver: lit.silver, rains,
   }

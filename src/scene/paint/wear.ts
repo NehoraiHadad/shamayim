@@ -186,14 +186,21 @@ export function paintWearItem(ctx: Ctx2D, desc: LayerOf<'wearItem'>, env: PaintE
       switch (part.as) {
         case 'cloth': cloth(ctx, p, it, shape.grain, [bx0, bx1, by1], px); break
         case 'shade': {
-          // The drape and the inner sleeve fall on the side away from the light: mirrored when the light is on the right.
-          ctx.save()
-          if (region && !part.t) ctx.clip(region)
-          else ctx.clip(p)
-          if (it.side > 0 && !part.t) ctx.scale(-1, 1)
-          ctx.fillStyle = css(t.shade, it.side ? 0.55 + 0.4 * it.shine : 0.5)
-          ctx.fill(p)
-          ctx.restore()
+          // The drape and the inner sleeve fall on the side away from the light: drawn as they are for a light from the
+          // left, mirrored for one from the right, the two crossfaded by the side light's strength (half each with the
+          // light straight ahead, behind or absent), so the shade turns with the light and never flips.
+          const a = 0.5 + (0.05 + 0.4 * it.shine) * Math.abs(it.across)
+          const right = (1 + it.across) / 2
+          for (const [mirror, w] of [[false, 1 - right], [true, right]] as const) {
+            if (w <= 0.004 || (mirror && part.t)) continue
+            ctx.save()
+            if (region && !part.t) ctx.clip(region)
+            else ctx.clip(p)
+            if (mirror) ctx.scale(-1, 1)
+            ctx.fillStyle = css(t.shade, a * (part.t ? 1 : w))
+            ctx.fill(p)
+            ctx.restore()
+          }
           break
         }
         case 'inner': ctx.fillStyle = css(t.deep); ctx.fill(p); stroke(ctx, p, t.edge, 0.9 * px, 0.6); break
@@ -211,6 +218,33 @@ export function paintWearItem(ctx: Ctx2D, desc: LayerOf<'wearItem'>, env: PaintE
   }
   // Two-peg tops: the cloth's weight hangs from each peg in a long gravity fold toward the hem, a drag crease toward the
   // slack middle; then the pegs.
+  // The rope's shadow across the cloth under it: on its face where the light comes from the front, through it where the
+  // light is behind a thin cloth (a darker line seen through the glow).
+  const thin = THIN[shape.grain]
+  const ropeShade = it.shine * (0.3 * it.front + 0.3 * it.back * thin) * (1 - 0.6 * it.wet)
+  if (region && ropeShade > 0.01) {
+    ctx.save()
+    ctx.clip(region)
+    const dy = 1.2 + 2.2 * (1 - it.up), dx = -1.5 * it.across
+    stroke(ctx, path(`M${bx0 - 2 + dx} ${dy}L${bx1 + 2 + dx} ${dy}`), t.shade, 1.3, ropeShade)
+    stroke(ctx, path(`M${bx0 - 2 + dx} ${dy + 0.9}L${bx1 + 2 + dx} ${dy + 0.9}`), t.shade, 1.4, ropeShade * 0.4)
+    ctx.restore()
+  }
+  // A neighbour's shadow, when the light runs along the line: its outline where the light carries it, on this cloth only.
+  const near = it.cast && SHAPES[it.cast.garment]
+  if (region && near && it.cast) {
+    const shadow = new Path2D()
+    for (const part of near.parts) {
+      if (part.as !== 'cloth') continue
+      const m = new DOMMatrix().translate(it.cast.dx, it.cast.dy)
+      shadow.addPath(path(part.d), part.t ? m.rotate(part.t[0]).translate(part.t[1], part.t[2]) : m)
+    }
+    ctx.save()
+    ctx.clip(region)
+    ctx.fillStyle = css(t.shade, it.cast.alpha)
+    ctx.fill(shadow)
+    ctx.restore()
+  }
   hanging.pegs.forEach((x, j) => {
     const hem = hanging.pegs.length > 1 ? hanging.hem : undefined
     if (hem) {
@@ -233,30 +267,53 @@ function stroke(ctx: Ctx2D, p: Path2D, rgb: RGB, width: number, alpha: number) {
   ctx.stroke(p)
 }
 
+/** How much light a cloth lets through from behind (a thin weave glows, a coat barely; gear none). */
+const THIN: Record<Grain, number> = { weave: 0.9, nylon: 0.75, straw: 0.45, knit: 0.4, twill: 0.2, none: 0.15 }
+
 /**
- * A piece of cloth: its body tone; inside its outline the light's falloff (lit edge → body → shade, from the light's side;
- * with no side, the sky's light from above), a soft shade gathering at the hem, the grain, the wet's darkening and beads,
- * the snow on its top edge, the rim on the lit edge; then its soft ink edge.
+ * A piece of cloth (the living light): its body tone; inside its outline the sky's light from above (an even light), the
+ * side light's falloff (lit edge → body → shade, from its side, by its strength: the two blend as the light comes round),
+ * the light on its face, the light through it from behind (thin cloth glows in its own colour, its edges catching a rim),
+ * a soft shade gathering at the hem, the grain, the wet's darkening and beads, the snow on its top edge, the rim on the lit
+ * edge; then its soft ink edge.
  */
 function cloth(ctx: Ctx2D, p: Path2D, it: WearItem, grain: Grain, [x0, x1, y1]: [number, number, number], px: number) {
   const t = it.tones
+  const k = Math.abs(it.across)
+  const thin = THIN[grain] * (1 - 0.5 * it.wet)
   ctx.fillStyle = css(t.body)
   ctx.fill(p)
   ctx.save()
   ctx.clip(p)
-  if (it.side) {
-    const g = ctx.createLinearGradient(it.side < 0 ? x0 : x1, 0, it.side < 0 ? x1 : x0, 0)
-    g.addColorStop(0, css(t.lit, 0.95))
-    g.addColorStop(0.32, css(t.lit, 0.35))
-    g.addColorStop(0.55, css(t.body, 0))
-    g.addColorStop(0.8, css(t.shade, 0.3 * it.shine))
-    g.addColorStop(1, css(t.shade, 0.55 * it.shine + 0.1))
+  if (k < 0.996) {
+    const g = ctx.createLinearGradient(0, 0, 0, y1)
+    g.addColorStop(0, css(t.lit, 0.45 * (1 - k)))
+    g.addColorStop(0.45, css(t.body, 0))
     ctx.fillStyle = g
     ctx.fillRect(x0 - 2, -6, x1 - x0 + 4, y1 + 10)
-  } else {
+  }
+  if (k > 0.004) {
+    const g = ctx.createLinearGradient(it.across < 0 ? x0 : x1, 0, it.across < 0 ? x1 : x0, 0)
+    g.addColorStop(0, css(t.lit, 0.95 * k))
+    g.addColorStop(0.32, css(t.lit, 0.35 * k))
+    g.addColorStop(0.55, css(t.body, 0))
+    g.addColorStop(0.8, css(t.shade, 0.3 * it.shine * k))
+    g.addColorStop(1, css(t.shade, (0.55 * it.shine + 0.1) * k))
+    ctx.fillStyle = g
+    ctx.fillRect(x0 - 2, -6, x1 - x0 + 4, y1 + 10)
+  }
+  if (it.front > 0.004) {
+    ctx.fillStyle = css(t.lit, 0.45 * it.front)
+    ctx.fillRect(x0 - 2, -6, x1 - x0 + 4, y1 + 10)
+  }
+  if (it.back > 0.004) {
+    // Back-lit: the face toward the eye is in its own shade (more for a thick cloth), the light coming through a thin one.
+    ctx.fillStyle = css(t.shade, 0.3 * it.back * (1 - thin))
+    ctx.fillRect(x0 - 2, -6, x1 - x0 + 4, y1 + 10)
     const g = ctx.createLinearGradient(0, 0, 0, y1)
-    g.addColorStop(0, css(t.lit, 0.45))
-    g.addColorStop(0.45, css(t.body, 0))
+    g.addColorStop(0, css(t.glow, 0.7 * it.back * thin))
+    g.addColorStop(0.6, css(t.glow, 0.5 * it.back * thin))
+    g.addColorStop(1, css(t.glow, 0.25 * it.back * thin))
     ctx.fillStyle = g
     ctx.fillRect(x0 - 2, -6, x1 - x0 + 4, y1 + 10)
   }
@@ -295,12 +352,16 @@ function cloth(ctx: Ctx2D, p: Path2D, it: WearItem, grain: Grain, [x0, x1, y1]: 
     stroke(ctx, down, t.shade, 0.9, 0.6)
     ctx.restore()
   }
-  if (it.side) {
+  if (k > 0.004) {
     // The rim: the outline traced again a hair toward the shade, so it lies just inside the lit edge.
     ctx.save()
-    ctx.translate(-it.side * 0.7, 0)
-    stroke(ctx, p, t.rim, 1.4, 0.75 * it.shine)
+    ctx.translate(-Math.sign(it.across) * 0.7, 0)
+    stroke(ctx, p, t.rim, 1.4, 0.75 * it.shine * k)
     ctx.restore()
+  }
+  if (it.back > 0.004) {
+    // Back-lit, every edge catches the light beyond the cloth: a fine bright rim just inside the outline.
+    stroke(ctx, p, mix(t.rim, t.glow, 0.4), 1.2, 0.6 * it.back * (0.4 + 0.6 * thin))
   }
   ctx.restore()
   stroke(ctx, p, t.edge, 1.2 * px, 0.82)

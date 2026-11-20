@@ -10,6 +10,7 @@ import type { Skyline } from './skyline'
 import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
 import { sunAt } from './sunPath'
 import type { Body, MoonBody } from './types'
+import { discShare } from './livingLight'
 
 interface Site { lat: number; lon: number; timezone: string }
 
@@ -41,7 +42,7 @@ export function sunBody(at: LocalTime, day: DayPoint | undefined, site: Site, sk
     azimuth, altitude, x: point.x * SCENE_W, y: point.y,
     up: apparentAltitude(altitude) + SUN_RADIUS > 0,
     overLand: clearance > 0,
-    clearance, t,
+    clearance, t, visible: discShare(clearance),
   }
 }
 
@@ -54,10 +55,11 @@ export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { alt
   const { altitude, azimuth } = moonPosition(instant, site.lat, site.lon)
   const { fraction, phase } = moonIllumination(instant)
   const point = moonScenePoint(instant, site, skyline)
+  const clearance = judge(point.x) - point.y
   return {
     azimuth, altitude, x: point.x * SCENE_W, y: point.y,
     up: apparentAltitude(altitude) > 0,
-    overLand: judge(point.x) - point.y > 0,
+    overLand: clearance > 0, clearance, visible: discShare(clearance),
     phase, illumination: fraction,
     tilt: brightLimbAngle(point, sunDirection(sun.altitude, sun.azimuth, skyline)),
   }

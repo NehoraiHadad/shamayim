@@ -2254,3 +2254,92 @@ and the sun now behind the drawn land at `jerusalem-1630` and `haifa-0620`. The 
 - The approaches into Ben Gurion seen from Tel Aviv are mostly behind the city's own drawn land, or faint near the
   horizon.
 - The cap and the day's start are judged per day: around midnight, the day before's events may add one to the caps.
+
+**The living light (2026-11-20): light and shade change smoothly, from one continuous model.** Commits on
+`ccr-living-light` (from `ace906a`). The owner's report: "the change of light and shade is sharp instead of alive; it
+stands out on the houses and on the clothes". **Rule: every light parameter is a continuous function of the one world
+state; a surface takes the light by its own normal; nothing switches.**
+
+*Diagnosis* (a minute-by-minute scrub through sunrise, noon and sunset at Jerusalem, Haifa, Tiberias and Tel Aviv, the
+fixture's own cloud and a forced clear sky; the largest change a single minute made, before → after):
+
+| Where | Cause | Before (per minute) | After |
+|---|---|---|---|
+| Sunrise / sunset, `light.ts` | `daylight = smoothstep(0, 2 px)` of the clearance, no air mass in `direct`: the sun lit at nearly full strength until its centre touched the line, then nothing | direct 0 → 0.26 → 0.56 in 2 min; 0.08 → 0 | ≤ 0.054 (Tiberias, the steepest hills; 4–8 min fade) |
+| Source switch | `direct < 0.05` → source `sky`: side, ray, shadow and colour all dropped; the colour jumped to the sky's | colour R 1.0 → 0.16; shadow alpha 0.51 → 0 | colour × share ≤ 0.1; shadow ≤ 0.05 |
+| Noon crossing | `side` null while `|lateral| ≤ 0.02` (8 min at Jerusalem), then the other side: lit strip, roof, glyph mirror, cloth all flipped | box face 0.55 → 0.34 → 0.55 (other side); cast 0.51 → 0 → 0.51; cloth shine 0.95 → 0 → 0.95 | faces ≤ 0.03; cloth side ≤ 0.07 |
+| Hour boundary, `layerCovers`, `airOf` | the hour's layers and visibility stepped on the hour (only the total was read between hours) | low cloud 0 → 0.46; direct 0.44 → 0.12; `wallShade` 0.19 → 0.65; tones 0.09 | covers ≤ 0.009; tones ≤ 0.035 |
+| Cloud banks | `round(cover × max)`: a bank popped in or out | whole bank | gathers over one unit of cover (`share`) |
+| Moonrise at dusk | `MIN_MOON` gate | direct 0 → 0.06, side 0 → 1 | continuous |
+| Sky's form side, `skyFormOf` | `|across| > 0.08` and alt > −2° | 0 → ±1 | ≤ 0.08 |
+| Lit windows, `litShareOf` | steps at −4° and on 17, 23, 1, 5 h | 0 → 0.06 → 0.12 | ≤ 0.03 |
+| Ground wet, clothes' light | the hour's rain stepped; the clothes' shine quantised to 1/20 and gated by a side | 0.5 | 1/40 steps, no gate |
+
+*The model* (`world/livingLight.ts`, `world/light.ts`):
+- **Direct share** of the sun = `discShare(clearance)` (the true 0.53° disc as a circular segment over the drawn land,
+  softened by a ±2.5 px edge: the air's shimmer, a penumbra) × `airDim` (the true air-mass and aerosol transmission,
+  `sunLight`, as the adapted eye sees it: `strength^0.35`, so a sun 2° up gives about a third) × the cloud's transmission.
+  The moon the same way (its phase, height and veil, its disc's share). `light.shares` keeps both; `body.visible` the disc
+  share, used also by the glare (`rays` corona), the water's path, the coastal glint.
+- **Direction** `light.dir` (`viewDir`): the source as a unit vector in the view's frame (across, ahead, up). The label
+  (`source`) changes only under a share of 0.04; every directional effect eases in over `SHADING` (0.04–0.45 of direct),
+  so an overcast's light is soft and nearly directionless and turns so gradually. The colour fades to the sky's as the
+  share goes.
+- **Faces** (`faceLight`, in `Shine.faces`): Lambert by each face's true normal (front, left, right, top) with a little
+  wrap for plaster, a gentle contrast curve, and `rim` for a back-lit edge (the source low beyond the land). The painters
+  mix every face from its base toward the lit tone by its own share: boxes and towers draw both side faces each by its
+  share (`paint/outside.ts` `sideFace`), tile roofs light each plane by its share, flat roof edges by the top's; glyphs
+  blend from even (symmetric) to sided by the two sides' difference (`Kit.k`), so the mirror at the crossing never shows;
+  trees keep their own shape (the lobe seeded, not by the light); far towns blend their blocks by `sideK`.
+- **Shade is filled**: by the sky (cooler, bluer, more under a clear sky) and a little warm bounce from sunlit ground
+  (`tonesAt`); the cloth's shade by the sky too.
+- **Alive touches**: a soft contact shade at every box's foot and under the eaves; a low sun glinting in the windows of
+  the faces turned to it (front rows and the side faces' glass, `Shine.glint`); a back-lit roof ridge and tower edges
+  catching the light beyond; cast shadows foreshortened to a stub as the light comes from straight ahead or behind.
+- **The clothes** (`wearLight`, `paint/wear.ts`): the line hangs across the view, the cloth facing the eye; `across` the
+  side light's signed strength, `front`, `back` (the sun beyond the line: in Israel's south-facing view the common case),
+  `up`. The side falloff and the even light from above blend by the side's strength; the drape shade is crossfaded between
+  its two mirrored halves; a back-lit thin cloth glows in its own colour (`THIN` by grain: a tee 0.9, a coat 0.2) with a
+  rim on every edge; the rope's shadow falls across the cloth (on its face, or seen through it); a neighbour shades a
+  garment when the light runs along the line (`cast`: its outline carried the line's spacing along the light).
+- **Clouds in time**: the hour's layers and visibility read straight between hours (`hourBetween`), the ground's wetness
+  too; the newest bank gathers (`CloudBank.share`). **Cloud shadows** (`model/cloudShadows.ts`, kind `cloudShadow`): under
+  a broken low and mid cover with a sun to cast them, three bands of the land by distance, each a seamless tile of soft
+  patches as large as clouds are there, laid `source-atop` the land (`LayerBase.blend`) at z 40.3; the tile is carried by
+  `world.shadows.driftKm` (the 850 hPa wind's across part integrated through the day's hours, `cloudDriftKm`) through
+  `AnimSpec.offset`, with a slow drift in the ambient loop, and laid at `AnimSpec.alpha` = their strength: a scrub moves
+  them with no repaint (the tile repaints only when the cover steps by 1/16).
+
+*Tests*: `world/livingLight.test.ts` (10): the disc share against a numeric segment, half at the edge, monotonic and
+smooth; `airDim` monotonic and continuous, dimmer in haze; Lambert 1 square-on, monotonic in the angle, 0 past the edge;
+no lit-side flip through the view axis (each face ≤ 0.05 per 0.25° of azimuth, equal straight ahead), east lights the left;
+back light gives a rim and no front light; faces fade with the share to nothing; the layers and visibility halfway at :30;
+banks gather (≤ 0.1 per 0.25 % of cover, never moving); the windows' share eased; the cloud drift continuous and integrated.
+`scene/model/livingLight.test.ts` (13): ten scrubs (Jerusalem, Haifa, Tiberias at sunrise, noon and sunset, clear, and
+long scrubs under the fixture's changing cloud) with every parameter's per-minute change under its bound (tones 0.035,
+faces as painted 0.05, the cloth's side light 0.07, covers 0.02, windows 0.035); the noon crossing passes the cloth's side
+through nothing and the two side faces meet; the sun fades over ≥ 4 minutes from a fifth of its light to none at all
+three places; cloud shadows present under a broken sky (three bands, `source-atop`, moved by a minute's scrub without a
+key change, the near band faster), none clear or under a closed deck. Updated: `drawnSkyline.test.ts` (a sun behind the
+line keeps at most its disc's share, none wholly behind), `c9.test.ts` (glare by the disc's share), `wear.test.ts` (the
+side where the side light is plain), `model.test.ts` (cloud shadows come and go with the weather).
+
+*Pixel references* re-recorded deliberately, 51 of 66 (every case with direct light, a cloud layer read between hours, a
+back-lit line or a cloud shadow). The 15 within tolerance and kept: `shadmot-mehola-1630`, `-2100`, `jerusalem-2100`,
+`-2100-clear`, `rosh-pina-1630`, `-2100`, `ramon-crater-2100`, `tiberias-1630`, `ein-gedi-2100`, `ein-gedi-2100-loading`,
+`tiberias-1200-rain-loading`, `wear-rain`, `wear-dusk`, `wear-night`, `wear-rain@2x`. 66/66 on both paint paths.
+
+*Perf* (`npm run test:perf`, CPU ×4, against `ace906a` in the same container): scrub.model p95 Haifa 34.7 / 32.9 → 29.4 /
+28.3, Tel Aviv 31.8 / 29.0 → 26.2 / 26.0, Shadmot 25.0 / 30.2 → 24.4 / 27.3 ms: within the noise. The animated frame
+within its 4 ms at p50, p95 3.5–6.0 (before 4.6–6.3). A scrub frame repaints only light canvases (and a cloud shadow
+tile when the cover steps a sixteenth); the cloud shadows cost three blits.
+
+*Stills* (`qa/canvas/light/before/` = `ace906a`, `after/`; `e2e/light.strip.mjs`): `sunset-{jerusalem,haifa,tiberias}.png`
+(houses close up, every 5 min, clear), `noon-jerusalem.png` (11:05–11:49 every 4 min: before, the lit faces drop at 11:21
+and come back on the other side at 11:29), `broken-jerusalem.png` (10:00–10:21 every 3 min, the cloud shadows passing),
+`wear-sunset.png` (15:40–16:29 every 7 min) and `wear-noon.png` (10:40–12:25 every 15 min: before, the cloth's shade
+flips sides with a flat gap at 11:25).
+
+*Remaining* (for the owner's eye): the cloud shadows are subtle on the dark land of this hand and only clear on the
+town; the sky's cloud banks do not move with a scrub (their shadows do); the clothes' neighbour shadow needs the light
+nearly along the line, so it is rare in a south-facing view.

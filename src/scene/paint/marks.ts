@@ -58,8 +58,12 @@ export function paintMarks(ctx: Ctx2D, desc: LayerOf<'marks'>, env: PaintEnv): v
   drawLamps(ctx, lamps, 1 / env.scale)
 }
 
-/** A tree: a round pine or olive (two lobes and a lit crown), a cypress (a flame, its lit half), a palm; leaning in the wind. */
-export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, rock = 0) {
+/**
+ * A tree: a round pine or olive (two lobes and a lit crown), a cypress (a flame, its lit half), a palm; leaning in the wind.
+ * The living light: its shape is its own (the second lobe's side seeded), its lit and shaded halves take the light's side
+ * by `k` (0–1, the side's strength), and under an even light its lower half is shaded from the sky above.
+ */
+export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, rock = 0, k = side ? 1 : 0) {
   const { x, base, w, h } = tr
   const r = rng(tr.seed)
   // C7: the gusts rock each crown about its lean (`rock`, −1…1 over the strip's loop), a little out of step tree to tree.
@@ -75,8 +79,8 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 
     ctx.beginPath()
     ctx.moveTo(0, -h); ctx.quadraticCurveTo(w * 0.62, -h * 0.45, 0.35, 0); ctx.lineTo(-0.35, 0); ctx.quadraticCurveTo(-w * 0.62, -h * 0.45, 0, -h)
     ctx.fill()
-    if (side) {
-      ctx.fillStyle = css(t.greenLit, 0.8)
+    if (k > 0.01) {
+      ctx.fillStyle = css(t.greenLit, 0.8 * k)
       ctx.beginPath()
       ctx.moveTo(0, -h); ctx.quadraticCurveTo(-sd * w * 0.62, -h * 0.45, -sd * 0.35, 0); ctx.lineTo(-sd * 0.05, 0); ctx.quadraticCurveTo(-sd * w * 0.2, -h * 0.5, 0, -h)
       ctx.fill()
@@ -96,17 +100,23 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 
     }
   } else {
     const rr = w / 2
+    const lobe = tr.seed % 2 ? 1 : -1
     ctx.fillStyle = css(t.green)
     ctx.beginPath()
     ctx.arc(0, -rr - 0.4, rr, 0, Math.PI * 2)
-    ctx.arc(sd * rr * 0.7, -rr * 0.75 - 0.4, rr * 0.72, 0, Math.PI * 2)
+    ctx.arc(lobe * rr * 0.7, -rr * 0.75 - 0.4, rr * 0.72, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = css(t.shade, 0.35)
+    // The crown's shade: under an even sky its underside; with a side to the light, the half away from it.
+    ctx.fillStyle = css(t.shade, 0.3 * (1 - k))
+    ctx.beginPath()
+    ctx.arc(0, -rr * 0.45 - 0.4, rr * 0.6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = css(t.shade, 0.35 * k)
     ctx.beginPath()
     ctx.arc(sd * rr * 0.55, -rr * 0.55 - 0.4, rr * 0.55, 0, Math.PI * 2)
     ctx.fill()
-    if (side) {
-      ctx.fillStyle = css(t.greenLit, 0.8)
+    if (k > 0.01) {
+      ctx.fillStyle = css(t.greenLit, 0.8 * k)
       ctx.beginPath()
       ctx.arc(-sd * rr * 0.35, -rr * 1.25 - 0.4, rr * 0.55, 0, Math.PI * 2)
       ctx.fill()

@@ -17,6 +17,7 @@ import type { LandClock, LayerDesc, LayerOf, SceneBox, SceneModel } from './type
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
 
+import { cloudShadowLayers } from './cloudShadows'
 export type * from './types'
 
 /**
@@ -57,7 +58,7 @@ function knownModel(world: WorldState, box: SceneBox): SceneModel {
   const sky = skyLayers(world, box)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
+    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []), ...cloudShadowLayers(world, box),
     ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }

@@ -8,7 +8,8 @@ import { facetShare } from '../../world/water'
 import { groundFn } from '../../data/landmarks/seat'
 import type { OutsideView, RGB, WorldMark, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { againstLight, shineOf, SWAY_FRAMES, tonesAt } from './marks'
+import { againstLight, facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
+import { smoothstep } from '../../world/ridgeLighting'
 import { aerialFor, hazeOf, snowOnGround, toneAt } from './planeLight'
 import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
@@ -67,7 +68,9 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
   // The light's path: under the sun (or moon) where it stands over the water, its strength the share of facets the one
   // wind tilts toward the eye at the water's depression, dimmed by the cloud in front (`light.direct`).
   const { light, wind } = world
-  const body = light.source === 'moon' ? world.bodies.moon : light.source === 'sun' ? world.bodies.sun : null
+  // The living light: the path goes with the source's direct share (fading as its disc sinks), not with a side.
+  const byMoon = light.shares.moon > light.shares.sun
+  const body = light.direct > 0 ? (byMoon ? world.bodies.moon : world.bodies.sun) : null
   let glint: SeaDesc['glint'] = null
   const coastX = (y: number) => {
     const c = sea.coast
@@ -75,10 +78,10 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
     return c.at(-1)![0] * sx
   }
   const wet = (x: number, y: number) => sea.side === 'right' ? x > coastX(y) : x < coastX(y)
-  if (body?.up && light.side) {
+  if (body?.up) {
     const x = body.x * sx
     const share = Math.max(facetShare(body.altitude, SEA_DEPRESSION[0], wind.ms), facetShare(body.altitude, SEA_DEPRESSION[1], wind.ms))
-    const strength = clamp01(light.direct) * (light.source === 'moon' ? 0.4 : 1)
+    const strength = clamp01(light.direct) * (byMoon ? 0.4 : 1)
     const alpha = 1 - Math.exp(-12 * share * strength)
     if (x > left + 1 && x < right - 1 && alpha > 0.03) {
       const random = seeded(hashId(`${world.place.id}:coast-glint`))
@@ -93,7 +96,7 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
         if (s < 0.04 || !wet(x + across, y) || hits(clear, x + across - w / 2, y - .3, x + across + w / 2, y + .3)) continue
         sparks.push({ x: x + across - w / 2, y, w, alpha: s })
       }
-      glint = { x, rgb: light.source === 'moon' ? [0.88, 0.91, 0.96] : mixRgb(light.colour, [1, 1, 1], 0.5), alpha, sparks }
+      glint = { x, rgb: byMoon ? [0.88, 0.91, 0.96] : mixRgb(light.colour, [1, 1, 1], 0.5), alpha, sparks }
     }
   }
   // Ripples: short strokes over the water, more with the wind (seeded by the place, never the hour), shorter and fainter
@@ -139,15 +142,16 @@ function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones
   const strength = day * (0.35 + 0.65 * (1 - clamp01(light.direct)))
   const sun = world.bodies.sun
   const across = (sun.x * sx - box.width / 2) / (box.width / 2)
-  // The brighter half of an overcast sky is the sun's: its side on the screen while it is up.
-  const side = sun.altitude > -2 && Math.abs(across) > 0.08 ? (across < 0 ? 1 : -1) : 0
+  // The brighter half of an overcast sky is the sun's: its side on the screen while it is up, by how far to that side it
+  // stands (the living light: it eases in as the sun leaves the middle and as it rises, never a step).
+  const side = -Math.sign(across) * smoothstep(0.02, 0.3, Math.abs(across)) * smoothstep(-8, 0, sun.altitude)
   const sky = skyAt(world, box)
   const aerial = aerialFor(world, hazeOf(world))
   const against = againstLight(world)
   // The sky the walls face: the view's own, but against the light the dim half behind the eye.
   const mean = scaleLight(mixRgb(sky(35), sky(8), 0.4), 1 - 0.55 * against)
   const lighter = (wall: RGB, c: RGB) => (lightness(c) > lightness(wall) ? c : wall)
-  return { strength, side: side as -1 | 0 | 1, tiers: kms.map((km, i) => {
+  return { strength, side, tiers: kms.map((km, i) => {
     const t = tiers[i]
     const lit = aerial(scaleLight(mean, WALL_ALBEDO * VIEW.top), km)
     // The brighter half of the sky round the sun takes the sun's own colour through the cloud.
@@ -333,7 +337,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const formKey = layerKey('outside', world.keys.place, world.keys.marks, landBoxKey(box))
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
-  const skyKey = [Math.round(form.strength * 64), form.side, form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
+  const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
     landDesc && [colourKey(landDesc.tone), colourKey(landDesc.rim), landDesc.snow && [colourKey(landDesc.snow.rgb),
       Math.round(landDesc.snow.alpha * 64), landDesc.snow.runs]]]
   // C7: its trees sway in the wind and its sea's ripples run with it, in a strip of frames (the light canvas only).
@@ -343,7 +347,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
     items: out, tiers: tones, sea, shine, litSide: world.light.side, land: landDesc, form,
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), near.map((m) => Math.round(m.km / KM_STEP)), world.light.side,
-      [Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
+      [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), shine.aviation, Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
       sea && Math.round((sea.drift ?? 0) * 4), skyKey),
     blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25], faces: [] },

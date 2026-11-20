@@ -1,6 +1,6 @@
-import type { LayerOf, OutsideItem, SeaDesc, Shine, SkyForm, Tones } from '../model/types'
+import type { LayerOf, OutsideItem, RGB, SeaDesc, Shine, SkyForm, Tones } from '../model/types'
 import { rng } from './core'
-import { drawGlyph, drawLamps, glyphShadow } from './glyphs'
+import { drawGlyph, drawLamps, glyphShadow, glyphSide } from './glyphs'
 import { AVIATION, type Lamp } from './glyphs/kit'
 import { css, mix, outline, type Ctx2D, type PaintEnv } from './hand'
 import { grain, rockOf, tree } from './marks'
@@ -103,66 +103,133 @@ function land(ctx: Ctx2D, l: NonNullable<LayerOf<'outside'>['land']>, shine: Shi
 }
 
 /**
- * One built cell: its plaster front, the face to the light, the shade, its window rows; a house its tile roof or flat
- * roof (with a heater on some), a block of the mass its roof edge.
+ * The light on a box's faces (the living light): each face's share from the shine (`Shine.faces`, by its normal), or the
+ * old one-sided light from `side` where a shine has none. `on` is how much direct light there is at all.
+ */
+interface Faces { left: number; right: number; front: number; top: number; rim: number; on: number; glint: number }
+function facesOf(s: Shine, side: number): Faces {
+  const on = Math.min(1, Math.max(0, (s.direct - 0.04) / 0.41))
+  if (s.faces) return { ...s.faces, on, glint: s.glint ?? 0 }
+  return { left: side > 0 ? 1 : 0, right: side < 0 ? 1 : 0, front: 0, top: side ? 0.5 : 0, rim: 0, on: side ? 1 : 0, glint: 0 }
+}
+
+/**
+ * One side face of a box or tower, `w` px of the edge at `x`: turned from the eye, it sees less of the sky than the front
+ * (a light shade under an even sky, deeper as the direct light comes and leaves it), and takes the lit tone by its share
+ * of the light. The same on both sides, so the lit side turns with the light and never flips.
+ */
+function sideFace(ctx: Ctx2D, x: number, top: number, w: number, h: number, k: number, on: number, t: Tones, lit: RGB) {
+  ctx.fillStyle = css(t.shade, (0.3 + 0.35 * on) * (1 - k))
+  ctx.fillRect(x, top, w, h)
+  if (k > 0.004) {
+    ctx.fillStyle = css(lit, k)
+    ctx.fillRect(x, top, w, h)
+  }
+}
+
+/**
+ * One built cell: its plaster front (lit by its own share when it faces the light), both side faces by theirs, its window
+ * rows (a low sun glinting in the glass of a face turned to it), a soft shade under its eave and at its foot among the
+ * others; a house its tile roof (each plane by its own share) or flat roof (with a heater on some), a block of the mass
+ * its roof edge.
  */
 function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: Shine, side: number, lamps: Lamp[], f: SkyForm) {
   const r = rng(b.seed)
   const tint = r()
   const x0 = b.x - b.w / 2, h = b.foot - b.top
+  const fl = facesOf(s, side)
   const wall = mix(t.wall, t.stone, .1 + .45 * tint)
   ctx.fillStyle = css(wall)
   ctx.fillRect(x0, b.top, b.w, h)
-  skyLight(ctx, x0, b.top, b.w, h, f, b.tier)
-  const face = Math.min(1.1, b.w * .3)
-  if (side) {
-    ctx.fillStyle = css(mix(t.lit, t.stoneLit, .3 * tint))
-    ctx.fillRect(side > 0 ? x0 : x0 + b.w - face, b.top, face, h)
+  if (fl.front > .004) {
+    ctx.fillStyle = css(mix(t.lit, t.stoneLit, .3 * tint), .85 * fl.front)
+    ctx.fillRect(x0, b.top, b.w, h)
   }
-  const shadeW = Math.min(.9, b.w * .22)
-  ctx.fillStyle = css(t.shade, side ? .65 : .3)
-  ctx.fillRect(side >= 0 ? x0 + b.w - shadeW : x0, b.top, shadeW, h)
-  // Window rows, a storey each: dark recesses by day (the floors' texture), a few lamps by night (the lit share).
+  skyLight(ctx, x0, b.top, b.w, h, f, b.tier)
+  const face = Math.min(1, b.w * .26)
+  const litTone = mix(t.lit, t.stoneLit, .3 * tint)
+  sideFace(ctx, x0, b.top, face, h, fl.left, fl.on, t, litTone)
+  sideFace(ctx, x0 + b.w - face, b.top, face, h, fl.right, fl.on, t, litTone)
+  // The foot among the others: the ground and the neighbours hide part of the sky there (soft, deeper in the sun's
+  // contrast); under the eave a thin soft shade.
+  if (h > 1.4) {
+    const g = ctx.createLinearGradient(0, b.foot - Math.min(h * .4, 3), 0, b.foot)
+    g.addColorStop(0, css(t.deep, 0))
+    g.addColorStop(1, css(t.deep, .16 + .14 * fl.on))
+    ctx.fillStyle = g
+    ctx.fillRect(x0, b.foot - Math.min(h * .4, 3), b.w, Math.min(h * .4, 3))
+  }
+  // Window rows, a storey each: dark recesses by day (the floors' texture), a few lamps by night (the lit share); a low sun
+  // catches the glass of a face turned to it.
   const storey = h / b.storeys
+  const glint = fl.glint * (1 - s.night)
   if (b.w >= WINDOW_MIN_W && storey >= MIN_STOREY_PX) {
-    const inner0 = x0 + (side > 0 ? face : shadeW) + .25, inner1 = x0 + b.w - (side > 0 ? shadeW : face) - .2
+    const inner0 = x0 + face + .25, inner1 = x0 + b.w - face - .2
     for (let k = 0; k < b.storeys; k++) {
       const wy = b.top + .7 + k * storey
       if (wy + .5 > b.foot - .4) break
       for (let wx = inner0; wx + .5 <= inner1; wx += 1.25) {
         if (r() < .3) continue
         const on = r() < s.windows
+        const catches = r()
         ctx.fillStyle = on ? css(mix(wall, t.win, .9)) : css(t.deep, .5 - .2 * s.night)
         ctx.fillRect(wx, wy, .55, Math.min(.6, storey * .5))
+        if (!on && catches < .45 && glint * fl.front > .02) {
+          ctx.fillStyle = css(mix(t.lit, t.win, .5), .9 * glint * fl.front)
+          ctx.fillRect(wx, wy, .55, Math.min(.6, storey * .5))
+        }
         if (on && s.night > .6 && r() < .12) lamps.push({ x: wx + .27, y: wy + .3, r: 1.3, c: t.win, a: .25 * s.night })
+      }
+      // The side faces' glass: a tick of the low sun in each storey of the face turned to it.
+      for (const [x, k] of [[x0 + face * .3, fl.left], [x0 + b.w - face * .7, fl.right]] as const) {
+        if (glint * k > .03 && r() < .5) {
+          ctx.fillStyle = css(mix(t.lit, t.win, .5), glint * k)
+          ctx.fillRect(x, wy, Math.max(.3, face * .4), Math.min(.6, storey * .5))
+        }
       }
     }
   }
   if (b.roof === 'tile') {
-    // A hipped tile roof: the plane toward the light lit, the other in the roof's own tone, its eave's shade line.
+    // A hipped tile roof: each plane by its own share of the light (its normal half toward its side, half up), its
+    // eave's soft shade under it.
     const rh = Math.min(2.2, .45 * b.w + .3), x1 = x0 + b.w
     ctx.fillStyle = css(t.roof)
     ctx.beginPath()
     ctx.moveTo(x0 - .35, b.top + .15); ctx.lineTo(x0 + b.w * .35, b.top - rh); ctx.lineTo(x0 + b.w * .65, b.top - rh); ctx.lineTo(x1 + .35, b.top + .15)
     ctx.closePath()
     ctx.fill()
-    if (side) {
-      ctx.fillStyle = css(t.roofLit)
+    const planes = [[fl.left, 1], [fl.right, -1]] as const
+    for (const [k, dir] of planes) {
+      const a = Math.min(1, .6 * k + .55 * fl.top)
+      if (a <= .01) continue
+      ctx.fillStyle = css(t.roofLit, a)
       ctx.beginPath()
-      if (side > 0) { ctx.moveTo(x0 - .35, b.top + .15); ctx.lineTo(x0 + b.w * .35, b.top - rh); ctx.lineTo(x0 + b.w * .5, b.top - rh); ctx.lineTo(x0 + b.w * .3, b.top + .15) }
+      if (dir > 0) { ctx.moveTo(x0 - .35, b.top + .15); ctx.lineTo(x0 + b.w * .35, b.top - rh); ctx.lineTo(x0 + b.w * .5, b.top - rh); ctx.lineTo(x0 + b.w * .3, b.top + .15) }
       else { ctx.moveTo(x1 + .35, b.top + .15); ctx.lineTo(x0 + b.w * .65, b.top - rh); ctx.lineTo(x0 + b.w * .5, b.top - rh); ctx.lineTo(x0 + b.w * .7, b.top + .15) }
       ctx.closePath()
       ctx.fill()
     }
+    // A back-lit roof: its ridge line catches the light beyond.
+    if (fl.rim > .02) {
+      ctx.fillStyle = css(t.rim, .7 * fl.rim)
+      ctx.fillRect(x0 + b.w * .35, b.top - rh, b.w * .3, .3)
+    }
     ctx.fillStyle = css(t.shade, .5)
     ctx.fillRect(x0, b.top + .15, b.w, .35)
+    ctx.fillStyle = css(t.shade, .18 + .17 * fl.on)
+    ctx.fillRect(x0, b.top + .5, b.w, .45)
     return
   }
-  // A flat roof: its edge catches the sky (or the light), a parapet's dark line under it; a solar heater on some houses.
-  ctx.fillStyle = css(side ? mix(t.rim, t.lit, .3) : mix(t.rim, f.tiers[b.tier].top, f.strength), (.55 + .3 * tint) * (1 - .45 * s.night))
+  // A flat roof: its edge catches the sky, the light from above, or the light beyond it; a parapet's dark line under it;
+  // a solar heater on some houses.
+  const sky = mix(t.rim, f.tiers[b.tier].top, f.strength)
+  const up = Math.min(1, fl.top + .3 * Math.max(fl.left, fl.right) + .5 * fl.rim)
+  ctx.fillStyle = css(mix(sky, mix(t.rim, t.lit, .3), up), (.55 + .3 * tint) * (1 - .45 * s.night))
   ctx.fillRect(x0, b.top, b.w, .45)
   ctx.fillStyle = css(t.deep, .35)
   ctx.fillRect(x0, b.top + .45, b.w, .3)
+  ctx.fillStyle = css(t.deep, .1 + .1 * fl.on)
+  ctx.fillRect(x0, b.top + .75, b.w, .4)
   if (b.heater && b.w > 2.6) {
     const hx = x0 + b.w * (.3 + .4 * tint)
     ctx.fillStyle = css(mix(t.stoneLit, t.lit, .3))
@@ -190,8 +257,9 @@ function skyLight(ctx: Ctx2D, x0: number, top: number, w: number, h: number, f: 
   ctx.fillStyle = css(c.foot, .75 * a)
   ctx.fillRect(x0, top + h * .6, w, h * .4)
   if (f.side && w >= 1.6) {
+    // The face toward the brighter half of the sky, by how far the sun's part of it stands to that side.
     const fw = Math.min(1.2, w * .32)
-    ctx.fillStyle = css(c.face, .7 * a)
+    ctx.fillStyle = css(c.face, .7 * a * Math.abs(f.side))
     ctx.fillRect(f.side > 0 ? x0 : x0 + w - fw, top, fw, h)
   }
 }
@@ -202,7 +270,8 @@ function towerShadow(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t:
   ctx.fillRect(tw.x - tw.w / 2 - .2, tw.base - .3, tw.w + .4, .8)
   if (s.cast.alpha <= .01 || !s.cast.dx) return
   const dir = Math.sign(s.cast.dx)
-  const reach = Math.min(14, s.cast.length * tw.h * .6 + 1)
+  // Its run across the screen is the across part of the light's (a light ahead or behind casts it toward or from the eye).
+  const reach = Math.min(14, s.cast.length * tw.h * .6 * Math.min(1, Math.abs(s.cast.dx) * 1.6) + 1)
   const from = tw.x + dir * (tw.w / 2 - .5), to = tw.x + dir * (tw.w / 2 + reach)
   const g = ctx.createLinearGradient(from, 0, to, 0)
   g.addColorStop(0, css(t.shade, .8 * s.cast.alpha))
@@ -264,46 +333,52 @@ function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones
     ctx.fillRect(x0, shaftTop, tw.w, tw.base - shaftTop)
     if (f.side) {
       const fw = Math.max(.5, Math.min(1.5, tw.w * .28))
-      ctx.fillStyle = css(c.face, .75 * f.strength)
+      ctx.fillStyle = css(c.face, .75 * f.strength * Math.abs(f.side))
       ctx.fillRect(f.side > 0 ? x0 : x0 + tw.w - fw, shaftTop, fw, tw.base - shaftTop)
     }
   }
-  if (side) {
-    // The face toward the light, and its outer edge catching it (a fine bright line, as glass and stone corners do).
-    const lx = side > 0 ? x0 : x0 + tw.w - lit
-    ctx.fillStyle = css(mix(t.lit, t.glassLit, tw.full ? .35 : .1))
-    ctx.fillRect(lx, shaftTop, lit, tw.base - shaftTop)
-    ctx.fillStyle = css(mix(t.lit, t.rim, .6), .55 * s.direct + .1)
-    ctx.fillRect(side > 0 ? x0 : x0 + tw.w - .4, shaftTop, .4, tw.base - shaftTop)
+  // Each side face by its own share of the light, its outer edge catching it (a fine bright line, as glass and stone
+  // corners do); a back-lit tower's edges both catch the light beyond it.
+  const fl = facesOf(s, side)
+  const faceW = Math.max(lit, shadeW) * .85
+  const litTone = mix(t.lit, t.glassLit, tw.full ? .35 : .1)
+  sideFace(ctx, x0, shaftTop, faceW, tw.base - shaftTop, fl.left, fl.on, t, litTone)
+  sideFace(ctx, x0 + tw.w - faceW, shaftTop, faceW, tw.base - shaftTop, fl.right, fl.on, t, litTone)
+  for (const [x, k] of [[x0, fl.left], [x0 + tw.w - .4, fl.right]] as const) {
+    const a = k * (.55 * s.direct + .1) + .45 * fl.rim
+    if (a <= .01) continue
+    ctx.fillStyle = css(mix(t.lit, t.rim, .6), Math.min(1, a))
+    ctx.fillRect(x, shaftTop, .4, tw.base - shaftTop)
   }
-  ctx.fillStyle = css(t.shade, side ? .6 : .3)
-  ctx.fillRect(side >= 0 ? x0 + tw.w - shadeW : x0, shaftTop, shadeW, tw.base - shaftTop)
   // Crown.
   if (setback > 0) {
     const cw = tw.w * .62
     ctx.fillStyle = css(t.wall)
     ctx.fillRect(tw.x - cw / 2, top, cw, setback + .2)
-    if (side) {
-      ctx.fillStyle = css(t.lit)
-      ctx.fillRect(side > 0 ? tw.x - cw / 2 : tw.x + cw / 2 - lit * .8, top, lit * .8, setback)
+    for (const [x, k] of [[tw.x - cw / 2, fl.left], [tw.x + cw / 2 - lit * .8, fl.right]] as const) {
+      if (k <= .01) continue
+      ctx.fillStyle = css(t.lit, k)
+      ctx.fillRect(x, top, lit * .8, setback)
     }
     ctx.fillStyle = css(t.rim, .7 * (1 - .4 * s.night))
     ctx.fillRect(tw.x - cw / 2, top, cw, .4)
   }
-  ctx.fillStyle = css(side ? mix(t.rim, t.lit, .4) : mix(t.rim, f.tiers[tw.tier].top, f.strength), .8 * (1 - .4 * s.night))
+  ctx.fillStyle = css(mix(mix(t.rim, f.tiers[tw.tier].top, f.strength), mix(t.rim, t.lit, .4),
+    Math.min(1, fl.top + .3 * Math.max(fl.left, fl.right) + .5 * fl.rim)), .8 * (1 - .4 * s.night))
   ctx.fillRect(x0, shaftTop, tw.w, .45)
   let tipY = top
   if (tw.crown === 2) {
     const mh = Math.min(5, 1.5 + tw.h * .08)
     ctx.fillStyle = css(t.wall)
     ctx.fillRect(tw.x - .2, top - mh, .4, mh)
-    if (side) { ctx.fillStyle = css(t.lit, .8); ctx.fillRect(tw.x - .2, top - mh, .2, mh) }
+    const mk = Math.max(fl.left, fl.right)
+    if (mk > .01) { ctx.fillStyle = css(t.lit, .8 * mk); ctx.fillRect(fl.left >= fl.right ? tw.x - .2 : tw.x, top - mh, .2, mh) }
     tipY = top - mh
   }
   // Windows: a grid of recesses on the full towers by day; by night the lit share on every tower.
   const storey = (tw.base - shaftTop) / tw.storeys
   if (storey >= MIN_STOREY_PX * .7 && tw.w >= 2) {
-    const inner0 = x0 + (side > 0 ? lit : shadeW) + .3, inner1 = x0 + tw.w - (side > 0 ? shadeW : lit) - .25
+    const inner0 = x0 + faceW + .3, inner1 = x0 + tw.w - faceW - .25
     const step = Math.max(storey, 1.1)
     for (let y = shaftTop + 1; y < tw.base - 1.2; y += step) {
       for (let x = inner0; x + .5 <= inner1; x += 1.1) {
@@ -334,7 +409,10 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   for (const item of desc.items) {
     if (item.kind === 'box') box(ctx, item, tiers[item.tier], s, side, lamps, desc.form)
     else if (item.kind === 'tower') tower(ctx, item, tiers[item.tier], s, side, lamps, desc.form)
-    else if (item.kind === 'tree') tree(ctx, item.tree, tiers[item.tier], s, side as 1 | -1 | 0, rockOf(desc, env, item.tree.seed))
+    else if (item.kind === 'tree') {
+      const g = glyphSide({ litSide: desc.litSide }, s)
+      tree(ctx, item.tree, tiers[item.tier], s, g.side, rockOf(desc, env, item.tree.seed), g.k)
+    }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
   }
   grain(ctx, env, 13, 1 - .4 * s.night)

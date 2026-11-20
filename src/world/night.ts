@@ -3,6 +3,7 @@ import type { AirState } from '../atmo/airTypes'
 import { mapAir } from './mapAir'
 import { unionOf, type Covers } from './clouds'
 import { smoothstep } from './ridgeLighting'
+import { eveningShare } from './livingLight'
 import type { Night } from './types'
 
 /**
@@ -10,11 +11,11 @@ import type { Night } from './types'
  * by day a third under a storm, a downpour or a thick haze.
  */
 export function litShareOf(input: AirInput, air: AirState): number {
-  if (input.sunElevation <= -4) {
-    const hour = input.localHour
-    return hour >= 17 && hour < 23 ? 1 : hour >= 23 || hour < 1 ? 0.5 : hour < 5 ? 0.2 : 0.5
-  }
-  return input.weatherCode >= 95 || air.thunder || input.precipitation >= 7.5 || air.haze.farFade > 0.6 ? 0.3 : 0
+  const dull = input.weatherCode >= 95 || air.thunder || input.precipitation >= 7.5 || air.haze.farFade > 0.6 ? 0.3 : 0
+  // The living light: the night's share by the hour read smoothly, faded in through the dusk (the sun from −2° to −6°)
+  // instead of switched on at −4° and on the hour.
+  const dusk = smoothstep(-2, -6, input.sunElevation)
+  return dull + (eveningShare(input.localHour) - dull) * dusk
 }
 
 /**
@@ -25,7 +26,7 @@ export function nightOf(shown: AirInput, covers: Covers): Night {
   const litShare = litShareOf(shown, mapAir(shown))
   return {
     litShare,
-    aviation: litShare > 0,
+    aviation: litShare > 0.02,
     starsThrough: 1 - unionOf(covers),
     dark: smoothstep(-4, -12, shown.sunElevation),
   }

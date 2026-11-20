@@ -8,6 +8,7 @@ import type { RGB, WorldMark, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
 import { mixRgb, rgbOf } from './tone'
+import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
 
 /** Draw order on the land: the far ridge's and the plain's marks over the far towns, under the near ridge; the near ridge's
@@ -64,7 +65,9 @@ export function tonesAt(world: WorldState, km: number): Tones {
   const ridge = rgbOf(light.palette.ridgeNear)
   const sky = hazeOf(world)
   const dark = night.dark, day = 1 - dark
-  const sunK = light.side ? clamp01(light.direct) * (light.source === 'moon' ? 0.45 : 1) : 0
+  // The living light: the direct share as it is (the moon's fainter), never gated by a side; a face takes it by its own
+  // normal (`Shine.faces`), so `lit` is a face square to the light at this minute and equals the wall when there is none.
+  const sunK = directK(world)
   const sun = light.colour
   // Against the light (C9) a wall facing the eye is in its own shade: its stone does not lift it, the dim sky behind the
   // eye is all it sees (the ridge's own dark, a little of the air between), the bright sky beyond only its rims.
@@ -72,9 +75,15 @@ export function tonesAt(world: WorldState, km: number): Tones {
   const wallBase = mixRgb(ridge, sky, (0.13 + 0.07 * dark) * (1 - 0.45 * against))
   const wall = mixRgb(wallBase, STONE, 0.1 * day * (1 - against))
   const litFull = mixRgb(mixRgb(ridge, mixRgb(STONE, sun, 0.45), 0.42 + 0.1 * day), sun, 0.08)
-  const lit = sunK > 0 ? mixRgb(wall, litFull, sunK * (0.55 + 0.35 * day)) : mixRgb(wall, sky, 0.12)
-  const shade = mixRgb(mixRgb(wall, BLACK, 0.3), light.ambient, 0.06 * day)
-  const rim = sunK > 0 ? mixRgb(ridge, mixRgb(sun, STONE, 0.3), 0.45 * sunK + 0.08) : mixRgb(ridge, sky, 0.36)
+  const lit = mixRgb(wall, litFull, sunK * (0.55 + 0.35 * day))
+  // Shade is never flat black: the sky fills it, cooler and bluer than the light (the sky's own tone, more of it the more
+  // of the sky is clear), and the sunlit ground in front gives back a little of the sun's warmth.
+  const skyFill = mixRgb(light.ambient, sky, 0.4)
+  const bounce = mixRgb(ridge, mixRgb(STONE, sun, 0.5), 0.5)
+  const shade = mixRgb(mixRgb(mixRgb(wall, BLACK, 0.3), skyFill, (0.06 + 0.07 * (1 - light.diffuse)) * day), bounce, 0.1 * sunK * day)
+  const rimSky = mixRgb(ridge, sky, 0.36)
+  const rimSun = mixRgb(ridge, mixRgb(sun, STONE, 0.3), 0.45 * sunK + 0.08)
+  const rim = mixRgb(rimSky, rimSun, smoothstep(0, 0.35, sunK))
   const roof = mixRgb(ridge, TILE, 0.5 * day + 0.16 * dark)
   const green = mixRgb(ridge, LEAF, 0.5 * day + 0.18 * dark)
   const own: Tones = {
@@ -95,16 +104,26 @@ export function tonesAt(world: WorldState, km: number): Tones {
   return out as Tones
 }
 
-/** The light the glyphs share: dark, direct light, cast shadow away from the light, lit windows, aviation lights, lean. */
+/** The direct light a lit face takes: the sun's share, the moon's at under half (its light is faint and colourless). */
+export const directK = (world: WorldState) => clamp01(world.light.shares.sun + 0.45 * world.light.shares.moon)
+
+/**
+ * The light the glyphs share: dark, direct light, each face's share of it by its normal (`faces`), cast shadow away from
+ * the light, lit windows, aviation lights, lean.
+ */
 export function shineOf(world: WorldState): Shine {
   const { light, night, wind } = world
   const direct = clamp01(light.direct)
-  const on = night.litShare > 0 ? 0.3 + 0.7 * smoothstep(0.05, 0.6, night.dark) : 0
+  const on = smoothstep(0, 0.12, night.litShare) * (0.3 + 0.7 * smoothstep(0.05, 0.6, night.dark))
+  const moonK = light.direct > 0 ? (light.shares.sun + 0.4 * light.shares.moon) / light.direct : 1
   return {
     night: night.dark,
     direct,
+    faces: faceLight(light.dir, directK(world)),
+    // The low sun's glint in the glass of the faces turned to it (strongest a little over the horizon, none at noon).
+    glint: clamp01(light.shares.sun * 1.4) * (1 - smoothstep(6, 22, light.altitude)) * smoothstep(-1, 1.5, light.altitude),
     cast: { dx: light.shadow.dx, length: Math.min(2.5, light.shadow.length),
-      alpha: light.side ? 0.55 * direct * (1 - light.shadow.softness) * (light.source === 'moon' ? 0.4 : 1) : 0 },
+      alpha: 0.55 * direct * (1 - light.shadow.softness) * moonK },
     // `litShare` is how lit the evening is (1 from 17 to 23 h); about two windows in five are lit then.
     windows: 0.4 * night.litShare * on,
     aviation: night.aviation || night.dark > 0.3,
@@ -154,7 +173,9 @@ function boundsOf(boxes: { left: number; right: number; top: number; bottom: num
 }
 
 const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
-const shineKey = (s: Shine) => [Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
+export const facesKey = (s: Shine) => s.faces ? [s.faces.front, s.faces.left, s.faces.right, s.faces.top, s.faces.rim, s.faces.across,
+  s.glint ?? 0].map((v) => Math.round(v * 64)) : null
+const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
   Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), s.aviation, Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 
 /**

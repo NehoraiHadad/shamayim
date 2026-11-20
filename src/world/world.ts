@@ -13,6 +13,8 @@ import { cloudLayers, layerCovers } from './clouds'
 import { farCitiesOf } from './farCities'
 import { partKey } from './keys'
 import { lightOf, visibleDay } from './light'
+import { airDim, cloudDriftKm, hourBetween } from './livingLight'
+import { smoothstep } from './ridgeLighting'
 import { nightOf } from './night'
 import { placeOf } from './place'
 import { drawnTerrain } from './outside'
@@ -24,7 +26,7 @@ import { landStatusOf, terrainPlanes, unknownLand } from './terrain'
 import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf, waterOf } from './water'
-import { windOf } from './wind'
+import { acrossOf, windOf } from './wind'
 import type { LifeInput } from './life'
 import { makeLifeDays } from './lifeDay'
 import { altitudeOver } from './lifeSchedule'
@@ -54,6 +56,18 @@ export function groundWet(hours: readonly HourPoint[], at: LocalTime, shownRate:
   let wet = Math.min(1, shownRate / 0.8)
   for (let k = 1; k <= 3 && index - k >= 0; k++) wet = Math.max(wet, Math.min(1, hours[index - k].precipitation / 0.8) * (1 - k / 4))
   return wet
+}
+
+/** `groundWet` read straight between the shown minute's hour and the next (their own rain), never a step on the hour. */
+function wetBetween(hours: readonly HourPoint[], at: LocalTime, shownRate: number): number {
+  const f = Number(at.slice(14, 16)) / 60
+  const floor = `${at.slice(0, 13)}:00` as LocalTime
+  const index = hours.findIndex((h) => h.time === floor)
+  const next = hours[index + 1]
+  if (index < 0 || !next || f <= 0) return groundWet(hours, at, shownRate)
+  const a = groundWet(hours, floor, hours[index].precipitation), b = groundWet(hours, next.time, next.precipitation)
+  // The shown rate is already read between the two; the wet of the hours before eases from one hour's to the next's.
+  return Math.max(Math.min(1, shownRate / 0.8), a + (b - a) * f)
 }
 
 /** The land the world stands on while the place's own is not known (C8): one object per status, so the parts keep. */
@@ -128,6 +142,9 @@ export function makeWorldBuilder() {
     const skyline = skylineOf(terrain)
     const shown = shownAir(input)
     const hour = forecast.hours.find((h) => h.time === hourKey(at))
+    // The living light: the hour's layers and visibility read straight between this hour and the next, as the cover is
+    // (they stepped on the hour: a minute's scrub across it turned the light at once).
+    const between = hourBetween(forecast.hours, at)
     const dayGiven = forecast.days.find((d) => d.date === datePart(at))
     const forced = input.forced ?? {}
 
@@ -142,14 +159,14 @@ export function makeWorldBuilder() {
     const day = dayGiven && status === 'ready' ? visibleDay(dayGiven, place, sunSkyline) : dayGiven
     const sun = sunBody(at, day, place, skyline, sunSkyline)
     const moon = moonBody(at, place, skyline, sun, sunSkyline)
-    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: hour?.visibility, preview,
+    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview,
       forcedVisibility: 'visibilityKm' in forced })
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
       hour, preview, forced: 'windDirection' in forced }, camera)
     const rate = rainOf(shown)
     // A dev moment may pin the layers themselves (the harness's C10 moments: a veil of cirrostratus alone).
     const { covers: given, source: cloudSource } = input.forcedLayers ? { covers: input.forcedLayers, source: 'forced' as const }
-      : layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour })
+      : layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour: between })
     const snow = snowFall(shown, forecast.elevation)
     // Falling snow needs a cloud to fall from, as the rain does (C7): the same layer rule, from the snowfall.
     const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
@@ -164,14 +181,25 @@ export function makeWorldBuilder() {
       aerosol: { visibilityKm: air.visibilityKm, dust: air.dust }, covers, cloudCover: shown.cloudCover,
       thickCloud: shown.thickCloud ?? null, farFade: air.farFade, palette })
     const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id),
-      light.source === 'sun' ? light.direct : 0, sun.overLand)
+      light.shares.sun, sun.overLand)
     const night = nightOf(shown, covers)
-    const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
+    // The low and mid cloud's shadows on the land: cast by the sun as it would shine without them (its disc over the land,
+    // the air), where the cover is broken; carried by the low cloud's wind, integrated through the day's hours.
+    const lowMid = 1 - (1 - covers.low) * (1 - 0.8 * covers.mid)
+    const clearSun = (sun.visible ?? 0) * airDim(sun.altitude, { visibilityKm: air.visibilityKm, dust: air.dust })
+    const shadows = {
+      cover: lowMid,
+      strength: clearSun * smoothstep(0.04, 0.2, lowMid) * (1 - smoothstep(0.8, 0.97, lowMid)) * (1 - night.dark),
+      driftKm: cloudDriftKm(forecast.hours, at, (fromDeg) => acrossOf(fromDeg, camera)),
+      kmh: wind.aloft.low * 3.6 * wind.aloftAcross.low,
+    }
+    // The ground's wetness read straight between the hour's and the next's (it stepped on the hour).
+    const ground = { wet: wetBetween(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
     const horizonY = terrain.horizonY
     // C10: the life of the sky, its true night objects and its optics, from the same state.
     const env = envPart(place, input.cover, input.far, input.waterMask)
     const lifeInput: LifeInput = { placeId: place.id, lat: place.lat, lon: place.lon, at, timezone: place.timezone, camera,
-      groundM: forecast.elevation, env, sun, direct: light.source === 'sun' ? light.direct : 0, dark: night.dark,
+      groundM: forecast.elevation, env, sun, direct: light.shares.sun, dark: night.dark,
       temperature: shown.temperature, covers, rainMmH: Math.max(rate, shown.precipitation), thunder: rain?.thunder ?? false,
       wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs }, hour, starsThrough: night.starsThrough, moon,
       visibilityKm: air.visibilityKm }
@@ -181,9 +209,10 @@ export function makeWorldBuilder() {
       [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
-    const optics = opticsOf({ sun, direct: light.source === 'sun' ? light.direct : 0, sunLights: light.source === 'sun', covers,
+    const optics = opticsOf({ sun, direct: light.shares.sun, sunLights: light.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
-    const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance }, moon }
+    const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,
+      visible: sun.visible }, moon }
 
     return {
       place, at, preview, seed, camera,
@@ -195,7 +224,7 @@ export function makeWorldBuilder() {
       place3: placePartResult.place3,
       marks: placePartResult.marks,
       labels: placePartResult.labels,
-      night, ground, env, life, nightSky, optics,
+      night, ground, env, life, nightSky, optics, shadows,
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
         windAloft: windSources.windAloft, visibility: visibilitySource, cruise: life.aircraft.cruise.source, glow: env.sources.glow },
       keys: {

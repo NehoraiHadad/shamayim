@@ -45,6 +45,13 @@ export interface AnimSpec {
   /** Surface px/s across, for `drift` (+ left → right). */
   speed?: number
   /**
+   * Surface px the drift has already carried the layer at phase 0 (the shown minute's: the cloud shadows' wind since
+   * midnight), so a scrub moves it with no repaint.
+   */
+  offset?: number
+  /** A constant alpha the layer is laid with (the cloud shadows' strength at the minute), so it changes with no repaint. */
+  alpha?: number
+  /**
    * The drift repeats every `period` px: the layer's canvas is laid every `period` px across the surface (a tileable
    * band: the clouds round the whole horizon, a shimmer tile). A whole number of device px.
    */
@@ -181,6 +188,8 @@ interface LayerBase {
   light?: LightPart
   /** Laid where its object is now (`Lay`): the layer's bounds and coordinates are round its own origin. */
   placed?: Lay
+  /** How its canvas meets the surface under it (`source-over` when absent; the cloud shadows lie `source-atop` the land). */
+  blend?: 'source-over' | 'source-atop'
 }
 
 /* Shapes drawn from C2 on (placeholders, refined by the stage that draws them). */
@@ -312,7 +321,8 @@ export interface SeaDesc {
 export type { GlyphKind, IconKind }
 
 /** The light the outside view's mass takes from the sky (C5b): its strength, the brighter sky's side, tones per tier. */
-export interface SkyForm { strength: number; side: -1 | 0 | 1; tiers: { top: RGB; face: RGB; foot: RGB }[] }
+/** `side`: −1…1, the brighter sky's side (+ left) and how far toward it the sun's part of the sky stands (continuous). */
+export interface SkyForm { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }
 
 /**
  * The colours a glyph, a house or a tree is painted in (stage C4), after the light and the air at its distance: the
@@ -338,6 +348,15 @@ export interface Tones {
 export interface Shine {
   night: number
   direct: number
+  /**
+   * The living light: the light each face takes by its normal (`livingLight.ts` `faceLight`, 0–1, the direct share in it):
+   * the front (toward the eye), the left and right sides, the top; `rim` a back-lit edge's; `across` the light's signed
+   * side (−1 left … 1 right, 0 straight ahead or behind or with no direct light). Painters mix each face from its base
+   * toward `Tones.lit` by its own share, so the lit side turns with the light instead of flipping.
+   */
+  faces?: { front: number; left: number; right: number; top: number; rim: number; across: number }
+  /** A low sun's glint in the windows of the faces turned to it (0–1). */
+  glint?: number
   cast: { dx: number; length: number; alpha: number }
   windows: number
   aviation: boolean
@@ -385,8 +404,15 @@ export interface WearItem {
   pegTilts: number[]
   side: -1 | 0 | 1
   shine: number
+  /** The living light (`wear.ts` `wearLight`): the side light's signed strength, the light on the front, through the back, from above. */
+  across: number
+  front: number
+  back: number
+  up: number
   tones: { body: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB; seam: RGB; edge: RGB; tag: RGB; peg: RGB; pegEdge: RGB
-    pegLight: RGB; spring: RGB; glint: RGB; water: RGB; cord: RGB }
+    pegLight: RGB; spring: RGB; glint: RGB; water: RGB; cord: RGB; glow: RGB }
+  /** A neighbour's shadow on it (the light running along the line): its outline at (dx, dy) garment units, at `alpha`. */
+  cast?: { garment: string; dx: number; dy: number; alpha: number }
   /** 0–1: rain on it (darker, beaded), snow lying on its shoulders, dust dulling it. */
   wet: number
   snow: number
@@ -457,7 +483,9 @@ export type LayerDesc =
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
-  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB; litFace?: number }
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB; litFace?: number
+      /** The living light: how strongly the lit side stands out (0 even … 1 one-sided); absent = 1 where there is a side. */
+      sideK?: number }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       litSide: 'left' | 'right' | null
       /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */
@@ -541,6 +569,12 @@ export type LayerDesc =
   | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
       beads: WearBead[]; snow: number; seed: number }
   | LayerBase & { kind: 'wearItem'; item: WearItem }
+  /**
+   * The living light: a cloud's shadows on a band of the land (`cloudShadows.ts`), a seamless tile `period` px wide of soft
+   * patches (land px), faded in and out down the band where it meets the next (`fadeIn`, `fadeOut`: the y run of each).
+   */
+  | LayerBase & { kind: 'cloudShadow'; blobs: { x: number; y: number; rx: number; ry: number; alpha: number }[]; rgb: RGB; period: number
+      band: { top: number; bottom: number; fadeIn: [number, number] | null; fadeOut: [number, number] | null } }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']

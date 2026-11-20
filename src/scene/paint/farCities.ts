@@ -23,16 +23,18 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
     if (!tier.blocks.length) continue
     ctx.beginPath()
     for (const b of tier.blocks) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
-    ctx.fillStyle = css(desc.litSide ? tier.shade : tier.lit, desc.litSide ? 1 : 0.85)
+    // Even (the mean light, a little open) under a sky with no side; toward the shade as the light comes to one side.
+    const k = desc.litSide ? desc.sideK ?? 1 : 0
+    ctx.fillStyle = css(mix(tier.lit, tier.shade, k), 0.85 + 0.15 * k)
     ctx.fill()
-    if (!desc.litSide) continue
+    if (!desc.litSide || k <= 0.004) continue
     ctx.beginPath()
     for (const b of tier.blocks) {
       // The lit face: the half of the block toward the light (against the light a rim), at least a device px.
       const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
       ctx.rect(desc.litSide === 'left' ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
     }
-    ctx.fillStyle = css(tier.lit)
+    ctx.fillStyle = css(tier.lit, k)
     ctx.fill()
   }
   if (!desc.lights.length) return

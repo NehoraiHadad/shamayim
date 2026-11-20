@@ -4,6 +4,8 @@ import { colourKey, layerKey } from './keys'
 import { mixRgb, rgbOf } from './tone'
 import type { LayerDesc, LayerOf, Pt, Sway, WearBead, WearEnd, WearItem } from './types'
 import { hangingOf, type Hanging } from './wearKit'
+import { lambert, NORMALS, SHADING, type Normal } from '../../world/livingLight'
+import { smoothstep } from '../../world/ridgeLighting'
 
 /*
  * The "מה ללבוש" clothesline (the wear card) drawn in the scene's hand, from the same world the valley is drawn from:
@@ -77,22 +79,31 @@ export function wearWet(world: WorldState): number {
 }
 
 /**
- * The light on the cloth: the screen side it comes from (−1 left, 1 right, 0 none: overcast, twilight) and how strongly,
- * its colour, and how dark it is (0 day … 1 full night; the moon gives a faint side by night).
+ * The light on the cloth (the living light): the line hangs across the view, its cloth facing the eye, so each garment
+ * takes the world's light by its normals (`livingLight.ts`): `shine` the direct share (the moon's fainter), `across` the
+ * signed strength of its side light (−1 from the left … 1 from the right, the difference of the two sides' Lambert light:
+ * 0 with the light straight ahead, behind or absent), `front` the light on the face toward the eye, `back` the light
+ * through it from behind (the sun beyond the line: thin cloth glows), `up` from above; its colour, the sky's, how dark it is
+ * (0 day … 1 full night). `side` is the sign of `across`. All continuous: the lit side turns, never flips.
  */
-export interface WearLight { side: -1 | 0 | 1; shine: number; rgb: RGB; ambient: RGB; dark: number; moon: boolean }
+export interface WearLight { side: -1 | 0 | 1; shine: number; across: number; front: number; back: number; up: number; rgb: RGB; ambient: RGB
+  dark: number; moon: boolean }
 
 export function wearLight(world: WorldState): WearLight {
   const { light, night } = world
-  const side = light.side === 'left' ? -1 : light.side === 'right' ? 1 : 0
   const moon = light.source === 'moon'
-  const shine = side && light.source !== 'sky' ? clamp01(light.direct) * (moon ? 0.45 : 1) : 0
-  // Quantised to steps a small sprite shows (a twentieth of the shine and the dark, 1/48 of a colour), so a scrub through
-  // the hours repaints the cloth only when its light visibly turns.
+  const shine = clamp01(light.shares.sun + 0.45 * light.shares.moon)
+  const on = smoothstep(SHADING[0], SHADING[1], shine)
+  const dir = light.dir
+  const k = (n: Normal, wrap: number) => on * lambert(n, dir, wrap) ** 0.7
+  // Quantised to steps a small sprite shows (a fortieth of a light, 1/48 of a colour), so a scrub through the hours
+  // repaints the cloth only when its light visibly turns (a fortieth: no step a minute's scrub can see).
   const q = (v: number, n: number) => Math.round(v * n) / n
   const rgb = (c: RGB): RGB => [q(c[0], 48), q(c[1], 48), q(c[2], 48)]
-  const lit = shine > 0.02 ? q(shine, 20) : 0
-  return { side: lit > 0 ? side : 0, shine: lit, rgb: rgb(light.colour), ambient: rgb(light.ambient), dark: q(clamp01(night.dark), 20), moon }
+  const across = q(k(NORMALS.right, 0.15) - k(NORMALS.left, 0.15), 40)
+  return { side: across > 0 ? 1 : across < 0 ? -1 : 0, shine: q(shine, 40), across, front: q(k(NORMALS.front, 0.3), 40),
+    back: q(on * clamp01(dir.ahead) ** 0.8, 40), up: q(on * clamp01(dir.up), 40), rgb: rgb(light.colour), ambient: rgb(light.ambient),
+    dark: q(clamp01(night.dark), 40), moon }
 }
 
 /** By night every colour on the line dims and cools toward moonlight (`dark` 0…1). */
@@ -190,6 +201,19 @@ export function wearLayers(world: WorldState, garments: readonly string[], paper
     Math.round(snow * 64), Math.round(wet * 64))
   const layers: LayerDesc[] = [ropeDesc]
 
+  // A garment's neighbour on the light's side shades it when the light runs along the line (low, from the side, little
+  // of it toward or from the eye): the neighbour's outline, carried the line's spacing along the light, falls on it that
+  // much lower (garment units, in its frame).
+  const along = Math.abs(world.light.dir.across) / Math.max(1e-6, Math.hypot(world.light.dir.across, world.light.dir.ahead))
+  const castOn = (i: number): WearItem['cast'] | undefined => {
+    const toward = Math.sign(light.across)
+    const j = toward > 0 ? i - 1 : i + 1
+    const strength = 0.4 * light.shine * smoothstep(0.6, 0.97, along) * Math.min(1, Math.abs(light.across) * 1.5)
+    if (!toward || j < 0 || j >= n || strength < 0.01) return undefined
+    const dy = ((STEP * Math.max(0, world.light.dir.up)) / Math.max(0.05, Math.abs(world.light.dir.across)) + rope.y(xOf(j)) - rope.y(xOf(i))) / SCALE
+    if (dy > 70) return undefined
+    return { garment: items[j][0], dx: 0, dy: Math.round(dy * 4) / 4, alpha: Math.round(strength * 40) / 40 }
+  }
   items.forEach(([garment, item], i) => {
     const u = xOf(i)
     const x = sx(u), y = sy(rope.y(u))
@@ -200,7 +224,8 @@ export function wearLayers(world: WorldState, garments: readonly string[], paper
     const hang = 1 + 0.035 * wet
     const tones = toneOf(rgbOf(item.cloth), { P, I, A, light, wet, dust, haze: world.air.haze, dim })
     const desc: WearItem = { garment, x, y, tilt, scale, hang, pegTilts: item.pegs.map((_, j) => pegTilt(i, j) * DEG), side: light.side,
-      shine: light.shine, tones, wet, snow, dust, seed: hashId(`wear:${garment}:${i}`) }
+      shine: light.shine, across: light.across, front: light.front, back: light.back, up: light.up, tones, wet, snow, dust,
+      seed: hashId(`wear:${garment}:${i}`), ...(castOn(i) ? { cast: castOn(i)! } : {}) }
     // The sprite's box: the garment's own, turned and scaled, with a margin for the hand.
     const [x0, y0, x1, y1] = item.box
     const corners: Pt[] = [[x0, y0], [x1, y0], [x0, y1 * hang], [x1, y1 * hang]].map(([a, b]): Pt =>
@@ -215,7 +240,9 @@ export function wearLayers(world: WorldState, garments: readonly string[], paper
       : { pivot: [x, y], period, delay: 0.22 * i, lift, skew: air.flap * DEG, skew0: air.lean * DEG, turn: 0, turn0: 0, stretch: 0 }
     const z = 2 + i * 0.1
     layers.push({ kind: 'wearItem', id: `wear.item.${i}`, surface: 'wear', z, bounds, item: desc, animated: swayAnim(sway),
-      key: key('item', garment, i, x, y, tilt, scale, hang, desc.pegTilts, light.side, light.shine, Object.values(tones).map(colourKey),
+      key: key('item', garment, i, x, y, tilt, scale, hang, desc.pegTilts, light.shine, light.across, light.front, light.back, light.up,
+        desc.cast && [desc.cast.garment, Math.round(desc.cast.dx * 4), Math.round(desc.cast.dy * 4), Math.round(desc.cast.alpha * 40)],
+        Object.values(tones).map(colourKey),
         Math.round(wet * 64), Math.round(snow * 64), Math.round(dust * 64)) })
     // The rope runs in front of a hook's far arm, so the hook hangs over it rather than in front of it.
     if (item.over) {
@@ -268,9 +295,13 @@ function toneOf(cloth: RGB, { P, I, A, light, wet, dust, haze, dim }: ToneInput)
   // The direct light's colour carries into the lit side; a low sun's warmth shows, the noon sun's barely.
   const tint = mixRgb([1, 1, 1], light.rgb, 0.8)
   const lit = mixRgb(body, mixRgb(body, tint, 0.75), 0.55 * light.shine)
-  const shade = mixRgb(mul(body, 0.74 - 0.08 * light.shine * day), light.ambient, 0.1)
+  // Shade is filled by the sky (cooler, a little more of it under a clear sky) and never flat.
+  const shade = mixRgb(mul(body, 0.74 - 0.08 * light.shine * day), light.ambient, 0.1 + 0.06 * light.shine * day)
+  // Light through the cloth from behind: its own colour, saturated and lit by the light's colour.
+  const glow = mixRgb(mul(mixRgb(cloth, [1, 1, 1], 0.4), tint), lit, 0.35)
   return {
     body: dim(body),
+    glow: dim(glow),
     lit: dim(mixRgb(lit, [1, 1, 1], 0.08 * light.shine * day)),
     shade: dim(shade),
     deep: dim(mul(body, 0.55)),

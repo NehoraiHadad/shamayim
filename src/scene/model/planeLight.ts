@@ -1,6 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
 import { ridgeLightSamples, smoothstep, type RidgeSample } from '../../world/ridgeLighting'
+import { SHADING } from '../../world/livingLight'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import { SCENE_W } from '../../world/sceneBox'
 import { shadowRuns } from '../../world/shadowRuns'
@@ -196,7 +197,9 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
 
   let shade: Wash[] = [], lit: Wash[] = [], rims: Rim[] = []
   const faces: Face[] = []
-  if (light.ray && strength > 0.02) {
+  // The living light: the bands come in with the direct share from nothing (no floor at their first minute).
+  const fadeIn = smoothstep(SHADING[0] * 1.3, SHADING[1] * 0.5, strength)
+  if (light.ray && fadeIn > 0) {
     const depth = DEPTH[name]
     // Every other crest point (~3.7 px apart) is enough for the bands and keeps a scrub frame cheap.
     const crest = plane.points.filter((_, i) => i % 2 === 0 || i === plane.points.length - 1)
@@ -204,17 +207,18 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
     const litTone = capped(tint, lightTint, 0.6, cap)
     // A plane behind the near ridge shows only where it rises over it: no band, no rim where it is hidden.
     const shows = samples.map((s) => name === 'near' || s.y < lineAt(world.terrain.near.points, s.x) - 0.5)
-    lit = washes(samples, plane.points, (s, i) => (shows[i] ? s.amount : 0), sx, litTone, Math.min(0.9, 0.2 + 0.75 * strength) * k)
+    lit = washes(samples, plane.points, (s, i) => (shows[i] ? s.amount : 0), sx, litTone, Math.min(0.9, 0.2 + 0.75 * strength) * fadeIn * k)
     // Shade: faces turned away from the light, and ground in the shadow of land toward it.
     const away = samples.map((s) => depth * Math.max(Math.max(0, -s.facing) * (1 - light.noonWeight) * 1.2,
       s.clearance < 0 ? 0.7 : 0))
     taper(samples, away)
     const shadeTone = mixRgb(darken(tint, 0.7), SKY_SHADE, 0.2)
-    shade = washes(samples, plane.points, (_, i) => (shows[i] ? away[i] : 0), sx, shadeTone, 0.6 * strength * k)
+    shade = washes(samples, plane.points, (_, i) => (shows[i] ? away[i] : 0), sx, shadeTone, 0.6 * strength * fadeIn * k)
     // The rim: the crest where it turns to the light; brighter within reach of a low sun (`rimX`).
     const rimTone = capped(tint, mixRgb(lightTint, [1, 1, 1], 0.2), 0.9, lightness(sky) - 0.03)
     const low = 1 - smoothstep(6, 15, light.altitude)
-    const levels = [0.18, 0.32, 0.5]
+    // Five levels (it was three): a rim's alpha steps by under 0.13 as the light turns.
+    const levels = [0.12, 0.2, 0.3, 0.4, 0.5]
     const runs: Pt[][][] = levels.map(() => [])
     let current: { level: number; pts: Pt[] } | null = null
     for (const [i, s] of samples.entries()) {
@@ -224,8 +228,8 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
         continue
       }
       const near = light.rimX !== null && Math.abs(s.x - light.rimX) < 70 ? low : 0
-      const a = s.clearance > 0 ? Math.min(0.6, Math.max(0, s.facing) * 0.7 * strength * (1 + near)) * k : 0
-      const level = a < 0.08 ? -1 : levels.findLastIndex((l) => a >= l * 0.8)
+      const a = s.clearance > 0 ? Math.min(0.6, Math.max(0, s.facing) * 0.7 * strength * fadeIn * (1 + near)) * k : 0
+      const level = a < 0.06 ? -1 : levels.findLastIndex((l) => a >= l * 0.8)
       if (current && current.level !== level) { if (current.pts.length >= 2) runs[current.level].push(current.pts); current = null }
       if (level >= 0) {
         current ??= { level: Math.max(0, level), pts: [] }
@@ -235,12 +239,12 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
     if (current && current.pts.length >= 2) runs[current.level].push(current.pts)
     rims = runs.flatMap((paths, i) => paths.map((points) => ({ points, rgb: rimTone, alpha: levels[i] })))
     // The ridge's shadow on the floor, the near plane only (the far plane's floor is hidden behind it).
-    if (name === 'near' && light.source === 'sun') {
+    if (name === 'near' && light.shares.sun > 0.002) {
       for (const [a, b] of shadowRuns(crest, light.ray).filter(([a, b]) => b - a >= MIN_RUN)) {
         const xs = Array.from({ length: Math.round((b - a) / 3) + 1 }, (_, i) => a + i * 3)
         const top = xs.map((x): Pt => [x * sx, lineAt(plane.points, x) - 2])
         const bottom = [...xs].reverse().map((x): Pt => [x * sx, lineAt(plane.points, x) + FLOOR_DEPTH])
-        faces.push({ points: [...top, ...bottom], rgb: SKY_SHADE, alpha: 0.3 * light.direct, soft: 4 })
+        faces.push({ points: [...top, ...bottom], rgb: SKY_SHADE, alpha: 0.3 * light.shares.sun * fadeIn, soft: 4 })
       }
     }
   }
@@ -248,9 +252,12 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
   const snow = snowOf(world, box, name, light.ray ? strength : 0, lightTint)
   // Under snow the crest catches the light on the snow: its rim is the snow's, lit.
   if (snow) rims = rims.map((rim) => ({ ...rim, rgb: mixRgb(snow.rgb, [1, 1, 1], 0.4) }))
-  const lift = light.side && strength > 0.06
-    ? { dx: light.side === 'left' ? -1 : 1, dy: -0.7, rgb: capped(tint, mixRgb(lightTint, [1, 1, 1], 0.35), 0.85, cap + 0.06),
-      alpha: Math.min(0.6, 0.12 + 0.6 * strength) * k }
+  // The side the small things of the ground catch the light on: toward the light's side, eased through straight ahead,
+  // coming in with the direct share.
+  const sideOf = Math.max(-1, Math.min(1, light.dir.across / 0.25))
+  const lift = fadeIn > 0 && Math.abs(sideOf) > 0.02
+    ? { dx: sideOf, dy: -0.7, rgb: capped(tint, mixRgb(lightTint, [1, 1, 1], 0.35), 0.85, cap + 0.06),
+      alpha: Math.min(0.6, 0.12 + 0.6 * strength) * fadeIn * Math.min(1, Math.abs(sideOf) * 2) * k }
     : null
   // The key names everything these pixels come from: the light, the air, the ground, the night, the snow, the land and
   // the box (hashing the inputs, not the shapes made from them, keeps a scrub frame cheap).
@@ -278,9 +285,10 @@ function snowOf(world: WorldState, box: SceneBox, name: PlaneName, strength: num
 function snowLook(world: WorldState, km: number, strength: number, lightTint: RGB): { rgb: RGB; alpha: number } {
   const { light } = world
   const white: RGB = [0.95, 0.96, 0.98]
-  const rgb = light.source === 'sky' || light.source === 'moon' && strength < 0.2
-    ? mixRgb(white, rgbOf(light.palette.mid), 0.35 + 0.4 * world.night.dark)
-    : mixRgb(white, lightTint, 0.2 + 0.2 * (1 - strength))
+  // The sky's tone with no direct light, the light's as it comes (the moon's only once it is strong): eased, never a switch.
+  const sky = mixRgb(white, rgbOf(light.palette.mid), 0.35 + 0.4 * world.night.dark)
+  const lit = mixRgb(white, lightTint, 0.2 + 0.2 * (1 - strength))
+  const rgb = mixRgb(sky, lit, light.source === 'moon' ? smoothstep(0.1, 0.3, strength) : smoothstep(0, 0.12, strength))
   return { rgb: mixRgb(rgb, hazeOf(world), AERIAL * world.air.fade(km) ** 2), alpha: 0.55 + 0.4 * (world.snow?.amount ?? 0) }
 }
 
@@ -298,5 +306,5 @@ export function snowOnGround(world: WorldState, km: number): { rgb: RGB; alpha: 
 function lightTintOf(world: WorldState): RGB {
   const { light } = world
   const warm = 1 - smoothstep(4, 18, light.altitude)
-  return mixRgb(mixRgb(rgbOf(light.palette.horizon), light.colour, 0.55), rgbOf(light.palette.accent), light.source === 'sun' ? warm * 0.4 : 0)
+  return mixRgb(mixRgb(rgbOf(light.palette.horizon), light.colour, 0.55), rgbOf(light.palette.accent), warm * 0.4 * smoothstep(0, 0.1, light.shares.sun))
 }

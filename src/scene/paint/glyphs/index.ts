@@ -59,7 +59,9 @@ export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
   ctx.fillRect(d.x - half - 0.2, d.base - 0.3, d.w + 0.4, 0.9)
   if (shine.cast.alpha <= 0.01 || !shine.cast.dx) return
   const dir = Math.sign(shine.cast.dx)
-  const reach = Math.min(14, shine.cast.length * height * 0.6 + 1)
+  // The shadow's reach across the screen is its run's across part: a light straight ahead or behind casts it toward or
+  // away from the eye, foreshortened to a stub (it shrinks to the contact shade, never flips at full length).
+  const reach = Math.min(14, shine.cast.length * height * 0.6 * Math.min(1, Math.abs(shine.cast.dx) * 1.6) + 1)
   const from = d.x + dir * (half - 1), to = d.x + dir * (half + reach)
   const g = ctx.createLinearGradient(from, 0, to, 0)
   g.addColorStop(0, css(d.tones.shade, shine.cast.alpha))
@@ -80,15 +82,29 @@ export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
  * screen px, to be laid after the grain.
  */
 export function drawGlyph(ctx: Ctx2D, d: GlyphDesc, shine: Shine): Lamp[] {
-  const side = d.litSide === 'left' ? 1 : d.litSide === 'right' ? -1 : 0
+  const { side, k: strength } = glyphSide(d, shine)
   const mirror = side < 0 && !SIDED.has(d.kind) ? -1 : 1
   ctx.save()
   ctx.translate(d.x, d.base)
   ctx.scale(d.scale * mirror, d.scale)
-  const k = new Kit(ctx, d.tones, shine, d.seed, side === 0)
+  const k = new Kit(ctx, d.tones, shine, d.seed, strength)
   DRAW[d.kind](k, d.h, d, side)
   ctx.restore()
   return k.lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * mirror, y: d.base + l.y * d.scale, r: l.r * Math.max(0.7, d.scale) }))
+}
+
+/**
+ * The light's side for a glyph (+1 left, −1 right, 0 none) and how strongly that side stands out (0–1): from the faces'
+ * light (`Shine.faces`, the living light) where the shine has it, else from the desc's side at full strength.
+ */
+export function glyphSide(d: Pick<GlyphDesc, 'litSide'>, shine: Shine): { side: 1 | -1 | 0; k: number } {
+  const f = shine.faces
+  if (f) {
+    const k = Math.abs(f.left - f.right)
+    return { side: f.left > f.right ? 1 : f.right > f.left ? -1 : 0, k }
+  }
+  const side = d.litSide === 'left' ? 1 : d.litSide === 'right' ? -1 : 0
+  return { side, k: side ? 1 : 0 }
 }
 
 /** Lamps: a soft halo, then the hot core (screen px). */

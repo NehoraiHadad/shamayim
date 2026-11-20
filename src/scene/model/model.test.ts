@@ -13,7 +13,8 @@ import type { SceneBox } from './types'
 const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T16:30', '2026-11-17T21:00']
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 /** The weather's kinds (C7). */
-const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge'])
+// The living light: the cloud's shadows on the land come and go with the cloud, as the weather does.
+const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'cloudShadow'])
 let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {

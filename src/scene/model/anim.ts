@@ -9,8 +9,8 @@ import type { AnimSpec, Pulse, Ramp, Sway, Track } from './types'
 
 /** How far (surface px, in `0…period`) a drifting layer has moved at `phase`; 0 without a drift. */
 export function driftAt(spec: AnimSpec | undefined, phase: number): number {
-  if (!spec?.speed || !spec.period) return 0
-  const d = (spec.speed * phase) % spec.period
+  if ((!spec?.speed && !spec?.offset) || !spec.period) return 0
+  const d = ((spec.offset ?? 0) + (spec.speed ?? 0) * phase) % spec.period
   return d < 0 ? d + spec.period : d + 0
 }
 

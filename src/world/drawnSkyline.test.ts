@@ -7,6 +7,7 @@ import { landTopOf } from '../scene/model/life'
 import { rayStrengths } from '../scene/model/rays'
 import { skyGeom } from '../scene/model/sky'
 import { buildWorld } from './world'
+import { DISC_PX, EDGE_SOFT } from './livingLight'
 
 /*
  * The owner's report of 2026-11-20: a low sun drawn over the near hill and the town. The rule: everything in the sky is
@@ -38,8 +39,14 @@ describe('the sun and moon set behind the land as drawn', () => {
           // The disc's top (where the world places the sun) against what the model draws in front of it.
           const x = geom.left + sun.x * geom.s, y = BOX.landTop + sun.y
           if (Math.abs(top(x) - y) > 1.5) expect(sun.overLand, `${id} ${at}: disc ${y.toFixed(1)}, land ${top(x).toFixed(1)}`).toBe(y < top(x))
-          // The light agrees: no sunlight, glare or disc over the land from a sun behind it.
+          // The light agrees: no disc over the land from a sun behind it; its light and glare go with the share of its disc
+          // still over the land (the living light: under half once its middle is behind, none once all of it is).
           if (!sun.overLand) {
+            expect(sun.visible!, `${id} ${at}`).toBeLessThan(0.5)
+            expect(world.light.shares.sun, `${id} ${at}`).toBeLessThanOrEqual(sun.visible! + 1e-9)
+            expect(rayStrengths(world).corona).toBeLessThanOrEqual(sun.visible! + 1e-9)
+          }
+          if (sun.clearance! < -(DISC_PX + EDGE_SOFT)) {
             expect(world.light.source, `${id} ${at}`).not.toBe('sun')
             expect(rayStrengths(world).corona).toBe(0)
           }

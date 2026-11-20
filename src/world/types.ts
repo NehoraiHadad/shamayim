@@ -111,6 +111,11 @@ export interface Body {
   overLand: boolean
   /** How far (scene px) it stands over the land in its direction, negative behind it (the sun's, `sunBody`). */
   clearance?: number
+  /**
+   * The share of its true disc over the drawn land (0–1; `livingLight.ts` `discShare`): partial occlusion softened by the
+   * edge's shimmer, so the light fades as the disc sinks behind the land. Every consumer of its direct light takes this.
+   */
+  visible?: number
 }
 
 export interface MoonBody extends Body {
@@ -136,6 +141,15 @@ export interface Light {
   colour: RGB
   /** 0–1: over the land, through the haze, dimmed by the cloud between the eye and the source. */
   direct: number
+  /** The direct share of each source (their sum is `direct`; one of them is 0 at any minute). */
+  shares: { sun: number; moon: number }
+  /**
+   * The light's direction in the view's frame (`livingLight.ts` `viewDir`, toward the source that gives the direct share):
+   * every surface takes it by its own normal (Lambert), so lit and shade sides turn as the source moves, never flip.
+   */
+  dir: { across: number; ahead: number; up: number }
+  /** 0 clear … 1 overcast: how much of the light is the sky's (soft, nearly directionless shading under a deck). */
+  diffuse: number
   /** Sky light on shade faces (the sky's mid tone). */
   ambient: RGB
   /** Cast shadows: `dx` across per unit of height (−1…1, away from the light), length per unit of height, softness 1 = none. */
@@ -184,6 +198,8 @@ export interface CloudBank {
   seed: number
   /** A cloud the satellite saw near the place (`cloudSightings.ts`). */
   seen?: boolean
+  /** How much of it has formed (0–1): the newest bank of a growing cover gathers as the cover grows (`banksOf`). */
+  share?: number
 }
 
 export interface CloudLayer {
@@ -428,6 +444,14 @@ export interface Night {
   aviation: boolean
 }
 
+/**
+ * The low and mid cloud's shadows passing over the land (the living light): `cover` the share of the sky they make (0–1),
+ * `strength` how much direct sun a shadow takes away where it passes (nil with no sun to cast them, and under a closed
+ * deck, where the whole land is in its shade), `driftKm` how far the cloud's wind has carried them across the view since
+ * the day's midnight (continuous in time), `kmh` the wind's speed across now (+ toward the right).
+ */
+export interface CloudShadows { cover: number; strength: number; driftKm: number; kmh: number }
+
 export interface WorldKeys {
   bodies: string
   light: string
@@ -485,6 +509,8 @@ export interface WorldState {
   nightSky: NightSky
   /** C10: the rainbow, the 22° halo and the sun dogs. */
   optics: Optics
+  /** The living light: the low cloud's shadows on the land. */
+  shadows: CloudShadows
   sources: WorldSources
   keys: WorldKeys
 }

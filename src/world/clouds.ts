@@ -89,7 +89,14 @@ export function lowBaseM(temperature: number, humidity: number | null): number {
 
 /** The seeded banks of one layer: positions by the place and the bank's index only, so they never jump. */
 export function banksOf(placeId: string, level: CloudLevel, cover: number, baseM: number): CloudBank[] {
-  const count = cover < 0.05 ? 0 : Math.max(1, Math.round(cover * MAX_BANKS[level]))
+  // The living light: the newest bank gathers as the cover grows (its `share`), so a cover read between forecast hours
+  // never pops a bank in or out (the count was rounded, from 5 % cover).
+  // Bank i stands whole where the rounded count had it (cover × max ≥ i + ½) and gathers over the unit below; the first
+  // gathers from 3 % to 7 % cover (it came at 5 %).
+  const exact = cover * MAX_BANKS[level]
+  const shareOf = (i: number) => Math.min(1, Math.max(0, i === 0 ? (cover - 0.03) / 0.04 : exact - i + 0.5))
+  let count = 0
+  while (count < MAX_BANKS[level] && shareOf(count) > 0) count++
   return Array.from({ length: count }, (_, i) => {
     const id = `${level}:${i}`
     const seed = hashId(`${placeId}:cloud:${id}`)
@@ -105,6 +112,7 @@ export function banksOf(placeId: string, level: CloudLevel, cover: number, baseM
       id, azimuth, distanceKm, seed, altitude,
       w, h: w * ASPECT[level],
       puffs: Math.round(between(r(), PUFFS[level])),
+      ...(shareOf(i) < 1 ? { share: Math.round(shareOf(i) * 32) / 32 } : {}),
     }
   })
 }

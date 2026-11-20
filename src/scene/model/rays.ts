@@ -79,8 +79,9 @@ export function rayStrengths(world: WorldState) {
   const c = sun.clearance ?? (sun.overLand ? 20 : -20)
   const atCrest = smoothstep(-10, -1, c) * (1 - smoothstep(3, 9, c)) * smoothstep(-3, -1, sun.altitude) * (1 - smoothstep(6, 10, sun.altitude))
   const ridge = atCrest * (1 - coin) * (1 - dark) * seen * (0.3 + 0.7 * haze) * beam
-  const anti = crepuscular >= 0.25 ? crepuscular * 0.55 * smoothstep(0.5, 0.9, low) : 0
-  const corona = (sun.overLand ? 1 : 0) * up * seen * (1 - coin) * smoothstep(0.1, 0.7, haze + 0.6 * low) * beam
+  const anti = crepuscular * 0.55 * smoothstep(0.5, 0.9, low) * smoothstep(0.2, 0.3, crepuscular)
+  // The glare round a seen sun goes as its disc sinks behind the land (the share of it over the land, `visible`).
+  const corona = (sun.visible ?? (sun.overLand ? 1 : 0)) * up * seen * (1 - coin) * smoothstep(0.1, 0.7, haze + 0.6 * low) * beam
   return { crepuscular, ridge, anti, corona }
 }
 
