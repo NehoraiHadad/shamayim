@@ -418,6 +418,8 @@ whole state, and never clone it per scrub frame.
 
 **Verdict:** approved
 
+**Orchestrator gate (Claude Code, 2026-11-20): Stage 2 closed.** On `c2d7c6f`: `npx tsc -b` pass; vitest 138 files / 1299 tests pass; `npm run build` pass; `npm run test:pixels` 66/66.
+
 ## Stage 3: land colour painting
 
 ## Stage 4: vegetation
