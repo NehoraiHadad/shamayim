@@ -59,8 +59,13 @@ export function weatherFreshness(weather: RecentLandWeather, now = Date.now()): 
 /** Milliseconds until an active weather entry becomes stale (or 0 if already stale/expired). */
 export function weatherRefreshDelayMs(weather: RecentLandWeather | null, now = Date.now()): number | null {
   if (!weather) return null
-  const remaining = WEATHER_TTL_MS - (now - weather.fetchedAt)
-  return Math.max(0, remaining)
+  return Math.max(0, WEATHER_TTL_MS - (now - weather.fetchedAt))
+}
+
+/** Milliseconds until an active weather entry exceeds `WEATHER_MAX_STALE_MS` (24 h), or 0 if expired. */
+export function weatherExpiryDelayMs(weather: RecentLandWeather | null, now = Date.now()): number | null {
+  if (!weather) return null
+  return Math.max(0, WEATHER_MAX_STALE_MS - (now - weather.fetchedAt))
 }
 
 async function readRaw(kind: LandCacheKind, placeId: string, store: LandCacheStore, now: number): Promise<CacheHit<unknown> | null> {

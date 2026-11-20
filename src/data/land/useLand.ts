@@ -2,62 +2,22 @@ import { useEffect, useState } from 'react'
 import type { Place } from '../../config/place'
 import { fetchFarLand } from './gibs'
 import {
-  readCachedFar, readCachedNear, readCachedWeather, weatherFreshness, weatherRefreshDelayMs,
+  readCachedFar, readCachedNear, readCachedWeather,
   writeCachedFar, writeCachedNear, writeCachedWeather, type LandCacheStore,
 } from './landCache'
 import { loadFootprintLandCover, loadLandCover, type LandCover } from './landData'
-import { fetchRecentWeather } from './recentWeather'
 import { fetchNearLand } from './satellite'
-import type { LandData, RecentLandWeather } from './types'
+import type { LandData } from './types'
+import { checkActiveWeather, createWeatherWatcher, type WeatherRecheckDeps } from './weatherWatch'
+
+export { checkActiveWeather, createWeatherWatcher, type WeatherRecheckDeps }
 
 const EMPTY: LandData = { cover: null, near: null, far: null, weather: null }
-
-export interface WeatherRecheckDeps {
-  readCached?: (placeId: string, now: number) => Promise<{ value: RecentLandWeather; fresh: boolean } | null>
-  fetchWeather?: (place: Place, signal: AbortSignal) => Promise<RecentLandWeather | null>
-  writeCached?: (placeId: string, weather: RecentLandWeather, now: number) => Promise<void>
-  now?: () => number
-}
-
-/**
- * Checks an active `RecentLandWeather` entry for staleness/expiry:
- * - If expired past `WEATHER_MAX_STALE_MS` (24 h), immediately clears it via `onUpdate(null)`.
- * - If stale or expired, triggers a background refresh and persists on success.
- */
-export async function checkActiveWeather(
-  place: Place,
-  current: RecentLandWeather | null,
-  signal: AbortSignal,
-  onUpdate: (next: RecentLandWeather | null) => void,
-  deps: WeatherRecheckDeps = {},
-): Promise<void> {
-  const now = (deps.now ?? Date.now)()
-  const readCached = deps.readCached ?? ((id, t) => readCachedWeather(id, undefined, t))
-  const fetchWeather = deps.fetchWeather ?? ((p, s) => fetchRecentWeather(p, { signal: s }))
-  const writeCached = deps.writeCached ?? ((id, w, t) => writeCachedWeather(id, w, undefined, t))
-
-  if (current) {
-    const status = weatherFreshness(current, now)
-    if (status === 'fresh') return
-    if (status === 'expired') onUpdate(null)
-  } else {
-    const hit = await readCached(place.id, now).catch(() => null)
-    if (signal.aborted) return
-    if (hit) {
-      onUpdate(hit.value)
-      if (hit.fresh) return
-    }
-  }
-  const fresh = await fetchWeather(place, signal).catch(() => null)
-  if (!fresh || signal.aborted) return
-  await writeCached(place.id, fresh, (deps.now ?? Date.now)()).catch(() => undefined)
-  if (!signal.aborted) onUpdate(fresh)
-}
 
 /**
  * Living-land data hook: never blocks first paint; loads ±6 km high-res + ±60 km coarse WorldCover,
  * serves cached observations immediately, refreshes stale/missing sources in the background, and
- * rechecks weather freshness on focus/visibility or at TTL expiry.
+ * rechecks weather freshness and hard 24 h expiry on focus/visibility or via scheduled timers.
  */
 export function useLand(place: Place, enabled: boolean, store?: LandCacheStore): LandData {
   const [state, setState] = useState<LandData & { id: string }>(() => ({ id: place.id, ...EMPTY }))
@@ -67,28 +27,12 @@ export function useLand(place: Place, enabled: boolean, store?: LandCacheStore):
     const controller = new AbortController()
     const { signal } = controller
     const alive = () => !signal.aborted
-    let activeWeather: RecentLandWeather | null = null
-    let expiryTimer: ReturnType<typeof setTimeout> | undefined
 
     const merge = (patch: Partial<LandData>) => {
       if (alive()) setState((prev) => ({ ...(prev.id === place.id ? prev : EMPTY), id: place.id, ...patch }))
     }
 
-    const scheduleWeatherCheck = (weather: RecentLandWeather | null) => {
-      if (expiryTimer !== undefined) { clearTimeout(expiryTimer); expiryTimer = undefined }
-      const delay = weatherRefreshDelayMs(weather, Date.now())
-      if (delay !== null && delay > 0) {
-        expiryTimer = setTimeout(() => { void runWeatherCheck() }, delay + 1000)
-      }
-    }
-
-    const setWeather = (weather: RecentLandWeather | null) => {
-      activeWeather = weather
-      merge({ weather })
-      scheduleWeatherCheck(weather)
-    }
-
-    const runWeatherCheck = () => checkActiveWeather(place, activeWeather, signal, setWeather, {
+    const watcher = createWeatherWatcher(place, signal, (weather) => merge({ weather }), {
       readCached: (id, t) => readCachedWeather(id, store, t),
       writeCached: (id, w, t) => writeCachedWeather(id, w, store, t),
     })
@@ -117,16 +61,16 @@ export function useLand(place: Place, enabled: boolean, store?: LandCacheStore):
       }
     }).catch(() => undefined)
 
-    void runWeatherCheck()
+    void watcher.check()
 
-    const onFocus = () => { void runWeatherCheck() }
-    const onVis = () => { if (typeof document !== 'undefined' && document.visibilityState === 'visible') void runWeatherCheck() }
+    const onFocus = () => { void watcher.check() }
+    const onVis = () => { if (typeof document !== 'undefined' && document.visibilityState === 'visible') void watcher.check() }
     if (typeof window !== 'undefined') window.addEventListener('focus', onFocus)
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVis)
 
     return () => {
       controller.abort()
-      if (expiryTimer !== undefined) clearTimeout(expiryTimer)
+      watcher.dispose()
       if (typeof window !== 'undefined') window.removeEventListener('focus', onFocus)
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVis)
     }

@@ -4,23 +4,22 @@ import { fetchedAtOf, weatherUrl } from '../weatherApi'
 import type { RecentLandWeather } from './types'
 
 /**
- * Recent liquid precipitation (past 14–60 completed local days), snowfall and volumetric soil
- * moisture via the dedicated narrow Worker route `/v1/land-weather` (`worker/src/routes.ts`).
+ * Recent liquid precipitation (past 14–60 completed local calendar days), snowfall and volumetric
+ * soil moisture via the dedicated narrow Worker route `/v1/land-weather` (`worker/src/routes.ts`).
  * Gated behind `ASK_LAND_WEATHER = false` until deployed (see `docs/design/CANVAS-SCENE-PLAN.md`).
  *
  * Open-Meteo daily definitions (`https://open-meteo.com/en/docs`): `rain_sum` + `showers_sum` =
  * liquid rain (mm); `snowfall_sum` = snowfall (cm, 0.7 cm per 1 mm SWE); `precipitation_sum` =
- * liquid + SWE. Today's partial/forecast entry (`forecast_days=1`) is excluded from past sums.
+ * liquid + SWE. Today's partial/forecast entry (`forecast_days=1`) is excluded, calendar gaps are
+ * preserved as `null`, and positive precipitation with unknown snow phase is rejected as `null`.
  */
 export const ASK_LAND_WEATHER = false
 export const LAND_PAST_DAYS = 60
 export const SOIL_MOISTURE_FIELDS = [
-  'soil_moisture_0_to_1cm', 'soil_moisture_1_to_3cm',
-  'soil_moisture_3_to_9cm', 'soil_moisture_9_to_27cm',
+  'soil_moisture_0_to_1cm', 'soil_moisture_1_to_3cm', 'soil_moisture_3_to_9cm', 'soil_moisture_9_to_27cm',
 ] as const
 const DAILY_FIELDS = ['rain_sum', 'showers_sum', 'snowfall_sum', 'precipitation_sum'] as const
-const SNOW_CM_PER_MM_SWE = 0.7
-const MIN_PRECIP_COVERAGE = 0.5
+const SNOW_CM_PER_MM_SWE = 0.7, MIN_PRECIP_COVERAGE = 0.5, DAY_MS = 86_400_000
 const MODEL_SUFFIXES = ['_icon_seamless', '_ecmwf_ifs025'] as const
 
 export function recentWeatherUrl(place: Place, base?: string): string {
@@ -38,14 +37,16 @@ const arr = (obj: Record<string, unknown>, key: string) => (Array.isArray(obj[ke
 const currentSoil = (cur: Record<string, unknown>, field: string): number | null =>
   finite(cur[field]) ?? finite(cur[`${field}_icon_seamless`]) ?? finite(cur[`${field}_ecmwf_ifs025`])
 
+/** Requires a complete liquid pair (`rain_sum` + `showers_sum`) or total with known snow phase. */
 function modelLiquidAt(daily: Record<string, unknown>, i: number, sfx: string): number | null {
   const rain = finite(arr(daily, `rain_sum${sfx}`)?.[i])
   const showers = finite(arr(daily, `showers_sum${sfx}`)?.[i])
-  if (rain !== null || showers !== null) return Math.max(0, (rain ?? 0) + (showers ?? 0))
+  if (rain !== null && showers !== null) return Math.max(0, rain + showers)
   const precip = finite(arr(daily, `precipitation_sum${sfx}`)?.[i])
   if (precip === null) return null
+  if (precip <= 0) return 0
   const snow = finite(arr(daily, `snowfall_sum${sfx}`)?.[i])
-  return snow !== null ? Math.max(0, precip - snow / SNOW_CM_PER_MM_SWE) : Math.max(0, precip)
+  return snow !== null ? Math.max(0, precip - snow / SNOW_CM_PER_MM_SWE) : null
 }
 
 function blendAt(fn: (sfx: string) => number | null): number | null {
@@ -66,7 +67,7 @@ function windowStats(series: (number | null)[], days: number): { sum: number | n
   return { sum: count > 0 ? Math.round(sum * 10) / 10 : null, coverage: days > 0 ? count / days : 0 }
 }
 
-/** Parses an Open-Meteo `/v1/land-weather` response using completed local dates only; returns null if empty. */
+/** Parses `/v1/land-weather` indexed over the exact 60 preceding local calendar dates; returns null if empty. */
 export function mapRecentWeather(body: unknown, fetchedAt: number): RecentLandWeather | null {
   if (!body || typeof body !== 'object') return null
   const raw = body as { current?: Record<string, unknown>; daily?: Record<string, unknown>; utc_offset_seconds?: number }
@@ -76,24 +77,32 @@ export function mapRecentWeather(body: unknown, fetchedAt: number): RecentLandWe
   const offsetMs = typeof raw.utc_offset_seconds === 'number' && Number.isFinite(raw.utc_offset_seconds)
     ? raw.utc_offset_seconds * 1000 : 0
   const todayLocal = curDate ?? new Date(fetchedAt + offsetMs).toISOString().slice(0, 10)
+  const todayMs = Date.parse(`${todayLocal}T00:00:00Z`)
 
-  const liquid: (number | null)[] = [], snow: (number | null)[] = []
+  const idxByDate = new Map<string, number>()
   if (daily && times) {
     for (let i = 0; i < times.length; i++) {
-      const entry = times[i]
-      const t = typeof entry === 'string' ? entry.slice(0, 10) : ''
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(t) || t >= todayLocal) continue
-      liquid.push(blendAt((sfx) => modelLiquidAt(daily, i, sfx)))
-      snow.push(blendAt((sfx) => finite(arr(daily, `snowfall_sum${sfx}`)?.[i])))
+      const t = typeof times[i] === 'string' ? (times[i] as string).slice(0, 10) : ''
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t) && t < todayLocal) idxByDate.set(t, i)
+    }
+  }
+  const liquid: (number | null)[] = new Array<number | null>(LAND_PAST_DAYS).fill(null)
+  const snow: (number | null)[] = new Array<number | null>(LAND_PAST_DAYS).fill(null)
+  if (daily && Number.isFinite(todayMs)) {
+    for (let k = 0; k < LAND_PAST_DAYS; k++) {
+      const i = idxByDate.get(new Date(todayMs - (LAND_PAST_DAYS - k) * DAY_MS).toISOString().slice(0, 10))
+      if (i === undefined) continue
+      liquid[k] = blendAt((sfx) => modelLiquidAt(daily, i, sfx))
+      snow[k] = blendAt((sfx) => finite(arr(daily, `snowfall_sum${sfx}`)?.[i]))
     }
   }
 
-  const w14 = windowStats(liquid, 14), w30 = windowStats(liquid, 30), w60 = windowStats(liquid, 60)
+  const w14 = windowStats(liquid, 14), w30 = windowStats(liquid, 30), w60 = windowStats(liquid, LAND_PAST_DAYS)
   const snow14 = windowStats(snow, 14)
   let daysSinceRain: number | null = null
-  for (let k = liquid.length - 1; k >= 0; k--) {
+  for (let k = LAND_PAST_DAYS - 1; k >= 0; k--) {
     const v = liquid[k]
-    if (v !== null && v >= 1) { daysSinceRain = liquid.length - k; break }
+    if (v !== null && v >= 1) { daysSinceRain = LAND_PAST_DAYS - k; break }
   }
 
   const soilMoistureTop = weightedMean([[currentSoil(cur, 'soil_moisture_0_to_1cm'), 1], [currentSoil(cur, 'soil_moisture_1_to_3cm'), 2]])

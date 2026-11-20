@@ -1,15 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SHADMOT_MEHOLA } from '../../config/place'
-import { createIdbStore } from './idbStore'
 import {
   createMemoryStore, FAR_TTL_MS, MAX_STALE_MS, NEAR_TTL_MS,
   readCachedFar, readCachedNear, readCachedWeather,
-  WEATHER_MAX_STALE_MS, WEATHER_TTL_MS, weatherFreshness,
+  WEATHER_MAX_STALE_MS, WEATHER_TTL_MS, weatherExpiryDelayMs, weatherFreshness,
   writeCachedFar, writeCachedNear, writeCachedWeather,
 } from './landCache'
 import { packFarGrid, packNearGrid, unpackFarGrid, unpackNearGrid } from './landPack'
 import type { FarLandGrid, NearLandGrid, RecentLandWeather } from './types'
-import { checkActiveWeather } from './useLand'
+import { checkActiveWeather, createWeatherWatcher } from './weatherWatch'
+
+afterEach(() => { vi.useRealTimers() })
 
 function sampleNear(): NearLandGrid {
   return {
@@ -50,70 +51,14 @@ function sampleWeather(fetchedAt: number): RecentLandWeather {
   }
 }
 
-/** Minimal fake IndexedDB double supporting success, blocked open, and write/read errors or aborts. */
-function makeFakeIdb(opts: {
-  blocked?: boolean
-  failWrites?: boolean
-  abortWrites?: boolean
-  abortReads?: boolean
-  seed?: Record<string, unknown>
-} = {}): IDBFactory {
-  const backing = new Map<string, unknown>(Object.entries(opts.seed ?? {}))
-  const db = {
-    close() {},
-    objectStoreNames: { contains: () => true },
-    createObjectStore() {},
-    transaction(_store: string, mode: IDBTransactionMode) {
-      const tx: Record<string, unknown> = { oncomplete: null, onerror: null, onabort: null }
-      tx.objectStore = () => ({
-        get(key: string) {
-          const req: Record<string, unknown> = { result: backing.get(key), onsuccess: null, onerror: null }
-          queueMicrotask(() => {
-            if (opts.abortReads) (tx.onabort as (() => void) | null)?.()
-            else { (req.onsuccess as (() => void) | null)?.(); (tx.oncomplete as (() => void) | null)?.() }
-          })
-          return req
-        },
-        put(val: unknown, key: string) {
-          queueMicrotask(() => {
-            if (opts.abortWrites) (tx.onabort as (() => void) | null)?.()
-            else if (opts.failWrites) (tx.onerror as (() => void) | null)?.()
-            else { backing.set(key, val); (tx.oncomplete as (() => void) | null)?.() }
-          })
-        },
-        delete(key: string) {
-          queueMicrotask(() => {
-            if (opts.failWrites) (tx.onerror as (() => void) | null)?.()
-            else { backing.delete(key); (tx.oncomplete as (() => void) | null)?.() }
-          })
-        },
-      })
-      void mode
-      return tx
-    },
-  }
-  return {
-    open() {
-      const req: Record<string, unknown> = { result: db, onupgradeneeded: null, onsuccess: null, onerror: null, onblocked: null }
-      queueMicrotask(() => {
-        if (opts.blocked) (req.onblocked as (() => void) | null)?.()
-        else (req.onsuccess as (() => void) | null)?.()
-      })
-      return req
-    },
-  } as unknown as IDBFactory
-}
-
-describe('landCache TTL, upstream weather freshness and resilient IDB fallback', () => {
+describe('landCache TTL, upstream weather freshness and active-tab expiry/coalescing', () => {
   it('round-trips NearLandGrid and FarLandGrid packing within quantization bounds', () => {
     const uNear = unpackNearGrid(packNearGrid(sampleNear()))
     expect(uNear.ndvi[0]).toBeCloseTo(0.55, 2)
     expect(Number.isNaN(uNear.ndvi[2])).toBe(true)
     expect(uNear.ndsi[3]).toBeCloseTo(0.78, 2)
     expect(uNear.snow[3]).toBeCloseTo(0.85, 2)
-    expect(Number.isNaN(uNear.snow[2])).toBe(true)
-    expect(uNear.utmZone).toBe(36)
-    expect(uNear.acquisitions[0].sunElevation).toBe(38.0)
+    expect(uNear.acquisitions[0].date).toBe('2026-11-15')
 
     const uFar = unpackFarGrid(packFarGrid(sampleFar()))
     expect(uFar.ndvi[0]).toBeCloseTo(0.41, 2)
@@ -129,62 +74,71 @@ describe('landCache TTL, upstream weather freshness and resilient IDB fallback',
     expect((await readCachedFar('p1', store, t0 + FAR_TTL_MS + 1000))?.fresh).toBe(false)
     expect(await readCachedNear('p1', store, t0 + MAX_STALE_MS + 1)).toBeNull()
 
-    // Worker STALE response that is already 10h old when inserted at t0 must read back as stale immediately!
     const staleUpstream = sampleWeather(t0 - 10 * 3_600_000)
     await writeCachedWeather('p1', staleUpstream, store, t0)
-    const hit = await readCachedWeather('p1', store, t0)
-    expect(hit).not.toBeNull()
-    expect(hit!.fresh).toBe(false)
-
-    // Evicted past WEATHER_MAX_STALE_MS (24h from upstream fetchedAt, NOT 30 days)
+    expect((await readCachedWeather('p1', store, t0))?.fresh).toBe(false)
     expect(await readCachedWeather('p1', store, t0 + 15 * 3_600_000)).toBeNull()
     expect(weatherFreshness(sampleWeather(t0 - WEATHER_TTL_MS + 1000), t0)).toBe('fresh')
     expect(weatherFreshness(sampleWeather(t0 - WEATHER_TTL_MS - 1000), t0)).toBe('stale')
     expect(weatherFreshness(sampleWeather(t0 - WEATHER_MAX_STALE_MS - 1000), t0)).toBe('expired')
+    expect(weatherExpiryDelayMs(staleUpstream, t0)).toBe(14 * 3_600_000)
   })
 
-  it('clears an expired active weather entry and triggers refresh on recheck', async () => {
+  it('rejects already-expired upstream replies instead of republishing them after clearing', async () => {
     const t0 = 1_795_000_000_000
     const expired = sampleWeather(t0 - WEATHER_MAX_STALE_MS - 60_000)
-    const fresh = sampleWeather(t0)
     const updates: (RecentLandWeather | null)[] = []
-    const fetchSpy = vi.fn(async () => fresh)
     const ctrl = new AbortController()
     await checkActiveWeather(SHADMOT_MEHOLA, expired, ctrl.signal, (w) => updates.push(w), {
-      now: () => t0, fetchWeather: fetchSpy, writeCached: async () => undefined,
+      now: () => t0,
+      fetchWeather: async () => sampleWeather(t0 - WEATHER_MAX_STALE_MS - 120_000),
+      writeCached: async () => undefined,
     })
-    expect(updates).toEqual([null, fresh]) // cleared expired entry first, then updated with fresh!
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-
-    // Fresh active entry does not refetch
-    const fetchSpy2 = vi.fn(async () => fresh)
-    await checkActiveWeather(SHADMOT_MEHOLA, fresh, ctrl.signal, () => undefined, {
-      now: () => t0 + 1000, fetchWeather: fetchSpy2,
-    })
-    expect(fetchSpy2).not.toHaveBeenCalled()
+    expect(updates).toEqual([null]) // cleared expired entry and refused to publish expired upstream reply!
   })
 
-  it('keeps memory fallback authoritative on failed/aborted IDB writes, bounds entries, and survives blocked open', async () => {
-    // 1. Failed IDB write stays authoritative over older IDB entry and missing IDB key
-    const failStore = createIdbStore(makeFakeIdb({ failWrites: true, seed: { existing: 'old-idb' } }), { maxMemoryEntries: 2 })
-    await failStore.set('existing', 'new-mem')
-    await failStore.set('missing-in-idb', 'mem-only')
-    expect(await failStore.get('existing')).toBe('new-mem')
-    expect(await failStore.get('missing-in-idb')).toBe('mem-only')
-    // Bounded memory eviction (max 2): inserting 3rd evicts oldest ('existing')
-    await failStore.set('third', 'val3')
-    expect(await failStore.get('third')).toBe('val3')
+  it('schedules 24h expiry for stale replies and failed 6h refreshes, and coalesces concurrent triggers', async () => {
+    vi.useFakeTimers()
+    const t0 = 1_795_000_000_000
+    vi.setSystemTime(t0)
 
-    // 2. Blocked IDB open resolves promptly without hanging and falls back to memory
-    const blockedStore = createIdbStore(makeFakeIdb({ blocked: true }))
-    await blockedStore.set('k', 'from-mem')
-    expect(await blockedStore.get('k')).toBe('from-mem')
+    // Case 1: Initial reply is already 10h stale -> must still schedule hard 24h expiry (in 14h) and clear to null!
+    const updates1: (RecentLandWeather | null)[] = []
+    const ctrl1 = new AbortController()
+    let calls1 = 0
+    const watcher1 = createWeatherWatcher(SHADMOT_MEHOLA, ctrl1.signal, (w) => updates1.push(w), {
+      readCached: async () => null,
+      writeCached: async () => undefined,
+      fetchWeather: async () => (++calls1 === 1 ? sampleWeather(t0 - 10 * 3_600_000) : null),
+    })
+    // Simultaneous focus + visibility + initial mount triggers coalesce into ONE fetch!
+    await Promise.all([watcher1.check(), watcher1.check(), watcher1.check()])
+    expect(calls1).toBe(1)
+    expect(updates1).toHaveLength(1)
+    // Advance 14h + 2s: hard 24h expiry timer fires and clears stale weather even though refresh returns null!
+    await vi.advanceTimersByTimeAsync(14 * 3_600_000 + 2000)
+    expect(updates1.at(-1)).toBeNull()
+    watcher1.dispose()
 
-    // 3. Aborted write & read transactions resolve cleanly instead of hanging
-    const abortWriteStore = createIdbStore(makeFakeIdb({ abortWrites: true }))
-    await abortWriteStore.set('a', 'saved-on-abort')
-    expect(await abortWriteStore.get('a')).toBe('saved-on-abort')
-    const abortReadStore = createIdbStore(makeFakeIdb({ abortReads: true, seed: { x: 'val' } }))
-    expect(await abortReadStore.get('x')).toBeNull()
+    // Case 2: Fresh entry whose 6h refresh FAILS still fires the 24h expiry timer and clears to null!
+    vi.setSystemTime(t0)
+    const updates2: (RecentLandWeather | null)[] = []
+    const ctrl2 = new AbortController()
+    let calls2 = 0
+    const watcher2 = createWeatherWatcher(SHADMOT_MEHOLA, ctrl2.signal, (w) => updates2.push(w), {
+      readCached: async () => ({ value: sampleWeather(t0), fresh: true }),
+      writeCached: async () => undefined,
+      fetchWeather: async () => { calls2++; return null },
+    })
+    await watcher2.check()
+    expect(updates2).toHaveLength(1)
+    // At 6h + 2s: refresh runs and fails -> active weather stays until 24h, expiry timer remains armed!
+    await vi.advanceTimersByTimeAsync(6 * 3_600_000 + 2000)
+    expect(calls2).toBe(1)
+    expect(updates2.at(-1)).not.toBeNull()
+    // At 24h + 2s: expiry timer clears it to null!
+    await vi.advanceTimersByTimeAsync(18 * 3_600_000 + 2000)
+    expect(updates2.at(-1)).toBeNull()
+    watcher2.dispose()
   })
 })

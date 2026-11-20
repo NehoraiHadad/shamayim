@@ -112,7 +112,7 @@ export const ROUTES: Record<string, Route> = {
       current: { kind: 'list', values: LAND_CURRENT },
       daily: { kind: 'list', values: LAND_DAILY },
     },
-    required: ['latitude', 'longitude'],
+    required: ['latitude', 'longitude', 'forecast_days'],
     freshMs: 6 * HOUR,
     staleMs: 24 * HOUR,
   },

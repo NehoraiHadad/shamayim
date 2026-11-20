@@ -14,15 +14,10 @@ import { toUtm, utmBoxToWgs84Bbox, utmZoneOf } from './utm'
  * and stops early once both RGB and NDVI clear the overall and central-footprint coverage gates.
  */
 export const STAC_SEARCH = 'https://earth-search.aws.element84.com/v1/search'
-export const REACH_M = 5000
-export const STEP_M = 100
-export const MAX_OVERVIEW_RES_M = STEP_M / 2
-const LOOKBACK_DAYS = 45
-const MAX_DATES_TO_TRY = 4
-const MIN_USABLE_CELL_VALID = 0.2
-const MIN_GRID_COVERAGE = 0.05
-const COMPLETE_COVERAGE = 0.85
-const COMPLETE_CENTER = 0.5
+export const REACH_M = 5000, STEP_M = 100, MAX_OVERVIEW_RES_M = STEP_M / 2
+const LOOKBACK_DAYS = 45, MAX_DATES_TO_TRY = 4
+const MIN_USABLE_CELL_VALID = 0.2, MIN_GRID_COVERAGE = 0.05
+const COMPLETE_COVERAGE = 0.85, COMPLETE_CENTER = 0.5
 
 export interface StacAsset { href: string; 'raster:bands'?: StacBandMeta[] }
 export interface StacItem {
@@ -62,11 +57,8 @@ async function readItemWindow(
       : Promise.resolve(null)
 
   const [visRead, redRead, nirRead, greenRead, swirRead] = await Promise.all([
-    safeRead(visual),
-    hasSpectral ? safeRead(red) : Promise.resolve(null),
-    hasSpectral ? safeRead(nir) : Promise.resolve(null),
-    greenScale && swirScale ? safeRead(green) : Promise.resolve(null),
-    greenScale && swirScale ? safeRead(swir16) : Promise.resolve(null),
+    safeRead(visual), hasSpectral ? safeRead(red) : Promise.resolve(null), hasSpectral ? safeRead(nir) : Promise.resolve(null),
+    greenScale && swirScale ? safeRead(green) : Promise.resolve(null), greenScale && swirScale ? safeRead(swir16) : Promise.resolve(null),
   ])
   if (!visRead && !(redRead && nirRead)) return false
 

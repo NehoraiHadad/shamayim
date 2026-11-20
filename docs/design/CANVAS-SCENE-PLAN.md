@@ -657,9 +657,10 @@ was deployed by the rebuild):
    (`drynessSource: 'climatology'`). After `land-living` is merged to `main`:
    ```bash
    cd worker && npm ci && npm test && npx wrangler deploy
-   curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev" \
-     "https://shamayim-api.nehoraihadad.com/v1/land-weather?latitude=32.3465&longitude=35.5325&timezone=Asia%2FJerusalem&models=icon_seamless,ecmwf_ifs025&forecast_days=1&past_days=60&current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&daily=rain_sum,showers_sum,snowfall_sum,precipitation_sum"
-   # 200: the Worker serves /v1/land-weather. 404/400: not deployed yet; stop here.
+   curl -sS -D - -H "Origin: https://shamayim.pages.dev" \
+     "https://shamayim-api.nehoraihadad.com/v1/land-weather?latitude=32.3465&longitude=35.5325&timezone=Asia%2FJerusalem&models=icon_seamless,ecmwf_ifs025&forecast_days=1&past_days=60&current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&daily=rain_sum,showers_sum,snowfall_sum,precipitation_sum" \
+     | node -e "const raw = require('fs').readFileSync(0,'utf8'); const [h,b] = raw.split(/\r?\n\r?\n/); const j = JSON.parse(b); console.log(h.split(/\r?\n/).filter(l => /^HTTP|^x-fetched-at|^x-cache/i.test(l)).join(' | ')); console.log('daily:', j.daily?.time?.length, 'rain:', Array.isArray(j.daily?.rain_sum_icon_seamless), 'soil:', typeof j.current?.soil_moisture_0_to_1cm_icon_seamless);"
+   # Expect HTTP 200, X-Fetched-At header, ~61 daily rows, rain: true, soil: number. Stop if 404/400 or missing fields.
    ```
    Then flip `ASK_LAND_WEATHER` to `true` in `src/data/land/recentWeather.ts` and merge to `main`.
 

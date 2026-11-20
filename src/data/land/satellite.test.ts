@@ -3,31 +3,20 @@ import { nearAt } from './nearGrid'
 import { fetchNearLand, REACH_M, STEP_M, type StacItem, type TiffImageLike, type TiffLike } from './satellite'
 import { fromUtm, toUtm, utmZoneOf } from './utm'
 
-const PLACE = { lat: 32.3465, lon: 35.5325 }
-const ZONE = utmZoneOf(PLACE.lon)
-const CENTER = toUtm(PLACE.lat, PLACE.lon, ZONE, false)
+const PLACE = { lat: 32.3465, lon: 35.5325 }, ZONE = utmZoneOf(PLACE.lon), CENTER = toUtm(PLACE.lat, PLACE.lon, ZONE, false)
 const TILE_WEST = 699_960, TILE_NORTH = 3_600_000, TILE_SIZE_M = 109_800
-
 type Band = 'visual' | 'red' | 'nir' | 'scl'
 
 interface MockCogOpts {
-  cloudy?: boolean; fail?: boolean
-  minE?: number; maxE?: number
-  shiftE?: number // origin shift (m) to test band-to-SCL alignment
-  clipMaxE?: number // clipped east extent of this COG
-  splitE?: number
+  cloudy?: boolean; fail?: boolean; minE?: number; maxE?: number; shiftE?: number; clipMaxE?: number; splitE?: number
   rgbEast?: [number, number, number]; rgbWest?: [number, number, number]
-  redEast?: number; redWest?: number; nirEast?: number; nirWest?: number
 }
 
 function makeGeoTiff(band: Band, opts: MockCogOpts = {}): TiffLike {
-  const originW = TILE_WEST + (opts.shiftE ?? 0)
-  const tileMaxE = opts.clipMaxE ?? (originW + TILE_SIZE_M)
-  const tileW = tileMaxE - originW
+  const originW = TILE_WEST + (opts.shiftE ?? 0), tileW = (opts.clipMaxE ?? (originW + TILE_SIZE_M)) - originW
   const splitE = opts.splitE ?? CENTER.e
   const img = (res: number): TiffImageLike => {
-    const w = Math.max(1, Math.round(tileW / res))
-    const h = Math.round(TILE_SIZE_M / res)
+    const w = Math.max(1, Math.round(tileW / res)), h = Math.round(TILE_SIZE_M / res)
     return {
       getWidth: () => w, getHeight: () => h,
       getBoundingBox: () => [originW, TILE_NORTH - TILE_SIZE_M, originW + w * res, TILE_NORTH],
@@ -40,11 +29,10 @@ function makeGeoTiff(band: Band, opts: MockCogOpts = {}): TiffLike {
           for (let px = 0; px < width; px++) {
             const e = originW + (x0 + px + 0.5) * res
             if ((opts.minE !== undefined && e < opts.minE) || (opts.maxE !== undefined && e >= opts.maxE)) continue
-            const isEast = e >= splitE
-            const p = py * width + px
+            const isEast = e >= splitE, p = py * width + px
             if (band === 'scl') out[p] = opts.cloudy ? 9 : 4
-            else if (band === 'red') out[p] = isEast ? (opts.redEast ?? 2000) : (opts.redWest ?? 1000)
-            else if (band === 'nir') out[p] = isEast ? (opts.nirEast ?? 3000) : (opts.nirWest ?? 4000)
+            else if (band === 'red') out[p] = isEast ? 2000 : 1000
+            else if (band === 'nir') out[p] = isEast ? 3000 : 4000
             else out.set(isEast ? (opts.rgbEast ?? [200, 180, 120]) : (opts.rgbWest ?? [50, 140, 60]), p * 3)
           }
         }
@@ -56,35 +44,31 @@ function makeGeoTiff(band: Band, opts: MockCogOpts = {}): TiffLike {
   return { getImageCount: async () => images.length, getImage: async (i) => images[i] }
 }
 
-function makeItem(date: string, tag: string, sunEl?: number, sunAz?: number): StacItem {
-  return {
-    properties: {
-      datetime: `${date}T08:30:00Z`, 's2:processing_baseline': '05.13',
-      'earthsearch:boa_offset_applied': true,
-      ...(sunEl !== undefined ? { 'view:sun_elevation': sunEl } : {}),
-      ...(sunAz !== undefined ? { 'view:sun_azimuth': sunAz } : {}),
-    },
-    assets: {
-      visual: { href: `mock://${tag}/visual` },
-      red: { href: `mock://${tag}/red`, 'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }] },
-      nir: { href: `mock://${tag}/nir`, 'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }] },
-      scl: { href: `mock://${tag}/scl` },
-    },
-  }
-}
+const makeItem = (date: string, tag: string, sunEl?: number, sunAz?: number): StacItem => ({
+  properties: {
+    datetime: `${date}T08:30:00Z`, 's2:processing_baseline': '05.13', 'earthsearch:boa_offset_applied': true,
+    ...(sunEl !== undefined ? { 'view:sun_elevation': sunEl } : {}),
+    ...(sunAz !== undefined ? { 'view:sun_azimuth': sunAz } : {}),
+  },
+  assets: {
+    visual: { href: `mock://${tag}/visual` },
+    red: { href: `mock://${tag}/red`, 'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }] },
+    nir: { href: `mock://${tag}/nir`, 'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }] },
+    scl: { href: `mock://${tag}/scl` },
+  },
+})
+
+const mockFetch = (features: StacItem[]) => (async () => new Response(JSON.stringify({ features }), { status: 200 })) as typeof fetch
+const pt = (dE: number, dN: number) => fromUtm(CENTER.e + dE, CENTER.n + dN, ZONE, false)
 
 describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and solar geometry', () => {
   it('honors UTM georeferencing 4.5 km off-center and preserves missing sun angles per contributor', async () => {
-    const stac = {
-      features: [
-        makeItem('2026-11-18', 'cloudy', 37, 165),
-        makeItem('2026-11-16', 'broken', 37.5, 164),
-        makeItem('2026-11-15', 'west', 38.0, 162.0),
-        makeItem('2026-11-15', 'east', 39.5, undefined), // east granule omits sunAzimuth!
-      ],
-    }
-    const grid = await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
-      fetchImpl: (async () => new Response(JSON.stringify(stac), { status: 200 })) as typeof fetch,
+    const features = [
+      makeItem('2026-11-18', 'cloudy', 37, 165), makeItem('2026-11-16', 'broken', 37.5, 164),
+      makeItem('2026-11-15', 'west', 38.0, 162.0), makeItem('2026-11-15', 'east', 39.5, undefined),
+    ]
+    const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
+      fetchImpl: mockFetch(features),
       openTiff: async (href) => {
         const [, tag, band] = href.replace('mock://', '').match(/^([^/]+)\/(.+)$/) ?? []
         const b = band as Band
@@ -92,59 +76,38 @@ describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and s
         if (tag === 'broken') return makeGeoTiff(b, { fail: true })
         return makeGeoTiff(b, tag === 'west' ? { maxE: CENTER.e } : { minE: CENTER.e })
       },
-    })
-    expect(grid).not.toBeNull()
-    expect(grid!.date).toBe('2026-11-15')
-    const westCell = nearAt(grid!, fromUtm(CENTER.e - 50, CENTER.n + 4500, ZONE, false).lat, fromUtm(CENTER.e - 50, CENTER.n + 4500, ZONE, false).lon)!
-    const eastCell = nearAt(grid!, fromUtm(CENTER.e + 50, CENTER.n + 4500, ZONE, false).lat, fromUtm(CENTER.e + 50, CENTER.n + 4500, ZONE, false).lon)!
-    expect(westCell.rgb).toEqual([50, 140, 60])
-    expect(westCell.ndvi).toBeCloseTo(0.6, 3)
-    expect(westCell.sunElevation).toBe(38.0)
-    expect(westCell.sunAzimuth).toBe(162.0)
-
-    expect(eastCell.rgb).toEqual([200, 180, 120])
-    expect(eastCell.ndvi).toBeCloseTo(0.2, 3)
+    }))!
+    expect(grid.date).toBe('2026-11-15')
+    const w = pt(-50, 4500), e = pt(50, 4500)
+    const westCell = nearAt(grid, w.lat, w.lon)!, eastCell = nearAt(grid, e.lat, e.lon)!
+    expect(westCell.rgb).toEqual([50, 140, 60]); expect(westCell.ndvi).toBeCloseTo(0.6, 3)
+    expect([westCell.sunElevation, westCell.sunAzimuth]).toEqual([38.0, 162.0])
+    expect(eastCell.rgb).toEqual([200, 180, 120]); expect(eastCell.ndvi).toBeCloseTo(0.2, 3)
     expect(eastCell.sunElevation).toBe(39.5)
-    // Must preserve missing sunAzimuth instead of borrowing west granule's 162.0!
-    expect(eastCell.sunAzimuth).toBeUndefined()
+    expect(eastCell.sunAzimuth).toBeUndefined() // must NOT borrow west granule's 162.0!
   })
 
   it('aligns shifted-origin and clipped-extent spectral bands onto the SCL lattice without stretching', async () => {
-    const stac = { features: [makeItem('2026-11-15', 'aligned', 38, 165)] }
-    // Red & NIR tiles are shifted by +20 m (half a 40 m pixel) AND clipped east at CENTER.e!
-    // Ground east of CENTER.e has SCL=4 and visual RGB, but NO red/NIR coverage -> ndvi must be null east of CENTER.e!
-    const grid = await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
-      fetchImpl: (async () => new Response(JSON.stringify(stac), { status: 200 })) as typeof fetch,
+    const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
+      fetchImpl: mockFetch([makeItem('2026-11-15', 'aligned', 38, 165)]),
       openTiff: async (href) => {
         const b = href.split('/').pop() as Band
         if (b === 'red' || b === 'nir') return makeGeoTiff(b, { shiftE: 20, clipMaxE: CENTER.e, splitE: CENTER.e - 1000 })
         return makeGeoTiff(b, { splitE: CENTER.e - 1000 })
       },
-    })
-    expect(grid).not.toBeNull()
-    const westPt = fromUtm(CENTER.e - 2000, CENTER.n, ZONE, false)
-    const midPt = fromUtm(CENTER.e - 500, CENTER.n, ZONE, false)
-    const eastPt = fromUtm(CENTER.e + 1500, CENTER.n, ZONE, false)
-    expect(nearAt(grid!, westPt.lat, westPt.lon)!.ndvi).toBeCloseTo(0.6, 3)  // west of splitE
-    expect(nearAt(grid!, midPt.lat, midPt.lon)!.ndvi).toBeCloseTo(0.2, 3)    // between splitE and clipMaxE
-    // Beyond clipped band extent: visual stays valid, NDVI is cleanly null (not stretched from west!)
-    const eastCell = nearAt(grid!, eastPt.lat, eastPt.lon)!
+    }))!
+    const w = pt(-2000, 0), m = pt(-500, 0), e = pt(1500, 0)
+    expect(nearAt(grid, w.lat, w.lon)!.ndvi).toBeCloseTo(0.6, 3)
+    expect(nearAt(grid, m.lat, m.lon)!.ndvi).toBeCloseTo(0.2, 3)
+    const eastCell = nearAt(grid, e.lat, e.lon)!
     expect(eastCell.rgb).toEqual([200, 180, 120])
     expect(eastCell.ndvi).toBeNull()
     expect(eastCell.ndviValid).toBe(0)
   })
 
   it('fills deficient channels and uncovered cells from an older clear acquisition with per-channel dates', async () => {
-    // Newest 2026-11-18 only covers a 1 km western edge sliver AND its red/nir COGs fail;
-    // older 2026-11-15 covers the whole ±5 km window cleanly with both RGB and NDVI.
-    const stac = {
-      features: [
-        makeItem('2026-11-18', 'sliver', 37, 165),
-        makeItem('2026-11-15', 'full', 38, 164),
-      ],
-    }
-    const grid = await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
-      fetchImpl: (async () => new Response(JSON.stringify(stac), { status: 200 })) as typeof fetch,
+    const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
+      fetchImpl: mockFetch([makeItem('2026-11-18', 'sliver', 37, 165), makeItem('2026-11-15', 'full', 38, 164)]),
       openTiff: async (href) => {
         const [, tag, band] = href.replace('mock://', '').match(/^([^/]+)\/(.+)$/) ?? []
         const b = band as Band
@@ -154,22 +117,14 @@ describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and s
         }
         return makeGeoTiff(b, { rgbWest: [60, 130, 70], rgbEast: [180, 160, 110] })
       },
-    })
-    expect(grid).not.toBeNull()
-    // Inside the newest sliver (4.5 km west): RGB comes from 2026-11-18, NDVI filled from 2026-11-15!
-    const sliverPt = fromUtm(CENTER.e - 4500, CENTER.n, ZONE, false)
-    const sliverCell = nearAt(grid!, sliverPt.lat, sliverPt.lon)!
-    expect(sliverCell.rgb).toEqual([11, 22, 33])
-    expect(sliverCell.rgbDate).toBe('2026-11-18')
-    expect(sliverCell.ndvi).toBeCloseTo(0.6, 3)
-    expect(sliverCell.ndviDate).toBe('2026-11-15')
+    }))!
+    const sl = pt(-4500, 0), sliverCell = nearAt(grid, sl.lat, sl.lon)!
+    expect(sliverCell.rgb).toEqual([11, 22, 33]); expect(sliverCell.rgbDate).toBe('2026-11-18')
+    expect(sliverCell.ndvi).toBeCloseTo(0.6, 3); expect(sliverCell.ndviDate).toBe('2026-11-15')
 
-    // At the center (uncovered by newest sliver): both RGB and NDVI filled from 2026-11-15!
-    const centerCell = nearAt(grid!, PLACE.lat, PLACE.lon)!
+    const centerCell = nearAt(grid, PLACE.lat, PLACE.lon)!
     expect(centerCell.rgb).toEqual([180, 160, 110])
-    expect(centerCell.rgbDate).toBe('2026-11-15')
-    expect(centerCell.ndviDate).toBe('2026-11-15')
-    expect(REACH_M).toBe(5000)
-    expect(STEP_M).toBe(100)
+    expect([centerCell.rgbDate, centerCell.ndviDate]).toEqual(['2026-11-15', '2026-11-15'])
+    expect([REACH_M, STEP_M]).toEqual([5000, 100])
   })
 })
