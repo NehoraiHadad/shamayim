@@ -95,7 +95,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       })
       cancel = () => { live = false }
     } else if (cold) {
-      const slicer = paintSliced([{ surface, layers }], { frame: (cb) => requestAnimationFrame(cb), cancelFrame: cancelAnimationFrame,
+      const slicer = paintSliced([{ surface, layers }], { frame: (cb) => requestAnimationFrame(cb), cancelFrame: (id) => cancelAnimationFrame(id),
         now: () => performance.now(), onSlice: (ms) => SCENE_STATS.record(`slice.${name}`, ms) })
       slicer.done.then((report) => {
         SCENE_STATS.record(`firstPaint.${name}`, report.totalMs)
@@ -112,7 +112,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       SCENE_STATS.time(`anim.${name}`, () => surface.render(layers, phase, still))
       laid.current?.(phase, still, canvas)
     }, {
-      frame: (cb) => requestAnimationFrame(cb), cancelFrame: cancelAnimationFrame,
+      frame: (cb) => requestAnimationFrame(cb), cancelFrame: (id) => cancelAnimationFrame(id),
       visible: () => document.visibilityState === 'visible', still: reducedMotion }, 30, settleEnd(layers.map((layer) => layer.animated)),
     SCENE_EPOCH)
     loop.start()

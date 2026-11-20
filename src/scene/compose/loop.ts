@@ -46,7 +46,8 @@ export function makeLoop(tick: (phase: number, still: boolean) => void, deps: Lo
       handle = deps.frame(run)
     },
     stop() {
-      if (handle !== null) deps.cancelFrame(handle)
+      // Called unbound: a host may pass the browser's own `cancelAnimationFrame`, which throws if `this` is `deps`.
+      if (handle !== null) { const { cancelFrame } = deps; cancelFrame(handle) }
       handle = null
       origin = null
       last = -Infinity
