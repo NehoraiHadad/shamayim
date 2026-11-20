@@ -1,137 +1,117 @@
-import { climatologyAt } from './climatology'
+import { climatologyAt, type ClimatologySample } from './climatology'
+import { computeCoverMeans, MIN_CELL_VALID, type CoverMean, type CoverMeansTable } from './coverMeans'
 import { farAt } from './gibs'
-import type { LandCover } from './landData'
+import { nearAt } from './nearGrid'
 import { drynessFromWeather } from './recentWeather'
-import { nearAt } from './satellite'
-import type { LandData, LandSample, LandSource, NearLandGrid } from './types'
+import type { LandData, LandSample, LandSource } from './types'
 
 /**
- * Unified living-land sampler with an explicit fallback chain and source flags on every value.
+ * Unified living-land sampler with explicit provenance & observation date on every resolved value.
  *
- * Fallback priority:
- * - RGB albedo: near S2 cell (`s2:<date>`) → far GIBS 8-day SR (`gibs:<date>`) →
- *   per-cover S2 mean (`s2-mean:<date>`) → regional seasonal climatology (`climatology`).
- * - NDVI: near S2 cell (`s2:<date>`) → far GIBS 8-day NDVI (`gibs:<date>`) →
- *   per-cover S2 mean (`s2-mean:<date>`) → climatology (`climatology`).
- * - NDSI / snow: near S2 cell (`s2:<date>`, snow probability ramped around Hall et al. 1995
- *   threshold NDSI ≥ 0.40) → per-cover S2 mean (`s2-mean:<date>`) → climatology (`climatology`).
- * - Dryness: Open-Meteo recent precip + soil moisture (`open-meteo:<date>`) → climatology.
+ * Fallback priority (evaluated lazily per channel so direct near-S2 hits skip far/mean/climatology):
+ * - RGB albedo: near S2 (`s2:<date>`) → far GIBS SR (`gibs:<rgbDate>`) → per-cover S2 mean
+ *   (`s2-mean:<date>`, known WorldCover classes `1..10` only) → climatology.
+ * - NDVI: near S2 (`s2:<date>`) → far GIBS NDVI (`gibs:<date>`) → per-cover S2 mean → climatology.
+ * - NDSI: near S2 (`s2:<date>`) only; missing NDSI is explicit (`ndsi: null, ndsiSource: null`).
+ * - Snow: near S2 SCL-11 land fraction (`s2:<date>`, open water SCL-6 = 0) → elevation-aware climatology.
+ * - Dryness: precomputed Open-Meteo liquid rain + soil moisture (`open-meteo:<date>`) → climatology.
  */
+export { computeCoverMeans, MIN_CELL_VALID, type CoverMean, type CoverMeansTable }
 
-/** Minimum valid SCL pixel fraction in a 100 m S2 cell to trust it over coarser fallbacks. */
-export const MIN_CELL_VALID = 0.2
-const MIN_COVER_SAMPLES = 8
-
-export interface CoverMean {
-  rgb: [number, number, number]
-  ndvi: number | null
-  ndsi: number | null
-  count: number
+export interface PreparedLandSampler {
+  sampleAt(lat: number, lon: number, month: number, elevationM?: number): LandSample
 }
 
-export interface CoverMeansTable {
-  date: string
-  source: `s2-mean:${string}`
-  byCover: Record<number, CoverMean>
-}
+const SAMPLER_CACHE = new WeakMap<LandData, PreparedLandSampler>()
 
-const MEANS_CACHE = new WeakMap<NearLandGrid, WeakMap<LandCover, CoverMeansTable>>()
+/** Prepares source-wide values once per `LandData` bundle and evaluates fallbacks lazily on demand. */
+export function prepareLandSampler(data: LandData): PreparedLandSampler {
+  const weatherDryness = data.weather ? drynessFromWeather(data.weather) : null
+  const weatherSource = weatherDryness !== null && data.weather ? data.weather.source : null
+  const weatherDate = weatherDryness !== null && data.weather ? data.weather.date : null
+  let means: CoverMeansTable | null | undefined
 
-/** Computes per-WorldCover-class mean RGB, NDVI and NDSI across a near Sentinel-2 window. */
-export function computeCoverMeans(near: NearLandGrid, cover: LandCover): CoverMeansTable {
-  let inner = MEANS_CACHE.get(near)
-  const hit = inner?.get(cover)
-  if (hit) return hit
-
-  const acc: Record<number, { r: number; g: number; b: number; rgbN: number; ndvi: number; ndviN: number; ndsi: number; ndsiN: number }> = {}
-  const cosLat = Math.cos((near.lat * Math.PI) / 180)
-  // Sample every 2nd cell (50 × 50 = 2500 samples) for fast, representative per-cover statistics.
-  const stride = Math.max(1, Math.floor(near.size / 50))
-  for (let row = 0; row < near.size; row += stride) {
-    const lat = near.lat + (near.reachM - (row + 0.5) * near.stepM) / 111_320
-    for (let col = 0; col < near.size; col += stride) {
-      const idx = row * near.size + col
-      if (near.valid[idx] < MIN_CELL_VALID) continue
-      const o = idx * 3
-      const r = near.rgb[o], g = near.rgb[o + 1], b = near.rgb[o + 2]
-      if (!r && !g && !b) continue
-      const lon = near.lon + ((col + 0.5) * near.stepM - near.reachM) / (111_320 * cosLat)
-      const cls = cover.coverAt(lat, lon)
-      const slot = (acc[cls] ??= { r: 0, g: 0, b: 0, rgbN: 0, ndvi: 0, ndviN: 0, ndsi: 0, ndsiN: 0 })
-      slot.r += r; slot.g += g; slot.b += b; slot.rgbN++
-      if (Number.isFinite(near.ndvi[idx])) { slot.ndvi += near.ndvi[idx]; slot.ndviN++ }
-      if (Number.isFinite(near.ndsi[idx])) { slot.ndsi += near.ndsi[idx]; slot.ndsiN++ }
-    }
+  const getMeans = (): CoverMeansTable | null => {
+    if (means === undefined) means = data.near && data.cover ? computeCoverMeans(data.near, data.cover) : null
+    return means
   }
 
-  const byCover: Record<number, CoverMean> = {}
-  for (const [k, s] of Object.entries(acc)) {
-    if (s.rgbN < MIN_COVER_SAMPLES) continue
-    byCover[Number(k)] = {
-      rgb: [Math.round(s.r / s.rgbN), Math.round(s.g / s.rgbN), Math.round(s.b / s.rgbN)],
-      ndvi: s.ndviN >= MIN_COVER_SAMPLES ? s.ndvi / s.ndviN : null,
-      ndsi: s.ndsiN >= MIN_COVER_SAMPLES ? s.ndsi / s.ndsiN : null,
-      count: s.rgbN,
-    }
+  return {
+    sampleAt(lat: number, lon: number, month: number, elevationM = 0): LandSample {
+      const rawCover = data.cover ? data.cover.coverAt(lat, lon) : 0
+      const cover = rawCover > 0 ? rawCover : null
+      const near = data.near ? nearAt(data.near, lat, lon) : null
+
+      let rgb: [number, number, number] | null = null
+      let rgbSource: LandSource = 'climatology'
+      let rgbDate: string | null = null
+      if (near && near.rgb && near.rgbValid >= MIN_CELL_VALID) {
+        rgb = near.rgb; rgbSource = near.source; rgbDate = near.date
+      }
+
+      let ndvi: number | null = null
+      let ndviSource: LandSource = 'climatology'
+      let ndviDate: string | null = null
+      if (near && near.ndvi !== null && near.ndviValid >= MIN_CELL_VALID) {
+        ndvi = near.ndvi; ndviSource = near.source; ndviDate = near.date
+      }
+
+      if (rgb === null || ndvi === null) {
+        const far = data.far ? farAt(data.far, lat, lon) : null
+        if (rgb === null && far?.rgb && far.rgbSource) {
+          rgb = far.rgb; rgbSource = far.rgbSource; rgbDate = far.rgbDate
+        }
+        if (ndvi === null && far?.ndvi !== null && far?.ndvi !== undefined && far.ndviSource) {
+          ndvi = far.ndvi; ndviSource = far.ndviSource; ndviDate = far.ndviDate
+        }
+      }
+
+      if ((rgb === null || ndvi === null) && cover !== null) {
+        const m = getMeans()
+        const cm = m?.byCover[cover] ?? null
+        if (rgb === null && cm && m) { rgb = cm.rgb; rgbSource = m.source; rgbDate = m.date }
+        if (ndvi === null && cm?.ndvi !== null && cm?.ndvi !== undefined && m) {
+          ndvi = cm.ndvi; ndviSource = m.source; ndviDate = m.date
+        }
+      }
+
+      const hasNearNdsi = Boolean(near && near.ndsi !== null && near.ndsiValid >= MIN_CELL_VALID)
+      const ndsi = hasNearNdsi ? near!.ndsi : null
+      const ndsiSource: LandSource | null = hasNearNdsi ? near!.source : null
+      const ndsiDate: string | null = hasNearNdsi ? near!.date : null
+
+      const hasNearSnow = Boolean(near && near.snow !== null && near.valid >= MIN_CELL_VALID)
+      let snowProb = hasNearSnow ? near!.snow! : -1
+      let snowSource: LandSource = hasNearSnow ? near!.source : 'climatology'
+      let snowDate: string | null = hasNearSnow ? near!.date : null
+
+      let dryness = weatherDryness
+      let drynessSource: LandSource = weatherSource ?? 'climatology'
+      let drynessDate: string | null = weatherDate
+
+      if (rgb === null || ndvi === null || dryness === null || snowProb < 0) {
+        const clim: ClimatologySample = climatologyAt(lat, lon, elevationM, month, rawCover)
+        if (rgb === null) { rgb = clim.rgb; rgbSource = 'climatology'; rgbDate = null }
+        if (ndvi === null) { ndvi = clim.ndvi; ndviSource = 'climatology'; ndviDate = null }
+        if (dryness === null) { dryness = clim.dryness; drynessSource = 'climatology'; drynessDate = null }
+        if (snowProb < 0) { snowProb = clim.snowProb; snowSource = 'climatology'; snowDate = null }
+      }
+
+      return {
+        cover, rgb, rgbSource, rgbDate, ndvi, ndviSource, ndviDate,
+        ndsi, ndsiSource, ndsiDate, dryness, drynessSource, drynessDate,
+        snowProb, snowSource, snowDate,
+        valid: near ? near.valid : 1,
+      }
+    },
   }
-
-  const table: CoverMeansTable = { date: near.date, source: `s2-mean:${near.date}`, byCover }
-  if (!inner) { inner = new WeakMap(); MEANS_CACHE.set(near, inner) }
-  inner.set(cover, table)
-  return table
 }
 
-/** Converts NDSI to snow probability around the Hall et al. (1995) NDSI ≥ 0.40 snow threshold. */
-function snowProbFromNdsi(ndsi: number): number {
-  if (ndsi <= 0.25) return 0
-  if (ndsi >= 0.55) return 1
-  return (ndsi - 0.25) / 0.3
-}
-
-/** Samples living-land properties at `(lat, lon)` through the full fallback chain. */
+/** Samples living-land properties at `(lat, lon)` through the full lazy fallback chain. */
 export function sampleLandAt(
   data: LandData, lat: number, lon: number, month: number, elevationM = 0,
 ): LandSample {
-  const coverCls = data.cover?.coverAt(lat, lon) ?? 3
-  const clim = climatologyAt(lat, lon, elevationM, month, coverCls)
-  const nearRaw = data.near ? nearAt(data.near, lat, lon) : null
-  const near = nearRaw && nearRaw.valid >= MIN_CELL_VALID ? nearRaw : null
-  const far = data.far ? farAt(data.far, lat, lon) : null
-  const means = data.near && data.cover ? computeCoverMeans(data.near, data.cover) : null
-  const coverMean = means?.byCover[coverCls] ?? null
-
-  let rgb: [number, number, number] = clim.rgb
-  let rgbSource: LandSource = 'climatology'
-  if (near) { rgb = near.rgb; rgbSource = near.source }
-  else if (far?.rgb && far.rgbSource) { rgb = far.rgb; rgbSource = far.rgbSource }
-  else if (coverMean && means) { rgb = coverMean.rgb; rgbSource = means.source }
-
-  let ndvi = clim.ndvi
-  let ndviSource: LandSource = 'climatology'
-  if (near?.ndvi !== null && near?.ndvi !== undefined) { ndvi = near.ndvi; ndviSource = near.source }
-  else if (far?.ndvi !== null && far?.ndvi !== undefined) { ndvi = far.ndvi; ndviSource = far.source }
-  else if (coverMean?.ndvi !== null && coverMean?.ndvi !== undefined && means) { ndvi = coverMean.ndvi; ndviSource = means.source }
-
-  let ndsi: number | null = null
-  let ndsiSource: LandSource = 'climatology'
-  let snowProb = clim.snowProb
-  let snowSource: LandSource = 'climatology'
-  if (near?.ndsi !== null && near?.ndsi !== undefined) {
-    ndsi = near.ndsi; ndsiSource = near.source
-    snowProb = snowProbFromNdsi(near.ndsi); snowSource = near.source
-  } else if (coverMean?.ndsi !== null && coverMean?.ndsi !== undefined && means) {
-    ndsi = coverMean.ndsi; ndsiSource = means.source
-    snowProb = snowProbFromNdsi(coverMean.ndsi); snowSource = means.source
-  }
-
-  const dryness = data.weather ? drynessFromWeather(data.weather) : clim.dryness
-  const drynessSource: LandSource = data.weather ? data.weather.source : 'climatology'
-  const date = near ? data.near!.date : far ? data.far!.date : coverMean ? means!.date : null
-
-  return {
-    rgb, rgbSource, ndvi, ndviSource, ndsi, ndsiSource,
-    dryness, drynessSource, snowProb, snowSource,
-    valid: near ? near.valid : 1,
-    date,
-  }
+  let sampler = SAMPLER_CACHE.get(data)
+  if (!sampler) { sampler = prepareLandSampler(data); SAMPLER_CACHE.set(data, sampler) }
+  return sampler.sampleAt(lat, lon, month, elevationM)
 }

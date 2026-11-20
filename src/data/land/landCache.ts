@@ -1,31 +1,29 @@
+import { createIdbStore, createMemoryStore, type LandCacheStore } from './idbStore'
 import { packFarGrid, packNearGrid, unpackFarGrid, unpackNearGrid, type PackedFarGrid, type PackedNearGrid } from './landPack'
 import type { FarLandGrid, NearLandGrid, RecentLandWeather } from './types'
 
 /**
  * Per-place TTL cache for living-land observations.
- * Uses IndexedDB (`shamayim-land-v1`) so binary TypedArrays (~60 KB per near grid) persist natively
- * without bloating `localStorage`; falls back to an in-memory store when IndexedDB is unavailable.
+ * Uses IndexedDB (`shamayim-land-v1`) via `idbStore.ts` with kind-specific fresh TTLs and stale caps:
+ * - Near S2 / Far GIBS: fresh 5 d / 3 d, stale-while-revalidate up to 30 d.
+ * - Weather: anchored to the upstream `weather.fetchedAt` timestamp (so a Worker `STALE` copy is
+ *   never promoted to fresh), fresh 6 h, evicted after 24 h (`WEATHER_MAX_STALE_MS`).
  */
 export const NEAR_TTL_MS = 5 * 86_400_000
 export const FAR_TTL_MS = 3 * 86_400_000
 export const WEATHER_TTL_MS = 6 * 3_600_000
 export const MAX_STALE_MS = 30 * 86_400_000
+export const WEATHER_MAX_STALE_MS = 24 * 3_600_000
 
-const DB_NAME = 'shamayim-land-v1'
-const STORE_NAME = 'entries'
-const CACHE_VERSION = 1
+const CACHE_VERSION = 2
 
 export type LandCacheKind = 'near' | 'far' | 'weather'
+export type WeatherFreshness = 'fresh' | 'stale' | 'expired'
+export { createIdbStore, createMemoryStore, type LandCacheStore }
 
 export interface CacheHit<T> {
   value: T
   fresh: boolean
-}
-
-export interface LandCacheStore {
-  get(key: string): Promise<unknown>
-  set(key: string, value: unknown): Promise<void>
-  del(key: string): Promise<void>
 }
 
 interface StoredRecord { v: number; savedAt: number; payload: unknown }
@@ -36,85 +34,40 @@ const TTL_BY_KIND: Record<LandCacheKind, number> = {
   weather: WEATHER_TTL_MS,
 }
 
+const MAX_STALE_BY_KIND: Record<LandCacheKind, number> = {
+  near: MAX_STALE_MS,
+  far: MAX_STALE_MS,
+  weather: WEATHER_MAX_STALE_MS,
+}
+
 const cacheKey = (kind: LandCacheKind, placeId: string) => `${kind}:${placeId}`
-
-/** In-memory cache store for unit tests and environments without IndexedDB. */
-export function createMemoryStore(): LandCacheStore {
-  const map = new Map<string, unknown>()
-  return {
-    async get(key) { return map.get(key) ?? null },
-    async set(key, value) { map.set(key, value) },
-    async del(key) { map.delete(key) },
-  }
-}
-
-function openDb(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === 'undefined') return Promise.resolve(null)
-  return new Promise((resolve) => {
-    try {
-      const req = indexedDB.open(DB_NAME, 1)
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE_NAME)) req.result.createObjectStore(STORE_NAME)
-      }
-      req.onsuccess = () => resolve(req.result)
-      req.onerror = () => resolve(null)
-    } catch { resolve(null) }
-  })
-}
 
 let defaultStore: LandCacheStore | null = null
 
 export function getLandCacheStore(): LandCacheStore {
-  if (defaultStore) return defaultStore
-  const mem = createMemoryStore()
-  const dbPromise = openDb()
-  defaultStore = {
-    async get(key) {
-      const db = await dbPromise
-      if (!db) return mem.get(key)
-      return new Promise((resolve) => {
-        try {
-          const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(key)
-          req.onsuccess = () => resolve(req.result ?? null)
-          req.onerror = () => resolve(mem.get(key))
-        } catch { resolve(mem.get(key)) }
-      })
-    },
-    async set(key, value) {
-      await mem.set(key, value)
-      const db = await dbPromise
-      if (!db) return
-      await new Promise<void>((resolve) => {
-        try {
-          const tx = db.transaction(STORE_NAME, 'readwrite')
-          tx.objectStore(STORE_NAME).put(value, key)
-          tx.oncomplete = () => resolve()
-          tx.onerror = () => resolve()
-        } catch { resolve() }
-      })
-    },
-    async del(key) {
-      await mem.del(key)
-      const db = await dbPromise
-      if (!db) return
-      await new Promise<void>((resolve) => {
-        try {
-          const tx = db.transaction(STORE_NAME, 'readwrite')
-          tx.objectStore(STORE_NAME).delete(key)
-          tx.oncomplete = () => resolve()
-          tx.onerror = () => resolve()
-        } catch { resolve() }
-      })
-    },
-  }
+  defaultStore ??= createIdbStore(typeof indexedDB !== 'undefined' ? indexedDB : undefined)
   return defaultStore
+}
+
+/** Classifies an active `RecentLandWeather` observation against upstream freshness & stale limits. */
+export function weatherFreshness(weather: RecentLandWeather, now = Date.now()): WeatherFreshness {
+  const age = now - weather.fetchedAt
+  if (age < 0 || age > WEATHER_MAX_STALE_MS) return 'expired'
+  return age <= WEATHER_TTL_MS ? 'fresh' : 'stale'
+}
+
+/** Milliseconds until an active weather entry becomes stale (or 0 if already stale/expired). */
+export function weatherRefreshDelayMs(weather: RecentLandWeather | null, now = Date.now()): number | null {
+  if (!weather) return null
+  const remaining = WEATHER_TTL_MS - (now - weather.fetchedAt)
+  return Math.max(0, remaining)
 }
 
 async function readRaw(kind: LandCacheKind, placeId: string, store: LandCacheStore, now: number): Promise<CacheHit<unknown> | null> {
   const raw = (await store.get(cacheKey(kind, placeId))) as StoredRecord | null
   if (!raw || raw.v !== CACHE_VERSION || typeof raw.savedAt !== 'number') return null
   const age = now - raw.savedAt
-  if (age < 0 || age > MAX_STALE_MS) { await store.del(cacheKey(kind, placeId)); return null }
+  if (age < 0 || age > MAX_STALE_BY_KIND[kind]) { await store.del(cacheKey(kind, placeId)); return null }
   return { value: raw.payload, fresh: age <= TTL_BY_KIND[kind] }
 }
 
@@ -141,6 +94,10 @@ export async function readCachedWeather(placeId: string, store = getLandCacheSto
   return hit ? { value: hit.value as RecentLandWeather, fresh: hit.fresh } : null
 }
 
+/** Stores recent weather anchored to its upstream `fetchedAt` timestamp (capped at `now`). */
 export async function writeCachedWeather(placeId: string, weather: RecentLandWeather, store = getLandCacheStore(), now = Date.now()): Promise<void> {
-  await store.set(cacheKey('weather', placeId), { v: CACHE_VERSION, savedAt: now, payload: weather })
+  const anchored = Number.isFinite(weather.fetchedAt) && weather.fetchedAt > 0
+    ? Math.min(weather.fetchedAt, now)
+    : now
+  await store.set(cacheKey('weather', placeId), { v: CACHE_VERSION, savedAt: anchored, payload: weather })
 }
