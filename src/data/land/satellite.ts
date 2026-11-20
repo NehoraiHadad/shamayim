@@ -1,7 +1,7 @@
 import type { Coordinate } from '../landmarks/project'
 import { alignBandToScl } from './alignBand'
 import { defaultOpenTiff, readCogWindow, type OpenTiffFn, type UtmBox, type UtmCrs } from './cogReader'
-import { dominantGeometry, gridCoverage, makeNearBuffers, mergeOlderGrid, nearAt, nearCellCenter } from './nearGrid'
+import { dominantGeometry, gridCoverage, makeNearBuffers, mergeOlderGrid } from './nearGrid'
 import { aggregatePatch, type GridBuffers, type GridTransform } from './s2Aggregate'
 import { bandScalingOf, type StacBandMeta, type StacItemProps } from './s2Math'
 import type { AcquisitionGeometry, NearLandGrid } from './types'
@@ -26,7 +26,6 @@ export interface StacItem {
 }
 export type { TiffImageLike, TiffLike } from './cogReader'
 export interface NearFetchDeps { fetchImpl?: typeof fetch; openTiff?: OpenTiffFn }
-export { nearAt, nearCellCenter }
 
 async function readItemWindow(
   item: StacItem, targetBox: UtmBox, targetCrs: UtmCrs, grid: GridTransform,
