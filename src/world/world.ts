@@ -24,6 +24,10 @@ import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf, waterOf } from './water'
 import { windOf } from './wind'
+import { skyLifeOf } from './life'
+import { nightSkyOf } from './nightSky'
+import { opticsOf } from './optics'
+import { placeEnvOf } from './placeEnv'
 
 const hourKey = (at: LocalTime) => `${at.slice(0, 13)}:00`
 
@@ -93,6 +97,8 @@ export function makeWorldBuilder() {
     return { part, key: partKey([part.patches.length, part.towers.length, part.fromKm, far ? 1 : 0], 1) }
   })
   const ripplesPart = memoOne((terrain: SceneTerrain, placeId: string) => ripplesOf(terrain.water ?? [], placeId))
+  const envPart = memoOne((place: WorldInput['place'], cover: WorldInput['cover'], far: WorldInput['far'], waterMask: WorldInput['waterMask']) =>
+    placeEnvOf(place, { cover, far, waterMask }))
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
 
   return function buildWorld(input: WorldInput): WorldState {
@@ -119,7 +125,9 @@ export function makeWorldBuilder() {
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
       hour, preview, forced: 'windDirection' in forced }, camera)
     const rate = rainOf(shown)
-    const { covers: given, source: cloudSource } = layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour })
+    // A dev moment may pin the layers themselves (the harness's C10 moments: a veil of cirrostratus alone).
+    const { covers: given, source: cloudSource } = input.forcedLayers ? { covers: input.forcedLayers, source: 'forced' as const }
+      : layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour })
     const snow = snowFall(shown, forecast.elevation)
     // Falling snow needs a cloud to fall from, as the rain does (C7): the same layer rule, from the snowfall.
     const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
@@ -141,6 +149,17 @@ export function makeWorldBuilder() {
       input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
     const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY
+    // C10: the life of the sky, its true night objects and its optics, from the same state.
+    const env = envPart(place, input.cover, input.far, input.waterMask)
+    const life = skyLifeOf({ placeId: place.id, lat: place.lat, lon: place.lon, at, timezone: place.timezone, camera,
+      groundM: forecast.elevation, env, sun, direct: light.source === 'sun' ? light.direct : 0, dark: night.dark,
+      temperature: shown.temperature, covers, rainMmH: Math.max(rate, shown.precipitation), thunder: rain?.thunder ?? false,
+      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs }, highDrift: clouds[2]?.drift ?? 0,
+      hour, starsThrough: night.starsThrough, moon, visibilityKm: air.visibilityKm })
+    const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
+      starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
+    const optics = opticsOf({ sun, direct: light.source === 'sun' ? light.direct : 0, sunLights: light.source === 'sun', covers,
+      rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance }, moon }
 
     return {
@@ -153,9 +172,9 @@ export function makeWorldBuilder() {
       place3: placePartResult.place3,
       marks: placePartResult.marks,
       labels: placePartResult.labels,
-      night, ground,
+      night, ground, env, life, nightSky, optics,
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
-        windAloft: windSources.windAloft, visibility: visibilitySource },
+        windAloft: windSources.windAloft, visibility: visibilitySource, cruise: life.aircraft.cruise.source, glow: env.sources.glow },
       keys: {
         bodies: partKey(bodies, 2),
         light: partKey(light, 3),
@@ -170,6 +189,9 @@ export function makeWorldBuilder() {
         marks: placePartResult.marksKey,
         night: partKey(night, 2),
         ground: partKey(ground, 2),
+        life: partKey(life, 2),
+        nightSky: partKey(nightSky, 2),
+        optics: partKey(optics, 2),
       },
     }
   }

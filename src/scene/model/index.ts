@@ -10,6 +10,9 @@ import { bodiesOverPlace, bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
+import { birdLayers, contrailLayers, landTopOf, lowPlaneLayers, meteorLayers } from './life'
+import { milkyWayLayer, planetsLayer, twinkleOf } from './nightSky'
+import { haloLayer, rainbowLayer } from './optics'
 import type { LandClock, LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
@@ -48,26 +51,39 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock): Scene
 function knownModel(world: WorldState, box: SceneBox): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
-  const sky = skyLayers(world, box)
-  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const outside = outsideLayer(world, box, layout.clear)
+  const marks = marksLayers(world, box)
+  // The sky's life keeps above the land and what stands on it (C10).
+  const sky = skyLayers(world, box, [...marks, ...(outside ? [outside] : [])])
+  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : []), ...marksLayers(world, box), ...(outside ? [outside] : []), ...bodiesOverPlace(world, box, outside),
+    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []), ...bodiesOverPlace(world, box, outside),
     ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }
 
 /** The sky surface's layers (C6): the base, the stars, the bodies, the clouds by level, lightning, shimmer. */
-export function skyLayers(world: WorldState, box: SceneBox): LayerDesc[] {
+export function skyLayers(world: WorldState, box: SceneBox, land: readonly LayerDesc[] = []): LayerDesc[] {
   const sky = skyLayer(world, box)
   if (!sky) return []
   const geom = skyGeom(world, box)
-  const stars = starsLayer(world, box, geom)
+  const field = starsLayer(world, box, geom)
   const clouds = cloudLayersOf(world, box, geom)
   const shimmer = shimmerLayerOf(world, box, geom)
-  return [sky, ...(stars ? [stars] : []), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
-    ...(shimmer ? [shimmer] : [])]
+  // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,
+  // the aircraft and their contrails, the rainbow and the halo, all from the world's life, night sky and optics.
+  const top = landTopOf(world, box, geom, land)
+  const twinkle = field ? twinkleOf(world, box, field.stars, geom) : { steady: [], layers: [] }
+  const stars = field && twinkle.layers.length ? { ...field, stars: twinkle.steady } : field
+  const planets = planetsLayer(world, box, geom)
+  const milkyWay = milkyWayLayer(world, box, geom)
+  const rainbow = rainbowLayer(world, box, geom)
+  const halo = haloLayer(world, box, geom)
+  return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
+    ...meteorLayers(world, box, geom), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
+    ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, top),
+    ...lowPlaneLayers(world, box, geom, top), ...birdLayers(world, box, geom, top)]
 }
 
 /** The layers drawn on one surface, in draw order. */

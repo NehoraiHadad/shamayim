@@ -1,0 +1,99 @@
+import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from '../data/city/farGrid'
+import type { FarData } from '../data/city/farData'
+import type { LandCover } from '../data/land/landData'
+import type { WaterMask } from '../data/water/waterMask'
+import type { Place } from '../config/place'
+
+/*
+ * What the land round a place is like, for the life in its sky and the darkness of its night (C10): how far the sea and the
+ * nearest lake are, how built and how open the ground within ~2 km is (the land cover's classes), and how much artificial
+ * light the towns within 60 km throw into its sky (Walker's law from the far raster's built shares). Independent of the
+ * hour; one value per place and data.
+ */
+
+export interface PlaceEnv {
+  /** Distance (km) to the sea within 20 km, else null. */
+  seaKm: number | null
+  /** Distance (km) to a lake (the Kinneret, the Dead Sea) within 20 km, else null. */
+  lakeKm: number | null
+  /** Shares (0–1) of the ground within ~2 km: built, and open country (crops, grass, shrub, bare). */
+  built: number
+  open: number
+  /**
+   * Artificial sky glow at the place (relative units, Walker's law Σ built area × d^−2.5 over the towns within 60 km): ~0
+   * in the desert, ~1 at the edge of a town of tens of thousands, 10+ in a metropolis.
+   */
+  glow: number
+  sources: { land: 'cover' | 'population'; glow: 'far' | 'cover' | 'population' }
+}
+
+const KM_LAT = 110.57
+const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180)
+
+/** The nearest water of a kind along 24 bearings, out to 20 km in 0.4 km steps. */
+function waterKm(place: Place, mask: WaterMask | null | undefined, kind: 'sea' | 'lake'): number | null {
+  if (!mask) return null
+  let best: number | null = null
+  for (let k = 0; k < 24; k++) {
+    const a = (k / 24) * 2 * Math.PI
+    for (let d = 0; d <= 20 && (best === null || d < best); d += 0.4) {
+      const lat = place.lat + (d * Math.cos(a)) / KM_LAT, lon = place.lon + (d * Math.sin(a)) / kmLon(place.lat)
+      const body = mask.bodyAt(lat, lon)
+      if (body !== null && mask.bodies[body]?.kind === kind) { best = d; break }
+    }
+  }
+  return best
+}
+
+/** The land cover's shares within 2 km (a 0.2 km grid): built (class 5) and open (shrub, grass, crop, bare: 2, 3, 4, 6). */
+function coverShares(place: Place, cover: LandCover): { built: number; open: number; n: number } {
+  let built = 0, open = 0, n = 0
+  for (let dn = -2; dn <= 2.0001; dn += 0.2) {
+    for (let de = -2; de <= 2.0001; de += 0.2) {
+      if (dn * dn + de * de > 4) continue
+      const c = cover.coverAt(place.lat + dn / KM_LAT, place.lon + de / kmLon(place.lat))
+      if (!c) continue
+      n++
+      if (c === 5) built++
+      else if (c === 2 || c === 3 || c === 4 || c === 6) open++
+    }
+  }
+  return n ? { built: built / n, open: open / n, n } : { built: 0, open: 0, n: 0 }
+}
+
+/** Sky glow from the far raster: every built cell within 60 km, its built area × (d + 0.5 km)^−2.5. */
+function farGlow(place: Place, far: FarData): number {
+  const cellKm2 = FAR_LAT_STEP * KM_LAT * FAR_LON_STEP * kmLon(place.lat)
+  const r0 = Math.floor((place.lat - FAR_SOUTH) / FAR_LAT_STEP), c0 = Math.floor((place.lon - FAR_WEST) / FAR_LON_STEP)
+  const dr = Math.ceil(60 / (FAR_LAT_STEP * KM_LAT)), dc = Math.ceil(60 / (FAR_LON_STEP * kmLon(place.lat)))
+  let sum = 0
+  for (let r = Math.max(0, r0 - dr); r <= Math.min(FAR_ROWS - 1, r0 + dr); r++) {
+    const n = (FAR_SOUTH + (r + 0.5) * FAR_LAT_STEP - place.lat) * KM_LAT
+    for (let c = Math.max(0, c0 - dc); c <= Math.min(FAR_COLS - 1, c0 + dc); c++) {
+      const v = far.grid[r * FAR_COLS + c] >> 4
+      if (!v) continue
+      const e = (FAR_WEST + (c + 0.5) * FAR_LON_STEP - place.lon) * kmLon(place.lat)
+      const d = Math.hypot(n, e)
+      if (d > 60) continue
+      sum += (v / 15) * cellKm2 * (d + 0.5) ** -2.5
+    }
+  }
+  // Scaled so ~1 is the edge of a small town's glow (see `placeEnv.test.ts`).
+  return sum / 0.35
+}
+
+/** The place's surroundings, from whatever data is at hand (each fallback marked). */
+export function placeEnvOf(place: Place, data: { cover?: LandCover | null; far?: FarData | null; waterMask?: WaterMask | null }): PlaceEnv {
+  const shares = data.cover ? coverShares(place, data.cover) : null
+  // Without the land cover: the population says how built the place is.
+  const popBuilt = Math.min(0.7, Math.max(0.02, Math.log10(Math.max(10, place.population ?? 1000)) / 6 - 0.3))
+  const built = shares?.n ? shares.built : popBuilt
+  const open = shares?.n ? shares.open : 1 - popBuilt
+  const glow = data.far ? farGlow(place, data.far) : shares?.n ? shares.built * 8 : popBuilt * 8
+  return {
+    seaKm: waterKm(place, data.waterMask, 'sea'),
+    lakeKm: waterKm(place, data.waterMask, 'lake'),
+    built, open, glow,
+    sources: { land: shares?.n ? 'cover' : 'population', glow: data.far ? 'far' : shares?.n ? 'cover' : 'population' },
+  }
+}

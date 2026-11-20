@@ -48,6 +48,8 @@ const HOURLY = [
   // Wind at the clouds' heights (cloud drift): 850, 700 and 300 hPa.
   'wind_speed_850hPa', 'wind_direction_850hPa', 'wind_speed_700hPa', 'wind_direction_700hPa',
   'wind_speed_300hPa', 'wind_direction_300hPa',
+  // C10: the air at airliners' cruise (250 hPa, ~10.4 km): contrails by the Schmidt–Appleman criterion.
+  'temperature_250hPa', 'relative_humidity_250hPa',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',

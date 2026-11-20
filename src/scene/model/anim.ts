@@ -1,5 +1,5 @@
 import { seeded } from '../../data/landmarks/hash'
-import type { AnimSpec, Pulse, Ramp } from './types'
+import type { AnimSpec, Pulse, Ramp, Track } from './types'
 
 /**
  * The animation of a layer at `phase` (seconds from the loop's start, never the clock), applied when its cached canvas is
@@ -32,11 +32,19 @@ export function strikes(pulse: Pulse): { at: number; twice: boolean }[] {
   const r = seeded(pulse.seed)
   const out: { at: number; twice: boolean }[] = []
   let t = pulse.first
-  while (t < CYCLE) {
+  while (t < (pulse.cycle ?? CYCLE)) {
     out.push({ at: t, twice: r() < 0.4 })
     t += pulse.every[0] + (pulse.every[1] - pulse.every[0]) * r()
   }
   return out
+}
+
+/** A meteor's light over time (s since it began): flaring over 0.08 s, burning ~0.35 s, gone by 0.7 s. */
+function meteorLight(t: number): number {
+  if (t < 0) return 0
+  if (t < 0.08) return t / 0.08
+  if (t < 0.35) return 1
+  return t < 0.7 ? 1 - (t - 0.35) / 0.35 : 0
 }
 
 /** The flash's alpha at `phase` (0 between flashes); 1 for a layer that does not pulse. */
@@ -44,11 +52,11 @@ export function flashAt(spec: AnimSpec | undefined, phase: number): number {
   const pulse = spec?.pulse
   if (!pulse) return 1
   const list = strikes(pulse)
-  const t = phase % CYCLE
+  const t = phase % (pulse.cycle ?? CYCLE)
   let alpha = 0
   for (const s of list) {
     if (s.at > t) break
-    alpha = Math.max(alpha, stroke(t - s.at, s.twice))
+    alpha = Math.max(alpha, pulse.look === 'meteor' ? meteorLight(t - s.at) : stroke(t - s.at, s.twice))
   }
   return alpha
 }
@@ -141,4 +149,31 @@ export function settleEnd(specs: readonly (AnimSpec | undefined)[]): number {
     if (spec.reveal) end = Math.max(end, spec.reveal.at + spec.reveal.dur)
   }
   return end
+}
+
+/**
+ * Where a layer flying a track stands at `phase` (C10): its offset (surface px) from where it stands at phase 0, or null
+ * while it is off the track (between passes). Under reduced motion (`still`) it stands at phase 0.
+ */
+export function trackAt(track: Track | undefined, phase: number, still = false): { x: number; y: number } | null {
+  if (!track) return { x: 0, y: 0 }
+  const t = still ? track.at : ((((phase + track.at) % track.cycle) + track.cycle) % track.cycle)
+  const end = (track.path.length - 1) * track.step
+  if (t > end + 1e-9 || track.path.length === 0) return null
+  const f = track.step > 0 ? t / track.step : 0
+  const i = Math.min(track.path.length - 1, Math.floor(f))
+  const j = Math.min(track.path.length - 1, i + 1)
+  const k = f - i
+  const [x0, y0] = track.path[i], [x1, y1] = track.path[j]
+  return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k }
+}
+
+/** The x range (surface px) a wake is laid over at `phase` (C10): from its tail to its plane, the whole trail once it has gone. */
+export function wakeAt(spec: AnimSpec | undefined, phase: number, still = false): [number, number] | null {
+  const wake = spec?.wake
+  if (!wake) return null
+  const at = trackAt(wake, phase, still)
+  const last = wake.path.at(-1) ?? [0, 0]
+  const head = wake.head + (at ? at.x : last[0])
+  return [Math.min(wake.tail, head), Math.max(wake.tail, head)]
 }

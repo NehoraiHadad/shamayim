@@ -1,5 +1,6 @@
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
+import type { BirdKind } from '../../world/life'
 
 /**
  * The scene model (docs/design/CANVAS-SCENE-PLAN.md §1b): what is drawn, where, in which colour and order, decided
@@ -73,7 +74,23 @@ export interface AnimSpec {
   glide?: { dy: number; at: number; dur: number }
   /** A slow breath of the alpha, `1 − depth … 1` over `period` s (C8: the forming ridge line). */
   breath?: { depth: number; period: number }
+  /**
+   * C10: the layer flies along a track (a flock, a plane): laid offset by the track's point at the phase, and only while it
+   * is on it (`anim.ts` `trackAt`). Combined with `frames` for the wing beats and the flock's own motion.
+   */
+  flight?: Track
+  /**
+   * C10: a contrail being laid by its plane: the layer is laid only between its tail (`tail`, surface px) and the plane's
+   * x on the track at the phase (its x at phase 0 is `head`); once the plane has flown off the track the whole trail stays.
+   */
+  wake?: Track & { tail: number; head: number }
 }
+
+/**
+ * A path in time (C10): offsets (surface px) from where the layer stands at phase 0, one every `step` s from the start of a
+ * pass; a pass repeats every `cycle` s (≥ the path's length in time); phase 0 is `at` s into a pass (where the offset is 0).
+ */
+export interface Track { path: Pt[]; step: number; cycle: number; at: number }
 
 /** A timed ramp of the phase (s): from `from` to `to` over `at … at + dur`, eased in and out. */
 export interface Ramp { at: number; dur: number; from: number; to: number }
@@ -90,7 +107,11 @@ export interface Reveal { x: number; at: number; dur: number; erase?: boolean; s
 export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]; sway?: number; swayPeriod?: number }
 
 /** A seeded schedule of short flashes: the first after `first` s, then every `every[0]`…`every[1]` s. */
-export interface Pulse { seed: number; first: number; every: [number, number] }
+export interface Pulse { seed: number; first: number; every: [number, number]
+  /** C10: a meteor's light (a quick flare and a short fade) instead of a lightning stroke's. */
+  look?: 'stroke' | 'meteor'
+  /** C10: the schedule repeats after this long (s; 600 when absent): long enough for rare meteors. */
+  cycle?: number }
 
 /**
  * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
@@ -350,6 +371,20 @@ export interface Plume { x: number; y: number; dx: number; dy: number; r0: numbe
 /** A wet sheen on the ground: a short level stroke catching the sky (land px). */
 export interface Sheen { x: number; y: number; w: number; alpha: number }
 
+/*
+ * Sky life and optics (C10). Everything here comes from the world's `life`, `nightSky` and `optics`.
+ */
+export type { BirdKind }
+/**
+ * A bird of a flock (sprite px): where it flies round in the flock (`x`, `y` the middle of its own loop of `rx` × `ry`,
+ * `turn` +1 or −1 the way round, `lag` its place on the loop 0–1), its wingspan (`size`) and its wing beat's own lag.
+ */
+export interface BirdDesc { x: number; y: number; rx: number; ry: number; turn: 1 | -1; lag: number; size: number; beat: number }
+/** A planet as drawn (sky px): a steady point (`r`), its colour, how plainly it shows, a faint glow round the brightest. */
+export interface PlanetDot { name: string; x: number; y: number; r: number; rgb: RGB; alpha: number; glow: number }
+/** One coloured arc of a bow or a halo (sky px): its points, colour, width and alpha at each point. */
+export interface ArcDesc { points: Pt[]; rgb: RGB; width: number; alphas: number[] }
+
 export type LayerDesc =
   | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
   | LayerBase & { kind: 'stars'; stars: Star[]; through: number }
@@ -406,6 +441,34 @@ export type LayerDesc =
    */
   | LayerBase & { kind: 'loading'; part: 'mist'; bands: MistBandDesc[]; lit: RGB; litAlpha: number }
   | LayerBase & { kind: 'loading'; part: 'ridge'; line: Pt[]; rgb: RGB; alpha: number; mass: number; seed: number }
+  /**
+   * C10: a flock (or a lone bird) in the sky, a strip of frames (`animated.frames`: its wing beats and its own wheeling,
+   * periodic over the strip's `loop` s) flown along its track (`animated.flight`); `flap` beats a second, `soar` 0–1 the
+   * share of time the wings are held (storks, raptors), the flock's tones (`rgb` its dark, `lit` the sunlit underside).
+   */
+  | LayerBase & { kind: 'birds'; bird: BirdKind; birds: BirdDesc[]; loop: number; flap: number; soar: number; rgb: RGB; lit: RGB;
+      litA: number; heading: -1 | 1; seed: number }
+  /**
+   * C10: an aircraft (sky px): a small plane at (`x`, `y`) heading `angle` (rad on screen), `size` its span, its body's tones,
+   * its lights by night (`lights` 0–1: the landing light, the strobe and the beacon, a strip of frames), the short trail
+   * behind it (`trail`: px, 0 for none).
+   */
+  | LayerBase & { kind: 'aircraft'; x: number; y: number; angle: number; size: number; rgb: RGB; lit: RGB; lights: number; landing: boolean
+      trail: number; trailRgb: RGB; seed: number }
+  /** C10: a contrail (sky px) along its projected track: its points, its width (px) and alpha at each, its lit and shade tones. */
+  | LayerBase & { kind: 'contrail'; points: Pt[]; widths: number[]; alphas: number[]; rgb: RGB; shade: RGB; seed: number }
+  /** C10: a meteor's streak from `x0`, `y0` to its end, laid with its pulse (`animated.pulse`, the meteor look). */
+  | LayerBase & { kind: 'meteor'; x0: number; y0: number; x1: number; y1: number; width: number; rgb: RGB }
+  /** C10: the planets, steady points (they do not twinkle). */
+  | LayerBase & { kind: 'planets'; planets: PlanetDot[] }
+  /** C10: a star that twinkles (a strip of frames: its light flickering, seeded, periodic over the strip). */
+  | LayerBase & { kind: 'twinkle'; star: Star; amp: number; seed: number; loop: number }
+  /** C10: the Milky Way's band (sky px): its spine and edges, brightness and the rift along it, its colour and strength. */
+  | LayerBase & { kind: 'milkyWay'; spine: Pt[]; upper: Pt[]; lower: Pt[]; bright: number[]; rift: number[]; rgb: RGB; alpha: number; seed: number }
+  /** C10: a rainbow or a halo with its sun dogs: coloured arcs and, for the halo, the dogs' soft patches. */
+  | LayerBase & { kind: 'bow'; look: 'rainbow' | 'halo'; arcs: ArcDesc[]; dogs: { x: number; y: number; r: number; alpha: number }[]
+      /** The rainbow's brighter sky inside the primary (sky px): its arc points and strength. */
+      inner: { points: Pt[]; alpha: number } | null }
 
 export type LayerKind = LayerDesc['kind']
 export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>

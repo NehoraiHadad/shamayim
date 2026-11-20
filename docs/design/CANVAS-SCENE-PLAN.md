@@ -247,8 +247,8 @@ when `litSide === 'right'`; a glyph with text or asymmetry (Chords Bridge) has a
 - `SkyCanvas.tsx` inside `ui/Sky.tsx`. The CSS gradient stays under it as the first paint (no flash before the canvas
   is ready). The sky no longer reads the scene from the DOM: `atmo/layout.ts` (`readLayout`, `data-afterglow`,
   `data-cloud-seen`, `[data-sun="up"]`) is replaced by `box.landTop` measured once by a `ResizeObserver`.
-- `Life` (birds, meteors, `atmo/life/*`) stays HTML until the switch, then moves into the canvas (owner decision 6); its
-  lanes read the model's cloud and ridge heights.
+- `Life` (birds, meteors, `atmo/life/*`) stayed HTML until the switch; at C10 it moved into the sky canvas (owner decision 6) and
+  `atmo/life/` was deleted: the flocks keep above the land the model draws (`landTopOf`).
 
 ### 1f. The sky: WebGL or canvas — decided (owner, 2026-11-19): canvas; `src/atmo/gl/` goes at C9
 
@@ -499,6 +499,23 @@ own commits (SVG scene, WebGL sky, stand-in machinery, flags, SVG snapshots). `g
 *Accept:* `npm test`, `npm run typecheck`, `npm run lint`, `npm run test:pixels` green; no import of a deleted module;
 bundle smaller than before (record the size).
 
+**C10. Sky life and optics — L (5).**
+**Done 2026-11-20** (§6). Everything that lives or shines in the sky, chosen from the one world state by general rules (no
+place named anywhere): birds by kind (white storks and common cranes on Israel's flyway in their passage seasons, swifts
+from February to July, gulls by the sea and the lakes, raptors circling in thermals at a sunny midday over open land, hooded
+crows and rock doves, bats at dusk; none in heavy rain, a storm or a gale), each with its own silhouette, wing beat and way of
+flying; airliners at cruise with contrails only when the Schmidt–Appleman criterion holds at 250 hPa (persisting and spreading
+in ice-supersaturated air, drifting with the high cloud), and the approach and departure traffic of the airports within reach
+on the runway the wind picks; the planets at their true places (a compact ephemeris), each shown by its own magnitude against
+the sky's brightness; meteors only on real shower nights, at a rate by the radiant, the moon, the towns' glow and the cloud;
+the Milky Way at its true orientation only in a truly dark sky (no moon, clear, far from the towns' light by the built
+density round the place); the rainbow round the antisolar point (42°, the secondary at 51°) when rain meets a low sun shining
+unblocked from behind the eye; the 22° halo and the sun dogs under a veil of cirrostratus. The HTML birds, meteors and star
+twinkle (`atmo/life/`) go; the brightest stars twinkle in the canvas, the planets never.
+*Accept:* rule tests (season and hour gating, Schmidt–Appleman, ephemeris against known events, shower dates, rainbow and
+halo geometry); pixel references re-recorded only for the new life; perf within the noise of C9; a contact sheet and strips
+in `qa/canvas/c10/`.
+
 Total ≈ 42 units; C4 and C5 are the bulk. The enriched drawing lands layer by layer (C2–C8), not as a later pass;
 C9 includes a last tuning pass on the phone. After C9, the agreed order in `TRUE-SCENE-PLAN.md` continues on the new
 pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
@@ -615,6 +632,15 @@ was deployed by the rebuild):
    (after step 3's cells are on `main`, so the place points are the new cells'.)
 5. **The app itself** (the canvas switch, C9): merging this branch to `main` is the release (Pages). The service worker
    updates itself (`autoUpdate`, `skipWaiting`); no cache to clear. No other server changes.
+6. **(C10) The air at cruise level for contrails**: the Worker's allowlist (`worker/src/routes.ts`) now also lists
+   `temperature_250hPa` and `relative_humidity_250hPa`; the app asks for them with the rest of `SCENE_HOURLY`, behind the
+   same `ASK_SCENE_HOURLY` gate. Deploy them with step 1 (one Worker deploy) and add them to step 1's check:
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev" \
+     "https://shamayim-api.nehoraihadad.com/v1/forecast?latitude=32.348&longitude=35.535&hourly=temperature_250hPa,relative_humidity_250hPa"
+   ```
+   Until step 2 the world takes a climatological guess for the air at 250 hPa (−53 °C in January to −40 °C in July; the
+   humidity from the forecast's high cloud), marked `sources.cruise: 'climate'`.
 
 **Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
 algorithms must handle every place correctly (see the rules at the top).
@@ -1684,5 +1710,87 @@ machinery, the skyline slabs and the WebGL air's leftovers; the rays in fog; the
   dev server (`?wx=` is a dev override).
 - **Left for after C9** (none blocking): `columns.ts`'s band (above); `useLandmarks`' older pools and `rank.ts`'s `kind`
   rule (the overhead map and the stored landmark cache still use them); `data/world/` (the turning view's 360° world,
-  unused since that study, kept for `camera-fable.md`); the birds and meteors into the canvas (owner decision 6); the
+  unused since that study, kept for `camera-fable.md`); the birds and meteors into the canvas (owner decision 6: done at C10); the
   cold model and the cities' scrub model over budget (C5, C6). Deploys: the final list above (§5).
+
+**C10 done (2026-11-20): sky life and optics.** Commits on the C10 branch (from `0173702`, C9 merged in at `0338fec`).
+- *World* (`src/world/`, every rule general, from the one state):
+  - `placeEnv.ts`: the land round the place (once per place): the sea's and the nearest lake's distance (the water mask, 24
+    bearings to 20 km), the built and open shares within 2 km (the land cover), and the towns' **sky glow**, Walker's law
+    Σ built area × (d + 0.5 km)^−2.5 over the far raster within 60 km (~0.04 Mitzpe Ramon, 0.17 Shadmot, 0.8 Rosh Pina,
+    2.3 Tiberias, 3.3 Haifa, 5 Jerusalem, 6.5 Tel Aviv); fallbacks from the cover, else the population (`sources.glow`).
+  - `life.ts` **birds**: a likelihood per kind from season windows (`season`), the sun's height, thermals (sun ≥ ~20–35°,
+    direct light, a dry calm hour), the flyway (`flyway`: the whole country, the Rift and the hills most), the land (built,
+    open, the sea ≤ 8 km, a lake ≤ 5 km), the temperature and the weather (`flyingWeather`: none at ≥ 2.5 mm/h, thunder or
+    gusts ≥ 18 m/s); white storks 5 Mar–5 May and 10 Aug–12 Oct soaring at midday; common cranes on passage (late Oct–early
+    Dec, Feb–Mar) and the Hula's wintering flocks at sunrise and sunset; swifts 15 Feb–25 Jul, morning and evening; gulls by
+    the shore, most in winter; raptors at ≥ ~35° sun over open land; crows and rock doves by day (doves by built share);
+    bats at dusk and dawn on warm calm evenings (insect-eaters in the warm months, fruit bats in towns all year). An hour's
+    seeded draw against score × the kind's prevalence; at most two kinds. Migrants head north in spring, south in autumn;
+    raptors drift downwind. **Aircraft**: the Schmidt–Appleman criterion (`contrails.ts`, Schumann 1996: EI 1.25, η 0.3,
+    Sonntag saturation over water and ice; the threshold for saturated air at 250 hPa ≈ −41 °C, for dry air ≈ −51 °C)
+    from the forecast's 250 hPa temperature and humidity (new fields, gated) or the climatological guess; a contrail forms
+    below the threshold and persists in ice-supersaturated air; 1–3 airliners at FL340 on seeded tracks, and old spread
+    trails when they persist; drawn only with their trail, by day and while the sun still reaches cruise level (to ~−4°),
+    not through a thick deck. `airports.ts`: Ben Gurion, Haifa, Ramon, Herzliya, Rosh Pina by their coordinates, field
+    heights, runways and movements an hour by day and night; the runway in use is the one most into the wind; arrivals on a
+    3° glide path down the extended centreline, departures climbing ~5° (light planes 3°). **Meteors**: the IMO shower table
+    (`astro/showers.ts`: peak date, ZHR, Gaussian width, radiant, speed); a shower night when its rate that night is ≥ 8;
+    seen rate = ZHR × sin(radiant altitude) × 2.2^(LM − 6.5) × the clear share, LM from the twilight, the moon and the glow.
+  - `nightSky.ts`: **planets** from `astro/planets.ts` (JPL's approximate Keplerian elements 1800–2050, precessed to the date;
+    magnitudes after Hilton 2005 by distance and phase angle), each shown by `skyLimit` (the faintest magnitude against the
+    twilight and the moon: Venus by sunset, Jupiter a little after, Saturn and a far Mars later) less its extinction near
+    the horizon; never hidden by the towns' glow, only by cloud (a seeded draw against the clear share, as the stars);
+    Mercury only at elongation > 18° with the sun under −6°. **Milky Way**: the galactic plane (`astro/galaxy.ts`, IAU
+    J2000 pole) every 4° of longitude, its brightness by longitude (the bulge, Cygnus, Carina; the Great Rift), shown only
+    with the sun under ~−15°, no moon up, a clear clean sky and the glow under ~1.
+  - `optics.ts`: **rainbow** when rain cells exist, the sun is 0–42° high and shining on the scene (the light's source is
+    the sun, direct ≥ ~0.3): round the antisolar point, primary 40.6–42.3°, secondary 50.1–53.6° at 0.43 of its strength,
+    brighter where the rain cells are; **22° halo and sun dogs** under high cloud ≥ ~0.4 with little low and mid cloud in
+    front; the dogs at the plate crystals' minimum deviation for the sun's height (21.8° at the horizon, farther as it
+    climbs, none over ~60°).
+- *Model* (`scene/model/life.ts`, `nightSky.ts`, `optics.ts`): layers `birds` (a strip of frames for the wing beats and the
+  flock's own wheeling, periodic over the strip, flown across on a track at the birds' true angular speed), `aircraft`
+  (strobes and beacon on a strip by night), `contrail` (on the dome, as the high cloud is drawn; a live trail laid behind its
+  plane), `meteor` (a pulse with a meteor's light), `planets`, `twinkle` (the 8 brightest stars, each a small strip), `milkyWay`
+  (on the dome), `bow` (rainbow over the clouds, halo in the high cloud). Every circle is traced on the sphere (`onCircle`) and
+  projected through the bodies' scale; the halo is centred on the drawn sun. What flies keeps above the land and whatever
+  stands on it (`landTopOf`, from the land layers). Two new composite-time primitives in `AnimSpec`: `flight` (a `Track`:
+  offsets every `step` s, a pass every `cycle` s) and `wake` (a layer laid from its tail to its plane's x); `Pulse.look:
+  'meteor'` and `Pulse.cycle`. Reduced motion: phase 0, as before.
+- *Painters* (`scene/paint/life.ts`, `nightSky.ts`, `optics.ts`), in the anidoodle contract (pure in `desc` and `env.phase`,
+  seeded, no clock, no `ctx.filter`): storks white with black flight feathers, neck and legs out; cranes' slow deep beat with
+  the long neck; swifts' scythe wings in bursts; gulls' angled white wings with black tips; raptors' fingered broad wings and
+  fanned tail, turning as they circle; crows' rowing wings; doves flashing pale as the flock banks; bats' quick jagged beat.
+  Planets steady with a white core (Venus white, Jupiter cream, Mars ochre-red, Saturn pale gold); bows laid `lighter`.
+- *Removed*: `src/atmo/life/` (the HTML birds, meteors, twinkle and their timers), its use in `App.tsx`.
+- *Forecast*: `HourPoint.cruise` (`temperature_250hPa`, `relative_humidity_250hPa`), mapped in `mapHours.ts`, asked with
+  `SCENE_HOURLY` behind `ASK_SCENE_HOURLY`, listed in the Worker's allowlist (deploy item 6).
+- *Harness*: weather moments `cirrus` (with `forcedLayers`: the fixture's hours always carry mid cloud with their high) and
+  `sunny`; `phase=meteor` (a moment into the first meteor).
+- *Tests*: `astro/c10astro.test.ts` (Venus's 2025 elongations 47.2° / 45.9°, never over 47.6°; Jupiter, Saturn, Mars opposite
+  the sun at their oppositions; Mars and Jupiter's RA/Dec at opposition; magnitudes incl. Mars −1.4 near and ≈ +1.2 far; the
+  galactic centre and pole; shower dates and fall-off), `world/c10rules.test.ts` (season and hour gating of every kind, none in
+  heavy rain, storm or gale, migrants' headings; the Schmidt–Appleman thresholds, formation and persistence, the climate's
+  seasons; runway into the wind, glide path, traffic by airport and night; meteors only on shower nights and cut by moon, glow,
+  cloud; planets' order of appearance in the dusk, city glow not hiding them; the Milky Way's darkness gates; circles at their
+  radius, the antisolar point, the bow's conditions; halo and sun dog geometry), `scene/model/c10.test.ts` (flocks and low
+  planes over the land at all 8 places, no birds in heavy rain, strips that loop, contrails only when the air makes them,
+  planets at their place and steady, twinkling stars on strips, meteors only on a shower night, the Milky Way at Ramon not
+  Tel Aviv, the rainbow in afternoon showers but not at noon or in steady rain, the halo round the drawn sun),
+  `sceneHours.test.ts` (the cruise fields mapped).
+- *Pixel references* re-recorded deliberately, 21 of 59, all for the new life: birds, low traffic, contrails (and the halo
+  under the fixture's high cloud in the daytime moments, the twinkling stars by night): `ein-gedi-1200`, `ein-gedi-1630@2x`,
+  `haifa-0620`, `haifa-1200`, `haifa-1200-dust`, `haifa-1200-overcast`, `jerusalem-0620@2x`, `jerusalem-1200`,
+  `jerusalem-1200-dust`, `jerusalem-1200-offline`, `jerusalem-1200-overcast`, `ramon-crater-1200`, `rosh-pina-0620`,
+  `shadmot-mehola-0620@2x`, `shadmot-mehola-1200`, `tel-aviv-1200`, `tel-aviv-1200@2x`, `tel-aviv-2100`,
+  `tiberias-1200-overcast`, `tiberias-1200`, `tiberias-1200@2x`. 59/59 on both paint paths.
+- *Perf* (`qa/canvas/perf.md`, C10): the model's crest and land profile laid once (rasterised columns, cached by the land
+  layers' keys), contrails sampled every 3 km, strips of ≤ 30 frames; scrub.model and modelCold a few ms over C9's run,
+  within its noise for Haifa; the animated frame within its 4 ms budget at p95 in most runs; memory unchanged.
+- *Stills*: `qa/canvas/c10/contact-sheet.png` (20 moments, one per element), `strip-pigeons.png`, `strip-landing.png`,
+  `strip-raptors.png`, `strip-contrail.png`, the stills in `qa/canvas/c10/stills/`.
+- **Remaining** (for the owner's eye): birds are drawn larger than their true angular size (as the bodies are) but fly at
+  their true angular speed, so a far flock crosses the sky over minutes; the Milky Way and the contrails lie on the dome (as
+  the clouds do) while the planets and the bows keep the bodies' true scale; a persistent contrail is laid anew each pass of
+  its plane. Deploy: item 6 above (with item 1).

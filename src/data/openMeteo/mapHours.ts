@@ -24,6 +24,8 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
     speed: pairs(hourly, `wind_speed_${level}`, length, 'hourly'),
     from: pairs(hourly, `wind_direction_${level}`, length, 'hourly'),
   }))
+  const cruiseT = pairs(hourly, 'temperature_250hPa', length, 'hourly')
+  const cruiseRh = pairs(hourly, 'relative_humidity_250hPa', length, 'hourly')
   const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
@@ -55,6 +57,7 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
       windDirection: blendDirection(windDirection[index], weight),
       visibility: blendNumber(visibility[index], weight),
       windAloft: windAloft(aloft.map(({ speed, from }) => vector(blendNumber(speed[index], weight), blendDirection(from[index], weight)))),
+      cruise: cruiseOf(blendNumber(cruiseT[index], weight), blendNumber(cruiseRh[index], weight)),
     }]
   })
 }
@@ -66,3 +69,7 @@ const vector = (speed: number | null, fromDeg: number | null): WindVector | null
 function windAloft([low, mid, high]: (WindVector | null)[]): HourPoint['windAloft'] {
   return low || mid || high ? { low, mid, high } : null
 }
+
+/** The air at cruise level (250 hPa), or null when either field is not known (not asked yet). */
+const cruiseOf = (temperature: number | null, humidity: number | null): HourPoint['cruise'] =>
+  temperature === null || humidity === null ? null : { temperature, humidity }

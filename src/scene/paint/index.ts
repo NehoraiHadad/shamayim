@@ -9,6 +9,9 @@ import { paintOutside } from './outside'
 import { paintPlane, paintPlaneLight } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
+import { paintAircraft, paintBirds, paintContrail, paintMeteor } from './life'
+import { paintMilkyWay, paintPlanets, paintTwinkle } from './nightSky'
+import { paintBow } from './optics'
 import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from './weather'
 
 export { HAND, type Ctx2D, type Hand, type PaintEnv, type Scratch } from './hand'
@@ -51,6 +54,14 @@ export const PAINTERS: Painters = {
   sheen: { form: paintNothing, light: paintSheen, formless: () => true },
   edge: { form: paintEdge },
   loading: { form: paintLoading },
+  birds: { form: paintBirds },
+  aircraft: { form: paintAircraft },
+  contrail: { form: paintContrail },
+  meteor: { form: paintMeteor },
+  planets: { form: paintPlanets },
+  twinkle: { form: paintTwinkle },
+  milkyWay: { form: paintMilkyWay },
+  bow: { form: paintBow },
 }
 
 export function painterOf(desc: LayerDesc): Painter | undefined {

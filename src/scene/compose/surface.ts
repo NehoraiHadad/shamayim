@@ -1,4 +1,4 @@
-import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt } from '../model/anim'
+import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, trackAt, wakeAt } from '../model/anim'
 import type { LayerDesc } from '../model/types'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
@@ -136,6 +136,11 @@ export class Surface {
       if (alpha <= 0.003) continue
       const reach = revealAt(anim, phase, this.width, still)
       if (reach < 0) continue
+      // C10: a flock or a plane on its track (off it between passes), a contrail laid behind its plane.
+      const flown = trackAt(anim?.flight, motion, still)
+      if (!flown) continue
+      const fx = Math.round(flown.x * d), fy = Math.round(flown.y * d)
+      const wake = wakeAt(anim, motion, still)
       ctx.globalAlpha = alpha
       const period = (anim?.mode === 'drift' || anim?.mode === 'fall') && anim.period && k === 1 ? Math.round(anim.period * d) : 0
       const shift = period ? Math.round(driftAt(anim, motion) * d) : 0
@@ -154,6 +159,12 @@ export class Surface {
         const sy = held > 1 ? (frameAt(anim, motion) % held) * rect.h : 0
         if (k !== 1) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
         if (anim?.reveal && Number.isFinite(reach)) return this.window(source, rect, sy, y, anim.reveal, reach, alpha)
+        if (wake) {
+          const left = Math.max(rect.x, Math.round(wake[0] * d)), right = Math.min(rect.x + rect.w, Math.round(wake[1] * d))
+          if (right > left) ctx.drawImage(source, left - rect.x, sy, right - left, rect.h, left, y, right - left, rect.h)
+          return
+        }
+        if (fx || fy) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x + fx, y + fy, rect.w, rect.h)
         if (!period) return held > 1 || dy ? ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x, y, rect.w, rect.h) : ctx.drawImage(source, rect.x, rect.y)
         for (let x = rect.x + shift - period * Math.ceil((rect.x + shift + rect.w) / period); x < this.canvas.width; x += period) {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
@@ -256,6 +267,11 @@ export class Surface {
       if (anim.fade || anim.breath) out += `:${Math.round(fadeAt(anim, phase, still) * 255)}`
       if (anim.glide) out += `:${Math.round(glideAt(anim, phase, still) * this.dpr)}`
       if (anim.reveal) out += `:${Math.round(Math.min(1e5, revealAt(anim, phase, this.width, still)) * this.dpr)}`
+      if (anim.flight) {
+        const f = trackAt(anim.flight, motion, still)
+        out += f ? `:${Math.round(f.x * this.dpr)},${Math.round(f.y * this.dpr)}` : ':off'
+      }
+      if (anim.wake) out += `:${(wakeAt(anim, motion, still) ?? []).map((v) => Math.round(v * this.dpr)).join(',')}`
       out += ';'
     }
     return out

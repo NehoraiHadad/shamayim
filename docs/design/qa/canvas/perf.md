@@ -561,3 +561,22 @@ The built app, first paint (`vite preview`, Haifa 12:00, CPU ×4, dpr 2.75, medi
 scene's figure on screen 1 707 → 1 293 ms; JS fetched by the default page 201 → 267 kB (transfer). Bundle before / after
 in CANVAS-SCENE-PLAN.md §6 ("C9, the switch").
 
+## C10 (2026-11-20): sky life and optics
+
+`npm run test:perf` (all places; CPU ×4, dpr 2.75, software raster, worker path), n = 1 for the cold rows; then
+`--place=haifa,tel-aviv` twice more:
+
+```
+                  worldCold   modelCold    scrub.model p50 / p95   firstPaint   anim frame p50 / p95   memory
+  haifa           555 ms      67–79 ms     11.5–12.0 / 23–28 ms    23–32 ms     1.2–1.8 / 3.1–5.4 ms   31.3 MB
+  tel-aviv        510         51–71        9.7–11.7 / 18–28        28–31        0.5–1.4 / 3.2–4.6      27.6
+  shadmot-mehola  263         32–41        8.3–8.9 / 19–21         25           1.0 / 2.9–3.4          24.9
+```
+
+The new layers: the sky's life (birds and their strips, aircraft, contrails, twinkling stars, planets, meteors, the Milky
+Way, the bows). A first cut cost the scrub model ~+40 ms at Haifa (the land's crest and profile sampled per layer through
+the skyline's polylines, contrails sampled every 1 km over hundreds of km); now the crest is rasterised once per world and
+box and the land profile cached by the land layers' keys, contrails every 3 km over at most 20 min of flight: the scrub
+model is a few ms over C9's run (within its noise for Haifa, +3–10 ms p95 for Tel Aviv and Shadmot), modelCold +15–20 ms.
+The sky's worker batch grows at an hour's change (new flocks' strips, ≤ 30 frames); the animated frame stays within its
+4 ms budget at p95 in most runs (one Haifa run 5.4 ms, the next 3.1). Memory unchanged.

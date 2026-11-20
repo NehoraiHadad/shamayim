@@ -58,6 +58,11 @@ export interface HourPoint {
    * absent when not asked or not known; the world then derives it from the 10 m wind (marked as a fallback).
    */
   windAloft?: { low: WindVector | null; mid: WindVector | null; high: WindVector | null } | null
+  /**
+   * The air at airliners' cruise level, 250 hPa (~10.4 km): temperature (°C) and relative humidity over water (%). Null or
+   * absent when not asked or not known; the world then takes a climatological guess for contrails (marked as a fallback).
+   */
+  cruise?: { temperature: number; humidity: number } | null
 }
 
 /** A wind: speed in km/h and the direction it comes FROM (deg, 0 = north). */

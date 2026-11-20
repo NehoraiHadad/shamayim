@@ -39,4 +39,18 @@ describe('scene hours', () => {
     expect(hour.visibility).toBeNull()
     expect(hour.windAloft).toBeNull()
   })
+
+  it('reads the air at cruise level (250 hPa) when the answer has it, else leaves it null (C10)', () => {
+    expect(mapForecast(layers).hours[30].cruise).toBeNull()
+    const hourly = layers.hourly as Record<string, unknown[]>
+    const n = hourly.time.length
+    const withCruise = { ...layers, hourly: { ...hourly,
+      temperature_250hPa_icon_seamless: Array(n).fill(-52), temperature_250hPa_ecmwf_ifs025: Array(n).fill(-50),
+      relative_humidity_250hPa_icon_seamless: Array(n).fill(60), relative_humidity_250hPa_ecmwf_ifs025: Array(n).fill(70) } }
+    const cruise = mapForecast(withCruise).hours[30].cruise!
+    expect(cruise.temperature).toBeGreaterThanOrEqual(-52)
+    expect(cruise.temperature).toBeLessThanOrEqual(-50)
+    expect(cruise.humidity).toBeGreaterThanOrEqual(60)
+    expect(cruise.humidity).toBeLessThanOrEqual(70)
+  })
 })

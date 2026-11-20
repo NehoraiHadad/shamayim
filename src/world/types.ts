@@ -29,6 +29,11 @@ import type { SnowFall } from './snowLine'
  * 0–1; angles are degrees (azimuth clockwise from north).
  */
 
+import type { SkyLife } from './life'
+import type { NightSky } from './nightSky'
+import type { Optics } from './optics'
+import type { PlaceEnv } from './placeEnv'
+
 export type RGB = readonly [number, number, number]
 export type Pt = readonly [number, number]
 
@@ -54,6 +59,8 @@ export interface WorldInput {
   width?: number
   /** Dev overrides of the shown air (`?wx=`), applied as App applies them. */
   forced?: Partial<AirInput> | null
+  /** Dev only (the harness's C10 moments): the cloud layers' covers (0–1) pinned, over the hour's. */
+  forcedLayers?: { low: number; mid: number; high: number } | null
   /** The large water round Israel (`water.json`): a coastal place's own sea seen from outside (C5). */
   waterMask?: WaterMask | null
   /** The places' own boundaries (`bounds.json`): the outside view's frame is cut at them (C5). */
@@ -65,13 +72,17 @@ export interface WorldInput {
 /** Where a field came from when the forecast did not give it: fallbacks are marked, never silent. */
 export interface WorldSources {
   /** Cloud layers: the forecast's own, split from `thickCloud` and the cover, or from the cover alone. */
-  cloudLayers: 'forecast' | 'thickCloud' | 'cover'
+  cloudLayers: 'forecast' | 'thickCloud' | 'cover' | 'forced'
   /** The low layer was raised so the forecast's rain has a cloud to fall from. */
   rainCloudRaised: boolean
   windDirection: 'hour' | 'current' | 'forced'
   /** Wind at cloud heights: the forecast's (850/700/300 hPa) or ×1.4 / ×2 / ×3 the 10 m wind. */
   windAloft: 'forecast' | 'derived'
   visibility: 'hour' | 'current' | 'humidity' | 'default' | 'forced'
+  /** The air at cruise level (contrails, C10): the forecast's 250 hPa fields or a climatological guess. */
+  cruise: 'forecast' | 'climate'
+  /** The towns' sky glow (C10): from the far raster, the land cover round the place, or its population. */
+  glow: 'far' | 'cover' | 'population'
 }
 
 /** Angle → y, shared by land and sky: the vertical scale (`RELIEF`) above eye level. */
@@ -420,6 +431,9 @@ export interface WorldKeys {
   marks: string
   night: string
   ground: string
+  life: string
+  nightSky: string
+  optics: string
 }
 
 export interface WorldState {
@@ -452,6 +466,14 @@ export interface WorldState {
   labels: WorldLabels
   night: Night
   ground: { wet: number; snowLineM: number | null }
+  /** C10: the land round the place (sea, lakes, built and open ground, the towns' sky glow). */
+  env: PlaceEnv
+  /** C10: birds, aircraft and meteors at the shown hour. */
+  life: SkyLife
+  /** C10: the planets and the Milky Way. */
+  nightSky: NightSky
+  /** C10: the rainbow, the 22° halo and the sun dogs. */
+  optics: Optics
   sources: WorldSources
   keys: WorldKeys
 }

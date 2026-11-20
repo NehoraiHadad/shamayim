@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import styles from './Sky.module.css'
 
 interface Props {
-  /** What lives in the sky: the scene's sky canvas (portalled in by `scene/react/useSkyHost.ts`) and the birds. */
+  /** What lives in the sky: the scene's sky canvas (portalled in by `scene/react/useSkyHost.ts`); the birds,
+   * aircraft and meteors are drawn in it (C10). */
   children?: ReactNode
 }
 

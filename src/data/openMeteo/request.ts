@@ -30,6 +30,9 @@ export const SCENE_HOURLY = [
   // Wind at the clouds' heights (low, mid, high cloud drift with it): owner decision 2026-11-19.
   'wind_speed_850hPa', 'wind_direction_850hPa', 'wind_speed_700hPa', 'wind_direction_700hPa',
   'wind_speed_300hPa', 'wind_direction_300hPa',
+  // C10: the air at airliners' cruise level (250 hPa, ~10.4 km): whether a plane leaves a contrail (Schmidt–Appleman) and
+  // whether it persists (ice supersaturation). Absent, the world takes a climatological guess (`world/contrails.ts`).
+  'temperature_250hPa', 'relative_humidity_250hPa',
 ] as const
 /** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility,wind_speed_850hPa` with 200. */
 export const ASK_SCENE_HOURLY = false

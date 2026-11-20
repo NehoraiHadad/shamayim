@@ -62,6 +62,14 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   showers: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45, windDirection: 250,
     humidity: 80 },
   gale: { windSpeed: 50, windGusts: 75, windDirection: 270, cloudCover: 30, thickCloud: 10, precipitation: 0, weatherCode: 2 },
+  // C10's moments: a veil of cirrostratus over a clear lower sky (the halo, persistent contrails), a sunny calm (thermals).
+  cirrus: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
+  sunny: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 10, windGusts: 16, temperature: 24, humidity: 40 },
+}
+
+/** C10's moments that pin the cloud layers themselves (the fixture's hours always carry mid cloud with their high). */
+const LAYERS: Record<string, { low: number; mid: number; high: number }> = {
+  cirrus: { low: 0, mid: 0, high: 0.75 },
 }
 
 /** Where the land's figure stands in the sky (px), and so the still's height: the sky above it, the figure under. */
@@ -114,7 +122,7 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
     source: 'fixture', models: [] }
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
   return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks), city,
-    far, forced: WEATHER[weather] ?? null, waterMask: mask, bounds, cover }
+    far, forced: WEATHER[weather] ?? null, forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover }
 }
 
 /** The land's moment (`land=`): its status for the world, and the clock the model is built with. */
@@ -158,7 +166,10 @@ function Scene({ input: given }: { input: WorldInput }) {
     // phase: a still of the animation, the same pixels every time.
     const asked = new URLSearchParams(location.search).get('phase')
     const flash = sky.find((layer) => layer.kind === 'flash')?.animated?.pulse
-    const phase = asked === 'flash' ? (flash ? strikes(flash)[0].at + 0.03 : 0) : Number(asked ?? 0) || 0
+    // `phase=meteor` (C10): a moment into the first meteor of the night, of every meteor spot.
+    const meteors = sky.filter((layer) => layer.kind === 'meteor').map((layer) => strikes(layer.animated!.pulse!)[0]?.at ?? Infinity)
+    const phase = asked === 'flash' ? (flash ? strikes(flash)[0].at + 0.03 : 0)
+      : asked === 'meteor' ? (meteors.length ? Math.min(...meteors) + 0.25 : 0) : Number(asked ?? 0) || 0
     // The land too (C7: falling rain, mist, smoke, water and trees in the wind), at the same phase.
     if (phase > 0) lay(phase)
     void document.fonts.ready.then(() => { win.__sceneReady = true })

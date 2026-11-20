@@ -1,8 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { mapAir } from './world/mapAir'
-import { Life } from './atmo/life/Life'
-import { mapLife } from './atmo/life/mapLife'
 import { useLandmarks } from './data/landmarks/useLandmarks'
 import { coverMarks } from './data/landmarks/coverMarks'
 import { useLandCover } from './data/land/useLand'
@@ -96,7 +94,6 @@ export default function App() {
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
     air: air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],
   [shown, themeId, air])
-  const life = useMemo(() => (shown && air ? mapLife(shown, air) : null), [shown, air])
   const intro = useIntro(Boolean(forecast))
   const paper = useSheetPaper(useMemo(() => sunElevation(now, place), [now, place]), themeId)
   const darkSheet = forced ? DARK_SHEET.has(themeId) : paper.dark
@@ -123,9 +120,8 @@ export default function App() {
   return (
     <div className={classes} data-scrubbing={sceneTime.scrubbing || undefined} style={{ ...themeVars(themeId), ...(forced ? {} : { ...skyLightVars(light), ...sheetVars(paper) }) }}>
       {/* The scene draws the sky itself (clouds, stars, the bodies) into the sky's host; the CSS gradient is its first paint. */}
-      <Sky>
-        {life && air && shown && <Life life={life} air={air} sunElevation={shown.sunElevation} intro={intro} />}
-      </Sky>
+      {/* The birds, the aircraft and the meteors are the sky canvas's own (C10). */}
+      <Sky />
       <main className="sky-area" data-air-band>
         <TopBar place={place} recent={recent} onSelectPlace={selectPlace} status={statusLine} />
         {!forecast && status === 'error' && <ErrorState failure={error} onRetry={refresh} />}
