@@ -1,13 +1,11 @@
+import { buildModisNdviLut, modisNdviRefToValue, UNKNOWN_COLOR } from './gibsPalette'
+
 /**
  * Pure decoders for NASA GIBS WMTS tiles (zero canvas dependency for NDVI PNGs).
- *
- * Provenance:
- * - `MODIS_NDVI.xml` (`https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_NDVI.xml`, verified
- *   143/143 exact PLTE index matches against live `MODIS_Terra_NDVI_8Day` PNG tiles on 2026-11-20):
- *   ref 0 = nodata [-0.3, -0.2) (also `tRNS[0] = 0`); ref 1 = [-0.2, -0.1); ref 2 = [-0.1, 0.0);
- *   refs 3..62 = [0.0001, 0.3001) step 0.005; refs 63..102 = [0.3001, 0.6001) step 0.0075;
- *   refs 103..142 = [0.6001, 1.0001) step 0.01.
+ * Validates tile palette colors against the published `MODIS_NDVI.xml` colormap via `gibsPalette.ts`
+ * and returns explicit dimensions so callers can reject unexpected tile sizes.
  */
+export { modisNdviRefToValue }
 
 export interface IndexedPng {
   width: number
@@ -17,14 +15,10 @@ export interface IndexedPng {
   trns: Uint8Array
 }
 
-/** Maps a `MODIS_Terra_NDVI_8Day` PNG palette index (0..142) to bin midpoint NDVI, or NaN for nodata. */
-export function modisNdviRefToValue(ref: number): number {
-  if (ref === 1) return -0.15
-  if (ref === 2) return -0.05
-  if (ref >= 3 && ref <= 62) return 0.0001 + (ref - 3 + 0.5) * 0.005
-  if (ref >= 63 && ref <= 102) return 0.3001 + (ref - 63 + 0.5) * 0.0075
-  if (ref >= 103 && ref <= 142) return 0.6001 + (ref - 103 + 0.5) * 0.01
-  return Number.NaN
+export interface DecodedNdviTile {
+  width: number
+  height: number
+  data: Float32Array
 }
 
 async function inflate(data: Uint8Array): Promise<Uint8Array> {
@@ -88,20 +82,24 @@ export async function parseIndexedPng(png: Uint8Array): Promise<IndexedPng> {
   return { width, height, indices, plte, trns }
 }
 
-/** Decodes an 8-bit indexed-palette GIBS NDVI PNG tile into `width × height` NDVI floats (nodata -> NaN). */
-export async function decodeGibsNdviPng(png: Uint8Array): Promise<Float32Array> {
-  const { indices, plte, trns } = await parseIndexedPng(png)
-  const paletteLen = plte.length / 3
-  const out = new Float32Array(indices.length)
+/** Decodes an indexed-palette GIBS NDVI PNG by matching `PLTE` colors against `MODIS_NDVI.xml`. */
+export async function decodeGibsNdviTile(png: Uint8Array): Promise<DecodedNdviTile> {
+  const { width, height, indices, plte, trns } = await parseIndexedPng(png)
+  const lut = buildModisNdviLut(plte, trns)
+  const data = new Float32Array(indices.length)
   for (let i = 0; i < indices.length; i++) {
     const idx = indices[i]
-    // In genuine GIBS MODIS_NDVI PNGs, ref 0 is nodata (alpha=0), refs 1..2 are negative NDVI
-    // (rendered transparent on map overlays), and refs 3..142 are opaque; any transparent ref >= 3
-    // or out-of-palette index is treated as nodata.
-    const hidden = idx === 0 || idx >= paletteLen || (idx >= 3 && idx < trns.length && trns[idx] === 0)
-    out[i] = hidden ? Number.NaN : modisNdviRefToValue(idx)
+    if (idx >= lut.length) throw new Error(`GIBS NDVI palette index ${idx} out of range`)
+    const v = lut[idx]
+    if (v === UNKNOWN_COLOR) throw new Error(`Unexpected GIBS NDVI palette color at index ${idx}`)
+    data[i] = v
   }
-  return out
+  return { width, height, data }
+}
+
+/** Convenience decoder returning the flat NDVI float array (`width × height`). */
+export async function decodeGibsNdviPng(png: Uint8Array): Promise<Float32Array> {
+  return (await decodeGibsNdviTile(png)).data
 }
 
 /** Browser-only JPEG tile decoder via `createImageBitmap` + `OffscreenCanvas`; returns null if unavailable. */

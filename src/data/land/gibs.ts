@@ -1,6 +1,6 @@
 import type { Coordinate } from '../landmarks/project'
 import { tilesAround, tileXY } from '../terrain/dem'
-import { decodeGibsNdviPng, defaultDecodeJpeg } from './gibsDecode'
+import { decodeGibsNdviTile, defaultDecodeJpeg } from './gibsDecode'
 import type { FarLandGrid } from './types'
 
 /**
@@ -112,10 +112,12 @@ export async function fetchFarLand(
     }
     return { grid, validCount }
   }
+  const decodeNdvi256 = async (b: Uint8Array) => { const t = await decodeGibsNdviTile(b); return t.width === TILE && t.height === TILE ? t.data : null }
+  const decodeRgb256 = async (b: Uint8Array) => { const rgb = await decodeJpeg(b); return rgb && rgb.length === TILE * TILE * 3 ? rgb : null }
   const safe = <R>(p: Promise<R | null>) => p.catch((err) => { if (signal?.aborted) throw err; return null })
   const [ndviLayer, srLayer] = await Promise.all([
-    safe(fetchLayer(keys, ndviDates, (d, r, c) => gibsNdviUrl(d, GIBS_ZOOM, r, c), decodeGibsNdviPng, sampleNdvi, fetchImpl, signal)),
-    safe(fetchLayer(keys, srCompositeDates(now), (d, r, c) => gibsSrUrl(d, GIBS_ZOOM, r, c), decodeJpeg, sampleRgb, fetchImpl, signal)),
+    safe(fetchLayer(keys, ndviDates, (d, r, c) => gibsNdviUrl(d, GIBS_ZOOM, r, c), decodeNdvi256, sampleNdvi, fetchImpl, signal)),
+    safe(fetchLayer(keys, srCompositeDates(now), (d, r, c) => gibsSrUrl(d, GIBS_ZOOM, r, c), decodeRgb256, sampleRgb, fetchImpl, signal)),
   ])
   if (!ndviLayer && !srLayer) return null
   return {
