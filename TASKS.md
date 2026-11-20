@@ -769,12 +769,13 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
 - [x] Stage 1: data layer — approved (Codex round 6) + round-6 minors/nit folded in (`f3f3f77`: v4 cover cache payload
       validation via `isValidCoarseCoverJson`, bounded local asset deadlines releasing hung shared slots via `withDeadline`,
       raw TTL tables restricted to near/far/weather).
-- [~] Stage 2: world state — implemented & pushed, awaiting Codex review (`src/world/{landDelight,landAgeBlend,landTerrainNormal,landLiving}.ts`
-      wired into `WorldState`/`makeWorldBuilder` and `useLand` into `App.tsx`; pure structured-cloneable `world.land` sampled
-      along 41 panorama rays × 10 `RAY_DISTANCES` bands in metres + 3×3 local ground; empirically verified S2 L2A TCI 0..0.25
-      BOA reflectance + clamped Lambertian terrain de-lighting with explicit `:no-delight` / `delit` status when geometry is
-      missing; age blending with `|age|` and per-variable `tau` 30/25/10/5 d toward shown-date climatology; data-only rule;
-      zero rebuild on hour scrub; allocation-free FNV-1a `livingLandKey`)
+- [~] Stage 2: world state — round-1 review fixes pushed, awaiting Codex round-2 approval (`src/world/{landRadiometry,landRays,landAgeBlend,landReflectance,landSample,landLiving}.ts`
+      wired into split `WorldState`/`types{,Atmo,Land}.ts` & `world{,Parts}.ts` and `useLand` into `App.tsx`; pure structured-cloneable
+      `world.land` sampled along 41 panorama rays × 10 `RAY_DISTANCES` bands in metres + 3×3 local ground; operational Sen2Cor L2A
+      TCI 0..0.25 BOA reflectance taken directly with no double Lambert de-lighting; causal as-of UTC/local date policy with MOD09A1/MODIS-NDVI
+      composite windows; per-channel age-aware near-vs-far priority; distinct-far-cell GIBS calibration; strict RLE/geometry v4 cover cache
+      validation, shared fine-tile cache, independent near-tile retry & WorldCover vintage/layer provenance; intercepted App-mount perf
+      check `e2e/land.perf.mjs` + production-sized 100×100/60×60 `benchWorld.ts`)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
 - [ ] Stage 5: wind on land
