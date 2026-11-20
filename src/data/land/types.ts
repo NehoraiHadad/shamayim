@@ -126,7 +126,6 @@ export interface LandSample {
   rgb: [number, number, number]
   rgbSource: LandSource
   rgbDate: string | null
-  rgbSunElevation?: number; rgbSunAzimuth?: number
   ndvi: number
   ndviSource: LandSource
   ndviDate: string | null

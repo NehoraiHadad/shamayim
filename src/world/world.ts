@@ -37,8 +37,9 @@ import { xOf } from '../domain/camera'
 import { nightSkyOf } from './nightSky'
 import { opticsOf } from './optics'
 import { placeEnvOf } from './placeEnv'
+import { utcOf } from '../astro/utc'
 import { livingLandOf } from './landLiving'
-import { livingLandKey } from './landTerrainNormal'
+import { livingLandKey } from './landRays'
 
 const hourKey = (at: LocalTime) => `${at.slice(0, 13)}:00`
 
@@ -140,14 +141,14 @@ export function makeWorldBuilder() {
   const ripplesPart = memoOne((terrain: SceneTerrain, placeId: string) => ripplesOf(terrain.water ?? [], placeId))
   const envPart = memoOne((place: WorldInput['place'], cover: WorldInput['cover'], far: WorldInput['far'], waterMask: WorldInput['waterMask']) =>
     placeEnvOf(place, { cover, far, waterMask }))
-  // Living-land state: keyed strictly by coordinates, elevation, shown calendar date, camera, terrain and data sources
-  // (never place name/id, never hour of day) so scrubbing hours reuses the exact same object.
+  // Living-land state: keyed strictly by coordinates, elevation, shown local/UTC dates, camera, terrain and data
+  // sources (never place name/id, never hour of day) so same-UTC-day scrubbing reuses the exact same object.
   const landPart = memoOne((
-    lat: number, lon: number, elevationM: number, shownDate: string,
+    lat: number, lon: number, elevationM: number, shownDate: string, shownUtcDate: string,
     camera: WorldState['camera'], terrain: SceneTerrain,
     cover: LandData['cover'], near: LandData['near'], far: LandData['far'], weather: LandData['weather'],
   ) => {
-    const part = livingLandOf({ lat, lon, elevationM, shownDate, camera, terrain, data: { cover, near, far, weather } })
+    const part = livingLandOf({ lat, lon, elevationM, shownDate, shownUtcDate, camera, terrain, data: { cover, near, far, weather } })
     return { part, key: livingLandKey(part) }
   })
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
@@ -239,8 +240,9 @@ export function makeWorldBuilder() {
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
     const optics = opticsOf({ sun, direct: light.shares.sun, sunLights: light.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
+    const shownUtcDate = utcOf(at, place.timezone).toISOString().slice(0, 10)
     const land = landPart(
-      place.lat, place.lon, forecast.elevation, datePart(at), camera, terrain,
+      place.lat, place.lon, forecast.elevation, datePart(at), shownUtcDate, camera, terrain,
       input.land?.cover ?? input.cover ?? null, input.land?.near ?? null, input.land?.far ?? null, input.land?.weather ?? null,
     )
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,

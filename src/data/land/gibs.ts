@@ -21,6 +21,7 @@ export interface FarSample {
   ndvi: number | null; ndviSource: `gibs:${string}` | null; ndviDate: string | null
   rgb: [number, number, number] | null; rgbSource: `gibs:${string}` | null; rgbDate: string | null
 }
+export interface FarCellSample extends FarSample { row: number; col: number; idx: number }
 
 export const gibsNdviUrl = (date: string, z: number, row: number, col: number): string =>
   `${GIBS_WMTS}/${MODIS_NDVI_LAYER}/default/${date}/GoogleMapsCompatible_Level9/${z}/${row}/${col}.png`
@@ -128,21 +129,21 @@ export async function fetchFarLand(
   }
 }
 
-/** Samples the far-field GIBS grid at `(lat, lon)`, or null outside ±60 km / where both layers are nodata. */
-export function farAt(grid: FarLandGrid, lat: number, lon: number): FarSample | null {
+/** Samples the far-field GIBS grid at `(lat, lon)` with cell indices, or null outside ±60 km / nodata. */
+export function farCellAt(grid: FarLandGrid, lat: number, lon: number): FarCellSample | null {
   const nKm = (lat - grid.lat) * 111.32, eKm = (lon - grid.lon) * 111.32 * Math.cos((grid.lat * Math.PI) / 180)
   const col = Math.floor((eKm + grid.reachKm) / grid.stepKm), row = Math.floor((grid.reachKm - nKm) / grid.stepKm)
   if (row < 0 || col < 0 || row >= grid.size || col >= grid.size) return null
-  const idx = row * grid.size + col, v = grid.ndvi[idx]
+  const idx = row * grid.size + col, v = grid.ndvi[idx], o = idx * 3
   const ndvi = grid.source && Number.isFinite(v) ? v : null
-  let rgb: [number, number, number] | null = null
-  if (grid.rgb && grid.rgbSource) {
-    const o = idx * 3
-    if (grid.rgb[o] || grid.rgb[o + 1] || grid.rgb[o + 2]) rgb = [grid.rgb[o], grid.rgb[o + 1], grid.rgb[o + 2]]
-  }
+  const rgb: [number, number, number] | null = grid.rgb && grid.rgbSource && (grid.rgb[o] || grid.rgb[o + 1] || grid.rgb[o + 2])
+    ? [grid.rgb[o], grid.rgb[o + 1], grid.rgb[o + 2]] : null
   if (ndvi === null && rgb === null) return null
   return {
+    row, col, idx,
     ndvi, ndviSource: ndvi !== null ? grid.source : null, ndviDate: ndvi !== null ? grid.date : null,
     rgb, rgbSource: rgb !== null ? (grid.rgbSource ?? null) : null, rgbDate: rgb !== null ? (grid.rgbDate ?? null) : null,
   }
 }
+
+export const farAt = (grid: FarLandGrid, lat: number, lon: number): FarSample | null => farCellAt(grid, lat, lon)

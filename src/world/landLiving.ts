@@ -4,16 +4,16 @@ import { destination } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { azimuthAt, type Camera } from '../domain/camera'
 import { monthFromIsoDate } from './landAgeBlend'
+import { LIVING_LAND_DISTANCES_M, LIVING_LAND_RAYS } from './landRays'
 import { farGainOf, type FarGain } from './landReflectance'
 import { samplePoint, type LivingLandSample } from './landSample'
-import { LIVING_LAND_DISTANCES_M, LIVING_LAND_RAYS, normalAtRay, normalFromLocal } from './landTerrainNormal'
 
 /**
  * Pure, structured-cloneable living-land state per place for the shown date (`world.land`).
  * Samples along the panorama's rays by distance (metres) and over a 3×3 grid on the place's own
  * ground, strictly from physical coordinates and data (never place names or ids).
  */
-export { LIVING_LAND_DISTANCES_M, LIVING_LAND_RAYS } from './landTerrainNormal'
+export { LIVING_LAND_DISTANCES_M, LIVING_LAND_RAYS } from './landRays'
 export type { LivingLandSample } from './landSample'
 export type { FarGain } from './landReflectance'
 
@@ -29,8 +29,10 @@ export interface LandRayColumn { x: number; azimuth: number; bands: LandRayBand[
 export interface LandLocalPoint { eastM: number; northM: number; elevationM: number; sample: LivingLandSample }
 
 export interface LivingLand {
-  /** Shown local calendar date (`YYYY-MM-DD`) driving season and observation age blending. */
+  /** Shown local calendar date (`YYYY-MM-DD`) driving season and local-date weather blending. */
   date: string
+  /** Shown UTC calendar date (`YYYY-MM-DD`) driving causal UTC satellite age blending. */
+  utcDate: string
   /** Calendar month (`1..12`) of `date` (never from the system clock). */
   month: number
   /** Distance rings sampled along each ray, in metres. */
@@ -45,17 +47,22 @@ export interface LivingLand {
 }
 
 export interface LivingLandInput {
-  lat: number; lon: number; elevationM: number; shownDate: string
+  lat: number; lon: number; elevationM: number
+  /** Shown local calendar date (`YYYY-MM-DD`). */
+  shownDate: string
+  /** Shown UTC calendar date (`YYYY-MM-DD`); defaults to `shownDate` when omitted. */
+  shownUtcDate?: string
   camera: Camera; terrain: SceneTerrain; data?: LandData | null
 }
 
-/** Builds the pure, structured-cloneable living-land state for a place on `shownDate` from data only. */
+/** Builds the pure, structured-cloneable living-land state for a place on `(shownDate, shownUtcDate)`. */
 export function livingLandOf(input: LivingLandInput): LivingLand {
   const { lat, lon, elevationM, shownDate, camera, terrain } = input
+  const utcDate = input.shownUtcDate ?? shownDate
   const data = input.data ?? EMPTY_DATA
   const month = monthFromIsoDate(shownDate)
   const sampler = prepareLandSampler(data)
-  const farGain = farGainOf(data)
+  const farGain = farGainOf(data, utcDate)
   const cosLat = Math.max(1e-6, Math.cos(lat * RAD))
 
   const local: LandLocalPoint[] = []
@@ -64,7 +71,7 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
       const dxKm = eastM / 1000, dyKm = northM / 1000
       const ptLat = lat + northM / M_PER_DEG, ptLon = lon + eastM / (M_PER_DEG * cosLat)
       const elev = terrain.heightNear?.(dxKm, dyKm) ?? elevationM
-      const sample = samplePoint(sampler, ptLat, ptLon, elev, shownDate, month, normalFromLocal(terrain, dxKm, dyKm), farGain)
+      const sample = samplePoint(sampler, ptLat, ptLon, elev, shownDate, utcDate, month, farGain)
       local.push({ eastM, northM, elevationM: elev, sample })
     }
   }
@@ -80,11 +87,10 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
       // `groundAt` is height relative to the eye (m); absolute elevation needs the eye's own height.
       const hRel = terrain.groundAt?.(x, km) ?? null
       const elev = hRel !== null && terrain.eyeM !== undefined ? terrain.eyeM + hRel : elevationM
-      const normal = normalAtRay(terrain, camera, x, km, azimuth)
-      return { distanceM, elevationM: elev, sample: samplePoint(sampler, pt.lat, pt.lon, elev, shownDate, month, normal, farGain) }
+      return { distanceM, elevationM: elev, sample: samplePoint(sampler, pt.lat, pt.lon, elev, shownDate, utcDate, month, farGain) }
     })
     rays.push({ x, azimuth, bands })
   }
 
-  return { date: shownDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
+  return { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
 }

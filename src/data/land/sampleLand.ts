@@ -62,10 +62,8 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       let rgb: [number, number, number] | null = null
       let rgbSource: LandSource = 'climatology'
       let rgbDate: string | null = null
-      let rgbSunElevation: number | undefined, rgbSunAzimuth: number | undefined
       if (near && near.rgb && near.rgbValid >= MIN_CELL_VALID && near.rgbSource) {
         rgb = near.rgb; rgbSource = near.rgbSource; rgbDate = near.rgbDate
-        rgbSunElevation = near.sunElevation; rgbSunAzimuth = near.sunAzimuth
       }
 
       let ndvi: number | null = null
@@ -123,8 +121,6 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
 
       return {
         cover, coverSource, rgb, rgbSource, rgbDate,
-        ...(rgbSunElevation !== undefined ? { rgbSunElevation } : {}),
-        ...(rgbSunAzimuth !== undefined ? { rgbSunAzimuth } : {}),
         ndvi, ndviSource, ndviDate,
         ndsi, ndsiSource, ndsiDate, dryness, drynessSource, drynessDate,
         snowProb, snowSource, snowDate,
