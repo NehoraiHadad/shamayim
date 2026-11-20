@@ -16,6 +16,8 @@ import { SkyCanvas } from './SkyCanvas'
 import { useLandClock } from './useLandClock'
 import { useSkyHost } from './useSkyHost'
 import { useSurface } from './useSurface'
+import { WearCanvas, type WearLine } from './WearCanvas'
+import { useWearHost } from './useWearHost'
 
 interface Props {
   world: WorldState
@@ -28,6 +30,8 @@ interface Props {
   onScrub: (time: LocalTime) => void
   onRelease: () => void
   onNow: () => void
+  /** The wear card's line (its garments and paper), drawn from this world into the card's box; null: no card. */
+  wear?: WearLine | null
 }
 
 /**
@@ -35,9 +39,9 @@ interface Props {
  * placed from the model and the scrubber. The world is built once in App (`useWorld`). From C6 the sky is drawn from the
  * same model, into the app's sky (`ui/Sky.tsx`) through a portal, with the figure's place in it measured (`useSkyHost`).
  * From C8, while the place's land is not known the land's place holds a mist and the labels wait; the land's arrival is
- * timed by `useLandClock`.
+ * timed by `useLandClock`. The wear card's clothesline is drawn from the same world, into the card (`WearCanvas`).
  */
-export function SceneCanvas({ world, forecast, now, selected, readout = null, first, last, onScrub, onRelease, onNow }: Props) {
+export function SceneCanvas({ world, forecast, now, selected, readout = null, first, last, onScrub, onRelease, onNow, wear = null }: Props) {
   const [sceneRef, width] = useWidth<HTMLElement>(375)
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
   const host = useSkyHost(sceneRef)
@@ -51,6 +55,9 @@ export function SceneCanvas({ world, forecast, now, selected, readout = null, fi
   const onSky = useCallback(() => ready('sky'), [ready])
   const { ref } = useSurface('land', land, { width, height: SCENE_H, dpr }, onLand)
   const at = selected ?? now
+  // The wear card's clothesline is drawn from this same world (the shown hour's wind, light and weather), into the
+  // card's own box through a portal, as the sky is.
+  const wearHost = useWearHost(Boolean(wear))
   return (
     <>
       <figure className={styles.scene} ref={sceneRef} role="group" aria-label={sceneLabel(world, forecast, now, selected)}
@@ -69,6 +76,8 @@ export function SceneCanvas({ world, forecast, now, selected, readout = null, fi
       )}
       {perfHud() && <PerfHud />}
       {host && createPortal(<SkyCanvas layers={sky} size={{ width: host.width, height: host.height, dpr }} onReady={onSky} />, host.element)}
+      {wear && wearHost && createPortal(<WearCanvas world={world} garments={wear.garments} paper={wear.paper} width={wearHost.width} />,
+        wearHost.element)}
     </>
   )
 }

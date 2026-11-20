@@ -2070,3 +2070,49 @@ Zohar, Ein Gedi).
 - *Stills*: `qa/canvas/vscale/after2/` (the 14 places at 12:00 and Tiberias at 16:30), `sheet-2.png` (before = `2d35366`,
   `qa/canvas/vscale/after/`).
 
+
+**The wear card on canvas (2026-11-20): the "מה ללבוש" clothesline drawn from the scene's own world.** Commits on
+`ccr-wear-canvas` (from `e1cb3d7`, the head of `ccr-85ec24f0-9ayxgu`).
+- *What and where.* The card's SVG line and its CSS/SMIL animation (`ui/wear/*`: `WearLine`, `garments`, `tops`, `gear`,
+  `peg`, `gust`, `WearLine.module.css`) are gone. The card (`ui/WearCard.tsx`) keeps its section, heading and sentence
+  and holds the line's box exactly as the SVG had it (`.line`: 100 % up to 335 px, `aspect-ratio: 335 / 86`, the same
+  margins), `aria-hidden`, so nothing moves when the drawing arrives (card height 189 px before and after at 375 px). The
+  drawing is the scene chunk's: `SceneCanvas` portals `scene/react/WearCanvas.tsx` into `[data-wear-line]` (as it does
+  the sky into `[data-sky]`), with the world it already built; App only passes the tip's garments and the sheet's paper.
+  No second world: the line answers the shown hour (scrubbing the valley moves the line with it). Its surface (`wear`)
+  stands `PAD` px out from the box (pegs above the rope, the swing, long hems below), its own canvas, `aria-hidden`.
+- *Model* (`scene/model/wear.ts`, `wearKit.ts`; pure): the rope a true catenary (`catenary`, `a` solved by bisection) with
+  the pegs' point loads kinking it; the garments in the sentence's order (the first on the right), as the tip picks them
+  (`text/wear.ts` unchanged but for its drawing-only `wind` field, now dead: the old drift was not camera-aware). From
+  the world: `wearAir` (`world.wind`: still below ~8 km/h with no gusts over the mean; `blow` and `gusty` set the lean,
+  the swing, the line's lift and the cycle; the sign is `wind.across`, the camera's), `wearWet` (rain now, or the ground
+  still wet: darker, deeper cloth, a heavier hang and a deeper sag, less swing, beads on the rope, drops falling from the
+  hems), snow lying on every up-facing edge and on the rope (`snowfall`), dust dulling the cloth toward the haze, and
+  `wearLight` (`light.side`, `direct`, `colour`, `ambient`; the moon's faint side by night; `night.dark` dims and cools
+  every colour on the line, rope and pegs too). The light is quantised (1/20 shine and dark, 1/48 colour) so a scrub
+  repaints the cloth only when its light visibly turns.
+- *Painter* (`scene/paint/wear.ts`, worker-safe: Path2D from the old drawing's own path data, cached): the scene's tone
+  shapes lit from the light's true side (a falloff from a lit edge with its rim to a shade side, the drape and sleeve
+  shadows mirrored to the side away from the light; with no side, the sky's light from above), the hem gathering shade,
+  a grain per cloth (weave, knit, twill, nylon creases, straw), gravity folds from the pegs, seams and stitches, a soft
+  ink edge so the cloth still reads on paper; spring pegs; the rope's lay, its ties and tabs (the shown hour's
+  `ridgeNear`). Painted in a paint worker like the scene's (`warmPaintWorkers(3)`).
+- *Animation* (composite-time only): `AnimSpec.sway` (`anim.ts` `gustAt`, `swayAt`): each sprite laid through an affine
+  about its pivot following the old line's gust cycle (`GUST` stops kept): the rope's sag eased (a vertical scale about
+  the ties), each garment lifted by its share of that sag, pegged cloth sheared at the hem, hooked things turned about
+  the hook a beat late; drops fly a `Track` in the frame of what they drip from. A calm has no `animated` at all (no
+  loop); reduced motion lays the rest pose (the downwind lean) and a drop hanging at the hem.
+- *Tests*: `scene/model/wear.test.ts` (the gust cycle and the rest pose; the catenary and the loads; calm → still; the
+  swing's sign is `wind.across` both ways and grows with the wind and the gusts; the cloth rides the rope's lift; rain →
+  wet, darker, heavier, beads and drops; snow and dust; the light's side and its lit/shade order; night dims and cools
+  the cloth, pegs, edge and rope; the layout inside the surface; keys free of the phase). Pixel cases `wear-calm`,
+  `-windy`, `-rain`, `-dusk`, `-night`, and `wear-calm@2x`, `wear-rain@2x` (`scene.html?wear=`, `e2e/cases.mjs`).
+- *Perf* (CPU ×4, dpr 3, harness): main thread at the cold start 14–24 ms (asking the worker and laying its bitmaps), the
+  worker's paint ~60 ms; a swaying frame (laying ~6–16 small sprites through their transforms) p50 0.1 ms, p95 ≤ 1.4 ms
+  (budget 4); ~5 MB of canvases. Painting on the main thread instead cost 55–120 ms in slices of up to 46 ms, so the line
+  takes a third worker.
+- *Bundle* (`npm run build`): main `index` 411.37 → 400.12 kB (gzip 140.69 → 136.67), its CSS 38.30 → 33.69 kB;
+  the lazy `CanvasScene` chunk 264.13 → 284.55 kB (gzip 101.74 → 109.70); `paintWorker` 68.98 → 81.47 kB.
+- *Stills*: `qa/canvas/wear/before/` (the SVG) and `after/` (canvas): calm, windy, rain, dusk, night in the app
+  (`e2e/wear.stills.mjs`); `after/line-snow.png`, `after/line-dust.png` (harness); `sway-gale.png`, `sway-breeze.png`
+  (`e2e/wear.strip.mjs`: the line laid at a run of phases).
