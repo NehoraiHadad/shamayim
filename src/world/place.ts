@@ -16,7 +16,7 @@ import type { WaterMask } from '../data/water/waterMask'
 import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, marksOf } from './marks'
 import { outsidePlace } from './outside'
-import { datumLineOf, outlineOf, seaLevelAbove } from './datum'
+import { datumLineOf, outlineOf, ridgeHeightAt, seaLevelAbove } from './datum'
 import type { CoastalSea, OutsideView, WorldLabels, WorldMark } from './types'
 
 /**
@@ -90,7 +90,9 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   // Below sea level, the "פני הים" datum where the picture's own rule draws 0 m (`datum.ts`): above the dot, cut against
   // the slopes that reach it: the place's own ground, else the land round it; none where neither does above the dot.
   const seaLevel = elevation < 0 ? seaLevelAbove(view.zeroContour(), dot) ?? seaLevelAbove(terrain.zeroContour, dot) : null
-  const datum = seaLevel ? datumLineOf(seaLevel, outlineOf(ground, view.land?.top, width), centerX * 375 / width) : null
+  const outline = seaLevel ? outlineOf(ground, view.land?.top, width, ridgeHeightAt(terrain.nearPoints, terrain.nearElevations),
+    view.land?.heightM) : []
+  const datum = seaLevel ? datumLineOf(seaLevel, outline, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
   const notes = notesOnWater(notes0, terrain, view, { x: centerX, y: ground(centerX) }, width)
   const marks = marksOf({ place, terrain, landmarks, width, dot, reachKm, homeHalf: homeHalf(reachKm, known), style: style.style,
@@ -98,7 +100,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land } })
   // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds
   // round it, so it always reads as the dot's; clear of the marks and the datum's dashed line, the near side first.
-  const line = datum ? [{ left: datum.x1 * width / 375, right: datum.x2 * width / 375, top: datum.y - 1, bottom: datum.y + 1 }] : []
+  const line = (datum?.segments ?? []).map((seg) => ({ left: seg.x1 * width / 375, right: seg.x2 * width / 375, top: datum!.y - 1, bottom: datum!.y + 1 }))
   const spot = besideDot(dot, label.text, width, [...marks.filter((m) => m.plane !== 'far').map(markBox), ...line], notes)
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y, backed: true }, notes, datum }
   return { marks, labels, ownSkyline, coastalSea: view.sea, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,

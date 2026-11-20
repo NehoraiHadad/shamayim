@@ -1,5 +1,4 @@
 import type { DatumLine } from '../data/terrain/sceneNotes'
-import { seaSpan } from './seaLine'
 import type { Pt } from './types'
 
 /**
@@ -9,7 +8,8 @@ import type { Pt } from './types'
  * it by its height over the place point's, in the frame's perspective (`levelY`). Sea level is a height like any other, so
  * it is drawn by the same rule: where the place's own ground crosses 0 m (its 0 m contour), at the y `levelY` gives 0 m
  * there. The dashed line stands at that height (the contour's median y) and runs from the hollow under it until it
- * meets the drawn land rising through it (`seaSpan`), which is where the slopes reach 0 m.
+ * meets the drawn land rising through it, which is where the slopes reach 0 m (`datumLineOf`: only where land really
+ * crosses it; a side of the dot's hollow that meets none ends a short way past the dot, fading out).
  *
  * Where the place's own ground never reaches 0 m within its frame (a village on the valley floor), the land the line is
  * cut against is the land round it, which the panorama draws at its true height from the place's eye: sea level is
@@ -75,19 +75,110 @@ export function seaLevelAbove(contour: readonly Pt[] | undefined, dot: { y: numb
   return points.length ? { y: median(points.map(([, y]) => y)), points } : null
 }
 
+/** A point of the drawn land's top edge: x and y (px at 375), and the land's height there (m; NaN: not known). */
+export type OutlinePt = readonly [number, number, number]
+
 /**
- * The drawn land's top edge (px at 375, every px across): the near ridge (`ridge`, y at layout x) and, where it rises over
- * it, the place's own land (`land`, its top at layout px).
+ * The drawn land's top edge (px at 375, every px across) and its height (m): the near ridge (`ridge`, y at layout x;
+ * `ridgeM`, the crest's height at x at 375) and, where it rises over it, the place's own land (`land`, its top at layout
+ * px, `landM` its crest's height at each top point).
  */
-export function outlineOf(ridge: (x: number) => number, land: readonly Pt[] | null | undefined, width: number): Pt[] {
-  const own = new Map<number, number>()
-  for (const [x, y] of land ?? []) own.set(Math.round(x), Math.min(y, own.get(Math.round(x)) ?? Infinity))
-  const out: Pt[] = []
-  for (let x = 0; x <= Math.ceil(width); x++) out.push([x * 375 / width, Math.min(ridge(x), own.get(x) ?? Infinity)])
+export function outlineOf(ridge: (x: number) => number, land: readonly Pt[] | null | undefined, width: number,
+  ridgeM: (x: number) => number = () => Number.NaN, landM: readonly number[] = []): OutlinePt[] {
+  const own = new Map<number, [number, number]>()
+  ;(land ?? []).forEach(([x, y], i) => {
+    const at = own.get(Math.round(x))
+    if (!at || y < at[0]) own.set(Math.round(x), [y, landM[i] ?? Number.NaN])
+  })
+  const out: OutlinePt[] = []
+  for (let x = 0; x <= Math.ceil(width); x++) {
+    const x375 = x * 375 / width, y = ridge(x), mine = own.get(x)
+    out.push(mine && mine[0] < y ? [x375, mine[0], mine[1]] : [x375, y, ridgeM(x375)])
+  }
   return out
 }
 
-/** The datum's dashed line (px at 375): at sea level's height, from the hollow at `midX` to the drawn land rising through it. */
-export function datumLineOf(seaLevel: SeaLevel, outline: readonly Pt[], midX: number): DatumLine {
-  return { ...seaSpan(outline, seaLevel.y, midX), y: seaLevel.y }
+/** The ridge's crest height (m) at x (px at 375), linearly between its points; NaN where not known. */
+export function ridgeHeightAt(points: readonly Pt[], heights: readonly number[] | undefined): (x: number) => number {
+  return (x) => {
+    if (!heights?.length || !points.length) return Number.NaN
+    const i = points.findIndex(([px]) => px >= x)
+    if (i <= 0) return heights[i < 0 ? heights.length - 1 : 0]
+    const t = (x - points[i - 1][0]) / (points[i][0] - points[i - 1][0])
+    return heights[i - 1] + t * (heights[i] - heights[i - 1])
+  }
+}
+
+/** One stretch of the datum's dashed line (px at 375); an end where no land meets it fades out over this many px (0: none). */
+export interface DatumSegment { x1: number; x2: number; fadeLeft: number; fadeRight: number }
+
+/**
+ * The datum (px at 375): its height, its segments, and the one through the dot's hollow (`x1`, `x2`), which its note
+ * stands over (on the hollow's open side, away from the place, as `sceneNotes` places it).
+ */
+export interface Datum extends DatumLine { segments: DatumSegment[] }
+
+/** Run a few px on into the land at a crossing (hidden behind it), so the dash rhythm never leaves a gap at the flank. */
+const TUCK = 6
+/**
+ * Where the dot's hollow meets no land on a side, the line reaches this far past the dot and fades out (px at 375):
+ * about 1.5 × the note's width (44 px).
+ */
+export const OPEN_REACH = 66
+/** The open end's fade: over the outer part of its reach past the dot (px at 375). */
+const FADE = 40
+/** The note's width (px at 375: "פני הים" at the notes' type). */
+const NOTE_W = 44
+/** A hollow narrower than this (px at 375) carries no stretch of the line. */
+const MIN_HOLLOW = 4
+
+/**
+ * The datum's dashed line at sea level's height, only where the drawn land (`outline`, west to east, px at 375) really
+ * crosses it (land drawn through the line whose height there is below 0 m is not a crossing: the line runs on behind it): a segment through each hollow under it from one crossing to the next on its other side (tucked into the
+ * land). A hollow open to the frame's edge on a side has no crossing there: the dot's own hollow then ends that side
+ * `OPEN_REACH` past the dot, fading out; any other open hollow carries none. Null where no segment is left.
+ */
+export function datumLineOf(seaLevel: SeaLevel, outline: readonly OutlinePt[], midX: number): Datum | null {
+  const y = seaLevel.y
+  // Under the line: land drawn lower than it, or land truly below sea level wherever it is drawn (the line passes
+  // behind it, hidden): only land that reaches 0 m bounds a hollow.
+  const under = (p: OutlinePt) => p[1] > y || p[2] < 0
+  const edge = (p: OutlinePt, q: OutlinePt) => {
+    if ((p[1] > y) !== (q[1] > y) && p[1] !== q[1]) return p[0] + (q[0] - p[0]) * (y - p[1]) / (q[1] - p[1])
+    return p[2] !== q[2] && Number.isFinite(p[2] + q[2]) ? p[0] + (q[0] - p[0]) * (0 - p[2]) / (q[2] - p[2]) : (p[0] + q[0]) / 2
+  }
+  // The hollows: stretches under the line, each end a crossing or the frame's edge.
+  const hollows: { from: number | null; to: number | null; a: number; b: number }[] = []
+  let open: { from: number | null; a: number } | null = outline.length && under(outline[0]) ? { from: null, a: outline[0][0] } : null
+  for (let i = 1; i < outline.length; i++) {
+    const [p, q] = [outline[i - 1], outline[i]]
+    if (!under(p) && under(q)) { const x = edge(p, q); open = { from: x, a: x } }
+    else if (under(p) && !under(q) && open) { const x = edge(p, q); hollows.push({ from: open.from, to: x, a: open.a, b: x }); open = null }
+  }
+  if (open) hollows.push({ from: open.from, to: null, a: open.a, b: outline.at(-1)![0] })
+  const segments: DatumSegment[] = []
+  let main: DatumSegment | null = null
+  for (const h of hollows) {
+    const holdsDot = h.a <= midX && midX <= h.b
+    if (!holdsDot && (h.from === null || h.to === null)) continue
+    const seg: DatumSegment = {
+      x1: h.from !== null ? h.from - TUCK : Math.max(h.a, midX - OPEN_REACH),
+      x2: h.to !== null ? h.to + TUCK : Math.min(h.b, midX + OPEN_REACH),
+      fadeLeft: 0, fadeRight: 0,
+    }
+    // The fades leave the note's width solid between them where the segment allows.
+    const ends = (h.from === null ? 1 : 0) + (h.to === null ? 1 : 0)
+    const fade = ends ? Math.max(0, Math.min(FADE, (seg.x2 - seg.x1 - NOTE_W) / ends)) : 0
+    if (h.from === null) seg.fadeLeft = fade
+    if (h.to === null) seg.fadeRight = fade
+    if (h.b - h.a < MIN_HOLLOW && !holdsDot) continue
+    // A hollow whose land is all drawn over the line (below sea level, so no crossing) would only be drawn hidden.
+    if (!holdsDot && !outline.some(([x, py]) => x > h.a && x < h.b && py > y + .5)) continue
+    segments.push(seg)
+    if (holdsDot) main = seg
+  }
+  if (!segments.length) return null
+  // The note stands over the dot's hollow; without one (land over the line at the dot), over the widest segment.
+  main ??= segments.reduce((best, seg) => seg.x2 - seg.x1 > best.x2 - best.x1 ? seg : best)
+  return { x1: main.x1, x2: main.x2, y, segments }
 }

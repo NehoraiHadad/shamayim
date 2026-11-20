@@ -1720,3 +1720,32 @@ sea level stands 137 m above the town.
   fixture's height is below sea level everywhere; Haifa's ground is not, so its far water layer is gone from the
   order test). Pixel references re-recorded deliberately, the 20 with the datum: Tiberias's 10 (4 hours, 5 weathers,
   12:00 at dpr 2), Ein Gedi's 5, Shadmot Mehola's 5; the two loading cases unchanged; 59/59.
+- *Follow-up (review of the sheet): the line only where land really crosses 0 m* (`datumLineOf`). The fixed open-side
+  end (x = 96, `seaSpan`'s fallback) is gone (`seaLine.ts` with it). The line is a set of segments, each through a
+  hollow under it from one real crossing to the next: a crossing is where the drawn land (near ridge, or the place's own
+  land) rises through the line *and* its height there is ≥ 0 m; land drawn through the line while below 0 m (the place's
+  land pressed up to the ridge line) is not one, the line runs on behind it, hidden. A hollow open to the frame's edge
+  on a side carries no segment, except the dot's own: it ends that side `OPEN_REACH` (66 px, 1.5 × the note) past the
+  dot, fading out over its last 40 px (the painter's gradient; the fade leaves the note's 44 px solid). Segments wholly
+  hidden behind land are dropped. The note stands over the dot's segment, on its open side (away from the place).
+  Results (`qa/canvas/datum/sheet-before-after-2.png`, before = 447d33f): Neve Zohar's line no longer floats over Moab
+  (121–325, fading west, meeting the cliff at 0 m); Beit She'an's no longer crosses the valley (a short stretch round the
+  dot fading both ways: no near land reaches 0 m); Tiberias, Ein Gedi, Shadmot Mehola, Jericho one-sided, fading toward
+  the lake / valley; Kalya both sides (its near cliff crest within 5 km is −55…−128 m). Tests: `datum.test.ts` +2 (10).
+  Pixel references re-recorded again, the same 20.
+- *Open, for the owner: the vertical scale of the place and its surroundings is not one rule.* Measured at 12:00
+  (`lieOf`), the place's ground is drawn at the frame's `k0` px/m (`FRAME_SCALE.k`, 0.18–1.2, a view exaggeration chosen
+  for houses), then pressed separately above the dot (into the room up to the highest ridge line + 6 px) and below it
+  (into the room down to the sheet, or stretched to the sea horizon on a coast), then capped 6 px over the ridge line at
+  each x. The two factors differ: below/above px per metre = 5.7 at Tiberias (0.31 vs 0.054) and Haifa (0.49 vs 0.086),
+  2.4 Neve Zohar, 1.6 Be'er Sheva, 1.2 Ein Gedi; the other way round 0.2 Rosh Pina, 0.4 Shadmot Mehola, 0.5 Jerusalem,
+  Jericho, Beit She'an. And the dot itself is laid on the near ridge's crest at the centre whatever that crest's height:
+  Tiberias's crest there is +137 m, 2 km off (274 m above the place, ~28 px on the panorama's own scale), so the "cliff"
+  under the dot is the ridge's, not the town's 73 m over the lake. A consistent rule (proposal, not implemented: it
+  moves the dot off the ridge line and changes every place's look): the place's ground on the panorama's own scale at
+  the outside eye's distance, s = 9.83 px/° × (180/π)/(1000·D) ≈ 0.563/D px/m (D = `frame.eyeN`, 3–19 km), the same
+  above and below the dot, no press and no cap; the dot below/above the ridge line at its crest by (crest − place) × s.
+  Its relief (px, now → proposed): Tiberias 41 → 40, Ein Gedi 52 → 58, Haifa 68 → 18, Rosh Pina 47 → 24, Jerusalem
+  30 → 9, Be'er Sheva 19 → 7, Tel Aviv 16 → 2, Netanya 19 → 2, Shadmot Mehola 38 → 15, Kalya 39 → 15, Neve Zohar 40 → 14,
+  Beit She'an 20 → 6, Jericho 17 → 7 (Ramon crater has no local ground). The panorama's px/m at the near crest itself is
+  not usable for it (crests 0.4 km off give 1.4 px/m: Tel Aviv's 61 m would be 84 px).

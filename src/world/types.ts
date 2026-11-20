@@ -9,7 +9,8 @@ import type { PlainPatch } from '../data/city/plainData'
 import type { CityResult } from '../data/city/types'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { Relief } from '../data/terrain/angleScale'
-import type { DatumLine, SceneNote } from '../data/terrain/sceneNotes'
+import type { SceneNote } from '../data/terrain/sceneNotes'
+import type { Datum } from './datum'
 import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
 import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
@@ -393,8 +394,8 @@ export interface WorldLabels {
   /** `x` is the label's centre, `y` its top; `backed` (C9): beside the dot on a small backing, over the place's mass. */
   height: { text: string; below: boolean; x: number; y: number; backed?: boolean }
   notes: SceneNote[]
-  /** The "פני הים" datum's dashed line (px at 375), below sea level where the place's ground reaches 0 m (`datum.ts`). */
-  datum?: DatumLine | null
+  /** The "פני הים" datum's dashed line (px at 375), below sea level where the land reaches 0 m above the dot (`datum.ts`). */
+  datum?: Datum | null
 }
 
 export interface Night {

@@ -5,7 +5,7 @@ import { terrainFromPanorama, zeroContourOf } from '../data/terrain/panoramaTerr
 import type { LocalTime } from '../domain/types'
 import { DATUM_PLACES, SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { datumLineOf, outlineOf, placeContour, seaLevelAbove, zeroCrossings } from './datum'
+import { datumLineOf, OPEN_REACH, outlineOf, placeContour, seaLevelAbove, zeroCrossings } from './datum'
 import { LABEL_H, textWidth } from './layout'
 import type { WorldState } from './types'
 import { buildWorld } from './world'
@@ -68,14 +68,46 @@ describe('sea level on the land the panorama draws', () => {
 })
 
 describe('the datum’s line', () => {
-  it('runs from the hollow at the dot to the drawn land rising through it, the place’s own land included', () => {
-    const outline = outlineOf((x) => (x < 250 ? 90 : 30), [[200, 60], [201, 40], [202, 40]], 375)
-    expect(outline[201][1]).toBe(40)
-    const line = datumLineOf({ y: 50, points: [] }, outline, 187.5)
-    expect(line.y).toBe(50)
-    expect(line.x1).toBe(96) // no flank on the west: the open side
+  // A drawn outline (px at 375) from samples every px: land at `y(x)`.
+  const outline = (y: (x: number) => number) => outlineOf(y, null, 375)
+
+  it('runs from a crossing through the hollow to the crossing on its other side, the place’s own land included', () => {
+    const own = outlineOf((x) => (x < 120 ? 30 : x < 250 ? 90 : 30), [[200, 60], ...Array.from({ length: 49 }, (_, i): [number, number] => [201 + i, 40])], 375)
+    expect(own[201][1]).toBe(40)
+    const line = datumLineOf({ y: 50, points: [] }, own, 187.5)!
+    expect(line.segments).toHaveLength(1)
+    expect(line).toMatchObject({ y: 50, x2: line.segments[0].x2 })
+    expect(line.x1).toBeCloseTo(119 + 1 / 3 - 6)
     expect(line.x2).toBeGreaterThan(200)
     expect(line.x2).toBeLessThan(210)
+    expect(line.segments[0]).toMatchObject({ fadeLeft: 0, fadeRight: 0 })
+  })
+
+  it('ends a side that meets no land a short way past the dot, fading out, never at the frame’s edge', () => {
+    // Land rises through the line east of the dot only; the west runs open to the frame's edge.
+    const line = datumLineOf({ y: 50, points: [] }, outline((x) => (x < 230 ? 90 : 30)), 187.5)!
+    expect(line.segments[0].x1).toBeCloseTo(187.5 - OPEN_REACH)
+    expect(line.segments[0].x2).toBeCloseTo(236, 0)
+    // The fade leaves at least the note's width solid.
+    expect(line.x2 - line.x1 - line.segments[0].fadeLeft).toBeGreaterThanOrEqual(44 - 1e-9)
+    expect(line.segments[0].fadeLeft).toBeGreaterThan(0)
+    expect(line.segments[0].fadeRight).toBe(0)
+    // No land meets it on either side: a short stretch round the dot, fading both ways.
+    const flat = datumLineOf({ y: 50, points: [] }, outline(() => 90), 187.5)!
+    expect([flat.segments[0].x1, flat.segments[0].x2]).toEqual([187.5 - OPEN_REACH, 187.5 + OPEN_REACH])
+    expect(flat.segments[0].fadeLeft).toBeGreaterThan(0)
+    expect(flat.segments[0].fadeRight).toBeGreaterThan(0)
+  })
+
+  it('draws every hollow between two real crossings, and none open to the edge away from the dot', () => {
+    // The dot's hollow (150–230), a second hollow between crossings (280–320), and one open to the west edge (0–60).
+    const y = (x: number) => (x < 60 ? 90 : x < 150 ? 30 : x < 230 ? 90 : x < 280 ? 30 : x < 320 ? 90 : 30)
+    const line = datumLineOf({ y: 50, points: [] }, outline(y), 187.5)!
+    expect(line.segments.map((seg) => [Math.round(seg.x1), Math.round(seg.x2)])).toEqual([[143, 236], [273, 326]])
+    expect(line.segments.every((seg) => seg.fadeLeft === 0 && seg.fadeRight === 0)).toBe(true)
+    expect([Math.round(line.x1), Math.round(line.x2)]).toEqual([143, 236])
+    // No hollow at all under the line: none.
+    expect(datumLineOf({ y: 50, points: [] }, outline(() => 30), 187.5)).toBeNull()
   })
 })
 
@@ -106,8 +138,15 @@ describe('the datum at every place below sea level', () => {
       expect(note.left + note.width, id).toBeLessThanOrEqual(line!.x2 + 1e-9)
       const { height } = world.labels
       const w = textWidth(height.text, 11)
-      const crosses = height.x + w / 2 > line!.x1 && height.x - w / 2 < line!.x2 && height.y - 2.5 < line!.y + 1 && height.y + LABEL_H + 2.5 > line!.y - 1
+      const crosses = line!.segments.some((seg) => height.x + w / 2 > seg.x1 && height.x - w / 2 < seg.x2
+        && height.y - 2.5 < line!.y + 1 && height.y + LABEL_H + 2.5 > line!.y - 1)
       expect(crosses, id).toBe(false)
+      // Only where land crosses it, or a short way past the dot fading out: never on to the frame's edge.
+      for (const seg of line!.segments) {
+        expect(seg.x1 > 0 && seg.x2 < 375, id).toBe(true)
+        if (seg.fadeLeft) expect(seg.x1, id).toBeGreaterThanOrEqual(dot.x - OPEN_REACH - 1e-9)
+        if (seg.fadeRight) expect(seg.x2, id).toBeLessThanOrEqual(dot.x + OPEN_REACH + 1e-9)
+      }
     }
   })
 
