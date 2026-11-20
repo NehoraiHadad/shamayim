@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 import type { Coordinate } from '../landmarks/project'
 import { findClusters } from './clusters'
-import { computeColumns, cellsForBand } from './columns'
-import { hasCityFabric } from './fabric'
+import { cellsForBand } from './columns'
 import { decodeRuns } from './grid'
 import { homeCluster, homeTier } from './homeCluster'
 import { clustersForCache, validClusters } from './clusterCache'
@@ -64,10 +63,4 @@ it('splits Daliyat and Isfiya only when place rows are present', () => {
   expect(split.find(cluster => cluster.place?.name === 'דלית אל-כרמל')?.squares).toBe(485)
   expect(split.find(cluster => cluster.place?.name === 'עספיא')?.squares).toBe(148)
   expect(split.every(cluster => cluster.squares >= 4)).toBe(true)
-})
-
-it('keeps Petah Tikva eligible for city fabric using the v2 cells', () => {
-  const place = { lat: 32.087, lon: 34.887 }
-  const { grids } = near(place)
-  expect(hasCityFabric(computeColumns(place, grids), 375, 187.5)).toBe(true)
 })

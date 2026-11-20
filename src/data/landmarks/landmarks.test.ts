@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { CURATED } from './curated'
-import { placeMarks } from './placeMarks'
+import { withIcons } from './curated'
+import { placeMarks, PORTRAIT_LANDMARKS } from './placeMarks'
 import { bearingOf, groundY, markHeight, offsetKm, sightLayer, toX } from './project'
-import { score, select, spread, type Candidate } from './rank'
+import { select, spread, type Candidate } from './rank'
 import type { Landmark } from './types'
 
 const jerusalem = { lat: 31.7690, lon: 35.2163 }
@@ -16,17 +16,21 @@ describe('landmark projection', () => {
     const chords = offsetKm(jerusalem, { lat: 31.7885, lon: 35.2004 })
     expect(chords.dx).toBeCloseTo(-1.51, 1)
     expect(chords.dy).toBeCloseTo(2.16, 1)
-    expect(Math.abs((toX(chords.dx)?.x ?? 0) - 163.9)).toBeLessThan(.15)
+    // West of the place: on the right now that east is on the left (the mirror of 163.9).
+    expect(Math.abs((toX(chords.dx)?.x ?? 0) - 211.1)).toBeLessThan(.15)
     const azrieli = offsetKm(telAviv, { lat: 32.0746, lon: 34.7916 })
     expect(azrieli.dx).toBeCloseTo(1.04, 1)
     expect(azrieli.dy).toBeCloseTo(-.70, 1)
-    expect(Math.abs((toX(azrieli.dx)?.x ?? 0) - 203.8)).toBeLessThan(.15)
+    expect(Math.abs((toX(azrieli.dx)?.x ?? 0) - 171.2)).toBeLessThan(.15)
   })
 
   it('uses near and far scales and bounds', () => {
     expect(toX(0)).toEqual({ x: 187.5, layer: 'near' })
-    expect(toX(12)).toEqual({ x: 375, layer: 'near' })
-    expect(toX(30)).toEqual({ x: 375, layer: 'far' })
+    // East (dx > 0) runs to the left edge, west to the right.
+    expect(toX(12)).toEqual({ x: 0, layer: 'near' })
+    expect(toX(30)).toEqual({ x: 0, layer: 'far' })
+    expect(toX(-12)).toEqual({ x: 375, layer: 'near' })
+    expect(toX(-30)).toEqual({ x: 375, layer: 'far' })
     expect(toX(13)?.layer).toBe('far')
     expect(toX(31)).toBeNull()
   })
@@ -49,7 +53,7 @@ describe('landmark projection', () => {
 })
 
 const terrain: SceneTerrain = {
-  near: '', far: '', centerLeft: '50%', centerY: 60, seaY: 60, seaInView: false,
+  centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false,
   seaSide: null,
   nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20],
@@ -106,43 +110,35 @@ describe('placement and selection', () => {
     })
   })
 
-  it.each([375, 520])('keeps iconic Tel Aviv marks at %d px', (width) => {
+  it.each([375, 520])('keeps the Azrieli icon and Tel Aviv\'s famous tower at %d px', (width) => {
     const city: Place = { ...place, id: 'tel-aviv', lat: 32.0809, lon: 34.7806 }
-    const marks = placeMarks(city, terrain, CURATED.find((item) => item.id === city.id)!.marks, width)
-    const ids = marks.map((mark) => mark.id)
-    expect(ids).toEqual(expect.arrayContaining(['tel-aviv-shalom', 'tel-aviv-azrieli']))
-    expect(ids.indexOf('tel-aviv-azrieli')).toBeGreaterThan(ids.indexOf('tel-aviv-sarona'))
-    expect(ids).toHaveLength(4)
+    const anonymous: Landmark = { ...baseMark, id: 'osm-spiral', kind: 'highrise', lat: 32.0758, lon: 34.7925, heightM: 350 }
+    const shalom: Landmark = { ...baseMark, id: 'osm-shalom', kind: 'highrise', lat: 32.0642, lon: 34.7697, heightM: 130,
+      nameHe: 'מגדל שלום מאיר', fame: 2 }
+    const ids = placeMarks(city, terrain, withIcons(city, [anonymous, shalom]), width).map((mark) => mark.id)
+    // The icon stands in for the anonymous tower at its spot; the famous one is drawn with the generic glyph.
+    expect(ids).toEqual(expect.arrayContaining(['tel-aviv-azrieli', 'osm-shalom']))
+    expect(ids).not.toContain('osm-spiral')
   })
 
-  it('ranks Azrieli Center above Sarona', () => {
-    const marks = CURATED.find((item) => item.id === 'tel-aviv')!.marks
-    const sarona = marks.find((mark) => mark.id === 'tel-aviv-sarona')!
-    const azrieli = marks.find((mark) => mark.id === 'tel-aviv-azrieli')!
-    expect(score(azrieli, 0, 0, 3)).toBeGreaterThan(score(sarona, 0, 0, 3))
-  })
-
-  it.each([375, 520])('keeps the central Haifa trio at %d px', (width) => {
+  it.each([375, 520])('keeps the Báb among Haifa\'s famous marks at %d px', (width) => {
     const city: Place = { ...place, id: 'haifa', lat: 32.8130, lon: 34.9993 }
-    const marks = placeMarks(city, terrain, CURATED.find((item) => item.id === city.id)!.marks, width)
-    expect(marks.map((mark) => mark.id)).toEqual(expect.arrayContaining(['haifa-bab', 'haifa-dagon', 'haifa-sail']))
+    const dagon: Landmark = { ...baseMark, id: 'osm-dagon', kind: 'highrise', lat: 32.8232, lon: 34.9948, heightM: 46.8, fame: 2 }
+    const sail: Landmark = { ...baseMark, id: 'osm-sail', kind: 'highrise', lat: 32.8163, lon: 35.0028, heightM: 112.8, fame: 1 }
+    const marks = placeMarks(city, terrain, withIcons(city, [dagon, sail]), width)
+    expect(marks.map((mark) => mark.id)).toEqual(expect.arrayContaining(['haifa-bab', 'osm-dagon', 'osm-sail']))
     expect(marks.find((mark) => mark.id === 'haifa-bab')!.hPx).toBeGreaterThanOrEqual(10)
   })
 
-  it('uses the sea-side label box for collision avoidance', () => {
-    const onWestLabel = { ...baseMark, id: 'west', source: 'curated' as const,
-      lat: place.lat, lon: place.lon, x: 50 }
-    const west = placeMarks(place, { ...terrain, seaInView: true, seaSide: 'west' }, [onWestLabel], 375)
-    const legacy = placeMarks(place, { ...terrain, seaInView: true, seaSide: null }, [onWestLabel], 375)
-    expect(west[0].xPct * 3.75).not.toBe(50)
-    expect(legacy[0].xPct * 3.75).toBe(50)
-  })
-
-  it('renders the Shadmot homes and synagogue as an 8 px hall', () => {
-    const city: Place = { ...place, id: 'shadmot-mehola', lat: 32.348, lon: 35.535 }
-    const marks = placeMarks(city, { ...terrain, centerLeft: '47.5%' },
-      CURATED.find((item) => item.id === city.id)!.marks, 375)
-    expect(marks.find((mark) => mark.id === 'shadmot-homes')?.hPx).toBe(8)
+  it('keeps clear of the notes written on the land', () => {
+    // 8.8 km due west stands at x 325 on the old cross-section; a note (a water body's name) is written there.
+    const onWestLabel = { ...baseMark, id: 'west', lat: place.lat,
+      lon: place.lon - 8.8 / (111.32 * Math.cos(place.lat * Math.PI / 180)), heightM: 120 }
+    const note = { left: 310, right: 340, top: 0, bottom: 128 }
+    const kept = placeMarks(place, terrain, [onWestLabel], 375, undefined, false, undefined, [note])
+    const free = placeMarks(place, terrain, [onWestLabel], 375)
+    expect(free[0].xPct * 3.75).toBeCloseTo(325, 0)
+    expect(kept[0]?.xPct * 3.75).not.toBeCloseTo(325, 0)
   })
 })
 
@@ -156,8 +152,8 @@ describe('placement over a horizon panorama', () => {
 
   it('puts a mark at its true bearing: south in the middle, east and west towards the edges, north out of view', () => {
     expect(bearingOf(place, at('s', 2, 180))!.x).toBeCloseTo(187.5, 0)
-    expect(bearingOf(place, at('e', 2, 90))!.x).toBeCloseTo(322.5, 0)
-    expect(bearingOf(place, at('w', 2, 270))!.x).toBeCloseTo(52.5, 0)
+    expect(bearingOf(place, at('e', 2, 90))!.x).toBeCloseTo(52.5, 0)
+    expect(bearingOf(place, at('w', 2, 270))!.x).toBeCloseTo(322.5, 0)
     expect(bearingOf(place, at('n', 2, 0))).toBeNull()
   })
 
@@ -174,14 +170,37 @@ describe('placement over a horizon panorama', () => {
     expect(marks[0].xPct / 100 * 375).toBeCloseTo(bearingOf(place, at('south', 2.5, 170))!.x, 0)
   })
 
-  it('keeps a curated village glyph by the dot, and one behind the viewer at its drawn spot', () => {
-    const homes = at('homes', 0.3, 250, { kind: 'homes', source: 'curated', x: 170, heightM: 8 })
-    const behind = at('palms', 2.4, 350, { kind: 'palms', source: 'curated', x: 160, heightM: 15 })
-    const east = at('orchard', 2.4, 95, { kind: 'orchard', source: 'curated', x: 200, heightM: 5 })
-    const placed = placeMarks(place, panorama, [homes, behind, east], 375)
-    expect(placed.map((m) => m.id).sort()).toEqual(['homes', 'orchard', 'palms'])
+  it('draws the place\'s own marks in its portrait by side: east of it on the left, west on the right, north too', () => {
+    const portrait = { reachKm: 2 }
+    const north = at('palms', 1.5, 350, { kind: 'palms', heightM: 15 })
+    const east = at('orchard', 1.2, 95, { kind: 'orchard', heightM: 5 })
+    const solar = at('solar', .6, 190, { kind: 'solar', heightM: 3 })
+    const far = at('far', 3.5, 120, { kind: 'orchard', heightM: 5 })
+    const placed = placeMarks(place, panorama, [north, east, solar, far], 375, undefined, false, portrait)
     const x = (id: string) => placed.find((mark) => mark.id === id)!.xPct / 100 * 375
-    expect(x('palms')).toBeCloseTo(160, 0)
-    expect(x('orchard')).toBeGreaterThan(300)
+    // North-north-west: west of the place, so on the right, though it is behind the viewer.
+    expect(x('palms')).toBeGreaterThan(187.5)
+    expect(x('orchard')).toBeLessThan(187.5)
+    // Due south, a little west: right of the dot, nearer it than the farther palms.
+    expect(x('solar')).toBeGreaterThan(187.5)
+    expect(x('solar')).toBeLessThan(x('palms'))
+    // Beyond the reach (fields: a km past the village's) the scene is true: at its own bearing.
+    expect(placed.find((mark) => mark.id === 'far')!.portrait).toBeUndefined()
+    // East-south-east: at its own bearing, left of the dot.
+    expect(x('far')).toBeCloseTo(bearingOf(place, far)!.x, 0)
+  })
+
+
+  it('shows a portrait\'s few best-known landmarks, an icon first, and keeps them apart', () => {
+    const portrait = { reachKm: 4 }
+    const famous = Array.from({ length: 8 }, (_, i) => at(`church${i}`, .8 + i * .3, i % 2 ? 80 : 280,
+      { kind: 'church', heightM: 25, fame: 2 }))
+    const icon = at('icon', 1.5, 100, { kind: 'custom', glyph: 'haifa-bab', heightM: 11, source: 'curated', fame: 2 })
+    const placed = placeMarks(place, panorama, [...famous, icon], 375, undefined, false, portrait)
+    const landmarks = placed.filter((mark) => mark.landmark)
+    expect(landmarks.length).toBeLessThanOrEqual(PORTRAIT_LANDMARKS)
+    expect(landmarks.map((mark) => mark.id)).toContain('icon')
+    const xs = placed.map((mark) => mark.xPct * 3.75).sort((a, b) => a - b)
+    xs.slice(1).forEach((x, i) => expect(x - xs[i]).toBeGreaterThanOrEqual(6))
   })
 })

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
 import { projectSight, type Coordinate, type Sight } from '../landmarks/project'
 import { azimuthAt, destination } from '../terrain/panorama'
-import { FAR_RADIUS_KM, NEAR_RADIUS_KM, RIDGE_WIDTH, ridgeLongitudeKm, ridgeX } from '../terrain/ridgeProjection'
+import { FAR_RADIUS_KM, RIDGE_WIDTH } from '../terrain/ridgeProjection'
 import { plainPatches, type PlainPatch, type PlainTerrain } from './plainData'
 import { COLUMN_WIDTH } from './columns'
 import { decodeFarRuns, FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST,
@@ -30,45 +29,12 @@ export function loadFar(): Promise<FarData | null> {
   })
 }
 
-export function farColumns(place: Coordinate, width: number, data: FarData): FarScene {
-  const columns: FarColumn[] = []
-  const towers: { x: number; heightM: number }[] = []
-  const row = Math.floor((place.lat - FAR_SOUTH) / FAR_LAT_STEP)
-  if (!Number.isFinite(width) || width <= 0 || row < 0 || row >= FAR_ROWS) return { columns, towers }
-  const longitudeKm = ridgeLongitudeKm(place.lat)
-  const toX = (dx: number) => ridgeX(dx, FAR_RADIUS_KM, width)
-  const toGrid = (x: number) => (place.lon - FAR_WEST +
-    (x / width * 2 - 1) * FAR_RADIUS_KM / longitudeKm) / FAR_LON_STEP
-
-  // Terrain samples dy=0. Use the one raster row containing that line, with no north/south look-around.
-  for (const [start, end] of [[0, toX(-NEAR_RADIUS_KM)], [toX(NEAR_RADIUS_KM), width]]) {
-    for (let left = start; left < end; left += COLUMN_WIDTH) {
-      const right = Math.min(left + COLUMN_WIDTH, end)
-      const west = toGrid(left), east = toGrid(right)
-      let built = 0, levels = 0
-      for (let col = Math.max(0, Math.floor(west)); col < Math.min(FAR_COLS, east); col++) {
-        const meta = data.grid[row * FAR_COLS + col]
-        const footprint = (meta >> 4) / 15 * (Math.min(east, col + 1) - Math.max(west, col))
-        built += footprint
-        levels += footprint * (meta & 15)
-      }
-      columns.push({ left, right, built: built / (east - west), heightClass: built ? Math.round(levels / built) : 0 })
-    }
-  }
-  for (const [lat, lon, heightM] of data.towers) {
-    if (Math.floor((lat - FAR_SOUTH) / FAR_LAT_STEP) !== row) continue
-    const dx = (lon - place.lon) * longitudeKm
-    if (Math.abs(dx) >= NEAR_RADIUS_KM && Math.abs(dx) <= FAR_RADIUS_KM) towers.push({ x: toX(dx), heightM })
-  }
-  return { columns, towers }
-}
-
 export function panoramaFarColumns(place: Coordinate, width: number, data: FarData, sightAt: (x: number) => Sight,
   terrain?: PlainTerrain, fromKm?: number): FarScene {
   const columns: FarColumn[] = []
   if (!Number.isFinite(width) || width <= 0) return { columns, towers: [] }
   const towers = data.towers.flatMap<FarTowerPlacement>(([lat, lon, heightM]) => {
-    const projected = projectSight(place, { lat, lon, heightM }, sightAt)
+    const projected = projectSight(place, { lat, lon, heightM }, sightAt, terrain?.camera)
     if (projected && fromKm !== undefined && projected.km <= fromKm + 1e-9) return []
     if (projected?.layer === 'plain') return [{ x: projected.x * width / RIDGE_WIDTH, heightM, y: projected.y, km: projected.km }]
     return projected?.layer === 'far' ? [{ x: projected.x * width / RIDGE_WIDTH, heightM }] : []
@@ -81,7 +47,7 @@ export function panoramaFarColumns(place: Coordinate, width: number, data: FarDa
     if (fromKm !== undefined && sight.farKm <= fromKm) continue
     if (!sight.farShows || sight.farKm > FAR_RADIUS_KM || sight.farKm <= Math.max(sight.nearKm + 1, 2)) continue
     // The raster keeps coordinates. Sample it at the visible crest in this direction.
-    const point = destination(place.lat, place.lon, sight.farKm, azimuthAt(fraction))
+    const point = destination(place.lat, place.lon, sight.farKm, azimuthAt(fraction, terrain?.camera))
     const row = Math.floor((point.lat - FAR_SOUTH) / FAR_LAT_STEP)
     const col = Math.floor((point.lon - FAR_WEST) / FAR_LON_STEP)
     if (row < 0 || row >= FAR_ROWS || col < 0 || col >= FAR_COLS) continue
@@ -89,19 +55,4 @@ export function panoramaFarColumns(place: Coordinate, width: number, data: FarDa
     columns.push({ left, right, built: (meta >> 4) / 15, heightClass: meta & 15 })
   }
   return { columns, towers }
-}
-
-export function useFarColumns({ lat, lon }: Coordinate, width: number, enabled: boolean, sightAt?: (x: number) => Sight,
-  terrain?: PlainTerrain, fromKm?: number) {
-  const [data, setData] = useState<FarData | null>(null)
-  useEffect(() => {
-    if (!enabled) return
-    let active = true
-    void loadFar().then(result => { if (active) setData(result) })
-    return () => { active = false }
-  }, [enabled])
-  return useMemo(() => {
-    if (!enabled || !data) return null
-    return sightAt ? panoramaFarColumns({ lat, lon }, width, data, sightAt, terrain, fromKm) : farColumns({ lat, lon }, width, data)
-  }, [enabled, data, lat, lon, width, sightAt, terrain, fromKm])
 }

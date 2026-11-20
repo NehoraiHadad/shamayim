@@ -52,16 +52,31 @@ describe('Israel landmark cells', () => {
   })
 })
 
+describe('fame in the shipped rows', () => {
+  it('decodes fame after the name, an empty name left out', async () => {
+    const cell = cellsForStrip(place())[0]
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).endsWith('index.json')
+      ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : new Response(JSON.stringify([['church', 31.6092, 35.1009, 25, '', 2], ['waterTower', 31.61, 35.1, 25, 'מגדל', 1],
+        ['minaret', 31.62, 35.1, 30]]))))
+    const marks = await loadIsrael(place(), new AbortController().signal)
+    expect(marks?.[0]).toEqual({ id: 'il-church-31.6092-35.1009', kind: 'church', lat: 31.6092, lon: 35.1009, heightM: 25,
+      source: 'osm', fame: 2 })
+    expect(marks?.[1]).toMatchObject({ nameHe: 'מגדל', fame: 1 })
+    expect(marks?.[2].fame).toBeUndefined()
+  })
+})
+
 describe('landmark source order', () => {
-  it('prefers curated, then Israel data, then Overpass', async () => {
+  it('reads Israel data, then Overpass; the curated cities too, with their icons added', async () => {
     const israel = vi.fn(async () => [mark])
     const overpass = vi.fn(async (requested: Place) => [{ ...mark, id: 'overpass',
       lat: requested.lat, lon: requested.lon }])
     const signal = new AbortController().signal
-    const curated = await loadLandmarkSource(place({ id: 'jerusalem', lat: 31.769, lon: 35.2163 }), signal,
+    const jerusalem = await loadLandmarkSource(place({ id: 'jerusalem', lat: 31.769, lon: 35.2163 }), signal,
       { israel, overpass })
-    expect(curated.curated).toBe(true)
-    expect(israel).not.toHaveBeenCalled()
+    expect(israel).toHaveBeenCalled()
+    expect(jerusalem.panoramaMarks.map(item => item.id)).toEqual(expect.arrayContaining(['jerusalem-wall', 'jerusalem-bridge']))
     expect((await loadLandmarkSource(place(), signal, { israel, overpass })).marks[0].id).toBe('static')
     expect(overpass).not.toHaveBeenCalled()
     israel.mockResolvedValueOnce(null as never)

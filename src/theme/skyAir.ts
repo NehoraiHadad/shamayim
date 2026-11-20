@@ -1,4 +1,4 @@
-import { aerosolDepth, sunLight, type Aerosol } from '../ui/scene/sceneLight'
+import { aerosolDepth, sunLight, type Aerosol } from '../world/sceneLight'
 import { mixOklab } from './oklab'
 
 const smoothstep = (lo: number, hi: number, value: number) => {

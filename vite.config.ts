@@ -1,11 +1,31 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/**
+ * Chrome's explicit compile hint (`//# allFunctionsCalledOnLoad` as a script's first line): every function of the canvas
+ * scene's chunk is called while its first scene is built, so V8 compiles them all as the chunk loads (off the main thread
+ * while it streams) instead of one by one on first call. Measured on the scene model (`src/scene/model/*`, which carry
+ * the same line for the dev server): its cold run at Shadmot 12–15 → 6–8 ms, Tel Aviv 18–32 → 7–17 (CPU ×4). Other browsers read a comment.
+ */
+const compileHint = (): Plugin => ({
+  name: 'scene-compile-hint',
+  apply: 'build',
+  enforce: 'post',
+  generateBundle(_, bundle) {
+    for (const chunk of Object.values(bundle)) {
+      if (chunk.type === 'chunk' && chunk.name === 'CanvasScene' && !chunk.code.startsWith('//# allFunctionsCalledOnLoad')) {
+        chunk.code = `//# allFunctionsCalledOnLoad\n${chunk.code}`
+      }
+    }
+  },
+})
 
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
   plugins: [
+    compileHint(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -34,8 +54,9 @@ export default defineConfig({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
-        // Keep the map renderer off the network until the overhead page is opened.
-        globIgnores: ['**/maplibre-gl-*.{js,css}'],
+        // Keep the map renderer off the network until the overhead page is opened, and the satellite reader (GeoTIFF and
+        // its decoders) until a turning view asks for this week's land colours.
+        globIgnores: ['**/maplibre-gl-*.{js,css}', '**/{geotiff,pako.esm,lerc,basedecoder,deflate,jpeg,lzw,packbits,raw,webimage}-*.js'],
         navigateFallback: 'index.html',
         runtimeCaching: [{
           urlPattern: /\/data\/landmarks\//,
@@ -45,6 +66,10 @@ export default defineConfig({
           urlPattern: /\/data\/city\//,
           handler: 'StaleWhileRevalidate',
           options: { cacheName: 'city-data' },
+        }, {
+          urlPattern: /\/data\/land\//,
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'land-data' },
         }],
       },
     }),

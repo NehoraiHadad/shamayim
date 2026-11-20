@@ -1,0 +1,60 @@
+import { moonIllumination, moonPosition } from '../astro/moon'
+import { sunPosition as sunSky } from '../astro/sun'
+import { utcOf } from '../astro/utc'
+import { daylightFraction, minutesBetween } from '../domain/time'
+import type { DayPoint, LocalTime } from '../domain/types'
+import { moonScenePoint } from './moonPath'
+import { brightLimbAngle, sunDirection, type ScenePoint } from './moonShape'
+import { SCENE_W } from './sceneBox'
+import type { Skyline } from './skyline'
+import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
+import { sunAt } from './sunPath'
+import type { Body, MoonBody } from './types'
+
+interface Site { lat: number; lon: number; timezone: string }
+
+/** The sun's radius (deg): it counts as up while its top limb is. */
+const SUN_RADIUS = 0.267
+
+/**
+ * The sun's drawn point: on its arc between today's sunrise and sunset (`sunAt`, which runs on before and after them,
+ * behind the land), exactly where the SVG scene draws the disc; on a day with no sunrise, straight from its true
+ * altitude and azimuth.
+ */
+function sunPoint(at: LocalTime, day: DayPoint | undefined, site: Site, skyline: Skyline, azimuth: number, altitude: number): ScenePoint {
+  if (day && minutesBetween(day.sunrise, day.sunset) > 0) return sunAt(daylightFraction(at, day.sunrise, day.sunset), day.sunrise, day.sunset, site, skyline)
+  return projectSky(apparentAltitude(altitude) + SUN_RADIUS, azimuth, horizonLine(azimuth, azimuth, skyline))
+}
+
+/**
+ * The sun: true azimuth and altitude, its drawn point on the view's land (`skyline`), and whether it stands over the land
+ * in its own direction, judged against `sunSkyline` (the land that holds its path; the view's own when absent).
+ */
+export function sunBody(at: LocalTime, day: DayPoint | undefined, site: Site, skyline: Skyline, sunSkyline: Skyline = skyline): Body & { clearance: number; t: number | null } {
+  const { altitude, azimuth } = sunSky(utcOf(at, site.timezone), site.lat, site.lon)
+  const point = sunPoint(at, day, site, skyline, azimuth, altitude)
+  const judged = sunSkyline === skyline ? point : sunPoint(at, day, site, sunSkyline, azimuth, altitude)
+  const clearance = sunSkyline(judged.x) - judged.y
+  const t = day && minutesBetween(day.sunrise, day.sunset) > 0 ? daylightFraction(at, day.sunrise, day.sunset) : null
+  return {
+    azimuth, altitude, x: point.x * SCENE_W, y: point.y,
+    up: apparentAltitude(altitude) + SUN_RADIUS > 0,
+    overLand: clearance > 0,
+    clearance, t,
+  }
+}
+
+/** The moon: true position, its drawn point on its pass, phase, lit fraction and the lit limb's screen angle. */
+export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { altitude: number; azimuth: number }): MoonBody {
+  const instant = utcOf(at, site.timezone)
+  const { altitude, azimuth } = moonPosition(instant, site.lat, site.lon)
+  const { fraction, phase } = moonIllumination(instant)
+  const point = moonScenePoint(instant, site, skyline)
+  return {
+    azimuth, altitude, x: point.x * SCENE_W, y: point.y,
+    up: apparentAltitude(altitude) > 0,
+    overLand: skyline(point.x) - point.y > 0,
+    phase, illumination: fraction,
+    tilt: brightLimbAngle(point, sunDirection(sun.altitude, sun.azimuth, skyline)),
+  }
+}

@@ -1,3 +1,4 @@
+import { SCENE_CAMERA } from '../../domain/camera'
 import type { Coordinate } from '../landmarks/project'
 import { cellKey, COLS, LON_STEP, ROWS, squareCentre, strideFor } from './grid'
 import type { CityColumns, CityTower, Column } from './types'
@@ -46,7 +47,9 @@ export function computeColumns(place: Coordinate, grids: ReadonlyMap<string, Uin
       const depth = depthRow(dy)
       for (let col = 0; col < COLS; col++) {
         const lon = firstLon + col * LON_STEP
-        const x = (lon - west) * BAND_WIDTH / span
+        // Across like the scene: east on the left when the scene faces south as an eye does (`SCENE_CAMERA`).
+        const along = (lon - west) * BAND_WIDTH / span
+        const x = SCENE_CAMERA.handed === 1 ? BAND_WIDTH - along : along
         if (x < 0 || x >= BAND_WIDTH) continue
         const bin = rows[depth][Math.floor(x / COLUMN_WIDTH)]
         const i = (row * COLS + col) * stride

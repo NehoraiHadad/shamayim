@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moonCloud, moonLook } from '../../ui/scene/moonShape'
+import { moonCloud, moonLook } from '../../world/moonShape'
 import { mapCurrent } from './mapCurrent'
 import { thickCloud } from './mapHelpers'
 import { forecastUrl } from './request'

@@ -57,6 +57,11 @@ export function forcedSightings(): CloudSighting[] | null {
     .map(([azimuth, distanceKm, widthKm]) => ({ azimuth, distanceKm, widthKm }))
 }
 
+/** `?perf=1` shows the canvas scene's timings in a small HUD (`scene/react/PerfHud.tsx`). */
+export function perfHud(): boolean {
+  return param('perf') === '1'
+}
+
 /** `?picker=open` opens the place picker on load, for screenshots of it. */
 export function pickerOpenOnLoad(): boolean {
   return param('picker') === 'open'

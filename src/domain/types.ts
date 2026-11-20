@@ -42,6 +42,33 @@ export interface HourPoint {
   humidity: number | null
   /** Snow lying on the ground at the end of the hour, metres (0 when none or unknown). */
   snowDepth: number
+  /**
+   * Cloud by layer, 0–100 each (low < 2 km, mid 2–6 km, high above); null or absent when not known (an older cached
+   * answer, or a model without them). Read by the canvas scene's world state (`src/world/clouds.ts`).
+   */
+  cloudLow?: number | null
+  cloudMid?: number | null
+  cloudHigh?: number | null
+  /** Degrees the 10 m wind comes FROM (meteorological, 0 = north); null or absent when not asked or not known. */
+  windDirection?: number | null
+  /** Horizontal visibility, metres; null or absent when not asked or not known. */
+  visibility?: number | null
+  /**
+   * Wind at the clouds' heights: 850 hPa (~1.5 km, low cloud), 700 hPa (~3 km, mid), 300 hPa (~9 km, high). Null or
+   * absent when not asked or not known; the world then derives it from the 10 m wind (marked as a fallback).
+   */
+  windAloft?: { low: WindVector | null; mid: WindVector | null; high: WindVector | null } | null
+  /**
+   * The air at airliners' cruise level, 250 hPa (~10.4 km): temperature (°C) and relative humidity over water (%). Null or
+   * absent when not asked or not known; the world then takes a climatological guess for contrails (marked as a fallback).
+   */
+  cruise?: { temperature: number; humidity: number } | null
+}
+
+/** A wind: speed in km/h and the direction it comes FROM (deg, 0 = north). */
+export interface WindVector {
+  speed: number
+  fromDeg: number
 }
 
 export interface DayPoint {

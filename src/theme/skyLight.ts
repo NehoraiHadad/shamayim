@@ -1,7 +1,7 @@
 import { THRESHOLDS } from '../config/thresholds'
 import { ratio } from './contrast'
 import { hexToOklab, mixOklab, oklabToHex } from './oklab'
-import type { Aerosol } from '../ui/scene/sceneLight'
+import type { Aerosol } from '../world/sceneLight'
 import { skyAir } from './skyAir'
 import { SKY_THEMES, type SkyTheme } from './skyThemes'
 

@@ -43,6 +43,13 @@ const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'relative_humidity_2m', 'snow_depth',
   'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high',
+  // The canvas scene's world state: each hour's wind direction and visibility (app: `SCENE_HOURLY`).
+  'wind_direction_10m', 'visibility',
+  // Wind at the clouds' heights (cloud drift): 850, 700 and 300 hPa.
+  'wind_speed_850hPa', 'wind_direction_850hPa', 'wind_speed_700hPa', 'wind_direction_700hPa',
+  'wind_speed_300hPa', 'wind_direction_300hPa',
+  // C10: the air at airliners' cruise (250 hPa, ~10.4 km): contrails by the Schmidt–Appleman criterion.
+  'temperature_250hPa', 'relative_humidity_250hPa',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',

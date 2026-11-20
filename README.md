@@ -14,11 +14,18 @@ One screen for Shadmot Mehola (Jordan Valley), over a live "valley sky" that fol
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # unit tests (sentence engine, mappers, theme contrast)
+npm test           # unit tests (sentence engine, mappers, theme contrast, the scene's world and model)
 npm run build      # production build + PWA service worker
+npm run test:pixels  # the valley scene's pixel references (Playwright's preinstalled Chromium; `-- --update` re-records)
+npm run test:perf    # the scene's timings, CPU ×4 (docs/design/qa/canvas/perf.md)
 ```
 
-Dev only: append `?at=2026-11-17T13:00` to preview another local time, and `?theme=rain` (dawn, clearDay, heat, cloudy, rain, dust, dusk, night) to force a sky theme. `?relief=true|mid|high` compares how much the low degrees (land and low sky together) are stretched (default `high`). `?rain=arrive` (or `here`, `pass`, `far`, `still`, `none`, or `bearing:km:radiusKm:band[:towardDeg:kmh],…`) replaces the radar with synthetic moving rain, for the rainy states of the rain map.
+The valley scene (sky to near ridge) is drawn on canvas from one world state (`src/world/` → `src/scene/model/` →
+`src/scene/paint/`, docs/design/CANVAS-SCENE-PLAN.md); text and UI are HTML. `scene.html?place=haifa&at=2026-11-17T16:30`
+is its harness (the pixel tests' page); `node e2e/scene.app.mjs <dir> haifa@12:00 [--built]` takes the app's own stills
+and checks the figure's accessibility.
+
+Dev only: append `?at=2026-11-17T13:00` to preview another local time, `?wx=rain:4,wind:35,dir:270,cloud:90` to override the scene's weather (keys in `src/ui/devParams.ts`), `?perf=1` for the scene's timings HUD, `?paint=main` to paint the scene on the main thread instead of its worker, and `?theme=rain` (dawn, clearDay, heat, cloudy, rain, dust, dusk, night) to force a sky theme. `?relief=true|mid|high` compares how much the low degrees (land and low sky together) are stretched (default `high`). `?rain=arrive` (or `here`, `pass`, `far`, `still`, `none`, or `bearing:km:radiusKm:band[:towardDeg:kmh],…`) replaces the radar with synthetic moving rain, for the rainy states of the rain map.
 
 ## Data
 

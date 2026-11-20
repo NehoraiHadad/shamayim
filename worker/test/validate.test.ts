@@ -62,6 +62,13 @@ describe('canonicalQuery', () => {
     expect(query().ok).toBe(true)
   })
 
+  it('accepts the scene hours (wind direction, visibility, wind aloft) as well as the query without them', () => {
+    const scene = new URLSearchParams(APP_FORECAST)
+    scene.set('hourly', `${APP_FORECAST.get('hourly')},cloud_cover_low,cloud_cover_mid,cloud_cover_high,wind_direction_10m,visibility,wind_speed_850hPa,wind_direction_850hPa,wind_speed_300hPa,wind_direction_300hPa`)
+    expect(query(forecast, scene).ok).toBe(true)
+    expect(query().ok).toBe(true)
+  })
+
   it('accepts both ends of the 15-minute forecast range', () => {
     for (const n of [1, 16]) {
       const p = new URLSearchParams(APP_FORECAST)

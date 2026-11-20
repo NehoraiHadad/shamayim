@@ -1,4 +1,5 @@
 import type { Place } from '../../config/place'
+import { fameOf, outranks } from './fame'
 import { LANDMARK_FILTERS } from './filters'
 import { offsetKm } from './project'
 import type { Landmark, MarkKind } from './types'
@@ -48,7 +49,11 @@ function classify(tags: Record<string, string>): { kind: MarkKind; height: numbe
   return null
 }
 
-export function parseOverpass(json: unknown): Landmark[] {
+/**
+ * `name`: a rule the mark's name and fame pass through with the object's tags (the landmarks build applies the
+ * industrial-landmark rule, `industrial.ts`); the app's own Overpass reads keep the tags' name as it is.
+ */
+export function parseOverpass(json: unknown, options: { name?: (mark: Landmark, tags: Record<string, string>) => Landmark } = {}): Landmark[] {
   const elements = (json as Response)?.elements
   if (!Array.isArray(elements)) return []
   const found: Landmark[] = []
@@ -58,12 +63,15 @@ export function parseOverpass(json: unknown): Landmark[] {
     const lat = element.lat ?? element.center?.lat
     const lon = element.lon ?? element.center?.lon
     if (!value || lat == null || lon == null) continue
-    const candidate: Landmark = { id: `osm-${element.id}`, kind: value.kind, nameHe: tags['name:he'] ?? tags.name,
-      lat, lon, heightM: value.height, source: 'osm' }
+    const fame = fameOf(tags)
+    const read: Landmark = { id: `osm-${element.id}`, kind: value.kind, nameHe: tags['name:he'] ?? tags.name,
+      lat, lon, heightM: value.height, source: 'osm', ...(fame ? { fame } : {}) }
+    const candidate = options.name ? options.name(read, tags) : read
     const duplicate = found.find((mark) => mark.kind === candidate.kind
       && Math.hypot(offsetKm(mark, candidate).dx, offsetKm(mark, candidate).dy) < .3)
     if (!duplicate) found.push(candidate)
-    else if (candidate.heightM > duplicate.heightM) Object.assign(duplicate, candidate)
+    // Of two of a kind side by side the famous one stays (a tower with its own article over its taller neighbour).
+    else if (outranks(candidate, duplicate)) Object.assign(duplicate, candidate)
   }
   return found
 }

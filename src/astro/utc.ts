@@ -1,16 +1,30 @@
 import type { LocalTime } from '../domain/types'
 
+/**
+ * One formatter per time zone: making an `Intl.DateTimeFormat` costs far more than formatting with it (a scrub frame of
+ * the canvas scene called this some hundred times: ~10 ms a frame, 100+ ms spikes, CPU ×4).
+ */
+const formatters = new Map<string, Intl.DateTimeFormat>()
+const formatterOf = (timeZone: string) => {
+  let formatter = formatters.get(timeZone)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+    formatters.set(timeZone, formatter)
+  }
+  return formatter
+}
+
 const partsAt = (at: Date, timeZone: string) => {
-  const values = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(at)
+  const values = formatterOf(timeZone).formatToParts(at)
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     Number(values.find((value) => value.type === type)?.value)
   return {

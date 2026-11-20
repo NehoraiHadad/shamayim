@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Place } from '../../config/place'
 import type { SceneTerrain } from '../terrain/terrain'
-import { CURATED } from './curated'
+import { ICONS } from './curated'
 import { placeHomes, placeMarks, withPlaceHomes } from './placeMarks'
 import type { Landmark } from './types'
 
 const place: Place = { id: 'x', nameHe: 'מקום', regionHe: '', lat: 32, lon: 35, timezone: 'Asia/Jerusalem' }
 const baseMark: Landmark = { id: 'm', kind: 'mast', lat: 32, lon: 35, heightM: 60, source: 'osm' }
 const terrain: SceneTerrain = {
-  near: '', far: '', centerLeft: '50%', centerY: 60, seaY: 60, seaInView: false, seaSide: null,
+  centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false, seaSide: null,
   nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20],
 }
@@ -53,17 +53,11 @@ describe('place homes', () => {
     expect(offset).toBeLessThan(27)
   })
 
-  it('leaves Shadmot, whose curated set draws its own homes, unchanged', () => {
-    const curated = CURATED.find((item) => item.id === 'shadmot-mehola')!
-    const city: Place = { ...place, id: curated.id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }
-    expect(withPlaceHomes(city, curated.marks, true)).toEqual(curated.marks)
-  })
-
-  it.each(['jerusalem', 'tel-aviv', 'haifa'])('gives curated %s its own city blocks too', (id) => {
-    const curated = CURATED.find((item) => item.id === id)!
-    const city: Place = { ...place, id, lat: curated.lat, lon: curated.lon, featureCode: 'PPLA' }
-    const marks = withPlaceHomes(city, curated.marks, true)
-    expect(marks.slice(0, -1)).toEqual(curated.marks)
+  it.each(ICONS.map(({ mark }) => mark.id))('gives the city round the icon %s its own city blocks too', (id) => {
+    const icon = ICONS.find(({ mark }) => mark.id === id)!.mark
+    const city: Place = { ...place, id, lat: icon.lat, lon: icon.lon, featureCode: 'PPLA' }
+    const marks = withPlaceHomes(city, [icon])
+    expect(marks.slice(0, -1)).toEqual([icon])
     expect(marks.at(-1)).toMatchObject({ kind: 'homes', glyph: 'homes-large' })
   })
 })

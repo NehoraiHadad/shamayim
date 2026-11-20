@@ -1,18 +1,17 @@
+import { leftAzimuth, SCENE_CAMERA, wrap180, type Camera } from '../../domain/camera'
+import { seaSideOf, waterInView, type WaterLookup } from '../water/waterInView'
 import { anglePx } from './angleScale'
-import { apparentAngle, type HorizonPoint, type Panorama } from './panorama'
-import { pointsToPath } from './profile'
-import { sightProfiles } from './sightProfile'
+import { apparentAngle, localHeight, RAY_DISTANCES, type HorizonPoint, type Panorama } from './panorama'
+import { relativeHeight, sightProfiles } from './sightProfile'
 import type { SceneTerrain } from './terrain'
 import { visibilityAt } from './visibility'
 
 type Pt = [number, number]
 
 /** Where the village sits: the near ridge due south stands at this y... */
-const MIDDLE_Y = 96
+export const MIDDLE_Y = 96
 /** ...unless the lowest near ridge (looking down from a hilltop) would then fall below this y (under the sheet). */
 const LOWEST_Y = 110
-/** A far horizon this share of the way along a side, lying at sea level, means the sea is in view on that side. */
-const SEA_SHARE = 0.2
 
 const median = (values: number[]) => {
   if (!values.length) return Number.NaN
@@ -20,31 +19,16 @@ const median = (values: number[]) => {
   return sorted[Math.floor(sorted.length / 2)]
 }
 
-/** Sea within this distance (km) along a ray counts as sea in view (a city's own ground may hide its surface). */
-const SEA_KM = 8
-/** A ray that reaches the sea (the DEM's sea floor is raised to the surface in `fetchPanorama`) close enough to see it. */
-const atSea = (ray: Panorama['rays'][number]) => ray.seaKm !== null && ray.seaKm <= SEA_KM
-
-/** Which side the sea is on: west or east rays that reach it. */
-function seaSideOf(p: Panorama): 'west' | 'east' | null {
-  const half = Math.floor(p.rays.length / 2)
-  const share = (rays: Panorama['rays']) => rays.filter(atSea).length / rays.length
-  const west = share(p.rays.slice(0, half))
-  const east = share(p.rays.slice(half + 1))
-  if (Math.max(west, east) < SEA_SHARE) return null
-  return west >= east ? 'west' : 'east'
-}
-
 /**
  * The scene's land from a horizon panorama. Across, each ray sits at its azimuth's x (the sky's own mapping); up, each
  * ridge at its angle on the sky's scale (`anglePx`) above eye level, which stands at `horizonY`.
  */
-export function terrainFromPanorama(p: Panorama): SceneTerrain {
+export function terrainFromPanorama(given: Panorama,
+  view: { camera?: Camera; horizonY?: number; water?: WaterLookup | null } = {}): SceneTerrain {
+  const p = inViewOrder(given, view.camera ?? SCENE_CAMERA)
   const n = p.rays.length
   const xOf = (i: number) => (375 * i) / (n - 1)
-  const mid = p.rays[Math.floor(n / 2)]
-  const lowestNear = Math.min(...p.rays.map((ray) => ray.near.angle))
-  const horizonY = Math.min(MIDDLE_Y + anglePx(mid.near.angle), LOWEST_Y + anglePx(lowestNear))
+  const horizonY = view.horizonY ?? sceneHorizonY(p)
   const yOf = (angle: number) => horizonY - anglePx(angle)
   const round = (v: number) => Math.round(v * 10) / 10
   // A light 1-2-1 smoothing over neighbouring rays (±1.25°) takes the DEM's pixel steps out of the line; the sun and
@@ -54,13 +38,15 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
   const farAngles = smooth(p.rays.map((ray) => Math.max(ray.far.angle, ray.near.angle))).map((a, i) => Math.max(a, nearAngles[i]))
   const nearPoints = nearAngles.map((angle, i): Pt => [round(xOf(i)), round(yOf(angle))])
   const farPoints = farAngles.map((angle, i): Pt => [round(xOf(i)), round(yOf(angle))])
-  const seaSide = seaSideOf(p)
-  // The sea line: on a coast, the sea horizon; below sea level, where sea level meets the slopes around (each slope
-  // taken as straight from the eye up to its crest); otherwise eye level.
-  const seaRays = p.rays.filter(atSea)
-  const below = p.rays.filter((ray) => ray.far.elevation > 0 && p.eyeM < 0)
-  const seaY = seaSide ? median(seaRays.map((ray) => yOf(Math.max(apparentAngle(0, ray.seaKm!, p.eyeM), ray.far.elevation <= 1 ? ray.far.angle : -90))))
-    : below.length ? median(below.map((ray) => yOf(ray.far.angle * (0 - p.eyeM) / (ray.far.elevation - p.eyeM))))
+  // The water really in view (WorldCover's water along the rays, where the line of sight reaches it).
+  const water = view.water ? waterInView(p, view.water, xOf, yOf) : []
+  const seaSide = seaSideOf(water)
+  // Below sea level, where the land passes up through 0 m as the eye sees it (`zeroContourOf`).
+  const zeroContour = p.eyeM < 0 ? zeroContourOf(p, xOf, yOf) : []
+  // The sea line: with the sea in view, its horizon; below sea level, the median of the 0 m the eye sees on the slopes
+  // around; otherwise eye level. (The canvas scene's datum is the place's: `world/datum.ts`.)
+  const seaY = seaSide ? median(water.filter((span) => span.kind === 'sea').flatMap((span) => span.edges.map((edge) => edge.farY)))
+    : zeroContour.length ? median(zeroContour.map(([, y]) => y))
       : horizonY
   const ground: HorizonPoint = { angle: apparentAngle(p.groundM, 0.4, p.eyeM), elevation: p.groundM, distance: 0 }
   const snowEdge = (layer: 'near' | 'far', lineM: number): Pt[] => p.rays.map((ray, i): Pt => {
@@ -82,13 +68,11 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
       seenAt: (km: number, heightM?: number) => seenAt(x, km, heightM) }
   }
   return {
-    near: pointsToPath(nearPoints),
-    far: pointsToPath(farPoints),
     centerLeft: '50%',
-    centerY: yOf(mid.near.angle),
     seaY: Number.isFinite(seaY) ? seaY : horizonY,
     seaInView: seaSide !== null,
     seaSide,
+    water,
     nearPoints,
     farPoints,
     nearElevations: p.rays.map((ray) => ray.near.elevation),
@@ -98,6 +82,59 @@ export function terrainFromPanorama(p: Panorama): SceneTerrain {
     sightAt,
     seenAt,
     groundAt: profiles.groundAt,
+    ...(given.local ? { heightNear: (dx: number, dy: number) => localHeight(given.local!, dx, dy) } : {}),
     angleY: yOf,
+    eyeM: p.eyeM,
+    ...(p.eyeM < 0 ? { zeroContour } : {}),
+    camera: view.camera ?? SCENE_CAMERA,
   }
+}
+
+/**
+ * Sea level on the land, as the eye sees it, for an eye below it: along each ray (in view order, at its x) the nearest
+ * spot where the ground passes up through 0 m that the eye sees (nothing nearer stands as high in its sight), linearly
+ * between two samples of the ray's profile; at its apparent angle (curvature and refraction) on the land's vertical
+ * scale (`yOf`). A ray whose land never rises to 0 m in sight has none.
+ */
+export function zeroContourOf(p: Panorama, xOf: (i: number) => number, yOf: (angle: number) => number): Pt[] {
+  const out: Pt[] = []
+  p.rays.forEach((ray, i) => {
+    const profile = ray.profile
+    if (profile?.length !== RAY_DISTANCES.length) return
+    let top = -Infinity
+    let last = Number.NaN
+    for (let j = 0; j < profile.length; j++) {
+      const { angle } = profile[j]
+      const height = p.eyeM + relativeHeight(angle, RAY_DISTANCES[j])
+      if (j > 0 && last < 0 && height >= 0) {
+        const t = -last / (height - last)
+        const at = profile[j - 1].angle + t * (angle - profile[j - 1].angle)
+        if (at >= top) { out.push([Math.round(xOf(i) * 10) / 10, Math.round(yOf(at) * 10) / 10]); return }
+      }
+      top = Math.max(top, angle)
+      last = height
+    }
+  })
+  return out
+}
+
+/**
+ * The panorama's rays from the camera's left edge to its right: a stored south panorama runs west-north-west first
+ * (`STORED_CAMERA`), so for the true view facing south (east on the left) it is turned round.
+ */
+export function inViewOrder(p: Panorama, camera: Camera = SCENE_CAMERA): Panorama {
+  const n = p.rays.length
+  const off = (azimuth: number) => Math.abs(wrap180(azimuth - leftAzimuth(camera)))
+  return n > 1 && off(p.rays[n - 1].azimuth) < off(p.rays[0].azimuth) ? { ...p, rays: [...p.rays].reverse() } : p
+}
+
+/**
+ * Eye level (y) for the south panorama: the near ridge due south at `MIDDLE_Y`, unless the lowest near ridge would then
+ * fall under `LOWEST_Y`. A turning view keeps the one eye level of its place (`worldHorizonY`), so the land does not
+ * rise and fall as it turns.
+ */
+export function sceneHorizonY(p: Panorama): number {
+  const mid = p.rays[Math.floor(p.rays.length / 2)]
+  const lowestNear = Math.min(...p.rays.map((ray) => ray.near.angle))
+  return Math.min(MIDDLE_Y + anglePx(mid.near.angle), LOWEST_Y + anglePx(lowestNear))
 }

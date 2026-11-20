@@ -1,0 +1,280 @@
+import { describe, expect, it } from 'vitest'
+import type { LayerDesc, LayerOf } from '../model/types'
+import type { Painter } from '../paint'
+import { LayerCache, type LayerCanvas } from './layerCache'
+import { makeLoop } from './loop'
+import { paintSliced } from './schedule'
+import type { PaintReply, PaintRequest } from './paintJob'
+import { RemoteCache, type WorkerLike } from './remoteCache'
+import { makeStats } from './stats'
+import { Surface } from './surface'
+
+/** A canvas that records what is done to it (node has no canvas). */
+function fakeCanvas(width: number, height: number) {
+  const calls: string[] = []
+  const ctx = new Proxy({ calls }, {
+    get: (target, prop) => (prop === 'calls' ? target.calls : (...args: unknown[]) => { calls.push(`${String(prop)}(${args.length})`) }),
+    set: (_, prop, value) => { calls.push(`${String(prop)}=${String(value)}`); return true },
+  })
+  return { width, height, calls, getContext: () => ctx } as unknown as LayerCanvas & { calls: string[] }
+}
+
+function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane'> {
+  return { kind: 'plane', plane: 'near', id, surface: 'land', z: 30, key, bounds: { x: 0, y: 40, w: 375, h: 88 },
+    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4], gullies: [], terraces: [], scrub: [],
+    grain: { amount: 0, seed: 1 }, light: { key: lightKey, blend: 'source-over', tint: [0.2, 0.2, 0.3], faces: [], tones: [],
+      shade: [], lit: [], rims: [], snow: null, lift: null } }
+}
+
+function counting() {
+  const count = { form: 0, light: 0 }
+  const painter: Painter = { form: () => { count.form++ }, light: () => { count.light++ } }
+  return { count, painters: () => painter }
+}
+
+describe('layer cache', () => {
+  it('does not repaint a layer whose key is unchanged', () => {
+    const { count, painters } = counting()
+    const cache = new LayerCache({ factory: fakeCanvas, painters, now: () => 0 })
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('form')
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('none')
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('none')
+    expect(count).toEqual({ form: 1, light: 1 })
+  })
+
+  it('repaints only the light canvas when only the light changes (a scrub frame)', () => {
+    const { count, painters } = counting()
+    const cache = new LayerCache({ factory: fakeCanvas, painters, now: () => 0 })
+    cache.update(plane('a', 'l1'), 2)
+    expect(cache.update(plane('a', 'l2'), 2)).toBe('light')
+    expect(cache.update(plane('a', 'l3'), 2)).toBe('light')
+    expect(count).toEqual({ form: 1, light: 3 })
+    // A new form repaints its light too (the light keeps inside the form's shape).
+    expect(cache.update(plane('b', 'l3'), 2)).toBe('form')
+    expect(count).toEqual({ form: 2, light: 4 })
+  })
+
+  it('repaints at a new pixel ratio and sizes canvases to bounds × ratio in whole device px', () => {
+    const { count, painters } = counting()
+    const made: LayerCanvas[] = []
+    const cache = new LayerCache({ factory: (w, h) => { const c = fakeCanvas(w, h); made.push(c); return c }, painters, now: () => 0 })
+    cache.update(plane('a', 'l1'), 2)
+    expect([made[0].width, made[0].height]).toEqual([750, 176])
+    expect(cache.update(plane('a', 'l1'), 3)).toBe('form')
+    expect(count.form).toBe(2)
+    const sky: LayerOf<'sky'> = { kind: 'sky', id: 'sky', surface: 'sky', z: 0, key: 's', soft: true,
+      bounds: { x: 0, y: 0, w: 375, h: 428 }, stops: [], glow: [], arch: null, band: null }
+    cache.update(sky, 2.75)
+    expect([made.at(-1)!.width, made.at(-1)!.height]).toEqual([1032, 1177])
+    expect(cache.peek('sky')!.rect).toEqual({ x: 0, y: 0, w: 1032, h: 1177 })
+    expect(cache.peek('plane.near')!.rect).toEqual({ x: 0, y: 120, w: 1125, h: 264 })
+  })
+
+  it('counts hits and paints, prunes layers no longer drawn and adds up its memory', () => {
+    const stats = makeStats(() => 0)
+    const { painters } = counting()
+    const cache = new LayerCache({ factory: fakeCanvas, painters, stats, now: () => 0 })
+    cache.update(plane('a', 'l1'), 1)
+    cache.update(plane('a', 'l1'), 1)
+    cache.update(plane('a', 'l2'), 1)
+    expect(stats.layers['plane.near']).toMatchObject({ paints: 1, lightPaints: 1, hits: 1 })
+    expect(cache.bytes()).toBe(2 * 375 * 88 * 4)
+    cache.prune(new Set())
+    expect(cache.bytes()).toBe(0)
+  })
+})
+
+describe('surface and schedule', () => {
+  const layers = (n: number): LayerDesc[] => Array.from({ length: n }, (_, i) => plane(`k${i}`, 'l', `plane.${i}`))
+
+  it('paints a cold start in slices under the budget, composites after each and resolves when done', async () => {
+    let clock = 0
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas,
+      painters: () => ({ form: () => { clock += 3 }, light: () => {} }), now: () => clock })
+    surface.resize(375, 128, 2)
+    const frames: (() => void)[] = []
+    const slicer = paintSliced([{ surface, layers: layers(7) }], { budgetMs: 8, now: () => clock,
+      frame: (cb) => frames.push(cb), cancelFrame: () => {} })
+    while (frames.length) frames.shift()!()
+    const report = await slicer.done
+    expect(report.painted).toBe(7)
+    // 3 ms a layer under an 8 ms budget: 3 + 3 + 1 layers.
+    expect(report.slices.length).toBe(3)
+    expect(Math.max(...report.slices)).toBeLessThanOrEqual(9)
+    expect(layers(7).every((layer) => surface.fresh(layer))).toBe(true)
+  })
+
+  it('a warm frame repaints nothing when the model is the same', () => {
+    const { count, painters } = counting()
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters, now: () => 0 })
+    surface.resize(375, 128, 2)
+    surface.render(layers(3))
+    expect(surface.render(layers(3))).toEqual(['none', 'none', 'none'])
+    expect(count.form).toBe(3)
+  })
+})
+
+/** A worker that keeps what it is sent and answers when told (node has no worker). */
+function fakeWorker() {
+  const sent: PaintRequest[] = []
+  const closed: string[] = []
+  const worker: WorkerLike & { sent: PaintRequest[]; closed: string[]; answer(): void; terminated: boolean } = {
+    sent, closed, terminated: false,
+    postMessage: (message) => { sent.push(message) },
+    onmessage: null,
+    onerror: null,
+    terminate() { worker.terminated = true },
+    answer() {
+      const request = sent.shift()!
+      const reply: PaintReply = { batch: request.batch, results: request.jobs.map((job) => ({ id: job.id, part: job.part, key: job.key,
+        formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 1,
+        bitmap: { width: job.rect.w, height: job.rect.h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap })) }
+      worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
+    },
+  }
+  return worker
+}
+
+describe('painting in the worker', () => {
+  const painters = () => ({ form: () => {}, light: () => {} })
+
+  it('asks for a cold layer\'s form and light in one batch and shows them once they arrive', async () => {
+    const worker = fakeWorker()
+    const arrivals: boolean[] = []
+    const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: ({ settled }) => arrivals.push(settled), onFail: () => {} })
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('form')
+    cache.flush()
+    expect(worker.sent).toHaveLength(1)
+    expect(worker.sent[0].jobs.map((job) => job.part)).toEqual(['form', 'light'])
+    expect(cache.peek('plane.near')).toBeNull()
+    expect(cache.fresh(plane('a', 'l1'), 2)).toBe(false)
+    const settled = cache.whenSettled()
+    worker.answer()
+    await settled
+    expect(arrivals).toEqual([true])
+    expect(cache.fresh(plane('a', 'l1'), 2)).toBe(true)
+    expect(cache.peek('plane.near')).toMatchObject({ ratio: 2, rect: { x: 0, y: 80, w: 750, h: 176 } })
+    expect(cache.update(plane('a', 'l1'), 2)).toBe('none')
+    cache.flush()
+    expect(worker.sent).toHaveLength(0)
+  })
+
+  it('keeps the last light while a scrub frame\'s light is painted, and sends only the newest ask after a batch', () => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: () => {}, onFail: () => {} })
+    cache.update(plane('a', 'l1'), 2)
+    cache.flush()
+    worker.answer()
+    const shown = cache.peek('plane.near')!.light
+    expect(cache.update(plane('a', 'l2'), 2)).toBe('light')
+    cache.flush()
+    expect(worker.sent[0].jobs.map((job) => [job.part, job.key])).toEqual([['light', 'l2']])
+    // While l2 is on its way the hand moves on twice: only the newest is sent, once l2 is back.
+    cache.update(plane('a', 'l3'), 2)
+    cache.flush()
+    cache.update(plane('a', 'l4'), 2)
+    cache.flush()
+    expect(worker.sent).toHaveLength(1)
+    expect(cache.peek('plane.near')!.light).toBe(shown)
+    worker.answer()
+    expect(worker.sent.map((request) => request.jobs.map((job) => job.key))).toEqual([['l4']])
+    expect(worker.closed).toEqual(['plane.near:light:l1'])
+    worker.answer()
+    expect(cache.fresh(plane('a', 'l4'), 2)).toBe(true)
+    expect(cache.settled()).toBe(true)
+  })
+
+  it('lays the arrivals on the surface, and paints on the main thread once the worker fails', () => {
+    const worker = fakeWorker()
+    const { count, painters: counted } = counting()
+    let laid = 0
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, now: () => 0, worker: () => worker,
+      onArrive: () => { laid++ } })
+    surface.resize(375, 128, 2)
+    surface.render([plane('a', 'l1')])
+    expect(count).toEqual({ form: 0, light: 0 })
+    worker.answer()
+    expect(laid).toBe(1)
+    expect(surface.fresh(plane('a', 'l1'))).toBe(true)
+    surface.render([plane('a', 'l2')])
+    worker.onerror?.(new Event('error'))
+    expect(worker.terminated).toBe(true)
+    expect(surface.remote).toBeNull()
+    expect(count).toEqual({ form: 1, light: 1 })
+    expect(surface.fresh(plane('a', 'l2'))).toBe(true)
+  })
+})
+
+describe('loop', () => {
+  it('ticks at most 30 times a second with the phase since its start, and once under reduced motion', () => {
+    const queue: ((t: number) => void)[] = []
+    const phases: number[] = []
+    const deps = { frame: (cb: (t: number) => void) => queue.push(cb), cancelFrame: () => {}, visible: () => true, still: () => false }
+    const loop = makeLoop((phase) => phases.push(phase), deps)
+    loop.start()
+    for (let t = 1000; t <= 2000; t += 1000 / 60) queue.shift()!(t)
+    expect(phases.length).toBeGreaterThanOrEqual(30)
+    expect(phases.length).toBeLessThanOrEqual(31)
+    expect(phases[0]).toBe(0)
+    loop.stop()
+    const still: number[] = []
+    makeLoop((phase) => still.push(phase), { ...deps, still: () => true }).start()
+    expect(still).toEqual([0])
+  })
+})
+
+describe('animation laid at composite time (C7)', () => {
+  /** A canvas whose context logs each call with its arguments. */
+  function argsCanvas(width: number, height: number) {
+    const calls: unknown[][] = []
+    const ctx = new Proxy({}, {
+      get: (_t, prop) => (...args: unknown[]) => {
+        calls.push([prop, ...args])
+        return prop === 'createPattern' ? { pattern: true } : undefined
+      },
+      set: (_t, prop, value) => { calls.push([`${String(prop)}=`, value]); return true },
+    })
+    return { width, height, calls, getContext: () => ctx } as unknown as LayerCanvas & { calls: unknown[][] }
+  }
+  const smoke: LayerOf<'smoke'> = { kind: 'smoke', id: 'smoke.near', surface: 'land', z: 40, key: 'k', bounds: { x: 10, y: 20, w: 30, h: 40 },
+    plumes: [], animated: { mode: 'frames', frames: { count: 4, fps: 8 } } }
+
+  it('paints a strip of frames, each at its own phase, down one canvas, a frame as it is first laid', () => {
+    const phases: number[] = []
+    const made: (LayerCanvas & { calls: unknown[][] })[] = []
+    const cache = new LayerCache({ factory: (w, h) => { const c = argsCanvas(w, h); made.push(c); return c }, now: () => 0,
+      painters: () => ({ form: (_ctx, _desc, env) => { phases.push(env.phase) } }) })
+    cache.update(smoke, 2)
+    // The main thread paints the frame shown, then the others as the loop first lays them (once each).
+    expect(phases).toEqual([0])
+    expect([made[0].width, made[0].height]).toEqual([60, 320])
+    for (const phase of [0.3, 0.31, 0.4, 0.13, 0.5]) cache.ensureFrame(smoke, phase)
+    expect(phases).toEqual([0, 0.25, 0.375, 0.125])
+    // A new key starts the strip again from the frame shown.
+    cache.update({ ...smoke, key: 'k2' }, 2, 0.3)
+    expect(phases.at(-1)).toBe(0.25)
+    // A change of frames is a change of what the canvas holds.
+    expect(cache.update({ ...smoke, animated: { mode: 'frames', frames: { count: 6, fps: 8 } } }, 2)).toBe('form')
+  })
+
+  it('lays the frame at the phase, and moves a falling tile as a pattern over its areas', () => {
+    const visible = argsCanvas(100, 100)
+    const surface = new Surface(visible, { factory: argsCanvas, now: () => 0, painters: () => ({ form: () => {} }) })
+    surface.resize(50, 50, 2)
+    surface.render([smoke], 0.3)
+    const blit = visible.calls.filter((c) => c[0] === 'drawImage')
+    // Frame 2 (0.3 s × 8 fps) of 4: the source rect starts two frames down.
+    expect(blit.at(-1)!.slice(2)).toEqual([0, 160, 60, 80, 20, 40, 60, 80])
+    const fall: LayerOf<'fall'> = { kind: 'fall', id: 'fall.land', surface: 'land', z: 60, key: 'f', precip: 'rain', marks: [], rgb: [1, 1, 1],
+      slant: 0, bounds: { x: 0, y: 0, w: 16, h: 24 },
+      animated: { mode: 'fall', fall: { vx: 0, vy: 40, areas: [[[0, 0], [20, 0], [20, 30], [0, 30]]], alphas: [0.5] } } }
+    visible.calls.length = 0
+    surface.render([fall], 0.25)
+    const names = visible.calls.map((c) => c[0])
+    expect(names).toContain('createPattern')
+    expect(names.filter((n) => n === 'fill').length).toBe(1)
+    // The pattern stands 10 px down (40 px/s × 0.25 s), in device px.
+    expect(visible.calls.find((c) => c[0] === 'setTransform' && c[6] === 20)).toBeTruthy()
+    expect(visible.calls.some((c) => c[0] === 'globalAlpha=' && c[1] === 0.5)).toBe(true)
+  })
+})

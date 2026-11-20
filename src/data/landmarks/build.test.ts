@@ -3,9 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildDataset, type LandmarkIndex } from '../../../scripts/landmarks/build'
-import type { MarkKind } from './types'
-
-type Row = [MarkKind, number, number, number, string?]
+import type { Row } from './israelData'
 const created: string[] = []
 
 afterEach(async () => {
@@ -20,7 +18,7 @@ describe('Israel landmark builder', () => {
     const result = await buildDataset(input, { outputDir, generatedAt: '2026-11-17T02:00:00.000Z',
       bbox: [31, 35, 32, 36] })
 
-    expect(result.marks).toBe(5)
+    expect(result.marks).toBe(7)
     expect(result.bytes).toBeLessThan(150_000)
     const index = JSON.parse(await readFile(join(outputDir, 'index.json'), 'utf8')) as LandmarkIndex
     expect(index).toEqual({ generatedAt: '2026-11-17T02:00:00.000Z',
@@ -32,6 +30,9 @@ describe('Israel landmark builder', () => {
       ['minaret', 31.62, 35.105, 30, 'מסגד'],
       ['highrise', 31.611, 35.111, 120, 'מגדל'],
       ['synagogue', 31.611, 35.131, 9, 'בית כנסת'],
+      // Fame last: an article (2) or only a Wikidata item (1); an empty name keeps its place.
+      ['church', 31.611, 35.141, 25, '', 2],
+      ['waterTower', 31.61, 35.15, 20, 'מגדל מים ידוע', 1],
     ]))
     expect(rows.some((row) => row[0] === 'highrise' && row[3] === 10)).toBe(false)
   })

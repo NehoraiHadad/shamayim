@@ -48,7 +48,7 @@ export async function readOutlook(site: Site, signal: AbortSignal): Promise<Rada
   ])
   if (!b) return null
   const apart = older ? (newest.time - older.time) / 60_000 : APART_MIN
-  return { ...rainOutlook(a, b, apart), at: newest.time }
+  return { ...rainOutlook(a, b, apart), at: newest.time, grid: b }
 }
 
 /**

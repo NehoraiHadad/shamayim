@@ -1,3 +1,5 @@
+import { azimuthAt as cameraAzimuthAt, fractionOf, SCENE_CAMERA, STORED_CAMERA, type Camera } from '../../domain/camera'
+
 export { packPanorama, unpackPanorama, type StoredPanorama } from './storedPanorama'
 
 /**
@@ -19,14 +21,11 @@ export const REFRACTION_K = 0.13
 /** Eye above the ground at the place (m). */
 export const EYE_M = 2
 
-/** Rays across the scene, evenly in azimuth from x = 0 to x = 375 (same mapping as the sky, `skyPoint`). */
+/** Rays across the scene, evenly in azimuth from x = 0 to x = 375 (the camera's mapping, `domain/camera.ts`). */
 export const RAYS = 201
-/** Azimuth (deg) at the scene's left edge (x = 0), through south in the middle, to the right edge (x = 375). */
-export const AZ_LEFT = 305
-export const AZ_RIGHT = 55
-const AZ_SPAN = AZ_LEFT - AZ_RIGHT
-export const azimuthAt = (fraction: number) => AZ_LEFT - AZ_SPAN * fraction
-export const azimuthFraction = (azimuth: number) => ((AZ_LEFT - azimuth + 360) % 360) / AZ_SPAN
+/** Azimuth (deg) at a fraction of the scene's width, and the reverse (above 1 out of view); see `domain/camera.ts`. */
+export const azimuthAt = (fraction: number, camera: Camera = SCENE_CAMERA) => cameraAzimuthAt(fraction, camera)
+export const azimuthFraction = (azimuth: number, camera: Camera = SCENE_CAMERA) => fractionOf(azimuth, camera)
 /** Ridges closer than this (km) make the near layer; beyond is only in the far horizon. */
 export const NEAR_KM = 5
 /** How far the rays reach (km); past ~60 km even Hermon sinks under the curve from most places. */
@@ -40,9 +39,12 @@ export const RAY_DISTANCES: readonly number[] = [
   ...Array.from({ length: 39 }, (_, i) => 23 + i * 1), // 23 – 61 km every 1 km
 ].filter((d) => d <= FAR_KM + 1e-9)
 
-/** Azimuth (deg) of ray i: west-north-west at the left edge, south in the middle, east-north-east at the right. */
+/**
+ * Azimuth (deg) of ray i of the stored south panorama: west-north-west (305°) first, south in the middle, east-north-east
+ * (55°) last. Fixed: it is the order the panorama is stored in, whatever the camera does (`domain/camera.ts`).
+ */
 export function rayAzimuth(i: number, rays = RAYS): number {
-  const az = azimuthAt(i / (rays - 1))
+  const az = azimuthAt(i / (rays - 1), STORED_CAMERA)
   return (az + 360) % 360
 }
 
@@ -79,6 +81,46 @@ export interface Panorama {
   /** Ground at the place (m). */
   groundM: number
   rays: HorizonRay[]
+  /** The ground round the place in every direction (north too), for the place seen from outside (`LocalGround`). */
+  local?: LocalGround
+}
+
+/**
+ * Ground heights (m) on a square grid round the place, km east and north of it: `n` × `n` samples every `stepKm`, row by
+ * row from the south-west corner, centred on the place. The panorama's rays see only the south and its sides; the place
+ * seen from outside (stage C5) lifts its rows by the ground under each of them, north of the place too.
+ */
+export interface LocalGround { stepKm: number; n: number; heights: number[] }
+
+/** The grid's reach (km) and step: the outside view's frame never reaches past 5 km and its built squares are ~0.2 km. */
+export const LOCAL_REACH_KM = 6
+export const LOCAL_STEP_KM = 0.25
+
+/** Samples the ground round a place on the local grid. */
+export function localGround(place: { lat: number; lon: number }, height: (lat: number, lon: number) => number,
+  reachKm = LOCAL_REACH_KM, stepKm = LOCAL_STEP_KM): LocalGround {
+  const n = 2 * Math.round(reachKm / stepKm) + 1
+  const half = (n - 1) / 2
+  const cos = Math.cos(place.lat * Math.PI / 180)
+  const heights: number[] = []
+  for (let row = 0; row < n; row++) {
+    for (let col = 0; col < n; col++) {
+      const h = height(place.lat + (row - half) * stepKm / 111.32, place.lon + (col - half) * stepKm / (111.32 * cos))
+      heights.push(Number.isFinite(h) ? Math.round(h) : 0)
+    }
+  }
+  return { stepKm, n, heights }
+}
+
+/** The ground (m) at km east / north of the place, bilinear on the grid; null beyond it. */
+export function localHeight(ground: LocalGround, dx: number, dy: number): number | null {
+  const half = (ground.n - 1) / 2
+  const fx = dx / ground.stepKm + half, fy = dy / ground.stepKm + half
+  if (fx < 0 || fy < 0 || fx > ground.n - 1 || fy > ground.n - 1) return null
+  const x0 = Math.min(ground.n - 2, Math.floor(fx)), y0 = Math.min(ground.n - 2, Math.floor(fy))
+  const tx = fx - x0, ty = fy - y0
+  const at = (x: number, y: number) => ground.heights[y * ground.n + x]
+  return (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) + (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty
 }
 
 /**
@@ -105,12 +147,13 @@ export function horizonRay(azimuth: number, heightAt: HeightAt, eyeM: number, di
 }
 
 /** The whole panorama from a place, over a height lookup around it. */
-export function computePanorama(heightAt: HeightAt, groundM: number, rays = RAYS): Panorama {
+export function computePanorama(heightAt: HeightAt, groundM: number, rays = RAYS,
+  azimuthOf: (i: number) => number = (i) => rayAzimuth(i, rays)): Panorama {
   const eyeM = groundM + EYE_M
   return {
     eyeM,
     groundM,
-    rays: Array.from({ length: rays }, (_, i) => horizonRay(rayAzimuth(i, rays), heightAt, eyeM)),
+    rays: Array.from({ length: rays }, (_, i) => horizonRay(azimuthOf(i), heightAt, eyeM)),
   }
 }
 
