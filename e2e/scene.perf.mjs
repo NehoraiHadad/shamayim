@@ -13,6 +13,7 @@
 // reveal: the land's layers fading up, the mist thinning, the crest drawn, the sky gliding).
 //   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main] [-- --no-land]
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
+import { runAppLandPerf } from './land.perf.mjs'
 
 const args = process.argv.slice(2)
 const arg = (name, fallback) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
@@ -176,6 +177,10 @@ try {
         + ` land ${q(frames.land, 0.5).toFixed(2)}/${q(frames.land, 0.95).toFixed(2)}, n ${frames.land.length}, ${seconds} s; budget ${BUDGET.anim.ms})${over ? '  OVER' : ''}`)
       await page.context.close()
     }
+  }
+  if (!args.includes('--no-app-land')) {
+    const appLand = await runAppLandPerf(browser, server.url, { rate, dpr: DPR })
+    for (const p of appLand.problems) failures.push(`app-land: ${p}`)
   }
 } finally {
   await browser.close()

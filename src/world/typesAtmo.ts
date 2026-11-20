@@ -15,16 +15,7 @@ export interface WorldRelief {
 }
 
 export interface Body {
-  azimuth: number
-  /** True altitude (deg). */
-  altitude: number
-  /** Where it is drawn (scene px): its arc over the land, as the SVG scene places it. */
-  x: number
-  y: number
-  /** Above the flat horizon (refraction and the disc's radius counted). */
-  up: boolean
-  /** Above the land in its own direction (behind a ridge it is up but not over the land). */
-  overLand: boolean
+  azimuth: number; altitude: number; x: number; y: number; up: boolean; overLand: boolean
   /** How far (scene px) it stands over the land in its direction, negative behind it (the sun's, `sunBody`). */
   clearance?: number
   /** Share of its true disc over the drawn land (0–1; `livingLight.ts` `discShare`). */
@@ -32,12 +23,8 @@ export interface Body {
 }
 
 export interface MoonBody extends Body {
-  /** 0 new … 0.5 full … 1 new (synodic phase). */
-  phase: number
-  /** Lit fraction of the disc, 0–1. */
-  illumination: number
-  /** Screen angle (deg) from the moon toward the sun: the lit limb faces it. */
-  tilt: number
+  /** 0 new … 0.5 full … 1 new; lit fraction 0–1; screen angle (deg) from moon toward sun. */
+  phase: number; illumination: number; tilt: number
 }
 
 export interface Light {
