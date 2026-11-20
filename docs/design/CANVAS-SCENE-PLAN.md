@@ -2254,3 +2254,115 @@ and the sun now behind the drawn land at `jerusalem-1630` and `haifa-0620`. The 
 - The approaches into Ben Gurion seen from Tel Aviv are mostly behind the city's own drawn land, or faint near the
   horizon.
 - The cap and the day's start are judged per day: around midnight, the day before's events may add one to the caps.
+
+**Flight over the land (2026-11-20): where birds and planes fly makes physical sense.** Commits on `ccr-flight-terrain`
+(from `ace906a`). The owner's report: "pay attention to where they fly, so that they don't suddenly fly into the mountain,
+for example." Each event used to follow a straight path at one height over the eye, and only the drawn land decided what
+hid it: a near flock could cross the land and vanish "into" a hill, and a path could run through ground higher than
+itself (at the base places in one day of the fixture: 0–225 flock-minutes inside the ground per place, up to 7 flocks
+vanishing into the land in mid-frame). **Rule: every path lives in 3D over the real ground, and an object is hidden only
+by land truly between it and the eye.** General rules, no place named:
+- *The ground* (`world/flightTerrain.ts`): one height field per land, built once from what the scene already holds: the
+  panorama's rays (the DEM along every bearing in view, out to 60 km, every 100 m near and 1 km far; a polar grid) and the
+  local grid round the place (every direction, 250 m, ~6 km). It answers the ground at a point (m above sea level), and
+  whether the ground stands in the line of sight from the eye to a point in the air (`blockedKm`: the Earth's curve and the
+  refraction the panorama measures its ridges with, so a crossing behind a ridge happens where the ridge is drawn). Where
+  the land is not known, flat ground at the place.
+- *Birds* (`world/flightPaths.ts`): each kind keeps its height over the ground (`FLIGHT`): storks and raptors 200–1500 m
+  (thermals), cranes 300–1500 m, swifts 50–500 m, gulls 10–150 m, crows and pigeons 10–80 m, bats 5–60 m. A flock's track
+  is walked out from its closest point both ways (its way ahead, and back into its past), every `endM`/48 (10–250 m):
+  - it looks ahead along its heading (a migrant 4–8 km, by its climb rate; a resident up to 3 km) and climbs as a rise
+    comes in sight, at its kind's rate (cranes 1:10, storks 1:5, the small birds 1:4–1:3), with a little to spare;
+  - where the rise asks more than it can climb by then, it turns: of seven headings round its own (±15°, ±30°, ±45°) the
+    one that needs the least climbing, within 70° of its way, or to 120° along a wall while it still draws away from the
+    eye (so every session still ends far off, faded);
+  - a migrant aims, every few steps, at the lowest ground across its way at its look's distance (the pass, the valley's
+    floor; a little more each km aside), so it leans through corridors while holding the flyway's direction: a cheap rule,
+    no pathfinding;
+  - residents stay home: gulls are turned back toward their water (the nearest sea or lake, its bearing now kept in
+    `PlaceEnv`); crows, pigeons and raptors work the place itself (their session ends within a kilometre or two of it).
+  The altitude along the finished track is then laid once: the kind's height over the ground smoothed over ±600 m, never
+  under its least clearance × 1.15 + 3 m over the most of the ground at the point and at the quarters of the stretches to
+  its neighbours, climbing ahead of a rise at most at its climb rate and sinking after it at most at its sink rate. The
+  flock is evaluated along the track by arc length (`flockAt`, `trackPoint`): its heading is the track's there.
+- *Reading clearly* (`lifeSchedule.ts` `unclear`): the schedule draws a flock's height in its kind's band, and raises it
+  (up to three times, its way kept) while that reads more clearly against the land as drawn: it counts the samples of the
+  track in the frame and not faded that are drawn over the land while the ground truly hides them, hidden inside land the
+  scene draws behind them (they would seem to fly into a slope), drawn under land that is nearer, or skimming the drawn
+  land's edge (within 0.3°, a third each), and a flock hidden at its closest. The lowest count wins. (The old `floorAlt`
+  rule, which raised the closest point over the drawn land, is gone.)
+- *Planes*: cruise stays at FL340, above everything. Airport traffic (`approachPath`, `departurePath`):
+  - an arrival flies its last 15 km (a light plane 5 km) down the 3° glide path on the extended centreline to the
+    threshold; before that the first of the straight-in, a base leg (either side) or a downwind leg (either side) whose 3°
+    descent clears the ground by 300 m; with none, the one that clears it most, held level over the ground ahead;
+  - a departure climbs out along the runway heading at ~5° (light ~3°) for 6 km (3 km), then turns at a rate-one turn
+    toward its route (one of six ways by its seed): the first route nearest that way that clears the ground by 300 m after
+    the turn and keeps 8 km from the eye (a jet turning back close past the eye sweeps across its sky faster than a
+    minute's step can follow), else of the clear routes the farthest from the eye, else the clearest;
+  - paths are kept per land for every day (`ROUTES`); heights are over the eye; the near-field fade spans 45 % of a path
+    (was 25 %), so a turned departure fades out over its last minutes rather than its last two.
+- *Depth on screen* (`scene/model/life.ts` `placedInDepth`): each flock and movement carries `blockedKm` from the world
+  (the ground truly in its line of sight). Truly blocked: it is laid on the sky surface only, so the land drawn over it
+  hides it, and it passes behind the ridge's silhouette and comes back out on the other side when its line of sight
+  clears. Not blocked and nearer than the land drawn at its x (`inFrontOf`): a copy in front of that land, as before. Not
+  blocked but farther than the land drawn there (the place's rows and towers, the outside view's ground): hidden by that
+  nearer drawn land; the schedule's `unclear` steers flocks away from this. Flocks and low planes use the terrestrial
+  direction (`airDirection`: the curve and the panorama's refraction, without the sky's astronomical refraction), the
+  same footing the ridges are drawn on.
+- *Continuity* is kept: a flock's session still begins and ends far off (`fade` by ground distance), the schedule is
+  seeded per place and day, the rates ramp, and paths are built once per place, day and inputs.
+
+*Tests*:
+- `scene/model/flight.test.ts` (12: the 8 base places and the 4 `DATUM_PLACES`, every minute of 2026-11-17 through one
+  world builder):
+  - every flock under way keeps its kind's least clearance over the ground under it;
+  - a flock nearer than the land drawn at its x, with no ground in its line of sight, is never hidden;
+  - whatever is hidden (a flock or an airport movement) is hidden by land nearer than it: the ground in its line of sight
+    (checked on the panorama's own profiles, apart from the world's sight lines, within 5 m) or land drawn nearer than it;
+  - airport traffic clears the ground: by 300 m (−50 for the sampling) before an arrival's final, and on the final or
+    the climb-out by its glide's share (≥ min(300, 0.4 × its height over the field) − 10 m).
+- `world/flightPaths.test.ts` (5) on made-up ground: a crane climbs ahead of a 600 m ridge it can clear, at most 1:10,
+  never under 300 m over the ground, and crosses it; a gull meeting a 450 m cliff turns along its foot instead of
+  climbing it; a stork leans through a 300 m pass in a 900 m ridge; an arrival keeps the 3° final on the centreline and
+  takes a base or downwind leg round a hill on the straight-in (the straight-in on flat ground); a departure climbs out
+  along the runway and turns, round a massif, to a route that clears it.
+- Updated by their rules, unchanged in their checks: `continuity.test.ts`, `c10.test.ts`, `lifeSchedule.test.ts`.
+
+*Pixel references* re-recorded deliberately, 11 of 66, each only where a flock or a plane now flies elsewhere (the diffs
+are the life objects alone): `ein-gedi-1630@2x`, `jerusalem-1200`, `jerusalem-1200-dust`, `jerusalem-1200-offline`,
+`jerusalem-1200-overcast`, `shadmot-mehola-1200`, `tel-aviv-1200`, `tel-aviv-1200@2x`, `tiberias-1200`,
+`tiberias-1200-overcast`, `tiberias-1200@2x`. 66/66 on both paint paths.
+
+*Perf* (`npm run test:perf`, two runs each, against `ace906a` in the same container; `qa/canvas/perf.md`): scrub.model,
+scrub.world and the animated frame are within the run-to-run noise (this container's noise is large: the gated steps were
+over budget before the change too). worldCold grows a little, by the flocks' tracks, their reading and the airport
+routes: Haifa 875–1000 → 1020–1225 ms, Tel Aviv 764–1140 → 778–942, Shadmot 508–535 → 579–688 at CPU ×4. In node,
+unthrottled, a warm cold build is +0–20 ms (the height field ~5–20 ms once per land; a flock's way ~0.2–0.7 ms, laid once
+and only its altitude laid again for a raise; the routes kept per land for every day). Per minute only the evaluation
+runs: a point along a track and one sight line per object.
+
+*Stills* (`qa/canvas/flight/`, each before (`ace906a`) and after; `e2e/flight.strip.mjs` scrubs a harness page through
+the app's own `__scene.scrub`):
+- `strip-rosh-pina-{before,after}.png`: 07:30–08:03 every 3 min. Before, a crow flies into the mountain at 07:42 and comes
+  out of it at 08:00 (it was up to 270 m inside the ground); after, it crosses over the ridge in plain view.
+- `strip-tiberias-{before,after}.png`: 08:00–08:22 every 2 min. Before, crows sink into the hill behind the town; after,
+  they stay over it and recede into the haze.
+- `strip-ein-gedi-{before,after}.png`: 09:35–09:57 every 2 min. Before, gulls are drawn on the cliff face and vanish into
+  it; after, nothing in this window is drawn on the cliff or flies into it (the hour's gulls keep 10–150 m over the
+  ground they fly over, and their tracks turn along the cliff's foot).
+- `strip-haifa-carmel-{before,after}.png`: 13:04–13:26 every 2 min. Before, gulls sink into the Carmel; after, they keep
+  over the town and the bay and fade into the distance.
+- `strip-jerusalem-cranes-{before,after}.png`: 08:00–08:33 every 3 min, two crane flocks at their cruise over the hills.
+- `strip-haifa-approach-{before,after}.png`: 12:20–12:31 every minute, a window on the Zevulun valley (×3). An arrival into
+  Haifa on its 3° glide is behind the Carmel (the ground truly in its line of sight) and comes out over the valley.
+- `strip-ben-gurion-approach-{before,after}.png`: Tel Aviv 09:00–09:22 every 2 min, a window ×3 on the south-east. The
+  arrivals into Ben Gurion come up the 3° straight-in from the south-south-west (clear of the ground by 580 m and more) and
+  are behind the city's own drawn towers for most of it, as before.
+
+*Remaining* (for the owner's eye):
+- The ground is known along the view's rays (60 km) and round the place (6 km); behind the view farther than that a path
+  assumes the place's own ground (nothing there is in the frame).
+- Buildings are not in the DEM: a crow or pigeon keeps 10–80 m over the ground, not over the roofs, and the land drawn
+  nearer than an object (the place's rows and towers) hides it without a sight line of its own.
+- The coastal plain gives Ben Gurion straight-in approaches on every runway; the base and downwind legs show where high
+  ground stands on a centreline (the tests' made-up hill), not at the base places on this fixture's day.

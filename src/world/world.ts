@@ -27,7 +27,8 @@ import { ripplesOf, waterOf } from './water'
 import { windOf } from './wind'
 import type { LifeInput } from './life'
 import { makeLifeDays } from './lifeDay'
-import { altitudeOver } from './lifeSchedule'
+import { flightTerrain } from './flightTerrain'
+import { altitudeOver, type FlightContext } from './lifeSchedule'
 import { drawnSkyline } from './drawnSkyline'
 import { xOf } from '../domain/camera'
 import { nightSkyOf } from './nightSky'
@@ -93,9 +94,21 @@ export function makeWorldBuilder() {
   // the place's rows and towers, the marks; kept while those are the same objects.
   const judgeOf = memoOne(drawnSkyline)
   const lifeDays = makeLifeDays()
-  /** The lowest a flock passes at its closest in a direction: a little over the drawn land there (deg). */
-  const floorOf = memoOne((judge: Skyline, camera: WorldState['camera'], horizonY: number) => (azimuth: number) =>
-    altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => horizonY - anglePx(altitude)))
+  /**
+   * The land the sky's life flies over and is seen against (`lifeSchedule.ts` `FlightContext`): the true ground and sight
+   * lines (`flightTerrain.ts`), the drawn land's top (deg) and the drawn near land's distance in each direction.
+   */
+  const flightOf = memoOne((terrain: SceneTerrain, groundM: number, judge: Skyline, near: WorldState['terrain']['near'],
+    camera: WorldState['camera'], horizonY: number): FlightContext => ({
+    terrain: flightTerrain(terrain, groundM),
+    drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => horizonY - anglePx(altitude)),
+    nearKm: (azimuth: number) => {
+      const x = xOf(azimuth, camera), pts = near.points
+      if (!pts.length) return Infinity
+      const i = Math.max(0, Math.min(pts.length - 1, Math.round((x / SCENE_W) * (pts.length - 1))))
+      return near.distanceKm[i] ?? Infinity
+    },
+  }))
   const planesOf = memoOne(terrainPlanes)
   const placePart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
     city: WorldInput['city'], width: number, elevation: number, bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'],
@@ -177,7 +190,9 @@ export function makeWorldBuilder() {
       visibilityKm: air.visibilityKm }
     // The life is a process in time (`lifeSchedule.ts`): the day's events drawn once per place, day and inputs, and shown
     // where each one's path has brought it at this minute.
-    const life = lifeDays(input, at, lifeInput, { camera, env }, status === 'ready' ? floorOf(sunSkyline, camera, horizonY) : undefined,
+    const planes = planesOf(drawn, place.id)
+    const life = lifeDays(input, at, lifeInput, { camera, env },
+      status === 'ready' ? flightOf(terrain, forecast.elevation, sunSkyline, planes.near, camera, horizonY) : undefined,
       [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
@@ -189,7 +204,7 @@ export function makeWorldBuilder() {
       place, at, preview, seed, camera,
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
       bodies, light, air, clouds, rain, snow, snowfall, wind,
-      terrain: planesOf(drawn, place.id),
+      terrain: planes,
       water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part,
       place3: placePartResult.place3,

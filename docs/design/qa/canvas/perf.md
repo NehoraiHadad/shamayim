@@ -616,3 +616,20 @@ scrub.model and the animated frame are within the run-to-run noise. A flock or a
 time, so a scrub repaints only a contrail's band as it ages. worldCold grows by the day's two life schedules (the shown
 day and the day before), +100–170 ms at ×4. In node, unthrottled, a schedule takes ~10 ms. It is built once per place,
 day and inputs, and a scrub only evaluates it.
+
+## Flight over the land (2026-11-20): paths over the real ground, depth by the line of sight
+
+`npm run test:perf` (all places; CPU ×4, dpr 2.75, software raster, worker path). Two runs each, against `ace906a` (the
+same tree before the change) run in the same container:
+
+```
+                  scrub.model p95     scrub.world p95    worldCold              anim frame p95
+                  before   after      before  after      before     after       before   after
+  haifa           44–49    26–31      22–24   11–14      875–1000   1020–1225   5.7–7.3  3.5–5.4
+  tel-aviv        23–36    31         17      15         764–1140   778–942     5.1–6.5  3.7–7.2
+  shadmot-mehola  19       19–26      11      9–12       508–535    579–688     3.7–4.4  3.2–4.7
+```
+
+The scrub and the animated frame are within the run-to-run noise. worldCold grows by the flocks' tracks over the ground,
+their reading against the land and the airport routes (+0–20 ms per cold build in node, unthrottled); per minute only a
+point along each track and one sight line per object are evaluated.

@@ -16,6 +16,9 @@ export interface PlaceEnv {
   seaKm: number | null
   /** Distance (km) to a lake (the Kinneret, the Dead Sea) within 20 km, else null. */
   lakeKm: number | null
+  /** The bearing (deg) of the nearest sea and lake, where there is one (a resident of the shore keeps to it). */
+  seaAz?: number | null
+  lakeAz?: number | null
   /** Shares (0–1) of the ground within ~2 km: built, and open country (crops, grass, shrub, bare). */
   built: number
   open: number
@@ -30,16 +33,16 @@ export interface PlaceEnv {
 const KM_LAT = 110.57
 const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180)
 
-/** The nearest water of a kind along 24 bearings, out to 20 km in 0.4 km steps. */
-function waterKm(place: Place, mask: WaterMask | null | undefined, kind: 'sea' | 'lake'): number | null {
+/** The nearest water of a kind along 24 bearings, out to 20 km in 0.4 km steps: its distance and bearing. */
+function waterKm(place: Place, mask: WaterMask | null | undefined, kind: 'sea' | 'lake'): { km: number; az: number } | null {
   if (!mask) return null
-  let best: number | null = null
+  let best: { km: number; az: number } | null = null
   for (let k = 0; k < 24; k++) {
     const a = (k / 24) * 2 * Math.PI
-    for (let d = 0; d <= 20 && (best === null || d < best); d += 0.4) {
+    for (let d = 0; d <= 20 && (best === null || d < best.km); d += 0.4) {
       const lat = place.lat + (d * Math.cos(a)) / KM_LAT, lon = place.lon + (d * Math.sin(a)) / kmLon(place.lat)
       const body = mask.bodyAt(lat, lon)
-      if (body !== null && mask.bodies[body]?.kind === kind) { best = d; break }
+      if (body !== null && mask.bodies[body]?.kind === kind) { best = { km: d, az: k * 15 }; break }
     }
   }
   return best
@@ -90,9 +93,12 @@ export function placeEnvOf(place: Place, data: { cover?: LandCover | null; far?:
   const built = shares?.n ? shares.built : popBuilt
   const open = shares?.n ? shares.open : 1 - popBuilt
   const glow = data.far ? farGlow(place, data.far) : shares?.n ? shares.built * 8 : popBuilt * 8
+  const sea = waterKm(place, data.waterMask, 'sea'), lake = waterKm(place, data.waterMask, 'lake')
   return {
-    seaKm: waterKm(place, data.waterMask, 'sea'),
-    lakeKm: waterKm(place, data.waterMask, 'lake'),
+    seaKm: sea?.km ?? null,
+    lakeKm: lake?.km ?? null,
+    seaAz: sea?.az ?? null,
+    lakeAz: lake?.az ?? null,
     built, open, glow,
     sources: { land: shares?.n ? 'cover' : 'population', glow: data.far ? 'far' : shares?.n ? 'cover' : 'population' },
   }

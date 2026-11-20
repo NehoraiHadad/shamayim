@@ -46,6 +46,10 @@ export interface Flock {
   /** 0–1: how likely the kind was when it came (what chose it). */
   score: number
   seed: number
+  /** Where it is (km east, north of the eye; m above it). */
+  at?: { e: number; n: number; up: number }
+  /** How far off (km over the ground) the land truly stands in its line of sight, or null when nothing does. */
+  blockedKm?: number | null
 }
 
 /** A day of the year (1–366) of a local time. */
@@ -153,17 +157,18 @@ export function birdScores(input: LifeInput): Record<BirdKind, number> {
   return scores
 }
 
-interface KindShape { count: [number, number]; distanceM: [number, number]; altitude: [number, number]; speedMs: number }
+/** A kind's flocks: how many birds, how near they pass (m), their own airspeed. Their height is `flightPaths.ts` `FLIGHT`. */
+interface KindShape { count: [number, number]; distanceM: [number, number]; speedMs: number }
 
 export const SHAPES: Record<BirdKind, KindShape> = {
-  stork: { count: [14, 38], distanceM: [1400, 3000], altitude: [16, 40], speedMs: 9 },
-  crane: { count: [9, 28], distanceM: [1800, 4000], altitude: [12, 32], speedMs: 15 },
-  swift: { count: [5, 12], distanceM: [150, 400], altitude: [24, 55], speedMs: 20 },
-  gull: { count: [2, 6], distanceM: [200, 600], altitude: [5, 20], speedMs: 9 },
-  raptor: { count: [1, 3], distanceM: [500, 1200], altitude: [18, 42], speedMs: 3 },
-  crow: { count: [1, 3], distanceM: [150, 350], altitude: [6, 18], speedMs: 11 },
-  pigeon: { count: [12, 26], distanceM: [180, 400], altitude: [6, 20], speedMs: 14 },
-  bat: { count: [2, 6], distanceM: [40, 120], altitude: [6, 24], speedMs: 6 },
+  stork: { count: [14, 38], distanceM: [1400, 3000], speedMs: 9 },
+  crane: { count: [9, 28], distanceM: [1800, 4000], speedMs: 15 },
+  swift: { count: [5, 12], distanceM: [150, 400], speedMs: 20 },
+  gull: { count: [2, 6], distanceM: [200, 600], speedMs: 9 },
+  raptor: { count: [1, 3], distanceM: [500, 1200], speedMs: 3 },
+  crow: { count: [1, 3], distanceM: [150, 350], speedMs: 11 },
+  pigeon: { count: [12, 26], distanceM: [180, 400], speedMs: 14 },
+  bat: { count: [2, 6], distanceM: [40, 120], speedMs: 6 },
 }
 
 /** The way a kind goes: migrants north in spring and south in autumn, raptors with the wind, the rest seeded. */
@@ -227,6 +232,8 @@ export interface LowPlane {
   /** Its whole path's length (km). */
   pathKm: number
   seed: number
+  /** How far off (km over the ground) the land truly stands in its line of sight, or null when nothing does. */
+  blockedKm?: number | null
 }
 
 /** A route near an airport within reach, on the runway the wind picks: its path out from the field (every 0.5 km). */
