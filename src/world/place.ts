@@ -15,8 +15,8 @@ import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, marksOf } from './marks'
-import { outsidePlace } from './outside'
-import { datumOfRow } from './datum'
+import { drawnTerrain, outsidePlace, type NearLine } from './outside'
+import { datumOfRow, datumOnLand } from './datum'
 import type { CoastalSea, OutsideView, WorldLabels, WorldMark } from './types'
 
 /**
@@ -67,7 +67,7 @@ export function homeHalf(reachKm: number, known: boolean): number {
  * `night.litShare`).
  */
 export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldMark[]; labels: WorldLabels;
-  ownSkyline: boolean; coastalSea: CoastalSea | null } {
+  ownSkyline: boolean; coastalSea: CoastalSea | null; nearLine: NearLine | null } {
   const { place, terrain, city, width, elevation } = input
   const landmarks = [...input.landmarks]
   const reachKm = portraitReach(city?.clusters)
@@ -85,18 +85,25 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   // Seen from outside (C5): its own frame, boundary and slope, its mass and spires, the towers beyond, its sea.
   const view = outsidePlace({ place, terrain, landmarks, city, width, centerX, reachKm, ground, floor,
     bounds: input.bounds, mask: input.waterMask, cover: input.cover })
+  // The land as drawn: the near land the outside view lays (the place's own ground and what truly stands behind it, on its
+  // scale), the panorama's ridge beyond the place's span; the marks and the datum stand on it.
+  const drawn = drawnTerrain(terrain, view.nearLine)
+  const drawnGround = groundFn(drawn.nearPoints, width)
   // The dot on the place's one vertical scale (owner decision 14: under the near ridge's crest by the crest's height over
   // it); without the local ground, on the drawn ridge (not on the raw middle sample, which can float over the curve).
-  const dot = { x: centerX, y: view.vscale?.dotY ?? ground(centerX) }
+  const dot = { x: centerX, y: view.vscale?.dotY ?? drawnGround(centerX) }
   // Below sea level, the "פני הים" datum where the picture's own scale puts 0 m (`datum.ts`), cut against the slopes that
   // reach it.
   const seaLevel = elevation < 0 && view.seaLevelY !== null && view.seaLevelY < dot.y ? { y: view.seaLevelY } : null
   const ends = seaLevel ? view.zeroAlongRow() : null
   const to375 = (x: number | null) => x === null ? null : x * 375 / width
-  const datum = seaLevel && ends ? datumOfRow(seaLevel.y, centerX * 375 / width, { left: to375(ends.left), right: to375(ends.right) }) : null
+  // A contour lies on land: the line only where it stands over the drawn land (the near land, the far land over it).
+  const farY = groundFn(drawn.farPoints, width), landY = (x375: number) => Math.min(drawnGround(x375 * width / 375), farY(x375 * width / 375))
+  const row = seaLevel && ends ? datumOfRow(seaLevel.y, centerX * 375 / width, { left: to375(ends.left), right: to375(ends.right) }) : null
+  const datum = row ? datumOnLand(row, landY, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
   const notes = notesOnWater(notes0, terrain, view, dot, width)
-  const marks = marksOf({ place, terrain, landmarks, width, dot, reachKm, homeHalf: homeHalf(reachKm, known), style: style.style,
+  const marks = marksOf({ place, terrain: drawn, landmarks, width, dot, reachKm, homeHalf: homeHalf(reachKm, known), style: style.style,
     notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land } })
   // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds
@@ -104,7 +111,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const line = (datum?.segments ?? []).map((seg) => ({ left: seg.x1 * width / 375, right: seg.x2 * width / 375, top: datum!.y - 1, bottom: datum!.y + 1 }))
   const spot = besideDot(dot, label.text, width, [...marks.filter((m) => m.plane !== 'far').map(markBox), ...line], notes)
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y, backed: true }, notes, datum }
-  return { marks, labels, ownSkyline, coastalSea: view.sea, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
+  return { marks, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
     trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,
     vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null } }

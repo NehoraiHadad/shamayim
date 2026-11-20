@@ -15,7 +15,7 @@ import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../../test/sce
 import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { STOREY_M } from '../../data/city/skylineHeight'
-import { ABOVE_PAD, legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
+import { legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
 import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { groundAt as lineAt } from '../../world/sceneLight'
@@ -247,14 +247,19 @@ describe('nothing beyond the place stands on a bare skyline the eye cannot see (
 })
 
 describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
-  it.each(['jerusalem', 'rosh-pina'])('%s: snow lies on its ground over the ridge line, none without snow', (id) => {
+  it.each(['jerusalem', 'rosh-pina'])('%s: snow lies on its near land, on its own scale; none without snow', (id) => {
     const snowy = buildWorld({ ...worldInput(loaded.get(id)!, NOON), forced: { snowfall: 2, precipitation: 2, temperature: -1,
       feelsLike: -4, cloudCover: 100, thickCloud: 100, weatherCode: 73 } })
-    const land = layerOf(snowy)!.land!
-    expect(land.snow?.runs.length).toBeGreaterThan(0)
-    const light = (c: readonly number[]) => c[0] + c[1] + c[2]
-    expect(light(land.snow!.rgb)).toBeGreaterThan(light(land.tone) + 0.5)
-    expect(layerOf(worldAt(id))!.land?.snow ?? null).toBeNull()
+    const near = (w: WorldState) => sceneModel(w, BOX).layers.find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
+    const snow = near(snowy).light.snow
+    expect(snow).not.toBeNull()
+    // At the dot the near land is the place's own: its snow runs from the crest down by (crest m − snow line m) × s.
+    const { terrain } = snowy, view = snowy.place3 as OutsideView
+    const x = Math.round(view.dot.x), crestM = terrain.near.elevations![x], lineM = snowy.snow!.lineM
+    const edge = terrain.snowEdge!('near', lineM).find(([ex]) => ex === x)!
+    const want = crestM >= lineM ? terrain.near.points[x][1] + (crestM - lineM) * view.vscale!.s : terrain.near.points[x][1] - 2
+    expect(edge[1]).toBeCloseTo(want, 6)
+    expect(near(worldAt(id)).light.snow ?? null).toBeNull()
   })
 })
 
@@ -287,13 +292,9 @@ describe('rows climb the slope (C5 item 2)', () => {
       }
     }
     if (id === 'zikhron-yaakov' || id === 'rosh-pina') expect(pairs, id).toBeGreaterThan(0)
-    // Nothing floats: every base on the ridge line or on the place's own ground where it rises over it.
-    const land = view.land?.top
-    for (const b of boxes) {
-      const i = land ? Math.round(b.x - land[0][0]) : -1
-      const surface = land && i >= 0 && i < land.length ? Math.min(ground(b.x) + 1, land[i][1] + 1) : ground(b.x) + 1
-      expect(b.foot, id).toBeGreaterThanOrEqual(surface - ABOVE_PAD - 2.5)
-    }
+    // Nothing floats: every base on the land as drawn (the place's own near land, owner decision 14's follow-up).
+    const drawn = groundFn(worldAt(id).terrain.near.points.map(([x, y]) => [x, y]), 375)
+    for (const b of boxes) expect(b.foot, id).toBeGreaterThanOrEqual(drawn(b.x) + 1 - 1.5)
   })
 
   it('builds Zikhron Ya’akov as a body of houses: several rows stepping up its hill, higher ground higher', () => {

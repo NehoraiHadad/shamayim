@@ -63,3 +63,38 @@ export function datumOfRow(y: number, midX: number, ends: { left: number | null;
   const seg: DatumSegment = { x1, x2, fadeLeft: ends.left === null ? fade : 0, fadeRight: ends.right === null ? fade : 0 }
   return { x1, x2, y, segments: [seg] }
 }
+
+/** A piece of the line narrower than this (px at 375) is not drawn: a dash or two is no line. */
+export const MIN_PIECE = 10
+
+/**
+ * The datum clipped to the drawn land (a contour lies on land, never in the sky): only where the line stands on or under
+ * the land's top at x (`landTop`, px at 375: the near land, the far land showing over it), in pieces; a piece cut by the
+ * land's edge ends there (no fade), an open end that survives keeps its fade. The note's piece is the one through the
+ * dot, else the widest. Null where no piece is left (no line and no note).
+ */
+export function datumOnLand(datum: Datum, landTop: (x: number) => number, midX: number): Datum | null {
+  const pieces: DatumSegment[] = []
+  for (const seg of datum.segments) {
+    let start: number | null = null
+    const close = (end: number) => {
+      if (start === null) return
+      const x1 = start, x2 = end
+      start = null
+      if (x2 - x1 < MIN_PIECE) return
+      const keepL = Math.abs(x1 - seg.x1) < 1e-9, keepR = Math.abs(x2 - seg.x2) < 1e-9
+      pieces.push({ x1, x2, fadeLeft: keepL ? Math.min(seg.fadeLeft, (x2 - x1) / 2) : 0,
+        fadeRight: keepR ? Math.min(seg.fadeRight, (x2 - x1) / 2) : 0 })
+    }
+    for (let x = seg.x1; ; x = Math.min(seg.x2, x + 1)) {
+      const on = datum.y >= landTop(x) - .5
+      if (on && start === null) start = x
+      if (!on) close(x - 1)
+      if (x >= seg.x2) { close(seg.x2); break }
+    }
+  }
+  if (!pieces.length) return null
+  const main = pieces.find((p) => p.x1 <= midX && midX <= p.x2) ?? pieces.reduce((a, b) => b.x2 - b.x1 > a.x2 - a.x1 ? b : a)
+  return { x1: main.x1, x2: main.x2, y: datum.y, segments: pieces }
+}
+

@@ -5,7 +5,8 @@ import { terrainFromPanorama, zeroContourOf } from '../data/terrain/panoramaTerr
 import type { LocalTime } from '../domain/types'
 import { DATUM_PLACES, SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { datumOfRow, OPEN_REACH } from './datum'
+import { datumOfRow, datumOnLand, OPEN_REACH } from './datum'
+import { groundAt as lineAt } from './sceneLight'
 import { LABEL_H, textWidth } from './layout'
 import type { WorldState } from './types'
 import { buildWorld } from './world'
@@ -79,13 +80,16 @@ describe('the datum at every place below sea level', () => {
     for (const id of BELOW) {
       const world = worldOf(id)
       const line = world.labels.datum
-      expect(line, id).toBeTruthy()
+      // No land under sea level's height along the row: no line and no note (decision 14's follow-up).
+      if (!line) { expect(world.labels.notes.some((n) => n.kind === 'datum'), id).toBe(false); continue }
       const dot = world.place3.dot
       expect(line!.y, id).toBeLessThan(dot.y)
       const note = world.labels.notes.find((n) => n.kind === 'datum')!
       expect(note.top + note.height, id).toBeLessThanOrEqual(line!.y)
-      expect(note.left, id).toBeGreaterThanOrEqual(line!.x1 - 1e-9)
-      expect(note.left + note.width, id).toBeLessThanOrEqual(line!.x2 + 1e-9)
+      // Over a visible piece of the line: its middle over the note's piece (centred on a piece shorter than the text).
+      expect(note.left + note.width / 2, id).toBeGreaterThanOrEqual(line!.x1 - 1e-9)
+      expect(note.left + note.width / 2, id).toBeLessThanOrEqual(line!.x2 + 1e-9)
+      expect(line!.segments.some((seg) => seg.x1 === line!.x1 && seg.x2 === line!.x2), id).toBe(true)
       const { height } = world.labels
       const w = textWidth(height.text, 11)
       const crosses = line!.segments.some((seg) => height.x + w / 2 > seg.x1 && height.x - w / 2 < seg.x2
@@ -109,26 +113,50 @@ describe('the datum at every place below sea level', () => {
       expect(vscale, id).not.toBeNull()
       expect(vscale!.h0, id).toBeLessThan(0)
       // The dot is a base's y less 1 (it sits on its ground's line): sea level stands |h0| × s over that ground.
-      expect(world.labels.datum!.y, id).toBeCloseTo(view.dot.y + 1 + vscale!.h0 * vscale!.s, 6)
+      if (world.labels.datum) expect(world.labels.datum.y, id).toBeCloseTo(view.dot.y + 1 + vscale!.h0 * vscale!.s, 6)
     }
   })
 
-  it('ends where the dot’s own row really rises through 0 m (Tiberias’s and Ein Gedi’s slopes behind the town)', () => {
-    for (const id of ['tiberias', 'ein-gedi']) {
+  it('lies on land only, and each hard end is where the row’s ground is 0 m or where the land’s edge meets the line', () => {
+    for (const id of BELOW) {
       const world = worldOf(id)
       const view = world.place3
       if (view.kind !== 'outside') throw new Error(`${id} is seen from outside`)
-      const line = world.labels.datum!
-      const seg = line.segments[0]
-      const ends = [seg.fadeLeft ? null : seg.x1, seg.fadeRight ? null : seg.x2].filter((x): x is number => x !== null)
-      expect(ends.length, id).toBeGreaterThan(0)
-      const { frame } = view
+      const line = world.labels.datum
+      if (!line) continue
+      const near = world.terrain.near.points, far = world.terrain.far.points
+      const landTop = (x: number) => Math.min(lineAt(near, x), lineAt(far, x))
       const heightNear = loaded.get(id)!.terrain.heightNear!
-      for (const x of ends) {
-        // Back from the screen to the row (dy = 0): x = centerX − f·dx / eyeN.
-        const dx = (frame.centerX - x) * frame.eyeN / frame.f
-        expect(Math.abs(heightNear(dx, 0)!), id).toBeLessThan(15)
+      const { frame } = view
+      for (const seg of line.segments) {
+        for (let x = seg.x1; x <= seg.x2; x += 1) expect(line.y, `${id} ${x}`).toBeGreaterThanOrEqual(landTop(x) - .5)
+        for (const [x, faded] of [[seg.x1, seg.fadeLeft], [seg.x2, seg.fadeRight]] as const) {
+          if (faded) continue
+          // Back from the screen to the row (dy = 0): x = centerX − f·dx / eyeN.
+          const dx = (frame.centerX - x) * frame.eyeN / frame.f
+          const crossing = Math.abs(heightNear(dx, 0) ?? Infinity) < 15
+          const landEdge = Math.min(...[-1.5, 0, 1.5].map((d) => Math.abs(landTop(x + d) - line.y))) < 2
+          expect(crossing || landEdge, `${id} end ${x}`).toBe(true)
+        }
       }
     }
+  })
+
+  it('keeps the line where land lies under it: Tiberias, Ein Gedi and most places below sea level', () => {
+    const lined = BELOW.filter((id) => worldOf(id).labels.datum)
+    expect(lined).toEqual(expect.arrayContaining(['tiberias', 'ein-gedi']))
+    expect(lined.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('draws no line and no note where no land lies under sea level’s height', () => {
+    const row = datumOfRow(50, 187.5, { left: null, right: 230 })
+    expect(datumOnLand(row, () => 60, 187.5)).toBeNull()
+    // Land under a part of it: that part only, its open end keeping its fade, the cut end none.
+    const cut = datumOnLand(row, (x) => (x < 200 ? 40 : 60), 187.5)!
+    expect(cut.segments).toHaveLength(1)
+    expect(cut.segments[0].x1).toBeCloseTo(121.5)
+    expect(cut.segments[0].fadeLeft).toBeGreaterThan(0)
+    expect(cut.segments[0].x2).toBeLessThan(200)
+    expect(cut.segments[0].fadeRight).toBe(0)
   })
 })

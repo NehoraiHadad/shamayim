@@ -15,6 +15,7 @@ import { partKey } from './keys'
 import { lightOf } from './light'
 import { nightOf } from './night'
 import { placeOf } from './place'
+import { drawnTerrain } from './outside'
 import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
@@ -64,7 +65,7 @@ function unknownPlace(place: WorldInput['place'], elevation: number) {
     y: 0 }, notes: [] }
   const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }
   return { place3: { kind: 'unknown' as const, dot, reachKm: 0, seed: hashId(place.id) }, marks: [], labels, ownSkyline: false, coastalSea: null,
-  placeKey: 'unknown', marksKey: 'unknown' }
+  nearLine: null, placeKey: 'unknown', marksKey: 'unknown' }
 }
 
 /** Remembers its last result while every argument is the same object or value. */
@@ -100,6 +101,9 @@ export function makeWorldBuilder() {
   const envPart = memoOne((place: WorldInput['place'], cover: WorldInput['cover'], far: WorldInput['far'], waterMask: WorldInput['waterMask']) =>
     placeEnvOf(place, { cover, far, waterMask }))
   const terrainKey = memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2))
+  // The land as drawn (owner decision 14's follow-up): the near ridge within the place's span is the place's own near land
+  // (`outside.ts` `nearLineOf`), the panorama's beyond it. The sun and moon still set behind the panorama's own skyline.
+  const drawnOf = memoOne(drawnTerrain)
 
   return function buildWorld(input: WorldInput): WorldState {
     const { place, forecast, now, selected } = input
@@ -147,6 +151,8 @@ export function makeWorldBuilder() {
     const ground = { wet: groundWet(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
     const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
       input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
+    const drawn = drawnOf(terrain, placePartResult.nearLine)
+    // The far towns are the far land's: placed on the panorama's own terrain (its eye's view), drawn behind the near land.
     const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const horizonY = terrain.horizonY
     // C10: the life of the sky, its true night objects and its optics, from the same state.
@@ -166,7 +172,7 @@ export function makeWorldBuilder() {
       place, at, preview, seed, camera,
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
       bodies, light, air, clouds, rain, snow, snowfall, wind,
-      terrain: planesOf(terrain, place.id),
+      terrain: planesOf(drawn, place.id),
       water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part,
       place3: placePartResult.place3,
@@ -182,7 +188,7 @@ export function makeWorldBuilder() {
         clouds: partKey(clouds, 2),
         rain: partKey([rain, snowfall], 2),
         wind: partKey(wind, 2),
-        terrain: `${status}:${terrainKey(terrain)}`,
+        terrain: `${status}:${terrainKey(drawn)}`,
         water: partKey({ ...water, ripples: undefined, coastalSea: placePartResult.placeKey }, 3),
         farCities: `${terrainKey(terrain)}:${farCities.key}`,
         place: placePartResult.placeKey,

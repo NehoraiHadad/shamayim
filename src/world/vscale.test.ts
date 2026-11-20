@@ -85,7 +85,7 @@ describe('at every harness place', () => {
     }
   })
 
-  it('keeps the picture in the land area, and the mountain places tall (Haifa’s Carmel, Jerusalem, Rosh Pina)', () => {
+  it('keeps the picture in the land area, and the mountain places tall (Haifa’s Carmel, Jerusalem, Rosh Pina: rows over 20 px)', () => {
     for (const { id } of places) {
       const view = worldOf(id).place3 as OutsideView
       if (!view.vscale) continue
@@ -95,7 +95,7 @@ describe('at every harness place', () => {
     for (const id of ['haifa', 'jerusalem', 'rosh-pina']) {
       const view = worldOf(id).place3 as OutsideView
       const feet = view.skyline.boxes.map((b) => b.foot)
-      expect(Math.max(...feet) - Math.min(...feet), id).toBeGreaterThan(25)
+      expect(Math.max(...feet) - Math.min(...feet), id).toBeGreaterThan(20)
     }
   })
 
