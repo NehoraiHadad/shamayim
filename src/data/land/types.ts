@@ -1,4 +1,4 @@
-import type { LandCover } from './landData'
+import type { CoverSource, LandCover } from './landData'
 
 /** Provenance tag carried on every land measurement or fallback value. */
 export type LandSource =
@@ -121,10 +121,11 @@ export interface RecentLandWeather {
 export interface LandSample {
   /** WorldCover class index (`1..10`), or null outside loaded coverage / unknown class 0. */
   cover: number | null
+  /** WorldCover product vintage and winning layer (`worldcover-2021:*` or `unknown`). */
+  coverSource: CoverSource
   rgb: [number, number, number]
   rgbSource: LandSource
   rgbDate: string | null
-  /** Acquisition solar geometry (deg) when `rgb` comes directly from a near S2 cell, else undefined. */
   rgbSunElevation?: number; rgbSunAzimuth?: number
   ndvi: number
   ndviSource: LandSource

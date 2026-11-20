@@ -1,25 +1,29 @@
 import { climatologyAt, type ClimatologySample } from './climatology'
+import { lookupCover, type CoverLookup } from './coverCodec'
 import { computeCoverMeans, MIN_CELL_VALID, type CoverMean, type CoverMeansTable } from './coverMeans'
-import { farAt } from './gibs'
+import { farAt, type FarSample } from './gibs'
 import { nearAt } from './nearGrid'
 import { drynessFromWeather } from './recentWeather'
-import type { LandData, LandSample, LandSource } from './types'
+import type { LandData, LandSample, LandSource, NearCell } from './types'
 
 /**
  * Unified living-land sampler with explicit provenance & observation date on every resolved value.
  *
- * Fallback priority (evaluated lazily per channel so direct near-S2 hits skip far/mean/climatology):
- * - RGB albedo: near S2 (`s2:<rgbDate>`) → far GIBS SR (`gibs:<rgbDate>`) → per-cover S2 mean
- *   (`s2-mean:<rgbDate>`, known WorldCover classes `1..10` only) → climatology.
- * - NDVI: near S2 (`s2:<ndviDate>`) → far GIBS NDVI (`gibs:<date>`) → per-cover S2 mean → climatology.
- * - NDSI: near S2 (`s2:<ndsiDate>`) only; missing NDSI is explicit (`ndsi: null, ndsiSource: null`).
- * - Snow: near S2 SCL-11 land fraction (`s2:<snowDate>`, open water SCL-6 = 0) → elevation-aware climatology.
- * - Dryness: precomputed Open-Meteo liquid rain + soil moisture (`open-meteo:<date>`) → climatology.
+ * `sampleAt` applies stateless spatial priority (`near S2 → far GIBS → s2-mean → climatology`);
+ * `PreparedLandSampler` also exposes lazy per-source accessors so Stage 2 (`src/world/landSample.ts`)
+ * can make date-aware per-channel priority decisions (preferring fresh GIBS over stale/future near S2).
  */
 export { computeCoverMeans, MIN_CELL_VALID, type CoverMean, type CoverMeansTable }
 
+export interface PreparedWeather { dryness: number; source: LandSource; date: string }
+
 export interface PreparedLandSampler {
   sampleAt(lat: number, lon: number, month: number, elevationM?: number): LandSample
+  coverAt(lat: number, lon: number): CoverLookup
+  nearAt(lat: number, lon: number): NearCell | null
+  farAt(lat: number, lon: number): FarSample | null
+  coverMeanAt(cover: number): { mean: CoverMean; tableDate: string } | null
+  readonly weather: PreparedWeather | null
 }
 
 const SAMPLER_CACHE = new WeakMap<LandData, PreparedLandSampler>()
@@ -27,26 +31,38 @@ const SAMPLER_CACHE = new WeakMap<LandData, PreparedLandSampler>()
 /** Prepares source-wide values once per `LandData` bundle and evaluates fallbacks lazily on demand. */
 export function prepareLandSampler(data: LandData): PreparedLandSampler {
   const weatherDryness = data.weather ? drynessFromWeather(data.weather) : null
-  const weatherSource = weatherDryness !== null && data.weather ? data.weather.source : null
-  const weatherDate = weatherDryness !== null && data.weather ? data.weather.date : null
+  const weather: PreparedWeather | null = weatherDryness !== null && data.weather
+    ? { dryness: weatherDryness, source: data.weather.source, date: data.weather.date }
+    : null
   let means: CoverMeansTable | null | undefined
 
   const getMeans = (): CoverMeansTable | null => {
     if (means === undefined) means = data.near && data.cover ? computeCoverMeans(data.near, data.cover) : null
     return means
   }
+  const coverLookup = (lat: number, lon: number): CoverLookup => lookupCover(data.cover, lat, lon)
+  const nearLookup = (lat: number, lon: number): NearCell | null => (data.near ? nearAt(data.near, lat, lon) : null)
+  const farLookup = (lat: number, lon: number): FarSample | null => (data.far ? farAt(data.far, lat, lon) : null)
+  const coverMeanAt = (cover: number): { mean: CoverMean; tableDate: string } | null => {
+    const m = getMeans()
+    const mean = m?.byCover[cover]
+    return m && mean ? { mean, tableDate: m.date } : null
+  }
 
   return {
+    weather,
+    coverAt: coverLookup,
+    nearAt: nearLookup,
+    farAt: farLookup,
+    coverMeanAt,
     sampleAt(lat: number, lon: number, month: number, elevationM = 0): LandSample {
-      const rawCover = data.cover ? data.cover.coverAt(lat, lon) : 0
-      const cover = rawCover > 0 ? rawCover : null
-      const near = data.near ? nearAt(data.near, lat, lon) : null
+      const { cover, source: coverSource } = coverLookup(lat, lon)
+      const near = nearLookup(lat, lon)
 
       let rgb: [number, number, number] | null = null
       let rgbSource: LandSource = 'climatology'
       let rgbDate: string | null = null
-      let rgbSunElevation: number | undefined
-      let rgbSunAzimuth: number | undefined
+      let rgbSunElevation: number | undefined, rgbSunAzimuth: number | undefined
       if (near && near.rgb && near.rgbValid >= MIN_CELL_VALID && near.rgbSource) {
         rgb = near.rgb; rgbSource = near.rgbSource; rgbDate = near.rgbDate
         rgbSunElevation = near.sunElevation; rgbSunAzimuth = near.sunAzimuth
@@ -60,7 +76,7 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       }
 
       if (rgb === null || ndvi === null) {
-        const far = data.far ? farAt(data.far, lat, lon) : null
+        const far = farLookup(lat, lon)
         if (rgb === null && far?.rgb && far.rgbSource) {
           rgb = far.rgb; rgbSource = far.rgbSource; rgbDate = far.rgbDate
         }
@@ -70,15 +86,16 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       }
 
       if ((rgb === null || ndvi === null) && cover !== null) {
-        const m = getMeans()
-        const cm = m?.byCover[cover] ?? null
-        if (rgb === null && cm?.rgb && m) {
-          const d = cm.rgbDate ?? m.date
-          rgb = cm.rgb; rgbSource = `s2-mean:${d}`; rgbDate = d
-        }
-        if (ndvi === null && cm?.ndvi !== null && cm?.ndvi !== undefined && m) {
-          const d = cm.ndviDate ?? m.date
-          ndvi = cm.ndvi; ndviSource = `s2-mean:${d}`; ndviDate = d
+        const hit = coverMeanAt(cover)
+        if (hit) {
+          if (rgb === null && hit.mean.rgb) {
+            const d = hit.mean.rgbDate ?? hit.tableDate
+            rgb = hit.mean.rgb; rgbSource = `s2-mean:${d}`; rgbDate = d
+          }
+          if (ndvi === null && hit.mean.ndvi !== null) {
+            const d = hit.mean.ndviDate ?? hit.tableDate
+            ndvi = hit.mean.ndvi; ndviSource = `s2-mean:${d}`; ndviDate = d
+          }
         }
       }
 
@@ -92,12 +109,12 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       let snowSource: LandSource = hasNearSnow ? near!.snowSource! : 'climatology'
       let snowDate: string | null = hasNearSnow ? near!.snowDate : null
 
-      let dryness = weatherDryness
-      let drynessSource: LandSource = weatherSource ?? 'climatology'
-      let drynessDate: string | null = weatherDate
+      let dryness = weather?.dryness ?? null
+      let drynessSource: LandSource = weather?.source ?? 'climatology'
+      let drynessDate: string | null = weather?.date ?? null
 
       if (rgb === null || ndvi === null || dryness === null || snowProb < 0) {
-        const clim: ClimatologySample = climatologyAt(lat, lon, elevationM, month, rawCover)
+        const clim: ClimatologySample = climatologyAt(lat, lon, elevationM, month, cover ?? 0)
         if (rgb === null) { rgb = clim.rgb; rgbSource = 'climatology'; rgbDate = null }
         if (ndvi === null) { ndvi = clim.ndvi; ndviSource = 'climatology'; ndviDate = null }
         if (dryness === null) { dryness = clim.dryness; drynessSource = 'climatology'; drynessDate = null }
@@ -105,7 +122,7 @@ export function prepareLandSampler(data: LandData): PreparedLandSampler {
       }
 
       return {
-        cover, rgb, rgbSource, rgbDate,
+        cover, coverSource, rgb, rgbSource, rgbDate,
         ...(rgbSunElevation !== undefined ? { rgbSunElevation } : {}),
         ...(rgbSunAzimuth !== undefined ? { rgbSunAzimuth } : {}),
         ndvi, ndviSource, ndviDate,

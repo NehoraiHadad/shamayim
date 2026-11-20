@@ -1,58 +1,21 @@
 import type { Coordinate } from '../landmarks/project'
 import { EARTH_R_KM, FAR_KM } from '../terrain/panorama'
-import { coverOfWorldCover, decodeLand } from './grid'
-import type { LandCover } from './landData'
+import type { Bbox } from './coverCodec'
+import { coverOfWorldCover } from './grid'
 
 /**
- * Spherical footprint geometry, coarse-grid lookup and area-weighted aggregation for `0.01°` ESA
- * WorldCover 2021 v200 overviews. Matches the panorama sphere (`EARTH_R_KM = 6371`, `FAR_KM = 60`).
+ * Spherical footprint geometry and area-weighted aggregation for `0.01°` ESA WorldCover 2021 v200
+ * overviews. Matches the panorama sphere (`EARTH_R_KM = 6371`, `FAR_KM = 60`).
  */
+export {
+  COARSE_COVER_VERSION, coarseCoverFromJson, combineLandCovers, isValidCoarseCoverJson, isValidLandRle,
+  lookupCover, MAX_COARSE_CELLS, type Bbox, type CoarseCoverJson, type CoverLayer, type CoverLookup,
+  type CoverSource, type LandCover,
+} from './coverCodec'
+
 export const WORLDCOVER_FOOTPRINT_KM = FAR_KM
 export const WORLDCOVER_STEP_DEG = 0.01
 export const CELLS_PER_DEG = Math.round(1 / WORLDCOVER_STEP_DEG)
-export type Bbox = [number, number, number, number] // [south, west, north, east]
-
-export interface CoarseCoverJson {
-  v: number; bbox: Bbox; stepDeg: number; rows: number; cols: number; r: string
-  /** True only when every footprint tile resolved (data or authoritative 404/nodata). */
-  complete?: boolean
-  /** Tile codes that failed transiently on last fetch and still need retry; absent/empty when complete. */
-  missingTiles?: string[]
-}
-
-/** Validates structural integrity of a persisted or downloaded `CoarseCoverJson` before decoding. */
-export function isValidCoarseCoverJson(v: unknown): v is CoarseCoverJson {
-  if (!v || typeof v !== 'object') return false
-  const c = v as Record<string, unknown>
-  if (!Array.isArray(c.bbox) || c.bbox.length !== 4 || !c.bbox.every((n) => typeof n === 'number' && Number.isFinite(n))) return false
-  if (c.bbox[2] <= c.bbox[0] || c.bbox[3] <= c.bbox[1]) return false
-  if (typeof c.stepDeg !== 'number' || !Number.isFinite(c.stepDeg) || c.stepDeg <= 0) return false
-  if (!Number.isInteger(c.rows) || (c.rows as number) <= 0 || !Number.isInteger(c.cols) || (c.cols as number) <= 0) return false
-  if (typeof c.r !== 'string') return false
-  return c.missingTiles === undefined || (Array.isArray(c.missingTiles) && c.missingTiles.every((t) => typeof t === 'string'))
-}
-
-/** Builds a `LandCover` lookup over a coarse RLE-encoded WorldCover overview grid. */
-export function coarseCoverFromJson(raw: CoarseCoverJson): LandCover {
-  const [south, west, north, east] = raw.bbox
-  const grid = decodeLand(raw.r, raw.rows * raw.cols)
-  const { stepDeg, rows, cols } = raw
-  return {
-    coverAt(lat, lon) {
-      if (lat < south || lat >= north || lon < west || lon >= east) return 0
-      const row = Math.min(rows - 1, Math.max(0, Math.floor((north - lat) / stepDeg)))
-      const col = Math.min(cols - 1, Math.max(0, Math.floor((lon - west) / stepDeg)))
-      return grid[row * cols + col]
-    },
-  }
-}
-
-/** Combines a high-resolution near `LandCover` with a coarser far-footprint `LandCover` (near wins when > 0). */
-export function combineLandCovers(near: LandCover | null, far: LandCover | null): LandCover | null {
-  if (!near) return far
-  if (!far) return near
-  return { coverAt(lat, lon) { const n = near.coverAt(lat, lon); return n > 0 ? n : far.coverAt(lat, lon) } }
-}
 
 /** ESA WorldCover 3°×3° tile code from its south-west corner (e.g. `N48E000`, `S36E018`, `N36W123`). */
 export function worldCoverTileName(tLat: number, tLon: number): string {
