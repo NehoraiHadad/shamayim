@@ -1939,3 +1939,66 @@ sea level stands 137 m above the town.
   run-to-run noise against `54702fe` run in the same container: Shadmot Mehola scrub.model p95 15–19 ms after vs 16–26
   before, modelCold 25–40 vs 29–33; Haifa and Tel Aviv overlapping likewise; the OVERs are C5's and C6's, as before.
 
+
+**C10 fixes (2026-11-20): the halo, the contrails, the Milky Way and the rainbow, each by a general rule.** Commits on
+the C10 branch (from `54702fe`; `ccr-85ec24f0-9ayxgu` at `2d35366`, the vertical scale, merged in). The owner's report
+on `qa/canvas/c10/contact-sheet.png`: the 22° halo a loop or a teardrop (at a low sun a pointed V); persistent contrails
+huge arches, loops and hooks; the Milky Way a stiff column of stripes.
+- *The cause, one for the first two*: shapes traced on the sphere were projected point by point through the scene's sky,
+  which is cylindrical across (1.5 px a degree of azimuth, spreading as 1/cos h going up) and stretched up (the relief's
+  tanh near the horizon, the dome above 22°): a circle round the sun is bent into a loop, and a contrail, a great circle,
+  into an arch wherever it passes high.
+- *The rule* (`scene/model/tangent.ts`): optics and contrails are drawn in the sky's **tangent frame** at their centre, the
+  same px per degree across and up (`tangentScale`: the camera's px a degree of azimuth over cos h at the centre, held
+  under 1/0.6 of it near the zenith), anchored where the projection puts the centre. A circle stays round; a great circle,
+  gnomonic in the frame, stays straight.
+- *Halo* (`model/optics.ts`, `paint/optics.ts`): a true circle round the sun as drawn, 22° at the frame's scale at the
+  sun's height (so it sits where the sun's own mapping puts that ring across). Painted as radial washes: the sky a shade
+  darker inside, a sharp faintly red inner rim, warm white fading out over ~10°. The sun dogs level with the sun at the
+  plates' minimum deviation (21.8° at the horizon, farther as the sun climbs), soft patches taller than wide, red toward
+  the sun and fading to a whitish tail outward. What falls under the land or the eye's horizon is clipped (`skyClip`: the
+  sky's outline down to the crest or the horizon, whichever is higher).
+- *Contrails* (`model/life.ts`): a live trail is drawn in the frame tangent at its plane (the plane at its true place, its
+  trail straight behind it, its way ahead straight; the `wake` keeps laying it as it flies); an old trail in the frame at
+  the middle of its stretch in view. Every trail is straight or very gently curved (the earth's curve), never turning
+  back. A live trail is thin at the plane and spreads toward its old end, fading over its oldest quarter; an old trail is a
+  wide soft band (a broad faint veil under it in the hand) with both ends fading, drifting with the high cloud as before.
+  Short trails of non-persisting air stay thin behind their plane. How many: one to three planes by the Schmidt–Appleman
+  margin, none to two old trails by the ice supersaturation, at most four trails drawn (`MAX_TRAILS`).
+- *Milky Way* (`model/nightSky.ts`, `paint/nightSky.ts`, `astro/galaxy.ts`): still the galactic plane at its true place on
+  the dome (where the stars are), and gated as before (dark sky only). Its width now follows its true angular width,
+  swelling and narrowing (seeded, smooth along it) and held under 34 px only where the cylinder spreads the sky near the
+  zenith; it fades out from 60° to 82° up (was cut at 74°). The hand: many soft seeded blobs, Gaussian across so its
+  edges fade, mottled by noise; brighter warm knots at the star clouds (`starCloudAt`: the Large and Small Sagittarius
+  clouds, Scutum, Cygnus; the bulge low in the south-west on a summer night); a dust of faint stars; the dark lanes taken
+  out of its light (`destination-out`: the Great Rift a broken lane a little off its middle from Cygnus to Sagittarius,
+  small dust patches elsewhere). Faint throughout, under the bright stars. (Mitzpe Ramon at 23:30 on 12 Aug: the plane
+  passes within 2° of the zenith at azimuth 214°, so the band truly stands upright there; at Shadmot at 22:00 it leans.)
+- *Rainbow*: a true circle round the antisolar point in its tangent frame, the frame's horizon on the eye's at that azimuth;
+  its px per degree such that the bow's top stands where the sky puts the top's altitude, held within 1–2× the sky's scale
+  across. Primary violet 40.6° to red 42.3° (red outside), the sky inside it a little brighter, Alexander's band between
+  the bows a little darker, the secondary red 50.1° to violet 53.6° (reversed). Its strength round the circle (the rain's
+  azimuths, the foot, only the view's own span of azimuth, never across the camera's seam) is a conic mask
+  (`destination-in`); clipped by the land. None when nothing of it shows over the land in view (Haifa at noon: the bow's
+  4° top lies due north, behind the eye).
+- *Contract*: painters pure in `desc` (no phase needed), seeded, no clock, no `ctx.filter`; `createConicGradient`, clip
+  and composite modes only, all worker-safe.
+- *Tests*: `scene/model/c10fixes.test.ts`: the halo's projected 22° circle has x/y radii equal (ratio 1 ± 0.005) at
+  four sun heights at three places, centred on the drawn sun, while the sky's own projection would bend it (> 5 %); its
+  clip never under the land or horizon; sun dogs level with the sun, outside 22°, moving out as it climbs; every contrail
+  over 8 places × 3 hours × 2 skies never turns back (each step < 90°), bends < 15° in all and strays < 3 % of its chord
+  from it, at most 4 trails; a live trail thin at its plane, wider at its old end; the Milky Way's spine 90° from the
+  galactic pole and at its true place, brightest toward Sagittarius low in the south-west, its width varying (> 1.3×),
+  none over 82°, gated; the rainbow round the antisolar point on the horizon, round in its frame, clipped by the land, red
+  outside on the primary and inside on the secondary, the darker band only between them. `c10.test.ts`'s halo check now
+  asserts the circle's centre and radius.
+- *Pixel references* re-recorded deliberately, 7 of 59, all for the straight contrails (the planes' trails and their
+  angle): `haifa-0620`, `haifa-1200`, `jerusalem-0620@2x`, `rosh-pina-0620`, `shadmot-mehola-0620@2x`, `tel-aviv-1200`,
+  `tel-aviv-1200@2x`. 59/59 on both paint paths.
+- *Perf*: the new contrail model is cheaper than the arches' (0.05 vs 0.09 ms a call unthrottled, Haifa and Tel Aviv over a
+  day's scrub); the halo, rainbow and Milky Way models under 0.01 ms. `npm run test:perf` against the same code before
+  in the same container: within its run-to-run noise (`qa/canvas/perf.md`).
+- *Stills*: `qa/canvas/c10/contact-sheet-2.png` (the same 20 moments as `contact-sheet.png`), and before/after close-ups in
+  `qa/canvas/c10/fixes/`: `halo-jerusalem-1100.png`, `halo-jerusalem-0830.png` (the low sun's V gone),
+  `contrails-jerusalem-1100.png`, `contrails-jerusalem-0830.png`, `milky-way-ramon.png`, `milky-way-shadmot.png`,
+  `rainbow-tel-aviv-0800.png`.

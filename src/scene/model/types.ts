@@ -382,8 +382,8 @@ export type { BirdKind }
 export interface BirdDesc { x: number; y: number; rx: number; ry: number; turn: 1 | -1; lag: number; size: number; beat: number }
 /** A planet as drawn (sky px): a steady point (`r`), its colour, how plainly it shows, a faint glow round the brightest. */
 export interface PlanetDot { name: string; x: number; y: number; r: number; rgb: RGB; alpha: number; glow: number }
-/** One coloured arc of a bow or a halo (sky px): its points, colour, width and alpha at each point. */
-export interface ArcDesc { points: Pt[]; rgb: RGB; width: number; alphas: number[] }
+/** A sun dog (sky px): where it stands, its size, strength, and which side of the sun it is on (−1 left, +1 right). */
+export interface SunDog { x: number; y: number; r: number; alpha: number; side: -1 | 1 }
 
 export type LayerDesc =
   | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
@@ -463,12 +463,20 @@ export type LayerDesc =
   | LayerBase & { kind: 'planets'; planets: PlanetDot[] }
   /** C10: a star that twinkles (a strip of frames: its light flickering, seeded, periodic over the strip). */
   | LayerBase & { kind: 'twinkle'; star: Star; amp: number; seed: number; loop: number }
-  /** C10: the Milky Way's band (sky px): its spine and edges, brightness and the rift along it, its colour and strength. */
-  | LayerBase & { kind: 'milkyWay'; spine: Pt[]; upper: Pt[]; lower: Pt[]; bright: number[]; rift: number[]; rgb: RGB; alpha: number; seed: number }
-  /** C10: a rainbow or a halo with its sun dogs: coloured arcs and, for the halo, the dogs' soft patches. */
-  | LayerBase & { kind: 'bow'; look: 'rainbow' | 'halo'; arcs: ArcDesc[]; dogs: { x: number; y: number; r: number; alpha: number }[]
-      /** The rainbow's brighter sky inside the primary (sky px): its arc points and strength. */
-      inner: { points: Pt[]; alpha: number } | null }
+  /**
+   * C10: the Milky Way's band (sky px): its spine and edges at its true place, and along it its brightness, the dark rift,
+   * the bright star clouds (Sagittarius, Scutum, Cygnus), its colour and strength.
+   */
+  | LayerBase & { kind: 'milkyWay'; spine: Pt[]; upper: Pt[]; lower: Pt[]; bright: number[]; rift: number[]; clouds: number[]; rgb: RGB
+      alpha: number; seed: number }
+  /**
+   * C10: a rainbow round the antisolar point or a 22° halo round the sun, each a true circle in the sky's tangent frame at
+   * its centre (`cx`, `cy`; `k` px per degree), hidden under the land by `clip` (the sky's outline down to the land). The
+   * rainbow's strength round its circle is `mask` (alphas at equal screen angles from +x, clockwise on screen); the halo
+   * has its sun dogs.
+   */
+  | LayerBase & { kind: 'bow'; look: 'rainbow' | 'halo'; cx: number; cy: number; k: number; strength: number; secondary: number; mask: number[]
+      dogs: SunDog[]; clip: Pt[] }
 
 export type LayerKind = LayerDesc['kind']
 export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>

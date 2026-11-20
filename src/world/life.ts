@@ -279,7 +279,8 @@ export function aircraftOf(input: LifeInput): Aircraft {
   // alone at 10 km is a speck no one sees); and not through a deck (low or mid cloud hides them).
   const seen = trailLight(input.sun.altitude) * (1 - smoothstep(0.55, 0.85, 1 - (1 - input.covers.low) * (1 - input.covers.mid)))
   if (sa.forms && seen > 0.05) {
-    const n = 1 + Math.floor(r() * 2.4)
+    // How many: by how surely the air makes trails (its margin under the threshold), one to three.
+    const n = 1 + Math.floor(r() * (1 + 1.4 * smoothstep(1, 8, sa.margin)))
     for (let i = 0; i < n; i++) {
       const heading = r() * 360
       // Its closest approach (km, ahead of the eye in the view's half) and where it is now along the track.
@@ -293,7 +294,8 @@ export function aircraftOf(input: LifeInput): Aircraft {
         trailKm, spreadM: persist ? 300 + 600 * r() : 60, seed: hourSeed(input, `plane:${i}`) })
     }
     if (sa.persists) {
-      const m = 1 + Math.floor(r() * 2.6)
+      // Old spread trails by how supersaturated the air is over ice: none to two (with the live ones, at most four drawn).
+      const m = Math.floor(r() * (1 + 1.9 * smoothstep(1, 1.25, sa.rhIce)))
       for (let i = 0; i < m; i++) {
         const heading = r() * 360
         const side = 8 + 40 * r()

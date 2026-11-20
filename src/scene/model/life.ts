@@ -7,6 +7,7 @@ import { apparentAltitude } from '../../world/skyProjection'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
+import { gnomonic, tangentFrame, tangentScale, type TangentFrame } from './tangent'
 import { mixRgb } from './tone'
 import type { BirdDesc, LayerDesc, LayerOf, Pt, RGB, SceneBox, Track } from './types'
 
@@ -228,20 +229,46 @@ export function skyDirection(e: number, n: number, upM: number): { azimuth: numb
   return { azimuth: ((Math.atan2(e, n) / RAD) % 360 + 360) % 360, altitude: apparentAltitude(altitude), km: Math.hypot(km, upM / 1000) }
 }
 
-/** Points of a track every `stepKm` from `from` to `to` (km along it), projected to the sky surface. */
-function trackPoints(geom: SkyGeom, track: TrackLine, from: number, to: number, stepKm: number) {
+/** Directions of a track every `stepKm` from `from` to `to` (km along it). */
+function trackDirs(track: TrackLine, from: number, to: number, stepKm: number) {
   const h = track.headingDeg * RAD
-  const up = track.heightM
-  const out: { x: number; y: number; km: number; altitude: number }[] = []
   const n = Math.max(1, Math.ceil(Math.abs(to - from) / stepKm))
-  for (let i = 0; i <= n; i++) {
+  return Array.from({ length: n + 1 }, (_, i) => {
     const s = from + ((to - from) * i) / n
-    const d = skyDirection(track.e + s * Math.sin(h), track.n + s * Math.cos(h), up)
-    // On the dome, as the high cloud they fly in is drawn.
-    out.push({ x: geom.x(d.azimuth), y: geom.dome(d.altitude), km: d.km, altitude: d.altitude })
-  }
-  return out
+    return skyDirection(track.e + s * Math.sin(h), track.n + s * Math.cos(h), track.heightM)
+  })
 }
+
+type SkyPoint = { x: number; y: number; km: number; altitude: number }
+
+/**
+ * The frame a contrail is drawn in (C10 fix): tangent to the sky at `centre`, anchored where the high cloud is drawn there
+ * (on the dome), at the sky's px per degree across at that height. A trail is a straight line in space, so on the sky a
+ * great circle: gnomonic in this frame it is straight (the earth's curve bends it a little), never an arch or a hook.
+ */
+function trailFrame(world: WorldState, geom: SkyGeom, centre: { azimuth: number; altitude: number }): TangentFrame {
+  return tangentFrame(centre, [geom.x(centre.azimuth), geom.dome(centre.altitude)], tangentScale(world, geom, centre.altitude), world.camera.handed)
+}
+
+/** A track's directions in a frame (null past its reach). */
+const inFrame = (frame: TangentFrame, dirs: ReturnType<typeof trackDirs>): (SkyPoint | null)[] => dirs.map((d) => {
+  const p = gnomonic(frame, d)
+  return p ? { x: p[0], y: p[1], km: d.km, altitude: d.altitude } : null
+})
+
+/** The middle of the stretch of a track that is up in the view (its true place), where its frame is centred; null if none. */
+function middleInView(geom: SkyGeom, dirs: ReturnType<typeof trackDirs>) {
+  let best: number[] = [], cur: number[] = []
+  dirs.forEach((d, i) => {
+    if (d.altitude > 3 && Math.abs(geom.x(d.azimuth) - geom.width / 2) < geom.width * 0.6) cur.push(i)
+    else { if (cur.length > best.length) best = cur; cur = [] }
+  })
+  if (cur.length > best.length) best = cur
+  return best.length ? dirs[best[Math.floor(best.length / 2)]] : null
+}
+
+/** The most trails (persisting, or old and spread) drawn at once. */
+export const MAX_TRAILS = 4
 
 /** The contrails and the airliners at cruise (sky, at the high cloud's level). */
 export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), crest = crestOf(world, box, geom)): LayerDesc10[] {
@@ -254,20 +281,26 @@ export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
   const lightAt = mixRgb(world.light.colour, [1, 1, 1], smoothstep(2, 15, sunAlt) * 0.7)
   const shown = smoothstep(-4.5, -1.5, sunAlt)
   const drift = aircraft.drift * geom.s
-  const visible = (p: { x: number; y: number }) => p.x > -60 && p.x < geom.width + 60 && p.y < crest(p.x) - 1 && p.y > -40
-  const trail = (id: string, pts: ReturnType<typeof trackPoints>, widthM: (i: number) => number, alpha: (i: number) => number, seed: number,
-    anim: LayerOf<'contrail'>['animated']) => {
+  const visible = (p: SkyPoint | null): p is SkyPoint => !!p && p.x > -60 && p.x < geom.width + 60 && p.y < crest(p.x) - 1 && p.y > -40
+  /** `ends`: which ends of the drawn run fade out (the old end of a live trail, both ends of an old one). */
+  const trail = (id: string, frame: TangentFrame, pts: (SkyPoint | null)[], widthM: (i: number) => number, alpha: (i: number) => number,
+    ends: 'none' | 'both', seed: number, anim: LayerOf<'contrail'>['animated']) => {
     const runs: number[][] = [[]]
     pts.forEach((p, i) => (visible(p) ? runs.at(-1)!.push(i) : runs.at(-1)!.length && runs.push([])))
     const run = runs.sort((a, b) => b.length - a.length)[0]
     if (!run || run.length < 2) return null
-    const points: Pt[] = run.map((i) => [pts[i].x, pts[i].y])
-    // Width on screen: its true width at its distance, never under a hairline.
-    const widths = run.map((i) => Math.max(0.6, Math.min(9, (widthM(i) / (pts[i].km * 1000)) / RAD * world.camera.pxPerDeg * geom.s * 1.4)))
-    const alphas = run.map((i) => alpha(i) * shown * (1 - 0.6 * world.air.fade(pts[i].km * 0.35)) * smoothstep(0.5, 4, pts[i].altitude))
+    const at = (i: number) => pts[i]!
+    const points: Pt[] = run.map((i) => [at(i).x, at(i).y])
+    // Width on screen: its true width at its distance in the frame's px a degree, never under a hairline.
+    const widths = run.map((i) => Math.max(0.6, Math.min(10, (widthM(i) / (at(i).km * 1000)) / RAD * frame.k * 1.4)))
+    const taper = (j: number) => {
+      const f = j / (run.length - 1)
+      return ends === 'both' ? smoothstep(0, 0.22, f) * smoothstep(0, 0.22, 1 - f) : 1
+    }
+    const alphas = run.map((i, j) => alpha(i) * taper(j) * shown * (1 - 0.6 * world.air.fade(at(i).km * 0.35)) * smoothstep(0.5, 4, at(i).altitude))
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
     points.forEach(([x, y], j) => { x0 = Math.min(x0, x - widths[j]); x1 = Math.max(x1, x + widths[j]); y0 = Math.min(y0, y - widths[j]); y1 = Math.max(y1, y + widths[j]) })
-    const mid = pts[run[Math.floor(run.length / 2)]]
+    const mid = at(run[Math.floor(run.length / 2)])
     const rgb = mixRgb(lightAt, sky(mid.altitude), 0.15)
     const shade = mixRgb(sky(mid.altitude), [0.55, 0.58, 0.66], 0.3)
     const bounds = { x: Math.floor(x0) - 2, y: Math.floor(y0) - 2, w: Math.ceil(x1 - x0) + 5, h: Math.ceil(y1 - y0) + 5 }
@@ -275,46 +308,61 @@ export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
       key: layerKey(id, skyBoxKey(box, true), points.map(([x, y]) => [q(x, 1), q(y, 1)]), widths.map((w) => q(w, 0.25)),
         alphas.map((a) => q(a, 0.06)), tone(rgb), tone(shade), anim && JSON.stringify(anim).length) }
   }
-  aircraft.old.forEach((t, i) => {
-    const pts = trackPoints(geom, t.track, t.track.from, t.track.to, 3)
-    const layer = trail(`contrail.old.${i}`, pts, () => t.spreadM, (j) => 0.32 * (1 - 0.5 * Math.abs(j / pts.length - 0.5)), t.seed,
-      drift ? { mode: 'drift', speed: drift, period: geom.period } : undefined)
-    if (layer) out.push(layer)
-  })
+  const persists = aircraft.cruise.persists
+  // At most a few trails at once: the live ones first, then the old ones.
+  let trails = 0
   aircraft.high.forEach((plane, i) => {
-    const head = trackPoints(geom, plane.track, plane.atKm, plane.atKm + 0.01, 1)[0]
+    const headDir = trackDirs(plane.track, plane.atKm, plane.atKm + 0.01, 1)[0]
+    if (headDir.altitude < 1) return
+    // The plane's own frame: tangent at the plane, so it stands at its true place with its trail straight behind it.
+    const frame = trailFrame(world, geom, headDir)
+    const head = { x: frame.at[0], y: frame.at[1], km: headDir.km, altitude: headDir.altitude }
     if (!visible(head)) return
-    // The plane's way across the sky over the next minutes: its track, a point every 10 s, while it stays in view.
+    // The plane's way across the sky over the next minutes: its track, a point every 30 s, while it stays in view.
     const stepS = 30, toKm = plane.speedMs * stepS / 1000
-    const ahead = trackPoints(geom, plane.track, plane.atKm, plane.atKm + 40 * toKm, toKm)
+    const ahead = inFrame(frame, trackDirs(plane.track, plane.atKm, plane.atKm + 40 * toKm, toKm))
     const path: Pt[] = []
     for (const p of ahead) {
+      if (!p) break
       path.push([p.x - head.x, p.y - head.y])
       if (!visible(p)) break
     }
+    if (path.length < 2) return
     const n = path.length - 1
     const flight: Track = { path, step: stepS, cycle: n * stepS + 60, at: 0 }
     const k = Math.max(0.85, Math.min(1.3, geom.s))
     const size = 3.2 * k
-    const next = trackPoints(geom, plane.track, plane.atKm + 2, plane.atKm + 2.01, 1)[0]
-    const angle = Math.atan2(next.y - head.y, next.x - head.x)
-    const persists = world.life.aircraft.cruise.persists
+    const angle = Math.atan2(path[1][1], path[1][0])
     const lit = mixRgb(lightAt, [1, 1, 1], 0.2)
     const body = mixRgb([0.5, 0.52, 0.56], sky(head.altitude), 0.35)
-    if (persists) {
+    if (persists && trails < MAX_TRAILS) {
       // The long trail behind it, laid as the plane goes (its wake), spreading toward its old end.
-      const pts = trackPoints(geom, plane.track, plane.atKm - plane.trailKm, plane.atKm + n * toKm, 3)
-      const tail = trackPoints(geom, plane.track, plane.atKm - plane.trailKm, plane.atKm - plane.trailKm + 0.01, 1)[0]
-      const along = (j: number) => plane.atKm - plane.trailKm + j * ((plane.trailKm + n * toKm) / (pts.length - 1))
+      const from = plane.atKm - plane.trailKm, to = plane.atKm + n * toKm
+      const pts = inFrame(frame, trackDirs(plane.track, from, to, 3))
+      const tailP = inFrame(frame, trackDirs(plane.track, from, from + 0.01, 1))[0]
+      const along = (j: number) => from + j * ((to - from) / (pts.length - 1))
       const age = (j: number) => Math.max(0, plane.atKm - along(j))
-      const layer = trail(`contrail.${i}`, pts, (j) => 40 + plane.spreadM * Math.min(1, age(j) / plane.trailKm), (j) => 0.62 - 0.3 * Math.min(1, age(j) / plane.trailKm),
-        plane.seed, { mode: 'settle', wake: { ...flight, tail: Math.max(-60, Math.min(geom.width + 60, tail.x)), head: head.x } })
-      if (layer) out.push(layer)
+      const layer = trail(`contrail.${i}`, frame, pts, (j) => 40 + plane.spreadM * Math.min(1, age(j) / plane.trailKm),
+        // Fading out over its oldest quarter (its age along it, not where the view cuts it).
+        (j) => (0.62 - 0.3 * Math.min(1, age(j) / plane.trailKm)) * (1 - smoothstep(0.7, 1, age(j) / plane.trailKm)), 'none', plane.seed,
+        { mode: 'settle', wake: { ...flight, tail: Math.max(-60, Math.min(geom.width + 60, tailP ? tailP.x : head.x - Math.sign(path[1][0]) * geom.width)), head: head.x } })
+      if (layer) { out.push(layer); trails++ }
     }
-    // The short trail of a non-persistent contrail: px behind the plane (its km at the plane's distance).
-    const shortPx = persists ? 0 : (plane.trailKm / head.km) / RAD * world.camera.pxPerDeg * geom.s
+    // The short trail of a non-persistent contrail: px behind the plane (its km at the plane's distance), fresh and thin.
+    const shortPx = persists ? 0 : (plane.trailKm / head.km) / RAD * frame.k
     out.push(aircraftLayer(box, `aircraft.high.${i}`, 6.15, head.x, head.y, angle, size, body, lit, 0, false, shortPx,
       mixRgb(lightAt, sky(head.altitude), 0.1), plane.seed, flight))
+  })
+  aircraft.old.forEach((t, i) => {
+    if (trails >= MAX_TRAILS) return
+    const dirs = trackDirs(t.track, t.track.from, t.track.to, 3)
+    const centre = middleInView(geom, dirs)
+    if (!centre) return
+    const frame = trailFrame(world, geom, centre)
+    const pts = inFrame(frame, dirs)
+    const layer = trail(`contrail.old.${i}`, frame, pts, () => t.spreadM, () => 0.3, 'both', t.seed,
+      drift ? { mode: 'drift', speed: drift, period: geom.period } : undefined)
+    if (layer) { out.push(layer); trails++ }
   })
   return out
 }
