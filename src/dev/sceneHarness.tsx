@@ -31,6 +31,9 @@ import { withVisibleSun } from '../world/visibleSun'
 import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
 import { ARRIVAL } from '../scene/model/loading'
+import { WearCanvas } from '../scene/react/WearCanvas'
+import { isDarkPaper, sheetLight } from '../theme/sheetLight'
+import type { ThemeId } from '../theme/skyThemes'
 
 /**
  * The canvas scene alone, for pixel and performance tests (docs/design/CANVAS-SCENE-PLAN.md §3): `scene.html?place=haifa
@@ -42,6 +45,9 @@ import { ARRIVAL } from '../scene/model/loading'
  * `land=loading|offline|arrive` (C8): the land not known yet (the mist with the line forming, from phase 0), offline with
  * none (the quiet mist), or arriving (its reveal begun at phase 0, after a mist shown for 3.5 s): with `phase`, a still of
  * that moment.
+ *
+ * `wear=tee,umbrella` (the wear card): only the card's clothesline, drawn from the same world on the sheet's paper for the
+ * hour (its light or dark paper by the sun, as the app's), in a 335 px box at (20, 24); `phase` lays it at that moment.
  */
 
 /** Weather moments as overrides of the shown air (like `?wx=`). */
@@ -64,6 +70,8 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   gale: { windSpeed: 50, windGusts: 75, windDirection: 270, cloudCover: 30, thickCloud: 10, precipitation: 0, weatherCode: 2 },
   // C10's moments: a veil of cirrostratus over a clear lower sky (the halo, persistent contrails), a sunny calm (thermals).
   cirrus: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
+  // The wear card's calm: a still, clear noon.
+  calm: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 3, windGusts: 5, humidity: 40 },
   sunny: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 10, windGusts: 16, temperature: 24, humidity: 40 },
 }
 
@@ -227,6 +235,38 @@ function Scene({ input: given }: { input: WorldInput }) {
   )
 }
 
+/** The sheet's paper for a weather moment, as the app picks it (`useSheetPaper`, with the weather's theme). */
+const PAPER_THEME: Record<string, ThemeId> = { rain: 'rain', thunder: 'rain', showers: 'rain', dust: 'dust', overcast: 'cloudy', snow: 'cloudy',
+  fog: 'cloudy', hot: 'heat' }
+
+/** The wear card's line alone (`wear=`), laid at `phase`. */
+function WearStill({ input, garments }: { input: WorldInput; garments: string[] }) {
+  const [build] = useState(makeWorldBuilder)
+  const world = useMemo(() => build(input), [build, input])
+  const weather = new URLSearchParams(location.search).get('weather') ?? ''
+  const altitude = world.bodies.sun.altitude
+  const sheet = sheetLight(altitude, PAPER_THEME[weather] ?? 'clearDay', isDarkPaper(altitude, null))
+  const paper = useMemo(() => ({ sheet: sheet.sheet, ink: sheet.sheetInk, muted: sheet.sheetMuted, accent: sheet.sheetAccent }),
+    [sheet.sheet, sheet.sheetInk, sheet.sheetMuted, sheet.sheetAccent])
+  const surface = useRef<Surface | null>(null)
+  const onReady = useCallback(() => {
+    const phase = Number(new URLSearchParams(location.search).get('phase') ?? 0) || 0
+    const lay = (at: number) => surface.current?.lay(at)
+    if (phase > 0) lay(phase)
+    win.__world = world
+    win.__scene = { lay, settled: () => Promise.resolve(), offThread: false,
+      scrub: () => ({ world: 0, model: 0, paint: 0, sky: 0, land: 0, painted: [] }) }
+    void document.fonts.ready.then(() => { win.__sceneReady = true })
+  }, [world])
+  return (
+    <div style={{ position: 'relative', width: 375, height: 150, background: sheet.sheet, overflow: 'hidden' }}>
+      <div data-wear-line style={{ position: 'absolute', left: 20, top: 24, width: 335, height: 86 }}>
+        <WearCanvas world={world} garments={garments} paper={paper} width={335} onReady={onReady} surfaceRef={surface} />
+      </div>
+    </div>
+  )
+}
+
 export function SceneHarness() {
   const [input, setInput] = useState<WorldInput | null>(null)
   useEffect(() => {
@@ -239,5 +279,7 @@ export function SceneHarness() {
       console.error(err)
     })
   }, [])
+  const wear = new URLSearchParams(location.search).get('wear')
+  if (input && wear) return <WearStill input={input} garments={wear.split(',')} />
   return input ? <Scene input={input} /> : null
 }

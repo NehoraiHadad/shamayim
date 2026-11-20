@@ -1,5 +1,5 @@
 import { seeded } from '../../data/landmarks/hash'
-import type { AnimSpec, Pulse, Ramp, Track } from './types'
+import type { AnimSpec, Pulse, Ramp, Sway, Track } from './types'
 
 /**
  * The animation of a layer at `phase` (seconds from the loop's start, never the clock), applied when its cached canvas is
@@ -166,4 +166,45 @@ export function trackAt(track: Track | undefined, phase: number, still = false):
   const k = f - i
   const [x0, y0] = track.path[i], [x1, y1] = track.path[j]
   return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k }
+}
+
+/**
+ * One cycle of wind on the clothesline (the old line's `GUST`, kept): a gust, a lull, a second gust, a small back-swing, a
+ * dying puff, then still. `t` in cycles (any real; wrapped), eased between the stops; 0 at the cycle's ends.
+ */
+export const GUST_TIMES = [0, 0.18, 0.3, 0.48, 0.62, 0.8, 1]
+export const GUST = [0, 1, 0.35, 0.9, -0.25, 0.6, 0]
+
+export function gustAt(t: number): number {
+  const u = t - Math.floor(t)
+  let i = 1
+  while (i < GUST_TIMES.length - 1 && GUST_TIMES[i] < u) i++
+  const k = (u - GUST_TIMES[i - 1]) / (GUST_TIMES[i] - GUST_TIMES[i - 1])
+  return GUST[i - 1] + (GUST[i] - GUST[i - 1]) * ease(k)
+}
+
+/** A 2D affine `[a, b, c, d, e, f]` (as `setTransform` takes it): x' = a x + c y + e, y' = b x + d y + f. */
+export type Affine = [number, number, number, number, number, number]
+
+/**
+ * The transform a swaying layer is laid through at `phase` (surface px; `Sway`): its rest pose under reduced motion
+ * (`still`), the gust's pose otherwise. Null for a layer that does not sway.
+ */
+export function swayAt(sway: Sway | undefined, phase: number, still = false): Affine | null {
+  if (!sway) return null
+  const moving = !still && sway.period > 0
+  // The line lifts as one (no lag); the cloth answers the gust `delay` s late (`delay` < 0: early).
+  const lift = moving ? gustAt(phase / sway.period) : 0
+  const g = moving ? gustAt((phase + sway.delay) / sway.period) : 0
+  const [px, py] = sway.pivot
+  const turn = sway.turn0 + sway.turn * g
+  const shear = Math.tan(sway.skew0 + sway.skew * g)
+  const sy = 1 + sway.stretch * lift
+  const cos = Math.cos(turn), sin = Math.sin(turn)
+  // R · H · S: turn, then shear x by y, then scale y; about the pivot, then lifted.
+  const a = cos, b = sin
+  const c = (cos * shear - sin) * sy, d = (sin * shear + cos) * sy
+  const e = px - (a * px + c * py)
+  const f = py - sway.lift * lift - (b * px + d * py)
+  return [a, b, c, d, e, f]
 }

@@ -17,7 +17,7 @@ import type { BirdDesc, LayerDesc, LayerOf, Lay, Pt, RGB, SceneBox, Track } from
  * event on its own path in time): flocks of birds (a strip of wing beats and wheeling, a slow sway round their place),
  * aircraft (airliners at cruise with the contrail the Schmidt–Appleman criterion gives them, the approach and departure
  * traffic of the airports within reach), and the meteors of a shower night. A flock or a plane is painted once round its
- * own middle and laid where its path has brought it (`lay`), so a scrub moves it without a repaint; it is hidden by the land
+ * own middle and laid where its path has brought it (`placed`), so a scrub moves it without a repaint; it is hidden by the land
  * it is behind and laid in front of the land it is nearer than (`placedInDepth`).
  */
 
@@ -146,14 +146,14 @@ const FRONT_Z = { near: 40.5, far: 18 } as const
  * copy on the land surface in front of that land (the sky copy laid only over the figure's top, so nothing is laid twice).
  */
 function placedInDepth<L extends LayerOf<'birds'> | LayerOf<'aircraft'>>(world: WorldState, box: SceneBox, geom: SkyGeom, layer: L, km: number): L[] {
-  const lay = layer.lay!
+  const lay = layer.placed!
   if (world.terrain.status !== 'ready') return [layer]
   const bottom = lay.y + (layer.bounds.y + layer.bounds.h) * lay.scale
   if (bottom <= box.landTop) return [layer]
   const front = inFrontOf(world, geom, lay.x, km)
   if (!front) return [layer]
-  return [{ ...layer, lay: { ...lay, above: box.landTop } },
-    { ...layer, id: `${layer.id}.front`, surface: 'land', z: FRONT_Z[front], lay: { ...lay, x: lay.x - geom.left, y: lay.y - box.landTop } }]
+  return [{ ...layer, placed: { ...lay, above: box.landTop } },
+    { ...layer, id: `${layer.id}.front`, surface: 'land', z: FRONT_Z[front], placed: { ...lay, x: lay.x - geom.left, y: lay.y - box.landTop } }]
 }
 
 /* Birds. */
@@ -213,7 +213,7 @@ export const SWAY_S = 24
 /**
  * The flocks under way at the shown minute (sky; over the land they are nearer than): each painted once round its own
  * middle at its full size (its closest distance), and laid at composite time where its path has brought it, smaller and
- * fainter by its distance (`lay`); its wing beats and wheeling on a strip, a slow sway round its place.
+ * fainter by its distance (`placed`); its wing beats and wheeling on a strip, a slow sway round its place.
  */
 export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'birds'>[] {
   const sky = skyAt(world, box)
@@ -249,7 +249,7 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     const id = `birds.${flock.id}`
     const layer: LayerOf<'birds'> = {
       kind: 'birds', id, surface: 'sky', z: 9.5, bird: flock.kind, birds, loop: look.count / look.fps, flap: flapHz,
-      soar: look.soar, rgb, lit, litA: direct, heading, seed: flock.seed, bounds, lay: { x, y, scale, alpha },
+      soar: look.soar, rgb, lit, litA: direct, heading, seed: flock.seed, bounds, placed: { x, y, scale, alpha },
       animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: sway },
       key: layerKey(id, skyBoxKey(box), flock.kind, flock.seed, heading, bounds.x, bounds.y, bounds.w, bounds.h, tone(rgb), tone(lit), q(direct, 0.25)),
     }
@@ -366,15 +366,15 @@ export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
 
 type LayerDesc10 = LayerOf<'contrail'> | LayerOf<'aircraft'>
 
-/** A plane's sprite (painted round 0, 0), laid at `lay`; by night a strip for its strobes and beacon. */
+/** A plane's sprite (painted round 0, 0), laid at `placed`; by night a strip for its strobes and beacon. */
 function aircraftLayer(box: SceneBox, id: string, z: number, angle: number, size: number, rgb: RGB, lit: RGB,
-  lights: number, landing: boolean, trail: number, trailRgb: RGB, seed: number, lay: Lay): LayerOf<'aircraft'> {
+  lights: number, landing: boolean, trail: number, trailRgb: RGB, seed: number, placed: Lay): LayerOf<'aircraft'> {
   const reach = Math.max(size * 2 + 4, trail + size + 3) + (lights ? 5 : 0)
   const bounds = { x: -Math.ceil(reach), y: -Math.ceil(reach), w: 2 * Math.ceil(reach) + 1, h: 2 * Math.ceil(reach) + 1 }
   // By night a strip for the strobes and the beacon (their own rhythms over one second); by day none.
   const frames = lights > 0 ? { count: 10, fps: 10 } : undefined
   return {
-    kind: 'aircraft', id, surface: 'sky', z, x: 0, y: 0, angle, size, rgb, lit, lights, landing, trail, trailRgb, seed, bounds, lay,
+    kind: 'aircraft', id, surface: 'sky', z, x: 0, y: 0, angle, size, rgb, lit, lights, landing, trail, trailRgb, seed, bounds, placed,
     ...(frames ? { animated: { mode: 'frames' as const, frames } } : {}),
     key: layerKey(id, skyBoxKey(box), bounds.w, q(angle, 0.05), q(size, 0.2), tone(rgb), tone(lit), q(lights, 0.1), landing, q(trail, 0.5),
       tone(trailRgb)),

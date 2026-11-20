@@ -6,6 +6,18 @@
   border-bottom: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
 }
 
+/* The clothesline's box, exactly as the SVG's was (335 × 86 at the most, its top on the page's top edge, the sheet's top
+   padding pulled back): the canvas is laid over it and out past it (the pegs, the swing, the long hems), so the box holds
+   the layout before the drawing arrives and nothing moves when it does. */
+.line {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 335px;
+  aspect-ratio: 335 / 86;
+  margin: calc(-1 * var(--space-4)) auto var(--space-2);
+}
+
 .title {
   margin: 0 0 6px;
   font-size: var(--text-xs);

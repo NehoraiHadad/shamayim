@@ -33,8 +33,8 @@ function lifeAt(world: WorldState): Map<string, Seen> {
   const top = landTopOf(world, BOX, geom, model.layers.filter((l) => l.surface === 'land'))
   const out = new Map<string, Seen>()
   for (const l of model.layers) {
-    if (l.surface !== 'sky' || !l.lay || (l.kind !== 'birds' && l.kind !== 'aircraft')) continue
-    const { x, y, scale, alpha } = l.lay
+    if (l.surface !== 'sky' || !l.placed || (l.kind !== 'birds' && l.kind !== 'aircraft')) continue
+    const { x, y, scale, alpha } = l.placed
     const left = x + l.bounds.x * scale, right = x + (l.bounds.x + l.bounds.w) * scale
     const bottom = y + (l.bounds.y + l.bounds.h) * scale, upper = y + l.bounds.y * scale
     // How far inside the frame its nearest part is (px): small at an edge.

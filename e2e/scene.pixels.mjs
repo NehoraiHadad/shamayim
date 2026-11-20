@@ -5,7 +5,7 @@
 // Failures leave the actual still and a diff in test-results/pixels/.
 import fs from 'node:fs'
 import path from 'node:path'
-import { CASES } from './cases.mjs'
+import { CASES, WEAR_CLIP } from './cases.mjs'
 import { comparePngs, LIMITS } from './compare.mjs'
 import { caseName, CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from './harness.mjs'
 
@@ -28,7 +28,7 @@ try {
     const { context, page } = await openPage(browser, server.url, c.dpr ?? 1)
     try {
       await loadScene(page, sceneUrl(server.url, c))
-      const shot = await page.screenshot({ clip: CLIP, animations: 'disabled' })
+      const shot = await page.screenshot({ clip: c.wear ? WEAR_CLIP : CLIP, animations: 'disabled' })
       const ref = path.join(refs, `${name}.png`)
       if (update || !fs.existsSync(ref)) {
         if (!update) { failed.push(name); console.log(`MISSING ${name} (run with --update)`); continue }

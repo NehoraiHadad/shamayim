@@ -36,8 +36,9 @@ export function launch({ gpu = false } = {}) {
   return chromium.launch({ executablePath, args })
 }
 
-export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0', land = '' }) {
+export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0', land = '', wear = '' }) {
   const q = new URLSearchParams({ place, at, phase: String(phase) })
+  if (wear) q.set('wear', wear)
   if (weather) q.set('weather', weather)
   if (land) q.set('land', land)
   if (overlay) q.set('overlay', '1')
@@ -82,5 +83,5 @@ export async function loadScene(page, url, timeout = 60000) {
   }
 }
 
-export const caseName = ({ place, at, weather, dpr = 1, land = '', phase = '0' }) =>
+export const caseName = ({ place, at, weather, dpr = 1, land = '', phase = '0', name = '' }) => name ? `${name}${dpr !== 1 ? `@${dpr}x` : ''}` :
   `${place}-${at.slice(11).replace(':', '')}${weather ? `-${weather}` : ''}${land ? `-${land}${phase !== '0' ? `-${phase}` : ''}` : ''}${dpr !== 1 ? `@${dpr}x` : ''}`

@@ -97,6 +97,10 @@ export default function App() {
   const intro = useIntro(Boolean(forecast))
   const paper = useSheetPaper(useMemo(() => sunElevation(now, place), [now, place]), themeId)
   const darkSheet = forced ? DARK_SHEET.has(themeId) : paper.dark
+  // The wear card's clothesline is drawn by the scene's chunk from the scene's own world, on the sheet's paper.
+  const sheet = forced ? SKY_THEMES[themeId] : paper
+  const wearLine = useMemo(() => (wear ? { garments: wear.garments, paper: { sheet: sheet.sheet, ink: sheet.sheetInk, muted: sheet.sheetMuted,
+    accent: sheet.sheetAccent } } : null), [wear, sheet.sheet, sheet.sheetInk, sheet.sheetMuted, sheet.sheetAccent])
   const overhead = useOverheadDialog()
   const modelRain = forecast ? firstRainHour(forecast.hours, now) : undefined
   // The radar's verdict on the rain nearby; the model only fills in when the radar sees nothing close.
@@ -143,7 +147,7 @@ export default function App() {
                 readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
                 first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
                 last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
-                onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} />
+                onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} />
             </Suspense>
           )}
           <div className="paper" data-intro="sheet">

@@ -7,6 +7,8 @@ export const PRIORITY: Record<LayerKind, number> = {
   clouds: 5, flash: 6, shimmer: 6, shafts: 6, fall: 6, mist: 6, grains: 6, rays: 6, smoke: 6, sheen: 6, edge: 6,
   // C10: the sky's life and optics last (small layers; a moment late costs nothing).
   milkyWay: 2, planets: 1, twinkle: 7, meteor: 7, bow: 6, contrail: 7, aircraft: 7, birds: 7,
+  // The clothesline in the wear card (its own surface): the rope, then the garments, then their drops.
+  wearRope: 0, wearItem: 1, wearDrip: 2,
 }
 
 export interface SliceJob { surface: Surface; layers: readonly LayerDesc[] }

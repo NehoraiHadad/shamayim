@@ -22,7 +22,7 @@ function spawn(): WorkerLike | null {
 /** Workers started ahead of their surfaces (`warmPaintWorkers`), so their script loads while the world is built. */
 const spares: WorkerLike[] = []
 
-/** Starts `count` paint workers now, for the surfaces about to be made (the sky's and the land's). */
+/** Starts `count` paint workers now, for the surfaces about to be made (the sky's, the land's, the wear card's). */
 export function warmPaintWorkers(count: number) {
   while (spares.length < count) {
     const worker = spawn()

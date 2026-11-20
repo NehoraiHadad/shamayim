@@ -2071,6 +2071,51 @@ Zohar, Ein Gedi).
   `qa/canvas/vscale/after/`).
 
 
+**The wear card on canvas (2026-11-20): the "מה ללבוש" clothesline drawn from the scene's own world.** Commits on
+`ccr-wear-canvas` (from `e1cb3d7`, the head of `ccr-85ec24f0-9ayxgu`).
+- *What and where.* The card's SVG line and its CSS/SMIL animation (`ui/wear/*`: `WearLine`, `garments`, `tops`, `gear`,
+  `peg`, `gust`, `WearLine.module.css`) are gone. The card (`ui/WearCard.tsx`) keeps its section, heading and sentence
+  and holds the line's box exactly as the SVG had it (`.line`: 100 % up to 335 px, `aspect-ratio: 335 / 86`, the same
+  margins), `aria-hidden`, so nothing moves when the drawing arrives (card height 189 px before and after at 375 px). The
+  drawing is the scene chunk's: `SceneCanvas` portals `scene/react/WearCanvas.tsx` into `[data-wear-line]` (as it does
+  the sky into `[data-sky]`), with the world it already built; App only passes the tip's garments and the sheet's paper.
+  No second world: the line answers the shown hour (scrubbing the valley moves the line with it). Its surface (`wear`)
+  stands `PAD` px out from the box (pegs above the rope, the swing, long hems below), its own canvas, `aria-hidden`.
+- *Model* (`scene/model/wear.ts`, `wearKit.ts`; pure): the rope a true catenary (`catenary`, `a` solved by bisection) with
+  the pegs' point loads kinking it; the garments in the sentence's order (the first on the right), as the tip picks them
+  (`text/wear.ts` unchanged but for its drawing-only `wind` field, now dead: the old drift was not camera-aware). From
+  the world: `wearAir` (`world.wind`: still below ~8 km/h with no gusts over the mean; `blow` and `gusty` set the lean,
+  the swing, the line's lift and the cycle; the sign is `wind.across`, the camera's), `wearWet` (rain now, or the ground
+  still wet: darker, deeper cloth, a heavier hang and a deeper sag, less swing, beads on the rope, drops falling from the
+  hems), snow lying on every up-facing edge and on the rope (`snowfall`), dust dulling the cloth toward the haze, and
+  `wearLight` (`light.side`, `direct`, `colour`, `ambient`; the moon's faint side by night; `night.dark` dims and cools
+  every colour on the line, rope and pegs too). The light is quantised (1/20 shine and dark, 1/48 colour) so a scrub
+  repaints the cloth only when its light visibly turns.
+- *Painter* (`scene/paint/wear.ts`, worker-safe: Path2D from the old drawing's own path data, cached): the scene's tone
+  shapes lit from the light's true side (a falloff from a lit edge with its rim to a shade side, the drape and sleeve
+  shadows mirrored to the side away from the light; with no side, the sky's light from above), the hem gathering shade,
+  a grain per cloth (weave, knit, twill, nylon creases, straw), gravity folds from the pegs, seams and stitches, a soft
+  ink edge so the cloth still reads on paper; spring pegs; the rope's lay, its ties and tabs (the shown hour's
+  `ridgeNear`). Painted in a paint worker like the scene's (`warmPaintWorkers(3)`).
+- *Animation* (composite-time only): `AnimSpec.sway` (`anim.ts` `gustAt`, `swayAt`): each sprite laid through an affine
+  about its pivot following the old line's gust cycle (`GUST` stops kept): the rope's sag eased (a vertical scale about
+  the ties), each garment lifted by its share of that sag, pegged cloth sheared at the hem, hooked things turned about
+  the hook a beat late; drops fly a `Track` in the frame of what they drip from. A calm has no `animated` at all (no
+  loop); reduced motion lays the rest pose (the downwind lean) and a drop hanging at the hem.
+- *Tests*: `scene/model/wear.test.ts` (the gust cycle and the rest pose; the catenary and the loads; calm → still; the
+  swing's sign is `wind.across` both ways and grows with the wind and the gusts; the cloth rides the rope's lift; rain →
+  wet, darker, heavier, beads and drops; snow and dust; the light's side and its lit/shade order; night dims and cools
+  the cloth, pegs, edge and rope; the layout inside the surface; keys free of the phase). Pixel cases `wear-calm`,
+  `-windy`, `-rain`, `-dusk`, `-night`, and `wear-calm@2x`, `wear-rain@2x` (`scene.html?wear=`, `e2e/cases.mjs`).
+- *Perf* (CPU ×4, dpr 3, harness): main thread at the cold start 14–24 ms (asking the worker and laying its bitmaps), the
+  worker's paint ~60 ms; a swaying frame (laying ~6–16 small sprites through their transforms) p50 0.1 ms, p95 ≤ 1.4 ms
+  (budget 4); ~5 MB of canvases. Painting on the main thread instead cost 55–120 ms in slices of up to 46 ms, so the line
+  takes a third worker.
+- *Bundle* (`npm run build`): main `index` 411.37 → 400.12 kB (gzip 140.69 → 136.67), its CSS 38.30 → 33.69 kB;
+  the lazy `CanvasScene` chunk 264.13 → 284.55 kB (gzip 101.74 → 109.70); `paintWorker` 68.98 → 81.47 kB.
+- *Stills*: `qa/canvas/wear/before/` (the SVG) and `after/` (canvas): calm, windy, rain, dusk, night in the app
+  (`e2e/wear.stills.mjs`); `after/line-snow.png`, `after/line-dust.png` (harness); `sway-gale.png`, `sway-breeze.png`
+  (`e2e/wear.strip.mjs`: the line laid at a run of phases).
 
 **Sky continuity (2026-11-20): life is a process in time; the sky is hidden by the land as drawn.** Commits on
 `ccr-sky-continuity` (from `0683a41`). Two owner reports, each fixed by one general rule (no place named).
@@ -2104,12 +2149,12 @@ sky's life is a continuous process in time, never a per-hour draw.**
   - the meteors of the next 15 min.
 
   The model paints a flock or a plane once, round its own origin, at its full size (its closest distance). It is laid at
-  composite time (`LayerBase.lay`) where its path puts it, scaled by closest ÷ present distance and faded by the air's haze
+  composite time (`LayerBase.placed`; named so after the merge with the clothesline, whose rope has a `lay` colour) where its path puts it, scaled by closest ÷ present distance and faded by the air's haze
   and its session's ends. A scrub therefore moves it without a repaint.
 - *Contrails* grow from their plane on a fixed grid of emission moments (20 s), one puff per moment. Each puff keeps its
   own seed and lump. It is carried by the upper wind from when it was laid (the 300 hPa wind where the forecast gives it),
   and spreads and fades by its own age. A persistent trail lives 18–48 min and stays after its plane has gone. Every trail
-  is still a straight line in the tangent frame (one wind carries a straight track). The `wake` primitive is gone.
+  is still a straight line in the tangent frame (one wind carries a straight track). The `wake` primitive is gone (removed again in the merge with the clothesline work: nothing uses it).
 - *Airport traffic* follows its glide or climb in time. Near the field it shows over the five minutes its own vertical
   speed takes through the lowest air: it lifts out of the land's haze, or sinks into it, and is never cut on the runway.
   Far off it fades by distance before its path ends.
@@ -2124,7 +2169,7 @@ sky's life is a continuous process in time, never a per-hour draw.**
   - nearer than the near land: over everything there (z 40.5);
   - nearer than the far land only: between the far and near land (z 18).
 
-  The sky copy is then laid only above the figure's top (`lay.above`). Nothing is clamped over the crest any more.
+  The sky copy is then laid only above the figure's top (`placed.above`). Nothing is clamped over the crest any more.
 
 *2. A low sun was drawn over the near hill and the town* (Jerusalem-like land). The near land is the place's own ground
 since decision 14's follow-up, but the sun and moon were still judged on the panorama's skyline. On top of that, C9's
@@ -2179,7 +2224,7 @@ and the sun now behind the drawn land at `jerusalem-1630` and `haifa-0620`. The 
 `jerusalem-0620@2x`, `jerusalem-1200`, `jerusalem-1200-dust`, `jerusalem-1200-offline`, `jerusalem-1200-overcast`,
 `jerusalem-1630`, `ramon-crater-1200`, `rosh-pina-0620`, `rosh-pina-0620-arrive-1.2`, `shadmot-mehola-0620@2x`,
 `shadmot-mehola-1200`, `tel-aviv-0620`, `tel-aviv-1200`, `tel-aviv-1200@2x`, `tel-aviv-2100`, `tiberias-1200`,
-`tiberias-1200@2x`, `tiberias-1200-overcast`. 59/59.
+`tiberias-1200@2x`, `tiberias-1200-overcast`. 59/59. Merged with main (the clothesline on canvas): `wear-dusk` re-recorded too. At Jerusalem 16:30 the sun is now behind the drawn land, so the clothes lose its warm direct light. 66/66 on both paint paths.
 
 *Perf* (`npm run test:perf`, two runs each, against `0683a41` in the same container; `qa/canvas/perf.md`):
 - scrub.model p95 is within the run-to-run noise:

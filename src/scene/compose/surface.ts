@@ -1,4 +1,4 @@
-import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, trackAt } from '../model/anim'
+import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
 import type { LayerDesc } from '../model/types'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
@@ -140,8 +140,10 @@ export class Surface {
       const flown = trackAt(anim?.flight, motion, still)
       if (!flown) continue
       const fx = Math.round(flown.x * d), fy = Math.round(flown.y * d)
+      // The clothesline's gust (`Sway`), applied after the flight.
+      const sway = swayAt(anim?.sway, motion, still)
       // The sky's life, laid where its object is at the shown minute (painted round its own origin), scaled and faded.
-      const lay = desc.lay
+      const lay = desc.placed
       if (lay && alpha * lay.alpha <= 0.003) continue
       ctx.globalAlpha = lay ? alpha * lay.alpha : alpha
       if (lay?.above !== undefined) {
@@ -170,9 +172,20 @@ export class Surface {
           // At full size on whole device px (crisp); smaller, where it truly is (a far object moves smoothly).
           const lx = sc === 1 ? Math.round(lay.x * d) + rect.x : lay.x * d + rect.x * sc
           const ly = sc === 1 ? Math.round(lay.y * d) + rect.y : lay.y * d + rect.y * sc
-          return ctx.drawImage(source, 0, sy, rect.w, rect.h, lx + fx, ly + fy, rect.w * sc, rect.h * sc)
+          // (A sway, should a laid layer have one, goes through its affine as below.)
+          if (sway) ctx.setTransform(sway[0], sway[1], sway[2], sway[3], sway[4] * d, sway[5] * d)
+          ctx.drawImage(source, 0, sy, rect.w, rect.h, lx + fx, ly + fy, rect.w * sc, rect.h * sc)
+          if (sway) ctx.setTransform(1, 0, 0, 1, 0, 0)
+          return
         }
         if (k !== 1) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
+        // The clothesline (`Sway`): the sprite through its gust's affine (surface px → device px), then back to identity.
+        if (sway) {
+          ctx.setTransform(sway[0], sway[1], sway[2], sway[3], sway[4] * d, sway[5] * d)
+          ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x + fx, y + fy, rect.w, rect.h)
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
+          return
+        }
         if (anim?.reveal && Number.isFinite(reach)) return this.window(source, rect, sy, y, anim.reveal, reach, alpha)
         if (fx || fy) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x + fx, y + fy, rect.w, rect.h)
         if (!period) return held > 1 || dy ? ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x, y, rect.w, rect.h) : ctx.drawImage(source, rect.x, rect.y)
@@ -219,6 +232,11 @@ export class Surface {
       ctx.drawImage(source, left - rect.x, sy, right - left, rect.h, left, y, right - left, rect.h)
     }
     ctx.globalAlpha = alpha
+  }
+
+  /** Lays the last layers again at `phase` (a frame of a clip or a still, laid by a harness): nothing is repainted. */
+  lay(phase: number, still = false) {
+    this.composite(this.last, phase, still)
   }
 
   /**
@@ -281,6 +299,10 @@ export class Surface {
       if (anim.flight) {
         const f = trackAt(anim.flight, motion, still)
         out += f ? `:${Math.round(f.x * this.dpr)},${Math.round(f.y * this.dpr)}` : ':off'
+      }
+      if (anim.sway) {
+        const m = swayAt(anim.sway, motion, still)!
+        out += `:${m.slice(0, 4).map((v) => Math.round(v * 400)).join(',')},${Math.round(m[4] * this.dpr * 4)},${Math.round(m[5] * this.dpr * 4)}`
       }
       out += ';'
     }

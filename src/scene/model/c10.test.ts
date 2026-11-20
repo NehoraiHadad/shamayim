@@ -37,14 +37,14 @@ describe('C10: the sky life in the model', () => {
         const { world, model } = at(place.id, `2026-11-17T${hour}`)
         const geom = skyGeom(world, BOX)
         for (const l of model.layers.filter((x): x is LayerOf<'birds'> | LayerOf<'aircraft'> => x.kind === 'birds' || x.kind === 'aircraft')) {
-          expect(l.lay, l.id).toBeDefined()
+          expect(l.placed, l.id).toBeDefined()
           if (l.surface === 'sky') { seen++; continue }
           front++
           // A copy in front of the land: its sky copy laid only over the land's figure, and it truly nearer than the land.
           const sky = model.layers.find((x) => x.id === l.id.replace(/\.front$/, ''))!
-          expect(sky.lay!.above).toBe(BOX.landTop)
+          expect(sky.placed!.above).toBe(BOX.landTop)
           const km = l.kind === 'birds' ? world.life.birds.find((b) => `birds.${b.id}.front` === l.id)!.distanceM / 1000 : null
-          if (km !== null) expect(inFrontOf(world, geom, sky.lay!.x, km), l.id).not.toBeNull()
+          if (km !== null) expect(inFrontOf(world, geom, sky.placed!.x, km), l.id).not.toBeNull()
         }
       }
     }

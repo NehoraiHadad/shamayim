@@ -143,7 +143,7 @@ describe('C10 fix: contrails are straight', () => {
         seen++
         // Its newest puff is at the plane (the trail grows from it), its old end wider than there.
         const [hx, hy] = t.points.at(-1)!
-        expect(Math.hypot(hx - plane.lay!.x, hy - plane.lay!.y)).toBeLessThan(2)
+        expect(Math.hypot(hx - plane.placed!.x, hy - plane.placed!.y)).toBeLessThan(2)
         expect(t.widths[0]).toBeGreaterThanOrEqual(t.widths.at(-1)!)
       }
     }
