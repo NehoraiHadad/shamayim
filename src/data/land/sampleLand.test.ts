@@ -116,4 +116,31 @@ describe('sampleLandAt fallback chain, per-value dates, decoupled cover means & 
     expect(coverSpy).toHaveBeenCalledTimes(1)
     expect(MIN_CELL_VALID).toBe(0.2)
   })
+
+  it('reports exact contributing date range and conservative oldest date on mixed-date cover means regardless of scan order', () => {
+    const cover = { coverAt: () => 4 }
+    const makeMixed = (olderFirst: boolean) => {
+      const g = makeNear()
+      g.acquisitions = [{ date: '2026-11-15' }, { date: '2026-10-20' }]
+      const n = g.size * g.size, half = n / 2
+      for (let i = 0; i < n; i++) {
+        // 50/50 split on RGB (order-flipped), 60/40 newer-majority split on NDVI
+        g.acqIndex[i] = olderFirst ? (i < half ? 1 : 0) : (i < half ? 0 : 1)
+        g.ndviAcqIndex[i] = i < n * 0.6 ? 0 : 1
+      }
+      return g
+    }
+    const mA = computeCoverMeans(makeMixed(true), cover).byCover[4]
+    const mB = computeCoverMeans(makeMixed(false), cover).byCover[4]
+    expect(mA.rgbDateRange).toEqual(['2026-10-20', '2026-11-15'])
+    expect(mB.rgbDateRange).toEqual(['2026-10-20', '2026-11-15'])
+    expect(mA.rgbDate).toBe('2026-10-20')
+    expect(mB.rgbDate).toBe('2026-10-20') // scan-order independent conservative date on tie!
+    expect(mA.ndviDateRange).toEqual(['2026-10-20', '2026-11-15'])
+    expect(mA.ndviDate).toBe('2026-10-20') // never advertises newer modal date over 40% month-old cells!
+
+    const far = sampleLandAt({ cover, near: makeMixed(false), far: null, weather: null }, 32.60, 35.53, 11, 200)
+    expect(far.rgbSource).toBe('s2-mean:2026-10-20'); expect(far.rgbDate).toBe('2026-10-20')
+    expect(far.ndviSource).toBe('s2-mean:2026-10-20'); expect(far.ndviDate).toBe('2026-10-20')
+  })
 })

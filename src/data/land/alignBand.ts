@@ -27,7 +27,9 @@ export function alignBandToScl(band: CogWindow, scl: CogWindow, channels: 1 | 3)
     return channels === 3 ? (band.data as Uint8Array) : band.data
   }
   const n = scl.width * scl.height
-  const out = channels === 3 ? new Uint8Array(n * 3) : new Float32Array(n)
+  // Fill single-channel spectral bands with NaN so clipped pixels outside the band's extent are
+  // unconditionally rejected by `dnToReflectance`, even when STAC declares a nonzero nodata DN.
+  const out = channels === 3 ? new Uint8Array(n * 3) : new Float32Array(n).fill(Number.NaN)
   const sameCrs = band.zone === scl.zone && band.south === scl.south
 
   for (let py = 0; py < scl.height; py++) {

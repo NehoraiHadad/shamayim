@@ -91,5 +91,3 @@ export const computeNdvi = (redDn: number, nirDn: number, redS: BandScaling, nir
 
 export const computeNdsi = (greenDn: number, swirDn: number, greenS: BandScaling, swirS: BandScaling): number | null =>
   normalizedDiff(dnToReflectance(greenDn, greenS), dnToReflectance(swirDn, swirS))
-
-export { aggregatePatch, type GridBuffers, type GridTransform, type PatchBands } from './s2Aggregate'

@@ -3,6 +3,8 @@ import s2Fixture from '../../test/fixtures/land-s2-shadmot.json'
 import { makeNearBuffers } from './nearGrid'
 import { aggregatePatch, type GridTransform } from './s2Aggregate'
 import { bandScalingOf, computeNdsi, computeNdvi, dnToReflectance, isValidScl, L2A_SCALE, PB04_OFFSET } from './s2Math'
+import { projectPixelQuad, quadRectOverlapArea } from './s2Poly'
+import { toUtm } from './utm'
 
 const UNIT_GRID: GridTransform = { size: 1, originE: 700_000, originN: 3_500_100, stepM: 100, utmZone: 36, utmSouth: false }
 
@@ -33,13 +35,11 @@ describe('s2Math radiometry, BOA offset, SCL masking and area-weighted aggregati
     )!
     const rawPb04 = bandScalingOf({ datetime: '2026-11-15T08:31Z', 's2:processing_baseline': '05.13' })!
     expect(dnToReflectance(0, harm)).toBeNull()
-    expect(dnToReflectance(1, harm)).toBeCloseTo(0.0001, 6)
-    expect(dnToReflectance(21, harm)).toBeCloseTo(0.0021, 6)
+    expect(dnToReflectance(1, harm)).toBeCloseTo(0.0001, 6); expect(dnToReflectance(21, harm)).toBeCloseTo(0.0021, 6)
     expect(dnToReflectance(700, harm)).toBeCloseTo(0.07, 5)
     expect(computeNdvi(1400, 3600, harm, harm)).toBeCloseTo(0.44, 5)
     expect(computeNdvi(1400, 3600, rawPb04, rawPb04)).toBeCloseTo(0.22 / 0.30, 5)
-    expect(dnToReflectance(800, rawPb04)).toBe(0)
-    expect(computeNdsi(7000, 1500, rawPb04, rawPb04)).toBeCloseTo(0.55 / 0.65, 5)
+    expect(dnToReflectance(800, rawPb04)).toBe(0); expect(computeNdsi(7000, 1500, rawPb04, rawPb04)).toBeCloseTo(0.55 / 0.65, 5)
   })
 
   it('tracks per-measurement support independently, separates black RGB, band nodata, mixed snow and open water', () => {
@@ -105,10 +105,8 @@ describe('s2Math radiometry, BOA offset, SCL masking and area-weighted aggregati
     }, grid, out)
     // Center-binning previously alternated 0.64 and 1.00 across adjacent cells; area-weighting is 1.00 in every cell!
     for (let i = 0; i < 16; i++) {
-      expect(out.valid[i]).toBeCloseTo(1, 5)
-      expect(out.rgbValid[i]).toBeCloseTo(1, 5)
-      expect(out.ndviValid[i]).toBeCloseTo(1, 5)
-      expect(out.ndvi[i]).toBeCloseTo(0.44, 4)
+      expect(out.valid[i]).toBeCloseTo(1, 5); expect(out.rgbValid[i]).toBeCloseTo(1, 5)
+      expect(out.ndviValid[i]).toBeCloseTo(1, 5); expect(out.ndvi[i]).toBeCloseTo(0.44, 4)
     }
   })
 
@@ -122,5 +120,29 @@ describe('s2Math radiometry, BOA offset, SCL masking and area-weighted aggregati
     const r = f.bands.red.data[idx], n = f.bands.nir.data[idx]
     expect(dnToReflectance(r, redScale)).toBeCloseTo(r * 0.0001, 6)
     expect(computeNdvi(r, n, redScale, nirScale)).toBeCloseTo((n - r) / (n + r), 5)
+  })
+
+  it('computes exact rotated polygon overlap across a UTM zone boundary (35N -> 36N at 45° N, 30° E)', () => {
+    const c35 = toUtm(45.0, 30.0, 35, false), c36 = toUtm(45.0, 30.0, 36, false)
+    const grid: GridTransform = { size: 2, originE: c36.e - 100, originN: c36.n + 100, stepM: 100, utmZone: 36, utmSouth: false }
+    const w = 10, h = 10, n = w * h
+    const out = makeNearBuffers(2)
+    aggregatePatch({
+      width: w, height: h, west: c35.e - 200, north: c35.n + 200, resX: 40, resY: 40, zone: 35, south: false, acqId: 0,
+      scl: new Uint8Array(n).fill(4),
+    }, grid, out)
+    // Projected adjacent quads tile zone 36 with zero rotation gaps/overlaps -> uniform exact 1.000 support
+    for (let i = 0; i < 4; i++) expect(out.valid[i]).toBeCloseTo(1, 4)
+
+    // Single rotated 40 m pixel straddling the zone-36 cell edge matches exact quad-rect intersection area
+    const q = projectPixelQuad(c35.e, c35.n, c35.e + 40, c35.n + 40, 35, false, 36, false)
+    const exactArea = quadRectOverlapArea(q, c36.e, c36.e + 100, c36.n, c36.n + 100)
+    const singleOut = makeNearBuffers(2)
+    aggregatePatch({
+      width: 1, height: 1, west: c35.e, north: c35.n + 40, resX: 40, resY: 40, zone: 35, south: false, acqId: 0,
+      scl: Uint8Array.from([4]),
+    }, grid, singleOut)
+    expect(singleOut.valid[1]).toBeCloseTo(exactArea / 10_000, 6)
+    expect(exactArea).toBeLessThan(1600) // ~4.24° rotation slices corners off the cell boundary
   })
 })

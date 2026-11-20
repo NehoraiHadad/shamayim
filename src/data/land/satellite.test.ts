@@ -87,12 +87,16 @@ describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and s
     expect(eastCell.sunAzimuth).toBeUndefined() // must NOT borrow west granule's 162.0!
   })
 
-  it('aligns shifted-origin and clipped-extent spectral bands onto the SCL lattice without stretching', async () => {
+  it('aligns shifted-origin and clipped-extent bands without stretching, including nonzero nodata DN on one clipped band', async () => {
+    const item = makeItem('2026-11-15', 'aligned', 38, 165)
+    item.assets.red!['raster:bands'] = [{ scale: 0.0001, offset: -0.1, nodata: 65535 }]
     const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
-      fetchImpl: mockFetch([makeItem('2026-11-15', 'aligned', 38, 165)]),
+      fetchImpl: mockFetch([item]),
       openTiff: async (href) => {
         const b = href.split('/').pop() as Band
-        if (b === 'red' || b === 'nir') return makeGeoTiff(b, { shiftE: 20, clipMaxE: CENTER.e, splitE: CENTER.e - 1000 })
+        // Only red is clipped at CENTER.e (with nonzero nodata 65535); NIR covers the entire footprint!
+        if (b === 'red') return makeGeoTiff(b, { shiftE: 20, clipMaxE: CENTER.e, splitE: CENTER.e - 1000 })
+        if (b === 'nir') return makeGeoTiff(b, { shiftE: 20, splitE: CENTER.e - 1000 })
         return makeGeoTiff(b, { splitE: CENTER.e - 1000 })
       },
     }))!
@@ -101,6 +105,7 @@ describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and s
     expect(nearAt(grid, m.lat, m.lon)!.ndvi).toBeCloseTo(0.2, 3)
     const eastCell = nearAt(grid, e.lat, e.lon)!
     expect(eastCell.rgb).toEqual([200, 180, 120])
+    // Clipped red must NOT fill 0 (which with nodata=65535 would produce bogus NDVI = 1.0)!
     expect(eastCell.ndvi).toBeNull()
     expect(eastCell.ndviValid).toBe(0)
   })

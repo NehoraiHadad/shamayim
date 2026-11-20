@@ -9,10 +9,16 @@ const MIN_COVER_SAMPLES = 8
 export interface CoverMean {
   rgb: [number, number, number] | null
   rgbCount: number
+  /** Conservative (oldest contributing) ISO date for age blending; deterministic and scan-order independent. */
   rgbDate: string | null
+  /** Exact `[oldest, newest]` ISO date range across all contributing RGB cells. */
+  rgbDateRange: [string, string] | null
   ndvi: number | null
   ndviCount: number
+  /** Conservative (oldest contributing) ISO date for age blending; deterministic and scan-order independent. */
   ndviDate: string | null
+  /** Exact `[oldest, newest]` ISO date range across all contributing NDVI cells. */
+  ndviDateRange: [string, string] | null
 }
 
 export interface CoverMeansTable {
@@ -22,21 +28,11 @@ export interface CoverMeansTable {
 }
 
 interface CoverAcc {
-  r: number; g: number; b: number; rgbN: number; rgbDates: Map<string, number>
-  ndvi: number; ndviN: number; ndviDates: Map<string, number>
+  r: number; g: number; b: number; rgbN: number; rgbMin: string; rgbMax: string
+  ndvi: number; ndviN: number; ndviMin: string; ndviMax: string
 }
 
 const MEANS_CACHE = new WeakMap<NearLandGrid, WeakMap<LandCover, CoverMeansTable>>()
-
-function bump(map: Map<string, number>, key: string): void {
-  map.set(key, (map.get(key) ?? 0) + 1)
-}
-
-function modalDate(map: Map<string, number>): string | null {
-  let best: string | null = null, bestN = 0
-  for (const [d, n] of map) if (n > bestN) { best = d; bestN = n }
-  return best
-}
 
 const dateAt = (near: NearLandGrid, idxArr: Uint8Array | undefined, i: number): string => {
   const a = idxArr ? idxArr[i] : 255
@@ -46,7 +42,9 @@ const dateAt = (near: NearLandGrid, idxArr: Uint8Array | undefined, i: number): 
 /**
  * Computes per-WorldCover-class mean RGB and NDVI independently across a near Sentinel-2 window.
  * Excludes unknown/out-of-coverage class `0`, lets NDVI-only or RGB-only classes populate their
- * available channel independently, and never exports near-window snow/NDSI to other elevations.
+ * available channel independently, reports the exact contributing `[oldest, newest]` date range
+ * with the conservative oldest date as `rgbDate`/`ndviDate` (so Stage 2 never understates age on
+ * mixed-date composites), and never exports near-window snow/NDSI to other elevations.
  */
 export function computeCoverMeans(near: NearLandGrid, cover: LandCover): CoverMeansTable {
   let inner = MEANS_CACHE.get(near)
@@ -67,11 +65,21 @@ export function computeCoverMeans(near: NearLandGrid, cover: LandCover): CoverMe
       const cls = cover.coverAt(lat, lon)
       if (cls <= 0) continue
       const slot = (acc[cls] ??= {
-        r: 0, g: 0, b: 0, rgbN: 0, rgbDates: new Map(),
-        ndvi: 0, ndviN: 0, ndviDates: new Map(),
+        r: 0, g: 0, b: 0, rgbN: 0, rgbMin: '', rgbMax: '',
+        ndvi: 0, ndviN: 0, ndviMin: '', ndviMax: '',
       })
-      if (hasRgb) { slot.r += r; slot.g += g; slot.b += b; slot.rgbN++; bump(slot.rgbDates, dateAt(near, near.acqIndex, idx)) }
-      if (okNdvi) { slot.ndvi += near.ndvi[idx]; slot.ndviN++; bump(slot.ndviDates, dateAt(near, near.ndviAcqIndex, idx)) }
+      if (hasRgb) {
+        const d = dateAt(near, near.acqIndex, idx)
+        slot.r += r; slot.g += g; slot.b += b; slot.rgbN++
+        if (!slot.rgbMin || d < slot.rgbMin) slot.rgbMin = d
+        if (!slot.rgbMax || d > slot.rgbMax) slot.rgbMax = d
+      }
+      if (okNdvi) {
+        const d = dateAt(near, near.ndviAcqIndex, idx)
+        slot.ndvi += near.ndvi[idx]; slot.ndviN++
+        if (!slot.ndviMin || d < slot.ndviMin) slot.ndviMin = d
+        if (!slot.ndviMax || d > slot.ndviMax) slot.ndviMax = d
+      }
     }
   }
 
@@ -83,10 +91,12 @@ export function computeCoverMeans(near: NearLandGrid, cover: LandCover): CoverMe
     byCover[Number(k)] = {
       rgb: rgbOk ? [Math.round(s.r / s.rgbN), Math.round(s.g / s.rgbN), Math.round(s.b / s.rgbN)] : null,
       rgbCount: s.rgbN,
-      rgbDate: rgbOk ? modalDate(s.rgbDates) : null,
+      rgbDate: rgbOk ? s.rgbMin : null,
+      rgbDateRange: rgbOk ? [s.rgbMin, s.rgbMax] : null,
       ndvi: ndviOk ? s.ndvi / s.ndviN : null,
       ndviCount: s.ndviN,
-      ndviDate: ndviOk ? modalDate(s.ndviDates) : null,
+      ndviDate: ndviOk ? s.ndviMin : null,
+      ndviDateRange: ndviOk ? [s.ndviMin, s.ndviMax] : null,
     }
   }
 

@@ -1,5 +1,5 @@
 import { computeNdsi, computeNdvi, isValidScl, type BandScaling } from './s2Math'
-import { fromUtm, toUtm } from './utm'
+import { projectPixelQuad, quadRectOverlapArea, type Pt2 } from './s2Poly'
 
 /**
  * Area-weighted georeferenced aggregation of Sentinel-2 L2A overview patches onto a target UTM grid.
@@ -52,11 +52,13 @@ export function aggregatePatch(patch: PatchBands, grid: GridTransform, out: Grid
       if (!isValidScl(s)) continue
 
       let e0 = patch.west + px * patch.resX, e1 = e0 + patch.resX, n0 = pn0, n1 = pn1
+      let quad: Pt2[] | null = null
       if (!sameCrs) {
-        const ll = fromUtm(e0 + 0.5 * patch.resX, n0 + 0.5 * patch.resY, patch.zone, patch.south)
-        const m = toUtm(ll.lat, ll.lon, grid.utmZone, grid.utmSouth)
-        e0 = m.e - 0.5 * patch.resX; e1 = m.e + 0.5 * patch.resX
-        n0 = m.n - 0.5 * patch.resY; n1 = m.n + 0.5 * patch.resY
+        quad = projectPixelQuad(e0, n0, e1, n1, patch.zone, patch.south, grid.utmZone, grid.utmSouth)
+        e0 = Math.min(quad[0][0], quad[1][0], quad[2][0], quad[3][0])
+        e1 = Math.max(quad[0][0], quad[1][0], quad[2][0], quad[3][0])
+        n0 = Math.min(quad[0][1], quad[1][1], quad[2][1], quad[3][1])
+        n1 = Math.max(quad[0][1], quad[1][1], quad[2][1], quad[3][1])
       }
       const c0 = Math.max(0, Math.floor((e0 - grid.originE) / grid.stepM))
       const c1 = Math.min(grid.size - 1, Math.floor((e1 - 1e-6 - grid.originE) / grid.stepM))
@@ -79,9 +81,11 @@ export function aggregatePatch(patch: PatchBands, grid: GridTransform, out: Grid
         if (ovN <= 0) continue
         for (let col = c0; col <= c1; col++) {
           const cellE0 = grid.originE + col * grid.stepM, cellE1 = cellE0 + grid.stepM
-          const ovE = Math.min(e1, cellE1) - Math.max(e0, cellE0)
-          if (ovE <= 0) continue
-          const w = (ovE * ovN) / cellArea
+          const area = quad
+            ? quadRectOverlapArea(quad, cellE0, cellE1, cellN0, cellN1)
+            : Math.max(0, Math.min(e1, cellE1) - Math.max(e0, cellE0)) * ovN
+          if (area <= 0) continue
+          const w = area / cellArea
           const idx = row * grid.size + col
           validW[idx] += w
           if (s !== 6) { landW[idx] += w; if (s === 11) snowW[idx] += w }
