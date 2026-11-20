@@ -766,15 +766,16 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [~] Stage 1: data layer — round-3 review fixes pushed, awaiting re-review (all 8 Codex round-3 findings fixed across
-      `f969893`..`49527fd`: live CORS probe recorded on `esa-worldcover.s3.eu-central-1.amazonaws.com` (disabled) +
-      runtime coarse ESA WorldCover v200 COG overview reader via CORS-enabled Planetary Computer Azure Blob mirror with
-      per-place 30 d/90 d cache, regional fast path and explicit `cover: null` climatology fallback on failure; `NaN`
-      clipped-band sentinel for nonzero STAC nodata DNs; exact 4-corner Sutherland–Hodgman cross-UTM-zone overlap in
-      `s2Poly.ts`; conservative oldest contributing date + `[oldest, newest]` ranges on mixed-date cover means;
-      independent active-tab expiry and publication-time validation for weather, near and far watchers (`gridWatch.ts`);
-      GIBS JPEG width/height validation before `OffscreenCanvas` allocation; removed unused forwarding re-exports; all
-      files under `src/data/land/` and `scripts/land/` ≤ 150 lines; 130/130 files, 1268/1268 root tests + build pass)
+- [~] Stage 1: data layer — round-4 review fixes pushed, awaiting re-review (all 6 Codex round-4 findings fixed across
+      `2993193`..`bf095e5`: typed `CogHttpError` / `createOpenTiff` distinguishing HTTP 404 absent WorldCover tiles from
+      transient 5xx/network/timeout failures, `missingTiles` selective retry without full 30 d TTL, stale-slice
+      preservation on partial refresh failure, and updated two-tile Paris fixture; immediate publication of eligible
+      cached cover including 30–90 d stale entries via `onUpdate` while a time-limited COG refresh runs independently;
+      exact spherical `footprintBbox` matching `panorama.ts` (`EARTH_R_KM = 6371`, `FAR_KM = 60`) with half-open outward
+      snapping and exact 2D overlap-area-weighted overview aggregation in `worldCoverGrid.ts`; `>= 80 %` rain window
+      completeness (WMO-No. 1203 §4.2.1) with coverage-normalized dryness; removed unused `nearAt`/`nearCellCenter`
+      forwarding exports from `satellite.ts`; all files under `src/data/land/` ≤ 149 lines; 132/132 files, 1275/1275
+      root tests + build pass)
 - [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation

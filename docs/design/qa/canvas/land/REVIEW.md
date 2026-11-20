@@ -241,6 +241,17 @@ The stage adds no painter or pure model changes, unseeded randomness, or live re
 
 **Verdict:** changes requested
 
+### **Answers (round 4)**
+
+- `src/data/land/worldCoverCog.ts:144` — fixed in `bf095e5`: added typed `CogHttpError` / `isCogNotFound` + `createOpenTiff` (`fromCustomClient` in `cogReader.ts`) to distinguish HTTP 404 absent tiles (cleared and treated as complete without retry) and decoded nodata from transient failures (5xx/network/timeout); recorded failed tiles in `CoarseCoverJson.missingTiles` so `readCachedCover` marks incomplete mosaics `fresh: false` (never granted the 30 d TTL), preserved usable stale slices from `base` on partial refresh failure without clobbering `savedAt`, retried only `missingTiles` within 30 d, updated the Paris fixture to serve both `N48E000` and `N48E003`, and added offline two-tile recovery, 404-absence, stale-slice preservation and `createOpenTiff` status tests (`landData.test.ts`, `worldCoverCog.test.ts`).
+- `src/data/land/landData.ts:139` — fixed in `bf095e5`: added `onUpdate` and `timeoutMs` (`COVER_FETCH_TIMEOUT_MS = 15 s`, race-aborted via `AbortController`) to `loadFootprintLandCover` and wired `useLand.ts` to publish eligible cached cover (fresh, stale 30–90 d, or partial) immediately upon decode while refreshing independently with a time limit and coalesced focus rechecks; tested immediate stale publication while `openTiff` remains pending plus timeout expiry (`worldCoverCog.test.ts`).
+- `src/data/land/worldCoverCog.ts:37` — fixed in `85633ca` & `bf095e5`: extracted `worldCoverGrid.ts` and replaced linear `111.32 km/deg` with exact spherical circle bounds matching `panorama.ts` (`EARTH_R_KM = 6371`, `FAR_KM = 60`, `sin(Δλ_max) = sin(δ)/cos(φ₁)`), snapping upper edges strictly above for half-open `[south, north) × [west, east)` lookup; tested 360° `destination` endpoints around `48.8608° N, 2.35° E` (`49.400393° N`), exact `0.01°` cell lines, `3°` tile seams and Israel regional fast-path bounds (`worldCoverGrid.test.ts`).
+- `src/data/land/worldCoverCog.ts:88` — fixed in `85633ca` & `bf095e5`: replaced whole-pixel voting with exact 2D pixel-cell overlap-area weighting (`aggregateWorldCoverTile` in `worldCoverGrid.ts`, clearing each target slice first and applying the 50 % valid threshold and class majority by area); tested a shifted 562×562 lattice with 2/6 valid pixels covering 53.4 % area (both valid/nodata and class-selection cases, `worldCoverGrid.test.ts`).
+- `src/data/land/recentWeather.ts:127` — fixed in `7ac5e86`: raised `MIN_PRECIP_COVERAGE` from `0.5` to `0.8` (citing WMO-No. 1203 §4.2.1 80 % completeness threshold) so incomplete rain windows fall back to soil moisture or climatology, and coverage-normalized valid `[0.8, 1]` rain totals (`sum / coverage`) so 1–2 missing days do not add dry bias; tested 50 % coverage fallback and unbiased 12/14 d & 50/60 d scaling (`recentWeather.test.ts`).
+- `src/data/land/satellite.ts:29` — fixed in `2993193`: removed unused `nearAt` and `nearCellCenter` forwarding exports and imports from `satellite.ts`.
+
+**Re-verification (exact counts):** `npx tsc -b`: PASS (0 errors); `npm run lint`: PASS (0 errors, 0 warnings in touched files); `npx vitest run --maxWorkers=2`: **132/132 test files, 1275/1275 tests passed**; `npm run build`: PASS (430 modules transformed); max file size under `src/data/land/` is 149 lines. (Worker untouched in round 4.)
+
 ## Stage 2: world state
 
 ## Stage 3: land colour painting
