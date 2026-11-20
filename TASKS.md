@@ -766,10 +766,14 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [x] Stage 1: data layer — awaiting review (S2 B04/B08 NDVI + B03/B11 NDSI + SCL masking + PB ≥ 04.00 BOA offset;
-      NASA GIBS `MODIS_Terra_NDVI_8Day` + 8-day SR far source with S2 cover-mean fallback; Open-Meteo `past_days=60`
-      + soil moisture in Worker allowlist gated behind `ASK_LAND_WEATHER = false`; physical lat/elev/month/cover
-      climatology; IndexedDB TTL cache; offline fixtures & unit tests; dead `landPaint.ts` removed)
+- [~] Stage 1: data layer — round-1 review fixes pushed, awaiting re-review (all 16 Codex findings fixed across
+      `62f8ee3`..`c425f85`: harmonised S2 BOA offset polarity & live check; persisted UTM transform + `fromUtm`;
+      multi-date fallback & per-granule solar geometry; independent per-band support + SCL-11 snow fraction; shared
+      `cogReader.ts`; GIBS blank-200/partial/RGB-only resilience + lossless PLTE/tRNS fixture; dedicated narrow
+      `/v1/land-weather` Worker route + completed-day liquid rain parser; global 3°×2.5° Beck et al. Köppen–Geiger
+      climatology with precip-aware snow; coarse ±60 km WorldCover overview; resilient IDB cache & upstream weather
+      freshness/expiry recheck; lazy per-value sampler with per-field dates; all files ≤ 150 lines; 1258/1258 root
+      + 51/51 worker tests pass)
 - [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
