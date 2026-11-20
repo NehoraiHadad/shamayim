@@ -766,14 +766,15 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [~] Stage 1: data layer — round-2 review fixes pushed, awaiting re-review (all 14 Codex round-2 findings fixed across
-      `c107224`..`c65cb76`: generated 0.5° Beck et al. 2018 Köppen–Geiger table with SHA-256 verification; full-footprint
-      `[28.8,33.4,34.0,36.8]` ESA WorldCover coarse overview preserving water and explicit nodata + resilient `loadShared`;
-      exact band-to-SCL lattice alignment & phase-independent area-weighted 40 m→100 m support; multi-date newest-first
-      compositing with per-channel dates & strict contributor sun geometry; decoupled RGB/NDVI cover means; GIBS MODIS_NDVI
-      color-matched palette & 256×256 tile validation; calendar-indexed rain + strict liquid phase + required Worker
-      `forecast_days` + body-checking deploy curl; active-tab 24 h weather expiry watcher & coalescing; test splits so all
-      land/script files are ≤ 150 lines; 1262/1262 root + 51/51 worker tests pass)
+- [~] Stage 1: data layer — round-3 review fixes pushed, awaiting re-review (all 8 Codex round-3 findings fixed across
+      `f969893`..`49527fd`: live CORS probe recorded on `esa-worldcover.s3.eu-central-1.amazonaws.com` (disabled) +
+      runtime coarse ESA WorldCover v200 COG overview reader via CORS-enabled Planetary Computer Azure Blob mirror with
+      per-place 30 d/90 d cache, regional fast path and explicit `cover: null` climatology fallback on failure; `NaN`
+      clipped-band sentinel for nonzero STAC nodata DNs; exact 4-corner Sutherland–Hodgman cross-UTM-zone overlap in
+      `s2Poly.ts`; conservative oldest contributing date + `[oldest, newest]` ranges on mixed-date cover means;
+      independent active-tab expiry and publication-time validation for weather, near and far watchers (`gridWatch.ts`);
+      GIBS JPEG width/height validation before `OffscreenCanvas` allocation; removed unused forwarding re-exports; all
+      files under `src/data/land/` and `scripts/land/` ≤ 150 lines; 130/130 files, 1268/1268 root tests + build pass)
 - [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
