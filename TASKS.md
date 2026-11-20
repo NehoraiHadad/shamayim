@@ -766,7 +766,7 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [~] Stage 1: data layer — round-5 review fixes pushed, awaiting re-review (all 7 Codex round-5 findings fixed across
+- [x] Stage 1: data layer — round-5 review fixes pushed, awaiting re-review (all 7 Codex round-5 findings fixed across
       `91d6f14`..`845929a`: `COVER_CACHE_VERSION = 4` dropping pre-completeness v3 cover records, explicit `complete`
       metadata stored in cover records with short 1 h `COVER_PARTIAL_TTL_MS` vs 30 d `COVER_TTL_MS`; `worldCoverSas.ts`
       independent `AbortController` deadline + `raceAbort` clearing `sasInFlight` on hung shared fetch/body and enforcing
@@ -775,7 +775,7 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       in `gridWatch.ts`/`useLand.ts` so cold SAS failure with partial regional overlap retries on focus; heuristic 80 %
       rain-completeness comment in `recentWeather.ts`; `void` return on `aggregateWorldCoverTile`; all files under
       `src/data/land/` ≤ 150 lines; 133/133 files, 1279/1279 root tests + build pass)
-- [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
+- [~] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
 - [ ] Stage 5: wind on land

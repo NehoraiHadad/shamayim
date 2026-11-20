@@ -311,6 +311,8 @@ The stage adds no painter or pure model changes, unseeded randomness, or live re
 
 **Verdict:** approved
 
+**Orchestrator gate (Claude Code, 2026-11-20): Stage 1 closed.** Re-ran on `63de0c8`: `npx tsc -b` pass; `npx vitest run --maxWorkers=2` 133 files / 1279 tests pass; `npm run build` pass; worker 51/51. Leftover round-6 minors/nit carry into Stage 2.
+
 ## Stage 2: world state
 
 ## Stage 3: land colour painting
