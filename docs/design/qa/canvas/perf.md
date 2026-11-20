@@ -580,3 +580,20 @@ box and the land profile cached by the land layers' keys, contrails every 3 km o
 model is a few ms over C9's run (within its noise for Haifa, +3–10 ms p95 for Tel Aviv and Shadmot), modelCold +15–20 ms.
 The sky's worker batch grows at an hour's change (new flocks' strips, ≤ 30 frames); the animated frame stays within its
 4 ms budget at p95 in most runs (one Haifa run 5.4 ms, the next 3.1). Memory unchanged.
+
+## C10 fixes (2026-11-20): halo, contrails, Milky Way, rainbow in the sky's tangent frame
+
+`npm run test:perf` (all places; CPU ×4, dpr 2.75, software raster, worker path), against `2d35366` (the same code
+without the fixes) run in the same container just before:
+
+```
+                  scrub.model p50 / p95       modelCold        firstPaint     anim frame p50 / p95
+                  before      after (2 runs)  before  after    before after   before     after
+  haifa           12.3 / 24.5 12.1–13.4 / 27–32  71   92–117   34     33–39   2.0 / 4.3  0.4–1.6 / 3.1–3.4
+  tel-aviv        10.6 / 25.7 11.0–11.7 / 22–24  65   66–85    34     41–56   1.8 / 4.3  1.2–1.8 / 3.9–4.1
+  shadmot-mehola   9.9 / 18.8  8.8–9.8 / 20–24   25   36–51    16     23–31   1.0 / 3.6  1.3 / 3.1–3.3
+```
+
+Within the run-to-run noise (the same code at `54702fe` gave Haifa scrub.model p50 10.9–11.3, modelCold 64–115 over
+three runs). Unthrottled in node, the contrail model is cheaper than before (0.05 vs 0.09 ms a call over a day's scrub at
+Haifa and Tel Aviv); the halo, rainbow and Milky Way models stay under 0.01 ms. Memory unchanged.
