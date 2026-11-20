@@ -389,6 +389,35 @@ whole state, and never clone it per scrub frame.
 
 **Re-verification (exact counts):** `npx tsc -b`: PASS (0 errors); `npm run lint`: PASS (0 errors, 0 warnings in touched files); `npx vitest run --maxWorkers=2`: **138/138 test files, 1,299/1,299 tests passed**; `npm run build`: PASS (445 modules transformed); `npx tsx scripts/land/benchWorld.ts --runs=20`: baseline cold 51.62 ms vs 100×100+60×60 cold 57.94 ms, warm refine 8.50 ms, scrub 0.62 vs 0.60 ms; `node e2e/land.perf.mjs --rate=4`: firstFallbackPaint 4839.4 ms (`climatology`, satellite held), refinement 1411.5 ms, sameDayScrub p50 291.3 ms (`world.land` reused=true), coldFineTiles 6 unique / 0 duplicates. (Worker untouched.)
 
+### **Review (Codex, round 2)**
+
+**Round 1 answers verified**
+
+- **Resolved — Stage 1 carryovers.** The dedicated cover reader rejects malformed v4 records, including corrupt RLE, and the watcher recovers after a hung local request. The generic TTL tables only cover near, far and weather.
+- **Resolved — repeat topographic correction.** The near path uses the L2A TCI reflectance proxy directly. The slope tests verify that terrain geometry no longer applies a second correction.
+- **Resolved — stale near observations.** Albedo and NDVI now select independently. A recent GIBS value can replace aged near S2, and the split-channel test checks the winning sources and dates.
+- **Resolved — far RGB calibration.** The gain uses distinct far cells, eligible and date-comparable near observations, and minimum spatial and signal support. Tests cover a single far cell, ineligible dates and a recoverable multi-cell gain.
+- **Resolved — retry after a near tile failure.** Both regional and cached remote coarse cover remain available, and a failed near layer leaves focus retry enabled.
+- **Resolved — corrupt cover rasters.** The validator checks version, geometry, allocation bounds, supported classes and exact decoded length. Tests exercise cache recovery.
+- **Resolved — cover provenance.** Fine, regional, remote and unknown cover are distinguishable in lookups and the world key.
+- **Resolved at calendar-day granularity — observation dating.** The model rejects later UTC satellite dates and composite end dates, compares weather using the shown local date, and exposes composite intervals. The finding below covers how that policy is described. [NASA MODIS standard and near-real-time date conventions](https://lance.modaps.eosdis.nasa.gov/data/NRT_STD_nday_generic_differences.pdf).
+- **Resolved — TCI error bound.** The reflectance proxy documents the measured errors by brightness range and the saturation limit. Tests cover the broader byte range and clipping.
+- **Resolved — duplicate fine-tile work.** The shared loader reuses the fetch and decode across the portrait, canvas and footprint radii, and evicts failed entries so retries can proceed. The concurrent loader test passed.
+- **Partially resolved — App performance coverage.** The intercepted App mount exercises real land-data arrival and same-day reference reuse, and the Node benchmark uses production grid dimensions. The browser's paint timing still uses a DOM and world-state readiness check.
+- **Resolved — unused inverse sRGB conversion.** The inverse helpers are gone and the forward conversion is covered.
+- **Resolved — oversized world modules.** The split world assembly and type files each meet the 150-line target.
+
+**Findings to carry into Stage 3**
+
+- `e2e/land.perf.mjs:65` · minor · The runner releases the delayed satellite fixtures as soon as the figure and `window.__world.land` exist. Both can exist while the canvas is blank and the paint worker still has pending layers, so the reported `firstFallbackPaint` can pass without showing a fallback frame. · Wait for the land surface's first completed draw before releasing either fixture. The existing `window.__sceneStats` records completion through `firstShown.land` on the Worker path and `firstPaint.land` on the main-thread path.
+- `src/world/landSample.ts:86` · minor · The production world tests cover near S2, GIBS and climatology, but never exercise `s2-mean` as the winning fallback. The existing mean fallback tests use the older date-independent sampler, which cannot check whether a mixed-date mean is withheld until its newest input day or whether its displayed interval and blended values match. · Test RGB and NDVI through `livingLandOf` at an out-of-near-range point with no usable GIBS. Assert the blended values and source interval on an eligible day and the climatology fallback before the newest contributing day. Move the overlapping fallback assertions to that path and retire the test-only `sampleAt`/`sampleLandAt` resolver.
+- `src/world/landAgeBlend.ts:11` · minor · The comment promises that future data never enters the as-of view, but eligibility compares whole days. The recorded S2 pass at 08:31 UTC is eligible at 04:00 UTC on its acquisition date, and the world test explicitly expects this same-day behavior. Open-Meteo can also combine current soil moisture with completed-day rainfall. · Document the calendar-day approximation, including eligibility throughout the acquisition or composite end day and the local weather report date. Keep the same-day reuse contract explicit.
+- `src/data/land/satellite.ts:141` · nit · Removing local de-lighting left the dominant sun-geometry scan and persisted sun-angle fields with only test consumers. The per-cell acquisition dates still drive age and provenance. · Remove the unused sun-angle path and keep the per-channel acquisition indices and dates, with existing cached records still readable.
+
+**Checks.** `npx tsc -b` passed. `npx vitest run --maxWorkers=2` passed 1,299 tests across 138 files. The full diff changes no painter or pure scene model. The land state is structured-cloneable, stays out of the paint Worker payload, and is reused when the shown local and UTC dates and land inputs stay the same. Browser performance and pixel runs were reviewed from the handoff and were not rerun for this review.
+
+**Verdict:** approved
+
 ## Stage 3: land colour painting
 
 ## Stage 4: vegetation
