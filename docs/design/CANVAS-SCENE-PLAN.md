@@ -602,6 +602,13 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
     air at a high sun, none at night. Cheap (cached, laid at composite time), deterministic, in the anidoodle hand; tested;
     ray moments in the review pack.
 
+**Owner decision (2026-11-20, on the vertical scale analysis of the datum follow-up):**
+14. **Uniform vertical scale per place** ("uniform per place"): within each place's picture one metre is one metre above
+    and below the dot: a single px per metre for the place's own ground and its surroundings at the same distance (the
+    near ridge's crest behind it, its water, sea level). The exaggeration may still be chosen per place from the room it
+    has, so places stay legible; the dot no longer has to sit exactly on the near ridge line. *Done 2026-11-20* (§6,
+    "Uniform vertical scale per place").
+
 **Deploys pending for the owner** (final, at C9; in order; from the owner's machine with Cloudflare access; nothing here
 was deployed by the rebuild):
 1. **The forecast Worker with C0's new hourly fields** (`wind_direction_10m`, `visibility`, `wind_speed_` and
@@ -1759,7 +1766,8 @@ sea level stands 137 m above the town.
   dot fading both ways: no near land reaches 0 m); Tiberias, Ein Gedi, Shadmot Mehola, Jericho one-sided, fading toward
   the lake / valley; Kalya both sides (its near cliff crest within 5 km is −55…−128 m). Tests: `datum.test.ts` +2 (10).
   Pixel references re-recorded again, the same 20.
-- *Open, for the owner: the vertical scale of the place and its surroundings is not one rule.* Measured at 12:00
+- *Open, for the owner (decided: owner decision 14, done below, "Uniform vertical scale per place"): the vertical scale of
+  the place and its surroundings is not one rule.* Measured at 12:00
   (`lieOf`), the place's ground is drawn at the frame's `k0` px/m (`FRAME_SCALE.k`, 0.18–1.2, a view exaggeration chosen
   for houses), then pressed separately above the dot (into the room up to the highest ridge line + 6 px) and below it
   (into the room down to the sheet, or stretched to the sea horizon on a coast), then capped 6 px over the ridge line at
@@ -1857,3 +1865,140 @@ sea level stands 137 m above the town.
   their true angular speed, so a far flock crosses the sky over minutes; the Milky Way and the contrails lie on the dome (as
   the clouds do) while the planets and the bows keep the bodies' true scale; a persistent contrail is laid anew each pass of
   its plane. Deploy: item 6 above (with item 1).
+
+**Uniform vertical scale per place (2026-11-20; owner decision 14).** Commits on `ccr-85ec24f0-9ayxgu` (from `54702fe`).
+- *Rule* (`world/outside.ts` `lieOf`, one rule for every place, no place named): the place's picture has **one vertical
+  scale `s`** (px / m), the same above and below the dot, for its ground and rows (`levelY`), its built cells and trees,
+  its land silhouette (`landOf`), the coastal sea's shore and the datum. Each spot stands off the dot by its depth (north
+  nearer, lower: `NEAR_DROP`, as before) and by `(h0 − h) × s`, with no perspective factor on the ground's heights, no
+  press and no 6 px cap (the place's ground rises over the ridge line only where it truly stands higher, as its
+  silhouette). The towers and houses keep their own legible sizes (`lookOf`, the frame's `k`): only the terrain shares `s`.
+  - *Choosing `s`* (`verticalScale`): the place's total relief R = from the highest of its land and the near ridge's crest
+    at the dot (and sea level, below 0 m) down to the lowest of its built rows, its water in the frame (a lake, the sea)
+    and, on a coast, 0 m. It takes `0.93 × room × R / (R + 150 m)` px of the land area's room (`LAND_TOP` 40 px down to the
+    floor, less the near drop: 59 px): a band that grows with the relief and saturates, never more than the room, clamped
+    to 0.06–0.30 px/m (`VSCALE`). A flat city stays low (Tel Aviv 0.26, Netanya 0.27 px/m at the clamp's top), a mountain
+    city keeps a tall band (Haifa 0.10, Jerusalem 0.12).
+  - *The near ridge and the place agree* (option (a) of the brief, `placeDotY`): the dot stands under the near ridge's crest
+    at the centre by the crest's height over the place × `s` (over it where the place stands higher), then moves only as
+    far as the picture needs to stay in the land area (its top under `LAND_TOP`, its lowest built row and water over the
+    floor, which wins) and, on a coast, for the shore to lie no higher than the sea's true horizon (the coastal sea still
+    runs to its true horizon). Option (b), blending the near ridge into the place's ground, was not taken: it would redraw
+    the panorama's own ridge (true height and distance from the place's eye) to suit the place, an invented ridge line,
+    and the two scales would still meet only where the blend ends; (a) changes nothing in the panorama and puts the
+    disagreement only where the land area forces it, by a measured number of px (below). The silhouette now also holds
+    the built cells' own ground and is never smoothed under a column's own top, so no row floats over the land drawn
+    under it without the cap.
+  - *The datum is simpler* (`world/datum.ts`): sea level is a height on the same scale, `|h0| × s` over the dot at the dot's
+    depth (`seaLevelY`, one number); the zero-contour medians (`zeroCrossings`, `placeContour`, `seaLevelAbove`) and the
+    outline hollows (`outlineOf`, `datumLineOf`) are gone. The line runs along the dot's own row (`datumOfRow`), on each
+    side to where that row's true ground rises through 0 m (`zeroAlongRow`, walked every 62.5 m), else `OPEN_REACH` past
+    the dot fading out, as before. It is at the place's depth, so it is drawn in the near water layer (z 35, in front of
+    the near ridge, behind the place's own layer), not the far one: the dot is now often on the ridge's face (Tiberias).
+- *Measured at 12:00* (below/above px/m ratio, before → after; px/m; the place's ground relief in px, before → after; how
+  far the dot moved off the crest relation to stay in the land area):
+
+  ```
+                    ratio        px/m above / below → s   relief px   dot moved
+  tel-aviv          1.00 → 1     0.180 / 0.180 → 0.261    15 → 20      −1  (coast)
+  netanya           0.80 → 1     0.272 / 0.217 → 0.272    19 → 20      −2  (coast)
+  haifa             5.74 → 1     0.086 / 0.494 → 0.100    61 → 49     +22  (coast: the shore down to the sea horizon)
+  beer-sheva        1.57 → 1     0.063 / 0.098 → 0.165    16 → 29     −10
+  jerusalem         0.52 → 1     0.137 / 0.071 → 0.122    28 → 40     −12  (its lowest built rows over the floor)
+  rosh-pina         0.21 → 1     0.275 / 0.057 → 0.133    39 → 42     −10
+  shadmot-mehola    0.39 → 1     0.703 / 0.276 → 0.144    38 → 13      −6
+  tiberias          5.70 → 1     0.054 / 0.310 → 0.092    40 → 45      +6  (its top under the land area's top)
+  ein-gedi          1.20 → 1     0.061 / 0.073 → 0.073    49 → 42       0
+  beit-shean        0.46 → 1     0.391 / 0.181 → 0.170    20 → 17       0
+  jericho           0.52 → 1     0.232 / 0.120 → 0.119    17 → 15       0
+  kalya             1.00 → 1     0.543 / 0.543 → 0.101    39 → 11       0
+  neve-zohar        2.43 → 1     0.118 / 0.287 → 0.100    38 → 22      −3
+  ramon-crater      no built cells: no local lie, the dot on the ridge line (unchanged)
+  ```
+  (Kalya's relief is sea level down to its lowest row, 391 m; its own ground spans 80 m, so 11 px.) Tiberias
+  (the owner's case): the town's 73 m over the Kinneret and the 137 m up to sea level are now drawn at the same 0.092 px/m;
+  the dot stands 31 px under the ridge line (the crest at the dot is +137 m, 274 m over the town), on the ridge's face, the
+  "cliff" under the old dot gone. Haifa's Carmel keeps a tall band (the city climbing 40 px from the shore), Jerusalem's
+  relief grows (28 → 40 px). The places whose own ground is flat but whose band was stretched by the old presses
+  (Shadmot Mehola's 0.70 px/m above the dot, Kalya's 0.54) are now as flat as they are.
+- *Stills* (`qa/canvas/vscale/`, before = `54702fe`): `before/` and `after/` of every harness place at 12:00 (the 8 base
+  places, `DATUM_PLACES`, Be'er Sheva and Netanya) and Tiberias at 16:30; `sheet-before-after.png`.
+- *Tests*: `world/vscale.test.ts` (6: the band and its saturation, the clamp, the dot's placement and its moves; at all 13
+  places with built cells, every row's foot on the one scale above and below the dot and the measured ratio 1, the dot
+  in the land area, Haifa / Jerusalem / Rosh Pina at least 25 px tall, Tiberias's dot under the ridge line).
+  `world/datum.test.ts` rewritten for the simpler rule (7: the row's line and its open ends, the panorama's own 0 m
+  contour as before, and at the seven places below sea level: the line `|h0| × s` over the dot, its note and the label
+  clear of it, Tiberias's and Ein Gedi's ends where the row's ground is 0 m ± 15 m). `scene/model/outside.test.ts`: the
+  climbing-rows test no longer skips the capped rows (there is no cap). Pixel references re-recorded deliberately, the 50
+  that show a place's own ground: every case of Shadmot Mehola, Tel Aviv, Jerusalem, Haifa, Rosh Pina, Tiberias, Ein Gedi
+  (`*-0620`, `*-1200`, `*-1630`, `*-2100`, the weathers, the `@2x` cases, `rosh-pina-0620-arrive-1.2`); Ramon crater and
+  the loading / offline / arriving-at-0.7 cases unchanged; 59/59.
+- *Perf*: the place is built once per place (the world builder keeps it); its cost unchanged in node (placeOf 9–44 ms
+  before and after), and the scene model the same (1.5–3.4 ms a frame unthrottled, both; the land layers the same in
+  number: the datum moved from `water.far` to `water.near`, Tiberias one layer fewer). `npm run test:perf` within its
+  run-to-run noise against `54702fe` run in the same container: Shadmot Mehola scrub.model p95 15–19 ms after vs 16–26
+  before, modelCold 25–40 vs 29–33; Haifa and Tel Aviv overlapping likewise; the OVERs are C5's and C6's, as before.
+
+
+**C10 fixes (2026-11-20): the halo, the contrails, the Milky Way and the rainbow, each by a general rule.** Commits on
+the C10 branch (from `54702fe`; `ccr-85ec24f0-9ayxgu` at `2d35366`, the vertical scale, merged in). The owner's report
+on `qa/canvas/c10/contact-sheet.png`: the 22° halo a loop or a teardrop (at a low sun a pointed V); persistent contrails
+huge arches, loops and hooks; the Milky Way a stiff column of stripes.
+- *The cause, one for the first two*: shapes traced on the sphere were projected point by point through the scene's sky,
+  which is cylindrical across (1.5 px a degree of azimuth, spreading as 1/cos h going up) and stretched up (the relief's
+  tanh near the horizon, the dome above 22°): a circle round the sun is bent into a loop, and a contrail, a great circle,
+  into an arch wherever it passes high.
+- *The rule* (`scene/model/tangent.ts`): optics and contrails are drawn in the sky's **tangent frame** at their centre, the
+  same px per degree across and up (`tangentScale`: the camera's px a degree of azimuth over cos h at the centre, held
+  under 1/0.6 of it near the zenith), anchored where the projection puts the centre. A circle stays round; a great circle,
+  gnomonic in the frame, stays straight.
+- *Halo* (`model/optics.ts`, `paint/optics.ts`): a true circle round the sun as drawn, 22° at the frame's scale at the
+  sun's height (so it sits where the sun's own mapping puts that ring across). Painted as radial washes: the sky a shade
+  darker inside, a sharp faintly red inner rim, warm white fading out over ~10°. The sun dogs level with the sun at the
+  plates' minimum deviation (21.8° at the horizon, farther as the sun climbs), soft patches taller than wide, red toward
+  the sun and fading to a whitish tail outward. What falls under the land or the eye's horizon is clipped (`skyClip`: the
+  sky's outline down to the crest or the horizon, whichever is higher).
+- *Contrails* (`model/life.ts`): a live trail is drawn in the frame tangent at its plane (the plane at its true place, its
+  trail straight behind it, its way ahead straight; the `wake` keeps laying it as it flies); an old trail in the frame at
+  the middle of its stretch in view. Every trail is straight or very gently curved (the earth's curve), never turning
+  back. A live trail is thin at the plane and spreads toward its old end, fading over its oldest quarter; an old trail is a
+  wide soft band (a broad faint veil under it in the hand) with both ends fading, drifting with the high cloud as before.
+  Short trails of non-persisting air stay thin behind their plane. How many: one to three planes by the Schmidt–Appleman
+  margin, none to two old trails by the ice supersaturation, at most four trails drawn (`MAX_TRAILS`).
+- *Milky Way* (`model/nightSky.ts`, `paint/nightSky.ts`, `astro/galaxy.ts`): still the galactic plane at its true place on
+  the dome (where the stars are), and gated as before (dark sky only). Its width now follows its true angular width,
+  swelling and narrowing (seeded, smooth along it) and held under 34 px only where the cylinder spreads the sky near the
+  zenith; it fades out from 60° to 82° up (was cut at 74°). The hand: many soft seeded blobs, Gaussian across so its
+  edges fade, mottled by noise; brighter warm knots at the star clouds (`starCloudAt`: the Large and Small Sagittarius
+  clouds, Scutum, Cygnus; the bulge low in the south-west on a summer night); a dust of faint stars; the dark lanes taken
+  out of its light (`destination-out`: the Great Rift a broken lane a little off its middle from Cygnus to Sagittarius,
+  small dust patches elsewhere). Faint throughout, under the bright stars. (Mitzpe Ramon at 23:30 on 12 Aug: the plane
+  passes within 2° of the zenith at azimuth 214°, so the band truly stands upright there; at Shadmot at 22:00 it leans.)
+- *Rainbow*: a true circle round the antisolar point in its tangent frame, the frame's horizon on the eye's at that azimuth;
+  its px per degree such that the bow's top stands where the sky puts the top's altitude, held within 1–2× the sky's scale
+  across. Primary violet 40.6° to red 42.3° (red outside), the sky inside it a little brighter, Alexander's band between
+  the bows a little darker, the secondary red 50.1° to violet 53.6° (reversed). Its strength round the circle (the rain's
+  azimuths, the foot, only the view's own span of azimuth, never across the camera's seam) is a conic mask
+  (`destination-in`); clipped by the land. None when nothing of it shows over the land in view (Haifa at noon: the bow's
+  4° top lies due north, behind the eye).
+- *Contract*: painters pure in `desc` (no phase needed), seeded, no clock, no `ctx.filter`; `createConicGradient`, clip
+  and composite modes only, all worker-safe.
+- *Tests*: `scene/model/c10fixes.test.ts`: the halo's projected 22° circle has x/y radii equal (ratio 1 ± 0.005) at
+  four sun heights at three places, centred on the drawn sun, while the sky's own projection would bend it (> 5 %); its
+  clip never under the land or horizon; sun dogs level with the sun, outside 22°, moving out as it climbs; every contrail
+  over 8 places × 3 hours × 2 skies never turns back (each step < 90°), bends < 15° in all and strays < 3 % of its chord
+  from it, at most 4 trails; a live trail thin at its plane, wider at its old end; the Milky Way's spine 90° from the
+  galactic pole and at its true place, brightest toward Sagittarius low in the south-west, its width varying (> 1.3×),
+  none over 82°, gated; the rainbow round the antisolar point on the horizon, round in its frame, clipped by the land, red
+  outside on the primary and inside on the secondary, the darker band only between them. `c10.test.ts`'s halo check now
+  asserts the circle's centre and radius.
+- *Pixel references* re-recorded deliberately, 7 of 59, all for the straight contrails (the planes' trails and their
+  angle): `haifa-0620`, `haifa-1200`, `jerusalem-0620@2x`, `rosh-pina-0620`, `shadmot-mehola-0620@2x`, `tel-aviv-1200`,
+  `tel-aviv-1200@2x`. 59/59 on both paint paths.
+- *Perf*: the new contrail model is cheaper than the arches' (0.05 vs 0.09 ms a call unthrottled, Haifa and Tel Aviv over a
+  day's scrub); the halo, rainbow and Milky Way models under 0.01 ms. `npm run test:perf` against the same code before
+  in the same container: within its run-to-run noise (`qa/canvas/perf.md`).
+- *Stills*: `qa/canvas/c10/contact-sheet-2.png` (the same 20 moments as `contact-sheet.png`), and before/after close-ups in
+  `qa/canvas/c10/fixes/`: `halo-jerusalem-1100.png`, `halo-jerusalem-0830.png` (the low sun's V gone),
+  `contrails-jerusalem-1100.png`, `contrails-jerusalem-0830.png`, `milky-way-ramon.png`, `milky-way-shadmot.png`,
+  `rainbow-tel-aviv-0800.png`.

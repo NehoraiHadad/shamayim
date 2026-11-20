@@ -375,7 +375,7 @@ export interface OutsideView {
   seed: number
   /** Where the frame was cut: the place's mapped boundary, its cell among the place points, or (no data) its cluster. */
   bounds: { source: 'boundary' | 'cell' | 'cluster'; name?: string }
-  /** The ground (m) the ridge line stands for (the place's top); null without the local ground. */
+  /** The place's top (m: its built squares' 95th percentile); null without the local ground. */
   topM: number | null
   /** The towers beyond the place within 6 km, at their true bearing. */
   beyond: BeyondTower[]
@@ -394,6 +394,11 @@ export interface OutsideView {
    * east on screen, layout px) down to the ridge line (`base`); empty where the place lies under the line.
    */
   land: { top: Pt[]; base: Pt[]; km: number; /** The ground's height (m) at each top point (its snow). */ heightM?: number[] } | null
+  /**
+   * The place's one vertical scale (owner decision 14, "uniform per place"): `s` px a metre above and below the dot alike,
+   * and the place point's ground `h0` (m); absent without the local ground (`world/outside.ts` `lieOf`).
+   */
+  vscale?: { s: number; h0: number } | null
 }
 
 /**

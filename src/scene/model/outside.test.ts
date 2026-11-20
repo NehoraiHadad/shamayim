@@ -282,8 +282,6 @@ describe('rows climb the slope (C5 item 2)', () => {
     for (const list of groups.values()) {
       for (let i = 1; i < list.length; i++) {
         if (Math.abs(ground(list[i].x) - ground(list[0].x)) < 1.5) continue
-        // Unless the rise over the ridge line is capped where the line dips (a row never stands as a plateau in the sky).
-        if (list[i].foot <= ground(list[i].x) + 1 - ABOVE_PAD + .05 || list[0].foot <= ground(list[0].x) + 1 - ABOVE_PAD + .05) continue
         pairs++
         expect(Math.abs(list[i].foot - list[0].foot), id).toBeLessThan(1.6)
       }

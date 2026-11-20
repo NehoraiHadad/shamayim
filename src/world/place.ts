@@ -16,7 +16,7 @@ import type { WaterMask } from '../data/water/waterMask'
 import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, marksOf } from './marks'
 import { outsidePlace } from './outside'
-import { datumLineOf, outlineOf, ridgeHeightAt, seaLevelAbove } from './datum'
+import { datumOfRow } from './datum'
 import type { CoastalSea, OutsideView, WorldLabels, WorldMark } from './types'
 
 /**
@@ -76,8 +76,6 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const label = { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 }
   const ground = groundFn(terrain.nearPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
-  // The dot sits on the drawn ridge, not on the raw middle sample (which can float above the smoothed curve).
-  const dot = { x: centerX, y: ground(centerX) }
   const seed = hashId(place.id)
   // The place's own city skyline (its raster towers within reach): the far towns start beyond it.
   const ownSkyline = Boolean(city?.raster && terrain.groundAt && terrain.angleY && terrain.sightAt)
@@ -87,14 +85,17 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   // Seen from outside (C5): its own frame, boundary and slope, its mass and spires, the towers beyond, its sea.
   const view = outsidePlace({ place, terrain, landmarks, city, width, centerX, reachKm, ground, floor,
     bounds: input.bounds, mask: input.waterMask, cover: input.cover })
-  // Below sea level, the "פני הים" datum where the picture's own rule draws 0 m (`datum.ts`): above the dot, cut against
-  // the slopes that reach it: the place's own ground, else the land round it; none where neither does above the dot.
-  const seaLevel = elevation < 0 ? seaLevelAbove(view.zeroContour(), dot) ?? seaLevelAbove(terrain.zeroContour, dot) : null
-  const outline = seaLevel ? outlineOf(ground, view.land?.top, width, ridgeHeightAt(terrain.nearPoints, terrain.nearElevations),
-    view.land?.heightM) : []
-  const datum = seaLevel ? datumLineOf(seaLevel, outline, centerX * 375 / width) : null
+  // The dot on the place's one vertical scale (owner decision 14: under the near ridge's crest by the crest's height over
+  // it); without the local ground, on the drawn ridge (not on the raw middle sample, which can float over the curve).
+  const dot = { x: centerX, y: view.vscale?.dotY ?? ground(centerX) }
+  // Below sea level, the "פני הים" datum where the picture's own scale puts 0 m (`datum.ts`), cut against the slopes that
+  // reach it.
+  const seaLevel = elevation < 0 && view.seaLevelY !== null && view.seaLevelY < dot.y ? { y: view.seaLevelY } : null
+  const ends = seaLevel ? view.zeroAlongRow() : null
+  const to375 = (x: number | null) => x === null ? null : x * 375 / width
+  const datum = seaLevel && ends ? datumOfRow(seaLevel.y, centerX * 375 / width, { left: to375(ends.left), right: to375(ends.right) }) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
-  const notes = notesOnWater(notes0, terrain, view, { x: centerX, y: ground(centerX) }, width)
+  const notes = notesOnWater(notes0, terrain, view, dot, width)
   const marks = marksOf({ place, terrain, landmarks, width, dot, reachKm, homeHalf: homeHalf(reachKm, known), style: style.style,
     notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land } })
@@ -105,7 +106,8 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y, backed: true }, notes, datum }
   return { marks, labels, ownSkyline, coastalSea: view.sea, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
-    trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land } }
+    trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,
+    vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null } }
 }
 
 /** Air between the dot's ring and the label's backing, and the backing's own margin round the text (px). */

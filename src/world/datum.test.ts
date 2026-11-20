@@ -5,37 +5,13 @@ import { terrainFromPanorama, zeroContourOf } from '../data/terrain/panoramaTerr
 import type { LocalTime } from '../domain/types'
 import { DATUM_PLACES, SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { datumLineOf, OPEN_REACH, outlineOf, placeContour, seaLevelAbove, zeroCrossings } from './datum'
+import { datumOfRow, OPEN_REACH } from './datum'
 import { LABEL_H, textWidth } from './layout'
 import type { WorldState } from './types'
 import { buildWorld } from './world'
 
 /** Every place below sea level the harness has (docs/design/CANVAS-SCENE-PLAN.md §6, the datum fix). */
 const BELOW = ['tiberias', 'ein-gedi', 'shadmot-mehola', 'beit-shean', 'jericho', 'kalya', 'neve-zohar']
-
-describe('the 0 m contour of the place’s ground', () => {
-  it('finds where the ground crosses 0 m between neighbouring spots, within the place only', () => {
-    // A slope rising 100 m a km eastward, 0 m at 0.5 km east.
-    const slope = (dx: number) => -50 + 100 * dx
-    const box = { w: -1, e: 1, s: -1, n: 1 }
-    const spots = zeroCrossings((dx) => slope(dx), box, .25)
-    expect(spots.length).toBe(9)
-    for (const { dx } of spots) expect(dx).toBeCloseTo(.5)
-    expect(zeroCrossings((dx) => slope(dx), box, .25, (_, dy) => dy <= 0)).toHaveLength(5)
-    // Ground below 0 m everywhere (or unknown): none.
-    expect(zeroCrossings(() => -120, box, .25)).toEqual([])
-    expect(zeroCrossings(() => null, box, .25)).toEqual([])
-  })
-
-  it('draws sea level where the place’s rule draws 0 m there, at the median height', () => {
-    const contour = placeContour([{ dx: 0, dy: 0 }, { dx: 1, dy: 0 }, { dx: 2, dy: 0 }], (dx) => 100 + 10 * dx,
-      (dx, _, h) => 50 - h * .1 - dx)
-    expect(contour).toEqual([[100, 50], [110, 49], [120, 48]])
-    expect(seaLevelAbove(contour, { y: 60 })).toEqual({ y: 49, points: contour })
-    // A spot drawn under the dot is not sea level over a place below it.
-    expect(seaLevelAbove(contour, { y: 49.5 })).toEqual({ y: 48.5, points: [[110, 49], [120, 48]] })
-  })
-})
 
 describe('sea level on the land the panorama draws', () => {
   it('stands where the eye sees the slopes pass through 0 m, on the land’s own vertical scale', () => {
@@ -60,54 +36,28 @@ describe('sea level on the land the panorama draws', () => {
     expect(terrainFromPanorama(computePanorama((km) => 100 + 10 * km, 300)).zeroContour).toBeUndefined()
   })
 
-  it('keeps only the spots above the dot', () => {
-    expect(seaLevelAbove([[10, 40], [20, 60], [30, 50], [40, 90]], { y: 80 })).toEqual({ y: 50, points: [[10, 40], [20, 60], [30, 50]] })
-    expect(seaLevelAbove([[10, 90]], { y: 80 })).toBeNull()
-    expect(seaLevelAbove(undefined, { y: 80 })).toBeNull()
-  })
 })
 
 describe('the datum’s line', () => {
-  // A drawn outline (px at 375) from samples every px: land at `y(x)`.
-  const outline = (y: (x: number) => number) => outlineOf(y, null, 375)
-
-  it('runs from a crossing through the hollow to the crossing on its other side, the place’s own land included', () => {
-    const own = outlineOf((x) => (x < 120 ? 30 : x < 250 ? 90 : 30), [[200, 60], ...Array.from({ length: 49 }, (_, i): [number, number] => [201 + i, 40])], 375)
-    expect(own[201][1]).toBe(40)
-    const line = datumLineOf({ y: 50, points: [] }, own, 187.5)!
-    expect(line.segments).toHaveLength(1)
-    expect(line).toMatchObject({ y: 50, x2: line.segments[0].x2 })
-    expect(line.x1).toBeCloseTo(119 + 1 / 3 - 6)
-    expect(line.x2).toBeGreaterThan(200)
-    expect(line.x2).toBeLessThan(210)
-    expect(line.segments[0]).toMatchObject({ fadeLeft: 0, fadeRight: 0 })
+  it('runs along the dot’s row from one 0 m crossing to the other', () => {
+    const line = datumOfRow(50, 187.5, { left: 120, right: 230 })
+    expect(line).toEqual({ x1: 120, x2: 230, y: 50, segments: [{ x1: 120, x2: 230, fadeLeft: 0, fadeRight: 0 }] })
   })
 
-  it('ends a side that meets no land a short way past the dot, fading out, never at the frame’s edge', () => {
-    // Land rises through the line east of the dot only; the west runs open to the frame's edge.
-    const line = datumLineOf({ y: 50, points: [] }, outline((x) => (x < 230 ? 90 : 30)), 187.5)!
+  it('ends a side whose ground stays below 0 m a short way past the dot, fading out, never at the frame’s edge', () => {
+    const line = datumOfRow(50, 187.5, { left: null, right: 236 })
     expect(line.segments[0].x1).toBeCloseTo(187.5 - OPEN_REACH)
-    expect(line.segments[0].x2).toBeCloseTo(236, 0)
+    expect(line.segments[0].x2).toBe(236)
     // The fade leaves at least the note's width solid.
     expect(line.x2 - line.x1 - line.segments[0].fadeLeft).toBeGreaterThanOrEqual(44 - 1e-9)
     expect(line.segments[0].fadeLeft).toBeGreaterThan(0)
     expect(line.segments[0].fadeRight).toBe(0)
-    // No land meets it on either side: a short stretch round the dot, fading both ways.
-    const flat = datumLineOf({ y: 50, points: [] }, outline(() => 90), 187.5)!
-    expect([flat.segments[0].x1, flat.segments[0].x2]).toEqual([187.5 - OPEN_REACH, 187.5 + OPEN_REACH])
+    // No crossing on either side: a short stretch round the dot, fading both ways; inside the frame at its edge.
+    const flat = datumOfRow(50, 187.5, { left: null, right: null })
+    expect([flat.x1, flat.x2]).toEqual([187.5 - OPEN_REACH, 187.5 + OPEN_REACH])
     expect(flat.segments[0].fadeLeft).toBeGreaterThan(0)
     expect(flat.segments[0].fadeRight).toBeGreaterThan(0)
-  })
-
-  it('draws every hollow between two real crossings, and none open to the edge away from the dot', () => {
-    // The dot's hollow (150–230), a second hollow between crossings (280–320), and one open to the west edge (0–60).
-    const y = (x: number) => (x < 60 ? 90 : x < 150 ? 30 : x < 230 ? 90 : x < 280 ? 30 : x < 320 ? 90 : 30)
-    const line = datumLineOf({ y: 50, points: [] }, outline(y), 187.5)!
-    expect(line.segments.map((seg) => [Math.round(seg.x1), Math.round(seg.x2)])).toEqual([[143, 236], [273, 326]])
-    expect(line.segments.every((seg) => seg.fadeLeft === 0 && seg.fadeRight === 0)).toBe(true)
-    expect([Math.round(line.x1), Math.round(line.x2)]).toEqual([143, 236])
-    // No hollow at all under the line: none.
-    expect(datumLineOf({ y: 50, points: [] }, outline(() => 30), 187.5)).toBeNull()
+    expect(datumOfRow(50, 20, { left: null, right: 90 }).x1).toBe(0)
   })
 })
 
@@ -150,21 +100,35 @@ describe('the datum at every place below sea level', () => {
     }
   })
 
-  it('stands over Tiberias’s dot by the place’s own rule and meets the slope behind it', () => {
-    const world = worldOf('tiberias')
-    const line = world.labels.datum!
-    expect(world.place3.dot.y - line.y).toBeGreaterThan(3)
-    // The town's slope behind the dot (its own land where it rises over the ridge line, else the ridge) meets the line
-    // (tucked 6 px into the land).
-    const place3 = world.place3
-    if (place3.kind !== 'outside') throw new Error('tiberias is seen from outside')
-    const ridge = loaded.get('tiberias')!.terrain.nearPoints
-    const ridgeAt = (x: number) => {
-      const i = ridge.findIndex(([px]) => px >= x)
-      return ridge[i - 1][1] + (ridge[i][1] - ridge[i - 1][1]) * (x - ridge[i - 1][0]) / (ridge[i][0] - ridge[i - 1][0])
+  it('stands at 0 m on the place’s one vertical scale: |h0| × s over the dot', () => {
+    for (const id of BELOW) {
+      const world = worldOf(id)
+      const view = world.place3
+      if (view.kind !== 'outside') throw new Error(`${id} is seen from outside`)
+      const { vscale } = view
+      expect(vscale, id).not.toBeNull()
+      expect(vscale!.h0, id).toBeLessThan(0)
+      // The dot is a base's y less 1 (it sits on its ground's line): sea level stands |h0| × s over that ground.
+      expect(world.labels.datum!.y, id).toBeCloseTo(view.dot.y + 1 + vscale!.h0 * vscale!.s, 6)
     }
-    const meet = line.x2 - 6
-    const land = place3.land?.top.find(([x]) => Math.round(x) === Math.round(meet))?.[1] ?? Infinity
-    expect(Math.abs(Math.min(ridgeAt(meet), land) - line.y)).toBeLessThan(1)
+  })
+
+  it('ends where the dot’s own row really rises through 0 m (Tiberias’s and Ein Gedi’s slopes behind the town)', () => {
+    for (const id of ['tiberias', 'ein-gedi']) {
+      const world = worldOf(id)
+      const view = world.place3
+      if (view.kind !== 'outside') throw new Error(`${id} is seen from outside`)
+      const line = world.labels.datum!
+      const seg = line.segments[0]
+      const ends = [seg.fadeLeft ? null : seg.x1, seg.fadeRight ? null : seg.x2].filter((x): x is number => x !== null)
+      expect(ends.length, id).toBeGreaterThan(0)
+      const { frame } = view
+      const heightNear = loaded.get(id)!.terrain.heightNear!
+      for (const x of ends) {
+        // Back from the screen to the row (dy = 0): x = centerX − f·dx / eyeN.
+        const dx = (frame.centerX - x) * frame.eyeN / frame.f
+        expect(Math.abs(heightNear(dx, 0)!), id).toBeLessThan(15)
+      }
+    }
   })
 })

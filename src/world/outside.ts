@@ -16,7 +16,7 @@ import { apparentAngle } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
 import { SCENE_CAMERA, xOf } from '../domain/camera'
-import { placeContour, zeroCrossings } from './datum'
+import { ridgeHeightAt } from './datum'
 import { VISIBLE_BOTTOM } from './layout'
 import { SCENE_H, SCENE_W } from './sceneBox'
 import { groundAt as lineAt } from './sceneLight'
@@ -29,9 +29,9 @@ import type { BeyondBlock, BeyondTower, CoastalSea, OutsideTreeSite, OutsideView
  * - **The frame is the place's own** (item 6): its built squares within its own boundary (`bounds.ts`: the mapped
  *   administrative boundary that holds it, else its weighted cell among the place points), within its reach; a city grown
  *   into its neighbours shows only itself. Without boundary data, its built-up cluster as before.
- * - **Rows climb the slope** (item 2): the ground under each row (the panorama's local grid, every direction) sets how
- *   far below the ridge line it stands: the place's top on the line, every row lower by its height under that top in
- *   the view's own perspective (the px per m of its towers). A flat city barely moves; a city on a mountain face climbs it.
+ * - **Rows climb the slope** (item 2; owner decision 14): the ground under each row (the panorama's local grid, every
+ *   direction) sets how far above or below the dot it stands, on the place's one vertical scale (`lieOf`). A flat city
+ *   barely moves; a city on a mountain face climbs it.
  * - **Mass and spires** (B): `outsideSkyline` with the boundary and the slope.
  * - **Towers beyond the place** (item 3): those within the near skyline's reach (6 km) but outside the place, at their
  *   true bearing on the true land, with the same levels of detail: the famous and ≥ 150 m a full glyph, the others a
@@ -59,7 +59,7 @@ export interface OutsidePlace {
   frame: OutsideFrame
   skyline: OutsideSkyline
   bounds: { source: PlaceBounds['source'] | 'cluster'; name?: string }
-  /** The ground (m) the ridge line stands for: the place's top (its built squares' 95th percentile); null when unknown. */
+  /** The place's top (m: its built squares' 95th percentile); null when its ground is unknown. */
   topM: number | null
   lie: PlaceLie
   beyond: BeyondTower[]
@@ -74,10 +74,17 @@ export interface OutsidePlace {
   /** The place's own ground where it rises over the ridge line (C5b). */
   land: OutsideView['land']
   /**
-   * The place's 0 m contour drawn by its own rule (`datum.ts`): where its ground in the frame crosses 0 m, at the y its
-   * rows give 0 m there; empty when its ground never crosses 0 m in the frame or is not known. Worked out when asked.
+   * The place's one vertical scale (owner decision 14): `s` px a metre above and below the dot alike, the dot's y on it
+   * (`placeDotY`), and the place point's ground (m). Null without the local ground (the dot on the ridge line, as before).
    */
-  zeroContour: () => Pt[]
+  vscale: { s: number; dotY: number; h0: number } | null
+  /** Sea level (y, px) at the dot's depth on the place's own scale (the datum below sea level); null without it. */
+  seaLevelY: number | null
+  /**
+   * Where the dot's row rises through 0 m on each side of the dot (layout px; null: its ground stays below 0 m as far as
+   * the local ground is known and in view): the datum's ends (`datum.ts` `datumOfRow`). Worked out when asked.
+   */
+  zeroAlongRow: () => { left: number | null; right: number | null }
 }
 
 export interface OutsideInput {
@@ -228,10 +235,49 @@ const quantile = (values: ArrayLike<number>, q: number) => {
 
 /** The place's own ground is sampled every this many km for its silhouette and its rows' room (the local grid is 250 m). */
 const GROUND_STEP = .125
-/** Rows may rise over the dot up to the highest ridge line over the place's width, and this many px more. */
+/**
+ * The near ridge's crest may stand this far (px) over a row of the place in front of it: the scene's land pass (C9 defect 1,
+ * `landBehind`) lets a foot show this far over the line before it counts as seen against the sky.
+ */
 export const ABOVE_PAD = 6
-/** …and at least this many px. */
-const MIN_ABOVE = 6
+/**
+ * The land area the place's picture is laid in (px at the scene's scale): from this height down to the sheet (`floor`). About
+ * the highest the scene's near ridges stand (Tiberias's ridge over the Kinneret, 46 px); the sky above it is the sky's.
+ */
+export const LAND_TOP = 40
+/**
+ * The place's one vertical scale (owner decision 14, "uniform per place"): px per metre, the same above and below the dot,
+ * for its ground, its rows, its water and the near ridge's crest behind it. Its total relief R (m: the land's top or the
+ * crest, down to its lowest built row or its water) takes `fill × room × R / (R + r0)` px of the land area's room: a band
+ * that grows with the relief and saturates, so a flat city keeps a low band and a mountain city a tall one, never the whole
+ * room. Never more than the room itself, and between `min` and `max` px a metre: a 60 m flat city is not blown up into a
+ * hill, a 600 m mountain face not crushed to a line.
+ */
+export const VSCALE = { fill: .93, r0: 150, min: .06, max: .3 }
+
+/** The place's one vertical scale (px / m) for a relief of `reliefM` in a land area `roomPx` high (`VSCALE`). */
+export function verticalScale(reliefM: number, roomPx: number): number {
+  const r = Math.max(1, reliefM)
+  return Math.max(VSCALE.min, Math.min(VSCALE.max, VSCALE.fill * roomPx / (r + VSCALE.r0), roomPx / r))
+}
+
+/**
+ * Where the dot (the place point's ground, a base's y) stands, on the place's one scale `s` (owner decision 14): under the
+ * near ridge's crest at the dot (`ridgeY`, a base on it) by the crest's height over the place, `(crestM − h0) × s` (over it
+ * where the place stands higher); then moved, as little as it takes, so the picture stays in the land area: its top (`up`,
+ * px over the dot, ≤ 0) no higher than `landTop`, its bottom (`down`, px under the dot) no lower than `floor`, and a coastal
+ * place's shore (`shore`, px under the dot, 0 m at its near edge) no higher than the sea's true horizon, where the panorama
+ * shows the sea. The bottom wins over the top and the shore (the place's rows stay on the sheet).
+ */
+export function placeDotY(at: { ridgeY: number; crestM: number; h0: number; s: number; up: number; down: number;
+  shore: number | null; landTop: number; floor: number; horizon: number }): number {
+  const { ridgeY, crestM, h0, s, up, down, shore, landTop, floor, horizon } = at
+  let y = ridgeY + (Number.isFinite(crestM) ? (crestM - h0) * s : 0)
+  y = Math.max(y, landTop - up)
+  if (shore !== null) y = Math.max(y, horizon - shore)
+  return Math.min(y, floor - down)
+}
+
 /** The place's silhouette eases into the ridge line over this many px at its ends. */
 const LAND_EASE = 14
 /** A two-storey house (m): the legible house's reference height. */
@@ -278,12 +324,14 @@ function groundSamples(frame: OutsideFrame, heightNear: (dx: number, dy: number)
 }
 
 /**
- * The place's frame, boundary and slope (items 2 and 6; C5b item 2). Every row of the place stands on its own ground:
- * the dot (the place point) on the ridge line where the panorama draws it, every other spot above or below it by its
- * ground's height over the place point's and by its depth (north nearer, lower), in the frame's own perspective (px per
- * m at its depth). The rows below the dot are pressed (one factor) into the room down to the sheet, those above it into
- * the room up to the highest ridge line over the place's width: the order of every row kept, the ridge line's own
- * undulation never followed. Without the local ground, the ridge line and the slope's lift as before.
+ * The place's frame, boundary and slope (items 2 and 6; C5b item 2; owner decision 14). Every row of the place stands on
+ * its own ground, on **one vertical scale** `s` (px a metre, `verticalScale`, from the land area's room and the place's
+ * total relief: its land, its built rows, its water, the near ridge's crest behind it, sea level below 0 m): every spot
+ * above or below the dot by its ground's height over the place point's × `s`, the same above and below, and by its depth
+ * (north nearer, lower). The dot itself under the near ridge's crest at the centre by the crest's height over the place × `s`
+ * (`placeDotY`), so the ridge and the place agree there; moved only as far as the land area, the sheet and a coast's sea
+ * horizon need. No press and no cap: where the place's ground is higher than the land behind it, it rises over the ridge
+ * line as its own silhouette (`landOf`). Without the local ground, the ridge line and the slope's lift as before.
  */
 function lieOf(input: OutsideInput) {
   const { place, terrain, city, reachKm, centerX, width, ground, floor } = input
@@ -319,51 +367,55 @@ function lieOf(input: OutsideInput) {
     const lift = press < 1 ? (dx: number, dy: number) => -(1 - press) * outsideProject(frame, dx, dy).near * NEAR_DROP : undefined
     const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), ...(lift ? { lift } : {}) }
     const levelY = (dx: number, dy: number) => baseYAt(ground, centerX, outsideProject(frame, dx, dy).near, floor, 0, lift?.(dx, dy) ?? 0)
-    return { frame, lie, topM, fabric, bounds, levelY, land: null, zeroContour: () => [] }
+    return { frame, lie, topM, fabric, bounds, levelY, land: null, vscale: null }
   }
   const h0 = heightNear(0, 0) ?? topM
   const near0 = outsideProject(frame, 0, 0).near
-  const yDot = ground(centerX) + 1
-  /** Px below the dot (+) or above it (−) for ground `h` m at a spot, before pressing. */
-  const offset = (dx: number, dy: number, h: number) => {
-    const at = outsideProject(frame, dx, dy)
-    return (at.near - near0) * NEAR_DROP + (h0 - h) * at.k
-  }
   const samples = groundSamples(frame, heightNear, inPlace)
-  let below = 0, above = 0
-  const reach = (dx: number, dy: number, h: number) => {
-    const o = offset(dx, dy, h)
-    if (o > below) below = o
-    if (-o > above) above = -o
+  // The heights the picture holds: the place's land, its built rows, its water (a lake or the sea in the frame, the
+  // coastal sea's shore at 0 m), the near ridge's crest behind it at the dot, and below sea level, sea level.
+  const { mask } = input
+  const cos = Math.cos(place.lat * Math.PI / 180)
+  const waterAt = (dx: number, dy: number) => {
+    const body = mask?.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos)) ?? null
+    return body === null ? null : mask!.bodies[body]?.kind ?? 'lake'
   }
-  for (const g of samples) reach(g.dx, g.dy, g.h)
-  squares.forEach(({ dx, dy }, i) => { if (!Number.isNaN(cellGround[i])) reach(dx, dy, cellGround[i]) })
-  // The room above the dot: up to the highest ridge line over the place's width (and a little over it).
-  const xs = [outsideProject(frame, frame.e, frame.n).x, outsideProject(frame, frame.w, frame.n).x]
-  let ridgeTop = Infinity
-  for (let x = Math.max(0, Math.floor(Math.min(...xs))); x <= Math.min(width, Math.ceil(Math.max(...xs))); x++) ridgeTop = Math.min(ridgeTop, ground(x))
-  const roomAbove = Math.max(MIN_ABOVE, (Number.isFinite(ridgeTop) ? yDot - ridgeTop : 0) + ABOVE_PAD)
-  const roomBelow = Math.max(2, floor - yDot)
-  // A place on the sea: its shore (sea level at its near edge) lies no higher than the true sea horizon, where the
-  // panorama shows the sea; the rows below the dot are stretched (one factor) to reach it, never past the sheet.
-  const coastal = samples.some((g) => Math.abs(g.h) <= 1)
-  const shoreDrop = offset(0, frame.n, 0)
-  const seaFit = coastal && shoreDrop > 0 ? (Math.min(floor, seaHorizonY(terrain)) - yDot) / shoreDrop : 0
-  const pressBelow = below > 0 ? Math.min(roomBelow / below, Math.max(1, seaFit)) : 1
-  const pressAbove = above > 0 ? Math.min(1, roomAbove / above) : 1
-  // A row above the dot rises over the ridge line in view by `ABOVE_PAD` at most (its own ground under it): the place's
-  // hill stands up out of the land it is seen against, never as a plateau in the sky.
-  const levelY = (dx: number, dy: number, h = 0) => {
-    const o = offset(dx, dy, h)
-    const y = Math.min(floor, yDot + o * (o > 0 ? pressBelow : pressAbove))
-    return o < 0 ? Math.max(y, Math.min(yDot, ground(outsideProject(frame, dx, dy).x) + 1 - ABOVE_PAD)) : y
-  }
+  const wet = samples.map((g) => waterAt(g.dx, g.dy))
+  const coastal = wet.some((w) => w === 'sea')
+  const crest = ridgeHeightAt(terrain.nearPoints, terrain.nearElevations)(centerX * 375 / width)
+  let hiM = -Infinity, loM = Infinity
+  samples.forEach((g, i) => { if (!wet[i]) hiM = Math.max(hiM, g.h); else loM = Math.min(loM, g.h) })
+  cellGround.forEach((h) => { if (!Number.isNaN(h)) { loM = Math.min(loM, h); hiM = Math.max(hiM, h) } })
+  if (coastal) loM = Math.min(loM, 0)
+  // Below sea level the picture holds sea level too (the datum stands at 0 m on the same scale).
+  if (h0 < 0) hiM = Math.max(hiM, 0)
+  if (Number.isFinite(crest)) hiM = Math.max(hiM, crest)
+  if (!Number.isFinite(hiM)) hiM = h0
+  if (!Number.isFinite(loM)) loM = Math.min(h0, hiM)
+  const s = verticalScale(hiM - loM, floor - LAND_TOP - NEAR_DROP)
+  /** Px below the dot (+) or above it (−) for ground `h` m at a spot: its depth, and its height on the place's one scale. */
+  const offset = (dx: number, dy: number, h: number) => (outsideProject(frame, dx, dy).near - near0) * NEAR_DROP + (h0 - h) * s
+  // How far the picture reaches over the dot (its land's top, sea level) and under it (its lowest built row, its water,
+  // its shore).
+  let up = 0, down = 0
+  samples.forEach((g, i) => {
+    const o = offset(g.dx, g.dy, g.h)
+    if (!wet[i]) up = Math.min(up, o)
+    else down = Math.max(down, o)
+  })
+  squares.forEach(({ dx, dy }, i) => { if (!Number.isNaN(cellGround[i])) down = Math.max(down, offset(dx, dy, cellGround[i])) })
+  if (h0 < 0) up = Math.min(up, offset(0, 0, 0))
+  const shore = coastal ? offset(0, frame.n, 0) : null
+  if (shore !== null) down = Math.max(down, shore)
+  const yDot = placeDotY({ ridgeY: ground(centerX) + 1, crestM: crest, h0, s, up, down, shore, landTop: LAND_TOP, floor,
+    horizon: seaHorizonY(terrain) })
+  const levelY = (dx: number, dy: number, h = 0) => Math.min(floor, yDot + offset(dx, dy, h))
   const baseY = (dx: number, dy: number) => levelY(dx, dy, heightNear(dx, dy) ?? h0)
   const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), baseY }
-  // Sea level by the same rule (the datum below sea level): 0 m where the place's ground in the frame crosses it.
-  const zeroContour = () => placeContour(zeroCrossings(heightNear, frame, GROUND_STEP, inPlace),
-    (dx, dy) => outsideProject(frame, dx, dy).x, levelY)
-  return { frame, lie, topM, fabric, bounds, levelY, land: landOf(input, frame, samples, baseY), zeroContour }
+  // The silhouette holds the built cells' own ground too (a row stands on it, never over the land drawn under it).
+  const spots = [...samples, ...squares.flatMap(({ dx, dy }, i) => Number.isNaN(cellGround[i]) ? [] : [{ dx, dy, h: cellGround[i] }])]
+  return { frame, lie, topM, fabric, bounds, levelY, land: landOf(input, frame, spots, baseY),
+    vscale: { s, dotY: yDot - 1, h0 } }
 }
 
 /**
@@ -406,7 +458,8 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
   let rises = false
   for (let x = Math.max(0, left - LAND_EASE); x <= Math.min(width, right + LAND_EASE); x++) {
     const own = top[Math.min(right, Math.max(left, x))]
-    const smooth = (top[Math.max(left, Math.min(right, x - 1))] + 2 * own + top[Math.max(left, Math.min(right, x + 1))]) / 4
+    // Smoothed, but never lower than the column's own top (a row on a crest keeps its ground under it).
+    const smooth = Math.min(own, (top[Math.max(left, Math.min(right, x - 1))] + 2 * own + top[Math.max(left, Math.min(right, x + 1))]) / 4)
     const ease = x < left ? 1 - (left - x) / LAND_EASE : x > right ? 1 - (x - right) / LAND_EASE : 1
     const line = ground(x)
     const y = Math.min(line, line + (smooth - line) * ease * ease * (3 - 2 * ease))
@@ -659,10 +712,42 @@ const median = (values: number[]) => values.length ? [...values].sort((a, b) => 
 /** Trees of the place a px slot apart at least (the legible tree's width), so the larger trees do not pile into mush. */
 const TREE_SLOT = .9
 
+/** The dot's row is walked this many km a step for its 0 m crossings (half the ground's sampling). */
+const ROW_STEP = GROUND_STEP / 2
+
+/**
+ * Where the place point's own row (its depth, km east and west of it) first rises through 0 m on each side of the dot, as
+ * screen x (layout px; east on the left): the true 0 m contour on that row, as far as the local ground is known and the
+ * row is in view.
+ */
+function zeroAlongRow(terrain: SceneTerrain, frame: OutsideFrame, width: number): { left: number | null; right: number | null } {
+  const out: { left: number | null; right: number | null } = { left: null, right: null }
+  const { heightNear } = terrain
+  const h0 = heightNear?.(0, 0)
+  if (!heightNear || h0 === null || h0 === undefined || h0 >= 0) return out
+  for (const east of [1, -1]) {
+    let prev = h0
+    for (let i = 1; ; i++) {
+      const dx = east * i * ROW_STEP
+      const x = outsideProject(frame, dx, 0).x
+      if (x < 0 || x > width) break
+      const h = heightNear(dx, 0)
+      if (h === null) break
+      if (h >= 0) {
+        const at = outsideProject(frame, east * (i - 1 + prev / (prev - h)) * ROW_STEP, 0).x
+        out[east > 0 ? 'left' : 'right'] = at
+        break
+      }
+      prev = h
+    }
+  }
+  return out
+}
+
 /** The place seen from outside: its frame, its own boundary and slope, mass and spires, the towers beyond, its sea. */
 export function outsidePlace(input: OutsideInput): OutsidePlace {
   const { place, landmarks, city, ground, floor, width, terrain, centerX } = input
-  const { frame, lie, topM, bounds, fabric, levelY, land, zeroContour } = lieOf(input)
+  const { frame, lie, topM, bounds, fabric, levelY, land, vscale } = lieOf(input)
   const look = lookOf(frame)
   const towers = city?.raster?.towers ?? city?.towers ?? []
   const skyline = outsideSkyline({ place, towers, landmarks, raster: city?.raster ?? undefined, frame, ground,
@@ -684,5 +769,6 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
   })
   return { frame, skyline, bounds, topM, lie, beyond: beyondTowers(input, frame, lie, look, baseKm),
     beyondTowns: beyondTowns(input, frame, lie, look, baseKm), trees, fabric: fabric.source,
-    sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land, zeroContour }
+    sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land, vscale,
+    seaLevelY: vscale ? levelY(0, 0, 0) : null, zeroAlongRow: () => zeroAlongRow(terrain, frame, width) }
 }
