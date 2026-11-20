@@ -2,7 +2,7 @@
 import { seeded } from '../../data/landmarks/hash'
 import { lateral } from '../../domain/camera'
 import type { BirdKind, Flock, HighPlane, LowPlane } from '../../world/life'
-import { METEOR_WINDOW_S, skyDirection } from '../../world/lifeSchedule'
+import { airDirection, METEOR_WINDOW_S, skyDirection } from '../../world/lifeSchedule'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
@@ -141,16 +141,22 @@ export function inFrontOf(world: WorldState, geom: SkyGeom, x: number, km: numbe
 const FRONT_Z = { near: 40.5, far: 18 } as const
 
 /**
- * An object of the sky laid where it truly stands in depth (the owner's report of 2026-11-20): on the sky surface, where the
- * land drawn over it hides it; and, when it is nearer than the land under it and reaches down into the land's figure, a
- * copy on the land surface in front of that land (the sky copy laid only over the figure's top, so nothing is laid twice).
+ * An object of the sky laid where it truly stands in depth (the owner's reports of 2026-11-20): on the sky surface, where
+ * the land drawn over it hides it; and, when no land truly stands in its line of sight (`blockedKm` null: `flightTerrain.ts`),
+ * it is nearer than the land drawn at its x (`inFrontOf`) and it reaches down into the land's figure, a copy on the land
+ * surface in front of that land (the sky copy laid only over the figure's top, so nothing is laid twice): nearer than the
+ * near land, over everything there; nearer than the far land only, between the far and near land. So it is hidden only by
+ * land between it and the eye: the ground truly in its line of sight, or what is drawn nearer than it (rows, towers).
  */
-function placedInDepth<L extends LayerOf<'birds'> | LayerOf<'aircraft'>>(world: WorldState, box: SceneBox, geom: SkyGeom, layer: L, km: number): L[] {
+function placedInDepth<L extends LayerOf<'birds'> | LayerOf<'aircraft'>>(world: WorldState, box: SceneBox, geom: SkyGeom, layer: L, km: number,
+  blockedKm: number | null | undefined): L[] {
   const lay = layer.placed!
   if (world.terrain.status !== 'ready') return [layer]
   const bottom = lay.y + (layer.bounds.y + layer.bounds.h) * lay.scale
   if (bottom <= box.landTop) return [layer]
-  const front = inFrontOf(world, geom, lay.x, km)
+  // Land truly in its line of sight hides it, wherever the figure's crest is; else it is in front of the land drawn
+  // farther than it (the land drawn nearer, the place's rows and towers, stands between).
+  const front = blockedKm == null ? inFrontOf(world, geom, lay.x, km) : null
   if (!front) return [layer]
   return [{ ...layer, placed: { ...lay, above: box.landTop } },
     { ...layer, id: `${layer.id}.front`, surface: 'land', z: FRONT_Z[front], placed: { ...lay, x: lay.x - geom.left, y: lay.y - box.landTop } }]
@@ -253,7 +259,7 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: sway },
       key: layerKey(id, skyBoxKey(box), flock.kind, flock.seed, heading, bounds.x, bounds.y, bounds.w, bounds.h, tone(rgb), tone(lit), q(direct, 0.25)),
     }
-    out.push(...placedInDepth(world, box, geom, layer, flock.distanceM / 1000))
+    out.push(...placedInDepth(world, box, geom, layer, flock.distanceM / 1000, flock.blockedKm))
   }
   return out
 }
@@ -394,7 +400,7 @@ export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
   const out: LayerOf<'aircraft'>[] = []
   const night = world.night.dark
   for (const plane of world.life.aircraft.low as LowPlane[]) {
-    const d = skyDirection(plane.at.e, plane.at.n, plane.at.up), n = skyDirection(plane.ahead.e, plane.ahead.n, plane.ahead.up)
+    const d = airDirection(plane.at.e, plane.at.n, plane.at.up), n = airDirection(plane.ahead.e, plane.ahead.n, plane.ahead.up)
     const x = geom.x(d.azimuth), y = geom.y(d.altitude)
     if (x < -10 || x > geom.width + 10) continue
     // Close enough to make out (by night its lights carry farther): it fades into the air before that, never cut.
@@ -404,7 +410,7 @@ export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
     // cut on the runway. The far end of its path is beyond its reach: it has shrunk into the distance before it ends.
     const vertical = plane.speedMs * Math.max(0.02, plane.overFieldM / Math.max(500, plane.fieldKm * 1000))
     const alpha = (1 - smoothstep(0.2 * reach, reach, d.km)) * smoothstep(0, NEAR_FIELD_S * vertical, plane.overFieldM) *
-      smoothstep(0, 0.25 * plane.pathKm, plane.pathKm - plane.fieldKm)
+      smoothstep(0, 0.45 * plane.pathKm, plane.pathKm - plane.fieldKm)
     if (alpha < 0.01) continue
     const angle = Math.atan2(geom.y(n.altitude) - y, geom.x(n.azimuth) - x)
     // Its size: a jet's 35 m (a light plane's 11 m) at its distance, drawn a little larger than true to be seen, 2.5–9 px.
@@ -416,7 +422,7 @@ export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
     const lights = smoothstep(0.2, 0.7, night)
     const layer = aircraftLayer(box, `aircraft.low.${plane.id}`, 9.4, angle, size, body, lit, lights, plane.kind === 'arrive', 0, body, plane.seed,
       { x, y, scale: 1, alpha })
-    out.push(...placedInDepth(world, box, geom, layer, d.km))
+    out.push(...placedInDepth(world, box, geom, layer, d.km, plane.blockedKm))
   }
   return out
 }

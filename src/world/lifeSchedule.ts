@@ -1,11 +1,13 @@
 import { hashId, seeded } from '../data/landmarks/hash'
-import { wrap180, type Camera } from '../domain/camera'
+import { wrap180, xOf, type Camera } from '../domain/camera'
 import type { LocalTime } from '../domain/types'
 import { AIRPORTS, enuKm, runwayInUse } from './airports'
 import { contrailAir, cruiseClimate } from './contrails'
+import { approachPath, departurePath, FLIGHT, heightsOver, PATH_STEP_KM, trackPoint, wayOf, type FlockTrack, type PathPt } from './flightPaths'
+import { curveDrop, flatTerrain, type FlightTerrain } from './flightTerrain'
 import {
-  birdScores, CRUISE_M, dayOfYear, headingOf, lowPlanesOf, meteorsOf, PREVALENCE, SHAPES, trailLight,
-  type Aircraft, type BirdKind, type Flock, type HighPlane, type LifeInput, type LowPlane, type LowRoute, type MeteorFlash, type SkyLife,
+  birdScores, CRUISE_M, dayOfYear, headingOf, meteorsOf, PREVALENCE, SHAPES, trailLight,
+  type Aircraft, type BirdKind, type Flock, type HighPlane, type LifeInput, type LowPlane, type MeteorFlash, type SkyLife,
 } from './life'
 import { smoothstep } from './ridgeLighting'
 import { apparentAltitude } from './skyProjection'
@@ -15,11 +17,14 @@ import { apparentAltitude } from './skyProjection'
  * the hour was scrubbed, each hour drawing its own). One rule for every kind: for each place and day a deterministic
  * schedule of events is drawn once, from a seeded process whose rate follows the kind's likelihood over the day (the
  * season, the hour, the weather, the thermals, the flyway, the airports; `life.ts`). Each event has a start, a duration and
- * a straight path in space (km east and north of the eye, a height), so at any minute the sky holds exactly the events
+ * a path in space over the real land (`flightPaths.ts`: a flock's track at its kind's height over the ground, an airliner's
+ * straight crossing at cruise, an airport movement's approach or departure), so at any minute the sky holds exactly the events
  * under way, each where its path has brought it. Every path begins and ends either beyond the frame or far away (where the
  * object has shrunk and faded into the air's haze), so nothing appears or vanishes in the open sky; a scrub moves each
  * object continuously along its path, and a jump of hours shows what is up at the new time. The gates (rain, storm, gusts,
- * night) ramp the rate: an event already in the air flies on.
+ * night) ramp the rate: an event already in the air flies on. Each flock's height is picked so its pass reads clearly
+ * against the land as drawn (`unclear`), and at a minute each object says whether the land truly stands in its line of
+ * sight (`blockedKm`), which the scene obeys.
  */
 
 const RAD = Math.PI / 180
@@ -27,6 +32,17 @@ const DAY_S = 86_400
 /** The day is sampled every this many minutes for the rates (each kind's likelihood, the air at cruise, the traffic). */
 export const SAMPLE_MIN = 10
 const SAMPLES = (24 * 60) / SAMPLE_MIN + 1
+
+/**
+ * Az/alt (deg) of a point east `e`, north `n` (km) and `upM` above the eye as the land is seen (the Earth's curve and the
+ * terrestrial refraction the panorama measures its ridges with): what flies near the land is compared with the land on
+ * one footing (`flightTerrain.ts` `blockedKm`).
+ */
+export function airDirection(e: number, n: number, upM: number): { azimuth: number; altitude: number; km: number } {
+  const km = Math.hypot(e, n)
+  const altitude = Math.atan2(upM - curveDrop(km), km * 1000) / RAD
+  return { azimuth: ((Math.atan2(e, n) / RAD) % 360 + 360) % 360, altitude, km: Math.hypot(km, upM / 1000) }
+}
 
 /** Az/alt (deg) of a point east `e`, north `n` (km) and `upM` above the eye: the Earth's curve and refraction counted. */
 export function skyDirection(e: number, n: number, upM: number): { azimuth: number; altitude: number; km: number } {
@@ -77,13 +93,14 @@ export interface FlockEvent {
   t1: number
   count: number
   score: number
-  /** The closest point of its way (m east, north of the eye), its height over the eye (m), its heading and speed. */
-  cE: number
-  cN: number
-  upM: number
+  /** Its way over the ground (`flightPaths.ts`): every `ds` m in flight order (m east, north of the eye; m above sea level). */
+  track: FlockTrack
+  /** The eye's height (m above sea level) the track is measured from. */
+  eyeM: number
+  /** The way it set out on (its flyway's, its wander's) and its speed over the ground (m/s). */
   headingDeg: number
   speedMs: number
-  /** Its closest distance over the ground (m) and where the session begins and ends (m). */
+  /** Its closest distance (m, 3D) and where the session begins and ends (m over the ground). */
   nearM: number
   endM: number
   seed: number
@@ -119,7 +136,7 @@ export interface LowEvent {
   light: boolean
   t0: number
   t1: number
-  /** Its path in flight order, every 0.5 km (km east and north of the eye, m above it). */
+  /** Its path in flight order, every 0.5 km (km east and north of the eye, m above the eye; `flightPaths.ts`). */
   path: { e: number; n: number; up: number }[]
   speedMs: number
   seed: number
@@ -142,11 +159,17 @@ export interface ScheduleContext {
   camera: Camera
   lat: number
   lon: number
-  /**
-   * The lowest altitude (deg) a flock at its closest stands at in a direction: over the drawn land there, so it passes in
-   * view; it may still sink behind the land, or pass in front of it, as it comes and goes.
-   */
-  floorAlt?: (azimuth: number) => number
+  /** The land the life flies over and is seen against; absent, flat ground at the place (the rules' tests). */
+  flight?: FlightContext
+}
+
+/** The land under and in front of the sky's life: its true ground and sight lines, and the land as the scene draws it. */
+export interface FlightContext {
+  terrain: FlightTerrain
+  /** The lowest altitude (deg) over the drawn land in a direction (its top: the land and what stands on it). */
+  drawnTop: (azimuth: number) => number
+  /** The drawn near land's distance (km) in a direction. */
+  nearKm: (azimuth: number) => number
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -217,14 +240,16 @@ export function lifeSchedule(ctx: ScheduleContext, inputAt: (at: LocalTime) => L
     date,
     flocks: flockEvents(ctx, inputs, sampleAt, seedOf),
     high: highEvents(ctx, inputs, sampleAt, seedOf, camera),
-    low: lowEvents(inputs, sampleAt, seedOf),
+    low: lowEvents(ctx, inputs, sampleAt, seedOf),
     meteors: meteorEvents(inputs, seedOf),
   }
 }
 
 function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: number) => LifeInput, seedOf: (p: string) => number): FlockEvent[] {
   const scores = inputs.map(birdScores)
-  const all: FlockEvent[] = []
+  const terrain = ctx.flight?.terrain ?? flatTerrain(inputs[0]?.groundM ?? 0)
+  // Every kind's candidate sessions, in time order; each is laid on its track only once the sky has room for it.
+  const candidates: { kind: BirdKind; i: number; t0: number; score: number }[] = []
   for (const kind of Object.keys(PREVALENCE) as BirdKind[]) {
     const s = SHAPES[kind], g = GROUP[kind]
     const series = Float64Array.from(scores, (sc) => (sc[kind] > 0.05 ? sc[kind] : 0))
@@ -233,27 +258,100 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
     const nearMean = (s.distanceM[0] + s.distanceM[1]) / 2
     const sessionS = (2 * nearMean * Math.sqrt(g.reach ** 2 - 1)) / g.speedMs
     const maxPerHour = (PREVALENCE[kind] * 3600) / sessionS
-    arrivals(seedOf(`flock:${kind}`), maxPerHour, (t) => readAt(series, t)).forEach((t0, i) => {
-      const input = sampleAt(t0)
-      const score = readAt(series, t0)
-      const seed = seedOf(`flock:${kind}:${i}`)
-      const q = seeded(seed)
-      const count = Math.max(1, Math.round(s.count[0] + (s.count[1] - s.count[0]) * q() * (0.5 + 0.5 * score)))
-      const nearM = s.distanceM[0] + (s.distanceM[1] - s.distanceM[0]) * q()
-      const headingDeg = headingOf(kind, input, q)
-      // Its closest point is square to its way, on the side nearer the view's heading, so the pass is seen.
-      const a = headingDeg + 90, b = headingDeg - 90
-      const azC = Math.abs(wrap180(a - ctx.camera.heading)) <= Math.abs(wrap180(b - ctx.camera.heading)) ? a : b
-      let alt = s.altitude[0] + (s.altitude[1] - s.altitude[0]) * q()
-      if (ctx.floorAlt) alt = Math.min(70, Math.max(alt, ctx.floorAlt(azC) + 3))
-      const speedMs = (kind === 'raptor' ? 1 + 0.35 * Math.min(8, input.wind.ms) : g.speedMs) * (0.85 + 0.3 * q())
-      const endM = nearM * g.reach
-      const dur = (2 * Math.sqrt(endM ** 2 - nearM ** 2)) / speedMs
-      all.push({ id: `${ctx.date}:${kind}:${i}`, kind, t0, t1: t0 + dur, count, score, cE: nearM * Math.sin(azC * RAD), cN: nearM * Math.cos(azC * RAD),
-        upM: nearM * Math.tan(alt * RAD), headingDeg, speedMs, nearM, endM, seed })
-    })
+    arrivals(seedOf(`flock:${kind}`), maxPerHour, (t) => readAt(series, t)).forEach((t0, i) => candidates.push({ kind, i, t0, score: readAt(series, t0) }))
   }
-  return capped(all, (e) => e.t1, MAX_FLOCKS)
+  candidates.sort((a, b) => a.t0 - b.t0 || (a.kind < b.kind ? -1 : 1))
+  const kept: FlockEvent[] = []
+  for (const { kind, i, t0, score } of candidates) {
+    // At most a few flocks at once: a newcomer waits out a full sky.
+    if (kept.filter((k) => k.t1 > t0).length >= MAX_FLOCKS) continue
+    const s = SHAPES[kind], g = GROUP[kind], fl = FLIGHT[kind]
+    const input = sampleAt(t0)
+    const seed = seedOf(`flock:${kind}:${i}`)
+    const q = seeded(seed)
+    const count = Math.max(1, Math.round(s.count[0] + (s.count[1] - s.count[0]) * q() * (0.5 + 0.5 * score)))
+    const nearM = s.distanceM[0] + (s.distanceM[1] - s.distanceM[0]) * q()
+    const headingDeg = headingOf(kind, input, q)
+    // Its closest point is square to its way, on the side nearer the view's heading, so the pass is seen.
+    const a = headingDeg + 90, b = headingDeg - 90
+    const azC = Math.abs(wrap180(a - ctx.camera.heading)) <= Math.abs(wrap180(b - ctx.camera.heading)) ? a : b
+    const aglQ = q()
+    const speedMs = (kind === 'raptor' ? 1 + 0.35 * Math.min(8, input.wind.ms) : g.speedMs) * (0.85 + 0.3 * q())
+    const endM = nearM * g.reach
+    const cE = nearM * Math.sin(azC * RAD), cN = nearM * Math.cos(azC * RAD)
+    const home = homeOf(kind, input, endM)
+    // Its height over the ground: drawn in its kind's band, then raised while that reads more clearly
+    // against the land (`unclear`): the schedule picks the track that is plainly in the sky, in front of the land, or
+    // behind it, over one that skims the land's edge or would seem to fly into a slope.
+    // (Its way over the ground is laid once, at the height drawn; each raise only lays its altitude again.)
+    let best: { track: FlockTrack; bad: number } | null = null
+    const aglOf = (k: number) => fl.agl[0] * 1.3 + (fl.agl[1] - fl.agl[0] * 1.3) * Math.min(1, aglQ + k / 3)
+    const way = wayOf({ cE, cN, headingDeg, endM, aglM: aglOf(0), flight: fl, home }, terrain)
+    for (let k = 0; k < 4; k++) {
+      const track = heightsOver(way, aglOf(k), fl, terrain.eyeM)
+      const bad = ctx.flight ? unclear(track, terrain, endM, ctx.flight, ctx.camera) : 0
+      if (!best || bad < best.bad) best = { track, bad }
+      if (bad === 0) break
+    }
+    const track = best!.track
+    const dur = ((track.pts.length / 3 - 1) * track.ds) / speedMs
+    kept.push({ id: `${ctx.date}:${kind}:${i}`, kind, t0, t1: t0 + dur, count, score, track, eyeM: terrain.eyeM, headingDeg, speedMs,
+      nearM: track.nearM, endM, seed })
+  }
+  return kept
+}
+
+/**
+ * A resident's home away from the place (m east, north of the eye) and how far it strays from it: a shore bird keeps to its
+ * water. The place's own residents (crows and pigeons over its streets, raptors over its open land) need none: their
+ * session ends within its reach of the place (`GROUP.reach` × their closest distance, a kilometre or two).
+ */
+function homeOf(kind: BirdKind, input: LifeInput, endM: number): { e: number; n: number; r: number } | undefined {
+  if (kind === 'gull') {
+    const env = input.env
+    const sea = env.seaKm !== null && env.seaAz != null ? { km: env.seaKm, az: env.seaAz } : null
+    const lake = env.lakeKm !== null && env.lakeAz != null ? { km: env.lakeKm, az: env.lakeAz } : null
+    const water = sea && (!lake || sea.km <= lake.km) ? sea : lake
+    if (water) {
+      const d = (water.km + 0.5) * 1000
+      return { e: d * Math.sin(water.az * RAD), n: d * Math.cos(water.az * RAD), r: Math.max(1500, 0.8 * endM) }
+    }
+  }
+  return undefined
+}
+
+/** Within this many degrees of the drawn land's top, an object reads as neither in the sky nor behind the land. */
+const EDGE_DEG = 0.3
+
+/**
+ * How unclearly a track reads against the land, over the part of it in the frame and not yet faded (a count of its
+ * samples): drawn over the land while the land truly hides it; hidden inside land the scene draws behind it (it would seem
+ * to fly into a slope); drawn in front of land that is truly nearer; skimming the land's edge (a third each); and hidden
+ * at its closest (the pass is meant to be seen).
+ */
+export function unclear(track: FlockTrack, terrain: FlightTerrain, endM: number, flight: FlightContext, camera: ScheduleContext['camera']): number {
+  const count = track.pts.length / 3
+  const step = Math.max(1, Math.floor(count / 48))
+  let bad = 0
+  const judge = (i: number, closest: boolean) => {
+    const e = track.pts[3 * i] / 1000, n = track.pts[3 * i + 1] / 1000, up = track.pts[3 * i + 2] - terrain.eyeM
+    const ground = Math.hypot(e, n) * 1000
+    if (!closest && 1 - smoothstep(0.55 * endM, endM, ground) < 0.15) return
+    const dir = airDirection(e, n, up)
+    const x = xOf(dir.azimuth, camera)
+    if (x < -20 || x > camera.width + 20) return
+    const blocked = terrain.blockedKm(e, n, up) !== null
+    const gap = dir.altitude - flight.drawnTop(dir.azimuth)
+    const near = flight.nearKm(dir.azimuth)
+    if (closest) { if (blocked) bad += 5; return }
+    if (blocked && gap > EDGE_DEG) bad += 1
+    else if (blocked && dir.km < near) bad += 1
+    else if (!blocked && gap < -EDGE_DEG && dir.km >= near) bad += 1
+    else if (Math.abs(gap) <= EDGE_DEG) bad += 0.3
+  }
+  for (let i = 0; i < count; i += step) judge(i, false)
+  judge(track.nearIdx, true)
+  return bad
 }
 
 /** The air at cruise at a moment (the forecast's 250 hPa, else the climate's guess) and what it makes of trails. */
@@ -304,8 +402,12 @@ function highEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: num
 /** Out to this far (km) from the field a movement is followed: an arrival comes in from it, a departure climbs out to it. */
 const PATH_KM = { jet: 50, light: 25 }
 
-function lowEvents(inputs: LifeInput[], sampleAt: (t: number) => LifeInput, seedOf: (p: string) => number): LowEvent[] {
+/** The airport routes laid over each land (a path is the same every day of a place). */
+const ROUTES = new WeakMap<FlightTerrain, Map<string, PathPt[] | null>>()
+
+function lowEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: number) => LifeInput, seedOf: (p: string) => number): LowEvent[] {
   const first = inputs[0]
+  const terrain = ctx.flight?.terrain ?? flatTerrain(first.groundM)
   const out: LowEvent[] = []
   for (const airport of AIRPORTS) {
     const { e: ae, n: an } = enuKm(first, airport)
@@ -318,22 +420,30 @@ function lowEvents(inputs: LifeInput[], sampleAt: (t: number) => LifeInput, seed
       const perHour = airport.perHour.day + (airport.perHour.night - airport.perHour.day) * night
       return ((perHour / 2) * (1 - smoothstep(0.75, 0.92, input.covers.low))) / top
     })
-    const routes = new Map<string, LowRoute | null>()
+    const km = PATH_KM[airport.light ? 'light' : 'jet']
+    const speeds = { arrive: airport.light ? 45 : 75, depart: airport.light ? 45 : 95 }
+    // Each runway's approach laid once; each departure's route (one of six ways, by its seed) once per runway: kept with the
+    // land, for every day.
+    let routes = ROUTES.get(terrain)
+    if (!routes) ROUTES.set(terrain, routes = new Map())
     for (const kind of ['arrive', 'depart'] as const) {
       arrivals(seedOf(`${airport.icao}:${kind}`), top, (t) => readAt(rate, t)).forEach((t0, i) => {
         const input = sampleAt(t0)
-        // On the runway the wind picks at its start, down (or up) its path (each runway's path laid once).
-        const key = `${kind}:${runwayInUse(airport, input.wind.fromDeg, input.wind.ms)}`
-        if (!routes.has(key)) {
-          const route = lowPlanesOf({ ...input, dark: 0 }, PATH_KM[airport.light ? 'light' : 'jet']).find((p) => p.airport === airport.icao && p.kind === kind)
-          routes.set(key, route ? { ...route, path: kind === 'arrive' ? [...route.path].reverse() : route.path } : null)
+        const seed = seedOf(`${airport.icao}:${kind}:${i}`)
+        // On the runway the wind picks at its start, down (or up) its path.
+        const heading = runwayInUse(airport, input.wind.fromDeg, input.wind.ms)
+        const way = kind === 'depart' ? Math.floor(seeded(seed)() * 6) * 60 : 0
+        const key = `${airport.icao}:${kind}:${heading}:${way}:${km}:${ae.toFixed(3)}:${an.toFixed(3)}`
+        if (!routes!.has(key)) {
+          const field = { airport, ae, an, heading }
+          const path = kind === 'arrive' ? approachPath(field, terrain, km).reverse() : departurePath(field, terrain, km, way)
+          routes!.set(key, path.some((p) => Math.hypot(p.e, p.n) <= airport.reachKm) ? path : null)
         }
-        const route = routes.get(key)
-        if (!route) return
-        const path = route.path
-        const lengthKm = (path.length - 1) * 0.5
+        const path = routes!.get(key)
+        if (!path) return
+        const lengthKm = (path.length - 1) * PATH_STEP_KM
         out.push({ id: `${input.at.slice(0, 10)}:${airport.icao}:${kind}:${i}`, airport: airport.icao, kind, light: airport.light, t0,
-          t1: t0 + (lengthKm * 1000) / route.speedMs, path, speedMs: route.speedMs, seed: seedOf(`${airport.icao}:${kind}:${i}`) })
+          t1: t0 + (lengthKm * 1000) / speeds[kind], path, speedMs: speeds[kind], seed })
       })
     }
   }
@@ -350,16 +460,22 @@ function meteorEvents(inputs: LifeInput[], seedOf: (p: string) => number): Meteo
 
 /* Evaluation at a moment. */
 
-/** A flock under way at `t` (s of its day): where its centre is, how near, how faded by distance. */
-export function flockAt(e: FlockEvent, t: number): Flock {
-  const s = e.speedMs * (t - (e.t0 + e.t1) / 2)
-  const h = e.headingDeg * RAD
-  const E = e.cE + s * Math.sin(h), N = e.cN + s * Math.cos(h)
-  const dir = skyDirection(E / 1000, N / 1000, e.upM)
-  const ground = Math.hypot(E, N)
+/** What the life asks of the land at a moment: whether it truly stands in a point's line of sight (km over the ground). */
+export type SightOf = (e: number, n: number, upM: number) => number | null
+
+/**
+ * A flock under way at `t` (s of its day): where its centre is on its track, how near, how faded by distance, and whether
+ * the land truly stands between it and the eye.
+ */
+export function flockAt(e: FlockEvent, t: number, sight?: SightOf): Flock {
+  const p = trackPoint(e.track, e.speedMs * (t - e.t0))
+  const up = p.z - e.eyeM
+  const dir = airDirection(p.e / 1000, p.n / 1000, up)
+  const ground = Math.hypot(p.e, p.n)
   return {
     id: e.id, kind: e.kind, count: e.count, score: e.score, seed: e.seed, azimuth: dir.azimuth, altitude: dir.altitude, distanceM: dir.km * 1000,
-    nearM: Math.hypot(e.nearM, e.upM), fade: 1 - smoothstep(0.55 * e.endM, e.endM, ground), headingDeg: e.headingDeg, speedMs: e.speedMs,
+    nearM: e.nearM, fade: 1 - smoothstep(0.55 * e.endM, e.endM, ground), headingDeg: p.headingDeg, speedMs: e.speedMs,
+    at: { e: p.e / 1000, n: p.n / 1000, up }, blockedKm: sight ? sight(p.e / 1000, p.n / 1000, up) : null,
   }
 }
 
@@ -404,25 +520,26 @@ function along(path: LowEvent['path'], km: number) {
 }
 
 /** A movement at `t`: where it is on its path, and a little ahead (its way on the sky). */
-export function lowAt(e: LowEvent, t: number): LowPlane {
+export function lowAt(e: LowEvent, t: number, sight?: SightOf): LowPlane {
   const km = (e.speedMs * (t - e.t0)) / 1000
   const length = (e.path.length - 1) * 0.5
-  return { id: e.id, airport: e.airport, kind: e.kind, light: e.light, speedMs: e.speedMs, seed: e.seed, at: along(e.path, km),
+  const at = along(e.path, km)
+  return { id: e.id, airport: e.airport, kind: e.kind, light: e.light, speedMs: e.speedMs, seed: e.seed, at,
     ahead: along(e.path, km + 0.5), fieldKm: e.kind === 'arrive' ? length - km : km, pathKm: length,
-    overFieldM: along(e.path, km).up - (e.kind === 'arrive' ? e.path.at(-1)! : e.path[0]).up }
+    overFieldM: at.up - (e.kind === 'arrive' ? e.path.at(-1)! : e.path[0]).up, blockedKm: sight ? sight(at.e, at.n, at.up) : null }
 }
 
 /**
  * The sky's life at a moment: the events of its day and of the day before (those still under way past midnight) at their
  * places on their paths. `t` is seconds since the shown day's midnight; `input` the world's life input at the moment.
  */
-export function lifeAt(days: { schedule: LifeSchedule; offsetS: number }[], t: number, input: LifeInput): SkyLife {
+export function lifeAt(days: { schedule: LifeSchedule; offsetS: number }[], t: number, input: LifeInput, sight?: SightOf): SkyLife {
   const birds: Flock[] = [], high: HighPlane[] = [], low: LowPlane[] = [], flashes: MeteorFlash[] = []
   for (const { schedule, offsetS } of days) {
     const tt = t - offsetS
-    for (const e of schedule.flocks) if (e.t0 <= tt && tt <= e.t1) birds.push(flockAt(e, tt))
+    for (const e of schedule.flocks) if (e.t0 <= tt && tt <= e.t1) birds.push(flockAt(e, tt, sight))
     for (const e of schedule.high) if (e.t0 <= tt && tt <= e.t1 + e.lifeS) high.push(highAt(e, tt))
-    for (const e of schedule.low) if (e.t0 <= tt && tt <= e.t1) low.push(lowAt(e, tt))
+    for (const e of schedule.low) if (e.t0 <= tt && tt <= e.t1) low.push(lowAt(e, tt, sight))
     for (const e of schedule.meteors) if (e.t >= tt && e.t < tt + METEOR_WINDOW_S) flashes.push({ id: e.id, inS: e.t - tt, seed: e.seed })
   }
   const aircraft: Aircraft = { cruise: cruiseOf(input), high, low }
@@ -431,13 +548,14 @@ export function lifeAt(days: { schedule: LifeSchedule; offsetS: number }[], t: n
 }
 
 /** The life of a single input's day at its own moment (the rules' tests: one fixed hour held all day). */
-export function lifeOfInput(input: LifeInput, floorAlt?: ScheduleContext['floorAlt']): SkyLife {
+export function lifeOfInput(input: LifeInput, flight?: FlightContext): SkyLife {
   const date = input.at.slice(0, 10)
-  const ctx = { placeId: input.placeId, date, camera: input.camera, lat: input.lat, lon: input.lon, floorAlt }
+  const ctx = { placeId: input.placeId, date, camera: input.camera, lat: input.lat, lon: input.lon, flight }
   const today = lifeSchedule(ctx, (at) => ({ ...input, at }))
   const before = lifeSchedule({ ...ctx, date: dayBefore(date) }, (at) => ({ ...input, at }))
-  return lifeAt([{ schedule: before, offsetS: -DAY_S }, { schedule: today, offsetS: 0 }], secondsOf(input.at), input)
+  return lifeAt([{ schedule: before, offsetS: -DAY_S }, { schedule: today, offsetS: 0 }], secondsOf(input.at), input, flight?.terrain.blockedKm)
 }
 
 /** The flocks under way at an input's moment, its hour's weather held all day (the rules' tests). */
 export const birdsOf = (input: LifeInput) => lifeOfInput(input).birds
+

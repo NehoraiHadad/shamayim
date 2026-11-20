@@ -8,7 +8,7 @@ import { airOf } from './air'
 import { layerCovers } from './clouds'
 import { cloudTransmit } from './light'
 import type { LifeInput } from './life'
-import { dayBefore, lifeAt, lifeSchedule, secondsOf, type LifeSchedule, type ScheduleContext } from './lifeSchedule'
+import { dayBefore, lifeAt, lifeSchedule, secondsOf, type FlightContext, type LifeSchedule } from './lifeSchedule'
 import { nightOf } from './night'
 import type { PlaceEnv } from './placeEnv'
 import { rainingLayer, rainOf } from './rain'
@@ -70,7 +70,7 @@ export function makeLifeDays() {
   let parts: unknown[] = []
   const days = new Map<string, LifeSchedule>()
   return function lifeOf(input: WorldInput, at: LocalTime, shown: LifeInput, base: { camera: Camera; env: PlaceEnv },
-    floorAlt: ScheduleContext['floorAlt'], keyParts: unknown[]): SkyLife {
+    flight: FlightContext | undefined, keyParts: unknown[]): SkyLife {
     if (keyParts.length !== parts.length || keyParts.some((p, i) => !Object.is(p, parts[i]))) {
       parts = keyParts
       days.clear()
@@ -78,7 +78,7 @@ export function makeLifeDays() {
     const schedule = (date: string) => {
       let s = days.get(date)
       if (!s) {
-        s = lifeSchedule({ placeId: input.place.id, date, camera: base.camera, lat: input.place.lat, lon: input.place.lon, floorAlt },
+        s = lifeSchedule({ placeId: input.place.id, date, camera: base.camera, lat: input.place.lat, lon: input.place.lon, flight },
           (moment) => lifeInputAt(input, moment, base))
         if (days.size > 4) days.delete(days.keys().next().value!)
         days.set(date, s)
@@ -86,6 +86,7 @@ export function makeLifeDays() {
       return s
     }
     const date = at.slice(0, 10)
-    return lifeAt([{ schedule: schedule(dayBefore(date)), offsetS: -86_400 }, { schedule: schedule(date), offsetS: 0 }], secondsOf(at), shown)
+    return lifeAt([{ schedule: schedule(dayBefore(date)), offsetS: -86_400 }, { schedule: schedule(date), offsetS: 0 }], secondsOf(at), shown,
+      flight?.terrain.blockedKm)
   }
 }

@@ -7,7 +7,7 @@ import type { PlaceEnv } from './placeEnv'
 
 /*
  * The sky's life as a process in time (`lifeSchedule.ts`): a seeded schedule per place and day, its rates following the
- * kinds' likelihoods (ramped through the gates), each event on a straight path that begins and ends far off or beyond the
+ * kinds' likelihoods (ramped through the gates), each event on a path that begins and ends far off or beyond the
  * frame, evaluated at any moment.
  */
 
