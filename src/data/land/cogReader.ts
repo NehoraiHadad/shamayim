@@ -14,47 +14,54 @@ import { fromUtm, toUtm } from './utm'
  */
 
 export interface TiffImageLike {
-  getWidth(): number
-  getHeight(): number
-  getBoundingBox(): number[]
-  getGeoKeys(): Record<string, unknown>
+  getWidth(): number; getHeight(): number; getBoundingBox(): number[]; getGeoKeys(): Record<string, unknown>
   readRasters(opts: {
-    window: number[]
-    width?: number
-    height?: number
-    interleave?: boolean
-    signal?: AbortSignal
-    fillValue?: number
+    window: number[]; width?: number; height?: number; interleave?: boolean; signal?: AbortSignal; fillValue?: number
   }): Promise<ArrayLike<number>>
 }
-
-export interface TiffLike {
-  getImageCount(): Promise<number>
-  getImage(index: number): Promise<TiffImageLike>
-}
-
+export interface TiffLike { getImageCount(): Promise<number>; getImage(index: number): Promise<TiffImageLike> }
 export type OpenTiffFn = (href: string, signal?: AbortSignal) => Promise<TiffLike>
-
 export interface UtmCrs { zone: number; south: boolean }
 export interface UtmBox { minE: number; minN: number; maxE: number; maxN: number }
 
 export interface CogWindow {
-  data: ArrayLike<number>
-  width: number
-  height: number
+  data: ArrayLike<number>; width: number; height: number
   /** Exact UTM west and north edge of pixel `(0, 0)` in `(zone, south)`. */
-  west: number
-  north: number
-  resX: number
-  resY: number
-  zone: number
-  south: boolean
+  west: number; north: number; resX: number; resY: number; zone: number; south: boolean
 }
 
-export async function defaultOpenTiff(href: string, signal?: AbortSignal): Promise<TiffLike> {
-  const { fromUrl } = await import('geotiff')
-  return fromUrl(href, { allowFullFile: false }, signal) as unknown as Promise<TiffLike>
+/** Typed HTTP error so callers can distinguish known-absent 404 tiles from transient failures. */
+export class CogHttpError extends Error {
+  readonly status: number
+  constructor(status: number, message = `COG HTTP ${status}`) { super(message); this.status = status }
 }
+
+export const isCogNotFound = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && 'status' in err && (err as { status?: unknown }).status === 404
+
+export function createOpenTiff(fetchImpl: typeof fetch = fetch): OpenTiffFn {
+  return async (href: string, signal?: AbortSignal): Promise<TiffLike> => {
+    const { fromCustomClient } = await import('geotiff')
+    let lastStatus: number | null = null
+    const client = {
+      url: href,
+      async request({ headers, signal: reqSignal }: { headers?: HeadersInit; signal?: AbortSignal } = {}) {
+        const res = await fetchImpl(href, { headers, signal: reqSignal })
+        lastStatus = res.status
+        if (!res.ok) throw new CogHttpError(res.status)
+        return { ok: true, status: res.status, getHeader: (n: string) => res.headers.get(n) ?? '', getData: () => res.arrayBuffer() }
+      },
+    }
+    try {
+      return (await fromCustomClient(client as never, { allowFullFile: false }, signal)) as unknown as TiffLike
+    } catch (err) {
+      if (lastStatus !== null && lastStatus >= 400) throw new CogHttpError(lastStatus)
+      throw err
+    }
+  }
+}
+
+export const defaultOpenTiff: OpenTiffFn = createOpenTiff()
 
 /** Parses northern (`EPSG:32601–32660`) and southern (`EPSG:32701–32760`) WGS84 UTM CRS codes. */
 export function crsFromGeoKeys(geoKeys: Record<string, unknown>): UtmCrs | null {

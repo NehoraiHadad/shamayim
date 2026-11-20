@@ -1,10 +1,12 @@
 import type { Coordinate } from '../landmarks/project'
 import type { OpenTiffFn } from './cogReader'
 import { decodeLand, LAND_N, LAND_STEP } from './grid'
-import { readCachedCover, writeCachedCover, type LandCacheStore } from './landCache'
+import { COVER_TTL_MS, readCachedCover, writeCachedCover, type LandCacheStore } from './landCache'
+import { fetchCoarseWorldCoverCog, resetWorldCoverSasCache } from './worldCoverCog'
 import {
-  bboxCoveredBy, bboxIntersects, fetchCoarseWorldCoverCog, footprintBbox, resetWorldCoverSasCache, type Bbox,
-} from './worldCoverCog'
+  bboxCoveredBy, bboxIntersects, coarseCoverFromJson, combineLandCovers, footprintBbox,
+  type Bbox, type CoarseCoverJson,
+} from './worldCoverGrid'
 
 const ROOT = `${import.meta.env.BASE_URL}data/land/il`
 let indexPromise: Promise<{ cells: string[] } | null> | undefined
@@ -18,30 +20,10 @@ export function resetLandCoverCache(): void {
 /** What covers the ground at a point (index into `COVER`; `0` where unknown or outside loaded coverage). */
 export interface LandCover { coverAt: (lat: number, lon: number) => number }
 
-export interface CoarseCoverJson { v: number; bbox: Bbox; stepDeg: number; rows: number; cols: number; r: string }
 interface RegionalCoarse { bbox: Bbox; cover: LandCover }
-export interface FootprintCoverOpts { placeId?: string; store?: LandCacheStore; openTiff?: OpenTiffFn; now?: () => number }
-
-/** Builds a `LandCover` lookup over a coarse RLE-encoded WorldCover overview grid. */
-export function coarseCoverFromJson(raw: CoarseCoverJson): LandCover {
-  const [south, west, north, east] = raw.bbox
-  const grid = decodeLand(raw.r, raw.rows * raw.cols)
-  const { stepDeg, rows, cols } = raw
-  return {
-    coverAt(lat, lon) {
-      if (lat < south || lat >= north || lon < west || lon >= east) return 0
-      const row = Math.min(rows - 1, Math.max(0, Math.floor((north - lat) / stepDeg)))
-      const col = Math.min(cols - 1, Math.max(0, Math.floor((lon - west) / stepDeg)))
-      return grid[row * cols + col]
-    },
-  }
-}
-
-/** Combines a high-resolution near `LandCover` with a coarser far-footprint `LandCover` (near wins when > 0). */
-export function combineLandCovers(near: LandCover | null, far: LandCover | null): LandCover | null {
-  if (!near) return far
-  if (!far) return near
-  return { coverAt(lat, lon) { const n = near.coverAt(lat, lon); return n > 0 ? n : far.coverAt(lat, lon) } }
+export interface FootprintCoverOpts {
+  placeId?: string; store?: LandCacheStore; openTiff?: OpenTiffFn; now?: () => number
+  timeoutMs?: number; onUpdate?: (cover: LandCover | null) => void
 }
 
 /** Signal-independent shared loader that clears its cached slot on failure so later callers can retry. */
@@ -115,9 +97,9 @@ async function loadRegionalCoarse(signal?: AbortSignal, fetchImpl: typeof fetch 
 }
 
 /**
- * Loads WorldCover for both the ±6 km near window (50 m) and the ±60 km far panorama footprint.
- * Fast path: regional `coarse.json` covers the full footprint with zero remote calls.
- * Out-of-region: reads cached or live coarse ESA WorldCover v200 COG overviews; returns `null` if unavailable.
+ * Loads WorldCover for ±6 km near (50 m) and ±60 km far panorama footprints. Regional `coarse.json`
+ * is a zero-remote fast path; out-of-region places publish eligible cached cover immediately (even
+ * while stale 30–90 d or partial) and run a time-limited COG refresh keeping usable stale slices.
  */
 export async function loadFootprintLandCover(
   place: Coordinate, signal?: AbortSignal, nearRadiusKm = 6,
@@ -129,18 +111,34 @@ export async function loadFootprintLandCover(
   ])
   if (signal?.aborted) return null
   const fp = footprintBbox(place)
-  if (regional && bboxCoveredBy(fp, regional.bbox)) return combineLandCovers(near, regional.cover)
+  if (regional && bboxCoveredBy(fp, regional.bbox)) {
+    const cover = combineLandCovers(near, regional.cover)
+    opts.onUpdate?.(cover)
+    return cover
+  }
   const localRegional = regional && bboxIntersects(fp, regional.bbox) ? regional.cover : null
   const clock = opts.now ?? Date.now
   const hit = opts.placeId ? await readCachedCover(opts.placeId, opts.store, clock()).catch(() => null) : null
   if (signal?.aborted) return null
-  let remote: LandCover | null = hit ? coarseCoverFromJson(hit.value) : null
-  if (!hit || !hit.fresh) {
-    const fresh = await fetchCoarseWorldCoverCog(place, signal, { fetchImpl, openTiff: opts.openTiff, now: clock }).catch(() => null)
-    if (fresh && !signal?.aborted) {
-      remote = coarseCoverFromJson(fresh)
-      if (opts.placeId) await writeCachedCover(opts.placeId, fresh, opts.store, clock()).catch(() => undefined)
-    }
+  const initial = combineLandCovers(near, combineLandCovers(localRegional, hit ? coarseCoverFromJson(hit.value) : null))
+  const coversFootprint = Boolean(hit && bboxCoveredBy(fp, hit.value.bbox))
+  if (hit || initial) opts.onUpdate?.(initial)
+  if (hit?.fresh && coversFootprint) return initial
+
+  const retryOnly = Boolean(hit && coversFootprint && hit.value.missingTiles?.length && clock() - hit.savedAt <= COVER_TTL_MS)
+  const fresh = await fetchCoarseWorldCoverCog(
+    place, signal, { fetchImpl, openTiff: opts.openTiff, now: clock, timeoutMs: opts.timeoutMs },
+    { base: hit?.value, onlyTiles: retryOnly ? new Set(hit!.value.missingTiles!) : undefined },
+  ).catch(() => null)
+  if (signal?.aborted) return null
+  if (fresh) {
+    const savedAt = hit && coversFootprint && (retryOnly || fresh.missingTiles?.length) ? hit.savedAt : clock()
+    if (opts.placeId) await writeCachedCover(opts.placeId, fresh, opts.store, savedAt).catch(() => undefined)
+    if (signal?.aborted) return null
+    const next = combineLandCovers(near, combineLandCovers(localRegional, coarseCoverFromJson(fresh)))
+    opts.onUpdate?.(next)
+    return next
   }
-  return combineLandCovers(near, combineLandCovers(localRegional, remote))
+  if (!hit && !initial) opts.onUpdate?.(null)
+  return initial
 }

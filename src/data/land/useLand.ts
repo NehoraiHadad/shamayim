@@ -3,8 +3,8 @@ import type { Place } from '../../config/place'
 import { fetchFarLand } from './gibs'
 import { createGridWatcher } from './gridWatch'
 import {
-  FAR_TTL_MS, MAX_STALE_MS, NEAR_TTL_MS,
-  readCachedFar, readCachedNear, readCachedWeather,
+  COVER_TTL_MS, FAR_TTL_MS, MAX_STALE_MS, NEAR_TTL_MS,
+  readCachedCover, readCachedFar, readCachedNear, readCachedWeather,
   writeCachedFar, writeCachedNear, writeCachedWeather, type LandCacheStore,
 } from './landCache'
 import { loadFootprintLandCover, loadLandCover, type LandCover } from './landData'
@@ -52,11 +52,22 @@ export function useLand(place: Place, enabled: boolean, store?: LandCacheStore):
       writeCached: (id, w, t) => writeCachedWeather(id, w, store, t),
     })
 
-    loadFootprintLandCover(place, signal, 6, fetch, { placeId: place.id, store })
-      .then((cover) => merge({ cover }))
-      .catch(() => undefined)
+    let coverInFlight: Promise<unknown> | null = null
+    let coverReadyAt: number | null = null
+    const checkCover = () => {
+      if (signal.aborted || coverInFlight) return
+      if (coverReadyAt !== null && Date.now() - coverReadyAt <= COVER_TTL_MS) return
+      coverInFlight = loadFootprintLandCover(place, signal, 6, fetch, {
+        placeId: place.id, store, onUpdate: (cover) => merge({ cover }),
+      }).then(async (cover) => {
+        if (!cover || signal.aborted) return
+        const hit = await readCachedCover(place.id, store).catch(() => null)
+        coverReadyAt = hit ? (hit.fresh ? hit.savedAt : null) : Date.now()
+      }).catch(() => undefined).finally(() => { coverInFlight = null })
+    }
 
     const recheckAll = () => {
+      checkCover()
       void nearWatcher.check()
       void farWatcher.check()
       void weatherWatcher.check()

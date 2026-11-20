@@ -5,7 +5,8 @@ import type { TiffImageLike, TiffLike } from './cogReader'
 import { createMemoryStore } from './landCache'
 import { loadFootprintLandCover, resetLandCoverCache } from './landData'
 import { sampleLandAt } from './sampleLand'
-import { WORLDCOVER_SAS_URL, worldCoverTileName } from './worldCoverCog'
+import { WORLDCOVER_SAS_URL } from './worldCoverCog'
+import { worldCoverTileName } from './worldCoverGrid'
 
 const LAND_DIR = path.resolve('public/data/land/il')
 
@@ -67,13 +68,15 @@ describe('loadFootprintLandCover regional fast path, out-of-region COG fallback 
       .toEqual(['N48E000', 'S36E018', 'N36W123'])
     const paris = { lat: 48.86, lon: 2.35 }, store = createMemoryStore(), readIfds: number[] = []
     const openTiff = vi.fn(async (href: string) => {
-      if (!href.includes('N48E000')) throw new Error('404 tile')
-      return makeWorldCoverCog(48, 0, readIfds)
+      if (href.includes('N48E000')) return makeWorldCoverCog(48, 0, readIfds)
+      if (href.includes('N48E003')) return makeWorldCoverCog(48, 3, readIfds)
+      throw new Error(`unexpected tile ${href}`)
     })
     const cover = await loadFootprintLandCover(paris, undefined, 6, diskFetch('sas-tok'), { placeId: 'paris', store, openTiff })
     expect(cover).not.toBeNull()
-    expect(readIfds).toEqual([6]) // read coarsest overview IFD 6 (562×562), NEVER full-res IFD 0!
-    expect(cover!.coverAt(48.86, 2.35)).toBe(5) // built (50 -> 5)
+    expect(readIfds).toEqual([6, 6]) // read coarsest overview IFD 6 (562×562) on both N48E000 & N48E003, NEVER IFD 0!
+    expect(cover!.coverAt(48.86, 2.35)).toBe(5) // built (50 -> 5) in N48E000
+    expect(cover!.coverAt(48.86, 3.05)).toBe(5) // built (50 -> 5) across seam in N48E003
     expect(cover!.coverAt(48.86, 2.05)).toBe(1) // tree (10 -> 1)
     expect(cover!.coverAt(48.55, 2.35)).toBe(8) // water (80 -> 8)
     expect(cover!.coverAt(49.20, 2.35)).toBe(0) // true WorldCover nodata preserved explicitly!

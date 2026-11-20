@@ -1,7 +1,7 @@
 import { createIdbStore, createMemoryStore, type LandCacheStore } from './idbStore'
-import type { CoarseCoverJson } from './landData'
 import { packFarGrid, packNearGrid, unpackFarGrid, unpackNearGrid, type PackedFarGrid, type PackedNearGrid } from './landPack'
 import type { FarLandGrid, NearLandGrid, RecentLandWeather } from './types'
+import type { CoarseCoverJson } from './worldCoverGrid'
 
 /**
  * Per-place TTL cache for living-land observations.
@@ -124,7 +124,9 @@ export async function writeCachedWeather(placeId: string, weather: RecentLandWea
 
 export async function readCachedCover(placeId: string, store = getLandCacheStore(), now = Date.now()): Promise<CacheHit<CoarseCoverJson> | null> {
   const hit = await readRaw('cover', placeId, store, now)
-  return hit ? { value: hit.value as CoarseCoverJson, fresh: hit.fresh, savedAt: hit.savedAt } : null
+  if (!hit) return null
+  const value = hit.value as CoarseCoverJson
+  return { value, fresh: hit.fresh && !value.missingTiles?.length, savedAt: hit.savedAt }
 }
 
 export async function writeCachedCover(placeId: string, raw: CoarseCoverJson, store = getLandCacheStore(), now = Date.now()): Promise<void> {
