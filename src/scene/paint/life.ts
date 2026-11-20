@@ -215,6 +215,8 @@ export function paintContrail(ctx: Ctx2D, desc: LayerOf<'contrail'>, _env: Paint
     const lump = 0.9 + 0.2 * r()
     const run = points.slice(i, end + 1)
     const below = run.map(([x, y]): Pt => [x, y + w * 0.3])
+    // A spread trail is a soft band: a broad faint veil round it first.
+    if (w > 2.5) stroke(ctx, run, w * 2.8 * lump, css(desc.rgb, a * 0.08))
     stroke(ctx, below, w * 1.3 * lump, css(desc.shade, a * 0.18))
     stroke(ctx, run, w * 1.7 * lump, css(desc.rgb, a * 0.22))
     stroke(ctx, run, w * 1.1 * lump, css(desc.rgb, a * 0.3))

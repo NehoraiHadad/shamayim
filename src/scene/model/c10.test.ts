@@ -126,13 +126,9 @@ describe('C10: optics in the model', () => {
     const model = sceneModel(world, BOX)
     const halo = ofKind(model.layers, 'bow').find((b) => b.look === 'halo')!
     const sx = world.bodies.sun.x, sy = BOX.landTop + world.bodies.sun.y
-    const ds = halo.arcs[1].points.map(([x, y]) => Math.hypot(x - sx, (y - sy) * 0.8))
-    // A ring round the sun (on the scene's own angle scale, wider than tall): every point well away from the disc, on all sides.
-    expect(Math.min(...ds)).toBeGreaterThan(12)
-    const xs = halo.arcs[1].points.map(([x]) => x), ys = halo.arcs[1].points.map(([, y]) => y)
-    expect(Math.min(...xs)).toBeLessThan(sx - 20)
-    expect(Math.max(...xs)).toBeGreaterThan(sx + 20)
-    expect(Math.min(...ys)).toBeLessThan(sy - 15)
-    expect(Math.max(...ys)).toBeGreaterThan(sy + 15)
+    // A circle round the drawn sun, well away from the disc (its ring at 22° in px of the sky's scale there).
+    expect(halo.cx).toBeCloseTo(sx, 6)
+    expect(halo.cy).toBeCloseTo(sy, 6)
+    expect(22 * halo.k).toBeGreaterThan(25)
   })
 })

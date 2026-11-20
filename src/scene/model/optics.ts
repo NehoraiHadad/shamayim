@@ -1,44 +1,38 @@
 //# allFunctionsCalledOnLoad
 import { BOW, HALO_DEG, onCircle } from '../../world/optics'
+import { spanDeg, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
 import { crestOf } from './life'
 import { skyGeom, type SkyGeom } from './sky'
-import type { ArcDesc, LayerOf, Pt, RGB, SceneBox } from './types'
+import { bearingOfScreen, tangentFrame, tangentScale, type TangentFrame } from './tangent'
+import type { LayerOf, Pt, SceneBox, SunDog } from './types'
 
 /*
- * The sky's optics (C10) as layers: the rainbow round the antisolar point and the 22° halo with its sun dogs round the sun,
- * each circle traced on the sky (spherical, `onCircle`) and projected through the bodies' own scale, so the bow and the ring
- * stand where the sun's geometry puts them.
+ * The sky's optics (C10) as layers: the rainbow round the antisolar point and the 22° halo with its sun dogs round the sun.
+ * Each is a true circle, drawn in the sky's tangent frame at its centre (`tangent.ts`: the same px per degree across and
+ * up), so it stays round wherever the scene's projection stretches the sky; the land hides what falls under it (`clip`).
+ * - The halo: centred on the sun as drawn, at the sky's own px per degree across at the sun's height (where a body's x
+ *   moves there), so the sun dogs at the sun's altitude stand where the sun's geometry puts their direction.
+ * - The rainbow: centred on the antisolar point under the horizon, its top where the sky puts the top's altitude (the part
+ *   seen), its round shape following with that same px per degree (held within 1–2× the sky's scale across).
  */
 
 const q = (v: number, step: number) => Math.round(v / step)
 
-/** The primary's bands from outside in (red at 42.3° … violet at 40.6°); the secondary's reversed and wider. */
-const SPECTRUM: [number, RGB][] = [
-  [0, [0.95, 0.25, 0.2]], [0.2, [1, 0.55, 0.15]], [0.38, [1, 0.88, 0.25]], [0.56, [0.35, 0.8, 0.35]], [0.76, [0.3, 0.5, 0.95]], [1, [0.55, 0.35, 0.85]],
-]
+/** How many alphas the rainbow's mask has round its circle (every 3°). */
+export const MASK_STEPS = 120
 
-/** Points of a circle of `radius` (deg) round a centre, every 2°, projected; null where it is under the land or off the sky. */
-function circle(geom: SkyGeom, crest: (x: number) => number, centre: { azimuth: number; altitude: number }, radius: number) {
-  const out: ({ p: Pt; alt: number } | null)[] = []
-  for (let t = -180; t <= 180; t += 2) {
-    const d = onCircle(centre, radius, (t * Math.PI) / 180)
-    const p: Pt = [geom.x(d.azimuth), geom.y(d.altitude)]
-    out.push(d.altitude > -0.5 && p[1] < crest(p[0]) + 2 && p[0] > -2 && p[0] < geom.width + 2 ? { p, alt: d.altitude } : null)
-  }
+/**
+ * The sky's outline over the land between two x (sky px): from the top down to the land's crest, or to the eye's horizon
+ * where the land stands lower (what is under the horizon is not seen in the sky either). Clockwise, in 2 px steps.
+ */
+export function skyClip(crest: (x: number) => number, horizon: number, x0: number, x1: number, top: number): Pt[] {
+  const out: Pt[] = [[x0, top], [x1, top]]
+  for (let x = x1; x >= x0; x -= 2) out.push([x, Math.min(crest(x), horizon)])
+  out.push([x0, Math.min(crest(x0), horizon)])
   return out
-}
-
-/** The longest unbroken stretch of a traced circle. */
-function longest<T>(pts: (T | null)[]): T[] {
-  let best: T[] = [], cur: T[] = []
-  for (const p of [...pts, null]) {
-    if (p) cur.push(p)
-    else { if (cur.length > best.length) best = cur; cur = [] }
-  }
-  return best
 }
 
 const inRange = (az: number, from: number, to: number) => {
@@ -46,90 +40,99 @@ const inRange = (az: number, from: number, to: number) => {
   return a <= span
 }
 
+/** The rainbow's frame: centred on the antisolar point, `k` from its top's altitude (see the header). */
+export function rainbowFrame(world: WorldState, geom: SkyGeom): TangentFrame | null {
+  const bow = world.optics.rainbow
+  if (!bow) return null
+  const h = -bow.antisolar.altitude
+  const across = tangentScale(world, geom, 0)
+  const topAlt = BOW.primary[1] - h
+  const k = Math.max(across, Math.min(2 * across, (geom.horizon - geom.y(topAlt)) / Math.max(1, topAlt)))
+  // The antisolar point stands h° under the horizon in the frame: the frame's horizon is the eye's at that azimuth.
+  return tangentFrame(bow.antisolar, [geom.x(bow.antisolar.azimuth), geom.horizon + k * h], k, world.camera.handed)
+}
+
 /** The rainbow (sky, over the clouds the rain falls from): primary and secondary, brighter where the rain is. */
 export function rainbowLayer(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bow'> | null {
   const bow = world.optics.rainbow
-  if (!bow) return null
+  const frame = rainbowFrame(world, geom)
+  if (!bow || !frame) return null
   const crest = crestOf(world, box, geom)
   const rainAt = (az: number) => {
     let best = bow.around
     for (const r of bow.rain) {
-      // The rain's own span, feathered ~10° either side.
+      // The rain's own span, feathered ~12° either side.
       const d = inRange(az, r.from, r.to) ? 0 : Math.min(Math.abs(((az - r.from) % 360 + 540) % 360 - 180), Math.abs(((az - r.to) % 360 + 540) % 360 - 180))
       best = Math.max(best, 1 - smoothstep(0, 12, d))
     }
     return best
   }
-  const arcs: ArcDesc[] = []
-  const band = (inner: number, outer: number, strength: number, reversed: boolean) => {
-    const n = SPECTRUM.length
-    SPECTRUM.forEach(([f, rgb], i) => {
-      const radius = reversed ? inner + (outer - inner) * f : outer - (outer - inner) * f
-      const run = longest(circle(geom, crest, bow.antisolar, radius))
-      if (run.length < 3) return
-      const pxPerDeg = world.camera.pxPerDeg * geom.s
-      arcs.push({ points: run.map((r) => r.p), rgb, width: Math.max(0.9, ((outer - inner) / n) * pxPerDeg * 1.6),
-        // Fading into the rain's foot near the ground, and where there is no rain.
-        alphas: run.map((r) => strength * rainAt(azimuthOf(world, geom, r.p[0])) * (0.35 + 0.65 * smoothstep(0, 6, r.alt)) * (i === 0 || i === n - 1 ? 0.7 : 1)) })
-    })
-  }
-  band(BOW.primary[0], BOW.primary[1], 0.5 * bow.strength, false)
-  if (bow.secondary > 0.03) band(BOW.secondary[0], BOW.secondary[1], 0.5 * bow.secondary, true)
-  if (!arcs.length) return null
-  // Inside the primary the sky is brighter (the drops' light at every angle under 42°).
-  const inner = longest(circle(geom, crest, bow.antisolar, 36)).map((r) => r.p)
-  return bowLayer('rainbow', world, box, geom, arcs, [], inner.length > 2 ? { points: inner, alpha: 0.12 * bow.strength } : null, 8.7)
+  // Round the circle (screen angles): the rain's presence where the bow's direction falls, fading into the rain's foot.
+  // Only what lies in the view's own span of azimuth (never across the camera's seam behind the eye).
+  const half = spanDeg(world.camera) / 2
+  const inView = (az: number) => 1 - smoothstep(half - 8, half - 2, Math.abs(wrap180(az - world.camera.heading)))
+  const mid = (BOW.primary[0] + BOW.primary[1]) / 2
+  let seen = false
+  const mask = Array.from({ length: MASK_STEPS }, (_, i) => {
+    const phi = (i / MASK_STEPS) * 2 * Math.PI
+    const d = onCircle(bow.antisolar, mid, bearingOfScreen(frame, phi))
+    const a = rainAt(d.azimuth) * (0.35 + 0.65 * smoothstep(0, 6, d.altitude)) * inView(d.azimuth)
+    const x = frame.at[0] + Math.cos(phi) * mid * frame.k, y = frame.at[1] + Math.sin(phi) * mid * frame.k
+    if (a > 0.05 && x > 0 && x < geom.width && y < Math.min(crest(x), geom.horizon) - 1) seen = true
+    return a
+  })
+  // Nothing of it over the land in view (the bow behind the eye, or all under the land): no layer.
+  if (!seen) return null
+  const R = BOW.secondary[1] * frame.k + 6
+  return bowLayer('rainbow', world, box, geom, crest, frame, bow.strength, bow.secondary, mask, [], R, 8.7)
+}
+
+/** The halo's frame: centred on the sun as drawn, at the sky's own px per degree across at the sun's height. */
+export function haloFrame(world: WorldState, box: SceneBox, geom: SkyGeom): TangentFrame | null {
+  const halo = world.optics.halo
+  if (!halo) return null
+  const sun = world.bodies.sun
+  return tangentFrame(halo.sun, [geom.left + sun.x * geom.s, box.landTop + sun.y], tangentScale(world, geom, halo.sun.altitude), world.camera.handed)
 }
 
 /** The 22° halo and the sun dogs (sky, in the high cloud). */
 export function haloLayer(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bow'> | null {
   const halo = world.optics.halo
-  if (!halo) return null
+  const frame = haloFrame(world, box, geom)
+  if (!halo || !frame) return null
   const crest = crestOf(world, box, geom)
-  const sun = world.bodies.sun
-  // The ring is centred on the sun as drawn: its traced points carried by the drawn disc's offset from the projected one.
-  const dx = geom.left + sun.x * geom.s - geom.x(sun.azimuth), dy = box.landTop + sun.y - geom.y(Math.max(-1, sun.altitude))
-  const ring = (radius: number) => longest(circle(geom, crest, halo.sun, radius)).map((r): { p: Pt; alt: number } => ({ p: [r.p[0] + dx, r.p[1] + dy], alt: r.alt }))
-  const arcs: ArcDesc[] = []
-  // Red on the inside edge, a whitish band outward, fading.
-  const bands: [number, RGB, number][] = [[HALO_DEG - 0.4, [1, 0.62, 0.45], 0.5], [HALO_DEG, [1, 0.9, 0.78], 0.6], [HALO_DEG + 0.8, [0.92, 0.95, 1], 0.35]]
-  for (const [radius, rgb, a] of bands) {
-    const run = ring(radius)
-    if (run.length < 3) continue
-    arcs.push({ points: run.map((r) => r.p), rgb, width: 1.6 * Math.max(0.85, geom.s), alphas: run.map((r) => a * halo.strength * 0.3 * smoothstep(-0.5, 4, r.alt)) })
-  }
-  const dogs: { x: number; y: number; r: number; alpha: number }[] = []
+  const [cx, cy] = frame.at
+  const dogs: SunDog[] = []
   if (halo.dogs > 0.04 && halo.dogOffset !== null) {
-    for (const side of [-1, 1]) {
-      const x = geom.x(halo.sun.azimuth + side * halo.dogOffset) + dx, y = geom.y(halo.sun.altitude) + dy
-      if (y < crest(x) - 2 && x > -10 && x < geom.width + 10) dogs.push({ x, y, r: 4.5 * Math.max(0.85, geom.s), alpha: 0.75 * halo.dogs })
+    for (const side of [-1, 1] as const) {
+      const x = cx + side * frame.k * halo.dogOffset
+      if (cy < Math.min(crest(x), geom.horizon) - 2 && x > -10 && x < geom.width + 10) {
+        dogs.push({ x, y: cy, r: 3 * frame.k, alpha: 0.85 * halo.dogs, side })
+      }
     }
   }
-  if (!arcs.length && !dogs.length) return null
-  return bowLayer('halo', world, box, geom, arcs, dogs, null, 6.2)
+  return bowLayer('halo', world, box, geom, crest, frame, halo.strength, 0, [], dogs, (HALO_DEG + 10) * frame.k, 6.2)
 }
 
-function bowLayer(look: 'rainbow' | 'halo', world: WorldState, box: SceneBox, geom: SkyGeom, arcs: ArcDesc[], dogs: LayerOf<'bow'>['dogs'],
-  inner: LayerOf<'bow'>['inner'], z: number): LayerOf<'bow'> {
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-  const grow = (x: number, y: number, r: number) => { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); y0 = Math.min(y0, y - r); y1 = Math.max(y1, y + r) }
-  for (const a of arcs) for (const [x, y] of a.points) grow(x, y, a.width + 2)
-  for (const d of dogs) grow(d.x, d.y, d.r * 3)
-  if (inner) for (const [x, y] of inner.points) grow(x, y, 2)
+function bowLayer(look: 'rainbow' | 'halo', world: WorldState, box: SceneBox, geom: SkyGeom, crest: (x: number) => number, frame: TangentFrame,
+  strength: number, secondary: number, mask: number[], dogs: SunDog[], reach: number, z: number): LayerOf<'bow'> | null {
+  const [cx, cy] = frame.at
+  let x0 = cx - reach, x1 = cx + reach, y0 = cy - reach
+  let y1 = cy + reach
+  for (const d of dogs) { x0 = Math.min(x0, d.x - 3 * d.r); x1 = Math.max(x1, d.x + 3 * d.r) }
   x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0))
-  x1 = Math.min(geom.width, Math.ceil(x1)); y1 = Math.min(box.skyHeight, Math.ceil(y1))
-  const bounds = { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) }
+  x1 = Math.min(geom.width, Math.ceil(x1))
+  // Down to the lowest sky over the land in its span.
+  let floor = 0
+  for (let x = x0; x <= x1; x += 2) floor = Math.max(floor, Math.min(crest(x), geom.horizon))
+  y1 = Math.min(box.skyHeight, Math.ceil(Math.min(y1, floor + 1)))
+  if (x1 - x0 < 2 || y1 - y0 < 2) return null
+  const clip = skyClip(crest, geom.horizon, x0, x1, y0)
+  const bounds = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
   const id = `bow.${look}`
   return {
-    kind: 'bow', id, surface: 'sky', z, soft: true, look, arcs, dogs, inner, bounds,
-    key: layerKey(id, skyBoxKey(box, true), arcs.map((a) => [a.points.length, q(a.points[0][0], 0.5), q(a.points[0][1], 0.5), q(a.alphas[0] ?? 0, 0.02),
-      q(a.alphas[Math.floor(a.alphas.length / 2)] ?? 0, 0.02)]), dogs.map((d) => [q(d.x, 0.5), q(d.y, 0.5), q(d.alpha, 0.02)]), inner && q(inner.alpha, 0.02),
-      world.keys.optics),
+    kind: 'bow', id, surface: 'sky', z, soft: true, look, cx, cy, k: frame.k, strength, secondary, mask, dogs, clip, bounds,
+    key: layerKey(id, skyBoxKey(box, true), q(cx, 0.25), q(cy, 0.25), q(frame.k, 0.01), q(strength, 0.02), q(secondary, 0.02),
+      mask.map((a) => q(a, 0.03)), dogs.map((d) => [q(d.x, 0.25), q(d.r, 0.1), q(d.alpha, 0.02)]), clip.map(([, y]) => q(y, 0.5)), world.keys.optics),
   }
-}
-
-/** The azimuth (deg) a sky x stands for (the camera's, inverted). */
-function azimuthOf(world: WorldState, geom: SkyGeom, x: number): number {
-  const c = world.camera
-  return c.heading + c.handed * ((x - geom.left) / geom.s - c.width / 2) / c.pxPerDeg
 }

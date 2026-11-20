@@ -1,4 +1,4 @@
-import { bandBrightness, galacticToEquatorial, riftAt } from '../astro/galaxy'
+import { bandBrightness, galacticToEquatorial, riftAt, starCloudAt } from '../astro/galaxy'
 import { PLANETS, planetPosition, type PlanetName } from '../astro/planets'
 import { horizontalPosition } from '../astro/sun'
 import { utcOf } from '../astro/utc'
@@ -34,6 +34,8 @@ export interface MilkyWayPoint {
   /** 0–1 brightness of the band here, and how dark the Great Rift is down its middle. */
   bright: number
   rift: number
+  /** 0–1: a bright star cloud here (Sagittarius, Scutum, Cygnus). */
+  cloud: number
 }
 
 export interface NightSky {
@@ -128,7 +130,7 @@ export function milkyWayBand(input: NightSkyInput): MilkyWayPoint[] {
   for (let l = 0; l < 360; l += 4) {
     // Wider toward the centre (the bulge), ~10° either side, ~6° toward the anticentre.
     const half = 6 + 6 * Math.exp(-0.5 * ((((l + 180) % 360) - 180) / 40) ** 2)
-    out.push({ l, spine: at(l, 0), upper: at(l, half), lower: at(l, -half), bright: bandBrightness(l), rift: riftAt(l) })
+    out.push({ l, spine: at(l, 0), upper: at(l, half), lower: at(l, -half), bright: bandBrightness(l), rift: riftAt(l), cloud: starCloudAt(l) })
   }
   return out
 }

@@ -65,40 +65,49 @@ export function twinkleOf(world: WorldState, box: SceneBox, stars: readonly Star
   return { steady: stars.filter((_, i) => !set.has(i)), layers }
 }
 
-/** The band's half width on screen at most (px at the reference width): ~12° at the horizon's 1.5 px a degree, and a little. */
-const MAX_HALF = 32
+/** The band's half width on screen at most (px at the reference width), at its brightest; less where it is faint. */
+const MAX_HALF = 34
 
-/** The Milky Way (sky): its band at its true place, on the dome, only when the world says the sky is dark enough. */
+/**
+ * The Milky Way (sky): its band at its true place (the galactic plane, `astro/galaxy.ts`), on the dome as the stars and
+ * the clouds are, only when the world says the sky is dark enough. Its edges stand at their true angle from the spine,
+ * held under `MAX_HALF` where the view's cylinder spreads the sky near the zenith, its width swelling and narrowing with
+ * its light and with the star clouds and the dust (seeded, smooth along it); its brightness dimmed in the thick air low
+ * down and faded out going up toward the zenith, where the cylinder can no longer hold a direction.
+ */
 export function milkyWayLayer(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'milkyWay'> | null {
   const { strength, band } = world.nightSky.milkyWay
   if (strength < 0.03 || band.length < 3) return null
   const at = (p: { azimuth: number; altitude: number }): Pt => [geom.x(p.azimuth), geom.dome(Math.max(-3, p.altitude))]
   // Round the whole band (the last point joined to the first); a point out of the drawn stretch has no brightness and the
-  // painter skips its segments: under the horizon, behind the eye (the camera's seam), or near the zenith, where the view's
-  // cylinder spreads a direction across the whole width (it fades out going up there, as the dome does).
+  // painter skips its segments: under the horizon, behind the eye (the camera's seam), or near the zenith.
   const ring = [...band, band[0]]
-  const shown = (p: (typeof band)[number]) => p.spine.altitude > 1 && p.spine.altitude < 74 && Math.abs(geom.x(p.spine.azimuth) - geom.width / 2) < geom.width * 0.75
+  const shown = (p: (typeof band)[number]) => p.spine.altitude > 0.5 && p.spine.altitude < 84 && Math.abs(geom.x(p.spine.azimuth) - geom.width / 2) < geom.width * 0.75
   if (ring.filter(shown).length < 3) return null
   const spine = ring.map((p) => at(p.spine))
-  // Its edges at their true angle from the spine, never wider on screen than the band's true width across (`MAX_HALF`).
-  // Its width follows its light (the bulge widest), its edges ragged with the star clouds and dust (seeded per point).
+  // An irregular width: a seeded value per point, smoothed along the band (closed round it).
   const r = seeded(hashId('milkyWay:edges'))
-  const ragged = ring.map(() => [0.8 + 0.4 * r(), 0.8 + 0.4 * r()])
+  const raw = band.map(() => [r(), r()])
+  const smooth = (side: 0 | 1) => band.map((_, i) => {
+    const n = band.length
+    return 0.7 + 0.6 * (0.25 * raw[(i + n - 1) % n][side] + 0.5 * raw[i][side] + 0.25 * raw[(i + 1) % n][side])
+  })
+  const ragged = [smooth(0), smooth(1)]
   const edge = (side: 'upper' | 'lower') => ring.map((p, i): Pt => {
     const [sx, sy] = spine[i], [ex, ey] = at(p[side])
     const d = Math.hypot(ex - sx, ey - sy) || 1
-    const cap = MAX_HALF * geom.s * (0.55 + 0.5 * p.bright) * ragged[i][side === 'upper' ? 0 : 1]
-    return d > cap ? [sx + ((ex - sx) / d) * cap, sy + ((ey - sy) / d) * cap] : [ex, ey]
+    const swell = ragged[side === 'upper' ? 0 : 1][i % band.length] * (1 + 0.25 * p.cloud)
+    const cap = MAX_HALF * geom.s * (0.5 + 0.5 * p.bright)
+    const len = Math.min(d * swell, cap * swell)
+    return [sx + ((ex - sx) / d) * len, sy + ((ey - sy) / d) * len]
   })
   const upper = edge('upper'), lower = edge('lower')
-  // Dimmed low down (the air's extinction) and going up toward the zenith.
-  const bright = ring.map((p) => (shown(p) ? p.bright * smoothstep(1, 15, p.spine.altitude) * (1 - smoothstep(40, 74, p.spine.altitude)) : 0))
-  const keep = ring
+  const bright = ring.map((p) => (shown(p) ? p.bright * smoothstep(0.5, 10, p.spine.altitude) * (1 - smoothstep(60, 82, p.spine.altitude)) : 0))
   const rgb: RGB = [0.82, 0.85, 0.95]
   return {
     kind: 'milkyWay', id: 'milkyWay', surface: 'sky', z: 1.5, soft: true, spine, upper, lower, bright,
-    rift: keep.map((p) => p.rift), rgb, alpha: strength * 1, seed: hashId('milkyWay'),
+    rift: ring.map((p) => p.rift), clouds: ring.map((p) => p.cloud), rgb, alpha: strength, seed: hashId('milkyWay'),
     bounds: { x: 0, y: 0, w: geom.width, h: Math.ceil(geom.horizon) },
-    key: layerKey('milkyWay', skyBoxKey(box, true), spine.map(([x, y]) => [q(x, 1), q(y, 1)]), q(strength, 0.03)),
+    key: layerKey('milkyWay', skyBoxKey(box, true), spine.map(([x, y]) => [q(x, 1), q(y, 1)]), bright.map((b) => q(b, 0.05)), q(strength, 0.03)),
   }
 }

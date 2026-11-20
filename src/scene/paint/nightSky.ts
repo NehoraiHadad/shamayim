@@ -57,64 +57,92 @@ export function paintTwinkle(ctx: Ctx2D, desc: LayerOf<'twinkle'>, env: PaintEnv
   ctx.fill()
 }
 
+
 /**
- * The Milky Way: quads between its edges, each a soft wash of its brightness, mottled by seeded noise into star clouds, the
- * rift darkening its middle; then a scatter of very faint stars along it. Segments that jump across the screen (where the
- * band passes behind the eye) are skipped.
+ * The Milky Way: a soft, irregular band of faint light, never a set of stripes. Laid from many seeded soft blobs scattered
+ * across it (denser and brighter at its middle, so its edges fade out gently), mottled by noise into a grain of light;
+ * brighter knots where the star clouds are (Sagittarius and Scutum toward the centre, Cygnus); a dust of faint stars; then
+ * the dark lanes taken out of its light (the Great Rift along it from Cygnus to Sagittarius, a few smaller dark patches
+ * elsewhere). Faint throughout: it never outshines the bright stars. Segments that jump across the screen (where the band
+ * passes behind the eye or near the zenith) are skipped.
  */
 export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: PaintEnv): void {
-  const { spine, upper, lower, bright, rift, alpha } = desc
-  const r = rng(desc.seed)
+  const { spine, upper, lower, bright, rift, clouds, alpha, seed } = desc
+  const r = rng(seed)
+  const gauss = () => Math.sqrt(-2 * Math.log(Math.max(1e-6, r()))) * Math.cos(TAU * r())
   const jump = (a: Pt, b: Pt) => Math.abs(a[0] - b[0]) > 120
+  const lerp = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+  /** A point at `t` along segment i (from point i − 1), `v` across (+1 the upper edge, −1 the lower). */
+  const place = (i: number, t: number, v: number): Pt => {
+    const s = lerp(spine[i - 1], spine[i], t), e = v >= 0 ? lerp(upper[i - 1], upper[i], t) : lerp(lower[i - 1], lower[i], t)
+    const k = Math.abs(v)
+    return [s[0] + (e[0] - s[0]) * k, s[1] + (e[1] - s[1]) * k]
+  }
+  const half = (i: number) => {
+    const h = (j: number) => (Math.hypot(upper[j][0] - spine[j][0], upper[j][1] - spine[j][1]) + Math.hypot(lower[j][0] - spine[j][0], lower[j][1] - spine[j][1])) / 2
+    return Math.max(2, (h(i - 1) + h(i)) / 2)
+  }
+  const blob = (p: Pt, R: number, rgb: readonly [number, number, number], a: number) => {
+    if (a < 0.002 || R < 0.5) return
+    const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], R)
+    g.addColorStop(0, css(rgb, a))
+    g.addColorStop(0.45, css(rgb, a * 0.55))
+    g.addColorStop(1, css(rgb, 0))
+    ctx.fillStyle = g
+    ctx.fillRect(p[0] - R, p[1] - R, 2 * R, 2 * R)
+  }
+  const segs: number[] = []
   for (let i = 1; i < spine.length; i++) {
     if (bright[i - 1] <= 0 || bright[i] <= 0) continue
     if (jump(spine[i - 1], spine[i]) || jump(upper[i - 1], upper[i]) || jump(lower[i - 1], lower[i])) continue
-    const b = (bright[i - 1] + bright[i]) / 2
-    // Soft edges: the band laid eight times, narrower toward its middle, so its light falls off smoothly to the sides.
-    for (let pass = 1; pass <= 8; pass++) {
-      const k = 1.15 - pass * 0.12
-      const lerp = (s: Pt, e: Pt): Pt => [s[0] + (e[0] - s[0]) * k, s[1] + (e[1] - s[1]) * k]
-      const u0 = lerp(spine[i - 1], upper[i - 1]), u1 = lerp(spine[i], upper[i]), l1 = lerp(spine[i], lower[i]), l0 = lerp(spine[i - 1], lower[i - 1])
-      ctx.fillStyle = css(desc.rgb, 0.02 * b * alpha)
-      ctx.beginPath()
-      ctx.moveTo(u0[0], u0[1]); ctx.lineTo(u1[0], u1[1]); ctx.lineTo(l1[0], l1[1]); ctx.lineTo(l0[0], l0[1])
-      ctx.closePath()
-      ctx.fill()
+    segs.push(i)
+  }
+  const mottle = (p: Pt) => Math.min(1.35, Math.max(0.1, fractal(seed, p[0], p[1], 0.03, 0.03, 3) * 2 - 0.35))
+  const warm = mix(desc.rgb, [1, 0.93, 0.84], 0.5)
+  // The diffuse light: soft blobs, most near the middle.
+  for (const i of segs) {
+    const b = (bright[i - 1] + bright[i]) / 2, hw = half(i)
+    const len = Math.hypot(spine[i][0] - spine[i - 1][0], spine[i][1] - spine[i - 1][1])
+    const n = Math.ceil((len / hw) * 6) + 2
+    for (let j = 0; j < n; j++) {
+      const v = Math.max(-1.1, Math.min(1.1, gauss() * 0.42))
+      const p = place(i, (j + r()) / n, v)
+      blob(p, hw * (0.35 + 0.45 * r()), desc.rgb, 0.032 * b * alpha * mottle(p) * (1 - 0.3 * Math.abs(v)))
     }
-    // Star clouds: soft knots along the band.
-    const knots = 2
-    for (let j = 0; j < knots; j++) {
-      const t = r(), side = (r() - 0.5) * 0.9
-      const sx = spine[i - 1][0] + (spine[i][0] - spine[i - 1][0]) * t, sy = spine[i - 1][1] + (spine[i][1] - spine[i - 1][1]) * t
-      const ux = upper[i - 1][0] + (upper[i][0] - upper[i - 1][0]) * t, uy = upper[i - 1][1] + (upper[i][1] - upper[i - 1][1]) * t
-      const x = sx + (ux - sx) * side, y = sy + (uy - sy) * side
-      const R = 9 + 12 * r()
-      const m = fractal(desc.seed, x, y, 0.05, 0.05, 2)
-      const g = ctx.createRadialGradient(x, y, 0, x, y, R)
-      g.addColorStop(0, css(desc.rgb, 0.04 * b * alpha * m))
-      g.addColorStop(1, css(desc.rgb, 0))
-      ctx.fillStyle = g
-      ctx.fillRect(x - R, y - R, 2 * R, 2 * R)
-    }
-    // The rift: a dark lane down the middle where the dust lies.
-    const d = (rift[i - 1] + rift[i]) / 2
-    if (d > 0.05) {
-      ctx.strokeStyle = css([0.05, 0.06, 0.12], 0.12 * d * alpha)
-      ctx.lineWidth = 0.3 * Math.hypot(upper[i][0] - spine[i][0], upper[i][1] - spine[i][1])
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(spine[i - 1][0], spine[i - 1][1] - 1)
-      ctx.lineTo(spine[i][0], spine[i][1] - 1)
-      ctx.stroke()
-    }
-    // The band's faint stars.
-    const dots = Math.round(6 * b)
-    for (let j = 0; j < dots; j++) {
-      const t = r(), side = (r() - 0.5) * 2 * (r() ** 0.7)
-      const sx = spine[i - 1][0] + (spine[i][0] - spine[i - 1][0]) * t, sy = spine[i - 1][1] + (spine[i][1] - spine[i - 1][1]) * t
-      const ux = upper[i - 1][0] + (upper[i][0] - upper[i - 1][0]) * t, uy = upper[i - 1][1] + (upper[i][1] - upper[i - 1][1]) * t
-      ctx.fillStyle = css([0.9, 0.92, 1], (0.12 + 0.25 * r()) * alpha)
-      ctx.fillRect(sx + (ux - sx) * side, sy + (uy - sy) * side, 0.6, 0.6)
+    // The star clouds: brighter, warmer knots.
+    const c = (clouds[i - 1] + clouds[i]) / 2
+    if (c > 0.06) {
+      const m = Math.ceil((len / hw) * 8 * c) + 1
+      for (let j = 0; j < m; j++) {
+        const p = place(i, r(), -0.1 + (r() - 0.5) * 0.9)
+        blob(p, hw * (0.18 + 0.32 * r()), warm, 0.05 * c * b * alpha * (0.5 + 0.5 * mottle(p)))
+      }
     }
   }
+  // A dust of faint stars along it, thicker at its middle.
+  for (const i of segs) {
+    const b = (bright[i - 1] + bright[i]) / 2, hw = half(i)
+    const len = Math.hypot(spine[i][0] - spine[i - 1][0], spine[i][1] - spine[i - 1][1])
+    const dots = Math.round(len * hw * 0.11 * Math.min(1, b + 0.25))
+    for (let j = 0; j < dots; j++) {
+      const p = place(i, r(), Math.max(-1.2, Math.min(1.2, gauss() * 0.5)))
+      const s = 0.45 + 0.5 * r() ** 2
+      ctx.fillStyle = css([0.9, 0.92, 1], (0.05 + 0.2 * r() ** 2) * alpha * mottle(p))
+      ctx.fillRect(p[0] - s / 2, p[1] - s / 2, s, s)
+    }
+  }
+  // The dark lanes: taken out of the band's light, the Great Rift a broken lane a little off its middle.
+  ctx.globalCompositeOperation = 'destination-out'
+  for (const i of segs) {
+    const hw = half(i), d = (rift[i - 1] + rift[i]) / 2
+    const len = Math.hypot(spine[i][0] - spine[i - 1][0], spine[i][1] - spine[i - 1][1])
+    const lane = d > 0.08
+    const n = Math.ceil((len / hw) * (lane ? 9 : 2))
+    for (let j = 0; j < n; j++) {
+      const p = place(i, r(), lane ? 0.14 + gauss() * 0.13 : gauss() * 0.55)
+      const a = (lane ? 0.5 * d : 0.22) * (0.4 + 0.6 * fractal(seed + 7, p[0], p[1], 0.05, 0.05, 2))
+      blob(p, hw * (lane ? 0.14 + 0.2 * r() : 0.1 + 0.15 * r()), [0, 0, 0], a)
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over'
 }

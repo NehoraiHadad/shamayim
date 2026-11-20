@@ -41,3 +41,13 @@ export const riftAt = (l: number) => {
   const x = ((l + 10) % 360 + 360) % 360
   return x <= 85 ? Math.sin((x / 85) * Math.PI) : 0
 }
+
+/**
+ * The bright star clouds along the band (0–1): the Large Sagittarius Star Cloud (l ≈ 2–8°, the brightest patch of the
+ * whole Milky Way, toward the centre), the Small Sagittarius Star Cloud (l ≈ 12°), the Scutum Star Cloud (l ≈ 27°) and
+ * the Cygnus Star Cloud (l ≈ 75–80°), where the eye sees the band knot into brighter clumps.
+ */
+export function starCloudAt(l: number): number {
+  const g = (at: number, w: number) => Math.exp(-0.5 * ((((l - at) % 360 + 540) % 360 - 180) / w) ** 2)
+  return Math.min(1, g(4, 5) + 0.55 * g(12, 2.5) + 0.75 * g(27, 3.5) + 0.5 * g(77, 6))
+}
