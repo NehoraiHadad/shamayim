@@ -38,6 +38,8 @@ const CURRENT = [
   'precipitation', 'snowfall', 'visibility', 'relative_humidity_2m',
   // Cloud by layer: the moon shines through thin high cloud but not through low and mid cloud.
   'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high',
+  // Living land (stage 1): volumetric soil moisture across top and root zones (`src/data/land/recentWeather.ts`).
+  'soil_moisture_0_to_1cm', 'soil_moisture_1_to_3cm', 'soil_moisture_3_to_9cm', 'soil_moisture_9_to_27cm',
 ]
 const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
@@ -84,7 +86,7 @@ export const ROUTES: Record<string, Route> = {
       timezone: { kind: 'timezone' },
       models: { kind: 'list', values: FORECAST_MODELS },
       forecast_days: { kind: 'int', min: 1, max: 7 },
-      past_days: { kind: 'int', min: 0, max: 1 },
+      past_days: { kind: 'int', min: 0, max: 60 },
       wind_speed_unit: { kind: 'enum', values: ['kmh'] },
       current: { kind: 'list', values: CURRENT },
       hourly: { kind: 'list', values: HOURLY },

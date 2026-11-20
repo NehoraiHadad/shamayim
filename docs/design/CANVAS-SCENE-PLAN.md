@@ -649,6 +649,18 @@ was deployed by the rebuild):
    ```
    Until step 2 the world takes a climatological guess for the air at 250 hPa (−53 °C in January to −40 °C in July; the
    humidity from the forecast's high cloud), marked `sources.cruise: 'climate'`.
+7. **(Living land, stage 1 — pending deploy)** Past precipitation (`past_days` up to 60) and volumetric soil moisture
+   (`current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm`) on
+   `/v1/forecast` (`worker/src/routes.ts`). The app gates this request behind `ASK_LAND_WEATHER = false` in
+   `src/data/land/recentWeather.ts` until deployed; until then land dryness falls back to regional seasonal climatology
+   (`drynessSource: 'climatology'`). After `land-living` is merged to `main`:
+   ```bash
+   cd worker && npm ci && npm test && npx wrangler deploy
+   curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev" \
+     "https://shamayim-api.nehoraihadad.com/v1/forecast?latitude=32.3465&longitude=35.5325&timezone=Asia%2FJerusalem&models=icon_seamless,ecmwf_ifs025&forecast_days=1&past_days=60&current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&daily=precipitation_sum"
+   # 200: the Worker allows past_days=60 and soil moisture. 400: not deployed yet; stop here.
+   ```
+   Then flip `ASK_LAND_WEATHER` to `true` in `src/data/land/recentWeather.ts` and merge to `main`.
 
 **Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
 algorithms must handle every place correctly (see the rules at the top).

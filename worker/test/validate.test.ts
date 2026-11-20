@@ -69,6 +69,18 @@ describe('canonicalQuery', () => {
     expect(query().ok).toBe(true)
   })
 
+  it('accepts living-land recent weather (past_days up to 60 and current soil moisture) and rejects > 60', () => {
+    const land = new URLSearchParams({
+      latitude: '32.3465', longitude: '35.5325', timezone: 'Asia/Jerusalem',
+      models: 'icon_seamless,ecmwf_ifs025', forecast_days: '1', past_days: '60',
+      current: 'soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm',
+      daily: 'precipitation_sum',
+    })
+    expect(query(forecast, land).ok).toBe(true)
+    land.set('past_days', '61')
+    expect(query(forecast, land)).toEqual({ ok: false, reason: 'Invalid value for past_days' })
+  })
+
   it('accepts both ends of the 15-minute forecast range', () => {
     for (const n of [1, 16]) {
       const p = new URLSearchParams(APP_FORECAST)
