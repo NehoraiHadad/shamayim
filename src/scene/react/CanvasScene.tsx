@@ -6,6 +6,7 @@ import { loadWaterMask, type WaterMask } from '../../data/water/waterMask'
 import type { Forecast, LocalTime } from '../../domain/types'
 import type { WorldInput } from '../../world/types'
 import { SceneCanvas } from './SceneCanvas'
+import type { WearLine } from './WearCanvas'
 import { useWorld } from './useWorld'
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
   onScrub: (time: LocalTime) => void
   onRelease: () => void
   onNow: () => void
+  /** The wear card's line: drawn from this world into the card. */
+  wear?: WearLine | null
 }
 
 /**

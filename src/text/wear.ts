@@ -24,8 +24,6 @@ export interface WearTip {
   text: string
   /** What the sentence names: the midday layer, the cooler-hours layer (if any), then extras. */
   garments: Garment[]
-  /** Daytime wind for the drawing: strongest km/h, and screen drift −1…1 (+1 = blowing left → right, a westerly). */
-  wind: { speed: number; drift: number }
 }
 
 function levelFor(f: Forecast, date: LocalDate, fromHour: number, toHour: number): number | null {
@@ -83,8 +81,5 @@ export function wearTip(f: Forecast, now: LocalTime): WearTip | null {
     garments.push('sunHat')
   }
 
-  const speed = Math.max(0, ...facts.hours.map((h) => h.windSpeed))
-  // Hours carry no direction: today uses the current wind, tomorrow the afternoon sea breeze (a westerly).
-  const drift = date === today ? -Math.sin((f.current.windDirection * Math.PI) / 180) : 1
-  return { when: date === today ? 'היום' : 'מחר', text: parts.join(' '), garments, wind: { speed, drift } }
+  return { when: date === today ? 'היום' : 'מחר', text: parts.join(' '), garments }
 }

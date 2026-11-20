@@ -27,7 +27,7 @@ export interface SceneBox { width: number; skyHeight: number; landTop: number; l
 export interface Box { x: number; y: number; w: number; h: number }
 
 export type LayerId = string
-export type Surface = 'sky' | 'land'
+export type Surface = 'sky' | 'land' | 'wear'
 
 /**
  * An animated layer: the loop runs while one is present (C6–C8). Everything here is applied when the cached canvas is
@@ -38,9 +38,10 @@ export interface AnimSpec {
    * `drift`: the cached sprite is translated and/or pulsed (no repaint); `frames`: the layer's canvas is a strip of
    * pre-painted frames, one laid per tick (C7: water, smoke, swaying trees); `fall`: the canvas is a tile of falling marks
    * laid as a moving pattern over `fall.areas` (C7: rain, snow); `settle`: the layer is only laid with the arrival's own
-   * motions below (C8). Never a repaint per frame.
+   * motions below (C8); `sway`: the clothesline's sprites laid through their gust's transform (`sway`). Never a repaint
+   * per frame.
    */
-  mode: 'drift' | 'frames' | 'fall' | 'settle'
+  mode: 'drift' | 'frames' | 'fall' | 'settle' | 'sway'
   /** Surface px/s across, for `drift` (+ left → right). */
   speed?: number
   /**
@@ -84,7 +85,23 @@ export interface AnimSpec {
    * x on the track at the phase (its x at phase 0 is `head`); once the plane has flown off the track the whole trail stays.
    */
   wake?: Track & { tail: number; head: number }
+  /**
+   * The clothesline (`wear.ts`): the layer's sprite laid through an affine about `pivot` that follows one cycle of gusts
+   * (`anim.ts` `swayAt`): lifted with the line, sheared at the hem (pegged cloth), turned about its hook (hooked things),
+   * the rope's sag eased. Applied after `flight` (a drip falls in the frame of what it drips from).
+   */
+  sway?: Sway
 }
+
+/**
+ * One cycle of gusts on the clothesline (`anim.ts` `gustAt`, the stops of the old line's `GUST`), as a transform of a
+ * layer's sprite about `pivot` (surface px). With the line's gust `G` at the phase and the cloth's `g` at the phase plus
+ * `delay` (−0.25…1), the layer stands `lift × G` px higher, scaled `1 + stretch × G` down from the pivot (the rope's sag
+ * easing), sheared by `skew0 + skew × g` rad (x moves by its `tan` per px below the pivot) and turned `turn0 + turn × g`
+ * rad. Under reduced motion both are 0: the rest pose (`skew0`, `turn0`).
+ */
+export interface Sway { pivot: Pt; period: number; delay: number; lift: number; skew: number; skew0: number; turn: number
+  turn0: number; stretch: number }
 
 /**
  * A path in time (C10): offsets (surface px) from where the layer stands at phase 0, one every `step` s from the start of a
@@ -340,6 +357,37 @@ export interface GlyphDesc {
   ground?: number[]
 }
 
+/** Where the line is tied (surface px): the tab of ground and the turns of rope round it. */
+export interface WearEnd { x: number; y: number; w: number; rgb: RGB; side: -1 | 1 }
+/** A raindrop hanging under the rope (surface px). */
+export interface WearBead { x: number; y: number; r: number }
+
+/**
+ * A garment or a piece of gear on the line (`wear.ts`), drawn in its own frame (`model/wearKit.ts`: (0, 0) where the rope
+ * passes, y down) placed at `x`, `y` (surface px), turned `tilt` rad to the rope's chord between its pegs and scaled
+ * `scale` (surface px per garment unit). Tones after the light, the night, the rain and the dust; `side` the screen
+ * side the light comes from (−1 left, 1 right, 0 none) and `shine` how strongly.
+ */
+export interface WearItem {
+  garment: string
+  x: number
+  y: number
+  tilt: number
+  scale: number
+  /** The cloth stretched by its own wet weight (vertical scale, ≥ 1). */
+  hang: number
+  pegTilts: number[]
+  side: -1 | 0 | 1
+  shine: number
+  tones: { body: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB; seam: RGB; edge: RGB; tag: RGB; peg: RGB; pegEdge: RGB
+    pegLight: RGB; spring: RGB; glint: RGB; water: RGB; cord: RGB }
+  /** 0–1: rain on it (darker, beaded), snow lying on its shoulders, dust dulling it. */
+  wet: number
+  snow: number
+  dust: number
+  seed: number
+}
+
 /** A tree (px): `x` its centre. */
 export interface TreeDesc { kind: 'tree' | 'cypress' | 'palm'; x: number; base: number; w: number; h: number; seed: number }
 /*
@@ -477,6 +525,14 @@ export type LayerDesc =
    */
   | LayerBase & { kind: 'bow'; look: 'rainbow' | 'halo'; cx: number; cy: number; k: number; strength: number; secondary: number; mask: number[]
       dogs: SunDog[]; clip: Pt[] }
+  /**
+   * The "מה ללבוש" clothesline (`wear.ts`), on its own surface in the card: the rope (or the stretch of it in front of a
+   * hook's far arm, `part: 'bit'`), each garment as a sprite, and the drops that fall from wet cloth.
+   */
+  | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
+      beads: WearBead[]; snow: number; seed: number }
+  | LayerBase & { kind: 'wearItem'; item: WearItem }
+  | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']
 export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>

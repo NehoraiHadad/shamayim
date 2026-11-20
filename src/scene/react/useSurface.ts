@@ -33,9 +33,9 @@ const harnessStill = () => typeof window !== 'undefined' && (window as Window & 
 /** `?paint=main` keeps the painting on the main thread (to compare; the perf runner's `--paint=main`). */
 const offThread = () => typeof location === 'undefined' || new URLSearchParams(location.search).get('paint') !== 'main'
 
-// The sky's and the land's workers start as the scene's code loads, so their script is in by the time the first world is
-// built (a worker started with its surface took ~100 ms more to show the first layer, CPU ×4).
-if (typeof window !== 'undefined' && offThread()) warmPaintWorkers(2)
+// The sky's, the land's and the wear card's workers start as the scene's code loads, so their script is in by the time the
+// first world is built (a worker started with its surface took ~100 ms more to show the first layer, CPU ×4).
+if (typeof window !== 'undefined' && offThread()) warmPaintWorkers(3)
 
 export interface SurfaceSize { width: number; height: number; dpr: number }
 

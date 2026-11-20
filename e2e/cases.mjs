@@ -16,3 +16,17 @@ export const CASES = [
     ['tiberias', '12:00', 'loading', 'rain'], ['haifa', '16:30', 'arrive', '', '0.7'], ['rosh-pina', '06:20', 'arrive', '', '1.2']]
     .map(([place, hour, land, weather = '', phase = '0']) => ({ place, at: `${DAY}T${hour}`, land, weather, phase })),
 ]
+
+// The wear card's clothesline (`scene.html?wear=`): calm and sunny, a gale, rain, dusk and night, two at dpr 2. Each its own
+// garments, so every shape is seen; the still is the card's box on its paper (`WEAR_CLIP`).
+export const WEAR_CLIP = { x: 0, y: 0, width: 375, height: 150 }
+const WEAR = [
+  ['calm', '12:00', 'calm', 'tee,longSleeve,sunHat,water'],
+  ['windy', '12:00', 'gale', 'sweater,jacket,umbrella'],
+  ['rain', '12:00', 'rain', 'jacket,rainJacket,umbrella'],
+  ['dusk', '16:30', 'clear', 'longSleeve,coat,umbrella'],
+  ['night', '21:00', 'clear', 'coat,sweater,rainJacket'],
+]
+CASES.push(...WEAR.map(([name, hour, weather, wear]) => ({ place: 'jerusalem', at: `${DAY}T${hour}`, weather, wear, name: `wear-${name}` })),
+  ...WEAR.filter(([name]) => name === 'calm' || name === 'rain')
+    .map(([name, hour, weather, wear]) => ({ place: 'jerusalem', at: `${DAY}T${hour}`, weather, wear, name: `wear-${name}`, dpr: 2 })))
