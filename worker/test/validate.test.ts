@@ -3,6 +3,7 @@ import { ROUTES, routeFor } from '../src/routes'
 import { canonicalQuery } from '../src/validate'
 
 const forecast = ROUTES['/v1/forecast']
+const landWeather = ROUTES['/v1/land-weather']
 const air = ROUTES['/v1/air-quality']
 const elevation = ROUTES['/v1/elevation']
 
@@ -27,10 +28,11 @@ function points(n: number, value: string): string {
 }
 
 describe('routes', () => {
-  it('knows the four endpoints and nothing else', () => {
-    expect(Object.keys(ROUTES)).toHaveLength(4)
+  it('knows the five endpoints and nothing else', () => {
+    expect(Object.keys(ROUTES)).toHaveLength(5)
     expect(routeFor('/v1/normals')?.name).toBe('normals')
     expect(routeFor('/v1/forecast')?.name).toBe('forecast')
+    expect(routeFor('/v1/land-weather')?.name).toBe('land-weather')
     expect(routeFor('/v1/air-quality')?.name).toBe('air-quality')
     expect(routeFor('/v1/elevation')?.name).toBe('elevation')
     expect(routeFor('/v1/geocoding')).toBeNull()
@@ -69,16 +71,31 @@ describe('canonicalQuery', () => {
     expect(query().ok).toBe(true)
   })
 
-  it('accepts living-land recent weather (past_days up to 60 and current soil moisture) and rejects > 60', () => {
+  it('keeps /v1/forecast capped at past_days<=1 and admits 60d only on narrow /v1/land-weather', () => {
+    // Reject expanded 60-day hourly forecast payload on /v1/forecast
+    const expanded = new URLSearchParams(APP_FORECAST)
+    expanded.set('past_days', '60')
+    expect(query(forecast, expanded)).toEqual({ ok: false, reason: 'Invalid value for past_days' })
+    const withSoil = new URLSearchParams(APP_FORECAST)
+    withSoil.set('current', 'soil_moisture_0_to_1cm')
+    expect(query(forecast, withSoil)).toEqual({ ok: false, reason: 'Invalid value for current' })
+
+    // Narrow /v1/land-weather route accepts 60d daily precip + current soil moisture, rejects hourly & forecast_days>1
     const land = new URLSearchParams({
       latitude: '32.3465', longitude: '35.5325', timezone: 'Asia/Jerusalem',
       models: 'icon_seamless,ecmwf_ifs025', forecast_days: '1', past_days: '60',
       current: 'soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm',
-      daily: 'precipitation_sum',
+      daily: 'rain_sum,showers_sum,snowfall_sum,precipitation_sum',
     })
-    expect(query(forecast, land).ok).toBe(true)
+    expect(query(landWeather, land).ok).toBe(true)
+    const badHourly = new URLSearchParams(land)
+    badHourly.set('hourly', 'temperature_2m')
+    expect(query(landWeather, badHourly)).toEqual({ ok: false, reason: 'Parameter not allowed: hourly' })
+    const badDays = new URLSearchParams(land)
+    badDays.set('forecast_days', '2')
+    expect(query(landWeather, badDays)).toEqual({ ok: false, reason: 'Invalid value for forecast_days' })
     land.set('past_days', '61')
-    expect(query(forecast, land)).toEqual({ ok: false, reason: 'Invalid value for past_days' })
+    expect(query(landWeather, land)).toEqual({ ok: false, reason: 'Invalid value for past_days' })
   })
 
   it('accepts both ends of the 15-minute forecast range', () => {

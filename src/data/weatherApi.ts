@@ -3,10 +3,11 @@
  * (`worker/`), a shared cache in front of Open-Meteo; without it, Open-Meteo directly (local dev, tests).
  */
 
-export type WeatherEndpoint = 'forecast' | 'air-quality' | 'elevation'
+export type WeatherEndpoint = 'forecast' | 'land-weather' | 'air-quality' | 'elevation'
 
 const OPEN_METEO: Record<WeatherEndpoint, string> = {
   forecast: 'https://api.open-meteo.com/v1/forecast',
+  'land-weather': 'https://api.open-meteo.com/v1/forecast',
   'air-quality': 'https://air-quality-api.open-meteo.com/v1/air-quality',
   elevation: 'https://api.open-meteo.com/v1/elevation',
 }

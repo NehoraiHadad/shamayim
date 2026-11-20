@@ -649,16 +649,17 @@ was deployed by the rebuild):
    ```
    Until step 2 the world takes a climatological guess for the air at 250 hPa (−53 °C in January to −40 °C in July; the
    humidity from the forecast's high cloud), marked `sources.cruise: 'climate'`.
-7. **(Living land, stage 1 — pending deploy)** Past precipitation (`past_days` up to 60) and volumetric soil moisture
-   (`current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm`) on
-   `/v1/forecast` (`worker/src/routes.ts`). The app gates this request behind `ASK_LAND_WEATHER = false` in
-   `src/data/land/recentWeather.ts` until deployed; until then land dryness falls back to regional seasonal climatology
+7. **(Living land, stage 1 — pending deploy)** Dedicated narrow `/v1/land-weather` Worker route (`worker/src/routes.ts`):
+   past 60 days of daily liquid/snow precipitation (`rain_sum,showers_sum,snowfall_sum,precipitation_sum`) and current
+   volumetric soil moisture (`soil_moisture_0_to_1cm,1_to_3cm,3_to_9cm,9_to_27cm`) with `forecast_days=1` only (no hourly
+   fields; `/v1/forecast` stays capped at `past_days=1`). Gated behind `ASK_LAND_WEATHER = false` in
+   `src/data/land/recentWeather.ts` until deployed; until then land dryness falls back to climatology
    (`drynessSource: 'climatology'`). After `land-living` is merged to `main`:
    ```bash
    cd worker && npm ci && npm test && npx wrangler deploy
    curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev" \
-     "https://shamayim-api.nehoraihadad.com/v1/forecast?latitude=32.3465&longitude=35.5325&timezone=Asia%2FJerusalem&models=icon_seamless,ecmwf_ifs025&forecast_days=1&past_days=60&current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&daily=precipitation_sum"
-   # 200: the Worker allows past_days=60 and soil moisture. 400: not deployed yet; stop here.
+     "https://shamayim-api.nehoraihadad.com/v1/land-weather?latitude=32.3465&longitude=35.5325&timezone=Asia%2FJerusalem&models=icon_seamless,ecmwf_ifs025&forecast_days=1&past_days=60&current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&daily=rain_sum,showers_sum,snowfall_sum,precipitation_sum"
+   # 200: the Worker serves /v1/land-weather. 404/400: not deployed yet; stop here.
    ```
    Then flip `ASK_LAND_WEATHER` to `true` in `src/data/land/recentWeather.ts` and merge to `main`.
 
