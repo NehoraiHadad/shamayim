@@ -202,14 +202,15 @@ export function openWaterTone(world: WorldState, box: SceneBox): (y: number, km:
  * - **ruffle** by the one wind (`ruffleOf`);
  * - **glint**: the light's path only where the world puts it (`water.glints`: the sun or moon over the span, above the land
  *   in its direction, strength by the wave slopes the wind raises), widening toward the eye, wider in more wind;
- * - **datum** (far layer): the dashed "פני הים" line where sea level meets the slopes, only below sea level (the
+ * - **datum** (near layer, in front of the near ridge: the line is at the place's own depth): the dashed "פני הים" line
+ *   where sea level meets the slopes, only below sea level (the
  *   place's `labels.datum`: 0 m on the outside view's own rule, `world/datum.ts`).
  */
 export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, clear: readonly Box[]): LayerOf<'water'> | null {
   const { water, light, night } = world
   const sx = box.width / SCENE_W
   const spans = water.spans.map((span, index) => ({ span, index })).filter(({ span }) => waterLayer(span) === name)
-  const line = name === 'far' && world.labels.height.below ? world.labels.datum ?? null : null
+  const line = name === 'near' && world.labels.height.below ? world.labels.datum ?? null : null
   const datumOn = line !== null
   if (!spans.length && !datumOn) return null
 

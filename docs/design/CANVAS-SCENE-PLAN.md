@@ -602,6 +602,13 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
     air at a high sun, none at night. Cheap (cached, laid at composite time), deterministic, in the anidoodle hand; tested;
     ray moments in the review pack.
 
+**Owner decision (2026-11-20, on the vertical scale analysis of the datum follow-up):**
+14. **Uniform vertical scale per place** ("uniform per place"): within each place's picture one metre is one metre above
+    and below the dot: a single px per metre for the place's own ground and its surroundings at the same distance (the
+    near ridge's crest behind it, its water, sea level). The exaggeration may still be chosen per place from the room it
+    has, so places stay legible; the dot no longer has to sit exactly on the near ridge line. *Done 2026-11-20* (§6,
+    "Uniform vertical scale per place").
+
 **Deploys pending for the owner** (final, at C9; in order; from the owner's machine with Cloudflare access; nothing here
 was deployed by the rebuild):
 1. **The forecast Worker with C0's new hourly fields** (`wind_direction_10m`, `visibility`, `wind_speed_` and
@@ -1759,7 +1766,8 @@ sea level stands 137 m above the town.
   dot fading both ways: no near land reaches 0 m); Tiberias, Ein Gedi, Shadmot Mehola, Jericho one-sided, fading toward
   the lake / valley; Kalya both sides (its near cliff crest within 5 km is −55…−128 m). Tests: `datum.test.ts` +2 (10).
   Pixel references re-recorded again, the same 20.
-- *Open, for the owner: the vertical scale of the place and its surroundings is not one rule.* Measured at 12:00
+- *Open, for the owner (decided: owner decision 14, done below, "Uniform vertical scale per place"): the vertical scale of
+  the place and its surroundings is not one rule.* Measured at 12:00
   (`lieOf`), the place's ground is drawn at the frame's `k0` px/m (`FRAME_SCALE.k`, 0.18–1.2, a view exaggeration chosen
   for houses), then pressed separately above the dot (into the room up to the highest ridge line + 6 px) and below it
   (into the room down to the sheet, or stretched to the sea horizon on a coast), then capped 6 px over the ridge line at
@@ -1857,3 +1865,77 @@ sea level stands 137 m above the town.
   their true angular speed, so a far flock crosses the sky over minutes; the Milky Way and the contrails lie on the dome (as
   the clouds do) while the planets and the bows keep the bodies' true scale; a persistent contrail is laid anew each pass of
   its plane. Deploy: item 6 above (with item 1).
+
+**Uniform vertical scale per place (2026-11-20; owner decision 14).** Commits on `ccr-85ec24f0-9ayxgu` (from `54702fe`).
+- *Rule* (`world/outside.ts` `lieOf`, one rule for every place, no place named): the place's picture has **one vertical
+  scale `s`** (px / m), the same above and below the dot, for its ground and rows (`levelY`), its built cells and trees,
+  its land silhouette (`landOf`), the coastal sea's shore and the datum. Each spot stands off the dot by its depth (north
+  nearer, lower: `NEAR_DROP`, as before) and by `(h0 − h) × s`, with no perspective factor on the ground's heights, no
+  press and no 6 px cap (the place's ground rises over the ridge line only where it truly stands higher, as its
+  silhouette). The towers and houses keep their own legible sizes (`lookOf`, the frame's `k`): only the terrain shares `s`.
+  - *Choosing `s`* (`verticalScale`): the place's total relief R = from the highest of its land and the near ridge's crest
+    at the dot (and sea level, below 0 m) down to the lowest of its built rows, its water in the frame (a lake, the sea)
+    and, on a coast, 0 m. It takes `0.93 × room × R / (R + 150 m)` px of the land area's room (`LAND_TOP` 40 px down to the
+    floor, less the near drop: 59 px): a band that grows with the relief and saturates, never more than the room, clamped
+    to 0.06–0.30 px/m (`VSCALE`). A flat city stays low (Tel Aviv 0.26, Netanya 0.27 px/m at the clamp's top), a mountain
+    city keeps a tall band (Haifa 0.10, Jerusalem 0.12).
+  - *The near ridge and the place agree* (option (a) of the brief, `placeDotY`): the dot stands under the near ridge's crest
+    at the centre by the crest's height over the place × `s` (over it where the place stands higher), then moves only as
+    far as the picture needs to stay in the land area (its top under `LAND_TOP`, its lowest built row and water over the
+    floor, which wins) and, on a coast, for the shore to lie no higher than the sea's true horizon (the coastal sea still
+    runs to its true horizon). Option (b), blending the near ridge into the place's ground, was not taken: it would redraw
+    the panorama's own ridge (true height and distance from the place's eye) to suit the place, an invented ridge line,
+    and the two scales would still meet only where the blend ends; (a) changes nothing in the panorama and puts the
+    disagreement only where the land area forces it, by a measured number of px (below). The silhouette now also holds
+    the built cells' own ground and is never smoothed under a column's own top, so no row floats over the land drawn
+    under it without the cap.
+  - *The datum is simpler* (`world/datum.ts`): sea level is a height on the same scale, `|h0| × s` over the dot at the dot's
+    depth (`seaLevelY`, one number); the zero-contour medians (`zeroCrossings`, `placeContour`, `seaLevelAbove`) and the
+    outline hollows (`outlineOf`, `datumLineOf`) are gone. The line runs along the dot's own row (`datumOfRow`), on each
+    side to where that row's true ground rises through 0 m (`zeroAlongRow`, walked every 62.5 m), else `OPEN_REACH` past
+    the dot fading out, as before. It is at the place's depth, so it is drawn in the near water layer (z 35, in front of
+    the near ridge, behind the place's own layer), not the far one: the dot is now often on the ridge's face (Tiberias).
+- *Measured at 12:00* (below/above px/m ratio, before → after; px/m; the place's ground relief in px, before → after; how
+  far the dot moved off the crest relation to stay in the land area):
+
+  ```
+                    ratio        px/m above / below → s   relief px   dot moved
+  tel-aviv          1.00 → 1     0.180 / 0.180 → 0.261    15 → 20      −1  (coast)
+  netanya           0.80 → 1     0.272 / 0.217 → 0.272    19 → 20      −2  (coast)
+  haifa             5.74 → 1     0.086 / 0.494 → 0.100    61 → 49     +22  (coast: the shore down to the sea horizon)
+  beer-sheva        1.57 → 1     0.063 / 0.098 → 0.165    16 → 29     −10
+  jerusalem         0.52 → 1     0.137 / 0.071 → 0.122    28 → 40     −12  (its lowest built rows over the floor)
+  rosh-pina         0.21 → 1     0.275 / 0.057 → 0.133    39 → 42     −10
+  shadmot-mehola    0.39 → 1     0.703 / 0.276 → 0.144    38 → 13      −6
+  tiberias          5.70 → 1     0.054 / 0.310 → 0.092    40 → 45      +6  (its top under the land area's top)
+  ein-gedi          1.20 → 1     0.061 / 0.073 → 0.073    49 → 42       0
+  beit-shean        0.46 → 1     0.391 / 0.181 → 0.170    20 → 17       0
+  jericho           0.52 → 1     0.232 / 0.120 → 0.119    17 → 15       0
+  kalya             1.00 → 1     0.543 / 0.543 → 0.101    39 → 11       0
+  neve-zohar        2.43 → 1     0.118 / 0.287 → 0.100    38 → 22      −3
+  ramon-crater      no built cells: no local lie, the dot on the ridge line (unchanged)
+  ```
+  (Kalya's relief is sea level down to its lowest row, 391 m; its own ground spans 80 m, so 11 px.) Tiberias
+  (the owner's case): the town's 73 m over the Kinneret and the 137 m up to sea level are now drawn at the same 0.092 px/m;
+  the dot stands 31 px under the ridge line (the crest at the dot is +137 m, 274 m over the town), on the ridge's face, the
+  "cliff" under the old dot gone. Haifa's Carmel keeps a tall band (the city climbing 40 px from the shore), Jerusalem's
+  relief grows (28 → 40 px). The places whose own ground is flat but whose band was stretched by the old presses
+  (Shadmot Mehola's 0.70 px/m above the dot, Kalya's 0.54) are now as flat as they are.
+- *Stills* (`qa/canvas/vscale/`, before = `54702fe`): `before/` and `after/` of every harness place at 12:00 (the 8 base
+  places, `DATUM_PLACES`, Be'er Sheva and Netanya) and Tiberias at 16:30; `sheet-before-after.png`.
+- *Tests*: `world/vscale.test.ts` (6: the band and its saturation, the clamp, the dot's placement and its moves; at all 13
+  places with built cells, every row's foot on the one scale above and below the dot and the measured ratio 1, the dot
+  in the land area, Haifa / Jerusalem / Rosh Pina at least 25 px tall, Tiberias's dot under the ridge line).
+  `world/datum.test.ts` rewritten for the simpler rule (7: the row's line and its open ends, the panorama's own 0 m
+  contour as before, and at the seven places below sea level: the line `|h0| × s` over the dot, its note and the label
+  clear of it, Tiberias's and Ein Gedi's ends where the row's ground is 0 m ± 15 m). `scene/model/outside.test.ts`: the
+  climbing-rows test no longer skips the capped rows (there is no cap). Pixel references re-recorded deliberately, the 50
+  that show a place's own ground: every case of Shadmot Mehola, Tel Aviv, Jerusalem, Haifa, Rosh Pina, Tiberias, Ein Gedi
+  (`*-0620`, `*-1200`, `*-1630`, `*-2100`, the weathers, the `@2x` cases, `rosh-pina-0620-arrive-1.2`); Ramon crater and
+  the loading / offline / arriving-at-0.7 cases unchanged; 59/59.
+- *Perf*: the place is built once per place (the world builder keeps it); its cost unchanged in node (placeOf 9–44 ms
+  before and after), and the scene model the same (1.5–3.4 ms a frame unthrottled, both; the land layers the same in
+  number: the datum moved from `water.far` to `water.near`, Tiberias one layer fewer). `npm run test:perf` within its
+  run-to-run noise against `54702fe` run in the same container: Shadmot Mehola scrub.model p95 15–19 ms after vs 16–26
+  before, modelCold 25–40 vs 29–33; Haifa and Tel Aviv overlapping likewise; the OVERs are C5's and C6's, as before.
+
