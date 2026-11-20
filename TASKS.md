@@ -762,3 +762,13 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
       React unmounted the app. Fixed + regression test — PR #9
 - [x] Live smoke check: Haifa, Tiberias, Jerusalem, Tel Aviv load the canvas scene, hour slider scrubs, no console errors
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
+
+## Living land — branch `land-living` — started 2026-11-20
+Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
+Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
+- [~] Stage 1: data layer (S2 NDVI/SCL/NDSI, far source, past weather behind flag, climatology, cache)
+- [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
+- [ ] Stage 3: land colour painting
+- [ ] Stage 4: vegetation
+- [ ] Stage 5: wind on land
+- [ ] Stage 6: stills, docs, PR
