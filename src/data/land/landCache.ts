@@ -15,11 +15,13 @@ export const NEAR_TTL_MS = 5 * 86_400_000
 export const FAR_TTL_MS = 3 * 86_400_000
 export const WEATHER_TTL_MS = 6 * 3_600_000
 export const COVER_TTL_MS = 30 * 86_400_000
+export const COVER_PARTIAL_TTL_MS = 3_600_000 // 1 h short TTL for partial WorldCover mosaics
 export const MAX_STALE_MS = 30 * 86_400_000
 export const WEATHER_MAX_STALE_MS = 24 * 3_600_000
 export const COVER_MAX_STALE_MS = 90 * 86_400_000
 
 const CACHE_VERSION = 3
+export const COVER_CACHE_VERSION = 4 // bumped independently so pre-completeness v3 records are dropped
 
 export type LandCacheKind = 'near' | 'far' | 'weather' | 'cover'
 export type ObservationFreshness = 'fresh' | 'stale' | 'expired'
@@ -31,8 +33,10 @@ export interface CacheHit<T> {
   fresh: boolean
   savedAt: number
 }
+export interface CoverCacheHit extends CacheHit<CoarseCoverJson> { complete: boolean }
 
 interface StoredRecord { v: number; savedAt: number; payload: unknown }
+interface StoredCoverRecord { v: number; savedAt: number; complete: boolean; payload: CoarseCoverJson }
 
 const TTL_BY_KIND: Record<LandCacheKind, number> = {
   near: NEAR_TTL_MS,
@@ -122,13 +126,24 @@ export async function writeCachedWeather(placeId: string, weather: RecentLandWea
   await store.set(cacheKey('weather', placeId), { v: CACHE_VERSION, savedAt: anchored, payload: weather })
 }
 
-export async function readCachedCover(placeId: string, store = getLandCacheStore(), now = Date.now()): Promise<CacheHit<CoarseCoverJson> | null> {
-  const hit = await readRaw('cover', placeId, store, now)
-  if (!hit) return null
-  const value = hit.value as CoarseCoverJson
-  return { value, fresh: hit.fresh && !value.missingTiles?.length, savedAt: hit.savedAt }
+export async function readCachedCover(placeId: string, store = getLandCacheStore(), now = Date.now()): Promise<CoverCacheHit | null> {
+  const key = cacheKey('cover', placeId)
+  const raw = (await store.get(key)) as StoredCoverRecord | null
+  if (!raw || raw.v !== COVER_CACHE_VERSION || typeof raw.savedAt !== 'number' || typeof raw.complete !== 'boolean') {
+    if (raw) await store.del(key)
+    return null
+  }
+  const value = raw.payload as CoarseCoverJson
+  const complete = raw.complete && value?.complete === true && !value.missingTiles?.length
+  const status = observationFreshness(raw.savedAt, complete ? COVER_TTL_MS : COVER_PARTIAL_TTL_MS, COVER_MAX_STALE_MS, now)
+  if (status === 'expired') { await store.del(key); return null }
+  return { value: { ...value, complete }, fresh: status === 'fresh', complete, savedAt: raw.savedAt }
 }
 
 export async function writeCachedCover(placeId: string, raw: CoarseCoverJson, store = getLandCacheStore(), now = Date.now()): Promise<void> {
-  await store.set(cacheKey('cover', placeId), { v: CACHE_VERSION, savedAt: now, payload: raw })
+  const complete = raw.complete === true && !raw.missingTiles?.length
+  const payload: CoarseCoverJson = complete
+    ? { v: raw.v, bbox: raw.bbox, stepDeg: raw.stepDeg, rows: raw.rows, cols: raw.cols, r: raw.r, complete: true }
+    : { ...raw, complete: false }
+  await store.set(cacheKey('cover', placeId), { v: COVER_CACHE_VERSION, savedAt: now, complete, payload })
 }

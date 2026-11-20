@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CogHttpError, createOpenTiff, isCogNotFound, type TiffImageLike, type TiffLike } from './cogReader'
-import { COVER_TTL_MS, createMemoryStore, readCachedCover } from './landCache'
+import { COVER_PARTIAL_TTL_MS, COVER_TTL_MS, createMemoryStore, readCachedCover } from './landCache'
 import { loadFootprintLandCover, resetLandCoverCache, type LandCover } from './landData'
 import { WORLDCOVER_SAS_URL } from './worldCoverCog'
 
@@ -43,15 +43,17 @@ describe('worldCoverCog partial-tile failure recovery, 404 absence and immediate
       throw new CogHttpError(404)
     })
 
-    // 1. Cold load: west succeeds (5), east transiently fails (503) -> good slice published, cache marked incomplete
+    // 1. Cold load: west succeeds (5), east transiently fails (503) -> good slice published, short 1h partial TTL
     const partial = await loadFootprintLandCover(PARIS, undefined, 6, sasFetch(), { placeId: 'paris', store, openTiff, now: () => now })
     expect(partial!.coverAt(48.86, 2.95)).toBe(5)
     expect(partial!.coverAt(48.86, 3.05)).toBe(0)
     const cached1 = await readCachedCover('paris', store, now)
-    expect(cached1?.fresh).toBe(false)
+    expect(cached1?.complete).toBe(false)
+    expect(cached1?.fresh).toBe(true) // fresh only for short 1h partial TTL
+    expect((await readCachedCover('paris', store, now + COVER_PARTIAL_TTL_MS + 1000))?.fresh).toBe(false)
     expect(cached1?.value.missingTiles).toEqual(['N48E003'])
 
-    // 2. Reload just before 30d TTL after N48E003 recovers -> retries ONLY N48E003 and completes mosaic!
+    // 2. Reload after 1h partial TTL (and before 30d) once N48E003 recovers -> retries ONLY N48E003 and completes!
     now += COVER_TTL_MS - 60_000
     eastUp = true
     requested.length = 0
@@ -60,6 +62,7 @@ describe('worldCoverCog partial-tile failure recovery, 404 absence and immediate
     expect(recovered!.coverAt(48.86, 2.95)).toBe(5)
     expect(recovered!.coverAt(48.86, 3.05)).toBe(1)
     const cached2 = await readCachedCover('paris', store, now)
+    expect(cached2?.complete).toBe(true)
     expect(cached2?.fresh).toBe(true)
     expect(cached2?.value.missingTiles).toBeUndefined()
 

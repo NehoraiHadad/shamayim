@@ -1,5 +1,7 @@
 import type { Place } from '../../config/place'
-import { observationFreshness, type CacheHit } from './landCache'
+import type { OpenTiffFn } from './cogReader'
+import { observationFreshness, type CacheHit, type LandCacheStore } from './landCache'
+import { loadFootprintLandCoverResult, type LandCover } from './landData'
 
 /**
  * Active-tab lifecycle watcher for satellite grids (`NearLandGrid`, `FarLandGrid`).
@@ -96,4 +98,30 @@ export function createGridWatcher<T>(
   }
 
   return { check, dispose: clearTimer }
+}
+
+export interface CoverWatcherOpts {
+  store?: LandCacheStore; fetchImpl?: typeof fetch; openTiff?: OpenTiffFn; timeoutMs?: number; now?: () => number
+}
+
+/** Focus/mount watcher for footprint WorldCover: only defers rechecks using explicit completion metadata. */
+export function createCoverWatcher(
+  place: Place, signal: AbortSignal, onUpdate: (next: LandCover | null) => void, opts: CoverWatcherOpts = {},
+): GridWatcher {
+  const clock = opts.now ?? Date.now
+  let inFlight: Promise<void> | null = null
+  let nextCheckAt: number | null = null
+  const check = (): Promise<void> => {
+    if (signal.aborted) return Promise.resolve()
+    if (inFlight) return inFlight
+    if (nextCheckAt !== null && clock() < nextCheckAt) return Promise.resolve()
+    inFlight = loadFootprintLandCoverResult(place, signal, 6, opts.fetchImpl ?? globalThis.fetch, {
+      placeId: place.id, store: opts.store, openTiff: opts.openTiff,
+      now: clock, timeoutMs: opts.timeoutMs, onUpdate,
+    }).then((res) => {
+      if (!signal.aborted) nextCheckAt = res.nextCheckAt
+    }).catch(() => undefined).finally(() => { inFlight = null })
+    return inFlight
+  }
+  return { check, dispose: () => undefined }
 }

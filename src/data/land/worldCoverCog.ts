@@ -5,6 +5,7 @@ import {
   aggregateWorldCoverTile, CELLS_PER_DEG, clearWorldCoverSlice, footprintBbox, sameBbox,
   WORLDCOVER_FOOTPRINT_KM, WORLDCOVER_STEP_DEG, worldCoverTileName, type Bbox, type CoarseCoverJson,
 } from './worldCoverGrid'
+import { fetchWorldCoverSasToken, raceAbort } from './worldCoverSas'
 
 /**
  * Runtime coarse ESA WorldCover 10 m 2021 v200 (CC BY 4.0) COG reader for places outside the
@@ -21,45 +22,8 @@ import {
 export const WORLDCOVER_SAS_URL = 'https://planetarycomputer.microsoft.com/api/sas/v1/token/esa-worldcover'
 export const WORLDCOVER_BLOB_ROOT = 'https://ai4edataeuwest.blob.core.windows.net/esa-worldcover/v200/2021/map'
 export const COVER_FETCH_TIMEOUT_MS = 15_000
-const SAS_REFRESH_MARGIN_MS = 5 * 60_000
 export interface WorldCoverCogDeps { fetchImpl?: typeof fetch; openTiff?: OpenTiffFn; now?: () => number; timeoutMs?: number }
 export interface WorldCoverFetchOpts { reachKm?: number; base?: CoarseCoverJson; onlyTiles?: ReadonlySet<string> }
-
-let cachedSas: { token: string; expiresAt: number } | null = null
-let sasInFlight: Promise<string | null> | null = null
-
-export function resetWorldCoverSasCache(): void { cachedSas = null; sasInFlight = null }
-
-function raceAbort<T>(p: Promise<T>, sig: AbortSignal): Promise<T> {
-  if (sig.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'))
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
-    sig.addEventListener('abort', onAbort, { once: true })
-    p.then(
-      (v) => { sig.removeEventListener('abort', onAbort); resolve(v) },
-      (e) => { sig.removeEventListener('abort', onAbort); reject(e) },
-    )
-  })
-}
-
-async function fetchSasToken(fetchImpl: typeof fetch, clock: () => number, signal?: AbortSignal): Promise<string | null> {
-  if (signal?.aborted) return null
-  if (fetchImpl === fetch && cachedSas && clock() + SAS_REFRESH_MARGIN_MS < cachedSas.expiresAt) return cachedSas.token
-  const run = async (reqSignal?: AbortSignal): Promise<string | null> => {
-    try {
-      const res = await fetchImpl(WORLDCOVER_SAS_URL, reqSignal ? { signal: reqSignal } : undefined)
-      if (!res.ok) return null
-      const body = (await res.json()) as { token?: string; 'msft:expiry'?: string }
-      if (!body.token) return null
-      const exp = Date.parse(body['msft:expiry'] ?? '')
-      if (fetchImpl === fetch) cachedSas = { token: body.token, expiresAt: Number.isFinite(exp) ? exp : clock() + 30 * 60_000 }
-      return body.token
-    } catch { return null }
-  }
-  if (fetchImpl !== fetch) return run(signal)
-  sasInFlight ??= run().finally(() => { sasInFlight = null })
-  return signal ? raceAbort(sasInFlight, signal).catch(() => null) : sasInFlight
-}
 
 async function selectCoarseOverview(tiff: { getImageCount(): Promise<number>; getImage(i: number): Promise<TiffImageLike> }) {
   const count = await tiff.getImageCount()
@@ -103,7 +67,7 @@ export async function fetchCoarseWorldCoverCog(
   signal?.addEventListener('abort', onOuterAbort, { once: true })
   const timer = timeoutMs > 0 && Number.isFinite(timeoutMs) ? setTimeout(() => ctrl.abort(), timeoutMs) : undefined
   try {
-    const token = await fetchSasToken(fetchImpl, clock, ctrl.signal)
+    const token = await fetchWorldCoverSasToken(WORLDCOVER_SAS_URL, fetchImpl, clock, timeoutMs, COVER_FETCH_TIMEOUT_MS, ctrl.signal)
     if (!token || ctrl.signal.aborted) return null
     const failed = new Set<string>()
     let resolvedAny = false
@@ -130,10 +94,13 @@ export async function fetchCoarseWorldCoverCog(
         else failed.add(code)
       }
     }))
-    if (signal?.aborted || !resolvedAny || !grid.some((v) => v > 0)) return null
-    const missingTiles = [...failed].sort()
+    if (signal?.aborted || !resolvedAny) return null
+    const unresolvedBase = usableBase && opts.onlyTiles && base?.missingTiles
+      ? base.missingTiles.filter((c) => !opts.onlyTiles!.has(c)) : []
+    const missingTiles = [...new Set([...unresolvedBase, ...failed])].sort()
+    const complete = missingTiles.length === 0
     return {
-      v: 1, bbox, stepDeg: WORLDCOVER_STEP_DEG, rows, cols, r: encodeLand(grid),
+      v: 1, bbox, stepDeg: WORLDCOVER_STEP_DEG, rows, cols, r: encodeLand(grid), complete,
       ...(missingTiles.length > 0 ? { missingTiles } : {}),
     }
   } finally {
