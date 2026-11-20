@@ -19,7 +19,7 @@ export const SOIL_MOISTURE_FIELDS = [
   'soil_moisture_0_to_1cm', 'soil_moisture_1_to_3cm', 'soil_moisture_3_to_9cm', 'soil_moisture_9_to_27cm',
 ] as const
 const DAILY_FIELDS = ['rain_sum', 'showers_sum', 'snowfall_sum', 'precipitation_sum'] as const
-const SNOW_CM_PER_MM_SWE = 0.7, MIN_PRECIP_COVERAGE = 0.5, DAY_MS = 86_400_000
+const SNOW_CM_PER_MM_SWE = 0.7, MIN_PRECIP_COVERAGE = 0.8, DAY_MS = 86_400_000
 const MODEL_SUFFIXES = ['_icon_seamless', '_ecmwf_ifs025'] as const
 
 export function recentWeatherUrl(place: Place, base?: string): string {
@@ -96,15 +96,11 @@ export function mapRecentWeather(body: unknown, fetchedAt: number): RecentLandWe
       snow[k] = blendAt((sfx) => finite(arr(daily, `snowfall_sum${sfx}`)?.[i]))
     }
   }
-
-  const w14 = windowStats(liquid, 14), w30 = windowStats(liquid, 30), w60 = windowStats(liquid, LAND_PAST_DAYS)
-  const snow14 = windowStats(snow, 14)
+  const w14 = windowStats(liquid, 14), w30 = windowStats(liquid, 30), w60 = windowStats(liquid, LAND_PAST_DAYS), snow14 = windowStats(snow, 14)
   let daysSinceRain: number | null = null
   for (let k = LAND_PAST_DAYS - 1; k >= 0; k--) {
-    const v = liquid[k]
-    if (v !== null && v >= 1) { daysSinceRain = LAND_PAST_DAYS - k; break }
+    if (liquid[k] !== null && liquid[k]! >= 1) { daysSinceRain = LAND_PAST_DAYS - k; break }
   }
-
   const soilMoistureTop = weightedMean([[currentSoil(cur, 'soil_moisture_0_to_1cm'), 1], [currentSoil(cur, 'soil_moisture_1_to_3cm'), 2]])
   const soilMoistureRoot = weightedMean([[currentSoil(cur, 'soil_moisture_3_to_9cm'), 6], [currentSoil(cur, 'soil_moisture_9_to_27cm'), 18]])
   if (w60.coverage === 0 && soilMoistureTop === null && soilMoistureRoot === null) return null
@@ -118,16 +114,17 @@ export function mapRecentWeather(body: unknown, fetchedAt: number): RecentLandWe
 }
 
 /**
- * Surface dryness index `[0, 1]` (0 = wet, 1 = parched); returns null if neither soil moisture nor
- * adequate rain coverage exists. Soil bounds: FAO-56 Table 19 (Allen et al. 1998) mineral soil
- * wilting point (~0.08 m³/m³) and field capacity (~0.34 m³/m³); rain scales (35/120 mm) are heuristic.
+ * Surface dryness index `[0, 1]` (0 = wet, 1 = parched); returns null when neither soil moisture nor
+ * a >= 80 % complete rain window exists (WMO-No. 1203 §4.2.1). Soil bounds: FAO-56 Table 19 (Allen
+ * et al. 1998, wilting ~0.08, field capacity ~0.34 m³/m³). Within [0.8, 1] coverage, rain totals are
+ * normalized (`sum / cov`, approximating missing days at the observed mean rate) against heuristic 35/120 mm scales.
  */
 export function drynessFromWeather(w: RecentLandWeather): number | null {
   let rainDry: number | null = null
   if (w.precip14dMm !== null && w.precipCoverage14d >= MIN_PRECIP_COVERAGE) {
-    const p14 = clamp01(w.precip14dMm / 35)
+    const p14 = clamp01((w.precip14dMm / Math.min(1, w.precipCoverage14d)) / 35)
     const wet = w.precip60dMm !== null && w.precipCoverage60d >= MIN_PRECIP_COVERAGE
-      ? clamp01(0.6 * p14 + 0.4 * clamp01(w.precip60dMm / 120)) : p14
+      ? clamp01(0.6 * p14 + 0.4 * clamp01((w.precip60dMm / Math.min(1, w.precipCoverage60d)) / 120)) : p14
     rainDry = 1 - wet
   }
   const sm = weightedMean([[w.soilMoistureTop, 0.35], [w.soilMoistureRoot, 0.65]])

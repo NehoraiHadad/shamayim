@@ -4,37 +4,28 @@ import weatherFixture from '../../test/fixtures/land-weather-shadmot.json'
 import {
   ASK_LAND_WEATHER, drynessFromWeather, fetchRecentWeather, mapRecentWeather, recentWeatherUrl,
 } from './recentWeather'
+import { sampleLandAt } from './sampleLand'
 
 function makeDailyBody(opts: {
-  today: string
-  days: number
-  rainAt?: Record<number, number>
-  showersAt?: Record<number, number>
-  snowAt?: Record<number, number>
-  precipAt?: Record<number, number>
-  omitPrecip?: boolean
-  soil?: number | null
+  today: string; days: number
+  rainAt?: Record<number, number>; showersAt?: Record<number, number>
+  snowAt?: Record<number, number>; precipAt?: Record<number, number>
+  omitPrecip?: boolean; soil?: number | null
 }) {
   const baseMs = Date.parse(`${opts.today}T00:00:00Z`)
-  const time: string[] = []
-  const rain: (number | null)[] = [], showers: (number | null)[] = []
+  const time: string[] = [], rain: (number | null)[] = [], showers: (number | null)[] = []
   const snow: (number | null)[] = [], precip: (number | null)[] = []
   for (let off = -opts.days; off <= 0; off++) {
     time.push(new Date(baseMs + off * 86_400_000).toISOString().slice(0, 10))
-    rain.push(opts.rainAt?.[off] ?? 0)
-    showers.push(opts.showersAt?.[off] ?? 0)
+    rain.push(opts.rainAt?.[off] ?? 0); showers.push(opts.showersAt?.[off] ?? 0)
     snow.push(opts.snowAt?.[off] ?? 0)
     precip.push(opts.precipAt?.[off] ?? ((opts.rainAt?.[off] ?? 0) + (opts.showersAt?.[off] ?? 0)))
   }
+  const soilFields = opts.soil !== null && opts.soil !== undefined
+    ? { soil_moisture_0_to_1cm: opts.soil, soil_moisture_3_to_9cm: opts.soil } : {}
   return {
-    current: {
-      time: `${opts.today}T12:00`,
-      ...(opts.soil !== null && opts.soil !== undefined
-        ? { soil_moisture_0_to_1cm: opts.soil, soil_moisture_3_to_9cm: opts.soil }
-        : {}),
-    },
-    daily: opts.omitPrecip
-      ? { time }
+    current: { time: `${opts.today}T12:00`, ...soilFields },
+    daily: opts.omitPrecip ? { time }
       : { time, rain_sum: rain, showers_sum: showers, snowfall_sum: snow, precipitation_sum: precip },
   }
 }
@@ -130,5 +121,28 @@ describe('recentWeather (calendar-indexed completed liquid rain, snow & soil moi
     // Empty precip + no soil returns null
     const empty = makeDailyBody({ today: '2026-11-20', days: 60, omitPrecip: true, soil: null })
     expect(mapRecentWeather(empty, Date.parse('2026-11-20T12:00:00Z'))).toBeNull()
+  })
+
+  it('rejects incomplete rain windows (<80%) and coverage-normalizes complete windows without dry bias', () => {
+    const base = {
+      date: '2026-11-20', source: 'open-meteo:2026-11-20' as const, fetchedAt: 1_795_172_400_000,
+      precip30dMm: null, precip60dMm: null, precipCoverage30d: 0, precipCoverage60d: 0,
+      snowfall14dCm: 0, daysSinceRain: 1, soilMoistureTop: null, soilMoistureRoot: null,
+    }
+    // 7 of 14 days at 2 mm/day (50% coverage) must not emit dry 0.60 Open-Meteo dryness
+    const half = { ...base, precip14dMm: 14, precipCoverage14d: 0.5 }
+    expect(drynessFromWeather(half)).toBeNull()
+    expect(sampleLandAt({ cover: null, near: null, far: null, weather: half }, 32.35, 35.53, 11).drynessSource).toBe('climatology')
+    // With soil moisture present, soil moisture alone drives dryness when rain coverage < 80%
+    expect(drynessFromWeather({ ...half, soilMoistureTop: 0.21, soilMoistureRoot: 0.21 })).toBeCloseTo(0.5, 4)
+
+    // 12 of 14 days (85.7%) at 2 mm/day matches full 14 of 14 days at 2 mm/day (dryness = 0.20)
+    const full14 = { ...base, precip14dMm: 28, precipCoverage14d: 1 }
+    const cov12 = { ...base, precip14dMm: 24, precipCoverage14d: 12 / 14 }
+    expect(drynessFromWeather(full14)).toBeCloseTo(0.2, 4)
+    expect(drynessFromWeather(cov12)).toBeCloseTo(0.2, 4)
+    // 60-day window at 50/60 days (83.3%) at 1.5 mm/day matches full 60/60 days (90 mm -> p60 = 0.75)
+    expect(drynessFromWeather({ ...full14, precip60dMm: 75, precipCoverage60d: 50 / 60 }))
+      .toBeCloseTo(drynessFromWeather({ ...full14, precip60dMm: 90, precipCoverage60d: 1 })!, 4)
   })
 })
