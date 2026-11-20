@@ -81,6 +81,13 @@ The stage adds no painter or scene-model changes, and the changed tests keep the
 
 **Verdict:** changes requested
 
+
+**Orchestrator check (Claude Code) on the first finding: confirmed.** Live item `S2B_36SXB_20261115_1_L2A` (PB 05.13,
+`earthsearch:boa_offset_applied: true`, `red` `raster:bands` `offset: -0.1`): B04 overview 3 over open sea (SCL 6 in
+every sample) reads DN 1–21, land (SCL 4/5) ~700. Unharmonised PB04 water would be ≥ 1000. So Earth Search COGs are
+already harmonised and the `raster:bands` offset must **not** be applied when `boa_offset_applied` is true; only
+apply −1000 DN for PB ≥ 04.00 items without that flag. Test with these numbers.
+
 ## Stage 2: world state
 
 ## Stage 3: land colour painting
