@@ -1,7 +1,7 @@
 import { createIdbStore, createMemoryStore, type LandCacheStore } from './idbStore'
 import { packFarGrid, packNearGrid, unpackFarGrid, unpackNearGrid, type PackedFarGrid, type PackedNearGrid } from './landPack'
 import type { FarLandGrid, NearLandGrid, RecentLandWeather } from './types'
-import type { CoarseCoverJson } from './worldCoverGrid'
+import { isValidCoarseCoverJson, type CoarseCoverJson } from './worldCoverGrid'
 
 /**
  * Per-place TTL cache for living-land observations.
@@ -23,7 +23,8 @@ export const COVER_MAX_STALE_MS = 90 * 86_400_000
 const CACHE_VERSION = 3
 export const COVER_CACHE_VERSION = 4 // bumped independently so pre-completeness v3 records are dropped
 
-export type LandCacheKind = 'near' | 'far' | 'weather' | 'cover'
+type RawCacheKind = 'near' | 'far' | 'weather'
+export type LandCacheKind = RawCacheKind | 'cover'
 export type ObservationFreshness = 'fresh' | 'stale' | 'expired'
 export type WeatherFreshness = ObservationFreshness
 export { createIdbStore, createMemoryStore, type LandCacheStore }
@@ -36,20 +37,18 @@ export interface CacheHit<T> {
 export interface CoverCacheHit extends CacheHit<CoarseCoverJson> { complete: boolean }
 
 interface StoredRecord { v: number; savedAt: number; payload: unknown }
-interface StoredCoverRecord { v: number; savedAt: number; complete: boolean; payload: CoarseCoverJson }
+interface StoredCoverRecord { v: number; savedAt: number; complete: boolean; payload: unknown }
 
-const TTL_BY_KIND: Record<LandCacheKind, number> = {
+const TTL_BY_KIND: Record<RawCacheKind, number> = {
   near: NEAR_TTL_MS,
   far: FAR_TTL_MS,
   weather: WEATHER_TTL_MS,
-  cover: COVER_TTL_MS,
 }
 
-const MAX_STALE_BY_KIND: Record<LandCacheKind, number> = {
+const MAX_STALE_BY_KIND: Record<RawCacheKind, number> = {
   near: MAX_STALE_MS,
   far: MAX_STALE_MS,
   weather: WEATHER_MAX_STALE_MS,
-  cover: COVER_MAX_STALE_MS,
 }
 
 const cacheKey = (kind: LandCacheKind, placeId: string) => `${kind}:${placeId}`
@@ -87,7 +86,7 @@ export function weatherExpiryDelayMs(weather: RecentLandWeather | null, now = Da
   return Math.max(0, WEATHER_MAX_STALE_MS - (now - weather.fetchedAt))
 }
 
-async function readRaw(kind: LandCacheKind, placeId: string, store: LandCacheStore, now: number): Promise<CacheHit<unknown> | null> {
+async function readRaw(kind: RawCacheKind, placeId: string, store: LandCacheStore, now: number): Promise<CacheHit<unknown> | null> {
   const raw = (await store.get(cacheKey(kind, placeId))) as StoredRecord | null
   if (!raw || raw.v !== CACHE_VERSION || typeof raw.savedAt !== 'number') return null
   const status = observationFreshness(raw.savedAt, TTL_BY_KIND[kind], MAX_STALE_BY_KIND[kind], now)
@@ -129,12 +128,12 @@ export async function writeCachedWeather(placeId: string, weather: RecentLandWea
 export async function readCachedCover(placeId: string, store = getLandCacheStore(), now = Date.now()): Promise<CoverCacheHit | null> {
   const key = cacheKey('cover', placeId)
   const raw = (await store.get(key)) as StoredCoverRecord | null
-  if (!raw || raw.v !== COVER_CACHE_VERSION || typeof raw.savedAt !== 'number' || typeof raw.complete !== 'boolean') {
+  if (!raw || raw.v !== COVER_CACHE_VERSION || typeof raw.savedAt !== 'number' || typeof raw.complete !== 'boolean' || !isValidCoarseCoverJson(raw.payload)) {
     if (raw) await store.del(key)
     return null
   }
-  const value = raw.payload as CoarseCoverJson
-  const complete = raw.complete && value?.complete === true && !value.missingTiles?.length
+  const value = raw.payload
+  const complete = raw.complete && value.complete === true && !value.missingTiles?.length
   const status = observationFreshness(raw.savedAt, complete ? COVER_TTL_MS : COVER_PARTIAL_TTL_MS, COVER_MAX_STALE_MS, now)
   if (status === 'expired') { await store.del(key); return null }
   return { value: { ...value, complete }, fresh: status === 'fresh', complete, savedAt: raw.savedAt }

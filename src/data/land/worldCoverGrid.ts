@@ -20,6 +20,18 @@ export interface CoarseCoverJson {
   missingTiles?: string[]
 }
 
+/** Validates structural integrity of a persisted or downloaded `CoarseCoverJson` before decoding. */
+export function isValidCoarseCoverJson(v: unknown): v is CoarseCoverJson {
+  if (!v || typeof v !== 'object') return false
+  const c = v as Record<string, unknown>
+  if (!Array.isArray(c.bbox) || c.bbox.length !== 4 || !c.bbox.every((n) => typeof n === 'number' && Number.isFinite(n))) return false
+  if (c.bbox[2] <= c.bbox[0] || c.bbox[3] <= c.bbox[1]) return false
+  if (typeof c.stepDeg !== 'number' || !Number.isFinite(c.stepDeg) || c.stepDeg <= 0) return false
+  if (!Number.isInteger(c.rows) || (c.rows as number) <= 0 || !Number.isInteger(c.cols) || (c.cols as number) <= 0) return false
+  if (typeof c.r !== 'string') return false
+  return c.missingTiles === undefined || (Array.isArray(c.missingTiles) && c.missingTiles.every((t) => typeof t === 'string'))
+}
+
 /** Builds a `LandCover` lookup over a coarse RLE-encoded WorldCover overview grid. */
 export function coarseCoverFromJson(raw: CoarseCoverJson): LandCover {
   const [south, west, north, east] = raw.bbox

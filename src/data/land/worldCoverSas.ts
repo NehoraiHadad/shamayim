@@ -21,6 +21,18 @@ export function raceAbort<T>(p: Promise<T>, sig: AbortSignal): Promise<T> {
   })
 }
 
+/** Runs `work` under an independent deadline, aborting and settling `null` even if `fetchImpl` ignores signals. */
+export function withDeadline<T>(work: (sig: AbortSignal) => Promise<T | null>, ms: number, caller?: AbortSignal): Promise<T | null> {
+  if (caller?.aborted) return Promise.resolve(null)
+  const ctrl = new AbortController()
+  const onCaller = () => ctrl.abort()
+  caller?.addEventListener('abort', onCaller, { once: true })
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  return raceAbort(work(ctrl.signal), ctrl.signal).catch(() => null).finally(() => {
+    clearTimeout(timer); caller?.removeEventListener('abort', onCaller)
+  })
+}
+
 async function runSasRequest(
   sasUrl: string, fetchImpl: typeof fetch, clock: () => number, reqSignal: AbortSignal, isGlobal: boolean,
 ): Promise<string | null> {
