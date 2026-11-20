@@ -752,3 +752,13 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 - IMS (Israel Meteorological Service) warnings
 - Radar (RainViewer tiles), Capacitor wrap
 - Verify blend weights against observed station data (IMS station near Shadmot Mehola / Tirat Zvi)
+
+## Canvas scene release — 2026-11-20
+- [x] Merged `ccr-85ec24f0-9ayxgu` (C0–C10, uniform vertical scale, sea-level fixes, sky life) — PR #7
+- [x] Forecast Worker deployed with the scene hourly fields + 250 hPa air; both plan checks answer 200
+- [x] `ASK_SCENE_HOURLY = true` — PR #8 (test now checks the default asks for them)
+- [x] Landmarks workflow re-run (290b790); `public/data/city/bounds.json` rebuilt (2187 places, 242 boundaries) via osmium in Docker
+- [x] Hotfix: live page went blank — `cancelAnimationFrame` passed bare into the loop deps → "Illegal invocation" on cleanup,
+      React unmounted the app. Fixed + regression test — PR #9
+- [x] Live smoke check: Haifa, Tiberias, Jerusalem, Tel Aviv load the canvas scene, hour slider scrubs, no console errors
+- [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)

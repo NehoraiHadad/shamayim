@@ -611,7 +611,7 @@ pipeline (land colour by season, vegetation from WorldCover, rain edge marks).
 
 **Deploys pending for the owner** (final, at C9; in order; from the owner's machine with Cloudflare access; nothing here
 was deployed by the rebuild):
-*Status 2026-11-20:* all done: 5 (merge, PR #7), 1 and 6 (Worker deployed; both checks answer 200), 2 (`ASK_SCENE_HOURLY` on, PR #8), 3 (landmarks workflow, 290b790), 4 (`bounds.json`: 2187 places, 242 boundaries).
+*Status 2026-11-20:* all done: 5 (merge, PR #7), 1 and 6 (Worker deployed; both checks answer 200), 2 (`ASK_SCENE_HOURLY` on, PR #8), 3 (landmarks workflow, 290b790), 4 (`bounds.json`: 2187 places, 242 boundaries); hotfix after the release: PR #9 (blank page, cancelAnimationFrame binding).
 1. **The forecast Worker with C0's new hourly fields** (`wind_direction_10m`, `visibility`, `wind_speed_` and
    `wind_direction_` at `850hPa`, `700hPa`, `300hPa`; already in `worker/src/routes.ts` and its tests). After this
    branch is merged to `main`:
