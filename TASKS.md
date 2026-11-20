@@ -766,7 +766,10 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
-- [~] Stage 1: data layer (S2 NDVI/SCL/NDSI, far source, past weather behind flag, climatology, cache)
+- [x] Stage 1: data layer — awaiting review (S2 B04/B08 NDVI + B03/B11 NDSI + SCL masking + PB ≥ 04.00 BOA offset;
+      NASA GIBS `MODIS_Terra_NDVI_8Day` + 8-day SR far source with S2 cover-mean fallback; Open-Meteo `past_days=60`
+      + soil moisture in Worker allowlist gated behind `ASK_LAND_WEATHER = false`; physical lat/elev/month/cover
+      climatology; IndexedDB TTL cache; offline fixtures & unit tests; dead `landPaint.ts` removed)
 - [ ] Stage 2: world state (`land` per place, by ray distance, age blend)
 - [ ] Stage 3: land colour painting
 - [ ] Stage 4: vegetation
