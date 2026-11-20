@@ -17,10 +17,11 @@ describe('scene hours', () => {
     expect(blendDirection({ icon: 90, ecmwf: 270 }, 0.5)).toBe(90)
   })
 
-  it('asks for wind direction and visibility only once the Worker serves them', () => {
+  it('asks for the scene fields by default now that the Worker serves them, and can leave them out', () => {
     const hourly = (url: string) => new URL(url).searchParams.get('hourly')!.split(',')
-    expect(hourly(forecastUrl(SHADMOT_MEHOLA))).not.toEqual(expect.arrayContaining([...SCENE_HOURLY]))
+    expect(hourly(forecastUrl(SHADMOT_MEHOLA, { sceneHourly: false }))).not.toEqual(expect.arrayContaining([...SCENE_HOURLY]))
     expect(hourly(forecastUrl(SHADMOT_MEHOLA, { sceneHourly: true }))).toEqual(expect.arrayContaining([...SCENE_HOURLY]))
+    expect(hourly(forecastUrl(SHADMOT_MEHOLA))).toEqual(expect.arrayContaining([...SCENE_HOURLY]))
   })
 
   it('reads the layers, the direction and the visibility of each hour (synthetic fixture)', () => {

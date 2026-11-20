@@ -35,7 +35,7 @@ export const SCENE_HOURLY = [
   'temperature_250hPa', 'relative_humidity_250hPa',
 ] as const
 /** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility,wind_speed_850hPa` with 200. */
-export const ASK_SCENE_HOURLY = false
+export const ASK_SCENE_HOURLY = true
 
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
