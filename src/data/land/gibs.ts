@@ -1,6 +1,6 @@
 import type { Coordinate } from '../landmarks/project'
 import { tilesAround, tileXY } from '../terrain/dem'
-import { decodeGibsNdviTile, defaultDecodeJpeg } from './gibsDecode'
+import { decodeGibsNdviTile, defaultDecodeJpeg, type DecodedRgbTile } from './gibsDecode'
 import type { FarLandGrid } from './types'
 
 /**
@@ -16,7 +16,7 @@ export const FAR_REACH_KM = 60
 export const FAR_STEP_KM = 2
 const TILE = 256
 
-export interface FarFetchDeps { fetchImpl?: typeof fetch; decodeJpeg?: (bytes: Uint8Array) => Promise<Uint8Array | null> }
+export interface FarFetchDeps { fetchImpl?: typeof fetch; decodeJpeg?: (b: Uint8Array, exp?: { width: number; height: number }) => Promise<DecodedRgbTile | null> }
 export interface FarSample {
   ndvi: number | null; ndviSource: `gibs:${string}` | null; ndviDate: string | null
   rgb: [number, number, number] | null; rgbSource: `gibs:${string}` | null; rgbDate: string | null
@@ -113,7 +113,7 @@ export async function fetchFarLand(
     return { grid, validCount }
   }
   const decodeNdvi256 = async (b: Uint8Array) => { const t = await decodeGibsNdviTile(b); return t.width === TILE && t.height === TILE ? t.data : null }
-  const decodeRgb256 = async (b: Uint8Array) => { const rgb = await decodeJpeg(b); return rgb && rgb.length === TILE * TILE * 3 ? rgb : null }
+  const decodeRgb256 = async (b: Uint8Array) => { const t = await decodeJpeg(b, { width: TILE, height: TILE }); return t && t.width === TILE && t.height === TILE && t.data.length === TILE * TILE * 3 ? t.data : null }
   const safe = <R>(p: Promise<R | null>) => p.catch((err) => { if (signal?.aborted) throw err; return null })
   const [ndviLayer, srLayer] = await Promise.all([
     safe(fetchLayer(keys, ndviDates, (d, r, c) => gibsNdviUrl(d, GIBS_ZOOM, r, c), decodeNdvi256, sampleNdvi, fetchImpl, signal)),

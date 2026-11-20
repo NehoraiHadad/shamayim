@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react'
 import type { Place } from '../../config/place'
 import { fetchFarLand } from './gibs'
+import { createGridWatcher } from './gridWatch'
 import {
+  FAR_TTL_MS, MAX_STALE_MS, NEAR_TTL_MS,
   readCachedFar, readCachedNear, readCachedWeather,
   writeCachedFar, writeCachedNear, writeCachedWeather, type LandCacheStore,
 } from './landCache'
 import { loadFootprintLandCover, loadLandCover, type LandCover } from './landData'
 import { fetchNearLand } from './satellite'
-import type { LandData } from './types'
-import { checkActiveWeather, createWeatherWatcher, type WeatherRecheckDeps } from './weatherWatch'
-
-export { checkActiveWeather, createWeatherWatcher, type WeatherRecheckDeps }
+import type { FarLandGrid, LandData, NearLandGrid } from './types'
+import { createWeatherWatcher } from './weatherWatch'
 
 const EMPTY: LandData = { cover: null, near: null, far: null, weather: null }
 
 /**
- * Living-land data hook: never blocks first paint; loads ±6 km high-res + ±60 km coarse WorldCover,
- * serves cached observations immediately, refreshes stale/missing sources in the background, and
- * rechecks weather freshness and hard 24 h expiry on focus/visibility or via scheduled timers.
+ * Living-land data hook: never blocks first paint; loads ±6 km high-res + ±60 km coarse WorldCover
+ * (with runtime COG fallback outside Israel), serves cached observations immediately, refreshes
+ * stale/missing near, far and weather sources in the background, and rechecks freshness & hard
+ * stale caps on focus/visibility or via scheduled timers.
  */
 export function useLand(place: Place, enabled: boolean, store?: LandCacheStore): LandData {
   const [state, setState] = useState<LandData & { id: string }>(() => ({ id: place.id, ...EMPTY }))
@@ -32,46 +33,46 @@ export function useLand(place: Place, enabled: boolean, store?: LandCacheStore):
       if (alive()) setState((prev) => ({ ...(prev.id === place.id ? prev : EMPTY), id: place.id, ...patch }))
     }
 
-    const watcher = createWeatherWatcher(place, signal, (weather) => merge({ weather }), {
+    const nearWatcher = createGridWatcher<NearLandGrid>(place, signal, (near) => merge({ near }), {
+      ttlMs: NEAR_TTL_MS, maxStaleMs: MAX_STALE_MS,
+      readCached: (id, t) => readCachedNear(id, store, t),
+      writeCached: (id, g, t) => writeCachedNear(id, g, store, t),
+      fetchGrid: (p, s) => fetchNearLand(p, s),
+    })
+
+    const farWatcher = createGridWatcher<FarLandGrid>(place, signal, (far) => merge({ far }), {
+      ttlMs: FAR_TTL_MS, maxStaleMs: MAX_STALE_MS,
+      readCached: (id, t) => readCachedFar(id, store, t),
+      writeCached: (id, g, t) => writeCachedFar(id, g, store, t),
+      fetchGrid: (p, s) => fetchFarLand(p, s),
+    })
+
+    const weatherWatcher = createWeatherWatcher(place, signal, (weather) => merge({ weather }), {
       readCached: (id, t) => readCachedWeather(id, store, t),
       writeCached: (id, w, t) => writeCachedWeather(id, w, store, t),
     })
 
-    loadFootprintLandCover(place, signal).then((cover) => merge({ cover })).catch(() => undefined)
+    loadFootprintLandCover(place, signal, 6, fetch, { placeId: place.id, store })
+      .then((cover) => merge({ cover }))
+      .catch(() => undefined)
 
-    readCachedNear(place.id, store).then((hit) => {
-      if (hit) merge({ near: hit.value })
-      if (!hit || !hit.fresh) {
-        return fetchNearLand(place, signal).then((near) => {
-          if (!near || !alive()) return
-          void writeCachedNear(place.id, near, store)
-          merge({ near })
-        })
-      }
-    }).catch(() => undefined)
+    const recheckAll = () => {
+      void nearWatcher.check()
+      void farWatcher.check()
+      void weatherWatcher.check()
+    }
+    recheckAll()
 
-    readCachedFar(place.id, store).then((hit) => {
-      if (hit) merge({ far: hit.value })
-      if (!hit || !hit.fresh) {
-        return fetchFarLand(place, signal).then((far) => {
-          if (!far || !alive()) return
-          void writeCachedFar(place.id, far, store)
-          merge({ far })
-        })
-      }
-    }).catch(() => undefined)
-
-    void watcher.check()
-
-    const onFocus = () => { void watcher.check() }
-    const onVis = () => { if (typeof document !== 'undefined' && document.visibilityState === 'visible') void watcher.check() }
-    if (typeof window !== 'undefined') window.addEventListener('focus', onFocus)
+    const onVis = () => { if (typeof document !== 'undefined' && document.visibilityState === 'visible') recheckAll() }
+    if (typeof window !== 'undefined') window.addEventListener('focus', recheckAll)
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVis)
 
     return () => {
       controller.abort()
-      watcher.dispose()
-      if (typeof window !== 'undefined') window.removeEventListener('focus', onFocus)
+      nearWatcher.dispose()
+      farWatcher.dispose()
+      weatherWatcher.dispose()
+      if (typeof window !== 'undefined') window.removeEventListener('focus', recheckAll)
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVis)
     }
   }, [place, enabled, store])

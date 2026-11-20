@@ -1,9 +1,11 @@
 import zlib from 'node:zlib'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import gibsFixture from '../../test/fixtures/land-gibs-ndvi.json'
 import { farAt, fetchFarLand, srCompositeDates } from './gibs'
-import { decodeGibsNdviPng, modisNdviRefToValue, parseIndexedPng } from './gibsDecode'
+import { decodeGibsNdviPng, defaultDecodeJpeg, modisNdviRefToValue, parseIndexedPng } from './gibsDecode'
 import { MODIS_NDVI_RGB } from './gibsPalette'
+
+afterEach(() => { vi.unstubAllGlobals() })
 
 function crc32(buf: Uint8Array): number {
   let c = 0xffffffff
@@ -86,42 +88,40 @@ describe('NASA GIBS far land source', () => {
     const blank256 = makeIndexedPng(256, 256, Array.from({ length: 256 }, () => new Uint8Array(256)), new Array<number>(256).fill(0), undefined, Uint8Array.from([0]))
     const valid256 = makeIndexedPng(256, 256, Array.from({ length: 256 }, () => new Uint8Array(256).fill(89)), new Array<number>(256).fill(0))
     const wrongSize128 = makeIndexedPng(128, 128, Array.from({ length: 128 }, () => new Uint8Array(128).fill(89)), new Array<number>(128).fill(0))
-    const mockRgb = new Uint8Array(256 * 256 * 3)
-    for (let i = 0; i < mockRgb.length; i += 3) { mockRgb[i] = 140; mockRgb[i + 1] = 152; mockRgb[i + 2] = 102 }
+    const mockRgb = { width: 256, height: 256, data: new Uint8Array(256 * 256 * 3) }
+    for (let i = 0; i < mockRgb.data.length; i += 3) { mockRgb.data[i] = 140; mockRgb.data[i + 1] = 152; mockRgb.data[i + 2] = 102 }
 
     const place = { lat: 32.3465, lon: 35.5325 }
-    // Case 1: Newest NDVI date is blank 200; next date returns 128×128 unexpected size; oldest date succeeds with 1 missing tile
     const far = await fetchFarLand(place, undefined, new Date('2026-11-20T12:00:00Z'), {
       fetchImpl: (async (input) => {
         const url = String(input)
         if (url.includes('/2026-11-18/')) return new Response(blank256 as BodyInit, { status: 200 })
         if (url.includes('/2026-11-16/')) return new Response(wrongSize128 as BodyInit, { status: 200 })
         if (url.includes('/2026-11-09/')) return new Response(null, { status: 404 })
-        if (url.endsWith('.png')) {
-          if (url.includes('/8/102/')) return new Response(null, { status: 404 })
-          return new Response(valid256 as BodyInit, { status: 200 })
-        }
+        if (url.endsWith('.png')) return url.includes('/8/102/') ? new Response(null, { status: 404 }) : new Response(valid256 as BodyInit, { status: 200 })
         return new Response(new Uint8Array([1, 2, 3]) as BodyInit, { status: 200 })
       }) as typeof fetch,
       decodeJpeg: async () => mockRgb,
     })
-
-    expect(far).not.toBeNull()
-    expect(far!.source).toBe('gibs:2026-11-13')
-    expect(far!.rgbSource).toBe('gibs:2026-11-01')
+    expect(far?.source).toBe('gibs:2026-11-13'); expect(far?.rgbSource).toBe('gibs:2026-11-01')
     const hit = farAt(far!, place.lat, place.lon)!
-    expect(hit.ndvi).toBeCloseTo(0.49885, 4)
-    expect(hit.ndviDate).toBe('2026-11-13')
-    expect(hit.rgb).toEqual([140, 152, 102])
-    expect(hit.rgbDate).toBe('2026-11-01')
+    expect(hit.ndvi).toBeCloseTo(0.49885, 4); expect(hit.ndviDate).toBe('2026-11-13')
+    expect(hit.rgb).toEqual([140, 152, 102]); expect(hit.rgbDate).toBe('2026-11-01')
 
-    // Case 2: Unexpected RGB tile size (128×128) is rejected cleanly while valid NDVI or RGB-only succeeds
+    // Wrong-shape same-pixel-count JPEG (128×512 = 65536 px = 256×256) rejected both in defaultDecodeJpeg (before canvas!) and fetchFarLand
+    const close = vi.fn(), canvasCtor = vi.fn()
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 128, height: 512, close })))
+    vi.stubGlobal('OffscreenCanvas', canvasCtor)
+    expect(await defaultDecodeJpeg(new Uint8Array([1, 2, 3]), { width: 256, height: 256 })).toBeNull()
+    expect(close).toHaveBeenCalledTimes(1)
+    expect(canvasCtor).not.toHaveBeenCalled()
+
     const badRgb = await fetchFarLand(place, undefined, new Date('2026-11-20T12:00:00Z'), {
       fetchImpl: (async (input) => {
         if (String(input).endsWith('.png')) throw new Error('NDVI down')
         return new Response(new Uint8Array([1, 2, 3]) as BodyInit, { status: 200 })
       }) as typeof fetch,
-      decodeJpeg: async () => new Uint8Array(128 * 128 * 3).fill(120),
+      decodeJpeg: async () => ({ width: 128, height: 512, data: new Uint8Array(128 * 512 * 3).fill(120) }),
     })
     expect(badRgb).toBeNull()
 
@@ -132,8 +132,7 @@ describe('NASA GIBS far land source', () => {
       }) as typeof fetch,
       decodeJpeg: async () => mockRgb,
     })
-    expect(rgbOnly?.date).toBeNull()
-    expect(rgbOnly?.rgbSource).toBe('gibs:2026-11-09')
+    expect(rgbOnly?.date).toBeNull(); expect(rgbOnly?.rgbSource).toBe('gibs:2026-11-09')
     expect(farAt(rgbOnly!, place.lat, place.lon)?.rgb).toEqual([140, 152, 102])
   })
 })

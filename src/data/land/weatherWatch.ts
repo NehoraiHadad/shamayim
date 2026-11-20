@@ -7,12 +7,10 @@ import type { RecentLandWeather } from './types'
 
 /**
  * Active-tab recent-weather lifecycle controller:
- * - Validates cached and fetched replies against `WEATHER_MAX_STALE_MS` (24 h) before publishing.
- * - Schedules refresh (6 h) and hard expiry (24 h) timers separately so a stale reply or failed
- *   refresh at 6 h still clears the expired entry on an open tab at 24 h.
- * - Coalesces simultaneous focus, visibility and timer rechecks into a single in-flight request.
+ * - Clears expired active observations independently of in-flight request coalescing.
+ * - Re-validates replies against `WEATHER_MAX_STALE_MS` (24 h) at actual publication time (after cache writes).
+ * - Schedules refresh (6 h) and hard expiry (24 h) timers separately and coalesces overlapping refresh triggers.
  */
-
 export interface WeatherRecheckDeps {
   readCached?: (placeId: string, now: number) => Promise<{ value: RecentLandWeather; fresh: boolean } | null>
   fetchWeather?: (place: Place, signal: AbortSignal) => Promise<RecentLandWeather | null>
@@ -32,6 +30,7 @@ export async function checkActiveWeather(
   const readCached = deps.readCached ?? ((id, t) => readCachedWeather(id, undefined, t))
   const fetchWeather = deps.fetchWeather ?? ((p, s) => fetchRecentWeather(p, { signal: s }))
   const writeCached = deps.writeCached ?? ((id, w, t) => writeCachedWeather(id, w, undefined, t))
+  const liveOrNull = (w: RecentLandWeather | null) => (w && weatherFreshness(w, clock()) !== 'expired' ? w : null)
 
   let active = current
   if (active) {
@@ -40,7 +39,7 @@ export async function checkActiveWeather(
     if (status === 'expired') { active = null; onUpdate(null) }
   } else {
     const hit = await readCached(place.id, now).catch(() => null)
-    if (signal.aborted) return active
+    if (signal.aborted) return liveOrNull(active)
     if (hit && weatherFreshness(hit.value, clock()) !== 'expired') {
       active = hit.value
       onUpdate(hit.value)
@@ -49,11 +48,14 @@ export async function checkActiveWeather(
   }
 
   const reply = await fetchWeather(place, signal).catch(() => null)
-  if (!reply || signal.aborted) return active
-  const after = clock()
-  if (weatherFreshness(reply, after) === 'expired') return active
-  await writeCached(place.id, reply, after).catch(() => undefined)
-  if (!signal.aborted) { active = reply; onUpdate(reply) }
+  if (!reply || signal.aborted) return liveOrNull(active)
+  const afterFetch = clock()
+  if (weatherFreshness(reply, afterFetch) === 'expired') return liveOrNull(active)
+  await writeCached(place.id, reply, afterFetch).catch(() => undefined)
+  // Re-validate at publication time in case a slow cache write crossed the 24 h expiry cutoff.
+  if (signal.aborted || weatherFreshness(reply, clock()) === 'expired') return liveOrNull(active)
+  active = reply
+  onUpdate(reply)
   return active
 }
 
@@ -79,21 +81,34 @@ export function createWeatherWatcher(
     if (expiryTimer !== undefined) { clearTimeout(expiryTimer); expiryTimer = undefined }
   }
 
+  const expireIfNeeded = () => {
+    if (signal.aborted || !active) return
+    if (weatherFreshness(active, clock()) === 'expired') {
+      active = null
+      clearTimers()
+      onUpdate(null)
+    }
+  }
+
   const schedule = (weather: RecentLandWeather | null) => {
     clearTimers()
     if (!weather || signal.aborted) return
     const now = clock()
+    if (weatherFreshness(weather, now) === 'expired') { expireIfNeeded(); return }
     const refreshDelay = weatherRefreshDelayMs(weather, now)
     if (refreshDelay !== null && refreshDelay > 0) {
       refreshTimer = setTimeout(() => { void check() }, refreshDelay + 1000)
     }
     const expiryDelay = weatherExpiryDelayMs(weather, now)
     if (expiryDelay !== null) {
-      expiryTimer = setTimeout(() => { void check() }, expiryDelay + 1000)
+      expiryTimer = setTimeout(() => { expireIfNeeded(); void check() }, expiryDelay + 1000)
     }
   }
 
   const publish = (next: RecentLandWeather | null) => {
+    if (signal.aborted) return
+    if (next && weatherFreshness(next, clock()) === 'expired') { expireIfNeeded(); return }
+    if (next === null && active === null) return
     active = next
     onUpdate(next)
     schedule(next)
@@ -101,12 +116,10 @@ export function createWeatherWatcher(
 
   const check = (): Promise<void> => {
     if (signal.aborted) return Promise.resolve()
+    expireIfNeeded()
     if (inFlight) return inFlight
     inFlight = checkActiveWeather(place, active, signal, publish, deps)
-      .then((finalActive) => {
-        active = finalActive
-        schedule(active)
-      })
+      .then(() => { expireIfNeeded(); schedule(active) })
       .finally(() => { inFlight = null })
     return inFlight
   }

@@ -21,6 +21,12 @@ export interface DecodedNdviTile {
   data: Float32Array
 }
 
+export interface DecodedRgbTile {
+  width: number
+  height: number
+  data: Uint8Array
+}
+
 async function inflate(data: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate'))
   return new Uint8Array(await new Response(stream).arrayBuffer())
@@ -102,20 +108,28 @@ export async function decodeGibsNdviPng(png: Uint8Array): Promise<Float32Array> 
   return (await decodeGibsNdviTile(png)).data
 }
 
-/** Browser-only JPEG tile decoder via `createImageBitmap` + `OffscreenCanvas`; returns null if unavailable. */
-export async function defaultDecodeJpeg(bytes: Uint8Array): Promise<Uint8Array | null> {
+/**
+ * Browser-only JPEG tile decoder via `createImageBitmap` + `OffscreenCanvas`; returns null if
+ * unavailable or if bitmap dimensions do not match `expected` (checked before allocating canvas).
+ */
+export async function defaultDecodeJpeg(
+  bytes: Uint8Array, expected?: { width: number; height: number },
+): Promise<DecodedRgbTile | null> {
   if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return null
   const bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: 'image/jpeg' }))
   try {
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const { width, height } = bitmap
+    if (!width || !height) return null
+    if (expected && (width !== expected.width || height !== expected.height)) return null
+    const canvas = new OffscreenCanvas(width, height)
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
     ctx.drawImage(bitmap, 0, 0)
-    const rgba = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data
-    const rgb = new Uint8Array(bitmap.width * bitmap.height * 3)
+    const rgba = ctx.getImageData(0, 0, width, height).data
+    const rgb = new Uint8Array(width * height * 3)
     for (let i = 0, o = 0; i < rgba.length; i += 4, o += 3) {
       rgb[o] = rgba[i]; rgb[o + 1] = rgba[i + 1]; rgb[o + 2] = rgba[i + 2]
     }
-    return rgb
+    return { width, height, data: rgb }
   } finally { bitmap.close() }
 }
