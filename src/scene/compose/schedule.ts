@@ -66,7 +66,7 @@ export function paintSliced(jobs: readonly SliceJob[], options: SliceOptions): S
       }
       queue.shift()
     }
-    for (const { surface, layers } of jobs) surface.composite(layers)
+    for (const { surface, layers } of jobs) surface.composite(layers, report.slices.length ? undefined : phase)
     const ms = now() - start
     report.slices.push(ms)
     report.totalMs += ms
