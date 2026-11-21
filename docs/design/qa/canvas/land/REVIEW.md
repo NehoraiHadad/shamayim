@@ -566,6 +566,69 @@ whole state, and never clone it per scrub frame.
 
 ## Stage 4: vegetation
 
+### Handoff (Antigravity, 2026-11-21)
+
+**Commits:** `26368e9` (Stage 3 review minors), `78c510d` (Stage 4 vegetation model & painters), `d8f1fa4` (Stage 4 unit tests), `7a46a96` (Stage 4 375 px QA stills & `TASKS.md`) on `land-living`.
+
+**Stage 3 review minors folded in (`26368e9`):**
+- `e2e/land.perf.mjs`: restricted the GIBS SR route to its exact recorded tile address (`/\/2026-11-01\/[^/]+\/8\/103\/153\.jpeg$/`, returning 404 elsewhere) and asserted BOTH the centre-tile hit (`far20km` → `gibs:2026-11-01+climatology`) and a missing-tile fallback (`far55km` in row 104 → `s2-mean:2026-11-15+climatology`).
+- `src/scene/compose/stats.ts`, `surface.ts`, `react/useSurface.ts`, `compose.test.ts`: gated composite-key tracking behind opt-in `SceneStats.trackShown` (default `false` on production frames; enabled via `window.__trackSceneShown = true` in `e2e/land.perf.mjs`) and reused `ShownLayer` entries in place with zero allocation when keys/freshness are stable.
+- `src/scene/model/typesLand.ts`, `planeLight.ts`: narrowed `PlaneLight` (`Omit<LightPart, 'tint'>`) so `tint` is kept local to `planeLight()` and no longer serialized across the Worker boundary.
+- `src/scene/model/landSnow.ts`, `planeLight.ts`, `outsideGround.ts`: extracted `lightTintOf`, `snowOf`, `snowLook` and `snowOnGround` into `landSnow.ts` (57 lines), shared by `planeLight.ts` and `outsideGround.ts`.
+
+**What changed (Stage 4):**
+- **Pure physical & ecological rules (`src/scene/model/vegRules.ts`, 138 lines; zero place names):**
+  - Camera ground resolution: `mPerPx = distanceM * (π / (180 * camera.pxPerDeg))` (`11.64 m/px` at 1 km for `SCENE_CAMERA`, `pxPerDeg = 1.5`; `RELIEF.high` adds 6.5× vertical resolution).
+  - Explicit resolvability thresholds & monotonic hermite `distanceFade`:
+    - Orchards/plantations (`6–9 m` rows in `25–45 m` blocks; FAO/Volcani): full `<= 14 m/px` (~1.2 km), cut at `ORCHARD_MAX_M_PER_PX = 24 m/px` (~2.06 km).
+    - Tree/forest crowns (`20–40 m` Aleppo pine/oak clusters): full `<= 28 m/px`, cut at `TREE_MAX_M_PER_PX = 60 m/px` (~5.2 km).
+    - Cropland patchwork (`120–400 m` parcels): full `<= 55 m/px`, cut at `FIELD_MAX_M_PER_PX = 95 m/px` (~8.2 km).
+    - Scrub/grass tufts (`3–12 m` drifts): full `<= 20 m/px`, cut at `SCRUB_MAX_M_PER_PX = 42 m/px` (~3.6 km).
+    - Bare/desert geological strata: full `<= 70 m/px`, cut at `STRATA_MAX_M_PER_PX = 140 m/px` (~12 km).
+  - Orchard/plantation species rule (`orchardKindOf`, from Köppen–Geiger + elevation/temperature + WorldCover `1`/`4` + slope + NDVI):
+    - **Date palms (`palm`)**: arid (`B`) or hot semi-arid / below-sea-level rift (`climateZone === 'semiarid'` with `meanTempProxyC >= 20 °C`) on irrigated tree/crop cover (`ndvi >= 0.24`, gentle-moderate slope).
+    - **Citrus (`citrus`)**: frost-free lowland Mediterranean/subtropical/tropical (`M`/`H`/`A`/`w`), `< 220 m`, gentle slope (`< 0.08`), irrigated (`ndvi >= 0.30`).
+    - **Olive (`olive`)**: Mediterranean (`M`) or cooler steppe (`S`) hills/benches (`>= 220 m` or moderate slope / rain-fed moderate NDVI).
+    - Cold temperate/continental/alpine (`C`/`D`/`d`/`E`): `null` (woodland/fields only).
+  - Cropland field state (`cropFieldState`, hemisphere-aware `solarMonthOf`): `growing` (`ndvi >= 0.34`), `ploughed` (low NDVI in regional sowing/tillage season or moist soil `dryness < 0.50`), `straw` (dry post-harvest stubble).
+  - Bare/sparse (WorldCover 60) and arid desert (`ndvi < 0.14`, `dryness > 0.72`): strictly zero vegetation, soft tonal strata only; agricultural terraces also skipped on bare/water slopes (`ground.ts`).
+- **Compact structured-cloneable FORM descriptor (`typesLand.ts`, `vegSample.ts`, `vegBuilders.ts`, `landVegetation.ts`, `planes.ts`, `world/land.ts`):**
+  - Replaced dead generic `world/land.ts` `scrubOf` (which previously drew green bushes in the Negev desert) with `PlaneVegetation` backed by flat TypedArrays (`trees`, `treeMeta`, `fields`, `fieldMeta`, `rows`, `rowMeta`, `tufts`, `tuftMeta`, `strata`, `strataMeta` + 13 light-free Oklab-calibrated `tones`, `< 10 KB` max).
+  - Per-tree stride-6 `Float32Array` stores `(x, y, radius, height, phase, shade)` sorted back-to-front by `y`, leaving every tree's seeded `height` and `phase` ready for Stage 5 wind lean & gust sway without rebuilding form descriptors.
+  - Seeded purely from quantized physical coordinates `(lat, lon)` (zero place-name or place-id dependence); memoised per `world.land` (`WeakMap`) on the FORM layer (`FORM = 4`, form key independent of hour); adaptive row slicing for low valley floors (`beit-shean`, `nahalal`, `zikhron-yaakov`).
+- **Illustrated anidoodle painters (`src/scene/paint/landVegetation.ts`, `landVegCrowns.ts`, `planes.ts`, `planeLight.ts`):**
+  - Worker-safe on `OffscreenCanvas`, zero clock, zero `ctx.filter`, single `destination-in` antialiased outline mask at the end of `paintPlane`.
+  - Soft two-pass undulating strata bands on bare desert; hand-wobbled perspective field quads with subtle aligned furrows; converging orchard row alleys; 2-lobe organic scrub bushes and 3-blade grass tufts shifting to warm straw-gold when dry; multi-lobe billowing pine/olive/citrus crowns with self-shaded undersides; curved-trunk date palms with radiating arched feathery fronds (simplifying smoothly at small radii).
+  - `paintPlaneLight` applies soft elliptical sun-side crown/tuft catchlights (replaced initial rectangular lift boxes caught during visual QA) alongside the existing veil, washes, snow, floor shadows and cloud shadows (`z = 40.3`).
+
+**Files (all new/touched Stage 4 production files ≤ 145 lines):**
+- Added: `src/scene/model/landSnow.ts` (57 L), `src/scene/model/vegRules.ts` (138 L), `src/scene/model/vegSample.ts` (132 L), `src/scene/model/vegBuilders.ts` (145 L), `src/scene/model/landVegetation.ts` (141 L), `src/scene/paint/landVegetation.ts` (123 L), `src/scene/paint/landVegCrowns.ts` (141 L), `src/scene/model/landVegetation.test.ts` (154 L), `docs/design/qa/canvas/land/stage4/{before,after}/*.png` (42 stills: 7 places × 3 seasons).
+- Modified: `src/scene/model/{typesLand,types,ground,planes,planeLight,outsideGround}.ts`, `src/world/land.ts`, `src/scene/paint/{planes,planeLight}.ts`, `src/scene/compose/{stats,surface}.ts`, `src/scene/react/useSurface.ts`, `src/scene/model/planes.test.ts`, `src/scene/compose/compose.test.ts`, `src/scene/paint/landSurface.test.ts`, `e2e/land.perf.mjs`, `TASKS.md`.
+
+**Visual QA (`docs/design/qa/canvas/land/stage4/{before,after}/`, 375 px DPR 2, offline intercepted fixtures):**
+- Inspected winter (`02-15`), late spring (`05-15`) and late summer (`08-15`) noon stills across Galilee (`rosh-pina`: pine forest + olive rows + seasonal fields), Jezreel valley (`nahalal`: green → spring mix → golden straw/ploughed patchwork + lowland citrus rows), coast (`zikhron-yaakov`: orchards + pine + built), Jerusalem hills (`jerusalem`: terraces + scrub/olive), Jordan valley (`beit-shean`: converging date-palm plantation rows from pure Köppen/elevation/cover data; `shadmot-mehola`: fields + green→straw-gold grass), and Negev (`ramon-crater`: zero vegetation, soft desert strata only).
+- Caught and fixed two visual defects on first inspection: (1) rectangular `ctx.rect` light-lift boxes on tree crowns (fixed to soft elliptical crown catchlights), and (2) `land.own.cover = built` overwriting near-field `< 450 m` ray cover on valley towns (removed cover overwrite, immediately unlocking Beit She'an's date palm rows).
+
+**Pixel references re-recorded:**
+- **0 of 66** — all 66/66 existing pixel references pass unchanged (muted light-free vegetation tones harmonize within the scene's luminance/YIQ envelope without crest or contrast regressions).
+
+**How tested (exact results):**
+- `npx tsc -b`: **PASS** (0 errors).
+- `npm run lint`: **PASS** (0 errors; 0 warnings in touched/added files; only 11 pre-existing warnings in `docs/design/prototypes/` and `scripts/city/geometry.ts`).
+- `npx vitest run --maxWorkers=2`: **PASS — 143/143 test files, 1,312/1,312 tests passed** (0 timeouts, 0 failures; includes `landVegetation.test.ts`, `planes.test.ts`, `purity.test.ts`).
+- `npm run test:pixels`: **PASS — 66/66 passed** (91.0 s, 0 updated).
+- `npm run build`: **PASS** (`tsc -b && vite build`, 459 modules transformed, 1.39 s).
+- `npm run test:perf` (CPU ×4, DPR 2.75, software raster, paint worker — compared vs Stage 3 handoff medians):
+  - **Form/light split verified on scrub**: ZERO `plane.*:form` repaints across Haifa, Tel Aviv and Shadmot (only `plane.far:light, plane.near:light`).
+  - **Haifa** (Stage 3 → Stage 4): `modelCold` `74.7 → 71.0 ms`, `firstPaint` `27.7 → 28.2 ms`, `firstShown` `241.5 → 240.4 ms`, `worker cold land` `226.1 → 226.6 ms`, `scrub.model` p50 `13.2 → 13.2 ms` / p95 `19.0 → 21.1 ms`, `scrub.land` p50 `0.5 → 0.5 ms` / p95 `1.3 → 1.3 ms`, `worker scrub land` p50 `400.4 → 423.0 ms` / p95 `539.7 → 567.3 ms`, `scrub.latency` p50 `776.2 → 754.3 ms`, `memory` `29.6 → 29.6 MB`.
+  - **Shadmot Mehola** (Stage 3 → Stage 4): `modelCold` `39.4 → 53.3 ms` (+13.9 ms cold once per place/date), `firstPaint` `17.9 → 17.8 ms`, `firstShown` `66.8 → 62.8 ms`, `worker cold land` `51.0 → 58.1 ms`, `scrub.model` p50 `9.6 → 9.6 ms` / p95 `15.0 → 18.0 ms`, `scrub.land` p50 `0.4 → 0.4 ms` / p95 `1.2 → 1.2 ms`, `worker scrub land` p50 `163.5 → 167.6 ms` / p95 `251.8 → 219.2 ms`, `scrub.latency` p50 `363.1 → 361.8 ms` / p95 `484.7 → 449.9 ms`, `memory` `24.6 → 24.6 MB`.
+  - **Tel Aviv**: `scrub.model` p50 `14.0` / p95 `27.5 ms`, `scrub.land` p50 `0.6` / p95 `2.3 ms`, `memory` `27.4 MB`.
+  - **App living-land mount (`e2e/land.perf.mjs`)**: `firstFallbackPaint` `6256.7 ms` (`climatology`), `refinement` `900.7 ms` (`own=s2:2026-11-15+climatology`, `far20km albedo=gibs:2026-11-01+climatology`, `far55km(miss)=s2-mean:2026-11-15+climatology`), `sameDayScrub` p50 `367.6 ms` (`world.land reused=true`), `coldFineTiles` `6 unique / 0 duplicates`, 0 problems.
+
+**Open questions for Stage 5:**
+- Stage 5 (wind on land) can animate tree/palm lean and gust sway directly from `PlaneVegetation.trees` (`height`, `phase`) and `treeMeta` (`kind`), either on a thin animated sway layer over calm ground or frame-strip for trees when `wind.ms` exceeds threshold, while keeping the base terrain form cached.
+- No Worker deploys needed for Stage 4.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
