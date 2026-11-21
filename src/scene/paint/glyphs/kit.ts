@@ -100,7 +100,7 @@ export class Kit {
     // The side face: turned away from the eye, so a little in shade under an even sky; lit as the light comes to its side.
     if (side > 0) this.fill(rect(x, y, side, h), this.face(mix(front, this.t.shade, 0.25), opts.sideC ?? this.t.lit, 1, this.t.shade))
     const sw = opts.shadeW ?? 0
-    if (sw > 0) this.fill(rect(x + w - sw, y, sw, h), this.face(front, opts.sideC ?? this.t.lit, -1, this.t.shade), 0.25 + 0.3 * this.k)
+    if (sw > 0) this.fill(rect(x + w - sw, y, sw, h), mix(this.t.shade, opts.sideC ?? this.t.lit, this.kr), 0.25 + 0.3 * this.kl)
   }
 
   /** Rim light on an edge facing the light or the sky (0.5 px). */

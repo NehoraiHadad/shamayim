@@ -1,4 +1,4 @@
-import { GLYPH_SPECS, type GlyphKind } from '../../../world/glyphSpecs'
+import { isField, type GlyphKind } from '../../../world/glyphSpecs'
 import type { GlyphDesc, Shine } from '../../model/types'
 import { css, type Ctx2D } from '../hand'
 import { azrieli } from '../icons/azrieli'
@@ -39,8 +39,6 @@ const DRAW: Record<GlyphKind, Draw> = {
   chordsBridge,
 }
 
-export const isField = (kind: GlyphKind) => Boolean(GLYPH_SPECS[kind].field)
-
 /** The glyph's cast shadow on the ground, away from the light, and its contact shade (screen px). */
 export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
   if (isField(d.kind)) return
@@ -71,7 +69,7 @@ export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
 }
 
 /**
- * Draws one glyph's body at its base (screen px, the layer's transform), the light on its side; returns its lamps in
+ * Draws one glyph at its base (screen px, the layer's transform) with signed glyph-space light. Returns its lamps in
  * screen px, to be laid after the grain.
  */
 export function drawGlyph(ctx: Ctx2D, d: GlyphDesc, shine: Shine): Lamp[] {

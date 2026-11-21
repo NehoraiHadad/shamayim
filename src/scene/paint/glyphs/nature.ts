@@ -81,6 +81,7 @@ export function orchard(k: Kit, _h: number, d: GlyphDesc) {
   for (const [x, y, rad] of trees) k.fill((c) => { c.beginPath(); c.ellipse(x + 0.6, y + rad * 0.8, rad * 0.9, 0.45, 0, 0, Math.PI * 2) }, t.deep, 0.5)
   for (const [x, y, rad] of trees) {
     k.fill((c) => { c.beginPath(); c.arc(x, y, rad, 0, Math.PI * 2) }, t.green)
+    k.fill((c) => { c.beginPath(); c.arc(x, y + rad * 0.55, rad * 0.6, 0, Math.PI * 2) }, t.shade, 0.3 * (1 - k.k))
     for (const [dir, weight] of [[-1, k.kl], [1, k.kr]]) {
       k.fill((c) => { c.beginPath(); c.arc(x + dir * rad * 0.3, y - rad * 0.3, rad * 0.6, 0, Math.PI * 2) }, t.greenLit, 0.75 * weight)
       k.fill((c) => { c.beginPath(); c.arc(x - dir * rad * 0.35, y + rad * 0.3, rad * 0.55, 0, Math.PI * 2) }, t.shade, 0.35 * weight)

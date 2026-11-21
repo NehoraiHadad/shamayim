@@ -1,12 +1,11 @@
-import { css } from '../hand'
+import { css, mix } from '../hand'
 import { Kit, poly, rect } from '../glyphs/kit'
 
 /**
  * The Chords Bridge (stage C4 icon; Calatrava, 2008): one white inclined pylon (118 m), a harp of stays fanning down to
  * the curved deck on one side and back-stays to the ground on the other (references: photographs, Wikipedia; the SVG
  * icon `curated/jerusalem.tsx`; the lean's direction in our south view unverified). Asymmetric, so it keeps its lean and
- * the light is drawn for its side (`side` +1 left, −1 right): the pylon's face toward the light lit, the stays catching
- * it as fine light lines.
+ * signed lateral light brightens the facing pylon face. Both sets of round stays catch light from either direction.
  */
 export function chordsBridge(k: Kit, h: number) {
   const { t, c } = k
@@ -19,7 +18,7 @@ export function chordsBridge(k: Kit, h: number) {
   k.fill(rect(-8, deck + 1, 21, 0.5), t.shade)
   // The stays first, behind the pylon: fine lines lit by the light.
   c.lineWidth = 0.22
-  c.strokeStyle = css(k.litR, 0.85)
+  c.strokeStyle = css(mix(t.wall, t.rim, k.k), 0.85)
   c.beginPath()
   ;[0.42, 0.5, 0.58, 0.66, 0.74, 0.82, 0.9].forEach((f, i) => {
     const [x, y] = along(f)
@@ -28,7 +27,6 @@ export function chordsBridge(k: Kit, h: number) {
   })
   c.stroke()
   c.beginPath()
-  c.strokeStyle = css(k.litL, 0.85)
   const [bx, by] = along(0.86)
   c.moveTo(bx - 0.4, by)
   c.lineTo(-8, deck)

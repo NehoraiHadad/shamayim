@@ -4,8 +4,8 @@ import { Kit, rect } from '../glyphs/kit'
 /**
  * The Western Wall (stage C4 icon): the Temple Mount's retaining wall, big Herodian ashlars with drafted margins in the
  * lower courses and smaller later stones above, caper bushes in the joints (references: photographs from the plaza;
- * the SVG icon `curated/jerusalem.tsx`). Floodlit by night, so the stone stays pale. Faces the eye: the light on either
- * side only rakes the margins, so it is drawn for the light's side (`side` +1 left, −1 right) rather than mirrored.
+ * the SVG icon `curated/jerusalem.tsx`). Floodlit by night, so the stone stays pale. The wall faces the eye.
+ * Signed lateral light rakes the stone margins, with positive values lighting the glyph-left edges.
  */
 const COURSES: [number, number][] = [[1.9, 0], [1.9, 2.1], [1.7, 0.9], [1.3, 2.6], [1.1, 1.4], [1.1, 0.3]]
 const HERODIAN = 3

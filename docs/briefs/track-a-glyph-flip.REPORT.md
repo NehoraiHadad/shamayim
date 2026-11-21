@@ -104,3 +104,31 @@ Duration    363.65s (transform 59%, tests 34%, import 6%)
 ```
 
 The Shadmot Mehola world-driven comparison and cast-shadow regression passed. The sweep now uses a fixed palette and shine, with no fixture setup, and compares serialized form logs. The world-driven test now reuses one world builder for the 32 times. The revised test file was type-checked and was not rerun under the retry rule.
+
+## Round 2
+
+- `src/scene/paint/marks.ts` uses clamped signed light for palm frond colour and the seeded frond length for geometry.
+- `src/scene/paint/glyphs/kit.ts` restores the box's even-sky shade at 0.25 opacity, increases shade opacity with light from glyph-left, and blends toward the lit tone with light from glyph-right.
+- `src/scene/paint/glyphs/industry.ts` restores the highrise's shade strip at its original night-weighted opacity. Its tone deepens with light from glyph-left and brightens with light from glyph-right.
+- `src/scene/paint/farCities.ts` restores the blocks' lit-to-shade blend. `src/scene/paint/glyphs/nature.ts` restores the orchard's underside shading with the same even-sky opacity ramp as the outside trees.
+- `src/scene/paint/icons/chordsBridge.ts` uses the magnitude of signed light for both sets of round stays. Its documentation and the comments in `src/scene/paint/icons/westernWall.ts` and `src/scene/paint/glyphs/index.ts` now describe signed lighting.
+- `src/world/glyphSpecs.ts` owns the field predicate and the glyph painter uses it. `src/scene/paint/glyphs/buildings.ts` is 150 lines.
+- Windows denied writes to `src/scene/model/glyphHand.ts` and `src/scene/paint/glyphs/glyphs.test.ts`. The pending patch switches the model to the shared field predicate and adds the two-handed sweep, mirrored minaret lamp and box-face checks, fill and stroke recording, and the zero-light palm check. It also removes the redundant layer condition.
+
+### Verification
+
+The `npx` shim failed to resolve its roaming npm CLI, so the checks used the installed binaries. The normal TypeScript build reported TS5033 on the two existing build-info cache files under `node_modules/.tmp`. Running `tsc -b` against temporary configs extending both original projects and redirecting only the build-info cache exited 0 with no diagnostics.
+
+Oxlint exited 0 with 12 baseline warnings in `scripts/city/geometry.ts`, `src/data/land/useLand.ts`, and the canvas-scene prototypes `styleCurrent.ts`, `styleMid.ts`, and `styleRich.ts`.
+
+```text
+nice -n 19 node node_modules/vitest/vitest.mjs run src/scene/paint/glyphs/glyphs.test.ts src/scene/model/marks.test.ts --testTimeout=180000
+RUN  v5.1.0
+Test Files  2 passed (2)
+     Tests  47 passed (47)
+  Duration  27.93s (tests 75%, transform 21%, import 3%)
+```
+
+The Vitest result covers the existing tests with the applied painter changes. The pending tests were source-reviewed and their patch passed `git apply --check`. No commit was made.
+
+Windows also denied appending this section to the original report. The pending patch includes the report update.

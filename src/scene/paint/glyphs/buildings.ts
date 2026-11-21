@@ -8,7 +8,6 @@ import { arch, disc, Kit, MINARET_LAMP, poly, rect } from './kit'
  * synagogue of the 1950s–70s; water tower — the concrete "mushroom" of kibbutzim and towns (Givat Brenner, Ein Shemer);
  * castle — the Crusader ruins of Yehiam and Montfort; homes — a Galilee village's houses seen from across a valley.
  */
-
 /** Mosque: domed hall on a drum, a slender minaret with one corbelled balcony and a pencil cone (height `h`). */
 export function minaret(k: Kit, h: number) {
   const { t } = k
@@ -40,7 +39,6 @@ export function minaret(k: Kit, h: number) {
   k.open(rect(2.95, bal - 3.4, 0.5, 1.2), false)
   if (k.night > 0.4) k.lamp(3.2, bal - 0.3, 2.2, MINARET_LAMP, 0.75 * k.night)
 }
-
 /** Church: gabled stone nave with a rose window and a tiled roof, a square tower with an arched belfry, cap and cross. */
 export function church(k: Kit, h: number) {
   const { t } = k
@@ -65,7 +63,6 @@ export function church(k: Kit, h: number) {
   k.fill(rect(3.65, -h - 0.5, 0.5, 2.5), t.wall)
   k.fill(rect(3.2, -h + 0.1, 1.4, 0.5), t.wall)
 }
-
 /** Synagogue: a flat-roofed concrete hall with tall round-arched windows, a small dome on a drum and a stair block. */
 export function synagogue(k: Kit) {
   const { t } = k
@@ -85,7 +82,6 @@ export function synagogue(k: Kit) {
   k.fill(rect(-3.6, -1.3, 5.8, 0.5), t.rim, 0.35)
   k.open(rect(3.9, -1.8, 0.8, 1.8), true, 0.5)
 }
-
 /** Water tower: a tapering shaft, the flared cone underside in its own shadow, a cylindrical tank, roof and hatch. */
 export function waterTower(k: Kit, h: number) {
   const { t } = k
@@ -105,7 +101,6 @@ export function waterTower(k: Kit, h: number) {
   k.fill(rect(-0.6, -s - 7.2, 0.5, 0.8), k.litL)
   k.aviation(0.1, -s - 7.4)
 }
-
 /** Crusader ruin: an ashlar keep stub with arrow slits and a broken crown, a ragged curtain wall, a gate, fallen blocks. */
 export function castle(k: Kit, h: number) {
   const { t, c } = k
@@ -138,7 +133,6 @@ export function castle(k: Kit, h: number) {
   k.fill(rect(5.6, -0.9, 0.4, 0.9), k.stoneL)
   k.fill(rect(7.1, -0.6, 0.8, 0.6), t.stone)
 }
-
 /** A far village: a few houses on a rise, lit faces toward the light, flat and tiled roofs, a window or two by night. */
 export function homes(k: Kit, h: number) {
   const { t, r } = k

@@ -89,12 +89,12 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, l: number, ro
     ctx.fillStyle = css(mix(t.wall, t.deep, 0.35))
     ctx.fillRect(-0.35, -h + 1, 0.7, h - 1)
     for (let i = 0; i < 6; i++) {
-      const a = -Math.PI / 2 + (i - 2.5) * 0.55, l = w * (0.45 + 0.12 * r())
-      ctx.fillStyle = css(mix(t.green, t.greenLit, Math.max(0, -l * Math.cos(a))))
+      const a = -Math.PI / 2 + (i - 2.5) * 0.55, len = w * (0.45 + 0.12 * r())
+      ctx.fillStyle = css(mix(t.green, t.greenLit, Math.min(1, Math.max(0, -l * Math.cos(a)))))
       ctx.beginPath()
       ctx.moveTo(0, -h + 1)
-      ctx.quadraticCurveTo(Math.cos(a) * l * 0.6, -h + 1 + Math.sin(a) * l * 0.6 - 0.5, Math.cos(a) * l, -h + 1 + Math.sin(a) * l + 1.4)
-      ctx.lineTo(Math.cos(a) * l * 0.8, -h + 1 + Math.sin(a) * l * 0.8 + 1.6)
+      ctx.quadraticCurveTo(Math.cos(a) * len * 0.6, -h + 1 + Math.sin(a) * len * 0.6 - 0.5, Math.cos(a) * len, -h + 1 + Math.sin(a) * len + 1.4)
+      ctx.lineTo(Math.cos(a) * len * 0.8, -h + 1 + Math.sin(a) * len * 0.8 + 1.6)
       ctx.closePath()
       ctx.fill()
     }

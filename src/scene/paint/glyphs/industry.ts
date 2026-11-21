@@ -58,7 +58,7 @@ export function highrise(k: Kit, h: number) {
   rect(x0 + side, crown, x1 - x0 - side, -2.6 - crown)(c)
   c.fillStyle = gf
   c.fill()
-  k.fill(rect(x1 - 0.8, crown, 0.8, -2.6 - crown), k.face(t.glass, t.glassLit, -1, t.shade), 0.5 - 0.25 * k.night)
+  k.fill(rect(x1 - 0.8, crown, 0.8, -2.6 - crown), k.face(t.shade, t.glassLit, -1, t.deep), 0.5 - 0.25 * k.night)
   for (let y = -4; y > crown + 0.6; y -= 1.5) {
     k.fill(rect(x0, y, side, 0.5), t.rim, 0.35 - 0.2 * k.night)
     k.fill(rect(x0 + side, y, x1 - x0 - side, 0.5), t.wall, 0.42 - 0.17 * k.night)

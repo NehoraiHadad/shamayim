@@ -5,19 +5,18 @@ import { loadPlaces, stubPublicFetch, worldInput } from '../../../test/sceneWorl
 import { GLYPH_SPECS, type GlyphKind } from '../../../world/glyphSpecs'
 import { makeWorldBuilder } from '../../../world/world'
 import { sceneModel } from '../../model'
-import { glyphHand } from '../../model/glyphHand'
 import type { GlyphDesc, SceneBox, Shine } from '../../model/types'
-import type { Ctx2D } from '../hand'
+import { css, type Ctx2D } from '../hand'
+import { tree } from '../marks'
 import { drawGlyph, glyphShadow } from '.'
 
 const FORM = new Set(['save', 'restore', 'translate', 'scale', 'rotate', 'transform', 'beginPath', 'moveTo',
-  'lineTo', 'bezierCurveTo', 'quadraticCurveTo', 'arc', 'ellipse', 'rect', 'closePath', 'clip', 'fillRect', 'strokeRect'])
+  'lineTo', 'bezierCurveTo', 'quadraticCurveTo', 'arc', 'ellipse', 'rect', 'closePath', 'clip', 'fill', 'stroke', 'fillRect', 'strokeRect'])
 const rounded = (args: unknown[]) => args.map((arg) => typeof arg === 'number' ? Math.round(arg * 1e6) / 1e6 : arg)
 const colour = (value: string) => {
   const [r, g, b, alpha = 1] = (value.match(/[\d.]+/g) ?? []).map(Number)
   return [r / 255, g / 255, b / 255, alpha]
 }
-
 function recording() {
   const form: unknown[][] = [], light: unknown[][] = [], channels: number[] = []
   const paint = (op: string, value: unknown) => {
@@ -46,18 +45,15 @@ function recording() {
   }) as Ctx2D
   return { form, light, channels, ctx }
 }
-
 function record(glyph: GlyphDesc, shine: Shine) {
   const drawing = recording()
   const lamps = drawGlyph(drawing.ctx, glyph, shine)
   return { ...drawing, lamps: lamps.map(({ x, y }) => [x, y]) }
 }
-
 function distance(a: readonly number[], b: readonly number[]) {
   expect(a.length).toBe(b.length)
   return a.reduce((max, v, i) => Math.max(max, Math.abs(v - b[i])), 0)
 }
-
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const KINDS = Object.keys(GLYPH_SPECS) as GlyphKind[]
 const place = SCENE_PLACES.find(({ id }) => id === 'shadmot-mehola')!
@@ -66,7 +62,6 @@ const loaded = () => {
   return loadPlaces([place]).then((places) => places.get(place.id)!)
 }
 afterAll(() => vi.unstubAllGlobals())
-
 const evenTone = [0.35, 0.38, 0.42] as const
 const litTone = [0.72, 0.62, 0.5] as const
 const shade = [0.18, 0.21, 0.25] as const
@@ -76,31 +71,33 @@ const tones = { wall: evenTone, lit: litTone, shade, deep: shade, rim: litTone, 
 const shine: Shine = { night: 0.8, aviation: true, windows: 0.4, lean: 0, direct: 0.5,
   faces: { front: 0.2, top: 0.3, rim: 0.15, left: 0, right: 0, across: 0 }, cast: { dx: 0, alpha: 0, length: 0 } }
 
-it('keeps all 22 glyph forms and night lamps fixed as signed light crosses the scene', () => {
+it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with hand %i', (hand) => {
   expect(KINDS).toHaveLength(22)
   for (const kind of KINDS) {
-    const seed = 43
-    const glyph: GlyphDesc = { kind, seed, hand: glyphHand(kind, seed), tones, x: 40, base: 60,
+    const glyph: GlyphDesc = { kind, seed: 43, hand, tones, x: 40, base: 60,
       w: GLYPH_SPECS[kind].w, h: 20, scale: 1.4, famous: false, ground: [0, 1, 0] }
     const at = (l: number) => record(glyph, { ...shine,
       faces: { ...shine.faces, left: Math.max(0, l * glyph.hand), right: Math.max(0, -l * glyph.hand) } })
     const sweep = Array.from({ length: 41 }, (_, i) => at((i - 20) / 20))
     const even = sweep[20]
-    if (kind === 'minaret') expect(even.lamps[0][0]).toBeCloseTo(glyph.x + 3.2 * glyph.scale * glyph.hand)
+    if (kind === 'minaret') {
+      expect(even.lamps[0][0]).toBeCloseTo(glyph.x + hand * 3.2 * glyph.scale)
+      // The minaret's first box paints the front, followed by its fixed left face.
+      expect(at(hand).light[1]).toEqual(['fillStyle', css(hand === 1 ? litTone : shade)])
+    }
     const form = JSON.stringify(even.form)
     for (const frame of sweep) {
       expect(JSON.stringify(frame.form), kind).toBe(form)
       expect(frame.lamps, kind).toEqual(even.lamps)
       expect(frame.light.length, kind).toBe(even.light.length)
     }
-    expect(sweep[0].light, kind).not.toEqual(sweep[40].light)
+    expect(JSON.stringify(sweep[0].light), kind).not.toBe(JSON.stringify(sweep[40].light))
     expect(distance(at(-0.001).channels, at(0.001).channels), kind).toBeLessThan(0.01)
     const steps = sweep.slice(1).map((frame, i) => distance(frame.channels, sweep[i].channels)).sort((a, b) => a - b)
     // CSS serializes RGB to bytes. Allow one byte of rounding on top of the relative bound.
     expect(steps.at(-1)!, kind).toBeLessThanOrEqual(3 * steps[20] + 1 / 255)
   }
 })
-
 it('keeps Shadmot Mehola glyph form fixed from 05:30 through 21:00', async () => {
   const source = await loaded()
   const build = makeWorldBuilder()
@@ -115,7 +112,7 @@ it('keeps Shadmot Mehola glyph form fixed from 05:30 through 21:00', async () =>
     for (const layer of layers) {
       const glyphs = layer.kind === 'marks' ? layer.glyphs : layer.kind === 'outside'
         ? layer.items.flatMap((item) => item.kind === 'mark' ? [item.glyph] : []) : null
-      if (!glyphs || (layer.kind !== 'marks' && layer.kind !== 'outside')) continue
+      if (!glyphs) continue
       for (const glyph of glyphs) {
         const key = `${layer.id}:${glyph.kind}:${glyph.seed}`
         const { form } = record(glyph, layer.shine)
@@ -130,7 +127,6 @@ it('keeps Shadmot Mehola glyph form fixed from 05:30 through 21:00', async () =>
   expect(baseline.size).toBeGreaterThan(0)
   expect([...baseline.keys()].some((key) => key.includes(':synagogue:'))).toBe(true)
 })
-
 it('reduces the glyph shadow to its contact shade at zero lateral reach', () => {
   const glyph: GlyphDesc = { kind: 'minaret', x: 40, base: 60, w: 10, h: 20, scale: 1, seed: 3,
     hand: 1, famous: false, tones }
@@ -146,4 +142,9 @@ it('reduces the glyph shadow to its contact shade at zero lateral reach', () => 
     expect(Math.abs(Number(gradient[3]) - Number(gradient[1]))).toBeLessThan(0.001)
     expect(drawing.channels[7]).toBeLessThan(0.001)
   }
+})
+it('fills all six palm fronds with even green at zero lateral light', () => {
+  const { ctx, light } = recording()
+  tree(ctx, { kind: 'palm', x: 40, base: 60, w: 6, h: 10, seed: 43 }, tones, shine, 0)
+  expect(light.slice(2)).toEqual(Array.from({ length: 6 }, () => ['fillStyle', css(tones.green)]))
 })
