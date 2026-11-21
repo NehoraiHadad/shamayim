@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { flashAt, trackAt } from './anim'
+import { flightInView, LIFE_START, poseTrack, trackBaseAlpha } from './lifeTracks'
 import type { AnimSpec, Track } from './types'
 
 describe('flight tracks', () => {
@@ -19,6 +20,25 @@ describe('flight tracks', () => {
     expect(trackAt(undefined, 100)).toEqual(origin)
   })
 
+  it('keeps a scaled sprite that enters from offscreen and fades in from zero', () => {
+    const first = { x: -12, y: 10, scale: 0.5, alpha: 0 }
+    const last = { x: -3, y: 10, scale: 2, alpha: 0.4 }
+    const bounds = { x: -2, y: -2, w: 4, h: 4 }
+    expect(flightInView([first], bounds, 100, 100)).toBe(false)
+    expect(flightInView([first, { ...last, scale: 1 }], bounds, 100, 100)).toBe(false)
+    expect(flightInView([first, last], bounds, 100, 100)).toBe(true)
+    const flight = poseTrack([first, last], LIFE_START)
+    expect([0, 1, 2].map((time) => trackBaseAlpha(first) * trackAt(flight, time)!.alpha)).toEqual([0, 0.2, 0.4])
+  })
+
+  it('crosses the rear azimuth seam without traversing the visible sky', () => {
+    const first = { x: 455, y: 10, scale: 1, alpha: 1 }
+    const flight = poseTrack([first, { ...first, x: -80 }], LIFE_START, { min: -82.5, period: 540 })
+    const x = (time: number) => first.x + trackAt(flight, time)!.x
+    expect(x(0.5)).toBeCloseTo(456.25)
+    expect(x(1.5)).toBeCloseTo(-81.25)
+  })
+
   it('keeps closed tracks wrapped, absent between passes and frozen at their original rest pose', () => {
     const drip: Track = { path: [[0, 0], [8, -4]], step: 2, cycle: 8, at: 1 }
     expect(trackAt(drip, 3)).toBeNull()
@@ -28,7 +48,7 @@ describe('flight tracks', () => {
 
   it('flashes a meteor once even when it was laid long after the scene started', () => {
     const first = 1600
-    const spec: AnimSpec = { mode: 'settle', pulse: { seed: 1, first, every: [Infinity, Infinity], look: 'meteor', cycle: Infinity } }
+    const spec: AnimSpec = { mode: 'settle', pulse: { first, look: 'meteor' } }
     expect(flashAt(spec, first - 0.01)).toBe(0)
     expect(flashAt(spec, first + 0.1)).toBe(1)
     expect(flashAt(spec, first + 0.71)).toBe(0)

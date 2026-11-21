@@ -1,6 +1,7 @@
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
+import type { ContrailMotion } from './contrailMotion'
 
 /**
  * The scene model (docs/design/CANVAS-SCENE-PLAN.md §1b): what is drawn, where, in which colour and order, decided
@@ -86,8 +87,6 @@ export interface AnimSpec {
    * Lay the layer along a track relative to its origin (`trackAt`); may be combined with a sprite strip.
    */
   flight?: Track
-  /** Reveal the trail on the side behind the moving head, relative to its translated layer origin. */
-  grow?: { track: Track; angle: number }
   /**
    * The clothesline (`wear.ts`): the layer's sprite laid through an affine about `pivot` that follows one cycle of gusts
    * (`anim.ts` `swayAt`): lifted with the line, sheared at the hem (pegged cloth), turned about its hook (hooked things),
@@ -120,7 +119,9 @@ export interface Sway { pivot: Pt; period: number; delay: number; lift: number; 
  * Offsets (surface px) every `step` seconds, read at phase + at. Closed tracks repeat every `cycle` seconds.
  * Open tracks hold their first and last points outside the sampled interval. Optional values are relative to the sprite.
  */
-export type Track = { path: Pt[]; step: number; at: number; scale?: number[]; alpha?: number[]; turn?: number[] }
+export type Track = { path: Pt[]; step: number; at: number; scale?: number[]; alpha?: number[]; turn?: number[]
+  /** Exact azimuth span, relative to the placed origin, for tracks crossing the camera's rear seam. */
+  wrapX?: { min: number; period: number } }
   & ({ open: true; cycle?: number } | { open?: false; cycle: number })
 
 /** A timed ramp of the phase (s): from `from` to `to` over `at … at + dur`, eased in and out. */
@@ -137,12 +138,10 @@ export interface Reveal { x: number; at: number; dur: number; erase?: boolean; s
  */
 export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]; sway?: number; swayPeriod?: number }
 
-/** A seeded schedule of short flashes: the first after `first` s, then every `every[0]`…`every[1]` s. */
-export interface Pulse { seed: number; first: number; every: [number, number]
-  /** C10: a meteor's light (a quick flare and a short fade) instead of a lightning stroke's. */
-  look?: 'stroke' | 'meteor'
-  /** C10: the schedule repeats after this long (s; 600 when absent): long enough for rare meteors. */
-  cycle?: number }
+/** A one-shot meteor or a seeded lightning schedule (default cycle 600 s). */
+export type Pulse = { first: number } & (
+  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number }
+)
 
 /**
  * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
@@ -544,10 +543,8 @@ export type LayerDesc =
    */
   | LayerBase & { kind: 'aircraft'; x: number; y: number; angle: number; size: number; rgb: RGB; lit: RGB; lights: number; landing: boolean
       trail: number; trailRgb: RGB; seed: number }
-  /** C10: a contrail (sky px) along its projected track: its points, its width (px) and alpha at each, its lit and shade tones. */
-  | LayerBase & { kind: 'contrail'; points: Pt[]; widths: number[]; alphas: number[]; rgb: RGB; shade: RGB; seed: number
-      /** Each puff's own lumpiness (seeded by the moment it was laid, so it keeps its shape from minute to minute). */
-      lumps?: number[] }
+  /** C10: a contrail's dated emissions, composed as a ribbon with age-dependent width and opacity. */
+  | LayerBase & { kind: 'contrail'; trail: ContrailMotion; rgb: RGB; shade: RGB }
   /** C10: a meteor's streak from `x0`, `y0` to its end, laid with its pulse (`animated.pulse`, the meteor look). */
   | LayerBase & { kind: 'meteor'; x0: number; y0: number; x1: number; y1: number; width: number; rgb: RGB }
   /** C10: the planets, steady points (they do not twinkle). */

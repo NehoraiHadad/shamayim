@@ -5,12 +5,12 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { highPose, highTrack, LIFE_START, LOW_SPRITE_PX, lowPose, lowTrack, RAD } from './lifeTracks'
+import { flightInView, highPoses, LIFE_START, LOW_SPRITE_PX, lowPoses, poseTrack, RAD, trackBaseAlpha } from './lifeTracks'
 import { contrailLayer } from './contrail'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
 import { tangentScale } from './tangent'
 import { mixRgb } from './tone'
-import type { LayerDesc, LayerOf, Lay, LifeClock, Pt, RGB, SceneBox, Track } from './types'
+import type { LayerDesc, LayerOf, LifeClock, Pt, RGB, SceneBox } from './types'
 
 /*
  * The sky's life (C10) as layers, from the world's `life` at the shown minute (`world/lifeSchedule.ts`: every object an
@@ -173,20 +173,20 @@ export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
   const sunAlt = world.bodies.sun.altitude
   const lightAt = mixRgb(world.light.colour, [1, 1, 1], smoothstep(2, 15, sunAlt) * 0.7)
   const shown = smoothstep(-4.5, -1.5, sunAlt)
-  if (shown <= 0.01) return out
+  if (shown < 0.01) return out
   const k = Math.max(0.85, Math.min(1.3, geom.s))
   for (const plane of world.life.aircraft.high) {
     const trail = contrailLayer(world, box, geom, plane, life, lightAt, shown)
     if (trail) out.push(trail)
     if (!plane.plane) continue
-    const head = highPose(geom, plane, plane.plane, shown)
-    if (head.altitude < 1 || head.alpha <= 0.01 || head.x <= -60 || head.x >= geom.width + 60 || head.y >= geom.horizon || head.y <= -40) continue
+    const poses = highPoses(geom, plane, plane.plane, shown), head = poses[0]
     const behind = sky(head.altitude)
     const lit = mixRgb(lightAt, [1, 1, 1], 0.2)
     const body = mixRgb([0.5, 0.52, 0.56], behind, 0.35)
     const shortPx = plane.persists ? 0 : (plane.shortKm / head.km) / RAD * tangentScale(world, geom, head.altitude)
-    out.push(aircraftLayer(box, `aircraft.high.${plane.id}`, 6.15, 3.2 * k, body, lit, 0, false, shortPx,
-      mixRgb(lightAt, behind, 0.1), plane.seed, head, highTrack(geom, plane, plane.plane, shown, life)))
+    const layer = aircraftLayer(box, geom, `aircraft.high.${plane.id}`, 6.15, 3.2 * k, body, lit, 0, false, shortPx,
+      mixRgb(lightAt, behind, 0.1), plane.seed, poses, life)
+    if (flightInView(poses, layer.bounds, geom.width, box.skyHeight)) out.push(layer)
   }
   return out
 }
@@ -194,15 +194,16 @@ export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
 type LayerDesc10 = LayerOf<'contrail'> | LayerOf<'aircraft'>
 
 /** Aircraft are painted facing right at a reference size; their exact heading and scale are laid by the compositor. */
-function aircraftLayer(box: SceneBox, id: string, z: number, size: number, rgb: RGB, lit: RGB,
-  lights: number, landing: boolean, trail: number, trailRgb: RGB, seed: number, placed: Lay, flight: Track): LayerOf<'aircraft'> {
+function aircraftLayer(box: SceneBox, geom: SkyGeom, id: string, z: number, size: number, rgb: RGB, lit: RGB,
+  lights: number, landing: boolean, trail: number, trailRgb: RGB, seed: number, poses: ReturnType<typeof lowPoses>, life: LifeClock): LayerOf<'aircraft'> {
   const trailPx = 0.2 * q(trail, 0.2)
   const reach = Math.ceil(Math.max(size * 2 + 4, trailPx + size + 3) + (lights ? 5 : 0))
   const bounds = { x: -reach, y: -reach, w: 2 * reach + 1, h: 2 * reach + 1 }
   const frames = lights > 0 ? { count: 10, fps: 10 } : undefined
   return {
-    kind: 'aircraft', id, surface: 'sky', z, x: 0, y: 0, angle: 0, size, rgb, lit, lights, landing, trail: trailPx, trailRgb, seed, bounds, placed,
-    animated: { mode: frames ? 'frames' : 'settle', frames, flight },
+    kind: 'aircraft', id, surface: 'sky', z, x: 0, y: 0, angle: 0, size, rgb, lit, lights, landing, trail: trailPx, trailRgb, seed, bounds,
+    placed: { ...poses[0], alpha: trackBaseAlpha(poses[0]) },
+    animated: { mode: frames ? 'frames' : 'settle', frames, flight: poseTrack(poses, life, geom.azimuthRange) },
     key: layerKey(id, skyBoxKey(box), q(size, 0.2), tone(rgb), tone(lit), q(lights, 1 / 24), landing, q(trailPx, 0.2), tone(trailRgb)),
   }
 }
@@ -212,16 +213,16 @@ export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
   const sky = skyAt(world, box)
   const out: LayerOf<'aircraft'>[] = []
   for (const plane of world.life.aircraft.low) {
-    const placed = lowPose(world, geom, plane, plane)
-    const { x, alpha, km, altitude } = placed
-    if (x < -10 || x > geom.width + 10 || alpha < 0.01) continue
+    const poses = lowPoses(world, geom, plane), { km, altitude } = poses[0]
     const fade = Math.min(0.8, world.air.fade(km)), behind = sky(altitude)
     const body = mixRgb(mixRgb([0.82, 0.84, 0.88], world.light.ambient, 0.4), behind, fade)
     const lit = mixRgb(mixRgb([1, 1, 1], world.light.colour, 0.3), behind, fade)
     const lights = smoothstep(0.2, 0.7, world.night.dark)
-    const layer = aircraftLayer(box, `aircraft.low.${plane.id}`, 9.4, LOW_SPRITE_PX, body, lit, lights, plane.kind === 'arrive',
-      0, body, plane.seed, placed, lowTrack(world, geom, plane, life))
-    out.push(...placedInDepth(world, box, geom, layer, km, plane.blockedKm))
+    const layer = aircraftLayer(box, geom, `aircraft.low.${plane.id}`, 9.4, LOW_SPRITE_PX, body, lit, lights, plane.kind === 'arrive',
+      0, body, plane.seed, poses, life)
+    if (flightInView(poses, layer.bounds, geom.width, Math.max(box.skyHeight, box.landTop + box.landHeight))) {
+      out.push(...placedInDepth(world, box, geom, layer, km, plane.blockedKm))
+    }
   }
   return out
 }
@@ -253,8 +254,7 @@ export function meteorLayers(world: WorldState, box: SceneBox, geom: SkyGeom = s
     const bounds = { x: Math.floor(Math.min(x, x1)) - pad, y: Math.floor(Math.min(y, y1)) - pad, w: Math.ceil(Math.abs(x1 - x)) + 2 * pad,
       h: Math.ceil(Math.abs(y1 - y)) + 2 * pad }
     const id = `meteor.${flash.id}`
-    const pulse = { seed: flash.seed, first: flash.inS - life.sinceS + life.laidAt,
-      every: [1e9, 1e9] as [number, number], look: 'meteor' as const, cycle: Infinity }
+    const pulse = { first: flash.inS - life.sinceS + life.laidAt, look: 'meteor' as const }
     const rgb: RGB = speed > 55 ? [0.86, 0.93, 1] : [1, 0.95, 0.82]
     out.push({ kind: 'meteor', id, surface: 'sky', z: 2.4, x0: x, y0: y, x1, y1,
       width: 1.1 * Math.max(0.85, geom.s), rgb, bounds, animated: { mode: 'settle', pulse },

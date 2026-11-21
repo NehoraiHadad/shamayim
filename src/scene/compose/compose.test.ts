@@ -116,6 +116,31 @@ describe('surface and schedule', () => {
     expect(surface.render(layers(3))).toEqual(['none', 'none', 'none'])
     expect(count.form).toBe(3)
   })
+
+  it('composes a widening trail at each phase without a cached raster and holds it under reduced motion', () => {
+    const canvas = fakeCanvas(375, 428), surface = new Surface(canvas, { factory: fakeCanvas })
+    surface.resize(375, 428, 1)
+    const projection = (x: number) => Array.from({ length: 3 }, () => ({ point: [x, 20] as [number, number], widthPerM: 0.02, visibility: 0.8 }))
+    const trail: LayerOf<'contrail'> = {
+      id: 'contrail.a', kind: 'contrail', surface: 'sky', z: 6, key: 'trail',
+      bounds: { x: 0, y: 0, w: 375, h: 300 }, rgb: [0.9, 0.9, 0.9], shade: [0.8, 0.8, 0.8],
+      placed: { x: 0, y: 0, scale: 1, alpha: 1 },
+      animated: { mode: 'settle', flight: { open: true, at: 0, path: [[0, 0]], step: 2 } },
+      trail: { lifeS: 1_200, spreadM: 1_800, endInS: -1, head: null,
+        puffs: [{ samples: projection(30), seed: 1, ageS: 20 }, { samples: projection(40), seed: 2, ageS: 0 }] },
+    }
+    const widths = () => canvas.calls.filter((call) => call.startsWith('lineWidth='))
+    expect(surface.render([trail], 0)).toEqual(['none'])
+    const start = widths()
+    expect(start.length).toBeGreaterThan(0)
+    canvas.calls.length = 0
+    expect(surface.render([trail], 45)).toEqual(['none'])
+    expect(widths()).not.toEqual(start)
+    expect(surface.peek(trail.id)).toBeNull()
+    canvas.calls.length = 0
+    surface.render([trail], 45, true)
+    expect(widths()).toEqual(start)
+  })
 })
 
 /** A worker that keeps what it is sent and answers when told (node has no worker). */

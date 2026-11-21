@@ -1,10 +1,9 @@
 import type { LayerOf, Pt } from '../model/types'
-import { rng } from './core'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /*
  * The sky's life in the hand (C10; the birds are `birds.ts`): aircraft (a small
- * plane, its lights by night, a short trail), contrails (soft lines that spread), meteors (a fine streak, brightest at its
+ * plane, its lights by night, a short trail), and meteors (a fine streak, brightest at its
  * head). A painter is a pure function of its desc and `env.phase` (a strip's frame): every motion is periodic over the
  * strip, seeded, with no clock.
  */
@@ -60,37 +59,6 @@ export function paintAircraft(ctx: Ctx2D, desc: LayerOf<'aircraft'>, env: PaintE
     light(f(-0.1 * S, 0.5 * S), 0.6, [0.3, 1, 0.45], 0.8 * night)
     if (frame === 0 || frame === 2) for (const v of [-0.5, 0.5]) light(f(-0.1 * S, v * S), 0.9, [1, 1, 1], night)
     if (frame === 5) light(f(0, 0), 0.8, [1, 0.2, 0.15], night)
-  }
-}
-
-/**
- * A contrail: a soft line of its own widths and alphas, spreading and thinning toward its old end. Drawn in runs of a few
- * points (one path each, butt-ended, so no beads where strokes overlap), three passes from wide and faint to narrow.
- */
-export function paintContrail(ctx: Ctx2D, desc: LayerOf<'contrail'>, _env: PaintEnv): void {
-  const r = rng(desc.seed)
-  const { points, widths, alphas } = desc
-  ctx.lineCap = 'butt'
-  ctx.lineJoin = 'round'
-  const RUN = 6
-  for (let i = 0; i < points.length - 1; i += RUN) {
-    const end = Math.min(points.length - 1, i + RUN)
-    let w = 0, a = 0
-    for (let j = i; j <= end; j++) { w += widths[j]; a += alphas[j] }
-    w /= end - i + 1
-    a /= end - i + 1
-    if (a < 0.01) continue
-    // Each puff keeps its own lump as the trail ages (seeded by when it was laid); else the run's.
-    const own = r()
-    const lump = desc.lumps?.[i] ?? 0.9 + 0.2 * own
-    const run = points.slice(i, end + 1)
-    const below = run.map(([x, y]): Pt => [x, y + w * 0.3])
-    // A spread trail is a soft band: a broad faint veil round it first.
-    if (w > 2.5) stroke(ctx, run, w * 2.8 * lump, css(desc.rgb, a * 0.08))
-    stroke(ctx, below, w * 1.3 * lump, css(desc.shade, a * 0.18))
-    stroke(ctx, run, w * 1.7 * lump, css(desc.rgb, a * 0.22))
-    stroke(ctx, run, w * 1.1 * lump, css(desc.rgb, a * 0.3))
-    stroke(ctx, run, w * 0.55 * lump, css(desc.rgb, a * 0.45))
   }
 }
 

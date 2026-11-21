@@ -55,3 +55,5 @@ if you must touch them), DRY, no dead code. Green before you hand back: `npx tsc
 `lifeTracks.test.ts`, `src/scene/react/useLifeClock.test.ts`, `src/scene/compose/compose.test.ts`,
 `src/world/lifeSchedule.test.ts` (use `--maxWorkers=2 --testTimeout=60000`). Then write `IMPL-2.md` here: per item what
 changed, the before/after measurements, and anything left.
+
+Never use a multi-line `npx tsx -e "..."` (it hangs on this Windows shell waiting on stdin): write a temp script file and run `npx tsx <file>`.

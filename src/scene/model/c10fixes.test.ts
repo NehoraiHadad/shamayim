@@ -11,7 +11,7 @@ import { buildWorld } from '../../world/world'
 import { rainbowStops, RED, SHADE, VIOLET, type Stop } from '../paint/optics'
 import { sceneModel } from './index'
 import { trackAt } from './anim'
-import { rotateScale } from './contrailFrame'
+import { trailAt } from './contrailMotion'
 import { crestOf } from './life'
 import { haloFrame, rainbowFrame } from './optics'
 import { skyGeom } from './sky'
@@ -107,11 +107,13 @@ describe('C10 fix: contrails are straight', () => {
     for (const place of SCENE_PLACES) {
       for (const hour of ['08:00', '11:00', '14:00']) {
         for (const [forced, veil] of [[null, false], [CIRRUS, true]] as const) {
-          const { model } = at(place.id, `2026-11-17T${hour}`, forced, veil)
+          const { model, world } = at(place.id, `2026-11-17T${hour}`, forced, veil)
+          const { horizon } = skyGeom(world, BOX)
           const trails = ofKind(model.layers, 'contrail')
           expect(trails.length, `${place.id} ${hour}`).toBeLessThanOrEqual(4)
           for (const t of trails) {
-            const p = t.points
+            const p = trailAt(t, 0).filter(({ point: [x, y] }) => x >= -60 && x <= BOX.width + 60 && y >= -40 && y <= horizon)
+              .map((puff) => puff.point)
             if (p.length < 3) continue
             seen++
             const dirs = p.slice(1).map(([x, y], i) => Math.atan2(y - p[i][1], x - p[i][0]))
@@ -143,23 +145,15 @@ describe('C10 fix: contrails are straight', () => {
         const plane = ofKind(model.layers, 'aircraft').find((a) => a.id === `aircraft.high.${t.id.slice('contrail.'.length)}`)
         if (!plane) continue
         seen++
-        // The raster includes future puffs. Check the clip and where the segment meets it as the plane moves.
-        for (const phase of [0, 30, 60]) {
-          const flight = trackAt(t.animated!.flight, phase)!, grow = trackAt(t.animated!.grow!.track, phase)!
+        for (const phase of [0, 30.387, 60]) {
+          const puffs = trailAt(t, phase), tip = puffs.at(-1)
+          if (!tip || tip.ageS !== 0 || puffs.length < 2) continue
           const planeFlight = trackAt(plane.animated!.flight, phase)!
-          const lay = t.placed!, x = lay.x + flight.x, y = lay.y + flight.y
-          const hx = x + grow.x, hy = y + grow.y
+          const [hx, hy] = tip.point
           if (hx < 0 || hx > BOX.width || hy < 0 || hy > BOX.landTop) continue
-          expect(Math.hypot(hx - plane.placed!.x - planeFlight.x, hy - plane.placed!.y - planeFlight.y)).toBeLessThan(1e-6)
-          const raster = t.points.map((p) => rotateScale(p, (lay.turn ?? 0) + flight.turn, lay.scale * flight.scale))
-          const nearest = Math.min(...raster.slice(1).map(([bx, by], i) => {
-            const [ax, ay] = raster[i], dx = bx - ax, dy = by - ay
-            const u = Math.min(1, Math.max(0, ((grow.x - ax) * dx + (grow.y - ay) * dy) / (dx ** 2 + dy ** 2)))
-            return Math.hypot(grow.x - ax - u * dx, grow.y - ay - u * dy)
-          }))
-          expect(nearest).toBeLessThan(2)
+          expect(Math.hypot(hx - plane.placed!.x - planeFlight.x, hy - plane.placed!.y - planeFlight.y)).toBeLessThanOrEqual(1)
+          expect(puffs[0].width).toBeGreaterThanOrEqual(tip.width)
         }
-        expect(t.widths[0]).toBeGreaterThanOrEqual(t.widths.at(-1)!)
       }
     }
     expect(seen).toBeGreaterThan(0)

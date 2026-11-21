@@ -202,7 +202,11 @@ export const PREVALENCE: Record<BirdKind, number> = { stork: 0.55, crane: 0.35, 
 export const CRUISE_M = 10_400
 
 /** A puff of a contrail: where the upper wind has carried it (km east, north; m up) and its age (s). */
-export interface TrailPuff { e: number; n: number; up: number; ageS: number; seed: number }
+export interface TrailPuff { e: number; n: number; up: number; ageS: number; seed: number
+  /** Seconds until a future puff is emitted. Its coordinates are pre-offset by that much wind. */
+  inS?: number
+  /** A snapshot endpoint between emissions, replaced by the continuous head in the scene. */
+  liveTip?: true }
 
 /** An airliner at cruise at the shown moment (`lifeSchedule.ts` `highAt`): the plane while it crosses, its trail's puffs. */
 export interface HighPlane {
@@ -215,8 +219,10 @@ export interface HighPlane {
   driftE: number
   driftN: number
   samples?: (FlightPoint | null)[]
-  /** Age-zero puffs ahead of the head, stored in the trail's undrifted raster at the shown minute. */
+  /** Age-zero puffs ahead of the head, with their positions referred to the start of this window. */
   futureTrail?: TrailPuff[]
+  /** Seconds from the start of this window until the final emission (negative after the crossing). */
+  trailEndInS?: number
   headingDeg: number
   speedMs: number
   persists: boolean

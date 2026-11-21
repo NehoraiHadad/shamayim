@@ -1,8 +1,10 @@
 import type { FlightPoint, HighPlane } from '../../world/life'
 import { skyDirection } from '../../world/lifeSchedule'
 import type { WorldState } from '../../world/types'
+import { periodDelta } from './anim'
+import { RAD } from './lifeTracks'
 import type { SkyGeom } from './sky'
-import { gnomonic, tangentFrame, tangentScale } from './tangent'
+import { gnomonic, tangentFrame, tangentScale, unitOf } from './tangent'
 import type { Pt } from './types'
 
 const direction = ({ e, n, up }: FlightPoint) => skyDirection(e, n, up)
@@ -13,46 +15,34 @@ export const rotateScale = ([x, y]: Pt, turn: number, scale: number): Pt => {
   return [c * x - s * y, s * x + c * y]
 }
 
-/** Keep the raster in one tangent frame throughout the crossing. Its straight ribbon has two registrations on the
- * dome: the fixed crossing start (far end) and the live head. This similarity preserves the straight projection while
- * meeting the dome-projected aircraft exactly. An expired head leaves the registration at the crossing end. */
+/** The fixed frame preserves the trail's shape. Match the head to the dome and set the ribbon's scale with a local
+ * 2 km chord to an advected puff. The dome gives its direction and the local tangent metric its length. The chord
+ * approximates along-course scale within 0.11% at the visible heads in the three fixture views. */
 export function contrailFrame(world: WorldState, geom: SkyGeom, plane: HighPlane) {
-  const { start, centre, end } = plane.crossing
+  const { centre } = plane.crossing
   const d = direction(centre)
   const k = tangentScale(world, geom, d.altitude)
   const frame = tangentFrame(d, [0, 0], k, world.camera.handed)
-  // The reference points can be more than 75° from closest approach. Culling for the raster is in screen space.
+  // The ends of a crossing can be more than 75° from closest approach. Cull in screen space.
   const project = (p: FlightPoint) => gnomonic(frame, direction(p), 1e-3)
-  const anchor = project(start)!
-  const startDir = direction(start)
-  const anchorX = geom.x(startDir.azimuth), anchorY = geom.dome(startDir.altitude)
-  const exactPeriod = 360 * world.camera.pxPerDeg * geom.s
-  const centreX = geom.x(d.azimuth)
-  const unwrap = (x: number) => x - Math.round((x - centreX) / exactPeriod) * exactPeriod
+  const heading = plane.headingDeg * RAD
+  const speedE = plane.speedMs / 1000 * Math.sin(heading) - plane.driftE
+  const speedN = plane.speedMs / 1000 * Math.cos(heading) - plane.driftN
+  const seconds = 2 / Math.hypot(speedE, speedN)
   const at = (point: FlightPoint) => {
     const head = direction(point)
     const x = geom.x(head.azimuth), y = geom.dome(head.altitude)
-    const source = sub(project(point)!, anchor)
-    const target: Pt = [unwrap(x) - unwrap(anchorX), y - anchorY]
-    // At the crossing's start both baselines are zero. Use their first one-metre chord for the limiting transform.
-    if (Math.hypot(...source) < 1e-6) {
-      const f = 0.001 / Math.hypot(end.e - start.e, end.n - start.n)
-      return registration({ e: start.e + (end.e - start.e) * f, n: start.n + (end.n - start.n) * f, up: start.up }, x, y)
-    }
-    return fit(source, target, x, y)
-  }
-  function registration(p: FlightPoint, x: number, y: number) {
-    const d = direction(p)
-    return fit(sub(project(p)!, anchor), [unwrap(geom.x(d.azimuth)) - unwrap(anchorX), geom.dome(d.altitude) - anchorY], x, y)
-  }
-  function fit(source: Pt, target: Pt, x: number, y: number) {
+    const here = project(point)!
+    const behind = { e: point.e - speedE * seconds, n: point.n - speedN * seconds, up: point.up }
+    const puff = direction(behind)
+    const source = sub(here, project(behind)!)
+    const target: Pt = [periodDelta(x - geom.x(puff.azimuth), geom.azimuthRange.period), y - geom.dome(puff.altitude)]
     const turn = angle(target) - angle(source)
-    const scale = Math.hypot(...target) / Math.hypot(...source)
-    return { turn, scale, x, y, origin: [x - target[0], y - target[1]] as Pt }
+    const u = unitOf(head), v = unitOf(puff)
+    const arcDeg = 2 * Math.asin(Math.hypot(u[0] - v[0], u[1] - v[1], u[2] - v[2]) / 2) / RAD
+    const scale = arcDeg * tangentScale(world, geom, head.altitude) / Math.hypot(...source)
+    const origin = sub([x, y], rotateScale(here, turn, scale))
+    return { turn, scale, x, y, origin }
   }
-  const point = (p: FlightPoint) => {
-    const pt = project(p)
-    return pt && sub(pt, anchor)
-  }
-  return { point, at, k }
+  return { point: project, at }
 }

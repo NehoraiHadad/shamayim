@@ -46,6 +46,8 @@ export interface WorldInput {
   now: LocalTime
   /** An hour picked in the strip (a preview), or null for now. */
   selected: LocalTime | null
+  /** Whole real minutes elapsed since anchoring the selected minute, for life positions and events. */
+  lifeOffsetMinutes?: number
   terrain: SceneTerrain
   /**
    * Unused since 2026-11-20: the sun and moon are judged on the land as drawn (`drawnSkyline.ts`), whatever panorama it

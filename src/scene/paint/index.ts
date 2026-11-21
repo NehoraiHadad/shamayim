@@ -11,7 +11,7 @@ import { paintPlane, paintPlaneLight } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
 import { paintBirds } from './birds'
-import { paintAircraft, paintContrail, paintMeteor } from './life'
+import { paintAircraft, paintMeteor } from './life'
 import { paintMilkyWay, paintPlanets, paintTwinkle } from './nightSky'
 import { paintBow } from './optics'
 import { paintWearDrip, paintWearItem, paintWearRope } from './wear'
@@ -59,7 +59,6 @@ export const PAINTERS: Painters = {
   loading: { form: paintLoading },
   birds: { form: paintBirds },
   aircraft: { form: paintAircraft },
-  contrail: { form: paintContrail },
   meteor: { form: paintMeteor },
   planets: { form: paintPlanets },
   twinkle: { form: paintTwinkle },

@@ -9,7 +9,7 @@ import {
   birdScores, CRUISE_M, dayOfYear, headingOf, METEOR_FLASH_S, meteorLook, meteorsOf, PREVALENCE, SHAPES, trailLight,
   type Aircraft, type BirdKind, type Flock, type HighPlane, type LifeInput, type LowPlane, type MeteorFlash, type SkyLife,
 } from './life'
-import { flockAhead, highAhead, lowAhead, trailAhead } from './lifeAhead'
+import { flockAhead, highAhead, lowAhead, trailAhead, trailPuffSeed } from './lifeAhead'
 import { smoothstep } from './ridgeLighting'
 import { apparentAltitude } from './skyProjection'
 
@@ -501,20 +501,20 @@ export function highAt(e: HighEvent, t: number): HighPlane {
   const trail: HighPlane['trail'] = []
   if (e.persists) {
     const from = Math.max(e.t0, t - e.lifeS)
-    const puff = (tau: number) => {
+    const puff = (tau: number, liveTip?: true) => {
       const p = highPoint(e, tau)
       const age = t - tau
       const E = p.e + e.driftE * age, N = p.n + e.driftN * age
-      if (Math.hypot(E, N) < CRUISE_REACH_KM + 10) trail.push({ e: E, n: N, up: e.upM, ageS: age, seed: hashId(`${e.id}:${Math.round(tau)}`) })
+      trail.push({ e: E, n: N, up: e.upM, ageS: age, liveTip, seed: trailPuffSeed(e.id, tau) })
     }
     // On a fixed grid of emission moments, so each puff keeps its own place and shape from frame to frame.
     for (let tau = Math.ceil(from / TRAIL_STEP_S) * TRAIL_STEP_S; tau < head; tau += TRAIL_STEP_S) puff(tau)
-    if (head > from) puff(head)
+    if (head > from) puff(head, head < e.t1 && head % TRAIL_STEP_S !== 0 ? true : undefined)
   }
   const crossing = { start: { ...highPoint(e, e.t0), up: e.upM }, centre: { e: e.cE, n: e.cN, up: e.upM },
     end: { ...highPoint(e, e.t1), up: e.upM } }
   return { id: e.id, plane: plane && { ...plane, up: e.upM }, crossing, headingDeg: e.headingDeg, speedMs: e.speedMs, persists: e.persists,
-    shortKm: e.shortKm, lifeS: e.lifeS, spreadM: e.spreadM, trail, seed: e.seed, driftE: e.driftE, driftN: e.driftN }
+    shortKm: e.shortKm, lifeS: e.lifeS, spreadM: e.spreadM, trail, trailEndInS: e.t1 - t, seed: e.seed, driftE: e.driftE, driftN: e.driftN }
 }
 
 /** A point along a polyline every 0.5 km, `km` from its start. */

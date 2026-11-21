@@ -1,5 +1,7 @@
 import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
+import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
+import { paintContrail } from '../paint/contrail'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { formKeyOf } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
@@ -78,12 +80,12 @@ export class Surface {
   }
 
   fresh(desc: LayerDesc) {
-    return this.active.fresh(desc, this.dpr)
+    return desc.kind === 'contrail' || this.active.fresh(desc, this.dpr)
   }
 
   /** Brings a layer up to date: painted here, or asked of the worker (sent by `flush`, or by `render`). */
   paint(desc: LayerDesc, phase = 0): Painted {
-    return this.active.update(desc, this.dpr, phase)
+    return desc.kind === 'contrail' ? 'none' : this.active.update(desc, this.dpr, phase)
   }
 
   /** Sends what was asked of the worker (a no-op without one). */
@@ -128,6 +130,7 @@ export class Surface {
     const d = this.dpr
     const cache = this.active
     for (const desc of [...layers].sort((a, b) => a.z - b.z)) {
+      if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const layout = layoutOf(desc, cached, d)
@@ -153,16 +156,12 @@ export class Surface {
       const opacity = alpha * (lay?.alpha ?? 1) * flown.alpha
       if (opacity <= 0.003) continue
       ctx.globalAlpha = Math.min(1, opacity)
-      const clipped = lay?.above !== undefined || Boolean(anim?.grow)
+      const clipped = lay?.above !== undefined
       if (clipped) ctx.save()
       if (lay?.above !== undefined) {
         ctx.beginPath()
         ctx.rect(0, 0, this.canvas.width, Math.round(lay.above * d))
         ctx.clip()
-      }
-      if (anim?.grow) {
-        const head = trackAt(anim.grow.track, motion, still)!
-        this.clipTrail((lay?.x ?? 0) + flown.x + head.x, (lay?.y ?? 0) + flown.y + head.y, anim.grow.angle + head.turn)
       }
       const period = (anim?.mode === 'drift' || anim?.mode === 'fall') && anim.period && k === 1 ? Math.round(anim.period * d) : 0
       const shift = period ? Math.round(driftAt(anim, motion) * d) : 0
@@ -221,22 +220,6 @@ export class Surface {
       if (clipped) ctx.restore()
       ctx.globalAlpha = 1
     }
-  }
-
-  /** Clip in surface coordinates to the half-plane behind the head. */
-  private clipTrail(x: number, y: number, angle: number) {
-    const ctx = ctxOf(this.canvas)
-    x *= this.dpr
-    y *= this.dpr
-    const span = Math.hypot(this.canvas.width, this.canvas.height) + Math.hypot(x, y) + 1
-    const u = Math.cos(angle) * span, v = Math.sin(angle) * span
-    ctx.beginPath()
-    ctx.moveTo(x - v, y + u)
-    ctx.lineTo(x + v, y - u)
-    ctx.lineTo(x + v - u, y - u - v)
-    ctx.lineTo(x - v - u, y + u - v)
-    ctx.closePath()
-    ctx.clip()
   }
 
   /**
@@ -321,6 +304,7 @@ export class Surface {
     const motion = still ? 0 : phase
     let out = still ? 's' : ''
     for (const desc of layers) {
+      if (desc.kind === 'contrail') { out += `${trailTimeAt(desc, motion, still)};`; continue }
       const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr)
       const anim = layer.animated
       if (!anim) continue
@@ -335,10 +319,6 @@ export class Surface {
       if (anim.flight) {
         const f = trackAt(anim.flight, motion, still)
         out += f ? `:${Math.round(f.x * this.dpr * 16)},${Math.round(f.y * this.dpr * 16)},${Math.round(f.scale * 1024)},${Math.round(f.alpha * 1024)},${Math.round(f.turn * 1024)}` : ':off'
-      }
-      if (anim.grow) {
-        const head = trackAt(anim.grow.track, motion, still)!
-        out += `:${Math.round(head.x * this.dpr * 16)},${Math.round(head.y * this.dpr * 16)},${Math.round(head.turn * 1024)}`
       }
       if (anim.sway) {
         const m = swayAt(anim.sway, motion, still)!

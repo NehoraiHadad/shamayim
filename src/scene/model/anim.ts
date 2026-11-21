@@ -83,6 +83,9 @@ const wrapTo = (v: number, period: number) => {
   return m < 0 ? m + period : m + 0
 }
 
+/** The shortest signed delta around a cyclic coordinate. */
+export const periodDelta = (delta: number, period: number) => delta - Math.round(delta / period) * period
+
 /**
  * Where a falling tile's pattern stands at `phase` (C7, surface px within `0…tile`): carried by its fall speed (the wind
  * across, the fall down), swayed across by `sway` for snow. A pure function of the spec and the phase.
@@ -156,7 +159,8 @@ export function settleEnd(specs: readonly (AnimSpec | undefined)[]): number {
 }
 
 /**
- * Interpolate linearly between path samples (2 s apart for life). Closed tracks are null between passes.
+ * Interpolate linearly between path samples (2 s apart for life). The fixture cruise midpoints were within 0.014 CSS px
+ * of direct projection. Closed tracks are null between passes.
  * Under reduced motion an open track holds sample 0, and a closed track holds its original rest pose.
  */
 export function trackAt(track: Track | undefined, phase: number, still = false) {
@@ -171,7 +175,12 @@ export function trackAt(track: Track | undefined, phase: number, still = false) 
   const k = f - i
   const [x0, y0] = track.path[i], [x1, y1] = track.path[j]
   const value = (values: number[] | undefined, fallback: number) => values ? values[i] + (values[j] - values[i]) * k : fallback
-  return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k,
+  let x = x0 + (x1 - x0) * k
+  const wrap = track.wrapX
+  if (k && wrap && Math.abs(x1 - x0) > wrap.period / 2) {
+    x = wrap.min + wrapTo(x0 + periodDelta(x1 - x0, wrap.period) * k - wrap.min, wrap.period)
+  }
+  return { x, y: y0 + (y1 - y0) * k,
     scale: value(track.scale, 1), alpha: value(track.alpha, 1), turn: value(track.turn, 0) }
 }
 

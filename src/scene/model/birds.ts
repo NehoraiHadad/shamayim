@@ -5,7 +5,7 @@ import type { WorldState } from '../../world/types'
 import { bodyAt, seen } from './birdFlight'
 import { layerKey, skyBoxKey } from './keys'
 import { placedInDepth, q, tone } from './life'
-import { birdPose, birdTrack, LIFE_START } from './lifeTracks'
+import { birdPoses, flightInView, LIFE_START, poseTrack, trackBaseAlpha } from './lifeTracks'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import type { BirdDesc, LayerOf, LifeClock, RGB, SceneBox } from './types'
@@ -94,10 +94,10 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     const yaw = q(yawOf(flock, world), 0.05) * 0.05, view = Math.round(flock.altitude)
     const birds = flockBirds(flock, look, k, yaw)
     const { x0, x1, y0, y1 } = boundsOf(birds, flock.kind, loop, yaw, view)
-    const placed = birdPose(world, geom, flock.nearM, flock)
-    const { scale, alpha, x, y } = placed
-    if (alpha < 0.01 || x + x1 * scale < -4 || x + x0 * scale > geom.width + 4 || y + y1 * scale < -4) continue
     const bounds = { x: Math.floor(x0), y: Math.floor(y0), w: Math.ceil(x1 - x0) + 2, h: Math.ceil(y1 - y0) + 2 }
+    const poses = birdPoses(world, geom, flock), first = poses[0]
+    if (!flightInView(poses, bounds, geom.width, Math.max(box.skyHeight, box.landTop + box.landHeight))) continue
+    const placed = { ...first, alpha: trackBaseAlpha(first) }
     // Their tones at their closest: dark against the sky, hazed by that distance; the pale parts in the sky's light, lit by the sun.
     const behind = sky(flock.altitude), nearFade = world.air.fade(flock.nearM / 1000)
     const ink: RGB = flock.kind === 'bat' ? [0.08, 0.07, 0.08] : [0.13, 0.13, 0.15]
@@ -110,7 +110,7 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     const layer: LayerOf<'birds'> = {
       kind: 'birds', id, surface: 'sky', z: 9.5, bird: flock.kind, birds, loop, flap: flapHz,
       soar: look.soar, rgb, lit, litA: direct, yaw, view, seed: flock.seed, bounds, placed,
-      animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: birdTrack(world, geom, flock, life) },
+      animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: poseTrack(poses, life, geom.azimuthRange) },
       key: layerKey(id, skyBoxKey(box), flock.kind, flock.seed, q(yaw, 0.05), view, bounds.x, bounds.y, bounds.w, bounds.h, tone(rgb), tone(lit), q(direct, 1 / 24)),
     }
     out.push(...placedInDepth(world, box, geom, layer, flock.distanceM / 1000, flock.blockedKm))

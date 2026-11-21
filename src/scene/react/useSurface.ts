@@ -11,7 +11,7 @@ import type { LayerDesc } from '../model/types'
 export const SCENE_STATS: SceneStats = makeStats()
 if (typeof window !== 'undefined') (window as Window & { __sceneStats?: SceneStats }).__sceneStats = SCENE_STATS
 
-const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+export const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   || Boolean((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData)
 
 /**
@@ -81,7 +81,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       ready.current?.()
     }
     let cancel = () => {}
-    const cold = layers.some((layer) => !surface.peek(layer.id))
+    const cold = layers.some((layer) => !surface.peek(layer.id) && !surface.fresh(layer))
     if (cold && surface.remote) {
       let live = true
       const start = performance.now()
