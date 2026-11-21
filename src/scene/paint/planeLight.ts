@@ -83,14 +83,32 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
 
   const lift = light.lift
   if (lift) {
-    if (desc.scrub.length) {
+    const { trees, tufts } = desc.vegetation
+    if (trees.length) {
+      // Soft elliptical sun-side crown catchlights (never sharp rectangular boxes).
       ctx.beginPath()
-      for (const dot of desc.scrub) {
-        if (dot.r < 0.7) continue
-        const cx = dot.x + lift.dx * dot.r * 0.35, cy = dot.y + lift.dy * dot.r * 0.45
-        ctx.rect(cx - dot.r * 0.45, cy - dot.r * 0.4, dot.r * 0.9, dot.r * 0.8)
+      for (let i = 0; i < trees.length; i += 6) {
+        const r = trees[i + 2]
+        if (r < 1.1) continue
+        const cx = trees[i] + lift.dx * r * 0.32, cy = trees[i + 1] - r * 0.58 + lift.dy * r * 0.36
+        const rx = r * 0.54, ry = r * 0.36
+        ctx.moveTo(cx + rx, cy)
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
       }
-      ctx.fillStyle = css(lift.rgb, lift.alpha)
+      ctx.fillStyle = css(lift.rgb, lift.alpha * 0.38)
+      ctx.fill()
+    }
+    if (tufts.length) {
+      ctx.beginPath()
+      for (let i = 0; i < tufts.length; i += 4) {
+        const r = tufts[i + 2]
+        if (r < 0.8) continue
+        const cx = tufts[i] + lift.dx * r * 0.30, cy = tufts[i + 1] + lift.dy * r * 0.35
+        const rx = r * 0.45, ry = r * 0.32
+        ctx.moveTo(cx + rx, cy)
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+      }
+      ctx.fillStyle = css(lift.rgb, lift.alpha * 0.50)
       ctx.fill()
     }
     if (desc.gullies.length) {

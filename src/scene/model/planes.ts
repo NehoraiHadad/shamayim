@@ -7,6 +7,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import { groundForm } from './ground'
 import { landBoxKey, layerKey } from './keys'
 import { planeSurfaceOf } from './landColour'
+import { EMPTY_VEGETATION, planeVegetationOf } from './landVegetation'
 import { planeLight } from './planeLight'
 import type { Box, LayerOf, Pt, SceneBox } from './types'
 
@@ -20,7 +21,7 @@ const Z: Record<PlaneName, number> = { back: 5, far: 10, near: 30 }
  */
 const MODEL: Record<PlaneName, number> = { back: 0.3, ...LAND_MODEL }
 /** Bumped when the form's drawing rules change, so cached forms are not reused across versions. */
-const FORM = 3
+const FORM = 4
 
 const shapes = new WeakMap<Plane, Map<string, { outline: Pt[]; top: number }>>()
 
@@ -59,14 +60,15 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   const k = MODEL[name]
   // The ground's texture on the near ridge only: haze takes it from the planes behind (and they are mostly hidden).
   const hidden = name === 'near' ? undefined : Math.min(box.landHeight, Math.ceil(Math.max(...world.terrain.near.points.map(([, y]) => y))) + 2)
-  const ground = name === 'back' ? { gullies: [], terraces: [], scrub: [] } : groundForm(world, box, name, clear)
+  const ground = name === 'back' ? { gullies: [], terraces: [] } : groundForm(world, box, name, clear)
   const surface = planeSurfaceOf(world, name, plane, box.landHeight)
+  const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.median, clear)
   return {
     kind: 'plane', plane: name, id: `plane.${name}`, surface: 'land', z: Z[name],
     // A plane behind the near ridge is hidden under its lowest crest: its canvases stop there.
     bounds: { x: 0, y: top, w: box.width, h: Math.max(1, (hidden ?? box.landHeight) - top) },
     key: layerKey('plane', name, FORM, world.keys.terrain, world.keys.place, world.keys.land, landBoxKey(box)),
-    outline, fill: surface.median, surfaceTone: surface.palette, ...ground,
+    outline, fill: surface.median, surfaceTone: surface.palette, ...ground, vegetation,
     grain: { amount: name === 'near' ? 1 : 0, seed: hashId(`${world.place.id}:${name}:grain`) },
     light: planeLight(world, box, name, plane, k, surface.median),
   }

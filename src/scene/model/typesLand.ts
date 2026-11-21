@@ -57,9 +57,43 @@ export interface PlanePalette {
 }
 
 /**
+ * Compact, structured-cloneable vegetation descriptor for one terrain plane (Stage 4: living land).
+ * Built on the FORM layer (keyed by `world.keys.land`, independent of hour/light/wind).
+ * Typed arrays keep Worker transfer tiny while storing per-tree `(height, phase)` ready for Stage 5 wind sway.
+ */
+export interface PlaneVegetation {
+  /** Coordinate-derived seed for deterministic painterly detail (never from place names). */
+  seed: number
+  /** Perspective horizon y (scene px) toward which orchard rows and field edges converge. */
+  horizonY: number
+  /** Tree & orchard crowns, back-to-front by y (stride 6: x, y, radius, height, phase, shade). */
+  trees: Float32Array
+  /** Per-tree metadata (stride 2: kind 0=pine 1=olive 2=citrus 3=palm; toneIdx into `tones`). */
+  treeMeta: Uint8Array
+  /** Ground-plane cropland field quads (stride 10: x0,y0, x1,y1, x2,y2, x3,y3, furrowAngle, alpha). */
+  fields: Float32Array
+  /** Per-field metadata (stride 2: state 0=growing 1=ploughed 2=straw; toneIdx into `tones`). */
+  fieldMeta: Uint8Array
+  /** Converging orchard/plantation row lines (stride 6: x0, y0, x1, y1, width, alpha). */
+  rows: Float32Array
+  /** Per-row metadata (stride 2: orchardKind 1=olive 2=citrus 3=palm; toneIdx into `tones`). */
+  rowMeta: Uint8Array
+  /** Scrub & grass tufts (stride 4: x, y, radius, alpha). */
+  tufts: Float32Array
+  /** Per-tuft metadata (stride 2: kind 0=shrub 1=grass; toneIdx into `tones`). */
+  tuftMeta: Uint8Array
+  /** Soft geological strata bands on bare/desert slopes (stride 6: x0, y0, x1, y1, thickness, alpha). */
+  strata: Float32Array
+  /** Per-strata tone index into `tones`. */
+  strataMeta: Uint8Array
+  /** Small shared light-free illustrated vegetation palette (≤ 13 muted sRGB tones). */
+  tones: RGB[]
+}
+
+/**
  * A plane's light part (C2 + Living Land Stage 3). The form under it carries the light-free quantised land albedo,
- * seeded patches, mottle, gullies, terraces and scrub; this canvas lays the scene's mood, wet-ground & aerial haze
- * veil (`veil`, `source-over`), snow, shaded and lit bands, floor shadow, crest rim and ground lift over it.
+ * seeded patches, mottle, gullies, terraces and vegetation; this canvas lays the scene's mood, wet-ground & aerial haze
+ * veil (`veil`, `source-over`), snow, shaded and lit bands, floor shadow, crest rim and ground/canopy lift over it.
  */
 export interface PlaneLight extends Omit<LightPart, 'tint'> {
   /** Source-over mood, wet-ground attenuation & aerial haze veil across the plane (x px -> [colour, alpha]). */

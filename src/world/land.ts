@@ -2,49 +2,36 @@ import { hashId, seeded } from '../data/landmarks/hash'
 import { COLUMN, footOf, type FaceColumn, type PlaneFace } from './face'
 import { groundAt as lineAt } from './sceneLight'
 import { SCENE_H } from './sceneBox'
-import type { Pt, RGB } from './types'
+import type { Pt } from './types'
 
 /**
- * What the ground of a plane carries, light-free: gullies cut down the slopes, terraces on the lower slopes, olive and
- * scrub drifts. Every one is placed by a general rule from the terrain data (the face's contours and slopes, `face.ts`)
- * and seeded by the place, never placed by hand:
- * - **gullies** run down the re-entrants of the face, where its contours bend back toward the crest (a valley cut into
- *   the slope), chained from contour to contour; a notch in the crest line starts one too;
- * - **terraces** follow the face's own contours on its lower, moderate slopes (not cliffs, not flat floors), in short
- *   seeded runs, as stone terraces follow the hillside;
- * - **scrub** gathers in drifts where the slope is moderate, thinner on flat floors and none on cliffs, larger where
- *   the ground is near.
- * Built once with the terrain's planes (scene px at the reference width); the scene model keeps them out of its text
- * zones (`scene/model/ground.ts`).
+ * Terrain-only morphological marks of a plane, light-free: gullies cut down the slopes and stone terraces on moderate
+ * lower slopes (placed from the face's contours and slopes, `face.ts`, seeded by the place). Vegetation (forest,
+ * orchards, fields, scrub/grass, desert strata) is driven by `WorldState.land` in `scene/model/landVegetation.ts`.
  */
 
 export interface LandGully { points: Pt[]; w: number; alpha: number }
-export interface LandDot { x: number; y: number; r: number; rgb: RGB }
-export interface LandForm { gullies: LandGully[]; terraces: Pt[][]; scrub: LandDot[] }
+export interface LandForm { gullies: LandGully[]; terraces: Pt[][] }
 
 /** How much of the modelling a plane carries: the near ridge all of it, a far one less (smaller marks, more haze). */
 export const LAND_MODEL = { near: 1, far: 0.5 } as const
 
-/** The value scrub is laid down in on the form (overlay: under 0.5 darkens the plane's tone, green shifts its hue). */
-const SCRUB_VALUE = [0.34, 0.41, 0.35] as const
-
 type Plane = { points: readonly Pt[] }
 
-/** The ground of the near and the far plane, seeded by the place. */
+/** The ground morphology of the near and the far plane, seeded by the place. */
 export function landOf(planes: Record<'near' | 'far', Plane>, faces: Record<'near' | 'far', PlaneFace>, placeId: string): Record<'near' | 'far', LandForm> {
   return { near: planeLand(planes.near, faces.near, placeId, 'near'), far: planeLand(planes.far, faces.far, placeId, 'far') }
 }
 
 function planeLand(plane: Plane, face: PlaneFace, placeId: string, name: 'near' | 'far'): LandForm {
   const k = LAND_MODEL[name]
-  if (plane.points.length < 2) return { gullies: [], terraces: [], scrub: [] }
+  if (plane.points.length < 2) return { gullies: [], terraces: [] }
   const floor = SCENE_H
   const crestAt = (x: number) => lineAt(plane.points, x)
   const seed = (part: string) => seeded(hashId(`${placeId}:${name}:${part}`))
   return {
     gullies: gulliesOf(face, { k, floor, crestAt, r: seed('gully') }),
     terraces: name === 'near' ? terracesOf(face, { floor, crestAt, r: seed('terrace') }) : [],
-    scrub: scrubOf(face, { k, floor, crestAt, r: seed('scrub') }),
   }
 }
 
@@ -164,36 +151,4 @@ function terracesOf(face: PlaneFace, { floor, crestAt, r }: Ctx): Pt[][] {
     }
   }
   return out
-}
-
-function scrubOf(face: PlaneFace, { k, floor, crestAt, r }: Ctx & { k: number }): LandDot[] {
-  const cols = face.columns
-  if (!cols.length) return []
-  const out: LandDot[] = []
-  const drifts = Math.round((10 + cols.length * 0.16) * k)
-  for (let d = 0; d < drifts; d++) {
-    const column = cols[Math.floor(r() * cols.length)]
-    const foot = Math.min(floor - 1, column.points.length ? footOf(column) : floor)
-    const cx = column.x + (r() - 0.5) * COLUMN
-    const cy = column.crest + 3 + r() * Math.max(0, foot - column.crest - 3)
-    const at = pointAt(column, cy)
-    const slope = at?.slope ?? 0.08
-    const km = at?.km ?? 2
-    // Drifts on moderate slopes; fewer on flat floors (fields), none on cliffs.
-    const p = slope > 0.9 ? 0 : slope < 0.01 ? 0.35 : 0.3 + 0.7 * Math.exp(-(((slope - 0.12) / 0.14) ** 2))
-    const n = 4 + Math.floor(r() * 10)
-    const accepted = r() < p
-    const size = nearness(km)
-    const spread = 4 + 5 * size
-    for (let j = 0; j < n; j++) {
-      const a = r() * Math.PI * 2, rr = r() ** 0.7 * spread, grow = r()
-      if (!accepted) continue
-      const x = cx + Math.cos(a) * rr * 1.6, y = cy + Math.sin(a) * rr * 0.55
-      const s = size * (0.55 + 0.7 * grow) * (1 - rr / (spread * 1.6))
-      if (s < 0.3 || y < crestAt(x) + 1.2 + s || y > floor - 0.8) continue
-      const dark = 0.9 + 0.2 * grow
-      out.push({ x, y, r: s, rgb: [SCRUB_VALUE[0] * dark, SCRUB_VALUE[1] * dark, SCRUB_VALUE[2] * dark] })
-    }
-  }
-  return out.sort((a, b) => a.y - b.y)
 }
