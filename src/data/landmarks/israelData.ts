@@ -13,10 +13,26 @@ export interface IsraelLandmarkIndex {
 }
 
 const ROOT = `${import.meta.env.BASE_URL}data/landmarks/il`
-// The drawn crop detail fades by ~2 km at reference resolution. Allow another km for polygon centres.
+// The drawn crop detail fades by ~2 km at reference resolution. Allow another km for nearby footprints.
 const CROP_REACH_KM = 3
+// Extra margin for sector selection so a polygon overlapping the reach box from across a 0.5° sector edge is still fetched.
+const CROP_SECTOR_PAD_KM = 1
 let indexPromise: Promise<IsraelLandmarkIndex | null> | null = null
 const cropPromises = new Map<string, Promise<CropRow[]>>()
+
+function areaIntersectsBox(area: CropArea, [south, west, north, east]: readonly [number, number, number, number]): boolean {
+  for (const rings of area.polygons) {
+    let pSouth = Infinity, pNorth = -Infinity, pWest = Infinity, pEast = -Infinity
+    for (const [lon, lat] of rings[0]) {
+      if (lat < pSouth) pSouth = lat
+      if (lat > pNorth) pNorth = lat
+      if (lon < pWest) pWest = lon
+      if (lon > pEast) pEast = lon
+    }
+    if (pNorth >= south && pSouth <= north && pEast >= west && pWest <= east) return true
+  }
+  return false
+}
 
 function box(place: Place, eastKm: number, northKm: number) {
   const lat = northKm / 111.32
@@ -75,15 +91,16 @@ export async function loadIsrael(place: Place, signal: AbortSignal): Promise<Lan
   if (!index || !inCoverage(index, place)) return null
   const strip = cellsForStrip(place)
   const cells = strip.filter((cell) => index.cells.includes(cell))
-  const cropStrip = new Set(cellsForBox(box(place, CROP_REACH_KM, CROP_REACH_KM)))
-  const sectors = [...new Set([...cropStrip].map((cell) => {
+  const cropBox = box(place, CROP_REACH_KM, CROP_REACH_KM)
+  const sectorBox = box(place, CROP_REACH_KM + CROP_SECTOR_PAD_KM, CROP_REACH_KM + CROP_SECTOR_PAD_KM)
+  const sectors = [...new Set(cellsForBox(sectorBox).map((cell) => {
     const [lat, lon] = cell.split('_').map(Number)
     return cropSectorOf(lat / 10, lon / 10)
   }))]
   const [rows, areas] = await Promise.all([Promise.all(cells.map((cell) => loadCell(cell, signal))), Promise.all(sectors.map(cropCell))])
   const places = rows.flat().map(([kind, lat, lon, heightM, nameHe, fame]): Landmark => ({ id: `il-${kind}-${lat}-${lon}`,
     kind, lat, lon, heightM, ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}) }))
-  const crops = areas.flat().filter(([lat, lon]) => cropStrip.has(`${Math.floor(lat * 10)}_${Math.floor(lon * 10)}`))
+  const crops = areas.flat().filter(([, , cropArea]) => areaIntersectsBox(cropArea, cropBox))
     .map(([lat, lon, cropArea], i): Landmark => ({
     id: `il-crop-${i}`, kind: cropArea.kind === 'palm' ? 'palms' : cropArea.kind === 'vineyard' ? 'vineyard' : 'orchard',
     lat, lon, heightM: 0, source: 'osm', cropArea, areaOnly: true,

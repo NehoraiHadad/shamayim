@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../config/place'
 import { cellsForStrip, inCoverage, loadIsrael, resetIsraelDataForTests,
@@ -64,6 +66,36 @@ describe('Israel landmark cells', () => {
     const result = await loadLandmarkSource(place(), new AbortController().signal)
     expect(result.cropAreas).toEqual([crop])
     expect(result.sceneMarks.some((m) => m.kind === 'palms')).toBe(false)
+  })
+
+  it('bounds kept crop polygons by actual distance to the place (staying compact at dense Jerusalem)', async () => {
+    const nearCrop = { source: 'osm', kind: 'olive', polygons: [[[
+      [35.10, 31.605], [35.105, 31.605], [35.105, 31.61], [35.10, 31.61], [35.10, 31.605],
+    ]]] }
+    // Same 0.1° cell (316_351), ~8.5 km away — must be rejected instead of kept by coarse cell membership.
+    const sameCellFar = { source: 'osm', kind: 'orchard', polygons: [[[
+      [35.18, 31.66], [35.19, 31.66], [35.19, 31.67], [35.18, 31.67], [35.18, 31.66],
+    ]]] }
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('index.json')) return new Response(JSON.stringify(index()))
+      return String(input).endsWith('/crops/63_70.json')
+        ? new Response(JSON.stringify([[31.607, 35.102, nearCrop], [31.665, 35.185, sameCellFar]]))
+        : new Response('', { status: 404 })
+    }))
+    const filtered = await loadLandmarkSource(place(), new AbortController().signal)
+    expect(filtered.cropAreas).toEqual([nearCrop])
+
+    // Real dense sector (Jerusalem, 63_70.json): keeps only polygons overlapping ±3 km, not all 647 cell-box polygons.
+    resetIsraelDataForTests()
+    const root = path.resolve(__dirname, '../../..')
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const file = path.join(root, 'public', String(input).replace(/^\//, ''))
+      return fs.existsSync(file) ? new Response(fs.readFileSync(file)) : new Response('', { status: 404 })
+    }))
+    const jerusalem = await loadLandmarkSource(place({ id: 'jerusalem', lat: 31.769, lon: 35.2163 }), new AbortController().signal)
+    expect(jerusalem.cropAreas.length).toBeGreaterThan(0)
+    expect(jerusalem.cropAreas.length).toBeLessThan(80)
+    expect(JSON.stringify(jerusalem.cropAreas).length).toBeLessThan(60_000)
   })
 })
 

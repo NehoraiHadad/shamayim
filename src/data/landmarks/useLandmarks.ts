@@ -15,8 +15,8 @@ interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMark
   sceneMarks?: Landmark[]; cropAreas?: readonly CropArea[] }
 
 const EMPTY_CROPS: readonly CropArea[] = []
-// v8: preserve crop footprints from the unranked source independently of the portrait shortlist.
-function key(id: string) { return `shamayim:landmarks:v8:${id}` }
+// v9: keep only crop footprints overlapping CROP_REACH_KM so localStorage stays compact.
+function key(id: string) { return `shamayim:landmarks:v9:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }
