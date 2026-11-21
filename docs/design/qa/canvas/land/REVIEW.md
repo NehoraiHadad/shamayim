@@ -649,6 +649,24 @@ whole state, and never clone it per scrub frame.
 
 **Verdict:** changes requested
 
+### **Answers (round 1)**
+
+Written by the orchestrator (Claude Code): the writer made the fixes below, then hit its quota before writing this block; the checks were re-run by the orchestrator.
+- `vegSample.ts:58` (major) — fixed in `cf2e47f`: one shared face projection (`faceProjection.ts`) for Stage 3 albedo and vegetation, so both assign the same distance below the last visible DEM point.
+- `landVegetation.ts:106` (major) — fixed in `d69c162`: every field corner, orchard line, tree and tuft is checked against the projected cover where it lands (cover containment), with clear zones.
+- `vegBuilders.ts:70` (major) — fixed in `d69c162`: orchard rows projected in metres (`vegAgriBuilders.ts`); rows are drawn only where the real spacing is resolvable.
+- `vegRules.ts:83` (major) — fixed in `d69c162`: eligibility uses slope magnitude `|slope|` (`vegRules.ts:99`) and requires independent evidence for orchards; date palms only by the documented arid-oasis rule on flat ground.
+- `landVegetation.ts:112` (major) — fixed in `d69c162`: per-cell seeded RNG, so a class change in one cell no longer moves vegetation in others (regression test in `landVegIntegrity.test.ts`).
+- `planeLight.ts:93` (minor) — fixed in `d69c162`: catchlights placed per kind at the crown and tied to the tuft opacity (`planeLight.ts`, `landVegCrowns.ts`).
+- `vegBuilders.ts:26` (minor) — fixed in `d69c162`/`cf2e47f`: enforced total byte ceiling with its derivation (`vegBuilders.ts:12,32`, `landVegetation.ts:32`); light-only jobs no longer carry the full descriptor (`paintJob.ts`, `remoteCache.ts`).
+- `REVIEW.md:626` (minor, perf) — addressed in `cf2e47f`: `groundForm` cached (terrace projection and cover sampling no longer per scrub). Fresh app numbers to be recorded at the gate.
+- `typesLand.ts:67` (minor) — fixed in `d69c162`: unused `horizonY`/furrow angle/duplicated kind byte removed; unused albedo blend dropped from `vegSample.ts`.
+- `land.perf.mjs:145` (minor) — fixed in `4e6b5be`: asserts the exact `s2-mean:2026-11-15+climatology` source at the missing tile.
+- `types.ts:440` (nit) — corrected: `types.ts` is 563 lines and `compose/surface.ts` 359 (pre-existing shared files, not grown by this stage); the earlier "all ≤145 lines" claim was inaccurate.
+- **Orchestrator visual (major)** — fixed in `d69c162` + re-captured stills: readable woodland crowns and scrub tufts on the near slopes (Galilee, Jordan valley); pixel references re-recorded for this intended change: `shadmot-mehola-0620@2x`, `tiberias-1200@2x`.
+
+Checks (orchestrator, on the round-1 head): `npx tsc -b` pass; vitest 145 files / 1318 tests pass (`--testTimeout=20000`); `npm run build` pass; `npm run test:pixels` 66/66.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
