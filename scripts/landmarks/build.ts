@@ -15,6 +15,7 @@ export interface LandmarkIndex {
   source: 'OpenStreetMap via Geofabrik (ODbL)'
   bbox: [number, number, number, number]
   cells: string[]
+  heights?: 'evidence'
 }
 interface BuildOptions { outputDir: string; generatedAt?: string; bbox?: LandmarkIndex['bbox']; maxCellBytes?: number }
 
@@ -93,7 +94,7 @@ export async function buildDataset(input: string, options: BuildOptions) {
     await writeFile(`${options.outputDir}/${cell}.json`, contents)
   }
   const index: LandmarkIndex = { generatedAt: options.generatedAt ?? new Date().toISOString(), source: SOURCE,
-    bbox: options.bbox ?? ISRAEL_EXTRACT_BBOX, cells }
+    bbox: options.bbox ?? ISRAEL_EXTRACT_BBOX, cells, heights: 'evidence' }
   const indexJson = JSON.stringify(index)
   bytes += Buffer.byteLength(indexJson)
   await writeFile(`${options.outputDir}/index.json`, indexJson)

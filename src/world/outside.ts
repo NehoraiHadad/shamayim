@@ -1,8 +1,9 @@
 import { boundsHoldKm, placeBounds, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
-import { LAT_STEP, LON_STEP } from '../data/city/grid'
+import { LON_STEP } from '../data/city/grid'
+import { clusterReach, homeByName } from '../data/city/homeCluster'
 import {
   baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
-  outsideProject, outsideSkyline, SILHOUETTE_W, SKYLINE_TO_KM, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
+  outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
   type OutsideLook, type OutsideSkyline, type PlaceLie,
 } from '../data/city/outsideView'
 import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
@@ -16,12 +17,13 @@ import type { Landmark } from '../data/landmarks/types'
 import { apparentAngle, LOCAL_REACH_KM, LOCAL_STEP_KM } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
-import { SCENE_CAMERA, xOf } from '../domain/camera'
+import { BEYOND_MIN_PX, beyondKm, beyondTowns, builtSquares, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
 import { ridgeHeightAt } from './datum'
 import { VISIBLE_BOTTOM } from './layout'
-import { SCENE_H, SCENE_W } from './sceneBox'
-import { groundAt as lineAt } from './sceneLight'
+import { SCENE_H } from './sceneBox'
 import type { BeyondBlock, BeyondTower, CoastalSea, OutsideTreeSite, OutsideView, Pt } from './types'
+
+export { rowKm } from './beyondSeat'
 
 /**
  * The place seen from outside, the canvas scene's rules (CANVAS-SCENE-PLAN.md C5; SKYLINE.md variant B and its open
@@ -43,9 +45,6 @@ import type { BeyondBlock, BeyondTower, CoastalSea, OutsideTreeSite, OutsideView
  *   under the lowest rows).
  */
 
-/** The haze a row of the place takes: the near ridge's distance at the dot, plus how far south of the near edge it is. */
-export const rowKm = (frame: OutsideFrame, baseKm: number, dy: number) => baseKm + Math.max(0, frame.n - dy)
-
 /** Rows of the coastal sea across the place's depth. */
 const SEA_ROWS = 16
 /** Px between samples along a row of the coastal sea. */
@@ -66,6 +65,7 @@ export interface OutsidePlace {
   beyond: BeyondTower[]
   /** C9: the towns beyond the place within the skyline's reach (6 km), where the far towns do not reach. */
   beyondTowns: BeyondBlock[]
+  seatMark: SeatMark
   sea: CoastalSea | null
   /** The near ridge's distance at the dot (km): the place's nearest row takes this haze. */
   baseKm: number
@@ -95,7 +95,7 @@ export interface OutsidePlace {
 }
 
 export interface OutsideInput {
-  place: Coordinate
+  place: Coordinate & { nameHe?: string }
   terrain: SceneTerrain
   landmarks: readonly Landmark[]
   city: CityResult | null | undefined
@@ -216,24 +216,6 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   return { cells, trees, source: 'raster' as const }
 }
 
-/** Every built square (≥ 20 % built) of the raster within the reach: its spot in km. */
-function builtSquares(place: Coordinate, city: CityResult | null | undefined, reachKm: number) {
-  const raster = city?.raster
-  if (!raster) return []
-  const cos = Math.cos(place.lat * Math.PI / 180)
-  const south = place.lat - reachKm / 111.32, north = place.lat + reachKm / 111.32
-  const west = place.lon - reachKm / (111.32 * cos), east = place.lon + reachKm / (111.32 * cos)
-  const out: { dx: number; dy: number }[] = []
-  for (let row = Math.floor(south / LAT_STEP); row <= Math.floor(north / LAT_STEP); row++) {
-    for (let col = Math.floor(west / LON_STEP); col <= Math.floor(east / LON_STEP); col++) {
-      const lat = (row + .5) * LAT_STEP, lon = (col + .5) * LON_STEP
-      if (raster.at(lat, lon).built < .2) continue
-      out.push(offsetKm(place, { lat, lon }))
-    }
-  }
-  return out
-}
-
 const quantile = (values: ArrayLike<number>, q: number) => {
   if (!values.length) return null
   const sorted = Float64Array.from(values).sort()
@@ -342,7 +324,9 @@ function groundSamples(frame: OutsideFrame, heightNear: (dx: number, dy: number)
  */
 function lieOf(input: OutsideInput) {
   const { place, terrain, city, reachKm, centerX, width, ground, floor } = input
-  const pb = placeBounds(place, input.bounds, reachKm)
+  const home = homeByName(city?.clusters ?? [], place.nameHe)
+  const at = home?.place?.at
+  const pb = placeBounds(place, input.bounds, reachKm, home && at ? { ...at, reachKm: clusterReach(home, at) } : undefined)
   const inPlace = pb ? (dx: number, dy: number) => boundsHoldKm(pb, place, dx, dy) : undefined
   const fabric = fabricOf(place, input, inPlace, pb?.box ?? null)
   const squares = fabric.cells
@@ -355,7 +339,7 @@ function lieOf(input: OutsideInput) {
     const box = squares.length ? { w: at(xs, FRAME_Q) - .03, e: at(xs, 1 - FRAME_Q) + .03,
       s: at(ys, FRAME_Q) - .03, n: at(ys, 1 - FRAME_Q) + .03 } : pb?.box ?? null
     frame = frameOfBox(box, reachKm, centerX, width, true, FRAME_SCALE)
-  } else frame = outsideFrame(city?.clusters, reachKm, centerX, width, true)
+  } else frame = outsideFrame(city?.clusters, reachKm, centerX, width, true, place.nameHe)
   const bounds = { source: pb?.source ?? 'cluster' as const, ...(pb?.name ? { name: pb.name } : {}) }
   const heightNear = terrain.heightNear
   // Each built cell's ground in the frame, once (NaN outside it or the local grid).
@@ -644,28 +628,6 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
   return rises ? { top: pts, base, heightM, km: input.terrain.sightAt?.(frame.centerX * 375 / width).nearKm ?? 1 } : null
 }
 
-/** A tower beyond the crest shows when the panorama sees at least this many px of it over the land in front. */
-const BEYOND_MIN_PX = 2.5
-
-/**
- * Px of a thing (`heightM` tall, at km east / north of the place) the panorama truly sees over the near ridge from the
- * eye, at its true bearing and distance on the land's own scale (`seenAt`, as the far towns are placed); 0 when the land
- * in front hides it or the panorama cannot say, unbounded when it stands in front of the near ridge.
- */
-function overTheCrest(terrain: SceneTerrain, dx: number, dy: number, heightM: number): number {
-  const { seenAt } = terrain
-  if (!seenAt) return 0
-  const camera = terrain.camera ?? SCENE_CAMERA
-  const x = xOf(Math.atan2(dx, dy) * 180 / Math.PI, camera) * SCENE_W / camera.width
-  if (x < 0 || x > SCENE_W) return 0
-  const km = Math.hypot(dx, dy)
-  // In front of the near ridge: the whole of it stands on the land in view.
-  if (terrain.sightAt && km <= terrain.sightAt(x).nearKm) return Infinity
-  const seen = seenAt(x, km, heightM)
-  if (!seen) return 0
-  return Math.max(0, Math.min(seen.groundY, lineAt(terrain.nearPoints, x)) - seen.y)
-}
-
 /**
  * The towers beyond the place within the near skyline's reach (6 km), in the outside view's own perspective (C5b item 5):
  * at their true spot east / north, so a tower beyond is as far from that eye as it truly is: its x and base by the same
@@ -693,7 +655,7 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, l
     const over = overTheCrest(input.terrain, tower.dx, tower.dy, tower.heightM)
     if (over < BEYOND_MIN_PX) return []
     const h = Math.min(look.px(tower.heightM, k), over)
-    const km = Math.max(baseKm + Math.max(0, Math.hypot(tower.dx, frame.eyeN - tower.dy) - (frame.eyeN - frame.n)), rowKm(frame, baseKm, tower.dy))
+    const km = beyondKm(frame, baseKm, tower.dx, tower.dy)
     return [{ tower, at: { ...at, k }, h, km, famous: Boolean(mark), name: mark?.nameHe ?? tower.name,
       seed: hashId(`${tower.lat.toFixed(5)}:${tower.lon.toFixed(5)}`) }]
   }).sort((a, b) => Number(b.famous) - Number(a.famous) || b.tower.heightM - a.tower.heightM)
@@ -719,48 +681,6 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, l
       dx: t.tower.dx, dy: t.tower.dy })
   }
   // Far first, then across.
-  return out.sort((a, b) => b.km - a.km || a.x - b.x)
-}
-
-/** A town beyond shows when this many px of it stand over the land in front. */
-const TOWN_MIN_PX = .8
-
-/**
- * The towns beyond the place within the near skyline's reach (C9 defect 6): the far towns start at that reach
- * (`SKYLINE_TO_KM`, 6 km) and the outside view drew only the place's own fabric, so a neighbour 4–6 km out had its towers
- * (`beyondTowers`) and no town at their feet. Every built square of the city raster (≥ 20 % built) outside the place and
- * within the reach is drawn by the towers beyond's own rule: at its true spot in the outside view's projection, as wide
- * as it truly is there, its roof's height by the perspective (never nearer than the place's near edge), no more than the
- * panorama sees of it over the land in front (none when hidden), hazed by its distance. Far first.
- */
-function beyondTowns(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, look: OutsideLook, baseKm: number): BeyondBlock[] {
-  const { place, city, width, ground, floor } = input
-  const raster = city?.raster
-  if (!raster) return []
-  const cos = Math.cos(place.lat * Math.PI / 180)
-  const wKm = LON_STEP * 111.32 * cos
-  const nearK = outsideProject(frame, 0, frame.n).k
-  const out: BeyondBlock[] = []
-  for (const sq of builtSquares(place, city, SKYLINE_TO_KM)) {
-    const km0 = Math.hypot(sq.dx, sq.dy)
-    if (km0 > SKYLINE_TO_KM || frame.eyeN - sq.dy <= .5) continue
-    if (inFrame(frame, sq.dx, sq.dy) && (lie.inPlace?.(sq.dx, sq.dy) ?? true)) continue
-    const at = outsideProject(frame, sq.dx, sq.dy)
-    if (at.x < -4 || at.x > width + 4) continue
-    const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
-    const cell = raster.at(lat, lon)
-    const seed = hashId(`town:${lat.toFixed(4)}:${lon.toFixed(4)}`)
-    const heightM = roofHeight(cell.levels, cell.p90, seeded(seed)())
-    const over = overTheCrest(input.terrain, sq.dx, sq.dy, heightM)
-    if (over < TOWN_MIN_PX) continue
-    const k = Math.min(at.k, nearK)
-    const h = Math.min(look.px(heightM, k), over)
-    if (h < TOWN_MIN_PX) continue
-    const w = Math.max(.8, wKm * frame.f / at.depth)
-    const baseY = Math.max(ground(at.x) + 1, lieBaseY(lie, ground, at.x, at.near, floor, w, sq.dx, sq.dy))
-    const km = Math.max(baseKm + Math.max(0, Math.hypot(sq.dx, frame.eyeN - sq.dy) - (frame.eyeN - frame.n)), rowKm(frame, baseKm, sq.dy))
-    out.push({ x: at.x, baseY, w, h, km, heightM, seed })
-  }
   return out.sort((a, b) => b.km - a.km || a.x - b.x)
 }
 
@@ -947,7 +867,7 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
     return [{ x: at.x, base, w, h: Math.max(1, look.px(t.heightM, at.k)), near: at.near, kind: t.kind, seed: t.seed, km: rowKm(frame, baseKm, t.dy) }]
   })
   return { frame, skyline, bounds, topM, lie, beyond: beyondTowers(shaped, frame, lie, look, baseKm),
-    beyondTowns: beyondTowns(shaped, frame, lie, look, baseKm), trees, fabric: fabric.source,
+    ...beyondTowns(shaped, frame, lie, look, baseKm), trees, fabric: fabric.source,
     sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land, vscale, nearLine,
     seaLevelY: vscale ? levelY(0, 0, 0) : null, zeroAlongRow: () => zeroAlongRow(terrain, frame, width) }
 }

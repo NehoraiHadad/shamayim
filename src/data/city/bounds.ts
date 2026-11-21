@@ -81,11 +81,19 @@ export function inRings(rings: readonly (readonly [number, number])[][], lat: nu
 /** Km east / north of the place per degree (the frame's own flat measure, as `offsetKm`). */
 const kmPer = (place: Coordinate) => ({ x: 111.32 * Math.cos(place.lat * Math.PI / 180), y: 111.32 })
 
+/** Place point reach (`BoundsPoint[3]`) is stored in tenths of a km (0.1 km units). */
+const REACH_PER_KM = 10
 /** How strongly a place point claims a spot (km offsets): distance over its reach (the clusters' rule, `splitByPlace`). */
-const claim = (px: number, py: number, reach: number, x: number, y: number) => Math.hypot(x - px, y - py) * 10 / Math.max(1, reach)
+const claim = (px: number, py: number, reach: number, x: number, y: number) => Math.hypot(x - px, y - py) * REACH_PER_KM / Math.max(1, reach)
 
 /** The mask's cell (km): finer than a built square of the city raster (~118 × 232 m). */
 const STEP = .05
+/**
+ * Tolerance (km) for matching a cluster's OSM place node (`cityOffset` from `cell.p`) to its point in `bounds.json`.
+ * `scripts/city/bounds.ts` copies `cell.p` coordinates verbatim (only polygon rings are simplified to 40 m), so the gap
+ * is 0 on matching builds; 50 m (one mask `STEP`) absorbs minor extract drift without latching onto a neighbour.
+ */
+const OWN_POINT_KM = .05
 
 /**
  * The bounds as a mask over the square of `reachKm` round the place (cells of `STEP` km), with its extent; a spot outside
@@ -117,23 +125,26 @@ function masked(place: Coordinate, reachKm: number, fill: (row: number, y: numbe
 }
 
 /**
- * The place's boundary: the mapped boundary that holds the place (the smallest, if nested), else the weighted cell of
- * the place point that claims the place most strongly. Null when there are no place points near it at all. The mask
- * covers `reachKm` round the place (the outside view's frame never reaches further).
+ * The place's boundary: the smallest mapped boundary that holds the place, then one holding its own mapped point.
+ * Otherwise use the weighted cell of the bounds point matching `own` (within `OWN_POINT_KM`), falling back to the
+ * strongest claimant at the place point when `own` is omitted or no bounds point matches it.
+ * The mask covers `reachKm` round the place (the outside view's frame never reaches further).
  */
-export function placeBounds(place: Coordinate, file: BoundsFile | null | undefined, reachKm: number): PlaceBounds | null {
+export function placeBounds(place: Coordinate, file: BoundsFile | null | undefined, reachKm: number,
+  own?: { dx: number; dy: number; reachKm: number }): PlaceBounds | null {
   if (!file?.points.length) return null
   const per = kmPer(place)
   const km = ([lat, lon]: readonly [number, number] | BoundsPoint) => [(lon - place.lon) * per.x, (lat - place.lat) * per.y] as const
   const reach = reachKm + .5
-  let best: { b: BoundsFile['bounds'][number]; rings: (readonly [number, number])[][]; size: number } | null = null
+  let best: { b: BoundsFile['bounds'][number]; rings: (readonly [number, number])[][]; size: number; holdsPlace: boolean } | null = null
   for (const b of file.bounds) {
     const [px, py] = km(file.points[b.at])
     if (Math.hypot(px, py) > 40) continue
     const rings = b.rings.map(decodeRing)
-    if (!inRings(rings, place.lat, place.lon)) continue
+    const holdsPlace = inRings(rings, place.lat, place.lon)
+    if (!holdsPlace && (!own || best?.holdsPlace || !inRings(rings, place.lat + own.dy / per.y, place.lon + own.dx / per.x))) continue
     const size = rings.reduce((sum, ring) => sum + ring.length, 0)
-    if (!best || size < best.size) best = { b, rings, size }
+    if (!best || (holdsPlace && !best.holdsPlace) || size < best.size) best = { b, rings, size, holdsPlace }
   }
   if (best) {
     const rings = best.rings.map((ring) => ring.map(km))
@@ -153,9 +164,16 @@ export function placeBounds(place: Coordinate, file: BoundsFile | null | undefin
   // Rivals that could claim a spot within the reach (a city's own reach is up to ~8 km).
   const near = file.points.map((p) => ({ p, at: km(p) })).filter(({ at }) => Math.hypot(at[0], at[1]) <= reach + 12)
   if (!near.length) return null
-  const owner = near.reduce((a, b) => claim(b.at[0], b.at[1], b.p[3], 0, 0) < claim(a.at[0], a.at[1], a.p[3], 0, 0) ? b : a)
+  const matched = own
+    ? near.reduce<{ entry: typeof near[number]; dist: number } | null>((best, entry) => {
+        const dist = Math.hypot(entry.at[0] - own.dx, entry.at[1] - own.dy)
+        return dist <= OWN_POINT_KM && (!best || dist < best.dist) ? { entry, dist } : best
+      }, null)?.entry ?? null
+    : null
+  const owner = matched ?? near.reduce((a, b) => claim(b.at[0], b.at[1], b.p[3], 0, 0) < claim(a.at[0], a.at[1], a.p[3], 0, 0) ? b : a)
+  const ownerReach = matched && own ? Math.max(owner.p[3], REACH_PER_KM * own.reachKm) : owner.p[3]
   const owns = (x: number, y: number) => {
-    const mine = claim(owner.at[0], owner.at[1], owner.p[3], x, y)
+    const mine = claim(owner.at[0], owner.at[1], ownerReach, x, y)
     return near.every((o) => o === owner || claim(o.at[0], o.at[1], o.p[3], x, y) >= mine)
   }
   const { contains, box } = masked(place, reach, (_row, y, set) => {

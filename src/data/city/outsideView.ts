@@ -62,8 +62,8 @@ export const NEAR_DROP = 9
  * margin for a village. The dot (the place point) stays at the scene's centre.
  */
 export function outsideFrame(clusters: readonly Cluster[] | undefined, reachKm: number, centerX: number, width: number,
-  city: boolean): OutsideFrame {
-  const home = clusters?.length ? homeCluster([...clusters]) : null
+  city: boolean, name?: string): OutsideFrame {
+  const home = homeCluster(clusters ?? [], name)
   const margin = city ? 0 : PORTRAIT_MARGIN_KM
   const extent = home ? { w: home.dx[0] - margin, e: home.dx[1] + margin, s: home.dy[0] - margin, n: home.dy[1] + margin } : null
   return frameOfBox(extent, reachKm, centerX, width, city)

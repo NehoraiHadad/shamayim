@@ -762,3 +762,22 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
       React unmounted the app. Fixed + regression test — PR #9
 - [x] Live smoke check: Haifa, Tiberias, Jerusalem, Tel Aviv load the canvas scene, hour slider scrubs, no console errors
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
+
+## Polish audit track B — marks owned by the place's own footprint (audit #2) — 2026-11-21 (branch `claude/fix-mark-ownership-caed9e`)
+Who wrote what: Claude (Opus 5.5) managed, measured, briefed and verified; Codex `gpt-6.2-sol` wrote round 1 (Neon was at
+quota, 429); an Opus subagent reviewed round 1 (8 findings); Neon `gemini-4-neon-high` wrote round 2 (the fixes); Codex
+`gpt-6.2-sol` reviews round 2. Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
+- [x] (a) Worship heights by evidence, the same for every religion: 9 m hall; tower height only from `tower:type=minaret`,
+      `building=minaret`, `man_made=tower`, `height` or levels (`src/data/landmarks/worship.ts`, `overpass.ts`). Build writes
+      `heights: 'evidence'`; `loadIsrael` reads the old build's default-valued rows (all 1564 minarets at 30 m, 53 churches
+      at 25 m) as halls.
+- [x] (b) Own marks from the place's own footprint: `homeCluster(clusters, nameHe)` takes the cluster named after the
+      place (≤ 2 km); `placeBounds` gives its mapped point the cell, reaching its farthest corner; only for a name match
+      (other places keep their exact cell). City cache key `v6`, the named home reserved in the cache.
+- [x] (c) A hall, high-rise or homes beyond the place within 6 km is drawn only on its town's drawn block, at its true
+      size and haze (`src/world/beyondSeat.ts`, shared with `beyondTowns`, bit-identical; `beyondMarks.ts`).
+- [x] Tests over the bundled data (`src/world/markOwnership.test.ts`, `worship.test.ts`): Karmei Tzur keeps שבת אחים, the
+      hamlet cell without the fix does not; Safed and Rosh Pina by the same rule; seated size; hidden-block negative.
+- [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
+      (e.g. famous mosques in Jaffa) get their tower height back.
+- [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.

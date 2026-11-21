@@ -22,16 +22,16 @@ describe('Israel landmark builder', () => {
     expect(result.bytes).toBeLessThan(150_000)
     const index = JSON.parse(await readFile(join(outputDir, 'index.json'), 'utf8')) as LandmarkIndex
     expect(index).toEqual({ generatedAt: '2026-11-17T02:00:00.000Z',
-      source: 'OpenStreetMap via Geofabrik (ODbL)', bbox: [31, 35, 32, 36], cells: ['316_351'] })
+      source: 'OpenStreetMap via Geofabrik (ODbL)', bbox: [31, 35, 32, 36], cells: ['316_351'], heights: 'evidence' })
     const rows = JSON.parse(await readFile(join(outputDir, '316_351.json'), 'utf8')) as Row[]
     expect(rows).toEqual(expect.arrayContaining([
       ['waterTower', 31.6092, 35.1009, 25, 'מגדל מים'],
       ['minaret', 31.61, 35.101, 30],
-      ['minaret', 31.62, 35.105, 30, 'מסגד'],
+      ['minaret', 31.62, 35.105, 9, 'מסגד'],
       ['highrise', 31.611, 35.111, 120, 'מגדל'],
       ['synagogue', 31.611, 35.131, 9, 'בית כנסת'],
       // Fame last: an article (2) or only a Wikidata item (1); an empty name keeps its place.
-      ['church', 31.611, 35.141, 25, '', 2],
+      ['church', 31.611, 35.141, 9, '', 2],
       ['waterTower', 31.61, 35.15, 20, 'מגדל מים ידוע', 1],
     ]))
     expect(rows.some((row) => row[0] === 'highrise' && row[3] === 10)).toBe(false)

@@ -60,10 +60,29 @@ describe('fame in the shipped rows', () => {
       : new Response(JSON.stringify([['church', 31.6092, 35.1009, 25, '', 2], ['waterTower', 31.61, 35.1, 25, 'מגדל', 1],
         ['minaret', 31.62, 35.1, 30]]))))
     const marks = await loadIsrael(place(), new AbortController().signal)
-    expect(marks?.[0]).toEqual({ id: 'il-church-31.6092-35.1009', kind: 'church', lat: 31.6092, lon: 35.1009, heightM: 25,
+    expect(marks?.[0]).toEqual({ id: 'il-church-31.6092-35.1009', kind: 'church', lat: 31.6092, lon: 35.1009, heightM: 9,
       source: 'osm', fame: 2 })
     expect(marks?.[1]).toMatchObject({ nameHe: 'מגדל', fame: 1 })
+    expect(marks?.[2]).toMatchObject({ kind: 'minaret', heightM: 9 })
     expect(marks?.[2].fame).toBeUndefined()
+  })
+
+  it('preserves tower heights from an evidence build, even when they equal the legacy defaults', async () => {
+    const cell = cellsForStrip(place())[0]
+    vi.stubGlobal('fetch', async (input: string) => input.endsWith('index.json')
+      ? new Response(JSON.stringify(index({ cells: [cell], heights: 'evidence' })))
+      : new Response(JSON.stringify([['church', 31.6092, 35.1009, 25], ['minaret', 31.62, 35.1, 30]])))
+    const marks = await loadIsrael(place(), new AbortController().signal)
+    expect(marks?.map((mark) => mark.heightM)).toEqual([25, 30])
+  })
+
+  it('keeps a non-default tagged height in a legacy build while downgrading flat defaults to halls', async () => {
+    const cell = cellsForStrip(place())[0]
+    vi.stubGlobal('fetch', async (input: string) => input.endsWith('index.json')
+      ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : new Response(JSON.stringify([['minaret', 31.62, 35.1, 30], ['minaret', 31.63, 35.1, 22], ['church', 31.61, 35.1, 18]])))
+    const marks = await loadIsrael(place(), new AbortController().signal)
+    expect(marks?.map((mark) => mark.heightM)).toEqual([9, 22, 18])
   })
 })
 

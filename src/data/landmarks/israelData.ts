@@ -1,5 +1,6 @@
 import type { Place } from '../../config/place'
 import type { Fame, Landmark, MarkKind } from './types'
+import { HALL_M, LEGACY_DEFAULTS } from './worship'
 
 /** kind, lat, lon, height, name ('' when it has none but is famous), fame (`fame.ts`). */
 export type Row = [MarkKind, number, number, number, string?, Fame?]
@@ -8,6 +9,7 @@ export interface IsraelLandmarkIndex {
   source: 'OpenStreetMap via Geofabrik (ODbL)'
   bbox: [number, number, number, number]
   cells: string[]
+  heights?: 'evidence'
 }
 
 const ROOT = `${import.meta.env.BASE_URL}data/landmarks/il`
@@ -58,7 +60,10 @@ export async function loadIsrael(place: Place, signal: AbortSignal): Promise<Lan
   const cells = cellsForStrip(place).filter((cell) => index.cells.includes(cell))
   const rows = (await Promise.all(cells.map((cell) => loadCell(cell, signal)))).flat()
   return rows.map(([kind, lat, lon, heightM, nameHe, fame]) => ({ id: `il-${kind}-${lat}-${lon}`,
-    kind, lat, lon, heightM, ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}) }))
+    kind, lat, lon,
+    // The legacy build gave every such row its default, so that height is no evidence of a tower.
+    heightM: index.heights !== 'evidence' && heightM === LEGACY_DEFAULTS[kind] ? HALL_M : heightM,
+    ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}) }))
 }
 
 export function resetIsraelDataForTests() { indexPromise = null }

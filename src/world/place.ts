@@ -27,7 +27,7 @@ export function portraitStyle(place: Place, landmarks: readonly Landmark[], city
   const homes = landmarks.find(isPlaceHomes)
   const size = homes ? settlementSize(homes) : 'small'
   const style = settlementStyle(place, size)
-  const home = homeCluster([...city?.clusters ?? []])
+  const home = homeCluster(city?.clusters ?? [], place.nameHe)
   const footprint = home ? clusterStyle(home, desertSettlement(place)) : null
   const known = Boolean(home && footprint && (footprint !== 'tile' || clusterRoofs(home) !== undefined))
   const roofs: OutsideView['roofs'] = known ? (footprint === 'tile' ? 'tile' : 'flat') : style === 'tile' ? 'mixed' : 'flat'
@@ -70,7 +70,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   ownSkyline: boolean; coastalSea: CoastalSea | null; nearLine: NearLine | null } {
   const { place, terrain, city, width, elevation } = input
   const landmarks = [...input.landmarks]
-  const reachKm = portraitReach(city?.clusters)
+  const reachKm = portraitReach(city?.clusters, place.nameHe)
   const towers = city?.raster?.towers ?? city?.towers ?? []
   const rounded = Math.round(elevation)
   const label = { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 }
@@ -80,7 +80,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   // The place's own city skyline (its raster towers within reach): the far towns start beyond it.
   const ownSkyline = Boolean(city?.raster && terrain.groundAt && terrain.angleY && terrain.sightAt)
   const style = portraitStyle(place, landmarks, city)
-  const known = Boolean(homeCluster([...city?.clusters ?? []]))
+  const known = Boolean(homeCluster(city?.clusters ?? [], place.nameHe))
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
   // Seen from outside (C5): its own frame, boundary and slope, its mass and spires, the towers beyond, its sea.
   const view = outsidePlace({ place, terrain, landmarks, city, width, centerX, reachKm, ground, floor,
@@ -105,7 +105,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const notes = notesOnWater(notes0, terrain, view, dot, width)
   const marks = marksOf({ place, terrain: drawn, landmarks, width, dot, reachKm, homeHalf: homeHalf(reachKm, known), style: style.style,
     notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
-    outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land } })
+    outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark } })
   // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds
   // round it, so it always reads as the dot's; clear of the marks and the datum's dashed line, the near side first.
   const line = (datum?.segments ?? []).map((seg) => ({ left: seg.x1 * width / 375, right: seg.x2 * width / 375, top: datum!.y - 1, bottom: datum!.y + 1 }))
