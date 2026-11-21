@@ -14,11 +14,14 @@ import { paintLandSurface } from './landSurface'
 export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
   const grainAmount = desc.grain.amount * env.hand.grain
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    // One application of outline coverage so antialiased crest pixels keep true geometric alpha with zero median bleed.
-    ctx.save()
-    outline(ctx, desc.outline)
-    ctx.clip()
+    // One application of `ctx.fill()`'s exact antialiased outline coverage via `destination-in` (matching
+    // `paintPlaneLight`, with zero median bleed and no double-coverage silhouette thickening).
     paintLandSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, grainAmount, desc.grain.seed, env)
+    ctx.save()
+    ctx.globalCompositeOperation = 'destination-in'
+    outline(ctx, desc.outline)
+    ctx.fillStyle = '#000'
+    ctx.fill()
     ctx.restore()
   } else {
     outline(ctx, desc.outline)
