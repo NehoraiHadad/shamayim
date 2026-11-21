@@ -37,8 +37,18 @@ export function seen(v: V3, view: number): Pt {
   return [v[0], -(v[1] * Math.cos(e) - v[2] * Math.sin(e))]
 }
 
-/** Where a bird is round its place (world px) at `t`, and how far it is banked (rad; + rolls its right wing down). */
-export function bodyAt(b: BirdDesc, kind: BirdKind, t: number, loop: number, yaw: number): { p: V3; bank: number } {
+/** The figure-eight's lateral acceleration per unit speed at `k` (rx = 1), and its peak: a banked bird's roll follows it. */
+const eightTurn = (k: number) => {
+  const du = Math.cos(k), ddu = -Math.sin(k), dv = 1.2 * Math.cos(2 * k), ddv = -2.4 * Math.sin(2 * k)
+  return (du * ddv - dv * ddu) / Math.hypot(du, dv)
+}
+const EIGHT_PEAK = Math.max(...Array.from({ length: 720 }, (_, i) => Math.abs(eightTurn((i / 720) * TAU))))
+
+/**
+ * Where a bird is round its place (world px) at `t`; how far it is banked (rad; + into a turn from across toward away,
+ * the way a kettle with `turn` 1 circles); and, for a bird holding the flock's way, how far its heading swings off it.
+ */
+export function bodyAt(b: BirdDesc, kind: BirdKind, t: number, loop: number, yaw: number): { p: V3; bank: number; sway?: number } {
   const a = TAU * (t / loop + b.lag) * b.turn
   const c = Math.cos(yaw), s = Math.sin(yaw)
   // Offsets in the flock's own frame (u along its way, v to its right, both level) turned to the world.
@@ -51,12 +61,18 @@ export function bodyAt(b: BirdDesc, kind: BirdKind, t: number, loop: number, yaw
       return { p: level(b.rx * Math.cos(a), b.rx * Math.sin(a), b.ry * Math.sin(2 * a)), bank: 35 * RAD * b.turn }
     case 'swift':
     case 'bat': {
-      // Two turns a strip: a figure-eight, banked by its turn (the eight's lobes turn opposite ways).
+      // Two turns a strip: a figure-eight, banked to ~45° where it turns hardest, level through the crossover.
       const k = 2 * a
-      return { p: level(b.rx * Math.sin(k), 0.6 * b.rx * Math.sin(2 * k), b.ry * Math.sin(3 * k + b.lag * TAU)), bank: 45 * RAD * Math.cos(k) * b.turn }
+      return { p: level(b.rx * Math.sin(k), 0.6 * b.rx * Math.sin(2 * k), b.ry * Math.sin(3 * k + b.lag * TAU)),
+        bank: 45 * RAD * b.turn * eightTurn(k) / EIGHT_PEAK }
     }
-    case 'gull':
-      return { p: level(0.3 * b.rx * Math.sin(a), b.rx * Math.sin(a + 1.3), b.ry * Math.sin(2 * a)), bank: 10 * RAD * Math.cos(a + 1.3) }
+    case 'gull': {
+      // Hanging on the wind on the flock's way: a slow side-slip (its heading swings ~15° with the slip's speed),
+      // rolled ~10° into each swing.
+      const g = a + 1.3
+      return { p: level(0.3 * b.rx * Math.sin(a), b.rx * Math.sin(g), b.ry * Math.sin(2 * a)), bank: -10 * RAD * Math.sin(g),
+        sway: 15 * RAD * Math.cos(g) * b.turn }
+    }
     default:
       return { p: level(0, 0, b.ry * Math.sin(a)), bank: 0 }
   }
@@ -64,15 +80,17 @@ export function bodyAt(b: BirdDesc, kind: BirdKind, t: number, loop: number, yaw
 
 /** The bird's pose at `t`: its place and axes as seen, its way the motion of its body (or the flock's, flying straight). */
 export function poseAt(b: BirdDesc, kind: BirdKind, t: number, loop: number, yaw: number, view: number): BirdPose {
-  const { p, bank } = bodyAt(b, kind, t, loop, yaw)
+  const { p, bank, sway } = bodyAt(b, kind, t, loop, yaw)
   const dt = loop / 400
   const ahead = bodyAt(b, kind, t + dt, loop, yaw).p, back = bodyAt(b, kind, t - dt, loop, yaw).p
-  // Its way: its body's level motion round its place, carried by the flock's own way (straight fliers: that alone).
+  // Its way: a circling or hawking bird's own motion round its place; one holding the flock's way (crow, crane, a gull
+  // swinging off it by `sway`) heads along that.
   const way: V3 = [ahead[0] - back[0], 0, ahead[2] - back[2]]
   const own = Math.hypot(way[0], way[2])
-  const f: V3 = kind === 'crow' || kind === 'crane' || own < 1e-6 ? [Math.cos(yaw), 0, Math.sin(yaw)] : norm(way)
-  // The span level and square to the way, then rolled by the bank about the way.
-  // (f × up is its right: for f = +x, the right is +z, away from the eye.)
+  const held = kind === 'crow' || kind === 'crane' || kind === 'gull' || own < 1e-6
+  const f: V3 = held ? [Math.cos(yaw + (sway ?? 0)), 0, Math.sin(yaw + (sway ?? 0))] : norm(way)
+  // The span level and square to the way, then rolled by the bank about the way. In these axes (x right, y up, z away:
+  // left-handed) f × up is the bird's left wing; a + bank lifts it, dropping the right wing into a turn toward +z.
   const level = norm(cross(f, [0, 1, 0]))
   const up = cross(level, f)
   const w = norm([level[0] * Math.cos(bank) - up[0] * Math.sin(bank), level[1] * Math.cos(bank) - up[1] * Math.sin(bank),

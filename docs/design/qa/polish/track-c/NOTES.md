@@ -28,14 +28,21 @@ shown moment). Reduced motion holds the pose. Going back to live re-anchors even
 
 ## Perf (CI, 375 px, CPU ×4, p95 ms unless noted)
 
-| Place | modelCold before → after | scrub.model before → after | anim frame before → after | memory |
+| Place | modelCold: c5c5077 / main 2fd0c1e / this | scrub.model p95: c5c5077 / main / this | anim frame p95 | memory |
 | --- | --- | --- | --- | --- |
-AFTER_ROWS
+| Haifa | 40.0 / 49.2 / 77.0 | 13.5 / 21.9 / 26.7 | 2.5 / 2.6 / 2.9 | 29.6 MB, same |
+| Tel Aviv | 36.2 / 48.6 / 62.3 | 14.7 / 20.9 / 24.2 | 2.4 / 2.8 / 3.1 | 27.4 → 28.3 MB |
+| Shadmot Mehola | 21.3 / 27.5 / 30.0 | 10.8 / 13.3 / 17.2 | 1.6 / 2.2 / 2.5 | 24.6 MB, same |
 
-Before: sha c5c5077 (main + CI). After: AFTER_SHA. The CI runner varies by ~±15 %.
+c5c5077 is main before track A on a quiet runner; main 2fd0c1e ran the same hour as this branch's 3a4489f (CI run
+44961984301), so compare those two. The runner varies by ±15 % or more between runs. Against main this branch costs
++3–4 ms p95 per scrub model at CPU ×4 (≈ 1 ms unthrottled: the life tracks, measured below) and +3–28 ms on the
+cold first model (more code to compile on first call). The anim frame stays inside its 4 ms budget. The strip bounds
+were made closed-form to halve the flock cost (0.45–0.76 → 0.21–0.34 ms in node); the rest is the 61-sample tracks
+themselves.
 
 Node profile of the model per layer (mean ms over 30 minutes, same fixtures): life layers (birds + low + high planes +
-meteors) were 0.2–0.5 ms before and are 0.5–1.4 ms now (the 61-sample tracks and the bird bounds over the loop). The
+meteors) were 0.2–0.5 ms before and are 0.5–1.1 ms now (the 61-sample tracks; low planes 0.8 ms at Tel Aviv's airport). The
 model's real costs are elsewhere: outside 1.7–2.9, land planes 1.6–2.9, sky 1.4–2.7, clouds 0.6–1.0. So #9's premise —
 that the life keys force the model rebuild cost — does not hold: the minute rebuild costs the same with or without
 life, and life now costs ~1 ms of it in exchange for continuous motion between rebuilds. The scrub.model budget
@@ -59,4 +66,16 @@ life, and life now costs ~1 ms of it in exchange for continuous motion between r
 2. Large files predating this track: `scene/model/surface.ts` (358 lines), `world/lifeSchedule.ts` (~580),
    `scene/model/life.ts` (264).
 3. `src/world/weather.test.ts:161` times out at 5 s on CI now and then (pre-existing, unrelated).
-4. Model cost (#9 proper): outside, land planes and sky dominate; profile those.
+4. Model cost (#9 proper): outside, land planes and sky dominate; profile those. Low planes at an airport (Tel Aviv,
+   0.4 ms of poses) could be culled on a coarse sample before the full track.
+5. Bird nits from the final review: the pigeon flash and raptor pale bar ignore the sun's direction (only its
+   strength); `view` rounds to whole degrees, so birds shift ~0.6 px inside the strip when a flock's height crosses a
+   degree at a rebuild; `scene/model/lifeContinuityMetrics.ts` is a non-test module importing vitest's `expect`.
+
+## Final review (Opus subagent, after round 2)
+
+Nothing blocking: seams, scrub re-anchor, life offset (life only), culling, contrails, purity and file sizes check
+out. Four bird errors fixed after it: a flock's way is now measured against its own bearing, not the camera heading
+(a flock 120° off centre flew tail-first); swifts and bats bank with the eight's real curvature (192/400 samples banked
+away before, 0 now); a gull holds the flock's way with a 15° sway and rolls into it (it spun 358° every 4 s before);
+storks and raptors step 0.8–1.2 px a frame at 4 fps on a 9 px circle (2.7–4.4 px at 2 fps before).
