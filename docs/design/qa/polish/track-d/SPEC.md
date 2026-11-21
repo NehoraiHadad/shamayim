@@ -355,6 +355,16 @@ since the shown minute are `phase − laidAt + sinceS`. Keyframes and the `cells
 `Track`, or `drift = speed × (phase − laidAt + sinceS)`), never a per-layer lay phase in `surface.ts`. N3 waits for
 track C to land.
 
+Names (track C, d673f4a on `claude/fix-life-motion-740e49`):
+- the type `LifeClock { laidAt, sinceS }` (`src/scene/model/types.ts`);
+- `LIFE_START` (`src/scene/model/lifeTracks.ts`);
+- the hook `useLifeClock(at, selected, timezone)` (`src/scene/react/useLifeClock.ts`).
+
+The model call is `sceneModel(world, box, clock, life = LIFE_START)`, which calls `skyLayers(world, box, life)`. `Track`
+gains `open?` and per-point `scale?`, `alpha?` and `turn?`. `trackAt` returns `{x, y, scale, alpha, turn}`.
+
+Clouds use `at = sinceS − laidAt`. Merge main once C lands there, not C's branch.
+
 The true rates:
 - tangential `ω = v·sin(alt)/h`;
 - radial altitude rate `v·sin²(alt)/h`.
