@@ -1,13 +1,28 @@
 name: CI
 
+# main and PRs as before, plus the agents' work branches (claude/**), so tests and stills run here, not on the laptop.
+# Cloudflare Pages deploys main only (preview deployments are off), so a branch push builds nothing there.
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      stills:
+        description: 'Scene stills, space-separated: place@HH:MM|YYYY-MM-DDTHH:MM[@weather] (empty = the default set)'
+        required: false
+        default: ''
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+  DEFAULT_STILLS: >-
+    shadmot-mehola@07:00 shadmot-mehola@11:30 shadmot-mehola@15:00 shadmot-mehola@21:00
+    jerusalem@12:00@broken haifa@09:00@broken shadmot-mehola@10:00@broken
+    jerusalem@16:30@showers jerusalem@21:00@overcast rosh-pina@10:00 tel-aviv@18:30
 
 jobs:
   check:
@@ -39,3 +54,46 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+  # 375 px stills of the canvas scene from the recorded fixtures (no live services), kept as an artifact for review.
+  stills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Render stills
+        env:
+          STILLS: ${{ inputs.stills }}
+        run: node e2e/scene.stills.mjs ci-stills ${STILLS:-$DEFAULT_STILLS} --dpr=2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stills-${{ github.sha }}
+          path: ci-stills/
+          retention-days: 14
+
+  # The scene's perf budgets, on a quiet machine; reported, never blocking (shared runners are noisy).
+  perf:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Perf
+        run: npm run test:perf 2>&1 | tee perf.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-${{ github.sha }}
+          path: perf.log
+          retention-days: 14
