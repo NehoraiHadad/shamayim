@@ -14,7 +14,7 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import { heightText } from '../text/isolate'
-import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
+import { DOT_R, LABEL_H, LABEL_PX, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
 import { datumOfRow, datumOnLand } from './datum'
@@ -130,7 +130,7 @@ export const BACKING_PAD = 2.5
  */
 export function besideDot(dot: { x: number; y: number }, text: string, width: number, obstacles: { left: number; right: number; top: number; bottom: number }[],
   notes: WorldLabels['notes']): { x: number; y: number } {
-  const w = textWidth(text, 11)
+  const w = textWidth(text, LABEL_PX)
   const off = DOT_R + BESIDE_GAP + BACKING_PAD + w / 2
   const all = [...obstacles, ...notes.map((n) => ({ left: n.left, right: n.left + n.width, top: n.top, bottom: n.top + n.height }))]
   const top0 = dot.y - LABEL_H / 2

@@ -3,7 +3,7 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { heightText } from '../../text/isolate'
-import { DOT_R, textWidth } from '../../world/layout'
+import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
 import { BACKING_PAD } from '../../world/place'
 import { markBox } from '../../world/marks'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
@@ -25,7 +25,7 @@ beforeAll(async () => {
 afterAll(() => { vi.unstubAllGlobals() })
 
 it('measures the height label without its bidi isolates', () => {
-  expect(textWidth(heightText(-137), 11)).toBe(textWidth('−137 מ׳', 11))
+  expect(textWidth(heightText(-137), LABEL_PX)).toBe(textWidth('−137 מ׳', LABEL_PX))
 })
 
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
@@ -39,9 +39,9 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     // the world's own layout, clear of the marks the canvas draws.
     const height = overlay.find((item) => item.kind === 'height')!
     expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, backed: true })
-    const w = textWidth(world.labels.height.text, 11)
+    const w = textWidth(world.labels.height.text, LABEL_PX)
     const dot = world.place3.dot
-    expect(Math.abs(height.y + 11 / 2 - dot.y), 'level with the dot').toBeLessThanOrEqual(15.5)
+    expect(Math.abs(height.y + LABEL_PX / 2 - dot.y), 'level with the dot').toBeLessThanOrEqual(15.5)
     // Beside it: its backing 2 px off the dot's ring, or a few px farther out where a mark stands there.
     const gap = Math.abs(height.x - dot.x) - (DOT_R + 2 + BACKING_PAD + w / 2)
     expect(gap, 'beside the dot').toBeGreaterThan(-0.01)
@@ -51,7 +51,7 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => {
       const box = markBox(mark)
       return !(box.right <= height.x - w / 2 - BACKING_PAD || box.left >= height.x + w / 2 + BACKING_PAD
-        || box.bottom <= height.y - BACKING_PAD || box.top >= height.y + 11 + BACKING_PAD)
+        || box.bottom <= height.y - BACKING_PAD || box.top >= height.y + LABEL_PX + BACKING_PAD)
     })
     expect(covered.length, covered.map((m) => m.id).join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
     expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',

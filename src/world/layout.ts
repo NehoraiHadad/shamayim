@@ -12,7 +12,9 @@ export const VISIBLE_BOTTOM = SCENE_H - SHEET_OVERLAP
 export const SHEET_CLEAR = 6
 /** The village dot with its ring (`scene/react/Scene.module.css` `.village`). */
 export const DOT_R = 4.5
-export const LABEL_H = 11
+/** The height label's drawn size (`ui/tokens.css` `--text-caption` = 0.75rem = 12 px, `scene/react/Scene.module.css` `.depth` `line-height: 1`). */
+export const LABEL_PX = 12
+export const LABEL_H = LABEL_PX
 
 /** A drawn box in scene px (y grows down). */
 export interface Box { left: number; right: number; top: number; bottom: number }
