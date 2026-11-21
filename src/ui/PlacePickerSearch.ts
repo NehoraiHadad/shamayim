@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react'
 import type { Place } from '../config/place'
 import { searchPlaces } from '../data/geocoding'
-import { searchErrorText, searchResultsText } from '../text/placePicker'
+import {
+  EMPTY_NOTE,
+  SEARCHING,
+  searchErrorText,
+  searchNote,
+  type PickerNote,
+} from '../text/placePicker'
 
 const DEBOUNCE_MS = 550
 const MIN_QUERY = 2
 
 const isAbort = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError'
 
-/** Debounced place search for the picker. `pending` covers both the debounce and the request. */
-export function usePlaceSearch(open: boolean) {
+/** Debounced place search for the picker, reporting its own live-region notes independently of GPS. */
+export function usePlaceSearch(open: boolean, onNote: (note: PickerNote) => void) {
   const [query, setQueryValue] = useState('')
   const [results, setResults] = useState<Place[]>([])
-  const [error, setError] = useState('')
-  const [pending, setPending] = useState(false)
 
   useEffect(() => () => {
     // Each opening starts fresh: recents, not the last search.
     setQueryValue('')
     setResults([])
-    setError('')
-    setPending(false)
   }, [open])
 
   useEffect(() => {
@@ -30,28 +32,25 @@ export function usePlaceSearch(open: boolean) {
     const timer = window.setTimeout(() => {
       searchPlaces(term, controller.signal)
         .then((places) => {
+          if (controller.signal.aborted) return
           setResults(places)
-          setError(places.length ? '' : searchResultsText(0))
+          onNote(searchNote(places.length))
         })
         .catch((cause: unknown) => {
-          if (!isAbort(cause)) setError(searchErrorText(navigator.onLine))
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setPending(false)
+          if (!isAbort(cause)) onNote({ text: searchErrorText(navigator.onLine), hidden: false })
         })
     }, DEBOUNCE_MS)
     return () => {
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [open, query])
+  }, [open, query, onNote])
 
   const setQuery = (value: string) => {
     setQueryValue(value)
     setResults([])
-    setError('')
-    setPending(value.trim().length >= MIN_QUERY)
+    onNote(value.trim().length >= MIN_QUERY ? { text: SEARCHING, hidden: false } : EMPTY_NOTE)
   }
 
-  return { query, setQuery, results, pending, error, setError }
+  return { query, setQuery, results }
 }

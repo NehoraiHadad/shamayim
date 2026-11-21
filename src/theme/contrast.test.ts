@@ -5,6 +5,11 @@ import { contrastSamples } from './contrastSamples'
 import { DARK_SHEET, SKY_THEMES, type ThemeId } from './skyThemes'
 
 const css = readFileSync(new URL('../ui/tokens.css', import.meta.url), 'utf8')
+const markersCss = readFileSync(new URL('../ui/hourly/markers.module.css', import.meta.url), 'utf8')
+const breakBlock = markersCss.match(/\.break\s*\{([^}]*)\}/)?.[1] ?? ''
+const breakOpacity = Number(breakBlock.match(/opacity:\s*([0-9.]+)/)?.[1] ?? 1)
+const breakColorShare = Number(breakBlock.match(/(?:^|;|\n)\s*color:[^;]*?([0-9.]+)%/m)?.[1] ?? 100) / 100
+const midnightCaptionAlpha = breakOpacity * breakColorShare
 const lightTokens = cssTokens(css, ':root')
 const darkTokens = { ...lightTokens, ...cssTokens(css, '.dark-sheet') }
 const sheetToken = (id: string, name: string) => (DARK_SHEET.has(id as ThemeId) ? darkTokens : lightTokens)[name]
@@ -51,6 +56,14 @@ describe('shared control contrast (WCAG AA)', () => {
       expect(ratio(sky.ink, sky.ridgeNear), 'adjacent edges').toBeGreaterThanOrEqual(3)
       const edgeContrast = Math.max(ratio(sky.ink, sky.horizon), ratio(sky.ridgeNear, sky.horizon))
       expect(edgeContrast, 'stronger edge against the horizon').toBeGreaterThanOrEqual(3)
+    })
+
+    it(`${name}: midnight caption on mid sky and paper ≥ 4.5`, () => {
+      expect(breakBlock).not.toBe('')
+      const onSky = mix(sky.mid, sky.ink, midnightCaptionAlpha)
+      const onPaper = mix(paper.sheet, paper.sheetInk, midnightCaptionAlpha)
+      expect(ratio(onSky, sky.mid), 'midnight caption on mid sky').toBeGreaterThanOrEqual(4.5)
+      expect(ratio(onPaper, paper.sheet), 'midnight caption on paper').toBeGreaterThanOrEqual(4.5)
     })
   }
 })

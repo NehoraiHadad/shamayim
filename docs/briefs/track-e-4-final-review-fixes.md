@@ -43,3 +43,5 @@ Exact bidi (U+2212, every number in Hebrew text isolated through `src/text/isola
 (4.5:1 text, 3:1 focus, composited colours, never a tautology), live regions speak once, all listeners and timers cleaned up,
 natural Hebrew. Files < 150 lines, DRY, no dead code. Finish with `npx tsc -b`, `npx oxlint`, targeted `npx vitest run` on the
 touched suites — all green. Never the full suite, never network. Do NOT commit; report per item (what you found, what changed).
+
+Never run a multi-line `npx tsx -e "..."` (it waits on stdin and hangs on this Windows shell): write a temp script file and run `npx tsx <file>`.

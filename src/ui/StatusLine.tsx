@@ -21,7 +21,7 @@ const ANNOUNCE_MS = 3000
 type Phase = 'idle' | 'busy' | 'done'
 
 function useOnline(): boolean {
-  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false))
   useEffect(() => {
     const onOnline = () => setOnline(true)
     const onOffline = () => setOnline(false)
@@ -81,8 +81,8 @@ function usePhase(busy: boolean, failed: boolean, onRefresh: () => void): [Phase
 
 export function StatusLine({ status, freshness, fetchedAt, failure, onRefresh }: Props) {
   const online = useOnline()
-  const problem = deriveProblem(online, failure, freshness)
-  const offline = problem !== null
+  const problem = deriveProblem(online, failure)
+  const warn = problem !== null || freshness === 'stale'
   const [phase, start] = usePhase(status === 'refreshing' || status === 'loading', Boolean(failure), onRefresh)
   const fresh = fetchedAt ? freshnessText(fetchedAt, problem) : { text: '', spoken: '' }
   const busy = phase === 'busy'
@@ -97,7 +97,7 @@ export function StatusLine({ status, freshness, fetchedAt, failure, onRefresh }:
     <>
       <button
         type="button"
-        className={`${styles.status} ${offline && phase === 'idle' ? styles.warn : ''} ${text ? '' : styles.iconOnly}`}
+        className={`${styles.status} ${warn && phase === 'idle' ? styles.warn : ''} ${text ? '' : styles.iconOnly}`}
         onClick={busy ? undefined : start}
         aria-disabled={busy}
         aria-label={spoken}

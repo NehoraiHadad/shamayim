@@ -1,4 +1,3 @@
-import type { Freshness } from '../data/cache'
 import type { FailureCause } from '../data/fetchFailure'
 import { problemAnnouncement, type UpdateProblem } from '../text/status'
 
@@ -16,12 +15,18 @@ export type LiveAction =
   | { type: 'sync'; problem: UpdateProblem; fetchedAt: number | null; update: string }
   | { type: 'clear' }
 
-/** Combine browser connectivity with fetch/cache state so losing the network with a fresh cache still surfaces offline. */
-export function deriveProblem(online: boolean, failure: FailureCause | null, freshness: Freshness | null): UpdateProblem {
+/** Map browser connectivity and fetch failures to a live-region problem; data age alone is never "offline". */
+export function deriveProblem(online: boolean, failure: FailureCause | null): UpdateProblem {
   if (!online) return 'offline'
   if (failure && failure !== 'network') return 'service'
-  if (failure || freshness === 'stale') return 'offline'
+  if (failure) return 'offline'
   return null
+}
+
+function mergeNotice(waiting: string, next: string | null): string {
+  if (!next) return waiting
+  if (!waiting || waiting === next) return next
+  return `${waiting} ${next}`
 }
 
 /** Queue a problem notice behind an active refresh so "מעדכן…" never swallows it, and avoid re-reading once delivered. */
@@ -32,10 +37,11 @@ export function liveReducer(state: LiveState, action: LiveAction): LiveState {
       : state
   }
   const busy = Boolean(action.update)
+  const waiting = state.notice && !state.delivered ? state.notice : ''
   let notice = state.notice
   let delivered = state.delivered
   if (state.problem !== action.problem) {
-    notice = problemAnnouncement(state.problem, action.problem, action.fetchedAt) ?? ''
+    notice = mergeNotice(waiting, problemAnnouncement(state.problem, action.problem, action.fetchedAt))
     delivered = Boolean(notice) && !busy
   } else if (!busy && notice && !delivered) {
     delivered = true

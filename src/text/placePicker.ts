@@ -31,16 +31,50 @@ export interface PickerNote {
   hidden: boolean
 }
 
-/** Live-region note for the place picker: visible for errors/searching, SR-only for locating/result count. */
-export function pickerStatus({ locating, pending, error, resultCount }: {
-  locating: boolean
-  pending: boolean
-  error: string
-  resultCount: number
-}): PickerNote {
-  if (locating) return { text: LOCATING, hidden: true }
-  if (pending) return { text: SEARCHING, hidden: false }
-  if (error) return { text: error, hidden: false }
-  if (resultCount > 0) return { text: searchResultsText(resultCount), hidden: true }
-  return { text: '', hidden: false }
+export const EMPTY_NOTE: PickerNote = { text: '', hidden: false }
+
+/** Note for a completed search: empty state is visible; positive counts are SR-only. */
+export function searchNote(count: number): PickerNote {
+  return { text: searchResultsText(count), hidden: count > 0 }
+}
+
+export interface PickerOutcome {
+  note: PickerNote
+  /** Monotonic sequence of the last update to this source (0 = none yet). */
+  seq: number
+}
+
+export interface PickerLiveState {
+  search: PickerOutcome
+  gps: PickerOutcome
+  seq: number
+}
+
+export const PICKER_LIVE_INITIAL: PickerLiveState = {
+  search: { note: EMPTY_NOTE, seq: 0 },
+  gps: { note: EMPTY_NOTE, seq: 0 },
+  seq: 0,
+}
+
+export type PickerLiveAction =
+  | { type: 'search'; note: PickerNote }
+  | { type: 'gps'; note: PickerNote }
+  | { type: 'reset' }
+
+/** Track search and GPS status independently so neither suppresses the other and the newest event wins. */
+export function pickerLiveReducer(state: PickerLiveState, action: PickerLiveAction): PickerLiveState {
+  if (action.type === 'reset') return state.seq === 0 ? state : PICKER_LIVE_INITIAL
+  const current = state[action.type]
+  if (action.note.text === '' && current.note.text === '') return state
+  if (current.note.text === action.note.text && current.note.hidden === action.note.hidden && current.seq === state.seq) {
+    return state
+  }
+  const seq = state.seq + 1
+  return { ...state, [action.type]: { note: action.note, seq }, seq }
+}
+
+/** Active live-region note for the place picker: one message at a time, newest event wins. */
+export function pickerStatus({ search, gps }: Pick<PickerLiveState, 'search' | 'gps'>): PickerNote {
+  if (search.seq === 0 && gps.seq === 0) return EMPTY_NOTE
+  return search.seq >= gps.seq ? search.note : gps.note
 }

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RegisterSWOptions } from 'virtual:pwa-register'
 
-const { registerSWMock } = vi.hoisted(() => ({ registerSWMock: vi.fn() }))
+const { registerSWMock, updateSWMock } = vi.hoisted(() => {
+  const updateSWMock = vi.fn<(reloadPage?: boolean) => Promise<void>>().mockResolvedValue(undefined)
+  const registerSWMock = vi.fn<(options?: RegisterSWOptions) => (reloadPage?: boolean) => Promise<void>>(() => updateSWMock)
+  return { registerSWMock, updateSWMock }
+})
 vi.mock('virtual:pwa-register', () => ({ registerSW: registerSWMock }))
 
 import { IDLE_MS, RECHECK_MS, setupServiceWorker, shouldReloadNow } from './pwa'
@@ -9,56 +14,43 @@ interface Harness {
   setHidden: (hidden: boolean) => void
   setDialogOpen: (open: boolean) => void
   setScrubbing: (scrubbing: boolean) => void
-  dispatchControllerChange: () => void
+  triggerNeedRefresh: () => void
+  triggerOfflineReady: () => void
   dispatchInput: () => void
-  reload: ReturnType<typeof vi.fn<() => void>>
+  options: RegisterSWOptions
   cleanup: () => void
 }
 
 function mountPwa(initialController: object | null = {}): Harness {
   const win = new EventTarget()
   const doc = new EventTarget()
-  const sw = new EventTarget()
-  let hidden = false
-  let dialogOpen = false
-  let scrubbing = false
+  let hidden = false, dialogOpen = false, scrubbing = false
 
   Object.defineProperty(doc, 'visibilityState', { get: () => (hidden ? 'hidden' : 'visible') })
   Object.assign(doc, {
-    querySelector: (selector: string) => {
-      if (selector === 'dialog[open]') return dialogOpen ? {} : null
-      if (selector === '.app[data-scrubbing]') return scrubbing ? {} : null
-      return null
-    },
+    querySelector: (sel: string) => (sel === 'dialog[open]' ? dialogOpen : sel === '.app[data-scrubbing]' ? scrubbing : false) ? {} : null,
   })
-  Object.assign(sw, { controller: initialController })
-
   vi.stubGlobal('window', win)
   vi.stubGlobal('document', doc)
-  vi.stubGlobal('navigator', { serviceWorker: sw })
+  vi.stubGlobal('navigator', { serviceWorker: { controller: initialController } })
 
-  const reload = vi.fn<() => void>()
-  const cleanup = setupServiceWorker(reload)
+  const cleanup = setupServiceWorker()
+  const options = registerSWMock.mock.calls.at(-1)?.[0] ?? {}
   return {
-    setHidden(next) {
-      hidden = next
-      doc.dispatchEvent(new Event('visibilitychange'))
-    },
+    setHidden(next) { hidden = next; doc.dispatchEvent(new Event('visibilitychange')) },
     setDialogOpen(next) { dialogOpen = next },
     setScrubbing(next) { scrubbing = next },
-    dispatchControllerChange() { sw.dispatchEvent(new Event('controllerchange')) },
+    triggerNeedRefresh() { options.onNeedRefresh?.() },
+    triggerOfflineReady() { options.onOfflineReady?.() },
     dispatchInput() { win.dispatchEvent(new Event('pointerdown')) },
-    reload,
+    options,
     cleanup,
   }
 }
 
 describe('shouldReloadNow', () => {
-  it('reloads immediately once the document is hidden, regardless of idle time or UI state', () => {
+  it('activates immediately once hidden, and while visible only when idle >= 60 s with no dialog or scrub', () => {
     expect(shouldReloadNow({ hidden: true, idleMs: 0, dialogOpen: true, scrubbing: true })).toBe(true)
-  })
-
-  it('reloads while visible only after 60 s idle with no dialog open and not scrubbing', () => {
     expect(shouldReloadNow({ hidden: false, idleMs: IDLE_MS, dialogOpen: false, scrubbing: false })).toBe(true)
     expect(shouldReloadNow({ hidden: false, idleMs: IDLE_MS - 1, dialogOpen: false, scrubbing: false })).toBe(false)
     expect(shouldReloadNow({ hidden: false, idleMs: IDLE_MS * 2, dialogOpen: true, scrubbing: false })).toBe(false)
@@ -72,6 +64,7 @@ describe('setupServiceWorker', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     registerSWMock.mockClear()
+    updateSWMock.mockClear()
   })
 
   afterEach(() => {
@@ -81,90 +74,67 @@ describe('setupServiceWorker', () => {
     vi.useRealTimers()
   })
 
-  it('disables vite-plugin-pwa autoUpdate immediate reload via onNeedReload', () => {
+  it('registers in prompt mode without overriding the controlling reload path', () => {
     const h = mountPwa({})
     activeCleanup = h.cleanup
     expect(registerSWMock).toHaveBeenCalledTimes(1)
-    const options = registerSWMock.mock.calls[0][0] as { immediate?: boolean; onNeedReload?: () => void }
-    expect(options.immediate).toBe(true)
-    expect(typeof options.onNeedReload).toBe('function')
-    options.onNeedReload?.()
-    expect(h.reload).not.toHaveBeenCalled()
+    expect(h.options.immediate).toBe(true)
+    expect(typeof h.options.onNeedRefresh).toBe('function')
+    expect(h.options.onNeedReload).toBeUndefined()
   })
 
-  it('defers reload while a dialog is open, then reloads exactly once after it closes', () => {
+  it.each([
+    ['dialog open', (h: Harness, active: boolean) => h.setDialogOpen(active)],
+    ['scrubbing', (h: Harness, active: boolean) => h.setScrubbing(active)],
+  ])('defers activation while %s, then activates once after it clears', (_label, toggle) => {
     const h = mountPwa({})
     activeCleanup = h.cleanup
-    h.setDialogOpen(true)
+    toggle(h, true)
     vi.advanceTimersByTime(IDLE_MS)
 
-    h.dispatchControllerChange()
-    expect(h.reload).not.toHaveBeenCalled()
+    h.triggerNeedRefresh()
+    expect(updateSWMock).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(RECHECK_MS * 3)
-    expect(h.reload).not.toHaveBeenCalled()
+    expect(updateSWMock).not.toHaveBeenCalled()
 
-    h.setDialogOpen(false)
+    toggle(h, false)
     vi.advanceTimersByTime(RECHECK_MS)
-    expect(h.reload).toHaveBeenCalledTimes(1)
-
-    // Subsequent events and timers never trigger a second reload.
-    h.setHidden(true)
-    h.dispatchControllerChange()
-    vi.advanceTimersByTime(IDLE_MS * 2)
-    expect(h.reload).toHaveBeenCalledTimes(1)
+    expect(updateSWMock).toHaveBeenCalledTimes(1)
+    expect(updateSWMock).toHaveBeenCalledWith(true)
   })
 
-  it('defers reload while scrubbing, then reloads exactly once after scrubbing ends', () => {
-    const h = mountPwa({})
-    activeCleanup = h.cleanup
-    h.setScrubbing(true)
-    vi.advanceTimersByTime(IDLE_MS)
-
-    h.dispatchControllerChange()
-    expect(h.reload).not.toHaveBeenCalled()
-
-    vi.advanceTimersByTime(RECHECK_MS * 2)
-    expect(h.reload).not.toHaveBeenCalled()
-
-    h.setScrubbing(false)
-    vi.advanceTimersByTime(RECHECK_MS)
-    expect(h.reload).toHaveBeenCalledTimes(1)
-    vi.advanceTimersByTime(IDLE_MS)
-    expect(h.reload).toHaveBeenCalledTimes(1)
-  })
-
-  it('skips only the very first claim of an uncontrolled page, then honours later replacements', () => {
+  it('never activates on first install of an uncontrolled page', () => {
     const h = mountPwa(null)
     activeCleanup = h.cleanup
     vi.advanceTimersByTime(IDLE_MS)
 
-    h.dispatchControllerChange()
-    expect(h.reload).not.toHaveBeenCalled()
-
-    h.dispatchControllerChange()
-    expect(h.reload).toHaveBeenCalledTimes(1)
+    h.triggerOfflineReady()
+    h.triggerNeedRefresh()
+    h.setHidden(true)
+    expect(updateSWMock).not.toHaveBeenCalled()
   })
 
-  it('reloads immediately when an update arrives after the page is already idle >= 60 s', () => {
-    const h = mountPwa({})
-    activeCleanup = h.cleanup
+  it('activates immediately when already idle >= 60 s, or early on hidden while clearing its retry timer', () => {
+    const idle = mountPwa({})
+    activeCleanup = idle.cleanup
     vi.advanceTimersByTime(IDLE_MS)
+    idle.triggerNeedRefresh()
+    expect(updateSWMock).toHaveBeenCalledTimes(1)
+    expect(updateSWMock).toHaveBeenCalledWith(true)
+    idle.cleanup()
+    updateSWMock.mockClear()
 
-    h.dispatchControllerChange()
-    expect(h.reload).toHaveBeenCalledTimes(1)
-  })
-
-  it('clears the retry timer before reloading early on visibilitychange', () => {
-    const h = mountPwa({})
-    activeCleanup = h.cleanup
-
-    h.dispatchControllerChange()
-    expect(h.reload).not.toHaveBeenCalled()
+    const hidden = mountPwa({})
+    activeCleanup = hidden.cleanup
+    hidden.triggerNeedRefresh()
+    expect(updateSWMock).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(1)
 
-    h.setHidden(true)
-    expect(h.reload).toHaveBeenCalledTimes(1)
+    hidden.dispatchInput()
+    hidden.setHidden(true)
+    expect(updateSWMock).toHaveBeenCalledTimes(1)
+    expect(updateSWMock).toHaveBeenCalledWith(true)
     expect(vi.getTimerCount()).toBe(0)
   })
 })

@@ -11,21 +11,21 @@ export interface ReloadContext {
   scrubbing: boolean
 }
 
-/** True when a waiting service-worker reload will not interrupt the user. */
+/** True when activating a waiting service worker and reloading will not interrupt the user. */
 export function shouldReloadNow({ hidden, idleMs, dialogOpen, scrubbing }: ReloadContext): boolean {
   return hidden || (idleMs >= IDLE_MS && !dialogOpen && !scrubbing)
 }
 
-/** Defer service-worker reloads until the page is hidden or idle with no dialog or active scrub. */
-export function setupServiceWorker(reload: () => void = () => window.location.reload()): () => void {
-  let controlled = Boolean(navigator.serviceWorker?.controller)
+/** Hold a waiting service worker until the page is hidden or idle with no dialog or active scrub, then activate once. */
+export function setupServiceWorker(): () => void {
   let pending = false
-  let reloaded = false
+  let activated = false
   let disposed = false
   let lastInput = Date.now()
   let timer: ReturnType<typeof setTimeout> | undefined
   let updateInterval: ReturnType<typeof setInterval> | undefined
   let onVisibleCheck: (() => void) | undefined
+  let updateSW: ((reloadPage?: boolean) => Promise<void>) | undefined
 
   const clearTimer = () => {
     if (timer !== undefined) {
@@ -33,8 +33,8 @@ export function setupServiceWorker(reload: () => void = () => window.location.re
       timer = undefined
     }
   }
-  const tryReload = () => {
-    if (disposed || !pending || reloaded) return
+  const tryActivate = () => {
+    if (disposed || !pending || activated) return
     const idleMs = Date.now() - lastInput
     const ok = shouldReloadNow({
       hidden: document.visibilityState === 'hidden',
@@ -43,39 +43,33 @@ export function setupServiceWorker(reload: () => void = () => window.location.re
       scrubbing: Boolean(document.querySelector('.app[data-scrubbing]')),
     })
     if (ok) {
-      reloaded = true
+      activated = true
       clearTimer()
-      reload()
+      void updateSW?.(true)
       return
     }
     clearTimer()
-    timer = setTimeout(tryReload, Math.max(RECHECK_MS, IDLE_MS - idleMs))
-  }
-  const queueReload = () => {
-    if (disposed || pending || reloaded) return
-    pending = true
-    tryReload()
+    timer = setTimeout(tryActivate, Math.max(RECHECK_MS, IDLE_MS - idleMs))
   }
   const touch = () => {
     lastInput = Date.now()
-    if (pending && !reloaded) {
+    if (pending && !activated) {
       clearTimer()
-      timer = setTimeout(tryReload, IDLE_MS)
+      timer = setTimeout(tryActivate, IDLE_MS)
     }
   }
-  const onHidden = () => { if (document.visibilityState === 'hidden') tryReload() }
-  const onControllerChange = () => {
-    if (!controlled) { controlled = true; return }
-    queueReload()
-  }
+  const onHidden = () => { if (document.visibilityState === 'hidden') tryActivate() }
   const inputEvents = ['pointerdown', 'keydown', 'scroll'] as const
   for (const ev of inputEvents) window.addEventListener(ev, touch, { passive: true, capture: true })
   document.addEventListener('visibilitychange', onHidden)
-  navigator.serviceWorker?.addEventListener('controllerchange', onControllerChange)
-  registerSW({
+  // Prompt mode: the new worker waits until updateSW(true) posts SKIP_WAITING; workbox-window reloads on `controlling`.
+  updateSW = registerSW({
     immediate: true,
-    // Disable vite-plugin-pwa's autoUpdate immediate reload; controllerchange -> tryReload is the sole reload path.
-    onNeedReload: () => {},
+    onNeedRefresh() {
+      if (disposed || pending || activated || !navigator.serviceWorker?.controller) return
+      pending = true
+      tryActivate()
+    },
     onRegisteredSW(_url, registration) {
       if (disposed || !registration) return
       const check = () => void registration.update().catch(() => {})
@@ -91,6 +85,5 @@ export function setupServiceWorker(reload: () => void = () => window.location.re
     for (const ev of inputEvents) window.removeEventListener(ev, touch, true)
     document.removeEventListener('visibilitychange', onHidden)
     if (onVisibleCheck) document.removeEventListener('visibilitychange', onVisibleCheck)
-    navigator.serviceWorker?.removeEventListener('controllerchange', onControllerChange)
   }
 }

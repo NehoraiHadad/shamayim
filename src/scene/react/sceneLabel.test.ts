@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { airInput } from '../../atmo/airInput'
 import { SHADMOT_MEHOLA } from '../../config/place'
 import { makeForecast, TODAY } from '../../test/makeForecast'
+import { rainRate } from '../../world/airParts'
 import type { WorldState } from '../../world/types'
 import { sceneLabel } from './sceneLabel'
 
@@ -54,7 +55,7 @@ describe('sceneLabel', () => {
     )
   })
 
-  it('matches what the canvas draws at 14:40 between a clear 14:00 and a rainy 15:00', () => {
+  it('matches the drawn rain on both sides of the half-hour between a clear 14:00 and a rainy 15:00', () => {
     const forecast = makeForecast([
       { max: 24, min: 14 },
       {
@@ -69,13 +70,44 @@ describe('sceneLabel', () => {
     ])
     forecast.elevation = 790
     const w = world('ירושלים', true)
-    const selected = `${TODAY}T14:40`
-    const shown = airInput(forecast, `${TODAY}T12:00`, w.place, selected)
 
-    expect(shown.weatherCode).toBe(61)
-    expect(Math.round(shown.temperature)).toBe(20)
-    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, selected)).toBe(
+    const at1420 = `${TODAY}T14:20`
+    const shown20 = airInput(forecast, `${TODAY}T12:00`, w.place, at1420)
+    expect(shown20.weatherCode).toBe(0)
+    expect(rainRate(shown20)).toBeCloseTo(0.8)
+    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, at1420)).toBe(
+      'ירושלים, גשום, \u206622°\u2069. שקיעה ב־\u206619:45\u2069. גובה היישוב \u2066790\u2069 מטר.',
+    )
+
+    const at1440 = `${TODAY}T14:40`
+    const shown40 = airInput(forecast, `${TODAY}T12:00`, w.place, at1440)
+    expect(shown40.weatherCode).toBe(61)
+    expect(Math.round(shown40.temperature)).toBe(20)
+    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, at1440)).toBe(
       'ירושלים, גשום, \u206620°\u2069. שקיעה ב־\u206619:45\u2069. גובה היישוב \u2066790\u2069 מטר.',
     )
+  })
+
+  it('matches interpolated drizzle and cloud cover on both sides of the half-hour', () => {
+    const forecast = makeForecast([
+      { max: 24, min: 14 },
+      {
+        max: 24,
+        min: 14,
+        hour: (h) => {
+          if (h === 14) return { weatherCode: 0, temperature: 24, precipitation: 0, cloudCover: 5 }
+          if (h === 15) return { weatherCode: 3, temperature: 21, precipitation: 0, cloudCover: 95 }
+          if (h === 16) return { weatherCode: 51, temperature: 20, precipitation: 0.9, cloudCover: 95 }
+          return {}
+        },
+      },
+    ])
+    forecast.elevation = 790
+    const w = world('ירושלים', true)
+
+    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:20`)).toContain('ירושלים, מעונן חלקית,')
+    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:40`)).toContain('ירושלים, מעונן חלקית,')
+    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:55`)).toContain('ירושלים, מעונן,')
+    expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T15:20`)).toContain('ירושלים, טפטוף,')
   })
 })

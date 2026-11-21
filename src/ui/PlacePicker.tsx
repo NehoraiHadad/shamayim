@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import type { Place } from '../config/place'
 import { reversePlace } from '../data/geocoding'
 import {
   geolocationErrorText,
   LOCATING,
   NO_GEOLOCATION,
+  PICKER_LIVE_INITIAL,
+  pickerLiveReducer,
   pickerStatus,
   REVERSE_FAILED,
+  type PickerNote,
 } from '../text/placePicker'
 import { IconButton } from './IconButton'
 import { CloseIcon } from './icons'
@@ -29,7 +32,9 @@ interface Props {
 export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  const search = usePlaceSearch(open)
+  const [live, dispatch] = useReducer(pickerLiveReducer, PICKER_LIVE_INITIAL)
+  const onSearchNote = useCallback((note: PickerNote) => dispatch({ type: 'search', note }), [])
+  const search = usePlaceSearch(open, onSearchNote)
   const opener = useRef<HTMLElement | null>(null)
   const [locateGuard] = useState(createRequestGuard)
   const [locating, setLocating] = useState(false)
@@ -46,6 +51,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
       locateGuard.cancel()
       element.close()
       setLocating(false)
+      dispatch({ type: 'reset' })
       opener.current?.focus()
     }
   }, [open, locateGuard])
@@ -56,14 +62,14 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
     onClose()
   }
   const fail = (message: string) => {
-    search.setError(message)
+    dispatch({ type: 'gps', note: { text: message, hidden: false } })
     setLocating(false)
   }
   const locate = () => {
     if (locating) return
     if (!navigator.geolocation) return fail(NO_GEOLOCATION)
-    search.setError('')
     setLocating(true)
+    dispatch({ type: 'gps', note: { text: LOCATING, hidden: true } })
     const req = locateGuard.start()
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
@@ -76,7 +82,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 300_000 },
     )
   }
-  const note = pickerStatus({ locating, pending: search.pending, error: search.error, resultCount: search.results.length })
+  const note = pickerStatus(live)
 
   return (
     <dialog

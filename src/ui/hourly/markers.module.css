@@ -97,18 +97,17 @@
 
 @keyframes tag-in { from { opacity: 0; } }
 
-/* Midnight: a hairline with the new day's name at its foot (clear of the hour labels). */
+/* Midnight: a faint hairline with the new day's name fully opaque at its foot (clear of the hour labels). */
 .break {
   position: absolute;
   top: 4px;
   bottom: 0;
   display: flex;
   align-items: flex-end;
-  border-left: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-left: 1px solid color-mix(in srgb, currentColor 19%, transparent);
   padding-left: 4px;
   font-size: var(--text-caption);
   line-height: 14px;
-  opacity: 0.85;
   white-space: nowrap;
   pointer-events: none;
 }
