@@ -31,7 +31,7 @@ export function addFieldParcel(
   const nearHalf = Math.min(halfW, widthAt(refX, y1)), farHalf = Math.min(halfW * ratio, widthAt(topCx, y0))
   const state = cropFieldState(ndvi, dryness, env.solarMonth, env.koppen)
   const tone = state === 'growing' ? TONE.FIELD_GREEN : state === 'ploughed' ? TONE.FIELD_PLOUGH : TONE.FIELD_STRAW
-  const alpha = fade * (0.36 + 0.16 * rand())
+  const alpha = fade * (0.50 + 0.18 * rand())
   const coverOk = (c: number | null) => c === cover
 
   function parcel(scale: number) {

@@ -94,19 +94,24 @@ export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation): void {
   const litPineRgb = tones[TONE.PINE_LIT] ?? [0.29, 0.44, 0.23]
   const trunkRgb = tones[TONE.TRUNK] ?? [0.27, 0.23, 0.18]
 
-  // Pass 1: clustered dark understory cushion underneath pine/oak woodland groves so crowns read as rich woodland mass.
+  // Pass 1: layered dark understory bed underneath pine/oak groves so tight clusters merge into continuous woodland mass.
+  const deepUnder = mix(underRgb, BLACK_SHADE, 0.42)
   for (let i = 0; i < count; i++) {
     if (treeMeta[i * 3] !== 0) continue
     const alpha = (treeMeta[i * 3 + 2] ?? 255) / 255
     if (alpha <= 0.02) continue
     const o = i * 6, x = trees[o], y = trees[o + 1], r = trees[o + 2]
     ctx.beginPath()
-    ctx.ellipse(x + r * 0.1, y + r * 0.08, r * 1.38, Math.max(0.55, r * 0.68), 0, 0, Math.PI * 2)
-    ctx.fillStyle = css(underRgb, 0.66 * alpha)
+    ctx.ellipse(x + r * 0.04, y + r * 0.04, r * 1.44, Math.max(0.60, r * 0.70), 0, 0, Math.PI * 2)
+    ctx.fillStyle = css(underRgb, 0.62 * alpha)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(x + r * 0.08, y + r * 0.10, r * 1.04, Math.max(0.42, r * 0.48), 0, 0, Math.PI * 2)
+    ctx.fillStyle = css(deepUnder, 0.46 * alpha)
     ctx.fill()
   }
 
-  // Pass 2: individual rounded crowns back-to-front with grounded shadow, shade side and ambient light side.
+  // Pass 2: individual rounded crowns back-to-front with grounded shadow, varied conifer/oak silhouettes and light/shade sides.
   for (let i = 0; i < count; i++) {
     const alpha = (treeMeta[i * 3 + 2] ?? 255) / 255
     if (alpha <= 0.02) continue
@@ -117,25 +122,29 @@ export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation): void {
     const baseRgb = tones[toneIdx] ?? tones[0]
 
     if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, trunkRgb); continue }
-    const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind)
-    const lobes = kind === 0 ? 4 : 3
+    const anchor = treeCrownAnchor(x, y, r, height, phase, kind)
+    // Vary woodland silhouette aspect subtly within `treeExtent` (conifer pine domes alongside broader Mediterranean oak).
+    const rx = kind === 0 ? r * (1.02 + 0.14 * Math.sin(phase * 1.3)) : anchor.rx
+    const ry = kind === 0 ? r * (0.84 + 0.08 * Math.cos(phase * 1.7)) : anchor.ry
+    const cx = anchor.cx, cy = kind === 0 ? y - ry * 0.55 : anchor.cy
+    const lobes = kind === 0 ? (shade > 0.55 ? 5 : 4) : 3
 
     ctx.beginPath()
-    ctx.ellipse(x + rx * 0.18, y + 0.28, rx * 0.96, Math.max(0.38, ry * 0.36), 0, 0, Math.PI * 2)
+    ctx.ellipse(x + rx * 0.16, y + 0.24, rx * 0.94, Math.max(0.36, ry * 0.36), 0, 0, Math.PI * 2)
     ctx.fillStyle = `rgb(0 0 0 / ${(0.30 * alpha).toFixed(3)})`; ctx.fill()
 
-    const bodyRgb = mix(baseRgb, BLACK_SHADE, 0.04 + shade * 0.14)
+    const bodyRgb = mix(baseRgb, BLACK_SHADE, 0.03 + shade * 0.18)
     traceCrownLobes(ctx, cx, cy, rx, ry, phase, lobes)
-    ctx.fillStyle = css(bodyRgb, 0.95 * alpha); ctx.fill()
+    ctx.fillStyle = css(bodyRgb, 0.96 * alpha); ctx.fill()
 
     if (r >= 0.85) {
-      const sideShade = mix(bodyRgb, underRgb, 0.56)
+      const sideShade = mix(bodyRgb, underRgb, 0.58)
       traceCrownLobes(ctx, cx + rx * 0.22, cy + ry * 0.22, rx * 0.78, ry * 0.62, phase + 0.9, lobes)
-      ctx.fillStyle = css(sideShade, 0.62 * alpha); ctx.fill()
+      ctx.fillStyle = css(sideShade, 0.64 * alpha); ctx.fill()
 
-      const sideLit = kind === 0 ? litPineRgb : mix(baseRgb, litPineRgb, 0.58)
+      const sideLit = kind === 0 ? mix(litPineRgb, baseRgb, shade * 0.28) : mix(baseRgb, litPineRgb, 0.56)
       traceCrownLobes(ctx, cx - rx * 0.24, cy - ry * 0.24, rx * 0.66, ry * 0.54, phase + 2.1, lobes)
-      ctx.fillStyle = css(sideLit, 0.72 * alpha); ctx.fill()
+      ctx.fillStyle = css(sideLit, 0.74 * alpha); ctx.fill()
     }
   }
 }

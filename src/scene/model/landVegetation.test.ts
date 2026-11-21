@@ -120,10 +120,13 @@ describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', ()
     expect(maxTuftR).toBeGreaterThanOrEqual(1.1)
     expect(maxTuftA).toBeGreaterThan(0.55)
 
-    // Woodland palette separates dark understory < crown body < ambient light side for readability at 375 px.
+    // Woodland palette separates dark understory < crown body < ambient light side, and Galilee woodland renders dense varied crowns.
     const roshVeg = nearPlane(buildWorld(worldInput(loaded.get('rosh-pina')!, '2026-02-15T12:00'))).vegetation
     expect(labOf(roshVeg.tones[TONE.PINE_UNDER]).l).toBeLessThan(labOf(roshVeg.tones[TONE.PINE_MID]).l - 0.08)
     expect(labOf(roshVeg.tones[TONE.PINE_LIT]).l).toBeGreaterThan(labOf(roshVeg.tones[TONE.PINE_MID]).l + 0.08)
+    const roshRadii = Array.from({ length: roshVeg.trees.length / 6 }, (_, i) => roshVeg.trees[i * 6 + 2])
+    expect(roshRadii.length).toBeGreaterThanOrEqual(30) // cohesive clusters, not a handful of sparse dots
+    expect(Math.max(...roshRadii) / Math.min(...roshRadii)).toBeGreaterThan(1.8) // varied emergent/mid/edge crown tiers
 
     // Forest cover (10) produces clustered trees with high NDVI and fewer/sparser trees when NDVI is low
     const highForest = nearPlane(buildWorld(makeWorldInput(SHADMOT, '2026-11-15T12:00', {

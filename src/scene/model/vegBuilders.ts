@@ -37,32 +37,41 @@ export const CAPS = { trees: 216, fields: 36, rows: 20, tufts: 108, strata: 14 }
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const isShrubCover = (c: number | null, src: number | null) => c === 2 || c === 9 || c === 10 || (c === null && src === null)
 
-/** Clustered rounded pine/oak woodland crowns (WorldCover 10), projected from metres, thinning with NDVI & fading with distance. */
+/** Clustered multi-tier pine/oak woodland crowns (WorldCover 10), projected from metres, thinning with NDVI & distance. */
 export function addForestCluster(
   buf: VegBuffers, env: BuildEnv, rand: () => number, refX: number, y: number, colW: number, cellH: number,
   mPerPx: number, density: number, weight = 1, mapped?: AreaLimit,
 ): void {
   const fade = distanceFade(mPerPx, TREE_FULL_M_PER_PX, TREE_MAX_M_PER_PX)
-  if (fade * weight <= 0.02 || buf.trees.length / 6 >= CAPS.trees || rand() > 0.24 + 0.76 * density) return
-  // Individual foreground crowns (~18 m) aggregate smoothly into merged woodland crown domes (~40 m) on mid slopes.
-  const domeM = 18 + 0.62 * mPerPx
-  const baseR = clamp(domeM / Math.max(3, mPerPx), 1.30, 3.25)
-  const count = clamp(Math.round((2 + 4 * density) * (0.65 + 0.35 * fade)), 1, 6)
-  // Distribute across 2 overlapping sub-groves spanning the cell so wooded slopes read as connected woodland, not isolated dots.
-  const subOffX = (rand() - 0.5) * colW * 0.44, subOffY = (rand() - 0.5) * cellH * 0.36
-  const alphaByte = Math.round(clamp(fade * weight * (0.86 + 0.14 * density), 0, 1) * 255)
+  if (fade * weight <= 0.02 || buf.trees.length / 6 >= CAPS.trees) return
+  if (density < 0.45 && rand() > 0.30 + 1.55 * density) return
+  // Foreground crowns (~16 m) aggregate into merged woodland crown domes (~38 m) on mid slopes (KKL-JNF / FAO forestry).
+  const domeM = 16 + 0.56 * mPerPx
+  const baseR = clamp(domeM / Math.max(3, mPerPx), 1.35, 3.30)
+  const count = clamp(Math.round((3 + 7 * density) * (0.60 + 0.40 * fade)), 2, 10)
+  const groves = count >= 6 ? 3 : 2
+  const groveOffX = Array.from({ length: groves }, (_, g) => (g - (groves - 1) / 2) * colW * 0.24 + (rand() - 0.5) * colW * 0.14)
+  const groveOffY = Array.from({ length: groves }, () => (rand() - 0.5) * cellH * 0.34)
+  const alphaByte = Math.round(clamp(fade * weight * (0.88 + 0.12 * density), 0, 1) * 255)
   for (let i = 0; i < count && buf.trees.length / 6 < CAPS.trees; i++) {
-    const g = i < Math.ceil(count / 2) ? -0.5 : 0.5
-    const ang = rand() * Math.PI * 2, dist = (rand() ** 0.62) * (baseR * 2.1 + colW * 0.16)
-    const rx = refX + g * subOffX + Math.cos(ang) * dist * 1.25
-    const ry = y + g * subOffY + Math.sin(ang) * dist * 0.48
-    const r = clamp(baseR * (0.76 + 0.46 * rand()), 1.15, 3.5)
-    if (rx < 1 || rx > 374 || ry < env.crestAt(rx) + 1.4 + r * 0.25 || ry > env.footAt(rx) - 0.5) continue
-    const shade = 0.20 + 0.65 * rand()
-    const height = r * (2.0 + 0.7 * rand()), phase = rand() * Math.PI * 2
-    if (!env.fits(treeExtent(rx, ry, r, height, phase, TREE_KIND_CODE.pine, env.sx), (c) => c === 1, mapped)) continue
-    buf.trees.push(rx * env.sx, ry, r, height, phase, shade)
-    buf.treeMeta.push(TREE_KIND_CODE.pine, shade > 0.50 ? TONE.PINE_SHADE : TONE.PINE_MID, alphaByte)
+    const g = i % groves, rank = Math.floor(i / groves)
+    // Emergent anchor + overlapping mid-canopy + smaller edge saplings so wooded slopes read as varied, cohesive groves.
+    const tierScale = rank === 0 ? 1.12 + 0.44 * rand() : rank % 2 === 1 ? 0.72 + 0.38 * rand() : 0.48 + 0.30 * rand()
+    const ang = rand() * Math.PI * 2
+    const spread = rank === 0 ? 0.35 * rand() : rank % 2 === 1 ? 0.50 + 0.85 * rand() : 0.85 + 1.15 * rand()
+    const dist = baseR * spread
+    const rx = refX + groveOffX[g] + Math.cos(ang) * dist * 1.15
+    const ry = y + groveOffY[g] + Math.sin(ang) * dist * 0.48
+    const fullR = clamp(baseR * tierScale, 0.95, 4.35)
+    const shade = 0.15 + 0.75 * rand(), hMul = 2.0 + 0.7 * rand(), phase = rand() * Math.PI * 2
+    let r = fullR
+    if (rx < 1 || rx > 374 || ry < env.crestAt(rx) + 1.2 + r * 0.25 || ry > env.footAt(rx) - 0.5) continue
+    if (!env.fits(treeExtent(rx, ry, r, r * hMul, phase, TREE_KIND_CODE.pine, env.sx), (c) => c === 1, mapped)) {
+      r = Math.max(0.90, fullR * 0.62)
+      if (!env.fits(treeExtent(rx, ry, r, r * hMul, phase, TREE_KIND_CODE.pine, env.sx), (c) => c === 1, mapped)) continue
+    }
+    buf.trees.push(rx * env.sx, ry, r, r * hMul, phase, shade)
+    buf.treeMeta.push(TREE_KIND_CODE.pine, shade > 0.52 ? TONE.PINE_SHADE : TONE.PINE_MID, alphaByte)
   }
 }
 

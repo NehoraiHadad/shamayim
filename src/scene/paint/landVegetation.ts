@@ -51,28 +51,31 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
     const o = i * 9
     const x0 = fields[o], y0 = fields[o + 1], x1 = fields[o + 2], y1 = fields[o + 3]
     const x2 = fields[o + 4], y2 = fields[o + 5], x3 = fields[o + 6], y3 = fields[o + 7], alpha = fields[o + 8]
-    const state = fieldMeta[i * 2], rgb = tones[fieldMeta[i * 2 + 1]] ?? tones[0]
+    const state = fieldMeta[i * 2], baseRgb = tones[fieldMeta[i * 2 + 1]] ?? tones[0]
     const b0 = (h01(seed, x0, y0, 11) - 0.5) * 1.4, b1 = (h01(seed, x0, y0, 17) - 0.5) * 1.4
-
+    // Anchor-hashed tonal variation within each NDVI state so adjacent winter/spring fields read as a patchwork.
+    const v = h01(seed, x0, y0, 41)
+    const rgb: RGB = state === 0
+      ? (v < 0.5 ? mix(baseRgb, [0.09, 0.23, 0.09], (0.5 - v) * 0.85) : mix(baseRgb, [0.38, 0.53, 0.18], (v - 0.5) * 0.90))
+      : state === 1
+        ? (v < 0.5 ? mix(baseRgb, [0.16, 0.11, 0.07], (0.5 - v) * 0.65) : mix(baseRgb, [0.37, 0.25, 0.15], (v - 0.5) * 0.55))
+        : (v < 0.5 ? mix(baseRgb, [0.40, 0.33, 0.18], (0.5 - v) * 0.55) : mix(baseRgb, [0.62, 0.55, 0.32], (v - 0.5) * 0.55))
     ctx.beginPath()
     ctx.moveTo(x0, y0); wobblyEdge(ctx, x0, y0, x1, y1, b0); wobblyEdge(ctx, x1, y1, x2, y2, b1)
     wobblyEdge(ctx, x2, y2, x3, y3, -b0); wobblyEdge(ctx, x3, y3, x0, y0, -b1); ctx.closePath()
     ctx.fillStyle = css(rgb, alpha); ctx.fill()
-
-    // Perspective-converging furrows (clearer on ploughed soil and harvested straw stubble).
-    const furrowAlpha = state === 1 ? alpha * 0.55 : state === 2 ? alpha * 0.36 : alpha * 0.24
-    const furrowRgb = state === 2 ? mix(rgb, [0.60, 0.52, 0.32], 0.35) : mix(rgb, DARK_EARTH, 0.38)
+    const furrowAlpha = state === 1 ? alpha * 0.58 : state === 2 ? alpha * 0.40 : alpha * 0.34
+    const furrowRgb = state === 2 ? mix(rgb, [0.60, 0.52, 0.32], 0.35) : mix(rgb, DARK_EARTH, 0.42)
     const rows = state === 1 ? 5 : 4
     ctx.beginPath()
     for (let r = 1; r < rows; r++) {
       const f = r / rows
-      ctx.moveTo(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)
-      ctx.lineTo(x3 + (x2 - x3) * f, y3 + (y2 - y3) * f)
+      ctx.moveTo(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f); ctx.lineTo(x3 + (x2 - x3) * f, y3 + (y2 - y3) * f)
     }
     ctx.strokeStyle = css(furrowRgb, furrowAlpha); ctx.lineWidth = 0.55; ctx.stroke()
-
     ctx.beginPath(); ctx.moveTo(x3, y3); wobblyEdge(ctx, x3, y3, x2, y2, -b0)
-    ctx.strokeStyle = css(mix(rgb, DARK_EARTH, 0.44), alpha * 0.42); ctx.lineWidth = 0.65; ctx.stroke()
+    ctx.moveTo(x1, y1); wobblyEdge(ctx, x1, y1, x2, y2, b1)
+    ctx.strokeStyle = css(mix(rgb, DARK_EARTH, 0.46), alpha * 0.48); ctx.lineWidth = 0.65; ctx.stroke()
   }
 }
 

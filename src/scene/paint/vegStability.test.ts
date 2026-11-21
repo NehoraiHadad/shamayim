@@ -49,6 +49,12 @@ describe('Stage 4 painter stability', () => {
         cmd[0] === 'moveTo' && cmd[1] === 230 || cmd[0] === 'ellipse' && Number(cmd[1]) > 220))
       expect(fromFeature(a.commands)).toEqual(fromFeature(b.commands))
     }
+
+    // Two adjacent growing parcels receive distinct anchor-hashed green tones so winter/spring fields read as a patchwork.
+    const patch = trace()
+    paintVegFields(patch.ctx, dense)
+    const fillColors = patch.commands.filter((cmd) => cmd[0] === 'fillStyle').map((cmd) => String(cmd[1]))
+    expect(new Set(fillColors).size).toBe(2)
   })
 
   it('keeps painted orchard contrast through the 24 m/px handoff to coarse fields', () => {
