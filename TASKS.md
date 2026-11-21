@@ -770,8 +770,9 @@ reviews, Claude manages and draws the painters.
 - [x] Fable spec (Fable, native Agent) — `track-d/SPEC.md`
 - [x] Before stills — `track-d/before/` (Haifa, Jerusalem, Shadmot Mehola; 11:30/21:00; broken/overcast/showers)
 - [x] N1 brief — `track-d/briefs/N1-field-core.md`
-- [ ] N1 field core `src/world/field/` (Neon) — BLOCKED: outsourcerer refuses launches, C: has 4.9 GB free (< 10 GB gate)
-- [ ] N1 Codex review (gpt-6.2-sol)
+- [ ] N1 field core `src/world/field/` — written by Codex gpt-6.2-sol (Neon out of quota, 2026-11-21); reviewed by a
+      Claude Opus subagent. outsourcerer runs with `OSRC_HOME=P:/osrc-home` (C: below its 10 GB disk gate).
+- Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
 - [ ] N2 transmit, eye/direct light, shadows, rain (Neon); tests 2, 3, 8
 - [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
 - [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
