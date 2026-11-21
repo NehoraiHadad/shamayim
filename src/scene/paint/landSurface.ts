@@ -8,7 +8,8 @@ import type { Ctx2D, PaintEnv } from './hand'
  * stretches it back smoothly inside the plane outline.
  *
  * Craft notes:
- * - Bands follow the terrain's ridge contour (`crestY` at each x), never horizontal ruler stripes.
+ * - Bands follow each column's exact upper crest (`crestY`) to local visible foot (`footY`) from the
+ *   plane outline (so far-plane columns map across their local visible span rather than into occlusion).
  * - Gentle two-octave seeded value noise warps the patch seams organically so quantised tones read as
  *   hand-painted gouache washes with soft wet-on-damp edges rather than a per-pixel satellite mosaic.
  * - Low-frequency mottle and subtle paper grain integrate directly into the same pass on the near plane.
@@ -36,25 +37,36 @@ function valueNoise(seed: number, x: number, y: number) {
   return a + (b - a) * sx + (c - a + (d - c - b + a) * sx) * sy
 }
 
-/** Extracts the upper ridge polyline from a plane's closed outline and samples its crest y per texel column. */
-function ridgeYPerCol(outline: readonly Pt[], bounds: Box, cols: number): Float32Array {
-  const ys = new Float32Array(cols).fill(bounds.y)
-  if (outline.length < 2) return ys
-  // The plane outline runs strictly left -> right along the ridge, then drops/returns along the bottom.
-  let ridgeEnd = outline.length - 1
-  for (let i = 1; i < outline.length; i++) {
-    if (outline[i][0] <= outline[i - 1][0] + 1e-6) { ridgeEnd = i - 1; break }
-  }
-  const n = Math.max(2, ridgeEnd + 1)
+/** Samples a left-to-right monotonic polyline at each texel column x. */
+function samplePolylineY(pts: readonly Pt[], bounds: Box, cols: number, fallback: number): Float32Array {
+  const ys = new Float32Array(cols).fill(fallback)
+  if (pts.length < 2) return ys
   let seg = 0
   for (let i = 0; i < cols; i++) {
     const x = bounds.x + (i + 0.5) * TEXEL
-    while (seg < n - 2 && outline[seg + 1][0] < x) seg++
-    const [ax, ay] = outline[seg], [bx, by] = outline[Math.min(n - 1, seg + 1)]
+    while (seg < pts.length - 2 && pts[seg + 1][0] < x) seg++
+    const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1]
     const t = clamp((x - ax) / Math.max(1e-6, bx - ax), 0, 1)
     ys[i] = ay + (by - ay) * t
   }
   return ys
+}
+
+/** Extracts both upper crest y and local lower foot y per texel column from a plane's closed outline. */
+function outlineBandY(outline: readonly Pt[], bounds: Box, cols: number): { crestY: Float32Array; footY: Float32Array } {
+  const bottom = bounds.y + bounds.h
+  if (outline.length < 2) return { crestY: new Float32Array(cols).fill(bounds.y), footY: new Float32Array(cols).fill(bottom) }
+  // The plane outline runs strictly left -> right along the ridge, then returns right -> left along the local foot.
+  let ridgeEnd = outline.length - 1
+  for (let i = 1; i < outline.length; i++) {
+    if (outline[i][0] <= outline[i - 1][0] + 1e-6) { ridgeEnd = i - 1; break }
+  }
+  const crestY = samplePolylineY(outline.slice(0, Math.max(2, ridgeEnd + 1)), bounds, cols, bounds.y)
+  const lower = outline.slice(ridgeEnd + 1).reverse()
+  const footY = lower.length >= 2 && lower.every((p, i) => i === 0 || p[0] >= lower[i - 1][0] - 1e-6)
+    ? samplePolylineY(lower, bounds, cols, bottom)
+    : new Float32Array(cols).fill(bottom)
+  return { crestY, footY }
 }
 
 /** Paints quantised living-land washes + seeded organic patches + integrated near mottle/grain inside a clipped plane. */
@@ -66,8 +78,7 @@ export function paintLandSurface(
   const wPx = Math.max(1, Math.ceil(bounds.w / TEXEL)), hPx = Math.max(1, Math.ceil(bounds.h / TEXEL))
   const scratch = env.canvas(wPx, hPx)
   const image = scratch.ctx.createImageData(wPx, hPx), data = image.data
-  const crestY = ridgeYPerCol(outline, bounds, wPx)
-  const footY = bounds.y + bounds.h
+  const { crestY, footY } = outlineBandY(outline, bounds, wPx)
   const gx0 = Math.round(bounds.x / TEXEL), gy0 = Math.round(bounds.y / TEXEL)
   const invW = 1 / Math.max(1, bounds.w), maxC = pCols - 1, maxR = pRows - 1
 
@@ -76,7 +87,7 @@ export function paintLandSurface(
     for (let i = 0; i < wPx; i++) {
       const x = bounds.x + (i + 0.5) * TEXEL
       const u = clamp((x - bounds.x) * invW, 0, 1)
-      const v = clamp((y - crestY[i]) / Math.max(10, footY - crestY[i]), 0, 1)
+      const v = clamp((y - crestY[i]) / Math.max(1, footY[i] - crestY[i]), 0, 1)
 
       // Gentle seeded organic patches: broad hillside washes + soft undulating transitions between distance bands.
       const n1 = valueNoise(seed + 17, x * 0.032, y * 0.055)

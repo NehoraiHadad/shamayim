@@ -60,7 +60,7 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   // The ground's texture on the near ridge only: haze takes it from the planes behind (and they are mostly hidden).
   const hidden = name === 'near' ? undefined : Math.min(box.landHeight, Math.ceil(Math.max(...world.terrain.near.points.map(([, y]) => y))) + 2)
   const ground = name === 'back' ? { gullies: [], terraces: [], scrub: [] } : groundForm(world, box, name, clear)
-  const surface = planeSurfaceOf(world, name, plane)
+  const surface = planeSurfaceOf(world, name, plane, box.landHeight)
   return {
     kind: 'plane', plane: name, id: `plane.${name}`, surface: 'land', z: Z[name],
     // A plane behind the near ridge is hidden under its lowest crest: its canvases stop there.

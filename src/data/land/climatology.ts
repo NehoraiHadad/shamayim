@@ -45,6 +45,12 @@ const WINTER_MOISTURE: Record<KoppenCode, number> = {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
+/** Unknown-cover land climatology RGB (0–255, TCI scale) for dryness in `[0, 1]` (explicit non-water fallback). */
+export function unknownLandRgb(dryness: number): [number, number, number] {
+  const t = clamp(dryness, 0, 1), p = PROFILES[0]
+  return [Math.round(lerp(p.wetRgb[0], p.dryRgb[0], t)), Math.round(lerp(p.wetRgb[1], p.dryRgb[1], t)), Math.round(lerp(p.wetRgb[2], p.dryRgb[2], t))]
+}
+
 /** Annual mean temperature proxy (°C) from latitude and elevation (Peixoto & Oort 1992 + ISO 2533). */
 export function meanTempProxyC(lat: number, elevationM: number): number {
   const a = Math.abs(lat)

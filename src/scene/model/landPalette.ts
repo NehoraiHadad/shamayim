@@ -1,5 +1,7 @@
 //# allFunctionsCalledOnLoad
+import { unknownLandRgb } from '../../data/land/climatology'
 import type { LivingLand } from '../../world/landLiving'
+import { linearRgbToSrgb, tciRgbToReflectance } from '../../world/landRadiometry'
 import type { RGB } from '../../world/types'
 import { labOf, rgbOfLab } from './tone'
 
@@ -78,10 +80,33 @@ export function quantiseTones(tones: readonly RGB[], maxColours: number): { pale
 export const COVER_WATER = 8
 const lerpRgb = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 
+/** Non-water fallback when rays lack dry land: non-water centre -> closest non-water local point -> explicit land climatology. */
+export function nonWaterLocalFallback(land: LivingLand): { albedo: RGB; source: string } {
+  if (land.own.cover !== COVER_WATER) return { albedo: land.own.albedo, source: land.own.albedoSource }
+  let best = null as (typeof land.local)[number] | null
+  let bestDist = Infinity
+  for (const pt of land.local) {
+    if (pt.sample.cover === COVER_WATER) continue
+    const d = Math.hypot(pt.eastM, pt.northM)
+    if (d < bestDist) { bestDist = d; best = pt }
+  }
+  if (best) return { albedo: best.sample.albedo, source: best.sample.albedoSource }
+  return { albedo: linearRgbToSrgb(tciRgbToReflectance(unknownLandRgb(land.own.dryness))), source: 'climatology' }
+}
+
+/** Picks the source label carrying the highest total contribution weight. */
+export function dominantWeightedSource(entries: readonly { source: string; weight: number }[]): string {
+  const sums = new Map<string, number>()
+  for (const { source, weight } of entries) if (weight > 0) sums.set(source, (sums.get(source) ?? 0) + weight)
+  let best = entries[0]?.source ?? 'climatology', bestW = -1
+  for (const [src, w] of sums) if (w > bestW) { bestW = w; best = src }
+  return best
+}
+
 /** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
 export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
   const rays = land.rays
-  if (!rays.length) return { albedo: land.own.albedo, source: land.own.albedoSource }
+  if (!rays.length) return nonWaterLocalFallback(land)
   const idx = clamp(Math.round(rayIdx), 0, rays.length - 1)
   let bands = rays[idx].bands.filter((b) => b.sample.cover !== COVER_WATER)
   for (let d = 1; d < rays.length && !bands.length; d++) {
@@ -91,18 +116,29 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
       if (cand.length) { bands = cand; break }
     }
   }
-  if (!bands.length) return { albedo: land.own.albedo, source: land.own.albedoSource }
+  if (!bands.length) return nonWaterLocalFallback(land)
   const distM = Math.max(50, km * 1000)
   const hi = bands.findIndex((b) => b.distanceM >= distM)
-  let albedo: RGB, source: string
-  if (hi <= 0) { albedo = bands[0].sample.albedo; source = bands[0].sample.albedoSource }
-  else if (hi === -1) { albedo = bands.at(-1)!.sample.albedo; source = bands.at(-1)!.sample.albedoSource }
-  else {
+  let albedo: RGB
+  const contribs: { source: string; weight: number }[] = []
+  if (hi === -1) {
+    const outer = bands.at(-1)!
+    albedo = outer.sample.albedo
+    contribs.push({ source: outer.sample.albedoSource, weight: 1 })
+  } else if (hi === 0) {
+    albedo = bands[0].sample.albedo
+    contribs.push({ source: bands[0].sample.albedoSource, weight: 1 })
+  } else {
     const a = bands[hi - 1], b = bands[hi]
     const t = clamp((Math.log(distM) - Math.log(a.distanceM)) / Math.max(1e-6, Math.log(b.distanceM) - Math.log(a.distanceM)), 0, 1)
     albedo = lerpRgb(a.sample.albedo, b.sample.albedo, t)
-    source = t < 0.5 ? a.sample.albedoSource : b.sample.albedoSource
+    contribs.push({ source: a.sample.albedoSource, weight: 1 - t }, { source: b.sample.albedoSource, weight: t })
   }
-  if (distM < 700 && land.own.cover !== COVER_WATER) albedo = lerpRgb(albedo, land.own.albedo, clamp((700 - distM) / 500, 0, 0.55))
-  return { albedo, source }
+  if (distM < 700 && land.own.cover !== COVER_WATER) {
+    const ownW = clamp((700 - distM) / 500, 0, 0.55)
+    albedo = lerpRgb(albedo, land.own.albedo, ownW)
+    for (const c of contribs) c.weight *= 1 - ownW
+    contribs.push({ source: land.own.albedoSource, weight: ownW })
+  }
+  return { albedo, source: dominantWeightedSource(contribs) }
 }

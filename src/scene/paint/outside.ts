@@ -4,6 +4,7 @@ import { drawGlyph, drawLamps, glyphShadow, glyphSide } from './glyphs'
 import { AVIATION, type Lamp } from './glyphs/kit'
 import { css, mix, outline, type Ctx2D, type PaintEnv } from './hand'
 import { grain, rockOf, tree } from './marks'
+import { paintOutsideLand } from './outsideGround'
 import { running, twinkling } from './water'
 
 /*
@@ -68,43 +69,6 @@ function sea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
   ctx.beginPath()
   s.coast.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
   ctx.stroke()
-}
-
-/** The place's own ground over the ridge line: quantised living-land tones across its span, crest catching the sky. */
-function land(ctx: Ctx2D, l: NonNullable<LayerOf<'outside'>['land']>, shine: Shine) {
-  ctx.beginPath()
-  l.top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
-  for (let i = l.base.length - 1; i >= 0; i--) ctx.lineTo(l.base[i][0], l.base[i][1])
-  ctx.closePath()
-  if (l.stops && l.stops.length > 1) {
-    const x0 = l.top[0][0], x1 = l.top.at(-1)![0]
-    const g = ctx.createLinearGradient(x0, 0, Math.max(x0 + 1, x1), 0)
-    for (const [t, rgb] of l.stops) g.addColorStop(Math.min(1, Math.max(0, t)), css(rgb))
-    ctx.fillStyle = g
-  } else ctx.fillStyle = css(l.tone)
-  ctx.fill()
-  // Snow where its crest stands at or over the snow line, as the ridge under it takes it: from the crest down to the line.
-  for (const [a, b] of l.snow?.runs ?? []) {
-    ctx.beginPath()
-    ctx.moveTo(l.top[a][0], l.top[a][1])
-    for (let i = a + 1; i <= b; i++) ctx.lineTo(l.top[i][0], l.top[i][1])
-    for (let i = b; i >= a; i--) ctx.lineTo(l.base[i][0], l.base[i][1])
-    ctx.closePath()
-    ctx.fillStyle = css(l.snow!.rgb, l.snow!.alpha)
-    ctx.fill()
-  }
-  // The crest: a fine line where it stands over the ridge line, fading where it eases into it.
-  for (let i = 1; i < l.top.length; i++) {
-    const [x0, y0] = l.top[i - 1], [x1, y1] = l.top[i]
-    const rise = Math.min(1, (l.base[i][1] - 2 - y1) / 2)
-    if (rise <= 0) continue
-    ctx.strokeStyle = css(l.rim, .55 * rise * (1 - .5 * shine.night))
-    ctx.lineWidth = .5
-    ctx.beginPath()
-    ctx.moveTo(x0, y0 + .25)
-    ctx.lineTo(x1, y1 + .25)
-    ctx.stroke()
-  }
 }
 
 /**
@@ -404,7 +368,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const side = desc.litSide === 'left' ? 1 : desc.litSide === 'right' ? -1 : 0
   const frames = desc.animated?.frames
   const t = frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
-  if (desc.land) land(ctx, desc.land, s)
+  if (desc.land) paintOutsideLand(ctx, desc.land, s)
   if (desc.sea) sea(ctx, desc.sea, s, t)
   for (const item of desc.items) {
     if (item.kind === 'tower') towerShadow(ctx, item, tiers[item.tier], s)

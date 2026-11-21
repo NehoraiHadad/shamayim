@@ -114,7 +114,12 @@ export interface OutsideView {
   bounds: { source: 'boundary' | 'cell' | 'cluster'; name?: string }
   topM: number | null; beyond: BeyondTower[]; beyondTowns?: BeyondBlock[]
   baseKm: number; trees: OutsideTreeSite[]; fabric: 'cover' | 'raster'; roofs: 'tile' | 'flat' | 'mixed'
-  land: { top: Pt[]; base: Pt[]; km: number; heightM?: number[] } | null
+  /**
+   * The place's own ground polygon over the ridge line: `localKm` holds `[dxKm, dyKm]` (east/north km from the place)
+   * of each crest column for local living-land albedo lookup; `km` is the portrait-scale aerial-haze distance
+   * approximation (near-ridge distance at `frame.centerX`).
+   */
+  land: { top: Pt[]; base: Pt[]; km: number; heightM?: number[]; localKm?: Pt[] } | null
   vscale?: { s: number; h0: number } | null
 }
 

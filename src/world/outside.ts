@@ -603,15 +603,17 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
   const cos = Math.cos(place.lat * Math.PI / 180)
   const wet = (dx: number, dy: number) => mask ? mask.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos)) !== null : false
   const top = new Float64Array(Math.ceil(width) + 1).fill(Infinity)
-  // The ground's height (m) at each column's crest: the snow on it, as on the ridge (C9).
+  // The ground's height (m) and local east/north offsets (km) at each column's crest (snow & living-land albedo).
   const crestM = new Float64Array(top.length).fill(NaN)
+  const crestDx = new Float64Array(top.length).fill(NaN)
+  const crestDy = new Float64Array(top.length).fill(NaN)
   let left = Infinity, right = -Infinity
   for (const g of samples) {
     if (wet(g.dx, g.dy)) continue
     const x = Math.round(outsideProject(frame, g.dx, g.dy).x)
     if (x < 0 || x > width) continue
     const y = baseY(g.dx, g.dy)
-    if (y < top[x]) { top[x] = y; crestM[x] = g.h }
+    if (y < top[x]) { top[x] = y; crestM[x] = g.h; crestDx[x] = g.dx; crestDy[x] = g.dy }
     left = Math.min(left, x); right = Math.max(right, x)
   }
   if (!(right > left)) return null
@@ -620,17 +622,22 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
   for (let x = left; x <= right; x++) {
     if (!Number.isFinite(top[x])) continue
     if (last >= 0 && x - last > 1) for (let i = last + 1; i < x; i++) {
-      top[i] = top[last] + (top[x] - top[last]) * (i - last) / (x - last)
-      crestM[i] = crestM[last] + (crestM[x] - crestM[last]) * (i - last) / (x - last)
+      const t = (i - last) / (x - last)
+      top[i] = top[last] + (top[x] - top[last]) * t
+      crestM[i] = crestM[last] + (crestM[x] - crestM[last]) * t
+      crestDx[i] = crestDx[last] + (crestDx[x] - crestDx[last]) * t
+      crestDy[i] = crestDy[last] + (crestDy[x] - crestDy[last]) * t
     }
     last = x
   }
   const pts: Pt[] = []
   const base: Pt[] = []
   const heightM: number[] = []
+  const localKm: Pt[] = []
   let rises = false
   for (let x = Math.max(0, left - LAND_EASE); x <= Math.min(width, right + LAND_EASE); x++) {
-    const own = top[Math.min(right, Math.max(left, x))]
+    const col = Math.min(right, Math.max(left, x))
+    const own = top[col]
     // Smoothed, but never lower than the column's own top (a row on a crest keeps its ground under it).
     const smooth = Math.min(own, (top[Math.max(left, Math.min(right, x - 1))] + 2 * own + top[Math.max(left, Math.min(right, x + 1))]) / 4)
     const ease = x < left ? 1 - (left - x) / LAND_EASE : x > right ? 1 - (x - right) / LAND_EASE : 1
@@ -639,9 +646,12 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
     if (y < line - .4) rises = true
     pts.push([x, y])
     base.push([x, line + 2])
-    heightM.push(crestM[Math.min(right, Math.max(left, x))])
+    heightM.push(crestM[col])
+    localKm.push([crestDx[col], crestDy[col]])
   }
-  return rises ? { top: pts, base, heightM, km: input.terrain.sightAt?.(frame.centerX * 375 / width).nearKm ?? 1 } : null
+  // `km`: portrait-scale aerial-haze distance approximation (near ridge at `frame.centerX`) so the silhouette blends
+  // seamlessly with the ridge behind it; local ground albedo is resolved from `localKm` in `world.land.local`.
+  return rises ? { top: pts, base, heightM, localKm, km: input.terrain.sightAt?.(frame.centerX * 375 / width).nearKm ?? 1 } : null
 }
 
 /** A tower beyond the crest shows when the panorama sees at least this many px of it over the land in front. */

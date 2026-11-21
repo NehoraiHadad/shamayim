@@ -8,14 +8,13 @@ import { facetShare } from '../../world/water'
 import { groundFn } from '../../data/landmarks/seat'
 import type { OutsideView, RGB, WorldMark, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { outsideGroundStops } from './landColour'
+import { aerialFor, hazeOf } from './landVeil'
 import { againstLight, facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
+import { outsideLandDesc } from './outsideGround'
 import { smoothstep } from '../../world/ridgeLighting'
-import { aerialFor, applyVeil, hazeOf, veilAt } from './landVeil'
-import { snowOnGround } from './planeLight'
 import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
-import type { Box, GlyphDesc, LayerOf, OutsideItem, Pt, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
+import type { Box, GlyphDesc, LayerOf, OutsideItem, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
 import { openWaterTone } from './water'
 
 /**
@@ -313,19 +312,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   }
   const sea = seaOf(world, box, sx, clear)
   const view = world.place3
-  // The place's own ground where it rises over the ridge line: quantised living-land tones across its span at its
-  // distance, veiled by the same scene light and aerial haze as the planes, with its crest lit by the sky.
-  const landDesc = view.land ? (() => {
-    const raw = outsideGroundStops(world, view.land.top[0][0], view.land.top.at(-1)![0], view.land.km)
-    const veil = veilAt(world, view.land.km)
-    const tone = applyVeil(raw.median, veil)
-    const stops: [number, RGB][] = raw.stops.map(([t, c]) => [t, applyVeil(c, veil)])
-    return {
-      top: view.land.top.map(([x, y]): Pt => [x * sx, y]), base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
-      tone, stops, source: raw.source, rim: mixRgb(tone, skyAt(world, box)(2), 0.35),
-      snow: landSnow(world, view.land),
-    }
-  })() : null
+  const landDesc = outsideLandDesc(world, view, box, sx)
   const form = skyFormOf(world, box, shape.kms, tones, sx)
   if (!out.length && !sea) return null
   // The layer's box: everything with the longest cast shadow either side, independent of the light (a scrub never resizes it).
@@ -362,25 +349,6 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
       sea && Math.round((sea.drift ?? 0) * 4), skyKey),
     blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25], faces: [] },
   }
-}
-
-/**
- * Snow on the place's own ground over the ridge line (C9): where its crest stands at or above the snow line, the snow the
- * planes lie at that distance (`snowOnGround`), so the land whitens with the ridge under it instead of standing dark on
- * it. Runs of top points, first to last index.
- */
-function landSnow(world: WorldState, land: NonNullable<OutsideView['land']>) {
-  const look = snowOnGround(world, land.km)
-  const lineM = world.snow?.lineM
-  if (!look || lineM === undefined || !land.heightM) return null
-  const runs: [number, number][] = []
-  land.heightM.forEach((h, i) => {
-    if (!(h >= lineM)) return
-    const last = runs.at(-1)
-    if (last && last[1] === i - 1) last[1] = i
-    else runs.push([i, i])
-  })
-  return runs.length ? { ...look, runs } : null
 }
 
 /** A field's ground under it (relative to its base), every glyph px across, as the portrait's fields take it. */
