@@ -100,7 +100,7 @@ export function wearLight(world: WorldState): WearLight {
   // repaints the cloth only when its light visibly turns (a fortieth: no step a minute's scrub can see).
   const q = (v: number, n: number) => Math.round(v * n) / n
   const rgb = (c: RGB): RGB => [q(c[0], 48), q(c[1], 48), q(c[2], 48)]
-  const across = q(k(NORMALS.right, 0.15) - k(NORMALS.left, 0.15), 40)
+  const across = q(light.across, 40)
   return { side: across > 0 ? 1 : across < 0 ? -1 : 0, shine: q(shine, 40), across, front: q(k(NORMALS.front, 0.3), 40),
     back: q(on * clamp01(dir.ahead) ** 0.8, 40), up: q(on * clamp01(dir.up), 40), rgb: rgb(light.colour), ambient: rgb(light.ambient),
     dark: q(clamp01(night.dark), 40), moon }

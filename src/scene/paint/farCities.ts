@@ -4,8 +4,8 @@ import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 /*
  * The far towns in the enriched hand. MEDIUM: the scene's flat opaque bodies, one-sided light, haze by distance, no
  * outlines. ORDER, far tier to near: each tier's mass (the town as the eye resolves it, soft-edged by its strength steps),
- * the blocks in shade, then their faces toward the light (a narrow lit strip on the light's side; under a sky with no
- * side, the blocks take the mean of lit and shade); last the lit windows by night, each a point with a faint halo. One
+ * the blocks blend from lit to shade with the strength of lateral light, then their faces toward the light take a
+ * narrow lit strip; last the lit windows by night, each a point with a faint halo. One
  * path per tone, so a town of a thousand blocks is a handful of fills.
  */
 export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: PaintEnv): void {
@@ -23,19 +23,19 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
     if (!tier.blocks.length) continue
     ctx.beginPath()
     for (const b of tier.blocks) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
-    // Even (the mean light, a little open) under a sky with no side; toward the shade as the light comes to one side.
-    const k = desc.litSide ? desc.sideK ?? 1 : 0
+    // Under an even sky the bodies take the lit tone, then shade as the lateral light increases.
+    const k = Math.abs(desc.lateralLight)
     ctx.fillStyle = css(mix(tier.lit, tier.shade, k), 0.85 + 0.15 * k)
     ctx.fill()
-    if (!desc.litSide || k <= 0.004) continue
-    ctx.beginPath()
-    for (const b of tier.blocks) {
-      // The lit face: the half of the block toward the light (against the light a rim), at least a device px.
-      const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
-      ctx.rect(desc.litSide === 'left' ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
+    for (const dir of [1, -1]) {
+      ctx.beginPath()
+      for (const b of tier.blocks) {
+        const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
+        ctx.rect(dir > 0 ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
+      }
+      ctx.fillStyle = css(tier.lit, Math.max(0, dir * desc.lateralLight))
+      ctx.fill()
     }
-    ctx.fillStyle = css(tier.lit, k)
-    ctx.fill()
   }
   if (!desc.lights.length) return
   // Lights by strength (four steps), each with a halo of three times its size.
