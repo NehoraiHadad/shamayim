@@ -15,7 +15,7 @@ export function minaret(k: Kit, h: number) {
   k.box(-7, -5, 9, 5, 1.5, { shadeW: 1 })
   k.rim(-7, -5, 9)
   k.fill(rect(-7, -5.5, 9, 0.5), t.wall)
-  k.fill(rect(-7, -5.5, 1.5, 0.5), t.lit)
+  k.fill(rect(-7, -5.5, 1.5, 0.5), k.litL)
   k.rim(-7, -5.5, 9, 0.6)
   k.round(rect(-5, -6.5, 5, 1), -5, 0)
   for (const x of [-4.5, -3, -1.5]) k.fill(rect(x, -6.25, 0.5, 0.5), t.deep, 0.5)
@@ -23,8 +23,8 @@ export function minaret(k: Kit, h: number) {
     c.beginPath(); c.moveTo(-5.2, -6.5); c.bezierCurveTo(-5.2, -8.9, -3.9, -9.6, -2.5, -9.6)
     c.bezierCurveTo(-1.1, -9.6, 0.2, -8.9, 0.2, -6.5); c.closePath()
   }, -5.2, 0.2, 0.55)
-  k.fill(rect(-2.75, -10.6, 0.5, 1), t.lit)
-  k.fill(rect(-2.9, -11.1, 0.8, 0.5), mix(t.lit, t.rim, 0.6))
+  k.fill(rect(-2.75, -10.6, 0.5, 1), t.wall)
+  k.fill(rect(-2.9, -11.1, 0.8, 0.5), mix(t.wall, t.rim, 0.6))
   for (const x of [-4.4, -1.6]) k.open(arch(x, -1.2, 1, 2.4), true)
   k.open(arch(-0.2, 0, 1.2, 2.6), true, 0.6)
   // The minaret: square base, shaft, balcony on corbels, upper shaft, pencil cone.
@@ -36,7 +36,7 @@ export function minaret(k: Kit, h: number) {
   k.rim(1.4, bal - 0.6, 3.6, 0.8)
   k.round(rect(2.45, top, 1.5, bal - 0.6 - top), 2.45, 3.95)
   k.round(poly([2.35, top, 4.05, top, 3.2, -h + 0.9]), 2.35, 4.05, 0.5)
-  k.fill(rect(3.05, -h, 0.3, 0.9), t.lit)
+  k.fill(rect(3.05, -h, 0.3, 0.9), t.wall)
   k.open(rect(2.95, bal - 3.4, 0.5, 1.2), false)
   if (k.night > 0.4) k.lamp(3.2, bal - 0.3, 2.2, MINARET_LAMP, 0.75 * k.night)
 }
@@ -44,10 +44,10 @@ export function minaret(k: Kit, h: number) {
 /** Church: gabled stone nave with a rose window and a tiled roof, a square tower with an arched belfry, cap and cross. */
 export function church(k: Kit, h: number) {
   const { t } = k
-  k.fill(poly([-6.5, 0, -6.5, -6, -4.6, -8.4, -2.7, -6, -2.7, 0]), t.stoneLit)
+  k.fill(poly([-6.5, 0, -6.5, -6, -4.6, -8.4, -2.7, -6, -2.7, 0]), k.stoneL)
   k.fill(rect(-2.7, -6, 5, 6), t.stone)
   k.fill(poly([-4.6, -8.4, 1.8, -8.4, 2.3, -6, -2.7, -6]), t.roof)
-  k.fill(poly([-4.6, -8.4, 1.8, -8.4, 1.9, -7.9, -4.2, -7.9]), t.roofLit, 0.9)
+  k.fill(poly([-4.6, -8.4, 1.8, -8.4, 1.9, -7.9, -4.2, -7.9]), mix(t.roof, t.rim, 0.24), 0.9)
   k.fill(rect(-2.7, -6, 5, 0.5), t.shade, 0.6)
   k.fill(poly([-6.5, -6, -4.6, -8.4, -4.6, -7.8, -6.1, -5.9]), t.rim, 0.7)
   k.open(disc(-4.6, -5.6, 0.65), true, 0.7)
@@ -59,11 +59,11 @@ export function church(k: Kit, h: number) {
   k.fill(rect(2, tt + 3.8, 3.8, 0.5), t.shade, 0.5)
   k.fill(rect(2, tt + 3.3, 3.8, 0.5), t.rim, 0.45)
   k.open(arch(3.45, tt + 3.1, 1.3, 2.4), true, 0.5)
-  k.fill(rect(3.5, tt + 2, 1.2, 0.5), mix(t.deep, t.lit, 0.5), 0.8 - 0.5 * k.night)
+  k.fill(rect(3.5, tt + 2, 1.2, 0.5), mix(t.deep, t.wall, 0.5), 0.8 - 0.5 * k.night)
   k.open(rect(3.85, -5.6, 0.5, 1.4), false)
   k.round(poly([1.8, tt, 6, tt, 3.9, tt - 1.7]), 1.8, 6, 0.48)
-  k.fill(rect(3.65, -h - 0.5, 0.5, 2.5), t.lit)
-  k.fill(rect(3.2, -h + 0.1, 1.4, 0.5), t.lit)
+  k.fill(rect(3.65, -h - 0.5, 0.5, 2.5), t.wall)
+  k.fill(rect(3.2, -h + 0.1, 1.4, 0.5), t.wall)
 }
 
 /** Synagogue: a flat-roofed concrete hall with tall round-arched windows, a small dome on a drum and a stair block. */
@@ -73,7 +73,7 @@ export function synagogue(k: Kit) {
   k.rim(3, -8.3, 2.5, 0.6)
   k.box(-5.5, -7, 9, 7, 1.6, { shadeW: 0.6 })
   k.fill(rect(-5.5, -7.6, 9, 0.6), t.wall)
-  k.fill(rect(-5.5, -7.6, 1.6, 0.6), t.lit)
+  k.fill(rect(-5.5, -7.6, 1.6, 0.6), k.litL)
   k.rim(-5.5, -7.6, 9)
   k.fill(rect(-5.5, -7, 9, 0.5), t.shade, 0.45)
   k.round(rect(-2.2, -8.5, 2.8, 0.9), -2.2, 0.6)
@@ -94,14 +94,15 @@ export function waterTower(k: Kit, h: number) {
   k.open(rect(-0.45, -1.6, 0.9, 1.6), false)
   k.fill(rect(-1.4, -s * 0.5, 2.8, 0.4), t.shade, 0.3)
   k.fill(poly([-1.15, -s, 1.15, -s, 4.4, -s - 2.2, -4.4, -s - 2.2]), t.shade)
-  k.fill(poly([-1.15, -s, -0.6, -s, -3.3, -s - 2.2, -4.4, -s - 2.2]), mix(t.shade, t.lit, 0.35))
+  k.fill(poly([-1.15, -s, -0.6, -s, -3.3, -s - 2.2, -4.4, -s - 2.2]), mix(t.shade, t.lit, 0.35 * k.kl))
+  k.fill(poly([0.6, -s, 1.15, -s, 4.4, -s - 2.2, 3.3, -s - 2.2]), mix(t.shade, t.lit, 0.35 * k.kr))
   k.round(rect(-4.5, -s - 5.6, 9, 3.4), -4.5, 4.5)
   k.fill(rect(-4.5, -s - 3.9, 9, 0.5), t.shade, 0.55)
   k.fill(rect(-4.5, -s - 2.7, 9, 0.5), t.shade, 0.5)
   k.round(poly([-4.6, -s - 5.6, 4.6, -s - 5.6, 3.4, -s - 6.4, -3.4, -s - 6.4]), -4.6, 4.6, 0.7)
   k.rim(-3.4, -s - 6.4, 6.8, 0.8)
   k.fill(rect(-0.6, -s - 7.2, 1.4, 0.8), t.wall)
-  k.fill(rect(-0.6, -s - 7.2, 0.5, 0.8), t.lit)
+  k.fill(rect(-0.6, -s - 7.2, 0.5, 0.8), k.litL)
   k.aviation(0.1, -s - 7.4)
 }
 
@@ -111,7 +112,7 @@ export function castle(k: Kit, h: number) {
   const keep = poly([-8, 0, -8, -8.6, -7.2, -8.6, -7.2, -9.4, -6.1, -9.4, -6.1, -h, -4.9, -h, -4.9, -8.9, -3.9, -9.5, -3.3, -8.4, -3.3, 0])
   k.fill(keep, t.stone)
   const keepLit = poly([-8, 0, -8, -8.6, -7.2, -8.6, -7.2, -9.4, -6.6, -9.4, -6.6, 0])
-  k.fill(keepLit, t.stoneLit)
+  k.fill(keepLit, k.stoneL)
   k.fill(rect(-3.9, -8.4, 0.6, 8.4), t.shade, 0.5)
   const wallPts = [-3.3, 0, -3.3, -5.8, -2.4, -5.8, -2.4, -6.4, -1.4, -6.4, -1.4, -5.6, -0.2, -5.9, 0.6, -5.1, 1.8, -5.4, 2.6, -4.3, 3.9, -4.6, 4.6, -3.2,
     5.6, -3.4, 6.2, -2, 7.2, -2.2, 7.6, -0.8, 8, 0]
@@ -134,7 +135,7 @@ export function castle(k: Kit, h: number) {
   for (const y of [-7.3, -4.4]) k.open(rect(-5.3, y, 0.5, 1.4), false)
   k.open(arch(0.6, 0, 1.6, 2.8), false)
   k.fill(rect(5.6, -0.9, 1.1, 0.9), t.stone)
-  k.fill(rect(5.6, -0.9, 0.4, 0.9), t.stoneLit)
+  k.fill(rect(5.6, -0.9, 0.4, 0.9), k.stoneL)
   k.fill(rect(7.1, -0.6, 0.8, 0.6), t.stone)
 }
 

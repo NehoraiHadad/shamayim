@@ -513,8 +513,8 @@ describe('light on the place', () => {
   it('lights the place’s faces from the true sun’s side at every hour', () => {
     for (const at of ['2026-11-17T08:00', '2026-11-17T11:00', '2026-11-17T16:30'] as LocalTime[]) {
       const world = worldAt('tel-aviv', at)
-      expect(layerOf(world)!.litSide).toBe(world.light.side)
-      for (const item of layerOf(world)!.items) if (item.kind === 'mark') expect(item.glyph.litSide).toBe(world.light.side)
+      const { shine } = layerOf(world)!
+      if (Math.abs(world.light.across) > 0.05) expect(Math.sign(shine.cast.dx)).toBe(-Math.sign(world.light.across))
     }
   })
 

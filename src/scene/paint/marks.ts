@@ -60,10 +60,9 @@ export function paintMarks(ctx: Ctx2D, desc: LayerOf<'marks'>, env: PaintEnv): v
 
 /**
  * A tree: a round pine or olive (two lobes and a lit crown), a cypress (a flame, its lit half), a palm; leaning in the wind.
- * The living light: its shape is its own (the second lobe's side seeded), its lit and shaded halves take the light's side
- * by `k` (0–1, the side's strength), and under an even light its lower half is shaded from the sky above.
+ * The second lobe is seeded. The fixed halves take signed lateral light, with even-sky shade underneath.
  */
-export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 | 0, rock = 0, k = side ? 1 : 0) {
+export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, l: number, rock = 0) {
   const { x, base, w, h } = tr
   const r = rng(tr.seed)
   // C7: the gusts rock each crown about its lean (`rock`, −1…1 over the strip's loop), a little out of step tree to tree.
@@ -71,7 +70,8 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 
   ctx.save()
   ctx.translate(x, base)
   ctx.transform(1, 0, -lean, 1, 0, 0)
-  const sd = side || 1
+  const k = Math.abs(l)
+  const halves = [[1, Math.max(0, l)], [-1, Math.max(0, -l)]] as const
   ctx.fillStyle = css(t.deep, 0.45)
   ctx.fillRect(-w * 0.45, -0.3, w * 0.9 + 0.6, 0.6)
   if (tr.kind === 'cypress') {
@@ -79,8 +79,8 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 
     ctx.beginPath()
     ctx.moveTo(0, -h); ctx.quadraticCurveTo(w * 0.62, -h * 0.45, 0.35, 0); ctx.lineTo(-0.35, 0); ctx.quadraticCurveTo(-w * 0.62, -h * 0.45, 0, -h)
     ctx.fill()
-    if (k > 0.01) {
-      ctx.fillStyle = css(t.greenLit, 0.8 * k)
+    for (const [sd, weight] of halves) {
+      ctx.fillStyle = css(t.greenLit, 0.8 * weight)
       ctx.beginPath()
       ctx.moveTo(0, -h); ctx.quadraticCurveTo(-sd * w * 0.62, -h * 0.45, -sd * 0.35, 0); ctx.lineTo(-sd * 0.05, 0); ctx.quadraticCurveTo(-sd * w * 0.2, -h * 0.5, 0, -h)
       ctx.fill()
@@ -88,9 +88,9 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 
   } else if (tr.kind === 'palm') {
     ctx.fillStyle = css(mix(t.wall, t.deep, 0.35))
     ctx.fillRect(-0.35, -h + 1, 0.7, h - 1)
-    ctx.fillStyle = css(t.green)
     for (let i = 0; i < 6; i++) {
       const a = -Math.PI / 2 + (i - 2.5) * 0.55, l = w * (0.45 + 0.12 * r())
+      ctx.fillStyle = css(mix(t.green, t.greenLit, Math.max(0, -l * Math.cos(a))))
       ctx.beginPath()
       ctx.moveTo(0, -h + 1)
       ctx.quadraticCurveTo(Math.cos(a) * l * 0.6, -h + 1 + Math.sin(a) * l * 0.6 - 0.5, Math.cos(a) * l, -h + 1 + Math.sin(a) * l + 1.4)
@@ -111,12 +111,12 @@ export function tree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, side: 1 | -1 
     ctx.beginPath()
     ctx.arc(0, -rr * 0.45 - 0.4, rr * 0.6, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = css(t.shade, 0.35 * k)
-    ctx.beginPath()
-    ctx.arc(sd * rr * 0.55, -rr * 0.55 - 0.4, rr * 0.55, 0, Math.PI * 2)
-    ctx.fill()
-    if (k > 0.01) {
-      ctx.fillStyle = css(t.greenLit, 0.8 * k)
+    for (const [sd, weight] of halves) {
+      ctx.fillStyle = css(t.shade, 0.35 * weight)
+      ctx.beginPath()
+      ctx.arc(sd * rr * 0.55, -rr * 0.55 - 0.4, rr * 0.55, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = css(t.greenLit, 0.8 * weight)
       ctx.beginPath()
       ctx.arc(-sd * rr * 0.35, -rr * 1.25 - 0.4, rr * 0.55, 0, Math.PI * 2)
       ctx.fill()

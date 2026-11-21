@@ -24,18 +24,18 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
     ctx.beginPath()
     for (const b of tier.blocks) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
     // Even (the mean light, a little open) under a sky with no side; toward the shade as the light comes to one side.
-    const k = desc.litSide ? desc.sideK ?? 1 : 0
-    ctx.fillStyle = css(mix(tier.lit, tier.shade, k), 0.85 + 0.15 * k)
+    const k = Math.abs(desc.lateralLight)
+    ctx.fillStyle = css(mix(stone, tier.shade, k), 0.85 + 0.15 * k)
     ctx.fill()
-    if (!desc.litSide || k <= 0.004) continue
-    ctx.beginPath()
-    for (const b of tier.blocks) {
-      // The lit face: the half of the block toward the light (against the light a rim), at least a device px.
-      const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
-      ctx.rect(desc.litSide === 'left' ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
+    for (const dir of [1, -1]) {
+      ctx.beginPath()
+      for (const b of tier.blocks) {
+        const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
+        ctx.rect(dir > 0 ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
+      }
+      ctx.fillStyle = css(tier.lit, Math.max(0, dir * desc.lateralLight))
+      ctx.fill()
     }
-    ctx.fillStyle = css(tier.lit, k)
-    ctx.fill()
   }
   if (!desc.lights.length) return
   // Lights by strength (four steps), each with a halo of three times its size.
