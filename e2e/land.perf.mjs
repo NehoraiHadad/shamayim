@@ -11,7 +11,7 @@ import { interceptLandPerf } from './landPerfRoutes.mjs'
 
 const SHADMOT = { id: 'shadmot-mehola', nameHe: 'שדמות מחולה', regionHe: 'בקעת הירדן', lat: 32.3465, lon: 35.5325, timezone: 'Asia/Jerusalem' }
 
-export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75, dense = false, baseline = false } = {}) {
+export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75, dense = false } = {}) {
   const panorama = fs.readFileSync(path.join(root, 'src/test/fixtures/scene/shadmot-mehola.panorama.json'), 'utf8')
   const { context, releaseLand, fineTileFetches } = await interceptLandPerf(browser, serverUrl, { dpr, dense, panorama })
 
@@ -103,8 +103,10 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
   if (dense && cover !== 1) problems.push(`dense fixture resolved to cover=${cover} (expected 1)`)
   if (fallbackSnap.albedoSource !== 'climatology') problems.push(`first paint albedoSource=${fallbackSnap.albedoSource} (expected climatology)`)
   if (!refinedMeta.farAlbedo?.startsWith('gibs:2026-11-01')) problems.push(`far albedoSource=${refinedMeta.farAlbedo} (expected gibs:2026-11-01*)`)
-  if (!baseline && refinedMeta.farMissAlbedo !== 's2-mean:2026-11-15+climatology') {
-    problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected s2-mean:2026-11-15+climatology)`)
+  // The dense tile removes the missing tile's cover class from the valid near-S2 means.
+  const expectedMiss = dense ? 'climatology' : 's2-mean:2026-11-15+climatology'
+  if (refinedMeta.farMissAlbedo !== expectedMiss) {
+    problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected ${expectedMiss})`)
   }
   if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
   if (refinedMeta.farKey === fallbackSnap.farKey) problems.push('plane.far form key did not update on refinement')
@@ -129,7 +131,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       if (i % 2 === 1) stages.reverse()
       for (const [name, app] of stages) {
         console.log(`\n${name} / run ${i + 1}`)
-        const res = await runAppLandPerf(browser, app.url, { rate, dense, baseline: name === 'stage3' })
+        const res = await runAppLandPerf(browser, app.url, { rate, dense })
         if (res.problems.length) { console.error(`FAIL: ${res.problems.join('; ')}`); process.exitCode = 1 }
       }
     }
