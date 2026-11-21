@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Place } from '../config/place'
 import { reversePlace } from '../data/geocoding'
+import {
+  geolocationErrorText,
+  LOCATING,
+  NO_GEOLOCATION,
+  pickerStatus,
+  REVERSE_FAILED,
+} from '../text/placePicker'
+import { IconButton } from './IconButton'
+import { CloseIcon } from './icons'
 import styles from './PlacePicker.module.css'
 import { PlacePickerList } from './PlacePickerList'
 import { usePlaceSearch } from './PlacePickerSearch'
+import { createRequestGuard } from './requestGuard'
 
 interface Props {
   open: boolean
@@ -21,6 +31,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const search = usePlaceSearch(open)
   const opener = useRef<HTMLElement | null>(null)
+  const [locateGuard] = useState(createRequestGuard)
   const [locating, setLocating] = useState(false)
 
   useEffect(() => {
@@ -32,13 +43,15 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
     element.showModal()
     input.current?.focus()
     return () => {
+      locateGuard.cancel()
       element.close()
       setLocating(false)
       opener.current?.focus()
     }
-  }, [open])
+  }, [open, locateGuard])
 
   const choose = (place: Place) => {
+    locateGuard.cancel()
     onSelect(place)
     onClose()
   }
@@ -48,16 +61,22 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
   }
   const locate = () => {
     if (locating) return
-    if (!navigator.geolocation) return fail('שירותי המיקום אינם זמינים במכשיר הזה')
+    if (!navigator.geolocation) return fail(NO_GEOLOCATION)
     search.setError('')
     setLocating(true)
+    const req = locateGuard.start()
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => reversePlace(coords.latitude, coords.longitude).then(choose).catch(() => fail('לא הצלחנו לזהות את המיקום')),
-      () => fail('לא הצלחנו לקבל הרשאה למיקום'),
+      ({ coords }) => {
+        if (!req.isCurrent()) return
+        reversePlace(coords.latitude, coords.longitude, req.signal)
+          .then((place) => { if (req.isCurrent()) choose(place) })
+          .catch(() => { if (req.isCurrent()) fail(REVERSE_FAILED) })
+      },
+      (err) => { if (req.isCurrent()) fail(geolocationErrorText(err.code)) },
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 300_000 },
     )
   }
-  const note = search.pending ? 'מחפש…' : search.error
+  const note = pickerStatus({ locating, pending: search.pending, error: search.error, resultCount: search.results.length })
 
   return (
     <dialog
@@ -74,14 +93,10 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
         <div className={styles.panel}>
           <div className={styles.heading}>
             <h2 id="place-title">בחירת מקום</h2>
-            <button type="button" className={styles.close} onClick={onClose} aria-label="סגירה">
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M3 3l10 10M13 3L3 13" />
-              </svg>
-            </button>
+            <IconButton label="סגירה" onClick={onClose}><CloseIcon /></IconButton>
           </div>
           <button type="button" className={styles.well} onClick={locate} aria-disabled={locating}>
-            {locating ? 'מאתר מיקום…' : 'המיקום שלי'}
+            {locating ? LOCATING : 'המיקום שלי'}
           </button>
           <label>
             <span className="visually-hidden">חיפוש מקום</span>
@@ -96,7 +111,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
             />
           </label>
           <div>
-            <p className={styles.note} role="status">{note}</p>
+            <p className={note.hidden ? 'visually-hidden' : styles.note} role="status">{note.text}</p>
             <PlacePickerList
               title={search.results.length ? 'תוצאות' : 'מקומות אחרונים'}
               places={search.results.length ? search.results : recent}

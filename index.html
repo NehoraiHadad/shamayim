@@ -8,6 +8,22 @@
     <meta name="description" content="שמיים — מזג האוויר המדויק למקום שלך, בעברית ברורה" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>שמיים</title>
+    <style>
+      html, body { margin: 0; background: var(--boot-bg, #070B1E); }
+      .boot {
+        min-height: 100svh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        color: #EEF1FF;
+        background: var(--boot-bg, #070B1E);
+        font: 1rem system-ui;
+        text-align: center;
+      }
+    </style>
+    <noscript><style>#root > .boot { display: none; }</style></noscript>
     <script>
       // Paint the last sky colour before the app loads, so a daytime start does not flash navy.
       try {
@@ -20,7 +36,8 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><p class="boot" role="status">טוען…</p></div>
+    <noscript><p class="boot">שמיים צריך JavaScript כדי להציג את התחזית. אפשר להפעיל אותו בהגדרות הדפדפן.</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

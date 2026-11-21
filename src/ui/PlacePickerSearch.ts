@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Place } from '../config/place'
 import { searchPlaces } from '../data/geocoding'
+import { searchErrorText, searchResultsText } from '../text/placePicker'
 
 const DEBOUNCE_MS = 550
 const MIN_QUERY = 2
@@ -30,10 +31,10 @@ export function usePlaceSearch(open: boolean) {
       searchPlaces(term, controller.signal)
         .then((places) => {
           setResults(places)
-          setError(places.length ? '' : 'לא נמצאו מקומות')
+          setError(places.length ? '' : searchResultsText(0))
         })
         .catch((cause: unknown) => {
-          if (!isAbort(cause)) setError('לא הצלחנו לחפש כרגע')
+          if (!isAbort(cause)) setError(searchErrorText(navigator.onLine))
         })
         .finally(() => {
           if (!controller.signal.aborted) setPending(false)

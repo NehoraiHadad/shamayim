@@ -23,3 +23,15 @@ export const heightText = (m: number): string => rtl(ltr(formatTemp(m, false)) +
 
 /** Keep each clock readable while letting RTL place the earlier time on the right. */
 export const clockRange = (a: string, b: string): string => ltr(a) + '–' + ltr(b)
+
+const NUMBER_TOKEN = new RegExp(`[${LRI}${RLI}${PDI}]|(?:(?<!\\d)[−-])?\\d+(?::\\d\\d)?[°%]?`, 'g')
+
+/** Isolate bare clocks, counts, temperatures and percentages with `ltr`, preserving existing isolates. */
+export function isolateText(s: string): string {
+  let depth = 0
+  return s.replace(NUMBER_TOKEN, (token) => {
+    if (token === LRI || token === RLI) { depth++; return token }
+    if (token === PDI) { depth = Math.max(0, depth - 1); return token }
+    return depth === 0 ? ltr(token.replace(/^-/, '−')) : token
+  })
+}

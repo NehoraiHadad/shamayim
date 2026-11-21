@@ -86,19 +86,6 @@
   line-height: 1.4;
 }
 
-.close {
-  display: grid;
-  min-width: 44px;
-  min-height: 44px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
 .map {
   position: relative;
   min-height: 0;
@@ -107,7 +94,6 @@
 }
 
 .map canvas:focus-visible { outline-offset: -4px; }
-
 
 .details {
   padding: var(--space-2) var(--gutter) 0;

@@ -1,4 +1,6 @@
 import type { CSSProperties } from 'react'
+import { IconButton } from '../IconButton'
+import { PauseIcon, PlayIcon } from '../icons'
 import styles from './TimeRail.module.css'
 
 export interface FrameTime {
@@ -32,10 +34,10 @@ export function TimeRail({ at, count, time, start, playing, toggle, choose }: {
       </output>
       {last > 0 && (
         <div className={styles.controls}>
-          <button type="button" className={styles.play} onClick={toggle}
-            aria-label={playing ? 'עצירה' : 'הפעלת השעתיים האחרונות'}>
-            <span aria-hidden="true">{playing ? '❚❚' : '▶︎'}</span>
-          </button>
+          <IconButton className={styles.play} onClick={toggle}
+            label={playing ? 'עצירה' : 'הפעלת השעתיים האחרונות'}>
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </IconButton>
           <div className={styles.rail} style={rail}>
             <input type="range" min={0} max={last} value={at} dir="rtl" aria-label="זמן התמונה"
               aria-valuetext={time ? `${time.clock}, ${time.spoken}` : undefined}
