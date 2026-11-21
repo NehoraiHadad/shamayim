@@ -81,13 +81,16 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
     if (steep >= 3) expect(checked).toBeGreaterThan(0)
   })
 
-  it('keeps gullies, terraces and scrub on the ground under the crest and out of the text zones', () => {
+  it('keeps gullies, terraces and vegetation on the ground under the crest and out of the text zones', () => {
     const model = sceneModel(world(id, '12:00'), BOX)
     const sx = BOX.width / SCENE_W
     for (const layer of planesOf(model)) {
       const ridge = layer.outline.slice(0, -2)
-      const points = [...layer.gullies.flatMap((g) => g.points), ...layer.terraces.flat(),
-        ...layer.scrub.map((d) => [d.x, d.y] as const)]
+      const vegPts: (readonly [number, number])[] = []
+      const { trees, tufts } = layer.vegetation
+      for (let i = 0; i < trees.length; i += 6) vegPts.push([trees[i], trees[i + 1]])
+      for (let i = 0; i < tufts.length; i += 4) vegPts.push([tufts[i], tufts[i + 1]])
+      const points = [...layer.gullies.flatMap((g) => g.points), ...layer.terraces.flat(), ...vegPts]
       for (const [x, y] of points) {
         expect(y).toBeGreaterThanOrEqual(lineAt(ridge, x) - 0.6)
         expect(y).toBeLessThanOrEqual(BOX.landHeight)
@@ -97,12 +100,16 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
         }
       }
     }
-    expect(near(model).scrub.length).toBeGreaterThan(0)
+    const v = near(model).vegetation
+    // Bare desert carries strata only (zero vegetation); vegetated places carry trees, fields or tufts.
+    const vegCount = v.trees.length + v.fields.length + v.tufts.length
+    expect(vegCount + v.strata.length).toBeGreaterThan(0)
   })
 
   it('draws the same texture every time, seeded by the place', () => {
     const a = near(sceneModel(world(id, '12:00'), BOX)), b = near(sceneModel(world(id, '12:00'), BOX))
-    expect(JSON.stringify([a.gullies, a.terraces, a.scrub, a.grain])).toBe(JSON.stringify([b.gullies, b.terraces, b.scrub, b.grain]))
+    expect(JSON.stringify([a.gullies, a.terraces, a.grain])).toBe(JSON.stringify([b.gullies, b.terraces, b.grain]))
+    expect(a.vegetation).toEqual(b.vegetation)
     expect(record(a)).toEqual(record(b))
   })
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { EMPTY_VEGETATION } from '../model/landVegetation'
 import type { LayerDesc, LayerOf } from '../model/types'
 import type { Painter } from '../paint'
 import { LayerCache, type LayerCanvas } from './layerCache'
@@ -23,7 +24,7 @@ function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane
   return { kind: 'plane', plane: 'near', id, surface: 'land', z: 30, key, bounds: { x: 0, y: 40, w: 375, h: 88 },
     outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
     surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
-    gullies: [], terraces: [], scrub: [], grain: { amount: 0, seed: 1 },
+    gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
     light: { key: lightKey, blend: 'source-over', faces: [], veil: [],
       shade: [], lit: [], rims: [], snow: null, lift: null } }
 }

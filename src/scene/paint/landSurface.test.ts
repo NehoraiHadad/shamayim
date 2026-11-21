@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { EMPTY_VEGETATION } from '../model/landVegetation'
 import type { LayerOf, RGB } from '../model/types'
 import { HAND, type Ctx2D } from './hand'
 import { paintPlane } from './planes'
@@ -46,7 +47,7 @@ describe('paintPlane fractional-pixel crest coverage', () => {
         kind: 'plane', plane: 'near', id: 'plane.near', surface: 'land', z: 30, key: 'k',
         bounds: { x: 0, y: 0, w: 12, h: 20 }, outline: [[0, 10.5], [12, 10.5], [12, 20], [0, 20]],
         fill: [0.9, 0.1, 0.1], surfaceTone: { palette, cols: 1, rows: 1, cells, source: 'test' },
-        gullies: [], terraces: [], scrub: [], grain: { amount: 0, seed: 1 },
+        gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
         light: { key: 'l', blend: 'source-over', faces: [], veil: [], shade: [], lit: [], rims: [], snow: null, lift: null },
       }
       paintPlane(ctx, desc, { hand: HAND, phase: 0, scale: 1, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: scratch }) })
