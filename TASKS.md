@@ -764,13 +764,28 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
 
 ## Track E — UI polish batch, audit #7, #8, #11–#22 — 2026-11-21 (branch `claude/fix-ui-batch-83e1e6`)
-Briefs: `docs/briefs/track-e-{1-bidi,1b-review-fixes,2-a11y-tokens,2b-review-fixes,3-behaviour,3b-review-fixes}.md`.
+Briefs: `docs/briefs/track-e-{1-bidi,1b-review-fixes,2-a11y-tokens,2b-review-fixes,3-behaviour,3b-review-fixes,4-final-review-fixes,4b-label-size}.md`.
 Stills (fixtures only, Jerusalem shifted −22° for the freezing case, Neve Zohar −374 m): `docs/design/qa/polish/track-e/`.
 
 - [x] #7/#8/#14/#15 bidi — `src/text/isolate.ts` (LRI/RLI/PDI, U+2212), one isolate per number/clock, height label unit inside the isolate — `d7229eb` (Codex gpt-6.2-sol; Opus review → 1b `b625b94`: `textWidth` ignores isolates, range dashes stay dashes).
 - [x] #11/#12/#13/#22 one `<main>`, 12 px `--text-caption`, height label 12 px no opacity + contrast test, `--bleed`/`--focus`/… tokens, one `:focus-visible` — `ccd49e9` (Codex; Opus review → 2b `12d2c72`: pill ring, two-tone scrubber ring, live-sky contrast sampler `src/theme/contrastSamples.ts`).
 - [x] #16–#21 IconButton + SVG icons, picker error codes/counts + stale-GPS guard, shared slider keys, canvas alt text, offline announcement + deferred SW reload (`onNeedReload` no-op, reload on hidden/idle), `<noscript>` + static "טוען…" — `bd0f767` (Gemini 4 Neon; Codex review → 3b, also Neon).
 - Writers: Neon was out of quota for briefs 1/2 → Codex wrote, Opus subagent reviewed; Neon back for 3/3b → Codex reviewed. Claude: briefs, verification, stills.
-- `src/world` one-line exceptions (merge order with other tracks): `place.ts`/`world.ts` use `heightText`, `layout.ts` `textWidth` strips isolates.
-- CI: `check` fails only on `src/scene/model/loading.test.ts` 5 s timeouts (5.1–5.6 s) — the same failure is on `polish-audit` and other branches; not from this track.
-- Follow-ups: `heightLabel.contrast.test.ts` still has its own sampler (move to `contrastSamples.ts`); scene-model `LABEL_PX` 11 px width estimate vs the 12 px drawn label (model file, untouched); loading.test timeout budget.
+- [x] Final Codex review of the whole branch (7 blocking) → brief 4 `696e085` (Neon): the new worker waits (`registerType: 'prompt'`, `updateSW(true)` on the idle/hidden gate is the only reload), stale data is not "offline", the spoken scrub condition follows the drawn rain/cloud, picker GPS and search announce independently, opaque midnight caption (5.10:1); brief 4b `4d4ad22` (Neon, coordinator-approved): one `LABEL_PX = 12` in `world/layout.ts` drives the drawn label and every collision box (`place.ts` `besideDot`, `scene/model/layout.ts`), CSS tie-in test.
+- `src/world` / `scene/model` exceptions (merge order with other tracks): `place.ts`/`world.ts` use `heightText`; `place.ts` line 133 uses `LABEL_PX`; `layout.ts` `textWidth` strips isolates and exports `LABEL_PX`/`LABEL_H`; `scene/model/layout.ts` imports `LABEL_PX`.
+- CI: `loading.test.ts` 5 s timeouts seen once on this branch and on others (runner variance); green on rerun.
+- Follow-up: `heightLabel.contrast.test.ts` still has its own sampler (move to `contrastSamples.ts`).
+
+## Polish track A — glyphs never mirror (audit #1, #23) — 2026-11-22 (branch `claude/fix-glyph-flip-8384c3`)
+Briefs: `docs/briefs/track-a-glyph-flip.md`, `…round2.md`; delegate report `…REPORT.md`. Stills: `docs/design/qa/polish/track-a/`.
+- [x] Each glyph has a fixed handedness (`GlyphDesc.hand`, seeded by mark seed, `scene/model/glyphHand.ts`; icons and fields 1)
+- [x] One signed light (`glyphLight` = faces.left − faces.right; glyph space = hand × it); the kit weights lit/shade faces
+      continuously (`kit.ts`, `kitLight.ts`); no form depends on the light; cast shadow fades to the contact shade at dx 0
+- [x] `Light.side`, `sideOf` and every `litSide` removed; `Light.across` is the signed lateral light on the SHADING ramp;
+      outside, trees, far cities, wear and the layer keys use it
+- [x] Proving test `scene/paint/glyphs/glyphs.test.ts`: all 22 kinds, both hands, light swept −1…1 → form log identical,
+      light continuous through 0; Shadmot Mehola 05:30–21:00 form identical per glyph; lamp x fixed
+- Who wrote what: Claude (Opus 5.5) briefs, stills, verification and a one-line tsc narrowing in the test;
+  Codex gpt-6.2-sol wrote rounds 1 and 2 (Neon gemini-4-neon-high was out of quota, then wedged at start);
+  Opus subagent reviewed both rounds (Codex never reviewed its own code)
+- [ ] Follow-up: `WearLight.side` (`scene/model/wear.ts`) is still a sign of `across` for the garments (out of scope)

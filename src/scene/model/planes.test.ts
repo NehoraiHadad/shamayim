@@ -58,19 +58,20 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
     for (const hour of HOURS) {
       const w = world(id, hour)
       const layer = near(sceneModel(w, BOX))
-      if (!w.light.side) {
+      if (w.light.source === 'sky') {
         // No side (overcast, twilight, a moonless night): no lit band, no lift.
         expect(layer.light.lit).toEqual([])
         expect(layer.light.lift).toBeNull()
         continue
       }
-      if (layer.light.lift) expect(Math.sign(layer.light.lift.dx)).toBe(w.light.side === 'left' ? -1 : 1)
+      if (Math.abs(w.light.across) <= 0.05) continue
+      if (layer.light.lift) expect(Math.sign(layer.light.lift.dx)).toBe(Math.sign(w.light.across))
       const { risingRight, fallingRight, n } = litBySlope(layer)
       steep = Math.max(steep, n)
       // Toward noon the light comes from above and the faces even out (`noonWeight`, as the SVG's lighting).
       if (n < 3 || risingRight + fallingRight < 0.5 || w.light.noonWeight > 0.5) continue
       // Light from the left falls on slopes that rise to the right (they face left), and the other way round.
-      if (w.light.side === 'left') expect(risingRight).toBeGreaterThan(fallingRight)
+      if (w.light.across < 0) expect(risingRight).toBeGreaterThan(fallingRight)
       else expect(fallingRight).toBeGreaterThan(risingRight)
       checked++
     }

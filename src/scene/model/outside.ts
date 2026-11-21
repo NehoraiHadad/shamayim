@@ -15,6 +15,7 @@ import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
 import type { Box, GlyphDesc, LayerOf, OutsideItem, Pt, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
 import { openWaterTone } from './water'
+import { glyphHand } from './glyphHand'
 
 /**
  * The place seen from outside (stage C5, variant B; the world's `outside.ts`): one layer over the near ridge holding, back
@@ -278,8 +279,9 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
   for (const m of world.marks.filter((mk) => mk.plane === 'near')) {
     // A mark under the label (when the label found no free spot) or a note gives way to the text.
     if (!free(m.x * sx - m.w / 2, m.base - m.h * m.scale, m.x * sx + m.w / 2, m.base + (m.depth !== undefined ? m.h : 0))) continue
-    const glyph: GlyphDesc = { kind: m.glyphKind, x: m.x * sx, base: m.base, h: m.h, scale: m.scale, w: m.w, seed: hashId(m.id),
-      litSide: null, tones: undefined as unknown as Tones, famous: m.named,
+    const seed = hashId(m.id)
+    const glyph: GlyphDesc = { kind: m.glyphKind, x: m.x * sx, base: m.base, h: m.h, scale: m.scale, w: m.w, seed,
+      hand: glyphHand(m.glyphKind, seed), tones: undefined as unknown as Tones, famous: m.named,
       ...(m.depth !== undefined ? { ground: groundUnder(world, m) } : {}) }
     own.push({ y: m.base + .01, item: { kind: 'mark', glyph }, km: Math.min(m.km, behind(m.x, m.base)) })
   }
@@ -307,7 +309,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const near = shape.marks
   for (const { at, km } of near) {
     const item = out[at] as Extract<OutsideItem, { kind: 'mark' }>
-    out[at] = { kind: 'mark', glyph: { ...item.glyph, litSide: world.light.side, tones: tonesAt(world, km) } }
+    out[at] = { kind: 'mark', glyph: { ...item.glyph, tones: tonesAt(world, km) } }
   }
   const sea = seaOf(world, box, sx, clear)
   const view = world.place3
@@ -334,7 +336,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const x0 = Math.max(0, Math.floor(Math.min(...boxes.map((b) => b.left)))), x1 = Math.min(box.width, Math.ceil(Math.max(...boxes.map((b) => b.right))))
   const y0 = Math.max(0, Math.floor(Math.min(...boxes.map((b) => b.top)))), y1 = Math.min(box.landHeight, Math.ceil(Math.max(...boxes.map((b) => b.bottom))))
   if (x1 <= x0 || y1 <= y0) return null
-  const formKey = layerKey('outside', world.keys.place, world.keys.marks, landBoxKey(box))
+  const formKey = layerKey('outside', world.keys.place, world.keys.marks, landBoxKey(box), out.flatMap((item) => item.kind === 'mark' ? [item.glyph.hand] : []))
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
   const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
@@ -344,9 +346,9 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))
   return {
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
-    items: out, tiers: tones, sea, shine, litSide: world.light.side, land: landDesc, form,
+    items: out, tiers: tones, sea, shine, land: landDesc, form,
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
-    light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), near.map((m) => Math.round(m.km / KM_STEP)), world.light.side,
+    light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), near.map((m) => Math.round(m.km / KM_STEP)), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), shine.aviation, Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
       sea && Math.round((sea.drift ?? 0) * 4), skyKey),

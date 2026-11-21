@@ -10,12 +10,13 @@ import { GLYPH_SPECS, type GlyphKind } from '../world/glyphSpecs'
 import type { WorldState } from '../world/types'
 import { makeWorldBuilder } from '../world/world'
 import { loadInput } from './sceneHarness'
+import { glyphHand } from '../scene/model/glyphHand'
 
 /**
  * The glyph sheet (stage C4, `scene.html?sheet=glyphs`; still `docs/design/qa/canvas/c4/glyphs.png` by
  * `e2e/scene.glyphs.mjs`): every glyph kind and icon at scene size and at 4× (re-inked at that size, never a scaled
- * bitmap), in one place's world light at four hours: morning (the light on the left), afternoon (on the right: the glyph
- * mirrored, the icons drawn for that side), dusk (no side) and night (lit windows, lamps). Like `qa/glyphs/sheet-v1.png`.
+ * bitmap), in one place's world light at four hours: morning (the light on the left), afternoon (light from the right),
+ * dusk (low lateral light) and night (lit windows, lamps). Like `qa/glyphs/sheet-v1.png`.
  */
 const KINDS: GlyphKind[] = ['minaret', 'church', 'synagogue', 'waterTower', 'castle', 'homes', 'chimney', 'highrise', 'cooling', 'silo', 'mast',
   'lighthouse', 'turbine', 'bridge', 'palms', 'orchard', 'vineyard', 'solar', 'westernWall', 'babShrine', 'azrieli', 'chordsBridge']
@@ -56,7 +57,7 @@ function Cell({ world, kind, zoom, w, h }: { world: WorldState; kind: GlyphKind;
     ctx.beginPath(); ctx.moveTo(0, groundY + 2); ctx.quadraticCurveTo(w / 2, groundY - 2, w, groundY + 2); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill()
     const gh = spec.h(HEIGHT[kind] ?? 0)
     const desc: GlyphDesc = { kind, x: w / 2, base: field ? groundY + 1.5 * zoom : groundY, h: gh, scale: zoom, w: spec.w * zoom, seed: 3,
-      litSide: world.light.side, tones: tonesAt(world, 1.5), famous: false,
+      hand: glyphHand(kind, 3), tones: tonesAt(world, 1.5), famous: false,
       ...(field ? { ground: Array.from({ length: spec.w + 1 }, (_, i) => -0.08 * (i - spec.w / 2)) } : {}) }
     const layer = { kind: 'marks', glyphs: [desc], shine: shineOf(world) } as unknown as LayerOf<'marks'>
     // On its own canvas, as the layer is in the scene: the grain takes only what the glyph draws.
@@ -85,7 +86,7 @@ export function GlyphSheet() {
     <div style={{ background: '#f3f4f6', padding: 16, width: 'max-content', fontFamily: 'Assistant, sans-serif' }}>
       <div style={{ font: '700 18px Assistant, sans-serif', marginBottom: 4 }}>shamayim · canvas glyphs · C4</div>
       <div style={{ font: '400 12px Assistant, sans-serif', color: '#555', marginBottom: 12, maxWidth: 900 }}>
-        Rosh Pina's world light at 08:00 (sun left), 14:00 (sun right: mirrored, icons drawn for that side), 16:30 (after sunset: no side)
+        Rosh Pina's world light at 08:00 (sun left), 14:00 (sun right), 16:30 (after sunset)
         and 21:00 (night: lit windows, aviation lights). Scene size at dpr 2, and the 08:00 glyph re-inked at 4×.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `90px ${HOURS.map(() => `${CELL.w}px`).join(' ')} ${BIG.w}px ${HOURS.map(() => `${CELL.w}px`).join(' ')} ${BIG.w}px`, gap: 6, alignItems: 'center' }}>

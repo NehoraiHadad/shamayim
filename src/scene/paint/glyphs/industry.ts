@@ -20,7 +20,7 @@ export function chimney(k: Kit, h: number) {
   k.round(poly([cx - b / 2, 0, cx + b / 2, 0, cx + top / 2, -h + 0.6, cx - top / 2, -h + 0.6]), cx - b / 2, cx + b / 2)
   const py = -h * 0.72, pw = at(py) + 1.2
   k.fill(rect(cx - pw / 2, py, pw, 0.5), t.wall)
-  k.fill(rect(cx - pw / 2, py, 0.6, 0.5), t.lit)
+  k.fill(rect(cx - pw / 2, py, 0.6, 0.5), k.litL)
   k.fill(rect(cx - pw / 2 + 0.3, py + 0.5, pw - 0.6, 0.5), t.shade, 0.6)
   const g = c.createLinearGradient(0, -h, 0, -h + 3.2)
   g.addColorStop(0, css(t.soot, 0.85))
@@ -29,7 +29,7 @@ export function chimney(k: Kit, h: number) {
   c.fillStyle = g
   c.fill()
   k.fill(rect(cx - top / 2 - 0.2, -h, top + 0.4, 0.7), t.wall)
-  k.fill(rect(cx - top / 2 - 0.2, -h, 0.7, 0.7), t.lit)
+  k.fill(rect(cx - top / 2 - 0.2, -h, 0.7, 0.7), k.litL)
   k.rim(cx - top / 2 - 0.2, -h, top + 0.4, 0.7)
   k.aviation(cx, -h - 0.4)
 }
@@ -45,32 +45,31 @@ export function highrise(k: Kit, h: number) {
   k.fill(rect(-3.8, -1.6, 7.4, 1), t.deep, 0.5)
   const x0 = -3.4, x1 = 3.4, crown = -h + 2.6, side = 1.8
   const day = 1 - k.night
+  const glassSide = k.face(t.glass, t.glassLit, 1, t.shade)
   const g = c.createLinearGradient(0, crown, 0, -2.6)
-  g.addColorStop(0, css(mix(t.wall, mix(t.rim, t.glassLit, 0.85), day)))
-  g.addColorStop(1, css(mix(t.wall, mix(t.wall, t.glassLit, 0.75), day)))
+  g.addColorStop(0, css(mix(t.wall, mix(t.rim, glassSide, 0.85), day)))
+  g.addColorStop(1, css(mix(t.wall, mix(t.wall, glassSide, 0.75), day)))
   rect(x0, crown, side, -2.6 - crown)(c)
   c.fillStyle = g
   c.fill()
   const gf = c.createLinearGradient(0, crown, 0, -2.6)
-  gf.addColorStop(0, css(mix(t.wall, mix(t.glass, t.glassLit, 0.35), day)))
+  gf.addColorStop(0, css(mix(t.wall, t.glass, day)))
   gf.addColorStop(1, css(mix(mix(t.wall, t.shade, 0.3), t.glass, day)))
   rect(x0 + side, crown, x1 - x0 - side, -2.6 - crown)(c)
   c.fillStyle = gf
   c.fill()
-  k.fill(rect(x1 - 0.8, crown, 0.8, -2.6 - crown), t.shade, 0.5 - 0.25 * k.night)
+  k.fill(rect(x1 - 0.8, crown, 0.8, -2.6 - crown), k.face(t.shade, t.glassLit, -1, t.deep), 0.5 - 0.25 * k.night)
   for (let y = -4; y > crown + 0.6; y -= 1.5) {
     k.fill(rect(x0, y, side, 0.5), t.rim, 0.35 - 0.2 * k.night)
-    k.fill(rect(x0 + side, y, x1 - x0 - side, 0.5), mix(t.lit, t.wall, 0.6), 0.42 - 0.17 * k.night)
+    k.fill(rect(x0 + side, y, x1 - x0 - side, 0.5), t.wall, 0.42 - 0.17 * k.night)
   }
   k.box(-2.6, -h + 1.2, 5.2, 1.4, 1.1, { shadeW: 0.5 })
   k.rim(-2.6, -h + 1.2, 5.2)
   k.fill(rect(x0, crown, x1 - x0, 0.5), t.rim, 0.6)
   k.fill(rect(0.9, -h - 1.6, 0.4, 2.8), t.wall)
-  k.fill(rect(0.9, -h - 1.6, 0.2, 2.8), t.lit)
-  if (k.s.windows > 0) {
-    for (let y = -4.5; y > crown + 0.8; y -= 1.5) {
-      for (let x = x0 + 0.4; x < x1 - 0.6; x += 1.2) if (k.r() < k.s.windows * 0.7) k.fill(rect(x, y, 0.8, 0.8), mix(t.wall, t.win, 0.8))
-    }
+  k.fill(rect(0.9, -h - 1.6, 0.2, 2.8), k.litL)
+  for (let y = -4.5; y > crown + 0.8; y -= 1.5) {
+    for (let x = x0 + 0.4; x < x1 - 0.6; x += 1.2) k.fill(rect(x, y, 0.8, 0.8), mix(t.wall, t.win, 0.8), Number(k.r() < k.s.windows * 0.7))
   }
   k.aviation(1.1, -h - 1.8)
 }
@@ -92,7 +91,7 @@ export function cooling(k: Kit, h: number) {
   k.fill(rect(-rim, -h, 2 * rim, 0.5), t.rim, 0.7)
   k.fill(rect(-rim + 0.2, -h + 0.5, 2 * rim - 0.4, 0.6), t.shade, 0.7)
   k.fill(rect(-base + 0.3, -1.2, 2 * base - 0.6, 1.2), t.deep, 0.9)
-  for (let x = -base + 0.6; x < base - 0.4; x += 1.1) k.fill(poly([x, 0, x + 0.4, 0, x + 0.9, -1.2, x + 0.5, -1.2]), x < -base / 3 ? t.lit : t.wall, 0.85)
+  for (let x = -base + 0.6; x < base - 0.4; x += 1.1) k.fill(poly([x, 0, x + 0.4, 0, x + 0.9, -1.2, x + 0.5, -1.2]), k.face(t.wall, t.lit, Math.max(-1, Math.min(1, -x / base))), 0.85)
 }
 
 /**
@@ -105,12 +104,12 @@ export function silo(k: Kit, h: number) {
   for (const x of [-6.5, -3.4, -0.3]) k.round(rect(x, -bins, 3.1, bins), x, x + 3.1, 0.66)
   for (const x of [-3.5, -0.4]) k.fill(rect(x, -bins + 0.8, 0.25, bins - 0.8), t.deep, 0.5)
   k.fill(rect(-6.2, -bins - 1.5, 8.6, 1.5), t.wall)
-  k.fill(rect(-6.2, -bins - 1.5, 1.2, 1.5), t.lit)
+  k.fill(rect(-6.2, -bins - 1.5, 1.2, 1.5), k.litL)
   k.fill(rect(-6.2, -bins - 0.5, 8.6, 0.5), t.shade, 0.5)
   k.rim(-6.2, -bins - 1.5, 8.6)
   k.box(2.8, -h + 1.5, 3.7, h - 1.5, 1, { shadeW: 0.8 })
   k.fill(rect(3.1, -h, 2.6, 1.5), t.wall)
-  k.fill(rect(3.1, -h, 0.8, 1.5), t.lit)
+  k.fill(rect(3.1, -h, 0.8, 1.5), k.litL)
   k.rim(3.1, -h, 2.6)
   for (let y = -h + 3.5; y < -2; y += 3) k.open(rect(4.2, y, 0.9, 0.9), y < -h + 4, 0.7)
   k.aviation(4.4, -h - 0.3)
