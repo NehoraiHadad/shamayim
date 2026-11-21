@@ -766,7 +766,9 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 ## Polish audit track B — marks owned by the place's own footprint (audit #2) — 2026-11-21 (branch `claude/fix-mark-ownership-caed9e`)
 Who wrote what: Claude (Opus 5.5) managed, measured, briefed and verified; Codex `gpt-6.2-sol` wrote round 1 (Neon was at
 quota, 429); an Opus subagent reviewed round 1 (8 findings); Neon `gemini-4-neon-high` wrote round 2 (the fixes); Codex
-`gpt-6.2-sol` reviews round 2. Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
+`gpt-6.2-sol` reviewed round 2 (3 P1, 3 P2, 1 P3); Neon wrote round 3 (`BRIEF-round3.md`: landmark cache v8, evidence
+per cell, seat inside the drawn block, seat by px before the 20 m gate, one ownership predicate, tests that can fail).
+Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
 - [x] (a) Worship heights by evidence, the same for every religion: 9 m hall; tower height only from `tower:type=minaret`,
       `building=minaret`, `man_made=tower`, `height` or levels (`src/data/landmarks/worship.ts`, `overpass.ts`). Build writes
       `heights: 'evidence'`; `loadIsrael` reads the old build's default-valued rows (all 1564 minarets at 30 m, 53 churches

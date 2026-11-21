@@ -103,6 +103,11 @@ export function inFrame(frame: OutsideFrame, dx: number, dy: number, marginKm = 
   return dx >= frame.w - marginKm && dx <= frame.e + marginKm && dy >= frame.s - marginKm && dy <= frame.n + marginKm
 }
 
+/** Whether a spot (km east / north of the place) belongs to the place itself in the outside view. */
+export function isOwnSpot(frame: OutsideFrame, lie: PlaceLie, dx: number, dy: number): boolean {
+  return inFrame(frame, dx, dy) && (lie.inPlace?.(dx, dy) ?? true)
+}
+
 /** Where a point of the place stands: x (east left), its nearness (0 at the far edge, 1 at the near) and px per m. */
 export function outsideProject(frame: OutsideFrame, dx: number, dy: number) {
   const depth = frame.eyeN - dy
@@ -246,7 +251,7 @@ function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: rea
   lie: PlaceLie = {}) {
   const icon = iconStandsFor(place, landmarks)
   const own = dedupeTowers(towers.map(tower => ({ ...tower, ...offsetKm(place, tower) })))
-    .filter(tower => inFrame(frame, tower.dx, tower.dy) && (lie.inPlace?.(tower.dx, tower.dy) ?? true))
+    .filter(tower => isOwnSpot(frame, lie, tower.dx, tower.dy))
     .filter(tower => !icon(tower))
   const fameOf = towerFame(place, own, landmarks)
   return own.map((tower): Prepared => {

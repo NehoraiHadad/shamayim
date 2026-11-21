@@ -3,20 +3,14 @@ import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { evidenceOf, industrialNamed } from '../../src/data/landmarks/industrial'
 import { parseOverpass } from '../../src/data/landmarks/overpass'
-import type { Row } from '../../src/data/landmarks/israelData'
+import type { EvidenceCell, IsraelLandmarkIndex, Row } from '../../src/data/landmarks/israelData'
 import { score } from '../../src/data/landmarks/rank'
 import type { Landmark, MarkKind } from '../../src/data/landmarks/types'
 
 type Position = [number, number]
 type Geometry = { type: string; coordinates: unknown }
 interface Feature { id?: string | number; geometry?: Geometry; properties?: Record<string, unknown> }
-export interface LandmarkIndex {
-  generatedAt: string
-  source: 'OpenStreetMap via Geofabrik (ODbL)'
-  bbox: [number, number, number, number]
-  cells: string[]
-  heights?: 'evidence'
-}
+export type LandmarkIndex = IsraelLandmarkIndex
 interface BuildOptions { outputDir: string; generatedAt?: string; bbox?: LandmarkIndex['bbox']; maxCellBytes?: number }
 
 export const ISRAEL_EXTRACT_BBOX: LandmarkIndex['bbox'] = [29.45, 34.17, 33.34, 35.9]
@@ -71,10 +65,11 @@ export function row(mark: Landmark): Row {
   return mark.nameHe ? [...base, mark.nameHe] : base
 }
 
-function compact(marks: Landmark[], maxBytes: number): Row[] {
+function compact(marks: Landmark[], maxBytes: number): EvidenceCell {
   const ranked = [...marks].sort((a, b) => score(b, 0, 0, 1) - score(a, 0, 0, 1))
-  while (ranked.length && Buffer.byteLength(JSON.stringify(ranked.map(row))) > maxBytes) ranked.pop()
-  return ranked.map(row)
+  const pack = (): EvidenceCell => ({ heights: 'evidence', rows: ranked.map(row) })
+  while (ranked.length && Buffer.byteLength(JSON.stringify(pack())) > maxBytes) ranked.pop()
+  return pack()
 }
 
 export async function buildDataset(input: string, options: BuildOptions) {
@@ -94,7 +89,7 @@ export async function buildDataset(input: string, options: BuildOptions) {
     await writeFile(`${options.outputDir}/${cell}.json`, contents)
   }
   const index: LandmarkIndex = { generatedAt: options.generatedAt ?? new Date().toISOString(), source: SOURCE,
-    bbox: options.bbox ?? ISRAEL_EXTRACT_BBOX, cells, heights: 'evidence' }
+    bbox: options.bbox ?? ISRAEL_EXTRACT_BBOX, cells }
   const indexJson = JSON.stringify(index)
   bytes += Buffer.byteLength(indexJson)
   await writeFile(`${options.outputDir}/index.json`, indexJson)

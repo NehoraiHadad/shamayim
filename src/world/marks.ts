@@ -1,5 +1,5 @@
 import type { Place } from '../config/place'
-import { inFrame, inSkylineReach, lieBaseY, outsideProject, sameTower, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
+import { inSkylineReach, isOwnSpot, lieBaseY, outsideProject, sameTower, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import type { CityTower } from '../data/city/types'
 import { industrialNamed, landmarkBeyond } from '../data/landmarks/industrial'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
@@ -10,7 +10,7 @@ import { settlementReach, type SettlementStyle } from '../data/landmarks/settlem
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
-import { beyondMarks, nearBeyond } from './beyondMarks'
+import { beyondMarks, nearBeyondKept } from './beyondMarks'
 import { rowKm, type SeatMark } from './beyondSeat'
 import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
@@ -45,14 +45,11 @@ export function namedOnly(landmarks: readonly Landmark[]): Landmark[] {
   })
 }
 
-/** A structure beyond the place this tall (m) shows within the skyline's reach, named or not (C9). */
-const NEAR_BEYOND_M = 20
-
-/** Whether a mark is of the place: in its frame and within its own boundary (seen from outside), or in its reach (+1 km). */
+/** Whether a mark is of the place: the shared outside ownership rule (`isOwnSpot`), or in its portrait reach (+1 km). */
 function ofPlace(place: Place, mark: Landmark, reachKm: number, outside: MarksInput['outside']) {
   const { dx, dy } = offsetKm(place, mark)
   if (!outside) return Math.hypot(dx, dy) <= reachKm + PORTRAIT_MARGIN_KM
-  return inFrame(outside.frame, dx, dy, outside.lie.inPlace ? 0 : 1) && (outside.lie.inPlace?.(dx, dy) ?? true)
+  return isOwnSpot(outside.frame, outside.lie, dx, dy)
 }
 
 /** A generic high-rise the place's own raster towers stand for (the outside view draws those; C5). */
@@ -198,9 +195,9 @@ export function marksOf(input: MarksInput): WorldMark[] {
   const { place, terrain, width, dot, outside } = input
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
-  // Beyond the place keep landmarks and, within the skyline's reach, tall structures (C5 and C9).
+  // Beyond the place keep landmarks, settlement kinds within skyline reach (seated by px), and tall structures (C5, C9).
   const landmarks = namedOnly(input.landmarks).filter((mark) => ofPlace(place, mark, input.reachKm, outside) || landmarkBeyond(mark)
-    || (outside && mark.heightM >= NEAR_BEYOND_M && nearBeyond(place, mark)))
+    || (outside && nearBeyondKept(place, mark)))
   const replaced = rasterReplaced(place, landmarks, input.rasterTowers)
   const kept = landmarks.filter((mark) => !replaced.has(mark.id))
   const inBox = (mark: WorldMark) => mark.x - mark.w / 2 >= 0 && mark.x + mark.w / 2 <= width

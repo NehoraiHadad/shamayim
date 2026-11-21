@@ -1,4 +1,6 @@
 import type { Coordinate } from '../landmarks/project'
+import type { Cluster } from './clusterTypes'
+import { clusterReach, homeByName } from './homeCluster'
 
 /**
  * The place's own boundary (CANVAS-SCENE-PLAN.md C5 item 6, owner decision 5): the outside view's frame is cut at the
@@ -185,6 +187,14 @@ export function placeBounds(place: Coordinate, file: BoundsFile | null | undefin
     if (from !== null) set(from, reach)
   }, owns)
   return box ? { source: 'cell', point: owner.p, contains, box } : null
+}
+
+/** The place's own bounds, passing its name-matched home cluster as `own` when one exists. */
+export function boundsForPlace(place: Coordinate & { nameHe?: string }, clusters: readonly Cluster[] | undefined,
+  file: BoundsFile | null | undefined, reachKm: number): PlaceBounds | null {
+  const home = homeByName(clusters ?? [], place.nameHe)
+  const at = home?.place?.at
+  return placeBounds(place, file, reachKm, home && at ? { ...at, reachKm: clusterReach(home, at) } : undefined)
 }
 
 /** Whether a spot given as km east / north of the place lies within its bounds. */

@@ -14,7 +14,8 @@ interface Cache { at?: number; failed?: number; marks?: Landmark[]; panoramaMark
   sceneMarks?: Landmark[] }
 
 // v7: landmarks carry their fame (wikidata / wikipedia), and the three curated cities are read from the data too.
-function key(id: string) { return `shamayim:landmarks:v7:${id}` }
+// v8: rows cached before evidence-based worship heights carry the legacy 30 m minaret / 25 m church defaults.
+function key(id: string) { return `shamayim:landmarks:v8:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }

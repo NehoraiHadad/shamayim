@@ -1,8 +1,7 @@
-import { boundsHoldKm, placeBounds, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
+import { boundsForPlace, boundsHoldKm, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
 import { LON_STEP } from '../data/city/grid'
-import { clusterReach, homeByName } from '../data/city/homeCluster'
 import {
-  baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
+  baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, isOwnSpot, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
   outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
   type OutsideLook, type OutsideSkyline, type PlaceLie,
 } from '../data/city/outsideView'
@@ -324,9 +323,7 @@ function groundSamples(frame: OutsideFrame, heightNear: (dx: number, dy: number)
  */
 function lieOf(input: OutsideInput) {
   const { place, terrain, city, reachKm, centerX, width, ground, floor } = input
-  const home = homeByName(city?.clusters ?? [], place.nameHe)
-  const at = home?.place?.at
-  const pb = placeBounds(place, input.bounds, reachKm, home && at ? { ...at, reachKm: clusterReach(home, at) } : undefined)
+  const pb = boundsForPlace(place, city?.clusters, input.bounds, reachKm)
   const inPlace = pb ? (dx: number, dy: number) => boundsHoldKm(pb, place, dx, dy) : undefined
   const fabric = fabricOf(place, input, inPlace, pb?.box ?? null)
   const squares = fabric.cells
@@ -639,7 +636,7 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, l
   const raster = city?.raster
   if (!raster) return []
   const all = dedupeTowers((raster.towers ?? city?.towers ?? []).map((tower) => ({ ...tower, ...offsetKm(place, tower) })))
-  const outside = all.filter((tower) => (!inFrame(frame, tower.dx, tower.dy) || !(lie.inPlace?.(tower.dx, tower.dy) ?? true))
+  const outside = all.filter((tower) => !isOwnSpot(frame, lie, tower.dx, tower.dy)
     && inSkylineReach(Math.hypot(tower.dx, tower.dy)) && frame.eyeN - tower.dy > .5)
   if (!outside.length) return []
   const fame = towerFame(place, outside, landmarks)

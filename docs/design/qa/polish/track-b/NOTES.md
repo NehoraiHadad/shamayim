@@ -33,7 +33,12 @@
     seen over the crest.
   - It takes that block's base and haze, and its size comes from the same perspective (`src/world/beyondSeat.ts`, also
     used by `beyondTowns`, with identical output).
+  - Its glyph must lie inside that block's drawn width, so perspective never leaves it floating beside its town.
+  - Its drawn size decides, not its metres: a 9 m hall that clears the 2.5 px floor is drawn on its town. The 20 m
+    gate applies only to the free-standing kinds.
   - Free-standing structures keep their old path: chimneys, masts, turbines, water towers, cooling towers.
+- **Caches.** The landmark cache key is `v8` and the city cache key `v6`, so no cached row keeps the old heights. Each
+  rebuilt cell carries its own `heights: 'evidence'` marker, so a stale cached index cannot misread a rebuilt cell.
 
 ## Marks per place, before → after
 
