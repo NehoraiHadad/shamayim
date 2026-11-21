@@ -86,6 +86,8 @@ blows toward from + 180; km/h ÷ 60 = km/min; above-ground versus sea-level heig
 approximation gets a comment with its error bound.
 
 ## Rules
+- Never run a multi-line `npx tsx -e "..."`: on this Windows shell it waits on stdin and hangs. Write a temp script
+  file and run `npx tsx <file>`.
 - Pure and seeded: no `Math.random`, no `Date.now`, no clock. Caches are deterministic memoisation only.
 - Files ≤ ~150 lines, DRY, meaningful names.
 - Edit only `src/world/field/`, `scripts/` and the report. Do not commit.
