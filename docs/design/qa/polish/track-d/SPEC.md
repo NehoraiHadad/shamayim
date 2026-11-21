@@ -288,6 +288,43 @@ rate is below 0.2 mm/h with RH below 45 %.
 
 ## 6. Painted form per type (Claude)
 
+### 6.0 Layers before shapes (owner note, 2026-11-22)
+
+What a person sees outside is mostly not a set of shapes. It is "the sky is cloudy": a layer, or several layers, over
+all or part of the sky. Reference set: 12 Wikimedia Commons photos — Elko NV stratiform and cirrostratus decks, Sterling
+VA As/Cs, Nevada low decks, London Cu, Nuthurst and Gagra Ac fields, Tel Aviv and Israel winter Sc. What they show:
+
+1. **Overcast is a ceiling.** It is continuous, with large soft brightness variations near the zenith. Toward the
+   horizon it compresses into thin horizontal bands, and there is often a bright strip at the horizon where the deck
+   thins or ends. The sun is a glow through its thin places.
+2. **A layer can cover part of the sky.** It has an edge, and clear sky shows under or beyond it, often as a bright band
+   on the horizon under a dark deck.
+3. **A broken Sc sky is one textured field.** Clumps merge into each other with lit gaps between them. It is not
+   separate clouds.
+4. **Ac and Cc are textures** of very many small elements, in fields or patches, with lanes through them.
+5. **Separate shapes are the exception**: fair-weather Cu, towers, and the heaps on the horizon.
+
+Hence two render modes per layer, both drawn from the same field:
+- **`sheet` (the default for strat, sheet and veil, and for any layer above ~45 % cover).** The layer is drawn as a
+  continuous density texture over the dome.
+  - The density is sampled in world space: per screen sample, a ray goes to the layer's altitude and gives
+    `densityAt(layer, x, y, t)`.
+  - The density is the cells' kernels plus a genus-shaped multi-scale noise (St smooth, Sc cellular lumps, As
+    striated along the wind, Ac and Cc fine cells, Cs a near-uniform veil).
+  - The density is thresholded with a soft edge, so the drawn coverage equals the cover by construction.
+  - Perspective compression toward the horizon, the deck's edges and its gaps then come out of the geometry.
+  - The painter turns density into marks: tone from τ, lit gaps, and the bright horizon strip where the line of sight
+    leaves the layer.
+- **`cells` (conv genus, and the heaps on the horizon).** The sprites of §6.1 on.
+
+**Several layers at once** (Cs over As over Sc fragments) are drawn high to low, each in its own mode. A lower layer
+hides the ones above it where it is dense.
+
+The light (§4) and the shadows (§4.3) already read the same density, so what you see, the shade on the ground and the
+dimming all agree.
+
+### 6.1 Sprites (`cells` mode)
+
 Common rules:
 - One sprite per cell.
 - The underside lies between `y(a_far)` and `y(a_near)`; the side and top above it.

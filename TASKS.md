@@ -773,7 +773,10 @@ reviews, Claude manages and draws the painters.
 - [ ] N1 field core `src/world/field/` — written by Codex gpt-6.2-sol (Neon out of quota, 2026-11-21); reviewed by a
       Claude Opus subagent. outsourcerer runs with `OSRC_HOME=P:/osrc-home` (C: below its 10 GB disk gate).
 - Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
-- [ ] N2 transmit, eye/direct light, shadows, rain (Neon); tests 2, 3, 8
+- [ ] N2 `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),
+      transmit, eye/direct light, shadows, rain; tests 2, 3, 8
+- [ ] Sheet-mode painter (Claude): layers as continuous density textures over the dome (SPEC §6.0, owner note
+      2026-11-22: "the sky is cloudy" is a layer, not shapes); sprites only for conv cells and horizon heaps
 - [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
 - [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
       As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
