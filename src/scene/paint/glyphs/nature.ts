@@ -40,7 +40,8 @@ export function palms(k: Kit, h: number) {
       cx.beginPath(); cx.moveTo(x - 0.7, 0); cx.quadraticCurveTo(x + bend * 0.3 - 0.55, -height * 0.5, x + bend - 0.5, -height)
       cx.lineTo(x + bend + 0.5, -height); cx.quadraticCurveTo(x + bend * 0.3 + 0.55, -height * 0.5, x + 0.7, 0); cx.closePath()
     }, mix(t.wall, t.deep, 0.35))
-    k.fill(rect(x - 0.7, -height, 0.45, height * 0.9), t.lit, 0.35)
+    k.fill(rect(x - 0.7, -height, 0.45, height * 0.9), t.lit, 0.35 * k.kl)
+    k.fill(rect(x + 0.25, -height, 0.45, height * 0.9), t.lit, 0.35 * k.kr)
   }
   for (const [x, height, bend0] of trees) {
     const bend = bend0 + lean * height * 0.4
@@ -51,7 +52,7 @@ export function palms(k: Kit, h: number) {
     for (const f of jitter) k.fill(poly(frond(f, 0, 0.62)), t.green)
     for (const f of jitter) k.fill(poly(frond(f, 0.62, 1)), t.green, 0.55)
     for (const f of jitter.filter((f) => f[3] > 2)) k.fill(poly(frond(f, 0, 0.72)), t.shade, 0.8)
-    for (const f of jitter.filter((f) => f[0] < 0 && f[3] <= 2)) k.fill(poly(frond(f, 0.15, 0.62)), t.greenLit, 0.9)
+    for (const f of jitter.filter((f) => f[3] <= 2)) k.fill(poly(frond(f, 0.15, 0.62)), k.face(t.green, t.greenLit, -f[0]), 0.9)
     k.fill((cx) => { cx.beginPath(); cx.ellipse(0, 0.5, 0.75, 0.9, 0, 0, Math.PI * 2) }, t.shade)
     c.restore()
   }
@@ -80,8 +81,11 @@ export function orchard(k: Kit, _h: number, d: GlyphDesc) {
   for (const [x, y, rad] of trees) k.fill((c) => { c.beginPath(); c.ellipse(x + 0.6, y + rad * 0.8, rad * 0.9, 0.45, 0, 0, Math.PI * 2) }, t.deep, 0.5)
   for (const [x, y, rad] of trees) {
     k.fill((c) => { c.beginPath(); c.arc(x, y, rad, 0, Math.PI * 2) }, t.green)
-    k.fill((c) => { c.beginPath(); c.arc(x - rad * 0.3, y - rad * 0.3, rad * 0.6, 0, Math.PI * 2) }, t.greenLit, 0.75)
-    k.fill((c) => { c.beginPath(); c.arc(x + rad * 0.35, y + rad * 0.3, rad * 0.55, 0, Math.PI * 2) }, t.shade, 0.35)
+    k.fill((c) => { c.beginPath(); c.arc(x, y + rad * 0.55, rad * 0.6, 0, Math.PI * 2) }, t.shade, 0.3 * (1 - k.k))
+    for (const [dir, weight] of [[-1, k.kl], [1, k.kr]]) {
+      k.fill((c) => { c.beginPath(); c.arc(x + dir * rad * 0.3, y - rad * 0.3, rad * 0.6, 0, Math.PI * 2) }, t.greenLit, 0.75 * weight)
+      k.fill((c) => { c.beginPath(); c.arc(x - dir * rad * 0.35, y + rad * 0.3, rad * 0.55, 0, Math.PI * 2) }, t.shade, 0.35 * weight)
+    }
   }
 }
 
@@ -105,7 +109,9 @@ export function vineyard(k: Kit, _h: number, d: GlyphDesc) {
     }
     stroke(0.4, 0.5, 0.7, css(t.deep, 0.5))
     stroke(0, 0, 0.9, css(t.green))
-    stroke(0, -0.25, 0.4, css(t.greenLit))
+    stroke(0, -0.25, 0.4, css(mix(t.green, t.rim, 0.2)))
+    stroke(-0.25, -0.15, 0.35, css(t.greenLit, k.kl))
+    stroke(0.25, -0.15, 0.35, css(t.greenLit, k.kr))
   }
 }
 
@@ -125,6 +131,8 @@ export function solar(k: Kit, _h: number, d: GlyphDesc) {
     // Panels tilted to the sky mirror it (darker toward their foot), their top edge catching it most.
     k.fill(poly(band(from, to, y, 1.5, -0.9)), mix(t.panel, t.glassLit, 0.35))
     k.fill(poly(band(from, to, y, 0.5, -0.3)), mix(t.panel, t.glassLit, 0.75))
+    k.fill(poly(band(from, from + 0.5, y, 1.5, -0.9)), t.glassLit, 0.65 * k.kl)
+    k.fill(poly(band(to - 0.5, to, y, 1.5, -0.9)), t.glassLit, 0.65 * k.kr)
     k.fill(poly(band(from, to, y + 1.5, 0.35, -0.9)), t.deep, 0.5)
   }
 }

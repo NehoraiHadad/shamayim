@@ -352,9 +352,9 @@ export interface Shine {
    * The living light: the light each face takes by its normal (`livingLight.ts` `faceLight`, 0–1, the direct share in it):
    * the front (toward the eye), the left and right sides, the top; `rim` a back-lit edge's; `across` the light's signed
    * side (−1 left … 1 right, 0 straight ahead or behind or with no direct light). Painters mix each face from its base
-   * toward `Tones.lit` by its own share, so the lit side turns with the light instead of flipping.
+   * toward `Tones.lit` by its own share. Glyphs use `left - right` as signed light in screen space.
    */
-  faces?: { front: number; left: number; right: number; top: number; rim: number; across: number }
+  faces: { front: number; left: number; right: number; top: number; rim: number; across: number }
   /** A low sun's glint in the windows of the faces turned to it (0–1). */
   glint?: number
   cast: { dx: number; length: number; alpha: number }
@@ -374,8 +374,8 @@ export interface GlyphDesc {
   scale: number
   w: number
   seed: number
-  /** The side the light comes from: a glyph is drawn with the light on the left and mirrored for the right. */
-  litSide: 'left' | 'right' | null
+  /** Fixed horizontal orientation in the scene, from the mark seed or its known orientation. */
+  hand: 1 | -1
   tones: Tones
   famous: boolean
   /** A field's ground under it: y (px, relative to `base`) every glyph px across its width, west to east. */
@@ -483,11 +483,10 @@ export type LayerDesc =
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
-  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; litSide: 'left' | 'right' | null; lights: CityLight[]; lightRgb: RGB; litFace?: number
-      /** The living light: how strongly the lit side stands out (0 even … 1 one-sided); absent = 1 where there is a side. */
-      sideK?: number }
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB; litFace?: number
+      /** Signed face-light difference, positive from screen-left. */
+      lateralLight: number }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
-      litSide: 'left' | 'right' | null
       /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */
       land: { top: Pt[]; base: Pt[]; tone: RGB; rim: RGB
         /** Snow lying on it (C9): its colour and cover, over the runs of top points (first, last index) at or over the line. */
