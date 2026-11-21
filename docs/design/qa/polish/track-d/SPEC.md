@@ -349,6 +349,12 @@ Per type, with references:
 
 ## 7. Motion between rebuilds
 
+**Clock (agreed with track C, 2026-11-22):** cloud motion uses track C's `LifeClock { laidAt, sinceS }` (branch
+`claude/fix-life-motion-740e49`, see `track-c-notes.md` for the final names). There is no second clock. The seconds
+since the shown minute are `phase − laidAt + sinceS`. Keyframes and the `cells`/sheet drift read that offset (an open
+`Track`, or `drift = speed × (phase − laidAt + sinceS)`), never a per-layer lay phase in `surface.ts`. N3 waits for
+track C to land.
+
 The true rates:
 - tangential `ω = v·sin(alt)/h`;
 - radial altitude rate `v·sin²(alt)/h`.
