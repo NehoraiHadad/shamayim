@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { cssTokens, mix, ratio } from './contrast'
+import { contrastSamples } from './contrastSamples'
 import { DARK_SHEET, SKY_THEMES, type ThemeId } from './skyThemes'
 
 const css = readFileSync(new URL('../ui/tokens.css', import.meta.url), 'utf8')
@@ -24,20 +25,32 @@ describe('sky theme contrast (WCAG AA)', () => {
 
 describe('shared control contrast (WCAG AA)', () => {
   for (const [id, t] of Object.entries(SKY_THEMES)) {
-    it(`${id}: error button text on accent ≥ 4.5`, () => {
-      expect(ratio(lightTokens['--on-accent'], t.accent)).toBeGreaterThanOrEqual(4.5)
-    })
-
     it(`${id}: warning text on its pill ≥ 4.5`, () => {
       for (const sky of [t.top, t.mid]) {
         const pill = mix(sky, lightTokens['--warn'], 0.7)
         expect(ratio(t.ink, pill)).toBeGreaterThanOrEqual(4.5)
       }
     })
+  }
 
-    it(`${id}: focus rings on sky and paper ≥ 3`, () => {
-      expect(ratio(t.ink, t.top)).toBeGreaterThanOrEqual(3)
-      expect(ratio(t.sheetInk, t.sheet)).toBeGreaterThanOrEqual(3)
+  for (const { name, sky, paper } of contrastSamples) {
+    it(`${name}: error button text on accent ≥ 4.5`, () => {
+      expect(ratio(lightTokens['--on-accent'], sky.accent)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it(`${name}: focus on sky, picker and paper ≥ 3`, () => {
+      // PlacePicker.module.css uses 92% sky top and 8% white.
+      const panel = mix(sky.top, '#FFFFFF', 0.08)
+      expect(ratio(sky.ink, sky.top), 'sky top').toBeGreaterThanOrEqual(3)
+      expect(ratio(sky.ink, sky.mid), 'sky mid').toBeGreaterThanOrEqual(3)
+      expect(ratio(sky.ink, panel), 'place picker panel').toBeGreaterThanOrEqual(3)
+      expect(ratio(paper.sheetInk, paper.sheet), 'paper').toBeGreaterThanOrEqual(3)
+    })
+
+    it(`${name}: scrubber edges contrast with each other and the horizon ≥ 3`, () => {
+      expect(ratio(sky.ink, sky.ridgeNear), 'adjacent edges').toBeGreaterThanOrEqual(3)
+      const edgeContrast = Math.max(ratio(sky.ink, sky.horizon), ratio(sky.ridgeNear, sky.horizon))
+      expect(edgeContrast, 'stronger edge against the horizon').toBeGreaterThanOrEqual(3)
     })
   }
 })

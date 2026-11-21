@@ -43,6 +43,13 @@
   background: color-mix(in srgb, var(--sky-top) 80%, transparent);
 }
 
+.status:focus-visible { outline: none; }
+
+.status:focus-visible .pill {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .warn .pill {
   background: color-mix(in srgb, var(--warn) 70%, transparent);
 }
@@ -73,7 +80,7 @@
 
 @media (forced-colors: active) {
   .pill { border: 1px solid ButtonText; }
-  .status:focus-visible { outline-color: Highlight; }
+  .status:focus-visible .pill { outline-color: Highlight; }
 }
 
 @media (prefers-reduced-motion: reduce) {
