@@ -74,19 +74,34 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
     }
   })
 
-  // 3. Same-UTC-day hour scrub via real App slider: assert `world.land` reference is reused on every step
+  // 3. Same-UTC-day hour scrub via App slider: time press -> fresh light composite (n=30, form & world.land reused)
   const slider = page.locator('[role="slider"][aria-label="שעה בעמק"]')
   await slider.focus()
   await page.evaluate(() => { window.__landRef0 = window.__world.land })
   const scrubSteps = []
-  let reused = true
-  for (let i = 0; i < 8; i++) {
-    const beforeAt = await page.evaluate(() => window.__world.at)
+  let reused = true, formReused = true
+  for (let i = 0; i < 30; i++) {
+    const key = Math.floor(i / 5) % 2 === 0 ? 'ArrowLeft' : 'ArrowRight'
+    const prev = await page.evaluate(() => ({
+      at: window.__world.at,
+      nearLight: window.__sceneStats.shown['plane.near']?.lightKey ?? null,
+      farLight: window.__sceneStats.shown['plane.far']?.lightKey ?? null,
+    }))
     const t0 = performance.now()
-    await page.keyboard.press('ArrowLeft')
-    await page.waitForFunction((prev) => window.__world?.at !== prev, beforeAt, { timeout: 15000 })
+    await page.keyboard.press(key)
+    await page.waitForFunction(({ at, nearLight, farLight, nearForm, farForm }) => {
+      const s = window.__sceneStats?.shown
+      return window.__world?.at !== at
+        && s?.['plane.near']?.fresh && s['plane.near'].key === nearForm && s['plane.near'].lightKey !== nearLight
+        && s?.['plane.far']?.fresh && s['plane.far'].key === farForm && s['plane.far'].lightKey !== farLight
+    }, { ...prev, nearForm: refinedMeta.nearKey, farForm: refinedMeta.farKey }, { timeout: 15000 })
     scrubSteps.push(performance.now() - t0)
-    if (!(await page.evaluate(() => window.__world.land === window.__landRef0))) reused = false
+    const ok = await page.evaluate(({ nearForm, farForm }) => ({
+      land: window.__world.land === window.__landRef0,
+      form: window.__sceneStats.shown['plane.near']?.key === nearForm && window.__sceneStats.shown['plane.far']?.key === farForm,
+    }), { nearForm: refinedMeta.nearKey, farForm: refinedMeta.farKey })
+    if (!ok.land) reused = false
+    if (!ok.form) formReused = false
   }
   const cover = await page.evaluate(() => window.__world.land.own.cover)
   await context.close()
@@ -96,7 +111,7 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
   console.log(`\napp living-land mount (shadmot-mehola${dense ? ', dense tree cover' : ''}, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
   console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${fallbackSnap.albedoSource}, plane.near=${fallbackSnap.nearKey}, satellite held)`)
   console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, far55km(miss)=${refinedMeta.farMissAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey})`)
-  console.log(`  sameDayScrub       p50 ${med(scrubSteps).toFixed(1)} ms  (n=${scrubSteps.length}, world.land reused=${reused})`)
+  console.log(`  sameDayScrubLight  p50 ${med(scrubSteps).toFixed(1)} ms  (n=${scrubSteps.length}, world.land reused=${reused}, form reused=${formReused})`)
   console.log(`  coldFineTiles      ${fineTileFetches.size} unique tiles fetched, duplicates=${duplicateTiles.length}`)
 
   const problems = []
@@ -111,6 +126,7 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
   if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
   if (refinedMeta.farKey === fallbackSnap.farKey) problems.push('plane.far form key did not update on refinement')
   if (!reused) problems.push('same-day scrub rebuilt world.land')
+  if (!formReused) problems.push('same-day scrub repainted plane form')
   if (duplicateTiles.length) problems.push(`duplicate cold fine-tile fetches: ${duplicateTiles.map(([k, n]) => `${k}×${n}`).join(', ')}`)
   return { firstFallbackPaintMs, refinementMs, scrubMedianMs: med(scrubSteps), reused, duplicateTiles, problems }
 }
