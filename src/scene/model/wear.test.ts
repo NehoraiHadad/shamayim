@@ -164,9 +164,9 @@ describe('the light', () => {
       const w = world('jerusalem', hour, CALM)
       const light = wearLight(w)
       // The living light: the side is the side light's (continuous) sign, so it is checked where that light is plain.
-      if (!w.light.side || w.light.source === 'sky' || Math.abs(light.across) < 0.05) continue
+      if (w.light.source === 'sky' || Math.abs(light.across) < 0.05) continue
       checked++
-      expect(light.side).toBe(w.light.side === 'left' ? -1 : 1)
+      expect(light.side).toBe(Math.sign(w.light.across))
       for (const layer of items(w)) {
         expect(layer.item.side).toBe(light.side)
         expect(lightness(layer.item.tones.lit)).toBeGreaterThan(lightness(layer.item.tones.shade))

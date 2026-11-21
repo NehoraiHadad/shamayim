@@ -22,7 +22,7 @@ export const MOON_RGB: RGB = [185 / 255, 196 / 255, 222 / 255]
 const MIN_HAZE_DIRECT = 0.08
 /**
  * Under this direct share the light is the sky's alone (a sun dimmed to a pale patch behind a deck, the last of a disc
- * behind the land): no ray, no side, no source. Every directional effect eases in from it (`livingLight.ts` `SHADING`),
+ * behind the land): no ray, no lateral light, no source. Every directional effect eases in from it (`livingLight.ts` `SHADING`),
  * so the label's change shows nowhere.
  */
 const SKY_ONLY = SHADING[0]
@@ -39,9 +39,6 @@ const MIN_DIRECT = 0.05
 export function cloudTransmit({ low, mid, high }: Covers): number {
   return (1 - 0.95 * low) * (1 - (0.85 + 0.1 * mid ** 4) * mid) * (1 - 0.3 * high)
 }
-
-/** −1 … 1 → the screen side the light comes from; null straight ahead or behind. */
-const sideOf = (across: number): Light['side'] => across > 0.02 ? 'right' : across < -0.02 ? 'left' : null
 
 export interface LightInput {
   at: LocalTime
@@ -139,7 +136,8 @@ export function lightOf(input: LightInput): Light {
   return {
     ...base,
     source, azimuth: body.azimuth, altitude: body.altitude,
-    side: direct >= MIN_DIRECT * 0.2 ? sideOf(across) : null, ray: source === 'sky' ? null : ray,
+    // Use the same direct-share ramp as the light on faces.
+    across: across * smoothstep(SHADING[0], SHADING[1], direct), ray: source === 'sky' ? null : ray,
     colour, direct, shares: { sun: sunShare, moon: moonShare },
     dir: viewDir(body.azimuth, body.altitude, camera),
     // The cast shadow's side and reach follow the source; its strength (every consumer multiplies by `direct`) and its
