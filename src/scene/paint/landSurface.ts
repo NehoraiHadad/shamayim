@@ -40,10 +40,10 @@ function valueNoise(seed: number, x: number, y: number) {
 function ridgeYPerCol(outline: readonly Pt[], bounds: Box, cols: number): Float32Array {
   const ys = new Float32Array(cols).fill(bounds.y)
   if (outline.length < 2) return ys
-  // The plane outline runs left -> right along the ridge, then closes along the bottom back to left.
+  // The plane outline runs strictly left -> right along the ridge, then drops/returns along the bottom.
   let ridgeEnd = outline.length - 1
   for (let i = 1; i < outline.length; i++) {
-    if (outline[i][0] < outline[i - 1][0] - 1e-3) { ridgeEnd = i - 1; break }
+    if (outline[i][0] <= outline[i - 1][0] + 1e-6) { ridgeEnd = i - 1; break }
   }
   const n = Math.max(2, ridgeEnd + 1)
   let seg = 0

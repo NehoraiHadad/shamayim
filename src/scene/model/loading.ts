@@ -6,7 +6,7 @@ import { SCENE_W } from '../../world/sceneBox'
 import { UNKNOWN_EYE_Y } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { landBoxKey, layerKey } from './keys'
-import { toneAt } from './planeLight'
+import { ambientToneAt } from './planeLight'
 import { mixRgb, rgbOf } from './tone'
 import type { AnimSpec, LandClock, LayerDesc, LayerOf, MistBandDesc, MistPuff, Pt, RGB, SceneBox } from './types'
 
@@ -81,7 +81,7 @@ function mistTones(world: WorldState) {
   // By night a bank holds a little of the night sky's own glow (and the towns' under it), so it still reads as a bank.
   const sky = mixRgb(rgbOf(palette.horizon), rgbOf(palette.mid), 0.15)
   const body = mixRgb(mixRgb(sky, world.air.haze, 0.3 * (1 - dark)), WHITE, 0.2 * day + 0.07 * dark)
-  const foot = mixRgb(body, toneAt(world, 2), 0.32)
+  const foot = mixRgb(body, ambientToneAt(world, 2), 0.32)
   // A low sun lights the bank's top (the warm of the hour) as far as the cloud lets it through.
   const cover = (level: string) => world.clouds.find((c) => c.level === level)?.cover ?? 0
   const through = (1 - 0.95 * cover('low')) * (1 - 0.85 * cover('mid')) * (1 - 0.3 * cover('high'))
@@ -150,7 +150,7 @@ export function guessLine(placeId: string): Pt[] {
 
 /** The line's tone: the near ridge's own at a few km, half lost in the mist. */
 function lineTone(world: WorldState): RGB {
-  return mixRgb(toneAt(world, 3), mistTones(world).body, 0.42)
+  return mixRgb(ambientToneAt(world, 3), mistTones(world).body, 0.42)
 }
 
 function ridgeLayer(world: WorldState, box: SceneBox, id: 'loading.guess' | 'loading.crest', points: readonly Pt[],

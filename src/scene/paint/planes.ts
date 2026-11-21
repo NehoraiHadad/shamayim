@@ -66,7 +66,9 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
     for (const dot of desc.scrub) {
       // Map `world/land.ts` scrub shade `[0.30..0.45]` into `[0.65..0.85]` multiply tint (preserving olive bias).
       const tone = css([Math.min(1, dot.rgb[0] * 1.95), Math.min(1, dot.rgb[1] * 1.95), Math.min(1, dot.rgb[2] * 1.85)], 0.85)
-      byTone.set(tone, [...(byTone.get(tone) ?? []), dot])
+      const list = byTone.get(tone)
+      if (list) list.push(dot)
+      else byTone.set(tone, [dot])
     }
     for (const [tone, dots] of byTone) {
       ctx.beginPath()
@@ -116,8 +118,6 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
   const light = desc.light
   const { x, y, w, h } = desc.bounds
   ctx.save()
-  outline(ctx, desc.outline)
-  ctx.clip()
 
   // Mood + aerial haze veil over the light-free land form.
   if (light.veil?.length) {
@@ -188,5 +188,10 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
       ctx.stroke()
     }
   }
+  // Mask once to the plane's exact antialiased outline so multi-pass snow/washes never lose coverage at the crest edge.
+  ctx.globalCompositeOperation = 'destination-in'
+  outline(ctx, desc.outline)
+  ctx.fillStyle = '#000'
+  ctx.fill()
   ctx.restore()
 }

@@ -129,4 +129,17 @@ describe('Stage 3: living-land albedo -> quantised plane tones, distance fade, f
     const env: PaintEnv = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: fakeCtx() }) }
     expect(() => { paintPlane(fakeCtx(), observed[1], env); paintPlaneLight(fakeCtx(), observed[1], env) }).not.toThrow()
   })
+
+  it('passes compact quantised stops and provenance into outside ground when a place hill rises over the ridge', () => {
+    const outs = [...loaded.values()].map((p) =>
+      layersOn(sceneModel(buildWorld(worldInput(p, '2026-02-15T12:00')), BOX), 'land')
+        .find((l): l is LayerOf<'outside'> => l.kind === 'outside' && Boolean(l.land)),
+    ).filter((l): l is LayerOf<'outside'> => Boolean(l))
+    expect(outs.length).toBeGreaterThan(0)
+    for (const out of outs) {
+      expect(out.land!.stops!.length).toBeGreaterThanOrEqual(2)
+      expect(out.land!.source).toBe('climatology')
+      expect(structuredClone(out.land)).toEqual(out.land)
+    }
+  })
 })

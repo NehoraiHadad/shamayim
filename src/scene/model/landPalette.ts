@@ -1,4 +1,5 @@
 //# allFunctionsCalledOnLoad
+import type { LivingLand } from '../../world/landLiving'
 import type { RGB } from '../../world/types'
 import { labOf, rgbOfLab } from './tone'
 
@@ -71,4 +72,37 @@ export function quantiseTones(tones: readonly RGB[], maxColours: number): { pale
     }
   }
   return { palette: centers.map((c) => roundRgb(rgbOfLab(c))), indices }
+}
+
+/** WorldCover open water class (excluded from land-plane albedo; water is painted by `water.ts`). */
+export const COVER_WATER = 8
+const lerpRgb = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+
+/** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
+export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
+  const rays = land.rays
+  if (!rays.length) return { albedo: land.own.albedo, source: land.own.albedoSource }
+  const idx = clamp(Math.round(rayIdx), 0, rays.length - 1)
+  let bands = rays[idx].bands.filter((b) => b.sample.cover !== COVER_WATER)
+  for (let d = 1; d < rays.length && !bands.length; d++) {
+    for (const j of [idx - d, idx + d]) {
+      if (j < 0 || j >= rays.length) continue
+      const cand = rays[j].bands.filter((b) => b.sample.cover !== COVER_WATER)
+      if (cand.length) { bands = cand; break }
+    }
+  }
+  if (!bands.length) return { albedo: land.own.albedo, source: land.own.albedoSource }
+  const distM = Math.max(50, km * 1000)
+  const hi = bands.findIndex((b) => b.distanceM >= distM)
+  let albedo: RGB, source: string
+  if (hi <= 0) { albedo = bands[0].sample.albedo; source = bands[0].sample.albedoSource }
+  else if (hi === -1) { albedo = bands.at(-1)!.sample.albedo; source = bands.at(-1)!.sample.albedoSource }
+  else {
+    const a = bands[hi - 1], b = bands[hi]
+    const t = clamp((Math.log(distM) - Math.log(a.distanceM)) / Math.max(1e-6, Math.log(b.distanceM) - Math.log(a.distanceM)), 0, 1)
+    albedo = lerpRgb(a.sample.albedo, b.sample.albedo, t)
+    source = t < 0.5 ? a.sample.albedoSource : b.sample.albedoSource
+  }
+  if (distM < 700 && land.own.cover !== COVER_WATER) albedo = lerpRgb(albedo, land.own.albedo, clamp((700 - distM) / 500, 0, 0.55))
+  return { albedo, source }
 }

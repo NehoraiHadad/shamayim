@@ -78,6 +78,17 @@ export function toneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB
   return applyVeil(nearGroundTone(world), veilOfHaze(world, haze)(hazeAt(world, km)))
 }
 
+/**
+ * Land-independent ambient ridge tone at distance `km` (palette + wet + aerial haze): used while the land is not
+ * known yet (`loading.ts`) so loading mist and forming lines keep identical keys before and through arrival.
+ */
+export function ambientToneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB {
+  const wet = world.ground.wet
+  const raw = rgbOf(world.light.palette.ridgeNear)
+  const near = wet > 0 ? darken(raw, 1 - 0.24 * wet, 1 + 0.2 * wet) : raw
+  return mixRgb(near, haze, hazeAt(world, km))
+}
+
 /** How far toward the air the ground at a distance (km) goes: `AERIAL · fade(km)²`. */
 const hazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
 
