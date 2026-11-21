@@ -1,4 +1,5 @@
 import { utcOf } from '../astro/utc'
+import { mappedCropAreas } from '../data/landmarks/cropAreas'
 import { hashId } from '../data/landmarks/hash'
 import { anglePx, RELIEF } from '../data/terrain/angleScale'
 import { SCENE_CAMERA } from '../domain/camera'
@@ -119,6 +120,7 @@ export function makeWorldBuilder() {
       terrain: planes, water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part, place3: placePartResult.place3, marks: placePartResult.marks, labels: placePartResult.labels,
       night, ground, env, life, nightSky, optics, shadows, land: land.part,
+      cropAreas: input.cropAreas ?? mappedCropAreas(input.landmarks),
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
         windAloft: windSources.windAloft, visibility: visibilitySource, cruise: life.aircraft.cruise.source, glow: env.sources.glow },
       keys: {

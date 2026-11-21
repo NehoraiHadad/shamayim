@@ -1,10 +1,15 @@
 import type { Place } from '../../config/place'
+import { mappedCropArea } from './cropAreas'
 import { fameOf, outranks } from './fame'
 import { LANDMARK_FILTERS } from './filters'
 import { offsetKm } from './project'
 import type { Landmark, MarkKind } from './types'
 
-interface Element { id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }
+interface Point { lat: number; lon: number }
+interface Element {
+  id: number; lat?: number; lon?: number; center?: Point; tags?: Record<string, string>
+  type?: string; geometry?: Point[]; areaGeometry?: unknown
+}
 interface Response { elements?: Element[] }
 
 const HOSTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter',
@@ -22,7 +27,15 @@ export function buildQuery(place: Place): string {
   const nearLines = LANDMARK_FILTERS.map(({ overpass }) => `${overpass}(${near});`).join('')
   const tall = LANDMARK_FILTERS.filter(({ far: tall }) => tall)
     .map(({ overpass }) => `${overpass}(${far});`).join('')
-  return `[out:json][timeout:25];(${nearLines}${tall});out tags center 200;`
+  // Keep the bounded landmark response, and fetch closed crop ways separately with actual geometry.
+  const crops = `way[landuse~"^(orchard|vineyard)$"](${near});`
+  return `[out:json][timeout:25];(${nearLines}${tall});out tags center 200;(${crops});out geom 200;`
+}
+
+function areaOf(element: Element, tags: Record<string, string>) {
+  return mappedCropArea(tags, element.areaGeometry ?? (element.type === 'way' && Array.isArray(element.geometry)
+    ? { type: 'Polygon', coordinates: [element.geometry.map(({ lon, lat }) => [lon, lat])] }
+    : undefined))
 }
 
 function classify(tags: Record<string, string>): { kind: MarkKind; height: number } | null {
@@ -57,17 +70,22 @@ export function parseOverpass(json: unknown, options: { name?: (mark: Landmark, 
   const elements = (json as Response)?.elements
   if (!Array.isArray(elements)) return []
   const found: Landmark[] = []
+  const wayCentres = new Map(elements.filter((e) => e.type === 'way' && e.center).map((e) => [e.id, e.center!]))
+  const withGeometry = new Set(elements.filter((e) => e.type === 'way' && e.geometry?.length).map((e) => e.id))
   for (const element of elements) {
     const tags = element.tags ?? {}
     const value = classify(tags)
-    const lat = element.lat ?? element.center?.lat
-    const lon = element.lon ?? element.center?.lon
+    const cropArea = areaOf(element, tags)
+    if (element.type === 'way' && !element.geometry && withGeometry.has(element.id)) continue
+    const center = element.center ?? (element.type === 'way' ? wayCentres.get(element.id) ?? element.geometry?.[0] : undefined)
+    const lat = element.lat ?? center?.lat
+    const lon = element.lon ?? center?.lon
     if (!value || lat == null || lon == null) continue
     const fame = fameOf(tags)
     const read: Landmark = { id: `osm-${element.id}`, kind: value.kind, nameHe: tags['name:he'] ?? tags.name,
-      lat, lon, heightM: value.height, source: 'osm', ...(fame ? { fame } : {}) }
+      lat, lon, heightM: value.height, source: 'osm', ...(fame ? { fame } : {}), ...(cropArea ? { cropArea } : {}) }
     const candidate = options.name ? options.name(read, tags) : read
-    const duplicate = found.find((mark) => mark.kind === candidate.kind
+    const duplicate = !cropArea && found.find((mark) => !mark.cropArea && mark.kind === candidate.kind
       && Math.hypot(offsetKm(mark, candidate).dx, offsetKm(mark, candidate).dy) < .3)
     if (!duplicate) found.push(candidate)
     // Of two of a kind side by side the famous one stays (a tower with its own article over its taller neighbour).

@@ -45,10 +45,25 @@ describe('Israel landmark cells', () => {
     const cell = cellsForStrip(place())[0]
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).endsWith('index.json')
       ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : String(input).includes('/crops/') ? new Response('', { status: 404 })
       : new Response(JSON.stringify([['waterTower', 31.6092, 35.1009, 25, 'מגדל מים']]))))
     const marks = await loadIsrael(place(), new AbortController().signal)
     expect(marks).toHaveLength(1)
     expect(marks?.[0]).toMatchObject({ kind: 'waterTower', nameHe: 'מגדל מים', source: 'osm' })
+  })
+
+  it('loads crop geometry beside the legacy points without entering it in the portrait shortlist', async () => {
+    const crop = { source: 'osm', kind: 'palm', polygons: [[[
+      [35.1, 31.60], [35.11, 31.60], [35.11, 31.62], [35.1, 31.62], [35.1, 31.60],
+    ]]] }
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('index.json')) return new Response(JSON.stringify(index()))
+      return String(input).endsWith('/crops/63_70.json')
+        ? new Response(JSON.stringify([[31.61, 35.105, crop]])) : new Response('', { status: 404 })
+    }))
+    const result = await loadLandmarkSource(place(), new AbortController().signal)
+    expect(result.cropAreas).toEqual([crop])
+    expect(result.sceneMarks.some((m) => m.kind === 'palms')).toBe(false)
   })
 })
 
@@ -57,6 +72,7 @@ describe('fame in the shipped rows', () => {
     const cell = cellsForStrip(place())[0]
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).endsWith('index.json')
       ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : String(input).includes('/crops/') ? new Response('', { status: 404 })
       : new Response(JSON.stringify([['church', 31.6092, 35.1009, 25, '', 2], ['waterTower', 31.61, 35.1, 25, 'מגדל', 1],
         ['minaret', 31.62, 35.1, 30]]))))
     const marks = await loadIsrael(place(), new AbortController().signal)

@@ -6,6 +6,7 @@ import type { CityResult } from '../data/city/types'
 import type { LandCover } from '../data/land/landData'
 import type { LandData } from '../data/land/types'
 import type { Landmark } from '../data/landmarks/types'
+import type { CropArea } from '../data/landmarks/cropAreas'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
 import type { Camera } from '../domain/camera'
@@ -43,6 +44,7 @@ export interface WorldInput {
   sunTerrain?: SceneTerrain
   /** Landmarks, the place's own homes and the satellite's groves (App's `marks`). */
   landmarks: readonly Landmark[]
+  cropAreas?: readonly CropArea[]
   city?: CityResult | null
   /** The far raster (`far.json`: built share and storeys per ~0.5 km cell, towers of 80 m+); the far towns need it. */
   far?: FarData | null
@@ -123,6 +125,7 @@ export interface WorldState {
   shadows: CloudShadows
   /** Living-land surface state sampled along panorama rays and over local ground for the shown date (structured-cloneable). */
   land: LivingLand
+  cropAreas?: readonly CropArea[]
   sources: WorldSources
   keys: WorldKeys
 }
