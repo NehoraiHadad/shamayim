@@ -24,7 +24,7 @@ function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane
     outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
     surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
     gullies: [], terraces: [], scrub: [], grain: { amount: 0, seed: 1 },
-    light: { key: lightKey, blend: 'source-over', tint: [0.2, 0.2, 0.3], faces: [], veil: [],
+    light: { key: lightKey, blend: 'source-over', faces: [], veil: [],
       shade: [], lit: [], rims: [], snow: null, lift: null } }
 }
 
@@ -186,9 +186,9 @@ describe('painting in the worker', () => {
     expect(cache.settled()).toBe(true)
   })
 
-  it('lays the arrivals on the surface, and paints on the main thread once the worker fails', () => {
+  it('lays the arrivals on the surface, reuses shown entries when trackShown is on, and paints on main thread once worker fails', () => {
     const worker = fakeWorker()
-    const stats = makeStats(() => 0)
+    const stats = makeStats(() => 0, { trackShown: true })
     const { count, painters: counted } = counting()
     let laid = 0
     const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, stats, now: () => 0, worker: () => worker,
@@ -200,10 +200,15 @@ describe('painting in the worker', () => {
     worker.answer()
     expect(laid).toBe(1)
     expect(surface.fresh(plane('a', 'l1'))).toBe(true)
-    expect(stats.shown['plane.near']).toEqual({ key: 'a', lightKey: 'l1', fresh: true })
+    const entryRef = stats.shown['plane.near']
+    expect(entryRef).toEqual({ key: 'a', lightKey: 'l1', fresh: true })
+    // Stable re-composite reuses the same ShownLayer object without re-allocating.
+    surface.composite([plane('a', 'l1')])
+    expect(stats.shown['plane.near']).toBe(entryRef)
     surface.render([plane('b', 'l1')])
     expect(stats.shown['plane.near']).toEqual({ key: 'a', lightKey: 'l1', fresh: false })
     worker.answer()
+    expect(stats.shown['plane.near']).toBe(entryRef)
     expect(stats.shown['plane.near']).toEqual({ key: 'b', lightKey: 'l1', fresh: true })
     surface.render([plane('b', 'l2')])
     worker.onerror?.(new Event('error'))
@@ -212,6 +217,13 @@ describe('painting in the worker', () => {
     expect(count).toEqual({ form: 1, light: 1 })
     expect(surface.fresh(plane('b', 'l2'))).toBe(true)
     expect(stats.shown['plane.near']).toEqual({ key: 'b', lightKey: 'l2', fresh: true })
+
+    // Default stats (trackShown: false) skips composite-key tracking completely.
+    const quietStats = makeStats(() => 0)
+    const quietSurface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, stats: quietStats, now: () => 0 })
+    quietSurface.resize(375, 128, 2)
+    quietSurface.render([plane('a', 'l1')])
+    expect(quietStats.shown).toEqual({})
   })
 })
 

@@ -204,10 +204,16 @@ export class Surface {
         draw(light)
         ctx.globalCompositeOperation = 'source-over'
       }
-      if (this.stats) {
+      if (this.stats?.trackShown) {
         const fresh = cache.fresh(desc, d)
-        if (fresh) this.stats.shown[desc.id] = { key: desc.key, lightKey: desc.light?.key ?? null, fresh: true }
-        else if (this.stats.shown[desc.id]) this.stats.shown[desc.id].fresh = false
+        const existing = this.stats.shown[desc.id]
+        if (fresh) {
+          const lk = desc.light?.key ?? null
+          if (!existing) this.stats.shown[desc.id] = { key: desc.key, lightKey: lk, fresh: true }
+          else if (existing.key !== desc.key || existing.lightKey !== lk || !existing.fresh) {
+            existing.key = desc.key; existing.lightKey = lk; existing.fresh = true
+          }
+        } else if (existing && existing.fresh) existing.fresh = false
       }
       if (lay?.above !== undefined) ctx.restore()
       ctx.globalAlpha = 1
@@ -328,9 +334,10 @@ export class Surface {
     const keep = new Set(layers.map((layer) => layer.id))
     this.prune(keep)
     const painted = layers.map((desc) => this.paint(desc, phase))
-    if (this.stats) {
+    if (this.stats?.trackShown) {
       for (const desc of layers) {
-        if (!this.fresh(desc) && this.stats.shown[desc.id]) this.stats.shown[desc.id].fresh = false
+        const existing = this.stats.shown[desc.id]
+        if (existing && existing.fresh && !this.fresh(desc)) existing.fresh = false
       }
     }
     this.flush()

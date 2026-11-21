@@ -1,17 +1,16 @@
 //# allFunctionsCalledOnLoad
-import { hashId } from '../../data/landmarks/hash'
 import { ridgeLightSamples, smoothstep, type RidgeSample } from '../../world/ridgeLighting'
 import { SHADING } from '../../world/livingLight'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import { SCENE_W } from '../../world/sceneBox'
 import { shadowRuns } from '../../world/shadowRuns'
 import type { Plane, RGB, WorldState } from '../../world/types'
-import { fractal } from '../paint/core'
 import { landBoxKey, layerKey } from './keys'
 import { nearGroundTone } from './landColour'
-import { AERIAL, applyVeil, hazeAlong, hazeAt, hazeOf, veilOfHaze } from './landVeil'
+import { lightTintOf, snowOf } from './landSnow'
+import { applyVeil, hazeAlong, hazeAt, hazeOf, veilOfHaze } from './landVeil'
 import { darken, lightness, mixRgb, rgbOf } from './tone'
-import type { Face, PlaneLight, Pt, Rim, SceneBox, SnowCap, Wash } from './types'
+import type { Face, PlaneLight, Pt, Rim, SceneBox, Wash } from './types'
 
 type PlaneName = 'back' | 'far' | 'near'
 
@@ -170,42 +169,5 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
     : null
   const key = layerKey('plane.light', name, world.keys.terrain, world.keys.light, world.keys.air, world.keys.ground,
     world.keys.night, world.keys.land, world.snow, landBoxKey(box))
-  return { key, blend: 'source-over', tint, veil, shade, lit, faces, rims, snow, lift }
-}
-
-/** Snow above the snow line (`terrain.snowEdge`), its lower edge ragged by seeded displacement (no filter). */
-function snowOf(world: WorldState, box: SceneBox, name: PlaneName, strength: number, lightTint: RGB): SnowCap | null {
-  const { snow, terrain } = world
-  if (!snow || name === 'back' || !terrain.snowEdge) return null
-  const edge = terrain.snowEdge(name, snow.lineM)
-  const crest = terrain[name].points
-  if (!edge.length || edge.every(([x, y]) => y < lineAt(crest, x) - 1)) return null
-  const sx = box.width / SCENE_W
-  const seed = hashId(`${world.place.id}:${name}:snow`)
-  const ragged = edge.map(([x, y]): Pt => [x * sx, Math.min(box.landHeight + 6, y) + (fractal(seed, x, y, 0.05, 0.05, 2) - 0.5) * 9])
-  return { edge: ragged, ...snowLook(world, median(terrain[name].distanceKm), strength, lightTint) }
-}
-
-/** Lying snow's colour and cover at a distance (km), lit as the land: by the light's colour and share, hazed by the air. */
-function snowLook(world: WorldState, km: number, strength: number, lightTint: RGB): { rgb: RGB; alpha: number } {
-  const { light } = world
-  const white: RGB = [0.95, 0.96, 0.98]
-  const sky = mixRgb(white, rgbOf(light.palette.mid), 0.35 + 0.4 * world.night.dark)
-  const lit = mixRgb(white, lightTint, 0.2 + 0.2 * (1 - strength))
-  const rgb = mixRgb(sky, lit, light.source === 'moon' ? smoothstep(0.1, 0.3, strength) : smoothstep(0, 0.12, strength))
-  return { rgb: mixRgb(rgb, hazeOf(world), AERIAL * world.air.fade(km) ** 2), alpha: 0.55 + 0.4 * (world.snow?.amount ?? 0) }
-}
-
-/** Lying snow on any ground at a distance (km) as the planes take it (C9); null with no snow lying. */
-export function snowOnGround(world: WorldState, km: number): { rgb: RGB; alpha: number } | null {
-  if (!world.snow) return null
-  const { light } = world
-  return snowLook(world, km, light.ray ? clamp01(light.direct * 1.3) : 0, lightTintOf(world))
-}
-
-/** The light's colour on the land: the sun's (after air mass) through the sky's horizon, warmer toward a low sun. */
-function lightTintOf(world: WorldState): RGB {
-  const { light } = world
-  const warm = 1 - smoothstep(4, 18, light.altitude)
-  return mixRgb(mixRgb(rgbOf(light.palette.horizon), light.colour, 0.55), rgbOf(light.palette.accent), warm * 0.4 * smoothstep(0, 0.1, light.shares.sun))
+  return { key, blend: 'source-over', veil, shade, lit, faces, rims, snow, lift }
 }

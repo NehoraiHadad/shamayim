@@ -31,8 +31,8 @@ export interface LightPart {
   key: string
   /** How the light canvas meets the form under it (`source-over` covers it; the planes lay theirs on with `source-over`). */
   blend: 'source-over' | 'multiply' | 'screen' | 'overlay' | 'soft-light'
-  /** The layer's tone after light and haze (its mean, where it varies). */
-  tint: RGB
+  /** Optional layer tone after light and haze (omitted on planes where `veil` drives painting directly). */
+  tint?: RGB
   faces: Face[]
 }
 
@@ -61,7 +61,7 @@ export interface PlanePalette {
  * seeded patches, mottle, gullies, terraces and scrub; this canvas lays the scene's mood, wet-ground & aerial haze
  * veil (`veil`, `source-over`), snow, shaded and lit bands, floor shadow, crest rim and ground lift over it.
  */
-export interface PlaneLight extends LightPart {
+export interface PlaneLight extends Omit<LightPart, 'tint'> {
   /** Source-over mood, wet-ground attenuation & aerial haze veil across the plane (x px -> [colour, alpha]). */
   veil: [number, RGB, number][]
   /** Shade on the faces turned from the light, then light on the faces turned to it. */

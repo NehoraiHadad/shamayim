@@ -13,6 +13,8 @@ export interface SceneStats {
   steps: Record<string, number[]>
   layers: Record<string, LayerStat>
   shown: Record<string, ShownLayer>
+  /** Opt-in flag (e.g. perf/e2e runners) to record per-layer composite keys in `shown`; off on ordinary frames. */
+  trackShown: boolean
   /** Backing memory of each surface's visible and cached canvases (bytes). */
   memory: Record<string, number>
   record(step: string, ms: number): void
@@ -31,7 +33,7 @@ export function quantile(sorted: readonly number[], q: number): number {
   return sorted[at]
 }
 
-export function makeStats(now: () => number = () => performance.now()): SceneStats {
+export function makeStats(now: () => number = () => performance.now(), options: { trackShown?: boolean } = {}): SceneStats {
   const marks = typeof performance !== 'undefined' && typeof performance.mark === 'function'
     && typeof performance.measure === 'function'
   let serial = 0
@@ -39,6 +41,7 @@ export function makeStats(now: () => number = () => performance.now()): SceneSta
     steps: {},
     layers: {},
     shown: {},
+    trackShown: options.trackShown ?? false,
     memory: {},
     record(step, ms) {
       const list = (stats.steps[step] ??= [])

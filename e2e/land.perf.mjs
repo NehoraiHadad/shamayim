@@ -42,8 +42,8 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
     }
     if (url.host === 'gibs.earthdata.nasa.gov' && url.pathname.includes('MODIS_Terra_L3_SurfaceReflectance_Bands143_8Day')) {
       await landGate
-      // Serve the genuine recorded 2026-11-01 tile only on its true date (404 on newer composite slots).
-      return url.pathname.includes('/2026-11-01/')
+      // Serve the genuine recorded 2026-11-01 tile ONLY at its exact tile address (8/103/153); 404 elsewhere.
+      return /\/2026-11-01\/[^/]+\/8\/103\/153\.jpeg$/.test(url.pathname)
         ? route.fulfill({ status: 200, contentType: 'image/jpeg', body: gibsSrJpg, headers: { 'Access-Control-Allow-Origin': '*' } })
         : route.fulfill({ status: 404, headers: { 'Access-Control-Allow-Origin': '*' } })
     }
@@ -61,6 +61,7 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
   const cdp = await context.newCDPSession(page)
   await cdp.send('Emulation.setCPUThrottlingRate', { rate })
   await page.addInitScript(({ place, panorama, at }) => {
+    window.__trackSceneShown = true
     localStorage.setItem('shamayim:place:v1', JSON.stringify(place))
     localStorage.setItem(`shamayim:horizon:v3:${place.id}`, panorama)
     const R = Date, off = R.parse(at) - R.now()
@@ -101,11 +102,14 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
   const refinementMs = performance.now() - tRelease
   const refinedMeta = await page.evaluate(() => {
     const far20 = window.__world.land.rays[20].bands.find((b) => b.distanceM === 20_000)?.sample
+    // 55 km due south of Shadmot (~31.85°N) lies in tile 8/104/153 (outside the recorded 8/103/153 tile).
+    const far55 = window.__world.land.rays[20].bands.find((b) => b.distanceM >= 50_000)?.sample
     return {
       ownAlbedo: window.__world.land.own.albedoSource,
       ownCover: window.__world.land.own.coverSource,
       farNdvi: far20?.ndviSource,
       farAlbedo: far20?.albedoSource,
+      farMissAlbedo: far55?.albedoSource,
       nearKey: window.__sceneStats.shown['plane.near'].key,
       farKey: window.__sceneStats.shown['plane.far'].key,
     }
@@ -131,13 +135,16 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
   const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
   console.log(`\napp living-land mount (shadmot-mehola, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
   console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${fallbackSnap.albedoSource}, plane.near=${fallbackSnap.nearKey}, satellite held)`)
-  console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey})`)
+  console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, far55km(miss)=${refinedMeta.farMissAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey})`)
   console.log(`  sameDayScrub       p50 ${med(scrubSteps).toFixed(1)} ms  (n=${scrubSteps.length}, world.land reused=${reused})`)
   console.log(`  coldFineTiles      ${fineTileFetches.size} unique tiles fetched, duplicates=${duplicateTiles.length}`)
 
   const problems = []
   if (fallbackSnap.albedoSource !== 'climatology') problems.push(`first paint albedoSource=${fallbackSnap.albedoSource} (expected climatology)`)
   if (!refinedMeta.farAlbedo?.startsWith('gibs:2026-11-01')) problems.push(`far albedoSource=${refinedMeta.farAlbedo} (expected gibs:2026-11-01*)`)
+  if (!refinedMeta.farMissAlbedo || refinedMeta.farMissAlbedo.startsWith('gibs:')) {
+    problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected non-gibs fallback)`)
+  }
   if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
   if (refinedMeta.farKey === fallbackSnap.farKey) problems.push('plane.far form key did not update on refinement')
   if (!reused) problems.push('same-day scrub rebuilt world.land')
