@@ -1,15 +1,18 @@
 import type { LayerOf, Pt, Wash } from '../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
+import { treeCrownAnchor } from './landVegCrowns'
 
 /*
- * Plane light painter (`source-over` onto the light-free living-land form, Stage C2 + Stage 3):
+ * Plane light painter (`source-over` onto the light-free living-land form, Stage C2 + Stages 3 & 4):
  * Ambient mood, wet-ground darkening & Koschmieder aerial haze veil, snow, shade and lit crest washes,
- * floor shadow, crest rim and scrub/gully lift, masked once with `destination-in` against the plane's
- * antialiased outline. Worker-safe on OffscreenCanvas; no clock; no `ctx.filter`.
+ * floor shadow, crest rim and visibility-weighted crown/tuft/gully catchlights, masked once with
+ * `destination-in` against the plane's antialiased outline. Worker-safe; no clock; no `ctx.filter`.
  */
 
 /** The nested bands of a wash: each depth's share of the band and its strength (soft fall-off, no filter). */
 const WASH = [[1, 0.22], [0.78, 0.22], [0.57, 0.22], [0.37, 0.22], [0.18, 0.22]] as const
+/** Visibility tiers for batched catchlight ellipses so faded marks never outlast the underlying form. */
+const LIFT_TIERS = [[0.08, 0.42, 0.28], [0.42, 0.76, 0.62], [0.76, 1.01, 1.0]] as const
 
 function paintWashes(ctx: Ctx2D, washes: readonly Wash[]) {
   if (!washes.length) return
@@ -83,33 +86,40 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
 
   const lift = light.lift
   if (lift) {
-    const { trees, tufts } = desc.vegetation
+    const { trees, treeMeta, tufts } = desc.vegetation
     if (trees.length) {
-      // Soft elliptical sun-side crown catchlights (never sharp rectangular boxes).
-      ctx.beginPath()
-      for (let i = 0; i < trees.length; i += 6) {
-        const r = trees[i + 2]
-        if (r < 1.1) continue
-        const cx = trees[i] + lift.dx * r * 0.32, cy = trees[i + 1] - r * 0.58 + lift.dy * r * 0.36
-        const rx = r * 0.54, ry = r * 0.36
-        ctx.moveTo(cx + rx, cy)
-        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+      for (const [lo, hi, wVis] of LIFT_TIERS) {
+        let drawn = false
+        ctx.beginPath()
+        for (let i = 0; i < trees.length; i += 6) {
+          const idx = i / 6, vis = (treeMeta[idx * 3 + 2] ?? 255) / 255
+          const r = trees[i + 2]
+          if (r < 0.9 || vis < lo || vis >= hi) continue
+          const a = treeCrownAnchor(trees[i], trees[i + 1], r, trees[i + 3], trees[i + 4], treeMeta[idx * 3] ?? 0)
+          const cx = a.cx + lift.dx * a.rx * 0.28, cy = a.cy + lift.dy * a.ry * 0.30
+          const rx = a.rx * 0.50, ry = a.ry * 0.42
+          ctx.moveTo(cx + rx, cy)
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+          drawn = true
+        }
+        if (drawn) { ctx.fillStyle = css(lift.rgb, lift.alpha * 0.40 * wVis); ctx.fill() }
       }
-      ctx.fillStyle = css(lift.rgb, lift.alpha * 0.38)
-      ctx.fill()
     }
     if (tufts.length) {
-      ctx.beginPath()
-      for (let i = 0; i < tufts.length; i += 4) {
-        const r = tufts[i + 2]
-        if (r < 0.8) continue
-        const cx = tufts[i] + lift.dx * r * 0.30, cy = tufts[i + 1] + lift.dy * r * 0.35
-        const rx = r * 0.45, ry = r * 0.32
-        ctx.moveTo(cx + rx, cy)
-        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+      for (const [lo, hi, wVis] of LIFT_TIERS) {
+        let drawn = false
+        ctx.beginPath()
+        for (let i = 0; i < tufts.length; i += 4) {
+          const r = tufts[i + 2], vis = tufts[i + 3]
+          if (r < 0.8 || vis < lo || vis >= hi) continue
+          const cx = tufts[i] + lift.dx * r * 0.28, cy = tufts[i + 1] - r * 0.22 + lift.dy * r * 0.30
+          const rx = r * 0.46, ry = r * 0.32
+          ctx.moveTo(cx + rx, cy)
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+          drawn = true
+        }
+        if (drawn) { ctx.fillStyle = css(lift.rgb, lift.alpha * 0.48 * wVis); ctx.fill() }
       }
-      ctx.fillStyle = css(lift.rgb, lift.alpha * 0.50)
-      ctx.fill()
     }
     if (desc.gullies.length) {
       ctx.beginPath()
@@ -122,7 +132,6 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
       ctx.stroke()
     }
   }
-  // Mask once to the plane's exact antialiased outline so multi-pass snow/washes never lose coverage at the crest edge.
   ctx.globalCompositeOperation = 'destination-in'
   outline(ctx, desc.outline)
   ctx.fillStyle = '#000'

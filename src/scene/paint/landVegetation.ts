@@ -1,10 +1,11 @@
 import type { PlaneVegetation, RGB } from '../model/types'
+import { TONE } from '../model/vegSample'
 import { css, mix, type Ctx2D } from './hand'
 
 /*
  * Illustrated ground-plane vegetation & strata painters (Stage 4: living land, anidoodle enriched hand).
  * Soft bare-desert geological strata, perspective-aligned cropland patchwork (hand-wobbled gouache edges
- * & aligned furrows), converging orchard row alleys, and organic scrub & grass tufts.
+ * & aligned furrows), converging orchard/alley stripes, and readable scattered scrub cushions & grass tufts.
  * Worker-safe on OffscreenCanvas; pure in `(desc, env)`; zero clock; zero `ctx.filter`.
  */
 
@@ -42,12 +43,12 @@ export function paintVegStrata(ctx: Ctx2D, veg: PlaneVegetation): void {
 /** Cropland field patchwork aligned to the ground plane: growing green, ploughed brown or dry golden straw. */
 export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
   const { fields, fieldMeta, tones, seed } = veg
-  const count = fields.length / 10
+  const count = fields.length / 9
   if (!count || !tones.length) return
   for (let i = 0; i < count; i++) {
-    const o = i * 10
+    const o = i * 9
     const x0 = fields[o], y0 = fields[o + 1], x1 = fields[o + 2], y1 = fields[o + 3]
-    const x2 = fields[o + 4], y2 = fields[o + 5], x3 = fields[o + 6], y3 = fields[o + 7], alpha = fields[o + 9]
+    const x2 = fields[o + 4], y2 = fields[o + 5], x3 = fields[o + 6], y3 = fields[o + 7], alpha = fields[o + 8]
     const state = fieldMeta[i * 2], rgb = tones[fieldMeta[i * 2 + 1]] ?? tones[0]
     const b0 = (h01(seed, i, 11) - 0.5) * 1.4, b1 = (h01(seed, i, 17) - 0.5) * 1.4
 
@@ -73,51 +74,69 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
   }
 }
 
-/** Subtle converging shaded row alleys underneath resolvable orchard/plantation crowns. */
+/** Subtle converging shaded row or management-alley stripes underneath orchard/plantation blocks. */
 export function paintVegRows(ctx: Ctx2D, veg: PlaneVegetation): void {
   const { rows, rowMeta, tones } = veg
   const count = rows.length / 6
   if (!count || !tones.length) return
   ctx.lineCap = 'round'
   for (let i = 0; i < count; i++) {
-    const o = i * 6, rgb = mix(tones[rowMeta[i * 2 + 1]] ?? tones[0], DARK_EARTH, 0.42)
+    const o = i * 6, rgb = mix(tones[rowMeta[i]] ?? tones[0], DARK_EARTH, 0.42)
     ctx.beginPath(); ctx.moveTo(rows[o], rows[o + 1]); ctx.lineTo(rows[o + 2], rows[o + 3])
     ctx.strokeStyle = css(rgb, rows[o + 5]); ctx.lineWidth = rows[o + 4]; ctx.stroke()
   }
 }
 
-/** Scattered scrub clumps (WorldCover 20) and fine grass tufts (WorldCover 30: green -> straw-gold when dry). */
+/** Scattered scrub cushions (WorldCover 20) and grass tufts (WorldCover 30), clearly readable at 375 px. */
 export function paintVegTufts(ctx: Ctx2D, veg: PlaneVegetation): void {
   const { tufts, tuftMeta, tones, seed } = veg
   const count = tufts.length / 4
   if (!count || !tones.length) return
-  ctx.beginPath()
-  for (let i = 0; i < count; i++) {
-    if (tuftMeta[i * 2] !== 0) continue
-    const x = tufts[i * 4], y = tufts[i * 4 + 1], r = tufts[i * 4 + 2]
-    const cx = x + r * 0.12, cy = y + r * 0.45, rx = r * 0.78
-    ctx.moveTo(cx + rx, cy)
-    ctx.ellipse(cx, cy, rx, Math.max(0.28, r * 0.25), 0, 0, Math.PI * 2)
-  }
-  ctx.fillStyle = 'rgb(0 0 0 / 0.16)'; ctx.fill()
+  const shrubLit = tones[TONE.SHRUB_LIT] ?? [0.28, 0.38, 0.20]
+  const grassLit = tones[TONE.GRASS_LIT] ?? [0.36, 0.48, 0.22]
 
   for (let i = 0; i < count; i++) {
     const o = i * 4, x = tufts[o], y = tufts[o + 1], r = tufts[o + 2], alpha = tufts[o + 3]
-    const rgb = tones[tuftMeta[i * 2 + 1]] ?? tones[0]
-    if (tuftMeta[i * 2] === 1) {
-      const lean = (h01(seed, i, 23) - 0.5) * 0.7
+    if (alpha <= 0.02) continue
+    const kind = tuftMeta[i * 2], rgb = tones[tuftMeta[i * 2 + 1]] ?? tones[0]
+
+    // Grounded soft shadow under each tuft, proportional to tuft visibility so faded tufts disappear cleanly.
+    ctx.beginPath()
+    ctx.ellipse(x + r * 0.14, y + r * 0.24, r * 1.05, Math.max(0.30, r * 0.28), 0, 0, Math.PI * 2)
+    ctx.fillStyle = `rgb(0 0 0 / ${(0.26 * alpha).toFixed(3)})`
+    ctx.fill()
+
+    if (kind === 1) {
+      // Grass / steppe tuft: low organic tussock mound + soft short curved blades (illustrated hand, never stiff sticks).
+      const lean = (h01(seed, i, 23) - 0.5) * r * 0.55
+      const dx = (h01(seed, i, 31) - 0.5) * r * 0.75
       ctx.beginPath()
-      ctx.moveTo(x, y); ctx.lineTo(x - r * 0.85 + lean, y - r * 0.95)
-      ctx.moveTo(x, y); ctx.lineTo(x + lean * 0.6, y - r * 1.15)
-      ctx.moveTo(x, y); ctx.lineTo(x + r * 0.85 + lean, y - r * 0.85)
-      ctx.strokeStyle = css(rgb, alpha * 0.92); ctx.lineWidth = Math.max(0.45, r * 0.42); ctx.lineCap = 'round'; ctx.stroke()
+      ctx.ellipse(x, y - r * 0.06, r * 1.05, Math.max(0.42, r * 0.48), 0, 0, Math.PI * 2)
+      ctx.moveTo(x + dx + r * 0.72, y - r * 0.18)
+      ctx.ellipse(x + dx, y - r * 0.18, r * 0.72, Math.max(0.36, r * 0.40), 0, 0, Math.PI * 2)
+      ctx.fillStyle = css(rgb, alpha * 0.88); ctx.fill()
+
+      ctx.beginPath()
+      ctx.ellipse(x - r * 0.22, y - r * 0.26, r * 0.56, Math.max(0.28, r * 0.30), 0, 0, Math.PI * 2)
+      ctx.fillStyle = css(grassLit, alpha * 0.58); ctx.fill()
+
+      ctx.beginPath()
+      ctx.moveTo(x - r * 0.35, y - r * 0.1); ctx.quadraticCurveTo(x - r * 0.65, y - r * 0.55, x - r * 0.82 + lean, y - r * 0.72)
+      ctx.moveTo(x + r * 0.05, y - r * 0.12); ctx.quadraticCurveTo(x + lean * 0.5, y - r * 0.58, x + lean * 0.9, y - r * 0.84)
+      ctx.moveTo(x + r * 0.40, y - r * 0.08); ctx.quadraticCurveTo(x + r * 0.68, y - r * 0.48, x + r * 0.80 + lean, y - r * 0.64)
+      ctx.strokeStyle = css(grassLit, alpha * 0.72); ctx.lineWidth = Math.max(0.45, r * 0.26); ctx.lineCap = 'round'; ctx.stroke()
     } else {
-      const dx = (h01(seed, i, 29) - 0.5) * r * 0.8
+      // Scrub cushion: 2-lobe organic garrigue bush + lighter upper-left crown dab.
+      const dx = (h01(seed, i, 29) - 0.5) * r * 0.78
       ctx.beginPath()
-      ctx.ellipse(x, y, r * 1.05, r * 0.72, 0, 0, Math.PI * 2)
-      ctx.moveTo(x + dx + r * 0.74, y - r * 0.25)
-      ctx.ellipse(x + dx, y - r * 0.25, r * 0.74, r * 0.60, 0, 0, Math.PI * 2)
-      ctx.fillStyle = css(rgb, alpha * 0.95); ctx.fill()
+      ctx.ellipse(x, y - r * 0.12, r * 1.16, r * 0.68, 0, 0, Math.PI * 2)
+      ctx.moveTo(x + dx + r * 0.78, y - r * 0.34)
+      ctx.ellipse(x + dx, y - r * 0.34, r * 0.78, r * 0.54, 0, 0, Math.PI * 2)
+      ctx.fillStyle = css(rgb, alpha * 0.94); ctx.fill()
+
+      ctx.beginPath()
+      ctx.ellipse(x - r * 0.26, y - r * 0.38, r * 0.58, r * 0.36, 0, 0, Math.PI * 2)
+      ctx.fillStyle = css(shrubLit, alpha * 0.62); ctx.fill()
     }
   }
 }

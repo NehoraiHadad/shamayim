@@ -21,7 +21,7 @@ const Z: Record<PlaneName, number> = { back: 5, far: 10, near: 30 }
  */
 const MODEL: Record<PlaneName, number> = { back: 0.3, ...LAND_MODEL }
 /** Bumped when the form's drawing rules change, so cached forms are not reused across versions. */
-const FORM = 4
+const FORM = 5
 
 const shapes = new WeakMap<Plane, Map<string, { outline: Pt[]; top: number }>>()
 

@@ -64,19 +64,17 @@ export interface PlanePalette {
 export interface PlaneVegetation {
   /** Coordinate-derived seed for deterministic painterly detail (never from place names). */
   seed: number
-  /** Perspective horizon y (scene px) toward which orchard rows and field edges converge. */
-  horizonY: number
   /** Tree & orchard crowns, back-to-front by y (stride 6: x, y, radius, height, phase, shade). */
   trees: Float32Array
-  /** Per-tree metadata (stride 2: kind 0=pine 1=olive 2=citrus 3=palm; toneIdx into `tones`). */
+  /** Per-tree metadata (stride 3: kind 0=pine 1=olive 2=citrus 3=palm; toneIdx into `tones`; alphaByte 0..255). */
   treeMeta: Uint8Array
-  /** Ground-plane cropland field quads (stride 10: x0,y0, x1,y1, x2,y2, x3,y3, furrowAngle, alpha). */
+  /** Ground-plane cropland field quads (stride 9: x0,y0, x1,y1, x2,y2, x3,y3, alpha). */
   fields: Float32Array
   /** Per-field metadata (stride 2: state 0=growing 1=ploughed 2=straw; toneIdx into `tones`). */
   fieldMeta: Uint8Array
-  /** Converging orchard/plantation row lines (stride 6: x0, y0, x1, y1, width, alpha). */
+  /** Converging orchard/plantation row or alley lines (stride 6: x0, y0, x1, y1, width, alpha). */
   rows: Float32Array
-  /** Per-row metadata (stride 2: orchardKind 1=olive 2=citrus 3=palm; toneIdx into `tones`). */
+  /** Per-row tone index into `tones` (stride 1). */
   rowMeta: Uint8Array
   /** Scrub & grass tufts (stride 4: x, y, radius, alpha). */
   tufts: Float32Array
@@ -84,9 +82,9 @@ export interface PlaneVegetation {
   tuftMeta: Uint8Array
   /** Soft geological strata bands on bare/desert slopes (stride 6: x0, y0, x1, y1, thickness, alpha). */
   strata: Float32Array
-  /** Per-strata tone index into `tones`. */
+  /** Per-strata tone index into `tones` (stride 1). */
   strataMeta: Uint8Array
-  /** Small shared light-free illustrated vegetation palette (≤ 13 muted sRGB tones). */
+  /** Small shared light-free illustrated vegetation palette (≤ 17 muted sRGB tones). */
   tones: RGB[]
 }
 
