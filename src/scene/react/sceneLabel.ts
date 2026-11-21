@@ -27,12 +27,12 @@ function renderedCondition(shown: AirInput, world: LabelWorld): ConditionKind {
   const rate = world.rain !== undefined ? (world.rain?.rateMmH ?? 0) : rainRate(shown)
   if (rate > 0) {
     if (world.rain?.thunder) return 'thunder'
-    if (isWet(codeKind)) return codeKind
+    if (isWet(codeKind) && codeKind !== 'thunder') return codeKind
     return rate < 0.5 ? 'drizzle' : 'rain'
   }
   if (codeKind === 'fog') return 'fog'
 
-  if (shown.preview) {
+  if (shown.preview || codeKind === 'thunder') {
     const cover = world.clouds
       ? (1 - world.clouds.reduce((clear, layer) => clear * (1 - layer.cover), 1)) * 100
       : shown.cloudCover

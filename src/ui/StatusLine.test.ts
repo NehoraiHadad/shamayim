@@ -84,6 +84,15 @@ describe('liveReducer', () => {
     expect(delivered.live).toBe('התחזית לא עודכנה. מוצגת התחזית מ־\u206612:58\u2069.')
     expect(delivered.delivered).toBe(true)
   })
+
+  it('does not repeat phrases after two offline/online cycles during one refresh', () => {
+    let s = liveReducer(LIVE_INITIAL, { type: 'sync', problem: 'offline', fetchedAt: FETCHED_AT, update: 'מעדכן…' })
+    s = liveReducer(s, { type: 'sync', problem: null, fetchedAt: FETCHED_AT, update: 'מעדכן…' })
+    s = liveReducer(s, { type: 'sync', problem: 'offline', fetchedAt: FETCHED_AT, update: 'מעדכן…' })
+    s = liveReducer(s, { type: 'sync', problem: null, fetchedAt: FETCHED_AT, update: 'מעדכן…' })
+    const delivered = liveReducer(s, { type: 'sync', problem: null, fetchedAt: FETCHED_AT, update: '' })
+    expect(delivered.live).toBe('אין חיבור. מוצגת התחזית מ־\u206612:58\u2069. החיבור חזר.')
+  })
 })
 
 describe('StatusLine rendering', () => {

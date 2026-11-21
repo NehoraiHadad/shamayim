@@ -3,11 +3,13 @@ import type { Place } from '../config/place'
 import { reversePlace } from '../data/geocoding'
 import {
   geolocationErrorText,
+  LIVE_GAP_MS,
+  LIVE_HOLD_MS,
   LOCATING,
   NO_GEOLOCATION,
   PICKER_LIVE_INITIAL,
   pickerLiveReducer,
-  pickerStatus,
+  pickerVisible,
   REVERSE_FAILED,
   type PickerNote,
 } from '../text/placePicker'
@@ -33,11 +35,22 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const [live, dispatch] = useReducer(pickerLiveReducer, PICKER_LIVE_INITIAL)
-  const onSearchNote = useCallback((note: PickerNote) => dispatch({ type: 'search', note }), [])
+  const onSearchNote = useCallback((note: PickerNote, terminal: boolean) => {
+    dispatch({ type: 'search', note, terminal })
+  }, [])
   const search = usePlaceSearch(open, onSearchNote)
   const opener = useRef<HTMLElement | null>(null)
   const [locateGuard] = useState(createRequestGuard)
   const [locating, setLocating] = useState(false)
+
+  useEffect(() => {
+    if (live.phase !== 'holding' && live.phase !== 'gap') return
+    const timer = setTimeout(
+      () => dispatch({ type: 'advance' }),
+      live.phase === 'holding' ? LIVE_HOLD_MS : LIVE_GAP_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [live.phase, live.spoken])
 
   useEffect(() => {
     const element = dialog.current
@@ -62,14 +75,14 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
     onClose()
   }
   const fail = (message: string) => {
-    dispatch({ type: 'gps', note: { text: message, hidden: false } })
+    dispatch({ type: 'gps', note: { text: message, hidden: false }, terminal: true })
     setLocating(false)
   }
   const locate = () => {
     if (locating) return
     if (!navigator.geolocation) return fail(NO_GEOLOCATION)
     setLocating(true)
-    dispatch({ type: 'gps', note: { text: LOCATING, hidden: true } })
+    dispatch({ type: 'gps', note: { text: LOCATING, hidden: true }, terminal: false })
     const req = locateGuard.start()
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
@@ -82,7 +95,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 300_000 },
     )
   }
-  const note = pickerStatus(live)
+  const visible = pickerVisible(live)
 
   return (
     <dialog
@@ -117,7 +130,8 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
             />
           </label>
           <div>
-            <p className={note.hidden ? 'visually-hidden' : styles.note} role="status">{note.text}</p>
+            <p className={styles.note}>{visible}</p>
+            <span className="visually-hidden" role="status">{live.spoken}</span>
             <PlacePickerList
               title={search.results.length ? 'תוצאות' : 'מקומות אחרונים'}
               places={search.results.length ? search.results : recent}

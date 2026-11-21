@@ -15,7 +15,7 @@ const MIN_QUERY = 2
 const isAbort = (cause: unknown) => cause instanceof DOMException && cause.name === 'AbortError'
 
 /** Debounced place search for the picker, reporting its own live-region notes independently of GPS. */
-export function usePlaceSearch(open: boolean, onNote: (note: PickerNote) => void) {
+export function usePlaceSearch(open: boolean, onNote: (note: PickerNote, terminal: boolean) => void) {
   const [query, setQueryValue] = useState('')
   const [results, setResults] = useState<Place[]>([])
 
@@ -34,10 +34,12 @@ export function usePlaceSearch(open: boolean, onNote: (note: PickerNote) => void
         .then((places) => {
           if (controller.signal.aborted) return
           setResults(places)
-          onNote(searchNote(places.length))
+          onNote(searchNote(places.length), true)
         })
         .catch((cause: unknown) => {
-          if (!isAbort(cause)) onNote({ text: searchErrorText(navigator.onLine), hidden: false })
+          if (!controller.signal.aborted && !isAbort(cause)) {
+            onNote({ text: searchErrorText(navigator.onLine), hidden: false }, true)
+          }
         })
     }, DEBOUNCE_MS)
     return () => {
@@ -49,7 +51,7 @@ export function usePlaceSearch(open: boolean, onNote: (note: PickerNote) => void
   const setQuery = (value: string) => {
     setQueryValue(value)
     setResults([])
-    onNote(value.trim().length >= MIN_QUERY ? { text: SEARCHING, hidden: false } : EMPTY_NOTE)
+    onNote(value.trim().length >= MIN_QUERY ? { text: SEARCHING, hidden: false } : EMPTY_NOTE, false)
   }
 
   return { query, setQuery, results }

@@ -6,6 +6,11 @@ export const LOCATING = 'מאתר מיקום…'
 export const SEARCHING = 'מחפש…'
 export const NO_RESULTS = 'לא נמצאו מקומות'
 
+/** How long a terminal live-region announcement stays before clearing. */
+export const LIVE_HOLD_MS = 1_500
+/** Short empty gap between queued terminal announcements so assistive tech reads each cleanly. */
+export const LIVE_GAP_MS = 50
+
 /** Geolocation error copy keyed by `GeolocationPositionError.code`. */
 export function geolocationErrorText(code: number): string {
   if (code === 1) return 'אין הרשאה למיקום. אפשר לחפש יישוב בשדה החיפוש.'
@@ -38,43 +43,91 @@ export function searchNote(count: number): PickerNote {
   return { text: searchResultsText(count), hidden: count > 0 }
 }
 
-export interface PickerOutcome {
-  note: PickerNote
-  /** Monotonic sequence of the last update to this source (0 = none yet). */
+export type LivePhase = 'idle' | 'progress' | 'holding' | 'gap'
+
+export interface PickerSlot {
+  text: string
+  /** Monotonic sequence of the last visible update to this source (0 = none yet). */
   seq: number
 }
 
 export interface PickerLiveState {
-  search: PickerOutcome
-  gps: PickerOutcome
+  search: PickerSlot
+  gps: PickerSlot
   seq: number
+  /** Current text for the `role="status"` live region; starts empty and clears between queued outcomes. */
+  spoken: string
+  /** Queued terminal announcements waiting their turn in FIFO order. */
+  queue: readonly string[]
+  phase: LivePhase
 }
 
 export const PICKER_LIVE_INITIAL: PickerLiveState = {
-  search: { note: EMPTY_NOTE, seq: 0 },
-  gps: { note: EMPTY_NOTE, seq: 0 },
+  search: { text: '', seq: 0 },
+  gps: { text: '', seq: 0 },
   seq: 0,
+  spoken: '',
+  queue: [],
+  phase: 'idle',
 }
 
 export type PickerLiveAction =
-  | { type: 'search'; note: PickerNote }
-  | { type: 'gps'; note: PickerNote }
+  | { type: 'search'; note: PickerNote; terminal?: boolean }
+  | { type: 'gps'; note: PickerNote; terminal?: boolean }
+  | { type: 'advance' }
   | { type: 'reset' }
 
-/** Track search and GPS status independently so neither suppresses the other and the newest event wins. */
+/** Queue terminal announcements (search count/empty/error, GPS error) so concurrent outcomes are spoken in order without drops or repeats. */
 export function pickerLiveReducer(state: PickerLiveState, action: PickerLiveAction): PickerLiveState {
-  if (action.type === 'reset') return state.seq === 0 ? state : PICKER_LIVE_INITIAL
-  const current = state[action.type]
-  if (action.note.text === '' && current.note.text === '') return state
-  if (current.note.text === action.note.text && current.note.hidden === action.note.hidden && current.seq === state.seq) {
+  if (action.type === 'reset') {
+    return state.seq === 0 && state.phase === 'idle' && !state.spoken && !state.queue.length
+      ? state
+      : PICKER_LIVE_INITIAL
+  }
+  if (action.type === 'advance') {
+    if (state.phase === 'holding') {
+      return state.queue.length > 0
+        ? { ...state, spoken: '', phase: 'gap' }
+        : { ...state, spoken: '', phase: 'idle' }
+    }
+    if (state.phase === 'gap') {
+      const [next, ...rest] = state.queue
+      return next
+        ? { ...state, spoken: next, queue: rest, phase: 'holding' }
+        : { ...state, spoken: '', queue: [], phase: 'idle' }
+    }
     return state
   }
-  const seq = state.seq + 1
-  return { ...state, [action.type]: { note: action.note, seq }, seq }
+
+  const visible = action.note.hidden ? '' : action.note.text
+  const current = state[action.type]
+  const visibleChanged = visible !== current.text || (visible !== '' && current.seq !== state.seq)
+  const seq = visibleChanged ? state.seq + 1 : state.seq
+  const nextSlot = visibleChanged ? { text: visible, seq } : current
+
+  let { spoken, queue, phase } = state
+  const text = action.note.text
+  if (action.terminal) {
+    if (text) {
+      if (phase === 'idle' || phase === 'progress') {
+        spoken = text
+        phase = 'holding'
+      } else if (!(phase === 'holding' && spoken === text) && !queue.includes(text)) {
+        queue = [...queue, text]
+      }
+    }
+  } else if (phase === 'idle' || phase === 'progress') {
+    spoken = text
+    phase = text ? 'progress' : 'idle'
+  }
+
+  if (!visibleChanged && spoken === state.spoken && queue === state.queue && phase === state.phase) return state
+  return { ...state, [action.type]: nextSlot, seq, spoken, queue, phase }
 }
 
-/** Active live-region note for the place picker: one message at a time, newest event wins. */
-export function pickerStatus({ search, gps }: Pick<PickerLiveState, 'search' | 'gps'>): PickerNote {
-  if (search.seq === 0 && gps.seq === 0) return EMPTY_NOTE
-  return search.seq >= gps.seq ? search.note : gps.note
+/** Visible status note for sighted users: newest non-empty visible text across search and GPS. */
+export function pickerVisible({ search, gps }: Pick<PickerLiveState, 'search' | 'gps'>): string {
+  if (!search.text) return gps.text
+  if (!gps.text) return search.text
+  return search.seq >= gps.seq ? search.text : gps.text
 }

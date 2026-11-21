@@ -6,7 +6,7 @@ import {
   NO_RESULTS,
   PICKER_LIVE_INITIAL,
   pickerLiveReducer,
-  pickerStatus,
+  pickerVisible,
   SEARCHING,
   searchErrorText,
   searchNote,
@@ -38,49 +38,72 @@ describe('searchResultsText', () => {
   })
 })
 
-describe('pickerLiveReducer & pickerStatus', () => {
-  it('starts empty and announces search ok while GPS is still pending, then GPS error ("search ok → GPS error")', () => {
-    expect(pickerStatus(PICKER_LIVE_INITIAL)).toEqual(EMPTY_NOTE)
+describe('pickerLiveReducer & pickerVisible', () => {
+  it('queues search ok and GPS error arriving in the same tick and delivers both in order', () => {
+    expect(PICKER_LIVE_INITIAL.spoken).toBe('')
+    expect(pickerVisible(PICKER_LIVE_INITIAL)).toBe('')
 
-    const locating = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: { text: LOCATING, hidden: true } })
-    expect(pickerStatus(locating)).toEqual({ text: LOCATING, hidden: true })
+    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: { text: LOCATING, hidden: true }, terminal: false })
+    expect(s.spoken).toBe(LOCATING)
+    expect(pickerVisible(s)).toBe('')
 
-    const searching = pickerLiveReducer(locating, { type: 'search', note: { text: SEARCHING, hidden: false } })
-    expect(pickerStatus(searching)).toEqual({ text: SEARCHING, hidden: false })
-
-    const found = pickerLiveReducer(searching, { type: 'search', note: searchNote(3) })
-    expect(pickerStatus(found)).toEqual({ text: 'נמצאו \u20663\u2069 מקומות', hidden: true })
+    s = pickerLiveReducer(s, { type: 'search', note: { text: SEARCHING, hidden: false }, terminal: false })
+    expect(s.spoken).toBe(SEARCHING)
+    expect(pickerVisible(s)).toBe(SEARCHING)
 
     const gpsErr = { text: geolocationErrorText(3), hidden: false }
-    const failed = pickerLiveReducer(found, { type: 'gps', note: gpsErr })
-    expect(pickerStatus(failed)).toEqual(gpsErr)
+    s = pickerLiveReducer(s, { type: 'search', note: searchNote(3), terminal: true })
+    s = pickerLiveReducer(s, { type: 'gps', note: gpsErr, terminal: true })
+    expect(s.spoken).toBe('נמצאו \u20663\u2069 מקומות')
+    expect(s.phase).toBe('holding')
+    expect(pickerVisible(s)).toBe(gpsErr.text)
+
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe('')
+    expect(s.phase).toBe('gap')
+
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe(gpsErr.text)
+    expect(s.phase).toBe('holding')
+
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe('')
+    expect(s.phase).toBe('idle')
   })
 
-  it('announces GPS error first and then search ok without losing the count ("GPS error → search ok")', () => {
-    const locating = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: { text: LOCATING, hidden: true } })
-    const searching = pickerLiveReducer(locating, { type: 'search', note: { text: SEARCHING, hidden: false } })
-
+  it('delivers GPS error then search ok in order when arriving in the same tick', () => {
     const gpsErr = { text: geolocationErrorText(1), hidden: false }
-    const failed = pickerLiveReducer(searching, { type: 'gps', note: gpsErr })
-    expect(pickerStatus(failed)).toEqual(gpsErr)
+    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: gpsErr, terminal: true })
+    s = pickerLiveReducer(s, { type: 'search', note: searchNote(2), terminal: true })
+    expect(s.spoken).toBe(gpsErr.text)
 
-    const found = pickerLiveReducer(failed, { type: 'search', note: searchNote(2) })
-    expect(pickerStatus(found)).toEqual({ text: 'נמצאו \u20662\u2069 מקומות', hidden: true })
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe('')
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe('נמצאו \u20662\u2069 מקומות')
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe('')
+    expect(s.phase).toBe('idle')
   })
 
-  it('surfaces search errors while GPS is pending, preserves GPS errors on empty search edits, and resets cleanly', () => {
-    const locating = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: { text: LOCATING, hidden: true } })
+  it('dedupes repeated terminal outcomes, shields them from progress edits, and resets cleanly', () => {
     const searchErr = { text: searchErrorText(false), hidden: false }
-    const errored = pickerLiveReducer(locating, { type: 'search', note: searchErr })
-    expect(pickerStatus(errored)).toEqual(searchErr)
+    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'search', note: searchErr, terminal: true })
+    s = pickerLiveReducer(s, { type: 'search', note: searchErr, terminal: true })
+    s = pickerLiveReducer(s, { type: 'search', note: { text: SEARCHING, hidden: false }, terminal: false })
+    expect(s.spoken).toBe(searchErr.text)
+    expect(s.queue).toEqual([])
+    expect(pickerVisible(s)).toBe(SEARCHING)
+
+    s = pickerLiveReducer(s, { type: 'advance' })
+    expect(s.spoken).toBe('')
+    expect(s.phase).toBe('idle')
 
     const gpsErr = { text: geolocationErrorText(2), hidden: false }
-    const gpsFailed = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: gpsErr })
-    expect(pickerStatus(pickerLiveReducer(gpsFailed, { type: 'search', note: EMPTY_NOTE }))).toEqual(gpsErr)
+    const gpsFailed = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: gpsErr, terminal: true })
+    expect(pickerVisible(pickerLiveReducer(gpsFailed, { type: 'search', note: EMPTY_NOTE, terminal: false }))).toBe(gpsErr.text)
 
-    const empty = pickerLiveReducer(errored, { type: 'search', note: EMPTY_NOTE })
-    expect(pickerStatus(empty)).toEqual(EMPTY_NOTE)
-
-    expect(pickerStatus(pickerLiveReducer(gpsFailed, { type: 'reset' }))).toEqual(EMPTY_NOTE)
+    const cleared = pickerLiveReducer(gpsFailed, { type: 'reset' })
+    expect(cleared).toBe(PICKER_LIVE_INITIAL)
   })
 })

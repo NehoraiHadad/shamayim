@@ -3,7 +3,9 @@ import { airInput } from '../../atmo/airInput'
 import { SHADMOT_MEHOLA } from '../../config/place'
 import { makeForecast, TODAY } from '../../test/makeForecast'
 import { rainRate } from '../../world/airParts'
+import { unknownLand } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
+import { buildWorld } from '../../world/world'
 import { sceneLabel } from './sceneLabel'
 
 const world = (nameHe: string, sunUp: boolean): Pick<WorldState, 'place' | 'bodies'> => ({
@@ -11,12 +13,27 @@ const world = (nameHe: string, sunUp: boolean): Pick<WorldState, 'place' | 'bodi
   bodies: { sun: { up: sunUp } } as WorldState['bodies'],
 })
 
+const thunderForecast = (precipitation: number) => {
+  const forecast = makeForecast([
+    { max: 24, min: 14 },
+    {
+      max: 24,
+      min: 14,
+      hour: (h) => h === 14
+        ? { weatherCode: 0, temperature: 24, precipitation: 0, cloudCover: 5 }
+        : h === 15
+          ? { weatherCode: 95, temperature: 18, precipitation, cloudCover: 95 }
+          : {},
+    },
+  ])
+  forecast.elevation = 790
+  forecast.current = { ...forecast.current, weatherCode: 95, temperature: 18, precipitation, cloudCover: 95, isDay: true }
+  return forecast
+}
+
 describe('sceneLabel', () => {
   it('prepends the place name, current condition and isolated temperature', () => {
-    const forecast = makeForecast([
-      { max: 20, min: 10 },
-      { max: 20, min: 10, code: 2 },
-    ])
+    const forecast = makeForecast([{ max: 20, min: 10 }, { max: 20, min: 10, code: 2 }])
     forecast.elevation = 790
     forecast.current = { ...forecast.current, weatherCode: 2, temperature: 14, isDay: true }
 
@@ -26,10 +43,7 @@ describe('sceneLabel', () => {
   })
 
   it('isolates a negative temperature with U+2212 and describes below-sea-level elevation', () => {
-    const forecast = makeForecast([
-      { max: 4, min: -4 },
-      { max: 4, min: -4, code: 71 },
-    ])
+    const forecast = makeForecast([{ max: 4, min: -4 }, { max: 4, min: -4, code: 71 }])
     forecast.elevation = -175
     forecast.current = { ...forecast.current, weatherCode: 71, temperature: -3, isDay: false }
 
@@ -41,11 +55,7 @@ describe('sceneLabel', () => {
   it('describes the selected hour condition and temperature while scrubbing', () => {
     const forecast = makeForecast([
       { max: 20, min: 5 },
-      {
-        max: 20,
-        min: 5,
-        hour: (h) => (h === 22 ? { weatherCode: 0, temperature: -2 } : {}),
-      },
+      { max: 20, min: 5, hour: (h) => (h === 22 ? { weatherCode: 0, temperature: -2 } : {}) },
     ])
     forecast.elevation = 790
     forecast.current = { ...forecast.current, weatherCode: 61, temperature: 18, isDay: true }
@@ -61,11 +71,11 @@ describe('sceneLabel', () => {
       {
         max: 24,
         min: 14,
-        hour: (h) => {
-          if (h === 14) return { weatherCode: 0, temperature: 24, precipitation: 0, cloudCover: 5 }
-          if (h === 15) return { weatherCode: 61, temperature: 18, precipitation: 2.4, cloudCover: 90 }
-          return {}
-        },
+        hour: (h) => h === 14
+          ? { weatherCode: 0, temperature: 24, precipitation: 0, cloudCover: 5 }
+          : h === 15
+            ? { weatherCode: 61, temperature: 18, precipitation: 2.4, cloudCover: 90 }
+            : {},
       },
     ])
     forecast.elevation = 790
@@ -94,12 +104,13 @@ describe('sceneLabel', () => {
       {
         max: 24,
         min: 14,
-        hour: (h) => {
-          if (h === 14) return { weatherCode: 0, temperature: 24, precipitation: 0, cloudCover: 5 }
-          if (h === 15) return { weatherCode: 3, temperature: 21, precipitation: 0, cloudCover: 95 }
-          if (h === 16) return { weatherCode: 51, temperature: 20, precipitation: 0.9, cloudCover: 95 }
-          return {}
-        },
+        hour: (h) => h === 14
+          ? { weatherCode: 0, temperature: 24, precipitation: 0, cloudCover: 5 }
+          : h === 15
+            ? { weatherCode: 3, temperature: 21, precipitation: 0, cloudCover: 95 }
+            : h === 16
+              ? { weatherCode: 51, temperature: 20, precipitation: 0.9, cloudCover: 95 }
+              : {},
       },
     ])
     forecast.elevation = 790
@@ -109,5 +120,25 @@ describe('sceneLabel', () => {
     expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:40`)).toContain('ירושלים, מעונן חלקית,')
     expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:55`)).toContain('ירושלים, מעונן,')
     expect(sceneLabel(w, forecast, `${TODAY}T12:00`, `${TODAY}T15:20`)).toContain('ירושלים, טפטוף,')
+  })
+
+  it('speaks scrubbed WMO 95 without drawn thunder as rain/drizzle, and non-preview WMO 95 with thunder as thunder', () => {
+    const place = { ...SHADMOT_MEHOLA, nameHe: 'ירושלים' }
+    const heavy = thunderForecast(2.4)
+    const light = thunderForecast(0.3)
+    const build = (forecast: typeof heavy, selected: `${typeof TODAY}T14:40` | null) =>
+      buildWorld({ place, forecast, now: `${TODAY}T12:00`, selected, terrain: unknownLand('offline'), landmarks: [] })
+
+    const scrubbed = build(heavy, `${TODAY}T14:40`)
+    expect(scrubbed.rain?.thunder).toBe(false)
+    expect(sceneLabel(scrubbed, heavy, `${TODAY}T12:00`, `${TODAY}T14:40`)).toContain('ירושלים, גשום,')
+
+    const lightScrubbed = build(light, `${TODAY}T14:40`)
+    expect(lightScrubbed.rain?.thunder).toBe(false)
+    expect(sceneLabel(lightScrubbed, light, `${TODAY}T12:00`, `${TODAY}T14:40`)).toContain('ירושלים, טפטוף,')
+
+    const liveNow = build(heavy, null)
+    expect(liveNow.rain?.thunder).toBe(true)
+    expect(sceneLabel(liveNow, heavy, `${TODAY}T12:00`, null)).toContain('ירושלים, סופת רעמים,')
   })
 })
