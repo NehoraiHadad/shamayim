@@ -20,8 +20,8 @@
 
 .title {
   margin: 0 0 6px;
-  font-size: var(--text-xs);
-  line-height: 1.4;
+  font-size: var(--text-caption);
+  line-height: 0.962rem; /* Preserve the caption line box height. */
   font-weight: 500;
   color: var(--sheet-muted);
 }

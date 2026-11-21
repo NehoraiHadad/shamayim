@@ -1,4 +1,5 @@
 .dialog {
+  --focus: var(--sheet-ink);
   position: fixed;
   inset: auto 0 0;
   width: min(100%, 520px);
@@ -31,7 +32,7 @@
 }
 
 .dialog[open] { animation: rise var(--d4) var(--ease-out) both; }
-.dialog::backdrop { background: rgb(5 9 20 / 50%); }
+.dialog::backdrop { background: var(--scrim); }
 @keyframes rise { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) {
   .dialog[open] { animation: none; }
@@ -69,8 +70,7 @@
   text-wrap: balance;
 }
 
-.verdict h2:focus { outline: none; }
-.verdict h2:focus-visible { outline: 2px solid var(--sheet-ink); outline-offset: 4px; }
+.verdict h2:focus-visible { outline-offset: 4px; }
 .verdict .waiting { color: var(--sheet-muted); }
 
 .detail {
@@ -128,7 +128,7 @@
   padding-inline: var(--space-1);
   border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
   color: var(--sheet-muted);
-  font-size: 0.65625rem;
+  font-size: var(--text-caption);
   text-align: center;
 }
 
@@ -139,10 +139,4 @@
   color: inherit;
   white-space: nowrap;
   direction: ltr;
-}
-
-.close:focus-visible,
-.attribution a:focus-visible,
-.map canvas:focus-visible {
-  outline: 2px solid var(--sheet-ink);
 }

@@ -22,7 +22,7 @@
 }
 
 .dialog::backdrop {
-  background: rgb(5 9 20 / 50%);
+  background: var(--scrim);
 }
 
 .panel {
@@ -129,14 +129,6 @@
 
 .row:hover {
   background: var(--picker-wash);
-}
-
-.close:focus-visible,
-.well:focus-visible,
-.row:focus-visible,
-.input:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
 }
 
 /* Forced colours drop backgrounds; borders keep the wells and rows visible (outlines are recoloured by the UA). */

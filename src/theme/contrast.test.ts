@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { cssTokens, ratio } from './contrast'
+import { cssTokens, mix, ratio } from './contrast'
 import { DARK_SHEET, SKY_THEMES, type ThemeId } from './skyThemes'
 
 const css = readFileSync(new URL('../ui/tokens.css', import.meta.url), 'utf8')
@@ -19,5 +19,25 @@ describe('sky theme contrast (WCAG AA)', () => {
     it(`${id}: rain % on mid sky ≥ 4.5`, () => expect(ratio(lightTokens['--sky-rain'], t.mid)).toBeGreaterThanOrEqual(4.5))
     it(`${id}: rain % on paper ≥ 4.5`, () => expect(ratio(sheetToken(id, '--sheet-rain'), t.sheet)).toBeGreaterThanOrEqual(4.5))
     it(`${id}: sun times on paper ≥ 4.5`, () => expect(ratio(sheetToken(id, '--sheet-sun'), t.sheet)).toBeGreaterThanOrEqual(4.5))
+  }
+})
+
+describe('shared control contrast (WCAG AA)', () => {
+  for (const [id, t] of Object.entries(SKY_THEMES)) {
+    it(`${id}: error button text on accent ≥ 4.5`, () => {
+      expect(ratio(lightTokens['--on-accent'], t.accent)).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it(`${id}: warning text on its pill ≥ 4.5`, () => {
+      for (const sky of [t.top, t.mid]) {
+        const pill = mix(sky, lightTokens['--warn'], 0.7)
+        expect(ratio(t.ink, pill)).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+
+    it(`${id}: focus rings on sky and paper ≥ 3`, () => {
+      expect(ratio(t.ink, t.top)).toBeGreaterThanOrEqual(3)
+      expect(ratio(t.sheetInk, t.sheet)).toBeGreaterThanOrEqual(3)
+    })
   }
 })

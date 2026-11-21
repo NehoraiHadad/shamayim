@@ -80,7 +80,7 @@ export function GlyphSheet() {
     }, (err: unknown) => { (window as SheetWindow).__sceneError = String(err) })
   }, [])
   if (!worlds) return null
-  const label = { font: '600 11px Assistant, sans-serif', color: '#222' } as const
+  const label = { font: '600 var(--text-caption) Assistant, sans-serif', color: '#222' } as const
   return (
     <div style={{ background: '#f3f4f6', padding: 16, width: 'max-content', fontFamily: 'Assistant, sans-serif' }}>
       <div style={{ font: '700 18px Assistant, sans-serif', marginBottom: 4 }}>shamayim · canvas glyphs · C4</div>

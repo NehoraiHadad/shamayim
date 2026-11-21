@@ -94,12 +94,6 @@
   line-height: 18px;
 }
 
-.play:focus-visible,
-.rail input:focus-visible {
-  outline: 2px solid var(--sheet-ink);
-  outline-offset: 2px;
-}
-
 .legend {
   display: flex;
   flex-wrap: wrap;

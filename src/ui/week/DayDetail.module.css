@@ -57,11 +57,7 @@
   opacity: 1;
 }
 
-.high .meter { color: #2E8B57; }
-.medium .meter { color: #C08A1E; }
-.low .meter { color: #C0502E; }
-
-:global(.dark-sheet) .high .meter { color: #6FD39B; }
-:global(.dark-sheet) .medium .meter { color: #F2C46B; }
-:global(.dark-sheet) .low .meter { color: #F28B6B; }
+.high .meter { color: var(--ok); }
+.medium .meter { color: var(--mid); }
+.low .meter { color: var(--bad); }
 
