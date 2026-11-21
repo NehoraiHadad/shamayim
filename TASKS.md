@@ -769,14 +769,8 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
 - [x] Stage 1: data layer — approved (Codex round 6) + round-6 minors/nit folded in (`f3f3f77`: v4 cover cache payload
       validation via `isValidCoarseCoverJson`, bounded local asset deadlines releasing hung shared slots via `withDeadline`,
       raw TTL tables restricted to near/far/weather).
-- [x] Stage 2: world state — round-1 review fixes pushed, awaiting Codex round-2 approval (`src/world/{landRadiometry,landRays,landAgeBlend,landReflectance,landSample,landLiving}.ts`
-      wired into split `WorldState`/`types{,Atmo,Land}.ts` & `world{,Parts}.ts` and `useLand` into `App.tsx`; pure structured-cloneable
-      `world.land` sampled along 41 panorama rays × 10 `RAY_DISTANCES` bands in metres + 3×3 local ground; operational Sen2Cor L2A
-      TCI 0..0.25 BOA reflectance taken directly with no double Lambert de-lighting; causal as-of UTC/local date policy with MOD09A1/MODIS-NDVI
-      composite windows; per-channel age-aware near-vs-far priority; distinct-far-cell GIBS calibration; strict RLE/geometry v4 cover cache
-      validation, shared fine-tile cache, independent near-tile retry & WorldCover vintage/layer provenance; intercepted App-mount perf
-      check `e2e/land.perf.mjs` + production-sized 100×100/60×60 `benchWorld.ts`)
-- [~] Stage 3: land colour painting
+- [x] Stage 2: world state — approved (Codex round 2) + round-2 minors/nit folded in (`07db0b5`: `e2e/land.perf.mjs` waits for `firstShown.land`/`firstPaint.land` before releasing satellite fixtures, `s2-mean` tested end-to-end through `livingLandOf` and test-only `sampleAt`/`sampleLandAt` retired, calendar-day approximation documented in `landAgeBlend.ts`, unused sun-angle fields stripped with legacy cache compat).
+- [x] Stage 3: land colour painting — ready for review (`src/scene/model/{landPalette,landColour}.ts`, `src/scene/paint/landSurface.ts`, wired into `planes.ts`, `planeLight.ts`, `outside.ts`, `loading.ts`, `scene/paint/{planes,outside}.ts`, `sceneHarness.tsx`; light-free Oklab-calibrated quantised `PlanePalette` baked into plane FORM canvas keyed by `world.keys.land` with seeded organic washes & contour-following bands, `source-over` mood + Koschmieder aerial haze veil + `destination-in` outline mask preserving existing lighting/cloud shadows/snow, compact outside-ground stops, water-excluded rays, land-independent loading mist keys, and 375 px before/after + lighting QA stills in `docs/design/qa/canvas/land/stage3/`).
 - [ ] Stage 4: vegetation
 - [ ] Stage 5: wind on land
 - [ ] Stage 6: stills, docs, PR
