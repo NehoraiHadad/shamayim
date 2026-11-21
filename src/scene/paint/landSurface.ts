@@ -57,36 +57,12 @@ function ridgeYPerCol(outline: readonly Pt[], bounds: Box, cols: number): Float3
   return ys
 }
 
-/** Legacy monochrome mottle/grain fallback when a synthetic plane descriptor omits `surfaceTone`. */
-export function paintMottleOnly(ctx: Ctx2D, bounds: Box, amount: number, seed: number, env: PaintEnv) {
-  if (amount <= 0) return
-  const cols = Math.max(1, Math.ceil(bounds.w / TEXEL)), rows = Math.max(1, Math.ceil(bounds.h / TEXEL))
-  const scratch = env.canvas(cols, rows)
-  const image = scratch.ctx.createImageData(cols, rows), data = image.data
-  const gx0 = Math.round(bounds.x / TEXEL), gy0 = Math.round(bounds.y / TEXEL)
-  for (let j = 0; j < rows; j++) {
-    const y = bounds.y + j * TEXEL
-    for (let i = 0; i < cols; i++) {
-      const x = bounds.x + i * TEXEL
-      const v = valueNoise(seed, x * 0.06, y * 0.1) * 0.67 + valueNoise(seed + 7, x * 0.12, y * 0.2) * 0.33 - 0.5
-        + (hash(seed + 3, i + gx0, j + gy0) - 0.5) * 0.14
-      const o = (j * cols + i) * 4
-      if (v < -0.035) data[o + 3] = Math.round(255 * Math.min(0.12, (-v - 0.02) * 0.34 * amount))
-      else if (v > 0.07) { data[o] = data[o + 1] = data[o + 2] = 255; data[o + 3] = Math.round(255 * Math.min(0.04, (v - 0.07) * 0.12 * amount)) }
-    }
-  }
-  scratch.ctx.putImageData(image, 0, 0)
-  ctx.imageSmoothingEnabled = true
-  ;(ctx as CanvasRenderingContext2D).imageSmoothingQuality = 'low'
-  ctx.drawImage(scratch.canvas as CanvasImageSource, bounds.x, bounds.y, cols * TEXEL, rows * TEXEL)
-}
-
 /** Paints quantised living-land washes + seeded organic patches + integrated near mottle/grain inside a clipped plane. */
 export function paintLandSurface(
   ctx: Ctx2D, outline: readonly Pt[], bounds: Box, surface: PlanePalette, grainAmount: number, seed: number, env: PaintEnv,
 ) {
   const { palette, cols: pCols, rows: pRows, cells } = surface
-  if (!palette.length || !cells.length) { paintMottleOnly(ctx, bounds, grainAmount, seed, env); return }
+  if (!palette.length || !cells.length) return
   const wPx = Math.max(1, Math.ceil(bounds.w / TEXEL)), hPx = Math.max(1, Math.ceil(bounds.h / TEXEL))
   const scratch = env.canvas(wPx, hPx)
   const image = scratch.ctx.createImageData(wPx, hPx), data = image.data

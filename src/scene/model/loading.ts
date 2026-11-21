@@ -6,7 +6,7 @@ import { SCENE_W } from '../../world/sceneBox'
 import { UNKNOWN_EYE_Y } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { landBoxKey, layerKey } from './keys'
-import { ambientToneAt } from './planeLight'
+import { ambientToneAt } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import type { AnimSpec, LandClock, LayerDesc, LayerOf, MistBandDesc, MistPuff, Pt, RGB, SceneBox } from './types'
 

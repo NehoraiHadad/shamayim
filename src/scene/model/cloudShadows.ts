@@ -3,7 +3,7 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { SCENE_W } from '../../world/sceneBox'
 import type { RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { hazeOf } from './planeLight'
+import { hazeOf } from './landVeil'
 import { mixRgb } from './tone'
 import type { LayerOf, SceneBox } from './types'
 

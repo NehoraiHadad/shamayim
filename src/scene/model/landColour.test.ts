@@ -5,10 +5,11 @@ import { fullLandData, makeFar, makeNear, makeWorldInput, SHADMOT, typedCover } 
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
-import { paintPlane, paintPlaneLight } from '../paint/planes'
+import { paintPlaneLight } from '../paint/planeLight'
+import { paintPlane } from '../paint/planes'
 import { layersOn, sceneModel } from '.'
 import { albedoToLandTone, quantiseTones } from './landColour'
-import { applyVeil, hazeOf, moodVeilOf, toneAt, veilAt } from './planeLight'
+import { applyVeil, hazeOf, moodVeilOf, toneAt, veilAt } from './landVeil'
 import { hexOf, labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
 

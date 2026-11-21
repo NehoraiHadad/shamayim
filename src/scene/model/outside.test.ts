@@ -23,7 +23,7 @@ import { SCENE_CAMERA, xOf } from '../../domain/camera'
 import { sceneModel } from '.'
 import { againstLight, tonesAt } from './marks'
 import { landBehind } from './outside'
-import { toneAt } from './planeLight'
+import { toneAt } from './landVeil'
 import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
 
