@@ -32,7 +32,7 @@ const LOOKS: Record<BirdKind, KindLook> = {
   stork: { fps: 2, count: 24, flap: 0, soar: 1, span: 8, loop: [12, 1.5], spread: [26, 20] },
   crane: { fps: 12, count: 12, flap: 2, soar: 0.2, span: 6.5, loop: [0, 0.5], spread: [0, 0] },
   swift: { fps: 15, count: 30, flap: 7.5, soar: 0.45, span: 4.5, loop: [9, 3], spread: [22, 12] },
-  gull: { fps: 12, count: 24, flap: 2.5, soar: 0.5, span: 7, loop: [3, 2], spread: [26, 6] },
+  gull: { fps: 12, count: 48, flap: 2.5, soar: 0.5, span: 7, loop: [3, 2], spread: [26, 6] },
   raptor: { fps: 2, count: 24, flap: 0, soar: 1, span: 10, loop: [12, 1.5], spread: [16, 8] },
   crow: { fps: 12, count: 12, flap: 3, soar: 0, span: 6, loop: [0, 0.6], spread: [16, 4] },
   pigeon: { fps: 12, count: 48, flap: 5, soar: 0.15, span: 4.2, loop: [8, 3], spread: [16, 5] },
