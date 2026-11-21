@@ -12,11 +12,15 @@ import { Surface } from './surface'
 /** A canvas that records what is done to it (node has no canvas). */
 function fakeCanvas(width: number, height: number) {
   const calls: string[] = []
+  const transforms: number[][] = []
   const ctx = new Proxy({ calls }, {
-    get: (target, prop) => (prop === 'calls' ? target.calls : (...args: unknown[]) => { calls.push(`${String(prop)}(${args.length})`) }),
+    get: (target, prop) => (prop === 'calls' ? target.calls : (...args: unknown[]) => {
+      calls.push(`${String(prop)}(${args.length})`)
+      if (prop === 'setTransform') transforms.push(args as number[])
+    }),
     set: (_, prop, value) => { calls.push(`${String(prop)}=${String(value)}`); return true },
   })
-  return { width, height, calls, getContext: () => ctx } as unknown as LayerCanvas & { calls: string[] }
+  return { width, height, calls, transforms, getContext: () => ctx } as unknown as LayerCanvas & { calls: string[]; transforms: number[][] }
 }
 
 function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane'> {
@@ -202,6 +206,63 @@ describe('painting in the worker', () => {
     expect(surface.remote).toBeNull()
     expect(count).toEqual({ form: 1, light: 1 })
     expect(surface.fresh(plane('a', 'l2'))).toBe(true)
+  })
+})
+
+describe('compositing flights', () => {
+  const layer = (key: string, x: number): LayerOf<'aircraft'> => ({
+    kind: 'aircraft', id: 'aircraft.test', surface: 'sky', key, z: 1, bounds: { x: -5, y: -5, w: 10, h: 10 },
+    placed: { x, y: 20, scale: 0.5, alpha: 0.8 }, x: 0, y: 0, angle: 0, size: 3, rgb: [1, 1, 1], lit: [1, 1, 1],
+    lights: 0, landing: false, trail: 0, trailRgb: [1, 1, 1], seed: 0,
+    animated: { mode: 'settle', flight: { open: true, at: 0, step: 2, path: [[0, 0], [0, 0]], scale: [1, 2],
+      alpha: [1, 0.5], turn: [0, Math.PI / 2] } },
+  })
+  const painters = () => ({ form: () => {} })
+
+  it('draws about the sprite origin, recompositing when only scale, opacity and turn change', () => {
+    const canvas = fakeCanvas(100, 100)
+    const surface = new Surface(canvas, { factory: fakeCanvas, painters })
+    surface.resize(100, 100, 1)
+    const layers = [layer('a', 10)]
+    surface.render(layers, 0)
+    surface.render(layers, 2)
+    expect(canvas.transforms.at(-2)).toEqual([expect.closeTo(0, 6), 1, -1, expect.closeTo(0, 6), 10, 20])
+    expect(canvas.calls).toContain('globalAlpha=0.4')
+    expect(canvas.calls.filter((call) => call === 'clearRect(4)')).toHaveLength(2)
+  })
+
+  it.each(['local', 'worker'] as const)('lays a stale %s sprite with its last compatible placement and track', (mode) => {
+    const canvas = fakeCanvas(100, 100)
+    const worker = fakeWorker()
+    const surface = new Surface(canvas, { factory: fakeCanvas, painters, worker: mode === 'worker' ? () => worker : undefined })
+    const x = () => canvas.transforms.at(-2)![4]
+    surface.resize(100, 100, 1)
+    surface.render([layer('a', 10)])
+    if (mode === 'worker') worker.answer()
+    surface.render([layer('a', 20)])
+    expect(x()).toBe(20)
+    const b = layer('b', 70)
+    b.animated!.flight!.path[1] = [8, 0]
+    if (mode === 'worker') surface.render([b], 1)
+    else surface.composite([b], 1)
+    expect(x()).toBe(20)
+    if (mode === 'worker') worker.answer()
+    else surface.render([b], 1)
+    expect(x()).toBe(74)
+  })
+
+  it('keeps the matching sprite when a superseded worker answer arrives after a scrub back', () => {
+    const canvas = fakeCanvas(100, 100)
+    const worker = fakeWorker()
+    const surface = new Surface(canvas, { factory: fakeCanvas, painters, worker: () => worker })
+    surface.resize(100, 100, 1)
+    surface.render([layer('a', 10)])
+    worker.answer()
+    surface.render([layer('b', 70)])
+    surface.render([layer('a', 20)])
+    worker.answer()
+    expect(canvas.transforms.at(-2)![4]).toBe(20)
+    expect(worker.sent).toHaveLength(0)
   })
 })
 

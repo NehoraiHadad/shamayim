@@ -8,7 +8,7 @@ import { useWidth } from './useWidth'
 import styles from './Scene.module.css'
 import { SCENE_H } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
-import { layersOn, sceneModel } from '../model'
+import { layersOn, sceneModel, type LifeClock } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
 import { SceneOverlay } from './SceneOverlay'
@@ -21,6 +21,7 @@ import { useWearHost } from './useWearHost'
 
 interface Props {
   world: WorldState
+  life: LifeClock
   forecast: Forecast
   now: LocalTime
   selected: LocalTime | null
@@ -41,14 +42,14 @@ interface Props {
  * From C8, while the place's land is not known the land's place holds a mist and the labels wait; the land's arrival is
  * timed by `useLandClock`. The wear card's clothesline is drawn from the same world, into the card (`WearCanvas`).
  */
-export function SceneCanvas({ world, forecast, now, selected, readout = null, first, last, onScrub, onRelease, onNow, wear = null }: Props) {
+export function SceneCanvas({ world, life, forecast, now, selected, readout = null, first, last, onScrub, onRelease, onNow, wear = null }: Props) {
   const [sceneRef, width] = useWidth<HTMLElement>(375)
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
   const host = useSkyHost(sceneRef)
   const box = useMemo(() => ({ width, skyHeight: host?.height ?? 0, landTop: host?.landTop ?? 0, landHeight: SCENE_H, dpr,
     skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
   const { clock, labelStyle, ready } = useLandClock(world)
-  const model = useMemo(() => sceneModel(world, box, clock), [world, box, clock])
+  const model = useMemo(() => sceneModel(world, box, clock, life), [world, box, clock, life])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const onLand = useCallback(() => ready('land'), [ready])

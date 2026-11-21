@@ -10,6 +10,8 @@ import { BOW, HALO_DEG, onCircle, separation } from '../../world/optics'
 import { buildWorld } from '../../world/world'
 import { rainbowStops, RED, SHADE, VIOLET, type Stop } from '../paint/optics'
 import { sceneModel } from './index'
+import { trackAt } from './anim'
+import { rotateScale } from './contrailFrame'
 import { crestOf } from './life'
 import { haloFrame, rainbowFrame } from './optics'
 import { skyGeom } from './sky'
@@ -141,9 +143,22 @@ describe('C10 fix: contrails are straight', () => {
         const plane = ofKind(model.layers, 'aircraft').find((a) => a.id === `aircraft.high.${t.id.slice('contrail.'.length)}`)
         if (!plane) continue
         seen++
-        // Its newest puff is at the plane (the trail grows from it), its old end wider than there.
-        const [hx, hy] = t.points.at(-1)!
-        expect(Math.hypot(hx - plane.placed!.x, hy - plane.placed!.y)).toBeLessThan(2)
+        // The raster includes future puffs. Check the clip and where the segment meets it as the plane moves.
+        for (const phase of [0, 30, 60]) {
+          const flight = trackAt(t.animated!.flight, phase)!, grow = trackAt(t.animated!.grow!.track, phase)!
+          const planeFlight = trackAt(plane.animated!.flight, phase)!
+          const lay = t.placed!, x = lay.x + flight.x, y = lay.y + flight.y
+          const hx = x + grow.x, hy = y + grow.y
+          if (hx < 0 || hx > BOX.width || hy < 0 || hy > BOX.landTop) continue
+          expect(Math.hypot(hx - plane.placed!.x - planeFlight.x, hy - plane.placed!.y - planeFlight.y)).toBeLessThan(1e-6)
+          const raster = t.points.map((p) => rotateScale(p, (lay.turn ?? 0) + flight.turn, lay.scale * flight.scale))
+          const nearest = Math.min(...raster.slice(1).map(([bx, by], i) => {
+            const [ax, ay] = raster[i], dx = bx - ax, dy = by - ay
+            const u = Math.min(1, Math.max(0, ((grow.x - ax) * dx + (grow.y - ay) * dy) / (dx ** 2 + dy ** 2)))
+            return Math.hypot(grow.x - ax - u * dx, grow.y - ay - u * dy)
+          }))
+          expect(nearest).toBeLessThan(2)
+        }
         expect(t.widths[0]).toBeGreaterThanOrEqual(t.widths.at(-1)!)
       }
     }

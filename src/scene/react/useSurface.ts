@@ -75,6 +75,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       } }))
     surface.resize(width, height, dpr)
     surface.still = reducedMotion()
+    const phase = harnessStill() ? 0 : scenePhase()
     const done = () => {
       SCENE_STATS.memory[name] = surface.bytes()
       ready.current?.()
@@ -85,7 +86,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       let live = true
       const start = performance.now()
       arrived.current = 0
-      SCENE_STATS.time(`ask.${name}`, () => surface.render(layers))
+      SCENE_STATS.time(`ask.${name}`, () => surface.render(layers, phase))
       const asked = performance.now() - start
       void surface.settled().then(() => {
         if (!live) return
@@ -96,17 +97,17 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       cancel = () => { live = false }
     } else if (cold) {
       const slicer = paintSliced([{ surface, layers }], { frame: (cb) => requestAnimationFrame(cb), cancelFrame: (id) => cancelAnimationFrame(id),
-        now: () => performance.now(), onSlice: (ms) => SCENE_STATS.record(`slice.${name}`, ms) })
+        now: () => performance.now(), phase, onSlice: (ms) => SCENE_STATS.record(`slice.${name}`, ms) })
       slicer.done.then((report) => {
         SCENE_STATS.record(`firstPaint.${name}`, report.totalMs)
         done()
       })
       cancel = slicer.cancel
     } else {
-      SCENE_STATS.time(`frame.${name}`, () => surface.render(layers))
+      SCENE_STATS.time(`frame.${name}`, () => surface.render(layers, phase))
       done()
     }
-    laid.current?.(0, reducedMotion(), canvas)
+    laid.current?.(phase, surface.still, canvas)
     if (!animates(layers) || harnessStill()) return cancel
     const loop = makeLoop((phase, still) => {
       SCENE_STATS.time(`anim.${name}`, () => surface.render(layers, phase, still))

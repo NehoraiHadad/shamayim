@@ -77,7 +77,9 @@ describe('the sky\'s life is continuous in time', () => {
         // A minute moves a bird by tens of px at most; an airliner or a jet climbing out near the place by its true angular speed.
         const bound = now.kind === 'birds' ? 45 : 200
         expect(Math.hypot(now.x - was.x, now.y - was.y), `${id} ${key} at minute ${i}`).toBeLessThan(bound)
-        expect(Math.abs(now.scale - was.scale), key).toBeLessThan(0.25)
+        // Flocks stay within this size change over a whole minute. A nearby jet can change apparent size faster;
+        // lifeContinuity checks its scale across the rebuild at the same physical instant.
+        if (now.kind === 'birds') expect(Math.abs(now.scale - was.scale), key).toBeLessThan(0.25)
         // Fading by distance and the ground's haze: a bird slowly, a jet as fast as it climbs away (km a minute).
         expect(Math.abs(now.alpha - was.alpha), key).toBeLessThan(now.kind === 'birds' ? 0.3 : 0.5)
       }

@@ -1,4 +1,5 @@
 import { seeded } from '../../data/landmarks/hash'
+import { METEOR_FLASH_S } from '../../world/life'
 import type { AnimSpec, Pulse, Ramp, Sway, Track } from './types'
 
 /**
@@ -29,6 +30,7 @@ const CYCLE = 600
 
 /** The strike times (s) within one cycle and whether each strikes twice, seeded. */
 export function strikes(pulse: Pulse): { at: number; twice: boolean }[] {
+  if (pulse.look === 'meteor') return [{ at: pulse.first, twice: false }]
   const r = seeded(pulse.seed)
   const out: { at: number; twice: boolean }[] = []
   let t = pulse.first
@@ -44,19 +46,21 @@ function meteorLight(t: number): number {
   if (t < 0) return 0
   if (t < 0.08) return t / 0.08
   if (t < 0.35) return 1
-  return t < 0.7 ? 1 - (t - 0.35) / 0.35 : 0
+  return t < METEOR_FLASH_S ? (METEOR_FLASH_S - t) / (METEOR_FLASH_S - 0.35) : 0
 }
 
 /** The flash's alpha at `phase` (0 between flashes); 1 for a layer that does not pulse. */
 export function flashAt(spec: AnimSpec | undefined, phase: number): number {
   const pulse = spec?.pulse
   if (!pulse) return 1
+  // A meteor is a single event on the scene timeline; a lightning schedule repeats.
+  if (pulse.look === 'meteor') return meteorLight(phase - pulse.first)
   const list = strikes(pulse)
   const t = phase % (pulse.cycle ?? CYCLE)
   let alpha = 0
   for (const s of list) {
     if (s.at > t) break
-    alpha = Math.max(alpha, pulse.look === 'meteor' ? meteorLight(t - s.at) : stroke(t - s.at, s.twice))
+    alpha = Math.max(alpha, stroke(t - s.at, s.twice))
   }
   return alpha
 }
@@ -152,20 +156,23 @@ export function settleEnd(specs: readonly (AnimSpec | undefined)[]): number {
 }
 
 /**
- * Where a layer flying a track stands at `phase` (C10): its offset (surface px) from where it stands at phase 0, or null
- * while it is off the track (between passes). Under reduced motion (`still`) it stands at phase 0.
+ * Interpolate linearly between path samples (2 s apart for life). Closed tracks are null between passes.
+ * Under reduced motion an open track holds sample 0, and a closed track holds its original rest pose.
  */
-export function trackAt(track: Track | undefined, phase: number, still = false): { x: number; y: number } | null {
-  if (!track) return { x: 0, y: 0 }
-  const t = still ? track.at : ((((phase + track.at) % track.cycle) + track.cycle) % track.cycle)
+export function trackAt(track: Track | undefined, phase: number, still = false) {
+  if (!track || (track.open && !track.path.length)) return { x: 0, y: 0, scale: 1, alpha: 1, turn: 0 }
   const end = (track.path.length - 1) * track.step
+  const t = track.open ? (still ? 0 : Math.min(end, Math.max(0, phase + track.at)))
+    : still ? track.at : ((((phase + track.at) % track.cycle) + track.cycle) % track.cycle)
   if (t > end + 1e-9 || track.path.length === 0) return null
   const f = track.step > 0 ? t / track.step : 0
   const i = Math.min(track.path.length - 1, Math.floor(f))
   const j = Math.min(track.path.length - 1, i + 1)
   const k = f - i
   const [x0, y0] = track.path[i], [x1, y1] = track.path[j]
-  return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k }
+  const value = (values: number[] | undefined, fallback: number) => values ? values[i] + (values[j] - values[i]) * k : fallback
+  return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k,
+    scale: value(track.scale, 1), alpha: value(track.alpha, 1), turn: value(track.turn, 0) }
 }
 
 /**

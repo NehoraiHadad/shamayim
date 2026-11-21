@@ -83,11 +83,11 @@ export interface AnimSpec {
   /** A slow breath of the alpha, `1 − depth … 1` over `period` s (C8: the forming ridge line). */
   breath?: { depth: number; period: number }
   /**
-   * C10: the layer is laid offset by a track's point at the phase, and only while it is on it (`anim.ts` `trackAt`): a
-   * flock's slow sway round its place is a closed one (its place itself is the shown minute's, `placed`). Combined with
-   * `frames` for the wing beats and the flock's own motion.
+   * Lay the layer along a track relative to its origin (`trackAt`); may be combined with a sprite strip.
    */
   flight?: Track
+  /** Reveal the trail on the side behind the moving head, relative to its translated layer origin. */
+  grow?: { track: Track; angle: number }
   /**
    * The clothesline (`wear.ts`): the layer's sprite laid through an affine about `pivot` that follows one cycle of gusts
    * (`anim.ts` `swayAt`): lifted with the line, sheared at the hem (pegged cloth), turned about its hook (hooked things),
@@ -98,11 +98,13 @@ export interface AnimSpec {
 
 /**
  * Where a layer painted round its own origin is laid (the sky's life, continuous in time): its canvas laid with its origin at
- * (`x`, `y`) surface px, scaled by `scale` (≤ 1: an object drawn at its nearest, smaller as it goes) and faded by `alpha`
- * at composite time, so a change of place, size or haze repaints nothing. `above`: laid only over this y (surface px),
- * where a copy on the other surface takes the rest.
+ * (`x`, `y`) surface px, with a base scale, opacity and optional rotation in radians. The compositor applies motion on
+ * top of that pose. `above` clips to this surface y when a copy on the other surface takes the rest.
  */
-export interface Lay { x: number; y: number; scale: number; alpha: number; above?: number }
+export interface Lay { x: number; y: number; scale: number; alpha: number; turn?: number; above?: number }
+
+/** When the shown time was laid on the scene timeline, and how far it was already into that minute (seconds). */
+export interface LifeClock { laidAt: number; sinceS: number }
 
 /**
  * One cycle of gusts on the clothesline (`anim.ts` `gustAt`, the stops of the old line's `GUST`), as a transform of a
@@ -115,10 +117,11 @@ export interface Sway { pivot: Pt; period: number; delay: number; lift: number; 
   turn0: number; stretch: number }
 
 /**
- * A path in time (C10): offsets (surface px) from where the layer stands at phase 0, one every `step` s from the start of a
- * pass; a pass repeats every `cycle` s (≥ the path's length in time); phase 0 is `at` s into a pass (where the offset is 0).
+ * Offsets (surface px) every `step` seconds, read at phase + at. Closed tracks repeat every `cycle` seconds.
+ * Open tracks hold their first and last points outside the sampled interval. Optional values are relative to the sprite.
  */
-export interface Track { path: Pt[]; step: number; cycle: number; at: number }
+export type Track = { path: Pt[]; step: number; at: number; scale?: number[]; alpha?: number[]; turn?: number[] }
+  & ({ open: true; cycle?: number } | { open?: false; cycle: number })
 
 /** A timed ramp of the phase (s): from `from` to `to` over `at … at + dur`, eased in and out. */
 export interface Ramp { at: number; dur: number; from: number; to: number }

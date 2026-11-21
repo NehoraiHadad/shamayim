@@ -1,27 +1,28 @@
 //# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import { lateral } from '../../domain/camera'
-import type { BirdKind, Flock, HighPlane, LowPlane } from '../../world/life'
-import { airDirection, METEOR_WINDOW_S, skyDirection } from '../../world/lifeSchedule'
+import type { BirdKind, Flock } from '../../world/life'
+import { skyDirection } from '../../world/lifeSchedule'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
+import { birdPose, birdTrack, highPose, highTrack, LIFE_START, LOW_SPRITE_PX, lowPose, lowTrack, RAD } from './lifeTracks'
+import { contrailLayer } from './contrail'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
-import { gnomonic, tangentFrame, tangentScale, type TangentFrame } from './tangent'
+import { tangentScale } from './tangent'
 import { mixRgb } from './tone'
-import type { BirdDesc, LayerDesc, LayerOf, Lay, Pt, RGB, SceneBox, Track } from './types'
+import type { BirdDesc, LayerDesc, LayerOf, Lay, LifeClock, Pt, RGB, SceneBox, Track } from './types'
 
 /*
  * The sky's life (C10) as layers, from the world's `life` at the shown minute (`world/lifeSchedule.ts`: every object an
- * event on its own path in time): flocks of birds (a strip of wing beats and wheeling, a slow sway round their place),
+ * event on its own path in time): flocks of birds (a strip of wing beats and wheeling),
  * aircraft (airliners at cruise with the contrail the Schmidt–Appleman criterion gives them, the approach and departure
  * traffic of the airports within reach), and the meteors of a shower night. A flock or a plane is painted once round its
  * own middle and laid where its path has brought it (`placed`), so a scrub moves it without a repaint; it is hidden by the land
  * it is behind and laid in front of the land it is nearer than (`placedInDepth`).
  */
 
-const RAD = Math.PI / 180
 const q = (v: number, step: number) => Math.round(v / step)
 /** Tones in 1/24 steps: a scrub within the hour does not repaint a flock's strip for a shade no one sees. */
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 24))
@@ -213,15 +214,12 @@ function flockBirds(flock: Flock, look: KindLook, k: number): BirdDesc[] {
   return out
 }
 
-/** The slow sway of a flock round its place (s a cycle): its drift is a loop, never a way of its own across the scrub. */
-export const SWAY_S = 24
-
 /**
  * The flocks under way at the shown minute (sky; over the land they are nearer than): each painted once round its own
  * middle at its full size (its closest distance), and laid at composite time where its path has brought it, smaller and
- * fainter by its distance (`placed`); its wing beats and wheeling on a strip, a slow sway round its place.
+ * fainter by its distance (`placed`); its wing beats and wheeling on a strip.
  */
-export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'birds'>[] {
+export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), life: LifeClock = LIFE_START): LayerOf<'birds'>[] {
   const sky = skyAt(world, box)
   const out: LayerOf<'birds'>[] = []
   const k = Math.max(0.85, Math.min(1.4, geom.s))
@@ -233,15 +231,12 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       x0 = Math.min(x0, b.x - b.rx - b.size); x1 = Math.max(x1, b.x + b.rx + b.size)
       y0 = Math.min(y0, b.y - b.ry - b.size); y1 = Math.max(y1, b.y + b.ry + b.size)
     }
-    const scale = Math.min(1, flock.nearM / flock.distanceM)
-    // Through the air: the haze takes it as it goes (from its own haze at its closest), and its session's ends.
-    const nearFade = world.air.fade(flock.nearM / 1000), farFade = world.air.fade(flock.distanceM / 1000)
-    const alpha = flock.fade * Math.min(1, (1 - farFade) / Math.max(0.05, 1 - nearFade))
-    const x = geom.x(flock.azimuth), y = geom.y(flock.altitude)
+    const placed = birdPose(world, geom, flock.nearM, flock)
+    const { scale, alpha, x, y } = placed
     if (alpha < 0.01 || x + x1 * scale < -4 || x + x0 * scale > geom.width + 4 || y + y1 * scale < -4) continue
     const bounds = { x: Math.floor(x0), y: Math.floor(y0), w: Math.ceil(x1 - x0) + 2, h: Math.ceil(y1 - y0) + 2 }
     // Their tones at their closest: dark against the sky, hazed by that distance; the pale parts in the sky's light, lit by the sun.
-    const behind = sky(flock.altitude)
+    const behind = sky(flock.altitude), nearFade = world.air.fade(flock.nearM / 1000)
     const ink: RGB = flock.kind === 'bat' ? [0.08, 0.07, 0.08] : [0.13, 0.13, 0.15]
     const rgb = mixRgb(ink, behind, Math.min(0.75, nearFade + 0.12))
     const direct = world.light.source === 'sun' ? world.light.direct : 0
@@ -249,15 +244,12 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     const lit = mixRgb(pale, behind, Math.min(0.75, nearFade))
     const heading: -1 | 1 = lateral(flock.headingDeg, world.camera) >= 0 ? 1 : -1
     const flapHz = look.flap ? Math.max(1, Math.round(look.flap * (look.count / look.fps))) / (look.count / look.fps) : 0
-    // The sway: a slow ellipse round its place, a few px along its way.
-    const a = Math.min(5, 0.2 * look.spread[0] + 1) * k
-    const sway: Track = { path: [[0, 0], [a, -0.3 * a], [0, -0.5 * a], [-a, -0.2 * a], [0, 0]], step: SWAY_S / 4, cycle: SWAY_S, at: 0 }
     const id = `birds.${flock.id}`
     const layer: LayerOf<'birds'> = {
       kind: 'birds', id, surface: 'sky', z: 9.5, bird: flock.kind, birds, loop: look.count / look.fps, flap: flapHz,
-      soar: look.soar, rgb, lit, litA: direct, heading, seed: flock.seed, bounds, placed: { x, y, scale, alpha },
-      animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: sway },
-      key: layerKey(id, skyBoxKey(box), flock.kind, flock.seed, heading, bounds.x, bounds.y, bounds.w, bounds.h, tone(rgb), tone(lit), q(direct, 0.25)),
+      soar: look.soar, rgb, lit, litA: direct, heading, seed: flock.seed, bounds, placed,
+      animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: birdTrack(world, geom, flock, life) },
+      key: layerKey(id, skyBoxKey(box), flock.kind, flock.seed, heading, bounds.x, bounds.y, bounds.w, bounds.h, tone(rgb), tone(lit), q(direct, 1 / 24)),
     }
     out.push(...placedInDepth(world, box, geom, layer, flock.distanceM / 1000, flock.blockedKm))
   }
@@ -268,161 +260,63 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
 
 export { skyDirection }
 
-type SkyPoint = { x: number; y: number; km: number; altitude: number }
-
-/**
- * The frame a contrail is drawn in (C10 fix): tangent to the sky at `centre`, anchored where the high cloud is drawn there
- * (on the dome), at the sky's px per degree across at that height. A trail is a straight line in space (its puffs laid
- * along the plane's track and carried by one wind), so on the sky a great circle: gnomonic in this frame it is straight.
- */
-function trailFrame(world: WorldState, geom: SkyGeom, centre: { azimuth: number; altitude: number }): TangentFrame {
-  return tangentFrame(centre, [geom.x(centre.azimuth), geom.dome(centre.altitude)], tangentScale(world, geom, centre.altitude), world.camera.handed)
-}
-
-/** The middle of the stretch of directions that is up in the view, where an old trail's frame is centred; null if none. */
-function middleInView(geom: SkyGeom, dirs: { azimuth: number; altitude: number }[]) {
-  let best: number[] = [], cur: number[] = []
-  dirs.forEach((d, i) => {
-    if (d.altitude > 3 && Math.abs(geom.x(d.azimuth) - geom.width / 2) < geom.width * 0.6) cur.push(i)
-    else { if (cur.length > best.length) best = cur; cur = [] }
-  })
-  if (cur.length > best.length) best = cur
-  return best.length ? dirs[best[Math.floor(best.length / 2)]] : null
-}
-
-/** An airliner far off fades into the air before its crossing ends (km over the ground). */
-const cruiseFar = (km: number) => 1 - smoothstep(70, 140, km)
-
-/**
- * The contrails and the airliners at cruise (sky, at the high cloud's level), at the shown minute: each plane where its
- * crossing has brought it, its trail grown behind it puff by puff, each puff spread and faded by its own age and carried
- * by the upper wind since it was laid; an old trail stays after its plane has gone, fading out by age.
- */
-export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerDesc10[] {
-  const { aircraft } = world.life
+/** Airliners on the dome and their wind-carried contrails. */
+export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), life: LifeClock = LIFE_START): LayerDesc10[] {
   const out: LayerDesc10[] = []
-  if (!aircraft.high.length) return out
+  if (!world.life.aircraft.high.length) return out
   const sky = skyAt(world, box)
   const sunAlt = world.bodies.sun.altitude
-  // A trail is lit by the sun at its height until ~4° after sunset (pink then), else the sky's grey.
   const lightAt = mixRgb(world.light.colour, [1, 1, 1], smoothstep(2, 15, sunAlt) * 0.7)
   const shown = smoothstep(-4.5, -1.5, sunAlt)
   if (shown <= 0.01) return out
-  // In the frame and over the eye's horizon; where the land stands in front, it hides the plane and its trail (drawn over them).
-  const visible = (p: SkyPoint | null): p is SkyPoint => !!p && p.x > -60 && p.x < geom.width + 60 && p.y < geom.horizon && p.y > -40
   const k = Math.max(0.85, Math.min(1.3, geom.s))
-  aircraft.high.forEach((plane: HighPlane) => {
-    const headDir = plane.plane ? skyDirection(plane.plane.e, plane.plane.n, plane.plane.up) : null
-    const dirs = plane.trail.map((p) => skyDirection(p.e, p.n, p.up))
-    const centre = headDir && headDir.altitude > 1 ? headDir : middleInView(geom, dirs)
-    if (!centre) return
-    // The plane's own frame while it flies (it stands at its true place, its trail straight behind it), else the trail's middle.
-    const frame = trailFrame(world, geom, centre)
-    if (plane.persists && plane.trail.length > 1) {
-      const pts = dirs.map((d): SkyPoint | null => {
-        const p = gnomonic(frame, d)
-        return p ? { x: p[0], y: p[1], km: d.km, altitude: d.altitude } : null
-      })
-      const runs: number[][] = [[]]
-      pts.forEach((p, i) => (visible(p) ? runs.at(-1)!.push(i) : runs.at(-1)!.length && runs.push([])))
-      const run = runs.sort((a, b) => b.length - a.length)[0]
-      if (run && run.length > 1) {
-        const at = (i: number) => pts[i]!
-        const points: Pt[] = run.map((i) => [at(i).x, at(i).y])
-        const age = (i: number) => Math.min(1, plane.trail[i].ageS / plane.lifeS)
-        // Width on screen: its true width at its distance in the frame's px a degree, never under a hairline.
-        const widths = run.map((i) => Math.max(0.6, Math.min(10, ((40 + (plane.spreadM - 40) * age(i)) / (at(i).km * 1000)) / RAD * frame.k * 1.4)))
-        // Thin and bright when fresh, spreading and fading by age; far off, into the air.
-        const alphas = run.map((i) => (0.62 - 0.3 * age(i)) * (1 - smoothstep(0.55, 1, age(i))) * shown * (1 - 0.6 * world.air.fade(at(i).km * 0.35)) *
-          smoothstep(0.5, 4, at(i).altitude) * cruiseFar(Math.hypot(plane.trail[i].e, plane.trail[i].n)))
-        const lumps = run.map((i) => 0.9 + 0.2 * ((plane.trail[i].seed >>> 0) % 1000) / 1000)
-        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-        points.forEach(([x, y], j) => { x0 = Math.min(x0, x - widths[j]); x1 = Math.max(x1, x + widths[j]); y0 = Math.min(y0, y - widths[j]); y1 = Math.max(y1, y + widths[j]) })
-        const mid = at(run[Math.floor(run.length / 2)])
-        const rgb = mixRgb(lightAt, sky(mid.altitude), 0.15)
-        const shade = mixRgb(sky(mid.altitude), [0.55, 0.58, 0.66], 0.3)
-        const id = `contrail.${plane.id}`
-        if (alphas.some((a) => a > 0.01)) {
-          out.push({ kind: 'contrail', id, surface: 'sky', z: 6.1, soft: true, points, widths, alphas, lumps, rgb, shade, seed: plane.seed,
-            bounds: { x: Math.floor(x0) - 2, y: Math.floor(y0) - 2, w: Math.ceil(x1 - x0) + 5, h: Math.ceil(y1 - y0) + 5 },
-            key: layerKey(id, skyBoxKey(box, true), points.map(([x, y]) => [q(x, 0.5), q(y, 0.5)]), widths.map((w) => q(w, 0.25)),
-              alphas.map((a) => q(a, 0.03)), tone(rgb), tone(shade)) })
-        }
-      }
-    }
-    if (!plane.plane || !headDir || headDir.altitude < 1) return
-    const head = { x: frame.at[0], y: frame.at[1], km: headDir.km, altitude: headDir.altitude }
-    if (!visible(head)) return
-    // Its way on the sky: the next half minute of its track, in its frame.
-    const h = plane.headingDeg * RAD, ahead = (plane.speedMs * 30) / 1000
-    const next = gnomonic(frame, skyDirection(plane.plane.e + ahead * Math.sin(h), plane.plane.n + ahead * Math.cos(h), plane.plane.up))
-    const angle = next ? Math.atan2(next[1] - head.y, next[0] - head.x) : 0
+  for (const plane of world.life.aircraft.high) {
+    const trail = contrailLayer(world, box, geom, plane, life, lightAt, shown)
+    if (trail) out.push(trail)
+    if (!plane.plane) continue
+    const head = highPose(geom, plane, plane.plane, shown)
+    if (head.altitude < 1 || head.alpha <= 0.01 || head.x <= -60 || head.x >= geom.width + 60 || head.y >= geom.horizon || head.y <= -40) continue
+    const behind = sky(head.altitude)
     const lit = mixRgb(lightAt, [1, 1, 1], 0.2)
-    const body = mixRgb([0.5, 0.52, 0.56], sky(head.altitude), 0.35)
-    // The short trail of a non-persistent contrail: px behind the plane (its km at the plane's distance), fresh and thin.
-    const shortPx = plane.persists ? 0 : (plane.shortKm / head.km) / RAD * frame.k
-    const alpha = shown * cruiseFar(Math.hypot(plane.plane.e, plane.plane.n))
-    if (alpha > 0.01) {
-      out.push(aircraftLayer(box, `aircraft.high.${plane.id}`, 6.15, angle, 3.2 * k, body, lit, 0, false, shortPx, mixRgb(lightAt, sky(head.altitude), 0.1),
-        plane.seed, { x: head.x, y: head.y, scale: 1, alpha }))
-    }
-  })
+    const body = mixRgb([0.5, 0.52, 0.56], behind, 0.35)
+    const shortPx = plane.persists ? 0 : (plane.shortKm / head.km) / RAD * tangentScale(world, geom, head.altitude)
+    out.push(aircraftLayer(box, `aircraft.high.${plane.id}`, 6.15, 3.2 * k, body, lit, 0, false, shortPx,
+      mixRgb(lightAt, behind, 0.1), plane.seed, head, highTrack(geom, plane, plane.plane, shown, life)))
+  }
   return out
 }
 
 type LayerDesc10 = LayerOf<'contrail'> | LayerOf<'aircraft'>
 
-/** A plane's sprite (painted round 0, 0), laid at `placed`; by night a strip for its strobes and beacon. */
-function aircraftLayer(box: SceneBox, id: string, z: number, angle: number, size: number, rgb: RGB, lit: RGB,
-  lights: number, landing: boolean, trail: number, trailRgb: RGB, seed: number, placed: Lay): LayerOf<'aircraft'> {
-  const reach = Math.max(size * 2 + 4, trail + size + 3) + (lights ? 5 : 0)
-  const bounds = { x: -Math.ceil(reach), y: -Math.ceil(reach), w: 2 * Math.ceil(reach) + 1, h: 2 * Math.ceil(reach) + 1 }
-  // By night a strip for the strobes and the beacon (their own rhythms over one second); by day none.
+/** Aircraft are painted facing right at a reference size; their exact heading and scale are laid by the compositor. */
+function aircraftLayer(box: SceneBox, id: string, z: number, size: number, rgb: RGB, lit: RGB,
+  lights: number, landing: boolean, trail: number, trailRgb: RGB, seed: number, placed: Lay, flight: Track): LayerOf<'aircraft'> {
+  const trailPx = 0.2 * q(trail, 0.2)
+  const reach = Math.ceil(Math.max(size * 2 + 4, trailPx + size + 3) + (lights ? 5 : 0))
+  const bounds = { x: -reach, y: -reach, w: 2 * reach + 1, h: 2 * reach + 1 }
   const frames = lights > 0 ? { count: 10, fps: 10 } : undefined
   return {
-    kind: 'aircraft', id, surface: 'sky', z, x: 0, y: 0, angle, size, rgb, lit, lights, landing, trail, trailRgb, seed, bounds, placed,
-    ...(frames ? { animated: { mode: 'frames' as const, frames } } : {}),
-    key: layerKey(id, skyBoxKey(box), bounds.w, q(angle, 0.05), q(size, 0.2), tone(rgb), tone(lit), q(lights, 0.1), landing, q(trail, 0.5),
-      tone(trailRgb)),
+    kind: 'aircraft', id, surface: 'sky', z, x: 0, y: 0, angle: 0, size, rgb, lit, lights, landing, trail: trailPx, trailRgb, seed, bounds, placed,
+    animated: { mode: frames ? 'frames' : 'settle', frames, flight },
+    key: layerKey(id, skyBoxKey(box), q(size, 0.2), tone(rgb), tone(lit), q(lights, 1 / 24), landing, q(trailPx, 0.2), tone(trailRgb)),
   }
 }
 
-/** Near the field a movement shows over this long of its flight (s): lifting out of the land's haze, or sinking into it. */
-const NEAR_FIELD_S = 300
-
-/**
- * The approach and departure traffic of the airports within reach at the shown minute: each movement where its glide or
- * climb has brought it, from far off (small, faint) to the field or out to the distance; behind the land it is nearer
- * than nothing of, in front of the land it is nearer than.
- */
-export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'aircraft'>[] {
+/** Airport movements as they climb out of the haze or sink into it on approach. */
+export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), life: LifeClock = LIFE_START): LayerOf<'aircraft'>[] {
   const sky = skyAt(world, box)
   const out: LayerOf<'aircraft'>[] = []
-  const night = world.night.dark
-  for (const plane of world.life.aircraft.low as LowPlane[]) {
-    const d = airDirection(plane.at.e, plane.at.n, plane.at.up), n = airDirection(plane.ahead.e, plane.ahead.n, plane.ahead.up)
-    const x = geom.x(d.azimuth), y = geom.y(d.altitude)
-    if (x < -10 || x > geom.width + 10) continue
-    // Close enough to make out (by night its lights carry farther): it fades into the air before that, never cut.
-    const reach = night > 0.5 ? 50 : plane.light ? 18 : 45
-    // Low over the field it is in the ground's haze among the land's own things: it climbs out of it, or sinks into it on
-    // its approach, over the minutes its climb or glide takes through the lowest air (by its own vertical speed), never
-    // cut on the runway. The far end of its path is beyond its reach: it has shrunk into the distance before it ends.
-    const vertical = plane.speedMs * Math.max(0.02, plane.overFieldM / Math.max(500, plane.fieldKm * 1000))
-    const alpha = (1 - smoothstep(0.2 * reach, reach, d.km)) * smoothstep(0, NEAR_FIELD_S * vertical, plane.overFieldM) *
-      smoothstep(0, 0.45 * plane.pathKm, plane.pathKm - plane.fieldKm)
-    if (alpha < 0.01) continue
-    const angle = Math.atan2(geom.y(n.altitude) - y, geom.x(n.azimuth) - x)
-    // Its size: a jet's 35 m (a light plane's 11 m) at its distance, drawn a little larger than true to be seen, 2.5–9 px.
-    const span = plane.light ? 11 : 35
-    const size = Math.max(2.5, Math.min(9, (span / (d.km * 1000)) / RAD * world.camera.pxPerDeg * geom.s * 9))
-    const fade = world.air.fade(d.km)
-    const body = mixRgb(mixRgb([0.82, 0.84, 0.88], world.light.ambient, 0.4), sky(d.altitude), Math.min(0.8, fade))
-    const lit = mixRgb(mixRgb([1, 1, 1], world.light.colour, 0.3), sky(d.altitude), Math.min(0.8, fade))
-    const lights = smoothstep(0.2, 0.7, night)
-    const layer = aircraftLayer(box, `aircraft.low.${plane.id}`, 9.4, angle, size, body, lit, lights, plane.kind === 'arrive', 0, body, plane.seed,
-      { x, y, scale: 1, alpha })
-    out.push(...placedInDepth(world, box, geom, layer, d.km, plane.blockedKm))
+  for (const plane of world.life.aircraft.low) {
+    const placed = lowPose(world, geom, plane, plane)
+    const { x, alpha, km, altitude } = placed
+    if (x < -10 || x > geom.width + 10 || alpha < 0.01) continue
+    const fade = Math.min(0.8, world.air.fade(km)), behind = sky(altitude)
+    const body = mixRgb(mixRgb([0.82, 0.84, 0.88], world.light.ambient, 0.4), behind, fade)
+    const lit = mixRgb(mixRgb([1, 1, 1], world.light.colour, 0.3), behind, fade)
+    const lights = smoothstep(0.2, 0.7, world.night.dark)
+    const layer = aircraftLayer(box, `aircraft.low.${plane.id}`, 9.4, LOW_SPRITE_PX, body, lit, lights, plane.kind === 'arrive',
+      0, body, plane.seed, placed, lowTrack(world, geom, plane, life))
+    out.push(...placedInDepth(world, box, geom, layer, km, plane.blockedKm))
   }
   return out
 }
@@ -431,33 +325,35 @@ export function lowPlaneLayers(world: WorldState, box: SceneBox, geom: SkyGeom =
 
 /**
  * The meteors of the next minutes on a shower night (sky): streaks pointing away from the radiant, each at its own moment of
- * the night's schedule (`flashes`), laid as one flash that far into the composite loop. They are brief by nature: tied to
- * the shown minute, never to the hour.
+ * the night's schedule (`flashes`), each timed on the scene's timeline.
  */
-export function meteorLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'meteor'>[] {
+export function meteorLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), life: LifeClock = LIFE_START): LayerOf<'meteor'>[] {
   const m = world.life.meteors
   if (!m) return []
   const crest = crestOf(world, box, geom)
-  const rx = geom.x(m.radiant.azimuth), ry = geom.dome(m.radiant.altitude)
   const out: LayerOf<'meteor'>[] = []
   for (const flash of m.flashes) {
     const r = seeded(flash.seed)
     const x = 20 + r() * (geom.width - 40)
     const y = 20 + r() * (geom.horizon - 70)
     if (y > crest(x) - 20) continue
+    const radiant = flash.radiant ?? m.radiant
+    const speed = flash.speed ?? m.speed
+    const rx = geom.x(radiant.azimuth), ry = geom.dome(radiant.altitude)
     // Away from the radiant (a long streak far from it, short near it), as long as its speed carries it.
     const dx = x - rx, dy = y - ry, d = Math.hypot(dx, dy) || 1
-    const len = Math.min(70, (10 + 0.25 * d) * (0.6 + 0.5 * (m.speed / 70)) * (0.6 + 0.6 * r())) * Math.max(0.85, geom.s)
+    const len = Math.min(70, (10 + 0.25 * d) * (0.6 + 0.5 * (speed / 70)) * (0.6 + 0.6 * r())) * Math.max(0.85, geom.s)
     const x1 = x + (dx / d) * len, y1 = y + (dy / d) * len
     const pad = 4
     const bounds = { x: Math.floor(Math.min(x, x1)) - pad, y: Math.floor(Math.min(y, y1)) - pad, w: Math.ceil(Math.abs(x1 - x)) + 2 * pad,
       h: Math.ceil(Math.abs(y1 - y)) + 2 * pad }
     const id = `meteor.${flash.id}`
-    const pulse = { seed: flash.seed, first: flash.inS, every: [1e9, 1e9] as [number, number], look: 'meteor' as const, cycle: METEOR_WINDOW_S }
-    const rgb: RGB = m.speed > 55 ? [0.86, 0.93, 1] : [1, 0.95, 0.82]
+    const pulse = { seed: flash.seed, first: flash.inS - life.sinceS + life.laidAt,
+      every: [1e9, 1e9] as [number, number], look: 'meteor' as const, cycle: Infinity }
+    const rgb: RGB = speed > 55 ? [0.86, 0.93, 1] : [1, 0.95, 0.82]
     out.push({ kind: 'meteor', id, surface: 'sky', z: 2.4, x0: x, y0: y, x1, y1,
       width: 1.1 * Math.max(0.85, geom.s), rgb, bounds, animated: { mode: 'settle', pulse },
-      key: layerKey(id, skyBoxKey(box), bounds.x, bounds.y, bounds.w, bounds.h, q(x1, 0.5), q(y1, 0.5), tone(rgb)) })
+      key: layerKey(id, skyBoxKey(box)) })
   }
   return out
 }
