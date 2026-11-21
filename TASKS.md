@@ -762,3 +762,20 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
       React unmounted the app. Fixed + regression test — PR #9
 - [x] Live smoke check: Haifa, Tiberias, Jerusalem, Tel Aviv load the canvas scene, hour slider scrubs, no console errors
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
+
+## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
+One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
+and rain. Spec: `docs/design/qa/polish/track-d/SPEC.md` (Fable). Roles: Neon codes field/light logic, Codex sol 6.2
+reviews, Claude manages and draws the painters.
+- [x] Fable spec (Fable, native Agent) — `track-d/SPEC.md`
+- [x] Before stills — `track-d/before/` (Haifa, Jerusalem, Shadmot Mehola; 11:30/21:00; broken/overcast/showers)
+- [x] N1 brief — `track-d/briefs/N1-field-core.md`
+- [ ] N1 field core `src/world/field/` (Neon) — BLOCKED: outsourcerer refuses launches, C: has 4.9 GB free (< 10 GB gate)
+- [ ] N1 Codex review (gpt-6.2-sol)
+- [ ] N2 transmit, eye/direct light, shadows, rain (Neon); tests 2, 3, 8
+- [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
+- [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
+      As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
+      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png`
+- [ ] Painters in scene: wire to N3 cell descs, detail pass at 375 px
+- [ ] After stills `track-d/after/`, before/after sheet; `test:perf`, vitest, `tsc -b`, oxlint
