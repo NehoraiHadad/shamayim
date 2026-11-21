@@ -2,10 +2,10 @@ import { seeded } from '../../data/landmarks/hash'
 import { lateral, toward } from '../../domain/camera'
 import type { BirdKind, Flock } from '../../world/life'
 import type { WorldState } from '../../world/types'
-import { bodyAt, seen } from './birdFlight'
+import { seen } from './birdFlight'
 import { layerKey, skyBoxKey } from './keys'
 import { placedInDepth, q, tone } from './life'
-import { birdPoses, flightInView, LIFE_START, poseTrack, trackBaseAlpha } from './lifeTracks'
+import { birdPoses, flightInView, LIFE_START, poseTrack, RAD, trackBaseAlpha } from './lifeTracks'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import type { BirdDesc, LayerOf, LifeClock, RGB, SceneBox } from './types'
@@ -67,14 +67,25 @@ function flockBirds(flock: Flock, look: KindLook, k: number, yaw: number): BirdD
   return out
 }
 
-/** The strip's extent (px): where its birds' bodies go over the whole loop, seen, and their span round them. */
-function boundsOf(birds: BirdDesc[], kind: BirdKind, loop: number, yaw: number, view: number) {
+/** The furthest a bird's body goes from its place across the level (px), by how its kind flies its loop (`bodyAt`). */
+function levelReach(kind: BirdKind, rx: number) {
+  if (kind === 'swift' || kind === 'bat') return Math.hypot(1, 0.6) * rx
+  if (kind === 'gull') return Math.hypot(0.3, 1) * rx
+  return kind === 'crow' || kind === 'crane' ? 0 : rx
+}
+
+/**
+ * The strip's extent (px): the envelope of its birds' bodies over the whole loop seen from `view` degrees up, and their
+ * span round them. Across, a body keeps within its level reach; up, within its rise and fall plus that reach
+ * foreshortened by the view (a bound: against a 400-sample sweep of the fixtures it never falls short and is at most 3 px looser).
+ */
+function boundsOf(birds: BirdDesc[], kind: BirdKind, view: number) {
+  const e = view * RAD, ce = Math.cos(e), se = Math.abs(Math.sin(e))
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
   for (const b of birds) {
-    for (let i = 0; i < 48; i++) {
-      const [x, y] = seen(bodyAt(b, kind, (i / 48) * loop, loop, yaw).p, view)
-      x0 = Math.min(x0, x - b.size); x1 = Math.max(x1, x + b.size); y0 = Math.min(y0, y - b.size); y1 = Math.max(y1, y + b.size)
-    }
+    const h = levelReach(kind, b.rx), [x, y] = seen([b.x, b.y, b.z], view)
+    const dx = h + b.size, dy = b.ry * ce + h * se + b.size
+    x0 = Math.min(x0, x - dx); x1 = Math.max(x1, x + dx); y0 = Math.min(y0, y - dy); y1 = Math.max(y1, y + dy)
   }
   return { x0, x1, y0, y1 }
 }
@@ -93,7 +104,7 @@ export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     // Its way and how far up it is seen, in the steps its strip is painted in (a turn of ~3°, a degree up).
     const yaw = q(yawOf(flock, world), 0.05) * 0.05, view = Math.round(flock.altitude)
     const birds = flockBirds(flock, look, k, yaw)
-    const { x0, x1, y0, y1 } = boundsOf(birds, flock.kind, loop, yaw, view)
+    const { x0, x1, y0, y1 } = boundsOf(birds, flock.kind, view)
     const bounds = { x: Math.floor(x0), y: Math.floor(y0), w: Math.ceil(x1 - x0) + 2, h: Math.ceil(y1 - y0) + 2 }
     const poses = birdPoses(world, geom, flock), first = poses[0]
     if (!flightInView(poses, bounds, geom.width, Math.max(box.skyHeight, box.landTop + box.landHeight))) continue
