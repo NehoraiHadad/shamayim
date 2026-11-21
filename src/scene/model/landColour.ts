@@ -3,6 +3,7 @@ import type { LivingLand } from '../../world/landLiving'
 import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
+import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { albedoToLandTone, COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
 import { labOf, rgbOfLab } from './tone'
 import type { PlanePalette } from './types'
@@ -13,8 +14,8 @@ import type { PlanePalette } from './types'
  * structured-cloneable quantised palettes (`PlanePalette`). WorldCover open water (`COVER_WATER = 8`) is excluded.
  */
 export { albedoToLandTone, quantiseTones } from './landPalette'
+export type { PlaneName } from './faceProjection'
 
-export type PlaneName = 'back' | 'far' | 'near'
 export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB }
 
 const SPEC: Record<PlaneName, { cols: number; rows: number; maxColours: number }> = {
@@ -23,54 +24,7 @@ const SPEC: Record<PlaneName, { cols: number; rows: number; maxColours: number }
   back: { cols: 13, rows: 1, maxColours: 4 },
 }
 
-const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const medianTone = (tones: readonly RGB[]) => [...tones].sort((a, b) => labOf(a).l - labOf(b).l)[Math.floor(tones.length / 2)]
-
-function crestKmAt(plane: Plane, x: number): number {
-  const pts = plane.points, kms = plane.distanceKm
-  if (!pts.length || !kms.length) return 2
-  if (x <= pts[0][0]) return kms[0]
-  if (x >= pts.at(-1)![0]) return kms.at(-1)!
-  let lo = 0, hi = pts.length - 1
-  while (lo < hi) { const mid = (lo + hi) >> 1; if (pts[mid][0] >= x) hi = mid; else lo = mid + 1 }
-  return kms[lo - 1] + (kms[lo] - kms[lo - 1]) * ((x - pts[lo - 1][0]) / Math.max(1e-6, pts[lo][0] - pts[lo - 1][0]))
-}
-
-/** Local visible foot y matching `planes.ts` outline bottom: `landHeight` for near, `nearCrest + 3` for far/back. */
-function localFootY(world: WorldState, name: PlaneName, x: number, crestY: number, landHeight: number): number {
-  if (name === 'near' || world.terrain.near.points.length < 2) return landHeight
-  return Math.min(landHeight, Math.max(crestY, lineAt(world.terrain.near.points, x) + 3))
-}
-
-/**
- * Interpolates ground distance (km) along the visible `FacePoint[]` profile at projected screen `targetY`
- * (matching `landSurface.ts`'s `v = (y - crestY) / (footY - crestY)` row placement).
- */
-function faceKmAtY(
-  world: WorldState, name: PlaneName, plane: Plane, x: number, crestY: number, footY: number, targetY: number,
-): number {
-  const crestKm = crestKmAt(plane, x)
-  if (name === 'back' || targetY <= crestY + 1e-4) return crestKm
-  const cols = world.terrain.faces[name]?.columns
-  if (cols?.length) {
-    const step = Math.max(1e-6, (cols.at(-1)!.x - cols[0].x) / Math.max(1, cols.length - 1))
-    const pts = cols[clamp(Math.round((x - cols[0].x) / step), 0, cols.length - 1)].points
-    if (pts.length > 0) {
-      let prevY = crestY, prevKm = crestKm
-      for (const pt of pts) {
-        if (pt.y <= prevY + 1e-4) continue
-        if (targetY <= pt.y) {
-          const t = (targetY - prevY) / (pt.y - prevY)
-          return prevKm + (pt.km - prevKm) * t
-        }
-        prevY = pt.y; prevKm = pt.km
-      }
-      return prevKm
-    }
-  }
-  const rowFrac = clamp((targetY - crestY) / Math.max(1, footY - crestY), 0, 1)
-  return name === 'near' ? Math.max(0.35, crestKm * (1 - 0.65 * rowFrac)) : crestKm * (1 - 0.25 * rowFrac)
-}
 
 const planeCache = new WeakMap<LivingLand, Map<string, PlaneSurfaceSpec>>()
 const ownCache = new WeakMap<LivingLand, RGB>()
@@ -99,7 +53,7 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
       const frac = cols > 1 ? c / (cols - 1) : 0.5, x = xs[c]
       const shown = name !== 'far' || (world.terrain.sightAt ? world.terrain.sightAt(x).farShows : true)
       const targetY = crests[c] + rowFrac * Math.max(0, feet[c] - crests[c])
-      const hit = sampleBandAtKm(world.land, frac * nRays, faceKmAtY(world, name, plane, x, crests[c], feet[c], targetY))
+      const hit = sampleBandAtKm(world.land, frac * nRays, faceAtY(world, name, plane, x, crests[c], feet[c], targetY).km)
       if (shown) sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
       visible.push(shown); raw.push(labOf(albedoToLandTone(hit.albedo)))
     }

@@ -1,70 +1,34 @@
 //# allFunctionsCalledOnLoad
 import type { LivingLand } from '../../world/landLiving'
-import { groundAt as lineAt } from '../../world/sceneLight'
-import type { Plane, RGB, WorldState } from '../../world/types'
+import type { RGB } from '../../world/types'
+import { crestKmAt, faceAtY, localFootY, type FaceSample, type PlaneName } from './faceProjection'
 import { COVER_WATER, nonWaterLocalFallback, roundRgb } from './landPalette'
 import { labOf, mixRgb, rgbOfLab } from './tone'
 
 /**
- * Living-land cell sampling, face projection and light-free illustrated vegetation palette
- * (Stage 4: living land). Shared by `landVegetation.ts`, `vegBuilders.ts` and `ground.ts`.
+ * Living-land cell sampling and light-free illustrated vegetation palette (Stage 4: living land).
+ * Projected face distance & slope are shared via `faceProjection.ts` with Stage 3 (`landColour.ts`).
  */
 
-export type PlaneName = 'back' | 'far' | 'near'
+export { crestKmAt, faceAtY, localFootY, type FaceSample, type PlaneName }
 export interface VegSample { cover: number | null; ndvi: number; dryness: number; elevationM: number; albedo: RGB }
-export interface FaceSample { km: number; slope: number }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const lerpRgb = (a: RGB, b: RGB, t: number): RGB => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]
 
-/** Crest distance (km) along `plane` at reference screen `x`. */
-export function crestKmAt(plane: Plane, x: number): number {
-  const pts = plane.points, kms = plane.distanceKm
-  if (!pts.length || !kms.length) return 2
-  if (x <= pts[0][0]) return kms[0]
-  if (x >= pts.at(-1)![0]) return kms.at(-1)!
-  let lo = 0, hi = pts.length - 1
-  while (lo < hi) { const mid = (lo + hi) >> 1; if (pts[mid][0] >= x) hi = mid; else lo = mid + 1 }
-  return kms[lo - 1] + (kms[lo] - kms[lo - 1]) * ((x - pts[lo - 1][0]) / Math.max(1e-6, pts[lo][0] - pts[lo - 1][0]))
-}
-
-/** Local visible foot y matching `planes.ts` outline bottom (`landHeight` for near, `nearCrest + 3` for far/back). */
-export function localFootY(world: WorldState, name: PlaneName, x: number, crestY: number, landHeight: number): number {
-  if (name === 'near' || world.terrain.near.points.length < 2) return landHeight
-  return Math.min(landHeight, Math.max(crestY, lineAt(world.terrain.near.points, x) + 3))
-}
-
-/** Interpolates visible ground distance (km) and slope along `world.terrain.faces[name]` at projected screen `y`. */
-export function faceAtY(
-  world: WorldState, name: PlaneName, plane: Plane, x: number, crestY: number, footY: number, targetY: number,
-): FaceSample {
-  const crestKm = crestKmAt(plane, x)
-  if (name === 'back' || targetY <= crestY + 1e-4) return { km: crestKm, slope: 0.08 }
-  const cols = world.terrain.faces[name]?.columns
-  if (cols?.length) {
-    const step = Math.max(1e-6, (cols.at(-1)!.x - cols[0].x) / Math.max(1, cols.length - 1))
-    const pts = cols[clamp(Math.round((x - cols[0].x) / step), 0, cols.length - 1)].points
-    if (pts.length > 0) {
-      let prevY = crestY, prevKm = crestKm, prevSlope = pts[0].slope
-      for (const pt of pts) {
-        if (pt.y <= prevY + 1e-4) continue
-        if (targetY <= pt.y) {
-          const t = (targetY - prevY) / (pt.y - prevY)
-          return { km: lerp(prevKm, pt.km, t), slope: lerp(prevSlope, pt.slope, t) }
-        }
-        prevY = pt.y; prevKm = pt.km; prevSlope = pt.slope
-      }
-      const rem = clamp((targetY - prevY) / Math.max(1, footY - prevY), 0, 1)
-      const nearFloorKm = name === 'near' ? Math.max(0.35, prevKm * 0.55) : prevKm * 0.85
-      return { km: lerp(prevKm, nearFloorKm, rem), slope: lerp(prevSlope, 0.03, rem) }
-    }
-  }
-  const rowFrac = clamp((targetY - crestY) / Math.max(1, footY - crestY), 0, 1)
-  return {
-    km: name === 'near' ? Math.max(0.35, crestKm * (1 - 0.65 * rowFrac)) : crestKm * (1 - 0.25 * rowFrac),
-    slope: name === 'near' ? lerp(0.14, 0.03, rowFrac) : 0.10,
-  }
+/** Zero-allocation discrete WorldCover lookup along a panorama ray at distance `km` (preserving open water `8`). */
+export function sampleCoverAtKm(land: LivingLand, rayIdx: number, km: number): number | null {
+  const rays = land.rays
+  if (!rays.length) return land.own.cover
+  const bands = rays[clamp(Math.round(rayIdx), 0, rays.length - 1)].bands
+  if (!bands.length) return land.own.cover
+  const distM = Math.max(50, km * 1000)
+  const hi = bands.findIndex((b) => b.distanceM >= distM)
+  if (hi <= 0) return (hi === -1 ? bands.at(-1)! : bands[0]).sample.cover
+  const a = bands[hi - 1], b = bands[hi]
+  const t = clamp((Math.log(distM) - Math.log(a.distanceM)) / Math.max(1e-6, Math.log(b.distanceM) - Math.log(a.distanceM)), 0, 1)
+  return t < 0.5 ? a.sample.cover : b.sample.cover
 }
 
 /** Samples discrete cover (preserving open water `8`), plus log-interpolated NDVI, dryness, elevation and albedo. */

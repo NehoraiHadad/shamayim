@@ -1,7 +1,7 @@
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
-import { deviceRect, formKeyOf, lightKeyOf, type DeviceRect, type PaintJob, type PaintReply, type PaintRequest } from './paintJob'
+import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, type DeviceRect, type PaintJob, type PaintReply, type PaintRequest } from './paintJob'
 
 /** What the cache needs of a worker (a `Worker`, or a fake in tests). */
 export interface WorkerLike {
@@ -108,7 +108,7 @@ export class RemoteCache {
     }
     if (sameAsked && (this.pending.has(`${desc.id}:form`) || this.pending.has(`${desc.id}:light`) || this.inFlight)) return 'none'
     const job = (part: 'form' | 'light', key: string): PaintJob =>
-      ({ id: desc.id, part, key, formKey, desc, ratio, rect: entry.rect, phase, hand: this.hand })
+      ({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect: entry.rect, phase, hand: this.hand })
     let painted: Painted = 'light'
     // A layer that is all light (`formless`) has an empty form: nothing to paint for it, only its place.
     if (entry.form?.key !== formKey) {
