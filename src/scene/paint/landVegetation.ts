@@ -11,8 +11,10 @@ import { css, mix, type Ctx2D } from './hand'
 
 const DARK_EARTH: RGB = [0.08, 0.07, 0.05]
 
-function h01(seed: number, i: number, salt: number): number {
-  let h = Math.imul((seed ^ (i * 374761393) ^ (salt * 668265263)) | 0, 1274126177)
+function h01(seed: number, x: number, y: number, salt: number): number {
+  // Anchor at sixteenths of a scene pixel so packing/removing another feature cannot change the silhouette.
+  const at = Math.imul(Math.round(x * 16), 374761393) ^ Math.imul(Math.round(y * 16), 668265263)
+  let h = Math.imul(seed ^ at ^ salt, 1274126177)
   h = Math.imul(h ^ (h >>> 13), 1103515245)
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296
 }
@@ -32,7 +34,7 @@ export function paintVegStrata(ctx: Ctx2D, veg: PlaneVegetation): void {
   for (let i = 0; i < count; i++) {
     const o = i * 6, x0 = strata[o], y0 = strata[o + 1], x1 = strata[o + 2], y1 = strata[o + 3]
     const thick = strata[o + 4], alpha = strata[o + 5], rgb = tones[strataMeta[i]] ?? tones[0]
-    const bow = (h01(seed, i, 3) - 0.5) * 2.4
+    const bow = (h01(seed, x0, y0, 3) - 0.5) * 2.4
     for (const [wScale, aScale] of [[1.9, 0.40], [0.9, 0.85]] as const) {
       ctx.beginPath(); ctx.moveTo(x0, y0); wobblyEdge(ctx, x0, y0, x1, y1, bow)
       ctx.strokeStyle = css(rgb, alpha * aScale); ctx.lineWidth = thick * wScale; ctx.stroke()
@@ -50,7 +52,7 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
     const x0 = fields[o], y0 = fields[o + 1], x1 = fields[o + 2], y1 = fields[o + 3]
     const x2 = fields[o + 4], y2 = fields[o + 5], x3 = fields[o + 6], y3 = fields[o + 7], alpha = fields[o + 8]
     const state = fieldMeta[i * 2], rgb = tones[fieldMeta[i * 2 + 1]] ?? tones[0]
-    const b0 = (h01(seed, i, 11) - 0.5) * 1.4, b1 = (h01(seed, i, 17) - 0.5) * 1.4
+    const b0 = (h01(seed, x0, y0, 11) - 0.5) * 1.4, b1 = (h01(seed, x0, y0, 17) - 0.5) * 1.4
 
     ctx.beginPath()
     ctx.moveTo(x0, y0); wobblyEdge(ctx, x0, y0, x1, y1, b0); wobblyEdge(ctx, x1, y1, x2, y2, b1)
@@ -108,8 +110,8 @@ export function paintVegTufts(ctx: Ctx2D, veg: PlaneVegetation): void {
 
     if (kind === 1) {
       // Grass / steppe tuft: low organic tussock mound + soft short curved blades (illustrated hand, never stiff sticks).
-      const lean = (h01(seed, i, 23) - 0.5) * r * 0.55
-      const dx = (h01(seed, i, 31) - 0.5) * r * 0.75
+      const lean = (h01(seed, x, y, 23) - 0.5) * r * 0.55
+      const dx = (h01(seed, x, y, 31) - 0.5) * r * 0.75
       ctx.beginPath()
       ctx.ellipse(x, y - r * 0.06, r * 1.05, Math.max(0.42, r * 0.48), 0, 0, Math.PI * 2)
       ctx.moveTo(x + dx + r * 0.72, y - r * 0.18)
@@ -127,7 +129,7 @@ export function paintVegTufts(ctx: Ctx2D, veg: PlaneVegetation): void {
       ctx.strokeStyle = css(grassLit, alpha * 0.72); ctx.lineWidth = Math.max(0.45, r * 0.26); ctx.lineCap = 'round'; ctx.stroke()
     } else {
       // Scrub cushion: 2-lobe organic garrigue bush + lighter upper-left crown dab.
-      const dx = (h01(seed, i, 29) - 0.5) * r * 0.78
+      const dx = (h01(seed, x, y, 29) - 0.5) * r * 0.78
       ctx.beginPath()
       ctx.ellipse(x, y - r * 0.12, r * 1.16, r * 0.68, 0, 0, Math.PI * 2)
       ctx.moveTo(x + dx + r * 0.78, y - r * 0.34)

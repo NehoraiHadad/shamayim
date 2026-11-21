@@ -1,4 +1,5 @@
 import type { PlaneVegetation, RGB } from '../model/types'
+import { palmBend, PALM_CROWN_HEIGHT, PALM_FROND_LENGTH } from '../model/vegShapes'
 import { TONE } from '../model/vegSample'
 import { css, mix, type Ctx2D } from './hand'
 
@@ -19,8 +20,7 @@ export interface CrownAnchor { cx: number; cy: number; rx: number; ry: number }
 /** Shared crown centre & radii used identically by `paintVegCrowns` (form) and `paintPlaneLight` (sun catchlight). */
 export function treeCrownAnchor(x: number, y: number, r: number, height: number, phase: number, kind: number): CrownAnchor {
   if (kind === 3) {
-    const bend = Math.sin(phase) * r * 0.42
-    return { cx: x + bend, cy: y - height * 0.62, rx: r * 1.05, ry: r * 0.62 }
+    return { cx: x + palmBend(r, phase), cy: y - height * PALM_CROWN_HEIGHT, rx: r * 1.05, ry: r * 0.62 }
   }
   const rx = kind === 1 ? r * 1.18 : kind === 2 ? r * 0.98 : r * 1.14
   const ry = kind === 1 ? r * 0.78 : kind === 2 ? r * 0.92 : r * 0.90
@@ -70,7 +70,7 @@ function paintPalm(
     const side = i < count / 2 ? -1 : 1
     const slot = (i % (count / 2)) / Math.max(1, count / 2 - 1)
     const jitter = 0.86 + 0.28 * Math.sin(phase * 1.7 + i * 2.1)
-    const len = r * (1.55 - 0.34 * slot) * jitter
+    const len = r * (PALM_FROND_LENGTH - 0.34 * slot) * jitter
     const rise = r * (0.48 + 0.68 * slot), droop = r * (0.82 - 1.12 * slot)
     ctx.beginPath()
     ctx.moveTo(topX, topY)

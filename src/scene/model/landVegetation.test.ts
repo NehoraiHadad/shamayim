@@ -13,7 +13,7 @@ import { labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
 import {
   classifyVegCell, cropFieldState, distanceFade, FIELD_MAX_M_PER_PX, mPerPxAt,
-  ORCHARD_FULL_M_PER_PX, ORCHARD_MAX_M_PER_PX, orchardKindOf, SCRUB_MAX_M_PER_PX,
+  ORCHARD_FULL_M_PER_PX, ORCHARD_MAX_M_PER_PX, SCRUB_MAX_M_PER_PX,
   solarMonthOf, STRATA_MAX_M_PER_PX, TREE_MAX_M_PER_PX,
 } from './vegRules'
 import { TONE } from './vegSample'
@@ -28,39 +28,19 @@ const nearPlane = (w: WorldState) =>
   layersOn(sceneModel(w, BOX), 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
 
 describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', () => {
-  it('maps WorldCover + Köppen + elevation to forest, orchards (olive/citrus/palm), crops, scrub/grass and bare strata', () => {
-    // Arid / hot rift semi-arid irrigated tree/crop -> date palms
-    expect(orchardKindOf('B', 31.8, 35.4, -250, 1, 0.03, 0.42)).toBe('palm')
-    expect(orchardKindOf('M', 32.5, 35.5, -121, 1, 0.04, 0.45)).toBe('palm')
-    // Frost-free lowland Mediterranean gentle slope with orchard evidence -> citrus; upland -> olive
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.03, 0.45, true)).toBe('citrus')
-    expect(orchardKindOf('M', 31.8, 35.2, 650, 1, 0.09, 0.40, true)).toBe('olive')
-    // Without orchard evidence, gently sloped Mediterranean woodland stays null (forest) and annual crop stays null
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.03, 0.45, false)).toBeNull()
-    expect(orchardKindOf('B', 31.8, 35.4, -250, 4, 0.03, 0.60, false)).toBeNull()
-    // Cold temperate / alpine -> no Mediterranean/subtropical orchards
-    expect(orchardKindOf('C', 51.5, 0.0, 50, 1, 0.03, 0.55, true)).toBeNull()
-    expect(orchardKindOf('E', 46.5, 8.0, 2400, 1, 0.03, 0.40, true)).toBeNull()
-    // Non-tree/crop or steep slope (either uphill + or downhill -) -> never orchard
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 6, 0.03, 0.45, true)).toBeNull()
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.35, 0.45, true)).toBeNull()
-    expect(orchardKindOf('B', 31.8, 35.4, -250, 1, -0.40, 0.45, true)).toBeNull()
-
-    // Cover -> vegetation class rules
-    const base = { ndvi: 0.45, dryness: 0.3, slope: 0.16, koppen: 'M' as const, lat: 32.9, lon: 35.5, elevationM: 400, mPerPx: 10 }
-    expect(classifyVegCell({ ...base, cover: 1 }).veg).toBe('forest')
+  it('classifies cover and treats mapped crops as separate evidence from greenness and climate', () => {
+    const base = { ndvi: 0.45, dryness: 0.3, koppen: 'M' as const, lat: 32.9, lon: 35.5, elevationM: 400 }
+    const expectations = [[1, 'forest'], [2, 'shrub'], [3, 'grass'], [4, 'crop'], [5, 'none'], [6, 'bare'], [8, 'none']] as const
+    for (const [cover, type] of expectations) expect(classifyVegCell({ ...base, cover }).veg).toBe(type)
     expect(classifyVegCell({ ...base, cover: 1, ndvi: 0.20 }).density).toBeLessThan(classifyVegCell({ ...base, cover: 1, ndvi: 0.65 }).density)
-    expect(classifyVegCell({ ...base, cover: 1, slope: 0.04, hasOrchardEvidence: true }).veg).toBe('orchard')
-    expect(classifyVegCell({ ...base, cover: 1, slope: 0.04, hasOrchardEvidence: true, mPerPx: ORCHARD_MAX_M_PER_PX + 1 }).veg).toBe('forest')
-    expect(classifyVegCell({ ...base, cover: 4 }).veg).toBe('crop')
-    expect(classifyVegCell({ ...base, koppen: 'B', lat: 31.8, lon: 35.4, elevationM: -250, slope: 0.02, ndvi: 0.65, cover: 4 }).veg).toBe('crop')
-    expect(classifyVegCell({ ...base, cover: 2 }).veg).toBe('shrub')
-    expect(classifyVegCell({ ...base, cover: 3 }).veg).toBe('grass')
-    expect(classifyVegCell({ ...base, cover: 6 }).veg).toBe('bare')
-    expect(classifyVegCell({ ...base, cover: 8 }).veg).toBe('none')
-    expect(classifyVegCell({ ...base, cover: 5 }).veg).toBe('none')
-    // Arid desert screen forces low-NDVI dry cells to bare even if cover is shrub/grass
-    expect(classifyVegCell({ ...base, koppen: 'B', lat: 30.6, lon: 34.8, cover: 3, ndvi: 0.08, dryness: 0.85 }).veg).toBe('bare')
+    const oasis = { ...base, koppen: 'B' as const, lat: 31.8, lon: 35.4, elevationM: -250 }
+    expect(classifyVegCell({ ...oasis, cover: 1 }).veg).toBe('forest')
+    expect(classifyVegCell({ ...oasis, cover: 4, ndvi: 0.65 }).veg).toBe('crop')
+    for (const mappedCrop of ['orchard', 'olive', 'citrus', 'palm'] as const) {
+      expect(classifyVegCell({ ...oasis, cover: 1, mappedCrop })).toMatchObject({ veg: 'orchard', orchard: mappedCrop })
+    }
+    expect(classifyVegCell({ ...oasis, cover: 1, mappedCrop: 'vineyard' })).toMatchObject({ veg: 'crop', orchard: null })
+    expect(classifyVegCell({ ...oasis, cover: 3, ndvi: 0.08, dryness: 0.85 }).veg).toBe('bare')
   })
 
   it('derives cropland field state (growing / ploughed / straw) from NDVI, dryness and hemisphere-aware season', () => {

@@ -1,7 +1,6 @@
 //# allFunctionsCalledOnLoad
 import type { LivingLand } from '../../world/landLiving'
 import type { RGB } from '../../world/types'
-import { crestKmAt, faceAtY, localFootY, type FaceSample, type PlaneName } from './faceProjection'
 import { COVER_WATER, roundRgb } from './landPalette'
 import { labOf, mixRgb, rgbOfLab } from './tone'
 
@@ -11,7 +10,6 @@ import { labOf, mixRgb, rgbOfLab } from './tone'
  * Computes only cover, NDVI, dryness and elevation (never allocating or blending unused albedo).
  */
 
-export { crestKmAt, faceAtY, localFootY, type FaceSample, type PlaneName }
 export interface VegSample { cover: number | null; ndvi: number; dryness: number; elevationM: number }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)

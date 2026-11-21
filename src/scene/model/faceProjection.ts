@@ -1,5 +1,6 @@
 //# allFunctionsCalledOnLoad
 import { groundAt as lineAt } from '../../world/sceneLight'
+import type { FaceColumn, FacePoint } from '../../world/face'
 import type { Plane, WorldState } from '../../world/types'
 
 /**
@@ -46,26 +47,37 @@ export function faceAtY(
 ): FaceSample {
   const crestKm = crestKmAt(plane, x)
   if (name === 'back' || targetY <= crestY + 1e-4) return { km: crestKm, slope: 0.08 }
-  const cols = world.terrain.faces[name]?.columns
-  if (cols?.length) {
-    const step = Math.max(1e-6, (cols.at(-1)!.x - cols[0].x) / Math.max(1, cols.length - 1))
-    const pts = cols[clamp(Math.round((x - cols[0].x) / step), 0, cols.length - 1)].points
-    if (pts.length > 0) {
-      let prevY = crestY, prevKm = crestKm, prevSlope = pts[0].slope
-      for (const pt of pts) {
-        if (pt.y <= prevY + 1e-4) continue
-        if (targetY <= pt.y) {
-          const t = (targetY - prevY) / (pt.y - prevY)
-          return { km: lerp(prevKm, pt.km, t), slope: lerp(prevSlope, pt.slope, t) }
-        }
-        prevY = pt.y; prevKm = pt.km; prevSlope = pt.slope
-      }
-      return { km: prevKm, slope: prevSlope }
-    }
-  }
+  const pts = faceColumnAt(world.terrain.faces[name]?.columns ?? [], x)?.points
+  if (pts?.length) return measuredFaceAt(pts, crestKm, crestY, targetY)
   const rowFrac = clamp((targetY - crestY) / Math.max(1, footY - crestY), 0, 1)
   return {
-    km: name === 'near' ? Math.max(0.35, crestKm * (1 - 0.65 * rowFrac)) : crestKm * (1 - 0.25 * rowFrac),
+    km: fallbackFaceKm(name, crestKm, rowFrac),
     slope: name === 'near' ? lerp(0.14, 0.03, rowFrac) : 0.10,
   }
 }
+
+export const FACE_EPSILON = 1e-4
+
+export const faceColumnStep = (cols: readonly FaceColumn[]) =>
+  Math.max(1e-6, (cols.at(-1)!.x - cols[0].x) / Math.max(1, cols.length - 1))
+
+export function faceColumnAt(cols: readonly FaceColumn[], x: number): FaceColumn | undefined {
+  return cols.length ? cols[clamp(Math.round((x - cols[0].x) / faceColumnStep(cols)), 0, cols.length - 1)] : undefined
+}
+
+export function measuredFaceAt(pts: readonly FacePoint[], crestKm: number, crestY: number, targetY: number): FaceSample {
+  if (targetY <= crestY + FACE_EPSILON) return { km: crestKm, slope: 0.08 }
+  let prevY = crestY, prevKm = crestKm, prevSlope = pts[0].slope
+  for (const pt of pts) {
+    if (pt.y <= prevY + FACE_EPSILON) continue
+    if (targetY <= pt.y) {
+      const t = (targetY - prevY) / (pt.y - prevY)
+      return { km: lerp(prevKm, pt.km, t), slope: lerp(prevSlope, pt.slope, t) }
+    }
+    prevY = pt.y; prevKm = pt.km; prevSlope = pt.slope
+  }
+  return { km: prevKm, slope: prevSlope }
+}
+
+export const fallbackFaceKm = (name: 'near' | 'far', crestKm: number, fraction: number) =>
+  name === 'near' ? Math.max(0.35, crestKm * (1 - 0.65 * fraction)) : crestKm * (1 - 0.25 * fraction)

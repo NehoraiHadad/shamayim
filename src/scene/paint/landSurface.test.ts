@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_VEGETATION } from '../model/landVegetation'
+import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerOf, RGB } from '../model/types'
 import { HAND, type Ctx2D } from './hand'
 import { paintPlane } from './planes'

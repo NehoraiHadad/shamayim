@@ -5,6 +5,8 @@ import {
   TREE_FULL_M_PER_PX, TREE_MAX_M_PER_PX, TREE_KIND_CODE,
 } from './vegRules'
 import { TONE } from './vegSample'
+import type { AreaLimit, CoverCheck, Footprint } from './vegFootprint'
+import { treeExtent, tuftExtent } from './vegShapes'
 
 /**
  * Natural vegetation & bare-strata geometry builders (Stage 4: woodland clusters, scrub/grass tufts, strata).
@@ -18,12 +20,12 @@ export interface VegBuffers {
 }
 
 export interface BuildEnv {
-  sx: number; width: number; landHeight: number; horizonY: number
+  sx: number; horizonY: number
   koppen: KoppenCode; solarMonth: number
   crestAt: (refX: number) => number; footAt: (refX: number) => number
-  coverAt: (refX: number, y: number) => number | null
-  blocked: (refX: number, y: number, r: number) => boolean
-  blockedBox: (x0: number, y0: number, x1: number, y1: number) => boolean
+  scaleAt: (refX: number, y: number) => number
+  farScale: (area: Footprint) => number
+  fits: (area: Footprint, accepts: CoverCheck, mapped?: AreaLimit) => boolean
 }
 
 /**
@@ -38,17 +40,17 @@ const isShrubCover = (c: number | null, src: number | null) => c === 2 || c === 
 /** Clustered rounded pine/oak woodland crowns (WorldCover 10), projected from metres, thinning with NDVI & fading with distance. */
 export function addForestCluster(
   buf: VegBuffers, env: BuildEnv, rand: () => number, refX: number, y: number, colW: number, cellH: number,
-  mPerPx: number, density: number,
+  mPerPx: number, density: number, weight = 1, mapped?: AreaLimit,
 ): void {
   const fade = distanceFade(mPerPx, TREE_FULL_M_PER_PX, TREE_MAX_M_PER_PX)
-  if (fade <= 0.04 || buf.trees.length / 6 >= CAPS.trees || rand() > 0.24 + 0.76 * density) return
+  if (fade * weight <= 0.02 || buf.trees.length / 6 >= CAPS.trees || rand() > 0.24 + 0.76 * density) return
   // Individual foreground crowns (~18 m) aggregate smoothly into merged woodland crown domes (~40 m) on mid slopes.
   const domeM = 18 + 0.62 * mPerPx
   const baseR = clamp(domeM / Math.max(3, mPerPx), 1.30, 3.25)
   const count = clamp(Math.round((2 + 4 * density) * (0.65 + 0.35 * fade)), 1, 6)
   // Distribute across 2 overlapping sub-groves spanning the cell so wooded slopes read as connected woodland, not isolated dots.
   const subOffX = (rand() - 0.5) * colW * 0.44, subOffY = (rand() - 0.5) * cellH * 0.36
-  const alphaByte = Math.round(clamp(fade * (0.86 + 0.14 * density), 0, 1) * 255)
+  const alphaByte = Math.round(clamp(fade * weight * (0.86 + 0.14 * density), 0, 1) * 255)
   for (let i = 0; i < count && buf.trees.length / 6 < CAPS.trees; i++) {
     const g = i < Math.ceil(count / 2) ? -0.5 : 0.5
     const ang = rand() * Math.PI * 2, dist = (rand() ** 0.62) * (baseR * 2.1 + colW * 0.16)
@@ -56,9 +58,10 @@ export function addForestCluster(
     const ry = y + g * subOffY + Math.sin(ang) * dist * 0.48
     const r = clamp(baseR * (0.76 + 0.46 * rand()), 1.15, 3.5)
     if (rx < 1 || rx > 374 || ry < env.crestAt(rx) + 1.4 + r * 0.25 || ry > env.footAt(rx) - 0.5) continue
-    if (env.blocked(rx, ry, r + 0.7) || env.coverAt(rx, ry) !== 1) continue
     const shade = 0.20 + 0.65 * rand()
-    buf.trees.push(rx * env.sx, ry, r, r * (2.0 + 0.7 * rand()), rand() * Math.PI * 2, shade)
+    const height = r * (2.0 + 0.7 * rand()), phase = rand() * Math.PI * 2
+    if (!env.fits(treeExtent(rx, ry, r, height, phase, TREE_KIND_CODE.pine, env.sx), (c) => c === 1, mapped)) continue
+    buf.trees.push(rx * env.sx, ry, r, height, phase, shade)
     buf.treeMeta.push(TREE_KIND_CODE.pine, shade > 0.50 ? TONE.PINE_SHADE : TONE.PINE_MID, alphaByte)
   }
 }
@@ -78,9 +81,7 @@ export function addScrubOrGrass(
     const rx = refX + (rand() - 0.5) * 2 * spreadX, ry = y + (rand() - 0.5) * 2 * spreadY
     const r = size * (0.72 + 0.48 * rand()) * (isGrass ? 0.92 : 1)
     if (r < 0.75 || rx < 1 || rx > 374 || ry < env.crestAt(rx) + 1.3 + r * 0.6 || ry > env.footAt(rx) - 0.6) continue
-    if (env.blocked(rx, ry, r + 0.6)) continue
-    const c = env.coverAt(rx, ry)
-    if (isGrass ? c !== 3 : !isShrubCover(c, srcCover)) continue
+    if (!env.fits(tuftExtent(rx, ry, r, env.sx), (c) => isGrass ? c === 3 : isShrubCover(c, srcCover))) continue
     buf.tufts.push(rx * env.sx, ry, r, clamp((0.62 + 0.28 * density) * fade, 0, 1))
     buf.tuftMeta.push(isGrass ? 1 : 0, isGrass ? TONE.GRASS : TONE.SHRUB)
   }
@@ -96,9 +97,10 @@ export function addStrataBand(
   const x0 = clamp(refX - spanRef * 0.55, 1, 374), x1 = clamp(refX + spanRef * 0.55, 1, 374)
   const tilt = (rand() - 0.5) * 3.0, y0 = y - tilt * 0.5, y1 = y + tilt * 0.5
   if (y0 < env.crestAt(x0) + 1.8 || y1 < env.crestAt(x1) + 1.8 || y0 > env.footAt(x0) - 0.8 || y1 > env.footAt(x1) - 0.8) return
-  if (env.blockedBox(x0, Math.min(y0, y1) - 1, x1, Math.max(y0, y1) + 1)) return
-  const okBare = (c: number | null) => c !== 8 && c !== 1 && c !== 4 && c !== 5
-  if (!okBare(env.coverAt(x0, y0)) || !okBare(env.coverAt(x1, y1))) return
-  buf.strata.push(x0 * env.sx, y0, x1 * env.sx, y1, 2.4 + 3.4 * rand(), (0.18 + 0.16 * rand()) * fade)
+  const thick = 2.4 + 3.4 * rand(), margin = thick * 0.95 + 0.6
+  const okBare = (c: number | null) => c !== 8 && c !== 1 && c !== 4 && c !== 5 && c !== 7
+  if (!env.fits([x0 - margin / env.sx, Math.min(y0, y1) - margin, x1 + margin / env.sx, Math.max(y0, y1) + margin],
+    okBare)) return
+  buf.strata.push(x0 * env.sx, y0, x1 * env.sx, y1, thick, (0.18 + 0.16 * rand()) * fade)
   buf.strataMeta.push(rand() < 0.5 ? TONE.STRATA_LIGHT : TONE.STRATA_DARK)
 }

@@ -1,5 +1,6 @@
 //# allFunctionsCalledOnLoad
-import { climateZoneAt, meanTempProxyC } from '../../data/land/climatology'
+import { climateZoneAt } from '../../data/land/climatology'
+import type { CropKind } from '../../data/landmarks/cropAreas'
 import type { KoppenCode } from '../../data/land/koppenGrid'
 import type { Camera } from '../../domain/camera'
 
@@ -11,8 +12,8 @@ import type { Camera } from '../../domain/camera'
  * Physical scales & resolvability thresholds (`mPerPx = d * π / (180 * pxPerDeg)`):
  * - For `SCENE_CAMERA` (`pxPerDeg = 1.5`), `11.64 m/px` at 1 km (`RELIEF.high` adds 6.5× vertical relief).
  * - Orchards/plantations (FAO Irrigation & Drainage Paper 66; Volcani Institute):
- *   row spacing 6–8 m (`citrus 6 m`, `olive 7 m`, `palm 8 m`), resolved individually when `rowPx >= 1.5 px`
- *   (< ~450–620 m); coarser distances up to `ORCHARD_MAX_M_PER_PX = 24 m/px` (~2.06 km) aggregate into
+ *   row spacing 6–8 m (`citrus 6 m`, `olive 7 m`, `palm 8 m`), resolved individually above 2 CSS px
+ *   (< ~260–340 m at reference width); coarser distances up to `ORCHARD_MAX_M_PER_PX = 24 m/px` (~2.06 km) aggregate into
  *   management block / alley texture (`32–36 m` pitch).
  * - Forest woodland (Aleppo pine / Mt Tabor oak stands; KKL-JNF / FAO forestry): individual foreground
  *   crowns (~16–24 m) aggregating smoothly into merged woodland crown domes (~32–52 m); full `<= 28 m/px`,
@@ -35,16 +36,18 @@ export const STRATA_FULL_M_PER_PX = 70
 export const STRATA_MAX_M_PER_PX = 140
 
 export type FieldState = 'growing' | 'ploughed' | 'straw'
-export type OrchardKind = 'olive' | 'citrus' | 'palm'
+export type OrchardKind = Exclude<CropKind, 'vineyard'>
 export type VegClass = 'none' | 'forest' | 'orchard' | 'crop' | 'shrub' | 'grass' | 'bare'
 
-/** Documented inter-row tree spacing (m) and management alley / block pitch (m) per orchard type (FAO / Volcani). */
-export const ORCHARD_ROW_M: Record<OrchardKind, number> = { olive: 7, citrus: 6, palm: 8 }
-export const ORCHARD_ALLEY_M: Record<OrchardKind, number> = { olive: 34, citrus: 32, palm: 36 }
-/** Minimum projected row spacing (px) before individual rows drop below Nyquist into aggregate block texture. */
-export const MIN_RESOLVED_ROW_PX = 1.5
+// Nominal illustrated pitches, not surveys of the mapped site. FAO date cultivation gives 8–10 m
+// (https://www.fao.org/4/Y4360E/y4360e0a.htm); FAO 66 and Volcani inform the olive/citrus examples.
+export const ORCHARD_ROW_M: Record<OrchardKind, number> = { orchard: 7, olive: 7, citrus: 6, palm: 8 }
+/** A drawn alley groups about four rows to retain readable contrast, rather than inferring actual paths. */
+export const ORCHARD_ALLEY_M: Record<OrchardKind, number> = { orchard: 34, olive: 34, citrus: 32, palm: 36 }
+/** Illustration threshold for anti-aliased individual row centres in CSS pixels. */
+export const MIN_RESOLVED_ROW_PX = 2
 
-export const TREE_KIND_CODE: Record<'pine' | OrchardKind, number> = { pine: 0, olive: 1, citrus: 2, palm: 3 }
+export const TREE_KIND_CODE: Record<'pine' | OrchardKind, number> = { pine: 0, orchard: 1, olive: 1, citrus: 2, palm: 3 }
 export const FIELD_STATE_CODE: Record<FieldState, number> = { growing: 0, ploughed: 1, straw: 2 }
 
 const RAD = Math.PI / 180
@@ -83,61 +86,26 @@ export function cropFieldState(ndvi: number, dryness: number, solarMonth: number
   return sowing || dryness < 0.50 ? 'ploughed' : 'straw'
 }
 
-/**
- * Climate-zoned orchard/plantation species motif gated by slope magnitude (`|slope|`) and independent evidence:
- * - Annual cropland (`cover = 4`) requires explicit structural evidence (`hasOrchardEvidence`, e.g., OSM orchard/palm
- *   mark) so irrigated annual crops are never misclassified as palm/citrus rows.
- * - Tree cover (`cover = 1`) in arid / hot semi-arid rift (`zone === 'arid'` or `semiarid` with `tMean >= 20 °C`)
- *   on flat ground (`|slope| < 0.10`, `ndvi >= 0.24`) uses the documented arid-oasis date-palm approximation because
- *   closed-canopy forest cannot occur naturally there without irrigation.
- * - Elsewhere, tree cover (`cover = 1`) requires `hasOrchardEvidence` so native woodland stays forest rather than rows.
- */
-export function orchardKindOf(
-  koppen: KoppenCode, lat: number, lon: number, elevationM: number,
-  cover: number | null, slope: number, ndvi: number, hasOrchardEvidence = false,
-): OrchardKind | null {
-  const absSlope = Math.abs(slope)
-  if ((cover !== 1 && cover !== 4) || absSlope > 0.22 || ndvi < 0.22) return null
-  const tMean = meanTempProxyC(lat, elevationM)
-  if (koppen === 'E' || tMean < 10) return null
-  const zone = climateZoneAt(lat, lon, elevationM)
-  const aridOasis = cover === 1 && (zone === 'arid' || (zone === 'semiarid' && tMean >= 20)) && absSlope < 0.10 && ndvi >= 0.24
-  if (!hasOrchardEvidence && !aridOasis) return null
-  if (zone === 'arid' || (zone === 'semiarid' && tMean >= 20)) return ndvi >= 0.24 ? 'palm' : null
-  if (koppen === 'M' || koppen === 'H' || koppen === 'A' || koppen === 'w') {
-    if (elevationM < 220 && absSlope < 0.08 && ndvi >= 0.30) return 'citrus'
-    return koppen === 'M' ? 'olive' : null
-  }
-  return koppen === 'S' ? 'olive' : null
-}
-
 export interface CellClassifyInput {
-  cover: number | null; ndvi: number; dryness: number; slope: number
+  cover: number | null; ndvi: number; dryness: number
   koppen: KoppenCode; lat: number; lon: number; elevationM: number
-  mPerPx: number; hasOrchardEvidence?: boolean
+  mappedCrop?: CropKind
 }
 
 /** Maps one sampled land cell to its vegetation class, optional orchard species and NDVI density `0..1`. */
 export function classifyVegCell(input: CellClassifyInput): { veg: VegClass; orchard: OrchardKind | null; density: number } {
-  const { cover, ndvi, dryness, slope, koppen, lat, lon, elevationM, mPerPx, hasOrchardEvidence = false } = input
+  const { cover, ndvi, dryness, koppen, lat, lon, elevationM, mappedCrop } = input
   if (cover === 8 || cover === 7 || cover === 5) return { veg: 'none', orchard: null, density: 0 }
   if (cover === 6) return { veg: 'bare', orchard: null, density: 0 }
 
+  if (cover === 1 || cover === 4) {
+    const density = cover === 1 ? clamp((ndvi - 0.12) / 0.50, 0.18, 1) : clamp((ndvi + 0.05) / 0.65, 0.25, 1)
+    if (mappedCrop && mappedCrop !== 'vineyard') return { veg: 'orchard', orchard: mappedCrop, density }
+    return { veg: cover === 4 || mappedCrop === 'vineyard' ? 'crop' : 'forest', orchard: null, density }
+  }
   const zone = climateZoneAt(lat, lon, elevationM)
   if ((koppen === 'B' || zone === 'arid') && ndvi < 0.14 && dryness > 0.72) {
     return { veg: 'bare', orchard: null, density: 0 }
-  }
-
-  const canResolveOrchard = mPerPx <= ORCHARD_MAX_M_PER_PX
-  if (cover === 1) {
-    const density = clamp((ndvi - 0.12) / 0.50, 0.18, 1)
-    const orchard = canResolveOrchard ? orchardKindOf(koppen, lat, lon, elevationM, 1, slope, ndvi, hasOrchardEvidence) : null
-    return orchard ? { veg: 'orchard', orchard, density } : { veg: 'forest', orchard: null, density }
-  }
-  if (cover === 4) {
-    const density = clamp((ndvi + 0.05) / 0.65, 0.25, 1)
-    const orchard = canResolveOrchard && hasOrchardEvidence ? orchardKindOf(koppen, lat, lon, elevationM, 4, slope, ndvi, true) : null
-    return orchard ? { veg: 'orchard', orchard, density } : { veg: 'crop', orchard: null, density }
   }
   if (cover === 2) return { veg: 'shrub', orchard: null, density: clamp((ndvi - 0.08) / 0.42, 0.14, 1) }
   if (cover === 3) return { veg: 'grass', orchard: null, density: clamp((ndvi - 0.06) / 0.48, 0.16, 1) }

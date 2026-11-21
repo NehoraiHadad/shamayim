@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_VEGETATION } from '../model/landVegetation'
+import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerDesc, LayerOf } from '../model/types'
 import type { Painter } from '../paint'
 import { LayerCache, type LayerCanvas } from './layerCache'
