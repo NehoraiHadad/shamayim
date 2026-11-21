@@ -142,8 +142,8 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
   const problems = []
   if (fallbackSnap.albedoSource !== 'climatology') problems.push(`first paint albedoSource=${fallbackSnap.albedoSource} (expected climatology)`)
   if (!refinedMeta.farAlbedo?.startsWith('gibs:2026-11-01')) problems.push(`far albedoSource=${refinedMeta.farAlbedo} (expected gibs:2026-11-01*)`)
-  if (!refinedMeta.farMissAlbedo || refinedMeta.farMissAlbedo.startsWith('gibs:')) {
-    problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected non-gibs fallback)`)
+  if (refinedMeta.farMissAlbedo !== 's2-mean:2026-11-15+climatology') {
+    problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected s2-mean:2026-11-15+climatology)`)
   }
   if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
   if (refinedMeta.farKey === fallbackSnap.farKey) problems.push('plane.far form key did not update on refinement')

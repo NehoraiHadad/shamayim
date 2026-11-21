@@ -172,6 +172,11 @@ describe('painting in the worker', () => {
     expect(cache.update(plane('a', 'l2'), 2)).toBe('light')
     cache.flush()
     expect(worker.sent[0].jobs.map((job) => [job.part, job.key])).toEqual([['light', 'l2']])
+    // Light-only plane jobs strip form-only palettes, terraces, fields, rows, strata (and trees/gullies when lift is null).
+    const lightPlane = worker.sent[0].jobs[0].desc as LayerOf<'plane'>
+    expect(lightPlane.surfaceTone.cells).toEqual([])
+    expect(lightPlane.vegetation.fields.byteLength).toBe(0)
+    expect(lightPlane.vegetation.tones).toEqual([])
     // While l2 is on its way the hand moves on twice: only the newest is sent, once l2 is back.
     cache.update(plane('a', 'l3'), 2)
     cache.flush()

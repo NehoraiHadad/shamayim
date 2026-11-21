@@ -32,23 +32,28 @@ describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', ()
     // Arid / hot rift semi-arid irrigated tree/crop -> date palms
     expect(orchardKindOf('B', 31.8, 35.4, -250, 1, 0.03, 0.42)).toBe('palm')
     expect(orchardKindOf('M', 32.5, 35.5, -121, 1, 0.04, 0.45)).toBe('palm')
-    // Frost-free lowland Mediterranean gentle slope -> citrus; upland Mediterranean hills -> olive
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.03, 0.45)).toBe('citrus')
-    expect(orchardKindOf('M', 31.8, 35.2, 650, 1, 0.09, 0.40)).toBe('olive')
+    // Frost-free lowland Mediterranean gentle slope with orchard evidence -> citrus; upland -> olive
+    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.03, 0.45, true)).toBe('citrus')
+    expect(orchardKindOf('M', 31.8, 35.2, 650, 1, 0.09, 0.40, true)).toBe('olive')
+    // Without orchard evidence, gently sloped Mediterranean woodland stays null (forest) and annual crop stays null
+    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.03, 0.45, false)).toBeNull()
+    expect(orchardKindOf('B', 31.8, 35.4, -250, 4, 0.03, 0.60, false)).toBeNull()
     // Cold temperate / alpine -> no Mediterranean/subtropical orchards
-    expect(orchardKindOf('C', 51.5, 0.0, 50, 1, 0.03, 0.55)).toBeNull()
-    expect(orchardKindOf('E', 46.5, 8.0, 2400, 1, 0.03, 0.40)).toBeNull()
-    // Non-tree/crop or steep slope -> never orchard
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 6, 0.03, 0.45)).toBeNull()
-    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.35, 0.45)).toBeNull()
+    expect(orchardKindOf('C', 51.5, 0.0, 50, 1, 0.03, 0.55, true)).toBeNull()
+    expect(orchardKindOf('E', 46.5, 8.0, 2400, 1, 0.03, 0.40, true)).toBeNull()
+    // Non-tree/crop or steep slope (either uphill + or downhill -) -> never orchard
+    expect(orchardKindOf('M', 32.1, 34.8, 40, 6, 0.03, 0.45, true)).toBeNull()
+    expect(orchardKindOf('M', 32.1, 34.8, 40, 1, 0.35, 0.45, true)).toBeNull()
+    expect(orchardKindOf('B', 31.8, 35.4, -250, 1, -0.40, 0.45, true)).toBeNull()
 
     // Cover -> vegetation class rules
-    const base = { ndvi: 0.45, dryness: 0.3, slope: 0.16, koppen: 'M' as const, lat: 32.9, lon: 35.5, elevationM: 400, mPerPx: 10, cellHash: 0.8 }
+    const base = { ndvi: 0.45, dryness: 0.3, slope: 0.16, koppen: 'M' as const, lat: 32.9, lon: 35.5, elevationM: 400, mPerPx: 10 }
     expect(classifyVegCell({ ...base, cover: 1 }).veg).toBe('forest')
     expect(classifyVegCell({ ...base, cover: 1, ndvi: 0.20 }).density).toBeLessThan(classifyVegCell({ ...base, cover: 1, ndvi: 0.65 }).density)
-    expect(classifyVegCell({ ...base, cover: 1, slope: 0.04, nearCrop: true }).veg).toBe('orchard')
-    expect(classifyVegCell({ ...base, cover: 1, slope: 0.04, nearCrop: true, mPerPx: ORCHARD_MAX_M_PER_PX + 1 }).veg).toBe('forest')
+    expect(classifyVegCell({ ...base, cover: 1, slope: 0.04, hasOrchardEvidence: true }).veg).toBe('orchard')
+    expect(classifyVegCell({ ...base, cover: 1, slope: 0.04, hasOrchardEvidence: true, mPerPx: ORCHARD_MAX_M_PER_PX + 1 }).veg).toBe('forest')
     expect(classifyVegCell({ ...base, cover: 4 }).veg).toBe('crop')
+    expect(classifyVegCell({ ...base, koppen: 'B', lat: 31.8, lon: 35.4, elevationM: -250, slope: 0.02, ndvi: 0.65, cover: 4 }).veg).toBe('crop')
     expect(classifyVegCell({ ...base, cover: 2 }).veg).toBe('shrub')
     expect(classifyVegCell({ ...base, cover: 3 }).veg).toBe('grass')
     expect(classifyVegCell({ ...base, cover: 6 }).veg).toBe('bare')
@@ -101,10 +106,22 @@ describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', ()
     expect(negev.terraces.length).toBe(0)
 
     // Grass shifts from green-olive in winter to warm straw-gold (higher L & yellow +b) in dry summer
-    const winterGrass = nearPlane(buildWorld(worldInput(loaded.get('shadmot-mehola')!, '2026-02-15T12:00'))).vegetation.tones[TONE.GRASS]
+    const winterShadmot = nearPlane(buildWorld(worldInput(loaded.get('shadmot-mehola')!, '2026-02-15T12:00'))).vegetation
+    const winterGrass = winterShadmot.tones[TONE.GRASS]
     const summerGrass = nearPlane(buildWorld(worldInput(loaded.get('shadmot-mehola')!, '2026-08-15T12:00'))).vegetation.tones[TONE.GRASS]
     expect(labOf(summerGrass).l).toBeGreaterThan(labOf(winterGrass).l + 0.04)
     expect(labOf(summerGrass).b).toBeGreaterThan(labOf(winterGrass).b)
+    // Near-slope scrub/grass tufts are readable at 375 px (radius >= 1.0 px and strong visibility on near slopes).
+    expect(winterShadmot.tufts.length).toBeGreaterThan(0)
+    const maxTuftR = Math.max(...Array.from({ length: winterShadmot.tufts.length / 4 }, (_, i) => winterShadmot.tufts[i * 4 + 2]))
+    const maxTuftA = Math.max(...Array.from({ length: winterShadmot.tufts.length / 4 }, (_, i) => winterShadmot.tufts[i * 4 + 3]))
+    expect(maxTuftR).toBeGreaterThanOrEqual(1.1)
+    expect(maxTuftA).toBeGreaterThan(0.55)
+
+    // Woodland palette separates dark understory < crown body < ambient light side for readability at 375 px.
+    const roshVeg = nearPlane(buildWorld(worldInput(loaded.get('rosh-pina')!, '2026-02-15T12:00'))).vegetation
+    expect(labOf(roshVeg.tones[TONE.PINE_UNDER]).l).toBeLessThan(labOf(roshVeg.tones[TONE.PINE_MID]).l - 0.08)
+    expect(labOf(roshVeg.tones[TONE.PINE_LIT]).l).toBeGreaterThan(labOf(roshVeg.tones[TONE.PINE_MID]).l + 0.08)
 
     // Forest cover (10) produces clustered trees with high NDVI and fewer/sparser trees when NDVI is low
     const highForest = nearPlane(buildWorld(makeWorldInput(SHADMOT, '2026-11-15T12:00', {
