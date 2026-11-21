@@ -48,10 +48,10 @@ export function addForestCluster(
   // Foreground crowns (~16 m) aggregate into merged woodland crown domes (~38 m) on mid slopes (KKL-JNF / FAO forestry).
   const domeM = 16 + 0.56 * mPerPx
   const baseR = clamp(domeM / Math.max(3, mPerPx), 1.35, 3.30)
-  const count = clamp(Math.round((3 + 7 * density) * (0.60 + 0.40 * fade)), 2, 10)
-  const groves = count >= 6 ? 3 : 2
-  const groveOffX = Array.from({ length: groves }, (_, g) => (g - (groves - 1) / 2) * colW * 0.24 + (rand() - 0.5) * colW * 0.14)
-  const groveOffY = Array.from({ length: groves }, () => (rand() - 0.5) * cellH * 0.34)
+  const count = clamp(Math.round((4 + 9 * density) * (0.65 + 0.35 * fade)), 2, 13)
+  const groves = count >= 9 ? 4 : count >= 6 ? 3 : 2
+  const groveOffX = Array.from({ length: groves }, (_, g) => (g - (groves - 1) / 2) * colW * (0.68 / groves) + (rand() - 0.5) * colW * 0.16)
+  const groveOffY = Array.from({ length: groves }, (_, g) => (g % 2 === 0 ? -0.24 : 0.24) * cellH + (rand() - 0.5) * cellH * 0.26)
   const alphaByte = Math.round(clamp(fade * weight * (0.88 + 0.12 * density), 0, 1) * 255)
   for (let i = 0; i < count && buf.trees.length / 6 < CAPS.trees; i++) {
     const g = i % groves, rank = Math.floor(i / groves)

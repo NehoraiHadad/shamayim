@@ -81,7 +81,7 @@ export function planeVegetationOf(
     if (name === 'far' && world.terrain.sightAt && !world.terrain.sightAt(baseRefX).farShows) continue
     const cy0 = crestAt(baseRefX), fy0 = footAt(baseRefX), spanY0 = fy0 - cy0
     if (spanY0 < 4) continue
-    const colRows = name === 'far' ? (spanY0 < 16 ? 1 : 2) : spanY0 < 24 ? 2 : 3
+    const colRows = name === 'far' ? (spanY0 < 16 ? 1 : 2) : spanY0 < 24 ? 2 : spanY0 >= 56 ? 4 : 3
     for (let r = 0; r < colRows; r++) {
       const rand = seeded(cellSeed(seed, c, r))
       const fTop = r / colRows, fBot = (r + 1) / colRows
