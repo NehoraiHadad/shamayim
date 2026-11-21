@@ -2,6 +2,7 @@ import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, t
 import type { LayerDesc } from '../model/types'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
+import type { SceneStats } from './stats'
 
 export interface SurfaceOptions extends CacheOptions {
   /**
@@ -31,6 +32,7 @@ export class Surface {
   still = false
   private readonly now: () => number
   private readonly onArrive?: SurfaceOptions['onArrive']
+  private readonly stats?: SceneStats
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
   private shown: { layers: readonly LayerDesc[]; anim: string } | null = null
@@ -42,6 +44,7 @@ export class Surface {
     this.cache = new LayerCache(options)
     this.now = options.now ?? (() => performance.now())
     this.onArrive = options.onArrive
+    this.stats = options.stats
     const worker = options.worker?.()
     if (worker) {
       this.remote = new RemoteCache({ worker, painters: options.painters, hand: options.hand, now: this.now,
@@ -201,6 +204,11 @@ export class Surface {
         draw(light)
         ctx.globalCompositeOperation = 'source-over'
       }
+      if (this.stats) {
+        const fresh = cache.fresh(desc, d)
+        if (fresh) this.stats.shown[desc.id] = { key: desc.key, lightKey: desc.light?.key ?? null, fresh: true }
+        else if (this.stats.shown[desc.id]) this.stats.shown[desc.id].fresh = false
+      }
       if (lay?.above !== undefined) ctx.restore()
       ctx.globalAlpha = 1
     }
@@ -317,8 +325,14 @@ export class Surface {
    */
   render(layers: readonly LayerDesc[], phase = 0, still = this.still): Painted[] {
     this.last = layers
-    this.prune(new Set(layers.map((layer) => layer.id)))
+    const keep = new Set(layers.map((layer) => layer.id))
+    this.prune(keep)
     const painted = layers.map((desc) => this.paint(desc, phase))
+    if (this.stats) {
+      for (const desc of layers) {
+        if (!this.fresh(desc) && this.stats.shown[desc.id]) this.stats.shown[desc.id].fresh = false
+      }
+    }
     this.flush()
     // An animation tick that moved nothing a whole pixel (and repainted or asked for nothing) leaves the canvas as it is.
     if (this.shown && this.shown.layers === layers && this.shown.anim === this.animState(layers, phase, still)

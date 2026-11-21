@@ -62,6 +62,11 @@ export function buildGibsNdviPng(root) {
   ])
 }
 
+/** Reads the genuine recorded 256×256 NASA GIBS MODIS_Terra_L3_SurfaceReflectance_Bands143_8Day JPEG tile. */
+export function loadGibsSrJpeg(root) {
+  return fs.readFileSync(path.join(root, 'src/test/fixtures/land-gibs-sr-2026-11-01.jpg'))
+}
+
 /** Builds production-sized 256×256 40 m UTM 36N GeoTIFFs (±5 km around Shadmot) from the recorded S2 fixture. */
 export async function buildRecordedS2Fixture(root) {
   const fx = JSON.parse(fs.readFileSync(path.join(root, 'src/test/fixtures/land-s2-shadmot.json'), 'utf8'))

@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { launch, root, startServer } from './harness.mjs'
-import { buildGibsNdviPng, buildRecordedS2Fixture, fulfillRange } from './landFixtures.mjs'
+import { buildGibsNdviPng, buildRecordedS2Fixture, fulfillRange, loadGibsSrJpeg } from './landFixtures.mjs'
 
 const SHADMOT = { id: 'shadmot-mehola', nameHe: 'שדמות מחולה', regionHe: 'בקעת הירדן', lat: 32.3465, lon: 35.5325, timezone: 'Asia/Jerusalem' }
 
@@ -15,7 +15,9 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
   const panorama = fs.readFileSync(path.join(root, 'src/test/fixtures/scene/shadmot-mehola.panorama.json'), 'utf8')
   const forecast = JSON.parse(fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'), 'utf8'))
   forecast.elevation = JSON.parse(panorama).groundM
-  const [{ stac, cogs }, gibsPng] = await Promise.all([buildRecordedS2Fixture(root), Promise.resolve(buildGibsNdviPng(root))])
+  const [{ stac, cogs }, gibsPng, gibsSrJpg] = await Promise.all([
+    buildRecordedS2Fixture(root), Promise.resolve(buildGibsNdviPng(root)), Promise.resolve(loadGibsSrJpeg(root)),
+  ])
 
   let releaseLand
   const landGate = new Promise((r) => { releaseLand = r })
@@ -37,6 +39,13 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
     if (url.host === 'gibs.earthdata.nasa.gov' && url.pathname.includes('MODIS_Terra_NDVI_8Day')) {
       await landGate
       return route.fulfill({ status: 200, contentType: 'image/png', body: gibsPng, headers: { 'Access-Control-Allow-Origin': '*' } })
+    }
+    if (url.host === 'gibs.earthdata.nasa.gov' && url.pathname.includes('MODIS_Terra_L3_SurfaceReflectance_Bands143_8Day')) {
+      await landGate
+      // Serve the genuine recorded 2026-11-01 tile only on its true date (404 on newer composite slots).
+      return url.pathname.includes('/2026-11-01/')
+        ? route.fulfill({ status: 200, contentType: 'image/jpeg', body: gibsSrJpg, headers: { 'Access-Control-Allow-Origin': '*' } })
+        : route.fulfill({ status: 404, headers: { 'Access-Control-Allow-Origin': '*' } })
     }
     if (url.host === host) {
       if (/\/data\/land\/il\/\d+_\d+\.json$/.test(url.pathname)) {
@@ -61,29 +70,46 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
 
   const tNav = performance.now()
   await page.goto(`${serverUrl}/`)
-  // 1. First fallback canvas paint MUST complete on the land surface while delayed satellite replies are still held
+  // 1. First fallback canvas paint MUST composite fresh `plane.near` and `plane.far` (never satisfied by C8 mist)
   await page.waitForFunction(() => {
-    const steps = window.__sceneStats?.steps
-    const painted = Boolean(steps?.['firstShown.land']?.length || steps?.['firstPaint.land']?.length)
-    return Boolean(document.querySelector('figure[data-canvas]') && window.__world?.land && painted)
+    const shown = window.__sceneStats?.shown
+    return Boolean(document.querySelector('figure[data-canvas]') && window.__world?.terrain?.status === 'ready'
+      && window.__world?.land && shown?.['plane.near']?.fresh && shown?.['plane.far']?.fresh)
   }, null, { timeout: 60000 })
   const firstFallbackPaintMs = performance.now() - tNav
-  const initialSource = await page.evaluate(() => window.__world.land.own.albedoSource)
+  const fallbackSnap = await page.evaluate(() => ({
+    albedoSource: window.__world.land.own.albedoSource,
+    nearKey: window.__sceneStats.shown['plane.near'].key,
+    farKey: window.__sceneStats.shown['plane.far'].key,
+  }))
 
-  // 2. Release delayed S2 + GIBS replies and measure refinement on production-sized grids
+  // 2. Release delayed S2 + GIBS NDVI + GIBS SR RGB replies and wait for refined `plane.near` & `plane.far` composites
   const tRelease = performance.now()
   releaseLand()
-  await page.waitForFunction(() => {
+  await page.waitForFunction(({ nearKey, farKey }) => {
     const l = window.__world?.land
     const far20 = l?.rays?.[20]?.bands?.find((b) => b.distanceM === 20_000)?.sample
-    return Boolean(l?.own?.albedoSource?.startsWith('s2:2026-11-15') && far20?.ndviSource?.startsWith('gibs:'))
-  }, null, { timeout: 60000 })
+    const shown = window.__sceneStats?.shown
+    return Boolean(
+      l?.own?.albedoSource?.startsWith('s2:2026-11-15')
+      && far20?.ndviSource?.startsWith('gibs:')
+      && far20?.albedoSource?.startsWith('gibs:2026-11-01')
+      && shown?.['plane.near']?.fresh && shown['plane.near'].key !== nearKey
+      && shown?.['plane.far']?.fresh && shown['plane.far'].key !== farKey,
+    )
+  }, { nearKey: fallbackSnap.nearKey, farKey: fallbackSnap.farKey }, { timeout: 60000 })
   const refinementMs = performance.now() - tRelease
-  const refinedMeta = await page.evaluate(() => ({
-    ownAlbedo: window.__world.land.own.albedoSource,
-    ownCover: window.__world.land.own.coverSource,
-    farNdvi: window.__world.land.rays[20].bands.find((b) => b.distanceM === 20_000)?.sample.ndviSource,
-  }))
+  const refinedMeta = await page.evaluate(() => {
+    const far20 = window.__world.land.rays[20].bands.find((b) => b.distanceM === 20_000)?.sample
+    return {
+      ownAlbedo: window.__world.land.own.albedoSource,
+      ownCover: window.__world.land.own.coverSource,
+      farNdvi: far20?.ndviSource,
+      farAlbedo: far20?.albedoSource,
+      nearKey: window.__sceneStats.shown['plane.near'].key,
+      farKey: window.__sceneStats.shown['plane.far'].key,
+    }
+  })
 
   // 3. Same-UTC-day hour scrub via real App slider: assert `world.land` reference is reused on every step
   const slider = page.locator('[role="slider"][aria-label="שעה בעמק"]')
@@ -103,14 +129,17 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
 
   const duplicateTiles = [...fineTileFetches.entries()].filter(([, n]) => n > 1)
   const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
-  console.log(`\napp living-land mount (shadmot-mehola, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS intercepted)`)
-  console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${initialSource}, satellite held)`)
-  console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km=${refinedMeta.farNdvi})`)
+  console.log(`\napp living-land mount (shadmot-mehola, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
+  console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${fallbackSnap.albedoSource}, plane.near=${fallbackSnap.nearKey}, satellite held)`)
+  console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey})`)
   console.log(`  sameDayScrub       p50 ${med(scrubSteps).toFixed(1)} ms  (n=${scrubSteps.length}, world.land reused=${reused})`)
   console.log(`  coldFineTiles      ${fineTileFetches.size} unique tiles fetched, duplicates=${duplicateTiles.length}`)
 
   const problems = []
-  if (initialSource !== 'climatology') problems.push(`first paint albedoSource=${initialSource} (expected climatology)`)
+  if (fallbackSnap.albedoSource !== 'climatology') problems.push(`first paint albedoSource=${fallbackSnap.albedoSource} (expected climatology)`)
+  if (!refinedMeta.farAlbedo?.startsWith('gibs:2026-11-01')) problems.push(`far albedoSource=${refinedMeta.farAlbedo} (expected gibs:2026-11-01*)`)
+  if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
+  if (refinedMeta.farKey === fallbackSnap.farKey) problems.push('plane.far form key did not update on refinement')
   if (!reused) problems.push('same-day scrub rebuilt world.land')
   if (duplicateTiles.length) problems.push(`duplicate cold fine-tile fetches: ${duplicateTiles.map(([k, n]) => `${k}×${n}`).join(', ')}`)
   return { firstFallbackPaintMs, refinementMs, scrubMedianMs: med(scrubSteps), reused, duplicateTiles, problems }

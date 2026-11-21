@@ -4,12 +4,15 @@
  * it on `window.__sceneStats`; `?perf=1` shows it in a small HUD.
  */
 export interface LayerStat { paints: number; lightPaints: number; hits: number; lastMs: number }
+/** Last composited form/light keys per layer id (`fresh: true` only once painted for the current model and composited). */
+export interface ShownLayer { key: string; lightKey: string | null; fresh: boolean }
 
 export interface StepSummary { n: number; p50: number; p95: number; max: number }
 
 export interface SceneStats {
   steps: Record<string, number[]>
   layers: Record<string, LayerStat>
+  shown: Record<string, ShownLayer>
   /** Backing memory of each surface's visible and cached canvases (bytes). */
   memory: Record<string, number>
   record(step: string, ms: number): void
@@ -35,6 +38,7 @@ export function makeStats(now: () => number = () => performance.now()): SceneSta
   const stats: SceneStats = {
     steps: {},
     layers: {},
+    shown: {},
     memory: {},
     record(step, ms) {
       const list = (stats.steps[step] ??= [])
@@ -68,6 +72,7 @@ export function makeStats(now: () => number = () => performance.now()): SceneSta
     },
     reset() {
       stats.steps = {}
+      stats.shown = {}
       for (const layer of Object.values(stats.layers)) Object.assign(layer, { paints: 0, lightPaints: 0, hits: 0, lastMs: 0 })
     },
   }

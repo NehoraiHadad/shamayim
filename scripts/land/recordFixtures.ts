@@ -10,7 +10,7 @@ import path from 'node:path'
 import zlib from 'node:zlib'
 import { SHADMOT_MEHOLA } from '../../src/config/place'
 import { defaultOpenTiff, readCogWindow } from '../../src/data/land/cogReader'
-import { gibsNdviUrl, GIBS_ZOOM } from '../../src/data/land/gibs'
+import { gibsNdviUrl, gibsSrUrl, GIBS_ZOOM } from '../../src/data/land/gibs'
 import { parseIndexedPng } from '../../src/data/land/gibsDecode'
 import { recentWeatherUrl } from '../../src/data/land/recentWeather'
 import { MAX_OVERVIEW_RES_M, STAC_SEARCH } from '../../src/data/land/satellite'
@@ -128,6 +128,12 @@ async function recordGibs() {
   }
   fs.writeFileSync(path.join(OUT_DIR, 'land-gibs-ndvi.json'), JSON.stringify(fixture, null, 2))
   console.log('Wrote land-gibs-ndvi.json', date, 'plte entries:', parsed.plte.length / 3, 'trns len:', parsed.trns.length)
+  const srUrl = gibsSrUrl('2026-11-01', GIBS_ZOOM, row, col)
+  const srRes = await fetch(srUrl)
+  if (!srRes.ok) throw new Error(`GIBS SR HTTP ${srRes.status} for ${srUrl}`)
+  const srBuf = Buffer.from(await srRes.arrayBuffer())
+  fs.writeFileSync(path.join(OUT_DIR, 'land-gibs-sr-2026-11-01.jpg'), srBuf)
+  console.log('Wrote land-gibs-sr-2026-11-01.jpg', srBuf.length, 'bytes')
 }
 
 async function recordRecentWeather() {

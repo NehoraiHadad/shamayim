@@ -72,7 +72,10 @@ try {
     const offThread = await page.evaluate(() => window.__scene.offThread)
     const cold = await page.evaluate(() => {
       const s = window.__sceneStats
-      return { steps: s.steps, memory: Object.values(s.memory).reduce((a, b) => a + b, 0) }
+      return {
+        steps: s.steps, memory: Object.values(s.memory).reduce((a, b) => a + b, 0),
+        workerCold: { sky: [...(s.steps['worker.sky'] ?? [])], land: [...(s.steps['worker.land'] ?? [])] },
+      }
     })
     // A scrub frame: the synchronous frame (world, model, paint or ask, composite) and, with the worker, the main thread's
     // time laying what arrived before the next frame.
@@ -96,6 +99,7 @@ try {
     const layerMs = await page.evaluate(() => Object.entries(window.__sceneStats.layers)
       .map(([id, l]) => `${id} ${l.lastMs.toFixed(1)}`).join(', '))
     const workerMs = await page.evaluate(() => ['sky', 'land'].map((name) => [name, window.__sceneStats.steps[`worker.${name}`] ?? []]))
+    const workerScrubMs = workerMs.map(([name, list]) => [name, list.slice(cold.workerCold[name].length)])
     const firstPaint = (cold.steps['firstPaint.sky']?.[0] ?? 0) + (cold.steps['firstPaint.land']?.[0] ?? 0)
     // The two surfaces' workers paint side by side: every layer shows when the later one is done.
     const firstShown = offThread ? Math.max(cold.steps['firstShown.sky']?.[0] ?? 0, cold.steps['firstShown.land']?.[0] ?? 0) : firstPaint
@@ -128,7 +132,8 @@ try {
     console.log(`  memory       ${mb.toFixed(1)} MB (budget ${BUDGET.memory.mb})`)
     console.log(`  scrub repainted: ${repainted.join(', ') || 'nothing'}`)
     if (offThread) {
-      console.log(`  worker batch (ms, the worker's own time, raster included): ${workerMs.map(([name, list]) =>
+      console.log(`  worker cold  (ms, form+light): sky ${cold.workerCold.sky.map((v) => v.toFixed(1)).join('/') || '-'}, land ${cold.workerCold.land.map((v) => v.toFixed(1)).join('/') || '-'}`)
+      console.log(`  worker scrub (ms, light only): ${workerScrubMs.map(([name, list]) =>
         `${name} p50 ${q(list, 0.5).toFixed(1)} p95 ${q(list, 0.95).toFixed(1)} (n ${list.length})`).join(', ')}`)
     } else console.log(`  last paint per layer (ms): ${layerMs}`)
     await context.close()

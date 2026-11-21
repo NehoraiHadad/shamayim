@@ -188,22 +188,30 @@ describe('painting in the worker', () => {
 
   it('lays the arrivals on the surface, and paints on the main thread once the worker fails', () => {
     const worker = fakeWorker()
+    const stats = makeStats(() => 0)
     const { count, painters: counted } = counting()
     let laid = 0
-    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, now: () => 0, worker: () => worker,
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, stats, now: () => 0, worker: () => worker,
       onArrive: () => { laid++ } })
     surface.resize(375, 128, 2)
     surface.render([plane('a', 'l1')])
     expect(count).toEqual({ form: 0, light: 0 })
+    expect(stats.shown['plane.near']).toBeUndefined()
     worker.answer()
     expect(laid).toBe(1)
     expect(surface.fresh(plane('a', 'l1'))).toBe(true)
-    surface.render([plane('a', 'l2')])
+    expect(stats.shown['plane.near']).toEqual({ key: 'a', lightKey: 'l1', fresh: true })
+    surface.render([plane('b', 'l1')])
+    expect(stats.shown['plane.near']).toEqual({ key: 'a', lightKey: 'l1', fresh: false })
+    worker.answer()
+    expect(stats.shown['plane.near']).toEqual({ key: 'b', lightKey: 'l1', fresh: true })
+    surface.render([plane('b', 'l2')])
     worker.onerror?.(new Event('error'))
     expect(worker.terminated).toBe(true)
     expect(surface.remote).toBeNull()
     expect(count).toEqual({ form: 1, light: 1 })
-    expect(surface.fresh(plane('a', 'l2'))).toBe(true)
+    expect(surface.fresh(plane('b', 'l2'))).toBe(true)
+    expect(stats.shown['plane.near']).toEqual({ key: 'b', lightKey: 'l2', fresh: true })
   })
 })
 
