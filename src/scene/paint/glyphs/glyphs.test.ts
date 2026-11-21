@@ -112,7 +112,7 @@ it('keeps Shadmot Mehola glyph form fixed from 05:30 through 21:00', async () =>
     for (const layer of layers) {
       const glyphs = layer.kind === 'marks' ? layer.glyphs : layer.kind === 'outside'
         ? layer.items.flatMap((item) => item.kind === 'mark' ? [item.glyph] : []) : null
-      if (!glyphs) continue
+      if (!glyphs || !('shine' in layer)) continue
       for (const glyph of glyphs) {
         const key = `${layer.id}:${glyph.kind}:${glyph.seed}`
         const { form } = record(glyph, layer.shine)
