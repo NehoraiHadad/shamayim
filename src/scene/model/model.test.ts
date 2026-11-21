@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
+import { heightText } from '../../text/isolate'
 import { DOT_R, textWidth } from '../../world/layout'
 import { BACKING_PAD } from '../../world/place'
 import { markBox } from '../../world/marks'
@@ -22,6 +23,10 @@ beforeAll(async () => {
   loaded = await loadPlaces()
 })
 afterAll(() => { vi.unstubAllGlobals() })
+
+it('measures the height label without its bidi isolates', () => {
+  expect(textWidth(heightText(-137), 11)).toBe(textWidth('−137 מ׳', 11))
+})
 
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
   it('places the dot and the notes, the height label clear of the marks', () => {

@@ -34,5 +34,5 @@ export function shifts(max: number, step: number) {
 }
 
 /** Width of a one-line label (Heebo-like digits and Hebrew run about half an em). */
-export function textWidth(text: string, fontPx: number) { return text.length * fontPx * .5 + 1 }
+export function textWidth(text: string, fontPx: number) { return text.replace(/[\u2066-\u2069]/g, '').length * fontPx * .5 + 1 }
 

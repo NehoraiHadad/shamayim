@@ -10,6 +10,11 @@ it('wraps bare clocks and keeps either minus spelling with the digits', () => {
     .toBe('בשעה <bdi>05:40</bdi> בין <bdi>−3°</bdi> ל־<bdi>−1°</bdi>')
 })
 
+it('keeps the range hyphen between separately isolated numbers', () => {
+  const parts = isolateNumbers('10-15')
+  expect(renderToStaticMarkup(createElement(Fragment, null, parts))).toBe('<bdi>10</bdi>-<bdi>15</bdi>')
+})
+
 it('preserves existing isolates, including nested ones, when wrapping bare numbers', () => {
   const isolated = `${tempText(-3)}, ${heightText(-137)}`
   const parts = isolateNumbers(`${isolated} בשעה 05:40`)
