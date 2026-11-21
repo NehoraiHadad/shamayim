@@ -8,7 +8,7 @@ import { css, mix, type Ctx2D } from './hand'
  * Draws back-to-front crowns from `PlaneVegetation.trees` / `treeMeta` (stride-3 meta includes fade alpha):
  * - `0` pine/oak woodland: two-pass clustered dark understory bed + multi-lobe rounded crowns with clear
  *   ambient light side, shade side and grounded contact shadow, visible at 375 px and fading with distance.
- * - `1` olive / `2` citrus: rounded multi-lobe canopy crowns in rows/blocks with light & shade sides.
+ * - `1` olive / `2` citrus / `4` neutral unknown-species orchard: rounded multi-lobe canopy crowns in rows/blocks.
  * - `3` date palm: curved slender trunk + radiating arching fronds + crown knot, fading smoothly with distance.
  * Worker-safe on OffscreenCanvas; pure in `(desc, env)`; zero clock; zero `ctx.filter`.
  */
@@ -22,8 +22,8 @@ export function treeCrownAnchor(x: number, y: number, r: number, height: number,
   if (kind === 3) {
     return { cx: x + palmBend(r, phase), cy: y - height * PALM_CROWN_HEIGHT, rx: r * 1.05, ry: r * 0.62 }
   }
-  const rx = kind === 1 ? r * 1.18 : kind === 2 ? r * 0.98 : r * 1.14
-  const ry = kind === 1 ? r * 0.78 : kind === 2 ? r * 0.92 : r * 0.90
+  const rx = kind === 1 ? r * 1.18 : kind === 2 ? r * 0.98 : kind === 4 ? r * 1.06 : r * 1.14
+  const ry = kind === 1 ? r * 0.78 : kind === 2 ? r * 0.92 : kind === 4 ? r * 0.86 : r * 0.90
   return { cx: x, cy: y - ry * 0.55, rx, ry }
 }
 

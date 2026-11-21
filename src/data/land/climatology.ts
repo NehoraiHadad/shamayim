@@ -95,6 +95,14 @@ function seasonalDryness(zone: ClimateZone, code: KoppenCode, m: number): number
   }
 }
 
+/** Regional annual seasonal dryness bounds `[min, max]` for `(lat, lon, elevationM)` (for climate-relative phenology). */
+export function seasonalDrynessRange(lat: number, lon: number, elevationM = 0): { min: number; max: number } {
+  const code = koppenAt(lat, lon)
+  const zone = climateZoneAt(lat, lon, elevationM)
+  const a = seasonalDryness(zone, code, 1.5), b = seasonalDryness(zone, code, 7.5)
+  return { min: Math.min(a, b), max: Math.max(a, b) }
+}
+
 /** Precipitation- and temperature-aware heuristic snow-cover probability in `[0, 1]`. */
 function snowProbability(lat: number, elevationM: number, m: number, cover: number, code: KoppenCode): number {
   if (cover === 7) return 0.9

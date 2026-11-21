@@ -61,6 +61,12 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
     // Crown is at cy ≈ 84.42 (well above trunk/base at y - r*0.58 ≈ 88.26).
     expect(ellipses[0].cy).toBeLessThan(85)
     expect(ellipses[0].cx).toBeGreaterThan(x + 1.5)
+
+    // Unknown-species orchard crown (kind 4) has distinct proportions from wide silvery olive (kind 1).
+    const oliveAnchor = treeCrownAnchor(100, 90, 3, 5, 0.5, 1)
+    const orchardAnchor = treeCrownAnchor(100, 90, 3, 5, 0.5, 4)
+    expect(orchardAnchor.rx).toBeLessThan(oliveAnchor.rx)
+    expect(orchardAnchor.ry).toBeGreaterThan(oliveAnchor.ry)
   })
 
   it('weights tuft and crown lift alpha by visibility and fades form crowns smoothly to zero near cutoff', () => {

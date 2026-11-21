@@ -66,7 +66,7 @@ export interface PlaneVegetation {
   seed: number
   /** Tree & orchard crowns, back-to-front by y (stride 6: x, y, radius, height, phase, shade). */
   trees: Float32Array
-  /** Per-tree metadata (stride 3: kind 0=pine 1=olive 2=citrus 3=palm; toneIdx into `tones`; alphaByte 0..255). */
+  /** Per-tree metadata (stride 3: kind 0=pine 1=olive 2=citrus 3=palm 4=orchard; toneIdx into `tones`; alphaByte 0..255). */
   treeMeta: Uint8Array
   /** Ground-plane cropland field quads (stride 9: x0,y0, x1,y1, x2,y2, x3,y3, alpha). */
   fields: Float32Array
@@ -84,7 +84,7 @@ export interface PlaneVegetation {
   strata: Float32Array
   /** Per-strata tone index into `tones` (stride 1). */
   strataMeta: Uint8Array
-  /** Small shared light-free illustrated vegetation palette (≤ 17 muted sRGB tones). */
+  /** Small shared light-free illustrated vegetation palette (≤ 18 muted sRGB tones). */
   tones: RGB[]
 }
 

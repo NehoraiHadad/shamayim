@@ -3,8 +3,11 @@ import { destination } from '../../data/terrain/panorama'
 import { azimuthAt } from '../../domain/camera'
 import { partKey } from '../../world/keys'
 import { SCENE_W } from '../../world/sceneBox'
-import type { WorldState } from '../../world/types'
+import type { Plane, WorldState } from '../../world/types'
+import { faceAtY, type PlaneName } from './faceProjection'
 import type { Footprint } from './vegFootprint'
+import { mPerPxAt, ORCHARD_MAX_M_PER_PX } from './vegRules'
+import { sampleVegAtKm } from './vegSample'
 
 const EMPTY: readonly CropArea[] = []
 const keys = new WeakMap<readonly CropArea[], string>()
@@ -75,4 +78,33 @@ export function cropEvidence(world: WorldState) {
       }
     }
   }
+}
+
+const SUB_PROBES: readonly [number, number][] = [
+  [0, 0.12], [0, 0.42], [0, 0.78],
+  [-0.22, 0.14], [0.22, 0.14], [-0.22, 0.50], [0.22, 0.50], [-0.22, 0.82], [0.22, 0.82],
+  [-0.40, 0.25], [0.40, 0.25], [-0.40, 0.70], [0.40, 0.70],
+]
+
+/** Deterministic sub-cell probe so 100–400 m mapped OSM orchards inside a coarse cell are never skipped. */
+export function probeCellCropEvidence(
+  world: WorldState, name: PlaneName, plane: Plane,
+  evidenceAt: ReturnType<typeof cropEvidence>,
+  crestAt: (x: number) => number, footAt: (x: number) => number,
+  refX: number, colW: number, yTop: number, yBot: number, nRays: number,
+) {
+  if (name !== 'near' || !world.cropAreas?.length) return undefined
+  for (const [ox, fyFrac] of SUB_PROBES) {
+    const sxPos = Math.max(1, Math.min(SCENE_W - 1, refX + ox * colW))
+    const sCy = crestAt(sxPos), sFy = footAt(sxPos)
+    const syPos = Math.max(sCy + 1.0, yTop + fyFrac * (yBot - yTop))
+    if (syPos >= sFy - 0.8) continue
+    const hitFace = faceAtY(world, name, plane, sxPos, sCy, sFy, syPos)
+    if (mPerPxAt(hitFace.km * 1000, world.camera) > ORCHARD_MAX_M_PER_PX) continue
+    const hitSample = sampleVegAtKm(world.land, (sxPos / SCENE_W) * nRays, hitFace.km)
+    if (hitSample.cover !== 1 && hitSample.cover !== 4) continue
+    const hit = evidenceAt(sxPos, hitFace.km)
+    if (hit) return { evidence: hit, x: sxPos, km: hitFace.km, slope: hitFace.slope, cover: hitSample.cover }
+  }
+  return undefined
 }

@@ -10,7 +10,9 @@ import { CAPS, type BuildEnv, type VegBuffers } from './vegBuilders'
 import { treeExtent } from './vegShapes'
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-const toneFor = (kind: OrchardKind) => kind === 'palm' ? TONE.PALM : kind === 'citrus' ? TONE.CITRUS : TONE.OLIVE
+// Untagged `landuse=orchard` uses the neutral unknown-species tone (never assuming olive).
+const toneFor = (kind: OrchardKind) =>
+  kind === 'palm' ? TONE.PALM : kind === 'citrus' ? TONE.CITRUS : kind === 'olive' ? TONE.OLIVE : TONE.ORCHARD
 const orchardCover = (c: number | null) => c === 1 || c === 4
 
 /** The coarse background can grow as the detailed orchard disappears without changing the ecological class. */

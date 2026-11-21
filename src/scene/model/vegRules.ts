@@ -47,7 +47,8 @@ export const ORCHARD_ALLEY_M: Record<OrchardKind, number> = { orchard: 34, olive
 /** Illustration threshold for anti-aliased individual row centres in CSS pixels. */
 export const MIN_RESOLVED_ROW_PX = 2
 
-export const TREE_KIND_CODE: Record<'pine' | OrchardKind, number> = { pine: 0, orchard: 1, olive: 1, citrus: 2, palm: 3 }
+/** Crown motif codes: 0=pine/woodland, 1=olive, 2=citrus, 3=palm, 4=neutral unknown-species orchard. */
+export const TREE_KIND_CODE: Record<'pine' | OrchardKind, number> = { pine: 0, olive: 1, citrus: 2, palm: 3, orchard: 4 }
 export const FIELD_STATE_CODE: Record<FieldState, number> = { growing: 0, ploughed: 1, straw: 2 }
 
 const RAD = Math.PI / 180

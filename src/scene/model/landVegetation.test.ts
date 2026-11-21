@@ -14,9 +14,11 @@ import type { LayerOf, SceneBox } from './types'
 import {
   classifyVegCell, cropFieldState, distanceFade, FIELD_MAX_M_PER_PX, mPerPxAt,
   ORCHARD_FULL_M_PER_PX, ORCHARD_MAX_M_PER_PX, SCRUB_MAX_M_PER_PX,
-  solarMonthOf, STRATA_MAX_M_PER_PX, TREE_MAX_M_PER_PX,
+  solarMonthOf, STRATA_MAX_M_PER_PX, TREE_KIND_CODE, TREE_MAX_M_PER_PX,
 } from './vegRules'
-import { TONE } from './vegSample'
+import { buildVegPalette, TONE } from './vegSample'
+import { addOrchardBlock } from './vegOrchard'
+import { emptyBuf, flatEnv } from './vegBuilderFixtures.testkit'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 let loaded: Map<string, LoadedPlace>
@@ -85,12 +87,32 @@ describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', ()
     expect(negev.vegetation.strata.length).toBeGreaterThan(0)
     expect(negev.terraces.length).toBe(0)
 
-    // Grass shifts from green-olive in winter to warm straw-gold (higher L & yellow +b) in dry summer
+    // Grass stays green at semi-arid winter peak (climate-relative onset + NDVI) and shifts to straw-gold in dry summer.
     const winterShadmot = nearPlane(buildWorld(worldInput(loaded.get('shadmot-mehola')!, '2026-02-15T12:00'))).vegetation
     const winterGrass = winterShadmot.tones[TONE.GRASS]
     const summerGrass = nearPlane(buildWorld(worldInput(loaded.get('shadmot-mehola')!, '2026-08-15T12:00'))).vegetation.tones[TONE.GRASS]
+    expect(labOf(winterGrass).a).toBeLessThan(-0.04) // distinctly green in mid-February Jordan Valley (never premature straw)
+    expect(labOf(summerGrass).a).toBeGreaterThan(labOf(winterGrass).a + 0.03)
     expect(labOf(summerGrass).l).toBeGreaterThan(labOf(winterGrass).l + 0.04)
     expect(labOf(summerGrass).b).toBeGreaterThan(labOf(winterGrass).b)
+    // Observed high-NDVI grass stays greener than dry low-NDVI grass at the same semi-arid dryness.
+    const greenObs = buildVegPalette([0.2, 0.25, 0.18], 0.55, { grassDryness: 0.55, minClimateDry: 0.42, grassNdvi: 0.48 })[TONE.GRASS]
+    const dryObs = buildVegPalette([0.2, 0.25, 0.18], 0.55, { grassDryness: 0.55, minClimateDry: 0.42, grassNdvi: 0.16 })[TONE.GRASS]
+    expect(labOf(greenObs).a).toBeLessThan(labOf(dryObs).a - 0.02)
+
+    // Generic untagged `orchard` uses a neutral unknown-species motif, distinct from silvery `olive`.
+    expect(TREE_KIND_CODE.orchard).not.toBe(TREE_KIND_CODE.olive)
+    const pal = buildVegPalette([0.2, 0.25, 0.18], 0.30)
+    const oliveLab = labOf(pal[TONE.OLIVE]), orchardLab = labOf(pal[TONE.ORCHARD])
+    expect(Math.hypot(oliveLab.l - orchardLab.l, oliveLab.a - orchardLab.a, oliveLab.b - orchardLab.b)).toBeGreaterThan(0.03)
+    const ordBuf = emptyBuf(), olBuf = emptyBuf()
+    addOrchardBlock(ordBuf, flatEnv(1, 2), () => 0.4, 180, 65, 110, 24, 2, 'orchard', 0.9)
+    addOrchardBlock(olBuf, flatEnv(1, 2), () => 0.4, 180, 65, 110, 24, 2, 'olive', 0.9)
+    expect(ordBuf.rowMeta[0]).toBe(TONE.ORCHARD)
+    expect(olBuf.rowMeta[0]).toBe(TONE.OLIVE)
+    expect(ordBuf.treeMeta[0]).toBe(TREE_KIND_CODE.orchard)
+    expect(ordBuf.treeMeta[1]).toBe(TONE.ORCHARD)
+    expect(olBuf.treeMeta[0]).toBe(TREE_KIND_CODE.olive)
     // Near-slope scrub/grass tufts are readable at 375 px (radius >= 1.0 px and strong visibility on near slopes).
     expect(winterShadmot.tufts.length).toBeGreaterThan(0)
     const maxTuftR = Math.max(...Array.from({ length: winterShadmot.tufts.length / 4 }, (_, i) => winterShadmot.tufts[i * 4 + 2]))

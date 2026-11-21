@@ -1,4 +1,5 @@
 //# allFunctionsCalledOnLoad
+import { seasonalDrynessRange } from '../../data/land/climatology'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { koppenAt } from '../../data/land/koppenGrid'
 import type { LivingLand } from '../../world/landLiving'
@@ -9,7 +10,7 @@ import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { groundBlocker, groundClearKey } from './groundClear'
 import { addFieldParcel } from './vegAgriBuilders'
 import { addForestCluster, addScrubOrGrass, addStrataBand, type BuildEnv } from './vegBuilders'
-import { cropEvidence, cropEvidenceKey } from './vegCropEvidence'
+import { cropEvidence, cropEvidenceKey, probeCellCropEvidence } from './vegCropEvidence'
 import { EMPTY_VEGETATION, packVegetation, vegBuffers } from './vegDescriptor'
 import { projectedFootprints } from './vegFootprint'
 import { addOrchardBlock, orchardDetail } from './vegOrchard'
@@ -73,7 +74,7 @@ export function planeVegetationOf(
   }
   const buf = vegBuffers()
   const cols = name === 'near' ? 12 : 10, colW = SCENE_W / cols
-  let drySum = 0, dryN = 0
+  let drySum = 0, dryN = 0, elevSum = 0, grassDrySum = 0, grassNdviSum = 0, grassN = 0
 
   for (let c = 0; c < cols; c++) {
     const baseRefX = (c + 0.5) * colW
@@ -90,30 +91,15 @@ export function planeVegetationOf(
       const yTop = cy + 1.5 + fTop * (spanY - 2), yBot = cy + 1.5 + fBot * (spanY - 2), yMid = (yTop + yBot) * 0.5
       const { km, slope } = faceAtY(world, name, plane, refX, cy, fy, yMid)
       const cell = sampleVegAtKm(world.land, (refX / SCENE_W) * nRays, km)
-      drySum += cell.dryness; dryN++
+      drySum += cell.dryness; elevSum += cell.elevationM; dryN++
+      if (cell.cover === 3) { grassDrySum += cell.dryness; grassNdviSum += cell.ndvi; grassN++ }
 
       const mPerPx = scaleAtKm(km)
       let evX = refX, evKm = km, evSlope = slope, evCover = cell.cover
       let evidence = cell.cover === 1 || cell.cover === 4 ? evidenceAt(refX, km) : undefined
-      // Mapped OSM orchard parcels (100–400 m) can sit off a coarse cell centre; probe sub-cell points deterministically.
-      if (!evidence && name === 'near' && world.cropAreas?.length) {
-        const subOffs: readonly [number, number][] = [
-          [0, 0.12], [0, 0.42], [0, 0.78],
-          [-0.22, 0.14], [0.22, 0.14], [-0.22, 0.50], [0.22, 0.50], [-0.22, 0.82], [0.22, 0.82],
-          [-0.40, 0.25], [0.40, 0.25], [-0.40, 0.70], [0.40, 0.70],
-        ]
-        for (const [ox, fyFrac] of subOffs) {
-          const sxPos = Math.max(1, Math.min(SCENE_W - 1, refX + ox * colW))
-          const sCy = crestAt(sxPos), sFy = footAt(sxPos)
-          const syPos = Math.max(sCy + 1.0, yTop + fyFrac * (yBot - yTop))
-          if (syPos >= sFy - 0.8) continue
-          const hitFace = faceAtY(world, name, plane, sxPos, sCy, sFy, syPos)
-          if (scaleAtKm(hitFace.km) > 24) continue
-          const hitSample = sampleVegAtKm(world.land, (sxPos / SCENE_W) * nRays, hitFace.km)
-          if (hitSample.cover !== 1 && hitSample.cover !== 4) continue
-          const hit = evidenceAt(sxPos, hitFace.km)
-          if (hit) { evidence = hit; evX = sxPos; evKm = hitFace.km; evSlope = hitFace.slope; evCover = hitSample.cover; break }
-        }
+      if (!evidence) {
+        const sub = probeCellCropEvidence(world, name, plane, evidenceAt, crestAt, footAt, refX, colW, yTop, yBot, nRays)
+        if (sub) { evidence = sub.evidence; evX = sub.x; evKm = sub.km; evSlope = sub.slope; evCover = sub.cover }
       }
       const res = classifyVegCell({
         cover: evidence ? evCover : cell.cover, ndvi: cell.ndvi, dryness: cell.dryness, koppen,
@@ -140,7 +126,14 @@ export function planeVegetationOf(
     }
   }
 
-  const out = packVegetation(buf, seed, buildVegPalette(medianLand, dryN > 0 ? drySum / dryN : world.land.own.dryness))
+  const meanDry = dryN > 0 ? drySum / dryN : world.land.own.dryness
+  const minClimateDry = seasonalDrynessRange(world.place.lat, world.place.lon, dryN > 0 ? elevSum / dryN : 0).min
+  const tones = buildVegPalette(medianLand, meanDry, {
+    grassDryness: grassN > 0 ? grassDrySum / grassN : meanDry,
+    minClimateDry,
+    grassNdvi: grassN > 0 ? grassNdviSum / grassN : undefined,
+  })
+  const out = packVegetation(buf, seed, tones)
   if (byKey.size > 12) byKey.clear()
   byKey.set(key, out)
   return out
