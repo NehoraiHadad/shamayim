@@ -1,6 +1,7 @@
 import { dimensions } from './field'
-import { genusOf, smoothstep, unit } from './genus'
+import { genusOf, unit } from './genus'
 import { centerSites, LATTICES, maxRadius, siteAt, siteCache } from './lattice'
+import { shareOf } from './occupancy'
 import type { CloudField, FieldCell, Lattice } from './types'
 
 /** Individual and panorama ranges in km. */
@@ -28,9 +29,9 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
   const minJ = Math.ceil(qj - radiusSites)
   const maxJ = Math.floor(qj + radiusSites)
   const radiusSquared = radiusKm ** 2
-  // Suppress residual occupancy smoothly as the forecast clears.
-  const fade = smoothstep(0, 0.125, Q)
   const t = field.t + dtMin
+  const w = form.strat
+  const amplitude = 1 + (0.2 / 0.35 - 1) * w
   for (let startJ = minJ; startJ <= maxJ; startJ += 96) {
     const endJ = Math.min(startJ + 95, maxJ)
     for (let startI = minI; startI <= maxI; startI += 96) {
@@ -42,19 +43,20 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
         for (let i = startI; i <= endI; i++) {
           const p = siteAt(cache, block, lattice, i, j)
           const u = data[p + 3]
-          // Clumping can lower rank by up to amplitude / 2 and the lifecycle by 0.08.
-          if (u > Q + 0.205 + LATTICES[lattice].amplitude / 2) continue
+          // Clumping can lower rank by up to half its amplitude and the lifecycle by 0.075.
+          if (u > Q + 0.2 + LATTICES[lattice].amplitude * amplitude / 2) continue
           const east = data[p] + dx
           const north = data[p + 1] + dy
           if ((east - x) ** 2 + (north - y) ** 2 > radiusSquared) continue
-          const genus = genusOf(lattice, form, data[p + 7])
-          const period = genus === 'sc' || genus === 'st' ? 60 + 6 * (data[p + 5] - 20) : data[p + 5]
-          const amplitude = genus === 'sc' ? 0.2 / 0.35 : 1
-          // Maximum intrinsic share change is 1.5 / 0.25 × 0.08 × 2 sin(pi / 20) < 0.15.
-          const rank = unit(u + amplitude * data[p + 8]) + 0.08 * Math.sin(2 * Math.PI * (t / period + data[p + 6]))
-          if (rank > Q + 0.25) continue
-          const share = fade * smoothstep(-0.125, 0.125, Q - rank)
+          const period = data[p + 5]
+          const phase = data[p + 6]
+          const cu = w < 1 ? Math.sin(2 * Math.PI * (t / period + phase)) : 0
+          const sc = w > 0 ? Math.sin(2 * Math.PI * (t / (60 + 6 * (period - 20)) + phase)) : 0
+          // For fixed weather, the maximum one-minute share change is 6 × 0.075 × 2 sin(π/20) ≈ 0.141.
+          const rank = unit(u + amplitude * data[p + 8]) + 0.075 * ((1 - w) * cu + w * sc)
+          const share = shareOf(rank, Q)
           if (share <= 0) continue
+          const genus = genusOf(lattice, form, data[p + 7])
           const r = data[p + 2] * g
           const { baseKm, vKm, kappa } = dimensions(genus, layer.lowBaseKm ?? layer.baseKm, form, data[p + 4], 2 * r)
           emit(i, j, east, north, r * Math.sqrt(share), baseKm, vKm, kappa * vKm * share,
@@ -73,13 +75,19 @@ export function cellsAround(field: CloudField, lattice: Lattice, x: number, y: n
 
 function collect(field: CloudField, lattice: Lattice, x: number, y: number, radiusKm: number, dtMin: number) {
   const cells: FieldCell[] = []
-  visitCells(field, lattice, x, y, radiusKm, dtMin, (i, j, east, north, r, baseKm, vKm, tau0, share, seed, genus, rank, axis) => {
-    cells.push({ id: `${lattice}:${i}:${j}`, lattice, x: east, y: north, r, baseKm, vKm, tau0,
-      share, seed, genus, rank, axis, rMinor: axis === undefined ? undefined : r / 3 })
+  visitCells(field, lattice, x, y, radiusKm, dtMin, (...args) => {
+    cells.push(fieldCell(lattice, ...args))
   })
   return cells
 }
 
+/** Materialize the primitive values from a visit for drawing or exact sampling. */
+export function fieldCell(lattice: Lattice, i: number, j: number, x: number, y: number, r: number,
+  baseKm: number, vKm: number, tau0: number, share: number, seed: number, genus: FieldCell['genus'],
+  rank: number, axis: number | undefined): FieldCell {
+  return { id: `${lattice}:${i}:${j}`, lattice, x, y, r, baseKm, vKm, tau0,
+    share, seed, genus, rank, axis, rMinor: axis === undefined ? undefined : r / 3 }
+}
 /** Enumerate all occupied centres that could cover the query point, in km. */
 export function cellsAt(field: CloudField, lattice: Lattice, x: number, y: number): FieldCell[] {
   const g = field.layers.find(layer => layer.lattice === lattice)?.g ?? 1

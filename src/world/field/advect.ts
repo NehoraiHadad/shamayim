@@ -9,7 +9,12 @@ const levels = ['low', 'mid', 'high'] as const
 
 /** Local wall time treated as UTC, continuous except across a DST change. */
 export function wallMinutes(at: LocalTime): number {
-  const [year, month, day, hour, minute, second = 0] = at.split(/[-T:]/).map(Number)
+  const year = Number(at.slice(0, 4))
+  const month = Number(at.slice(5, 7))
+  const day = Number(at.slice(8, 10))
+  const hour = Number(at.slice(11, 13))
+  const minute = Number(at.slice(14, 16))
+  const second = at.length > 16 ? Number(at.slice(17)) : 0
   return Date.UTC(year, month - 1, day, hour, minute) / 60_000 + second / 60
 }
 
@@ -19,17 +24,15 @@ function vector(speedKmh: number, fromDeg: number): Vector {
   return [kmPerMin * Math.sin(toRad), kmPerMin * Math.cos(toRad)]
 }
 
-function profile(hour: WindHour, fallbackFromDeg: number): Vector[] {
-  // Missing surface direction uses 270° (wind from the west). The field marks derived winds.
-  const fromDeg = Number.isFinite(hour.windDirection) ? hour.windDirection! : fallbackFromDeg
-  return [
-    vector(hour.windSpeed, fromDeg),
-    ...levels.map((level, i) => {
-      const wind = hour.windAloft?.[level]
-      return wind ? vector(wind.speed, wind.fromDeg)
-        : vector(hour.windSpeed * ALOFT_FACTOR[level], fromDeg + (i === 0 ? 20 : 30))
-    }),
-  ]
+function profile(hour: WindHour): Vector[] {
+  const fromDeg = Number.isFinite(hour.windDirection) ? hour.windDirection! : 270
+  const winds = [vector(hour.windSpeed, fromDeg)]
+  for (const level of levels) {
+    const wind = hour.windAloft?.[level]
+    winds.push(wind ? vector(wind.speed, wind.fromDeg)
+      : vector(hour.windSpeed * ALOFT_FACTOR[level], fromDeg + (level === 'low' ? 20 : 30)))
+  }
+  return winds
 }
 
 function mix(a: Vector, b: Vector, f: number): Vector {
@@ -52,7 +55,7 @@ function atHeight(values: Vector[], zAslKm: number, elevationKm: number): Vector
 
 /** Steering vector in east/north km per minute at a height in km asl. */
 export function steeringWind(hour: WindHour, zAslKm: number, elevationKm = 0): Vector {
-  return atHeight(profile(hour, 270), zAslKm, elevationKm)
+  return atHeight(profile(hour), zAslKm, elevationKm)
 }
 
 interface Sample {
@@ -60,102 +63,64 @@ interface Sample {
   winds: Vector[]
   cumulative: Vector[]
 }
-interface Timeline {
-  date: string
-  anchor: Vector[]
-  first: Sample
-  last: Sample
-  segments: Map<number, [Sample, Sample]>
-}
-const timelines = new WeakMap<readonly WindHour[], Timeline>()
-const zeroProfile = heightsKm.map((): Vector => [0, 0])
 
-function integrate(a: Sample, b: Sample, minute: number): [Vector[], Vector[]] {
-  const elapsed = minute - a.minute
-  const duration = b.minute - a.minute
-  const f = duration > 0 ? unit(elapsed / duration) : 0
-  const winds = a.winds.map((v, i) => mix(v, b.winds[i], f))
-  const cumulative = a.winds.map((_wind, i): Vector => [
-    a.cumulative[i][0] + elapsed * (a.winds[i][0] + winds[i][0]) / 2,
-    a.cumulative[i][1] + elapsed * (a.winds[i][1] + winds[i][1]) / 2,
-  ])
-  return [cumulative, winds]
-}
-
-function makeTimeline<T extends WindHour>(hours: readonly T[], windProfile = (hour: T) => profile(hour, 270)): Timeline {
-  const segments = new Map<number, [Sample, Sample]>()
-  let first: Sample | undefined
-  let previous: Sample | undefined
+/** Preintegrate all requested steering heights in one pass. Heights are in km asl. */
+export function steeringTimeline<T extends WindHour, K extends string>(hours: readonly T[], keys: readonly K[],
+  heightsAt: (hour: T) => Record<K, number>, elevationKm: number) {
+  const samples: Sample[] = []
+  const zero: Vector = [0, 0]
   let midnight: Sample | undefined
+  let date = '1970-01-01'
+  let derived = !hours.length
   for (const hour of hours) {
     const minute = wallMinutes(hour.time)
+    const previous = samples[samples.length - 1]
     if (!Number.isFinite(minute) || (previous && minute <= previous.minute)) continue
-    const sample: Sample = { minute, winds: windProfile(hour), cumulative: zeroProfile }
-    first ??= sample
-    if (previous) {
-      sample.cumulative = integrate(previous, sample, minute)[0]
-      for (let h = Math.floor(previous.minute / 60); h < Math.ceil(minute / 60); h++) {
-        segments.set(h, [previous, sample])
-      }
+    derived ||= !Number.isFinite(hour.windDirection) || !hour.windAloft?.low
+      || !hour.windAloft?.mid || !hour.windAloft?.high
+    const values = profile(hour)
+    const heights = heightsAt(hour)
+    const winds: Vector[] = []
+    const cumulative: Vector[] = []
+    const halfElapsed = previous ? (minute - previous.minute) / 2 : 0
+    for (let i = 0; i < keys.length; i++) {
+      const wind = atHeight(values, heights[keys[i]], elevationKm)
+      winds.push(wind)
+      cumulative.push(previous ? [
+        previous.cumulative[i][0] + (previous.winds[i][0] + wind[0]) * halfElapsed,
+        previous.cumulative[i][1] + (previous.winds[i][1] + wind[1]) * halfElapsed,
+      ] : zero)
     }
-    if (minute % 1440 === 0) midnight ??= sample
-    previous = sample
+    const sample = { minute, winds, cumulative }
+    if (!previous) date = hour.time.slice(0, 10)
+    if (!midnight && minute % 1440 === 0) {
+      midnight = sample
+      date = hour.time.slice(0, 10)
+    }
+    samples.push(sample)
   }
-  const start = first ?? { minute: 0, winds: zeroProfile, cumulative: zeroProfile }
   return {
-    date: new Date((midnight ?? start).minute * 60_000).toISOString().slice(0, 10),
-    anchor: midnight?.cumulative ?? zeroProfile, first: start, last: previous ?? start, segments,
-  }
-}
-
-function timelineOf(hours: readonly WindHour[]): Timeline {
-  let timeline = timelines.get(hours)
-  if (!timeline) {
-    timeline = makeTimeline(hours)
-    timelines.set(hours, timeline)
-  }
-  return timeline
-}
-
-/** Date used to seed the air frame for this forecast window. */
-export function anchorDate(hours: readonly WindHour[]): string {
-  return hours.length ? timelineOf(hours).date : '1970-01-01'
-}
-
-/** Integrate the steering vector from the forecast anchor, in km. */
-export function displacement(hours: readonly WindHour[], at: LocalTime, zAslKm: number, anchorOffset: Vector) {
-  return displacementAt(hours, wallMinutes(at), zAslKm, anchorOffset)
-}
-
-/** Integrate at a wall-time minute, with the surface knot above local ground. */
-export function displacementAt(hours: readonly WindHour[], minute: number, zAslKm: number, anchorOffset: Vector,
-  elevationKm = 0) {
-  return motionAt(timelineOf(hours), minute, zAslKm, anchorOffset, elevationKm)
-}
-
-function sampleAt(timeline: Timeline, minute: number) {
-  const edge = minute < timeline.first.minute ? timeline.first : timeline.last
-  const [a, b] = timeline.segments.get(Math.floor(minute / 60)) ?? [edge, edge]
-  return integrate(a, b, minute)
-}
-
-function motionAt(timeline: Timeline, minute: number, zAslKm: number, anchorOffset: Vector, elevationKm: number) {
-  const [cumulative, winds] = sampleAt(timeline, minute)
-  const distance = atHeight(cumulative, zAslKm, elevationKm)
-  const anchor = atHeight(timeline.anchor, zAslKm, elevationKm)
-  const vel = atHeight(winds, zAslKm, elevationKm)
-  const d: Vector = [anchorOffset[0] + distance[0] - anchor[0], anchorOffset[1] + distance[1] - anchor[1]]
-  return { d, vel }
-}
-
-/** Preintegrate hourly steering vectors at forecast-dependent heights in km asl. */
-export function steeringTimeline(hours: readonly HourPoint[], heightAt: (hour: HourPoint) => number, elevationKm: number) {
-  // A scalar-height timeline has one vector per sample and integrates that vector directly.
-  const timeline = makeTimeline(hours, hour => [steeringWind(hour, heightAt(hour), elevationKm)])
-  return (minute: number, offset: Vector) => {
-    const [cumulative, [vel]] = sampleAt(timeline, minute)
-    const d: Vector = [offset[0] + cumulative[0][0] - timeline.anchor[0][0],
-      offset[1] + cumulative[0][1] - timeline.anchor[0][1]]
-    return { d, vel }
+    date, derived,
+    at(index: number, minute: number, offset: Vector) {
+      if (!samples.length) return { d: [...offset] as Vector, vel: [0, 0] as Vector }
+      let lo = 0
+      let hi = samples.length - 1
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >>> 1
+        if (samples[mid].minute <= minute) lo = mid
+        else hi = mid
+      }
+      const a = minute >= samples[hi].minute ? samples[hi] : samples[lo]
+      const b = minute <= a.minute ? a : samples[hi]
+      const elapsed = minute - a.minute
+      const start = a.winds[index]
+      const vel: Vector = a === b ? [start[0], start[1]] : mix(start, b.winds[index], elapsed / (b.minute - a.minute))
+      const origin = midnight?.cumulative[index] ?? zero
+      const d: Vector = [
+        offset[0] + a.cumulative[index][0] - origin[0] + elapsed * (start[0] + vel[0]) / 2,
+        offset[1] + a.cumulative[index][1] - origin[1] + elapsed * (start[1] + vel[1]) / 2,
+      ]
+      return { d, vel }
+    },
   }
 }

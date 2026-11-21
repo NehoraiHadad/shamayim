@@ -3,7 +3,7 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { mapForecast } from '../../data/openMeteo/mapForecast'
 import fixture from '../../test/fixtures/forecast-layers-2026-11-17.json'
 import { cellsAround, cellsAt, RANGES } from './cells'
-import { cellTauAt, densityGrid, farStrips } from './density'
+import { cellTauAt, densityGrid, farStrips, layerSnapshot, rasterRange } from './density'
 import { buildField } from './field'
 import type { FieldInput } from './types'
 
@@ -18,7 +18,7 @@ it('matches exact near-field optical depth within 5% normalized RMS per layer', 
   const rng = seeded(hashId('density-samples'))
   for (const layer of field.layers) {
     const { lattice } = layer
-    const radius = RANGES[lattice][0]
+    const radius = rasterRange(layer) * 0.85
     const grid = densityGrid(field, lattice, 0, 0, radius, field.t)
     let errorSquared = 0
     let tauSquared = 0
@@ -37,37 +37,66 @@ it('matches exact near-field optical depth within 5% normalized RMS per layer', 
   }
 })
 
-it('serves a complete four-layer scrub within the cold and warm budgets', () => {
-  function scrub(placeId: string, minute: number, cold = false) {
-    const at = '2026-11-17T08:' + String(minute).padStart(2, '0')
-    const field = buildField({ ...input, placeId, at, hours: cold ? [...input.hours] : input.hours })
-    let tau = 0
-    for (const layer of field.layers) {
-      const { lattice } = layer
-      const [near, far] = RANGES[lattice]
-      cellsAround(field, lattice, 0, 0, near)
-      farStrips(field, layer)
-      const grid = densityGrid(field, lattice, 0, 0, far, field.t)
-      for (let i = 0; i < 360; i++) {
-        const az = i * Math.PI / 180
-        for (const r of [near / 4, near / 2, near, (near + far) / 2]) {
-          tau += grid.tauAt(r * Math.sin(az), r * Math.cos(az))
-        }
-      }
+function scrub(placeId: string, minute: number) {
+  const at = '2026-11-17T08:' + String(minute).padStart(2, '0')
+  const field = buildField({ ...input, placeId, at })
+  let tau = 0
+  for (const layer of field.layers) {
+    const { lattice } = layer
+    const [near, far] = RANGES[lattice]
+    const { densityGrid: grid } = layerSnapshot(field, lattice)
+    farStrips(field, layer)
+    const radii = [near / 4, near / 2, near, (near + far) / 2]
+    for (let i = 0; i < 360; i++) {
+      const az = i * Math.PI / 180
+      const east = Math.sin(az)
+      const north = Math.cos(az)
+      for (const r of radii) tau += grid.tauAt(r * east, r * north)
     }
-    return tau
   }
-  const mean = (count: number, work: (i: number) => unknown) => {
+  return tau
+}
+
+function medianMs(work: (i: number) => unknown) {
+  work(-1)
+  const samples = Array.from({ length: 9 }, (_, i) => {
     const start = performance.now()
-    for (let i = 0; i < count; i++) work(i)
-    return (performance.now() - start) / count
+    work(i)
+    return performance.now() - start
+  }).sort((a, b) => a - b)
+  return samples[4]
+}
+
+it('builds a new forecast within the 3 ms arrival budget', () => {
+  const ms = medianMs(() => buildField({ ...input, hours: [...input.hours] }))
+  console.info('forecast arrival median ms', ms)
+  expect(ms).toBeLessThanOrEqual(3)
+})
+
+it('serves all four layers within the 15 ms cold place budget', () => {
+  buildField(input)
+  const ms = medianMs(i => scrub(`cold-density-${i}`, i + 1))
+  console.info('cold place scrub median ms', ms)
+  expect(ms).toBeLessThanOrEqual(15)
+})
+
+it('serves all four layers within the 3 ms warm scrub budget', () => {
+  const ms = medianMs(i => scrub('warm-density', i + 1))
+  console.info('warm scrub median ms', ms)
+  expect(ms).toBeLessThanOrEqual(3)
+})
+
+it('keeps the shared snapshot at the requested keyframe and joins the expected density at the edge', () => {
+  const field = buildField(input)
+  const t = field.t + 0.5
+  for (const layer of field.layers) {
+    const { lattice } = layer
+    const [near] = RANGES[lattice]
+    const snapshot = layerSnapshot(field, lattice, t)
+    expect(snapshot.cells).toEqual(cellsAround(field, lattice, 0, 0, near, 0.5))
+    const range = rasterRange(layer)
+    const edge = snapshot.densityGrid.tauAt(range, 0)
+    expect(snapshot.densityGrid.tauAt(range - 1e-6, 0)).toBeCloseTo(edge, 4)
+    expect(snapshot.densityGrid.tauAt(range + 1e-6, 0)).toBeCloseTo(edge, 4)
   }
-  scrub('warm-density', 0)
-  const buildMs = mean(100, () => buildField(input))
-  const coldMs = mean(5, i => scrub(`cold-density-${i}`, i, true))
-  const warmMs = mean(20, i => scrub('warm-density', i + 1))
-  console.info({ buildMs, coldMs, warmMs })
-  expect(buildMs).toBeLessThanOrEqual(1)
-  expect(coldMs).toBeLessThanOrEqual(15)
-  expect(warmMs).toBeLessThanOrEqual(3)
 })

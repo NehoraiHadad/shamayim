@@ -22,6 +22,6 @@ for (const layer of field.layers) {
     }
     return Number(((lo + hi) / 2).toFixed(4))
   })
-  const errors = COVER_KNOTS.map(cover => Number((validate(cover) - cover).toFixed(4)))
-  console.log(layer.lattice, JSON.stringify(row), 'held-out errors (current table)', JSON.stringify(errors))
+  const errors = COVER_KNOTS.map((cover, i) => Number((validate(row[i], false) - cover).toFixed(4)))
+  console.log(layer.lattice, JSON.stringify(row), 'held-out errors (fitted table)', JSON.stringify(errors))
 }

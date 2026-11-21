@@ -13,8 +13,8 @@ export interface LayerForm {
   strat: number
   sheet: number
   veil: number
-  stratus?: boolean
-  nimbostratus?: boolean
+  stratus?: number
+  nimbostratus?: number
 }
 
 /** Layer-wide parameters with heights above the eye. */

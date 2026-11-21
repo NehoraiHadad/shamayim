@@ -36,9 +36,9 @@ export function layerCovers(input: CoverInput): { covers: Covers; source: WorldS
     const union = unionOf(covers)
     if (union <= 0) return { covers: { low: 0, mid: 0, high: 0 }, source: 'forecast' }
     // Scale each layer's clear share so the union is the shown total: (1 − c)^k for all three.
-    const k = total >= 1 ? Infinity : Math.log(1 - total) / Math.log(1 - Math.min(union, 0.9999))
-    // A layer with none stays at none (1 ** Infinity is NaN when the shown cover is full).
-    const scale = (c: number) => c <= 0 ? 0 : c >= 1 ? (total > 0 ? 1 : 0) : 1 - (1 - c) ** k
+    const k = Math.log1p(-Math.min(total, 0.98)) / Math.log1p(-Math.min(union, 0.9999))
+    const closure = smoothstep(0.98, 1, total)
+    const scale = (c: number) => c > 0 ? 1 - (1 - c) ** k * (1 - closure) : 0
     return { covers: { low: scale(covers.low), mid: scale(covers.mid), high: scale(covers.high) }, source: 'forecast' }
   }
   const knownThick = input.thickCloud != null

@@ -1,6 +1,6 @@
 import { layerCovers, lowBaseM } from '../clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { anchorDate, steeringTimeline, steeringWind, wallMinutes } from './advect'
+import { steeringTimeline, steeringWind, wallMinutes } from './advect'
 import { formOf, GENERA, smoothstep } from './genus'
 import { occupancyOf, splitLowCover } from './occupancy'
 import type { CloudField, FieldInput, FieldLayer, Genus, Lattice, LayerForm } from './types'
@@ -10,7 +10,7 @@ const mean = ([a, b]: readonly [number, number]) => (a + b) / 2
 const mix = (a: number, b: number, f: number) => a + (b - a) * f
 
 /** Physical base, thickness and extinction for a genus and its site aspect. */
-export function dimensions(genus: Genus, lowBaseKm: number, form: LayerForm, aspect: number, widthKm?: number) {
+export function dimensions(genus: Genus, lowBaseKm: number, form: LayerForm, aspect: number, widthKm?: number): Dimensions {
   const { base, thickness, kappa } = GENERA[genus]
   const lcl = genus === 'cu' || genus === 'cg' || genus === 'cb' || genus === 'sc' || genus === 'st'
   const baseKm = lcl ? Math.max(base[0], Math.min(base[1], lowBaseKm)) : mean(base)
@@ -28,26 +28,34 @@ export function dimensions(genus: Genus, lowBaseKm: number, form: LayerForm, asp
   return { baseKm, vKm, kappa }
 }
 
-function blendedDimensions(a: Genus, b: Genus, f: number, lowBaseKm: number, form: LayerForm) {
-  const da = dimensions(a, lowBaseKm, form, 0.5)
-  const db = dimensions(b, lowBaseKm, form, 0.5)
+type Dimensions = { baseKm: number; vKm: number; kappa: number }
+
+function blend(a: Dimensions, b: Dimensions, f: number): Dimensions {
   return {
-    baseKm: mix(da.baseKm, db.baseKm, f),
-    vKm: mix(da.vKm, db.vKm, f),
-    kappa: mix(da.kappa, db.kappa, f),
+    baseKm: mix(a.baseKm, b.baseKm, f),
+    vKm: mix(a.vKm, b.vKm, f),
+    kappa: mix(a.kappa, b.kappa, f),
   }
 }
 
 function layerDimensions(lattice: Lattice, lowBaseKm: number, form: LayerForm) {
+  const shape = (genus: Genus) => dimensions(genus, lowBaseKm, form, 0.5)
   switch (lattice) {
-    case 'low': return blendedDimensions('cu', form.stratus ? 'st' : 'sc', form.strat, lowBaseKm, form)
-    case 'tower': return blendedDimensions('cg', 'cb', smoothstep(0.6, 1, form.conv), lowBaseKm, form)
-    case 'mid': return blendedDimensions('ac', form.nimbostratus ? 'ns' : 'as',
-      form.nimbostratus ? 1 : form.sheet, lowBaseKm, form)
-    case 'high': return blendedDimensions('ci', 'cs', form.veil, lowBaseKm, form)
+    case 'low': {
+      const st = form.stratus ?? 0
+      const cu = shape('cu')
+      const sc = shape('sc')
+      return st === 1 ? shape('st') : blend(blend(cu, sc, Math.max(0, form.strat - st) / (1 - st)), shape('st'), st)
+    }
+    case 'tower': return blend(shape('cg'), shape('cb'), smoothstep(0.6, 1, form.conv))
+    case 'mid': {
+      const ns = form.nimbostratus ?? 0
+      return ns === 1 ? shape('ns')
+        : blend(blend(shape('ac'), shape('as'), Math.max(0, form.sheet - ns) / (1 - ns)), shape('ns'), ns)
+    }
+    case 'high': return blend(shape('ci'), shape('cs'), form.veil)
   }
 }
-
 function fallbackMotion(input: FieldInput, zAslKm: number, t: number, offset: [number, number]) {
   const { speedKmh, fromDeg } = input.wind10
   const vel = steeringWind({ time: input.at, windSpeed: speedKmh, windDirection: fromDeg }, zAslKm, input.elevationKm)
@@ -60,18 +68,17 @@ function fallbackMotion(input: FieldInput, zAslKm: number, t: number, offset: [n
 export function buildField(input: FieldInput): CloudField {
   const forms = formOf(input, input.covers)
   const cover = { ...input.covers, ...splitLowCover(input.covers.low, forms.low.conv) }
-  const date = anchorDate(input.hours)
   const t = wallMinutes(input.at)
   const steering = steeringOf(input)
-  const layers = lattices.map((lattice): FieldLayer => {
+  const layers = lattices.map((lattice, index): FieldLayer => {
     const form = forms[lattice]
     const { baseKm, vKm: meanVKm, kappa } = layerDimensions(lattice, input.lowBaseKm, form)
     const { Q, g, floorTau } = occupancyOf(lattice, cover[lattice])
-    const angle = 2 * Math.PI * seeded(hashId(`${input.placeId}:${date}:${lattice}`))()
+    const angle = 2 * Math.PI * seeded(hashId(`${input.placeId}:${steering.date}:${lattice}`))()
     const offset: [number, number] = [500 * Math.sin(angle), 500 * Math.cos(angle)]
     const zAslKm = fallbackHeights[lattice] + input.elevationKm
     const motionAt = (minute: number) => input.hours.length
-      ? steering.timelines[lattice]!(minute, offset)
+      ? steering.at(index, minute, offset)
       : fallbackMotion(input, zAslKm, minute, offset)
     return { lattice, baseKm, meanVKm, cover: cover[lattice], Q, g, lowBaseKm: input.lowBaseKm,
       floorTau: floorTau * kappa * meanVKm, kappa, form, derived: steering.derived, motionAt, ...motionAt(t) }
@@ -83,15 +90,12 @@ const fallbackHeights = { low: 1.3, tower: 3.5, mid: 4.5, high: 10.5 }
 const steeringCache = new WeakMap<FieldInput['hours'], Map<number, ReturnType<typeof computeSteering>>>()
 
 function computeSteering(hours: FieldInput['hours'], elevationKm: number) {
-  const samples = new Map<FieldInput['hours'][number], Record<Lattice, number>>()
-  let derived = !hours.length
-  for (const hour of hours) {
-    derived ||= !Number.isFinite(hour.windDirection) || !hour.windAloft?.low
-      || !hour.windAloft?.mid || !hour.windAloft?.high
+  return steeringTimeline(hours, lattices, hour => {
     const lowBaseKm = lowBaseM(hour.temperature, hour.humidity) / 1000
     const { covers } = layerCovers({ hour, cloudCover: hour.cloudCover, thickCloud: hour.thickCloud })
     // Use daytime form to avoid introducing a solar clock into the forecast wind timeline.
-    // The low Cu/Sc mean thickness differs by at most 0.53 km across these form weights.
+    // Representative low heights range from at least 0.25 + 0.3 / 2 to at most 2.5 + 1 / 2 km
+    // with the St gate and forecast LCL clamp, bounding the daylight approximation by 2.6 km.
     const forms = formOf({
       weatherCode: hour.weatherCode, lowBaseKm, wind10: { speedKmh: hour.windSpeed }, sunAltitude: 10,
     }, covers)
@@ -100,13 +104,8 @@ function computeSteering(hours: FieldInput['hours'], elevationKm: number) {
       const { baseKm, vKm } = layerDimensions(lattice, lowBaseKm, forms[lattice])
       heights[lattice] = elevationKm + baseKm + vKm / 2
     }
-    samples.set(hour, heights)
-  }
-  const timelines: Partial<Record<Lattice, ReturnType<typeof steeringTimeline>>> = {}
-  if (hours.length) {
-    for (const lattice of lattices) timelines[lattice] = steeringTimeline(hours, hour => samples.get(hour)![lattice], elevationKm)
-  }
-  return { timelines, derived }
+    return heights
+  }, elevationKm)
 }
 
 function steeringOf(input: FieldInput) {

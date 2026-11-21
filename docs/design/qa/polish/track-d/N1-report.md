@@ -74,3 +74,50 @@ The held-out errors at 0.98 and 1 were +.02 and zero, respectively, for every la
 - The direction check found 48.34% of original cells within 1° of a later cell, above the 20% target. The test keeps the requested all-cell matching and threshold. The target remains unmet on the measured run.
 - The calibration script verified the installed correction table on held-out place B. The first run of the field suite used the provisional identity table. The final field suite was not rerun under the requested one-run rule.
 - The local TypeScript check and Oxlint completed. Oxlint reported an existing control-regex warning in scripts/city/geometry.ts. The npx shim points to a missing npm CLI on this machine, so verification used the installed local binaries. Full, standalone performance and browser suites were skipped.
+
+## Round 3
+
+1. Cell periods and phases stay seeded per site and layer. The layer's stratus weight blends the Cu and Sc clocks and clumping. Genus is picked after occupancy. The intrinsic one-minute share bound is 0.141 at a 20-minute period with weather held fixed.
+2. Forecast cover scaling uses a finite exponent capped at 98% total and blends to full for nonzero layers. The 0.001-step regression passed for the 80/50/25 fixture. The prescribed smoothstep can change the closure weight by 0.07475 in one step, so the 0.05 cover bound depends on the input mix.
+3. Continuity checks per-cell share against the analytic bound and checks displacement and newly appearing IDs separately. The new-ID test uses zero previous share and applies the 0.15 limit at steady occupancy, where the forecast itself does not introduce new clouds. The clear-sky cap now uses a 0.25-wide ramp to bound the sensitivity to Q by 6.
+4. Direction matching uses each layer's unrelated-place baseline plus 0.05 and retains the 0.2 same-ID angular match limit. The direction test passed at three and 24 hours.
+5. Grid spacing is 0.125/0.5/0.5/1 km. The tower raster ends at its 6-degree mid-height intersection or 80 km, whichever is nearer. The 5% comparison uses the unblended near raster.
+6. Density allocates 32 × 32 tiles only as footprints touch them. Empty near-raster samples contribute only the optical floor.
+7. Layer snapshots collect drawable cells and rasterize density in a single site visit. Drawing keeps the full individual range even when the tower raster ends earlier.
+8. Steering parses each hour and builds its wind profile once, integrating all four layer vectors together and finding the first midnight in the same pass. The old four-pressure-knot timeline and displacement helpers were removed. The wind-vector test exercises the steering timeline.
+9. The timing checks are separate and use medians of nine measurements after a warm-up each. Value-noise helpers are shared and site values are written directly into the packed array. Later changes reuse evicted site blocks and reduce work in timeline integration and the density sampler.
+10. Density cross-fades to its expected mean over the outer 15% of the raster range. The snapshot keyframe and edge regression passed.
+11. Cell visits now use the common share function.
+12. St and Ns weights compare against the per-site genus draw. Mean layer dimensions use the same piecewise weights as the genus selection.
+
+### Calibration
+
+The fit uses the knots 0, .02, .05, .10, .15, .25, .40, .50, .60, .75, .85, .90, .95, .98, 1. The held-out columns show measured minus target cover at each knot.
+
+| Layer | Correction row | Held-out signed errors |
+| --- | --- | --- |
+| Low | 0, .0268, .0517, .1000, .1461, .2389, .3639, .4449, .5265, .6582, .7553, .8109, .8783, .98, 1 | 0, +.0012, +.0010, +.0014, +.0016, −.0006, −.0026, −.0055, −.0037, −.0027, −.0024, −.0013, +.0005, +.02, 0 |
+| Tower | 0, .0207, .0511, .1028, .1514, .2409, .3673, .4488, .5305, .6584, .7548, .8090, .8743, .98, 1 | 0, +.0025, +.0064, +.0103, +.0139, +.0192, +.0255, +.0265, +.0254, +.0196, +.0177, +.0137, +.0079, +.02, 0 |
+| Mid | 0, .0433, .0695, .1024, .1426, .2282, .3438, .4271, .5103, .6381, .7347, .7934, .8621, .98, 1 | 0, −.0015, −.0039, −.0086, −.0086, −.0065, −.0085, −.0077, −.0094, −.0130, −.0108, −.0071, −.0056, +.02, 0 |
+| High | 0, .0431, .0691, .1052, .1504, .2327, .3686, .4528, .5389, .6725, .7706, .8248, .8866, .98, 1 | 0, +.0041, +.0057, +.0090, +.0097, +.0004, +.0123, +.0024, +.0028, +.0031, +.0029, +.0017, +.0004, +.02, 0 |
+
+### Local verification
+
+The niced field unit run measured the following before the last hot-path changes.
+
+| Budget | Median | Limit |
+| --- | ---: | ---: |
+| Forecast arrival | 5.308 ms | 3 ms |
+| Cold place scrub | 19.323 ms | 15 ms |
+| Warm scrub | 9.786 ms | 3 ms |
+
+The continuity measurements below include the new lifecycle and finite cover scaling and precede the final clear-sky cap. Positive excess means a share change exceeded its analytic allowance.
+
+| Layer | Worst move residual (km) | Worst matched share change | Worst steady share change | Worst new share | Maximum bound excess |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Low | 5.19e−14 | .39192 | .11509 | .67061 | −.03570 |
+| Tower | — | — | — | — | — |
+| Mid | 9.78e−14 | .10991 | .07514 | .00472 | +.00496 |
+| High | 1.76e−13 | .06297 | .03747 | .00034 | −.01549 |
+
+The continuity forecast has zero tower occupancy in the sampled windows. The initial RMS test measured 3.75% for low and stopped at 5.02% for tower, leaving mid and high unmeasured. The initial continuity test stopped at the low new-ID limit. Its diagnostics also captured the mid analytic bound miss. The final timing, RMS and continuity checks remain unverified under the no-retry instruction. The focused snapshot regression, TypeScript check, calibration and diff check completed. Oxlint emitted the existing control-regex warning in scripts/city/geometry.ts. The unit runs covered only the cloud field tests. Full suites, builds and deployments were skipped.

@@ -6,10 +6,10 @@ export const COVER_KNOTS = [0, 0.02, 0.05, 0.1, 0.15, 0.25, 0.4, 0.5, 0.6, 0.75,
 
 /** Corrected cover at each input knot, interpolated in cover space. */
 export const COVER_CORRECTION: Record<Lattice, readonly number[]> = {
-  low: [0, 0.0213, 0.0512, 0.1003, 0.1463, 0.2397, 0.3651, 0.4462, 0.528, 0.66, 0.7572, 0.8127, 0.8798, 0.98, 1],
-  tower: [0, 0.0201, 0.0511, 0.103, 0.1517, 0.2412, 0.3677, 0.4493, 0.5311, 0.6591, 0.7554, 0.8097, 0.8747, 0.98, 1],
-  mid: [0, 0.0322, 0.0507, 0.0932, 0.1423, 0.2282, 0.3439, 0.4276, 0.5106, 0.6386, 0.7353, 0.7939, 0.8628, 0.98, 1],
-  high: [0, 0.0329, 0.053, 0.1032, 0.1503, 0.2328, 0.3687, 0.4533, 0.5395, 0.6732, 0.7711, 0.8252, 0.887, 0.98, 1],
+  low: [0, 0.0268, 0.0517, 0.1, 0.1461, 0.2389, 0.3639, 0.4449, 0.5265, 0.6582, 0.7553, 0.8109, 0.8783, 0.98, 1],
+  tower: [0, 0.0207, 0.0511, 0.1028, 0.1514, 0.2409, 0.3673, 0.4488, 0.5305, 0.6584, 0.7548, 0.809, 0.8743, 0.98, 1],
+  mid: [0, 0.0433, 0.0695, 0.1024, 0.1426, 0.2282, 0.3438, 0.4271, 0.5103, 0.6381, 0.7347, 0.7934, 0.8621, 0.98, 1],
+  high: [0, 0.0431, 0.0691, 0.1052, 0.1504, 0.2327, 0.3686, 0.4528, 0.5389, 0.6725, 0.7706, 0.8248, 0.8866, 0.98, 1],
 }
 
 // π E[r²] / pitch² for the clipped lognormal, divided by 3 for the high ellipse.
@@ -39,6 +39,6 @@ export function occupancyOf(lattice: Lattice, c: number, calibrated = true) {
 
 /** Smooth fractional cell occupancy from the current rank. */
 export function shareOf(rankAtT: number, Q: number): number {
-  // Fade the sub-threshold tail to zero when the forecast clears.
-  return smoothstep(0, 0.125, Q) * smoothstep(0, 1, (Q - rankAtT) / 0.25 + 0.5)
+  // Cap the sub-threshold tail at clear sky. Both ramps are 0.25 wide, so their minimum is 6-Lipschitz in Q.
+  return smoothstep(0, 0.25, Math.min(Q, Q - rankAtT + 0.125))
 }

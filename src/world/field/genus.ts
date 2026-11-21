@@ -36,24 +36,23 @@ export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'su
   const conv = code >= 95 && code <= 99 ? 1 : code >= 80 && code <= 82 ? 0.6 : 0
   const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
     + 0.5 * (1 - smoothstep(-6, 10, input.sunAltitude)))
-  const form = {
-    conv, strat, sheet: smoothstep(0.65, 0.9, covers.mid), veil: smoothstep(0.55, 0.85, covers.high),
-    stratus: strat > 0.9 && input.lowBaseKm < 0.3 && input.wind10.speedKmh < 14.4,
-    nimbostratus: code >= 61 && code <= 65 && covers.low * covers.mid > 0.5,
-  }
-  const neutral = { conv: 0, strat: 0, sheet: 0, veil: 0 }
   return {
-    low: { ...neutral, conv, strat, stratus: form.stratus }, tower: { ...neutral, conv },
-    mid: { ...neutral, sheet: form.sheet, nimbostratus: form.nimbostratus }, high: { ...neutral, veil: form.veil },
+    low: { conv, strat, sheet: 0, veil: 0,
+      stratus: smoothstep(0.85, 0.95, strat) * (1 - smoothstep(0.25, 0.35, input.lowBaseKm))
+        * (1 - smoothstep(12.6, 16.2, input.wind10.speedKmh)) },
+    tower: { conv, strat: 0, sheet: 0, veil: 0 },
+    mid: { conv: 0, strat: 0, sheet: smoothstep(0.65, 0.9, covers.mid), veil: 0,
+      nimbostratus: Number(code >= 61 && code <= 65) * smoothstep(0.4, 0.6, covers.low * covers.mid) },
+    high: { conv: 0, strat: 0, sheet: 0, veil: smoothstep(0.55, 0.85, covers.high) },
   }
 }
 
 /** Assign genus by an independent static draw so a life-cycle change alone keeps the form. */
 export function genusOf(lattice: Lattice, form: LayerForm, ug: number): Genus {
   switch (lattice) {
-    case 'low': return form.stratus ? 'st' : ug < form.strat ? 'sc' : 'cu'
+    case 'low': return ug < (form.stratus ?? 0) ? 'st' : ug < form.strat ? 'sc' : 'cu'
     case 'tower': return ug < smoothstep(0.6, 1, form.conv) ? 'cb' : 'cg'
-    case 'mid': return form.nimbostratus ? 'ns' : ug < form.sheet ? 'as' : 'ac'
+    case 'mid': return ug < (form.nimbostratus ?? 0) ? 'ns' : ug < form.sheet ? 'as' : 'ac'
     case 'high': return ug < form.veil ? 'cs' : 'ci'
   }
 }
