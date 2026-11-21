@@ -75,8 +75,15 @@ export function packNearGrid(grid: NearLandGrid): PackedNearGrid {
 }
 
 export function unpackNearGrid(packed: PackedNearGrid): NearLandGrid {
+  // Strip any legacy sun-angle fields from older cached records while preserving per-granule dates.
+  const {
+    date, source, fetchedAt, lat, lon, utmZone, utmSouth, originE, originN, reachM, stepM, size,
+    rgb, acqIndex, ndviAcqIndex, ndsiAcqIndex, snowAcqIndex, acquisitions,
+  } = packed
   return {
-    ...packed,
+    date, source, fetchedAt, lat, lon, utmZone, utmSouth, originE, originN, reachM, stepM, size,
+    rgb, acqIndex, ndviAcqIndex, ndsiAcqIndex, snowAcqIndex,
+    acquisitions: acquisitions.map((a) => ({ date: a.date })),
     ndvi: unpackUnit(packed.ndvi),
     ndsi: unpackUnit(packed.ndsi),
     snow: unpackOptFrac(packed.snow),

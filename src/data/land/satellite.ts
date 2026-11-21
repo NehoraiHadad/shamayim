@@ -1,10 +1,10 @@
 import type { Coordinate } from '../landmarks/project'
 import { alignBandToScl } from './alignBand'
 import { defaultOpenTiff, readCogWindow, type OpenTiffFn, type UtmBox, type UtmCrs } from './cogReader'
-import { dominantGeometry, gridCoverage, makeNearBuffers, mergeOlderGrid } from './nearGrid'
+import { gridCoverage, makeNearBuffers, mergeOlderGrid } from './nearGrid'
 import { aggregatePatch, type GridBuffers, type GridTransform } from './s2Aggregate'
 import { bandScalingOf, type StacBandMeta, type StacItemProps } from './s2Math'
-import type { AcquisitionGeometry, NearLandGrid } from './types'
+import type { AcquisitionMeta, NearLandGrid } from './types'
 import { toUtm, utmBoxToWgs84Bbox, utmZoneOf } from './utm'
 
 /**
@@ -109,7 +109,7 @@ export async function fetchNearLand(
   const size = Math.round((2 * REACH_M) / STEP_M)
   const transform: GridTransform = { size, originE, originN, stepM: STEP_M, utmZone, utmSouth }
   const composite = makeNearBuffers(size)
-  const acquisitions: AcquisitionGeometry[] = []
+  const acquisitions: AcquisitionMeta[] = []
   let newestDate: string | null = null
   let tried = 0
 
@@ -119,7 +119,7 @@ export async function fetchNearLand(
     for (const item of group) {
       if (acquisitions.length >= 254) break
       const acqId = acquisitions.length
-      acquisitions.push({ date, sunElevation: item.properties['view:sun_elevation'], sunAzimuth: item.properties['view:sun_azimuth'] })
+      acquisitions.push({ date })
       try {
         await readItemWindow(item, targetBox, targetCrs, transform, dayBuf, acqId, openTiff, signal)
       } catch (err) {
@@ -138,11 +138,9 @@ export async function fetchNearLand(
 
   const finalCov = gridCoverage(composite, MIN_USABLE_CELL_VALID)
   if (!newestDate || finalCov.any < MIN_GRID_COVERAGE) return null
-  const dom = dominantGeometry(composite, acquisitions)
   return {
     date: newestDate, source: `s2:${newestDate}`, fetchedAt: now.getTime(),
     lat: place.lat, lon: place.lon, utmZone, utmSouth, originE, originN,
     reachM: REACH_M, stepM: STEP_M, ...composite, acquisitions,
-    sunElevation: dom?.sunElevation, sunAzimuth: dom?.sunAzimuth,
   }
 }

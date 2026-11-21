@@ -61,8 +61,12 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
 
   const tNav = performance.now()
   await page.goto(`${serverUrl}/`)
-  // 1. First fallback canvas paint MUST complete while delayed satellite replies are still held
-  await page.waitForFunction(() => Boolean(document.querySelector('figure[data-canvas]') && window.__world?.land), null, { timeout: 60000 })
+  // 1. First fallback canvas paint MUST complete on the land surface while delayed satellite replies are still held
+  await page.waitForFunction(() => {
+    const steps = window.__sceneStats?.steps
+    const painted = Boolean(steps?.['firstShown.land']?.length || steps?.['firstPaint.land']?.length)
+    return Boolean(document.querySelector('figure[data-canvas]') && window.__world?.land && painted)
+  }, null, { timeout: 60000 })
   const firstFallbackPaintMs = performance.now() - tNav
   const initialSource = await page.evaluate(() => window.__world.land.own.albedoSource)
 

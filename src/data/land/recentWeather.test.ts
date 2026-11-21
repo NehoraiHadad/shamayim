@@ -4,7 +4,7 @@ import weatherFixture from '../../test/fixtures/land-weather-shadmot.json'
 import {
   ASK_LAND_WEATHER, drynessFromWeather, fetchRecentWeather, mapRecentWeather, recentWeatherUrl,
 } from './recentWeather'
-import { sampleLandAt } from './sampleLand'
+import { prepareLandSampler } from './sampleLand'
 
 function makeDailyBody(opts: {
   today: string; days: number
@@ -132,7 +132,7 @@ describe('recentWeather (calendar-indexed completed liquid rain, snow & soil moi
     // 7 of 14 days at 2 mm/day (50% coverage) must not emit dry 0.60 Open-Meteo dryness
     const half = { ...base, precip14dMm: 14, precipCoverage14d: 0.5 }
     expect(drynessFromWeather(half)).toBeNull()
-    expect(sampleLandAt({ cover: null, near: null, far: null, weather: half }, 32.35, 35.53, 11).drynessSource).toBe('climatology')
+    expect(prepareLandSampler({ cover: null, near: null, far: null, weather: half }).weather).toBeNull()
     // With soil moisture present, soil moisture alone drives dryness when rain coverage < 80%
     expect(drynessFromWeather({ ...half, soilMoistureTop: 0.21, soilMoistureRoot: 0.21 })).toBeCloseTo(0.5, 4)
 

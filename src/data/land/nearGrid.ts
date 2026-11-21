@@ -1,5 +1,5 @@
 import type { GridBuffers } from './s2Aggregate'
-import type { AcquisitionGeometry, NearCell, NearLandGrid } from './types'
+import type { AcquisitionMeta, NearCell, NearLandGrid } from './types'
 import { fromUtm, toUtm } from './utm'
 
 /** UTM-aligned sampling, inverse cell-center projection, multi-date fill and buffer helpers for `NearLandGrid`. */
@@ -11,7 +11,7 @@ export function nearCellCenter(grid: NearLandGrid, row: number, col: number): { 
   return fromUtm(e, n, grid.utmZone, grid.utmSouth)
 }
 
-const acqAt = (grid: NearLandGrid, idxArr: Uint8Array | undefined, cellIdx: number): AcquisitionGeometry | undefined => {
+const acqAt = (grid: NearLandGrid, idxArr: Uint8Array | undefined, cellIdx: number): AcquisitionMeta | undefined => {
   const i = idxArr ? idxArr[cellIdx] : 255
   return i < grid.acquisitions.length ? grid.acquisitions[i] : undefined
 }
@@ -49,9 +49,6 @@ export function nearAt(grid: NearLandGrid, lat: number, lon: number): NearCell |
     ndsi: hasNdsi ? grid.ndsi[idx] : null,
     snow: hasSnow ? grid.snow[idx] : null,
     valid, rgbValid, ndviValid, ndsiValid,
-    // Preserve missing angles strictly on the actual RGB contributor (never borrow from dominant granule).
-    sunElevation: rgbAcq?.sunElevation,
-    sunAzimuth: rgbAcq?.sunAzimuth,
     date: cellDate,
     source: `s2:${cellDate}`,
     rgbDate, rgbSource: rgbDate ? `s2:${rgbDate}` : null,
@@ -119,15 +116,4 @@ export function gridCoverage(buf: GridBuffers, minUsable: number) {
     any: any / n, rgb: rgb / n, ndvi: ndvi / n,
     centerRgb: cTotal ? cRgb / cTotal : 0, centerNdvi: cTotal ? cNdvi / cTotal : 0,
   }
-}
-
-export function dominantGeometry(out: GridBuffers, acqs: AcquisitionGeometry[]): AcquisitionGeometry | undefined {
-  const counts = new Uint32Array(acqs.length)
-  for (let i = 0; i < out.acqIndex.length; i++) {
-    const a = out.acqIndex[i]
-    if (a < acqs.length) counts[a]++
-  }
-  let best = -1
-  for (let i = 0; i < counts.length; i++) if (counts[i] > 0 && (best < 0 || counts[i] > counts[best])) best = i
-  return best >= 0 ? acqs[best] : undefined
 }

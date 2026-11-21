@@ -7,7 +7,7 @@ import * as gridMod from './grid'
 import { createCoverWatcher } from './gridWatch'
 import { createMemoryStore, readCachedCover, writeCachedCover } from './landCache'
 import { loadFootprintLandCover, loadLandCover, resetLandCoverCache, type LandCover } from './landData'
-import { sampleLandAt } from './sampleLand'
+import { prepareLandSampler } from './sampleLand'
 import { WORLDCOVER_SAS_URL } from './worldCoverCog'
 import {
   CELLS_PER_DEG, footprintBbox, isValidCoarseCoverJson, isValidLandRle, lookupCover, WORLDCOVER_STEP_DEG,
@@ -87,8 +87,8 @@ describe('WorldCover validation, near-tile retry, provenance and shared fine-til
     expect(lookupCover(updates.at(-1)!, SHADMOT.lat, SHADMOT.lon).source).toBe('worldcover-2021:local-50m')
     expect(lookupCover(updates.at(-1)!, 32.3465, 36.17).source).toBe('worldcover-2021:regional-1km')
     expect(lookupCover(updates.at(-1)!, 32.10, 34.05)).toEqual({ cover: null, source: 'unknown' })
-    const s = sampleLandAt({ cover: updates.at(-1)!, near: null, far: null, weather: null }, SHADMOT.lat, SHADMOT.lon, 11, -175)
-    expect(s.coverSource).toBe('worldcover-2021:local-50m')
+    const s = prepareLandSampler({ cover: updates.at(-1)!, near: null, far: null, weather: null }).coverAt(SHADMOT.lat, SHADMOT.lon)
+    expect(s.source).toBe('worldcover-2021:local-50m')
 
     // 3. Subsequent focus stays quiet once both near and coarse are complete
     await watcher.check()

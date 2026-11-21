@@ -3,14 +3,19 @@ import type { LandSource } from '../data/land/types'
 /**
  * Causal as-of age blending of satellite/weather observations toward seasonal climatology.
  *
- * Date & causality policy:
- * - Satellite products carry UTC date labels (`basis: 'utc'`) and are compared strictly against the
- *   shown instant's UTC calendar date (`shownUtcDate` via `utcOf(at, timezone)`). Local weather
- *   summaries (`open-meteo:*`) carry completed local calendar dates (`basis: 'local'`) and are
- *   compared against the place's shown local calendar date (`shownDate`).
- * - As-of causality: observations or multi-day composites whose window ends AFTER the shown day
- *   (`shownMs < endMs`) are strictly ineligible (`weight = 0`) so future data never enters an as-of
- *   view.
+ * Date & causality policy (calendar-day granularity):
+ * - Eligibility is evaluated at whole calendar-day granularity (`YYYY-MM-DD`), not sub-day
+ *   timestamps: satellite products carry UTC date labels (`basis: 'utc'`) compared against the
+ *   shown instant's UTC date (`shownUtcDate` via `utcOf(at, timezone)`), while Open-Meteo weather
+ *   summaries (`open-meteo:*`) carry local calendar dates (`basis: 'local'`, which may combine
+ *   current soil moisture with completed-day rainfall on the report's local date) compared against
+ *   the place's shown local date (`shownDate`).
+ * - Calendar-day approximation & same-day reuse contract: an observation or multi-day composite is
+ *   ineligible on any day strictly before its end day (`shownMs < endMs`), and eligible throughout
+ *   the entire acquisition or composite end day (e.g. an 08:31 UTC Sentinel-2 pass is eligible from
+ *   00:00 UTC on that UTC date). This whole-day boundary is intentional so `WorldState.land` and
+ *   `world.keys.land` stay invariant across intra-day hour scrubbing within the same `(localDate,
+ *   utcDate)` pair.
  * - Multi-day composites: NASA MOD09A1 8-day SR (`MODIS_Terra_L3_SurfaceReflectance_Bands143_8Day`,
  *   https://modarch.gsfc.nasa.gov/data/dataprod/mod09.php) selects each pixel independently across
  *   `[start, start + 7 d]`; GIBS rolling 8-day NDVI covers `[end - 7 d, end]`. Both require

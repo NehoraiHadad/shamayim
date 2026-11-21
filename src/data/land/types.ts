@@ -1,4 +1,4 @@
-import type { CoverSource, LandCover } from './landData'
+import type { LandCover } from './landData'
 
 /** Provenance tag carried on every land measurement or fallback value. */
 export type LandSource =
@@ -8,8 +8,8 @@ export type LandSource =
 export type ClimateZone =
   | 'arid' | 'semiarid' | 'mediterranean' | 'humid-subtropical' | 'temperate' | 'continental' | 'tropical' | 'alpine'
 
-/** Solar geometry and acquisition date of one contributing Sentinel-2 STAC granule (degrees, from `view:sun_*`). */
-export interface AcquisitionGeometry { date: string; sunElevation?: number; sunAzimuth?: number }
+/** Acquisition date of one contributing Sentinel-2 STAC granule (`YYYY-MM-DD`, UTC). */
+export interface AcquisitionMeta { date: string }
 
 /** Near-field Sentinel-2 L2A grid (±5 km at 100 m steps) in its native UTM projection. */
 export interface NearLandGrid {
@@ -42,18 +42,15 @@ export interface NearLandGrid {
   ndviValid: Float32Array
   ndsiValid: Float32Array
   /** Contributing granules; per-channel `*AcqIndex[i]` indexes here (`255` = none). */
-  acquisitions: AcquisitionGeometry[]
+  acquisitions: AcquisitionMeta[]
   /** RGB contributor index into `acquisitions` (`255` = none). */
   acqIndex: Uint8Array
   ndviAcqIndex: Uint8Array
   ndsiAcqIndex: Uint8Array
   snowAcqIndex: Uint8Array
-  /** Dominant RGB acquisition solar geometry (degrees, from STAC `view:sun_*`). */
-  sunElevation?: number
-  sunAzimuth?: number
 }
 
-/** One sampled cell from a `NearLandGrid`, with independent per-measurement validity, date and solar geometry. */
+/** One sampled cell from a `NearLandGrid`, with independent per-measurement validity and dates. */
 export interface NearCell {
   rgb: [number, number, number] | null
   ndvi: number | null
@@ -63,9 +60,6 @@ export interface NearCell {
   rgbValid: number
   ndviValid: number
   ndsiValid: number
-  /** Solar geometry of the actual RGB contributor (undefined when that contributor lacks the angle). */
-  sunElevation?: number
-  sunAzimuth?: number
   date: string
   source: `s2:${string}`
   rgbDate: string | null
@@ -115,30 +109,6 @@ export interface RecentLandWeather {
   daysSinceRain: number | null
   soilMoistureTop: number | null
   soilMoistureRoot: number | null
-}
-
-/** Resolved land properties at one coordinate, with explicit provenance and observation date per value. */
-export interface LandSample {
-  /** WorldCover class index (`1..10`), or null outside loaded coverage / unknown class 0. */
-  cover: number | null
-  /** WorldCover product vintage and winning layer (`worldcover-2021:*` or `unknown`). */
-  coverSource: CoverSource
-  rgb: [number, number, number]
-  rgbSource: LandSource
-  rgbDate: string | null
-  ndvi: number
-  ndviSource: LandSource
-  ndviDate: string | null
-  ndsi: number | null
-  ndsiSource: LandSource | null
-  ndsiDate: string | null
-  dryness: number
-  drynessSource: LandSource
-  drynessDate: string | null
-  snowProb: number
-  snowSource: LandSource
-  snowDate: string | null
-  valid: number
 }
 
 /** Combined living-land data bundle held per place (fields stay null until loaded). */

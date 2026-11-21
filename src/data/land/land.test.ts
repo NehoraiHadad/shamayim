@@ -57,9 +57,8 @@ describe('land', () => {
       originE: c.e - REACH_M, originN: c.n + REACH_M,
       reachM: REACH_M, stepM: STEP_M, size,
       rgb, ndvi, ndsi, snow, valid, rgbValid, ndviValid, ndsiValid,
-      acquisitions: [{ date: '2026-11-15', sunElevation: 38, sunAzimuth: 165 }],
+      acquisitions: [{ date: '2026-11-15' }],
       acqIndex, ndviAcqIndex, ndsiAcqIndex, snowAcqIndex,
-      sunElevation: 38, sunAzimuth: 165,
     }
 
     const pt = nearCellCenter(grid, row, col)

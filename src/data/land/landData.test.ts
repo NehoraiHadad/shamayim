@@ -6,7 +6,7 @@ import type { TiffImageLike, TiffLike } from './cogReader'
 import { createCoverWatcher } from './gridWatch'
 import { createMemoryStore } from './landCache'
 import { loadFootprintLandCover, resetLandCoverCache, type LandCover } from './landData'
-import { sampleLandAt } from './sampleLand'
+import { prepareLandSampler } from './sampleLand'
 import { WORLDCOVER_SAS_URL } from './worldCoverCog'
 import { worldCoverTileName } from './worldCoverGrid'
 
@@ -71,8 +71,8 @@ describe('loadFootprintLandCover regional fast path, out-of-region COG fallback 
     expect(cached!.coverAt(48.86, 2.35)).toBe(5); expect(openTiff).not.toHaveBeenCalled()
     const failed = await loadFootprintLandCover(paris, undefined, 6, diskFetch(undefined), { placeId: 'paris-cors', store: createMemoryStore() })
     expect(failed).toBeNull()
-    const sample = sampleLandAt({ cover: failed, near: null, far: null, weather: null }, paris.lat, paris.lon, 7, 35)
-    expect(sample.cover).toBeNull(); expect(sample.rgbSource).toBe('climatology')
+    const sample = prepareLandSampler({ cover: failed, near: null, far: null, weather: null }).coverAt(paris.lat, paris.lon)
+    expect(sample).toEqual({ cover: null, source: 'unknown' })
   })
 
   it('does not poison the shared coarse promise on caller abort and retries after transient failure', async () => {

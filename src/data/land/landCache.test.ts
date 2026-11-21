@@ -25,12 +25,11 @@ function sampleNear(): NearLandGrid {
     rgbValid: Float32Array.from([1, 0.5, 0, 0.8]),
     ndviValid: Float32Array.from([1, 0.5, 0, 0.8]),
     ndsiValid: Float32Array.from([1, 0.5, 0, 0.8]),
-    acquisitions: [{ date: '2026-11-15', sunElevation: 38.0, sunAzimuth: 164.0 }],
+    acquisitions: [{ date: '2026-11-15' }],
     acqIndex: Uint8Array.from([0, 0, 255, 0]),
     ndviAcqIndex: Uint8Array.from([0, 0, 255, 0]),
     ndsiAcqIndex: Uint8Array.from([0, 0, 255, 0]),
     snowAcqIndex: Uint8Array.from([0, 0, 255, 0]),
-    sunElevation: 38.0, sunAzimuth: 164.0,
   }
 }
 
@@ -58,7 +57,12 @@ describe('landCache TTL, upstream weather freshness and active-tab expiry/coales
     expect(Number.isNaN(uNear.ndvi[2])).toBe(true)
     expect(uNear.ndsi[3]).toBeCloseTo(0.78, 2)
     expect(uNear.snow[3]).toBeCloseTo(0.85, 2)
-    expect(uNear.acquisitions[0].date).toBe('2026-11-15')
+    expect(uNear.acquisitions).toEqual([{ date: '2026-11-15' }])
+    // Legacy cached records carrying removed sun-angle fields remain readable
+    const legacy = { ...packNearGrid(sampleNear()), sunElevation: 38, sunAzimuth: 164, acquisitions: [{ date: '2026-11-15', sunElevation: 38 }] }
+    const fromLegacy = unpackNearGrid(legacy as ReturnType<typeof packNearGrid>)
+    expect(fromLegacy.acquisitions).toEqual([{ date: '2026-11-15' }])
+    expect('sunElevation' in fromLegacy).toBe(false)
 
     const uFar = unpackFarGrid(packFarGrid(sampleFar()))
     expect(uFar.ndvi[0]).toBeCloseTo(0.41, 2)

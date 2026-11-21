@@ -44,11 +44,9 @@ function makeGeoTiff(band: Band, opts: MockCogOpts = {}): TiffLike {
   return { getImageCount: async () => images.length, getImage: async (i) => images[i] }
 }
 
-const makeItem = (date: string, tag: string, sunEl?: number, sunAz?: number): StacItem => ({
+const makeItem = (date: string, tag: string): StacItem => ({
   properties: {
     datetime: `${date}T08:30:00Z`, 's2:processing_baseline': '05.13', 'earthsearch:boa_offset_applied': true,
-    ...(sunEl !== undefined ? { 'view:sun_elevation': sunEl } : {}),
-    ...(sunAz !== undefined ? { 'view:sun_azimuth': sunAz } : {}),
   },
   assets: {
     visual: { href: `mock://${tag}/visual` },
@@ -61,11 +59,11 @@ const makeItem = (date: string, tag: string, sunEl?: number, sunAz?: number): St
 const mockFetch = (features: StacItem[]) => (async () => new Response(JSON.stringify({ features }), { status: 200 })) as typeof fetch
 const pt = (dE: number, dN: number) => fromUtm(CENTER.e + dE, CENTER.n + dN, ZONE, false)
 
-describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and solar geometry', () => {
-  it('honors UTM georeferencing 4.5 km off-center and preserves missing sun angles per contributor', async () => {
+describe('fetchNearLand UTM mosaic, band-to-SCL alignment and multi-date fill', () => {
+  it('honors UTM georeferencing 4.5 km off-center and skips cloudy/failed newest dates', async () => {
     const features = [
-      makeItem('2026-11-18', 'cloudy', 37, 165), makeItem('2026-11-16', 'broken', 37.5, 164),
-      makeItem('2026-11-15', 'west', 38.0, 162.0), makeItem('2026-11-15', 'east', 39.5, undefined),
+      makeItem('2026-11-18', 'cloudy'), makeItem('2026-11-16', 'broken'),
+      makeItem('2026-11-15', 'west'), makeItem('2026-11-15', 'east'),
     ]
     const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
       fetchImpl: mockFetch(features),
@@ -81,14 +79,13 @@ describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and s
     const w = pt(-50, 4500), e = pt(50, 4500)
     const westCell = nearAt(grid, w.lat, w.lon)!, eastCell = nearAt(grid, e.lat, e.lon)!
     expect(westCell.rgb).toEqual([50, 140, 60]); expect(westCell.ndvi).toBeCloseTo(0.6, 3)
-    expect([westCell.sunElevation, westCell.sunAzimuth]).toEqual([38.0, 162.0])
+    expect(westCell.rgbDate).toBe('2026-11-15'); expect(westCell.ndviDate).toBe('2026-11-15')
     expect(eastCell.rgb).toEqual([200, 180, 120]); expect(eastCell.ndvi).toBeCloseTo(0.2, 3)
-    expect(eastCell.sunElevation).toBe(39.5)
-    expect(eastCell.sunAzimuth).toBeUndefined() // must NOT borrow west granule's 162.0!
+    expect(eastCell.rgbDate).toBe('2026-11-15'); expect(eastCell.ndviDate).toBe('2026-11-15')
   })
 
   it('aligns shifted-origin and clipped-extent bands without stretching, including nonzero nodata DN on one clipped band', async () => {
-    const item = makeItem('2026-11-15', 'aligned', 38, 165)
+    const item = makeItem('2026-11-15', 'aligned')
     item.assets.red!['raster:bands'] = [{ scale: 0.0001, offset: -0.1, nodata: 65535 }]
     const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
       fetchImpl: mockFetch([item]),
@@ -112,7 +109,7 @@ describe('fetchNearLand UTM mosaic, band-to-SCL alignment, multi-date fill and s
 
   it('fills deficient channels and uncovered cells from an older clear acquisition with per-channel dates', async () => {
     const grid = (await fetchNearLand(PLACE, undefined, new Date('2026-11-20T12:00:00Z'), {
-      fetchImpl: mockFetch([makeItem('2026-11-18', 'sliver', 37, 165), makeItem('2026-11-15', 'full', 38, 164)]),
+      fetchImpl: mockFetch([makeItem('2026-11-18', 'sliver'), makeItem('2026-11-15', 'full')]),
       openTiff: async (href) => {
         const [, tag, band] = href.replace('mock://', '').match(/^([^/]+)\/(.+)$/) ?? []
         const b = band as Band
