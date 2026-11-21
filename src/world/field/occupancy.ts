@@ -2,18 +2,18 @@ import { smoothstep, unit } from './genus'
 import type { Lattice } from './types'
 
 /** Input cover knots for the per-lattice calibration. */
-export const COVER_KNOTS = [0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98, 1] as const
+export const COVER_KNOTS = [0, 0.02, 0.05, 0.1, 0.15, 0.25, 0.4, 0.5, 0.6, 0.75, 0.85, 0.9, 0.95, 0.98, 1] as const
 
 /** Corrected cover at each input knot, interpolated in cover space. */
 export const COVER_CORRECTION: Record<Lattice, readonly number[]> = {
-  low: [0, 0.0475, 0.0982, 0.2427, 0.4511, 0.665, 0.8165, 0.98, 1],
-  tower: [0, 0.0418, 0.1035, 0.2396, 0.4439, 0.6686, 0.8277, 0.98, 1],
-  mid: [0, 0.0444, 0.0736, 0.2085, 0.4222, 0.644, 0.8024, 0.98, 1],
-  high: [0, 0.114, 0.1808, 0.3305, 0.5124, 0.6959, 0.8179, 0.98, 1],
+  low: [0, 0.0213, 0.0512, 0.1003, 0.1463, 0.2397, 0.3651, 0.4462, 0.528, 0.66, 0.7572, 0.8127, 0.8798, 0.98, 1],
+  tower: [0, 0.0201, 0.0511, 0.103, 0.1517, 0.2412, 0.3677, 0.4493, 0.5311, 0.6591, 0.7554, 0.8097, 0.8747, 0.98, 1],
+  mid: [0, 0.0322, 0.0507, 0.0932, 0.1423, 0.2282, 0.3439, 0.4276, 0.5106, 0.6386, 0.7353, 0.7939, 0.8628, 0.98, 1],
+  high: [0, 0.0329, 0.053, 0.1032, 0.1503, 0.2328, 0.3687, 0.4533, 0.5395, 0.6732, 0.7711, 0.8252, 0.887, 0.98, 1],
 }
 
-// Disc area divided by pitch², using the clipped second moment for low.
-const area = { low: 0.177, tower: 0.0973, mid: 0.582, high: 1.558 }
+// π E[r²] / pitch² for the clipped lognormal, divided by 3 for the high ellipse.
+const area = { low: 0.177, tower: 0.0951, mid: 0.568, high: 0.507 }
 
 /** Boolean-model intensity, capped at the last open-deck cover. */
 export function lambdaOf(c: number): number {

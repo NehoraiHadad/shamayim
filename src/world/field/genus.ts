@@ -30,7 +30,8 @@ export function smoothstep(lo: number, hi: number, value: number): number {
 }
 
 /** Derive the form weights and the two genus-specific weather gates. */
-export function formOf(input: FieldInput, covers: Covers): Record<Lattice, LayerForm> {
+export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'sunAltitude'> & { wind10: { speedKmh: number } },
+  covers: Covers): Record<Lattice, LayerForm> {
   const code = input.weatherCode
   const conv = code >= 95 && code <= 99 ? 1 : code >= 80 && code <= 82 ? 0.6 : 0
   const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
@@ -40,15 +41,19 @@ export function formOf(input: FieldInput, covers: Covers): Record<Lattice, Layer
     stratus: strat > 0.9 && input.lowBaseKm < 0.3 && input.wind10.speedKmh < 14.4,
     nimbostratus: code >= 61 && code <= 65 && covers.low * covers.mid > 0.5,
   }
-  return { low: form, tower: form, mid: form, high: form }
+  const neutral = { conv: 0, strat: 0, sheet: 0, veil: 0 }
+  return {
+    low: { ...neutral, conv, strat, stratus: form.stratus }, tower: { ...neutral, conv },
+    mid: { ...neutral, sheet: form.sheet, nimbostratus: form.nimbostratus }, high: { ...neutral, veil: form.veil },
+  }
 }
 
-/** Assign genus by static rank so a life-cycle change alone keeps the form. */
-export function genusOf(lattice: Lattice, form: LayerForm, rank: number): Genus {
+/** Assign genus by an independent static draw so a life-cycle change alone keeps the form. */
+export function genusOf(lattice: Lattice, form: LayerForm, ug: number): Genus {
   switch (lattice) {
-    case 'low': return form.stratus ? 'st' : rank < form.strat ? 'sc' : 'cu'
-    case 'tower': return rank < smoothstep(0.6, 1, form.conv) ? 'cb' : 'cg'
-    case 'mid': return form.nimbostratus ? 'ns' : rank < form.sheet ? 'as' : 'ac'
-    case 'high': return rank < form.veil ? 'cs' : 'ci'
+    case 'low': return form.stratus ? 'st' : ug < form.strat ? 'sc' : 'cu'
+    case 'tower': return ug < smoothstep(0.6, 1, form.conv) ? 'cb' : 'cg'
+    case 'mid': return form.nimbostratus ? 'ns' : ug < form.sheet ? 'as' : 'ac'
+    case 'high': return ug < form.veil ? 'cs' : 'ci'
   }
 }

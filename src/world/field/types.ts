@@ -23,11 +23,16 @@ export interface FieldLayer {
   baseKm: number
   meanVKm: number
   cover: number
+  /** Occupied site fraction. */
   Q: number
+  /** Radius multiplier. */
   g: number
   floorTau: number
   kappa: number
   form: LayerForm
+  lowBaseKm?: number
+  derived?: boolean
+  motionAt?: (minute: number) => Pick<FieldLayer, 'd' | 'vel'>
   d: [eastKm: number, northKm: number]
   vel: [eastKmPerMin: number, northKmPerMin: number]
 }
@@ -46,13 +51,15 @@ export interface FieldCell {
   seed: number
   genus: Genus
   rank: number
+  /** Minor semi-axis in km and major-axis bearing in degrees clockwise from north. */
+  rMinor?: number
   axis?: number
 }
 
 /** Field at a local wall-time minute. */
 export interface CloudField {
   placeId: string
-  t: number
+  t: number // minutes
   layers: FieldLayer[]
 }
 
@@ -65,7 +72,7 @@ export interface FieldInput {
   lowBaseKm: number
   elevationKm: number
   weatherCode: number
-  rateMmH: number
+  /** Solar altitude in degrees. */
   sunAltitude: number
   wind10: { speedKmh: number; fromDeg: number }
 }

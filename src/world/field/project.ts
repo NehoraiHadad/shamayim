@@ -6,7 +6,7 @@ const degrees = 180 / Math.PI
 
 /** Apparent altitude in degrees using the spec's parabolic curvature. */
 export function altitudeOf(zKm: number, dKm: number): number {
-  // The quadratic sagitta differs from the circular sagitta by under 1.2 m at 250 km.
+  // The quadratic sagitta differs from the circular sagitta by under 2.5 m at 300 km.
   return Math.atan2(zKm - dKm ** 2 / (2 * R_EFF_KM), dKm) * degrees
 }
 
@@ -22,12 +22,17 @@ export function groundRangeAt(zKm: number, altDeg: number): number {
 export function projectCell(cell: FieldCell) {
   const dKm = Math.hypot(cell.x, cell.y)
   const rangeKm = Math.hypot(dKm, cell.baseKm)
+  const az = (Math.atan2(cell.x, cell.y) * degrees + 360) % 360
+  const angle = (az - (cell.axis ?? az)) / degrees
+  const minor = cell.rMinor ?? cell.r
+  const radial = Math.hypot(cell.r * Math.cos(angle), minor * Math.sin(angle))
+  const across = Math.hypot(cell.r * Math.sin(angle), minor * Math.cos(angle))
   return {
-    az: (Math.atan2(cell.x, cell.y) * degrees + 360) % 360,
-    aFar: altitudeOf(cell.baseKm, dKm + cell.r),
-    aNear: dKm <= cell.r ? 90 : altitudeOf(cell.baseKm, dKm - cell.r),
+    az,
+    aFar: altitudeOf(cell.baseKm, dKm + radial),
+    aNear: dKm <= radial ? 90 : altitudeOf(cell.baseKm, dKm - radial),
     aTop: altitudeOf(cell.baseKm + cell.vKm, dKm),
     rangeKm,
-    widthDeg: 2 * Math.atan2(cell.r, rangeKm) * degrees,
+    widthDeg: 2 * Math.atan2(across, rangeKm) * degrees,
   }
 }
