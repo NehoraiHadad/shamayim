@@ -1,5 +1,6 @@
 import { THRESHOLDS as T } from '../config/thresholds'
 import type { ConditionKind } from '../domain/conditions'
+import { tempText } from './isolate'
 import type { RainChange } from './nowcast'
 
 /** Whole Hebrew phrases. Words are chosen to agree with "היום/הלילה/מחר" (masc. sing.). */
@@ -62,7 +63,7 @@ export const FROM: Record<DayPart, string> = {
   night: 'בלילה',
 }
 
-export const deg = (n: number) => `${Math.round(n)}°`
+export const deg = (n: number) => tempText(n)
 export const upTo = (n: number) => `עד\u00A0${deg(n)}`
 export const around = (n: number) => `סביב\u00A0${deg(n)}`
 export const mm = (n: number) => `${Math.max(1, Math.round(n))} מ״מ`

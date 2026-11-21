@@ -13,6 +13,7 @@ import { noteBoxes, sceneNotes, type SceneNote } from '../data/terrain/sceneNote
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
+import { heightText } from '../text/isolate'
 import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
@@ -73,7 +74,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const reachKm = portraitReach(city?.clusters)
   const towers = city?.raster?.towers ?? city?.towers ?? []
   const rounded = Math.round(elevation)
-  const label = { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 }
+  const label = { text: heightText(rounded), below: elevation < 0 }
   const ground = groundFn(terrain.nearPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   const seed = hashId(place.id)
