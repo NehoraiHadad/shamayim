@@ -63,3 +63,6 @@ Pass what exists; do not invent a new data path.
 - Hebrew copy natural and correct (gender/number agreement, ״/׳ marks, ־ maqaf after ב/ל/מ before a digit).
 - Files under ~150 lines, DRY, no dead code. Don't touch `src/scene/model`, `src/scene/paint`, `src/world`.
 - Finish with `npx tsc -b`, `npx oxlint`, targeted vitest on the files you touched — all green. Do NOT commit; report per finding.
+
+## Parallel writers
+Brief 2b runs at the same time and owns `StatusLine.module.css`, `Scene.module.css`, `WearCard.module.css`, `Attribution.module.css` and `src/theme/*.test.ts`: do not edit those. Also remove the double blank line in `OverheadPage.module.css` while you are there.
