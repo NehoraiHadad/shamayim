@@ -1,61 +1,19 @@
 // Intercepted App-mount living-land performance check: measures first fallback canvas paint while
 // recorded satellite replies are delayed, refinement on production-sized 100×100 S2 + 60×60 GIBS
 // grids, same-day App hour scrub (asserting `world.land` reuse), and cold-mount single fine-tile fetch.
-//   node e2e/land.perf.mjs [--rate=4] [--gpu]
+//   node e2e/land.perf.mjs [--rate=4] [--gpu] [--dense] [--preview]
+//   node e2e/land.perf.mjs --baseline-root=<built Stage 3 checkout> [--runs=3]
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launch, root, startServer } from './harness.mjs'
-import { buildGibsNdviPng, buildRecordedS2Fixture, fulfillRange, loadGibsSrJpeg } from './landFixtures.mjs'
+import { launch, root, startPreview, startServer } from './harness.mjs'
+import { interceptLandPerf } from './landPerfRoutes.mjs'
 
 const SHADMOT = { id: 'shadmot-mehola', nameHe: 'שדמות מחולה', regionHe: 'בקעת הירדן', lat: 32.3465, lon: 35.5325, timezone: 'Asia/Jerusalem' }
 
-export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 } = {}) {
-  const host = new URL(serverUrl).host
+export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75, dense = false, baseline = false } = {}) {
   const panorama = fs.readFileSync(path.join(root, 'src/test/fixtures/scene/shadmot-mehola.panorama.json'), 'utf8')
-  const forecast = JSON.parse(fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'), 'utf8'))
-  forecast.elevation = JSON.parse(panorama).groundM
-  const [{ stac, cogs }, gibsPng, gibsSrJpg] = await Promise.all([
-    buildRecordedS2Fixture(root), Promise.resolve(buildGibsNdviPng(root)), Promise.resolve(loadGibsSrJpeg(root)),
-  ])
-
-  let releaseLand
-  const landGate = new Promise((r) => { releaseLand = r })
-  const fineTileFetches = new Map()
-  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr, reducedMotion: 'reduce', serviceWorkers: 'block' })
-  await context.route('**/*', async (route) => {
-    const url = new URL(route.request().url())
-    if (/\/v1\/forecast$/.test(url.pathname)) {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(forecast) })
-    }
-    if (url.host === 'earth-search.aws.element84.com') {
-      await landGate
-      return route.fulfill({ status: 200, contentType: 'application/json', body: stac, headers: { 'Access-Control-Allow-Origin': '*' } })
-    }
-    if (url.host === 'recorded.s2.test') {
-      const buf = cogs[path.basename(url.pathname)]
-      return buf ? fulfillRange(route, buf, 'image/tiff') : route.fulfill({ status: 404 })
-    }
-    if (url.host === 'gibs.earthdata.nasa.gov' && url.pathname.includes('MODIS_Terra_NDVI_8Day')) {
-      await landGate
-      return route.fulfill({ status: 200, contentType: 'image/png', body: gibsPng, headers: { 'Access-Control-Allow-Origin': '*' } })
-    }
-    if (url.host === 'gibs.earthdata.nasa.gov' && url.pathname.includes('MODIS_Terra_L3_SurfaceReflectance_Bands143_8Day')) {
-      await landGate
-      // Serve the genuine recorded 2026-11-01 tile ONLY at its exact tile address (8/103/153); 404 elsewhere.
-      return /\/2026-11-01\/[^/]+\/8\/103\/153\.jpeg$/.test(url.pathname)
-        ? route.fulfill({ status: 200, contentType: 'image/jpeg', body: gibsSrJpg, headers: { 'Access-Control-Allow-Origin': '*' } })
-        : route.fulfill({ status: 404, headers: { 'Access-Control-Allow-Origin': '*' } })
-    }
-    if (url.host === host) {
-      if (/\/data\/land\/il\/\d+_\d+\.json$/.test(url.pathname)) {
-        const key = path.basename(url.pathname)
-        fineTileFetches.set(key, (fineTileFetches.get(key) ?? 0) + 1)
-      }
-      return route.continue()
-    }
-    return route.abort('blockedbyclient')
-  })
+  const { context, releaseLand, fineTileFetches } = await interceptLandPerf(browser, serverUrl, { dpr, dense, panorama })
 
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
@@ -70,13 +28,14 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
   }, { place: SHADMOT, panorama, at: '2026-11-17T12:00:00+02:00' })
 
   const tNav = performance.now()
-  await page.goto(`${serverUrl}/`)
+  await page.goto(`${serverUrl}/`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   // 1. First fallback canvas paint MUST composite fresh `plane.near` and `plane.far` (never satisfied by C8 mist)
-  await page.waitForFunction(() => {
+  await page.waitForFunction((dense) => {
     const shown = window.__sceneStats?.shown
     return Boolean(document.querySelector('figure[data-canvas]') && window.__world?.terrain?.status === 'ready'
-      && window.__world?.land && shown?.['plane.near']?.fresh && shown?.['plane.far']?.fresh)
-  }, null, { timeout: 60000 })
+      && window.__world?.land && (!dense || window.__world.land.own.cover === 1)
+      && shown?.['plane.near']?.fresh && shown?.['plane.far']?.fresh)
+  }, dense, { timeout: 60000 })
   const firstFallbackPaintMs = performance.now() - tNav
   const fallbackSnap = await page.evaluate(() => ({
     albedoSource: window.__world.land.own.albedoSource,
@@ -129,20 +88,22 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75 
     scrubSteps.push(performance.now() - t0)
     if (!(await page.evaluate(() => window.__world.land === window.__landRef0))) reused = false
   }
+  const cover = await page.evaluate(() => window.__world.land.own.cover)
   await context.close()
 
   const duplicateTiles = [...fineTileFetches.entries()].filter(([, n]) => n > 1)
   const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
-  console.log(`\napp living-land mount (shadmot-mehola, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
+  console.log(`\napp living-land mount (shadmot-mehola${dense ? ', dense tree cover' : ''}, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
   console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${fallbackSnap.albedoSource}, plane.near=${fallbackSnap.nearKey}, satellite held)`)
   console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, far55km(miss)=${refinedMeta.farMissAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey})`)
   console.log(`  sameDayScrub       p50 ${med(scrubSteps).toFixed(1)} ms  (n=${scrubSteps.length}, world.land reused=${reused})`)
   console.log(`  coldFineTiles      ${fineTileFetches.size} unique tiles fetched, duplicates=${duplicateTiles.length}`)
 
   const problems = []
+  if (dense && cover !== 1) problems.push(`dense fixture resolved to cover=${cover} (expected 1)`)
   if (fallbackSnap.albedoSource !== 'climatology') problems.push(`first paint albedoSource=${fallbackSnap.albedoSource} (expected climatology)`)
   if (!refinedMeta.farAlbedo?.startsWith('gibs:2026-11-01')) problems.push(`far albedoSource=${refinedMeta.farAlbedo} (expected gibs:2026-11-01*)`)
-  if (refinedMeta.farMissAlbedo !== 's2-mean:2026-11-15+climatology') {
+  if (!baseline && refinedMeta.farMissAlbedo !== 's2-mean:2026-11-15+climatology') {
     problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected s2-mean:2026-11-15+climatology)`)
   }
   if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
@@ -156,13 +117,25 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const args = process.argv.slice(2)
   const rate = Number(args.find((a) => a.startsWith('--rate='))?.slice(7) ?? 4)
   const gpu = args.includes('--gpu')
-  const server = await startServer()
+  const baselineRoot = args.find((a) => a.startsWith('--baseline-root='))?.slice('--baseline-root='.length)
+  const runs = Number(args.find((a) => a.startsWith('--runs='))?.slice(7) ?? 3)
+  const server = await (baselineRoot || args.includes('--preview') ? startPreview() : startServer())
+  const baselineServer = baselineRoot && await startPreview(baselineRoot)
   const browser = await launch({ gpu })
   try {
-    const res = await runAppLandPerf(browser, server.url, { rate })
-    if (res.problems.length) { console.error(`FAIL: ${res.problems.join('; ')}`); process.exit(1) }
+    const cases = baselineServer ? [false, true] : [args.includes('--dense')]
+    for (const dense of cases) for (let i = 0; i < (baselineServer ? runs : 1); i++) {
+      const stages = baselineServer ? [['stage3', baselineServer], ['stage4', server]] : [['app', server]]
+      if (i % 2 === 1) stages.reverse()
+      for (const [name, app] of stages) {
+        console.log(`\n${name} / run ${i + 1}`)
+        const res = await runAppLandPerf(browser, app.url, { rate, dense, baseline: name === 'stage3' })
+        if (res.problems.length) { console.error(`FAIL: ${res.problems.join('; ')}`); process.exitCode = 1 }
+      }
+    }
   } finally {
     await browser.close()
+    if (baselineServer) await baselineServer.close()
     await server.close()
   }
 }

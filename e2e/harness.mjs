@@ -26,6 +26,12 @@ export async function startServer() {
   return { url, close: () => server.close() }
 }
 
+export async function startPreview(appRoot = root) {
+  const { preview } = await import('vite')
+  const server = await preview({ root: appRoot, logLevel: 'error', preview: { host: '127.0.0.1', port: 0 } })
+  return { url: server.resolvedUrls.local[0].replace(/\/$/, ''), close: () => server.close() }
+}
+
 /**
  * Chromium for the runners, with `--disable-gpu` (software raster: deterministic pixels, and every raster counted on
  * the main thread). `gpu: true` keeps Chromium's GPU path (SwiftShader in this container: measured no faster).
