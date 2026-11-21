@@ -1,4 +1,4 @@
-# Track C brief 1 — continuous flight for the sky's life (for agy Gemini 4 Neon)
+# Track C brief 1 — continuous flight for the sky's life (for agy Gemini 4 Neon; run by Codex gpt-6.2-sol after Neon hit its quota)
 
 Repo: this worktree (Shamayim, a Hebrew weather PWA with a canvas valley scene). TypeScript, React, vitest. Read
 `docs/design/qa/polish/AUDIT.md` finding #3 and section "1. Life motion" first. Do not commit; the manager commits.
@@ -96,5 +96,5 @@ comment with its size. Sample the same continuous schedule path the world alread
 - Green before you hand back: `npx tsc -b`, `npx oxlint`, and the targeted vitest suites: `src/scene/model/c10*.test.ts`,
   `flight.test.ts`, `continuity.test.ts`, `src/scene/compose/compose.test.ts`, `src/world/lifeSchedule.test.ts`, and your new
   tests.
-- When done, write `docs/design/qa/polish/track-c/NEON-1.md`: what changed (file list), the continuity test's worst
+- When done, write `docs/design/qa/polish/track-c/IMPL-1.md`: what changed (file list), the continuity test's worst
   cases, the contrail mismatch, the keys that still change per minute, and anything you could not do.
