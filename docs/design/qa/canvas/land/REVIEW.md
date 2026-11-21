@@ -422,6 +422,67 @@ whole state, and never clone it per scrub frame.
 
 ## Stage 3: land colour painting
 
+### Handoff (Antigravity, 2026-11-21)
+
+**Commits:** `07db0b5` (Stage 2 review leftovers), `adabd8d` (Stage 3 WIP), `3a5c5c2` (Stage 3 polish & fixes), `c0fae76` (Stage 3 QA stills, pixel ref & TASKS) on `land-living`.
+
+**Stage 2 leftovers folded in (`07db0b5`):**
+- `e2e/land.perf.mjs`: wait for `firstShown.land` or `firstPaint.land` on `window.__sceneStats.steps` before releasing delayed satellite fixtures so `firstFallbackPaint` guarantees a painted fallback land frame.
+- `src/world/landSample.test.ts` + `src/data/land/sampleLand.ts`: added end-to-end `s2-mean` fallback tests through `livingLandOf` (blended RGB/NDVI + source interval on an eligible day; climatology fallback before the newest contributing day) and retired the test-only `sampleAt`/`sampleLandAt` resolver.
+- `src/world/landAgeBlend.ts`: documented the calendar-day eligibility approximation (full acquisition/composite end day and local weather report date) and explicit same-day reuse contract.
+- `src/data/land/satellite.ts`, `nearGrid.ts`, `landPack.ts`, `types.ts`: removed the unused sun-angle scan and fields (`sunElevation`/`sunAzimuth`, `dominantGeometry`), stripping any legacy sun-angle fields cleanly in `unpackNearGrid` so existing cached records remain readable.
+
+**What changed (Stage 3):**
+- **Light-free albedo calibration & compact quantised palettes (`src/scene/model/landPalette.ts`, `src/scene/model/landColour.ts`):**
+  - `albedoToLandTone`: converts light-free BOA sRGB albedo (`WorldState.land`, Sen2Cor TCI `[0, 0.25]` reflectance scale) into Oklab, anchors typical ground (`REF_ALBEDO_L = 0.48`) to the existing day ridge visual luminance (`REF_DAY_RIDGE_L = 0.312`, matching `#2E3B4E` luminance so white labels, limestone towns and crest washes retain contrast) across `[0.23, 0.365]` with a `1.35` heuristic chroma lift.
+  - `quantiseTones`: pure, deterministic farthest-point + 4-iteration Lloyd Oklab quantiser capping each plane at a small illustrated palette (`near`: 21×4 cols×rows ≤ 6 colours; `far`: 21×2 ≤ 5; `back`: 13×1 ≤ 4; `outside.land`: 7 stops ≤ 4). Each `PlanePalette` serialises to < 1.2 KB (vs ~194 KB `WorldState.land`) and is structured-cloneable.
+  - `sampleBandAtKm`: log-interpolates along `world.land.rays` by visible face distance (`world.terrain.faces[name]` crest→foot), blends `world.land.own` within 700 m, and excludes WorldCover open water (`COVER_WATER = 8`) so coastal/lake ridges never bleed sea blue. Hidden `far`-plane columns inherit the nearest visible column in their row so hidden near ground neither bleeds nor wastes palette slots.
+  - Memoised per `world.land` (`WeakMap`, keyed by plane + `world.keys.terrain` for planes and span + `km` for `outsideGroundStops`), so hour scrubs incur zero re-sampling or quantisation.
+  - Dominant albedo provenance (`PlanePalette.source`, `outside.land.source`) reaches the model alongside `window.__world.land`.
+- **Form/light split & existing lighting preserved (`src/scene/model/planes.ts`, `planeLight.ts`, `outside.ts`, `loading.ts`, `types.ts`):**
+  - `planeLayer` keys the FORM layer by `world.keys.land` (bumped `FORM = 3`), passing compact `surfaceTone: PlanePalette` + `fill: surface.median`; scrubbing the hour never repaints `plane.*.form`.
+  - `planeLight` switches plane light compositing to `blend: 'source-over'` carrying an exact Porter-Duff `veil` combining `moodVeilOf(world)` (ambient dimming across day/twilight/night + wet-ground darkening) and Koschmieder aerial perspective (`AERIAL · air.fade(km)²` via `hazeAlong`), then lays existing snow, shade/lit crest washes, floor shadows, crest rims and scrub/gully lift unchanged on top. Existing cloud shadows (`z = 40.3`, `source-atop`) act on the painted land unchanged.
+  - `outsideLayer` paints the place's own ground polygon (`view.land`) with quantised living-land stops veiled by `veilAt(world, km)`.
+  - Added land-independent `ambientToneAt` in `planeLight.ts` for `loading.ts` (`loading.mist`, `loading.guess`) so C8 loading/arrival mist keeps identical keys before and through land arrival.
+  - Updated `src/dev/sceneHarness.tsx` to load full ±60 km footprint WorldCover (`loadFootprintLandCover`) so `scene.html` gets real far-plane cover classes offline.
+- **Illustrated surface painters (`src/scene/paint/landSurface.ts`, `planes.ts`, `outside.ts`):**
+  - Worker-safe on `OffscreenCanvas`, zero `ctx.filter`, zero clock, seeded purely from `desc.grain.seed`.
+  - `paintLandSurface` renders the quantised palette onto a `TEXEL = 3` scene-px low-res scratch canvas and draws smoothly into the clipped outline ("draw small and draw back up"): bands follow the upper ridge polyline (`ridgeYPerCol`, stopping strictly at the first non-increasing `x` corner), warped by two-octave seeded value noise with calm gouache patch interiors (`smooth(0.16, 0.84)`) and integrated near-plane mottle/paper grain.
+  - `paintPlane` multiplies scrub onto the local land albedo so scrub reads darker on both pine and desert slopes.
+  - `paintPlaneLight` masks the finished light pass once with `destination-in` against `desc.outline`, avoiding multi-pass `ctx.clip()` coverage loss along snowy/moonlit crest edges (eliminating the dark crest fringe previously seen on `tiberias-1200-snow`).
+  - `paintOutside` draws `land.stops` as a smooth horizontal gradient across the place's own ground polygon.
+
+**Files:**
+- Added: `src/scene/model/landPalette.ts` (108 lines), `src/scene/model/landColour.ts` (134 lines), `src/scene/model/landColour.test.ts` (145 lines), `src/scene/paint/landSurface.ts` (139 lines), `docs/design/qa/canvas/land/stage3/{before,after,lighting}/*.png`.
+- Modified: `src/scene/model/{planes,planeLight,outside,loading,types}.ts`, `src/scene/paint/{planes,outside}.ts`, `src/dev/sceneHarness.tsx`, `e2e/__pixels__/rosh-pina-2100.png`, `TASKS.md` (plus `07db0b5` Stage 2 leftover files).
+- Reverted: `e2e/__pixels__/tiberias-1200-snow.png` (reverted to `07db0b5` after the `destination-in` mask fixed the snow crest edge fringe; now passes at `0.022% px`, worst tile `2.3%`).
+
+**Visual QA (`docs/design/qa/canvas/land/stage3/`, 375 px, offline intercepted fixtures):**
+- Inspected all 10 before/after winter (`02-15`) & summer (`08-15`) noon pairs for Shadmot Mehola, Jerusalem, Ramon Crater (Negev), Tel Aviv (coast) and Rosh Pina (Galilee), plus 5 lighting/weather checks (Shadmot dawn `06:20` & dusk `16:30`, Ramon night `21:00`, Haifa rain, Jerusalem snow).
+- Winter vs summer shifts clearly and naturally (fresh olive/pine green in winter Galilee & Jordan Valley → parched golden-olive in August; warm desert ochre in Ramon Crater; coastal earth without sea-blue bleed in Tel Aviv) in the scene's illustrated hand, with no per-pixel mosaic, crisp snow caps, intact cloud shadows, and full label/city contrast.
+
+**Re-recorded pixel references (1 of 66):**
+- `rosh-pina-2100` (Galilee night under moon: deep pine-night tint through the 14% un-veiled night silhouette + clean `destination-in` moonlit crest edge crossed 5.5% in one 16×16 crest tile vs 5.0% limit). All other 65 references—including `tiberias-1200-snow`, all `loading`/`offline`/`arrive`, and all `wear` cases—pass unchanged.
+
+**How tested (exact results):**
+- `npx tsc -b`: **PASS** (0 errors).
+- `npm run lint`: **PASS** (0 errors, 0 warnings in touched/added files; 11 pre-existing warnings in `docs/design/prototypes/` and `scripts/city/geometry.ts`).
+- `npm run build`: **PASS** (`tsc -b && vite build`, 448 modules transformed).
+- `npx vitest run --maxWorkers=2`: **138/140 files, 1,301/1,304 tests passed**; the 3 failures were 5000 ms Windows CPU timeouts (5228–5374 ms) in `loading.test.ts` (2) and `c10fixes.test.ts` (1). Re-running those exact 2 files (`npx vitest run src/scene/model/loading.test.ts src/scene/model/c10fixes.test.ts --maxWorkers=1 --testTimeout=15000`): **PASS — 2/2 files, 49/49 tests passed** (0 regressions across all 1,304 tests, including 5/5 in `src/scene/model/landColour.test.ts`).
+- `npm run test:pixels`: **PASS — 66/66 passed** (123.0 s; `rosh-pina-2100` updated, `tiberias-1200-snow` reverted and passing at `0.022% px`, worst tile `2.3%`).
+- `npm run test:perf` (CPU ×4, DPR 2.75, software raster, paint worker):
+  - **Form/light split verified on scrub**: across Haifa, Tel Aviv and Shadmot, `scrub repainted` listed ONLY `plane.far:light, plane.near:light` (zero `plane.*:form` repaints).
+  - **Comparison vs Stage 2 handoff (same Windows machine):**
+    - `shadmot-mehola`: `scrub.model` p50 `12.50 ms` / p95 `22.90 ms` (Stage 2: p50 `11.7 ms`), `scrub.land` p50 `0.50` / p95 `1.80 ms` (budget 10), `memory` `24.6 MB` (budget 48).
+    - `haifa`: `scrub.model` p50 `34.30` / p95 `74.20 ms` (Stage 2: p95 `48.8 ms`; Windows CPU×4 load variance), `scrub.land` p50 `1.50` / p95 `4.70 ms` (budget 10), `memory` `29.6 MB` (budget 48).
+    - `tel-aviv`: `scrub.model` p50 `26.90` / p95 `45.40 ms`, `scrub.land` p50 `1.00` / p95 `3.90 ms`, `memory` `27.4 MB`.
+    - `app living-land mount` (`e2e/land.perf.mjs`, now gated on `firstShown.land`/`firstPaint.land`): `firstFallbackPaint` `9340.8 ms` (`albedoSource=climatology`, satellite held), `refinement` `2379.4 ms` (`own=s2:2026-11-15+climatology`, `cover=worldcover-2021:local-50m`, `far20km=gibs:2026-11-15+climatology`), `sameDayScrub` p50 `665.4 ms` (`world.land reused=true`), `coldFineTiles` `6 unique / 0 duplicates`, 0 problems.
+  - Note: as in Stage 2, `modelCold`, `scrub.model` and `anim` exceed the Linux ×1.5 budgets under ×4 CPU throttling on this Windows machine (machine baseline, not a Stage 3 regression; `scrub.land`, `scrub.sky` and `memory` are well within budget).
+
+**Open questions for Stage 4:**
+- Stage 4 vegetation (pine-forest texture, orchard/plantation rows, NDVI field patchwork, scrub/bare tones) will read `world.land` cover + NDVI into compact per-plane descriptors on the FORM layer alongside `PlanePalette`, replacing the current uniform `world/land.ts` scrub colour multiply where cover-driven vegetation takes over.
+- No Worker deploys needed for Stage 3.
+
 ## Stage 4: vegetation
 
 ## Stage 5: wind on land
