@@ -20,6 +20,7 @@ export const ctxOf = (canvas: LayerCanvas) => (canvas as HTMLCanvasElement).getC
 interface Entry {
   /** The key the form canvas holds (the layer's key, its pixel ratio and bounds). */
   formKey: string
+  desc: LayerDesc
   lightKey: string | null
   ratio: number
   rect: DeviceRect
@@ -75,9 +76,10 @@ export class LayerCache {
     return Boolean(desc.light && this.painters(desc)?.formless?.(desc))
   }
 
-  peek(id: string): { form: LayerCanvas; light: LayerCanvas | null; ratio: number; rect: DeviceRect } | null {
+  peek(id: string) {
     const entry = this.entries.get(id)
-    return entry ? { form: entry.form, light: entry.lightKey ? entry.light : null, ratio: entry.ratio, rect: entry.rect } : null
+    return entry ? { form: entry.form, light: entry.lightKey ? entry.light : null, ratio: entry.ratio, rect: entry.rect,
+      formKey: entry.formKey, desc: entry.desc } : null
   }
 
   private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number,
@@ -115,6 +117,7 @@ export class LayerCache {
     const { ratio, key: formKey } = formKeyOf(desc, dpr)
     const lightKey = lightKeyOf(desc, painter)
     let entry = this.entries.get(desc.id)
+    if (entry?.formKey === formKey) entry.desc = desc
     if (entry && entry.formKey === formKey && entry.lightKey === lightKey) {
       if (stat) stat.hits++
       return 'none'
@@ -128,7 +131,7 @@ export class LayerCache {
     if (!entry || resized) {
       const form = this.factory(w, h)
       const light = lightKey ? this.factory(w, h) : null
-      entry = { formKey: '', lightKey: null, ratio, rect, form, light }
+      entry = { formKey: '', desc, lightKey: null, ratio, rect, form, light }
       this.entries.set(desc.id, entry)
     }
     if (entry.formKey !== formKey) entry.lightKey = null
@@ -140,6 +143,7 @@ export class LayerCache {
       if (painter && !this.formless(desc)) this.paintOn(entry.form, desc, ratio, rect, painter.form, phase, strip ? [frame] : undefined)
       entry.formFrames = strip ? new Set([frame]) : undefined
       entry.formKey = formKey
+      entry.desc = desc
       painted = 'form'
     }
     if (lightKey && painter?.light) {

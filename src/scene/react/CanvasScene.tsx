@@ -4,8 +4,10 @@ import { loadFar, type FarData } from '../../data/city/farData'
 import { loadLandCover, type LandCover } from '../../data/land/landData'
 import { loadWaterMask, type WaterMask } from '../../data/water/waterMask'
 import type { Forecast, LocalTime } from '../../domain/types'
+import { pinnedTime } from '../../ui/devParams'
 import type { WorldInput } from '../../world/types'
 import { SceneCanvas } from './SceneCanvas'
+import { useLifeClock } from './useLifeClock'
 import type { WearLine } from './WearCanvas'
 import { useWorld } from './useWorld'
 
@@ -30,6 +32,8 @@ interface Props {
  * paint. The world is left on `window.__world` for inspection.
  */
 export default function CanvasScene({ input, ...scene }: Props) {
+  const { offsetMinutes, laidAt, sinceS } = useLifeClock(scene.selected ?? scene.now, scene.selected ?? pinnedTime(), input.place.timezone)
+  const life = useMemo(() => ({ laidAt, sinceS }), [laidAt, sinceS])
   // The far towns' raster (`far.json`), loaded once; the world places the towns from it.
   const [far, setFar] = useState<FarData | null>(null)
   // The places' own boundaries and the large water (C5: the outside view's frame and a coastal place's sea), loaded once.
@@ -52,10 +56,11 @@ export default function CanvasScene({ input, ...scene }: Props) {
     return () => { active = false }
   }, [])
   const placeCover = cover?.id === placeId ? cover.cover : null
-  const full = useMemo(() => ({ ...input, far, bounds, waterMask, cover: placeCover }), [input, far, bounds, waterMask, placeCover])
+  const full = useMemo(() => ({ ...input, far, bounds, waterMask, cover: placeCover, lifeOffsetMinutes: offsetMinutes }),
+    [input, far, bounds, waterMask, placeCover, offsetMinutes])
   const world = useWorld(full)
   useEffect(() => {
     if (world) (window as Window & { __world?: unknown }).__world = world
   }, [world])
-  return world ? <SceneCanvas world={world} {...scene} /> : null
+  return world ? <SceneCanvas world={world} life={life} {...scene} /> : null
 }

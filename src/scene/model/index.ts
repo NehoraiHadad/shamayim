@@ -10,10 +10,12 @@ import { bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
-import { birdLayers, contrailLayers, lowPlaneLayers, meteorLayers } from './life'
+import { birdLayers } from './birds'
+import { contrailLayers, lowPlaneLayers, meteorLayers } from './life'
+import { LIFE_START } from './lifeTracks'
 import { milkyWayLayer, planetsLayer, twinkleOf } from './nightSky'
 import { haloLayer, rainbowLayer } from './optics'
-import type { LandClock, LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
+import type { LandClock, LayerDesc, LayerOf, LifeClock, SceneBox, SceneModel } from './types'
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
 
@@ -31,9 +33,9 @@ export type * from './types'
  * the wet ground's sheen); C8: while the land is not known, a mist in its place with a ridge line forming (`loading.ts`),
  * and the land's arrival timed by the shell's `clock` (no clock: the land shown as it is, the mist from phase 0).
  */
-export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null): SceneModel {
-  if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 })
-  const model = knownModel(world, box)
+export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null, life: LifeClock = LIFE_START): SceneModel {
+  if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 }, life)
+  const model = knownModel(world, box, life)
   return clock?.reveal ? { ...model, layers: arrivingLayers(world, box, model.layers, clock) } : model
 }
 
@@ -41,21 +43,21 @@ export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | 
  * The land not known yet (C8): the sky and the weather that needs no land as they are; in the land's place the mist and
  * the forming line; no labels (they stand on the land), no clear zones.
  */
-function unknownModel(world: WorldState, box: SceneBox, clock: LandClock): SceneModel {
-  const sky = skyLayers(world, box)
+function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: LifeClock): SceneModel {
+  const sky = skyLayers(world, box, life)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, clouds, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, overlay: [], clear: [] }
 }
 
-function knownModel(world: WorldState, box: SceneBox): SceneModel {
+function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
   const outside = outsideLayer(world, box, layout.clear)
   const marks = marksLayers(world, box)
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
-  const sky = skyLayers(world, box)
+  const sky = skyLayers(world, box, life)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []), ...cloudShadowLayers(world, box),
@@ -65,7 +67,7 @@ function knownModel(world: WorldState, box: SceneBox): SceneModel {
 }
 
 /** The sky surface's layers (C6): the base, the stars, the bodies, the clouds by level, lightning, shimmer. */
-export function skyLayers(world: WorldState, box: SceneBox): LayerDesc[] {
+export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LIFE_START): LayerDesc[] {
   const sky = skyLayer(world, box)
   if (!sky) return []
   const geom = skyGeom(world, box)
@@ -81,9 +83,9 @@ export function skyLayers(world: WorldState, box: SceneBox): LayerDesc[] {
   const rainbow = rainbowLayer(world, box, geom)
   const halo = haloLayer(world, box, geom)
   return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
-    ...meteorLayers(world, box, geom), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
-    ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom),
-    ...lowPlaneLayers(world, box, geom), ...birdLayers(world, box, geom)]
+    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
+    ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, life),
+    ...lowPlaneLayers(world, box, geom, life), ...birdLayers(world, box, geom, life)]
 }
 
 /** The layers drawn on one surface, in draw order. */

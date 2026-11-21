@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { SCENE_CAMERA } from '../domain/camera'
 import type { LocalTime } from '../domain/types'
 import type { LifeInput } from './life'
-import { flockAt, highAt, lifeAt, lifeSchedule, secondsOf, type ScheduleContext } from './lifeSchedule'
+import { AHEAD_S, AHEAD_STEP_S } from './lifeAhead'
+import { flockAt, highAt, lifeAt, lifeSchedule, lowAt, secondsOf, type ScheduleContext } from './lifeSchedule'
 import type { PlaceEnv } from './placeEnv'
 
 /*
@@ -107,6 +108,35 @@ describe('the life schedule', () => {
     expect(highAt(p, p.t1 + 60).plane).toBeNull()
     expect(highAt(p, p.t1 + 60).trail.length).toBeGreaterThan(0)
     expect(highAt(p, p.t1 + p.lifeS + 30).trail).toEqual([])
+  })
+
+  it('samples the same paths, casts sight lines only at sample 0 and holds the event ends', () => {
+    const schedule = lifeSchedule(ctx(), day())
+    const input = day()('2026-04-10T12:00')
+    const [flock] = schedule.flocks, [low] = schedule.low
+    const high = schedule.high.find((p) => p.persists)!
+    let sights = 0
+    const at = (t: number, events: Partial<typeof schedule>) => lifeAt([{
+      schedule: { date: schedule.date, flocks: [], low: [], high: [], meteors: [], ...events }, offsetS: 0 }],
+      t, input, () => { sights++; return 1 })
+    const bird = at(flock.t1 - 3, { flocks: [flock] }).birds[0]
+    const movement = at(low.t1 - 3, { low: [low] }).aircraft.low[0]
+    const liner = at(high.t1 - 3, { high: [high] }).aircraft.high[0]
+    const last = AHEAD_S / AHEAD_STEP_S
+    expect(sights).toBe(2)
+    expect(bird.samples).toHaveLength(last + 1)
+    expect(bird.samples![0]).toMatchObject({ azimuth: bird.azimuth, distanceM: bird.distanceM })
+    expect(bird.samples![1].azimuth).toBe(flockAt(flock, flock.t1 - 1).azimuth)
+    expect(bird.samples![last].azimuth).toBe(flockAt(flock, flock.t1).azimuth)
+    expect(movement.samples).toHaveLength(last + 1)
+    expect(movement.samples![last].at).toEqual(lowAt(low, low.t1).at)
+    expect(liner.samples).toHaveLength(last + 1)
+    expect(liner.samples!.slice(0, 2)).toEqual([liner.plane, highAt(high, high.t1 - 1).plane])
+    expect(liner.samples!.slice(2)).toEqual(Array(last - 1).fill(null))
+    const fresh = liner.futureTrail!.at(-1)!, end = highAt(high, high.t1).plane!
+    expect(fresh.ageS).toBe(0)
+    expect(fresh.e + 3 * liner.driftE).toBeCloseTo(end.e, 8)
+    expect(fresh.n + 3 * liner.driftN).toBeCloseTo(end.n, 8)
   })
 
   it('flies the airport traffic down its glide path and up its climb in time; more by day than by night', () => {

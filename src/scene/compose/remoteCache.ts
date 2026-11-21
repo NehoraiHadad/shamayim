@@ -12,14 +12,13 @@ export interface WorkerLike {
 }
 
 /** A part as shown: the bitmap last painted for it and what it was painted for. */
-interface Shown { key: string; formKey: string; bitmap: ImageBitmap | null; ratio: number; rect: DeviceRect }
+interface Shown { key: string; formKey: string; bitmap: ImageBitmap | null; ratio: number; rect: DeviceRect; desc: LayerDesc }
 
 interface Entry {
   /** What is wanted (the last desc's keys). */
   formKey: string
   lightKey: string | null
-  ratio: number
-  rect: DeviceRect
+  desc: LayerDesc
   /** What is shown. */
   form: Shown | null
   light: Shown | null
@@ -54,7 +53,7 @@ export class RemoteCache {
   private pending = new Map<string, PaintJob>()
   /** When the oldest waiting job was asked for. */
   private pendingSince: number | null = null
-  private inFlight: { batch: number; since: number } | null = null
+  private inFlight: { batch: number; since: number; jobs: Map<string, PaintJob> } | null = null
   private batch = 0
   private waiters: (() => void)[] = []
   private failed = false
@@ -93,39 +92,48 @@ export class RemoteCache {
     const lightKey = lightKeyOf(desc, painter)
     let entry = this.entries.get(desc.id)
     if (!entry) {
-      entry = { formKey: '', lightKey: null, ratio, rect: deviceRect(desc, ratio), form: null, light: null }
+      entry = { formKey: '', lightKey: null, desc, form: null, light: null }
       this.entries.set(desc.id, entry)
     }
-    const sameAsked = entry.formKey === formKey && entry.lightKey === lightKey
     entry.formKey = formKey
     entry.lightKey = lightKey
-    entry.ratio = ratio
-    entry.rect = deviceRect(desc, ratio)
+    entry.desc = desc
+    if (entry.form?.key === formKey) entry.form.desc = desc
     if (this.fresh(desc, dpr)) {
       this.pending.delete(`${desc.id}:form`)
       this.pending.delete(`${desc.id}:light`)
       return 'none'
     }
-    if (sameAsked && (this.pending.has(`${desc.id}:form`) || this.pending.has(`${desc.id}:light`) || this.inFlight)) return 'none'
+    const rect = deviceRect(desc, ratio)
     const job = (part: 'form' | 'light', key: string): PaintJob =>
-      ({ id: desc.id, part, key, formKey, desc, ratio, rect: entry.rect, phase, hand: this.hand })
-    let painted: Painted = 'light'
+      ({ id: desc.id, part, key, formKey, desc, ratio, rect, phase, hand: this.hand })
+    let painted: Painted = 'none'
     // A layer that is all light (`formless`) has an empty form: nothing to paint for it, only its place.
     if (entry.form?.key !== formKey) {
-      painted = 'form'
       if (this.formless(desc)) {
-        entry.form = { key: formKey, formKey, bitmap: null, ratio, rect: entry.rect }
+        painted = 'form'
+        entry.form = { key: formKey, formKey, bitmap: null, ratio, rect, desc }
         this.pending.delete(`${desc.id}:form`)
-      } else this.ask(job('form', formKey))
-    }
-    if (lightKey !== null && (entry.light?.key !== lightKey || entry.light.formKey !== formKey)) this.ask(job('light', lightKey))
-    else this.pending.delete(`${desc.id}:light`)
+      } else if (this.ask(job('form', formKey))) painted = 'form'
+    } else this.pending.delete(`${desc.id}:form`)
+    if (lightKey !== null && (entry.light?.key !== lightKey || entry.light.formKey !== formKey)) {
+      if (this.ask(job('light', lightKey)) && painted === 'none') painted = 'light'
+    } else this.pending.delete(`${desc.id}:light`)
     return painted
   }
 
   private ask(job: PaintJob) {
-    this.pending.set(`${job.id}:${job.part}`, job)
-    this.pendingSince ??= this.now()
+    const id = `${job.id}:${job.part}`
+    const sent = this.inFlight?.jobs.get(id)
+    if (sent?.key === job.key && sent.formKey === job.formKey) {
+      this.pending.delete(id)
+      return false
+    }
+    const queued = this.pending.get(id)
+    if (queued?.key === job.key && queued.formKey === job.formKey) return false
+    if (!this.pending.size) this.pendingSince = this.now()
+    this.pending.set(id, job)
+    return true
   }
 
   /** Sends what waits, unless a batch is in flight (it goes when that one is back). */
@@ -133,7 +141,8 @@ export class RemoteCache {
     if (this.failed || this.inFlight || !this.pending.size) return
     const jobs = [...this.pending.values()]
     this.pending.clear()
-    this.inFlight = { batch: ++this.batch, since: this.pendingSince ?? this.now() }
+    this.inFlight = { batch: ++this.batch, since: this.pendingSince ?? this.now(),
+      jobs: new Map(jobs.map((job) => [`${job.id}:${job.part}`, job])) }
     this.pendingSince = null
     try {
       this.worker.postMessage({ batch: this.inFlight.batch, jobs })
@@ -143,7 +152,7 @@ export class RemoteCache {
   }
 
   private receive(reply: PaintReply) {
-    if (this.failed) {
+    if (this.failed || this.inFlight?.batch !== reply.batch) {
       for (const result of reply.results) result.bitmap.close()
       return
     }
@@ -155,13 +164,20 @@ export class RemoteCache {
     for (const result of reply.results) {
       workerMs += result.ms
       const entry = this.entries.get(result.id)
-      if (!entry) {
+      const job = this.inFlight.jobs.get(`${result.id}:${result.part}`)
+      if (!entry || !job) {
         result.bitmap.close()
         continue
       }
-      // Batches come back in order, so a result is never older than what is shown: take it.
-      const shown: Shown = { key: result.key, formKey: result.formKey, bitmap: result.bitmap, ratio: result.ratio, rect: result.rect }
+      const wanted = result.part === 'form' ? entry.formKey : entry.lightKey
       const old = result.part === 'form' ? entry.form : entry.light
+      // Keep the current bitmap if the user scrubbed back to it while this job was in flight.
+      if (old?.key === wanted && old.formKey === entry.formKey && (result.key !== wanted || result.formKey !== entry.formKey)) {
+        result.bitmap.close()
+        continue
+      }
+      const shown: Shown = { key: result.key, formKey: result.formKey, bitmap: result.bitmap, ratio: result.ratio,
+        rect: result.rect, desc: result.formKey === entry.formKey ? entry.desc : job.desc }
       old?.bitmap?.close()
       if (result.part === 'form') entry.form = shown
       else entry.light = shown
@@ -196,12 +212,13 @@ export class RemoteCache {
   }
 
   /** The bitmaps shown for a layer: its form (null when it has none), its light if it was painted for that form. */
-  peek(id: string): { form: ImageBitmap | null; light: ImageBitmap | null; ratio: number; rect: DeviceRect } | null {
+  peek(id: string) {
     const entry = this.entries.get(id)
     if (!entry?.form) return null
     const light = entry.light && entry.light.formKey === entry.form.key ? entry.light.bitmap : null
     if (!entry.form.bitmap && !light) return null
-    return { form: entry.form.bitmap, light, ratio: entry.form.ratio, rect: entry.form.rect }
+    return { form: entry.form.bitmap, light, ratio: entry.form.ratio, rect: entry.form.rect,
+      formKey: entry.form.key, desc: entry.form.desc }
   }
 
   prune(keep: ReadonlySet<string>) {
