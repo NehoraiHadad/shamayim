@@ -777,6 +777,23 @@ Briefs: `docs/briefs/track-a-glyph-flip.md`, `…round2.md`; delegate report `�
   Opus subagent reviewed both rounds (Codex never reviewed its own code)
 - [ ] Follow-up: `WearLight.side` (`scene/model/wear.ts`) is still a sign of `across` for the garments (out of scope)
 
+## Polish track C — life keeps moving (audit #3, #9) — 2026-11-22 (branch `claude/fix-life-motion-740e49`)
+Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-2.md`, `IMPL-1.md`, `IMPL-2.md`, `NOTES.md`).
+- [x] One `LifeClock {laidAt, sinceS}` (`useLifeClock`); the world lays 120 s of life ahead every 2 s (`world/lifeAhead.ts`);
+      every bird, plane, contrail head and meteor carries a `Track` the compositor places continuously; minute handoff
+      ≤ 6.4e-14 px (test reads the new model at a non-zero `sinceS`)
+- [x] Scrub rest: life keeps moving in real time (whole-minute re-anchor, life offset in the world; sky/light/clouds stay
+      at the shown moment); live vs scrub keyed apart — owner decision flagged in NOTES
+- [x] No pop-in: a mover is laid if any of its 61 samples is in view; zero-alpha starts fade in
+- [x] Contrails: fixed tangent frame registered at the head (scale error < 0.11 %), per-puff wind drift, ribbon ages
+      continuously in the compositor (`scene/paint/contrail.ts`)
+- [x] Birds: 3D flight per species (`scene/model/birdFlight.ts`, `birds.ts`, `scene/paint/birds.ts`): thermal circles,
+      wheeling, eights, hanging on the wind, a V, rowing; bank, dihedral, wrist, underside; closed-form strip bounds
+- Who wrote what: Claude (Opus 5.5) the bird flight model and painter, briefs, verification, perf profile;
+  Codex gpt-6.2-sol briefs 1 and 2 (Neon out of quota); Opus subagent reviewed round 1 and the final diff
+- [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
+      model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines
+
 ## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
 One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
 and rain. Spec: `docs/design/qa/polish/track-d/SPEC.md` (Fable). Roles: Neon codes field/light logic, Codex sol 6.2
@@ -788,6 +805,9 @@ reviews, Claude manages and draws the painters.
       Claude Opus subagent. outsourcerer runs with `OSRC_HOME=P:/osrc-home` (C: below its 10 GB disk gate).
       N1b (Codex) 36698c5: 4/7 tests pass. Opus round 2: life cycle tied to genus, `layerCovers` jumps at 100 %
       total (`src/world/clouds.ts`), two ill-posed tests, density grid too fine. N1c brief `briefs/N1c-fix-round.md`.
+      N1c 5c96188 and N1d (Codex): 187/187 src/world tests; RMS ≤ 3.9 %; arrival 1–2 ms, cold place 9–14 ms, warm
+      3.3–3.8 ms alone (warm target 3 ms not yet met; strict budgets run with `FIELD_PERF=1`, default run guards at 3×).
+      Next: Opus review of N1c+N1d, then N2. N3 writes against main's `LifeClock` (track C merged cc9664f).
 - Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
 - Done = READY line to the polish-audit session: no blocking review findings, CI green on final sha incl. perf budget, TASKS updated, main merged first if C landed. The audit session merges, not us.
 - [ ] N2 `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),

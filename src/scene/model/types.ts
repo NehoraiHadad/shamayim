@@ -1,6 +1,7 @@
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
+import type { ContrailMotion } from './contrailMotion'
 
 /**
  * The scene model (docs/design/CANVAS-SCENE-PLAN.md §1b): what is drawn, where, in which colour and order, decided
@@ -83,9 +84,7 @@ export interface AnimSpec {
   /** A slow breath of the alpha, `1 − depth … 1` over `period` s (C8: the forming ridge line). */
   breath?: { depth: number; period: number }
   /**
-   * C10: the layer is laid offset by a track's point at the phase, and only while it is on it (`anim.ts` `trackAt`): a
-   * flock's slow sway round its place is a closed one (its place itself is the shown minute's, `placed`). Combined with
-   * `frames` for the wing beats and the flock's own motion.
+   * Lay the layer along a track relative to its origin (`trackAt`); may be combined with a sprite strip.
    */
   flight?: Track
   /**
@@ -98,11 +97,13 @@ export interface AnimSpec {
 
 /**
  * Where a layer painted round its own origin is laid (the sky's life, continuous in time): its canvas laid with its origin at
- * (`x`, `y`) surface px, scaled by `scale` (≤ 1: an object drawn at its nearest, smaller as it goes) and faded by `alpha`
- * at composite time, so a change of place, size or haze repaints nothing. `above`: laid only over this y (surface px),
- * where a copy on the other surface takes the rest.
+ * (`x`, `y`) surface px, with a base scale, opacity and optional rotation in radians. The compositor applies motion on
+ * top of that pose. `above` clips to this surface y when a copy on the other surface takes the rest.
  */
-export interface Lay { x: number; y: number; scale: number; alpha: number; above?: number }
+export interface Lay { x: number; y: number; scale: number; alpha: number; turn?: number; above?: number }
+
+/** When the shown time was laid on the scene timeline, and how far it was already into that minute (seconds). */
+export interface LifeClock { laidAt: number; sinceS: number }
 
 /**
  * One cycle of gusts on the clothesline (`anim.ts` `gustAt`, the stops of the old line's `GUST`), as a transform of a
@@ -115,10 +116,13 @@ export interface Sway { pivot: Pt; period: number; delay: number; lift: number; 
   turn0: number; stretch: number }
 
 /**
- * A path in time (C10): offsets (surface px) from where the layer stands at phase 0, one every `step` s from the start of a
- * pass; a pass repeats every `cycle` s (≥ the path's length in time); phase 0 is `at` s into a pass (where the offset is 0).
+ * Offsets (surface px) every `step` seconds, read at phase + at. Closed tracks repeat every `cycle` seconds.
+ * Open tracks hold their first and last points outside the sampled interval. Optional values are relative to the sprite.
  */
-export interface Track { path: Pt[]; step: number; cycle: number; at: number }
+export type Track = { path: Pt[]; step: number; at: number; scale?: number[]; alpha?: number[]; turn?: number[]
+  /** Exact azimuth span, relative to the placed origin, for tracks crossing the camera's rear seam. */
+  wrapX?: { min: number; period: number } }
+  & ({ open: true; cycle?: number } | { open?: false; cycle: number })
 
 /** A timed ramp of the phase (s): from `from` to `to` over `at … at + dur`, eased in and out. */
 export interface Ramp { at: number; dur: number; from: number; to: number }
@@ -134,12 +138,10 @@ export interface Reveal { x: number; at: number; dur: number; erase?: boolean; s
  */
 export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]; sway?: number; swayPeriod?: number }
 
-/** A seeded schedule of short flashes: the first after `first` s, then every `every[0]`…`every[1]` s. */
-export interface Pulse { seed: number; first: number; every: [number, number]
-  /** C10: a meteor's light (a quick flare and a short fade) instead of a lightning stroke's. */
-  look?: 'stroke' | 'meteor'
-  /** C10: the schedule repeats after this long (s; 600 when absent): long enough for rare meteors. */
-  cycle?: number }
+/** A one-shot meteor or a seeded lightning schedule (default cycle 600 s). */
+export type Pulse = { first: number } & (
+  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number }
+)
 
 /**
  * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
@@ -459,7 +461,8 @@ export type { BirdKind }
  * A bird of a flock (sprite px): where it flies round in the flock (`x`, `y` the middle of its own loop of `rx` × `ry`,
  * `turn` +1 or −1 the way round, `lag` its place on the loop 0–1), its wingspan (`size`) and its wing beat's own lag.
  */
-export interface BirdDesc { x: number; y: number; rx: number; ry: number; turn: 1 | -1; lag: number; size: number; beat: number }
+/** A bird of a flock round its middle (world px: x across, y up, z away), its own flight's radius and rise, its way round, phase, span, wing phase. */
+export interface BirdDesc { x: number; y: number; z: number; rx: number; ry: number; turn: 1 | -1; lag: number; size: number; beat: number }
 /** A planet as drawn (sky px): a steady point (`r`), its colour, how plainly it shows, a faint glow round the brightest. */
 export interface PlanetDot { name: string; x: number; y: number; r: number; rgb: RGB; alpha: number; glow: number }
 /** A sun dog (sky px): where it stands, its size, strength, and which side of the sun it is on (−1 left, +1 right). */
@@ -529,7 +532,9 @@ export type LayerDesc =
    * share of time the wings are held (storks, raptors), the flock's tones (`rgb` its dark, `lit` the sunlit underside).
    */
   | LayerBase & { kind: 'birds'; bird: BirdKind; birds: BirdDesc[]; loop: number; flap: number; soar: number; rgb: RGB; lit: RGB;
-      litA: number; heading: -1 | 1; seed: number }
+      litA: number
+      /** The flock's way in the eye's frame (rad from across-right toward away) and how far up it is seen (deg). */
+      yaw: number; view: number; seed: number }
   /**
    * C10: an aircraft (sky px): a small plane at (`x`, `y`) heading `angle` (rad on screen), `size` its span, its body's tones,
    * its lights by night (`lights` 0–1: the landing light, the strobe and the beacon, a strip of frames), the short trail
@@ -537,10 +542,8 @@ export type LayerDesc =
    */
   | LayerBase & { kind: 'aircraft'; x: number; y: number; angle: number; size: number; rgb: RGB; lit: RGB; lights: number; landing: boolean
       trail: number; trailRgb: RGB; seed: number }
-  /** C10: a contrail (sky px) along its projected track: its points, its width (px) and alpha at each, its lit and shade tones. */
-  | LayerBase & { kind: 'contrail'; points: Pt[]; widths: number[]; alphas: number[]; rgb: RGB; shade: RGB; seed: number
-      /** Each puff's own lumpiness (seeded by the moment it was laid, so it keeps its shape from minute to minute). */
-      lumps?: number[] }
+  /** C10: a contrail's dated emissions, composed as a ribbon with age-dependent width and opacity. */
+  | LayerBase & { kind: 'contrail'; trail: ContrailMotion; rgb: RGB; shade: RGB }
   /** C10: a meteor's streak from `x0`, `y0` to its end, laid with its pulse (`animated.pulse`, the meteor look). */
   | LayerBase & { kind: 'meteor'; x0: number; y0: number; x1: number; y1: number; width: number; rgb: RGB }
   /** C10: the planets, steady points (they do not twinkle). */
