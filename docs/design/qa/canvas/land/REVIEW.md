@@ -562,6 +562,8 @@ whole state, and never clone it per scrub frame.
 
 **Verdict:** approved
 
+**Orchestrator gate (Claude Code, 2026-11-21): Stage 3 closed.** On `9c13156`: `npx tsc -b` pass; vitest 142 files / 1307 tests pass; `npm run build` pass; `npm run test:pixels` 66/66. Before/after stills inspected: winter green in the Galilee and Jordan valley, summer brown in the Negev; true to season.
+
 ## Stage 4: vegetation
 
 ## Stage 5: wind on land
