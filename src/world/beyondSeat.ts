@@ -95,17 +95,21 @@ export function seatBeyond(ctx: BeyondContext, dx: number, dy: number, heightM: 
   return { x: at.x, baseY, w, h, km: beyondKm(frame, baseKm, dx, dy) }
 }
 
-export type SeatMark = (mark: Landmark) => { x: number; base: number; hPx: number; km: number } | null
+export type SeatMark = (mark: Landmark) => { x: number; base: number; hPx: number; km: number; blockId: string } | null
+
+/** Whether a glyph centred at `x` with half-width `halfW` lies wholly inside a block's drawn horizontal span `[blockX − blockW/2, blockX + blockW/2]`. */
+export const fitsBlockSpan = (x: number, halfW: number, blockX: number, blockW: number) =>
+  x - halfW >= blockX - blockW / 2 && x + halfW <= blockX + blockW / 2
 
 const squareKey = ({ cell, col, row }: Square) => `${cell}:${col}:${row}`
 
-/** Draw the visible town blocks and look up a mark's seat in the same raster square. */
+/** Draw the visible town blocks and look up a mark's seat in the same raster square; `seatMark` is null without a raster. */
 export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'floor' | 'terrain'> &
   { place: Coordinate; city?: CityResult | null }, frame: OutsideFrame, lie: PlaceLie, look: OutsideLook, baseKm: number):
-  { beyondTowns: BeyondBlock[]; seatMark: SeatMark } {
+  { beyondTowns: BeyondBlock[]; seatMark: SeatMark | null } {
   const { place, city } = input
   const raster = city?.raster
-  if (!raster) return { beyondTowns: [], seatMark: () => null }
+  if (!raster) return { beyondTowns: [], seatMark: null }
   const cos = Math.cos(place.lat * Math.PI / 180)
   const nearK = outsideProject(frame, 0, frame.n).k
   const ctx = { ...input, frame, lie, look, baseKm, wKm: LON_STEP * 111.32 * cos, nearK }
@@ -118,12 +122,14 @@ export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'flo
     const seed = hashId(`town:${lat.toFixed(4)}:${lon.toFixed(4)}`)
     const heightM = roofHeight(cell.levels, cell.p90, seeded(seed)())
     const seat = seatBeyond(ctx, dx, dy, heightM)
-    if (seat) blocks.set(squareKey(squareOf(sq.lat, sq.lon)), { ...seat, heightM, seed })
+    const id = squareKey(squareOf(sq.lat, sq.lon))
+    if (seat) blocks.set(id, { ...seat, id, heightM, seed })
   }
   const seatMark: SeatMark = (mark) => {
     const { dx, dy } = offsetKm(place, mark)
     if (Math.hypot(dx, dy) > SKYLINE_TO_KM || frame.eyeN - dy <= EYE_CLEARANCE_KM || isOwnSpot(frame, lie, dx, dy)) return null
-    const block = blocks.get(squareKey(squareOf(mark.lat, mark.lon)))
+    const blockId = squareKey(squareOf(mark.lat, mark.lon))
+    const block = blocks.get(blockId)
     if (!block) return null
     const glyphKind = glyphOf(mark)
     if (!glyphKind) return null
@@ -133,8 +139,8 @@ export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'flo
     const hPx = Math.min(look.px(mark.heightM, Math.min(k, nearK)), over)
     if (hPx <= 0) return null
     const halfW = glyphAtHeight(glyphKind, hPx).w / 2
-    if (x - halfW < block.x - block.w / 2 || x + halfW > block.x + block.w / 2) return null
-    return { x, base: block.baseY, hPx, km: block.km }
+    if (!fitsBlockSpan(x, halfW, block.x, block.w)) return null
+    return { x, base: block.baseY, hPx, km: block.km, blockId }
   }
   return { beyondTowns: [...blocks.values()].sort((a, b) => b.km - a.km || a.x - b.x), seatMark }
 }

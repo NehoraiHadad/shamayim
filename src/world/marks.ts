@@ -6,11 +6,11 @@ import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
 import { PORTRAIT_MARGIN_KM } from '../data/landmarks/portrait'
 import { distanceOf, offsetKm } from '../data/landmarks/project'
 import { groundFn, seat } from '../data/landmarks/seat'
-import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
+import { isSettlementMark, settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
-import { beyondMarks, nearBeyondKept } from './beyondMarks'
+import { beyondMarks, isBeyondSettlement, nearBeyondKept } from './beyondMarks'
 import { rowKm, type SeatMark } from './beyondSeat'
 import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
@@ -45,11 +45,11 @@ export function namedOnly(landmarks: readonly Landmark[]): Landmark[] {
   })
 }
 
-/** Whether a mark is of the place: the shared outside ownership rule (`isOwnSpot`), or in its portrait reach (+1 km). */
+/** Whether a mark is of the place: strict `isOwnSpot` for settlement marks with a raster, else frame + 1 km fallback (or portrait reach + 1 km). */
 function ofPlace(place: Place, mark: Landmark, reachKm: number, outside: MarksInput['outside']) {
   const { dx, dy } = offsetKm(place, mark)
   if (!outside) return Math.hypot(dx, dy) <= reachKm + PORTRAIT_MARGIN_KM
-  return isOwnSpot(outside.frame, outside.lie, dx, dy)
+  return isOwnSpot(outside.frame, outside.lie, dx, dy, outside.seatMark && isSettlementMark(mark) ? 0 : PORTRAIT_MARGIN_KM)
 }
 
 /** A generic high-rise the place's own raster towers stand for (the outside view draws those; C5). */
@@ -63,6 +63,8 @@ export interface MarksInput {
   place: Place
   terrain: SceneTerrain
   landmarks: readonly Landmark[]
+  /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
+  seatCandidates?: readonly Landmark[]
   width: number
   dot: Point
   reachKm: number
@@ -77,7 +79,7 @@ export interface MarksInput {
    * The outside view for a city seen from outside (variant B, `outside.ts`): its frame, its own boundary and slope
    * (`lie`), and the near ridge's distance at the dot (the haze of its nearest row); null for a portrait.
    */
-  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number; seatMark: SeatMark
+  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number; seatMark: SeatMark | null
     /** The place's own ground over the ridge line (C5b): a mark moved across stands on what is there. */
     land?: { top: readonly (readonly [number, number])[] } | null } | null
 }
@@ -208,7 +210,15 @@ export function marksOf(input: MarksInput): WorldMark[] {
   }
   // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
   const own = kept.filter((mark) => ofPlace(place, mark, input.reachKm, outside))
-  const { other, seated } = beyondMarks(place, kept.filter((mark) => !own.includes(mark)), width, outside.seatMark, dot, input.notes)
+  const seen = new Set(input.landmarks.map((mark) => mark.id))
+  const extraRaw = namedOnly(input.seatCandidates ?? []).filter((mark) => {
+    if (seen.has(mark.id)) return false
+    seen.add(mark.id)
+    return !ofPlace(place, mark, input.reachKm, outside) && isBeyondSettlement(place, mark)
+  })
+  const extraReplaced = rasterReplaced(place, extraRaw, input.rasterTowers)
+  const extra = extraRaw.filter((mark) => !extraReplaced.has(mark.id))
+  const { other, seated } = beyondMarks(place, [...kept.filter((mark) => !own.includes(mark)), ...extra], width, outside.seatMark, dot, input.notes)
   const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
   const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
   const placed = [...ownMarks, ...placeMarks(place, terrain, other, width, undefined, false, undefined, input.notes, 'landmark')]

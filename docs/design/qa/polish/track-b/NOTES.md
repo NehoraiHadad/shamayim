@@ -37,7 +37,10 @@
   - Its drawn size decides, not its metres: a 9 m hall that clears the 2.5 px floor is drawn on its town. The 20 m
     gate applies only to the free-standing kinds.
   - Free-standing structures keep their old path: chimneys, masts, turbines, water towers, cooling towers.
-- **Caches.** The landmark cache key is `v8` and the city cache key `v6`, so no cached row keeps the old heights. Each
+  - Town-fabric marks within 6 km are carried past the scene's shortlist to seating only (`seatCandidates`), so tall
+    unseatable marks cannot crowd out a hall that seats; the place's own portrait contest sees the same shortlist as
+    before. Jerusalem now seats a 9 m mosque hall at 4.73 km on its drawn town.
+- **Caches.** The landmark cache key is `v9` and the city cache key `v6`, so no cached row keeps the old heights. Each
   rebuilt cell carries its own `heights: 'evidence'` marker, so a stale cached index cannot misread a rebuilt cell.
 
 ## Marks per place, before → after

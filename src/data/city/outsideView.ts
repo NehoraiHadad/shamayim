@@ -103,9 +103,12 @@ export function inFrame(frame: OutsideFrame, dx: number, dy: number, marginKm = 
   return dx >= frame.w - marginKm && dx <= frame.e + marginKm && dy >= frame.s - marginKm && dy <= frame.n + marginKm
 }
 
-/** Whether a spot (km east / north of the place) belongs to the place itself in the outside view. */
-export function isOwnSpot(frame: OutsideFrame, lie: PlaceLie, dx: number, dy: number): boolean {
-  return inFrame(frame, dx, dy) && (lie.inPlace?.(dx, dy) ?? true)
+/**
+ * Whether a spot (km east / north of the place) belongs to the place itself in the outside view.
+ * Without bounds (`lie.inPlace`), `marginKm` widens the cluster frame (0 for strict town-block ownership).
+ */
+export function isOwnSpot(frame: OutsideFrame, lie: PlaceLie, dx: number, dy: number, marginKm = 0): boolean {
+  return inFrame(frame, dx, dy, lie.inPlace ? 0 : marginKm) && (lie.inPlace?.(dx, dy) ?? true)
 }
 
 /** Where a point of the place stands: x (east left), its nearness (0 at the far edge, 1 at the near) and px per m. */

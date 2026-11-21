@@ -2,6 +2,7 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
+import { fitsBlockSpan } from '../../world/beyondSeat'
 import { ABOVE_PAD, rowKm } from '../../world/outside'
 import { SCENE_W } from '../../world/sceneBox'
 import { facetShare } from '../../world/water'
@@ -239,6 +240,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
     ...(view.beyondTowns ?? []).map((b) => ({ km: b.km, tower: null, block: b }))].sort((a, b) => b.km - a.km)
+  const drawnBlocks = new Map<string, { x: number; w: number }>()
   for (const { tower: t, block: b } of beyond) {
     if (t) {
       const x = t.x * sx
@@ -247,6 +249,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
     } else if (b) {
       const x = b.x * sx, w = b.w * sx
       if (!free(x - w / 2, b.baseY - b.h, x + w / 2, b.baseY)) continue
+      drawnBlocks.set(b.id, { x, w })
       out.push({ kind: 'box', x, w, top: b.baseY - b.h, foot: b.baseY, tier: tier(b.km, b.x, b.baseY), seed: b.seed,
         storeys: Math.max(1, Math.round((b.heightM - 1) / STOREY_M)), folded: false, roof: null, heater: false, beyond: true })
     }
@@ -277,10 +280,16 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
     own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
   }
   for (const m of world.marks.filter((mk) => mk.plane === 'near')) {
+    const mx = m.x * sx
+    // A mark seated on a beyond town block stays only if its supporting block survived culling and still contains its final screen span.
+    if (m.seatBlockId !== undefined) {
+      const block = drawnBlocks.get(m.seatBlockId)
+      if (!block || !fitsBlockSpan(mx, m.w / 2, block.x, block.w)) continue
+    }
     // A mark under the label (when the label found no free spot) or a note gives way to the text.
-    if (!free(m.x * sx - m.w / 2, m.base - m.h * m.scale, m.x * sx + m.w / 2, m.base + (m.depth !== undefined ? m.h : 0))) continue
+    if (!free(mx - m.w / 2, m.base - m.h * m.scale, mx + m.w / 2, m.base + (m.depth !== undefined ? m.h : 0))) continue
     const seed = hashId(m.id)
-    const glyph: GlyphDesc = { kind: m.glyphKind, x: m.x * sx, base: m.base, h: m.h, scale: m.scale, w: m.w, seed,
+    const glyph: GlyphDesc = { kind: m.glyphKind, x: mx, base: m.base, h: m.h, scale: m.scale, w: m.w, seed,
       hand: glyphHand(m.glyphKind, seed), tones: undefined as unknown as Tones, famous: m.named,
       ...(m.depth !== undefined ? { ground: groundUnder(world, m) } : {}) }
     own.push({ y: m.base + .01, item: { kind: 'mark', glyph }, km: Math.min(m.km, behind(m.x, m.base)) })

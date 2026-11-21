@@ -1,9 +1,11 @@
 import type { Place } from '../../config/place'
+import { SKYLINE_TO_KM } from '../city/outsideView'
 import { bearingOf, distanceOf, offsetKm, toX } from './project'
 import { PORTRAIT_KINDS } from './markProjection'
 import { industrialNamed, landmarkBeyond } from './industrial'
 import { PORTRAIT_MARGIN_KM, PORTRAIT_MAX_KM } from './portrait'
 import { score, type FarRule } from './rank'
+import { isSettlementMark } from './settlement'
 import type { Landmark } from './types'
 
 const FAR_KINDS = ['chimney', 'cooling', 'turbine']
@@ -25,7 +27,7 @@ export function panoramaShortlist(place: Place, marks: Landmark[], around = fals
     if (farRule === 'landmark') {
       if (km > PORTRAIT_MAX_KM + PORTRAIT_MARGIN_KM && !landmarkBeyond(industrialNamed(mark))) return []
     } else if (far && mark.heightM < 60 && !FAR_KINDS.includes(mark.kind)) return []
-    return [{ mark, value: score(mark, bearing.km, 0, far ? 3 : 1.5) }]
+    return [{ mark, km, value: score(mark, bearing.km, 0, far ? 3 : 1.5) }]
   }).sort((a, b) => b.value - a.value)
   const limit = around ? 16 : 8
   const selected = ordered.slice(0, limit)
@@ -38,12 +40,25 @@ export function panoramaShortlist(place: Place, marks: Landmark[], around = fals
   // The portrait's own elements (groves, a solar field, a water tower...) would lose to taller marks: the best of each
   // kind within a portrait's widest reach is kept as well.
   const kinds = new Set<string>()
-  const portrait = ordered.filter(({ mark }) => PORTRAIT_KINDS.has(mark.kind) && distanceOf(place, mark) <= PORTRAIT_MAX_KM
+  const portrait = ordered.filter(({ mark, km }) => PORTRAIT_KINDS.has(mark.kind) && km <= PORTRAIT_MAX_KM
     && !selected.some(item => item.mark === mark) && !kinds.has(mark.kind) && kinds.add(mark.kind)).slice(0, 6)
   // A hand-drawn icon (`curated.ts`) in that reach is the place's own sign: always offered.
-  const icons = ordered.filter(({ mark }) => mark.source === 'curated' && distanceOf(place, mark) <= PORTRAIT_MAX_KM
+  const icons = ordered.filter(({ mark, km }) => mark.source === 'curated' && km <= PORTRAIT_MAX_KM
     && !selected.some(item => item.mark === mark))
   return [...selected, ...portrait, ...icons].map(({ mark }) => mark)
+}
+
+/**
+ * Remaining settlement-kind marks within `SKYLINE_TO_KM` not already in `exclude`, carried separately to beyond-town
+ * seating so unseatable tall marks cannot crowd a lower hall out of the shortlist without entering the own portrait contest.
+ */
+export function seatCandidates(place: Place, marks: Landmark[], exclude: readonly Landmark[] = []): Landmark[] {
+  const kept = new Set(exclude.map((mark) => mark.id))
+  return marks.filter((mark) => {
+    if (!isSettlementMark(mark) || kept.has(mark.id)) return false
+    const { dx, dy } = offsetKm(place, mark)
+    return Math.hypot(dx, dy) <= SKYLINE_TO_KM
+  })
 }
 
 export function shortlist(place: Place, marks: Landmark[]) {

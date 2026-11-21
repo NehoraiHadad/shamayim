@@ -54,6 +54,8 @@ export interface WorldInput {
   sunTerrain?: SceneTerrain
   /** Landmarks, the place's own homes and the satellite's groves (App's `marks`). */
   landmarks: readonly Landmark[]
+  /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
+  seatCandidates?: readonly Landmark[]
   city?: CityResult | null
   /** The far raster (`far.json`: built share and storeys per ~0.5 km cell, towers of 80 m+); the far towns need it. */
   far?: FarData | null
@@ -369,6 +371,8 @@ export interface WorldMark extends PlacedMark {
   plane: 'near' | 'far' | 'plain'
   /** A landmark, named (an unnamed mark is never one). */
   named: boolean
+  /** Supporting beyond-town block id (`BeyondBlock.id`) for a mark seated on a neighbouring town block. */
+  seatBlockId?: string
 }
 
 /** A tree of the place seen from outside (layout px): `x` its centre on `base`, `km` its haze. */
@@ -381,8 +385,8 @@ export interface OutsideTreeSite { x: number; base: number; w: number; h: number
  */
 export interface BeyondTower extends OutsideTower { km: number }
 
-/** A built square of a town beyond the place (C9), in the outside view: its middle x, base, width and height (px). */
-export interface BeyondBlock { x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
+/** A built square of a town beyond the place (C9), in the outside view: its raster square id, middle x, base, width and height (px). */
+export interface BeyondBlock { id: string; x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
 
 /** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
 export interface OutsideView {

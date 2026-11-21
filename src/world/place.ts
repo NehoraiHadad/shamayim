@@ -38,6 +38,8 @@ export interface PlaceInput {
   place: Place
   terrain: SceneTerrain
   landmarks: readonly Landmark[]
+  /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
+  seatCandidates?: readonly Landmark[]
   city?: CityResult | null
   /** The figure's width (px) the marks are laid out in. */
   width: number
@@ -103,8 +105,8 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const datum = row ? datumOnLand(row, landY, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
   const notes = notesOnWater(notes0, terrain, view, dot, width)
-  const marks = marksOf({ place, terrain: drawn, landmarks, width, dot, reachKm, homeHalf: homeHalf(reachKm, known), style: style.style,
-    notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
+  const marks = marksOf({ place, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
+    homeHalf: homeHalf(reachKm, known), style: style.style, notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark } })
   // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds
   // round it, so it always reads as the dot's; clear of the marks and the datum's dashed line, the near side first.

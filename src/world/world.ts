@@ -125,9 +125,9 @@ export function makeWorldBuilder() {
   }))
   const planesOf = memoOne(terrainPlanes)
   const placePart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
-    city: WorldInput['city'], width: number, elevation: number, bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'],
-    cover: WorldInput['cover']) => {
-    const part = placeOf({ place, terrain, landmarks, city, width, elevation, bounds, waterMask, cover })
+    seatCandidates: WorldInput['seatCandidates'], city: WorldInput['city'], width: number, elevation: number,
+    bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'], cover: WorldInput['cover']) => {
+    const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, elevation, bounds, waterMask, cover })
     return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey(part.marks, 1) }
   })
   const farCitiesPart = memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {
@@ -161,8 +161,8 @@ export function makeWorldBuilder() {
     const dayGiven = forecast.days.find((d) => d.date === datePart(at))
     const forced = input.forced ?? {}
 
-    const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
-      input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
+    const placePartResult = status === 'ready' ? placePart(place, terrain, input.landmarks, input.seatCandidates, input.city,
+      width, forecast.elevation, input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
     const drawn = drawnOf(terrain, placePartResult.nearLine)
     // The far towns are the far land's: placed on the panorama's own terrain (its eye's view), drawn behind the near land.
     const farCities = farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)

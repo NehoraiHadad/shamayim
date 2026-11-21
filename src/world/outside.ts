@@ -64,7 +64,7 @@ export interface OutsidePlace {
   beyond: BeyondTower[]
   /** C9: the towns beyond the place within the skyline's reach (6 km), where the far towns do not reach. */
   beyondTowns: BeyondBlock[]
-  seatMark: SeatMark
+  seatMark: SeatMark | null
   sea: CoastalSea | null
   /** The near ridge's distance at the dot (km): the place's nearest row takes this haze. */
   baseKm: number

@@ -782,6 +782,9 @@ Who wrote what: Claude (Opus 5.5) managed, measured, briefed and verified; Codex
 quota, 429); an Opus subagent reviewed round 1 (8 findings); Neon `gemini-4-neon-high` wrote round 2 (the fixes); Codex
 `gpt-6.2-sol` reviewed round 2 (3 P1, 3 P2, 1 P3); Neon wrote round 3 (`BRIEF-round3.md`: landmark cache v8, evidence
 per cell, seat inside the drawn block, seat by px before the 20 m gate, one ownership predicate, tests that can fail).
+Codex reviewed round 3 (4 findings); Neon wrote round 4 (no-raster fallback kept, containment against the scene model's
+final block, seat candidates carried past the shortlist, tests split) and round 5 (`BRIEF-round5.md`: the carried
+candidates reach beyond seating only, so own portraits are unchanged; landmark cache v9).
 Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
 - [x] (a) Worship heights by evidence, the same for every religion: 9 m hall; tower height only from `tower:type=minaret`,
       `building=minaret`, `man_made=tower`, `height` or levels (`src/data/landmarks/worship.ts`, `overpass.ts`). Build writes
