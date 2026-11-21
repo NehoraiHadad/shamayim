@@ -2469,3 +2469,47 @@ the app's own `__scene.scrub`):
   nearer than an object (the place's rows and towers) hides it without a sight line of its own.
 - The coastal plain gives Ben Gurion straight-in approaches on every runway; the base and downwind legs show where high
   ground stands on a centreline (the tests' made-up hill), not at the base places on this fixture's day.
+
+**Living land (2026-11-21): the land's colour and greenness from observed data; stages 1–3 of 6.** Commits on
+`land-living` (from `origin/main`). Brief: `docs/design/LAND-LIVING-BRIEF.md`; review log, handoffs and gates:
+`docs/design/qa/canvas/land/REVIEW.md` (writer Antigravity, reviewer Codex, gated by Claude Code). Stages 4 (vegetation),
+5 (wind on land) and 6 (stills) are added below as they close.
+
+*The pipeline* (data → one world state → model → painters; every value carries its source and date):
+1. **Data** (`src/data/land/`, entry `landData.ts`, hook `useLand.ts`; never blocks first paint: the scene draws on the
+   fallback and refines when data lands).
+   - *Near (±5 km):* the newest clear Sentinel-2 L2A scene from Earth Search STAC (`satellite.ts`, `cogReader.ts`,
+     `nearGrid.ts`, `s2Aggregate.ts`, `s2Math.ts`). True colour (TCI, 0..255 ↔ reflectance 0..0.25, checked on the
+     recorded fixture), NDVI = (B08−B04)/(B08+B04) on reflectance, snow from SCL 11 and NDSI (B03/B11). Only SCL
+     {4,5,6,7,11} are valid. Earth Search's COGs are already harmonised (`earthsearch:boa_offset_applied`), so the
+     `raster:bands` offset of −0.1 is not applied again (checked live: sea ≈ 1–21 DN, land ≈ 700 DN in B04). L2A is
+     terrain-corrected by Sen2Cor, so no de-lighting is applied on top.
+   - *Far (the panorama, tens of km):* NASA GIBS MODIS Terra 8-day NDVI (palette PNG, validated) and surface reflectance
+     bands 1-4-3 (JPEG) (`gibs.ts`, `gibsDecode.ts`, `gibsPalette.ts`), CORS `*`, cross-calibrated against the near
+     scene where they overlap.
+   - *Recent weather:* past rain and soil moisture through the Worker's new narrow `/v1/land-weather` route
+     (`recentWeather.ts`), off behind `ASK_LAND_WEATHER = false` until deployed (deploy item 7 above).
+   - *Cover:* ESA WorldCover classes (`worldCoverCog.ts`, `worldCoverGrid.ts`, `fineCover.ts`); a coarse overview
+     `public/data/land/il/coarse.json` (`scripts/land/buildCoarse.ts`) covers every footprint.
+   - *Fallback:* climatology by Köppen–Geiger class (0.5° table generated from Beck et al. 2018 by
+     `scripts/land/buildKoppen.ts`, checksum pinned), month and cover class (`climatology.ts`).
+   - *Cache:* IndexedDB `shamayim-land-v1` (`landCache.ts`): near 5 d, far 3 d, weather 6 h (stale cap 24 h), cover 30 d
+     (a partial mosaic 1 h); nothing older than 30 d is served.
+   - *Tests* never touch the network: recorded fixtures `src/test/fixtures/land-*.json` (`scripts/land/recordFixtures.ts`
+     records them).
+2. **World** (`src/world/landLiving.ts` → `WorldState.land`, key `keys.land`; rebuilt only when the date or the data
+   change, never on the hour). Sampled along the view's rays (`landRays.ts`) and over the place's own ground
+   (`landSample.ts`): cover class, light-free albedo (`landReflectance.ts`, `landRadiometry.ts`), NDVI, dryness, snow,
+   each with source and date. An old observation blends toward climatology by its age (`landAgeBlend.ts`,
+   w = exp(−age/τ), τ albedo 30 d, NDVI 25 d, dryness 10 d, snow 5 d; heuristic timescales, causal: only observations
+   on or before the shown date). Never from place names.
+3. **Colour** (`src/scene/model/landColour.ts`, `landPalette.ts`, `landSnow.ts`, `landVeil.ts`; painter
+   `src/scene/paint/landSurface.ts`). Each land plane (back, far, near) gets a small deterministic Oklab-quantised
+   palette (farthest-point + Lloyd, no randomness) of the albedo sampled by distance along each ray column, with soft
+   transitions between distance bands. Open water (WorldCover 80) is excluded. The palette is part of the form layer;
+   the existing light, cloud shadows, aerial perspective and haze act on it unchanged, so scrubbing the hour repaints
+   only `plane.*:light` (checked in `npm run test:perf`). Model descriptions stay compact and structured-cloneable.
+
+*Checks at the stage 3 gate* (`9c13156`): `npx tsc -b` pass; vitest 142 files / 1307 tests; build; pixels 66/66 (the
+references re-recorded for intended changes are listed per stage in REVIEW.md). Stills:
+`docs/design/qa/canvas/land/stage3/` (before/after, winter and late summer).
