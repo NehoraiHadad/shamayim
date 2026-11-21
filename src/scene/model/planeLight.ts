@@ -8,6 +8,7 @@ import { shadowRuns } from '../../world/shadowRuns'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { fractal } from '../paint/core'
 import { landBoxKey, layerKey } from './keys'
+import { nearGroundTone } from './landColour'
 import { darken, labOf, lightness, mixRgb, rgbOf, rgbOfLab } from './tone'
 import type { Face, PlaneLight, Pt, Rim, SceneBox, SnowCap, Wash } from './types'
 
@@ -15,6 +16,8 @@ type PlaneName = 'back' | 'far' | 'near'
 
 /** How far toward the air's colour a plane at the visibility goes (the rest is the crest's own dark against the sky). */
 const AERIAL = 0.88
+/** Oklab lightness of the clear-day ridge anchor (`SKY_THEMES.clearDay.ridgeNear` `#2E3B4E`), used to scale ambient mood dimming. */
+const DAY_RIDGE_L = 0.351
 /** Depth (px) of the lit and shaded bands below a crest. */
 const DEPTH: Record<PlaneName, number> = { back: 7, far: 9, near: 16 }
 /** Floor shadow: how deep below the ground surface it reads, and the narrowest run drawn (px). */
@@ -35,29 +38,52 @@ export function hazeOf(world: WorldState): RGB {
   return mixRgb(sky, world.air.haze, 0.3 * (1 - world.night.dark))
 }
 
-/**
- * The ground's tone at a distance (km): the near ridge's own dark (the light's palette) carried toward the air by aerial
- * perspective (`air.fade`, Koschmieder from the visibility), darker and a little richer when the ground is wet.
- */
-export function toneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB {
-  return toneFor(world, haze)(km)
+export interface LandVeil { rgb: RGB; alpha: number }
+
+/** Ambient mood & wet-ground veil (`source-over` onto the light-free land form), continuous across day/twilight/night/rain. */
+export function moodVeilOf(world: WorldState): LandVeil {
+  const wet = world.ground.wet
+  const raw = rgbOf(world.light.palette.ridgeNear)
+  const rgb = wet > 0 ? darken(raw, 1 - 0.24 * wet, 1 + 0.2 * wet) : raw
+  const ratio = clamp01(lightness(rgb) / DAY_RIDGE_L)
+  const dim = clamp01(1 - ratio ** 2.2)
+  return { rgb, alpha: clamp01(Math.max(dim, 0.86 * world.night.dark)) }
 }
 
-/** `toneAt` for one world and air, its colours converted once (a plane asks for a tone every ~16 px). */
-function toneFor(world: WorldState, haze: RGB): (km: number) => RGB {
-  const of = toneOfHaze(world, haze)
-  return (km) => of(hazeAt(world, km))
+/** Exact `source-over` composition of aerial haze (`t`) over the ambient mood veil (`mood`). */
+function veilOfHaze(world: WorldState, haze: RGB): (t: number) => LandVeil {
+  const mood = moodVeilOf(world)
+  return (t) => {
+    const a = clamp01(t + mood.alpha * (1 - t))
+    if (a <= 1e-5) return { rgb: haze, alpha: 0 }
+    const m = mood.alpha * (1 - t)
+    return {
+      rgb: [(haze[0] * t + mood.rgb[0] * m) / a, (haze[1] * t + mood.rgb[1] * m) / a, (haze[2] * t + mood.rgb[2] * m) / a],
+      alpha: a,
+    }
+  }
+}
+
+/** Applies a `source-over` veil onto a light-free land tone (matches Canvas 2D compositing of `light` over `form`). */
+export function applyVeil(base: RGB, veil: LandVeil): RGB {
+  const a = veil.alpha, inv = 1 - a
+  return [base[0] * inv + veil.rgb[0] * a, base[1] * inv + veil.rgb[1] * a, base[2] * inv + veil.rgb[2] * a]
+}
+
+/**
+ * The ground's tone at a distance (km): the place's living-land base tone carried through the scene's ambient mood,
+ * wet-ground darkening and Koschmieder aerial perspective (`air.fade`) toward the air.
+ */
+export function toneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB {
+  return applyVeil(nearGroundTone(world), veilOfHaze(world, haze)(hazeAt(world, km)))
 }
 
 /** How far toward the air the ground at a distance (km) goes: `AERIAL · fade(km)²`. */
 const hazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
 
-/** The ground's tone for a share `t` of the air in it (`hazeAt`). */
-function toneOfHaze(world: WorldState, haze: RGB): (t: number) => RGB {
-  const base = labOf(rgbOf(world.light.palette.ridgeNear)), air = labOf(haze)
-  const wet = world.ground.wet, k = 1 - 0.16 * wet, chroma = 1 + 0.2 * wet
-  return (t) => rgbOfLab({ l: (base.l + (air.l - base.l) * t) * k, a: (base.a + (air.a - base.a) * t) * chroma,
-    b: (base.b + (air.b - base.b) * t) * chroma })
+/** The source-over mood + aerial haze veil at distance `km` (shared by planes and outside ground). */
+export function veilAt(world: WorldState, km: number, haze = hazeOf(world)): LandVeil {
+  return veilOfHaze(world, haze)(hazeAt(world, km))
 }
 
 /** The most the air's share in a plane's tone changes a px across (reference width): a jump spreads over ≥ 1/this px. */
@@ -173,23 +199,29 @@ function taper(samples: RidgeSample[], depth: number[]) {
  * - **snow** above the snow line (`terrain.snowEdge`), lit like the land;
  * - **lift**: the side the small things of the ground (scrub, gully lips) catch the light on.
  */
-export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, k: number): PlaneLight {
+export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, k: number, base = nearGroundTone(world)): PlaneLight {
   const { light } = world
   const { palette } = light
   const sx = box.width / SCENE_W
   const haze = hazeOf(world)
-  const tone = toneFor(world, haze)
 
   // Aerial perspective along the crest, a stop every ~16 px, by each direction's distance smoothed over ~25 px, its air
   // no steeper across than `HAZE_SLOPE` (`hazeAlong`): where a nearer hill takes over from a farther one inside one plane,
   // the tone turns over a stretch, not at a seam, and the thicker the air the wider that stretch (a fog's is ~100 px).
   const kms = plane.hazeKm ?? plane.distanceKm
   const shares = hazeAlong(plane.points.map(([x]) => x), kms.map((km) => hazeAt(world, km)))
-  const toneOf = toneOfHaze(world, haze)
+  const veilOf = veilOfHaze(world, haze)
   const every = Math.max(1, Math.round(plane.points.length / 24))
-  const tones: [number, RGB][] = plane.points.flatMap(([x], i): [number, RGB][] =>
-    i % every === 0 || i === plane.points.length - 1 ? [[x * sx, toneOf(shares[i])]] : [])
-  const tint = tone(median(plane.distanceKm))
+  const veil: [number, RGB, number][] = []
+  const tones: [number, RGB][] = []
+  plane.points.forEach(([x], i) => {
+    if (i % every === 0 || i === plane.points.length - 1) {
+      const v = veilOf(shares[i])
+      veil.push([x * sx, v.rgb, v.alpha])
+      tones.push([x * sx, applyVeil(base, v)])
+    }
+  })
+  const tint = applyVeil(base, veilOf(hazeAt(world, median(plane.distanceKm))))
   const sky = rgbOf(palette.horizon)
   const lightTint = lightTintOf(world)
   const cap = Math.min(lightness(tint) + (name === 'near' ? 0.12 : 0.1), lightness(sky) - 0.05)
@@ -262,8 +294,8 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
   // The key names everything these pixels come from: the light, the air, the ground, the night, the snow, the land and
   // the box (hashing the inputs, not the shapes made from them, keeps a scrub frame cheap).
   const key = layerKey('plane.light', name, world.keys.terrain, world.keys.light, world.keys.air, world.keys.ground,
-    world.keys.night, world.snow, landBoxKey(box))
-  return { key, blend: 'overlay', tint, tones, shade, lit, faces, rims, snow, lift }
+    world.keys.night, world.keys.land, world.snow, landBoxKey(box))
+  return { key, blend: 'source-over', tint, tones, veil, shade, lit, faces, rims, snow, lift }
 }
 
 /** Snow above the snow line (`terrain.snowEdge`), its lower edge ragged by seeded displacement (no filter). */

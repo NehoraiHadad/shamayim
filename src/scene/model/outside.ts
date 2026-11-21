@@ -8,9 +8,10 @@ import { facetShare } from '../../world/water'
 import { groundFn } from '../../data/landmarks/seat'
 import type { OutsideView, RGB, WorldMark, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
+import { outsideGroundStops } from './landColour'
 import { againstLight, facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
 import { smoothstep } from '../../world/ridgeLighting'
-import { aerialFor, hazeOf, snowOnGround, toneAt } from './planeLight'
+import { aerialFor, applyVeil, hazeOf, snowOnGround, veilAt } from './planeLight'
 import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
 import type { Box, GlyphDesc, LayerOf, OutsideItem, Pt, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
@@ -311,11 +312,19 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   }
   const sea = seaOf(world, box, sx, clear)
   const view = world.place3
-  // The place's own ground where it rises over the ridge line: the near land's tone at its distance, its crest lit by
-  // the sky as the ridge's is.
-  const landDesc = view.land ? { top: view.land.top.map(([x, y]): Pt => [x * sx, y]), base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
-    tone: toneAt(world, view.land.km), rim: mixRgb(toneAt(world, view.land.km), skyAt(world, box)(2), 0.35),
-    snow: landSnow(world, view.land) } : null
+  // The place's own ground where it rises over the ridge line: quantised living-land tones across its span at its
+  // distance, veiled by the same scene light and aerial haze as the planes, with its crest lit by the sky.
+  const landDesc = view.land ? (() => {
+    const raw = outsideGroundStops(world, view.land.top[0][0], view.land.top.at(-1)![0], view.land.km)
+    const veil = veilAt(world, view.land.km)
+    const tone = applyVeil(raw.median, veil)
+    const stops: [number, RGB][] = raw.stops.map(([t, c]) => [t, applyVeil(c, veil)])
+    return {
+      top: view.land.top.map(([x, y]): Pt => [x * sx, y]), base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
+      tone, stops, source: raw.source, rim: mixRgb(tone, skyAt(world, box)(2), 0.35),
+      snow: landSnow(world, view.land),
+    }
+  })() : null
   const form = skyFormOf(world, box, shape.kms, tones, sx)
   if (!out.length && !sea) return null
   // The layer's box: everything with the longest cast shadow either side, independent of the light (a scrub never resizes it).
@@ -338,7 +347,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
   const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
-    landDesc && [colourKey(landDesc.tone), colourKey(landDesc.rim), landDesc.snow && [colourKey(landDesc.snow.rgb),
+    landDesc && [colourKey(landDesc.tone), landDesc.stops?.map(([, c]) => colourKey(c)), colourKey(landDesc.rim), landDesc.snow && [colourKey(landDesc.snow.rgb),
       Math.round(landDesc.snow.alpha * 64), landDesc.snow.runs]]]
   // C7: its trees sway in the wind and its sea's ripples run with it, in a strip of frames (the light canvas only).
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))

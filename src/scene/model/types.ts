@@ -156,13 +156,32 @@ export interface LightPart {
 }
 
 /**
- * A plane's light part (C2). The form under it is light-free and laid down in values round a neutral 0.5 grey (texture,
- * gullies, terraces, scrub darken it); this canvas holds the colours after light and haze and is laid over the form with
- * `overlay`, so a neutral form shows these colours exactly and the form's marks darken (or tint) them.
+ * Compact, structured-cloneable quantised land albedo palette for one terrain plane (Stage 3: living land).
+ * Light-free: baked into the plane's FORM canvas and cached by `world.keys.land` (never repainted on hour scrub).
+ */
+export interface PlanePalette {
+  /** Quantised light-free surface tones (1..6 sRGB colours). */
+  palette: RGB[]
+  /** Columns across the plane (west -> east). */
+  cols: number
+  /** Distance bands down the plane face (crest -> foot). */
+  rows: number
+  /** Flat `rows * cols` array of indices into `palette`. */
+  cells: number[]
+  /** Dominant living-land albedo provenance for this plane (e.g. `s2:2026-11-15`, `climatology`). */
+  source: string
+}
+
+/**
+ * A plane's light part (C2 + Living Land Stage 3). The form under it carries the light-free quantised land albedo,
+ * seeded patches, mottle, gullies, terraces and scrub; this canvas lays the scene's mood & aerial haze veil (`veil`,
+ * `source-over`), snow, shaded and lit bands, floor shadow, crest rim and ground lift over it.
  */
 export interface PlaneLight extends LightPart {
-  /** The tone at the crest across the plane (x px → colour): aerial perspective by each direction's distance. */
+  /** The lit+hazed tone at the crest across the plane (x px -> colour): aerial perspective by each direction's distance. */
   tones: [number, RGB][]
+  /** Source-over mood + aerial haze veil across the plane (x px -> [colour, alpha]), applied over the living-land form. */
+  veil?: [number, RGB, number][]
   /** Shade on the faces turned from the light, then light on the faces turned to it. */
   shade: Wash[]
   lit: Wash[]
@@ -478,8 +497,8 @@ export type LayerDesc =
   | LayerBase & { kind: 'flash'; bank: BankDesc; rgb: RGB; period: number }
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
-  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; gullies: Gully[];
-      terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
+  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone?: PlanePalette;
+      gullies: Gully[]; terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
@@ -488,8 +507,8 @@ export type LayerDesc =
       sideK?: number }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       litSide: 'left' | 'right' | null
-      /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */
-      land: { top: Pt[]; base: Pt[]; tone: RGB; rim: RGB
+      /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
+      land: { top: Pt[]; base: Pt[]; tone: RGB; stops?: [number, RGB][]; source?: string; rim: RGB
         /** Snow lying on it (C9): its colour and cover, over the runs of top points (first, last index) at or over the line. */
         snow: { rgb: RGB; alpha: number; runs: [number, number][] } | null } | null
       form: SkyForm }

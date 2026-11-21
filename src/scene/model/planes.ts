@@ -6,22 +6,21 @@ import { LAND_MODEL } from '../../world/land'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import { groundForm } from './ground'
 import { landBoxKey, layerKey } from './keys'
+import { planeSurfaceOf } from './landColour'
 import { planeLight } from './planeLight'
-import type { Box, LayerOf, Pt, RGB, SceneBox } from './types'
+import type { Box, LayerOf, Pt, SceneBox } from './types'
 
 type PlaneName = 'back' | 'far' | 'near'
 
 /** Draw order on the land surface (water, cities and the portrait come between from C3 on). */
 const Z: Record<PlaneName, number> = { back: 5, far: 10, near: 30 }
-/** The form's neutral value: the light canvas laid over it with `overlay` shows its own colours exactly here. */
-const NEUTRAL: RGB = [0.5, 0.5, 0.5]
 /**
  * How much of the modelling a plane carries: the near ridge all of it, a far one less (its marks are smaller and the
  * haze takes their contrast). A fixed share by the plane, so the form never depends on the hour's air.
  */
 const MODEL: Record<PlaneName, number> = { back: 0.3, ...LAND_MODEL }
 /** Bumped when the form's drawing rules change, so cached forms are not reused across versions. */
-const FORM = 2
+const FORM = 3
 
 const shapes = new WeakMap<Plane, Map<string, { outline: Pt[]; top: number }>>()
 
@@ -61,13 +60,15 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   // The ground's texture on the near ridge only: haze takes it from the planes behind (and they are mostly hidden).
   const hidden = name === 'near' ? undefined : Math.min(box.landHeight, Math.ceil(Math.max(...world.terrain.near.points.map(([, y]) => y))) + 2)
   const ground = name === 'back' ? { gullies: [], terraces: [], scrub: [] } : groundForm(world, box, name, clear)
+  const surface = planeSurfaceOf(world, name, plane)
   return {
     kind: 'plane', plane: name, id: `plane.${name}`, surface: 'land', z: Z[name],
     // A plane behind the near ridge is hidden under its lowest crest: its canvases stop there.
     bounds: { x: 0, y: top, w: box.width, h: Math.max(1, (hidden ?? box.landHeight) - top) },
-    key: layerKey('plane', name, FORM, world.keys.terrain, world.keys.place, landBoxKey(box)),
-    outline, fill: NEUTRAL, ...ground, grain: { amount: name === 'near' ? 1 : 0, seed: hashId(`${world.place.id}:${name}:grain`) },
-    light: planeLight(world, box, name, plane, k),
+    key: layerKey('plane', name, FORM, world.keys.terrain, world.keys.place, world.keys.land, landBoxKey(box)),
+    outline, fill: surface.median, surfaceTone: surface.palette, ...ground,
+    grain: { amount: name === 'near' ? 1 : 0, seed: hashId(`${world.place.id}:${name}:grain`) },
+    light: planeLight(world, box, name, plane, k, surface.median),
   }
 }
 

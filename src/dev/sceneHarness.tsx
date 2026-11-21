@@ -3,7 +3,7 @@ import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
 import { loadBounds } from '../data/city/bounds'
 import { loadCity } from '../data/city/cityData'
-import { loadLandCover } from '../data/land/landData'
+import { loadFootprintLandCover } from '../data/land/landData'
 import { loadFar } from '../data/city/farData'
 import { loadIsrael } from '../data/landmarks/israelData'
 import { withPlaceHomes } from '../data/landmarks/placeMarks'
@@ -118,7 +118,7 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
     loadCity(place, signal),
     loadFar(),
     loadBounds(),
-    loadLandCover(place, signal, 6),
+    loadFootprintLandCover(place, signal, 6),
     fetch(forecastUrl(place)).then((res) => {
       if (!res.ok) throw new Error(`forecast ${res.status}`)
       return res.json() as Promise<unknown>
