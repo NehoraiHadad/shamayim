@@ -533,6 +533,35 @@ whole state, and never clone it per scrub frame.
 
 **Re-verification (exact counts):** `npx tsc -b`: PASS (0 errors); `npm run lint`: PASS (0 errors, 0 warnings in touched files); `npx vitest run --maxWorkers=2`: **142/142 test files, 1,307/1,307 tests passed**; `npm run build`: PASS (`tsc -b && vite build`, 452 modules transformed); `npm run test:pixels`: **66/66 passed** (`tiberias-2100` & `tiberias-2100-clear` updated in `e70b7f5`; all other 64 refs pass unchanged). (Worker untouched.)
 
+### **Review (Codex, round 2)**
+
+**Round 1 answers checked**
+
+- **Resolved — outer distance bands.** Distances at and beyond the last dry sample now keep that band's albedo and source, including rays where water screening shortens the usable range.
+- **Resolved — projected face rows.** The model samples distance at each row's projected height. The painter recovers the local foot from the outline. Tests cover a steep near face and a partly occluded far face.
+- **Resolved — outside-ground locality.** The world retains the crest samples' east and north offsets and the model reads the local albedo field in metres. The contrasting local and panorama fixture checks the compass order. Haze and snow use the documented portrait distance approximation.
+- **Resolved — water reflection cache.** The water light key includes the painted band colours and ground state. The same-hour regression test changes local albedo, repaints the reflection and reuses the water form.
+- **Resolved — source weighting and all-water fallback.** The centre contribution participates in source selection. Rays without dry land fall back to a dry local sample or marked land climatology.
+- **Resolved — wet ground.** The black veil attenuates both dark and bright base tones before haze. The regression test checks both ends of the palette.
+- **Resolved — fallback and refinement paint gate.** Both near and far must composite fresh forms while satellite replies are held and again after release. The runner checks both GIBS channels. The tile-address coverage gap below can follow in Stage 4.
+- **Resolved — performance comparison.** The repeated matched runs include cold model, first composite and Worker batches. The reported scrub timings stay close to baseline or improve. Cold model medians rise by 21.0 ms for Haifa and 10.1 ms for Shadmot Mehola. Cold land Worker medians rise by 20.4 ms and 9.9 ms respectively.
+- **Resolved — fractional crest coverage in the form.** The texture has one outline mask and the fallback has one fill. The fractional-pixel test checks 50% coverage and absence of median bleed. The two additional night reference updates are documented.
+- **Resolved — duplicate opaque tone path.** Plane descriptors now require the veil and surface palette. Both legacy painter branches are gone. The unused plane tint field remains a small follow-up below.
+- **Partially resolved — module size.** The extraction removed the large Stage 3 additions from the shared types and painters. The remaining plane-light model is 211 lines and still groups two separate tasks, crest lighting and snow.
+- **Resolved — screen-x order.** The palette descriptor documents increasing screen x and the camera-dependent compass order.
+- **Resolved — TASKS status.** Stage 3 is marked in progress while the gates run.
+
+**Findings for Stage 4**
+
+- `e2e/land.perf.mjs:43` · minor · The recorded GIBS RGB fixture is tile `8/103/153`. The ±60 km Shadmot footprint requests rows 103 and 104 and columns 152 and 153, while the route returns the centre tile for all four addresses on its date. The test exercises JPEG refinement but can miss row or column addressing regressions and supplies unrelated colours outside the recorded tile. · Match the full tile address and return a fixture miss elsewhere, or record the other tiles under their own addresses. Check a valid centre-tile sample and the marked fallback at a missing tile.
+- `src/scene/compose/surface.ts:208` · minor · The new composite diagnostic looks up freshness and replaces the shown-key object for every fresh layer on each composite. The render loop also walks the layers to check freshness. The app always passes stats, so a test for two terrain planes adds key checks and allocations to ordinary animation frames across both surfaces. · Track composite keys only when requested by the runner or diagnostic UI and reuse entries while their keys and freshness are stable.
+- `src/scene/model/planeLight.ts:173` · minor · The plane light still serializes `tint` in every Worker descriptor. Crest calculations use it locally, and after removal of the opaque path the painter uses the veil and paint marks exclusively. · Keep the local tint calculation and narrow the plane's descriptor to the fields used by the compositor and painter.
+- `src/scene/model/planeLight.ts:177` · minor · The model is still 211 lines after the extraction. Snow edge construction and the shared snow look sit alongside the crest-band, rim and shadow algorithms and have a separate caller in the portrait model. · Move the snow descriptor and look into a focused module shared by the plane and portrait models.
+
+**Checks.** `npx tsc -b` passed. `npx vitest run --maxWorkers=2` passed all 1,307 tests across 142 files. The changed model and painter paths use cloneable descriptors, seeded noise and injected scratch canvases. The browser runners intercept external requests, and the fallback paint gate holds satellite replies until both planes have drawn. Build, pixel and browser performance results are from the writer's handoff.
+
+**Verdict:** approved
+
 ## Stage 4: vegetation
 
 ## Stage 5: wind on land
