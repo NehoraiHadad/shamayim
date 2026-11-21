@@ -697,6 +697,38 @@ Checks (orchestrator, on the round-1 head): `npx tsc -b` pass; vitest 145 files 
 
 **Verdict:** changes requested
 
+### **Answers (round 2)**
+
+written by Codex (writer stand-in)
+
+- `src/scene/model/vegAgriBuilders.ts:47` — fixed in `b891461`: check the projected ray and log-distance band boundaries across the painted footprint and split fields and rows where cover or clear zones interrupt them. Tree and tuft envelopes include shadows and palm fronds. Tests cover interior water bands, overlay crossings and a palm overhang clear of its root.
+- `src/scene/model/landVegetation.ts:91` — fixed in `b891461`: match the sampled ground to independently mapped crop polygons by actual bearing and range. `8651ff2` preserves the OSM source, crop kind and rings through the landmark pipeline. Tests exercise synthetic WorldCover marks, vineyards, land at the same bearing beyond a polygon and unmapped arid woodland.
+- `src/scene/model/vegRules.ts:134` — fixed in `b891461`: classify mapped crop types independently of resolution and crossfade orchard detail into the coarse woodland or field motif. A distance sweep checks painted alpha through the 24 m/px handoff.
+- `src/scene/model/planes.ts:70` — fixed in `b891461`: key the form and light pair with mapped crop evidence and the projected clear zones. A same-hour data arrival refreshes both keys, and the subsequent hour-only scrub reuses the form.
+- `src/scene/model/vegAgriBuilders.ts:68` — fixed in `b891461`: gate individual rows on the farthest stretch, blend unresolved rows into management alleys, and project cross-ray parcel widths from metres. The parcel depth remains illustrated. Tests cover an unresolved far end and parcel width at 30 m/px.
+- `src/scene/paint/landVegetation.ts:53` — fixed in `b891461`: hash the projected anchor for parcel edges, strata and tufts. A paint-command test removes earlier packed marks and compares the unaffected commands.
+- `e2e/land.perf.mjs:137` — fixed in `6535f06`: `0be2f9b` added matched Stage 3/4 App runs with dense cover. Both fixtures require the exact source at the missing GIBS tile. The relative cold and scrub timings are recorded below.
+- `src/scene/model/vegBuilders.ts:21` — fixed in `b891461`: removed the unused builder fields and sampler re-exports. The sampler test checks that the face helpers stay in their owning module.
+
+The OSM crop layer contains 7,284 areas from the 2026-11-20 21:21:21 UTC Geofabrik snapshot, including 401 tagged date-palm areas and 517 vineyards. [Geofabrik extract](https://download.geofabrik.de/asia/israel-and-palestine.html) · [OSM tree tags](https://wiki.openstreetmap.org/wiki/Key:trees)
+
+Row pitches are illustrative examples. The 8 m palm, 7 m olive and 6 m citrus values follow published cultivation layouts. The field-width range represents the small and medium area classes as nominal square parcels. [FAO date cultivation](https://www.fao.org/4/Y4360E/y4360e0a.htm) · [Olive and citrus field study](https://www.mdpi.com/2073-4433/12/7/864) · [Lesiv et al. field sizes](https://doi.org/10.1111/gcb.14492)
+
+**Matched App performance.** `node e2e/land.perf.mjs --baseline-root=<built 9c13156 checkout> --runs=3` used production builds, Chromium software raster, CPU ×4 and DPR 2.75. The runner alternated A/B, B/A and A/B with fresh contexts. Both stages used the same Shadmot forecast, panorama, 100×100 Sentinel-2 grids and 60×60 GIBS grids. The dense case set Shadmot's own fine-cover tile to tree cover. Values are milliseconds and matched rows are medians of three runs per stage and fixture.
+
+| App fixture and revision | Fallback paint | Satellite refinement | Same-day scrub p50 |
+| --- | ---: | ---: | ---: |
+| Stage 3 handoff above | 5,003.3 | 785.5 | 271.3 |
+| Stage 4 initial handoff above | 6,256.7 | 900.7 | 367.6 |
+| Observed cover, matched Stage 3 `9c13156` | 7,680.3 | 1,447.7 | 263.7 |
+| Observed cover, matched Stage 4 `6535f06` | 7,366.2 | 1,486.9 | 357.7 |
+| Dense tree cover, matched Stage 3 `9c13156` | 6,378.6 | 1,384.5 | 212.3 |
+| Dense tree cover, matched Stage 4 `6535f06` | 6,271.2 | 1,524.6 | 264.0 |
+
+All 12 runs reused `world.land` on every scrub and fetched six unique fine tiles with zero duplicates. The observed-cover fixture recovered the aged Sentinel-2 class mean at the missing GIBS tile. The dense fixture used climatology because its valid near-Sentinel samples lacked the missing tile's cover class. The verified batch had faster fallback paint and higher scrub medians in both cases. An earlier batch yielded scrub medians of 254.1 → 260.8 ms with observed cover and 399.0 → 338.0 ms with dense cover. The run-to-run spread leaves the size of any scrub regression uncertain. The form-identity regression independently verifies that a same-day scrub reuses the terrace projection.
+
+**Checks.** `npx tsc -b` and `npm run build` passed. `npx vitest run --maxWorkers=2 --testTimeout=20000 --hookTimeout=20000` passed 146/148 files and 1,325/1,327 tests. The two Shadmot loading and weather cases timed out. Both passed the serial targeted rerun (2/2 files, 2 selected tests passed, 83 skipped). The pixel sweep passed 65/66 comparisons. The inspected vegetation change in `tiberias-1200@2x` was recorded in `e234588` and its targeted comparison passed 1/1.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
