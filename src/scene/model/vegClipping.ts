@@ -1,11 +1,11 @@
 /** Subdivide only rejected spans. Every retained span passed a conservative footprint check. */
 export function clipSpans(
   top: number, bottom: number, fits: (a: number, b: number) => boolean, emit: (a: number, b: number) => void,
-  minHeight = 2,
+  minHeight = 2, minEmit = minHeight,
 ): void {
   let start: number | undefined, end = top
   function flush() {
-    if (start !== undefined) emit(start, end)
+    if (start !== undefined && end - start >= minEmit) emit(start, end)
     start = undefined
   }
   function scan(a: number, b: number) {

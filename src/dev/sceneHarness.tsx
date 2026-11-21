@@ -129,8 +129,9 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   const base: Forecast = { ...mapForecast(raw), elevation: panorama.groundM, placeId: place.id, air: null, nowcast: null, normals: null, fetchedAt: 0,
     source: 'fixture', models: [] }
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
-  return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks), city,
-    far, forced: WEATHER[weather] ?? null, forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover }
+  return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks),
+    cropAreas: source.cropAreas, city, far, forced: WEATHER[weather] ?? null, forcedLayers: LAYERS[weather] ?? null,
+    waterMask: mask, bounds, cover }
 }
 
 /** The land's moment (`land=`): its status for the world, and the clock the model is built with. */

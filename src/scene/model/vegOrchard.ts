@@ -21,8 +21,8 @@ export function addOrchardBlock(
   mPerPx: number, orchard: OrchardKind, density: number, mapped?: AreaLimit, slope = 0,
 ): void {
   const fade = orchardDetail(mPerPx)
-  const y0 = Math.max(env.crestAt(refX) + 1.8, yTop), y1 = Math.min(env.footAt(refX) - 0.8, yBot)
-  if (fade <= 0.002 || y1 - y0 < 3) return
+  const y0 = Math.max(env.crestAt(refX) + 1.0, yTop), y1 = Math.min(env.footAt(refX) - 0.8, yBot)
+  if (fade <= 0.002 || y1 - y0 < 1.4) return
   const drift = (rand() - 0.5) * spanRef * 0.36
   const bounds: Footprint = [refX - spanRef / 2 - Math.abs(drift), y0, refX + spanRef / 2 + Math.abs(drift), y1]
   const maxScale = Math.max(0.5, env.farScale(bounds))
@@ -49,8 +49,8 @@ export function addOrchardBlock(
       const index = i - (lineCount - 1) / 2
       const tx = refX + drift + index * topGap, bx = refX + index * bottomGap
       const xAt = (y: number) => tx + (bx - tx) * (y - y0) / (y1 - y0)
-      const yStart = Math.max(y0, env.crestAt(tx) + 1.6), yEnd = Math.min(y1, env.footAt(bx) - 0.8)
-      if (yEnd - yStart < 2.6) continue
+      const yStart = Math.max(y0, env.crestAt(tx) + 1.0), yEnd = Math.min(y1, env.footAt(bx) - 0.8)
+      if (yEnd - yStart < 1.2) continue
       const fits = (a: number, b: number) => {
         const x0 = xAt(a), x1 = xAt(b)
         return env.fits([Math.min(x0, x1) - pad / env.sx, a - pad, Math.max(x0, x1) + pad / env.sx, b + pad],
@@ -58,11 +58,11 @@ export function addOrchardBlock(
       }
       const emit = (a: number, b: number) => {
         if (buf.rows.length / 6 < CAPS.rows) {
-          buf.rows.push(xAt(a) * env.sx, a, xAt(b) * env.sx, b, lineWidth, weight * (individual ? 0.24 : 0.30))
+          buf.rows.push(xAt(a) * env.sx, a, xAt(b) * env.sx, b, lineWidth, weight * (individual ? 0.28 : 0.34))
           buf.rowMeta.push(tone)
         }
       }
-      clipSpans(yStart, yEnd, fits, emit)
+      clipSpans(yStart, yEnd, fits, emit, 0.45, 0.9)
 
       // Seed tree positions on whole rows. Splitting an interrupted row never shifts another crown.
       const steps = individual ? 3 : 2

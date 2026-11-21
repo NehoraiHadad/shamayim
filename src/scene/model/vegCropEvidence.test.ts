@@ -5,10 +5,13 @@ import { parseOverpass } from '../../data/landmarks/overpass'
 import { loadLandmarkSource } from '../../data/landmarks/useLandmarks'
 import { destination } from '../../data/terrain/panorama'
 import { makeWorldInput, SHADMOT, typedCover } from '../../test/livingLandFixtures'
+import { DATUM_PLACES, STILL_PLACES } from '../../test/scenePlaces'
+import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import type { Plane } from '../../world/types'
 import { makeWorldBuilder } from '../../world/world'
+import { layersOn, sceneModel } from '.'
 import { planeLayer } from './planes'
-import type { SceneBox } from './types'
+import type { LayerOf, SceneBox } from './types'
 import { cropEvidence } from './vegCropEvidence'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -68,5 +71,31 @@ describe('mapped crop evidence from the landmark pipeline', () => {
     expect(blocked.key).not.toBe(refined.key)
     expect(blocked.light.key).not.toBe(refined.light.key)
     expect(blocked.vegetation.rows).toHaveLength(0)
+  })
+
+  it('wires real mapped OSM crop areas through loadPlaces and worldInput (Kalya palms & Nahalal olive/orchards)', async () => {
+    stubPublicFetch()
+    try {
+      const kalya = DATUM_PLACES.find((p) => p.id === 'kalya')!
+      const nahalal = STILL_PLACES.find((p) => p.id === 'nahalal')!
+      const places = await loadPlaces([kalya, nahalal])
+      const kaLoaded = places.get('kalya')!
+      const nhLoaded = places.get('nahalal')!
+      expect(kaLoaded.cropAreas?.some((a) => a.kind === 'palm')).toBe(true)
+      expect(nhLoaded.cropAreas?.some((a) => a.kind === 'olive')).toBe(true)
+      const build = makeWorldBuilder()
+      const kaWorld = build(worldInput(kaLoaded, '2026-02-15T12:00'))
+      const nhWorld = build(worldInput(nhLoaded, '2026-02-15T12:00'))
+      expect(kaWorld.cropAreas?.length).toBeGreaterThan(0)
+      expect(nhWorld.cropAreas?.length).toBeGreaterThan(0)
+      const kaNear = layersOn(sceneModel(kaWorld, BOX), 'land')
+        .find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
+      const nhNear = layersOn(sceneModel(nhWorld, BOX), 'land')
+        .find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
+      expect(kaNear.vegetation.rows.length).toBeGreaterThan(0)
+      expect(nhNear.vegetation.rows.length).toBeGreaterThan(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

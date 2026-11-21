@@ -93,15 +93,37 @@ export function planeVegetationOf(
       drySum += cell.dryness; dryN++
 
       const mPerPx = scaleAtKm(km)
-      const evidence = cell.cover === 1 || cell.cover === 4 ? evidenceAt(refX, km) : undefined
+      let evX = refX, evKm = km, evSlope = slope, evCover = cell.cover
+      let evidence = cell.cover === 1 || cell.cover === 4 ? evidenceAt(refX, km) : undefined
+      // Mapped OSM orchard parcels (100–400 m) can sit off a coarse cell centre; probe sub-cell points deterministically.
+      if (!evidence && name === 'near' && world.cropAreas?.length) {
+        const subOffs: readonly [number, number][] = [
+          [0, 0.12], [0, 0.42], [0, 0.78],
+          [-0.22, 0.14], [0.22, 0.14], [-0.22, 0.50], [0.22, 0.50], [-0.22, 0.82], [0.22, 0.82],
+          [-0.40, 0.25], [0.40, 0.25], [-0.40, 0.70], [0.40, 0.70],
+        ]
+        for (const [ox, fyFrac] of subOffs) {
+          const sxPos = Math.max(1, Math.min(SCENE_W - 1, refX + ox * colW))
+          const sCy = crestAt(sxPos), sFy = footAt(sxPos)
+          const syPos = Math.max(sCy + 1.0, yTop + fyFrac * (yBot - yTop))
+          if (syPos >= sFy - 0.8) continue
+          const hitFace = faceAtY(world, name, plane, sxPos, sCy, sFy, syPos)
+          if (scaleAtKm(hitFace.km) > 24) continue
+          const hitSample = sampleVegAtKm(world.land, (sxPos / SCENE_W) * nRays, hitFace.km)
+          if (hitSample.cover !== 1 && hitSample.cover !== 4) continue
+          const hit = evidenceAt(sxPos, hitFace.km)
+          if (hit) { evidence = hit; evX = sxPos; evKm = hitFace.km; evSlope = hitFace.slope; evCover = hitSample.cover; break }
+        }
+      }
       const res = classifyVegCell({
-        cover: cell.cover, ndvi: cell.ndvi, dryness: cell.dryness, koppen,
+        cover: evidence ? evCover : cell.cover, ndvi: cell.ndvi, dryness: cell.dryness, koppen,
         lat: world.place.lat, lon: world.place.lon, elevationM: cell.elevationM,
         mappedCrop: evidence?.kind,
       })
 
       const cellH = Math.max(4, yBot - yTop)
-      const weight = res.orchard ? 1 - orchardDetail(mPerPx) : 1
+      const evMPerPx = evidence ? scaleAtKm(evKm) : mPerPx
+      const weight = res.orchard ? 1 - orchardDetail(evMPerPx) : 1
       if (res.veg === 'crop' || (res.orchard && cell.cover === 4)) {
         addFieldParcel(buf, env, rand, refX, yTop, yBot, colW * 0.58, mPerPx, cell.ndvi, cell.dryness,
           weight, cell.cover!, cell.cover === 1 ? evidence?.contains : undefined)
@@ -111,7 +133,7 @@ export function planeVegetationOf(
       }
       if (res.orchard && evidence) {
         const detailRand = seeded(cellSeed(seed ^ 0x9e3779b9, c, r))
-        addOrchardBlock(buf, env, detailRand, refX, yTop, yBot, colW * 0.94, mPerPx, res.orchard, res.density, evidence.contains, slope)
+        addOrchardBlock(buf, env, detailRand, evX, yTop, yBot, colW * 0.94, evMPerPx, res.orchard, res.density, evidence.contains, evSlope)
       }
       else if (res.veg === 'shrub' || res.veg === 'grass') addScrubOrGrass(buf, env, rand, refX, yMid, colW, cellH, mPerPx, res.veg === 'grass', cell.cover, res.density)
       else if (res.veg === 'bare' && rand() < 0.72) addStrataBand(buf, env, rand, refX, yMid, colW * (1.3 + 1.0 * rand()), mPerPx)
