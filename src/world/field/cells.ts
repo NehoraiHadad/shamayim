@@ -23,7 +23,9 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
   const cache = siteCache(field.placeId, lattice)
   const qi = (x - dx) / pitch
   const qj = (y - dy) / pitch
-  const radiusSites = radiusKm / pitch + 0.35
+  const radiusInSites = radiusKm / pitch
+  const radiusSites = radiusInSites + 0.35
+  const radiusInSitesSquared = radiusInSites * radiusInSites
   const minI = Math.ceil(qi - radiusSites)
   const maxI = Math.floor(qi + radiusSites)
   const minJ = Math.ceil(qj - radiusSites)
@@ -40,7 +42,12 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
         Math.ceil((endI - startI) / 2), Math.ceil((endJ - startJ) / 2))
       const data = block.data
       for (let j = startJ; j <= endJ; j++) {
-        for (let i = startI; i <= endI; i++) {
+        // A site can shift by at most 0.35 pitch on each axis before the exact circle test.
+        const north = Math.max(0, Math.abs(j - qj) - 0.35)
+        const half = Math.sqrt(Math.max(0, radiusInSitesSquared - north * north)) + 0.35
+        const first = Math.max(startI, Math.ceil(qi - half))
+        const last = Math.min(endI, Math.floor(qi + half))
+        for (let i = first; i <= last; i++) {
           const p = siteAt(cache, block, lattice, i, j)
           const u = data[p + 3]
           // Clumping can lower rank by up to half its amplitude and the lifecycle by 0.075.

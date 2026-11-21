@@ -58,13 +58,15 @@ export function steeringWind(hour: WindHour, zAslKm: number, elevationKm = 0): V
   return atHeight(profile(hour), zAslKm, elevationKm)
 }
 
+const windSamples = new WeakMap<WindHour, { minute: number; values: Vector[] }>()
+
 interface Sample {
   minute: number
   winds: Vector[]
   cumulative: Vector[]
 }
 
-/** Preintegrate all requested steering heights in one pass. Heights are in km asl. */
+/** Preintegrate all requested steering heights in one pass. Heights are in km above sea level. */
 export function steeringTimeline<T extends WindHour, K extends string>(hours: readonly T[], keys: readonly K[],
   heightsAt: (hour: T) => Record<K, number>, elevationKm: number) {
   const samples: Sample[] = []
@@ -73,12 +75,16 @@ export function steeringTimeline<T extends WindHour, K extends string>(hours: re
   let date = '1970-01-01'
   let derived = !hours.length
   for (const hour of hours) {
-    const minute = wallMinutes(hour.time)
+    let windSample = windSamples.get(hour)
+    if (!windSample) {
+      windSample = { minute: wallMinutes(hour.time), values: profile(hour) }
+      windSamples.set(hour, windSample)
+    }
+    const { minute, values } = windSample
     const previous = samples[samples.length - 1]
     if (!Number.isFinite(minute) || (previous && minute <= previous.minute)) continue
     derived ||= !Number.isFinite(hour.windDirection) || !hour.windAloft?.low
       || !hour.windAloft?.mid || !hour.windAloft?.high
-    const values = profile(hour)
     const heights = heightsAt(hour)
     const winds: Vector[] = []
     const cumulative: Vector[] = []

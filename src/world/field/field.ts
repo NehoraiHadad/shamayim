@@ -87,25 +87,28 @@ export function buildField(input: FieldInput): CloudField {
 }
 
 const fallbackHeights = { low: 1.3, tower: 3.5, mid: 4.5, high: 10.5 }
-const steeringCache = new WeakMap<FieldInput['hours'], Map<number, ReturnType<typeof computeSteering>>>()
+const steeringCache = new WeakMap<FieldInput['hours'], Map<number, ReturnType<typeof steeringTimeline>>>()
 
-function computeSteering(hours: FieldInput['hours'], elevationKm: number) {
-  return steeringTimeline(hours, lattices, hour => {
-    const lowBaseKm = lowBaseM(hour.temperature, hour.humidity) / 1000
-    const { covers } = layerCovers({ hour, cloudCover: hour.cloudCover, thickCloud: hour.thickCloud })
-    // Use daytime form to avoid introducing a solar clock into the forecast wind timeline.
-    // Representative low heights range from at least 0.25 + 0.3 / 2 to at most 2.5 + 1 / 2 km
-    // with the St gate and forecast LCL clamp, bounding the daylight approximation by 2.6 km.
-    const forms = formOf({
-      weatherCode: hour.weatherCode, lowBaseKm, wind10: { speedKmh: hour.windSpeed }, sunAltitude: 10,
-    }, covers)
-    const heights = { ...fallbackHeights }
-    for (const lattice of lattices) {
-      const { baseKm, vKm } = layerDimensions(lattice, lowBaseKm, forms[lattice])
-      heights[lattice] = elevationKm + baseKm + vKm / 2
-    }
-    return heights
-  }, elevationKm)
+const hourHeights = new WeakMap<FieldInput['hours'][number], Record<Lattice, number>>()
+
+function representativeHeights(hour: FieldInput['hours'][number]) {
+  let heights = hourHeights.get(hour)
+  if (heights) return heights
+  const lowBaseKm = lowBaseM(hour.temperature, hour.humidity) / 1000
+  const { covers } = layerCovers({ hour, cloudCover: hour.cloudCover, thickCloud: hour.thickCloud })
+  // Use daytime form to avoid introducing a solar clock into the forecast wind timeline.
+  // Representative low heights range from at least 0.25 + 0.3 / 2 to at most 2.5 + 1 / 2 km
+  // with the St gate and forecast LCL clamp, bounding the daylight approximation by 2.6 km.
+  const forms = formOf({
+    weatherCode: hour.weatherCode, lowBaseKm, wind10: { speedKmh: hour.windSpeed }, sunAltitude: 10,
+  }, covers)
+  heights = { ...fallbackHeights }
+  for (const lattice of lattices) {
+    const { baseKm, vKm } = layerDimensions(lattice, lowBaseKm, forms[lattice])
+    heights[lattice] = baseKm + vKm / 2
+  }
+  hourHeights.set(hour, heights)
+  return heights
 }
 
 function steeringOf(input: FieldInput) {
@@ -113,7 +116,11 @@ function steeringOf(input: FieldInput) {
   if (!byElevation) steeringCache.set(input.hours, byElevation = new Map())
   let steering = byElevation.get(input.elevationKm)
   if (!steering) {
-    steering = computeSteering(input.hours, input.elevationKm)
+    const elevation = input.elevationKm
+    steering = steeringTimeline(input.hours, lattices, hour => {
+      const { low, tower, mid, high } = representativeHeights(hour)
+      return { low: low + elevation, tower: tower + elevation, mid: mid + elevation, high: high + elevation }
+    }, elevation)
     byElevation.set(input.elevationKm, steering)
   }
   return steering

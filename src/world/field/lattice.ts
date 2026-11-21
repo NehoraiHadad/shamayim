@@ -1,4 +1,5 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
+import { createClumpSampler, mixSeed } from './clump'
 import type { Lattice } from './types'
 
 /** Lattice pitch, radius distribution and clump wavelengths in km. */
@@ -21,7 +22,7 @@ interface Block {
 interface Cache {
   seed: number
   blocks: Block[]
-  corners: Map<number, number>[]
+  clump: (x: number, y: number) => number
 }
 const places = new Map<string, Map<Lattice, Cache>>()
 const spareBlocks: Block[] = []
@@ -39,17 +40,11 @@ export function siteCache(placeId: string, lattice: Lattice): Cache {
   }
   let cache = place.get(lattice)
   if (!cache) {
-    cache = { seed: hashId(`${placeId}:${lattice}`), blocks: [], corners: [new Map(), new Map()] }
+    const seed = hashId(`${placeId}:${lattice}`)
+    cache = { seed, blocks: [], clump: createClumpSampler(seed, LATTICES[lattice].wavelength) }
     place.set(lattice, cache)
   }
   return cache
-}
-
-function mixSeed(seed: number, i: number, j: number) {
-  let h = seed ^ Math.imul(i, 0x9e3779b1) ^ Math.imul(j, 0x85ebca77)
-  h = Math.imul(h ^ (h >>> 16), 0x7feb352d)
-  h = Math.imul(h ^ (h >>> 15), 0x846ca68b)
-  return (h ^ (h >>> 16)) >>> 0
 }
 
 /** Centre a stamped block on the requested air-frame site. */
@@ -74,40 +69,9 @@ export function centerSites(cache: Cache, i: number, j: number, halfWidth = 0, h
   return block
 }
 
-const smooth = (f: number) => f * f * (3 - 2 * f)
-const mix = (a: number, b: number, f: number) => a + (b - a) * f
-
-function corner(cache: Cache, octave: number, i: number, j: number) {
-  // Pair signed integer coordinates injectively across the practical world range.
-  const p = i >= 0 ? 2 * i : -2 * i - 1
-  const q = j >= 0 ? 2 * j : -2 * j - 1
-  const key = (p + q) * (p + q + 1) / 2 + q
-  const corners = cache.corners[octave]
-  let value = corners.get(key)
-  if (value === undefined) {
-    value = seeded(mixSeed(cache.seed ^ (0x51ed270b + octave), i, j))()
-    if (corners.size >= 8192) corners.clear()
-    corners.set(key, value)
-  }
-  return value
-}
-
-function valueNoise(cache: Cache, x: number, y: number, octave: number) {
-  const i = Math.floor(x)
-  const j = Math.floor(y)
-  const fx = smooth(x - i)
-  return mix(mix(corner(cache, octave, i, j), corner(cache, octave, i + 1, j), fx),
-    mix(corner(cache, octave, i, j + 1), corner(cache, octave, i + 1, j + 1), fx), smooth(y - j))
-}
-function noise(cache: Cache, lattice: Lattice, xKm: number, yKm: number) {
-  const x = xKm / LATTICES[lattice].wavelength
-  const y = yKm / LATTICES[lattice].wavelength
-  return (2 * valueNoise(cache, x, y, 0) + valueNoise(cache, x * 2, y * 2, 1)) / 3
-}
-
-/** Two octaves of smooth value noise at an air-frame point in km. */
-export function clumpAt(x: number, y: number, lattice: Lattice, placeId: string): number {
-  return noise(siteCache(placeId, lattice), lattice, x, y)
+/** Sample the deterministic air-frame clump field. */
+export function clumpSampler(placeId: string, lattice: Lattice) {
+  return siteCache(placeId, lattice).clump
 }
 
 /** Maximum unscaled radius in km, with the upper 1% of the lognormal clipped. */
@@ -121,6 +85,10 @@ export function siteAt(cache: Cache, block: Block, lattice: Lattice, i: number, 
   const index = (j - block.j) * size + i - block.i
   const offset = index * stride
   if (block.filled[index] === block.stamp) return offset
+  return populateSite(cache, block, lattice, i, j, index, offset)
+}
+
+function populateSite(cache: Cache, block: Block, lattice: Lattice, i: number, j: number, index: number, offset: number) {
   const { pitch, median, sigma, amplitude, period } = LATTICES[lattice]
   const seed = mixSeed(cache.seed, i, j)
   const rng = seeded(seed)
@@ -138,7 +106,7 @@ export function siteAt(cache: Cache, block: Block, lattice: Lattice, i: number, 
   data[offset + 5] = period[0] + (period[1] - period[0]) * rng()
   data[offset + 6] = rng()
   data[offset + 7] = rng()
-  data[offset + 8] = (noise(cache, lattice, x, y) - 0.5) * amplitude
+  data[offset + 8] = (cache.clump(x, y) - 0.5) * amplitude
   data[offset + 9] = seed
   block.filled[index] = block.stamp
   return offset

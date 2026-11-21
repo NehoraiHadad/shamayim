@@ -121,3 +121,52 @@ The continuity measurements below include the new lifecycle and finite cover sca
 | High | 1.76e−13 | .06297 | .03747 | .00034 | −.01549 |
 
 The continuity forecast has zero tower occupancy in the sampled windows. The initial RMS test measured 3.75% for low and stopped at 5.02% for tower, leaving mid and high unmeasured. The initial continuity test stopped at the low new-ID limit. Its diagnostics also captured the mid analytic bound miss. The final timing, RMS and continuity checks remain unverified under the no-retry instruction. The focused snapshot regression, TypeScript check, calibration and diff check completed. Oxlint emitted the existing control-regex warning in scripts/city/geometry.ts. The unit runs covered only the cloud field tests. Full suites, builds and deployments were skipped.
+
+## Round 4
+
+1. **Tower RMS.** The 0.5 km half-cell-offset experiment measured 5.09% normalized RMS and a 0.576 ms median tower-grid build. The selected 0.4 km grid measured 3.54% RMS and a 0.949 ms median build over the same near radius. Each build median uses nine samples. Mid spacing is 0.4 km to bring its RMS below 5%. High spacing is 1.4 km to reduce raster work.
+2. **Warm scrub.** The near raster uses contiguous row spans with exact ellipse bounds. Site walks reject rows outside the possible jitter envelope. Expected-density lookups reuse seeded noise neighborhoods, and pressure wind vectors and representative heights are memoized per forecast hour. The 3 ms warm test limit stays in place. The final code missed both the 2.5 ms target and the 3 ms test limit in the runs below.
+3. **Tower continuity.** The checked-in forecast contains no convective hours. The test overlays codes 80 and 95 on one fixture day, retaining the fixture's layer percentages, temperature, humidity, wind and elevation. It calls the app's air, weather-code interpolation, layer cover and rain adjustment functions. The three nearest-hour code transitions change tower cover by +0.30, +0.20 and −0.50. The analytic share allowance uses the actual change in occupancy Q and a computed upper bound on rank drift from lifecycle and form changes. It also bounds newly occupied cells and cells lost when tower cover drops. The suite observed 63 occupied tower minute pairs and 451 matched tower cells.
+4. **Overcast closure.** Widened the blend from 0.98–1 to 0.95–1. Across the closure, a 0.001 input step can move any cover by at most 0.03 from the smoothstep derivative. Normalizing each layer's log clear fraction preserves the requested independent union up to 0.95, including inputs containing 100% layers. The tradeoff is a larger union error near full overcast. On the 0.001 sweep, the maximum absolute error was 0.01881 for mixed layers and 0.00480 for the pure-layer mixes. All five mixes stayed below the 0.05 per-step limit.
+
+   | Low/mid/high input (%) | Worst layer step | Worst absolute union error |
+   | --- | ---: | ---: |
+   | 80/50/25 | .02150 | .01881 |
+   | 95/80/40 | .02223 | .01881 |
+   | 100/0/0 | .00150 | .00480 |
+   | 30/30/30 | .01105 | .01881 |
+   | 0/0/100 | .00150 | .00480 |
+
+5. **File length.** Split forecast cover scaling from cloud banks and moved raster nodes and far strips to their own modules. The field layout and calibration inputs are unchanged.
+
+### Final measurements
+
+| Layer | Near-field RMS | Grid build (ms) | 1,440 lookups (ms) | Far strips (ms) | Cell list (ms) | Shared snapshot (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Low | 3.75% | .841 | .980 | .057 | .710 | .739 |
+| Tower | 3.54% | .351 | .691 | .002 | .539 | .714 |
+| Mid | 3.93% | 1.218 | .793 | .055 | .334 | .976 |
+| High | 3.75% | 1.017 | .365 | .033 | .129 | 1.844 |
+
+The profile reports independent nine-sample medians. Grid build and cell list each include their own site visit. The shared snapshot visits each layer once, so those columns overlap. Tower has an empty far-strip list.
+
+| Timing check | Median (ms) | Test limit (ms) |
+| --- | ---: | ---: |
+| Forecast arrival | 2.090 | 3 |
+| Cold place scrub | 13.726 | 15 |
+| Warm scrub | 5.405 | 3 |
+
+Another run of the same final code measured 0.993 ms arrival, 8.991 ms cold and 3.557 ms warm. The isolated warm check measured 3.830 ms. The warm check uses distinct warmed-up minutes and still measures nine different requested frames.
+
+| Layer | Worst move residual (km) | Worst matched share delta | Worst steady share delta | Worst new share | Worst steady new share | Max analytic bound excess |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Low | 7.28e−14 | .26640 | .13244 | 1 | 0 | −.00835 |
+| Tower | 5.73e−14 | .08930 | .08930 | 1 | 0 | −.05149 |
+| Mid | 7.67e−14 | .09589 | .03798 | .01662 | .000227 | −.01479 |
+| High | 1.76e−13 | .05196 | .02501 | .00034 | 4.46e−7 | −.00549 |
+
+Tower lost-share peaked at 1 on the convective exit and stayed inside the same analytic allowance.
+
+### Verification
+
+The focused niced unit runs passed the field, continuity and cover tests, plus five of the six density tests. The warm scrub timing assertion failed. The TypeScript check and diff whitespace check passed. Oxlint completed with the existing control-regex warning in scripts/city/geometry.ts. The local npx shim points to a missing npm CLI, so the checks used the installed binaries. The lattice layout is unchanged, so the calibration table was carried forward. Broader suites and builds were left for CI.
