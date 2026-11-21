@@ -1,18 +1,16 @@
 //# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
-import { lateral } from '../../domain/camera'
-import type { BirdKind, Flock } from '../../world/life'
 import { skyDirection } from '../../world/lifeSchedule'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { birdPose, birdTrack, highPose, highTrack, LIFE_START, LOW_SPRITE_PX, lowPose, lowTrack, RAD } from './lifeTracks'
+import { highPose, highTrack, LIFE_START, LOW_SPRITE_PX, lowPose, lowTrack, RAD } from './lifeTracks'
 import { contrailLayer } from './contrail'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
 import { tangentScale } from './tangent'
 import { mixRgb } from './tone'
-import type { BirdDesc, LayerDesc, LayerOf, Lay, LifeClock, Pt, RGB, SceneBox, Track } from './types'
+import type { LayerDesc, LayerOf, Lay, LifeClock, Pt, RGB, SceneBox, Track } from './types'
 
 /*
  * The sky's life (C10) as layers, from the world's `life` at the shown minute (`world/lifeSchedule.ts`: every object an
@@ -23,9 +21,9 @@ import type { BirdDesc, LayerDesc, LayerOf, Lay, LifeClock, Pt, RGB, SceneBox, T
  * it is behind and laid in front of the land it is nearer than (`placedInDepth`).
  */
 
-const q = (v: number, step: number) => Math.round(v / step)
+export const q = (v: number, step: number) => Math.round(v / step)
 /** Tones in 1/24 steps: a scrub within the hour does not repaint a flock's strip for a shade no one sees. */
-const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 24))
+export const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 24))
 
 /** One crest per world and box (the night sky, the optics, the meteors and the life all ask for it). */
 const CRESTS = new WeakMap<WorldState, { key: string; at: (x: number) => number }>()
@@ -149,7 +147,7 @@ const FRONT_Z = { near: 40.5, far: 18 } as const
  * near land, over everything there; nearer than the far land only, between the far and near land. So it is hidden only by
  * land between it and the eye: the ground truly in its line of sight, or what is drawn nearer than it (rows, towers).
  */
-function placedInDepth<L extends LayerOf<'birds'> | LayerOf<'aircraft'>>(world: WorldState, box: SceneBox, geom: SkyGeom, layer: L, km: number,
+export function placedInDepth<L extends LayerOf<'birds'> | LayerOf<'aircraft'>>(world: WorldState, box: SceneBox, geom: SkyGeom, layer: L, km: number,
   blockedKm: number | null | undefined): L[] {
   const lay = layer.placed!
   if (world.terrain.status !== 'ready') return [layer]
@@ -161,99 +159,6 @@ function placedInDepth<L extends LayerOf<'birds'> | LayerOf<'aircraft'>>(world: 
   if (!front) return [layer]
   return [{ ...layer, placed: { ...lay, above: box.landTop } },
     { ...layer, id: `${layer.id}.front`, surface: 'land', z: FRONT_Z[front], placed: { ...lay, x: lay.x - geom.left, y: lay.y - box.landTop } }]
-}
-
-/* Birds. */
-
-interface KindLook {
-  /** Strip: frames a second and how many; wing beats a second; share of the time on held wings. */
-  fps: number
-  count: number
-  flap: number
-  soar: number
-  /** Wingspan (px at the reference width). */
-  span: number
-  /** How a bird moves within the flock: its loop's size (px) and the flock's spread (px). */
-  loop: [number, number]
-  spread: [number, number]
-}
-
-const LOOKS: Record<BirdKind, KindLook> = {
-  stork: { fps: 3, count: 24, flap: 0, soar: 1, span: 8, loop: [5, 12], spread: [26, 16] },
-  crane: { fps: 12, count: 12, flap: 2, soar: 0.2, span: 6.5, loop: [0.6, 0.5], spread: [0, 0] },
-  swift: { fps: 15, count: 30, flap: 7.5, soar: 0.45, span: 4.5, loop: [9, 6], spread: [22, 12] },
-  gull: { fps: 12, count: 24, flap: 2.5, soar: 0.5, span: 7, loop: [3, 2], spread: [26, 8] },
-  raptor: { fps: 2, count: 24, flap: 0, soar: 1, span: 10, loop: [12, 8], spread: [16, 6] },
-  crow: { fps: 12, count: 12, flap: 3, soar: 0, span: 6, loop: [0.5, 0.6], spread: [16, 5] },
-  pigeon: { fps: 12, count: 24, flap: 5, soar: 0.15, span: 4.2, loop: [8, 4], spread: [16, 7] },
-  bat: { fps: 12, count: 24, flap: 5, soar: 0, span: 4, loop: [8, 6], spread: [24, 10] },
-}
-
-/** The birds of a flock in its sprite (centred on 0, 0): a kettle, a V or a line, a loose party, a wheeling flock. */
-function flockBirds(flock: Flock, look: KindLook, k: number): BirdDesc[] {
-  const r = seeded(flock.seed)
-  const out: BirdDesc[] = []
-  const n = flock.count
-  for (let i = 0; i < n; i++) {
-    const size = look.span * k * (0.85 + 0.3 * r())
-    if (flock.kind === 'crane') {
-      // A V (or a ragged line) trailing back from its leader, its arms ~35° apart on screen.
-      const arm = i === 0 ? 0 : i % 2 ? 1 : -1, rank = Math.ceil(i / 2)
-      const line = r() < 0.3
-      out.push({ x: -rank * 3.4 * k, y: line ? rank * 0.5 * k * arm : arm * rank * 1.8 * k, rx: look.loop[0] * k, ry: look.loop[1] * k, turn: 1, lag: r(),
-        size, beat: (rank * 0.08) % 1 })
-      continue
-    }
-    // The rest: spread round the middle, more of them near it; each round its own small loop.
-    const a = r() * 2 * Math.PI, d = Math.sqrt(r())
-    const sameWay = flock.kind === 'stork' || flock.kind === 'raptor' || flock.kind === 'pigeon'
-    out.push({ x: Math.cos(a) * d * look.spread[0] * k, y: Math.sin(a) * d * look.spread[1] * k * (flock.kind === 'stork' ? 1.6 : 1),
-      rx: look.loop[0] * k * (0.6 + 0.4 * r()), ry: look.loop[1] * k * (0.6 + 0.4 * r()), turn: sameWay ? 1 : r() < 0.5 ? 1 : -1,
-      lag: flock.kind === 'pigeon' ? 0.06 * r() : r(), size, beat: r() })
-  }
-  return out
-}
-
-/**
- * The flocks under way at the shown minute (sky; over the land they are nearer than): each painted once round its own
- * middle at its full size (its closest distance), and laid at composite time where its path has brought it, smaller and
- * fainter by its distance (`placed`); its wing beats and wheeling on a strip.
- */
-export function birdLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), life: LifeClock = LIFE_START): LayerOf<'birds'>[] {
-  const sky = skyAt(world, box)
-  const out: LayerOf<'birds'>[] = []
-  const k = Math.max(0.85, Math.min(1.4, geom.s))
-  for (const flock of world.life.birds) {
-    const look = LOOKS[flock.kind]
-    const birds = flockBirds(flock, look, k)
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-    for (const b of birds) {
-      x0 = Math.min(x0, b.x - b.rx - b.size); x1 = Math.max(x1, b.x + b.rx + b.size)
-      y0 = Math.min(y0, b.y - b.ry - b.size); y1 = Math.max(y1, b.y + b.ry + b.size)
-    }
-    const placed = birdPose(world, geom, flock.nearM, flock)
-    const { scale, alpha, x, y } = placed
-    if (alpha < 0.01 || x + x1 * scale < -4 || x + x0 * scale > geom.width + 4 || y + y1 * scale < -4) continue
-    const bounds = { x: Math.floor(x0), y: Math.floor(y0), w: Math.ceil(x1 - x0) + 2, h: Math.ceil(y1 - y0) + 2 }
-    // Their tones at their closest: dark against the sky, hazed by that distance; the pale parts in the sky's light, lit by the sun.
-    const behind = sky(flock.altitude), nearFade = world.air.fade(flock.nearM / 1000)
-    const ink: RGB = flock.kind === 'bat' ? [0.08, 0.07, 0.08] : [0.13, 0.13, 0.15]
-    const rgb = mixRgb(ink, behind, Math.min(0.75, nearFade + 0.12))
-    const direct = world.light.source === 'sun' ? world.light.direct : 0
-    const pale = mixRgb(mixRgb([0.95, 0.95, 0.93], world.light.ambient, 0.35), world.light.colour, 0.25 * direct)
-    const lit = mixRgb(pale, behind, Math.min(0.75, nearFade))
-    const heading: -1 | 1 = lateral(flock.headingDeg, world.camera) >= 0 ? 1 : -1
-    const flapHz = look.flap ? Math.max(1, Math.round(look.flap * (look.count / look.fps))) / (look.count / look.fps) : 0
-    const id = `birds.${flock.id}`
-    const layer: LayerOf<'birds'> = {
-      kind: 'birds', id, surface: 'sky', z: 9.5, bird: flock.kind, birds, loop: look.count / look.fps, flap: flapHz,
-      soar: look.soar, rgb, lit, litA: direct, heading, seed: flock.seed, bounds, placed,
-      animated: { mode: 'frames', frames: { count: look.count, fps: look.fps }, flight: birdTrack(world, geom, flock, life) },
-      key: layerKey(id, skyBoxKey(box), flock.kind, flock.seed, heading, bounds.x, bounds.y, bounds.w, bounds.h, tone(rgb), tone(lit), q(direct, 1 / 24)),
-    }
-    out.push(...placedInDepth(world, box, geom, layer, flock.distanceM / 1000, flock.blockedKm))
-  }
-  return out
 }
 
 /* Aircraft and contrails. */

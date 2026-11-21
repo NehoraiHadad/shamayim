@@ -462,7 +462,8 @@ export type { BirdKind }
  * A bird of a flock (sprite px): where it flies round in the flock (`x`, `y` the middle of its own loop of `rx` × `ry`,
  * `turn` +1 or −1 the way round, `lag` its place on the loop 0–1), its wingspan (`size`) and its wing beat's own lag.
  */
-export interface BirdDesc { x: number; y: number; rx: number; ry: number; turn: 1 | -1; lag: number; size: number; beat: number }
+/** A bird of a flock round its middle (world px: x across, y up, z away), its own flight's radius and rise, its way round, phase, span, wing phase. */
+export interface BirdDesc { x: number; y: number; z: number; rx: number; ry: number; turn: 1 | -1; lag: number; size: number; beat: number }
 /** A planet as drawn (sky px): a steady point (`r`), its colour, how plainly it shows, a faint glow round the brightest. */
 export interface PlanetDot { name: string; x: number; y: number; r: number; rgb: RGB; alpha: number; glow: number }
 /** A sun dog (sky px): where it stands, its size, strength, and which side of the sun it is on (−1 left, +1 right). */
@@ -533,7 +534,9 @@ export type LayerDesc =
    * share of time the wings are held (storks, raptors), the flock's tones (`rgb` its dark, `lit` the sunlit underside).
    */
   | LayerBase & { kind: 'birds'; bird: BirdKind; birds: BirdDesc[]; loop: number; flap: number; soar: number; rgb: RGB; lit: RGB;
-      litA: number; heading: -1 | 1; seed: number }
+      litA: number
+      /** The flock's way in the eye's frame (rad from across-right toward away) and how far up it is seen (deg). */
+      yaw: number; view: number; seed: number }
   /**
    * C10: an aircraft (sky px): a small plane at (`x`, `y`) heading `angle` (rad on screen), `size` its span, its body's tones,
    * its lights by night (`lights` 0–1: the landing light, the strobe and the beacon, a strip of frames), the short trail
