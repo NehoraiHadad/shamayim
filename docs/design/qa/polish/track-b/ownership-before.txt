@@ -1,0 +1,167 @@
+== karmei-tzur reach=1.50 home=null
+   bounds=cell point=[31.60645,35.10668,3,5] name=undefined box={"w":-0.375,"e":0.625,"s":-0.625,"n":0.625}
+   cluster 2469694082 dx=-1.24,-0.29 dy=-0.06,0.87 sq=16 nearest=0.63 place=כרמי צור
+   cluster 4074213247 dx=-1.72,0.89 dy=-4.47,-0.52 sq=208 nearest=0.68 place=חלחול
+   cluster 2802063105 dx=-1.36,0.77 dy=0.87,2.72 sq=89 nearest=0.99 place=בית אומר
+   cluster 4198444663 dx=-4.32,-1.83 dy=-1.22,1.10 sq=44 nearest=1.94 place=בקר
+   cluster 3384626563 dx=-2.07,-0.41 dy=2.72,3.65 sq=32 nearest=2.88 place=חירבת אל מנטרה
+   cluster 948740394 dx=2.31,3.50 dy=1.10,3.19 sq=46 nearest=2.91 place=אל ערוב
+   cluster 22237083 dx=2.08,4.68 dy=-4.23,-0.99 sq=120 nearest=3.03 place=סעיר
+   cluster 4115548688 dx=-2.78,-2.19 dy=2.49,2.96 sq=7 nearest=3.52 place=undefined
+   cluster 468486821 dx=-3.73,-3.14 dy=1.56,2.03 sq=6 nearest=3.61 place=ג'אלא
+   cluster 792404855 dx=2.08,2.91 dy=2.72,3.19 sq=4 nearest=3.63 place=בית הברכה
+   cluster 671731743 dx=3.38,5.75 dy=1.33,2.96 sq=78 nearest=3.73 place=בית פג'אר
+   cluster 3075276925 dx=-1.60,-0.41 dy=3.88,4.81 sq=22 nearest=4.03 place=סאפה
+   cluster 486215395 dx=-4.80,-2.66 dy=2.96,4.81 sq=75 nearest=4.11 place=الظهر
+   cluster 1621950756 dx=0.06,1.13 dy=4.35,5.74 sq=31 nearest=4.50 place=כפר עציון
+   cluster 110011490 dx=1.84,5.63 dy=-4.93,-1.91 sq=131 nearest=4.53 place=אלשיוח'
+   cluster 4012396097 dx=-1.36,0.06 dy=-5.86,-4.47 sq=57 nearest=4.62 place=Ras Al-Joura
+   cluster 618066671 dx=2.31,2.55 dy=3.88,4.35 sq=4 nearest=4.65 place=undefined
+   cluster 4005549634 dx=-3.61,-2.55 dy=3.65,5.04 sq=32 nearest=4.87 place=السرج
+   cluster 384105774 dx=2.91,3.74 dy=3.42,4.35 sq=16 nearest=4.87 place=מגדל עוז
+   cluster 805213312 dx=0.89,2.31 dy=4.35,6.20 sq=41 nearest=4.90 place=אלון שבות
+   cluster 649531889 dx=-5.39,-3.02 dy=-4.23,-3.07 sq=56 nearest=4.96 place=בית כאחיל
+   cluster 1380722683 dx=2.19,3.74 dy=-5.63,-4.47 sq=25 nearest=5.16 place=الدوّارة
+   cluster 3941653620 dx=-2.78,-2.19 dy=4.81,5.74 sq=14 nearest=5.42 place=القرينات وضاحية القندول
+   cluster 2282844279 dx=-2.07,-1.00 dy=-6.32,-5.16 sq=31 nearest=5.47 place=University Neighborhood
+   cluster 4109553410 dx=3.85,4.80 dy=3.65,4.58 sq=13 nearest=5.60 place=undefined
+   minaret 5.23km h=30 מסגד עומאר בין אל־עאץ inPlace=false dx=-1.81 dy=-4.91
+   minaret 5.42km h=30 مسجد عبد الحي شاهين inPlace=false dx=-1.34 dy=-5.25
+   minaret 5.18km h=30 مسجد حسن البنا inPlace=false dx=-3.16 dy=-4.10
+   minaret 5.68km h=30 Al Rahman Mosque inPlace=false dx=-4.12 dy=-3.92
+   minaret 5.62km h=30 مسجد أجنادين inPlace=false dx=-2.42 dy=-5.07
+   minaret 2.64km h=30 مسجد الرباط inPlace=false dx=-1.13 dy=-2.39
+   minaret 5.77km h=30 مسجد الفرقان inPlace=false dx=-0.91 dy=-5.69
+   minaret 4.04km h=30 مسجد صلاح الدين inPlace=false dx=-1.35 dy=-3.81
+   minaret 4.13km h=30 Al Ess Mosque inPlace=false dx=3.39 dy=-2.36
+   minaret 5.17km h=30 مسجد الرحمن inPlace=false dx=-0.76 dy=-5.11
+   minaret 4.95km h=30 Al Hadmi Mosque inPlace=false dx=3.96 dy=-2.98
+   minaret 4.23km h=30 Hamaza Bin Abd Al Motaleb Mosque inPlace=false dx=3.74 dy=-1.98
+   minaret 2.10km h=30 مسجد الدروة inPlace=false dx=-0.51 dy=-2.04
+   minaret 4.64km h=30 Shyoukh Mosque inPlace=false dx=2.99 dy=-3.55
+   minaret 5.17km h=30 Al Kawthar Mosque inPlace=false dx=-0.21 dy=-5.17
+   minaret 4.81km h=30 Al Montaser Belah inPlace=false dx=4.29 dy=-2.19
+   minaret 2.09km h=30 ديوان آل الواوي inPlace=false dx=-0.12 dy=-2.09
+   minaret 5.93km h=30 مسجد القاسم inPlace=false dx=-0.41 dy=-5.92
+   minaret 2.59km h=30  inPlace=false dx=0.66 dy=-2.50
+   minaret 4.21km h=30 مسجد inPlace=false dx=-2.72 dy=3.22
+   minaret 1.61km h=30 مسجد عصيرة inPlace=false dx=0.30 dy=1.58
+   minaret 3.42km h=30 مسجد عبد الله عزام inPlace=false dx=2.56 dy=2.26
+   minaret 4.48km h=30 مسجد inPlace=false dx=3.78 dy=2.41
+   minaret 5.33km h=30 Mosque inPlace=false dx=4.68 dy=2.55
+   minaret 1.84km h=30 مسجد بيت أمر القديم inPlace=false dx=-0.54 dy=1.76
+   minaret 4.85km h=30 مسجد inPlace=false dx=4.35 dy=2.14
+   minaret 3.70km h=30 مسجد ابن تيمية inPlace=false dx=3.09 dy=2.02
+   minaret 4.13km h=30 مسجد inPlace=false dx=3.26 dy=2.54
+   minaret 5.28km h=30 مسجد inPlace=false dx=4.88 dy=2.03
+   synagogue 5.73km h=9 בית מדרש מחניים inPlace=false dx=3.34 dy=4.66
+   waterTower 3.23km h=25 خزان ماء العروب inPlace=false dx=2.53 dy=2.01
+   waterTower 4.79km h=25 خزان بيت فجار inPlace=false dx=4.31 dy=2.10
+   waterTower 2.22km h=25  inPlace=false dx=-0.64 dy=2.12
+   synagogue 5.69km h=9 בית כנסת ספרדי inPlace=false dx=1.77 dy=5.41
+   synagogue 5.21km h=9 בית כנסת מגדל עוז inPlace=false dx=3.26 dy=4.06
+   synagogue 0.83km h=9 שבת אחים - בית כנסתספרדי inPlace=false dx=-0.62 dy=0.56
+   synagogue 4.91km h=9 בית מדרש ישיבת מקור חיים inPlace=false dx=0.76 dy=4.85
+   synagogue 5.60km h=9 ישיבת בת עין inPlace=false dx=-0.21 dy=5.60
+== rosh-pina reach=2.94 home={"dx":[-0.905921998240764,1.0787009360487554],"dy":[-1.6067186666670088,0.7124479999975486],"sq":77,"nearest":0.10379750392627046,"place":{"kind":1,"faith":1,"name":"ראש פינה"}}
+   bounds=boundary point=[32.96822,35.54382,1,15] name=ראש פינה box={"w":-1.8602365703574,"e":3.4397634296426,"s":-1.5102365703574,"n":3.4397634296426}
+   cluster 2795652101 dx=-0.91,1.08 dy=-1.61,0.71 sq=77 nearest=0.10 place=ראש פינה
+   cluster 2577462514 dx=-0.79,1.31 dy=0.48,3.03 sq=113 nearest=0.61 place=חצור הגלילית
+   cluster 2210697333 dx=-1.61,-0.79 dy=-2.77,-0.91 sq=34 nearest=1.33 place=undefined
+   cluster 2056829584 dx=1.66,3.06 dy=-0.22,0.94 sq=30 nearest=1.72 place=undefined
+   cluster 1065438947 dx=0.26,1.08 dy=-3.23,-1.61 sq=31 nearest=1.75 place=אליפלט
+   cluster 2089009522 dx=-5.69,-2.31 dy=-1.84,2.10 sq=199 nearest=2.32 place=צפת
+   cluster 362703037 dx=1.43,2.13 dy=-2.77,-2.30 sq=9 nearest=2.84 place=undefined
+   cluster 530002185 dx=2.25,3.30 dy=1.87,2.80 sq=24 nearest=3.13 place=מחניים
+   cluster 272968509 dx=-4.41,-2.89 dy=0.48,2.10 sq=46 nearest=3.13 place=ביריה
+   cluster 3898711124 dx=-1.84,-1.37 dy=2.80,3.50 sq=10 nearest=3.30 place=עמוקה
+   cluster 874300422 dx=3.30,5.51 dy=-1.61,0.25 sq=62 nearest=3.51 place=טובא זנגריה
+   cluster 3622744918 dx=-0.44,0.14 dy=-5.09,-3.93 sq=13 nearest=4.04 place=עמיעד
+   cluster 2256446009 dx=4.93,6.10 dy=0.25,1.41 sq=24 nearest=5.10 place=כפר הנשיא
+   synagogue 4.82km h=9 בית הכנסת האר"י הספרדי inPlace=false dx=-4.82 dy=-0.05
+   minaret 5.50km h=30  inPlace=false dx=-4.33 dy=-3.39
+   highrise 4.67km h=44.8  inPlace=false dx=-4.65 dy=-0.45
+   synagogue 4.05km h=9 אורות האר"י inPlace=false dx=-4.03 dy=-0.38
+   synagogue 5.02km h=9 בית הכנסת ברסלב inPlace=false dx=-4.97 dy=-0.69
+   synagogue 4.46km h=9 בית הכנסת הונגרים - אגודת אחים inPlace=false dx=-4.31 dy=-1.13
+   synagogue 4.82km h=9 בית כנסת היכל מוהר"ן inPlace=false dx=-4.68 dy=-1.15
+   synagogue 5.12km h=9 שטיבלך מאור חיים inPlace=false dx=-5.11 dy=-0.37
+   synagogue 4.69km h=9 בית הכנסת ערלוי inPlace=false dx=-4.62 dy=-0.79
+   synagogue 4.20km h=9 בית הכנסת סאסי כהן inPlace=false dx=-4.00 dy=-1.28
+   synagogue 4.67km h=9 ישיבת צפת inPlace=false dx=-4.65 dy=0.42
+   synagogue 5.62km h=9 קבר חוצפית המתורגמן inPlace=false dx=-5.61 dy=0.29
+   synagogue 4.40km h=9 שם ועבר inPlace=false dx=-4.39 dy=-0.27
+   synagogue 4.78km h=9 בית הכנסת פאר הנצח inPlace=false dx=-4.76 dy=-0.45
+   synagogue 5.15km h=9 קבר רבי יהודה בר עילאי inPlace=false dx=-4.84 dy=1.77
+   synagogue 4.53km h=9  inPlace=false dx=-4.30 dy=-1.44
+   synagogue 4.28km h=9  inPlace=false dx=-4.07 dy=1.34
+   minaret 4.80km h=30 مسجد الأمل inPlace=false dx=4.80 dy=-0.14
+   minaret 5.24km h=30 מסגד א־רחמה inPlace=false dx=5.23 dy=-0.19
+   waterTower 3.44km h=25 Mahanayim water tower inPlace=false dx=2.48 dy=2.38
+   highrise 3.42km h=44.8  inPlace=false dx=-3.38 dy=-0.50
+   synagogue 3.43km h=9 בית הכנסת אבוחצירא inPlace=false dx=-3.41 dy=-0.39
+   synagogue 3.75km h=9 קבר בניהו בן יהוידע inPlace=false dx=-3.54 dy=1.24
+   synagogue 3.86km h=9 מאמר מרדכי (פרץ) inPlace=false dx=-3.86 dy=-0.05
+   synagogue 3.43km h=9 בית הכנסת עמרם בן דיואן inPlace=false dx=-3.43 dy=0.09
+   synagogue 3.54km h=9 חב"ד inPlace=false dx=-3.11 dy=1.69
+   synagogue 0.33km h=9 בית המדרש ראש פינה inPlace=true dx=0.06 dy=-0.33
+   synagogue 1.21km h=9 שערי שלום inPlace=false dx=0.34 dy=1.16
+   synagogue 3.42km h=9 פני מנחם inPlace=false dx=2.52 dy=2.31
+   synagogue 2.74km h=9 בית כנסת רחובות הנהר inPlace=false dx=-1.09 dy=-2.51
+   synagogue 1.59km h=9 מערת אבא חלקיה וחנן הנחבא inPlace=false dx=-0.41 dy=1.54
+   synagogue 3.02km h=9  inPlace=false dx=-2.83 dy=-1.04
+   synagogue 3.11km h=9  inPlace=false dx=-3.02 dy=-0.75
+   synagogue 0.15km h=9  inPlace=true dx=0.15 dy=-0.01
+   synagogue 0.81km h=9  inPlace=true dx=-0.78 dy=0.22
+   synagogue 2.43km h=9  inPlace=false dx=0.60 dy=-2.36
+== safed reach=4.25 home={"dx":[-1.3776241779838954,2.0080623611277635],"dy":[-1.3933553333329203,2.5492279999968273],"sq":199,"nearest":0.11935744319894152,"place":{"kind":1,"faith":1,"name":"צפת"}}
+   bounds=boundary point=[32.96619,35.49615,1,15] name=צפת box={"w":-3.7701314059904925,"e":3.8798685940095075,"s":-4.1201314059904925,"n":2.679868594009508}
+   cluster 2089009522 dx=-1.38,2.01 dy=-1.39,2.55 sq=199 nearest=0.12 place=צפת
+   cluster 272968509 dx=-0.09,1.42 dy=0.93,2.55 sq=46 nearest=1.13 place=ביריה
+   cluster 2210697333 dx=2.71,3.53 dy=-2.32,-0.47 sq=34 nearest=3.15 place=undefined
+   cluster 2150581263 dx=-3.71,-3.01 dy=-1.16,-0.70 sq=9 nearest=3.18 place=כפר שמאי
+   cluster 2795652101 dx=3.41,5.39 dy=-1.16,1.16 sq=77 nearest=3.45 place=ראש פינה
+   cluster 2577462514 dx=3.53,5.63 dy=0.93,3.48 sq=113 nearest=3.69 place=חצור הגלילית
+   cluster 3898711124 dx=2.48,2.94 dy=3.24,3.94 sq=10 nearest=4.28 place=עמוקה
+   cluster 1065438947 dx=4.58,5.39 dy=-2.78,-1.16 sq=31 nearest=4.81 place=אליפלט
+   cluster 3495736556 dx=-5.81,-4.76 dy=1.62,3.48 sq=41 nearest=5.13 place=מירון
+   cluster 3622744918 dx=3.88,4.46 dy=-4.64,-3.48 sq=13 nearest=5.33 place=עמיעד
+   cluster 3477959539 dx=-5.46,-4.06 dy=3.01,3.94 sq=22 nearest=5.41 place=בר יוחאי
+   synagogue 0.64km h=9 בית הכנסת האר"י הספרדי inPlace=true dx=-0.51 dy=0.40
+   synagogue 5.48km h=9 קבר רבי שמעון בר יוחאי inPlace=false dx=-5.18 dy=1.80
+   minaret 2.94km h=30  inPlace=true dx=-0.01 dy=-2.94
+   highrise 0.33km h=44.8  inPlace=true dx=-0.33 dy=-0.01
+   synagogue 0.29km h=9 אורות האר"י inPlace=true dx=0.28 dy=0.07
+   synagogue 0.70km h=9 בית הכנסת ברסלב inPlace=true dx=-0.66 dy=-0.24
+   synagogue 0.69km h=9 בית הכנסת הונגרים - אגודת אחים inPlace=true dx=0.00 dy=-0.69
+   synagogue 0.79km h=9 בית כנסת היכל מוהר"ן inPlace=true dx=-0.36 dy=-0.70
+   synagogue 0.80km h=9 שטיבלך מאור חיים inPlace=true dx=-0.79 dy=0.08
+   synagogue 0.46km h=9 בית הכנסת ערלוי inPlace=true dx=-0.31 dy=-0.34
+   synagogue 0.89km h=9 בית הכנסת סאסי כהן inPlace=true dx=0.31 dy=-0.83
+   synagogue 0.92km h=9 ישיבת צפת inPlace=true dx=-0.33 dy=0.86
+   synagogue 1.49km h=9 קבר חוצפית המתורגמן inPlace=true dx=-1.30 dy=0.74
+   synagogue 0.19km h=9 שם ועבר inPlace=true dx=-0.08 dy=0.18
+   synagogue 0.44km h=9 בית הכנסת פאר הנצח inPlace=true dx=-0.44 dy=-0.00
+   synagogue 2.28km h=9 קבר רבי יהודה בר עילאי inPlace=false dx=-0.52 dy=2.22
+   synagogue 5.45km h=9 בית אור הרשב"י inPlace=false dx=-4.99 dy=2.19
+   synagogue 5.64km h=9 אוהל הרשב"י inPlace=false dx=-4.33 dy=3.62
+   synagogue 0.99km h=9  inPlace=true dx=0.02 dy=-0.99
+   synagogue 5.74km h=9  inPlace=false dx=-5.17 dy=2.50
+   synagogue 1.80km h=9  inPlace=false dx=0.25 dy=1.79
+   synagogue 5.96km h=9  inPlace=false dx=-5.47 dy=-2.36
+   synagogue 3.70km h=9  inPlace=false dx=-3.59 dy=-0.89
+   highrise 0.93km h=44.8  inPlace=true dx=0.93 dy=-0.05
+   synagogue 0.91km h=9 בית הכנסת אבוחצירא inPlace=true dx=0.91 dy=0.05
+   synagogue 1.85km h=9 קבר בניהו בן יהוידע inPlace=false dx=0.77 dy=1.68
+   synagogue 0.60km h=9 מאמר מרדכי (פרץ) inPlace=true dx=0.46 dy=0.39
+   synagogue 1.04km h=9 בית הכנסת עמרם בן דיואן inPlace=true dx=0.89 dy=0.54
+   synagogue 2.45km h=9 חב"ד inPlace=true dx=1.20 dy=2.14
+   synagogue 4.38km h=9 בית המדרש ראש פינה inPlace=false dx=4.38 dy=0.12
+   synagogue 4.92km h=9 שערי שלום inPlace=false dx=4.65 dy=1.61
+   synagogue 3.83km h=9 בית כנסת רחובות הנהר inPlace=true dx=3.23 dy=-2.07
+   synagogue 4.38km h=9 מערת אבא חלקיה וחנן הנחבא inPlace=false dx=3.90 dy=1.98
+   synagogue 1.60km h=9  inPlace=true dx=1.48 dy=-0.60
+   synagogue 1.33km h=9  inPlace=true dx=1.30 dy=-0.31
+   synagogue 4.48km h=9  inPlace=false dx=4.46 dy=0.44
+   synagogue 3.59km h=9  inPlace=false dx=3.53 dy=0.66
+   synagogue 5.27km h=9  inPlace=false dx=4.91 dy=-1.92
