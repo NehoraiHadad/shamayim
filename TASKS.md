@@ -763,6 +763,20 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 - [x] Live smoke check: Haifa, Tiberias, Jerusalem, Tel Aviv load the canvas scene, hour slider scrubs, no console errors
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
 
+## Polish track A — glyphs never mirror (audit #1, #23) — 2026-11-22 (branch `claude/fix-glyph-flip-8384c3`)
+Briefs: `docs/briefs/track-a-glyph-flip.md`, `…round2.md`; delegate report `…REPORT.md`. Stills: `docs/design/qa/polish/track-a/`.
+- [x] Each glyph has a fixed handedness (`GlyphDesc.hand`, seeded by mark seed, `scene/model/glyphHand.ts`; icons and fields 1)
+- [x] One signed light (`glyphLight` = faces.left − faces.right; glyph space = hand × it); the kit weights lit/shade faces
+      continuously (`kit.ts`, `kitLight.ts`); no form depends on the light; cast shadow fades to the contact shade at dx 0
+- [x] `Light.side`, `sideOf` and every `litSide` removed; `Light.across` is the signed lateral light on the SHADING ramp;
+      outside, trees, far cities, wear and the layer keys use it
+- [x] Proving test `scene/paint/glyphs/glyphs.test.ts`: all 22 kinds, both hands, light swept −1…1 → form log identical,
+      light continuous through 0; Shadmot Mehola 05:30–21:00 form identical per glyph; lamp x fixed
+- Who wrote what: Claude (Opus 5.5) briefs, stills, verification and a one-line tsc narrowing in the test;
+  Codex gpt-6.2-sol wrote rounds 1 and 2 (Neon gemini-4-neon-high was out of quota, then wedged at start);
+  Opus subagent reviewed both rounds (Codex never reviewed its own code)
+- [ ] Follow-up: `WearLight.side` (`scene/model/wear.ts`) is still a sign of `across` for the garments (out of scope)
+
 ## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
 One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
 and rain. Spec: `docs/design/qa/polish/track-d/SPEC.md` (Fable). Roles: Neon codes field/light logic, Codex sol 6.2
@@ -772,6 +786,8 @@ reviews, Claude manages and draws the painters.
 - [x] N1 brief — `track-d/briefs/N1-field-core.md`
 - [ ] N1 field core `src/world/field/` — written by Codex gpt-6.2-sol (Neon out of quota, 2026-11-21); reviewed by a
       Claude Opus subagent. outsourcerer runs with `OSRC_HOME=P:/osrc-home` (C: below its 10 GB disk gate).
+      N1b (Codex) 36698c5: 4/7 tests pass. Opus round 2: life cycle tied to genus, `layerCovers` jumps at 100 %
+      total (`src/world/clouds.ts`), two ill-posed tests, density grid too fine. N1c brief `briefs/N1c-fix-round.md`.
 - Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
 - Done = READY line to the polish-audit session: no blocking review findings, CI green on final sha incl. perf budget, TASKS updated, main merged first if C landed. The audit session merges, not us.
 - [ ] N2 `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),

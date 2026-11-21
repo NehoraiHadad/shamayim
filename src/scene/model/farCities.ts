@@ -129,14 +129,12 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   })
   const bounds = geometry.bounds
   if (!bounds) return null
-  // The living light: the lit face's side and how strongly it stands out (the difference of the two sides' light), so the
-  // blocks turn from even to sided as the light comes round, never flip.
-  const faces = shineOf(world).faces!
-  const sideK = Math.abs(faces.left - faces.right)
-  const litSide = faces.left > faces.right ? 'left' as const : faces.right > faces.left ? 'right' as const : null
+  // Fixed block edges use the signed difference between the two face shares.
+  const faces = shineOf(world).faces
+  const lateralLight = faces.left - faces.right
   const lightKey = layerKey('farCities.light', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box),
-    tiers.map((t) => [colourKey(t.lit), colourKey(t.shade), t.blocks.length, t.mass.map((m) => m.boxes.length)]), litSide,
-    Math.round(sideK * 64),
+    tiers.map((t) => [colourKey(t.lit), colourKey(t.shade), t.blocks.length, t.mass.map((m) => m.boxes.length)]),
+    Math.round(lateralLight * 64),
     Math.round(againstLight(world) * 32),
     lights.length, Math.round(on * 64), Math.round(visibility * 4))
   return {
@@ -145,6 +143,6 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
     // repainted alone while scrubbing (§1d), over an empty form.
     key: layerKey('farCities', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box)),
     light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? litOwn, faces: [] },
-    tiers, litSide, sideK, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
+    tiers, lateralLight, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
   }
 }
