@@ -35,12 +35,13 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const [live, dispatch] = useReducer(pickerLiveReducer, PICKER_LIVE_INITIAL)
-  const onSearchNote = useCallback((note: PickerNote, terminal: boolean) => {
-    dispatch({ type: 'search', note, terminal })
+  const onSearchNote = useCallback((note: PickerNote, terminal: boolean, requestId: number) => {
+    dispatch({ type: 'search', note, terminal, requestId })
   }, [])
   const search = usePlaceSearch(open, onSearchNote)
   const opener = useRef<HTMLElement | null>(null)
   const [locateGuard] = useState(createRequestGuard)
+  const gpsRequestId = useRef(0)
   const [locating, setLocating] = useState(false)
 
   useEffect(() => {
@@ -74,24 +75,25 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
     onSelect(place)
     onClose()
   }
-  const fail = (message: string) => {
-    dispatch({ type: 'gps', note: { text: message, hidden: false }, terminal: true })
+  const fail = (message: string, requestId: number) => {
+    dispatch({ type: 'gps', note: { text: message, hidden: false }, terminal: true, requestId })
     setLocating(false)
   }
   const locate = () => {
     if (locating) return
-    if (!navigator.geolocation) return fail(NO_GEOLOCATION)
+    const requestId = ++gpsRequestId.current
+    if (!navigator.geolocation) return fail(NO_GEOLOCATION, requestId)
     setLocating(true)
-    dispatch({ type: 'gps', note: { text: LOCATING, hidden: true }, terminal: false })
+    dispatch({ type: 'gps', note: { text: LOCATING, hidden: true }, terminal: false, requestId })
     const req = locateGuard.start()
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         if (!req.isCurrent()) return
         reversePlace(coords.latitude, coords.longitude, req.signal)
           .then((place) => { if (req.isCurrent()) choose(place) })
-          .catch(() => { if (req.isCurrent()) fail(REVERSE_FAILED) })
+          .catch(() => { if (req.isCurrent()) fail(REVERSE_FAILED, requestId) })
       },
-      (err) => { if (req.isCurrent()) fail(geolocationErrorText(err.code)) },
+      (err) => { if (req.isCurrent()) fail(geolocationErrorText(err.code), requestId) },
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 300_000 },
     )
   }

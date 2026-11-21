@@ -30,11 +30,8 @@ export function searchResultsText(count: number): string {
   return `נמצאו ${ltr(String(count))} מקומות`
 }
 
-export interface PickerNote {
-  text: string
-  /** True when the note is for screen readers only (button/list already convey it visually). */
-  hidden: boolean
-}
+/** `hidden: true` means SR-only (button/list already convey it visually). */
+export interface PickerNote { text: string; hidden: boolean }
 
 export const EMPTY_NOTE: PickerNote = { text: '', hidden: false }
 
@@ -43,91 +40,106 @@ export function searchNote(count: number): PickerNote {
   return { text: searchResultsText(count), hidden: count > 0 }
 }
 
+export type LiveSource = 'search' | 'gps'
 export type LivePhase = 'idle' | 'progress' | 'holding' | 'gap'
+export interface LiveEntry { source: LiveSource; requestId: number; text: string }
 
+/** Per-source visible note, pending progress (kept across holds), and request watermarks. */
 export interface PickerSlot {
   text: string
-  /** Monotonic sequence of the last visible update to this source (0 = none yet). */
   seq: number
+  progress: string
+  progressSeq: number
+  requestId: number
+  doneId: number
 }
 
 export interface PickerLiveState {
   search: PickerSlot
   gps: PickerSlot
   seq: number
-  /** Current text for the `role="status"` live region; starts empty and clears between queued outcomes. */
+  /** Current text for the `role="status"` live region; clears between queued outcomes. */
   spoken: string
-  /** Queued terminal announcements waiting their turn in FIFO order. */
-  queue: readonly string[]
+  /** Queued terminal announcements in FIFO order, keyed by `(source, requestId)`. */
+  queue: readonly LiveEntry[]
   phase: LivePhase
 }
 
+const EMPTY_SLOT: PickerSlot = { text: '', seq: 0, progress: '', progressSeq: 0, requestId: 0, doneId: -1 }
 export const PICKER_LIVE_INITIAL: PickerLiveState = {
-  search: { text: '', seq: 0 },
-  gps: { text: '', seq: 0 },
-  seq: 0,
-  spoken: '',
-  queue: [],
-  phase: 'idle',
+  search: EMPTY_SLOT, gps: EMPTY_SLOT, seq: 0, spoken: '', queue: [], phase: 'idle',
 }
 
 export type PickerLiveAction =
-  | { type: 'search'; note: PickerNote; terminal?: boolean }
-  | { type: 'gps'; note: PickerNote; terminal?: boolean }
+  | { type: LiveSource; note: PickerNote; requestId: number; terminal?: boolean }
   | { type: 'advance' }
   | { type: 'reset' }
 
-/** Queue terminal announcements (search count/empty/error, GPS error) so concurrent outcomes are spoken in order without drops or repeats. */
+const newest = (a: string, aSeq: number, b: string, bSeq: number) => (!a ? b : !b ? a : aSeq >= bSeq ? a : b)
+
+function idleOrProgress(state: PickerLiveState, queue: readonly LiveEntry[] = state.queue): PickerLiveState {
+  const progress = newest(state.search.progress, state.search.progressSeq, state.gps.progress, state.gps.progressSeq)
+  return { ...state, spoken: progress, queue, phase: progress ? 'progress' : 'idle' }
+}
+
+/** Queue terminal announcements keyed by `(source, requestId)` so current outcomes play once and superseded ones are dropped. */
 export function pickerLiveReducer(state: PickerLiveState, action: PickerLiveAction): PickerLiveState {
-  if (action.type === 'reset') {
-    return state.seq === 0 && state.phase === 'idle' && !state.spoken && !state.queue.length
-      ? state
-      : PICKER_LIVE_INITIAL
-  }
+  if (action.type === 'reset') return state === PICKER_LIVE_INITIAL ? state : PICKER_LIVE_INITIAL
   if (action.type === 'advance') {
     if (state.phase === 'holding') {
-      return state.queue.length > 0
-        ? { ...state, spoken: '', phase: 'gap' }
-        : { ...state, spoken: '', phase: 'idle' }
+      return state.queue.length > 0 ? { ...state, spoken: '', phase: 'gap' } : idleOrProgress(state)
     }
     if (state.phase === 'gap') {
       const [next, ...rest] = state.queue
-      return next
-        ? { ...state, spoken: next, queue: rest, phase: 'holding' }
-        : { ...state, spoken: '', queue: [], phase: 'idle' }
+      return next ? { ...state, spoken: next.text, queue: rest, phase: 'holding' } : idleOrProgress(state, [])
     }
     return state
   }
 
+  const source = action.type
+  const current = state[source]
+  const { requestId } = action
+  if (requestId < current.requestId || requestId <= current.doneId) return state
+
   const visible = action.note.hidden ? '' : action.note.text
-  const current = state[action.type]
-  const visibleChanged = visible !== current.text || (visible !== '' && current.seq !== state.seq)
-  const seq = visibleChanged ? state.seq + 1 : state.seq
-  const nextSlot = visibleChanged ? { text: visible, seq } : current
+  const progress = action.terminal ? '' : action.note.text
+  const visChanged = visible !== current.text || (visible !== '' && current.seq !== state.seq)
+  const progChanged = progress !== current.progress || (progress !== '' && current.progressSeq !== state.seq)
+  const seq = visChanged || progChanged ? state.seq + 1 : state.seq
+  const doneId = action.terminal ? requestId : current.doneId
+  const slotChanged = visChanged || progChanged || requestId !== current.requestId || doneId !== current.doneId
+  const nextSlot: PickerSlot = slotChanged
+    ? { text: visible, seq: visChanged ? seq : current.seq, progress, progressSeq: progChanged ? seq : current.progressSeq, requestId, doneId }
+    : current
 
   let { spoken, queue, phase } = state
-  const text = action.note.text
-  if (action.terminal) {
-    if (text) {
-      if (phase === 'idle' || phase === 'progress') {
-        spoken = text
-        phase = 'holding'
-      } else if (!(phase === 'holding' && spoken === text) && !queue.includes(text)) {
-        queue = [...queue, text]
-      }
-    }
-  } else if (phase === 'idle' || phase === 'progress') {
-    spoken = text
-    phase = text ? 'progress' : 'idle'
+  if (requestId > current.requestId && queue.some((e) => e.source === source && e.requestId < requestId)) {
+    queue = queue.filter((e) => e.source !== source || e.requestId >= requestId)
   }
 
-  if (!visibleChanged && spoken === state.spoken && queue === state.queue && phase === state.phase) return state
-  return { ...state, [action.type]: nextSlot, seq, spoken, queue, phase }
+  const other = state[source === 'search' ? 'gps' : 'search']
+  const pending = newest(nextSlot.progress, nextSlot.progressSeq, other.progress, other.progressSeq)
+  const text = action.note.text
+  if (action.terminal && text) {
+    if (phase === 'idle' || phase === 'progress') {
+      spoken = text
+      phase = 'holding'
+    } else {
+      queue = [...queue, { source, requestId, text }]
+    }
+  } else if (phase === 'idle' || phase === 'progress') {
+    spoken = pending
+    phase = pending ? 'progress' : 'idle'
+  } else if (phase === 'gap' && queue.length === 0 && !pending) {
+    spoken = ''
+    phase = 'idle'
+  }
+
+  if (!slotChanged && spoken === state.spoken && queue === state.queue && phase === state.phase) return state
+  return { ...state, [source]: nextSlot, seq, spoken, queue, phase }
 }
 
 /** Visible status note for sighted users: newest non-empty visible text across search and GPS. */
 export function pickerVisible({ search, gps }: Pick<PickerLiveState, 'search' | 'gps'>): string {
-  if (!search.text) return gps.text
-  if (!gps.text) return search.text
-  return search.seq >= gps.seq ? search.text : gps.text
+  return newest(search.text, search.seq, gps.text, gps.seq)
 }
