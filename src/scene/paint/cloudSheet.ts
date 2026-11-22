@@ -1,5 +1,6 @@
 import type { LayerOf, RGB } from '../model/types'
 import { mix, type Ctx2D, type PaintEnv } from './hand'
+import { soften } from './soften'
 
 /*
  * A field layer as one continuous sheet over the dome (SPEC §6.0: layers before shapes). MEDIUM: the model's screen-ray
@@ -8,9 +9,13 @@ import { mix, type Ctx2D, type PaintEnv } from './hand'
  * `alpha` falls. The rows (`ys`) are uneven, so they are first resampled here, linearly between the two rays around
  * each output row and in premultiplied colour, to rows ROW px apart. One draw then stretches them: a per-row strip would
  * lose the vertical blend, because the canvas clamps its smoothing to the source rectangle and draws stair-steps.
+ * The resampled rows are then softened (`soften`) by SOFT sky px: the field places the cloud, the hand draws it as soft
+ * masses (the owner's call, 22 Nov), not as the grid's texels.
  * Pure: every number is the model's; the grid's extent is the sheet's (the model spans the sky edge to edge).
  */
 const ROW = 2
+/** Sky px over which a cloud's edge melts into the sky: about one fingertip on a phone, the first WebGL sky's veil. */
+const SOFT = 9
 
 export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const { xs, ys } = desc
@@ -20,8 +25,7 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   if (span <= 0) return
   const out = Math.max(2, Math.ceil(span / ROW) + 1)
   const texels = premultiplied(desc)
-  const { canvas, ctx: s } = env.canvas(cols, out)
-  const image = s.createImageData(cols, out)
+  const buf = new Float32Array(cols * out * 4)
   let r = 0
   for (let k = 0; k < out; k++) {
     const y = y0 + (k * span) / (out - 1)
@@ -30,11 +34,17 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
     const t = h > 0 ? Math.min(1, Math.max(0, (y - ys[r]) / h)) : 0
     for (let c = 0; c < cols; c++) {
       const a = texels[r * cols + c], b = texels[(r + 1) * cols + c]
-      const alpha = a[3] + (b[3] - a[3]) * t
-      const at = (k * cols + c) * 4
-      for (let i = 0; i < 3; i++) image.data[at + i] = byte(alpha > 0 ? (a[i] + (b[i] - a[i]) * t) / alpha : 0)
-      image.data[at + 3] = byte(alpha)
+      for (let i = 0; i < 4; i++) buf[(k * cols + c) * 4 + i] = a[i] + (b[i] - a[i]) * t
     }
+  }
+  const colPx = (xs[cols - 1] - xs[0]) / (cols - 1)
+  soften(buf, cols, out, Math.round(SOFT / Math.max(1, colPx)), Math.round(SOFT / (span / (out - 1))))
+  const { canvas, ctx: s } = env.canvas(cols, out)
+  const image = s.createImageData(cols, out)
+  for (let n = 0; n < cols * out; n++) {
+    const alpha = buf[n * 4 + 3]
+    for (let i = 0; i < 3; i++) image.data[n * 4 + i] = byte(alpha > 0 ? buf[n * 4 + i] / alpha : 0)
+    image.data[n * 4 + 3] = byte(alpha)
   }
   s.putImageData(image, 0, 0)
   ctx.save()

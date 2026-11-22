@@ -33,17 +33,31 @@ describe('cloud sheet painter', () => {
     expect(h.draws).toEqual([[0.5, 0.5, 2, 165, -10, 0, 400, 330]])
   })
 
-  it('writes alpha and the lit→body→shade tone per ray, and blends between rays down the column', () => {
+  it('keeps a uniform sheet uniform: the softening never darkens or thins an even deck', () => {
     const h = harness()
-    paintCloudSheet(h.ctx, sheet([0, ...Array(10).fill(0.5), 1]), h.env)
+    const desc = sheet(Array(12).fill(0.5))
+    desc.tone = Array(12).fill(1)
+    paintCloudSheet(h.ctx, desc, h.env)
+    const { data } = h.texels()
+    for (let n = 0; n < data.length; n += 4) expect(Array.from(data.slice(n, n + 4))).toEqual([77, 77, 77, 128])
+  })
+
+  it('melts a hard edge into the sky over a few px, monotonic and with no step, in the cloud colour', () => {
+    const h = harness()
+    const desc = sheet([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
+    desc.ys = [0, 100, 101, 200]
+    desc.tone = Array(12).fill(1)
+    paintCloudSheet(h.ctx, desc, h.env)
     const { data, height } = h.texels()
-    const px = (row: number, col: number) => Array.from(data.slice((row * 3 + col) * 4, (row * 3 + col) * 4 + 4))
-    expect(px(0, 0)[3]).toBe(0) // clear ray
-    expect(px(height - 1, 2)).toEqual([77, 77, 77, 255]) // tone 1, shade, opaque
-    // Halfway between ys[0] and ys[1] (row 50 of 166 is y = 100), alpha is halfway between the two rays.
-    expect(px(50, 0)[3]).toBe(64)
-    // Premultiplied: a clear neighbour does not darken the colour.
-    expect(px(50, 0).slice(0, 3)).toEqual(px(100, 0).slice(0, 3))
+    const alpha = Array.from({ length: height }, (_, k) => data[k * 12 + 3])
+    for (let k = 1; k < height; k++) {
+      expect(alpha[k]).toBeGreaterThanOrEqual(alpha[k - 1])
+      expect(alpha[k] - alpha[k - 1]).toBeLessThan(40)
+    }
+    expect(alpha[0]).toBe(0)
+    expect(alpha[height - 1]).toBe(255)
+    const mid = alpha.findIndex((a) => a > 0 && a < 255)
+    expect(Array.from(data.slice(mid * 12, mid * 12 + 3))).toEqual([77, 77, 77])
   })
 
   it('paints nothing on a clear sheet', () => {
