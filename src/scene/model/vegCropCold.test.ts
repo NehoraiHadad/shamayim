@@ -24,10 +24,10 @@ it('preserves the Nahalal vegetation descriptor and bounds the relative cold cro
       const input = { ...world, land: { ...world.land }, cropAreas: withCrops ? world.cropAreas : [] }
       return planeVegetationOf(input, BOX, 'near', world.terrain.near, near.fill, model.clear)
     }
-    // All packed positions, widths, weights and palette values. Re-pinned at the origin/main merge: track B's own-footprint
-    // marks (a solar field at Nahalal) move the drawn near line, so the near plane's points and its rows moved with it.
+    // All packed positions, widths, weights and palette values. Re-pinned in Stage 7 when `buildVegPalette` moved from
+    // the narrow Oklab shade-ridge squeeze (`albedoToLandTone`) into light-free reflectance-form space (`albedoToFormTone`).
     expect(createHash('sha256').update(JSON.stringify(build(true))).digest('hex'))
-      .toBe('ec8dce628883f6f7c98cba03de37edf70e5af159e5765ff90d836736e27ae2bc')
+      .toBe('3696481461678639624581dfeb7f054a0b3158ec5627d2eba7e6137d7e5e048e')
     const time = (withCrops: boolean) => {
       const start = performance.now()
       build(withCrops)

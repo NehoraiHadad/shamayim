@@ -10,7 +10,7 @@ import { buildWorld } from '../../world/world'
 import { paintPlane } from '../paint/planes'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
-import { applyVeil, HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './landVeil'
+import { HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './landVeil'
 import { hexOf } from './tone'
 import type { LayerOf, RGB, SceneBox, SceneModel } from './types'
 
@@ -32,9 +32,20 @@ const world = (id: string, hour: string, forced: WorldInput['forced'] = null) =>
 const planesOf = (model: SceneModel) => layersOn(model, 'land').filter((l): l is LayerOf<'plane'> => l.kind === 'plane')
 const near = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'near')!
 const far = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'far')!
-/** Rendered tones along a plane crest: the `source-over` light veil composited over the light-free form median. */
-const renderedTones = (layer: LayerOf<'plane'>): [number, RGB][] =>
-  layer.light.veil.map(([x, rgb, alpha]) => [x, applyVeil(layer.fill, { rgb, alpha })])
+/** Rendered tones along a plane crest: Band 0 (`multiply` shadeField) followed by Band 1 (`source-over` aerial haze veil). */
+const renderedTones = (layer: LayerOf<'plane'>): [number, RGB][] => {
+  const sf = layer.light.shadeField
+  return layer.light.veil.map(([x, rgb, alpha], i, all) => {
+    let base: RGB = layer.fill
+    if (sf && sf.cols > 0) {
+      const c = Math.min(sf.cols - 1, Math.round((i / Math.max(1, all.length - 1)) * (sf.cols - 1)))
+      const o = c * 3
+      base = [base[0] * (sf.rgb[o] / 255), base[1] * (sf.rgb[o + 1] / 255), base[2] * (sf.rgb[o + 2] / 255)]
+    }
+    const inv = 1 - alpha
+    return [x, [base[0] * inv + rgb[0] * alpha, base[1] * inv + rgb[1] * alpha, base[2] * inv + rgb[2] * alpha]]
+  })
+}
 
 /**
  * The mean depth of the lit band under steep crest stretches rising to the right (y falling) and under those falling to

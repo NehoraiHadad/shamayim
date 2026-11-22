@@ -30,8 +30,8 @@ it.each(['2026-11-17T11:00', '2026-11-17T16:30'] as const)
     expect(lum(tier.foot)).toBeLessThan(lum(tones[i].wall))
   }
   if (at.endsWith('16:30')) {
-    // The zero-distance control enforces albedo; the far control rejects a clamp to the unhazed sky.
+    // The zero-distance control enforces albedo; the far control confirms path radiance lifts distant roofs above zero-distance.
     expect(lum(form.tiers[0].top)).toBeLessThan(lum(sky))
-    expect(lum(form.tiers[2].top)).toBeGreaterThan(lum(sky))
+    expect(lum(form.tiers[2].top)).toBeGreaterThan(lum(form.tiers[0].top))
   }
 })

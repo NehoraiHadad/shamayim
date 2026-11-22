@@ -154,7 +154,7 @@ describe('the living light: cloud shadows', () => {
     const b = cloudShadowLayers(second, BOX)
     expect(a.length).toBeGreaterThan(0)
     expect(new Set(a.map(layer => layer.plane)).size).toBe(a.length)
-    expect(a.every(layer => layer.surface === 'land' && layer.blend === 'source-atop' &&
+    expect(a.every(layer => layer.surface === 'land' && layer.blend === 'multiply' &&
       layer.id === `cloudShadow.${layer.plane}`)).toBe(true)
     const blobs = a.flatMap(layer => layer.blobs)
     expect(blobs.length).toBeLessThanOrEqual(64)

@@ -8,7 +8,9 @@ import { LayerCache, type LayerCanvas } from '../compose/layerCache'
 import { HAND, type Ctx2D } from '../paint/hand'
 import { paintLandSurface } from '../paint/landSurface'
 import { layersOn, sceneModel } from '.'
-import { albedoToLandTone, planeSurfaceOf } from './landColour'
+import { planeSurfaceOf } from './landColour'
+import { FLAT_NORMAL, litLandRgb } from './landRadiance'
+import { hazeAt, hazeOf } from './landVeil'
 import { hexOf, labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
 
@@ -97,9 +99,10 @@ describe('Stage 3 geometry, outside-ground locality & water reflection key', () 
     expect(out.land!.stops.length).toBeGreaterThanOrEqual(2)
     // In the south-facing portrait, east is left (stop 0) and west is right (last stop); neither matches terracotta red rays.
     const leftStop = out.land!.stops[0][1], rightStop = out.land!.stops.at(-1)![1]
+    const litPanoRed = litLandRgb(w, panoRed, FLAT_NORMAL, hazeAt(w, w.place3.kind === 'outside' && w.place3.land ? w.place3.land.km : 1), hazeOf(w))
     expect(labOf(leftStop).a).toBeLessThan(labOf(rightStop).a - 0.02)
-    expect(deltaE(hexOf(leftStop), hexOf(albedoToLandTone(panoRed)))).toBeGreaterThan(0.08)
-    expect(deltaE(hexOf(rightStop), hexOf(albedoToLandTone(panoRed)))).toBeGreaterThan(0.08)
+    expect(deltaE(hexOf(leftStop), hexOf(litPanoRed))).toBeGreaterThan(0.08)
+    expect(deltaE(hexOf(rightStop), hexOf(litPanoRed))).toBeGreaterThan(0.08)
   })
 
   it('repaints water.light on same-hour living-land arrival while keeping water form key stable', () => {
