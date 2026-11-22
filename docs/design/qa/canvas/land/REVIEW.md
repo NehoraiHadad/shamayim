@@ -819,6 +819,22 @@ The production-preview App fixture passed with zero problems (`node e2e/land.per
 
 **Verdict:** changes requested
 
+### **Answers (round 5)**
+
+Written by Codex as writer stand-in.
+
+- `src/scene/model/landVegetation.ts:99` — fixed in `8ddd457`: bucketed crop shell bounds by plane reach and screen column, culled empty cell sectors before sub-probing, and memoised exact polygon containment by strip bearings and depths. The original crop precedence, DEM seams and clipping across holes are covered by offline tests. The Nahalal timing gate and descriptor checksum are in `vegCropCold.test.ts`.
+- `docs/design/qa/canvas/land/REVIEW.md:799` — declined: the failures predate vegetation. The stock `cf49303` Vite fixture made six duplicate fine-tile requests. The current fixture ran against the same temporary worktree at CPU ×4 and DPR 2.75 and passed under ordinary delivery. Holding the first six local fine-tile responses for 5.5 s exceeded the shared 5 s deadline. `cf49303` aborted those requests, fetched all six tiles again, and reported regional-only cover and `climatology` at the missing GIBS tile. The updated branch's standalone dev fixture passed with six unique fine tiles, zero duplicates and the expected `s2-mean:2026-11-15+climatology` fallback.
+- `src/scene/model/landVegetation.ts:117` — declined: fractional weighting would change the illustrated output. The existing containment rule keeps the full crown when its footprint straddles a mapped crop boundary.
+
+**Output and timing.** Both vegetation planes matched the parent revision exactly in all 24 recorded Stage 4 scenes (48 descriptors). In 42 alternating fixture-only pairs, Nahalal's cold near-plane build with crops fell from 24.82 to 10.66 ms and the paired crop overhead fell from 16.21 to 6.90 ms. The benchmark forces a form-cache miss for each build and keeps the terrain and other inputs fixed. Set `SCENE_CHECK_NAHALAL_COLD=1` and run `npx vitest run --testTimeout=20000 --maxWorkers=2 src/scene/model/vegCropCold.test.ts` in isolation to enforce its 12 ms paired-overhead budget.
+
+The isolated timing gate passed 1/1 with 7.50 ms paired overhead. The median was 4.04 ms without crops and 12.08 ms with crops.
+
+**Checks.** `npx tsc -b` passed with 0 errors. `npm run build` passed with 473 modules transformed. `npm run lint` reported 0 errors and 11 warnings outside the touched files. `npm run test:pixels` passed 66/66 using the existing references. `npx vitest run --testTimeout=20000 --maxWorkers=2` passed 150/151 files and 1,338/1,339 tests. The 22° halo test timed out and passed the isolated rerun (1/1 selected). The full rerun with `--retry=1` passed 151/151 files and 1,339/1,339 tests.
+
+**Browser performance.** The first `npm run test:perf` attempt hit a navigation during Haifa's animation check. The retry completed all three scenes and the App fixture. It exceeded eight timing gates on this Windows host: `modelCold` and `scrub.model` in all three scenes, and land arrival in Haifa and Tel Aviv. The App fixture passed with the expected missing-tile fallback, six unique fine tiles, zero duplicates and land and plane form reused in all 30 scrub steps.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
