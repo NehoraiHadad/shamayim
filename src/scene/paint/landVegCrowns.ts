@@ -22,8 +22,11 @@ export function treeCrownAnchor(x: number, y: number, r: number, height: number,
   if (kind === 3) {
     return { cx: x + palmBend(r, phase), cy: y - height * PALM_CROWN_HEIGHT, rx: r * 1.05, ry: r * 0.62 }
   }
-  const rx = kind === 1 ? r * 1.18 : kind === 2 ? r * 0.98 : kind === 4 ? r * 1.06 : r * 1.14
-  const ry = kind === 1 ? r * 0.78 : kind === 2 ? r * 0.92 : kind === 4 ? r * 0.86 : r * 0.90
+  // Vary woodland (kind 0) silhouette aspect subtly within `treeExtent` (conifer domes alongside broader oaks).
+  const rx = kind === 0 ? r * (1.02 + 0.14 * Math.sin(phase * 1.3))
+    : kind === 1 ? r * 1.18 : kind === 2 ? r * 0.98 : r * 1.06
+  const ry = kind === 0 ? r * (0.84 + 0.08 * Math.cos(phase * 1.7))
+    : kind === 1 ? r * 0.78 : kind === 2 ? r * 0.92 : r * 0.86
   return { cx: x, cy: y - ry * 0.55, rx, ry }
 }
 
@@ -122,11 +125,7 @@ export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation): void {
     const baseRgb = tones[toneIdx] ?? tones[0]
 
     if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, trunkRgb); continue }
-    const anchor = treeCrownAnchor(x, y, r, height, phase, kind)
-    // Vary woodland silhouette aspect subtly within `treeExtent` (conifer pine domes alongside broader Mediterranean oak).
-    const rx = kind === 0 ? r * (1.02 + 0.14 * Math.sin(phase * 1.3)) : anchor.rx
-    const ry = kind === 0 ? r * (0.84 + 0.08 * Math.cos(phase * 1.7)) : anchor.ry
-    const cx = anchor.cx, cy = kind === 0 ? y - ry * 0.55 : anchor.cy
+    const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind)
     const lobes = kind === 0 ? (shade > 0.55 ? 5 : 4) : 3
 
     ctx.beginPath()

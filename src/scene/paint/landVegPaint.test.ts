@@ -10,18 +10,20 @@ const env = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as Off
 
 function recordEllipsesAndFills() {
   const ellipses: { cx: number; cy: number; rx: number; ry: number; fill: string }[] = []
+  const pathStarts: [number, number][] = []
   let pending: { cx: number; cy: number; rx: number; ry: number }[] = []
   let fillStyle = ''
   const ctx = new Proxy({}, {
     get: (_, prop) => {
       if (prop === 'beginPath') return () => { pending = [] }
+      if (prop === 'moveTo') return (x: number, y: number) => { pathStarts.push([x, y]) }
       if (prop === 'ellipse') return (cx: number, cy: number, rx: number, ry: number) => { pending.push({ cx, cy, rx, ry }) }
       if (prop === 'fill') return () => { for (const e of pending) ellipses.push({ ...e, fill: fillStyle }); pending = [] }
       return () => {}
     },
     set: (_, prop, val) => { if (prop === 'fillStyle') fillStyle = String(val); return true },
   }) as unknown as Ctx2D
-  return { ctx, ellipses }
+  return { ctx, ellipses, pathStarts }
 }
 
 const alphaOf = (cssStr: string) => {
@@ -67,6 +69,42 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
     const orchardAnchor = treeCrownAnchor(100, 90, 3, 5, 0.5, 4)
     expect(orchardAnchor.rx).toBeLessThan(oliveAnchor.rx)
     expect(orchardAnchor.ry).toBeGreaterThan(oliveAnchor.ry)
+  })
+
+  it('shares phase-dependent woodland crown geometry between paintVegCrowns and paintPlaneLight', () => {
+    const r = 3, height = 6.5, widePhase = Math.PI / (2 * 1.3), narrowPhase = (3 * Math.PI) / (2 * 1.3)
+    const wide = treeCrownAnchor(100, 90, r, height, widePhase, 0)
+    const narrow = treeCrownAnchor(200, 90, r, height, narrowPhase, 0)
+    expect(wide.rx).toBeGreaterThan(narrow.rx + 0.5)
+    expect(wide.ry).not.toBeCloseTo(narrow.ry, 3)
+    expect(wide.cy).not.toBeCloseTo(narrow.cy, 3)
+
+    const veg: PlaneVegetation = {
+      ...EMPTY_VEGETATION,
+      trees: new Float32Array([100, 90, r, height, widePhase, 0.4, 200, 90, r, height, narrowPhase, 0.4]),
+      treeMeta: new Uint8Array([0, TONE.PINE_MID, 240, 0, TONE.PINE_MID, 240]),
+      tones: buildVegPalette([0.2, 0.25, 0.18], 0.3),
+    }
+    const lightRec = recordEllipsesAndFills()
+    paintPlaneLight(lightRec.ctx, makePlane(veg), env)
+    expect(lightRec.ellipses).toHaveLength(2)
+    for (const [e, a] of [[lightRec.ellipses[0], wide], [lightRec.ellipses[1], narrow]] as const) {
+      expect(e.cx).toBeCloseTo(a.cx + a.rx * 0.28, 4)
+      expect(e.cy).toBeCloseTo(a.cy - 0.7 * a.ry * 0.30, 4)
+      expect(e.rx).toBeCloseTo(a.rx * 0.50, 4)
+      expect(e.ry).toBeCloseTo(a.ry * 0.42, 4)
+    }
+
+    const formRec = recordEllipsesAndFills()
+    paintVegCrowns(formRec.ctx, veg)
+    // Each crown draws the body first, then the shade and ambient highlights.
+    expect(formRec.pathStarts).toHaveLength(6)
+    for (const [i, a, phase] of [[0, wide, widePhase], [3, narrow, narrowPhase]] as const) {
+      const [x, y] = formRec.pathStarts[i]
+      const billow = 1 + 0.16 * Math.sin(phase) + 0.08 * Math.cos(phase * 1.3)
+      expect(x).toBeCloseTo(a.cx + a.rx * billow, 4)
+      expect(y).toBeCloseTo(a.cy, 4)
+    }
   })
 
   it('weights tuft and crown lift alpha by visibility and fades form crowns smoothly to zero near cutoff', () => {
