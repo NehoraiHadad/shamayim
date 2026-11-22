@@ -1,6 +1,6 @@
 //# allFunctionsCalledOnLoad
 import { xOf } from '../../domain/camera'
-import { RANGES, visitCells } from '../../world/field/cells'
+import type { FieldCell } from '../../world/field/types'
 import { cloudLight } from '../../world/lightCloud'
 import { SCENE_W } from '../../world/sceneBox'
 import type { RGB, WorldState } from '../../world/types'
@@ -10,6 +10,7 @@ import type { LayerOf, Pt, SceneBox } from './types'
 const RAD = Math.PI / 180
 const SHADE: RGB = [0.04, 0.06, 0.12]
 const RANGE = 60
+// Eight support directions miss the level-ground circular footprint by at most r × (1 − cos(π/8)).
 const rim = Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4), Math.sin(i * Math.PI / 4)])
 const ASPECT_STEP = 1.125
 const LOG_ASPECT_STEP = Math.log(ASPECT_STEP)
@@ -40,8 +41,14 @@ function shadowSprite(bucket: number, dpr: number): ShadowSprite {
 
 type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
   light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
-  terrain: Pick<WorldState['terrain'], 'seenAt' | 'groundAt'>
+  terrain: Pick<WorldState['terrain'], 'seenAt' | 'groundAt' | 'eyeM'>
 }
+
+type GroundPoint = { x: number; km: number; px: number; py: number }
+type Projection = GroundPoint & { ground: number }
+type CellProjection = { x: number; y: number; r: number; base: number; depth: number; points: (Projection | undefined)[] }
+type ProjectedCells = Map<FieldCell['id'], CellProjection>
+const projections = new WeakMap<NonNullable<ShadowWorld['terrain']['groundAt']>, Map<string, ProjectedCells>>()
 
 export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width' | 'dpr'>) {
   const { light, terrain, cloudField, camera } = world
@@ -55,84 +62,103 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
   const sin = Math.sin(light.azimuth * RAD), cos = Math.cos(light.azimuth * RAD)
   const east = sin * cot, north = cos * cot
   const invSin = 1 / Math.sin(altitude)
+  const alphaScale = 0.65 * light.direct
+  const minDepth = -2 * Math.log(open * (1 - 1 / (255 * alphaScale))) / invSin
   const scale = box.width / SCENE_W
   const blobs: (LayerOf<'cloudShadow'> & { rim: Pt[]; centre: Pt })[] = []
 
-  function onGround(x: number, y: number, height: number) {
-    // Fixed-point projection onto the DEM. Stop once the two sides of the
-    // projection equation agree within 10 m, and discard unresolved intersections.
-    let ground = 0
+  const groundAt = terrain.groundAt
+  const eyeM = terrain.eyeM ?? 0
+  const frame = [eyeM, east, north, camera.heading, camera.handed, camera.pxPerDeg, camera.width].join(':')
+  let frames = projections.get(groundAt)
+  if (!frames) projections.set(groundAt, (frames = new Map()))
+  const previous = frames.get(frame)
+  const current: ProjectedCells = new Map()
+  frames.delete(frame)
+  if (frames.size >= 4) frames.delete(frames.keys().next().value!)
+  frames.set(frame, current)
+
+  const screenX = (x: number, y: number) => xOf(Math.atan2(x, y) / RAD, camera) * SCENE_W / camera.width
+
+  function onGround(x: number, y: number, height: number, ground = 0): Projection | undefined {
+    // Bound the projection-equation residual to 10 m in the horizontal plane.
     for (let i = 0; i < 12; i++) {
-      const px = x - (height - ground) * east
-      const py = y - (height - ground) * north
+      const px = x - (height - ground) * east, py = y - (height - ground) * north
       const km = Math.sqrt(px * px + py * py)
       if (km > RANGE) return
-      const screenX = xOf(Math.atan2(px, py) / RAD, camera)
-      if (screenX < 0 || screenX > SCENE_W) return
-      const sample = terrain.groundAt!(screenX, km)
+      const sx = screenX(px, py)
+      if (sx < 0 || sx > SCENE_W) return
+      const sample = groundAt(sx, km)
       if (sample == null) return
-      const next = sample / 1000
-      if (Math.abs(next - ground) * cot <= 0.01) return { x: screenX, km, px, py }
+      const next = (sample - eyeM) / 1000
+      if (Math.abs(next - ground) * cot <= 0.01) return { x: sx, km, px, py, ground: next }
       ground = next
     }
   }
 
-  for (const layer of field.layers) {
-    const { lattice, baseKm, meanVKm } = layer
-    if (lattice === 'high' || !layer.cover || blobs.length >= 64) continue
-    const h = baseKm + meanVKm / 2
-    const heightSlack = lattice === 'low' ? 3 : lattice === 'mid' ? 5 : 12
-    const search = RANGE + heightSlack * cot
-    const individualLimit = RANGES[lattice][1]
-    // Outside the field's published far ranges cloud is represented by ensemble
-    // transmission, so only its deck attenuation is represented there. The
-    // per-cell alpha omitted at that distance is bounded by 0.65 × direct.
-    const useFieldRange = search >= individualLimit
-    visitCells(field, lattice, useFieldRange ? 0 : h * east, useFieldRange ? 0 : h * north,
-      Math.min(search, individualLimit), 0,
-      (i, j, x, y, r, base, depth, tau, _share, _seed, genus) => {
-        if (blobs.length >= 64) return false
-        if (!tau || x * x + y * y > individualLimit * individualLimit) return
-        const centre = onGround(x, y, base + depth / 2)
-        if (!centre) return
-        // Integrate the central chord of the swept column. The profile integral
-        // of 1 - u² or 1 - u⁴ over [-extent, extent] is analytic.
-        const spread = depth * cot / (2 * r)
-        const extent = Math.min(1, spread)
-        const power = lattice === 'tower' || genus === 'cu' ? 2 : 4
-        const meanProfile = spread > 0 ? extent / spread * (1 - extent ** power / (power + 1)) : 1
-        const transmission = Math.exp(-tau * meanProfile * invSin / 2)
-        const alpha = 0.65 * Math.max(0, 1 - transmission / open) * light.direct
-        if (alpha <= 0) return
-        const polygon: Pt[] = []
-        let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
-        for (const [u, v] of rim) {
-          const rx = x + r * (u * sin + v * cos)
-          const ry = y + r * (u * cos - v * sin)
-          const p = onGround(rx, ry, u < 0 ? base + depth : base)
-          if (!p) continue
-          const seen = terrain.seenAt!(p.x, p.km)
-          if (!seen) continue
-          const sx = p.x * scale, sy = seen.groundY
-          polygon.push([sx, sy])
-          left = Math.min(left, sx)
-          right = Math.max(right, sx)
-          top = Math.min(top, sy)
-          bottom = Math.max(bottom, sy)
-        }
-        if (polygon.length < 3) return
-        const rx = Math.max(0.1, (right - left) / 2), ry = Math.max(0.1, (bottom - top) / 2)
-        // Cache fixed unit ellipses. Quantizing the aspect in 1.125× steps moves
-        // the vertical bounds by at most sqrt(1.125) - 1 = 6.1% of the radius.
-        const bucket = Math.round(Math.log(ry / rx) / LOG_ASPECT_STEP)
-        const sprite = shadowSprite(bucket, box.dpr)
-        blobs.push({
-          kind: 'cloudShadow', id: `cloudShadow.${lattice}.${i}.${j}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
-          rim: polygon, centre: [centre.px, centre.py],
-          placed: { x: (left + right) / 2, y: (top + bottom) / 2, scale: rx / sprite.blobs[0].rx, alpha },
-          ...sprite,
-        })
-      })
+  const candidates: { cell: FieldCell; distance: number; alpha: number }[] = []
+  for (const { cells, layer } of cloudField.snapshot) {
+    if (!layer || layer.lattice === 'high') continue
+    for (const cell of cells) {
+      const { x, y, r, baseKm: base, vKm: depth, tau0: tau, genus, lattice } = cell
+      if (tau < minDepth) continue
+      const h = base + depth / 2
+      // Eye-level pre-culling can displace the centre by |ground above eye| × cot(alt).
+      const px = x - h * east, py = y - h * north
+      const distance = px * px + py * py
+      if (distance > RANGE ** 2) continue
+      const sx = screenX(px, py)
+      if (sx < 0 || sx > SCENE_W) continue
+      // Integrate the horizontal taper on the central chord. Both this
+      // layer-smoothed and the volume chord span at most min(V, 2r/cot(alt))
+      // in height, bounding their T difference by 1 - exp(-tau × extent / (2 × spread × sin(alt))).
+      const spread = depth * cot / (2 * r), extent = Math.min(1, spread)
+      const power = lattice === 'tower' || genus === 'cu' || genus === 'cg' || genus === 'cb' ? 2 : 4
+      const profile = spread > 0 ? extent / spread * (1 - extent ** power / (power + 1)) : 1
+      const slant = tau * profile
+      if (slant < minDepth) continue
+      const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
+      candidates.push({ cell, distance, alpha })
+    }
+  }
+  candidates.sort((a, b) => a.distance - b.distance)
+  for (const { cell: { id, x, y, r, baseKm: base, vKm: depth }, alpha } of candidates.slice(0, 64)) {
+    const cached = previous?.get(id)
+    const hit = cached && cached.x === x && cached.y === y && cached.r === r && cached.base === base && cached.depth === depth
+    const points = hit ? cached.points : [onGround(x, y, base + depth / 2)]
+    current.set(id, { x, y, r, base, depth, points })
+    const centre = points[0]
+    if (!centre) continue
+    const polygon: Pt[] = []
+    let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+    for (let i = 0; i < rim.length; i++) {
+      const [u, v] = rim[i]
+      const rx = x + r * (u * sin + v * cos)
+      const ry = y + r * (u * cos - v * sin)
+      const p = hit ? points[i + 1] : onGround(rx, ry, u < 0 ? base + depth : base, centre.ground)
+      if (!hit) points.push(p)
+      if (!p) continue
+      const seen = terrain.seenAt!(p.x, p.km)
+      if (!seen) continue
+      const sx = p.x * scale, sy = seen.groundY
+      polygon.push([sx, sy])
+      left = Math.min(left, sx)
+      right = Math.max(right, sx)
+      top = Math.min(top, sy)
+      bottom = Math.max(bottom, sy)
+    }
+    if (polygon.length < 3) continue
+    const rx = Math.max(0.1, (right - left) / 2), ry = Math.max(0.1, (bottom - top) / 2)
+    // Cache fixed unit ellipses. Quantizing the aspect in 1.125× steps moves
+    // the vertical bounds by at most sqrt(1.125) - 1 = 6.1% of the radius.
+    const bucket = Math.round(Math.log(ry / rx) / LOG_ASPECT_STEP)
+    const sprite = shadowSprite(bucket, box.dpr)
+    blobs.push({
+      kind: 'cloudShadow', id: `cloudShadow.${id}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
+      rim: polygon, centre: [centre.px, centre.py],
+      placed: { x: (left + right) / 2, y: (top + bottom) / 2, scale: rx / sprite.blobs[0].rx, alpha },
+      ...sprite,
+    })
   }
   return blobs
 }

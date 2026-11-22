@@ -77,6 +77,7 @@ export interface FieldInput {
   lowBaseKm: number
   elevationKm: number
   weatherCode: number
+  weatherForced?: boolean
   rain?: { level: 'low' | 'mid' | 'high'; rate: number }
   /** Solar altitude in degrees. */
   sunAltitude: number

@@ -78,6 +78,7 @@ export interface Optics { rainbow: Rainbow | null; halo: Halo | null }
 export interface OpticsInput {
   sun: { azimuth: number; altitude: number }
   /** The sun's direct light on the scene (0–1, after the cloud in front of it) and whether it lights it at all. */
+  /** Sunlight available to illuminate the rain after mean cloud transmission. */
   direct: number
   eye?: number
   sunLights: boolean

@@ -7,6 +7,7 @@ import { kernel, rasterNodes } from './rasterNodes'
 import type { CloudField, FieldCell, FieldLayer, Lattice } from './types'
 
 export { farStrips } from './farDensity'
+export { shadowTau } from './shadowTau'
 
 /** Squared elliptical radius at a world point, with coordinates in km. */
 export function footprintDistance(cell: FieldCell, x: number, y: number): number {
@@ -48,7 +49,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   cells?: FieldCell[]) {
   const layer = field.layers.find(item => item.lattice === lattice)
   if (!layer || !layer.cover || radiusKm < 0) {
-    return { tauAt: () => layer?.floorTau ?? 0, cellAt: () => undefined, rayDepthAt: () => 0 }
+    return { tauAt: () => layer?.floorTau ?? 0, cellAt: () => undefined, rayDepthAt: () => 0, rayCells: () => new Set<FieldCell>(), rayRange: 0, meanRayDepth: () => 0 }
   }
   const dt = t - field.t
   const { d: [dx, dy], vel } = (dt && layer.motionAt ? layer.motionAt(t) : layer)
@@ -72,7 +73,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   const expectedFromSquared = range ** 2
   const querySquared = radiusKm ** 2
   const rasterSquared = radius ** 2
-  const floor = layer.floorTau
+  const { floorTau: floor, baseKm, meanVKm, beamExtinction } = layer
   const drawRadiusSquared = drawRadius ** 2
   visitCells(field, lattice, cx, cy, Math.max(drawRadius, rasterVisit), dt,
     (siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis) => {
@@ -94,19 +95,34 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   // The clump approximation contributes at most extinction × intensity × amplitude × 0.01172.
   const localIntensity = (x: number, y: number) =>
     -(clearBaseline + clumpScale * clump(x - dx, y - dy))
+  function meanRayDepth(x: number, y: number, low: number, high: number, ds: number) {
+    const overlap = Math.min(high, baseKm + meanVKm) - Math.max(low, baseKm)
+    if (overlap <= 0) return 0
+    const scale = ds * overlap / ((high - low) * meanVKm)
+    const d = Math.hypot(x - cx, y - cy)
+    const fade = smoothstep(fadeStart, range, d)
+    return scale * (floor / 2 + (fade ? fade * localIntensity(x, y) * (beamExtinction ?? extinction / 2) : 0))
+  }
   return {
     rayDepthAt(x: number, y: number, low: number, high: number, ds: number, patches: Map<FieldCell, number>) {
       const distanceSquared = (x - cx) ** 2 + (y - cy) ** 2
       const fade = distanceSquared >= expectedFromSquared ? 1
         : distanceSquared <= fadeStartSquared ? 0 : smoothstep(fadeStart, range, Math.sqrt(distanceSquared))
       const exact = fade < 1 ? grid.rayDepthAt(x, y, low, high, ds * (1 - fade), patches) : 0
-      const overlap = Math.min(high, layer.baseKm + layer.meanVKm) - Math.max(low, layer.baseKm)
-      if (overlap <= 0) return exact
-      const scale = ds * overlap / ((high - low) * layer.meanVKm)
-      // Scaling the vertical effective depth assumes coherent extinction over this step.
-      // The error in transmission per step is bounded by |scale - 1| for scale >= 0.
-      return exact + scale * (floor / 2 + (fade ? fade * localIntensity(x, y) * (layer.beamExtinction ?? extinction / 2) : 0))
+      return exact + meanRayDepth(x, y, low, high, ds)
     },
+    rayRange: range,
+    rayCells(east: number, north: number, start: number, end: number) {
+      const cells = new Set<FieldCell>()
+      for (let d = start; d <= end;) {
+        const next = Math.min(end, d + step)
+        grid.collect(d * east, d * north, next * east, next * north, cells)
+        if (next === end) break
+        d = next
+      }
+      return cells
+    },
+    meanRayDepth,
     cellAt(x: number, y: number) {
       return (x - cx) ** 2 + (y - cy) ** 2 <= rasterSquared ? grid.cellAt(x, y) : undefined
     },
@@ -124,30 +140,4 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
       return floor - Math.log(transmission)
     },
   }
-}
-
-/** Integrate column extinction along the sunward slant above this ground point. */
-export function shadowTau(snapshot: readonly ReturnType<typeof layerSnapshot>[], x: number, y: number,
-  sun: { altitude: number; azimuth: number }, groundAboveEyeKm = 0) {
-  if (sun.altitude <= 0) return 0
-  const az = sun.azimuth * Math.PI / 180
-  const alt = sun.altitude * Math.PI / 180
-  const cot = 1 / Math.tan(alt)
-  const east = Math.sin(az) * cot, north = Math.cos(az) * cot
-  let tau = 0
-  for (const { layer, densityGrid } of snapshot) {
-    if (!layer?.cover) continue
-    const base = Math.max(groundAboveEyeKm, layer.baseKm)
-    const depth = layer.baseKm + layer.meanVKm - base
-    if (depth <= 0) continue
-    const radius = LATTICES[layer.lattice].median * layer.g
-    const count = Math.max(1, Math.ceil(depth * cot / (radius / 2)))
-    let sum = 0
-    for (let k = 0; k < count; k++) {
-      const h = base + depth * (k + 0.5) / count - groundAboveEyeKm
-      sum += densityGrid.tauAt(x + h * east, y + h * north)
-    }
-    tau += sum * depth / (count * layer.meanVKm)
-  }
-  return tau / Math.sin(alt)
 }

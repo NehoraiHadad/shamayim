@@ -143,6 +143,10 @@ export interface Light {
   colour: RGB
   /** 0–1: beam reaching the observer along the disc ray. */
   eye: number
+  /** Mean cloud transmission available to illuminate the scene. */
+  clear: number
+  /** Sun and moon illuminance after mean cloud transmission. */
+  meanBeam: { sun: number; moon: number }
   /** 0–1: land's base light after haze and closed decks. */
   direct: number
   /** The direct share of each source (their sum is `direct`; one of them is 0 at any minute). */
@@ -297,7 +301,9 @@ export interface TerrainPlanes {
   status: LandStatus
   sightAt?: SceneTerrain['sightAt']
   seenAt?: SceneTerrain['seenAt']
+  /** Ground in metres above sea level. */
   groundAt?: SceneTerrain['groundAt']
+  eyeM?: number
   snowEdge?: SceneTerrain['snowEdge']
   /** The ground that shows on each plane's face, from the terrain data (`face.ts`); empty for the unknown land. */
   faces: Record<'near' | 'far', PlaneFace>

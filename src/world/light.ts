@@ -106,8 +106,8 @@ export function lightOf(input: LightInput): Light {
   const afterglow = sun.altitude < AFTERGLOW.from && sun.altitude > AFTERGLOW.to
     ? { x: sun.x, altitude: sun.altitude, rgb: afterglowColour(sun.altitude, aerosol) as RGB } : null
   const noonWeight = sun.t === null ? 0 : 1 - smoothstep(0, 0.18, Math.abs(sun.t - 0.5))
-  const { open, diffuse } = cloudLight(covers, input.cloudField?.field)
-  const base = { ambient, glow, afterglow, palette, diffuse }
+  const { open, clear: meanTransmission, diffuse } = cloudLight(covers, input.cloudField?.field)
+  const base = { ambient, glow, afterglow, palette, diffuse, clear: meanTransmission }
 
   // The sun: its disc over the drawn land, through the air (a haze too thick lets nothing through), through the cloud.
   const visible = sun.visible ?? discShare(sun.clearance)
@@ -122,7 +122,7 @@ export function lightOf(input: LightInput): Light {
   const direct = sunShare + moonShare
   const clear = byMoon ? moonClear : sunClear
   const cloud = input.cloudField
-  const eye = clear * (cloud && clear > 0 ? transmitAlong(cloud.field, cloud.snapshot, body.azimuth, body.altitude) : open)
+  const eye = clear * (cloud && clear > 0 ? transmitAlong(cloud.field, cloud.snapshot, body.azimuth, body.altitude) : meanTransmission)
   const across = lateral(body.azimuth, camera)
   const ray = ridgeLightRay(across, body.altitude)
   // Its colour, faded to the sky's as its share goes (a sun sinking behind the land leaves the sky's light, not a switch).
@@ -134,7 +134,7 @@ export function lightOf(input: LightInput): Light {
     source, azimuth: body.azimuth, altitude: body.altitude,
     // Use the same direct-share ramp as the light on faces.
     across: across * smoothstep(SHADING[0], SHADING[1], direct), ray: source === 'sky' ? null : ray,
-    colour, direct, eye, shares: { sun: sunShare, moon: moonShare },
+    colour, direct, eye, meanBeam: { sun: sunClear * meanTransmission, moon: moonClear * meanTransmission }, shares: { sun: sunShare, moon: moonShare },
     dir: viewDir(body.azimuth, body.altitude, camera),
     // The cast shadow's side and reach follow the source; its strength (every consumer multiplies by `direct`) and its
     // softness follow the share. Moon shadows are faint: soft at best.

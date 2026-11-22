@@ -1,6 +1,7 @@
 import { onCircle } from '../optics'
 import type { layerSnapshot } from './density'
-import { LATTICES } from './lattice'
+import { cellInterval } from './rayCell'
+import { smoothstep } from './genus'
 import { groundRangeAt, R_EFF_KM } from './project'
 import type { CloudField, FieldCell, FieldLayer } from './types'
 
@@ -20,28 +21,54 @@ function slab(layer: FieldLayer): [number, number] {
   return [min, max]
 }
 
-function ray(snapshot: FieldSnapshot, az: number, alt: number) {
+function ray(snapshot: FieldSnapshot, az: number, alt: number, columnStep?: number) {
   const east = Math.sin(az * rad), north = Math.cos(az * rad)
   const cos = Math.cos(alt * rad), slope = Math.tan(alt * rad)
-  const height = (d: number) => d * slope + d * d / (2 * R_EFF_KM)
+  const curvature = 1 / (2 * R_EFF_KM)
+  const height = (d: number) => d * (slope + d * curvature)
   const patches = new Map<FieldCell, number>()
   let tau = 0
-  for (const { layer, densityGrid } of snapshot) {
+  for (const { layer, densityGrid: grid } of snapshot) {
     if (!layer?.cover) continue
     const [min, max] = slab(layer)
+    // At this zenith tolerance lateral travel through a 12 km column is below 0.12 mm.
     if (cos < 1e-8) {
-      tau += densityGrid.rayDepthAt(0, 0, min, max, max - min, patches)
+      tau += grid.rayDepthAt(0, 0, min, max, max - min, patches)
       continue
     }
     const start = groundRangeAt(min, alt), end = groundRangeAt(max, alt)
-    const width = end - start
-    const count = Math.min(12, Math.max(1, Math.ceil(width / (LATTICES[layer.lattice].pitch / 2))))
-    const step = width / count
-    // Clip the actual vertical segment at each column. Sampling the horizontal midpoint
-    // displaces the footprint by at most half a step, and is exact for a vertical ray.
+    if (!columnStep) {
+      const range = grid.rayRange
+      for (const cell of grid.rayCells(east, north, start, Math.min(range, end))) {
+        const base = groundRangeAt(cell.baseKm, alt)
+        const interval = cellInterval(cell, east, north, slope, curvature, Math.max(start, base), Math.min(range, end))
+        if (!interval) continue
+        const [lo, hi] = interval
+        // Simpson quadrature is exact on the cubic fade.
+        // Splitting at the fade start makes the piecewise integral exact as well.
+        const from = Math.max(lo, range * 0.85)
+        const weight = (d: number) => 1 - smoothstep(range * 0.85, range, d)
+        const length = from >= hi ? hi - lo : from - lo
+          + (hi - from) * (weight(from) + 4 * weight((from + hi) / 2) + weight(hi)) / 6
+        const slant = cell.tau0 * length / (2 * cell.vKm * cos)
+        if (cell.genus === 'ac' || cell.genus === 'ci') patches.set(cell, slant)
+        else tau += slant
+      }
+    }
+    const meanStart = columnStep ? Math.min(start, groundRangeAt(layer.baseKm, alt)) : groundRangeAt(layer.baseKm, alt)
+    const layerEnd = groundRangeAt(layer.baseKm + layer.meanVKm, alt)
+    const meanEnd = columnStep ? Math.max(end, layerEnd) : layerEnd
+    if (!columnStep && !layer.floorTau && meanEnd <= 0.85 * grid.rayRange) continue
+    // Only the ensemble term uses quadrature. If its coefficient has radial
+    // Lipschitz constant L, the midpoint error in log T is at most
+    // L × step × slant length / (4 × meanVKm). The smoothstep fade has
+    // slope at most 10 / rayRange and each clump axis slope is at most 2 / wavelength.
+    const count = Math.max(1, Math.ceil((meanEnd - meanStart) / (columnStep ?? 0.1)))
+    const step = (meanEnd - meanStart) / count
     for (let k = 0; k < count; k++) {
-      const d = start + (k + 0.5) * step
-      tau += densityGrid.rayDepthAt(d * east, d * north, height(d - step / 2), height(d + step / 2), step / cos, patches)
+      const lo = meanStart + k * step, hi = lo + step, d = (lo + hi) / 2
+      const args = [d * east, d * north, height(lo), height(hi), step / cos] as const
+      tau += columnStep ? grid.rayDepthAt(...args, patches) : grid.meanRayDepth(...args)
     }
   }
   for (const [cell, slant] of patches) {
@@ -52,12 +79,12 @@ function ray(snapshot: FieldSnapshot, az: number, alt: number) {
 }
 
 /** Five equal-weight samples over the disc. The supplied snapshot belongs to the shown minute. */
-export function transmitAlong(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, t = field.t) {
+export function transmitAlong(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, t = field.t, columnStep?: number) {
   if (t !== field.t) throw new RangeError('Transmission requires the field at the snapshot minute')
-  let sum = ray(snapshot, az, alt)
+  let sum = ray(snapshot, az, alt, columnStep)
   for (let k = 0; k < 4; k++) {
     const p = onCircle({ azimuth: az, altitude: alt }, 0.19, k * Math.PI / 2)
-    sum += ray(snapshot, p.azimuth, p.altitude)
+    sum += ray(snapshot, p.azimuth, p.altitude, columnStep)
   }
   return sum / 5
 }

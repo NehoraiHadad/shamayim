@@ -35,7 +35,7 @@ export { UNKNOWN_EYE_Y, unknownLand } from '../data/terrain/terrain'
  * scrub seeded by the place.
  */
 export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlanes {
-  const { sightAt } = terrain
+  const { sightAt, groundAt, eyeM = 0 } = terrain
   const planes = {
     near: plane(terrain.nearPoints, terrain.nearElevations, (x) => sightAt?.(x).nearKm ?? UNKNOWN_KM.near),
     far: plane(terrain.farPoints, terrain.farElevations, (x) => {
@@ -48,7 +48,11 @@ export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlane
     status: landStatusOf(terrain),
     sightAt: terrain.sightAt,
     seenAt: terrain.seenAt,
-    groundAt: terrain.groundAt,
+    groundAt: groundAt && ((x: number, km: number) => {
+      const relativeM = groundAt(x, km)
+      return relativeM === null ? null : relativeM + eyeM
+    }),
+    eyeM: terrain.eyeM,
     snowEdge: terrain.snowEdge,
   }
   const faces = facesOf(planes, (angle) => terrain.horizonY - anglePx(angle))

@@ -19,7 +19,7 @@ import { cloudFieldAt } from './cloudField'
 import { nightOf } from './night'
 import { placeOf } from './place'
 import { drawnTerrain } from './outside'
-import { rainFrom, rainBanks, rainingLayer, rainOf, snowFrom } from './rain'
+import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { snowFall } from './snowLine'
@@ -189,14 +189,16 @@ export function makeWorldBuilder() {
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
     const cloudField = fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, shown, sun.altitude,
-      { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg }, raining.level ? { level: raining.level, rate } : undefined)
-    const groundAboveEyeKm = (forecast.elevation - (terrain.eyeM ?? forecast.elevation + 2)) / 1000
+      { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg }, raining.level ? { level: raining.level, rate } : undefined, forced.weatherCode !== undefined)
+    const eyeM = terrain.eyeM ?? forecast.elevation + 2
+    const groundAboveEyeKm = (x: number, y: number) => {
+      const sx = xOf(Math.atan2(x, y) * 180 / Math.PI, camera) * SCENE_W / camera.width
+      const local = terrain.heightNear?.(x, y)
+      if (local != null) return (local - eyeM) / 1000
+      return (terrain.groundAt?.(sx, Math.hypot(x, y)) ?? forecast.elevation - eyeM) / 1000
+    }
     const rain = rainFrom(cloudField, rate, wind, shown.weatherCode, preview, shown.humidity, groundAboveEyeKm)
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow:${hourKey(at)}`))
-    if (rain) {
-      const rainingCloud = clouds.find(layer => layer.rains)
-      if (rainingCloud) rainingCloud.banks = rainBanks(rain)
-    }
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
       wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10, air: { visibilityKm: air.visibilityKm, dust: air.dust } })
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
@@ -222,7 +224,7 @@ export function makeWorldBuilder() {
       [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
-    const optics = opticsOf({ sun, direct: light.shares.sun, eye: light.eye, sunLights: light.source === 'sun', covers,
+    const optics = opticsOf({ sun, direct: light.meanBeam.sun, eye: light.eye, sunLights: light.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,
       visible: sun.visible }, moon }

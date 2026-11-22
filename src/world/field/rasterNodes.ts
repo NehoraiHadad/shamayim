@@ -37,6 +37,16 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
       }
       return tau
     },
+    collect(x0: number, y0: number, x1: number, y1: number, cells: Set<FieldCell>) {
+      const first = Math.max(0, indexX(Math.min(x0, x1)))
+      const last = Math.min(width - 1, indexX(Math.max(x0, x1)))
+      const top = Math.min(height - 1, indexY(Math.max(y0, y1)))
+      for (let row = Math.max(0, indexY(Math.min(y0, y1))); row <= top; row++) {
+        for (let col = first; col <= last; col++) {
+          for (const { cell } of bins[row * width + col] ?? []) cells.add(cell)
+        }
+      }
+    },
     add(cell: FieldCell, cumulus: boolean) {
       const { x, y, r } = cell
       const east = eastScale * r, north = northScale * r

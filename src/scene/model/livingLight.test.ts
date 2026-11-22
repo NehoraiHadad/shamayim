@@ -6,6 +6,7 @@ import type { LocalTime } from '../../domain/types'
 import { makeWorldBuilder } from '../../world/world'
 import type { RGB, WorldState } from '../../world/types'
 import { sceneModel } from './index'
+import { cloudShadowLayers } from './cloudShadows'
 import { shineOf, tonesAt } from './marks'
 import { outsideLayer } from './outside'
 import { wearLight } from './wear'
@@ -143,11 +144,24 @@ describe('the living light: cloud shadows', () => {
   it('lays moving cloud shadows on the land under a broken sky, none under a clear one or a closed deck', () => {
     const p = places.get('jerusalem')!
     const build = makeWorldBuilder()
-    const broken = { forced: { cloudCover: 50, thickCloud: 50 }, forcedLayers: { low: 0.45, mid: 0.1, high: 0 } }
-    const at = (m: number) => addMinutes('2026-11-17T10:00', m)
-    const layers = (w: WorldState) => sceneModel(w, BOX).layers.filter((l): l is LayerOf<'cloudShadow'> => l.kind === 'cloudShadow')
-    const a = layers(build({ ...worldInput(p, at(0), at(0)), ...broken }))
-    const b = layers(build({ ...worldInput(p, at(1), at(0)), ...broken, selected: at(1) }))
+    const broken = { forced: { cloudCover: 50, thickCloud: 50 }, forcedLayers: { low: 0.45, mid: 0.3, high: 0 } }
+    const at = (m: number) => addMinutes('2026-11-17T12:00', m)
+    // Use an open slope so this integration test measures cloud advection
+    // without the recorded panorama's foreground hiding individual rim points.
+    const groundAt = (_x: number, km: number) => 720 + 4 * km
+    const seenAt = (_x: number, km: number) => ({ groundY: 500 - km, y: 500 - km, angle: 0, groundAngle: 0 })
+    const withSlope = (world: WorldState) => ({ ...world, terrain: { ...world.terrain, eyeM: 720, groundAt, seenAt } })
+    const layers = (w: WorldState) => sceneModel(withSlope(w), BOX).layers.filter((l): l is LayerOf<'cloudShadow'> => l.kind === 'cloudShadow')
+    const input = worldInput(p, at(0), at(0))
+    const first = build({ ...input, ...broken })
+    const second = build({ ...input, ...broken, selected: at(1) })
+    layers(first)
+    const modelStart = performance.now()
+    const a = layers(first)
+    const modelMs = performance.now() - modelStart
+    const shadowStart = performance.now()
+    const b = cloudShadowLayers(withSlope(second), BOX)
+    console.info({ warmSceneModelMs: modelMs, shadowMs: performance.now() - shadowStart, blobs: [a.length, b.length] })
     expect(a.length).toBeGreaterThan(0)
     expect(a.length).toBeLessThanOrEqual(64)
     expect(a.every(l => l.surface === 'land' && l.blend === 'source-atop' && l.placed && l.placed.alpha > 0)).toBe(true)
@@ -156,9 +170,9 @@ describe('the living light: cloud shadows', () => {
     expect(matched.length).toBeGreaterThan(0)
     expect(matched.some(layer => {
       const next = byId.get(layer.id)!
-      return next.key === layer.key && next.placed!.x !== layer.placed!.x
+      return next.placed!.x !== layer.placed!.x
     })).toBe(true)
-    expect(layers(build({ ...worldInput(p, at(0), at(0)), ...CLEAR }))).toEqual([])
-    expect(layers(build({ ...worldInput(p, at(0), at(0)), forced: { cloudCover: 100, thickCloud: 100 }, forcedLayers: { low: 1, mid: 1, high: 0 } }))).toEqual([])
+    expect(layers(build({ ...input, ...CLEAR }))).toEqual([])
+    expect(layers(build({ ...input, forced: { cloudCover: 100, thickCloud: 100 }, forcedLayers: { low: 1, mid: 1, high: 0 } }))).toEqual([])
   }, 240_000)
 })

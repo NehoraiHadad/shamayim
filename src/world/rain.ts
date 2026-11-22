@@ -27,16 +27,17 @@ export function rainingLayer(covers: Covers, rateMmH: number): { level: CloudLev
   return { level: 'low', covers: { ...covers, low: RAISED_COVER }, raised: true }
 }
 
-/** Rank the actual on-cells. The tower list reaches 80 km even where cellAt has left its raster. */
+/** Rank the actual on-cells. Low candidates are the individually drawn cells within 10 km. Towers reach 80 km, beyond their raster. */
 export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, weatherCode: number, preview: boolean,
-  humidity: number | null, groundAboveEyeKm: number): Rain | null {
+  humidity: number | null, groundAboveEyeKm: number | ((x: number, y: number) => number)): Rain | null {
   const level = cloud.field.rain?.level
   if (rateMmH <= 0 || !level) return null
   const candidates = cloud.snapshot
     .filter(({ layer }) => layer?.lattice === level || (level === 'low' && layer?.lattice === 'tower'))
-    .flatMap(({ cells, layer }) => cells.map(cell => ({ cell, layer: layer!, area: cell.r * (cell.rMinor ?? cell.r) })))
+    .flatMap(({ cells, layer }) => cells.filter(cell => cell.rainWeight > 0).map(cell => ({ cell, layer: layer!, area: cell.r * (cell.rMinor ?? cell.r),
+      score: cell.rainWeight * cell.tau0 * cell.r ** 2 })))
     .sort((a, b) => Number(b.cell.lattice === 'tower') - Number(a.cell.lattice === 'tower')
-      || b.cell.tau0 * b.cell.r ** 2 - a.cell.tau0 * a.cell.r ** 2)
+      || b.score - a.score)
   const total = candidates.reduce((sum, item) => sum + item.area, 0)
   const fraction = rainAreaShare(weatherCode, rateMmH)
   const fallMs = weatherCode >= 71 && weatherCode <= 77 ? 1 : rateMmH < 0.5 ? 1.5 : rateMmH < 2.5 ? 4 : rateMmH < 8 ? 6 : 8
@@ -50,12 +51,22 @@ export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, we
     const end = cumulative / total
     const share = (rainRankIntegral(end, fraction) - rainRankIntegral(start, fraction)) / (end - start)
     if (share <= 0) break
-    const depth = Math.max(0, cell.baseKm - groundAboveEyeKm)
     const dry = rateMmH < 0.2 && humidity !== null && humidity < 45
-    const virga = Math.min(1, depth > 2.5 ? 2.5 / depth : 1, dry ? humidity / 45 : 1)
-    const trail = virga ** 2 * depth / (2 * fallMs * 0.06)
-    const x = cell.x - (layer.vel[0] - groundWind[0]) * trail
-    const y = cell.y - (layer.vel[1] - groundWind[1]) * trail
+    const vx = layer.vel[0] - groundWind[0], vy = layer.vel[1] - groundWind[1]
+    let x = cell.x, y = cell.y, virga = 1
+    // Solve for the ground at the displaced foot. Successive estimates stop
+    // when the horizontal residual is at most 1 m.
+    for (let i = 0; i < 12; i++) {
+      const ground = typeof groundAboveEyeKm === 'number' ? groundAboveEyeKm : groundAboveEyeKm(x, y)
+      const depth = Math.max(0, cell.baseKm - ground)
+      virga = Math.min(1, depth > 2.5 ? 2.5 / depth : 1, dry ? humidity / 45 : 1)
+      const trail = virga ** 2 * depth / (2 * fallMs * 0.06)
+      const nextX = cell.x - vx * trail, nextY = cell.y - vy * trail
+      const residual = Math.hypot(nextX - x, nextY - y)
+      x = nextX
+      y = nextY
+      if (residual <= 0.001 || typeof groundAboveEyeKm === 'number') break
+    }
     const radiusKm = 0.6 * cell.r
     const atEye = virga === 1 && Math.hypot(x, y) <= radiusKm
     near ||= atEye

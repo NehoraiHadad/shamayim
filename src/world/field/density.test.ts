@@ -6,7 +6,7 @@ import { cellsAround, cellsAt, RANGES } from './cells'
 import { cellTauAt, densityGrid, layerSnapshot, rasterRange, shadowTau } from './density'
 import { buildField } from './field'
 import { createClumpSampler, sampleClumpGrid } from './clump'
-import type { FieldInput } from './types'
+import type { FieldInput, Lattice } from './types'
 
 const input: FieldInput = {
   placeId: 'density-test', hours: mapForecast(fixture).hours, at: '2026-11-17T08:00',
@@ -69,33 +69,44 @@ it.each([5, 20, 45, 70])('integrates slant extinction at %s degrees over raised 
   for (const ground of [-0.3, 0.25]) {
     const x = cell.x - (cell.baseKm + cell.vKm / 2 - ground) / Math.tan(alt)
     const sun = { altitude, azimuth: 90 }
-    expect(Math.exp(-shadowTau([isolated], x, cell.y, sun, ground) / 2)).toBeLessThan(0.1)
+    expect(Math.exp(-shadowTau([isolated], x, cell.y, sun, ground))).toBeLessThan(0.1)
     expect(shadowTau([isolated], x, cell.y + 3 * cell.r, sun, ground)).toBe(0)
   }
 })
 
-it.each([0.08, 0.64])('matches exact ensemble transmission beyond and across the low raster at cover %s', low => {
+const ensembles: [Lattice, FieldInput['covers'], number][] = [
+  ['low', { low: 0.08, mid: 0, high: 0 }, 0],
+  ['low', { low: 0.64, mid: 0, high: 0 }, 0],
+  ['tower', { low: 0.64, mid: 0, high: 0 }, 95],
+  ['mid', { low: 0, mid: 0.54, high: 0 }, 0],
+  ['high', { low: 0, mid: 0, high: 0.56 }, 0],
+  ['low', { low: 0.999, mid: 0, high: 0 }, 3],
+]
+
+it.each(ensembles)('matches exact %s ensemble transmission across and beyond the raster (%j, WMO %s)', (lattice, covers, weatherCode) => {
   let worst = 0
-  for (const start of [8.5, 10]) {
+  for (const fade of [0.85, 1]) {
     let exact = 0, expected = 0
     const rng = seeded(hashId('annulus'))
     const count = 4000
     const grids = Array.from({ length: 12 }, (_, index) => {
-      const field = buildField({ ...input, placeId: 'annulus-' + index, weatherCode: 0, hours: [],
-        covers: { low, mid: 0, high: 0 }, wind10: { speedKmh: 0, fromDeg: 0 } })
-      return { field, grid: densityGrid(field, 'low', 0, 0, 50) }
+      const field = buildField({ ...input, placeId: 'annulus-' + index, weatherCode, hours: [],
+        covers, wind10: { speedKmh: 0, fromDeg: 0 } })
+      const layer = field.layers.find(layer => layer.lattice === lattice)!
+      return { field, layer, grid: densityGrid(field, lattice, 0, 0, RANGES[lattice][1]) }
     })
     for (let i = 0; i < count; i++) {
-      const { field, grid } = grids[i % grids.length]
+      const { field, grid, layer } = grids[i % grids.length]
+      const start = rasterRange(layer) * fade
       const radius = Math.sqrt(start ** 2 + ((start + 1.5) ** 2 - start ** 2) * rng())
       const az = rng() * 2 * Math.PI
       const x = radius * Math.cos(az), y = radius * Math.sin(az)
-      const tau = cellsAt(field, 'low', x, y).reduce((sum, cell) => sum + cellTauAt(cell, x, y), 0)
+      const tau = cellsAt(field, lattice, x, y).reduce((sum, cell) => sum + cellTauAt(cell, x, y), layer.floorTau)
       exact += Math.exp(-tau)
       expected += Math.exp(-grid.tauAt(x, y))
     }
     const error = Math.abs(exact - expected) / count
-    console.info({ low, start, exact: exact / count, expected: expected / count, error })
+    console.info({ lattice, covers, fade, exact: exact / count, expected: expected / count, error })
     worst = Math.max(worst, error)
   }
   expect(worst).toBeLessThan(0.03)

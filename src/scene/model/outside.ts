@@ -67,11 +67,12 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
   const xs = sea.points.map(([x]) => x * sx)
   const left = Math.min(...xs), right = Math.max(...xs)
   // The light's path: under the sun (or moon) where it stands over the water, its strength the share of facets the one
-  // wind tilts toward the eye at the water's depression, dimmed by the cloud in front (`light.direct`).
+  // wind tilts toward the eye at the water's depression, dimmed by the cloud in front (`light.meanBeam`).
   const { light, wind } = world
   // The living light: the path goes with the source's direct share (fading as its disc sinks), not with a side.
   const byMoon = light.shares.moon > light.shares.sun
-  const body = light.direct > 0 ? (byMoon ? world.bodies.moon : world.bodies.sun) : null
+  const beam = byMoon ? light.meanBeam.moon : light.meanBeam.sun
+  const body = beam > 0 ? (byMoon ? world.bodies.moon : world.bodies.sun) : null
   let glint: SeaDesc['glint'] = null
   const coastX = (y: number) => {
     const c = sea.coast
@@ -82,7 +83,7 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
   if (body?.up) {
     const x = body.x * sx
     const share = Math.max(facetShare(body.altitude, SEA_DEPRESSION[0], wind.ms), facetShare(body.altitude, SEA_DEPRESSION[1], wind.ms))
-    const strength = clamp01(light.direct) * (byMoon ? 0.4 : 1)
+    const strength = clamp01(beam) * (byMoon ? 0.4 : 1)
     const alpha = 1 - Math.exp(-12 * share * strength)
     if (x > left + 1 && x < right - 1 && alpha > 0.03) {
       const random = seeded(hashId(`${world.place.id}:coast-glint`))

@@ -35,7 +35,7 @@ export function convectiveWeight(code: number) {
 }
 
 /** Derive the form weights and the two genus-specific weather gates. */
-export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'sunAltitude'> & { wind10: { speedKmh: number } },
+export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'sunAltitude' | 'rain'> & { wind10: { speedKmh: number } },
   covers: Covers, conv = convectiveWeight(input.weatherCode)): Record<Lattice, LayerForm> {
   const code = input.weatherCode
   const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
@@ -46,7 +46,8 @@ export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'su
         * (1 - smoothstep(12.6, 16.2, input.wind10.speedKmh)) },
     tower: { conv, strat: 0, sheet: 0, veil: 0 },
     mid: { conv: 0, strat: 0, sheet: smoothstep(0.65, 0.9, covers.mid), veil: 0,
-      nimbostratus: Number(code >= 61 && code <= 65) * smoothstep(0.4, 0.6, covers.low * covers.mid) },
+      nimbostratus: input.rain?.level === 'mid' && input.rain.rate > 0
+        ? 1 : Number(code >= 61 && code <= 65) * smoothstep(0.4, 0.6, covers.low * covers.mid) },
     high: { conv: 0, strat: 0, sheet: 0, veil: smoothstep(0.55, 0.85, covers.high) },
   }
 }
@@ -66,7 +67,7 @@ export function convectiveAt(input: FieldInput) {
   const { hours, at } = input
   const hour = hours.findIndex(point => point.time.slice(0, 13) === at.slice(0, 13))
   const fixed = (code: number) => ({ from: convectiveWeight(code), to: convectiveWeight(code), fraction: 0 })
-  if (hour < 0 || !hours.some(point => convectiveWeight(point.weatherCode))) return fixed(input.weatherCode)
+  if (input.weatherForced || hour < 0 || !hours.some(point => convectiveWeight(point.weatherCode))) return fixed(input.weatherCode)
   const minute = Number(at.slice(14, 16))
   const from = hours[minute < 30 ? hour - 1 : hour]
   const to = hours[minute < 30 ? hour : hour + 1]
