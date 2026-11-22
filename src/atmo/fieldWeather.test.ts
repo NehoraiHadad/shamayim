@@ -24,7 +24,7 @@ it('weighs the code by the fuel CAPE gives it', () => {
   expect(conv(fieldWeather(2, 0, 50, 150))).toBe(0)
 })
 
-it('asks for CAPE only once the deployed Worker serves it', () => {
-  expect(forecastUrl(SHADMOT_MEHOLA)).not.toContain('cape')
-  expect(forecastUrl(SHADMOT_MEHOLA, { stormHourly: true })).toContain('cape%2Cfreezing_level_height')
+it('asks the deployed Worker for CAPE and the freezing level, and can leave them out', () => {
+  expect(forecastUrl(SHADMOT_MEHOLA)).toContain('cape%2Cfreezing_level_height')
+  expect(forecastUrl(SHADMOT_MEHOLA, { stormHourly: false })).not.toContain('cape')
 })
