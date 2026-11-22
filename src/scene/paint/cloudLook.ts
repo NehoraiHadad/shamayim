@@ -34,6 +34,14 @@ const SOFT_SHARE = 0.2
 const SOFT_STRETCH = 2
 /** Drawn alpha below which a softened edge is pulled in: the mass keeps a soft but defined rim, not a long photo fade. */
 const RIM = 0.3
+/** Detail tile width on the sky at the zenith, px: its coarsest grain ~30 px, its finest ~4 px, a cloud's own texture. */
+const DETAIL_PX = 120
+/** Row spacing (px) at which the detail has its full size; closer rows, toward the horizon, take finer grain. */
+const DETAIL_SPACING = 20
+/** How far the detail moves alpha at a half-thick part (±): torn, wispy edges and a mottled thin body. */
+const DETAIL = 1.4
+/** Detail level that leaves alpha as it is: a little above the mean, so the grain eats more than it adds (more blue). */
+const DETAIL_BIAS = 0.55
 
 /** The softening radii in sky px, [across, down], for a band of rows `spacing` px apart. */
 export function softRadii(spacing: number): [number, number] {
@@ -41,8 +49,18 @@ export function softRadii(spacing: number): [number, number] {
   return [SOFT_STRETCH * down, down]
 }
 
-/** A softened alpha with its rim drawn in, on an open deck (`open` from `deckOpenness`). */
-export const rimmed = (alpha: number, open: number) => alpha * (1 + open * (smoothstep(0, RIM, alpha) - 1))
+/** The detail tile's width in sky px for a band of rows `spacing` px apart: finer with distance. */
+export const detailTilePx = (spacing: number) => DETAIL_PX * Math.sqrt(Math.min(1, spacing / DETAIL_SPACING))
+
+/**
+ * A softened alpha as drawn on an open deck (`open` from `deckOpenness`): moved by the pixel's `detail` (0…1) where the
+ * cloud is part-thick, never in open sky or a full core, then its rim drawn in.
+ */
+export function drawnAlpha(alpha: number, detail: number, open: number): number {
+  if (!open) return alpha
+  const grained = Math.min(1, Math.max(0, alpha + open * DETAIL * (detail - DETAIL_BIAS) * 4 * alpha * (1 - alpha)))
+  return grained * (1 + open * (smoothstep(0, RIM, grained) - 1))
+}
 
 /** 0 for a closed deck (overcast, rain) or a high veil, 1 for a low or mid deck with gaps: its share of open-sky nodes. */
 export function deckOpenness(desc: LayerOf<'cloudSheet'>): number {

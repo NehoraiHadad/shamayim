@@ -1,5 +1,7 @@
+import { hashId } from '../../data/landmarks/hash'
 import type { LayerOf } from '../model/types'
-import { deckOpenness, rimmed, sheetTexels, softRadii } from './cloudLook'
+import { deckOpenness, sheetTexels, softRadii } from './cloudLook'
+import { rasterise } from './cloudRaster'
 import type { Ctx2D, PaintEnv } from './hand'
 import { soften } from './soften'
 
@@ -9,7 +11,7 @@ import { soften } from './soften'
  * rows (`ys`) are uneven, denser toward the horizon, so they are first resampled here, linearly between the two rays
  * around each output row and in premultiplied colour, to rows ROW px apart. One draw then stretches them: a per-row strip
  * would lose the vertical blend, because the canvas clamps its smoothing to the source rectangle and draws stair-steps.
- * How the sheet looks (its colour, translucency and softness) is `cloudLook`'s.
+ * How the sheet looks (its colour, translucency and softness) is `cloudLook`'s; its fine detail `cloudRaster`'s.
  * Pure: every number is the model's; the grid's extent is the sheet's (the model spans the sky edge to edge).
  */
 const ROW = 2
@@ -26,13 +28,13 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const colPx = (xs[cols - 1] - xs[0]) / (cols - 1), rowPx = span / (out - 1)
   const radii = spacing.map(softRadii)
   soften(buf, cols, out, radii.map(([across]) => across / colPx), radii.map(([, down]) => down / rowPx))
-  const { canvas, ctx: s } = env.canvas(cols, out)
-  s.putImageData(unpremultiplied(s, buf, cols, out, (alpha) => rimmed(alpha, open)), 0, 0)
+  const width = xs[cols - 1] - xs[0]
+  const { canvas, w, h } = rasterise(env, { buf, cols, rows: out, spacing }, width, span, open, hashId(desc.id))
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   // Texel centres sit at +0.5: the first and last centres land on the grid's edges.
-  ctx.drawImage(canvas, 0.5, 0.5, cols - 1, out - 1, xs[0], y0, xs[cols - 1] - xs[0], span)
+  ctx.drawImage(canvas, 0.5, 0.5, w - 1, h - 1, xs[0], y0, width, span)
   ctx.restore()
 }
 
@@ -54,16 +56,3 @@ function resampleRows(texels: number[][], cols: number, ys: readonly number[], o
   }
   return { buf, spacing }
 }
-
-/** The premultiplied grid as straight-alpha image bytes, as the canvas takes them, each alpha drawn through `drawn`. */
-function unpremultiplied(s: Ctx2D, buf: Float32Array, cols: number, rows: number, drawn: (alpha: number) => number) {
-  const image = s.createImageData(cols, rows)
-  for (let n = 0; n < cols * rows; n++) {
-    const alpha = buf[n * 4 + 3]
-    for (let i = 0; i < 3; i++) image.data[n * 4 + i] = byte(alpha > 0 ? buf[n * 4 + i] / alpha : 0)
-    image.data[n * 4 + 3] = byte(drawn(alpha))
-  }
-  return image
-}
-
-const byte = (c: number) => Math.round(Math.min(1, Math.max(0, c)) * 255)

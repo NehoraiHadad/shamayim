@@ -25,12 +25,12 @@ function harness() {
 }
 
 describe('cloud sheet painter', () => {
-  it('resamples the uneven rows to even ones and stretches them in one draw, centre to centre, edge to edge', () => {
+  it('rasterises the sheet at half a sky px and stretches it in one draw, centre to centre, edge to edge', () => {
     const h = harness()
     paintCloudSheet(h.ctx, sheet(Array(12).fill(0.5)), h.env)
-    // 330 px at 2 px a row: 166 rows, the first on ys[0] and the last on ys[3].
-    expect(h.texels().height).toBe(166)
-    expect(h.draws).toEqual([[0.5, 0.5, 2, 165, -10, 0, 400, 330]])
+    // 400 × 330 sky px at half a px: 201 × 166 pixels, the first and last on the grid's edges.
+    expect([h.texels().width, h.texels().height]).toEqual([201, 166])
+    expect(h.draws).toEqual([[0.5, 0.5, 200, 165, -10, 0, 400, 330]])
   })
 
   it('keeps a closed, uniform sheet as the model gives it: the softening never darkens or thins an even deck', () => {
@@ -42,26 +42,34 @@ describe('cloud sheet painter', () => {
     for (let n = 0; n < data.length; n += 4) expect(Array.from(data.slice(n, n + 4))).toEqual([77, 77, 77, 128])
   })
 
-  it('melts the edge of an open deck into the sky, monotonic and with no step, thin parts lit and translucent', () => {
+  it('draws an open deck translucent and lit at its thin parts, a near-opaque grey core, and nothing in open sky', () => {
     const h = harness()
     const desc = sheet([0, 0, 0, 0.4, 0.4, 0.4, 1, 1, 1, 1, 1, 1])
     desc.ys = [0, 100, 200, 300]
     desc.tone = Array(12).fill(1)
     paintCloudSheet(h.ctx, desc, h.env)
-    const { data, height } = h.texels()
-    const alpha = Array.from({ length: height }, (_, k) => data[k * 12 + 3])
-    for (let k = 1; k < height; k++) {
-      expect(alpha[k]).toBeGreaterThanOrEqual(alpha[k - 1])
-      expect(alpha[k] - alpha[k - 1]).toBeLessThan(40)
+    const { data, width, height } = h.texels()
+    const row = (k: number, i: number) => Array.from({ length: width }, (_, c) => data[(k * width + c) * 4 + i])
+    const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
+    expect(Math.max(...row(0, 3))).toBeLessThan(5)
+    // The model's alpha 0.4 at y 100 (raster row 50): clearly translucent, and whiter than the core.
+    expect(mean(row(50, 3))).toBeLessThan(0.4 * 255 * 0.6)
+    expect(mean(row(50, 0))).toBeGreaterThan(mean(row(height - 1, 0)))
+    expect(Math.min(...row(height - 1, 3))).toBeGreaterThan(200)
+  })
+
+  it('gives an open deck fine seeded detail where it is part-thick, the same on every paint', () => {
+    const paint = () => {
+      const h = harness()
+      const desc = sheet([0, 0, 0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+      desc.ys = [0, 100, 200, 300]
+      paintCloudSheet(h.ctx, desc, h.env)
+      return h.texels()
     }
-    expect(alpha[0]).toBeLessThan(5)
-    // The thickest core stays a breath short of opaque and greyer than the thin part (model alpha 0.4 at y 100), which
-    // is clearly translucent and leans to the lit white; both lighter than the model's shade.
-    expect(alpha[height - 1]).toBe(235)
-    expect(alpha[50]).toBeLessThan(0.4 * 255 * 0.6)
-    const grey = (k: number) => data[k * 12]
-    expect(grey(50)).toBeGreaterThan(grey(height - 1))
-    expect(grey(height - 1)).toBeGreaterThan(77)
+    const { data, width, height } = paint()
+    const alpha = Array.from({ length: width }, (_, c) => data[((height - 20) * width + c) * 4 + 3])
+    expect(Math.max(...alpha) - Math.min(...alpha)).toBeGreaterThan(30)
+    expect(Array.from(paint().data)).toEqual(Array.from(data))
   })
 
   it('softens less toward the horizon, where the rows crowd: far rows stay small soft puffs', () => {
@@ -72,9 +80,12 @@ describe('cloud sheet painter', () => {
     desc.tone = desc.alpha.map(() => 0)
     paintCloudSheet(h.ctx, desc, h.env)
     const { data, width, height } = h.texels()
-    const partial = (k: number) => Array.from({ length: width }, (_, c) => data[(k * width + c) * 4 + 3])
-      .filter((a) => a > 5 && a < 230).length
-    expect(partial(2)).toBeGreaterThan(partial(height - 1) + 2)
+    // The edge's rise, in px, from the first trace of cloud to the body.
+    const rise = (k: number) => {
+      const alpha = Array.from({ length: width }, (_, c) => data[(k * width + c) * 4 + 3])
+      return alpha.findIndex((a) => a > 150) - alpha.findIndex((a) => a > 5)
+    }
+    expect(rise(2)).toBeGreaterThan(rise(height - 1) + 2)
   })
 
   it('paints nothing on a clear sheet', () => {
