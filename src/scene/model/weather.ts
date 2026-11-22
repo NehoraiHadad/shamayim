@@ -84,7 +84,9 @@ function shaftOf(world: WorldState, geom: SkyGeom, b: FallingCloud, p: PrecipSta
   const rgb = p.precip === 'rain' ? mixRgb(mixRgb(RAIN_GREY, horizonSky, 0.15 + 0.7 * far),
     mixRgb(horizonSky, [0, 0, 0], 0.3), world.night.dark)
     : mixRgb(mixRgb(b.body, WHITE, 0.25 * (1 - world.night.dark)), horizonSky, 0.3 + 0.5 * far)
-  const alpha = (p.precip === 'rain' ? 0.4 + 0.4 * p.strength : 0.22 + 0.3 * p.strength) * (1 - 0.5 * far) * b.alpha * p.opacity
+  // A shower a few kilometres off is a grey wall, not a veil: nearness thickens it, the air between thins it.
+  const alpha = Math.min(0.85, (p.precip === 'rain' ? 0.4 + 0.4 * p.strength : 0.22 + 0.3 * p.strength) * (1.4 - 0.9 * far)
+    * b.alpha * p.opacity)
   return { id: b.id, x: b.x, top, bottom, w: b.w * 0.62, lean, rgb, alpha, seed: b.seed }
 }
 
