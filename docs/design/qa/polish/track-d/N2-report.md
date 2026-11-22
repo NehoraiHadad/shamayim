@@ -188,3 +188,11 @@ The shadow ratio passed the existing 0.20 gate in all three locations. Haifa exc
 The warm density scrub measured 1.91 ms and ratio 0.395 against the unchanged 0.59 limit. The prior CI ratio was 0.621. The allocation changes do not yet have measured heap deltas. The brief's Haifa world-build p50 baseline was 5.8–7.9 ms, compared with 2.4–2.7 ms on main. Prior CI model p95 was 20.3 ms in Haifa and 18.6 ms in Tel Aviv. The local unit-test timings above are a different workload. Matched world and model p50/p95 and heap readings still require the CI browser perf job.
 
 All eight requested Vitest files passed individually at low priority. TypeScript build-mode checking, e2e script syntax and the diff whitespace check passed. Oxlint passed with the existing warning in `scripts/city/geometry.ts`.
+
+## Round 7
+
+- The panorama test divides the median shadow time by the median model time with shadow candidates removed. The model variants still alternate measurement order. The shadow ratio limit is 0.30, the model increment limit is 2.5 ms, and the opt-in `FIELD_PERF=1` absolute checks remain in place.
+- Density timing gates use 21-sample medians with limits of 15 ms cold, 2.5 ms warm and 3 ms on forecast arrival. The reference ratios are logged for information. The budgets use CI runs 44993185800, 44995756933 and 44997772484.
+- The browser harness runs ten unsampled scrub frames before the original 60 measured frames and removes the quantized JavaScript heap-delta report. Browser budgets are unchanged.
+
+Both targeted Vitest files passed individually at low priority (seven tests total). TypeScript build-mode checking, targeted oxlint and the browser harness syntax check passed. The opt-in absolute panorama gates and browser performance run still need cloud verification.

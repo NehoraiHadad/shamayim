@@ -75,28 +75,40 @@ try {
     })
     // A scrub frame: the synchronous frame (world, model, paint or ask, composite) and, with the worker, the main thread's
     // time laying what arrived before the next frame.
-    const { frames: scrub, latency } = await page.evaluate(async () => {
+    const { frames: scrub, latency, workerMs } = await page.evaluate(async () => {
       const steps = window.__sceneStats.steps
       const since = (name, from) => (steps[name] ?? []).slice(from).reduce((a, b) => a + b, 0)
+      const scrubAt = (i) => {
+        const minutes = 6 * 60 + i * 12
+        return `2026-11-17T${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+      }
+      const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()))
+      const workerStart = ['sky', 'land'].map((name) => steps[`worker.${name}`]?.length ?? 0)
+      // Warm the scrub path before collecting frame and worker timings.
+      for (let i = -9; i <= 0; i++) {
+        window.__scene.scrub(scrubAt(i))
+        await nextFrame()
+      }
+      await window.__scene.settled()
+      const workerEnd = ['sky', 'land'].map((name) => steps[`worker.${name}`]?.length ?? 0)
       const frames = []
       const latency0 = steps['latency.land']?.length ?? 0
       for (let i = 1; i <= 60; i++) {
-        const minutes = 6 * 60 + i * 12
-        const at = `2026-11-17T${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
         const n = { land: steps['arrive.land']?.length ?? 0, sky: steps['arrive.sky']?.length ?? 0 }
-        const heapBefore = performance.memory?.usedJSHeapSize
-        const frame = window.__scene.scrub(at)
-        const heapDelta = performance.memory?.usedJSHeapSize - heapBefore
-        await new Promise((r) => requestAnimationFrame(() => r()))
-        frames.push({ ...frame, at, heapDelta, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky) })
+        const frame = window.__scene.scrub(scrubAt(i))
+        await nextFrame()
+        frames.push({ ...frame, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky) })
       }
       await window.__scene.settled()
-      return { frames, latency: (steps['latency.land'] ?? []).slice(latency0) }
+      const workerMs = ['sky', 'land'].map((name, i) => {
+        const list = steps[`worker.${name}`] ?? []
+        return [name, [...list.slice(0, workerStart[i]), ...list.slice(workerEnd[i])]]
+      })
+      return { frames, latency: (steps['latency.land'] ?? []).slice(latency0), workerMs }
     })
     const memoryAfter = await page.evaluate(() => window.__sceneStats.memory)
     const layerMs = await page.evaluate(() => Object.entries(window.__sceneStats.layers)
       .map(([id, l]) => `${id} ${l.lastMs.toFixed(1)}`).join(', '))
-    const workerMs = await page.evaluate(() => ['sky', 'land'].map((name) => [name, window.__sceneStats.steps[`worker.${name}`] ?? []]))
     const firstPaint = (cold.steps['firstPaint.sky']?.[0] ?? 0) + (cold.steps['firstPaint.land']?.[0] ?? 0)
     // The two surfaces' workers paint side by side: every layer shows when the later one is done.
     const firstShown = offThread ? Math.max(cold.steps['firstShown.sky']?.[0] ?? 0, cold.steps['firstShown.land']?.[0] ?? 0) : firstPaint
@@ -125,9 +137,6 @@ try {
       console.log(`  ${step.padEnd(12)} p50 ${p50.toFixed(2).padStart(7)}  p95 ${p95.toFixed(2).padStart(7)} ms  (n ${String(list.length).padStart(2)}, budget ${budget.ms}${budget.gate ? '' : ', reported only'})${over ? '  OVER' : ''}`)
     }
     const mb = Object.values(memoryAfter).reduce((a, b) => a + b, 0) / 2 ** 20
-    const heap = scrub.filter((frame) => Number.isFinite(frame.heapDelta))
-    if (heap.length) console.log('  scrub heap deltas (bytes, reported only):', JSON.stringify(heap.map(({ at, heapDelta, world, model }) =>
-      ({ at, heapDelta, world, model }))))
     if (mb > BUDGET.memory.mb * SLACK) failures.push(`${place} memory ${mb.toFixed(1)} MB`)
     console.log(`  memory       ${mb.toFixed(1)} MB (budget ${BUDGET.memory.mb})`)
     console.log(`  scrub repainted: ${repainted.join(', ') || 'nothing'}`)
