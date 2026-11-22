@@ -195,7 +195,7 @@ export function makeWorldBuilder() {
     const cloudField = fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, fieldWeather, sun.altitude,
       { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg },
       raining.level ? { level: raining.level, rate: cloudRate, midWeight: raining.midWeight } : undefined,
-      cloudMotion(forecast, at, nowMs, forced))
+      cloudMotion(forecast, at, nowMs, forced), shown.seenClouds)
     const grid = status === 'ready' ? terrainGrid(terrain, forecast.elevation) : undefined
     const eyeM = grid?.eyeM ?? terrain.eyeM ?? forecast.elevation + 2
     const groundAboveEyeKm = (eastKm: number, northKm: number) =>
