@@ -2,19 +2,11 @@ import { EARTH_R_KM, FAR_KM, RAY_DISTANCES, RAYS, REFRACTION_K } from '../data/t
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { fractionOf, SCENE_CAMERA } from '../domain/camera'
 
-/*
- * The real ground under what flies (the owner's report of 2026-11-20: "pay attention to where they fly, so that they don't
- * suddenly fly into the mountain"). One height field per place's land, built once from the data the scene already holds:
- * the panorama's rays (the DEM sampled out to 60 km along every bearing in view, every 100 m near the place and 1 km far
- * out) and the local grid round the place (every direction, 250 m, ~6 km). Two questions are asked of it:
- * - the ground (m above sea level) at a point, east and north of the eye: the flocks keep their kind's height over it,
- *   the airport traffic its clearance;
- * - whether the land truly stands between the eye and a point in the air (its line of sight, with the Earth's curve and
- *   the refraction the panorama itself uses): an object is hidden only by land that is truly in front of it.
- * Pure: no clock, no randomness, nothing but numbers (worker-safe).
+/**
+ * Terrain for flight, cloud shadows and rain feet. The panorama samples out to 60 km
+ * and the local 250 m grid covers bearings behind the view. Heights are sea-level
+ * metres. Visibility uses the panorama's curvature and refraction.
  */
-
-/** The curve's drop (m) at `km` over the ground, less the share refraction gives back (the panorama's own formula). */
 export const curveDrop = (km: number) => ((km * km) * (1 - REFRACTION_K) / (2 * EARTH_R_KM)) * 1000
 
 /** The local grid is preferred out to this far (km) where the rays do not reach (behind the view). */
@@ -27,10 +19,7 @@ export interface FlightTerrain {
   heightAt(e: number, n: number): number | null
   /** Ground there, or the eye's own ground where unknown (what a path may assume it flies over). */
   groundAt(e: number, n: number): number
-  /**
-   * Whether the land stands in the line of sight from the eye to a point km east, north of it and `upM` over the eye:
-   * the nearest distance (km over the ground) where the ground rises above that line, or null when the line is clear.
-   */
+  /** Nearest blocker (km) to a point `upM` metres above the eye, or null for clear sight. */
   blockedKm(e: number, n: number, upM: number): number | null
   /** Whether any land is known (a panorama or a local grid). */
   known: boolean
@@ -49,15 +38,18 @@ const BEFORE = (() => {
   return out
 })()
 
-/** The piece of `RAY_DISTANCES` a distance falls in: [index of the sample at or before it, fraction to the next]. */
-function distanceIndex(km: number): [number, number] {
+/** Index of the sample before the end of the interval containing the distance. */
+function distanceIndex(km: number): number {
   const last = RAY_DISTANCES.length - 1
-  if (km <= RAY_DISTANCES[0]) return [0, 0]
-  if (km >= RAY_DISTANCES[last]) return [last - 1, 1]
+  if (km <= RAY_DISTANCES[0]) return 0
+  if (km >= RAY_DISTANCES[last]) return last - 1
   let j = BEFORE[Math.floor(km / LOOKUP_STEP)]
   while (j < last - 1 && RAY_DISTANCES[j + 1] <= km) j++
-  return [j, (km - RAY_DISTANCES[j]) / (RAY_DISTANCES[j + 1] - RAY_DISTANCES[j])]
+  return j
 }
+
+const RAY_CURVE_DROP = RAY_DISTANCES.map(curveDrop)
+const SLOPE_BLOCK = 8
 
 const FIELDS = new WeakMap<SceneTerrain, FlightTerrain>()
 
@@ -89,6 +81,13 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
     }
   }
   const hasRays = grid.some(Number.isFinite)
+  const blockCount = Math.ceil(D / SLOPE_BLOCK)
+  const maxSlope = new Float64Array(RAYS * blockCount).fill(-Infinity)
+  for (let i = 0; i < RAYS && hasRays; i++) for (let j = 0; j < D; j++) {
+    const slope = (grid[i * D + j] - eyeM - RAY_CURVE_DROP[j]) / RAY_DISTANCES[j]
+    const block = i * blockCount + Math.floor(j / SLOPE_BLOCK)
+    if (slope > maxSlope[block]) maxSlope[block] = slope
+  }
   const local = terrain.heightNear
   const own = local?.(0, 0) ?? eyeM - 2
   /** The rays' fractional index of a direction, or −1 out of the view. */
@@ -96,17 +95,23 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
     const f = fractionOf(azimuth, camera)
     return f >= 0 && f <= 1 ? f * (RAYS - 1) : -1
   }
+  // At distance d, relative to the panorama's angle interpolation, the
+  // across-ray error is bounded by 1000*d*delta²*max(|tan(a)|*sec²(a))/4
+  // for endpoint angle span delta in radians (the linear-interpolation
+  // remainder for tan). Between distances the errors blend linearly.
+  // Float32 storage adds at most 2^-24 times the largest endpoint magnitude.
   const rayHeight = (r: number, j: number, t: number) => {
     const i = Math.min(RAYS - 2, Math.floor(r)), u = r - i
     const a = grid[i * D + j], b = grid[(i + 1) * D + j], c = grid[i * D + j + 1], d = grid[(i + 1) * D + j + 1]
     return (a * (1 - u) + b * u) * (1 - t) + (c * (1 - u) + d * u) * t
   }
   const heightAt = (e: number, n: number): number | null => {
-    const km = Math.hypot(e, n)
+    const km = Math.sqrt(e * e + n * n)
     if (hasRays && km >= RAY_DISTANCES[0] && km <= FAR_KM) {
       const r = rayOf((Math.atan2(e, n) * 180) / Math.PI)
       if (r >= 0) {
-        const [j, t] = distanceIndex(km)
+        const j = distanceIndex(km)
+        const t = (km - RAY_DISTANCES[j]) / (RAY_DISTANCES[j + 1] - RAY_DISTANCES[j])
         const h = rayHeight(r, j, t)
         if (Number.isFinite(h)) return h
       }
@@ -117,7 +122,7 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
   }
   const groundAt = (e: number, n: number) => heightAt(e, n) ?? own
   const blockedKm = (e: number, n: number, upM: number): number | null => {
-    const km = Math.hypot(e, n)
+    const km = Math.sqrt(e * e + n * n)
     if (km < 0.05) return null
     // The line of sight's height (m, in the curve-reduced frame the panorama measures its angles in) at each distance.
     const slope = (upM - curveDrop(km)) / km
@@ -125,10 +130,22 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
     const r = hasRays ? rayOf((Math.atan2(e, n) * 180) / Math.PI) : -1
     const until = km - 0.03
     if (r >= 0) {
-      for (let j = 0; j < D && RAY_DISTANCES[j] < until; j++) {
-        const d = RAY_DISTANCES[j]
-        const h = rayHeight(r, j, 0)
-        if (Number.isFinite(h) && h - eyeM - curveDrop(d) > slope * d) return d
+      const i = Math.min(RAYS - 2, Math.floor(r)), u = r - i
+      const left = i * D, right = (i + 1) * D
+      const slopeMargin = 8 * Number.EPSILON * Math.max(1, Math.abs(slope), Math.abs(eyeM) / RAY_DISTANCES[0])
+      for (let j = 0, block = 0; j < D && RAY_DISTANCES[j] < until; block++) {
+        const end = Math.min(D, j + SLOPE_BLOCK)
+        // Every interpolated slope is at most the larger endpoint maximum.
+        // The rounding margin is eight double-precision units at this scale.
+        const bound = Math.max(maxSlope[i * blockCount + block], maxSlope[(i + 1) * blockCount + block])
+        if (bound < slope - slopeMargin) {
+          j = end
+          continue
+        }
+        for (; j < end && RAY_DISTANCES[j] < until; j++) {
+          const seaLevelM = grid[left + j] * (1 - u) + grid[right + j] * u
+          if (seaLevelM - eyeM - RAY_CURVE_DROP[j] > slope * RAY_DISTANCES[j]) return RAY_DISTANCES[j]
+        }
       }
       return null
     }

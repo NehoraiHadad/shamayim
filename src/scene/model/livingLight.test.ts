@@ -145,23 +145,13 @@ describe('the living light: cloud shadows', () => {
     const p = places.get('jerusalem')!
     const build = makeWorldBuilder()
     const broken = { forced: { cloudCover: 50, thickCloud: 50 }, forcedLayers: { low: 0.45, mid: 0.3, high: 0 } }
-    const at = (m: number) => addMinutes('2026-11-17T12:00', m)
-    // Use an open slope so this integration test measures cloud advection
-    // without the recorded panorama's foreground hiding individual rim points.
-    const groundAt = (_x: number, km: number) => 720 + 4 * km
-    const seenAt = (_x: number, km: number) => ({ groundY: 500 - km, y: 500 - km, angle: 0, groundAngle: 0 })
-    const withSlope = (world: WorldState) => ({ ...world, terrain: { ...world.terrain, eyeM: 720, groundAt, seenAt } })
-    const layers = (w: WorldState) => sceneModel(withSlope(w), BOX).layers.filter((l): l is LayerOf<'cloudShadow'> => l.kind === 'cloudShadow')
+    const at = (m: number) => addMinutes('2026-11-17T13:00', m)
+    const layers = (w: WorldState) => sceneModel(w, BOX).layers.filter((l): l is LayerOf<'cloudShadow'> => l.kind === 'cloudShadow')
     const input = worldInput(p, at(0), at(0))
     const first = build({ ...input, ...broken })
     const second = build({ ...input, ...broken, selected: at(1) })
-    layers(first)
-    const modelStart = performance.now()
     const a = layers(first)
-    const modelMs = performance.now() - modelStart
-    const shadowStart = performance.now()
-    const b = cloudShadowLayers(withSlope(second), BOX)
-    console.info({ warmSceneModelMs: modelMs, shadowMs: performance.now() - shadowStart, blobs: [a.length, b.length] })
+    const b = cloudShadowLayers(second, BOX)
     expect(a.length).toBeGreaterThan(0)
     expect(a.length).toBeLessThanOrEqual(64)
     expect(a.every(l => l.surface === 'land' && l.blend === 'source-atop' && l.placed && l.placed.alpha > 0)).toBe(true)

@@ -68,3 +68,26 @@
 
 - Final serial sweep (`--maxWorkers=1 --hookTimeout=60000`) passed 680 of 681 tests across 49 files. Shadmot Mehola's life hand-off case took 33.274 seconds against its explicit 30-second limit and reported no assertion failure. That test and its life implementation retain their original code. The moving open-slope ratio guard passed in the same run (1.198 ms vs 2.330 ms reference, 0.514×). The synthetic median varied from 0.774 to 1.198 ms across the two final runs, so the absolute budget is still open.
 - TypeScript, oxlint and `git diff --check` passed. The existing control-regex warning in `scripts/city/geometry.ts` remains. The local `npx` shim pointed to a missing npm CLI, so verification used the installed executables directly.
+
+## Round 3
+
+- Restored eye-relative metres at the terrain-plane boundary so the recorded faces and contours use their original datum.
+- Shadows project in east/north kilometres over the memoized flight terrain. The centre is checked for foreground occlusion before distance ranking. Visible rim samples use the land's apparent-angle and relief mapping. Removed the frame projection memo and the unused terrain-plane visibility adapter.
+- Rain shaft feet use the same height field, converting sea-level metres to eye-relative kilometres and falling back to forecast elevation outside the sampled terrain.
+- The synthetic shadow tests retain the slant and datum assertions. The living-light integration case uses the recorded slope. The recorded-panorama test measures new-minute frames, checks the 13:00 Jerusalem shadows and near-slope placement, and guards the shadow cost by default with optional absolute budgets.
+
+The recorded-panorama test used the November 17 fixture at 13:00 with broken showers, 70% low cover, and 50% mid cover. Timings are medians of 16 distinct minutes after eight warm-up minutes. Face counts count near/far points. The before counts replay the reverted datum conversion on the same terrain planes.
+
+| Place | Shadow ms | Scene model ms | Model without shadow field ms | Panorama reference ms | 13:00 blobs | Before faces | After faces | Sampled grid error |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Jerusalem | 1.55 | 29.96 | 7.58 | 19.24 | 12 | 0/0 | 1585/27 | 0.0092 m |
+| Haifa | 1.91 | 11.42 | 9.75 | 15.39 | 44 | 0/23 | 1747/100 | 0.0038 m |
+| Tiberias | 1.00 | 6.43 | 5.25 | 12.11 | 23 | 1882/231 | 1107/446 | 0.0060 m |
+
+- The recorded grid probe compares midpoints with the panorama sampler. It measures interpolation disagreement on the stored data. Sub-grid error against the original elevation data is unverified.
+- Jerusalem has 12 visible shadow blobs in the broken-showers fixture, including near-slope centres. The original 45% low and 30% mid non-showery fixture yielded six blobs during development. The recorded regression explicitly uses the showery case to exercise the convective lattice as well as low and mid cells.
+- The three default runtime ratios passed at 0.080, 0.124 and 0.082 of the panorama reference. Local timing varied between runs. The measured absolute targets were missed in Jerusalem and Haifa. The opt-in assertions remain at 1 ms for shadows and 10 ms for the scene model.
+- Changed tests are `cloudShadows.test.ts`, which keeps the four slant geometry cases, `livingLight.test.ts`, which checks shadow movement on recorded land, and `cloudShadowPanorama.test.ts`, which adds the recorded-grid comparison, face and contour regression, near-slope assertion, and timing guards.
+- The combined world and scene-model sweep and the opt-in performance run remain for cloud verification under the local testing limit.
+- The niced focused runs passed four shadow geometry cases, three recorded-panorama cases, the living-light shadow-motion case, and nine world rain cases. All four unchanged life-continuity cases passed in isolation. Shadmot Mehola finished in 9.48 s against its 30 s timeout.
+- TypeScript and whitespace checks passed. Oxlint passed with the existing control-regex warning in `scripts/city/geometry.ts`.

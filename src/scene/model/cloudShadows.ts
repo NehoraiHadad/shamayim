@@ -1,4 +1,6 @@
 //# allFunctionsCalledOnLoad
+import { apparentAngle } from '../../data/terrain/panorama'
+import { terrainY } from '../../world/terrain'
 import { xOf } from '../../domain/camera'
 import type { FieldCell } from '../../world/field/types'
 import { cloudLight } from '../../world/lightCloud'
@@ -39,76 +41,67 @@ function shadowSprite(bucket: number, dpr: number): ShadowSprite {
   return sprite
 }
 
-type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
+type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera' | 'flightTerrain'> & {
   light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
-  terrain: Pick<WorldState['terrain'], 'seenAt' | 'groundAt' | 'eyeM'>
+  terrain: Pick<WorldState['terrain'], 'horizonY'>
 }
 
-type GroundPoint = { x: number; km: number; px: number; py: number }
-type Projection = GroundPoint & { ground: number }
-type CellProjection = { x: number; y: number; r: number; base: number; depth: number; points: (Projection | undefined)[] }
-type ProjectedCells = Map<FieldCell['id'], CellProjection>
-const projections = new WeakMap<NonNullable<ShadowWorld['terrain']['groundAt']>, Map<string, ProjectedCells>>()
+type Projection = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
 
 export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width' | 'dpr'>) {
-  const { light, terrain, cloudField, camera } = world
+  const { light, terrain, cloudField, camera, flightTerrain: grid } = world
   // Below one 8-bit alpha step the largest possible shadow is subpixel in opacity.
-  if (!cloudField || !terrain.seenAt || !terrain.groundAt || light.altitude <= 0 || 0.65 * light.direct < 1 / 255) return []
+  if (!cloudField || !grid || light.altitude <= 0 || 0.65 * light.direct < 1 / 255) return []
   const { field } = cloudField
   const { open } = cloudLight({ low: 0, mid: 0, high: 0 }, field)
   if (open <= 0) return []
   const altitude = light.altitude * RAD
   const cot = 1 / Math.tan(altitude)
   const sin = Math.sin(light.azimuth * RAD), cos = Math.cos(light.azimuth * RAD)
-  const east = sin * cot, north = cos * cot
+  // Azimuth is clockwise from north. Subtract this sunward displacement to cast the shadow.
+  const eastPerUp = sin * cot, northPerUp = cos * cot
   const invSin = 1 / Math.sin(altitude)
   const alphaScale = 0.65 * light.direct
   const minDepth = -2 * Math.log(open * (1 - 1 / (255 * alphaScale))) / invSin
   const scale = box.width / SCENE_W
   const blobs: (LayerOf<'cloudShadow'> & { rim: Pt[]; centre: Pt })[] = []
 
-  const groundAt = terrain.groundAt
-  const eyeM = terrain.eyeM ?? 0
-  const frame = [eyeM, east, north, camera.heading, camera.handed, camera.pxPerDeg, camera.width].join(':')
-  let frames = projections.get(groundAt)
-  if (!frames) projections.set(groundAt, (frames = new Map()))
-  const previous = frames.get(frame)
-  const current: ProjectedCells = new Map()
-  frames.delete(frame)
-  if (frames.size >= 4) frames.delete(frames.keys().next().value!)
-  frames.set(frame, current)
+  const { eyeM, heightAt, blockedKm } = grid
+  const screenX = (eastKm: number, northKm: number) =>
+    xOf(Math.atan2(eastKm, northKm) / RAD, camera) * SCENE_W / camera.width
+  const visible = (point: Projection) =>
+    blockedKm(point.eastKm, point.northKm, point.seaLevelM - eyeM) === null
 
-  const screenX = (x: number, y: number) => xOf(Math.atan2(x, y) / RAD, camera) * SCENE_W / camera.width
-
-  function onGround(x: number, y: number, height: number, ground = 0): Projection | undefined {
-    // Bound the projection-equation residual to 10 m in the horizontal plane.
+  function onGround(cellEastKm: number, cellNorthKm: number, cloudAboveEyeKm: number, groundAboveEyeKm = 0): Projection | undefined {
+    let previousAboveEyeKm = groundAboveEyeKm, previousResidualKm = 0
+    // Accept only solutions with a horizontal projection-equation residual of at most 10 m.
     for (let i = 0; i < 12; i++) {
-      const px = x - (height - ground) * east, py = y - (height - ground) * north
-      const km = Math.sqrt(px * px + py * py)
-      if (km > RANGE) return
-      const sx = screenX(px, py)
-      if (sx < 0 || sx > SCENE_W) return
-      const sample = groundAt(sx, km)
-      if (sample == null) return
-      const next = (sample - eyeM) / 1000
-      if (Math.abs(next - ground) * cot <= 0.01) return { x: sx, km, px, py, ground: next }
-      ground = next
+      const eastKm = cellEastKm - (cloudAboveEyeKm - groundAboveEyeKm) * eastPerUp
+      const northKm = cellNorthKm - (cloudAboveEyeKm - groundAboveEyeKm) * northPerUp
+      const seaLevelM = heightAt(eastKm, northKm)
+      if (seaLevelM === null) return
+      const nextAboveEyeKm = (seaLevelM - eyeM) / 1000
+      const residualKm = nextAboveEyeKm - groundAboveEyeKm
+      if (Math.abs(residualKm) * cot <= 0.01) {
+        const km = Math.sqrt(eastKm * eastKm + northKm * northKm), x = screenX(eastKm, northKm)
+        if (km <= RANGE && x >= 0 && x <= SCENE_W) return { x, km, eastKm, northKm, seaLevelM }
+        return
+      }
+      // A secant step resolves locally linear slopes faster. Bound the step to
+      // three times the fixed-point correction before trying a new grid sample.
+      const secantKm = residualKm * (previousAboveEyeKm - groundAboveEyeKm) / (residualKm - previousResidualKm)
+      previousAboveEyeKm = groundAboveEyeKm
+      previousResidualKm = residualKm
+      groundAboveEyeKm += Math.abs(secantKm) <= 3 * Math.abs(residualKm) && secantKm !== 0 ? secantKm : residualKm
     }
   }
 
-  const candidates: { cell: FieldCell; distance: number; alpha: number }[] = []
+  const candidates: { cell: FieldCell; centre: Projection; alpha: number }[] = []
   for (const { cells, layer } of cloudField.snapshot) {
     if (!layer || layer.lattice === 'high') continue
     for (const cell of cells) {
-      const { x, y, r, baseKm: base, vKm: depth, tau0: tau, genus, lattice } = cell
+      const { x, y, r, baseKm: baseAboveEyeKm, vKm: depth, tau0: tau, genus, lattice } = cell
       if (tau < minDepth) continue
-      const h = base + depth / 2
-      // Eye-level pre-culling can displace the centre by |ground above eye| × cot(alt).
-      const px = x - h * east, py = y - h * north
-      const distance = px * px + py * py
-      if (distance > RANGE ** 2) continue
-      const sx = screenX(px, py)
-      if (sx < 0 || sx > SCENE_W) continue
       // Integrate the horizontal taper on the central chord. Both this
       // layer-smoothed and the volume chord span at most min(V, 2r/cot(alt))
       // in height, bounding their T difference by 1 - exp(-tau × extent / (2 × spread × sin(alt))).
@@ -117,30 +110,24 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
       const profile = spread > 0 ? extent / spread * (1 - extent ** power / (power + 1)) : 1
       const slant = tau * profile
       if (slant < minDepth) continue
-      const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
-      candidates.push({ cell, distance, alpha })
+
+      const centre = onGround(x, y, baseAboveEyeKm + depth / 2)
+      if (centre && visible(centre)) candidates.push({ cell, centre, alpha: alphaScale * (1 - Math.exp(-slant * invSin / 2) / open) })
     }
   }
-  candidates.sort((a, b) => a.distance - b.distance)
-  for (const { cell: { id, x, y, r, baseKm: base, vKm: depth }, alpha } of candidates.slice(0, 64)) {
-    const cached = previous?.get(id)
-    const hit = cached && cached.x === x && cached.y === y && cached.r === r && cached.base === base && cached.depth === depth
-    const points = hit ? cached.points : [onGround(x, y, base + depth / 2)]
-    current.set(id, { x, y, r, base, depth, points })
-    const centre = points[0]
-    if (!centre) continue
+  candidates.sort((a, b) => a.centre.km - b.centre.km)
+  for (const { cell: { id, x, y, r, baseKm: baseAboveEyeKm, vKm: depth }, alpha, centre } of candidates) {
+    if (blobs.length === 64) break
     const polygon: Pt[] = []
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
     for (let i = 0; i < rim.length; i++) {
       const [u, v] = rim[i]
       const rx = x + r * (u * sin + v * cos)
       const ry = y + r * (u * cos - v * sin)
-      const p = hit ? points[i + 1] : onGround(rx, ry, u < 0 ? base + depth : base, centre.ground)
-      if (!hit) points.push(p)
-      if (!p) continue
-      const seen = terrain.seenAt!(p.x, p.km)
-      if (!seen) continue
-      const sx = p.x * scale, sy = seen.groundY
+      const p = onGround(rx, ry, u < 0 ? baseAboveEyeKm + depth : baseAboveEyeKm, (centre.seaLevelM - eyeM) / 1000)
+      if (!p || !visible(p)) continue
+      const sx = p.x * scale
+      const sy = terrainY(terrain.horizonY, apparentAngle(p.seaLevelM, p.km, eyeM))
       polygon.push([sx, sy])
       left = Math.min(left, sx)
       right = Math.max(right, sx)
@@ -155,7 +142,7 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
     const sprite = shadowSprite(bucket, box.dpr)
     blobs.push({
       kind: 'cloudShadow', id: `cloudShadow.${id}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
-      rim: polygon, centre: [centre.px, centre.py],
+      rim: polygon, centre: [centre.eastKm, centre.northKm],
       placed: { x: (left + right) / 2, y: (top + bottom) / 2, scale: rx / sprite.blobs[0].rx, alpha },
       ...sprite,
     })

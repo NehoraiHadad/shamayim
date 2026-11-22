@@ -302,8 +302,7 @@ export interface TerrainPlanes {
    */
   status: LandStatus
   sightAt?: SceneTerrain['sightAt']
-  seenAt?: SceneTerrain['seenAt']
-  /** Ground in metres above sea level. */
+  /** Ground in metres relative to the eye. */
   groundAt?: SceneTerrain['groundAt']
   eyeM?: number
   snowEdge?: SceneTerrain['snowEdge']
@@ -487,6 +486,7 @@ export interface WorldState {
   /** Snow falling now from the clouds (C7), or null. */
   snowfall: Snowfall | null
   wind: Wind
+  flightTerrain?: Pick<import('./flightTerrain').FlightTerrain, 'eyeM' | 'heightAt' | 'blockedKm'>
   terrain: TerrainPlanes
   water: WaterState
   farCities: FarCities

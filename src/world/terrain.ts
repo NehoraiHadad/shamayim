@@ -24,6 +24,8 @@ function smooth(km: number[]): number[] {
   return med.map((_, i) => { const w = around(i, med); return w.reduce((a, b) => a + b, 0) / w.length })
 }
 
+export const terrainY = (horizonY: number, angle: number) => horizonY - anglePx(angle)
+
 /** Whether the land is known: a terrain's own status, else known (a panorama). */
 export const landStatusOf = (terrain: SceneTerrain): LandStatus => terrain.status ?? 'ready'
 
@@ -35,7 +37,7 @@ export { UNKNOWN_EYE_Y, unknownLand } from '../data/terrain/terrain'
  * scrub seeded by the place.
  */
 export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlanes {
-  const { sightAt, groundAt, eyeM = 0 } = terrain
+  const { sightAt } = terrain
   const planes = {
     near: plane(terrain.nearPoints, terrain.nearElevations, (x) => sightAt?.(x).nearKm ?? UNKNOWN_KM.near),
     far: plane(terrain.farPoints, terrain.farElevations, (x) => {
@@ -47,14 +49,10 @@ export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlane
     horizonY: terrain.horizonY,
     status: landStatusOf(terrain),
     sightAt: terrain.sightAt,
-    seenAt: terrain.seenAt,
-    groundAt: groundAt && ((x: number, km: number) => {
-      const relativeM = groundAt(x, km)
-      return relativeM === null ? null : relativeM + eyeM
-    }),
+    groundAt: terrain.groundAt,
     eyeM: terrain.eyeM,
     snowEdge: terrain.snowEdge,
   }
-  const faces = facesOf(planes, (angle) => terrain.horizonY - anglePx(angle))
+  const faces = facesOf(planes, (angle) => terrainY(terrain.horizonY, angle))
   return { ...planes, faces, land: landOf(planes, faces, placeId) }
 }

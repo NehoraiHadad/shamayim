@@ -29,7 +29,7 @@ export function rainingLayer(covers: Covers, rateMmH: number): { level: CloudLev
 
 /** Rank the actual on-cells. Low candidates are the individually drawn cells within 10 km. Towers reach 80 km, beyond their raster. */
 export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, weatherCode: number, preview: boolean,
-  humidity: number | null, groundAboveEyeKm: number | ((x: number, y: number) => number)): Rain | null {
+  humidity: number | null, groundAboveEyeKm: number | ((eastKm: number, northKm: number) => number)): Rain | null {
   const level = cloud.field.rain?.level
   if (rateMmH <= 0 || !level) return null
   const candidates = cloud.snapshot
@@ -55,10 +55,10 @@ export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, we
     const vx = layer.vel[0] - groundWind[0], vy = layer.vel[1] - groundWind[1]
     let x = cell.x, y = cell.y, virga = 1
     // Solve for the ground at the displaced foot. Successive estimates stop
-    // when the horizontal residual is at most 1 m.
+    // at a horizontal residual of at most 1 m, with a 12-sample cap.
     for (let i = 0; i < 12; i++) {
-      const ground = typeof groundAboveEyeKm === 'number' ? groundAboveEyeKm : groundAboveEyeKm(x, y)
-      const depth = Math.max(0, cell.baseKm - ground)
+      const footAboveEyeKm = typeof groundAboveEyeKm === 'number' ? groundAboveEyeKm : groundAboveEyeKm(x, y)
+      const depth = Math.max(0, cell.baseKm - footAboveEyeKm)
       virga = Math.min(1, depth > 2.5 ? 2.5 / depth : 1, dry ? humidity / 45 : 1)
       const trail = virga ** 2 * depth / (2 * fallMs * 0.06)
       const nextX = cell.x - vx * trail, nextY = cell.y - vy * trail

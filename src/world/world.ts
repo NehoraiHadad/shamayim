@@ -1,7 +1,7 @@
 import { airInput } from '../atmo/airInput'
 import type { AirInput } from '../atmo/airTypes'
 import { hashId } from '../data/landmarks/hash'
-import { anglePx, RELIEF } from '../data/terrain/angleScale'
+import { RELIEF } from '../data/terrain/angleScale'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { SCENE_CAMERA } from '../domain/camera'
 import { datePart } from '../domain/time'
@@ -23,14 +23,14 @@ import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { snowFall } from './snowLine'
-import { landStatusOf, terrainPlanes, unknownLand } from './terrain'
+import { landStatusOf, terrainPlanes, terrainY, unknownLand } from './terrain'
 import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf, waterOf } from './water'
 import { windOf } from './wind'
 import type { LifeInput } from './life'
 import { makeLifeDays } from './lifeDay'
-import { flightTerrain } from './flightTerrain'
+import { flightTerrain, type FlightTerrain } from './flightTerrain'
 import { altitudeOver, type FlightContext } from './lifeSchedule'
 import { drawnSkyline } from './drawnSkyline'
 import { xOf } from '../domain/camera'
@@ -110,14 +110,15 @@ export function makeWorldBuilder() {
   const judgeOf = memoOne(drawnSkyline)
   const fieldOf = memoOne(cloudFieldAt)
   const lifeDays = makeLifeDays()
+  const terrainGrid = memoOne(flightTerrain)
   /**
    * The land the sky's life flies over and is seen against (`lifeSchedule.ts` `FlightContext`): the true ground and sight
    * lines (`flightTerrain.ts`), the drawn land's top (deg) and the drawn near land's distance in each direction.
    */
-  const flightOf = memoOne((terrain: SceneTerrain, groundM: number, judge: Skyline, near: WorldState['terrain']['near'],
+  const flightOf = memoOne((terrain: FlightTerrain, judge: Skyline, near: WorldState['terrain']['near'],
     camera: WorldState['camera'], horizonY: number): FlightContext => ({
-    terrain: flightTerrain(terrain, groundM),
-    drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => horizonY - anglePx(altitude)),
+    terrain,
+    drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => terrainY(horizonY, altitude)),
     nearKm: (azimuth: number) => {
       const x = xOf(azimuth, camera), pts = near.points
       if (!pts.length) return Infinity
@@ -190,13 +191,10 @@ export function makeWorldBuilder() {
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
     const cloudField = fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, shown, sun.altitude,
       { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg }, raining.level ? { level: raining.level, rate } : undefined, forced.weatherCode !== undefined)
-    const eyeM = terrain.eyeM ?? forecast.elevation + 2
-    const groundAboveEyeKm = (x: number, y: number) => {
-      const sx = xOf(Math.atan2(x, y) * 180 / Math.PI, camera) * SCENE_W / camera.width
-      const local = terrain.heightNear?.(x, y)
-      if (local != null) return (local - eyeM) / 1000
-      return (terrain.groundAt?.(sx, Math.hypot(x, y)) ?? forecast.elevation - eyeM) / 1000
-    }
+    const grid = status === 'ready' ? terrainGrid(terrain, forecast.elevation) : undefined
+    const eyeM = grid?.eyeM ?? terrain.eyeM ?? forecast.elevation + 2
+    const groundAboveEyeKm = (eastKm: number, northKm: number) =>
+      ((grid?.heightAt(eastKm, northKm) ?? forecast.elevation) - eyeM) / 1000
     const rain = rainFrom(cloudField, rate, wind, shown.weatherCode, preview, shown.humidity, groundAboveEyeKm)
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow:${hourKey(at)}`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
@@ -220,7 +218,7 @@ export function makeWorldBuilder() {
     // where each one's path has brought it at this minute.
     const planes = planesOf(drawn, place.id)
     const life = lifeDays(input, at, lifeInput, { camera, env },
-      status === 'ready' ? flightOf(terrain, forecast.elevation, sunSkyline, planes.near, camera, horizonY) : undefined,
+      grid ? flightOf(grid, sunSkyline, planes.near, camera, horizonY) : undefined,
       [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
@@ -231,9 +229,9 @@ export function makeWorldBuilder() {
 
     return {
       place, at, preview, seed, camera,
-      relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
+      relief: { scale: RELIEF, horizonY, y: (altitude: number) => terrainY(horizonY, altitude) },
       bodies, light, air, clouds, cloudField, rain, snow, snowfall, wind,
-      terrain: planes,
+      terrain: planes, flightTerrain: grid,
       water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part,
       place3: placePartResult.place3,
