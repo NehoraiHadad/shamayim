@@ -1,0 +1,79 @@
+//# allFunctionsCalledOnLoad
+import type { Camera } from '../../domain/camera'
+import { MOON_RGB } from '../../world/light'
+import type { LightDir, Normal } from '../../world/livingLight'
+import { smoothstep } from '../../world/ridgeLighting'
+import { aerosolDepth, solarBeam } from '../../world/sceneLight'
+import type { RGB, WorldState } from '../../world/types'
+import { dirAtBearing, linearLuminance, unitChroma, WET_REFLECTANCE_DROP } from './landRadiance'
+import { diffuseSky } from './landSkyIrradiance'
+
+export type RadianceWorld = Pick<WorldState, 'light' | 'ground'> & {
+  bodies?: Pick<WorldState['bodies'], 'sun' | 'moon'>; air?: Pick<WorldState['air'], 'visibilityKm' | 'dustWeight'>; camera?: Pick<Camera, 'heading' | 'handed'>
+}
+export interface LandIrradiance {
+  eSunPi: number; eMoonPi: number; eSkyPi: number
+  cSun: [number, number, number]; cMoon: [number, number, number]; cSky: [number, number, number]
+  sunDir: LightDir; moonDir: LightDir; sunAz: number; sunAlt: number; moonAz: number; moonAlt: number
+  yHorizon: number; wetFactor: number; skyBias: number
+  eSunVec: [number, number, number]; eMoonVec: [number, number, number]; eSkyVec: [number, number, number]
+}
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+const scale = (rgb: RGB, k: number): [number, number, number] => [rgb[0] * k, rgb[1] * k, rgb[2] * k]
+const normalized = (rgb: RGB) => scale(rgb, 1 / Math.max(1e-6, linearLuminance(rgb)))
+
+/** Cosine integral of an isotropic dome plus the first azimuthal moment of the solar-side lobe. */
+export function skyView(normal: Normal, sun: LightDir, bias: number) {
+  const horizontal = Math.hypot(sun.across, sun.ahead) || 1
+  return clamp01((1 + normal[2]) * 0.5 + bias * (normal[0] * sun.across + normal[1] * sun.ahead) / horizontal)
+}
+
+// Day display calibration at 38°. The Bird model supplies the order of magnitude (DNI/DHI 7–9 in clear air).
+// The 5.4 divisor is the illustration's daytime radiance scale, independent of horizon azimuth.
+const DAY_DHI = 1 / 5.4
+const DAY_DNI = 7.62 * DAY_DHI
+const REF_AIR = { visibilityKm: 30, dustWeight: 0 }
+const REF_BEAM = solarBeam(38, REF_AIR).strength
+const REF_SCATTER = 0.099 + aerosolDepth(REF_AIR)[1]
+
+// Kyba, Mohar & Posch 2017, doi:10.1093/astrogeo/atx025: ~0.05–0.1 lx typical moonlight,
+// peak near 0.3 lx. Moon share carries phase, height, air and open deck. Use 0.30 lx full moon
+// against a 0.625 lx illustration reference at night, with a daylight-relative fade in twilight.
+const FULL_MOON_LUX = 0.30
+const NIGHT_EXPOSURE_LUX = 0.625
+const memo = new WeakMap<RadianceWorld, LandIrradiance>()
+
+export function landIrradiance(world: RadianceWorld): LandIrradiance {
+  const known = memo.get(world)
+  if (known) return known
+  const { light } = world
+  const sunAz = world.bodies?.sun.azimuth ?? light.azimuth
+  const sunAlt = world.bodies?.sun.altitude ?? (light.shares.moon > light.shares.sun ? -15 : light.altitude)
+  const moonAz = world.bodies?.moon.azimuth ?? light.azimuth
+  const moonAlt = world.bodies?.moon.altitude ?? (light.shares.moon > light.shares.sun ? light.altitude : -15)
+  const air = world.air ?? REF_AIR
+  const beam = solarBeam(sunAlt, air)
+  // shares.sun contains disc visibility, airDim (T^0.35) and open-deck transmission. Replace
+  // its display response with T. Local shadow footprints supply only the residual transmission.
+  const openVisible = clamp01(light.shares.sun / Math.max(1e-4, beam.strength ** 0.35))
+  const day = smoothstep(2, 15, sunAlt)
+  const tau = 0.099 + aerosolDepth(air)[1]
+  const scatter = Math.min(0.7, Math.max(0, 1 - Math.exp(REF_SCATTER - tau)))
+  const sky = diffuseSky(light, sunAlt, tau)
+  const eSkyPi = sky.amount * (1 - day) + DAY_DHI * (1 + 1.25 * Math.max(clamp01(light.diffuse), scatter)) * day
+  const eSunPi = DAY_DNI * openVisible * Math.min(1.15, beam.strength / REF_BEAM)
+  const eMoonPi = FULL_MOON_LUX / NIGHT_EXPOSURE_LUX * clamp01(light.shares.moon)
+  const cSun = normalized(beam.transmission as unknown as RGB), cMoon = unitChroma(MOON_RGB), cSky = normalized(sky.rgb)
+  const wetFactor = 1 - WET_REFLECTANCE_DROP * clamp01(world.ground.wet)
+  const heading = world.camera?.heading ?? 180, handed = world.camera?.handed ?? 1
+  const sunDir = world.bodies ? dirAtBearing(sunAz, sunAlt, heading, handed) : light.dir
+  const moonDir = world.bodies ? dirAtBearing(moonAz, moonAlt, heading, handed) : light.dir
+  const irr: LandIrradiance = {
+    eSunPi, eMoonPi, eSkyPi, cSun, cMoon, cSky, sunDir, moonDir, sunAz, sunAlt, moonAz, moonAlt,
+    yHorizon: sky.exposure, wetFactor, skyBias: sky.bias,
+    eSunVec: scale(cSun, eSunPi * wetFactor), eMoonVec: scale(cMoon, eMoonPi * wetFactor), eSkyVec: scale(cSky, eSkyPi * wetFactor),
+  }
+  memo.set(world, irr)
+  return irr
+}
