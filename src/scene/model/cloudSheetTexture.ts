@@ -79,3 +79,11 @@ export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
 
 export const sheetDetail = (genus: Genus, footprint: number) =>
   1 - smoothstep(scales[genus][0], scales[genus][0] * 2, footprint)
+
+export function edgeTexture(genus: Genus, footprint: number, texture: number, taps: number) {
+  if (genus !== 'sc' && genus !== 'ac') return 1
+  // The clump's cubic interpolation has maximum slope 3/2 per texel.
+  const edge = Math.min(1, 1.5 * footprint / scales[genus][0])
+  // Reserve at most one tap of the temporal filter's weight for subgrid edges.
+  return 1 + Math.tanh((1 + edge) * (texture - 1)) / taps
+}

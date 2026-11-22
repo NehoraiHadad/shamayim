@@ -10,8 +10,8 @@ import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { transmitAlong } from '../../world/field/transmit'
 import { cloudSheetOf, sheetPathFactor, SWEEP_TAPS } from './cloudSheet'
-import { gridFor } from './cloudSheetGrid'
-import { sheetTexture, textureCorrection } from './cloudSheetTexture'
+import { gridFor, textureFootprint } from './cloudSheetGrid'
+import { edgeTexture, sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { skyGeom } from './sky'
 import type { SceneBox } from './types'
 
@@ -90,17 +90,18 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
     const snapshot = layerSnapshot(at.field, lattice, 0, 0, RANGES[lattice][1])
     const sheet = cloudSheetOf(at.world, at.geom, snapshot, neutral)!
     const sample = (view: typeof at, source: typeof snapshot) => {
-      const { xs, ranges, weights, point, swept, expected, path, slant, fade, tau, texture, detail } =
-        gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genusOf(lattice, source.layer!.form, 0.5))
-      const corrected = textureCorrection(texture, tau, weights, xs.length, detail)
+      const genus = genusOf(lattice, source.layer!.form, 0.5)
+      const { xs, ranges, point, swept, expected, path, slant, fade, texture } =
+        gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genus)
+      const angularStep = 2 * Math.PI * (xs[1] - xs[0]) / view.geom.azimuthRange.period
       return sheet.alpha.map((_, index) => {
         const row = Math.floor(index / xs.length)
         const start = (ranges[row] === 0 ? row * xs.length : index) * SWEEP_TAPS
         const taps = swept.length && fade[row] < 1 && path[row]
           ? swept.slice(start, start + SWEEP_TAPS) : Array<number>(SWEEP_TAPS).fill(point[index])
-        const m = slant[row] * corrected(index)
-        const localMultiplier = swept.length ? slant[row] : m
-        return { path: path[row], fade: fade[row], local: taps.map(tau => path[row] ? tau * localMultiplier : 0),
+        const cross = textureFootprint(ranges[row], angularStep)
+        const m = slant[row] * edgeTexture(genus, cross, texture[index], SWEEP_TAPS)
+        return { path: path[row], fade: fade[row], local: taps.map(tau => path[row] ? tau * m : 0),
           mean: path[row] ? expected[index] * m : 0 }
       })
     }

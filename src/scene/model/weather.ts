@@ -1,5 +1,5 @@
 //# allFunctionsCalledOnLoad
-import { bandOf, rainBankDescs } from './clouds'
+import { bandOf, rainBankDescs, rainSheetZ } from './clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
@@ -74,7 +74,10 @@ function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: r
     const low = band('low'), mid = band('mid')
     const weight = world.cloudField?.field.rain?.midWeight ?? Number(layer.level === 'mid')
     const mix = (a: number, b: number) => a + (b - a) * weight
-    return { banks: rainBankDescs(world, box, geom, layer), z: mix(low.z, mid.z), speed: mix(low.speed, mid.speed) }
+    // The sheet is at and above the source. The shafts start at its underside.
+    const sheet = rainSheetZ(world)
+    return { banks: rainBankDescs(world, box, geom, layer), z: Math.max(mix(low.z, mid.z), sheet + 0.5),
+      speed: mix(low.speed, mid.speed) }
   }
   const drawn = clouds.find((l) => l.level === layer.level)
   if (!drawn) return null

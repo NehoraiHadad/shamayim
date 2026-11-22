@@ -321,3 +321,143 @@ The paired fraction is the number of incoming sites matched at midnight divided 
 | Broken | High | 1721/2299 (74.86%) | 0.45000 | 0.45261 | 0.45963 | 0.45239 |
 
 The minute-by-minute scrub checks wind-relative displacement and lifecycle share through two midnights. The largest cover error in the table was 0.01893. The four targeted Vitest files passed individually at low priority. The density ensemble samples four local days and retains its original 0.03 tolerance. TypeScript build-mode checking with `--noEmit`, Oxlint on the touched source files and `git diff --check` passed. The CI still strips are pending.
+
+## Round 13 (N3f)
+
+### Jerusalem broken, 11:30, baseline at 884b2af
+
+The three 25 × 48 maps below are the low lattice in screen order. The alphabet `0.:-=+*#%@` runs from low to high. For vertical optical depth each bin is one τ unit. For raw texture each bin is 0.25 and `=` is the neutral multiplier 1. For alpha each bin is 0.1. The final two rows of depth and texture were skipped by the old path cutoff and are marked with question marks.
+
+tau
+
+~~~text
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+##%%%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+-=+*##%%%%%%%##%%%%%%@@@@@@@@@@@@@@@@@@@@@@@@@@@
++#%@@@@@@@@@@@@@%#+--=*%@@@@@@@@@@@@@@@@@@@@@@@@
+*%@@@@@@@@@@@@@@@%*=.00:+%@@@@@@@@@@@@@@@@@@@@@@
+*%@@@@@@@@@@@@@@@%*-00000:+%@@@@@@@@@@@@@@@@@@@@
++%@@@@@@@@@@@@@@@%@@*000000:*@@@@@@@@@@@@@@@@@@@
+-@@@@@@@@@@@@@@@@@@@@@0000000:*@@@@@@@@@@@@@@@@@
+%@@@@@@@@@@@@@@@*-@@@.0000000000=@@@@@@@@@@@@@@%
+@@@@@@@@@@@@@@%*.000000000000+#%#%@@@@@@@@@%*=00
+@@@@@@@@@@@@@*-000000000000+@@@@@@@@@@@@@@-00000
+@@@@@@@@@@@@%@@@+000000000:@@@@@@@%.@@@@%00000@@
+#@@@@@:#@@@@@@@@@:000000000#@@@@@@%00000000000@@
+0:**=000*%@@@@@@@+0000000000%@@@@@=00000%@+00000
+.0000.@@.:@@@@@@@000000000=:@@@@@:0000.@@@@@@@00
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+????????????????????????????????????????????????
+????????????????????????????????????????????????
+~~~
+
+texture
+
+~~~text
+::::::::::::::::::::::::::::::::::::::::::::::::
+::::::::::::::::::::::::::::::::::--------------
+................:::::::::::::::-----------------
+000000000000.....::::----::::::::-----==========
+000000000000.......::::---:::::---==============
+000000.....000......:==---------===+++====----==
+0000......000000...::====--------===++====--:---
+000.....00000000..:--======-===---=========-----
+0000...0000000..::----========-:::-===-=+++=====
+0000000000000..:------=========..:--======+***##
+000000000000.::--===========..0.::--======+*#%@=
+000000000000.:-============..00.:--------++=====
+00000000000.:-=+==========--:..:---:::---=====@@
+000000.......-+##*=========+====---===========%@
+=0000===:::::-+###==========***+========+#@=====
+00...::------==+#%@@%#**#%@@@%#+=---=+*#%@@@@@@@
+-===========----================================
+================================================
+================================================
+================================================
+================================================
+================================================
+================================================
+????????????????????????????????????????????????
+????????????????????????????????????????????????
+~~~
+
+alpha
+
+~~~text
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@%@@%@@@@@@@@@@@@@@@@@@@@@@
+%%@@@@@@@@@@@@@@@@@%%%######%%%@@@@@@@@@@@@@@@@@
+*#%@@@@@@@@@@@@@%####******###%%@@@@@@@@@@@@@@@@
+*#%@@@@@@@@@@@@%###**+=:---:=+#%@@@@@@@@@@@%%%%%
+%#@@@@@@@@@@@@@@@%*-::000.---==+%@@@@@@@@@%###**
+@%%@@@@@@@@@@@@@%==00000.:-=++**##@@@@@%%#**+++*
+@@@@@@%@@@@@@@@*+-:.000.:-=+*##%%%*####%%#*==-==
+%%@@%%#@@@@@@@**+=-.000.:-+*#%@@@%#++*##%#*=-:=-
++###%%%@@%@@@%%#*+-.0000.:=*#@@@@#*=-+#%#%+--=+-
+:#++#%%@@#@@@@@%#+-000000.:=+%@%#*+=:-*%%#+==**:
+++*-*%%@@#@@@@@@#-.000::-=+**%@%**+-:-*#%##**%*.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+~~~
+
+Column 24 (zero-based), all rows. Columns are screen y, elevation in degrees, east and north in km, texture detail and sheet path weight.
+
+~~~text
+0.000 90.000 0.000 0.000 1.000 1.000
+29.281 86.911 -0.004 -0.076 1.000 1.000
+56.920 79.437 -0.012 -0.261 1.000 1.000
+83.006 72.514 -0.021 -0.442 1.000 1.000
+107.629 66.108 -0.029 -0.621 1.000 1.000
+130.870 60.187 -0.037 -0.803 1.000 1.000
+152.806 54.721 -0.046 -0.992 0.000 1.000
+173.511 49.685 -0.055 -1.189 0.000 1.000
+193.054 45.055 -0.065 -1.399 0.000 1.000
+211.500 40.808 -0.075 -1.623 0.000 1.000
+228.911 36.929 -0.087 -1.864 0.000 1.000
+245.345 33.401 -0.099 -2.125 0.000 1.000
+260.856 30.216 -0.112 -2.406 0.000 1.000
+275.497 27.372 -0.126 -2.706 0.000 1.000
+289.316 24.884 -0.140 -3.020 0.000 1.000
+302.359 22.818 -0.155 -3.330 1.000 1.000
+314.671 18.201 -0.198 -4.259 0.157 1.000
+326.291 11.489 -0.320 -6.880 0.000 1.000
+337.259 7.604 -0.485 -10.444 0.000 1.000
+347.612 5.359 -0.687 -14.785 0.000 1.000
+357.383 3.826 -0.954 -20.533 0.000 1.000
+366.607 2.644 -1.352 -29.111 0.000 1.000
+375.312 1.659 -2.040 -43.906 0.000 1.000
+383.529 0.793 -3.455 -74.382  0.000
+391.284 0.000 -6.702 -144.269  0.000
+~~~
+
+### Findings and gates
+
+- **Streaks.** The coordinates are ground-plane intersections (`range × sin/cos(azimuth)`). Between 22.8° and 11.5° the radial step grows from about 0.9 to 2.6 km. The old isotropic footprint treats that radial step as blur across the row, erasing the Sc texture below 18.2°. The swept alpha also omitted the texture and followed only the field’s radially coherent τ structure. Both effects are visible in the grid before the painter receives it. Sc/Ac now have 37 elevation rows, filter the texture at the cross-ray spacing and reserve radial filtering for the resolved-to-ensemble opacity transition. The texture's pooled autocorrelation first reaches 1/e at **34 px horizontally** and **19 px vertically** on the 375 px-wide projected grid below 30°.
+- **Edges and continuity.** The Sc/Ac alpha transfer sharpens the texture around its neutral value with the cubic clump kernel’s maximum slope of 3/2 per texel. The gain is bounded to one tap’s weight, and the existing Beer–Lambert continuity check includes the textured slant depth of each tap. The 1-minute p99 alpha deltas for low, mid and high were **0.09103 / 0.09390 / 0.04621**, below 0.15.
+- **Overcast.** The Haifa mid deck had 924 nodes with vertical τ ≥ 10. Its minimum alpha over those nodes was **0.9999999999997915**. The thick branch stays on the body-to-shade portion of the ramp. The diffuse slab’s zenith-to-limb endpoints use the two-stream source function proportional to μ + 2/3. The pure-JS paint rounds the texels to 8-bit sRGB, bilinearly interpolates premultiplied values and composites the sheet layers in model order over the sky gradient. The upper-half luminance spread was **0.13756**, clearing 0.06. The existing upper-half mid tone spread was **0.13960**, clearing 0.12.
+- **Horizon.** The feature near CSS y ≈ 314 (628 px at 2×) is where resolved variation gives way to a nearly uniform ensemble in the old map. The actual zero-alpha cutoff is farther down, between CSS y = 375.3 and 383.5 (1.66°–0.79°). It came from truncating the slab chord at the low lattice's 50 km panorama range and fading visibility from its upper face to its base there. The sheet now uses the curved chord to eye level, with a six-degree minimum transition to the field's expected depth before entering the lowest 10°. The panorama limit still bounds where that mean is sampled. Maximum adjacent screen-row luminance jumps in the lowest 10° were **0.02074** (Jerusalem broken), **0.01833** (Shadmot Mehola broken), **0.00417** (Haifa overcast) and **0.01182** (Haifa showers).
+- **Showers.** Haifa has 0.6 mm/h, six rain cells and six projected banks on the mid layer. Five are in view, at azimuths 132°–283°, elevations 1.8°–5.1° and distances 14.5–39.1 km. The edge mark is reserved for the case where every bank is out of view. The model already emitted shafts and far streaks, but placed them behind the cloud sheet. Both now composite at or above the overlapping sheet as required for rain below its base.
+- **Night light.** `placeEnv.glow` estimates artificial light and feeds star visibility. The light model supplies twilight, moonlight and the night palette, and has no source with an artificial-light RGB or direction for illuminating a cloud underside. No orange-grey glow was added.
+- **Zero tone.** In the failing direct test, `above` was omitted and defaulted to 1. The contribution that made the ratio effectively exceed the clear reference was the additive forward term: at the sun-facing zenith the old expression subtracts both diffuse transmission and forward light from 1, even as the depth-dependent diffuse loss approaches zero. The new normalisation uses the same incident diffuse flux in the shaded and clear references, so upper-layer transmission cancels. Forward light only reduces the diffuse contrast the column actually creates. At τ = 3 the tone is positive and the clear-floor assertion stays intact. The zero floor comes from `0.5 × smoothstep(0.9, 1, cover)` in occupancy, evaluated at the field's actual low cover of 0.74 before the test copies the layer with cover 0.30. It is independent of the day seed and upper-layer light.
+
+### Verification
+
+The look test uses the still harness’s date, weather overrides, DPR and recorded panorama ground elevations. The three sheet unit files, `sky.test.ts` and `weather.test.ts` passed individually with `nice -n 19`. In `model.test.ts`, 27 of 28 passed. The skyless-land assertion differs on `cloudShadow.far` and reproduced at HEAD 884b2af. TypeScript build-mode checking with `--noEmit`, Oxlint on the touched TypeScript files and `git diff --check` passed. Browser stills and the timing benchmark are left for CI. No painter or field files changed.

@@ -46,7 +46,7 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
   // Broad St/Cs structures need half the angular resolution of cellular Sc/Ac.
   const broad = genus === 'st' || genus === 'cs'
   const cols = broad ? 24 : 48
-  const targetRows = broad ? 12 : 24
+  const targetRows = broad ? 12 : genus === 'sc' || genus === 'ac' ? 36 : 24
   xs.length = east.length = north.length = cols
   for (let i = 0; i < cols; i++) {
     const x = xs[i] = i * geom.width / (cols - 1)
@@ -77,6 +77,10 @@ export function sheetFootprint(ranges: number[], row: number, angularStep: numbe
   const range = ranges[row]
   return Math.max(range * angularStep, range - (ranges[row - 1] ?? range), (ranges[row + 1] ?? range) - range)
 }
+
+// Filter cross-ray detail in azimuth. Radial undersampling is handled
+// separately by the transition from resolved cells to ensemble transmission.
+export const textureFootprint = (range: number, angularStep: number) => range * angularStep
 
 export function solarTexel(world: WorldState, geom: SkyGeom, snapshot: FieldSnapshot[number], grid: Grid, angularStep: number) {
   const { xs, altitudes, east, north, facing, path } = grid

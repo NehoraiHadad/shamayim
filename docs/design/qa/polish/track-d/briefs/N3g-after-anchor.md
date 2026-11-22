@@ -10,6 +10,10 @@ CI `check` was green at 75b2fc6 and fails at 884b2af (N3e) with 5 tests:
 5. `model.test.ts:138` "leaves the sky out when there is no sky box": one layer fewer than expected
    (`['plane.far', 'farCities', …(2)]` against `…(3)`).
 
+**Status at the N3f commit:** items 3 and 4 pass after N3f. Items 1, 2 and 5 still fail locally. N3f's report also
+names a local `cloudShadow.far` failure in `model.test.ts`; include it if it reproduces. For the strip, first check
+whether N3f's tone fix already removed the 23:20 cut, then still add the continuity test.
+
 For each: say whether the fixture's sky truly changed (a new day seed gives a different Cs field, so the halo
 condition no longer holds; that is legitimate), or whether N3e broke a contract.
 - **If the sky changed:** keep the test's intent. Pin the fixture to a state that has the feature: force the Cs cover

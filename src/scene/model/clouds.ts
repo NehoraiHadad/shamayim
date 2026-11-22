@@ -6,7 +6,7 @@ import { cloudLight, layerMeanTransmission } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
-import { cloudSheetOf, meanDiffuseTransmission, sheetBlend } from './cloudSheet'
+import { cloudSheetOf, sheetBlend, sheetZ } from './cloudSheet'
 import { layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
 import { mixRgb, rgbOf } from './tone'
@@ -289,17 +289,20 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       const fieldLayer = snapshot.layer
       if (!fieldLayer || (fieldLayer.lattice === 'tower' ? 'low' : fieldLayer.lattice) !== layer.level) continue
       if (sheetBlend(fieldLayer) === 0) continue
-      const tones = tonesAt(world, box, stops, layer.level, geom.dome(4) * 0.6, union, rainWeightAt(world, layer.level, layer.rains), 3)
+      const rain = rainWeightAt(world, layer.level, layer.rains)
+      const tones = tonesAt(world, box, stops, layer.level, geom.dome(4) * 0.6, union, rain, 3)
+      const day = smoothstep(-8, 3, world.bodies.sun.altitude)
+      // Six tenths cover still exposes the sides of Sc rolls. At deck
+      // closure (the same 0.95 used by tonesOf), the base is a diffuse slab.
+      const closed = smoothstep(0.6, 0.95, fieldLayer.cover)
+      const base = mixRgb(mixRgb(DECK_GREY, WHITE, 0.5), RAIN_GREY, rain)
+      const grey = mixRgb(DECK_GREY, RAIN_GREY, rain)
       const sheet = cloudSheetOf(world, geom, snapshot, {
-        body: tones.body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body,
+        body: mixRgb(tones.body, base, day),
+        // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
+        shade: mixRgb(tones.shade, mixRgb(grey, mixRgb([0, 0, 0], base, 2 / 5), closed), day),
+        lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body,
         light: light?.sun ? light.strength * light.above : 0,
-        // Use the same unit clear-column reference as bank light. Above the sheet,
-        // covered paths transmit diffuse light; uncovered paths transmit it whole.
-        above: world.cloudField?.field.layers.reduce((diffuse, upper) => {
-          if (upper.lattice !== 'high' && !(upper.lattice === 'mid' && layer.level === 'low')
-            || layer.level === 'high') return diffuse
-          return diffuse * meanDiffuseTransmission(upper.cover, upper.kappa * upper.meanVKm)
-        }, 1),
       })
       if (!sheet) continue
       out.push(sheet)
@@ -343,6 +346,11 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
 export function bandOf(clouds: readonly LayerOf<'clouds'>[], layer: CloudLayer, geom: SkyGeom): { z: number; speed: number } {
   const drawn = clouds.find((l) => l.level === layer.level)
   return { z: drawn?.z ?? Z[layer.level], speed: drawn?.animated?.speed ?? layer.drift * geom.s }
+}
+
+export function rainSheetZ(world: WorldState): number {
+  return Math.max(0, ...(world.cloudField?.snapshot ?? []).map(({ layer, heightKm }) =>
+    layer && heightKm > 0 && sheetBlend(layer) ? sheetZ[layer.lattice] : 0))
 }
 
 /** The flash's colour: the blue-white of lightning seen through cloud. */
