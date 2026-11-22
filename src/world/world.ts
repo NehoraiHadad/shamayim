@@ -184,7 +184,7 @@ export function makeWorldBuilder() {
     const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
     const covers = raining.covers
     const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview, forcedVisibility: 'visibilityKm' in forced,
-      mist: { sunAltitude: sun.altitude, windMs: wind.ms, lowCloudPct: covers.low * 100, hours: forecast.hours, at } })
+      mist: { sun, windMs: wind.ms, current: forecast.current, hour: between, forced, forcedLayers: input.forcedLayers, hours: forecast.hours, at } })
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
     const rain = rainFrom(clouds, rate, wind, shown.weatherCode, preview, hashId(`${place.id}:rain:${hourKey(at)}`))

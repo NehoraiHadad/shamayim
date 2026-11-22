@@ -1,6 +1,5 @@
 //# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { isDataVisibility } from '../../world/mist'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
@@ -61,7 +60,7 @@ function puffsOf(seed: string, w: number, top: number, depth: number, n: number)
  */
 export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] {
   const m = mistiness(world)
-  if (m < 0.08) return []
+  if (m <= 0.08) return []
   const sx = box.width / SCENE_W
   const xs = Array.from({ length: 16 }, (_, i) => (i + 0.5) * (SCENE_W / 16))
   const nearMed = median(xs.map((x) => crestAt(world.terrain.near.points, x)))
@@ -86,15 +85,16 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
   // The valley's lake of mist: its top a few px over the near crest at first, rising toward the far crest.
   const rise = Math.max(4, nearMed - farMed)
   const top = nearMed - (5 + 0.75 * m * rise)
-  add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: 0.35 + 0.5 * m,
+  const valleyAlpha = (0.35 + 0.5 * m) * smoothstep(0.08, 0.25, m)
+  add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: valleyAlpha,
     puffs: puffsOf(`${world.place.id}:mist.valley`, period, top - 4, 10, 9) })
-  // Ground fog over the near ridge's foot, only when measured/forecast visibility is down to a few km (humidity-derived
-  // visibility keeps to the valleys); bounded by the world's mist state.
-  const fog = Math.min(m, isDataVisibility(world.sources.visibility) ? smoothstep(6, 1.5, world.air.visibilityKm) : 0)
+  // Ground fog over the near ridge's foot, only on data-reported fog; alpha eases continuously from 0 at the threshold.
+  const fog = Math.min(m, world.air.mist.fog)
   if (fog > 0.3) {
     const k = Math.min(1, (fog - 0.3) / 0.7)
     const gTop = box.landHeight - (14 + k * (box.landHeight - nearMed) * 0.75)
-    add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: 0.2 + 0.4 * k,
+    const groundAlpha = (0.2 + 0.4 * k) * smoothstep(0.3, 0.5, fog)
+    add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: groundAlpha,
       puffs: puffsOf(`${world.place.id}:mist.ground`, period, gTop - 4, 12, 8) })
   }
   return out

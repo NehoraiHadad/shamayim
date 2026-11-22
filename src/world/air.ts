@@ -1,8 +1,8 @@
 import type { AirInput } from '../atmo/airTypes'
-import type { HourPoint, LocalTime } from '../domain/types'
+import type { CurrentWeather, HourPoint, LocalTime } from '../domain/types'
 import { haze, heat, rainRate, visibilityKm } from './airParts'
 import { mistOf, nightMinimum, NO_MIST } from './mist'
-import type { Air, RGB, WorldSources } from './types'
+import type { Air, Body, RGB, WorldSources } from './types'
 
 /** sRGB 0–1 of a `#rrggbb` colour. */
 export const rgbOf = (hex: string): RGB => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as unknown as RGB
@@ -28,9 +28,12 @@ export interface AirSourceInput {
   forcedVisibility: boolean
   /** Diurnal and dynamical context for mist (`mist.ts`); omitted where mist is unused (returns `NO_MIST`). */
   mist?: {
-    sunAltitude: number
+    sun: Pick<Body, 'altitude' | 'azimuth'>
     windMs: number
-    lowCloudPct: number | null
+    current?: Pick<CurrentWeather, 'cloudLow' | 'cloudMid'> | null
+    hour?: Pick<HourPoint, 'cloudLow' | 'cloudMid'> | null
+    forced?: Partial<AirInput> | null
+    forcedLayers?: { low: number; mid: number; high: number } | null
     hours?: readonly Pick<HourPoint, 'time' | 'temperature'>[]
     at?: LocalTime
   }
@@ -40,13 +43,22 @@ export interface AirSourceInput {
 export function chooseVisibility(input: AirSourceInput): { km: number; source: WorldSources['visibility'] } {
   const { shown, hourVisibilityM, preview, forcedVisibility } = input
   if (forcedVisibility && shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'forced' }
-  if (preview && hourVisibilityM != null) return { km: hourVisibilityM / 1000, source: 'hour' }
-  // Now: the current visibility (`airInput` carries it); a picked hour without its own keeps now's only when it has no
-  // humidity of its own to say better.
   if (!preview && shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'current' }
+  if (hourVisibilityM != null) return { km: hourVisibilityM / 1000, source: 'hour' }
   if (shown.humidity !== null) return { km: visibilityFromHumidity(shown.humidity), source: 'humidity' }
   if (shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'current' }
   return { km: 40, source: 'default' }
+}
+
+/** Raw low/mid cloud cover (0–100) for mist: never the renderer's rescaled `covers`. */
+function rawCloudLayers(m: NonNullable<AirSourceInput['mist']>, preview: boolean, shown: AirInput) {
+  if (m.forcedLayers) return { lowCloudPct: m.forcedLayers.low * 100, midCloudPct: m.forcedLayers.mid * 100, thickCloudPct: null }
+  if (m.forced && ('cloudCover' in m.forced || 'thickCloud' in m.forced)) {
+    return { lowCloudPct: null, midCloudPct: null, thickCloudPct: shown.thickCloud ?? shown.cloudCover }
+  }
+  const lowCloudPct = preview ? (m.hour?.cloudLow ?? null) : (m.current?.cloudLow ?? m.hour?.cloudLow ?? null)
+  const midCloudPct = preview ? (m.hour?.cloudMid ?? null) : (m.current?.cloudMid ?? m.hour?.cloudMid ?? null)
+  return { lowCloudPct, midCloudPct, thickCloudPct: shown.thickCloud ?? shown.cloudCover }
 }
 
 /** The air: visibility and haze, the aerial perspective every plane fades by, the horizon band and heat shimmer. */
@@ -61,13 +73,15 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
   const tint = rgbOf(h.color)
   const mist = input.mist ? mistOf({
     humidity: shown.humidity,
-    visibilityKm: v,
+    visibilityKm: km,
     visibilitySource: source,
+    weatherCode: shown.weatherCode,
     dust,
     rainRateMmH: r,
-    lowCloudPct: input.mist.lowCloudPct,
+    ...rawCloudLayers(input.mist, input.preview, shown),
     windMs: input.mist.windMs,
-    sunAltitude: input.mist.sunAltitude,
+    sunAltitude: input.mist.sun.altitude,
+    sunRising: input.mist.sun.azimuth < 180,
     temperature: shown.temperature,
     nightMinTemp: input.mist.hours && input.mist.at ? nightMinimum(input.mist.hours, input.mist.at) : null,
   }) : NO_MIST
