@@ -34,21 +34,33 @@ export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: 
   c.restore()
 }
 
-/** The tower's alpha: soft puffs, larger and rounder toward the crown, over a flat soft base. */
+/**
+ * The tower's alpha: puffs a third of the column wide filling it, over a flat soft base, and a rim of small turrets
+ * with crisp edges round the crown (cauliflower: Cu con is sharp where it is still growing; only the anvil is soft).
+ */
 function silhouette(c: Ctx2D, s: CloudSprite) {
   const r = rng(s.seed)
   const anvil = s.anvil ?? 0
-  const n = Math.max(6, Math.min(90, Math.round((s.tall / s.w) * PUFFS) + 4))
+  const n = Math.max(8, Math.min(140, Math.round((s.tall / s.w) * PUFFS * 2) + 8))
   puff(c, 0, s.under * 0.3, s.w * 0.5, Math.max(1, s.under * 0.5 + s.w * 0.06), 0.9)
   for (let i = 0; i < n; i++) {
     const t = Math.sqrt(r()) // more puffs high up: the crown is where a tower's turrets are
     // A mature Cb's upper third flares out into its anvil: no narrow neck under a disc (a saucer, not a storm).
     const flare = anvil * 0.9 * Math.max(0, (t - 0.55) / 0.45) ** 1.5
     const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t + flare)
-    const rx = half * (0.45 + 0.35 * r()) * (0.8 + 0.4 * t)
+    const rx = half * (0.3 + 0.25 * r()) * (0.8 + 0.4 * t)
     const cx = (r() * 2 - 1) * (half - rx * 0.6)
     const cy = -t * (s.tall - rx * 0.7)
     puff(c, cx, cy, rx, rx * (0.85 + 0.15 * r()), 0.75 + 0.25 * r())
+  }
+  // The crown's turrets: small crisp puffs along the upper outline, over the top and down the upper sides.
+  const turrets = s.w < 6 ? 0 : Math.min(60, Math.round(10 + 8 * s.tall / s.w))
+  for (let i = 0; i < turrets; i++) {
+    const u = r() * 2 - 1, t = 0.55 + 0.45 * Math.cos(u * Math.PI / 2)
+    const flare = anvil * 0.9 * Math.max(0, (t - 0.55) / 0.45) ** 1.5
+    const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t + flare)
+    const rx = s.w * (0.05 + 0.07 * r())
+    puff(c, u * (half - rx * 0.4), -t * (s.tall - rx), rx, rx * (0.85 + 0.15 * r()), 0.9, true)
   }
   if (anvil > 0.05) {
     // The anvil: a thick soft cap spread wider than the column as far as the top has spread, thinning toward its edges.
@@ -61,15 +73,15 @@ function silhouette(c: Ctx2D, s: CloudSprite) {
   }
 }
 
-function puff(c: Ctx2D, cx: number, cy: number, rx: number, ry: number, a: number) {
+function puff(c: Ctx2D, cx: number, cy: number, rx: number, ry: number, a: number, crisp = false) {
   if (rx <= 0 || ry <= 0) return
   c.save()
   c.translate(cx, cy)
   c.scale(1, ry / rx)
   const g = c.createRadialGradient(0, 0, 0, 0, 0, rx)
   g.addColorStop(0, `rgba(255,255,255,${a})`)
-  g.addColorStop(0.5, `rgba(255,255,255,${a * 0.8})`)
-  g.addColorStop(0.8, `rgba(255,255,255,${a * 0.3})`)
+  g.addColorStop(crisp ? 0.75 : 0.5, `rgba(255,255,255,${a * (crisp ? 0.95 : 0.8)})`)
+  g.addColorStop(crisp ? 0.92 : 0.8, `rgba(255,255,255,${a * (crisp ? 0.6 : 0.3)})`)
   g.addColorStop(1, 'rgba(255,255,255,0)')
   c.fillStyle = g
   c.beginPath()
