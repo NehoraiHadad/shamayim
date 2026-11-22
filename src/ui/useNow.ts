@@ -1,19 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { utcOf } from '../astro/utc'
 import { nowIn } from '../domain/now'
 import type { LocalTime } from '../domain/types'
 import { pinnedTime } from './devParams'
 
-/** Wall-clock time in the place's timezone, ticking every minute. */
-export function useNow(timezone: string): LocalTime {
-  const [clock, setClock] = useState(() => ({ timezone, now: pinnedTime() ?? nowIn(timezone) }))
+const MINUTE_MS = 60_000
+
+/** A pinned view holds the weather sample still while its receipt clock advances from the pin. */
+export function sceneClock(timezone: string, pinned: LocalTime | null, startedAt: number, wallMs: number) {
+  const minute = Math.floor(wallMs / MINUTE_MS) * MINUTE_MS
+  if (!pinned) return { now: nowIn(timezone, new Date(minute)), arrivalMs: minute }
+  const elapsed = Math.floor((wallMs - startedAt) / MINUTE_MS) * MINUTE_MS
+  return { now: pinned, arrivalMs: utcOf(pinned, timezone).getTime() + elapsed }
+}
+
+export function useNow(timezone: string) {
+  const [startedAt] = useState(Date.now)
+  const [wallMs, setWallMs] = useState(startedAt)
+  const pinned = pinnedTime()
+  const read = useCallback((wallMs: number) => sceneClock(timezone, pinned, startedAt, wallMs), [timezone, pinned, startedAt])
+  const receiptTime = useCallback(() => read(Date.now()).arrivalMs, [read])
   useEffect(() => {
-    if (pinnedTime()) return
     const tick = () => {
-      const now = nowIn(timezone)
-      setClock((last) => last.timezone === timezone && last.now === now ? last : { timezone, now })
-      id = setTimeout(tick, 60_000 - Date.now() % 60_000 + 50)
+      const wallMs = Date.now()
+      setWallMs(wallMs)
+      const elapsed = pinned ? wallMs - startedAt : wallMs
+      id = setTimeout(tick, MINUTE_MS - elapsed % MINUTE_MS + 50)
     }
-    // Catch a minute boundary between the initial render and the effect, then follow the wall clock.
     let id = setTimeout(tick, 0)
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
@@ -25,6 +38,6 @@ export function useNow(timezone: string): LocalTime {
       clearTimeout(id)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [timezone])
-  return clock.timezone === timezone ? clock.now : pinnedTime() ?? nowIn(timezone)
+  }, [pinned, startedAt])
+  return { ...read(wallMs), receiptTime }
 }

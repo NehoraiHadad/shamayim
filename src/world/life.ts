@@ -96,7 +96,7 @@ export interface LifeInput {
   temperature: number
   covers: Covers
   rainMmH: number
-  thunder: boolean
+  thunder: number | boolean
   wind: { fromDeg: number; towardDeg: number; ms: number; gustMs: number }
   /** The wind at cruise level (deg toward, m/s): the contrails drift with it; absent, the surface wind's way, stronger. */
   highWind?: { towardDeg: number; ms: number }
@@ -109,8 +109,8 @@ export interface LifeInput {
 
 /** How much the weather lets birds fly (0 none … 1 fine): none in heavy rain, a storm or a gale. */
 export function flyingWeather(input: Pick<LifeInput, 'rainMmH' | 'thunder' | 'wind'>): number {
-  if (input.thunder || input.rainMmH >= 2.5 || input.wind.gustMs >= 18) return 0
-  return (1 - smoothstep(0, 2.5, input.rainMmH) * 0.85) * (1 - smoothstep(10, 18, input.wind.gustMs))
+  if (input.rainMmH >= 2.5 || input.wind.gustMs >= 18) return 0
+  return (1 - Number(input.thunder)) * (1 - smoothstep(0, 2.5, input.rainMmH) * 0.85) * (1 - smoothstep(10, 18, input.wind.gustMs))
 }
 
 /** Israel's part of the Rift Valley flyway: the whole country lies on it, the Jordan and Arava valleys and the hills most. */

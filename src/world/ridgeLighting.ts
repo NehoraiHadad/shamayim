@@ -1,11 +1,9 @@
 import { clearanceOf } from './sceneLight'
+import { smoothstep } from '../domain/smoothstep'
+
+export { smoothstep } from '../domain/smoothstep'
 
 type Point = readonly [number, number]
-
-export function smoothstep(low: number, high: number, value: number) {
-  const t = Math.max(0, Math.min(1, (value - low) / (high - low)))
-  return t * t * (3 - 2 * t)
-}
 
 /** How much taller the drawn ridges are than true scale (24 km across 375 px against a few hundred metres of relief). */
 const EXAGGERATION = 3

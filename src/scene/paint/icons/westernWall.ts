@@ -12,12 +12,12 @@ const HERODIAN = 3
 
 export function westernWall(k: Kit, h: number) {
   const { t } = k
-  const flood = k.night > 0.4
+  const flood = k.nightFade(0.3, 0.5)
   let y = 0
   const rows = COURSES.map(([height, offset], i) => { y -= height; return { y, height, offset, herodian: i < HERODIAN } })
     .filter((row) => row.y >= -h - 0.1)
   const top = rows.at(-1)!.y
-  k.fill(rect(-9, top, 18, -top), flood ? mix(t.stone, t.win, 0.25) : t.stone)
+  k.fill(rect(-9, top, 18, -top), mix(t.stone, t.win, 0.25 * flood))
   k.fill(rect(-9, top, 18, 0.6), t.rim, 0.8)
   for (const row of rows) {
     const step = row.height * (row.herodian ? 2.6 : 2)

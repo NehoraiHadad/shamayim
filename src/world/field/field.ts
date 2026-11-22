@@ -4,7 +4,7 @@ import { steeringTimeline, steeringWind, wallMinutes } from './advect'
 import { convectiveAt, formOf, GENERA, smoothstep } from './genus'
 import { footprintExtinction } from './extinction'
 import { occupancyOf, splitLowCover } from './occupancy'
-import type { CloudField, FieldInput, FieldLayer, Genus, Lattice, LayerForm } from './types'
+import type { CloudField, FieldInput, FieldLayer, FieldMotion, Genus, Lattice, LayerForm } from './types'
 
 const lattices: readonly Lattice[] = ['low', 'tower', 'mid', 'high']
 const mean = ([a, b]: readonly [number, number]) => (a + b) / 2
@@ -73,42 +73,40 @@ function layerDimensions(lattice: Lattice, lowBaseKm: number, form: LayerForm) {
     case 'high': return blend(shape('ci'), shape('cs'), form.veil)
   }
 }
-function fallbackMotion(input: FieldInput, zAslKm: number, t: number, offset: [number, number]) {
+function fallbackMotion(input: Pick<FieldInput, 'at' | 'elevationKm' | 'wind10'>, zAslKm: number, t: number, offset: [number, number], origin: number) {
   const { speedKmh, fromDeg } = input.wind10
   const vel = steeringWind({ time: input.at, windSpeed: speedKmh, windDirection: fromDeg }, zAslKm, input.elevationKm)
-  const elapsedMin = t // fixed Unix epoch
+  const elapsedMin = t - origin
   const d: [number, number] = [offset[0] + vel[0] * elapsedMin, offset[1] + vel[1] * elapsedMin]
   return { d, vel }
 }
 
 /** Build four layer snapshots without materializing any sites. */
 export function buildField(input: FieldInput): CloudField {
-  const { from, to, fraction } = convectiveAt(input)
-  const forms = formOf(input, input.covers, mix(from, to, fraction))
+  const weather = input.weather
+  const legacy = weather ? undefined : convectiveAt(input)
+  const convection = weather ? 0.6 * weather.convectiveShower + weather.convectiveStorm
+    : mix(legacy!.from, legacy!.to, legacy!.fraction)
+  const forms = formOf(input, input.covers, convection, weather)
   const cover = { ...input.covers, ...splitLowCover(input.covers.low, forms.low.conv) }
   const t = wallMinutes(input.at)
-  const steering = steeringOf(input)
-  const offsets = offsetsOf(steering, input.placeId)
+  const steering = fieldSteering(input)
   const layers = lattices.map((lattice, index): FieldLayer => {
     const form = forms[lattice]
     const { baseKm, vKm: meanVKm, kappa } = layerDimensions(lattice, input.lowBaseKm, form)
     const occupancy = occupancyOf(lattice, cover[lattice])
-    if (lattice === 'tower' && from !== to) {
+    if (lattice === 'tower' && (weather || (legacy && legacy.from !== legacy.to))) {
       const limit = Math.min(input.covers.low, 0.5)
-      const start = occupancyOf(lattice, from * limit)
-      const end = occupancyOf(lattice, to * limit)
-      // Blend saturation in rank space. At fixed low cover the change in Q is at most 1/60
+      // Blend saturation in rank space. At fixed low cover an hourly transition changes Q by at most 1/60
       // per minute. Preserve Q × g², the calibrated radius-squared intensity, as Q changes.
       const intensity = occupancy.Q * occupancy.g ** 2
-      occupancy.Q = mix(start.Q, end.Q, fraction)
+      occupancy.Q = weather
+        ? weather.convectiveShower * occupancyOf(lattice, 0.6 * limit).Q + weather.convectiveStorm * occupancyOf(lattice, limit).Q
+        : mix(occupancyOf(lattice, legacy!.from * limit).Q, occupancyOf(lattice, legacy!.to * limit).Q, legacy!.fraction)
       if (occupancy.Q > 0) occupancy.g = Math.sqrt(intensity / occupancy.Q)
     }
     const { Q, g, floorTau } = occupancy
-    const offset = offsets[index]
-    const zAslKm = fallbackHeights[lattice] + input.elevationKm
-    const motionAt = (minute: number) => input.hours.length
-      ? steering.at(index, minute, offset)
-      : fallbackMotion(input, zAslKm, minute, offset)
+    const motionAt = (minute: number) => (input.motion ?? steering.at)(index, minute)
     const tau = kappa * meanVKm
     const cumuliform = lattice === 'tower' ? 1 : lattice === 'low' ? 1 - form.strat : 0
     return { lattice, baseKm, meanVKm, cover: cover[lattice], Q, g, lowBaseKm: input.lowBaseKm,
@@ -121,6 +119,15 @@ export function buildField(input: FieldInput): CloudField {
 }
 
 const fallbackHeights = { low: 1.3, tower: 3.5, mid: 4.5, high: 10.5 }
+export function fieldSteering(input: Pick<FieldInput, 'hours' | 'elevationKm' | 'at' | 'placeId' | 'wind10'>,
+  fallbackOrigin = 0): { derived: boolean; at: FieldMotion } {
+  const steering = steeringOf(input)
+  const offsets = offsetsOf(steering, input.placeId)
+  return { derived: steering.derived, at: input.hours.length
+    ? (index, minute) => steering.at(index, minute, offsets[index])
+    : (index, minute) => fallbackMotion(input, fallbackHeights[lattices[index]] + input.elevationKm, minute, offsets[index], fallbackOrigin) }
+}
+
 const steeringCache = new WeakMap<FieldInput['hours'], Map<number, ReturnType<typeof steeringTimeline>>>()
 
 const hourHeights = new WeakMap<FieldInput['hours'][number], Record<Lattice, number>>()
@@ -145,7 +152,7 @@ function representativeHeights(hour: FieldInput['hours'][number]) {
   return heights
 }
 
-function steeringOf(input: FieldInput) {
+function steeringOf(input: Pick<FieldInput, 'hours' | 'elevationKm'>) {
   let byElevation = steeringCache.get(input.hours)
   if (!byElevation) steeringCache.set(input.hours, byElevation = new Map())
   let steering = byElevation.get(input.elevationKm)
