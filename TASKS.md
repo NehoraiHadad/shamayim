@@ -940,6 +940,9 @@ Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look
       drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
 - [ ] CI gap: stills render the scene harness only, never the built app page. E's <body> background hid the sky in
       production for hours with CI green. Add one built-app still (vite preview, 375 px) asserting the sky is not the boot colour.
+- [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
+      (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
+      distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
 - [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
 
