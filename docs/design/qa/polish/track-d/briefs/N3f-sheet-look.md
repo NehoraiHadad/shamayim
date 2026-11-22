@@ -46,6 +46,13 @@ CI run 45007824196 at 75b2fc6 was green in every job, perf included. The stills 
 5. **Showers.** Explain why haifa 11:30 showers shows no rain (cells out of view? `rainBankDescs` empty? a gate?).
    Fix it if it is a bug; otherwise state what the model says (where the rain is and why the edge mark is absent).
 
+6. **Tone saturates to 0 (found after N3e).** `cloudSheet.test.ts` "keeps a low-cover floor transparent and lights gaps
+   more than cores" fails at the N3e commit. On haifa 2026-11-17T12:00 low, with tau forced to 3, alpha is 0.95 but
+   `tone` is 0, the same as the clear floor. `tone = 1 − Td·above/aboveMax` must not clamp to 0 for τs = 3 (Td about
+   0.75). Find why `above/aboveMax` exceeds 1/Td there: a normaliser taken from the wrong layer or hour, or the
+   upper-layer transmission changing with the new day anchor. Fix the normaliser, not the test. Also say why
+   `floorTau` for that layer is now exactly 0.
+
 ## Precision
 - Every number has its source: perspective, the optical constants, the light model's RGB.
 - No per-place or per-frame tuning. Do not touch the N3e files (`src/world/field/*`). Codex N3e is editing those in

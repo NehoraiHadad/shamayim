@@ -35,6 +35,7 @@ export interface FieldLayer {
   lowBaseKm?: number
   derived?: boolean
   motionAt?: (minute: number) => Pick<FieldLayer, 'd' | 'vel'>
+  dayMotion?: (minute: number, midnight: number) => Pick<FieldLayer, 'd' | 'vel'>
   d: [eastKm: number, northKm: number]
   vel: [eastKmPerMin: number, northKmPerMin: number]
 }

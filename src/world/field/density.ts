@@ -1,5 +1,6 @@
 import { fieldCell, RANGES, visitCells } from './cells'
 import { smoothstep } from './genus'
+import { clumpAt, dayStart } from './handover'
 import { expectedClumpSampler, LATTICES, maxRadius } from './lattice'
 import { lambdaOf } from './occupancy'
 import { kernel, rasterNodes } from './rasterNodes'
@@ -53,7 +54,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
     return { tauAt: floor, expectedTauAt: floor, queryRadius: radiusKm, cellAt: () => undefined, rayDepthAt: () => 0, rayCells: () => new Set<FieldCell>(), rayRange: 0, meanRayDepth: () => 0 }
   }
   const dt = t - field.t
-  const { d: [dx, dy], vel } = (dt && layer.motionAt ? layer.motionAt(t) : layer)
+  const { vel } = (dt && layer.motionAt ? layer.motionAt(t) : layer)
   const range = rasterRange(layer)
   const radius = Math.min(radiusKm, range)
   const fadeStart = range * 0.85
@@ -76,13 +77,14 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   const rasterSquared = radius ** 2
   const { floorTau: floor, baseKm, meanVKm } = layer
   const drawRadiusSquared = drawRadius ** 2
+  const day = layer.dayMotion ? dayStart(t) : undefined
   visitCells(field, lattice, cx, cy, Math.max(drawRadius, rasterVisit), dt,
-    (siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis) => {
+    (siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis, materialized) => {
       const distanceSquared = (x - cx) ** 2 + (y - cy) ** 2
       const draw = cells && distanceSquared <= drawRadiusSquared
       const sample = distanceSquared <= (radius + r) ** 2
       if (!draw && !sample) return
-      const cell = fieldCell(lattice, siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis, field.rain)
+      const cell = materialized ?? fieldCell(lattice, siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis, field.rain, day)
       if (draw) cells.push(cell)
       if (sample) grid.add(cell, genus === 'cu' || genus === 'cg' || genus === 'cb')
     })
@@ -91,11 +93,11 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   const clumpScale = -intensity * amplitude
   const clearBaseline = -intensity - clumpScale / 2
   const extinction = layer.meanExtinction ?? 1
-  const clump = expectedClumpSampler(field.placeId, lattice)
+  const clump = clumpAt(layer, t, expectedClumpSampler(field.placeId, lattice))
   // Boolean-model log transmission is intensity times the mean extinction of one footprint.
   // The clump approximation contributes at most extinction × intensity × amplitude × 0.01172.
   const localIntensity = (x: number, y: number) =>
-    -(clearBaseline + clumpScale * clump(x - dx, y - dy))
+    -(clearBaseline + clumpScale * clump(x, y))
   function meanRayDepth(x: number, y: number, low: number, high: number, ds: number) {
     const overlap = Math.min(high, baseKm + meanVKm) - Math.max(low, baseKm)
     if (overlap <= 0) return 0

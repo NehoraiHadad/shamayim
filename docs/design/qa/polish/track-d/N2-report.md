@@ -298,3 +298,26 @@ The shadow baseline retains each lattice and density grid and removes only shado
 Jerusalem Sc had mean α 0.7554, p90 0.999998 and max 1. Its vertical depth min/p10/p50/p90/max was 0 / 0 / 2.401 / 13.675 / 27.391. The remaining Jerusalem lattices had zero cover, blend, α and vertical depth after the fixture change. Haifa retained As at cover 0.999 and Cs at cover 0.992, both at full blend. The As upper-half tone p10–p90 spread was 0.1228, clearing 0.12. The model produced no mid or high legacy bank layer on that overcast fixture.
 
 The visibility, sheet model, field-transmission and both targeted timing files passed locally. The field-transmission check refined disputed ray columns from 5 m to 1 m and its maximum error was below 0.001 for each weather fixture. TypeScript build-mode checking used `--noEmit`. Oxlint reported the existing `sceneHarness.tsx` hook-dependency warning. No local canvas renderer is installed. Browser stills and CI timings remain pending.
+
+## Round 12 (N3e)
+
+Each field uses its local calendar day for the place/day/lattice seed and the zero of its trapezoidal wind integral. If the forecast lacks that midnight, the first forecast sample is the origin. Cumulative wind uses integer nanokilometres so common forecast prefixes subtract exactly. At Shadmot Mehola, forecasts starting November 17 and November 18 produced byte-identical cells in all four lattices at 08:00 and 23:50 on November 18 and 00:10 on November 19. The observed maximum displacement and the bound for these identical winds are both **0 km**.
+
+At midnight, the greedy match orders eligible same-genus pairs by footprint intersection area and breaks ties by cell ID. A pair carries its outgoing ID through the handover and interpolates its footprint, extinction, thickness and rain weight as one cell. For independent Boolean fields with intensities Λ₁ and Λ₂, the union's clear fraction is exp(−Λ₁) exp(−Λ₂). Splitting intensity as (1−w)Λ and wΛ therefore preserves expected cover. The unpaired lifecycle converts each intensity share to a covered-fraction share, `[1 − (1 − cover)^weight] / cover`, for the rank cutoff. Paired cells carry one interpolated footprint, so geometric coverage with pairing was checked directly.
+
+Mean absolute change in vertical τ over the fixed 41 × 41 world grid was **35.79446** over midnight versus **40.88220** over 21:50–22:10 for overcast, and **25.12820** versus **33.59838** for broken cloud. Both figures sum vertical τ across all four lattices before taking the difference.
+
+The paired fraction is the number of incoming sites matched at midnight divided by the incoming occupied sites in the sample square. World-area coverage is measured over a square spanning 48 lattice pitches per side. The three measured columns are in time order.
+
+| Fixture | Lattice | Paired | Target cover | 23:45 | 00:00 | 00:15 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Overcast | Low | 1713/2302 (74.41%) | 0.92857 | 0.93799 | 0.94750 | 0.94127 |
+| Overcast | Tower | 1418/2304 (61.55%) | 0.30000 | 0.30516 | 0.31319 | 0.30639 |
+| Overcast | Mid | 2039/2305 (88.46%) | 0.95000 | 0.95360 | 0.96698 | 0.95934 |
+| Overcast | High | 2041/2299 (88.78%) | 0.95000 | 0.96009 | 0.96684 | 0.95377 |
+| Broken | Low | 1067/2302 (46.35%) | 0.35714 | 0.35209 | 0.35836 | 0.35941 |
+| Broken | Tower | 1418/2304 (61.55%) | 0.30000 | 0.30516 | 0.31319 | 0.30639 |
+| Broken | Mid | 1764/2305 (76.53%) | 0.50000 | 0.48897 | 0.49432 | 0.49638 |
+| Broken | High | 1721/2299 (74.86%) | 0.45000 | 0.45261 | 0.45963 | 0.45239 |
+
+The minute-by-minute scrub checks wind-relative displacement and lifecycle share through two midnights. The largest cover error in the table was 0.01893. The four targeted Vitest files passed individually at low priority. The density ensemble samples four local days and retains its original 0.03 tolerance. TypeScript build-mode checking with `--noEmit`, Oxlint on the touched source files and `git diff --check` passed. The CI still strips are pending.

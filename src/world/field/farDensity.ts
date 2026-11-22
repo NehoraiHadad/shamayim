@@ -1,4 +1,5 @@
 import { RANGES } from './cells'
+import { clumpAt } from './handover'
 import { clumpSampler, LATTICES } from './lattice'
 import { lambdaOf } from './occupancy'
 import { altitudeOf } from './project'
@@ -22,15 +23,14 @@ export function farStrips(field: CloudField, layer: FieldLayer) {
   const { lattice } = layer
   if (lattice === 'tower' || layer.cover === 0) return []
   const [near, far] = RANGES[lattice]
-  const [dx, dy] = layer.d
   const aFar = altitudeOf(layer.baseKm, far)
   const aTop = altitudeOf(layer.baseKm + layer.meanVKm, near)
   const baseline = lambdaOf(layer.cover)
-  const clump = clumpSampler(field.placeId, layer.lattice)
+  const clump = clumpAt(layer, field.t, clumpSampler(field.placeId, layer.lattice))
   const amplitude = LATTICES[layer.lattice].amplitude
   // Midpoint clump estimate: intensity error is bounded by amplitude × Λ per bin.
   return centres[lattice].map(({ az, widthDeg, rangeKm, east, north }) => {
-    const noise = clump(east - dx, north - dy)
+    const noise = clump(east, north)
     const intensity = baseline * (1 + amplitude * (noise - 0.5))
     return { az, widthDeg, rangeKm, opacity: -Math.expm1(-intensity), aFar, aTop }
   })

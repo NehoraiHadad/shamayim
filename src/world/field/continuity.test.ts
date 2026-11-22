@@ -9,6 +9,8 @@ import { cellsAround } from './cells'
 import { wallMinutes } from './advect'
 import { LATTICES } from './lattice'
 import { buildField } from './field'
+import { scrubMidnight } from './midnightScrub.test-helper'
+import { dayStart } from './handover'
 import type { Forecast } from '../../domain/types'
 import type { FieldInput } from './types'
 
@@ -73,6 +75,13 @@ it('advects and fades continuously through fixture hour boundaries and two midni
   for (const minute of minutes) {
     const before = fixtureField(minute)
     const after = fixtureField(minute + 1)
+    // The wind-only bound applies to a single air frame. The rendered morph has its own bound below.
+    const inFrame = (field: typeof before) => ({
+      ...field, layers: field.layers.map(layer => ({
+        ...layer, ...layer.dayMotion!(field.t, dayStart(before.t)), dayMotion: undefined,
+      })),
+    })
+    const beforeFrame = inFrame(before), afterFrame = inFrame(after)
     for (const [i, layer] of after.layers.entries()) {
       const oldLayer = before.layers[i]
       const stats = worst[i]
@@ -84,11 +93,11 @@ it('advects and fades continuously through fixture hour boundaries and two midni
       const bound = (1.5 / (layer.lattice === 'tower' ? 0.4 : 0.25)) * (deltaQ + weatherRank + 0.15 * Math.sin(Math.PI / period[0]))
       if (layer.lattice === 'tower' && codeEdges.includes(minute)) jumps.push(layer.cover - oldLayer.cover)
       const radius = [3, 12, 12, 25][i]
-      const old = new Map(cellsAround(before, layer.lattice, 0, 0, radius + 250 / 60).map(cell => [cell.id, cell]))
+      const old = new Map(cellsAround(beforeFrame, layer.lattice, 0, 0, radius + 250 / 60).map(cell => [cell.id, cell]))
       const speed = Math.max(Math.hypot(...oldLayer.vel), Math.hypot(...layer.vel))
       const dx = (oldLayer.vel[0] + layer.vel[0]) / 2
       const dy = (oldLayer.vel[1] + layer.vel[1]) / 2
-      const current = cellsAround(after, layer.lattice, 0, 0, radius)
+      const current = cellsAround(afterFrame, layer.lattice, 0, 0, radius)
       if (layer.lattice === 'tower' && current.length && old.size) occupiedTowerPairs++
       const codeEdge = layer.lattice === 'tower' && codeMinutes.has(minute)
       const currentIds = codeEdge ? new Set(current.map(cell => cell.id)) : undefined
@@ -146,3 +155,7 @@ it('advects and fades continuously through fixture hour boundaries and two midni
     expect(stats.steadyNewShare, stats.lattice).toBeLessThanOrEqual(0.15)
   }
 })
+
+it('keeps rendered cell motion and lifecycle continuous at every minute through two midnights', () => {
+  scrubMidnight(input, timestamp)
+}, 30_000)
