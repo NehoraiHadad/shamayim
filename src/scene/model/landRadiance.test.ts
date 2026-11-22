@@ -5,7 +5,8 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { deltaE } from '../../theme/oklab'
 import type { RGB, WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
-import { TEXEL } from './planeBands'
+import { outlineBandY, TEXEL } from './planeBands'
+import { skyLayer, stopAt } from './sky'
 import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/planeTexel'
 import { layersOn, sceneModel } from '.'
 import { cloudShadowsOf } from './cloudShadows'
@@ -14,7 +15,7 @@ import {
   srgbRgbToLinear, surfaceNormal,
 } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
-import { hexOf, rgbOf } from './tone'
+import { hexOf, mixRgb, rgbOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
 
 const DAY = '2026-11-17'
@@ -27,24 +28,54 @@ beforeAll(async () => {
 }, 120_000)
 afterAll(() => { vi.unstubAllGlobals() })
 
-/** Evaluates actual rendered texels of a plane's body (`preparePlaneTexels` + `shadeTexelSrgb`) for p50 Y/Y_horizon. */
-function renderedPlaneRatio(world: WorldState, layer: LayerOf<'plane'>): { p50: number; p10: number; p90: number } {
-  const lf = layer.light.litField!
-  const t = preparePlaneTexels(layer.outline, layer.bounds, layer.surfaceTone, lf, layer.grain.seed, layer.grain.amount)
-  const yHor = linearLuminance(srgbRgbToLinear(rgbOf(world.light.palette.horizon)))
+function renderedTexels(layer: LayerOf<'plane'>): number[] {
+  const t = preparePlaneTexels(layer.outline, layer.bounds, layer.surfaceTone, layer.light.litField, layer.grain.seed, layer.grain.amount)
   const ys: number[] = []
   for (let j = 0; j < t.hPx; j++) {
     const y = layer.bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < t.wPx; i++) {
       if (y < t.crestY[i] + 1 || y > t.footY[i]) continue
       const x = layer.bounds.x + (i + 0.5) * TEXEL
-      const out = shadeTexelSrgb(t, samplePlaneTexel(t, i, x, y), 1)
-      ys.push(linearLuminance(srgbRgbToLinear(out)) / yHor)
+      const out = shadeTexelSrgb(t, samplePlaneTexel(t, i, x, y))
+      ys.push(linearLuminance(srgbRgbToLinear(out)))
     }
   }
-  ys.sort((a, b) => a - b)
-  const q = (k: number) => ys[Math.floor(k * (ys.length - 1))] ?? 0
-  return { p50: q(0.5), p10: q(0.1), p90: q(0.9) }
+  return ys
+}
+
+function quantile(sorted: number[], p: number) {
+  return sorted[Math.floor(p * (sorted.length - 1))] ?? 0
+}
+
+function renderedPlaneRatio(layer: LayerOf<'plane'>, ySky: number) {
+  const ys = renderedTexels(layer).sort((a, b) => a - b)
+  return { p50: quantile(ys, 0.5) / ySky, p10: quantile(ys, 0.1) / ySky, p90: quantile(ys, 0.9) / ySky }
+}
+
+/** Twilight's display reference is the sky band above the drawn crest. */
+function twilightSkyY(world: WorldState, planes: LayerOf<'plane'>[]) {
+  const cols = Math.ceil(BOX.width / TEXEL)
+  const skyline = new Float32Array(cols).fill(BOX.landHeight)
+  for (const plane of planes) {
+    const { crestY } = outlineBandY(plane.outline, plane.bounds, cols)
+    for (let i = 0; i < cols; i++) skyline[i] = Math.min(skyline[i], crestY[i])
+  }
+  const { stops, glow, band } = skyLayer(world, BOX)!
+  const sky = Array.from(skyline, (crest, col) => {
+    const x = (col + 0.5) * TEXEL, y = crest + BOX.landTop - 8
+    let rgb = stopAt(stops, y / BOX.skyHeight)
+    for (const g of glow) {
+      const radius = Math.hypot((x - g.x) / g.r, (y - g.y) / (g.ry ?? g.r))
+      rgb = mixRgb(rgb, g.rgb, g.alpha * Math.max(0, 1 - radius))
+    }
+    if (band && y >= band.y - band.h && y < band.y + 0.3 * band.h) {
+      const t = (y - band.y + band.h) / (1.3 * band.h)
+      const alpha = stopAt([[0, [0, 0, 0]], [0.45, [0.35, 0.35, 0.35]], [1 / 1.3, [1, 1, 1]], [1, [0.4, 0.4, 0.4]]], t)[0]
+      rgb = mixRgb(rgb, band.rgb, band.alpha * alpha)
+    }
+    return linearLuminance(srgbRgbToLinear(rgb))
+  })
+  return quantile(sky.sort((a, b) => a - b), 0.5)
 }
 
 describe('Stage 7: physical linear-light land radiance across all 8 baseline places', () => {
@@ -57,9 +88,10 @@ describe('Stage 7: physical linear-light land radiance across all 8 baseline pla
       summary[id] = {}
       for (const hour of ['06:20', '12:00', '16:30', '21:00'] as const) {
         const w = build({ ...base, selected: `${DAY}T${hour}` as LocalTime })
-        const near = layersOn(sceneModel(w, BOX), 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
-        const { p10, p50, p90 } = renderedPlaneRatio(w, near)
+        const planes = layersOn(sceneModel(w, BOX), 'land').filter((l): l is LayerOf<'plane'> => l.kind === 'plane')
         const yHor = linearLuminance(srgbRgbToLinear(rgbOf(w.light.palette.horizon)))
+        const ySky = hour === '06:20' || hour === '16:30' ? twilightSkyY(w, planes) : yHor
+        const { p10, p50, p90 } = renderedPlaneRatio(planes.find((p) => p.plane === 'near')!, ySky)
         summary[id][hour] = `${p50.toFixed(3)} [${p10.toFixed(3)}..${p90.toFixed(3)}]`
         if (hour === '12:00' && (p50 < 0.18 || p50 > 0.45 || p90 - p10 < 0.03)) failures.push(`${id} 12:00: ${p50.toFixed(3)}`)
         else if ((hour === '06:20' || hour === '16:30') && (p50 < 0.08 || p50 > 0.30)) failures.push(`${id} ${hour}: ${p50.toFixed(3)}`)

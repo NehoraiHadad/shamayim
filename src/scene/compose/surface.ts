@@ -200,10 +200,10 @@ export class Surface {
         continue
       }
       const frame = still ? 0 : frameAt(anim, motion)
-      const shade = shadeLayer(layout)
-      const shadow = shade && (layout.kind === 'plane' || layout.kind === 'canopy') ? layout.cloudShadow : undefined
-      const dark = shadow && shade && light && cached.lightKey === (layout.light!.key + stripKey(layout))
-        ? cache.peek(shade.id) : null
+      const litLayout = cached.lightKey === (layout.light?.key ?? '') + stripKey(layout) ? layout : cached.lightDesc
+      const shade = shadeLayer(litLayout)
+      const shadow = shade && (litLayout.kind === 'plane' || litLayout.kind === 'canopy') ? litLayout.cloudShadow : undefined
+      const dark = shadow && shade && light ? cache.peek(shade.id) : null
       const matchedShade = dark?.light && dark.ratio === ratio && dark.formKey === cached.formKey
         && shade?.light && dark.lightKey === (shade.light.key + stripKey(layout)) ? dark.light : null
       // The main-thread cache resolves missing gust poses when first displayed. Preview endpoints share pose zero.
@@ -258,7 +258,7 @@ export class Surface {
         ctx.globalCompositeOperation = layout.light.blend
         const sy = (preview ? 0 : frame) * rect.h
         const mixed = shadow && matchedShade && this.shadows.blend(layout.id, cached.lightKey, light as CanvasImageSource,
-          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy, this.interactive ? shadowStep(shadow, phase, still, ratio) : undefined)
+          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy, this.interactive && !still ? shadowStep(shadow, phase, still, ratio) : undefined)
         if (!mixed) draw(light)
         else if (anim?.reveal && Number.isFinite(reach)) this.window(mixed, rect, 0, y, anim.reveal, reach, alpha)
         else ctx.drawImage(mixed, 0, 0, rect.w, rect.h, rect.x * k, y * k, rect.w * k, rect.h * k)

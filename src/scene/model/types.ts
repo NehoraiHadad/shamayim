@@ -79,7 +79,7 @@ export interface AnimSpec {
    * the frame at `phase` is laid (`frameAt`). The motion loops every `count / fps` s, so a painter's motion must be
    * periodic over it.
    */
-  frames?: { count: number; fps: number; from?: number }
+  frames?: { count: number; fps: number }
   /** Falling marks (C7): the layer's canvas is a tile laid as a pattern over these areas, moving with the phase (`fallAt`). */
   fall?: Fall
   /** The layer's alpha goes from `from` to `to` over `at … at + dur` s of the phase, eased (C8: the land in, the mist out). */

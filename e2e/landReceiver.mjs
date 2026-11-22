@@ -61,7 +61,12 @@ export async function receiverPixels(page, dpr = 1) {
     const remoteCtx = remoteCanvas.getContext('2d', { willReadFrequently: true })
     const remoteWorker = paintWorker()
     if (!remoteWorker) throw Error('The receiver test needs the production canvas Worker')
-    const remote = new Surface(remoteCanvas, { worker: () => remoteWorker })
+    let firstBeam
+    const remote = new Surface(remoteCanvas, { worker: () => remoteWorker, onArrive: () => {
+      if (!firstBeam && remote.peek('plane.near')?.light && !remote.peek('plane.near.shade')?.light) {
+        firstBeam = Array.from(remoteCtx.getImageData(24 * dpr, 25 * dpr, 1, 1).data)
+      }
+    } })
     remote.resize(96, 48, dpr)
     const canopy = canopyOf(withShadow, { lean: 0, gust: 0 }, [])
     const pixels = () => Array.from(remoteCtx.getImageData(19 * dpr, 14 * dpr, 10 * dpr, 11 * dpr).data)
@@ -87,9 +92,9 @@ export async function receiverPixels(page, dpr = 1) {
     remote.composite([withShadow], 10)
     const planeOnly = pixels()
     remoteWorker.terminate()
-    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, missing, paired, stale, planeOnly }
+    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, firstBeam, missing, paired, stale, planeOnly }
   }, dpr)
-  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, missing, paired, stale, planeOnly } = result
+  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, firstBeam, missing, paired, stale, planeOnly } = result
   assert.deepEqual(still, first)
   assert.deepEqual(gustStart, gustRepeat, 'canopy gust must repeat every two seconds')
   assert.notDeepEqual(gustStart, gustBent, 'canopy gust must keep moving under a stationary cloud shadow')
@@ -100,6 +105,7 @@ export async function receiverPixels(page, dpr = 1) {
   assert.deepEqual(first[2], moved[2])
   assert.ok(first[0][0] < unshadowed[0][0] - 20 && first[0][0] > first[0][1], 'shadow must retain the red soil')
   assert.ok(moved[1][0] < unshadowed[1][0] - 20 && moved[1][2] > moved[1][0], 'shadow must shade the stationary snow')
+  assert.deepEqual(firstBeam, unshadowed[0], 'the full-beam plane must appear before its shade endpoint')
   assert.ok(missing.every((channel) => channel === 0), 'an early canopy must leave a transparent canvas')
   assert.deepEqual(stale, planeOnly, 'a canopy carrying the new light must wait for the plane')
   assert.notDeepEqual(paired, planeOnly, 'the paired canopy must be visible')

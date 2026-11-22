@@ -5,7 +5,7 @@ import type { RemoteCache } from './remoteCache'
 
 type Cached = NonNullable<ReturnType<LayerCache['peek']> | ReturnType<RemoteCache['peek']>>
 const pairs = new WeakMap<LayerOf<'canopy'>, {
-  beam: Cached['light']; toneKey: string | null; receiver: Cached['receiver']; form: string; light: string | null; matches: boolean
+  beam: Cached['light']; toneKey: string | null; receiver: Cached['receiver']; lit: LayerDesc; form: string; light: string | null; matches: boolean
 }>()
 
 /** Order already establishes plane membership. Match the visible receiver and the cached canopy's paint generation. */
@@ -15,11 +15,12 @@ export function canopyMatchesPlane(canopy: LayerOf<'canopy'>, cached: Cached, ca
   const { light, lightKey, desc } = plane
   const held = pairs.get(canopy)
   if (held?.beam === light && held.toneKey === cached.lightKey && held.receiver === cached.receiver
-    && held.form === desc.key && held.light === lightKey) return held.matches
+    && held.lit === cached.lightDesc && held.form === desc.key && held.light === lightKey) return held.matches
   const matchesReceiver = (receiver: Cached['receiver']) => receiver?.form === desc.key && receiver.light === lightKey
   const matches = matchesReceiver(cached.receiver)
+    || (cached.lightDesc.kind === 'canopy' && matchesReceiver(cached.lightDesc.receiver))
     || (cached.lightKey === (canopy.light?.key ?? '') + stripKey(canopy) && matchesReceiver(canopy.receiver))
-  pairs.set(canopy, { beam: light, toneKey: cached.lightKey, receiver: cached.receiver, form: desc.key, light: lightKey, matches })
+  pairs.set(canopy, { beam: light, toneKey: cached.lightKey, receiver: cached.receiver, lit: cached.lightDesc, form: desc.key, light: lightKey, matches })
   return matches
 }
 
