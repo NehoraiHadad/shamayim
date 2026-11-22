@@ -1,4 +1,4 @@
-import type { RGB } from '../../../world/types'
+import type { RGB } from '../../world/types'
 
 /** The cloud genera the field makes (`world/field/types.ts` `Genus`), as the painter draws them. */
 export type SpriteGenus = 'cu' | 'cg' | 'cb' | 'sc' | 'st' | 'ac' | 'as' | 'ns' | 'ci' | 'cs'
@@ -38,14 +38,9 @@ export interface CloudSprite {
   rains: boolean
   /** How much of the cell has formed (0–1): its alpha. */
   share: number
+  /** How far a mature Cb's top has spread into an anvil under the tropopause (0–1); none on a young tower. */
+  anvil?: number
   /** The axis of a cirrus streak on screen (rad, 0 = across), the direction the wind combs its fibres. */
   axis?: number
 }
 
-/** The sprite's box round its origin (px): what a painter may touch, so the cache sheet is sized from it. */
-export function spriteBox(s: CloudSprite): { x: number; y: number; w: number; h: number } {
-  const pad = Math.max(3, s.w * 0.08)
-  const reachUp = s.tall + Math.max(s.under, 2) * 0.4
-  const lean = Math.abs(s.lean) * Math.max(s.tall, 4) * 0.4
-  return { x: -s.w / 2 - pad - lean, y: -reachUp - pad, w: s.w + 2 * (pad + lean), h: reachUp + s.under + 2 * pad }
-}

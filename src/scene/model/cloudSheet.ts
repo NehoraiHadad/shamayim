@@ -13,15 +13,6 @@ import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
 
-export const sheetWeight = ({ lattice, form, cover }: FieldLayer) => {
-  if (lattice === 'tower' || !cover) return 0
-  if (lattice === 'low') return form.strat
-  // Broken Ac and Ci can still be rendered as fields before they merge to As or Cs.
-  return Math.max(form.sheet, form.veil, form.nimbostratus ?? 0, smoothstep(0.35, 0.55, cover))
-}
-
-export const sheetBlend = (layer: FieldLayer) => smoothstep(0.05, 0.5, sheetWeight(layer))
-
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
@@ -60,8 +51,7 @@ function shadeAmount(body: RGB, shade: RGB, limb: number) {
 export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours): LayerOf<'cloudSheet'> | null {
   const { layer, heightKm, densityGrid } = snapshot
   if (!layer || heightKm <= 0 || geom.horizon <= 0 || geom.width <= 0) return null
-  const mix = sheetBlend(layer)
-  if (!mix) return null
+  if (layer.lattice === 'tower' || !layer.cover) return null
   const genus = genusOf(layer.lattice, layer.form, 0.5)
   const key = JSON.stringify([geom.width, geom.horizon, geom.azimuthRange.period, geom.azimuthAt(0),
     geom.azimuthAt(geom.width), geom.domeAltitudeAt(geom.horizon / 2), colours])
@@ -94,7 +84,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const f = fade[row] = veil ? 1 : Math.max(handoff, smoothstep(radius, 2 * radius, footprint))
     const level = f === 1 ? 0 : sheetDetail(genus, footprint)
     const sample = level ? texture(footprint) : null
-    path[row] = mix
+    path[row] = 1
     slant[row] = sheetPathFactor(layer.baseKm, layer.meanVKm, alt, Infinity)
     const inner = Math.min(deckEnd, (previous + range) / 2)
     const outer = Math.min(deckEnd, (next + range) / 2)

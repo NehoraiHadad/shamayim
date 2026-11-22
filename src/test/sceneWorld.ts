@@ -59,9 +59,17 @@ export async function loadPlaces(places: readonly Place[] = SCENE_PLACES): Promi
   return out
 }
 
+/** The forecast for `now`'s day: a recorded real day (`fixtures/forecast-<place>-<day>.json`) when there is one. */
+function fixtureFor(now: LocalTime): unknown {
+  const dir = path.join(root, 'src/test/fixtures')
+  const real = fs.readdirSync(dir).find((f) => /^forecast-.+\.json$/.test(f) && f.endsWith(`-${now.slice(0, 10)}.json`)
+    && !f.startsWith('forecast-multi-'))
+  return real ? JSON.parse(fs.readFileSync(path.join(dir, real), 'utf8')) : layersFixture
+}
+
 export function worldInput(loaded: LoadedPlace, now: LocalTime, selected: LocalTime | null = null): WorldInput {
   const { place, terrain, landmarks, seatCandidates, cropAreas, city, far, waterMask, bounds, cover } = loaded
-  const base: Forecast = { ...mapForecast(layersFixture), placeId: place.id, air: null, nowcast: null, normals: null,
+  const base: Forecast = { ...mapForecast(fixtureFor(now)), placeId: place.id, air: null, nowcast: null, normals: null,
     fetchedAt: 0, source: 'fixture', models: [] }
   return { place, forecast: withVisibleSun(rollForward(base, now), terrain, place), now, selected, terrain, landmarks,
     seatCandidates, cropAreas, city, far, waterMask, bounds, cover }
