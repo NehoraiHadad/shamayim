@@ -1,9 +1,9 @@
 //# allFunctionsCalledOnLoad
-import { rainBankDescs } from './clouds'
+import { bandOf, rainBankDescs } from './clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
-import type { CloudBank, RainCell, WorldState } from '../../world/types'
+import type { CloudBank, CloudLevel, RainCell, WorldState } from '../../world/types'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
 import { coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
@@ -24,7 +24,7 @@ export { mistiness, mistLayers } from './mist'
  *   edge on the side the rain truly lies (the true-scene plan's edge mark);
  * - the ground's sheen after rain (`world.ground.wet`), the darkening being the planes' own (C2);
  * - mist and fog lying level in the low ground, the valleys first, from `world.air.mist` (`mist.ts`);
- * - dust in the wind (`air.dust`), wind streaks in a gale;
+ * - dust grains (`air.dustWeight`) and wind streaks in a gale;
  * - crepuscular rays from a low sun behind broken cloud;
  * - chimney smoke and cooling-tower steam from the marks that have them, carried by the wind.
  * Animation is laid at composite time (`anim.ts`): falling tiles moved as patterns, drifting tiles, strips of frames.
@@ -46,15 +46,17 @@ const lightPart = (key: string, tint: RGB) => ({ key, blend: 'source-over' as co
 /** A bank this high on the dome (deg) or higher rains round the eye (near rain); lower ones are far curtains. */
 export const NEAR_ALT = 30
 
-/** What falls, from which banks, how hard (0–1) and at what slant (rad, signed like the wind across). */
-export interface PrecipState { precip: Precip; cells: RainCell[]; strength: number; slant: number }
+/** What falls, from which banks, with its intensity and opacity as the rate eases in. */
+interface PrecipState { precip: Precip; cells: RainCell[]; strength: number; slant: number; opacity: number }
 
-export function precipOf(world: WorldState): PrecipState | null {
-  if (world.rain?.cells.length) {
-    return { precip: 'rain', cells: world.rain.cells, slant: world.rain.slant, strength: clamp01(0.15 + Math.sqrt(world.rain.rateMmH) / 2.6) }
+export function precipOf(world: WorldState, precip: Precip = world.rain?.cells.length ? 'rain' : 'snow'): PrecipState | null {
+  if (precip === 'rain' && world.rain?.cells.length) {
+    const { cells, slant, rateMmH } = world.rain
+    return { precip, cells, slant, strength: clamp01(0.15 + Math.sqrt(rateMmH) / 2.6), opacity: smoothstep(0, 0.2, rateMmH) }
   }
-  if (world.snowfall?.cells.length) {
-    return { precip: 'snow', cells: world.snowfall.cells, slant: world.snowfall.slant, strength: clamp01(0.2 + world.snowfall.amount) }
+  if (precip === 'snow' && world.snowfall?.cells.length) {
+    const { cells, slant, amount } = world.snowfall
+    return { precip, cells, slant, strength: clamp01(0.2 + amount), opacity: smoothstep(0, 0.2, amount) }
   }
   return null
 }
@@ -65,15 +67,21 @@ interface Falling { drawn: BankDesc; bank: CloudBank }
 /** The banks that rain or snow, as their cloud layer draws them (C6), and that layer's drift. */
 function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
   const layer = world.clouds.find((l) => l.rains)
-  const drawn = clouds.find((l) => l.level === layer?.level)
-  if (!layer || !drawn) return null
+  if (!layer) return null
   if (p.precip === 'rain') {
-    return { banks: rainBankDescs(world, box, geom, layer), level: layer.level, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
+    // Under a full sheet no clouds layer is left at the level: the band still sets the z and the drift.
+    const band = (level: CloudLevel) => bandOf(clouds, world.clouds.find(cloud => cloud.level === level) ?? layer, geom)
+    const low = band('low'), mid = band('mid')
+    const weight = world.cloudField?.field.rain?.midWeight ?? Number(layer.level === 'mid')
+    const mix = (a: number, b: number) => a + (b - a) * weight
+    return { banks: rainBankDescs(world, box, geom, layer), z: mix(low.z, mid.z), speed: mix(low.speed, mid.speed) }
   }
+  const drawn = clouds.find((l) => l.level === layer.level)
+  if (!drawn) return null
   const byId = new Map(layer.banks.map((b) => [`${layer.level}:${b.id}`, b]))
   const cells = new Set(p.cells.map((c) => `${layer.level}:${c.bank}`))
   const banks: Falling[] = drawn.banks.filter((b) => cells.has(b.id) && byId.has(b.id)).map((b) => ({ drawn: b, bank: byId.get(b.id)! }))
-  return { banks, level: layer.level, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
+  return { banks, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
 }
 
 /** The copy of a band x (every `period`) nearest `ref`. */
@@ -94,7 +102,7 @@ function shaftOf(world: WorldState, geom: SkyGeom, f: Falling, p: PrecipState, h
   const far = world.air.fade(f.bank.distanceKm)
   const rgb = p.precip === 'rain' ? mixRgb(mixRgb(b.shade, b.body, 0.3), horizonSky, 0.25 + 0.5 * far)
     : mixRgb(mixRgb(b.body, WHITE, 0.25 * (1 - world.night.dark)), horizonSky, 0.3 + 0.5 * far)
-  const alpha = (p.precip === 'rain' ? 0.3 + 0.38 * p.strength : 0.22 + 0.3 * p.strength) * (1 - 0.65 * far) * b.alpha
+  const alpha = (p.precip === 'rain' ? 0.3 + 0.38 * p.strength : 0.22 + 0.3 * p.strength) * (1 - 0.65 * far) * b.alpha * p.opacity
   return { id: b.id, x: b.x, top, bottom, w: b.w * 0.62, lean, rgb, alpha, seed: b.seed }
 }
 
@@ -122,8 +130,15 @@ const column = (x: number, top: number, bottom: number, w: number, lean: number)
  */
 export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom = skyGeom(world, box)):
   LayerDesc[] {
-  const p = precipOf(world)
-  if (!p) return []
+  return (['rain', 'snow'] as const).flatMap((phase) => {
+    const p = precipOf(world, phase)
+    return p ? precipLayersFor(world, box, clouds, geom, p) : []
+  })
+}
+
+function precipLayersFor(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom, p: PrecipState):
+  LayerDesc[] {
+  const id = (base: string) => p.precip === 'snow' ? base + '.snow' : base
   const found = fallingBanks(world, box, geom, clouds, p)
   if (!found || !found.banks.length) return []
   const { banks, z, speed } = found
@@ -138,7 +153,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
   const seen = banks.filter((f) => inView(geom, box, f.drawn))
   if (!seen.length) {
     const edge = edgeMark(world, box, geom, banks, p, horizonSky)
-    return edge ? [edge] : []
+    return edge ? [{ ...edge, id: id(edge.id) }] : []
   }
 
   // Far curtains, under the banks low on the dome, on the band (they drift with their layer).
@@ -147,7 +162,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
     const shafts = far.map((f) => shaftOf(world, geom, f, p, horizonSky))
     const top = Math.max(0, Math.floor(Math.min(...shafts.map((s) => s.top)) - 2))
     const bottom = Math.min(box.skyHeight, Math.ceil(geom.horizon + 4))
-    out.push({ kind: 'shafts', id: 'shafts', surface: 'sky', z: z - 0.5, soft: true, precip: p.precip, shafts, period: geom.period,
+    out.push({ kind: 'shafts', id: id('shafts'), surface: 'sky', z: z - 0.5, soft: true, precip: p.precip, shafts, period: geom.period,
       bounds: { x: 0, y: top, w: geom.period, h: Math.max(1, bottom - top) },
       animated: 'speed' in drift ? { mode: 'drift', ...drift } : undefined,
       key: layerKey('shafts', p.precip, skyBoxKey(box, true), geom.period, slantKey,
@@ -156,7 +171,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
     const tw = whole(40, box.dpr), th = whole(56, box.dpr)
     const rgb = p.precip === 'rain' ? mixRgb(horizonSky, WHITE, 0.25 * (1 - dark)) : mixRgb(horizonSky, WHITE, 0.6 * (1 - 0.6 * dark))
     const fallV = p.precip === 'rain' ? 80 + 60 * p.strength : 10 + 6 * p.strength
-    out.push({ kind: 'fall', id: 'fall.far', surface: 'sky', z: z - 0.4, precip: p.precip, slant: tilt, rgb,
+    out.push({ kind: 'fall', id: id('fall.far'), surface: 'sky', z: z - 0.4, precip: p.precip, slant: tilt, rgb,
       marks: tileMarks(`${world.place.id}:fall.far:${p.precip}`, p, tw, th, false), bounds: { x: 0, y: 0, w: tw, h: th },
       animated: { mode: 'fall', ...drift, fall: { vx: fallV * tilt, vy: fallV,
         areas: shafts.flatMap((s) => [column(s.x, s.top + 4, s.bottom, s.w * 0.8, s.lean), column(s.x, s.top + 10, s.bottom, s.w * 0.45, s.lean)]),
@@ -172,7 +187,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
     const rgb = p.precip === 'rain' ? mixRgb(sky(20), WHITE, 0.45 * (1 - dark)) : mixRgb(sky(20), WHITE, 0.85 * (1 - 0.7 * dark))
     const fallV = p.precip === 'rain' ? 420 + 260 * p.strength : 30 + 16 * p.strength
     const marks = tileMarks(`${world.place.id}:fall.near:${p.precip}`, p, tw, th, true)
-    const alphaOf = (s: number) => (p.precip === 'rain' ? 0.16 + 0.34 * p.strength : 0.4 + 0.45 * p.strength) * s
+    const alphaOf = (s: number) => (p.precip === 'rain' ? 0.16 + 0.34 * p.strength : 0.4 + 0.45 * p.strength) * s * p.opacity
     const bottom = box.skyHeight + box.landHeight
     // Nested columns, each with its own marks (the compositor offsets the pattern per area): the rain thickens toward the
     // bank's middle and thins out to its edges and its top, with no line where it stops.
@@ -180,7 +195,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
       const top = f.drawn.y - f.drawn.h * 0.2
       const lean = tilt * (bottom - top) * 0.35
       return [[1.3, 0, 0.5], [1, 10, 0.55], [0.7, 22, 0.6], [0.42, 36, 0.6]].map(([k, dy, a]) =>
-        ({ x: f.drawn.x, top: top + dy, w: f.drawn.w * k, lean, a }))
+        ({ x: f.drawn.x, top: top + dy, w: f.drawn.w * k, lean, a: a * (f.bank.share ?? 1) }))
     })
     const fall = (surface: 'sky' | 'land') => {
       const dy = surface === 'land' ? box.landTop : 0
@@ -190,8 +205,8 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
     }
     const common = { kind: 'fall' as const, precip: p.precip, slant: tilt, rgb, marks, bounds: { x: 0, y: 0, w: tw, h: th } }
     const key = (id: string) => layerKey(id, p.precip, tw, th, slantKey, q(p.strength, 0.05), tone(rgb), box.dpr)
-    out.push({ ...common, id: 'fall.near', surface: 'sky', z: 11, animated: { mode: 'fall', ...drift, fall: fall('sky') }, key: key('fall.near') })
-    out.push({ ...common, id: 'fall.land', surface: 'land', z: 60, animated: { mode: 'fall', ...drift, fall: fall('land') }, key: key('fall.land') })
+    out.push({ ...common, id: id('fall.near'), surface: 'sky', z: 11, animated: { mode: 'fall', ...drift, fall: fall('sky') }, key: key('fall.near') })
+    out.push({ ...common, id: id('fall.land'), surface: 'land', z: 60, animated: { mode: 'fall', ...drift, fall: fall('land') }, key: key('fall.land') })
   }
   return out
 }
@@ -229,7 +244,7 @@ function edgeMark(world: WorldState, box: SceneBox, geom: SkyGeom, banks: readon
   const x1 = Math.min(geom.width, Math.ceil(side === 'left' ? x + w + pad : x + 2))
   const top = Math.max(0, Math.floor(y - h * 1.6))
   const bottom = Math.min(box.skyHeight, Math.ceil(geom.horizon + 3))
-  const alpha = 0.85 + 0.15 * p.strength
+  const alpha = (0.85 + 0.15 * p.strength) * p.opacity * (nearestBank.f.bank.share ?? 1)
   return { kind: 'edge', id: 'edge', surface: 'sky', z: 8.5, soft: true, precip: p.precip, side, x, y, w, h,
     body, shade, curtain, alpha, lean, seed: b.seed,
     bounds: { x: x0, y: top, w: Math.max(1, x1 - x0), h: Math.max(1, bottom - top) },
@@ -248,36 +263,45 @@ function crestAt(points: readonly Pt[], x: number): number {
 }
 
 /**
- * Dust in the wind (air.dust) or, without dust, the streaks of a gale (≥ 10 m/s): a tile of fine streaks along the wind,
- * drifting fast with it; dust over the land and the low sky, wind streaks in the sky only.
+ * Dust drifts over the land and the low sky. In a gale (≥ 10 m/s) the sky's wind streaks fade as the dust fades in.
+ * Each tile keeps its pattern and drift as its opacity changes.
  */
 export function grainLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'grains'>[] {
-  const dust = world.air.dust
-  const gale = !dust && world.wind.ms >= 10
-  if (!dust && !gale) return []
+  const dustWeight = world.air.dustWeight
+  const galeWeight = world.wind.ms >= 10 ? 1 - dustWeight : 0
+  if (dustWeight === 0 && galeWeight === 0) return []
   const across = world.wind.across
   const dir = Math.abs(across) > 0.05 ? Math.sign(across) : 1
   const sx = box.width / SCENE_W
-  const speed = dir * (dust ? 6 + 4 * world.wind.ms : 25 + 6 * world.wind.ms) * sx
-  const period = whole(dust ? 120 : 260, box.dpr)
   const dark = world.night.dark
-  const rgb = dust ? mixRgb(hazeOf(world), [0.85, 0.72, 0.5], 0.35 * (1 - dark)) : mixRgb(skyAt(world, box)(10), WHITE, 0.5 * (1 - dark))
-  const mark = (id: string, h: number, n: number): FallMark[] => {
-    const r = seeded(hashId(`${world.place.id}:${id}`))
-    return Array.from({ length: n }, () => ({ x: r() * period, y: r() * h, len: dust ? 1 + 3 * r() : 18 + 40 * r(), r: dust ? 0.4 + 0.5 * r() : 0.5,
-      alpha: (dust ? 0.12 + 0.18 * r() : 0.04 + 0.07 * r()) * (1 - 0.6 * dark) }))
-  }
   const out: LayerOf<'grains'>[] = []
-  const skyTop = Math.max(0, Math.floor(geom.horizon - (dust ? 110 : 200)))
-  const skyH = Math.max(1, Math.ceil(gale ? geom.horizon - 10 - skyTop : box.skyHeight - skyTop))
-  out.push({ kind: 'grains', id: 'grains.sky', surface: 'sky', z: 10.5, soft: true, rgb, marks: mark('grains.sky', skyH, dust ? 70 : 12),
-    bounds: { x: 0, y: skyTop, w: period, h: skyH }, animated: { mode: 'drift', speed, period },
-    key: layerKey('grains.sky', dust, skyBoxKey(box, true), period, skyTop, skyH, tone(rgb), q(dark, 0.05)) })
-  if (dust) {
-    out.push({ kind: 'grains', id: 'grains.land', surface: 'land', z: 50, soft: true, rgb, marks: mark('grains.land', box.landHeight, 60),
-      bounds: { x: 0, y: 0, w: period, h: box.landHeight }, animated: { mode: 'drift', speed: speed * 1.4, period },
-      key: layerKey('grains.land', landBoxKey(box, true), period, tone(rgb), q(dark, 0.05)) })
+  const add = (dust: boolean, weight: number) => {
+    if (weight === 0) return
+    const speed = dir * (dust ? 6 + 4 * world.wind.ms : 25 + 6 * world.wind.ms) * sx
+    const period = whole(dust ? 120 : 260, box.dpr)
+    const opacity = weight * (1 - 0.6 * dark)
+    const rgb = dust ? mixRgb(hazeOf(world), [0.85, 0.72, 0.5], 0.35 * (1 - dark))
+      : mixRgb(skyAt(world, box)(10), WHITE, 0.5 * (1 - dark))
+    const marks = (id: string, h: number, n: number): FallMark[] => {
+      const r = seeded(hashId(`${world.place.id}:${id}`))
+      return Array.from({ length: n }, () => ({ x: r() * period, y: r() * h, len: dust ? 1 + 3 * r() : 18 + 40 * r(), r: dust ? 0.4 + 0.5 * r() : 0.5,
+        alpha: (dust ? 0.12 + 0.18 * r() : 0.04 + 0.07 * r()) * opacity }))
+    }
+    const id = dust ? 'grains.sky' : 'grains.gale'
+    const skyTop = Math.max(0, Math.floor(geom.horizon - (dust ? 110 : 200)))
+    const skyH = Math.max(1, Math.ceil((dust ? box.skyHeight : geom.horizon - 10) - skyTop))
+    const toneKey = [tone(rgb), Math.round(opacity * 255)]
+    out.push({ kind: 'grains', id, surface: 'sky', z: 10.5, soft: true, rgb, marks: marks('grains.sky', skyH, dust ? 70 : 12),
+      bounds: { x: 0, y: skyTop, w: period, h: skyH }, animated: { mode: 'drift', speed, period },
+      key: layerKey(id, skyBoxKey(box, true), period, skyTop, skyH, toneKey) })
+    if (dust) {
+      out.push({ kind: 'grains', id: 'grains.land', surface: 'land', z: 50, soft: true, rgb, marks: marks('grains.land', box.landHeight, 60),
+        bounds: { x: 0, y: 0, w: period, h: box.landHeight }, animated: { mode: 'drift', speed: speed * 1.4, period },
+        key: layerKey('grains.land', landBoxKey(box, true), period, toneKey) })
+    }
   }
+  add(false, galeWeight)
+  add(true, dustWeight)
   return out
 }
 

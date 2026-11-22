@@ -134,13 +134,16 @@ describe.each(SCENE_PLACES)('sky: $id', ({ id }) => {
     const model = sceneModel(w, BOX)
     const flashes = ofKind(model, 'flash')
     expect(flashes.length).toBeGreaterThan(0)
-    const raining = ofKind(model, 'clouds').find((l) => l.level === w.clouds.find((c) => c.rains)!.level)!
-    const cells = new Set(w.rain!.cells.map((c) => `${raining.level}:${c.bank}`))
+    const layer = w.clouds.find((c) => c.rains)!
+    // Under a full sheet no clouds layer is left at that level: the flash then drifts by the layer's own drift.
+    const drawn = ofKind(model, 'clouds').find((l) => l.level === layer.level)
+    const geom = skyGeom(w, BOX)
+    const cells = new Set(w.rain!.cells.map((c) => `${layer.level}:${c.bank}`))
     for (const flash of flashes) {
       expect(cells.has(flash.bank.id)).toBe(true)
       // It drifts with its layer.
-      expect(flash.animated!.speed).toBe(raining.animated!.speed)
-      expect(flash.animated!.period).toBe(raining.period)
+      expect(flash.animated!.speed).toBe(drawn?.animated?.speed ?? layer.drift * geom.s)
+      expect(flash.animated!.period).toBe(geom.period)
       expect(flash.animated!.pulse).toBeTruthy()
     }
   })

@@ -3,6 +3,7 @@ import { cloudFieldAt } from './cloudField'
 import { rainAreaShare, rainFrom } from './rain'
 import type { Wind } from './types'
 import type { AirInput } from '../atmo/airTypes'
+import { fieldWeather } from '../atmo/fieldWeather'
 
 it('ranks seeded shafts by cumulative cloud area and checks the eye against actual footprints', () => {
   const shown = { temperature: 17, humidity: 85, weatherCode: 95 } as AirInput
@@ -10,7 +11,8 @@ it('ranks seeded shafts by cumulative cloud area and checks the eye against actu
   const rate = 4
   const cloud = cloudFieldAt([], 'rain-test', 0)('2026-11-17T12:00', { low: 0.6, mid: 0, high: 0 }, shown, 30,
     { speedKmh: 0, fromDeg: 0 }, { level: 'low', rate })
-  const rain = rainFrom(cloud, rate, wind, 95, false, shown.humidity, -0.002)!
+  const physics = fieldWeather(shown.weatherCode, rate, shown.humidity)
+  const rain = rainFrom(cloud, rate, wind, physics, 1, -0.002)!
   const candidates = cloud.snapshot.filter(s => s.layer?.lattice === 'tower' || s.layer?.lattice === 'low').flatMap(s => s.cells).filter(cell => cell.rainWeight > 0)
   const cellById = new Map(candidates.map(cell => [String(cell.id), cell]))
   let activeArea = 0
@@ -29,7 +31,7 @@ it('ranks seeded shafts by cumulative cloud area and checks the eye against actu
     activeArea += cloud.r ** 2 * shaft.share
   }
   const totalArea = candidates.reduce((sum, cell) => sum + cell.r ** 2, 0)
-  expect(activeArea / totalArea).toBeCloseTo(rainAreaShare(95, rate), 6)
+  expect(activeArea / totalArea).toBeCloseTo(rainAreaShare(physics.steadyRain, rate), 6)
   expect(rain.near).toBe(false)
   expect(rain.cells.every(shaft => !shaft.atEye)).toBe(true)
 })

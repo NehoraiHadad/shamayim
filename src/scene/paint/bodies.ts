@@ -70,12 +70,10 @@ function paintMoon(ctx: Ctx2D, d: MoonDisc) {
   ctx.save()
   ctx.translate(d.x, d.y)
   ctx.globalAlpha = d.alpha
-  if (d.earthshine > 0) {
-    ctx.fillStyle = css(d.rgb, d.earthshine)
-    ctx.beginPath()
-    ctx.arc(0, 0, r, 0, Math.PI * 2)
-    ctx.fill()
-  }
+  ctx.fillStyle = css(d.rgb, d.earthshine)
+  ctx.beginPath()
+  ctx.arc(0, 0, r, 0, Math.PI * 2)
+  ctx.fill()
   if (d.ring) {
     ctx.strokeStyle = css(d.rgb, 0.18)
     ctx.lineWidth = 1

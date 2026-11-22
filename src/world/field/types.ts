@@ -1,5 +1,6 @@
 import type { HourPoint, LocalTime } from '../../domain/types'
 import type { Covers } from '../clouds'
+import type { FieldWeather } from '../../atmo/fieldWeather'
 
 /** Independent air frames in the field. */
 export type Lattice = 'low' | 'tower' | 'mid' | 'high'
@@ -67,6 +68,9 @@ export interface CloudField {
   rain?: FieldInput['rain']
 }
 
+export type FieldRain = { level: 'low' | 'mid' | 'high'; rate: number; midWeight?: number }
+export type FieldMotion = (index: number, minute: number) => Pick<FieldLayer, 'd' | 'vel'>
+
 /** Weather and observer inputs for one field snapshot. */
 export interface FieldInput {
   placeId: string
@@ -75,9 +79,11 @@ export interface FieldInput {
   covers: Covers
   lowBaseKm: number
   elevationKm: number
-  weatherCode: number
+  weatherCode?: number
   weatherForced?: boolean
-  rain?: { level: 'low' | 'mid' | 'high'; rate: number }
+  weather?: FieldWeather
+  rain?: FieldRain
+  motion?: FieldMotion
   /** Solar altitude in degrees. */
   sunAltitude: number
   wind10: { speedKmh: number; fromDeg: number }

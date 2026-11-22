@@ -12,8 +12,8 @@ export function nowIn(timezone: string, at = new Date()): LocalTime {
 }
 
 /**
- * When a cached forecast is older than an hour, its `current` block is outdated.
- * Re-derive "now" from the hourly row for the present hour instead.
+ * When the displayed hour changes, derive the current card from that hour's row.
+ * Keep the complete reading at its original time for the world timeline.
  */
 export function rollForward(forecast: Forecast, now: LocalTime): Forecast {
   const hourKey = `${now.slice(0, 13)}:00`
@@ -24,6 +24,7 @@ export function rollForward(forecast: Forecast, now: LocalTime): Forecast {
   const isDay = today ? now >= today.sunrise && now < today.sunset : forecast.current.isDay
   return {
     ...forecast,
+    observation: forecast.observation ?? forecast.current,
     current: {
       ...forecast.current,
       time: now,

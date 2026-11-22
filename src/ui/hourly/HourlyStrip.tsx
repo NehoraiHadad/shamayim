@@ -47,7 +47,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
     const next = keyStep(e.key, at, 0, hours.length - 1)
     if (next === null) return
     e.preventDefault()
-    onSelect(hours[next].time)
+    onSelect(hours[next].isNow ? null : hours[next].time)
     e.currentTarget.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
   }
 
@@ -120,7 +120,7 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
                       data-index={i}
                       tabIndex={i === focusIndex ? 0 : -1}
                       aria-pressed={picked}
-                      onClick={() => onSelect(picked ? null : h.time)}
+                      onClick={() => onSelect(h.isNow || picked ? null : h.time)}
                     >
                       {content}
                     </button>

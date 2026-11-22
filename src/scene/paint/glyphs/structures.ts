@@ -43,11 +43,11 @@ export function lighthouse(k: Kit, h: number) {
   k.fill(rect(-3.5, -body - 1, 4, 1), t.wall)
   k.fill(rect(-3.5, -body - 1, 1, 1), k.litL)
   k.rim(-3.5, -body - 1, 4)
-  const lit = k.night > 0.3
-  k.fill(rect(-2.6, -body - 2.8, 2.2, 1.8), lit ? mix(t.wall, t.win, 0.95) : t.deep, 0.9)
+  const lit = k.nightFade(0.2, 0.4)
+  k.fill(rect(-2.6, -body - 2.8, 2.2, 1.8), mix(t.deep, mix(t.wall, t.win, 0.95), lit), 0.9)
   k.round((c) => { c.beginPath(); c.moveTo(-2.8, -body - 2.8); c.arc(-1.5, -body - 2.8, 1.3, Math.PI, 0); c.closePath() }, -2.8, -0.2, 0.5)
   k.fill(rect(-1.75, -h, 0.5, 1.2), t.wall)
-  if (lit) k.lamp(-1.5, -body - 1.9, 4, t.win, 0.55 * k.night)
+  k.lamp(-1.5, -body - 1.9, 4, t.win, 0.55 * k.night, lit)
 }
 
 /**

@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { mistOf, nightMinimum, NO_MIST, type MistInput } from './mist'
+import { blockingCloudCover, mistOf, nightMinimum, NO_MIST, type MistInput } from './mist'
 
 const BASE: MistInput = {
   humidity: 55,
+  humidityWeight: 1,
   visibilityKm: 30,
-  visibilitySource: 'current',
-  weatherCode: 0,
-  dust: false,
+  visibilityWeight: 1,
+  fogCodeWeight: 0,
+  dustWeight: 0,
   rainRateMmH: 0,
   lowCloudPct: 0,
-  midCloudPct: 0,
+  blockingCloudPct: 0,
   windMs: 1,
   sunAltitude: 45,
   sunRising: true,
@@ -17,7 +18,11 @@ const BASE: MistInput = {
   nightMinTemp: 16,
 }
 
-const mist = (over: Partial<MistInput>) => mistOf({ ...BASE, ...over })
+function mist({ midCloudPct = 0, ...over }: Partial<MistInput> & { midCloudPct?: number }) {
+  const shown = { ...BASE, ...over }
+  return mistOf({ ...shown, humidityWeight: Number(shown.humidity != null),
+    blockingCloudPct: blockingCloudCover(shown.lowCloudPct, midCloudPct, 0) })
+}
 
 describe('mistOf: radiation fog, burn-off and diurnal asymmetry', () => {
   it('forms on a calm clear damp night and burns off as morning sun climbs and air warms', () => {
@@ -87,14 +92,14 @@ describe('mistOf: radiation fog, burn-off and diurnal asymmetry', () => {
 
 describe('mistOf: persistent fog, droplets, rain, marine and exclusions', () => {
   it('persists on damp low visibility, fog codes 45/48 without visibility, damp rain, or raw low marine stratus', () => {
-    expect(mist({ visibilityKm: 2, visibilitySource: 'hour', humidity: 90 }).persistent).toBeGreaterThan(0.6)
-    expect(mist({ visibilityKm: 2, visibilitySource: 'hour', humidity: null }).persistent).toBeGreaterThan(0.6)
+    expect(mist({ visibilityKm: 2, humidity: 90 }).persistent).toBeGreaterThan(0.6)
+    expect(mist({ visibilityKm: 2, humidity: null }).persistent).toBeGreaterThan(0.6)
     // Dry reported low visibility lacks water droplets.
-    expect(mist({ visibilityKm: 1.5, visibilitySource: 'hour', humidity: 50 })).toEqual(NO_MIST)
+    expect(mist({ visibilityKm: 1.5, humidity: 50 })).toEqual(NO_MIST)
     // Fog weather codes 45/48 count as data fog (~0.8) when visibility is absent.
-    expect(mist({ weatherCode: 45, visibilitySource: 'humidity', humidity: 92 }).persistent).toBeCloseTo(0.8, 4)
-    expect(mist({ weatherCode: 48, visibilitySource: 'default', humidity: null }).persistent).toBeCloseTo(0.8, 4)
-    expect(mist({ weatherCode: 45, visibilitySource: 'humidity', humidity: 50 }).persistent).toBe(0)
+    expect(mist({ fogCodeWeight: 1, visibilityWeight: 0, humidity: 92 }).persistent).toBeCloseTo(0.8, 4)
+    expect(mist({ fogCodeWeight: 1, visibilityWeight: 0, humidity: null }).persistent).toBeCloseTo(0.8, 4)
+    expect(mist({ fogCodeWeight: 1, visibilityWeight: 0, humidity: 50 }).persistent).toBe(0)
     // Rain needs damp surface air (no 0.45 floor in dry air).
     expect(mist({ rainRateMmH: 3, humidity: 90 }).persistent).toBeGreaterThan(0.8)
     expect(mist({ rainRateMmH: 3, humidity: 65 }).persistent).toBe(0)
@@ -105,9 +110,9 @@ describe('mistOf: persistent fog, droplets, rain, marine and exclusions', () => 
 
   it('gives zero mist on dry noon, in dust, or from humidity visibility alone', () => {
     expect(mist({ humidity: 55, visibilityKm: 30 })).toEqual(NO_MIST)
-    expect(mist({ dust: true, visibilityKm: 1.5, visibilitySource: 'forced', humidity: 99, rainRateMmH: 4, lowCloudPct: 100, sunAltitude: -10 }))
+    expect(mist({ dustWeight: 1, visibilityKm: 1.5, humidity: 99, rainRateMmH: 4, lowCloudPct: 100, sunAltitude: -10 }))
       .toEqual(NO_MIST)
-    expect(mist({ visibilityKm: 2, visibilitySource: 'humidity', humidity: 95 }).persistent).toBe(0)
+    expect(mist({ visibilityKm: 2, visibilityWeight: 0, humidity: 95 }).persistent).toBe(0)
   })
 })
 

@@ -1,7 +1,6 @@
-import { minutesBetweenLocal } from '../domain/minutes'
+import { addMinutes, minutesBetweenLocal } from '../domain/minutes'
 import type { HourPoint, LocalTime } from '../domain/types'
 import { smoothstep } from './ridgeLighting'
-import type { WorldSources } from './types'
 
 /**
  * Shallow mist and fog (0–1): separated into nocturnal radiation mist that forms in calm damp air and burns off after
@@ -22,22 +21,22 @@ export interface Mist {
 export interface MistInput {
   /** Relative humidity (%), null when unknown. */
   humidity: number | null
-  /** Reported horizontal visibility (km, before PM10 aerosol capping). */
+  /** Fraction of the weather blend supported by reported humidity. */
+  humidityWeight: number
+  /** Blended horizontal visibility (km, before PM10 aerosol capping). */
   visibilityKm: number
-  /** Where `visibilityKm` came from (`chooseVisibility`): only measured/forecast/forced visibility drives vis-based fog. */
-  visibilitySource: WorldSources['visibility']
-  /** WMO weather code (45/48 count as data fog when no visibility is reported). */
-  weatherCode: number
-  /** Dry mineral dust (`air.dust`): dust is never water mist. */
-  dust: boolean
+  /** Fraction supported by measured, forecast or forced visibility. */
+  visibilityWeight: number
+  /** Fraction reporting WMO fog (45/48) without a visibility reading. */
+  fogCodeWeight: number
+  /** Mineral dust share, from clear air (0) to full mist suppression (1). */
+  dustWeight: number
   /** Rain rate (mm/h), 0 when dry. */
   rainRateMmH: number
-  /** Raw low cloud cover (< 2 km, 0–100), null when unknown. */
-  lowCloudPct: number | null
-  /** Raw mid cloud cover (2–6 km, 0–100), null when unknown. */
-  midCloudPct: number | null
-  /** Thick/total cloud fallback (0–100) for longwave blocking when both raw low and mid layers are unknown. */
-  thickCloudPct?: number | null
+  /** Raw low cloud cover (< 2 km, 0–100), with zero evidence when unknown. */
+  lowCloudPct: number
+  /** Low+mid overlap (0–100), with thick/total cover as the fallback. */
+  blockingCloudPct: number
   /** Total cloud cover (0–100), the cap on the low+mid union; null when unknown. */
   totalCloudPct?: number | null
   /** 10 m wind speed (m/s). */
@@ -55,9 +54,14 @@ export interface MistInput {
 /** No mist: used in dry air, dust, or when mist context is omitted. */
 export const NO_MIST: Mist = { radiation: 0, fog: 0, persistent: 0, amount: 0 }
 
-/** Whether the visibility came from measured/forecast data rather than a humidity guess or clean-air default. */
-export const isDataVisibility = (source: WorldSources['visibility']): boolean =>
-  source === 'current' || source === 'hour' || source === 'forced'
+export const isFogCode = (code: number): boolean => code === 45 || code === 48
+
+/** Random overlap of the raw low and mid layers, as in Open-Meteo's thick-cover mapping. */
+export function blockingCloudCover(low: number | null | undefined, mid: number | null | undefined, fallback: number): number {
+  if (low == null && mid == null) return fallback
+  const clear = (cover: number | null | undefined) => 1 - Math.min(100, Math.max(0, cover ?? 0)) / 100
+  return 100 * (1 - clear(low) * clear(mid))
+}
 
 const WIND_CALM: readonly [number, number] = [3, 7]
 const SUN_BURN: readonly [number, number] = [2, 26]
@@ -82,12 +86,13 @@ function temperatureAt(hours: readonly Pick<HourPoint, 'time' | 'temperature'>[]
  * (9–12 h) is blended toward the temperature now before it leaves, so the minimum (and the burn-off it drives) moves
  * smoothly at any temperature swing: no step and no sudden rise when a cold sample expires.
  */
-export function nightMinimum(hours: readonly Pick<HourPoint, 'time' | 'temperature'>[], at: LocalTime): number | null {
-  const now = temperatureAt(hours, at)
+export function nightMinimum(hours: readonly Pick<HourPoint, 'time' | 'temperature'>[], at: LocalTime,
+  now = temperatureAt(hours, at)): number | null {
   let min = now ?? Infinity
+  const cutoff = addMinutes(at, -WINDOW_MINUTES)
   for (const h of hours) {
+    if (h.time < cutoff || h.time > at || !Number.isFinite(h.temperature)) continue
     const age = minutesBetweenLocal(h.time, at)
-    if (age < 0 || age > WINDOW_MINUTES || !Number.isFinite(h.temperature)) continue
     const keep = 1 - smoothstep(FADE_START_MINUTES, WINDOW_MINUTES, age)
     min = Math.min(min, now == null ? h.temperature : h.temperature * keep + now * (1 - keep))
   }
@@ -96,17 +101,18 @@ export function nightMinimum(hours: readonly Pick<HourPoint, 'time' | 'temperatu
 
 /**
  * Mist state (0–1) from the shown air, wind, raw low/mid cloud, sun altitude/side and 12 h minimum temperature.
- * Dust always yields zero mist.
+ * Full dust yields zero mist.
  */
 export function mistOf(input: MistInput): Mist {
-  if (input.dust) return NO_MIST
-  const dataVis = isDataVisibility(input.visibilitySource)
-  const rh = input.humidity
-  const droplet = rh == null ? 1 : smoothstep(70, 90, rh)
+  const clearShare = 1 - input.dustWeight
+  if (clearShare === 0) return NO_MIST
+  const rh = input.humidity ?? 0
+  const knownRh = input.humidityWeight
+  const droplet = 1 - knownRh * (1 - smoothstep(70, 90, rh))
 
   // Potential for shallow radiation mist: near-saturated screen air, or reported visibility down below 10 km with droplets.
-  const damp = rh == null ? 0 : smoothstep(84, 99, rh)
-  const visPotential = dataVis ? smoothstep(10, 1.5, input.visibilityKm) * droplet : 0
+  const damp = knownRh * smoothstep(84, 99, rh)
+  const visPotential = input.visibilityWeight * smoothstep(10, 1.5, input.visibilityKm) * droplet
   const potential = Math.max(damp, visPotential)
 
   // Radiation mist burns off on the morning side, stays 0 after solar noon while the sun is up, and reforms through civil
@@ -116,24 +122,19 @@ export function mistOf(input: MistInput): Mist {
     ? (input.sunAltitude <= 0 ? 1 : 1 - smoothstep(SUN_BURN[0], SUN_BURN[1], input.sunAltitude))
     : smoothstep(0, -6, input.sunAltitude)
   const warmBurn = input.nightMinTemp == null ? 1 : 1 - smoothstep(WARM_BURN[0], WARM_BURN[1], input.temperature - input.nightMinTemp)
-  const low = input.lowCloudPct == null ? null : Math.min(1, Math.max(0, input.lowCloudPct / 100))
-  const mid = input.midCloudPct == null ? null : Math.min(1, Math.max(0, input.midCloudPct / 100))
-  // Low and mid overlap at random (as `thickCloud` in openMeteo/mapHelpers.ts), never more than the whole sky's cover.
-  const union = low != null || mid != null ? 1 - (1 - (low ?? 0)) * (1 - (mid ?? 0))
-    : input.thickCloudPct != null ? input.thickCloudPct / 100 : 0
-  const lowMid = input.totalCloudPct == null ? union : Math.min(union, Math.max(0, input.totalCloudPct / 100))
+  const lowMid = Math.min(input.blockingCloudPct, Math.max(0, input.totalCloudPct ?? 100)) / 100
   const clearSky = 1 - 0.9 * smoothstep(0.4, 0.9, lowMid)
-  const radiation = potential * calm * sunFactor * warmBurn * clearSky
+  const radiation = potential * calm * sunFactor * warmBurn * clearSky * clearShare
 
   // Persistent mist: reported low visibility (or fog weather code 45/48 when visibility is absent), rain in damp air,
   // or a raw low-cloud marine stratus deck trapping moisture.
-  const visFog = dataVis ? smoothstep(6, 1.5, input.visibilityKm) * droplet : 0
-  const codeFog = !dataVis && (input.weatherCode === 45 || input.weatherCode === 48) ? 0.8 * droplet : 0
-  const fog = Math.max(visFog, codeFog)
-  const rainMist = rh == null ? 0 : smoothstep(0.2, 2, input.rainRateMmH) * smoothstep(75, 92, rh)
-  const marine = input.lowCloudPct == null || rh == null ? 0
-    : smoothstep(70, 95, input.lowCloudPct) * smoothstep(85, 97, rh)
-  const persistent = Math.max(fog, rainMist, marine)
+  const visFog = input.visibilityWeight * smoothstep(6, 1.5, input.visibilityKm)
+  const codeFog = input.fogCodeWeight * 0.8
+  const dataFog = (visFog + codeFog) * droplet
+  const rainMist = knownRh * smoothstep(0.2, 2, input.rainRateMmH) * smoothstep(75, 92, rh)
+  const marine = knownRh * smoothstep(70, 95, input.lowCloudPct) * smoothstep(85, 97, rh)
+  const fog = dataFog * clearShare
+  const persistent = Math.max(dataFog, rainMist, marine) * clearShare
 
   return { radiation, fog, persistent, amount: Math.max(radiation, persistent) }
 }

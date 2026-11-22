@@ -1,11 +1,10 @@
 import { airInput } from '../../atmo/airInput'
 import { rainingLayer, rainOf } from '../rain'
-import { hourBetween } from '../livingLight'
 import { expect, it } from 'vitest'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { mapForecast } from '../../data/openMeteo/mapForecast'
 import fixture from '../../test/fixtures/forecast-layers-2026-11-17.json'
-import { layerCovers, lowBaseM } from '../clouds'
+import { lowBaseM } from '../clouds'
 import { cellsAround } from './cells'
 import { wallMinutes } from './advect'
 import { LATTICES } from './lattice'
@@ -33,12 +32,12 @@ const input: FieldInput = {
 const start = wallMinutes(input.at)
 const timestamp = (minute: number) => new Date((start + minute) * 60_000).toISOString().slice(0, 16)
 
-function fixtureField(minute: number) {
+function fixtureField(minute: number, fixedCover = false) {
   const at = timestamp(minute)
   const shown = airInput(convectiveForecast, at, site, at)
-  const hour = hourBetween(hours, at)
-  const { covers } = layerCovers({ hour, cloudCover: shown.cloudCover, thickCloud: shown.thickCloud })
-  return buildField({ ...input, at, covers: rainingLayer(covers, rainOf(shown)).covers, weatherCode: shown.weatherCode,
+  const rate = Math.max(rainOf(shown), shown.snowCloudRate)
+  const { covers, level, midWeight } = rainingLayer(shown.covers, rate)
+  return buildField({ ...input, at, covers: fixedCover ? input.covers : covers, weather: shown.fieldWeather, rain: level ? { level, rate, midWeight } : undefined,
     sunAltitude: shown.sunElevation, lowBaseKm: lowBaseM(shown.temperature, shown.humidity) / 1000, wind10: {
       speedKmh: shown.windSpeed, fromDeg: shown.windDirection ?? 270,
     } })
@@ -56,8 +55,13 @@ it('advects and fades continuously through fixture hour boundaries and two midni
     minutes.add(midnight)
   }
   const codeEdges = [7, 13, 22].map(hour => 1440 + hour * 60 - 1)
+  const codeMinutes = new Set<number>()
   for (const edge of codeEdges) {
-    for (let minute = edge - 29; minute <= edge + 30; minute++) minutes.add(minute)
+    // The new weights move from one hourly endpoint to the next across the full preceding hour.
+    for (let minute = edge - 59; minute <= edge; minute++) {
+      minutes.add(minute)
+      codeMinutes.add(minute)
+    }
   }
   let occupiedTowerPairs = 0
   let matchedTowerCells = 0
@@ -86,12 +90,11 @@ it('advects and fades continuously through fixture hour boundaries and two midni
       const dy = (oldLayer.vel[1] + layer.vel[1]) / 2
       const current = cellsAround(after, layer.lattice, 0, 0, radius)
       if (layer.lattice === 'tower' && current.length && old.size) occupiedTowerPairs++
-      const codeEdge = layer.lattice === 'tower' && codeEdges.some(edge => minute >= edge - 29 && minute <= edge + 30)
+      const codeEdge = layer.lattice === 'tower' && codeMinutes.has(minute)
       const currentIds = codeEdge ? new Set(current.map(cell => cell.id)) : undefined
       if (currentIds) {
         for (const cell of old.values()) {
           if (currentIds.has(cell.id) || Math.hypot(cell.x + dx, cell.y + dy) > radius - 0.001) continue
-          codeEdgeShare = Math.max(codeEdgeShare, cell.share)
           stats.lostShare = Math.max(stats.lostShare, cell.share)
           stats.excess = Math.max(stats.excess, cell.share - bound)
         }
@@ -104,12 +107,10 @@ it('advects and fades continuously through fixture hour boundaries and two midni
           const y = cell.y - prev.y
           stats.moveKm = Math.max(stats.moveKm, Math.hypot(x - dx, y - dy), Math.hypot(x, y) - speed)
           const deltaShare = Math.abs(cell.share - prev.share)
-          if (codeEdge) codeEdgeShare = Math.max(codeEdgeShare, deltaShare)
           stats.share = Math.max(stats.share, deltaShare)
           stats.excess = Math.max(stats.excess, deltaShare - bound)
           if (deltaQ + weatherRank < 0.0015) stats.steadyShare = Math.max(stats.steadyShare, deltaShare)
         } else {
-          if (codeEdge) codeEdgeShare = Math.max(codeEdgeShare, cell.share)
           stats.newShare = Math.max(stats.newShare, cell.share)
           stats.excess = Math.max(stats.excess, cell.share - bound)
           // New cells obey the same weather-dependent bound from a previous share of zero.
@@ -118,12 +119,26 @@ it('advects and fades continuously through fixture hour boundaries and two midni
       }
     }
   }
+  // The code-edge threshold from Track D isolates the form change at fixed cover. The weather-dependent checks above
+  // also include the concurrent changes to the hourly and rain-raised cover.
+  for (const minute of codeMinutes) {
+    const before = fixtureField(minute, true), after = fixtureField(minute + 1, true)
+    const a = cellsAround(before, 'tower', 0, 0, 12)
+    const b = cellsAround(after, 'tower', 0, 0, 12)
+    for (const [inner, outer] of [[a, b], [b, a]]) {
+      const byId = new Map(outer.map(cell => [cell.id, cell.share]))
+      // One minute of steering travels at most 250 km/h ÷ 60. Compare cells that stay inside the sampled circle.
+      for (const cell of inner) if (Math.hypot(cell.x, cell.y) <= 12 - 250 / 60) {
+        codeEdgeShare = Math.max(codeEdgeShare, Math.abs(cell.share - (byId.get(cell.id) ?? 0)))
+      }
+    }
+  }
   expect(occupiedTowerPairs).toBeGreaterThan(0)
   expect(matchedTowerCells).toBeGreaterThan(0)
   expect(jumps).toHaveLength(codeEdges.length)
-  expect(codeEdgeShare).toBeLessThanOrEqual(0.15)
   console.info('tower continuity', { occupiedTowerPairs, matchedTowerCells, jumps, codeEdgeShare })
   console.info('continuity worst cases', JSON.stringify(worst))
+  expect(codeEdgeShare).toBeLessThanOrEqual(0.15)
   for (const stats of worst) {
     expect(stats.moveKm, stats.lattice).toBeLessThanOrEqual(0.001)
     expect(stats.excess, stats.lattice).toBeLessThanOrEqual(0)

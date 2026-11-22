@@ -1,3 +1,4 @@
+import { smoothstep } from '../../domain/smoothstep'
 import type { BankDesc, LayerOf, RGB, Veil } from '../model/types'
 import { rng } from './core'
 import { css, mix, type Ctx2D, type PaintEnv, type Scratch } from './hand'
@@ -183,9 +184,11 @@ function paintBank(ctx: Ctx2D, b: BankDesc, env: PaintEnv, sheets: Sheets) {
   c.fillStyle = css(b.body)
   c.fillRect(x0, y0, x1 - x0, y1 - y0)
   c.globalCompositeOperation = 'source-atop'
-  modelBank(c, b, puffs, x0, y0, x1, y1)
+  const litBank = { ...b, litA: b.litA * smoothstep(0, 0.02, b.litA),
+    silver: b.silver * smoothstep(0, 0.04, b.silver), under: b.under * smoothstep(0, 0.04, b.under) }
+  modelBank(c, litBank, puffs, x0, y0, x1, y1)
   c.globalCompositeOperation = 'source-over'
-  if ((b.litA > 0.01 || b.silver > 0.02) && b.toward) rimLight(c, sheet.canvas, sheets, b, w, h, k)
+  if (b.toward) rimLight(c, sheet.canvas, sheets, litBank, w, h, k)
   ctx.save()
   ctx.globalAlpha = b.alpha
   ctx.drawImage(sheet.canvas as CanvasImageSource, 0, 0, w, h, x0, y0, w / k, h / k)
@@ -214,27 +217,26 @@ function modelBank(c: Ctx2D, b: BankDesc, puffs: Puff[], x0: number, y0: number,
   // Each dome: a breath of its own shade on the far side, so the mass reads as heaped, not flat.
   if (heap) for (const p of puffs.slice(1)) wash(c, p, 1, p.x - tx * p.rx * 0.7, p.y - ty * p.ry * 0.7, p.rx * 0.9, b.shade, 0.22)
   // The light inside the mass: a breath on each dome's side toward it (the rim is laid after, `rimLight`).
-  if (heap && b.litA > 0.01 && b.toward) {
+  if (heap && b.toward) {
     for (const p of puffs) wash(c, p, 1, p.x + tx * p.rx * 0.6, p.y + ty * p.ry * 0.6, p.rx * 0.8, b.lit, 0.3 * b.litA)
   }
   // A low sun lights the bank from below: a warm wash along the base.
-  if (b.under > 0.02) {
-    const g = c.createLinearGradient(0, y1 - (y1 - y0) * 0.55, 0, y1)
-    g.addColorStop(0, css(b.lit, 0))
-    g.addColorStop(1, css(b.lit, Math.min(0.9, 0.8 * b.under)))
-    c.fillStyle = g
-    c.fillRect(x0, y0, x1 - x0, y1 - y0)
-  }
+  const baseLight = c.createLinearGradient(0, y1 - (y1 - y0) * 0.55, 0, y1)
+  baseLight.addColorStop(0, css(b.lit, 0))
+  baseLight.addColorStop(1, css(b.lit, Math.min(0.9, 0.8 * b.under)))
+  c.fillStyle = baseLight
+  c.fillRect(x0, y0, x1 - x0, y1 - y0)
   // Where it rains the base goes dark and heavy.
-  if (b.rains) {
+  const rainWeight = b.rainWeight ?? Number(b.rains)
+  if (rainWeight > 0) {
     const g = c.createLinearGradient(0, y0 + (y1 - y0) * 0.4, 0, y1)
     g.addColorStop(0, 'rgb(20 24 30 / 0)')
-    g.addColorStop(1, css(mix(b.shade, [0.1, 0.12, 0.16], 0.5), 0.6))
+    g.addColorStop(1, css(mix(b.shade, [0.1, 0.12, 0.16], 0.5), 0.6 * rainWeight))
     c.fillStyle = g
     c.fillRect(x0, y0, x1 - x0, y1 - y0)
   }
   // The silver lining: the thin edge of a bank by the sun, light scattered forward through it.
-  if (b.silver > 0.02 && b.toward) {
+  if (b.toward) {
     for (const p of puffs) wash(c, p, 1, p.x + tx * p.rx * 0.95, p.y + ty * p.ry * 0.95, p.rx * 0.45, mix(b.lit, [1, 1, 1], 0.5), Math.min(1, b.silver))
   }
 }
@@ -269,7 +271,7 @@ function rimLight(c: Ctx2D, mass: Scratch['canvas'], sheets: Sheets, b: BankDesc
 /** Cirrus: fine strands combed one way along the bank, tapering at both ends, lit toward the light. */
 function paintStreak(ctx: Ctx2D, b: BankDesc) {
   const r = rng(b.seed)
-  const tone = b.litA > 0.05 ? mix(b.body, b.lit, Math.min(0.85, b.litA)) : b.body
+  const tone = mix(b.body, b.lit, Math.min(0.85, b.litA) * smoothstep(0, 0.1, b.litA))
   const strands = 4 + 2 * Math.max(2, b.puffs)
   const slope = (r() - 0.5) * 0.12
   ctx.lineCap = 'round'

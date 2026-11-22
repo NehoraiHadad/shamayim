@@ -1,5 +1,6 @@
 //# allFunctionsCalledOnLoad
 import { azimuthAt, xOf } from '../../domain/camera'
+import { coinOf } from '../../world/air'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
@@ -134,9 +135,6 @@ export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ??
 /** How much the cloud in front veils a body (0 clear … 1 hidden): the share of its direct light the cloud takes. */
 export const veilOf = (world: WorldState) => 1 - world.light.clear
 
-/** Dust (`air.dust`) flattens the sun into a pale coin, as far as the haze goes (the SVG's `sunCoin`). */
-export const coinOf = (world: WorldState) => (world.air.dust ? world.air.farFade : 0)
-
 /**
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright
  * aureole), its colour the sun's after air mass and aerosol, weaker as the sun climbs and as the cloud in front takes its
@@ -147,8 +145,8 @@ export function skyGlows(world: WorldState, box: SceneBox, geom = skyGeom(world,
   const out: Glow[] = []
   const { sun, moon } = world.bodies
   const veil = veilOf(world)
-  const coin = coinOf(world)
-  const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
+  const coin = coinOf(world.air)
+  const aerosol = world.air
   if (sun.altitude > -1.5) {
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.2)
     const up = smoothstep(-1.5, 1, sun.altitude)

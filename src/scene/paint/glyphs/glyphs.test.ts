@@ -1,14 +1,18 @@
 import { afterAll, expect, it, vi } from 'vitest'
+import { smoothstep } from '../../../domain/smoothstep'
 import type { LocalTime } from '../../../domain/types'
 import { SCENE_PLACES } from '../../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../../test/sceneWorld'
 import { GLYPH_SPECS, type GlyphKind } from '../../../world/glyphSpecs'
 import { makeWorldBuilder } from '../../../world/world'
 import { sceneModel } from '../../model'
-import type { GlyphDesc, SceneBox, Shine } from '../../model/types'
-import { css, type Ctx2D } from '../hand'
+import type { GlyphDesc, LayerOf, SceneBox, Shine } from '../../model/types'
+import { paintStars } from '../bodies'
+import { css, type Ctx2D, type PaintEnv } from '../hand'
+import { paintAircraft } from '../life'
 import { tree } from '../marks'
-import { drawGlyph, glyphShadow } from '.'
+import { paintPlanets } from '../nightSky'
+import { drawGlyph, drawLamps, glyphShadow } from '.'
 
 const FORM = new Set(['save', 'restore', 'translate', 'scale', 'rotate', 'transform', 'beginPath', 'moveTo',
   'lineTo', 'bezierCurveTo', 'quadraticCurveTo', 'arc', 'ellipse', 'rect', 'closePath', 'clip', 'fill', 'stroke', 'fillRect', 'strokeRect'])
@@ -68,7 +72,7 @@ const shade = [0.18, 0.21, 0.25] as const
 const tones = { wall: evenTone, lit: litTone, shade, deep: shade, rim: litTone, refl: evenTone,
   roof: evenTone, roofLit: litTone, stone: evenTone, stoneLit: litTone, glass: evenTone, glassLit: litTone,
   soot: shade, green: evenTone, greenLit: litTone, panel: shade, gold: litTone, win: litTone, mist: evenTone }
-const shine: Shine = { night: 0.8, aviation: true, windows: 0.4, lean: 0, direct: 0.5,
+const shine: Shine = { night: 0.8, aviationStrength: 1, windows: 0.4, lean: 0, direct: 0.5,
   faces: { front: 0.2, top: 0.3, rim: 0.15, left: 0, right: 0, across: 0 }, cast: { dx: 0, alpha: 0, length: 0 } }
 
 it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with hand %i', (hand) => {
@@ -98,6 +102,85 @@ it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with h
     expect(steps.at(-1)!, kind).toBeLessThanOrEqual(3 * steps[20] + 1 / 255)
   }
 })
+
+it('fades every glyph lamp and flood with fixed geometry through dusk', () => {
+  const step = .005
+  // A width-.2 smoothstep has slope at most 7.5. An aviation core is at most .8 in its ramp
+  // and its base alpha can grow by .5 per night unit. CSS rounds alpha to .001 and RGB to bytes.
+  const alphaLimit = (.5 + .8 * 7.5) * step + .001
+  const colourLimit = 7.5 * step + 1 / 255
+  const withLamps: GlyphKind[] = ['minaret', 'waterTower', 'chimney', 'highrise', 'silo', 'mast', 'lighthouse',
+    'turbine', 'azrieli', 'babShrine', 'chordsBridge']
+  for (const kind of KINDS) {
+    const glyph: GlyphDesc = { kind, seed: 43, hand: 1, tones, x: 40, base: 60,
+      w: GLYPH_SPECS[kind].w, h: 20, scale: 1, famous: false, ground: [0, 1, 0] }
+    const at = (night: number) => {
+      const drawing = recording()
+      const lamps = drawGlyph(drawing.ctx, glyph, { ...shine, night, windows: 0, aviationStrength: smoothstep(.2, .4, night) })
+      const lampStart = drawing.channels.length
+      drawLamps(drawing.ctx, lamps, .5)
+      return { ...drawing, lampAlpha: drawing.channels.slice(lampStart).filter((_, i) => i % 4 === 3) }
+    }
+    let previous = at(0)
+    const fixed = JSON.stringify(previous.form)
+    expect(previous.lampAlpha, kind).toHaveLength(withLamps.includes(kind) ? 4 : 0)
+    expect(previous.lampAlpha.every((alpha) => alpha === 0), kind).toBe(true)
+    for (let i = 1; i <= 200; i++) {
+      const frame = at(i * step)
+      expect(JSON.stringify(frame.form), kind).toBe(fixed)
+      expect(frame.channels, kind).toHaveLength(previous.channels.length)
+      for (let j = 0; j < frame.channels.length; j++) {
+        const change = Math.abs(frame.channels[j] - previous.channels[j])
+        if (change > (j % 4 === 3 ? alphaLimit : colourLimit)) {
+          expect.fail(`${kind} paint channel ${j} changed by ${change} at night ${i * step}`)
+        }
+      }
+      previous = frame
+    }
+    if (withLamps.includes(kind)) expect(previous.lampAlpha.at(-1), kind).toBeGreaterThan(0)
+  }
+})
+
+it('fades aircraft lights and planet halos without changing their geometry', () => {
+  const base = { id: 'dusk', surface: 'sky', z: 1, key: 'dusk', bounds: { x: 0, y: 0, w: 100, h: 100 } } as const
+  const aircraft: LayerOf<'aircraft'> = { ...base, kind: 'aircraft', x: 40, y: 40, size: 3, angle: 0,
+    lights: 0, landing: true, trail: 0, rgb: evenTone, lit: litTone, trailRgb: litTone, seed: 0 }
+  for (const phase of [0, .5]) { // Both flashed lights, plus the steady navigation and landing lights.
+    const env: PaintEnv = { phase, scale: 1, hand: { grain: 0 }, canvas: () => { throw new Error('Unexpected scratch canvas') } }
+    const at = (night: number) => {
+      const draw = recording()
+      paintAircraft(draw.ctx, { ...aircraft, lights: night }, env)
+      paintPlanets(draw.ctx, { ...base, kind: 'planets',
+        planets: [{ name: 'venus', x: 20, y: 20, r: 1, rgb: litTone, alpha: night, glow: night }] }, env)
+      return draw
+    }
+    let previous = at(0)
+    const fixed = JSON.stringify(previous.form)
+    for (let i = 1; i <= 200; i++) {
+      const frame = at(i / 200)
+      expect(JSON.stringify(frame.form)).toBe(fixed)
+      // The steepest change is the aircraft body. Its .1-wide ramp has slope at most 15,
+      // its base alpha is at most .28 during that ramp and changes by .8 per night unit.
+      expect(distance(frame.channels, previous.channels)).toBeLessThanOrEqual((.8 + .28 * 15) / 200 + .001)
+      previous = frame
+    }
+  }
+})
+
+it.each([[0.4, false], [0.5, false], [0.501, true], [0.55, true], [0.6, true]] as const)(
+  'keeps the star halo appearance at full-night alpha %f',
+  (alpha, halo) => {
+    const draw = recording()
+    const env: PaintEnv = { phase: 0, scale: 1, hand: { grain: 0 }, canvas: () => { throw new Error('Unexpected scratch canvas') } }
+    paintStars(draw.ctx, { id: 'stars', kind: 'stars', z: 2, key: 'stars', surface: 'sky',
+      bounds: { x: 0, y: 0, w: 100, h: 100 }, through: 1, stars: [{ x: 30, y: 30, r: 1, alpha }] }, env)
+    expect(draw.light.filter(([op]) => op === 'createRadialGradient')).toHaveLength(Number(halo))
+    expect(draw.light.filter(([op]) => op === 'stop')).toEqual(halo ? [
+      ['stop', `rgb(232 238 255 / ${(0.25 * alpha).toFixed(3)})`], ['stop', 'rgb(232 238 255 / 0)'],
+    ] : [])
+  },
+)
+
 it('keeps Shadmot Mehola glyph form fixed from 05:30 through 21:00', async () => {
   const source = await loaded()
   const build = makeWorldBuilder()

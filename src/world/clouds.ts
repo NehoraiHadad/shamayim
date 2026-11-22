@@ -83,8 +83,8 @@ export function seenBanks(list: readonly WeightedSighting[]): CloudBank[] {
   return list.map((s, i) => {
     const distanceKm = Math.max(1, s.distanceKm)
     const w = 2 * Math.atan(s.widthKm / 2 / distanceKm) * DEG
-    return { id: `seen:${i}`, azimuth: s.azimuth, altitude: Math.atan(SEEN_KM / distanceKm) * DEG, w, h: w * ASPECT.low,
-      distanceKm, puffs: 5, seed: hashId(`seen:${s.azimuth.toFixed(1)}:${s.distanceKm.toFixed(1)}`), seen: true }
+    return { id: `seen:${s.id ?? i}`, azimuth: s.azimuth, altitude: Math.atan(SEEN_KM / distanceKm) * DEG, w, h: w * ASPECT.low,
+      distanceKm, puffs: 5, share: s.strength, seed: hashId(`seen:${s.azimuth.toFixed(1)}:${s.distanceKm.toFixed(1)}`), seen: true }
   })
 }
 
