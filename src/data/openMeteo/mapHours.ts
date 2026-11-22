@@ -26,6 +26,8 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
   }))
   const cruiseT = pairs(hourly, 'temperature_250hPa', length, 'hourly')
   const cruiseRh = pairs(hourly, 'relative_humidity_250hPa', length, 'hourly')
+  const cape = pairs(hourly, 'cape', length, 'hourly')
+  const freezingLevel = pairs(hourly, 'freezing_level_height', length, 'hourly')
   const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
@@ -58,6 +60,8 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
       visibility: blendNumber(visibility[index], weight),
       windAloft: windAloft(aloft.map(({ speed, from }) => vector(blendNumber(speed[index], weight), blendDirection(from[index], weight)))),
       cruise: cruiseOf(blendNumber(cruiseT[index], weight), blendNumber(cruiseRh[index], weight)),
+      cape: blendNumber(cape[index], weight),
+      freezingLevel: blendNumber(freezingLevel[index], weight),
     }]
   })
 }

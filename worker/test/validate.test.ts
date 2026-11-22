@@ -69,6 +69,13 @@ describe('canonicalQuery', () => {
     expect(query().ok).toBe(true)
   })
 
+  it('accepts the storm hours (CAPE, freezing level) as well as the query without them', () => {
+    const storm = new URLSearchParams(APP_FORECAST)
+    storm.set('hourly', `${APP_FORECAST.get('hourly')},cape,freezing_level_height`)
+    expect(query(forecast, storm).ok).toBe(true)
+    expect(query().ok).toBe(true)
+  })
+
   it('accepts both ends of the 15-minute forecast range', () => {
     for (const n of [1, 16]) {
       const p = new URLSearchParams(APP_FORECAST)

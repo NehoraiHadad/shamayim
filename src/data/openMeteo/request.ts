@@ -36,6 +36,13 @@ export const SCENE_HOURLY = [
 ] as const
 /** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility,wind_speed_850hPa` with 200. */
 export const ASK_SCENE_HOURLY = true
+/**
+ * The storm's fuel (CAPE, J/kg) and the freezing level (m): how convective an hour's cloud is beyond what its weather code
+ * says. Without them the code alone decides (`atmo/fieldWeather.ts`).
+ */
+export const STORM_HOURLY = ['cape', 'freezing_level_height'] as const
+/** Flip to true once the deployed Worker answers `hourly=cape,freezing_level_height` with 200 (owner deploys). */
+export const ASK_STORM_HOURLY = false
 
 export const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
@@ -51,14 +58,15 @@ function base(place: Place): URLSearchParams {
   })
 }
 
-export function forecastUrl(place: Place, { sceneHourly = ASK_SCENE_HOURLY }: { sceneHourly?: boolean } = {}): string {
+export function forecastUrl(place: Place, { sceneHourly = ASK_SCENE_HOURLY, stormHourly = ASK_STORM_HOURLY }:
+  { sceneHourly?: boolean; stormHourly?: boolean } = {}): string {
   const p = base(place)
   p.set('models', FORECAST_MODELS)
   p.set('forecast_days', '7')
   p.set('past_days', '1')
   p.set('wind_speed_unit', 'kmh')
   p.set('current', CURRENT.join(','))
-  p.set('hourly', (sceneHourly ? [...HOURLY, ...SCENE_HOURLY] : HOURLY).join(','))
+  p.set('hourly', [...HOURLY, ...(sceneHourly ? SCENE_HOURLY : []), ...(stormHourly ? STORM_HOURLY : [])].join(','))
   p.set('daily', DAILY.join(','))
   p.set('minutely_15', 'precipitation')
   p.set('forecast_minutely_15', '12')
