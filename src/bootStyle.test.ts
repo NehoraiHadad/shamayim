@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 // A background on <body> covers the whole sky with the boot colour, so only <html> may carry it.
 describe('boot style in index.html', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
-  const rules = [...html.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim(), body }))
+  const rules = [...html.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.split(">").pop()!.trim(), body }))
 
   it('never gives <body> a background', () => {
     const bodyRules = rules.filter((r) => r.sel.split(',').some((s) => s.trim() === 'body'))
