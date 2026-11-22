@@ -33,3 +33,15 @@ it('makes a storm day a few large Cb cores with Cu con between, raining only und
     expect(tower.cells.filter((c) => c.rainWeight > 0.3 && c.genus !== 'cb')).toEqual([])
   }
 }, 60_000)
+
+it('stands the raining core the forecast puts at the place beside it, its rain in the world', () => {
+  for (const hour of ['10:00', '14:00']) {
+    const world = buildWorld(worldInput(loaded.get('haifa')!, `2026-03-15T${hour}` as LocalTime))
+    const tower = world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!
+    const here = tower.cells.filter((c) => String(c.id).startsWith('here:'))
+    expect(here).toHaveLength(1)
+    expect(here[0].genus).toBe('cb')
+    expect(Math.hypot(here[0].x, here[0].y)).toBeLessThan(8)
+    expect(here[0].rainWeight).toBeGreaterThan(0.5)
+  }
+}, 60_000)

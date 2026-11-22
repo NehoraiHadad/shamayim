@@ -2,6 +2,8 @@ import { lowBaseM } from './clouds'
 import { RANGES } from './field/cells'
 import { layerSnapshot } from './field/density'
 import { seenCells } from './field/seenCells'
+import { hereCell } from './field/hereCell'
+import { smoothstep } from './field/genus'
 import type { WeightedSighting } from '../domain/cloudSightings'
 import { buildField, fieldSteering } from './field/field'
 import type { FieldInput } from './field/types'
@@ -40,7 +42,8 @@ export function cloudFieldAt(hours: FieldInput['hours'], placeId: string, elevat
     const field = buildField({ hours, placeId, elevationKm: elevation / 1000, at, covers,
       lowBaseKm, ...weather, sunAltitude, wind10, rain, motion })
     const snapshot = field.layers.map((layer) => layerSnapshot(field, layer.lattice, 0, 0, RANGES[layer.lattice][1], field.t,
-      layer.lattice === 'low' ? seenCells(seen, layer) : []))
+      layer.lattice === 'low' ? seenCells(seen, layer)
+        : layer.lattice === 'tower' ? hereCell(layer, rain, smoothstep(0.3, 0.9, layer.form.conv), wind10.fromDeg, placeId) : []))
     const result = { field, snapshot }
     if (key !== undefined) {
       if (recent.size === 3) recent.delete(recent.keys().next().value!)

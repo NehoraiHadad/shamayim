@@ -60,8 +60,10 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     placed.push({ sprite, x, y, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
   }
   if (!placed.length) return null
-  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause.
-  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
+  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause, and only over a
+  // column that stands taller than it is wide (a cap on a squat body reads as a disc floating in the sky).
+  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' && c.sprite.tall >= 1.5 * c.sprite.w
+    ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
   placed.filter((c) => mature(c) > 0).sort((a, b) => mature(b) * b.sprite.w - mature(a) * a.sprite.w).slice(0, ANVILS)
     .forEach((c) => { c.sprite.anvil = mature(c) })
   placed.sort((a, b) => b.km - a.km)
