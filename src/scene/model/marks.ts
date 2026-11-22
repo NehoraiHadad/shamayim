@@ -1,17 +1,16 @@
 //# allFunctionsCalledOnLoad
-import { hashId } from '../../data/landmarks/hash'
-import { groundFn } from '../../data/landmarks/seat'
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
-import type { WorldMark } from '../../world/markGeometry'
 import { smoothstep } from '../../world/ridgeLighting'
-import { SCENE_W } from '../../world/sceneBox'
 import type { RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
-import { glyphHand } from './glyphHand'
+import { farNeighbourMarks } from './farNeighbourMarks'
+import { glyphGeometryKey } from './markDescriptor'
+import type { DrawnMass } from './markOcclusion'
+import type { HomeRoofline } from './neighbourPlacement'
 
 /** Far and plain marks lie over the far towns and under the near ridge. The portrait lies over the near ridge and its water. */
 const Z = { far: 17, near: 40 }
@@ -135,27 +134,6 @@ export function shineOf(world: WorldState): Shine {
   }
 }
 
-const groundCache = new WeakMap<object, (x: number) => number>()
-function nearGround(world: WorldState) {
-  let fn = groundCache.get(world.terrain)
-  if (!fn) groundCache.set(world.terrain, fn = groundFn(world.terrain.near.points.map(([x, y]) => [x, y]), SCENE_W))
-  return fn
-}
-
-/** A world mark as a glyph in the box (x scaled across with the figure, heights as they are). */
-function glyphOf(world: WorldState, mark: WorldMark, sx: number, tones: Tones): GlyphDesc {
-  const ground = mark.depth === undefined ? undefined : (() => {
-    const g = nearGround(world)
-    const n = Math.max(2, Math.round(mark.w))
-    return Array.from({ length: n + 1 }, (_, i) => g(mark.x - mark.w / 2 + i * mark.w / n) + mark.depth! - mark.base)
-  })()
-  const seed = hashId(mark.id)
-  return {
-    kind: mark.glyphKind, x: mark.x * sx, base: mark.base, h: mark.h, scale: mark.scale, w: mark.w, seed,
-    hand: glyphHand(mark.glyphKind, seed), tones, famous: mark.named, ...(ground ? { ground } : {}),
-  }
-}
-
 /**
  * A glyph's box with the longest cast shadow it can have on either side and its lamps' halos (px): independent of the
  * light, so a scrub never resizes the layer (a resize repaints it whole).
@@ -189,14 +167,11 @@ const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.roun
  * light, repainted alone while scrubbing over an empty form, as the far towns). The place's own marks stand among its
  * mass, in the outside view's layer (`outside.ts`, C5).
  */
-export function marksLayers(world: WorldState, box: SceneBox): LayerOf<'marks'>[] {
-  const sx = box.width / SCENE_W
+export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null = null,
+  home: HomeRoofline | null = null, clear: readonly Box[] = [], foreground: readonly DrawnMass[] = []): LayerOf<'marks'>[] {
   const shine = shineOf(world)
-  const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box), glyphs.map((g) => g.hand))
-  // Each by its own distance (tones quantised to a few distances, so a scrub reuses them).
-  const far = world.marks.filter((m) => m.plane !== 'near')
-  if (!far.length) return []
-  const glyphs = far.map((m) => glyphOf(world, m, sx, tonesAt(world, m.km)))
+  const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box), glyphs.map(glyphGeometryKey))
+  const glyphs = farNeighbourMarks(world, box, towns, home, clear, foreground)
   const bounds = boundsOf(glyphs.map(reachOf), box)
   if (!bounds) return []
   return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,

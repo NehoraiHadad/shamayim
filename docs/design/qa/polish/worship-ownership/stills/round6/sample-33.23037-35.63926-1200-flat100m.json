@@ -1,0 +1,76 @@
+{
+  "place": {
+    "id": "sample-33.23037-35.63926",
+    "usesOsm": false,
+    "nameHe": "דפנה",
+    "regionHe": "",
+    "timezone": "Asia/Jerusalem",
+    "lat": 33.23037,
+    "lon": 35.63926,
+    "settlementType": "village",
+    "featureCode": "PPL"
+  },
+  "terrain": "flat",
+  "home": {
+    "left": 131.1505342841584,
+    "right": 228.9381872630597
+  },
+  "glyphs": [
+    {
+      "id": "il-orchard-33.22998-35.64404",
+      "kind": "orchard",
+      "famous": false,
+      "baseMode": "foot",
+      "x": 163.0627226154472,
+      "width": 22,
+      "height": 7.299999999999992,
+      "nonOwn": false,
+      "gapPx": -42.9121883312888,
+      "slidePx": 0,
+      "base": 97.76412953506318,
+      "trueHeightPx": 7.299999999999992,
+      "factor": 1,
+      "hazeKm": 5.577811702770418,
+      "trueDistanceKm": 5.577811702770418,
+      "town": false
+    },
+    {
+      "id": "il-orchard-33.23452-35.64241",
+      "kind": "orchard",
+      "famous": false,
+      "baseMode": "foot",
+      "x": 167.9441837057569,
+      "width": 22,
+      "height": 7.299999999999992,
+      "nonOwn": false,
+      "gapPx": -47.7936494215985,
+      "slidePx": 0,
+      "base": 100.50990366533568,
+      "trueHeightPx": 7.299999999999992,
+      "factor": 1,
+      "hazeKm": 5.056199439646555,
+      "trueDistanceKm": 5.056199439646555,
+      "town": false
+    },
+    {
+      "id": "il-castle-33.25267-35.71505",
+      "kind": "castle",
+      "famous": true,
+      "baseMode": "ridge",
+      "ridgeKind": "near",
+      "x": 23.396031886316166,
+      "width": 6.7368421052631575,
+      "height": 4,
+      "nonOwn": true,
+      "gapPx": 104.38608134521066,
+      "slidePx": 0,
+      "base": 96,
+      "trueHeightPx": 0.8832422880655741,
+      "factor": 4.528768667497304,
+      "hazeKm": 7.2540687100287995,
+      "trueDistanceKm": 7.471904762632068,
+      "town": false,
+      "supportId": "ridge:near"
+    }
+  ]
+}

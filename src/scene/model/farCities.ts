@@ -3,6 +3,7 @@ import { plainContrast } from '../../data/city/plainHaze'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { FarCities, WorldState } from '../../world/types'
+import { farTownHazeAtTier, farTownTier, TIER_KM } from './farTownHaze'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { againstLight, shineOf, wallShade } from './marks'
 import { aerialFor } from './landVeil'
@@ -15,23 +16,16 @@ const Z = 16
 const ALBEDO: RGB = [0.86, 0.83, 0.77]
 /** Sodium and warm-white street light. */
 const LAMP: RGB = [1, 0.81, 0.53]
-/** Distance tiers (km): geometric, so each holds a similar change of haze. */
-const TIER_KM = Array.from({ length: 19 }, (_, i) => 2 * 1.22 ** i)
 /** Below this contrast (Koschmieder's 2 % threshold is at the visibility; 5 % a little nearer) a town is lost in the air. */
 const MIN_CONTRAST = 0.05
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-/** The last tier whose edge `km` reaches (0 below the first): a plain loop, run for every town box of a place. */
-const tierOf = (km: number) => {
-  for (let i = TIER_KM.length - 1; i > 0; i--) if (km >= TIER_KM[i]) return i
-  return 0
-}
 const hits = (clear: readonly Box[], x: number, y: number, w: number, h: number) =>
   clear.some((b) => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
 
 interface Geometry {
   /** By tier (index into `TIER_KM`): the town masses (by strength step) and blocks, each with its own distance. */
-  tiers: { mass: (Box & { km: number })[][]; blocks: CityBlock[] }[]
+  tiers: { mass: (Box & { km: number; townId?: number })[][]; blocks: CityBlock[] }[]
   lights: (CityLight & { km: number })[]
   bounds: Box | null
 }
@@ -62,13 +56,13 @@ function geometryOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Ge
   for (const m of far.shapes.mass) {
     const x = m.x * sx, w = m.w * sx
     if (hits(clear, x, m.y, w, m.h)) continue
-    tiers[tierOf(m.km)].mass[m.step].push({ x, y: m.y, w, h: m.h, km: m.km })
+    tiers[farTownTier(m.km)].mass[m.step].push({ x, y: m.y, w, h: m.h, km: m.km, townId: m.townId })
     extend(x, m.y, w, m.h)
   }
   for (const b of far.shapes.blocks) {
     const x = b.x * sx, w = b.w * Math.max(1, sx)
     if (hits(clear, x, b.base - b.h, w, b.h)) continue
-    tiers[tierOf(b.km)].blocks.push({ x, base: b.base, w, h: b.h, km: b.km })
+    tiers[farTownTier(b.km)].blocks.push({ x, base: b.base, w, h: b.h, km: b.km })
     extend(x, b.base - b.h, w, b.h)
   }
   const lights = far.shapes.lights.flatMap((dot) => {
@@ -112,7 +106,7 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const shown = (km: number) => plainContrast(km, visibility) >= MIN_CONTRAST
   const tiers: CityTier[] = []
   geometry.tiers.forEach((tier, i) => {
-    const km = TIER_KM[i] * 1.1
+    const km = farTownHazeAtTier(i)
     const blocks = tier.blocks.filter((b) => shown(b.km))
     const mass = tier.mass.map((step) => step.filter((m) => shown(m.km)))
     if (!blocks.length && !mass.some((step) => step.length)) return

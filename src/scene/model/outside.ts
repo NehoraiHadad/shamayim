@@ -1,21 +1,23 @@
+import { skyFormOf } from './ownSkyForm'
 //# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
-import { ABOVE_PAD, rowKm } from '../../world/outside'
-import type { TownBlockSpan } from '../../world/outsideSeats'
+import { outsideItemKm } from '../../world/outsideDepth'
+import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { SCENE_W } from '../../world/sceneBox'
 import { hits } from '../../world/sceneClearance'
 import { facetShare } from '../../world/water'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf } from './landVeil'
-import { againstLight, facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
+import { facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
+import { landBehind } from './landBehind'
+import { massAt, type DrawnMass } from './markOcclusion'
 import { outsideLandDesc } from './outsideGround'
 import { outsideMarks } from './outsideMarks'
-import { smoothstep } from '../../world/ridgeLighting'
 import { skyAt } from './sky'
-import { lightness, mixRgb, scaleLight } from './tone'
+import { mixRgb } from './tone'
 import type { Box, LayerOf, OutsideItem, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
 import { openWaterTone } from './water'
 
@@ -122,82 +124,6 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
     drift: (Math.abs(wind.across) > 0.05 ? Math.sign(wind.across) : 0) * 2.4 * Math.min(1, wind.ms / 9) * sx }
 }
 
-/**
- * A wall's sky light (C9 defect 1): what a plaster or stone face gives back of the sky it sees, its albedo times the
- * share of that sky it faces (a Lambert wall's luminance: albedo × view factor × the sky's), in linear light. A wall is
- * never as light as the sky it faces.
- */
-const WALL_ALBEDO = 0.45
-const VIEW = { top: 0.62, face: 0.55 }
-
-/**
- * The light the place's mass takes from the sky (C5b item 4), under any cloud: a roof sees the whole sky, a wall half of
- * it and the foot of a wall among others less (the mass shades itself), and the face turned toward the sun's part of the
- * sky sees its brighter half. Strongest as the direct light fades (overcast: the form is the sky's), none by night.
- * C9: by albedo, not by mixing toward the sky's own tone (a wall gives back less than half the sky it sees); and the
- * walls the eye sees face the sky behind the eye, so against the light (`againstLight`: a low sun beyond the land) they
- * see its dim half and the mass reads as a dark silhouette, its tops and rims alone catching the bright sky beyond.
- */
-function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number) {
-  const { light, night } = world
-  const day = 1 - night.dark
-  const strength = day * (0.35 + 0.65 * (1 - clamp01(light.direct)))
-  const sun = world.bodies.sun
-  const across = (sun.x * sx - box.width / 2) / (box.width / 2)
-  // The brighter half of an overcast sky is the sun's: its side on the screen while it is up, by how far to that side it
-  // stands (the living light: it eases in as the sun leaves the middle and as it rises, never a step).
-  const side = -Math.sign(across) * smoothstep(0.02, 0.3, Math.abs(across)) * smoothstep(-8, 0, sun.altitude)
-  const sky = skyAt(world, box)
-  const aerial = aerialFor(world, hazeOf(world))
-  const against = againstLight(world)
-  // The sky the walls face: the view's own, but against the light the dim half behind the eye.
-  const mean = scaleLight(mixRgb(sky(35), sky(8), 0.4), 1 - 0.55 * against)
-  const lighter = (wall: RGB, c: RGB) => (lightness(c) > lightness(wall) ? c : wall)
-  return { strength, side, tiers: kms.map((km, i) => {
-    const t = tiers[i]
-    const lit = aerial(scaleLight(mean, WALL_ALBEDO * VIEW.top), km)
-    // The brighter half of the sky round the sun takes the sun's own colour through the cloud.
-    const bright = aerial(scaleLight(mixRgb(mean, light.colour, 0.35 * day), WALL_ALBEDO * VIEW.face * (1 + 0.6 * (1 - against))), km)
-    return { top: lighter(t.wall, mixRgb(t.wall, lit, 0.62)), face: lighter(t.wall, mixRgb(t.wall, bright, 0.38)),
-      foot: mixRgb(t.wall, t.deep, 0.7) }
-  }) }
-}
-
-/**
- * The farthest anything can be where it is seen against the land (C9 defect 1): a thing whose foot shows in front of a
- * plane of the land stands nearer than that land, so it is never hazier than it (scene x, land px y → km; Infinity where
- * the foot is seen against the sky). The place's far rows over the near ridge then take its haze, not the far air's.
- */
-export function landBehind(world: WorldState): (x: number, y: number) => number {
-  const planes = [world.terrain.near, world.terrain.far, world.terrain.back].filter((p): p is NonNullable<typeof p> => Boolean(p?.points.length))
-  const along = (pts: readonly (readonly [number, number])[], kms: readonly number[]) => (x: number): [number, number] => {
-    if (x <= pts[0][0]) return [pts[0][1], kms[0]]
-    if (x >= pts.at(-1)![0]) return [pts.at(-1)![1], kms.at(-1)!]
-    let lo = 0, hi = pts.length - 1
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (pts[mid][0] >= x) hi = mid; else lo = mid + 1 }
-    const [ax, ay] = pts[lo - 1], [bx, by] = pts[lo]
-    const t = (x - ax) / Math.max(1e-6, bx - ax)
-    return [ay + (by - ay) * t, kms[lo - 1] + (kms[lo] - kms[lo - 1]) * t]
-  }
-  // The near ridge is the land the place stands on: a row may rise over its line by the lie's pad on its own ground; and
-  // where the place's own ground is drawn over the line, that ground (at its distance) is what it stands on.
-  const view = world.place3.kind === 'outside' ? world.place3 : null
-  const own = view?.land ? { x0: view.land.top[0][0], x1: view.land.top.at(-1)![0],
-    top: along(view.land.top, view.land.top.map(() => view.land!.km)) } : null
-  const crests = planes.map((plane, i) => ({ at: along(plane.points, plane.hazeKm ?? plane.distanceKm), pad: i === 0 ? ABOVE_PAD + 0.5 : -0.5 }))
-  return (x, y) => {
-    if (own && x >= own.x0 && x <= own.x1) {
-      const [cy, km] = own.top(x)
-      if (y >= cy - 0.5) return Math.min(km, crests[0]?.at(x)[1] ?? km)
-    }
-    for (const crest of crests) {
-      const [cy, km] = crest.at(x)
-      if (y >= cy - crest.pad) return km
-    }
-    return Infinity
-  }
-}
-
 /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
 function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
   lod: string; famous: boolean }, sx: number, tier: number): OutsideItem {
@@ -223,6 +149,8 @@ function boundsOf(items: OutsideItem[]) {
 interface Shape {
   key: string
   items: OutsideItem[]
+  mass: DrawnMass[]
+  home: ReturnType<typeof homeRoofline>
   bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
@@ -230,7 +158,7 @@ interface Shape {
   marks: { at: number; km: number }[]
 }
 
-/** The layer's shapes, independent of the hour: kept per place view, width and text zones (a scrub reuses them). */
+/** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
 
 function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
@@ -257,56 +185,72 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
     ...(view.beyondTowns ?? []).map((b) => ({ km: b.km, tower: null, block: b }))].sort((a, b) => b.km - a.km)
-  const drawnBlocks = new Map<string, TownBlockSpan>()
+  const mass: DrawnMass[] = []
+  const drawnBlocks = new Map<string, NeighbourBlock>()
   for (const { tower: t, block: b } of beyond) {
     if (t) {
       const x = t.x * sx
       if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
+      mass.push(massAt(x, t.w, t.baseY - t.h, t.km))
       out.push(towerItem(t, sx, tier(t.km, t.x, t.baseY)))
     } else if (b) {
       const x = b.x * sx, w = b.w * sx
       if (!free(x - w / 2, b.baseY - b.h, x + w / 2, b.baseY)) continue
-      drawnBlocks.set(b.id, { x, w })
-      out.push({ kind: 'box', x, w, top: b.baseY - b.h, foot: b.baseY, tier: tier(b.km, b.x, b.baseY), seed: b.seed,
+      const blockTier = tier(b.km, b.x, b.baseY)
+      drawnBlocks.set(b.id, { id: b.id, x, w, top: b.baseY - b.h, foot: b.baseY, hazeKm: kms[blockTier] })
+      mass.push(massAt(x, w, b.baseY - b.h, b.km, b.id))
+      out.push({ kind: 'box', x, w, top: b.baseY - b.h, foot: b.baseY, tier: blockTier, seed: b.seed,
         storeys: Math.max(1, Math.round((b.heightM - 1) / STOREY_M)), folded: false, roof: null, heater: false, beyond: true })
     }
   }
   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
   const own: { y: number; item: OutsideItem; km?: number }[] = []
-  const depthOf = (near: number) => frame.n - near * (frame.n - frame.s)
   for (const b of skyline.boxes) {
     const x = b.x * sx, w = b.w * sx
     if (!free(x - w / 2, b.top, x + w / 2, b.foot)) continue
+    mass.push(massAt(x, w, b.top, outsideItemKm(frame, baseKm, b)))
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     const heightM = b.heightM ?? 3 * STOREY_M
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(rowKm(frame, baseKm, depthOf(b.near)), b.x, b.foot),
+    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot),
       seed, storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }
   for (const t of skyline.towers) {
     const x = t.x * sx
     if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(rowKm(frame, baseKm, depthOf(t.near)), t.x, t.baseY)) })
+    mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
+    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY)) })
   }
   for (const t of view.trees) {
     const x = t.x * sx
     if (!free(x - t.w, t.base - t.h, x + t.w, t.base)) continue
     own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
   }
-  own.push(...outsideMarks(world, box.width, drawnBlocks, clear, behind))
+  const home = homeRoofline(own.map(o => o.item), kms)
+  own.push(...outsideMarks(world, box.width, drawnBlocks, clear, behind, mass, home))
   own.sort((a, b) => a.y - b.y)
   const marks: Shape['marks'] = []
   for (const o of own) {
     if (o.km !== undefined) marks.push({ at: out.length, km: o.km })
     out.push(o.item)
   }
-  const shape = { key, items: out, bounds: boundsOf(out), kms, marks }
+  const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
+  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape
+}
+
+export function outsideMass(world: WorldState, box: SceneBox, clear: readonly Box[]): readonly DrawnMass[] {
+  return world.place3.kind === 'outside' ? shapeOf(world, box, clear).mass : []
+}
+
+/** The same final own roofline and haze tiers used by both receiving layers. */
+export function outsideHome(world: WorldState, box: SceneBox, clear: readonly Box[]) {
+  return world.place3.kind === 'outside' ? shapeOf(world, box, clear).home : null
 }
 
 /** The place seen from outside, as one layer (null for a portrait). */

@@ -3,6 +3,7 @@ import { SKYLINE_TO_KM } from '../../data/city/outsideView'
 import { offsetKm } from '../../data/landmarks/project'
 import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
+import { assertTownScale, QUALIFYING_TOWN_ROOFS } from '../../test/worshipAssertions'
 import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../../test/scenePlaces'
 import { VISIBLE_BOTTOM } from '../../world/layout'
 import { cloudLight } from '../../world/lightCloud'
@@ -128,13 +129,11 @@ describe('C9: the water\'s names on their water (defect 5)', () => {
 describe('C9: the towns beyond the place within the reach (defect 6)', () => {
   it('draws the neighbours\' built squares 0–6 km out, outside the place, where the land lets the eye see them', () => {
     for (const id of ['ramat-gan', 'tel-aviv', 'haifa']) {
-      const view = worldAt(id).place3 as OutsideView
-      expect(view.beyondTowns?.length ?? 0, id).toBeGreaterThan(20)
-      const nearK = view.frame.k * view.frame.midDepth / (view.frame.eyeN - view.frame.n)
+      const world = worldAt(id), view = world.place3 as OutsideView
+      expect(view.beyondTowns?.length ?? 0, id).toBeGreaterThanOrEqual(QUALIFYING_TOWN_ROOFS[id])
       for (const b of view.beyondTowns!) {
-        expect(b.h).toBeGreaterThan(.79)
-        // Never larger a metre than the place's own at its near edge (the look boosts the low fabric alike).
-        expect(b.h / Math.max(1, b.heightM)).toBeLessThanOrEqual(Math.max(nearK, 1.2) + 1e-6)
+        expect(b.h).toBeGreaterThanOrEqual(1)
+        assertTownScale(b, world, loaded.get(id)!.terrain)
       }
       // Far first.
       for (let i = 1; i < view.beyondTowns!.length; i++) expect(view.beyondTowns![i].km).toBeLessThanOrEqual(view.beyondTowns![i - 1].km)
@@ -186,15 +185,13 @@ describe('C9: structures beyond the place within the reach (defect 8)', () => {
   })
 })
 
-describe('C9: far towers stand on their own foot (defect 9)', () => {
-  it('gives every far tower a low hall at its base', () => {
-    const world = worldAt('zikhron-yaakov')
-    const { towers, shapes } = world.farCities
-    expect(towers.length).toBeGreaterThan(0)
-    for (const t of towers.slice(0, 40)) {
-      const foot = shapes.blocks.find((b) => b.base === t.base && b.km === t.km && b.w > 2 && b.x <= t.x && b.x + b.w >= t.x
-        && b.h < .3 * (t.base - t.top) + 1)
-      expect(foot, `${t.x}`).toBeTruthy()
+describe('C9: evidenced far structures', () => {
+  it('uses physical heights and the shared floor without invented tower halls', () => {
+    const { blocks } = worldAt('zikhron-yaakov').farCities.shapes
+    expect(blocks.length).toBeGreaterThan(0)
+    for (const b of blocks) {
+      expect(b.heightM).toBeDefined()
+      expect(b.h).toBeGreaterThanOrEqual(1)
     }
   })
 })

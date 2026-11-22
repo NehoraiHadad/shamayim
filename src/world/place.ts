@@ -105,7 +105,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const datum = row ? datumOnLand(row, landY, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
   const notes = notesOnWater(notes0, terrain, view, dot, width)
-  const { marks, seatPool } = marksOf({ place, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
+  const { marks, seatPool } = marksOf({ place, city, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
     homeHalf: homeHalf(reachKm, known), style: style.style, notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark } })
   // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds

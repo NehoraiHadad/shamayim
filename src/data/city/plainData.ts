@@ -9,6 +9,8 @@ import { bearingOf, type Coordinate } from '../landmarks/project'
 import { cellSpans, type RayGrid } from './rayWalk'
 
 export interface PlainPatch {
+  /** The actual source cell, preserved through far-town painting for ownership support. */
+  cellId?: number
   left: number
   right: number
   top: number
@@ -65,7 +67,7 @@ export function plainPatches(place: Coordinate, width: number, grid: Uint8Array,
         const latitude = FAR_SOUTH + (Math.floor(run.index / FAR_COLS) + .5) * FAR_LAT_STEP
         const cellArea = .5 * Math.cos(latitude * Math.PI / 180) / Math.cos(31.5 * Math.PI / 180)
         const area = Math.min(radians * km * (run.end - run.start), cellArea * (b - a) / (bounds[1] - bounds[0]))
-        patches.push({ left: a, right: b, top, bottom, km, built: (grid[run.index] >> 4) / 15, area })
+        patches.push({ cellId: run.index, left: a, right: b, top, bottom, km, built: (grid[run.index] >> 4) / 15, area })
       }
       run = undefined
     }
