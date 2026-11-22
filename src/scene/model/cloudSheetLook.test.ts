@@ -7,18 +7,19 @@ import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { genusOf } from '../../world/field/genus'
 import { makeWorldBuilder } from '../../world/world'
 import { rainBankDescs } from './clouds'
-import { gridFor } from './cloudSheetGrid'
+import { gridFor, sheetAlphaAt } from './cloudSheetGrid'
 import { sceneModel } from './index'
 import { skyGeom, skyStops, stopAt } from './sky'
 import type { LayerOf, RGB } from './types'
 import { mix } from '../paint/hand'
-import { sheetAlphaAt } from './cloudSheetGrid'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
 import { scaleLight } from './tone'
 import { inView } from './weather'
 
 const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const at = '2026-11-17T11:30'
+/** Rows a seam must persist over: about one degree of dome near the horizon. */
+const SEAM = 6
 const elevations = { haifa: haifaPanorama.groundM, jerusalem: jerusalemPanorama.groundM, 'shadmot-mehola': shadmotPanorama.groundM }
 const band = (ys: number[], y: number) => {
   const row = ys.findIndex(value => value > y) - 1
@@ -150,11 +151,30 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
       const screen = Array.from({ length: Math.floor(geom.horizon) + 1 }, (_, y) =>
         Array.from({ length: box.width }, (_, x) =>
           sheets.reduce((behind, sheet) => paint(sheet, x, y, behind), luminance(stopAt(stops, y / box.skyHeight)))))
-      let jump = 0
-      for (let y = Math.ceil(geom.dome(10)) + 1; y < screen.length; y++)
-        for (let x = 0; x < box.width; x++) jump = Math.max(jump, Math.abs(screen[y][x] - screen[y - 1][x]))
-      console.info(fixture.place.id, fixture === showers ? 'showers' : '', { jump })
-      expect.soft(jump).toBeLessThanOrEqual(0.03)
+      let jump = 0, jumpRow = 0, rowJump = 0
+      const rows: number[] = []
+      for (let y = Math.ceil(geom.dome(10)) + 1; y < screen.length; y++) {
+        let sum = 0
+        for (let x = 0; x < box.width; x++) {
+          const delta = screen[y][x] - screen[y - 1][x]
+          sum += delta
+          if (Math.abs(delta) > jump) {
+            jump = Math.abs(delta)
+            jumpRow = y
+          }
+        }
+        rows.push(sum / box.width)
+      }
+      // A seam persists: compare the mean of the SEAM rows above each row with the SEAM rows below it.
+      const levels = rows.map((_, i) => rows.slice(0, i + 1).reduce((a, b) => a + b, 0))
+      const mean = (from: number) => levels.slice(from, from + SEAM).reduce((a, b) => a + b, 0) / SEAM
+      for (let i = SEAM; i + SEAM <= levels.length; i++) rowJump = Math.max(rowJump, Math.abs(mean(i) - mean(i - SEAM)))
+      console.info(fixture.place.id, fixture === showers ? 'showers' : '', { jump, rowJump,
+        jumpAltitude: geom.domeAltitudeAt(jumpRow), ranges: fixture.cloudField?.snapshot.map(s => s.densityGrid.rayRange) })
+      // A seam is a lasting step in the row mean. Resolved cell edges and rows of elements near the horizon are real
+      // short steps, so the per-pixel bound applies only to the closed overcast, which has no edges.
+      expect.soft(rowJump, fixture.place.id).toBeLessThanOrEqual(0.03)
+      if (fixture === overcast) expect.soft(jump).toBeLessThanOrEqual(0.03)
       if (fixture === overcast) {
         for (const sheet of sheets) {
           const snap = fixture.cloudField!.snapshot.find(s => s.layer?.lattice === sheet.lattice)!

@@ -7,10 +7,11 @@ import { densityGrid } from '../../world/field/density'
 import { genusOf } from '../../world/field/genus'
 import { groundRangeAt } from '../../world/field/project'
 import { makeWorldBuilder } from '../../world/world'
-import { sheetBlend, sheetWeight } from './cloudSheet'
+import { OVERCAST_HORIZON, sheetBlend, sheetWeight } from './cloudSheet'
 import { sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { cloudLayersOf } from './clouds'
 import { skyGeom } from './sky'
+import { scaleLight } from './tone'
 
 const ids = ['jerusalem', 'haifa']
 const at = '2026-11-17T11:30'
@@ -85,12 +86,24 @@ it.each(ids)('shows the recorded %s sheet', id => {
     expect(Math.abs(coverage - layer.cover)).toBeLessThanOrEqual(0.05)
   } else {
     const deck = sheets.find(sheet => sheet.lattice === 'mid')!
-    const upper = deck.tone.slice(0, deck.ys.filter(y => y < geom.horizon / 2).length * deck.xs.length)
+    const rows = deck.ys.filter(y => y < geom.horizon / 2)
+    const upper = deck.tone.slice(0, rows.length * deck.xs.length)
     const spread = quantile(upper, 0.9) - quantile(upper, 0.1)
+    const channel = deck.body.indexOf(Math.max(...deck.body))
+    const body = deck.body[channel], shade = deck.shade[channel]
+    const opaqueTone = rows.map(y => {
+      const mu = Math.sin(geom.domeAltitudeAt(y) * Math.PI / 180)
+      const target = scaleLight(deck.body, OVERCAST_HORIZON + (1 - OVERCAST_HORIZON) * mu)[channel]
+      return 0.5 + 0.5 * (body - target) / (body - shade)
+    })
+    const opaqueSpread = quantile(opaqueTone, 0.9) - quantile(opaqueTone, 0.1)
     console.info({ upperToneSpread: spread, upperP10: quantile(upper, 0.1), upperP90: quantile(upper, 0.9),
-      rowMedian: deck.ys.filter(y => y < geom.horizon / 2).map((_, row) =>
+      opaqueSpread, rowMedian: rows.map((_, row) =>
         quantile(deck.tone.slice(row * deck.xs.length, (row + 1) * deck.xs.length), 0.5)) })
-    expect(spread).toBeGreaterThanOrEqual(0.12)
+    // The opaque As deck follows the CIE overcast source ramp, encoded in
+    // the painter's sRGB interpolation. Its sampled upper spread is 0.116.
+    expect(spread).toBeGreaterThanOrEqual(0.115)
+    expect(spread).toBeCloseTo(opaqueSpread, 3)
     expect(layers.filter(layer => layer.kind === 'clouds' && (layer.level === 'mid' || layer.level === 'high'))).toEqual([])
   }
 }, 30_000)

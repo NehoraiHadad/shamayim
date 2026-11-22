@@ -82,9 +82,9 @@ it('maintains cover in equal-area world samples across six days, four hours and 
   }
 })
 
-it('projects exact rays and compressed rows, keeps prior arrays intact and follows the field', () => {
-  const at = frame('haifa', '2026-11-17T12:00')
-  const next = frame('haifa', '2026-11-17T12:01')
+it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the field in %s', place => {
+  const at = frame(place, '2026-11-17T12:00')
+  const next = frame(place, '2026-11-17T12:01')
   for (const { lattice } of at.field.layers) {
     if (lattice === 'tower') continue
     const snapshot = layerSnapshot(at.field, lattice, 0, 0, RANGES[lattice][1])
@@ -99,7 +99,8 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
         const exact = source.densityGrid.tauAt(ranges[row] * east[col], ranges[row] * north[col])
         maxError = Math.max(maxError, Math.abs(exact - tau[index]))
         return { path: path[row], fade: fade[row], local: tau[index] * slant[row],
-          mean: expected[index] * slant[row] }
+          mean: expected[index] * slant[row], slant: slant[row],
+          x: ranges[row] * east[col], y: ranges[row] * north[col] }
       })
       expect(maxError).toBeLessThanOrEqual(1e-9)
       return nodes
@@ -121,6 +122,8 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
       expect(sheet.ys.filter(y => y >= at.geom.dome(30) && y <= at.geom.dome(5))).toHaveLength(49)
     }
     const deltas: number[] = []
+    let max = 0, maxExcess = -Infinity
+    const [vx, vy] = snapshot.layer!.vel
     let dense = 0, minDense = 1
     for (const [row, y] of sheet.ys.entries()) {
       const altitude = at.geom.domeAltitudeAt(y)
@@ -128,16 +131,20 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
       for (const [col, x] of sheet.xs.entries()) {
         const i = row * sheet.xs.length + col
         const a = before[i], b = after[i]
+        // Pull back each destination ray by one minute of advection. Resample
+        // the source field directly to avoid interpolation across sharp edges.
+        const sourceX = b.x - vx, sourceY = b.y - vy
+        const local = snapshot.densityGrid.tauAt(sourceX, sourceY) * b.slant
+        const mean = b.fade ? snapshot.densityGrid.expectedTauAt(sourceX, sourceY) * b.slant : 0
+        const warped = -a.path * ((1 - b.fade) * Math.expm1(-local) + b.fade * Math.expm1(-mean))
         // Beer–Lambert's maximum slope between two slant depths is exp(-min).
-        // The path and footprint weights each multiply values in [0,1].
         const slope = (u: number, v: number) => Math.exp(-Math.min(u, v)) * Math.abs(u - v)
-        // With one centred tap the local bound is the single Beer–Lambert slope.
-        const localBound = slope(a.local, b.local)
-        const bound = Math.abs(a.path - b.path) + Math.abs(a.fade - b.fade)
-          + (1 - a.fade) * localBound + a.fade * slope(a.mean, b.mean)
-        const delta = Math.abs(original[i] - later.alpha[i])
+        const bound = Math.abs(a.path - b.path)
+          + b.path * ((1 - b.fade) * slope(local, b.local) + b.fade * slope(mean, b.mean))
+        const delta = Math.abs(warped - later.alpha[i])
         deltas.push(delta)
-        expect.soft(delta, `${lattice} node ${i}`).toBeLessThanOrEqual(bound + 0.02)
+        max = Math.max(max, delta)
+        maxExcess = Math.max(maxExcess, delta - bound)
         expect(at.geom.x(at.geom.azimuthAt(x))).toBeCloseTo(x, 8)
         // A dense vertical column may have an unresolved footprint,
         // or a truncated path. A fully resolved slant depth of 2 must be opaque.
@@ -147,8 +154,9 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
       }
     }
     const p99 = percentile(deltas, 0.99)
-    console.info(lattice, { rows: sheet.ys.length, cols: sheet.xs.length, p99, dense, minDense })
+    console.info(place, lattice, { rows: sheet.ys.length, cols: sheet.xs.length, p99, max, maxExcess, dense, minDense })
     expect.soft(p99, lattice).toBeLessThanOrEqual(0.15)
+    expect.soft(maxExcess, lattice).toBeLessThanOrEqual(0.02)
     if (dense) expect.soft(minDense, lattice).toBeGreaterThan(0.7)
   }
 })

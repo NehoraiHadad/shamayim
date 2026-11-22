@@ -523,3 +523,40 @@ Jerusalem's four alpha components have a 4.55 median aspect ratio, above 1.5. Mi
 TypeScript build-mode checking with no emit, Oxlint and git diff whitespace checks passed. No commit or deployment was made.
 
 Vitest ran nine explicit files one at a time at nice -n 19. Of 142 tests, 139 passed and three failed on the visual and continuity gates above. The painter, sky, weather, model and c10fixes files passed in full. The performance benchmark and refreshed stills remain for CI.
+
+## Round 16 (N3i)
+
+### 1. Shared density raster
+
+The low and mid rasters use the Sc/Ac footprint cutoff. The azimuth limit is mean radius divided by the reference camera's angular texel width. The radial limit solves for one mean radius of ground displacement over the horizon-side elevation interval at the 5° grid join. It uses the layer's base plus half its mean thickness and the same refracted ground projection as the sheet. The angular interval conservatively uses a linear relief scale. The panorama edge bounds the raster domain. Discrete cell draw distances retain their existing values.
+
+The Jerusalem and Shadmot-Mehola broken fixtures both have a low cutoff of 19.137 km and an exact region out to 16.267 km. The Jerusalem 5° ray reaches 15.844 km. Haifa's mid cutoff is 110 km for overcast and 54.441 km for showers. Shadows and eye transmission continue to use the same raster. The existing cloud performance test now measures the low/mid tauAt build cost, its increment over the former raster domains, and the sheet increment for Jerusalem, Haifa and Tiberias. The combined incremental budget is 1.5 ms. CI-equivalent timings remain pending under the local benchmark restriction.
+
+### 2. Motion-compensated continuity
+
+The test pulls destination ray points back by the layer's one-minute wind vector and samples the source raster at the resulting coordinates. Direct sampling avoids coarse-grid interpolation error at resolved edges. It projects the resampled local and ensemble depths with the destination slant and footprint and compares alpha with the actual next minute. Each lattice is checked against the 0.15 residual p99 and the Beer–Lambert slope plus 0.02 at every sample. The midnight scrub already compares mean alpha, tone and luma and retains those checks.
+
+| Place | Low p99 / max | Mid p99 / max | High p99 / max |
+| --- | --- | --- | --- |
+| Haifa | 0.00001293 / 0.80993 | 0.00011769 / 0.79220 | 0.01098147 / 0.04186 |
+| Jerusalem | 0.00017419 / 0.95634 | 0.00092152 / 0.98831 | 0.00000756 / 0.00001232 |
+| Tiberias | 0.0000000061 / 0.99985 | 0.04602101 / 0.96151 | 0.00000511 / 0.00001899 |
+
+The largest excess over the slope bound before the 0.02 allowance was under 2 × 10⁻¹⁶ in every lattice and place. Isolated large residuals remain visible in the max column. The slope check uses the actual change in sampled depth, so the percentile is what detects widespread discontinuities.
+
+### 3. Remaining gates
+
+| Recorded fixture | Minimum alpha row SD, 5–20° | Maximum adjacent-row luma step, lowest 10° | Altitude of maximum step |
+| --- | ---: | ---: | ---: |
+| Jerusalem broken | 0.29349 | 0.18238 | 5.290° |
+| Shadmot-Mehola broken | 0.34207 | 0.21297 | 5.699° |
+| Haifa overcast | — | 0.00236 | 9.294° |
+| Haifa showers | — | 0.01182 | 8.321° |
+
+Both broken decks pass the 0.08 variation gate. Both fail the 0.03 pixel-level step gate. The largest jumps occur skyward of the shared raster hand-off. Widening the fade to begin when the radial texel is half a mean radius, using the local square-law projection, produced jumps of 0.19007 and 0.21590. It also dropped Jerusalem's row SD to 0.05842, so the wider fade was reverted.
+
+Haifa's measured upper As tone spread is 0.11607. The opaque CIE ramp evaluated at the same rows with depth and texture omitted gives exactly 0.11607, so the N3h closed-deck ramp accounts for the change. The test uses a 0.115 floor for this ramp, and the painted zenith-to-5° luminance ratio remains 2.553.
+
+### Verification
+
+178 of 179 unit tests passed across 14 explicit file runs at nice -n 19. The remaining look test reported the two row-step failures above. The sheet model, visibility, midnight scrub and painter tests passed, along with sky, weather, model, c10fixes, field, both continuity files, density and transmit. TypeScript build-mode checking with no emit, Oxlint on touched TypeScript files and the Git whitespace check passed. CI timing and browser stills were skipped locally. No commit or deployment was made.

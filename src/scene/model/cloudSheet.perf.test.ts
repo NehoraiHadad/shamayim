@@ -2,6 +2,9 @@ import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { addMinutes } from '../../domain/time'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
+import { RANGES } from '../../world/field/cells'
+import { densityGrid } from '../../world/field/density'
+import type { CloudField } from '../../world/field/types'
 import { makeWorldBuilder } from '../../world/world'
 import { sceneModel } from './index'
 import type { SceneBox } from './types'
@@ -24,6 +27,15 @@ function elapsed(run: () => ReturnType<typeof sceneModel>) {
 }
 
 const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
+
+function rasterBuildMs(field: CloudField, previous: boolean) {
+  const start = performance.now()
+  for (const { lattice } of field.layers) {
+    // Clip only the build radius to reconstruct the N3h low and mid domains.
+    if (lattice === 'low' || lattice === 'mid') densityGrid(field, lattice, 0, 0, RANGES[lattice][previous ? 0 : 1])
+  }
+  return performance.now() - start
+}
 
 it.each(ids)('measures new-minute sheet overhead on the recorded %s panorama', id => {
   const input = worldInput(places.get(id)!, at, at)
@@ -52,12 +64,18 @@ it.each(ids)('measures new-minute sheet overhead on the recorded %s panorama', i
     const baseline = withFirst ? secondWarm : firstWarm
     const model = withFirst ? firstWarm : secondWarm
     expect(cold.model.layers.filter(layer => layer.kind === 'cloudSheet')).toHaveLength(3)
-    return { baseline, model, coldIncrement: cold.ms - coldBaseline.ms }
+    const rasterFirst = rasterBuildMs(field.field, withFirst)
+    const rasterSecond = rasterBuildMs(field.field, !withFirst)
+    const rasterMs = withFirst ? rasterSecond : rasterFirst
+    const rasterBaseline = withFirst ? rasterFirst : rasterSecond
+    return { baseline, model, coldIncrement: cold.ms - coldBaseline.ms, rasterMs, rasterDelta: rasterMs - rasterBaseline }
   }).slice(8)
   const baselineMs = median(samples.map(sample => sample.baseline))
   const incrementMs = median(samples.map(sample => sample.model - sample.baseline))
   const coldIncrementMs = median(samples.map(sample => sample.coldIncrement))
-  console.info({ id, baselineMs, incrementMs, coldIncrementMs, ratio: incrementMs / baselineMs })
-  expect(incrementMs).toBeLessThanOrEqual(1.5)
+  const rasterMs = median(samples.map(sample => sample.rasterMs))
+  const rasterDeltaMs = median(samples.map(sample => sample.rasterDelta))
+  console.info({ id, baselineMs, incrementMs, coldIncrementMs, rasterMs, rasterDeltaMs, ratio: incrementMs / baselineMs })
+  expect(incrementMs + Math.max(0, rasterDeltaMs)).toBeLessThanOrEqual(1.5)
   expect(incrementMs / baselineMs).toBeLessThanOrEqual(0.25)
 }, 120_000)

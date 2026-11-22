@@ -1,12 +1,40 @@
-import { maxRadius } from './lattice'
+import { spanDeg } from '../../domain/camera'
+import { maxRadius, meanRadius } from './lattice'
+import { altitudeOf, groundRangeAt } from './project'
 import { visitDay, type Emit } from './visitDay'
 import { dayStart, greedyPairs, HALF_WINDOW, handover, nearestMidnight } from './handover'
-import type { CloudField, FieldCell, Lattice } from './types'
+import type { CloudField, FieldCell, FieldLayer, Lattice } from './types'
 
-/** Individual and panorama ranges in km. */
+/** Drawn individual-cell and panorama ranges in km. */
 export const RANGES = {
   low: [10, 50], tower: [80, 80], mid: [40, 110], high: [120, 250],
 } as const
+
+export const CELLULAR_COLUMNS = 144
+export const CELLULAR_LOW_ROWS = 12
+export const CELLULAR_LOW_EDGE = 5
+export const CELLULAR_LOW_POWER = 1 / 3
+
+/** Shared Sc/Ac horizon cutoff at two texels per mean element diameter. */
+export function cellularRasterRange(layer: FieldLayer) {
+  const height = layer.baseKm + layer.meanVKm / 2
+  const radius = meanRadius(layer.lattice, layer.g)
+  // Reference camera spans 250°. Radially, use the horizon-side texel at the
+  // 5° join of the cellular grid, where its densely packed middle band ends.
+  // Linear angular spacing bounds the gap for the concave relief projection.
+  const azimuthStep = spanDeg() * Math.PI / (180 * (CELLULAR_COLUMNS - 1))
+  const elevationStep = CELLULAR_LOW_EDGE * (1 - (1 - 1 / CELLULAR_LOW_ROWS) ** CELLULAR_LOW_POWER)
+  let low = 0, high = Math.min(radius / azimuthStep, groundRangeAt(height, 0), RANGES[layer.lattice][1])
+  const radialStep = (range: number) => groundRangeAt(height, altitudeOf(height, range) - elevationStep) - range
+  if (radialStep(high) <= radius) return high
+  // One metre is well below the lattice bin size and keeps the cutoff conservative.
+  while (high - low > 0.001) {
+    const range = (low + high) / 2
+    if (radialStep(range) <= radius) low = range
+    else high = range
+  }
+  return low
+}
 
 /** Visit occupied sites whose centres lie within radiusKm, at the exact motion keyframe. */
 export function visitCells(field: CloudField, lattice: Lattice, x: number, y: number, radiusKm: number,

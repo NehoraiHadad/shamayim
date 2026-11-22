@@ -1,4 +1,5 @@
 import { groundRangeAt } from '../../world/field/project'
+import { CELLULAR_COLUMNS, CELLULAR_LOW_EDGE, CELLULAR_LOW_POWER, CELLULAR_LOW_ROWS } from '../../world/field/cells'
 import { unit } from '../../world/field/genus'
 import { transmitAlong, type FieldSnapshot } from '../../world/field/transmit'
 import type { FieldLayer, Genus } from '../../world/field/types'
@@ -61,7 +62,7 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
   const broad = genus === 'st' || genus === 'cs'
   const cellular = genus === 'sc' || genus === 'ac'
   // N3h resolves Sc/Ac elements with 144 azimuth rays and 72 elevation intervals.
-  const cols = cellular ? 144 : broad ? 24 : 48
+  const cols = cellular ? CELLULAR_COLUMNS : broad ? 24 : 48
   const targetRows = cellular ? 72 : broad ? 12 : 24
   xs.length = east.length = north.length = cols
   for (let i = 0; i < cols; i++) {
@@ -75,8 +76,9 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
   if (cellular) {
     // Pack two thirds of the rows into 5–30°. Compress towards 5°,
     // where one scene pixel covers a larger radial distance.
-    const bands = [[0, geom.dome(30), 12, 1], [geom.dome(30), geom.dome(5), 48, 3],
-      [geom.dome(5), geom.horizon, 12, 1 / 3]]
+    const lowEdge = geom.dome(CELLULAR_LOW_EDGE)
+    const bands = [[0, geom.dome(30), 12, 1], [geom.dome(30), lowEdge, 48, 3],
+      [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]
     let row = 0
     for (const [top, bottom, intervals, power] of bands) {
       for (let i = 0; i < intervals; i++) ys[row++] = bottom - (bottom - top) * (1 - i / intervals) ** power

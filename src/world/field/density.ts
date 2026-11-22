@@ -1,4 +1,4 @@
-import { fieldCell, RANGES, visitCells } from './cells'
+import { cellularRasterRange, fieldCell, RANGES, visitCells } from './cells'
 import { smoothstep } from './genus'
 import { clumpAt, dayStart } from './handover'
 import { expectedClumpSampler, LATTICES, maxRadius } from './lattice'
@@ -26,8 +26,9 @@ export function cellTauAt(cell: FieldCell, x: number, y: number): number {
   return kernel(cell.tau0, rr, cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb')
 }
 
-/** Exact raster range, in km, before the outer 15% transition to expected density. */
+/** Outer raster range in km, including its transition to expected density. */
 export function rasterRange(layer: FieldLayer) {
+  if (layer.lattice === 'low' || layer.lattice === 'mid') return cellularRasterRange(layer)
   const near = RANGES[layer.lattice][0]
   // Rays at 6° or higher reach the tower mid-height within this distance in the local tangent frame.
   return layer.lattice === 'tower' ? Math.min(near, (layer.baseKm + layer.meanVKm / 2) / Math.tan(Math.PI / 30)) : near
