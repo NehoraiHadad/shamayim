@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { LayerOf } from '../model/types'
-import { clipToGround, layCarried } from './advect'
+import { layCarried } from './advect'
 
 /** A context that records each band's draw (source x, y, w, h → dest x, y, w, h) and the transform it was laid under. */
 function recorder() {
@@ -41,24 +40,3 @@ describe('a carried layer laid', () => {
     expect(draws.every((d) => !d.flip && d.dest[0] === 0)).toBe(true)
   })
 })
-
-describe('the ground a carried shadow may darken', () => {
-  const shadow: LayerOf<'cloudShadow'> = { kind: 'cloudShadow', id: 'cloudShadow.far', surface: 'land', z: 40.3, plane: 'far',
-    rgb: [0, 0, 0], bounds: { x: 0, y: 0, w: 100, h: 50 }, blobs: [], key: 'k',
-    clip: { crest: [[0, 20], [100, 20]], fronts: [[[0, 30], [100, 30]]] } }
-
-  it('clips to the face of the plane minus the nearer one, in device px, and stays put', () => {
-    const calls: string[] = []
-    const ctx = { save: () => calls.push('save'), beginPath: () => calls.push('path'), clip: (rule: string) => calls.push(`clip ${rule}`),
-      moveTo: (x: number, y: number) => calls.push(`m ${x},${y}`), lineTo: (x: number, y: number) => calls.push(`l ${x},${y}`) }
-    expect(clipToGround(ctx as unknown as CanvasRenderingContext2D, shadow, 2)).toBe(true)
-    expect(calls.slice(0, 3)).toEqual(['save', 'path', 'm 0,40'])
-    expect(calls.filter((c) => c.startsWith('clip'))).toEqual(['clip nonzero', 'clip evenodd'])
-  })
-
-  it('leaves every other layer alone', () => {
-    const ctx = { save: () => { throw new Error('saved') } }
-    expect(clipToGround(ctx as unknown as CanvasRenderingContext2D, { ...shadow, clip: null }, 2)).toBe(false)
-  })
-})
-

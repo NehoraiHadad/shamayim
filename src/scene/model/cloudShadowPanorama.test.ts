@@ -7,7 +7,7 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { facesOf } from '../../world/face'
 import { terrainY } from '../../world/terrain'
 import { makeWorldBuilder } from '../../world/world'
-import { cloudShadowLayers } from './cloudShadows'
+import { cloudShadowsOf } from './cloudShadows'
 import { sceneModel } from './index'
 import type { SceneBox } from './types'
 
@@ -53,7 +53,7 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
     [faces.near, faces.far].map(face => face.columns.reduce((total, column) => total + column.points.length, 0))
 
   const samples = frames.map((world, minute) => {
-    const shadow = timed(() => cloudShadowLayers(world, box))
+    const shadow = timed(() => cloudShadowsOf(world, box))
     // Keep the field's optical layers for the sky. Only remove the shadow candidates.
     const noShadows = { ...world, cloudField: world.cloudField && { ...world.cloudField,
       snapshot: world.cloudField.snapshot.map(snapshot => ({ ...snapshot, cells: [] })),
@@ -94,12 +94,12 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
   }
   let heights = 0, blocked = 0
   const grid = first.flightTerrain!
-  const profile = cloudShadowLayers({ ...first, flightTerrain: { ...grid,
+  const profile = cloudShadowsOf({ ...first, flightTerrain: { ...grid,
     heightAt: (e, n) => { heights++; return grid.heightAt(e, n) },
     blockedKm: (e, n, h) => { blocked++; return grid.blockedKm(e, n, h) },
   } }, box)
   for (const world of frames) {
-    expect(cloudShadowLayers(world, box)).toEqual(cloudShadowLayers({
+    expect(cloudShadowsOf(world, box)).toEqual(cloudShadowsOf({
       ...world, flightTerrain: { ...world.flightTerrain!, shadowBlocked: undefined, occludedAt: undefined },
     }, box))
   }

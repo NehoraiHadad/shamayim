@@ -7,7 +7,7 @@ import { SCENE_W } from '../../world/sceneBox'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
-import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './cloudShadowLayers'
+import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import type { Pt } from './types'
 
 /**
@@ -28,14 +28,13 @@ export interface ProjectInput {
   box: ShadowBox
   azimuth: number
   altitude: number
-  open: number
   minDepth: number
 }
 
 type GroundHit = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
 
 export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
-  const { cloudField, grid, terrain, camera, box, azimuth, altitude: altDeg, open, minDepth } = input
+  const { cloudField, grid, terrain, camera, box, azimuth, altitude: altDeg, minDepth } = input
   const altitude = altDeg * RAD, cot = 1 / Math.tan(altitude), invSin = 1 / Math.sin(altitude)
   const sin = Math.sin(azimuth * RAD), cos = Math.cos(azimuth * RAD)
   const eastPerUp = sin * cot, northPerUp = cos * cot
@@ -119,10 +118,10 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
       const sy = terrainY(terrain.horizonY, apparentAngle(centre.seaLevelM, Math.sqrt(e * e + n * n), eyeM))
       left = Math.min(left, sx); right = Math.max(right, sx); top = Math.min(top, sy); bottom = Math.max(bottom, sy)
     }
-    const alpha = Math.min(1, Math.max(0, 1 - Math.exp(-slant * invSin / 2) / open))
+    const opticalDepth = slant * invSin
     const centreKm: Pt = [centre.eastKm, centre.northKm]
     const speed = acrossSpeed(vel, [centre.eastKm / centre.km, centre.northKm / centre.km], centre.km, perRad)
-    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, alpha, speed,
+    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
       x: (left + right) / 2, y: (top + bottom) / 2, rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
   }
   return accepted

@@ -1,3 +1,4 @@
+import type { VegetationToneAt } from './vegetationLight'
 import type { CanopyVegetation, RGB } from '../model/types'
 import { frondTravel, plantWindAt, plantWindFade, type PlantWind } from '../model/landWind'
 import { PALM_FROND_LENGTH } from '../model/vegShapes'
@@ -77,28 +78,26 @@ function paintPalm(
 }
 
 /** Tree and orchard crown form, back-to-front, fading with distance. */
-export function paintVegCrowns(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWind, time = 0): void {
+export function paintVegCrowns(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWind, time = 0, toneAt?: VegetationToneAt): void {
   const { trees, treeMeta, tones } = veg
   const count = trees.length / 6
   if (!count || !tones.length) return
-  const underRgb = tones[TONE.PINE_UNDER] ?? [0.05, 0.10, 0.06]
-  const litPineRgb = tones[TONE.PINE_LIT] ?? [0.29, 0.44, 0.23]
-  const trunkRgb = tones[TONE.TRUNK] ?? [0.27, 0.23, 0.18]
+  const tone = (i: number, x: number, y: number) => toneAt?.(i, x, y) ?? tones[i] ?? tones[0]
 
-  // Pass 1: layered dark understory bed underneath pine/oak groves so tight clusters merge into continuous woodland mass.
-  const deepUnder = mix(underRgb, BLACK_SHADE, 0.42)
+  // Pass 1: layered dark understory underneath pine and oak groves.
   for (let i = 0; i < count; i++) {
     if (treeMeta[i * 3] !== 0) continue
     const alpha = (treeMeta[i * 3 + 2] ?? 255) / 255
     if (alpha <= 0.02) continue
     const o = i * 6, x = trees[o], y = trees[o + 1], r = trees[o + 2]
     ctx.beginPath()
+    const underRgb = tone(TONE.PINE_UNDER, x, y)
     ctx.ellipse(x + r * 0.04, y + r * 0.04, r * 1.44, Math.max(0.60, r * 0.70), 0, 0, Math.PI * 2)
     ctx.fillStyle = css(underRgb, 0.62 * alpha)
     ctx.fill()
     ctx.beginPath()
     ctx.ellipse(x + r * 0.08, y + r * 0.10, r * 1.04, Math.max(0.42, r * 0.48), 0, 0, Math.PI * 2)
-    ctx.fillStyle = css(deepUnder, 0.46 * alpha)
+    ctx.fillStyle = css(mix(underRgb, BLACK_SHADE, 0.42), 0.46 * alpha)
     ctx.fill()
   }
 
@@ -110,9 +109,9 @@ export function paintVegCrowns(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWi
     const x = trees[o], y = trees[o + 1], r = trees[o + 2]
     const height = trees[o + 3], phase = trees[o + 4], shade = trees[o + 5]
     const kind = treeMeta[i * 3], toneIdx = treeMeta[i * 3 + 1]
-    const baseRgb = tones[toneIdx] ?? tones[0]
+    const baseRgb = tone(toneIdx, x, y)
 
-    if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, trunkRgb, wind, time); continue }
+    if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, tone(TONE.TRUNK, x, y), wind, time); continue }
     const bend = treeBend(kind, height, alpha, phase, wind, time)
     const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind, bend)
     const lobes = kind === 0 ? (shade > 0.55 ? 5 : 4) : 3
@@ -126,10 +125,11 @@ export function paintVegCrowns(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWi
     ctx.fillStyle = css(bodyRgb, 0.96 * alpha); ctx.fill()
 
     if (r >= 0.85) {
-      const sideShade = mix(bodyRgb, underRgb, 0.58)
+      const sideShade = mix(bodyRgb, tone(TONE.PINE_UNDER, x, y), 0.58)
       traceCrownLobes(ctx, cx + rx * 0.22, cy + ry * 0.22, rx * 0.78, ry * 0.62, phase + 0.9, lobes)
       ctx.fillStyle = css(sideShade, 0.64 * alpha); ctx.fill()
 
+      const litPineRgb = tone(TONE.PINE_LIT, x, y)
       const sideLit = kind === 0 ? mix(litPineRgb, baseRgb, shade * 0.28) : mix(baseRgb, litPineRgb, 0.56)
       traceCrownLobes(ctx, cx - rx * 0.24, cy - ry * 0.24, rx * 0.66, ry * 0.54, phase + 2.1, lobes)
       ctx.fillStyle = css(sideLit, 0.74 * alpha); ctx.fill()

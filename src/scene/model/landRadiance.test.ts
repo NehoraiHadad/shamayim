@@ -10,14 +10,14 @@ import { canopyMatchesPlane } from '../compose/planeComposite'
 import { TEXEL } from '../paint/landSurface'
 import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/planeTexel'
 import { layersOn, sceneModel } from '.'
-import { cloudShadowLayers } from './cloudShadows'
+import { cloudShadowsOf } from './cloudShadows'
 import {
   EXPOSURE_GAMMA, FLAT_NORMAL, linearLuminance, litLandLinear, litLandRgb, litRadianceRatio,
   srgbRgbToLinear, surfaceNormal,
 } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
 import { hexOf, rgbOf } from './tone'
-import type { LayerDesc, LayerOf, SceneBox } from './types'
+import type { LayerOf, SceneBox } from './types'
 
 const DAY = '2026-11-17'
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
@@ -121,19 +121,13 @@ describe('Stage 7 round 2: physical linear-light land radiance across all 8 base
     expect(linearLuminance(shLin)).toBeCloseTo(linearLuminance(diffNoHaze) * (1 - h) + airY * h, 4)
     expect(linearLuminance(shLin)).toBeGreaterThan(linearLuminance(diffNoHaze))
 
-    // Cloud shadows emit with `source-atop` below water/outside/marks (z < 32), and ZERO cloud shadows at moonlit night.
-    const noonLayers = cloudShadowLayers(brokenNoon, BOX)
-    expect(noonLayers.length).toBeGreaterThan(0)
-    for (const l of noonLayers) {
-      expect(l.blend).toBe('source-atop')
-      expect(l.z).toBeLessThan(31)
-    }
+    expect(cloudShadowsOf(brokenNoon, BOX).length).toBeGreaterThan(0)
     const moonNight = buildWorld({
       ...worldInput(loaded.get('jerusalem')!, `${DAY}T21:00` as LocalTime),
       forced: { cloudCover: 40, thickCloud: 30, weatherCode: 2, precipitation: 0, visibilityKm: 30 },
       forcedLayers: { low: 0.4, mid: 0.2, high: 0 },
     })
-    expect(cloudShadowLayers(moonNight, BOX)).toEqual([])
+    expect(cloudShadowsOf(moonNight, BOX)).toEqual([])
   })
 
   it('applies exact linear wet darkening (×(1 − 0.45·wet)), produces flat diffuse overcast, and guards out-of-order canopy Worker arrivals at 1× and 2×', () => {
@@ -160,9 +154,8 @@ describe('Stage 7 round 2: physical linear-light land radiance across all 8 base
       const cache = new LayerCache({ factory: fake, painters: () => ({ form: () => {}, light: () => {} }), now: () => 0 })
       const newerPlane: LayerOf<'plane'> = { ...nearPlane, key: `${nearPlane.key}:v2` }
       cache.update(newerPlane, dpr)
-      const byId = new Map<string, LayerDesc>([[newerPlane.id, newerPlane], [nearCanopy.id, nearCanopy]])
-      expect(canopyMatchesPlane(nearCanopy, byId, cache, dpr)).toBe(false)
-      expect(canopyMatchesPlane({ ...nearCanopy, planeFormKey: newerPlane.key }, byId, cache, dpr)).toBe(true)
+      expect(canopyMatchesPlane(nearCanopy, [newerPlane, nearCanopy], cache)).toBe(false)
+      expect(canopyMatchesPlane({ ...nearCanopy, receiver: { form: newerPlane.key, light: newerPlane.light.key } }, [newerPlane, nearCanopy], cache)).toBe(true)
     }
     expect(median([1, 2, 3])).toBe(2)
   })

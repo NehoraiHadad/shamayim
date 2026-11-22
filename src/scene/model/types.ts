@@ -1,3 +1,4 @@
+import type { PlaneCloudShadow } from './planeCloudShadow'
 import type { NeighbourEvidence } from './neighbourEvidence'
 import type { CityTier } from './cityMass'
 export type { CityTier } from './cityMass'
@@ -77,7 +78,7 @@ export interface AnimSpec {
    * the frame at `phase` is laid (`frameAt`). The motion loops every `count / fps` s, so a painter's motion must be
    * periodic over it.
    */
-  frames?: { count: number; fps: number }
+  frames?: { count: number; fps: number; from?: number }
   /** Falling marks (C7): the layer's canvas is a tile laid as a pattern over these areas, moving with the phase (`fallAt`). */
   fall?: Fall
   /** The layer's alpha goes from `from` to `to` over `at … at + dur` s of the phase, eased (C8: the land in, the mist out). */
@@ -449,8 +450,8 @@ export type LayerDesc =
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string }
-  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[]; planeFormKey?: string }
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: PlaneCloudShadow }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[]; receiver?: { form: string; light: string }; cloudShadow?: PlaneCloudShadow; receiverField?: PlaneLitField; receiverBounds?: Box }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
@@ -538,14 +539,6 @@ export type LayerDesc =
   | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
       beads: WearBead[]; snow: number; seed: number }
   | LayerBase & { kind: 'wearItem'; item: WearItem }
-  /** Cloud footprints on a receiving land plane, in land pixels. */
-  | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
-      /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
-      clip: { crest: Pt[]; fronts: Pt[][] } | null
-      /** Receiving plane's geometry & radiance field so shadows remove ONLY direct light before compression and haze. */
-      litPlane?: { outline: Pt[]; bounds: Box; surfaceTone: PlanePalette; litField: PlaneLitField; grainSeed: number; grainAmount: number }
-      /** Each cell's footprint; `speed` how fast its cloud's wind carries it across, land px/s (+ left → right). */
-      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number; speed: number }[] }
   /**
    * One field layer drawn as a continuous sheet over the dome (SPEC §6.0), in sky px. A grid of screen rays: `xs` the
    * column centres, `ys` the row centres (top to bottom, denser toward the horizon, where the deck compresses). Per node

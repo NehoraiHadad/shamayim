@@ -2,7 +2,7 @@ import type { Covers } from './clouds'
 import { smoothstep } from './ridgeLighting'
 import type { CloudField } from './field/types'
 
-export const layerMeanTransmission = (cover: number, tau: number) => 1 + cover * Math.expm1(-tau / 2)
+export const layerMeanTransmission = (cover: number, tau: number) => 1 + cover * Math.expm1(-tau)
 const openness = (cover: number, transmission: number) => transmission ** smoothstep(0.75, 0.97, cover)
 
 export function cloudLight(covers: Covers, field?: CloudField) {

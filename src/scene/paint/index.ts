@@ -3,7 +3,6 @@ import type { Ctx2D, PaintEnv } from './hand'
 import { paintBodies, paintStars } from './bodies'
 import { paintClouds, paintFlash, paintShimmer } from './clouds'
 import { paintCloudSheet } from './cloudSheet'
-import { paintCloudShadow } from './cloudShadows'
 import { paintCanopy } from './canopy'
 import { paintLandDust } from './landDust'
 import { paintFarCities } from './farCities'
@@ -73,7 +72,6 @@ export const PAINTERS: Painters = {
   wearRope: { form: paintWearRope },
   wearItem: { form: paintWearItem },
   wearDrip: { form: paintWearDrip },
-  cloudShadow: { form: paintCloudShadow },
   cloudSheet: { form: paintCloudSheet },
 }
 

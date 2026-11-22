@@ -98,6 +98,10 @@ export function samplePlaneTexel(t: PlaneTexelCtx, i: number, x: number, y: numb
     rr += (SNOW_ALBEDO_LIN[0] - rr) * s; rg += (SNOW_ALBEDO_LIN[1] - rg) * s; rb += (SNOW_ALBEDO_LIN[2] - rb) * s
   }
 
+  return { rho: [rr, rg, rb], ...samplePlaneField(litField, u, v) }
+}
+
+export function samplePlaneField(litField: PlaneLitField, u: number, v: number): Omit<TexelSample, 'rho'> {
   const fCols = litField.cols, fRows = litField.rows, g = litField.grid
   const fxG = u * (fCols - 1), fyG = fRows > 1 ? v * (fRows - 1) : 0
   const fc0 = Math.floor(fxG), fc1 = Math.min(fCols - 1, fc0 + 1), fr0 = Math.floor(fyG), fr1 = Math.min(fRows - 1, fr0 + 1)
@@ -105,7 +109,7 @@ export function samplePlaneTexel(t: PlaneTexelCtx, i: number, x: number, y: numb
   const gw00 = (1 - tx) * (1 - ty), gw10 = tx * (1 - ty), gw01 = (1 - tx) * ty, gw11 = tx * ty
   const o00 = (fr0 * fCols + fc0) * 4, o10 = (fr0 * fCols + fc1) * 4, o01 = (fr1 * fCols + fc0) * 4, o11 = (fr1 * fCols + fc1) * 4
   const interp = (ch: number) => (g[o00 + ch] * gw00 + g[o10 + ch] * gw10 + g[o01 + ch] * gw01 + g[o11 + ch] * gw11) / 255
-  return { rho: [rr, rg, rb], sVis: interp(0), mVis: interp(1), vSky: interp(2), haze: interp(3) }
+  return { sVis: interp(0), mVis: interp(1), vSky: interp(2), haze: interp(3) }
 }
 
 /** Evaluates one texel to sRGB `[0..1]` using the exact shared `shadeLinearRgb` equation. */
@@ -118,7 +122,7 @@ export function shadeTexelSrgb(t: PlaneTexelCtx, s: TexelSample, cloudVis = 1): 
 /** Paints the exact single-pass lit terrain surface + small finishing paper grain (after lighting & haze). */
 export function paintLitSurface(
   ctx: Ctx2D, outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField,
-  grainAmount: number, seed: number, env: PaintEnv,
+  grainAmount: number, seed: number, env: PaintEnv, pass?: (x: number, y: number) => number,
 ): void {
   if (!surface.palette.length || !surface.cells.length) return
   const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount)
@@ -128,7 +132,7 @@ export function paintLitSurface(
     const y = bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < t.wPx; i++) {
       const x = bounds.x + (i + 0.5) * TEXEL
-      const [sr, sg, sb] = shadeTexelSrgb(t, samplePlaneTexel(t, i, x, y), 1)
+      const [sr, sg, sb] = shadeTexelSrgb(t, samplePlaneTexel(t, i, x, y), pass?.(x, y) ?? 1)
       // Paper grain at its own small finishing amplitude (post-lighting, post-haze).
       const g = grainAmount > 0 ? (hash(seed + 3, i + t.gx0, j + t.gy0) - 0.5) * 0.026 * grainAmount : 0
       const o = (j * t.wPx + i) * 4

@@ -79,7 +79,7 @@ export class LayerCache {
   peek(id: string) {
     const entry = this.entries.get(id)
     return entry ? { form: entry.form, light: entry.lightKey ? entry.light : null, ratio: entry.ratio, rect: entry.rect,
-      formKey: entry.formKey, desc: entry.desc } : null
+      formKey: entry.formKey, lightKey: entry.lightKey, desc: entry.desc } : null
   }
 
   private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number,

@@ -6,11 +6,11 @@ import type { LocalTime } from '../../domain/types'
 import { makeWorldBuilder } from '../../world/world'
 import type { RGB, WorldState } from '../../world/types'
 import { sceneModel } from './index'
-import { cloudShadowLayers } from './cloudShadows'
+import { cloudShadowsOf } from './cloudShadows'
 import { shineOf, tonesAt } from './marks'
 import { outsideLayer } from './outside'
 import { wearLight } from './wear'
-import type { LayerOf, SceneBox } from './types'
+import type { SceneBox } from './types'
 
 /*
  * The owner's report of 2026-11-20: "the change of light and shade is sharp instead of alive; it stands out on the houses
@@ -146,20 +146,18 @@ describe('the living light: cloud shadows', () => {
     const build = makeWorldBuilder()
     const broken = { forced: { cloudCover: 50, thickCloud: 50 }, forcedLayers: { low: 0.45, mid: 0.3, high: 0 } }
     const at = (m: number) => addMinutes('2026-11-17T13:00', m)
-    const layers = (w: WorldState) => sceneModel(w, BOX).layers.filter((l): l is LayerOf<'cloudShadow'> => l.kind === 'cloudShadow')
+    const layers = (w: WorldState) => sceneModel(w, BOX).layers.flatMap((l) => l.kind === 'plane' && l.cloudShadow ? [l.cloudShadow] : [])
     const input = worldInput(p, at(0), at(0))
     const first = build({ ...input, ...broken })
     const second = build({ ...input, ...broken, selected: at(1) })
     const a = layers(first)
-    const b = cloudShadowLayers(second, BOX)
+    const b = cloudShadowsOf(second, BOX)
     expect(a.length).toBeGreaterThan(0)
     expect(new Set(a.map(layer => layer.plane)).size).toBe(a.length)
-    expect(a.every(layer => layer.surface === 'land' && layer.blend === 'source-atop' &&
-      layer.id === `cloudShadow.${layer.plane}`)).toBe(true)
     const blobs = a.flatMap(layer => layer.blobs)
     expect(blobs.length).toBeLessThanOrEqual(64)
-    expect(blobs.every(blob => blob.alpha > 0)).toBe(true)
-    expect(a.some(layer => b.some(next => next.id === layer.id))).toBe(true)
+    expect(blobs.every(blob => blob.opticalDepth > 0)).toBe(true)
+    expect(a.some(layer => b.some(next => next.plane === layer.plane))).toBe(true)
     const byId = new Map(b.flatMap(layer => layer.blobs).map(blob => [blob.cellId, blob]))
     expect(blobs.some(blob => {
       const next = byId.get(blob.cellId)

@@ -118,6 +118,6 @@ export function accept(entry: Entry, request: Request, results: readonly PaintRe
 
 export function peek(entry: Entry | undefined) {
   if (!entry?.shown) return null
-  const { form, light, request: { ratio, rect, formKey, desc } } = entry.shown
-  return { form, light, ratio, rect, formKey, desc }
+  const { form, light, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
+  return { form, light, ratio, rect, formKey, lightKey, desc }
 }

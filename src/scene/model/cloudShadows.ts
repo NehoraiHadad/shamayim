@@ -1,10 +1,9 @@
 //# allFunctionsCalledOnLoad
 import { cloudLight } from '../../world/lightCloud'
 import type { WorldState } from '../../world/types'
-import { shadowLayers, type ShadowBox, type ShadowTerrain } from './cloudShadowLayers'
+import type { PlaneCloudShadow, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import { projectCloudShadows } from './cloudShadowProject'
-import { EXPOSURE_GAMMA, FLAT_NORMAL, landIrradiance, litLandRgb, type RadianceWorld } from './landRadiance'
-import type { LayerOf, RGB } from './types'
+import { EXPOSURE_GAMMA, landIrradiance } from './landRadiance'
 
 /**
  * Solar cloud-shadow policy & layer builder (Stage 7 round 2, split from `cloudShadowProject.ts`).
@@ -23,18 +22,7 @@ type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
   terrain: ShadowTerrain
 }
 
-function fallbackShadowRgb(world: ShadowWorld): RGB {
-  const l = world.light
-  if (l.shares && l.palette && l.colour && l.ambient && l.dir && l.diffuse !== undefined) {
-    return litLandRgb({
-      light: l as WorldState['light'], ground: world.ground ?? { wet: 0, snowLineM: null },
-      bodies: world.bodies, air: world.air, camera: world.camera,
-    } as RadianceWorld, [0.32, 0.34, 0.30], FLAT_NORMAL, 0, undefined, 0)
-  }
-  return [0.22, 0.25, 0.30]
-}
-
-export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox, planes?: readonly LayerOf<'plane'>[]) {
+export function cloudShadowsOf(world: ShadowWorld, box: ShadowBox): PlaneCloudShadow[] {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world
   if (!cloudField || !grid) return []
   // Explicitly solar-only gate (Finding 7): a night moon never triggers solar cloud-shadow projection.
@@ -47,7 +35,7 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox, planes?: r
   if (open <= 0) return []
 
   // Visibility cutoff: skip cells whose max displayed luminance reduction is below 1/255.
-  let maxDrop = 0.4
+  let maxDrop: number
   if (light.shares && light.palette && light.colour && light.ambient && light.dir && light.diffuse !== undefined) {
     const irr = landIrradiance({
       light: light as WorldState['light'], ground: world.ground ?? { wet: 0, snowLineM: null },
@@ -61,7 +49,13 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox, planes?: r
   }
   if (maxDrop < 1 / 255) return []
   const invSin = 1 / Math.sin(sunAlt * RAD)
-  const minDepth = -2 * Math.log(open * Math.max(1e-6, 1 - 1 / (255 * maxDrop))) / invSin
-  const accepted = projectCloudShadows({ cloudField, grid, terrain, camera, box, azimuth: sunAz, altitude: sunAlt, open, minDepth })
-  return shadowLayers(terrain, box, accepted, fallbackShadowRgb(world), planes)
+  const minDepth = -Math.log(open * Math.max(1e-6, 1 - 1 / (255 * maxDrop))) / invSin
+  const accepted = projectCloudShadows({ cloudField, grid, terrain, camera, box, azimuth: sunAz, altitude: sunAlt, minDepth })
+  const received = new Map<ShadowPlane, PlaneCloudShadow>()
+  for (const { plane, blob } of accepted) {
+    let receiver = received.get(plane)
+    if (!receiver) received.set(plane, receiver = { plane, open, blobs: [] })
+    receiver.blobs.push(blob)
+  }
+  return [...received.values()]
 }

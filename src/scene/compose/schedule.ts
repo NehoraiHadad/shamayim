@@ -10,7 +10,6 @@ export const PRIORITY: Record<LayerKind, number> = {
   // The clothesline in the wear card (its own surface): the rope, then the garments, then their drops.
   wearRope: 0, wearItem: 1, wearDrip: 2,
   // The living light: the cloud's shadows on the land, with the weather.
-  cloudShadow: 6,
   // The field's sheets (SPEC §6.0), with the clouds.
   cloudSheet: 5,
 }

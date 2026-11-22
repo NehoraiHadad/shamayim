@@ -1,3 +1,5 @@
+import { solarTransmission } from '../model/planeCloudShadow'
+import { vegetationLight } from './vegetationLight'
 import type { LayerOf, Wash } from '../model/types'
 import { displace, sample, tube } from './core'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
@@ -60,12 +62,14 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
   ctx.save()
 
   if (litField && desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.grain.amount * env.hand.grain, desc.grain.seed, env)
-    const litVeg = litField.litTones.length ? { ...desc.vegetation, tones: [...litField.litTones] } : desc.vegetation
-    paintVegStrata(ctx, litVeg)
-    paintVegFields(ctx, litVeg)
+    const pass = solarTransmission(desc.cloudShadow, env.phase)
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.grain.amount * env.hand.grain, desc.grain.seed, env, pass)
+    const litVeg = desc.vegetation
+    const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, pass)
+    paintVegStrata(ctx, litVeg, toneAt)
+    paintVegFields(ctx, litVeg, toneAt)
     paintGroundMarks(ctx, desc)
-    paintVegRows(ctx, litVeg)
+    paintVegRows(ctx, litVeg, toneAt)
   } else if (light.veil.length && light.veil.some(([, , a]) => a > 0.002)) {
     const { x, y, w, h } = desc.bounds
     if (light.veil.length > 1) {

@@ -1,3 +1,4 @@
+import type { VegetationToneAt } from './vegetationLight'
 import type { PlaneVegetation, RGB } from '../model/types'
 import { h01 } from './vegInk'
 import { css, mix, type Ctx2D } from './hand'
@@ -18,14 +19,14 @@ function wobblyEdge(ctx: Ctx2D, ax: number, ay: number, bx: number, by: number, 
 }
 
 /** Soft tonal geological strata bands on bare/sparse (WorldCover 60) and desert slopes — zero vegetation. */
-export function paintVegStrata(ctx: Ctx2D, veg: PlaneVegetation): void {
+export function paintVegStrata(ctx: Ctx2D, veg: PlaneVegetation, toneAt?: VegetationToneAt): void {
   const { strata, strataMeta, tones, seed } = veg
   const count = strata.length / 6
   if (!count || !tones.length) return
   ctx.lineCap = 'round'
   for (let i = 0; i < count; i++) {
     const o = i * 6, x0 = strata[o], y0 = strata[o + 1], x1 = strata[o + 2], y1 = strata[o + 3]
-    const thick = strata[o + 4], alpha = strata[o + 5], rgb = tones[strataMeta[i]] ?? tones[0]
+    const thick = strata[o + 4], alpha = strata[o + 5], rgb = toneAt?.(strataMeta[i], (x0 + x1) / 2, (y0 + y1) / 2) ?? tones[strataMeta[i]] ?? tones[0]
     const bow = (h01(seed, x0, y0, 3) - 0.5) * 2.4
     for (const [wScale, aScale] of [[1.9, 0.40], [0.9, 0.85]] as const) {
       ctx.beginPath(); ctx.moveTo(x0, y0); wobblyEdge(ctx, x0, y0, x1, y1, bow)
@@ -35,7 +36,7 @@ export function paintVegStrata(ctx: Ctx2D, veg: PlaneVegetation): void {
 }
 
 /** Cropland field patchwork aligned to the ground plane: growing green, ploughed brown or dry golden straw. */
-export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
+export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation, toneAt?: VegetationToneAt): void {
   const { fields, fieldMeta, tones, seed } = veg
   const count = fields.length / 9
   if (!count || !tones.length) return
@@ -43,7 +44,8 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
     const o = i * 9
     const x0 = fields[o], y0 = fields[o + 1], x1 = fields[o + 2], y1 = fields[o + 3]
     const x2 = fields[o + 4], y2 = fields[o + 5], x3 = fields[o + 6], y3 = fields[o + 7], alpha = fields[o + 8]
-    const state = fieldMeta[i * 2], baseRgb = tones[fieldMeta[i * 2 + 1]] ?? tones[0]
+    const state = fieldMeta[i * 2], baseRgb = toneAt?.(fieldMeta[i * 2 + 1], (x0 + x1 + x2 + x3) / 4, (y0 + y1 + y2 + y3) / 4)
+      ?? tones[fieldMeta[i * 2 + 1]] ?? tones[0]
     const b0 = (h01(seed, x0, y0, 11) - 0.5) * 1.4, b1 = (h01(seed, x0, y0, 17) - 0.5) * 1.4
     // Anchor-hashed tonal variation within each NDVI state so adjacent winter/spring fields read as a patchwork.
     const v = h01(seed, x0, y0, 41)
@@ -71,13 +73,15 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
 }
 
 /** Subtle converging shaded row or management-alley stripes underneath orchard/plantation blocks. */
-export function paintVegRows(ctx: Ctx2D, veg: PlaneVegetation): void {
+export function paintVegRows(ctx: Ctx2D, veg: PlaneVegetation, toneAt?: VegetationToneAt): void {
   const { rows, rowMeta, tones } = veg
   const count = rows.length / 6
   if (!count || !tones.length) return
   ctx.lineCap = 'round'
   for (let i = 0; i < count; i++) {
-    const o = i * 6, rgb = mix(tones[rowMeta[i]] ?? tones[0], DARK_EARTH, 0.42)
+    const o = i * 6
+    const rgb = mix(toneAt?.(rowMeta[i], (rows[o] + rows[o + 2]) / 2, (rows[o + 1] + rows[o + 3]) / 2)
+      ?? tones[rowMeta[i]] ?? tones[0], DARK_EARTH, 0.42)
     ctx.beginPath(); ctx.moveTo(rows[o], rows[o + 1]); ctx.lineTo(rows[o + 2], rows[o + 3])
     ctx.strokeStyle = css(rgb, rows[o + 5]); ctx.lineWidth = rows[o + 4]; ctx.stroke()
   }

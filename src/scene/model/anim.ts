@@ -69,6 +69,7 @@ export function flashAt(spec: AnimSpec | undefined, phase: number): number {
 export function frameAt(spec: AnimSpec | undefined, phase: number): number {
   const frames = spec?.frames
   if (!frames || frames.count <= 1) return 0
+  if (frames.from !== undefined) return Math.min(frames.count - 1, Math.round(Math.max(0, phase - frames.from) * frames.fps))
   return Math.floor(Math.max(0, phase) * frames.fps + 1e-6) % frames.count
 }
 

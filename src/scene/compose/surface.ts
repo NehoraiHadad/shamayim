@@ -3,7 +3,7 @@ import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
 import { paintContrail } from '../paint/contrail'
-import { clipToGround, layCarried } from './advect'
+import { layCarried } from './advect'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { formKeyOf } from './paintJob'
 import { canopyMatchesPlane } from './planeComposite'
@@ -138,17 +138,15 @@ export class Surface {
     const d = this.dpr
     const cache = this.active
     if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
-    const byId = new Map(layers.map((layer) => [layer.id, layer]))
     for (const { desc, part } of this.order.passes) {
       if (part === 'light' && !desc.light) continue
       if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const layout = layoutOf(desc, cached, d)
-      // Out-of-order Worker guard (Finding 8): never composite a canopy whose geometry predates or postdates its plane.
-      if (layout.kind === 'canopy' && !canopyMatchesPlane(layout, byId, cache, d)) continue
+      if (layout.kind === 'canopy' && !canopyMatchesPlane(layout, layers, cache)) continue
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
-      if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
+      if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, still ? layout.animated.frames.from ?? 0 : motion)
       const { form, light, ratio, rect } = cached
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
@@ -191,7 +189,7 @@ export class Surface {
         const source = image as CanvasImageSource
         // A strip (C7): the frame at this phase, of the frames the canvas holds.
         const held = Math.max(1, Math.round((image as { height: number }).height / rect.h))
-        const sy = held > 1 ? (frameAt(anim, motion) % held) * rect.h : 0
+        const sy = held > 1 ? ((still ? 0 : frameAt(anim, motion)) % held) * rect.h : 0
         if (lay) {
           const sc = lay.scale * flown.scale * k
           const turn = (lay.turn ?? 0) + flown.turn
@@ -225,9 +223,7 @@ export class Surface {
       }
       if (part !== 'light' && form && !cache.formless(layout)) {
         if (layout.blend) ctx.globalCompositeOperation = layout.blend
-        const grounded = clipToGround(ctx, layout, d)
         draw(form)
-        if (grounded) ctx.restore()
         if (layout.blend) ctx.globalCompositeOperation = 'source-over'
       }
       if (part !== 'form' && light && layout.light) {

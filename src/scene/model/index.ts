@@ -11,7 +11,7 @@ import { marksLayers } from './marks'
 import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
-import { carriedShadow, carriedSheet, minuteStart } from './advect'
+import { carriedSheet, minuteStart } from './advect'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
 import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
@@ -25,7 +25,8 @@ import type { LandClock, LayerDesc, LayerOf, LifeClock, SceneBox, SceneModel } f
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
 
-import { cloudShadowLayers } from './cloudShadows'
+import { cloudShadowsOf } from './cloudShadows'
+import { shadowedPlane } from './planeCloudShadow'
 export type * from './types'
 
 /**
@@ -67,12 +68,13 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
+  const shadows = cloudShadowsOf(world, box)
   const planes = planeLayers(world, box, layout.clear)
+    .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life)))
   const wind = plantWindOf(world.wind)
   const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear) ?? [])
   const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
-    ...cloudShadowLayers(world, box, planes).map((shadow) => carriedShadow(shadow, minuteStart(life))),
     ...landDustLayers(world, box), ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
