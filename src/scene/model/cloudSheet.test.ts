@@ -9,9 +9,9 @@ import { genusOf } from '../../world/field/genus'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { transmitAlong } from '../../world/field/transmit'
-import { cloudSheetOf, sheetPathFactor, SWEEP_TAPS } from './cloudSheet'
-import { gridFor, textureFootprint } from './cloudSheetGrid'
-import { edgeTexture, sheetTexture, textureCorrection } from './cloudSheetTexture'
+import { cloudSheetOf, sheetPathFactor } from './cloudSheet'
+import { gridFor } from './cloudSheetGrid'
+import { sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { skyGeom } from './sky'
 import type { SceneBox } from './types'
 
@@ -63,7 +63,7 @@ it('maintains cover in equal-area world samples across six days, four hours and 
           for (const [index, tau] of depths.entries()) {
             const texture = corrected(index)
             expect(texture).toBeGreaterThanOrEqual(0)
-            result.covered += Number(tau * texture > layer.floorTau + 0.05)
+            result.covered += Number(tau > layer.floorTau + 0.05)
             result.texture += texture
             result.tau += tau
             result.texturedTau += tau * texture
@@ -91,19 +91,18 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
     const sheet = cloudSheetOf(at.world, at.geom, snapshot, neutral)!
     const sample = (view: typeof at, source: typeof snapshot) => {
       const genus = genusOf(lattice, source.layer!.form, 0.5)
-      const { xs, ranges, point, swept, expected, path, slant, fade, texture } =
+      const { xs, ranges, east, north, tau, expected, path, slant, fade } =
         gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genus)
-      const angularStep = 2 * Math.PI * (xs[1] - xs[0]) / view.geom.azimuthRange.period
-      return sheet.alpha.map((_, index) => {
-        const row = Math.floor(index / xs.length)
-        const start = (ranges[row] === 0 ? row * xs.length : index) * SWEEP_TAPS
-        const taps = swept.length && fade[row] < 1 && path[row]
-          ? swept.slice(start, start + SWEEP_TAPS) : Array<number>(SWEEP_TAPS).fill(point[index])
-        const cross = textureFootprint(ranges[row], angularStep)
-        const m = slant[row] * edgeTexture(genus, cross, texture[index], SWEEP_TAPS)
-        return { path: path[row], fade: fade[row], local: taps.map(tau => path[row] ? tau * m : 0),
-          mean: path[row] ? expected[index] * m : 0 }
+      let maxError = 0
+      const nodes = sheet.alpha.map((_, index) => {
+        const row = Math.floor(index / xs.length), col = index % xs.length
+        const exact = source.densityGrid.tauAt(ranges[row] * east[col], ranges[row] * north[col])
+        maxError = Math.max(maxError, Math.abs(exact - tau[index]))
+        return { path: path[row], fade: fade[row], local: tau[index] * slant[row],
+          mean: expected[index] * slant[row] }
       })
+      expect(maxError).toBeLessThanOrEqual(1e-9)
+      return nodes
     }
     const original = sheet.alpha.slice()
     const before = sample(at, snapshot)
@@ -117,7 +116,10 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
     expect(sheet.ys.at(-1)).toBe(at.geom.horizon)
     const gaps = sheet.ys.slice(1).map((y, i) => y - sheet.ys[i])
     expect(Math.min(...gaps)).toBeGreaterThan(0)
-    gaps.slice(1).forEach((gap, i) => expect(gap).toBeLessThanOrEqual(gaps[i] + 1e-9))
+    if (sheet.genus === 'sc' || sheet.genus === 'ac') {
+      expect(sheet.xs).toHaveLength(144)
+      expect(sheet.ys.filter(y => y >= at.geom.dome(30) && y <= at.geom.dome(5))).toHaveLength(49)
+    }
     const deltas: number[] = []
     let dense = 0, minDense = 1
     for (const [row, y] of sheet.ys.entries()) {
@@ -129,16 +131,17 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
         // Beer–Lambert's maximum slope between two slant depths is exp(-min).
         // The path and footprint weights each multiply values in [0,1].
         const slope = (u: number, v: number) => Math.exp(-Math.min(u, v)) * Math.abs(u - v)
-        const localBound = a.local.reduce((sum, tau, tap) => sum + slope(tau, b.local[tap]), 0) / SWEEP_TAPS
+        // With one centred tap the local bound is the single Beer–Lambert slope.
+        const localBound = slope(a.local, b.local)
         const bound = Math.abs(a.path - b.path) + Math.abs(a.fade - b.fade)
           + (1 - a.fade) * localBound + a.fade * slope(a.mean, b.mean)
         const delta = Math.abs(original[i] - later.alpha[i])
         deltas.push(delta)
         expect.soft(delta, `${lattice} node ${i}`).toBeLessThanOrEqual(bound + 0.02)
         expect(at.geom.x(at.geom.azimuthAt(x))).toBeCloseTo(x, 8)
-        // A dense vertical column may have a thin texture gap, an unresolved footprint,
+        // A dense vertical column may have an unresolved footprint,
         // or a truncated path. A fully resolved slant depth of 2 must be opaque.
-        if (a.path < 0.99 || a.fade !== 0 || Math.min(...a.local) <= 2) continue
+        if (a.path < 0.99 || a.fade !== 0 || a.local <= 2) continue
         dense++
         minDense = Math.min(minDense, original[i])
       }

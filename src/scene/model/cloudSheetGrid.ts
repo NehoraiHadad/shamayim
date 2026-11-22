@@ -39,8 +39,6 @@ interface Grid {
   slant: number[]
   detail: number[]
   expected: number[]
-  point: number[]
-  swept: number[]
   fade: number[]
   facing: number[]
 }
@@ -53,7 +51,7 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
   if (!grid) {
     grid = {
       xs: [], ys: [], altitudes: [], ranges: [], east: [], north: [], alpha: [], tone: [],
-      tau: [], texture: [], weights: [], path: [], slant: [], detail: [], expected: [], point: [], swept: [], fade: [], facing: [],
+      tau: [], texture: [], weights: [], path: [], slant: [], detail: [], expected: [], fade: [], facing: [],
     }
     if (scratch.size >= 32) scratch.delete(scratch.keys().next().value!)
     scratch.set(key, grid)
@@ -61,8 +59,10 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
   const { xs, ys, altitudes, ranges, east, north, alpha, tone } = grid
   // Broad St/Cs structures need half the angular resolution of cellular Sc/Ac.
   const broad = genus === 'st' || genus === 'cs'
-  const cols = broad ? 24 : 48
-  const targetRows = broad ? 12 : genus === 'sc' || genus === 'ac' ? 36 : 24
+  const cellular = genus === 'sc' || genus === 'ac'
+  // N3h resolves Sc/Ac elements with 144 azimuth rays and 72 elevation intervals.
+  const cols = cellular ? 144 : broad ? 24 : 48
+  const targetRows = cellular ? 72 : broad ? 12 : 24
   xs.length = east.length = north.length = cols
   for (let i = 0; i < cols; i++) {
     const x = xs[i] = i * geom.width / (cols - 1)
@@ -71,18 +71,32 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
     north[i] = Math.cos(az)
   }
 
-  let upper = geom.horizon
-  // Geometric spacing puts twice as many rays in the lower half, where the
-  // same horizontal structures project into narrower bands.
   const count = targetRows + 1
-  const ratio = 4 ** (1 / targetRows)
-  let gap = geom.horizon * (ratio - 1) / 3
-  for (let i = count - 1; i >= 0; i--) {
-    const y = ys[i] = i ? upper : 0
-    const altitude = altitudes[i] = geom.domeAltitudeAt(y)
+  if (cellular) {
+    // Pack two thirds of the rows into 5–30°. Compress towards 5°,
+    // where one scene pixel covers a larger radial distance.
+    const bands = [[0, geom.dome(30), 12, 1], [geom.dome(30), geom.dome(5), 48, 3],
+      [geom.dome(5), geom.horizon, 12, 1 / 3]]
+    let row = 0
+    for (const [top, bottom, intervals, power] of bands) {
+      for (let i = 0; i < intervals; i++) ys[row++] = bottom - (bottom - top) * (1 - i / intervals) ** power
+    }
+    ys[0] = 0
+    ys[count - 1] = geom.horizon
+  } else {
+    // Broad decks retain the established geometric spacing.
+    const ratio = 4 ** (1 / targetRows)
+    let gap = geom.horizon * (ratio - 1) / 3
+    ys[count - 1] = geom.horizon
+    for (let i = count - 2; i > 0; i--) {
+      ys[i] = ys[i + 1] - gap
+      gap *= ratio
+    }
+    ys[0] = 0
+  }
+  for (let i = 0; i < count; i++) {
+    const altitude = altitudes[i] = geom.domeAltitudeAt(ys[i])
     ranges[i] = groundRangeAt(height, altitude)
-    upper -= gap
-    gap *= ratio
   }
   ys.length = altitudes.length = ranges.length = count
   alpha.length = tone.length = count * cols
@@ -93,10 +107,6 @@ export function sheetFootprint(ranges: number[], row: number, angularStep: numbe
   const range = ranges[row]
   return Math.max(range * angularStep, range - (ranges[row - 1] ?? range), (ranges[row + 1] ?? range) - range)
 }
-
-// Filter cross-ray detail in azimuth. Radial undersampling is handled
-// separately by the transition from resolved cells to ensemble transmission.
-export const textureFootprint = (range: number, angularStep: number) => range * angularStep
 
 export function solarTexel(world: WorldState, geom: SkyGeom, snapshot: FieldSnapshot[number], grid: Grid, angularStep: number) {
   const { xs, altitudes, east, north, facing, path } = grid

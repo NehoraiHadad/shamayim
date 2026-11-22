@@ -492,3 +492,34 @@ The new unit regression checks every adjacent minute from 23:00 through 01:00, i
 ### Verification
 
 All 105 tests passed across 11 explicit Vitest file runs, one file at a time at `nice -n 19`. This includes both cloud sheet unit files, the recorded-sheet test (Haifa p90–p10 was 0.13960), the halo and skyless tests, both continuity files, the field tests and the new midnight regression. TypeScript build-mode checking with `--noEmit`, Oxlint on the touched TypeScript files and `git diff --check` passed. The strip was checked with model and tone-ramp measurements. Browser stills and the full CI suite were left for the cloud.
+
+## Round 15 (N3h)
+
+### Diagnosis
+
+The 375 px camera spans 250° and stays at 1.5 px/°. The former 48 columns have 47 intervals of 5.32°. The old 11 samples span ten one-minute intervals, so the swept distance is ten times the snapshot wind speed. The former fixed hand-off starts at 16° and completes at 10°. The historical Sc texture uses 3 and 0.75 km periods. The low lattice pitch is 1.5 km and its clump wavelength is 12 km.
+
+The shared low density raster resolves individual cells to 8.5 km and fades to the ensemble at 10 km. Jerusalem reaches 15.84 km at 5°, so several rows in the requested band already receive ensemble depth from `tauAt` itself. Increasing sheet resolution and removing the fixed elevation fade cannot restore cell variation there. Extending the shared raster is a prerequisite for resolving those rows with the same field as shadows and eye light.
+
+### Ranked changes and gates
+
+1. One centred sample per texel gives zero advection sweep. The test compares stored depth against the same-minute `tauAt` to 1e-9 and applies the single-sample Beer–Lambert continuity bound. Raw one-minute alpha p99 is 1.000 low, 0.979 mid and 0.046 high. Low and mid still exceed the existing 0.15 gate.
+2. Sc and Ac use 144 columns and 73 rows, with 49 rows from 5° through 30°. The blend starts once a mean diameter spans fewer than two texels. The sheet retains instantaneous depth and blends transmission toward the ensemble separately. An Sc or Ac grid has at most 10,512 depth queries. The CI-equivalent timing benchmark was reserved for the cloud under the local testing rule.
+3. Sc uses 0.4 and 0.2 km tone periods. Ac uses 0.2 and 0.1 km. The mean correction stays in tone and opacity comes from depth. The special azimuth-only edge-texture path was removed.
+4. The audited black-to-base shade call was the deck endpoint. Oklab scales its linear RGB by 0.4³ = 0.064. The CIE ramp uses a one-third horizon endpoint and compensates for the painter's sRGB interpolation. Its predicted zenith-to-5° ratio is 2.55, while the Eddington source gives 2.21 at 5°. The closed uniform depth-10 fixture measured 2.553 after painter interpolation and quantization.
+5. A refreshed still is needed to judge rims above 30°. The renderer is untouched.
+6. The optional wavelength change was skipped. The existing 12 km field wavelength is retained.
+
+### Review cross-checks
+
+The recorded Jerusalem broken fixture gives g = 2.055, base = 1.203 km, depth = 0.400 km and median Sc τ₀ = 15.75. The sampled Sc cell radii are 0.360 / 0.665 / 1.201 km at p10 / p50 / p90. These are fixture sample quantiles and differ from the review's 0.26 / 0.56 / 0.99 km. A 0.665 km radius at the roughly 8 km ray intersection for 10° gives about 9.5° across azimuth and about 1.7° vertically. The old grid has fewer than two columns across that footprint. The broken fixture wind vector is 0.1725 km/min east and −0.0116 km/min north, equivalent to 1.73 km over ten one-minute intervals and a 94°/274° axis. The review's 1.33 km and 106°/286° were not reproduced on this fixture.
+
+On that panorama the dome derivative is 1.45 px/° at 20°, 4.28 at 45°, 4.16 at 50° and 3.65 at 89°. The mid-dome magnification supports the anisotropy diagnosis. The 8–10 px/° near-zenith estimate was not reproduced. The historical still archive was identified in GitHub Actions, but the review's exact 0.50 and 0.037 pixel luminances were not remeasured.
+
+### Verification
+
+Jerusalem's four alpha components have a 4.55 median aspect ratio, above 1.5. Minimum row alpha deviation is zero in both broken fixtures, below 0.08. Their largest adjacent-row sRGB luma jumps in the lowest 10° are 0.088 and 0.105, above 0.03. The recorded Haifa upper-grid tone spread is 0.116, below the 0.12 gate. The synthetic opaque deck passes the painted luminance ratio gate. The exact-depth test passed its 1e-9 assertion and its per-texel Beer–Lambert bound. The midnight mean tone, alpha and luma test passed.
+
+TypeScript build-mode checking with no emit, Oxlint and git diff whitespace checks passed. No commit or deployment was made.
+
+Vitest ran nine explicit files one at a time at nice -n 19. Of 142 tests, 139 passed and three failed on the visual and continuity gates above. The painter, sky, weather, model and c10fixes files passed in full. The performance benchmark and refreshed stills remain for CI.

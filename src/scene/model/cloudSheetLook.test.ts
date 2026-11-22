@@ -11,7 +11,10 @@ import { gridFor } from './cloudSheetGrid'
 import { sceneModel } from './index'
 import { skyGeom, skyStops, stopAt } from './sky'
 import type { LayerOf, RGB } from './types'
-import { mixRgb } from './tone'
+import { mix } from '../paint/hand'
+import { sheetAlphaAt } from './cloudSheetGrid'
+import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
+import { scaleLight } from './tone'
 import { inView } from './weather'
 
 const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -40,29 +43,51 @@ function paint(sheet: LayerOf<'cloudSheet'>, x: number, y: number, behind: numbe
   const opacity = sample(xs, ys, x, y, i => byte(alpha[i]))
   const cloud = sample(xs, ys, x, y, i => {
     const t = tone[i]
-    const rgb = t < 0.5 ? mixRgb(lit, body, t * 2) : mixRgb(body, shade, t * 2 - 1)
+    const rgb = t < 0.5 ? mix(lit, body, t * 2) : mix(body, shade, t * 2 - 1)
     return byte(alpha[i]) * luminance([byte(rgb[0]), byte(rgb[1]), byte(rgb[2])])
   })
   return cloud + (1 - opacity) * behind
 }
 
-function correlationLength(pixels: number[][], horizontal: boolean) {
-  const width = pixels[0].length, height = pixels.length
-  const mean = pixels.flat().reduce((a, b) => a + b, 0) / (width * height)
-  const max = horizontal ? width : height
-  for (let lag = 1; lag < max; lag++) {
-    let cross = 0, a2 = 0, b2 = 0
-    for (let y = 0; y < height - (horizontal ? 0 : lag); y++) {
-      for (let x = 0; x < width - (horizontal ? lag : 0); x++) {
-        const a = pixels[y][x] - mean, b = pixels[y + (horizontal ? 0 : lag)][x + (horizontal ? lag : 0)] - mean
-        cross += a * b
-        a2 += a * a
-        b2 += b * b
+const linear = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+
+function checkBroken(sheet: LayerOf<'cloudSheet'>, top: number, bottom: number, checkAspect: boolean) {
+  const width = box.width
+  const rows = Array.from({ length: bottom - top + 1 }, (_, row) =>
+    Array.from({ length: width }, (_, x) => sheetAlphaAt(sheet, x, top + row)))
+  const deviations = rows.map(row => {
+    const mean = row.reduce((sum, alpha) => sum + alpha, 0) / width
+    return Math.sqrt(row.reduce((sum, alpha) => sum + (alpha - mean) ** 2, 0) / width)
+  })
+  const deviation = Math.min(...deviations)
+  console.info({ deviation })
+  expect.soft(deviation).toBeGreaterThanOrEqual(0.08)
+  if (!checkAspect) return
+  const pixels = rows.flat().map(alpha => alpha > 0.5)
+  const aspects: number[] = []
+  for (let i = 0; i < pixels.length; i++) {
+    if (!pixels[i]) continue
+    pixels[i] = false
+    const queue = [i]
+    let left = width, right = 0, upper = rows.length, lower = 0
+    for (const index of queue) {
+      const x = index % width, y = Math.floor(index / width)
+      left = Math.min(left, x)
+      right = Math.max(right, x)
+      upper = Math.min(upper, y)
+      lower = Math.max(lower, y)
+      for (const next of [x ? index - 1 : -1, x + 1 < width ? index + 1 : -1, index - width, index + width]) {
+        if (!pixels[next]) continue
+        pixels[next] = false
+        queue.push(next)
       }
     }
-    if (cross <= Math.exp(-1) * Math.sqrt(a2 * b2)) return lag
+    aspects.push((right - left + 1) / (lower - upper + 1))
   }
-  return max
+  aspects.sort((a, b) => a - b)
+  const median = (aspects[Math.floor((aspects.length - 1) / 2)] + aspects[Math.floor(aspects.length / 2)]) / 2
+  console.info({ components: aspects.length, median })
+  expect.soft(median).toBeGreaterThanOrEqual(1.5)
 }
 
 it('projects the Jerusalem broken deck on ground-plane rays', async () => {
@@ -83,23 +108,16 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
     const snapshot = world.cloudField!.snapshot.find(s => s.layer?.lattice === 'low')!
     const layer = snapshot.layer!
     const grid = gridFor(world.place.id, layer, skyGeom(world, box), snapshot.heightKm, genusOf('low', layer.form, 0.5))
-    const { xs, ys, ranges, east, north, altitudes, texture, tau, detail, path } = grid
-    const map = (values: number[], scale: number) => ys.map((_, row) => xs.map((_, col) => {
-      const value = values[row * xs.length + col]
-      return '0.:-=+*#%@'[Math.min(9, Math.floor(value * scale))] ?? '?'
-    }).join('')).join('\n')
-    if (process.env.SHEET_DUMP) {
-      console.log('tau\n' + map(tau, 1), '\ntexture\n' + map(texture, 4), '\nalpha\n' + map(sheet.alpha, 10))
-      console.log(ys.map((y, row) => [y, altitudes[row], ranges[row] * east[24], ranges[row] * north[24],
-        detail[row * xs.length + 24], path[row]].map(n => n?.toFixed(3)).join(' ')).join('\n'))
-    }
     const geom = skyGeom(world, box)
-    const first = Math.ceil(geom.dome(30))
-    const pixels = Array.from({ length: Math.floor(geom.horizon) - first + 1 }, (_, row) =>
-      Array.from({ length: box.width }, (_, x) => sample(xs, ys, x, first + row, i => texture[i])))
-    const horizontal = correlationLength(pixels, true), vertical = correlationLength(pixels, false)
-    console.info({ horizontal, vertical })
-    expect.soft(horizontal).toBeGreaterThan(vertical)
+    const sorted = (values: number[]) => values.sort((a, b) => a - b)
+    const radii = sorted(snapshot.cells.filter(cell => cell.genus === 'sc').map(cell => cell.r))
+    const depths = sorted(snapshot.cells.filter(cell => cell.genus === 'sc').map(cell => cell.tau0))
+    console.info('Jerusalem', { g: layer.g, base: layer.baseKm, depth: layer.meanVKm, wind: layer.vel,
+      projection: [20, 45, 50, 89].map(a => (geom.dome(a - 0.1) - geom.dome(a + 0.1)) / 0.2),
+      radii: [0.1, 0.5, 0.9].map(q => radii[Math.floor(q * radii.length)]),
+      tauMedian: depths[Math.floor(depths.length / 2)],
+      rangeAtFive: grid.ranges[60], resolvedRange: snapshot.densityGrid.rayRange })
+    checkBroken(sheet, Math.ceil(geom.dome(20)), Math.floor(geom.dome(5)), true)
     const showers = build({ ...input('haifa'),
       forced: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25,
         windGusts: 45, windDirection: 250, humidity: 80 } })
@@ -124,6 +142,10 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
     for (const fixture of [world, shadmot, overcast, showers]) {
       const geom = skyGeom(fixture, box)
       const sheets = sceneModel(fixture, box).layers.filter(l => l.kind === 'cloudSheet')
+      if (fixture === shadmot) {
+        const low = sheets.find(sheet => sheet.lattice === 'low')!
+        checkBroken(low, Math.ceil(geom.dome(20)), Math.floor(geom.dome(5)), false)
+      }
       const stops = skyStops(fixture, box)
       const screen = Array.from({ length: Math.floor(geom.horizon) + 1 }, (_, y) =>
         Array.from({ length: box.width }, (_, x) =>
@@ -143,10 +165,17 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
           if (sheet.lattice === 'mid') expect.soft(opaque.length).toBeGreaterThan(0)
           if (opaque.length) expect.soft(Math.min(...opaque)).toBeGreaterThanOrEqual(0.97)
         }
-        const upper = screen.slice(0, Math.floor(geom.horizon / 2)).flat().sort((a, b) => a - b)
-        const spread = upper[Math.floor(0.9 * upper.length)] - upper[Math.floor(0.1 * upper.length)]
-        console.info({ spread })
-        expect.soft(spread).toBeGreaterThanOrEqual(0.06)
+        const snap = fixture.cloudField!.snapshot.find(s => s.layer?.lattice === 'mid')!
+        const body = [0.73, 0.73, 0.73] as const
+        const closed = cloudSheetOf(fixture, geom, {
+          ...snap, layer: { ...snap.layer!, cover: 1 },
+          densityGrid: { ...snap.densityGrid, tauAt: () => 10, expectedTauAt: () => 10 },
+        }, { body, shade: scaleLight(body, OVERCAST_HORIZON), lit: body, light: 0, closed: 1 })!
+        const ratio = linear(paint(closed, box.width / 2, geom.dome(90), 0))
+          / linear(paint(closed, box.width / 2, geom.dome(5), 0))
+        console.info({ ratio })
+        expect.soft(ratio).toBeGreaterThanOrEqual(2.5)
+        expect.soft(ratio).toBeLessThanOrEqual(3.5)
       }
     }
   } finally {

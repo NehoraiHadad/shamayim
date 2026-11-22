@@ -38,11 +38,15 @@ export function textureCorrection(texture: number[], tau: number[], weights: num
 }
 
 const scales: Record<Genus, [km: number, stretch: number, deviation: number]> = {
+  // N3h places Sc/Ac tone detail below the typical cell diameter.
   // As bands vary on sub-kilometre scales across the wind and merge along it.
-  st: [8, 1, 0.15], sc: [1.5, 1, 0.5], as: [0.75, 6, 0.9], ac: [0.6, 1, 0.6],
+  st: [8, 1, 0.15], sc: [0.4, 1, 0.5], as: [0.75, 6, 0.9], ac: [0.2, 1, 0.6],
   cs: [18, 1, 0.1], ci: [2, 6, 0.1], ns: [6, 1, 0.15],
   cu: [1.5, 1, 0.5], cg: [3, 1, 0.5], cb: [6, 1, 0.5],
 }
+
+const periodFor = (genus: Genus) =>
+  scales[genus][0] * (genus === 'sc' || genus === 'ac' ? 1 : 2)
 
 const samplers = new Map<string, [ReturnType<typeof createClumpSampler>, ReturnType<typeof createClumpSampler>]>()
 
@@ -51,16 +55,17 @@ export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
   const angle = Math.atan2(layer.vel[0], layer.vel[1])
   const sin = Math.sin(angle), cos = Math.cos(angle)
   const [dx, dy] = layer.d
-  const key = `${seed}:${scale}`
+  const period = periodFor(genus)
+  const key = `${seed}:${period}:${scale}`
   let pair = samplers.get(key)
   if (!pair) {
     if (samplers.size >= 32) samplers.delete(samplers.keys().next().value!)
-    pair = [createClumpSampler(seed, scale * 2), createClumpSampler(seed ^ 0x51ed270b, scale / 2)]
+    pair = [createClumpSampler(seed, period), createClumpSampler(seed ^ 0x51ed270b, scale / 2)]
     samplers.set(key, pair)
   }
   const [coarse, fine] = pair
   return (footprint: number) => {
-    const a = deviation * 5 * (1 - smoothstep(scale, scale * 2, footprint))
+    const a = deviation * 5 * (1 - smoothstep(period / 2, period, footprint))
     const b = deviation * 2 * (1 - smoothstep(scale / 4, scale / 2, footprint))
     const coarseFine = 1 - smoothstep(scale / 2, scale, footprint)
     const fineFine = 1 - smoothstep(scale / 8, scale / 4, footprint)
@@ -78,12 +83,4 @@ export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
 }
 
 export const sheetDetail = (genus: Genus, footprint: number) =>
-  1 - smoothstep(scales[genus][0], scales[genus][0] * 2, footprint)
-
-export function edgeTexture(genus: Genus, footprint: number, texture: number, taps: number) {
-  if (genus !== 'sc' && genus !== 'ac') return 1
-  // The clump's cubic interpolation has maximum slope 3/2 per texel.
-  const edge = Math.min(1, 1.5 * footprint / scales[genus][0])
-  // Reserve at most one tap of the temporal filter's weight for subgrid edges.
-  return 1 + Math.tanh((1 + edge) * (texture - 1)) / taps
-}
+  1 - smoothstep(periodFor(genus) / 2, periodFor(genus), footprint)

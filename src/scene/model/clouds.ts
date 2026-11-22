@@ -6,10 +6,10 @@ import { cloudLight, layerMeanTransmission } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
-import { cloudSheetOf, sheetBlend, sheetZ } from './cloudSheet'
+import { cloudSheetOf, OVERCAST_HORIZON, sheetBlend, sheetZ } from './cloudSheet'
 import { layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
-import { mixRgb, rgbOf } from './tone'
+import { mixRgb, rgbOf, scaleLight } from './tone'
 import type { BankDesc, LayerOf, RGB, SceneBox, Veil } from './types'
 
 const WHITE: RGB = [1, 1, 1]
@@ -300,11 +300,12 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       const sheet = cloudSheetOf(world, geom, snapshot, {
         body: mixRgb(tones.body, base, day),
         // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
-        shade: mixRgb(tones.shade, mixRgb(grey, mixRgb([0, 0, 0], base, 2 / 5), closed), day),
+        shade: mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
         // Moonlight lifts the lit endpoint in proportion to the beam reaching
         // the sheet. At moonset it merges into the ambient cloud body.
         lit: light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
           light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,
+        closed: closed * day,
         light: light?.sun ? light.strength * light.above : 0,
       })
       if (!sheet) continue
