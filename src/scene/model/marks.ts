@@ -175,6 +175,8 @@ export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'fa
   const bounds = boundsOf(glyphs.map(reachOf), box)
   if (!bounds) return []
   return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,
-    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)), Math.round(world.light.across * 64), shineKey(shine)),
+    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)),
+      glyphs.map(g => g.contrast === undefined ? null : Math.round(Math.cbrt(g.contrast) * 255)),
+      Math.round(world.light.across * 64), shineKey(shine)),
       blend: 'source-over', tint: glyphs[0].tones.wall, faces: [] } }]
 }

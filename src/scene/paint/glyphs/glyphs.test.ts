@@ -232,3 +232,13 @@ it('fills all six palm fronds with even green at zero lateral light', () => {
   tree(ctx, { kind: 'palm', x: 40, base: 60, w: 6, h: 10, seed: 43 }, tones, shine, 0)
   expect(light.slice(2)).toEqual(Array.from({ length: 6 }, () => ['fillStyle', css(tones.green)]))
 })
+
+it('attenuates famous-icon lamps with the far-city Allard transmission without moving them', () => {
+  const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind: 'highrise', seed: 43, hand: 1, tones, x: 40,
+    base: 60, w: 10, h: 20, scale: 1, famous: true }
+  const own = drawGlyph(recording().ctx, glyph, shine)
+  const distant = drawGlyph(recording().ctx, { ...glyph, contrast: .125 }, shine)
+  expect(own.length).toBeGreaterThan(0)
+  expect(distant.map(l => [l.x, l.y, l.r])).toEqual(own.map(l => [l.x, l.y, l.r]))
+  distant.forEach((lamp, i) => expect(lamp.fade).toBeCloseTo((own[i].fade ?? 1) * .5, 10))
+})

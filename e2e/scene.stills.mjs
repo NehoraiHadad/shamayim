@@ -68,8 +68,8 @@ try {
             nonOwn: Boolean(source.seatBlockId || source.sightKm !== undefined),
             gapPx: Math.max(left - glyph.x - glyph.w / 2, glyph.x - glyph.w / 2 - right),
             slidePx: glyph.x - source.x * innerWidth / SCENE_W, base: glyph.base, trueHeightPx: glyph.trueHeightPx,
-            factor: glyph.factor, hazeKm: glyph.hazeKm, trueDistanceKm: glyph.trueDistanceKm, town: glyph.town, supportId:
-              glyph.supportId }
+            factor: glyph.factor, contrast: glyph.contrast, hazeKm: glyph.hazeKm, trueDistanceKm: glyph.trueDistanceKm,
+            town: glyph.town, supportId: glyph.supportId }
         })
         return { place: world.place, terrain: new URLSearchParams(location.search).get('terrain') ?? 'recorded', home: { left,
           right }, glyphs }

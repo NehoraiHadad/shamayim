@@ -1374,3 +1374,161 @@ factor 4.528769, ridge base, zero slide. Both required 375 px / DPR-2 stills wer
 `e2e/scene.stills.mjs`, visually inspected, and saved separately under `stills/round7/` with existing-pixel 4× crops.
 They remain explicitly labelled flat 100 m, not recordings. Measurements and reproduction commands:
 [stills/README.md](stills/README.md), Round 7.
+
+## Landmark size
+
+Implemented the owner-delegated decision in `BRIEF-landmark-size.md` on
+`claude/fix-landmark-size-3b7e`, based on merged main `9dd0061d`. Famous means the existing
+`isFamousLandmark` class: named fame 2 or curated, with the mosque veto taking precedence.
+
+### Decision and shared geometry
+
+`src/world/neighbourSize.ts` now owns `LANDMARK_MIN_PX = 6` and `LANDMARK_MAX_PX = 16`:
+
+```text
+drawn CSS height = min(16, max(6, true visible height))
+factor = drawn height / true visible height
+drawn width = true glyph width × factor
+```
+
+Six CSS pixels provide twelve physical rows at DPR 2. That preserves a recognisable tower/body silhouette for the
+15.5-unit church and 9.5-unit castle specs, with more coverage than the former eight-row floor. Six is an icon
+legibility floor, not a claim that the source physically subtends six pixels. Sixteen is one eighth of the 128 px
+land band: a bounded individual icon remains secondary to the home roofline group at 375 px. The constant's comment
+explicitly states that true heights above 16 also shrink to 16. True heights in [6,16] retain factor 1.
+
+The helper is used by selection widths, perspective geometry, world fitting, outside seat fitting and both receiving
+layers. Width uses the *true* glyph template scaled by the same factor, including variable-height highrises; picking
+a fresh template at the clamped height would change proportions. World marks retain their physical `trueHeightPx`
+separately, so a receiver cannot mistake the already clamped geometry for physical evidence. Famous candidates still
+need positive true visible height. Ordinary neighbours retain the 4 px floor and 2× cap. Owned portraits retain their
+geometry and lighting.
+
+This is a screen-height cap, not a factor cap. Raising the floor from 4 to 6 can increase the recorded ratio for a
+very small source. Those ratios remain diagnostic; distance-dependent atmosphere is what makes equal-size icons at
+different distances read differently. No place IDs were added to production policy.
+
+### True-distance atmosphere
+
+The existing land and far-city code uses `aerialFor` (`planeLight.ts`): Oklab mixing toward the air by
+`0.88 × air.fade(km)²`. Far-city visibility uses `plainContrast` (`data/city/plainHaze.ts`),
+`T = exp(-3.912 × km / visibilityKm)`, and its lights use Allard transmission `cbrt(T)`.
+
+`landmarkAtmosphere.ts` feeds a famous non-own glyph those same true-distance inputs. `tonesAt(world, km)` supplies
+the shared aerial perspective; material/detail colours additionally contract toward `toneAt(world, km)` by `T`.
+Window colours and emitted lamp strength use `cbrt(T)`. The model records `contrast` on the glyph; the painter only
+consumes that coefficient and does no world or distance lookup. Light keys include the resulting palette and lamp
+transmission, and the outside layer refreshes contrast when visibility changes while reusing its geometry.
+
+Famous haze now uses the exact receiving-eye `mark.km`, rather than the ordinary far-town distance bin. A retained
+glyph still cannot have a haze distance nearer than the most hazed home row: it is never less hazed/clearer than the
+home roofs. Detail contrast contracts further toward land, instead of restoring foreground material contrast after
+the haze tint. Ordinary and owned lighting remains unchanged.
+
+The existing visible-foot/proven-terrain-ridge rule, source town support, ≥6 px drawn-box home gap, ≤12 px slide away
+from home, mosque ban, and non-famous worship ban remain in force. Seated landmarks never borrow panorama top
+evidence for a ridge exception in the outside frame.
+
+### Verification
+
+- **41 explicit test files, 504 tests passed**: `src/test/landmarkSizeAudit/targeted-command.txt` and `targeted.json`.
+  No whole-folder suite. The 117-place fixture set includes all 18 recorded panoramas, at 375/1280 CSS px and DPR 1/2.
+  The slowest of its ten timed groups took 10.73 s, below the ~60 s limit. Every final famous glyph is checked against
+  the clamp and recorded factor, along with physical visibility, town/ridge proof, home gap, slide and atmosphere.
+- New size tests cover all 15 eligible glyph kinds at true heights 0.01 through 250 px, including both clamp edges,
+  factor 1 in [6,16], shrinking above 16 and proportional width. Positive visibility, ordinary sizing and mosque
+  rejection are also checked.
+- Atmosphere tests keep two famous 6 px icons at 4 and 18 km with distinct exact haze and contrast. The farther
+  palette is closer to its land and has less lit/shade contrast; its detail also has less contrast than home material.
+  Expected coefficients are independently calculated from the visibility law. Painter tests verify Allard attenuation
+  without moving lights or changing owned output.
+- **16 source-transform mutations failed by assertion as expected**, with normal source files left untouched:
+  minimum, maximum, identity interval, proportional width, famous pre-selection, haze derived from drawn size,
+  contrast at a fixed distance, haze tint without detail contraction, aerial colour at drawn height, lamp transmission,
+  home haze, home gap, slide bound, mosque veto, generic-worship veto and seated-ridge veto.
+  Exact substitutions, test files and failures are in `src/test/landmarkSizeAudit/mutations.json`.
+- `npx tsc -b` and `npx oxlint` passed; lint has the same 13 existing warnings outside this change.
+
+### Stills
+
+Rendered with `e2e/scene.stills.mjs --dpr=2 --describe --crop4x`, at 375 CSS px; inspected both the full scenes and
+existing-pixel 4× crops. All glyph measurements and offline reproduction commands are in
+[stills/landmark-size/README.md](stills/landmark-size/README.md).
+
+| Place → landmark | Terrain | Kind | True → drawn CSS px | Factor | Haze km | Contrast | Home gap px |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Dafna → Nimrod | flat 100 m, labelled | castle | 0.883242 → 6 | 6.793153 | 7.471905 | 0.377443 | 102.701871 |
+| Ramat Gan → Metzudat Ze’ev | recorded | highrise | 2.367127 → 6 | 2.534718 | 5.037991 | 0.518428 | 73.064689 |
+
+Both icons have zero slide and a proven near-ridge base. The recorded Ramat Gan landmark is recovered because its
+exact 5.038 km distance passes the existing home-haze guard; the previous ~4.875 km bin was nearer than the home row
+and rejected it. This comes from the shared true-distance policy. Karmei Tzur remains clean, with just its own
+9.5 px synagogue at factor 1. The two flat stills remain visibly labelled as flat 100 m, without a recorded panorama.
+
+### Background full audit, before → after
+
+The background rerun passed all **1,781 places** (18 recorded, 1,763 flat), at 375 and 1280 CSS px, DPR 2:
+920.52 s audit work / 929.04 s total test command. It verified 8 seated and 1,683 unseated non-own glyphs, plus
+7,366 raster towers. The fast fixture matrix separately covers DPR 1 and 2.
+
+Before is the saved merged Round-7 exhaustive audit, copied read-only before implementation; it was not freshly
+rerun. After is the new exhaustive run. Both use the same bundled inputs and flat-100 m fallback. Histograms count
+**drawn famous non-own glyph instances**, separately for each width; a source seen from two places or at two widths
+counts more than once. Bin comparisons allow 1e-9 CSS px for floating-point reconstruction.
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| All non-own glyph instances | 1,700 | 1,691 |
+| At 375 px | 871 | 855 |
+| At 1280 px | 829 | 836 |
+| Famous non-own glyphs | 1,013 | 1,004 |
+| Famous ridge / foot | 984 / 29 | 979 / 25 |
+| Ordinary non-own glyphs | 687 | 687 |
+| Famous drawn-height range, CSS px | 4–12.377652 | 6–12.377652 |
+| Maximum recorded factor | 399.546016 | 599.319024 |
+| Recorded-panorama famous instances | 0 | 2 |
+| Owned worship instances | 1,662 | 1,662 |
+
+Of the famous instances, 952 survive in both audits, 61 are removed and 52 are added. Larger 6 px boxes and exact
+distance haze change which existing clearance/home-haze/town/budget checks pass. Removed instances resolve to
+24 no-visible-separated-position, 14 home-haze, 11 missing-town-mass, 1 budget-or-glyph-occlusion and 11 upstream
+candidate exclusions. The recorded positive is Metzudat Ze’ev from Ramat Gan at both widths. No bundled kept icon
+reaches the 16 px ceiling; synthetic tests exercise true heights 16.01, 32 and 250 px and fail when that cap is removed.
+
+Raising the floor increases the largest factor to 599.319024: it is still only a 6 px icon. The new policy deliberately
+bounds the drawn size, not this ratio. All 1,662 owned worship rows retain identical kind, drawn height, factor,
+horizontal bounds, gap, slide and haze. `comparison.json` records the full comparison.
+
+#### Full-audit drawn CSS px histogram
+
+| Bin | Before 375 | After 375 | Before 1280 | After 1280 | Before total | After total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| <6 | 472 | 0 | 454 | 0 | 926 | 0 |
+| 6 | 0 | 454 | 0 | 456 | 0 | 910 |
+| (6,8] | 29 | 31 | 31 | 36 | 60 | 67 |
+| (8,12] | 12 | 12 | 11 | 11 | 23 | 23 |
+| (12,16] | 2 | 2 | 2 | 2 | 4 | 4 |
+| >16 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Total | 515 | 499 | 498 | 505 | 1,013 | 1,004 |
+
+#### Full-audit factor histogram
+
+| Bin | Before 375 | After 375 | Before 1280 | After 1280 | Before total | After total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| <1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 1 | 93 | 45 | 88 | 49 | 181 | 94 |
+| (1,2] | 115 | 101 | 108 | 99 | 223 | 200 |
+| (2,3] | 60 | 55 | 59 | 57 | 119 | 112 |
+| (3,5] | 53 | 65 | 52 | 64 | 105 | 129 |
+| (5,10] | 78 | 70 | 75 | 73 | 153 | 143 |
+| (10,20] | 63 | 76 | 63 | 76 | 126 | 152 |
+| (20,40] | 28 | 50 | 29 | 51 | 57 | 101 |
+| (40,100] | 14 | 23 | 13 | 22 | 27 | 45 |
+| >100 | 11 | 14 | 11 | 14 | 22 | 28 |
+| Total | 515 | 499 | 498 | 505 | 1,013 | 1,004 |
+
+Audit sources and outputs are isolated under `src/test/landmarkSizeAudit/`: `audit-after.json`,
+`neighbours-after.json`, `summary-after.txt`, `audit-run.txt`, the two copied baseline JSON files, and
+`summarize.py` / `histograms.md` / `comparison.json`. The original audit was reused read-only and redirected before
+execution, because this brief forbids touching `src/test/probe*`. A SHA-256 comparison, including the file inventory,
+confirms all **155 protected files unchanged**. No live services, whole-folder suite, deployment, commit or push.

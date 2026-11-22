@@ -7,6 +7,7 @@ import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { beyondMarks } from '../../world/beyondMarks'
 import * as beyondSeat from '../../world/beyondSeat'
 import { roshPina } from '../../world/beyondSeatFixture'
+import { neighbourSize } from '../../world/neighbourSize'
 import { glyphAtHeight } from '../../world/glyphSpecs'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldInput, WorldState } from '../../world/types'
@@ -43,7 +44,9 @@ function seatFixtures(fixtures: SeatFixture[], baseY = 100) {
     source: 'osm', ...(kind === 'highrise' ? {} : { fame: 2 as const, nameHe: 'Synthetic named landmark' }),
     lat: roshPina.lat + .02, lon: roshPina.lon }))
   const blocks = fixtures.map(({ kind, heightM, fitsAt = NARROW.width / 2, x }, index) => {
-    const w = (glyphAtHeight(kind, heightM * PX_PER_M).w + 2 * TOWN_SIDE_PX) * SCENE_W / fitsAt
+    const size = kind === 'highrise' ? glyphAtHeight(kind, heightM * PX_PER_M)
+      : neighbourSize(kind, heightM * PX_PER_M, true)!
+    const w = (size.w + 2 * TOWN_SIDE_PX) * SCENE_W / fitsAt
     return { id: `block-${index}`, x: x ?? 30 * (index + 1), baseY, w, h: 8, km: 3, heightM: 16, seed: index }
   })
   const seats = new Map(landmarks.map((mark, index) => {

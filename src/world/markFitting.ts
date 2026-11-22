@@ -1,8 +1,9 @@
+import { neighbourSize } from './neighbourSize'
 import { neighbourRule } from './neighbourPolicy'
 import type { PlacedMark } from '../data/landmarks/types'
 import { seat } from '../data/landmarks/seat'
 import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
-import { fieldReach, GLYPH_SPECS, glyphOf, glyphAtHeight } from './glyphSpecs'
+import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
 import type { WorldMark } from './markGeometry'
 import type { MarksInput } from './marks'
@@ -93,7 +94,7 @@ export function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGrou
   }
   if (mark.layer === 'near' && mark.absorbed) x = intoTown(x, spec.w, ground, dot, input.style)
   const geometryAt = (at: number) => famous
-    ? { ...glyphAtHeight(kind, mark.hPx), base: mark.sourceGroundY ?? mark.baseY }
+    ? { ...neighbourSize(kind, mark.hPx, true)!, base: mark.sourceGroundY ?? mark.baseY }
     : building(mark, kind, at, mark.layer === 'far' ? farGround : ground, mark.layer === 'far')
   let geometry = geometryAt(x)
   if (!geometry) return null

@@ -19,7 +19,7 @@ export function evaluateNeighbour<T extends WorldMark>(world: WorldState, mark: 
   const trueHeightPx = trueNeighbourHeight(world, mark, base)
   const displayed = displayNeighbour(world, mark, base)
   const factor = displayed?.factor
-  const hazeKm = neighbourHazeKm(mark.km)
+  const hazeKm = rule === 'landmark' ? mark.km : neighbourHazeKm(mark.km)
   const details = { trueHeightPx, factor, hazeKm, supportId: support?.id, town: support !== null }
   if (rule === 'hidden') return { ...details, reason: 'policy-hidden', placed: null }
   if (hazeKm < (home?.hazeKm ?? 0)) return { ...details, reason: 'home-haze', placed: null }

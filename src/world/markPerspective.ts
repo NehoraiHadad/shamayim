@@ -4,6 +4,7 @@ import { farCellId } from '../data/city/townFootprints'
 import type { OutsideFrame } from '../data/city/outsideView'
 import { bearingOf, distanceOf, offsetKm, type Coordinate } from '../data/landmarks/project'
 import type { Landmark, MarkPerspective } from '../data/landmarks/types'
+import { neighbourSize } from './neighbourSize'
 import { viableNeighbour } from './neighbourPolicy'
 import { visibleMarkHeight } from './visibleMarkHeight'
 import { localTownAt } from './markContext'
@@ -38,7 +39,8 @@ export function angularMark<T extends WorldMark>(mark: T, horizonY: number): T |
   if (mark.sightKm === undefined || mark.heightM === undefined) return mark
   const hPx = visibleMarkHeight(mark.heightM, mark.sightKm, mark.base, horizonY, mark.crestPx)
   if (!viableNeighbour(mark.glyphKind, mark.named, hPx)) return null
-  return { ...mark, ...glyphAtHeight(mark.glyphKind, hPx), hPx }
+  const geometry = mark.named ? neighbourSize(mark.glyphKind, hPx, true)! : glyphAtHeight(mark.glyphKind, hPx)
+  return { ...mark, ...geometry, hPx }
 }
 
 /** Distance (km) of the land along a line of points at px x (the plane's own distances). */

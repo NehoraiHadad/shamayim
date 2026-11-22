@@ -6,6 +6,7 @@ import { evaluateNeighbour } from '../scene/model/evaluateNeighbour'
 import type { WorldState } from './types'
 import type { MarksInput } from './marks'
 import { fit } from './markFitting'
+import { LANDMARK_MIN_PX } from './neighbourSize'
 import { beyondMarks } from './beyondMarks'
 
 const place = { id: 'test', nameHe: 'Test', regionHe: '', timezone: 'UTC', lat: 0, lon: 0 }
@@ -26,7 +27,7 @@ it('hides a named fame-1 synagogue before selection', () => {
 it('culls a named fame-1 tower needing 3x before selection', () => {
   expect(candidate('waterTower', 1, 4 / 3)).toBeUndefined()
 })
-it('keeps a named fame-2 church needing 5x through selection, fitting and receiving', () => {
+it('keeps a named fame-2 church at the icon floor through selection, fitting and receiving', () => {
   const mark = candidate('church', 2, .8)!
   expect(mark).toBeDefined()
   expect(mark.named).toBe(true)
@@ -35,7 +36,7 @@ it('keeps a named fame-2 church needing 5x through selection, fitting and receiv
   const support = { id: 'town', x: mark.x, w: 30, top: 99, foot: 100, hazeKm: 3 }
   const result = evaluateNeighbour(world, mark, 375, support, null, [], [])
   expect(result.reason).toBe('kept')
-  expect(result.factor).toBeCloseTo(5, 8)
+  expect(result.factor).toBeCloseTo(LANDMARK_MIN_PX / .8, 8)
   expect(result.placed!.mark.baseMode).toBe('foot')
 })
 

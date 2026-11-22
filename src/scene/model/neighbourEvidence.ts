@@ -3,6 +3,8 @@ import type { MarkTerrainEvidence } from '../../world/markTerrainEvidence'
 export interface NeighbourEvidence extends MarkTerrainEvidence {
   /** Drawn / physical-visible height; owned glyphs retain factor 1. */
   factor: number
+  /** True-distance material contrast; absent for owned portraits and ordinary neighbours. */
+  contrast?: number
   trueHeightPx?: number
   trueDistanceKm?: number
   hazeKm?: number
