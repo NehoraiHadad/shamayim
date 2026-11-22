@@ -72,6 +72,9 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   cirrus: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
   // The wear card's calm: a still, clear noon.
   calm: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 3, windGusts: 5, humidity: 40 },
+  // Stage 5 stills share the same clear air, changing only the 10 m wind (km/h, meteorological direction).
+  'land-calm': { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 0, windGusts: 0, windDirection: 270, humidity: 30 },
+  'land-wind': { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 58, windGusts: 86, windDirection: 270, humidity: 30 },
   sunny: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 10, windGusts: 16, temperature: 24, humidity: 40 },
 }
 

@@ -8,6 +8,7 @@ import path from 'node:path'
 import { CASES, WEAR_CLIP } from './cases.mjs'
 import { comparePngs, LIMITS } from './compare.mjs'
 import { caseName, CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from './harness.mjs'
+import { installNearPalmFixture } from './landWindPalm.mjs'
 
 const args = process.argv.slice(2)
 const update = args.includes('--update')
@@ -28,6 +29,7 @@ try {
     const { context, page } = await openPage(browser, server.url, c.dpr ?? 1)
     try {
       await loadScene(page, sceneUrl(server.url, c))
+      if (c.nearPalmFixture) await installNearPalmFixture(page, Number(c.phase))
       const shot = await page.screenshot({ clip: c.wear ? WEAR_CLIP : CLIP, animations: 'disabled' })
       const ref = path.join(refs, `${name}.png`)
       if (update || !fs.existsSync(ref)) {
