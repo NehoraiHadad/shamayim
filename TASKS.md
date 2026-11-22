@@ -927,20 +927,24 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
       `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
       `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
-- [x] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–3).
+- [x] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–4).
       - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
             luminance compression, and per-face-distance linear haze across terrain receivers.
       - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
             with aerosol and cloud scatter and broad-sky metering. Keep the daylight scale distinct from the
             atmosphere's directional horizon radiance. Retain the sky as the source of path colour.
-      - [x] Evaluate Beer–Lambert solar transmission at stationary terrain texels and vegetation anchors.
-            Cache up to three receiver poses for cloud carry. Gate canopy paint on matching displayed
-            plane form and light generations. Hash all sampled geometry and packed light bytes.
+      - [x] Paint stationary full-beam and beam-removed terrain and canopy endpoints. Advect a Beer–Lambert
+            transmission mask between them. Show full-beam terrain first and pair each canopy with the
+            displayed receiver. Key canopy paint on byte-encoded plant tones and stage gust pose zero
+            ahead of the rest of the two-second strip.
+      - [x] Cache terrain horizon angles by geometry grid and half-degree azimuth. Interpolate bearings
+            and apply the soft disc edge at the current solar or lunar altitude.
       - [x] Resolve the crest from body samples, retain seeded reflectance mottle with its dark tail, and finish
             with finer paper grain. Mix lying snow on terrain and outside ground into reflectance.
       - [x] Use face incidence and additive ground bounce for building materials, with gamut handling after haze.
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
-            plus a moving shadow across a snow boundary and missing/stale receiver Worker arrivals.
+            plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
+            missing/stale receiver Worker arrivals. Run the land-light browser checks in the CI stills job.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
