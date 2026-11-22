@@ -77,7 +77,6 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
   const nx = new Float32Array(n), ny = new Float32Array(n), nz = new Float32Array(n), km = new Float32Array(n)
   const radPerPx = (spanDeg(cam) * RAD) / SCENE_W
   const pxPerRadY = horizonSlope() / RAD
-  const hashBuf: number[] = []
 
   for (let c = 0; c < cols; c++) {
     const frac = cols > 1 ? c / (cols - 1) : 0.5
@@ -97,16 +96,15 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
       const [ux, uy, uz] = surfaceNormal(across, sample.slope)
       const idx = r * cols + c
       nx[idx] = ux; ny[idx] = uy; nz[idx] = uz; km[idx] = sample.km
-      if ((c & 3) === 0 && (r & 1) === 0) {
-        hashBuf.push(Math.round(cy * 10), Math.round(ux * 100), Math.round(uy * 100), Math.round(sample.km * 20))
-      }
+
     }
   }
-  const hazeKms = plane.hazeKm ?? plane.distanceKm
-  for (let i = 0; i < hazeKms.length; i += Math.max(1, Math.floor(hazeKms.length / 16))) {
-    hashBuf.push(Math.round(hazeKms[i] * 20))
-  }
-  const grid: PlaneGeomGrid = { cols, rows, xs, crestY, footY, bearing, nx, ny, nz, km, geomKey: layerKey(name, hashBuf) }
+  // Hash every packed sample plus the profiles read independently by palettes and vegetation.
+  const inputs = [plane.points, plane.distanceKm, world.terrain.near.points,
+    name === 'back' ? null : world.terrain.faces[name]?.columns,
+    Array.from(xs, (x) => world.terrain.sightAt?.(x).farShows),
+    ...[crestY, footY, bearing, nx, ny, nz, km].map((array) => Array.from(array))]
+  const grid: PlaneGeomGrid = { cols, rows, xs, crestY, footY, bearing, nx, ny, nz, km, geomKey: layerKey(name, JSON.stringify(inputs)) }
   if (byKey.size > 12) byKey.clear()
   byKey.set(cacheKey, grid)
   return grid

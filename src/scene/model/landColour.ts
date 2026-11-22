@@ -17,10 +17,10 @@ import type { PlanePalette } from './types'
 export { quantiseTones } from './landPalette'
 export type { PlaneName } from './faceProjection'
 
-export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB; medianAlbedo: RGB }
+export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB }
 
 const SPEC: Record<PlaneName, { cols: number; rows: number; maxColours: number }> = {
-  near: { cols: 21, rows: 4, maxColours: 6 },
+  near: { cols: 21, rows: 4, maxColours: 14 },
   far: { cols: 21, rows: 2, maxColours: 5 },
   back: { cols: 13, rows: 1, maxColours: 4 },
 }
@@ -75,7 +75,8 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   }
   const smoothed = raw.map((cur, idx) => {
     const c = idx % cols, l = c > 0 ? raw[idx - 1] : cur, r = c < cols - 1 ? raw[idx + 1] : cur
-    return rgbOfLab({ l: 0.2 * l.l + 0.6 * cur.l + 0.2 * r.l, a: 0.2 * l.a + 0.6 * cur.a + 0.2 * r.a, b: 0.2 * l.b + 0.6 * cur.b + 0.2 * r.b })
+    return rgbOfLab({ l: 0.08 * l.l + 0.84 * cur.l + 0.08 * r.l,
+      a: 0.12 * l.a + 0.76 * cur.a + 0.12 * r.a, b: 0.12 * l.b + 0.76 * cur.b + 0.12 * r.b })
   })
   const { palette, indices } = quantiseTones(smoothed, maxColours)
   const fallbackSrc = nonWaterLocalFallback(world.land).source
@@ -84,7 +85,6 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const spec: PlaneSurfaceSpec = {
     palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
     median: med,
-    medianAlbedo: med,
   }
   if (byPlane.size > 12) byPlane.clear()
   byPlane.set(key, spec)

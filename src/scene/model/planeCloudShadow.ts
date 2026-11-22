@@ -24,20 +24,27 @@ export interface PlaneCloudShadow {
   blobs: ShadowBlob[]
 }
 
-// Match the cloud sheet's bounded carry. Use up to four cached poses, spaced
+// Match the cloud sheet's bounded carry. Use up to three cached poses, spaced
 // by the largest visible displacement rather than by the display refresh rate.
 const HOLD_SECONDS = 75
-const MAX_POSES = 4
+const MAX_POSES = 3
 const POSE_PX = 1.5
 
 export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number): LayerOf<'plane'> {
   if (!shadow || !plane.light.litField) return plane
-  const travel = Math.max(...shadow.blobs.map((blob) => Math.abs(blob.speed))) * HOLD_SECONDS
+  const bounds = plane.bounds
+  const blobs = shadow.blobs.filter((blob) => {
+    const atEnd = blob.x + blob.speed * HOLD_SECONDS
+    return blob.y + blob.ry >= bounds.y && blob.y - blob.ry <= bounds.y + bounds.h
+      && Math.max(blob.x, atEnd) + blob.rx >= bounds.x && Math.min(blob.x, atEnd) - blob.rx <= bounds.x + bounds.w
+  })
+  if (!blobs.length) return plane
+  const travel = Math.max(...blobs.map((blob) => Math.abs(blob.speed))) * HOLD_SECONDS
   const count = travel < 0.75 ? 1 : Math.min(MAX_POSES, 1 + Math.ceil(travel / POSE_PX))
   const animated = count > 1 ? { mode: 'frames' as const, frames: { count, fps: (count - 1) / HOLD_SECONDS, from } } : undefined
   const key = layerKey(plane.light.key, JSON.stringify([shadow.open,
-    shadow.blobs.map(({ x, y, rx, ry, opticalDepth, speed }) => [x, y, rx, ry, opticalDepth, speed])]))
-  return { ...plane, cloudShadow: shadow, animated, light: { ...plane.light, key } }
+    blobs.map(({ x, y, rx, ry, opticalDepth, speed }) => [x, y, rx, ry, opticalDepth, speed])]))
+  return { ...plane, cloudShadow: { ...shadow, blobs }, animated, light: { ...plane.light, key } }
 }
 
 /** Smooth approximate chord depth for the projected footprint, including a soft edge. */

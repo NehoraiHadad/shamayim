@@ -13,14 +13,6 @@ export interface Dot { x: number; y: number; r: number; rgb: RGB }
 export interface Grain { amount: number; seed: number }
 /** A gully: a tapered cut down a slope, `w` px wide at its top, darkening the ground by `alpha`. */
 export interface Gully { points: Pt[]; w: number; alpha: number }
-/** A wash hanging from a line (a lit or shaded band below a crest): `depth[i]` px below `top[i]`, fading downward. */
-export interface Wash { top: Pt[]; depth: number[]; rgb: RGB; alpha: number }
-/** A fine stroke along a crest where it catches the light. */
-export interface Rim { points: Pt[]; rgb: RGB; alpha: number }
-/** Where the small things of the ground catch the light: toward (dx, dy), in this colour and strength. */
-export interface Lift { dx: number; dy: number; rgb: RGB; alpha: number }
-/** Snow over a plane above its snow line (`edge`, increasing screen-x order), lit by the scene's light. */
-export interface SnowCap { edge: Pt[]; rgb: RGB; alpha: number }
 
 /**
  * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
@@ -31,7 +23,7 @@ export interface LightPart {
   key: string
   /** How the light canvas meets the form under it (`source-over` covers it; the planes lay theirs on with `source-over`). */
   blend: 'source-over' | 'multiply' | 'screen' | 'overlay' | 'soft-light'
-  /** Optional layer tone after light and haze (omitted on planes where `veil` drives painting directly). */
+  /** Optional layer tone after light and haze (omitted on terrain planes). */
   tint?: RGB
   faces: Face[]
 }
@@ -41,7 +33,7 @@ export interface LightPart {
  * Light-free: baked into the plane's FORM canvas and cached by `world.keys.land` (never repainted on hour scrub).
  */
 export interface PlanePalette {
-  /** Quantised light-free surface tones (1..6 sRGB colours). */
+  /** Quantised light-free surface tones (sRGB colours). */
   palette: RGB[]
   /**
    * Columns across the plane in increasing screen-x order (left -> right; compass direction follows the camera,
@@ -104,30 +96,15 @@ export interface PlaneLitField {
   /** Linear RGB of `hazeOf(world)` and displayed linear horizon luminance `Y_horizon`. */
   hazeLin: readonly [number, number, number]
   yHorizon: number
-  /** The 18 vegetation/strata tones lit through the shared `landRadiance` model. */
-  litTones: readonly RGB[]
+  /** Small crest-edge occlusion accent on overlapping snowy planes. */
+  snowSeam?: number
   /** Optional ragged snow-line edge (`[x, y]` in box px) and snow cover (`0..1`), blended into reflectance before lighting. */
   snow?: { edge: Pt[]; cover: number } | null
 }
 
-/**
- * A plane's light part (C2 + Living Land Stages 3 & 7 round 2). `litField` carries exact single-pass linear-light
- * shading, per-sample linear Koschmieder haze, reflectance-space snow and lit vegetation tones; `shade`, `lit`,
- * `rims` and `lift` add single-hazed illustrated crest accents over the lit surface.
- */
+/** A terrain receiver's shared lighting field. */
 export interface PlaneLight extends Omit<LightPart, 'tint'> {
-  /** Exact per-plane linear irradiance, visibility, per-sample haze and snow descriptor. */
   litField?: PlaneLitField
-  /** Legacy veil stops (empty when `litField` handles per-sample linear haze). */
-  veil: [number, RGB, number][]
-  /** Soft illustrated crest washes in single-hazed shade/lit tones. */
-  shade: Wash[]
-  lit: Wash[]
-  /** Floor cast shadows (folded into `litField`'s `sVis`; kept empty when `litField` is present). */
-  faces: Face[]
-  rims: Rim[]
-  snow: SnowCap | null
-  lift: Lift | null
 }
 
 /** The place's own ground polygon over the ridge line in the outside view (C5b + Stage 3). */
@@ -138,6 +115,4 @@ export interface OutsideLandDesc {
   stops: [number, RGB][]
   source: string
   rim: RGB
-  /** Snow lying on it (C9): its colour and cover, over the runs of top points (first, last index) at or over the line. */
-  snow: { rgb: RGB; alpha: number; runs: [number, number][] } | null
 }

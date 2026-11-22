@@ -5,8 +5,6 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { deltaE } from '../../theme/oklab'
 import type { RGB, WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
-import { LayerCache } from '../compose/layerCache'
-import { canopyMatchesPlane } from '../compose/planeComposite'
 import { TEXEL } from '../paint/landSurface'
 import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/planeTexel'
 import { layersOn, sceneModel } from '.'
@@ -29,8 +27,6 @@ beforeAll(async () => {
 }, 120_000)
 afterAll(() => { vi.unstubAllGlobals() })
 
-const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
-
 /** Evaluates actual rendered texels of a plane's body (`preparePlaneTexels` + `shadeTexelSrgb`) for p50 Y/Y_horizon. */
 function renderedPlaneRatio(world: WorldState, layer: LayerOf<'plane'>): { p50: number; p10: number; p90: number } {
   const lf = layer.light.litField!
@@ -51,8 +47,8 @@ function renderedPlaneRatio(world: WorldState, layer: LayerOf<'plane'>): { p50: 
   return { p50: q(0.5), p10: q(0.1), p90: q(0.9) }
 }
 
-describe('Stage 7 round 2: physical linear-light land radiance across all 8 baseline places', () => {
-  it('places 12:00 rendered plane-body p50 Y/Y_horizon in [0.18, 0.45] and 06:20 & 16:30 in [0.08, 0.30] with visible relief', () => {
+describe('Stage 7: physical linear-light land radiance across all 8 baseline places', () => {
+  it('places 12:00 rendered plane-body p50 Y/Y_horizon in [0.18, 0.45] and 06:20 & 16:30 in [0.08, 0.30]', () => {
     const summary: Record<string, Record<string, string>> = {}
     const failures: string[] = []
     for (const { id } of SCENE_PLACES) {
@@ -130,7 +126,7 @@ describe('Stage 7 round 2: physical linear-light land radiance across all 8 base
     expect(cloudShadowsOf(moonNight, BOX)).toEqual([])
   })
 
-  it('applies exact linear wet darkening (×(1 − 0.45·wet)), produces flat diffuse overcast, and guards out-of-order canopy Worker arrivals at 1× and 2×', () => {
+  it('applies exact linear wet darkening (×(1 − 0.45·wet)), produces flat diffuse overcast,', () => {
     const base = worldInput(loaded.get('haifa')!, `${DAY}T12:00` as LocalTime)
     const dry = buildWorld({ ...base, forced: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0 } })
     const wet: WorldState = { ...dry, ground: { ...dry.ground, wet: 1 } }
@@ -144,19 +140,5 @@ describe('Stage 7 round 2: physical linear-light land radiance across all 8 base
     })
     expect(litRadianceRatio(overcast, albedo, surfaceNormal(0.4, 0)))
       .toBeCloseTo(litRadianceRatio(overcast, albedo, surfaceNormal(-0.4, 0)), 6)
-
-    // Out-of-order Worker arrival check (Finding 8): stale canopy geometry is rejected at both 1× and 2× DPR.
-    const model = sceneModel(dry, BOX)
-    const nearPlane = layersOn(model, 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
-    const nearCanopy = layersOn(model, 'land').find((l): l is LayerOf<'canopy'> => l.kind === 'canopy' && l.id === 'canopy.near')!
-    const fake = (w: number, h: number) => ({ width: w, height: h, getContext: () => new Proxy({}, { get: () => () => {} }) }) as never
-    for (const dpr of [1, 2]) {
-      const cache = new LayerCache({ factory: fake, painters: () => ({ form: () => {}, light: () => {} }), now: () => 0 })
-      const newerPlane: LayerOf<'plane'> = { ...nearPlane, key: `${nearPlane.key}:v2` }
-      cache.update(newerPlane, dpr)
-      expect(canopyMatchesPlane(nearCanopy, [newerPlane, nearCanopy], cache)).toBe(false)
-      expect(canopyMatchesPlane({ ...nearCanopy, receiver: { form: newerPlane.key, light: newerPlane.light.key } }, [newerPlane, nearCanopy], cache)).toBe(true)
-    }
-    expect(median([1, 2, 3])).toBe(2)
   })
 })

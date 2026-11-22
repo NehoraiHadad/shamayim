@@ -927,30 +927,23 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
       `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
       `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
-- [x] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–2):
-      - [x] Shared linear-light radiance model (`src/scene/model/landRadiance.ts`): Lambertian irradiance
-            `L/L_hor = (ρ/π)·(E_sun·max(0,n·s_sun)·C_sun + E_moon·max(0,n·s_moon)·C_moon + E_sky·V(n)·C_sky)`
-            calibrated against Bird & Hulstrom (1981) at 38° clear sky (`DNI_0 ≈ 800`, `DHI_0 ≈ 105 W/m²`, `DNI/DHI = 7.62`)
-            with uncompressed `sunLight` Beer-Lambert beam transmission, CIE Type 12 horizon-to-sky ratio (`5.4` day /
-            `5.0` low sun, uncoupled from display palette), Mie aerosol + broken-cloud diffuse scatter (`1.25×`), Twomey (1986) linear
-            wet darkening `×(1−0.45·wet)`, separate lunar beam (`bodies.moon`, `MOON_RGB`), explicit linear-luminance-preserving
-            illustration chroma boost (`1.35×`), and eye-adaptation compression `Y_display = Y_hor · (L/L_hor)^0.6`.
-      - [x] Exact single-pass linear terrain lighting (`planeGeometry.ts`, `planeLight.ts`, `planeCrestLight.ts`,
-            `paint/planeTexel.ts`, `paint/planeLight.ts`): raw BOA sRGB albedos (no lightness squeeze, no split `F×M`
-            multiply error — verified `max ΔE Oklab < 0.01`), true DEM `acrossSlope` & `aheadSlope` in m/m (`pts[0].slope`
-            at crest, per-column 250° bearing frame), reflectance-space material mottle & lying snow BEFORE lighting,
-            exact per-sample linear Koschmieder haze at each sample's own DEM face `km`, post-haze finishing paper grain,
-            and single-hazed sunlit crest washes & rims.
-      - [x] Cloud-once solar-only shadows (`cloudShadowProject.ts`, `cloudShadows.ts`, `cloudShadowLayers.ts`,
-            `paint/cloudShadows.ts`): strictly solar (`sunAlt > 0 && shares.sun > 0`), composited `source-atop` at
-            `z = plane.z + 0.2` (below water/buildings/marks, preserving receiver alpha coverage during loading/resize),
-            removing ONLY each receiver's direct solar term before compression and linear haze.
-      - [x] Material-based buildings & zero animation-tick recomposition: `marks.ts` (`tonesAt`) and `farCities.ts` light
-            neutral stone/plaster/roof albedos with shared irradiance + bounded (`<= 0.09`) ground bounce (no soil tint);
-            `plane` uses `Painter.formless` when `litField` is present (1 blit per plane per frame, zero `planeScratch`);
-            `planeComposite.ts` guards out-of-order Worker canopy arrivals against plane geometry keys.
-      - [x] Verification: `landRadiance.test.ts`, `tsc -b`, full vitest suite, `npm run build`, 24-still `measure2.js`
-            audit + visual crop inspection, and matched `npm run test:perf` vs round-0 `6ca2e54` (pixel refs untouched).
+- [x] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–3).
+      - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
+            luminance compression, and per-face-distance linear haze across terrain receivers.
+      - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
+            with aerosol and cloud scatter and broad-sky metering. Keep the daylight scale distinct from the
+            atmosphere's directional horizon radiance. Retain the sky as the source of path colour.
+      - [x] Evaluate Beer–Lambert solar transmission at stationary terrain texels and vegetation anchors.
+            Cache up to three receiver poses for cloud carry. Gate canopy paint on matching displayed
+            plane form and light generations. Hash all sampled geometry and packed light bytes.
+      - [x] Resolve the crest from body samples, retain seeded reflectance mottle with its dark tail, and finish
+            with finer paper grain. Mix lying snow on terrain and outside ground into reflectance.
+      - [x] Use face incidence and additive ground bounce for building materials, with gamut handling after haze.
+      - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
+            plus a moving shadow across a snow boundary and missing/stale receiver Worker arrivals.
+      - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
+            `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
+
 
 ## Polish track G — no building flips or flickers; live mode is scrub at now (owner: "a building rotated and also flickered", Karmei Tzur) — 2026-11-22 (branch `claude/fix-glyph-flicker-8384c3`)
 Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-g-merge.md` (+ `.REPORT.md`, rounds 1–3).

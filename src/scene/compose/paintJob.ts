@@ -87,7 +87,7 @@ export function lightJobDesc(desc: LayerDesc): LayerDesc {
     ...desc,
     surfaceTone: { palette: [], cols: 0, rows: 0, cells: [], source: '' },
     terraces: [],
-    gullies: desc.light.lift ? desc.gullies : [],
+    gullies: [],
     vegetation: EMPTY_VEGETATION,
   }
 }

@@ -1,4 +1,6 @@
 //# allFunctionsCalledOnLoad
+import { wrap180 } from '../../domain/camera'
+import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
 import { nearGroundAlbedo } from './landColour'
 import {
@@ -27,18 +29,32 @@ export const HAZE_SLOPE = 0.006
  * The air's colour a plane fades toward with distance: the sky at the horizon (night-aware, from the light's palette),
  * tinted by the air itself by day (dust tan, rain grey-blue).
  */
+const hazeCache = new WeakMap<WorldState, RGB>()
+
 export function hazeOf(world: WorldState): RGB {
-  const { palette } = world.light
-  const sky = mixRgb(rgbOf(palette.mid), rgbOf(palette.horizon), 0.45)
+  const hold = hazeCache.get(world)
+  if (hold) return hold
+  const { palette, afterglow } = world.light
+  const { altitude, azimuth } = world.bodies.sun
+  const towards = (0.5 + 0.5 * Math.cos(wrap180(azimuth - world.camera.heading) * Math.PI / 180)) ** 3
+  const glow = towards * smoothstep(7, 1, altitude) * smoothstep(-10, -3, altitude) * (1 - 0.65 * world.light.diffuse)
+  const horizon = rgbOf(palette.horizon)
+  const sky = mixRgb(rgbOf(palette.mid), horizon, 0.45)
   const w = 0.3 * (1 - world.night.dark)
   if (w <= 1e-4) return sky
   // Aerosol (`air.haze`) tints the path-scattered sky's chromaticity at the sky's own luminance (never injects daytime brightness at dusk).
-  const skyLin = srgbRgbToLinear(sky), ySky = linearLuminance(skyLin), tint = unitChroma(world.air.haze)
-  return linearRgbToSrgb([
+  const skyLin = srgbRgbToLinear(sky), ySky = linearLuminance(skyLin)
+  const scatter = unitChroma(world.air.haze)
+  const glowTint = unitChroma(afterglow?.rgb ?? horizon)
+  // Bearing changes the warm path chromaticity at twilight. Its luminance is set by the broad sky.
+  const tint = scatter.map((value, i) => value + (glowTint[i] - value) * glow)
+  const rgb = linearRgbToSrgb([
     skyLin[0] * (1 - w) + ySky * tint[0] * w,
     skyLin[1] * (1 - w) + ySky * tint[1] * w,
     skyLin[2] * (1 - w) + ySky * tint[2] * w,
   ])
+  hazeCache.set(world, rgb)
+  return rgb
 }
 
 /** How far toward the air the ground at a distance (km) goes: `AERIAL · fade(km)²`. */

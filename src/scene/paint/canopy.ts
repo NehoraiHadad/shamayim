@@ -3,7 +3,6 @@ import { vegetationLight } from './vegetationLight'
 import type { LayerOf } from '../model/types'
 import { outline, type Ctx2D, type PaintEnv } from './hand'
 import { paintVegCrowns } from './landVegCrowns'
-import { paintVegLight } from './landVegLight'
 import { paintVegTufts } from './landVegTufts'
 
 /** Both passes use the same plane mask and avoid the label zones when a mark bends into them. */
@@ -24,11 +23,10 @@ export function paintCanopy(ctx: Ctx2D, desc: LayerOf<'canopy'>, env: PaintEnv):
   ctx.save()
   const wind = desc.wind.lean || desc.wind.gust ? desc.wind : undefined
   const toneAt = desc.receiverField && desc.receiverBounds
-    ? vegetationLight(desc.vegetation.tones, desc.receiverField, desc.outline, desc.receiverBounds, solarTransmission(desc.cloudShadow, env.phase))
+    ? vegetationLight(desc.vegetation.tones, desc.receiverField, desc.outline, desc.receiverBounds, solarTransmission(desc.cloudShadow, desc.animated?.frames?.from === undefined ? 0 : env.phase))
     : undefined
   paintVegTufts(ctx, desc.vegetation, wind, env.phase, toneAt)
   paintVegCrowns(ctx, desc.vegetation, wind, env.phase, toneAt)
-  if (desc.lift) paintVegLight(ctx, desc.vegetation, desc.lift, wind, env.phase)
   mask(ctx, desc)
   ctx.restore()
 }

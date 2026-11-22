@@ -13,14 +13,14 @@ function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane
     outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
     surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
     gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
-    light: { key: lightKey, blend: 'source-over', faces: [], veil: [], shade: [], lit: [], rims: [], snow: null, lift: null },
+    light: { key: lightKey, blend: 'source-over', faces: [] },
   }
 }
 
 function canopy(key: string, lightKey: string, id = 'canopy.near', count = 10): LayerOf<'canopy'> {
   return {
     kind: 'canopy', id, surface: 'land', z: 30.1, key, bounds: { x: 0, y: 40, w: 375, h: 88 },
-    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 }, lift: null,
+    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 },
     vegetation: { seed: 1, tones: [], trees: new Float32Array(), treeMeta: new Uint8Array(), tufts: new Float32Array(), tuftMeta: new Uint8Array() },
     animated: { mode: 'frames', frames: { count, fps: 5 } },
     light: { key: lightKey, blend: 'source-over', faces: [] },

@@ -26,7 +26,8 @@ export function diffuseSky(light: Light, sunAlt: number, tau: number): { rgb: RG
   // Cloud-scattered light varies less in chromaticity across the dome.
   for (let i = 0; i < 3; i++) dayRgb[i] += (yDay - dayRgb[i]) * 0.45 * cloud
   const twilight = smoothstep(10, 3, sunAlt) * smoothstep(-10, -3, sunAlt)
-  if (twilight <= 0) return { rgb: dayRgb, amount: 0.2, exposure: yHorizon, bias: 0 }
+  const dayBias = 0.065 * smoothstep(3, 16, sunAlt) * (1 - cloud)
+  if (twilight <= 0) return { rgb: dayRgb, amount: 0.2, exposure: yHorizon, bias: dayBias }
 
   const top = srgbRgbToLinear(rgbOf(light.palette.top))
   const glow = srgbRgbToLinear(light.afterglow?.rgb ?? rgbOf(light.palette.horizon))
@@ -48,7 +49,10 @@ export function diffuseSky(light: Light, sunAlt: number, tau: number): { rgb: RG
   // Illustration meter blends the wide diffuse sky with the daylight display reference.
   const exposure = yHorizon + (broadY - yHorizon) * 0.60 * twilight
   const ySky = linearLuminance(integrated)
-  const amount = 0.2 + (2.65 * ySky / yHorizon - 0.2) * twilight
+  // Under a thick deck the distribution of diffuse radiance broadens and the
+  // wide meter needs less additional gain. Both coefficients are display calibration.
+  const gain = (0.38 + 1.65 * cloud) * (0.84 - 0.20 * smoothstep(0.55, 0.85, cloud))
+  const amount = 0.2 + (gain * ySky / yHorizon - 0.2) * twilight
   const rgb = dayRgb.map((d, i) => d + (integrated[i] * yDay / Math.max(1e-6, ySky) - d) * twilight) as [number, number, number]
-  return { rgb, amount, exposure, bias: twilight * Math.min(0.25, moment / Math.max(1e-6, ySky)) }
+  return { rgb, amount, exposure, bias: dayBias * (1 - twilight) + twilight * Math.min(0.25, moment / Math.max(1e-6, ySky)) }
 }

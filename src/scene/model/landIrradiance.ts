@@ -29,9 +29,12 @@ export function skyView(normal: Normal, sun: LightDir, bias: number) {
   return clamp01((1 + normal[2]) * 0.5 + bias * (normal[0] * sun.across + normal[1] * sun.ahead) / horizontal)
 }
 
-// Day display calibration at 38°. The Bird model supplies the order of magnitude (DNI/DHI 7–9 in clear air).
-// The 5.4 divisor is the illustration's daytime radiance scale, independent of horizon azimuth.
-const DAY_DHI = 1 / 5.4
+// Bird & Hulstrom (SERI/TR-642-761), evaluated at 52° zenith, air mass 1.62, 101325 Pa,
+// 1361 W/m² extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water, 0.116 AOD at 500 nm,
+// 0.166 at 380 nm (Ångström 1.3), 0.85 aerosol asymmetry and 0.18 ground albedo:
+// DNI ≈ 828 W/m², DHI ≈ 109 W/m². This reference fixes the clear beam/fill ratio.
+// The 5.65 divisor is the illustration's daytime radiance scale, independent of horizon azimuth.
+const DAY_DHI = 1 / 5.65
 const DAY_DNI = 7.62 * DAY_DHI
 const REF_AIR = { visibilityKm: 30, dustWeight: 0 }
 const REF_BEAM = solarBeam(38, REF_AIR).strength

@@ -246,7 +246,7 @@ describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
     const snowy = buildWorld({ ...worldInput(loaded.get(id)!, NOON), forced: { snowfall: 2, precipitation: 2, temperature: -1,
       feelsLike: -4, cloudCover: 100, thickCloud: 100, weatherCode: 73 } })
     const near = (w: WorldState) => sceneModel(w, BOX).layers.find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
-    const snow = near(snowy).light.snow
+    const snow = near(snowy).light.litField?.snow
     expect(snow).not.toBeNull()
     // At the dot the near land is the place's own: its snow runs from the crest down by (crest m − snow line m) × s.
     const { terrain } = snowy, view = snowy.place3 as OutsideView
@@ -256,7 +256,7 @@ describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
     const edge = terrain.snowEdge!('near', lineM)[i]
     const want = crestM >= lineM ? pts[i][1] + (crestM - lineM) * view.vscale!.s : pts[i][1] - 2
     expect(edge[1]).toBeCloseTo(want, 6)
-    expect(near(worldAt(id)).light.snow ?? null).toBeNull()
+    expect(near(worldAt(id)).light.litField?.snow ?? null).toBeNull()
   })
 })
 

@@ -5,10 +5,9 @@ import { SCENE_W } from '../../world/sceneBox'
 import type { FarCities, WorldState } from '../../world/types'
 import { farTownHazeAtTier, farTownTier, TIER_KM } from './farTownHaze'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { againstLight, shineOf, wallShade } from './marks'
-import { nearGroundAlbedo } from './landColour'
-import { albedoLinear, landIrradiance, linearRgbToSrgb, shadeLinearRgb, srgbRgbToLinear } from './landRadiance'
-import { aerialFor } from './landVeil'
+import { againstLight, shineOf } from './marks'
+import { buildingLight, brightWall } from './buildingLight'
+import { NORMALS } from '../../world/livingLight'
 import type { Box, CityBlock, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
 
 /** Draw order on the land surface: over the far plane and its water, under the near ridge. */
@@ -92,20 +91,8 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const { night, air } = world
   const visibility = air.visibilityKm
   const geometry = geometryOf(world, box, clear)
-  const aerial = aerialFor(world)
   const dark = night.dark
-  const shade = wallShade(world)
-  const irr = landIrradiance(world)
-  // Limestone & plaster lit by shared irradiance + bounded local ground bounce (<= 0.09, zero soil tint).
-  const gRho = albedoLinear(nearGroundAlbedo(world), 1), gUp = Math.max(0, irr.sunDir.up) * (1 - shade)
-  const eWallSky: [number, number, number] = [
-    irr.eSkyVec[0] + 0.09 * gRho[0] * (irr.eSunVec[0] * gUp + irr.eSkyVec[0]),
-    irr.eSkyVec[1] + 0.09 * gRho[1] * (irr.eSunVec[1] * gUp + irr.eSkyVec[1]),
-    irr.eSkyVec[2] + 0.09 * gRho[2] * (irr.eSunVec[2] * gUp + irr.eSkyVec[2]),
-  ]
-  const stoneLin = srgbRgbToLinear(ALBEDO)
-  const litOwn = linearRgbToSrgb(shadeLinearRgb(stoneLin, irr.eSunVec, irr.eMoonVec, eWallSky, 0.85, 0.7, 0.55, irr.yHorizon))
-  const shadeOwn = linearRgbToSrgb(shadeLinearRgb(stoneLin, irr.eSunVec, irr.eMoonVec, eWallSky, 0.15 * (1 - shade), 0.1, 0.45 * (1 - 0.5 * shade), irr.yHorizon))
+  const side = brightWall(world)
   const shown = (km: number) => plainContrast(km, visibility) >= MIN_CONTRAST
   const tiers: CityTier[] = []
   geometry.tiers.forEach((tier, i) => {
@@ -113,7 +100,8 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
     const blocks = tier.blocks.filter((b) => shown(b.km))
     const mass = tier.mass.map((step) => step.filter((m) => shown(m.km)))
     if (!blocks.length && !mass.some((step) => step.length)) return
-    tiers.push({ km, lit: aerial(litOwn, km), shade: aerial(shadeOwn, km), mass: mass.map((boxes, k) => ({ alpha: MASS_ALPHA[k], boxes })),
+    const shade = buildingLight(world, km)
+    tiers.push({ km, lit: shade(ALBEDO, side), shade: shade(ALBEDO, NORMALS.front), mass: mass.map((boxes, k) => ({ alpha: MASS_ALPHA[k], boxes })),
       blocks })
   })
   // Far first: nearer blocks stand in front.
@@ -139,7 +127,7 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
     // The towns' shapes follow from the place, the text zones and the box; every colour and what the air keeps is light,
     // repainted alone while scrubbing (§1d), over an empty form.
     key: layerKey('farCities', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box)),
-    light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? litOwn, faces: [] },
+    light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? buildingLight(world, 0)(ALBEDO, side), faces: [] },
     tiers, lateralLight, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
   }
 }

@@ -3,7 +3,7 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { buildWorld } from '../../world/world'
 import { tonesAt } from './marks'
-import { aerialFor, hazeOf } from './landVeil'
+import { aerialFor, hazeAt, hazeOf } from './landVeil'
 import { skyAt } from './sky'
 import { skyFormOf } from './ownSkyForm'
 
@@ -22,7 +22,7 @@ it.each(['2026-11-17T11:00', '2026-11-17T16:30'] as const)
   const world = buildWorld(worldInput(loaded, at))
   const kms = [0, 10.5, 11.5, 12.5]
   const tones = kms.map(km => tonesAt(world, km))
-  const form = skyFormOf(world, box, kms, tones, 1)
+  const form = skyFormOf(world, box, kms, 1)
   const sky = skyAt(world, box)(8), aerial = aerialFor(world, hazeOf(world))
   for (const [i, tier] of form.tiers.entries()) {
     expect(lum(tier.top)).toBeGreaterThanOrEqual(lum(tones[i].wall))
@@ -33,7 +33,11 @@ it.each(['2026-11-17T11:00', '2026-11-17T16:30'] as const)
     // Zero-distance albedo bound + far control: verify distant dusk roof mixes linearly toward hazeOf(world) (Finding 10).
     expect(lum(form.tiers[0].top)).toBeLessThan(lum(sky))
     expect(lum(form.tiers[2].top)).toBeGreaterThan(lum(form.tiers[0].top))
-    const expectedFar = aerial(form.tiers[0].top, kms[2])
-    expect(Math.abs(lum(form.tiers[2].top) - lum(expectedFar))).toBeLessThan(0.05)
+    const h = hazeAt(world, kms[2]), air = hazeOf(world)
+    const decode = (s: number) => s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+    for (const channel of [0, 1, 2]) {
+      const expected = decode(form.tiers[0].top[channel]) * (1 - h) + decode(air[channel]) * h
+      expect(decode(form.tiers[2].top[channel])).toBeCloseTo(expected, 7)
+    }
   }
 })

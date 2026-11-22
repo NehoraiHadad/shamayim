@@ -2616,37 +2616,43 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
   (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
 
-7. **Physical daytime land lighting (Stage 7, 2026-11-22, branch `claude/land-light-998984`, rounds 1–2):** replaces the
-   old narrow shade-ridge Oklab squeeze (`REF_DAY_RIDGE_L`, `+0.12` crest-wash cap, `moodVeilOf` cloud double-counting,
-   sRGB cloud shadows) with one shared linear-light radiance model (`src/scene/model/landRadiance.ts`) driving planes,
-   vegetation canopies, outside ground (`outsideGround.ts`), marks (`marks.ts` `tonesAt`), far towns (`farCities.ts`),
-   and `toneAt` consumers:
-   - *Radiative transfer & units:* in units of painted horizon sky radiance `L_horizon`,
-     `L_land / L_horizon = (ρ / π) · (E_sun · max(0, n · s_sun) · C_sun + E_moon · max(0, n · s_moon) · C_moon + E_sky · V(n) · C_sky)`,
-     where `ρ = boostChroma(srgbToLinear(albedo), 1.35) · (1 − 0.45 · wet)` (Twomey et al. 1986; Lekner & Dorf 1988;
-     `1.35×` linear-luminance-preserving illustration chroma boost restores Stage 3's saturation), `n` is the upward unit
-     normal in each column's own bearing frame `(across, ahead, up)` from true DEM slopes in m/m (`planeGeometry.ts`:
-     `groundAt(x ± dx, km)` over real horizontal arc metres + `faceAtY` radial slope using `pts[0].slope` at the crest),
-     `V(n) = (1 + n_up) / 2`, and `C_*` are unit-luminance linear chromaticities.
-   - *Calibration (uncoupled from display sky palette):* Bird & Hulstrom (1981) clear sky at 38° solar altitude
-     (`AM = 1.62`, 1013 hPa, 1.5 cm PW, AOD₅₀₀ = 0.08, 30 km vis: `DNI_0 ≈ 800 W/m²`, `DHI_0 ≈ 105 W/m²` →
-     `DNI_OVER_DHI_CLEAR = 7.62`), with uncompressed direct-beam transmission recovered from `sunLight(sunAlt, air).strength`
-     (undoing `airDim`'s `^0.35`). CIE Standard Clear Sky (ISO 15469:2004, Type 12) horizon-to-mean-sky radiance ratio
-     (`HORIZON_OVER_SKY_DAY = 5.4` at 38°, `HORIZON_OVER_SKY_LOW = 5.0` at low sun) sets `E_sky / (π · L_horizon)`,
-     lifted in daytime broken/overcast cloud or Mie haze by `DIFFUSE_CLOUD_GAIN = 1.25` (Gueymard 2017). Moonlight uses its own direction
-     (`bodies.moon`), colour (`MOON_RGB`), and calibration (`MOON_DIR_OVER_SKY = 2.4`).
-   - *Exposure, compression & single per-sample linear haze:* one Stevens/Reinhard power law (`γ = 0.6`):
-     `Y_display = Y_horizonDisplay · (L_land / L_horizon)^0.6`, preserving `ρ · E` hue/chroma, followed by ONE linear RGB
-     Koschmieder mix (`L = L_0 · (1 − h) + L_air · h`) using each sample's own DEM face distance (`hazeAt = AERIAL · fade(km)²`)
-     toward luminance-preserving `hazeOf(world)`, then sRGB encoding and small post-haze paper grain (`±0.013`).
-   - *Cloud-once solar-only shadows & snow reflectance:* `cloudShadowProject.ts` projects only solar clouds (`sunAlt > 0`
-     and `shares.sun > 0`). Each `cloudShadow.<plane>` layer sits at `z = plane.z + 0.2` (below water/buildings/marks) with
-     `blend: 'source-atop'` (preserving receiver alpha coverage during loading/resize), and `paint/cloudShadows.ts` shares
-     `paint/planeTexel.ts` to remove ONLY the receiver's direct solar term BEFORE compression and linear haze (zero haze
-     darkening, zero double-darkening on terrain-shadowed slopes). Lying snow blends into receiver reflectance BEFORE
-     lighting and haze.
-   - *Material buildings & zero animation-tick recomposition:* `marks.ts` (`tonesAt`) and `farCities.ts` light neutral
-     stone/plaster/roof albedos under shared irradiance with wall/roof normals and bounded (`<= 0.09`) local ground bounce
-     (no soil tint). `paintPlaneLight` renders each plane in one cached pass (`Painter.formless` when `litField` is set,
-     eliminating per-frame `planeScratch` recomposition), while `planeComposite.ts` guards out-of-order Worker canopy
-     arrivals against the displayed plane's geometry key.
+7. **Physical daytime land lighting (Stage 7, 2026-11-22, rounds 1–3).** Terrain, vegetation, outside ground,
+   and buildings use the same linear Lambertian product. With linear reflectance `ρ` and unit-luminance
+   RGB illuminants `C`, the relative radiance is
+   `L/L_ref = (ρ/π) · [E_sun C_sun max(0,n·s) V_s T + E_moon C_moon max(0,n·m) V_m + E_sky C_sky V_sky]`.
+   `E` are irradiances in units compatible with radiance `L_ref`, and the Lambertian 1/π converts irradiance
+   into radiance. `T` is incremental cloud transmission and `V_s` and `V_m` are separate receiver-space DEM
+   visibility. Building walls also see an additive ground term weighted by `(1−n_up)/2`.
+
+   - The clear-sky check uses Bird and Hulstrom at 52° zenith, relative air mass 1.62, 101325 Pa, 1361 W/m²
+     extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water vapour, AOD₅₀₀ 0.116, AOD₃₈₀ 0.166,
+     aerosol asymmetry 0.85 and ground albedo 0.18. It gives about 828 W/m² DNI and 109 W/m² DHI.
+     The renderer uses a 7.62 beam/fill reference and a dimensionless daylight display divisor of 5.65.
+     Daylight beam colour comes from the linear three-channel atmospheric transmission. This divisor is
+     an illustration calibration and has no CIE horizon-azimuth interpretation. [Bird clear-sky model](https://www.nlr.gov/grid/solar-resource/clear-sky)
+   - Twilight estimates diffuse horizontal light with an 8 × 12 cosine-weighted hemisphere quadrature
+     of a broad dome, cloud-scattered fill, and a low aerosol forward-scattering lobe. The lobe's
+     first azimuthal moment corrects the sky view factor for surface orientation. The broad sky controls exposure.
+     The directional glow contributes to horizon and path chromaticity. The lobe widths and twilight meter
+     gains are illustration approximations fitted jointly to the approved 06:20 and 16:30 exposures.
+     [Haber, Magnor and Seidel](https://doi.org/10.1145/1095878.1095884)
+   - The separate lunar beam uses a 0.30 lx full-moon reference, the phase and air/height/deck share,
+     and a 0.625 lx illustrative night reference. Colour includes the cooler apparent night response.
+     [Kyba, Mohar and Posch](https://doi.org/10.1093/astrogeo/atx025)
+   - One compression uses `Y_display = Y_meter · (Y(L/L_ref))^0.6`. The shader then mixes the RGB
+     path term `L_display(1−h) + L_air h` with `h = AERIAL · fade(km)²` for each face sample and applies
+     the sRGB gamut at encoding. Land albedo keeps its local linear luminance contrast, with
+     a 1.35× illustration chroma factor, a seeded dark reflectance tail, and wet attenuation
+     `1−0.45·wet`. Snow mixes into linear reflectance before shading. A narrow sky-view accent
+     separates overlapping snowy slopes. Paper grain is applied to the result at one CSS pixel.
+   - The DEM gives real across and radial m/m slopes, column-relative bearing, and distances. For an
+     unmeasured face the model uses an explicit geometric fallback and assumes open light where
+     a terrain blocker cannot be measured. Rims resolve the same local receiver material, visibility,
+     beam transmission, and haze near the crest at finer depth than the body raster.
+   - Deck openness and projected chord depth both use Beer–Lambert `exp(−τ)`. The receiver samples
+     the moving field relative to the deck transmission already in the beam, then shades the stationary
+     material. Up to three bounded poses are painted into receiver-local strips. A pose inherits its
+     plane's reveal and cache generation, and each canopy requires the displayed plane's form and light
+     keys. Material samples are cached across scrub and pose changes.
+   - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
+     moving transmission and out-of-order receiver paint with the browser's Worker.

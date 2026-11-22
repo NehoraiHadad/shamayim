@@ -49,10 +49,10 @@ export function shadeLinearRgb(
   return h <= 1e-6 || !hazeLin ? [cr, cg, cb] : [cr + (hazeLin[0] - cr) * h, cg + (hazeLin[1] - cg) * h, cb + (hazeLin[2] - cb) * h]
 }
 
-export function litRadianceRatio(world: RadianceWorld, albedo: RGB, normal: Normal = FLAT_NORMAL, shadowFactor = 1, chroma = ALBEDO_CHROMA_BOOST): number {
+export function litRadianceRatio(world: RadianceWorld, albedo: RGB, normal: Normal = FLAT_NORMAL, shadowFactor = 1, chroma = ALBEDO_CHROMA_BOOST, moonVisibility = 1): number {
   const irr = landIrradiance(world), rho = albedoLinear(albedo, chroma), sf = clamp01(shadowFactor), vSky = skyView(normal, irr.sunDir, irr.skyBias)
   const sVis = Math.max(0, normal[0] * irr.sunDir.across + normal[1] * irr.sunDir.ahead + normal[2] * irr.sunDir.up) * sf
-  const mVis = Math.max(0, normal[0] * irr.moonDir.across + normal[1] * irr.moonDir.ahead + normal[2] * irr.moonDir.up)
+  const mVis = Math.max(0, normal[0] * irr.moonDir.across + normal[1] * irr.moonDir.ahead + normal[2] * irr.moonDir.up) * clamp01(moonVisibility)
   return linearLuminance([
     rho[0] * (irr.eSunVec[0] * sVis + irr.eMoonVec[0] * mVis + irr.eSkyVec[0] * vSky),
     rho[1] * (irr.eSunVec[1] * sVis + irr.eMoonVec[1] * mVis + irr.eSkyVec[1] * vSky),
@@ -62,16 +62,16 @@ export function litRadianceRatio(world: RadianceWorld, albedo: RGB, normal: Norm
 
 export function litLandLinear(
   world: RadianceWorld, albedo: RGB, normal: Normal = FLAT_NORMAL, shadowFactor = 1,
-  hazeShare = 0, haze?: RGB, chroma = ALBEDO_CHROMA_BOOST,
+  hazeShare = 0, haze?: RGB, chroma = ALBEDO_CHROMA_BOOST, moonVisibility = 1,
 ): [number, number, number] {
   const irr = landIrradiance(world), rho = albedoLinear(albedo, chroma), sf = clamp01(shadowFactor)
   const sVis = Math.max(0, normal[0] * irr.sunDir.across + normal[1] * irr.sunDir.ahead + normal[2] * irr.sunDir.up) * sf
-  const mVis = Math.max(0, normal[0] * irr.moonDir.across + normal[1] * irr.moonDir.ahead + normal[2] * irr.moonDir.up)
+  const mVis = Math.max(0, normal[0] * irr.moonDir.across + normal[1] * irr.moonDir.ahead + normal[2] * irr.moonDir.up) * clamp01(moonVisibility)
   return shadeLinearRgb(rho, irr.eSunVec, irr.eMoonVec, irr.eSkyVec, sVis, mVis, skyView(normal, irr.sunDir, irr.skyBias), irr.yHorizon, hazeShare, haze ? srgbRgbToLinear(haze) : undefined)
 }
 
 export function litLandRgb(
-  world: RadianceWorld, albedo: RGB, normal: Normal = FLAT_NORMAL, hazeShare = 0, haze?: RGB, shadowFactor = 1, chroma = ALBEDO_CHROMA_BOOST,
+  world: RadianceWorld, albedo: RGB, normal: Normal = FLAT_NORMAL, hazeShare = 0, haze?: RGB, shadowFactor = 1, chroma = ALBEDO_CHROMA_BOOST, moonVisibility = 1,
 ): RGB {
-  return linearRgbToSrgb(litLandLinear(world, albedo, normal, shadowFactor, hazeShare, haze, chroma))
+  return linearRgbToSrgb(litLandLinear(world, albedo, normal, shadowFactor, hazeShare, haze, chroma, moonVisibility))
 }

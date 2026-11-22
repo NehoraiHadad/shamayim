@@ -7,11 +7,11 @@ import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
 import type { PlantWind } from './landWind'
 import type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation,
 } from './typesLand'
 
 export type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation,
 }
 import type { ContrailMotion } from './contrailMotion'
 
@@ -179,7 +179,7 @@ interface LayerBase {
   light?: LightPart
   /** Laid where its object is now (`Lay`): the layer's bounds and coordinates are round its own origin. */
   placed?: Lay
-  /** How its canvas meets the surface under it (`source-over` when absent; cloud shadows use linear-correct `multiply`). */
+  /** How its canvas meets the surface under it (`source-over` when absent). */
   blend?: 'source-over' | 'source-atop' | 'multiply'
 }
 
@@ -451,7 +451,7 @@ export type LayerDesc =
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
       gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: PlaneCloudShadow }
-  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[]; receiver?: { form: string; light: string }; cloudShadow?: PlaneCloudShadow; receiverField?: PlaneLitField; receiverBounds?: Box }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string; light: string }; cloudShadow?: PlaneCloudShadow; receiverField?: PlaneLitField; receiverBounds?: Box }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */

@@ -40,7 +40,7 @@ function footprintOf(veg: PlaneVegetation): CanopyFootprint {
 /** The crowns/tufts interleave with their parent plane's light. Their placement is cached with the ground. */
 export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: readonly Box[]): LayerOf<'canopy'> | null {
   if (!plane.canopyId) return null
-  const { vegetation, light: { lift }, outline, bounds } = plane
+  const { vegetation, outline, bounds } = plane
   const { left, right, top, bottom, travel } = footprintOf(vegetation)
   const x = Math.max(bounds.x, left), y = Math.max(bounds.y, top)
   const w = Math.max(1, Math.min(bounds.x + bounds.w, right) - x)
@@ -51,10 +51,10 @@ export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: re
   const key = layerKey('canopy', plane.key, plane.light.key, lean, gust)
   return {
     kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key, receiver: { form: plane.key, light: plane.light.key },
-    bounds: { x, y, w, h }, outline, vegetation: { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust }, lift,
+    bounds: { x, y, w, h }, outline, vegetation: { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust },
     clear: lean || gust ? clear : [],
     animated: plane.animated ?? (gust ? { mode: 'frames', frames: LAND_GUST } : undefined),
     cloudShadow: plane.cloudShadow, receiverField: plane.light.litField, receiverBounds: bounds,
-    light: { key: layerKey(key, lift ?? ''), blend: 'source-over', faces: [] },
+    light: { key, blend: 'source-over', faces: [] },
   }
 }

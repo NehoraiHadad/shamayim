@@ -11,6 +11,7 @@
     "test": "vitest run",
     "typecheck": "tsc -b",
     "test:pixels": "node e2e/scene.pixels.mjs",
+    "test:land-light": "node --experimental-strip-types e2e/landLighting.mjs",
     "test:perf": "node e2e/scene.perf.mjs"
   },
   "dependencies": {

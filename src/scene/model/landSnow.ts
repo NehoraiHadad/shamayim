@@ -5,19 +5,16 @@ import { SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { fractal } from '../paint/core'
-import { FLAT_NORMAL, linearRgbToSrgb, litLandRgb, SNOW_ALBEDO_LIN } from './landRadiance'
-import { hazeAt, hazeOf } from './landVeil'
+import { albedoLinear, linearRgbToSrgb, SNOW_ALBEDO_LIN } from './landRadiance'
 import { mixRgb, rgbOf } from './tone'
 import type { Pt, SceneBox } from './types'
 
 /**
  * Shared lying-snow reflectance & ragged snow-line geometry (Stages C2, C9 & 7 round 2).
- * Snow enters surface reflectance BEFORE lighting and haze on terrain planes (`snowMaskOf`), and uses the
- * shared `litLandRgb` radiance pipeline on outside ground (`snowOnGround`).
+ * Snow enters surface reflectance BEFORE lighting and haze on terrain planes (`snowMaskOf`), and on outside ground.
  */
 
 type PlaneName = 'back' | 'far' | 'near'
-const SNOW_SRGB: RGB = linearRgbToSrgb(SNOW_ALBEDO_LIN)
 
 /** The light's colour on the land: the sun's (after air mass) through the sky's horizon, warmer toward a low sun. */
 export function lightTintOf(world: WorldState): RGB {
@@ -39,9 +36,9 @@ export function snowMaskOf(world: WorldState, box: SceneBox, name: PlaneName): {
   return { edge: ragged, cover: 0.6 + 0.35 * (snow.amount ?? 0) }
 }
 
-/** Lying snow on outside ground at distance `km`, lit through the shared radiance model (snow reflectance before haze). */
-export function snowOnGround(world: WorldState, km: number): { rgb: RGB; alpha: number } | null {
-  if (!world.snow) return null
-  const rgb = litLandRgb(world, SNOW_SRGB, FLAT_NORMAL, hazeAt(world, km), hazeOf(world), 1, 1)
-  return { rgb, alpha: 0.55 + 0.4 * (world.snow.amount ?? 0) }
+/** Outside ground can pre-mix snow cover before going through the same shared shader. */
+export function snowyAlbedo(albedo: RGB, cover: number): RGB {
+  const [r, g, b] = albedoLinear(albedo)
+  return linearRgbToSrgb([r + (SNOW_ALBEDO_LIN[0] - r) * cover,
+    g + (SNOW_ALBEDO_LIN[1] - g) * cover, b + (SNOW_ALBEDO_LIN[2] - b) * cover])
 }

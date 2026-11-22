@@ -1,15 +1,8 @@
 //# allFunctionsCalledOnLoad
-import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
-import type { RGB, WorldState } from '../../world/types'
+import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { nearGroundAlbedo } from './landColour'
-import {
-  albedoLinear, FLAT_NORMAL, landIrradiance, linearRgbToSrgb, shadeLinearRgb, srgbRgbToLinear,
-} from './landRadiance'
-import { aerialFor, hazeOf } from './landVeil'
-import { mixRgb } from './tone'
-import { faceLight, NORMALS, type Normal } from '../../world/livingLight'
+import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
 import { farNeighbourMarks } from './farNeighbourMarks'
 import { glyphGeometryKey } from './markDescriptor'
@@ -21,112 +14,9 @@ const Z = { far: 17, near: 40 }
 /** The trees' sway (C7): four frames at two a second, a two-second rock about the lean. */
 export const SWAY_FRAMES = { count: 4, fps: 2 }
 
-/** Plaster, limestone and concrete; red clay tile; olive and pine foliage; a solar panel's blue; the Báb's gilding. */
-const WALL_ALBEDO: RGB = [0.64, 0.63, 0.60]
-const STONE: RGB = [0.82, 0.80, 0.74]
-const TILE: RGB = [0.64, 0.30, 0.21]
-const LEAF: RGB = [0.19, 0.28, 0.21]
-const PANEL: RGB = [0.11, 0.17, 0.30]
-const GOLD: RGB = [0.84, 0.66, 0.28]
-const LAMP: RGB = [1, 0.85, 0.63]
-const BLACK: RGB = [0, 0, 0]
+export { againstLight, tonesAt } from './buildingLight'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-
-/**
- * How much the light stands beyond the land (C9 defect 1): the walls the eye sees face it, so with the sun low in the
- * half of the sky the eye looks into (its azimuth within 90° of the view's heading) they face away from the sun and from
- * the bright half of the sky, and see only the dim sky behind the eye. 1 for a low sun ahead (sunrise and sunset over the
- * land), falling as it climbs (a high sun lights the ground in front, which lights the walls back) and as it turns to the
- * eye's side; through twilight while its glow is still beyond the land; none by night.
- */
-export function againstLight(world: WorldState): number {
-  const sun = world.bodies.sun
-  const ahead = smoothstep(-0.1, 0.4, Math.cos(wrap180(sun.azimuth - SCENE_CAMERA.heading) * Math.PI / 180))
-  const low = 1 - smoothstep(12, 40, sun.altitude)
-  const up = smoothstep(-8, -1, sun.altitude)
-  return clamp01(ahead * low * up * (1 - world.night.dark))
-}
-
-/**
- * How much the walls the eye sees stand in their own shade (C9 defect 1): against the light (above), or under a sky with
- * no direct light worth the name, where a wall sees only the dim horizon half of an overcast sky (a third of the zenith's)
- * and gives back about what the ground does (pale stone at ~0.4 of the light a slope of dark scrub takes in full): its
- * stone no longer lifts it over the land, only its tops and rims catch the sky.
- */
-export function wallShade(world: WorldState): number {
-  const dull = 1 - smoothstep(0.05, 0.4, clamp01(world.light.direct))
-  return Math.max(againstLight(world), 0.7 * dull * (1 - world.night.dark))
-}
-
-/**
- * Physical material lighting for built & grown objects on the land (Stage 7 round 2):
- * lights stone, plaster, tile and foliage using their own albedos and wall/roof normals under the shared
- * `landIrradiance`, with local ground contributing ONLY a bounded upward bounce (`<= 0.10`), then applies linear
- * Koschmieder aerial haze once at distance `km` (never inheriting soil tint).
- */
-export function tonesAt(world: WorldState, km: number): Tones {
-  const { light, night } = world
-  const sky = hazeOf(world)
-  const dark = night.dark, day = 1 - dark
-  const sunK = directK(world)
-  const sun = light.colour
-  const against = wallShade(world)
-  const irr = landIrradiance(world)
-  // Bounded upward bounce from the sunlit local ground onto vertical walls (`<= 0.10`, never tinting stone khaki).
-  const gRho = albedoLinear(nearGroundAlbedo(world), 1)
-  const gSun = Math.max(0, irr.sunDir.up) * (1 - against)
-  const bounceVec: [number, number, number] = [
-    0.09 * gRho[0] * (irr.eSunVec[0] * gSun + irr.eSkyVec[0]),
-    0.09 * gRho[1] * (irr.eSunVec[1] * gSun + irr.eSkyVec[1]),
-    0.09 * gRho[2] * (irr.eSunVec[2] * gSun + irr.eSkyVec[2]),
-  ]
-  const eWallSky: [number, number, number] = [
-    irr.eSkyVec[0] + bounceVec[0], irr.eSkyVec[1] + bounceVec[1], irr.eSkyVec[2] + bounceVec[2],
-  ]
-  const shadeMat = (albedo: RGB, n: Normal, sMul: number, vSky: number, withBounce: boolean): RGB => {
-    const rho = srgbRgbToLinear(albedo)
-    const ndS = Math.max(0, n[0] * irr.sunDir.across + n[1] * irr.sunDir.ahead + n[2] * irr.sunDir.up) * sMul
-    const ndM = Math.max(0, n[0] * irr.moonDir.across + n[1] * irr.moonDir.ahead + n[2] * irr.moonDir.up) * sMul
-    return linearRgbToSrgb(shadeLinearRgb(rho, irr.eSunVec, irr.eMoonVec, withBounce ? eWallSky : irr.eSkyVec, ndS, ndM, vSky, irr.yHorizon))
-  }
-  // Viewer-facing vertical wall (`NORMALS.front`): against a low sun it sees only the dim back-half of the sky (C9).
-  const wallVSky = 0.50 * (1 - 0.52 * against)
-  const wallDirect = 0.28 * (1 - against) * smoothstep(10, 38, irr.sunAlt)
-  const wall = linearRgbToSrgb(shadeLinearRgb(
-    srgbRgbToLinear(WALL_ALBEDO), irr.eSunVec, irr.eMoonVec, eWallSky, wallDirect, 0.15 * (1 - against), wallVSky, irr.yHorizon,
-  ))
-  // Sun-facing architectural wall (`lit`): receives direct beam square to its normal; equals wall when direct share is 0.
-  const litFull = linearRgbToSrgb(shadeLinearRgb(
-    srgbRgbToLinear(STONE), irr.eSunVec, irr.eMoonVec, eWallSky, 0.85, 0.85, 0.52, irr.yHorizon,
-  ))
-  const lit = mixRgb(wall, litFull, sunK * (0.55 + 0.35 * day))
-  const shade = mixRgb(shadeMat(WALL_ALBEDO, NORMALS.front, 0, 0.24 * (1 - 0.3 * against), true), sky, 0.06 * day)
-  const rimSky = mixRgb(wall, sky, 0.32)
-  const rimSun = mixRgb(lit, mixRgb(sun, STONE, 0.3), 0.35 * sunK + 0.08)
-  const rim = mixRgb(rimSky, rimSun, smoothstep(0, 0.35, sunK))
-  const roof = shadeMat(TILE, FLAT_NORMAL, 0.85 * (1 - 0.5 * against), 0.92, false)
-  const green = shadeMat(LEAF, FLAT_NORMAL, 0.7 * (1 - 0.4 * against), 0.85, false)
-  const own: Tones = {
-    wall, lit, shade, rim,
-    deep: mixRgb(shade, BLACK, 0.48),
-    refl: mixRgb(shade, sky, 0.28),
-    roof, roofLit: shadeMat(TILE, FLAT_NORMAL, 1, 1, false),
-    stone: mixRgb(wall, litFull, 0.16 * day * (1 - against) + 0.04),
-    stoneLit: mixRgb(lit, litFull, 0.22 * day + 0.04),
-    glass: mixRgb(mixRgb(shade, BLACK, 0.16), sky, 0.14),
-    glassLit: mixRgb(wall, sky, (0.42 * day + 0.12) * (1 - 0.6 * against)),
-    soot: mixRgb(shade, BLACK, 0.45),
-    green, greenLit: shadeMat(LEAF, FLAT_NORMAL, 1, 1, false),
-    panel: shadeMat(PANEL, FLAT_NORMAL, 0.7, 0.85, false),
-    gold: shadeMat(GOLD, FLAT_NORMAL, 0.9, 0.95, false),
-    win: LAMP, mist: sky,
-  }
-  const aerial = aerialFor(world, sky)
-  const out = {} as Record<keyof Tones, RGB>
-  for (const name of Object.keys(own) as (keyof Tones)[]) out[name] = name === 'win' || name === 'mist' ? own[name] : aerial(own[name], km)
-  return out as Tones
-}
 
 /** The direct light a lit face takes: the sun's share, the moon's at under half (its light is faint and colourless). */
 export const directK = (world: WorldState) => clamp01(world.light.shares.sun + 0.45 * world.light.shares.moon)

@@ -4,10 +4,11 @@ import type { LivingLand } from '../../world/landLiving'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
 import { COVER_WATER, dominantWeightedSource, nonWaterLocalFallback, quantiseTones } from './landPalette'
 import { linearLuminance, litLandRgb, srgbRgbToLinear, surfaceNormal } from './landRadiance'
-import { snowOnGround } from './landSnow'
+import { snowyAlbedo } from './landSnow'
+import { smoothstep } from '../../world/ridgeLighting'
 import { hazeAt, hazeOf } from './landVeil'
 import { skyAt } from './sky'
-import { mixRgb } from './tone'
+import { mixLight, mixRgb } from './tone'
 import type { OutsideLandDesc, Pt, SceneBox } from './types'
 
 /**
@@ -99,19 +100,17 @@ export function outsideGroundStops(world: WorldState, land: NonNullable<OutsideV
   return spec
 }
 
-/** Snow on the place's own ground where its crest stands at or above the snow line (C9). */
-function landSnow(world: WorldState, land: NonNullable<OutsideView['land']>) {
-  const look = snowOnGround(world, land.km)
-  const lineM = world.snow?.lineM
-  if (!look || lineM === undefined || !land.heightM) return null
-  const runs: [number, number][] = []
-  land.heightM.forEach((h, i) => {
-    if (!(h >= lineM)) return
-    const last = runs.at(-1)
-    if (last && last[1] === i - 1) last[1] = i
-    else runs.push([i, i])
+function coveredStops(world: WorldState, land: NonNullable<OutsideView['land']>, stops: [number, RGB][]): [number, RGB][] {
+  const { snow } = world, height = land.heightM
+  if (!snow || !height || height.length < 2) return stops
+  const [left, right] = [land.top[0][0], land.top.at(-1)![0]]
+  if (right <= left) return stops
+  return land.top.map(([x], i) => {
+    const t = clamp((x - left) / (right - left), 0, 1)
+    const p = t * (stops.length - 1), lo = Math.floor(p), hi = Math.min(stops.length - 1, lo + 1)
+    const cover = (0.55 + 0.4 * (snow.amount ?? 0)) * smoothstep(snow.lineM - 15, snow.lineM + 15, height[i])
+    return [t, snowyAlbedo(mixLight(stops[lo][1], stops[hi][1], p - lo), cover)]
   })
-  return runs.length ? { ...look, runs } : null
 }
 
 /** Builds the complete outside-ground descriptor with local albedos lit and hazed through the shared radiance model. */
@@ -120,13 +119,13 @@ export function outsideLandDesc(world: WorldState, view: OutsideView, box: Scene
   const raw = outsideGroundStops(world, view.land, view.frame)
   const haze = hazeOf(world)
   const share = hazeAt(world, view.land.km)
-  const tone = litLandRgb(world, raw.median, OUTSIDE_NORMAL, share, haze)
-  const stops: [number, RGB][] = raw.stops.map(([t, c]) => [t, litLandRgb(world, c, OUTSIDE_NORMAL, share, haze)])
+  const covered = coveredStops(world, view.land, raw.stops)
+  const stops: [number, RGB][] = covered.map(([t, c]) => [t, litLandRgb(world, c, OUTSIDE_NORMAL, share, haze, 1, covered === raw.stops ? undefined : 1)])
+  const tone = medianByLum(stops.map(([, c]) => c))
   return {
     top: view.land.top.map(([x, y]): Pt => [x * sx, y]),
     base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
     tone, stops, source: raw.source,
     rim: mixRgb(tone, skyAt(world, box)(2), 0.35),
-    snow: landSnow(world, view.land),
   }
 }

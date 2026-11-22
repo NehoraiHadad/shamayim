@@ -335,7 +335,7 @@ export class Surface {
       const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr)
       const anim = layer.animated
       if (!anim) continue
-      out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${frameAt(anim, motion)}`
+      out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${still ? 0 : frameAt(anim, motion)}`
       if (anim.fall) {
         const off = fallAt(anim, motion, layer.bounds)
         out += `:${Math.round(off.x * this.dpr)},${Math.round(off.y * this.dpr)}`

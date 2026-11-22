@@ -61,15 +61,6 @@ export function paintOutsideLand(ctx: Ctx2D, l: OutsideLandDesc, shine: Shine): 
     ctx.fillStyle = g
   } else ctx.fillStyle = css(l.tone)
   ctx.fill()
-  for (const [a, b] of l.snow?.runs ?? []) {
-    ctx.beginPath()
-    ctx.moveTo(l.top[a][0], l.top[a][1])
-    for (let i = a + 1; i <= b; i++) ctx.lineTo(l.top[i][0], l.top[i][1])
-    for (let i = b; i >= a; i--) ctx.lineTo(l.base[i][0], l.base[i][1])
-    ctx.closePath()
-    ctx.fillStyle = css(l.snow!.rgb, l.snow!.alpha)
-    ctx.fill()
-  }
   // The crest: a fine line where it stands over the ridge line, fading where it eases into it.
   for (let i = 1; i < l.top.length; i++) {
     const [x0, y0] = l.top[i - 1], [x1, y1] = l.top[i]
