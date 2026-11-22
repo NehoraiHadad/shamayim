@@ -71,11 +71,11 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
     return { marks: marks.filter(inBox), seatPool: [] }
   }
   // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
+  const perspective = markPerspective(place, terrain, outside.frame, outside.baseKm, input.city)
   const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot, input.notes,
-    mark => localTownAt(input.city, mark) === true)
+    mark => localTownAt(input.city, mark) === true, perspective)
   const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
   const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
-  const perspective = markPerspective(place, terrain, outside.frame, outside.baseKm, input.city)
   const otherMarks = placeMarks(place, terrain, other, width, undefined, false, undefined,
     input.notes, 'landmark', perspective)
   const placed = [...ownMarks, ...otherMarks]

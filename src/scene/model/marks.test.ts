@@ -102,10 +102,10 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
 
   it('makes a landmark only of a named mark', () => {
     const world = worldAt(id)
-    const { landmarks } = loaded.get(id)!
+    const { landmarks, seatCandidates = [] } = loaded.get(id)!
     for (const mark of world.marks) {
       if (!mark.named && !mark.landmark) continue
-      const source = landmarks.find((l) => l.id === mark.id)!
+      const source = [...landmarks, ...seatCandidates].find((l) => l.id === mark.id)!
       expect(Boolean(source.nameHe), mark.id).toBe(true)
     }
   })

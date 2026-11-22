@@ -82,7 +82,7 @@ export function findSpanViolations(ctx: OutsideFixture, heightM = 22) {
       const projX = outsideProject(view.frame, dx, dy).x
       if (sameSq(lat, lon) && Math.hypot(dx, dy) <= SKYLINE_TO_KM && !isOwnSpot(view.frame, view.lie, dx, dy)
         && Math.abs(projX - block.x) > block.w / 2) {
-        outsideX = { mark: { id: 'test-offcentre', kind: 'minaret', source: 'osm', heightM, lat, lon },
+        outsideX = { mark: { id: 'test-offcentre', kind: 'highrise', source: 'osm', heightM, lat, lon },
           blockX: block.x, blockW: block.w, projX }
       }
     }
@@ -91,11 +91,11 @@ export function findSpanViolations(ctx: OutsideFixture, heightM = 22) {
       const { dx, dy } = offsetKm(place, { lat, lon })
       const { x: projX } = outsideProject(view.frame, dx, dy)
       const hPx = apparentHeight(heightM, outsideDistance(view.frame.eyeN, dx, dy), baseAngle(block.baseY, ctx.loaded.terrain.horizonY))
-      const halfW = glyphAtHeight('minaret', hPx).w / 2
+      const halfW = glyphAtHeight('highrise', hPx).w / 2
       if (sameSq(lat, lon) && Math.hypot(dx, dy) <= SKYLINE_TO_KM && !isOwnSpot(view.frame, view.lie, dx, dy)
         && hPx >= NEIGHBOUR_MIN_TRUE_PX && Math.abs(projX - block.x) < block.w / 2
         && Math.abs(projX - block.x) + halfW > block.w / 2) {
-        overhang = { mark: { id: 'test-overhang', kind: 'minaret', source: 'osm', heightM, lat, lon },
+        overhang = { mark: { id: 'test-overhang', kind: 'highrise', source: 'osm', heightM, lat, lon },
           blockX: block.x, blockW: block.w, projX, halfW }
       }
     }

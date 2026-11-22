@@ -1003,3 +1003,161 @@ Completion changes:
 - `e2e/scene.stills.mjs`: preserve the resolved combined CLI and wrap its usage documentation.
 - `merge-stills/`: offline smoke-check PNG, geometry, crop and reproduction notes.
 - `REPORT.md`: this conflict review, isolated comparison, physical reasoning and validation record.
+
+## Round 6
+
+Owner decision (2026-11-22), verbatim: **"מסגדים לא, ציונים כן"**.
+
+`neighbourPolicy.ts` is the shared `(kind, famous) → hidden | landmark | ordinary` decision. Mosques/minarets
+are hidden regardless of fame. Other non-own worship requires fame. Famous means the existing curated/OSM fame
+classification (`isLandmark`), retained by `WorldMark.named` and `GlyphDesc.famous`; unnamed OSM candidates still
+lose fame through the existing `namedOnly` path. No place IDs select this behavior.
+
+Famous non-own icons draw at `max(trueHeight, LEGIBLE_PX)` with no exaggeration cap. Ordinary non-own icons keep
+round 5's 4 px floor / 2× cap. Both receivers use the same evaluator; candidate selection, source seating, the
+seat pool and angular fitting use the same policy, so a positive sub-2 px famous source survives pre-selection.
+Physical town roofs retain their separate 1 px existence floor.
+
+### Visibility and town choice
+
+Physical top, ground and bearing are carried separately from drawn geometry. A famous icon can use its visible
+foot, or stand on an actual foreground terrain ridge only when the physical ground is below it and the true top
+is above it at the source bearing. The true height is clipped to that visible portion before enlargement.
+The base follows the drawn ridge at the final bounded slide, within its actual painted endpoints.
+Town members still require their own final painted
+mass, except on this proven ridge; this choice is stated beside the receiver's ridge branch. A town support cannot
+lift a hidden physical top into visibility.
+
+Only that supporting terrain ridge is exempt from foot occlusion. Ridge mode has no town seam allowance.
+Other terrain, all foreground buildings, home
+roofs and retained nearer glyphs remain blockers. The enlarged box retains the 6 CSS px home gap, ≤12 CSS px slide
+away from home and true-distance haze, no lighter than home. `baseMode`, `ridgeKind`, true height, factor and source
+projection evidence reach the final descriptor. There are no invented podiums or place-specific exceptions.
+
+### Fixed-set counts
+
+Each count is emitted glyph rows at that width; “all / non-own” includes owned glyphs in the first count.
+Fresh pre-edit baseline: merged `7f2fda4`, `round4-layers-round6-before.json`. After: `round4-layers-round6.json`.
+
+| Set | Width | Layer | Before R6: all / non-own | After R6: all / non-own |
+| --- | --- | --- | --- | --- |
+| 18 recorded | 375 | outside | 37 / 0 | 37 / 0 |
+| 18 recorded | 375 | marks.far | 0 / 0 | 0 / 0 |
+| 18 recorded | 1280 | outside | 37 / 0 | 37 / 0 |
+| 18 recorded | 1280 | marks.far | 0 / 0 | 0 / 0 |
+| 117 total | 375 | outside | 176 / 18 | 180 / 22 |
+| 117 total | 375 | marks.far | 0 / 0 | 58 / 58 |
+| 117 total | 1280 | outside | 177 / 19 | 181 / 23 |
+| 117 total | 1280 | marks.far | 0 / 0 | 57 / 57 |
+
+### Famous landmarks, before → after
+
+Kept counts cover all non-own famous glyphs in the fixed 117-place set, both widths. Reasons trace the union of
+historic far landmark view rows and current named world candidates. Rejected source/pre-selection candidates
+are diagnosed separately from final-receiver decisions; the columns are not a shared raw-source recall denominator.
+The historic list includes famous mosques, whose new outcome is the policy veto.
+
+| Name | Source ID | Kept before → after | Before: historic far view reasons | After: traced view reasons |
+| --- | --- | --- | --- | --- |
+| מצודת ביריה | `il-castle-32.9904-35.50809` | 0 → 4 | not in historic far list | kept ×4 |
+| מבצר יחיעם | `il-castle-32.99434-35.22198` | 0 → 2 | exaggeration-cap ×2 | kept ×2 |
+| מבצר נמרוד | `il-castle-33.25267-35.71505` | 0 → 2 | exaggeration-cap ×2 | kept ×2 |
+| כנסיית בן האלמנה | `il-church-32.63064-35.35011` | 0 → 0 | exaggeration-cap ×4 | home-haze ×2; no-viable-true-height ×2 |
+| כנסיית ההשתנות הקתולית | `il-church-32.68626-35.39242` | 0 → 10 | exaggeration-cap ×10 | home-haze ×2; kept ×10 |
+| كنيسة البشارة للروم الأرثوذكس | `il-church-32.70705-35.30171` | 0 → 2 | not in historic far list | kept ×2; no-visible-separated-position ×2 |
+| כנסיית החתונה | `il-church-32.74695-35.33865` | 0 → 6 | exaggeration-cap ×6 | kept ×6; missing-town-mass ×2 |
+| פטרוס הקדוש | `il-church-32.8805-35.57538` | 0 → 4 | exaggeration-cap ×6 | home-haze ×2; kept ×4 |
+| כנסיית הר האושר | `il-church-32.88077-35.55592` | 0 → 2 | exaggeration-cap ×2 | kept ×2; missing-town-mass ×4 |
+| Church of our Lady of Baram | `il-church-33.04347-35.41413` | 0 → 18 | exaggeration-cap ×20 | home-haze ×2; kept ×18 |
+| לבניה | `il-cooling-32.79335-35.05157` | 0 → 2 | exaggeration-cap ×2 | kept ×2 |
+| מגדל מרום | `il-highrise-31.78832-35.20193` | 0 → 4 | terrain-hides-foot ×6 | kept ×4; missing-town-mass ×2 |
+| מגדל לייטהאוס | `il-highrise-32.00567-34.74166` | 0 → 1 | terrain-hides-foot ×2 | kept ×1; missing-town-mass ×1 |
+| מגדל אפטאון מגורים | `il-highrise-32.01332-34.75222` | 0 → 0 | terrain-hides-foot ×2 | missing-town-mass ×2 |
+| מגדל ביונד משרדים | `il-highrise-32.08019-34.79879` | 0 → 0 | terrain-hides-foot ×2 | home-haze ×2 |
+| מגדל נמרודי | `il-highrise-32.0934-34.82545` | 0 → 2 | terrain-hides-foot ×2 | kept ×2 |
+| עתידים מגדל ויז'ן בניין 8 | `il-highrise-32.11569-34.84299` | 0 → 4 | exaggeration-cap ×2; terrain-hides-foot ×4 | kept ×4; missing-town-mass ×2 |
+| מגדלי בריגה | `il-highrise-32.27686-34.83816` | 0 → 11 | exaggeration-cap ×2; terrain-hides-foot ×6 | kept ×11; no-visible-separated-position ×1 |
+| מגדל לגון דרומי | `il-highrise-32.30429-34.84542` | 0 → 10 | terrain-hides-foot ×12 | kept ×10; missing-town-mass ×2 |
+| מגדלי אופרת הים | `il-highrise-32.34024-34.85385` | 0 → 2 | terrain-hides-foot ×2 | kept ×2 |
+| מגדל אשכול | `il-highrise-32.76283-35.01768` | 0 → 2 | terrain-hides-foot ×4 | kept ×2; missing-town-mass ×2 |
+| Ibn Othman Mosque | `il-minaret-31.4998-34.46938` | 0 → 0 | exaggeration-cap ×2 | policy-hidden ×2 |
+| مسجد علي البكاء | `il-minaret-31.5283-35.10379` | 0 → 0 | exaggeration-cap ×6 | policy-hidden ×6 |
+| مسجد الخالدي | `il-minaret-31.54784-34.45576` | 0 → 0 | exaggeration-cap ×2 | policy-hidden ×2 |
+| مسجد عمر | `il-minaret-31.70454-35.2054` | 0 → 0 | exaggeration-cap ×8 | policy-hidden ×8 |
+| מסגד עומר | `il-minaret-31.77787-35.22965` | 0 → 0 | exaggeration-cap ×2 | policy-hidden ×2 |
+| Jamal Abdel Nasser Mosque | `il-minaret-31.90408-35.20741` | 0 → 0 | exaggeration-cap ×14 | policy-hidden ×14 |
+| נבי רובין | `il-minaret-31.92913-34.73364` | 0 → 0 | exaggeration-cap ×2 | policy-hidden ×2 |
+| מסגד אל-עומרי | `il-minaret-31.95297-34.89942` | 0 → 0 | exaggeration-cap ×8 | policy-hidden ×8 |
+| מסגד סידנא עלי | `il-minaret-32.18783-34.80582` | 0 → 0 | exaggeration-cap ×12 | policy-hidden ×12 |
+| Mosque | `il-minaret-32.20448-35.13156` | 0 → 0 | exaggeration-cap ×4 | policy-hidden ×4 |
+| المسجد الأبيض | `il-minaret-32.70347-35.29766` | 0 → 0 | exaggeration-cap ×8 | policy-hidden ×8 |
+| בית מדרש מחניים | `il-synagogue-31.64659-35.14331` | 0 → 1 | not in historic far list | home-haze ×2; kept ×1; missing-town-mass ×3; no-visible-separated-position ×2 |
+| ישיבת בני רחל | `il-synagogue-31.71868-35.20201` | 0 → 7 | not in historic far list | kept ×7; missing-town-mass ×1 |
+| זה השער לה | `il-synagogue-31.89576-34.8168` | 0 → 0 | exaggeration-cap ×2 | home-haze ×2 |
+| בית הכנסת הגדול | `il-synagogue-31.9269-34.79572` | 0 → 2 | not in historic far list | kept ×2 |
+| ישיבת בית אל | `il-synagogue-31.94255-35.22212` | 0 → 6 | exaggeration-cap ×6 | kept ×6; missing-town-mass ×4 |
+| בית הכנסת היכל הקודש דחסידי ברסלב | `il-synagogue-32.70302-35.50359` | 0 → 0 | exaggeration-cap ×4 | home-haze ×4; missing-town-mass ×8 |
+| קבר רבי שמעון בר יוחאי | `il-synagogue-32.98079-35.44056` | 0 → 2 | exaggeration-cap ×2 | kept ×2 |
+| ישיבת מעלות יעקב | `il-synagogue-33.01319-35.28716` | 0 → 2 | exaggeration-cap ×2 | kept ×2; missing-town-mass ×2 |
+| מגדל המים בבארי | `il-waterTower-31.43082-34.46595` | 0 → 1 | exaggeration-cap ×2 | kept ×1; no-visible-separated-position ×1 |
+| מגדל המים בהר הצופים | `il-waterTower-31.79296-35.24649` | 0 → 2 | not in historic far list | kept ×2 |
+| גשר המיתרים | `jerusalem-bridge` | 0 → 10 | exaggeration-cap ×12; terrain-hides-foot ×8 | kept ×10; missing-town-mass ×10 |
+| מרכז עזריאלי | `tel-aviv-azrieli` | 0 → 1 | exaggeration-cap ×2; terrain-hides-foot ×14 | home-haze ×2; kept ×1; missing-town-mass ×15 |
+
+### Verification
+
+- 36 explicit test files, 452 passing tests after replacing the four obsolete fixture expectations;
+  evidence: `round6-targeted.json`, `round6-targeted-fixes.json`, `round6-final-visibility.json`,
+  and `round6-final-landmark.json` (later results replace earlier results per file). Command: `round6-targeted-command.txt`.
+- The 117-place test has ten timed groups including all 18 recorded panoramas, each checking both widths. Slowest
+  group 8.50 s, below 60 s. Independent assertions verify policy bans, floor/factor, real source distance,
+  haze, full home gap/slide, town support, foreground masses and a visible foot or proven drawn ridge base.
+- Background exhaustive audit: 1,781 places (18 recorded /
+  1,763 explicitly flat), both widths, 686.45 s. All 1957
+  kept non-own rows pass: 1271 famous; 1235 ridge-based; zero forbidden worship.
+- Own worship rows 1662 → 1662; additions/removals 0/0; changed common x/height geometry: 0.
+- `npx tsc -b` and `npx oxlint` pass; oxlint has the same 13 pre-existing warnings. No full model/world folder
+  suite, live service, Vercel build/deploy, commit or push was run.
+
+Old synthetic positive non-own mosque fixtures now use allowed towers or named churches, preserving the original
+seating/label/ownership tests. The named-source test checks carried seat candidates as well as the scene shortlist.
+Independent contact assertions use the existing 1e-6 CSS px tolerance: two exact wide-screen mass contacts differed
+by ~1e-13 px between center and left-edge arithmetic.
+
+Every required unit guard was actually disabled through Vitest source transforms, without changing working files.
+Each mutant produced an assertion failure, including positive tests that fail if landmarks are all culled.
+The true-top mutant disables both the explicit proof and the independent height clip; either alone remains a defense.
+The town-seam negative is synthetic: the exhaustive export contains zero seated ridge icons; its independent
+terrain checks still use the actual foot without that allowance.
+
+| Safeguard removed | Test file | Assertion failures |
+| --- | --- | --- |
+| famousUncapped | src/scene/model/landmarkPolicy.test.ts | 4 |
+| ordinaryCap | src/scene/model/landmarkPolicy.test.ts | 1 |
+| mosqueVeto | src/scene/model/landmarkPolicy.test.ts | 3 |
+| genericWorship | src/scene/model/landmarkPolicy.test.ts | 4 |
+| ridgeException | src/scene/model/landmarkPolicy.test.ts | 3 |
+| trueTopProof | src/scene/model/landmarkPolicy.test.ts | 2 |
+| foreground | src/scene/model/landmarkPolicy.test.ts | 2 |
+| homeRoofs | src/scene/model/landmarkPolicy.test.ts | 3 |
+| factor | src/scene/model/landmarkPolicy.test.ts | 2 |
+| famousPreselection | src/world/neighbourPreselection.test.ts | 2 |
+| ridgeContact | src/scene/model/landmarkPolicy.test.ts | 1 |
+| finiteRidge | src/scene/model/landmarkPolicy.test.ts | 1 |
+| hiddenPhysicalFoot | src/scene/model/landmarkPolicy.test.ts | 1 |
+| townSupport | src/scene/model/landmarkPolicy.test.ts | 2 |
+
+### Evidence
+
+No non-own famous landmark survives on any of the 18 recorded panoramas at either width. The historic recorded
+candidate, Nahalal → Eshkol Tower, still lacks its own drawn town mass and has no qualifying drawn ridge base;
+removing the cap alone cannot make it eligible. No screenshot substitutes synthetic heights or terrain for a recording.
+
+The closest honest positive is **Dafna → Nimrod Castle, explicitly flat 100 m**, found in the fixed-set audit:
+33.23037, 35.63926. At 375 px it has true visible height 0.883242 px, drawn height 4 px, factor 4.528769,
+104.386081 px home gap, zero slide, 7.254069 km haze and a near-ridge base. Karmei Tzur uses the required production
+coordinate and is clean. Both DPR-2 stills and 4× existing-pixel crops were rendered using `e2e/scene.stills.mjs`,
+visually inspected, and labelled in their pixels. Per-glyph values and reproduction commands: `stills/README.md`.
+
+Full offline exports: `audit-after.json`, `neighbours-after.json`, `round6-decisions.json`,
+`round6-far-landmarks.json`; human-readable kept rows: [ROUND6-neighbours.tsv](ROUND6-neighbours.tsv).

@@ -1,7 +1,8 @@
+import { neighbourRule } from './neighbourPolicy'
 import type { PlacedMark } from '../data/landmarks/types'
 import { seat } from '../data/landmarks/seat'
 import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
-import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
+import { fieldReach, GLYPH_SPECS, glyphOf, glyphAtHeight } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
 import type { WorldMark } from './markGeometry'
 import type { MarksInput } from './marks'
@@ -72,6 +73,12 @@ export function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGrou
   let x = mark.xPct / 100 * width
   const km = mark.km ?? kmAlong(terrain, x, mark.layer === 'far' ? 'far' : 'near', width)
   const common = { ...mark, glyphKind: kind, named, plane: mark.layer, km }
+  if (mark.sightKm !== undefined && neighbourRule(kind, named) === 'landmark') {
+    x = mark.bearingX ?? x
+    const base = mark.sourceGroundY ?? mark.baseY
+    return angularMark({ ...common, ...glyphAtHeight(kind, mark.hPx), x, xPct: x / width * 100,
+      base, baseY: base }, terrain.horizonY)
+  }
   if (mark.layer === 'near' && spec.field && mark.sightKm === undefined) {
     // A field slides onto the visible face under the crest, out of the dot.
     const want = 2 + 6 * clamp01(Math.abs(mark.dy) / 1.5)

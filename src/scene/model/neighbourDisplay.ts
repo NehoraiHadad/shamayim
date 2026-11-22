@@ -14,6 +14,6 @@ export function trueNeighbourHeight(world: WorldState, mark: WorldMark, base = m
 
 export function displayNeighbour<T extends WorldMark>(world: WorldState, mark: T, base = mark.base) {
   const trueHeightPx = trueNeighbourHeight(world, mark, base)
-  const geometry = neighbourSize(mark.glyphKind, trueHeightPx)
+  const geometry = neighbourSize(mark.glyphKind, trueHeightPx, mark.named)
   return geometry ? { ...mark, ...geometry, hPx: trueHeightPx, base, baseY: base } : null
 }

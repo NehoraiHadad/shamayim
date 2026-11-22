@@ -46,16 +46,16 @@ function ridgeSpans({ points, distanceKm }: Pick<Plane, 'points' | 'distanceKm'>
 /** Outside depths use beyondKm and the transported near ridge; own land is on that same frame.
  * Far marks use the panorama eye. Far/back ridges paint beneath both layers and cannot hide their feet. */
 export function footSpans(world: WorldState, width: number, masses: readonly DrawnMass[], base: number, km: number,
-  seated = false, layer: 'outside' | 'far' = 'outside', supportId?: string) {
+  seated = false, layer: 'outside' | 'far' = 'outside', supportId?: string, skipRidge?: 'near' | 'land') {
   const spans = masses.filter(mass => (!supportId || mass.id !== supportId) && (mass.alwaysInFront || mass.km < km) &&
      mass.top < base)
     .map(({ left, right }) => ({ left, right }))
   const near = layer === 'outside' ? outsideRidge(world) : world.terrain.near
   const sx = width / SCENE_W, foot = base - (seated ? SEAT_CONTACT_PX : 0)
-  spans.push(...ridgeSpans(near, sx, foot, km))
+  if (skipRidge !== 'near') spans.push(...ridgeSpans(near, sx, foot, km))
   const land = world.place3.kind === 'outside' && world.place3.land
-  if (land) spans.push(...ridgeSpans({ points: land.top, distanceKm: land.top.map(() => layer === 'outside' ?
-     land.km : 0) }, sx, foot, km))
+  if (land && skipRidge !== 'land') spans.push(...ridgeSpans({ points: land.top,
+    distanceKm: land.top.map(() => layer === 'outside' ? land.km : 0) }, sx, foot, km))
   return spans
 }
 

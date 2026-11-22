@@ -35,12 +35,13 @@ beforeAll(async () => {
 afterAll(() => vi.unstubAllGlobals())
 afterEach(() => vi.restoreAllMocks())
 
-interface SeatFixture { kind: 'minaret' | 'synagogue' | 'church'; heightM: number; fitsAt?: number; x?: number }
+interface SeatFixture { kind: 'highrise' | 'synagogue' | 'church'; heightM: number; fitsAt?: number; x?: number }
 
 function seatFixtures(fixtures: SeatFixture[], baseY = 100) {
   // The synthetic marks share the same northward offset for scoring, inside skyline reach.
   const landmarks: Landmark[] = fixtures.map(({ kind, heightM }, index) => ({ id: `seat-${index}`, kind, heightM,
-    source: 'osm', lat: roshPina.lat + .02, lon: roshPina.lon }))
+    source: 'osm', ...(kind === 'highrise' ? {} : { fame: 2 as const, nameHe: 'Synthetic named landmark' }),
+    lat: roshPina.lat + .02, lon: roshPina.lon }))
   const blocks = fixtures.map(({ kind, heightM, fitsAt = NARROW.width / 2, x }, index) => {
     const w = (glyphAtHeight(kind, heightM * PX_PER_M).w + 2 * TOWN_SIDE_PX) * SCENE_W / fitsAt
     return { id: `block-${index}`, x: x ?? 30 * (index + 1), baseY, w, h: 8, km: 3, heightM: 16, seed: index }
@@ -75,13 +76,13 @@ function seatWorld(fixtures: SeatFixture[]) {
 }
 
 it('drops a seated glyph when the final block is too narrow', () => {
-  const { drawnIds } = seatWorld([{ kind: 'minaret', heightM: 10, fitsAt: MARGINAL_WIDTH }])
+  const { drawnIds } = seatWorld([{ kind: 'highrise', heightM: 10, fitsAt: MARGINAL_WIDTH }])
   expect(drawnIds()).toEqual(['seat-0'])
   expect(drawnIds(NARROW)).toEqual([])
 })
 
 it('drops a seated glyph when text clearance removes its block', () => {
-  const { blocks: [block], drawn, drawnIds } = seatWorld([{ kind: 'minaret', heightM: 10 }])
+  const { blocks: [block], drawn, drawnIds } = seatWorld([{ kind: 'highrise', heightM: 10 }])
   // A 1 CSS px text sliver is outside the glyph box and inside the right half of its block.
   const sliver = { x: block.x + block.w * .35, y: block.baseY - block.h / 2, w: 1, h: 1 }
   expect(drawnIds()).toEqual(['seat-0'])
@@ -89,11 +90,11 @@ it('drops a seated glyph when text clearance removes its block', () => {
   expect(drawnIds(BOX, [sliver])).toEqual([])
 })
 
-it('gives a 9 m hall a minaret slot freed by final block containment at 320 px', () => {
+it('gives a 9 m hall a tower slot freed by final block containment at 320 px', () => {
   const { drawnIds } = seatWorld([
-    { kind: 'minaret', heightM: 22, fitsAt: MARGINAL_WIDTH },
-    { kind: 'minaret', heightM: 20, fitsAt: MARGINAL_WIDTH },
-    { kind: 'minaret', heightM: HALL_M },
+    { kind: 'highrise', heightM: 22, fitsAt: MARGINAL_WIDTH },
+    { kind: 'highrise', heightM: 20, fitsAt: MARGINAL_WIDTH },
+    { kind: 'highrise', heightM: HALL_M },
   ])
   expect(drawnIds()).toEqual(['seat-0', 'seat-1'])
   expect(drawnIds(NARROW)).toEqual(['seat-2'])
@@ -101,7 +102,7 @@ it('gives a 9 m hall a minaret slot freed by final block containment at 320 px',
 
 it('gives a 9 m hall a slot when text covers two taller glyphs and their blocks survive', () => {
   const { blocks, drawn, drawnIds } = seatWorld([
-    { kind: 'minaret', heightM: 22 }, { kind: 'minaret', heightM: 20 }, { kind: 'minaret', heightM: HALL_M },
+    { kind: 'highrise', heightM: 22 }, { kind: 'highrise', heightM: 20 }, { kind: 'highrise', heightM: HALL_M },
   ])
   // The text strip covers every viable position above the support, while leaving the painted roof intact.
   const clear = blocks.slice(0, 2).map(({ x, baseY, h }) => ({ x: x - 20, y: baseY - h - 1, w: 40, h: 1 }))
@@ -117,8 +118,8 @@ it('keeps the town under the backed height label and gives the covered backfill 
   const towns = vi.spyOn(beyondSeat, 'beyondTowns')
   const draw = (hallX: number) => {
     const { landmarks, ...seating } = seatFixtures([
-      { kind: 'minaret', heightM: 24, fitsAt: MARGINAL_WIDTH }, { kind: 'minaret', heightM: 22 },
-      { kind: 'minaret', heightM: HALL_M, x: hallX }, { kind: 'minaret', heightM: 8.5, x: 267 },
+      { kind: 'highrise', heightM: 24, fitsAt: MARGINAL_WIDTH }, { kind: 'highrise', heightM: 22 },
+      { kind: 'highrise', heightM: HALL_M, x: hallX }, { kind: 'highrise', heightM: 8.5, x: 267 },
     ], height.y + 5)
     towns.mockReturnValue(seating)
     const world = buildWorld({ ...input, seatCandidates: landmarks })
@@ -136,13 +137,13 @@ it('keeps the town under the backed height label and gives the covered backfill 
 
 it.each([SCENE_W, 1280])('caps visible seats at five in total and two per kind at %i px', (width) => {
   const { glyphs } = seatWorld([
-    ...[18, 19, 20, 21].map((heightM) => ({ kind: 'minaret' as const, heightM })),
+    ...[18, 19, 20, 21].map((heightM) => ({ kind: 'highrise' as const, heightM })),
     ...[9, 10, 11].map((heightM) => ({ kind: 'synagogue' as const, heightM })),
     ...[12, 13, 14].map((heightM) => ({ kind: 'church' as const, heightM })),
   ])
   const drawn = glyphs({ ...BOX, width })
   expect(drawn).toHaveLength(5)
-  expect(drawn.filter(({ kind }) => kind === 'minaret').length).toBeLessThanOrEqual(2)
+  expect(drawn.filter(({ kind }) => kind === 'highrise').length).toBeLessThanOrEqual(2)
   expect(drawn.filter(({ kind }) => kind === 'synagogue').length).toBeLessThanOrEqual(2)
   expect(drawn.filter(({ kind }) => kind === 'church').length).toBeLessThanOrEqual(2)
 })

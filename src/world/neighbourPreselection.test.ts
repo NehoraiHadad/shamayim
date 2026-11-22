@@ -15,7 +15,7 @@ const terrain: SceneTerrain = { centerLeft: '50%', seaY: 60, horizonY: 60, seaIn
 it('removes sub-floor candidates before they can fill the five selection slots ahead of a visible castle', () => {
   const castle: Landmark = { id: 'castle', kind: 'castle', heightM: 12, lat: 0, lon: .01, source: 'osm' }
   const decoys: Landmark[] = Array.from({ length: 5 }, (_, i) => ({ id: `decoy-${i}`,
-    kind: i === 0 ? 'minaret' : 'church', heightM: 200, fame: 2, nameHe: 'High priority',
+    kind: 'castle', heightM: 200,
     lat: 0, lon: -.01 + i * .004, source: 'osm' }))
   const perspective: MarkPerspective = m => ({ hPx: m.id === castle.id ? visible : small,
     km: 4, sightKm: 4, heightM: m.heightM, supportBlockId: m.id })
@@ -24,11 +24,27 @@ it('removes sub-floor candidates before they can fill the five selection slots a
   expect(placed.map(m => m.id)).toEqual(['castle'])
 })
 
-it('does not let two doomed minarets consume the two-kind seat budget ahead of a viable minaret', () => {
-  const marks: Landmark[] = [0, 1, 2].map(i => ({ id: `${i}`, kind: 'minaret', source: 'osm',
+it('does not let two doomed towers consume the two-kind seat budget ahead of a viable tower', () => {
+  const marks: Landmark[] = [0, 1, 2].map(i => ({ id: `${i}`, kind: 'highrise', source: 'osm',
     heightM: i === 2 ? 17 : 200, lat: 0, lon: .001 * i }))
   const result = beyondMarks(place, marks, 375, m => ({ x: 40 + Number(m.id) * 60,
     base: 100, hPx: m.id === '2' ? visible : small, km: 4, blockId: m.id }), { x: 300, y: 100 }, [])
   expect(result.seatPool.map(m => m.id)).toEqual(['2'])
   expect(result.seated.map(m => m.id)).toEqual(['2'])
+})
+
+it('offers a famous sub-floor landmark while rejecting even a famous mosque before selection', () => {
+  const sources: Landmark[] = ['castle', 'minaret'].map((kind, i) => ({ id: `famous-${i}`, kind,
+    nameHe: 'Named', fame: 2, source: 'osm', heightM: 12, lat: 0, lon: .01 })) as Landmark[]
+  const perspective: MarkPerspective = () => ({ hPx: .8, km: 4, sightKm: 4, heightM: 12, supportBlockId: 'source' })
+  expect(placeMarks(place, terrain, sources, 375, 0, false, undefined, [], 'landmark', perspective)
+    .map(m => m.id)).toEqual(['famous-0'])
+})
+
+it('carries an uncapped famous seat before budget selection, while vetoing a famous mosque', () => {
+  const marks = ['church', 'minaret'].map((kind, i) => ({ id: `seat-famous-${i}`, kind, source: 'osm',
+    fame: 2, nameHe: 'Named', heightM: 12, lat: 0, lon: .01 })) as Landmark[]
+  const result = beyondMarks(place, marks, 375, () => ({ x: 40, base: 100, hPx: .8, km: 4, blockId: 'town' }),
+    { x: 300, y: 100 }, [])
+  expect(result.seatPool.map(m => m.id)).toEqual(['seat-famous-0'])
 })

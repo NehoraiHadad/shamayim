@@ -68,7 +68,7 @@ function measuredScene(roof: boolean, ridge = false): WorldState {
   const view = world.place3
   const block = { id: '315_351:5:41', x: 168.2, baseY: .782 * SCENE_H, w: 8, h: 1, km: 6.46, heightM: 11, seed: 841 }
   // The 17 m tower subtends 0.151Â° at 6.46 km, i.e. 1.48 px before occlusion.
-  const { seated, seatPool } = beyondMarks(KARMEI, [halhul], SCENE_W, () =>
+  const { seated, seatPool } = beyondMarks(KARMEI, [{ ...halhul, kind: 'highrise' }], SCENE_W, () =>
     ({ x: block.x, base: block.baseY, hPx: 2.5, km: block.km, blockId: block.id }), view.dot, [])
   expect(seatPool.map(mark => mark.id)).toEqual([HALHUL])
   const near = { points: [[0, 110], [168, ridge ? 98 : 110], [SCENE_W, 110]] as [number, number][], distanceKm: [2, 2,

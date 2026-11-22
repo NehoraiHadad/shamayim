@@ -35,7 +35,7 @@ export function outsideDepth(world: WorldState, dx: number, dy: number) {
 }
 
 export function assertRidges(world: WorldState, glyph: GlyphDesc, sx: number, depth: number, outside: boolean,
-  seated: boolean, hint: string) {
+  seated: boolean, hint: string, skipRidge?: 'near' | 'land') {
   const land = world.place3.kind === 'outside' && world.place3.land
   const ridge = world.terrain.near
   const distances = outside ? ridge.points.map(([x], i) => {
@@ -46,17 +46,20 @@ export function assertRidges(world: WorldState, glyph: GlyphDesc, sx: number, de
   if (land) ridges.push({ points: land.top, distanceKm: land.top.map(() => outside ? land.km : 0) })
   // Town feet close the raster/terrain seam with the existing one-scene-pixel overlap.
   const foot = glyph.base - (seated ? 1 : 0)
-  for (const ridge of ridges) for (let i = 1; i < ridge.points.length; i++) {
-    const [x0, y0] = ridge.points[i - 1], [x1, y1] = ridge.points[i]
-    const d0 = ridge.distanceKm[i - 1], d1 = ridge.distanceKm[i]
-    const left = Math.max(glyph.x - glyph.w / 2, x0 * sx), right = Math.min(glyph.x + glyph.w / 2, x1 * sx)
-    if (left >= right) continue
-    const ts = [(left / sx - x0) / (x1 - x0), (right / sx - x0) / (x1 - x0)]
-    if (d0 !== d1) {
-      const edge = (depth - d0) / (d1 - d0)
-      if (edge > ts[0] && edge < ts[1]) ts.push(edge + Math.sign(d0 - d1) * Number.EPSILON)
+  for (const [index, ridge] of ridges.entries()) {
+    if (skipRidge === (index === 0 ? 'near' : 'land')) continue
+    for (let i = 1; i < ridge.points.length; i++) {
+      const [x0, y0] = ridge.points[i - 1], [x1, y1] = ridge.points[i]
+      const d0 = ridge.distanceKm[i - 1], d1 = ridge.distanceKm[i]
+      const left = Math.max(glyph.x - glyph.w / 2, x0 * sx), right = Math.min(glyph.x + glyph.w / 2, x1 * sx)
+      if (left >= right) continue
+      const ts = [(left / sx - x0) / (x1 - x0), (right / sx - x0) / (x1 - x0)]
+      if (d0 !== d1) {
+        const edge = (depth - d0) / (d1 - d0)
+        if (edge > ts[0] && edge < ts[1]) ts.push(edge + Math.sign(d0 - d1) * Number.EPSILON)
+      }
+      expect(ts.some(t => d0 + (d1 - d0) * t < depth && y0 + (y1 - y0) * t < foot - HEIGHT_TOLERANCE_PX),
+        hint).toBe(false)
     }
-    expect(ts.some(t => d0 + (d1 - d0) * t < depth && y0 + (y1 - y0) * t < foot - HEIGHT_TOLERANCE_PX),
-      hint).toBe(false)
   }
 }

@@ -62,7 +62,9 @@ try {
         const glyphs = drawn.map(glyph => {
           const source = [...world.marks, ...world.seatPool].find(mark => hashId(mark.id) === glyph.seed)
           if (!source) throw new Error(`Unmatched drawn glyph ${glyph.kind}:${glyph.seed}`)
-          return { id: source.id, kind: glyph.kind, x: glyph.x, width: glyph.w, height: glyph.h * glyph.scale,
+          return { id: source.id, kind: glyph.kind, famous: glyph.famous,
+            baseMode: glyph.baseMode, ridgeKind: glyph.ridgeKind, x: glyph.x, width: glyph.w,
+            height: glyph.h * glyph.scale,
             nonOwn: Boolean(source.seatBlockId || source.sightKm !== undefined),
             gapPx: Math.max(left - glyph.x - glyph.w / 2, glyph.x - glyph.w / 2 - right),
             slidePx: glyph.x - source.x * innerWidth / SCENE_W, base: glyph.base, trueHeightPx: glyph.trueHeightPx,

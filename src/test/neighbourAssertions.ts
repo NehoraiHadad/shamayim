@@ -1,4 +1,5 @@
 import { expect } from 'vitest'
+import { groundAt } from '../world/sceneLight'
 import { HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, TOWN_SIDE_PX } from '../scene/model/neighbourPlacement'
 import type { GlyphDesc, LayerOf } from '../scene/model/types'
 import type { WorldMark } from '../world/markGeometry'
@@ -42,7 +43,18 @@ export function assertNeighbour(world: WorldState, width: number, layer: LayerOf
   if (['minaret', 'church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) {
     expect(glyph.town, hint).toBe(true)
   }
-  if (glyph.town) {
+  if (glyph.baseMode === 'ridge') {
+    expect(glyph.famous, hint).toBe(true)
+    const ridge = glyph.ridgeKind === 'land' ? view.land?.top : world.terrain.near.points
+    expect(ridge, hint).toBeDefined()
+    expect(glyph.x / sx, hint).toBeGreaterThanOrEqual(ridge![0][0])
+    expect(glyph.x / sx, hint).toBeLessThanOrEqual(ridge!.at(-1)![0])
+    expect(glyph.base, hint).toBeCloseTo(groundAt(ridge!, glyph.x / sx), 6)
+    const originalBase = groundAt(ridge!, mark.bearingX ?? mark.x)
+    expect(mark.sourceTopY, hint).toBeLessThan(originalBase)
+    expect(mark.sourceGroundY, hint).toBeGreaterThan(originalBase)
+    expect(glyph.supportId, hint).toBe(`ridge:${glyph.ridgeKind}`)
+  } else if (glyph.town) {
     expect(glyph.supportId, hint).toBeTruthy()
     if (mark.plane === 'near') {
       const block = view.beyondTowns?.find(b => b.id === glyph.supportId)
@@ -68,6 +80,7 @@ export function assertNeighbour(world: WorldState, width: number, layer: LayerOf
       expect(covered + 1e-7, hint).toBeGreaterThanOrEqual(right + TOWN_SIDE_PX)
     }
   }
-  const pad = glyph.town ? TOWN_SIDE_PX : 0
-  assertRidges(world, { ...glyph, w: glyph.w + 2 * pad }, sx, mark.km, mark.plane === 'near', !!glyph.town, hint)
+  const pad = glyph.town && glyph.baseMode !== 'ridge' ? TOWN_SIDE_PX : 0
+  assertRidges(world, { ...glyph, w: glyph.w + 2 * pad }, sx, mark.km, mark.plane === 'near',
+    !!glyph.town && glyph.baseMode !== 'ridge', hint, glyph.baseMode === 'ridge' ? glyph.ridgeKind : undefined)
 }

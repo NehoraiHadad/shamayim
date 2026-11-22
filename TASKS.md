@@ -5,25 +5,23 @@ Plan: `docs/PLAN.md`. Brief: `docs/PLANNING_BRIEF.md`. Codex briefs: `docs/brief
 
 ## Worship ownership (audit follow-up)
 
-Owner decision, 2026-11-22: "מסגדים של כפרים שכנים שבאמת נראים מהיישוב — אבל צריך להיות ברור שזה של ישוב שנמצא ליד ולא נראה בתוך הישוב. גם אם זה מתרחק מעט מהאמת."
+Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"** (supersedes the earlier Decision B for famous
+landmarks and non-own worship).
 
-- [x] Decision B, “גם אם זה מתרחק מעט מהאמת”: every kept non-own glyph is `max(trueHeight, 4)` CSS px,
-      with the same width factor, capped at 2×; smaller true sources are culled. The shared helper covers every kind.
-- [x] Two guards on the drawn box: ≥6 CSS px from the final home roofline span; town members need their own final
-      painted town at the foot and ≥1 CSS px of it on both sides. Exact nearest slide away from home is bounded by
-      12 CSS px. Standalone sources outside mapped town fabric require a visible foot rather than a town.
-- [x] Both near and far layers apply those guards. Haze uses far-town bins at the true receiving-layer distance,
-      never the enlarged size, and cannot be lighter than home roofs. A supporting mass is excluded by identity.
-- [x] Physical structure heights retain the angular/crest clip and 1 CSS px existence floor; Decision B separately
-      controls neighbour glyph legibility. No invented far podiums or building-height clamps.
-- [x] Neon wrote the audit probe. Codex gpt-6.2-sol implemented rounds 1–4; Opus supplied re-review findings.
-      Rules, per-layer comparisons, named landmark outcomes, tests and mutations: `docs/design/qa/polish/worship-ownership/REPORT.md`.
-- [x] Split the fixed 117-place check into timed groups; refreshed the exhaustive offline audit. Preserved round-3
-      Karmei Tzur/Eleazar stills and saved round-4 stills with 4× crops and per-glyph measurements in `stills/README.md`.
-- [x] Round-5 review: derive the non-own pre-selection floor from the single legibility/cap exports; evaluate
-      seated and unseated glyphs together nearest-first; share near/far occlusion and clipped height; require town
-      flags/support independently in tests; retain one haze guard. Values stay pending the product decision.
-      Refreshed full audit and complete all-round HEAD file list: `REPORT.md` Round 5.
+- [x] Non-own mosques/minarets are never drawn, even when famous. Other non-own worship is drawn only when the
+      existing curated/OSM fame data identifies a named landmark. Own portraits retain their rules.
+- [x] Famous non-own landmarks draw at `max(trueHeight, 4)` CSS px, without an exaggeration cap; the glyph records
+      its factor. Ordinary non-own marks keep the round-5 4 px floor and 2× cap. One `(kind, famous)` policy drives
+      both receiving layers and pre-selection; famous candidates need positive true visible height only.
+- [x] Keep ≥6 CSS px from the final home roofline, with at most 12 CSS px sliding away from home. Use true-distance
+      haze, no lighter than home. Town members require their own painted mass and ≥1 CSS px on each side, unless a
+      famous landmark has a physically proven ridge base: terrain hides its foot, but its true top projects above
+      that drawn ridge at its bearing. Buildings/home roofs never supply that exception or cover the kept icon.
+- [x] Round 6: unit guards and mutation checks; independent final-glyph assertions across the fixed 117 places and
+      all 18 recorded panoramas at 375/1280; refreshed background exhaustive audit. Results: `REPORT.md` Round 6 and
+      `AUDIT-table.md` After. DPR-2 stills and per-glyph measurements: `stills/README.md` Round 6.
+- [x] Earlier rounds 1–5: physical angular/crest clipping, town identity, source-seat carry, nearest-first glyph
+      occlusion, final seat-budget refill, and shared haze/size helpers. Historical comparisons remain in `REPORT.md`.
 - [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
       then review these rules against that terrain. The current still is explicitly flat 100 m.
 

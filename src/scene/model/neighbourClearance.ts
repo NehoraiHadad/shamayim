@@ -8,10 +8,12 @@ import type { Box } from './types'
 /** Exact centre-position boundaries: painted foot spans, text rectangles and viewport edges, all in CSS px. */
 export function neighbourClearance(world: WorldState, width: number, mark: WorldMark, zones: readonly Box[], masses:
    DrawnMass[],
-  options: { layer?: 'outside' | 'far'; supportId?: string; town?: boolean } = {}) {
+  options: { layer?: 'outside' | 'far'; supportId?: string; town?: boolean; skipRidge?: 'near' | 'land' } = {}) {
   const side = options.town === false ? 0 : TOWN_SIDE_PX
+  // Ridge icons have no town seam: every other foreground terrain line must clear the actual foot.
+  const seated = !options.skipRidge && (mark.seatBlockId !== undefined || Boolean(options.supportId))
   const spans = footSpans(world, width, masses, mark.base, mark.km,
-    mark.seatBlockId !== undefined || Boolean(options.supportId), options.layer, options.supportId)
+    seated, options.layer, options.supportId, options.skipRidge)
   const half = mark.w / 2, padded = half + side
   const body = markBoxAt(mark, 0)
   const text = zones.filter(zone => zone.y < body.bottom && zone.y + zone.h > body.top)

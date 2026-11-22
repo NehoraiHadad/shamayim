@@ -7,7 +7,8 @@ export { placeHomes, withPlaceHomes, isPlaceHomes, settlementSize } from './home
 import { perspectiveFields } from './perspectiveFields'
 import type { Place } from '../../config/place'
 import type { NoteBox } from '../terrain/sceneNotes'
-import { NEIGHBOUR_MIN_TRUE_PX } from '../../world/neighbourSize'
+import { viableNeighbour, neighbourRule } from '../../world/neighbourPolicy'
+import { glyphOf } from '../../world/glyphSpecs'
 import type { SceneTerrain } from '../terrain/terrain'
 import { isLandmark } from './fame'
 import { elevationAt, projectMark, type Portrait } from './markProjection'
@@ -39,7 +40,8 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     const base = projected.plain?.baseY ?? groundY(ground.map(([x, y]) => ({ x, y })), projected.x)
     const angular = perspective?.(mark, projected.layer, base)
     const hPx = angular?.hPx
-    if (hPx !== undefined && hPx < NEIGHBOUR_MIN_TRUE_PX) continue
+    const famousNeighbour = angular && neighbourRule(glyphOf(mark) ?? mark.kind, isLandmark(mark)) === 'landmark'
+    if (hPx !== undefined && !viableNeighbour(glyphOf(mark) ?? mark.kind, isLandmark(mark), hPx)) continue
     if (cityMode && projected.layer === 'near' && isGenericHighrise(mark.kind, mark.glyph)) continue
     const band = mark.source === 'curated' || (!terrain.sightAt && mark.kind === 'highrise')
       ? 3 : projected.layer === 'near' ? 1.5 : 3
@@ -49,10 +51,11 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     if (projected.plain) {
       const { baseY, hPx, visibleTopY } = projected.plain
       const nearY = groundY(terrain.nearPoints.map(([x, y]) => ({ x, y })), projected.x)
-      if (perspective ? visibleTopY !== undefined : hPx < 3 || (visibleTopY ?? baseY) >= Math.min(nearY, 114)) continue
+      if (perspective ? visibleTopY !== undefined && neighbourRule(glyphOf(mark) ?? mark.kind,
+        isLandmark(mark)) !== 'landmark' : hPx < 3 || (visibleTopY ?? baseY) >= Math.min(nearY, 114)) continue
     }
-    if (!projected.plain && Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
-    if (projected.layer === 'far') {
+    if (!famousNeighbour && !projected.plain && Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
+    if (!famousNeighbour && projected.layer === 'far') {
       const farY = groundY(points.map(([x, y]) => ({ x, y })), projected.x)
       const nearY = groundY(terrain.nearPoints.map(([x, y]) => ({ x, y })), projected.x)
       if (farY > nearY - 4) continue

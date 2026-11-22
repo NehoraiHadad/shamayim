@@ -4,7 +4,7 @@ import { farCellId } from '../data/city/townFootprints'
 import type { OutsideFrame } from '../data/city/outsideView'
 import { bearingOf, distanceOf, offsetKm, type Coordinate } from '../data/landmarks/project'
 import type { Landmark, MarkPerspective } from '../data/landmarks/types'
-import { NEIGHBOUR_MIN_TRUE_PX } from './neighbourSize'
+import { viableNeighbour } from './neighbourPolicy'
 import { visibleMarkHeight } from './visibleMarkHeight'
 import { localTownAt } from './markContext'
 import { SCENE_W } from './sceneBox'
@@ -21,12 +21,15 @@ export function markPerspective(place: Coordinate, terrain: SceneTerrain, frame:
     const sightKm = layer === 'near' ? outsideDistance(frame.eyeN, dx, dy) : distanceOf(place, mark)
     const km = layer === 'near' ? beyondKm(frame, baseKm, dx, dy) : sightKm
     const crestPx = overTheCrest(terrain, dx, dy, mark.heightM)
-    const bearing = layer === 'near' ? null : bearingOf(place, mark, terrain.camera)
+    const bearing = bearingOf(place, mark, terrain.camera)
     const ground = bearing && terrain.seenAt?.(bearing.x, bearing.km)
+    const top = bearing && terrain.seenAt?.(bearing.x, bearing.km, mark.heightM)
     return { sightKm, km, supportBlockId: squareKey(squareOf(mark.lat, mark.lon)), heightM: mark.heightM,
       hPx: visibleMarkHeight(mark.heightM, sightKm, base, terrain.horizonY, crestPx),
       townFootprint: localTownAt(city, mark), farCellId: farCellId(mark), crestPx,
-      ...(ground ? { sourceGroundY: ground.groundY } : {}) }
+      ...(bearing ? { bearingX: bearing.x } : {}),
+      ...(top ? { sourceTopY: top.y, sourceGroundY: top.groundY }
+        : ground ? { sourceGroundY: ground.groundY } : {}) }
   }
 }
 
@@ -34,7 +37,7 @@ export function markPerspective(place: Coordinate, terrain: SceneTerrain, frame:
 export function angularMark<T extends WorldMark>(mark: T, horizonY: number): T | null {
   if (mark.sightKm === undefined || mark.heightM === undefined) return mark
   const hPx = visibleMarkHeight(mark.heightM, mark.sightKm, mark.base, horizonY, mark.crestPx)
-  if (hPx < NEIGHBOUR_MIN_TRUE_PX) return null
+  if (!viableNeighbour(mark.glyphKind, mark.named, hPx)) return null
   return { ...mark, ...glyphAtHeight(mark.glyphKind, hPx), hPx }
 }
 

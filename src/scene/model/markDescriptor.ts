@@ -24,6 +24,8 @@ export function markDescriptor(world: WorldState, mark: WorldMark, x: number, to
   return { kind: mark.glyphKind, sourceId: mark.id, x, base: mark.base, h: mark.h, scale: mark.scale, w: mark.w,
     seed, hand: glyphHand(mark.glyphKind, seed), tones, famous: mark.named, factor: mark.factor ?? 1,
     trueHeightPx: mark.trueHeightPx ?? mark.h * mark.scale, trueDistanceKm: mark.km, hazeKm, supportId, town,
+    baseMode: mark.baseMode ?? 'foot', ridgeKind: mark.ridgeKind, bearingX: mark.bearingX,
+    sourceTopY: mark.sourceTopY, sourceGroundY: mark.sourceGroundY,
     ...(ground ? { ground } : {}) }
 }
 

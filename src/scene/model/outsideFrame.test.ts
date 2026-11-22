@@ -59,7 +59,7 @@ it(("culls a floating non-own silo without its own visible town and reuses geome
 it('retains true base-angle size in the world but culls far glyphs without proven town ownership', () => {
   const seenAt = () => ({ y: 70 - NEIGHBOUR_MIN_TRUE_PX, groundY: 70, angle: 1, groundAngle: 1 })
   const terrain = { ...ctx.input.terrain, seenAt, sightAt: () => ({ nearKm: 3, farKm: 30, farShows: false, seenAt }) }
-  const source = { id: 'far-hall', lat: PLACE.lat - .14605, lon: PLACE.lon, kind: 'minaret' as const,
+  const source = { id: 'far-hall', lat: PLACE.lat - .14605, lon: PLACE.lon, kind: 'church' as const,
     heightM: 9, nameHe: 'Far hall', source: 'osm' as const, fame: 1 as const }
   const build = (heightM: number) => buildWorld({ ...ctx.input, terrain, landmarks: [{ ...source, heightM }],
     seatCandidates: [], far: null })

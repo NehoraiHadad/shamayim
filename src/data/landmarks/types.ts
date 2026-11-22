@@ -1,3 +1,4 @@
+import type { MarkTerrainEvidence } from '../../world/markTerrainEvidence'
 export type MarkKind =
   | 'highrise' | 'chimney' | 'cooling' | 'mast' | 'waterTower'
   | 'minaret' | 'church' | 'silo' | 'lighthouse' | 'turbine'
@@ -32,13 +33,12 @@ export interface CuratedPlace {
 export type MarkLayer = 'near' | 'far' | 'plain'
 
 /** The caller supplies the eye and depth frame of the layer that will paint the mark. */
-export interface PerspectiveContext {
+export interface PerspectiveContext extends MarkTerrainEvidence {
   /** Local raster evidence; undefined means that the source cell is unavailable. */
   townFootprint?: boolean
   farCellId?: number
   /** Physical pixels visible above intervening terrain, before any legibility exaggeration. */
   crestPx?: number
-  sourceGroundY?: number
 }
 
 export type MarkPerspective = (mark: Landmark, layer: MarkLayer, base: number) =>

@@ -30,7 +30,7 @@ export const homeGap = (left: number, right: number, home: HomeRoofline) =>
 /** Keep the source raster square as proof of ownership; never slide onto an unrelated town's screen overlap. */
 export function placeNeighbour<T extends WorldMark>(mark: T, trueX: number, block: NeighbourBlock | null | undefined,
   home: HomeRoofline | null, visible: (bounds: ReturnType<typeof markBoxAt>) => boolean,
-  boundaries: () => readonly number[] = () => []) {
+  boundaries: () => readonly number[] = () => [], geometryAt?: (x: number) => T) {
   if (block === undefined) return null
   if (block && (block.w < mark.w + 2 * TOWN_SIDE_PX || block.top >= mark.base || block.foot < mark.base)) return null
   const side = block ? TOWN_SIDE_PX : 0
@@ -44,10 +44,11 @@ export function placeNeighbour<T extends WorldMark>(mark: T, trueX: number, bloc
     .filter(x => Math.abs(x - trueX) <= MAX_NEIGHBOUR_SLIDE_PX && (!direction || (x - trueX) * direction >= 0))
     .sort((a, b) => Math.abs(a - trueX) - Math.abs(b - trueX))
   for (const x of candidates) {
-    const bounds = markBoxAt(mark, x)
+    const drawn = geometryAt?.(x) ?? mark
+    const bounds = markBoxAt(drawn, x)
     if (home && homeGap(bounds.left, bounds.right, home) < HOME_GAP_PX) continue
     if (block && (bounds.left - side < block.x - block.w / 2 || bounds.right + side > block.x + block.w / 2)) continue
-    if (visible({ ...bounds, left: bounds.left - side, right: bounds.right + side })) return { mark, x, bounds }
+    if (visible({ ...bounds, left: bounds.left - side, right: bounds.right + side })) return { mark: drawn, x, bounds }
   }
   return null
 }

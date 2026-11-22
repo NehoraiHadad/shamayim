@@ -56,3 +56,39 @@ node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills 'il-31.
 ```
 
 Playwright was already cached and Chrome already installed. No downloads or live services were used.
+
+## Round 6
+
+Owner: **"מסגדים לא, ציונים כן"**. Karmei Tzur is clean at the required production coordinate.
+**None of the 18 recorded panoramas keeps a non-own famous landmark at either width.** The closest honest positive
+is Dafna → Nimrod Castle from the audit's fixed sample, **flat 100 m, no recorded panorama**. Both images visibly
+carry that label. The Nimrod icon now survives at 4.528769× on the drawn near ridge; its height is not changed in data.
+
+Rendered offline at 375 CSS px, DPR 2, 2026-11-17 12:00, bundled forecast/data only. Each crop magnifies the original
+DPR-2 pixels 4×, nearest neighbour, retaining the full landmark/home band for gap context. No icon was redrawn.
+All measurements below are CSS px/km. Owned values are composed portrait heights; the non-own physical size policy
+does not apply to those glyphs. `foot` on an owned field denotes its normal ground/portrait placement.
+
+### כרמי צור
+
+[375 px DPR-2 still](round6/osm-way-462664109-1200-flat100m.png) · [4× landmark/home crop](round6/osm-way-462664109-1200-flat100m-crop4x.png) · [metadata](round6/osm-way-462664109-1200-flat100m.json)
+
+| Source | Kind | Famous | True px | Drawn px | Factor | Gap | Slide | Haze km | Base |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `il-synagogue-31.6097-35.10159` | synagogue | false | 9.500000 | 9.500000 | 1.000000 | owned | 0.000000 | 5.445100 | foot |
+### דפנה
+
+[375 px DPR-2 still](round6/sample-33.23037-35.63926-1200-flat100m.png) · [4× landmark/home crop](round6/sample-33.23037-35.63926-1200-flat100m-crop4x.png) · [metadata](round6/sample-33.23037-35.63926-1200-flat100m.json)
+
+| Source | Kind | Famous | True px | Drawn px | Factor | Gap | Slide | Haze km | Base |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `il-orchard-33.22998-35.64404` | orchard | false | 7.300000 | 7.300000 | 1.000000 | owned | 0.000000 | 5.577812 | foot |
+| `il-orchard-33.23452-35.64241` | orchard | false | 7.300000 | 7.300000 | 1.000000 | owned | 0.000000 | 5.056199 | foot |
+| `il-castle-33.25267-35.71505` | castle | true | 0.883242 | 4.000000 | 4.528769 | 104.386081 | 0.000000 | 7.254069 | ridge |
+
+Reproduce with the existing cached Playwright/Chrome setup documented above:
+
+```powershell
+node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills/round6 'osm:way:462664109@12:00' '--flat=31.6092,35.1009,כרמי צור' --dpr=2 --describe --crop4x
+node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills/round6 'sample-33.23037-35.63926@12:00' '--flat=33.23037,35.63926,דפנה' --dpr=2 --describe --crop4x
+```

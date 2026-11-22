@@ -1,4 +1,5 @@
-import { NEIGHBOUR_MIN_TRUE_PX } from './neighbourSize'
+import { viableNeighbour } from './neighbourPolicy'
+import { isLandmark } from '../data/landmarks/fame'
 import { LAT_STEP, LON_STEP, squareOf, squareKey } from '../data/city/grid'
 import { isOwnSpot, lieBaseY, outsideProject, SKYLINE_TO_KM, type Ground, type OutsideFrame,
   type PlaceLie } from '../data/city/outsideView'
@@ -136,7 +137,7 @@ export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'flo
     const { x } = outsideProject(frame, dx, dy)
     const hPx = Math.min(over, apparentHeight(mark.heightM,
       outsideDistance(frame.eyeN, dx, dy), baseAngle(block.baseY, input.terrain.horizonY)))
-    if (hPx < NEIGHBOUR_MIN_TRUE_PX) return null
+    if (!viableNeighbour(glyphKind, isLandmark(mark), hPx)) return null
     const halfW = glyphAtHeight(glyphKind, hPx).w / 2
     if (!fitsBlockSpan(x, halfW, block.x, block.w)) return null
     return { x, base: block.baseY, hPx, km: beyondKm(frame, baseKm, dx, dy), blockId }

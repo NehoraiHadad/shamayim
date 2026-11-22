@@ -1,3 +1,4 @@
+import { groundAt } from '../world/sceneLight'
 import { LEGIBLE_PX, MAX_EXAGGERATION } from '../world/neighbourSize'
 import { assertNeighbour } from './neighbourAssertions'
 import { expect } from 'vitest'
@@ -49,8 +50,8 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
   const towns = model.layers.find(layer => layer.kind === 'farCities')
   const outsideMasses = outsideMass(world, box, model.clear)
   // Deliberately reimplement farMasses: comparing against the production helper would share its mistakes.
-  // Missing source km falls back to the painted tier: the assertion stays conservative for incomplete evidence,
-  // whereas production farMasses omits such boxes instead of assigning a potentially false occlusion depth.
+  // Missing source km falls back to the painted tier: the assertion is conservative for legacy evidence.
+  // Production uses actual source depth only.
   const farMasses = towns?.tiers.flatMap(tier => [
     ...tier.blocks.map(b => ({ left: b.x, right: b.x + b.w, top: b.base - b.h, km: b.km, id:
       undefined as string | undefined })),
@@ -73,12 +74,20 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
     const crest = terrain ? visibleOverRidge(seat ? terrain : { ...terrain,
       nearPoints: world.terrain.near.points.map(([x, y]) => [x, y]) }, dx, dy, landmark.heightM) :
         mark.crestPx ?? Infinity
-    const expected = Math.min(projectedHeight(landmark.heightM, distance, glyph.base, world.terrain.horizonY), crest)
+    const ridge = glyph.baseMode === 'ridge'
+      ? glyph.ridgeKind === 'land' ? view.land?.top : world.terrain.near.points : undefined
+    const physicalBase = ridge ? groundAt(ridge, mark.bearingX ?? mark.x) : glyph.base
+    const expected = Math.min(projectedHeight(landmark.heightM, distance, physicalBase, world.terrain.horizonY), crest,
+      ridge ? physicalBase - mark.sourceTopY! : Infinity)
     const height = glyph.h * glyph.scale
     expect(glyph.trueHeightPx, hint).toBeCloseTo(expected, 6)
     expect(height, hint).toBeCloseTo(Math.max(LEGIBLE_PX, expected), 6)
     expect(glyph.factor, hint).toBeCloseTo(height / expected, 6)
-    expect(glyph.factor, hint).toBeLessThanOrEqual(MAX_EXAGGERATION)
+    if (!glyph.famous) expect(glyph.factor, hint).toBeLessThanOrEqual(MAX_EXAGGERATION)
+    expect(glyph.kind, hint).not.toMatch(/minaret|mosque|masjid/i)
+    if (['church', 'synagogue', 'shrine', 'temple', 'chapel', 'cathedral', 'westernWall', 'babShrine']
+      .includes(glyph.kind)) expect(glyph.famous, hint).toBe(true)
+    expect(glyph.famous, hint).toBe(mark.named)
     expect(height, hint).toBeGreaterThanOrEqual(LEGIBLE_PX)
     expect(glyph.trueDistanceKm, hint).toBe(mark.km)
     const tier = Math.max(0, Math.min(18, Math.floor(Math.log(mark.km / 2) / Math.log(1.22))))
@@ -86,14 +95,14 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
     expect(glyph.hazeKm, hint).toBeCloseTo(haze, 8)
     expect(glyph.tones, hint).toEqual(tonesAt(world, haze))
     if (inOutside) expect(mark.km, hint).toBeCloseTo(outsideDepth(world, dx, dy), 8)
-    const pad = glyph.town ? 1 : 0
+    const pad = glyph.town && glyph.baseMode !== 'ridge' ? 1 : 0
     const left = glyph.x - glyph.w / 2 - pad, right = glyph.x + glyph.w / 2 + pad
     const masses = inOutside ? outsideMasses : farMasses
-    expect(masses.some(mass => (!glyph.supportId || mass.id !== glyph.supportId) && mass.right > left &&
-      mass.left < right
-      && mass.km < mark.km && mass.top < glyph.base), hint).toBe(false)
-    if (!inOutside) expect(outsideMasses.some(mass => mass.right > left && mass.left < right
-      && mass.top < glyph.base), hint).toBe(false)
+    const covering = masses.filter(mass => (!glyph.supportId || mass.id !== glyph.supportId)
+      && mass.right > left + HEIGHT_TOLERANCE_PX && mass.left < right - HEIGHT_TOLERANCE_PX && mass.km < mark.km && mass.top < glyph.base)
+    expect(covering, `${hint} ${glyph.baseMode}`).toEqual([])
+    if (!inOutside) expect(outsideMasses.some(mass => mass.right > left + HEIGHT_TOLERANCE_PX
+      && mass.left < right - HEIGHT_TOLERANCE_PX && mass.top < glyph.base), hint).toBe(false)
     assertNeighbour(world, box.width, outside, glyph, mark, hint, towns)
     if (seat) seated++
     else unseated++

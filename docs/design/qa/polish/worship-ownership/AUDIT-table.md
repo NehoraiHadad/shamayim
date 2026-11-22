@@ -2374,6 +2374,40 @@ Across all places the saved probe counted 2,876 worship glyph rows and matched e
 
 ## After
 
+Round 6, owner decision **"מסגדים לא, ציונים כן"**. Background offline audit of 1,781 places
+(18 recorded, 1,763 flat 100 m), both 375/1280 px, 686.45 s.
+Non-own kept rows: 694 → 1957; 1271 famous; 1235 ridge-based.
+Forbidden non-own mosque or non-famous worship glyphs: **0**. All emitted neighbours passed independent geometry,
+height/factor and true-distance haze checks. Own worship rows 1662 → 1662; additions/removals 0/0; changed common x/height geometry: 0.
+
+| Final-receiver reason | Rows |
+| --- | --- |
+| budget-or-glyph-occlusion | 1 |
+| home-haze | 1015 |
+| kept | 1957 |
+| missing-town-mass | 1442 |
+| no-visible-separated-position | 1497 |
+
+The receiver denominator starts at world-layout candidates; policy/pre-selection drops happen before it.
+It is not a raw-source recall percentage. Full final neighbour measurements: [ROUND6-neighbours.tsv](ROUND6-neighbours.tsv).
+Historical tables below retain their original round labels; current source exports are `audit-after.json` and
+`neighbours-after.json` in `src/test/probe-worship/`.
+
+| Set | Width | Layer | Before R6: all / non-own | After R6: all / non-own |
+| --- | --- | --- | --- | --- |
+| 18 recorded | 375 | outside | 37 / 0 | 37 / 0 |
+| 18 recorded | 375 | marks.far | 0 / 0 | 0 / 0 |
+| 18 recorded | 1280 | outside | 37 / 0 | 37 / 0 |
+| 18 recorded | 1280 | marks.far | 0 / 0 | 0 / 0 |
+| 117 total | 375 | outside | 176 / 18 | 180 / 22 |
+| 117 total | 375 | marks.far | 0 / 0 | 58 / 58 |
+| 117 total | 1280 | outside | 177 / 19 | 181 / 23 |
+| 117 total | 1280 | marks.far | 0 / 0 | 57 / 57 |
+
+See `REPORT.md` Round 6 for famous landmark outcomes and mutation evidence.
+
+## After — round 5 (historical)
+
 Round 5: 1,781 places, both widths, 421.50 s in the probe.
 694 kept neighbour rows, 2826 culled final-receiver candidates.
 As in R4, this denominator starts at world-layout candidates offered to the scene, excluding earlier
