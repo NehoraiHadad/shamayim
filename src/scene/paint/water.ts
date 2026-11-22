@@ -1,3 +1,4 @@
+import { smoothstep } from '../../domain/smoothstep'
 import type { LayerOf, Streak } from '../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
 
@@ -77,10 +78,10 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   for (const band of desc.bands) {
-    if (band.rim.alpha < 0.02 || band.far.length < 2) continue
+    if (band.far.length < 2) continue
     ctx.beginPath()
     band.far.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + hair / 2) : ctx.moveTo(x, y + hair / 2)))
-    ctx.strokeStyle = css(band.rim.rgb, band.rim.alpha)
+    ctx.strokeStyle = css(band.rim.rgb, band.rim.alpha * smoothstep(0, 0.04, band.rim.alpha))
     ctx.lineWidth = hair * 1.5
     ctx.stroke()
   }

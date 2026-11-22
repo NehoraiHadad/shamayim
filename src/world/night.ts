@@ -1,5 +1,6 @@
 import type { AirInput } from '../atmo/airTypes'
 import type { AirState } from '../atmo/airTypes'
+import { rainRate } from './airParts'
 import { mapAir } from './mapAir'
 import { unionOf, type Covers } from './clouds'
 import { smoothstep } from './ridgeLighting'
@@ -11,7 +12,8 @@ import type { Night } from './types'
  * by day a third under a storm, a downpour or a thick haze.
  */
 export function litShareOf(input: AirInput, air: AirState): number {
-  const dull = input.weatherCode >= 95 || air.thunder || input.precipitation >= 7.5 || air.haze.farFade > 0.6 ? 0.3 : 0
+  const dull = 0.3 * Math.max(input.thunderWeight ?? Number(input.weatherCode >= 95),
+    smoothstep(6.5, 8.5, rainRate(input)), smoothstep(0.55, 0.65, air.haze.farFade))
   // The living light: the night's share by the hour read smoothly, faded in through the dusk (the sun from −2° to −6°)
   // instead of switched on at −4° and on the hour.
   const dusk = smoothstep(-2, -6, input.sunElevation)

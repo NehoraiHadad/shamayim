@@ -925,3 +925,81 @@ are not invented diff entries.
 - `src/world/portraitContest.test.ts` — Regression coverage for source ownership, physical scale, final placement or the affected renderer.
 - `src/world/types.ts` — Carry source, projection and scene evidence through small typed modules.
 - `src/world/visibleMarkHeight.ts` — Project physical geometry and propagate source ownership, distance and viability into the scene.
+
+## Merge with main
+
+Completed the merge follow-up for `origin/main` / `MERGE_HEAD` `0818fd1cac33f3f247f8fb0ae84cf36d240b2c55`
+against ownership HEAD `453e7d6f7a4f33f55f29cb85f9f8d7a91b061d40`. No commit or merge abort was performed.
+The completion fixes are staged, and the merge remains open for the owner to commit.
+
+### Conflict resolutions checked
+
+- `src/scene/model/outside.ts`: `Shape` contains main's cached `bounds` and ownership's `mass` and `home`.
+  The cache stores all three, bounds feed the final outside layer, and the mass/home accessors feed neighbour
+  placement. Main's eye-light glint changes and stable bounds remain intact. `git ls-files -u` is empty.
+- `e2e/scene.stills.mjs`: main's sixth `@hide` segment reaches the scene URL and screenshot filename. Ownership's
+  generic flat fixture, guarded descriptions and 4× crop remain. The usage comment was wrapped without changing
+  CLI semantics. One offline invocation exercised every option together; the labelled PNG was visually inspected.
+  See [merge-stills/README.md](merge-stills/README.md) for the command, full PNG, description and crop.
+
+### Required glyph evidence
+
+A full TypeScript build reproduced the two missing-factor literals from main. Grep of the merged GlyphDesc
+fixtures and the subsequent clean build confirmed the fixes. All four owned/test literals in the two affected
+painter files now spread one `OWN_GLYPH_EVIDENCE` default from `src/test/glyphEvidence.ts`, with factor 1.
+Production evidence remains required; no optional field or weakened production type was introduced.
+
+### Jerusalem failure: isolated main versus the combination
+
+An isolated detached worktree of `origin/main` at exactly `0818fd1` was created in the temporary scratchpad.
+It reused already-installed dependencies through a verified junction. Running only the Jerusalem mass-form
+case in `src/scene/model/outside.test.ts` passed on main (1 passed, 112 skipped, 13.99 s). The identical case in
+the merged tree failed at 0.3712631127 against an unhazed sky sample of 0.3596308486. The detached checkout
+and its dependency junction were removed after the comparison; this merge was neither reset nor aborted.
+
+The algorithms for `skyFormOf` and `tonesAt` match main. The ownership branch's transported distance/haze frame
+adds the more distant displayed tiers that expose an invalid test bound under main's new atmosphere.
+The recovered row coordinate agrees with `outsideProject`: `dy = frame.s + near × (frame.n - frame.s)`,
+so the larger depth is not an arbitrary brightness change. At
+Jerusalem 16:30 the 11.5 km tier's wall is already 0.3712631127 before the roof adjustment, and its roof equals
+that wall. Atmospheric haze is 0.4544742863. Requiring the roof both to be at least its wall's brightness and
+below the 0.3596308486 unhazed sky is contradictory. Path radiance can make a distant surface brighter than a
+sample of the sky in another direction; the surface albedo bound applies before that atmospheric contribution.
+The diagnostic values are retained in `src/test/probe-worship/merge-light.json`.
+
+This is the brief's physically-wrong-expectation exception: no production lighting, true distance or haze was
+clamped to conceal the failure. The existing test now bounds observed mass by the sky/path-haze envelope,
+retaining its top ≥ wall, face ≥ wall, foot < wall, strength, side and night checks. The new
+`src/scene/model/ownSkyForm.test.ts` adds a stricter known-distance comparison against sky through the **same**
+atmospheric path at 0, 10.5, 11.5 and 12.5 km, at noon and 16:30. Its zero-distance control still requires the
+roof below the unhazed sky; the far control requires the legitimate path-radiance brightening. Both new tests
+and the three original cities' mass-form cases passed, without a changed production rendering result.
+
+### Validation and completion files
+
+The explicit shared-file run passed all 488 tests in 31 files (427.22 s).
+The selection contains all nine files named in the brief, the new sky-form regression, and every main-changed
+test importing an ownership-changed module (including type/schema imports). The exact command is retained in
+`src/test/probe-worship/merge-targeted-command.txt`, with its import intersection in `merge-shared-tests.json`.
+No folder-wide suite was run. Pure-main and initial combined outputs are retained separately as
+`merge-outside-main.txt` and `merge-outside-combined.txt`; corrected focused results are in `merge-light-fixed.txt`.
+
+`npx tsc -b` and `npx oxlint` pass. Lint has 13 warnings outside this completion patch, including the incoming
+harness hook-dependency warning. `git diff --check` and `node --check e2e/scene.stills.mjs` pass.
+The default full staged whitespace check flags CRLF in 16 incoming files; every affected staged blob is
+byte-identical to `origin/main`. The full staged check passes with
+`core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol`, preserving main's line endings rather
+than normalizing unrelated files. No repository/global whitespace setting was changed. The combined
+stills command uses cached Playwright, installed Chrome and bundled fixtures, with external requests blocked.
+No live service, package download, deployment, push or commit was performed.
+
+Completion changes:
+
+- `src/test/glyphEvidence.ts`: shared owned/test factor-1 evidence.
+- `src/scene/paint/glyphs/glyphs.test.ts`: use that default for all typed fixture literals.
+- `src/scene/paint/outside.test.ts`: use the same required default for its new glyph fixtures.
+- `src/scene/model/outside.test.ts`: include atmospheric path light in the physically valid mass-form bound.
+- `src/scene/model/ownSkyForm.test.ts`: zero-distance and same-path albedo regression controls.
+- `e2e/scene.stills.mjs`: preserve the resolved combined CLI and wrap its usage documentation.
+- `merge-stills/`: offline smoke-check PNG, geometry, crop and reproduction notes.
+- `REPORT.md`: this conflict review, isolated comparison, physical reasoning and validation record.

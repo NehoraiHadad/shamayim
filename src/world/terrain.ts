@@ -24,6 +24,8 @@ function smooth(km: number[]): number[] {
   return med.map((_, i) => { const w = around(i, med); return w.reduce((a, b) => a + b, 0) / w.length })
 }
 
+export const terrainY = (horizonY: number, angle: number) => horizonY - anglePx(angle)
+
 /** Whether the land is known: a terrain's own status, else known (a panorama). */
 export const landStatusOf = (terrain: SceneTerrain): LandStatus => terrain.status ?? 'ready'
 
@@ -47,10 +49,10 @@ export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlane
     horizonY: terrain.horizonY,
     status: landStatusOf(terrain),
     sightAt: terrain.sightAt,
-    seenAt: terrain.seenAt,
     groundAt: terrain.groundAt,
+    eyeM: terrain.eyeM,
     snowEdge: terrain.snowEdge,
   }
-  const faces = facesOf(planes, (angle) => terrain.horizonY - anglePx(angle))
+  const faces = facesOf(planes, (angle) => terrainY(terrain.horizonY, angle))
   return { ...planes, faces, land: landOf(planes, faces, placeId) }
 }

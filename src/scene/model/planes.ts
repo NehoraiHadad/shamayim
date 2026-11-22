@@ -7,6 +7,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import { groundForm } from './ground'
 import { landBoxKey, layerKey } from './keys'
 import { planeLight } from './planeLight'
+import { planeCrest } from './planeCrest'
 import type { Box, LayerOf, Pt, RGB, SceneBox } from './types'
 
 type PlaneName = 'back' | 'far' | 'near'
@@ -36,7 +37,7 @@ function shapeOf(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane
   let shape = byBox.get(key)
   if (!shape) {
     const sx = box.width / SCENE_W
-    const ridge = plane.points.map(([x, y]): Pt => [x * sx, y])
+    const ridge = planeCrest(plane, box.width)
     const front = world.terrain.near.points
     const outline: Pt[] = name === 'near' || front.length < 2
       ? [...ridge, [ridge.at(-1)![0], box.landHeight], [ridge[0][0], box.landHeight]]

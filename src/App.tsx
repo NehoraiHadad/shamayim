@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
+import { dustShare } from './world/airParts'
 import { mapAir } from './world/mapAir'
 import { useLandmarks } from './data/landmarks/useLandmarks'
 import { coverMarks } from './data/landmarks/coverMarks'
@@ -13,7 +14,6 @@ import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
-import { sightingsNow } from './domain/cloudSightings'
 import { entryHeadline, rainIsNear } from './domain/rainVerdict'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
@@ -22,7 +22,7 @@ import { sheetVars, useSheetPaper } from './theme/sheetLight'
 import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
-import { forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
+import { forcedTheme, forcedWeather } from './ui/devParams'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
@@ -40,6 +40,7 @@ import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
 import { useSceneTime } from './ui/scrub/useSceneTime'
+import { useSceneSightings } from './ui/scrub/useSceneSightings'
 import { withVisibleSun } from './world/visibleSun'
 import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
@@ -54,7 +55,8 @@ const CanvasScene = lazy(() => import('./scene/react/CanvasScene'))
 
 export default function App() {
   const { place, recent, selectPlace } = usePlace()
-  const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon)
+  const { now, arrivalMs, receiptTime } = useNow(place.timezone)
+  const { forecast: raw, status, freshness, error, refresh } = useForecast(place, openMeteoIcon, receiptTime)
   const terrain = useTerrain(place)
   // The scene's own pool: beyond the place only landmarks (C5).
   const landmarks = useLandmarks(place, Boolean(terrain.sightAt), false, true)
@@ -62,13 +64,13 @@ export default function App() {
   const cover = useLandCover(place)
   const marks = useMemo(() => [...landmarks.marks, ...coverMarks(place, cover, landmarks.marks)], [landmarks.marks, place, cover])
   const city = useCity(place)
-  const now = useNow(place.timezone)
-  const observed = useObservedCloud(place)
+  const observedCloud = useObservedCloud(place, receiptTime)
   const outlook = useRainOutlook(place)
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
   // Each day also learns when the sun is really seen to rise and set over the land around (horizon panorama).
-  const forecast = useMemo(() => (raw ? withVisibleSun(withObservedCloud(rollForward(raw, now), observed, now), terrain, place) : null),
-    [raw, now, observed, terrain, place])
+  const timeline = useMemo(() => raw ? withVisibleSun(rollForward(raw, now), terrain, place) : null, [raw, now, terrain, place])
+  const forecast = useMemo(() => timeline ? withObservedCloud(timeline, observedCloud, now, arrivalMs) : null,
+    [timeline, observedCloud, now, arrivalMs])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
   const forced = forcedTheme()
   const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')
@@ -78,22 +80,22 @@ export default function App() {
   const sceneTime = useSceneTime(now)
   const selected = sceneTime.at
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
-  // Single clouds the satellite sees near the place: only for "now", on a mostly clear sky (see `cloudSightings.ts`).
-  const seenClouds = useMemo(() => {
-    const pinned = forcedSightings()
-    if (pinned) return pinned.map((s) => ({ ...s, strength: 1 }))
-    return forecast ? sightingsNow(observed, now, forecast.current.cloudCover) : []
-  }, [forecast, observed, now])
-  const shown = useMemo(() => (forecast ? { ...airInput(forecast, now, place, selected),
-    cloudsSeen: selected ? 0 : seenClouds.length, ...forcedWeather() } : null), [forecast, now, place, selected, seenClouds])
+  const weather = useMemo(() => {
+    if (!timeline) return null
+    const forced = forcedWeather()
+    const options = { arrivalMs, observedCloud }
+    return airInput(timeline, now, place, selected, forced, options)
+  }, [timeline, now, place, selected, arrivalMs, observedCloud])
+  const { seenClouds, cloudsSeen } = useSceneSightings(weather, observedCloud, now, arrivalMs)
+  const shown = useMemo(() => weather ? { ...weather, cloudsSeen } : null, [weather, cloudsSeen])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
-  const worldInput = useMemo(() => (forecast ? { place, forecast, now, selected, terrain, landmarks: marks,
-    seatCandidates: landmarks.seatCandidates, city, seenClouds, forced: forcedWeather() } : null),
-    [place, forecast, now, selected, terrain, marks, landmarks.seatCandidates, city, seenClouds])
+  const worldInput = useMemo(() => (timeline ? { place, forecast: timeline, now, selected, arrivalMs, observedCloud, terrain,
+    landmarks: marks, seatCandidates: landmarks.seatCandidates, city, seenClouds, forced: forcedWeather() } : null),
+    [place, timeline, now, selected, arrivalMs, observedCloud, terrain, marks, landmarks.seatCandidates, city, seenClouds])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
-    cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
-    air: air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],
+    cloudCover: shown.cloudCover, wet: Math.min(1, shown.rainMmH / 0.8), pm10: shown.opticalPm10,
+    air: air ? { visibilityKm: air.haze.visibilityKm, dustWeight: dustShare(shown) } : undefined }) : SKY_THEMES[themeId],
   [shown, themeId, air])
   const intro = useIntro(Boolean(forecast))
   const paper = useSheetPaper(useMemo(() => sunElevation(now, place), [now, place]), themeId)
@@ -145,7 +147,8 @@ export default function App() {
           <div className="lower">
             {worldInput && (
               <Suspense fallback={<SceneFallback />}>
-                <CanvasScene input={worldInput} forecast={forecast} now={now} selected={selected}
+                <CanvasScene input={worldInput} forecast={worldInput.forecast} now={now} selected={selected}
+                  temperature={selectedSlot?.type === 'hour' ? selectedSlot.temp : forecast.current.temperature}
                   readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
                   first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
                   last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}

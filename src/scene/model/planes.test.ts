@@ -55,8 +55,9 @@ function litBySlope(layer: LayerOf<'plane'>) {
 describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
   it('lights the faces turned to the light: lit side = the light’s side, every hour', () => {
     let checked = 0, steep = 0
+    const input = worldInput(loaded.get(id)!, at('12:00'))
     for (const hour of HOURS) {
-      const w = world(id, hour)
+      const w = buildWorld({ ...input, selected: at(hour) })
       const layer = near(sceneModel(w, BOX))
       if (w.light.source === 'sky') {
         // No side (overcast, twilight, a moonless night): no lit band, no lift.
@@ -171,8 +172,12 @@ describe('planes: the air, the ground and the light', () => {
   })
 
   it('throws the floor shadow away from a low sun', () => {
-    const shadows = ['shadmot-mehola', 'rosh-pina', 'tiberias'].flatMap((id) => ['08:00', '15:00'].map((hour) => world(id, hour)))
-      .filter((w) => w.light.source === 'sun').map((w) => near(sceneModel(w, BOX)).light.faces)
+    const shadows = ['shadmot-mehola', 'rosh-pina', 'tiberias'].flatMap(id => {
+      const input = worldInput(loaded.get(id)!, at('08:00'))
+      return ['08:00', '15:00'].map(hour => buildWorld({ ...input, selected: at(hour),
+        forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0, precipitation: 0, visibilityKm: 30 },
+        forcedLayers: { low: 0, mid: 0, high: 0 } }))
+    }).filter(w => w.light.source === 'sun').map(w => near(sceneModel(w, BOX)).light.faces)
     expect(shadows.some((faces) => faces.length > 0)).toBe(true)
   })
 })

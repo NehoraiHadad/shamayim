@@ -1,10 +1,11 @@
 //# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
+import { coinOf } from '../../world/air'
 import { smoothstep } from '../../world/ridgeLighting'
 import { aerosolDepth, sunLight } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { coinOf, skyAt, skyGeom, veilOf, type SkyGeom } from './sky'
+import { skyAt, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import type { LayerOf, Ray, RGB, SceneBox } from './types'
 import { brokenness } from './weather'
@@ -38,7 +39,7 @@ const MIN = 0.05
  * a clean ~0.08 (40 km and more: none) to a hazy 0.6 (10 km: full).
  */
 export function hazeOfRays(world: WorldState): number {
-  const tau = aerosolDepth({ visibilityKm: world.air.visibilityKm, dust: world.air.dust })[1]
+  const tau = aerosolDepth(world.air)[1]
   return smoothstep(0.08, 0.6, tau)
 }
 
@@ -70,7 +71,7 @@ export function rayStrengths(world: WorldState) {
   // Fog scatters the beams and blocks them: every case is seen through the same air (`beamThrough`).
   const beam = beamThrough(world)
   const low = lowness(sun.altitude)
-  const coin = coinOf(world)
+  const coin = coinOf(world.air)
   const up = smoothstep(-3, -0.5, sun.altitude) * (1 - dark)
   const seen = 1 - veilOf(world)
   // Through cloud gaps: a low sun's long path shows them in any air; higher, only as the haze has it.
@@ -104,7 +105,7 @@ export function rayLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = sk
   const sun = world.bodies.sun
   const x = geom.left + sun.x * geom.s
   const y = box.landTop + sun.y
-  const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), { visibilityKm: world.air.visibilityKm, dust: world.air.dust }).rgb, WHITE, 0.3)
+  const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), world.air).rgb, WHITE, 0.3)
   const shade = mixRgb(skyAt(world, box)(4), [0.2, 0.22, 0.3], 0.35)
   const out: LayerOf<'rays'>[] = []
   const layer = (id: string, z: number, ox: number, oy: number, reach: number, rays: Ray[], strength: number,

@@ -25,8 +25,9 @@ import type { LayerDesc, LayerOf, Pt, SceneBox } from './types'
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
 const CLEAR: Partial<AirInput> = { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0 }
 const CIRRUS: Partial<AirInput> = { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 }
+const CIRRUS_LAYERS = { low: 0, mid: 0, high: 0.75 }
 const SHOWERS: Partial<AirInput> = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,
-  windDirection: 250, humidity: 80 }
+  windDirection: 250, humidity: 80, visibilityKm: 30 }
 
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {
@@ -34,8 +35,9 @@ beforeAll(async () => {
   places = await loadPlaces()
 }, 120_000)
 
-function at(id: string, when: LocalTime, forced: Partial<AirInput> | null = null, veil = false) {
-  const world = buildWorld({ ...worldInput(places.get(id)!, when), forced, ...(veil ? { forcedLayers: { low: 0, mid: 0, high: 0.75 } } : {}) })
+function at(id: string, when: LocalTime, forced: Partial<AirInput> | null = null, veil = false, input = worldInput(places.get(id)!, when)) {
+  const world = buildWorld({ ...input, forced,
+    ...(veil ? { forcedLayers: CIRRUS_LAYERS } : {}) })
   return { world, model: sceneModel(world, BOX) }
 }
 const ofKind = <K extends LayerDesc['kind']>(layers: readonly LayerDesc[], kind: K) => layers.filter((l): l is LayerOf<K> => l.kind === kind)
@@ -50,8 +52,9 @@ describe('C10 fix: the 22° halo is a circle round the sun', () => {
   it('projects the true 22° circle round in its frame (x and y radii equal), centred on the drawn sun', () => {
     let seen = 0
     for (const id of ['jerusalem', 'haifa', 'tiberias']) {
+      const input = worldInput(places.get(id)!, '2026-11-17T12:00')
       for (const when of moments) {
-        const { world, model } = at(id, when, CIRRUS, true)
+        const { world, model } = at(id, when, CIRRUS, true, { ...input, selected: when })
         const halo = ofKind(model.layers, 'bow').find((b) => b.look === 'halo')
         if (!halo) continue
         seen++
@@ -105,9 +108,11 @@ describe('C10 fix: contrails are straight', () => {
   it('lays every trail as a straight or gently curved line: never turning back, its bend bounded', { timeout: 60_000 }, () => {
     let seen = 0
     for (const place of SCENE_PLACES) {
-      for (const hour of ['08:00', '11:00', '14:00']) {
-        for (const [forced, veil] of [[null, false], [CIRRUS, true]] as const) {
-          const { model, world } = at(place.id, `2026-11-17T${hour}`, forced, veil)
+      const input = worldInput(places.get(place.id)!, '2026-11-17T12:00')
+      for (const [forced, veil] of [[null, false], [CIRRUS, true]] as const) {
+        for (const hour of ['08:00', '11:00', '14:00']) {
+          const when = `2026-11-17T${hour}`
+          const { model, world } = at(place.id, when, forced, veil, { ...input, selected: when })
           const { horizon } = skyGeom(world, BOX)
           const trails = ofKind(model.layers, 'contrail')
           expect(trails.length, `${place.id} ${hour}`).toBeLessThanOrEqual(4)

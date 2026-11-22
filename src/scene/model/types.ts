@@ -143,7 +143,7 @@ export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]
 
 /** A one-shot meteor or a seeded lightning schedule (default cycle 600 s). */
 export type Pulse = { first: number } & (
-  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number }
+  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number; strength?: number }
 )
 
 /**
@@ -230,7 +230,7 @@ export interface MoonDisc { x: number; y: number; r: number; rgb: RGB; alpha: nu
  */
 export interface BankDesc { id: string; x: number; y: number; w: number; h: number; puffs: number; seed: number
   kind: 'heap' | 'sheet' | 'streak'; alpha: number; body: RGB; shade: RGB; lit: RGB; litA: number
-  toward: readonly [number, number] | null; under: number; silver: number; rains: boolean }
+  toward: readonly [number, number] | null; under: number; silver: number; rains: boolean; rainWeight?: number }
 /** A flat wash under a deck (overcast): the sky's cover between `top` and `bottom`, fading out toward the horizon. */
 export interface Veil { top: number; bottom: number; rgb: RGB; alpha: number }
 /** A filled shape; `soft` > 0 softens its edge over about that many px (stacked offset copies, no filter). */
@@ -358,7 +358,8 @@ export interface Shine {
   glint?: number
   cast: { dx: number; length: number; alpha: number }
   windows: number
-  aviation: boolean
+  /** Continuous aviation lamp strength (0–1). */
+  aviationStrength: number
   lean: number
   /** C7: how far (rad) trees sway about their lean in the gusts, over the portrait's strip of frames; 0 in a calm. */
   sway?: number
@@ -568,12 +569,11 @@ export type LayerDesc =
   | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
       beads: WearBead[]; snow: number; seed: number }
   | LayerBase & { kind: 'wearItem'; item: WearItem }
-  /**
-   * The living light: a cloud's shadows on a band of the land (`cloudShadows.ts`), a seamless tile `period` px wide of soft
-   * patches (land px), faded in and out down the band where it meets the next (`fadeIn`, `fadeOut`: the y run of each).
-   */
-  | LayerBase & { kind: 'cloudShadow'; blobs: { x: number; y: number; rx: number; ry: number; alpha: number }[]; rgb: RGB; period: number
-      band: { top: number; bottom: number; fadeIn: [number, number] | null; fadeOut: [number, number] | null } }
+  /** Cloud footprints on a receiving land plane, in land pixels. */
+  | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
+      /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
+      clip: { crest: Pt[]; fronts: Pt[][] } | null
+      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number }[] }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']

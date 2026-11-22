@@ -64,10 +64,13 @@ describe.each(SCENE_PLACES)('loading: $id', ({ id }) => {
   })
 
   it('draws no land layer before the data, and the mist in its place (with the line while loading, alone offline)', () => {
-    for (const hour of ['06:20', '12:00', '16:30', '21:00']) {
-      for (const forced of [null, RAIN, DUST]) {
-        for (const status of ['loading', 'offline'] as const) {
-          const model = sceneModel(unknown(id, hour, status, forced), BOX, { loadingAt: 0 })
+    const forecastInput = input(id, '12:00')
+    const terrains = { loading: unknownLand('loading'), offline: unknownLand('offline') }
+    for (const forced of [null, RAIN, DUST]) {
+      for (const status of ['loading', 'offline'] as const) {
+        for (const hour of ['06:20', '12:00', '16:30', '21:00']) {
+          const world = buildWorld({ ...forecastInput, selected: at(hour), forced, terrain: terrains[status] })
+          const model = sceneModel(world, BOX, { loadingAt: 0 })
           const onLand = land(model)
           expect(onLand.filter((l) => ON_LAND.has(l.kind)).map((l) => l.id), `${hour} ${status}`).toEqual([])
           expect(onLand.every((l) => l.kind === 'loading' || l.id === 'fall.land' || l.id === 'grains.land')).toBe(true)
@@ -79,7 +82,7 @@ describe.each(SCENE_PLACES)('loading: $id', ({ id }) => {
       }
     }
     // The near rain over the land falls in front of the mist.
-    const rain = sceneModel(unknown(id, '12:00', 'loading', RAIN), BOX)
+    const rain = sceneModel(buildWorld({ ...forecastInput, forced: RAIN, terrain: terrains.loading }), BOX)
     const fall = byId(rain, 'fall.land')
     if (fall) expect(fall.z).toBeGreaterThan(byId(rain, 'loading.mist')!.z)
   })

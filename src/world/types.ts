@@ -16,11 +16,13 @@ import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
 import type { Camera } from '../domain/camera'
 import type { WeightedSighting } from '../domain/cloudSightings'
+import type { AirTimeline } from '../atmo/airInput'
 import type { Forecast, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
+import type { Mist } from './mist'
 import type { SnowFall } from './snowLine'
 
 /**
@@ -39,9 +41,9 @@ export type RGB = readonly [number, number, number]
 export type Pt = readonly [number, number]
 
 /** What `buildWorld` takes: what App already holds. */
-export interface WorldInput {
+export interface WorldInput extends AirTimeline {
   place: Place
-  /** The forecast as App shows it (rolled forward, with the observed cloud and the visible sun). */
+  /** The model forecast, with its original observation preserved through rollover. */
   forecast: Forecast
   now: LocalTime
   /** An hour picked in the strip (a preview), or null for now. */
@@ -143,7 +145,13 @@ export interface Light {
   ray: [number, number] | null
   /** Direct light after air mass and aerosol (`sceneLight.ts`); the moon's is cool and dim. */
   colour: RGB
-  /** 0–1: over the land, through the haze, dimmed by the cloud between the eye and the source. */
+  /** 0–1: beam reaching the observer along the disc ray. */
+  eye: number
+  /** Mean cloud transmission available to illuminate the scene. */
+  clear: number
+  /** Sun and moon illuminance after mean cloud transmission. */
+  meanBeam: { sun: number; moon: number }
+  /** 0–1: land's base light after haze and closed decks. */
   direct: number
   /** The direct share of each source (their sum is `direct`; one of them is 0 at any minute). */
   shares: { sun: number; moon: number }
@@ -174,7 +182,8 @@ export interface Air {
   /** Horizontal visibility (km, 1–40), dust folded in. */
   visibilityKm: number
   humidity: number | null
-  dust: boolean
+  /** Coarse dust share (0–1), eased over concentrations of 40–60 µg/m³. */
+  dustWeight: number
   /** The colour far planes fade toward. */
   haze: RGB
   /** Aerial perspective: 0 near … 1 lost, Koschmieder from `visibilityKm` (contrast 2 % at the visibility). */
@@ -183,6 +192,8 @@ export interface Air {
   farFade: number
   nearFade: number
   horizonBand: { rgb: RGB; alpha: number }
+  /** Shallow valley/ground mist and fog (radiation vs persistent, 0–1; `mist.ts`). */
+  mist: Mist
   /** Heat shimmer amplitude (px). */
   heat: number
 }
@@ -223,13 +234,29 @@ export interface CloudLayer {
 
 export interface RainCell { fromAzimuth: number; toAzimuth: number; bank: string }
 
+export interface FieldRainCell extends RainCell {
+  level: CloudLevel
+  x: number
+  y: number
+  radiusKm: number
+  share: number
+  virga: number
+  atEye: boolean
+  baseKm: number
+  cloudX: number
+  cloudY: number
+  seed: number
+}
+
 export interface Rain {
   rateMmH: number
-  /** Under the raining layer's banks, at their true azimuths. */
-  cells: RainCell[]
+  /** Shafts from the raining layer, at their true azimuths. */
+  cells: FieldRainCell[]
+  near: boolean
   /** Rad from vertical, signed like `wind.across` (rain falls toward where the wind goes). */
   slant: number
   thunder: boolean
+  thunderWeight: number
 }
 
 /** Snow falling (C7): from the precipitating layer's banks, at their true azimuths, carried by the one wind. */
@@ -282,8 +309,9 @@ export interface TerrainPlanes {
    */
   status: LandStatus
   sightAt?: SceneTerrain['sightAt']
-  seenAt?: SceneTerrain['seenAt']
+  /** Ground in metres relative to the eye. */
   groundAt?: SceneTerrain['groundAt']
+  eyeM?: number
   snowEdge?: SceneTerrain['snowEdge']
   /** The ground that shows on each plane's face, from the terrain data (`face.ts`); empty for the unknown land. */
   faces: Record<'near' | 'far', PlaneFace>
@@ -404,14 +432,6 @@ export interface Night {
   aviation: boolean
 }
 
-/**
- * The low and mid cloud's shadows passing over the land (the living light): `cover` the share of the sky they make (0–1),
- * `strength` how much direct sun a shadow takes away where it passes (nil with no sun to cast them, and under a closed
- * deck, where the whole land is in its shade), `driftKm` how far the cloud's wind has carried them across the view since
- * the day's midnight (continuous in time), `kmh` the wind's speed across now (+ toward the right).
- */
-export interface CloudShadows { cover: number; strength: number; driftKm: number; kmh: number }
-
 export interface WorldKeys {
   bodies: string
   light: string
@@ -446,11 +466,14 @@ export interface WorldState {
   air: Air
   /** low, mid, high (in that order). */
   clouds: CloudLayer[]
+  cloudField?: import('./cloudField').WorldCloudField
   rain: Rain | null
   snow: SnowFall | null
   /** Snow falling now from the clouds (C7), or null. */
   snowfall: Snowfall | null
   wind: Wind
+  flightTerrain?: Pick<import('./flightTerrain').FlightTerrain,
+    'eyeM' | 'heightAt' | 'blockedKm' | 'panoramaHeightsM' | 'shadowBlocked' | 'occludedAt'>
   terrain: TerrainPlanes
   water: WaterState
   farCities: FarCities
@@ -471,8 +494,6 @@ export interface WorldState {
   nightSky: NightSky
   /** C10: the rainbow, the 22° halo and the sun dogs. */
   optics: Optics
-  /** The living light: the low cloud's shadows on the land. */
-  shadows: CloudShadows
   sources: WorldSources
   keys: WorldKeys
 }

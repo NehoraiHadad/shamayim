@@ -6,11 +6,13 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { assertTownScale, QUALIFYING_TOWN_ROOFS } from '../../test/worshipAssertions'
 import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../../test/scenePlaces'
 import { VISIBLE_BOTTOM } from '../../world/layout'
+import { cloudLight } from '../../world/lightCloud'
+import { airDim } from '../../world/livingLight'
 import type { OutsideView, WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 import { beamThrough, rayStrengths } from './rays'
-import { skyGeom } from './sky'
+import { coversOf, skyGeom } from './sky'
 import { mixLight, mixRgb, lightness } from './tone'
 import type { LayerKind, LayerOf, SceneBox } from './types'
 import { fresnel } from './water'
@@ -159,7 +161,10 @@ describe('C9: water against the land at a low sun (defect 7)', () => {
   it('lays the sun\'s path by the world\'s own direct light and sun (Masada at sunrise)', () => {
     const world = worldAt('masada', '06:20')
     expect(world.bodies.sun.overLand).toBe(true)
-    expect(world.light.direct).toBeGreaterThan(.1)
+    // The open-deck field transmission is now the cloud term in the same world beam the water reads.
+    const open = cloudLight(coversOf(world), world.cloudField?.field).open
+    const { sun } = world.bodies
+    expect(world.light.direct).toBeCloseTo(sun.visible! * airDim(sun.altitude, world.air) * open, 6)
     expect(world.water.glints.length).toBeGreaterThan(0)
     expect(world.water.light!.strength).toBeCloseTo(world.light.direct, 6)
   })

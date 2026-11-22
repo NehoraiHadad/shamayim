@@ -5,7 +5,9 @@ import type { SkyLight } from '../theme/skyLight'
 import { rgbOf } from './air'
 import { AFTERGLOW, afterglowColour } from './afterglow'
 import type { Covers } from './clouds'
-import { moonCloud } from './moonShape'
+import { cloudLight } from './lightCloud'
+import { transmitAlong } from './field/transmit'
+import type { WorldCloudField } from './cloudField'
 import { moonlightStrength } from './moonlight'
 import { ridgeLightRay, smoothstep } from './ridgeLighting'
 import { hazeDirect, shadowReach, sunLight, type Aerosol } from './sceneLight'
@@ -29,16 +31,7 @@ const SKY_ONLY = SHADING[0]
 /** The direct share over which the light's colour turns from the sky's to its source's (four times this). */
 const MIN_DIRECT = 0.05
 
-/**
- * The share of direct light the cloud between the eye and the source lets through (0–1). The layers are independent;
- * thick low cloud blocks nearly all of it, mid cloud most, thin high cloud dims it a little. As an expected value over a
- * broken sky: 50 % low cloud lets about half through. A mid layer that closes into a full deck (altostratus) is as thick as
- * low cloud: the share it blocks rises to 0.95 at full cover (C6: until then a full mid and high overcast still let a
- * shadow-casting sun through, hidden only by a NaN in the cover split, `layerCovers`).
- */
-export function cloudTransmit({ low, mid, high }: Covers): number {
-  return (1 - 0.95 * low) * (1 - (0.85 + 0.1 * mid ** 4) * mid) * (1 - 0.3 * high)
-}
+export { cloudTransmit } from './lightCloud'
 
 export interface LightInput {
   at: LocalTime
@@ -51,9 +44,7 @@ export interface LightInput {
   moon: MoonBody
   aerosol: Aerosol
   covers: Covers
-  /** The shown cover (0–100) and its thick part, for the moon's veil (`moonCloud`). */
-  cloudCover: number
-  thickCloud: number | null
+  cloudField?: WorldCloudField
   farFade: number
   palette: SkyLight
 }
@@ -102,8 +93,9 @@ function glowOf(input: LightInput): Light['glow'] {
 /**
  * The one light of the scene at the shown minute (the living light, 2026-11-20): a continuous function of the world state.
  * The sun's direct share is the part of its true disc over the drawn land (`visible`, softened at the edge) times what the
- * air mass and the hour's aerosol let through (`airDim`: it dims and warms as it sinks) times what the cloud in front lets
- * through; by night the moon's the same way, fainter; with neither, the sky alone. Nothing switches: the source's label
+ * air mass and the hour's aerosol let through (`airDim`: it dims and warms as it sinks) times open-deck transmission.
+ * The separate eye share follows the ray to the source. The moon uses the same split with its phase and air path.
+ * The source's label
  * changes only where its share is nil, the direction (`dir`) is the one giving the direct light, and the colour fades to
  * the sky's as the direct share goes. Every face, shadow and glint takes its direction, colour and strength.
  */
@@ -114,19 +106,23 @@ export function lightOf(input: LightInput): Light {
   const afterglow = sun.altitude < AFTERGLOW.from && sun.altitude > AFTERGLOW.to
     ? { x: sun.x, altitude: sun.altitude, rgb: afterglowColour(sun.altitude, aerosol) as RGB } : null
   const noonWeight = sun.t === null ? 0 : 1 - smoothstep(0, 0.18, Math.abs(sun.t - 0.5))
-  const transmit = cloudTransmit(covers)
-  const base = { ambient, glow, afterglow, palette, diffuse: 1 - transmit }
+  const { open, clear: meanTransmission, diffuse } = cloudLight(covers, input.cloudField?.field)
+  const base = { ambient, glow, afterglow, palette, diffuse, clear: meanTransmission }
 
   // The sun: its disc over the drawn land, through the air (a haze too thick lets nothing through), through the cloud.
   const visible = sun.visible ?? discShare(sun.clearance)
   const haze = hazeDirect(sun.altitude, aerosol)
-  const sunShare = visible * airDim(sun.altitude, aerosol) * smoothstep(MIN_HAZE_DIRECT * 0.5, MIN_HAZE_DIRECT * 1.5, haze) * transmit
-  // The moon: by its phase, height and veil (`moonlightStrength`, nil while the sky is light), its disc over the land.
-  const moonShare = moonlightStrength({ altitude: moon.altitude, azimuth: moon.azimuth, fraction: moon.illumination }, sun.altitude,
-    moonCloud(input.cloudCover, input.thickCloud), input.farFade) * (moon.visible ?? (moon.overLand ? 1 : 0))
+  const sunClear = visible * airDim(sun.altitude, aerosol) * smoothstep(MIN_HAZE_DIRECT * 0.5, MIN_HAZE_DIRECT * 1.5, haze)
+  // Moon phase and clear-sky air path, with the drawn land's disc visibility.
+  const moonClear = moonlightStrength({ altitude: moon.altitude, azimuth: moon.azimuth, fraction: moon.illumination }, sun.altitude,
+    0, input.farFade) * (moon.visible ?? (moon.overLand ? 1 : 0))
+  const sunShare = sunClear * open, moonShare = moonClear * open
   const byMoon = moonShare > sunShare
   const body = byMoon ? moon : sun
   const direct = sunShare + moonShare
+  const clear = byMoon ? moonClear : sunClear
+  const cloud = input.cloudField
+  const eye = clear * (cloud && clear > 0 ? transmitAlong(cloud.field, cloud.snapshot, body.azimuth, body.altitude) : meanTransmission)
   const across = lateral(body.azimuth, camera)
   const ray = ridgeLightRay(across, body.altitude)
   // Its colour, faded to the sky's as its share goes (a sun sinking behind the land leaves the sky's light, not a switch).
@@ -138,14 +134,14 @@ export function lightOf(input: LightInput): Light {
     source, azimuth: body.azimuth, altitude: body.altitude,
     // Use the same direct-share ramp as the light on faces.
     across: across * smoothstep(SHADING[0], SHADING[1], direct), ray: source === 'sky' ? null : ray,
-    colour, direct, shares: { sun: sunShare, moon: moonShare },
+    colour, direct, eye, meanBeam: { sun: sunClear * meanTransmission, moon: moonClear * meanTransmission }, shares: { sun: sunShare, moon: moonShare },
     dir: viewDir(body.azimuth, body.altitude, camera),
     // The cast shadow's side and reach follow the source; its strength (every consumer multiplies by `direct`) and its
     // softness follow the share. Moon shadows are faint: soft at best.
     shadow: { dx: -Math.max(-1, Math.min(1, across)), length: shadowReach(ray),
-      softness: byMoon ? Math.max(0.6, 1 - moonShare) : 1 - smoothstep(0.2, 0.6, direct) },
+      softness: byMoon ? Math.max(0.6, 1 - eye) : 1 - smoothstep(0.2, 0.6, eye) },
     noonWeight: byMoon ? 0 : noonWeight,
-    rimX: direct >= SKY_ONLY ? body.x : glow ? glow.x : null,
+    rimX: eye >= SKY_ONLY ? body.x : glow ? glow.x : null,
   }
 }
 

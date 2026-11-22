@@ -1,99 +1,149 @@
 //# allFunctionsCalledOnLoad
-import { hashId, seeded } from '../../data/landmarks/hash'
+import { apparentAngle } from '../../data/terrain/panorama'
+import { FLIGHT_LOCAL_KM } from '../../world/flightTerrain'
+import { terrainY } from '../../world/terrain'
+import { spanDeg, xOf } from '../../domain/camera'
+import type { FieldCell } from '../../world/field/types'
+import { cloudLight } from '../../world/lightCloud'
 import { SCENE_W } from '../../world/sceneBox'
-import type { RGB, WorldState } from '../../world/types'
-import { colourKey, landBoxKey, layerKey } from './keys'
-import { hazeOf } from './planeLight'
-import { mixRgb } from './tone'
-import type { LayerOf, SceneBox } from './types'
+import type { WorldState } from '../../world/types'
+import { shadowLayers, type ShadowBlob, type ShadowBox, type ShadowPlane, type ShadowTerrain } from './cloudShadowLayers'
+import type { Pt } from './types'
 
-/*
- * The cloud's shadows on the land (the living light, 2026-11-20): under a broken sky, soft patches of shade pass over the
- * land and the town, carried by the low cloud's wind. Three bands of the land by distance (far near the horizon, the near
- * ground at the foot), each a seamless tile of soft patches as large as clouds are at that distance, flattened by the
- * ground's foreshortening, laid at composite time: the tile is moved by how far the wind has carried the cloud since
- * midnight (`world.shadows.driftKm`, so a scrub moves them without a repaint), drifts a little in the ambient loop, and
- * is laid `source-atop` the land, so it darkens only what is drawn. Its alpha is the shadows' strength at the minute.
- * Pure: the patches are seeded by the place; nothing reads a clock.
- */
-
-/** Over the town and its marks (40), under the sky's life laid in front of the land (40.5). */
-const Z = 40.3
-/** Scene px per degree across (the camera's), and km of cloud the patches are made from (a low cloud's size). */
-const PX_PER_DEG = 1.5
-const CLOUD_KM: [number, number] = [2, 6]
-const DEG = 180 / Math.PI
-/** The shade a passing cloud leaves: the sky-lit dark, a little blue. */
-const SHADE: RGB = [0.04, 0.06, 0.12]
-/** The ambient loop runs this many times faster than the wind (a slow time-lapse, as the sky's clouds drift). */
-const LOOP_RATE = 12
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-
-interface Band { id: string; top: number; bottom: number; km: number; fadeIn: [number, number] | null; fadeOut: [number, number] | null }
-
-/** The land's depth bands (land px): the far ground under the horizon, the middle, the near ground at the foot. */
-function bandsOf(world: WorldState, box: SceneBox): Band[] {
-  const { terrain } = world
-  const median = (v: readonly number[]) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] ?? 10
-  const farKm = Math.max(4, median(terrain.far?.distanceKm ?? [12]))
-  const nearKm = Math.max(0.8, Math.min(farKm / 2, median(terrain.near.distanceKm)))
-  const crest = Math.min(...terrain.far.points.map(([, y]) => y), ...terrain.near.points.map(([, y]) => y))
-  // The town's own roofs stand over the ridge line: they take the far ground's shadows too.
-  const view = world.place3.kind === 'outside' ? world.place3 : null
-  const roofs = view ? Math.min(...view.skyline.boxes.map((b) => b.top), ...view.skyline.towers.map((t) => t.baseY - t.h)) : Infinity
-  const top = Math.max(0, Math.floor(Math.min(crest, roofs)) - 2), bottom = box.landHeight
-  const h = bottom - top
-  // Three hats that sum to one down the land: each band fades into the next over the stretch between their middles.
-  const c0 = top + h * 0.25, c1 = top + h * 0.5, c2 = top + h * 0.75
-  return [
-    { id: 'far', top, bottom: c1, km: farKm, fadeIn: null, fadeOut: [c0, c1] },
-    { id: 'mid', top: c0, bottom: c2, km: Math.sqrt(farKm * nearKm), fadeIn: [c0, c1], fadeOut: [c1, c2] },
-    { id: 'near', top: c1, bottom, km: nearKm, fadeIn: [c1, c2], fadeOut: null },
-  ]
+const RAD = Math.PI / 180
+const RANGE = 60
+const supports = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
+  flightTerrain?: WorldState['flightTerrain']
+  light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
+  terrain: ShadowTerrain
 }
 
-/** Scene px per km across at a distance (the camera's angular scale). */
-const pxPerKm = (km: number, sx: number) => (DEG / km) * PX_PER_DEG * sx
+type Projection = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
+export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
+  const { light, terrain, cloudField, camera, flightTerrain: grid } = world
+  // Below one 8-bit alpha step the largest possible shadow is subpixel in opacity.
+  if (!cloudField || !grid || light.altitude <= 0 || 0.65 * light.direct < 1 / 255) return []
+  const { field } = cloudField
+  const { open } = cloudLight({ low: 0, mid: 0, high: 0 }, field)
+  if (open <= 0) return []
+  const altitude = light.altitude * RAD
+  const cot = 1 / Math.tan(altitude)
+  const sin = Math.sin(light.azimuth * RAD), cos = Math.cos(light.azimuth * RAD)
+  const eastPerUp = sin * cot, northPerUp = cos * cot
+  const invSin = 1 / Math.sin(altitude)
+  const alphaScale = 0.65 * light.direct
+  const minDepth = -2 * Math.log(open * (1 - 1 / (255 * alphaScale))) / invSin
+  const scale = box.width / SCENE_W
+  const period = 360 * camera.pxPerDeg * box.width / camera.width
 
-/** The cloud shadows' layers on the land (none without a broken sky and a sun to cast them). */
-export function cloudShadowLayers(world: WorldState, box: SceneBox): LayerOf<'cloudShadow'>[] {
-  const { shadows } = world
-  if (!shadows || shadows.strength < 0.01 || box.landHeight <= 0 || world.terrain.status !== 'ready') return []
-  const sx = box.width / SCENE_W
-  const period = Math.ceil(box.width * 1.5)
-  // The cover in steps (a scrub through an hour repaints the tile only when a patch more forms).
-  const cover = Math.round(clamp01(shadows.cover) * 16) / 16
-  return bandsOf(world, box).map((band, i) => {
-    const r = seeded(hashId(`${world.place.id}:cloud-shadow:${band.id}`))
-    // Farther, the air between lightens the shade toward its own tone.
-    const rgb = mixRgb(SHADE, hazeOf(world), 0.3 * (1 - i / 2))
-    const scale = pxPerKm(band.km, sx)
-    const h = band.bottom - band.top
-    // As many patches as the cover makes of the band, each a cloud's size at its distance, flattened by the ground's
-    // foreshortening (far ground nearly edge-on).
-    const flat = 0.22 + 0.25 * (i / 2)
-    const count = Math.round(cover * Math.max(4, (period / (scale * 4)) * 2.4))
-    // A cloud's shadow is lumpy: a body and two lobes, each a soft ellipse.
-    const blobs = Array.from({ length: count }, () => {
-      const rx = (CLOUD_KM[0] + (CLOUD_KM[1] - CLOUD_KM[0]) * r()) * scale / 2
-      const x = r() * period, y = band.top + h * r()
-      const ry = Math.max(1.5, rx * flat * (0.7 + 0.6 * r()))
-      const alpha = 0.55 + 0.45 * r()
-      return [{ x, y, rx, ry, alpha }, ...[0, 1].map(() => ({ x: x + (r() - 0.5) * 1.4 * rx, y: y + (r() - 0.5) * ry, rx: rx * (0.45 + 0.3 * r()),
-        ry: ry * (0.5 + 0.3 * r()), alpha: alpha * 0.8 }))]
-    }).flat()
-    // Where the wind has carried them at this minute (whole device px are the compositor's), and their loop's slow drift.
-    const offset = ((shadows.driftKm * scale) % period + period) % period
-    const speed = (shadows.kmh / 3600) * scale * LOOP_RATE
-    const alpha = Math.round(clamp01(shadows.strength * 0.7) * 64) / 64
-    return {
-      kind: 'cloudShadow', id: `cloudShadow.${band.id}`, surface: 'land', z: Z + i * 0.01, soft: true, blend: 'source-atop',
-      bounds: { x: 0, y: Math.floor(band.top), w: period, h: Math.ceil(band.bottom) - Math.floor(band.top) },
-      blobs, rgb, period, band: { top: band.top, bottom: band.bottom, fadeIn: band.fadeIn, fadeOut: band.fadeOut },
-      animated: { mode: 'drift', speed, period, offset, alpha },
-      key: layerKey('cloudShadow', band.id, world.place.id, cover, Math.round(band.top * 2), Math.round(band.bottom * 2), Math.round(scale * 8),
-        colourKey(rgb), landBoxKey(box, true)),
-    } satisfies LayerOf<'cloudShadow'>
-  })
+  const { eyeM, heightAt, blockedKm, panoramaHeightsM, shadowBlocked, occludedAt } = grid
+  const halfView = spanDeg(camera) * RAD / 2
+  const heading = camera.heading * RAD
+  const leftEast = Math.cos(heading - halfView), leftNorth = -Math.sin(heading - halfView)
+  const rightEast = -Math.cos(heading + halfView), rightNorth = Math.sin(heading + halfView)
+  const groundMin = ((panoramaHeightsM?.[0] ?? 0) - eyeM) / 1000
+  const groundMax = ((panoramaHeightsM?.[1] ?? 0) - eyeM) / 1000
+  const furthestEyeProjection = RANGE + Math.max(Math.abs(groundMin), Math.abs(groundMax)) * cot + 0.010001
+  const furthestEyeSquared = furthestEyeProjection ** 2
+  const allowance = (alongSun: number) => Math.max(groundMin * alongSun, groundMax * alongSun) + 0.010001
+  const leftAllowance = allowance(leftEast * eastPerUp + leftNorth * northPerUp)
+  const rightAllowance = allowance(rightEast * eastPerUp + rightNorth * northPerUp)
+  const screenX = (eastKm: number, northKm: number) =>
+    xOf(Math.atan2(eastKm, northKm) / RAD, camera) * SCENE_W / camera.width
+  function onGround(eastAtEyeKm: number, northAtEyeKm: number): Projection | undefined {
+    let groundAboveEyeKm = 0, previousAboveEyeKm = 0, previousResidualKm = 0
+    // Allow six samples and accept only a horizontal projection-equation residual of at most 10 m.
+    for (let i = 0; i < 6; i++) {
+      const eastKm = eastAtEyeKm + groundAboveEyeKm * eastPerUp
+      const northKm = northAtEyeKm + groundAboveEyeKm * northPerUp
+      const seaLevelM = heightAt(eastKm, northKm)
+      if (seaLevelM === null) return
+      const nextAboveEyeKm = (seaLevelM - eyeM) / 1000
+      const residualKm = nextAboveEyeKm - groundAboveEyeKm
+      if (Math.abs(residualKm) * cot <= 0.01) {
+        const distanceSquared = eastKm * eastKm + northKm * northKm
+        if (distanceSquared > RANGE * RANGE) return
+        const upM = seaLevelM - eyeM
+        if (occludedAt?.(eastKm, northKm, upM) ?? (blockedKm(eastKm, northKm, upM) !== null)) return
+        const x = screenX(eastKm, northKm)
+        if (x >= 0 && x <= SCENE_W) return { x, km: Math.sqrt(distanceSquared), eastKm, northKm, seaLevelM }
+        return
+      }
+      // A secant step resolves locally linear slopes faster. Bound the step to
+      // three times the fixed-point correction before trying a new grid sample.
+      const secantKm = residualKm * (previousAboveEyeKm - groundAboveEyeKm) / (residualKm - previousResidualKm)
+      previousAboveEyeKm = groundAboveEyeKm
+      previousResidualKm = residualKm
+      groundAboveEyeKm += Math.abs(secantKm) <= 3 * Math.abs(residualKm) && secantKm !== 0 ? secantKm : residualKm
+    }
+  }
+
+  const candidates: { cell: FieldCell; east: number; north: number; eyeDistanceSquared: number; slant: number }[] = []
+  for (const { cells, layer } of cloudField.snapshot) {
+    if (!layer || layer.lattice === 'high') continue
+    for (const cell of cells) {
+      const { x, y, r, baseKm: baseAboveEyeKm, vKm: depth, tau0: tau, genus, lattice } = cell
+      if (tau < minDepth) continue
+      const h = baseAboveEyeKm + depth / 2
+      const east = x - h * eastPerUp, north = y - h * northPerUp
+      const eyeDistanceSquared = east * east + north * north
+      // The centre moves along the sun axis. Beyond local-grid reach,
+      // project both terrain-height limits onto the camera edge normals.
+      if (panoramaHeightsM && halfView < Math.PI && Math.abs(x * cos - y * sin) > FLIGHT_LOCAL_KM) {
+        if (eyeDistanceSquared > furthestEyeSquared) continue
+        // Keep the accepted centre residual (10 m) inside the bound.
+        const outsideLeft = east * leftEast + north * leftNorth < -leftAllowance
+        const outsideRight = east * rightEast + north * rightNorth < -rightAllowance
+        if (halfView <= Math.PI / 2 ? outsideLeft || outsideRight : outsideLeft && outsideRight) continue
+      }
+      // Both chords span at most min(V, 2r/cot(alt)) in height, bounding the
+      // transmission difference by 1 - exp(-tau × extent / (2 × spread × sin(alt))).
+      const spread = depth * cot / (2 * r), extent = Math.min(1, spread)
+      const extent2 = extent * extent
+      const cumulus = lattice === 'tower' || genus === 'cu' || genus === 'cg' || genus === 'cb'
+      const profile = spread > 0 ? extent / spread * (1 - (cumulus ? extent2 / 3 : extent2 * extent2 / 5)) : 1
+      const slant = tau * profile
+      if (slant < minDepth) continue
+      candidates.push({ cell, east, north, eyeDistanceSquared, slant })
+    }
+  }
+  // Eye-level distance differs from true range by at most |groundM - eyeM| × cot(alt)/1000 + 0.01 km.
+  candidates.sort((a, b) => a.eyeDistanceSquared - b.eyeDistanceSquared)
+  const accepted: { km: number; plane: ShadowPlane; blob: ShadowBlob }[] = []
+  for (const { cell: { id, r, vKm: depth }, east: eastAtEye, north: northAtEye, slant } of candidates) {
+    if (accepted.length === 64) break
+    if (shadowBlocked?.(eastAtEye, northAtEye, eastPerUp, northPerUp)) continue
+    const centre = onGround(eastAtEye, northAtEye)
+    if (!centre) continue
+    const sight = terrain.sightAt?.(centre.x)
+    const plane = !sight || centre.km <= sight.nearKm ? 'near'
+      : terrain.back && centre.km > sight.farKm ? 'back' : 'far'
+    let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+    // A support whose true ground is Δh metres from the centre height moves
+    // by at most δ = |Δh| cot(alt)/1000 km along the sun axis. At range d > δ
+    // its horizontal error at 375 px is at most pxPerDeg × asin(δ/d) in degrees
+    // (scaled by 375/camera.width). Vertically, with k = curveDrop(1), the
+    // slope error is at most |Δh|/(d-δ) + |height-eye|δ/[d(d-δ)] + kδ.
+    // Divide by 1000, convert radians to degrees (atan is 1-Lipschitz),
+    // then multiply by the relief's maximum derivative in px/degree.
+    for (const [u, v] of supports) {
+      const cap = -u * depth / 2
+      const east = centre.eastKm + r * (u * sin + v * cos) - cap * eastPerUp
+      const north = centre.northKm + r * (u * cos - v * sin) - cap * northPerUp
+      const rawX = screenX(east, north) * scale
+      const sx = rawX + Math.round((centre.x * scale - rawX) / period) * period
+      const sy = terrainY(terrain.horizonY, apparentAngle(centre.seaLevelM, Math.sqrt(east * east + north * north), eyeM))
+      left = Math.min(left, sx)
+      right = Math.max(right, sx)
+      top = Math.min(top, sy)
+      bottom = Math.max(bottom, sy)
+    }
+    const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
+    const centreKm: Pt = [centre.eastKm, centre.northKm]
+    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, alpha,
+      x: (left + right) / 2, y: (top + bottom) / 2,
+      rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
+  }
+  return shadowLayers(terrain, box, accepted)
 }

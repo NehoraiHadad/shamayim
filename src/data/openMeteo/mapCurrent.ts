@@ -6,6 +6,9 @@ export function mapCurrent(raw: Json): CurrentWeather {
   const current = obj(raw.current, 'current')
   expectUnit(obj(raw.current_units ?? {}, 'current_units'), 'temperature_2m', '°C', 'current_units')
 
+  const cloudLow = numOrNull(current.cloud_cover_low)
+  const cloudMid = numOrNull(current.cloud_cover_mid)
+
   return {
     time: str(current.time, 'current.time'),
     temperature: num(current.temperature_2m, 'current.temperature_2m'),
@@ -13,7 +16,9 @@ export function mapCurrent(raw: Json): CurrentWeather {
     isDay: num(current.is_day, 'current.is_day') === 1,
     weatherCode: num(current.weather_code, 'current.weather_code'),
     cloudCover: num(current.cloud_cover, 'current.cloud_cover'),
-    thickCloud: thickCloud(numOrNull(current.cloud_cover_low), numOrNull(current.cloud_cover_mid)),
+    thickCloud: thickCloud(cloudLow, cloudMid),
+    cloudLow,
+    cloudMid,
     windSpeed: num(current.wind_speed_10m, 'current.wind_speed_10m'),
     windGusts: num(current.wind_gusts_10m, 'current.wind_gusts_10m'),
     windDirection: numOrNull(current.wind_direction_10m) ?? 0,

@@ -14,7 +14,7 @@ import type { LayerDesc, LayerOf, SceneBox } from './types'
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
 const CLEAR: Partial<AirInput> = { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0 }
 const SHOWERS: Partial<AirInput> = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,
-  windDirection: 250, humidity: 80 }
+  windDirection: 250, humidity: 80, visibilityKm: 30 }
 const RAIN: Partial<AirInput> = { precipitation: 4, weatherCode: 63, cloudCover: 95, thickCloud: 90, windSpeed: 35, windGusts: 55, windDirection: 270,
   humidity: 95 }
 
@@ -34,8 +34,10 @@ describe('C10: the sky life in the model', () => {
   it('lays a flock or a plane in front of the land only where it is nearer than that land, else the land hides it', { timeout: 60_000 }, () => {
     let seen = 0, front = 0
     for (const place of SCENE_PLACES) {
+      const input = worldInput(places.get(place.id)!, '2026-11-17T12:00')
       for (const hour of ['07:30', '09:00', '12:00', '14:00', '16:00']) {
-        const { world, model } = at(place.id, `2026-11-17T${hour}`)
+        const world = buildWorld({ ...input, selected: `2026-11-17T${hour}` })
+        const model = sceneModel(world, BOX)
         const geom = skyGeom(world, BOX)
         for (const l of model.layers.filter((x): x is LayerOf<'birds'> | LayerOf<'aircraft'> => x.kind === 'birds' || x.kind === 'aircraft')) {
           expect(l.placed, l.id).toBeDefined()
@@ -67,7 +69,10 @@ describe('C10: the sky life in the model', () => {
       const flight = b.animated!.flight!
       expect(flight).toMatchObject({ open: true, step: 2 })
       expect(flight.path).toHaveLength(61)
-      expect(trackAt(flight, 0)).toEqual({ x: 0, y: 0, scale: 1, alpha: 1, turn: 0 })
+      const start = trackAt(flight, 0)!
+      expect(start).toMatchObject({ x: 0, y: 0, scale: 1, turn: 0 })
+      expect(start.alpha === 0 || start.alpha === 1).toBe(true)
+      if (start.alpha === 0) expect(flight.alpha!.some((a) => a > 0)).toBe(true)
       expect(trackAt(flight, 121)).toEqual(trackAt(flight, 120))
     }
   })

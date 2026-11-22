@@ -1,7 +1,9 @@
+import { rainBanks } from './rain'
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../config/place'
+import { utcOf } from '../astro/utc'
 import { loadCity } from '../data/city/cityData'
 import type { CityResult } from '../data/city/types'
 import { loadIsrael } from '../data/landmarks/israelData'
@@ -16,8 +18,11 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import { waterAround } from '../data/water/waterInView'
 import { waterMask, type WaterMaskFile } from '../data/water/waterMask'
 import { xOf } from '../domain/camera'
+import { withForecastRefresh } from '../domain/forecastRefresh'
+import { addMinutes } from '../domain/minutes'
 import { rollForward } from '../domain/now'
 import type { Forecast, HourPoint, LocalTime } from '../domain/types'
+import { mistLayers } from '../scene/model/mist'
 import layersFixture from '../test/fixtures/forecast-layers-2026-11-17.json'
 import live from '../test/fixtures/forecast-multi-2026-11-17.json'
 import { SCENE_PLACES } from '../test/scenePlaces'
@@ -149,10 +154,11 @@ describe('light', () => {
 
 describe('air', () => {
   it('fades far land faster in thicker air', () => {
-    const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 40000 } } })
-    const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 5000 } } })
+    const base = forecastFrom(live, 'jerusalem')
+    const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...base,
+      current: { ...base.current, time: '2026-11-17T12:00', visibility: 40000 } } })
+    const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...base,
+      current: { ...base.current, time: '2026-11-17T12:00', visibility: 5000 } } })
     expect(thick.air.visibilityKm).toBe(5)
     expect(thick.air.fade(10)).toBeGreaterThan(clear.air.fade(10))
     for (const world of [clear, thick]) {
@@ -170,6 +176,71 @@ describe('air', () => {
     expect(['humidity', 'default']).toContain(recorded.sources.visibility)
     expect(visibilityFromHumidity(50)).toBe(40)
     expect(visibilityFromHumidity(90)).toBeLessThan(10)
+  })
+
+  it('keeps live and scrub mist continuous from 05:30 to 09:30 through rollover and refresh', () => {
+    const id = 'shadmot-mehola'
+    const start = '2026-11-17T05:30'
+    const reading = '2026-11-17T05:50'
+    const receipt = '2026-11-17T07:10'
+    const base = forecastFrom(live, id)
+    const hourly = { humidity: 96, visibility: 12_000, cloudCover: 0, thickCloud: 0,
+      cloudLow: 0, cloudMid: 0, cloudHigh: 0, precipitation: 0, weatherCode: 0, windSpeed: 4, windGusts: 7 }
+    const old: Forecast = {
+      ...base,
+      hours: base.hours.map((h) => {
+        const hour = Number(h.time.slice(11, 13))
+        const temperature = 12 + 0.25 * Math.max(0, hour - 5) ** 2
+        const visibility = h.time >= '2026-11-17T07:00' ? 7_000 : hourly.visibility
+        const fog = h.time === '2026-11-17T06:00' ? { visibility: null, weatherCode: 45 } : {}
+        return { ...h, ...hourly, temperature, visibility, ...fog }
+      }),
+      current: { ...base.current, ...hourly, time: reading, temperature: 12, visibility: 5_800, snowfall: 0 },
+    }
+    const stamp = utcOf(receipt, loaded.get(id)!.place.timezone).getTime()
+    const incoming = withForecastRefresh({
+      ...old,
+      current: { ...old.current, time: receipt, visibility: 5_000, cloudCover: 20, cloudLow: 20 },
+      hours: old.hours.map((h) => h.time >= '2026-11-17T07:00'
+        ? { ...h, temperature: h.temperature + 0.5, visibility: 7_000, cloudCover: 20, cloudLow: 20 } : h),
+    }, old, stamp)
+    const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
+    const read = (world: WorldState) => {
+      const { radiation, fog, persistent, amount } = world.air.mist
+      const bands = mistLayers(world, box)
+      const alpha = (id: string) => bands.find((band) => band.id === id)?.bands[0].alpha ?? 0
+      return [radiation, fog, persistent, amount, alpha('mist.valley'), alpha('mist.ground')]
+    }
+    const build = makeWorldBuilder()
+    const input = inputAt(id, start, { forecast: old })
+    const render = (now: LocalTime, forecast: Forecast) => {
+      const sample = { ...input, now, forecast: { ...forecast, days: input.forecast.days } }
+      const live = read(build({ ...sample, forecast: rollForward(sample.forecast, now) }))
+      const scrub = read(build({ ...sample, selected: now }))
+      expect(live, now).toEqual(scrub)
+      return { live, scrub }
+    }
+    const step = (a: number[], b: number[]) => Math.max(...a.map((value, i) => Math.abs(value - b[i])))
+    const times = Array.from({ length: 241 }, (_, minute) => addMinutes(start, minute))
+    const baseline = times.map((now) => render(now, old))
+    const control = baseline.map(({ live }) => live)
+    const refreshed = times.map((now) => render(now, now < receipt ? old : incoming).live)
+    const maxStep = (series: number[][]) => Math.max(...series.slice(1).map((sample, i) => step(series[i], sample)))
+    const scrubMax = maxStep(baseline.map(({ scrub }) => scrub))
+    const bound = 2 * scrubMax + 0.01
+    const rolloverIndex = times.indexOf('2026-11-17T06:00')
+    const receiptIndex = times.indexOf(receipt)
+    const maxima = { live: maxStep(control), refreshed: maxStep(refreshed),
+      rollover: step(refreshed[rolloverIndex - 1], refreshed[rolloverIndex]),
+      receipt: step(refreshed[receiptIndex - 1], refreshed[receiptIndex]) }
+    console.info('Dawn mist maximum one-minute steps', { scrubMax, bound, ...maxima })
+    // On pre-merge main (c5b1af8), fog stepped by 0.79424966 at rollover and 0.12620027 at receipt.
+    expect(scrubMax).toBeGreaterThan(0)
+    for (const [event, change] of Object.entries(maxima)) expect(change, event).toBeLessThanOrEqual(bound)
+    expect(refreshed[receiptIndex]).toEqual(control[receiptIndex])
+    expect(step(refreshed[receiptIndex + 10], control[receiptIndex + 10])).toBeGreaterThan(0.05)
+    expect(refreshed[0][0]).toBeGreaterThan(0.5)
+    expect(refreshed.at(-1)![3]).toBeLessThan(0.05)
   })
 })
 
@@ -199,7 +270,8 @@ describe('clouds and rain', () => {
     const raining = world.clouds.filter((l) => l.rains)
     expect(raining.map((l) => l.level)).toEqual(['low'])
     expect(world.sources.rainCloudRaised).toBe(false)
-    const banks = new Map(raining[0].banks.map((bank) => [bank.id, bank]))
+    const banks = new Map(rainBanks(world.rain!).map(bank => [bank.id, bank]))
+    expect(raining[0].banks.every(bank => !banks.has(bank.id))).toBe(true)
     for (const cell of world.rain!.cells) {
       const bank = banks.get(cell.bank)!
       expect(bank).toBeDefined()
@@ -215,6 +287,17 @@ describe('clouds and rain', () => {
     const low = world.clouds.find((l) => l.level === 'low')!
     expect(low.rains).toBe(true)
     expect(low.cover).toBeGreaterThanOrEqual(0.5)
+  })
+
+  it('raises a cloud for a code-only snow hour without creating liquid rain', () => {
+    const base = forecastFrom(live, 'jerusalem')
+    const snowy = everyHour(base, { cloudCover: 5, thickCloud: 0, precipitation: 0, weatherCode: 73 })
+    const world = worldAt('jerusalem', '2026-11-17T12:00', { forecast: snowy, selected: '2026-11-17T12:00' })
+    expect(world.rain).toBeNull()
+    expect(world.snow?.falling).toBe(true)
+    expect(world.sources.rainCloudRaised).toBe(true)
+    expect(world.clouds[0]).toMatchObject({ rains: true })
+    expect(world.clouds[0].cover).toBeGreaterThan(0.1)
   })
 
   it('keeps every bank where it was when the hour changes (seeded by place and index)', () => {

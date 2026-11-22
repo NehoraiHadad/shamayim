@@ -1,6 +1,6 @@
 //# allFunctionsCalledOnLoad
 import { xOf } from '../../domain/camera'
-import { cloudTransmit } from '../../world/light'
+import { coinOf } from '../../world/air'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
@@ -117,10 +117,7 @@ export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ??
   high: world.clouds[2]?.cover ?? 0 })
 
 /** How much the cloud in front veils a body (0 clear … 1 hidden): the share of its direct light the cloud takes. */
-export const veilOf = (world: WorldState) => 1 - cloudTransmit(coversOf(world))
-
-/** Dust (`air.dust`) flattens the sun into a pale coin, as far as the haze goes (the SVG's `sunCoin`). */
-export const coinOf = (world: WorldState) => (world.air.dust ? world.air.farFade : 0)
+export const veilOf = (world: WorldState) => 1 - world.light.clear
 
 /**
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright
@@ -132,8 +129,8 @@ export function skyGlows(world: WorldState, box: SceneBox, geom = skyGeom(world,
   const out: Glow[] = []
   const { sun, moon } = world.bodies
   const veil = veilOf(world)
-  const coin = coinOf(world)
-  const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
+  const coin = coinOf(world.air)
+  const aerosol = world.air
   if (sun.altitude > -1.5) {
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.2)
     const up = smoothstep(-1.5, 1, sun.altitude)
@@ -151,7 +148,7 @@ export function skyGlows(world: WorldState, box: SceneBox, geom = skyGeom(world,
   const glow = world.light.glow
   if (glow && glow.opacity > 0.01) {
     const after = world.light.afterglow?.rgb ?? sunLight(0.5, aerosol).rgb
-    const clear = 1 - 0.7 * smoothstep(0.4, 0.95, 1 - cloudTransmit(coversOf(world)))
+    const clear = 1 - 0.7 * smoothstep(0.4, 0.95, 1 - world.light.clear)
     out.push({ x: geom.left + glow.x * geom.s, y: box.landTop + glow.y, r: 170 * geom.s, ry: 90, rgb: after,
       alpha: 0.45 * glow.opacity * clear })
   }

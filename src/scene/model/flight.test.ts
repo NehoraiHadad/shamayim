@@ -40,18 +40,26 @@ beforeAll(async () => {
 
 /**
  * Whether the ground stands over the line of sight from the eye to a point (km east, north; m over the eye) by more than
- * `slackM`, on the panorama's own profile at its x (`groundAt`: m relative to the eye).
+ * `slackM`, on the panorama's own profile inside the view (`groundAt`) or the local grid outside it (`heightNear`).
  */
 function groundInSight(loaded: LoadedPlace, world: WorldState, at: { e: number; n: number; up: number }, slackM: number): boolean {
   const { terrain } = loaded
   const km = Math.hypot(at.e, at.n)
   const x = xOf((Math.atan2(at.e, at.n) * 180) / Math.PI, world.camera)
-  if (!terrain.groundAt || x < 0 || x > 375) return false
   const slope = (at.up - curveDrop(km)) / km
-  for (const d of RAY_DISTANCES) {
-    if (d >= km - 0.03) break
-    const h = terrain.groundAt(x, d)
-    if (h !== null && h - curveDrop(d) > slope * d + slackM) return true
+  if (terrain.groundAt && x >= 0 && x <= 375) {
+    for (const d of RAY_DISTANCES) {
+      if (d >= km - 0.03) break
+      const h = terrain.groundAt(x, d)
+      if (h !== null && h - curveDrop(d) > slope * d + slackM) return true
+    }
+    return false
+  }
+  if (!terrain.heightNear || terrain.eyeM === undefined || km < 0.05) return false
+  const ue = at.e / km, un = at.n / km
+  for (let d = 0.25; d < Math.min(km - 0.03, 5.9); d += 0.125) {
+    const h = terrain.heightNear(ue * d, un * d)
+    if (h !== null && h - terrain.eyeM - curveDrop(d) > slope * d + slackM) return true
   }
   return false
 }

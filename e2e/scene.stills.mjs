@@ -1,5 +1,6 @@
 // Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/), with the HTML overlay.
-//   node e2e/scene.stills.mjs <outDir> <place>@<HH:MM | YYYY-MM-DDTHH:MM>[@<weather>[@<phase s | flash>[@<land>]]] … [--dpr=2]
+//   node e2e/scene.stills.mjs <outDir> <place>@<HH:MM | YYYY-MM-DDTHH:MM>
+//     [@<weather>[@<phase s | flash>[@<land>[@<hide ids,…>]]]] … [--dpr=2]
 // (`land`: loading | offline | arrive, C8: the land not known yet, or its reveal begun at phase 0.)
 // (A full date picks another day: the moon in another phase. The fixture's forecast is rolled to it.)
 import fs from 'node:fs'
@@ -23,10 +24,10 @@ const server = await startServer()
 const browser = await launch()
 try {
   for (const moment of moments) {
-    const [place, hour, weather = '', phase = '0', land = ''] = moment.split('@')
+    const [place, hour, weather = '', phase = '0', land = '', hide = ''] = moment.split('@')
     const c = { place, at: hour.includes('T') ? hour : `2026-11-17T${hour}`, weather, dpr }
     const { context, page } = await openPage(browser, server.url, dpr)
-    const url = new URL(sceneUrl(server.url, { ...c, overlay: true, phase, land }))
+    const url = new URL(sceneUrl(server.url, { ...c, overlay: true, phase, land, hide }))
     if (flat) for (const [key, value] of Object.entries({ terrain: 'flat', lat: flat[0], lon: flat[1], name:
       flat[2] ?? place })) url.searchParams.set(key, value)
     await loadScene(page, url.href)
@@ -39,7 +40,8 @@ try {
     }, flat[2] ?? place)
     const day = hour.includes('T') ? `${hour.slice(5, 10).replace('-', '')}-` : ''
     const name = (`${day}${caseName({ ...c, dpr: 1, land, phase })}` +
-    `${phase !== '0' && !land ? `-${phase}` : ''}${flat ? '-flat100m' : ''}.png`)
+    `${phase !== '0' && !land ? `-${phase}` : ''}${hide ? `-no-${hide.replace(/,/g, '+')}` : ''}` +
+    `${flat ? '-flat100m' : ''}.png`)
     const file = path.join(out, name.replace(/[<>:"/\\|?*]/g, '-'))
     fs.writeFileSync(file, await page.screenshot({ clip: CLIP }))
     if (args.includes('--describe')) {

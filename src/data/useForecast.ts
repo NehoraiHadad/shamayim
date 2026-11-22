@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Place } from '../config/place'
+import { withForecastRefresh } from '../domain/forecastRefresh'
 import { nowIn } from '../domain/now'
 import type { Forecast } from '../domain/types'
 import { freshnessOf, readCache, writeCache, type Freshness } from './cache'
@@ -17,7 +18,7 @@ export interface ForecastState {
 }
 
 /** Stale-while-revalidate: show the cache instantly, refetch when it is not fresh. */
-export function useForecast(place: Place, provider: WeatherProvider): ForecastState {
+export function useForecast(place: Place, provider: WeatherProvider, receiptTime: () => number): ForecastState {
   const [forecast, setForecast] = useState<Forecast | null>(() => readCache(place.id))
   const [status, setStatus] = useState<LoadStatus>(forecast ? 'ready' : 'loading')
   const [error, setError] = useState<FetchFailure | null>(null)
@@ -47,10 +48,14 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
       provider
         .getForecast(place, ctrl.signal)
         .then((fetched) => {
+          if (ctrl.signal.aborted) return
           // A shared stale copy (served while Open-Meteo refuses) can be older than what this device already has.
-          const f = cached && cached.fetchedAt > fetched.fetchedAt ? cached : fetched
-          writeCache(f)
-          setForecast(f)
+          if (!cached || cached.fetchedAt <= fetched.fetchedAt) {
+            const next = withForecastRefresh(fetched, cached, receiptTime())
+            writeCache(fetched)
+            latest.current = next
+            setForecast(next)
+          }
           setError(null)
           setStatus('ready')
         })
@@ -63,7 +68,7 @@ export function useForecast(place: Place, provider: WeatherProvider): ForecastSt
           if (inFlight.current === ctrl) inFlight.current = null
         })
     },
-    [place, provider],
+    [place, provider, receiptTime],
   )
 
   useEffect(() => {

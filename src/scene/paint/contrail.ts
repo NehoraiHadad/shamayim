@@ -1,4 +1,4 @@
-import { smoothstep } from '../../world/ridgeLighting'
+import { smoothstep } from '../../domain/smoothstep'
 import { trailAt } from '../model/contrailMotion'
 import type { LayerOf, Pt } from '../model/types'
 import { css, type Ctx2D } from './hand'

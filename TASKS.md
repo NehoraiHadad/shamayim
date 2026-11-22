@@ -394,6 +394,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
         SMIL + CSS frozen at a time; swing checked over 3 frames (crook stays on the rope)
   - [ ] Not verified: real-time motion feel on a phone (only 3 headless frames checked); SMIL + CSS in Safari
   - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
+- [x] Likely real cause of "all day": `rollForward` (`src/domain/now.ts`) kept a stale cached dawn's humidity/visibility
+      on screen all day; it now takes the hour row's humidity, visibility and cloud layers (or null when the row lacks them).
+- [x] Review rounds (Codex 1–4): morning-only burn-off with an evening twilight ramp (0° to −6°); low+mid cloud stops
+      radiation fog (capped by total cover); droplet gate (RH 70–90 %) and the reported visibility before the PM10 cap,
+      so dust haze is not fog; raw low cloud for the marine deck; damp-gated rain mist; bands fade at their thresholds;
+      the 12 h night minimum glides as a sample ages out (9–12 h blend toward now): no step at the window edge.
 - Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
   Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
   glyphs stay with Claude) arrived after this PR was opened, so 6.2 is untested here. Apply it to the next UI pass.
@@ -864,3 +870,95 @@ Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-
   Codex gpt-6.2-sol briefs 1 and 2 (Neon out of quota); Opus subagent reviewed round 1 and the final diff
 - [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
       model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines
+
+## Birds travel (owner bug "they fly in place") — 2026-11-22 (branch `claude/fix-birds-travel`)
+
+- [x] Diagnose in the built app, live: flocks moved 0.8–2.4 px / 9 s; cause `GROUP` speeds 0.5–2 m/s; prod = main bundle
+- [x] Real flock ground speeds; storks/cranes nearer; raptor thermal drift with the wind
+- [x] Lazy, memoised, frozen flock tracks (first build ≤ main); upcoming flocks laid at alpha 0; speed within ±15 %
+- [x] Tests: `birdsTravel`, `flockLazy`, laid-count gate, opacity-step continuity; browser probe `e2e/birds.motion.mjs`
+- Who wrote what: Claude (Opus 5.5) diagnosis, briefs, probe, lazy/perf tests, verification; agy Gemini 4 Neon the
+  code and test updates (rounds 1–3); Codex gpt-6.2-sol reviewed
+- [ ] Follow-ups: occlusion step at a crest on rebuild (Codex P2); per-sample yaw for near passes; split `lifeSchedule.ts`
+
+## Polish track F — the fog band over the land (owner report) — 2026-11-22 (branch `claude/modest-jennings-b32480`)
+Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weather=damp`, `-no-<id>` = layer hidden).
+- [x] Evidence: in the fixture (RH 60 %, 30 km all day) mistiness is 0 and no mist layer exists; the sky haze band (alpha
+      0.12) moves ≤ 1 luma level when hidden. The pale slab at shadmot-mehola 11:30 is `plane.far` (Gilead, 9–21 km)
+      at Koschmieder haze for 30 km (correct), with `cloudShadow.far` laying a horizontal dark smear across its lower
+      half (handed to track D). With damp air (`?weather=damp`) the valley mist lay over the ridge line all day: the bug.
+- [x] Root rule: `world.air.mist` (`src/world/mist.ts`): radiation mist (RH 84–99 % or data visibility, calm < 3–7 m/s)
+      burns off with the sun (2–26°) and the warming over the 12 h minimum (+0.5–4.5 °C); daytime mist persists only for
+      data visibility ≤ 6 km, rain, or a low stratus deck with RH ≥ 85 %. Never in dust. Scene mist in `scene/model/mist.ts`.
+- [x] Tests: `src/world/mist.test.ts` (burn-off, wind, persistence, dust, humidity-derived visibility, night minimum),
+      `src/scene/model/mist.test.ts` (dawn mist, none at noon); `weather.test.ts` damp case updated (dawn only).
+- [x] Tooling: stills moment field 6 hides layers (`place@HH:MM@weather@phase@land@ids`), harness `?hide=`, `damp` preset.
+- Who wrote what: Claude (Opus 5.5) diagnosis, evidence, brief, verification; Gemini 4 Neon (agy) the rule and tests;
+  Codex gpt-6.2-sol review.
+- [ ] Follow-up (track D): cloud shadows on the far ridge read as horizontal bands.
+- [ ] Follow-up: `App.tsx:89` page background uses `mapAir(shown)` with live visibility even in a picked-hour preview.
+
+## Polish track G — no building flips or flickers; live mode is scrub at now (owner: "a building rotated and also flickered", Karmei Tzur) — 2026-11-22 (branch `claude/fix-glyph-flicker-8384c3`)
+Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-g-merge.md` (+ `.REPORT.md`, rounds 1–3).
+- [x] Evidence (probes, one-minute builds, 4 places, live + scrub): glyph hand/seed/form/position never change. Causes found:
+      tower cast mirrored with a `+1` minimum reach as `cast.dx` crossed 0 (Karmei Tzur ~11:25, alpha 0.25); window rng
+      drawn conditionally on the light (Karmei Tzur 17:19: 15 lit windows dark, 26 lit at once at a steady share); the
+      worker cache returned null for a layer whose new form was in flight (blank frame); live mode stepped all light at
+      each hour/refetch (Karmei Tzur 12:59→13:00 direct 0.359→0.143).
+- [x] Outside painters: one cast-shadow law (`scene/paint/castShadow.ts`, reach → 0 with lateral light; tower keeps its
+      look); fixed seeded window thresholds drawn before any light test; both side strips/mast edges drawn with their own
+      weight; lamps/floods fade with night. Painters split into `outsideBox/Tower/Ground/Light.ts`.
+- [x] Worker cache keeps the last picture until a newer one arrives (`remoteEntry.ts`, `paintQueue.ts`; no starvation, A→S→A reuse).
+- [x] Live = scrub at now: weather sampled at `selected ?? now`; the observation and each data arrival ease in (10 min,
+      smoothstep), weighed at now, stamped in the scene's own timeline (pinned time works); snow stays snow; dust one
+      continuous `dustWeight`; track F mist fed from the blended state (merge).
+- [x] Tests: `outside.test.ts` (signed-light sweep geometry, 16:30–18:30 windows monotonic incl. glyphs), `compose.test.ts`
+      (never blank, resize starvation, A→S→A), `liveLight.test.ts` (Jerusalem 13:00 step 0.106 → 0.0006; refresh; held
+      scrub; pinned), `airInput.test.ts`, `dust.test.ts`, `mist.test.ts` live continuity.
+- Who wrote what: Claude (Opus 5.5) diagnosis, probes, briefs, verification; Codex gpt-6.2-sol the code and tests (Neon
+  agy wedged / timed out twice); Opus subagents reviewed each round.
+- Caveat: no Karmei Tzur panorama fixture exists (recording needs live DEM); the probes used Jerusalem's terrain with Karmei
+  Tzur's coordinates. Tests use Jerusalem.
+- [ ] Follow-ups: `pickTheme` (page chrome) still reads `forecast.current`; sea-glint thresholds in `model/outside.ts:86,95`;
+      worker failure never closes shown bitmaps (as before); a reload mid-ramp restarts the 10-min ease.
+
+## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
+One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
+and rain. Spec: `docs/design/qa/polish/track-d/SPEC.md` (Fable). Roles: Neon codes field/light logic, Codex sol 6.2
+reviews, Claude manages and draws the painters.
+- [x] Fable spec (Fable, native Agent) — `track-d/SPEC.md`
+- [x] Before stills — `track-d/before/` (Haifa, Jerusalem, Shadmot Mehola; 11:30/21:00; broken/overcast/showers)
+- [x] N1 brief — `track-d/briefs/N1-field-core.md`
+- [ ] N1 field core `src/world/field/` — written by Codex gpt-6.2-sol (Neon out of quota, 2026-11-21); reviewed by a
+      Claude Opus subagent. outsourcerer runs with `OSRC_HOME=P:/osrc-home` (C: below its 10 GB disk gate).
+      N1b (Codex) 36698c5: 4/7 tests pass. Opus round 2: life cycle tied to genus, `layerCovers` jumps at 100 %
+      total (`src/world/clouds.ts`), two ill-posed tests, density grid too fine. N1c brief `briefs/N1c-fix-round.md`.
+      N1c 5c96188 and N1d (Codex): 187/187 src/world tests; RMS ≤ 3.9 %; arrival 1–2 ms, cold place 9–14 ms, warm
+      3.3–3.8 ms alone (warm target 3 ms not yet met; strict budgets run with `FIELD_PERF=1`, default run guards at 3×).
+      N1e (Codex) physical cover fit, analytic near raster, warm 1.7 ms. Opus round 4: **ship N1** (82b8e5b); six
+      follow-ups folded into N2 (effective τ beyond the raster, slant shadowTau, tower periods 30–60 min, rain weight).
+- Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
+- Done = READY line to the polish-audit session: no blocking review findings, CI green on final sha incl. perf budget, TASKS updated, main merged first if C landed. The audit session merges, not us.
+- [ ] N2 (Codex writes, Opus reviews) brief `briefs/N2-light-shadow-rain.md`: `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),
+      transmit, eye/direct light, shadows, rain; tests 2, 3, 8
+      N2 5297bd4 (16 failures; shadows 0.3–0.9 s per model). N2b 2c0a26d: combined-cover gap light + `light.clear`,
+      exact ray–cell transmission (|ΔT| ≤ 0.016 vs fine march), rain keeps drawn banks. Opus round 6: N2b broke the
+      terrain datum (faces empty above sea level) and shadows cost 10–24 ms on real DEM. N2c b3995b8: datum restored,
+      shadows + rain feet on the flightTerrain grid, visibility before ranking. Opus round 7: geometry clean; the
+      Jerusalem 30 ms gap was test order (first-call model cost ~10 ms predates N2). N2d: rank before terrain work, a
+      real CPU-reference perf guard, cheaper slow scene tests. All rounds written by Codex gpt-6.2-sol, reviewed by an
+      Opus subagent (Neon out of quota).
+      N2d CI (run 44993185800): 5/1540 failed (purity name, shadow ratio 0.31–0.46 > 0.2, Tel Aviv sea glint), perf
+      scrub.model p95 23.6 > 15 ms (Haifa, Tel Aviv). N2e: glitter on the eye ray, one shadow layer per land plane.
+- [ ] Shadow painter (Claude): field blobs clipped to the land faces / `rim` polygon; acceptance includes track F's
+      far-ridge band (`cloudShadow.far` horizontal smear) gone
+- [ ] Rain shaft, trail and virga painter (Claude) from `rain.cells`; then retire the `rainBanks` adapter
+- [ ] Follow-up (outside D): first-call `sceneModel` cost ~10 ms on a new minute (`tone.ts`, `keys.ts` `partKey`)
+- [ ] Sheet-mode painter (Claude): layers as continuous density textures over the dome (SPEC §6.0, owner note
+      2026-11-22: "the sky is cloudy" is a layer, not shapes); sprites only for conv cells and horizon heaps
+- [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
+- [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
+      As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
+      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png`
+- [ ] Painters in scene: wire to N3 cell descs, detail pass at 375 px
+- [ ] After stills `track-d/after/`, before/after sheet; `test:perf`, vitest, `tsc -b`, oxlint
