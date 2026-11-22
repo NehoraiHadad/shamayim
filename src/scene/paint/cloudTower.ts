@@ -42,7 +42,9 @@ function silhouette(c: Ctx2D, s: CloudSprite) {
   puff(c, 0, s.under * 0.3, s.w * 0.5, Math.max(1, s.under * 0.5 + s.w * 0.06), 0.9)
   for (let i = 0; i < n; i++) {
     const t = Math.sqrt(r()) // more puffs high up: the crown is where a tower's turrets are
-    const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t)
+    // A mature Cb's upper third flares out into its anvil: no narrow neck under a disc (a saucer, not a storm).
+    const flare = anvil * 0.9 * Math.max(0, (t - 0.55) / 0.45) ** 1.5
+    const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t + flare)
     const rx = half * (0.45 + 0.35 * r()) * (0.8 + 0.4 * t)
     const cx = (r() * 2 - 1) * (half - rx * 0.6)
     const cy = -t * (s.tall - rx * 0.7)
@@ -50,11 +52,11 @@ function silhouette(c: Ctx2D, s: CloudSprite) {
   }
   if (anvil > 0.05) {
     // The anvil: a thick soft cap spread wider than the column as far as the top has spread, thinning toward its edges.
-    const top = -s.tall + s.w * 0.22
+    const top = -s.tall + s.w * 0.2
     for (let i = 0; i < 5; i++) {
       const u = i / 4 - 0.5
-      const rx = s.w * (0.4 + 0.15 * anvil - 0.25 * Math.abs(u))
-      puff(c, u * s.w * (ANVIL - 0.4) * anvil, top + Math.abs(u) * s.w * 0.1, rx, rx * (0.45 + 0.1 * r()), 0.9 * anvil)
+      const rx = s.w * (0.35 + 0.1 * anvil - 0.2 * Math.abs(u))
+      puff(c, u * s.w * (ANVIL - 0.5) * anvil, top + Math.abs(u) * s.w * 0.08, rx, rx * (0.55 + 0.1 * r()), 0.85 * anvil)
     }
   }
 }
