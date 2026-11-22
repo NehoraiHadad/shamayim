@@ -1059,3 +1059,5 @@ The land scrub p95 was 3.5, 2.3 and 3.0 ms in Stage 5, against 9.5, 5.6 and 1.8 
 `npx tsc -b` passed. The focused composer, wind and purity run passed 28/28. All three windy pixel cases matched the existing references exactly in an offline read-only rerun. The full default-timeout Vitest run reported timeouts in unchanged loading tests under host load. The writer’s sequential rerun in the round-2 answer passed the previously failing files.
 
 **Verdict:** approved
+
+**Orchestrator gate (Claude Code, 2026-11-22): Stage 6 closed; all six stages approved.** On `c7c54a9`: `npx tsc -b` pass; vitest 153 files / 1350 tests pass; `npm run build` pass; `npm run test:pixels` 69/69. Final stills and contact sheets in `docs/design/qa/canvas/land/final/` inspected. The round-3 minors (measurement-script canopy milestones, perf wording, per-strip timing attribution, write-only cache fields) are left as follow-ups in TASKS.md.
