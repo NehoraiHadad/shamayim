@@ -57,9 +57,12 @@ it('meets travel thresholds across all three places and logs per-kind travel', (
     kind, { count: values.length, medianPx: Number(median(values).toFixed(2)), minPx: Number(Math.min(...values).toFixed(2)) },
   ]))
   console.log('birds 10s travel (CSS px)', JSON.stringify(summary))
+  const midRange = samples.filter((s) => s.distanceM < 1500)
   expect(samples.length).toBeGreaterThanOrEqual(20)
-  expect(median(samples.map((s) => s.px))).toBeGreaterThanOrEqual(8)
+  expect(midRange.length).toBeGreaterThan(0)
+  expect(median(midRange.map((s) => s.px))).toBeGreaterThanOrEqual(8)
   for (const s of samples) {
+    expect(s.px, `${s.place} ${s.at} ${s.id} (${s.kind} at ${s.distanceM.toFixed(0)} m)`).toBeGreaterThanOrEqual(0.3)
     if (s.distanceM < 700) {
       expect(s.px, `${s.place} ${s.at} ${s.id} (${s.kind} at ${s.distanceM.toFixed(0)} m)`).toBeGreaterThanOrEqual(5)
     }

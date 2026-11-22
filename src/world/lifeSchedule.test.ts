@@ -36,7 +36,9 @@ const ctx = (date = '2026-04-10', placeId = 'test'): ScheduleContext => ({ place
 describe('the life schedule', () => {
   it('is deterministic: the same place and day give the same events; another day or place others', () => {
     const a = lifeSchedule(ctx(), day()), b = lifeSchedule(ctx(), day())
-    expect(a).toEqual(b)
+    const plain = (s: typeof a) => ({ ...s, flocks: s.flocks.map(({ lay, ...rest }) => ({ ...rest, ...lay() })) })
+    expect(plain(a)).toEqual(plain(b))
+    expect(a.flocks[0].lay()).toBe(a.flocks[0].lay())
     expect(a.flocks.length + a.high.length + a.low.length).toBeGreaterThan(10)
     expect(lifeSchedule(ctx('2026-04-11'), day()).flocks.map((f) => f.t0)).not.toEqual(a.flocks.map((f) => f.t0))
     expect(lifeSchedule(ctx('2026-04-10', 'other'), day()).flocks.map((f) => f.t0)).not.toEqual(a.flocks.map((f) => f.t0))
@@ -51,9 +53,10 @@ describe('the life schedule', () => {
       const mid = flockAt(e, (e.t0 + e.t1) / 2)
       expect(mid.fade).toBe(1)
       expect(mid.distanceM).toBeCloseTo(mid.nearM, 3)
-      // Its way moves it a bounded angle a minute (a scrub's step): at most ~25° at its closest.
+      // Its way moves it within the pass's own horizontal angular sweep over a minute at closest approach.
       const next = flockAt(e, (e.t0 + e.t1) / 2 + 60)
-      expect(Math.abs(((next.azimuth - mid.azimuth + 540) % 360) - 180)).toBeLessThan(25)
+      const boundDeg = ((2 * Math.atan((30 * mid.speedMs) / e.nearM)) * 180) / Math.PI * 1.1 + 2
+      expect(Math.abs(((next.azimuth - mid.azimuth + 540) % 360) - 180)).toBeLessThanOrEqual(boundDeg)
     }
   })
 

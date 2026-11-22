@@ -85,6 +85,16 @@ export const METEOR_WINDOW_S = 900
 /** The share of the sky a meteor seen over the scene falls in (the dome over the land). */
 const SKY_SHARE = 0.3
 
+/** A flock's laid 3D track over the terrain, its closest distance (3D) and speed along it to fit [t0, t1]. */
+export interface LaidFlock {
+  /** Its way over the ground (`flightPaths.ts`): every `ds` m in flight order (m east, north of the eye; m above sea level). */
+  track: FlockTrack
+  /** Its closest distance (m, 3D) on the laid track. */
+  nearM: number
+  /** Speed along the laid track (m/s) so the whole track is flown in [t0, t1]. */
+  rate: number
+}
+
 export interface FlockEvent {
   id: string
   kind: BirdKind
@@ -92,17 +102,24 @@ export interface FlockEvent {
   t1: number
   count: number
   score: number
-  /** Its way over the ground (`flightPaths.ts`): every `ds` m in flight order (m east, north of the eye; m above sea level). */
-  track: FlockTrack
   /** The eye's height (m above sea level) the track is measured from. */
   eyeM: number
-  /** The way it set out on (its flyway's, its wander's) and its speed over the ground (m/s). */
+  /** Its closest point's foot (m east, north of the eye). */
+  cE: number
+  cN: number
+  /** A resident's home (m east, north of the eye, and radius m), if any. */
+  home?: { e: number; n: number; r: number }
+  /** Drawn quantile (0–1) for the flock's height over the ground. */
+  aglQ: number
+  /** The way it set out on (its flyway's, its wander's) and its drawn speed over the ground (m/s). */
   headingDeg: number
   speedMs: number
-  /** Its closest distance (m, 3D) and where the session begins and ends (m over the ground). */
+  /** Its drawn closest distance (m over the ground) and where the session begins and ends (m over the ground). */
   nearM: number
   endM: number
   seed: number
+  /** Lays the flock's track over the terrain on first call (memoised). */
+  lay: () => LaidFlock
 }
 
 export interface HighEvent {
@@ -279,23 +296,31 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
     const endM = nearM * g.reach
     const cE = nearM * Math.sin(azC * RAD), cN = nearM * Math.cos(azC * RAD)
     const home = homeOf(kind, input, endM)
-    // Its height over the ground: drawn in its kind's band, then raised while that reads more clearly
-    // against the land (`unclear`): the schedule picks the track that is plainly in the sky, in front of the land, or
-    // behind it, over one that skims the land's edge or would seem to fly into a slope.
-    // (Its way over the ground is laid once, at the height drawn; each raise only lays its altitude again.)
-    let best: { track: FlockTrack; bad: number } | null = null
-    const aglOf = (k: number) => fl.agl[0] * 1.3 + (fl.agl[1] - fl.agl[0] * 1.3) * Math.min(1, aglQ + k / 3)
-    const way = wayOf({ cE, cN, headingDeg, endM, aglM: aglOf(0), flight: fl, home }, terrain)
-    for (let k = 0; k < 4; k++) {
-      const track = heightsOver(way, aglOf(k), fl, terrain.eyeM)
-      const bad = ctx.flight ? unclear(track, terrain, endM, ctx.flight, ctx.camera) : 0
-      if (!best || bad < best.bad) best = { track, bad }
-      if (bad === 0) break
+    const dur = (2 * Math.sqrt(endM * endM - nearM * nearM)) / speedMs
+    const t1 = t0 + dur
+    // Its height over the ground is laid lazily on first sample (`lay`): only ≤ MAX_FLOCKS flocks fly at once, so laying
+    // all day's tracks up front is waste. Drawn in its kind's band, then raised while that reads more clearly against the
+    // land (`unclear`): the schedule picks the track that is plainly in the sky, in front of the land, or behind it, over
+    // one that skims the land's edge or would seem to fly into a slope.
+    let laid: LaidFlock | null = null
+    const lay = (): LaidFlock => {
+      if (laid) return laid
+      let best: { track: FlockTrack; bad: number } | null = null
+      const aglOf = (k: number) => fl.agl[0] * 1.3 + (fl.agl[1] - fl.agl[0] * 1.3) * Math.min(1, aglQ + k / 3)
+      const way = wayOf({ cE, cN, headingDeg, endM, aglM: aglOf(0), flight: fl, home }, terrain)
+      for (let k = 0; k < 4; k++) {
+        const track = heightsOver(way, aglOf(k), fl, terrain.eyeM)
+        const bad = ctx.flight ? unclear(track, terrain, endM, ctx.flight, ctx.camera) : 0
+        if (!best || bad < best.bad) best = { track, bad }
+        if (bad === 0) break
+      }
+      const track = best!.track
+      const trackLength = (track.pts.length / 3 - 1) * track.ds
+      laid = { track, nearM: track.nearM, rate: trackLength / dur }
+      return laid
     }
-    const track = best!.track
-    const dur = ((track.pts.length / 3 - 1) * track.ds) / speedMs
-    kept.push({ id: `${ctx.date}:${kind}:${i}`, kind, t0, t1: t0 + dur, count, score, track, eyeM: terrain.eyeM, headingDeg, speedMs,
-      nearM: track.nearM, endM, seed })
+    kept.push({ id: `${ctx.date}:${kind}:${i}`, kind, t0, t1, count, score, eyeM: terrain.eyeM, cE, cN, home, aglQ, headingDeg, speedMs,
+      nearM, endM, seed, lay })
   }
   return kept
 }
@@ -470,13 +495,14 @@ export type SightOf = (e: number, n: number, upM: number) => number | null
  * the land truly stands between it and the eye.
  */
 export function flockAt(e: FlockEvent, t: number, sight?: SightOf): Flock {
-  const p = trackPoint(e.track, e.speedMs * (t - e.t0))
+  const { track, nearM, rate } = e.lay()
+  const p = trackPoint(track, rate * (t - e.t0))
   const up = p.z - e.eyeM
   const dir = airDirection(p.e / 1000, p.n / 1000, up)
   const ground = Math.hypot(p.e, p.n)
   return {
     id: e.id, kind: e.kind, count: e.count, score: e.score, seed: e.seed, azimuth: dir.azimuth, altitude: dir.altitude, distanceM: dir.km * 1000,
-    nearM: e.nearM, fade: 1 - smoothstep(0.55 * e.endM, e.endM, ground), headingDeg: p.headingDeg, speedMs: e.speedMs,
+    nearM, fade: 1 - smoothstep(0.55 * e.endM, e.endM, ground), headingDeg: p.headingDeg, speedMs: rate,
     at: { e: p.e / 1000, n: p.n / 1000, up }, blockedKm: sight ? sight(p.e / 1000, p.n / 1000, up) : null,
   }
 }
