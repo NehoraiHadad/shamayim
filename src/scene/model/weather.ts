@@ -1,9 +1,9 @@
 //# allFunctionsCalledOnLoad
-import { rainBankDescs } from './clouds'
+import { bandOf, rainBankDescs, rainSheetZ } from './clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
-import type { CloudBank, RainCell, WorldState } from '../../world/types'
+import type { CloudBank, CloudLevel, RainCell, WorldState } from '../../world/types'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
 import { coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
@@ -67,15 +67,20 @@ interface Falling { drawn: BankDesc; bank: CloudBank }
 /** The banks that rain or snow, as their cloud layer draws them (C6), and that layer's drift. */
 function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
   const layer = world.clouds.find((l) => l.rains)
-  const drawn = clouds.find((l) => l.level === layer?.level)
-  if (!layer || !drawn) return null
+  if (!layer) return null
   if (p.precip === 'rain') {
-    const low = clouds.find(cloud => cloud.level === 'low') ?? drawn
-    const mid = clouds.find(cloud => cloud.level === 'mid') ?? drawn
+    // Under a full sheet no clouds layer is left at the level: the band still sets the z and the drift.
+    const band = (level: CloudLevel) => bandOf(clouds, world.clouds.find(cloud => cloud.level === level) ?? layer, geom)
+    const low = band('low'), mid = band('mid')
     const weight = world.cloudField?.field.rain?.midWeight ?? Number(layer.level === 'mid')
     const mix = (a: number, b: number) => a + (b - a) * weight
-    return { banks: rainBankDescs(world, box, geom, layer), z: mix(low.z, mid.z), speed: mix(low.animated?.speed ?? 0, mid.animated?.speed ?? 0) }
+    // The sheet is at and above the source. The shafts start at its underside.
+    const sheet = rainSheetZ(world)
+    return { banks: rainBankDescs(world, box, geom, layer), z: Math.max(mix(low.z, mid.z), sheet + 0.5),
+      speed: mix(low.speed, mid.speed) }
   }
+  const drawn = clouds.find((l) => l.level === layer.level)
+  if (!drawn) return null
   const byId = new Map(layer.banks.map((b) => [`${layer.level}:${b.id}`, b]))
   const cells = new Set(p.cells.map((c) => `${layer.level}:${c.bank}`))
   const banks: Falling[] = drawn.banks.filter((b) => cells.has(b.id) && byId.has(b.id)).map((b) => ({ drawn: b, bank: byId.get(b.id)! }))

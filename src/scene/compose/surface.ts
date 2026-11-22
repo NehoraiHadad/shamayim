@@ -1,7 +1,9 @@
 import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
+import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
 import { paintContrail } from '../paint/contrail'
+import { clipToGround, layCarried } from './advect'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { formKeyOf } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
@@ -203,6 +205,7 @@ export class Surface {
           return
         }
         if (anim?.reveal && Number.isFinite(reach)) return this.window(source, rect, sy, y, anim.reveal, reach, alpha)
+        if (anim?.advect && k === 1) return layCarried(ctx, source, rect, y, anim.advect, carriedS(anim, phase, still), d)
         if (fx || fy) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x + fx, y + fy, rect.w, rect.h)
         if (!period) return held > 1 || dy ? ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x, y, rect.w, rect.h) : ctx.drawImage(source, rect.x, rect.y)
         for (let x = rect.x + shift - period * Math.ceil((rect.x + shift + rect.w) / period); x < this.canvas.width; x += period) {
@@ -210,7 +213,9 @@ export class Surface {
         }
       }
       if (layout.blend) ctx.globalCompositeOperation = layout.blend
+      const grounded = clipToGround(ctx, layout, d)
       if (form && !cache.formless(layout)) draw(form)
+      if (grounded) ctx.restore()
       if (layout.blend) ctx.globalCompositeOperation = 'source-over'
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
@@ -315,6 +320,7 @@ export class Surface {
       }
       if (anim.fade || anim.breath) out += `:${Math.round(fadeAt(anim, phase, still) * 255)}`
       if (anim.glide) out += `:${Math.round(glideAt(anim, phase, still) * this.dpr)}`
+      if (anim.advect) out += `:${Math.round(carriedS(anim, phase, still) * 30)}`
       if (anim.reveal) out += `:${Math.round(Math.min(1e5, revealAt(anim, phase, this.width, still)) * this.dpr)}`
       if (anim.flight) {
         const f = trackAt(anim.flight, motion, still)

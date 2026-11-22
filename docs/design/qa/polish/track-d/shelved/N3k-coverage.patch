@@ -1,0 +1,330 @@
+diff --git a/docs/design/qa/polish/track-d/N2-report.md b/docs/design/qa/polish/track-d/N2-report.md
+index 8819fb8..84a636a 100644
+--- a/docs/design/qa/polish/track-d/N2-report.md
++++ b/docs/design/qa/polish/track-d/N2-report.md
+@@ -593,3 +593,41 @@ The local gate passes on all three panoramas. Each new snapshot still incurs the
+ ### Verification
+ 
+ All 179 tests across the 14 requested Vitest files passed in individual runs at `nice -n 19`. The no-emit TypeScript check (`tsc -b`), Oxlint on the edited TypeScript files, and the Git whitespace check passed. Cloud CI timings and new browser stills remain unverified.
++
++## Round 18 (N3k)
++
++### 1. Drawn grid
++
++The Jerusalem broken-low fixture draws Sc at **144 × 73**. The 375 CSS px fixture spans 250°, giving **1.7483° and 2.6224 CSS px per horizontal texel interval**. Elevation spacing is nonuniform, from **0.00013° to 5.943°** in this fixture. A 24-column grid would give 16.30 CSS px per horizontal interval in the same view. The reported 9 px steps therefore do not identify the broad grid. A visible step can span several columns and the more widely spaced elevation rows.
++
++### 2. Opacity coverage
++
++The resolved Sc/Ac source now uses `1 − mean(exp(−τ × slant))` over the projected deck texel, with equal-area radial strata and deterministic azimuth midpoints. Adjacent ray midpoints bound each footprint. The sampler uses 2 × 2 taps for differing neighbours above one alpha byte and 3 × 3 at differences above 0.5. It reads the same instantaneous `resolvedTauAt` kernel as the previous cellular point sample. N3j had already removed the separate N3f edge contrast from this opacity path. The unresolved source and direct solar chord retain their previous treatment.
++
++### 3. Tests
++
++- **Fractional edges failed.** Of 1,723 output texels with a four-connected neighbour more than 0.5 away in alpha, **43.53%** were in 0.15–0.85. Point sampling gives 17.28%. The 16 × 16 reference integrated every resolved texel over the same footprint and gave 44.71%, also below 60%. The reference suggests that refining the quadrature alone will leave the gate unmet. A wider footprint spanning the adjacent ray centres was also tried and rejected after it missed the gate.
++- The mean texel alpha changed by **+0.0000352**. Weighting by screen area gives **−0.002964**. Both pass the ±0.02 gate.
++- The motion-compensated test pulls each quadrature ray back by the wind and sums the Beer–Lambert slope bounds over the same footprint. The largest p99 was **0.07778** against 0.15. The pointwise slope and midnight gates passed. The N3j seam, tone and aspect checks also passed.
++
++### 4. Performance
++
++Median local timings in milliseconds from the existing performance fixture:
++
++| Panorama | Reused increment | Total raster | Raster extension | N3j gate total | Cold increment |
++| --- | ---: | ---: | ---: | ---: | ---: |
++| Jerusalem | −0.137 | 0.987 | 0.621 | 0.484 | 20.646 |
++| Haifa | 0.014 | 1.031 | 0.620 | 0.634 | 19.762 |
++| Tiberias | 0.035 | 0.899 | 0.550 | 0.585 | 19.060 |
++
++The N3j 1.5 ms gate passed on all three panoramas.
++
++### Cold snapshot cost
++
++The cold path still exceeds the 4 ms target. A local CPU-profiled replay using N3j's point-sample model measured 7.22 ms in Jerusalem, 7.68 ms in Haifa and 9.15 ms in Tiberias. Sheet grid evaluation was the largest sampled cost there. Raster construction separately measured about 1 ms. The profile sampled the clump and texture functions less often than the sheet build.
++
++With coverage, the grid and footprint evaluation also dominated. Precomputing directions and radii removed trigonometry and square roots from the per-edge loop. Each cold snapshot still evaluates the 144 × 73 grid for each cellular sheet and makes extra field and transmission evaluations at the edges. The best measured local range for this implementation was 19.06–20.65 ms of cold overhead. CI-equivalent timings and a 16 ms mid-phone frame remain unverified.
++
++### Verification
++
++181 of 182 tests passed across 15 explicit Vitest file runs at `nice -n 19`, including the painter unit file. The Jerusalem fractional-edge assertion was the sole failure. TypeScript build-mode checking with no emit, Oxlint on the edited TypeScript files, and Git's whitespace check passed. The temporary diagnostic files were removed. Cloud CI, full builds and browser stills were skipped locally.
+diff --git a/src/scene/model/cloudSheet.test.ts b/src/scene/model/cloudSheet.test.ts
+index 055ae9a..9c09586 100644
+--- a/src/scene/model/cloudSheet.test.ts
++++ b/src/scene/model/cloudSheet.test.ts
+@@ -10,6 +10,7 @@ import { terrainY } from '../../world/terrain'
+ import type { WorldState } from '../../world/types'
+ import { transmitAlong } from '../../world/field/transmit'
+ import { cloudSheetOf, sheetPathFactor } from './cloudSheet'
++import { coverageOrder, coverageSampler } from './cloudSheetCoverage'
+ import { gridFor } from './cloudSheetGrid'
+ import { sheetTexture, textureCorrection } from './cloudSheetTexture'
+ import { skyGeom } from './sky'
+@@ -94,14 +95,15 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
+     const depthAt = (source: typeof snapshot) => cellular ? source.densityGrid.resolvedTauAt : source.densityGrid.tauAt
+     const sample = (view: typeof at, source: typeof snapshot) => {
+       const genus = genusOf(lattice, source.layer!.form, 0.5)
+-      const { xs, ranges, east, north, tau, expected, path, slant, fade } =
++      const { xs, ranges, east, north, tau, expected, path, point, slant, fade } =
+         gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genus)
+       let maxError = 0
+       const nodes = sheet.alpha.map((_, index) => {
+         const row = Math.floor(index / xs.length), col = index % xs.length
+         const exact = fade[row] < 1 ? depthAt(source)(ranges[row] * east[col], ranges[row] * north[col]) : 0
+         maxError = Math.max(maxError, Math.abs(exact - tau[index]))
+-        return { path: path[row], fade: fade[row], local: tau[index] * slant[row],
++        const order: 0 | 2 | 3 = cellular && fade[row] < 1 ? coverageOrder(point, index, col, xs.length, sheet.alpha.length) : 0
++        return { path: path[row], fade: fade[row], local: tau[index] * slant[row], order,
+           mean: expected[index] * meanSlant(slant[row]), slant: slant[row],
+           x: ranges[row] * east[col], y: ranges[row] * north[col] }
+       })
+@@ -127,6 +129,19 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
+     const deltas: number[] = []
+     let max = 0, maxExcess = -Infinity
+     const [vx, vy] = snapshot.layer!.vel
++    const nextLayer = nextSnapshot.layer!
++    const grid = gridFor(next.world.place.id, nextLayer, next.geom, nextSnapshot.heightKm, genusOf(lattice, nextLayer.form, 0.5))
++    const angularStep = 2 * Math.PI * (later.xs[1] - later.xs[0]) / next.geom.azimuthRange.period
++    const destinationDepth = depthAt(nextSnapshot)
++    const warpedDepth = depthAt(snapshot)
++    // Beer–Lambert's maximum slope between two slant depths is exp(-min).
++    const slope = (u: number, v: number) => Math.exp(-Math.min(u, v)) * Math.abs(u - v)
++    let coverageBound = 0, tapSlant = 1
++    const warpedCoverage = coverageSampler(grid.ranges, grid.east, grid.north, grid.slant, angularStep, (x, y) => {
++      const source = warpedDepth(x - vx, y - vy)
++      coverageBound += slope(source * tapSlant, destinationDepth(x, y) * tapSlant)
++      return source
++    })
+     let dense = 0, minDense = 1
+     for (const [row, y] of sheet.ys.entries()) {
+       const altitude = at.geom.domeAltitudeAt(y)
+@@ -139,11 +154,14 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
+         const sourceX = b.x - vx, sourceY = b.y - vy
+         const local = b.fade < 1 ? depthAt(snapshot)(sourceX, sourceY) * b.slant : 0
+         const mean = b.fade ? snapshot.densityGrid.expectedTauAt(sourceX, sourceY) * meanSlant(b.slant) : 0
+-        const warped = -a.path * ((1 - b.fade) * Math.expm1(-local) + b.fade * Math.expm1(-mean))
+-        // Beer–Lambert's maximum slope between two slant depths is exp(-min).
+-        const slope = (u: number, v: number) => Math.exp(-Math.min(u, v)) * Math.abs(u - v)
++        const order = b.order
++        coverageBound = 0
++        tapSlant = b.slant
++        const localOpacity = order ? warpedCoverage(row, col, order) : -Math.expm1(-local)
++        const localBound = order ? coverageBound / (order * order) : slope(local, b.local)
++        const warped = a.path * ((1 - b.fade) * localOpacity - b.fade * Math.expm1(-mean))
+         const bound = Math.abs(a.path - b.path)
+-          + b.path * ((1 - b.fade) * slope(local, b.local) + b.fade * slope(mean, b.mean))
++          + b.path * ((1 - b.fade) * localBound + b.fade * slope(mean, b.mean))
+         const delta = Math.abs(warped - later.alpha[i])
+         deltas.push(delta)
+         max = Math.max(max, delta)
+@@ -152,6 +170,8 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
+         // A dense vertical column may have an unresolved footprint,
+         // or a truncated path. A fully resolved slant depth of 2 must be opaque.
+         if (a.path < 0.99 || a.fade !== 0 || a.local <= 2) continue
++        // A centre ray alone cannot establish opacity over a fractional edge.
++        if (a.order) continue
+         dense++
+         minDense = Math.min(minDense, original[i])
+       }
+diff --git a/src/scene/model/cloudSheet.ts b/src/scene/model/cloudSheet.ts
+index 7d3ebe0..2da9959 100644
+--- a/src/scene/model/cloudSheet.ts
++++ b/src/scene/model/cloudSheet.ts
+@@ -6,6 +6,7 @@ import { meanRadius } from '../../world/field/lattice'
+ import type { FieldLayer, Lattice } from '../../world/field/types'
+ import type { WorldState } from '../../world/types'
+ import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
++import { coverageOrder, coverageSampler } from './cloudSheetCoverage'
+ import { layerKey } from './keys'
+ import { scaleLight } from './tone'
+ import type { SkyGeom } from './sky'
+@@ -69,7 +70,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
+   const cellular = genus === 'sc' || genus === 'ac'
+   const veil = genus === 'cs'
+   const grid = gridFor(world.place.id, layer, geom, heightKm, genus)
+-  const { xs, ys, altitudes, ranges, east, north, alpha, tone, tau, texture: raw, weights, path, slant, detail, expected, fade, facing } = grid
++  const { xs, ys, altitudes, ranges, east, north, alpha, point, tone, tau, texture: raw, weights, path, slant, detail, expected, fade, facing } = grid
+   const seed = hashId(`${world.place.id}:sheet:${layer.lattice}`)
+   const texture = sheetTexture(genus, layer, seed)
+   const deckEnd = Math.min(groundRangeAt(heightKm, 0), RANGES[layer.lattice][1])
+@@ -78,8 +79,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
+   const depthAt = cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt
+   const resolvedEnd = Math.min(rayRange, queryRadius)
+   const radius = meanRadius(layer.lattice, layer.g)
+-  // One centred tap has zero sweep, within both the texel footprint and
+-  // N3h's quarter-radius budget, and samples the instantaneous field.
++  const cover = cellular ? coverageSampler(ranges, east, north, slant, angularStep, depthAt) : null
+   weights.length = ys.length
+   for (let row = 0; row < ys.length; row++) {
+     const range = ranges[row]
+@@ -102,15 +102,15 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
+     for (let col = 0; col < xs.length; col++) {
+       const x = range * east[col], y = range * north[col]
+       const index = row * xs.length + col
++      const depth = tau[index] = range === 0 && col ? tau[index - col] : f < 1 ? depthAt(x, y) : 0
++      if (cellular) point[index] = sheetOpacity(depth, slant[row])
+       if (range === 0 && col) {
+         const first = index - col
+         expected[index] = expected[first]
+-        tau[index] = tau[first]
+         detail[index] = detail[first]
+         raw[index] = raw[first]
+         continue
+       }
+-      const depth = tau[index] = f < 1 ? depthAt(x, y) : 0
+       expected[index] = f ? expectedTauAt(meanRange * east[col], meanRange * north[col]) : 0
+       detail[index] = depth > layer.floorTau || (!cellular && f > 0) ? level : 0
+       raw[index] = sample && detail[index] ? sample(x, y) : 1
+@@ -138,16 +138,18 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
+       // The far density is already the log of the ensemble transmission for
+       // unresolved footprints. Slanting it again turns the gaps into a solid band.
+       const ambient = expected[index]
+-      const resolved = (1 - f) * sheetOpacity(local, multiplier)
+-      const unresolved = f * sheetOpacity(ambient, ambientSlant)
++      const order = cover && f < 1 ? coverageOrder(point, index, col, xs.length, alpha.length) : 0
++      const localOpacity = cover ? order ? cover(row, col, order) : point[index] : sheetOpacity(local, multiplier)
++      const resolved = (1 - f) * localOpacity
++      const unresolved = f ? f * sheetOpacity(ambient, ambientSlant) : 0
+       const opacity = resolved + unresolved
+       alpha[index] = visibility * (solar?.index === index ? opacity + solar.weight * (solar.opacity - opacity) : opacity)
+       // Divide by the incident diffuse light of this same column. The upper
+       // layers multiply both the numerator and its clear-column reference.
+       const slantDepth = (veil ? Math.min(1, depth * multiplier) : depth * multiplier) * texel
+       const diffuse = 1 / (1 + DIFFUSE_EXTINCTION * slantDepth)
+-      const forward = colours.light * facing[col] * Math.exp(-slantDepth)
+-      const thinTone = (1 - diffuse) * (1 - diffuse * forward)
++      const thinTone = slantDepth
++        ? (1 - diffuse) * (1 - diffuse * colours.light * facing[col] * Math.exp(-slantDepth)) : 0
+       // At vertical depth 10 the column is opaque. Preserve the closed
+       // deck's source ramp and leave texture in the open-deck tone only.
+       let localTone = thinTone
+diff --git a/src/scene/model/cloudSheetCoverage.ts b/src/scene/model/cloudSheetCoverage.ts
+new file mode 100644
+index 0000000..d306909
+--- /dev/null
++++ b/src/scene/model/cloudSheetCoverage.ts
+@@ -0,0 +1,57 @@
++export function neighbourDelta(values: number[], i: number, col: number, cols: number, size: number) {
++  const center = values[i]
++  return Math.max(
++    col ? Math.abs(center - values[i - 1]) : 0,
++    col + 1 < cols ? Math.abs(center - values[i + 1]) : 0,
++    i >= cols ? Math.abs(center - values[i - cols]) : 0,
++    i + cols < size ? Math.abs(center - values[i + cols]) : 0,
++  )
++}
++
++export function coverageOrder(values: number[], i: number, col: number, cols: number, size: number) {
++  const delta = neighbourDelta(values, i, col, cols, size)
++  // N3k's half-opacity edge gets three strata. Below a byte of opacity
++  // variation, keep the centre sample at the painter's precision.
++  return delta > 0.5 ? 3 : delta > 1 / 255 ? 2 : 0
++}
++
++// Midpoint quadrature in equal-area strata of the projected deck footprint.
++// The footprint ends midway between adjacent rays, or at the view boundary.
++export function coverageSampler(
++  ranges: number[], east: number[], north: number[], slant: number[],
++  angularStep: number, depthAt: (x: number, y: number) => number,
++) {
++  const orders = [2, 3].map(count => {
++    const directions = east.map((e, col) => {
++      const min = col === 0 ? 0 : -0.5, max = col === east.length - 1 ? 0 : 0.5
++      const n = north[col]
++      return Array.from({ length: count }, (_, i) => {
++        const angle = (min + (max - min) * (i + 0.5) / count) * angularStep
++        const c = Math.cos(angle), s = Math.sin(angle)
++        return [e * c + n * s, n * c - e * s]
++      }).flat()
++    })
++    const radii = ranges.map((range, row) => {
++      const inner = (range + (ranges[row - 1] ?? range)) / 2
++      const outer = (range + (ranges[row + 1] ?? range)) / 2
++      const innerArea = inner * inner
++      const areaStep = (outer * outer - innerArea) / count
++      return Array.from({ length: count }, (_, i) => Math.sqrt(innerArea + areaStep * (i + 0.5)))
++    })
++    return { directions, radii }
++  })
++  return (row: number, col: number, count: 2 | 3) => {
++    const angles = orders[count - 2].directions[col]
++    const radii = orders[count - 2].radii[row]
++    const multiplier = slant[row]
++    let transmission = 0
++    for (let i = 0; i < angles.length; i += 2) {
++      const e = angles[i], n = angles[i + 1]
++      for (let j = 0; j < count; j++) {
++        const r = radii[j]
++        transmission += Math.exp(-depthAt(r * e, r * n) * multiplier)
++      }
++    }
++    return 1 - transmission / (count * count)
++  }
++}
+diff --git a/src/scene/model/cloudSheetGrid.ts b/src/scene/model/cloudSheetGrid.ts
+index b5af337..4e1c2af 100644
+--- a/src/scene/model/cloudSheetGrid.ts
++++ b/src/scene/model/cloudSheetGrid.ts
+@@ -32,6 +32,7 @@ interface Grid {
+   east: number[]
+   north: number[]
+   alpha: number[]
++  point: number[]
+   tone: number[]
+   tau: number[]
+   texture: number[]
+@@ -51,7 +52,7 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
+   let grid = scratch.get(key)
+   if (!grid) {
+     grid = {
+-      xs: [], ys: [], altitudes: [], ranges: [], east: [], north: [], alpha: [], tone: [],
++      xs: [], ys: [], altitudes: [], ranges: [], east: [], north: [], alpha: [], point: [], tone: [],
+       tau: [], texture: [], weights: [], path: [], slant: [], detail: [], expected: [], fade: [], facing: [],
+     }
+     if (scratch.size >= 32) scratch.delete(scratch.keys().next().value!)
+diff --git a/src/scene/model/cloudSheetLook.test.ts b/src/scene/model/cloudSheetLook.test.ts
+index b170757..a586fbd 100644
+--- a/src/scene/model/cloudSheetLook.test.ts
++++ b/src/scene/model/cloudSheetLook.test.ts
+@@ -8,7 +8,8 @@ import { genusOf } from '../../world/field/genus'
+ import { altitudeOf } from '../../world/field/project'
+ import { makeWorldBuilder } from '../../world/world'
+ import { rainBankDescs } from './clouds'
+-import { gridFor, sheetAlphaAt } from './cloudSheetGrid'
++import { gridFor, sheetAlphaAt, solarTexel } from './cloudSheetGrid'
++import { neighbourDelta } from './cloudSheetCoverage'
+ import { sceneModel } from './index'
+ import { skyGeom, skyStops, stopAt } from './sky'
+ import type { LayerOf, RGB } from './types'
+@@ -124,6 +125,35 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
+     const layer = snapshot.layer!
+     const grid = gridFor(world.place.id, layer, skyGeom(world, box), snapshot.heightKm, genusOf('low', layer.form, 0.5))
+     const geom = skyGeom(world, box)
++    const cols = sheet.xs.length
++    const angularStep = 360 * (sheet.xs[1] - sheet.xs[0]) / geom.azimuthRange.period
++    const solar = solarTexel(world, geom, snapshot, grid, angularStep * Math.PI / 180)
++    const oldAlpha = sheet.alpha.map((_, i) => {
++      const row = Math.floor(i / cols)
++      const f = grid.fade[row]
++      const alpha = (1 - f) * grid.point[i] - f * Math.expm1(-grid.expected[i])
++      return grid.path[row] * (solar?.index === i ? alpha + solar.weight * (solar.opacity - alpha) : alpha)
++    })
++    const edges = sheet.alpha.filter((_, i, all) => neighbourDelta(all, i, i % cols, cols, all.length) > 0.5)
++    const fraction = edges.filter(alpha => alpha >= 0.15 && alpha <= 0.85).length / edges.length
++    const coverageDelta = average(sheet.alpha) - average(oldAlpha)
++    // Integrate the bilinear sheet over the displayed sky. The end columns
++    // and the nonuniform rows contribute in proportion to their screen area.
++    const rowWeights = sheet.ys.map((y, i, ys) => ((ys[i + 1] ?? y) - (ys[i - 1] ?? y)) / 2)
++    const projectedDelta = sheet.alpha.reduce((sum, alpha, i) => {
++      const col = i % cols
++      const weight = rowWeights[Math.floor(i / cols)] * (col === 0 || col === cols - 1 ? 0.5 : 1)
++      return sum + weight * (alpha - oldAlpha[i])
++    }, 0) / ((cols - 1) * geom.horizon)
++    console.info({ genus: sheet.genus, cols, rows: sheet.ys.length, angularStep, edges: edges.length, fraction, coverageDelta, projectedDelta,
++      verticalStep: grid.altitudes.slice(1).reduce(([min, max], altitude, i) => {
++        const step = grid.altitudes[i] - altitude
++        return [Math.min(min, step), Math.max(max, step)]
++      }, [Infinity, 0]) })
++    expect.soft([sheet.genus, cols, sheet.ys.length]).toEqual(['sc', 144, 73])
++    expect.soft(fraction).toBeGreaterThanOrEqual(0.6)
++    expect.soft(Math.abs(coverageDelta)).toBeLessThanOrEqual(0.02)
++    expect.soft(Math.abs(projectedDelta)).toBeLessThanOrEqual(0.02)
+     const sorted = (values: number[]) => values.sort((a, b) => a - b)
+     const radii = sorted(snapshot.cells.filter(cell => cell.genus === 'sc').map(cell => cell.r))
+     const depths = sorted(snapshot.cells.filter(cell => cell.genus === 'sc').map(cell => cell.tau0))

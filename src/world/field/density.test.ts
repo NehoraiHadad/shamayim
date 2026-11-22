@@ -105,9 +105,11 @@ it.each(ensembles)('matches exact %s ensemble transmission across and beyond the
   for (const fade of [0.85, 1]) {
     let exact = 0, expected = 0
     const rng = seeded(hashId('annulus'))
-    const count = 4000
-    const grids = Array.from({ length: 12 }, (_, index) => {
-      const field = buildField({ ...input, placeId: 'annulus-' + index, weatherCode, hours: [],
+    const count = 16_000
+    // Spread the samples over independent day seeds and positions in the annulus.
+    const grids = Array.from({ length: 72 }, (_, index) => {
+      const at = `2026-11-${17 + index % 4}T08:00`
+      const field = buildField({ ...input, at, placeId: 'annulus-' + index, weatherCode, hours: [],
         covers, wind10: { speedKmh: 0, fromDeg: 0 } })
       const layer = field.layers.find(layer => layer.lattice === lattice)!
       return { field, layer, grid: densityGrid(field, lattice, 0, 0, RANGES[lattice][1]) }

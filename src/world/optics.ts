@@ -80,7 +80,6 @@ export interface OpticsInput {
   /** The sun's direct light on the scene (0–1, after the cloud in front of it) and whether it lights it at all. */
   /** Sunlight available to illuminate the rain after mean cloud transmission. */
   direct: number
-  eye?: number
   sunLights: boolean
   covers: Covers
   rain: { rateMmH: number; cells: readonly RainCell[] } | null
@@ -113,7 +112,7 @@ export function haloOf(input: OpticsInput): Halo | null {
   const veil = smoothstep(0.4, 0.75, covers.high)
   const thick = 1 - (1 - covers.low) * (1 - covers.mid)
   const seen = 1 - smoothstep(0.2, 0.5, thick)
-  const strength = veil * seen * smoothstep(0, 3, sun.altitude) * (1 - input.coin) * (input.eye ?? 1)
+  const strength = veil * seen * smoothstep(0, 3, sun.altitude) * (1 - input.coin)
   if (strength < 0.05) return null
   const dogOffset = sunDogOffset(sun.altitude)
   return { strength, dogs: dogOffset === null ? 0 : strength * (1 - smoothstep(35, 58, sun.altitude)), dogOffset, sun }

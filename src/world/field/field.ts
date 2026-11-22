@@ -1,78 +1,34 @@
+import { layerDimensions } from './dimensions'
+import { dayStart } from './handover'
 import { layerCovers, lowBaseM } from '../clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { steeringTimeline, steeringWind, wallMinutes } from './advect'
-import { convectiveAt, formOf, GENERA, smoothstep } from './genus'
+import { convectiveAt, formOf } from './genus'
 import { footprintExtinction } from './extinction'
 import { occupancyOf, splitLowCover } from './occupancy'
-import type { CloudField, FieldInput, FieldLayer, FieldMotion, Genus, Lattice, LayerForm } from './types'
+import type { CloudField, FieldInput, FieldLayer, FieldMotion, Lattice } from './types'
 
 const lattices: readonly Lattice[] = ['low', 'tower', 'mid', 'high']
-const mean = ([a, b]: readonly [number, number]) => (a + b) / 2
 const mix = (a: number, b: number, f: number) => a + (b - a) * f
 const dailyOffsets = new WeakMap<ReturnType<typeof steeringTimeline>, Map<string, [number, number][]>>()
 
-function offsetsOf(steering: ReturnType<typeof steeringTimeline>, placeId: string) {
+function offsetsOf(steering: ReturnType<typeof steeringTimeline>, placeId: string, midnight: number) {
   let byPlace = dailyOffsets.get(steering)
   if (!byPlace) dailyOffsets.set(steering, byPlace = new Map())
-  let offsets = byPlace.get(placeId)
+  const date = new Date(midnight * 60_000).toISOString().slice(0, 10)
+  const key = `${placeId}:${date}`
+  let offsets = byPlace.get(key)
   if (!offsets) {
     offsets = lattices.map(lattice => {
-      const angle = 2 * Math.PI * seeded(hashId(`${placeId}:${steering.date}:${lattice}`))()
+      const angle = 2 * Math.PI * seeded(hashId(`${key}:${lattice}`))()
       return [500 * Math.sin(angle), 500 * Math.cos(angle)]
     })
     if (byPlace.size === 8) byPlace.delete(byPlace.keys().next().value!)
-    byPlace.set(placeId, offsets)
+    byPlace.set(key, offsets)
   }
   return offsets
 }
 
-/** Physical base, thickness and extinction for a genus and its site aspect. */
-export function dimensions(genus: Genus, lowBaseKm: number, form: LayerForm, aspect: number, widthKm?: number): Dimensions {
-  const { base, thickness, kappa } = GENERA[genus]
-  const lcl = genus === 'cu' || genus === 'cg' || genus === 'cb' || genus === 'sc' || genus === 'st'
-  const baseKm = lcl ? Math.max(base[0], Math.min(base[1], lowBaseKm)) : mean(base)
-  let vKm = mix(thickness[0], thickness[1], aspect)
-  if (genus === 'cb') vKm -= baseKm
-  if (genus === 'cu') {
-    const blend = smoothstep(0.1, 0.4, form.conv)
-    const cuAspect = mix(0.4, 0.8, blend)
-    const lo = mix(0.15, 0.5, blend)
-    const hi = mix(0.5, 1.5, blend)
-    vKm = Math.max(lo, Math.min(hi, (widthKm ?? mix(0.6, 1.25, blend)) * cuAspect))
-  } else if (genus === 'cg' && widthKm !== undefined) {
-    vKm = Math.max(2, Math.min(5, widthKm * mix(1.2, 1.5, aspect)))
-  }
-  return { baseKm, vKm, kappa }
-}
-
-type Dimensions = { baseKm: number; vKm: number; kappa: number }
-
-function blend(a: Dimensions, b: Dimensions, f: number): Dimensions {
-  return {
-    baseKm: mix(a.baseKm, b.baseKm, f),
-    vKm: mix(a.vKm, b.vKm, f),
-    kappa: mix(a.kappa, b.kappa, f),
-  }
-}
-
-function layerDimensions(lattice: Lattice, lowBaseKm: number, form: LayerForm) {
-  const shape = (genus: Genus) => dimensions(genus, lowBaseKm, form, 0.5)
-  switch (lattice) {
-    case 'low': {
-      const st = form.stratus ?? 0
-      const cu = shape('cu')
-      const sc = shape('sc')
-      return st === 1 ? shape('st') : blend(blend(cu, sc, Math.max(0, form.strat - st) / (1 - st)), shape('st'), st)
-    }
-    case 'tower': return blend(shape('cg'), shape('cb'), smoothstep(0.6, 1, form.conv))
-    case 'mid': {
-      const ns = form.nimbostratus ?? 0
-      return ns === 1 ? shape('ns')
-        : blend(blend(shape('ac'), shape('as'), Math.max(0, form.sheet - ns) / (1 - ns)), shape('ns'), ns)
-    }
-    case 'high': return blend(shape('ci'), shape('cs'), form.veil)
-  }
-}
 function fallbackMotion(input: Pick<FieldInput, 'at' | 'elevationKm' | 'wind10'>, zAslKm: number, t: number, offset: [number, number], origin: number) {
   const { speedKmh, fromDeg } = input.wind10
   const vel = steeringWind({ time: input.at, windSpeed: speedKmh, windDirection: fromDeg }, zAslKm, input.elevationKm)
@@ -107,25 +63,35 @@ export function buildField(input: FieldInput): CloudField {
     }
     const { Q, g, floorTau } = occupancy
     const motionAt = (minute: number) => (input.motion ?? steering.at)(index, minute)
+    const dayMotion = (minute: number, day: number) => {
+      const target = steering.dayAt(index, minute, day)
+      if (!input.motion) return target
+      const own = steering.at(index, minute)
+      const live = motionAt(minute)
+      return { d: [live.d[0] + (target.d[0] - own.d[0]), live.d[1] + (target.d[1] - own.d[1])] as [number, number],
+        vel: live.vel }
+    }
     const tau = kappa * meanVKm
     const cumuliform = lattice === 'tower' ? 1 : lattice === 'low' ? 1 - form.strat : 0
     return { lattice, baseKm, meanVKm, cover: cover[lattice], Q, g, lowBaseKm: input.lowBaseKm,
       meanExtinction: footprintExtinction(tau, cumuliform),
-      beamExtinction: footprintExtinction(tau / 2, cumuliform)
-        * (lattice === 'mid' ? 1 - 0.35 * (1 - form.sheet) : lattice === 'high' ? 1 - 0.5 * (1 - form.veil) : 1),
-      floorTau: floorTau * kappa * meanVKm, kappa, form, derived: steering.derived, motionAt, ...motionAt(t) }
+      floorTau: floorTau * kappa * meanVKm, kappa, form, derived: steering.derived, motionAt, dayMotion, ...motionAt(t) }
   })
   return { placeId: input.placeId, t, layers, rain: input.rain }
 }
 
 const fallbackHeights = { low: 1.3, tower: 3.5, mid: 4.5, high: 10.5 }
 export function fieldSteering(input: Pick<FieldInput, 'hours' | 'elevationKm' | 'at' | 'placeId' | 'wind10'>,
-  fallbackOrigin = 0): { derived: boolean; at: FieldMotion } {
+  fallbackOrigin = dayStart(wallMinutes(input.at))) {
   const steering = steeringOf(input)
-  const offsets = offsetsOf(steering, input.placeId)
-  return { derived: steering.derived, at: input.hours.length
-    ? (index, minute) => steering.at(index, minute, offsets[index])
-    : (index, minute) => fallbackMotion(input, fallbackHeights[lattices[index]] + input.elevationKm, minute, offsets[index], fallbackOrigin) }
+  const midnight = dayStart(wallMinutes(input.at))
+  const dayAt = (index: number, minute: number, day: number) => {
+    const offset = offsetsOf(steering, input.placeId, day)[index]
+    return input.hours.length ? steering.at(index, minute, offset, day)
+      : fallbackMotion(input, fallbackHeights[lattices[index]] + input.elevationKm, minute, offset, day + (fallbackOrigin - midnight))
+  }
+  const at: FieldMotion = (index, minute) => dayAt(index, minute, midnight)
+  return { derived: steering.derived, at, dayAt }
 }
 
 const steeringCache = new WeakMap<FieldInput['hours'], Map<number, ReturnType<typeof steeringTimeline>>>()

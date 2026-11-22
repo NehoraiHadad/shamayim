@@ -81,6 +81,13 @@ export function maxRadius(lattice: Lattice): number {
   return lattice === 'low' ? 0.60 : median * Math.exp(sigma * 2.326347874)
 }
 
+// E[clamp(radius)] for the site distributions above, in kilometres.
+const meanSiteRadius = { low: 0.323631, tower: 1.295237, mid: 2.374601, high: 16.190461 }
+
+export function meanRadius(lattice: Lattice, radiusMultiplier: number) {
+  return meanSiteRadius[lattice] * radiusMultiplier
+}
+
 /** Read packed site attributes without allocating on cache hits. */
 export function siteAt(cache: Cache, block: Block, lattice: Lattice, i: number, j: number): number {
   const index = (j - block.j) * size + i - block.i

@@ -42,7 +42,8 @@ export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'su
     : Number(input.rain?.level === 'mid' && input.rain.rate > 0)
   const frontalMid = (weather?.nimbostratus ?? Number(code >= 61 && code <= 65))
     * smoothstep(0.4, 0.6, covers.low * covers.mid)
-  const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
+  // Broken Sc already forms a deck around six tenths cover.
+  const strat = unit(smoothstep(0.35, 0.6, covers.low) * (1 - conv)
     + 0.5 * (1 - smoothstep(-6, 10, input.sunAltitude)))
   return {
     low: { conv, strat, sheet: 0, veil: 0,
