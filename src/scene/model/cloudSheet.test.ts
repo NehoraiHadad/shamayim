@@ -89,6 +89,9 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
     if (lattice === 'tower') continue
     const snapshot = layerSnapshot(at.field, lattice, 0, 0, RANGES[lattice][1])
     const sheet = cloudSheetOf(at.world, at.geom, snapshot, neutral)!
+    const cellular = sheet.genus === 'sc' || sheet.genus === 'ac'
+    const meanSlant = (slant: number) => cellular ? 1 : sheet.genus === 'cs' ? Math.min(1.5, slant) : slant
+    const depthAt = (source: typeof snapshot) => cellular ? source.densityGrid.resolvedTauAt : source.densityGrid.tauAt
     const sample = (view: typeof at, source: typeof snapshot) => {
       const genus = genusOf(lattice, source.layer!.form, 0.5)
       const { xs, ranges, east, north, tau, expected, path, slant, fade } =
@@ -96,10 +99,10 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
       let maxError = 0
       const nodes = sheet.alpha.map((_, index) => {
         const row = Math.floor(index / xs.length), col = index % xs.length
-        const exact = source.densityGrid.tauAt(ranges[row] * east[col], ranges[row] * north[col])
+        const exact = fade[row] < 1 ? depthAt(source)(ranges[row] * east[col], ranges[row] * north[col]) : 0
         maxError = Math.max(maxError, Math.abs(exact - tau[index]))
         return { path: path[row], fade: fade[row], local: tau[index] * slant[row],
-          mean: expected[index] * slant[row], slant: slant[row],
+          mean: expected[index] * meanSlant(slant[row]), slant: slant[row],
           x: ranges[row] * east[col], y: ranges[row] * north[col] }
       })
       expect(maxError).toBeLessThanOrEqual(1e-9)
@@ -134,8 +137,8 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
         // Pull back each destination ray by one minute of advection. Resample
         // the source field directly to avoid interpolation across sharp edges.
         const sourceX = b.x - vx, sourceY = b.y - vy
-        const local = snapshot.densityGrid.tauAt(sourceX, sourceY) * b.slant
-        const mean = b.fade ? snapshot.densityGrid.expectedTauAt(sourceX, sourceY) * b.slant : 0
+        const local = b.fade < 1 ? depthAt(snapshot)(sourceX, sourceY) * b.slant : 0
+        const mean = b.fade ? snapshot.densityGrid.expectedTauAt(sourceX, sourceY) * meanSlant(b.slant) : 0
         const warped = -a.path * ((1 - b.fade) * Math.expm1(-local) + b.fade * Math.expm1(-mean))
         // Beer–Lambert's maximum slope between two slant depths is exp(-min).
         const slope = (u: number, v: number) => Math.exp(-Math.min(u, v)) * Math.abs(u - v)
@@ -168,7 +171,7 @@ it('keeps a low-cover floor transparent and lights gaps more than cores', () => 
   let gapTone = 0
   for (const tau of [layer.floorTau, 3]) {
     const sheet = cloudSheetOf(at.world, { ...at.geom, azimuthAt: () => at.world.bodies.sun.azimuth }, {
-      ...snapshot, layer, densityGrid: { ...snapshot.densityGrid, tauAt: () => tau, expectedTauAt: () => tau },
+      ...snapshot, layer, densityGrid: { ...snapshot.densityGrid, tauAt: () => tau, resolvedTauAt: () => tau, expectedTauAt: () => tau },
     }, neutral)!
     if (tau === layer.floorTau) {
       expect.soft(sheet.alpha[0]).toBeLessThan(0.15)

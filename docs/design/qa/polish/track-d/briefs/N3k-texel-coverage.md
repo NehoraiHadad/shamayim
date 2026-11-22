@@ -30,3 +30,9 @@ aliasing in the model.
 - Pure, seeded. Files ≤ ~150 lines, DRY, no dead code. Do not commit. Don't touch the painter.
 - Run `tsc -b`, oxlint on the touched files, and vitest with explicit paths (the N3j list).
 - Append `## Round 18 (N3k)` to `N2-report.md`.
+
+## Also: cold snapshot cost (from N3j)
+N3j reports 8.57–8.93 ms cold per new snapshot (once a minute). Profile it and say what dominates: the raster
+build, the 144 × 73 grid, or the texture samplers. Bring it to ≤ 4 ms CI-equivalent without changing the gates, or
+report the floor and why. A cold minute must never drop a frame on a mid phone: a 16 ms frame with the rest of the
+scene in it.

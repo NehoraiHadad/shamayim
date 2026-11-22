@@ -5,6 +5,7 @@ import jerusalemPanorama from '../../test/fixtures/scene/jerusalem.panorama.json
 import shadmotPanorama from '../../test/fixtures/scene/shadmot-mehola.panorama.json'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { genusOf } from '../../world/field/genus'
+import { altitudeOf } from '../../world/field/project'
 import { makeWorldBuilder } from '../../world/world'
 import { rainBankDescs } from './clouds'
 import { gridFor, sheetAlphaAt } from './cloudSheetGrid'
@@ -38,6 +39,19 @@ function sample(xs: number[], ys: number[], x: number, y: number, texel: (i: num
 
 const luminance = (rgb: RGB) => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
 const byte = (value: number) => Math.round(255 * value) / 255
+const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
+const percentile = (sorted: number[], q: number) => sorted[Math.floor(q * (sorted.length - 1))]
+
+function checkShading(sheet: LayerOf<'cloudSheet'>, fade: number[]) {
+  const resolved = (i: number) => fade[Math.floor(i / sheet.xs.length)] === 0
+  const core = sheet.tone.filter((_, i) => sheet.alpha[i] > 0.9).sort((a, b) => a - b)
+  const edge = sheet.tone.filter((_, i) => resolved(i) && sheet.alpha[i] >= 0.3 && sheet.alpha[i] <= 0.7)
+  const spread = percentile(core, 0.9) - percentile(core, 0.1)
+  const edgeLift = average(core) - average(edge)
+  console.info({ spread, edgeLift })
+  expect.soft(spread).toBeGreaterThanOrEqual(0.15)
+  expect.soft(edgeLift).toBeGreaterThanOrEqual(0.1)
+}
 
 function paint(sheet: LayerOf<'cloudSheet'>, x: number, y: number, behind: number) {
   const { xs, ys, alpha, tone, body, shade, lit } = sheet
@@ -119,6 +133,12 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
       tauMedian: depths[Math.floor(depths.length / 2)],
       rangeAtFive: grid.ranges[60], resolvedRange: snapshot.densityGrid.rayRange })
     checkBroken(sheet, Math.ceil(geom.dome(20)), Math.floor(geom.dome(5)), true)
+    checkShading(sheet, grid.fade)
+    const overhead = snapshot.cells.filter(cell =>
+      altitudeOf(cell.baseKm + cell.vKm / 2, Math.hypot(cell.x, cell.y)) > 40)
+    const aspects = sorted(overhead.map(cell => cell.r / (cell.rMinor ?? cell.r)))
+    console.info({ overheadCells: aspects.length, worldAspect: percentile(aspects, 0.5) })
+    expect.soft(percentile(aspects, 0.5)).toBe(1)
     const showers = build({ ...input('haifa'),
       forced: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25,
         windGusts: 45, windDirection: 250, humidity: 80 } })
@@ -140,6 +160,20 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
     const shadmot = build({ ...input('shadmot-mehola'),
       forced: { cloudCover: 50, thickCloud: 35, precipitation: 0, weatherCode: 2 },
       forcedLayers: { low: 0.6, mid: 0, high: 0 } })
+    const cirrusAt = '2026-11-17T07:15'
+    const cirrus = build({ ...worldInput(places.get('jerusalem')!, cirrusAt),
+      forced: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
+      forcedLayers: { low: 0, mid: 0, high: 0.75 } })
+    const veil = sceneModel(cirrus, box).layers.find(l => l.kind === 'cloudSheet' && l.genus === 'cs')
+    expect(veil?.kind).toBe('cloudSheet')
+    if (veil?.kind === 'cloudSheet') {
+      const ordered = sorted(veil.alpha.slice())
+      const alphaSpread = percentile(ordered, 0.9) - percentile(ordered, 0.1)
+      const meanTone = average(veil.tone)
+      console.info({ alphaSpread, meanTone, meanAlpha: average(veil.alpha) })
+      expect.soft(alphaSpread).toBeLessThanOrEqual(0.25)
+      expect.soft(meanTone).toBeLessThan(0.4)
+    }
     for (const fixture of [world, shadmot, overcast, showers]) {
       const geom = skyGeom(fixture, box)
       const sheets = sceneModel(fixture, box).layers.filter(l => l.kind === 'cloudSheet')
@@ -168,8 +202,19 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
       // A seam persists: compare the mean of the SEAM rows above each row with the SEAM rows below it.
       const levels = rows.map((_, i) => rows.slice(0, i + 1).reduce((a, b) => a + b, 0))
       const mean = (from: number) => levels.slice(from, from + SEAM).reduce((a, b) => a + b, 0) / SEAM
-      for (let i = SEAM; i + SEAM <= levels.length; i++) rowJump = Math.max(rowJump, Math.abs(mean(i) - mean(i - SEAM)))
+      let seam = 0
+      for (let i = SEAM; i + SEAM <= levels.length; i++) {
+        const step = Math.abs(mean(i) - mean(i - SEAM))
+        if (step > rowJump) { rowJump = step; seam = i }
+      }
       console.info(fixture.place.id, fixture === showers ? 'showers' : '', { jump, rowJump,
+        seamAltitude: geom.domeAltitudeAt(Math.ceil(geom.dome(10)) + 1 + seam),
+        layerSteps: sheets.map(sheet => {
+          const y = Math.ceil(geom.dome(10)) + 1 + seam
+          const sample = (dy: number) => average(Array.from({ length: box.width }, (_, x) =>
+            paint(sheet, x, y + dy, luminance(stopAt(stops, (y + dy) / box.skyHeight)))))
+          return [sheet.genus, average(Array.from({ length: SEAM }, (_, i) => sample(i) - sample(i - SEAM)))]
+        }),
         jumpAltitude: geom.domeAltitudeAt(jumpRow), ranges: fixture.cloudField?.snapshot.map(s => s.densityGrid.rayRange) })
       // A seam is a lasting step in the row mean. Resolved cell edges and rows of elements near the horizon are real
       // short steps, so the per-pixel bound applies only to the closed overcast, which has no edges.

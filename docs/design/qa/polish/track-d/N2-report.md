@@ -560,3 +560,36 @@ Haifa's measured upper As tone spread is 0.11607. The opaque CIE ramp evaluated 
 ### Verification
 
 178 of 179 unit tests passed across 14 explicit file runs at nice -n 19. The remaining look test reported the two row-step failures above. The sheet model, visibility, midnight scrub and painter tests passed, along with sky, weather, model, c10fixes, field, both continuity files, density and transmit. TypeScript build-mode checking with no emit, Oxlint on touched TypeScript files and the Git whitespace check passed. CI timing and browser stills were skipped locally. No commit or deployment was made.
+
+## Round 17 (N3j)
+
+1. **Horizon seam.** The N3j look fixture isolated the persistent changes to the low Sc sheet near 4.6° in Jerusalem and Shadmot Mehola and to the mid Ns sheet near 4.8° in Haifa showers. These are sheet-only composites over the sky stops. Sc had two hand-offs operating on the same samples, first from raster density to expected density and then from resolved to unresolved footprint opacity. Slant amplification of the expected log transmission filled the unresolved gaps, and using that depth for the cloud source brightened the band. The sheet now reads resolved optical depth directly and blends its premultiplied source into the unresolved footprint source before the raster ends. Far air adds sky fill. Ns uses the rain-darkened slab body as its diffuse source, reducing the steep source change over the lowest rows.
+2. **Performance.** Raster bins index cell references and still evaluate the actual footprint at the query point. The sheet reuses the descriptor for the same world snapshot and view. Cold and reused times are reported separately below.
+3. **Cell shading.** The existing Sc kernel falls as 1 − (r/R)⁴ across the footprint. The cellular tone uses the textured slant depth with diffuse extinction and thin-column forward scattering, bypassing the closed-deck ramp.
+4. **Overhead wedges.** The Jerusalem broken fixture has five low-cell centres above 40° and a median world-space major/minor radius ratio of 1.00. Advection translates these circular footprints. The same fixture measures 4.28 px/degree vertically at 45° versus 1.45 at 20°, so the projection can stretch overhead gaps.
+5. **Cs veil.** Cs uses expected depth and a limited slant boost for the broad veil, with the independent solar chord preserved. The tone stays on the thin scattering ramp. On the Jerusalem 07:15 cirrus fixture the alpha p10–p90 spread is 0.167, mean alpha is 0.426, and mean tone is 0.067.
+
+The six-row mean gate in `cloudSheetLook.test.ts` has a limit of 0.03. The worst remaining transitions were:
+
+| Fixture | Sheet | Altitude | Row-mean change |
+| --- | --- | ---: | ---: |
+| Jerusalem broken | Sc | 3.34° | 0.01685 |
+| Shadmot Mehola broken | Sc | 3.37° | 0.01623 |
+| Haifa overcast | As | 7.48° | 0.01030 |
+| Haifa showers | Ns | 7.48° | 0.00780 |
+
+In the same test, Jerusalem broken core tone spans 0.486 from p10 to p90. Resolved edges are 0.630 brighter in mean tone than the cores. The lowest row standard deviation in the 5–20° band was 0.139 in Jerusalem and 0.156 in Shadmot Mehola. Jerusalem's median projected element aspect was 3.0.
+
+`cloudSheet.perf.test.ts` measured median local increments in milliseconds. The cellular grid remains 144 × 73. The gate adds the repeated-render increment to the positive raster extension delta and has a limit of 1.5 ms. The cold increment is the first scene render with sheets minus the first render with sheets suppressed, so it includes sheet construction and the associated scene work.
+
+| Panorama | Repeated render | Total raster | Raster extension | Gate total | Cold render |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Jerusalem | −0.100 | 1.019 | 0.660 | 0.561 | 8.823 |
+| Haifa | −0.033 | 1.129 | 0.708 | 0.675 | 8.571 |
+| Tiberias | 0.106 | 1.098 | 0.672 | 0.778 | 8.927 |
+
+The local gate passes on all three panoramas. Each new snapshot still incurs the cold sheet cost.
+
+### Verification
+
+All 179 tests across the 14 requested Vitest files passed in individual runs at `nice -n 19`. The no-emit TypeScript check (`tsc -b`), Oxlint on the edited TypeScript files, and the Git whitespace check passed. Cloud CI timings and new browser stills remain unverified.

@@ -315,10 +315,10 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     if (!layer.banks.length && layer.cover < 0.05) continue
     const convective = world.cloudField?.field.layers.find(item => item.lattice === layer.level)?.form.conv ?? 0
     const banks = layer.banks.flatMap((bank) => {
-      // The lowest six degrees are the separate horizon heaps. Preserve observed cells, convective banks and the banks
-      // that rain (the shafts, the fall and the lightning hang from them until the rain painter reads `rain.cells`).
+      // The sheet continues through the horizon. Observed cells and the banks
+      // that anchor precipitation retain their independent opacity.
       const desc = bankDesc(world, box, geom, stops, layer, bank, light, union, raining)
-      const opacity = bank.seen || falling.has(bank.id) || (layer.level === 'low' && bank.altitude <= 6)
+      const opacity = bank.seen || falling.has(bank.id)
         ? 1 : 1 - blend * (1 - convective)
       return opacity ? [{ ...desc, alpha: desc.alpha * opacity }] : []
     })
