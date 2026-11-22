@@ -955,6 +955,7 @@ Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look
       Field calibration on the real Haifa 15.3 day: towers 35 % of low cover, cores 18 km apart / 2.5 km radius, half
       Cb, rain only from Cb (`stormDay.test.ts`). Overcast nights lit from below by the towns (`cityLight.ts`, env.glow).
 - [x] Storm look (Claude, 22 Nov): forecast convective rain at the place stands one mature Cb 4 km upwind
+- [x] Crowns and storm hours (Claude, 22 Nov): Open-Meteo CAPE + freezing level asked (ASK_STORM_HOURLY on, app works without them); tower crowns are crisp cauliflower turrets in a dome half the width deep (no beads down narrow columns); a curtain hangs from its base's near edge; city night glow stays radial (no direction data). Open: bead column at the left edge in haifa 17:00, near curtain still faint at 14:00, freezing level unused (snow line), shaft drift time origin, fog in new style.
       (`hereCell.ts`), ranked first in the rain so its dark base and curtain are near; towers beyond 40 km merge into a
       soft horizon mass (`MERGE_KM`/`MERGE_PX`); anvils only over columns 1.5x taller than wide, the column flaring into
       the cap (no saucers, `cloudTower.test.ts`); the overcast city night dim overhead, brighter toward the horizon
