@@ -24,13 +24,7 @@
   height: 44px;
   border: 1px solid color-mix(in srgb, var(--sheet-ink) 25%, transparent);
   border-radius: 50%;
-  color: inherit;
-  background: transparent;
-  font: 0.875rem / 1 var(--font-sans);
-  cursor: pointer;
 }
-
-.play > span { display: inline-block; direction: ltr; }
 
 .rail {
   position: relative;
@@ -92,12 +86,6 @@
   color: var(--sheet-muted);
   font-size: var(--text-sm);
   line-height: 18px;
-}
-
-.play:focus-visible,
-.rail input:focus-visible {
-  outline: 2px solid var(--sheet-ink);
-  outline-offset: 2px;
 }
 
 .legend {

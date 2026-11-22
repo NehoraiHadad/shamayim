@@ -19,7 +19,7 @@ export function SceneOverlay({ items, width, style }: { items: readonly OverlayI
       case 'height':
         return (
           <span key="height" className={item.backed ? `${styles.depth} ${own.backed}` : styles.depth} style={at(item)} aria-hidden="true">
-            <bdi>{item.text.replace(' מ׳', '')}</bdi> מ׳
+            {item.text}
           </span>
         )
       default:

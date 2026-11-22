@@ -99,4 +99,31 @@ describe('searchPlaces', () => {
     await expect(searchPlaces('א')).resolves.toEqual([])
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('rejects when both providers fail without being aborted', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline') }))
+    await expect(searchPlaces('ירושלים')).rejects.toThrow('offline')
+  })
+
+  it('keeps Open-Meteo results when Nominatim fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).includes('nominatim')) return new Response('', { status: 503 })
+      return new Response(JSON.stringify({
+        results: [{ id: 281184, name: 'ירושלים', latitude: 31.77, longitude: 35.22, country: 'ישראל' }],
+      }), { status: 200 })
+    }))
+    await expect(searchPlaces('ירושלים')).resolves.toEqual([
+      expect.objectContaining({ id: '281184', nameHe: 'ירושלים' }),
+    ])
+  })
+
+  it('throws the abort reason when aborted', async () => {
+    const controller = new AbortController()
+    const reason = new DOMException('cancelled', 'AbortError')
+    vi.stubGlobal('fetch', vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      throw init?.signal?.reason ?? reason
+    }))
+    controller.abort(reason)
+    await expect(searchPlaces('ירושלים', controller.signal)).rejects.toBe(reason)
+  })
 })
