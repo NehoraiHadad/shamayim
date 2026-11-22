@@ -1,3 +1,4 @@
+import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
 import type { WorldMark } from '../../world/markGeometry'
 import { markBoxAt } from '../../world/markGeometry'
 import type { WorldState } from '../../world/types'
@@ -16,10 +17,11 @@ export function neighbourClearance(world: WorldState, width: number, mark: World
     seated, options.layer, options.supportId, options.skipRidge)
   const half = mark.w / 2, padded = half + side
   const body = markBoxAt(mark, 0)
+  const aboveSheet = !mark.named || mark.base <= VISIBLE_BOTTOM - SHEET_CLEAR
   const text = zones.filter(zone => zone.y < body.bottom && zone.y + zone.h > body.top)
   const boundaries = [padded, width - padded, ...spans.flatMap(span => [span.left - padded, span.right + padded]),
     ...text.flatMap(zone => [zone.x - half, zone.x + zone.w + half])]
-  return { boundaries, visible: (bounds: typeof body) => bounds.left >= 0 && bounds.right <= width
+  return { boundaries, visible: (bounds: typeof body) => aboveSheet && bounds.left >= 0 && bounds.right <= width
     && !spans.some(span => span.left < bounds.right && span.right > bounds.left)
     && !text.some(zone => zone.x < bounds.right - side && zone.x + zone.w > bounds.left + side) }
 }

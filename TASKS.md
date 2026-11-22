@@ -9,19 +9,24 @@ Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"**
 landmarks and non-own worship).
 
 - [x] Non-own mosques/minarets are never drawn, even when famous. Other non-own worship is drawn only when the
-      existing curated/OSM fame data identifies a named landmark. Own portraits retain their rules.
+      source is curated or a named `fame === 2` landmark (Wikipedia). Fame-1 sources use the ordinary
+      rule. Own portraits retain their rules.
 - [x] Famous non-own landmarks draw at `max(trueHeight, 4)` CSS px, without an exaggeration cap; the glyph records
       its factor. Ordinary non-own marks keep the round-5 4 px floor and 2× cap. One `(kind, famous)` policy drives
       both receiving layers and pre-selection; famous candidates need positive true visible height only.
 - [x] Keep ≥6 CSS px from the final home roofline, with at most 12 CSS px sliding away from home. Use true-distance
-      haze, no lighter than home. Town members require their own painted mass and ≥1 CSS px on each side, unless a
-      famous landmark has a physically proven ridge base: terrain hides its foot, but its true top projects above
+      haze, no lighter than home. Town members require their own painted mass and ≥1 CSS px on each side, unless an
+      unseated famous landmark has a physically proven ridge base: terrain hides its foot, but its true top projects above
       that drawn ridge at its bearing. Buildings/home roofs never supply that exception or cover the kept icon.
 - [x] Round 6: unit guards and mutation checks; independent final-glyph assertions across the fixed 117 places and
       all 18 recorded panoramas at 375/1280; refreshed background exhaustive audit. Results: `REPORT.md` Round 6 and
       `AUDIT-table.md` After. DPR-2 stills and per-glyph measurements: `stills/README.md` Round 6.
 - [x] Earlier rounds 1–5: physical angular/crest clipping, town identity, source-seat carry, nearest-first glyph
       occlusion, final seat-budget refill, and shared haze/size helpers. Historical comparisons remain in `REPORT.md`.
+- [x] Round-7 review: one `isFamousLandmark` data predicate for fame-2/curated neighbours; fame-1 worship hidden,
+      other fame-1 marks capped at 2×. Seated marks stay on visible town feet and never use panorama ridge evidence.
+      Restored dot/sheet checks for famous fitting, with sheet clearance retained by the receiver. Measured frame
+      drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
 - [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
       then review these rules against that terrain. The current still is explicitly flat 100 m.
 

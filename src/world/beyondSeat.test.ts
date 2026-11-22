@@ -27,7 +27,7 @@ it('seats a synthetic 60 m tower on a drawn block at its true hPx and enforces b
   const { loaded, input } = ctx
   const { place3, marks } = placeOf(input)
   const source = new Map([...loaded.landmarks, ...(loaded.seatCandidates ?? [])].map((mark) => [mark.id, mark]))
-  const kinds = new Set(['highrise', 'church', 'synagogue', 'highrise', 'highrise'])
+  const kinds = new Set(['highrise', 'church', 'synagogue', 'homes'])
   expect(place3.beyondTowns?.length).toBeGreaterThan(0)
   const nearby = marks.filter((mark) => !mark.portrait && mark.seatBlockId !== undefined && kinds.has(mark.kind) &&
     inSkyline(seatPlace, source.get(mark.id)!))

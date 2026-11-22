@@ -58,10 +58,18 @@ it('requires drawn town mass when the foot is visible', () => {
   expect(evaluate(mark, [], true).placed).toBeNull()
 })
 
-it('cannot lift a physically hidden top onto a visible town support', () => {
+it('keeps a famous seated foot on its visible town block despite unrelated panorama evidence', () => {
   const support = { id: 'own-town', x: 140, w: 30, top: 98, foot: 99, hazeKm: 11 }
-  expect(evaluateNeighbour(world, { ...behindRidge, sourceTopY: 101 }, 375, support, home, [], [], 'far')
-    .placed).toBeNull()
+  const seated = { ...behindRidge, seatBlockId: 'own-town', seatRank: 1, plane: 'near', bearingX: 30,
+    sourceTopY: 101 } as WorldMark
+  const result = evaluateNeighbour(world, seated, 375, support, home, [], [massAt(140, 30, 98, 11, 'own-town')])
+  expect(result.reason).toBe('kept')
+  expect(result.placed!.mark.base).toBe(99)
+  expect(result.placed!.mark.baseMode).toBe('foot')
+})
+it('never treats a seated mark’s panorama top as proof at the outside seat', () => {
+  const seated = { ...behindRidge, seatBlockId: 'missing-town', seatRank: 1 } as WorldMark
+  expect(evaluate(seated, [], true).placed).toBeNull()
 })
 it('follows a sloping drawn ridge at the final bounded slide', () => {
   const slope = { ...world, terrain: { ...world.terrain,

@@ -13,7 +13,9 @@ export function neighbourRule(kind: string, famous: boolean): NeighbourRule {
   return famous ? 'landmark' : 'ordinary'
 }
 
-export function viableNeighbour(kind: string, famous: boolean, trueHeightPx: number) {
-  const rule = neighbourRule(kind, famous)
+export function viableNeighbourHeight(rule: NeighbourRule, trueHeightPx: number) {
   return rule !== 'hidden' && trueHeightPx > 0 && (rule === 'landmark' || trueHeightPx >= NEIGHBOUR_MIN_TRUE_PX)
 }
+
+export const viableNeighbour = (kind: string, famous: boolean, trueHeightPx: number) =>
+  viableNeighbourHeight(neighbourRule(kind, famous), trueHeightPx)

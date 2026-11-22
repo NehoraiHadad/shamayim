@@ -1,3 +1,4 @@
+import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../world/layout'
 import { groundAt } from '../world/sceneLight'
 import { LEGIBLE_PX, MAX_EXAGGERATION } from '../world/neighbourSize'
 import { assertNeighbour } from './neighbourAssertions'
@@ -7,7 +8,8 @@ import { hashId } from '../data/landmarks/hash'
 import { distanceOf, offsetKm } from '../data/landmarks/project'
 import type { Landmark } from '../data/landmarks/types'
 import type { SceneTerrain } from '../data/terrain/terrain'
-import { outsideDepth, projectedHeight, visibleOverRidge, HEIGHT_TOLERANCE_PX } from './drawnGeometryAssertions'
+import { drawnRidgeLine, outsideDepth, projectedHeight, visibleOverRidge, HEIGHT_TOLERANCE_PX }
+  from './drawnGeometryAssertions'
 import { tonesAt } from '../scene/model/marks'
 import { SCENE_W } from '../world/sceneBox'
 import { outsideMass } from '../scene/model/outside'
@@ -74,10 +76,10 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
     const crest = terrain ? visibleOverRidge(seat ? terrain : { ...terrain,
       nearPoints: world.terrain.near.points.map(([x, y]) => [x, y]) }, dx, dy, landmark.heightM) :
         mark.crestPx ?? Infinity
-    const ridge = glyph.baseMode === 'ridge'
-      ? glyph.ridgeKind === 'land' ? view.land?.top : world.terrain.near.points : undefined
+    const ridge = glyph.baseMode === 'ridge' ? drawnRidgeLine(world, glyph.ridgeKind) : undefined
     const physicalBase = ridge ? groundAt(ridge, mark.bearingX ?? mark.x) : glyph.base
-    const expected = Math.min(projectedHeight(landmark.heightM, distance, physicalBase, world.terrain.horizonY), crest,
+    const angular = projectedHeight(landmark.heightM, distance, physicalBase, world.terrain.horizonY)
+    const expected = Math.min(angular, crest,
       ridge ? physicalBase - mark.sourceTopY! : Infinity)
     const height = glyph.h * glyph.scale
     expect(glyph.trueHeightPx, hint).toBeCloseTo(expected, 6)
@@ -87,7 +89,11 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
     expect(glyph.kind, hint).not.toMatch(/minaret|mosque|masjid/i)
     if (['church', 'synagogue', 'shrine', 'temple', 'chapel', 'cathedral', 'westernWall', 'babShrine']
       .includes(glyph.kind)) expect(glyph.famous, hint).toBe(true)
-    expect(glyph.famous, hint).toBe(mark.named)
+    const structure = !['palms', 'orchard', 'vineyard', 'solar', 'mast', 'homes'].includes(landmark.kind)
+    const trulyFamous = structure && (landmark.source === 'curated'
+      || landmark.fame === 2 && Boolean(landmark.nameHe))
+    expect(glyph.famous, hint).toBe(trulyFamous)
+    if (glyph.famous) expect(glyph.base, hint).toBeLessThanOrEqual(VISIBLE_BOTTOM - SHEET_CLEAR)
     expect(height, hint).toBeGreaterThanOrEqual(LEGIBLE_PX)
     expect(glyph.trueDistanceKm, hint).toBe(mark.km)
     const tier = Math.max(0, Math.min(18, Math.floor(Math.log(mark.km / 2) / Math.log(1.22))))
@@ -98,8 +104,11 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
     const pad = glyph.town && glyph.baseMode !== 'ridge' ? 1 : 0
     const left = glyph.x - glyph.w / 2 - pad, right = glyph.x + glyph.w / 2 + pad
     const masses = inOutside ? outsideMasses : farMasses
+    // Tangent bounds round differently as centre±half versus left+width (~1e-13 CSS px). At DPR 2 this
+    // tolerance covers <2e-6 device pixels, far below 1/255-pixel alpha coverage; it admits no visible foot cover.
     const covering = masses.filter(mass => (!glyph.supportId || mass.id !== glyph.supportId)
-      && mass.right > left + HEIGHT_TOLERANCE_PX && mass.left < right - HEIGHT_TOLERANCE_PX && mass.km < mark.km && mass.top < glyph.base)
+      && mass.right > left + HEIGHT_TOLERANCE_PX && mass.left < right - HEIGHT_TOLERANCE_PX
+      && mass.km < mark.km && mass.top < glyph.base)
     expect(covering, `${hint} ${glyph.baseMode}`).toEqual([])
     if (!inOutside) expect(outsideMasses.some(mass => mass.right > left + HEIGHT_TOLERANCE_PX
       && mass.left < right - HEIGHT_TOLERANCE_PX && mass.top < glyph.base), hint).toBe(false)

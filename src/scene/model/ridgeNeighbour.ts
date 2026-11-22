@@ -1,3 +1,4 @@
+import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
 import type { WorldMark } from '../../world/markGeometry'
 import { neighbourSize } from '../../world/neighbourSize'
 import { SCENE_W } from '../../world/sceneBox'
@@ -23,7 +24,7 @@ export function ridgeNeighbour<T extends WorldMark>(world: WorldState, mark: T, 
     { layer, town: false, skipRidge: ridge.kind })
   const trueX = ridge.x * width / SCENE_W
   // Sliding follows the drawn ridge. Include every linear segment and vertical-occluder crossing as candidates.
-  const levels = [...masses.map(m => m.top), ...zones.flatMap(z => [z.y, z.y + z.h + size.h * size.scale])]
+  const levels = [VISIBLE_BOTTOM - SHEET_CLEAR, ...masses.map(m => m.top), ...zones.flatMap(z => [z.y, z.y + z.h + size.h * size.scale])]
   const edges = ridge.points.flatMap(([x, y], i) => {
     const next = ridge.points[i + 1]
     if (!next) return [x * width / SCENE_W]

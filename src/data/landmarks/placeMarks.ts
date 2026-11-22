@@ -7,10 +7,10 @@ export { placeHomes, withPlaceHomes, isPlaceHomes, settlementSize } from './home
 import { perspectiveFields } from './perspectiveFields'
 import type { Place } from '../../config/place'
 import type { NoteBox } from '../terrain/sceneNotes'
-import { viableNeighbour, neighbourRule } from '../../world/neighbourPolicy'
+import { viableNeighbourHeight, neighbourRule } from '../../world/neighbourPolicy'
 import { glyphOf } from '../../world/glyphSpecs'
 import type { SceneTerrain } from '../terrain/terrain'
-import { isLandmark } from './fame'
+import { isFamousLandmark, isLandmark } from './fame'
 import { elevationAt, projectMark, type Portrait } from './markProjection'
 import { PORTRAIT_MARGIN_KM } from './portrait'
 import { groundY, markHeight, markWidth } from './project'
@@ -40,8 +40,9 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     const base = projected.plain?.baseY ?? groundY(ground.map(([x, y]) => ({ x, y })), projected.x)
     const angular = perspective?.(mark, projected.layer, base)
     const hPx = angular?.hPx
-    const famousNeighbour = angular && neighbourRule(glyphOf(mark) ?? mark.kind, isLandmark(mark)) === 'landmark'
-    if (hPx !== undefined && !viableNeighbour(glyphOf(mark) ?? mark.kind, isLandmark(mark), hPx)) continue
+    const rule = neighbourRule(glyphOf(mark) ?? mark.kind, isFamousLandmark(mark))
+    const famousNeighbour = angular && rule === 'landmark'
+    if (hPx !== undefined && !viableNeighbourHeight(rule, hPx)) continue
     if (cityMode && projected.layer === 'near' && isGenericHighrise(mark.kind, mark.glyph)) continue
     const band = mark.source === 'curated' || (!terrain.sightAt && mark.kind === 'highrise')
       ? 3 : projected.layer === 'near' ? 1.5 : 3
@@ -51,8 +52,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     if (projected.plain) {
       const { baseY, hPx, visibleTopY } = projected.plain
       const nearY = groundY(terrain.nearPoints.map(([x, y]) => ({ x, y })), projected.x)
-      if (perspective ? visibleTopY !== undefined && neighbourRule(glyphOf(mark) ?? mark.kind,
-        isLandmark(mark)) !== 'landmark' : hPx < 3 || (visibleTopY ?? baseY) >= Math.min(nearY, 114)) continue
+      if (perspective ? visibleTopY !== undefined && rule !== 'landmark' : hPx < 3 || (visibleTopY ?? baseY) >= Math.min(nearY, 114)) continue
     }
     if (!famousNeighbour && !projected.plain && Math.abs(elevationAt(elevations, projected.x) ?? 2) <= 1) continue
     if (!famousNeighbour && projected.layer === 'far') {
@@ -140,7 +140,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       ...(item.plain?.visibleTopY === undefined ? {} : { visibleTopY: item.plain.visibleTopY }),
       dy: item.dy,
       ...(item.portrait ? { portrait: true } : {}),
-      ...(isLandmark(item.mark) ? { landmark: true } : {}),
+      ...((perspective ? isFamousLandmark(item.mark) : isLandmark(item.mark)) ? { landmark: true } : {}),
       ...(absorbedIds.has(item.mark.id) || (homes && item.mark.source === 'curated' && item.layer === 'near'
         && Math.abs(item.x - center) < villageHalf) ? { absorbed: true } : {}),
     }]

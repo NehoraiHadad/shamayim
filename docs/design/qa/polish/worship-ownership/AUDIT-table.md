@@ -2374,6 +2374,34 @@ Across all places the saved probe counted 2,876 worship glyph rows and matched e
 
 ## After
 
+Round 7, fame-2/curated neighbour rule. Background offline audit: 1,781 places,
+18 recorded and 1,763 flat 100 m, both 375/1280 px, 772.65 s.
+Non-own kept 1957 → 1700; famous 1271 → 1013; ridge 1235 → 984.
+The old famous count included fame 1. No forbidden worship or seated ridge icons. Own worship rows 1662 → 1662; added/removed source rows 0/0; changed common x/height: 0.
+
+| Final receiver reason | Rows |
+| --- | --- |
+| budget-or-glyph-occlusion | 3 |
+| home-haze | 895 |
+| kept | 1700 |
+| missing-town-mass | 1213 |
+| no-visible-separated-position | 1413 |
+
+| Set, both widths | Layer | Before R7: all / non-own* | After R7: all / non-own* |
+| --- | --- | --- | --- |
+| 18 recorded | outside | 74 / 0 | 74 / 0 |
+| 18 recorded | marks.far | 0 / 0 | 0 / 0 |
+| 117 total | outside | 361 / 45 | 360 / 44 |
+| 117 total | marks.far | 115 / 115 | 103 / 103 |
+| 1,781 total | outside | 742 | 734 |
+| 1,781 total | marks.far | 1215 | 966 |
+
+*Full 1,781-place rows show non-own counts only. Receiver counts exclude earlier source/selection rejects.
+Factor bins, landmark outcomes and frame drift: `REPORT.md` Round 7. Current full per-glyph measurements:
+[ROUND7-neighbours.tsv](ROUND7-neighbours.tsv). Historical tables retain their original round labels below.
+
+## After — round 6 (historical)
+
 Round 6, owner decision **"מסגדים לא, ציונים כן"**. Background offline audit of 1,781 places
 (18 recorded, 1,763 flat 100 m), both 375/1280 px, 686.45 s.
 Non-own kept rows: 694 → 1957; 1271 famous; 1235 ridge-based.

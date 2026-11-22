@@ -73,12 +73,8 @@ export function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGrou
   let x = mark.xPct / 100 * width
   const km = mark.km ?? kmAlong(terrain, x, mark.layer === 'far' ? 'far' : 'near', width)
   const common = { ...mark, glyphKind: kind, named, plane: mark.layer, km }
-  if (mark.sightKm !== undefined && neighbourRule(kind, named) === 'landmark') {
-    x = mark.bearingX ?? x
-    const base = mark.sourceGroundY ?? mark.baseY
-    return angularMark({ ...common, ...glyphAtHeight(kind, mark.hPx), x, xPct: x / width * 100,
-      base, baseY: base }, terrain.horizonY)
-  }
+  const famous = mark.sightKm !== undefined && neighbourRule(kind, named) === 'landmark'
+  if (famous) x = mark.bearingX ?? x
   if (mark.layer === 'near' && spec.field && mark.sightKm === undefined) {
     // A field slides onto the visible face under the crest, out of the dot.
     const want = 2 + 6 * clamp01(Math.abs(mark.dy) / 1.5)
@@ -96,15 +92,18 @@ export function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGrou
     return null
   }
   if (mark.layer === 'near' && mark.absorbed) x = intoTown(x, spec.w, ground, dot, input.style)
-  let geometry = building(mark, kind, x, mark.layer === 'far' ? farGround : ground, mark.layer === 'far')
+  const geometryAt = (at: number) => famous
+    ? { ...glyphAtHeight(kind, mark.hPx), base: mark.sourceGroundY ?? mark.baseY }
+    : building(mark, kind, at, mark.layer === 'far' ? farGround : ground, mark.layer === 'far')
+  let geometry = geometryAt(x)
   if (!geometry) return null
-  if (mark.layer === 'near') {
+  if (mark.layer === 'near' || famous) {
     const half = spec.w * geometry.scale / 2
     const box = { left: x - half, right: x + half, top: geometry.base - geometry.h * geometry.scale, bottom:
       geometry.base }
     if (!mark.absorbed && overlaps(box, boxAround(dot.x, dot.y, DOT_R))) {
       x = dot.x + Math.sign(x - dot.x || 1) * (half + DOT_R + 1)
-      geometry = building(mark, kind, x, ground, false)
+      geometry = geometryAt(x)
       if (!geometry) return null
     }
     const need = geometry.base - (VISIBLE_BOTTOM - SHEET_CLEAR)

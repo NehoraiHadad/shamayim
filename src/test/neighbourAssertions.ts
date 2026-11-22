@@ -5,7 +5,7 @@ import type { GlyphDesc, LayerOf } from '../scene/model/types'
 import type { WorldMark } from '../world/markGeometry'
 import { SCENE_W } from '../world/sceneBox'
 import type { WorldState } from '../world/types'
-import { assertRidges } from './drawnGeometryAssertions'
+import { assertRidges, drawnRidgeLine } from './drawnGeometryAssertions'
 import { tonesAt } from '../scene/model/marks'
 
 const hazeCache = new WeakMap<WorldState, Map<string, number>>()
@@ -45,7 +45,8 @@ export function assertNeighbour(world: WorldState, width: number, layer: LayerOf
   }
   if (glyph.baseMode === 'ridge') {
     expect(glyph.famous, hint).toBe(true)
-    const ridge = glyph.ridgeKind === 'land' ? view.land?.top : world.terrain.near.points
+    expect(mark.seatBlockId, hint).toBeUndefined()
+    const ridge = drawnRidgeLine(world, glyph.ridgeKind)
     expect(ridge, hint).toBeDefined()
     expect(glyph.x / sx, hint).toBeGreaterThanOrEqual(ridge![0][0])
     expect(glyph.x / sx, hint).toBeLessThanOrEqual(ridge!.at(-1)![0])

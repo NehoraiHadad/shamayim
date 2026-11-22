@@ -18,9 +18,11 @@ export function foregroundTerrain(world: WorldState, mark: WorldMark, layer: 'ou
 }
 
 export function landmarkRidge(world: WorldState, mark: WorldMark, layer: 'outside' | 'far') {
+  // Seated marks have outside-frame feet, without a proven top in that frame. They never use the ridge exception.
+  if (mark.seatBlockId !== undefined) return null
   const front = foregroundTerrain(world, mark, layer)
   if (!front || mark.sourceTopY === undefined || mark.sourceGroundY === undefined) return null
-  const { base, x } = front
+  const { base } = front
   if (!(mark.sourceTopY < base && mark.sourceGroundY > base)) return null
-  return { ...front, base, x, baseAt: (cssX: number, width: number) => groundAt(front.points, cssX * SCENE_W / width) }
+  return { ...front, baseAt: (cssX: number, width: number) => groundAt(front.points, cssX * SCENE_W / width) }
 }

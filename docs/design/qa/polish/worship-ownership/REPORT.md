@@ -1161,3 +1161,216 @@ visually inspected, and labelled in their pixels. Per-glyph values and reproduct
 
 Full offline exports: `audit-after.json`, `neighbours-after.json`, `round6-decisions.json`,
 `round6-far-landmarks.json`; human-readable kept rows: [ROUND6-neighbours.tsv](ROUND6-neighbours.tsv).
+
+## Round 7
+
+Completed all six review items against the merged worktree, without a commit. The supplied line numbers had
+shifted; the pre-edit locations and matching source text were verified first and saved in
+`src/test/probe-worship/round7-verified-lines.json`.
+
+### Fame means fame 2 or curated
+
+`isFamousLandmark` is the one source predicate: a named `fame === 2` structure, or `source === 'curated'`.
+It retains the existing structure-kind exclusions. `isLandmark` still admits fame 1 for own portrait ranking;
+that broader predicate no longer grants an uncapped neighbour icon. Non-own placement transports the stricter
+predicate into `landmark` / `WorldMark.named`, used by sizing, angular fitting and both receiving layers.
+Source seating, pool selection and perspective pre-selection use the same predicate. `placeMarks` computes its
+kind/fame rule once and reuses it for viability and the plain/far checks.
+
+Fame-1 worship is hidden. Other fame-1 marks retain the ordinary 4 px floor / 2× cap. A named fame-2 church can
+still use 5×. Curated status is the source field, never a list of IDs. Own portraits retain their old classification.
+
+The saved R6 baseline has 334 flagged fame-1 rows and
+937 flagged fame-2 rows. The requested threshold therefore leaves many
+existing icons eligible; the data already gives them fame 2. The factor histogram below makes that visible.
+
+### One frame for seated feet
+
+Chose the brief's second option: seated marks are excluded from ridge mode. `beyondMarks` no longer calls the
+home-eye projection or copies its top/ground coordinates, and no longer overwrites that bearing with `seat.x`.
+The town seat keeps its existing outside-frame physical size and crest clip. A surviving drawn town support
+proves its foot in that frame, so `hiddenFoot` does not compare it with home-eye evidence. Without that support,
+a seated mark is culled even if injected panorama evidence appears to prove a top above a ridge.
+Unseated fame-2/curated landmarks retain the terrain-only ridge exception and their own-town requirement.
+
+The dedicated offline frame pass checks all 1,781 audit places, in timed groups of 30. It asserts
+that **every** actual world seat has a measured row (111 total), including non-settlement-kind
+sources seated through mapped town fabric. Samples are per `(place, source)`, not duplicated for the two widths.
+The broader sample also includes raw non-mosque settlement sources over projected town blocks, before final
+fame/size and scene culls. Desktop differences are the same horizontal coordinate drift scaled by 1280/375.
+A missing panorama bearing is counted as unavailable, not as zero drift. Export: `round7-seat-drift-all.json`.
+
+| Sample | Place/source pairs | No panorama bearing | Median px @375 | P95 px @375 | Max px @375 | Max px @1280 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Raw projected town candidates + actual seats | 4140 | 17 | 14.509 | 67.464 | 157.098 | 536.227 |
+| All actual world seats | 111 | 0 | 17.412 | 68.263 | 112.235 | 383.095 |
+| Actual fame-2 world seats | 55 | 0 | 18.741 | 64.266 | 112.235 | 383.095 |
+
+Largest actual-seat differences:
+
+| Place | Source ID | Kind / fame | Seat x | Panorama x | Absolute drift @375 |
+| --- | --- | --- | --- | --- | --- |
+| נוף הגליל | `il-church-32.70705-35.30171` | church / 2 | 238.372 | 350.607 | 112.235 |
+| אבו רוקייק | `il-waterTower-31.26486-34.8489` | waterTower / 0 | 265.080 | 354.675 | 89.595 |
+| אורה | `il-waterTower-31.75798-35.16501` | waterTower / 0 | 98.692 | 10.317 | 88.376 |
+| נוף הגליל | `il-church-32.70204-35.29783` | church / 2 | 246.755 | 321.163 | 74.407 |
+| אל ערוב | `il-waterTower-31.62356-35.15357` | waterTower / 0 | 122.481 | 50.432 | 72.049 |
+
+### Dot, sheet, assertions and cleanup
+
+The famous fitting branch now uses the common dot nudge and the same maximum 6 px sheet lift / rejection.
+This applies to near, far and plain famous candidates. Final receiving clearance also checks the sheet ceiling,
+so replacing the base with a ridge cannot undo it; ridge slide candidates include the sheet-boundary crossing.
+
+The foot-cover assertion is split back to a maximum line length of 117. Its horizontal contact tolerance is
+physically justified in a comment: centre±half and left+width arithmetic can differ by ~1e-13 CSS px at a tangent.
+The 1e-6 CSS px tolerance is under 2e-6 device pixels at DPR 2, below 1/255-pixel alpha coverage; it permits no
+visible covering strip. It changes no drawn dimensions or gap rule.
+
+The kind set in `beyondSeat.test.ts` is deduplicated and includes `homes`. `drawnRidgeLine` shares the independent
+test-side ridge lookup between base and height assertions. `landmarkRidge` no longer re-spreads `base` / `x`.
+
+### Kept counts before → after
+
+Fixed-set before is the fresh merged-worktree `round4-layers-round7-before.json`; after is generated alongside
+the independent grouped checks. Full-audit before is the saved R6 export, frozen as `round7-before-neighbours.json`
+and `round7-before-audit.json`. Each emitted glyph at each width contributes one row.
+
+| Set, both widths | Layer | Before R7: all / non-own* | After R7: all / non-own* |
+| --- | --- | --- | --- |
+| 18 recorded | outside | 74 / 0 | 74 / 0 |
+| 18 recorded | marks.far | 0 / 0 | 0 / 0 |
+| 117 total | outside | 361 / 45 | 360 / 44 |
+| 117 total | marks.far | 115 / 115 | 103 / 103 |
+| 1,781 total | outside | 742 | 734 |
+| 1,781 total | marks.far | 1215 | 966 |
+
+*For the full 1,781-place rows, only non-own counts are shown (the export covers neighbours of every kind).
+Own worship rows 1662 → 1662; added/removed source rows 0/0; changed common x/height: 0.
+
+| 117-place width | Layer | Non-own before → after |
+| --- | --- | --- |
+| 375 | outside | 22 → 22 |
+| 375 | marks.far | 58 → 52 |
+| 1280 | outside | 23 → 22 |
+| 1280 | marks.far | 57 → 51 |
+
+Full neighbours: 1957 → 1700; flagged/famous 1271 → 1013;
+ridge-based 1235 → 984. Forbidden non-own mosques and non-famous
+worship: **0**. Seated ridge icons: **0**. Recorded panoramas keep
+0 non-own glyphs across both widths.
+
+### Famous landmarks table
+
+The table covers the fixed 117-place set, both widths, and the historic far-landmark trace. R6's flagged set
+includes fame 1; R7 separates genuinely famous kept icons from ordinary kept marks. Traced reasons include
+pre-selection policy/height drops and final receiver decisions. They are diagnostic view rows, not a shared
+raw-source recall denominator. All kept neighbours from the full audit are in [ROUND7-neighbours.tsv](ROUND7-neighbours.tsv).
+
+| Name | Source ID | Fame / source | R6 kept | R7 famous kept | R7 ordinary kept | R7 traced outcomes |
+| --- | --- | --- | --- | --- | --- | --- |
+| מצודת ביריה | `il-castle-32.9904-35.50809` | 2 | 4 | 4 | 0 | kept ×4 |
+| מבצר יחיעם | `il-castle-32.99434-35.22198` | 1 | 2 | 0 | 0 | no-viable-true-height ×2 |
+| מבצר נמרוד | `il-castle-33.25267-35.71505` | 2 | 2 | 2 | 0 | kept ×2 |
+| כנסיית בן האלמנה | `il-church-32.63064-35.35011` | 2 | 0 | 0 | 0 | home-haze ×2; no-viable-true-height ×2 |
+| כנסיית ההשתנות הקתולית | `il-church-32.68626-35.39242` | 2 | 10 | 10 | 0 | home-haze ×2; kept ×10 |
+| كنيسة البشارة للروم الأرثوذكس | `il-church-32.70705-35.30171` | 2 | 2 | 2 | 0 | kept ×2; no-visible-separated-position ×2 |
+| כנסיית החתונה | `il-church-32.74695-35.33865` | 2 | 6 | 6 | 0 | kept ×6; missing-town-mass ×2 |
+| פטרוס הקדוש | `il-church-32.8805-35.57538` | 2 | 4 | 4 | 0 | home-haze ×2; kept ×4 |
+| כנסיית הר האושר | `il-church-32.88077-35.55592` | 2 | 2 | 2 | 0 | kept ×2; missing-town-mass ×4 |
+| Church of our Lady of Baram | `il-church-33.04347-35.41413` | 2 | 18 | 18 | 0 | home-haze ×2; kept ×18 |
+| לבניה | `il-cooling-32.79335-35.05157` | 2 | 2 | 2 | 0 | kept ×2 |
+| מגדל מרום | `il-highrise-31.78832-35.20193` | 2 | 4 | 4 | 0 | kept ×4; missing-town-mass ×2 |
+| מגדל לייטהאוס | `il-highrise-32.00567-34.74166` | 2 | 1 | 1 | 0 | kept ×1; missing-town-mass ×1 |
+| מגדל אפטאון מגורים | `il-highrise-32.01332-34.75222` | 2 | 0 | 0 | 0 | missing-town-mass ×2 |
+| מגדל ביונד משרדים | `il-highrise-32.08019-34.79879` | 2 | 0 | 0 | 0 | home-haze ×2 |
+| מגדל נמרודי | `il-highrise-32.0934-34.82545` | 2 | 2 | 2 | 0 | kept ×2 |
+| עתידים מגדל ויז'ן בניין 8 | `il-highrise-32.11569-34.84299` | 1 | 4 | 0 | 0 | no-viable-true-height ×2; world-layout-filter ×4 |
+| מגדלי בריגה | `il-highrise-32.27686-34.83816` | 2 | 11 | 11 | 0 | kept ×11; no-visible-separated-position ×1 |
+| מגדל לגון דרומי | `il-highrise-32.30429-34.84542` | 2 | 10 | 10 | 0 | kept ×10; missing-town-mass ×2 |
+| מגדלי אופרת הים | `il-highrise-32.34024-34.85385` | 2 | 2 | 2 | 0 | kept ×2 |
+| מגדל אשכול | `il-highrise-32.76283-35.01768` | 1 | 2 | 0 | 0 | world-layout-filter ×4 |
+| Ibn Othman Mosque | `il-minaret-31.4998-34.46938` | 1 | 0 | 0 | 0 | policy-hidden ×2 |
+| مسجد علي البكاء | `il-minaret-31.5283-35.10379` | 1 | 0 | 0 | 0 | policy-hidden ×6 |
+| مسجد الخالدي | `il-minaret-31.54784-34.45576` | 1 | 0 | 0 | 0 | policy-hidden ×2 |
+| مسجد عمر | `il-minaret-31.70454-35.2054` | 2 | 0 | 0 | 0 | policy-hidden ×8 |
+| מסגד עומר | `il-minaret-31.77787-35.22965` | 2 | 0 | 0 | 0 | policy-hidden ×2 |
+| Jamal Abdel Nasser Mosque | `il-minaret-31.90408-35.20741` | 1 | 0 | 0 | 0 | policy-hidden ×14 |
+| נבי רובין | `il-minaret-31.92913-34.73364` | 2 | 0 | 0 | 0 | policy-hidden ×2 |
+| מסגד אל-עומרי | `il-minaret-31.95297-34.89942` | 2 | 0 | 0 | 0 | policy-hidden ×8 |
+| מסגד סידנא עלי | `il-minaret-32.18783-34.80582` | 2 | 0 | 0 | 0 | policy-hidden ×12 |
+| Mosque | `il-minaret-32.20448-35.13156` | 2 | 0 | 0 | 0 | policy-hidden ×4 |
+| المسجد الأبيض | `il-minaret-32.70347-35.29766` | 2 | 0 | 0 | 0 | policy-hidden ×8 |
+| בית מדרש מחניים | `il-synagogue-31.64659-35.14331` | 1 | 1 | 0 | 0 | policy-hidden ×1 |
+| ישיבת בני רחל | `il-synagogue-31.71868-35.20201` | 2 | 7 | 7 | 0 | kept ×7; missing-town-mass ×1 |
+| זה השער לה | `il-synagogue-31.89576-34.8168` | 1 | 0 | 0 | 0 | policy-hidden ×2 |
+| בית הכנסת הגדול | `il-synagogue-31.9269-34.79572` | 2 | 2 | 2 | 0 | kept ×2 |
+| ישיבת בית אל | `il-synagogue-31.94255-35.22212` | 2 | 6 | 6 | 0 | kept ×6; missing-town-mass ×4 |
+| בית הכנסת היכל הקודש דחסידי ברסלב | `il-synagogue-32.70302-35.50359` | 1 | 0 | 0 | 0 | policy-hidden ×4 |
+| קבר רבי שמעון בר יוחאי | `il-synagogue-32.98079-35.44056` | 1 | 2 | 0 | 0 | policy-hidden ×2 |
+| ישיבת מעלות יעקב | `il-synagogue-33.01319-35.28716` | 1 | 2 | 0 | 0 | policy-hidden ×2 |
+| מגדל המים בבארי | `il-waterTower-31.43082-34.46595` | 2 | 1 | 1 | 0 | kept ×1; no-visible-separated-position ×1 |
+| מגדל המים בהר הצופים | `il-waterTower-31.79296-35.24649` | 2 | 2 | 2 | 0 | kept ×2 |
+| גשר המיתרים | `jerusalem-bridge` | curated | 10 | 10 | 0 | kept ×10; missing-town-mass ×10 |
+| מרכז עזריאלי | `tel-aviv-azrieli` | curated | 1 | 1 | 0 | home-haze ×2; kept ×1; missing-town-mass ×15 |
+
+### Factor histogram of kept famous icons
+
+Full audit, both widths; R6 uses its former fame-1-inclusive flag, R7 uses only fame 2 / curated.
+
+| Factor bin | R6 flagged (fame 1 included) | R7 fame-2 / curated |
+| --- | --- | --- |
+| 1 | 217 | 181 |
+| (1,2] | 284 | 223 |
+| (2,3] | 153 | 119 |
+| (3,5] | 120 | 105 |
+| (5,10] | 225 | 153 |
+| (10,20] | 152 | 126 |
+| (20,40] | 71 | 57 |
+| (40,100] | 27 | 27 |
+| >100 | 22 | 22 |
+
+R6 maximum factor 399.546016; R7 maximum 399.546016.
+The large maximum already existed in the full baseline. Fame 2 is deliberately uncapped: for example,
+פטרוס הקדוש seen from נטור has only 0.010011 visible px above terrain,
+drawn at 4.0 px. No extra cap or ID filter was added to suppress it.
+
+| Place | Source | Fame | True px | Drawn px | Factor | Base |
+| --- | --- | --- | --- | --- | --- | --- |
+| נטור | פטרוס הקדוש | 2 | 0.010011 | 4.000 | 399.546016 | ridge |
+| גשר | כנסיית ההשתנות הקתולית | 2 | 0.014253 | 4.000 | 280.637475 | ridge |
+| כנרת מושבה | כנסיית ההשתנות הקתולית | 2 | 0.014963 | 4.000 | 267.330772 | ridge |
+| מכמנים | בית הכנסת האר"י הספרדי | 2 | 0.015779 | 4.000 | 253.498741 | ridge |
+| גורן | Church of our Lady of Baram | 2 | 0.017120 | 4.000 | 233.642576 | ridge |
+
+### Validation and stills
+
+- 39 explicit core test files, 485 passing tests. Results: `round7-targeted.json` with the
+  later `round7-final-evidence.json` results replacing the two corresponding files. Command: `round7-targeted-command.txt`.
+- Independent checks cover all 117 places and all 18 recorded panoramas at 375/1280; slowest group 7.86 s.
+- Background exhaustive audit passed all 1,781 places (18 recorded,
+  1,763 flat) at both widths, 772.65 s. Additional drift coverage passed
+  60 timed groups; the expanded historic landmark trace also passed.
+- `npx tsc -b` and `npx oxlint` passed (13 existing lint warnings). No whole-folder suite, live service, deployment,
+  commit or push. The unrelated pre-existing `src/test/probe/` folder was untouched.
+
+The requested fame-1 synagogue, fame-1 3× tower and fame-2 5× church tests exercise real source classification,
+pre-selection, fitting and receiving. The visible seated-foot and injected wrong-frame top tests prove the chosen
+frame rule. Dot, sheet lift, over-limit rejection and receiver ridge-sheet tests cover all three planes.
+The following source-transform mutations each caused assertion failures; normal tests pass:
+
+| Disabled safeguard | Test file | Expected assertion failures |
+| --- | --- | --- |
+| fame1Admission | src/world/neighbourFame.test.ts | 4 |
+| transportedFame | src/world/neighbourFame.test.ts | 1 |
+| seatedFootGate | src/scene/model/landmarkPolicy.test.ts | 1 |
+| seatedRidge | src/scene/model/landmarkPolicy.test.ts | 1 |
+| dot | src/world/famousFitting.test.ts | 3 |
+| sheetFit | src/world/famousFitting.test.ts | 3 |
+| sheetReceive | src/world/famousFitting.test.ts | 1 |
+
+Karmei Tzur remains clean at 31.6092, 35.1009. Dafna → Nimrod remains kept: fame 2, 0.883242 true px → 4 px,
+factor 4.528769, ridge base, zero slide. Both required 375 px / DPR-2 stills were re-rendered with
+`e2e/scene.stills.mjs`, visually inspected, and saved separately under `stills/round7/` with existing-pixel 4× crops.
+They remain explicitly labelled flat 100 m, not recordings. Measurements and reproduction commands:
+[stills/README.md](stills/README.md), Round 7.

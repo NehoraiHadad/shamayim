@@ -68,7 +68,7 @@ export interface PlacedMark extends PerspectiveContext {
   dy: number
   /** Stands among the place's own roofs (ILLUSTRATION.md R5): seated on the crest at its true x, the house there removed. */
   absorbed?: boolean
-  /** Famous or hand-drawn (`fame.ts` `isLandmark`): lifted a little off the sheet edge rather than dropped. */
+  /** Own portrait: isLandmark; non-own: isFamousLandmark. May lift a little off the sheet rather than drop. */
   landmark?: boolean
   /** Part of the place's portrait (composed by side, `markProjection.ts`): seated even on a steep face, like its houses. */
   portrait?: boolean

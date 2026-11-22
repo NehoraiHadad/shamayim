@@ -92,3 +92,35 @@ Reproduce with the existing cached Playwright/Chrome setup documented above:
 node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills/round6 'osm:way:462664109@12:00' '--flat=31.6092,35.1009,כרמי צור' --dpr=2 --describe --crop4x
 node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills/round6 'sample-33.23037-35.63926@12:00' '--flat=33.23037,35.63926,דפנה' --dpr=2 --describe --crop4x
 ```
+
+## Round 7
+
+Re-rendered the two round-6 fixtures at 375 CSS px / DPR 2 using `e2e/scene.stills.mjs`, offline, with 4×
+nearest-neighbour crops of existing DPR pixels. Both are explicitly labelled **flat 100 m, no recorded panorama**.
+Karmei Tzur stays clean; Dafna still keeps Nimrod, whose source is fame 2. No heights, glyphs or pixels were
+invented to obtain the positive case. Owned true-height values remain composed portrait values.
+
+### כרמי צור
+
+[Still](round7/osm-way-462664109-1200-flat100m.png) · [4× crop](round7/osm-way-462664109-1200-flat100m-crop4x.png) · [Metadata](round7/osm-way-462664109-1200-flat100m.json)
+
+| Source | Kind | Famous | True px | Drawn px | Factor | Gap | Slide | Haze km | Base |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `il-synagogue-31.6097-35.10159` | synagogue | false | 9.500000 | 9.500000 | 1.000000 | owned | 0.000000 | 5.445100 | foot |
+
+### דפנה
+
+[Still](round7/sample-33.23037-35.63926-1200-flat100m.png) · [4× crop](round7/sample-33.23037-35.63926-1200-flat100m-crop4x.png) · [Metadata](round7/sample-33.23037-35.63926-1200-flat100m.json)
+
+| Source | Kind | Famous | True px | Drawn px | Factor | Gap | Slide | Haze km | Base |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `il-orchard-33.22998-35.64404` | orchard | false | 7.300000 | 7.300000 | 1.000000 | owned | 0.000000 | 5.577812 | foot |
+| `il-orchard-33.23452-35.64241` | orchard | false | 7.300000 | 7.300000 | 1.000000 | owned | 0.000000 | 5.056199 | foot |
+| `il-castle-33.25267-35.71505` | castle | true | 0.883242 | 4.000000 | 4.528769 | 104.386081 | 0.000000 | 7.254069 | ridge |
+
+Reproduce with the existing cached Playwright/Chrome environment documented above:
+
+```powershell
+node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills/round7 'osm:way:462664109@12:00' '--flat=31.6092,35.1009,כרמי צור' --dpr=2 --describe --crop4x
+node e2e/scene.stills.mjs docs/design/qa/polish/worship-ownership/stills/round7 'sample-33.23037-35.63926@12:00' '--flat=33.23037,35.63926,דפנה' --dpr=2 --describe --crop4x
+```

@@ -15,7 +15,7 @@ export function evaluateNeighbour<T extends WorldMark>(world: WorldState, mark: 
   support: NeighbourBlock | null | undefined, home: HomeRoofline | null, zones: readonly Box[],
   masses: DrawnMass[], layer: 'outside' | 'far' = 'outside') {
   const rule = neighbourRule(mark.glyphKind, mark.named)
-  const base = support?.foot ?? (layer === 'far' || rule === 'landmark' ? mark.sourceGroundY ?? mark.base : mark.base)
+  const base = support?.foot ?? (layer === 'far' && rule !== 'landmark' ? mark.sourceGroundY ?? mark.base : mark.base)
   const trueHeightPx = trueNeighbourHeight(world, mark, base)
   const displayed = displayNeighbour(world, mark, base)
   const factor = displayed?.factor
@@ -26,7 +26,8 @@ export function evaluateNeighbour<T extends WorldMark>(world: WorldState, mark: 
   let clearance: ReturnType<typeof neighbourClearance> | undefined
   const get = () => clearance ??= neighbourClearance(world, width, displayed!, zones, masses,
     { layer, supportId: support?.id, town: support !== null })
-  const terrain = rule === 'landmark' ? foregroundTerrain(world, mark, layer) : null
+  // A drawn town support proves its outside-frame foot; home-eye projection evidence cannot veto that seat.
+  const terrain = rule === 'landmark' && !support ? foregroundTerrain(world, mark, layer) : null
   const hiddenFoot = terrain && mark.sourceGroundY !== undefined && mark.sourceGroundY > terrain.base
   const placed = !hiddenFoot && displayed && placeNeighbour({ ...displayed, baseMode: 'foot' as const },
     mark.x * width / SCENE_W, support, home, bounds => get().visible(bounds), () => get().boundaries)

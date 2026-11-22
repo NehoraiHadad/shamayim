@@ -20,7 +20,7 @@ interface MarkGeometry extends PlacedMark {
   /** How far (km) it stands: the haze it takes. */
   km: number
   plane: 'near' | 'far' | 'plain'
-  /** A landmark, named (an unnamed mark is never one). */
+  /** Own: portrait landmark class. Non-own: only named fame-2 or curated, from isFamousLandmark. */
   named: boolean
 }
 

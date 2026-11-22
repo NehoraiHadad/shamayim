@@ -8,6 +8,12 @@ import type { GlyphDesc } from '../scene/model/types'
 import { SCENE_W } from '../world/sceneBox'
 import type { Plane, WorldState } from '../world/types'
 
+/** The actual painted ridge polyline; shared by independent base and height checks. */
+export function drawnRidgeLine(world: WorldState, kind: 'near' | 'land' | undefined) {
+  return kind === 'land' ? (world.place3.kind === 'outside' ? world.place3.land?.top : undefined)
+    : world.terrain.near.points
+}
+
 /** Sub-micro CSS px tolerance resolves multiplication and the inverse relief projection. */
 export const HEIGHT_TOLERANCE_PX = 1e-6
 
