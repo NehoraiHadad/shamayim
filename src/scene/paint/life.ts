@@ -1,5 +1,5 @@
 import type { LayerOf, Pt } from '../model/types'
-import { smoothstep } from '../../world/ridgeLighting'
+import { smoothstep } from '../../domain/smoothstep'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /*

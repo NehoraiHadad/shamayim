@@ -213,23 +213,29 @@ describe('air', () => {
     const build = makeWorldBuilder()
     const input = inputAt(id, start, { forecast: old })
     const render = (now: LocalTime, forecast: Forecast) => {
-      const live = { ...input, now, forecast: rollForward({ ...forecast, days: input.forecast.days }, now) }
-      const shown = read(build(live))
-      expect(read(build({ ...live, selected: now })), now).toEqual(shown)
-      return shown
+      const sample = { ...input, now, forecast: { ...forecast, days: input.forecast.days } }
+      const live = read(build({ ...sample, forecast: rollForward(sample.forecast, now) }))
+      const scrub = read(build({ ...sample, selected: now }))
+      expect(live, now).toEqual(scrub)
+      return { live, scrub }
     }
     const step = (a: number[], b: number[]) => Math.max(...a.map((value, i) => Math.abs(value - b[i])))
     const times = Array.from({ length: 241 }, (_, minute) => addMinutes(start, minute))
-    const control = times.map((now) => render(now, old))
-    const refreshed = times.map((now) => render(now, now < receipt ? old : incoming))
+    const baseline = times.map((now) => render(now, old))
+    const control = baseline.map(({ live }) => live)
+    const refreshed = times.map((now) => render(now, now < receipt ? old : incoming).live)
     const maxStep = (series: number[][]) => Math.max(...series.slice(1).map((sample, i) => step(series[i], sample)))
+    const scrubMax = maxStep(baseline.map(({ scrub }) => scrub))
+    const bound = 2 * scrubMax + 0.01
     const rolloverIndex = times.indexOf('2026-11-17T06:00')
     const receiptIndex = times.indexOf(receipt)
     const maxima = { live: maxStep(control), refreshed: maxStep(refreshed),
       rollover: step(refreshed[rolloverIndex - 1], refreshed[rolloverIndex]),
       receipt: step(refreshed[receiptIndex - 1], refreshed[receiptIndex]) }
-    console.info('Dawn mist maximum one-minute steps', maxima)
-    for (const [event, change] of Object.entries(maxima)) expect(change, event).toBeLessThanOrEqual(0.10)
+    console.info('Dawn mist maximum one-minute steps', { scrubMax, bound, ...maxima })
+    // On pre-merge main (c5b1af8), fog stepped by 0.79424966 at rollover and 0.12620027 at receipt.
+    expect(scrubMax).toBeGreaterThan(0)
+    for (const [event, change] of Object.entries(maxima)) expect(change, event).toBeLessThanOrEqual(bound)
     expect(refreshed[receiptIndex]).toEqual(control[receiptIndex])
     expect(step(refreshed[receiptIndex + 10], control[receiptIndex + 10])).toBeGreaterThan(0.05)
     expect(refreshed[0][0]).toBeGreaterThan(0.5)

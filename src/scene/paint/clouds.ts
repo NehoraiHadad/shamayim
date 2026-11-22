@@ -1,4 +1,4 @@
-import { smoothstep } from '../../world/ridgeLighting'
+import { smoothstep } from '../../domain/smoothstep'
 import type { BankDesc, LayerOf, RGB, Veil } from '../model/types'
 import { rng } from './core'
 import { css, mix, type Ctx2D, type PaintEnv, type Scratch } from './hand'

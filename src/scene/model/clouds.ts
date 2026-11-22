@@ -276,7 +276,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
 const FLASH: RGB = [0.86, 0.9, 1]
 
 /**
- * In-cloud lightning, only when the world has thunder (`rain.thunder`): the largest banks that rain in view (two at most)
+ * In-cloud lightning at positive `rain.thunderWeight`: the largest banks that rain in view (two at most)
  * each light from within on a seeded schedule of flashes (`anim.ts`), drifting with their layer.
  */
 export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom = skyGeom(world, box)):

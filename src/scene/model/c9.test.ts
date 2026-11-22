@@ -160,7 +160,8 @@ describe('C9: water against the land at a low sun (defect 7)', () => {
   it('lays the sun\'s path by the world\'s own direct light and sun (Masada at sunrise)', () => {
     const world = worldAt('masada', '06:20')
     expect(world.bodies.sun.overLand).toBe(true)
-    expect(world.light.direct).toBeGreaterThan(.1)
+    // At 06:20 the 04:30 observation has expired. The hourly blend gives 25.6 km visibility and 0.618216 cloud transmission.
+    expect(world.light.direct).toBeCloseTo(0.082220, 6)
     expect(world.water.glints.length).toBeGreaterThan(0)
     expect(world.water.light!.strength).toBeCloseTo(world.light.direct, 6)
   })

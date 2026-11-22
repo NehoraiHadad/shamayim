@@ -16,6 +16,7 @@ interface Props {
   forecast: Forecast
   now: LocalTime
   selected: LocalTime | null
+  temperature: number
   readout?: string | null
   first: LocalTime
   last: LocalTime

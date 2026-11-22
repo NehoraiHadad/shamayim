@@ -1,4 +1,4 @@
-import { smoothstep } from '../../world/ridgeLighting'
+import { smoothstep } from '../../domain/smoothstep'
 import type { LayerOf, Streak } from '../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
 

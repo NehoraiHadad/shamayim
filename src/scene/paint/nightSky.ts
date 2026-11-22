@@ -1,5 +1,5 @@
 import type { LayerOf, Pt } from '../model/types'
-import { smoothstep } from '../../world/ridgeLighting'
+import { smoothstep } from '../../domain/smoothstep'
 import { fractal, rng } from './core'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 
@@ -84,10 +84,9 @@ export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: Paint
   }
   const blob = (p: Pt, R: number, rgb: readonly [number, number, number], a: number) => {
     if (R < 0.5) return
-    const alpha = a * smoothstep(0, 0.004, a)
     const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], R)
-    g.addColorStop(0, css(rgb, alpha))
-    g.addColorStop(0.45, css(rgb, alpha * 0.55))
+    g.addColorStop(0, css(rgb, a))
+    g.addColorStop(0.45, css(rgb, a * 0.55))
     g.addColorStop(1, css(rgb, 0))
     ctx.fillStyle = g
     ctx.fillRect(p[0] - R, p[1] - R, 2 * R, 2 * R)
@@ -100,6 +99,7 @@ export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: Paint
   }
   const mottle = (p: Pt) => Math.min(1.35, Math.max(0.1, fractal(seed, p[0], p[1], 0.03, 0.03, 3) * 2 - 0.35))
   const warm = mix(desc.rgb, [1, 0.93, 0.84], 0.5)
+  const glowAlpha = (a: number) => a * smoothstep(0, 0.004, a)
   // The diffuse light: soft blobs, most near the middle.
   for (const i of segs) {
     const b = (bright[i - 1] + bright[i]) / 2, hw = half(i)
@@ -108,7 +108,7 @@ export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: Paint
     for (let j = 0; j < n; j++) {
       const v = Math.max(-1.1, Math.min(1.1, gauss() * 0.42))
       const p = place(i, (j + r()) / n, v)
-      blob(p, hw * (0.35 + 0.45 * r()), desc.rgb, 0.032 * b * alpha * mottle(p) * (1 - 0.3 * Math.abs(v)))
+      blob(p, hw * (0.35 + 0.45 * r()), desc.rgb, glowAlpha(0.032 * b * alpha * mottle(p) * (1 - 0.3 * Math.abs(v))))
     }
     // The star clouds: brighter, warmer knots.
     const c = (clouds[i - 1] + clouds[i]) / 2
@@ -116,7 +116,7 @@ export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: Paint
       const m = Math.ceil((len / hw) * 8 * c) + 1
       for (let j = 0; j < m; j++) {
         const p = place(i, r(), -0.1 + (r() - 0.5) * 0.9)
-        blob(p, hw * (0.18 + 0.32 * r()), warm, 0.05 * c * b * alpha * (0.5 + 0.5 * mottle(p)))
+        blob(p, hw * (0.18 + 0.32 * r()), warm, glowAlpha(0.05 * c * b * alpha * (0.5 + 0.5 * mottle(p))))
       }
     }
   }
@@ -142,7 +142,8 @@ export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: Paint
     for (let j = 0; j < n; j++) {
       const p = place(i, r(), lane ? 0.14 + gauss() * 0.13 : gauss() * 0.55)
       const a = (lane ? 0.5 * d : 0.22) * (0.4 + 0.6 * fractal(seed + 7, p[0], p[1], 0.05, 0.05, 2))
-      blob(p, hw * (lane ? 0.14 + 0.2 * r() : 0.1 + 0.15 * r()), [0, 0, 0], a)
+      const radius = hw * (lane ? 0.14 + 0.2 * r() : 0.1 + 0.15 * r())
+      if (a >= 0.002) blob(p, radius, [0, 0, 0], a)
     }
   }
   ctx.globalCompositeOperation = 'source-over'

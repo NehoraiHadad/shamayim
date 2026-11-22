@@ -1,5 +1,5 @@
 import type { RGB } from '../../../world/types'
-import { smoothstep } from '../../../world/ridgeLighting'
+import { smoothstep } from '../../../domain/smoothstep'
 import type { Shine, Tones } from '../../model/types'
 import { rng } from '../core'
 import { css, mix, type Ctx2D } from '../hand'
@@ -42,7 +42,7 @@ export const MINARET_LAMP: RGB = [0.49, 0.88, 0.63]
 
 export function aviationLamp(x: number, y: number, shine: Shine): Lamp {
   return { x, y, r: 1.3, c: AVIATION, a: 0.5 + 0.5 * shine.night,
-    fade: shine.aviationStrength ?? Number(shine.aviation) }
+    fade: shine.aviationStrength }
 }
 
 /** The kit handed to each glyph: its tones and the shared light, fills, round-body falloff, boxes, rims, openings, lamps. */

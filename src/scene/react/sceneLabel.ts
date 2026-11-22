@@ -17,7 +17,8 @@ function skyCondition(cloudCover: number): ConditionKind {
 }
 
 /** Derive the spoken condition from the same precip, snow and cloud values the scene renders. */
-function renderedCondition(shown: AirInput, world: LabelWorld): ConditionKind {
+function renderedCondition(shown: AirInput, world: LabelWorld, hasLightning: boolean): ConditionKind {
+  if (hasLightning) return 'thunder'
   const codeKind = conditionOf(shown.weatherCode)
   const snowing = world.snowfall !== undefined
     ? Boolean(world.snowfall)
@@ -26,7 +27,6 @@ function renderedCondition(shown: AirInput, world: LabelWorld): ConditionKind {
 
   const rate = world.rain !== undefined ? (world.rain?.rateMmH ?? 0) : rainRate(shown)
   if (rate > 0) {
-    if (world.rain?.thunder) return 'thunder'
     if (isWet(codeKind) && codeKind !== 'thunder') return codeKind
     return rate < 0.5 ? 'drizzle' : 'rain'
   }
@@ -42,13 +42,14 @@ function renderedCondition(shown: AirInput, world: LabelWorld): ConditionKind {
 }
 
 /** The figure's spoken description: place, shown condition and temperature, sun state, and elevation. */
-export function sceneLabel(world: LabelWorld, forecast: Forecast, now: LocalTime, selected: LocalTime | null): string {
+export function sceneLabel(world: LabelWorld, forecast: Forecast, now: LocalTime, selected: LocalTime | null,
+  { temperature, hasLightning }: { temperature: number; hasLightning: boolean }): string {
   const shown = airInput(forecast, now, world.place, selected)
   const isDay = world.bodies.sun.up
   const event = nextSunEvent(forecast.days, now)
   const elevation = Math.round(forecast.elevation)
   return [
-    `${world.place.nameHe}, ${conditionLabel(renderedCondition(shown, world), isDay)}, ${tempText(shown.temperature)}.`,
+    `${world.place.nameHe}, ${conditionLabel(renderedCondition(shown, world, hasLightning), isDay)}, ${tempText(temperature)}.`,
     world.bodies.sun.up && !selected ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${ltr(clockOf(event.time))}.` : '',
     elevation < 0

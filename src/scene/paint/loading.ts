@@ -1,4 +1,4 @@
-import { smoothstep } from '../../world/ridgeLighting'
+import { smoothstep } from '../../domain/smoothstep'
 import type { LayerOf } from '../model/types'
 import { fractal } from './core'
 import { css, type Ctx2D, type PaintEnv } from './hand'
@@ -36,7 +36,7 @@ function paintBank(ctx: Ctx2D, desc: Extract<LayerOf<'loading'>, { part: 'mist' 
         const x = bx + p.x + dx
         if (x + p.rx < bx || x - p.rx > bx + w) continue
         // The lit cap: a smaller soft ellipse riding the puff's top.
-        soft(ctx, x, p.y - p.ry * 0.45, p.rx * 0.7, p.ry * 0.55, desc.lit, litAlpha * p.alpha * band.alpha)
+        soft(ctx, x, p.y - p.ry * 0.45, p.rx * 0.7, p.ry * 0.55, desc.lit, litAlpha * p.alpha * band.alpha, true)
       }
     }
   }

@@ -361,7 +361,8 @@ export interface Shine {
   glint?: number
   cast: { dx: number; length: number; alpha: number }
   windows: number
-  aviation: boolean
+  /** Continuous aviation lamp strength (0–1). */
+  aviationStrength: number
   lean: number
   /** C7: how far (rad) trees sway about their lean in the gusts, over the portrait's strip of frames; 0 in a calm. */
   sway?: number

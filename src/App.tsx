@@ -154,6 +154,7 @@ export default function App() {
             {worldInput && (
               <Suspense fallback={<SceneFallback />}>
                 <CanvasScene input={worldInput} forecast={worldInput.forecast} now={now} selected={selected}
+                  temperature={selectedSlot?.type === 'hour' ? selectedSlot.temp : forecast.current.temperature}
                   readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
                   first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
                   last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}

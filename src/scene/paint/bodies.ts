@@ -1,5 +1,4 @@
 import type { Disc, LayerOf, MoonDisc, Star } from '../model/types'
-import { smoothstep } from '../../world/ridgeLighting'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /**
@@ -113,9 +112,9 @@ export function paintStars(ctx: Ctx2D, desc: LayerOf<'stars'>, _env: PaintEnv): 
 }
 
 function paintStar(ctx: Ctx2D, s: Star) {
-  if (s.r > 0.85) {
+  if (s.r > 0.85 && s.alpha > 0.5) {
     const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 3)
-    g.addColorStop(0, `rgb(232 238 255 / ${(0.25 * s.alpha * smoothstep(0.4, 0.6, s.alpha)).toFixed(3)})`)
+    g.addColorStop(0, `rgb(232 238 255 / ${(0.25 * s.alpha).toFixed(3)})`)
     g.addColorStop(1, 'rgb(232 238 255 / 0)')
     ctx.fillStyle = g
     ctx.fillRect(s.x - s.r * 3, s.y - s.r * 3, s.r * 6, s.r * 6)
