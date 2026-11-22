@@ -2676,6 +2676,8 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      path is shared between the endpoints. The previous canopy stays visible over compatible terrain while its
      light changes. The 10 canopy poses at 5 fps use the wind's own clock. A cold canopy can show pose zero at full
      beam while its pair waits. A compatible warm canopy publishes its paired pose zero with its plane.
+     A warm receiver keeps the previous pair while a newer scrub is pending. Superseded same-form pairs
+     release their bitmaps and count toward Worker timing without triggering a composite.
      The canopy skips the second endpoint when the swept footprints miss its bounds. A plane whose shadow
      leaves can retain its full-beam bitmap. Remaining strip work yields to scrub requests. The Worker releases
      completed or canceled staging canvases, and retirement of an entry closes both bitmaps of each pose.
@@ -2683,7 +2685,16 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
      moving transmission, a shadowed antialiased crest, paired arrivals, and failure of a Worker with a
      filled shaded canopy strip.
-   - In the five-pair round 5 benchmark against `6ca2e54`, first fallback and canopy were within 7%
-     and all 24 rendered land/sky ratios were within 0.035% of round 4. The performance gate remains
-     open on scrub latency and the animation tail in Shadmot Mehola. Its land animation p95 was
-     2.8 ms baseline and 6.2 ms round 5. The five runs ranged from 2.5–11.8 and 1.6–24.5 ms respectively.
+   - Across 24 freshly rendered round 6 stills, the median land/sky ratios matched round 5 and the
+     mean ratios moved at most 0.031%. Shadmot Mehola at 12:00 in showers used 38.2 MiB of canvas
+     backing memory at DPR 2.75 after the Worker published the complete shaded near-canopy strip.
+   - For round 6, both revisions ran `npm run test:perf -- --no-land` on the same six performance cores,
+     with DPR 2.75, software raster and CPU throttled ×4. Four of eight interleaved pairs against
+     `6ca2e54` kept every control within 30% of its revision median. Land scrub p95 in ms (median and
+     range) was 4.30 [4.20–4.60] to 2.95 [2.40–3.50] in Haifa, 2.60 [2.10–3.60] to 3.20 [2.40–3.90]
+     in Tel Aviv, and 3.55 [2.50–4.00] to 3.45 [2.60–6.00] in Shadmot Mehola. The Shadmot Worker step
+     p95 was 58.20 [47.90–62.90] to 83.65 [77.30–97.50] ms (1.44×).
+   - The relative performance gate stays open. Shadmot land animation p95 was 2.75 [2.30–3.20] to
+     4.75 [3.90–5.00] ms with two shaded planes and a shaded gust canopy in the thunder fixture.
+     First fresh canopy rose 14.5%, Haifa's first canvas paint rose 21.9%, and cold model time rose
+     23.5–68.5%. App fallback paint and same-day scrub times fell 4.7% and 2.6%.

@@ -934,7 +934,8 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             with aerosol and cloud scatter and broad-sky metering. Keep the daylight scale distinct from the
             atmosphere's directional horizon radiance. Retain the sky as the source of path colour.
       - [x] Paint both stationary solar endpoints in one job per receiver. Keep the previous pair and canopy
-            visible during light changes. A cold canopy can show full-beam pose zero while its pair waits.
+            visible during light changes. Release superseded same-form arrivals while waiting for the current
+            pair. A cold canopy can show full-beam pose zero while its pair waits.
             Key paint on byte-encoded plant tones, geometry and clear zones. Cull footprints against canopy
             bounds, send a warm canopy preview with its plane, and fill the gust strip after scrub.
       - [x] Share one moving Beer–Lambert mask per plane with its canopy. Use the mean beam-to-sky ratio of
@@ -954,14 +955,21 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             Run the land-light browser checks in the CI stills job.
       - [x] Verify round 5 against all 24 rendered stills. The maximum land/sky median ratio change from
             round 4 was 0.035%. A sun-facing glyph fixture also verifies the architectural shadow contrast.
-      - [ ] Round 4 performance gate. Across three interleaved pairs against `6ca2e54`, scene-model scrub
+      - [x] Rerender the 24 measured round 6 stills and review the dawn, noon, dusk and shadowed-crest crops
+            at 2×. The median land/sky ratios matched round 5 and the mean ratios moved at most 0.031%.
+            Shadmot Mehola at noon in showers used 38.2 MiB after the shaded ten-pose strip finished.
+      - [x] Record round 4 performance. Across three interleaved pairs against `6ca2e54`, scene-model scrub
             and land-animation p50 improved for all three places, and first fallback paint was within 10%.
             Worker scrub p50 rose 61% in Tel Aviv and 24% in Shadmot Mehola. First canopy rose 14% and
             Shadmot Mehola's animation p95 remained above baseline. The 24 still ratios stayed within
             0.37% of approved round 3.
-      - [ ] Repeat the round 6 performance comparison against `6ca2e54`. Keep at least four clean pairs and
-            discard a pair if a place's control differs by more than 30% from its revision median.
-            Gate main-thread land scrub p95 at 10 ms and the Shadmot Worker step at 1.5× baseline.
+      - [x] Compare round 6 against `6ca2e54` in eight interleaved pairs at DPR 2.75 and CPU ×4. Both
+            revisions used the same six performance cores. Four pairs passed the 30% control filter.
+            Land scrub p95 was 2.95 ms in Haifa, 3.20 ms in Tel Aviv, and 3.45 ms in Shadmot Mehola.
+            The Shadmot Worker step p95 was 83.65 ms against 58.20 ms baseline (1.44×).
+      - [ ] Close the remaining relative performance gaps. Shadmot land animation p95 rose from 2.75 to
+            4.75 ms, first fresh canopy rose 14.5%, Haifa's cold first paint rose 21.9%, and cold model
+            time rose 23.5–68.5%. Tel Aviv land scrub p95 rose by 0.60 ms (+23.1%) and stayed below 10 ms.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
