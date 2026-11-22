@@ -11,11 +11,13 @@ landmarks and non-own worship).
 - [x] Non-own mosques/minarets are never drawn, even when famous. Other non-own worship is drawn only when the
       source is curated or a named `fame === 2` landmark (Wikipedia). Fame-1 sources use the ordinary
       rule. Own portraits retain their rules.
-- [x] Famous non-own landmarks draw at `max(trueHeight, 4)` CSS px, without an exaggeration cap; the glyph records
-      its factor. Ordinary non-own marks keep the round-5 4 px floor and 2× cap. One `(kind, famous)` policy drives
+- [x] Famous non-own landmarks draw at `clamp(trueHeight, 6, 16)` CSS px, including shrinking true heights above
+      16 px; the glyph records its factor and width scales equally. Ordinary non-own marks keep the 4 px floor and
+      2× cap. One `(kind, famous)` policy drives
       both receiving layers and pre-selection; famous candidates need positive true visible height only.
 - [x] Keep ≥6 CSS px from the final home roofline, with at most 12 CSS px sliding away from home. Use true-distance
-      haze, no lighter than home. Town members require their own painted mass and ≥1 CSS px on each side, unless an
+      haze and far-city material contrast at the true receiving-eye distance, never clearer than home. Town members
+      require their own painted mass and ≥1 CSS px on each side, unless an
       unseated famous landmark has a physically proven ridge base: terrain hides its foot, but its true top projects above
       that drawn ridge at its bearing. Buildings/home roofs never supply that exception or cover the kept icon.
 - [x] Round 6: unit guards and mutation checks; independent final-glyph assertions across the fixed 117 places and
@@ -29,6 +31,10 @@ landmarks and non-own worship).
       drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
 - [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
       then review these rules against that terrain. The current still is explicitly flat 100 m.
+- [x] Landmark-size decision: shared 6–16 CSS px policy, land aerial perspective plus far-city contrast and lamp
+      transmission; owned portraits unchanged. Verified at 375/1280 and DPR 1/2, with mutation guards and a refreshed
+      full audit. Histograms: `REPORT.md`, Landmark size. Stills: `stills/landmark-size/README.md` (Dafna, Karmei Tzur,
+      and recorded Ramat Gan).
 
 ## v1 — one screen (current temp, Hebrew sentence, 7 days) — DONE 2026-11-17
 - [x] Planning with Codex (Sol) + Fable, merged into docs/PLAN.md
@@ -964,7 +970,8 @@ F mist (7c50d4f), C birds travel (c5b1af8), D N2 cloud field (8ac7bd2), G no fli
 G round 5 explicit live mode (0818fd1), hotfix sky behind <body> (0b21d13, d9bbfce), B worship ownership (31e76d6).
 Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look-413b7e`).
 
-- [ ] Owner call: ceiling on famous-landmark enlargement (track B: no cap; 84 icons at 20-100x, max 400x). One constant.
+- [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
+      contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
 - [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
 - [ ] Track G LOW 1: a scrub can land `selected` exactly on now (useSceneTime.ts, SceneScrubber.tsx, useStripScrub.ts),
       a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
@@ -975,6 +982,10 @@ Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look
 - [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
       (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
       distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
+- [x] Storm and night (Claude, 22 Nov): tower bodies fair-white, dark genus bases (darker raining), seen through the
+      1.5 km haze they rise out of (`hazePath`); overhead Cb drawn (NEAR_MAX 70); rain curtains in rain grey.
+      Field calibration on the real Haifa 15.3 day: towers 35 % of low cover, cores 18 km apart / 2.5 km radius, half
+      Cb, rain only from Cb (`stormDay.test.ts`). Overcast nights lit from below by the towns (`cityLight.ts`, env.glow).
 - [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
 

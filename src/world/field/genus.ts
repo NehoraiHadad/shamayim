@@ -56,11 +56,15 @@ export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'su
   }
 }
 
+/** The towers that have matured into Cb at a full storm. */
+const CB_SHARE = 0.5
+
 /** Assign genus by an independent static draw so a life-cycle change alone keeps the form. */
 export function genusOf(lattice: Lattice, form: LayerForm, ug: number, storm = smoothstep(0.6, 1, form.conv)): Genus {
   switch (lattice) {
     case 'low': return ug < (form.stratus ?? 0) ? 'st' : ug < form.strat ? 'sc' : 'cu'
-    case 'tower': return ug < storm ? 'cb' : 'cg'
+    // Even at a full storm half the towers are growing Cu con: the mature Cb are the fewer, larger cores.
+    case 'tower': return ug < CB_SHARE * storm ? 'cb' : 'cg'
     case 'mid': return ug < (form.nimbostratus ?? 0) ? 'ns' : ug < form.sheet ? 'as' : 'ac'
     case 'high': return ug < form.veil ? 'cs' : 'ci'
   }

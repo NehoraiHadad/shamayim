@@ -61,7 +61,9 @@ export function drawGlyph(ctx: Ctx2D, d: GlyphDesc, shine: Shine): Lamp[] {
   const k = new Kit(ctx, d.tones, shine, d.seed, hand * glyphLight(shine))
   DRAW[d.kind](k, d.h, d)
   ctx.restore()
-  return k.lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * hand, y: d.base + l.y * d.scale, r: l.r * Math.max(0.7, d.scale) }))
+  return k.lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * hand, y: d.base + l.y * d.scale,
+    r: l.r * Math.max(0.7, d.scale),
+    ...(d.contrast === undefined ? {} : { fade: (l.fade ?? 1) * Math.cbrt(d.contrast) }) }))
 }
 
 /** Signed lateral light, positive from screen-left. */

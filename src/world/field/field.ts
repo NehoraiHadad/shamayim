@@ -5,7 +5,7 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { steeringTimeline, steeringWind, wallMinutes } from './advect'
 import { convectiveAt, formOf } from './genus'
 import { footprintExtinction } from './extinction'
-import { occupancyOf, splitLowCover } from './occupancy'
+import { occupancyOf, splitLowCover, towerCoverOf } from './occupancy'
 import type { CloudField, FieldInput, FieldLayer, FieldMotion, Lattice } from './types'
 
 const lattices: readonly Lattice[] = ['low', 'tower', 'mid', 'high']
@@ -52,7 +52,7 @@ export function buildField(input: FieldInput): CloudField {
     const { baseKm, vKm: meanVKm, kappa } = layerDimensions(lattice, input.lowBaseKm, form)
     const occupancy = occupancyOf(lattice, cover[lattice])
     if (lattice === 'tower' && (weather || (legacy && legacy.from !== legacy.to))) {
-      const limit = Math.min(input.covers.low, 0.5)
+      const limit = towerCoverOf(input.covers.low)
       // Blend saturation in rank space. At fixed low cover an hourly transition changes Q by at most 1/60
       // per minute. Preserve Q × g², the calibrated radius-squared intensity, as Q changes.
       const intensity = occupancy.Q * occupancy.g ** 2

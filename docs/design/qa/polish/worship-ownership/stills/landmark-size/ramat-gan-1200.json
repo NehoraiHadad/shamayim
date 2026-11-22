@@ -1,0 +1,59 @@
+{
+  "place": {
+    "id": "ramat-gan",
+    "nameHe": "רמת גן",
+    "regionHe": "גוש דן",
+    "lat": 32.08227,
+    "lon": 34.81065,
+    "timezone": "Asia/Jerusalem",
+    "featureCode": "PPL",
+    "settlementType": "city",
+    "population": 170000
+  },
+  "terrain": "recorded",
+  "home": {
+    "left": 66.65468784505376,
+    "right": 221.31086726785375
+  },
+  "glyphs": [
+    {
+      "id": "il-synagogue-32.08155-34.81205",
+      "kind": "synagogue",
+      "famous": true,
+      "baseMode": "foot",
+      "x": 175.5,
+      "width": 11,
+      "height": 9.5,
+      "nonOwn": false,
+      "gapPx": -51.31086726785375,
+      "slidePx": 0,
+      "base": 95.08549886209445,
+      "trueHeightPx": 9.5,
+      "factor": 1,
+      "hazeKm": 3.589858737674821,
+      "trueDistanceKm": 3.589858737674821,
+      "town": false
+    },
+    {
+      "id": "il-highrise-32.07282-34.77491",
+      "kind": "highrise",
+      "famous": true,
+      "baseMode": "ridge",
+      "ridgeKind": "near",
+      "x": 296.5184132902321,
+      "width": 4.285714285714285,
+      "height": 6,
+      "nonOwn": true,
+      "gapPx": 73.06468887952119,
+      "slidePx": 0,
+      "base": 101.91224887714269,
+      "trueHeightPx": 2.3671273632506002,
+      "factor": 2.534717858087976,
+      "contrast": 0.5184280684647726,
+      "hazeKm": 5.0379907284874035,
+      "trueDistanceKm": 5.0379907284874035,
+      "town": true,
+      "supportId": "ridge:near"
+    }
+  ]
+}

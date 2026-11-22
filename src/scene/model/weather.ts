@@ -3,6 +3,7 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { RainCell, WorldState } from '../../world/types'
+import { RAIN_GREY } from './cloudLight'
 import { fallingOf } from './falling'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './landVeil'
@@ -76,9 +77,13 @@ function shaftOf(world: WorldState, geom: SkyGeom, b: FallingCloud, p: PrecipSta
   const bottom = geom.horizon + 2
   const lean = Math.tan(p.slant) * (bottom - top) * (p.precip === 'snow' ? 0.6 : 1)
   const far = world.air.fade(b.distanceKm)
-  const rgb = p.precip === 'rain' ? mixRgb(mixRgb(b.shade, b.body, 0.3), horizonSky, 0.25 + 0.5 * far)
+  // A rain curtain is the dark of the base it falls from (heavy shower rain is opaque to the light behind it), faded
+  // only by the air between, as far land is.
+  // By night it is a darker patch of the night sky.
+  const rgb = p.precip === 'rain' ? mixRgb(mixRgb(RAIN_GREY, horizonSky, 0.15 + 0.7 * far),
+    mixRgb(horizonSky, [0, 0, 0], 0.3), world.night.dark)
     : mixRgb(mixRgb(b.body, WHITE, 0.25 * (1 - world.night.dark)), horizonSky, 0.3 + 0.5 * far)
-  const alpha = (p.precip === 'rain' ? 0.3 + 0.38 * p.strength : 0.22 + 0.3 * p.strength) * (1 - 0.65 * far) * b.alpha * p.opacity
+  const alpha = (p.precip === 'rain' ? 0.4 + 0.4 * p.strength : 0.22 + 0.3 * p.strength) * (1 - 0.5 * far) * b.alpha * p.opacity
   return { id: b.id, x: b.x, top, bottom, w: b.w * 0.62, lean, rgb, alpha, seed: b.seed }
 }
 
