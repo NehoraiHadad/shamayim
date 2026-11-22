@@ -931,4 +931,6 @@ The land scrub p95 was 3.5, 2.3 and 3.0 ms in Stage 5, against 9.5, 5.6 and 1.8 
 
 **Verdict:** approved
 
+**Orchestrator gate (Claude Code, 2026-11-22): Stage 5 closed.** On `d9169a9`: `npx tsc -b` pass; vitest 152 files / 1346 tests pass; `npm run build` pass; `npm run test:pixels` 69/69. Matched `npm run test:perf` on this host (loaded by other sessions, n=1 per run): app living-land mount `firstFallbackPaint` base `8c594af` 5500.7 ms vs HEAD 7285.3 / 6464.5 ms; `refinement` 809.2 vs 1185.3 / 971.6 ms. World builds (untouched by Stage 5) also varied 245–551 ms between runs, so part of this is host noise, but HEAD was slower in both runs. Carry into Stage 6: alternate ≥3 runs base/HEAD; if the 15–30 % first-paint/refine gap holds, find the cause (e.g. new wind/dust modules on the critical path, canopy strip built before first paint) and fix it generally.
+
 ## Stage 6: stills and docs
