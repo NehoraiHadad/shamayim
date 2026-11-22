@@ -23,7 +23,7 @@ const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
 export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): Disc | null {
   const sun = world.bodies.sun
   if (!sun.up) return null
-  const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
+  const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
   const coin = coinOf(world)
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)

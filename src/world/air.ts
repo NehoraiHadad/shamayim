@@ -1,5 +1,5 @@
 import type { AirInput } from '../atmo/airTypes'
-import { haze, heat, rainRate, visibilityKm } from './airParts'
+import { dustShare, haze, heat, rainRate, visibilityKm } from './airParts'
 import type { Air, RGB, WorldSources } from './types'
 
 /** sRGB 0–1 of a `#rrggbb` colour. */
@@ -19,23 +19,16 @@ export function visibilityFromHumidity(humidity: number): number {
 export interface AirSourceInput {
   /** The shown air (now's, or the picked hour's), as `airInput` reduces it. */
   shown: AirInput
-  /** The picked hour's own visibility (m), when the forecast gives it. */
-  hourVisibilityM?: number | null
-  preview: boolean
+  visibilitySource: WorldSources['visibility']
   /** `?wx=vis:…` set the visibility. */
   forcedVisibility: boolean
 }
 
 /** The visibility the world uses (km, before dust) and where it came from. */
 export function chooseVisibility(input: AirSourceInput): { km: number; source: WorldSources['visibility'] } {
-  const { shown, hourVisibilityM, preview, forcedVisibility } = input
-  if (forcedVisibility && shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'forced' }
-  if (preview && hourVisibilityM != null) return { km: hourVisibilityM / 1000, source: 'hour' }
-  // Now: the current visibility (`airInput` carries it); a picked hour without its own keeps now's only when it has no
-  // humidity of its own to say better.
-  if (!preview && shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'current' }
+  const { shown, visibilitySource, forcedVisibility } = input
+  if (shown.visibilityKm !== null) return { km: shown.visibilityKm, source: forcedVisibility ? 'forced' : visibilitySource }
   if (shown.humidity !== null) return { km: visibilityFromHumidity(shown.humidity), source: 'humidity' }
-  if (shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'current' }
   return { km: 40, source: 'default' }
 }
 
@@ -54,6 +47,7 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
       visibilityKm: v,
       humidity: shown.humidity,
       dust: (shown.dust ?? shown.pm10 ?? 0) >= 50,
+      dustWeight: dustShare(shown),
       haze: tint,
       fade: (distanceKm: number) => 1 - Math.exp(-KOSCHMIEDER * Math.max(0, distanceKm) / v),
       farFade: h.farFade,

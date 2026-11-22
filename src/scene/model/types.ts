@@ -140,7 +140,7 @@ export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]
 
 /** A one-shot meteor or a seeded lightning schedule (default cycle 600 s). */
 export type Pulse = { first: number } & (
-  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number }
+  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number; strength?: number }
 )
 
 /**

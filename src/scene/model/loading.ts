@@ -51,8 +51,8 @@ export const ARRIVAL_END = 1.9
 /** A held reveal (the land's layers still being painted) stands at its start: every timing this far off. */
 const HELD = Infinity
 
-/** The land layers that do not stand on the land and so show while it loads: the near rain and the dust over it. */
-const UNANCHORED = new Set(['fall.land', 'grains.land'])
+/** The land layers that do not stand on the land and so show while it loads: near precipitation and dust. */
+const UNANCHORED = new Set(['fall.land', 'fall.land.snow', 'grains.land'])
 
 /** Whether a land layer shows while the land is unknown (C8): the mist, the line and the weather that needs no land. */
 export const showsUnknown = (layer: LayerDesc) => layer.surface === 'sky' || layer.kind === 'loading' || UNANCHORED.has(layer.id)
@@ -87,7 +87,7 @@ function mistTones(world: WorldState) {
   const through = (1 - 0.95 * cover('low')) * (1 - 0.85 * cover('mid')) * (1 - 0.3 * cover('high'))
   const low = sun > -1 ? smoothstep(25, 4, sun) : 0
   const litAlpha = clamp01(through * low * 0.6 * (1 - dark))
-  const glow = sunLight(Math.max(0, sun), { visibilityKm: world.air.visibilityKm, dust: world.air.dust }).rgb
+  const glow = sunLight(Math.max(0, sun), world.air).rgb
   return { body, foot, lit: mixRgb(body, glow, 0.6), litAlpha }
 }
 

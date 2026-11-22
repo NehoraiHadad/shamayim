@@ -106,6 +106,10 @@ export interface Forecast {
   placeId: string
   elevation: number
   current: CurrentWeather
+  /** The original reading when `current` has been rolled forward for display. */
+  observation?: CurrentWeather
+  /** Receipt in the scene clock, independent of the provider's fetch time. Never persisted. */
+  receivedAt?: number
   hours: HourPoint[]
   /** Includes yesterday at index 0 (past_days=1). */
   days: DayPoint[]
@@ -113,6 +117,8 @@ export interface Forecast {
   nowcast: NowcastPoint[] | null
   normals: Record<LocalDate, DayNormal> | null
   fetchedAt: number
+  /** In-memory source data for easing a refresh from its arrival time. */
+  previous?: { forecast: Forecast; receivedAt: number }
   source: string
   models: string[]
 }

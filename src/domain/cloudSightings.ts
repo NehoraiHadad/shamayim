@@ -1,4 +1,5 @@
-import { observationWeight, type CloudObservation } from './observedCloud'
+import { blendObservations, observationWeight, type CloudObservation } from './observedCloud'
+import { smoothstep } from './smoothstep'
 import type { LocalTime } from './types'
 
 /**
@@ -17,7 +18,7 @@ export interface CloudSighting {
 
 /** Patches further than this sit too low over the ridges to read, and the sample is no wider anyway. */
 const MAX_KM = 28
-/** With this much cover the forecast's own cloud field already fills the sky: no need to place single clouds. */
+/** At this cover, the forecast's own cloud field already fills the sky: no need to place single clouds. */
 const BUSY_COVER = 50
 const MAX_SIGHTINGS = 3
 
@@ -73,15 +74,23 @@ export function cloudSightings(mask: boolean[], n: number, boxKm: number): Cloud
 /** A sighting with how much to trust it now (0–1). */
 export interface WeightedSighting extends CloudSighting {
   strength: number
+  id?: string
 }
 
 /**
  * The single clouds to draw for "now": only while the observation is fresh enough to correct now, and only on a mostly
  * clear sky (with more cloud the forecast field already draws plenty). None for another hour.
  */
-export function sightingsNow(obs: CloudObservation | null, now: LocalTime, cover: number): WeightedSighting[] {
-  if (!obs?.sightings?.length || cover >= BUSY_COVER) return []
-  const weight = observationWeight(obs, now)
-  if (weight <= 0) return []
-  return obs.sightings.map((s) => ({ ...s, strength: weight }))
+export function sightingsNow(obs: CloudObservation | null, now: LocalTime, cover: number, nowMs?: number): WeightedSighting[] {
+  const clear = 1 - smoothstep(BUSY_COVER - 10, BUSY_COVER, cover)
+  if (!obs || clear === 0) return []
+  return blendObservations<WeightedSighting[]>(obs, nowMs, [], (sample) => {
+    if (now < sample.at) return []
+    const strength = clear * observationWeight(sample, now)
+    if (strength === 0) return []
+    return (sample.sightings ?? []).map((s, i) => ({ ...s, strength, ...(sample.receivedAt === undefined ? {} : { id: sample.at + ':' + i }) }))
+  }, (before, after, weight) => [
+    ...before.map((s) => ({ ...s, strength: s.strength * (1 - weight) })),
+    ...after.map((s) => ({ ...s, strength: s.strength * weight })),
+  ])
 }

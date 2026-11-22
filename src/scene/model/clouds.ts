@@ -38,7 +38,7 @@ function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLa
   const covers = coversOf(world)
   const above = layer.level === 'low' ? cloudTransmit({ low: 0, mid: covers.mid, high: covers.high })
     : layer.level === 'mid' ? cloudTransmit({ low: 0, mid: 0, high: covers.high }) : 1
-  const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
+  const aerosol = world.air
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
@@ -280,7 +280,8 @@ const FLASH: RGB = [0.86, 0.9, 1]
  */
 export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom = skyGeom(world, box)):
   LayerOf<'flash'>[] {
-  if (!world.rain?.thunder) return []
+  if (!world.rain || world.rain.thunderWeight <= 0) return []
+  const strength = world.rain.thunderWeight
   const layer = world.clouds.find((l) => l.rains)
   const drawn = clouds.find((l) => l.level === layer?.level)
   if (!layer || !drawn) return []
@@ -303,7 +304,7 @@ export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly
       kind: 'flash' as const, id: `flash.${i}`, surface: 'sky' as const, z: 9, soft: true, bank, rgb: FLASH, period: geom.period,
       bounds: { x: Math.floor(x - b.w / 2 - pad), y: Math.floor(b.y - b.h * 1.8 - pad * 0.5), w: Math.ceil(b.w + 2 * pad), h: Math.ceil(b.h * 2.3 + pad) },
       animated: { mode: 'drift' as const, speed: drawn.animated?.speed ?? 0, period: geom.period,
-        pulse: { seed: b.seed, first: 1.5 + (Math.abs(b.seed) % 7), every: [7, 22] as [number, number] } },
+        pulse: { strength, seed: b.seed, first: 1.5 + (Math.abs(b.seed) % 7), every: [7, 22] as [number, number] } },
       key: layerKey('flash', skyBoxKey(box, true), bankKey(bank)),
     }
   })

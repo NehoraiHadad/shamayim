@@ -150,9 +150,9 @@ describe('light', () => {
 describe('air', () => {
   it('fades far land faster in thicker air', () => {
     const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 40000 } } })
+      current: { ...forecastFrom(live, 'jerusalem').current, time: '2026-11-17T12:00', visibility: 40000 } } })
     const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 5000 } } })
+      current: { ...forecastFrom(live, 'jerusalem').current, time: '2026-11-17T12:00', visibility: 5000 } } })
     expect(thick.air.visibilityKm).toBe(5)
     expect(thick.air.fade(10)).toBeGreaterThan(clear.air.fade(10))
     for (const world of [clear, thick]) {
@@ -215,6 +215,17 @@ describe('clouds and rain', () => {
     const low = world.clouds.find((l) => l.level === 'low')!
     expect(low.rains).toBe(true)
     expect(low.cover).toBeGreaterThanOrEqual(0.5)
+  })
+
+  it('raises a cloud for a code-only snow hour without creating liquid rain', () => {
+    const base = forecastFrom(live, 'jerusalem')
+    const snowy = everyHour(base, { cloudCover: 5, thickCloud: 0, precipitation: 0, weatherCode: 73 })
+    const world = worldAt('jerusalem', '2026-11-17T12:00', { forecast: snowy, selected: '2026-11-17T12:00' })
+    expect(world.rain).toBeNull()
+    expect(world.snow?.falling).toBe(true)
+    expect(world.sources.rainCloudRaised).toBe(true)
+    expect(world.clouds[0]).toMatchObject({ rains: true })
+    expect(world.clouds[0].cover).toBeGreaterThan(0.1)
   })
 
   it('keeps every bank where it was when the hour changes (seeded by place and index)', () => {

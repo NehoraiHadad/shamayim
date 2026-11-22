@@ -38,7 +38,7 @@ const MIN = 0.05
  * a clean ~0.08 (40 km and more: none) to a hazy 0.6 (10 km: full).
  */
 export function hazeOfRays(world: WorldState): number {
-  const tau = aerosolDepth({ visibilityKm: world.air.visibilityKm, dust: world.air.dust })[1]
+  const tau = aerosolDepth(world.air)[1]
   return smoothstep(0.08, 0.6, tau)
 }
 
@@ -104,7 +104,7 @@ export function rayLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = sk
   const sun = world.bodies.sun
   const x = geom.left + sun.x * geom.s
   const y = box.landTop + sun.y
-  const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), { visibilityKm: world.air.visibilityKm, dust: world.air.dust }).rgb, WHITE, 0.3)
+  const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), world.air).rgb, WHITE, 0.3)
   const shade = mixRgb(skyAt(world, box)(4), [0.2, 0.22, 0.3], 0.35)
   const out: LayerOf<'rays'>[] = []
   const layer = (id: string, z: number, ox: number, oy: number, reach: number, rays: Ray[], strength: number,

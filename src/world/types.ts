@@ -16,6 +16,7 @@ import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
 import type { Camera } from '../domain/camera'
 import type { WeightedSighting } from '../domain/cloudSightings'
+import type { AirTimeline } from '../atmo/airInput'
 import type { Forecast, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
 import type { PlaneFace } from './face'
@@ -39,9 +40,9 @@ export type RGB = readonly [number, number, number]
 export type Pt = readonly [number, number]
 
 /** What `buildWorld` takes: what App already holds. */
-export interface WorldInput {
+export interface WorldInput extends AirTimeline {
   place: Place
-  /** The forecast as App shows it (rolled forward, with the observed cloud and the visible sun). */
+  /** The model forecast, with its original observation preserved through rollover. */
   forecast: Forecast
   now: LocalTime
   /** An hour picked in the strip (a preview), or null for now. */
@@ -175,6 +176,7 @@ export interface Air {
   visibilityKm: number
   humidity: number | null
   dust: boolean
+  dustWeight: number
   /** The colour far planes fade toward. */
   haze: RGB
   /** Aerial perspective: 0 near … 1 lost, Koschmieder from `visibilityKm` (contrast 2 % at the visibility). */
@@ -230,6 +232,7 @@ export interface Rain {
   /** Rad from vertical, signed like `wind.across` (rain falls toward where the wind goes). */
   slant: number
   thunder: boolean
+  thunderWeight: number
 }
 
 /** Snow falling (C7): from the precipitating layer's banks, at their true azimuths, carried by the one wind. */

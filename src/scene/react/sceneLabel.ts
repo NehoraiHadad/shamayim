@@ -44,7 +44,7 @@ function renderedCondition(shown: AirInput, world: LabelWorld): ConditionKind {
 /** The figure's spoken description: place, shown condition and temperature, sun state, and elevation. */
 export function sceneLabel(world: LabelWorld, forecast: Forecast, now: LocalTime, selected: LocalTime | null): string {
   const shown = airInput(forecast, now, world.place, selected)
-  const isDay = shown.preview ? world.bodies.sun.up : forecast.current.isDay
+  const isDay = world.bodies.sun.up
   const event = nextSunEvent(forecast.days, now)
   const elevation = Math.round(forecast.elevation)
   return [

@@ -14,7 +14,7 @@ import { roundGradient } from './kitLight'
  */
 
 export type Tracer = (c: Ctx2D) => void
-export interface Lamp { x: number; y: number; r: number; c: RGB; a: number }
+export interface Lamp { x: number; y: number; r: number; c: RGB; a: number; fade?: number }
 
 export const poly = (pts: readonly number[]): Tracer => (c) => {
   c.beginPath()
@@ -111,8 +111,7 @@ export class Kit {
 
   /** A window or opening: a dark recess, or a warm lamp by night when it is one of the lit share. */
   open(tr: Tracer, canLight = false, warm = 0.85) {
-    const lit = canLight && this.r() < this.s.windows
-    if (lit) this.fill(tr, mix(this.t.wall, this.t.win, warm))
+    if (canLight && this.r() < this.s.windows) this.fill(tr, mix(this.t.wall, this.t.win, warm))
     else this.fill(tr, this.t.deep, 0.85 - 0.25 * this.night)
   }
 

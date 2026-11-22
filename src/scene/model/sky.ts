@@ -120,7 +120,7 @@ export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ??
 export const veilOf = (world: WorldState) => 1 - cloudTransmit(coversOf(world))
 
 /** Dust (`air.dust`) flattens the sun into a pale coin, as far as the haze goes (the SVG's `sunCoin`). */
-export const coinOf = (world: WorldState) => (world.air.dust ? world.air.farFade : 0)
+export const coinOf = (world: WorldState) => world.air.dustWeight * world.air.farFade
 
 /**
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright
@@ -133,7 +133,7 @@ export function skyGlows(world: WorldState, box: SceneBox, geom = skyGeom(world,
   const { sun, moon } = world.bodies
   const veil = veilOf(world)
   const coin = coinOf(world)
-  const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
+  const aerosol = world.air
   if (sun.altitude > -1.5) {
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.2)
     const up = smoothstep(-1.5, 1, sun.altitude)

@@ -1,3 +1,4 @@
+import { arrivalWeight } from './forecastRefresh'
 import { minutesBetweenLocal } from './minutes'
 import type { CloudSighting } from './cloudSightings'
 import type { Forecast, LocalTime } from './types'
@@ -6,6 +7,8 @@ import type { Forecast, LocalTime } from './types'
 export interface CloudObservation {
   cover: number
   at: LocalTime
+  receivedAt?: number
+  previous?: CloudObservation
   /** The single cloud patches near the place, biggest-looking first (see `cloudSightings`). */
   sightings?: CloudSighting[]
 }
@@ -33,27 +36,42 @@ function skyCode(code: number, cover: number): number {
   return cover < 20 ? 0 : cover < 50 ? 1 : cover < 85 ? 2 : 3
 }
 
-/**
- * The forecast with "now" nudged toward what the satellite saw: the difference from the model, weighted by how
- * fresh the observation is, applied in full now and fading linearly to zero over the next ~2.5 h of hours.
- * The same corrected values feed the icon, the sentence and the scene, so the screen does not contradict itself.
- */
-export function withObservedCloud(forecast: Forecast, obs: CloudObservation | null, now: LocalTime): Forecast {
+/** Apply receipt weights from newest to oldest, including the first arrival from a model-only sky. */
+export function blendObservations<T>(obs: CloudObservation, nowMs: number | undefined, empty: T,
+  sample: (obs: CloudObservation) => T, mix: (before: T, after: T, weight: number) => T): T {
+  const weight = obs.receivedAt === undefined || nowMs === undefined ? 1 : arrivalWeight(obs.receivedAt, nowMs)
+  if (weight === 1) return sample(obs)
+  const before = obs.previous ? blendObservations(obs.previous, nowMs, empty, sample, mix) : empty
+  return weight === 0 ? before : mix(before, sample(obs), weight)
+}
+
+/** The satellite can correct a minute only from its observation onward. */
+export function correctCloudCover(obs: CloudObservation, now: LocalTime, at: LocalTime, nowMs: number | undefined,
+  modelNow: number, modelAt: number): number {
+  const decay = clamp(1 - minutesBetweenLocal(now, at) / DECAY_MIN, 0, 1)
+  const shift = blendObservations(obs, nowMs, 0, (sample) => {
+    if (at < sample.at) return 0
+    return clamp((sample.cover - modelNow) * observationWeight(sample, now), -MAX_SHIFT, MAX_SHIFT) * decay
+  }, (before, after, weight) => before + (after - before) * weight)
+  return clamp(modelAt + shift, 0, 100)
+}
+
+/** Apply the correction to the weather card and hourly strip. The scene samples it at its own exact minute. */
+export function withObservedCloud(forecast: Forecast, obs: CloudObservation | null, now: LocalTime, nowMs?: number): Forecast {
   if (!obs) return forecast
-  const weight = observationWeight(obs, now)
-  if (weight <= 0) return forecast
-  const shift = clamp((obs.cover - forecast.current.cloudCover) * weight, -MAX_SHIFT, MAX_SHIFT)
-  if (Math.abs(shift) < 3) return forecast
-  const adjust = (cover: number, lead: number) => clamp(cover + shift * clamp(1 - lead / DECAY_MIN, 0, 1), 0, 100)
-  const coverNow = adjust(forecast.current.cloudCover, 0)
-  return {
+  const modelNow = (forecast.observation ?? forecast.current).cloudCover
+  const adjust = (at: LocalTime, cover: number) => correctCloudCover(obs, now, at, nowMs, modelNow, cover)
+  const coverNow = adjust(now, forecast.current.cloudCover)
+  let changed = coverNow !== forecast.current.cloudCover
+  const hours = forecast.hours.map((h) => {
+    const cover = adjust(h.time, h.cloudCover)
+    if (cover === h.cloudCover) return h
+    changed = true
+    return { ...h, cloudCover: cover, weatherCode: skyCode(h.weatherCode, cover) }
+  })
+  return changed ? {
     ...forecast,
+    hours,
     current: { ...forecast.current, cloudCover: coverNow, weatherCode: skyCode(forecast.current.weatherCode, coverNow) },
-    hours: forecast.hours.map((h) => {
-      const lead = minutesBetweenLocal(now, h.time)
-      if (lead <= -60 || lead >= DECAY_MIN) return h
-      const cover = adjust(h.cloudCover, Math.max(0, lead))
-      return { ...h, cloudCover: cover, weatherCode: skyCode(h.weatherCode, cover) }
-    }),
-  }
+  } : forecast
 }
