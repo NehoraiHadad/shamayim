@@ -4,6 +4,7 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { GLYPH_SPECS } from '../../world/glyphSpecs'
 import { makeWorldBuilder } from '../../world/world'
+import { shineOf } from '../model/marks'
 import { outsideLayer } from '../model/outside'
 import type { GlyphDesc, LayerOf, SceneBox, Shine } from '../model/types'
 import { drawGlyph } from './glyphs'
@@ -160,7 +161,7 @@ it('fades sky highlights and box lamp halos through their old cutoffs with fixed
   const at = (strength: number, night: number) => record({ ...layer, land: null,
     items: layer.items.filter(({ kind }) => kind === 'box' || kind === 'tower'),
     form: { ...layer.form, strength, side: .5 },
-    shine: { ...layer.shine, night, windows: 1, aviation: false, cast: { dx: 0, alpha: 0, length: 0 } },
+    shine: { ...layer.shine, night, windows: 1, aviationStrength: 0, cast: { dx: 0, alpha: 0, length: 0 } },
   })
   const below = at(.019, .599), above = at(.021, .601), full = at(.8, .8)
   const fixed = JSON.stringify(below.form)
@@ -169,9 +170,44 @@ it('fades sky highlights and box lamp halos through their old cutoffs with fixed
   expect(above.channels).toHaveLength(below.channels.length)
   const step = above.channels.reduce((max, value, i) => Math.max(max, Math.abs(value - below.channels[i])), 0)
   expect(step).toBeLessThanOrEqual(1 / 255 + Number.EPSILON)
-  expect(below.halos.length).toBeGreaterThan(0)
+  const towers = layer.items.filter((item) => item.kind === 'tower' && (item.full || item.storeys >= 30)).length
+  expect(below.halos.length).toBeGreaterThan(towers)
   expect(below.halos.every((alpha) => alpha === 0)).toBe(true)
-  expect(full.halos.every((alpha) => alpha > 0)).toBe(true)
+  expect(full.halos.filter((alpha) => alpha === 0)).toHaveLength(towers)
+})
+
+it('keeps outside aviation halos and cores fixed as darkness and evening windows fade them in', () => {
+  const time = '2026-11-17T12:00'
+  const world = makeWorldBuilder()(worldInput(jerusalem, time, time))
+  const layer = outsideLayer(world, BOX)!
+  const items = layer.items.filter((item) => item.kind === 'tower' && (item.full || item.storeys >= 30))
+  expect(items.length).toBeGreaterThan(0)
+  const at = (dark: number, litShare: number) => {
+    const shine = shineOf({ ...world, night: { ...world.night, dark, litShare, aviation: false } })
+    return record({ ...layer, items, land: null, shine: { ...shine, windows: 0, cast: { dx: 0, alpha: 0, length: 0 } } })
+  }
+  const day = at(0, 0)
+  const fixed = JSON.stringify(day.form)
+  expect(day.halos).toEqual(items.map(() => 0))
+  expect(at(1, 0).halos).toEqual(items.map(() => .55))
+  expect(at(0, .04).halos).toEqual(items.map(() => .275))
+
+  const sweep = (frames: number, step: number, maxSlope: number, paint: (value: number) => ReturnType<typeof at>) => {
+    let previous = day
+    for (let i = 1; i <= frames; i++) {
+      const frame = paint(i * step)
+      expect(JSON.stringify(frame.form)).toBe(fixed)
+      expect(frame.channels).toHaveLength(previous.channels.length)
+      const maxAlphaStep = frame.channels.reduce((max, value, j) => j % 4 === 3
+        ? Math.max(max, Math.abs(value - previous.channels[j])) : max, 0)
+      expect(maxAlphaStep).toBeLessThanOrEqual(maxSlope * step + .001)
+      previous = frame
+    }
+  }
+  // Smoothstep's steepest slope is 1.5 / width. The core can reach .8 in the darkness ramp,
+  // or .6 in the lit-share ramp at fixed darkness. Account for the changing core and CSS rounding.
+  sweep(200, .005, .5 + .8 * 1.5 / .2, (dark) => at(dark, 0))
+  sweep(40, .001, .6 * 1.5 / .04, (share) => at(0, share))
 })
 
 it('never extinguishes a lit box, tower or glyph window as the Jerusalem share rises from 16:30 to 18:30', () => {

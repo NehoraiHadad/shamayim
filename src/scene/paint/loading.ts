@@ -1,3 +1,4 @@
+import { smoothstep } from '../../world/ridgeLighting'
 import type { LayerOf } from '../model/types'
 import { fractal } from './core'
 import { css, type Ctx2D, type PaintEnv } from './hand'
@@ -27,7 +28,7 @@ export function paintLoading(ctx: Ctx2D, desc: LayerOf<'loading'>, env: PaintEnv
 /** The bank: C7's mist bands (body, then the puffs on its top), then the light a low sun lays on the tops of the puffs. */
 function paintBank(ctx: Ctx2D, desc: Extract<LayerOf<'loading'>, { part: 'mist' }>) {
   mistBands(ctx, desc.bands, desc.bounds)
-  if (desc.litAlpha < 0.01) return
+  const litAlpha = desc.litAlpha * smoothstep(0, 0.02, desc.litAlpha)
   const { x: bx, w } = desc.bounds
   for (const band of desc.bands) {
     for (const p of band.puffs) {
@@ -35,7 +36,7 @@ function paintBank(ctx: Ctx2D, desc: Extract<LayerOf<'loading'>, { part: 'mist' 
         const x = bx + p.x + dx
         if (x + p.rx < bx || x - p.rx > bx + w) continue
         // The lit cap: a smaller soft ellipse riding the puff's top.
-        soft(ctx, x, p.y - p.ry * 0.45, p.rx * 0.7, p.ry * 0.55, desc.lit, desc.litAlpha * p.alpha * band.alpha)
+        soft(ctx, x, p.y - p.ry * 0.45, p.rx * 0.7, p.ry * 0.55, desc.lit, litAlpha * p.alpha * band.alpha)
       }
     }
   }

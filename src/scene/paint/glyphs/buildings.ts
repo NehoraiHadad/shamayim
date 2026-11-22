@@ -37,7 +37,7 @@ export function minaret(k: Kit, h: number) {
   k.round(poly([2.35, top, 4.05, top, 3.2, -h + 0.9]), 2.35, 4.05, 0.5)
   k.fill(rect(3.05, -h, 0.3, 0.9), t.wall)
   k.open(rect(2.95, bal - 3.4, 0.5, 1.2), false)
-  if (k.night > 0.4) k.lamp(3.2, bal - 0.3, 2.2, MINARET_LAMP, 0.75 * k.night)
+  k.lamp(3.2, bal - 0.3, 2.2, MINARET_LAMP, 0.75 * k.night, k.nightFade(0.3, 0.5))
 }
 /** Church: gabled stone nave with a rose window and a tiled roof, a square tower with an arched belfry, cap and cross. */
 export function church(k: Kit, h: number) {

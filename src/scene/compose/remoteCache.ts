@@ -3,7 +3,7 @@ import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
 import { deviceRect, formKeyOf, lightKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
 import { PaintQueue, type WorkerLike } from './paintQueue'
-import { accept, partsOf, peek, reuse, sameForm, type Entry, type Request } from './remoteEntry'
+import { accept, partsOf, peek, reuse, sameForm, samePaint, type Entry, type Request } from './remoteEntry'
 
 export type { WorkerLike } from './paintQueue'
 
@@ -54,7 +54,7 @@ export class RemoteCache {
     const request: Request = { formKey, ratio, desc, phase, rect: deviceRect(desc, ratio),
       lightKey: lightKeyOf(desc, this.painters(desc)), formless: this.formless(desc), generation: 1 }
     if (entry) {
-      const unchanged = sameForm(entry.wanted, request) && entry.wanted.lightKey === request.lightKey
+      const unchanged = samePaint(entry.wanted, request)
       request.generation = entry.wanted.generation + Number(!unchanged)
       entry.wanted = request
       return this.ask(entry)

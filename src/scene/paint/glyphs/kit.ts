@@ -1,4 +1,5 @@
 import type { RGB } from '../../../world/types'
+import { smoothstep } from '../../../world/ridgeLighting'
 import type { Shine, Tones } from '../../model/types'
 import { rng } from '../core'
 import { css, mix, type Ctx2D } from '../hand'
@@ -36,8 +37,13 @@ export const arch = (x: number, y: number, w: number, h: number): Tracer => (c) 
 export const disc = (x: number, y: number, r: number): Tracer => (c) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2) }
 
 /** Red aviation light; a minaret's green balcony lamp. */
-export const AVIATION: RGB = [1, 0.35, 0.29]
+const AVIATION: RGB = [1, 0.35, 0.29]
 export const MINARET_LAMP: RGB = [0.49, 0.88, 0.63]
+
+export function aviationLamp(x: number, y: number, shine: Shine): Lamp {
+  return { x, y, r: 1.3, c: AVIATION, a: 0.5 + 0.5 * shine.night,
+    fade: shine.aviationStrength ?? Number(shine.aviation) }
+}
 
 /** The kit handed to each glyph: its tones and the shared light, fills, round-body falloff, boxes, rims, openings, lamps. */
 export class Kit {
@@ -75,6 +81,8 @@ export class Kit {
   }
 
   get night() { return this.s.night }
+
+  nightFade(from: number, to: number) { return smoothstep(from, to, this.night) }
 
   fill(tr: Tracer, col: RGB, a = 1) {
     tr(this.c)
@@ -115,10 +123,10 @@ export class Kit {
     else this.fill(tr, this.t.deep, 0.85 - 0.25 * this.night)
   }
 
-  lamp(x: number, y: number, r: number, c: RGB, a = 1) { this.lamps.push({ x, y, r, c, a }) }
+  lamp(x: number, y: number, r: number, c: RGB, a = 1, fade?: number) { this.lamps.push({ x, y, r, c, a, fade }) }
 
   /** An aviation light on a tall top, by night and at dusk. */
-  aviation(x: number, y: number) { if (this.s.aviation) this.lamp(x, y, 1.3, AVIATION, 0.5 + 0.5 * this.night) }
+  aviation(x: number, y: number) { this.lamps.push(aviationLamp(x, y, this.s)) }
 
   /** A shape filled with a vertical gradient between two tones (top → bottom). */
   vgrad(tr: Tracer, y0: number, y1: number, top: RGB, bottom: RGB, a = 1) {

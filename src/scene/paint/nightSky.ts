@@ -1,4 +1,5 @@
 import type { LayerOf, Pt } from '../model/types'
+import { smoothstep } from '../../world/ridgeLighting'
 import { fractal, rng } from './core'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 
@@ -12,15 +13,14 @@ const TAU = Math.PI * 2
 
 export function paintPlanets(ctx: Ctx2D, desc: LayerOf<'planets'>, _env: PaintEnv): void {
   for (const p of desc.planets) {
-    if (p.glow > 0.02) {
-      const R = p.r * 4.5
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R)
-      g.addColorStop(0, css(p.rgb, 0.32 * p.glow))
-      g.addColorStop(0.35, css(p.rgb, 0.1 * p.glow))
-      g.addColorStop(1, css(p.rgb, 0))
-      ctx.fillStyle = g
-      ctx.fillRect(p.x - R, p.y - R, 2 * R, 2 * R)
-    }
+    const glow = p.glow * smoothstep(0, 0.04, p.glow)
+    const R = p.r * 4.5
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R)
+    g.addColorStop(0, css(p.rgb, 0.32 * glow))
+    g.addColorStop(0.35, css(p.rgb, 0.1 * glow))
+    g.addColorStop(1, css(p.rgb, 0))
+    ctx.fillStyle = g
+    ctx.fillRect(p.x - R, p.y - R, 2 * R, 2 * R)
     ctx.fillStyle = css(p.rgb, p.alpha)
     ctx.beginPath()
     ctx.arc(p.x, p.y, p.r, 0, TAU)
@@ -83,10 +83,11 @@ export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: Paint
     return Math.max(2, (h(i - 1) + h(i)) / 2)
   }
   const blob = (p: Pt, R: number, rgb: readonly [number, number, number], a: number) => {
-    if (a < 0.002 || R < 0.5) return
+    if (R < 0.5) return
+    const alpha = a * smoothstep(0, 0.004, a)
     const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], R)
-    g.addColorStop(0, css(rgb, a))
-    g.addColorStop(0.45, css(rgb, a * 0.55))
+    g.addColorStop(0, css(rgb, alpha))
+    g.addColorStop(0.45, css(rgb, alpha * 0.55))
     g.addColorStop(1, css(rgb, 0))
     ctx.fillStyle = g
     ctx.fillRect(p[0] - R, p[1] - R, 2 * R, 2 * R)

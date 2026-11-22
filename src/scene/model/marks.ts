@@ -13,6 +13,13 @@ import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
 import { glyphHand } from './glyphHand'
 
+declare module './types' {
+  interface Shine {
+    /** Continuous aviation lamp strength (0–1). Older descriptors carry only the boolean. */
+    aviationStrength?: number
+  }
+}
+
 /** Far and plain marks lie over the far towns and under the near ridge. The portrait lies over the near ridge and its water. */
 const Z = { far: 17, near: 40 }
 /** The trees' sway (C7): four frames at two a second, a two-second rock about the lean. */
@@ -116,6 +123,7 @@ export function shineOf(world: WorldState): Shine {
   const { light, night, wind } = world
   const direct = clamp01(light.direct)
   const on = smoothstep(0, 0.12, night.litShare) * (0.3 + 0.7 * smoothstep(0.05, 0.6, night.dark))
+  const aviationStrength = Math.max(smoothstep(0, 0.04, night.litShare), smoothstep(0.2, 0.4, night.dark))
   const moonK = light.direct > 0 ? (light.shares.sun + 0.4 * light.shares.moon) / light.direct : 1
   return {
     night: night.dark,
@@ -127,7 +135,8 @@ export function shineOf(world: WorldState): Shine {
       alpha: 0.55 * direct * (1 - light.shadow.softness) * moonK },
     // `litShare` is how lit the evening is (1 from 17 to 23 h); about two windows in five are lit then.
     windows: 0.4 * night.litShare * on,
-    aviation: night.aviation || night.dark > 0.3,
+    aviation: aviationStrength > 0,
+    aviationStrength,
     lean: Math.max(-0.22, Math.min(0.22, wind.across * Math.min(1, wind.ms / 14) * 0.22)),
     // C7: the gusts rock the crowns about their lean, from a breeze up (the gust over the mean wind adds to it).
     sway: wind.ms < 2.5 ? 0 : Math.min(0.09, 0.012 * wind.ms + 0.006 * Math.max(0, wind.gustMs - wind.ms)),
@@ -177,6 +186,8 @@ function boundsOf(boxes: { left: number; right: number; top: number; bottom: num
 const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
 export const facesKey = (s: Shine) => [s.faces.front, s.faces.left, s.faces.right, s.faces.top, s.faces.rim, s.faces.across,
   s.glint ?? 0].map((v) => Math.round(v * 64))
+  // Both marks and outside use this fragment. Include lamp strength at alpha-byte precision.
+  .concat(Math.round((s.aviationStrength ?? Number(s.aviation)) * 255))
 const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
   Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), s.aviation, Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 

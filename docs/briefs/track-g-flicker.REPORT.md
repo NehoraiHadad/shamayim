@@ -44,3 +44,21 @@ The probabilities and share multipliers are preserved. The fixed draw order can 
 | `npx vitest run src/scene/paint/outside.test.ts src/scene/compose/compose.test.ts src/scene/paint/glyphs/glyphs.test.ts --testTimeout=180000` | Exit 0. Three test files passed, 29 tests passed in 46.79 s. |
 
 The checks used the installed Windows `npx-cli.js`. TypeScript ran in a temporary mirror with junctions to the worktree's source, scripts, worker and dependencies. Its build-info files were written to that mirror.
+
+## Round 3
+
+- The marks model takes the stronger of two smoothstep ramps for aviation lamps. Darkness ramps over 0.2 to 0.4, and evening or storm window share ramps over 0 to 0.04 around its former 0.02 cutoff. Both the outside and marks light keys include the resulting strength at alpha-byte precision. Towers and glyphs share the aviation lamp definition, with the same geometry, colour, and full-strength core and halo. `src/scene/model/marks.ts:126`, `src/scene/model/marks.ts:187`, `src/scene/paint/outsideTower.ts:102`, `src/scene/paint/glyphs/kit.ts:43`.
+- The lighthouse lantern uses a 0.2 to 0.4 darkness ramp for both its fill colour and lamp. The minaret lamp and the Shrine of the Báb and Western Wall floodlighting use a 0.3 to 0.5 ramp. The lamps keep their day and full-night appearance. The drawing adds no random draws. `Kit.open` is byte-for-byte as in HEAD. `src/scene/paint/glyphs/buildings.ts:40`, `src/scene/paint/glyphs/structures.ts:46`, `src/scene/paint/icons/babShrine.ts:12`, `src/scene/paint/icons/westernWall.ts:15`, `src/scene/paint/glyphs/kit.ts:121`.
+- The painter sweep also found night-dependent cutoffs in aircraft lights and body, moon earthshine, star and planet halos, Milky Way glows, cloud and mist lighting, and water rims. The aircraft body fades out over 0.9 to 1 of its night-light value, and the other passes use continuous opacity or tint with their supplied light values. Existing descriptor precision still applies. `src/scene/paint/life.ts:36`, `src/scene/paint/bodies.ts:74`, `src/scene/paint/bodies.ts:116`, `src/scene/paint/nightSky.ts:16`, `src/scene/paint/nightSky.ts:87`, `src/scene/paint/clouds.ts:187`, `src/scene/paint/loading.ts:31`, `src/scene/paint/weather.ts:158`, `src/scene/paint/water.ts:84`.
+- A complete worker reply whose keys match the current request is accepted with the current layout and generation. Other replies still require a generation newer than the picture on screen. The fake-worker test scrubs A → S → A while A is in flight, reuses S in between, and verifies that A's original reply settles the queue for both ordinary and formless layers. `src/scene/compose/remoteEntry.ts:59`, `src/scene/compose/paintQueue.ts:37`, `src/scene/compose/compose.test.ts:296`.
+- The dusk sweeps record fixed geometry and rendered paint values for Jerusalem tower lamps and all 22 glyph types. The tests bound the alpha change by 0.0335 per 0.005 darkness step and 0.0235 per 0.001 window-share step for the outside aviation lamps. These bounds use the smoothstep derivative and CSS alpha rounding. A separate sweep checks the aircraft lights at two strip phases and the planet and star halos. `src/scene/paint/outside.test.ts:179`, `src/scene/paint/glyphs/glyphs.test.ts:106`, `src/scene/paint/glyphs/glyphs.test.ts:144`.
+
+### Test output
+
+| Command | Result |
+| --- | --- |
+| `npx tsc -b` | Exit 0 with no diagnostics in the temporary mirror. |
+| `npx oxlint` | Exit 0 with 12 warnings outside the changed files. |
+| `npx vitest run src/scene/paint/outside.test.ts src/scene/compose/compose.test.ts src/scene/paint/glyphs/glyphs.test.ts --testTimeout=180000` | Exit 0. Three test files passed, 34 tests passed in 23.54 s. |
+
+The checks used the installed Windows `npx-cli.js`. The worktree typecheck hit `TS5033` writing its build-info files. The successful rerun used a temporary mirror with junctions to the worktree and redirected those files into the mirror.

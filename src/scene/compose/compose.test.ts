@@ -293,6 +293,36 @@ describe('painting in the worker', () => {
     expect(cache.fresh(final, 1)).toBe(true)
   })
 
+  it.each([true, false])('uses the in-flight A reply on an A → S → A scrub (formless=%s)', (formless) => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => formless }),
+      onArrive: () => {}, onFail: () => {} })
+    const s = plane('s', 'sky'), a = plane('a', 'afternoon')
+    const send = (layer: typeof a) => {
+      cache.update(layer, 1)
+      cache.flush()
+    }
+    send(s)
+    worker.answer()
+    const shown = cache.peek(s.id)!.light
+
+    send(a) // A's job is in flight while S is still displayed.
+    send(s) // Reusing S advances the displayed generation past A's job.
+    send(plane('intermediate', 'queued'))
+    const back = { ...a, z: a.z + 1 }
+    expect(cache.update(back, 1)).toBe('none')
+    cache.flush()
+    expect(cache.peek(s.id)!.light).toBe(shown)
+    expect(worker.sent).toHaveLength(1)
+    worker.answer()
+
+    expect(cache.fresh(back, 1)).toBe(true)
+    expect(cache.peek(a.id)?.desc).toBe(back)
+    expect(cache.peek(a.id)?.light).not.toBe(shown)
+    expect(worker.sent).toHaveLength(0)
+    expect(cache.settled()).toBe(true)
+  })
+
   it('lays the arrivals on the surface, and paints on the main thread once the worker fails', () => {
     const worker = fakeWorker()
     const { count, painters: counted } = counting()

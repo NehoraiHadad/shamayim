@@ -37,6 +37,10 @@ export function sameForm(a: Request | undefined, b: Request) {
   return a?.formKey === b.formKey && a.formless === b.formless
 }
 
+export function samePaint(a: Request, b: Request) {
+  return sameForm(a, b) && a.lightKey === b.lightKey
+}
+
 function promote(entry: Entry, shown: Shown) {
   closeReplaced(shown, partsOf(entry.shown))
   entry.shown = shown
@@ -52,16 +56,17 @@ export function reuse(entry: Entry) {
   } else shown.request = { ...shown.request, desc: wanted.desc }
 }
 
-/** A batch can replace the picture once it has all the parts of a newer request. */
+/** A complete picture can replace the one shown if it is newer or matches the current ask. */
 export function accept(entry: Entry, request: Request, results: readonly PaintResult[]) {
   const { shown, wanted } = entry
-  if (request.generation > (shown?.request.generation ?? 0)) {
+  const current = samePaint(request, wanted)
+  if (current || request.generation > (shown?.request.generation ?? 0)) {
     const compatible = shown && sameForm(shown.request, request) ? shown : null
     const form = results.find((result) => result.part === 'form')?.bitmap ?? compatible?.form ?? null
     const light = results.find((result) => result.part === 'light')?.bitmap
       ?? (compatible?.request.lightKey === request.lightKey ? compatible?.light ?? null : null)
     if ((request.formless || form) && (request.lightKey === null || light)) {
-      const layout = sameForm(wanted, request) ? { ...request, desc: wanted.desc } : request
+      const layout = current ? wanted : sameForm(wanted, request) ? { ...request, desc: wanted.desc } : request
       promote(entry, { request: layout, form, light })
     }
   }

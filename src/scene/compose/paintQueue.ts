@@ -35,6 +35,7 @@ export class PaintQueue {
     const matches = (item: Queued | undefined) => item?.job.key === job.key
       && item.job.formKey === job.formKey && item.request.formless === request.formless
     if (matches(this.inFlight?.jobs.get(id))) {
+      // The original job can satisfy a scrub back to these keys. Keep its request for the reply.
       this.cancel(job.id, job.part)
       return false
     }

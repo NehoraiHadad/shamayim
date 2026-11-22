@@ -1,6 +1,6 @@
 import type { OutsideItem, Shine, SkyForm, Tones } from '../model/types'
 import { rng } from './core'
-import { AVIATION, type Lamp } from './glyphs/kit'
+import { aviationLamp, type Lamp } from './glyphs/kit'
 import { css, mix, type Ctx2D } from './hand'
 import { edgeStrips, facesOf, MIN_STOREY_PX, sideFace } from './outsideLight'
 
@@ -99,5 +99,5 @@ export function paintTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' 
       }
     }
   }
-  if (s.aviation && (tw.full || tw.storeys >= 30)) lamps.push({ x: tw.x, y: tipY - .4, r: 1.3, c: AVIATION, a: .5 + .5 * s.night })
+  if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tipY - .4, s))
 }

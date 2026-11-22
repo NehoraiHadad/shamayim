@@ -1,4 +1,5 @@
 import type { LayerOf, Pt } from '../model/types'
+import { smoothstep } from '../../world/ridgeLighting'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /*
@@ -33,33 +34,29 @@ export function paintAircraft(ctx: Ctx2D, desc: LayerOf<'aircraft'>, env: PaintE
     }
   }
   const night = desc.lights
-  if (night < 1) {
-    const body = css(desc.rgb, 1 - night * 0.8)
-    stroke(ctx, [f(0.5 * S, 0), f(-0.5 * S, 0)], Math.max(0.7, 0.13 * S), body)
-    stroke(ctx, [f(0.08 * S, 0), f(-0.12 * S, -0.48 * S)], Math.max(0.6, 0.09 * S), body)
-    stroke(ctx, [f(0.08 * S, 0), f(-0.12 * S, 0.48 * S)], Math.max(0.6, 0.09 * S), body)
-    stroke(ctx, [f(-0.42 * S, 0), f(-0.52 * S, -0.18 * S)], Math.max(0.5, 0.07 * S), body)
-    stroke(ctx, [f(-0.42 * S, 0), f(-0.52 * S, 0.18 * S)], Math.max(0.5, 0.07 * S), body)
-    // The sun on its upper side.
-    stroke(ctx, [f(0.42 * S, -0.03 * S), f(-0.3 * S, -0.03 * S)], Math.max(0.4, 0.05 * S), css(desc.lit, 0.7 * (1 - night)))
+  const body = css(desc.rgb, (1 - night * 0.8) * smoothstep(1, 0.9, night))
+  stroke(ctx, [f(0.5 * S, 0), f(-0.5 * S, 0)], Math.max(0.7, 0.13 * S), body)
+  stroke(ctx, [f(0.08 * S, 0), f(-0.12 * S, -0.48 * S)], Math.max(0.6, 0.09 * S), body)
+  stroke(ctx, [f(0.08 * S, 0), f(-0.12 * S, 0.48 * S)], Math.max(0.6, 0.09 * S), body)
+  stroke(ctx, [f(-0.42 * S, 0), f(-0.52 * S, -0.18 * S)], Math.max(0.5, 0.07 * S), body)
+  stroke(ctx, [f(-0.42 * S, 0), f(-0.52 * S, 0.18 * S)], Math.max(0.5, 0.07 * S), body)
+  // The sun on its upper side.
+  stroke(ctx, [f(0.42 * S, -0.03 * S), f(-0.3 * S, -0.03 * S)], Math.max(0.4, 0.05 * S), css(desc.lit, 0.7 * (1 - night)))
+  // One strip second: the strobes flash white twice, the red beacon once, the landing light steady.
+  const frame = Math.round(env.phase * 10) % 10
+  const light = (p: Pt, r: number, rgb: readonly [number, number, number], a: number) => {
+    const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], r * 3)
+    g.addColorStop(0, css(rgb, a))
+    g.addColorStop(0.3, css(rgb, a * 0.4))
+    g.addColorStop(1, css(rgb, 0))
+    ctx.fillStyle = g
+    ctx.fillRect(p[0] - r * 3, p[1] - r * 3, r * 6, r * 6)
   }
-  if (night > 0) {
-    // One strip second: the strobes flash white twice, the red beacon once, the landing light steady.
-    const frame = Math.round(env.phase * 10) % 10
-    const light = (p: Pt, r: number, rgb: readonly [number, number, number], a: number) => {
-      const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], r * 3)
-      g.addColorStop(0, css(rgb, a))
-      g.addColorStop(0.3, css(rgb, a * 0.4))
-      g.addColorStop(1, css(rgb, 0))
-      ctx.fillStyle = g
-      ctx.fillRect(p[0] - r * 3, p[1] - r * 3, r * 6, r * 6)
-    }
-    if (desc.landing) light(f(0.5 * S, 0), 1.4, [1, 0.97, 0.88], 0.95 * night)
-    light(f(-0.1 * S, -0.5 * S), 0.6, [1, 0.25, 0.2], 0.8 * night)
-    light(f(-0.1 * S, 0.5 * S), 0.6, [0.3, 1, 0.45], 0.8 * night)
-    if (frame === 0 || frame === 2) for (const v of [-0.5, 0.5]) light(f(-0.1 * S, v * S), 0.9, [1, 1, 1], night)
-    if (frame === 5) light(f(0, 0), 0.8, [1, 0.2, 0.15], night)
-  }
+  if (desc.landing) light(f(0.5 * S, 0), 1.4, [1, 0.97, 0.88], 0.95 * night)
+  light(f(-0.1 * S, -0.5 * S), 0.6, [1, 0.25, 0.2], 0.8 * night)
+  light(f(-0.1 * S, 0.5 * S), 0.6, [0.3, 1, 0.45], 0.8 * night)
+  if (frame === 0 || frame === 2) for (const v of [-0.5, 0.5]) light(f(-0.1 * S, v * S), 0.9, [1, 1, 1], night)
+  if (frame === 5) light(f(0, 0), 0.8, [1, 0.2, 0.15], night)
 }
 
 /** A meteor: a fine streak, faint at its start, brightest near its head, with a short glow there. */
