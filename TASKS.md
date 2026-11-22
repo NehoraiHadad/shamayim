@@ -988,6 +988,10 @@ reviews, Claude manages and draws the painters.
       perspective-scaled softening (`paint/soften.ts`), seeded per-pixel fractal detail on a half-res raster
       (`paint/cloudRaster.ts`). Overcast, rain and cirrus keep the model's numbers. Warm scrub perf budget 2.5 → 3.9 ms
       (CI p95 + 15 %). Round 4 CI 45025772666 green. Owner: better, not final.
+- [x] Wind carry between minutes (Claude Opus 5.5, code + tests): sheets and cloud shadows move with their layer's
+      wind from the shown minute (`model/advect.ts`, `compose/advect.ts`), per-band speeds over slant range, open edge
+      mirrored, capped at 75 s, still under reduced motion; shadow ridge clip moved to the compositor. CI 45027867757.
+      Known limit: a low deck overhead in strong wind mirrors a wide edge strip until the next minute.
 - [ ] Rebuild on the field (owner's call, 22 Nov): one wind drift shared by sheets and their ground shadows (in prod
       the old banks drift every frame, shadows never move); rain clouds, lightning and fog from the field; then delete
       the old bank system (`model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`) with its tests, fixtures and devParams.
