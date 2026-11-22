@@ -137,8 +137,8 @@ function rainPotential(genus: FieldCell['genus'], lattice: Lattice, share: numbe
     : level === 'high' || (level === 'low' ? rain.midWeight === 1 : rain.midWeight === 0)) return 0
   // Ns and mature Cb sustain precipitation across their occupied footprint.
   if (genus === 'ns' || genus === 'cb') return share
-  // Growing congestus has less developed precipitation than mature Cb.
-  if (genus === 'cg') return 0.65 * share
+  // Growing congestus: at most a light shower; the rain falls under the mature Cb cores.
+  if (genus === 'cg') return 0.25 * share
   // Shallow Sc and St contribute drizzle when the low layer is raining.
   if (genus === 'sc' || genus === 'st') return 0.3 * share
   return 0

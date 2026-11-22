@@ -88,16 +88,23 @@ const GENUS: Partial<Record<FieldCell['genus'], TowerGenus>> = { cu: 'cu', cg: '
  *  to hundreds); darker still where it rains. Its sunlit body is fair-weather white whatever the cover round it. */
 const BASE: Record<TowerGenus, RGB> = { cu: [0.52, 0.56, 0.62], cg: [0.38, 0.42, 0.47], cb: [0.25, 0.28, 0.32] }
 const RAIN_BASE: RGB = [0.2, 0.23, 0.27]
+/** Depth of the hazy boundary layer (km): the line of sight to a point above it leaves the haze at this height, so a
+ *  tower's upper body is seen through a fraction of the haze its base is (why a far Cb stands white over a hazy foot). */
+const HAZE_KM = 1.5
+/** The length of the line of sight (by ground range, km) that runs through the haze to a point `heightKm` up. */
+export const hazePath = (rangeKm: number, heightKm: number) => rangeKm * Math.min(1, HAZE_KM / Math.max(0.01, heightKm))
 
 function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], cell: FieldCell, light: CloudLight | null,
   x: number, y: number, w: number, under: number, tall: number): CloudSprite {
   const rains = cell.rainWeight > 0.3
   const genus = GENUS[cell.genus] ?? 'cg'
   // A tower stands in its own gap of the sky (union 0): its body is lit as a fair-weather cloud's.
-  const tones = tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, Math.hypot(cell.x, cell.y))
+  const range = Math.hypot(cell.x, cell.y)
+  const tones = tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2))
   const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
   const day = smoothstep(-8, 3, world.bodies.sun.altitude)
-  const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind, tones.fade)
+  const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
+    0.85 * world.air.fade(hazePath(range, cell.baseKm)))
   const shade = mixRgb(tones.shade, base, day)
   return {
     genus, seed: cell.seed, w, under, tall, lean: 0, tau: cell.tau0,

@@ -12,8 +12,16 @@ export const COVER_CORRECTION: Record<Lattice, readonly number[]> = {
   high: [0, 0.0431, 0.0691, 0.1052, 0.1504, 0.2327, 0.3686, 0.4528, 0.5389, 0.6725, 0.7706, 0.8248, 0.8866, 0.98, 1],
 }
 
-// π E[r²] / pitch² for the clipped lognormal, divided by 3 for the high ellipse.
-const area = { low: 0.177, tower: 0.0951, mid: 0.568, high: 0.507 }
+// π E[r²] / pitch² for the clipped lognormal, divided by 3 for the high ellipse. The tower's scales with (median / pitch)²
+// from its calibrated 0.0951 at 1.2 / 8 km (same sigma, so the same clipped shape).
+const area = { low: 0.177, tower: 0.0951 * ((2.5 / 18) / (1.2 / 8)) ** 2, mid: 0.568, high: 0.507 }
+
+/** The share of the low cover that stands as towers (Cu con and Cb) on a fully convective day: a storm is a few large
+ *  cells with Cu and Sc between, not a sky of towers. */
+export const TOWER_SHARE = 0.35
+
+/** The towers' cover from the low cover at full convection. */
+export const towerCoverOf = (low: number) => TOWER_SHARE * unit(low)
 
 /** Boolean-model intensity, capped at the last open-deck cover. */
 export function lambdaOf(c: number): number {
@@ -22,7 +30,7 @@ export function lambdaOf(c: number): number {
 
 /** Partition low cover so the union of the two lattices preserves it. */
 export function splitLowCover(low: number, conv: number) {
-  const tower = conv * Math.min(low, 0.5)
+  const tower = conv * towerCoverOf(low)
   return { low: (low - tower) / (1 - tower), tower }
 }
 
