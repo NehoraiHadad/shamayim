@@ -40,7 +40,8 @@ export class ReceiverBlend {
     const sameFrame = held && held.canvas === canvas && held.beam === beam && held.shade === shade && held.sy === sy
     const restore = sameFrame ? union(held.box, box) : rect
     const rx = restore.x - rect.x, ry = restore.y - rect.y
-    output.clearRect(rx, ry, restore.w, restore.h)
+    output.globalCompositeOperation = sameFrame ? 'source-over' : 'copy'
+    if (sameFrame) output.clearRect(rx, ry, restore.w, restore.h)
     output.drawImage(beam, rx, sy + ry, restore.w, restore.h, rx, ry, restore.w, restore.h)
     scratch.globalCompositeOperation = 'copy'
     scratch.drawImage(shade, x, sy + y, w, h, 0, 0, w, h)
@@ -87,9 +88,23 @@ function maskSampling({ rect, ratio, cols, rows }: ShadowMask, box: DeviceRect) 
 
 type Sampling = ReturnType<typeof maskSampling>
 
+const LITTLE_ENDIAN = new Uint32Array(Uint8Array.of(1, 0, 0, 0).buffer)[0] === 1
+const RED_BLUE = 0x00ff00ff
+
+/** Equal coverage permits a rounded 8-bit interpolation. Red and blue occupy separate 16-bit lanes. */
+function mixRgb(beam: number, shade: number, weight: number) {
+  const lit = 255 - weight
+  const rb = (beam & RED_BLUE) * lit + (shade & RED_BLUE) * weight + 0x00800080
+  const g = (beam >>> 8 & 255) * lit + (shade >>> 8 & 255) * weight + 128
+  // For channel numerators rounded to the nearest byte, division by 255 uses two shifts.
+  return (beam & 0xff000000) | (((rb + (rb >>> 8 & RED_BLUE)) >>> 8) & RED_BLUE) | ((g + (g >>> 8)) & 0xff00)
+}
+
 /** Sum the weighted premultiplied colours (Canvas lighter), then return straight RGBA for ImageData. */
 function blendPixels(beam: Uint8ClampedArray, shade: Uint8ClampedArray, alpha: Uint8Array, { columns, rows }: Sampling) {
   const width = columns.indices.length
+  const litPixels = LITTLE_ENDIAN ? new Uint32Array(beam.buffer, beam.byteOffset, beam.byteLength / 4) : undefined
+  const darkPixels = LITTLE_ENDIAN ? new Uint32Array(shade.buffer, shade.byteOffset, shade.byteLength / 4) : undefined
   for (let y = 0; y < rows.indices.length; y++) {
     const row = rows.indices[y], nextRow = rows.next[y], dy = rows.fractions[y]
     for (let x = 0; x < width; x++) {
@@ -102,6 +117,11 @@ function blendPixels(beam: Uint8ClampedArray, shade: Uint8ClampedArray, alpha: U
       const weight = Math.round(top + (bottom - top) * dy)
       if (!weight) continue
       if (a === b) {
+        if (litPixels && darkPixels) {
+          const p = i / 4
+          litPixels[p] = mixRgb(litPixels[p], darkPixels[p], weight)
+          continue
+        }
         const t = weight * (1 / 255)
         beam[i] += (shade[i] - beam[i]) * t
         beam[i + 1] += (shade[i + 1] - beam[i + 1]) * t
