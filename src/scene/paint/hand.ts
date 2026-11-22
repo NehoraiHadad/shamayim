@@ -26,6 +26,8 @@ export interface Scratch { canvas: OffscreenCanvas | HTMLCanvasElement; ctx: Ctx
  */
 export interface PaintEnv {
   hand: Hand
+  /** A second target in the same pose, with the solar beam removed. */
+  shade?: Ctx2D
   /** Seconds since the loop started (animated layers); 0 for a still. */
   phase: number
   /** Device px per scene px on the canvas being painted (the layer's cache ratio). */

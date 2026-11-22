@@ -1,6 +1,7 @@
 import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
+import { layerKey } from '../model/keys'
 import type { LayerDesc } from '../model/types'
 import type { Ctx2D, Hand, PaintEnv, Painter, Scratch } from '../paint'
 
@@ -24,8 +25,16 @@ export function formKeyOf(desc: LayerDesc, dpr: number): { ratio: number; key: s
 export const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
 
 /** The key a layer's light canvas holds, or null when the layer has no light part (or no light painter). */
-export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
-  (painter?.light && desc.light ? desc.light.key + stripKey(desc) : null)
+export function shadeKeyOf(desc: LayerDesc) {
+  if (desc.kind === 'plane' && desc.cloudShadow) return desc.light.key
+  if (desc.kind === 'canopy' && desc.cloudShadow && desc.shadedTones) return layerKey(desc.key, desc.shadedTones.key)
+}
+
+export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined) {
+  if (!painter?.light || !desc.light) return null
+  const shade = shadeKeyOf(desc)
+  return desc.light.key + stripKey(desc) + (shade ? `:${shade}` : '')
+}
 
 /**
  * Paints one part of a layer (its form or its light) on a context of the layer's device size: cleared, then the painter
@@ -33,34 +42,39 @@ export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
  * and in the paint worker (`paintWorker.ts`), so both give the same pixels.
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
-  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[]) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.globalCompositeOperation = 'source-over'
-  ctx.globalAlpha = 1
-  if (!only) ctx.clearRect(0, 0, size.width, size.height)
+  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[],
+  shade?: Ctx2D) {
+  const targets = shade ? [ctx, shade] : [ctx]
+  for (const target of targets) {
+    target.setTransform(1, 0, 0, 1, 0, 0)
+    target.globalCompositeOperation = 'source-over'
+    target.globalAlpha = 1
+    if (!only) target.clearRect(0, 0, size.width, size.height)
+  }
   const canvas = (w: number, h: number) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
   const count = frameCount(desc.animated)
   if (count === 1) {
-    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    paint(ctx, desc, { hand, phase, scale: ratio, canvas })
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    for (const target of targets) target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
+    paint(ctx, desc, { hand, phase, scale: ratio, canvas, shade })
+    for (const target of targets) target.setTransform(1, 0, 0, 1, 0, 0)
     return
   }
   // A strip (C7): each frame painted at its own phase in its own band of the canvas, clipped to it (`only`: those frames
   // alone, each band cleared first; the main thread's cache paints a strip's frames as they are first laid).
   for (let i = 0; i < count; i++) {
     if (only && !only.includes(i)) continue
-    if (only) ctx.clearRect(0, i * rect.h, rect.w, rect.h)
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, i * rect.h, rect.w, rect.h)
-    ctx.clip()
-    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
-    const env: PaintEnv = { hand, phase: framePhase(desc.animated, i), scale: ratio, canvas }
+    for (const target of targets) {
+      if (only) target.clearRect(0, i * rect.h, rect.w, rect.h)
+      target.save()
+      target.beginPath()
+      target.rect(0, i * rect.h, rect.w, rect.h)
+      target.clip()
+      target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
+    }
+    const env: PaintEnv = { hand, phase: framePhase(desc.animated, i), scale: ratio, canvas, shade }
     paint(ctx, desc, env)
-    ctx.restore()
+    for (const target of targets) target.restore()
   }
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 
 /** A layer's canvas in device px: its frame, times the frames of a strip (1 for a still layer). */
@@ -72,8 +86,7 @@ export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h
  * gullies, terraces and orchard rows painted in one pass by `paintPlaneLight`.
  */
 export function lightJobDesc(desc: LayerDesc): LayerDesc {
-  if (desc.kind === 'canopy') return { ...desc, cloudShadow: undefined,
-    tones: desc.beamRemoved ? undefined : desc.tones, shadedTones: desc.beamRemoved ? desc.shadedTones : undefined }
+  if (desc.kind === 'canopy') return { ...desc, cloudShadow: undefined }
   if (desc.kind !== 'plane') return desc
   return {
     ...desc,
@@ -106,6 +119,10 @@ export interface PaintJob {
   /** Publish a copy of frame zero while the strip remains staged. */
   preview?: true
   progressive?: boolean
+  /** The job paints both solar endpoints in the same invocation. */
+  shade?: true
+  /** A cold canopy may publish frame zero with just its beam image before requesting its pair. */
+  coldPreview?: true
 }
 
 export interface PaintRequest { batch: number; jobs: PaintJob[] }
@@ -119,6 +136,7 @@ export interface PaintResult {
   rect: DeviceRect
   /** Transferred bitmap on completion, or null for an intermediate strip chunk still staged in the worker. */
   bitmap: ImageBitmap | null
+  shade?: ImageBitmap | null
   preview?: true
   /** The worker's time for this part (ms), raster included. */
   ms: number

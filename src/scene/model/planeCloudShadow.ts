@@ -1,5 +1,6 @@
 import type { TerrainPlanes } from '../../world/types'
-import { EXPOSURE_GAMMA, linearLuminance } from './landRadiance'
+import { EXPOSURE_GAMMA, linearLuminance, srgbRgbToLinear } from './landRadiance'
+import { toSrgb } from './tone'
 import type { LayerOf, Pt, SceneBox } from './types'
 
 export type ShadowPlane = LayerOf<'plane'>['plane']
@@ -30,6 +31,9 @@ export interface ReceiverShadow extends PlaneCloudShadow {
   speed: number
   /** Neutral-albedo irradiance ratio for the display mask. */
   beamOverSky: number
+  skyDisplay: number
+  hazeShare: number
+  hazeY: number
 }
 
 const HOLD_SECONDS = 75
@@ -38,9 +42,11 @@ export function shadowSeconds(shadow: ReceiverShadow, phase: number, still: bool
   return still || !shadow.speed ? 0 : Math.max(0, Math.min(HOLD_SECONDS, phase - shadow.from))
 }
 
-/** In the interactive loop rerasterize after one device pixel of carry. Explicit still/clip phases stay exact. */
+const stagger: Record<ShadowPlane, number> = { back: 0, far: 1 / 3, near: 2 / 3 }
+
+/** One device pixel of carry, with different update boundaries on each plane. */
 export function shadowStep(shadow: ReceiverShadow, phase: number, still: boolean, ratio: number) {
-  return Math.round(shadowSeconds(shadow, phase, still) * shadow.speed * ratio)
+  return Math.floor(shadowSeconds(shadow, phase, still) * shadow.speed * ratio + stagger[shadow.plane])
 }
 
 export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number, animate = true): LayerOf<'plane'> {
@@ -52,30 +58,36 @@ export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow 
       && Math.max(blob.x, atEnd) + blob.rx >= bounds.x && Math.min(blob.x, atEnd) - blob.rx <= bounds.x + bounds.w
   })
   if (!blobs.length || blobs.reduce((depth, blob) => depth + blob.opticalDepth, 0) <= -Math.log(shadow.open)) return plane
-  const { grid, eSun, eSky, eMoon } = plane.light.litField
-  let sun = 0, sky = 0, moon = 0
+  const { grid, eSun, eSky, eMoon, hazeLin, yHorizon } = plane.light.litField
+  let sun = 0, sky = 0, moon = 0, haze = 0, lit = 0
   for (let i = 0; i < grid.length; i += 4) {
+    haze += grid[i + 3]
+    if (!grid[i]) continue
+    lit++
     sun += grid[i]; moon += grid[i + 1]; sky += grid[i + 2]
   }
   const beam = sun * linearLuminance(eSun)
   if (!beam) return plane
-  const ambient = sky * linearLuminance(eSky) + moon * linearLuminance(eMoon)
+  // Moon is part of the beam-removed endpoint. Cloud footprints modulate the solar term only.
+  const ambient = Math.max(0.001, sky * linearLuminance(eSky) + moon * linearLuminance(eMoon))
+  const neutralAlbedo = linearLuminance(srgbRgbToLinear(plane.fill))
+  const skyDisplay = yHorizon * (neutralAlbedo * ambient / (lit * 255)) ** EXPOSURE_GAMMA
   const speed = animate ? Math.max(...blobs.map((blob) => Math.abs(blob.speed))) : 0
-  return { ...plane, cloudShadow: { ...shadow, blobs, from, speed, beamOverSky: beam / Math.max(0.001, ambient) } }
+  return { ...plane, cloudShadow: { ...shadow, blobs, from, speed, beamOverSky: beam / ambient, skyDisplay,
+    hazeShare: haze / (grid.length / 4 * 255), hazeY: linearLuminance(hazeLin) } }
 }
 
 /** Approximate the change of displayed luminance with a single sRGB alpha between the two painted endpoints. */
-export function shadowAlphaTable({ open, beamOverSky }: ReceiverShadow) {
-  // Scalar reflectance cancels in the endpoint ratio, as does the shared path haze in linear light.
-  // Canvas interpolates encoded RGB. Use a 2.2 power transfer and the plane's mean neutral incidence
-  // for the alpha mapping. Local material colours and the exact hazed, compressed endpoints stay in the bitmaps.
-  const exponent = EXPOSURE_GAMMA / 2.2
-  const lift = (beam: number) => (1 + beamOverSky * beam) ** exponent - 1
-  const full = lift(1)
+export function shadowAlphaTable({ open, beamOverSky, skyDisplay, hazeShare, hazeY }: ReceiverShadow) {
+  // Use representative luminance and mean path haze to look up the encoded interpolation weight.
+  // The two receiver images still carry the exact local material, colour and haze.
+  const encode = (t: number) => toSrgb((1 - hazeShare) * skyDisplay * (1 + beamOverSky * t) ** EXPOSURE_GAMMA + hazeShare * hazeY)
+  const full = encode(1), span = full - encode(0)
   const alpha = new Uint8Array(1025)
+  if (!(span > 0)) return alpha
   for (let i = 0; i < alpha.length; i++) {
     const transmission = Math.min(1, Math.exp(-i / 64) / open)
-    alpha[i] = Math.round(255 * (1 - lift(transmission) / full))
+    alpha[i] = Math.round(255 * (full - encode(transmission)) / span)
   }
   return alpha
 }

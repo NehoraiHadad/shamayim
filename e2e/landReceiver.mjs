@@ -43,6 +43,13 @@ export async function receiverPixels(page, dpr = 1) {
     const beforeOldJump = sample(45, 25)
     local.lay(28.76)
     const afterOldJump = sample(45, 25)
+    local.lay(69.999)
+    const beforeMinute = sample(60, 25)
+    const nextMinute = { ...shadow, blobs: shadow.blobs.map((blob) => ({ ...blob, x: blob.x + blob.speed * 60 })) }
+    local.render([shadowedPlane(plane, nextMinute, 70)], 70.001)
+    local.lay(70.001)
+    const afterMinute = sample(60, 25)
+    local.render([withShadow], 85)
     local.lay(85)
     const moved = material(85)
     const fixedShadow = shadowedPlane(plane, shadow, 10, false)
@@ -62,15 +69,21 @@ export async function receiverPixels(page, dpr = 1) {
     const remoteCtx = remoteCanvas.getContext('2d', { willReadFrequently: true })
     const remoteWorker = paintWorker()
     if (!remoteWorker) throw Error('The receiver test needs the production canvas Worker')
-    let firstBeam
+    const changes = []
+    let checkChange = false, coldCanopy = false
     const remote = new Surface(remoteCanvas, { worker: () => remoteWorker, onArrive: () => {
-      if (!firstBeam && remote.peek('plane.near')?.light && !remote.peek('plane.near.shade')?.light) {
-        firstBeam = Array.from(remoteCtx.getImageData(24 * dpr, 25 * dpr, 1, 1).data)
-      }
+      const canopy = remote.peek('canopy.near')
+      if (canopy?.light && !canopy.shade) coldCanopy = true
+      if (checkChange) capture()
     } })
     remote.resize(96, 48, dpr)
     const canopy = canopyOf(withShadow, { lean: 0, gust: 0 }, [])
     const pixels = () => Array.from(remoteCtx.getImageData(19 * dpr, 14 * dpr, 10 * dpr, 11 * dpr).data)
+    const capture = () => {
+      const held = remote.peek('plane.near')
+      changes.push({ key: held.lightDesc.light.key, pair: Boolean(held.shade && remote.peek('canopy.near')?.shade),
+        ground: Array.from(remoteCtx.getImageData(24 * dpr, 25 * dpr, 1, 1).data), canopy: pixels() })
+    }
     remote.paint(canopy)
     remote.flush()
     await remote.settled()
@@ -85,30 +98,47 @@ export async function receiverPixels(page, dpr = 1) {
     const next = { ...withShadow, light: { ...withShadow.light, key: 'next-light',
       litField: { ...withShadow.light.litField, eSun: [0.8, 0.6, 0.4] } } }
     const nextCanopy = canopyOf(next, { lean: 0, gust: 0 }, [])
-    remote.paint(nextCanopy)
-    remote.flush()
+    checkChange = true
+    remote.render([next, nextCanopy], 10)
+    capture()
     await remote.settled()
-    remote.composite([next, nextCanopy], 10)
-    const stale = pixels()
-    remote.composite([withShadow], 10)
-    const planeOnly = pixels()
+    checkChange = false
+    const groundOnly = {}
+    for (const desc of [withShadow, next]) {
+      local.render([desc], 10)
+      groundOnly[desc.light.key] = { canopy: gustPixels(), shadow: sample(24, 25) }
+      local.render([{ ...desc, cloudShadow: undefined }], 10)
+      groundOnly[desc.light.key].beam = sample(24, 25)
+    }
     remoteWorker.terminate()
-    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, firstBeam, missing, paired, stale, planeOnly }
+    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, beforeMinute, afterMinute, moved, still,
+      gustStart, gustBent, gustRepeat, coldCanopy, missing, paired, changes, groundOnly }
   }, dpr)
-  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, firstBeam, missing, paired, stale, planeOnly } = result
+  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, beforeMinute, afterMinute, moved, still,
+    gustStart, gustBent, gustRepeat, coldCanopy, missing, paired, changes, groundOnly } = result
   assert.deepEqual(still, first)
   assert.deepEqual(gustStart, gustRepeat, 'canopy gust must repeat every two seconds')
   assert.notDeepEqual(gustStart, gustBent, 'canopy gust must keep moving under a stationary cloud shadow')
   assert.deepEqual(first[1], unshadowed[1])
   assert.ok(intermediate[0][0] > first[0][0] && intermediate[0][0] < unshadowed[0][0], 'the shadow must advance between old poses')
   assert.ok(beforeOldJump.every((channel, i) => Math.abs(channel - afterOldJump[i]) <= 2), 'the former pose boundary must stay continuous')
+  assert.ok(beforeMinute.every((channel, i) => Math.abs(channel - afterMinute[i]) <= 2), 'moving shadow must stay continuous as the minute origin changes')
   assert.deepEqual(moved[0], unshadowed[0])
   assert.deepEqual(first[2], moved[2])
   assert.ok(first[0][0] < unshadowed[0][0] - 20 && first[0][0] > first[0][1], 'shadow must retain the red soil')
   assert.ok(moved[1][0] < unshadowed[1][0] - 20 && moved[1][2] > moved[1][0], 'shadow must shade the stationary snow')
-  assert.deepEqual(firstBeam, unshadowed[0], 'the full-beam plane must appear before its shade endpoint')
+  assert.ok(coldCanopy, 'first canopy must publish its full beam before its shade')
   assert.ok(missing.every((channel) => channel === 0), 'an early canopy must leave a transparent canvas')
-  assert.deepEqual(stale, planeOnly, 'a canopy carrying the new light must wait for the plane')
-  assert.notDeepEqual(paired, planeOnly, 'the paired canopy must be visible')
+  assert.notDeepEqual(paired, groundOnly.sun.canopy, 'the paired canopy must be visible')
+  assert.ok(changes.length >= 3, 'observe the held frame and the separate plane and canopy arrivals')
+  assert.equal(changes[0].key, 'sun')
+  assert.equal(changes.at(-1).key, 'next-light')
+  for (const frame of changes) {
+    const ground = groundOnly[frame.key]
+    assert.ok(frame.pair, 'keep both shade bitmaps during the light change')
+    assert.ok(frame.ground.every((channel, i) => Math.abs(channel - ground.shadow[i]) <= 2), 'ground remains shadowed')
+    assert.ok(frame.ground[0] < ground.beam[0] - 10, 'ground never reverts to full beam')
+    assert.ok(frame.canopy.some((channel, i) => i % 4 !== 3 && Math.abs(channel - ground.canopy[i]) > 6), 'canopy never disappears')
+  }
   console.log(`Rendered shadow boundary and delayed Worker receiver checks passed at ${dpr}×`)
 }

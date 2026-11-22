@@ -5,6 +5,7 @@ import { buildVegPalette, TONE } from '../model/vegSample'
 import type { Ctx2D } from './hand'
 import { paintVegCrowns } from './landVegCrowns'
 import { treeBend, treeCrownAnchor } from './landVegPose'
+import { receiverBrush } from './receiverBrush'
 
 function recordEllipsesAndFills() {
   const ellipses: { cx: number; cy: number; rx: number; ry: number; fill: string }[] = []
@@ -61,7 +62,7 @@ describe('vegetation painter anchors & distance fade', () => {
       tones: buildVegPalette([0.2, 0.25, 0.18], 0.3),
     }
     const formRec = recordEllipsesAndFills()
-    paintVegCrowns(formRec.ctx, veg, wind, time)
+    paintVegCrowns(receiverBrush(formRec.ctx), veg, wind, time)
     // Each crown draws the body first, then the shade and ambient highlights.
     expect(formRec.pathStarts).toHaveLength(6)
     for (const [i, a, phase] of [[0, wide, widePhase], [3, narrow, narrowPhase]] as const) {
@@ -81,7 +82,7 @@ describe('vegetation painter anchors & distance fade', () => {
         get: (_, p) => (p === 'fill' ? () => { fills.push(fillStyle) } : () => {}),
         set: (_, p, v) => { if (p === 'fillStyle') fillStyle = String(v); return true },
       }) as unknown as Ctx2D
-      paintVegCrowns(fctx, {
+      paintVegCrowns(receiverBrush(fctx), {
         ...EMPTY_VEGETATION,
         trees: new Float32Array([100, 80, 2.5, 5, 0.5, 0.4]),
         treeMeta: new Uint8Array([0, TONE.PINE_MID, alphaByte]),

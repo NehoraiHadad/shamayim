@@ -22,7 +22,7 @@ scope.onmessage = (event) => {
   const { batch, jobs } = event.data
   try {
     const results = runBatch(jobs)
-    const transfer = results.flatMap((result) => (result.bitmap ? [result.bitmap] : []))
+    const transfer = results.flatMap(({ bitmap, shade }) => [bitmap, shade].filter((part): part is ImageBitmap => Boolean(part)))
     scope.postMessage({ batch, results }, transfer)
   } catch (error) {
     scope.postMessage({ batch, results: [], error: String(error) }, [])

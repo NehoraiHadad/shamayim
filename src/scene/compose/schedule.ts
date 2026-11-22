@@ -1,5 +1,4 @@
 import type { LayerDesc, LayerKind } from '../model/types'
-import { shadeLayer } from './planeComposite'
 import type { Surface } from './surface'
 
 /** Cold-start order (§1d): sky, the planes, canopies/water/cities, then the place and its marks, then clouds and weather. */
@@ -45,7 +44,7 @@ export function paintSliced(jobs: readonly SliceJob[], options: SliceOptions): S
   const { budgetMs = 8, frame, cancelFrame, now, phase = 0 } = options
   const queue = jobs.flatMap(({ surface, layers }) => layers.map((desc) => ({ surface, desc })))
     .sort((a, b) => PRIORITY[a.desc.kind] - PRIORITY[b.desc.kind] || a.desc.z - b.desc.z)
-  for (const { surface, layers } of jobs) surface.prune(new Set(layers.flatMap((layer) => [layer.id, shadeLayer(layer)?.id ?? layer.id])))
+  for (const { surface, layers } of jobs) surface.prune(new Set(layers.map(({ id }) => id)))
   const report: SliceReport = { slices: [], totalMs: 0, painted: 0 }
   let handle: number | null = null
   let cancelled = false

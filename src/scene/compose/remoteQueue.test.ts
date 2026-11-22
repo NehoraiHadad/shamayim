@@ -28,6 +28,8 @@ function canopy(key: string, lightKey: string, id = 'canopy.near', count = 10): 
   }
 }
 
+const bitmap = (w: number, h: number) => ({ width: w, height: h, close: vi.fn() }) as unknown as ImageBitmap
+
 function fakeWorker() {
   const sent: PaintRequest[] = []
   const worker: WorkerLike & { sent: PaintRequest[]; answer(): void } = {
@@ -40,12 +42,11 @@ function fakeWorker() {
       const request = sent.shift()!
       const reply: PaintReply = {
         batch: request.batch,
-        results: request.jobs.map((job) => ({
-          id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 2,
-          preview: job.preview,
-          bitmap: job.final === false && !job.preview ? null
-            : { width: job.rect.w, height: job.rect.h, close() {} } as unknown as ImageBitmap,
-        })),
+        results: request.jobs.map((job) => {
+          const image = () => job.final === false && !job.preview ? null : bitmap(job.rect.w, job.rect.h)
+          return { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 2,
+            preview: job.preview, bitmap: image(), shade: job.shade ? image() : undefined }
+        }),
       }
       worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
     },
@@ -56,6 +57,33 @@ function fakeWorker() {
 const painters = () => ({ form: () => {}, light: () => {} })
 
 describe('bounded strip scheduling in RemoteCache', () => {
+  it('keeps both old bitmaps through a light change and retires them together', () => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
+      onArrive: () => {}, onFail: () => {} })
+    const cloudShadow = { plane: 'near', open: 1, blobs: [], from: 0, speed: 0,
+      beamOverSky: 2, skyDisplay: 0.05, hazeShare: 0.1, hazeY: 0.2 } as const
+    const first = { ...plane('terrain', 'old'), cloudShadow: { ...cloudShadow, blobs: [] } }
+    const next = { ...first, light: { ...first.light, key: 'new' } }
+    cache.update(first, 2)
+    cache.flush()
+    expect(worker.sent[0].jobs).toHaveLength(1)
+    expect(worker.sent[0].jobs[0].shade).toBe(true)
+    worker.answer()
+    const held = cache.peek(first.id)!
+    expect(held.shade).toBeTruthy()
+    cache.update(next, 2)
+    cache.flush()
+    expect(cache.peek(first.id)).toMatchObject({ light: held.light, shade: held.shade, lightDesc: first })
+    worker.answer()
+    const swapped = cache.peek(first.id)!
+    expect(swapped.light).not.toBe(held.light)
+    expect(swapped.shade).not.toBe(held.shade)
+    expect(held.shade!.close).toHaveBeenCalledOnce()
+    expect(held.light!.close).toHaveBeenCalledOnce()
+    expect(cache.fresh(next, 2)).toBe(true)
+  })
+
   it('preempts an in-flight animated strip after one bounded chunk when new terrain and scrub-light jobs arrive', async () => {
     const worker = fakeWorker()
     const arrivals: { settled: boolean; workerMs: number }[] = []

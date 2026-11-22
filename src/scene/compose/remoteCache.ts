@@ -1,9 +1,9 @@
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
-import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
+import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, shadeKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
 import { PaintQueue, type WorkerLike } from './paintQueue'
-import { accept, isStaged, partsOf, peek, pruneStaged, reuse, sameForm, samePaint, stage, type Entry, type Request } from './remoteEntry'
+import { accept, bitmaps, isStaged, partsOf, peek, pruneStaged, reuse, sameForm, samePaint, stage, type Entry, type Request } from './remoteEntry'
 
 export type { WorkerLike } from './paintQueue'
 
@@ -42,7 +42,7 @@ export class RemoteCache {
   fresh(desc: LayerDesc, dpr: number): boolean {
     const shown = this.entries.get(desc.id)?.shown
     return shown?.request.formKey === formKeyOf(desc, dpr).key && shown.request.formless === this.formless(desc)
-      && shown.request.lightKey === lightKeyOf(desc, this.painters(desc))
+      && shown.request.lightKey === lightKeyOf(desc, this.painters(desc)) && (!shadeKeyOf(desc) || Boolean(shown.shade))
   }
 
   formless(desc: LayerDesc): boolean {
@@ -75,8 +75,10 @@ export class RemoteCache {
     const ask = (part: PaintJob['part'], key: string | null) => {
       if (key === null) return this.queue.cancel(desc.id, part)
       // A light-only job crosses the worker boundary without the form's buffers (`lightJobDesc`).
+      const shade = part === 'light' && shadeKeyOf(desc) ? true : undefined
+      const progressive = desc.kind === 'canopy' && formless
       return this.queue.ask({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase,
-        hand: this.options.hand ?? HAND, progressive: desc.kind === 'canopy' && formless }, request)
+        hand: this.options.hand ?? HAND, progressive, shade, coldPreview: shade && progressive && !entry.shown ? true : undefined }, request)
     }
     const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
     const light = ask('light', (same && !entry.shown?.preview && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
@@ -87,7 +89,7 @@ export class RemoteCache {
   private receive(reply: PaintReply) {
     const batch = this.queue.complete(reply.batch)
     if (!batch || reply.error) {
-      for (const { bitmap } of reply.results) bitmap?.close()
+      for (const bitmap of reply.results.flatMap(bitmaps)) bitmap?.close()
       if (batch && reply.error) this.fail(reply.error)
       return
     }
@@ -97,7 +99,7 @@ export class RemoteCache {
       // An intermediate strip chunk stays staged in the worker: nothing to take in yet.
       if (!result.bitmap) continue
       const entry = this.entries.get(result.id), request = batch.requestOf(result.id, result.part)
-      if (!entry || !request) { result.bitmap.close(); continue }
+      if (!entry || !request) { for (const bitmap of bitmaps(result)) bitmap?.close(); continue }
       const received = results.get(entry)
       if (received) received.parts.push(result)
       else results.set(entry, { request, parts: [result] })

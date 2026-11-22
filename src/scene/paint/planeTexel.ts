@@ -83,13 +83,14 @@ export function shadeTexelSrgb(t: PlaneTexelCtx, s: TexelSample, cloudVis = 1): 
 /** Paints the exact single-pass lit terrain surface + small finishing paper grain (after lighting & haze). */
 export function paintLitSurface(
   ctx: Ctx2D, outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField,
-  form: string, grainAmount: number, seed: number, env: PaintEnv, beam = 1,
+  form: string, grainAmount: number, seed: number, env: PaintEnv,
 ): void {
   if (!surface.palette.length || !surface.cells.length) return
   const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount)
   const material = planeMaterial(t, form)
   const scratch = env.canvas(t.wPx, t.hPx)
   const image = scratch.ctx.createImageData(t.wPx, t.hPx), data = image.data
+  const shade = env.shade && scratch.ctx.createImageData(t.wPx, t.hPx)
   const sample = texelSample(), rho: [number, number, number] = [0, 0, 0], rgb: typeof rho = [0, 0, 0]
   for (let j = 0; j < t.hPx; j++) {
     const y = bounds.y + (j + 0.5) * TEXEL
@@ -98,24 +99,33 @@ export function paintLitSurface(
       const m = (j * t.wPx + i) * 3
       rho[0] = material[m]; rho[1] = material[m + 1]; rho[2] = material[m + 2]
       samplePlaneTexel(t, i, x, y, rho, sample)
-      const [sr, sg, sb] = shadeTexel(t, sample, beam, rgb)
       const o = (j * t.wPx + i) * 4
-      data[o] = encodedByte(sr)
-      data[o + 1] = encodedByte(sg)
-      data[o + 2] = encodedByte(sb)
-      data[o + 3] = 255
+      shadeTexel(t, sample, 1, rgb)
+      encodeTexel(data, o, rgb)
+      if (shade) {
+        if (sample.sVis) shadeTexel(t, sample, 0, rgb)
+        encodeTexel(shade.data, o, rgb)
+      }
     }
   }
-  scratch.ctx.putImageData(image, 0, 0)
-  ctx.imageSmoothingEnabled = true
-  ;(ctx as CanvasRenderingContext2D).imageSmoothingQuality = 'low'
-  ctx.drawImage(scratch.canvas as CanvasImageSource, bounds.x, bounds.y, t.wPx * TEXEL, t.hPx * TEXEL)
-  paintCrestSamples(ctx, t, beam)
+  const stamp = (target: Ctx2D, pixels: ImageData) => {
+    scratch.ctx.putImageData(pixels, 0, 0)
+    target.imageSmoothingEnabled = true
+    target.imageSmoothingQuality = 'low'
+    target.drawImage(scratch.canvas as CanvasImageSource, bounds.x, bounds.y, t.wPx * TEXEL, t.hPx * TEXEL)
+  }
+  stamp(ctx, image)
+  if (env.shade && shade) stamp(env.shade, shade)
+  paintCrestSamples(ctx, t)
+}
+
+function encodeTexel(data: Uint8ClampedArray, o: number, rgb: RGB) {
+  data[o] = encodedByte(rgb[0]); data[o + 1] = encodedByte(rgb[1]); data[o + 2] = encodedByte(rgb[2]); data[o + 3] = 255
 }
 
 /** Resolve narrow sun-facing crest colour that the body grid's texture raster would average down. */
-function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, beam: number) {
-  if (!beam || t.litField.eSun[1] < 0.015) return
+function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx) {
+  if (t.litField.eSun[1] < 0.015) return
   for (let i = 0; i < t.wPx; i++) {
     const left = t.bounds.x + i * TEXEL, x = left + TEXEL / 2, y = t.crestY[i]
     const rim = samplePlaneTexel(t, i, x, y + 0.65)

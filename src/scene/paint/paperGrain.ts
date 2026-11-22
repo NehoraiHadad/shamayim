@@ -20,5 +20,9 @@ export function paintPaperGrain(ctx: Ctx2D, bounds: Box, seed: number, amount: n
   if (pattern) {
     ctx.fillStyle = pattern
     ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h)
+    if (env.shade) {
+      env.shade.fillStyle = pattern
+      env.shade.fillRect(bounds.x, bounds.y, bounds.w, bounds.h)
+    }
   }
 }

@@ -12,20 +12,20 @@ interface PendingSlot {
   nextFrame: number
   totalFrames: number
   since: number
+  coldShown?: true
 }
 
 const slotOf = (id: string, part: 'form' | 'light') => `${id}:${part}`
-const isCanopy = (item: PendingSlot) => item.job.progressive && item.totalFrames > 1
-const isShade = ({ desc }: PaintJob) => (desc.kind === 'plane' || desc.kind === 'canopy') && desc.beamRemoved
-const priority = (item: PendingSlot) => item.totalFrames === 1 ? (isShade(item.job) ? 2 : 0)
-  : isCanopy(item) && !item.nextFrame ? 1 : 3
+const priority = (item: PendingSlot) => {
+  if (item.job.progressive && !item.nextFrame) return item.coldShown ? 2 : 1
+  return item.totalFrames === 1 ? 0 : 3
+}
 const tagOf = (key: string, formKey: string) => `${key}\0${formKey}`
 
 /**
  * Priority queue for `RemoteCache`:
- * 1. Single-frame jobs (terrain planes, static layers, scrub light) always dispatch together ahead of multi-frame strips.
- * 2. Multi-frame strips dispatch one job at a time in bounded `STRIP_CHUNK_FRAMES` pose chunks so newly arriving
- *    terrain or scrub-light jobs preempt after at most one chunk, and superseded strip keys cancel immediately.
+ * Terrain and static layers go first, followed by canopy previews. A cold canopy's shade and the rest of
+ * each gust strip wait for the scrub to settle, with at most one chunk in flight.
  */
 export class RemoteQueue {
   private pending = new Map<string, PendingSlot>()
@@ -74,19 +74,24 @@ export class RemoteQueue {
 
   /** Selects the next worker batch and records any completing slots in `inFlightFinal`. */
   takeBatch(now: number, fillCanopies = true): { jobs: PaintJob[]; since: number } | null {
-    const eligible = [...this.pending].filter(([, item]) => fillCanopies || !isCanopy(item) || !item.nextFrame)
+    const eligible = [...this.pending].filter(([, item]) => fillCanopies || !item.job.progressive || priority(item) < 2)
     if (!eligible.length) return null
     let first = 3
     for (const [, item] of eligible) first = Math.min(first, priority(item))
     const selected = eligible.filter(([, item]) => priority(item) === first)
     this.inFlightFinal.clear()
-    if (first === 3) selected.length = 1
+    if (first >= 2) selected.length = 1
 
     let since = now
     const jobs: PaintJob[] = []
     for (const [slot, item] of selected) {
       since = Math.min(since, item.since)
-      const preview = first === 1
+      if (item.job.coldPreview && !item.coldShown) {
+        item.coldShown = true
+        jobs.push({ ...item.job, shade: undefined, frames: item.totalFrames > 1 ? [0] : undefined, final: false, preview: true })
+        continue
+      }
+      const preview = item.job.progressive && item.totalFrames > 1 && !item.nextFrame
       const end = Math.min(item.totalFrames, item.nextFrame + (preview ? 1 : STRIP_CHUNK_FRAMES))
       const final = end === item.totalFrames
       if (final) {

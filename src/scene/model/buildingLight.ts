@@ -58,7 +58,7 @@ export function buildingLight(world: WorldState, km: number) {
   if (!state) surroundings.set(world, state = buildingSurroundings(world))
   const { irr, ground, air } = state
   const share = hazeAt(world, km)
-  return (albedo: RGB, n: Normal, open = 1): RGB => {
+  return (albedo: RGB, n: Normal, open = 1, beam = 1): RGB => {
     const view = skyView(n, irr.sunDir, irr.skyBias) * open
     // The ground hemisphere occupies (1 − n_up)/2. The reflected contribution is
     // limited to the portion of the nearby landscape seen by a façade.
@@ -69,7 +69,7 @@ export function buildingLight(world: WorldState, km: number) {
       irr.eSkyVec[2] * view + ground[2] * bounceView,
     ]
     return linearRgbToSrgb(shadeLinearRgb(srgbRgbToLinear(albedo), irr.eSunVec, irr.eMoonVec, sky,
-      lambert(n, irr.sunDir), lambert(n, irr.moonDir), 1, irr.yHorizon, share, air))
+      beam * lambert(n, irr.sunDir), beam * lambert(n, irr.moonDir), 1, irr.yHorizon, share, air))
   }
 }
 
@@ -84,17 +84,17 @@ export function tonesAt(world: WorldState, km: number): Tones {
   const shadeMat = buildingLight(world, km)
   const { front, top } = NORMALS, side = brightWall(world)
   const wall = shadeMat(WALL, front), lit = shadeMat(WALL, side)
-  const shade = shadeMat(WALL, front, 0.64)
+  const shade = shadeMat(WALL, front, 0.64, 0)
   const roof = shadeMat(TILE, ROOF), green = shadeMat(LEAF, ROOF)
   const tones: Tones = {
     wall, lit, shade, rim: shadeMat(STONE, side),
-    deep: shadeMat(WALL, front, 0.24),
+    deep: shadeMat(WALL, front, 0.24, 0),
     refl: mixLight(shade, sky, 0.18),
     roof, roofLit: shadeMat(TILE, top),
     stone: shadeMat(STONE, front), stoneLit: shadeMat(STONE, side),
     glass: mixLight(shadeMat(BLACK, front), sky, 0.13),
     glassLit: mixLight(wall, sky, 0.34 * (1 - 0.6 * againstLight(world))),
-    soot: shadeMat([0.25, 0.22, 0.20], front, 0.45),
+    soot: shadeMat([0.25, 0.22, 0.20], front, 0.45, 0),
     green, greenLit: shadeMat(LEAF, top),
     panel: shadeMat(PANEL, ROOF), gold: shadeMat(GOLD, top),
     win: LAMP, mist: sky,

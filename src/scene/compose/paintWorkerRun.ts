@@ -22,8 +22,8 @@ export interface WorkerRunnerDeps {
 export function makeWorkerRunner({ createCanvas, painterOf, now = () => performance.now() }: WorkerRunnerDeps) {
   const canvases = new Map<string, WorkerCanvas>()
 
-  function canvasFor(job: PaintJob): WorkerCanvas {
-    const name = `${job.id}:${job.part}`
+  function canvasFor(job: PaintJob, endpoint = job.part as string): WorkerCanvas {
+    const name = `${job.id}:${endpoint}`
     let canvas = canvases.get(name)
     const { w, h } = canvasSize(job.desc, job.rect)
     if (!canvas || canvas.width !== w || canvas.height !== h) {
@@ -33,6 +33,16 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
     return canvas
   }
 
+  function snapshot(job: PaintJob, canvas: WorkerCanvas) {
+    if (job.preview && job.final === false) {
+      const { w, h } = job.rect
+      const first = createCanvas(w, h)
+      ;(first.getContext('2d') as Ctx2D).drawImage(canvas as unknown as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
+      return first.transferToImageBitmap()
+    }
+    return job.final === false ? null : canvas.transferToImageBitmap()
+  }
+
   return function runBatch(jobs: readonly PaintJob[]): PaintResult[] {
     const results: PaintResult[] = []
     try {
@@ -40,30 +50,34 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         const start = now()
         const canvas = canvasFor(job)
         const ctx = canvas.getContext('2d') as Ctx2D
+        const shade = job.shade && canvasFor(job, 'shade')
+        const shadeCtx = shade ? shade.getContext('2d') as Ctx2D : undefined
         const painter = painterOf(job.desc)
         const paint = job.part === 'form' ? painter?.form : painter?.light
-        if (job.frames && job.frames[0] === 0) ctx.clearRect(0, 0, canvas.width, canvas.height)
+        if (job.frames?.[0] === 0) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+          shadeCtx?.clearRect(0, 0, canvas.width, canvas.height)
+        }
         if (paint) {
           paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, (w, h): Scratch => {
             const scratch = createCanvas(w, h)
             return { canvas: scratch as unknown as Scratch['canvas'], ctx: scratch.getContext('2d') as Ctx2D }
-          }, job.frames)
+          }, job.frames, shadeCtx)
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }
-        let bitmap = job.final === false ? null : canvas.transferToImageBitmap()
-        if (job.preview) {
-          const { w, h } = job.rect
-          const first = createCanvas(w, h)
-          ;(first.getContext('2d') as Ctx2D).drawImage(canvas as unknown as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
-          bitmap = first.transferToImageBitmap()
-        }
+        const bitmap = snapshot(job, canvas)
         results.push({ id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect,
           bitmap, preview: job.preview, ms: now() - start })
+        const result = results[results.length - 1]
+        if (shade) {
+          result.shade = snapshot(job, shade)
+          result.ms = now() - start
+        }
       }
       return results
     } catch (error) {
-      for (const result of results) result.bitmap?.close()
+      for (const result of results) { result.bitmap?.close(); result.shade?.close() }
       throw error
     }
   }
