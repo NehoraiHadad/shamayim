@@ -2616,34 +2616,37 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
   (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
 
-7. **Physical daytime land lighting (Stage 7, 2026-11-22, branch `claude/land-light-998984`):** replaces the old narrow
-   shade-ridge Oklab squeeze (`REF_DAY_RIDGE_L`, `+0.12` crest-wash cap, `moodVeilOf` cloud double-counting, sRGB
-   cloud shadows) with one shared linear-light radiance model (`src/scene/model/landRadiance.ts`) driving planes,
+7. **Physical daytime land lighting (Stage 7, 2026-11-22, branch `claude/land-light-998984`, rounds 1–2):** replaces the
+   old narrow shade-ridge Oklab squeeze (`REF_DAY_RIDGE_L`, `+0.12` crest-wash cap, `moodVeilOf` cloud double-counting,
+   sRGB cloud shadows) with one shared linear-light radiance model (`src/scene/model/landRadiance.ts`) driving planes,
    vegetation canopies, outside ground (`outsideGround.ts`), marks (`marks.ts` `tonesAt`), far towns (`farCities.ts`),
-   and `toneAt` / `nearGroundTone` consumers:
+   and `toneAt` consumers:
    - *Radiative transfer & units:* in units of painted horizon sky radiance `L_horizon`,
-     `L_land / L_horizon = (ρ / π) · (E_dir · max(0, n · s) · C_sun + E_sky · V(n) · C_sky)`, where
-     `ρ = srgbToLinear(albedo) · (1 − 0.45 · wet)` (Twomey et al. 1986; Lekner & Dorf 1988), `n` is the upward unit
-     normal in view frame `(across, ahead, up)` from true crest across slope (`/ EXAGGERATION`) and DEM `FaceSample.slope`,
-     `V(n) = (1 + n_up) / 2`, `s = light.dir`, and `C_sun` / `C_sky` are unit-luminance linear chromaticities (`C_sky`
-     from the hemispherical dome blend of `ambient`, `horizon`, and neutral `diffuse` cloud scatter).
-   - *Calibration (one global constant):* `DNI_OVER_DHI_CLEAR = 7.6` against ASTM G173-03 / Bird & Hulstrom (1981) clear
-     sky at ~38° solar altitude (`DNI ≈ 800 W/m²`, `DHI ≈ 105 W/m²`). `E_sky / (π · L_horizon)` is derived from the exact
-     cosine-weighted hemisphere integral `∫₀^{π/2} (L(θ)/L_horizon) sin(2θ) dθ` over `palette.top` (`0.25`), `mid`
-     (`0.633`), and `horizon` (`0.117`), inverted from display space by `1/γ` (`γ = 0.6`), with daytime overcast gain
-     (`+0.6`) gated by `(1 − shares.sun) · diffuse` above 2°. Moonlight uses the same law with `shares.moon` (`0.3×`).
-   - *Exposure & compression:* one horizon-relative Stevens/Reinhard power law (`γ = 0.6`):
-     `Y_display = Y_horizonDisplay · (L_land / L_horizon)^0.6`, preserving `ρ · light` hue/chroma.
-   - *Cloud-once rule & linear compositing:* `shares.sun` (`sunClear · open`) drives `E_dir` on unshadowed land; discrete
-     cloud shadows (`cloudShadows.ts`, `cloudShadowLayers.ts`, `blend: 'multiply'`) remove ONLY `E_dir` via
-     `cloudShadowMultiplyRgb` (calibrated so `srgbToLinear(c_0 · g) = f_display · srgbToLinear(c_0)` at mid-tone, leaving
-     `≥ L_diffuseOnly`). `moodVeilOf` and `palette.ridgeNear` never darken lit land a second time. Koschmieder aerial haze
-     (`hazeAt = AERIAL · fade(km)²`) mixes in linear light (`mixLight`, `linearHazeAlpha`) toward `hazeOf(world)`, whose
-     aerosol tint preserves `sky` luminance so twilight haze never exceeds the horizon.
-   - *Form/light split & halo-free compositing:* `plane:form` and `canopy:form` store light-free reflectance form
-     `F_lin(ρ) = (Y(ρ)/ρ_ref)^0.6 · (ρ/Y(ρ))` (`ρ_ref = 0.50`, hour-independent cache keys). `plane:light` carries a
-     dual-band canvas: Band 0 (`planeShade.ts`, `PlaneShadeField` + floor shadows) multiplies by
-     `M_lin(n) = Y_horizon · (ρ_ref · E_Y)^0.6 · (E(n)/E_Y) ∈ [0, 1]`; Band 1 (`planeLight.ts`) lays linear-equivalent
-     aerial haze, snow, full-face washes, sunlit rims and catchlights. `Surface.compositeDualPlane` composes opaque fill,
-     `plane:form`, `canopy:form`, Band 0 (`multiply`), and Band 1 (`source-over`) on one reusable `planeScratch` canvas,
-     then applies `destination-in` with `plane:form` once for halo-free antialiased crests at every hour.
+     `L_land / L_horizon = (ρ / π) · (E_sun · max(0, n · s_sun) · C_sun + E_moon · max(0, n · s_moon) · C_moon + E_sky · V(n) · C_sky)`,
+     where `ρ = boostChroma(srgbToLinear(albedo), 1.35) · (1 − 0.45 · wet)` (Twomey et al. 1986; Lekner & Dorf 1988;
+     `1.35×` linear-luminance-preserving illustration chroma boost restores Stage 3's saturation), `n` is the upward unit
+     normal in each column's own bearing frame `(across, ahead, up)` from true DEM slopes in m/m (`planeGeometry.ts`:
+     `groundAt(x ± dx, km)` over real horizontal arc metres + `faceAtY` radial slope using `pts[0].slope` at the crest),
+     `V(n) = (1 + n_up) / 2`, and `C_*` are unit-luminance linear chromaticities.
+   - *Calibration (uncoupled from display sky palette):* Bird & Hulstrom (1981) clear sky at 38° solar altitude
+     (`AM = 1.62`, 1013 hPa, 1.5 cm PW, AOD₅₀₀ = 0.08, 30 km vis: `DNI_0 ≈ 800 W/m²`, `DHI_0 ≈ 105 W/m²` →
+     `DNI_OVER_DHI_CLEAR = 7.62`), with uncompressed direct-beam transmission recovered from `sunLight(sunAlt, air).strength`
+     (undoing `airDim`'s `^0.35`). CIE Standard Clear Sky (ISO 15469:2004, Type 12) horizon-to-mean-sky radiance ratio
+     (`HORIZON_OVER_SKY_DAY = 5.4` at 38°, `HORIZON_OVER_SKY_LOW = 5.0` at low sun) sets `E_sky / (π · L_horizon)`,
+     lifted in daytime broken/overcast cloud or Mie haze by `DIFFUSE_CLOUD_GAIN = 1.25` (Gueymard 2017). Moonlight uses its own direction
+     (`bodies.moon`), colour (`MOON_RGB`), and calibration (`MOON_DIR_OVER_SKY = 2.4`).
+   - *Exposure, compression & single per-sample linear haze:* one Stevens/Reinhard power law (`γ = 0.6`):
+     `Y_display = Y_horizonDisplay · (L_land / L_horizon)^0.6`, preserving `ρ · E` hue/chroma, followed by ONE linear RGB
+     Koschmieder mix (`L = L_0 · (1 − h) + L_air · h`) using each sample's own DEM face distance (`hazeAt = AERIAL · fade(km)²`)
+     toward luminance-preserving `hazeOf(world)`, then sRGB encoding and small post-haze paper grain (`±0.013`).
+   - *Cloud-once solar-only shadows & snow reflectance:* `cloudShadowProject.ts` projects only solar clouds (`sunAlt > 0`
+     and `shares.sun > 0`). Each `cloudShadow.<plane>` layer sits at `z = plane.z + 0.2` (below water/buildings/marks) with
+     `blend: 'source-atop'` (preserving receiver alpha coverage during loading/resize), and `paint/cloudShadows.ts` shares
+     `paint/planeTexel.ts` to remove ONLY the receiver's direct solar term BEFORE compression and linear haze (zero haze
+     darkening, zero double-darkening on terrain-shadowed slopes). Lying snow blends into receiver reflectance BEFORE
+     lighting and haze.
+   - *Material buildings & zero animation-tick recomposition:* `marks.ts` (`tonesAt`) and `farCities.ts` light neutral
+     stone/plaster/roof albedos under shared irradiance with wall/roof normals and bounded (`<= 0.09`) local ground bounce
+     (no soil tint). `paintPlaneLight` renders each plane in one cached pass (`Painter.formless` when `litField` is set,
+     eliminating per-frame `planeScratch` recomposition), while `planeComposite.ts` guards out-of-order Worker canopy
+     arrivals against the displayed plane's geometry key.
