@@ -4,7 +4,7 @@ export function installPaintJobProbe() {
   const batches = new WeakMap()
   let step
   window.__paintJobs = {
-    begin() { step = { land: 0, sky: 0, shade: 0, paired: 0 } },
+    begin() { step = { land: 0, sky: 0, paired: 0 } },
     end() { const done = step; step = undefined; return done },
   }
   Worker.prototype.postMessage = function (request, ...rest) {
@@ -18,12 +18,9 @@ export function installPaintJobProbe() {
           pending.delete(data.batch)
           for (const [i, result] of data.results.entries()) {
             const job = batch.jobs[i]
-            if (result.id.endsWith('.shade')) batch.step.shade += result.ms
-            else {
-              batch.step[job.desc.surface === 'land' ? 'land' : 'sky'] += result.ms
-              // A paired job is counted once under land. Its total is also reported for diagnosis.
-              if (job.shade) batch.step.paired += result.ms
-            }
+            batch.step[job.desc.surface === 'land' ? 'land' : 'sky'] += result.ms
+            // A paired job is counted once under land. Its total is also reported for diagnosis.
+            if (job.shade) batch.step.paired += result.ms
           }
         })
       }

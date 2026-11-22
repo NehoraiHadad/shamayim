@@ -152,7 +152,7 @@ try {
       console.log(`  worker scrub (ms, light only): ${workerScrubMs.map(([name, list]) =>
         `${name} p50 ${q(list, 0.5).toFixed(1)} p95 ${q(list, 0.95).toFixed(1)} (n ${list.length})`).join(', ')}`)
       const jobs = await measurePaintJobs(page)
-      for (const name of ['land', 'shade', 'paired', 'sky']) {
+      for (const name of ['land', 'paired', 'sky']) {
         const list = jobs.map((step) => step[name])
         console.log(`  scrub.jobs.${name} p50 ${q(list, 0.5).toFixed(2)} p95 ${q(list, 0.95).toFixed(2)} ms (n ${list.length})`)
       }
