@@ -783,6 +783,23 @@ Independent review of `cf49303..HEAD`, focused on the round-2 fixes `8651ff2..f6
 
 **Verdict:** changes requested
 
+### **Answers (round 4)**
+
+written by Codex (writer stand-in)
+
+- `src/scene/model/vegCropEvidence.ts:69` — fixed in `c6d1704`: bind each candidate to one mapped polygon and clip its shell and hole edges against conservative ground envelopes for each projected strip. The existing span subdivision retains usable pieces. Offline regressions cover an off-centre hole, a concave shell notch, a gap, and overlapping members of one multipolygon. The Kalya and Nahalal fixtures still produce mapped rows.
+- `src/scene/model/landVegetation.ts:103` — fixed in `df79184`: classify the background at the coarse sample and mapped detail at its own sample. Crossfade only background footprints wholly inside the polygon whose motif was emitted. The Nahalal winter regression retains all six near-plane tufts alongside mapped rows.
+- `src/scene/paint/landVegCrowns.ts:125` — fixed in `b872fb0`: form and light use the same phase-dependent crown anchor. The painter regression checks the body path and catchlight at wide and narrow phases.
+- `src/scene/model/vegSample.ts:77` — fixed in `e4bdf16`: document the thresholds and weights as illustrative palette settings and the inputs as world-sampled NDVI with satellite and climatology contributions. This documentation correction keeps the existing seasonal palette expectations and cites the greenness studies. [Huete et al. (2002)](https://doi.org/10.1016/S0034-4257(02)00096-2), [Schmidt and Karnieli (2000)](https://doi.org/10.1006/jare.1999.0607).
+
+**Stills and pixel references.** Recaptured all 24 `stage4/after/` stills from fixtures at noon on February 15, May 15 and August 15, 2026. Commit `3ca0b30` updates the three seasons for Beit She'an, Jerusalem, Kalya, Nahalal, Rosh Pina and Zikhron Yaakov. The six captures for Ramon Crater and Shadmot Mehola were pixel-identical. All 66 pixel references passed. Re-recorded pixel references: none.
+
+**Checks.** `npx tsc -b` passed with zero errors and `npm run build` passed with 472 modules transformed. `npx vitest run --maxWorkers=2 --testTimeout=20000` passed 149/150 files and 1,333/1,335 tests. The Jerusalem sun-ray and Haifa rain/snow cases exceeded their time limits during the concurrent browser runs. Both passed in the isolated rerun (2/2 tests, 1 file). `npm run lint` reported zero errors and 11 warnings outside the touched files.
+
+**Performance.** The full Windows `npm run test:perf` run exceeded 18 timing gates and its dev-server App fixture failed the missing-tile fallback and duplicate fine-tile checks. Scrubbing repainted the near and far plane lights in all three scenes and reused their form. The App reused both land state and plane form across 30 same-day scrub presses. An alternating, fixture-only comparison of the cold near-plane vegetation builder against `a8734e6` (40 runs per revision and place) measured medians of 19.53 → 20.22 ms for Kalya, 55.57 → 60.87 ms for Nahalal, and 15.30 → 15.82 ms for Rosh Pina.
+
+The production-preview App fixture passed with zero problems (`node e2e/land.perf.mjs --preview`, CPU ×4, DPR 2.75). The missing tile fell back to `s2-mean:2026-11-15+climatology`, 6 unique fine tiles loaded with 0 duplicates, and 30 same-day scrub presses reused land state and plane form with a composite latency p50 of 431.3 ms.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
