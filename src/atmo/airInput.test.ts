@@ -40,7 +40,7 @@ describe('airInput at a moved minute', () => {
     const rolled = rollForward(draft, at)
     expect(rolled.current.time).toBe(at)
     expect(rolled.observation).toBe(draft.current)
-    expect(airInput(rolled, at, SITE, at)).toEqual({ ...airInput(draft, at, SITE, null), preview: true })
+    expect(airInput(rolled, at, SITE, at)).toEqual({ ...airInput(draft, at, SITE, null), live: false, preview: true })
     expect(airInput(rolled, at, SITE, null)).toMatchObject({ windDirection: 10, visibilityKm: 10, snowfall: 2 })
     const fading = airInput(rolled, `${TODAY}T14:25`, SITE, null)
     expect(fading).toMatchObject({ windDirection: 0, visibilityKm: 20, snowfall: 1 })
