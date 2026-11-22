@@ -1,52 +1,26 @@
 import { hashId } from '../../data/landmarks/hash'
 import { RANGES } from '../../world/field/cells'
-import { groundRangeAt, R_EFF_KM } from '../../world/field/project'
+import { groundRangeAt } from '../../world/field/project'
 import { genusOf, smoothstep, unit } from '../../world/field/genus'
 import { meanRadius } from '../../world/field/lattice'
-import type { FieldLayer, Lattice } from '../../world/field/types'
+import type { Lattice } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
-import { acrossSpeed, pxPerRadAt } from './advect'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { layerKey } from './keys'
-import { scaleLight } from './tone'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
+import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
 
+export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
 type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number }
 
-// Two-stream diffuse transmission uses 3/4 of the transport depth.
-// Water-cloud droplets have scattering asymmetry g ≈ 0.85.
-export const DIFFUSE_EXTINCTION = 0.75 * (1 - 0.85)
-
-export function sheetPathFactor(base: number, thickness: number, altitude: number, edge: number) {
-  if (altitude >= 90) return 1
-  const angle = altitude * RAD
-  const cos = Math.cos(angle), sin = Math.sin(angle)
-  const curvature = 2 * cos * cos / R_EFF_KM
-  const entry = groundRangeAt(base, altitude)
-  const full = 2 / (Math.sqrt(sin * sin + curvature * base) + Math.sqrt(sin * sin + curvature * (base + thickness)))
-  return Math.min(full, Math.max(0, edge - entry) / (cos * thickness))
-}
-
-const sheetOpacity = (tau: number, slant: number) => -Math.expm1(-tau * slant)
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
-// CIE standard overcast source: (1 + 2 sin altitude) / 3.
-export const OVERCAST_HORIZON = 1 / 3
 
-function shadeAmount(body: RGB, shade: RGB, limb: number) {
-  const channel = body.indexOf(Math.max(...body))
-  const bright = body[channel], dark = shade[channel]
-  if (bright <= dark) return limb
-  const target = scaleLight(body, 1 - (1 - OVERCAST_HORIZON) * limb)[channel]
-  // The painter interpolates sRGB endpoints. Encode the linear-light ramp
-  // in the interpolation amount using the brightest channel.
-  return unit((bright - target) / (bright - dark))
-}
 
 export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours): LayerOf<'cloudSheet'> | null {
   const { layer, heightKm, densityGrid } = snapshot
@@ -168,12 +142,3 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   return sheet
 }
 
-/**
- * Each row's carry across the view (px/s): the layer's wind across the view's mean direction over the row's slant range
- * (not its ground range, which vanishes overhead: the deck there moves at its wind over its height, never tears).
- */
-function rowSpeeds(geom: SkyGeom, vel: FieldLayer['vel'], east: readonly number[], north: readonly number[], slants: readonly number[]) {
-  const look: [number, number] = [east.reduce((a, b) => a + b, 0) / east.length, north.reduce((a, b) => a + b, 0) / north.length]
-  const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
-  return slants.map((slant) => acrossSpeed(vel, look, slant, perRad))
-}

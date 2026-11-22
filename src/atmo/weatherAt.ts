@@ -30,7 +30,6 @@ type PhaseInput = Pick<AirInput, 'weatherCode' | 'precipitation' | 'snowfall' | 
 const airAt = (air: AirPoint[] | null, at: LocalTime) => air?.find((point) => point.time === at)
 const clippedThick = (thick: number | null | undefined, total: number) => thick == null ? null : Math.min(thick, total)
 
-
 export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs: number, timezone: string,
   forced?: Partial<AirInput> | null): Weather {
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
@@ -43,6 +42,8 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
   })
   // A forced weather code is a chosen sky: the forecast's CAPE does not weigh it.
   const capeOf = (row?: { cape?: number | null }) => forced?.weatherCode === undefined ? row?.cape ?? null : null
+  // A chosen temperature is a chosen air: the forecast's freezing level does not stand over it.
+  const freezingOf = (row?: { freezingLevel?: number | null }) => forced?.temperature === undefined ? row?.freezingLevel ?? null : null
   const c = forecastObservation(forecast)
   const { before: hour, after: next, fraction } = bracketAt(forecast.hours, at)
   const backgroundTemp = hour && next ? hour.temperature + (next.temperature - hour.temperature) * fraction : hour?.temperature
@@ -61,6 +62,7 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
     return {
       ...shown,
       ...weatherEffects({ ...sourcePhase, snowfall: shown.snowfall }, snow, capeOf(row)),
+      freezingLevel: freezingOf(row),
       thickCloud: clippedThick(row.thickCloud, row.cloudCover),
       snowDepth: row.snowDepth,
       windDirection: row.windDirection ?? c.windDirection,
@@ -116,6 +118,7 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
     ...shown, thickCloud, covers,
     cloudSource: source,
     ...weatherEffects(phase(shown), false, capeOf(hour)),
+    freezingLevel: background?.freezingLevel ?? freezingOf(hour),
     directionSource: 'current',
     windAloft: background?.windAloft ?? { low: null, mid: null, high: null },
     visibilitySource: c.visibility != null ? 'current' : background?.visibilitySource ?? (c.humidity == null ? 'default' : 'humidity'),

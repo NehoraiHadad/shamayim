@@ -35,7 +35,8 @@ export interface Falling { cells: FallingCloud[]; z: number; speed: number }
 function rainSources(cells: readonly FieldRainCell[]): Source[] {
   return cells.map((cell) => {
     const distanceKm = Math.hypot(cell.cloudX, cell.cloudY)
-    const altitude = altitudeOf(cell.baseKm, distanceKm)
+    // The curtain hangs from the whole underside of its base: its top is the base's near edge, high over a near core.
+    const altitude = altitudeOf(cell.baseKm, Math.max(0.3, distanceKm - cell.radiusKm))
     return { id: `${cell.level}:${cell.bank}`, level: cell.level, distanceKm, seed: cell.seed, share: cell.share,
       // Overhead cells rain round the eye; the rest are far curtains (`NEAR_ALT`).
       altitude: cell.atEye ? Math.max(30, altitude) : Math.min(29.999, altitude),
