@@ -41,8 +41,9 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
   // Broken showers exercise both ordinary cloud cells and the convective lattice.
   const forced = { cloudCover: 70, thickCloud: 70, temperature: 24, humidity: 70, weatherCode: 80 }
   const forcedLayers = { low: 0.7, mid: 0.5, high: 0 }
-  const frames = Array.from({ length: 24 }, (_, minute) =>
-    build({ ...input, selected: addMinutes(at, minute), forced, forcedLayers }))
+  const builds = Array.from({ length: 24 }, (_, minute) =>
+    timed(() => build({ ...input, selected: addMinutes(at, minute), forced, forcedLayers })))
+  const frames = builds.map(({ value }) => value)
   const first = frames[0]
   const { terrain, camera } = first
   const groundAt = terrain.groundAt!
@@ -76,6 +77,8 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
   const referenceMs = median(measured.map(({ reference }) => reference))
   const shadowRatio = median(measured.map(({ shadow, reference }) => shadow.ms / reference))
   const modelMs = median(measured.map(({ model }) => model))
+  const p95 = (values: number[]) => values.sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1]
+  const worldTimes = builds.slice(8).map(({ ms }) => ms)
   const baselineMs = median(measured.map(({ baseline }) => baseline))
   const incrementMs = median(measured.map(({ model, baseline }) => model - baseline))
   const coldOverheadMs = median(measured.map(sample => sample.coldOverhead))
@@ -99,9 +102,15 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
     heightAt: (e, n) => { heights++; return grid.heightAt(e, n) },
     blockedKm: (e, n, h) => { blocked++; return grid.blockedKm(e, n, h) },
   } }, box)
+  for (const world of frames) {
+    expect(cloudShadowLayers(world, box)).toEqual(cloudShadowLayers({
+      ...world, flightTerrain: { ...world.flightTerrain!, shadowBlocked: undefined, occludedAt: undefined },
+    }, box))
+  }
   console.info({ id, heights, blocked, rimPoints: 0, accepted: profile.flatMap(layer => layer.blobs).length })
   const blobs = samples[0].shadow.value.flatMap(layer => layer.blobs)
   console.info({ id, shadowMs, modelMs, baselineMs, incrementMs, coldOverheadMs, referenceMs, shadowRatio, sampledGridErrorM, blobs: blobs.length,
+    worldP50: median(worldTimes), worldP95: p95(worldTimes), modelP95: p95(measured.map(({ model }) => model)),
     before: counts(facesBefore), after: counts(terrain.faces) })
   expect(shadowRatio).toBeLessThanOrEqual(SHADOW_RATIO_LIMIT)
   expect(incrementMs).toBeLessThanOrEqual(2)

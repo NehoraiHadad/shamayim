@@ -3,6 +3,17 @@ import { SCENE_CAMERA } from '../../domain/camera'
 import { layerSnapshot } from '../../world/field/density'
 import { buildField } from '../../world/field/field'
 import { cloudShadowLayers } from './cloudShadows'
+import { shadowLayers } from './cloudShadowLayers'
+
+it('describes the far ridge strip in land pixels even when a blob crosses both crests', () => {
+  const near = { points: [[0, 40], [375, 40]] as [number, number][], distanceKm: [2, 2] }
+  const far = { points: [[0, 20], [375, 20]] as [number, number][], distanceKm: [10, 10] }
+  const box = { width: 750, landHeight: 128, dpr: 1 }
+  const [layer] = shadowLayers({ horizonY: 60, near, far }, box, [{
+    plane: 'far', km: 10, blob: { cellId: 1, centre: [0, 10], x: 375, y: 40, rx: 10, ry: 30, alpha: 0.5 },
+  }])
+  expect(layer.clip).toEqual({ crest: [[0, 20], [750, 20]], front: [[0, 40], [750, 40]] })
+})
 
 it.each([5, 20, 45, 70])('emits shadows at the slant intersection at %s degrees', altitude => {
   const field = buildField({ placeId: 'shadow-test', at: '2026-11-17T12:00', hours: [],

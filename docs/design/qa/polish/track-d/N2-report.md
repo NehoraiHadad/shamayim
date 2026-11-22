@@ -164,3 +164,27 @@ Shadows accounted for 1.17 ms of Haifa's 9.81 ms model increase and 1.66 ms of T
 The final local panorama run passed the ratio and model-increment gates. Haifa's ratio was 0.1994 against 0.2, so that run showed little margin. The observed median shadow times were 1.13, 1.32 and 1.17 ms for Jerusalem, Haifa and Tiberias. The opt-in 1 ms gate and 60-scrub browser performance job require cloud verification. The existing oxlint warning in scripts/city/geometry.ts is unrelated.
 
 The targeted Vitest files passed individually at low priority: outside, cloudShadows, cloudShadowPanorama, weather, model, world and scene livingLight, and planes. TypeScript build-mode checking, oxlint and git diff --check passed.
+
+## Round 6
+
+- Shadow descriptors carry the receiving crest and the next ridge in front, in land pixels. Both use the same projected crest as the land outline. This preserves the existing shadow draw order. The exposed far strip lies at or below its own crest and above the near crest, where screen y increases downward. The descriptor test checks both boundaries on an ellipse that crosses them. Pixel verification depends on the clipped painter, which is assigned separately.
+- The terrain grid builds an occlusion prefix for every adjacent pair of rays. Each prefix entry uses a shared distance and the lower of the two endpoint slopes, so it certifies a blocker for every interpolated bearing in that interval. The pre-cull includes both height extremes, the projection solver's 10 m residual and each possible ray interval. It rejects only when every interval certifies a blocker before the nearest possible centre with slope greater than the maximum possible centre slope. Projections that could use local terrain and other ambiguous cases fall through to the solver.
+- Exact repeat inputs reuse the published snapshot and lattice grids. Unique minutes keep separate published buffers so retained worlds remain valid. Single-entry raster bins avoid per-bin array allocation, and forecast-hour lookup data and seeded offsets are reused. The A/B/A test compares serialized cells and sampled optical depths.
+- The browser scrub report pairs signed JS heap deltas with frame timestamps and world/model times. Chromium heap readings can be quantized and are only an indicator of GC. The browser job is required for matched before/after browser timings.
+- The Tel Aviv test varies eye transmission at fixed scene geometry and retains the forced-clear spark-count check. Footprint projection bounds are documented and layer assembly is in its own module.
+
+### Measurements
+
+The panorama unit test measured 16 new-minute samples after eight warm-up samples. The historical shadow times are from Round 5 and the historical ratios are from CI run 44995756933. Times are in ms.
+
+| Panorama | Shadow p50 before → after | Shadow ratio CI before → local after | World build local p50 / p95 | Model local p50 / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Jerusalem | 1.13 → 0.95 | 0.261 → 0.148 | 7.28 / 13.59 | 6.60 / 8.75 |
+| Haifa | 1.32 → 0.98 | 0.280 → 0.169 | 6.74 / 14.97 | 6.19 / 8.39 |
+| Tiberias | 1.17 → 0.84 | 0.254 → 0.141 | 6.19 / 9.49 | 5.60 / 8.40 |
+
+The shadow ratio passed the existing 0.20 gate in all three locations. Haifa exceeded the requested 0.15 local target, and all three exceeded 0.6 ms. Shadow output matched the same projection with both horizon fast paths disabled on all 72 recorded frames. On the first frame in Jerusalem, Haifa and Tiberias, the full blocker walk fell to 21, 34 and 23 calls respectively.
+
+The warm density scrub measured 1.91 ms and ratio 0.395 against the unchanged 0.59 limit. The prior CI ratio was 0.621. The allocation changes do not yet have measured heap deltas. The brief's Haifa world-build p50 baseline was 5.8–7.9 ms, compared with 2.4–2.7 ms on main. Prior CI model p95 was 20.3 ms in Haifa and 18.6 ms in Tel Aviv. The local unit-test timings above are a different workload. Matched world and model p50/p95 and heap readings still require the CI browser perf job.
+
+All eight requested Vitest files passed individually at low priority. TypeScript build-mode checking, e2e script syntax and the diff whitespace check passed. Oxlint passed with the existing warning in `scripts/city/geometry.ts`.

@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { mapForecast } from '../../data/openMeteo/mapForecast'
 import fixture from '../../test/fixtures/forecast-layers-2026-11-17.json'
+import { cloudFieldAt } from '../cloudField'
 import { cellsAround, cellsAt, RANGES } from './cells'
 import { cellTauAt, densityGrid, layerSnapshot, rasterRange, shadowTau } from './density'
 import { buildField } from './field'
@@ -57,6 +58,22 @@ it('keeps the shared snapshot at the requested keyframe and joins the expected d
     expect(snapshot.densityGrid.tauAt(range - 1e-6, 0)).toBeCloseTo(edge, 4)
     expect(snapshot.densityGrid.tauAt(range + 1e-6, 0)).toBeCloseTo(edge, 4)
   }
+})
+
+it('rebuilds identical snapshot bytes across places, days and lattices without changing old grids', () => {
+  const build = (placeId: string, at: string) => cloudFieldAt(input.hours, placeId, 50)(at, input.covers,
+    { temperature: 24, humidity: 70, weatherCode: input.weatherCode }, input.sunAltitude, input.wind10, undefined).snapshot
+  const bytes = (snapshot: ReturnType<typeof build>) => JSON.stringify(snapshot.map(({ cells, densityGrid }) => ({
+    cells, tau: Array.from({ length: 121 }, (_, i) => densityGrid.tauAt(i % 11 - 5, Math.floor(i / 11) - 5)),
+  })))
+  const before = build('density-A', input.at)
+  const a = bytes(before)
+  expect(bytes(build('density-B', '2026-11-18T09:07'))).not.toBe(a)
+  expect(build('density-A', input.at)).toBe(before)
+  for (const minute of ['01', '02', '03']) build('density-A', `2026-11-17T08:${minute}`)
+  expect(build('density-A', input.at)).not.toBe(before)
+  expect(bytes(build('density-A', input.at))).toBe(a)
+  expect(bytes(before)).toBe(a)
 })
 
 it.each([5, 20, 45, 70])('integrates slant extinction at %s degrees over raised and lowered ground', altitude => {

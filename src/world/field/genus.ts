@@ -65,12 +65,29 @@ export function genusOf(lattice: Lattice, form: LayerForm, ug: number, storm = s
 /** Forecast code weights transition from the previous hour to the next across each ±30 min window. */
 export function convectiveAt(input: FieldInput) {
   const { hours, at } = input
-  const hour = hours.findIndex(point => point.time.slice(0, 13) === at.slice(0, 13))
   const fixed = (code: number) => ({ from: convectiveWeight(code), to: convectiveWeight(code), fraction: 0 })
-  if (input.weatherForced || hour < 0 || !hours.some(point => convectiveWeight(point.weatherCode))) return fixed(input.weatherCode)
+  if (input.weatherForced) return fixed(input.weatherCode)
+  let forecast = convection.get(hours)
+  if (!forecast) {
+    const weights = hours.map(point => convectiveWeight(point.weatherCode))
+    const indices = new Map<string, number>()
+    hours.forEach(({ time }, index) => {
+      const key = time.slice(0, 13)
+      if (!indices.has(key)) indices.set(key, index)
+    })
+    const adjacent = hours.map((point, index) =>
+      index > 0 && wallMinutes(point.time) - wallMinutes(hours[index - 1].time) === 60)
+    convection.set(hours, forecast = { weights, indices, adjacent, active: weights.some(Boolean) })
+  }
+  const hour = forecast.indices.get(at.slice(0, 13))
+  if (hour === undefined || !forecast.active) return fixed(input.weatherCode)
   const minute = Number(at.slice(14, 16))
-  const from = hours[minute < 30 ? hour - 1 : hour]
-  const to = hours[minute < 30 ? hour : hour + 1]
-  if (!from || !to || wallMinutes(to.time) - wallMinutes(from.time) !== 60) return fixed(hours[hour].weatherCode)
-  return { from: convectiveWeight(from.weatherCode), to: convectiveWeight(to.weatherCode), fraction: ((minute + 30) % 60) / 60 }
+  const to = minute < 30 ? hour : hour + 1
+  const { weights, adjacent } = forecast
+  if (!adjacent[to]) return { from: weights[hour], to: weights[hour], fraction: 0 }
+  return { from: weights[to - 1], to: weights[to], fraction: ((minute + 30) % 60) / 60 }
 }
+
+const convection = new WeakMap<FieldInput['hours'], {
+  weights: number[]; indices: Map<string, number>; adjacent: boolean[]; active: boolean
+}>()

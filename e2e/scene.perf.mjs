@@ -84,9 +84,11 @@ try {
         const minutes = 6 * 60 + i * 12
         const at = `2026-11-17T${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
         const n = { land: steps['arrive.land']?.length ?? 0, sky: steps['arrive.sky']?.length ?? 0 }
+        const heapBefore = performance.memory?.usedJSHeapSize
         const frame = window.__scene.scrub(at)
+        const heapDelta = performance.memory?.usedJSHeapSize - heapBefore
         await new Promise((r) => requestAnimationFrame(() => r()))
-        frames.push({ ...frame, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky) })
+        frames.push({ ...frame, at, heapDelta, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky) })
       }
       await window.__scene.settled()
       return { frames, latency: (steps['latency.land'] ?? []).slice(latency0) }
@@ -123,6 +125,9 @@ try {
       console.log(`  ${step.padEnd(12)} p50 ${p50.toFixed(2).padStart(7)}  p95 ${p95.toFixed(2).padStart(7)} ms  (n ${String(list.length).padStart(2)}, budget ${budget.ms}${budget.gate ? '' : ', reported only'})${over ? '  OVER' : ''}`)
     }
     const mb = Object.values(memoryAfter).reduce((a, b) => a + b, 0) / 2 ** 20
+    const heap = scrub.filter((frame) => Number.isFinite(frame.heapDelta))
+    if (heap.length) console.log('  scrub heap deltas (bytes, reported only):', JSON.stringify(heap.map(({ at, heapDelta, world, model }) =>
+      ({ at, heapDelta, world, model }))))
     if (mb > BUDGET.memory.mb * SLACK) failures.push(`${place} memory ${mb.toFixed(1)} MB`)
     console.log(`  memory       ${mb.toFixed(1)} MB (budget ${BUDGET.memory.mb})`)
     console.log(`  scrub repainted: ${repainted.join(', ') || 'nothing'}`)

@@ -9,6 +9,22 @@ import type { CloudField, FieldInput, FieldLayer, Genus, Lattice, LayerForm } fr
 const lattices: readonly Lattice[] = ['low', 'tower', 'mid', 'high']
 const mean = ([a, b]: readonly [number, number]) => (a + b) / 2
 const mix = (a: number, b: number, f: number) => a + (b - a) * f
+const dailyOffsets = new WeakMap<ReturnType<typeof steeringTimeline>, Map<string, [number, number][]>>()
+
+function offsetsOf(steering: ReturnType<typeof steeringTimeline>, placeId: string) {
+  let byPlace = dailyOffsets.get(steering)
+  if (!byPlace) dailyOffsets.set(steering, byPlace = new Map())
+  let offsets = byPlace.get(placeId)
+  if (!offsets) {
+    offsets = lattices.map(lattice => {
+      const angle = 2 * Math.PI * seeded(hashId(`${placeId}:${steering.date}:${lattice}`))()
+      return [500 * Math.sin(angle), 500 * Math.cos(angle)]
+    })
+    if (byPlace.size === 8) byPlace.delete(byPlace.keys().next().value!)
+    byPlace.set(placeId, offsets)
+  }
+  return offsets
+}
 
 /** Physical base, thickness and extinction for a genus and its site aspect. */
 export function dimensions(genus: Genus, lowBaseKm: number, form: LayerForm, aspect: number, widthKm?: number): Dimensions {
@@ -72,6 +88,7 @@ export function buildField(input: FieldInput): CloudField {
   const cover = { ...input.covers, ...splitLowCover(input.covers.low, forms.low.conv) }
   const t = wallMinutes(input.at)
   const steering = steeringOf(input)
+  const offsets = offsetsOf(steering, input.placeId)
   const layers = lattices.map((lattice, index): FieldLayer => {
     const form = forms[lattice]
     const { baseKm, vKm: meanVKm, kappa } = layerDimensions(lattice, input.lowBaseKm, form)
@@ -87,8 +104,7 @@ export function buildField(input: FieldInput): CloudField {
       if (occupancy.Q > 0) occupancy.g = Math.sqrt(intensity / occupancy.Q)
     }
     const { Q, g, floorTau } = occupancy
-    const angle = 2 * Math.PI * seeded(hashId(`${input.placeId}:${steering.date}:${lattice}`))()
-    const offset: [number, number] = [500 * Math.sin(angle), 500 * Math.cos(angle)]
+    const offset = offsets[index]
     const zAslKm = fallbackHeights[lattice] + input.elevationKm
     const motionAt = (minute: number) => input.hours.length
       ? steering.at(index, minute, offset)

@@ -370,13 +370,17 @@ describe('the coastal sea (C5 item 1)', () => {
   it('lays the light’s path toward the setting sun over Tel Aviv’s sea', () => {
     const at = '2026-11-17T16:30'
     const input = worldInput(loaded.get('tel-aviv')!, at)
-    const cloudy = worldAt('tel-aviv', at)
     const clear = buildWorld({ ...input, forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0 },
       forcedLayers: { low: 0, mid: 0, high: 0 } })
-    expect(layerOf(cloudy)!.sea!.glint).toBeNull()
     const sea = layerOf(clear)!.sea!
     expect(sea.glint).not.toBeNull()
     expect(sea.glint!.sparks.length).toBeGreaterThan(3)
+    const glintAt = (eye: number) => layerOf({ ...clear, light: { ...clear.light, eye } })!.sea!.glint
+    // At this transmission, even a facet share of one lies below the alpha threshold.
+    expect(glintAt(0.002)).toBeNull()
+    const strengths = [0, 0.25, 0.5, 0.75, 1].map(f => glintAt(f * clear.light.eye)?.alpha ?? 0)
+    for (let i = 1; i < strengths.length; i++) expect(strengths[i]).toBeGreaterThanOrEqual(strengths[i - 1])
+    expect(strengths.at(-1)).toBeGreaterThan(strengths[0])
   })
 
   it.each(['jerusalem', 'beer-sheva', 'ramat-gan', 'rosh-pina', 'shadmot-mehola', 'nahalal'])('%s, inland, has none', (id) => {

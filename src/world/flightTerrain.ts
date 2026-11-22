@@ -1,6 +1,7 @@
 import { EARTH_R_KM, FAR_KM, RAY_DISTANCES, RAYS, REFRACTION_K } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { fractionOf, SCENE_CAMERA } from '../domain/camera'
+import { shadowHorizon } from './shadowHorizon'
 
 /**
  * Terrain for flight, cloud shadows and rain feet. The panorama samples out to 60 km
@@ -25,6 +26,8 @@ export interface FlightTerrain {
   known: boolean
   /** Limits of the polar grid. The local fallback is separate. */
   panoramaHeightsM?: readonly [number, number]
+  shadowBlocked?(east: number, north: number, eastPerUp: number, northPerUp: number): boolean
+  occludedAt?(east: number, north: number, upM: number): boolean | undefined
 }
 
 /** The sample at or before each 50 m of distance (a look-up in place of a search: the paths ask thousands of times). */
@@ -165,7 +168,10 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
     }
     return null
   }
-  const field: FlightTerrain = { eyeM, heightAt, groundAt, blockedKm, known: hasRays || !!local,
+  const shadowVisibility = hasRays
+    ? shadowHorizon(grid, eyeM, minM, maxM, rayOf, distanceIndex, curveDrop, RAY_CURVE_DROP, FLIGHT_LOCAL_KM)
+    : undefined
+  const field: FlightTerrain = { eyeM, heightAt, groundAt, blockedKm, ...shadowVisibility, known: hasRays || !!local,
     panoramaHeightsM: hasRays ? [minM, maxM] : undefined }
   FIELDS.set(terrain, field)
   return field
