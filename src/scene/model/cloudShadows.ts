@@ -6,21 +6,13 @@ import { spanDeg, xOf } from '../../domain/camera'
 import type { FieldCell } from '../../world/field/types'
 import { cloudLight } from '../../world/lightCloud'
 import { SCENE_W } from '../../world/sceneBox'
-import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
-import { shadowLayers, type ShadowBlob, type ShadowBox, type ShadowPlane, type ShadowTerrain } from './cloudShadowLayers'
+import { shadowLayers, type ShadowBlob, type ShadowBox, type ShadowPlane } from './cloudShadowLayers'
+import { supports, type Projection, type ShadowWorld } from './cloudShadowWorld'
 import type { Pt } from './types'
 
 const RAD = Math.PI / 180
 const RANGE = 60
-const supports = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
-  flightTerrain?: WorldState['flightTerrain']
-  light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
-  terrain: ShadowTerrain
-}
-
-type Projection = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
 export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world
   // Below one 8-bit alpha step the largest possible shadow is subpixel in opacity.
@@ -151,3 +143,4 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
   }
   return shadowLayers(terrain, box, accepted)
 }
+

@@ -41,10 +41,12 @@ export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: 
 function silhouette(c: Ctx2D, s: CloudSprite) {
   const r = rng(s.seed)
   const anvil = s.anvil ?? 0
-  const n = Math.max(8, Math.min(140, Math.round((s.tall / s.w) * PUFFS * 2) + 8))
+  const n = Math.max(8, Math.min(200, Math.round((s.tall / s.w) * PUFFS * 2) + 8))
   puff(c, 0, s.under * 0.3, s.w * 0.5, Math.max(1, s.under * 0.5 + s.w * 0.06), 0.9)
   for (let i = 0; i < n; i++) {
-    const t = Math.sqrt(r()) // more puffs high up: the crown is where a tower's turrets are
+    // Stratified up the column, a little denser high up where the crown is: a tall narrow tower stays one mass and
+    // never thins into a string of beads below its top.
+    const t = ((i + r()) / n) ** 0.75
     // A mature Cb's upper third flares out into its anvil: no narrow neck under a disc (a saucer, not a storm).
     const flare = anvil * 0.9 * Math.max(0, (t - 0.55) / 0.45) ** 1.5
     const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t + flare)
