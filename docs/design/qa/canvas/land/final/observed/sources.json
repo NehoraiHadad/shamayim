@@ -1,0 +1,46 @@
+{
+  "place": "shadmot-mehola",
+  "at": "2026-11-17T12:00+02:00",
+  "clip": {
+    "x": 0,
+    "y": 0,
+    "width": 375,
+    "height": 472
+  },
+  "fallback": {
+    "date": "2026-11-17",
+    "own": {
+      "albedo": "climatology",
+      "ndvi": "climatology",
+      "cover": "worldcover-2021:local-50m"
+    },
+    "far20km": {
+      "albedo": "climatology",
+      "ndvi": "climatology",
+      "cover": "worldcover-2021:regional-1km"
+    },
+    "far55km": {
+      "albedo": "climatology",
+      "ndvi": "climatology",
+      "cover": "worldcover-2021:regional-1km"
+    }
+  },
+  "refined": {
+    "date": "2026-11-17",
+    "own": {
+      "albedo": "s2:2026-11-15+climatology",
+      "ndvi": "gibs:2026-11-15+climatology",
+      "cover": "worldcover-2021:local-50m"
+    },
+    "far20km": {
+      "albedo": "gibs:2026-11-01+climatology",
+      "ndvi": "gibs:2026-11-15+climatology",
+      "cover": "worldcover-2021:regional-1km"
+    },
+    "far55km": {
+      "albedo": "s2-mean:2026-11-15+climatology",
+      "ndvi": "gibs:2026-11-15+climatology",
+      "cover": "worldcover-2021:regional-1km"
+    }
+  }
+}

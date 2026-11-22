@@ -1,9 +1,11 @@
-// Final Stage 6 before/after stills (origin/main vs HEAD) and per-season contact sheets at 375 px.
-//   node e2e/land.final.mjs --before-root=<origin/main worktree> [--after-only]
-// Offline only: uses recorded panoramas, local WorldCover/landmark/city data, and the forecast fixture.
+// Final Stage 6 before/after stills (origin/main vs HEAD), seasonal fallback contact sheets, and an offline
+// observed satellite fallback -> refined pair at 375 px.
+//   node e2e/land.final.mjs --before-root=<origin/main worktree> | --after-only | --sheets-only | --observed-only
+// Offline only: uses recorded panoramas, local WorldCover/landmark/city data, forecast and S2/GIBS fixtures.
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { CLIP, launch, loadScene, openPage, root, sceneUrl } from './harness.mjs'
+import { captureObservedPair } from './landObservedStill.mjs'
 
 const OUT = path.join(root, 'docs/design/qa/canvas/land/final')
 const PLACES = [
@@ -16,9 +18,9 @@ const PLACES = [
   { id: 'kalya', label: 'Dead Sea · Kalya' },
 ]
 const SEASONS = [
-  { id: 'winter', title: 'Winter — Feb 15, 12:00 (sunny)', at: '2026-02-15T12:00', weather: 'sunny' },
-  { id: 'spring', title: 'Late spring — May 15, 12:00 (sunny)', at: '2026-05-15T12:00', weather: 'sunny' },
-  { id: 'summer', title: 'Late summer — Aug 15, 12:00 (sunny)', at: '2026-08-15T12:00', weather: 'sunny' },
+  { id: 'winter', title: 'Winter — Feb 15, 12:00 (sunny · seasonal climatology + WorldCover fallback)', at: '2026-02-15T12:00', weather: 'sunny' },
+  { id: 'spring', title: 'Late spring — May 15, 12:00 (sunny · seasonal climatology + WorldCover fallback)', at: '2026-05-15T12:00', weather: 'sunny' },
+  { id: 'summer', title: 'Late summer — Aug 15, 12:00 (sunny · seasonal climatology + WorldCover fallback)', at: '2026-08-15T12:00', weather: 'sunny' },
 ]
 const WINDY = [
   { id: 'rosh-pina', label: 'Galilee · Rosh Pina (Feb 15)', at: '2026-02-15T12:00', weather: 'gale', phase: '0.8' },
@@ -86,7 +88,7 @@ async function buildSheet(page, outFile, title, columns) {
     ctx.fillText(title, rowTag + gap, 24)
     ctx.font = '13px sans-serif'
     ctx.fillStyle = '#57606a'
-    ctx.fillText('top row: before (origin/main)   ·   bottom row: after (land-living)   ·   375 px wide', rowTag + gap, 44)
+    ctx.fillText('top row: before (origin/main)   ·   bottom row: after (land-living, fallback climatology + WorldCover)   ·   375 px wide', rowTag + gap, 44)
     const rowY = [head + colHead + gap, head + colHead + h + 2 * gap]
     for (const [ri, tag] of ['BEFORE', 'AFTER'].entries()) {
       ctx.save()
@@ -116,26 +118,30 @@ const args = process.argv.slice(2)
 const beforeRoot = args.find((a) => a.startsWith('--before-root='))?.slice('--before-root='.length)
 const afterOnly = args.includes('--after-only')
 const sheetsOnly = args.includes('--sheets-only')
-if (!beforeRoot && !afterOnly && !sheetsOnly) {
-  console.error('usage: node e2e/land.final.mjs --before-root=<origin/main worktree> | --after-only | --sheets-only')
+const observedOnly = args.includes('--observed-only')
+if (!beforeRoot && !afterOnly && !sheetsOnly && !observedOnly) {
+  console.error('usage: node e2e/land.final.mjs --before-root=<origin/main worktree> | --after-only | --sheets-only | --observed-only')
   process.exit(2)
 }
 
 const headServer = !sheetsOnly ? await startVite(root) : null
-const beforeServer = !afterOnly && !sheetsOnly && beforeRoot ? await startVite(beforeRoot) : null
+const beforeServer = !afterOnly && !sheetsOnly && !observedOnly && beforeRoot ? await startVite(beforeRoot) : null
 const browser = await launch()
 try {
   if (beforeServer) await captureSet(browser, beforeServer.url, 'before')
-  if (headServer) await captureSet(browser, headServer.url, 'after')
-  const page = await browser.newPage()
-  try {
-    await page.setContent('<!doctype html><meta charset="utf-8">')
-    for (const s of SEASONS) {
-      await buildSheet(page, `sheet-${s.id}.png`, s.title, PLACES.map((p) => ({ label: p.label, file: `${s.id}-${p.id}.png` })))
-    }
-    await buildSheet(page, 'sheet-windy.png', 'Windy day — westerly gale 50 km/h, gusts 75 km/h (phase 0.8 s)',
-      WINDY.map((w) => ({ label: w.label, file: `windy-${w.id}.png` })))
-  } finally { await page.close() }
+  if (headServer && !observedOnly) await captureSet(browser, headServer.url, 'after')
+  if (headServer) await captureObservedPair(browser, headServer.url, OUT)
+  if (!observedOnly) {
+    const page = await browser.newPage()
+    try {
+      await page.setContent('<!doctype html><meta charset="utf-8">')
+      for (const s of SEASONS) {
+        await buildSheet(page, `sheet-${s.id}.png`, s.title, PLACES.map((p) => ({ label: p.label, file: `${s.id}-${p.id}.png` })))
+      }
+      await buildSheet(page, 'sheet-windy.png', 'Windy day — westerly near gale 50 km/h, gusts 75 km/h (Beaufort 7, phase 0.8 s)',
+        WINDY.map((w) => ({ label: w.label, file: `windy-${w.id}.png` })))
+    } finally { await page.close() }
+  }
 } finally {
   await browser.close()
   if (beforeServer) await beforeServer.close()
