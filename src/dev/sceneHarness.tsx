@@ -68,6 +68,9 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   fog: { humidity: 99, visibilityKm: 1.5, cloudCover: 60, thickCloud: 30, precipitation: 0, weatherCode: 45, windSpeed: 6, windGusts: 10 },
   showers: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45, windDirection: 250,
     humidity: 80 },
+  // Track F: a calm, clear, damp night's air held all day (no visibility given): radiation fog in the valleys at dawn that
+  // burns off as the sun climbs and the ground warms.
+  damp: { humidity: 96, cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 4, windGusts: 7 },
   gale: { windSpeed: 50, windGusts: 75, windDirection: 270, cloudCover: 30, thickCloud: 10, precipitation: 0, weatherCode: 2 },
   // C10's moments: a veil of cirrostratus over a clear lower sky (the halo, persistent contrails), a sunny calm (thermals).
   cirrus: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
