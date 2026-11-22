@@ -4,6 +4,8 @@
 // Run it on a machine with its own IP address (the free tier allows 10,000 weighted calls a day per IP):
 //   node research/verification/om_fetch.mjs            # all passes, resumes where it stopped
 //   node research/verification/om_fetch.mjs --pass 1   # only one pass
+//   node research/verification/om_fetch.mjs --shard 2/3  # only every third station (start 1/3, 2/3, 3/3 on three
+//                                                       # machines with different IPs to split the work)
 // It needs Node 18+ and no packages. It paces itself, waits out Open-Meteo's minute/hour/day limits on its own and
 // can be stopped (Ctrl+C) and started again at any time: finished pieces are never fetched twice.
 //
@@ -111,7 +113,15 @@ async function main() {
   const only = process.argv.includes('--pass') ? Number(process.argv[process.argv.indexOf('--pass') + 1]) : null
   const stations = JSON.parse(await readFile(join(HERE, 'om_stations.json'), 'utf8'))
   // Spread the order over the country, so a partial download still covers every region.
-  stations.sort((a, b) => ((a.id * 7919) % 101) - ((b.id * 7919) % 101))
+  stations.sort((a, b) => ((a.id * 7919) % 101) - ((b.id * 7919) % 101) || a.id - b.id)
+  if (process.argv.includes('--shard')) {
+    const [k, n] = process.argv[process.argv.indexOf('--shard') + 1].split('/').map(Number)
+    if (!(n >= 1 && k >= 1 && k <= n)) throw new Error('--shard takes k/n, e.g. 1/3')
+    const mine = stations.filter((_, i) => i % n === k - 1)
+    stations.length = 0
+    stations.push(...mine)
+    log(`shard ${k}/${n}: ${stations.length} stations`)
+  }
   const failures = []
   for (const [pass, vars] of Object.entries(PASSES)) {
     if (only && Number(pass) !== only) continue
@@ -143,7 +153,7 @@ async function main() {
     console.log(`\nAll done. Send the data back (from the repository root):
   git switch --orphan verification-data
   git add research/verification/om-archive
-  git commit -m "Open-Meteo previous-runs archive at IMS stations"
+  git commit -m "Open-Meteo previous-runs archive at IMS stations"   (another machine already pushed? git pull first)
   git push -u origin verification-data
   git switch -`)
   }
