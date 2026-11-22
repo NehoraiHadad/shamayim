@@ -927,6 +927,28 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
       `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
       `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
+- [x] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22):
+      - [x] Shared linear-light radiance model (`src/scene/model/landRadiance.ts`): Lambertian irradiance
+            `L/L_hor = (ρ/π)·(E_dir·max(0,n·s)·C_sun + E_sky·V(n)·C_sky)` calibrated against ASTM G173-03 / Bird &
+            Hulstrom (1981) (`DNI/DHI = 7.6` at ~38° clear sky) with exact cosine-weighted sky-dome integral, Twomey
+            (1986) linear wet darkening `×(1−0.45·wet)`, moonlight via `shares.moon`, and eye-adaptation compression
+            `Y_display = Y_horizon · (L/L_hor)^0.6`.
+      - [x] Light-free reflectance-form encoding (`albedoToFormTone`) removing the narrow Oklab shade-ridge squeeze
+            (`REF_DAY_RIDGE_L`) across `landPalette.ts`, `landColour.ts`, and `vegSample.ts`, keeping hour-independent
+            plane/canopy form cache hits.
+      - [x] Full-face 3D normal shading (`PlaneShadeField`, `planeShade.ts`, `planeLight.ts`, `planeCrestLight.ts`,
+            `ridgeLighting.ts`) using crest across slope (`/ EXAGGERATION`) + DEM `FaceSample.slope` + self-shadowing
+            (`clearanceOf`), removing the `+0.12/+0.10` cap and `noonWeight·0.2` collapse; halo-free dual-band
+            compositing in `surface.ts` (`planeScratch` → Band 0 `multiply` → Band 1 `source-over` → `destination-in`).
+      - [x] Cloud-once linear compositing: removed cloud-darkening `moodVeilOf` and unlit `palette.ridgeNear`
+            double-counting; `cloudShadows.ts` / `cloudShadowLayers.ts` use `multiply` removing ONLY `E_dir`
+            (`cloudShadowMultiplyRgb`); `landVeil.ts` uses luminance-preserving aerosol tint in `hazeOf` and linear
+            Koschmieder aerial haze (`mixLight` / `linearHazeAlpha`).
+      - [x] Shared consumers updated: `outsideGround.ts`, `marks.ts` (`tonesAt`), `farCities.ts`, `water.ts` (`toneAt`),
+            `vegSample.ts` (`buildVegPalette`); loading continuity (`ambientToneAt`) preserved.
+      - [x] Verification: `landRadiance.test.ts` (all 8 baseline places at 06:20/12:00/16:30/21:00, sun-facing ratio,
+            cloud-shadow diffuse floor, linear wetness, overcast flat light), `tsc -b`, full vitest suite, `npm run build`,
+            and visual inspection of rendered 375 px stills (pixel refs left untouched for manager review).
 
 ## Polish track G — no building flips or flickers; live mode is scrub at now (owner: "a building rotated and also flickered", Karmei Tzur) — 2026-11-22 (branch `claude/fix-glyph-flicker-8384c3`)
 Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-g-merge.md` (+ `.REPORT.md`, rounds 1–3).

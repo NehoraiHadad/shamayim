@@ -2615,3 +2615,35 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   unthrottled), Ramon Crater dust playback over the strict 4.00 ms sum-of-p95 budget, and host-baseline browser overruns
   carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
   (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
+
+7. **Physical daytime land lighting (Stage 7, 2026-11-22, branch `claude/land-light-998984`):** replaces the old narrow
+   shade-ridge Oklab squeeze (`REF_DAY_RIDGE_L`, `+0.12` crest-wash cap, `moodVeilOf` cloud double-counting, sRGB
+   cloud shadows) with one shared linear-light radiance model (`src/scene/model/landRadiance.ts`) driving planes,
+   vegetation canopies, outside ground (`outsideGround.ts`), marks (`marks.ts` `tonesAt`), far towns (`farCities.ts`),
+   and `toneAt` / `nearGroundTone` consumers:
+   - *Radiative transfer & units:* in units of painted horizon sky radiance `L_horizon`,
+     `L_land / L_horizon = (ρ / π) · (E_dir · max(0, n · s) · C_sun + E_sky · V(n) · C_sky)`, where
+     `ρ = srgbToLinear(albedo) · (1 − 0.45 · wet)` (Twomey et al. 1986; Lekner & Dorf 1988), `n` is the upward unit
+     normal in view frame `(across, ahead, up)` from true crest across slope (`/ EXAGGERATION`) and DEM `FaceSample.slope`,
+     `V(n) = (1 + n_up) / 2`, `s = light.dir`, and `C_sun` / `C_sky` are unit-luminance linear chromaticities (`C_sky`
+     from the hemispherical dome blend of `ambient`, `horizon`, and neutral `diffuse` cloud scatter).
+   - *Calibration (one global constant):* `DNI_OVER_DHI_CLEAR = 7.6` against ASTM G173-03 / Bird & Hulstrom (1981) clear
+     sky at ~38° solar altitude (`DNI ≈ 800 W/m²`, `DHI ≈ 105 W/m²`). `E_sky / (π · L_horizon)` is derived from the exact
+     cosine-weighted hemisphere integral `∫₀^{π/2} (L(θ)/L_horizon) sin(2θ) dθ` over `palette.top` (`0.25`), `mid`
+     (`0.633`), and `horizon` (`0.117`), inverted from display space by `1/γ` (`γ = 0.6`), with daytime overcast gain
+     (`+0.6`) gated by `(1 − shares.sun) · diffuse` above 2°. Moonlight uses the same law with `shares.moon` (`0.3×`).
+   - *Exposure & compression:* one horizon-relative Stevens/Reinhard power law (`γ = 0.6`):
+     `Y_display = Y_horizonDisplay · (L_land / L_horizon)^0.6`, preserving `ρ · light` hue/chroma.
+   - *Cloud-once rule & linear compositing:* `shares.sun` (`sunClear · open`) drives `E_dir` on unshadowed land; discrete
+     cloud shadows (`cloudShadows.ts`, `cloudShadowLayers.ts`, `blend: 'multiply'`) remove ONLY `E_dir` via
+     `cloudShadowMultiplyRgb` (calibrated so `srgbToLinear(c_0 · g) = f_display · srgbToLinear(c_0)` at mid-tone, leaving
+     `≥ L_diffuseOnly`). `moodVeilOf` and `palette.ridgeNear` never darken lit land a second time. Koschmieder aerial haze
+     (`hazeAt = AERIAL · fade(km)²`) mixes in linear light (`mixLight`, `linearHazeAlpha`) toward `hazeOf(world)`, whose
+     aerosol tint preserves `sky` luminance so twilight haze never exceeds the horizon.
+   - *Form/light split & halo-free compositing:* `plane:form` and `canopy:form` store light-free reflectance form
+     `F_lin(ρ) = (Y(ρ)/ρ_ref)^0.6 · (ρ/Y(ρ))` (`ρ_ref = 0.50`, hour-independent cache keys). `plane:light` carries a
+     dual-band canvas: Band 0 (`planeShade.ts`, `PlaneShadeField` + floor shadows) multiplies by
+     `M_lin(n) = Y_horizon · (ρ_ref · E_Y)^0.6 · (E(n)/E_Y) ∈ [0, 1]`; Band 1 (`planeLight.ts`) lays linear-equivalent
+     aerial haze, snow, full-face washes, sunlit rims and catchlights. `Surface.compositeDualPlane` composes opaque fill,
+     `plane:form`, `canopy:form`, Band 0 (`multiply`), and Band 1 (`source-over`) on one reusable `planeScratch` canvas,
+     then applies `destination-in` with `plane:form` once for halo-free antialiased crests at every hour.
