@@ -3,6 +3,7 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { addMinutes } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
+import { GROUP } from '../../world/lifeSchedule'
 import { makeWorldBuilder } from '../../world/world'
 import type { WorldState } from '../../world/types'
 import { periodDelta, trackAt } from './anim'
@@ -18,6 +19,7 @@ import type { LayerDesc, SceneBox } from './types'
  */
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
+const RAD = Math.PI / 180
 
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {
@@ -25,7 +27,8 @@ beforeAll(async () => {
   places = await loadPlaces(SCENE_PLACES.filter((p) => ['tel-aviv', 'haifa', 'jerusalem'].includes(p.id)))
 }, 120_000)
 
-interface Seen { x: number; y: number; scale: number; alpha: number; edge: number; hidden: boolean; kind: LayerDesc['kind']; period: number }
+interface Pose { x: number; y: number; scale: number; alpha: number; edge: number; hidden: boolean }
+interface Seen extends Pose { kind: LayerDesc['kind']; period: number; bound: number; scaleBound: number; alphaBound: number; end: Pose }
 
 /** The objects of the sky's life drawn at a minute, by their event's id: where, how big, how faint, hidden or not. */
 function lifeAt(world: WorldState): Map<string, Seen> {
@@ -35,17 +38,31 @@ function lifeAt(world: WorldState): Map<string, Seen> {
   const out = new Map<string, Seen>()
   for (const l of model.layers) {
     if (l.surface !== 'sky' || !l.placed || (l.kind !== 'birds' && l.kind !== 'aircraft')) continue
-    const { x, y, scale } = l.placed
-    const alpha = l.placed.alpha * trackAt(l.animated?.flight, 0)!.alpha
-    const left = x + l.bounds.x * scale, right = x + (l.bounds.x + l.bounds.w) * scale
-    const bottom = y + (l.bounds.y + l.bounds.h) * scale, upper = y + l.bounds.y * scale
-    // How far inside the frame its nearest part is (px): small at an edge.
-    const edge = Math.min(right, geom.width - left)
-    const km = l.kind === 'birds' ? world.life.birds.find((b) => `birds.${b.id}` === l.id)!.distanceM / 1000 : Infinity
-    // Behind the land (its whole sprite under the drawn land's top, and farther than it), it is hidden by that land.
-    const hidden = upper > Math.min(top(left), top(x), top(right)) - 1 && !model.layers.some((f) => f.id === `${l.id}.front`)
-      && (l.kind !== 'birds' || !inFrontOf(world, geom, x, km))
-    out.set(l.id, { x, y: bottom, scale, alpha, edge, hidden, kind: l.kind, period: geom.azimuthRange.period })
+    const flock = l.kind === 'birds' ? world.life.birds.find((b) => `birds.${b.id}` === l.id)! : null
+    const km = flock ? flock.distanceM / 1000 : Infinity
+    const poseAt = (phase: number): Pose => {
+      const t = trackAt(l.animated?.flight, phase)!
+      const x = l.placed!.x + t.x, y = l.placed!.y + t.y
+      const scale = l.placed!.scale * t.scale, alpha = l.placed!.alpha * t.alpha
+      const left = x + l.bounds.x * scale, right = x + (l.bounds.x + l.bounds.w) * scale
+      const bottom = y + (l.bounds.y + l.bounds.h) * scale, upper = y + l.bounds.y * scale
+      // How far inside the frame its nearest part is (px): small at an edge.
+      const edge = Math.min(right, geom.width - left)
+      // Behind the land (its whole sprite under the drawn land's top, and farther than it), it is hidden by that land.
+      const hidden = upper > Math.min(top(left), top(x), top(right)) - 1 && !model.layers.some((f) => f.id === `${l.id}.front`)
+        && (l.kind !== 'birds' || !inFrontOf(world, geom, x, km))
+      return { x, y: bottom, scale, alpha, edge, hidden }
+    }
+    // A minute moves a flock within its pass's angular sweep (+12 px for the strip's loops), scale and fade within a 60 s step.
+    const stepM = flock ? 60 * flock.speedMs : 0
+    const bound = flock
+      ? Math.min(geom.width, 1.1 * ((2 * Math.atan((30 * flock.speedMs) / flock.nearM)) / RAD) * world.camera.pxPerDeg * geom.s) + 12
+      : 200
+    const scaleBound = flock ? Math.min(1, (stepM / (flock.nearM + stepM)) * 1.1 + 0.05) : 1
+    const reachM = flock ? flock.nearM * GROUP[flock.kind].reach : 0
+    const u = flock ? Math.min(1, stepM / (0.45 * reachM)) : 0
+    const alphaBound = flock ? Math.min(1, 1.5 * u - 0.5 * u ** 3 + 0.1) : 0.5
+    out.set(l.id, { ...poseAt(0), kind: l.kind, period: geom.azimuthRange.period, bound, scaleBound, alphaBound, end: poseAt(60) })
   }
   return out
 }
@@ -59,12 +76,12 @@ function scrub(id: string, from: LocalTime, minutes: number) {
 }
 
 /** Arrived (or gone) unseen: faint, at the frame's edge, or hidden by the land. */
-const unseen = (s: Seen) => s.alpha <= 0.2 || s.scale <= 0.25 || s.edge <= 60 || s.hidden
+const unseen = (s: Pose) => s.alpha <= 0.2 || s.scale <= 0.25 || s.edge <= 60 || s.hidden
 
 describe('the sky\'s life is continuous in time', () => {
   it.each(['tel-aviv', 'haifa', 'jerusalem'])('%s: a scrub minute by minute moves each object a bounded way; none pops in or out in the open sky', (id) => {
     const frames = [...scrub(id, '2026-11-17T06:00', 360), ...scrub(id, '2026-11-17T12:00', 300)]
-    let moved = 0, came = 0
+    let moved = 0, came = 0, maxBirdOpacityStep = 0
     for (let i = 1; i < frames.length; i++) {
       if (i === 361) continue
       const a = frames[i - 1], b = frames[i]
@@ -76,17 +93,20 @@ describe('the sky\'s life is continuous in time', () => {
           continue
         }
         moved++
-        // A minute moves a bird by tens of px at most; an airliner or a jet climbing out near the place by its true angular speed.
-        const bound = now.kind === 'birds' ? 45 : 200
-        expect(Math.hypot(periodDelta(now.x - was.x, now.period), now.y - was.y), `${id} ${key} at minute ${i}`).toBeLessThan(bound)
-        // Flocks stay within this size change over a whole minute. A nearby jet can change apparent size faster;
-        // lifeContinuity checks its scale across the rebuild at the same physical instant.
-        if (now.kind === 'birds') expect(Math.abs(now.scale - was.scale), key).toBeLessThan(0.25)
-        // Fading by distance and the ground's haze: a bird slowly, a jet as fast as it climbs away (km a minute).
-        expect(Math.abs(now.alpha - was.alpha), key).toBeLessThan(now.kind === 'birds' ? 0.3 : 0.5)
+        // A minute moves a bird within its pass's angular sweep; an airliner or a jet climbing out near the place by its true angular speed.
+        expect(Math.hypot(periodDelta(now.x - was.x, now.period), now.y - was.y), `${id} ${key} at minute ${i}`).toBeLessThanOrEqual(now.bound)
+        // Flocks stay within their 60 s perspective scale and fade-ramp change; lifeContinuity checks rebuild continuity at the same instant.
+        if (now.kind === 'birds') {
+          expect(Math.abs(now.scale - was.scale), key).toBeLessThanOrEqual(now.scaleBound)
+          const step = Math.abs(now.alpha - was.end.alpha)
+          maxBirdOpacityStep = Math.max(maxBirdOpacityStep, step)
+          expect(step, `${id} ${key} opacity step at minute ${i}`).toBeLessThanOrEqual(0.05)
+        }
+        expect(Math.abs(now.alpha - was.alpha), key).toBeLessThanOrEqual(now.alphaBound)
       }
-      for (const [key, was] of a) if (!b.has(key)) expect(unseen(was), `${id} ${key} vanishes at minute ${i}: ${JSON.stringify(was)}`).toBe(true)
+      for (const [key, was] of a) if (!b.has(key)) expect(unseen(was.end), `${id} ${key} vanishes at minute ${i}: ${JSON.stringify(was.end)}`).toBe(true)
     }
+    console.log(id, 'max bird opacity step (phase 60 → phase 0)', maxBirdOpacityStep.toFixed(6))
     expect(moved).toBeGreaterThan(50)
     expect(came).toBeGreaterThan(2)
   }, 120_000)

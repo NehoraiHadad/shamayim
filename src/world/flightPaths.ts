@@ -50,11 +50,11 @@ export const FLIGHT: Record<BirdKind, KindFlight> = {
 /** A flock's track: points every `ds` m along its way (m east, north of the eye; m above sea level), in flight order. */
 export interface FlockTrack {
   /** e, n, z per point. */
-  pts: Float32Array
-  ds: number
+  readonly pts: ArrayLike<number>
+  readonly ds: number
   /** The index nearest the eye (3D) and that distance (m). */
-  nearIdx: number
-  nearM: number
+  readonly nearIdx: number
+  readonly nearM: number
 }
 
 export interface TrackSpec {
