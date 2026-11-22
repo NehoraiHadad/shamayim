@@ -10,7 +10,7 @@ import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { groundBlocker, groundClearKey } from './groundClear'
 import { addFieldParcel } from './vegAgriBuilders'
 import { addForestCluster, addScrubOrGrass, addStrataBand, type BackgroundWeight, type BuildEnv } from './vegBuilders'
-import { cropEvidence, cropEvidenceKey, probeCellCropEvidence } from './vegCropEvidence'
+import { CROP_PROBE_REACH, cropBuckets, cropEvidenceKey, probeCellCropEvidence } from './vegCropEvidence'
 import { EMPTY_VEGETATION, packVegetation, vegBuffers } from './vegDescriptor'
 import { projectedFootprints } from './vegFootprint'
 import { addOrchardBlock, orchardDetail } from './vegOrchard'
@@ -26,6 +26,7 @@ import type { Box, PlaneVegetation, SceneBox } from './types'
  */
 
 const cache = new WeakMap<LivingLand, Map<string, PlaneVegetation>>()
+const CELL_JITTER = 0.22
 
 /** Coordinate-derived seed (10 m precision) so renaming place metadata never alters vegetation. */
 const coordSeed = (lat: number, lon: number, name: PlaneName) =>
@@ -59,7 +60,7 @@ export function planeVegetationOf(
   const footAt = (refX: number) => localFootY(world, name, refX, crestAt(refX), box.landHeight)
   const groundAt = (x: number, y: number) => faceAtY(world, name, plane, x, crestAt(x), footAt(x), y)
   const scaleAtKm = (km: number) => mPerPxAt(km * 1000, world.camera)
-  const evidenceAt = cropEvidence(world)
+  const cropBucket = cropBuckets(world, name, plane)
   let footprints: ReturnType<typeof projectedFootprints> | undefined
   const footprintsOf = () => footprints ??= projectedFootprints(world, name, plane, crestAt, footAt)
   const env: BuildEnv = {
@@ -67,13 +68,13 @@ export function planeVegetationOf(
     scaleAt: (x, y) => scaleAtKm(groundAt(x, y).km),
     farScale: (area) => {
       let farKm = 0
-      footprintsOf()(area, () => true, (_area, _lo, hi) => { farKm = Math.max(farKm, hi); return true })
+      footprintsOf().fits(area, () => true, (_area, _lo, hi) => { farKm = Math.max(farKm, hi); return true })
       return scaleAtKm(farKm)
     },
-    fits: (area, accepts, mapped) => !blocked(area) && footprintsOf()(area, accepts, mapped),
+    fits: (area, accepts, mapped) => !blocked(area) && footprintsOf().fits(area, accepts, mapped),
   }
   const buf = vegBuffers()
-  const cols = name === 'near' ? 12 : 10, colW = SCENE_W / cols
+  const cols = name === 'near' ? 12 : 10, colW = SCENE_W / cols, reach = (CELL_JITTER / 2 + CROP_PROBE_REACH) * colW
   const climate = { koppen, lat: world.place.lat, lon: world.place.lon }
   let drySum = 0, dryN = 0, elevSum = 0, grassDrySum = 0, grassNdviSum = 0, grassN = 0
 
@@ -83,10 +84,11 @@ export function planeVegetationOf(
     const cy0 = crestAt(baseRefX), fy0 = footAt(baseRefX), spanY0 = fy0 - cy0
     if (spanY0 < 4) continue
     const colRows = name === 'far' ? (spanY0 < 16 ? 1 : 2) : spanY0 < 24 ? 2 : spanY0 >= 56 ? 4 : 3
+    const bucket = cropBucket(Math.max(0, baseRefX - reach), Math.min(SCENE_W, baseRefX + reach))
     for (let r = 0; r < colRows; r++) {
       const rand = seeded(cellSeed(seed, c, r))
       const fTop = r / colRows, fBot = (r + 1) / colRows
-      const refX = (c + 0.5 + (rand() - 0.5) * 0.22) * colW
+      const refX = (c + 0.5 + (rand() - 0.5) * CELL_JITTER) * colW
       const cy = crestAt(refX), fy = footAt(refX), spanY = fy - cy
       if (spanY < 4) continue
       const yTop = cy + 1.5 + fTop * (spanY - 2), yBot = cy + 1.5 + fBot * (spanY - 2), yMid = (yTop + yBot) * 0.5
@@ -96,9 +98,10 @@ export function planeVegetationOf(
       if (cell.cover === 3) { grassDrySum += cell.dryness; grassNdviSum += cell.ndvi; grassN++ }
 
       const mPerPx = scaleAtKm(km)
-      const evidence = cell.cover === 1 || cell.cover === 4 ? evidenceAt(refX, km) : undefined
-      const crop = evidence ? { evidence, sample: cell, x: refX, km, slope }
-        : probeCellCropEvidence(world, name, plane, evidenceAt, crestAt, footAt, refX, colW, yTop, yBot, nRays)
+      const evidence = cell.cover === 1 || cell.cover === 4 ? bucket?.at(refX, km) : undefined
+      let crop = evidence ? { evidence, sample: cell, x: refX, km, slope } : undefined
+      if (!crop && name === 'near' && bucket) crop = probeCellCropEvidence(world, plane, bucket, crestAt, footAt,
+        refX, colW, yTop, yBot, nRays, footprintsOf)
       let weight: BackgroundWeight | undefined
       if (crop) {
         const { kind, contains } = crop.evidence
@@ -115,7 +118,7 @@ export function planeVegetationOf(
         }
         if (buf.rows.length + buf.trees.length + buf.fields.length > before) {
           const fade = kind === 'vineyard' ? 1 : orchardDetail(detailScale)
-          weight = (area) => footprintsOf()(area, () => true, contains) ? 1 - fade : 1
+          weight = (area) => footprintsOf().fits(area, () => true, contains) ? 1 - fade : 1
         }
       }
       // Classify the background independently. Only footprints inside a rendered crop crossfade.

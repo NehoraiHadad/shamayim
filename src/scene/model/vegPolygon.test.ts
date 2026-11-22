@@ -6,7 +6,7 @@ import { makeWorldInput, SHADMOT, typedCover } from '../../test/livingLandFixtur
 import { SCENE_W } from '../../world/sceneBox'
 import type { Plane, WorldState } from '../../world/types'
 import { makeWorldBuilder } from '../../world/world'
-import { cropEvidence } from './vegCropEvidence'
+import { cropBuckets } from './vegCropEvidence'
 import { faceAtY } from './faceProjection'
 import { planeLayer } from './planes'
 import type { SceneBox } from './types'
@@ -112,10 +112,10 @@ describe('mapped orchard footprint containment', () => {
   })
 
   it('keeps one polygon identity even when members of a same-kind multipolygon overlap', () => {
-    const { world } = slopingCropWorld([{ source: 'osm', kind: 'palm', polygons: [
+    const { world, near } = slopingCropWorld([{ source: 'osm', kind: 'palm', polygons: [
       [rectRing(-0.4, 0.4, -0.85, -0.45)], [rectRing(-0.4, 0.4, -1.1, -0.8)],
     ] }])
-    const at = cropEvidence(world)
+    const { at } = cropBuckets(world, 'near', near)(175, 200)!
     const footprint = [183, 60, 192, 68] as const
     expect(at(187.5, 0.7)?.contains(footprint, 0.6, 0.75)).toBe(true)
     expect(at(187.5, 0.7)?.contains(footprint, 0.6, 0.95)).toBe(false)

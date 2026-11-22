@@ -16,6 +16,18 @@ describe('Stage 4 footprint clipping', () => {
     expect(vegSample).not.toHaveProperty('crestKmAt')
   })
 
+  it('bounds crop probes across a DEM seam after moving the probe down to clear the crest', () => {
+    const base = buildWorld(makeWorldInput(SHADMOT, '2026-11-17T12:00', null))
+    const plane: Plane = { points: [[0, 40], [375, 40]], distanceKm: [2, 2] }
+    const columns = [0, 375].map((x, i) => ({ x, crest: 40,
+      points: [{ y: 40.5, km: i ? 0.8 : 1.4, h: 0, slope: 0 }] }))
+    const world = { ...base, terrain: { ...base.terrain, near: plane,
+      faces: { ...base.terrain.faces, near: { columns, contours: [] } } } }
+    const { cropDepth } = projectedFootprints(world, 'near', plane, () => 40, () => 128)
+    expect(cropDepth([186, 38, 189, 39], 0)).toEqual([2, 2])
+    expect(cropDepth([186, 38, 189, 39], 1)).toEqual([0.8, 2])
+  })
+
   it('splits parcel and row interiors at an actual projected water band, preserving dry pieces', () => {
     const base = buildWorld(makeWorldInput(SHADMOT, '2026-11-17T12:00', null))
     const plane: Plane = { points: [[0, 50], [375, 50]], distanceKm: [3, 3] }
@@ -30,7 +42,7 @@ describe('Stage 4 footprint clipping', () => {
         ] } } },
         land: { ...base.land, rays: base.land.rays.map((ray) => ({ ...ray, bands: bands(dry) })) },
       }
-      return projectedFootprints(world, 'near', plane, crestAt, footAt)
+      return projectedFootprints(world, 'near', plane, crestAt, footAt).fits
     }
     const yOf = (km: number) => 50 + 60 * (3 - km) / 2.4
     const wetTop = yOf(Math.sqrt(1.6 * 1.8)), wetBottom = yOf(Math.sqrt(1.4 * 1.6))

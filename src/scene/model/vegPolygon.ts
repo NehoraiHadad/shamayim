@@ -7,13 +7,21 @@ export type Quad = readonly [Point, Point, Point, Point]
 // Cross products are in km². Include numerical boundary contacts in the rejection.
 const CROSS_EPS = 1e-12
 
-interface LocalRing {
+export interface Bounds {
+  minX: number; minY: number; maxX: number; maxY: number
+}
+
+interface LocalRing extends Bounds {
   /** Flat `[x0, y0, x1, y1, ...]` coordinates in km east/north of the observer. */
   coords: Float64Array
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
+}
+
+export const boundsOverlap = (a: Bounds, b: Bounds) =>
+  a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
+
+export function quadBounds([[ax, ay], [bx, by], [cx, cy], [dx, dy]]: Quad): Bounds {
+  return { minX: Math.min(ax, bx, cx, dx), maxX: Math.max(ax, bx, cx, dx),
+    minY: Math.min(ay, by, cy, dy), maxY: Math.max(ay, by, cy, dy) }
 }
 
 export interface LocalPolygon {
@@ -94,9 +102,8 @@ function edgeClipsQuad(quad: Quad, ax: number, ay: number, bx: number, by: numbe
  * contains the entire connected footprint.
  */
 export function quadInPolygon(p: LocalPolygon, quad: Quad): boolean {
-  const [[ax, ay], [bx, by], [cx, cy], [dx, dy]] = quad
-  const minX = Math.min(ax, bx, cx, dx), maxX = Math.max(ax, bx, cx, dx)
-  const minY = Math.min(ay, by, cy, dy), maxY = Math.max(ay, by, cy, dy)
+  const [[ax, ay]] = quad
+  const { minX, minY, maxX, maxY } = quadBounds(quad)
   const outer = p.rings[0]
   if (minX < outer.minX || maxX > outer.maxX || minY < outer.minY || maxY > outer.maxY) return false
   if (!pointInPolygonXY(p, ax, ay)) return false

@@ -1,18 +1,15 @@
-import type { FaceColumn, FacePoint } from '../../world/face'
+import type { FaceColumn } from '../../world/face'
 import type { LivingLand } from '../../world/landLiving'
 import { SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, WorldState } from '../../world/types'
-import { crestKmAt, FACE_EPSILON, faceColumnAt, faceColumnStep, fallbackFaceKm, measuredFaceAt } from './faceProjection'
+import { crestKmAt, faceColumnAt, faceColumnStep } from './faceProjection'
+import { distanceRange, profileBounds, type Depth } from './vegFootprintDepth'
 
 export type Footprint = readonly [left: number, top: number, right: number, bottom: number]
 export type CoverCheck = (cover: number | null) => boolean
-export type AreaLimit = (area: Footprint, loKm: number, hiKm: number) => boolean
-
-interface Strip {
-  crestLo: number; crestHi: number; footLo: number; footHi: number
-  kmLo: number; kmHi: number; points: readonly FacePoint[]
-  cover: CoverRun
+export type AreaLimit = ((area: Footprint, loKm: number, hiKm: number) => boolean) & {
+  allowsEdges?: (left: number, right: number) => boolean
 }
 
 interface CoverRun {
@@ -35,39 +32,6 @@ function coverRun(land: LivingLand, ray: number): CoverRun {
   } }
 }
 
-/** Bounds a rectangle's radial distance on one strip, including profile and interpolation discontinuities. */
-function distanceRange(s: Strip, name: 'near' | 'far', top: number, bottom: number): [number, number] {
-  if (!s.points.length) {
-    if (bottom <= s.crestLo + FACE_EPSILON) return [s.kmLo, s.kmHi]
-    const fraction = (y: number, crest: number, foot: number) => Math.max(0, Math.min(1, (y - crest) / Math.max(1, foot - crest)))
-    const lo = fallbackFaceKm(name, s.kmLo, fraction(bottom, s.crestLo, s.footLo))
-    const hi = fallbackFaceKm(name, s.kmHi, fraction(top, s.crestHi, s.footHi))
-    return top <= s.crestHi + FACE_EPSILON ? [Math.min(lo, s.kmLo), Math.max(hi, s.kmHi)] : [lo, hi]
-  }
-  const { crestLo, crestHi, kmLo, kmHi, points } = s
-  const crests = [crestLo, crestHi]
-  for (const y of [top, bottom, ...points.map((p) => p.y)]) {
-    const skip = y - FACE_EPSILON
-    if (skip >= crestLo && skip <= crestHi) crests.push(skip, Math.max(crestLo, skip - 1e-9))
-  }
-  let min = Infinity, max = -Infinity
-  for (const crest of crests) {
-    // For fixed crest, depth is linear between DEM knots. Within each crest branch the first segment's
-    // interpolation is monotone in crest y and crest distance, which are bounded independently above.
-    min = Math.min(min, measuredFaceAt(points, kmLo, crest, top).km, measuredFaceAt(points, kmLo, crest, bottom).km)
-    max = Math.max(max, measuredFaceAt(points, kmHi, crest, top).km, measuredFaceAt(points, kmHi, crest, bottom).km)
-    if (top <= crest + FACE_EPSILON && bottom > crest + FACE_EPSILON) {
-      min = Math.min(min, kmLo)
-      max = Math.max(max, kmHi)
-    }
-  }
-  for (const p of points) if (p.y >= top && p.y <= bottom && p.y > crestLo + FACE_EPSILON) {
-    min = Math.min(min, p.km)
-    max = Math.max(max, p.km)
-  }
-  return [min, max]
-}
-
 function columnCuts(columns: readonly FaceColumn[]) {
   return columns.slice(1).map((_, i) => columns[0].x + (i + 0.5) * faceColumnStep(columns))
 }
@@ -87,23 +51,28 @@ export function projectedFootprints(
     const left = edges[i], mid = (left + right) / 2
     const cy0 = crestAt(left), cy1 = crestAt(right), fy0 = footAt(left), fy1 = footAt(right)
     const k0 = crestKmAt(plane, left), k1 = crestKmAt(plane, right)
-    const crestLo = Math.min(cy0, cy1)
-    return { right, left, points: faceColumnAt(columns, mid)?.points ?? [], crestLo, crestHi: Math.max(cy0, cy1),
+    const crestLo = Math.min(cy0, cy1), crestHi = Math.max(cy0, cy1)
+    const points = faceColumnAt(columns, mid)?.points ?? []
+    return { right, left, points, crestLo, crestHi, ...profileBounds(points, crestLo, crestHi),
       // Far foot = min(sheet, max(near crest + 3, far crest)). The unclamped lines can cross within a strip.
       footLo: front.length < 2 ? Math.min(fy0, fy1)
         : Math.min(fy0, fy1, Math.max(crestLo, Math.min(lineAt(front, left), lineAt(front, right)) + 3)),
       footHi: Math.max(fy0, fy1), kmLo: Math.min(k0, k1), kmHi: Math.max(k0, k1),
       cover: coverRuns[Math.round(mid / SCENE_W * Math.max(0, rays - 1))] }
   })
-  return (box: Footprint, accepts: CoverCheck, limits?: AreaLimit) => {
-    const [x0, top, x1, bottom] = box
+  function firstStrip(x: number) {
     let low = 0, high = strips.length
     while (low < high) {
       const mid = (low + high) >> 1
-      if (strips[mid].right < x0) low = mid + 1
+      if (strips[mid].right < x) low = mid + 1
       else high = mid
     }
-    for (let i = low; i < strips.length && strips[i].left <= x1; i++) {
+    return low
+  }
+  function fits(box: Footprint, accepts: CoverCheck, limits?: AreaLimit) {
+    const [x0, top, x1, bottom] = box
+    if (limits?.allowsEdges && x0 <= SCENE_W && x1 >= 0 && !limits.allowsEdges(Math.max(x0, 0), Math.min(x1, SCENE_W))) return false
+    for (let i = firstStrip(x0); i < strips.length && strips[i].left <= x1; i++) {
       const strip = strips[i], { uniform, covers } = strip.cover
       if (uniform !== undefined && !accepts(uniform)) return false
       if (uniform !== undefined && !limits) continue
@@ -114,4 +83,16 @@ export function projectedFootprints(
     }
     return true
   }
+  /** The probe can move down to clear the local crest. Include that y at every DEM seam. */
+  function cropDepth([left, top, right, bottom]: Footprint, crestClearance: number): Depth {
+    let lo = Infinity, hi = -Infinity
+    for (let i = firstStrip(left); i < strips.length && strips[i].left <= right; i++) {
+      const strip = strips[i]
+      const [a, b] = distanceRange(strip, name, top, Math.max(bottom, strip.crestHi + crestClearance))
+      lo = Math.min(lo, a)
+      hi = Math.max(hi, b)
+    }
+    return [lo, hi]
+  }
+  return { fits, cropDepth }
 }

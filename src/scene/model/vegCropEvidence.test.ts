@@ -3,23 +3,24 @@ import { coverMarks } from '../../data/landmarks/coverMarks'
 import { mappedCropArea, type CropArea, type CropKind } from '../../data/landmarks/cropAreas'
 import { parseOverpass } from '../../data/landmarks/overpass'
 import { loadLandmarkSource } from '../../data/landmarks/useLandmarks'
-import { destination } from '../../data/terrain/panorama'
+import * as panorama from '../../data/terrain/panorama'
 import { makeWorldInput, SHADMOT, typedCover } from '../../test/livingLandFixtures'
 import { DATUM_PLACES, STILL_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import type { Plane } from '../../world/types'
 import { makeWorldBuilder } from '../../world/world'
 import { layersOn, sceneModel } from '.'
+import { planeVegetationOf } from './landVegetation'
 import { planeLayer } from './planes'
 import type { LayerOf, SceneBox } from './types'
-import { cropEvidence } from './vegCropEvidence'
+import { cropBuckets } from './vegCropEvidence'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const COVER = typedCover(1, 'worldcover-2021:local-50m')
 const INPUT = makeWorldInput(SHADMOT, '2026-11-17T12:00', { cover: COVER, near: null, far: null, weather: null })
 
-function mapped(kind: CropKind, km: number, half: number): CropArea {
-  const { lat, lon } = destination(SHADMOT.lat, SHADMOT.lon, km, 180)
+function mapped(kind: CropKind, km: number, half: number, bearing = 180): CropArea {
+  const { lat, lon } = panorama.destination(SHADMOT.lat, SHADMOT.lon, km, bearing)
   return { source: 'osm', kind, polygons: [[[
     [lon - half, lat - half], [lon + half, lat - half], [lon + half, lat + half], [lon - half, lat + half], [lon - half, lat - half],
   ]]] }
@@ -40,10 +41,11 @@ describe('mapped crop evidence from the landmark pipeline', () => {
     const build = makeWorldBuilder()
     const world = build({ ...INPUT, landmarks: [...loaded.sceneMarks, ...synthetic], cropAreas: loaded.cropAreas })
     expect(world.cropAreas?.map((a) => a.kind)).toEqual(['vineyard'])
-    const at = cropEvidence(world)
-    expect(at(187.5, 0.8)?.kind).toBe('vineyard')
-    expect(at(187.5, 1.5)).toBeUndefined() // Same bearing, unrelated land behind the vineyard.
-    expect(cropEvidence(build({ ...INPUT, landmarks: synthetic }))(187.5, 0.8)).toBeUndefined()
+    const plane: Plane = { points: [[0, 40], [375, 40]], distanceKm: [2, 2] }
+    const bucket = cropBuckets(world, 'near', plane)(175, 200)
+    expect(bucket?.at(187.5, 0.8)?.kind).toBe('vineyard')
+    expect(bucket?.at(187.5, 1.5)).toBeUndefined() // Same bearing, unrelated land behind the vineyard.
+    expect(cropBuckets(build({ ...INPUT, landmarks: synthetic }), 'near', plane)(175, 200)).toBeUndefined()
     expect(mappedCropArea({ landuse: 'orchard', trees: 'date_palms' },
       { type: 'Polygon', coordinates: mapped('palm', 1, 0.001).polygons[0] })?.kind).toBe('palm')
     expect(mappedCropArea({ landuse: 'orchard' },
@@ -71,6 +73,36 @@ describe('mapped crop evidence from the landmark pipeline', () => {
     expect(blocked.key).not.toBe(refined.key)
     expect(blocked.light.key).not.toBe(refined.light.key)
     expect(blocked.vegetation.rows).toHaveLength(0)
+  })
+
+  it('skips all ground-coordinate crop probes outside the plane bearing or depth', () => {
+    const near: Plane = { points: [[0, 40], [375, 40]], distanceKm: [0.6, 0.6] }
+    const build = makeWorldBuilder()
+    const world = build({ ...INPUT, cropAreas: [mapped('palm', 0.6, 0.0004, 0), mapped('orchard', 2, 0.0004)] })
+    const projected = { ...world, terrain: { ...world.terrain, near,
+      faces: { ...world.terrain.faces, near: { columns: [], contours: [] } } } }
+    const project = vi.spyOn(panorama, 'destination')
+    try {
+      const descriptor = planeVegetationOf(projected, BOX, 'near', near, [0.3, 0.4, 0.3], [])
+      expect(descriptor.rows).toHaveLength(0)
+      expect(project).not.toHaveBeenCalled()
+    } finally {
+      project.mockRestore()
+    }
+  })
+
+  it('prunes a cell by radial range and keeps first-match order across north and in a mirrored camera', () => {
+    const plane: Plane = { points: [[0, 40], [375, 40]], distanceKm: [2, 2] }
+    const world = makeWorldBuilder()({ ...INPUT, cropAreas: [mapped('olive', 0.8, 0.001, 0), mapped('orchard', 0.8, 0.001, 0)] })
+    for (const handed of [1, -1] as const) {
+      const bucket = cropBuckets({ ...world, camera: { ...world.camera, heading: 0, handed } }, 'near', plane)(170, 205)!
+      expect(bucket.intersects(175, 200, 0.2, 0.5)).toBe(false)
+      expect(bucket.intersects(175, 200, 0.79, 0.81)).toBe(true)
+      expect(bucket.at(187.5, 0.8)?.kind).toBe('olive')
+    }
+    const north = { ...world, camera: { ...world.camera, heading: 0 } }
+    const fallback = cropBuckets(north, 'near', { ...plane, distanceKm: [] })(170, 205)
+    expect(fallback?.at(187.5, 0.8)?.kind).toBe('olive')
   })
 
   it('wires real mapped OSM crop areas through loadPlaces and worldInput (Kalya palms & Nahalal olive/orchards)', async () => {
