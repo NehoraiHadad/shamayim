@@ -874,4 +874,38 @@ The isolated timing gate passed 1/1 with 7.50 ms paired overhead. The median was
 
 ## Stage 5: wind on land
 
+### Handoff (Codex as writer, 2026-11-22)
+
+**Wind and dust**
+
+- `src/scene/model/landWind.ts` takes the mean, gust and lateral sign from `WorldState.wind`. An easterly bends right and a westerly bends left in the true south-facing camera, with both signs reversed in the mirrored camera. The mean bend follows squared speed as a drag approximation, is zero below 0.3 m/s and saturates at 17.1 m/s (upper Beaufort 7). Gust travel uses the extra load from the forecast gust above the mean. The painter gives pine crowns and palm trunks less travel than orchard crowns, grass and frond tips. Stage 4's projected visibility weight fades the motion, and each tree's seeded phase offsets its response to the gust. [NWS Beaufort scale](https://www.weather.gov/tbw/beaufort)
+- `canopy.ts` and `paint/landVeg{Pose,Crowns,Tufts,Light}.ts` keep roots and contact shadows in place and use the same bent crown anchor for the form and its catchlight. `compose/{compositeOrder,paintJob,surface}.ts` lays each plane's form, canopy form, terrain light and canopy catchlights in order. A windy `canopy.near` or `canopy.far` takes ten cached poses over two seconds, with a quarter-pixel sway cutoff per plane. Each active canopy costs a form blit and, when lit, a catchlight blit per composite. The phase only selects poses. The terrain form key stays stable when the wind or light changes, and canopy form keys change when the quantised wind changes. Reduced motion uses the mean pose. The paint worker prepares the strips once per key, and the main-thread fallback caches each pose on first use.
+- `model/landDust.ts` uses visible terrain, WorldCover 60, NDVI below 0.16, dryness above 0.72 and sustained 10 m wind above 8 m/s. It suppresses emission during rain, snow and recent strong wetness. The strength eases between the thresholds and omits ribbons below a source strength of 0.10. These are illustration thresholds based on Beaufort's loose-dust cue and the existing land dryness index, with NDVI between the USGS barren and sparse ranges. `paint/landDust.ts` supplies cached two-tone soft tiles. `landDust.near` and `landDust.far` use the rain compositor's moving pattern with zero vertical velocity, one fill per contiguous ribbon and a weaker far veil. [NWS Beaufort scale](https://www.weather.gov/tbw/beaufort), [USGS NDVI](https://www.usgs.gov/special-topics/remote-sensing-phenology/science/ndvi-foundation-remote-sensing-phenology)
+- The Stage 4 follow-ups are in `vegCropCold.test.ts`, `worldCoverSas.ts` and `e2e/land{.perf,PerfRoutes}.mjs`. Nahalal's default-suite gate takes the median of 31 alternating cold pairs and requires crop overhead below 2.5× the paired crop-free cost. The App fixture captures timeout reasons and names the affected paths. Holding one local tile for 5.5 s passed the attribution probe (1/1) and identified `/data/land/il/323_355.json` as a deadline abort when the fixture stopped.
+
+**Visual QA**
+
+I inspected the 375 CSS px calm and windy pairs in [stage5](stage5/) and enlarged crops of the land. Rosh Pina's woods keep their grounded understory, Nahalal's field divisions hold while the crowns lean, and the Negev dust stays low with a weaker far wash. Kalya's recorded plantation resolves as orchard blocks at this width. The labeled near-palm fixture adds six synthetic foreground palms over the same panorama and light, and the strip shows their trunk/frond joins at 0.0, 0.4, 0.8 and 1.2 s. The stills and pixel suite use recorded terrain and weather overrides with external requests intercepted.
+
+Added pixel references for `land-wind-rosh-pina` (woodland mean lean), `land-wind-kalya-palms` (individual fronds in a gust) and `land-wind-ramon-crater` (advected ground dust). All 66 existing references passed as recorded.
+
+**Checks**
+
+- `npx tsc -b` passed with 0 errors. `npm run build` passed with 483 modules transformed and the existing chunk-size warning.
+- `npx vitest run --maxWorkers=2 --testTimeout=20000 --silent=false` passed 1,346/1,346 tests in 152/152 files. Nahalal paired median overhead was 6.01 ms (1.89× crop-free). The build medians were 3.34 ms crop-free and 9.38 ms with crops.
+- `npm run test:pixels` passed 69/69 in 176.9 s.
+- `node e2e/land.wind.mjs --perf` passed 3/3 at CPU ×4 and DPR 2.75 with 301 samples per surface per case and zero paint-worker batches during the sampled frames. Sky + land p95 was 2.90 ms at Rosh Pina, 3.60 ms at Kalya and 4.00 ms at Ramon Crater. Land p95 alone was 1.00, 1.40 and 2.30 ms.
+- `npm run test:perf` passed 18/27 gates and exited 1. The six cold/scrub model gates exceeded the limit, as did Haifa and Tel Aviv storm frames and Haifa arrival. The App fixture passed with six unique fine tiles, zero duplicates, the expected missing-tile albedo fallback and both terrain form keys reused for all 30 scrubs. App fallback/refinement took 11,999.0/1,606.8 ms and light scrub p50 was 595.2 ms. The original Stage 4 handoff recorded 6,256.7/900.7 ms for fallback/refinement. Its later 30-step local-preview light scrub was 447.2 ms.
+- I ran the same scene checks on a local export of approved Stage 4 (`8c594af`, `--no-app-land`, same CPU ×4 and DPR 2.75). Stage 4 passed 17/27 gates. Cold/scrub model overruns occurred at all three places in both runs. The earlier Stage 4 handoff measured model cold at 71.0 ms in Haifa and 53.3 ms in Shadmot, and scrub model p95 at 21.1, 27.5 and 18.0 ms across Haifa, Tel Aviv and Shadmot.
+
+| Place | Cold model, Stage 4 → 5 | Scrub model p95 | Storm frame p95 | Loading frame p95 | Arrival frame p95 |
+|---|---:|---:|---:|---:|---:|
+| Haifa | 316.5 → 168.1 ms | 82.1 → 41.7 ms | 7.30 → 7.50 ms | 3.70 → 4.00 ms | 4.30 → 6.40 ms |
+| Tel Aviv | 236.5 → 199.4 ms | 47.2 → 37.0 ms | 7.70 → 8.30 ms | 3.30 → 4.50 ms | 8.60 → 4.70 ms |
+| Shadmot Mehola | 189.8 → 199.4 ms | 31.7 → 33.0 ms | 8.50 → 5.60 ms | 4.10 → 3.80 ms | 4.70 → 4.60 ms |
+
+The land scrub p95 was 3.5, 2.3 and 3.0 ms in Stage 5, against 9.5, 5.6 and 1.8 ms in the matched Stage 4 run. Tel Aviv loading measured 3.50 ms on the earlier Stage 5 run and 4.50 ms on the full rerun. Three alternating six-second checks of that fixture then measured 2.60/2.50/2.50 ms on Stage 4 and 3.20/2.50/2.70 ms on Stage 5.
+
+**Open items.** The residual general vegetation cold cost at Nahalal and the broad browser overruns remain open for app-wide performance work.
+
 ## Stage 6: stills and docs
