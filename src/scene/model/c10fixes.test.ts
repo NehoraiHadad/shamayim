@@ -36,7 +36,7 @@ beforeAll(async () => {
 }, 120_000)
 
 function at(id: string, when: LocalTime, forced: Partial<AirInput> | null = null, veil = false, input = worldInput(places.get(id)!, when)) {
-  const world = buildWorld({ ...input, selected: input.now === when ? null : when, forced,
+  const world = buildWorld({ ...input, forced,
     ...(veil ? { forcedLayers: CIRRUS_LAYERS } : {}) })
   return { world, model: sceneModel(world, BOX) }
 }
@@ -54,7 +54,7 @@ describe('C10 fix: the 22° halo is a circle round the sun', () => {
     for (const id of ['jerusalem', 'haifa', 'tiberias']) {
       const input = worldInput(places.get(id)!, '2026-11-17T12:00')
       for (const when of moments) {
-        const { world, model } = at(id, when, CIRRUS, true, input)
+        const { world, model } = at(id, when, CIRRUS, true, { ...input, selected: when })
         const halo = ofKind(model.layers, 'bow').find((b) => b.look === 'halo')
         if (!halo) continue
         seen++
@@ -111,7 +111,8 @@ describe('C10 fix: contrails are straight', () => {
       const input = worldInput(places.get(place.id)!, '2026-11-17T12:00')
       for (const [forced, veil] of [[null, false], [CIRRUS, true]] as const) {
         for (const hour of ['08:00', '11:00', '14:00']) {
-          const { model, world } = at(place.id, `2026-11-17T${hour}`, forced, veil, input)
+          const when = `2026-11-17T${hour}`
+          const { model, world } = at(place.id, when, forced, veil, { ...input, selected: when })
           const { horizon } = skyGeom(world, BOX)
           const trails = ofKind(model.layers, 'contrail')
           expect(trails.length, `${place.id} ${hour}`).toBeLessThanOrEqual(4)

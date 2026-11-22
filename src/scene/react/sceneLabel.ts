@@ -50,7 +50,7 @@ export function sceneLabel(world: LabelWorld, forecast: Forecast, now: LocalTime
   const elevation = Math.round(forecast.elevation)
   return [
     `${world.place.nameHe}, ${conditionLabel(renderedCondition(shown, world, hasLightning), isDay)}, ${tempText(temperature)}.`,
-    world.bodies.sun.up && !selected ? 'השמש מעל האופק.' : '',
+    world.bodies.sun.up && shown.live ? 'השמש מעל האופק.' : '',
     event ? `${event.rise ? 'זריחה' : 'שקיעה'} ב־${ltr(clockOf(event.time))}.` : '',
     elevation < 0
       ? `היישוב ${ltr(String(Math.abs(elevation)))} מטר מתחת לפני הים.`

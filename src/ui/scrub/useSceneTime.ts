@@ -46,12 +46,14 @@ export function useSceneTime(now: LocalTime): SceneTime {
     stop()
     if (!start || reducedMotion()) return toNow()
     const distance = minutesBetweenLocal(start, nowRef.current)
+    if (distance === 0) return toNow()
     const began = performance.now()
     setRewinding(true)
     const tick = (time: number) => {
       const p = Math.min(1, (time - began) / REWIND_MS)
-      if (p === 1) return toNow()
-      setAt(addMinutes(start, distance * (1 - (1 - p) ** 3)))
+      const offset = Math.round(distance * (1 - (1 - p) ** 3))
+      if (offset === distance) return toNow()
+      setAt(addMinutes(start, offset))
       frame.current = requestAnimationFrame(tick)
     }
     frame.current = requestAnimationFrame(tick)
