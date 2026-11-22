@@ -218,7 +218,7 @@ describe('the life schedule', () => {
           (at) => lifeInputAt(input, at, { camera, env }))
         for (const e of schedule.flocks) {
           // Measured from the sampled ground positions (2 s apart, mid-session), not from the laid track's metadata.
-          const mid = (e.t0 + e.t1) / 2, a = flockAt(e, mid - 1).at, b = flockAt(e, mid + 1).at
+          const mid = (e.t0 + e.t1) / 2, a = flockAt(e, mid - 1).at!, b = flockAt(e, mid + 1).at!
           const ratio = (Math.hypot(b.e - a.e, b.n - a.n) * 1000) / 2 / e.speedMs
           ratios.push(ratio)
           if (ratio <= 0.87 + 1e-3) lowClamped++
