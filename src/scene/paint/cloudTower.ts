@@ -6,7 +6,7 @@ import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 /*
  * A tower (Cu con, Cg, Cb) in the sheets' soft hand (the owner's call, 22 Nov: soft and translucent, not cardboard). Two
  * steps on a scratch sheet, as the light lies on a mass and not on its parts: first the silhouette, soft puffs scattered up
- * a narrowing column (a cauliflower crown, a flat anvil on a Cb), alpha only; then the colour laid once over all of it
+ * a narrowing column (a cauliflower crown, a flat anvil on a mature Cb only), alpha only; then the colour laid once over all of it
  * (`source-in`): greyer at the base, the body above, the light's side lit, the crown silvered against a sun behind.
  * No outlines, no filter; seeded by the cell. Pure: the sprite, its place and the scratch surface from `env`.
  */
@@ -19,7 +19,8 @@ const OPACITY = 0.92, TAU_FULL = 6
 export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv): void {
   if (s.w < 0.5 || s.share <= 0.005 || s.tall < 0.5) return
   const alpha = OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
-  const spread = s.genus === 'cb' ? ANVIL : 0.8
+  const anvil = s.anvil ?? 0
+  const spread = 0.8 + (ANVIL - 0.8) * anvil
   const box = { x: -s.w * spread, y: -s.tall - s.w * 0.25, w: s.w * spread * 2, h: s.tall + s.w * 0.25 + s.under + 2 }
   const k = env.scale
   const w = Math.max(1, Math.ceil(box.w * k)), h = Math.max(1, Math.ceil(box.h * k))
@@ -37,6 +38,7 @@ export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: 
 /** The tower's alpha: soft puffs, larger and rounder toward the crown, over a flat soft base. */
 function silhouette(c: Ctx2D, s: CloudSprite) {
   const r = rng(s.seed)
+  const anvil = s.anvil ?? 0
   const n = Math.max(6, Math.min(90, Math.round((s.tall / s.w) * PUFFS) + 4))
   puff(c, 0, s.under * 0.3, s.w * 0.5, Math.max(1, s.under * 0.5 + s.w * 0.06), 0.9)
   for (let i = 0; i < n; i++) {
@@ -47,13 +49,13 @@ function silhouette(c: Ctx2D, s: CloudSprite) {
     const cy = -t * (s.tall - rx * 0.7)
     puff(c, cx, cy, rx, rx * (0.85 + 0.15 * r()), 0.75 + 0.25 * r())
   }
-  if (s.genus === 'cb') {
-    // The anvil: a thick soft cap spread wider than the column, thinning toward its edges.
+  if (anvil > 0.05) {
+    // The anvil: a thick soft cap spread wider than the column as far as the top has spread, thinning toward its edges.
     const top = -s.tall + s.w * 0.22
     for (let i = 0; i < 5; i++) {
       const u = i / 4 - 0.5
-      const rx = s.w * (0.55 - 0.25 * Math.abs(u))
-      puff(c, u * s.w * (ANVIL - 0.4), top + Math.abs(u) * s.w * 0.1, rx, rx * (0.45 + 0.1 * r()), 0.9)
+      const rx = s.w * (0.4 + 0.15 * anvil - 0.25 * Math.abs(u))
+      puff(c, u * s.w * (ANVIL - 0.4) * anvil, top + Math.abs(u) * s.w * 0.1, rx, rx * (0.45 + 0.1 * r()), 0.9 * anvil)
     }
   }
 }

@@ -2,6 +2,7 @@ import { projectCell } from '../../world/field/project'
 import type { FieldCell } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import type { CloudSprite, SpriteGenus } from '../paint/cloudSprite'
+import { smoothstep } from '../../world/ridgeLighting'
 import { acrossSpeed, pxPerRadAt } from './advect'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
@@ -24,6 +25,10 @@ type Placed = LayerOf<'cloudCells'>['cells'][number]
 const TOP_MIN = 0.4
 /** A cell whose near edge stands higher than this (deg) is overhead: its base, not its column, is what shows. */
 const NEAR_MAX = 25
+/** The tropopause over the Levant in the cool season (km): a Cb whose top reaches it spreads into an anvil. */
+const TROPOPAUSE_KM = 11
+/** Anvils in view at most: only the most mature cells of a storm line have spread theirs. */
+const ANVILS = 2
 /** Narrower than this (px) a tower is a speck in the haze. */
 const W_MIN = 1.5
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
@@ -36,7 +41,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
   const pxPerDeg = world.camera.pxPerDeg * geom.s
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
-  const placed: (Placed & { km: number })[] = []
+  const placed: (Placed & { km: number; top: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
     const w = p.widthDeg * pxPerDeg
@@ -45,21 +50,27 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const y = geom.dome(Math.max(0, p.aNear))
     const under = Math.max(0, geom.dome(Math.max(0, p.aFar)) - y)
-    const tall = Math.max(0, y - geom.dome(p.aTop))
+    // The dome stretches the sky near the horizon far more than across it: a tower keeps its true aspect (its depth
+    // against its width) at the width's scale, so a far one is a low heap, not a streak to the dome's top altitude.
+    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), w * cell.vKm / (2 * cell.r)))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, cell, light, union, x, y, w, under, tall)
-    placed.push({ sprite, x, y, km: p.rangeKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
+    placed.push({ sprite, x, y, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
   }
   if (!placed.length) return null
+  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause.
+  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
+  placed.filter((c) => mature(c) > 0).sort((a, b) => mature(b) * b.sprite.w - mature(a) * a.sprite.w).slice(0, ANVILS)
+    .forEach((c) => { c.sprite.anvil = mature(c) })
   placed.sort((a, b) => b.km - a.km)
   const top = Math.max(0, Math.floor(Math.min(...placed.map((c) => c.y - c.sprite.tall)) - 12))
   const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(...placed.map((c) => c.y + c.sprite.under)) + 8))
-  const drawn = placed.map(({ km: _km, ...c }) => c)
+  const drawn = placed.map(({ km: _km, top: _top, ...c }) => c)
   return {
     kind: 'cloudCells', id: 'cloudCells.tower', lattice: 'tower', surface: 'sky', z: sheetZ.tower, soft: true, cells: drawn,
     bounds: { x: 0, y: top, w: geom.width, h: Math.max(1, bottom - top) },
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under),
-      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05)])),
+      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05)])),
   }
 }
 

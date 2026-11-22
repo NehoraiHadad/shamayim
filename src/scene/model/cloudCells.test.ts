@@ -40,7 +40,7 @@ it('stands each tower on the dome where its cell is, far first', () => {
     const p = projectCell(cell)
     expect(x).toBeCloseTo(geom.x(p.az), 6)
     expect(y).toBeCloseTo(geom.dome(Math.max(0, p.aNear)), 6)
-    expect(y - sprite.tall).toBeCloseTo(geom.dome(p.aTop), 6)
+    expect(y - sprite.tall).toBeGreaterThanOrEqual(geom.dome(p.aTop) - 1e-6)
     expect(sprite.genus).toBe('cb')
     expect(sprite.w).toBeGreaterThan(1)
     expect(p.rangeKm).toBeLessThanOrEqual(previous + 1e-9)
@@ -80,3 +80,29 @@ it('makes no towers without convection', () => {
   const { towers } = towersAt('jerusalem', '11:30', { cloudCover: 50, precipitation: 0, weatherCode: 2, humidity: 60 })
   expect(towers).toBeUndefined()
 }, 30_000)
+
+it('keeps each tower in its true aspect, so a far one is a low heap and not a streak', () => {
+  const morning = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, windSpeed: 25, windDirection: 250, humidity: 80 }
+  const { world, towers } = towersAt('jerusalem', '07:00', morning)
+  const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
+  expect(towers?.cells.length).toBeGreaterThan(5)
+  for (const { sprite } of towers!.cells) {
+    const cell = cells.get(sprite.seed)!
+    expect(sprite.tall / sprite.w).toBeLessThanOrEqual(cell.vKm / (2 * cell.r) + 1e-9)
+  }
+}, 30_000)
+
+it('spreads an anvil only on the most mature storm cells in view', () => {
+  for (const [id, hour] of [['haifa', '16:00'], ['jerusalem', '11:30']]) {
+    const { world, towers } = towersAt(id, hour)
+    const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
+    const anvils = towers!.cells.filter((c) => (c.sprite.anvil ?? 0) > 0)
+    expect(anvils.length).toBeGreaterThan(0)
+    expect(anvils.length).toBeLessThanOrEqual(2)
+    for (const { sprite } of anvils) {
+      const cell = cells.get(sprite.seed)!
+      expect(sprite.genus).toBe('cb')
+      expect(cell.baseKm + cell.vKm).toBeGreaterThan(9.5)
+    }
+  }
+}, 60_000)
