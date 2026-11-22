@@ -1,5 +1,5 @@
 // Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/), with the HTML overlay.
-//   node e2e/scene.stills.mjs <outDir> <place>@<HH:MM | YYYY-MM-DDTHH:MM>[@<weather>[@<phase s | flash>[@<land>[@<hide ids,�>]]]] … [--dpr=2]
+//   node e2e/scene.stills.mjs <outDir> <place>@<HH:MM | YYYY-MM-DDTHH:MM>[@<weather>[@<phase s | flash>[@<land>[@<hide ids,…>]]]] … [--dpr=2]
 // (`land`: loading | offline | arrive, C8: the land not known yet, or its reveal begun at phase 0.)
 // (A full date picks another day: the moon in another phase. The fixture's forecast is rolled to it.)
 import fs from 'node:fs'
