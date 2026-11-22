@@ -6,7 +6,7 @@ import { clustersForCache, validClusters } from './clusterCache'
 import type { CityResult, CityTower } from './types'
 
 const MONTH = 30 * 24 * 60 * 60 * 1000
-const cacheKey = (id: string) => `shamayim:city:v5:${id}`
+const cacheKey = (id: string) => `shamayim:city:v6:${id}`
 
 function validTower(tower: CityTower | null) {
   return tower && [tower.dx, tower.dy, tower.lat, tower.lon, tower.heightM].every(Number.isFinite) &&
@@ -27,7 +27,7 @@ function readCache(id: string): CityResult | null {
   return null
 }
 
-export function useCity({ id, lat, lon }: Place) {
+export function useCity({ id, lat, lon, nameHe }: Place) {
   const cached = useMemo(() => readCache(id), [id])
   const [loaded, setLoaded] = useState<{ id: string; columns: CityResult } | null>(null)
   useEffect(() => {
@@ -40,7 +40,7 @@ export function useCity({ id, lat, lon }: Place) {
       }
       try {
         const { rows, towers, west, span } = columns
-        const clusters = clustersForCache(columns.clusters)
+        const clusters = clustersForCache(columns.clusters, nameHe)
         if (clusters) localStorage.setItem(cacheKey(id), JSON.stringify({
           at: Date.now(), columns: { rows, towers, west, span, clusters },
         }))
@@ -54,6 +54,6 @@ export function useCity({ id, lat, lon }: Place) {
       controller.abort()
       if (idle != null) window.cancelIdleCallback?.(idle)
     }
-  }, [id, lat, lon, cached])
+  }, [id, lat, lon, nameHe, cached])
   return loaded?.id === id ? loaded.columns : cached
 }

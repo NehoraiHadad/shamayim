@@ -1,7 +1,6 @@
 //# allFunctionsCalledOnLoad
-import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
-import { BACKING_PAD } from '../../world/place'
 import { SCENE_W } from '../../world/sceneBox'
+import { sceneClearance } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
 import type { Box, OverlayItem, SceneBox } from './types'
 
@@ -19,13 +18,5 @@ export function layoutOf(world: WorldState, box: SceneBox): { overlay: OverlayIt
     { kind: 'height', text: height.text, x: height.x * sx, y: height.y, below: height.below, ...(height.backed ? { backed: true } : {}) },
     ...notes.map((note): OverlayItem => ({ kind: note.kind, text: note.text, x: note.left * sx, y: note.top })),
   ]
-  const pad = height.backed ? BACKING_PAD : 0
-  const labelW = textWidth(height.text, LABEL_PX) + 2 * pad
-  const clear: Box[] = [
-    { x: dot.x * sx - DOT_R, y: dot.y - DOT_R, w: 2 * DOT_R, h: 2 * DOT_R },
-    // A backed label (C9) lies over the place's mass on its backing: the drawing does not give way to it (no hole).
-    ...(height.backed ? [] : [{ x: height.x * sx - labelW / 2, y: height.y - pad, w: labelW, h: LABEL_PX + 2 * pad }]),
-    ...notes.map((note) => ({ x: note.left * sx, y: note.top, w: note.width, h: note.height })),
-  ]
-  return { overlay, clear }
+  return { overlay, clear: sceneClearance(world.labels, dot, box.width) }
 }

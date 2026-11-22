@@ -90,6 +90,6 @@ export function describeCluster(place: Coordinate, component: BuiltSquare[], nod
     bands: bands.map(({ columns, sheds }, i) => ({
       dy: dy[1] - (i + .5) * depth / count, runs: runs(columns, toKm), big: runs(sheds, toKm),
     })),
-    place: node && { kind: node[2], faith: node[3], name: node[5] },
+    place: node && { kind: node[2], faith: node[3], name: node[5], at: cityOffset(place, { lat: node[0], lon: node[1] }) },
     urban, ...(urban && { columns: componentColumns(squares, toKm) }) }
 }

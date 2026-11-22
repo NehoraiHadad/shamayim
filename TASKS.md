@@ -791,6 +791,39 @@ Briefs: `docs/briefs/track-a-glyph-flip.md`, `…round2.md`; delegate report `�
   Opus subagent reviewed both rounds (Codex never reviewed its own code)
 - [ ] Follow-up: `WearLight.side` (`scene/model/wear.ts`) is still a sign of `across` for the garments (out of scope)
 
+## Polish audit track B — marks owned by the place's own footprint (audit #2) — 2026-11-21 (branch `claude/fix-mark-ownership-caed9e`)
+Who wrote what: Claude (Opus 5.5) managed, measured, briefed and verified; Codex `gpt-6.2-sol` wrote round 1 (Neon was at
+quota, 429); an Opus subagent reviewed round 1 (8 findings); Neon `gemini-4-neon-high` wrote round 2 (the fixes); Codex
+`gpt-6.2-sol` reviewed round 2 (3 P1, 3 P2, 1 P3); Neon wrote round 3 (`BRIEF-round3.md`: landmark cache v8, evidence
+per cell, seat inside the drawn block, seat by px before the 20 m gate, one ownership predicate, tests that can fail).
+Codex reviewed round 3 (4 findings); Neon wrote round 4 (no-raster fallback kept, containment against the scene model's
+final block, seat candidates carried past the shortlist, tests split) and round 5 (`BRIEF-round5.md`: the carried
+candidates reach beyond seating only, so own portraits are unchanged; landmark cache v9). Codex reviewed rounds 4-5
+(2 findings). Neon hit quota mid-round 6 (partial edits discarded), so Codex wrote rounds 6-7 and an Opus subagent
+reviewed round 6: the seat budget is applied in the scene model after the final block cull (a freed slot goes to the
+next viable seat), the label and skyline see only the world-width budget, the cap stays 5 on wide screens.
+Codex reviewed rounds 6-7 (3 findings); Codex wrote round 8 (backed height label culls seated glyphs before the
+budget; place.ts trimmed). Its light-per-render-width fix was reviewed by Opus (forked world state, rebuild on resize)
+and withdrawn by the manager in round 8b: one world state at SCENE_W stays.
+Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
+- [x] (a) Worship heights by evidence, the same for every religion: 9 m hall; tower height only from `tower:type=minaret`,
+      `building=minaret`, `man_made=tower`, `height` or levels (`src/data/landmarks/worship.ts`, `overpass.ts`). Build writes
+      `heights: 'evidence'`; `loadIsrael` reads the old build's default-valued rows (all 1564 minarets at 30 m, 53 churches
+      at 25 m) as halls.
+- [x] (b) Own marks from the place's own footprint: `homeCluster(clusters, nameHe)` takes the cluster named after the
+      place (≤ 2 km); `placeBounds` gives its mapped point the cell, reaching its farthest corner; only for a name match
+      (other places keep their exact cell). City cache key `v6`, the named home reserved in the cache.
+- [x] (c) A hall, high-rise or homes beyond the place within 6 km is drawn only on its town's drawn block, at its true
+      size and haze (`src/world/beyondSeat.ts`, shared with `beyondTowns`, bit-identical; `beyondMarks.ts`).
+- [x] Tests over the bundled data (`src/world/markOwnership.test.ts`, `worship.test.ts`): Karmei Tzur keeps שבת אחים, the
+      hamlet cell without the fix does not; Safed and Rosh Pina by the same rule; seated size; hidden-block negative.
+- [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
+      (e.g. famous mosques in Jaffa) get their tower height back.
+- [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.
+- [ ] Follow-up: at render widths other than 375 px the light's sun/moon skyline (`drawnSkyline.ts`) still counts
+      structures the scene culls behind text (town blocks, beyond towers, trees, and now swapped seats). Fix them
+      together, keeping one world state (e.g. a width-independent cull rule), not per-width world rebuilds.
+
 ## Polish track C — life keeps moving (audit #3, #9) — 2026-11-22 (branch `claude/fix-life-motion-740e49`)
 Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-2.md`, `IMPL-1.md`, `IMPL-2.md`, `NOTES.md`).
 - [x] One `LifeClock {laidAt, sinceS}` (`useLifeClock`); the world lays 120 s of life ahead every 2 s (`world/lifeAhead.ts`);

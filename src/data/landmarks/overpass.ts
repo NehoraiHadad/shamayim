@@ -3,6 +3,7 @@ import { fameOf, outranks } from './fame'
 import { LANDMARK_FILTERS } from './filters'
 import { offsetKm } from './project'
 import type { Landmark, MarkKind } from './types'
+import { BELL_TOWER_M, levelHeight, taggedHeight, worshipHeight } from './worship'
 
 interface Element { id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }
 interface Response { elements?: Element[] }
@@ -26,19 +27,25 @@ export function buildQuery(place: Place): string {
 }
 
 function classify(tags: Record<string, string>): { kind: MarkKind; height: number } | null {
-  const levels = Number.parseFloat(tags['building:levels'] ?? '')
-  const taggedHeight = Number.parseFloat(tags.height ?? '')
-  const height = Number.isFinite(taggedHeight) ? taggedHeight : undefined
+  const height = taggedHeight(tags)
   if (tags.man_made === 'cooling_tower' || tags['tower:type'] === 'cooling') return { kind: 'cooling', height: height ?? 60 }
   if (tags.power === 'generator' && tags['generator:source'] === 'wind') return { kind: 'turbine', height: height ?? 80 }
   if (tags.man_made === 'chimney') return { kind: 'chimney', height: height ?? 60 }
   if (tags.man_made === 'lighthouse') return { kind: 'lighthouse', height: height ?? 20 }
-  if (tags['tower:type'] === 'minaret' || tags.building === 'mosque'
-    || (tags.amenity === 'place_of_worship' && tags.religion === 'muslim')) return { kind: 'minaret', height: height ?? 30 }
-  if (tags.amenity === 'place_of_worship' && tags.religion === 'jewish' && tags.building) return { kind: 'synagogue', height: height ?? 9 }
+  const minaret = tags['tower:type'] === 'minaret' || tags.building === 'minaret'
+  const tower = tags.man_made === 'tower'
+  if (minaret || tags.building === 'mosque' || (tags.amenity === 'place_of_worship' && tags.religion === 'muslim')) {
+    return { kind: 'minaret', height: worshipHeight(tags, minaret || tower) }
+  }
+  if (tags.amenity === 'place_of_worship' && tags.religion === 'jewish' && tags.building) {
+    return { kind: 'synagogue', height: worshipHeight(tags, tower) }
+  }
   if (tags.man_made === 'water_tower') return { kind: 'waterTower', height: height ?? 25 }
-  if (tags.building && (height ?? levels * 3.2) >= 40) return { kind: 'highrise', height: height ?? levels * 3.2 }
-  if (/church|cathedral/.test(tags.building ?? '') && tags.amenity === 'place_of_worship') return { kind: 'church', height: height ?? 25 }
+  const buildingHeight = height ?? levelHeight(tags)
+  if (tags.building && buildingHeight !== undefined && buildingHeight >= 40) return { kind: 'highrise', height: buildingHeight }
+  if (/church|cathedral/.test(tags.building ?? '') && tags.amenity === 'place_of_worship') {
+    return { kind: 'church', height: worshipHeight(tags, tower, BELL_TOWER_M) }
+  }
   if (tags.man_made === 'silo') return { kind: 'silo', height: height ?? 30 }
   if (/castle|fort/.test(tags.historic ?? '')) return { kind: 'castle', height: height ?? 12 }
   if (tags.man_made === 'mast' || tags['tower:type'] === 'communication') return { kind: 'mast', height: height ?? 45 }

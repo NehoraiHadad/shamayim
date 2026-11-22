@@ -1,7 +1,8 @@
 import type { SceneTerrain } from '../data/terrain/terrain'
+import type { WorldMark } from './markGeometry'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
-import type { FarCities, OutsideView, PlaceUnknown, Pt, WorldMark } from './types'
+import type { FarCities, OutsideView, PlaceUnknown, Pt } from './types'
 
 /*
  * The drawn skyline (the owner's report of 2026-11-20: a low sun drawn over the near hill and the town). Everything in the
@@ -17,8 +18,8 @@ import type { FarCities, OutsideView, PlaceUnknown, Pt, WorldMark } from './type
 const RES = 2
 
 /**
- * The top of the drawn land at each fraction of the scene's width (layout px), as a skyline: the panorama's eye level
- * and camera kept (`base`), so a body is placed on its path exactly as before and only judged against this line.
+ * The top of the world-width land and its budgeted marks at each fraction of the scene's width (layout px). The panorama's
+ * eye level and camera (`base`) place each body on its path, and this line determines whether it clears the land.
  */
 export function drawnSkyline(drawn: SceneTerrain, place3: OutsideView | PlaceUnknown, marks: readonly WorldMark[], far: FarCities | null,
   base: Skyline): Skyline {

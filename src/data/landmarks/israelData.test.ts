@@ -1,9 +1,12 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../config/place'
 import { cellsForStrip, inCoverage, loadIsrael, resetIsraelDataForTests,
   type IsraelLandmarkIndex } from './israelData'
 import type { Landmark } from './types'
-import { loadLandmarkSource } from './useLandmarks'
+import { loadLandmarkSource, useLandmarks } from './useLandmarks'
+import { HALL_M } from './worship'
 
 const place = (values: Partial<Place> = {}): Place => ({ id: 'karmei-tzur', nameHe: 'כרמי צור', regionHe: '',
   lat: 31.6092, lon: 35.1009, timezone: 'Asia/Jerusalem', ...values })
@@ -60,10 +63,59 @@ describe('fame in the shipped rows', () => {
       : new Response(JSON.stringify([['church', 31.6092, 35.1009, 25, '', 2], ['waterTower', 31.61, 35.1, 25, 'מגדל', 1],
         ['minaret', 31.62, 35.1, 30]]))))
     const marks = await loadIsrael(place(), new AbortController().signal)
-    expect(marks?.[0]).toEqual({ id: 'il-church-31.6092-35.1009', kind: 'church', lat: 31.6092, lon: 35.1009, heightM: 25,
+    expect(marks?.[0]).toEqual({ id: 'il-church-31.6092-35.1009', kind: 'church', lat: 31.6092, lon: 35.1009, heightM: 9,
       source: 'osm', fame: 2 })
     expect(marks?.[1]).toMatchObject({ nameHe: 'מגדל', fame: 1 })
+    expect(marks?.[2]).toMatchObject({ kind: 'minaret', heightM: 9 })
     expect(marks?.[2].fame).toBeUndefined()
+  })
+
+  it('preserves tower heights from an evidence cell even under an index with no heights flag', async () => {
+    const [legacyCell, evidenceCell] = cellsForStrip(place())
+    vi.stubGlobal('fetch', async (input: string) => {
+      if (input.endsWith('index.json')) return new Response(JSON.stringify(index({ cells: [legacyCell, evidenceCell] })))
+      if (input.endsWith(`${legacyCell}.json`)) return new Response(JSON.stringify([['minaret', 31.60, 35.1, 30]]))
+      return new Response(JSON.stringify({ heights: 'evidence', rows: [['church', 31.6092, 35.1009, 25], ['minaret', 31.62, 35.1, 30]] }))
+    })
+    const marks = await loadIsrael(place(), new AbortController().signal)
+    expect(marks?.map((mark) => mark.heightM)).toEqual([HALL_M, 25, 30])
+  })
+
+  it('keeps a non-default tagged height in a legacy array cell while downgrading flat defaults to HALL_M', async () => {
+    const cell = cellsForStrip(place())[0]
+    vi.stubGlobal('fetch', async (input: string) => input.endsWith('index.json')
+      ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : new Response(JSON.stringify([['minaret', 31.62, 35.1, 30], ['minaret', 31.63, 35.1, 22], ['church', 31.61, 35.1, 18]])))
+    const marks = await loadIsrael(place(), new AbortController().signal)
+    expect(marks?.map((mark) => mark.heightM)).toEqual([HALL_M, 22, 18])
+  })
+})
+
+describe('landmark cache version', () => {
+  it('ignores a fresh v8 cache entry and reads v9 with seatCandidates instead', () => {
+    const storage = new Map<string, string>()
+    vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => storage.set(k, v) })
+    const p = place()
+    const stale: Landmark = { id: 'stale-v8-minaret', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const fresh: Landmark = { id: 'fresh-v9-hall', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const seat: Landmark = { id: 'fresh-v9-seat', kind: 'synagogue', lat: p.lat + .02, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const payload = (marks: Landmark[], seatCandidates: Landmark[] = []) =>
+      JSON.stringify({ at: Date.now(), marks, panoramaMarks: marks, aroundMarks: marks, sceneMarks: marks, seatCandidates })
+    const readHook = () => {
+      let result: ReturnType<typeof useLandmarks> | null = null
+      function Probe() { result = useLandmarks(p, true, false, true); return null }
+      renderToStaticMarkup(createElement(Probe))
+      return result!
+    }
+    storage.set(`shamayim:landmarks:v8:${p.id}`, payload([stale], [seat]))
+    expect(readHook().marks.some((m) => m.id === stale.id)).toBe(false)
+    expect(readHook().seatCandidates).toEqual([])
+    expect(readHook().usesOsm).toBe(false)
+    storage.set(`shamayim:landmarks:v9:${p.id}`, payload([fresh], [seat]))
+    expect(readHook().marks.some((m) => m.id === fresh.id)).toBe(true)
+    expect(readHook().seatCandidates.map((m) => m.id)).toEqual([seat.id])
+    expect(readHook().usesOsm).toBe(true)
   })
 })
 

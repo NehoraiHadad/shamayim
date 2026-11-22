@@ -20,7 +20,7 @@ Branch `claude/fix-life-motion-740e49`. Briefs: `BRIEF-neon-1.md`, `BRIEF-2.md`.
   puffs drift with the wind each on its own (rebuild residual < 10⁻⁶ px); meteors are one-shot pulses.
 - **Edges.** A mover is laid if any of its 61 samples is in view, so nothing pops in up to ~59 px inside the edge.
 
-## Owner decision (please confirm)
+## Owner decision (confirmed 2026-11-22: keep moving)
 
 While scrubbing, life keeps moving in real wall time and the set of objects follows the shown hour: a resting scrub
 re-anchors each whole real minute (life samples the shown moment plus those minutes; sky, light and clouds stay at the

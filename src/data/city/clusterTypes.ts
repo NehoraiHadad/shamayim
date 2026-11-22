@@ -14,7 +14,8 @@ export type Cluster = {
   // Form size is a class. Big, pitched, flat and evidence are fractions of mapped squares.
   form: { size: number; big: number; pitched: number; flat: number; evidence: number; tagged?: number }
   bands: { dy: number; runs: Extent[]; big: Extent[] }[]
-  place?: { name: string; kind: PlaceRow[2]; faith: PlaceRow[3] }
+  /** The associated place node, with its location in km from the viewer when available. */
+  place?: { name: string; kind: PlaceRow[2]; faith: PlaceRow[3]; at?: { dx: number; dy: number } }
   urban: boolean
   /** Sparse phase-3 bins of this component alone, indexed at BAND_WIDTH. */
   columns?: ReadonlyMap<number, Column>

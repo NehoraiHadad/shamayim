@@ -2,9 +2,10 @@
 import { hashId } from '../../data/landmarks/hash'
 import { groundFn } from '../../data/landmarks/seat'
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
+import type { WorldMark } from '../../world/markGeometry'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
-import type { RGB, WorldMark, WorldState } from '../../world/types'
+import type { RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
 import { mixRgb, rgbOf } from './tone'
@@ -12,8 +13,7 @@ import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
 import { glyphHand } from './glyphHand'
 
-/** Draw order on the land: the far ridge's and the plain's marks over the far towns, under the near ridge; the near ridge's
- * portrait (houses, trees, the marks among them) over the near ridge and its water. */
+/** Far and plain marks lie over the far towns and under the near ridge. The portrait lies over the near ridge and its water. */
 const Z = { far: 17, near: 40 }
 /** The trees' sway (C7): four frames at two a second, a two-second rock about the lean. */
 export const SWAY_FRAMES = { count: 4, fps: 2 }
