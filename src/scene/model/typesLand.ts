@@ -25,12 +25,11 @@ export interface LightPart {
   blend: 'source-over' | 'multiply' | 'screen' | 'overlay' | 'soft-light'
   /** Optional layer tone after light and haze (omitted on terrain planes). */
   tint?: RGB
-  faces: Face[]
 }
 
 /**
  * Compact, structured-cloneable quantised land albedo palette for one terrain plane (Stage 3: living land).
- * Light-free: baked into the plane's FORM canvas and cached by `world.keys.land` (never repainted on hour scrub).
+ * Light-free: sampled into stationary material texels and cached across light changes.
  */
 export interface PlanePalette {
   /** Quantised light-free surface tones (sRGB colours). */
@@ -104,7 +103,7 @@ export interface PlaneLitField {
 
 /** A terrain receiver's shared lighting field. */
 export interface PlaneLight extends Omit<LightPart, 'tint'> {
-  litField?: PlaneLitField
+  litField: PlaneLitField
 }
 
 /** The place's own ground polygon over the ridge line in the outside view (C5b + Stage 3). */

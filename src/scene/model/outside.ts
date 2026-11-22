@@ -294,7 +294,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
       sea && Math.round((sea.drift ?? 0) * 4), skyKey),
-    blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25], faces: [] },
+    blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25] },
   }
 }
 

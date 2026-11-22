@@ -37,7 +37,7 @@ export const dirAtBearing = (azimuth: number, altitude: number, bearingDeg: numb
 export function shadeLinearRgb(
   rhoLin: readonly [number, number, number], eSun: readonly [number, number, number], eMoon: readonly [number, number, number],
   eSky: readonly [number, number, number], sVis: number, mVis: number, vSky: number, yHorizon: number,
-  hazeShare = 0, hazeLin?: readonly [number, number, number],
+  hazeShare = 0, hazeLin?: readonly [number, number, number], out: [number, number, number] = [0, 0, 0],
 ): [number, number, number] {
   const lr = rhoLin[0] * (eSun[0] * sVis + eMoon[0] * mVis + eSky[0] * vSky)
   const lg = rhoLin[1] * (eSun[1] * sVis + eMoon[1] * mVis + eSky[1] * vSky)
@@ -46,7 +46,11 @@ export function shadeLinearRgb(
   let cr = 0, cg = 0, cb = 0
   if (r > 1e-9) { const s = (yHorizon * (r ** EXPOSURE_GAMMA)) / r; cr = lr * s; cg = lg * s; cb = lb * s }
   const h = clamp01(hazeShare)
-  return h <= 1e-6 || !hazeLin ? [cr, cg, cb] : [cr + (hazeLin[0] - cr) * h, cg + (hazeLin[1] - cg) * h, cb + (hazeLin[2] - cb) * h]
+  if (h > 1e-6 && hazeLin) {
+    cr += (hazeLin[0] - cr) * h; cg += (hazeLin[1] - cg) * h; cb += (hazeLin[2] - cb) * h
+  }
+  out[0] = cr; out[1] = cg; out[2] = cb
+  return out
 }
 
 export function litRadianceRatio(world: RadianceWorld, albedo: RGB, normal: Normal = FLAT_NORMAL, shadowFactor = 1, chroma = ALBEDO_CHROMA_BOOST, moonVisibility = 1): number {

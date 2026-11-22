@@ -1,13 +1,15 @@
 import { expect, it } from 'vitest'
 import { shadeLinearRgb } from './landRadiance'
 
-it('mixes path scattering before restricting the display gamut', () => {
-  const sun = [6, 0.4, 0.7] as const
-  const air = [0.16, 0.21, 0.31] as const
+it('compresses the reflected irradiance before adding haze, with gamut left to the encoder', () => {
   const black = [0, 0, 0] as const
-  const shade = (h: number) => shadeLinearRgb([1, 0.8, 0.7], sun, black, black, 1, 0, 0, 0.7, h, air)
-  const raw = shade(0)
-  expect(raw[0]).toBeGreaterThan(1)
-  shade(0.8).forEach((channel, i) => expect(channel).toBeCloseTo(0.2 * raw[i] + 0.8 * air[i], 10))
-  expect(shade(0.8).every((channel) => channel < 1)).toBe(true)
+  // Luminance 1 with a red channel above gamut. The exposure of 1 leaves that luminance unchanged.
+  const red = 1 / 0.2126
+  const raw = shadeLinearRgb([1, 1, 1], [red, 0, 0], black, black, 1, 0, 0, 1)
+  expect(raw[0]).toBeCloseTo(4.70367, 5)
+  const hazed = shadeLinearRgb([1, 1, 1], [red, 0, 0], black, black, 1, 0, 0, 1, 0.9, [0.2, 0.3, 0.4])
+  expect(hazed).toEqual([expect.closeTo(0.650367, 6), expect.closeTo(0.27, 8), expect.closeTo(0.36, 8)])
+  // A neutral 1/32 input under unit exposure compresses to 1/8 (0.6 = 3/5).
+  expect(shadeLinearRgb([0.125, 0.125, 0.125], black, black, [0.25, 0.25, 0.25], 0, 0, 1, 1))
+    .toEqual([0.125, 0.125, 0.125])
 })

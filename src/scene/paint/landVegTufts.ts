@@ -1,4 +1,4 @@
-import type { VegetationToneAt } from './vegetationLight'
+import { plantInk, TUFT_TONE_STRIDE } from '../model/canopyTones'
 import type { PlantWind } from '../model/landWind'
 import type { CanopyVegetation } from '../model/types'
 import { TONE } from '../model/vegSample'
@@ -7,7 +7,7 @@ import { TUFT_CROWN_BEND, tuftBend } from './landVegPose'
 import { h01 } from './vegInk'
 
 /** Scattered scrub cushions (WorldCover 20) and grass tufts (WorldCover 30), clearly readable at 375 px. */
-export function paintVegTufts(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWind, time = 0, toneAt?: VegetationToneAt): void {
+export function paintVegTufts(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWind, time = 0, ink?: Uint8Array): void {
   const { tufts, tuftMeta, tones, seed } = veg
   const count = tufts.length / 4
   if (!count || !tones.length) return
@@ -16,8 +16,8 @@ export function paintVegTufts(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWin
     if (alpha <= 0.02) continue
     const kind = tuftMeta[i * 2], index = tuftMeta[i * 2 + 1]
     const highlight = kind === 1 ? TONE.GRASS_LIT : TONE.SHRUB_LIT
-    const rgb = toneAt?.(index, x, y) ?? tones[index] ?? tones[0]
-    const lit = toneAt?.(highlight, x, y) ?? tones[highlight] ?? rgb
+    const rgb = ink ? plantInk(ink, i * TUFT_TONE_STRIDE) : tones[index] ?? tones[0]
+    const lit = ink ? plantInk(ink, i * TUFT_TONE_STRIDE + 3) : tones[highlight] ?? rgb
 
     const bend = tuftBend(seed, x, y, kind, r, alpha, wind, time)
     const crownX = x + bend * TUFT_CROWN_BEND

@@ -41,6 +41,10 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
   const top = srgbRgbToLinear(rgbOf(light.palette.top))
   const glow = srgbRgbToLinear(light.afterglow?.rgb ?? rgbOf(light.palette.horizon))
   const aerosol = -Math.expm1(-2 * tau)
+  // One twilight display calibration conditioned on cloud cover: the sky palette supplies
+  // dome chromaticity, the fill/forward weights redistribute light across that dome, and
+  // the meter gain below sets its displayed contribution. The combined response is fitted
+  // to the twilight stills. None of these weights attenuates the independent direct beam.
   const scattered = 1.8 * cloud ** 2 * aerosol
   const forward = 0.8 * aerosol * (1 - 0.65 * cloud)
   // Integrate the fixed sky basis once. Its weights then multiply this hour's linear RGB

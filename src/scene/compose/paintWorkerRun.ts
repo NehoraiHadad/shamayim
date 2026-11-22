@@ -51,10 +51,15 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }
-        // Only the completing batch transfers (and empties) the canvas; intermediate strip chunks retain staged frames.
-        const bitmap = job.final === false ? null : canvas.transferToImageBitmap()
+        let bitmap = job.final === false ? null : canvas.transferToImageBitmap()
+        if (job.preview) {
+          const { w, h } = job.rect
+          const first = createCanvas(w, h)
+          ;(first.getContext('2d') as Ctx2D).drawImage(canvas as unknown as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
+          bitmap = first.transferToImageBitmap()
+        }
         results.push({ id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect,
-          bitmap, ms: now() - start })
+          bitmap, preview: job.preview, ms: now() - start })
       }
       return results
     } catch (error) {

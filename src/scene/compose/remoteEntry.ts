@@ -15,6 +15,7 @@ export interface Request {
 
 interface Shown {
   request: Request
+  preview?: true
   receiver?: LayerOf<'canopy'>['receiver']
   form: ImageBitmap | null
   light: ImageBitmap | null
@@ -104,7 +105,9 @@ export function reuse(entry: Entry) {
 export function accept(entry: Entry, request: Request, results: readonly PaintResult[]) {
   const { shown, wanted } = entry
   const current = samePaint(request, wanted)
-  if (current || request.generation > (shown?.request.generation ?? 0)) {
+  const preview = results.some((part) => part.preview) ? true : undefined
+  if ((current || request.generation > (shown?.request.generation ?? 0))
+    && !(preview && shown && !shown.preview && samePaint(shown.request, request))) {
     const compatible = shown && sameForm(shown.request, request) ? shown : null
     const form = results.find((result) => result.part === 'form')?.bitmap ?? compatible?.form ?? null
     const light = results.find((result) => result.part === 'light')?.bitmap
@@ -112,7 +115,7 @@ export function accept(entry: Entry, request: Request, results: readonly PaintRe
     if ((request.formless || form) && (request.lightKey === null || light)) {
       const layout = current ? wanted : sameForm(wanted, request) ? { ...request, desc: wanted.desc } : request
       const receiver = request.desc.kind === 'canopy' ? request.desc.receiver : undefined
-      promote(entry, { request: layout, receiver, form, light })
+      promote(entry, { request: layout, receiver, form, light, preview })
     }
   }
   closeReplaced(entry.shown, results.map(({ bitmap }) => bitmap))
@@ -120,6 +123,6 @@ export function accept(entry: Entry, request: Request, results: readonly PaintRe
 
 export function peek(entry: Entry | undefined) {
   if (!entry?.shown) return null
-  const { form, light, receiver, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
-  return { form, light, receiver, ratio, rect, formKey, lightKey, desc }
+  const { form, light, receiver, preview, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
+  return { form, light, receiver, preview, ratio, rect, formKey, lightKey, desc }
 }

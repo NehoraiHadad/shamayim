@@ -10,7 +10,6 @@ import { paintLoading } from './loading'
 import { paintMarks } from './marks'
 import { paintOutside } from './outside'
 import { paintPlaneLight } from './planeLight'
-import { paintPlane } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
 import { paintBirds } from './birds'
@@ -46,7 +45,7 @@ export const PAINTERS: Painters = {
   clouds: { form: paintClouds },
   flash: { form: paintFlash },
   shimmer: { form: paintShimmer },
-  plane: { form: paintPlane, light: paintPlaneLight, formless: (desc) => Boolean(desc.light.litField) },
+  plane: { form: paintNothing, light: paintPlaneLight, formless: () => true },
   canopy: { form: paintNothing, light: paintCanopy, formless: () => true },
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },

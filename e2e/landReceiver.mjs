@@ -17,7 +17,7 @@ export async function receiverPixels(page, dpr = 1) {
       vegetation: { ...EMPTY_VEGETATION, tones: [[0.15, 0.65, 0.12]], tufts: new Float32Array([24, 19, 3, 1]),
         tuftMeta: new Uint8Array([0, 0]) },
       gullies: [], terraces: [],
-      light: { key: 'sun', blend: 'source-over', faces: [], litField: {
+      light: { key: 'sun', blend: 'source-over', litField: {
         cols: 1, rows: 1, grid: new Uint8Array([220, 0, 255, 18]),
         eSun: [1.7, 1.2, 0.8], eMoon: [0, 0, 0], eSky: [0.15, 0.22, 0.35],
         hazeLin: [0.2, 0.25, 0.3], yHorizon: 0.48,
@@ -37,6 +37,12 @@ export async function receiverPixels(page, dpr = 1) {
     const unshadowed = material(10)
     local.render([withShadow], 10)
     const first = material(10)
+    local.lay(21)
+    const intermediate = material(21)
+    local.lay(28.74)
+    const beforeOldJump = sample(45, 25)
+    local.lay(28.76)
+    const afterOldJump = sample(45, 25)
     local.lay(85)
     const moved = material(85)
     local.render([shadowedPlane(plane, shadow, 10, false)], 85, true)
@@ -61,7 +67,8 @@ export async function receiverPixels(page, dpr = 1) {
     remote.composite([withShadow, canopy], 10)
     const paired = pixels()
 
-    const next = { ...withShadow, light: { ...withShadow.light, key: 'next-light' } }
+    const next = { ...withShadow, light: { ...withShadow.light, key: 'next-light',
+      litField: { ...withShadow.light.litField, eSun: [0.8, 0.6, 0.4] } } }
     const nextCanopy = canopyOf(next, { lean: 0, gust: 0 }, [])
     remote.paint(nextCanopy)
     remote.flush()
@@ -71,11 +78,13 @@ export async function receiverPixels(page, dpr = 1) {
     remote.composite([withShadow], 10)
     const planeOnly = pixels()
     remoteWorker.terminate()
-    return { unshadowed, first, moved, still, missing, paired, stale, planeOnly }
+    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, missing, paired, stale, planeOnly }
   }, dpr)
-  const { unshadowed, first, moved, still, missing, paired, stale, planeOnly } = result
+  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, missing, paired, stale, planeOnly } = result
   assert.deepEqual(still, first)
   assert.deepEqual(first[1], unshadowed[1])
+  assert.ok(intermediate[0][0] > first[0][0] && intermediate[0][0] < unshadowed[0][0], 'the shadow must advance between old poses')
+  assert.ok(beforeOldJump.every((channel, i) => Math.abs(channel - afterOldJump[i]) <= 2), 'the former pose boundary must stay continuous')
   assert.deepEqual(moved[0], unshadowed[0])
   assert.deepEqual(first[2], moved[2])
   assert.ok(first[0][0] < unshadowed[0][0] - 20 && first[0][0] > first[0][1], 'shadow must retain the red soil')

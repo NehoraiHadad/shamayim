@@ -1,4 +1,4 @@
-import { solarTransmission } from '../model/planeCloudShadow'
+import { css } from './hand'
 import { vegetationLight } from './vegetationLight'
 import type { LayerOf } from '../model/types'
 import { displace, sample, tube } from './core'
@@ -38,11 +38,11 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
   const { litField } = light
   ctx.save()
 
-  if (litField && desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    const pass = solarTransmission(desc.cloudShadow, desc.animated?.frames ? env.phase : 0)
-    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, pass)
+  const beam = desc.beamRemoved ? 0 : 1
+  if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, beam)
     const litVeg = desc.vegetation
-    const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, pass)
+    const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, beam)
     paintVegStrata(ctx, litVeg, toneAt)
     paintVegFields(ctx, litVeg, toneAt)
     paintGroundMarks(ctx, desc)
@@ -50,6 +50,9 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     const grain = desc.grain.amount * env.hand.grain
     // White paper specks have a stronger relative effect in the shadows of the display.
     paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
+  } else {
+    ctx.fillStyle = css(desc.fill)
+    ctx.fillRect(desc.bounds.x, desc.bounds.y, desc.bounds.w, desc.bounds.h)
   }
 
   // Single antialiased silhouette mask (zero fringe halo, zero median bleed).

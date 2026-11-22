@@ -29,7 +29,7 @@ export async function installNearPalmFixture(page, phase = 0) {
       },
     }
     const canopy = canopyOf(withPalms, plantWindOf(world.wind), model.clear)
-    const land = layersOn(model, 'land').map((layer) => layer.id === canopy.id ? canopy : layer)
+    const land = layersOn(model, 'land').map((layer) => layer.id === canopy.id ? canopy : layer.id === plane.id ? withPalms : layer)
     const surface = new Surface(canvas)
     surface.resize(width, landHeight, box.dpr)
     surface.render(land, phase)

@@ -1,13 +1,15 @@
 import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
 import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
+import { shadowSeconds } from '../model/planeCloudShadow'
 import type { LayerDesc } from '../model/types'
 import { paintContrail } from '../paint/contrail'
 import { layCarried } from './advect'
-import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
-import { formKeyOf } from './paintJob'
-import { canopyMatchesPlane } from './planeComposite'
+import { ctxOf, defaultFactory, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
+import { formKeyOf, stripKey } from './paintJob'
+import { canopyMatchesPlane, shadeId, shadeLayer } from './planeComposite'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
+import { ShadowComposite } from './shadowComposite'
 import type { SceneStats } from './stats'
 import { compositeOrder } from './compositeOrder'
 
@@ -47,6 +49,8 @@ export class Surface {
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
   private shown: { layers: readonly LayerDesc[]; anim: string } | null = null
+  private readonly shadows: ShadowComposite
+  private paintedLayers?: { layers: readonly LayerDesc[]; dpr: number; cache: LayerCache | RemoteCache }
   private order: { layers: readonly LayerDesc[]; passes: ReturnType<typeof compositeOrder> } | null = null
 
   readonly canvas: LayerCanvas
@@ -54,6 +58,7 @@ export class Surface {
   constructor(canvas: LayerCanvas, options: SurfaceOptions = {}) {
     this.canvas = canvas
     this.cache = new LayerCache(options)
+    this.shadows = new ShadowComposite(options.factory ?? defaultFactory())
     this.now = options.now ?? (() => performance.now())
     this.onArrive = options.onArrive
     this.stats = options.stats
@@ -83,17 +88,25 @@ export class Surface {
     this.width = width
     this.height = height
     this.dpr = dpr
+    if (this.paintedLayers?.dpr !== dpr) this.paintedLayers = undefined
     if (this.canvas.width !== w) { this.canvas.width = w; this.shown = null }
     if (this.canvas.height !== h) { this.canvas.height = h; this.shown = null }
   }
 
   fresh(desc: LayerDesc) {
-    return desc.kind === 'contrail' || this.active.fresh(desc, this.dpr)
+    if (desc.kind === 'contrail') return true
+    const shade = shadeLayer(desc)
+    return this.active.fresh(desc, this.dpr) && (!shade || this.active.fresh(shade, this.dpr))
   }
 
   /** Brings a layer up to date: painted here, or asked of the worker (sent by `flush`, or by `render`). */
   paint(desc: LayerDesc, phase = 0): Painted {
-    return desc.kind === 'contrail' ? 'none' : this.active.update(desc, this.dpr, phase)
+    this.paintedLayers = undefined
+    if (desc.kind === 'contrail') return 'none'
+    const painted = this.active.update(desc, this.dpr, this.still ? 0 : phase)
+    const shade = shadeLayer(desc)
+    if (shade) this.active.update(shade, this.dpr, this.still ? 0 : phase)
+    return painted
   }
 
   /** Sends what was asked of the worker (a no-op without one). */
@@ -107,6 +120,7 @@ export class Surface {
   }
 
   prune(keep: ReadonlySet<string>) {
+    this.paintedLayers = undefined
     this.active.prune(keep)
   }
 
@@ -138,15 +152,13 @@ export class Surface {
     const d = this.dpr
     const cache = this.active
     if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
-    for (const { desc, part } of this.order.passes) {
-      if (part === 'light' && !desc.light) continue
-      if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
+    for (const desc of this.order.passes) {
+      if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const layout = layoutOf(desc, cached, d)
-      if (layout.kind === 'canopy' && !canopyMatchesPlane(layout, cached.receiver, layers, cache)) continue
+      if (layout.kind === 'canopy' && !canopyMatchesPlane(layout, cached, cache)) continue
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
-      if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, still ? layout.animated.frames.from ?? 0 : motion)
       const { form, light, ratio, rect } = cached
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
@@ -185,11 +197,25 @@ export class Surface {
         ctx.globalAlpha = 1
         continue
       }
+      const frame = still ? 0 : frameAt(anim, motion)
+      const shade = shadeLayer(layout)
+      const shadow = shade && (layout.kind === 'plane' || layout.kind === 'canopy') ? layout.cloudShadow : undefined
+      const dark = shadow && shade && light && cached.lightKey === (layout.light!.key + stripKey(layout))
+        ? cache.peek(shade.id) : null
+      const matchedShade = dark?.light && dark.ratio === ratio && dark.formKey === cached.formKey
+        && shade?.light && dark.lightKey === (shade.light.key + stripKey(layout)) ? dark.light : null
+      // The main-thread cache resolves missing gust poses when first displayed. Preview endpoints share pose zero.
+      const preview = ('preview' in cached && cached.preview) || (dark && 'preview' in dark && dark.preview)
+      const framePhase = still || preview ? 0 : motion
+      if (cache instanceof LayerCache && anim?.frames) {
+        cache.ensureFrame(layout, framePhase)
+        if (shade && matchedShade) cache.ensureFrame(shade, framePhase)
+      }
       const draw = (image: CanvasImageSource | OffscreenCanvas) => {
         const source = image as CanvasImageSource
         // A strip (C7): the frame at this phase, of the frames the canvas holds.
         const held = Math.max(1, Math.round((image as { height: number }).height / rect.h))
-        const sy = held > 1 ? ((still ? 0 : frameAt(anim, motion)) % held) * rect.h : 0
+        const sy = held > 1 ? ((preview ? 0 : frame) % held) * rect.h : 0
         if (lay) {
           const sc = lay.scale * flown.scale * k
           const turn = (lay.turn ?? 0) + flown.turn
@@ -221,17 +247,22 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
-      if (part !== 'light' && form && !cache.formless(layout)) {
+      if (form && !cache.formless(layout)) {
         if (layout.blend) ctx.globalCompositeOperation = layout.blend
         draw(form)
         if (layout.blend) ctx.globalCompositeOperation = 'source-over'
       }
-      if (part !== 'form' && light && layout.light) {
+      if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
-        draw(light)
+        const sy = (preview ? 0 : frame) * rect.h
+        const mixed = shadow && matchedShade && this.shadows.blend(light as CanvasImageSource,
+          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy)
+        if (!mixed) draw(light)
+        else if (anim?.reveal && Number.isFinite(reach)) this.window(mixed, rect, 0, y, anim.reveal, reach, alpha)
+        else ctx.drawImage(mixed, 0, 0, rect.w, rect.h, rect.x * k, y * k, rect.w * k, rect.h * k)
         ctx.globalCompositeOperation = 'source-over'
       }
-      if (part !== 'light' && this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
+      if (this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
       if (clipped) ctx.restore()
       ctx.globalAlpha = 1
     }
@@ -333,6 +364,10 @@ export class Surface {
     for (const desc of layers) {
       if (desc.kind === 'contrail') { out += `${trailTimeAt(desc, motion, still)};`; continue }
       const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr)
+      if ((layer.kind === 'plane' || layer.kind === 'canopy') && layer.cloudShadow?.speed && this.active.peek(shadeId(layer.id))?.light) {
+        const shadow = layer.cloudShadow
+        out += `s${Math.round(shadowSeconds(shadow, phase, still) * shadow.speed * this.dpr * 16)};`
+      }
       const anim = layer.animated
       if (!anim) continue
       out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${still ? 0 : frameAt(anim, motion)}`
@@ -365,8 +400,19 @@ export class Surface {
     this.last = layers
     this.phase = phase
     this.still = still
-    this.prune(new Set(layers.map((layer) => layer.id)))
-    const painted = layers.map((desc) => this.paint(desc, phase))
+    const active = this.active
+    const unchanged = this.paintedLayers?.layers === layers && this.paintedLayers.dpr === this.dpr && this.paintedLayers.cache === active
+    if (!unchanged) {
+      const keep = new Set<string>()
+      for (const layer of layers) {
+        keep.add(layer.id)
+        const shade = shadeLayer(layer)
+        if (shade) keep.add(shade.id)
+      }
+      this.prune(keep)
+    }
+    const painted = unchanged ? layers.map((): Painted => 'none') : layers.map((desc) => this.paint(desc, phase))
+    if (!unchanged) this.paintedLayers = { layers, dpr: this.dpr, cache: active }
     if (this.stats?.trackShown) {
       for (const desc of layers) {
         const existing = this.stats.shown[desc.id]
@@ -383,7 +429,7 @@ export class Surface {
 
   /** Backing memory: the visible canvas and the cached layers (bytes). */
   bytes() {
-    return this.canvas.width * this.canvas.height * 4 + this.active.bytes()
+    return this.canvas.width * this.canvas.height * 4 + this.active.bytes() + this.shadows.bytes()
   }
 
   get size() {

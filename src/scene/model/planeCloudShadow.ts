@@ -1,5 +1,5 @@
 import type { TerrainPlanes } from '../../world/types'
-import { layerKey } from './keys'
+import { EXPOSURE_GAMMA, linearLuminance } from './landRadiance'
 import type { LayerOf, Pt, SceneBox } from './types'
 
 export type ShadowPlane = LayerOf<'plane'>['plane']
@@ -24,53 +24,53 @@ export interface PlaneCloudShadow {
   blobs: ShadowBlob[]
 }
 
-// Match the cloud sheet's bounded carry. Use up to three cached poses, spaced
-// by the largest visible displacement rather than by the display refresh rate.
+export interface ReceiverShadow extends PlaneCloudShadow {
+  from: number
+  /** Maximum projected speed, in land pixels per second. */
+  speed: number
+  /** Neutral-albedo irradiance ratio for the display mask. */
+  beamOverSky: number
+}
+
 const HOLD_SECONDS = 75
-const MAX_POSES = 3
-const POSE_PX = 1.5
+
+export function shadowSeconds(shadow: ReceiverShadow, phase: number, still: boolean) {
+  return still || !shadow.speed ? 0 : Math.max(0, Math.min(HOLD_SECONDS, phase - shadow.from))
+}
 
 export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number, animate = true): LayerOf<'plane'> {
-  if (!shadow || !plane.light.litField) return plane
+  if (!shadow) return plane
   const bounds = plane.bounds
   const blobs = shadow.blobs.filter((blob) => {
-    const atEnd = blob.x + blob.speed * HOLD_SECONDS
+    const atEnd = blob.x + (animate ? blob.speed * HOLD_SECONDS : 0)
     return blob.y + blob.ry >= bounds.y && blob.y - blob.ry <= bounds.y + bounds.h
       && Math.max(blob.x, atEnd) + blob.rx >= bounds.x && Math.min(blob.x, atEnd) - blob.rx <= bounds.x + bounds.w
   })
-  if (!blobs.length) return plane
-  const travel = Math.max(...blobs.map((blob) => Math.abs(blob.speed))) * HOLD_SECONDS
-  const count = !animate || travel < 0.75 ? 1 : Math.min(MAX_POSES, 1 + Math.ceil(travel / POSE_PX))
-  const animated = count > 1 ? { mode: 'frames' as const, frames: { count, fps: (count - 1) / HOLD_SECONDS, from } } : undefined
-  const key = layerKey(plane.light.key, JSON.stringify([shadow.open,
-    blobs.map(({ x, y, rx, ry, opticalDepth, speed }) => [x, y, rx, ry, opticalDepth, speed])]))
-  return { ...plane, cloudShadow: { ...shadow, blobs }, animated, light: { ...plane.light, key } }
-}
-
-/** Smooth approximate chord depth for the projected footprint, including a soft edge. */
-function chord(d2: number) {
-  return d2 >= 1 ? 0 : (1 - d2) ** 2
-}
-
-export function solarTransmission(shadow: PlaneCloudShadow | undefined, seconds: number) {
-  if (!shadow) return undefined
-  const footprints = shadow.blobs.map(({ x, y, rx, ry, opticalDepth, speed }) =>
-    ({ x: x + speed * seconds, y, rx, ry, opticalDepth }))
-  let rowY = NaN
-  let row: { x: number; rx: number; dySq: number; opticalDepth: number }[] = []
-  return (x: number, y: number) => {
-    if (y !== rowY) {
-      rowY = y
-      row = footprints.flatMap(({ x: centre, y: centreY, rx, ry, opticalDepth }) => {
-        const dy = (y - centreY) / ry
-        return Math.abs(dy) < 1 ? [{ x: centre, rx, dySq: dy * dy, opticalDepth }] : []
-      })
-    }
-    let tau = 0
-    for (const blob of row) {
-      const dx = (x - blob.x) / blob.rx
-      tau += blob.opticalDepth * chord(dx * dx + blob.dySq)
-    }
-    return Math.min(1, Math.exp(-tau) / shadow.open)
+  if (!blobs.length || blobs.reduce((depth, blob) => depth + blob.opticalDepth, 0) <= -Math.log(shadow.open)) return plane
+  const { grid, eSun, eSky, eMoon } = plane.light.litField
+  let sun = 0, sky = 0, moon = 0
+  for (let i = 0; i < grid.length; i += 4) {
+    sun += grid[i]; moon += grid[i + 1]; sky += grid[i + 2]
   }
+  const beam = sun * linearLuminance(eSun)
+  if (!beam) return plane
+  const ambient = sky * linearLuminance(eSky) + moon * linearLuminance(eMoon)
+  const speed = animate ? Math.max(...blobs.map((blob) => Math.abs(blob.speed))) : 0
+  return { ...plane, cloudShadow: { ...shadow, blobs, from, speed, beamOverSky: beam / Math.max(0.001, ambient) } }
+}
+
+/** Approximate the change of displayed luminance with a single sRGB alpha between the two painted endpoints. */
+export function shadowAlphaTable({ open, beamOverSky }: ReceiverShadow) {
+  // Scalar reflectance cancels in the endpoint ratio, as does the shared path haze in linear light.
+  // Canvas interpolates encoded RGB. Use a 2.2 power transfer and the plane's mean neutral incidence
+  // for the alpha mapping. Local material colours and the exact hazed, compressed endpoints stay in the bitmaps.
+  const exponent = EXPOSURE_GAMMA / 2.2
+  const lift = (beam: number) => (1 + beamOverSky * beam) ** exponent - 1
+  const full = lift(1)
+  const alpha = new Uint8Array(1025)
+  for (let i = 0; i < alpha.length; i++) {
+    const transmission = Math.min(1, Math.exp(-i / 64) / open)
+    alpha[i] = Math.round(255 * (1 - lift(transmission) / full))
+  }
+  return alpha
 }

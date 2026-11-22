@@ -7,7 +7,6 @@ import type { WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { paintPlaneLight } from '../paint/planeLight'
-import { paintPlane } from '../paint/planes'
 import { layersOn, sceneModel } from '.'
 import { labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
@@ -178,6 +177,6 @@ describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', ()
       set: () => true,
     }) as unknown as Ctx2D
     const env: PaintEnv = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: fakeCtx() }) }
-    expect(() => { paintPlane(fakeCtx(), planes[1], env); paintPlaneLight(fakeCtx(), planes[1], env) }).not.toThrow()
+    expect(() => { paintPlaneLight(fakeCtx(), planes[1], env) }).not.toThrow()
   })
 })

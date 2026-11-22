@@ -40,9 +40,9 @@ export class RemoteCache {
   }
 
   fresh(desc: LayerDesc, dpr: number): boolean {
-    const shown = this.entries.get(desc.id)?.shown?.request
-    return shown?.formKey === formKeyOf(desc, dpr).key && shown.formless === this.formless(desc)
-      && shown.lightKey === lightKeyOf(desc, this.painters(desc))
+    const shown = this.entries.get(desc.id)?.shown
+    return shown?.request.formKey === formKeyOf(desc, dpr).key && shown.request.formless === this.formless(desc)
+      && shown.request.lightKey === lightKeyOf(desc, this.painters(desc))
   }
 
   formless(desc: LayerDesc): boolean {
@@ -76,10 +76,10 @@ export class RemoteCache {
       if (key === null) return this.queue.cancel(desc.id, part)
       // A light-only job crosses the worker boundary without the form's buffers (`lightJobDesc`).
       return this.queue.ask({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase,
-        hand: this.options.hand ?? HAND }, request)
+        hand: this.options.hand ?? HAND, progressive: desc.kind === 'canopy' && formless }, request)
     }
     const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
-    const light = ask('light', (same && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
+    const light = ask('light', (same && !entry.shown?.preview && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
     if (form || (light && !same && formless)) return 'form'
     return light ? 'light' : 'none'
   }

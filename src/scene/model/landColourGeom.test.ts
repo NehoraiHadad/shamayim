@@ -6,7 +6,7 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { LayerCache, type LayerCanvas } from '../compose/layerCache'
 import { HAND, type Ctx2D } from '../paint/hand'
-import { paintLandSurface } from '../paint/landSurface'
+import { paintLitSurface } from '../paint/planeTexel'
 import { layersOn, sceneModel } from '.'
 import { planeSurfaceOf } from './landColour'
 import { FLAT_NORMAL, litLandRgb } from './landRadiance'
@@ -72,7 +72,9 @@ describe('Stage 3 geometry, outside-ground locality & water reflection key', () 
       putImageData: (img: ImageData) => { captured = img } } as unknown as Ctx2D
     const mainCtx = { imageSmoothingEnabled: true, drawImage: () => {} } as unknown as Ctx2D
     const outline: [number, number][] = [[0, 40], [375, 40], [375, 67], [0, 67]]
-    paintLandSurface(mainCtx, outline, { x: 0, y: 39, w: 375, h: 89 }, farSpec.palette, 0, 7,
+    const neutral = { cols: 1, rows: 1, grid: new Uint8Array([0, 0, 255, 0]),
+      eSun: [0, 0, 0], eMoon: [0, 0, 0], eSky: [1, 1, 1], hazeLin: [0, 0, 0], yHorizon: 1 } as const
+    paintLitSurface(mainCtx, outline, { x: 0, y: 39, w: 375, h: 89 }, farSpec.palette, neutral, 'far-test', 0, 7,
       { hand: HAND, phase: 0, scale: 1, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: scratchCtx }) })
     // At y = 63 (texel row j = Math.floor((63 - 39) / 3) = 8), pixel must show the lower green foot, not stay on crest sand!
     const px = (j: number) => {

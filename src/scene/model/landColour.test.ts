@@ -8,7 +8,6 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { paintPlaneLight } from '../paint/planeLight'
-import { paintPlane } from '../paint/planes'
 import { layersOn, sceneModel } from '.'
 import { quantiseTones } from './landColour'
 import { COVER_WATER, sampleBandAtKm } from './landPalette'
@@ -145,6 +144,6 @@ describe('Stage 3: living-land albedo, bounds, water exclusion, wetness & form/l
       set: () => true,
     }) as unknown as Ctx2D
     const env: PaintEnv = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: fakeCtx() }) }
-    expect(() => { paintPlane(fakeCtx(), observed[1], env); paintPlaneLight(fakeCtx(), observed[1], env) }).not.toThrow()
+    expect(() => { paintPlaneLight(fakeCtx(), observed[1], env) }).not.toThrow()
   })
 })

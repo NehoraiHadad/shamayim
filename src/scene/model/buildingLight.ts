@@ -36,7 +36,7 @@ export function againstLight(world: WorldState): number {
 }
 
 export function brightWall(world: WorldState): Normal {
-  return world.light.dir.across < 0 ? NORMALS.left : NORMALS.right
+  return landIrradiance(world).sunDir.across < 0 ? NORMALS.left : NORMALS.right
 }
 
 const surroundings = new WeakMap<WorldState, ReturnType<typeof buildingSurroundings>>()
@@ -45,7 +45,10 @@ function buildingSurroundings(world: WorldState) {
   const irr = landIrradiance(world)
   const rhoGround = srgbRgbToLinear(nearGroundAlbedo(world))
   const upSun = Math.max(0, irr.sunDir.up), upMoon = Math.max(0, irr.moonDir.up)
-  const ground = rhoGround.map((rho, i) => 0.18 * rho * (irr.eSkyVec[i] + upSun * irr.eSunVec[i] + upMoon * irr.eMoonVec[i]))
+  // Illustration calibration for unknown surroundings: treat 18% of the ground-facing
+  // hemisphere as diffuse terrain fill, with the rest occupied by the building and nearby shade.
+  const bounceFill = 0.18
+  const ground = rhoGround.map((rho, i) => bounceFill * rho * (irr.eSkyVec[i] + upSun * irr.eSunVec[i] + upMoon * irr.eMoonVec[i]))
   return { irr, ground, air: srgbRgbToLinear(hazeOf(world)) }
 }
 
@@ -66,7 +69,7 @@ export function buildingLight(world: WorldState, km: number) {
       irr.eSkyVec[2] * view + ground[2] * bounceView,
     ]
     return linearRgbToSrgb(shadeLinearRgb(srgbRgbToLinear(albedo), irr.eSunVec, irr.eMoonVec, sky,
-      lambert(n, irr.sunDir) * open, lambert(n, irr.moonDir) * open, 1, irr.yHorizon, share, air))
+      lambert(n, irr.sunDir), lambert(n, irr.moonDir), 1, irr.yHorizon, share, air))
   }
 }
 

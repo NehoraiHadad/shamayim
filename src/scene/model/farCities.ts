@@ -127,7 +127,7 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
     // The towns' shapes follow from the place, the text zones and the box; every colour and what the air keeps is light,
     // repainted alone while scrubbing (§1d), over an empty form.
     key: layerKey('farCities', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box)),
-    light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? buildingLight(world, 0)(ALBEDO, side), faces: [] },
+    light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? buildingLight(world, 0)(ALBEDO, side) },
     tiers, lateralLight, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
   }
 }

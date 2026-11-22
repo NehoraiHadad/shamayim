@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { terrainVisibility } from './terrainVisibility'
 import type { PlaneGeomGrid } from './planeGeometry'
 
@@ -14,4 +14,40 @@ it('casts terrain visibility from each receiver in world coordinates', () => {
   expect(visibility(0)).toBe(0)
   expect(visibility(1)).toBe(1)
   expect(terrainVisibility({ ...terrain, heightAt: () => null }, grid, 90, 6, ray)(0)).toBe(1)
+})
+
+it('ignores own-cell relief and a distant blocker below the illuminated disc', () => {
+  const terrain = {
+    eyeM: 0, blockedKm: () => null,
+    heightAt: (east: number) => east > 0.01 && east < 0.25 ? 500 : east > 0.3 ? 15 : 0,
+  }
+  expect(terrainVisibility(terrain, grid, 90, 6, ray)(0)).toBe(1)
+})
+
+it('lowers the distant horizon by earth curvature with refraction', () => {
+  const terrain = {
+    eyeM: 0, blockedKm: () => null,
+    heightAt: (east: number) => !east ? 0 : east >= 40 && east < 59 ? 600 : null,
+  }
+  // A 600 m obstacle at ~48 km subtends ~0.7° flat and ~0.5° with curvature.
+  expect(terrainVisibility(terrain, grid, 90, 0.5, ray)(0)).toBeLessThan(0.65)
+  expect(terrainVisibility(terrain, grid, 90, 0.5, ray)(0)).toBeGreaterThan(0.15)
+})
+
+it('interpolates the horizon bins and reuses them as the disc rises through a soft edge', () => {
+  const heightAt = vi.fn((east: number, north: number) => {
+    if (east < 0.01) return 0
+    if (east >= 0.31) return null
+    const degrees = north < 0.999 ? 6.4 : 6
+    return 2 + east * 1000 * Math.tan(degrees * Math.PI / 180)
+  })
+  const terrain = { eyeM: 0, blockedKm: () => null, heightAt }
+  const visible = (a: number, h: number) => terrainVisibility(terrain, grid, a, h, ray)(0)
+  expect(visible(90.25, 6.2)).toBeCloseTo(0.5, 2)
+  const lookups = heightAt.mock.calls.length
+  expect(visible(90.25, 5.9)).toBe(0)
+  expect(visible(90.25, 6.5)).toBe(1)
+  expect(visible(90, 6.2)).toBeGreaterThan(0.9)
+  expect(visible(90.5, 6.2)).toBeLessThan(0.1)
+  expect(heightAt).toHaveBeenCalledTimes(lookups)
 })

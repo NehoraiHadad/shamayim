@@ -72,23 +72,17 @@ export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h
  * gullies, terraces and orchard rows painted in one pass by `paintPlaneLight`.
  */
 export function lightJobDesc(desc: LayerDesc): LayerDesc {
+  if (desc.kind === 'canopy') return { ...desc, cloudShadow: undefined,
+    tones: desc.beamRemoved ? undefined : desc.tones, shadedTones: desc.beamRemoved ? desc.shadedTones : undefined }
   if (desc.kind !== 'plane') return desc
-  if (desc.light.litField) {
-    return {
-      ...desc,
-      vegetation: {
-        ...desc.vegetation,
-        trees: EMPTY_VEGETATION.trees, treeMeta: EMPTY_VEGETATION.treeMeta,
-        tufts: EMPTY_VEGETATION.tufts, tuftMeta: EMPTY_VEGETATION.tuftMeta,
-      },
-    }
-  }
   return {
     ...desc,
-    surfaceTone: { palette: [], cols: 0, rows: 0, cells: [], source: '' },
-    terraces: [],
-    gullies: [],
-    vegetation: EMPTY_VEGETATION,
+    cloudShadow: undefined,
+    vegetation: {
+      ...desc.vegetation,
+      trees: EMPTY_VEGETATION.trees, treeMeta: EMPTY_VEGETATION.treeMeta,
+      tufts: EMPTY_VEGETATION.tufts, tuftMeta: EMPTY_VEGETATION.tuftMeta,
+    },
   }
 }
 
@@ -109,6 +103,9 @@ export interface PaintJob {
   frames?: readonly number[]
   /** Whether this job completes the part and transfers its bitmap (defaults to true). */
   final?: boolean
+  /** Publish a copy of frame zero while the strip remains staged. */
+  preview?: true
+  progressive?: boolean
 }
 
 export interface PaintRequest { batch: number; jobs: PaintJob[] }
@@ -122,6 +119,7 @@ export interface PaintResult {
   rect: DeviceRect
   /** Transferred bitmap on completion, or null for an intermediate strip chunk still staged in the worker. */
   bitmap: ImageBitmap | null
+  preview?: true
   /** The worker's time for this part (ms), raster included. */
   ms: number
 }

@@ -7,7 +7,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
-import { paintPlane } from '../paint/planes'
+import { paintPlaneLight } from '../paint/planeLight'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
 import { albedoLinear, linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
@@ -163,6 +163,6 @@ function record(desc: LayerOf<'plane'>) {
     set: (_, prop, value) => { calls.push(`${String(prop)}=${String(value)}`); return true },
   }) as unknown as Ctx2D
   const env: PaintEnv = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as HTMLCanvasElement, ctx: fake() }) }
-  paintPlane(fake(), desc, env)
+  paintPlaneLight(fake(), desc, env)
   return calls
 }

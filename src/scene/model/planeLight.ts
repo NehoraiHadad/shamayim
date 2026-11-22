@@ -1,7 +1,7 @@
 //# allFunctionsCalledOnLoad
 import type { Plane, WorldState } from '../../world/types'
 import type { PlaneName } from './faceProjection'
-import { layerKey } from './keys'
+import { byteKey, layerKey } from './keys'
 import { skyView } from './landIrradiance'
 import { dirAtBearing, landIrradiance, srgbRgbToLinear } from './landRadiance'
 import { snowMaskOf } from './landSnow'
@@ -10,12 +10,6 @@ import { planeGeomOf } from './planeGeometry'
 import { terrainVisibility } from './terrainVisibility'
 import type { PlaneLight, SceneBox } from './types'
 import type { LightDir, Normal } from '../../world/livingLight'
-
-function gridKey(grid: Uint8Array) {
-  let hash = 2166136261
-  for (const byte of grid) hash = Math.imul(hash ^ byte, 16777619)
-  return (hash >>> 0).toString(36)
-}
 
 const byte = (value: number) => Math.round(Math.max(0, Math.min(1, value)) * 255)
 const incidence = (n: Normal, s: LightDir) => n[0] * s.across + n[1] * s.ahead + n[2] * s.up
@@ -50,10 +44,10 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
   const snow = snowMaskOf(world, box, name)
   const hazeLin = srgbRgbToLinear(hazeOf(world))
   const snowSeam = name === 'near' && snow && world.terrain.far.points.length > 1 ? snow.cover : 0
-  const key = layerKey('plane.light', geom.geomKey, gridKey(grid),
+  const key = layerKey('plane.light', geom.geomKey, byteKey(grid),
     JSON.stringify([irr.eSunVec, irr.eMoonVec, irr.eSkyVec, hazeLin, irr.yHorizon, snow, snowSeam]))
   return {
-    key, blend: 'source-over', faces: [],
+    key, blend: 'source-over',
     litField: {
       cols, rows, grid, eSun: irr.eSunVec, eMoon: irr.eMoonVec, eSky: irr.eSkyVec,
       hazeLin, yHorizon: irr.yHorizon, snow, snowSeam,

@@ -25,6 +25,14 @@ export class PaintQueue {
   private batch = 0
   private waiters: (() => void)[] = []
   private stopped = false
+  private fillCanopies = false
+  private fillTimer: ReturnType<typeof setTimeout> | undefined
+
+  private deferCanopies() {
+    this.fillCanopies = false
+    clearTimeout(this.fillTimer)
+    this.fillTimer = undefined
+  }
   private readonly worker: WorkerLike
   private readonly now: () => number
   private readonly fail: (reason: string) => void
@@ -44,6 +52,7 @@ export class PaintQueue {
       return false
     }
     const added = this.pending.ask(job, this.now())
+    if (added) this.deferCanopies()
     if (this.pending.has(id)) this.requests.set(id, request)
     return added
   }
@@ -62,8 +71,18 @@ export class PaintQueue {
 
   flush() {
     if (this.stopped || this.inFlight) return
-    const next = this.pending.takeBatch(this.now())
-    if (!next) return
+    const next = this.pending.takeBatch(this.now(), this.fillCanopies)
+    if (!next) {
+      if (this.pending.size && this.fillTimer === undefined) {
+        // Let a rapid scrub publish fresh frame-zero poses without filling superseded strips.
+        this.fillTimer = setTimeout(() => {
+          this.fillTimer = undefined
+          this.fillCanopies = true
+          this.flush()
+        }, 80)
+      }
+      return
+    }
     const batch = ++this.batch
     const jobs = new Map<string, Queued>()
     for (const job of next.jobs) {
@@ -98,11 +117,14 @@ export class PaintQueue {
   }
 
   resolveIfSettled() {
-    if (this.settled()) for (const resolve of this.waiters.splice(0)) resolve()
+    if (!this.settled()) return
+    this.deferCanopies()
+    for (const resolve of this.waiters.splice(0)) resolve()
   }
 
   stop() {
     this.stopped = true
+    this.deferCanopies()
     this.pending.clear()
     this.requests.clear()
     this.inFlight = null

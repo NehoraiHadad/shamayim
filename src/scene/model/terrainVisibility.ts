@@ -1,3 +1,4 @@
+import { LOCAL_STEP_KM } from '../../data/terrain/panorama'
 import { curveDrop } from '../../world/flightTerrain'
 import type { LightDir } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
@@ -5,49 +6,71 @@ import type { WorldState } from '../../world/types'
 import type { PlaneGeomGrid } from './planeGeometry'
 
 const RAD = Math.PI / 180
-const MIN_STEP_KM = 0.12
+const AZ_BINS_PER_DEG = 2
+const AZ_BINS = 360 * AZ_BINS_PER_DEG
 const SOLAR_RADIUS = 0.265
+const STEPS = (() => {
+  const ray: { d: number; drop: number; invMetres: number }[] = []
+  // Keep the geometric spacing of the DEM march, starting outside the local 250 m cell.
+  for (let d = 0.12; d < 60; d = d * 1.34 + 0.04) {
+    if (d >= LOCAL_STEP_KM) ray.push({ d, drop: 2 + curveDrop(d), invMetres: 1 / (d * 1000) })
+  }
+  return ray
+})()
 
+type Terrain = NonNullable<WorldState['flightTerrain']>
 interface Receiver { east: number; north: number; height: number | null }
-const receivers = new WeakMap<PlaneGeomGrid, Receiver[]>()
+interface HorizonGrid { positions: Receiver[]; bins: Map<number, Float32Array> }
+const horizons = new WeakMap<PlaneGeomGrid, WeakMap<Terrain, HorizonGrid>>()
 
-/** Cast from measured receiver positions in the same east/north metre frame as the DEM. */
-export function terrainVisibility(
-  terrain: WorldState['flightTerrain'], geom: PlaneGeomGrid, azimuth: number, altitude: number, dir: LightDir,
-) {
-  if (!terrain) return () => 1
-  let positions = receivers.get(geom)
-  if (!positions) {
-    positions = Array.from(geom.km, (km, i) => {
+function gridFor(terrain: Terrain, geom: PlaneGeomGrid): HorizonGrid {
+  let byTerrain = horizons.get(geom)
+  if (!byTerrain) horizons.set(geom, byTerrain = new WeakMap())
+  let grid = byTerrain.get(terrain)
+  if (!grid) {
+    const positions = Array.from(geom.km, (km, i) => {
       const bearing = geom.bearing[i % geom.cols] * RAD
       const east = Math.sin(bearing) * km, north = Math.cos(bearing) * km
       return { east, north, height: terrain.heightAt(east, north) }
     })
-    receivers.set(geom, positions)
+    byTerrain.set(terrain, grid = { positions, bins: new Map() })
   }
-  const ground = positions
-  const sin = Math.sin(azimuth * RAD), cos = Math.cos(azimuth * RAD)
-  const lower = Math.tan((altitude - SOLAR_RADIUS) * RAD)
-  const upper = Math.tan((altitude + SOLAR_RADIUS) * RAD)
-  const top = terrain.panoramaHeightsM?.[1] ?? Infinity
-  const ray: { d: number; east: number; north: number; curvature: number; invMetres: number }[] = []
-  // Geometric spacing resolves nearby relief and bounds the march across distant DEM rays.
-  for (let d = MIN_STEP_KM; d < 60; d = d * 1.34 + 0.04) {
-    ray.push({ d, east: sin * d, north: cos * d, curvature: curveDrop(d), invMetres: 1 / (d * 1000) })
+  return grid
+}
+
+function binFor(grid: HorizonGrid, azBin: number) {
+  let bin = grid.bins.get(azBin)
+  if (!bin) grid.bins.set(azBin, bin = new Float32Array(grid.positions.length).fill(NaN))
+  return bin
+}
+
+function march(terrain: Terrain, grid: HorizonGrid, bin: Float32Array, azBin: number, i: number) {
+  const cached = bin[i]
+  if (!Number.isNaN(cached)) return cached
+  const { east, north, height } = grid.positions[i]
+  if (height === null) return bin[i] = -90
+  const az = azBin / AZ_BINS_PER_DEG * RAD
+  const sin = Math.sin(az), cos = Math.cos(az)
+  let slope = -Infinity
+  for (const { d, drop, invMetres } of STEPS) {
+    const h = terrain.heightAt(east + sin * d, north + cos * d)
+    if (h !== null) slope = Math.max(slope, (h - height - drop) * invMetres)
   }
+  return bin[i] = Math.atan(slope) / RAD
+}
+
+/** The DEM horizon in neighbouring half-degree azimuth bins. Solar/lunar altitude only enters the disc edge. */
+export function terrainVisibility(terrain: WorldState['flightTerrain'], geom: PlaneGeomGrid, azimuth: number, altitude: number, dir: LightDir) {
+  if (!terrain || dir.up >= 0.999) return () => 1
+  const grid = gridFor(terrain, geom)
+  const a = ((azimuth * AZ_BINS_PER_DEG) % AZ_BINS + AZ_BINS) % AZ_BINS
+  const lo = Math.floor(a), hi = (lo + 1) % AZ_BINS, mix = a - lo
+  const low = binFor(grid, lo), high = mix ? binFor(grid, hi) : low
   return (i: number) => {
-    const { east, north, height } = ground[i]
-    // Keep the assumed local normal for an unmeasured receiver, with no invented cast blocker.
-    if (height === null || dir.up >= 0.999) return 1
-    let horizon = -Infinity
-    const reach = lower > 0 ? (top + 2 - height) / (lower * 1000) : Infinity
-    for (const step of ray) {
-      if (step.d > reach) break
-      const h = terrain.heightAt(east + step.east, north + step.north)
-      if (h === null) continue
-      horizon = Math.max(horizon, (h - height - 2 - step.curvature) * step.invMetres)
-      if (horizon >= upper) return 0
-    }
-    return smoothstep(-upper, -lower, -horizon)
+    const h0 = march(terrain, grid, low, lo, i)
+    const h1 = mix ? march(terrain, grid, high, hi, i) : h0
+    // At the coverage edge use the measured ray if its neighbour has no DEM hits.
+    const angle = h0 === -90 ? h1 : h1 === -90 ? h0 : h0 + (h1 - h0) * mix
+    return smoothstep(-SOLAR_RADIUS, SOLAR_RADIUS, altitude - angle)
   }
 }

@@ -66,6 +66,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: npm run test:land-light
       - name: Render stills
         env:
           STILLS: ${{ inputs.stills }}

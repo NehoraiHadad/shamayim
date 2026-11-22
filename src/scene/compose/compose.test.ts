@@ -29,7 +29,8 @@ function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane
     outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
     surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
     gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
-    light: { key: lightKey, blend: 'source-over', faces: [] } }
+    light: { key: lightKey, blend: 'source-over', litField: { cols: 1, rows: 1, grid: new Uint8Array([0, 0, 255, 0]),
+      eSun: [0, 0, 0], eMoon: [0, 0, 0], eSky: [1, 1, 1], hazeLin: [0, 0, 0], yHorizon: 1 } } }
 }
 
 function counting() {
@@ -347,7 +348,7 @@ describe('painting in the worker', () => {
       outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 },
       vegetation: { seed: 1, tones: [], trees: new Float32Array(), treeMeta: new Uint8Array(), tufts: new Float32Array(), tuftMeta: new Uint8Array() },
       animated: { mode: 'frames', frames: { count: 10, fps: 5 } },
-      light: { key: 'cl1', blend: 'source-over', faces: [] },
+      light: { key: 'cl1', blend: 'source-over' },
     }
     cache.update(plane('a', 'l1'), 2)
     cache.update(animatedCanopy, 2)

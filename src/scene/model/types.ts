@@ -1,4 +1,5 @@
-import type { PlaneCloudShadow } from './planeCloudShadow'
+import type { ReceiverShadow } from './planeCloudShadow'
+import type { CanopyTones } from './canopyTones'
 import type { NeighbourEvidence } from './neighbourEvidence'
 import type { CityTier } from './cityMass'
 export type { CityTier } from './cityMass'
@@ -450,8 +451,9 @@ export type LayerDesc =
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: PlaneCloudShadow }
-  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string; light: string }; cloudShadow?: PlaneCloudShadow; receiverField?: PlaneLitField; receiverBounds?: Box }
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow; beamRemoved?: true }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string; light: string }; cloudShadow?: ReceiverShadow; beamRemoved?: true;
+      tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */

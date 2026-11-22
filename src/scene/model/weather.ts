@@ -41,7 +41,7 @@ const whole = (px: number, dpr: number) => Math.max(1, Math.round(px * dpr)) / d
  * A weather layer of the land that is all light (mist, smoke, sheen: their colours follow the hour): its form is only its
  * place, so a scrub repaints the light canvas alone, as the water's and the far towns' (§1d).
  */
-const lightPart = (key: string, tint: RGB) => ({ key, blend: 'source-over' as const, tint, faces: [] })
+const lightPart = (key: string, tint: RGB) => ({ key, blend: 'source-over' as const, tint })
 
 /** A bank this high on the dome (deg) or higher rains round the eye (near rain); lower ones are far curtains. */
 export const NEAR_ALT = 30

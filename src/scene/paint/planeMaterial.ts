@@ -1,5 +1,5 @@
 import type { PlaneTexelCtx } from './planeTexel'
-import { TEXEL } from './landSurface'
+import { TEXEL } from '../model/planeBands'
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 const ease = (v: number) => v * v * (3 - 2 * v)

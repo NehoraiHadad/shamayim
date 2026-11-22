@@ -15,6 +15,10 @@ interface PendingSlot {
 }
 
 const slotOf = (id: string, part: 'form' | 'light') => `${id}:${part}`
+const isCanopy = (item: PendingSlot) => item.job.progressive && item.totalFrames > 1
+const isShade = ({ desc }: PaintJob) => (desc.kind === 'plane' || desc.kind === 'canopy') && desc.beamRemoved
+const priority = (item: PendingSlot) => item.totalFrames === 1 ? (isShade(item.job) ? 2 : 0)
+  : isCanopy(item) && !item.nextFrame ? 1 : 3
 const tagOf = (key: string, formKey: string) => `${key}\0${formKey}`
 
 /**
@@ -69,34 +73,34 @@ export class RemoteQueue {
   }
 
   /** Selects the next worker batch and records any completing slots in `inFlightFinal`. */
-  takeBatch(now: number): { jobs: PaintJob[]; since: number } | null {
-    if (!this.pending.size) return null
-    const single: [string, PendingSlot][] = []
-    for (const entry of this.pending) if (entry[1].totalFrames === 1) single.push(entry)
+  takeBatch(now: number, fillCanopies = true): { jobs: PaintJob[]; since: number } | null {
+    const eligible = [...this.pending].filter(([, item]) => fillCanopies || !isCanopy(item) || !item.nextFrame)
+    if (!eligible.length) return null
+    let first = 3
+    for (const [, item] of eligible) first = Math.min(first, priority(item))
+    const selected = eligible.filter(([, item]) => priority(item) === first)
     this.inFlightFinal.clear()
-    if (single.length) {
-      let since = Infinity
-      const jobs: PaintJob[] = []
-      for (const [slot, item] of single) {
+    if (first === 3) selected.length = 1
+
+    let since = now
+    const jobs: PaintJob[] = []
+    for (const [slot, item] of selected) {
+      since = Math.min(since, item.since)
+      const preview = first === 1
+      const end = Math.min(item.totalFrames, item.nextFrame + (preview ? 1 : STRIP_CHUNK_FRAMES))
+      const final = end === item.totalFrames
+      if (final) {
         this.pending.delete(slot)
         this.inFlightFinal.set(slot, tagOf(item.job.key, item.job.formKey))
-        if (item.since < since) since = item.since
-        jobs.push(item.job)
       }
-      return { jobs, since: Number.isFinite(since) ? since : now }
-    }
-    const [slot, item] = this.pending.entries().next().value as [string, PendingSlot]
-    const end = Math.min(item.totalFrames, item.nextFrame + STRIP_CHUNK_FRAMES)
-    const frames: number[] = []
-    for (let i = item.nextFrame; i < end; i++) frames.push(i)
-    const final = end >= item.totalFrames
-    if (final) {
-      this.pending.delete(slot)
-      this.inFlightFinal.set(slot, tagOf(item.job.key, item.job.formKey))
-    } else {
+      if (item.totalFrames === 1) jobs.push(item.job)
+      else {
+        const frames = Array.from({ length: end - item.nextFrame }, (_, i) => item.nextFrame + i)
+        jobs.push({ ...item.job, frames, final, preview: preview ? true : undefined })
+      }
       item.nextFrame = end
     }
-    return { jobs: [{ ...item.job, frames, final }], since: item.since }
+    return { jobs, since }
   }
 
   finishBatch() {
