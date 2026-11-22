@@ -1,3 +1,4 @@
+import { frameCount } from '../model/anim'
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
@@ -128,13 +129,19 @@ export class RemoteCache {
     this.pendingSince ??= this.now()
   }
 
-  /** Sends what waits, unless a batch is in flight (it goes when that one is back). */
+  /**
+   * Sends what waits, unless a batch is in flight (it goes when that one is back).
+   * Multi-frame strips (e.g. animated canopies) follow single-frame layers in a second batch so
+   * terrain and static layers composite immediately instead of waiting on a multi-frame strip raster.
+   */
   flush() {
     if (this.failed || this.inFlight || !this.pending.size) return
-    const jobs = [...this.pending.values()]
-    this.pending.clear()
+    const all = [...this.pending.values()]
+    const single = all.filter((job) => frameCount(job.desc.animated) === 1)
+    const jobs = single.length && single.length < all.length ? single : all
+    for (const job of jobs) this.pending.delete(`${job.id}:${job.part}`)
     this.inFlight = { batch: ++this.batch, since: this.pendingSince ?? this.now() }
-    this.pendingSince = null
+    if (!this.pending.size) this.pendingSince = null
     try {
       this.worker.postMessage({ batch: this.inFlight.batch, jobs })
     } catch (error) {

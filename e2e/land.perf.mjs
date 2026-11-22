@@ -11,11 +11,11 @@ import { interceptLandPerf } from './landPerfRoutes.mjs'
 
 const SHADMOT = { id: 'shadmot-mehola', nameHe: 'שדמות מחולה', regionHe: 'בקעת הירדן', lat: 32.3465, lon: 35.5325, timezone: 'Asia/Jerusalem' }
 
-export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75, dense = false } = {}) {
+export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75, dense = false, windy = false, waitCanopy = false } = {}) {
   const panorama = fs.readFileSync(path.join(root, 'src/test/fixtures/scene/shadmot-mehola.panorama.json'), 'utf8')
-  const { context, releaseLand, fineTileFetches, assetDeadlines } = await interceptLandPerf(browser, serverUrl, { dpr, dense, panorama })
+  const { context, releaseLand, fineTileFetches, assetDeadlines } = await interceptLandPerf(browser, serverUrl, { dpr, dense, windy, panorama })
   try {
-    return await measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, releaseLand, fineTileFetches, assetDeadlines })
+    return await measureAppLand(context, serverUrl, { rate, dpr, dense, windy, waitCanopy, panorama, releaseLand, fineTileFetches, assetDeadlines })
   } catch (error) {
     if (!assetDeadlines.size) throw error
     return { problems: [`local land asset deadline aborts: ${[...assetDeadlines].sort().join(', ')} (fixture stopped: ${error.message.split('\n')[0]})`] }
@@ -24,7 +24,7 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
   }
 }
 
-async function measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, releaseLand, fineTileFetches, assetDeadlines }) {
+async function measureAppLand(context, serverUrl, { rate, dpr, dense, windy, waitCanopy, panorama, releaseLand, fineTileFetches, assetDeadlines }) {
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
   await cdp.send('Emulation.setCPUThrottlingRate', { rate })
@@ -47,10 +47,16 @@ async function measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, 
       && shown?.['plane.near']?.fresh && shown?.['plane.far']?.fresh)
   }, dense, { timeout: 60000 })
   const firstFallbackPaintMs = performance.now() - tNav
+  let firstCanopyPaintMs = null
+  if (waitCanopy) {
+    await page.waitForFunction(() => Boolean(window.__sceneStats?.shown?.['canopy.near']?.fresh), null, { timeout: 60000 })
+    firstCanopyPaintMs = performance.now() - tNav
+  }
   const fallbackSnap = await page.evaluate(() => ({
     albedoSource: window.__world.land.own.albedoSource,
     nearKey: window.__sceneStats.shown['plane.near'].key,
     farKey: window.__sceneStats.shown['plane.far'].key,
+    canopyNearKey: window.__sceneStats.shown['canopy.near']?.key ?? null,
   }))
 
   // 2. Release delayed S2 + GIBS NDVI + GIBS SR RGB replies and wait for refined `plane.near` & `plane.far` composites
@@ -69,6 +75,12 @@ async function measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, 
     )
   }, { nearKey: fallbackSnap.nearKey, farKey: fallbackSnap.farKey }, { timeout: 60000 })
   const refinementMs = performance.now() - tRelease
+  let refinementCanopyMs = null
+  if (waitCanopy && fallbackSnap.canopyNearKey) {
+    await page.waitForFunction((ck) => Boolean(window.__sceneStats?.shown?.['canopy.near']?.fresh
+      && window.__sceneStats.shown['canopy.near'].key !== ck), fallbackSnap.canopyNearKey, { timeout: 60000 })
+    refinementCanopyMs = performance.now() - tRelease
+  }
   const refinedMeta = await page.evaluate(() => {
     const far20 = window.__world.land.rays[20].bands.find((b) => b.distanceM === 20_000)?.sample
     // 55 km due south of Shadmot (~31.85°N) lies in tile 8/104/153 (outside the recorded 8/103/153 tile).
@@ -116,9 +128,12 @@ async function measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, 
   const cover = await page.evaluate(() => window.__world.land.own.cover)
   const duplicateTiles = [...fineTileFetches.entries()].filter(([, n]) => n > 1)
   const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
-  console.log(`\napp living-land mount (shadmot-mehola${dense ? ', dense tree cover' : ''}, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
-  console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${fallbackSnap.albedoSource}, plane.near=${fallbackSnap.nearKey}, satellite held)`)
-  console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, far55km(miss)=${refinedMeta.farMissAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey})`)
+  const tag = [dense && 'dense tree cover', windy && 'windy animated canopy'].filter(Boolean).join(', ')
+  console.log(`\napp living-land mount (shadmot-mehola${tag ? `, ${tag}` : ''}, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
+  const canopyNote = firstCanopyPaintMs === null ? '' : `, firstCanopy=${firstCanopyPaintMs.toFixed(1)} ms`
+  const refCanopyNote = refinementCanopyMs === null ? '' : `, refCanopy=${refinementCanopyMs.toFixed(1)} ms`
+  console.log(`  firstFallbackPaint ${firstFallbackPaintMs.toFixed(1)} ms  (albedoSource=${fallbackSnap.albedoSource}, plane.near=${fallbackSnap.nearKey}${canopyNote}, satellite held)`)
+  console.log(`  refinement         ${refinementMs.toFixed(1)} ms  (own=${refinedMeta.ownAlbedo}, cover=${refinedMeta.ownCover}, far20km ndvi=${refinedMeta.farNdvi} albedo=${refinedMeta.farAlbedo}, far55km(miss)=${refinedMeta.farMissAlbedo}, plane.near=${refinedMeta.nearKey}, plane.far=${refinedMeta.farKey}${refCanopyNote})`)
   console.log(`  sameDayScrubLight  p50 ${med(scrubSteps).toFixed(1)} ms  (n=${scrubSteps.length}, world.land reused=${reused}, form reused=${formReused})`)
   console.log(`  coldFineTiles      ${fineTileFetches.size} unique tiles fetched, duplicates=${duplicateTiles.length}`)
 
@@ -138,7 +153,7 @@ async function measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, 
   if (!formReused) problems.push('same-day scrub repainted plane form')
   const unexplained = duplicateTiles.filter(([k]) => !assetDeadlines.has(`/data/land/il/${k}`))
   if (unexplained.length) problems.push(`duplicate cold fine-tile fetches: ${unexplained.map(([k, n]) => `${k}×${n}`).join(', ')}`)
-  return { firstFallbackPaintMs, refinementMs, scrubMedianMs: med(scrubSteps), reused, duplicateTiles, problems }
+  return { firstFallbackPaintMs, firstCanopyPaintMs, refinementMs, refinementCanopyMs, scrubMedianMs: med(scrubSteps), reused, duplicateTiles, problems }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -151,13 +166,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const baselineServer = baselineRoot && await startPreview(baselineRoot)
   const browser = await launch({ gpu })
   try {
-    const cases = baselineServer ? [false, true] : [args.includes('--dense')]
-    for (const dense of cases) for (let i = 0; i < (baselineServer ? runs : 1); i++) {
-      const stages = baselineServer ? [['stage3', baselineServer], ['stage4', server]] : [['app', server]]
+    const cases = baselineServer
+      ? (args.includes('--windy') ? [{ dense: true, windy: true }] : [{ dense: false, windy: false }, { dense: true, windy: false }, { dense: true, windy: true }])
+      : [{ dense: args.includes('--dense'), windy: args.includes('--windy') }]
+    for (const cfg of cases) for (let i = 0; i < (baselineServer ? runs : 1); i++) {
+      const stages = baselineServer ? [['base', baselineServer, false], ['head', server, true]] : [['app', server, true]]
       if (i % 2 === 1) stages.reverse()
-      for (const [name, app] of stages) {
+      for (const [name, app, waitCanopy] of stages) {
         console.log(`\n${name} / run ${i + 1}`)
-        const res = await runAppLandPerf(browser, app.url, { rate, dense })
+        const res = await runAppLandPerf(browser, app.url, { rate, ...cfg, waitCanopy })
         if (res.problems.length) { console.error(`FAIL: ${res.problems.join('; ')}`); process.exitCode = 1 }
       }
     }

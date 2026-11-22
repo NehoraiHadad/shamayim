@@ -4,10 +4,19 @@ import { root } from './harness.mjs'
 import { buildGibsNdviPng, buildRecordedS2Fixture, fulfillRange, loadGibsSrJpeg } from './landFixtures.mjs'
 
 /** Every external request on the benchmark page is intercepted or refused. */
-export async function interceptLandPerf(browser, serverUrl, { dpr, dense, panorama }) {
+export async function interceptLandPerf(browser, serverUrl, { dpr, dense, windy = false, panorama }) {
   const host = new URL(serverUrl).host
   const forecast = JSON.parse(fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'), 'utf8'))
   forecast.elevation = JSON.parse(panorama).groundM
+  if (windy) {
+    // Sustained 58 km/h westerly, gusts 86 km/h (matching `land-wind`) so canopy strips animate (10 poses).
+    forecast.current.wind_speed_10m = 58
+    forecast.current.wind_gusts_10m = 86
+    forecast.current.wind_direction_10m = 270
+    for (const k of ['wind_speed_10m_icon_seamless', 'wind_speed_10m_ecmwf_ifs025']) forecast.hourly[k] = forecast.hourly[k].map(() => 58)
+    for (const k of ['wind_gusts_10m_icon_seamless', 'wind_gusts_10m_ecmwf_ifs025']) forecast.hourly[k] = forecast.hourly[k].map(() => 86)
+    for (const k of ['wind_direction_10m_icon_seamless', 'wind_direction_10m_ecmwf_ifs025']) forecast.hourly[k] = forecast.hourly[k].map(() => 270)
+  }
   const [{ stac, cogs }, gibsPng, gibsSrJpg] = await Promise.all([
     buildRecordedS2Fixture(root), Promise.resolve(buildGibsNdviPng(root)), Promise.resolve(loadGibsSrJpeg(root)),
   ])
@@ -19,7 +28,7 @@ export async function interceptLandPerf(browser, serverUrl, { dpr, dense, panora
   // Uniform tree cover in Shadmot's own 0.1° tile, keeping the surrounding observed cover and the same DEM and imagery.
   // Local tiles encode runs as a cover letter followed by a decimal count (b = tree cover).
   const denseTile = JSON.stringify({ v: 1, r: 'b40000' })
-  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr, reducedMotion: windy ? 'no-preference' : 'reduce', serviceWorkers: 'block' })
   await context.exposeFunction('recordLandAssetDeadline', (pathname) => { assetDeadlines.add(pathname) })
   await context.addInitScript(() => {
     const fetchAsset = window.fetch

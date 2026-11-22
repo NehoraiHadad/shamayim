@@ -1,9 +1,9 @@
 import type { LayerDesc, LayerKind } from '../model/types'
 import type { Surface } from './surface'
 
-/** Cold-start order (§1d): sky, the planes, then the place and its marks, then clouds and weather. */
+/** Cold-start order (§1d): sky, the planes, canopies/water/cities, then the place and its marks, then clouds and weather. */
 export const PRIORITY: Record<LayerKind, number> = {
-  sky: 0, stars: 1, bodies: 1, loading: 2, plane: 2, canopy: 2, water: 3, farCities: 3, outside: 4, marks: 4,
+  sky: 0, stars: 1, bodies: 1, loading: 2, plane: 2, canopy: 3, water: 3, farCities: 3, outside: 4, marks: 4,
   clouds: 5, flash: 6, shimmer: 6, shafts: 6, fall: 6, mist: 6, grains: 6, landDust: 6, rays: 6, smoke: 6, sheen: 6, edge: 6,
   // C10: the sky's life and optics last (small layers; a moment late costs nothing).
   milkyWay: 2, planets: 1, twinkle: 7, meteor: 7, bow: 6, contrail: 7, aircraft: 7, birds: 7,

@@ -4,7 +4,7 @@ import type { LayerDesc, LayerOf } from '../model/types'
 import type { Painter } from '../paint'
 import { LayerCache, type LayerCanvas } from './layerCache'
 import { makeLoop } from './loop'
-import { paintSliced } from './schedule'
+import { paintSliced, PRIORITY } from './schedule'
 import type { PaintReply, PaintRequest } from './paintJob'
 import { RemoteCache, type WorkerLike } from './remoteCache'
 import { makeStats } from './stats'
@@ -105,6 +105,7 @@ describe('surface and schedule', () => {
     expect(report.slices.length).toBe(3)
     expect(Math.max(...report.slices)).toBeLessThanOrEqual(9)
     expect(layers(7).every((layer) => surface.fresh(layer))).toBe(true)
+    expect(PRIORITY.canopy).toBeGreaterThan(PRIORITY.plane)
   })
 
   it('a warm frame repaints nothing when the model is the same', () => {
@@ -190,6 +191,37 @@ describe('painting in the worker', () => {
     worker.answer()
     expect(cache.fresh(plane('a', 'l4'), 2)).toBe(true)
     expect(cache.settled()).toBe(true)
+  })
+
+  it('sends single-frame terrain layers before multi-frame strips so animated canopies do not block first terrain paint', async () => {
+    const worker = fakeWorker()
+    const arrivals: boolean[] = []
+    const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: ({ settled }) => arrivals.push(settled), onFail: () => {} })
+    const animatedCanopy: LayerOf<'canopy'> = {
+      kind: 'canopy', id: 'canopy.near', surface: 'land', z: 30.1, key: 'c1', bounds: { x: 0, y: 40, w: 375, h: 88 },
+      outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 }, lift: null,
+      vegetation: { seed: 1, tones: [], trees: new Float32Array(), treeMeta: new Uint8Array(), tufts: new Float32Array(), tuftMeta: new Uint8Array() },
+      animated: { mode: 'frames', frames: { count: 10, fps: 5 } },
+      light: { key: 'cl1', blend: 'source-over', faces: [] },
+    }
+    cache.update(plane('a', 'l1'), 2)
+    cache.update(animatedCanopy, 2)
+    cache.flush()
+    // Batch 1 contains only the single-frame terrain plane; the 10-frame canopy strip waits in pending.
+    expect(worker.sent).toHaveLength(1)
+    expect(worker.sent[0].jobs.map((job) => `${job.id}:${job.part}`)).toEqual(['plane.near:form', 'plane.near:light'])
+    const settled = cache.whenSettled()
+    worker.answer()
+    // Terrain is already fresh and composited while Batch 2 (animated canopy strip) is dispatched.
+    expect(cache.fresh(plane('a', 'l1'), 2)).toBe(true)
+    expect(cache.fresh(animatedCanopy, 2)).toBe(false)
+    expect(arrivals).toEqual([false])
+    expect(worker.sent).toHaveLength(1)
+    expect(worker.sent[0].jobs.map((job) => `${job.id}:${job.part}`)).toEqual(['canopy.near:form', 'canopy.near:light'])
+    worker.answer()
+    await settled
+    expect(arrivals).toEqual([false, true])
+    expect(cache.fresh(animatedCanopy, 2)).toBe(true)
   })
 
   it('lays the arrivals on the surface, reuses shown entries when trackShown is on, and paints on main thread once worker fails', () => {
