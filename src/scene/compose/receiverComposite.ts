@@ -33,7 +33,7 @@ export class ReceiverComposite {
     const beam = cached.light as CanvasImageSource, shade = cached.shade as CanvasImageSource
     if (!shadow || !shade || !plane.shade || cached.ratio !== plane.ratio) return draw(beam)
     const seconds = shadowSeconds(shadow, phase, still)
-    const step = exact && seconds ? -seconds : shadowStep(shadow, phase, still, plane.ratio)
+    const step = exact ? -seconds - 1 : shadowStep(shadow, phase, still, plane.ratio)
     const mask = this.masks.maskAt(plane.desc.id, shadow, plane.rect, plane.ratio, seconds, step)
     const rect = cached.rect, box = mask.box && intersect(mask.box, rect)
     if (!box) return draw(beam)
