@@ -1,11 +1,11 @@
 import { painterOf } from '../paint'
-import { canvasSize, paintPart, type PaintJob, type PaintReply, type PaintRequest, type PaintResult } from './paintJob'
+import type { PaintReply, PaintRequest } from './paintJob'
+import { makeWorkerRunner } from './paintWorkerRun'
 
 /**
- * The paint worker (§1d, off the main thread): paints the parts of layers it is sent on its own `OffscreenCanvas`es with
- * the same painters and the same `paintPart` as the main thread's cache, and hands each back as an `ImageBitmap`
- * (transferred, not copied). The main thread only lays the bitmaps into the visible canvas, so neither a cold start nor
- * a scrub frame rasterizes a layer there. One reply per request, in order.
+ * The paint worker (§1d, off the main thread): paints layer parts on its own `OffscreenCanvas`es via `makeWorkerRunner`
+ * and hands completed parts back as transferred `ImageBitmap`s. Multi-frame strips paint in bounded pose chunks across
+ * batches so newly arriving terrain or scrub-light jobs can preempt between chunks. One reply per request, in order.
  */
 interface WorkerScope {
   onmessage: ((event: MessageEvent<PaintRequest>) => void) | null
@@ -13,45 +13,18 @@ interface WorkerScope {
 }
 const scope = globalThis as unknown as WorkerScope
 
-/** One canvas per layer part, reused (a transfer leaves it blank, its size kept). */
-const canvases = new Map<string, OffscreenCanvas>()
-
-function canvasFor(job: PaintJob): OffscreenCanvas {
-  const name = `${job.id}:${job.part}`
-  let canvas = canvases.get(name)
-  const { w, h } = canvasSize(job.desc, job.rect)
-  if (!canvas || canvas.width !== w || canvas.height !== h) {
-    canvas = new OffscreenCanvas(w, h)
-    canvases.set(name, canvas)
-  }
-  return canvas
-}
-
-const ctxOf = (canvas: OffscreenCanvas) => canvas.getContext('2d') as OffscreenCanvasRenderingContext2D
+const runBatch = makeWorkerRunner({
+  createCanvas: (w, h) => new OffscreenCanvas(w, h),
+  painterOf,
+})
 
 scope.onmessage = (event) => {
   const { batch, jobs } = event.data
-  const results: PaintResult[] = []
   try {
-    for (const job of jobs) {
-      const start = performance.now()
-      const canvas = canvasFor(job)
-      const painter = painterOf(job.desc)
-      const paint = job.part === 'form' ? painter?.form : painter?.light
-      if (paint) {
-        paintPart(ctxOf(canvas), canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, (w, h) => {
-          const scratch = new OffscreenCanvas(w, h)
-          return { canvas: scratch, ctx: ctxOf(scratch) }
-        })
-      } else ctxOf(canvas).clearRect(0, 0, canvas.width, canvas.height)
-      // The transfer is where the canvas rasterizes what was drawn (a 2D canvas defers its raster to its first read).
-      const bitmap = canvas.transferToImageBitmap()
-      results.push({ id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, bitmap,
-        ms: performance.now() - start })
-    }
-    scope.postMessage({ batch, results }, results.map((result) => result.bitmap))
+    const results = runBatch(jobs)
+    const transfer = results.flatMap((result) => (result.bitmap ? [result.bitmap] : []))
+    scope.postMessage({ batch, results }, transfer)
   } catch (error) {
-    for (const result of results) result.bitmap.close()
     scope.postMessage({ batch, results: [], error: String(error) }, [])
   }
 }

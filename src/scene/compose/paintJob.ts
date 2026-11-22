@@ -95,6 +95,10 @@ export interface PaintJob {
   rect: DeviceRect
   phase: number
   hand: Hand
+  /** Subset of strip frame indices to paint in this batch (for chunked multi-frame strips). */
+  frames?: readonly number[]
+  /** Whether this job completes the part and transfers its bitmap (defaults to true). */
+  final?: boolean
 }
 
 export interface PaintRequest { batch: number; jobs: PaintJob[] }
@@ -106,7 +110,8 @@ export interface PaintResult {
   formKey: string
   ratio: number
   rect: DeviceRect
-  bitmap: ImageBitmap
+  /** Transferred bitmap on completion, or null for an intermediate strip chunk still staged in the worker. */
+  bitmap: ImageBitmap | null
   /** The worker's time for this part (ms), raster included. */
   ms: number
 }

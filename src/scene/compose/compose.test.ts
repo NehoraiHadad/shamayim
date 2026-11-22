@@ -132,7 +132,7 @@ function fakeWorker() {
       const request = sent.shift()!
       const reply: PaintReply = { batch: request.batch, results: request.jobs.map((job) => ({ id: job.id, part: job.part, key: job.key,
         formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 1,
-        bitmap: { width: job.rect.w, height: job.rect.h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap })) }
+        bitmap: job.final === false ? null : { width: job.rect.w, height: job.rect.h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap })) }
       worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
     },
   }
@@ -212,15 +212,15 @@ describe('painting in the worker', () => {
     expect(worker.sent[0].jobs.map((job) => `${job.id}:${job.part}`)).toEqual(['plane.near:form', 'plane.near:light'])
     const settled = cache.whenSettled()
     worker.answer()
-    // Terrain is already fresh and composited while Batch 2 (animated canopy strip) is dispatched.
+    // Terrain is already fresh and composited while the animated canopy strip begins painting in bounded chunks.
     expect(cache.fresh(plane('a', 'l1'), 2)).toBe(true)
     expect(cache.fresh(animatedCanopy, 2)).toBe(false)
     expect(arrivals).toEqual([false])
     expect(worker.sent).toHaveLength(1)
-    expect(worker.sent[0].jobs.map((job) => `${job.id}:${job.part}`)).toEqual(['canopy.near:form', 'canopy.near:light'])
-    worker.answer()
+    expect(worker.sent[0].jobs.map((job) => [job.id, job.part, job.frames, job.final])).toEqual([['canopy.near', 'form', [0, 1], false]])
+    while (worker.sent.length) worker.answer()
     await settled
-    expect(arrivals).toEqual([false, true])
+    expect(arrivals).toEqual([false, false, true])
     expect(cache.fresh(animatedCanopy, 2)).toBe(true)
   })
 
