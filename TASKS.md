@@ -873,3 +873,44 @@ Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weath
   Codex gpt-6.2-sol review.
 - [ ] Follow-up (track D): cloud shadows on the far ridge read as horizontal bands.
 - [ ] Follow-up: `App.tsx:89` page background uses `mapAir(shown)` with live visibility even in a picked-hour preview.
+
+## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
+One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
+and rain. Spec: `docs/design/qa/polish/track-d/SPEC.md` (Fable). Roles: Neon codes field/light logic, Codex sol 6.2
+reviews, Claude manages and draws the painters.
+- [x] Fable spec (Fable, native Agent) — `track-d/SPEC.md`
+- [x] Before stills — `track-d/before/` (Haifa, Jerusalem, Shadmot Mehola; 11:30/21:00; broken/overcast/showers)
+- [x] N1 brief — `track-d/briefs/N1-field-core.md`
+- [ ] N1 field core `src/world/field/` — written by Codex gpt-6.2-sol (Neon out of quota, 2026-11-21); reviewed by a
+      Claude Opus subagent. outsourcerer runs with `OSRC_HOME=P:/osrc-home` (C: below its 10 GB disk gate).
+      N1b (Codex) 36698c5: 4/7 tests pass. Opus round 2: life cycle tied to genus, `layerCovers` jumps at 100 %
+      total (`src/world/clouds.ts`), two ill-posed tests, density grid too fine. N1c brief `briefs/N1c-fix-round.md`.
+      N1c 5c96188 and N1d (Codex): 187/187 src/world tests; RMS ≤ 3.9 %; arrival 1–2 ms, cold place 9–14 ms, warm
+      3.3–3.8 ms alone (warm target 3 ms not yet met; strict budgets run with `FIELD_PERF=1`, default run guards at 3×).
+      N1e (Codex) physical cover fit, analytic near raster, warm 1.7 ms. Opus round 4: **ship N1** (82b8e5b); six
+      follow-ups folded into N2 (effective τ beyond the raster, slant shadowTau, tower periods 30–60 min, rain weight).
+- Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
+- Done = READY line to the polish-audit session: no blocking review findings, CI green on final sha incl. perf budget, TASKS updated, main merged first if C landed. The audit session merges, not us.
+- [ ] N2 (Codex writes, Opus reviews) brief `briefs/N2-light-shadow-rain.md`: `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),
+      transmit, eye/direct light, shadows, rain; tests 2, 3, 8
+      N2 5297bd4 (16 failures; shadows 0.3–0.9 s per model). N2b 2c0a26d: combined-cover gap light + `light.clear`,
+      exact ray–cell transmission (|ΔT| ≤ 0.016 vs fine march), rain keeps drawn banks. Opus round 6: N2b broke the
+      terrain datum (faces empty above sea level) and shadows cost 10–24 ms on real DEM. N2c b3995b8: datum restored,
+      shadows + rain feet on the flightTerrain grid, visibility before ranking. Opus round 7: geometry clean; the
+      Jerusalem 30 ms gap was test order (first-call model cost ~10 ms predates N2). N2d: rank before terrain work, a
+      real CPU-reference perf guard, cheaper slow scene tests. All rounds written by Codex gpt-6.2-sol, reviewed by an
+      Opus subagent (Neon out of quota).
+      N2d CI (run 44993185800): 5/1540 failed (purity name, shadow ratio 0.31–0.46 > 0.2, Tel Aviv sea glint), perf
+      scrub.model p95 23.6 > 15 ms (Haifa, Tel Aviv). N2e: glitter on the eye ray, one shadow layer per land plane.
+- [ ] Shadow painter (Claude): field blobs clipped to the land faces / `rim` polygon; acceptance includes track F's
+      far-ridge band (`cloudShadow.far` horizontal smear) gone
+- [ ] Rain shaft, trail and virga painter (Claude) from `rain.cells`; then retire the `rainBanks` adapter
+- [ ] Follow-up (outside D): first-call `sceneModel` cost ~10 ms on a new minute (`tone.ts`, `keys.ts` `partKey`)
+- [ ] Sheet-mode painter (Claude): layers as continuous density textures over the dome (SPEC §6.0, owner note
+      2026-11-22: "the sky is cloudy" is a layer, not shapes); sprites only for conv cells and horizon heaps
+- [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
+- [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
+      As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
+      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png`
+- [ ] Painters in scene: wire to N3 cell descs, detail pass at 375 px
+- [ ] After stills `track-d/after/`, before/after sheet; `test:perf`, vitest, `tsc -b`, oxlint

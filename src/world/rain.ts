@@ -1,3 +1,5 @@
+import type { WorldCloudField } from './cloudField'
+import { altitudeOf, projectCell } from './field/project'
 import type { AirInput } from '../atmo/airTypes'
 import { rainRate } from './airParts'
 import { seeded } from '../data/landmarks/hash'
@@ -25,29 +27,79 @@ export function rainingLayer(covers: Covers, rateMmH: number): { level: CloudLev
   return { level: 'low', covers: { ...covers, low: RAISED_COVER }, raised: true }
 }
 
-/**
- * The rain: falls only from the banks of the layer that rains, at their true azimuths (steady rain from most of them,
- * a shower from a few), slanted by the one wind toward where it goes. Null when nothing falls.
- */
-export function rainFrom(layers: readonly CloudLayer[], rateMmH: number, wind: Wind, weatherCode: number, preview: boolean,
-  seed: number): Rain | null {
-  const layer = layers.find((l) => l.rains)
-  if (rateMmH <= 0 || !layer || !layer.banks.length) return null
-  const share = Math.min(1, Math.max(0.3, rateMmH / 2))
-  const r = seeded(seed)
-  let raining = layer.banks.filter(() => r() < share)
-  if (!raining.length) raining = [layer.banks[0]]
-  // Apparent fall speed (km/h-equivalent), as the WebGL rain: drizzle drifts, heavy rain stays near upright.
-  const fall = rateMmH < 0.5 ? 20 : 60
-  const slant = Math.min((50 * Math.PI) / 180, Math.atan((wind.ms * 3.6 * Math.abs(wind.across)) / fall))
-  return {
-    rateMmH,
-    cells: raining.map((bank) => ({ fromAzimuth: bank.azimuth - bank.w / 2, toAzimuth: bank.azimuth + bank.w / 2, bank: bank.id })),
-    slant: Math.sign(wind.across) * slant,
-    thunder: weatherCode >= 95 && !preview,
+/** Rank the actual on-cells. Low candidates are the individually drawn cells within 10 km. Towers reach 80 km, beyond their raster. */
+export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, weatherCode: number, preview: boolean,
+  humidity: number | null, groundAboveEyeKm: number | ((eastKm: number, northKm: number) => number)): Rain | null {
+  const level = cloud.field.rain?.level
+  if (rateMmH <= 0 || !level) return null
+  const candidates = cloud.snapshot
+    .filter(({ layer }) => layer?.lattice === level || (level === 'low' && layer?.lattice === 'tower'))
+    .flatMap(({ cells, layer }) => cells.filter(cell => cell.rainWeight > 0).map(cell => ({ cell, layer: layer!, area: cell.r * (cell.rMinor ?? cell.r),
+      score: cell.rainWeight * cell.tau0 * cell.r ** 2 })))
+    .sort((a, b) => Number(b.cell.lattice === 'tower') - Number(a.cell.lattice === 'tower')
+      || b.score - a.score)
+  const total = candidates.reduce((sum, item) => sum + item.area, 0)
+  const fraction = rainAreaShare(weatherCode, rateMmH)
+  const fallMs = weatherCode >= 71 && weatherCode <= 77 ? 1 : rateMmH < 0.5 ? 1.5 : rateMmH < 2.5 ? 4 : rateMmH < 8 ? 6 : 8
+  const toward = wind.towardDeg * Math.PI / 180
+  const groundWind = [Math.sin(toward) * wind.ms * 0.06, Math.cos(toward) * wind.ms * 0.06]
+  let cumulative = 0, near = false
+  const cells: Rain['cells'] = []
+  for (const { cell, layer, area } of candidates) {
+    const start = cumulative / total
+    cumulative += area
+    const end = cumulative / total
+    const share = (rainRankIntegral(end, fraction) - rainRankIntegral(start, fraction)) / (end - start)
+    if (share <= 0) break
+    const dry = rateMmH < 0.2 && humidity !== null && humidity < 45
+    const vx = layer.vel[0] - groundWind[0], vy = layer.vel[1] - groundWind[1]
+    let x = cell.x, y = cell.y, virga = 1
+    // Solve for the ground at the displaced foot. Successive estimates stop
+    // at a horizontal residual of at most 1 m, with a 12-sample cap.
+    for (let i = 0; i < 12; i++) {
+      const footAboveEyeKm = typeof groundAboveEyeKm === 'number' ? groundAboveEyeKm : groundAboveEyeKm(x, y)
+      const depth = Math.max(0, cell.baseKm - footAboveEyeKm)
+      virga = Math.min(1, depth > 2.5 ? 2.5 / depth : 1, dry ? humidity / 45 : 1)
+      const trail = virga ** 2 * depth / (2 * fallMs * 0.06)
+      const nextX = cell.x - vx * trail, nextY = cell.y - vy * trail
+      const residual = Math.hypot(nextX - x, nextY - y)
+      x = nextX
+      y = nextY
+      if (residual <= 0.001 || typeof groundAboveEyeKm === 'number') break
+    }
+    const radiusKm = 0.6 * cell.r
+    const atEye = virga === 1 && Math.hypot(x, y) <= radiusKm
+    near ||= atEye
+    const projected = projectCell(cell)
+    const half = Math.atan2(radiusKm, projected.rangeKm) * 180 / Math.PI
+    cells.push({ x, y, radiusKm, share, virga, fromAzimuth: projected.az - half, toAzimuth: projected.az + half,
+      bank: String(cell.id), atEye, baseKm: cell.baseKm, cloudX: cell.x, cloudY: cell.y, seed: cell.seed })
   }
+  return { rateMmH, cells, near, slant: Math.atan(wind.ms * wind.across / fallMs), thunder: weatherCode >= 95 && !preview }
 }
 
+export function rainAreaShare(code: number, rate: number) {
+  if ((code >= 51 && code <= 65) || (code >= 71 && code <= 75)) return 0.9
+  return Math.max(0.08, Math.min(0.6, rate / (4 + 2 * rate)))
+}
+
+// Integral of the descending smoothstep over a symmetric 0.1-wide area ramp.
+function rainRankIntegral(rank: number, fraction: number) {
+  const start = fraction - 0.05
+  const u = Math.max(0, Math.min(1, (rank - start) / 0.1))
+  return Math.min(rank, start) + 0.1 * (u - u ** 3 + u ** 4 / 2)
+}
+
+/** Provide bank IDs to the existing shaft painter until it can consume physical shaft geometry. */
+export function rainBanks(rain: Rain): CloudLayer['banks'] {
+  return rain.cells.map(cell => {
+    const distanceKm = Math.hypot(cell.cloudX, cell.cloudY)
+    const altitude = altitudeOf(cell.baseKm, distanceKm)
+    return { id: cell.bank, distanceKm, altitude: cell.atEye ? Math.max(30, altitude) : Math.min(29.999, altitude),
+      azimuth: (cell.fromAzimuth + cell.toAzimuth) / 2, w: (cell.toAzimuth - cell.fromAzimuth) / 0.6,
+      h: 1, puffs: 3, seed: cell.seed, share: cell.share }
+  })
+}
 /**
  * Snow falling (C7): like the rain, only from the banks of the layer that precipitates (`rainingLayer` chose it from the
  * snowfall), at their true azimuths, slanted by the one wind: flakes fall slowly (~1 m/s), so the wind carries them far

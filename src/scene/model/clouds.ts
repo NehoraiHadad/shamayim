@@ -1,5 +1,7 @@
+import { rainBanks } from '../../world/rain'
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { cloudTransmit, MOON_RGB } from '../../world/light'
+import { MOON_RGB } from '../../world/light'
+import { cloudLight, layerMeanTransmission } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
@@ -36,8 +38,11 @@ interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: bo
 function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer): CloudLight | null {
   const { sun, moon } = world.bodies
   const covers = coversOf(world)
-  const above = layer.level === 'low' ? cloudTransmit({ low: 0, mid: covers.mid, high: covers.high })
-    : layer.level === 'mid' ? cloudTransmit({ low: 0, mid: 0, high: covers.high }) : 1
+  const upper = world.cloudField?.field.layers.filter(({ lattice }) =>
+    layer.level !== 'high' && (lattice === 'high' || (layer.level === 'low' && lattice === 'mid')))
+  const above = upper?.reduce((beam, cloud) =>
+    beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm), 1)
+    ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high }).clear
   const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)
@@ -234,6 +239,17 @@ function bankKey(b: BankDesc) {
     b.toward ? q(Math.atan2(b.toward[1], b.toward[0]) * 57.3, 8) : null, q(b.under, 1 / 20), q(b.silver, 1 / 20), b.rains]
 }
 
+/** Project the shaft adapter on the cloud band without adding it to the painted clouds. */
+export function rainBankDescs(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer) {
+  if (!world.rain) return []
+  const banks = rainBanks(world.rain)
+  const { low, mid, high } = coversOf(world)
+  const union = 1 - (1 - low) * (1 - mid) * (1 - high)
+  const stops = skyStops(world, box)
+  const ids = new Set(banks.map(bank => bank.id))
+  return banks.map(bank => ({ bank, drawn: snap(bankDesc(world, box, geom, stops, layer, bank, null, union, ids)) }))
+}
+
 /**
  * The clouds (C6), one layer per level, high behind low: the world's banks (its cover, seeded round the whole horizon,
  * the satellite's single clouds among the low ones) drawn as heaped puffs (low, mid) or streaks (high) at their true
@@ -259,12 +275,14 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(veil?.bottom ?? 0, ...all.map((b) => b.y + b.h * 0.5)) + 6))
     if (bottom <= top) continue
     const speed = layer.drift * geom.s
+    // Bank keys already contain quantized coordinates, tones and angles.
+    const bankKeys = JSON.stringify(all.map(bankKey))
     out.push({
       kind: 'clouds', id: `clouds.${layer.level}`, surface: 'sky', z: Z[layer.level], soft: true, level: layer.level,
       banks: all, veil, period: geom.period,
       bounds: { x: 0, y: top, w: geom.period, h: bottom - top },
       animated: Math.abs(speed) > 0.01 ? { mode: 'drift', speed, period: geom.period } : undefined,
-      key: layerKey('clouds', layer.level, skyBoxKey(box, true), geom.period, all.map(bankKey),
+      key: layerKey('clouds', layer.level, skyBoxKey(box, true), geom.period, bankKeys,
         veil && [q(veil.bottom, 0.5), tone(veil.rgb), veil.alpha.toFixed(2)]),
     })
   }
@@ -284,7 +302,6 @@ export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly
   const layer = world.clouds.find((l) => l.rains)
   const drawn = clouds.find((l) => l.level === layer?.level)
   if (!layer || !drawn) return []
-  const cells = new Set(world.rain.cells.map((c) => `${layer.level}:${c.bank}`))
   const mid = geom.left + box.width / 2
   const inView = (b: BankDesc) => {
     // The bank's x nearest the middle of the view, among its copies round the band.
@@ -293,7 +310,7 @@ export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly
   }
   // The largest raining banks in view (the near ones, high on the dome, where a flash shows over the land).
   const half = box.width / 2
-  const candidates = drawn.banks.filter((b) => cells.has(b.id)).map((b) => ({ b, x: inView(b) }))
+  const candidates = rainBankDescs(world, box, geom, layer).map(({ drawn: b }) => ({ b, x: inView(b) }))
     .filter(({ b, x }) => Math.abs(x - mid) < half + b.w / 4)
     .sort((a, c) => c.b.w * c.b.h - a.b.w * a.b.h).slice(0, 2)
   return candidates.map(({ b, x }, i) => {

@@ -10,6 +10,7 @@ import { paintWater } from '../paint/water'
 import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from '../paint/weather'
 import { sceneModel } from '.'
 import { fallAt, frameAt, framePhase } from './anim'
+import { rainBankDescs } from './clouds'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerKind, LayerOf, SceneBox, SceneModel } from './types'
 import { inView, mistiness, NEAR_ALT } from './weather'
@@ -31,7 +32,15 @@ beforeAll(async () => {
 afterAll(() => { vi.unstubAllGlobals() })
 
 const at = (hour: string) => `${DAY}T${hour}` as LocalTime
-const world = (id: string, hour: string, forced: WorldInput['forced'] = null) => buildWorld({ ...worldInput(loaded.get(id)!, at(hour)), forced })
+const inputs = new Map<string, WorldInput>()
+const world = (id: string, hour: string, forced: WorldInput['forced'] = null) => {
+  let input = inputs.get(id)
+  if (!input) {
+    input = worldInput(loaded.get(id)!, at('12:00'))
+    inputs.set(id, input)
+  }
+  return buildWorld({ ...input, selected: at(hour), forced })
+}
 const ofKind = <K extends LayerKind>(model: SceneModel, kind: K) => model.layers.filter((l): l is LayerOf<K> => l.kind === kind)
 const FALLING: LayerKind[] = ['shafts', 'fall', 'edge']
 
@@ -49,33 +58,36 @@ const HOURS = ['06:20', '09:00', '12:00', '14:00', '16:30']
 
 describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
   it('rains and snows only from the banks the world makes rain or snow', { timeout: 30000 }, () => {
-    for (const hour of HOURS) {
-      for (const forced of [CLEAR, OVERCAST, BROKEN, FOG]) {
+    for (const forced of [CLEAR, OVERCAST, BROKEN, FOG]) {
+      for (const hour of HOURS) {
         const w = world(id, hour, forced)
         expect(w.rain).toBeNull()
         expect(w.snowfall).toBeNull()
         const model = sceneModel(w, BOX)
         expect(model.layers.filter((l) => FALLING.includes(l.kind)).map((l) => l.id), `${hour}`).toEqual([])
       }
-      for (const forced of [RAIN(270), SHOWERS, SNOW]) {
+    }
+    for (const forced of [RAIN(270), SHOWERS, SNOW]) {
+      for (const hour of HOURS) {
         const w = world(id, hour, forced)
         const cells = w.rain?.cells ?? w.snowfall?.cells ?? []
         expect(cells.length).toBeGreaterThan(0)
         const layer = w.clouds.find((l) => l.rains)!
+        const rainBanks = w.rain ? rainBankDescs(w, BOX, skyGeom(w, BOX), layer) : null
         const falling = new Set(cells.map((c) => `${layer.level}:${c.bank}`))
         const model = sceneModel(w, BOX)
         for (const shafts of ofKind(model, 'shafts')) {
           for (const s of shafts.shafts) {
             expect(falling.has(s.id)).toBe(true)
             // A far curtain hangs under a bank low on the dome, from its base to the horizon.
-            const bank = layer.banks.find((b) => `${layer.level}:${b.id}` === s.id)!
+            const bank = (rainBanks?.map(({ bank }) => bank) ?? layer.banks).find((b) => `${layer.level}:${b.id}` === s.id)!
             expect(bank.altitude).toBeLessThan(NEAR_ALT)
             expect(s.bottom).toBeGreaterThan(s.top)
           }
         }
         // Rain falls under its banks: every fall area lies under one of them (its top at or below the bank's base).
         const clouds = ofKind(model, 'clouds').find((l) => l.level === layer.level)!
-        const banks = clouds.banks.filter((b) => falling.has(b.id))
+        const banks = rainBanks?.map(({ drawn }) => drawn) ?? clouds.banks.filter((b) => falling.has(b.id))
         for (const fall of ofKind(model, 'fall')) {
           const dy = fall.surface === 'land' ? BOX.landTop : 0
           for (const area of fall.animated!.fall!.areas) {
@@ -119,7 +131,9 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
         const geom = skyGeom(w, BOX)
         const layer = w.clouds.find((l) => l.rains)!
         const cells = new Set(((w.rain ?? w.snowfall)?.cells ?? []).map((c) => `${layer.level}:${c.bank}`))
-        const banks = ofKind(model, 'clouds').find((l) => l.level === layer.level)!.banks.filter((b) => cells.has(b.id))
+        const banks = w.rain ? rainBankDescs(w, BOX, geom, layer).map(({ drawn }) => drawn)
+          : ofKind(model, 'clouds').find((l) => l.level === layer.level)!.banks.filter((b) => cells.has(b.id))
+        if (!banks.length) continue
         const seen = banks.some((b) => inView(geom, BOX, b))
         const edges = ofKind(model, 'edge')
         expect(edges.length).toBe(seen ? 0 : 1)
@@ -288,7 +302,13 @@ describe('weather: animation, pure in the phase', () => {
         edge: paintEdge, water: paintWater, outside: paintOutside }
       for (const l of model.layers) if (painters[l.kind] && (l.animated || !['water', 'outside'].includes(l.kind))) cases.push([l, painters[l.kind]!])
     }
-    add(sceneModel(world('haifa', '12:00', RAIN(270)), BOX))
+    const wet = world('haifa', '12:00', RAIN(270))
+    add(sceneModel(wet, BOX))
+    const distant = wet.rain!.cells.find(cell => !cell.atEye)!
+    const camera = { ...wet.camera, heading: (distant.fromAzimuth + distant.toAzimuth) / 2 + 180 }
+    const outOfView = sceneModel({ ...wet, camera, rain: { ...wet.rain!, cells: [distant], near: false } }, BOX)
+    expect(ofKind(outOfView, 'edge')).toHaveLength(1)
+    add(outOfView)
     add(sceneModel(world('haifa', '16:30', BROKEN), BOX))
     add(sceneModel(world('tiberias', '07:30', { ...FOG, windSpeed: 25 }), BOX))
     add(sceneModel(world('jerusalem', '12:00', DUST), BOX))

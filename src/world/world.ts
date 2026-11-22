@@ -1,7 +1,7 @@
 import { airInput } from '../atmo/airInput'
 import type { AirInput } from '../atmo/airTypes'
 import { hashId } from '../data/landmarks/hash'
-import { anglePx, RELIEF } from '../data/terrain/angleScale'
+import { RELIEF } from '../data/terrain/angleScale'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { SCENE_CAMERA } from '../domain/camera'
 import { datePart } from '../domain/time'
@@ -14,8 +14,8 @@ import { cloudLayers, layerCovers } from './clouds'
 import { farCitiesOf } from './farCities'
 import { partKey } from './keys'
 import { lightOf, visibleDay } from './light'
-import { airDim, cloudDriftKm, hourBetween } from './livingLight'
-import { smoothstep } from './ridgeLighting'
+import { hourBetween } from './livingLight'
+import { cloudFieldAt } from './cloudField'
 import { nightOf } from './night'
 import { placeOf } from './place'
 import { drawnTerrain } from './outside'
@@ -23,14 +23,14 @@ import { rainFrom, rainingLayer, rainOf, snowFrom } from './rain'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { snowFall } from './snowLine'
-import { landStatusOf, terrainPlanes, unknownLand } from './terrain'
+import { landStatusOf, terrainPlanes, terrainY, unknownLand } from './terrain'
 import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf, waterOf } from './water'
-import { acrossOf, windOf } from './wind'
+import { windOf } from './wind'
 import type { LifeInput } from './life'
 import { makeLifeDays } from './lifeDay'
-import { flightTerrain } from './flightTerrain'
+import { flightTerrain, type FlightTerrain } from './flightTerrain'
 import { altitudeOver, type FlightContext } from './lifeSchedule'
 import { drawnSkyline } from './drawnSkyline'
 import { xOf } from '../domain/camera'
@@ -108,15 +108,17 @@ export function makeWorldBuilder() {
   // The sun, the moon and the light are judged on the drawn land (`drawnSkyline.ts`): the near land as drawn, the far land,
   // the place's rows and towers, the marks; kept while those are the same objects.
   const judgeOf = memoOne(drawnSkyline)
+  const fieldOf = memoOne(cloudFieldAt)
   const lifeDays = makeLifeDays()
+  const terrainGrid = memoOne(flightTerrain)
   /**
    * The land the sky's life flies over and is seen against (`lifeSchedule.ts` `FlightContext`): the true ground and sight
    * lines (`flightTerrain.ts`), the drawn land's top (deg) and the drawn near land's distance in each direction.
    */
-  const flightOf = memoOne((terrain: SceneTerrain, groundM: number, judge: Skyline, near: WorldState['terrain']['near'],
+  const flightOf = memoOne((terrain: FlightTerrain, judge: Skyline, near: WorldState['terrain']['near'],
     camera: WorldState['camera'], horizonY: number): FlightContext => ({
-    terrain: flightTerrain(terrain, groundM),
-    drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => horizonY - anglePx(altitude)),
+    terrain,
+    drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => terrainY(horizonY, altitude)),
     nearKm: (azimuth: number) => {
       const x = xOf(azimuth, camera), pts = near.points
       if (!pts.length) return Infinity
@@ -187,26 +189,21 @@ export function makeWorldBuilder() {
       mist: { sun, windMs: wind.ms, current: forecast.current, hour: between, forced, forcedLayers: input.forcedLayers, hours: forecast.hours, at } })
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
-    const rain = rainFrom(clouds, rate, wind, shown.weatherCode, preview, hashId(`${place.id}:rain:${hourKey(at)}`))
+    const cloudField = fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, shown, sun.altitude,
+      { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg }, raining.level ? { level: raining.level, rate } : undefined, forced.weatherCode !== undefined)
+    const grid = status === 'ready' ? terrainGrid(terrain, forecast.elevation) : undefined
+    const eyeM = grid?.eyeM ?? terrain.eyeM ?? forecast.elevation + 2
+    const groundAboveEyeKm = (eastKm: number, northKm: number) =>
+      ((grid?.heightAt(eastKm, northKm) ?? forecast.elevation) - eyeM) / 1000
+    const rain = rainFrom(cloudField, rate, wind, shown.weatherCode, preview, shown.humidity, groundAboveEyeKm)
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow:${hourKey(at)}`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
       wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10, air: { visibilityKm: air.visibilityKm, dust: air.dust } })
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
-      aerosol: { visibilityKm: air.visibilityKm, dust: air.dust }, covers, cloudCover: shown.cloudCover,
-      thickCloud: shown.thickCloud ?? null, farFade: air.farFade, palette })
+      aerosol: { visibilityKm: air.visibilityKm, dust: air.dust }, covers, cloudField, farFade: air.farFade, palette })
     const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, ripplesPart(terrain, place.id),
       light.shares.sun, sun.overLand)
     const night = nightOf(shown, covers)
-    // The low and mid cloud's shadows on the land: cast by the sun as it would shine without them (its disc over the land,
-    // the air), where the cover is broken; carried by the low cloud's wind, integrated through the day's hours.
-    const lowMid = 1 - (1 - covers.low) * (1 - 0.8 * covers.mid)
-    const clearSun = (sun.visible ?? 0) * airDim(sun.altitude, { visibilityKm: air.visibilityKm, dust: air.dust })
-    const shadows = {
-      cover: lowMid,
-      strength: clearSun * smoothstep(0.04, 0.2, lowMid) * (1 - smoothstep(0.8, 0.97, lowMid)) * (1 - night.dark),
-      driftKm: cloudDriftKm(forecast.hours, at, (fromDeg) => acrossOf(fromDeg, camera)),
-      kmh: wind.aloft.low * 3.6 * wind.aloftAcross.low,
-    }
     // The ground's wetness read straight between the hour's and the next's (it stepped on the hour).
     const ground = { wet: wetBetween(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
     const horizonY = terrain.horizonY
@@ -221,26 +218,26 @@ export function makeWorldBuilder() {
     // where each one's path has brought it at this minute.
     const planes = planesOf(drawn, place.id)
     const life = lifeDays(input, at, lifeInput, { camera, env },
-      status === 'ready' ? flightOf(terrain, forecast.elevation, sunSkyline, planes.near, camera, horizonY) : undefined,
+      grid ? flightOf(grid, sunSkyline, planes.near, camera, horizonY) : undefined,
       [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
-    const optics = opticsOf({ sun, direct: light.shares.sun, sunLights: light.source === 'sun', covers,
+    const optics = opticsOf({ sun, direct: light.meanBeam.sun, eye: light.eye, sunLights: light.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,
       visible: sun.visible }, moon }
 
     return {
       place, at, preview, seed, camera,
-      relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
-      bodies, light, air, clouds, rain, snow, snowfall, wind,
-      terrain: planes,
+      relief: { scale: RELIEF, horizonY, y: (altitude: number) => terrainY(horizonY, altitude) },
+      bodies, light, air, clouds, cloudField, rain, snow, snowfall, wind,
+      terrain: planes, flightTerrain: grid,
       water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part,
       place3: placePartResult.place3,
       marks: placePartResult.marks, seatPool: placePartResult.seatPool,
       labels: placePartResult.labels,
-      night, ground, env, life, nightSky, optics, shadows,
+      night, ground, env, life, nightSky, optics,
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
         windAloft: windSources.windAloft, visibility: visibilitySource, cruise: life.aircraft.cruise.source, glow: env.sources.glow },
       keys: {
