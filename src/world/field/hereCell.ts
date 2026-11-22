@@ -14,13 +14,17 @@ const DEG = Math.PI / 180
 /** Ground distance of the core's centre upwind (km), and its radius (km): a mature Cb 6 km across. */
 const UPWIND_KM = 4, RADIUS_KM = 3
 
+const HERE = 'here:'
+/** Whether a cell is the forecast's own shower at the place: it rains first, the rain measured at the point is its. */
+export const isHere = (cell: Pick<FieldCell, 'id'>) => String(cell.id).startsWith(HERE)
+
 export function hereCell(tower: FieldLayer | undefined, rain: FieldRain | undefined, convective: number,
   fromDeg: number, placeId: string): FieldCell[] {
   if (!tower || !rain || rain.level !== 'low') return []
   const share = smoothstep(0.2, 1.5, rain.rate) * Math.min(1, convective)
   if (share < 0.05) return []
   const { baseKm, vKm, kappa } = dimensions('cb', tower.lowBaseKm ?? tower.baseKm, tower.form, 0.7, 2 * RADIUS_KM)
-  const id = `here:${placeId}`
+  const id = `${HERE}${placeId}`
   return [{ id, lattice: 'tower', x: UPWIND_KM * Math.sin(fromDeg * DEG), y: UPWIND_KM * Math.cos(fromDeg * DEG),
     r: RADIUS_KM, baseKm, vKm, tau0: kappa * vKm, rainWeight: share, share, seed: hashId(id), genus: 'cb', rank: 0 }]
 }

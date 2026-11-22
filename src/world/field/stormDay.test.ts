@@ -3,6 +3,7 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { buildWorld } from '../world'
+import { isHere } from './hereCell'
 
 /*
  * A real winter storm day (Haifa, 15 March 2026: thunder 10–19 h, CAPE 160–390, low cover 50–65 %): a few large Cb
@@ -38,10 +39,11 @@ it('stands the raining core the forecast puts at the place beside it, its rain i
   for (const hour of ['10:00', '14:00']) {
     const world = buildWorld(worldInput(loaded.get('haifa')!, `2026-03-15T${hour}` as LocalTime))
     const tower = world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!
-    const here = tower.cells.filter((c) => String(c.id).startsWith('here:'))
+    const here = tower.cells.filter((c) => isHere(c))
     expect(here).toHaveLength(1)
     expect(here[0].genus).toBe('cb')
     expect(Math.hypot(here[0].x, here[0].y)).toBeLessThan(8)
     expect(here[0].rainWeight).toBeGreaterThan(0.5)
+    expect(world.rain!.cells.find((c) => c.bank === String(here[0].id))?.share).toBeGreaterThan(0.5)
   }
 }, 60_000)
