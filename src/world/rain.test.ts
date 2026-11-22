@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { cloudFieldAt } from './cloudField'
+import { isHere } from './field/hereCell'
 import { rainAreaShare, rainFrom } from './rain'
 import type { Wind } from './types'
 import type { AirInput } from '../atmo/airTypes'
@@ -17,8 +18,10 @@ it('ranks seeded shafts by cumulative cloud area and checks the eye against actu
   const cellById = new Map(candidates.map(cell => [String(cell.id), cell]))
   let activeArea = 0
   const score = (cell: typeof candidates[number]) => cell.rainWeight * cell.tau0 * cell.r ** 2
+  // The forecast's own shower at the place rains first; the lattice cells after it rank by area.
   const ranked = rain.cells.map(shaft => cellById.get(shaft.bank)!)
-  for (let i = 1; i < ranked.length; i++) {
+  expect(isHere(ranked[0])).toBe(true)
+  for (let i = 2; i < ranked.length; i++) {
     if (ranked[i - 1].lattice === ranked[i].lattice) expect(score(ranked[i])).toBeLessThanOrEqual(score(ranked[i - 1]))
   }
   for (const shaft of rain.cells) {

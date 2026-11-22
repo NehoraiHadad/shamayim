@@ -1,6 +1,5 @@
 import { utcOf } from '../astro/utc'
 import { forecastArrivalProgress, forecastObservation } from '../domain/forecastRefresh'
-import { minutesBetweenLocal } from '../domain/minutes'
 import { smoothstep } from '../domain/smoothstep'
 import type { AirPoint, Forecast, LocalTime } from '../domain/types'
 import { visibilityFromHumidity } from '../world/air'
@@ -9,10 +8,11 @@ import { layerCovers } from '../world/clouds'
 import { blockingCloudCover, isFogCode, nightMinimum } from '../world/mist'
 import { fallingSnowAmount, isSnowHour } from '../world/snowLine'
 import type { AirInput } from './airTypes'
+import { bracketAt } from './bracket'
 import { fieldWeather } from './fieldWeather'
 import { mixWeather, type Weather } from './weatherMix'
 
-function weatherEffects({ weatherCode, precipitation, snowfall, temperature, humidity }: PhaseInput, hourlySnow = false) {
+function weatherEffects({ weatherCode, precipitation, snowfall, temperature, humidity }: PhaseInput, hourlySnow = false, cape = null as number | null) {
   const fallingSnow = fallingSnowAmount(weatherCode, snowfall)
   const rainMmH = hourlySnow ? 0 : rainRate({ weatherCode, precipitation, snowfall, temperature })
   return {
@@ -21,7 +21,7 @@ function weatherEffects({ weatherCode, precipitation, snowfall, temperature, hum
     snowCloudRate: fallingSnow > 0 ? Math.max(0.1, snowfall) : 0,
     thunderWeight: Number(weatherCode >= 95),
     showerWeight: hourlySnow ? 0 : Number(weatherCode >= 80 && weatherCode <= 82),
-    fieldWeather: fieldWeather(weatherCode, rainMmH, humidity),
+    fieldWeather: fieldWeather(weatherCode, rainMmH, humidity, cape),
   }
 }
 
@@ -30,14 +30,6 @@ type PhaseInput = Pick<AirInput, 'weatherCode' | 'precipitation' | 'snowfall' | 
 const airAt = (air: AirPoint[] | null, at: LocalTime) => air?.find((point) => point.time === at)
 const clippedThick = (thick: number | null | undefined, total: number) => thick == null ? null : Math.min(thick, total)
 
-/** Bracket the viewed minute, holding the nearest sample outside the available range. */
-function bracketAt<T extends { time: LocalTime }>(points: readonly T[], at: LocalTime) {
-  const following = points.findIndex((point) => point.time > at)
-  const before = following < 0 ? points.at(-1) : points[Math.max(0, following - 1)]
-  const after = following > 0 ? points[following] : undefined
-  const fraction = before && after ? minutesBetweenLocal(before.time, at) / minutesBetweenLocal(before.time, after.time) : 0
-  return { before, after, fraction }
-}
 
 export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs: number, timezone: string,
   forced?: Partial<AirInput> | null): Weather {
@@ -49,6 +41,8 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
     temperature: forced?.temperature ?? source.temperature,
     humidity: forced && 'humidity' in forced ? forced.humidity ?? null : source.humidity,
   })
+  // A forced weather code is a chosen sky: the forecast's CAPE does not weigh it.
+  const capeOf = (row?: { cape?: number | null }) => forced?.weatherCode === undefined ? row?.cape ?? null : null
   const c = forecastObservation(forecast)
   const { before: hour, after: next, fraction } = bracketAt(forecast.hours, at)
   const backgroundTemp = hour && next ? hour.temperature + (next.temperature - hour.temperature) * fraction : hour?.temperature
@@ -66,7 +60,7 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
       snowfall: forced?.snowfall ?? (snow ? 0.7 * sourcePhase.precipitation : 0) }
     return {
       ...shown,
-      ...weatherEffects({ ...sourcePhase, snowfall: shown.snowfall }, snow),
+      ...weatherEffects({ ...sourcePhase, snowfall: shown.snowfall }, snow, capeOf(row)),
       thickCloud: clippedThick(row.thickCloud, row.cloudCover),
       snowDepth: row.snowDepth,
       windDirection: row.windDirection ?? c.windDirection,
@@ -121,7 +115,7 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
   const observation: Weather = {
     ...shown, thickCloud, covers,
     cloudSource: source,
-    ...weatherEffects(phase(shown)),
+    ...weatherEffects(phase(shown), false, capeOf(hour)),
     directionSource: 'current',
     windAloft: background?.windAloft ?? { low: null, mid: null, high: null },
     visibilitySource: c.visibility != null ? 'current' : background?.visibilitySource ?? (c.humidity == null ? 'default' : 'humidity'),

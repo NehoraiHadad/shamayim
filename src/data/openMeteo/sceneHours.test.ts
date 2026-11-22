@@ -41,6 +41,19 @@ describe('scene hours', () => {
     expect(hour.windAloft).toBeNull()
   })
 
+  it('reads CAPE and the freezing level when the answer has them, else leaves them null', () => {
+    expect(mapForecast(layers).hours[30].cape).toBeNull()
+    const hourly = layers.hourly as Record<string, unknown[]>
+    const n = hourly.time.length
+    const withStorm = { ...layers, hourly: { ...hourly, cape_icon_seamless: Array(n).fill(300), cape_ecmwf_ifs025: Array(n).fill(200),
+      freezing_level_height_icon_seamless: Array(n).fill(2100), freezing_level_height_ecmwf_ifs025: Array(n).fill(2300) } }
+    const hour = mapForecast(withStorm).hours[30]
+    expect(hour.cape).toBeGreaterThanOrEqual(200)
+    expect(hour.cape).toBeLessThanOrEqual(300)
+    expect(hour.freezingLevel).toBeGreaterThanOrEqual(2100)
+    expect(hour.freezingLevel).toBeLessThanOrEqual(2300)
+  })
+
   it('reads the air at cruise level (250 hPa) when the answer has it, else leaves it null (C10)', () => {
     expect(mapForecast(layers).hours[30].cruise).toBeNull()
     const hourly = layers.hourly as Record<string, unknown[]>

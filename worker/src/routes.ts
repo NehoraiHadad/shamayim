@@ -50,6 +50,9 @@ const HOURLY = [
   'wind_speed_300hPa', 'wind_direction_300hPa',
   // C10: the air at airliners' cruise (250 hPa, ~10.4 km): contrails by the Schmidt–Appleman criterion.
   'temperature_250hPa', 'relative_humidity_250hPa',
+  // The storm's fuel and the height rain turns to snow at: how convective an hour's cloud is (CAPE, J/kg), and the
+  // freezing level (m) the towers' tops glaciate above.
+  'cape', 'freezing_level_height',
 ]
 const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',

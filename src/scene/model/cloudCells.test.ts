@@ -6,7 +6,7 @@ import { projectCell } from '../../world/field/project'
 import type { WorldInput } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
-import { sceneStretch } from './cloudCells'
+import { MERGE_KM, MERGE_PX, sceneStretch } from './cloudCells'
 import { cloudLayersOf } from './cloudLayers'
 import { skyGeom } from './sky'
 import type { LayerOf, SceneBox } from './types'
@@ -106,6 +106,7 @@ it('spreads an anvil only on the most mature storm cells in view', () => {
     for (const { sprite } of anvils) {
       const cell = cells.get(sprite.seed)!
       expect(sprite.genus).toBe('cb')
+      expect(sprite.tall).toBeGreaterThanOrEqual(1.5 * sprite.w)
       expect(cell.baseKm + cell.vKm).toBeGreaterThan(9.5)
     }
   }
@@ -122,4 +123,28 @@ it('stands a near storm cell of a real day up to its true top', async () => {
     const p = projectCell(cells.get(sprite.seed)!)
     expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + 0.25 * (y - geom.dome(p.aTop)))
   }
+}, 30_000)
+
+it('merges the far towers of a storm day into a soft mass along the horizon, not a row of streaks', () => {
+  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T17:00' as LocalTime))
+  const geom = skyGeom(world, BOX)
+  const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
+  const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
+  const far = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm > MERGE_KM)
+  expect(far.length).toBeGreaterThan(10)
+  for (const { sprite } of far) {
+    expect(sprite.w).toBeGreaterThanOrEqual(MERGE_PX)
+    expect(sprite.tall).toBeLessThanOrEqual(sprite.w)
+  }
+}, 30_000)
+
+it('hangs the curtain of the raining core beside the place under its base, in front of the towers', () => {
+  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T14:00' as LocalTime))
+  const layers = sceneModel(world, BOX).layers
+  const towers = layers.find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
+  const shafts = layers.find((l): l is LayerOf<'shafts'> => l.kind === 'shafts')!
+  expect(shafts.z).toBeGreaterThan(towers.z)
+  const near = shafts.shafts.filter((s) => s.bottom - s.top > 50)
+  expect(near.length).toBeGreaterThan(0)
+  expect(Math.max(...near.map((s) => s.alpha))).toBeGreaterThan(0.35)
 }, 30_000)
