@@ -23,8 +23,8 @@ type Placed = LayerOf<'cloudCells'>['cells'][number]
 
 /** A tower's top below this altitude (deg) is behind the horizon's haze: not drawn. */
 const TOP_MIN = 0.4
-/** A cell whose near edge stands higher than this (deg) is overhead: its base, not its column, is what shows. */
-const NEAR_MAX = 25
+/** A cell whose near edge stands higher than this (deg) is right overhead: the sheet under it is what shows. */
+const NEAR_MAX = 70
 /** The tropopause over the Levant in the cool season (km): a Cb whose top reaches it spreads into an anvil. */
 const TROPOPAUSE_KM = 11
 /** Anvils in view at most: only the most mature cells of a storm line have spread theirs. */
@@ -36,7 +36,7 @@ const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
 
 export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, snapshot: Snapshot,
-  light: CloudLight | null, union: number, stops: [number, RGB][]): LayerOf<'cloudCells'> | null {
+  light: CloudLight | null, stops: [number, RGB][]): LayerOf<'cloudCells'> | null {
   const { layer, cells } = snapshot
   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
   const pxPerDeg = world.camera.pxPerDeg * geom.s
@@ -56,7 +56,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     // heap and not a streak, and a near one keeps its height.
     const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), w * stretch * cell.vKm / (2 * cell.r)))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
-    const sprite = spriteOf(world, box, stops, cell, light, union, x, y, w, under, tall)
+    const sprite = spriteOf(world, box, stops, cell, light, x, y, w, under, tall)
     placed.push({ sprite, x, y, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
   }
   if (!placed.length) return null
@@ -82,16 +82,26 @@ export function sceneStretch(geom: SkyGeom, pxPerDeg: number): number {
   return Math.max(1, (geom.dome(0) - geom.dome(90)) / 90 / pxPerDeg)
 }
 
-const GENUS: Partial<Record<FieldCell['genus'], SpriteGenus>> = { cu: 'cu', cg: 'cg', cb: 'cb' }
+type TowerGenus = Extract<SpriteGenus, 'cu' | 'cg' | 'cb'>
+const GENUS: Partial<Record<FieldCell['genus'], TowerGenus>> = { cu: 'cu', cg: 'cg', cb: 'cb' }
+/** A tower's flat base by day, in the shadow of the column above it: the deeper the column, the darker (a Cb's tau runs
+ *  to hundreds); darker still where it rains. Its sunlit body is fair-weather white whatever the cover round it. */
+const BASE: Record<TowerGenus, RGB> = { cu: [0.52, 0.56, 0.62], cg: [0.38, 0.42, 0.47], cb: [0.25, 0.28, 0.32] }
+const RAIN_BASE: RGB = [0.2, 0.23, 0.27]
 
 function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], cell: FieldCell, light: CloudLight | null,
-  union: number, x: number, y: number, w: number, under: number, tall: number): CloudSprite {
+  x: number, y: number, w: number, under: number, tall: number): CloudSprite {
   const rains = cell.rainWeight > 0.3
-  const tones = tonesAt(world, box, stops, 'low', y - tall / 2, union, cell.rainWeight, Math.hypot(cell.x, cell.y))
+  const genus = GENUS[cell.genus] ?? 'cg'
+  // A tower stands in its own gap of the sky (union 0): its body is lit as a fair-weather cloud's.
+  const tones = tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, Math.hypot(cell.x, cell.y))
   const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
+  const day = smoothstep(-8, 3, world.bodies.sun.altitude)
+  const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind, tones.fade)
+  const shade = mixRgb(tones.shade, base, day)
   return {
-    genus: GENUS[cell.genus] ?? 'cg', seed: cell.seed, w, under, tall, lean: 0, tau: cell.tau0,
-    body: mixRgb(tones.body, tones.shade, 0.5 * lit.backlit), shade: tones.shade,
+    genus, seed: cell.seed, w, under, tall, lean: 0, tau: cell.tau0,
+    body: mixRgb(tones.body, shade, 0.5 * lit.backlit), shade,
     lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body, litA: lit.litA, toward: lit.toward,
     silver: Math.max(lit.silver, 0.9 * lit.front), glow: light ? light.under * light.strength * lit.through : 0,
     rains, share: cell.share,

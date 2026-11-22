@@ -37,7 +37,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     if (!cloud) continue
     const light = lightOn(world, box, geom, cloud)
     if (fieldLayer.lattice === 'tower') {
-      const towers = towerLayerOf(world, box, geom, snapshot, light, union, stops)
+      const towers = towerLayerOf(world, box, geom, snapshot, light, stops)
       if (towers) out.push(towers)
       continue
     }
