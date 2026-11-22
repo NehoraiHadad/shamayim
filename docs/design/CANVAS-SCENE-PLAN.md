@@ -2470,10 +2470,10 @@ the app's own `__scene.scrub`):
 - The coastal plain gives Ben Gurion straight-in approaches on every runway; the base and downwind legs show where high
   ground stands on a centreline (the tests' made-up hill), not at the base places on this fixture's day.
 
-**Living land (2026-11-21): the land's colour and greenness from observed data; stages 1–4 of 6.** Commits on
-`land-living` (from `origin/main`). Brief: `docs/design/LAND-LIVING-BRIEF.md`; review log, handoffs and gates:
-`docs/design/qa/canvas/land/REVIEW.md` (writer Antigravity, reviewer Codex, gated by Claude Code). Stages 5 (wind on land)
-and 6 (stills) are added below as they close.
+**Living land (2026-11-21–22): the land's colour, greenness, vegetation and wind from observed data; stages 1–6.**
+Commits on `land-living` (from `origin/main`). Brief: `docs/design/LAND-LIVING-BRIEF.md`; review log, handoffs and
+gates: `docs/design/qa/canvas/land/REVIEW.md` (writer Antigravity / Codex stand-in, reviewer Codex / Claude Opus,
+gated by Claude Code).
 
 *The pipeline* (data → one world state → model → painters; every value carries its source and date):
 1. **Data** (`src/data/land/`, entry `landData.ts`, hook `useLand.ts`; never blocks first paint: the scene draws on the
@@ -2523,8 +2523,48 @@ and 6 (stills) are added below as they close.
    catchlights are on the light layer and share the crowns' geometry. Each tree carries a seeded phase and height for
    wind. Descriptors stay under 10 KB, compact and structured-cloneable.
 
-*Checks at the stage 3 gate* (`9c13156`): `npx tsc -b` pass; vitest 142 files / 1307 tests; build; pixels 66/66 (the
-references re-recorded for intended changes are listed per stage in REVIEW.md). Stills:
-`docs/design/qa/canvas/land/stage3/` (before/after, winter and late summer).
-*Checks at the stage 4 gate* (`2ae4925`): `npx tsc -b` pass; vitest 151 files / 1339 tests; build; pixels 66/66. Stills:
-`docs/design/qa/canvas/land/stage4/` (8 places × winter, spring, summer).
+5. **Wind** (model `src/scene/model/landWind.ts`, `canopy.ts`, `landDust.ts`; painters `src/scene/paint/canopy.ts`,
+   `landVegPose.ts`, `landVegCrowns.ts`, `landVegTufts.ts`, `landVegLight.ts`, `landDust.ts`; compositor
+   `src/scene/compose/compositeOrder.ts`, `paintJob.ts`, `surface.ts`).
+   - *Lean curve & provenance:* NOAA/NWS land Beaufort scale (`CALM_MS = 0.3` m/s zero cutoff; quadratic drag proxy
+     `(ms / 17.1)²` capped at `1.0` at `FULL_BEND_MS = 17.1` m/s, upper Beaufort 7 "whole trees in motion"), quantised
+     to `1/64` of full bend. Artist-tuned tip travel per kind: palm trunk `0.055 × h`, woodland and mature olive
+     `0.095 × h`, citrus/generic orchard `0.18 × h`, palm fronds `0.70 × r`, shrub tufts `0.32 × r`, grass blades
+     `1.10 × r`.
+   - *Sign convention:* takes `world.wind.across` unchanged (`+` left→right on screen; easterly moves left→right and
+     westerly moves right→left in true south-facing `SCENE_CAMERA`, reversed in mirrored `STORED_CAMERA`), matching
+     cloud drift, rain slant, smoke and mark lean.
+   - *Gust sway & distance fade:* incremental drag excess `0.55 × min(1, load(max(ms, gustMs)) − load(ms))` (identical
+     mean/gust gives zero sway; above `17.1` m/s the unsaturated excess allows peak bend up to `1.55×` full bend in a
+     gale, matched by `canopy.ts`'s `1.55` footprint pad). Driven by `gustAt` over a 2 s cycle with ±0.16 s seeded
+     per-tree lag, clamped so a lull never bends into the wind; frame 0 and reduced motion hold the mean-wind pose.
+     `plantWindFade(visibility)` eases out over Stage 4's visibility (`0.20 → 1.0`, exact `0` at the resolvability
+     cut); planes with peak gust sway under `0.25` CSS px (`MIN_SWAY_PX`) stay static.
+   - *Dust threshold:* `landDust.ts` lifts low dust on sustained 10 m wind `> 8` m/s (Beaufort 5, full at `17.1` m/s),
+     WorldCover 60 (bare/sparse), `NDVI < 0.16` (USGS barren–sparse transition) and `dryness > 0.72`, suppressed by
+     rain, snowfall or wet ground (`wet > 0.5`), culled below source strength `0.10`. A two-tone soft wrapped tile
+     (`paint/landDust.ts`) advects horizontally at `ms · across / mPerPxAt(max(350 m, km))`, with a weaker far veil
+     (`0.26` vs `0.75` near alpha).
+   - *Animation & per-frame cost:* windy canopies bake 10 poses (`LAND_GUST`, 5 fps over 2 s) once per key in the
+     paint worker (or lazily per frame on the main thread); `compositeOrder` interleaves `plane:form → canopy:form →
+     plane:light → canopy:light` so terrain light washes over crowns and crown catchlights stay above. `plane` form
+     keys never depend on wind or hour. Active playback costs 1–2 strip blits per canopy plus 1 pattern fill per dust
+     ribbon (`0` paint batches during playback; `e2e/land.wind.mjs --perf` land p50 `0.20–0.30` ms / p95 `0.80–2.50`
+     ms, sky + land p95 `2.60–4.70` ms, memory `10.6–23.8` MB at CPU ×4, DPR 2.75).
+
+*Final stills, checks and limits (stage 6):* Final before (`origin/main`) vs after (`land-living`) stills at 375 px
+for 7 regions (Galilee/Rosh Pina, Coast/Zikhron Yaakov, Jezreel/Nahalal, Jordan/Shadmot Mehola, Jerusalem, Negev/Ramon
+Crater, Dead Sea/Kalya) across winter, late spring and late summer plus a westerly gale day—and 4 per-season contact
+sheets (`sheet-{winter,spring,summer,windy}.png`)—live in `docs/design/qa/canvas/land/final/` (captured offline by
+`e2e/land.final.mjs`, alongside stage stills in `stage3/`, `stage4/`, `stage5/`). Final checks: `npx tsc -b` (0
+errors), `npx vitest run --maxWorkers=2 --testTimeout=20000` (152 files / 1,346 tests), `worker` (`npm run typecheck &&
+npm test`: 6 files / 51 tests), `npm run lint` (0 errors), `npm run build` (483 modules), `npm run test:pixels` (69/69;
+0 references changed in stage 6). `npm run test:perf` passes the App living-land fixture (6 unique fine tiles, 0
+duplicates, missing-tile `s2-mean+climatology` fallback, 30/30 scrubs reusing `world.land` and plane form; matched
+alternating preview runs vs Stage 4 `8c594af` show no first-paint or refinement regression: dense-tree Shadmot median
+first paint `3805 → 3458` ms, refinement `978 → 630` ms), while 10 pre-existing host-baseline `modelCold`/`scrub.model`/
+`anim`/`arrive` gates remain over on this Windows host. *Known limits:* recent-weather dryness stays on climatology
+until Worker deploy item 7 (`/v1/land-weather`) is live and `ASK_LAND_WEATHER` is flipped to `true`; residual cold
+`sceneModel` cost at crop-dense places (Nahalal ~15.6 ms unthrottled) and host-baseline browser overruns carry into
+app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present (coarse
+woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
