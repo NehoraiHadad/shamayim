@@ -22,7 +22,7 @@ const { preview } = await import('vite')
 const server = await preview({ root, logLevel: 'error', preview: { host: '127.0.0.1', port: 0, strictPort: false } })
 const base = server.resolvedUrls.local[0].replace(/\/$/, '')
 const browser = await launch()
-let failed = 0
+let failed = 0, measured = 0
 try {
   for (const moment of moments) {
     const [id, hour] = moment.split('@')
@@ -60,6 +60,7 @@ try {
       last = shot
     }
     const tracks = follow(shots)
+    measured += tracks.length
     console.log(`${id}@${hour}  world flocks: ${flocks.join(', ') || 'none'}  clusters followed: ${tracks.length}`)
     for (const tr of tracks) {
       const a = tr[0], b = tr[tr.length - 1], d = Math.hypot(b.x - a.x, b.y - a.y), v = d / Math.max(1e-6, b.t - a.t)
@@ -74,4 +75,5 @@ try {
   await browser.close()
   await new Promise((resolve) => server.httpServer.close(resolve))
 }
+if (!measured) { console.log('no flock measured'); process.exit(1) }
 if (failed) { console.log(`${failed} flock(s) travelled less than ${least} px`); process.exit(1) }

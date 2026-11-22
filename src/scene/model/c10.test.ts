@@ -67,7 +67,10 @@ describe('C10: the sky life in the model', () => {
       const flight = b.animated!.flight!
       expect(flight).toMatchObject({ open: true, step: 2 })
       expect(flight.path).toHaveLength(61)
-      expect(trackAt(flight, 0)).toEqual({ x: 0, y: 0, scale: 1, alpha: 1, turn: 0 })
+      const start = trackAt(flight, 0)!
+      expect(start).toMatchObject({ x: 0, y: 0, scale: 1, turn: 0 })
+      expect(start.alpha === 0 || start.alpha === 1).toBe(true)
+      if (start.alpha === 0) expect(flight.alpha!.some((a) => a > 0)).toBe(true)
       expect(trackAt(flight, 121)).toEqual(trackAt(flight, 120))
     }
   })

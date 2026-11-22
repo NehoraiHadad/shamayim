@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { SCENE_CAMERA } from '../domain/camera'
 import type { LocalTime } from '../domain/types'
+import { SCENE_PLACES } from '../test/scenePlaces'
+import { loadPlaces, stubPublicFetch, worldInput } from '../test/sceneWorld'
+import { flightTerrain } from './flightTerrain'
 import type { LifeInput } from './life'
 import { AHEAD_S, AHEAD_STEP_S } from './lifeAhead'
-import { flockAt, highAt, lifeAt, lifeSchedule, lowAt, secondsOf, type ScheduleContext } from './lifeSchedule'
-import type { PlaceEnv } from './placeEnv'
+import { lifeInputAt } from './lifeDay'
+import { dayBefore, flockAt, highAt, lifeAt, lifeSchedule, lowAt, secondsOf, type ScheduleContext } from './lifeSchedule'
+import { placeEnvOf, type PlaceEnv } from './placeEnv'
 
 /*
  * The sky's life as a process in time (`lifeSchedule.ts`): a seeded schedule per place and day, its rates following the
@@ -36,7 +40,7 @@ const ctx = (date = '2026-04-10', placeId = 'test'): ScheduleContext => ({ place
 describe('the life schedule', () => {
   it('is deterministic: the same place and day give the same events; another day or place others', () => {
     const a = lifeSchedule(ctx(), day()), b = lifeSchedule(ctx(), day())
-    const plain = (s: typeof a) => ({ ...s, flocks: s.flocks.map(({ lay, ...rest }) => ({ ...rest, ...lay() })) })
+    const plain = (s: typeof a) => ({ ...s, flocks: s.flocks.map(({ lay, laid: _laid, ...rest }) => ({ ...rest, ...lay() })) })
     expect(plain(a)).toEqual(plain(b))
     expect(a.flocks[0].lay()).toBe(a.flocks[0].lay())
     expect(a.flocks.length + a.high.length + a.low.length).toBeGreaterThan(10)
@@ -55,7 +59,7 @@ describe('the life schedule', () => {
       expect(mid.distanceM).toBeCloseTo(mid.nearM, 3)
       // Its way moves it within the pass's own horizontal angular sweep over a minute at closest approach.
       const next = flockAt(e, (e.t0 + e.t1) / 2 + 60)
-      const boundDeg = ((2 * Math.atan((30 * mid.speedMs) / e.nearM)) * 180) / Math.PI * 1.1 + 2
+      const boundDeg = ((2 * Math.atan((30 * e.speedMs * 1.15) / e.nearM)) * 180) / Math.PI * 1.1 + 2
       expect(Math.abs(((next.azimuth - mid.azimuth + 540) % 360) - 180)).toBeLessThanOrEqual(boundDeg)
     }
   })
@@ -164,4 +168,73 @@ describe('the life schedule', () => {
     if (late && late.t1 + late.lifeS > 86_400 + at) expect(life.aircraft.high.some((p) => p.id === late.id)).toBe(true)
     expect(life.aircraft.high.every((p) => p.id.startsWith('2026-04-09') || p.id.startsWith('2026-04-10'))).toBe(true)
   })
+
+  it('lays only the flocks overlapping [tt, tt + AHEAD_S] and freezes their laid tracks', () => {
+    const schedule = lifeSchedule(ctx(), day())
+    expect(schedule.flocks.length).toBeGreaterThan(4)
+    expect(schedule.flocks.filter((e) => e.laid()).length).toBe(0)
+    const target = schedule.flocks[Math.floor(schedule.flocks.length / 2)]
+    const tt = Math.max(0, target.t0 - 20)
+    const life = lifeAt([{ schedule, offsetS: 0 }], tt, day()('2026-04-10T12:00'))
+    const overlapping = schedule.flocks.filter((e) => e.t0 <= tt + AHEAD_S && tt <= e.t1)
+    const laidCount = schedule.flocks.filter((e) => e.laid()).length
+    console.log('lazy lay count', JSON.stringify({ laidCount, overlapping: overlapping.length, totalDayFlocks: schedule.flocks.length }))
+    expect(overlapping.length).toBeGreaterThan(0)
+    expect(laidCount).toBe(overlapping.length)
+    expect(laidCount).toBeLessThan(schedule.flocks.length * 0.25)
+    // A flock starting inside (tt, tt + AHEAD_S] holds its t0 pose with fade 0 until t0, then ramps.
+    const upcoming = life.birds.find((b) => b.id === target.id)!
+    const atStart = flockAt(target, target.t0)
+    expect(upcoming.fade).toBe(0)
+    expect(upcoming.azimuth).toBe(atStart.azimuth)
+    expect(upcoming.altitude).toBe(atStart.altitude)
+    expect(upcoming.samples![0].fade).toBe(0)
+    expect(upcoming.samples![Math.floor((target.t0 - tt) / AHEAD_STEP_S) - 1].fade).toBe(0)
+    expect(upcoming.samples!.some((s) => s.fade > 0)).toBe(true)
+    // Laid tracks are frozen and unaffected by mutating an event's exposed home before first lay.
+    const firstLaid = target.lay()
+    expect(Object.isFrozen(firstLaid)).toBe(true)
+    expect(Object.isFrozen(firstLaid.track)).toBe(true)
+    const gullEnv: PlaceEnv = { ...ENV, seaAz: 270 }
+    const freshA = lifeSchedule(ctx(), day({ env: gullEnv })).flocks.find((e) => e.home)!
+    const freshB = lifeSchedule(ctx(), day({ env: gullEnv })).flocks.find((e) => e.home)!
+    freshB.home!.e += 50_000
+    expect(freshB.lay().track.pts).toEqual(freshA.lay().track.pts)
+  })
+
+  it('keeps every fixture flock ground speed within [0.87, 1.15] × drawn across all baseline panoramas', async () => {
+    stubPublicFetch()
+    const loadedPlaces = await loadPlaces(SCENE_PLACES)
+    const ratios: number[] = []
+    let lowClamped = 0, highClamped = 0
+    for (const place of SCENE_PLACES) {
+      const loaded = loadedPlaces.get(place.id)!
+      const input = worldInput(loaded, '2026-11-17T12:00', '2026-11-17T12:00')
+      const camera = loaded.terrain.camera ?? SCENE_CAMERA
+      const env = placeEnvOf(place, { cover: loaded.cover, far: loaded.far, waterMask: loaded.waterMask })
+      const flight = { terrain: flightTerrain(loaded.terrain, input.forecast.elevation), drawnTop: () => -5, nearKm: () => Infinity }
+      for (const date of [dayBefore('2026-11-17'), '2026-11-17']) {
+        const schedule = lifeSchedule({ placeId: place.id, date, camera, lat: place.lat, lon: place.lon, flight },
+          (at) => lifeInputAt(input, at, { camera, env }))
+        for (const e of schedule.flocks) {
+          const laid = e.lay()
+          const ratio = laid.rate / e.speedMs
+          ratios.push(ratio)
+          if (ratio <= 0.87 + 1e-9) lowClamped++
+          if (ratio >= 1.15 - 1e-9) highClamped++
+          expect(ratio, `${place.id} ${e.id}`).toBeGreaterThanOrEqual(0.87 - 1e-9)
+          expect(ratio, `${place.id} ${e.id}`).toBeLessThanOrEqual(1.15 + 1e-9)
+          expect(flockAt(e, e.t0).fade, `${place.id} ${e.id} t0`).toBe(0)
+          expect(flockAt(e, e.t1).fade, `${place.id} ${e.id} t1`).toBe(0)
+        }
+      }
+    }
+    ratios.sort((a, b) => a - b)
+    const pct = (p: number) => ratios[Math.min(ratios.length - 1, Math.floor(ratios.length * p))]
+    console.log('fixture flock speed ratios', JSON.stringify({
+      count: ratios.length, min: Number(ratios[0].toFixed(4)), p05: Number(pct(0.05).toFixed(4)), p50: Number(pct(0.5).toFixed(4)),
+      p95: Number(pct(0.95).toFixed(4)), max: Number(ratios[ratios.length - 1].toFixed(4)), lowClamped, highClamped,
+    }))
+    expect(ratios.length).toBeGreaterThanOrEqual(500)
+  }, 120_000)
 })

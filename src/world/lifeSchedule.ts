@@ -9,7 +9,7 @@ import {
   birdScores, CRUISE_M, dayOfYear, headingOf, METEOR_FLASH_S, meteorLook, meteorsOf, PREVALENCE, SHAPES, trailLight,
   type Aircraft, type BirdKind, type Flock, type HighPlane, type LifeInput, type LowPlane, type MeteorFlash, type SkyLife,
 } from './life'
-import { flockAhead, highAhead, lowAhead, trailAhead, trailPuffSeed } from './lifeAhead'
+import { AHEAD_S, flockAhead, highAhead, lowAhead, trailAhead, trailPuffSeed } from './lifeAhead'
 import { smoothstep } from './ridgeLighting'
 import { apparentAltitude } from './skyProjection'
 
@@ -85,14 +85,16 @@ export const METEOR_WINDOW_S = 900
 /** The share of the sky a meteor seen over the scene falls in (the dome over the land). */
 const SKY_SHARE = 0.3
 
-/** A flock's laid 3D track over the terrain, its closest distance (3D) and speed along it to fit [t0, t1]. */
+/** A flock's laid 3D track over the terrain, its closest distance (3D), clamped ground speed and track offset. */
 export interface LaidFlock {
   /** Its way over the ground (`flightPaths.ts`): every `ds` m in flight order (m east, north of the eye; m above sea level). */
-  track: FlockTrack
+  readonly track: FlockTrack
   /** Its closest distance (m, 3D) on the laid track. */
-  nearM: number
-  /** Speed along the laid track (m/s) so the whole track is flown in [t0, t1]. */
-  rate: number
+  readonly nearM: number
+  /** Speed along the laid track (m/s), clamped to [0.87, 1.15] × drawn speed. */
+  readonly rate: number
+  /** Starting distance (m) along the laid track at `t0` (nonzero when the track is longer than `rate * (t1 - t0)`). */
+  readonly offset: number
 }
 
 export interface FlockEvent {
@@ -118,8 +120,10 @@ export interface FlockEvent {
   nearM: number
   endM: number
   seed: number
-  /** Lays the flock's track over the terrain on first call (memoised). */
+  /** Lays the flock's track over the terrain on first call (memoised, frozen). */
   lay: () => LaidFlock
+  /** Whether `lay` has run for this flock yet. */
+  laid: () => boolean
 }
 
 export interface HighEvent {
@@ -263,7 +267,9 @@ export function lifeSchedule(ctx: ScheduleContext, inputAt: (at: LocalTime) => L
 
 function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: number) => LifeInput, seedOf: (p: string) => number): FlockEvent[] {
   const scores = inputs.map(birdScores)
-  const terrain = ctx.flight?.terrain ?? flatTerrain(inputs[0]?.groundM ?? 0)
+  const flight = ctx.flight
+  const camera = { ...ctx.camera }
+  const terrain = flight?.terrain ?? flatTerrain(inputs[0]?.groundM ?? 0)
   // Every kind's candidate sessions, in time order; each is laid on its track only once the sky has room for it.
   const candidates: { kind: BirdKind; i: number; t0: number; score: number }[] = []
   for (const kind of Object.keys(PREVALENCE) as BirdKind[]) {
@@ -296,31 +302,35 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
     const endM = nearM * g.reach
     const cE = nearM * Math.sin(azC * RAD), cN = nearM * Math.cos(azC * RAD)
     const home = homeOf(kind, input, endM)
+    const homeCopy = home ? { ...home } : undefined
     const dur = (2 * Math.sqrt(endM * endM - nearM * nearM)) / speedMs
     const t1 = t0 + dur
     // Its height over the ground is laid lazily on first sample (`lay`): only ≤ MAX_FLOCKS flocks fly at once, so laying
     // all day's tracks up front is waste. Drawn in its kind's band, then raised while that reads more clearly against the
     // land (`unclear`): the schedule picks the track that is plainly in the sky, in front of the land, or behind it, over
     // one that skims the land's edge or would seem to fly into a slope.
-    let laid: LaidFlock | null = null
+    let cached: LaidFlock | null = null
     const lay = (): LaidFlock => {
-      if (laid) return laid
+      if (cached) return cached
       let best: { track: FlockTrack; bad: number } | null = null
       const aglOf = (k: number) => fl.agl[0] * 1.3 + (fl.agl[1] - fl.agl[0] * 1.3) * Math.min(1, aglQ + k / 3)
-      const way = wayOf({ cE, cN, headingDeg, endM, aglM: aglOf(0), flight: fl, home }, terrain)
+      const way = wayOf({ cE, cN, headingDeg, endM, aglM: aglOf(0), flight: fl, home: homeCopy }, terrain)
       for (let k = 0; k < 4; k++) {
         const track = heightsOver(way, aglOf(k), fl, terrain.eyeM)
-        const bad = ctx.flight ? unclear(track, terrain, endM, ctx.flight, ctx.camera) : 0
+        const bad = flight ? unclear(track, terrain, endM, flight, camera) : 0
         if (!best || bad < best.bad) best = { track, bad }
         if (bad === 0) break
       }
       const track = best!.track
       const trackLength = (track.pts.length / 3 - 1) * track.ds
-      laid = { track, nearM: track.nearM, rate: trackLength / dur }
-      return laid
+      const rate = Math.max(0.87 * speedMs, Math.min(1.15 * speedMs, trackLength / dur))
+      const offset = Math.max(0, (trackLength - rate * dur) / 2)
+      cached = Object.freeze({ track: Object.freeze(track), nearM: track.nearM, rate, offset })
+      return cached
     }
+    const laid = () => cached !== null
     kept.push({ id: `${ctx.date}:${kind}:${i}`, kind, t0, t1, count, score, eyeM: terrain.eyeM, cE, cN, home, aglQ, headingDeg, speedMs,
-      nearM, endM, seed, lay })
+      nearM, endM, seed, lay, laid })
   }
   return kept
 }
@@ -495,14 +505,18 @@ export type SightOf = (e: number, n: number, upM: number) => number | null
  * the land truly stands between it and the eye.
  */
 export function flockAt(e: FlockEvent, t: number, sight?: SightOf): Flock {
-  const { track, nearM, rate } = e.lay()
-  const p = trackPoint(track, rate * (t - e.t0))
+  const { track, nearM, rate, offset } = e.lay()
+  const dur = e.t1 - e.t0
+  const s = offset + rate * Math.max(0, Math.min(dur, t - e.t0))
+  const p = trackPoint(track, s)
   const up = p.z - e.eyeM
   const dir = airDirection(p.e / 1000, p.n / 1000, up)
   const ground = Math.hypot(p.e, p.n)
+  const distanceFade = 1 - smoothstep(0.55 * e.endM, e.endM, ground)
+  const fade = t < e.t0 ? 0 : Math.min(distanceFade, smoothstep(e.t0, e.t0 + 0.08 * dur, t), 1 - smoothstep(e.t1 - 0.08 * dur, e.t1, t))
   return {
     id: e.id, kind: e.kind, count: e.count, score: e.score, seed: e.seed, azimuth: dir.azimuth, altitude: dir.altitude, distanceM: dir.km * 1000,
-    nearM, fade: 1 - smoothstep(0.55 * e.endM, e.endM, ground), headingDeg: p.headingDeg, speedMs: rate,
+    nearM, fade, headingDeg: p.headingDeg, speedMs: rate,
     at: { e: p.e / 1000, n: p.n / 1000, up }, blockedKm: sight ? sight(p.e / 1000, p.n / 1000, up) : null,
   }
 }
@@ -567,7 +581,7 @@ export function lifeAt(days: { schedule: LifeSchedule; offsetS: number }[], t: n
   const birds: Flock[] = [], high: HighPlane[] = [], low: LowPlane[] = [], flashes: MeteorFlash[] = []
   for (const { schedule, offsetS } of days) {
     const tt = t - offsetS
-    for (const e of schedule.flocks) if (e.t0 <= tt && tt <= e.t1) {
+    for (const e of schedule.flocks) if (e.t0 <= tt + AHEAD_S && tt <= e.t1) {
       const flock = flockAt(e, tt, sight)
       flock.samples = flockAhead(tt, e.t1, flock, (tau) => flockAt(e, tau))
       birds.push(flock)

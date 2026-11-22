@@ -28,7 +28,7 @@ beforeAll(async () => {
 }, 120_000)
 
 interface Pose { x: number; y: number; scale: number; alpha: number; edge: number; hidden: boolean }
-interface Seen extends Pose { kind: LayerDesc['kind']; period: number; bound: number; scaleBound: number; alphaBound: number; end: Pose; fromStart: boolean }
+interface Seen extends Pose { kind: LayerDesc['kind']; period: number; bound: number; scaleBound: number; alphaBound: number; end: Pose }
 
 /** The objects of the sky's life drawn at a minute, by their event's id: where, how big, how faint, hidden or not. */
 function lifeAt(world: WorldState): Map<string, Seen> {
@@ -62,9 +62,7 @@ function lifeAt(world: WorldState): Map<string, Seen> {
     const reachM = flock ? flock.nearM * GROUP[flock.kind].reach : 0
     const u = flock ? Math.min(1, stepM / (0.45 * reachM)) : 0
     const alphaBound = flock ? Math.min(1, 1.5 * u - 0.5 * u ** 3 + 0.1) : 0.5
-    // A fast flock whose session started during the 60 s step (at endM, alpha = 0) can fly within stepM of endM by minute i.
-    const fromStart = !!flock && reachM - flock.distanceM <= stepM * 1.15
-    out.set(l.id, { ...poseAt(0), kind: l.kind, period: geom.azimuthRange.period, bound, scaleBound, alphaBound, end: poseAt(60), fromStart })
+    out.set(l.id, { ...poseAt(0), kind: l.kind, period: geom.azimuthRange.period, bound, scaleBound, alphaBound, end: poseAt(60) })
   }
   return out
 }
@@ -83,7 +81,7 @@ const unseen = (s: Pose) => s.alpha <= 0.2 || s.scale <= 0.25 || s.edge <= 60 ||
 describe('the sky\'s life is continuous in time', () => {
   it.each(['tel-aviv', 'haifa', 'jerusalem'])('%s: a scrub minute by minute moves each object a bounded way; none pops in or out in the open sky', (id) => {
     const frames = [...scrub(id, '2026-11-17T06:00', 360), ...scrub(id, '2026-11-17T12:00', 300)]
-    let moved = 0, came = 0
+    let moved = 0, came = 0, maxBirdOpacityStep = 0
     for (let i = 1; i < frames.length; i++) {
       if (i === 361) continue
       const a = frames[i - 1], b = frames[i]
@@ -91,18 +89,24 @@ describe('the sky\'s life is continuous in time', () => {
         const was = a.get(key)
         if (!was) {
           came++
-          expect(unseen(now) || now.fromStart, `${id} ${key} appears at minute ${i}: ${JSON.stringify(now)}`).toBe(true)
+          expect(unseen(now), `${id} ${key} appears at minute ${i}: ${JSON.stringify(now)}`).toBe(true)
           continue
         }
         moved++
         // A minute moves a bird within its pass's angular sweep; an airliner or a jet climbing out near the place by its true angular speed.
         expect(Math.hypot(periodDelta(now.x - was.x, now.period), now.y - was.y), `${id} ${key} at minute ${i}`).toBeLessThanOrEqual(now.bound)
         // Flocks stay within their 60 s perspective scale and fade-ramp change; lifeContinuity checks rebuild continuity at the same instant.
-        if (now.kind === 'birds') expect(Math.abs(now.scale - was.scale), key).toBeLessThanOrEqual(now.scaleBound)
+        if (now.kind === 'birds') {
+          expect(Math.abs(now.scale - was.scale), key).toBeLessThanOrEqual(now.scaleBound)
+          const step = Math.abs(now.alpha - was.end.alpha)
+          maxBirdOpacityStep = Math.max(maxBirdOpacityStep, step)
+          expect(step, `${id} ${key} opacity step at minute ${i}`).toBeLessThanOrEqual(0.05)
+        }
         expect(Math.abs(now.alpha - was.alpha), key).toBeLessThanOrEqual(now.alphaBound)
       }
       for (const [key, was] of a) if (!b.has(key)) expect(unseen(was.end), `${id} ${key} vanishes at minute ${i}: ${JSON.stringify(was.end)}`).toBe(true)
     }
+    console.log(id, 'max bird opacity step (phase 60 → phase 0)', maxBirdOpacityStep.toFixed(6))
     expect(moved).toBeGreaterThan(50)
     expect(came).toBeGreaterThan(2)
   }, 120_000)
