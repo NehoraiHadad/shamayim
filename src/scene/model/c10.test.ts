@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import type { AirInput } from '../../atmo/airTypes'
+import { addMinutes } from '../../domain/time'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import type { LocalTime } from '../../domain/types'
-import { buildWorld } from '../../world/world'
+import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { trackAt } from './anim'
 import { sceneModel } from './index'
 import { inFrontOf } from './life'
@@ -56,18 +57,18 @@ describe('C10: the sky life in the model', () => {
     for (const id of ['haifa', 'jerusalem', 'tiberias']) expect(ofKind(at(id, '2026-11-17T12:00', RAIN).model.layers, 'birds')).toEqual([])
   })
 
-  it('flaps and wheels a flock on a strip that loops, swaying round its place', () => {
+  it('loops the wing beats and wheeling on a strip as the flock follows its open path', () => {
     const birds = ['10:30', '12:30', '14:30'].flatMap((h) => ofKind(at('tel-aviv', `2026-11-17T${h}`).model.layers, 'birds'))
     expect(birds.length).toBeGreaterThan(0)
     for (const b of birds) {
       const frames = b.animated!.frames!
       expect(b.flap * b.loop).toBeCloseTo(Math.round(b.flap * b.loop), 6)
       expect(frames.count / frames.fps).toBeCloseTo(b.loop, 6)
-      // Its sway is a closed loop round its place: at its place at phase 0 and again after each cycle, never off it.
-      const sway = b.animated!.flight!
-      expect(trackAt(sway, 0)).toEqual({ x: expect.closeTo(0, 6), y: expect.closeTo(0, 6) })
-      expect(trackAt(sway, sway.cycle)).toEqual({ x: expect.closeTo(0, 6), y: expect.closeTo(0, 6) })
-      for (let t = 0; t < sway.cycle; t += 1.7) expect(trackAt(sway, t)).not.toBeNull()
+      const flight = b.animated!.flight!
+      expect(flight).toMatchObject({ open: true, step: 2 })
+      expect(flight.path).toHaveLength(61)
+      expect(trackAt(flight, 0)).toEqual({ x: 0, y: 0, scale: 1, alpha: 1, turn: 0 })
+      expect(trackAt(flight, 121)).toEqual(trackAt(flight, 120))
     }
   })
 
@@ -107,6 +108,20 @@ describe('C10: the night sky in the model', () => {
     expect(ofKind(at('ramon-crater', '2026-06-20T02:00', CLEAR).model.layers, 'meteor')).toEqual([])
   })
 
+  it('keeps a meteor bitmap and its absolute flash time across a minute rebuild', () => {
+    const at = '2026-12-14T02:00'
+    const input = { ...worldInput(places.get('ramon-crater')!, at), forced: CLEAR }
+    const build = makeWorldBuilder()
+    const before = ofKind(sceneModel(build(input), BOX, null, { laidAt: 2000, sinceS: 37 }).layers, 'meteor')
+    const after = ofKind(sceneModel(build({ ...input, selected: addMinutes(at, 1) }), BOX, null, { laidAt: 2023, sinceS: 0 }).layers, 'meteor')
+    const shared = before.filter((m) => after.some((next) => next.id === m.id))
+    expect(shared.length).toBeGreaterThan(0)
+    for (const m of shared) {
+      const next = after.find((n) => n.id === m.id)!
+      expect([next.key, next.bounds, next.x1, next.y1]).toEqual([m.key, m.bounds, m.x1, m.y1])
+      expect(next.animated!.pulse!.first).toBeCloseTo(m.animated!.pulse!.first, 8)
+    }
+  })
   it('shows the Milky Way at Ramon on a moonless August night and never in Tel Aviv', () => {
     expect(ofKind(at('ramon-crater', '2026-08-12T23:30', CLEAR).model.layers, 'milkyWay')).toHaveLength(1)
     expect(ofKind(at('tel-aviv', '2026-08-12T23:30', CLEAR).model.layers, 'milkyWay')).toEqual([])

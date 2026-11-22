@@ -67,10 +67,10 @@ export function bearingOfScreen(f: TangentFrame, phi: number): number {
  * The gnomonic projection (a great circle is a straight line), or null more than ~75° from the centre. Used for what is
  * straight on the sky: a contrail.
  */
-export function gnomonic(f: TangentFrame, d: SkyDir): Pt | null {
+export function gnomonic(f: TangentFrame, d: SkyDir, minCos = 0.26): Pt | null {
   const v = unitOf(d)
   const w = dot(v, f.c)
-  if (w < 0.26) return null
+  if (w < minCos) return null
   return [f.at[0] + (f.handed * f.k * dot(v, f.e)) / w / RAD, f.at[1] - (f.k * dot(v, f.u)) / w / RAD]
 }
 

@@ -800,3 +800,20 @@ Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
 - [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
       (e.g. famous mosques in Jaffa) get their tower height back.
 - [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.
+
+## Polish track C — life keeps moving (audit #3, #9) — 2026-11-22 (branch `claude/fix-life-motion-740e49`)
+Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-2.md`, `IMPL-1.md`, `IMPL-2.md`, `NOTES.md`).
+- [x] One `LifeClock {laidAt, sinceS}` (`useLifeClock`); the world lays 120 s of life ahead every 2 s (`world/lifeAhead.ts`);
+      every bird, plane, contrail head and meteor carries a `Track` the compositor places continuously; minute handoff
+      ≤ 6.4e-14 px (test reads the new model at a non-zero `sinceS`)
+- [x] Scrub rest: life keeps moving in real time (whole-minute re-anchor, life offset in the world; sky/light/clouds stay
+      at the shown moment); live vs scrub keyed apart — owner decision flagged in NOTES
+- [x] No pop-in: a mover is laid if any of its 61 samples is in view; zero-alpha starts fade in
+- [x] Contrails: fixed tangent frame registered at the head (scale error < 0.11 %), per-puff wind drift, ribbon ages
+      continuously in the compositor (`scene/paint/contrail.ts`)
+- [x] Birds: 3D flight per species (`scene/model/birdFlight.ts`, `birds.ts`, `scene/paint/birds.ts`): thermal circles,
+      wheeling, eights, hanging on the wind, a V, rowing; bank, dihedral, wrist, underside; closed-form strip bounds
+- Who wrote what: Claude (Opus 5.5) the bird flight model and painter, briefs, verification, perf profile;
+  Codex gpt-6.2-sol briefs 1 and 2 (Neon out of quota); Opus subagent reviewed round 1 and the final diff
+- [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
+      model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines

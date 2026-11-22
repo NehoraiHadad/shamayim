@@ -6,9 +6,10 @@ import { contrailAir, cruiseClimate } from './contrails'
 import { approachPath, departurePath, FLIGHT, heightsOver, PATH_STEP_KM, trackPoint, wayOf, type FlockTrack, type PathPt } from './flightPaths'
 import { curveDrop, flatTerrain, type FlightTerrain } from './flightTerrain'
 import {
-  birdScores, CRUISE_M, dayOfYear, headingOf, meteorsOf, PREVALENCE, SHAPES, trailLight,
+  birdScores, CRUISE_M, dayOfYear, headingOf, METEOR_FLASH_S, meteorLook, meteorsOf, PREVALENCE, SHAPES, trailLight,
   type Aircraft, type BirdKind, type Flock, type HighPlane, type LifeInput, type LowPlane, type MeteorFlash, type SkyLife,
 } from './life'
+import { flockAhead, highAhead, lowAhead, trailAhead, trailPuffSeed } from './lifeAhead'
 import { smoothstep } from './ridgeLighting'
 import { apparentAltitude } from './skyProjection'
 
@@ -142,7 +143,7 @@ export interface LowEvent {
   seed: number
 }
 
-export interface MeteorEvent { id: string; t: number; seed: number }
+export type MeteorEvent = Omit<MeteorFlash, 'inS'> & { t: number }
 
 /** One day's life at a place: every event that starts that day (local seconds from its midnight). */
 export interface LifeSchedule {
@@ -454,8 +455,11 @@ function meteorEvents(inputs: LifeInput[], seedOf: (p: string) => number): Meteo
   const rate = Float64Array.from(inputs, (input) => (meteorsOf(input)?.perHour ?? 0) * SKY_SHARE)
   const top = Math.max(0, ...rate)
   if (top <= 0) return []
-  return arrivals(seedOf('meteors'), top, (t) => readAt(rate, t) / top).map((t, i) => ({ id: `${inputs[0].at.slice(0, 10)}:meteor:${i}`, t,
-    seed: seedOf(`meteor:${i}`) }))
+  const date = inputs[0].at.slice(0, 10)
+  return arrivals(seedOf('meteors'), top, (t) => readAt(rate, t) / top).map((t, i) => ({
+    id: `${date}:meteor:${i}`, t, seed: seedOf(`meteor:${i}`),
+    ...meteorLook({ ...inputs[0], at: timeOfDay(date, Math.floor(t / 60)) }, t % 60),
+  }))
 }
 
 /* Evaluation at a moment. */
@@ -497,18 +501,20 @@ export function highAt(e: HighEvent, t: number): HighPlane {
   const trail: HighPlane['trail'] = []
   if (e.persists) {
     const from = Math.max(e.t0, t - e.lifeS)
-    const puff = (tau: number) => {
+    const puff = (tau: number, liveTip?: true) => {
       const p = highPoint(e, tau)
       const age = t - tau
       const E = p.e + e.driftE * age, N = p.n + e.driftN * age
-      if (Math.hypot(E, N) < CRUISE_REACH_KM + 10) trail.push({ e: E, n: N, up: e.upM, ageS: age, seed: hashId(`${e.id}:${Math.round(tau)}`) })
+      trail.push({ e: E, n: N, up: e.upM, ageS: age, liveTip, seed: trailPuffSeed(e.id, tau) })
     }
     // On a fixed grid of emission moments, so each puff keeps its own place and shape from frame to frame.
     for (let tau = Math.ceil(from / TRAIL_STEP_S) * TRAIL_STEP_S; tau < head; tau += TRAIL_STEP_S) puff(tau)
-    if (head > from) puff(head)
+    if (head > from) puff(head, head < e.t1 && head % TRAIL_STEP_S !== 0 ? true : undefined)
   }
-  return { id: e.id, plane: plane && { ...plane, up: e.upM }, headingDeg: e.headingDeg, speedMs: e.speedMs, persists: e.persists,
-    shortKm: e.shortKm, lifeS: e.lifeS, spreadM: e.spreadM, trail, seed: e.seed }
+  const crossing = { start: { ...highPoint(e, e.t0), up: e.upM }, centre: { e: e.cE, n: e.cN, up: e.upM },
+    end: { ...highPoint(e, e.t1), up: e.upM } }
+  return { id: e.id, plane: plane && { ...plane, up: e.upM }, crossing, headingDeg: e.headingDeg, speedMs: e.speedMs, persists: e.persists,
+    shortKm: e.shortKm, lifeS: e.lifeS, spreadM: e.spreadM, trail, trailEndInS: e.t1 - t, seed: e.seed, driftE: e.driftE, driftN: e.driftN }
 }
 
 /** A point along a polyline every 0.5 km, `km` from its start. */
@@ -537,10 +543,26 @@ export function lifeAt(days: { schedule: LifeSchedule; offsetS: number }[], t: n
   const birds: Flock[] = [], high: HighPlane[] = [], low: LowPlane[] = [], flashes: MeteorFlash[] = []
   for (const { schedule, offsetS } of days) {
     const tt = t - offsetS
-    for (const e of schedule.flocks) if (e.t0 <= tt && tt <= e.t1) birds.push(flockAt(e, tt, sight))
-    for (const e of schedule.high) if (e.t0 <= tt && tt <= e.t1 + e.lifeS) high.push(highAt(e, tt))
-    for (const e of schedule.low) if (e.t0 <= tt && tt <= e.t1) low.push(lowAt(e, tt, sight))
-    for (const e of schedule.meteors) if (e.t >= tt && e.t < tt + METEOR_WINDOW_S) flashes.push({ id: e.id, inS: e.t - tt, seed: e.seed })
+    for (const e of schedule.flocks) if (e.t0 <= tt && tt <= e.t1) {
+      const flock = flockAt(e, tt, sight)
+      flock.samples = flockAhead(tt, e.t1, flock, (tau) => flockAt(e, tau))
+      birds.push(flock)
+    }
+    for (const e of schedule.high) if (e.t0 <= tt && tt <= e.t1 + e.lifeS) {
+      const plane = highAt(e, tt)
+      const at = (tau: number) => ({ ...highPoint(e, tau), up: e.upM })
+      plane.samples = highAhead(tt, e.t1, plane.plane, at)
+      if (plane.persists) plane.futureTrail = trailAhead(plane, tt, e.t1, TRAIL_STEP_S, at)
+      high.push(plane)
+    }
+    for (const e of schedule.low) if (e.t0 <= tt && tt <= e.t1) {
+      const plane = lowAt(e, tt, sight)
+      plane.samples = lowAhead(tt, e.t1, plane, (tau) => lowAt(e, tau))
+      low.push(plane)
+    }
+    for (const { t: strike, ...look } of schedule.meteors) if (strike + METEOR_FLASH_S > tt && strike < tt + METEOR_WINDOW_S) {
+      flashes.push({ ...look, inS: strike - tt })
+    }
   }
   const aircraft: Aircraft = { cruise: cruiseOf(input), high, low }
   const shower = meteorsOf(input)
