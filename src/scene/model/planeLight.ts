@@ -22,7 +22,7 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
   const hasSun = irr.eSunPi > 1e-5, hasMoon = irr.eMoonPi > 1e-5
   // A beam below 1/150 of diffuse gives less than one display byte of cast-light contrast.
   const sunVisible = irr.eSunPi > irr.eSkyPi / 150 ? terrainVisibility(world.flightTerrain, geom, irr.sunAz, irr.sunAlt, irr.sunDir) : undefined
-  const moonVisible = hasMoon && terrainVisibility(world.flightTerrain, geom, irr.moonAz, irr.moonAlt, irr.moonDir)
+  const moonVisible = irr.eMoonPi > irr.eSkyPi / 150 && terrainVisibility(world.flightTerrain, geom, irr.moonAz, irr.moonAlt, irr.moonDir)
   const grid = new Uint8Array(cols * rows * 4)
   const columns = Array.from(xs)
   const hazeRows = Array.from({ length: rows }, (_, r) =>
@@ -36,7 +36,7 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
       const sun = hasSun ? incidence(n, s) : 0
       const moon = hasMoon ? incidence(n, m) : 0
       grid[i * 4] = byte(sun > 0 ? sun * (sunVisible?.(i) ?? 1) : 0)
-      grid[i * 4 + 1] = byte(moon > 0 && moonVisible ? moon * moonVisible(i) : 0)
+      grid[i * 4 + 1] = byte(moon > 0 ? moon * (moonVisible ? moonVisible(i) : 1) : 0)
       grid[i * 4 + 2] = byte(skyView(n, s, irr.skyBias))
       grid[i * 4 + 3] = byte(hazeRows[r][c])
     }

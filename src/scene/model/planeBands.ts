@@ -34,4 +34,3 @@ export function outlineBandY(outline: readonly Pt[], bounds: Box, cols: number):
     : new Float32Array(cols).fill(bottom)
   return { crestY, footY }
 }
-

@@ -38,6 +38,11 @@ export function shadowSeconds(shadow: ReceiverShadow, phase: number, still: bool
   return still || !shadow.speed ? 0 : Math.max(0, Math.min(HOLD_SECONDS, phase - shadow.from))
 }
 
+/** In the interactive loop rerasterize after one device pixel of carry. Explicit still/clip phases stay exact. */
+export function shadowStep(shadow: ReceiverShadow, phase: number, still: boolean, ratio: number) {
+  return Math.round(shadowSeconds(shadow, phase, still) * shadow.speed * ratio)
+}
+
 export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number, animate = true): LayerOf<'plane'> {
   if (!shadow) return plane
   const bounds = plane.bounds

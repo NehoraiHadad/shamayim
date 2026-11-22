@@ -1,7 +1,7 @@
 import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
 import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
-import { shadowSeconds } from '../model/planeCloudShadow'
+import { shadowSeconds, shadowStep } from '../model/planeCloudShadow'
 import type { LayerDesc } from '../model/types'
 import { paintContrail } from '../paint/contrail'
 import { layCarried } from './advect'
@@ -41,6 +41,7 @@ export class Surface {
   private last: readonly LayerDesc[] = []
   /** The animation phase the canvas was last laid at (an arriving batch is laid at it), and whether in reduced motion. */
   private phase = 0
+  private interactive = false
   /** Reduced motion (`composite`): set by the shell, the default of every render and composite. */
   still = false
   private readonly now: () => number
@@ -122,6 +123,7 @@ export class Surface {
   prune(keep: ReadonlySet<string>) {
     this.paintedLayers = undefined
     this.active.prune(keep)
+    this.shadows.prune(keep)
   }
 
   /** Resolves once the worker has delivered everything asked of it (at once without a worker). */
@@ -255,8 +257,8 @@ export class Surface {
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
         const sy = (preview ? 0 : frame) * rect.h
-        const mixed = shadow && matchedShade && this.shadows.blend(light as CanvasImageSource,
-          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy)
+        const mixed = shadow && matchedShade && this.shadows.blend(layout.id, cached.lightKey, light as CanvasImageSource,
+          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy, this.interactive ? shadowStep(shadow, phase, still, ratio) : undefined)
         if (!mixed) draw(light)
         else if (anim?.reveal && Number.isFinite(reach)) this.window(mixed, rect, 0, y, anim.reveal, reach, alpha)
         else ctx.drawImage(mixed, 0, 0, rect.w, rect.h, rect.x * k, y * k, rect.w * k, rect.h * k)
@@ -366,7 +368,7 @@ export class Surface {
       const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr)
       if ((layer.kind === 'plane' || layer.kind === 'canopy') && layer.cloudShadow?.speed && this.active.peek(shadeId(layer.id))?.light) {
         const shadow = layer.cloudShadow
-        out += `s${Math.round(shadowSeconds(shadow, phase, still) * shadow.speed * this.dpr * 16)};`
+        out += `s${shadowStep(shadow, phase, still, this.dpr)};`
       }
       const anim = layer.animated
       if (!anim) continue
@@ -423,7 +425,8 @@ export class Surface {
     // An animation tick that moved nothing a whole pixel (and repainted or asked for nothing) leaves the canvas as it is.
     if (this.shown && this.shown.layers === layers && this.shown.anim === this.animState(layers, phase, still)
       && painted.every((p) => p === 'none')) return painted
-    this.composite(layers, phase, still)
+    this.interactive = true
+    try { this.composite(layers, phase, still) } finally { this.interactive = false }
     return painted
   }
 

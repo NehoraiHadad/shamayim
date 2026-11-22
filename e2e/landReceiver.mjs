@@ -45,8 +45,17 @@ export async function receiverPixels(page, dpr = 1) {
     const afterOldJump = sample(45, 25)
     local.lay(85)
     const moved = material(85)
-    local.render([shadowedPlane(plane, shadow, 10, false)], 85, true)
+    const fixedShadow = shadowedPlane(plane, shadow, 10, false)
+    local.render([fixedShadow], 85, true)
     const still = material(10)
+    const gustCanopy = canopyOf(fixedShadow, { lean: 0.6, gust: 0.55 }, [])
+    const gustPixels = () => Array.from(ctx.getImageData(19 * dpr, 14 * dpr, 10 * dpr, 11 * dpr).data)
+    local.render([fixedShadow, gustCanopy], 10, false)
+    const gustStart = gustPixels()
+    local.lay(10.8)
+    const gustBent = gustPixels()
+    local.lay(12)
+    const gustRepeat = gustPixels()
 
     const remoteCanvas = document.createElement('canvas')
     const remoteCtx = remoteCanvas.getContext('2d', { willReadFrequently: true })
@@ -78,10 +87,12 @@ export async function receiverPixels(page, dpr = 1) {
     remote.composite([withShadow], 10)
     const planeOnly = pixels()
     remoteWorker.terminate()
-    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, missing, paired, stale, planeOnly }
+    return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, missing, paired, stale, planeOnly }
   }, dpr)
-  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, missing, paired, stale, planeOnly } = result
+  const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, moved, still, gustStart, gustBent, gustRepeat, missing, paired, stale, planeOnly } = result
   assert.deepEqual(still, first)
+  assert.deepEqual(gustStart, gustRepeat, 'canopy gust must repeat every two seconds')
+  assert.notDeepEqual(gustStart, gustBent, 'canopy gust must keep moving under a stationary cloud shadow')
   assert.deepEqual(first[1], unshadowed[1])
   assert.ok(intermediate[0][0] > first[0][0] && intermediate[0][0] < unshadowed[0][0], 'the shadow must advance between old poses')
   assert.ok(beforeOldJump.every((channel, i) => Math.abs(channel - afterOldJump[i]) <= 2), 'the former pose boundary must stay continuous')

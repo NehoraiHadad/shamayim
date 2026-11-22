@@ -21,6 +21,18 @@ const STEPS = (() => {
 type Terrain = NonNullable<WorldState['flightTerrain']>
 interface Receiver { east: number; north: number; height: number | null }
 interface HorizonGrid { positions: Receiver[]; bins: Map<number, Float32Array> }
+const offsets = new Map<number, { east: number; north: number; drop: number; invMetres: number }[]>()
+
+function rayFor(bin: number) {
+  let ray = offsets.get(bin)
+  if (!ray) {
+    const az = bin / AZ_BINS_PER_DEG * RAD
+    const sin = Math.sin(az), cos = Math.cos(az)
+    ray = STEPS.map(({ d, drop, invMetres }) => ({ east: sin * d, north: cos * d, drop, invMetres }))
+    offsets.set(bin, ray)
+  }
+  return ray
+}
 const horizons = new WeakMap<PlaneGeomGrid, WeakMap<Terrain, HorizonGrid>>()
 
 function gridFor(terrain: Terrain, geom: PlaneGeomGrid): HorizonGrid {
@@ -49,19 +61,18 @@ function march(terrain: Terrain, grid: HorizonGrid, bin: Float32Array, azBin: nu
   if (!Number.isNaN(cached)) return cached
   const { east, north, height } = grid.positions[i]
   if (height === null) return bin[i] = -90
-  const az = azBin / AZ_BINS_PER_DEG * RAD
-  const sin = Math.sin(az), cos = Math.cos(az)
   let slope = -Infinity
-  for (const { d, drop, invMetres } of STEPS) {
-    const h = terrain.heightAt(east + sin * d, north + cos * d)
-    if (h !== null) slope = Math.max(slope, (h - height - drop) * invMetres)
+  const ray = rayFor(azBin), heightAt = terrain.heightAt
+  for (const step of ray) {
+    const h = heightAt(east + step.east, north + step.north)
+    if (h !== null) slope = Math.max(slope, (h - height - step.drop) * step.invMetres)
   }
   return bin[i] = Math.atan(slope) / RAD
 }
 
 /** The DEM horizon in neighbouring half-degree azimuth bins. Solar/lunar altitude only enters the disc edge. */
 export function terrainVisibility(terrain: WorldState['flightTerrain'], geom: PlaneGeomGrid, azimuth: number, altitude: number, dir: LightDir) {
-  if (!terrain || dir.up >= 0.999) return () => 1
+  if (!terrain || ('known' in terrain && terrain.known === false) || dir.up >= 0.999) return () => 1
   const grid = gridFor(terrain, geom)
   const a = ((azimuth * AZ_BINS_PER_DEG) % AZ_BINS + AZ_BINS) % AZ_BINS
   const lo = Math.floor(a), hi = (lo + 1) % AZ_BINS, mix = a - lo

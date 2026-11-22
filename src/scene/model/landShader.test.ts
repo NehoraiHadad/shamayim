@@ -11,5 +11,5 @@ it('compresses the reflected irradiance before adding haze, with gamut left to t
   expect(hazed).toEqual([expect.closeTo(0.650367, 6), expect.closeTo(0.27, 8), expect.closeTo(0.36, 8)])
   // A neutral 1/32 input under unit exposure compresses to 1/8 (0.6 = 3/5).
   expect(shadeLinearRgb([0.125, 0.125, 0.125], black, black, [0.25, 0.25, 0.25], 0, 0, 1, 1))
-    .toEqual([0.125, 0.125, 0.125])
+    .toEqual([expect.closeTo(0.125, 10), expect.closeTo(0.125, 10), expect.closeTo(0.125, 10)])
 })

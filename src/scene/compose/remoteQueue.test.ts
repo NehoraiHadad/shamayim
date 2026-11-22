@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerOf } from '../model/types'
 import { HAND } from '../paint'
@@ -42,7 +42,9 @@ function fakeWorker() {
         batch: request.batch,
         results: request.jobs.map((job) => ({
           id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 2,
-          bitmap: job.final === false ? null : { width: job.rect.w, height: job.rect.h, close() {} } as unknown as ImageBitmap,
+          preview: job.preview,
+          bitmap: job.final === false && !job.preview ? null
+            : { width: job.rect.w, height: job.rect.h, close() {} } as unknown as ImageBitmap,
         })),
       }
       worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
@@ -118,6 +120,40 @@ describe('bounded strip scheduling in RemoteCache', () => {
     cache.update(canopy('c2', 'cl2'), 2)
     worker.answer()
     expect(worker.sent[0].jobs[0]).toMatchObject({ id: 'canopy.near', part: 'form', key: 'c2@2:0,40,375,88#10/5', frames: [0, 1], final: false })
+  })
+
+  it('shows canopy pose zero during a scrub and fills only the surviving strip after it settles', async () => {
+    vi.useFakeTimers()
+    try {
+      const worker = fakeWorker()
+      const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
+        onArrive: () => {}, onFail: () => {} })
+      const first = canopy('c1', 'cl1'), next = canopy('c1', 'cl2')
+      cache.update(first, 2)
+      cache.flush()
+      expect(worker.sent[0].jobs[0]).toMatchObject({ key: 'cl1#10/5', frames: [0], preview: true })
+      worker.answer()
+      expect(cache.peek(first.id)).toMatchObject({ preview: true, lightKey: 'cl1#10/5' })
+      expect(worker.sent).toHaveLength(0)
+
+      vi.advanceTimersByTime(50)
+      cache.update(next, 2)
+      cache.flush()
+      worker.answer()
+      vi.advanceTimersByTime(50)
+      expect(worker.sent).toHaveLength(0)
+      expect(cache.peek(next.id)).toMatchObject({ preview: true, lightKey: 'cl2#10/5' })
+
+      const settled = cache.whenSettled()
+      vi.advanceTimersByTime(30)
+      expect(worker.sent[0].jobs[0]).toMatchObject({ key: 'cl2#10/5', frames: [1, 2] })
+      while (worker.sent.length) worker.answer()
+      await settled
+      expect(cache.peek(next.id)?.preview).toBeUndefined()
+      expect(cache.fresh(next, 2)).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('paints all strip frames across chunks in makeWorkerRunner and transfers only on the final chunk', () => {

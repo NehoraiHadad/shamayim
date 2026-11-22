@@ -24,7 +24,7 @@ interface Entry {
   lightKey: string | null
   ratio: number
   rect: DeviceRect
-  form: LayerCanvas
+  form: LayerCanvas | null
   light: LayerCanvas | null
   /** A strip's frames painted so far on each canvas (C7): the main thread paints a frame when it is first laid. */
   formFrames?: Set<number>
@@ -101,7 +101,7 @@ export class LayerCache {
     const painter = this.painters(desc)
     if (!entry || !painter) return
     const f = frameAt(desc.animated, phase)
-    if (entry.formFrames && !entry.formFrames.has(f) && !this.formless(desc)) {
+    if (entry.form && entry.formFrames && !entry.formFrames.has(f)) {
       this.paintOn(entry.form, desc, entry.ratio, entry.rect, painter.form, phase, [f])
       entry.formFrames.add(f)
     }
@@ -128,11 +128,11 @@ export class LayerCache {
     const { w, h } = canvasSize(desc, rect)
     const strip = frameCount(desc.animated) > 1
     const frame = frameAt(desc.animated, phase)
-    const resized = !entry || entry.form.width !== w || entry.form.height !== h
-    if (!entry || resized) {
-      const form = this.factory(w, h)
-      const light = lightKey ? this.factory(w, h) : null
-      entry = { formKey: '', desc, lightKey: null, ratio, rect, form, light }
+    const formless = this.formless(desc)
+    const existing = entry?.form ?? entry?.light
+    if (!entry || existing?.width !== w || existing.height !== h || Boolean(entry.form) === formless) {
+      const form = formless ? null : this.factory(w, h)
+      entry = { formKey: '', desc, lightKey: null, ratio, rect, form, light: null }
       this.entries.set(desc.id, entry)
     }
     if (entry.formKey !== formKey) entry.lightKey = null
@@ -140,9 +140,11 @@ export class LayerCache {
     if (entry.formKey !== formKey) {
       entry.rect = rect
       entry.ratio = ratio
-      ctxOf(entry.form).clearRect(0, 0, w, h)
-      if (painter && !this.formless(desc)) this.paintOn(entry.form, desc, ratio, rect, painter.form, phase, strip ? [frame] : undefined)
-      entry.formFrames = strip ? new Set([frame]) : undefined
+      if (entry.form) {
+        if (strip || !painter) ctxOf(entry.form).clearRect(0, 0, w, h)
+        if (painter) this.paintOn(entry.form, desc, ratio, rect, painter.form, phase, strip ? [frame] : undefined)
+        entry.formFrames = strip ? new Set([frame]) : undefined
+      }
       entry.formKey = formKey
       entry.desc = desc
       painted = 'form'
