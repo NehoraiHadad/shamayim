@@ -58,7 +58,7 @@ it('ignores own and non-settlement marks passed via seatCandidates in marksOf', 
   expect(withCarried.map((m) => m.id)).toEqual(baseline.map((m) => m.id))
 })
 
-it('keeps bundled city portraits identical with seatCandidates while seating Jerusalem beyond 9 m hall', async () => {
+it('keeps bundled city portraits identical with seatCandidates and drops Jerusalem’s subpixel 9 m hall', async () => {
   const cities = SCENE_PLACES.filter((p) => ['tel-aviv', 'haifa', 'jerusalem'].includes(p.id))
   const loaded = await loadPlaces(cities)
   for (const place of cities) {
@@ -73,8 +73,9 @@ it('keeps bundled city portraits identical with seatCandidates while seating Jer
     expect(withSeats.filter((m) => m.portrait).map((m) => m.id), place.id)
       .toEqual(without.filter((m) => m.portrait).map((m) => m.id))
     if (place.id === 'jerusalem') {
-      const gained = withSeats.filter((m) => !without.some((w) => w.id === m.id))
-      expect(gained.some((m) => !m.portrait && m.kind === 'minaret' && Boolean(m.seatBlockId))).toBe(true)
+      const hall = 'il-minaret-31.763-35.26575'
+      expect(data.seatCandidates!.some((m) => m.id === hall)).toBe(true)
+      expect(withSeats.some((m) => m.id === hall)).toBe(false)
     }
   }
 })

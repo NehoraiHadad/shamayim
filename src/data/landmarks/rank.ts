@@ -1,5 +1,5 @@
 import { fameBonus } from './fame'
-import type { Landmark, MarkLayer } from './types'
+import type { Candidate, Landmark } from './types'
 
 const WEIGHTS: Record<Landmark['kind'], number> = {
   bridge: 9, cooling: 8, turbine: 8, chimney: 7, lighthouse: 7,
@@ -7,18 +7,7 @@ const WEIGHTS: Record<Landmark['kind'], number> = {
   castle: 6, mast: 1, palms: 2, orchard: 2, vineyard: 2, solar: 2, homes: 1, custom: 6,
 }
 
-export interface Candidate {
-  mark: Landmark
-  dx: number
-  dy: number
-  x: number
-  layer: MarkLayer
-  plain?: { baseY: number; hPx: number; visibleTopY?: number }
-  width: number
-  score: number
-  reserved?: boolean
-  portrait?: boolean
-}
+export type { Candidate } from './types'
 
 /** Kind, height, nearness to the section line and to the place, a name, and fame (`fame.ts`). */
 export function score(mark: Landmark, dx: number, dy: number, band: number): number {

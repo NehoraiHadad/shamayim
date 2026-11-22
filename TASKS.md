@@ -3,6 +3,30 @@
 Status legend: [x] done · [~] in progress · [ ] todo. Keep this file current so a new chat can resume.
 Plan: `docs/PLAN.md`. Brief: `docs/PLANNING_BRIEF.md`. Codex briefs: `docs/briefs/`.
 
+## Worship ownership (audit follow-up)
+
+Owner decision, 2026-11-22: "מסגדים של כפרים שכנים שבאמת נראים מהיישוב — אבל צריך להיות ברור שזה של ישוב שנמצא ליד ולא נראה בתוך הישוב. גם אם זה מתרחק מעט מהאמת."
+
+- [x] Decision B, “גם אם זה מתרחק מעט מהאמת”: every kept non-own glyph is `max(trueHeight, 4)` CSS px,
+      with the same width factor, capped at 2×; smaller true sources are culled. The shared helper covers every kind.
+- [x] Two guards on the drawn box: ≥6 CSS px from the final home roofline span; town members need their own final
+      painted town at the foot and ≥1 CSS px of it on both sides. Exact nearest slide away from home is bounded by
+      12 CSS px. Standalone sources outside mapped town fabric require a visible foot rather than a town.
+- [x] Both near and far layers apply those guards. Haze uses far-town bins at the true receiving-layer distance,
+      never the enlarged size, and cannot be lighter than home roofs. A supporting mass is excluded by identity.
+- [x] Physical structure heights retain the angular/crest clip and 1 CSS px existence floor; Decision B separately
+      controls neighbour glyph legibility. No invented far podiums or building-height clamps.
+- [x] Neon wrote the audit probe. Codex gpt-6.2-sol implemented rounds 1–4; Opus supplied re-review findings.
+      Rules, per-layer comparisons, named landmark outcomes, tests and mutations: `docs/design/qa/polish/worship-ownership/REPORT.md`.
+- [x] Split the fixed 117-place check into timed groups; refreshed the exhaustive offline audit. Preserved round-3
+      Karmei Tzur/Eleazar stills and saved round-4 stills with 4× crops and per-glyph measurements in `stills/README.md`.
+- [x] Round-5 review: derive the non-own pre-selection floor from the single legibility/cap exports; evaluate
+      seated and unseated glyphs together nearest-first; share near/far occlusion and clipped height; require town
+      flags/support independently in tests; retain one haze guard. Values stay pending the product decision.
+      Refreshed full audit and complete all-round HEAD file list: `REPORT.md` Round 5.
+- [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
+      then review these rules against that terrain. The current still is explicitly flat 100 m.
+
 ## v1 — one screen (current temp, Hebrew sentence, 7 days) — DONE 2026-11-17
 - [x] Planning with Codex (Sol) + Fable, merged into docs/PLAN.md
 - [x] Scaffold, tooling (PWA, vitest, oxlint, typecheck), GitHub CI, public repo

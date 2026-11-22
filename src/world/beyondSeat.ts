@@ -1,11 +1,13 @@
-import { LAT_STEP, LON_STEP, squareOf } from '../data/city/grid'
+import { NEIGHBOUR_MIN_TRUE_PX } from './neighbourSize'
+import { LAT_STEP, LON_STEP, squareOf, squareKey } from '../data/city/grid'
 import { isOwnSpot, lieBaseY, outsideProject, SKYLINE_TO_KM, type Ground, type OutsideFrame,
-  type OutsideLook, type PlaceLie } from '../data/city/outsideView'
+  type PlaceLie } from '../data/city/outsideView'
 import { roofHeight } from '../data/city/skylineHeight'
-import type { CityResult, Square } from '../data/city/types'
+import type { CityResult } from '../data/city/types'
 import { hashId, seeded } from '../data/landmarks/hash'
 import { offsetKm, type Coordinate } from '../data/landmarks/project'
 import type { Landmark } from '../data/landmarks/types'
+import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { SCENE_CAMERA, xOf } from '../domain/camera'
 import { glyphAtHeight, glyphOf } from './glyphSpecs'
@@ -55,43 +57,42 @@ export function overTheCrest(terrain: SceneTerrain, dx: number, dy: number, heig
   return Math.max(0, Math.min(seen.groundY, lineAt(terrain.nearPoints, x)) - seen.y)
 }
 
-/** Minimum visible height (px) above intervening land for a beyond tower or seated mark to show (from `beyondTowers` in `outside.ts`). */
-export const BEYOND_MIN_PX = 2.5
-/** Minimum visible height (px) above intervening land for a beyond town block to show (from the C9 `beyondTowns` layout). */
-const TOWN_MIN_PX = .8
 /** Minimum depth (km) in front of the outside camera eye (`frame.eyeN - dy`) so points at or behind the eye plane are excluded (from `beyondTowers` in `outside.ts`). */
 const EYE_CLEARANCE_KM = .5
 /** Horizontal screen-edge overscan (px) kept outside `[0, width]` so edge blocks are not clipped mid-body (from `outside.ts` and `outsideView.ts`). */
 const EDGE_OVERSCAN_PX = 4
-/** Minimum drawn width (px) of a beyond-town raster block so distant built squares remain visible instead of vanishing sub-pixel (from the C9 `beyondTowns` layout). */
+/** Raster coverage floor, not a height/legibility boost: .8 CSS px gives 1.6 physical px at DPR 2.
+ * Retained from C9; Decision B still requires the enlarged glyph plus both side margins to fit this actual box. */
 const MIN_BLOCK_W_PX = .8
 
 interface BeyondContext {
   frame: OutsideFrame
   lie: PlaceLie
-  look: OutsideLook
   terrain: SceneTerrain
   width: number
   ground: Ground
   floor: number
   baseKm: number
-  /** Raster square width in km and px per metre at the place's near edge. */
+  /** Raster square width in km. */
   wKm: number
-  nearK: number
 }
 
+/** Slant distance from the outside view’s northward displaced eye, in km. */
+export const outsideDistance = (eyeN: number, dx: number, dy: number) => Math.hypot(dx, eyeN - dy)
+
 export function seatBeyond(ctx: BeyondContext, dx: number, dy: number, heightM: number) {
-  const { frame, lie, look, terrain, width, ground, floor, baseKm, wKm, nearK } = ctx
+  const { frame, lie, terrain, width, ground, floor, baseKm, wKm } = ctx
   if (Math.hypot(dx, dy) > SKYLINE_TO_KM || frame.eyeN - dy <= EYE_CLEARANCE_KM) return null
   if (isOwnSpot(frame, lie, dx, dy)) return null
   const at = outsideProject(frame, dx, dy)
   if (at.x < -EDGE_OVERSCAN_PX || at.x > width + EDGE_OVERSCAN_PX) return null
   const over = overTheCrest(terrain, dx, dy, heightM)
-  if (over < TOWN_MIN_PX) return null
-  const h = Math.min(look.px(heightM, Math.min(at.k, nearK)), over)
-  if (h < TOWN_MIN_PX) return null
+  if (over < MARK_MIN_PX) return null
   const w = Math.max(MIN_BLOCK_W_PX, wKm * frame.f / at.depth)
   const baseY = Math.max(ground(at.x) + 1, lieBaseY(lie, ground, at.x, at.near, floor, w, dx, dy))
+  // Clip only the part physically hidden by the intervening crest, never to an aesthetic height cap.
+  const h = Math.min(apparentHeight(heightM, outsideDistance(frame.eyeN, dx, dy), baseAngle(baseY, terrain.horizonY)), over)
+  if (h < MARK_MIN_PX) return null
   return { x: at.x, baseY, w, h, km: beyondKm(frame, baseKm, dx, dy) }
 }
 
@@ -101,18 +102,15 @@ export type SeatMark = (mark: Landmark) => { x: number; base: number; hPx: numbe
 export const fitsBlockSpan = (x: number, halfW: number, blockX: number, blockW: number) =>
   x - halfW >= blockX - blockW / 2 && x + halfW <= blockX + blockW / 2
 
-const squareKey = ({ cell, col, row }: Square) => `${cell}:${col}:${row}`
-
 /** Draw the visible town blocks and look up a mark's seat in the same raster square; `seatMark` is null without a raster. */
 export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'floor' | 'terrain'> &
-  { place: Coordinate; city?: CityResult | null }, frame: OutsideFrame, lie: PlaceLie, look: OutsideLook, baseKm: number):
+  { place: Coordinate; city?: CityResult | null }, frame: OutsideFrame, lie: PlaceLie, baseKm: number):
   { beyondTowns: BeyondBlock[]; seatMark: SeatMark | null } {
   const { place, city } = input
   const raster = city?.raster
   if (!raster) return { beyondTowns: [], seatMark: null }
   const cos = Math.cos(place.lat * Math.PI / 180)
-  const nearK = outsideProject(frame, 0, frame.n).k
-  const ctx = { ...input, frame, lie, look, baseKm, wKm: LON_STEP * 111.32 * cos, nearK }
+  const ctx = { ...input, frame, lie, baseKm, wKm: LON_STEP * 111.32 * cos }
   const blocks = new Map<string, BeyondBlock>()
   for (const sq of builtSquares(place, city, SKYLINE_TO_KM)) {
     const { dx, dy } = sq
@@ -135,12 +133,13 @@ export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'flo
     if (!glyphKind) return null
     const over = overTheCrest(input.terrain, dx, dy, mark.heightM)
     if (over <= 0) return null
-    const { x, k } = outsideProject(frame, dx, dy)
-    const hPx = Math.min(look.px(mark.heightM, Math.min(k, nearK)), over)
-    if (hPx <= 0) return null
+    const { x } = outsideProject(frame, dx, dy)
+    const hPx = Math.min(over, apparentHeight(mark.heightM,
+      outsideDistance(frame.eyeN, dx, dy), baseAngle(block.baseY, input.terrain.horizonY)))
+    if (hPx < NEIGHBOUR_MIN_TRUE_PX) return null
     const halfW = glyphAtHeight(glyphKind, hPx).w / 2
     if (!fitsBlockSpan(x, halfW, block.x, block.w)) return null
-    return { x, base: block.baseY, hPx, km: block.km, blockId }
+    return { x, base: block.baseY, hPx, km: beyondKm(frame, baseKm, dx, dy), blockId }
   }
   return { beyondTowns: [...blocks.values()].sort((a, b) => b.km - a.km || a.x - b.x), seatMark }
 }

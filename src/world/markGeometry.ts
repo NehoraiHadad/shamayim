@@ -4,11 +4,13 @@ import type { Box } from './layout'
 
 /** A placed mark, its glyph, and where it stands in scene px at the layout width. */
 interface MarkGeometry extends PlacedMark {
+  factor?: number
+  trueHeightPx?: number
   glyphKind: GlyphKind
   /** Centre x and base y (px). */
   x: number
   base: number
-  /** Drawn height in glyph px, and px per glyph px (far marks 0.6, plain ones by distance). */
+  /** Height in glyph px and px per glyph px. Non-owned marks use angular height, portrait far marks use 0.6. */
   h: number
   scale: number
   /** Box width (px, after scale). */

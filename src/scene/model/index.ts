@@ -1,10 +1,11 @@
+import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { layoutOf } from './layout'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
-import { outsideLayer } from './outside'
+import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
@@ -55,7 +56,9 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
   const outside = outsideLayer(world, box, layout.clear)
-  const marks = marksLayers(world, box)
+  const home = outsideHome(world, box, layout.clear)
+  const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
+  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')

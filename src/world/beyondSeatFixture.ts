@@ -7,10 +7,13 @@ import { groundFn } from '../data/landmarks/seat'
 import type { Landmark } from '../data/landmarks/types'
 import { SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces } from '../test/sceneWorld'
-import { BEYOND_MIN_PX, builtSquares, fitsBlockSpan, overTheCrest } from './beyondSeat'
+import { apparentHeight, baseAngle } from '../data/terrain/apparentHeight'
+import { NEIGHBOUR_MIN_TRUE_PX } from './neighbourSize'
+import { outsideDistance } from './beyondSeat'
+import { builtSquares, fitsBlockSpan, overTheCrest } from './beyondSeat'
 import { glyphAtHeight, type GlyphKind } from './glyphSpecs'
 import { SHEET_CLEAR, VISIBLE_BOTTOM } from './layout'
-import { lookOf, outsidePlace } from './outside'
+import { outsidePlace } from './outside'
 import { SCENE_W } from './sceneBox'
 import type { BeyondBlock } from './types'
 
@@ -45,21 +48,18 @@ export interface FittingBlock {
   halfW: number
 }
 
-/** Find all drawn beyond-town squares where a glyph of `kind` and `heightM` clears `BEYOND_MIN_PX` and fits inside its block. */
+/** Find all drawn beyond-town squares where a glyph of `kind` and `heightM` clears `NEIGHBOUR_MIN_TRUE_PX` and fits inside its block. */
 export function fittingBlocks(ctx: OutsideFixture, heightM: number, kind: GlyphKind,
   extra?: (sq: OutsideFixture['squares'][number], block: BeyondBlock) => boolean): FittingBlock[] {
-  const { view, loaded, byX, squares } = ctx
-  const look = lookOf(view.frame)
-  const nearK = outsideProject(view.frame, 0, view.frame.n).k
+  const { view, byX, squares } = ctx
   const out: FittingBlock[] = []
   for (const square of squares) {
-    const { x, k } = outsideProject(view.frame, square.dx, square.dy)
+    const { x } = outsideProject(view.frame, square.dx, square.dy)
     const block = byX.get(x)
-    const over = overTheCrest(loaded.terrain, square.dx, square.dy, heightM)
-    if (!block || over < BEYOND_MIN_PX) continue
-    const hPx = Math.min(look.px(heightM, Math.min(k, nearK)), over)
+    if (!block) continue
+    const hPx = apparentHeight(heightM, outsideDistance(view.frame.eyeN, square.dx, square.dy), baseAngle(block.baseY, ctx.loaded.terrain.horizonY))
     const halfW = glyphAtHeight(kind, hPx).w / 2
-    if (hPx < BEYOND_MIN_PX || !fitsBlockSpan(x, halfW, block.x, block.w)) continue
+    if (hPx < NEIGHBOUR_MIN_TRUE_PX || !fitsBlockSpan(x, halfW, block.x, block.w)) continue
     if (x < halfW || x > SCENE_W - halfW) continue
     if (extra && !extra(square, block)) continue
     out.push({ square, block, x, hPx, halfW })
@@ -69,9 +69,7 @@ export function fittingBlocks(ctx: OutsideFixture, heightM: number, kind: GlyphK
 
 /** Find one off-centre mark (x outside its block) and one edge-overhang mark (x inside, glyph overhanging) on drawn blocks. */
 export function findSpanViolations(ctx: OutsideFixture, heightM = 22) {
-  const { place, loaded, view, byX, squares } = ctx
-  const look = lookOf(view.frame)
-  const nearK = outsideProject(view.frame, 0, view.frame.n).k
+  const { place, view, byX, squares } = ctx
   let outsideX: { mark: Landmark; blockX: number; blockW: number; projX: number } | null = null
   let overhang: { mark: Landmark; blockX: number; blockW: number; projX: number; halfW: number } | null = null
   for (const sq of squares) {
@@ -83,7 +81,7 @@ export function findSpanViolations(ctx: OutsideFixture, heightM = 22) {
       const { dx, dy } = offsetKm(place, { lat, lon })
       const projX = outsideProject(view.frame, dx, dy).x
       if (sameSq(lat, lon) && Math.hypot(dx, dy) <= SKYLINE_TO_KM && !isOwnSpot(view.frame, view.lie, dx, dy)
-        && overTheCrest(loaded.terrain, dx, dy, heightM) >= BEYOND_MIN_PX && Math.abs(projX - block.x) > block.w / 2) {
+        && Math.abs(projX - block.x) > block.w / 2) {
         outsideX = { mark: { id: 'test-offcentre', kind: 'minaret', source: 'osm', heightM, lat, lon },
           blockX: block.x, blockW: block.w, projX }
       }
@@ -91,12 +89,11 @@ export function findSpanViolations(ctx: OutsideFixture, heightM = 22) {
     if (!overhang) {
       const lat = sq.lat, lon = sq.lon + .4 * LON_STEP
       const { dx, dy } = offsetKm(place, { lat, lon })
-      const { x: projX, k } = outsideProject(view.frame, dx, dy)
-      const over = overTheCrest(loaded.terrain, dx, dy, heightM)
-      const hPx = Math.min(look.px(heightM, Math.min(k, nearK)), over)
+      const { x: projX } = outsideProject(view.frame, dx, dy)
+      const hPx = apparentHeight(heightM, outsideDistance(view.frame.eyeN, dx, dy), baseAngle(block.baseY, ctx.loaded.terrain.horizonY))
       const halfW = glyphAtHeight('minaret', hPx).w / 2
       if (sameSq(lat, lon) && Math.hypot(dx, dy) <= SKYLINE_TO_KM && !isOwnSpot(view.frame, view.lie, dx, dy)
-        && hPx >= BEYOND_MIN_PX && Math.abs(projX - block.x) < block.w / 2
+        && hPx >= NEIGHBOUR_MIN_TRUE_PX && Math.abs(projX - block.x) < block.w / 2
         && Math.abs(projX - block.x) + halfW > block.w / 2) {
         overhang = { mark: { id: 'test-overhang', kind: 'minaret', source: 'osm', heightM, lat, lon },
           blockX: block.x, blockW: block.w, projX, halfW }
@@ -122,7 +119,7 @@ export function findUnbuiltVisibleSquares(ctx: OutsideFixture, heightM: number, 
       if (drawnKeys.has(`${sq.cell}:${sq.col}:${sq.row}`)) continue
       const { dx, dy } = offsetKm(place, { lat, lon })
       if (Math.hypot(dx, dy) > SKYLINE_TO_KM || isOwnSpot(view.frame, view.lie, dx, dy)) continue
-      if (overTheCrest(loaded.terrain, dx, dy, heightM) >= BEYOND_MIN_PX) found.push({ lat, lon })
+      if (overTheCrest(loaded.terrain, dx, dy, heightM) >= NEIGHBOUR_MIN_TRUE_PX) found.push({ lat, lon })
     }
   }
   return found

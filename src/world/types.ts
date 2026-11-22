@@ -5,7 +5,7 @@ import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/outsideView'
 import type { FarData } from '../data/city/farData'
-import type { PlainPatch } from '../data/city/plainData'
+import type { FarCities } from './farCityTypes'
 import type { CityResult } from '../data/city/types'
 import type { Landmark } from '../data/landmarks/types'
 import type { Relief } from '../data/terrain/angleScale'
@@ -316,28 +316,7 @@ export interface WaterState {
 export interface CoastalSea { points: Pt[]; coast: Pt[]; side: 'left' | 'right'; top: number; bottom: number; horizon: number
   km: [number, number][] }
 
-/** A seen stretch of a built cell on the plain (`plainPatches`), with its cell's mean storeys (0 when unknown). */
-export interface FarPatch extends PlainPatch { level: number }
-
-/** A tower of the far raster in view: on the plain, or on the far ridge's crest (scene px; `km` from the eye). */
-export interface FarTowerSite { x: number; top: number; base: number; km: number; heightM: number; onRidge: boolean }
-
-/**
- * The towns beyond the near ridge (`farCities.ts`): the seen stretches of built cells on the plain, with their distance,
- * built share and storeys, and the far raster's towers in view. Independent of the hour.
- */
-export interface FarCities {
-  patches: FarPatch[]
-  towers: FarTowerSite[]
-  /** A place seen from outside keeps its own city to the outside view: the far towns start here (km), else null. */
-  fromKm: number | null
-  /** What is drawn of them (`townShapes`): the towns' mass by strength step, their blocks and towers, their lights. */
-  shapes: {
-    mass: { x: number; y: number; w: number; h: number; km: number; step: number }[]
-    blocks: { x: number; base: number; w: number; h: number; km: number }[]
-    lights: { x: number; y: number; r: number; alpha: number; km: number }[]
-  }
-}
+export type { FarPatch, FarTowerSite, FarCities } from './farCityTypes'
 
 export interface Dot { x: number; y: number }
 

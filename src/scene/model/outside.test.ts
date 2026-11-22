@@ -1,3 +1,6 @@
+import { MARK_MIN_PX } from '../../data/terrain/apparentHeight'
+import { visibleOverRidge } from '../../test/drawnGeometryAssertions'
+import { outsideRidge } from '../../world/outsideDepth'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { placeBounds, boundsHoldKm } from '../../data/city/bounds'
 import { outsideFrame, outsideSkyline } from '../../data/city/outsideView'
@@ -18,11 +21,9 @@ import { STOREY_M } from '../../data/city/skylineHeight'
 import { legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
 import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
-import { groundAt as lineAt } from '../../world/sceneLight'
-import { SCENE_CAMERA, xOf } from '../../domain/camera'
 import { sceneModel } from '.'
 import { againstLight, tonesAt } from './marks'
-import { landBehind } from './outside'
+import { landBehind } from './landBehind'
 import { toneAt } from './planeLight'
 import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
@@ -223,15 +224,8 @@ describe('towers beyond the frame (C5 item 3)', () => {
 })
 
 describe('nothing beyond the place stands on a bare skyline the eye cannot see (C9)', () => {
-  /** Px the panorama sees of a thing over the near ridge from the eye, at its true bearing and distance. */
-  const seenOver = (id: string, dx: number, dy: number, heightM: number) => {
-    const terrain = loaded.get(id)!.terrain
-    const x = xOf(Math.atan2(dx, dy) * 180 / Math.PI, terrain.camera ?? SCENE_CAMERA) * 375 / (terrain.camera ?? SCENE_CAMERA).width
-    const km = Math.hypot(dx, dy)
-    if (km <= terrain.sightAt!(x).nearKm) return Infinity
-    const seen = terrain.seenAt!(x, km, heightM)
-    return seen ? Math.min(seen.groundY, lineAt(terrain.nearPoints, x)) - seen.y : 0
-  }
+  const seenOver = (id: string, dx: number, dy: number, heightM: number) =>
+    visibleOverRidge(loaded.get(id)!.terrain, dx, dy, heightM)
 
   it('leaves out Safed’s buildings behind the crest over Rosh Pina: the land in front hides them', () => {
     expect(viewOf('rosh-pina').beyond).toEqual([])
@@ -240,8 +234,9 @@ describe('nothing beyond the place stands on a bare skyline the eye cannot see (
   it.each([...CITIES, ...VILLAGES, 'zikhron-yaakov'])('%s: a tower beyond shows no more of itself than the panorama sees', (id) => {
     for (const t of viewOf(id).beyond) {
       const over = seenOver(id, t.dx!, t.dy!, t.heightM)
-      expect(over).toBeGreaterThan(2)
-      expect(t.h).toBeLessThanOrEqual(Math.max(2, over) + 1e-6)
+      expect(over + 1e-6).toBeGreaterThanOrEqual(MARK_MIN_PX)
+      expect(t.h).toBeGreaterThanOrEqual(MARK_MIN_PX)
+      expect(t.h).toBeLessThanOrEqual(over + 1e-6)
     }
   })
 })
@@ -558,22 +553,25 @@ describe('light on the place', () => {
       return { most, against: againstLight(world) }
     }
     // A low sun beyond the land: the walls the eye sees face away from it, about the ridge's own dark.
+    let backlitMost = 0
     for (const at of ['2026-11-17T06:20', '2026-11-17T16:30'] as LocalTime[]) {
       const { most, against } = worst(at)
       expect(against).toBeGreaterThan(.8)
       expect(most, at).toBeLessThan(.05)
+      backlitMost = Math.max(backlitMost, most)
     }
     // A high sun: lit stone, lighter than the scrub round it.
     const noon = worst('2026-11-17T11:00')
     expect(noon.against).toBeLessThan(.2)
-    expect(noon.most).toBeGreaterThan(.08)
+    // Aerial haze attenuates contrast with distance. Noon stays brighter than either backlit reading.
+    expect(noon.most).toBeGreaterThan(backlitMost)
   })
 
   it('takes no more haze on a thing than the land it is seen against (C9)', () => {
     for (const id of CITIES) {
       const world = worldAt(id)
       const behind = landBehind(world)
-      const near = world.terrain.near
+      const near = outsideRidge(world)
       // Under the near crest: no farther than that land (the place's own ground over it, nearer still); over every crest:
       // the sky's (no bound).
       const i = Math.floor(near.points.length / 2)

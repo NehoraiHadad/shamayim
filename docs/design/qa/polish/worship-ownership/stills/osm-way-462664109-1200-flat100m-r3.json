@@ -1,0 +1,30 @@
+{
+  "place": {
+    "id": "osm:way:462664109",
+    "usesOsm": true,
+    "nameHe": "כרמי צור",
+    "regionHe": "",
+    "timezone": "Asia/Jerusalem",
+    "lat": 31.6092,
+    "lon": 35.1009,
+    "settlementType": "village",
+    "featureCode": "PPL"
+  },
+  "terrain": "flat",
+  "home": {
+    "left": 154.76555053426208,
+    "right": 218.80615508486918
+  },
+  "glyphs": [
+    {
+      "id": "il-synagogue-31.6097-35.10159",
+      "kind": "synagogue",
+      "x": 175.5,
+      "width": 11,
+      "height": 9.5,
+      "nonOwn": false,
+      "gapPx": -26.234449465737924,
+      "slidePx": 0
+    }
+  ]
+}

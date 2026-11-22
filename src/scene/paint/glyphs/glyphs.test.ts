@@ -74,7 +74,7 @@ const shine: Shine = { night: 0.8, aviation: true, windows: 0.4, lean: 0, direct
 it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with hand %i', (hand) => {
   expect(KINDS).toHaveLength(22)
   for (const kind of KINDS) {
-    const glyph: GlyphDesc = { kind, seed: 43, hand, tones, x: 40, base: 60,
+    const glyph: GlyphDesc = { factor: 1, kind, seed: 43, hand, tones, x: 40, base: 60,
       w: GLYPH_SPECS[kind].w, h: 20, scale: 1.4, famous: false, ground: [0, 1, 0] }
     const at = (l: number) => record(glyph, { ...shine,
       faces: { ...shine.faces, left: Math.max(0, l * glyph.hand), right: Math.max(0, -l * glyph.hand) } })
@@ -128,7 +128,7 @@ it('keeps Shadmot Mehola glyph form fixed from 05:30 through 21:00', async () =>
   expect([...baseline.keys()].some((key) => key.includes(':synagogue:'))).toBe(true)
 })
 it('reduces the glyph shadow to its contact shade at zero lateral reach', () => {
-  const glyph: GlyphDesc = { kind: 'minaret', x: 40, base: 60, w: 10, h: 20, scale: 1, seed: 3,
+  const glyph: GlyphDesc = { factor: 1, kind: 'minaret', x: 40, base: 60, w: 10, h: 20, scale: 1, seed: 3,
     hand: 1, famous: false, tones }
   const at = (dx: number) => {
     const result = recording()

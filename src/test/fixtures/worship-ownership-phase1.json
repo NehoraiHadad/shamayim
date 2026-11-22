@@ -1,0 +1,824 @@
+{
+  "source": "Phase-1 bundled worship audit, synagogue-only places with a non-synagogue glyph at either width",
+  "places": [
+    {
+      "id": "il-31.4656-34.6358",
+      "nameHe": "שבי דרום",
+      "lat": 31.4656,
+      "lon": 34.63583,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.4932-34.9834",
+      "nameHe": "נגוהות",
+      "lat": 31.49323,
+      "lon": 34.98336,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.4393-35.0286",
+      "nameHe": "עתניאל",
+      "lat": 31.43925,
+      "lon": 35.02862,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.5278-35.1192",
+      "nameHe": "קרית ארבע",
+      "lat": 31.52776,
+      "lon": 35.11917,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.5265-34.5970",
+      "nameHe": "שדרות",
+      "lat": 31.52647,
+      "lon": 34.59697,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.5299-34.9315",
+      "nameHe": "אליאב",
+      "lat": 31.52993,
+      "lon": 34.93148,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.5519-35.0165",
+      "nameHe": "אדורה",
+      "lat": 31.55192,
+      "lon": 35.01652,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6549-35.1268",
+      "nameHe": "אלון שבות",
+      "lat": 31.65492,
+      "lon": 35.12677,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6790-35.1011",
+      "nameHe": "גבעות",
+      "lat": 31.67896,
+      "lon": 35.10115,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6989-35.1137",
+      "nameHe": "ביתר עילית",
+      "lat": 31.69895,
+      "lon": 35.11373,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.7078-35.1114",
+      "nameHe": "הדר ביתר",
+      "lat": 31.70776,
+      "lon": 35.11142,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6971-35.1236",
+      "nameHe": "האתרוג",
+      "lat": 31.69714,
+      "lon": 35.12355,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6607-35.1415",
+      "nameHe": "אלעזר",
+      "lat": 31.66073,
+      "lon": 35.14148,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8796-35.2382",
+      "nameHe": "תל ציון",
+      "lat": 31.87963,
+      "lon": 35.23818,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.7706-35.2985",
+      "nameHe": "מעלה אדומים",
+      "lat": 31.77062,
+      "lon": 35.29845,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8814-35.2453",
+      "nameHe": "כוכב יעקב",
+      "lat": 31.88143,
+      "lon": 35.24529,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9421-35.2224",
+      "nameHe": "בית אל",
+      "lat": 31.94207,
+      "lon": 35.22244,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9364-35.2223",
+      "nameHe": "ראשית",
+      "lat": 31.93635,
+      "lon": 35.22229,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6397-35.1425",
+      "nameHe": "מגדל עוז",
+      "lat": 31.63975,
+      "lon": 35.14255,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6676-35.1253",
+      "nameHe": "ראש צורים",
+      "lat": 31.66765,
+      "lon": 35.12535,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.6762-35.1428",
+      "nameHe": "נווה דניאל",
+      "lat": 31.67619,
+      "lon": 35.14283,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8019-35.3060",
+      "nameHe": "ואדי סניסל",
+      "lat": 31.80193,
+      "lon": 35.30598,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9754-34.8914",
+      "nameHe": "זיתן",
+      "lat": 31.97539,
+      "lon": 34.89142,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.0270-34.8630",
+      "nameHe": "אור יהודה",
+      "lat": 32.027,
+      "lon": 34.86299,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.0592-34.8594",
+      "nameHe": "קריית אונו",
+      "lat": 32.05917,
+      "lon": 34.85943,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1562-34.8930",
+      "nameHe": "הוד השרון",
+      "lat": 32.1562,
+      "lon": 34.89304,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1662-34.8860",
+      "nameHe": "רמות השבים",
+      "lat": 32.16617,
+      "lon": 34.88604,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1671-34.8935",
+      "nameHe": "כפר מל\"ל",
+      "lat": 32.16706,
+      "lon": 34.89348,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1514-34.9017",
+      "nameHe": "גני עם",
+      "lat": 32.15142,
+      "lon": 34.90173,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1918-34.9231",
+      "nameHe": "צופית",
+      "lat": 32.19183,
+      "lon": 34.9231,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1520-34.9279",
+      "nameHe": "אלישמע",
+      "lat": 32.15196,
+      "lon": 34.92791,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8994-34.9008",
+      "nameHe": "יד רמב\"ם",
+      "lat": 31.89937,
+      "lon": 34.90075,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9086-35.0069",
+      "nameHe": "מודיעין-מכבים-רעות",
+      "lat": 31.90857,
+      "lon": 35.00693,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8782-35.1268",
+      "nameHe": "בית חורון",
+      "lat": 31.87823,
+      "lon": 35.12675,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8861-35.2694",
+      "nameHe": "רמת מגרון",
+      "lat": 31.88612,
+      "lon": 35.26942,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8253-35.3352",
+      "nameHe": "כפר אדומים",
+      "lat": 31.82528,
+      "lon": 35.33521,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.8789-35.3062",
+      "nameHe": "מעלה מכמש",
+      "lat": 31.87895,
+      "lon": 35.30621,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9175-35.0319",
+      "nameHe": "לפיד",
+      "lat": 31.91755,
+      "lon": 35.03194,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9312-35.0224",
+      "nameHe": "חשמונאים",
+      "lat": 31.93117,
+      "lon": 35.02239,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9295-35.0173",
+      "nameHe": "גני מודיעין",
+      "lat": 31.92953,
+      "lon": 35.01734,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9562-35.1175",
+      "nameHe": "זית רענן",
+      "lat": 31.95619,
+      "lon": 35.1175,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9082-35.2505",
+      "nameHe": "עוז ציון",
+      "lat": 31.90821,
+      "lon": 35.25049,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9358-35.2715",
+      "nameHe": "אור אהוביה",
+      "lat": 31.93581,
+      "lon": 35.27155,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9535-35.2605",
+      "nameHe": "עפרה",
+      "lat": 31.95352,
+      "lon": 35.26047,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9345-35.3401",
+      "nameHe": "רימונים",
+      "lat": 31.93451,
+      "lon": 35.34011,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-31.9494-35.3440",
+      "nameHe": "מעלה שלמה",
+      "lat": 31.9494,
+      "lon": 35.34396,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1309-34.9920",
+      "nameHe": "אורנית",
+      "lat": 32.13092,
+      "lon": 34.99196,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.0596-35.2723",
+      "nameHe": "גבעת הראל",
+      "lat": 32.0596,
+      "lon": 35.27234,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.0695-35.2625",
+      "nameHe": "עלי",
+      "lat": 32.0695,
+      "lon": 35.26248,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1494-35.1145",
+      "nameHe": "יקיר",
+      "lat": 32.14938,
+      "lon": 35.11452,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1731-35.0158",
+      "nameHe": "אלפי מנשה",
+      "lat": 32.17308,
+      "lon": 35.01584,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.1924-35.2651",
+      "nameHe": "הר ברכה",
+      "lat": 32.19241,
+      "lon": 35.2651,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.2848-35.0735",
+      "nameHe": "אבני חפץ",
+      "lat": 32.28475,
+      "lon": 35.07355,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.2174-35.1557",
+      "nameHe": "כרמי קדם",
+      "lat": 32.21741,
+      "lon": 35.15569,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.2846-35.1264",
+      "nameHe": "עינב",
+      "lat": 32.28465,
+      "lon": 35.12643,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.2357-35.3316",
+      "nameHe": "אלון מורה",
+      "lat": 32.23571,
+      "lon": 35.33163,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.3265-34.9629",
+      "nameHe": "בורגתה",
+      "lat": 32.32647,
+      "lon": 34.96291,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.3255-35.0061",
+      "nameHe": "יד חנה",
+      "lat": 32.32552,
+      "lon": 35.0061,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.3345-35.0123",
+      "nameHe": "בת חפר",
+      "lat": 32.3345,
+      "lon": 35.01235,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.4780-35.4175",
+      "nameHe": "מעלה גלבוע",
+      "lat": 32.47802,
+      "lon": 35.4175,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.5787-35.1807",
+      "nameHe": "מגידו",
+      "lat": 32.57869,
+      "lon": 35.18069,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.6076-35.2891",
+      "nameHe": "עפולה",
+      "lat": 32.60756,
+      "lon": 35.28909,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.5309-35.3391",
+      "nameHe": "גן נר",
+      "lat": 32.53087,
+      "lon": 35.33911,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.6974-35.1418",
+      "nameHe": "שדה יעקב",
+      "lat": 32.69742,
+      "lon": 35.14175,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7025-35.1652",
+      "nameHe": "רמת ישי",
+      "lat": 32.70249,
+      "lon": 35.16524,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.6430-35.2916",
+      "nameHe": "כפר גדעון",
+      "lat": 32.64298,
+      "lon": 35.29158,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.6878-35.4204",
+      "nameHe": "כפר תבור",
+      "lat": 32.68781,
+      "lon": 35.42042,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.6670-35.5556",
+      "nameHe": "מנחמיה",
+      "lat": 32.66702,
+      "lon": 35.55559,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7055-35.5053",
+      "nameHe": "יבנאל",
+      "lat": 32.70546,
+      "lon": 35.50526,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7232-35.5644",
+      "nameHe": "כנרת מושבה",
+      "lat": 32.7232,
+      "lon": 35.56444,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7139-35.5625",
+      "nameHe": "קבוצת כנרת",
+      "lat": 32.71387,
+      "lon": 35.56252,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7443-35.2781",
+      "nameHe": "ציפורי",
+      "lat": 32.74431,
+      "lon": 35.27812,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7255-35.4669",
+      "nameHe": "שרונה",
+      "lat": 32.72545,
+      "lon": 35.46695,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7457-35.5032",
+      "nameHe": "הזורעים",
+      "lat": 32.74571,
+      "lon": 35.50319,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.7188-35.5474",
+      "nameHe": "פוריה כפר עבודה",
+      "lat": 32.71877,
+      "lon": 35.54741,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.8683-35.4219",
+      "nameHe": "טפחות",
+      "lat": 32.86829,
+      "lon": 35.42194,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.8803-35.4952",
+      "nameHe": "חוקוק",
+      "lat": 32.88029,
+      "lon": 35.49518,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.8907-35.5118",
+      "nameHe": "כחל",
+      "lat": 32.89071,
+      "lon": 35.51177,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.8538-35.7515",
+      "nameHe": "נטור",
+      "lat": 32.85381,
+      "lon": 35.75146,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.9494-35.0851",
+      "nameHe": "בוסתן הגליל",
+      "lat": 32.94936,
+      "lon": 35.08508,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.9957-35.2764",
+      "nameHe": "כפר ורדים",
+      "lat": 32.99574,
+      "lon": 35.27644,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0157-35.2760",
+      "nameHe": "מעלות תרשיחא",
+      "lat": 33.01574,
+      "lon": 35.27597,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.9976-35.2980",
+      "nameHe": "חוסן",
+      "lat": 32.99758,
+      "lon": 35.29799,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-32.9886-35.5707",
+      "nameHe": "מחניים",
+      "lat": 32.98864,
+      "lon": 35.57073,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0564-35.2370",
+      "nameHe": "גורן",
+      "lat": 33.05639,
+      "lon": 35.23699,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0736-35.2941",
+      "nameHe": "אבן מנחם",
+      "lat": 33.07361,
+      "lon": 35.29414,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0342-35.3242",
+      "nameHe": "אלקוש",
+      "lat": 33.03416,
+      "lon": 35.32417,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0167-35.4892",
+      "nameHe": "דלתון",
+      "lat": 33.01667,
+      "lon": 35.48919,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0459-35.5641",
+      "nameHe": "שדה אליעזר",
+      "lat": 33.04589,
+      "lon": 35.56413,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.0813-35.5175",
+      "nameHe": "דישון",
+      "lat": 33.08132,
+      "lon": 35.51752,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    },
+    {
+      "id": "il-33.1023-35.5531",
+      "nameHe": "רמות נפתלי",
+      "lat": 33.1023,
+      "lon": 35.55312,
+      "regionHe": "",
+      "timezone": "Asia/Jerusalem",
+      "featureCode": "PPL"
+    }
+  ]
+}

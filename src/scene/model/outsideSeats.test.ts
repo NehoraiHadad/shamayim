@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
+import { TOWN_SIDE_PX } from './neighbourPlacement'
 import { hashId } from '../../data/landmarks/hash'
 import type { Landmark } from '../../data/landmarks/types'
 import { HALL_M } from '../../data/landmarks/worship'
@@ -41,7 +42,7 @@ function seatFixtures(fixtures: SeatFixture[], baseY = 100) {
   const landmarks: Landmark[] = fixtures.map(({ kind, heightM }, index) => ({ id: `seat-${index}`, kind, heightM,
     source: 'osm', lat: roshPina.lat + .02, lon: roshPina.lon }))
   const blocks = fixtures.map(({ kind, heightM, fitsAt = NARROW.width / 2, x }, index) => {
-    const w = glyphAtHeight(kind, heightM * PX_PER_M).w * SCENE_W / fitsAt
+    const w = (glyphAtHeight(kind, heightM * PX_PER_M).w + 2 * TOWN_SIDE_PX) * SCENE_W / fitsAt
     return { id: `block-${index}`, x: x ?? 30 * (index + 1), baseY, w, h: 8, km: 3, heightM: 16, seed: index }
   })
   const seats = new Map(landmarks.map((mark, index) => {
@@ -51,11 +52,19 @@ function seatFixtures(fixtures: SeatFixture[], baseY = 100) {
   return { landmarks, beyondTowns: blocks, seatMark: (mark: Landmark) => seats.get(mark.id) ?? null }
 }
 
+function clearBackdrop(world: WorldState): WorldState {
+  const view = world.place3 as OutsideView
+  // A flat ridge below the fixture feet isolates the clearance and budget rules.
+  const near = { points: [[0, 112], [SCENE_W, 112]] as [number, number][], distanceKm: [1, 1] }
+  return { ...world, terrain: { ...world.terrain, near, far: near, back: undefined },
+    place3: { ...view, skyline: { ...view.skyline, boxes: [], towers: [] }, beyond: [], land: null } }
+}
+
 function seatWorld(fixtures: SeatFixture[]) {
   const { landmarks, beyondTowns: blocks, seatMark } = seatFixtures(fixtures)
   const view: OutsideView = { ...base.place3 as OutsideView, beyond: [], beyondTowns: blocks }
   const { seated, seatPool } = beyondMarks(roshPina, landmarks, SCENE_W, seatMark, view.dot, [])
-  const world = { ...base, place3: view, marks: seated, seatPool }
+  const world = clearBackdrop({ ...base, place3: view, marks: seated, seatPool })
   const drawn = (box = BOX, clear: Box[] = []) => outsideLayer(world, box, clear)!.items
   const glyphs = (box = BOX, clear: Box[] = []) => drawn(box, clear).flatMap((item) => item.kind === 'mark' ? [item.glyph] : [])
   const drawnIds = (box = BOX, clear: Box[] = []) => {
@@ -94,8 +103,8 @@ it('gives a 9 m hall a slot when text covers two taller glyphs and their blocks 
   const { blocks, drawn, drawnIds } = seatWorld([
     { kind: 'minaret', heightM: 22 }, { kind: 'minaret', heightM: 20 }, { kind: 'minaret', heightM: HALL_M },
   ])
-  // Each clear zone covers the pixel immediately above a roof, which lies inside the taller glyph's silhouette box.
-  const clear = blocks.slice(0, 2).map(({ x, baseY, h }) => ({ x: x - .5, y: baseY - h - 1, w: 1, h: 1 }))
+  // The text strip covers every viable position above the support, while leaving the painted roof intact.
+  const clear = blocks.slice(0, 2).map(({ x, baseY, h }) => ({ x: x - 20, y: baseY - h - 1, w: 40, h: 1 }))
   expect(drawnIds()).toEqual(['seat-0', 'seat-1'])
   expect(drawn(BOX, clear).filter((item) => item.kind === 'box' && item.beyond)).toHaveLength(3)
   expect(drawnIds(BOX, clear)).toEqual(['seat-2'])
@@ -115,7 +124,7 @@ it('keeps the town under the backed height label and gives the covered backfill 
     const world = buildWorld({ ...input, seatCandidates: landmarks })
     expect(world.labels.height).toEqual(height)
     expect(world.marks.map(({ id }) => id)).toEqual(['seat-0', 'seat-1'])
-    return sceneModel(world, NARROW).layers.find((layer) => layer.kind === 'outside')!.items
+    return sceneModel(clearBackdrop(world), NARROW).layers.find((layer) => layer.kind === 'outside')!.items
   }
   const seeds = (items: OutsideItem[]) => items.flatMap((item) => item.kind === 'mark' ? [item.glyph.seed] : [])
   expect(height.backed).toBe(true)
