@@ -2616,13 +2616,14 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
   (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
 
-7. **Physical daytime land lighting (Stage 7, 2026-11-22, rounds 1–3).** Terrain, vegetation, outside ground,
+7. **Physical daytime land lighting (Stage 7, 2026-11-22, rounds 1–5).** Terrain, vegetation, outside ground,
    and buildings use the same linear Lambertian product. With linear reflectance `ρ` and unit-luminance
    RGB illuminants `C`, the relative radiance is
    `L/L_ref = (ρ/π) · [E_sun C_sun max(0,n·s) V_s T + E_moon C_moon max(0,n·m) V_m + E_sky C_sky V_sky]`.
    `E` are irradiances in units compatible with radiance `L_ref`, and the Lambertian 1/π converts irradiance
    into radiance. `T` is incremental cloud transmission and `V_s` and `V_m` are separate receiver-space DEM
-   visibility. Building walls also see an additive ground term weighted by `(1−n_up)/2`.
+   visibility. Building walls also see an additive ground term weighted by `(1−n_up)/2`. Cast, contact and
+   eave shadow tones receive sky and bounce. Openness scales their sky view.
 
    - The clear-sky check uses Bird and Hulstrom at 52° zenith, relative air mass 1.62, 101325 Pa, 1361 W/m²
      extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water vapour, AOD₅₀₀ 0.116, AOD₃₈₀ 0.166,
@@ -2639,6 +2640,7 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      [Haber, Magnor and Seidel](https://doi.org/10.1145/1095878.1095884)
    - The separate lunar beam uses a 0.30 lx full-moon reference, the phase and air/height/deck share,
      and a 0.625 lx illustrative night reference. Colour includes the cooler apparent night response.
+     Local cloud footprints shadow the solar beam only, so moonlight retains its deck share.
      [Kyba, Mohar and Posch](https://doi.org/10.1093/astrogeo/atx025)
    - One compression uses `Y_display = Y_meter · (Y(L/L_ref))^0.6`. The shader then mixes the RGB
      path term `L_display(1−h) + L_air h` with `h = AERIAL · fade(km)²` for each face sample and applies
@@ -2656,18 +2658,20 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      can certify clear light without a full march. The partial horizon can resume if the disc
      drops closer to the terrain. Rims resolve the same local
      receiver material, visibility and haze at a finer depth than the body raster.
-   - The Worker paints two stationary receiver endpoints, with full beam and with solar beam removed.
-     The full-beam endpoint can show while the second is in flight. Optical depth adds where projected
-     cloud chords overlap. Local transmission is `min(1, exp(−τ) / deckOpen)`. The compositor moves the
-     footprints on the cloud sheet's minute clock, then interpolates the paired endpoint pixels in
-     premultiplied alpha. The mask uses a plane-average beam-to-ambient ratio, the 0.6 compression and
-     a 2.2 display-transfer approximation. The painted endpoints retain the terrain texture, material
-     colours and per-sample haze. The compositor crops the blend to the nontransparent mask. The interactive
-     loop reuses the blended patch for each gust pose until the mask moves one device pixel.
-   - Plant tones are evaluated once per root and encoded in eight-bit per-plant palettes. Their bytes key
-     canopy paint independently of changes in the plane's irradiance key. The compositor checks that the
-     canopy can pair with the displayed plane generation. The 10 canopy poses at 5 fps use the wind's
-     own clock. The Worker publishes pose zero before filling the strip after the scrub settles. Reduced
-     motion uses pose zero and the unadvected shadow footprints.
+   - Each receiver job samples the terrain and vegetation once and paints the full-beam and solar-beam-removed
+     endpoints together. The cache swaps both bitmaps in one promotion. Optical depths add where projected
+     cloud chords overlap, with local transmission `T = min(1, exp(−τ) / deckOpen)`. The mask interpolation is
+     `α = (e(1) − e(T)) / (e(1) − e(0))`, where `e(t) = sRGB((1−h̄) k(1+Rt)^0.6 + h̄H)`.
+     `R` averages beam and ambient incidence over texels with positive direct incidence, `k` is the ambient-only
+     display luminance for the plane's representative albedo, `h̄` is mean path haze and `H` is air luminance.
+     The painted endpoints carry local material and haze. The compositor moves one optical-depth mask per plane
+     on the cloud sheet's minute clock, samples it at the canopy's offset and mixes encoded endpoint pixels
+     in premultiplied alpha. The interactive loop staggers plane rasters by fractions of one device pixel,
+     scans the blob bounds and reuses one blended patch per receiver.
+   - Per-plant eight-bit tones key canopy paint independently of the plane's irradiance key. Each crown or tuft
+     path is shared between the endpoints. The previous canopy stays visible over compatible terrain while its
+     light changes. The 10 canopy poses at 5 fps use the wind's own clock. A cold canopy can show pose zero at full
+     beam while its pair waits. Remaining work yields to scrub requests. Reduced motion uses pose zero and
+     the unadvected shadow footprints.
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
      moving transmission and out-of-order receiver paint with the browser's Worker.

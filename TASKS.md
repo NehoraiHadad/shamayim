@@ -927,29 +927,35 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
       `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
       `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
-- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–4).
+- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–5).
       - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
             luminance compression, and per-face-distance linear haze across terrain receivers.
       - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
             with aerosol and cloud scatter and broad-sky metering. Keep the daylight scale distinct from the
             atmosphere's directional horizon radiance. Retain the sky as the source of path colour.
-      - [x] Paint stationary full-beam and beam-removed terrain and canopy endpoints. Advect a Beer–Lambert
-            transmission mask between them. Show full-beam terrain first and pair each canopy with the
-            displayed receiver. Key canopy paint on byte-encoded plant tones and stage gust pose zero
-            ahead of the rest of the two-second strip.
+      - [x] Paint both stationary solar endpoints in one job per receiver. Keep the previous pair and canopy
+            visible during light changes. A cold canopy can show full-beam pose zero while its pair waits.
+            Key paint on byte-encoded plant tones, geometry and clear zones. Fill the gust strip after scrub.
+      - [x] Share one moving Beer–Lambert mask per plane with its canopy. Use the mean beam-to-sky ratio of
+            sun-facing texels, mean haze and the sRGB curve. Stagger dirty-footprint rasters and keep one
+            blended patch per receiver. Lunar beam stays independent of the local solar footprint.
       - [x] Cache terrain horizon angles by geometry grid and half-degree azimuth. Interpolate bearings
             and apply the soft disc edge at the current solar or lunar altitude.
       - [x] Resolve the crest from body samples, retain seeded reflectance mottle with its dark tail, and finish
             with finer paper grain. Mix lying snow on terrain and outside ground into reflectance.
       - [x] Use face incidence and additive ground bounce for building materials, with gamut handling after haze.
+            Cast/contact/eave shadow tones omit direct light and scale sky view by openness.
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
             plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
-            missing/stale receiver Worker arrivals. Run the land-light browser checks in the CI stills job.
+            minute-boundary continuity and light-change Worker arrivals. Run the land-light browser checks
+            in the CI stills job.
       - [ ] Round 4 performance gate. Across three interleaved pairs against `6ca2e54`, scene-model scrub
             and land-animation p50 improved for all three places, and first fallback paint was within 10%.
             Worker scrub p50 rose 61% in Tel Aviv and 24% in Shadmot Mehola. First canopy rose 14% and
             Shadmot Mehola's animation p95 remained above baseline. The 24 still ratios stayed within
             0.37% of approved round 3.
+      - [ ] Round 5 performance gate. Measure per-step Worker job time and scrub latency with five
+            interleaved pairs against `6ca2e54`, alongside the existing model, first-paint and animation metrics.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 

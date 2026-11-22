@@ -14,6 +14,7 @@
 //   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main] [-- --no-land]
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 import { runAppLandPerf } from './land.perf.mjs'
+import { measurePaintJobs } from './scenePerfJobs.mjs'
 
 const args = process.argv.slice(2)
 const arg = (name, fallback) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
@@ -150,6 +151,11 @@ try {
       console.log(`  worker cold  (ms, form+light): sky ${cold.workerCold.sky.map((v) => v.toFixed(1)).join('/') || '-'}, land ${cold.workerCold.land.map((v) => v.toFixed(1)).join('/') || '-'}`)
       console.log(`  worker scrub (ms, light only): ${workerScrubMs.map(([name, list]) =>
         `${name} p50 ${q(list, 0.5).toFixed(1)} p95 ${q(list, 0.95).toFixed(1)} (n ${list.length})`).join(', ')}`)
+      const jobs = await measurePaintJobs(page)
+      for (const name of ['land', 'shade', 'paired', 'sky']) {
+        const list = jobs.map((step) => step[name])
+        console.log(`  scrub.jobs.${name} p50 ${q(list, 0.5).toFixed(2)} p95 ${q(list, 0.95).toFixed(2)} ms (n ${list.length})`)
+      }
     } else console.log(`  last paint per layer (ms): ${layerMs}`)
     await context.close()
     // The sky's animation: 10 s at a stormy hour with the loop running.

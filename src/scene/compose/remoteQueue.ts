@@ -17,7 +17,8 @@ interface PendingSlot {
 
 const slotOf = (id: string, part: 'form' | 'light') => `${id}:${part}`
 const priority = (item: PendingSlot) => {
-  if (item.job.progressive && !item.nextFrame) return item.coldShown ? 2 : 1
+  if (item.coldShown && !item.nextFrame) return 2
+  if (item.job.progressive && !item.nextFrame && (item.totalFrames > 1 || (item.job.shade && !item.job.coldPreview))) return 1
   return item.totalFrames === 1 ? 0 : 3
 }
 const tagOf = (key: string, formKey: string) => `${key}\0${formKey}`
