@@ -68,3 +68,7 @@ from that sha, and push only that branch. Never push to main, never force-push, 
 - Avoid track A's files (glyph lighting and faces) and track C's (`life.ts`, `lifeSchedule.ts`, `lifeAhead.ts`, planes,
   birds).
 - Never run a multi-line `npx tsx -e`. Use a temp script and `./node_modules/.bin/<tool>`.
+
+## Last item, after the owner settles the look: N3e
+Carry out the approved midnight reseed, `briefs/N3e-midnight-anchor.md`: the field's seed and origin anchored to the calendar
+day of `at`, and same-genus cells paired and morphed across 00:00. Do this before READY.
