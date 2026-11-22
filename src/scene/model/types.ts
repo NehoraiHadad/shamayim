@@ -573,8 +573,8 @@ export type LayerDesc =
   | LayerBase & { kind: 'wearItem'; item: WearItem }
   /** Cloud footprints on a receiving land plane, in land pixels. */
   | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
-      /** Keep pixels at or below crest and above front, within the crest's horizontal extent. */
-      clip: { crest: Pt[]; front?: Pt[] } | null
+      /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
+      clip: { crest: Pt[]; fronts: Pt[][] } | null
       blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number }[] }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 

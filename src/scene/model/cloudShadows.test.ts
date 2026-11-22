@@ -12,7 +12,7 @@ it('describes the far ridge strip in land pixels even when a blob crosses both c
   const [layer] = shadowLayers({ horizonY: 60, near, far }, box, [{
     plane: 'far', km: 10, blob: { cellId: 1, centre: [0, 10], x: 375, y: 40, rx: 10, ry: 30, alpha: 0.5 },
   }])
-  expect(layer.clip).toEqual({ crest: [[0, 20], [750, 20]], front: [[0, 40], [750, 40]] })
+  expect(layer.clip).toEqual({ crest: [[0, 20], [750, 20]], fronts: [[[0, 40], [750, 40]]] })
 })
 
 it.each([5, 20, 45, 70])('emits shadows at the slant intersection at %s degrees', altitude => {
