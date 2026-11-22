@@ -62,6 +62,8 @@ export interface AnimSpec {
   period?: number
   /** Flashes (lightning): the layer is laid with the alpha of a seeded schedule of flashes (`flashAt`). */
   pulse?: Pulse
+  /** Carried by the wind from the shown minute, each band at its own speed (`Advect`). */
+  advect?: Advect
   /**
    * A strip of `count` frames (C7), painted at phases `i / fps` and stacked down the layer's canvas (each `bounds` high);
    * the frame at `phase` is laid (`frameAt`). The motion loops every `count / fps` s, so a painter's motion must be
@@ -104,6 +106,13 @@ export interface AnimSpec {
  * top of that pose. `above` clips to this surface y when a copy on the other surface takes the rest.
  */
 export interface Lay { x: number; y: number; scale: number; alpha: number; turn?: number; above?: number }
+
+/**
+ * A layer carried by the wind from the minute it shows: its canvas cut into bands, each from `y` (surface px) down to the
+ * next band's, laid `speed` surface px/s across × the seconds since `from` (the minute's phase; `anim.ts` caps it). The
+ * speeds follow perspective (fast overhead, slow at the horizon), so the field's next minute takes over where this left.
+ */
+export interface Advect { from: number; bands: readonly { y: number; speed: number }[] }
 
 /** When the shown time was laid on the scene timeline, and how far it was already into that minute (seconds). */
 export interface LifeClock { laidAt: number; sinceS: number }
@@ -581,7 +590,9 @@ export type LayerDesc =
    * shade (from τ and the light at the node). `body`, `shade` and `lit` the layer's colours at this hour.
    */
   | LayerBase & { kind: 'cloudSheet'; lattice: 'low' | 'tower' | 'mid' | 'high'; genus: string
-      xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB }
+      xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB
+      /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
+      speeds: number[] }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']
