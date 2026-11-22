@@ -1,21 +1,20 @@
 import type { Place } from '../config/place'
-import { inSkylineReach, isOwnSpot, lieBaseY, outsideProject, sameTower, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
+import { lieBaseY, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import type { CityTower } from '../data/city/types'
-import { industrialNamed, landmarkBeyond } from '../data/landmarks/industrial'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
-import { PORTRAIT_MARGIN_KM } from '../data/landmarks/portrait'
-import { distanceOf, offsetKm } from '../data/landmarks/project'
+import { offsetKm } from '../data/landmarks/project'
 import { groundFn, seat } from '../data/landmarks/seat'
-import { isSettlementMark, settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
+import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
-import { beyondMarks, isBeyondSettlement, nearBeyondKept } from './beyondMarks'
+import { beyondMarks } from './beyondMarks'
 import { rowKm, type SeatMark } from './beyondSeat'
 import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
+import { markCandidates } from './markCandidates'
+import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { lookOf } from './outside'
-import type { WorldMark } from './types'
 
 /**
  * The place's marks (stage C4): which landmarks show, where and how large, by the portrait and outside rules, for every
@@ -32,32 +31,6 @@ const MIN_FIELD_DEPTH = 1
 
 type Ground = (x: number) => number
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
-
-/**
- * A landmark needs a name (owner, 2026-11-19): an unnamed mark keeps its kind, not its fame, for every place; an
- * industrial structure's name must be a name (`industrial.ts`: not a status or construction note, not its operator),
- * else it is unnamed too. The place's own houses and the hand-drawn icons are named by definition.
- */
-export function namedOnly(landmarks: readonly Landmark[]): Landmark[] {
-  return landmarks.map((given) => {
-    const mark = industrialNamed(given)
-    return mark.source === 'place' || mark.source === 'curated' || mark.nameHe || !mark.fame ? mark : { ...mark, fame: undefined }
-  })
-}
-
-/** Whether a mark is of the place: strict `isOwnSpot` for settlement marks with a raster, else frame + 1 km fallback (or portrait reach + 1 km). */
-function ofPlace(place: Place, mark: Landmark, reachKm: number, outside: MarksInput['outside']) {
-  const { dx, dy } = offsetKm(place, mark)
-  if (!outside) return Math.hypot(dx, dy) <= reachKm + PORTRAIT_MARGIN_KM
-  return isOwnSpot(outside.frame, outside.lie, dx, dy, outside.seatMark && isSettlementMark(mark) ? 0 : PORTRAIT_MARGIN_KM)
-}
-
-/** A generic high-rise the place's own raster towers stand for (the outside view draws those; C5). */
-function rasterReplaced(place: Place, landmarks: readonly Landmark[], towers: readonly CityTower[] | null) {
-  if (!towers?.length) return new Set<string>()
-  return new Set(landmarks.filter((mark) => mark.source === 'osm' && isGenericHighrise(mark.kind, mark.glyph)
-    && inSkylineReach(distanceOf(place, mark)) && towers.some((tower) => sameTower(mark, tower))).map((mark) => mark.id))
-}
 
 export interface MarksInput {
   place: Place
@@ -117,14 +90,6 @@ function fieldBox(kind: 'orchard' | 'vineyard' | 'solar', x: number, depth: numb
   const w = GLYPH_SPECS[kind].w
   const ys = [0, .25, .5, .75, 1].map((t) => ground(x - w / 2 + t * w))
   return { left: x - w / 2, right: x + w / 2, top: Math.min(...ys) + depth - 1.6, bottom: Math.max(...ys) + depth + fieldReach(kind) }
-}
-
-/** The box a placed mark covers (px), for the label and the portrait to keep clear of. */
-export function markBox(mark: WorldMark): Box {
-  if (mark.depth !== undefined) {
-    return { left: mark.x - mark.w / 2, right: mark.x + mark.w / 2, top: mark.base - 1.6, bottom: mark.base + mark.h }
-  }
-  return { left: mark.x - mark.w / 2, right: mark.x + mark.w / 2, top: mark.base - mark.h * mark.scale, bottom: mark.base }
 }
 
 /**
@@ -193,32 +158,19 @@ function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGround: Gro
  * layer's rule); an outside view's marks of the place stand where the one outside projection puts them (east left, north
  * nearer and lower), its far marks only when named and famous or huge, and a city's own high-rises left to its towers.
  */
-export function marksOf(input: MarksInput): WorldMark[] {
+export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: SeatedWorldMark[] } {
   const { place, terrain, width, dot, outside } = input
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
-  // Beyond the place keep landmarks, settlement kinds within skyline reach (seated by px), and tall structures (C5, C9).
-  const landmarks = namedOnly(input.landmarks).filter((mark) => ofPlace(place, mark, input.reachKm, outside) || landmarkBeyond(mark)
-    || (outside && nearBeyondKept(place, mark)))
-  const replaced = rasterReplaced(place, landmarks, input.rasterTowers)
-  const kept = landmarks.filter((mark) => !replaced.has(mark.id))
+  const { own, beyond } = markCandidates(input)
   const inBox = (mark: WorldMark) => mark.x - mark.w / 2 >= 0 && mark.x + mark.w / 2 <= width
   const fitted = (placed: PlacedMark[]) => placed.flatMap((mark) => fit(mark, input, ground, farGround) ?? [])
   if (!outside) {
-    return fitted(placeMarks(place, terrain, kept, width, input.homeHalf, false, { reachKm: input.reachKm }, input.notes, 'landmark'))
-      .filter(inBox)
+    const marks = fitted(placeMarks(place, terrain, own, width, input.homeHalf, false, { reachKm: input.reachKm }, input.notes, 'landmark'))
+    return { marks: marks.filter(inBox), seatPool: [] }
   }
   // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
-  const own = kept.filter((mark) => ofPlace(place, mark, input.reachKm, outside))
-  const seen = new Set(input.landmarks.map((mark) => mark.id))
-  const extraRaw = namedOnly(input.seatCandidates ?? []).filter((mark) => {
-    if (seen.has(mark.id)) return false
-    seen.add(mark.id)
-    return !ofPlace(place, mark, input.reachKm, outside) && isBeyondSettlement(place, mark)
-  })
-  const extraReplaced = rasterReplaced(place, extraRaw, input.rasterTowers)
-  const extra = extraRaw.filter((mark) => !extraReplaced.has(mark.id))
-  const { other, seated } = beyondMarks(place, [...kept.filter((mark) => !own.includes(mark)), ...extra], width, outside.seatMark, dot, input.notes)
+  const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot, input.notes)
   const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
   const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
   const placed = [...ownMarks, ...placeMarks(place, terrain, other, width, undefined, false, undefined, input.notes, 'landmark')]
@@ -270,6 +222,6 @@ export function marksOf(input: MarksInput): WorldMark[] {
     return { ...mark, xPct: x / width * 100, x, hPx, h, scale: 1, w: spec.w, base, baseY: base, km }
   }).filter((mark, i, all) => !mark.portrait || mark.absorbed || GLYPH_SPECS[mark.glyphKind].field
     || all.every((other, j) => j >= i || !other.portrait || GLYPH_SPECS[other.glyphKind].field || Math.abs(other.x - mark.x) >= 6))
-  return (isCity ? marks.filter((mark) => !(mark.portrait && ownPlaced.has(mark.id) && isGenericHighrise(mark.kind, mark.glyph)))
-    : marks).filter(inBox)
+  const kept = isCity ? marks.filter((mark) => !(mark.portrait && ownPlaced.has(mark.id) && isGenericHighrise(mark.kind, mark.glyph))) : marks
+  return { marks: kept.filter(inBox), seatPool }
 }

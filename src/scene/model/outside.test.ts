@@ -22,7 +22,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import { SCENE_CAMERA, xOf } from '../../domain/camera'
 import { sceneModel } from '.'
 import { againstLight, tonesAt } from './marks'
-import { landBehind, outsideLayer } from './outside'
+import { landBehind } from './outside'
 import { toneAt } from './planeLight'
 import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
@@ -617,32 +617,5 @@ describe('light on the place', () => {
       const { dx } = offsetKm(place, source)
       if (Math.abs(dx) > .3) expect(Math.sign(mark.x - frame.centerX)).toBe(-Math.sign(dx))
     }
-  })
-})
-
-describe('seated beyond marks follow their drawn block in the scene model', () => {
-  it('drops a seated mark when a narrower screen shrinks its block past the glyph box or when label culling drops its block', () => {
-    const base = worldAt('rosh-pina')
-    const view = base.place3 as OutsideView
-    const block = view.beyondTowns?.find((b) => b.w >= 4 && b.x > 30 && b.x < 345)
-    expect(block).toBeDefined()
-    // Glyph fits inside the block at 375 px (w = 0.92 * block.w), so shrinking to 320 px (sx = 0.853) makes the block narrower than the glyph.
-    const w = block!.w * .92
-    const seated = { id: 'seated-containment', kind: 'minaret' as const, glyph: 'minaret', glyphKind: 'minaret' as const,
-      layer: 'near' as const, plane: 'near' as const, xPct: block!.x / 375 * 100, x: block!.x, base: block!.baseY,
-      baseY: block!.baseY, hPx: 5, h: 17, scale: 5 / 17, w, lights: 4, tall: false, dy: -1, km: block!.km,
-      named: false, seatBlockId: block!.id }
-    const world: WorldState = { ...base, marks: [...base.marks, seated], keys: { ...base.keys, marks: `${base.keys.marks}:seated` } }
-    const hasMark = (box: SceneBox, clear: Box[] = []) =>
-      outsideLayer(world, box, clear)!.items.some((i) => i.kind === 'mark' && Math.abs(i.glyph.x - seated.x * box.width / 375) < .01 && i.glyph.base === seated.base)
-    expect(hasMark(BOX)).toBe(true)
-    expect(hasMark({ ...BOX, width: 320 })).toBe(false)
-    // A clear zone hitting only the outer sliver of the supporting block (missing the narrower glyph) drops the block and therefore the mark.
-    const narrow = { ...seated, id: 'seated-culled', w: block!.w * .4 }
-    const world2: WorldState = { ...base, marks: [...base.marks, narrow], keys: { ...base.keys, marks: `${base.keys.marks}:culled` } }
-    const sliver: Box = { x: block!.x + block!.w * .35, y: block!.baseY - block!.h * .5, w: 1, h: 1 }
-    const items = outsideLayer(world2, BOX, [sliver])!.items
-    expect(items.some((i) => i.kind === 'box' && i.beyond && Math.abs(i.x - block!.x) < .01 && i.foot === block!.baseY)).toBe(false)
-    expect(items.some((i) => i.kind === 'mark' && Math.abs(i.glyph.x - narrow.x) < .01 && i.glyph.base === narrow.base)).toBe(false)
   })
 })

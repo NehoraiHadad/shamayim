@@ -2,21 +2,19 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
-import { fitsBlockSpan } from '../../world/beyondSeat'
 import { ABOVE_PAD, rowKm } from '../../world/outside'
 import { SCENE_W } from '../../world/sceneBox'
 import { facetShare } from '../../world/water'
-import { groundFn } from '../../data/landmarks/seat'
-import type { OutsideView, RGB, WorldMark, WorldState } from '../../world/types'
+import type { OutsideView, RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { againstLight, facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
+import { outsideMarks } from './outsideMarks'
 import { smoothstep } from '../../world/ridgeLighting'
 import { aerialFor, hazeOf, snowOnGround, toneAt } from './planeLight'
 import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
-import type { Box, GlyphDesc, LayerOf, OutsideItem, Pt, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
+import type { Box, LayerOf, OutsideItem, Pt, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
 import { openWaterTone } from './water'
-import { glyphHand } from './glyphHand'
 
 /**
  * The place seen from outside (stage C5, variant B; the world's `outside.ts`): one layer over the near ridge holding, back
@@ -206,6 +204,7 @@ function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM:
 }
 
 interface Shape {
+  key: string
   items: OutsideItem[]
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
@@ -220,7 +219,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${clear.map((c) => [c.x, c.y, c.w, c.h].map((v) => v.toFixed(2)).join(',')).join(';')}|${world.keys.marks}`
+  const key = `${box.width}|${clear.map((c) => [c.x, c.y, c.w, c.h].join(',')).join(';')}|${world.keys.marks}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W
@@ -279,28 +278,14 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
     if (!free(x - t.w, t.base - t.h, x + t.w, t.base)) continue
     own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
   }
-  for (const m of world.marks.filter((mk) => mk.plane === 'near')) {
-    const mx = m.x * sx
-    // A mark seated on a beyond town block stays only if its supporting block survived culling and still contains its final screen span.
-    if (m.seatBlockId !== undefined) {
-      const block = drawnBlocks.get(m.seatBlockId)
-      if (!block || !fitsBlockSpan(mx, m.w / 2, block.x, block.w)) continue
-    }
-    // A mark under the label (when the label found no free spot) or a note gives way to the text.
-    if (!free(mx - m.w / 2, m.base - m.h * m.scale, mx + m.w / 2, m.base + (m.depth !== undefined ? m.h : 0))) continue
-    const seed = hashId(m.id)
-    const glyph: GlyphDesc = { kind: m.glyphKind, x: mx, base: m.base, h: m.h, scale: m.scale, w: m.w, seed,
-      hand: glyphHand(m.glyphKind, seed), tones: undefined as unknown as Tones, famous: m.named,
-      ...(m.depth !== undefined ? { ground: groundUnder(world, m) } : {}) }
-    own.push({ y: m.base + .01, item: { kind: 'mark', glyph }, km: Math.min(m.km, behind(m.x, m.base)) })
-  }
+  own.push(...outsideMarks(world, box.width, drawnBlocks, free, behind))
   own.sort((a, b) => a.y - b.y)
   const marks: Shape['marks'] = []
   for (const o of own) {
     if (o.km !== undefined) marks.push({ at: out.length, km: o.km })
     out.push(o.item)
   }
-  const shape = { items: out, kms, marks }
+  const shape = { key, items: out, kms, marks }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape
@@ -345,7 +330,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const x0 = Math.max(0, Math.floor(Math.min(...boxes.map((b) => b.left)))), x1 = Math.min(box.width, Math.ceil(Math.max(...boxes.map((b) => b.right))))
   const y0 = Math.max(0, Math.floor(Math.min(...boxes.map((b) => b.top)))), y1 = Math.min(box.landHeight, Math.ceil(Math.max(...boxes.map((b) => b.bottom))))
   if (x1 <= x0 || y1 <= y0) return null
-  const formKey = layerKey('outside', world.keys.place, world.keys.marks, landBoxKey(box), out.flatMap((item) => item.kind === 'mark' ? [item.glyph.hand] : []))
+  const formKey = layerKey('outside', world.keys.place, landBoxKey(box), shape.key)
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
   const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
@@ -382,11 +367,4 @@ function landSnow(world: WorldState, land: NonNullable<OutsideView['land']>) {
     else runs.push([i, i])
   })
   return runs.length ? { ...look, runs } : null
-}
-
-/** A field's ground under it (relative to its base), every glyph px across, as the portrait's fields take it. */
-function groundUnder(world: WorldState, m: WorldMark): number[] {
-  const g = groundFn(world.terrain.near.points.map(([x, y]) => [x, y]), SCENE_W)
-  const n = Math.max(2, Math.round(m.w))
-  return Array.from({ length: n + 1 }, (_, i) => g(m.x - m.w / 2 + i * m.w / n) + m.depth! - m.base)
 }

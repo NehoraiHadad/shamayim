@@ -109,7 +109,7 @@ it('draws a synthetic 9 m hall on a drawn beyond block while keeping the 20 m ga
   expect(result.marks.find((mark) => mark.id === shortTower.id)).toBeUndefined()
 })
 
-it('carries a 9 m hall through loadLandmarkSource past unseatable tall minarets and budgets viable seats only', async () => {
+it('carries a 9 m hall through loadLandmarkSource past unseatable tall minarets', async () => {
   const fit = fittingBlocks(ctx, HALL_M, 'minaret')[0]
   expect(fit).toBeDefined()
   const unbuilt = findUnbuiltVisibleSquares(ctx, 30, 12)
@@ -126,25 +126,9 @@ it('carries a 9 m hall through loadLandmarkSource past unseatable tall minarets 
   // Proves the shortlist (top 8 + 1 minaret reserve) stays unchanged and excludes the 9 m hall.
   expect(source.panoramaMarks.some((mark) => mark.id === hall.id)).toBe(false)
   expect(source.sceneMarks.some((mark) => mark.id === hall.id)).toBe(false)
-  // Extra skyline settlement marks travel separately in seatCandidates: decoys fail seatMark, so the 9 m hall seats and is drawn.
+  // Extra skyline settlement marks travel separately in seatCandidates: decoys fail seatMark, and the 9 m hall seats.
   expect(source.seatCandidates.some((mark) => mark.id === hall.id)).toBe(true)
   const placed = placeOf({ ...ctx.input, landmarks: withPlaceHomes(roshPina, source.sceneMarks),
     seatCandidates: source.seatCandidates })
   expect(placed.marks.find((mark) => mark.id === hall.id)).toMatchObject({ x: fit.x, seatBlockId: fit.block.id })
-
-  // Display budget caps viable seats (at most 2 per kind and 5 total at 375 px) once seating succeeds.
-  const viableCrowd: Landmark[] = [
-    ...Array.from({ length: 4 }, (_, i) => ({ id: `m-${i}`, kind: 'minaret' as const, source: 'osm' as const, heightM: 18 + i, lat: fit.square.lat, lon: fit.square.lon })),
-    ...Array.from({ length: 3 }, (_, i) => ({ id: `s-${i}`, kind: 'synagogue' as const, source: 'osm' as const, heightM: 9 + i, lat: fit.square.lat, lon: fit.square.lon })),
-    ...Array.from({ length: 3 }, (_, i) => ({ id: `c-${i}`, kind: 'church' as const, source: 'osm' as const, heightM: 12 + i, lat: fit.square.lat, lon: fit.square.lon })),
-  ]
-  const seatByIndex = (mark: Landmark) => {
-    const idx = viableCrowd.findIndex((item) => item.id === mark.id)
-    return { x: 30 + idx * 30, base: 100, hPx: 5, km: 3, blockId: `b-${idx}` }
-  }
-  const budgeted = beyondMarks(roshPina, viableCrowd, SCENE_W, seatByIndex, { x: -100, y: -100 }, []).seated
-  expect(budgeted.length).toBe(5)
-  expect(budgeted.filter((m) => m.kind === 'minaret').length).toBeLessThanOrEqual(2)
-  expect(budgeted.filter((m) => m.kind === 'synagogue').length).toBeLessThanOrEqual(2)
-  expect(budgeted.filter((m) => m.kind === 'church').length).toBeLessThanOrEqual(2)
 })

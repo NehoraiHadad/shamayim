@@ -14,10 +14,11 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
-import { markBox, marksOf } from './marks'
+import { markBox, type SeatedWorldMark, type WorldMark } from './markGeometry'
+import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
 import { datumOfRow, datumOnLand } from './datum'
-import type { CoastalSea, OutsideView, WorldLabels, WorldMark } from './types'
+import type { CoastalSea, OutsideView, WorldLabels } from './types'
 
 /**
  * The house style and roofs of a place. Roofs only from evidence about the roofs (5+ mapped roof shapes, the majority
@@ -64,11 +65,10 @@ export function homeHalf(reachKm: number, known: boolean): number {
  * The place and its marks (stages C4–C5), once its land is known (a panorama; `world.ts` keeps an unknown place while it
  * is not). Every place is seen from outside and built from its own data by one builder (`outside.ts`, owner 2026-11-19):
  * its built cells at their real heights (houses with roofs where low and sparse, blocks where dense, the jagged mass with
- * spires where high), its trees, towers and marks, by true east–west and north–south. The marks by the outside rules
- * (`marks.ts`); the height label beside the dot, clear of the marks. Independent of the hour (lit windows are
- * `night.litShare`).
+ * spires where high), its trees, towers and marks, by true east–west and north–south. The height label beside the dot
+ * clears the budgeted marks. Layout is independent of the hour (`night.litShare` controls lit windows).
  */
-export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldMark[]; labels: WorldLabels;
+export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldMark[]; seatPool: SeatedWorldMark[]; labels: WorldLabels;
   ownSkyline: boolean; coastalSea: CoastalSea | null; nearLine: NearLine | null } {
   const { place, terrain, city, width, elevation } = input
   const landmarks = [...input.landmarks]
@@ -105,7 +105,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const datum = row ? datumOnLand(row, landY, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
   const notes = notesOnWater(notes0, terrain, view, dot, width)
-  const marks = marksOf({ place, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
+  const { marks, seatPool } = marksOf({ place, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
     homeHalf: homeHalf(reachKm, known), style: style.style, notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark } })
   // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds
@@ -113,7 +113,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const line = (datum?.segments ?? []).map((seg) => ({ left: seg.x1 * width / 375, right: seg.x2 * width / 375, top: datum!.y - 1, bottom: datum!.y + 1 }))
   const spot = besideDot(dot, label.text, width, [...marks.filter((m) => m.plane !== 'far').map(markBox), ...line], notes)
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y, backed: true }, notes, datum }
-  return { marks, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
+  return { marks, seatPool, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
     trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,
     vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null } }
