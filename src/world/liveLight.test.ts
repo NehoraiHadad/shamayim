@@ -18,6 +18,7 @@ const RECEIPT = '2026-11-17T13:10'
 const times = Array.from({ length: 121 }, (_, minute) => addMinutes(START, minute))
 const stamp = (at: LocalTime) => utcOf(at, JERUSALEM.timezone).getTime()
 const lightReading = ({ light }: WorldState) => [light.direct, ...Object.values(faceLight(light.dir, light.direct))]
+const fieldReading = (world: WorldState) => world.cloudField!.field.layers.map(({ d, vel, cover, form }) => ({ d, vel, cover, form }))
 const difference = (a: number[], b: number[]) => Math.max(...a.map((value, i) => Math.abs(value - b[i])))
 const maxStep = (readings: number[][]) => Math.max(...readings.slice(1).map((current, i) => difference(current, readings[i])))
 
@@ -64,6 +65,11 @@ describe('live weather and light', () => {
     expect(rolled.observation?.time).toBe(READING)
     expect(shownAir({ ...input, now: rollover, forecast: rolled }).cloudCover).toBe(baseline.current.cloudCover)
     expect(shownAir({ ...input, now: beforeRollover, forecast: baseline }).cloudCover).toBe(baseline.current.cloudCover)
+    const liveNow = build({ ...input, now: rollover, forecast: baseline })
+    const scrubNow = build({ ...input, now: rollover, selected: rollover, forecast: rolled })
+    expect(fieldReading(scrubNow)).toEqual(fieldReading(liveNow))
+    expect(scrubNow.light).toEqual(liveNow.light)
+    expect(scrubNow.rain).toEqual(liveNow.rain)
 
     const incoming = refreshed(baseline)
     const live = sweep(() => baseline)
@@ -121,6 +127,9 @@ describe('live weather and light', () => {
     expect(incoming.air.visibilityKm).toBe(outgoing.air.visibilityKm)
     expect(incoming.wind).toEqual(outgoing.wind)
     expect(incoming.clouds).toEqual(outgoing.clouds)
+    expect(fieldReading(incoming)).toEqual(fieldReading(outgoing))
+    expect(incoming.light.eye).toBe(outgoing.light.eye)
+    expect(incoming.rain).toEqual(outgoing.rain)
     expect(render(replacement, addMinutes(second, 35)).air.visibilityKm).toBeCloseTo(5)
   })
 

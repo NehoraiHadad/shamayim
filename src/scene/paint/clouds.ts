@@ -227,10 +227,11 @@ function modelBank(c: Ctx2D, b: BankDesc, puffs: Puff[], x0: number, y0: number,
   c.fillStyle = baseLight
   c.fillRect(x0, y0, x1 - x0, y1 - y0)
   // Where it rains the base goes dark and heavy.
-  if (b.rains) {
+  const rainWeight = b.rainWeight ?? Number(b.rains)
+  if (rainWeight > 0) {
     const g = c.createLinearGradient(0, y0 + (y1 - y0) * 0.4, 0, y1)
     g.addColorStop(0, 'rgb(20 24 30 / 0)')
-    g.addColorStop(1, css(mix(b.shade, [0.1, 0.12, 0.16], 0.5), 0.6))
+    g.addColorStop(1, css(mix(b.shade, [0.1, 0.12, 0.16], 0.5), 0.6 * rainWeight))
     c.fillStyle = g
     c.fillRect(x0, y0, x1 - x0, y1 - y0)
   }

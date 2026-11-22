@@ -1,42 +1,40 @@
 import type { LayerOf } from '../model/types'
 import { css, type Ctx2D } from './hand'
+import { shadowClipRegions } from './shadowClip'
 
 /*
- * A cloud's shadows on a band of the land (`model/cloudShadows.ts`). MEDIUM: soft washes of the sky-lit dark, each a
- * radial falloff squashed into the ground's foreshortened ellipse (no filter), a body and two lobes. ORDER: the patches
- * (each also a period to either side, so the tile repeats without a seam), then the band's fade where it meets the next
- * (`destination-in` with a vertical ramp). The surface lays it `source-atop` the land. Pure: the patches are the model's.
+ * The field's cloud shadows on one land plane (`model/cloudShadowLayers.ts`). MEDIUM: soft washes of the sky-lit dark,
+ * each a radial falloff squashed into the ground's foreshortened ellipse (no filter): a dense core (the umbra under the
+ * cell's thick middle) easing to nothing at the rim (the penumbra of the sun's 0.53° disc and the cell's thinning edge).
+ * ORDER: the plane's clips (its own face, minus every nearer plane's face: `shadowClip.ts`), then the blobs. The surface
+ * lays the layer `source-atop` the land. Pure: every number is the model's.
  */
 export function paintCloudShadow(ctx: Ctx2D, desc: LayerOf<'cloudShadow'>): void {
-  const { blobs, rgb, period, band } = desc
-  for (const b of blobs) {
-    for (const x of [b.x - period, b.x, b.x + period]) {
-      if (x + b.rx < 0 || x - b.rx > period) continue
-      ctx.save()
-      ctx.translate(x, b.y)
-      ctx.scale(1, b.ry / b.rx)
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, b.rx)
-      g.addColorStop(0, css(rgb, b.alpha))
-      g.addColorStop(0.5, css(rgb, b.alpha * 0.85))
-      g.addColorStop(1, css(rgb, 0))
-      ctx.fillStyle = g
+  const { blobs, rgb, clip, bounds } = desc
+  if (!blobs.length) return
+  ctx.save()
+  if (clip && clip.crest.length >= 2) {
+    for (const { rings, rule } of shadowClipRegions(clip, bounds.w, bounds.h)) {
       ctx.beginPath()
-      ctx.arc(0, 0, b.rx, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.restore()
+      for (const ring of rings) ring.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+      ctx.clip(rule)
     }
   }
-  if (!band.fadeIn && !band.fadeOut) return
-  // The band's window: up from nothing over `fadeIn`, down to nothing over `fadeOut` (the next band takes over).
-  ctx.save()
-  ctx.globalCompositeOperation = 'destination-in'
-  const g = ctx.createLinearGradient(0, band.top, 0, band.bottom)
-  const at = (y: number) => Math.min(1, Math.max(0, (y - band.top) / Math.max(1e-6, band.bottom - band.top)))
-  if (band.fadeIn) { g.addColorStop(at(band.fadeIn[0]), 'rgb(0 0 0 / 0)'); g.addColorStop(at(band.fadeIn[1]), 'rgb(0 0 0)') }
-  else g.addColorStop(0, 'rgb(0 0 0)')
-  if (band.fadeOut) { g.addColorStop(at(band.fadeOut[0]), 'rgb(0 0 0)'); g.addColorStop(at(band.fadeOut[1]), 'rgb(0 0 0 / 0)') }
-  else g.addColorStop(1, 'rgb(0 0 0)')
-  ctx.fillStyle = g
-  ctx.fillRect(-1, band.top - 1, period + 2, band.bottom - band.top + 2)
+  for (const b of blobs) {
+    if (b.x + b.rx < 0 || b.x - b.rx > bounds.w || b.alpha <= 0) continue
+    ctx.save()
+    ctx.translate(b.x, b.y)
+    ctx.scale(1, b.ry / b.rx)
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, b.rx)
+    g.addColorStop(0, css(rgb, b.alpha))
+    g.addColorStop(0.45, css(rgb, b.alpha * 0.9))
+    g.addColorStop(0.8, css(rgb, b.alpha * 0.35))
+    g.addColorStop(1, css(rgb, 0))
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(0, 0, b.rx, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
   ctx.restore()
 }

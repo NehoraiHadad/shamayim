@@ -164,6 +164,9 @@ describe('sceneLabel', () => {
     const lightning = flashes(live)
     expect(lightning.length).toBeGreaterThan(0)
     expect(lightning[0].animated?.pulse).toMatchObject({ strength: live.rain?.thunderWeight })
+    const scrubNow = build(heavy, storm, storm)
+    expect(scrubNow.rain).toEqual(live.rain)
+    expect(flashes(scrubNow)).toEqual(lightning)
     expect(label(live, heavy, storm, null, lightning.length > 0)).toContain('ירושלים, סופת רעמים,')
 
     const beforeSkyLayout = flashes(live, { ...BOX, skyHeight: 0 })

@@ -3,6 +3,7 @@ import type { Covers } from '../world/clouds'
 import type { WorldSources } from '../world/types'
 import { ALOFT_FACTOR } from '../world/wind'
 import type { AirInput } from './airTypes'
+import { mixFieldWeather, type FieldWeather } from './fieldWeather'
 
 export type Weather = Omit<AirInput, 'date' | 'localHour' | 'sunElevation' | 'preview' | 'cloudsSeen' | 'fallingSnow' | 'snowCloudRate' | 'thunderWeight' | 'showerWeight'> & {
   rainMmH: number
@@ -10,6 +11,7 @@ export type Weather = Omit<AirInput, 'date' | 'localHour' | 'sunElevation' | 'pr
   snowCloudRate: number
   thunderWeight: number
   showerWeight: number
+  fieldWeather: FieldWeather
   covers: Covers
   windAloft: { low: WindVector | null; mid: WindVector | null; high: WindVector | null }
   cloudSource: WorldSources['cloudLayers']
@@ -74,6 +76,7 @@ export function mixWeather(a: Weather, b: Weather, t: number): Weather {
     snowCloudRate: lerp(a.snowCloudRate, b.snowCloudRate, t),
     thunderWeight: lerp(a.thunderWeight, b.thunderWeight, t),
     showerWeight: lerp(a.showerWeight, b.showerWeight, t),
+    fieldWeather: mixFieldWeather(a.fieldWeather, b.fieldWeather, t),
     snowfall: lerp(a.snowfall, b.snowfall, t),
     snowDepth: lerp(a.snowDepth, b.snowDepth, t),
     visibilityKm: lerp(a.visibilityKm ?? 40, b.visibilityKm ?? 40, t),

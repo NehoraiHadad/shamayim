@@ -1,3 +1,4 @@
+import { rainBanks } from './rain'
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -269,7 +270,8 @@ describe('clouds and rain', () => {
     const raining = world.clouds.filter((l) => l.rains)
     expect(raining.map((l) => l.level)).toEqual(['low'])
     expect(world.sources.rainCloudRaised).toBe(false)
-    const banks = new Map(raining[0].banks.map((bank) => [bank.id, bank]))
+    const banks = new Map(rainBanks(world.rain!).map(bank => [bank.id, bank]))
+    expect(raining[0].banks.every(bank => !banks.has(bank.id))).toBe(true)
     for (const cell of world.rain!.cells) {
       const bank = banks.get(cell.bank)!
       expect(bank).toBeDefined()

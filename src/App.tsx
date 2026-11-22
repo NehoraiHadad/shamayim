@@ -90,10 +90,10 @@ export default function App() {
   const seenClouds = useMemo(() => {
     const pinned = forcedSightings()
     if (pinned) return pinned.map((s) => ({ ...s, strength: 1 }))
-    return selected || !weather ? [] : sightingsNow(observedCloud, now, weather.cloudCover, arrivalMs)
+    return (selected && selected !== now) || !weather ? [] : sightingsNow(observedCloud, now, weather.cloudCover, arrivalMs)
   }, [selected, weather, observedCloud, now, arrivalMs])
-  const shown = useMemo(() => weather ? { ...weather, cloudsSeen: selected ? 0 : seenClouds.length } : null,
-    [weather, selected, seenClouds])
+  const shown = useMemo(() => weather ? { ...weather, cloudsSeen: selected && selected !== now ? 0 : seenClouds.length } : null,
+    [weather, selected, now, seenClouds])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
   const worldInput = useMemo(() => (timeline ? { place, forecast: timeline, now, selected, arrivalMs, observedCloud, terrain,

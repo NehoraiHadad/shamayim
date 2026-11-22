@@ -72,8 +72,10 @@ describe('airInput at a moved minute', () => {
     expect(sample('14:29')).toMatchObject({ weatherCode: 95 })
     expect(sample('14:31')).toMatchObject({ weatherCode: 73 })
     expect(sample('14:30')).toMatchObject({ thunderWeight: 0.5, fallingSnow: 0.275, rainMmH: 0.1, snowCloudRate: 0.05 })
+    expect(sample('14:30').fieldWeather).toMatchObject({ convectiveStorm: 0.5, steadyRain: 0.5, fallMs: 1.25 })
     expect(sample('15:00')).toMatchObject({ fallingSnow: 0.55, rainMmH: 0, snowCloudRate: 0.1 })
     expect(sample('15:30')).toMatchObject({ fallingSnow: 0.275, rainMmH: 0.5, showerWeight: 0.5 })
+    expect(sample('15:30').fieldWeather).toMatchObject({ convectiveShower: 0.5, steadyRain: 0.5, fallMs: 2.5 })
     expect(sample('16:00')).toMatchObject({ fallingSnow: 0, rainMmH: 1, showerWeight: 1 })
   })
 

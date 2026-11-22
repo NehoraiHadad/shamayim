@@ -34,8 +34,10 @@ describe('C10: the sky life in the model', () => {
   it('lays a flock or a plane in front of the land only where it is nearer than that land, else the land hides it', { timeout: 60_000 }, () => {
     let seen = 0, front = 0
     for (const place of SCENE_PLACES) {
+      const input = worldInput(places.get(place.id)!, '2026-11-17T12:00')
       for (const hour of ['07:30', '09:00', '12:00', '14:00', '16:00']) {
-        const { world, model } = at(place.id, `2026-11-17T${hour}`)
+        const world = buildWorld({ ...input, selected: `2026-11-17T${hour}` })
+        const model = sceneModel(world, BOX)
         const geom = skyGeom(world, BOX)
         for (const l of model.layers.filter((x): x is LayerOf<'birds'> | LayerOf<'aircraft'> => x.kind === 'birds' || x.kind === 'aircraft')) {
           expect(l.placed, l.id).toBeDefined()

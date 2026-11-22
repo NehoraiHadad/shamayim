@@ -6,7 +6,7 @@ import { datePart } from '../domain/time'
 import type { Forecast, LocalTime } from '../domain/types'
 import { layerCovers, unionOf } from '../world/clouds'
 import type { AirInput } from './airTypes'
-import { weatherAt, weatherEffects } from './weatherAt'
+import { weatherAt } from './weatherAt'
 import { mixWeather, type Weather } from './weatherMix'
 
 /** Where the sky is computed: the place's coordinates and its wall-clock zone. */
@@ -47,7 +47,7 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
   const nowMs = arrivalMs ?? nowInstant.getTime()
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
   const sample = (minute: LocalTime, ms: number) =>
-    blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone, forcedCloud), mixWeather)
+    blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone, forced), mixWeather)
   const weather = sample(at, instant.getTime())
   const cover = observedCloud
     ? correctCloudCover(observedCloud, now, at, nowMs, (at === now ? weather : sample(now, nowInstant.getTime())).cloudCover,
@@ -63,8 +63,5 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
   }
   if (forced && ('dust' in forced || 'pm10' in forced)) shown.dustConcentration = shown.dust ?? shown.pm10 ?? 0
   if (forced && 'pm10' in forced) shown.opticalPm10 = shown.pm10 ?? 0
-  if (forced && ('weatherCode' in forced || 'precipitation' in forced || 'snowfall' in forced || 'temperature' in forced)) {
-    return { ...shown, ...weatherEffects(shown) }
-  }
   return shown
 }

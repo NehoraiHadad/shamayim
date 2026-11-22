@@ -1,52 +1,13 @@
 import { hashId, seeded } from '../data/landmarks/hash'
 import type { WeightedSighting } from '../domain/cloudSightings'
-import type { HourPoint } from '../domain/types'
+import type { Covers } from './cloudsCover'
 import { smoothstep } from './ridgeLighting'
-import type { CloudBank, CloudLayer, CloudLevel, Wind, WorldSources } from './types'
+import type { CloudBank, CloudLayer, CloudLevel, Wind } from './types'
+
+export { layerCovers, unionOf } from './cloudsCover'
+export type { CoverInput, Covers } from './cloudsCover'
 
 export const LEVELS: CloudLevel[] = ['low', 'mid', 'high']
-
-export interface Covers { low: number; mid: number; high: number }
-
-/** The share of the sky the three layers cover together, taken as independent (as `thickCloud` does). */
-export const unionOf = ({ low, mid, high }: Covers) => 1 - (1 - low) * (1 - mid) * (1 - high)
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-
-export interface CoverInput {
-  /** The shown cover (0–100), satellite-corrected for now. */
-  cloudCover: number
-  /** The shown low + mid cloud (0–100), when known. */
-  thickCloud?: number | null
-  /** The hour's layers (0–100 each), when the forecast gives them. */
-  hour?: Pick<HourPoint, 'cloudLow' | 'cloudMid' | 'cloudHigh'>
-}
-
-/**
- * The cover of each layer (0–1). From the forecast's layers when it gives all three, scaled so together they make the
- * shown cover (which the satellite may have corrected for now). Else a marked fallback: from the thick (low + mid) cloud
- * and the cover (the rest is high cloud), or from the cover alone (all of it counted thick). Thick cloud is split evenly
- * between low and mid.
- */
-export function layerCovers(input: CoverInput): { covers: Covers; source: WorldSources['cloudLayers'] } {
-  const total = clamp01(input.cloudCover / 100)
-  const { cloudLow, cloudMid, cloudHigh } = input.hour ?? {}
-  if (cloudLow != null && cloudMid != null && cloudHigh != null) {
-    const covers = { low: cloudLow / 100, mid: cloudMid / 100, high: cloudHigh / 100 }
-    const union = unionOf(covers)
-    if (union <= 0) return { covers: { low: 0, mid: 0, high: 0 }, source: 'forecast' }
-    // Scale each layer's clear share so the union is the shown total: (1 − c)^k for all three.
-    const k = total >= 1 ? Infinity : Math.log(1 - total) / Math.log(1 - Math.min(union, 0.9999))
-    // A layer with none stays at none (1 ** Infinity is NaN when the shown cover is full).
-    const scale = (c: number) => c <= 0 ? 0 : c >= 1 ? (total > 0 ? 1 : 0) : 1 - (1 - c) ** k
-    return { covers: { low: scale(covers.low), mid: scale(covers.mid), high: scale(covers.high) }, source: 'forecast' }
-  }
-  const knownThick = input.thickCloud != null
-  const thick = clamp01(Math.min(knownThick ? input.thickCloud! / 100 : total, total))
-  const high = thick >= 1 ? 0 : clamp01(1 - (1 - total) / (1 - thick))
-  const each = 1 - Math.sqrt(1 - thick)
-  return { covers: { low: each, mid: each, high }, source: knownThick ? 'thickCloud' : 'cover' }
-}
 
 /** Banks round the whole horizon at full cover; fewer as the cover falls (the same first ones stay). */
 const MAX_BANKS: Record<CloudLevel, number> = { low: 16, mid: 12, high: 8 }

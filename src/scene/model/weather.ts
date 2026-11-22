@@ -1,4 +1,5 @@
 //# allFunctionsCalledOnLoad
+import { rainBankDescs } from './clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
@@ -64,14 +65,21 @@ export function precipOf(world: WorldState, precip: Precip = world.rain?.cells.l
 interface Falling { drawn: BankDesc; bank: CloudBank }
 
 /** The banks that rain or snow, as their cloud layer draws them (C6), and that layer's drift. */
-function fallingBanks(world: WorldState, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
+function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
   const layer = world.clouds.find((l) => l.rains)
   const drawn = clouds.find((l) => l.level === layer?.level)
   if (!layer || !drawn) return null
+  if (p.precip === 'rain') {
+    const low = clouds.find(cloud => cloud.level === 'low') ?? drawn
+    const mid = clouds.find(cloud => cloud.level === 'mid') ?? drawn
+    const weight = world.cloudField?.field.rain?.midWeight ?? Number(layer.level === 'mid')
+    const mix = (a: number, b: number) => a + (b - a) * weight
+    return { banks: rainBankDescs(world, box, geom, layer), z: mix(low.z, mid.z), speed: mix(low.animated?.speed ?? 0, mid.animated?.speed ?? 0) }
+  }
   const byId = new Map(layer.banks.map((b) => [`${layer.level}:${b.id}`, b]))
   const cells = new Set(p.cells.map((c) => `${layer.level}:${c.bank}`))
   const banks: Falling[] = drawn.banks.filter((b) => cells.has(b.id) && byId.has(b.id)).map((b) => ({ drawn: b, bank: byId.get(b.id)! }))
-  return { banks, level: layer.level, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
+  return { banks, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
 }
 
 /** The copy of a band x (every `period`) nearest `ref`. */
@@ -129,7 +137,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
 function precipLayersFor(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom, p: PrecipState):
   LayerDesc[] {
   const id = (base: string) => p.precip === 'snow' ? base + '.snow' : base
-  const found = fallingBanks(world, clouds, p)
+  const found = fallingBanks(world, box, geom, clouds, p)
   if (!found || !found.banks.length) return []
   const { banks, z, speed } = found
   const out: LayerDesc[] = []
@@ -185,7 +193,7 @@ function precipLayersFor(world: WorldState, box: SceneBox, clouds: readonly Laye
       const top = f.drawn.y - f.drawn.h * 0.2
       const lean = tilt * (bottom - top) * 0.35
       return [[1.3, 0, 0.5], [1, 10, 0.55], [0.7, 22, 0.6], [0.42, 36, 0.6]].map(([k, dy, a]) =>
-        ({ x: f.drawn.x, top: top + dy, w: f.drawn.w * k, lean, a }))
+        ({ x: f.drawn.x, top: top + dy, w: f.drawn.w * k, lean, a: a * (f.bank.share ?? 1) }))
     })
     const fall = (surface: 'sky' | 'land') => {
       const dy = surface === 'land' ? box.landTop : 0
@@ -234,7 +242,7 @@ function edgeMark(world: WorldState, box: SceneBox, geom: SkyGeom, banks: readon
   const x1 = Math.min(geom.width, Math.ceil(side === 'left' ? x + w + pad : x + 2))
   const top = Math.max(0, Math.floor(y - h * 1.6))
   const bottom = Math.min(box.skyHeight, Math.ceil(geom.horizon + 3))
-  const alpha = (0.85 + 0.15 * p.strength) * p.opacity
+  const alpha = (0.85 + 0.15 * p.strength) * p.opacity * (nearestBank.f.bank.share ?? 1)
   return { kind: 'edge', id: 'edge', surface: 'sky', z: 8.5, soft: true, precip: p.precip, side, x, y, w, h,
     body, shade, curtain, alpha, lean, seed: b.seed,
     bounds: { x: x0, y: top, w: Math.max(1, x1 - x0), h: Math.max(1, bottom - top) },
