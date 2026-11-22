@@ -35,14 +35,15 @@ describe('rollForward', () => {
     })
   })
 
-  it('keeps snapshot humidity, visibility and windDirection when the hourly row lacks them', () => {
-    const base = makeForecast([hour('2026-11-17T12:00', { humidity: null, visibility: null, windDirection: null, cloudLow: null, cloudMid: null, thickCloud: null })])
+  it('clears stale humidity, visibility and cloud layers to null when the hourly row lacks them, keeping windDirection', () => {
+    const base = makeForecast([hour('2026-11-17T12:00', { humidity: null, visibility: null, windDirection: null, cloudLow: null, cloudMid: null, thickCloud: undefined })])
     const rolled = rollForward(base, '2026-11-17T12:25')
-    expect(rolled.current.humidity).toBe(98)
-    expect(rolled.current.visibility).toBe(1200)
+    expect(rolled.current.humidity).toBeNull()
+    expect(rolled.current.visibility).toBeNull()
+    expect(rolled.current.cloudLow).toBeNull()
+    expect(rolled.current.cloudMid).toBeNull()
+    expect(rolled.current.thickCloud).toBeNull()
     expect(rolled.current.windDirection).toBe(110)
-    expect(rolled.current.cloudLow).toBe(85)
-    expect(rolled.current.cloudMid).toBe(20)
   })
 
   it('returns the forecast unchanged when current is already in the present hour', () => {

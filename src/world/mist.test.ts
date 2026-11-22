@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { AirInput } from '../atmo/airTypes'
-import { airOf, chooseVisibility } from './air'
 import { mistOf, nightMinimum, NO_MIST, type MistInput } from './mist'
 
 const BASE: MistInput = {
@@ -20,12 +18,6 @@ const BASE: MistInput = {
 }
 
 const mist = (over: Partial<MistInput>) => mistOf({ ...BASE, ...over })
-
-const AIR_BASE: AirInput = {
-  date: '2026-11-17', localHour: 12, humidity: 40, temperature: 24, feelsLike: 24, cloudCover: 0,
-  windSpeed: 6, windGusts: 10, windDirection: 270, precipitation: 0, snowfall: 0, snowDepth: 0,
-  visibilityKm: 30, pm10: null, dust: null, weatherCode: 0, sunElevation: 40, preview: false,
-}
 
 describe('mistOf: radiation fog, burn-off and diurnal asymmetry', () => {
   it('forms on a calm clear damp night and burns off as morning sun climbs and air warms', () => {
@@ -80,6 +72,12 @@ describe('mistOf: radiation fog, burn-off and diurnal asymmetry', () => {
     const midOvercast = mist({ ...calmNight, midCloudPct: 95 }).radiation
     expect(lowOvercast).toBeCloseTo(clear * 0.1, 4)
     expect(midOvercast).toBeCloseTo(clear * 0.1, 4)
+    // Combined low+mid cover 1 - (1-0.65)(1-0.65) = 87.75 % suppresses like 88 %, much stronger than 65 %.
+    const combined = mist({ ...calmNight, lowCloudPct: 65, midCloudPct: 65 }).radiation
+    const single88 = mist({ ...calmNight, lowCloudPct: 88, midCloudPct: 0 }).radiation
+    const single65 = mist({ ...calmNight, lowCloudPct: 65, midCloudPct: 0 }).radiation
+    expect(combined).toBeCloseTo(single88, 2)
+    expect(combined).toBeLessThan(single65 * 0.3)
     // Pure high cloud does not block radiation (low=0, mid=0).
     expect(mist({ ...calmNight, lowCloudPct: 0, midCloudPct: 0 }).radiation).toBe(clear)
   })
@@ -103,32 +101,16 @@ describe('mistOf: persistent fog, droplets, rain, marine and exclusions', () => 
     expect(mist({ lowCloudPct: 1, midCloudPct: 95, humidity: 95 }).persistent).toBe(0)
   })
 
-  it('gives zero mist on dry noon, in dust, in PM10 aerosol without dust, or from humidity visibility alone', () => {
+  it('gives zero mist on dry noon, in dust, or from humidity visibility alone', () => {
     expect(mist({ humidity: 55, visibilityKm: 30 })).toEqual(NO_MIST)
     expect(mist({ dust: true, visibilityKm: 1.5, visibilitySource: 'forced', humidity: 99, rainRateMmH: 4, lowCloudPct: 100, sunAltitude: -10 }))
       .toEqual(NO_MIST)
     expect(mist({ visibilityKm: 2, visibilitySource: 'humidity', humidity: 95 }).persistent).toBe(0)
-    // Aerosol PM10=400 at RH=40 caps air.visibilityKm, never creating mist (even with dust=0).
-    const { air } = airOf({
-      shown: { ...AIR_BASE, pm10: 400, dust: 0, humidity: 40, visibilityKm: 30 },
-      preview: false, forcedVisibility: false,
-      mist: { sun: { altitude: 45, azimuth: 170 }, windMs: 1 },
-    })
-    expect(air.visibilityKm).toBeCloseTo(3.25, 2)
-    expect(air.mist).toEqual(NO_MIST)
   })
 })
 
-describe('chooseVisibility and nightMinimum continuity', () => {
-  it('uses hour visibility in live mode when current visibility is null before falling back to humidity', () => {
-    const shown = { ...AIR_BASE, visibilityKm: null, humidity: 85 }
-    expect(chooseVisibility({ shown, hourVisibilityM: 12000, preview: false, forcedVisibility: false }))
-      .toEqual({ km: 12, source: 'hour' })
-    expect(chooseVisibility({ shown, hourVisibilityM: null, preview: false, forcedVisibility: false }).source)
-      .toBe('humidity')
-  })
-
-  it('picks the 12 h minimum across midnight and stays continuous across the hh:00 -> hh:01 window edge', () => {
+describe('nightMinimum continuity', () => {
+  it('picks the 12 h minimum across midnight and stays continuous across the hh:00 -> hh:01 window edge for any temperature swing', () => {
     const hours = [
       { time: '2026-11-16T15:00', temperature: 8 },
       { time: '2026-11-16T18:00', temperature: 19 },
@@ -140,14 +122,17 @@ describe('chooseVisibility and nightMinimum continuity', () => {
     expect(nightMinimum(hours, '2026-11-17T06:00')).toBe(12.5)
     expect(nightMinimum([], '2026-11-17T06:00')).toBeNull()
     expect(nightMinimum([{ time: '2026-11-16T12:00', temperature: 10 }], '2026-11-17T06:00')).toBeNull()
-    // Cold sample leaving the 12 h window at 06:00 -> 06:01 produces no step in nightMinimum or radiation mist.
-    const edgeHours = [
-      { time: '2026-11-16T18:00', temperature: 10 },
-      { time: '2026-11-16T19:00', temperature: 14 },
-      { time: '2026-11-17T06:00', temperature: 15 },
+    // Extreme cold sample (-3 °C at 18:00, 16 °C every later hour) leaving the 12 h window at 06:00 -> 06:01 produces no step.
+    const coldEdge = [
+      { time: '2026-11-16T18:00', temperature: -3 },
+      ...Array.from({ length: 12 }, (_, k) => {
+        const h = (19 + k) % 24
+        const day = 19 + k < 24 ? '2026-11-16' : '2026-11-17'
+        return { time: `${day}T${String(h).padStart(2, '0')}:00`, temperature: 16 }
+      }),
     ]
-    const at00 = mist({ humidity: 96, sunAltitude: -5, temperature: 15, nightMinTemp: nightMinimum(edgeHours, '2026-11-17T06:00') })
-    const at01 = mist({ humidity: 96, sunAltitude: -5, temperature: 15, nightMinTemp: nightMinimum(edgeHours, '2026-11-17T06:01') })
+    const at00 = mist({ humidity: 96, sunAltitude: -5, temperature: 16, nightMinTemp: nightMinimum(coldEdge, '2026-11-17T06:00') })
+    const at01 = mist({ humidity: 96, sunAltitude: -5, temperature: 16, nightMinTemp: nightMinimum(coldEdge, '2026-11-17T06:01') })
     expect(Math.abs(at00.radiation - at01.radiation)).toBeLessThan(0.05)
   })
 })

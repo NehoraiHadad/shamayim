@@ -46,7 +46,6 @@ export function chooseVisibility(input: AirSourceInput): { km: number; source: W
   if (!preview && shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'current' }
   if (hourVisibilityM != null) return { km: hourVisibilityM / 1000, source: 'hour' }
   if (shown.humidity !== null) return { km: visibilityFromHumidity(shown.humidity), source: 'humidity' }
-  if (shown.visibilityKm !== null) return { km: shown.visibilityKm, source: 'current' }
   return { km: 40, source: 'default' }
 }
 
@@ -54,7 +53,7 @@ export function chooseVisibility(input: AirSourceInput): { km: number; source: W
 function rawCloudLayers(m: NonNullable<AirSourceInput['mist']>, preview: boolean, shown: AirInput) {
   if (m.forcedLayers) return { lowCloudPct: m.forcedLayers.low * 100, midCloudPct: m.forcedLayers.mid * 100, thickCloudPct: null }
   if (m.forced && ('cloudCover' in m.forced || 'thickCloud' in m.forced)) {
-    return { lowCloudPct: null, midCloudPct: null, thickCloudPct: shown.thickCloud ?? shown.cloudCover }
+    return { lowCloudPct: null, midCloudPct: null, thickCloudPct: m.forced.thickCloud ?? m.forced.cloudCover ?? shown.cloudCover }
   }
   const lowCloudPct = preview ? (m.hour?.cloudLow ?? null) : (m.current?.cloudLow ?? m.hour?.cloudLow ?? null)
   const midCloudPct = preview ? (m.hour?.cloudMid ?? null) : (m.current?.cloudMid ?? m.hour?.cloudMid ?? null)
