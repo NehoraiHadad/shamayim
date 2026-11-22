@@ -33,7 +33,7 @@ describe('cloud sheet painter', () => {
     expect(h.draws).toEqual([[0.5, 0.5, 2, 165, -10, 0, 400, 330]])
   })
 
-  it('keeps a uniform sheet uniform: the softening never darkens or thins an even deck', () => {
+  it('keeps a closed, uniform sheet as the model gives it: the softening never darkens or thins an even deck', () => {
     const h = harness()
     const desc = sheet(Array(12).fill(0.5))
     desc.tone = Array(12).fill(1)
@@ -42,10 +42,10 @@ describe('cloud sheet painter', () => {
     for (let n = 0; n < data.length; n += 4) expect(Array.from(data.slice(n, n + 4))).toEqual([77, 77, 77, 128])
   })
 
-  it('melts a hard edge into the sky over a few px, monotonic and with no step, in the cloud colour', () => {
+  it('melts the edge of an open deck into the sky, monotonic and with no step, thin parts lit and translucent', () => {
     const h = harness()
-    const desc = sheet([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
-    desc.ys = [0, 100, 101, 200]
+    const desc = sheet([0, 0, 0, 0.4, 0.4, 0.4, 1, 1, 1, 1, 1, 1])
+    desc.ys = [0, 100, 200, 300]
     desc.tone = Array(12).fill(1)
     paintCloudSheet(h.ctx, desc, h.env)
     const { data, height } = h.texels()
@@ -54,10 +54,27 @@ describe('cloud sheet painter', () => {
       expect(alpha[k]).toBeGreaterThanOrEqual(alpha[k - 1])
       expect(alpha[k] - alpha[k - 1]).toBeLessThan(40)
     }
-    expect(alpha[0]).toBe(0)
-    expect(alpha[height - 1]).toBe(255)
-    const mid = alpha.findIndex((a) => a > 0 && a < 255)
-    expect(Array.from(data.slice(mid * 12, mid * 12 + 3))).toEqual([77, 77, 77])
+    expect(alpha[0]).toBeLessThan(5)
+    // The thickest core stays a breath short of opaque and greyer than the thin part (model alpha 0.4 at y 100), which
+    // is clearly translucent and leans to the lit white; both lighter than the model's shade.
+    expect(alpha[height - 1]).toBe(235)
+    expect(alpha[50]).toBeLessThan(0.4 * 255 * 0.6)
+    const grey = (k: number) => data[k * 12]
+    expect(grey(50)).toBeGreaterThan(grey(height - 1))
+    expect(grey(height - 1)).toBeGreaterThan(77)
+  })
+
+  it('softens less toward the horizon, where the rows crowd: far rows stay small soft puffs', () => {
+    const h = harness()
+    const xs = Array.from({ length: 40 }, (_, i) => i * 2)
+    const desc = sheet([])
+    Object.assign(desc, { xs, ys: [0, 60, 63], alpha: [0, 1, 2].flatMap(() => xs.map((_, i) => (i < 20 ? 0 : 1))) })
+    desc.tone = desc.alpha.map(() => 0)
+    paintCloudSheet(h.ctx, desc, h.env)
+    const { data, width, height } = h.texels()
+    const partial = (k: number) => Array.from({ length: width }, (_, c) => data[(k * width + c) * 4 + 3])
+      .filter((a) => a > 5 && a < 230).length
+    expect(partial(2)).toBeGreaterThan(partial(height - 1) + 2)
   })
 
   it('paints nothing on a clear sheet', () => {

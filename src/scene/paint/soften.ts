@@ -1,28 +1,33 @@
 /*
- * The sheet's soft hand: a separable box blur, run twice per axis (close to a Gaussian), over a premultiplied RGBA
- * grid. The field says where the cloud is and how thick; this says how it is drawn, as soft masses the eye rests on,
- * not texel edges (the owner's call, 22 Nov: the first WebGL sky's gentle veils over physically exact stair-steps).
+ * The sheet's soft hand: a separable box blur, run twice per axis (close to a Gaussian), over a premultiplied RGBA grid.
+ * Each row has its own radius (in cells, fractional), so the softening shrinks with perspective toward the horizon.
+ * The field says where the cloud is and how thick; this draws it as soft masses, not texel edges (the owner's call).
  * Pure: the same grid and radii give the same pixels.
  */
-export function soften(buf: Float32Array, cols: number, rows: number, rx: number, ry: number): void {
-  const line = new Float32Array(Math.max(cols, rows) * 4)
+export function soften(buf: Float32Array, cols: number, rows: number, rx: readonly number[], ry: readonly number[]) {
+  const sums = new Float64Array((Math.max(cols, rows) + 1) * 4)
   for (let pass = 0; pass < 2; pass++) {
-    if (rx > 0) for (let r = 0; r < rows; r++) boxLine(buf, line, r * cols * 4, 4, cols, rx)
-    if (ry > 0) for (let c = 0; c < cols; c++) boxLine(buf, line, c * 4, cols * 4, rows, ry)
+    for (let r = 0; r < rows; r++) if (rx[r] > 0) boxLine(buf, sums, r * cols * 4, 4, cols, () => rx[r])
+    for (let c = 0; c < cols; c++) boxLine(buf, sums, c * 4, cols * 4, rows, (i) => ry[i])
   }
 }
 
-/** One line of `n` RGBA cells from `start`, `stride` floats apart, averaged over ±r with the ends held (no dark rim). */
-function boxLine(buf: Float32Array, line: Float32Array, start: number, stride: number, n: number, r: number): void {
-  for (let i = 0; i < n; i++) for (let k = 0; k < 4; k++) line[i * 4 + k] = buf[start + i * stride + k]
-  const w = 2 * r + 1
+/**
+ * One line of `n` RGBA cells from `start`, `stride` floats apart: each cell becomes the mean over ±radius(i) cells, the
+ * outermost pair weighted by the radius's fraction (no seams where it changes), with the line's ends held (no dark rim).
+ */
+function boxLine(buf: Float32Array, sums: Float64Array, start: number, stride: number, n: number,
+  radius: (i: number) => number) {
   for (let k = 0; k < 4; k++) {
-    const at = (i: number) => line[Math.min(n - 1, Math.max(0, i)) * 4 + k]
-    let sum = 0
-    for (let i = -r; i <= r; i++) sum += at(i)
+    for (let i = 0; i < n; i++) sums[(i + 1) * 4 + k] = sums[i * 4 + k] + buf[start + i * stride + k]
+    const first = sums[4 + k], last = sums[n * 4 + k] - sums[(n - 1) * 4 + k]
+    // The sum over the cells before `j`, the line extended by its end values on both sides.
+    const before = (j: number) => j <= 0 ? j * first : j >= n ? sums[n * 4 + k] + (j - n) * last : sums[j * 4 + k]
+    const cell = (j: number) => before(j + 1) - before(j)
     for (let i = 0; i < n; i++) {
-      buf[start + i * stride + k] = sum / w
-      sum += at(i + r + 1) - at(i - r)
+      const r = Math.max(0, radius(i)), whole = Math.floor(r), part = r - whole
+      const inner = before(i + whole + 1) - before(i - whole)
+      buf[start + i * stride + k] = (inner + part * (cell(i - whole - 1) + cell(i + whole + 1))) / (2 * r + 1)
     }
   }
 }

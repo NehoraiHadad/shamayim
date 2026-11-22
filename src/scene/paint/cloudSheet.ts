@@ -1,21 +1,18 @@
-import type { LayerOf, RGB } from '../model/types'
-import { mix, type Ctx2D, type PaintEnv } from './hand'
+import type { LayerOf } from '../model/types'
+import { sheetTexels, softRadius } from './cloudLook'
+import type { Ctx2D, PaintEnv } from './hand'
 import { soften } from './soften'
 
 /*
  * A field layer as one continuous sheet over the dome (SPEC §6.0: layers before shapes). MEDIUM: the model's screen-ray
- * grid laid on a scratch surface and stretched over the sky with the canvas's own bilinear smoothing (no filter): the
- * deck's soft brightness variations near the zenith, its bands crowding toward the horizon, its edges and gaps where
- * `alpha` falls. The rows (`ys`) are uneven, so they are first resampled here, linearly between the two rays around
- * each output row and in premultiplied colour, to rows ROW px apart. One draw then stretches them: a per-row strip would
- * lose the vertical blend, because the canvas clamps its smoothing to the source rectangle and draws stair-steps.
- * The resampled rows are then softened (`soften`) by SOFT sky px: the field places the cloud, the hand draws it as soft
- * masses (the owner's call, 22 Nov), not as the grid's texels.
+ * grid laid on a scratch surface and stretched over the sky with the canvas's own bilinear smoothing (no filter). The
+ * rows (`ys`) are uneven, denser toward the horizon, so they are first resampled here, linearly between the two rays
+ * around each output row and in premultiplied colour, to rows ROW px apart. One draw then stretches them: a per-row strip
+ * would lose the vertical blend, because the canvas clamps its smoothing to the source rectangle and draws stair-steps.
+ * How the sheet looks (its colour, translucency and softness) is `cloudLook`'s.
  * Pure: every number is the model's; the grid's extent is the sheet's (the model spans the sky edge to edge).
  */
 const ROW = 2
-/** Sky px over which a cloud's edge melts into the sky: about one fingertip on a phone, the first WebGL sky's veil. */
-const SOFT = 9
 
 export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const { xs, ys } = desc
@@ -24,29 +21,12 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const y0 = ys[0], span = ys[rows - 1] - y0
   if (span <= 0) return
   const out = Math.max(2, Math.ceil(span / ROW) + 1)
-  const texels = premultiplied(desc)
-  const buf = new Float32Array(cols * out * 4)
-  let r = 0
-  for (let k = 0; k < out; k++) {
-    const y = y0 + (k * span) / (out - 1)
-    while (r + 2 < rows && ys[r + 1] < y) r++
-    const h = ys[r + 1] - ys[r]
-    const t = h > 0 ? Math.min(1, Math.max(0, (y - ys[r]) / h)) : 0
-    for (let c = 0; c < cols; c++) {
-      const a = texels[r * cols + c], b = texels[(r + 1) * cols + c]
-      for (let i = 0; i < 4; i++) buf[(k * cols + c) * 4 + i] = a[i] + (b[i] - a[i]) * t
-    }
-  }
-  const colPx = (xs[cols - 1] - xs[0]) / (cols - 1)
-  soften(buf, cols, out, Math.round(SOFT / Math.max(1, colPx)), Math.round(SOFT / (span / (out - 1))))
+  const { buf, spacing } = resampleRows(sheetTexels(desc), cols, ys, out)
+  const colPx = (xs[cols - 1] - xs[0]) / (cols - 1), rowPx = span / (out - 1)
+  const radii = spacing.map(softRadius)
+  soften(buf, cols, out, radii.map((px) => px / colPx), radii.map((px) => px / rowPx))
   const { canvas, ctx: s } = env.canvas(cols, out)
-  const image = s.createImageData(cols, out)
-  for (let n = 0; n < cols * out; n++) {
-    const alpha = buf[n * 4 + 3]
-    for (let i = 0; i < 3; i++) image.data[n * 4 + i] = byte(alpha > 0 ? buf[n * 4 + i] / alpha : 0)
-    image.data[n * 4 + 3] = byte(alpha)
-  }
-  s.putImageData(image, 0, 0)
+  s.putImageData(unpremultiplied(s, buf, cols, out), 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
@@ -55,19 +35,34 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   ctx.restore()
 }
 
-/** Each ray's colour times its alpha, and its alpha: the quantities that interpolate without dark fringes. */
-function premultiplied(desc: LayerOf<'cloudSheet'>): number[][] {
-  return Array.from({ length: desc.xs.length * desc.ys.length }, (_, n) => {
-    const a = Math.min(1, Math.max(0, desc.alpha[n] ?? 0))
-    const rgb = toneOf(desc, desc.tone[n] ?? 0)
-    return [rgb[0] * a, rgb[1] * a, rgb[2] * a, a]
-  })
+/** The texel grid on `out` even rows from `ys[0]` to its last row, and each output row's source row spacing (px). */
+function resampleRows(texels: number[][], cols: number, ys: readonly number[], out: number) {
+  const y0 = ys[0], span = ys[ys.length - 1] - y0
+  const buf = new Float32Array(cols * out * 4)
+  const spacing: number[] = []
+  let r = 0
+  for (let k = 0; k < out; k++) {
+    const y = y0 + (k * span) / (out - 1)
+    while (r + 2 < ys.length && ys[r + 1] < y) r++
+    const h = spacing[k] = ys[r + 1] - ys[r]
+    const t = h > 0 ? Math.min(1, Math.max(0, (y - ys[r]) / h)) : 0
+    for (let c = 0; c < cols; c++) {
+      const a = texels[r * cols + c], b = texels[(r + 1) * cols + c]
+      for (let i = 0; i < 4; i++) buf[(k * cols + c) * 4 + i] = a[i] + (b[i] - a[i]) * t
+    }
+  }
+  return { buf, spacing }
 }
 
-/** Lit at 0, the body at ½, the shaded underside at 1. */
-function toneOf({ lit, body, shade }: LayerOf<'cloudSheet'>, tone: number): RGB {
-  const t = Math.min(1, Math.max(0, tone))
-  return t < 0.5 ? mix(lit, body, t * 2) : mix(body, shade, t * 2 - 1)
+/** The premultiplied grid as straight-alpha image bytes, as the canvas takes them. */
+function unpremultiplied(s: Ctx2D, buf: Float32Array, cols: number, rows: number): ImageData {
+  const image = s.createImageData(cols, rows)
+  for (let n = 0; n < cols * rows; n++) {
+    const alpha = buf[n * 4 + 3]
+    for (let i = 0; i < 3; i++) image.data[n * 4 + i] = byte(alpha > 0 ? buf[n * 4 + i] / alpha : 0)
+    image.data[n * 4 + 3] = byte(alpha)
+  }
+  return image
 }
 
 const byte = (c: number) => Math.round(Math.min(1, Math.max(0, c)) * 255)
