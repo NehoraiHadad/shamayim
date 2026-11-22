@@ -29,7 +29,7 @@ it('lowers the distant horizon by earth curvature with refraction', () => {
     eyeM: 0, blockedKm: () => null,
     heightAt: (east: number) => !east ? 0 : east >= 40 && east < 59 ? 600 : null,
   }
-  // A 600 m obstacle at ~48 km subtends ~0.7° flat and ~0.5° with curvature.
+  // A 600 m obstacle at ~48 km subtends ~0.7Â° flat and ~0.5Â° with curvature.
   expect(terrainVisibility(terrain, grid, 90, 0.5, ray)(0)).toBeLessThan(0.65)
   expect(terrainVisibility(terrain, grid, 90, 0.5, ray)(0)).toBeGreaterThan(0.15)
 })
@@ -49,5 +49,18 @@ it('interpolates the horizon bins and reuses them as the disc rises through a so
   expect(visible(90.25, 6.5)).toBe(1)
   expect(visible(90, 6.2)).toBeGreaterThan(0.9)
   expect(visible(90.5, 6.2)).toBeLessThan(0.1)
+  expect(heightAt).toHaveBeenCalledTimes(lookups)
+})
+
+it('resumes a conservatively clear ray when the light moves down to the horizon', () => {
+  const heightAt = vi.fn((east: number) => east > 0.3 && east < 0.35 ? 120 : 0)
+  const terrain = { eyeM: 0, blockedKm: () => null, heightAt, heightCeilingM: 120 }
+  const visible = (altitude: number) => terrainVisibility(terrain, grid, 90, altitude, ray)(0)
+  expect(visible(45)).toBe(1)
+  expect(heightAt).toHaveBeenCalledTimes(2) // Only the two receiver heights.
+  expect(visible(5)).toBe(0)
+  const lookups = heightAt.mock.calls.length
+  expect(lookups).toBeGreaterThan(2)
+  expect(visible(6)).toBe(0)
   expect(heightAt).toHaveBeenCalledTimes(lookups)
 })

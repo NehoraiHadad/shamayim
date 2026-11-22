@@ -2652,7 +2652,9 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      unmeasured face the model uses an explicit geometric fallback and assumes open light where
      a terrain blocker cannot be measured. Starting beyond the 250 m local cell, marches cache
      the curvature-corrected horizon angle per geometry node and half-degree bearing. Interpolated
-     horizon angles meet the source altitude through a soft 0.53° disc. Rims resolve the same local
+     horizon angles meet the source altitude through a soft 0.53° disc. A verified terrain height ceiling
+     can certify clear light without a full march. The partial horizon can resume if the disc
+     drops closer to the terrain. Rims resolve the same local
      receiver material, visibility and haze at a finer depth than the body raster.
    - The Worker paints two stationary receiver endpoints, with full beam and with solar beam removed.
      The full-beam endpoint can show while the second is in flight. Optical depth adds where projected
@@ -2660,7 +2662,8 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      footprints on the cloud sheet's minute clock, then interpolates the paired endpoint pixels in
      premultiplied alpha. The mask uses a plane-average beam-to-ambient ratio, the 0.6 compression and
      a 2.2 display-transfer approximation. The painted endpoints retain the terrain texture, material
-     colours and per-sample haze.
+     colours and per-sample haze. The compositor crops the blend to the nontransparent mask. The interactive
+     loop reuses the blended patch for each gust pose until the mask moves one device pixel.
    - Plant tones are evaluated once per root and encoded in eight-bit per-plant palettes. Their bytes key
      canopy paint independently of changes in the plane's irradiance key. The compositor checks that the
      canopy can pair with the displayed plane generation. The 10 canopy poses at 5 fps use the wind's
