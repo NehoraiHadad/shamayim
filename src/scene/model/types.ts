@@ -531,12 +531,11 @@ export type LayerDesc =
   | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
       beads: WearBead[]; snow: number; seed: number }
   | LayerBase & { kind: 'wearItem'; item: WearItem }
-  /**
-   * The living light: a cloud's shadows on a band of the land (`cloudShadows.ts`), a seamless tile `period` px wide of soft
-   * patches (land px), faded in and out down the band where it meets the next (`fadeIn`, `fadeOut`: the y run of each).
-   */
-  | LayerBase & { kind: 'cloudShadow'; blobs: { x: number; y: number; rx: number; ry: number; alpha: number }[]; rgb: RGB; period: number
-      band: { top: number; bottom: number; fadeIn: [number, number] | null; fadeOut: [number, number] | null } }
+  /** Cloud footprints on a receiving land plane, in land pixels. */
+  | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
+      /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
+      clip: { crest: Pt[]; fronts: Pt[][] } | null
+      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number }[] }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']

@@ -28,8 +28,9 @@ export interface TerrainPlanes {
   /** Whether the place's land is known (C8): `loading`/`offline` stand on `unknownLand`; `ready` is the panorama. */
   status: LandStatus
   sightAt?: SceneTerrain['sightAt']
-  seenAt?: SceneTerrain['seenAt']
+  /** Ground in metres relative to the eye. */
   groundAt?: SceneTerrain['groundAt']
+  eyeM?: number
   snowEdge?: SceneTerrain['snowEdge']
   /** The ground that shows on each plane's face, from the terrain data (`face.ts`); empty for the unknown land. */
   faces: Record<'near' | 'far', PlaneFace>

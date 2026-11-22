@@ -67,11 +67,12 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
   const xs = sea.points.map(([x]) => x * sx)
   const left = Math.min(...xs), right = Math.max(...xs)
   // The light's path: under the sun (or moon) where it stands over the water, its strength the share of facets the one
-  // wind tilts toward the eye at the water's depression, dimmed by the cloud in front (`light.direct`).
+  // wind tilts toward the eye at the water's depression, dimmed by the cloud in front (`light.eye`).
   const { light, wind } = world
   // The living light: the path goes with the source's direct share (fading as its disc sinks), not with a side.
   const byMoon = light.shares.moon > light.shares.sun
-  const body = light.direct > 0 ? (byMoon ? world.bodies.moon : world.bodies.sun) : null
+  const beam = light.eye
+  const body = beam > 0 ? (byMoon ? world.bodies.moon : world.bodies.sun) : null
   let glint: SeaDesc['glint'] = null
   const coastX = (y: number) => {
     const c = sea.coast
@@ -82,7 +83,7 @@ function seaOf(world: WorldState, box: SceneBox, sx: number, clear: readonly Box
   if (body?.up) {
     const x = body.x * sx
     const share = Math.max(facetShare(body.altitude, SEA_DEPRESSION[0], wind.ms), facetShare(body.altitude, SEA_DEPRESSION[1], wind.ms))
-    const strength = clamp01(light.direct) * (byMoon ? 0.4 : 1)
+    const strength = clamp01(beam) * (byMoon ? 0.4 : 1)
     const alpha = 1 - Math.exp(-12 * share * strength)
     if (x > left + 1 && x < right - 1 && alpha > 0.03) {
       const random = seeded(hashId(`${world.place.id}:coast-glint`))
@@ -204,9 +205,25 @@ function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM:
     full: t.lod === 'glyph', famous: t.famous, storeys: Math.max(1, Math.round(t.heightM / STOREY_M)) }
 }
 
+function boundsOf(items: OutsideItem[]) {
+  // The layer's box: everything with the longest cast shadow either side, independent of the light (a scrub never resizes it).
+  const reach = (left: number, top: number, right: number, bottom: number, height: number) => {
+    const cast = Math.min(14, 2.5 * height * .6 + 1)
+    return { left: left - cast - 2, top: top - 4, right: right + cast + 2, bottom: bottom + 2 }
+  }
+  const boxes = items.map((item) => item.kind === 'box' ? reach(item.x - item.w / 2, item.top - 2.5, item.x + item.w / 2, item.foot, item.foot - item.top)
+    : item.kind === 'tree' ? reach(item.tree.x - item.tree.w, item.tree.base - item.tree.h - 1, item.tree.x + item.tree.w, item.tree.base, 0)
+    : item.kind === 'tower' ? reach(item.x - item.w / 2, item.base - item.h - 4, item.x + item.w / 2, item.base, item.h)
+      : reach(item.glyph.x - item.glyph.w / 2, item.glyph.base - item.glyph.h * item.glyph.scale, item.glyph.x + item.glyph.w / 2,
+        item.glyph.base, item.glyph.h * item.glyph.scale))
+  if (!boxes.length) return
+  return { left: Math.min(...boxes.map(b => b.left)), right: Math.max(...boxes.map(b => b.right)),
+    top: Math.min(...boxes.map(b => b.top)), bottom: Math.max(...boxes.map(b => b.bottom)) }
+}
 interface Shape {
   key: string
   items: OutsideItem[]
+  bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
@@ -286,7 +303,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
     if (o.km !== undefined) marks.push({ at: out.length, km: o.km })
     out.push(o.item)
   }
-  const shape = { key, items: out, kms, marks }
+  const shape = { key, items: out, bounds: boundsOf(out), kms, marks }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape
@@ -311,16 +328,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const landDesc = outsideLandDesc(world, view, box, sx)
   const form = skyFormOf(world, box, shape.kms, tones, sx)
   if (!out.length && !sea) return null
-  // The layer's box: everything with the longest cast shadow either side, independent of the light (a scrub never resizes it).
-  const reach = (left: number, top: number, right: number, bottom: number, height: number) => {
-    const cast = Math.min(14, 2.5 * height * .6 + 1)
-    return { left: left - cast - 2, top: top - 4, right: right + cast + 2, bottom: bottom + 2 }
-  }
-  const boxes = out.map((item) => item.kind === 'box' ? reach(item.x - item.w / 2, item.top - 2.5, item.x + item.w / 2, item.foot, item.foot - item.top)
-    : item.kind === 'tree' ? reach(item.tree.x - item.tree.w, item.tree.base - item.tree.h - 1, item.tree.x + item.tree.w, item.tree.base, 0)
-    : item.kind === 'tower' ? reach(item.x - item.w / 2, item.base - item.h - 4, item.x + item.w / 2, item.base, item.h)
-      : reach(item.glyph.x - item.glyph.w / 2, item.glyph.base - item.glyph.h * item.glyph.scale, item.glyph.x + item.glyph.w / 2,
-        item.glyph.base, item.glyph.h * item.glyph.scale))
+  const boxes = shape.bounds ? [shape.bounds] : []
   if (sea) boxes.push({ left: Math.min(...sea.points.map(([x]) => x)), right: Math.max(...sea.points.map(([x]) => x)), top: sea.top - 1, bottom: sea.bottom + 1 })
   if (landDesc) boxes.push({ left: landDesc.top[0][0], right: landDesc.top.at(-1)![0], top: Math.min(...landDesc.top.map(([, y]) => y)) - 1,
     bottom: Math.max(...landDesc.base.map(([, y]) => y)) + 1 })

@@ -18,7 +18,7 @@ import type { NightSky } from './nightSky'
 import type { Optics } from './optics'
 import type { PlaceEnv } from './placeEnv'
 import type { SnowFall } from './snowLine'
-import type { Air, Body, CloudLayer, CloudShadows, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
+import type { Air, Body, CloudLayer, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState, WorldLabels } from './typesLand'
 
@@ -103,11 +103,14 @@ export interface WorldState {
   air: Air
   /** low, mid, high (in that order). */
   clouds: CloudLayer[]
+  cloudField?: import('./cloudField').WorldCloudField
   rain: Rain | null
   snow: SnowFall | null
   /** Snow falling now from the clouds (C7), or null. */
   snowfall: Snowfall | null
   wind: Wind
+  flightTerrain?: Pick<import('./flightTerrain').FlightTerrain,
+    'eyeM' | 'heightAt' | 'blockedKm' | 'panoramaHeightsM' | 'shadowBlocked' | 'occludedAt'>
   terrain: TerrainPlanes
   water: WaterState
   farCities: FarCities
@@ -128,8 +131,6 @@ export interface WorldState {
   nightSky: NightSky
   /** C10: the rainbow, the 22° halo and the sun dogs. */
   optics: Optics
-  /** The living light: the low cloud's shadows on the land. */
-  shadows: CloudShadows
   /** Living-land surface state sampled along panorama rays and over local ground for the shown date (structured-cloneable). */
   land: LivingLand
   cropAreas?: readonly CropArea[]

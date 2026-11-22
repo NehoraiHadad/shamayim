@@ -79,26 +79,41 @@ try {
     })
     // A scrub frame: the synchronous frame (world, model, paint or ask, composite) and, with the worker, the main thread's
     // time laying what arrived before the next frame.
-    const { frames: scrub, latency } = await page.evaluate(async () => {
+    const { frames: scrub, latency, workerMs } = await page.evaluate(async () => {
       const steps = window.__sceneStats.steps
       const since = (name, from) => (steps[name] ?? []).slice(from).reduce((a, b) => a + b, 0)
+      const scrubAt = (i) => {
+        const minutes = 6 * 60 + i * 12
+        return `2026-11-17T${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+      }
+      const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()))
+      const workerStart = ['sky', 'land'].map((name) => steps[`worker.${name}`]?.length ?? 0)
+      // Warm the scrub path before collecting frame and worker timings.
+      for (let i = -9; i <= 0; i++) {
+        window.__scene.scrub(scrubAt(i))
+        await nextFrame()
+      }
+      await window.__scene.settled()
+      const workerEnd = ['sky', 'land'].map((name) => steps[`worker.${name}`]?.length ?? 0)
       const frames = []
       const latency0 = steps['latency.land']?.length ?? 0
       for (let i = 1; i <= 60; i++) {
-        const minutes = 6 * 60 + i * 12
-        const at = `2026-11-17T${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
         const n = { land: steps['arrive.land']?.length ?? 0, sky: steps['arrive.sky']?.length ?? 0 }
-        const frame = window.__scene.scrub(at)
-        await new Promise((r) => requestAnimationFrame(() => r()))
+        const frame = window.__scene.scrub(scrubAt(i))
+        await nextFrame()
         frames.push({ ...frame, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky) })
       }
       await window.__scene.settled()
-      return { frames, latency: (steps['latency.land'] ?? []).slice(latency0) }
+      const workerMs = ['sky', 'land'].map((name, i) => {
+        const list = steps[`worker.${name}`] ?? []
+        return [name, [...list.slice(0, workerStart[i]), ...list.slice(workerEnd[i])]]
+      })
+      return { frames, latency: (steps['latency.land'] ?? []).slice(latency0), workerMs }
     })
     const memoryAfter = await page.evaluate(() => window.__sceneStats.memory)
     const layerMs = await page.evaluate(() => Object.entries(window.__sceneStats.layers)
       .map(([id, l]) => `${id} ${l.lastMs.toFixed(1)}`).join(', '))
-    const workerMs = await page.evaluate(() => ['sky', 'land'].map((name) => [name, window.__sceneStats.steps[`worker.${name}`] ?? []]))
+    // The scrub's worker timings past the cold paint (main's warm-up frames are already left out of `workerMs`).
     const workerScrubMs = workerMs.map(([name, list]) => [name, list.slice(cold.workerCold[name].length)])
     const firstPaint = (cold.steps['firstPaint.sky']?.[0] ?? 0) + (cold.steps['firstPaint.land']?.[0] ?? 0)
     // The two surfaces' workers paint side by side: every layer shows when the later one is done.

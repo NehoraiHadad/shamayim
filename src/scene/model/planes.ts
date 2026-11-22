@@ -10,6 +10,7 @@ import { landBoxKey, layerKey } from './keys'
 import { planeSurfaceOf } from './landColour'
 import { planeVegetationOf } from './landVegetation'
 import { planeLight } from './planeLight'
+import { planeCrest } from './planeCrest'
 import { cropEvidenceKey } from './vegCropEvidence'
 import { EMPTY_VEGETATION } from './vegDescriptor'
 import type { Box, LayerOf, Pt, SceneBox } from './types'
@@ -39,7 +40,7 @@ function shapeOf(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane
   let shape = byBox.get(key)
   if (!shape) {
     const sx = box.width / SCENE_W
-    const ridge = plane.points.map(([x, y]): Pt => [x * sx, y])
+    const ridge = planeCrest(plane, box.width)
     const front = world.terrain.near.points
     const outline: Pt[] = name === 'near' || front.length < 2
       ? [...ridge, [ridge.at(-1)![0], box.landHeight], [ridge[0][0], box.landHeight]]

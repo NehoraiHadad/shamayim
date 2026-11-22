@@ -40,7 +40,13 @@ export interface Light {
   ray: [number, number] | null
   /** Direct light after air mass and aerosol (`sceneLight.ts`); the moon's is cool and dim. */
   colour: RGB
-  /** 0–1: over the land, through the haze, dimmed by the cloud between the eye and the source. */
+  /** 0–1: beam reaching the observer along the disc ray. */
+  eye: number
+  /** Mean cloud transmission available to illuminate the scene. */
+  clear: number
+  /** Sun and moon illuminance after mean cloud transmission. */
+  meanBeam: { sun: number; moon: number }
+  /** 0–1: land's base light after haze and closed decks. */
   direct: number
   /** The direct share of each source (their sum is `direct`; one of them is 0 at any minute). */
   shares: { sun: number; moon: number }
@@ -113,10 +119,17 @@ export interface CloudLayer {
 
 export interface RainCell { fromAzimuth: number; toAzimuth: number; bank: string }
 
+/** A rain shaft from the cloud field: its ground spot and radius (km), the cloud it falls from and how much reaches down. */
+export interface FieldRainCell extends RainCell {
+  x: number; y: number; radiusKm: number; share: number; virga: number; atEye: boolean
+  baseKm: number; cloudX: number; cloudY: number; seed: number
+}
+
 export interface Rain {
   rateMmH: number
-  /** Under the raining layer's banks, at their true azimuths. */
-  cells: RainCell[]
+  /** Shafts from the raining layer, at their true azimuths. */
+  cells: FieldRainCell[]
+  near: boolean
   /** Rad from vertical, signed like `wind.across` (rain falls toward where the wind goes). */
   slant: number
   thunder: boolean
@@ -139,6 +152,3 @@ export interface Wind {
 export interface Night {
   litShare: number; starsThrough: number; dark: number; aviation: boolean
 }
-
-/** Low and mid cloud shadows passing over the land (the living light). */
-export interface CloudShadows { cover: number; strength: number; driftKm: number; kmh: number }

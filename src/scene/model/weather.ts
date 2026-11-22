@@ -1,4 +1,5 @@
 //# allFunctionsCalledOnLoad
+import { rainBankDescs } from './clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
@@ -62,10 +63,13 @@ export function precipOf(world: WorldState): PrecipState | null {
 interface Falling { drawn: BankDesc; bank: CloudBank }
 
 /** The banks that rain or snow, as their cloud layer draws them (C6), and that layer's drift. */
-function fallingBanks(world: WorldState, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
+function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
   const layer = world.clouds.find((l) => l.rains)
   const drawn = clouds.find((l) => l.level === layer?.level)
   if (!layer || !drawn) return null
+  if (p.precip === 'rain') {
+    return { banks: rainBankDescs(world, box, geom, layer), level: layer.level, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
+  }
   const byId = new Map(layer.banks.map((b) => [`${layer.level}:${b.id}`, b]))
   const cells = new Set(p.cells.map((c) => `${layer.level}:${c.bank}`))
   const banks: Falling[] = drawn.banks.filter((b) => cells.has(b.id) && byId.has(b.id)).map((b) => ({ drawn: b, bank: byId.get(b.id)! }))
@@ -120,7 +124,7 @@ export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly 
   LayerDesc[] {
   const p = precipOf(world)
   if (!p) return []
-  const found = fallingBanks(world, clouds, p)
+  const found = fallingBanks(world, box, geom, clouds, p)
   if (!found || !found.banks.length) return []
   const { banks, z, speed } = found
   const out: LayerDesc[] = []

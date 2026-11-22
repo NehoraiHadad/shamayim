@@ -2,14 +2,14 @@ import { airInput } from '../atmo/airInput'
 import type { AirInput } from '../atmo/airTypes'
 import { hashId } from '../data/landmarks/hash'
 import type { LandData } from '../data/land/types'
-import { anglePx } from '../data/terrain/angleScale'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { xOf } from '../domain/camera'
 import type { HourPoint, LocalTime } from '../domain/types'
 import { heightText } from '../text/isolate'
 import { drawnSkyline } from './drawnSkyline'
 import { farCitiesOf } from './farCities'
-import { flightTerrain } from './flightTerrain'
+import { cloudFieldAt } from './cloudField'
+import { flightTerrain, type FlightTerrain } from './flightTerrain'
 import { partKey } from './keys'
 import { livingLandOf } from './landLiving'
 import { livingLandKey } from './landRays'
@@ -20,7 +20,7 @@ import { placeOf } from './place'
 import { placeEnvOf } from './placeEnv'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
-import { terrainPlanes, unknownLand } from './terrain'
+import { terrainPlanes, terrainY, unknownLand } from './terrain'
 import type { WorldInput, WorldLabels, WorldState } from './types'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf } from './water'
@@ -85,11 +85,13 @@ export function makeWorldMemos() {
   return {
     skylineOf: memoOne((terrain: SceneTerrain): Skyline => sceneSkyline(terrain)),
     judgeOf: memoOne(drawnSkyline),
+    fieldOf: memoOne(cloudFieldAt),
     lifeDays: makeLifeDays(),
-    flightOf: memoOne((terrain: SceneTerrain, groundM: number, judge: Skyline, near: WorldState['terrain']['near'],
+    terrainGrid: memoOne(flightTerrain),
+    flightOf: memoOne((terrain: FlightTerrain, judge: Skyline, near: WorldState['terrain']['near'],
       camera: WorldState['camera'], horizonY: number): FlightContext => ({
-      terrain: flightTerrain(terrain, groundM),
-      drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => horizonY - anglePx(altitude)),
+      terrain,
+      drawnTop: (azimuth: number) => altitudeOver(judge(xOf(azimuth, camera) / SCENE_W), (altitude) => terrainY(horizonY, altitude)),
       nearKm: (azimuth: number) => {
         const x = xOf(azimuth, camera), pts = near.points
         if (!pts.length) return Infinity
