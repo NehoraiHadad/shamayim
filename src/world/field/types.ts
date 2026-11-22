@@ -27,6 +27,8 @@ export interface FieldLayer {
   Q: number
   /** Radius multiplier. */
   g: number
+  meanExtinction?: number
+  beamExtinction?: number
   floorTau: number
   kappa: number
   form: LayerForm
@@ -63,6 +65,7 @@ export interface CloudField {
   placeId: string
   t: number // minutes
   layers: FieldLayer[]
+  rain?: FieldInput['rain']
 }
 
 /** Weather and observer inputs for one field snapshot. */
@@ -74,6 +77,7 @@ export interface FieldInput {
   lowBaseKm: number
   elevationKm: number
   weatherCode: number
+  rain?: { level: 'low' | 'mid' | 'high'; rate: number }
   /** Solar altitude in degrees. */
   sunAltitude: number
   wind10: { speedKmh: number; fromDeg: number }

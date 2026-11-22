@@ -77,7 +77,7 @@ it('advects and fades continuously through fixture hour boundaries and two midni
       const deltaStrat = Math.abs(layer.form.strat - oldLayer.form.strat)
       // At fixed time the two clocks differ by at most 2 and the clump by at most amplitude / 2.
       const weatherRank = deltaStrat * (0.15 + (1 - 0.2 / 0.35) * amplitude / 2)
-      const bound = 6 * (deltaQ + weatherRank + 0.15 * Math.sin(Math.PI / (period[0] * (layer.lattice === 'tower' ? 3 : 1))))
+      const bound = (1.5 / (layer.lattice === 'tower' ? 0.4 : 0.25)) * (deltaQ + weatherRank + 0.15 * Math.sin(Math.PI / period[0]))
       if (layer.lattice === 'tower' && codeEdges.includes(minute)) jumps.push(layer.cover - oldLayer.cover)
       const radius = [3, 12, 12, 25][i]
       const old = new Map(cellsAround(before, layer.lattice, 0, 0, radius + 250 / 60).map(cell => [cell.id, cell]))

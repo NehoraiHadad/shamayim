@@ -13,7 +13,7 @@ export const RANGES = {
 export function visitCells(field: CloudField, lattice: Lattice, x: number, y: number, radiusKm: number,
   dtMin: number, emit: (i: number, j: number, east: number, north: number, r: number,
     baseKm: number, vKm: number, tau0: number, share: number, seed: number, genus: FieldCell['genus'],
-    rank: number, axis: number | undefined) => void) {
+    rank: number, axis: number | undefined) => void | false) {
   const layer = field.layers.find(candidate => candidate.lattice === lattice)
   if (!layer || layer.Q === 0) return
   const { form, Q, g } = layer
@@ -36,7 +36,7 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
   const w = form.strat
   const amplitude = 1 + (0.2 / 0.35 - 1) * w
   const rankLimit = Q + 0.2 + clumpAmplitude * amplitude / 2
-  const periodScale = lattice === 'tower' ? 3 : 1
+  const shareWidth = lattice === 'tower' ? 0.4 : 0.25
   for (let startJ = minJ; startJ <= maxJ; startJ += 96) {
     const endJ = Math.min(startJ + 95, maxJ)
     for (let startI = minI; startI <= maxI; startI += 96) {
@@ -58,21 +58,20 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
           const east = data[p] + dx
           const north = data[p + 1] + dy
           if ((east - x) ** 2 + (north - y) ** 2 > radiusSquared) continue
-          // Tower lifetimes use a 60-minute minimum. With the 1/60 per-minute rank-space
-          // fade, share changes by at most 6 × (1/60 + .15 sin(π/60)) < .148 at fixed low cover.
-          const period = periodScale * data[p + 5]
+
+          const period = data[p + 5]
           const phase = data[p + 6]
           const cu = w < 1 ? Math.sin(2 * Math.PI * (t / period + phase)) : 0
           const sc = w > 0 ? Math.sin(2 * Math.PI * (t / (60 + 6 * (period - 20)) + phase)) : 0
           // For fixed weather, the maximum one-minute share change is 6 × 0.075 × 2 sin(π/20) ≈ 0.141.
           const rank = unit(u + amplitude * data[p + 8]) + 0.075 * ((1 - w) * cu + w * sc)
-          const share = shareOf(rank, Q)
+          const share = shareOf(rank, Q, shareWidth)
           if (share <= 0) continue
           const genus = genusOf(lattice, form, data[p + 7], storm)
           const r = data[p + 2] * g
           const { baseKm, vKm, kappa } = dimensions(genus, layer.lowBaseKm ?? layer.baseKm, form, data[p + 4], 2 * r)
-          emit(i, j, east, north, r * Math.sqrt(share), baseKm, vKm, kappa * vKm * share,
-            share, data[p + 9], genus, rank, axis)
+          if (emit(i, j, east, north, r * Math.sqrt(share), baseKm, vKm, kappa * vKm * share,
+            share, data[p + 9], genus, rank, axis) === false) return
         }
       }
     }
@@ -88,7 +87,7 @@ export function cellsAround(field: CloudField, lattice: Lattice, x: number, y: n
 function collect(field: CloudField, lattice: Lattice, x: number, y: number, radiusKm: number, dtMin: number) {
   const cells: FieldCell[] = []
   visitCells(field, lattice, x, y, radiusKm, dtMin, (...args) => {
-    cells.push(fieldCell(lattice, ...args))
+    cells.push(fieldCell(lattice, ...args, field.rain))
   })
   return cells
 }
@@ -96,14 +95,14 @@ function collect(field: CloudField, lattice: Lattice, x: number, y: number, radi
 /** Materialize the primitive values from a visit for drawing or exact sampling. */
 export function fieldCell(lattice: Lattice, i: number, j: number, x: number, y: number, r: number,
   baseKm: number, vKm: number, tau0: number, share: number, seed: number, genus: FieldCell['genus'],
-  rank: number, axis: number | undefined): FieldCell {
+  rank: number, axis: number | undefined, rain?: CloudField['rain']): FieldCell {
   // Pack two signed 25-bit site coordinates and a two-bit lattice tag into an exact JS integer.
   const side = 2 ** 25, bias = side / 2
   const id = i >= -bias && i < bias && j >= -bias && j < bias
     ? ((i + bias) * side + j + bias) * 4 + latticeTag[lattice]
     : `${lattice}:${i}:${j}`
   return { id, lattice, x, y, r, baseKm, vKm, tau0, share, seed, genus, rank, axis,
-    rainWeight: genus === 'cg' || genus === 'cb' || genus === 'ns' ? share : 0,
+    rainWeight: rainPotential(genus, lattice, share, rain),
     rMinor: axis === undefined ? undefined : r / 3 }
 }
 
@@ -113,4 +112,15 @@ const latticeTag = { low: 0, tower: 1, mid: 2, high: 3 }
 export function cellsAt(field: CloudField, lattice: Lattice, x: number, y: number): FieldCell[] {
   const g = field.layers.find(layer => layer.lattice === lattice)?.g ?? 1
   return collect(field, lattice, x, y, maxRadius(lattice) * g, 0)
+}
+
+function rainPotential(genus: FieldCell['genus'], lattice: Lattice, share: number, rain: CloudField['rain']) {
+  if (!rain || rain.rate <= 0 || (lattice !== rain.level && !(lattice === 'tower' && rain.level === 'low'))) return 0
+  // Ns and mature Cb sustain precipitation across their occupied footprint.
+  if (genus === 'ns' || genus === 'cb') return share
+  // Growing congestus has less developed precipitation than mature Cb.
+  if (genus === 'cg') return 0.65 * share
+  // Shallow Sc and St contribute drizzle when the low layer is raining.
+  if (genus === 'sc' || genus === 'st') return 0.3 * share
+  return 0
 }

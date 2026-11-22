@@ -141,7 +141,9 @@ export interface Light {
   ray: [number, number] | null
   /** Direct light after air mass and aerosol (`sceneLight.ts`); the moon's is cool and dim. */
   colour: RGB
-  /** 0–1: over the land, through the haze, dimmed by the cloud between the eye and the source. */
+  /** 0–1: beam reaching the observer along the disc ray. */
+  eye: number
+  /** 0–1: land's base light after haze and closed decks. */
   direct: number
   /** The direct share of each source (their sum is `direct`; one of them is 0 at any minute). */
   shares: { sun: number; moon: number }
@@ -221,10 +223,24 @@ export interface CloudLayer {
 
 export interface RainCell { fromAzimuth: number; toAzimuth: number; bank: string }
 
+export interface FieldRainCell extends RainCell {
+  x: number
+  y: number
+  radiusKm: number
+  share: number
+  virga: number
+  atEye: boolean
+  baseKm: number
+  cloudX: number
+  cloudY: number
+  seed: number
+}
+
 export interface Rain {
   rateMmH: number
-  /** Under the raining layer's banks, at their true azimuths. */
-  cells: RainCell[]
+  /** Shafts from the raining layer, at their true azimuths. */
+  cells: FieldRainCell[]
+  near: boolean
   /** Rad from vertical, signed like `wind.across` (rain falls toward where the wind goes). */
   slant: number
   thunder: boolean
@@ -446,14 +462,6 @@ export interface Night {
   aviation: boolean
 }
 
-/**
- * The low and mid cloud's shadows passing over the land (the living light): `cover` the share of the sky they make (0–1),
- * `strength` how much direct sun a shadow takes away where it passes (nil with no sun to cast them, and under a closed
- * deck, where the whole land is in its shade), `driftKm` how far the cloud's wind has carried them across the view since
- * the day's midnight (continuous in time), `kmh` the wind's speed across now (+ toward the right).
- */
-export interface CloudShadows { cover: number; strength: number; driftKm: number; kmh: number }
-
 export interface WorldKeys {
   bodies: string
   light: string
@@ -488,6 +496,7 @@ export interface WorldState {
   air: Air
   /** low, mid, high (in that order). */
   clouds: CloudLayer[]
+  cloudField?: import('./cloudField').WorldCloudField
   rain: Rain | null
   snow: SnowFall | null
   /** Snow falling now from the clouds (C7), or null. */
@@ -511,8 +520,6 @@ export interface WorldState {
   nightSky: NightSky
   /** C10: the rainbow, the 22° halo and the sun dogs. */
   optics: Optics
-  /** The living light: the low cloud's shadows on the land. */
-  shadows: CloudShadows
   sources: WorldSources
   keys: WorldKeys
 }

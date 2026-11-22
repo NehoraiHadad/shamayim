@@ -1,99 +1,138 @@
 //# allFunctionsCalledOnLoad
-import { hashId, seeded } from '../../data/landmarks/hash'
+import { xOf } from '../../domain/camera'
+import { RANGES, visitCells } from '../../world/field/cells'
+import { cloudLight } from '../../world/lightCloud'
 import { SCENE_W } from '../../world/sceneBox'
 import type { RGB, WorldState } from '../../world/types'
-import { colourKey, landBoxKey, layerKey } from './keys'
-import { hazeOf } from './planeLight'
-import { mixRgb } from './tone'
-import type { LayerOf, SceneBox } from './types'
+import { layerKey } from './keys'
+import type { LayerOf, Pt, SceneBox } from './types'
 
-/*
- * The cloud's shadows on the land (the living light, 2026-11-20): under a broken sky, soft patches of shade pass over the
- * land and the town, carried by the low cloud's wind. Three bands of the land by distance (far near the horizon, the near
- * ground at the foot), each a seamless tile of soft patches as large as clouds are at that distance, flattened by the
- * ground's foreshortening, laid at composite time: the tile is moved by how far the wind has carried the cloud since
- * midnight (`world.shadows.driftKm`, so a scrub moves them without a repaint), drifts a little in the ambient loop, and
- * is laid `source-atop` the land, so it darkens only what is drawn. Its alpha is the shadows' strength at the minute.
- * Pure: the patches are seeded by the place; nothing reads a clock.
- */
-
-/** Over the town and its marks (40), under the sky's life laid in front of the land (40.5). */
-const Z = 40.3
-/** Scene px per degree across (the camera's), and km of cloud the patches are made from (a low cloud's size). */
-const PX_PER_DEG = 1.5
-const CLOUD_KM: [number, number] = [2, 6]
-const DEG = 180 / Math.PI
-/** The shade a passing cloud leaves: the sky-lit dark, a little blue. */
+const RAD = Math.PI / 180
 const SHADE: RGB = [0.04, 0.06, 0.12]
-/** The ambient loop runs this many times faster than the wind (a slow time-lapse, as the sky's clouds drift). */
-const LOOP_RATE = 12
+const RANGE = 60
+const rim = Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4), Math.sin(i * Math.PI / 4)])
+const ASPECT_STEP = 1.125
+const LOG_ASPECT_STEP = Math.log(ASPECT_STEP)
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+type ShadowSprite = Pick<LayerOf<'cloudShadow'>, 'blobs' | 'rgb' | 'bounds' | 'period' | 'band' | 'key'>
+const sprites = new Map<number, ShadowSprite>()
+let spriteDpr: number
 
-interface Band { id: string; top: number; bottom: number; km: number; fadeIn: [number, number] | null; fadeOut: [number, number] | null }
-
-/** The land's depth bands (land px): the far ground under the horizon, the middle, the near ground at the foot. */
-function bandsOf(world: WorldState, box: SceneBox): Band[] {
-  const { terrain } = world
-  const median = (v: readonly number[]) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] ?? 10
-  const farKm = Math.max(4, median(terrain.far?.distanceKm ?? [12]))
-  const nearKm = Math.max(0.8, Math.min(farKm / 2, median(terrain.near.distanceKm)))
-  const crest = Math.min(...terrain.far.points.map(([, y]) => y), ...terrain.near.points.map(([, y]) => y))
-  // The town's own roofs stand over the ridge line: they take the far ground's shadows too.
-  const view = world.place3.kind === 'outside' ? world.place3 : null
-  const roofs = view ? Math.min(...view.skyline.boxes.map((b) => b.top), ...view.skyline.towers.map((t) => t.baseY - t.h)) : Infinity
-  const top = Math.max(0, Math.floor(Math.min(crest, roofs)) - 2), bottom = box.landHeight
-  const h = bottom - top
-  // Three hats that sum to one down the land: each band fades into the next over the stretch between their middles.
-  const c0 = top + h * 0.25, c1 = top + h * 0.5, c2 = top + h * 0.75
-  return [
-    { id: 'far', top, bottom: c1, km: farKm, fadeIn: null, fadeOut: [c0, c1] },
-    { id: 'mid', top: c0, bottom: c2, km: Math.sqrt(farKm * nearKm), fadeIn: [c0, c1], fadeOut: [c1, c2] },
-    { id: 'near', top: c1, bottom, km: nearKm, fadeIn: [c1, c2], fadeOut: null },
-  ]
+function shadowSprite(bucket: number, dpr: number): ShadowSprite {
+  if (spriteDpr !== dpr) {
+    spriteDpr = dpr
+    sprites.clear()
+  }
+  const hit = sprites.get(bucket)
+  if (hit) return hit
+  const rx = 32 * ASPECT_STEP ** -Math.max(0, bucket)
+  const ry = 32 * ASPECT_STEP ** Math.min(0, bucket)
+  const w = 2 * (rx + 1), h = Math.ceil(2 * (ry + 1))
+  const sprite = {
+    blobs: [{ x: 0, y: 0, rx, ry, alpha: 1 }], rgb: SHADE,
+    bounds: { x: -w / 2, y: -h / 2, w, h }, period: w * 4,
+    band: { top: -h / 2, bottom: h / 2, fadeIn: null, fadeOut: null },
+    key: layerKey('cloudShadow', bucket, dpr),
+  }
+  sprites.set(bucket, sprite)
+  return sprite
 }
 
-/** Scene px per km across at a distance (the camera's angular scale). */
-const pxPerKm = (km: number, sx: number) => (DEG / km) * PX_PER_DEG * sx
+type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
+  light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
+  terrain: Pick<WorldState['terrain'], 'seenAt' | 'groundAt'>
+}
 
-/** The cloud shadows' layers on the land (none without a broken sky and a sun to cast them). */
-export function cloudShadowLayers(world: WorldState, box: SceneBox): LayerOf<'cloudShadow'>[] {
-  const { shadows } = world
-  if (!shadows || shadows.strength < 0.01 || box.landHeight <= 0 || world.terrain.status !== 'ready') return []
-  const sx = box.width / SCENE_W
-  const period = Math.ceil(box.width * 1.5)
-  // The cover in steps (a scrub through an hour repaints the tile only when a patch more forms).
-  const cover = Math.round(clamp01(shadows.cover) * 16) / 16
-  return bandsOf(world, box).map((band, i) => {
-    const r = seeded(hashId(`${world.place.id}:cloud-shadow:${band.id}`))
-    // Farther, the air between lightens the shade toward its own tone.
-    const rgb = mixRgb(SHADE, hazeOf(world), 0.3 * (1 - i / 2))
-    const scale = pxPerKm(band.km, sx)
-    const h = band.bottom - band.top
-    // As many patches as the cover makes of the band, each a cloud's size at its distance, flattened by the ground's
-    // foreshortening (far ground nearly edge-on).
-    const flat = 0.22 + 0.25 * (i / 2)
-    const count = Math.round(cover * Math.max(4, (period / (scale * 4)) * 2.4))
-    // A cloud's shadow is lumpy: a body and two lobes, each a soft ellipse.
-    const blobs = Array.from({ length: count }, () => {
-      const rx = (CLOUD_KM[0] + (CLOUD_KM[1] - CLOUD_KM[0]) * r()) * scale / 2
-      const x = r() * period, y = band.top + h * r()
-      const ry = Math.max(1.5, rx * flat * (0.7 + 0.6 * r()))
-      const alpha = 0.55 + 0.45 * r()
-      return [{ x, y, rx, ry, alpha }, ...[0, 1].map(() => ({ x: x + (r() - 0.5) * 1.4 * rx, y: y + (r() - 0.5) * ry, rx: rx * (0.45 + 0.3 * r()),
-        ry: ry * (0.5 + 0.3 * r()), alpha: alpha * 0.8 }))]
-    }).flat()
-    // Where the wind has carried them at this minute (whole device px are the compositor's), and their loop's slow drift.
-    const offset = ((shadows.driftKm * scale) % period + period) % period
-    const speed = (shadows.kmh / 3600) * scale * LOOP_RATE
-    const alpha = Math.round(clamp01(shadows.strength * 0.7) * 64) / 64
-    return {
-      kind: 'cloudShadow', id: `cloudShadow.${band.id}`, surface: 'land', z: Z + i * 0.01, soft: true, blend: 'source-atop',
-      bounds: { x: 0, y: Math.floor(band.top), w: period, h: Math.ceil(band.bottom) - Math.floor(band.top) },
-      blobs, rgb, period, band: { top: band.top, bottom: band.bottom, fadeIn: band.fadeIn, fadeOut: band.fadeOut },
-      animated: { mode: 'drift', speed, period, offset, alpha },
-      key: layerKey('cloudShadow', band.id, world.place.id, cover, Math.round(band.top * 2), Math.round(band.bottom * 2), Math.round(scale * 8),
-        colourKey(rgb), landBoxKey(box, true)),
-    } satisfies LayerOf<'cloudShadow'>
-  })
+export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width' | 'dpr'>) {
+  const { light, terrain, cloudField, camera } = world
+  // Below one 8-bit alpha step the largest possible shadow is subpixel in opacity.
+  if (!cloudField || !terrain.seenAt || !terrain.groundAt || light.altitude <= 0 || 0.65 * light.direct < 1 / 255) return []
+  const { field } = cloudField
+  const { open } = cloudLight({ low: 0, mid: 0, high: 0 }, field)
+  if (open <= 0) return []
+  const altitude = light.altitude * RAD
+  const cot = 1 / Math.tan(altitude)
+  const sin = Math.sin(light.azimuth * RAD), cos = Math.cos(light.azimuth * RAD)
+  const east = sin * cot, north = cos * cot
+  const invSin = 1 / Math.sin(altitude)
+  const scale = box.width / SCENE_W
+  const blobs: (LayerOf<'cloudShadow'> & { rim: Pt[]; centre: Pt })[] = []
+
+  function onGround(x: number, y: number, height: number) {
+    // Fixed-point projection onto the DEM. Stop once the two sides of the
+    // projection equation agree within 10 m, and discard unresolved intersections.
+    let ground = 0
+    for (let i = 0; i < 12; i++) {
+      const px = x - (height - ground) * east
+      const py = y - (height - ground) * north
+      const km = Math.sqrt(px * px + py * py)
+      if (km > RANGE) return
+      const screenX = xOf(Math.atan2(px, py) / RAD, camera)
+      if (screenX < 0 || screenX > SCENE_W) return
+      const sample = terrain.groundAt!(screenX, km)
+      if (sample == null) return
+      const next = sample / 1000
+      if (Math.abs(next - ground) * cot <= 0.01) return { x: screenX, km, px, py }
+      ground = next
+    }
+  }
+
+  for (const layer of field.layers) {
+    const { lattice, baseKm, meanVKm } = layer
+    if (lattice === 'high' || !layer.cover || blobs.length >= 64) continue
+    const h = baseKm + meanVKm / 2
+    const heightSlack = lattice === 'low' ? 3 : lattice === 'mid' ? 5 : 12
+    const search = RANGE + heightSlack * cot
+    const individualLimit = RANGES[lattice][1]
+    // Outside the field's published far ranges cloud is represented by ensemble
+    // transmission, so only its deck attenuation is represented there. The
+    // per-cell alpha omitted at that distance is bounded by 0.65 × direct.
+    const useFieldRange = search >= individualLimit
+    visitCells(field, lattice, useFieldRange ? 0 : h * east, useFieldRange ? 0 : h * north,
+      Math.min(search, individualLimit), 0,
+      (i, j, x, y, r, base, depth, tau, _share, _seed, genus) => {
+        if (blobs.length >= 64) return false
+        if (!tau || x * x + y * y > individualLimit * individualLimit) return
+        const centre = onGround(x, y, base + depth / 2)
+        if (!centre) return
+        // Integrate the central chord of the swept column. The profile integral
+        // of 1 - u² or 1 - u⁴ over [-extent, extent] is analytic.
+        const spread = depth * cot / (2 * r)
+        const extent = Math.min(1, spread)
+        const power = lattice === 'tower' || genus === 'cu' ? 2 : 4
+        const meanProfile = spread > 0 ? extent / spread * (1 - extent ** power / (power + 1)) : 1
+        const transmission = Math.exp(-tau * meanProfile * invSin / 2)
+        const alpha = 0.65 * Math.max(0, 1 - transmission / open) * light.direct
+        if (alpha <= 0) return
+        const polygon: Pt[] = []
+        let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+        for (const [u, v] of rim) {
+          const rx = x + r * (u * sin + v * cos)
+          const ry = y + r * (u * cos - v * sin)
+          const p = onGround(rx, ry, u < 0 ? base + depth : base)
+          if (!p) continue
+          const seen = terrain.seenAt!(p.x, p.km)
+          if (!seen) continue
+          const sx = p.x * scale, sy = seen.groundY
+          polygon.push([sx, sy])
+          left = Math.min(left, sx)
+          right = Math.max(right, sx)
+          top = Math.min(top, sy)
+          bottom = Math.max(bottom, sy)
+        }
+        if (polygon.length < 3) return
+        const rx = Math.max(0.1, (right - left) / 2), ry = Math.max(0.1, (bottom - top) / 2)
+        // Cache fixed unit ellipses. Quantizing the aspect in 1.125× steps moves
+        // the vertical bounds by at most sqrt(1.125) - 1 = 6.1% of the radius.
+        const bucket = Math.round(Math.log(ry / rx) / LOG_ASPECT_STEP)
+        const sprite = shadowSprite(bucket, box.dpr)
+        blobs.push({
+          kind: 'cloudShadow', id: `cloudShadow.${lattice}.${i}.${j}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
+          rim: polygon, centre: [centre.px, centre.py],
+          placed: { x: (left + right) / 2, y: (top + bottom) / 2, scale: rx / sprite.blobs[0].rx, alpha },
+          ...sprite,
+        })
+      })
+  }
+  return blobs
 }

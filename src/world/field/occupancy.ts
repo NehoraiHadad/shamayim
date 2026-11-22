@@ -7,7 +7,7 @@ export const COVER_KNOTS = [0, 0.02, 0.05, 0.1, 0.15, 0.25, 0.4, 0.5, 0.6, 0.75,
 /** Corrected cover at each input knot, interpolated in cover space. */
 export const COVER_CORRECTION: Record<Lattice, readonly number[]> = {
   low: [0, 0.0268, 0.0517, 0.1, 0.1461, 0.2389, 0.3639, 0.4449, 0.5265, 0.6582, 0.7553, 0.8109, 0.8783, 0.98, 1],
-  tower: [0, 0.0207, 0.0511, 0.1028, 0.1514, 0.2409, 0.3673, 0.4488, 0.5305, 0.6584, 0.7548, 0.809, 0.8743, 0.98, 1],
+  tower: [0, 0.0241, 0.051, 0.1036, 0.1525, 0.2432, 0.3699, 0.4525, 0.5348, 0.6628, 0.7583, 0.8122, 0.8777, 0.98, 1],
   mid: [0, 0.0433, 0.0695, 0.1024, 0.1426, 0.2282, 0.3438, 0.4271, 0.5103, 0.6381, 0.7347, 0.7934, 0.8621, 0.98, 1],
   high: [0, 0.0431, 0.0691, 0.1052, 0.1504, 0.2327, 0.3686, 0.4528, 0.5389, 0.6725, 0.7706, 0.8248, 0.8866, 0.98, 1],
 }
@@ -38,7 +38,7 @@ export function occupancyOf(lattice: Lattice, c: number, calibrated = true) {
 }
 
 /** Smooth fractional cell occupancy from the current rank. */
-export function shareOf(rankAtT: number, Q: number): number {
-  // Cap the sub-threshold tail at clear sky. Both ramps are 0.25 wide, so their minimum is 6-Lipschitz in Q.
-  return smoothstep(0, 0.25, Math.min(Q, Q - rankAtT + 0.125))
+export function shareOf(rankAtT: number, Q: number, width = 0.25): number {
+  // Cap the sub-threshold tail at clear sky. The ramp is 1.5 / width-Lipschitz in rank and Q.
+  return smoothstep(0, width, Math.min(Q, Q - rankAtT + width / 2))
 }

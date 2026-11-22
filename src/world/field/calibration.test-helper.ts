@@ -41,7 +41,7 @@ export function coverageSample(placeId: string, sample: number, spanKm: number, 
                 let hi = 1
                 for (let step = 0; step < 16; step++) {
                   const mid = (lo + hi) / 2
-                  if (shareOf(rank, mid) >= target) hi = mid
+                  if (shareOf(rank, mid, layer.lattice === 'tower' ? 0.4 : 0.25) >= target) hi = mid
                   else lo = mid
                 }
                 needed = hi

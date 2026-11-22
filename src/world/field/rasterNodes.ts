@@ -20,6 +20,23 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
   }
 
   return {
+    rayDepthAt(x: number, y: number, low: number, high: number, ds: number,
+      patches: Map<FieldCell, number>) {
+      const bin = bins[indexY(y) * width + indexX(x)]
+      let tau = 0
+      if (!bin) return tau
+      for (const footprint of bin) {
+        const { cell } = footprint
+        const column = depth(footprint, x, y)
+        if (!column) continue
+        const overlap = Math.min(high, cell.baseKm + cell.vKm * column / cell.tau0) - Math.max(low, cell.baseKm)
+        if (overlap <= 0) continue
+        const slant = cell.tau0 / cell.vKm * ds * overlap / (high - low) / 2
+        if (cell.genus === 'ac' || cell.genus === 'ci') patches.set(cell, (patches.get(cell) ?? 0) + slant)
+        else tau += slant
+      }
+      return tau
+    },
     add(cell: FieldCell, cumulus: boolean) {
       const { x, y, r } = cell
       const east = eastScale * r, north = northScale * r

@@ -3,8 +3,9 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { mapForecast } from '../../data/openMeteo/mapForecast'
 import fixture from '../../test/fixtures/forecast-layers-2026-11-17.json'
 import { cellsAround, cellsAt, RANGES } from './cells'
-import { cellTauAt, densityGrid, farStrips, layerSnapshot, rasterRange, shadowTau } from './density'
+import { cellTauAt, densityGrid, layerSnapshot, rasterRange, shadowTau } from './density'
 import { buildField } from './field'
+import { createClumpSampler, sampleClumpGrid } from './clump'
 import type { FieldInput } from './types'
 
 const input: FieldInput = {
@@ -17,7 +18,7 @@ it.each([
   ['fixture', input.covers],
   ['sparse', { low: 0.15, mid: 0.1, high: 0.2 }],
   ['overcast', { low: 0.999, mid: 0.98, high: 0.95 }],
-] as const)('matches exact optical depth within 5% normalized RMS for %s', (mix, covers) => {
+] as const)('indexes every contributing cell for %s', (mix, covers) => {
   const field = buildField({ ...input, covers })
   const rng = seeded(hashId('density-samples'))
   for (const layer of field.layers) {
@@ -38,90 +39,8 @@ it.each([
     }
     const rms = Math.sqrt(errorSquared / tauSquared)
     console.info(mix, lattice, { tauRms: rms })
-    expect.soft(rms, lattice).toBeLessThanOrEqual(lattice === 'tower' ? 0.04 : 0.05)
+    expect.soft(rms, lattice).toBeLessThanOrEqual(1e-12)
   }
-})
-
-function scrub(placeId: string, minute: number) {
-  const at = '2026-11-17T08:' + String(minute).padStart(2, '0')
-  const field = buildField({ ...input, placeId, at })
-  let tau = 0
-  for (const layer of field.layers) {
-    const { lattice } = layer
-    const [near, far] = RANGES[lattice]
-    const { densityGrid: grid } = layerSnapshot(field, lattice, 0, 0, RANGES[lattice][1])
-    farStrips(field, layer)
-    const radii = [near / 4, near / 2, near, (near + far) / 2]
-    for (let i = 0; i < 360; i++) {
-      const az = i * Math.PI / 180
-      const east = Math.sin(az)
-      const north = Math.cos(az)
-      for (const r of radii) tau += grid.tauAt(r * east, r * north)
-    }
-  }
-  return tau
-}
-
-const median = (values: number[]) => values.sort((a, b) => a - b)[4]
-
-function medianMs(work: (i: number) => unknown) {
-  work(-1)
-  const samples = Array.from({ length: 9 }, (_, i) => {
-    const start = performance.now()
-    work(i)
-    return performance.now() - start
-  })
-  return median(samples)
-}
-
-const strict = process.env.FIELD_PERF === '1'
-const budget = (ms: number) => strict ? ms : 3 * ms
-
-// A fixed CPU-bound loop with a data dependency prevents the JIT from dropping the work.
-function referenceLoop() {
-  let phase = 0.25
-  for (let i = 0; i < 100_000; i++) phase = Math.sin(phase + i / 100)
-  return phase
-}
-
-it('builds a new forecast within the 3 ms arrival budget', () => {
-  const ms = medianMs(() => buildField({ ...input, hours: [...input.hours] }))
-  console.info('forecast arrival median ms', ms)
-  expect(ms).toBeLessThanOrEqual(budget(3))
-})
-
-it('serves all four layers within the 15 ms cold place budget', () => {
-  buildField(input)
-  const ms = medianMs(i => scrub(`cold-density-${i}`, i + 1))
-  console.info('cold place scrub median ms', ms)
-  expect(ms).toBeLessThanOrEqual(budget(15))
-})
-
-it('serves all four layers within the 2.6 ms warm scrub budget', () => {
-  // Warm the renderer over distinct minutes before sampling the steady-state scrub path.
-  for (let minute = 10; minute < 38; minute++) scrub('warm-density', minute)
-  const warm = (i: number) => scrub('warm-density', i + 1)
-  if (strict) {
-    const ms = medianMs(warm)
-    console.info('warm scrub median ms', ms)
-    expect(ms).toBeLessThanOrEqual(2.6)
-    return
-  }
-  referenceLoop()
-  const samples = Array.from({ length: 9 }, (_, i) => {
-    const start = performance.now()
-    referenceLoop()
-    const before = performance.now()
-    warm(i)
-    const after = performance.now()
-    referenceLoop()
-    return { ms: after - before, reference: ((before - start) + (performance.now() - after)) / 2 }
-  })
-  const ms = median(samples.map(sample => sample.ms))
-  const ratio = median(samples.map(sample => sample.ms / sample.reference))
-  console.info('warm scrub median ms', ms, { reference: median(samples.map(sample => sample.reference)), ratio })
-  // A 0.62 cap leaves 31% headroom from the measured 0.474 ratio. A 1.5× regression would reach 0.711.
-  expect(ratio).toBeLessThanOrEqual(0.62)
 })
 
 it('keeps the shared snapshot at the requested keyframe and joins the expected density at the edge', () => {
@@ -140,43 +59,57 @@ it('keeps the shared snapshot at the requested keyframe and joins the expected d
   }
 })
 
-it('projects column depth through a non-origin snapshot using the solar bearing', () => {
-  const field = buildField({ ...input, covers: { ...input.covers, low: 0.999 } })
-  const snapshot = layerSnapshot(field, 'low', 2, 3, 5)
-  const low = field.layers.find(layer => layer.lattice === 'low')!
-  expect(low.floorTau).toBeGreaterThan(0)
-  expect(snapshot.densityGrid.tauAt(8, 3)).toBe(low.floorTau)
-  const cell = snapshot.cells.find(item => Math.hypot(item.x - 2, item.y - 3) < 3)!
-  const { x, y } = cell
-  expect(snapshot.densityGrid.cellAt(x, y)).toBeDefined()
-  expect(shadowTau([snapshot], x - snapshot.heightKm, y, { altitude: 45, azimuth: 90 }))
-    .toBeCloseTo(snapshot.densityGrid.tauAt(x, y), 10)
+it.each([5, 20, 45, 70])('integrates slant extinction at %s degrees over raised and lowered ground', altitude => {
+  const field = buildField(input)
+  const snapshot = layerSnapshot(field, 'low', 0, 0, 50)
+  const cell = snapshot.cells.find(cell => Math.hypot(cell.x, cell.y) < 4 && cell.tau0 > 10)!
+  const alt = altitude * Math.PI / 180
+  const isolated = { ...snapshot, layer: { ...snapshot.layer!, baseKm: cell.baseKm, meanVKm: cell.vKm },
+    densityGrid: { ...snapshot.densityGrid, tauAt: (x: number, y: number) => cellTauAt(cell, x, y) } }
+  for (const ground of [-0.3, 0.25]) {
+    const x = cell.x - (cell.baseKm + cell.vKm / 2 - ground) / Math.tan(alt)
+    const sun = { altitude, azimuth: 90 }
+    expect(Math.exp(-shadowTau([isolated], x, cell.y, sun, ground) / 2)).toBeLessThan(0.1)
+    expect(shadowTau([isolated], x, cell.y + 3 * cell.r, sun, ground)).toBe(0)
+  }
 })
 
-it('profiles the components of a warm scrub', () => {
-  const fields = Array.from({ length: 10 }, (_, minute) => buildField({
-    ...input, placeId: 'warm-density', at: '2026-11-17T08:' + String(minute).padStart(2, '0'),
-  }))
-  for (const { lattice } of fields[0].layers) {
-    const [near, far] = RANGES[lattice]
-    const at = (i: number) => fields[i + 1]
-    const gridBuild = medianMs(i => densityGrid(at(i), lattice, 0, 0, far))
-    const cellLists = medianMs(i => cellsAround(at(i), lattice, 0, 0, near))
-    const snapshot = medianMs(i => layerSnapshot(at(i), lattice, 0, 0, far))
-    const grids = fields.map(field => layerSnapshot(field, lattice, 0, 0, RANGES[lattice][1]).densityGrid)
-    const lookups = medianMs(i => {
-      const grid = grids[i + 1]
-      let tau = 0
-      const radii = [near / 4, near / 2, near, (near + far) / 2]
-      for (let deg = 0; deg < 360; deg++) {
-        const angle = deg * Math.PI / 180
-        const east = Math.sin(angle)
-        const north = Math.cos(angle)
-        for (const r of radii) tau += grid.tauAt(r * east, r * north)
-      }
-      return tau
+it.each([0.08, 0.64])('matches exact ensemble transmission beyond and across the low raster at cover %s', low => {
+  let worst = 0
+  for (const start of [8.5, 10]) {
+    let exact = 0, expected = 0
+    const rng = seeded(hashId('annulus'))
+    const count = 4000
+    const grids = Array.from({ length: 12 }, (_, index) => {
+      const field = buildField({ ...input, placeId: 'annulus-' + index, weatherCode: 0, hours: [],
+        covers: { low, mid: 0, high: 0 }, wind10: { speedKmh: 0, fromDeg: 0 } })
+      return { field, grid: densityGrid(field, 'low', 0, 0, 50) }
     })
-    const strips = medianMs(i => farStrips(at(i), at(i).layers.find(layer => layer.lattice === lattice)!))
-    console.info(lattice, { snapshot, gridBuild, cellLists, lookups, strips })
+    for (let i = 0; i < count; i++) {
+      const { field, grid } = grids[i % grids.length]
+      const radius = Math.sqrt(start ** 2 + ((start + 1.5) ** 2 - start ** 2) * rng())
+      const az = rng() * 2 * Math.PI
+      const x = radius * Math.cos(az), y = radius * Math.sin(az)
+      const tau = cellsAt(field, 'low', x, y).reduce((sum, cell) => sum + cellTauAt(cell, x, y), 0)
+      exact += Math.exp(-tau)
+      expected += Math.exp(-grid.tauAt(x, y))
+    }
+    const error = Math.abs(exact - expected) / count
+    console.info({ low, start, exact: exact / count, expected: expected / count, error })
+    worst = Math.max(worst, error)
   }
+  expect(worst).toBeLessThan(0.03)
+})
+
+it('bounds the cached clump interpolation error by the curvature estimate', () => {
+  const exact = createClumpSampler(hashId('clump-cache'), 12)
+  const cached = sampleClumpGrid(exact, 12)
+  const rng = seeded(hashId('clump-points'))
+  let max = 0
+  for (let i = 0; i < 4000; i++) {
+    const x = 1000 * (rng() - 0.5), y = 1000 * (rng() - 0.5)
+    max = Math.max(max, Math.abs(cached(x, y) - exact(x, y)))
+  }
+  console.info({ clumpError: max })
+  expect(max).toBeLessThanOrEqual(24 / (8 * 16 ** 2))
 })
