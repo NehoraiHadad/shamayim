@@ -840,3 +840,19 @@ Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-
   Codex gpt-6.2-sol briefs 1 and 2 (Neon out of quota); Opus subagent reviewed round 1 and the final diff
 - [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
       model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines
+
+## Polish track F — the fog band over the land (owner report) — 2026-11-22 (branch `claude/modest-jennings-b32480`)
+Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weather=damp`, `-no-<id>` = layer hidden).
+- [x] Evidence: in the fixture (RH 60 %, 30 km all day) mistiness is 0 and no mist layer exists; the sky haze band (alpha
+      0.12) moves ≤ 1 luma level when hidden. The pale slab at shadmot-mehola 11:30 is `plane.far` (Gilead, 9–21 km)
+      at Koschmieder haze for 30 km (correct), with `cloudShadow.far` laying a horizontal dark smear across its lower
+      half (handed to track D). With damp air (`?weather=damp`) the valley mist lay over the ridge line all day: the bug.
+- [x] Root rule: `world.air.mist` (`src/world/mist.ts`): radiation mist (RH 84–99 % or data visibility, calm < 3–7 m/s)
+      burns off with the sun (2–26°) and the warming over the 12 h minimum (+0.5–4.5 °C); daytime mist persists only for
+      data visibility ≤ 6 km, rain, or a low stratus deck with RH ≥ 85 %. Never in dust. Scene mist in `scene/model/mist.ts`.
+- [x] Tests: `src/world/mist.test.ts` (burn-off, wind, persistence, dust, humidity-derived visibility, night minimum),
+      `src/scene/model/mist.test.ts` (dawn mist, none at noon); `weather.test.ts` damp case updated (dawn only).
+- [x] Tooling: stills moment field 6 hides layers (`place@HH:MM@weather@phase@land@ids`), harness `?hide=`, `damp` preset.
+- Who wrote what: Claude (Opus 5.5) diagnosis, evidence, brief, verification; Gemini 4 Neon (agy) the rule and tests;
+  Codex gpt-6.2-sol review.
+- [ ] Follow-up (track D): cloud shadows on the far ridge read as horizontal bands.
