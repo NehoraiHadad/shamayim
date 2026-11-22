@@ -2693,7 +2693,8 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      `6ca2e54` kept every control within 30% of its revision median. Land scrub p95 in ms (median and
      range) was 4.30 [4.20–4.60] to 2.95 [2.40–3.50] in Haifa, 2.60 [2.10–3.60] to 3.20 [2.40–3.90]
      in Tel Aviv, and 3.55 [2.50–4.00] to 3.45 [2.60–6.00] in Shadmot Mehola. The Shadmot Worker step
-     p95 was 58.20 [47.90–62.90] to 83.65 [77.30–97.50] ms (1.44×).
+     p95 was 58.20 [47.90–62.90] to 83.65 [77.30–97.50] ms, or 1.44× by the medians.
+     Three of the four individual Shadmot pairs exceeded 1.5× (paired ratios 1.63×, 1.69×, 1.23×, 1.52×).
    - The relative performance gate stays open. Shadmot land animation p95 was 2.75 [2.30–3.20] to
      4.75 [3.90–5.00] ms with two shaded planes and a shaded gust canopy in the thunder fixture.
      First fresh canopy rose 14.5%, Haifa's first canvas paint rose 21.9%, and cold model time rose
