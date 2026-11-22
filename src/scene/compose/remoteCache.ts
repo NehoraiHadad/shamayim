@@ -9,8 +9,8 @@ import { collectParts } from './remoteReceipt'
 
 export type { WorkerLike } from './paintQueue'
 
-/** The oldest job's wait, worker paint time, and whether more work is queued. */
-export interface Arrival { latency: number; workerMs: number; settled: boolean }
+/** An arrival's oldest wait, Worker paint time, completion status and effect on the visible cache. */
+export interface Arrival { latency: number; workerMs: number; settled: boolean; changed: boolean }
 
 export interface RemoteOptions {
   worker: WorkerLike
@@ -94,9 +94,10 @@ export class RemoteCache {
     }
     const { arrived, workerMs } = collectParts(reply.results, this.entries, batch.requestOf)
     this.stagedWorkerMs += workerMs
+    let changed = false
     for (const [entry, { request, parts }] of arrived) {
       const whole = stage(entry, request, parts)
-      if (whole) accept(entry, request, whole)
+      if (whole && accept(entry, request, whole)) changed = true
       // Promotion can replace a form that the queued light planned to reuse.
       this.ask(entry)
     }
@@ -106,7 +107,7 @@ export class RemoteCache {
     if (arrived.size) {
       const workerMs = this.stagedWorkerMs
       this.stagedWorkerMs = 0
-      this.options.onArrive({ latency, workerMs, settled })
+      this.options.onArrive({ latency, workerMs, settled, changed })
     } else if (settled) this.stagedWorkerMs = 0
     this.queue.resolveIfSettled()
   }

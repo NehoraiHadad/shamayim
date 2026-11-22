@@ -66,7 +66,7 @@ export class Surface {
       this.remote = new RemoteCache({ worker, painters: options.painters, hand: options.hand, now: this.now,
         onArrive: (arrival) => {
           const start = this.now()
-          this.composite(this.last, this.phase, this.still)
+          if (arrival.changed) this.composite(this.last, this.phase, this.still)
           this.onArrive?.({ ...arrival, ms: this.now() - start })
         },
         onFail: () => {

@@ -59,8 +59,9 @@ const painters = () => ({ form: () => {}, light: () => {} })
 describe('bounded strip scheduling in RemoteCache', () => {
   it('keeps both old bitmaps through a light change and retires them together', () => {
     const worker = fakeWorker()
+    const arrivals: boolean[] = []
     const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
-      onArrive: () => {}, onFail: () => {} })
+      onArrive: ({ changed }) => arrivals.push(changed), onFail: () => {} })
     const cloudShadow = { plane: 'near', open: 1, blobs: [], from: 0, speed: 0,
       beamOverSky: 2, skyDisplay: 0.05, hazeShare: 0.1, hazeY: 0.2 } as const
     const first = { ...plane('terrain', 'old'), cloudShadow: { ...cloudShadow, blobs: [] } }
@@ -72,7 +73,11 @@ describe('bounded strip scheduling in RemoteCache', () => {
     worker.answer()
     const held = cache.peek(first.id)!
     expect(held.shade).toBeTruthy()
+    cache.update({ ...first, light: { ...first.light, key: 'superseded' } }, 2)
+    cache.flush()
     cache.update(next, 2)
+    worker.answer()
+    expect(arrivals.at(-1)).toBe(false)
     cache.flush()
     expect(cache.peek(first.id)).toMatchObject({ light: held.light, shade: held.shade, lightDesc: first })
     worker.answer()
