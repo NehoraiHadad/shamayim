@@ -187,10 +187,15 @@ def is_one_minute(st: dict) -> bool:
 
 
 def build_tasks(stations: list[dict], only: set[int] | None, this_year: int,
-                refresh_current: bool) -> tuple[list[tuple], int]:
+                refresh_current: bool, channels: set[str] | None = None,
+                from_year: int | None = None) -> tuple[list[tuple], int]:
     tasks, cached = [], 0
     for channel in TEMP_CHANNELS + OTHER_CHANNELS:
+        if channels and channel not in channels:
+            continue
         start = TEMP_START_YEAR if channel in TEMP_CHANNELS else OTHER_START_YEAR
+        if from_year:
+            start = max(start, from_year)
         for st in stations:
             sid = st["stationId"]
             if is_one_minute(st) or (only and sid not in only):
@@ -216,6 +221,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--stations", type=int, nargs="*", help="only these station ids")
     ap.add_argument("--workers", type=int, default=MAX_WORKERS)
+    ap.add_argument("--channels", nargs="*", help="only these channels, e.g. WS WSmax Rain")
+    ap.add_argument("--from-year", type=int, help="skip years before this one")
     ap.add_argument("--refresh-current", action="store_true",
                     help="re-download the (incomplete) current year")
     ap.add_argument("--refresh-stations", action="store_true",
@@ -231,7 +238,8 @@ def main() -> int:
     stations = load_stations(token, args.refresh_stations)
     this_year = dt.date.today().year
     tasks, cached = build_tasks(stations, set(args.stations or []) or None,
-                                this_year, args.refresh_current)
+                                this_year, args.refresh_current, set(args.channels or []) or None,
+                                args.from_year)
     log(f"{len(tasks)} requests to do, {cached} already cached, {workers} workers")
 
     thr = Throttle()
