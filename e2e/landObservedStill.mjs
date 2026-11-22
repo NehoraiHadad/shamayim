@@ -6,6 +6,31 @@ import { interceptLandPerf } from './landPerfRoutes.mjs'
 
 const SHADMOT = { id: 'shadmot-mehola', nameHe: 'שדמות מחולה', regionHe: 'בקעת הירדן', lat: 32.3465, lon: 35.5325, timezone: 'Asia/Jerusalem' }
 
+const FIXTURE_PROVENANCE = {
+  s2: {
+    mode: 'tiled-crop-reconstruction',
+    source: 'src/test/fixtures/land-s2-shadmot.json',
+    item: 'S2B_36SYA_20261115_0_L2A',
+    date: '2026-11-15',
+    crop: '11x11',
+    servedAs: '256x256 40 m UTM 36N GeoTIFFs',
+  },
+  gibsNdvi: {
+    mode: 'tiled-crop-reconstruction',
+    source: 'src/test/fixtures/land-gibs-ndvi.json',
+    crop: '16x16',
+    servedAs: '256x256 indexed PNG repeated at every requested tile address',
+  },
+  gibsSr: {
+    mode: 'exact-recorded-tile',
+    source: 'src/test/fixtures/land-gibs-sr-2026-11-01.jpg',
+    tile: '8/103/153',
+    date: '2026-11-01',
+    otherTiles: '404',
+  },
+  note: 'Sentinel-2 and GIBS NDVI are tiled reconstructions of recorded crops (NDVI repeated across tile addresses), verifying fixture-backed selection and refinement rather than geographic accuracy; GIBS SR is the exact recorded 8/103/153 tile.',
+}
+
 async function readSources(page) {
   return page.evaluate(() => {
     const l = window.__world.land
@@ -66,7 +91,7 @@ export async function captureObservedPair(browser, serverUrl, outDir) {
     const refinedPng = await page.screenshot({ clip, animations: 'disabled' })
     if (Buffer.compare(fallbackPng, refinedPng) === 0) throw new Error('observed refined still is pixel-identical to fallback')
     await fs.writeFile(path.join(dir, 'shadmot-refined.png'), refinedPng)
-    const meta = { place: 'shadmot-mehola', at: '2026-11-17T12:00+02:00', clip, fallback: fallbackSrc, refined: refinedSrc }
+    const meta = { place: 'shadmot-mehola', at: '2026-11-17T12:00+02:00', clip, fixtures: FIXTURE_PROVENANCE, fallback: fallbackSrc, refined: refinedSrc }
     await fs.writeFile(path.join(dir, 'sources.json'), JSON.stringify(meta, null, 2) + '\n')
     await buildObservedSheet(page, outDir, fallbackPng, refinedPng, meta)
     console.log('captured observed fallback -> refined pair', JSON.stringify({ fallback: fallbackSrc, refined: refinedSrc }))
@@ -87,19 +112,20 @@ async function buildObservedSheet(page, outDir, fallbackPng, refinedPng, meta) {
       })
       const [fb, rf] = await Promise.all([load(fbB64), load(rfB64)])
       const cropY = Math.max(0, fb.height - 190), w = fb.width, h = fb.height - cropY
-      const gap = 12, head = 52, colCap = 48
+      const gap = 12, head = 64, colCap = 48
       const canvas = document.createElement('canvas')
       canvas.width = 2 * w + 3 * gap
       canvas.height = head + colCap + h + gap
       const ctx = canvas.getContext('2d')
       ctx.fillStyle = '#f2efe8'; ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = '#1f2328'; ctx.font = 'bold 16px sans-serif'
-      ctx.fillText('Observed satellite refinement — Shadmot Mehola (2026-11-17, 12:00)', gap, 22)
-      ctx.fillStyle = '#57606a'; ctx.font = '12px sans-serif'
-      ctx.fillText('offline recorded S2 (2026-11-15) + GIBS NDVI (2026-11-15) + GIBS SR (2026-11-01) · real App mount, 375 px each', gap, 40)
+      ctx.fillStyle = '#1f2328'; ctx.font = 'bold 15px sans-serif'
+      ctx.fillText('Observed satellite refinement (fixture-backed) — Shadmot Mehola (2026-11-17, 12:00)', gap, 21)
+      ctx.fillStyle = '#57606a'; ctx.font = '11px sans-serif'
+      ctx.fillText('reconstructed S2 (11×11 crop tiled, 2026-11-15) + reconstructed GIBS NDVI (16×16 crop repeated across tile addresses)', gap, 38)
+      ctx.fillText('exact recorded GIBS SR tile 8/103/153 (2026-11-01; 404 elsewhere) · verifies pipeline selection, not geographic accuracy · 375 px', gap, 53)
       const cols = [
         { tag: 'FALLBACK (climatology)', color: '#6e7781', img: fb, src: meta.fallback },
-        { tag: 'REFINED (observed S2 + GIBS)', color: '#1a5d2e', img: rf, src: meta.refined },
+        { tag: 'REFINED (reconstructed S2/NDVI + exact GIBS SR)', color: '#1a5d2e', img: rf, src: meta.refined },
       ]
       cols.forEach((col, i) => {
         const x = gap + i * (w + gap)

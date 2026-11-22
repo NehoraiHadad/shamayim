@@ -2493,8 +2493,10 @@ gated by Claude Code).
      bundled local 50 m tiles (`public/data/land/il/`) for ±6 km and a bundled regional 0.01° (~1 km) overview
      `public/data/land/il/coarse.json` (`28.8–33.4° N, 34.0–36.8° E`, built by `scripts/land/buildCoarse.ts`) as the fast
      path where the ±60 km footprint is covered or intersects; outside that regional box (or where it only partially covers
-     the footprint), `loadFootprintLandCoverResult` serves any persisted cached cover immediately and fetches remote ESA
-     WorldCover COGs via Planetary Computer SAS (`worldCoverCog.ts`), caching the 1 km mosaic in IndexedDB.
+     the footprint), `loadFootprintLandCoverResult` serves any persisted cached cover immediately and returns without a
+     remote request when a fresh persisted mosaic already covers the footprint (`landData.ts`); only on a cache miss,
+     incomplete coverage or stale/expired refresh does it fetch remote ESA WorldCover COGs via Planetary Computer SAS
+     (`worldCoverCog.ts`), caching the 1 km mosaic in IndexedDB.
    - *Fallback:* climatology by Köppen–Geiger class (0.5° table generated from Beck et al. 2018 by
      `scripts/land/buildKoppen.ts`, checksum pinned), month and cover class (`climatology.ts`).
    - *Cache:* IndexedDB `shamayim-land-v1` (`landCache.ts`), with per-source fresh TTLs and hard stale caps (evicted past
@@ -2553,16 +2555,18 @@ gated by Claude Code).
      in CSS pixels per second (`widthScale = box.width / SCENE_W`, `350` m near floor), with a weaker far veil
      (`0.26` vs `0.75` near alpha).
    - *Animation & per-frame cost:* windy canopies bake 10 poses (`LAND_GUST`, 5 fps over 2 s) once per key in the
-     paint worker (or lazily per frame on the main thread); `RemoteCache.flush()` sends single-frame terrain/static
-     layers ahead of multi-frame strips in a separate batch (`PRIORITY.canopy = 3` after `plane = 2` on the main thread)
-     so animated canopies do not block first terrain paint; `compositeOrder` interleaves `plane:form → canopy:form →
-     plane:light → canopy:light` so terrain light washes over crowns and crown catchlights stay above. `plane` form
-     keys never depend on wind or hour. Active playback costs 1–2 strip blits per canopy plus 1 pattern fill per dust
-     ribbon (`0` paint batches during playback). Across 3 repeat runs of `node e2e/land.wind.mjs --perf` (CPU ×4,
-     DPR 2.75, **exit 1** on all 3 repeats against the runner's strict `4.00` ms sum-of-p95 cap): `rosh-pina` sum p95
-     median `3.20` ms (`3.10–5.60` ms, PASS 2/3, `23.8` MB), `kalya` median `4.00` ms (`3.20–7.40` ms, PASS 2/3, `17.4`
-     MB), `ramon-crater` dust playback median `5.00` ms (`4.40–7.10` ms, FAIL 3/3; `land p95` `2.30–3.40` ms vs Stage 5's
-     `2.30` ms while `sky p95` varied `2.10–3.70` ms, `10.6` MB).
+     paint worker (or lazily per frame on the main thread); `RemoteCache` + `RemoteQueue` (`remoteQueue.ts`,
+     `paintWorkerRun.ts`) dispatch single-frame terrain/static layers and scrub light ahead of multi-frame strips and
+     split each strip across bounded 2-pose chunks (`STRIP_CHUNK_FRAMES = 2`, transferring one complete `ImageBitmap`
+     on the final chunk; `PRIORITY.canopy = 3` after `plane = 2` on the main thread) so newly arriving terrain or light
+     updates preempt after at most one short chunk and superseded strip keys cancel immediately. `compositeOrder`
+     interleaves `plane:form → canopy:form → plane:light → canopy:light` so terrain light washes over crowns and crown
+     catchlights stay above. `plane` form keys never depend on wind or hour. Active playback costs 1–2 strip blits per
+     canopy plus 1 pattern fill per dust ribbon (`0` paint batches during playback). Across 3 repeat runs of
+     `node e2e/land.wind.mjs --perf` (CPU ×4, DPR 2.75, **exit 1** on all 3 repeats against the runner's strict `4.00`
+     ms sum-of-p95 cap): `rosh-pina` sum p95 median `3.20` ms (`3.10–5.60` ms, PASS 2/3, `23.8` MB), `kalya` median
+     `4.00` ms (`3.20–7.40` ms, PASS 2/3, `17.4` MB), `ramon-crater` dust playback median `5.00` ms (`4.40–7.10` ms,
+     FAIL 3/3; `land p95` `2.30–3.40` ms vs Stage 5's `2.30` ms while `sky p95` varied `2.10–3.70` ms, `10.6` MB).
 
 *Final stills, checks and limits (stage 6):* Final before (`origin/main`) vs after (`land-living`) stills at 375 px live
 in `docs/design/qa/canvas/land/final/` (captured offline by `e2e/land.final.mjs` + `e2e/landObservedStill.mjs`, alongside
@@ -2575,13 +2579,17 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   (all albedo and NDVI samples resolve to `climatology`).
 - *Observed satellite refinement pair* (`observed/shadmot-{fallback,refined}.png`, `observed/sources.json`,
   `sheet-observed.png`): matched offline fallback → refined capture on the real App mount at Shadmot Mehola
-  (`2026-11-17T12:00+02:00`) using the recorded Sentinel-2 (`2026-11-15`), GIBS NDVI (`2026-11-15`) and GIBS SR
-  (`2026-11-01`) fixtures. Resolved sources: *fallback* — near, far 20 km and far 55 km all `climatology` (cover
-  `worldcover-2021:local-50m` / `regional-1km`); *refined* — near `albedo = s2:2026-11-15+climatology`,
-  `ndvi = gibs:2026-11-15+climatology`; far 20 km `albedo = gibs:2026-11-01+climatology`, `ndvi = gibs:2026-11-15+climatology`;
-  far 55 km (missing GIBS SR tile) `albedo = s2-mean:2026-11-15+climatology`, `ndvi = gibs:2026-11-15+climatology`.
-- *Final checks:* `npx tsc -b` (0 errors), `npx vitest run --maxWorkers=2 --testTimeout=20000` (152 files / 1,347 tests),
-  `worker` (`npm run typecheck && npm test`: 6 files / 51 tests), `npm run lint` (0 errors), `npm run build` (483
+  (`2026-11-17T12:00+02:00`) using fixture-backed Sentinel-2 (`2026-11-15`), GIBS NDVI (`2026-11-15`) and GIBS SR
+  (`2026-11-01`) inputs. Provenance (`sources.json`): Sentinel-2 (`11×11` crop tiled to `256×256` 40 m UTM 36N GeoTIFFs)
+  and GIBS NDVI (`16×16` indexed-palette crop tiled to `256×256` PNG and repeated at every requested tile address) are
+  tiled reconstructions of recorded crops — verifying fixture-backed source selection and refinement plumbing rather than
+  geographic accuracy — whereas GIBS SR (`2026-11-01`) is the exact recorded `8/103/153` JPEG tile (`404` elsewhere).
+  Resolved sources: *fallback* — near, far 20 km and far 55 km all `climatology` (cover `worldcover-2021:local-50m` /
+  `regional-1km`); *refined* — near `albedo = s2:2026-11-15+climatology`, `ndvi = gibs:2026-11-15+climatology`; far 20 km
+  `albedo = gibs:2026-11-01+climatology`, `ndvi = gibs:2026-11-15+climatology`; far 55 km (missing GIBS SR tile)
+  `albedo = s2-mean:2026-11-15+climatology`, `ndvi = gibs:2026-11-15+climatology`.
+- *Final checks:* `npx tsc -b` (0 errors), `npx vitest run --maxWorkers=2 --testTimeout=20000` (153 files / 1,350 tests),
+  `worker` (`npm run typecheck && npm test`: 6 files / 51 tests), `npm run lint` (0 errors), `npm run build` (484
   modules), `npm run test:pixels` (69/69; 0 references changed in stage 6). Browser performance runners on this Windows
   host (CPU ×4, DPR 2.75): `npm run test:perf` **exited 1** (17/27 gates passed; App living-land fixture passed with 6
   unique fine tiles, 0 duplicates, missing-tile `s2-mean+climatology` fallback and 30/30 scrubs reusing `world.land` and
@@ -2594,15 +2602,16 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   refinement `977.9 → 629.5` ms; scrub `254.8 → 252.5` ms). With an **animated canopy** (`e2e/land.perf.mjs --windy`,
   dense tree cover, 58/86 km/h westerly, motion on), unpatched `HEAD` held terrain behind 10-frame canopy strips in the
   same worker batch (`firstFallbackPaint` `8435 / 7676 / 11180` ms, `refinement` `5709 / 5493 / 6629` ms vs Stage 4
-  `2844 / 3963 / 3878` ms). Splitting single-frame layers ahead of multi-frame strips in `RemoteCache.flush()` lets
-  terrain composite `199–294` ms ahead of the animated canopy (`firstFallbackPaint` median `4895.9` vs Stage 4 `4243.2`
-  ms; `firstCanopy` median `5095.0` ms); when back-to-back updates arrive (S2 then GIBS, or rapid windy scrubbing), the
-  second terrain batch can still wait behind the first update's in-flight 10-frame canopy strip (`refinement`
-  `4834.6 / 2045.6 / 5029.2` ms vs Stage 4 `2312.3 / 2157.7 / 2177.7` ms, `refCanopy` +189–410 ms; scrub p50 `328–622`
-  vs `294–402` ms).
+  `2844 / 3963 / 3878` ms). With single-frame prioritization plus 2-pose chunked strip scheduling (`RemoteQueue` +
+  `makeWorkerRunner`), matched 3-pair alternating preview runs using **identical terrain-milestone triggers** on both
+  revisions (`e2e/landPerfMeasure.mjs`, passive canopy timestamping) show zero residual delay: `firstFallbackPaint`
+  `12,400.6 / 12,979.8 / 18,865.6` ms (median `12,979.8` ms) vs Stage 4 `9,455.2 / 16,157.1 / 13,340.0` ms (median
+  `13,340.0` ms, −2.7%), `refinement` `6,795.0 / 5,541.6 / 8,696.4` ms (median `6,795.0` ms) vs Stage 4
+  `4,789.0 / 6,860.1 / 7,532.5` ms (median `6,860.1` ms, −0.9%; passive `refCanopy` `5,452.5–9,201.5` ms), and
+  `sameDayScrubLight` p50 `856.2 / 1,236.8 / 1,449.4` ms (median `1,236.8` ms) vs Stage 4 `691.7 / 1,919.8 / 1,722.2` ms
+  (median `1,722.2` ms, −28.2%).
 - *Known limits:* recent-weather dryness stays on climatology until Worker deploy item 7 (`/v1/land-weather`) is live and
   `ASK_LAND_WEATHER` is flipped to `true`; residual cold `sceneModel` cost at crop-dense places (Nahalal ~15.6 ms
-  unthrottled), single-worker 10-pose animated canopy strip baking during rapid back-to-back updates, Ramon Crater dust
-  playback over the strict 4.00 ms sum-of-p95 budget, and host-baseline browser overruns carry into app-wide performance
-  work; mapped orchards/palms outside Israel rely on OSM crop polygons where present (coarse woodland, cropland, scrub
-  and bare ground work globally via WorldCover + Köppen–Geiger climatology).
+  unthrottled), Ramon Crater dust playback over the strict 4.00 ms sum-of-p95 budget, and host-baseline browser overruns
+  carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
+  (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
