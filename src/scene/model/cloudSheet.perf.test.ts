@@ -26,6 +26,9 @@ function elapsed(run: () => ReturnType<typeof sceneModel>) {
   return { ms: performance.now() - start, model }
 }
 
+/** Warm redraws per minute and variant: the fastest stands for the work, the rest for the runner's noise. */
+const WARM_REPS = 7
+
 const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
 
 function rasterBuildMs(field: CloudField, previous: boolean) {
@@ -59,8 +62,13 @@ it.each(ids)('measures new-minute sheet overhead on the recorded %s panorama', i
     const secondCold = elapsed(second)
     const cold = withFirst ? firstCold : secondCold
     const coldBaseline = withFirst ? secondCold : firstCold
-    const secondWarm = elapsed(second).ms
-    const firstWarm = elapsed(first).ms
+    // Warm redraws, interleaved, the fastest of each: one sample apiece put a runner's GC pause or a busy neighbour into
+    // the difference of two ~5 ms frames (haifa read 0.30 on CI three times and 0.01–0.11 locally, on the same code).
+    let firstWarm = Infinity, secondWarm = Infinity
+    for (let rep = 0; rep < WARM_REPS; rep++) {
+      secondWarm = Math.min(secondWarm, elapsed(second).ms)
+      firstWarm = Math.min(firstWarm, elapsed(first).ms)
+    }
     const baseline = withFirst ? secondWarm : firstWarm
     const model = withFirst ? firstWarm : secondWarm
     expect(cold.model.layers.filter(layer => layer.kind === 'cloudSheet')).toHaveLength(3)
