@@ -27,7 +27,7 @@ const CLEAR: Partial<AirInput> = { cloudCover: 0, thickCloud: 0, precipitation: 
 const CIRRUS: Partial<AirInput> = { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 }
 const CIRRUS_LAYERS = { low: 0, mid: 0, high: 0.75 }
 const SHOWERS: Partial<AirInput> = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,
-  windDirection: 250, humidity: 80 }
+  windDirection: 250, humidity: 80, visibilityKm: 30 }
 
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {

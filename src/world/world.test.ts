@@ -150,10 +150,11 @@ describe('light', () => {
 
 describe('air', () => {
   it('fades far land faster in thicker air', () => {
-    const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 40000 } } })
-    const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 5000 } } })
+    const base = forecastFrom(live, 'jerusalem')
+    const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...base,
+      current: { ...base.current, time: '2026-11-17T12:00', visibility: 40000 } } })
+    const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...base,
+      current: { ...base.current, time: '2026-11-17T12:00', visibility: 5000 } } })
     expect(thick.air.visibilityKm).toBe(5)
     expect(thick.air.fade(10)).toBeGreaterThan(clear.air.fade(10))
     for (const world of [clear, thick]) {

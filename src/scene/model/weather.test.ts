@@ -166,9 +166,9 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
         expect(l.animated?.mode).toBe('drift')
         if (Math.abs(fog.wind.across) > 0.05) expect(Math.sign(l.animated!.speed!)).toBe(Math.sign(fog.wind.across))
       }
-      // Damp but clear: the valley only.
+      // Damp but clear: valley mist at dawn, burned off by noon.
       const damp = world(id, hour, { ...BROKEN, humidity: 96, visibilityKm: 12 })
-      expect(ofKind(sceneModel(damp, BOX), 'mist').map((l) => l.id)).toEqual(['mist.valley'])
+      expect(ofKind(sceneModel(damp, BOX), 'mist').map((l) => l.id)).toEqual(hour === '06:20' ? ['mist.valley'] : [])
     }
   })
 

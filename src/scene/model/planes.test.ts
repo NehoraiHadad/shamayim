@@ -175,7 +175,7 @@ describe('planes: the air, the ground and the light', () => {
     const shadows = ['shadmot-mehola', 'rosh-pina', 'tiberias'].flatMap(id => {
       const input = worldInput(loaded.get(id)!, at('08:00'))
       return ['08:00', '15:00'].map(hour => buildWorld({ ...input, selected: at(hour),
-        forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0, precipitation: 0 },
+        forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0, precipitation: 0, visibilityKm: 30 },
         forcedLayers: { low: 0, mid: 0, high: 0 } }))
     }).filter(w => w.light.source === 'sun').map(w => near(sceneModel(w, BOX)).light.faces)
     expect(shadows.some((faces) => faces.length > 0)).toBe(true)

@@ -6,11 +6,14 @@ import { SCENE_W } from '../../world/sceneBox'
 import type { CloudBank, RainCell, WorldState } from '../../world/types'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
-import { coinOf, coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
+import { coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
+import { mistLayers } from './mist'
 import { rayLayersOf } from './rays'
 import { mixRgb } from './tone'
-import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, MistBandDesc, MistPuff, Plume, Precip, Pt, RGB, SceneBox, Sheen,
+import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, Plume, Precip, Pt, RGB, SceneBox, Sheen,
   ShaftDesc } from './types'
+
+export { mistiness, mistLayers } from './mist'
 
 /*
  * The weather (stage C7, docs/design/CANVAS-SCENE-PLAN.md §4), from the one world state:
@@ -20,7 +23,7 @@ import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, MistBandDesc, MistPuf
  *   layer that makes them. When none of those banks is in view, a heavy bank with its curtain stands cut by the frame's
  *   edge on the side the rain truly lies (the true-scene plan's edge mark);
  * - the ground's sheen after rain (`world.ground.wet`), the darkening being the planes' own (C2);
- * - mist and fog lying level in the low ground, the valleys first, from the humidity and the visibility;
+ * - mist and fog lying level in the low ground, the valleys first, from `world.air.mist` (`mist.ts`);
  * - dust in the wind (`air.dust`), wind streaks in a gale;
  * - crepuscular rays from a low sun behind broken cloud;
  * - chimney smoke and cooling-tower steam from the marks that have them, carried by the wind.
@@ -242,75 +245,6 @@ function crestAt(points: readonly Pt[], x: number): number {
   const [x0, y0] = points[i - 1], [x1, y1] = points[i]
   const t = x1 === x0 ? 0 : clamp01((x - x0) / (x1 - x0))
   return y0 + (y1 - y0) * t
-}
-
-const median = (v: number[]) => {
-  const s = [...v].sort((a, b) => a - b)
-  return s.length ? s[Math.floor(s.length / 2)] : 0
-}
-
-/** How misty the air is (0–1): a damp air near saturation, or a visibility down to a few km (fog), never in dust. */
-export function mistiness(world: WorldState): number {
-  if (world.air.dust) return 0
-  const damp = smoothstep(84, 99, world.air.humidity ?? 0)
-  const fog = smoothstep(10, 1.5, world.air.visibilityKm)
-  return Math.max(damp * (0.5 + 0.5 * smoothstep(20, 6, world.air.visibilityKm)), fog)
-}
-
-/** Seeded puffs along a band's top, wrapping round the tile. */
-function puffsOf(seed: string, w: number, top: number, depth: number, n: number): MistPuff[] {
-  const r = seeded(hashId(seed))
-  return Array.from({ length: n }, (_, i) => {
-    const rx = 14 + 26 * r()
-    return { x: ((i + 0.5 * r()) / n) * w, y: top + depth * (0.15 + 0.6 * r()), rx, ry: 2.5 + 4 * r(), alpha: 0.35 + 0.5 * r() }
-  })
-}
-
-/**
- * Mist and fog (land): lying level in the low ground, the valleys first. A damp air or a short visibility fills the
- * valley between the near ridge and the far one (a level lake of mist whose top rises with the mistiness, over the far
- * plane and its towns, behind the near ridge); thicker, a ground fog rises over the near ridge's foot too. Each a tile
- * that drifts slowly with the wind at the ground.
- */
-export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] {
-  const m = mistiness(world)
-  if (m < 0.08) return []
-  const sx = box.width / SCENE_W
-  const xs = Array.from({ length: 16 }, (_, i) => (i + 0.5) * (SCENE_W / 16))
-  const nearMed = median(xs.map((x) => crestAt(world.terrain.near.points, x)))
-  const farMed = world.terrain.far.points.length ? median(xs.map((x) => crestAt(world.terrain.far.points, x))) : nearMed - 20
-  const dark = world.night.dark
-  const sky = skyAt(world, box)
-  const rgb = mixRgb(mixRgb(sky(3), hazeOf(world), 0.35), WHITE, 0.3 * (1 - dark) * (1 - 0.5 * coinOf(world)))
-  const period = whole(240, box.dpr)
-  const across = world.wind.across
-  const speed = (Math.abs(across) > 0.05 ? Math.sign(across) : 1) * (0.5 + 0.55 * world.wind.ms) * sx
-  const out: LayerOf<'mist'>[] = []
-  const add = (id: string, z: number, band: MistBandDesc) => {
-    const y0 = Math.max(0, Math.floor(band.top - 10)), y1 = Math.min(box.landHeight, Math.ceil(band.bottom))
-    if (y1 <= y0) return
-    out.push({ kind: 'mist', id, surface: 'land', z, soft: true, bands: [band],
-      bounds: { x: 0, y: y0, w: period, h: y1 - y0 },
-      animated: { mode: 'drift', speed, period },
-      key: layerKey(id, landBoxKey(box, true), period, y0, y1),
-      light: lightPart(layerKey(id, 'light', q(band.top, 0.5), q(band.fade, 0.5), q(band.bottom, 0.5), tone(band.rgb), q(band.alpha, 0.02),
-        band.puffs.length), band.rgb) })
-  }
-  // The valley's lake of mist: its top a few px over the near crest at first, rising toward the far crest.
-  const rise = Math.max(4, nearMed - farMed)
-  const top = nearMed - (5 + 0.75 * m * rise)
-  add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: 0.35 + 0.5 * m,
-    puffs: puffsOf(`${world.place.id}:mist.valley`, period, top - 4, 10, 9) })
-  // Ground fog over the near ridge's foot, when the visibility is down to a few km (a damp but clear air keeps to the
-  // valleys).
-  const fog = smoothstep(6, 1.5, world.air.visibilityKm)
-  if (fog > 0.3) {
-    const k = Math.min(1, (fog - 0.3) / 0.7)
-    const gTop = box.landHeight - (14 + k * (box.landHeight - nearMed) * 0.75)
-    add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: 0.2 + 0.4 * k,
-      puffs: puffsOf(`${world.place.id}:mist.ground`, period, gTop - 4, 12, 8) })
-  }
-  return out
 }
 
 /**
