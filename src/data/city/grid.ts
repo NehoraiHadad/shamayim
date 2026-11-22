@@ -56,3 +56,6 @@ export function decodeRuns(runs: Run[], stride: 2 | 3 = 2): Uint8Array {
   }
   return bytes
 }
+
+/** Stable source-square identity used by town support and landmark placement. */
+export const squareKey = ({ cell, col, row }: import('./types').Square) => `${cell}:${col}:${row}`

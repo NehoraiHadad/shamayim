@@ -1,0 +1,36 @@
+{
+  "place": {
+    "id": "il-31.6607-35.1415",
+    "usesOsm": false,
+    "nameHe": "אלעזר",
+    "regionHe": "",
+    "timezone": "Asia/Jerusalem",
+    "lat": 31.66073,
+    "lon": 35.14148,
+    "settlementType": "village",
+    "featureCode": "PPL"
+  },
+  "terrain": "flat",
+  "home": {
+    "left": 163.14406295056347,
+    "right": 231.4743049795864
+  },
+  "glyphs": [
+    {
+      "id": "il-synagogue-31.6603-35.14278",
+      "kind": "synagogue",
+      "x": 175.5,
+      "width": 11,
+      "height": 9.5,
+      "nonOwn": false,
+      "gapPx": -17.855937049436534,
+      "slidePx": 0,
+      "base": 96.69720795756724,
+      "trueHeightPx": 9.5,
+      "factor": 1,
+      "hazeKm": 5.973213686817526,
+      "trueDistanceKm": 5.973213686817526,
+      "town": false
+    }
+  ]
+}

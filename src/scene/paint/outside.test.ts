@@ -1,3 +1,4 @@
+import { OWN_GLYPH_EVIDENCE } from '../../test/glyphEvidence'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { addMinutes } from '../../domain/time'
 import { SCENE_PLACES } from '../../test/scenePlaces'
@@ -232,7 +233,7 @@ it('never extinguishes a lit box, tower or glyph window as the Jerusalem share r
     for (const kind of WINDOW_GLYPHS) {
       const windows = new Set<string>()
       for (let seed = 1; seed <= 8; seed++) {
-        const glyph: GlyphDesc = { kind, seed, hand: 1, x: 0, base: 0, w: GLYPH_SPECS[kind].w, h: 24, scale: 1, famous: false,
+        const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind, seed, hand: 1, x: 0, base: 0, w: GLYPH_SPECS[kind].w, h: 24, scale: 1, famous: false,
           tones: { ...layer.tiers[0], win: [1, .2, .01] } }
         for (const id of glyphWindows(glyph, layer.shine)) windows.add(id)
       }

@@ -1,3 +1,4 @@
+import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
 import { boundsForPlace, boundsHoldKm, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
 import { LON_STEP } from '../data/city/grid'
 import {
@@ -16,7 +17,7 @@ import type { Landmark } from '../data/landmarks/types'
 import { apparentAngle, LOCAL_REACH_KM, LOCAL_STEP_KM } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
-import { BEYOND_MIN_PX, beyondKm, beyondTowns, builtSquares, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
+import { beyondKm, beyondTowns, builtSquares, outsideDistance, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
 import { ridgeHeightAt } from './datum'
 import { VISIBLE_BOTTOM } from './layout'
 import { SCENE_H } from './sceneBox'
@@ -631,7 +632,7 @@ function landOf(input: OutsideInput, frame: OutsideFrame, samples: { dx: number;
  * projection as the place's rows, its height by the perspective at its depth (never nearer than the place's near edge:
  * beyond the place, never larger than the place's own at that edge), its haze by its distance from the place's near edge, with the outside view's levels of detail.
  */
-function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, look: OutsideLook, baseKm: number): BeyondTower[] {
+function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, baseKm: number): BeyondTower[] {
   const { place, city, width, landmarks, ground, floor } = input
   const raster = city?.raster
   if (!raster) return []
@@ -643,17 +644,14 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, l
   const ranked = outside.flatMap((tower) => {
     const at = outsideProject(frame, tower.dx, tower.dy)
     if (at.x < -4 || at.x > width + 4) return []
-    // Beyond the place, never nearer than its near edge: the perspective's px a metre no larger than there.
+    // Keep the existing shaft-width perspective and level-of-detail ranking.
     const k = Math.min(at.k, outsideProject(frame, 0, frame.n).k)
     const mark = fame.get(tower)
-    // Beyond the place, it is never more than the panorama truly sees of it over the land in front (from the eye, at its
-    // true bearing and distance, on the land's own scale, as the far towns are placed), and not there at all when the land
-    // hides it: never a post on a bare skyline that the eye could not see.
+    // The panorama supplies crest visibility. The outside eye supplies the tower's projected height below.
     const over = overTheCrest(input.terrain, tower.dx, tower.dy, tower.heightM)
-    if (over < BEYOND_MIN_PX) return []
-    const h = Math.min(look.px(tower.heightM, k), over)
+    if (over < MARK_MIN_PX) return []
     const km = beyondKm(frame, baseKm, tower.dx, tower.dy)
-    return [{ tower, at: { ...at, k }, h, km, famous: Boolean(mark), name: mark?.nameHe ?? tower.name,
+    return [{ tower, at: { ...at, k }, over, km, famous: Boolean(mark), name: mark?.nameHe ?? tower.name,
       seed: hashId(`${tower.lat.toFixed(5)}:${tower.lon.toFixed(5)}`) }]
   }).sort((a, b) => Number(b.famous) - Number(a.famous) || b.tower.heightM - a.tower.heightM)
   const glyphs = new Set(ranked.filter((t) => t.famous || t.tower.heightM >= GLYPH_M).slice(0, MAX_GLYPHS))
@@ -670,10 +668,12 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, l
       slots.set(slot, used + 1)
     }
     const w = (glyph ? GLYPH_W[t.tower.wClass] : SILHOUETTE_W[t.tower.wClass]) * Math.min(1, t.at.k / frame.k)
-    // On its own ground by the place's rule, but never above the ridge line in view (beyond the place, it stands on it).
+    // 1.2 CSS px gives 2.4 DPR-2 coverage; base follows ground and height stays terrain-clipped.
     const baseY = Math.max(ground(t.at.x) + 1, lieBaseY(lie, ground, t.at.x, t.at.near, floor, w, t.tower.dx, t.tower.dy))
+    const h = Math.min(t.over, apparentHeight(t.tower.heightM, outsideDistance(frame.eyeN, t.tower.dx, t.tower.dy), baseAngle(baseY, input.terrain.horizonY)))
+    if (h < MARK_MIN_PX) continue
     out.push({ x: t.at.x, baseY, w: Math.max(1.2, w),
-      h: Math.max(2, t.h), near: 0, heightM: t.tower.heightM, seed: t.seed, name: t.name, famous: t.famous,
+      h, near: 0, heightM: t.tower.heightM, seed: t.seed, name: t.name, famous: t.famous,
       lod: glyph ? 'glyph' : 'silhouette', crown: t.tower.heightM >= 180 ? 2 : (t.seed >>> 3) % 3 === 0 ? 1 : 0, km: t.km,
       dx: t.tower.dx, dy: t.tower.dy })
   }
@@ -861,10 +861,10 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
     const key = `${Math.round(at.x / (w * TREE_SLOT + .4))}:${Math.round(base / Math.max(1, w))}`
     if (slots.has(key)) return []
     slots.add(key)
-    return [{ x: at.x, base, w, h: Math.max(1, look.px(t.heightM, at.k)), near: at.near, kind: t.kind, seed: t.seed, km: rowKm(frame, baseKm, t.dy) }]
+    return [{ x: at.x, base, w, h: Math.max(1, look.px(t.heightM, at.k)), near: at.near, kind: t.kind, seed: t.seed, km: beyondKm(frame, baseKm, t.dx, t.dy) }]
   })
-  return { frame, skyline, bounds, topM, lie, beyond: beyondTowers(shaped, frame, lie, look, baseKm),
-    ...beyondTowns(shaped, frame, lie, look, baseKm), trees, fabric: fabric.source,
+  return { frame, skyline, bounds, topM, lie, beyond: beyondTowers(shaped, frame, lie, baseKm),
+    ...beyondTowns(shaped, frame, lie, baseKm), trees, fabric: fabric.source,
     sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land, vscale, nearLine,
     seaLevelY: vscale ? levelY(0, 0, 0) : null, zeroAlongRow: () => zeroAlongRow(terrain, frame, width) }
 }

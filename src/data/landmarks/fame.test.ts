@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Place } from '../../config/place'
 import { patchCell } from '../../../scripts/landmarks/fame'
 import { ICONS, withIcons } from './curated'
-import { fameOf, isLandmark, outranks } from './fame'
+import { fameOf, isFamousLandmark, isLandmark, outranks } from './fame'
 import type { Row } from './israelData'
 import { parseOverpass } from './overpass'
 import { score } from './rank'
@@ -48,6 +48,14 @@ describe('fame from OpenStreetMap links', () => {
     expect(isLandmark(at('m', { kind: 'mast', fame: 2 }))).toBe(false)
     expect(isLandmark(ICONS[0].mark)).toBe(true)
   })
+})
+
+it('reserves uncapped neighbour fame for named fame-2 structures or curated icons', () => {
+  expect(isFamousLandmark(at('known', { fame: 1, nameHe: 'Known tower' }))).toBe(false)
+  expect(isFamousLandmark(at('famous', { fame: 2, nameHe: 'Famous tower' }))).toBe(true)
+  expect(isFamousLandmark(at('unnamed', { fame: 2 }))).toBe(false)
+  expect(isFamousLandmark(at('field', { kind: 'orchard', fame: 2, nameHe: 'Field' }))).toBe(false)
+  expect(isFamousLandmark({ ...ICONS[0].mark, fame: undefined })).toBe(true)
 })
 
 describe('famous marks drawn with the generic glyph of their kind', () => {

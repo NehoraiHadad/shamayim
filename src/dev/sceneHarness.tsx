@@ -10,7 +10,7 @@ import { withPlaceHomes } from '../data/landmarks/placeMarks'
 import { loadLandmarkSource } from '../data/landmarks/useLandmarks'
 import { mapForecast } from '../data/openMeteo/mapForecast'
 import { forecastUrl } from '../data/openMeteo/request'
-import { unpackPanorama, type StoredPanorama } from '../data/terrain/panorama'
+import { type StoredPanorama } from '../data/terrain/panorama'
 import { terrainFromPanorama } from '../data/terrain/panoramaTerrain'
 import { waterAround } from '../data/water/waterInView'
 import { loadWaterMask } from '../data/water/waterMask'
@@ -25,12 +25,12 @@ import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { onSkyCanvas } from '../scene/paint/sky'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../test/scenePlaces'
 import { SCENE_H } from '../world/sceneBox'
 import type { WorldInput, WorldState } from '../world/types'
 import { withVisibleSun } from '../world/visibleSun'
 import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
+import { harnessPlace, fixturePanorama } from './sceneFixture'
 import { ARRIVAL } from '../scene/model/loading'
 import { WearCanvas } from '../scene/react/WearCanvas'
 import { isDarkPaper, sheetLight } from '../theme/sheetLight'
@@ -110,12 +110,11 @@ const win = window as HarnessWindow
 // Under reduced motion (the runners' stills) the harness lays every frame itself: no loop, not even the arrival's.
 win.__sceneStill = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
-// The glyph sheet (`glyphSheet.tsx`) loads its worlds the same way; a dev page, fast refresh does not matter.
 // oxlint-disable-next-line react/only-export-components
 export async function loadInput(place: Place, at: LocalTime, weather: string): Promise<WorldInput> {
   const signal = new AbortController().signal
   const stored = await panoramas[`../test/fixtures/scene/${place.id}.panorama.json`]?.()
-  const panorama = stored && unpackPanorama(stored)
+  const panorama = fixturePanorama(stored)
   if (!panorama) throw new Error(`no panorama fixture for ${place.id}`)
   const mask = await loadWaterMask()
   const terrain = terrainFromPanorama(panorama, { water: mask ? waterAround(place, mask) : undefined })
@@ -278,7 +277,7 @@ export function SceneHarness() {
   const [input, setInput] = useState<WorldInput | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(location.search)
-    const place = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES].find((p) => p.id === (params.get('place') ?? 'shadmot-mehola'))
+    const place = harnessPlace(params)
     const at = (params.get('at') ?? '2026-11-17T12:00') as LocalTime
     if (!place) { win.__sceneError = `unknown place ${params.get('place')}`; return }
     loadInput(place, at, params.get('weather') ?? '').then(setInput, (err: unknown) => {

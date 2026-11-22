@@ -1,0 +1,60 @@
+{
+  "place": {
+    "id": "il-31.6607-35.1415",
+    "usesOsm": false,
+    "nameHe": "אלעזר",
+    "regionHe": "",
+    "timezone": "Asia/Jerusalem",
+    "lat": 31.66073,
+    "lon": 35.14148,
+    "settlementType": "village",
+    "featureCode": "PPL"
+  },
+  "terrain": "flat",
+  "home": {
+    "left": 163.14406295056347,
+    "right": 231.4743049795864
+  },
+  "glyphs": [
+    {
+      "id": "il-minaret-31.65388-35.16033",
+      "kind": "minaret",
+      "x": 121.37654541800063,
+      "width": 1.0209672820123312,
+      "height": 1.2397459853006878,
+      "nonOwn": true,
+      "gapPx": 41.25703389155667,
+      "slidePx": 0
+    },
+    {
+      "id": "il-synagogue-31.65729-35.12548",
+      "kind": "synagogue",
+      "x": 250.08456860317438,
+      "width": 1.6167980981046544,
+      "height": 1.3963256301812925,
+      "nonOwn": true,
+      "gapPx": 17.801864574535642,
+      "slidePx": 0
+    },
+    {
+      "id": "il-synagogue-31.65685-35.15055",
+      "kind": "synagogue",
+      "x": 152.32261079764336,
+      "width": 1.6982828423035148,
+      "height": 1.4666988183530356,
+      "nonOwn": true,
+      "gapPx": 9.972310731768346,
+      "slidePx": -0.2188451125905715
+    },
+    {
+      "id": "il-synagogue-31.6603-35.14278",
+      "kind": "synagogue",
+      "x": 175.5,
+      "width": 11,
+      "height": 9.5,
+      "nonOwn": false,
+      "gapPx": -17.855937049436534,
+      "slidePx": 0
+    }
+  ]
+}

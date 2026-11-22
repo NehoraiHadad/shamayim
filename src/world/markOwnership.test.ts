@@ -106,10 +106,11 @@ it('uses strict-frame ownership for settlement marks with a raster, and keeps th
   // With a raster and no bounds: a settlement mark outside the strict frame within 1 km seats on its beyond town block.
   const noBoundsCtx = { ...ctx, view: { ...ctx.view, frame, lie: {}, beyondTowns: withRaster.place3.beyondTowns ?? [] },
     byX: new Map((withRaster.place3.beyondTowns ?? []).map((b) => [b.x, b])) }
-  const edge = fittingBlocks(noBoundsCtx, 22, 'minaret', ({ dx, dy }) =>
+  const edge = fittingBlocks(noBoundsCtx, 22, 'church', ({ dx, dy }) =>
     !isOwnSpot(frame, {}, dx, dy) && isOwnSpot(frame, {}, dx, dy, 1))[0]
   expect(edge).toBeDefined()
-  const edgeMark: Landmark = { id: 'test-margin-owner', kind: 'minaret', source: 'osm', heightM: 22,
+  const edgeMark: Landmark = { id: 'test-margin-owner', kind: 'church', source: 'osm', heightM: 22,
+    fame: 2, nameHe: 'Named edge landmark',
     lat: edge.square.lat, lon: edge.square.lon }
   const seated = placeOf({ ...noBounds, landmarks: [...noBounds.landmarks, edgeMark] }).marks.find((m) => m.id === edgeMark.id)
   expect(seated).toBeDefined()

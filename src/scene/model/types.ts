@@ -1,3 +1,6 @@
+import type { NeighbourEvidence } from './neighbourEvidence'
+import type { CityTier } from './cityMass'
+export type { CityTier } from './cityMass'
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
@@ -274,12 +277,6 @@ export interface Line { x1: number; x2: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number; rgb: RGB }
 /** A block of a far town (or a far tower), standing on `base`, `km` away. */
 export interface CityBlock { x: number; base: number; w: number; h: number; km: number }
-/**
- * The far towns at one distance (C3): their mass (the town as the eye resolves it: cells of the built-share field, one
- * strength step each) and the blocks rising from it with a lit face toward the light, in tones after the air at `km`;
- * drawn far to near.
- */
-export interface CityTier { km: number; lit: RGB; shade: RGB; mass: { alpha: number; boxes: Box[] }[]; blocks: CityBlock[] }
 /** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
 export interface CityLight { x: number; y: number; r: number; alpha: number }
 /**
@@ -368,7 +365,7 @@ export interface Shine {
   sway?: number
 }
 
-export interface GlyphDesc {
+export interface GlyphDesc extends NeighbourEvidence {
   kind: GlyphKind
   /** Centre x and base y (px); drawn height in glyph px; px per glyph px; box width (px). */
   x: number

@@ -56,7 +56,7 @@ function Cell({ world, kind, zoom, w, h }: { world: WorldState; kind: GlyphKind;
     ctx.fillStyle = css(rgbOf(p.ridgeNear))
     ctx.beginPath(); ctx.moveTo(0, groundY + 2); ctx.quadraticCurveTo(w / 2, groundY - 2, w, groundY + 2); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill()
     const gh = spec.h(HEIGHT[kind] ?? 0)
-    const desc: GlyphDesc = { kind, x: w / 2, base: field ? groundY + 1.5 * zoom : groundY, h: gh, scale: zoom, w: spec.w * zoom, seed: 3,
+    const desc: GlyphDesc = { factor: 1, kind, x: w / 2, base: field ? groundY + 1.5 * zoom : groundY, h: gh, scale: zoom, w: spec.w * zoom, seed: 3,
       hand: glyphHand(kind, 3), tones: tonesAt(world, 1.5), famous: false,
       ...(field ? { ground: Array.from({ length: spec.w + 1 }, (_, i) => -0.08 * (i - spec.w / 2)) } : {}) }
     const layer = { kind: 'marks', glyphs: [desc], shine: shineOf(world) } as unknown as LayerOf<'marks'>
