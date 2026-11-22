@@ -764,7 +764,7 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
 
 ## Track E — UI polish batch, audit #7, #8, #11–#22 — 2026-11-21 (branch `claude/fix-ui-batch-83e1e6`)
-Briefs: `docs/briefs/track-e-{1-bidi,1b-review-fixes,2-a11y-tokens,2b-review-fixes,3-behaviour,3b-review-fixes,4-final-review-fixes,4b-label-size}.md`.
+Briefs: `docs/briefs/track-e-{1-bidi,1b-review-fixes,2-a11y-tokens,2b-review-fixes,3-behaviour,3b-review-fixes,4-final-review-fixes,4b-label-size,4c-rereview-fixes,4d-picker-queue,4e-progress-once}.md`.
 Stills (fixtures only, Jerusalem shifted −22° for the freezing case, Neve Zohar −374 m): `docs/design/qa/polish/track-e/`.
 
 - [x] #7/#8/#14/#15 bidi — `src/text/isolate.ts` (LRI/RLI/PDI, U+2212), one isolate per number/clock, height label unit inside the isolate — `d7229eb` (Codex gpt-6.2-sol; Opus review → 1b `b625b94`: `textWidth` ignores isolates, range dashes stay dashes).
@@ -773,8 +773,9 @@ Stills (fixtures only, Jerusalem shifted −22° for the freezing case, Neve Zoh
 - Writers: Neon was out of quota for briefs 1/2 → Codex wrote, Opus subagent reviewed; Neon back for 3/3b → Codex reviewed. Claude: briefs, verification, stills.
 - [x] Final Codex review of the whole branch (7 blocking) → brief 4 `696e085` (Neon): the new worker waits (`registerType: 'prompt'`, `updateSW(true)` on the idle/hidden gate is the only reload), stale data is not "offline", the spoken scrub condition follows the drawn rain/cloud, picker GPS and search announce independently, opaque midnight caption (5.10:1); brief 4b `4d4ad22` (Neon, coordinator-approved): one `LABEL_PX = 12` in `world/layout.ts` drives the drawn label and every collision box (`place.ts` `besideDot`, `scene/model/layout.ts`), CSS tie-in test.
 - `src/world` / `scene/model` exceptions (merge order with other tracks): `place.ts`/`world.ts` use `heightText`; `place.ts` line 133 uses `LABEL_PX`; `layout.ts` `textWidth` strips isolates and exports `LABEL_PX`/`LABEL_H`; `scene/model/layout.ts` imports `LABEL_PX`.
-- CI: `loading.test.ts` 5 s timeouts seen once on this branch and on others (runner variance); green on rerun.
-- Follow-up: `heightLabel.contrast.test.ts` still has its own sampler (move to `contrastSamples.ts`).
+- [x] Codex re-reviews → brief 4c `3ffde1a` (Neon): one gated reload (`onNeedReload` + `controllerchange`, idempotent) and a cross-tab `BroadcastChannel('shamayim-sw')` activation handshake (`src/pwaTabs.ts`); picker announcements queued; both geocoders failing is an error, not "no places" (`src/data/geocoding.ts`, coordinator-approved); thunder spoken only when drawn; status phrases deduped. Brief 4d `7443dc9` (Neon): picker queue keyed by (source, requestId). Brief 4e `2981a5e`: progress spoken once per request (tests by Neon until quota ran out; fix by Codex; Opus subagent review: nothing blocking).
+- Merged main 757b768 (track A), 2fd0c1e (30 s test timeout), cc9664f (track C); CI green on the final sha.
+- Follow-ups (non-blocking): `heightLabel.contrast.test.ts` still has its own sampler (move to `contrastSamples.ts`); picker: after a GPS error, a later hidden search count can bring the visible GPS error note back; untested reducer branches (progress kept on air, clear during a gap with progress pending); `src/data/geocoding.ts` is 165 lines (was 161).
 
 ## Polish track A — glyphs never mirror (audit #1, #23) — 2026-11-22 (branch `claude/fix-glyph-flip-8384c3`)
 Briefs: `docs/briefs/track-a-glyph-flip.md`, `…round2.md`; delegate report `…REPORT.md`. Stills: `docs/design/qa/polish/track-a/`.
