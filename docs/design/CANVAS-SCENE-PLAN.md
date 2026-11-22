@@ -2643,7 +2643,9 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      path term `L_display(1−h) + L_air h` with `h = AERIAL · fade(km)²` for each face sample and applies
      the sRGB gamut at encoding. Land albedo keeps its local linear luminance contrast, with
      a 1.35× illustration chroma factor, a seeded dark reflectance tail, and wet attenuation
-     `1−0.45·wet`. Snow mixes into linear reflectance before shading. A narrow sky-view accent
+     `1−0.45·wet` models the wetting effect. The 0.45 coefficient is an illustration setting.
+     [Twomey, Bohren and Mergenthaler](https://doi.org/10.1364/AO.25.000431)
+     Snow mixes into linear reflectance before shading. A narrow sky-view accent
      separates overlapping snowy slopes. Paper grain is applied to the result at one CSS pixel.
    - The DEM gives real across and radial m/m slopes, column-relative bearing, and distances. For an
      unmeasured face the model uses an explicit geometric fallback and assumes open light where

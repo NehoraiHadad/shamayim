@@ -36,7 +36,7 @@ function traceCrownLobes(ctx: Ctx2D, cx: number, cy: number, rx: number, ry: num
 
 /** Draws one date palm in landscape scale: curved trunk + arching fronds + crown knot, weighted by distance fade `alpha`. */
 function paintPalm(
-  ctx: Ctx2D, x: number, y: number, r: number, height: number, phase: number, alpha: number, frondRgb: RGB, trunkRgb: RGB, wind: PlantWind | undefined, time: number,
+  ctx: Ctx2D, x: number, y: number, r: number, height: number, phase: number, alpha: number, frondRgb: RGB, trunkRgb: RGB, sunward: RGB, wind: PlantWind | undefined, time: number,
 ): void {
   const anchor = treeCrownAnchor(x, y, r, height, phase, 3, treeBend(3, height, alpha, phase, wind, time))
   const bend = anchor.cx - x, topX = anchor.cx, topY = anchor.cy
@@ -56,7 +56,7 @@ function paintPalm(
   const frondBend = wind ? frondTravel(r) * plantWindFade(alpha) * plantWindAt(wind, time, phase) : 0
   const count = r >= 1.3 ? 6 : 4
   const shadeRgb = mix(frondRgb, BLACK_SHADE, 0.32)
-  const capRgb = mix(frondRgb, [0.54, 0.62, 0.38], 0.42)
+  const capRgb = mix(frondRgb, sunward, 0.42)
   ctx.lineCap = 'round'
   for (let i = 0; i < count; i++) {
     const side = i < count / 2 ? -1 : 1
@@ -111,7 +111,10 @@ export function paintVegCrowns(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWi
     const kind = treeMeta[i * 3], toneIdx = treeMeta[i * 3 + 1]
     const baseRgb = tone(toneIdx, x, y)
 
-    if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, tone(TONE.TRUNK, x, y), wind, time); continue }
+    if (kind === 3) {
+      paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, tone(TONE.TRUNK, x, y), tone(TONE.GRASS_LIT, x, y), wind, time)
+      continue
+    }
     const bend = treeBend(kind, height, alpha, phase, wind, time)
     const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind, bend)
     const lobes = kind === 0 ? (shade > 0.55 ? 5 : 4) : 3

@@ -3,7 +3,7 @@ import type { LivingLand } from '../../world/landLiving'
 import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
-import { faceAtY, localFootY, type PlaneName } from './faceProjection'
+import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProjection'
 import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
@@ -19,10 +19,10 @@ export type { PlaneName } from './faceProjection'
 
 export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB }
 
-const SPEC: Record<PlaneName, { cols: number; rows: number; maxColours: number }> = {
-  near: { cols: 21, rows: 4, maxColours: 14 },
-  far: { cols: 21, rows: 2, maxColours: 5 },
-  back: { cols: 13, rows: 1, maxColours: 4 },
+const SPEC: Record<PlaneName, { rows: number; maxColours: number }> = {
+  near: { rows: 4, maxColours: 14 },
+  far: { rows: 2, maxColours: 5 },
+  back: { rows: 1, maxColours: 4 },
 }
 
 const medianByLum = (tones: readonly RGB[]) =>
@@ -44,7 +44,7 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const key = `${name}:${geom.geomKey}:${landHeight}`
   const cached = byPlane.get(key)
   if (cached) return cached
-  const { cols, rows, maxColours } = SPEC[name]
+  const { rows, maxColours } = SPEC[name], cols = PALETTE_COLS[name]
   const raw: { l: number; a: number; b: number }[] = [], rawAlbedos: RGB[] = [], visible: boolean[] = []
   const sources = new Map<string, number>(), nRays = Math.max(1, world.land.rays.length - 1)
   const xs = Array.from({ length: cols }, (_, c) => (cols > 1 ? c / (cols - 1) : 0.5) * SCENE_W)

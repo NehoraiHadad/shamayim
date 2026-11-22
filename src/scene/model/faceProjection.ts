@@ -10,6 +10,7 @@ import type { Plane, WorldState } from '../../world/types'
  */
 
 export type PlaneName = 'back' | 'far' | 'near'
+export const PALETTE_COLS = { near: 21, far: 21, back: 13 } as const
 export interface FaceSample { km: number; slope: number }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)

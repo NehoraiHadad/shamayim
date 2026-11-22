@@ -24,10 +24,10 @@ const FORM = 10
 
 const shapes = new WeakMap<Plane, Map<string, { outline: Pt[]; top: number }>>()
 
-function shapeOf(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane) {
+function shapeOf(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, geomKey: string) {
   let byBox = shapes.get(plane)
   if (!byBox) shapes.set(plane, byBox = new Map())
-  const key = `${name}:${box.width}:${box.landHeight}`
+  const key = `${name}:${box.width}:${box.landHeight}:${geomKey}`
   let shape = byBox.get(key)
   if (!shape) {
     const sx = box.width / SCENE_W
@@ -49,10 +49,10 @@ function shapeOf(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane
  */
 export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, clear: readonly Box[]): LayerOf<'plane'> | null {
   if (plane.points.length < 2 || box.width <= 0 || box.landHeight <= 0) return null
-  const { outline, top } = shapeOf(world, box, name, plane)
+  const geom = planeGeomOf(world, name, plane, box.landHeight)
+  const { outline, top } = shapeOf(world, box, name, plane, geom.geomKey)
   const hidden = name === 'near' ? undefined : Math.min(box.landHeight, Math.ceil(Math.max(...world.terrain.near.points.map(([, y]) => y))) + 2)
   const ground = name === 'back' ? { gullies: [], terraces: [] } : groundForm(world, box, name, clear)
-  const geom = planeGeomOf(world, name, plane, box.landHeight)
   const surface = planeSurfaceOf(world, name, plane, box.landHeight)
   const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.median, clear)
   const key = layerKey('plane', name, FORM, world.keys.terrain, geom.geomKey, world.keys.place, world.keys.land, landBoxKey(box),

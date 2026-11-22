@@ -83,7 +83,7 @@ export interface PlaneVegetation {
 /** The upright vegetation is the only part needed by the canopy strips. */
 export type CanopyVegetation = Pick<PlaneVegetation, 'seed' | 'tones' | 'trees' | 'treeMeta' | 'tufts' | 'tuftMeta'>
 
-/** Compact structured-cloneable per-plane linear-light irradiance, visibility, per-sample haze and lit-veg descriptor (Stage 7 round 2). */
+/** Compact linear irradiance, receiver visibility, snow and face-distance haze for the Worker. */
 export interface PlaneLitField {
   cols: number
   rows: number
@@ -93,7 +93,7 @@ export interface PlaneLitField {
   eSun: readonly [number, number, number]
   eMoon: readonly [number, number, number]
   eSky: readonly [number, number, number]
-  /** Linear RGB of `hazeOf(world)` and displayed linear horizon luminance `Y_horizon`. */
+  /** Linear RGB of `hazeOf(world)` and linear display exposure in the sky reference frame. */
   hazeLin: readonly [number, number, number]
   yHorizon: number
   /** Small crest-edge occlusion accent on overlapping snowy planes. */

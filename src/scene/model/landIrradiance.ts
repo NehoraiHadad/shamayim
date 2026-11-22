@@ -1,6 +1,8 @@
 //# allFunctionsCalledOnLoad
 import type { Camera } from '../../domain/camera'
 import { MOON_RGB } from '../../world/light'
+import { cloudLight } from '../../world/lightCloud'
+import { moonlightStrength } from '../../world/moonlight'
 import type { LightDir, Normal } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import { aerosolDepth, solarBeam } from '../../world/sceneLight'
@@ -8,8 +10,15 @@ import type { RGB, WorldState } from '../../world/types'
 import { dirAtBearing, linearLuminance, unitChroma, WET_REFLECTANCE_DROP } from './landRadiance'
 import { diffuseSky } from './landSkyIrradiance'
 
-export type RadianceWorld = Pick<WorldState, 'light' | 'ground'> & {
-  bodies?: Pick<WorldState['bodies'], 'sun' | 'moon'>; air?: Pick<WorldState['air'], 'visibilityKm' | 'dustWeight'>; camera?: Pick<Camera, 'heading' | 'handed'>
+export type RadianceLight = Pick<WorldState['light'], 'azimuth' | 'altitude' | 'dir' | 'palette' | 'ambient' | 'shares' | 'diffuse'>
+  & Partial<Pick<WorldState['light'], 'afterglow'>>
+
+export type RadianceWorld = Pick<WorldState, 'ground'> & {
+  light: RadianceLight
+  bodies?: Pick<WorldState['bodies'], 'sun' | 'moon'>
+  air?: Pick<WorldState['air'], 'visibilityKm' | 'dustWeight'> & Partial<Pick<WorldState['air'], 'farFade'>>
+  camera?: Pick<Camera, 'heading' | 'handed'>
+  cloudField?: WorldState['cloudField']
 }
 export interface LandIrradiance {
   eSunPi: number; eMoonPi: number; eSkyPi: number
@@ -57,16 +66,24 @@ export function landIrradiance(world: RadianceWorld): LandIrradiance {
   const moonAlt = world.bodies?.moon.altitude ?? (light.shares.moon > light.shares.sun ? light.altitude : -15)
   const air = world.air ?? REF_AIR
   const beam = solarBeam(sunAlt, air)
-  // shares.sun contains disc visibility, airDim (T^0.35) and open-deck transmission. Replace
-  // its display response with T. Local shadow footprints supply only the residual transmission.
-  const openVisible = clamp01(light.shares.sun / Math.max(1e-4, beam.strength ** 0.35))
+  const field = world.cloudField?.field
+  const open = field ? cloudLight({ low: 0, mid: 0, high: 0 }, field).open : undefined
+  // The viewer's disc can be below a ridge while the terrain across the valley is in the beam.
+  // Solar and lunar terrain clearance are evaluated at the receiver. Minimal worlds without
+  // a cloud field use their supplied world light shares.
+  const openVisible = open === undefined ? clamp01(light.shares.sun / Math.max(1e-4, beam.strength ** 0.35))
+    : open * smoothstep(-0.265, 0.265, sunAlt)
+  const moon = world.bodies?.moon
+  const moonShare = open === undefined || !moon ? light.shares.moon
+    : open * moonlightStrength({ altitude: moon.altitude, azimuth: moon.azimuth, fraction: moon.illumination },
+      sunAlt, 0, world.air?.farFade ?? 0)
   const day = smoothstep(2, 15, sunAlt)
   const tau = 0.099 + aerosolDepth(air)[1]
   const scatter = Math.min(0.7, Math.max(0, 1 - Math.exp(REF_SCATTER - tau)))
   const sky = diffuseSky(light, sunAlt, tau)
   const eSkyPi = sky.amount * (1 - day) + DAY_DHI * (1 + 1.25 * Math.max(clamp01(light.diffuse), scatter)) * day
   const eSunPi = DAY_DNI * openVisible * Math.min(1.15, beam.strength / REF_BEAM)
-  const eMoonPi = FULL_MOON_LUX / NIGHT_EXPOSURE_LUX * clamp01(light.shares.moon)
+  const eMoonPi = FULL_MOON_LUX / NIGHT_EXPOSURE_LUX * clamp01(moonShare)
   const cSun = normalized(beam.transmission as unknown as RGB), cMoon = unitChroma(MOON_RGB), cSky = normalized(sky.rgb)
   const wetFactor = 1 - WET_REFLECTANCE_DROP * clamp01(world.ground.wet)
   const heading = world.camera?.heading ?? 180, handed = world.camera?.handed ?? 1

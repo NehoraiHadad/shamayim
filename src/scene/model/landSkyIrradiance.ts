@@ -1,22 +1,31 @@
 //# allFunctionsCalledOnLoad
 import { smoothstep } from '../../world/ridgeLighting'
-import type { Light, RGB } from '../../world/types'
+import type { RGB } from '../../world/types'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { rgbOf } from './tone'
+import type { RadianceLight } from './landIrradiance'
 
 // Cosine-weighted midpoint quadrature in sin(elevation) and azimuth from the sun.
 // Haber et al., doi:10.1145/1095878.1095884 motivates separate broad twilight
 // illumination and a low, forward-scattering band. These lobes approximate that
 // distribution for illustration without a wavelength-resolved atmosphere or cloud heights.
-const DOME = Array.from({ length: 8 }, (_, i) => {
-  const up = (i + 0.5) / 8
-  return {
-    up, horizon: Math.exp(-up / 0.17), horizontal: Math.sqrt(1 - up * up),
-    azimuth: Array.from({ length: 12 }, (_, j) => Math.cos((j + 0.5) * Math.PI / 6)),
+const DOME = (() => {
+  let zenith = 0, forward = 0, moment = 0
+  for (let i = 0; i < 8; i++) {
+    const up = (i + 0.5) / 8, horizontal = Math.sqrt(1 - up * up)
+    const low = Math.exp(-up / 0.17)
+    zenith += up ** 3 / 4
+    for (let j = 0; j < 12; j++) {
+      const cos = Math.cos((j + 0.5) * Math.PI / 6)
+      const share = low * (0.5 + 0.5 * cos * horizontal) ** 3 * up / 48
+      forward += share
+      moment += share * horizontal * cos
+    }
   }
-})
+  return { zenith, forward, moment }
+})()
 
-export function diffuseSky(light: Light, sunAlt: number, tau: number): { rgb: RGB; amount: number; exposure: number; bias: number } {
+export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): { rgb: RGB; amount: number; exposure: number; bias: number } {
   const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon))
   const mid = srgbRgbToLinear(light.ambient)
   const yHorizon = Math.max(1e-4, linearLuminance(horizon))
@@ -34,18 +43,12 @@ export function diffuseSky(light: Light, sunAlt: number, tau: number): { rgb: RG
   const aerosol = -Math.expm1(-2 * tau)
   const scattered = 1.8 * cloud ** 2 * aerosol
   const forward = 0.8 * aerosol * (1 - 0.65 * cloud)
-  const integrated: [number, number, number] = [0, 0, 0]
-  let broadY = 0, moment = 0
-  for (const { up, horizon: low, horizontal, azimuth } of DOME) {
-    // The UI's horizon is a narrow, bright direction. Meter exposure on the body of the sky.
-    const broad = mid.map((m, i) => m + (top[i] - m) * up ** 2)
-    broadY += linearLuminance(broad as unknown as RGB) * up / 4
-    for (const cos of azimuth) {
-      const lobe = forward * low * (0.5 + 0.5 * cos * horizontal) ** 3
-      for (let i = 0; i < 3; i++) integrated[i] += (broad[i] + scattered * yHorizon + lobe * glow[i]) * up / 48
-      moment += linearLuminance(glow) * lobe * horizontal * cos / 48
-    }
-  }
+  // Integrate the fixed sky basis once. Its weights then multiply this hour's linear RGB
+  // zenith and mid sky, the diffuse cloud fill, and the solar-side glow.
+  const broad = mid.map((m, i) => m + (top[i] - m) * DOME.zenith) as [number, number, number]
+  const broadY = linearLuminance(broad)
+  const integrated = broad.map((c, i) => c + scattered * yHorizon + forward * DOME.forward * glow[i]) as [number, number, number]
+  const moment = linearLuminance(glow) * forward * DOME.moment
   // Illustration meter blends the wide diffuse sky with the daylight display reference.
   const exposure = yHorizon + (broadY - yHorizon) * 0.60 * twilight
   const ySky = linearLuminance(integrated)

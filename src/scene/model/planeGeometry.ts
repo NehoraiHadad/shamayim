@@ -5,7 +5,7 @@ import { SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, TerrainPlanes, WorldState } from '../../world/types'
 import { faceAtY, localFootY, type PlaneName } from './faceProjection'
-import { layerKey } from './keys'
+import { planeGeometryKey } from './planeGeometryKey'
 import { surfaceNormal } from './landRadiance'
 
 /**
@@ -96,15 +96,10 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
       const [ux, uy, uz] = surfaceNormal(across, sample.slope)
       const idx = r * cols + c
       nx[idx] = ux; ny[idx] = uy; nz[idx] = uz; km[idx] = sample.km
-
     }
   }
-  // Hash every packed sample plus the profiles read independently by palettes and vegetation.
-  const inputs = [plane.points, plane.distanceKm, world.terrain.near.points,
-    name === 'back' ? null : world.terrain.faces[name]?.columns,
-    Array.from(xs, (x) => world.terrain.sightAt?.(x).farShows),
-    ...[crestY, footY, bearing, nx, ny, nz, km].map((array) => Array.from(array))]
-  const grid: PlaneGeomGrid = { cols, rows, xs, crestY, footY, bearing, nx, ny, nz, km, geomKey: layerKey(name, JSON.stringify(inputs)) }
+  const geomKey = planeGeometryKey(world.terrain, name, plane, [crestY, footY, bearing, nx, ny, nz, km])
+  const grid: PlaneGeomGrid = { cols, rows, xs, crestY, footY, bearing, nx, ny, nz, km, geomKey }
   if (byKey.size > 12) byKey.clear()
   byKey.set(cacheKey, grid)
   return grid

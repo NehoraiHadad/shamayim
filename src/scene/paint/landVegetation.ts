@@ -1,4 +1,5 @@
 import type { VegetationToneAt } from './vegetationLight'
+import { scaleLight } from '../model/tone'
 import type { PlaneVegetation, RGB } from '../model/types'
 import { h01 } from './vegInk'
 import { css, mix, type Ctx2D } from './hand'
@@ -58,7 +59,7 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation, toneAt?: Vegeta
     wobblyEdge(ctx, x2, y2, x3, y3, -b0); wobblyEdge(ctx, x3, y3, x0, y0, -b1); ctx.closePath()
     ctx.fillStyle = css(rgb, alpha); ctx.fill()
     const furrowAlpha = state === 1 ? alpha * 0.58 : state === 2 ? alpha * 0.40 : alpha * 0.34
-    const furrowRgb = state === 2 ? mix(rgb, [0.92, 0.85, 0.62], 0.25) : mix(rgb, DARK_EARTH, 0.42)
+    const furrowRgb = state === 2 ? scaleLight(rgb, 1.22) : mix(rgb, DARK_EARTH, 0.42)
     const rows = state === 1 ? 5 : 4
     ctx.beginPath()
     for (let r = 1; r < rows; r++) {

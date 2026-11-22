@@ -56,13 +56,20 @@ export function solarTransmission(shadow: PlaneCloudShadow | undefined, seconds:
   if (!shadow) return undefined
   const footprints = shadow.blobs.map(({ x, y, rx, ry, opticalDepth, speed }) =>
     ({ x: x + speed * seconds, y, rx, ry, opticalDepth }))
+  let rowY = NaN
+  let row: { x: number; rx: number; dySq: number; opticalDepth: number }[] = []
   return (x: number, y: number) => {
+    if (y !== rowY) {
+      rowY = y
+      row = footprints.flatMap(({ x: centre, y: centreY, rx, ry, opticalDepth }) => {
+        const dy = (y - centreY) / ry
+        return Math.abs(dy) < 1 ? [{ x: centre, rx, dySq: dy * dy, opticalDepth }] : []
+      })
+    }
     let tau = 0
-    for (const blob of footprints) {
-      const dy = (y - blob.y) / blob.ry
-      if (Math.abs(dy) >= 1) continue
+    for (const blob of row) {
       const dx = (x - blob.x) / blob.rx
-      tau += blob.opticalDepth * chord(dx * dx + dy * dy)
+      tau += blob.opticalDepth * chord(dx * dx + blob.dySq)
     }
     return Math.min(1, Math.exp(-tau) / shadow.open)
   }
