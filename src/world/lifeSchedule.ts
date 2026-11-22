@@ -55,21 +55,19 @@ export function skyDirection(e: number, n: number, upM: number): { azimuth: numb
 }
 
 /**
- * How a flock moves as a group over its session (its centre's way; the birds' own wheeling, beats and loops are drawn at
- * composite time round it): `speedMs` over the ground, and `reach`, how many times its closest distance it is when the
- * session begins and ends, far enough to have shrunk and faded into the haze. Migrants pass at their true glide;
- * the residents work an area (swifts hawking, pigeons wheeling round the block, a raptor's thermal drifting downwind), so
- * their centre wanders slowly while the composite loop shows the fast motion.
+ * How a flock moves as a group over its session: `speedMs` is its real ground speed as it passes across the sky (the
+ * composite loop adds each bird's wing beats and wheeling round its place), and `reach` is how many times its closest
+ * distance it is when the session begins and ends, far enough to have shrunk and faded into the haze.
  */
 export const GROUP: Record<BirdKind, { speedMs: number; reach: number }> = {
-  stork: { speedMs: 6, reach: 4 },
-  crane: { speedMs: 10, reach: 4 },
-  swift: { speedMs: 1.2, reach: 6 },
-  gull: { speedMs: 1.5, reach: 6 },
+  stork: { speedMs: 10, reach: 4 },
+  crane: { speedMs: 15, reach: 4 },
+  swift: { speedMs: 10, reach: 6 },
+  gull: { speedMs: 9, reach: 6 },
   raptor: { speedMs: 2, reach: 5 },
-  crow: { speedMs: 1.2, reach: 6 },
-  pigeon: { speedMs: 1, reach: 6 },
-  bat: { speedMs: 0.5, reach: 5 },
+  crow: { speedMs: 11, reach: 6 },
+  pigeon: { speedMs: 14, reach: 6 },
+  bat: { speedMs: 6, reach: 5 },
 }
 
 /** The most flocks under way at once (a new one does not start while this many fly). */
@@ -277,7 +275,7 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
     const a = headingDeg + 90, b = headingDeg - 90
     const azC = Math.abs(wrap180(a - ctx.camera.heading)) <= Math.abs(wrap180(b - ctx.camera.heading)) ? a : b
     const aglQ = q()
-    const speedMs = (kind === 'raptor' ? 1 + 0.35 * Math.min(8, input.wind.ms) : g.speedMs) * (0.85 + 0.3 * q())
+    const speedMs = (kind === 'raptor' ? 2 + 0.6 * Math.min(8, input.wind.ms) : g.speedMs) * (0.85 + 0.3 * q())
     const endM = nearM * g.reach
     const cE = nearM * Math.sin(azC * RAD), cN = nearM * Math.cos(azC * RAD)
     const home = homeOf(kind, input, endM)
