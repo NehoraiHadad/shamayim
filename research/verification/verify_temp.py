@@ -19,6 +19,8 @@ HERE = Path(__file__).parent
 ARCH = HERE / "om-archive" / "pass1"
 OBS = HERE / "data" / "processed" / "ims_hourly.parquet"
 OUT = HERE / "results"
+# "l0" is the archive's stitched latest-run series (first hours of each run): close to an analysis, not a forecast the
+# app holds for later today. Read l1 (issued a day ahead) as the honest headline.
 LEADS = {"l0": "temperature_2m", "l1": "temperature_2m_previous_day1", "l2": "temperature_2m_previous_day2",
          "l4": "temperature_2m_previous_day4", "l6": "temperature_2m_previous_day6"}
 MODELS = {"icon": "icon_seamless", "ecmwf": "ecmwf_ifs025"}
@@ -33,15 +35,17 @@ def coast_lon(lat):
 
 
 def region(lat, lon, elev):
-    if lat < 30.95:
-        return "ערבה ואילת"
+    if 31.0 < lat < 31.85 and lon > 35.3:
+        return "ים המלח ומדבר יהודה"
     if elev < -100 and lon > 35.3:
-        return "בקעת הירדן" if lat > 31.75 else "ים המלח"
+        return "בקעת הירדן"
+    if lat < 31.0 and elev < 350 and (lon > 35.0 or lat < 29.7):
+        return "ערבה ואילת"
     if lat < 31.35:
         return "נגב"
     if lon - coast_lon(lat) < 0.12 and elev < 120:
         return "מישור החוף"
-    if lat > 32.75 and lon > 35.62:
+    if lat > 32.7 and lon > 35.65 and elev > 200:
         return "גולן וחרמון"
     if elev >= 450:
         return "הרים (ירושלים, שומרון, גליל)"
@@ -126,11 +130,13 @@ def main():
                         "icon": stats(g["err_icon_l1"]), "ecmwf": stats(g["err_ecmwf_l1"])}
     res["by_station"] = st
     # 3. Weather situations.
-    hot = df["td"] >= 35
-    cold = df["td"] <= 5
-    calm_night = df["hour_local"].isin([2, 3, 4, 5, 6])
-    res["situations"] = {"hot (>=35°C)": stats(df.loc[hot, e]), "cold (<=5°C)": stats(df.loc[cold, e]),
-                         "pre-dawn 02-06": stats(df.loc[calm_night, e]),
+    # Selected on the forecast (what the app knows in advance), never on the observation: conditioning on the
+    # outcome manufactures a bias (regression to the mean).
+    hot = df["blend_l1"] >= 35
+    cold = df["blend_l1"] <= 5
+    pre_dawn = df["hour_local"].isin([2, 3, 4, 5, 6])
+    res["situations"] = {"forecast hot (>=35°C)": stats(df.loc[hot, e]), "forecast cold (<=5°C)": stats(df.loc[cold, e]),
+                         "pre-dawn 02-06": stats(df.loc[pre_dawn, e]),
                          "afternoon 13-16": stats(df.loc[df.hour_local.isin([13, 14, 15, 16]), e])}
 
     # 4. Corrections, fitted on train, scored on test.
@@ -158,9 +164,10 @@ def main():
             ws = np.linspace(0, 1, 11)
             maes = [((w * gg[f"icon_{l}"] + (1 - w) * gg[f"ecmwf_{l}"]) - gg["td"]).abs().mean() for w in ws]
             wbest[sid] = float(ws[int(np.argmin(maes))])
-        tw = test["station_id"].map(wbest).fillna(0.6 if l != "l6" else 0.4)
+        fallback = 0.6 if l != "l6" else 0.4
+        tw = test["station_id"].map(wbest).fillna(fallback)
         test_w = tw * test[f"icon_{l}"] + (1 - tw) * test[f"ecmwf_{l}"]
-        trw_w = train["station_id"].map(wbest).fillna(0.6)
+        trw_w = train["station_id"].map(wbest).fillna(fallback)
         train_w_err = trw_w * train[f"icon_{l}"] + (1 - trw_w) * train[f"ecmwf_{l}"] - train["td"]
         tr2 = train.assign(e2=train_w_err)
         g2 = tr2.groupby(["station_id", "season", "hour_local"])["e2"].agg(["mean", "count"]).reset_index()

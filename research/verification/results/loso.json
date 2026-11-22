@@ -2,7 +2,7 @@
  "l0": {
   "raw": 1.072,
   "national_loso": 1.061,
-  "regional_loso": 1.074
+  "regional_loso": 1.076
  },
  "l1": {
   "raw": 1.213,
@@ -22,6 +22,6 @@
  "l6": {
   "raw": 1.658,
   "national_loso": 1.573,
-  "regional_loso": 1.581
+  "regional_loso": 1.577
  }
 }
