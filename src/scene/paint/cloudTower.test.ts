@@ -58,3 +58,11 @@ it('keeps the base of a sunlit tower in its own shade, over the light on its sid
   expect(last).toBeGreaterThan(1)
   expect(stops[last][0]).toMatch(/\/ 0\.900\)$/)
 })
+
+it('rims the crown of a growing tower with small turrets, not a few large balloons', () => {
+  const sprite = { ...cb, genus: 'cg', anvil: 0, tall: 80, w: 60 } as CloudSprite
+  const puffs = puffsOf(sprite)
+  const crown = puffs.filter((p) => -p.y > 0.6 * sprite.tall)
+  expect(crown.filter((p) => p.r < 0.15 * sprite.w).length).toBeGreaterThanOrEqual(10)
+  expect(Math.max(...puffs.filter((p) => p.y < 0).map((p) => p.r))).toBeLessThan(0.4 * sprite.w)
+})

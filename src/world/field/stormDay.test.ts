@@ -17,8 +17,12 @@ beforeAll(async () => {
 afterAll(() => vi.unstubAllGlobals())
 
 it('makes a storm day a few large Cb cores with Cu con between, raining only under the cores', () => {
-  for (const hour of ['10:00', '14:00', '17:00']) {
-    const world = buildWorld(worldInput(loaded.get('haifa')!, `2026-03-15T${hour}` as LocalTime))
+  // With the day's CAPE (160-390 J/kg), and with an answer that has none (the weather code alone decides).
+  for (const [hour, withCape] of [['10:00', true], ['14:00', true], ['17:00', true], ['14:00', false]] as const) {
+    const input = worldInput(loaded.get('haifa')!, `2026-03-15T${hour}` as LocalTime)
+    expect(input.forecast.hours.some((h) => h.cape != null)).toBe(true)
+    const hours = withCape ? input.forecast.hours : input.forecast.hours.map((h) => ({ ...h, cape: null }))
+    const world = buildWorld({ ...input, forecast: { ...input.forecast, hours } })
     const snapshot = world.cloudField!.snapshot
     const tower = snapshot.find((s) => s.layer?.lattice === 'tower')!
     const low = snapshot.find((s) => s.layer?.lattice === 'low')!

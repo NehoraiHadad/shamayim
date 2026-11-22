@@ -41,8 +41,8 @@ export const ASK_SCENE_HOURLY = true
  * says. Without them the code alone decides (`atmo/fieldWeather.ts`).
  */
 export const STORM_HOURLY = ['cape', 'freezing_level_height'] as const
-/** Flip to true once the deployed Worker answers `hourly=cape,freezing_level_height` with 200 (owner deploys). */
-export const ASK_STORM_HOURLY = false
+/** On since the deployed Worker (448728a6, 22 Nov) answers `hourly=cape,freezing_level_height` with values. */
+export const ASK_STORM_HOURLY = true
 
 export const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
