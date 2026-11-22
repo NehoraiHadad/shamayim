@@ -1,5 +1,7 @@
 import type { AirInput } from '../atmo/airTypes'
+import type { HourPoint, LocalTime } from '../domain/types'
 import { haze, heat, rainRate, visibilityKm } from './airParts'
+import { mistOf, nightMinimum, NO_MIST } from './mist'
 import type { Air, RGB, WorldSources } from './types'
 
 /** sRGB 0–1 of a `#rrggbb` colour. */
@@ -24,6 +26,14 @@ export interface AirSourceInput {
   preview: boolean
   /** `?wx=vis:…` set the visibility. */
   forcedVisibility: boolean
+  /** Diurnal and dynamical context for mist (`mist.ts`); omitted where mist is unused (returns `NO_MIST`). */
+  mist?: {
+    sunAltitude: number
+    windMs: number
+    lowCloudPct: number | null
+    hours?: readonly Pick<HourPoint, 'time' | 'temperature'>[]
+    at?: LocalTime
+  }
 }
 
 /** The visibility the world uses (km, before dust) and where it came from. */
@@ -47,18 +57,32 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
   const hot = heat(shown, r)
   const h = haze(shown, r, hot.bloom > 0)
   const v = visibilityKm(shown)
+  const dust = (shown.dust ?? shown.pm10 ?? 0) >= 50
   const tint = rgbOf(h.color)
+  const mist = input.mist ? mistOf({
+    humidity: shown.humidity,
+    visibilityKm: v,
+    visibilitySource: source,
+    dust,
+    rainRateMmH: r,
+    lowCloudPct: input.mist.lowCloudPct,
+    windMs: input.mist.windMs,
+    sunAltitude: input.mist.sunAltitude,
+    temperature: shown.temperature,
+    nightMinTemp: input.mist.hours && input.mist.at ? nightMinimum(input.mist.hours, input.mist.at) : null,
+  }) : NO_MIST
   return {
     source,
     air: {
       visibilityKm: v,
       humidity: shown.humidity,
-      dust: (shown.dust ?? shown.pm10 ?? 0) >= 50,
+      dust,
       haze: tint,
       fade: (distanceKm: number) => 1 - Math.exp(-KOSCHMIEDER * Math.max(0, distanceKm) / v),
       farFade: h.farFade,
       nearFade: h.nearFade,
       horizonBand: { rgb: tint, alpha: Math.min(0.7, 0.12 + 0.5 * h.farFade) },
+      mist,
       heat: hot.amplitude,
     },
   }
