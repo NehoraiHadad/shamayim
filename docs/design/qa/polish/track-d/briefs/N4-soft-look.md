@@ -54,6 +54,15 @@ from that sha, and push only that branch. Never push to main, never force-push, 
   rose to 20 ms.
 - Memory note "Pleasant over exact".
 
+## Clean code (the owner asked for this explicitly)
+- **Small, single-purpose functions** with names that say what they do. Keep the look's constants together at the top
+  of one file, each with its reason.
+- **No dead code:** remove what a change replaces (no unused `soften` options, no commented-out code, no leftover
+  experiments or temp scripts in the repo).
+- **DRY:** the colour/tone helpers live in one place.
+- **Readable at a glance.** If a function grows past ~30 lines or a file past ~150, split it.
+- **One tidy commit per round**, with a clear message; the final diff should read like it was written once.
+
 ## Rules
 - Commits in English, ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Avoid track A's files (glyph lighting and faces) and track C's (`life.ts`, `lifeSchedule.ts`, `lifeAhead.ts`, planes,
