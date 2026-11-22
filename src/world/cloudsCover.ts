@@ -1,5 +1,4 @@
 import type { HourPoint } from '../domain/types'
-import { smoothstep } from './ridgeLighting'
 import type { WorldSources } from './types'
 
 export interface Covers { low: number; mid: number; high: number }
@@ -29,22 +28,34 @@ export function layerCovers(input: CoverInput): { covers: Covers; source: WorldS
   const { cloudLow, cloudMid, cloudHigh } = input.hour ?? {}
   if (cloudLow != null && cloudMid != null && cloudHigh != null) {
     const covers = { low: cloudLow / 100, mid: cloudMid / 100, high: cloudHigh / 100 }
-    const union = unionOf(covers)
-    if (union <= 0) return { covers: { low: 0, mid: 0, high: 0 }, source: 'forecast' }
-    // Raising each clear share to the same power matches the target union up to 0.95.
-    // Clamp each individual clear share at 1e-4 so reported 100% layers can still scale down.
-    const clearLog = (c: number) => Math.log1p(-Math.min(c, 0.9999))
-    const low = clearLog(covers.low), mid = clearLog(covers.mid), high = clearLog(covers.high)
-    const k = Math.log1p(-Math.min(total, 0.95)) / (low + mid + high)
-    // Above 0.95, both requested and modeled union lie in [0.95, 1].
-    // The cubic's slope is at most 1.5 / 0.05, so a 0.001 step moves a layer by at most 0.03 in this span.
-    const closure = smoothstep(0.95, 1, total)
-    const scale = (log: number) => log < 0 ? 1 - Math.exp(k * log) * (1 - closure) : 0
-    return { covers: { low: scale(low), mid: scale(mid), high: scale(high) }, source: 'forecast' }
+    if (unionOf(covers) <= 0 && !input.thickCloud) return { covers: { low: 0, mid: 0, high: 0 }, source: 'forecast' }
+    // Clear-share logs; a reported 100 % layer keeps a 1e-4 clear share so it can still thin.
+    const logs = [covers.low, covers.mid, covers.high].map(c => Math.log1p(-Math.min(c, 0.9999)))
+    const [low, mid, high] = fitLogs(logs, total)
+    // The shown thick cloud bounds low + mid from below: a forced or satellite overcast closes the low decks.
+    const thick = input.thickCloud == null ? 0 : Math.min(clamp01(input.thickCloud / 100), total)
+    const [lowT, midT] = Math.log1p(-Math.min(thick, 0.999)) < low + mid ? fitLogs([low, mid], thick) : [low, mid]
+    const cover = (log: number) => -Math.expm1(log)
+    return { covers: { low: cover(lowT), mid: cover(midT), high: cover(high) }, source: 'forecast' }
   }
   const knownThick = input.thickCloud != null
   const thick = clamp01(Math.min(knownThick ? input.thickCloud! / 100 : total, total))
   const high = thick >= 1 ? 0 : clamp01(1 - (1 - total) / (1 - thick))
   const each = 1 - Math.sqrt(1 - thick)
   return { covers: { low: each, mid: each, high }, source: knownThick ? 'thickCloud' : 'cover' }
+}
+
+/**
+ * Clear-share logs refitted so their sum is the target union (floored at 0.1 % clear: an exact union of 1 would need
+ * one layer's clear share to reach 0 within one step). Thinner than the forecast: one power for all. Thicker: the extra
+ * optical depth goes by |log|^8, so the dominant deck closes and a patchy minor layer keeps its forecast cover.
+ */
+function fitLogs(logs: number[], union: number) {
+  const sum = logs.reduce((a, b) => a + b, 0)
+  const target = Math.log1p(-Math.min(union, 0.999))
+  if (target >= sum) return logs.map(log => log * (sum < 0 ? target / sum : 0))
+  const weights = logs.reduce((a, log) => a + log ** 8, 0)
+  // If the observation adds cloud to an empty set of decks, there is no dominant forecast deck.
+  if (!weights) return logs.map(() => target / logs.length)
+  return logs.map(log => log + (target - sum) * log ** 8 / weights)
 }

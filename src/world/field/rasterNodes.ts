@@ -1,49 +1,66 @@
-/** Rasterize optical depth into a bounded air-frame grid in site visit order. */
-export function rasterNodes(width: number, height: number, a: number, b: number, c: number) {
-  const nodes = new Float32Array(width * height)
+import type { FieldCell } from './types'
+
+/** Uniform raster of footprint references. A bin contains every cell whose bounding box intersects it. */
+export function rasterNodes(left: number, bottom: number, width: number, height: number, step: number,
+  a: number, b: number, c: number) {
+  const bins: (Footprint[] | undefined)[] = new Array(width * height)
+  const inverseStep = 1 / step
+  const indexX = (x: number) => Math.floor((x - left) * inverseStep)
+  const indexY = (y: number) => Math.floor((y - bottom) * inverseStep)
+  const determinant = a * c - b * b
+  const eastScale = Math.sqrt(c / determinant)
+  const northScale = Math.sqrt(a / determinant)
   const cross = 2 * b
-  const circle = a === 1 && c === 1
-  const inverseA = 1 / a
-  const northScale = Math.sqrt(a / (a * c - b * b))
+
+  function depth(footprint: Footprint, x: number, y: number) {
+    const dx = x - footprint.cell.x
+    const dy = y - footprint.cell.y
+    const rr = ((a * dx + cross * dy) * dx + c * dy * dy) * footprint.inverseR2
+    return kernel(footprint.cell.tau0, rr, footprint.cumulus)
+  }
+
   return {
-    add(i: number, j: number, radius: number, tau: number, cumulus: boolean) {
-      const r2 = radius * radius
-      const inverseR2 = 1 / r2
-      const northRadius = radius * northScale
-      const last = Math.min(height - 1, Math.floor(j + northRadius))
-      for (let row = Math.max(0, Math.ceil(j - northRadius)); row <= last; row++) {
-        const north = row - j
-        const constant = c * north * north
-        const centre = -b * north * inverseA
-        const halfSquared = (r2 - constant) * inverseA + centre * centre
-        if (halfSquared <= 0) continue
-        const half = Math.sqrt(halfSquared)
-        const first = Math.max(0, Math.ceil(i + centre - half))
-        const end = Math.min(width - 1, Math.floor(i + centre + half))
-        const offset = row * width
-        if (circle) {
-          for (let col = first; col <= end; col++) {
-            const east = col - i
-            nodes[offset + col] += kernel(tau, (east * east + constant) * inverseR2, cumulus)
-          }
-          continue
-        }
-        const linear = cross * north
-        for (let col = first; col <= end; col++) {
-          const east = col - i
-          const rr = ((a * east + linear) * east + constant) * inverseR2
-          nodes[offset + col] += kernel(tau, rr, cumulus)
+    add(cell: FieldCell, cumulus: boolean) {
+      const { x, y, r } = cell
+      const east = eastScale * r, north = northScale * r
+      const first = Math.max(0, indexX(x - east)), last = Math.min(width - 1, indexX(x + east))
+      const top = Math.min(height - 1, indexY(y + north))
+      const footprint = { cell, cumulus, inverseR2: 1 / (r * r) }
+      for (let row = Math.max(0, indexY(y - north)); row <= top; row++) {
+        for (let col = first; col <= last; col++) {
+          const index = row * width + col
+          const bin = bins[index] ??= []
+          bin.push(footprint)
         }
       }
     },
-    at(u: number, v: number) {
-      const i = Math.floor(u), j = Math.floor(v)
-      const f = u - i, g = v - j
-      const p = j * width + i
-      return (1 - g) * ((1 - f) * nodes[p] + f * nodes[p + 1])
-        + g * ((1 - f) * nodes[p + width] + f * nodes[p + width + 1])
+    at(x: number, y: number) {
+      const bin = bins[indexY(y) * width + indexX(x)]
+      let tau = 0
+      if (bin) for (let i = 0; i < bin.length; i++) tau += depth(bin[i], x, y)
+      return tau
+    },
+    cellAt(x: number, y: number) {
+      const col = indexX(x), row = indexY(y)
+      if (col < 0 || col >= width || row < 0 || row >= height) return undefined
+      const bin = bins[row * width + col]
+      let best: FieldCell | undefined, peak = 0
+      if (bin) for (const footprint of bin) {
+        const tau = depth(footprint, x, y)
+        if (tau > peak) {
+          best = footprint.cell
+          peak = tau
+        }
+      }
+      return best
     },
   }
+}
+
+interface Footprint {
+  cell: FieldCell
+  cumulus: boolean
+  inverseR2: number
 }
 
 export function kernel(tau: number, rr: number, cumulus: boolean) {

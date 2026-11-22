@@ -55,13 +55,14 @@ it('advects and fades continuously through fixture hour boundaries and two midni
     minutes.add(midnight - 1)
     minutes.add(midnight)
   }
-  const codeEdges = [7, 13, 22].map(hour => 1440 + (hour - 1) * 60 + 29)
+  const codeEdges = [7, 13, 22].map(hour => 1440 + hour * 60 - 1)
   for (const edge of codeEdges) {
-    for (let minute = edge - 2; minute <= edge + 2; minute++) minutes.add(minute)
+    for (let minute = edge - 29; minute <= edge + 30; minute++) minutes.add(minute)
   }
   let occupiedTowerPairs = 0
   let matchedTowerCells = 0
   const jumps: number[] = []
+  let codeEdgeShare = 0
   const worst = fixtureField(0).layers.map(({ lattice }) => ({
     lattice, moveKm: 0, share: 0, steadyShare: 0, newShare: 0, steadyNewShare: 0, lostShare: 0, excess: -Infinity,
   }))
@@ -76,7 +77,7 @@ it('advects and fades continuously through fixture hour boundaries and two midni
       const deltaStrat = Math.abs(layer.form.strat - oldLayer.form.strat)
       // At fixed time the two clocks differ by at most 2 and the clump by at most amplitude / 2.
       const weatherRank = deltaStrat * (0.15 + (1 - 0.2 / 0.35) * amplitude / 2)
-      const bound = 6 * (deltaQ + weatherRank + 0.15 * Math.sin(Math.PI / period[0]))
+      const bound = 6 * (deltaQ + weatherRank + 0.15 * Math.sin(Math.PI / (period[0] * (layer.lattice === 'tower' ? 3 : 1))))
       if (layer.lattice === 'tower' && codeEdges.includes(minute)) jumps.push(layer.cover - oldLayer.cover)
       const radius = [3, 12, 12, 25][i]
       const old = new Map(cellsAround(before, layer.lattice, 0, 0, radius + 250 / 60).map(cell => [cell.id, cell]))
@@ -85,10 +86,12 @@ it('advects and fades continuously through fixture hour boundaries and two midni
       const dy = (oldLayer.vel[1] + layer.vel[1]) / 2
       const current = cellsAround(after, layer.lattice, 0, 0, radius)
       if (layer.lattice === 'tower' && current.length && old.size) occupiedTowerPairs++
-      const currentIds = layer.lattice === 'tower' && codeEdges.includes(minute) ? new Set(current.map(cell => cell.id)) : undefined
+      const codeEdge = layer.lattice === 'tower' && codeEdges.some(edge => minute >= edge - 29 && minute <= edge + 30)
+      const currentIds = codeEdge ? new Set(current.map(cell => cell.id)) : undefined
       if (currentIds) {
         for (const cell of old.values()) {
           if (currentIds.has(cell.id) || Math.hypot(cell.x + dx, cell.y + dy) > radius - 0.001) continue
+          codeEdgeShare = Math.max(codeEdgeShare, cell.share)
           stats.lostShare = Math.max(stats.lostShare, cell.share)
           stats.excess = Math.max(stats.excess, cell.share - bound)
         }
@@ -101,10 +104,12 @@ it('advects and fades continuously through fixture hour boundaries and two midni
           const y = cell.y - prev.y
           stats.moveKm = Math.max(stats.moveKm, Math.hypot(x - dx, y - dy), Math.hypot(x, y) - speed)
           const deltaShare = Math.abs(cell.share - prev.share)
+          if (codeEdge) codeEdgeShare = Math.max(codeEdgeShare, deltaShare)
           stats.share = Math.max(stats.share, deltaShare)
           stats.excess = Math.max(stats.excess, deltaShare - bound)
           if (deltaQ + weatherRank < 0.0015) stats.steadyShare = Math.max(stats.steadyShare, deltaShare)
         } else {
+          if (codeEdge) codeEdgeShare = Math.max(codeEdgeShare, cell.share)
           stats.newShare = Math.max(stats.newShare, cell.share)
           stats.excess = Math.max(stats.excess, cell.share - bound)
           // New cells obey the same weather-dependent bound from a previous share of zero.
@@ -116,8 +121,8 @@ it('advects and fades continuously through fixture hour boundaries and two midni
   expect(occupiedTowerPairs).toBeGreaterThan(0)
   expect(matchedTowerCells).toBeGreaterThan(0)
   expect(jumps).toHaveLength(codeEdges.length)
-  expect(Math.max(...jumps.map(Math.abs))).toBeGreaterThan(0)
-  console.info('tower continuity', { occupiedTowerPairs, matchedTowerCells, jumps })
+  expect(codeEdgeShare).toBeLessThanOrEqual(0.15)
+  console.info('tower continuity', { occupiedTowerPairs, matchedTowerCells, jumps, codeEdgeShare })
   console.info('continuity worst cases', JSON.stringify(worst))
   for (const stats of worst) {
     expect(stats.moveKm, stats.lattice).toBeLessThanOrEqual(0.001)

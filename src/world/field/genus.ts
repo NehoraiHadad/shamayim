@@ -1,3 +1,4 @@
+import { wallMinutes } from './advect'
 import type { Covers } from '../clouds'
 import type { FieldInput, Genus, Lattice, LayerForm } from './types'
 
@@ -29,11 +30,14 @@ export function smoothstep(lo: number, hi: number, value: number): number {
   return u * u * (3 - 2 * u)
 }
 
+export function convectiveWeight(code: number) {
+  return code >= 95 && code <= 99 ? 1 : code >= 80 && code <= 82 ? 0.6 : 0
+}
+
 /** Derive the form weights and the two genus-specific weather gates. */
 export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'sunAltitude'> & { wind10: { speedKmh: number } },
-  covers: Covers): Record<Lattice, LayerForm> {
+  covers: Covers, conv = convectiveWeight(input.weatherCode)): Record<Lattice, LayerForm> {
   const code = input.weatherCode
-  const conv = code >= 95 && code <= 99 ? 1 : code >= 80 && code <= 82 ? 0.6 : 0
   const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
     + 0.5 * (1 - smoothstep(-6, 10, input.sunAltitude)))
   return {
@@ -48,11 +52,24 @@ export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'su
 }
 
 /** Assign genus by an independent static draw so a life-cycle change alone keeps the form. */
-export function genusOf(lattice: Lattice, form: LayerForm, ug: number): Genus {
+export function genusOf(lattice: Lattice, form: LayerForm, ug: number, storm = smoothstep(0.6, 1, form.conv)): Genus {
   switch (lattice) {
     case 'low': return ug < (form.stratus ?? 0) ? 'st' : ug < form.strat ? 'sc' : 'cu'
-    case 'tower': return ug < smoothstep(0.6, 1, form.conv) ? 'cb' : 'cg'
+    case 'tower': return ug < storm ? 'cb' : 'cg'
     case 'mid': return ug < (form.nimbostratus ?? 0) ? 'ns' : ug < form.sheet ? 'as' : 'ac'
     case 'high': return ug < form.veil ? 'cs' : 'ci'
   }
+}
+
+/** Forecast code weights transition from the previous hour to the next across each ±30 min window. */
+export function convectiveAt(input: FieldInput) {
+  const { hours, at } = input
+  const hour = hours.findIndex(point => point.time.slice(0, 13) === at.slice(0, 13))
+  const fixed = (code: number) => ({ from: convectiveWeight(code), to: convectiveWeight(code), fraction: 0 })
+  if (hour < 0 || !hours.some(point => convectiveWeight(point.weatherCode))) return fixed(input.weatherCode)
+  const minute = Number(at.slice(14, 16))
+  const from = hours[minute < 30 ? hour - 1 : hour]
+  const to = hours[minute < 30 ? hour : hour + 1]
+  if (!from || !to || wallMinutes(to.time) - wallMinutes(from.time) !== 60) return fixed(hours[hour].weatherCode)
+  return { from: convectiveWeight(from.weatherCode), to: convectiveWeight(to.weatherCode), fraction: ((minute + 30) % 60) / 60 }
 }

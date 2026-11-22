@@ -39,7 +39,7 @@ export interface FieldLayer {
 
 /** A cloud disc with east/north coordinates, radius and heights in km. */
 export interface FieldCell {
-  id: string
+  id: number | string
   lattice: Lattice
   x: number
   y: number
@@ -47,6 +47,8 @@ export interface FieldCell {
   baseKm: number
   vKm: number
   tau0: number
+  /** Relative precipitation potential in [0, 1]. */
+  rainWeight: number
   share: number
   seed: number
   genus: Genus

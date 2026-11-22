@@ -82,7 +82,7 @@ The held-out errors at 0.98 and 1 were +.02 and zero, respectively, for every la
 3. Continuity checks per-cell share against the analytic bound and checks displacement and newly appearing IDs separately. The new-ID test uses zero previous share and applies the 0.15 limit at steady occupancy, where the forecast itself does not introduce new clouds. The clear-sky cap now uses a 0.25-wide ramp to bound the sensitivity to Q by 6.
 4. Direction matching uses each layer's unrelated-place baseline plus 0.05 and retains the 0.2 same-ID angular match limit. The direction test passed at three and 24 hours.
 5. Grid spacing is 0.125/0.5/0.5/1 km. The tower raster ends at its 6-degree mid-height intersection or 80 km, whichever is nearer. The 5% comparison uses the unblended near raster.
-6. Density allocates 32 × 32 tiles only as footprints touch them. Empty near-raster samples contribute only the optical floor.
+6. Round 3 allocated 32 × 32 tiles on demand. Round 4 reverted to one contiguous Float32Array per grid. Round 5 replaced point samples with an analytic footprint index. Empty near-raster samples contribute only the optical floor.
 7. Layer snapshots collect drawable cells and rasterize density in a single site visit. Drawing keeps the full individual range even when the tower raster ends earlier.
 8. Steering parses each hour and builds its wind profile once, integrating all four layer vectors together and finding the first midnight in the same pass. The old four-pressure-knot timeline and displacement helpers were removed. The wind-vector test exercises the steering timeline.
 9. The timing checks are separate and use medians of nine measurements after a warm-up each. Value-noise helpers are shared and site values are written directly into the packed array. Later changes reuse evicted site blocks and reduce work in timeline integration and the density sampler.
@@ -170,3 +170,47 @@ Tower lost-share peaked at 1 on the convective exit and stayed inside the same a
 ### Verification
 
 The focused niced unit runs passed the field, continuity and cover tests, plus five of the six density tests. The warm scrub timing assertion failed. The TypeScript check and diff whitespace check passed. Oxlint completed with the existing control-regex warning in scripts/city/geometry.ts. The local npx shim points to a missing npm CLI, so the checks used the installed binaries. The lattice layout is unchanged, so the calibration table was carried forward. Broader suites and builds were left for CI.
+
+## Round 5
+
+1. **Cover fit.** Refit forecast clear-share logs to the shown union with a 0.1% clear floor. Thinning uses one exponent for all decks. Thickening allocates added log depth by the eighth power of each deck's log depth. The shown low/mid bound can force additional thick cloud. The cover tests sweep the final two percentage points and check that minor decks stay within 0.05 of their initial cover.
+2. **Warm path.** A lazy, bounded air-frame cache stores seeded clump samples by place and lattice. Bilinear interpolation adds at most 0.01172 error in clump units. Cell IDs pack signed site coordinates and a lattice tag into an exact integer, with a string fallback outside the packed range.
+3. **Sparse RMS.** The near raster indexes footprint references by bounding box and evaluates each queried ellipse analytically. Exact geometry handles cells smaller than the old raster step. The table shows normalized RMS as fractions, measured over 2,000 seeded near samples per layer and mix.
+4. **Tower continuity.** Forecast convective weights fade linearly across ±30 minutes of changing code. Tower occupancy also interpolates in rank space across the fade, while keeping the calibrated occupancy-times-radius-squared invariant. Tower lifecycles use 60–120 minutes. At fixed low cover, the resulting per-minute share bound is below 0.148. The fixture checks the full transition windows, including matched, new, and lost cells.
+5. **Timing guard.** The strict opt-in budgets are 3 ms forecast arrival, 15 ms cold scrub, and 2.6 ms warm scrub. The default warm check uses the median ratio of warm samples to a fixed CPU reference loop, with a reference sample before and after each warm sample. The maximum ratio is 0.62.
+6. **Raster storage.** The Round 4 revert removed the tile lookup and boundary handling. In a rotated-order, nine-sample local comparison, building all four grids and reading 1,440 near points per layer took 2.240 ms with Round 3 tiles, 1.731 ms with Round 4 contiguous nodes, and 1.536 ms with Round 5 analytic bins. The two historical variants used the same node spacing. Round 5 keeps the analytic bins, which were fastest and eliminate point-sampling error on small footprints.
+7. **N2 hooks.** Snapshots accept the view centre and radius, retain floor depth outside that radius, and identify the strongest contributing cell in the indexed near field. Cells have a relative rain weight based on occupied share for precipitating genera. The shadow helper reuses the layer grids and returns column depth toward the sun at the layers' representative above-ground heights. Direct-light slant depth for a uniform sheet is column depth divided by the sine of solar altitude. For a finite cell of thickness v, major radius r and maximum extinction κ, slant depth is bounded by κ times the lesser of v/sin(alt) and 2r/cos(alt).
+
+| Mix | Low | Tower | Mid | High |
+| --- | ---: | ---: | ---: | ---: |
+| Fixture | 7.32e−17 | 8.13e−17 | 1.03e−16 | 1.35e−15 |
+| Sparse | 9.46e−17 | 9.54e−17 | 9.15e−17 | 1.55e−15 |
+| Overcast | 8.66e−17 | 8.13e−17 | 1.16e−16 | 8.84e−16 |
+
+| Layer | Worst move residual (km) | Matched share | Steady matched share | New share | Steady new share | Max analytic bound excess |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Low | 7.28e−14 | .26645 | .12152 | .13848 | 0 | −.02557 |
+| Tower | 5.73e−14 | .11913 | .03285 | .01274 | 0 | −.01425 |
+| Mid | 1.12e−13 | .09589 | .03774 | .00083 | .00083 | −.01401 |
+| High | 1.77e−13 | .24538 | .02501 | .00129 | 4.46e−7 | −.00549 |
+
+The tower had 168 occupied minute pairs and 1,080 matched cells. The worst share change across the three full fade windows was .11913. The immediate hour-edge cover changes were +.00333, +.00500 and 0. No lost tower cell had positive share in the tracked interior.
+
+The final cover sweep's largest layer step was .02599 per .001 input step, and the largest union error was .00100.
+
+| Isolated strict timing check | Median (ms) | Limit (ms) |
+| --- | ---: | ---: |
+| Forecast arrival | .693 | 3 |
+| Cold place scrub | 7.344 | 15 |
+| Warm scrub | 1.658 | 2.6 |
+
+| Layer | Shared snapshot (ms) | Grid build (ms) | Cell list (ms) | 1,440 lookups (ms) | Far strips (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Low | .287 | .259 | .203 | .316 | .027 |
+| Tower | .639 | .074 | .360 | .495 | .001 |
+| Mid | .244 | .257 | .177 | .310 | .028 |
+| High | .088 | .162 | .037 | .312 | .015 |
+
+These component medians come from independent profile loops. Grid builds and cell lists overlap with the shared snapshot work. The default check measured a 4.982 ms reference median and a .474 paired ratio at a 2.331 ms warm median. The .62 cap gives approximately 31% headroom, below the .711 ratio expected for a 1.5× scrub-only regression at that baseline. Before the final loop optimizations and steady-state warm-up, strict warm medians varied between 2.359 and 2.901 ms. The reference assumes CPU load scales both samples comparably. A deliberately injected slowdown under CPU contention was unverified.
+
+The focused field, density, cover, continuity, planes and living-light tests passed. TypeScript and calibration passed. The calibration still met the held-out cover test with the existing table. Oxlint reported the existing control-regex warning in scripts/city/geometry.ts. Broad suites, builds and deployment were outside this local run.

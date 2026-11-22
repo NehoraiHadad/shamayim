@@ -49,3 +49,47 @@ export function createClumpSampler(seed: number, wavelength: number) {
   const fine = octave(1, 2)
   return (x: number, y: number) => (2 * coarse(x / wavelength, y / wavelength) + fine(x / wavelength, y / wavelength)) / 3
 }
+
+/** Lazy coarse air-frame cache. The 2:1 octave mix has axis curvature at most 12/wavelength²,
+ * so bilinear error is at most 2 × 12 / (8 × 16²) = 0.01172.
+ */
+export function sampleClumpGrid(sample: (x: number, y: number) => number, wavelength: number) {
+  const step = wavelength / 16
+  const size = 4096
+  const values = new Float64Array(size)
+  const east = new Float64Array(size).fill(NaN)
+  const north = new Float64Array(size)
+  function node(i: number, j: number) {
+    const key = (Math.imul(i, 31) ^ Math.imul(j, 127)) & (size - 1)
+    if (east[key] !== i || north[key] !== j) {
+      east[key] = i
+      north[key] = j
+      values[key] = sample(i * step, j * step)
+    }
+    return values[key]
+  }
+  const blockSize = 2048
+  const tagsX = new Float64Array(blockSize).fill(NaN)
+  const tagsY = new Float64Array(blockSize)
+  const quads = new Float64Array(blockSize * 4)
+  const scale = 1 / step
+  return (x: number, y: number) => {
+    const u = x * scale, v = y * scale
+    const i = Math.floor(u), j = Math.floor(v)
+    const a = u - i, b = v - j
+    const key = (Math.imul(i, 31) ^ Math.imul(j, 127)) & (blockSize - 1)
+    const offset = key * 4
+    if (tagsX[key] !== i || tagsY[key] !== j) {
+      tagsX[key] = i
+      tagsY[key] = j
+      const origin = node(i, j)
+      const right = node(i + 1, j)
+      const top = node(i, j + 1)
+      quads[offset] = origin
+      quads[offset + 1] = right - origin
+      quads[offset + 2] = top - origin
+      quads[offset + 3] = node(i + 1, j + 1) - right - top + origin
+    }
+    return quads[offset] + a * quads[offset + 1] + b * (quads[offset + 2] + a * quads[offset + 3])
+  }
+}

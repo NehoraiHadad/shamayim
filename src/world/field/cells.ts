@@ -1,5 +1,5 @@
 import { dimensions } from './field'
-import { genusOf, unit } from './genus'
+import { genusOf, smoothstep, unit } from './genus'
 import { centerSites, LATTICES, maxRadius, siteAt, siteCache } from './lattice'
 import { shareOf } from './occupancy'
 import type { CloudField, FieldCell, Lattice } from './types'
@@ -19,7 +19,7 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
   const { form, Q, g } = layer
   const { d: [dx, dy], vel } = (dtMin && layer.motionAt ? layer.motionAt(field.t + dtMin) : layer)
   const axis = lattice === 'high' ? (Math.atan2(vel[0], vel[1]) * 180 / Math.PI + 360) % 360 : undefined
-  const { pitch } = LATTICES[lattice]
+  const { pitch, amplitude: clumpAmplitude } = LATTICES[lattice]
   const cache = siteCache(field.placeId, lattice)
   const qi = (x - dx) / pitch
   const qj = (y - dy) / pitch
@@ -32,8 +32,11 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
   const maxJ = Math.floor(qj + radiusSites)
   const radiusSquared = radiusKm ** 2
   const t = field.t + dtMin
+  const storm = lattice === 'tower' ? smoothstep(0.6, 1, form.conv) : 0
   const w = form.strat
   const amplitude = 1 + (0.2 / 0.35 - 1) * w
+  const rankLimit = Q + 0.2 + clumpAmplitude * amplitude / 2
+  const periodScale = lattice === 'tower' ? 3 : 1
   for (let startJ = minJ; startJ <= maxJ; startJ += 96) {
     const endJ = Math.min(startJ + 95, maxJ)
     for (let startI = minI; startI <= maxI; startI += 96) {
@@ -51,11 +54,13 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
           const p = siteAt(cache, block, lattice, i, j)
           const u = data[p + 3]
           // Clumping can lower rank by up to half its amplitude and the lifecycle by 0.075.
-          if (u > Q + 0.2 + LATTICES[lattice].amplitude * amplitude / 2) continue
+          if (u > rankLimit) continue
           const east = data[p] + dx
           const north = data[p + 1] + dy
           if ((east - x) ** 2 + (north - y) ** 2 > radiusSquared) continue
-          const period = data[p + 5]
+          // Tower lifetimes use a 60-minute minimum. With the 1/60 per-minute rank-space
+          // fade, share changes by at most 6 × (1/60 + .15 sin(π/60)) < .148 at fixed low cover.
+          const period = periodScale * data[p + 5]
           const phase = data[p + 6]
           const cu = w < 1 ? Math.sin(2 * Math.PI * (t / period + phase)) : 0
           const sc = w > 0 ? Math.sin(2 * Math.PI * (t / (60 + 6 * (period - 20)) + phase)) : 0
@@ -63,7 +68,7 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
           const rank = unit(u + amplitude * data[p + 8]) + 0.075 * ((1 - w) * cu + w * sc)
           const share = shareOf(rank, Q)
           if (share <= 0) continue
-          const genus = genusOf(lattice, form, data[p + 7])
+          const genus = genusOf(lattice, form, data[p + 7], storm)
           const r = data[p + 2] * g
           const { baseKm, vKm, kappa } = dimensions(genus, layer.lowBaseKm ?? layer.baseKm, form, data[p + 4], 2 * r)
           emit(i, j, east, north, r * Math.sqrt(share), baseKm, vKm, kappa * vKm * share,
@@ -92,9 +97,18 @@ function collect(field: CloudField, lattice: Lattice, x: number, y: number, radi
 export function fieldCell(lattice: Lattice, i: number, j: number, x: number, y: number, r: number,
   baseKm: number, vKm: number, tau0: number, share: number, seed: number, genus: FieldCell['genus'],
   rank: number, axis: number | undefined): FieldCell {
-  return { id: `${lattice}:${i}:${j}`, lattice, x, y, r, baseKm, vKm, tau0,
-    share, seed, genus, rank, axis, rMinor: axis === undefined ? undefined : r / 3 }
+  // Pack two signed 25-bit site coordinates and a two-bit lattice tag into an exact JS integer.
+  const side = 2 ** 25, bias = side / 2
+  const id = i >= -bias && i < bias && j >= -bias && j < bias
+    ? ((i + bias) * side + j + bias) * 4 + latticeTag[lattice]
+    : `${lattice}:${i}:${j}`
+  return { id, lattice, x, y, r, baseKm, vKm, tau0, share, seed, genus, rank, axis,
+    rainWeight: genus === 'cg' || genus === 'cb' || genus === 'ns' ? share : 0,
+    rMinor: axis === undefined ? undefined : r / 3 }
 }
+
+const latticeTag = { low: 0, tower: 1, mid: 2, high: 3 }
+
 /** Enumerate all occupied centres that could cover the query point, in km. */
 export function cellsAt(field: CloudField, lattice: Lattice, x: number, y: number): FieldCell[] {
   const g = field.layers.find(layer => layer.lattice === lattice)?.g ?? 1

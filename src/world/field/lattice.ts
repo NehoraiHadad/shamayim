@@ -1,5 +1,5 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { createClumpSampler, mixSeed } from './clump'
+import { createClumpSampler, mixSeed, sampleClumpGrid } from './clump'
 import type { Lattice } from './types'
 
 /** Lattice pitch, radius distribution and clump wavelengths in km. */
@@ -23,6 +23,7 @@ interface Cache {
   seed: number
   blocks: Block[]
   clump: (x: number, y: number) => number
+  expectedClump?: (x: number, y: number) => number
 }
 const places = new Map<string, Map<Lattice, Cache>>()
 const spareBlocks: Block[] = []
@@ -110,4 +111,10 @@ function populateSite(cache: Cache, block: Block, lattice: Lattice, i: number, j
   data[offset + 9] = seed
   block.filled[index] = block.stamp
   return offset
+}
+
+/** Reuse the expected-field sampler across keyframes of the same place and lattice. */
+export function expectedClumpSampler(placeId: string, lattice: Lattice) {
+  const cache = siteCache(placeId, lattice)
+  return cache.expectedClump ??= sampleClumpGrid(cache.clump, LATTICES[lattice].wavelength)
 }

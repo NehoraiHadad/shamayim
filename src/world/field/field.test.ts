@@ -1,3 +1,4 @@
+import { unionOf } from '../cloudsCover'
 import { expect, it } from 'vitest'
 import { mapForecast } from '../../data/openMeteo/mapForecast'
 import fixture from '../../test/fixtures/forecast-layers-2026-11-17.json'
@@ -81,15 +82,18 @@ it('integrates meteorological vectors from the midnight anchor', () => {
 it('closes the forecast layers smoothly from 98% to 100% total cover', () => {
   const hour = { cloudLow: 80, cloudMid: 50, cloudHigh: 25 }
   const coversAt = (step: number) => layerCovers({ hour, cloudCover: 98 + step / 10 }).covers
-  let previous = coversAt(0)
+  const initial = coversAt(0)
+  let previous = initial
   for (let step = 1; step <= 20; step++) {
     const covers = coversAt(step)
     for (const level of ['low', 'mid', 'high'] as const) {
-      expect(Math.abs(covers[level] - previous[level]), level).toBeLessThanOrEqual(0.05)
+      expect(Math.abs(covers[level] - previous[level]), level).toBeLessThanOrEqual(0.03)
     }
     previous = covers
   }
-  expect(previous).toEqual({ low: 1, mid: 1, high: 1 })
+  expect(unionOf(previous)).toBeGreaterThanOrEqual(0.999)
+  expect(Math.abs(previous.mid - initial.mid)).toBeLessThanOrEqual(0.05)
+  expect(Math.abs(previous.high - initial.high)).toBeLessThanOrEqual(0.05)
 })
 it('projects all near cells monotonically from zenith to 300 km', () => {
   const field = fieldAt(0)

@@ -1,7 +1,7 @@
 import { layerCovers, lowBaseM } from '../clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { steeringTimeline, steeringWind, wallMinutes } from './advect'
-import { formOf, GENERA, smoothstep } from './genus'
+import { convectiveAt, formOf, GENERA, smoothstep } from './genus'
 import { occupancyOf, splitLowCover } from './occupancy'
 import type { CloudField, FieldInput, FieldLayer, Genus, Lattice, LayerForm } from './types'
 
@@ -66,14 +66,26 @@ function fallbackMotion(input: FieldInput, zAslKm: number, t: number, offset: [n
 
 /** Build four layer snapshots without materializing any sites. */
 export function buildField(input: FieldInput): CloudField {
-  const forms = formOf(input, input.covers)
+  const { from, to, fraction } = convectiveAt(input)
+  const forms = formOf(input, input.covers, mix(from, to, fraction))
   const cover = { ...input.covers, ...splitLowCover(input.covers.low, forms.low.conv) }
   const t = wallMinutes(input.at)
   const steering = steeringOf(input)
   const layers = lattices.map((lattice, index): FieldLayer => {
     const form = forms[lattice]
     const { baseKm, vKm: meanVKm, kappa } = layerDimensions(lattice, input.lowBaseKm, form)
-    const { Q, g, floorTau } = occupancyOf(lattice, cover[lattice])
+    const occupancy = occupancyOf(lattice, cover[lattice])
+    if (lattice === 'tower' && from !== to) {
+      const limit = Math.min(input.covers.low, 0.5)
+      const start = occupancyOf(lattice, from * limit)
+      const end = occupancyOf(lattice, to * limit)
+      // Blend saturation in rank space. At fixed low cover the change in Q is at most 1/60
+      // per minute. Preserve Q × g², the calibrated radius-squared intensity, as Q changes.
+      const intensity = occupancy.Q * occupancy.g ** 2
+      occupancy.Q = mix(start.Q, end.Q, fraction)
+      if (occupancy.Q > 0) occupancy.g = Math.sqrt(intensity / occupancy.Q)
+    }
+    const { Q, g, floorTau } = occupancy
     const angle = 2 * Math.PI * seeded(hashId(`${input.placeId}:${steering.date}:${lattice}`))()
     const offset: [number, number] = [500 * Math.sin(angle), 500 * Math.cos(angle)]
     const zAslKm = fallbackHeights[lattice] + input.elevationKm
