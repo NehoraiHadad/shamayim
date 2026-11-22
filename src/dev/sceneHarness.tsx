@@ -169,8 +169,8 @@ function Scene({ input: given }: { input: WorldInput }) {
   const landHold = useRef<Surface | null>(null)
   /** Both surfaces laid at a phase as the loop lays them with motion on (`still` false), whatever the page's reduced motion. */
   const lay = useCallback((phase: number) => {
-    skySurface.current?.composite(onSkyCanvas(sky), phase, false)
-    landHold.current?.composite(land, phase, false)
+    skySurface.current?.lay(phase, false, onSkyCanvas(sky))
+    landHold.current?.lay(phase, false, land)
     // The sky's base glides by its background's position (C8), as `SkyCanvas` lays it.
     const base = sky.find((layer): layer is LayerOf<'sky'> => layer.kind === 'sky')
     const canvas = skySurface.current?.canvas as HTMLCanvasElement | undefined

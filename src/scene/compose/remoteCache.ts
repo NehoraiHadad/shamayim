@@ -1,9 +1,11 @@
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
-import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, resultBitmaps, shadeKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
+import { deviceRect, formKeyOf, lightKeyOf, resultBitmaps, type PaintJob, type PaintReply } from './paintJob'
+import { receiverJob, shadeKeyOf } from './paintReceiver'
 import { PaintQueue, type WorkerLike } from './paintQueue'
-import { accept, isStaged, partsOf, peek, pruneStaged, reuse, sameForm, samePaint, stage, type Entry, type Request } from './remoteEntry'
+import { accept, closeEntry, isStaged, partsOf, peek, pruneStaged, reuse, sameForm, samePaint, stage, type Entry, type Request } from './remoteEntry'
+import { collectParts } from './remoteReceipt'
 
 export type { WorkerLike } from './paintQueue'
 
@@ -74,13 +76,8 @@ export class RemoteCache {
     const same = sameForm(entry.shown?.request, request)
     const ask = (part: PaintJob['part'], key: string | null) => {
       if (key === null) return this.queue.cancel(desc.id, part)
-      // A light-only job crosses the worker boundary without the form's buffers (`lightJobDesc`).
-      const shade = part === 'light' && shadeKeyOf(desc) ? true : undefined
-      const progressive = desc.kind === 'canopy' && formless
-      const scrubReceiver = formless && same && desc.kind === 'plane' ? true : undefined
-      return this.queue.ask({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase,
-        hand: this.options.hand ?? HAND, progressive, shade, scrubReceiver,
-        coldPreview: shade && progressive && !entry.shown ? true : undefined }, request)
+      return this.queue.ask({ id: desc.id, part, key, formKey, ratio, rect, phase, hand: this.options.hand ?? HAND,
+        ...receiverJob(desc, part, formless, same, Boolean(entry.shown)) }, request)
     }
     const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
     const light = ask('light', (same && !entry.shown?.preview && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
@@ -95,18 +92,9 @@ export class RemoteCache {
       if (batch && reply.error) this.fail(reply.error)
       return
     }
-    const results = new Map<Entry, { request: Request; parts: PaintResult[] }>()
-    for (const result of reply.results) {
-      this.stagedWorkerMs += result.ms
-      // An intermediate strip chunk stays staged in the worker: nothing to take in yet.
-      if (!result.bitmap) continue
-      const entry = this.entries.get(result.id), request = batch.requestOf(result.id, result.part)
-      if (!entry || !request) { for (const bitmap of resultBitmaps(result)) bitmap?.close(); continue }
-      const received = results.get(entry)
-      if (received) received.parts.push(result)
-      else results.set(entry, { request, parts: [result] })
-    }
-    for (const [entry, { request, parts }] of results) {
+    const { arrived, workerMs } = collectParts(reply.results, this.entries, batch.requestOf)
+    this.stagedWorkerMs += workerMs
+    for (const [entry, { request, parts }] of arrived) {
       const whole = stage(entry, request, parts)
       if (whole) accept(entry, request, whole)
       // Promotion can replace a form that the queued light planned to reuse.
@@ -115,7 +103,7 @@ export class RemoteCache {
     const latency = batch.latency()
     this.flush()
     const settled = this.settled()
-    if (results.size) {
+    if (arrived.size) {
       const workerMs = this.stagedWorkerMs
       this.stagedWorkerMs = 0
       this.options.onArrive({ latency, workerMs, settled })
@@ -127,7 +115,7 @@ export class RemoteCache {
     if (this.failed) return
     this.failed = true
     this.queue.stop()
-    this.stagedWorkerMs = 0
+    this.prune(new Set())
     this.options.onFail(reason)
     this.queue.resolveIfSettled()
   }
@@ -141,7 +129,7 @@ export class RemoteCache {
   prune(keep: ReadonlySet<string>) {
     for (const [id, entry] of this.entries) {
       if (keep.has(id)) continue
-      for (const bitmap of partsOf(entry.shown, entry.staged)) bitmap?.close()
+      closeEntry(entry)
       this.entries.delete(id)
       this.queue.prune(id)
     }

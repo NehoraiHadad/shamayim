@@ -56,6 +56,9 @@ export async function receiverPixels(page, dpr = 1) {
     local.render([fixedShadow], 85, true)
     const still = material(10)
     const gustCanopy = canopyOf(fixedShadow, { lean: 0.6, gust: 0.55 }, [])
+    const distant = { ...shadow, blobs: [{ ...shadow.blobs[0], x: 88, rx: 3, speed: -64 / 75 }] }
+    const away = canopyOf(shadowedPlane(plane, distant, 10, false), gustCanopy.wind, [])
+    const sweeping = canopyOf(shadowedPlane(plane, distant, 10), gustCanopy.wind, [])
     const gustPixels = () => Array.from(ctx.getImageData(19 * dpr, 14 * dpr, 10 * dpr, 11 * dpr).data)
     local.render([fixedShadow, gustCanopy], 10, false)
     local.lay(10)
@@ -64,6 +67,21 @@ export async function receiverPixels(page, dpr = 1) {
     const gustBent = gustPixels()
     local.lay(12)
     const gustRepeat = gustPixels()
+
+    const outlineCrest = [[0, 12.25], [96, 17.75], [96, 48], [0, 48]]
+    const sloped = { ...withShadow, key: 'crest', outline: outlineCrest }
+    const behind = { ...plane, id: 'plane.far', plane: 'far', z: 20, key: 'behind',
+      surfaceTone: { ...plane.surfaceTone, palette: [[0.4, 0.55, 0.9], [0.4, 0.55, 0.9]] } }
+    const crestRect = [18 * dpr, 12 * dpr, Math.ceil(12 * dpr), Math.ceil(5 * dpr)]
+    const crest = () => Array.from(ctx.getImageData(...crestRect).data)
+    local.render([sloped], 10)
+    const coverage = crest()
+    local.render([behind, { ...sloped, cloudShadow: undefined }], 10)
+    const beamCrest = crest()
+    local.render([behind, sloped], 10)
+    const liveCrest = crest()
+    local.lay(10)
+    const laidCrest = crest()
 
     const remoteCanvas = document.createElement('canvas')
     const remoteCtx = remoteCanvas.getContext('2d', { willReadFrequently: true })
@@ -118,18 +136,36 @@ export async function receiverPixels(page, dpr = 1) {
     const remoteBent = pixels()
     remote.render([fixedShadow, gustCanopy], 10.8)
     const interactiveBent = pixels()
-    remoteWorker.terminate()
+    const filled = remote.peek('canopy.near')
+    const poseImages = [filled.light, filled.shade, ...filled.poses.flatMap(({ bitmap, shade }) => [bitmap, shade])]
+    const memory = remote.bytes()
+    remoteWorker.onerror(new Event('error'))
+    await remote.settled()
+    remote.lay(10.8)
+    const fallbackBent = pixels()
     return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, beforeMinute, afterMinute, moved, still,
-      gustStart, gustBent, gustRepeat, remoteStart, remoteBent, interactiveBent, coldCanopy, missing, paired, changes, groundOnly }
+      gustStart, gustBent, gustRepeat, remoteStart, remoteBent, interactiveBent, coldCanopy, missing, paired, changes, groundOnly,
+      coverage, beamCrest, liveCrest, laidCrest, fallbackBent, memory,
+      culled: !away.cloudShadow && !away.shadedTones && Boolean(sweeping.cloudShadow && sweeping.shadedTones),
+      fellBack: !remote.remote && Boolean(remote.peek('canopy.near').shade),
+      closed: poseImages.filter((image) => image.width === 0).length }
   }, dpr)
   const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, beforeMinute, afterMinute, moved, still,
-    gustStart, gustBent, gustRepeat, remoteStart, remoteBent, interactiveBent, coldCanopy, missing, paired, changes, groundOnly } = result
+    gustStart, gustBent, gustRepeat, remoteStart, remoteBent, interactiveBent, coldCanopy, missing, paired, changes, groundOnly,
+    coverage, beamCrest, liveCrest, laidCrest, fallbackBent, fellBack, closed, memory, culled } = result
   assert.deepEqual(still, first)
   assert.deepEqual(gustStart, gustRepeat, 'canopy gust must repeat every two seconds')
   assert.notDeepEqual(gustStart, gustBent, 'canopy gust must keep moving under a stationary cloud shadow')
   assert.deepEqual(remoteStart, gustStart, 'split Worker pose zero must match the fallback')
   assert.deepEqual(remoteBent, gustBent, 'split Worker gust pose must match the fallback')
+  assert.ok(fellBack, 'Worker failure switches to the painted canopy pair on the main thread')
+  assert.equal(closed, 20, 'Worker failure releases both endpoints for all ten gust poses')
+  assert.deepEqual(fallbackBent, gustBent, 'the failed Worker leaves a correctly shaded gust strip')
+  assert.ok(culled, 'a canopy paints two endpoints only if the footprint can reach it')
   assert.ok(interactiveBent.every((c, i) => Math.abs(c - remoteBent[i]) <= 3), 'interactive canopy blend retains pixel coverage and colour')
+  assert.ok(coverage.some((alpha, i) => i % 4 === 3 && alpha > 0 && alpha < 255
+    && Math.abs(beamCrest[i - 3] - liveCrest[i - 3]) > 4), 'the crest crop contains partially covered, shadowed terrain')
+  assert.deepEqual(liveCrest, laidCrest, 'interactive and exact composites match at the antialiased crest')
   assert.deepEqual(first[1], unshadowed[1])
   assert.ok(intermediate[0][0] > first[0][0] && intermediate[0][0] < unshadowed[0][0], 'the shadow must advance between old poses')
   assert.ok(beforeOldJump.every((channel, i) => Math.abs(channel - afterOldJump[i]) <= 2), 'the former pose boundary must stay continuous')
@@ -141,7 +177,7 @@ export async function receiverPixels(page, dpr = 1) {
   assert.ok(coldCanopy, 'first canopy must publish its full beam before its shade')
   assert.ok(missing.every((channel) => channel === 0), 'an early canopy must leave a transparent canvas')
   assert.notDeepEqual(paired, groundOnly.sun.canopy, 'the paired canopy must be visible')
-  assert.ok(changes.length >= 3, 'observe the held frame and the separate plane and canopy arrivals')
+  assert.equal(changes.length, 2, 'the warm canopy and plane arrive in the same scrub batch')
   assert.equal(changes[0].key, 'sun')
   assert.equal(changes.at(-1).key, 'next-light')
   for (const frame of changes) {
@@ -151,5 +187,5 @@ export async function receiverPixels(page, dpr = 1) {
     assert.ok(frame.ground[0] < ground.beam[0] - 10, 'ground never reverts to full beam')
     assert.ok(frame.canopy.some((channel, i) => i % 4 !== 3 && Math.abs(channel - ground.canopy[i]) > 6), 'canopy never disappears')
   }
-  console.log(`Rendered shadow boundary and delayed Worker receiver checks passed at ${dpr}×`)
+  console.log(`Rendered shadow boundary and Worker fallback checks passed at ${dpr}×. Filled shaded gust memory ${(memory / 2 ** 20).toFixed(2)} MiB`)
 }

@@ -1,7 +1,8 @@
 import { frameAt, frameCount } from '../model/anim'
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Ctx2D, type Hand, type Painter } from '../paint'
-import { canvasSize, deviceRect, formKeyOf, lightKeyOf, paintPart, shadeKeyOf, type DeviceRect } from './paintJob'
+import { canvasSize, deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
+import { shadeKeyOf } from './paintReceiver'
 import type { SceneStats } from './stats'
 
 export { deviceRect, type DeviceRect } from './paintJob'

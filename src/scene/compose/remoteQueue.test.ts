@@ -82,6 +82,15 @@ describe('bounded strip scheduling in RemoteCache', () => {
     expect(held.shade!.close).toHaveBeenCalledOnce()
     expect(held.light!.close).toHaveBeenCalledOnce()
     expect(cache.fresh(next, 2)).toBe(true)
+
+    const clear = { ...next, cloudShadow: undefined }
+    expect(cache.update(clear, 2)).toBe('none')
+    cache.flush()
+    expect(worker.sent).toHaveLength(0)
+    expect(cache.peek(clear.id)).toMatchObject({ light: swapped.light, lightDesc: clear })
+    expect(cache.peek(clear.id)?.shade).toBeUndefined()
+    expect(swapped.shade!.close).toHaveBeenCalledOnce()
+    expect(swapped.light!.close).not.toHaveBeenCalled()
   })
 
   it('preempts an in-flight animated strip after one bounded chunk when new terrain and scrub-light jobs arrive', async () => {
@@ -148,6 +157,7 @@ describe('bounded strip scheduling in RemoteCache', () => {
     cache.update(canopy('c2', 'cl2'), 2)
     worker.answer()
     expect(worker.sent[0].jobs[0]).toMatchObject({ id: 'canopy.near', part: 'form', key: 'c2@2:0,40,375,88#10/5', frames: [0, 1], final: false })
+    expect(worker.sent[0].discard).toEqual(['canopy.near:form'])
   })
 
   it('shows canopy pose zero during a scrub and fills only the surviving strip after it settles', async () => {

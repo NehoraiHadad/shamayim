@@ -1,9 +1,8 @@
 import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
-import { EMPTY_VEGETATION } from '../model/vegDescriptor'
-import { layerKey } from '../model/keys'
 import type { LayerDesc } from '../model/types'
 import type { Ctx2D, Hand, PaintEnv, Painter, Scratch } from '../paint'
+import { shadeKeyOf } from './paintReceiver'
 
 /** A layer's canvas in device px: whole pixels, so it is laid into the surface 1:1. */
 export interface DeviceRect { x: number; y: number; w: number; h: number }
@@ -24,16 +23,13 @@ export function formKeyOf(desc: LayerDesc, dpr: number): { ratio: number; key: s
 /** A strip's frames are part of what its canvas holds (C7). */
 export const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
 
-/** The key a layer's light canvas holds, or null when the layer has no light part (or no light painter). */
-export function shadeKeyOf(desc: LayerDesc) {
-  if (desc.kind === 'plane' && desc.cloudShadow) return desc.light.key
-  if (desc.kind === 'canopy' && desc.cloudShadow && desc.shadedTones) return layerKey(desc.key, desc.shadedTones.key)
-}
+export const beamKeyOf = (desc: LayerDesc) => desc.light ? desc.light.key + stripKey(desc) : null
 
+/** The key a layer's light canvas holds, or null when there is no light painter. */
 export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined) {
   if (!painter?.light || !desc.light) return null
   const shade = shadeKeyOf(desc)
-  return desc.light.key + stripKey(desc) + (shade ? `:${shade}` : '')
+  return beamKeyOf(desc) + (shade ? `:${shade}` : '')
 }
 
 /**
@@ -80,25 +76,6 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
 /** A layer's canvas in device px: its frame, times the frames of a strip (1 for a still layer). */
 export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h: rect.h * frameCount(desc.animated) })
 
-/**
- * Trims form-only buffers from a descriptor before posting a `light`-only job across the Worker boundary:
- * lit planes strip upright `trees`/`tufts` (rendered by `canopy`) while keeping ground surface, strata, fields,
- * gullies, terraces and orchard rows painted in one pass by `paintPlaneLight`.
- */
-export function lightJobDesc(desc: LayerDesc): LayerDesc {
-  if (desc.kind === 'canopy') return { ...desc, cloudShadow: undefined }
-  if (desc.kind !== 'plane') return desc
-  return {
-    ...desc,
-    cloudShadow: undefined,
-    vegetation: {
-      ...desc.vegetation,
-      trees: EMPTY_VEGETATION.trees, treeMeta: EMPTY_VEGETATION.treeMeta,
-      tufts: EMPTY_VEGETATION.tufts, tuftMeta: EMPTY_VEGETATION.tuftMeta,
-    },
-  }
-}
-
 /** One part of one layer for the paint worker to paint. */
 export interface PaintJob {
   id: string
@@ -127,7 +104,9 @@ export interface PaintJob {
   scrubReceiver?: true
 }
 
-export interface PaintRequest { batch: number; jobs: PaintJob[] }
+export interface PaintRequest { batch: number; jobs: PaintJob[]; discard?: string[] }
+
+export const paintSlot = (id: string, part: PaintJob['part']) => `${id}:${part}`
 
 export interface PaintResult {
   id: string

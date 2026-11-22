@@ -1,6 +1,6 @@
 import type { Ctx2D, Painter, Scratch } from '../paint'
 import { frameCount } from '../model/anim'
-import { canvasSize, paintPart, resultBitmaps, type PaintJob, type PaintPose, type PaintResult } from './paintJob'
+import { canvasSize, paintPart, paintSlot, type PaintJob, type PaintPose, type PaintResult } from './paintJob'
 
 /** Minimal `OffscreenCanvas` surface needed by the worker batch runner (and Node unit tests). */
 export interface WorkerCanvas {
@@ -17,14 +17,13 @@ export interface WorkerRunnerDeps {
 }
 
 /**
- * Per-worker batch runner: reuses one staging canvas per layer part across chunked strip batches (`job.frames`,
- * `job.final === false`) and transfers one complete `ImageBitmap` only on the completing chunk (`job.final !== false`).
+ * Per-worker batch runner. Retains staging canvases only between chunks of unfinished strips.
  */
 export function makeWorkerRunner({ createCanvas, painterOf, now = () => performance.now() }: WorkerRunnerDeps) {
-  const canvases = new Map<string, WorkerCanvas>()
+  const staged = new Map<string, Map<string, WorkerCanvas>>()
 
-  function canvasFor(job: PaintJob, endpoint = job.part as string, pose?: number): WorkerCanvas {
-    const name = `${job.id}:${endpoint}:${pose ?? ''}`
+  function canvasFor(canvases: Map<string, WorkerCanvas>, job: PaintJob, endpoint = job.part as string, pose?: number): WorkerCanvas {
+    const name = `${endpoint}:${pose ?? ''}`
     let canvas = canvases.get(name)
     const { w, h } = pose === undefined ? canvasSize(job.desc, job.rect) : job.rect
     if (!canvas || canvas.width !== w || canvas.height !== h) {
@@ -39,48 +38,62 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
     return { canvas: canvas as unknown as Scratch['canvas'], ctx: canvas.getContext('2d') as Ctx2D }
   }
 
-  function paintCanopyPoses(job: PaintJob, paint: Painter['form']) {
+  function paintCanopyPoses(canvases: Map<string, WorkerCanvas>, job: PaintJob, paint: Painter['form'],
+    transfer: (canvas: WorkerCanvas) => ImageBitmap) {
     // Software raster can read the full strip for a small crop. Keep each pair directly drawable.
     for (const pose of job.frames!) {
-      const canvas = canvasFor(job, 'light', pose), shade = canvasFor(job, 'shade', pose)
+      const canvas = canvasFor(canvases, job, 'light', pose), shade = canvasFor(canvases, job, 'shade', pose)
       paintPart(canvas.getContext('2d') as Ctx2D, canvas, job.desc, job.ratio, job.rect,
         paint, job.phase, job.hand, scratch, undefined, shade.getContext('2d') as Ctx2D, pose)
     }
-    const first = { bitmap: snapshot(job, canvasFor(job, 'light', 0)), shade: snapshot(job, canvasFor(job, 'shade', 0)) }
+    const first = { bitmap: snapshot(job, canvasFor(canvases, job, 'light', 0), transfer),
+      shade: snapshot(job, canvasFor(canvases, job, 'shade', 0), transfer) }
     if (job.final === false) return first
     const poses: PaintPose[] = []
     for (let i = 1; i < frameCount(job.desc.animated); i++) {
-      poses.push({ bitmap: canvasFor(job, 'light', i).transferToImageBitmap(), shade: canvasFor(job, 'shade', i).transferToImageBitmap() })
+      poses.push({ bitmap: transfer(canvasFor(canvases, job, 'light', i)), shade: transfer(canvasFor(canvases, job, 'shade', i)) })
     }
     return { ...first, poses }
   }
 
-  function snapshot(job: PaintJob, canvas: WorkerCanvas) {
+  function snapshot(job: PaintJob, canvas: WorkerCanvas, transfer: (canvas: WorkerCanvas) => ImageBitmap) {
     if (job.preview && job.final === false) {
       const { w, h } = job.rect
       const first = createCanvas(w, h)
       ;(first.getContext('2d') as Ctx2D).drawImage(canvas as unknown as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
-      return first.transferToImageBitmap()
+      return transfer(first)
     }
-    return job.final === false ? null : canvas.transferToImageBitmap()
+    return job.final === false ? null : transfer(canvas)
   }
 
-  return function runBatch(jobs: readonly PaintJob[]): PaintResult[] {
+  return function runBatch(jobs: readonly PaintJob[], discard: readonly string[] = []): PaintResult[] {
+    for (const slot of discard) staged.delete(slot)
     const results: PaintResult[] = []
+    const bitmaps: ImageBitmap[] = []
+    const transfer = (canvas: WorkerCanvas) => {
+      const bitmap = canvas.transferToImageBitmap()
+      bitmaps.push(bitmap)
+      return bitmap
+    }
     try {
       for (const job of jobs) {
         const start = now()
         const painter = painterOf(job.desc)
         const paint = job.part === 'form' ? painter?.form : painter?.light
         const info = { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, preview: job.preview }
+        const slot = paintSlot(job.id, job.part)
+        const previous = job.frames?.[0] ? staged.get(slot) : undefined
+        const canvases = previous ?? new Map<string, WorkerCanvas>()
+        if (job.final === false && !(job.coldPreview && !job.shade)) staged.set(slot, canvases)
+        else staged.delete(slot)
         if (paint && job.shade && job.progressive && job.frames) {
-          const endpoints = paintCanopyPoses(job, paint)
+          const endpoints = paintCanopyPoses(canvases, job, paint, transfer)
           results.push({ ...info, ...endpoints, ms: now() - start })
           continue
         }
-        const canvas = canvasFor(job)
+        const canvas = canvasFor(canvases, job)
         const ctx = canvas.getContext('2d') as Ctx2D
-        const shade = job.shade && canvasFor(job, 'shade')
+        const shade = job.shade && canvasFor(canvases, job, 'shade')
         const shadeCtx = shade ? shade.getContext('2d') as Ctx2D : undefined
         if (job.frames?.[0] === 0) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -91,13 +104,14 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }
-        const bitmap = snapshot(job, canvas)
-        const shadeBitmap = shade ? snapshot(job, shade) : undefined
+        const bitmap = snapshot(job, canvas, transfer)
+        const shadeBitmap = shade ? snapshot(job, shade, transfer) : undefined
         results.push({ ...info, bitmap, shade: shadeBitmap, ms: now() - start })
       }
       return results
     } catch (error) {
-      for (const result of results) for (const bitmap of resultBitmaps(result)) bitmap?.close()
+      staged.clear()
+      for (const bitmap of bitmaps) bitmap.close()
       throw error
     }
   }

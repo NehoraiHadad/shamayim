@@ -19,9 +19,10 @@ const runBatch = makeWorkerRunner({
 })
 
 scope.onmessage = (event) => {
-  const { batch, jobs } = event.data
+  const { batch, jobs, discard } = event.data
   try {
-    const results = runBatch(jobs)
+    const results = runBatch(jobs, discard)
+    if (!batch) return
     const transfer = results.flatMap(resultBitmaps).filter((part): part is ImageBitmap => Boolean(part))
     scope.postMessage({ batch, results }, transfer)
   } catch (error) {

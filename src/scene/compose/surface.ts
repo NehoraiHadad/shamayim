@@ -40,7 +40,6 @@ export class Surface {
   private last: readonly LayerDesc[] = []
   /** The animation phase the canvas was last laid at (an arriving batch is laid at it), and whether in reduced motion. */
   private phase = 0
-  private interactive = false
   /** Reduced motion (`composite`): set by the shell, the default of every render and composite. */
   still = false
   private readonly now: () => number
@@ -48,7 +47,7 @@ export class Surface {
   private readonly stats?: SceneStats
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
-  private shown: { layers: readonly LayerDesc[]; anim: string } | null = null
+  private shown: { layers: readonly LayerDesc[]; anim: string; exact: boolean } | null = null
   private readonly receivers: ReceiverComposite
   private paintedLayers?: { layers: readonly LayerDesc[]; dpr: number; cache: LayerCache | RemoteCache }
   private order: { layers: readonly LayerDesc[]; passes: ReturnType<typeof compositeOrder> } | null = null
@@ -102,7 +101,9 @@ export class Surface {
   paint(desc: LayerDesc, phase = 0): Painted {
     this.paintedLayers = undefined
     if (desc.kind === 'contrail') return 'none'
-    return this.active.update(desc, this.dpr, this.still ? 0 : phase)
+    const painted = this.active.update(desc, this.dpr, this.still ? 0 : phase)
+    if (!this.remote && painted !== 'none') this.receivers.invalidate(desc.id)
+    return painted
   }
 
   /** Sends what was asked of the worker (a no-op without one). */
@@ -135,11 +136,12 @@ export class Surface {
    * `still` (reduced motion): the drifts, strips, falls and flashes stand at phase 0 and nothing glides or forms; the
    * fades still run with the phase (the arrival's simple fade).
    */
-  composite(layers: readonly LayerDesc[], phase = this.phase, still = this.still, animState = this.animState(layers, phase, still)) {
+  composite(layers: readonly LayerDesc[], phase = this.phase, still = this.still, animState = this.animState(layers, phase, still),
+    exact = false) {
     this.last = layers
     this.phase = phase
     this.still = still
-    this.shown = { layers, anim: animState }
+    this.shown = { layers, anim: animState, exact }
     const motion = still ? 0 : phase
     const ctx = ctxOf(this.canvas)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -246,12 +248,12 @@ export class Surface {
           const poses = 'poses' in cached ? cached.poses : undefined
           const pose = poses?.[frame - 1]
           const sy = (preview || poses ? 0 : frame) * rect.h
-          const opaque = layout.kind === 'plane' && alpha === 1 && !anim?.reveal && !still && this.interactive
-          const reveal = anim?.reveal
-          this.receivers.draw({ ctx, id: layout.id, cached: pose ? { ...cached, light: pose.bitmap, shade: pose.shade } : cached,
-            plane, phase, still, interactive: this.interactive, opaque, sy, y, scale: k, draw,
-            reveal: reveal && Number.isFinite(reach) ? (image, patch) => this.window(image, patch, 0, patch.y, reveal, reach, alpha) : undefined })
-        } else draw(light)
+          this.receivers.draw({ id: layout.id, cached: pose ? { ...cached, light: pose.bitmap, shade: pose.shade } : cached,
+            plane, phase, still, exact, sy, draw })
+        } else {
+          if (plane) this.receivers.invalidate(layout.id)
+          draw(light)
+        }
         ctx.globalCompositeOperation = 'source-over'
       }
       if (this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
@@ -304,8 +306,8 @@ export class Surface {
   }
 
   /** Lays the last layers again at `phase` (a frame of a clip or a still, laid by a harness): nothing is repainted. */
-  lay(phase: number, still = false) {
-    this.composite(this.last, phase, still)
+  lay(phase: number, still = false, layers = this.last) {
+    this.composite(layers, phase, still, undefined, true)
   }
 
   /**
@@ -408,10 +410,9 @@ export class Surface {
     this.flush()
     // An animation tick that moved nothing a whole pixel (and repainted or asked for nothing) leaves the canvas as it is.
     const state = this.animState(layers, phase, still)
-    if (this.shown && this.shown.layers === layers && this.shown.anim === state
+    if (this.shown && !this.shown.exact && this.shown.layers === layers && this.shown.anim === state
       && painted.every((p) => p === 'none')) return painted
-    this.interactive = true
-    try { this.composite(layers, phase, still, state) } finally { this.interactive = false }
+    this.composite(layers, phase, still, state)
     return painted
   }
 

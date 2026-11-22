@@ -1,5 +1,5 @@
 import { frameCount } from '../model/anim'
-import type { PaintJob } from './paintJob'
+import { paintSlot, type PaintJob } from './paintJob'
 
 /**
  * Maximum strip poses painted in one worker batch so queued terrain and scrub-light updates
@@ -15,7 +15,6 @@ interface PendingSlot {
   coldShown?: true
 }
 
-const slotOf = (id: string, part: 'form' | 'light') => `${id}:${part}`
 const priority = (item: PendingSlot) => {
   if (item.job.scrubReceiver) return -1
   if (item.coldShown && !item.nextFrame) return 2
@@ -36,7 +35,7 @@ export class RemoteQueue {
 
   /** Enqueues a job unless the identical `(key, formKey)` is already queued or finishing in flight. */
   ask(job: PaintJob, now: number): boolean {
-    const slot = slotOf(job.id, job.part)
+    const slot = paintSlot(job.id, job.part)
     const tag = tagOf(job.key, job.formKey)
     if (this.inFlightFinal.get(slot) === tag) {
       this.pending.delete(slot)
@@ -56,13 +55,12 @@ export class RemoteQueue {
     return this.pending.has(slot)
   }
 
-  drop(slot: string) {
-    this.pending.delete(slot)
+  staged(slot: string) {
+    return Boolean(this.pending.get(slot)?.nextFrame)
   }
 
-  dropLayer(id: string) {
-    this.pending.delete(slotOf(id, 'form'))
-    this.pending.delete(slotOf(id, 'light'))
+  drop(slot: string) {
+    this.pending.delete(slot)
   }
 
   clear() {
@@ -82,6 +80,17 @@ export class RemoteQueue {
     for (const [, item] of eligible) first = Math.min(first, priority(item))
     const selected = eligible.filter(([, item]) => priority(item) === first)
     this.inFlightFinal.clear()
+    if (first === -1) {
+      for (const [, { job }] of [...selected]) {
+        if (job.desc.kind !== 'plane' || !job.desc.canopyId) continue
+        const slot = paintSlot(job.desc.canopyId, 'light')
+        const canopy = this.pending.get(slot)
+        if (canopy?.job.shade && !canopy.job.coldPreview && !canopy.nextFrame && priority(canopy) === 1
+          && canopy.job.desc.kind === 'canopy' && canopy.job.desc.receiver?.form === job.desc.key) {
+          selected.push([slot, canopy])
+        }
+      }
+    }
     if (first >= 2) selected.length = 1
 
     let since = now

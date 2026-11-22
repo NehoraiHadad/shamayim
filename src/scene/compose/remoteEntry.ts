@@ -1,5 +1,6 @@
 import type { LayerDesc } from '../model/types'
-import { resultBitmaps, shadeKeyOf, type DeviceRect, type PaintPose, type PaintResult } from './paintJob'
+import { beamKeyOf, resultBitmaps, type DeviceRect, type PaintPose, type PaintResult } from './paintJob'
+import { shadeKeyOf } from './paintReceiver'
 
 export interface Request {
   /** Advances when the layer's requested paint keys change, including on a scrub back. */
@@ -36,6 +37,10 @@ export interface Entry {
 export function partsOf(shown: Shown | null, staged?: Entry['staged']) {
   const picture = shown && resultBitmaps({ bitmap: shown.light, shade: shown.shade, poses: shown.poses })
   return new Set([shown?.form, ...(picture ?? []), ...(staged?.parts ?? []).flatMap(resultBitmaps)])
+}
+
+export function closeEntry(entry: Entry) {
+  for (const bitmap of partsOf(entry.shown, entry.staged)) bitmap?.close()
 }
 
 /** A staged part still fits the wanted picture: a form for the same form, a light for the same paint. */
@@ -103,6 +108,9 @@ export function reuse(entry: Entry) {
     shown.lightDesc = wanted.desc
   } else if (wanted.lightKey === null) {
     promote(entry, { request: wanted, form: shown.form, light: null, lightDesc: wanted.desc })
+  } else if (shown.shade && wanted.desc.kind === 'plane' && !wanted.desc.cloudShadow
+    && wanted.lightKey === beamKeyOf(shown.lightDesc)) {
+    promote(entry, { request: wanted, form: shown.form, light: shown.light, lightDesc: wanted.desc })
   } else shown.request = { ...shown.request, desc: wanted.desc }
 }
 
