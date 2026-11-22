@@ -4,8 +4,24 @@ import { transmitAlong, type FieldSnapshot } from '../../world/field/transmit'
 import type { FieldLayer, Genus } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import type { SkyGeom } from './sky'
+import type { LayerOf } from './types'
 
 const RAD = Math.PI / 180
+
+/** As painted, the sheet interpolates between ray centres on non-uniform elevation rows. */
+export function sheetAlphaAt({ xs, ys, alpha }: LayerOf<'cloudSheet'>, x: number, y: number) {
+  if (x < xs[0] || x > xs[xs.length - 1] || y < ys[0] || y > ys[ys.length - 1]) return 0
+  const column = (x - xs[0]) / (xs[1] - xs[0])
+  const col = Math.min(xs.length - 2, Math.floor(column))
+  const row = ys.findIndex(centre => centre >= y && centre > ys[0]) - 1
+  const fx = column - col, fy = (y - ys[row]) / (ys[row + 1] - ys[row])
+  const at = (r: number) => {
+    const i = r * xs.length + col
+    return ((1 - fx) * Math.round(255 * alpha[i]) + fx * Math.round(255 * alpha[i + 1])) / 255
+  }
+  const top = at(row)
+  return top + fy * (at(row + 1) - top)
+}
 
 interface Grid {
   xs: number[]

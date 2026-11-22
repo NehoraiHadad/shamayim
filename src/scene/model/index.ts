@@ -91,7 +91,8 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const planets = planetsLayer(world, box, geom)
   const milkyWay = milkyWayLayer(world, box, geom)
   const rainbow = rainbowLayer(world, box, geom)
-  const halo = haloLayer(world, box, geom)
+  const veil = cloudLayers.find((layer): layer is LayerOf<'cloudSheet'> => layer.kind === 'cloudSheet' && layer.genus === 'cs')
+  const halo = veil ? haloLayer(world, box, geom, veil) : null
   return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
     ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...cloudLayers, ...flashLayersOf(world, box, clouds, geom),
     ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, life),

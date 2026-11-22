@@ -301,7 +301,10 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
         body: mixRgb(tones.body, base, day),
         // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
         shade: mixRgb(tones.shade, mixRgb(grey, mixRgb([0, 0, 0], base, 2 / 5), closed), day),
-        lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body,
+        // Moonlight lifts the lit endpoint in proportion to the beam reaching
+        // the sheet. At moonset it merges into the ambient cloud body.
+        lit: light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
+          light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,
         light: light?.sun ? light.strength * light.above : 0,
       })
       if (!sheet) continue
