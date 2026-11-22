@@ -1,5 +1,5 @@
 // Do the birds travel? The built app, live (its clock running from the moment, motion allowed, no scrub), shot once a
-// second for `--secs` seconds; each flock is found on the shots as a cluster of dark marks in the sky and its centre
+// second for `--secs` seconds; each flock is found as a cluster of what moved between consecutive shots and its centre
 // followed. Prints, per flock, how far its centre went (px) and its speed (px/s), against the world's flocks.
 //   node e2e/birds.motion.mjs <place>@<HH:MM> … [--secs=10] [--min=8]
 // `--min`: the least travel (px over the run) a flock must make; any flock short of it fails (exit 1).
@@ -29,7 +29,7 @@ try {
     const panorama = fs.readFileSync(path.join(root, `src/test/fixtures/scene/${id}.panorama.json`), 'utf8')
     const forecast = JSON.parse(fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'), 'utf8'))
     forecast.elevation = JSON.parse(panorama).groundM
-    const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 1,
+    const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: 2,
       reducedMotion: 'no-preference', serviceWorkers: 'block' })
     await context.route('**/*', (route) => {
       const url = new URL(route.request().url())
@@ -48,13 +48,16 @@ try {
     await page.waitForSelector('figure[data-canvas]', { timeout: 60000 })
     await page.waitForTimeout(4000)
     const box = await page.locator('figure[data-canvas]').boundingBox()
-    const top = Math.max(0, box.y - 160), clip = { x: 0, y: top, width: 375, height: box.y + box.height * 0.45 - top }
+    const clip = { x: 0, y: box.y - 100, width: 375, height: box.height * 0.6 + 100 }
     const flocks = await page.evaluate(() => (window.__world?.life?.birds ?? []).map((f) => `${f.kind}×${f.count}@${Math.round(f.distanceM)}m`))
     const shots = []
     const t0 = Date.now()
-    for (let s = 0; s <= secs; s++) {
+    let last = await page.screenshot({ clip })
+    for (let s = 1; s <= secs; s++) {
       await page.waitForTimeout(Math.max(0, t0 + s * 1000 - Date.now()))
-      shots.push({ t: (Date.now() - t0) / 1000, marks: await findMarks(page, await page.screenshot({ clip })) })
+      const shot = await page.screenshot({ clip })
+      shots.push({ t: (Date.now() - t0) / 1000, marks: (await findMarks(page, last, shot)).map((m) => ({ ...m, x: m.x / 2, y: m.y / 2 })) })
+      last = shot
     }
     const tracks = follow(shots)
     console.log(`${id}@${hour}  world flocks: ${flocks.join(', ') || 'none'}  clusters followed: ${tracks.length}`)

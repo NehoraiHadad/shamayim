@@ -1,32 +1,30 @@
-// Birds on a shot (`birds.motion.mjs`): the sky's small dark marks, gathered into clusters, and the clusters followed
-// from shot to shot.
+// Birds on the shots (`birds.motion.mjs`): what moved between two shots, gathered into clusters, and the clusters
+// followed from shot to shot.
 
 /**
- * The clusters of small dark marks on a PNG shot (CSS px): a pixel is a mark when it is clearly darker than the sky
- * round it (the median of its 31 px row span); marks within 28 px of each other are one cluster. Large dark areas (the
- * land, a cloud's base) are not marks: a cluster wider or taller than 120 px is dropped.
+ * The clusters of what moved between two PNG shots (device px): a pixel is a mark when its luminance changed by more than
+ * 0.06 (a bird's wings and body, wherever it is drawn: over the sky or the land); marks within 28 px of each other are one
+ * cluster. A cluster over 120 px across (a cloud's edge, the land's light) is dropped.
  */
-export function findMarks(page, png) {
-  return page.evaluate(async (b64) => {
-    const img = new Image()
-    img.src = `data:image/png;base64,${b64}`
-    await img.decode()
-    const c = document.createElement('canvas')
-    c.width = img.width; c.height = img.height
-    const g = c.getContext('2d')
-    g.drawImage(img, 0, 0)
-    const { data, width, height } = g.getImageData(0, 0, c.width, c.height)
-    const lum = new Float32Array(width * height)
-    for (let i = 0; i < lum.length; i++) lum[i] = (0.2126 * data[4 * i] + 0.7152 * data[4 * i + 1] + 0.0722 * data[4 * i + 2]) / 255
+export function findMarks(page, before, after) {
+  return page.evaluate(async ([b64a, b64b]) => {
+    const lumOf = async (b64) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${b64}`
+      await img.decode()
+      const c = document.createElement('canvas')
+      c.width = img.width; c.height = img.height
+      const g = c.getContext('2d')
+      g.drawImage(img, 0, 0)
+      const { data, width, height } = g.getImageData(0, 0, c.width, c.height)
+      const lum = new Float32Array(width * height)
+      for (let i = 0; i < lum.length; i++) lum[i] = (0.2126 * data[4 * i] + 0.7152 * data[4 * i + 1] + 0.0722 * data[4 * i + 2]) / 255
+      return { lum, width, height }
+    }
+    const a = await lumOf(b64a), b = await lumOf(b64b), { width, height } = b
     const pts = []
-    for (let y = 0; y < height; y++) {
-      for (let x = 15; x < width - 15; x += 1) {
-        const row = []
-        for (let k = -15; k <= 15; k += 3) row.push(lum[y * width + x + k])
-        row.sort((p, q) => p - q)
-        const bg = row[row.length >> 1]
-        if (bg > 0.25 && lum[y * width + x] < bg * 0.72) pts.push([x, y])
-      }
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (Math.abs(b.lum[y * width + x] - a.lum[y * width + x]) > 0.06) pts.push([x, y])
     }
     // Gather the marks into clusters (single link at 28 px, on a 14 px grid).
     const cell = new Map()
@@ -49,14 +47,16 @@ export function findMarks(page, png) {
       }
       const xs = members.map((m) => m[0]), ys = members.map((m) => m[1])
       const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys)
-      if (w > 120 || h > 120 || members.length < 3) continue
+      if (w > 120 || h > 120 || members.length < 4) continue
       out.push({ x: xs.reduce((s, v) => s + v, 0) / xs.length, y: ys.reduce((s, v) => s + v, 0) / ys.length, n: members.length })
     }
     return out
-  }, png.toString('base64'))
+  }, [before.toString('base64'), after.toString('base64')])
 }
 
-/** Each cluster of the first shot followed to the nearest cluster within 40 px on each later shot. */
+/**
+ * Each cluster of the first shot followed to the nearest cluster within 40 px on each later shot (CSS px).
+ */
 export function follow(shots) {
   return shots[0].marks.map((m) => {
     const tr = [{ ...m, t: shots[0].t }]
