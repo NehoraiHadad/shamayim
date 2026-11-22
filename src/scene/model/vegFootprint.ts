@@ -108,7 +108,9 @@ export function projectedFootprints(
       if (uniform !== undefined && !accepts(uniform)) return false
       if (uniform !== undefined && !limits) continue
       const [lo, hi] = distanceRange(strip, name, top, bottom)
-      if ((uniform === undefined && !covers(lo, hi, accepts)) || (limits && !limits(box, lo, hi))) return false
+      if (uniform === undefined && !covers(lo, hi, accepts)) return false
+      // Use this strip's angular slice with its own depth range, including both sides of a DEM seam.
+      if (limits && !limits([Math.max(x0, strip.left), top, Math.min(x1, strip.right), bottom], lo, hi)) return false
     }
     return true
   }
