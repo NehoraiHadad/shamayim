@@ -1,4 +1,4 @@
-import { landmarkContrast } from './landmarkAtmosphere'
+import { isNonOwnMark } from '../../world/neighbourIdentity'
 import { hashId } from '../../data/landmarks/hash'
 import { groundFn } from '../../data/landmarks/seat'
 import type { WorldMark } from '../../world/markGeometry'
@@ -24,8 +24,7 @@ export function markDescriptor(world: WorldState, mark: WorldMark, x: number, to
   const seed = hashId(mark.id), ground = groundUnder(world, mark)
   return { kind: mark.glyphKind, sourceId: mark.id, x, base: mark.base, h: mark.h, scale: mark.scale, w: mark.w,
     seed, hand: glyphHand(mark.glyphKind, seed), tones, famous: mark.named, factor: mark.factor ?? 1,
-    ...(mark.named && (mark.sightKm !== undefined || mark.seatBlockId !== undefined)
-      ? { contrast: landmarkContrast(world, mark.km) } : {}),
+    nonOwn: isNonOwnMark(mark),
     trueHeightPx: mark.trueHeightPx ?? mark.h * mark.scale, trueDistanceKm: mark.km, hazeKm, supportId, town,
     baseMode: mark.baseMode ?? 'foot', ridgeKind: mark.ridgeKind, bearingX: mark.bearingX,
     sourceTopY: mark.sourceTopY, sourceGroundY: mark.sourceGroundY,

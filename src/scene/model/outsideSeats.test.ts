@@ -7,8 +7,7 @@ import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { beyondMarks } from '../../world/beyondMarks'
 import * as beyondSeat from '../../world/beyondSeat'
 import { roshPina } from '../../world/beyondSeatFixture'
-import { neighbourSize } from '../../world/neighbourSize'
-import { glyphAtHeight } from '../../world/glyphSpecs'
+import { neighbourGeometry } from '../../world/neighbourSize'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
@@ -22,8 +21,7 @@ const BOX: SceneBox = { width: SCENE_W, skyHeight: 428, landTop: 300, landHeight
 const NARROW = { ...BOX, width: 320 }
 /** Between the two viewport widths (CSS px), where a marginal block's width equals its glyph's. */
 const MARGINAL_WIDTH = (BOX.width + NARROW.width) / 2
-/** The synthetic seats project one metre of height to half a CSS pixel at their shared depth. */
-const PX_PER_M = .5
+const SEAT_PX_PER_METRE = .5
 let baseInput: WorldInput
 let base: WorldState
 
@@ -44,14 +42,13 @@ function seatFixtures(fixtures: SeatFixture[], baseY = 100) {
     source: 'osm', ...(kind === 'highrise' ? {} : { fame: 2 as const, nameHe: 'Synthetic named landmark' }),
     lat: roshPina.lat + .02, lon: roshPina.lon }))
   const blocks = fixtures.map(({ kind, heightM, fitsAt = NARROW.width / 2, x }, index) => {
-    const size = kind === 'highrise' ? glyphAtHeight(kind, heightM * PX_PER_M)
-      : neighbourSize(kind, heightM * PX_PER_M, true)!
-    const w = (size.w + 2 * TOWN_SIDE_PX) * SCENE_W / fitsAt
+    const w = (neighbourGeometry(kind, heightM * SEAT_PX_PER_METRE, kind !== 'highrise').w + 2 * TOWN_SIDE_PX)
+      * SCENE_W / fitsAt
     return { id: `block-${index}`, x: x ?? 30 * (index + 1), baseY, w, h: 8, km: 3, heightM: 16, seed: index }
   })
   const seats = new Map(landmarks.map((mark, index) => {
     const block = blocks[index]
-    return [mark.id, { x: block.x, base: block.baseY, hPx: mark.heightM * PX_PER_M, km: block.km, blockId: block.id }]
+    return [mark.id, { x: block.x, base: block.baseY, hPx: mark.heightM * SEAT_PX_PER_METRE, km: block.km, blockId: block.id }]
   }))
   return { landmarks, beyondTowns: blocks, seatMark: (mark: Landmark) => seats.get(mark.id) ?? null }
 }

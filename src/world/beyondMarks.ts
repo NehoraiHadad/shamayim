@@ -6,10 +6,10 @@ import { score } from '../data/landmarks/rank'
 import { isSettlementMark } from '../data/landmarks/settlement'
 import type { Landmark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
-import { neighbourSize } from './neighbourSize'
+import { neighbourGeometry } from './neighbourSize'
 import { neighbourRule, viableNeighbour } from './neighbourPolicy'
 import type { SeatMark } from './beyondSeat'
-import { glyphAtHeight, glyphOf } from './glyphSpecs'
+import { glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, type Box, type Point } from './layout'
 import { markBox, type SeatedWorldMark } from './markGeometry'
 import { budgetSeated } from './seatBudget'
@@ -46,7 +46,7 @@ export function beyondMarks(place: Coordinate, marks: Landmark[], width: number,
     const glyphKind = glyphOf(mark)
     if (!seat) { other.push(mark); continue }
     if (!glyphKind || !viableNeighbour(glyphKind, named, seat.hPx)) continue
-    const geometry = named ? neighbourSize(glyphKind, seat.hPx, true)! : glyphAtHeight(glyphKind, seat.hPx)
+    const geometry = neighbourGeometry(glyphKind, seat.hPx, named)
     const { w } = geometry
     if (seat.x - w / 2 < 0 || seat.x + w / 2 > width) continue
     const { dx, dy } = offsetKm(place, mark)

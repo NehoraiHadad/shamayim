@@ -8,6 +8,10 @@ export const LANDMARK_MIN_PX = 6
  * home roofline group at 375 px, rather than letting a tall distant building become a foreground skyline. */
 export const LANDMARK_MAX_PX = 16
 
+/** Preselected, positive-height neighbours: famous icons use the clamp; ordinary world geometry stays physical. */
+export const neighbourGeometry = (kind: GlyphKind, heightPx: number, famous: boolean) =>
+  famous ? neighbourSize(kind, heightPx, true)! : glyphAtHeight(kind, heightPx)
+
 /** Ordinary neighbours keep the four-CSS-pixel floor and 2× cap; famous icons use the bounded policy above. */
 export function neighbourSize(kind: GlyphKind, trueHeightPx: number, famous = false) {
   const rule = neighbourRule(kind, famous)

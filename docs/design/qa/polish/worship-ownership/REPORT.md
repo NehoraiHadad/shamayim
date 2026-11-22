@@ -1532,3 +1532,65 @@ Audit sources and outputs are isolated under `src/test/landmarkSizeAudit/`: `aud
 `summarize.py` / `histograms.md` / `comparison.json`. The original audit was reused read-only and redirected before
 execution, because this brief forbids touching `src/test/probe*`. A SHA-256 comparison, including the file inventory,
 confirms all **155 protected files unchanged**. No live services, whole-folder suite, deployment, commit or push.
+
+### Round 2
+
+Added `src/scene/model/landmarkScene.test.ts` to the normal test tree, outside the local untracked audit directory.
+Four synthetic cases call **`sceneModel`** at 375/1280 CSS px and DPR 1/2: far and seated famous sources with 30 true
+px must draw at 16 px with factor 16/30, and far and seated sources with 1 true px must draw at 6 px with factor 6.
+Assertions also require the one expected glyph, its source identity, physical-height evidence, proportional width,
+foot base and the seated source's actual town support. The fixtures supply physical screen-height evidence directly;
+they do not call the clamp helper to construct their expected result. Both receiving layers are exercised.
+
+The committed `settlementOwnership.test.ts` fixture loop now covers DPR 1 and 2 as well as both widths, across all
+117 places including all 18 recorded panoramas. The first expanded run's largest group took **8.38 s**, well below
+60 s, so its explicit group timeout is now 60 s. The final run with that limit passed; its largest group took
+**11.27 s**. This coverage no longer depends on `landmarkSizeAudit/fixtures.test.ts`.
+
+Moved the outside glyph-light refresh into `landmarkAtmosphere.ts`: `refreshLandmarkGlyph` supplies owned/ordinary
+tones or famous true-distance atmosphere, and `refreshLandmarkItems` refreshes cached outside descriptors without
+mutating the stored geometry. Both receiving layers use it. Their colour/lamp keys share `glyphAtmosphereKey`.
+The independent visibility equation, haze and material-colour oracle moved to `src/test/landmarkToneAssertions.ts`;
+it still calculates the expected coefficients independently of the production helper. The glyph painter's recording
+fixture moved to `src/test/glyphRecording.ts`, retaining every existing painter test. Candidate width calculation
+moved to `perspectiveFields.ts`, retaining the previous null fallback.
+
+`src/world/neighbourIdentity.ts` exports the one **`isFamousNonOwn`** predicate. World sources prove non-ownership
+through angular projection or a town seat; `markDescriptor` transports that ownership as `nonOwn`, alongside the
+existing `famous` class, so cached glyphs use the same predicate without inferring identity from a contrast coefficient.
+Famous owned portraits retain ordinary portrait lighting. `neighbourGeometry` in `neighbourSize.ts` owns the
+famous-clamp/ordinary-physical-geometry choice shared by `beyondMarks`, `beyondSeat` and `markPerspective`.
+
+Line counts were measured against **`git show HEAD~1:<file>`**, before a33105f7; every requested file is back at or
+below that count. Files that were below 150 remain below 150.
+
+| File | Before a33105f7 | Round 1 | Round 2 |
+| --- | ---: | ---: | ---: |
+| `scene/model/outside.ts` | 322 | 329 | 320 |
+| `scene/model/marks.ts` | 180 | 182 | 177 |
+| `scene/paint/glyphs/glyphs.test.ts` | 234 | 244 | 210 |
+| `src/test/worshipAssertions.ts` | 137 | 152 | 136 |
+| `data/landmarks/placeMarks.ts` | 148 | 151 | 148 |
+| `scene/model/outsideSeats.test.ts` | 149 | 152 | 149 |
+
+The outside refresh call is now 67 characters; the painter lamp mapping was unpacked into 94- and 36-character
+lines, within the files' previous maxima. No assertion was removed to meet the file limits.
+
+Validation: **42 explicit test files, 508 passing tests**, including the committed fixture loop and the four new
+scene cases; `npx tsc -b`, `npx oxlint` (13 existing warnings) and `git diff --check` pass. Local results are in
+`src/test/landmarkSizeAudit/round2-main.json`, `round2-regression.json` and the later `round2-final.json` results
+replacing the four corresponding files. The previous full-audit results above are unchanged; this review did not
+request another exhaustive run.
+
+To prove the new scene tests guard the missing cases, Vite source-transform mutations ran **only
+`landmarkScene.test.ts`**, without editing production files:
+
+| Disabled safeguard | Assertion failures |
+| --- | --- |
+| Change ceiling from 16 to 10,000 | far 30→16 and seated 30→16 |
+| Change floor from 6 to 0 | far 1→6 and seated 1→6 |
+| Bypass sizing only for seated sources in `displayNeighbour` | seated 30→16 and seated 1→6 |
+
+Every mutation produced assertion failures; the normal scene test passes all four cases. Exact substitutions and
+failures are in `src/test/landmarkSizeAudit/round2-mutations.json`. The audit directory remains untracked. The SHA-256
+inventory still matches all 155 protected probe files. No whole-folder suite, live service, deployment, commit or push.

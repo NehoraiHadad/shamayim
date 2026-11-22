@@ -1,4 +1,4 @@
-import { neighbourSize } from './neighbourSize'
+import { neighbourGeometry } from './neighbourSize'
 import { viableNeighbour } from './neighbourPolicy'
 import { isFamousLandmark } from '../data/landmarks/fame'
 import { LAT_STEP, LON_STEP, squareOf, squareKey } from '../data/city/grid'
@@ -12,7 +12,7 @@ import type { Landmark } from '../data/landmarks/types'
 import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { SCENE_CAMERA, xOf } from '../domain/camera'
-import { glyphAtHeight, glyphOf } from './glyphSpecs'
+import { glyphOf } from './glyphSpecs'
 import { SCENE_W } from './sceneBox'
 import { groundAt as lineAt } from './sceneLight'
 import type { BeyondBlock } from './types'
@@ -139,7 +139,7 @@ export function beyondTowns(input: Pick<BeyondContext, 'width' | 'ground' | 'flo
     const hPx = Math.min(over, apparentHeight(mark.heightM,
       outsideDistance(frame.eyeN, dx, dy), baseAngle(block.baseY, input.terrain.horizonY)))
     if (!viableNeighbour(glyphKind, isFamousLandmark(mark), hPx)) return null
-    const geometry = isFamousLandmark(mark) ? neighbourSize(glyphKind, hPx, true)! : glyphAtHeight(glyphKind, hPx)
+    const geometry = neighbourGeometry(glyphKind, hPx, isFamousLandmark(mark))
     const halfW = geometry.w / 2
     if (!fitsBlockSpan(x, halfW, block.x, block.w)) return null
     return { x, base: block.baseY, hPx, km: beyondKm(frame, baseKm, dx, dy), blockId }

@@ -1,4 +1,4 @@
-import { landmarkTonesAt } from './landmarkAtmosphere'
+import { refreshLandmarkGlyph } from './landmarkAtmosphere'
 import type { WorldMark } from '../../world/markGeometry'
 import { needsTown } from '../../world/markContext'
 import { SCENE_W } from '../../world/sceneBox'
@@ -34,7 +34,6 @@ export function farNeighbourMarks(world: WorldState, box: SceneBox, towns: Layer
   })
   return kept.reverse().map(({ mark, x, hazeKm, supportId, town }) => {
     const glyph = markDescriptor(world, mark, x, tonesAt(world, hazeKm), hazeKm, supportId, town)
-    return glyph.contrast === undefined ? glyph
-      : { ...glyph, tones: landmarkTonesAt(world, mark.km, glyph.contrast) }
+    return refreshLandmarkGlyph(world, glyph, hazeKm)
   })
 }

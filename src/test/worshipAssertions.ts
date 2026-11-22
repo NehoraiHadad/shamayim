@@ -10,9 +10,7 @@ import type { Landmark } from '../data/landmarks/types'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { drawnRidgeLine, outsideDepth, projectedHeight, visibleOverRidge, HEIGHT_TOLERANCE_PX }
   from './drawnGeometryAssertions'
-import { toneAt } from '../scene/model/planeLight'
-import { mixRgb } from '../scene/model/tone'
-import { tonesAt } from '../scene/model/marks'
+import { assertLandmarkTones } from './landmarkToneAssertions'
 import { SCENE_W } from '../world/sceneBox'
 import { outsideMass } from '../scene/model/outside'
 import type { SceneBox, SceneModel } from '../scene/model/types'
@@ -100,21 +98,7 @@ export function assertDrawnSeats(world: WorldState, box: SceneBox, model: SceneM
     if (glyph.famous) expect(glyph.base, hint).toBeLessThanOrEqual(VISIBLE_BOTTOM - SHEET_CLEAR)
     expect(height, hint).toBeGreaterThanOrEqual(LEGIBLE_PX)
     expect(glyph.trueDistanceKm, hint).toBe(mark.km)
-    const tier = Math.max(0, Math.min(18, Math.floor(Math.log(mark.km / 2) / Math.log(1.22))))
-    const haze = glyph.famous ? mark.km : 2 * 1.22 ** tier * 1.1
-    expect(glyph.hazeKm, hint).toBeCloseTo(haze, 8)
-    const material = tonesAt(world, haze)
-    if (glyph.famous) {
-      const visibility = world.air.visibilityKm > 0 ? world.air.visibilityKm : 25
-      const contrast = Math.exp(-3.912 * mark.km / visibility), land = toneAt(world, mark.km)
-      expect(glyph.contrast, hint).toBeCloseTo(contrast, 10)
-      for (const key of Object.keys(material) as (keyof typeof material)[]) {
-        const color = key === 'mist' ? material[key]
-          : mixRgb(land, material[key], key === 'win' ? Math.cbrt(contrast) : contrast)
-        expect(glyph.tones[key], hint).toEqual(color)
-      }
-      expect(height, hint).toBeLessThanOrEqual(LANDMARK_MAX_PX + 1e-9)
-    } else expect(glyph.tones, hint).toEqual(material)
+    assertLandmarkTones(world, glyph, mark.km, hint)
     if (inOutside) expect(mark.km, hint).toBeCloseTo(outsideDepth(world, dx, dy), 8)
     const pad = glyph.town && glyph.baseMode !== 'ridge' ? 1 : 0
     const left = glyph.x - glyph.w / 2 - pad, right = glyph.x + glyph.w / 2 + pad
