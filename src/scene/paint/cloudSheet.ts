@@ -1,5 +1,5 @@
 import type { LayerOf } from '../model/types'
-import { sheetTexels, softRadii } from './cloudLook'
+import { deckOpenness, rimmed, sheetTexels, softRadii } from './cloudLook'
 import type { Ctx2D, PaintEnv } from './hand'
 import { soften } from './soften'
 
@@ -21,12 +21,13 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const y0 = ys[0], span = ys[rows - 1] - y0
   if (span <= 0) return
   const out = Math.max(2, Math.ceil(span / ROW) + 1)
-  const { buf, spacing } = resampleRows(sheetTexels(desc), cols, ys, out)
+  const open = deckOpenness(desc)
+  const { buf, spacing } = resampleRows(sheetTexels(desc, open), cols, ys, out)
   const colPx = (xs[cols - 1] - xs[0]) / (cols - 1), rowPx = span / (out - 1)
   const radii = spacing.map(softRadii)
   soften(buf, cols, out, radii.map(([across]) => across / colPx), radii.map(([, down]) => down / rowPx))
   const { canvas, ctx: s } = env.canvas(cols, out)
-  s.putImageData(unpremultiplied(s, buf, cols, out), 0, 0)
+  s.putImageData(unpremultiplied(s, buf, cols, out, (alpha) => rimmed(alpha, open)), 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
@@ -54,13 +55,13 @@ function resampleRows(texels: number[][], cols: number, ys: readonly number[], o
   return { buf, spacing }
 }
 
-/** The premultiplied grid as straight-alpha image bytes, as the canvas takes them. */
-function unpremultiplied(s: Ctx2D, buf: Float32Array, cols: number, rows: number): ImageData {
+/** The premultiplied grid as straight-alpha image bytes, as the canvas takes them, each alpha drawn through `drawn`. */
+function unpremultiplied(s: Ctx2D, buf: Float32Array, cols: number, rows: number, drawn: (alpha: number) => number) {
   const image = s.createImageData(cols, rows)
   for (let n = 0; n < cols * rows; n++) {
     const alpha = buf[n * 4 + 3]
     for (let i = 0; i < 3; i++) image.data[n * 4 + i] = byte(alpha > 0 ? buf[n * 4 + i] / alpha : 0)
-    image.data[n * 4 + 3] = byte(alpha)
+    image.data[n * 4 + 3] = byte(drawn(alpha))
   }
   return image
 }

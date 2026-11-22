@@ -32,6 +32,8 @@ const SOFT_MAX = 4
 const SOFT_SHARE = 0.2
 /** Horizontal over vertical softening: masses stretch along the horizon, as a deck seen at a slant does. */
 const SOFT_STRETCH = 2
+/** Drawn alpha below which a softened edge is pulled in: the mass keeps a soft but defined rim, not a long photo fade. */
+const RIM = 0.3
 
 /** The softening radii in sky px, [across, down], for a band of rows `spacing` px apart. */
 export function softRadii(spacing: number): [number, number] {
@@ -39,23 +41,27 @@ export function softRadii(spacing: number): [number, number] {
   return [SOFT_STRETCH * down, down]
 }
 
+/** A softened alpha with its rim drawn in, on an open deck (`open` from `deckOpenness`). */
+export const rimmed = (alpha: number, open: number) => alpha * (1 + open * (smoothstep(0, RIM, alpha) - 1))
+
+/** 0 for a closed deck (overcast, rain) or a high veil, 1 for a low or mid deck with gaps: its share of open-sky nodes. */
+export function deckOpenness(desc: LayerOf<'cloudSheet'>): number {
+  if (desc.lattice === 'high') return 0
+  const count = desc.xs.length * desc.ys.length
+  let clear = 0
+  for (let n = 0; n < count; n++) if ((desc.alpha[n] ?? 0) < CLEAR) clear++
+  return smoothstep(OPEN_FROM, OPEN_TO, clear / count)
+}
+
 /** Each node's drawn colour times its drawn alpha, and that alpha: the quantities that interpolate without dark fringes. */
-export function sheetTexels(desc: LayerOf<'cloudSheet'>): number[][] {
+export function sheetTexels(desc: LayerOf<'cloudSheet'>, open: number): number[][] {
   const cols = desc.xs.length, count = cols * desc.ys.length
-  const open = desc.lattice === 'high' ? 0 : openness(desc.alpha, count)
   const alphaAt = (n: number) => Math.min(1, Math.max(0, desc.alpha[Math.min(count - 1, Math.max(0, n))] ?? 0))
   return Array.from({ length: count }, (_, n) => {
     const a = alphaAt(n), relief = alphaAt(n - cols) - alphaAt(n + cols)
     const [rgb, alpha] = openLook(desc, toneOf(desc, desc.tone[n] ?? 0), a, relief, open)
     return [rgb[0] * alpha, rgb[1] * alpha, rgb[2] * alpha, alpha]
   })
-}
-
-/** 0 for a closed deck, 1 for one with gaps: from the share of its nodes that are open sky. */
-function openness(alpha: readonly number[], count: number): number {
-  let clear = 0
-  for (let n = 0; n < count; n++) if ((alpha[n] ?? 0) < CLEAR) clear++
-  return smoothstep(OPEN_FROM, OPEN_TO, clear / count)
 }
 
 /**
