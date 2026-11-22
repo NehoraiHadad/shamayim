@@ -144,7 +144,7 @@ export class Surface {
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const layout = layoutOf(desc, cached, d)
-      if (layout.kind === 'canopy' && !canopyMatchesPlane(layout, layers, cache)) continue
+      if (layout.kind === 'canopy' && !canopyMatchesPlane(layout, cached.receiver, layers, cache)) continue
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
       if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, still ? layout.animated.frames.from ?? 0 : motion)
       const { form, light, ratio, rect } = cached

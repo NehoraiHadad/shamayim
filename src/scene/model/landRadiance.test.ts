@@ -48,21 +48,21 @@ function renderedPlaneRatio(world: WorldState, layer: LayerOf<'plane'>): { p50: 
 }
 
 describe('Stage 7: physical linear-light land radiance across all 8 baseline places', () => {
-  it('places 12:00 rendered plane-body p50 Y/Y_horizon in [0.18, 0.45] and 06:20 & 16:30 in [0.08, 0.30]', () => {
+  it('lights the noon body with visible relief and keeps the night body dark', () => {
     const summary: Record<string, Record<string, string>> = {}
     const failures: string[] = []
     for (const { id } of SCENE_PLACES) {
       const build = makeWorldBuilder()
       const base = worldInput(loaded.get(id)!, `${DAY}T12:00` as LocalTime)
       summary[id] = {}
-      for (const hour of ['06:20', '12:00', '16:30', '21:00'] as const) {
+      // Twilight is checked against the lit sky pixels in e2e/landLighting.mjs.
+      for (const hour of ['12:00', '21:00'] as const) {
         const w = build({ ...base, selected: `${DAY}T${hour}` as LocalTime })
         const near = layersOn(sceneModel(w, BOX), 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
         const { p10, p50, p90 } = renderedPlaneRatio(w, near)
         const yHor = linearLuminance(srgbRgbToLinear(rgbOf(w.light.palette.horizon)))
         summary[id][hour] = `${p50.toFixed(3)} [${p10.toFixed(3)}..${p90.toFixed(3)}]`
-        if (hour === '12:00' && (p50 < 0.18 || p50 > 0.45)) failures.push(`${id} 12:00: ${p50.toFixed(3)}`)
-        else if ((hour === '06:20' || hour === '16:30') && (p50 < 0.08 || p50 > 0.30)) failures.push(`${id} ${hour}: ${p50.toFixed(3)}`)
+        if (hour === '12:00' && (p50 < 0.18 || p50 > 0.45 || p90 - p10 < 0.03)) failures.push(`${id} 12:00: ${p50.toFixed(3)}`)
         else if (hour === '21:00' && (p50 * yHor >= 0.025 || p50 >= 0.35)) failures.push(`${id} 21:00: ${p50.toFixed(3)}`)
       }
     }

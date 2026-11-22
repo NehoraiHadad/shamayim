@@ -1,3 +1,4 @@
+import { curveDrop } from '../../world/flightTerrain'
 import type { LightDir } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
@@ -39,7 +40,7 @@ export function terrainVisibility(
       if (lower > 0 && height + lower * d * 1000 > top + 2) break
       const h = terrain.heightAt(east + sin * d, north + cos * d)
       if (h === null) continue
-      horizon = Math.max(horizon, (h - height - 2) / (d * 1000))
+      horizon = Math.max(horizon, (h - height - 2 - curveDrop(d)) / (d * 1000))
       if (horizon >= upper) return 0
     }
     return smoothstep(-upper, -lower, -horizon)

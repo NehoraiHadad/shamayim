@@ -47,7 +47,9 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     paintVegFields(ctx, litVeg, toneAt)
     paintGroundMarks(ctx, desc)
     paintVegRows(ctx, litVeg, toneAt)
-    paintPaperGrain(ctx, desc.bounds, desc.grain.seed, desc.grain.amount * env.hand.grain, env)
+    const grain = desc.grain.amount * env.hand.grain
+    // White paper specks have a stronger relative effect in the shadows of the display.
+    paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
   }
 
   // Single antialiased silhouette mask (zero fringe halo, zero median bleed).

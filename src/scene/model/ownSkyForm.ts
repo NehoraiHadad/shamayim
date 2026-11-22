@@ -45,10 +45,10 @@ export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], sx: n
   const t = tonesAt(world, 0)
   const top = lighter(t.wall, mixLight(t.wall, scaleLight(mean, WALL_ALBEDO * VIEW.top), 0.62))
   const foot = mixLight(t.wall, t.deep, 0.7)
-  return { strength, side, tiers: kms.map((km) => {
-    // The brighter half of the sky round the sun takes the sun's own colour through the cloud.
-    const bright = scaleLight(mixRgb(mean, light.colour, 0.35 * day), WALL_ALBEDO * VIEW.face * (1 + 0.6 * (1 - against)))
-    return { top: aerial(top, km), face: aerial(lighter(t.wall, mixLight(t.wall, bright, 0.38)), km), foot: aerial(foot, km) }
-  }) }
+  // The brighter half of the sky round the sun takes the sun's own colour through the cloud.
+  const bright = scaleLight(mixRgb(mean, light.colour, 0.35 * day), WALL_ALBEDO * VIEW.face * (1 + 0.6 * (1 - against)))
+  const face = lighter(t.wall, mixLight(t.wall, bright, 0.38))
+  const atDistance = (colour: RGB, km: number) => colour === t.wall ? tonesAt(world, km).wall : aerial(colour, km)
+  return { strength, side, tiers: kms.map((km) => ({ top: atDistance(top, km), face: atDistance(face, km), foot: aerial(foot, km) })) }
 }
 

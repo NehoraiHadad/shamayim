@@ -1,4 +1,4 @@
-import type { LayerDesc } from '../model/types'
+import type { LayerDesc, LayerOf } from '../model/types'
 import type { DeviceRect, PaintResult } from './paintJob'
 
 export interface Request {
@@ -15,6 +15,7 @@ export interface Request {
 
 interface Shown {
   request: Request
+  receiver?: LayerOf<'canopy'>['receiver']
   form: ImageBitmap | null
   light: ImageBitmap | null
 }
@@ -110,7 +111,8 @@ export function accept(entry: Entry, request: Request, results: readonly PaintRe
       ?? (compatible?.request.lightKey === request.lightKey ? compatible?.light ?? null : null)
     if ((request.formless || form) && (request.lightKey === null || light)) {
       const layout = current ? wanted : sameForm(wanted, request) ? { ...request, desc: wanted.desc } : request
-      promote(entry, { request: layout, form, light })
+      const receiver = request.desc.kind === 'canopy' ? request.desc.receiver : undefined
+      promote(entry, { request: layout, receiver, form, light })
     }
   }
   closeReplaced(entry.shown, results.map(({ bitmap }) => bitmap))
@@ -118,6 +120,6 @@ export function accept(entry: Entry, request: Request, results: readonly PaintRe
 
 export function peek(entry: Entry | undefined) {
   if (!entry?.shown) return null
-  const { form, light, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
-  return { form, light, ratio, rect, formKey, lightKey, desc }
+  const { form, light, receiver, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
+  return { form, light, receiver, ratio, rect, formKey, lightKey, desc }
 }

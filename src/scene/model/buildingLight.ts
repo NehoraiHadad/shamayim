@@ -9,7 +9,7 @@ import { hazeAt, hazeOf } from './landVeil'
 import { mixLight } from './tone'
 import type { Tones } from './types'
 
-const WALL: RGB = [0.64, 0.63, 0.60]
+const WALL: RGB = [0.64, 0.64, 0.64]
 const STONE: RGB = [0.82, 0.80, 0.74]
 const TILE: RGB = [0.64, 0.30, 0.21]
 const LEAF: RGB = [0.19, 0.28, 0.21]
@@ -39,13 +39,22 @@ export function brightWall(world: WorldState): Normal {
   return world.light.dir.across < 0 ? NORMALS.left : NORMALS.right
 }
 
-/** Shading for architecture with unknown orientation: view-aligned façades and roof pitches. */
-export function buildingLight(world: WorldState, km: number, haze = hazeOf(world)) {
+const surroundings = new WeakMap<WorldState, ReturnType<typeof buildingSurroundings>>()
+
+function buildingSurroundings(world: WorldState) {
   const irr = landIrradiance(world)
   const rhoGround = srgbRgbToLinear(nearGroundAlbedo(world))
   const upSun = Math.max(0, irr.sunDir.up), upMoon = Math.max(0, irr.moonDir.up)
   const ground = rhoGround.map((rho, i) => 0.18 * rho * (irr.eSkyVec[i] + upSun * irr.eSunVec[i] + upMoon * irr.eMoonVec[i]))
-  const air = srgbRgbToLinear(haze), share = hazeAt(world, km)
+  return { irr, ground, air: srgbRgbToLinear(hazeOf(world)) }
+}
+
+/** Shading for architecture with unknown orientation: view-aligned façades and roof pitches. */
+export function buildingLight(world: WorldState, km: number) {
+  let state = surroundings.get(world)
+  if (!state) surroundings.set(world, state = buildingSurroundings(world))
+  const { irr, ground, air } = state
+  const share = hazeAt(world, km)
   return (albedo: RGB, n: Normal, open = 1): RGB => {
     const view = skyView(n, irr.sunDir, irr.skyBias) * open
     // The ground hemisphere occupies (1 − n_up)/2. The reflected contribution is
@@ -61,14 +70,20 @@ export function buildingLight(world: WorldState, km: number, haze = hazeOf(world
   }
 }
 
+const palettes = new WeakMap<WorldState, Map<number, Tones>>()
+
 export function tonesAt(world: WorldState, km: number): Tones {
+  let known = palettes.get(world)
+  if (!known) palettes.set(world, known = new Map())
+  const hit = known.get(km)
+  if (hit) return hit
   const sky = hazeOf(world)
-  const shadeMat = buildingLight(world, km, sky)
+  const shadeMat = buildingLight(world, km)
   const { front, top } = NORMALS, side = brightWall(world)
   const wall = shadeMat(WALL, front), lit = shadeMat(WALL, side)
   const shade = shadeMat(WALL, front, 0.64)
   const roof = shadeMat(TILE, ROOF), green = shadeMat(LEAF, ROOF)
-  return {
+  const tones: Tones = {
     wall, lit, shade, rim: shadeMat(STONE, side),
     deep: shadeMat(WALL, front, 0.24),
     refl: mixLight(shade, sky, 0.18),
@@ -81,4 +96,6 @@ export function tonesAt(world: WorldState, km: number): Tones {
     panel: shadeMat(PANEL, ROOF), gold: shadeMat(GOLD, top),
     win: LAMP, mist: sky,
   }
+  known.set(km, tones)
+  return tones
 }

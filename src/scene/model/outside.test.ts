@@ -23,6 +23,8 @@ import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 import { againstLight, tonesAt } from './marks'
+import { buildingLight } from './buildingLight'
+import { NORMALS } from '../../world/livingLight'
 import { landBehind } from './landBehind'
 import { hazeOf, toneAt } from './landVeil'
 import { skyAt } from './sky'
@@ -565,18 +567,18 @@ describe('light on the place', () => {
       return { most, against: againstLight(world) }
     }
     // A low sun beyond the land: the walls the eye sees face away from it, about the ridge's own dark.
-    let backlitMost = 0
     for (const at of ['2026-11-17T06:20', '2026-11-17T16:30'] as LocalTime[]) {
       const { most, against } = worst(at)
       expect(against).toBeGreaterThan(.8)
       expect(most, at).toBeLessThan(.05)
-      backlitMost = Math.max(backlitMost, most)
     }
-    // A high sun: lit stone, lighter than the scrub round it.
-    const noon = worst('2026-11-17T11:00')
-    expect(noon.against).toBeLessThan(.2)
-    // Aerial haze attenuates contrast with distance. Noon stays brighter than either backlit reading.
-    expect(noon.most).toBeGreaterThan(backlitMost)
+    const world = worldAt(id, '2026-11-17T11:00')
+    expect(againstLight(world)).toBeLessThan(.2)
+    // With the sun beyond the city, a plaster roof takes direct light while the
+    // eye-facing wall keeps the diffuse and reflected share.
+    const shade = buildingLight(world, 0)
+    const plaster = [0.64, 0.64, 0.64] as const
+    expect(lum(shade(plaster, NORMALS.top))).toBeGreaterThan(lum(shade(plaster, NORMALS.front)))
   })
 
   it('takes no more haze on a thing than the land it is seen against (C9)', () => {

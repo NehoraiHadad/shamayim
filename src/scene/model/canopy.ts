@@ -48,13 +48,13 @@ export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: re
   const gust = Math.abs(response.gust) * travel >= MIN_SWAY_PX ? response.gust : 0
   const lean = travel ? response.lean : 0
   const { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta } = vegetation
-  const key = layerKey('canopy', plane.key, plane.light.key, lean, gust)
+  const key = layerKey('canopy', plane.key, lean, gust)
   return {
     kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key, receiver: { form: plane.key, light: plane.light.key },
     bounds: { x, y, w, h }, outline, vegetation: { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust },
     clear: lean || gust ? clear : [],
     animated: plane.animated ?? (gust ? { mode: 'frames', frames: LAND_GUST } : undefined),
     cloudShadow: plane.cloudShadow, receiverField: plane.light.litField, receiverBounds: bounds,
-    light: { key, blend: 'source-over', faces: [] },
+    light: { key: layerKey(key, plane.light.key), blend: 'source-over', faces: [] },
   }
 }
