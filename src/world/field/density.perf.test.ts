@@ -4,6 +4,7 @@ import fixture from '../../test/fixtures/forecast-layers-2026-11-17.json'
 import { cellsAround, RANGES } from './cells'
 import { densityGrid, farStrips, layerSnapshot } from './density'
 import { buildField } from './field'
+import { referenceLoop } from './referenceLoop.test-helper'
 import type { FieldInput } from './types'
 
 const input: FieldInput = {
@@ -44,18 +45,22 @@ function medianMs(work: (i: number) => unknown) {
   return median(samples)
 }
 
+function pairedSamples(work: (i: number) => unknown) {
+  referenceLoop()
+  work(-1)
+  return Array.from({ length: 9 }, (_, i) => {
+    const start = performance.now()
+    referenceLoop()
+    const before = performance.now()
+    work(i)
+    const after = performance.now()
+    referenceLoop()
+    return { ms: after - before, reference: ((before - start) + (performance.now() - after)) / 2 }
+  })
+}
+
 const strict = process.env.FIELD_PERF === '1'
 const budget = (ms: number) => strict ? ms : 3 * ms
-
-// A fixed CPU-bound loop with a data dependency prevents the JIT from dropping the work.
-function referenceLoop() {
-  const scratch = new Float64Array(512)
-  const objects = Array.from({ length: 128 }, (_, i) => ({ phase: i / 128 }))
-  let phase = 0.25
-  for (let i = 0; i < 100_000; i++) phase = Math.sin(phase + i / 100)
-  scratch[objects.length] = phase
-  return scratch[128] + objects[64].phase
-}
 
 it('builds a new forecast within the 3 ms arrival budget', () => {
   const ms = medianMs(() => buildField({ ...input, hours: [...input.hours] }))
@@ -66,11 +71,11 @@ it('builds a new forecast within the 3 ms arrival budget', () => {
 it('serves all four layers within the 15 ms cold place budget', () => {
   buildField(input)
   const cold = (i: number) => scrub(`cold-density-${i}`, i + 1)
-  const ms = medianMs(cold)
-  const ratio = ms / medianMs(referenceLoop)
-  console.info({ coldRatio: ratio })
-  if (!strict) expect(ratio).toBeLessThanOrEqual(2.42)
-  console.info('cold place scrub median ms', ms)
+  const samples = strict ? [] : pairedSamples(cold)
+  const ms = strict ? medianMs(cold) : median(samples.map(sample => sample.ms))
+  const ratio = strict ? undefined : median(samples.map(sample => sample.ms / sample.reference))
+  console.info('cold place scrub median ms', ms, { coldRatio: ratio })
+  if (ratio !== undefined) expect(ratio).toBeLessThanOrEqual(2.42)
   expect(ms).toBeLessThanOrEqual(budget(15))
 })
 
@@ -84,16 +89,7 @@ it('serves all four layers within the 2 ms warm scrub budget', () => {
     expect(ms).toBeLessThanOrEqual(2)
     return
   }
-  referenceLoop()
-  const samples = Array.from({ length: 9 }, (_, i) => {
-    const start = performance.now()
-    referenceLoop()
-    const before = performance.now()
-    warm(i)
-    const after = performance.now()
-    referenceLoop()
-    return { ms: after - before, reference: ((before - start) + (performance.now() - after)) / 2 }
-  })
+  const samples = pairedSamples(warm)
   const ms = median(samples.map(sample => sample.ms))
   const ratio = median(samples.map(sample => sample.ms / sample.reference))
   console.info('warm scrub median ms', ms, { reference: median(samples.map(sample => sample.reference)), ratio })

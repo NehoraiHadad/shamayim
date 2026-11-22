@@ -37,6 +37,8 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
   const amplitude = 1 + (0.2 / 0.35 - 1) * w
   const rankLimit = Q + 0.2 + clumpAmplitude * amplitude / 2
   const shareWidth = lattice === 'tower' ? 0.4 : 0.25
+  // The lifecycle term is at least -0.075. Leave a rounding margin before rejecting zero share.
+  const emptyRank = Q + shareWidth / 2 + 0.075 + 8 * Number.EPSILON
   for (let startJ = minJ; startJ <= maxJ; startJ += 96) {
     const endJ = Math.min(startJ + 95, maxJ)
     for (let startI = minI; startI <= maxI; startI += 96) {
@@ -59,12 +61,14 @@ export function visitCells(field: CloudField, lattice: Lattice, x: number, y: nu
           const north = data[p + 1] + dy
           if ((east - x) ** 2 + (north - y) ** 2 > radiusSquared) continue
 
+          const baseRank = unit(u + amplitude * data[p + 8])
+          if (baseRank > emptyRank) continue
           const period = data[p + 5]
           const phase = data[p + 6]
           const cu = w < 1 ? Math.sin(2 * Math.PI * (t / period + phase)) : 0
           const sc = w > 0 ? Math.sin(2 * Math.PI * (t / (60 + 6 * (period - 20)) + phase)) : 0
           // For fixed weather, the maximum one-minute share change is 6 × 0.075 × 2 sin(π/20) ≈ 0.141.
-          const rank = unit(u + amplitude * data[p + 8]) + 0.075 * ((1 - w) * cu + w * sc)
+          const rank = baseRank + 0.075 * ((1 - w) * cu + w * sc)
           const share = shareOf(rank, Q, shareWidth)
           if (share <= 0) continue
           const genus = genusOf(lattice, form, data[p + 7], storm)

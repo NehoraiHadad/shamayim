@@ -78,11 +78,13 @@
 
 The recorded-panorama test used the November 17 fixture at 13:00 with broken showers, 70% low cover, and 50% mid cover. Timings are medians of 16 distinct minutes after eight warm-up minutes. Face counts count near/far points. The before counts replay the reverted datum conversion on the same terrain planes.
 
-| Place | Shadow ms | Scene model ms | Model without shadow field ms | Panorama reference ms | 13:00 blobs | Before faces | After faces | Sampled grid error |
+| Place | Shadow ms | Scene model ms (measured first) | Model without shadow field ms (measured second) | Panorama reference ms | 13:00 blobs | Before faces | After faces | Sampled grid error |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Jerusalem | 1.55 | 29.96 | 7.58 | 19.24 | 12 | 0/0 | 1585/27 | 0.0092 m |
 | Haifa | 1.91 | 11.42 | 9.75 | 15.39 | 44 | 0/23 | 1747/100 | 0.0038 m |
 | Tiberias | 1.00 | 6.43 | 5.25 | 12.11 | 23 | 1882/231 | 1107/446 | 0.0060 m |
+
+The model columns have an order bias. The field run paid first-call per-world colour and key work, particularly in Jerusalem. The paired model increments are reported in Round 4.
 
 - The recorded grid probe compares midpoints with the panorama sampler. It measures interpolation disagreement on the stored data. Sub-grid error against the original elevation data is unverified.
 - Jerusalem has 12 visible shadow blobs in the broken-showers fixture, including near-slope centres. The original 45% low and 30% mid non-showery fixture yielded six blobs during development. The recorded regression explicitly uses the showery case to exercise the convective lattice as well as low and mid cells.
@@ -91,3 +93,35 @@ The recorded-panorama test used the November 17 fixture at 13:00 with broken sho
 - The combined world and scene-model sweep and the opt-in performance run remain for cloud verification under the local testing limit.
 - The niced focused runs passed four shadow geometry cases, three recorded-panorama cases, the living-light shadow-motion case, and nine world rain cases. All four unchanged life-continuity cases passed in isolation. Shadmot Mehola finished in 9.48 s against its 30 s timeout.
 - TypeScript and whitespace checks passed. Oxlint passed with the existing control-regex warning in `scripts/city/geometry.ts`.
+
+## Round 4
+
+- Shadow candidates are ranked by squared distance after displacement to eye level. The pass solves terrain projection and checks visibility in that order until 64 drawable blobs are accepted, then sorts the accepted blobs by actual distance for drawing. The terrain projection's 10 m residual bounds the error of each proxy distance by `abs(groundM - eyeM) × cot(sun altitude) / 1000 + 0.01 km`. A pair can switch order only when the gap between their proxy distances is within the sum of their bounds.
+- The panorama guard shares the allocating CPU reference with the density test. It brackets each shadow sample with reference samples and discards the first eight minutes. For the model increment, each variant has a first call on the same selected-minute frame, then the timed warm calls reverse order. The starting order alternates by minute. The increment is the median of the within-minute differences. The final comparator empties the snapshot and retains the field's optical layers so both variants light the same sky. The absolute shadow and scene-model checks remain opt-in.
+- Density keeps its existing budgets. The cold test now brackets each sample with the reference, as the warm test does. Cell visits skip lifecycle evaluation when even its minimum contribution would give zero share. Far strips reuse their fixed seeded-field query centres before applying the current wind offset.
+
+| Recorded place | Shadow ms | Preliminary paired field increment ms | First-call overhead ms | CPU reference ms | Shadow/reference |
+|---|---:|---:|---:|---:|---:|
+| Jerusalem | 4.698 | 3.150 | 3.787 | 12.424 | 0.340 |
+| Haifa | 4.496 | 6.072 | 6.786 | 9.968 | 0.424 |
+| Tiberias | 4.434 | 5.515 | 4.668 | 8.989 | 0.372 |
+
+The niced local panorama run measured above 1 ms for shadows and above 2 ms for the preliminary field increment. The preliminary comparator removed the whole field and included differences in sky shading. The shadow-only comparator still needs measurement. Multiplying the largest observed ratio by 1.5 would yield 0.636 and admit several milliseconds at the observed reference speed. The provisional 0.20 limit comes from the roughly 5 ms Round 1 CPU reference and still needs calibration against a run meeting the absolute targets.
+
+| Reported failure | Finding and change |
+|---|---|
+| Cold density budget | Reproduced in a single-worker run as a ratio assertion, 2.749 against 2.42. The original sampled the work and reference in separate blocks. The final guard pairs their timings and retains the threshold. |
+| Warm density budget | Reproduced in the same run as a ratio assertion, 0.692 against 0.59, with an 8.239 ms median scrub. The guard already paired timings. The two field optimizations above reduce work on the scrub path. |
+| Planes | The lighting scan rebuilt a forecast at each hour. It now varies the selected hour on one input per place. |
+| 22° ring | The halo scan rebuilt a forecast at each moment. It now varies the selected moment on one input per place. |
+| Sea glitter | The all-place scan reused its builder while rebuilding the forecast at each hour. The scan now reuses both per place. |
+| Trails | The straightness scan rebuilt forecasts for each hour and forced scenario. It now reuses the forecast and groups hours by scenario. |
+| Flocks | The front-of-land scan rebuilt forecasts at each hour. It now reuses one input per place and passed in a niced single-thread run. |
+| Haifa hand-off | Already reused its forecast. The 960-minute scan now uses the production moving-layer path directly after the initial full-model sample. |
+| Tel Aviv hand-off | Same 960-minute full-model cost and change as Haifa. |
+| Mist before data | The status and weather combinations rebuilt the same forecasts. They now reuse one forecast and group sample hours by weather and terrain status. |
+| Rain from banks | Already reused its forecast. Alternating weather scenarios from one hour to the next invalidated world memoization. The test now groups its hours by stable forced weather inputs. |
+
+The fixture costs above were identified by code inspection. The first local run reported a timeout terminating the Vitest fork for `c10.test.ts` and was stopped. The niced single-thread follow-up passed all 30 selected cases across the nine reported routes, including all eight places each for planes, mist and rain. The longest plane, mist and rain cases took 9.27, 9.54 and 21.83 s respectively. The ring took 6.68 s, sea glitter 12.78 s, trails 23.57 s, and the Haifa and Tel Aviv hand-offs 19.55 s and 18.35 s. These runs found no wrong values in the nine routes. The timing of the original parallel failures was not reproduced. The final density changes and the shadow-only comparator still need timing verification.
+
+All four synthetic slope and datum cases passed with one niced Vitest thread. TypeScript build-mode checking and `git diff --check` passed. Oxlint passed with the existing control-regex warning in `scripts/city/geometry.ts`. The timing budgets and test deadlines were kept. The optional flight-terrain split was skipped. The combined world and scene-model run and opt-in performance run require cloud execution under the local testing limits.

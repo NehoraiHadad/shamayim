@@ -58,15 +58,17 @@ const HOURS = ['06:20', '09:00', '12:00', '14:00', '16:30']
 
 describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
   it('rains and snows only from the banks the world makes rain or snow', { timeout: 30000 }, () => {
-    for (const hour of HOURS) {
-      for (const forced of [CLEAR, OVERCAST, BROKEN, FOG]) {
+    for (const forced of [CLEAR, OVERCAST, BROKEN, FOG]) {
+      for (const hour of HOURS) {
         const w = world(id, hour, forced)
         expect(w.rain).toBeNull()
         expect(w.snowfall).toBeNull()
         const model = sceneModel(w, BOX)
         expect(model.layers.filter((l) => FALLING.includes(l.kind)).map((l) => l.id), `${hour}`).toEqual([])
       }
-      for (const forced of [RAIN(270), SHOWERS, SNOW]) {
+    }
+    for (const forced of [RAIN(270), SHOWERS, SNOW]) {
+      for (const hour of HOURS) {
         const w = world(id, hour, forced)
         const cells = w.rain?.cells ?? w.snowfall?.cells ?? []
         expect(cells.length).toBeGreaterThan(0)

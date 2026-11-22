@@ -78,8 +78,10 @@ describe('water', () => {
   it('glints only under a light that stands over the water and above the land', { timeout: 60000 }, () => {
     let seen = 0
     for (const { id } of SCENE_PLACES) {
+      const input = worldInput(loaded.get(id)!, at('12:00'))
+      const build = makeWorldBuilder()
       for (const hour of HOURS) {
-        const w = world(id, hour)
+        const w = build({ ...input, selected: at(hour) })
         const glints = waterOf(sceneModel(w, BOX)).flatMap((l) => l.glints)
         if (!glints.length) continue
         seen++

@@ -41,12 +41,14 @@ function shadowSprite(bucket: number, dpr: number): ShadowSprite {
   return sprite
 }
 
-type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera' | 'flightTerrain'> & {
+type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
+  flightTerrain?: Pick<NonNullable<WorldState['flightTerrain']>, 'eyeM' | 'heightAt' | 'blockedKm'>
   light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
   terrain: Pick<WorldState['terrain'], 'horizonY'>
 }
 
 type Projection = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
+type ShadowBlob = LayerOf<'cloudShadow'> & { rim: Pt[]; centre: Pt }
 
 export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width' | 'dpr'>) {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world
@@ -64,7 +66,6 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
   const alphaScale = 0.65 * light.direct
   const minDepth = -2 * Math.log(open * (1 - 1 / (255 * alphaScale))) / invSin
   const scale = box.width / SCENE_W
-  const blobs: (LayerOf<'cloudShadow'> & { rim: Pt[]; centre: Pt })[] = []
 
   const { eyeM, heightAt, blockedKm } = grid
   const screenX = (eastKm: number, northKm: number) =>
@@ -96,7 +97,7 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
     }
   }
 
-  const candidates: { cell: FieldCell; centre: Projection; alpha: number }[] = []
+  const candidates: { cell: FieldCell; eyeDistanceSquared: number; slant: number }[] = []
   for (const { cells, layer } of cloudField.snapshot) {
     if (!layer || layer.lattice === 'high') continue
     for (const cell of cells) {
@@ -111,13 +112,20 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
       const slant = tau * profile
       if (slant < minDepth) continue
 
-      const centre = onGround(x, y, baseAboveEyeKm + depth / 2)
-      if (centre && visible(centre)) candidates.push({ cell, centre, alpha: alphaScale * (1 - Math.exp(-slant * invSin / 2) / open) })
+      const h = baseAboveEyeKm + depth / 2
+      const east = x - h * eastPerUp, north = y - h * northPerUp
+      candidates.push({ cell, eyeDistanceSquared: east * east + north * north, slant })
     }
   }
-  candidates.sort((a, b) => a.centre.km - b.centre.km)
-  for (const { cell: { id, x, y, r, baseKm: baseAboveEyeKm, vKm: depth }, alpha, centre } of candidates) {
-    if (blobs.length === 64) break
+  // By the reverse triangle inequality, the eye-level distance differs from
+  // the accepted centre distance by at most |groundM - eyeM| × cot(alt) / 1000 + 0.01 km.
+  // Two centres can swap rank only if their proxy gap is within the sum of those bounds.
+  candidates.sort((a, b) => a.eyeDistanceSquared - b.eyeDistanceSquared)
+  const accepted: { km: number; blob: ShadowBlob }[] = []
+  for (const { cell: { id, x, y, r, baseKm: baseAboveEyeKm, vKm: depth }, slant } of candidates) {
+    if (accepted.length === 64) break
+    const centre = onGround(x, y, baseAboveEyeKm + depth / 2)
+    if (!centre || !visible(centre)) continue
     const polygon: Pt[] = []
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
     for (let i = 0; i < rim.length; i++) {
@@ -140,12 +148,14 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
     // the vertical bounds by at most sqrt(1.125) - 1 = 6.1% of the radius.
     const bucket = Math.round(Math.log(ry / rx) / LOG_ASPECT_STEP)
     const sprite = shadowSprite(bucket, box.dpr)
-    blobs.push({
+    const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
+    const blob: ShadowBlob = {
       kind: 'cloudShadow', id: `cloudShadow.${id}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
       rim: polygon, centre: [centre.eastKm, centre.northKm],
       placed: { x: (left + right) / 2, y: (top + bottom) / 2, scale: rx / sprite.blobs[0].rx, alpha },
       ...sprite,
-    })
+    }
+    accepted.push({ km: centre.km, blob })
   }
-  return blobs
+  return accepted.sort((a, b) => a.km - b.km).map(({ blob }) => blob)
 }

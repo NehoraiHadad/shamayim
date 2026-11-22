@@ -6,7 +6,7 @@ import type { WorldState } from '../../world/types'
 import { makeWorldBuilder } from '../../world/world'
 import { scrubMinuteAt } from '../react/useLifeClock'
 import { trackAt } from './anim'
-import { sceneModel } from './index'
+import { sceneModel, skyLayers } from './index'
 import {
   cruiseInterpolation, culledAtStart, distance, driftInterpolation, frontChange, legacyCull, localScale, pose, trailContinuity, visible,
 } from './lifeContinuityMetrics'
@@ -24,8 +24,8 @@ beforeAll(async () => {
 
 const peak = () => ({ px: 0, scalePct: 0, framePx: 0, count: 0 })
 const kindOf = (key: string) => key.startsWith('birds.') ? 'birds' : key.startsWith('aircraft.low.') ? 'low' : 'high'
-function movingLayers(world: WorldState, clock: LifeClock) {
-  return new Map(sceneModel(world, BOX, null, clock).layers
+function movingLayers(world: WorldState, clock: LifeClock, layers = skyLayers(world, BOX, clock)) {
+  return new Map(layers
     .filter((l) => l.kind === 'birds' || l.kind === 'aircraft' || l.kind === 'contrail').map((l) => [l.id, l]))
 }
 
@@ -46,7 +46,9 @@ it.each(IDS)('%s hands off moving layers at a nonzero offset inside the next min
   const trailWorst = { px: 0, pairs: 0, tipSeamPx: 0, driftInterpolationPx: 0, youngW: 0, youngA: 0, oldW: 0, oldA: 0,
     youngFrameW: 0, youngFrameA: 0, oldFrameW: 0, oldFrameA: 0 }
   let cruiseMidpointPx = 0
-  let before = movingLayers(build(input), { laidAt: 137, sinceS: 37 })
+  const startWorld = build(input), startClock = { laidAt: 137, sinceS: 37 }
+  // The full model stitches these same moving layers into its land and sky surfaces.
+  let before = movingLayers(startWorld, startClock, sceneModel(startWorld, BOX, null, startClock).layers)
   for (let minute = 1; minute <= 16 * 60; minute++) {
     const at = addMinutes(START, minute), next = build({ ...input, selected: at }), geom = skyGeom(next, BOX)
     const boundary = 100 + minute * 60, phase = boundary + LATE_S
@@ -139,7 +141,8 @@ it('advances a selected minute for 65 real minutes, keeping the shown environmen
   expect(advanced.life.birds).toEqual(expected.life.birds)
   expect(advanced.life.aircraft.low).toEqual(expected.life.aircraft.low)
   expect(advanced.life.aircraft.high).toEqual(expected.life.aircraft.high)
-  const movers = [...movingLayers(advanced, clock).values()].filter((l) => l.kind === 'aircraft' || l.kind === 'birds')
+  const fullModel = sceneModel(advanced, BOX, null, clock)
+  const movers = [...movingLayers(advanced, clock, fullModel.layers).values()].filter((l) => l.kind === 'aircraft' || l.kind === 'birds')
   const motions = movers.map((layer) => distance(pose(layer, phase).point, pose(layer, phase + 1).point))
   console.log('scrub motion after 65 real minutes (CSS px/s)', Math.max(...motions))
   expect(Math.max(...motions)).toBeGreaterThan(0.01)

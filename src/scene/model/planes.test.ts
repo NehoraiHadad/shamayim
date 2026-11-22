@@ -55,8 +55,9 @@ function litBySlope(layer: LayerOf<'plane'>) {
 describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
   it('lights the faces turned to the light: lit side = the light’s side, every hour', () => {
     let checked = 0, steep = 0
+    const input = worldInput(loaded.get(id)!, at('12:00'))
     for (const hour of HOURS) {
-      const w = world(id, hour)
+      const w = buildWorld({ ...input, selected: at(hour) })
       const layer = near(sceneModel(w, BOX))
       if (w.light.source === 'sky') {
         // No side (overcast, twilight, a moonless night): no lit band, no lift.
