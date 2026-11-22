@@ -1,6 +1,7 @@
 import { blendNumber, blendWeatherCode, HIGH_RES_DAYS, iconWeight, roundTemperature } from '../../domain/blend'
 import { confidenceFor } from '../../domain/confidence'
 import { dailyMaxAdd, temperatureIconWeight } from '../../domain/correction/temperature'
+import { correctDailyGust } from '../../domain/correction/windHumidity'
 import type { DayPoint } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
 import { pairs, spread } from './mapHelpers'
@@ -45,7 +46,7 @@ export function mapDays(raw: Json, today: string): DayPoint[] {
       tempMin: roundTemperature(min),
       precipProbMax: blendNumber(precipProb[index], weight),
       precipSum: blendNumber(precipSum[index], weight) ?? 0,
-      windGustsMax: blendNumber(windGusts[index], weight) ?? 0,
+      windGustsMax: correctDailyGust(blendNumber(windGusts[index], weight) ?? 0, offset),
       sunrise: str(sunrise[index] ?? sunriseFallback[index], `daily.sunrise[${index}]`),
       sunset: str(sunset[index] ?? sunsetFallback[index], `daily.sunset[${index}]`),
       lowConfidence: offset >= HIGH_RES_DAYS,

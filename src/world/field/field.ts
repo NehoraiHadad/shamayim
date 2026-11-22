@@ -135,7 +135,7 @@ const hourHeights = new WeakMap<FieldInput['hours'][number], Record<Lattice, num
 function representativeHeights(hour: FieldInput['hours'][number]) {
   let heights = hourHeights.get(hour)
   if (heights) return heights
-  const lowBaseKm = lowBaseM(hour.modelTemperature ?? hour.temperature, hour.humidity) / 1000
+  const lowBaseKm = lowBaseM(hour.modelTemperature ?? hour.temperature, hour.modelHumidity ?? hour.humidity) / 1000
   const { covers } = layerCovers({ hour, cloudCover: hour.cloudCover, thickCloud: hour.thickCloud })
   // Use daytime form to avoid introducing a solar clock into the forecast wind timeline.
   // Representative low heights range from at least 0.25 + 0.3 / 2 to at most 2.5 + 1 / 2 km

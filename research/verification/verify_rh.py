@@ -67,4 +67,5 @@ def main():
         print("  regions", r["by_region_bias"]); print("  hours", r["by_hour_bias"])
     json.dump(res, open(v.OUT / "rh_summary.json", "w"), ensure_ascii=False, indent=1)
 
-main()
+if __name__ == "__main__":
+    main()

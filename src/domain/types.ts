@@ -26,7 +26,7 @@ export interface CurrentWeather {
   snowfall: number
   /** metres; null when the model has none. */
   visibility: number | null
-  /** Relative humidity, 0–100; null when unavailable. */
+  /** Relative humidity, 0–100, with the national station correction; null when unavailable. */
   humidity: number | null
 }
 
@@ -39,6 +39,8 @@ export interface HourPoint {
    * forecast cloud field derives its cloud base from it, so the clouds stay consistent with the models' own clouds.
    */
   modelTemperature?: number
+  /** The models' own humidity blend, uncorrected (the cloud field's partner of `modelTemperature`). */
+  modelHumidity?: number
   precipProb: number | null
   precipitation: number
   weatherCode: number
