@@ -1,0 +1,232 @@
+<title>כמה התחזית טועה</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Frank+Ruhl+Libre:wght@500;700&display=swap">
+<style>
+/* Layout: one reading column, RTL; findings as numbered sections, charts inline at full column width. */
+:root {
+  --bg: #f6f8fb; --panel: #ffffff; --fg: #14202e; --fg2: #4a5868; --muted: #7a8796; --rule: #dde3ea;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --neg: #2a78d6; --pos: #eb6834;
+  --display: "Frank Ruhl Libre", "David", Georgia, serif;
+  --body: "Assistant", "Segoe UI", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1620; --panel: #16202c; --fg: #e9eef4; --fg2: #b4c0cc; --muted: #8592a0; --rule: #2a3644;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --neg: #3987e5; --pos: #d95926; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1620; --panel: #16202c; --fg: #e9eef4; --fg2: #b4c0cc; --muted: #8592a0; --rule: #2a3644;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --neg: #3987e5; --pos: #d95926; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17px; line-height: 1.65; direction: rtl; }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 36px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: clamp(30px, 6vw, 42px); }
+h2 { font-size: 24px; }
+p { margin: 0; }
+.eyebrow { color: var(--muted); font-size: 14px; letter-spacing: .02em; }
+.lede { font-size: 20px; color: var(--fg2); }
+.lede b { color: var(--fg); }
+section { display: flex; flex-direction: column; gap: 14px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.fact { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.fact .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fact .k { color: var(--fg2); font-size: 14px; line-height: 1.4; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+figcaption { font-weight: 600; }
+.note { color: var(--muted); font-size: 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--fg2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend i.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important; }
+svg { width: 100%; height: auto; display: block; overflow: visible; }
+svg text { fill: var(--fg2); font-family: var(--body); font-size: 12px; }
+.grid line { stroke: var(--rule); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 15px; }
+th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--rule); }
+th { color: var(--fg2); font-weight: 600; font-size: 13px; }
+td.num { text-align: left; direction: ltr; }
+.gain { color: var(--s3); font-weight: 700; }
+.bad { color: var(--pos); font-weight: 700; }
+ol.rec { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 10px; }
+.tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 13px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; z-index: 5; }
+.box { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+</style>
+
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:12px">
+    <div class="eyebrow">שמיים · מחקר אימות תחזיות · טמפרטורה · נובמבר 2026</div>
+    <h1>כמה התחזית טועה, ואיפה</h1>
+    <p class="lede">השוונו את מה ש-ICON ו-ECMWF חזו מראש, כפי שהאפליקציה מקבלת מ-Open-Meteo, למה שנמדד בפועל ב-84 תחנות של השירות המטאורולוגי. התחזית ל<b>מחר</b> טועה היום בממוצע ב-<b>1.21°</b>. תיקון שנלמד משנתיים של נתונים הוריד את הטעות ל-<b>0.89°</b> בשנה שלא ראה, אבל רק בנקודות שיש בהן תחנה.</p>
+  </header>
+
+  <div class="facts">
+    <div class="fact"><span class="v">84</span><span class="k">תחנות מדידה, מהחרמון עד אילת</span></div>
+    <div class="fact"><span class="v">2.07M</span><span class="k">שעות שבהן יש גם תחזית וגם מדידה</span></div>
+    <div class="fact"><span class="v">ינו׳ 2024 – נוב׳ 2026</span><span class="k">תקופת הנתונים</span></div>
+    <div class="fact"><span class="v">‎−26%</span><span class="k">טעות התחזית למחר אחרי תיקון, בשנת המבחן</span></div>
+  </div>
+
+  <section>
+    <h2>1. ICON טוב יותר, והשילוב עוזר רק בסוף השבוע</h2>
+    <p>ICON מדויק יותר מ-ECMWF בכל אזור ובכל טווח עד 4 ימים. השילוב שהאפליקציה עושה (60% ICON) יוצא כמעט זהה ל-ICON לבדו. ביום השישי התמונה מתהפכת: שני המודלים טועים באותה מידה, והממוצע שלהם טוב משניהם (1.66° לעומת 1.84°–1.92°).</p>
+    <figure>
+      <figcaption>טעות ממוצעת (°C) לפי כמה זמן מראש ניתנה התחזית · שנת המבחן</figcaption>
+      <div class="legend" id="lg-leads"></div>
+      <div id="ch-leads"></div>
+      <p class="note">טעות ממוצעת מוחלטת (MAE) בשנה נובמבר 2025 – נובמבר 2026. התיקונים נלמדו רק על השנים שלפניה.</p>
+    </figure>
+  </section>
+
+  <section>
+    <h2>2. התחזית קרה מדי אחר הצהריים</h2>
+    <p>בכל הארץ התחזית נמוכה מהמדידה, ובחדות בין 15:00 ל-17:00, אז החום מגיע לשיא. בימים של 35° ומעלה התחזית נמוכה ב-0.8° בממוצע. כלומר המספר שהאפליקציה מראה אחר הצהריים נמוך באופן קבוע ממה שמרגישים בחוץ.</p>
+    <figure>
+      <figcaption>תחזית פחות מדידה לפי שעה ביום (°C, שעון חורף) · תחזית למחר</figcaption>
+      <div id="ch-hours"></div>
+      <p class="note">מתחת לקו: התחזית קרה מהמציאות. מעל לקו: חמה ממנה.</p>
+    </figure>
+  </section>
+
+  <section>
+    <h2>3. לילות קרים: הטעות הכי גדולה</h2>
+    <p>כשנמדדים 5° או פחות, התחזית חמה מדי ב-<b class="bad">1.8°</b> בממוצע, וב-30% מהשעות האלה היא מפספסת ביותר מ-3°. אוויר קר מתנקז לעמקים ולשקעים בלילות שקטים, ומודל ברזולוציה של קילומטרים לא רואה את זה. זה בדיוק המקום שבו תחזית כפור נכשלת.</p>
+    <p>ההפך קורה בהרים ובים המלח: שם הלילות <em>חמים</em> מהתחזית. בהרים התחזית קרה ב-1.2° לקראת הבוקר, ובסדום ב-2.2°.</p>
+  </section>
+
+  <section>
+    <h2>4. התיקון עובד בכל תחנה, ובמיוחד בחוף</h2>
+    <p>התיקון פשוט: כמה המודל טעה בתחנה הזו, בשעה הזו, בעונה הזו, בשנתיים הראשונות. הפחתנו את הטעות הזו מהתחזיות של השנה השלישית, והדיוק השתפר <b>בכל 84 התחנות</b>. הכי הרבה בנמלים (אשדוד: מ-2.02° ל-0.80°, חדרה: מ-2.08° ל-0.87°), שבהם המודל לא יודע שהתחנה עומדת על הים.</p>
+    <figure>
+      <figcaption>טעות התחזית למחר לפי אזור, לפני ואחרי תיקון (°C) · שנת המבחן</figcaption>
+      <div class="legend" id="lg-reg"></div>
+      <div id="ch-reg"></div>
+      <p class="note">ים המלח הוא תחנה אחת (סדום). מספר התחנות בכל אזור מופיע בטבלה למטה.</p>
+    </figure>
+    <div class="scroll"><table id="tb-reg"><thead><tr><th>אזור</th><th>תחנות</th><th>הטיה</th><th>לפני</th><th>אחרי</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>5. הבעיה: התיקון לא עובר לשכנים</h2>
+    <p>זה הממצא החשוב ביותר בשביל אפליקציה לכל הארץ. כשניסינו להחיל על תחנה את התיקון של התחנה <em>הקרובה אליה</em>, התחזית <b class="bad">החמירה</b>, גם כשהשכנה נמצאת פחות מ-5 ק"מ ממנה. הטעות של המודל בכל נקודה תלויה בפרטים מקומיים מאוד: מדרון, שקע, קרבה לים, ואפילו הסביבה המיידית של התחנה.</p>
+    <div class="scroll"><table id="tb-near"><thead><tr><th>מרחק לתחנה הקרובה</th><th>תחנות</th><th>בלי תיקון</th><th>תיקון של עצמה</th><th>תיקון של השכנה</th></tr></thead><tbody></tbody></table></div>
+    <p>מה כן עובר: תיקון ארצי לפי שעה ועונה שנלמד מ<em>תחנות אחרות</em> שיפר תחנות שהוא לא ראה ב-6% (מ-1.21° ל-1.14° בתחזית למחר). זה שיפור צנוע, אבל אמיתי ובטוח לכל מקום בארץ.</p>
+  </section>
+
+  <section>
+    <h2>מה זה אומר לאפליקציה</h2>
+    <ol class="rec">
+      <li><b>תיקון ארצי לכל המקומות.</b> טבלה קטנה של עונה × שעה × טווח תחזית, שמורידה כ-6% מהטעות בכל מקום, בעיקר את הקור של אחר הצהריים. זה הצעד הזול והבטוח הראשון.</li>
+      <li><b>תיקון מלא רק במקום שהוא תחנה.</b> כשהמקום שבחר המשתמש נמצא ממש ליד תחנה ודומה לה, מקבלים את השיפור של 26%. בשדמות מחולה, תחנת שדה אליהו יורדת מ-1.05° ל-0.92° ותחנת חוות עדן מ-0.97° ל-0.92°.</li>
+      <li><b>מדידה חיה לשעות הקרובות.</b> הטמפרטורה שנמדדת עכשיו בתחנה הקרובה מגלה מה המודל מפספס <em>היום</em>, וזה צריך לעבור לשכנים טוב יותר מתיקון שנלמד מהעבר. זה השלב הבא לבדוק.</li>
+      <li><b>אזהרת קור וכפור.</b> בלילה צלול ושקט בעמק או בשקע, להוריד את המינימום או להוסיף הסתייגות. הנתונים מראים שהתחזית מחמיצה שם 2°–3°.</li>
+      <li><b>משקלי המודלים יכולים להישאר</b> כמו שהם היום. ICON לבדו טוב באותה מידה בימים הראשונים, והשילוב מציל את סוף השבוע.</li>
+    </ol>
+  </section>
+
+  <div class="box">
+    <b>הסתייגויות</b>
+    <p class="note">• שנת מבחן אחת (נובמבר 2025 – נובמבר 2026). החורף הבא עשוי להיות שונה.<br>
+    • התחנות של השמ"מ ממוקמות בכוונה במקומות פתוחים. הבית של המשתמש, בין בניינים או בחצר, יכול להיות שונה מהן.<br>
+    • הטעות נמדדת מול טמפרטורה רגעית בשעה עגולה, כמו הערך שהאפליקציה מציגה.<br>
+    • זו רק טמפרטורה. רוח, משבים, לחות וגשם יתווספו כשסיום הורדת נתוני התחנות יושלם.</p>
+  </div>
+  <p class="note">נתונים: השירות המטאורולוגי (תצפיות), Open-Meteo Previous Runs API (תחזיות עבר). הקוד נמצא בריפו, בתיקייה research/verification.</p>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const D = {"leads": [{"l": "l0", "blend": 1.07, "icon": 1.07, "ecmwf": 1.31, "corr": 0.81, "national": 1.06}, {"l": "l1", "blend": 1.21, "icon": 1.21, "ecmwf": 1.45, "corr": 0.89, "national": 1.14}, {"l": "l2", "blend": 1.26, "icon": 1.26, "ecmwf": 1.51, "corr": 0.94, "national": 1.18}, {"l": "l4", "blend": 1.36, "icon": 1.4, "ecmwf": 1.6, "corr": 1.07, "national": 1.29}, {"l": "l6", "blend": 1.66, "icon": 1.92, "ecmwf": 1.84, "corr": 1.37, "national": 1.57}], "hours": [-0.43, -0.38, -0.28, -0.3, -0.32, -0.16, -0.01, -0.15, -0.34, -0.31, -0.12, 0.0, -0.04, -0.17, -0.38, -0.64, -0.85, -0.79, -0.58, -0.5, -0.52, -0.54, -0.51, -0.47], "regions": [{"r": "ים המלח", "bias": -1.26, "raw": 1.63, "corr": 0.84, "n": 1}, {"r": "מישור החוף", "bias": -0.38, "raw": 1.49, "corr": 0.94, "n": 14}, {"r": "בקעת הירדן", "bias": -0.16, "raw": 1.32, "corr": 1.01, "n": 10}, {"r": "גולן וחרמון", "bias": -0.21, "raw": 1.21, "corr": 0.99, "n": 4}, {"r": "שפלה, עמקים ופנים הארץ", "bias": -0.45, "raw": 1.16, "corr": 0.86, "n": 26}, {"r": "הרים (ירושלים, שומרון, גליל)", "bias": -0.55, "raw": 1.13, "corr": 0.85, "n": 14}, {"r": "ערבה ואילת", "bias": -0.23, "raw": 1.04, "corr": 0.86, "n": 9}, {"r": "נגב", "bias": -0.07, "raw": 0.97, "corr": 0.79, "n": 6}], "near": {"<5 km": {"stations": 11, "raw": 1.29, "own": 0.95, "nearest": 1.47}, "5-10 km": {"stations": 34, "raw": 1.26, "own": 0.9, "nearest": 1.27}, "10-20 km": {"stations": 31, "raw": 1.16, "own": 0.88, "nearest": 1.29}, ">20 km": {"stations": 8, "raw": 1.11, "own": 0.83, "nearest": 1.2}}};
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a = {}, p) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const tip = document.getElementById('tip');
+function hover(node, text) {
+  node.addEventListener('pointerenter', () => { tip.textContent = text; tip.hidden = false; });
+  node.addEventListener('pointermove', (e) => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 34) + 'px'; });
+  node.addEventListener('pointerleave', () => { tip.hidden = true; });
+}
+function legend(id, items) {
+  document.getElementById(id).innerHTML = items.map(([c, t, dash]) =>
+    `<span><i class="${dash ? 'dash' : ''}" style="background:var(${c});color:var(${c})"></i>${t}</span>`).join('');
+}
+
+// 1. Lead time lines. x runs right-to-left (RTL reading order: today on the right).
+(function () {
+  const W = 680, H = 300, m = { t: 16, r: 70, b: 34, l: 44 };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'טעות ממוצעת לפי טווח תחזית' });
+  const days = [0, 1, 2, 4, 6], names = ['עכשיו', 'מחר', 'יומיים', '4 ימים', '6 ימים'];
+  const x = (d) => W - m.r - (d / 6) * (W - m.r - m.l);
+  const y0 = 0.6, y1 = 2.0, y = (v) => m.t + (y1 - v) / (y1 - y0) * (H - m.t - m.b);
+  const g = el('g', { class: 'grid' }, svg);
+  for (let v = 0.6; v <= 2.0001; v += 0.2) {
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g);
+    const t = el('text', { x: W - m.r + 8, y: y(v) + 4, 'text-anchor': 'start' }, svg); t.textContent = v.toFixed(1) + '°';
+  }
+  days.forEach((d, i) => { const t = el('text', { x: x(d), y: H - 10, 'text-anchor': 'middle' }, svg); t.textContent = names[i]; });
+  const S = [['ecmwf', '--s2', 'ECMWF'], ['icon', '--s1', 'ICON'], ['blend', '--s4', 'האפליקציה היום (שילוב)', true], ['national', '--fg2', 'עם תיקון ארצי (כל מקום)', true], ['corr', '--s3', 'עם תיקון לתחנה']];
+  for (const [k, c, label, dash] of S) {
+    const pts = D.leads.map((r, i) => [x(days[i]), y(r[k])]);
+    el('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: `var(${c})`, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-dasharray': dash ? '5 4' : '' }, svg);
+    D.leads.forEach((r, i) => {
+      el('circle', { cx: pts[i][0], cy: pts[i][1], r: 4, fill: `var(${c})`, stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+      const hit = el('circle', { cx: pts[i][0], cy: pts[i][1], r: 12, fill: 'transparent' }, svg);
+      hover(hit, `${label} · ${names[i]}: ${r[k].toFixed(2)}°`);
+    });
+  }
+  document.getElementById('ch-leads').appendChild(svg);
+  legend('lg-leads', [['--s1', 'ICON'], ['--s2', 'ECMWF'], ['--s4', 'האפליקציה היום (שילוב)', true], ['--fg2', 'עם תיקון ארצי (כל מקום)', true], ['--s3', 'עם תיקון לתחנה']]);
+})();
+
+// 2. Bias by hour, diverging around zero. Hours run right-to-left.
+(function () {
+  const W = 680, H = 220, m = { t: 12, r: 44, b: 30, l: 8 };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'הטיית התחזית לפי שעה' });
+  const bw = (W - m.r - m.l) / 24;
+  const y0 = -1.0, y1 = 0.4, y = (v) => m.t + (y1 - v) / (y1 - y0) * (H - m.t - m.b);
+  const g = el('g', { class: 'grid' }, svg);
+  for (const v of [0.4, 0, -0.4, -0.8]) {
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), 'stroke-width': v === 0 ? 1.5 : 1 }, g);
+    const t = el('text', { x: W - m.r + 6, y: y(v) + 4, 'text-anchor': 'start' }, svg); t.textContent = (v > 0 ? '+' : '') + v.toFixed(1) + '°';
+  }
+  D.hours.forEach((v, h) => {
+    const cx = W - m.r - (h + 0.5) * bw, top = Math.min(y(v), y(0)), ht = Math.max(Math.abs(y(v) - y(0)), 1);
+    el('rect', { x: cx - bw / 2 + 2, width: bw - 4, y: top, height: ht, rx: 2, fill: v < 0 ? 'var(--neg)' : 'var(--pos)' }, svg);
+    const hit = el('rect', { x: cx - bw / 2, width: bw, y: m.t, height: H - m.t - m.b, fill: 'transparent' }, svg);
+    hover(hit, `${String(h).padStart(2, '0')}:00 · ${v > 0 ? '+' : ''}${v.toFixed(2)}°`);
+    if (h % 3 === 0) { const t = el('text', { x: cx, y: H - 8, 'text-anchor': 'middle' }, svg); t.textContent = String(h).padStart(2, '0'); }
+  });
+  document.getElementById('ch-hours').appendChild(svg);
+})();
+
+// 3. Regions, raw vs corrected, horizontal bars growing leftward from the right edge.
+(function () {
+  const W = 680, rowH = 40, m = { t: 6, r: 190, b: 26, l: 40 };
+  const H = m.t + m.b + D.regions.length * rowH;
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'טעות לפי אזור' });
+  const xMax = 1.8, x = (v) => W - m.r - v / xMax * (W - m.r - m.l);
+  const g = el('g', { class: 'grid' }, svg);
+  for (let v = 0; v <= 1.8001; v += 0.6) {
+    el('line', { x1: x(v), x2: x(v), y1: m.t, y2: H - m.b }, g);
+    const t = el('text', { x: x(v), y: H - 8, 'text-anchor': 'middle' }, svg); t.textContent = v.toFixed(1) + '°';
+  }
+  D.regions.forEach((r, i) => {
+    const yy = m.t + i * rowH + 6;
+    const t = el('text', { x: W - m.r + 10, y: yy + 17, 'text-anchor': 'start' }, svg); t.textContent = r.r.length > 20 ? r.r.replace(/ \(.*\)/, '') : r.r;
+    t.setAttribute('fill', 'var(--fg)');
+    [['raw', '--s1', 'לפני'], ['corr', '--s3', 'אחרי']].forEach(([k, c, lab], j) => {
+      const by = yy + j * 14;
+      el('rect', { x: x(r[k]), y: by, width: x(0) - x(r[k]), height: 12, rx: 3, fill: `var(${c})` }, svg);
+      const v = el('text', { x: x(r[k]) - 5, y: by + 10, 'text-anchor': 'end' }, svg); v.textContent = r[k].toFixed(2);
+    });
+    const hit = el('rect', { x: m.l, y: yy - 4, width: W - m.l, height: rowH - 4, fill: 'transparent' }, svg);
+    hover(hit, `${r.r}: ${r.raw.toFixed(2)}° ← ${r.corr.toFixed(2)}°`);
+  });
+  document.getElementById('ch-reg').appendChild(svg);
+  legend('lg-reg', [['--s1', 'לפני תיקון'], ['--s3', 'אחרי תיקון לתחנה']]);
+  document.querySelector('#tb-reg tbody').innerHTML = D.regions.map(r =>
+    `<tr><td>${r.r}</td><td class="num">${r.n}</td><td class="num">${r.bias > 0 ? '+' : ''}${r.bias.toFixed(2)}°</td><td class="num">${r.raw.toFixed(2)}°</td><td class="num gain">${r.corr.toFixed(2)}°</td></tr>`).join('');
+  const lab = { '<5 km': 'עד 5 ק"מ', '5-10 km': '5–10 ק"מ', '10-20 km': '10–20 ק"מ', '>20 km': 'מעל 20 ק"מ' };
+  document.querySelector('#tb-near tbody').innerHTML = Object.entries(D.near).map(([k, v]) =>
+    `<tr><td>${lab[k]}</td><td class="num">${v.stations}</td><td class="num">${v.raw.toFixed(2)}°</td><td class="num gain">${v.own.toFixed(2)}°</td><td class="num ${v.nearest > v.raw ? 'bad' : ''}">${v.nearest.toFixed(2)}°</td></tr>`).join('');
+})();
+</script>
