@@ -934,8 +934,8 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             with aerosol and cloud scatter and broad-sky metering. Keep the daylight scale distinct from the
             atmosphere's directional horizon radiance. Retain the sky as the source of path colour.
       - [x] Paint both stationary solar endpoints in one job per receiver. Keep the previous pair and canopy
-            visible during light changes. Release superseded same-form arrivals while waiting for the current
-            pair. A cold canopy can show full-beam pose zero while its pair waits.
+            visible during light changes. Promote each newer complete pair, so a drag keeps shaded planes moving
+            with the sky. A cold canopy can show full-beam pose zero while its pair waits.
             Key paint on byte-encoded plant tones, geometry and clear zones. Cull footprints against canopy
             bounds, send a warm canopy preview with its plane, and fill the gust strip after scrub.
       - [x] Share one moving Beer–Lambert mask per plane with its canopy. Use the mean beam-to-sky ratio of

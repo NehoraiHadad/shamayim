@@ -57,7 +57,7 @@ function fakeWorker() {
 const painters = () => ({ form: () => {}, light: () => {} })
 
 describe('bounded strip scheduling in RemoteCache', () => {
-  it('keeps both old bitmaps through a light change and retires them together', () => {
+  it('swaps whole pairs through a light change and retires each pair together', () => {
     const worker = fakeWorker()
     const arrivals: boolean[] = []
     const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
@@ -77,15 +77,18 @@ describe('bounded strip scheduling in RemoteCache', () => {
     cache.flush()
     cache.update(next, 2)
     worker.answer()
-    expect(arrivals.at(-1)).toBe(false)
-    cache.flush()
-    expect(cache.peek(first.id)).toMatchObject({ light: held.light, shade: held.shade, lightDesc: first })
-    worker.answer()
-    const swapped = cache.peek(first.id)!
-    expect(swapped.light).not.toBe(held.light)
-    expect(swapped.shade).not.toBe(held.shade)
+    // A newer complete pair is promoted even while the wanted light has moved on, so a drag keeps moving.
+    expect(arrivals.at(-1)).toBe(true)
+    const between = cache.peek(first.id)!
+    expect(between.light).not.toBe(held.light)
+    expect(between.shade).not.toBe(held.shade)
     expect(held.shade!.close).toHaveBeenCalledOnce()
     expect(held.light!.close).toHaveBeenCalledOnce()
+    cache.flush()
+    worker.answer()
+    const swapped = cache.peek(first.id)!
+    expect(swapped.light).not.toBe(between.light)
+    expect(swapped.shade).not.toBe(between.shade)
     expect(cache.fresh(next, 2)).toBe(true)
 
     const clear = { ...next, cloudShadow: undefined }

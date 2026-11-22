@@ -114,15 +114,13 @@ export function reuse(entry: Entry) {
   } else shown.request = { ...shown.request, desc: wanted.desc }
 }
 
-/** Promote a complete picture. A warm paired receiver keeps its previous pair until the current scrub is ready. */
+/** Promote a complete picture: the newest complete pair replaces the shown one, so a drag keeps moving. */
 export function accept(entry: Entry, request: Request, results: readonly PaintResult[]) {
   const { shown, wanted } = entry
   const current = samePaint(request, wanted)
   const preview = results.some((part) => part.preview) ? true : undefined
-  const supersededPair = !current && shown?.shade && sameForm(shown.request, wanted) && sameForm(request, wanted)
   let changed = false
   if ((current || request.generation > (shown?.request.generation ?? 0))
-    && !supersededPair
     && !(preview && shown && !shown.preview && samePaint(shown.request, request))) {
     const compatible = shown && sameForm(shown.request, request) ? shown : null
     const form = results.find((result) => result.part === 'form')?.bitmap ?? compatible?.form ?? null
