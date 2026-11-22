@@ -3,6 +3,7 @@ import { THRESHOLDS as T } from '../config/thresholds'
 import { conditionLabel } from '../domain/conditions'
 import type { DayPoint } from '../domain/types'
 import { formatProb, formatTemp, shortDate } from '../text/format'
+import { tempText } from '../text/isolate'
 import styles from './DayRow.module.css'
 import { RangeBar } from './RangeBar'
 import type { DaySky } from './week/middaySky'
@@ -49,8 +50,8 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
     name,
     conditionLabel(kind, true),
     sky.hazy ? 'אובך' : '',
-    `מקסימום ${formatTemp(day.tempMax)}`,
-    `מינימום ${formatTemp(day.tempMin)}`,
+    `מקסימום ${tempText(day.tempMax)}`,
+    `מינימום ${tempText(day.tempMin)}`,
     showProb ? `סיכוי לגשם ${formatProb(prob)}` : '',
     tag,
   ].filter(Boolean).join(', ')

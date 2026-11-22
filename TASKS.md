@@ -370,6 +370,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
         SMIL + CSS frozen at a time; swing checked over 3 frames (crook stays on the rope)
   - [ ] Not verified: real-time motion feel on a phone (only 3 headless frames checked); SMIL + CSS in Safari
   - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
+- [x] Likely real cause of "all day": `rollForward` (`src/domain/now.ts`) kept a stale cached dawn's humidity/visibility
+      on screen all day; it now takes the hour row's humidity, visibility and cloud layers (or null when the row lacks them).
+- [x] Review rounds (Codex 1–4): morning-only burn-off with an evening twilight ramp (0° to −6°); low+mid cloud stops
+      radiation fog (capped by total cover); droplet gate (RH 70–90 %) and the reported visibility before the PM10 cap,
+      so dust haze is not fog; raw low cloud for the marine deck; damp-gated rain mist; bands fade at their thresholds;
+      the 12 h night minimum glides as a sample ages out (9–12 h blend toward now): no step at the window edge.
 - Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
   Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
   glyphs stay with Claude) arrived after this PR was opened, so 6.2 is untested here. Apply it to the next UI pass.
@@ -763,6 +769,101 @@ Plan by Fable (`docs/design/PANORAMA-SKYLINE-PLAN.md`); code by Codex gpt-6.2-so
 - [x] Live smoke check: Haifa, Tiberias, Jerusalem, Tel Aviv load the canvas scene, hour slider scrubs, no console errors
 - [ ] Perf on a real phone with `?perf=1` vs `docs/design/qa/canvas/perf.md` — skipped for now (owner)
 
+## Track E — UI polish batch, audit #7, #8, #11–#22 — 2026-11-21 (branch `claude/fix-ui-batch-83e1e6`)
+Briefs: `docs/briefs/track-e-{1-bidi,1b-review-fixes,2-a11y-tokens,2b-review-fixes,3-behaviour,3b-review-fixes,4-final-review-fixes,4b-label-size,4c-rereview-fixes,4d-picker-queue,4e-progress-once}.md`.
+Stills (fixtures only, Jerusalem shifted −22° for the freezing case, Neve Zohar −374 m): `docs/design/qa/polish/track-e/`.
+
+- [x] #7/#8/#14/#15 bidi — `src/text/isolate.ts` (LRI/RLI/PDI, U+2212), one isolate per number/clock, height label unit inside the isolate — `d7229eb` (Codex gpt-6.2-sol; Opus review → 1b `b625b94`: `textWidth` ignores isolates, range dashes stay dashes).
+- [x] #11/#12/#13/#22 one `<main>`, 12 px `--text-caption`, height label 12 px no opacity + contrast test, `--bleed`/`--focus`/… tokens, one `:focus-visible` — `ccd49e9` (Codex; Opus review → 2b `12d2c72`: pill ring, two-tone scrubber ring, live-sky contrast sampler `src/theme/contrastSamples.ts`).
+- [x] #16–#21 IconButton + SVG icons, picker error codes/counts + stale-GPS guard, shared slider keys, canvas alt text, offline announcement + deferred SW reload (`onNeedReload` no-op, reload on hidden/idle), `<noscript>` + static "טוען…" — `bd0f767` (Gemini 4 Neon; Codex review → 3b, also Neon).
+- Writers: Neon was out of quota for briefs 1/2 → Codex wrote, Opus subagent reviewed; Neon back for 3/3b → Codex reviewed. Claude: briefs, verification, stills.
+- [x] Final Codex review of the whole branch (7 blocking) → brief 4 `696e085` (Neon): the new worker waits (`registerType: 'prompt'`, `updateSW(true)` on the idle/hidden gate is the only reload), stale data is not "offline", the spoken scrub condition follows the drawn rain/cloud, picker GPS and search announce independently, opaque midnight caption (5.10:1); brief 4b `4d4ad22` (Neon, coordinator-approved): one `LABEL_PX = 12` in `world/layout.ts` drives the drawn label and every collision box (`place.ts` `besideDot`, `scene/model/layout.ts`), CSS tie-in test.
+- `src/world` / `scene/model` exceptions (merge order with other tracks): `place.ts`/`world.ts` use `heightText`; `place.ts` line 133 uses `LABEL_PX`; `layout.ts` `textWidth` strips isolates and exports `LABEL_PX`/`LABEL_H`; `scene/model/layout.ts` imports `LABEL_PX`.
+- [x] Codex re-reviews → brief 4c `3ffde1a` (Neon): one gated reload (`onNeedReload` + `controllerchange`, idempotent) and a cross-tab `BroadcastChannel('shamayim-sw')` activation handshake (`src/pwaTabs.ts`); picker announcements queued; both geocoders failing is an error, not "no places" (`src/data/geocoding.ts`, coordinator-approved); thunder spoken only when drawn; status phrases deduped. Brief 4d `7443dc9` (Neon): picker queue keyed by (source, requestId). Brief 4e `2981a5e`: progress spoken once per request (tests by Neon until quota ran out; fix by Codex; Opus subagent review: nothing blocking).
+- Merged main 757b768 (track A), 2fd0c1e (30 s test timeout), cc9664f (track C); CI green on the final sha.
+- Follow-ups (non-blocking): `heightLabel.contrast.test.ts` still has its own sampler (move to `contrastSamples.ts`); picker: after a GPS error, a later hidden search count can bring the visible GPS error note back; untested reducer branches (progress kept on air, clear during a gap with progress pending); `src/data/geocoding.ts` is 165 lines (was 161).
+
+## Polish track A — glyphs never mirror (audit #1, #23) — 2026-11-22 (branch `claude/fix-glyph-flip-8384c3`)
+Briefs: `docs/briefs/track-a-glyph-flip.md`, `…round2.md`; delegate report `…REPORT.md`. Stills: `docs/design/qa/polish/track-a/`.
+- [x] Each glyph has a fixed handedness (`GlyphDesc.hand`, seeded by mark seed, `scene/model/glyphHand.ts`; icons and fields 1)
+- [x] One signed light (`glyphLight` = faces.left − faces.right; glyph space = hand × it); the kit weights lit/shade faces
+      continuously (`kit.ts`, `kitLight.ts`); no form depends on the light; cast shadow fades to the contact shade at dx 0
+- [x] `Light.side`, `sideOf` and every `litSide` removed; `Light.across` is the signed lateral light on the SHADING ramp;
+      outside, trees, far cities, wear and the layer keys use it
+- [x] Proving test `scene/paint/glyphs/glyphs.test.ts`: all 22 kinds, both hands, light swept −1…1 → form log identical,
+      light continuous through 0; Shadmot Mehola 05:30–21:00 form identical per glyph; lamp x fixed
+- Who wrote what: Claude (Opus 5.5) briefs, stills, verification and a one-line tsc narrowing in the test;
+  Codex gpt-6.2-sol wrote rounds 1 and 2 (Neon gemini-4-neon-high was out of quota, then wedged at start);
+  Opus subagent reviewed both rounds (Codex never reviewed its own code)
+- [ ] Follow-up: `WearLight.side` (`scene/model/wear.ts`) is still a sign of `across` for the garments (out of scope)
+
+## Polish audit track B — marks owned by the place's own footprint (audit #2) — 2026-11-21 (branch `claude/fix-mark-ownership-caed9e`)
+Who wrote what: Claude (Opus 5.5) managed, measured, briefed and verified; Codex `gpt-6.2-sol` wrote round 1 (Neon was at
+quota, 429); an Opus subagent reviewed round 1 (8 findings); Neon `gemini-4-neon-high` wrote round 2 (the fixes); Codex
+`gpt-6.2-sol` reviewed round 2 (3 P1, 3 P2, 1 P3); Neon wrote round 3 (`BRIEF-round3.md`: landmark cache v8, evidence
+per cell, seat inside the drawn block, seat by px before the 20 m gate, one ownership predicate, tests that can fail).
+Codex reviewed round 3 (4 findings); Neon wrote round 4 (no-raster fallback kept, containment against the scene model's
+final block, seat candidates carried past the shortlist, tests split) and round 5 (`BRIEF-round5.md`: the carried
+candidates reach beyond seating only, so own portraits are unchanged; landmark cache v9). Codex reviewed rounds 4-5
+(2 findings). Neon hit quota mid-round 6 (partial edits discarded), so Codex wrote rounds 6-7 and an Opus subagent
+reviewed round 6: the seat budget is applied in the scene model after the final block cull (a freed slot goes to the
+next viable seat), the label and skyline see only the world-width budget, the cap stays 5 on wide screens.
+Codex reviewed rounds 6-7 (3 findings); Codex wrote round 8 (backed height label culls seated glyphs before the
+budget; place.ts trimmed). Its light-per-render-width fix was reviewed by Opus (forked world state, rebuild on resize)
+and withdrawn by the manager in round 8b: one world state at SCENE_W stays.
+Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
+- [x] (a) Worship heights by evidence, the same for every religion: 9 m hall; tower height only from `tower:type=minaret`,
+      `building=minaret`, `man_made=tower`, `height` or levels (`src/data/landmarks/worship.ts`, `overpass.ts`). Build writes
+      `heights: 'evidence'`; `loadIsrael` reads the old build's default-valued rows (all 1564 minarets at 30 m, 53 churches
+      at 25 m) as halls.
+- [x] (b) Own marks from the place's own footprint: `homeCluster(clusters, nameHe)` takes the cluster named after the
+      place (≤ 2 km); `placeBounds` gives its mapped point the cell, reaching its farthest corner; only for a name match
+      (other places keep their exact cell). City cache key `v6`, the named home reserved in the cache.
+- [x] (c) A hall, high-rise or homes beyond the place within 6 km is drawn only on its town's drawn block, at its true
+      size and haze (`src/world/beyondSeat.ts`, shared with `beyondTowns`, bit-identical; `beyondMarks.ts`).
+- [x] Tests over the bundled data (`src/world/markOwnership.test.ts`, `worship.test.ts`): Karmei Tzur keeps שבת אחים, the
+      hamlet cell without the fix does not; Safed and Rosh Pina by the same rule; seated size; hidden-block negative.
+- [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
+      (e.g. famous mosques in Jaffa) get their tower height back.
+- [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.
+- [ ] Follow-up: at render widths other than 375 px the light's sun/moon skyline (`drawnSkyline.ts`) still counts
+      structures the scene culls behind text (town blocks, beyond towers, trees, and now swapped seats). Fix them
+      together, keeping one world state (e.g. a width-independent cull rule), not per-width world rebuilds.
+
+## Polish track C — life keeps moving (audit #3, #9) — 2026-11-22 (branch `claude/fix-life-motion-740e49`)
+Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-2.md`, `IMPL-1.md`, `IMPL-2.md`, `NOTES.md`).
+- [x] One `LifeClock {laidAt, sinceS}` (`useLifeClock`); the world lays 120 s of life ahead every 2 s (`world/lifeAhead.ts`);
+      every bird, plane, contrail head and meteor carries a `Track` the compositor places continuously; minute handoff
+      ≤ 6.4e-14 px (test reads the new model at a non-zero `sinceS`)
+- [x] Scrub rest: life keeps moving in real time (whole-minute re-anchor, life offset in the world; sky/light/clouds stay
+      at the shown moment); live vs scrub keyed apart — owner decision flagged in NOTES
+- [x] No pop-in: a mover is laid if any of its 61 samples is in view; zero-alpha starts fade in
+- [x] Contrails: fixed tangent frame registered at the head (scale error < 0.11 %), per-puff wind drift, ribbon ages
+      continuously in the compositor (`scene/paint/contrail.ts`)
+- [x] Birds: 3D flight per species (`scene/model/birdFlight.ts`, `birds.ts`, `scene/paint/birds.ts`): thermal circles,
+      wheeling, eights, hanging on the wind, a V, rowing; bank, dihedral, wrist, underside; closed-form strip bounds
+- Who wrote what: Claude (Opus 5.5) the bird flight model and painter, briefs, verification, perf profile;
+  Codex gpt-6.2-sol briefs 1 and 2 (Neon out of quota); Opus subagent reviewed round 1 and the final diff
+- [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
+      model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines
+
+## Polish track F — the fog band over the land (owner report) — 2026-11-22 (branch `claude/modest-jennings-b32480`)
+Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weather=damp`, `-no-<id>` = layer hidden).
+- [x] Evidence: in the fixture (RH 60 %, 30 km all day) mistiness is 0 and no mist layer exists; the sky haze band (alpha
+      0.12) moves ≤ 1 luma level when hidden. The pale slab at shadmot-mehola 11:30 is `plane.far` (Gilead, 9–21 km)
+      at Koschmieder haze for 30 km (correct), with `cloudShadow.far` laying a horizontal dark smear across its lower
+      half (handed to track D). With damp air (`?weather=damp`) the valley mist lay over the ridge line all day: the bug.
+- [x] Root rule: `world.air.mist` (`src/world/mist.ts`): radiation mist (RH 84–99 % or data visibility, calm < 3–7 m/s)
+      burns off with the sun (2–26°) and the warming over the 12 h minimum (+0.5–4.5 °C); daytime mist persists only for
+      data visibility ≤ 6 km, rain, or a low stratus deck with RH ≥ 85 %. Never in dust. Scene mist in `scene/model/mist.ts`.
+- [x] Tests: `src/world/mist.test.ts` (burn-off, wind, persistence, dust, humidity-derived visibility, night minimum),
+      `src/scene/model/mist.test.ts` (dawn mist, none at noon); `weather.test.ts` damp case updated (dawn only).
+- [x] Tooling: stills moment field 6 hides layers (`place@HH:MM@weather@phase@land@ids`), harness `?hide=`, `damp` preset.
+- Who wrote what: Claude (Opus 5.5) diagnosis, evidence, brief, verification; Gemini 4 Neon (agy) the rule and tests;
+  Codex gpt-6.2-sol review.
+- [ ] Follow-up (track D): cloud shadows on the far ridge read as horizontal bands.
+- [ ] Follow-up: `App.tsx:89` page background uses `mapAir(shown)` with live visibility even in a picked-hour preview.
+
 ## Living land — branch `land-living` — started 2026-11-20
 Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
 Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
@@ -774,3 +875,6 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
 - [x] Stage 4: vegetation — approved (Claude Opus round 6, after Codex/Neon rounds 1–5). Crop-probe culling keeps all descriptors identical (88 hashes) and cuts the Nahalal cold build 26.5 → 15.6 ms. Track the residual Nahalal cold model cost with app-wide performance work.
 - [x] Stage 5: wind on land — approved (Claude Opus round 1; Codex wrote it). Trees, palms and tufts lean and sway with the camera-projected wind (Beaufort-based saturating lean, gust sway, distance fade), catchlights follow leaned crowns, dust over dry bare windy ground. Carried into Stage 6: possible first-paint/refine slowdown (matched perf 5.5 s → 6.5–7.3 s), gust overshoot doc, olive stiffness, label cut-out nit.
 - [x] Stage 6: stills, docs, PR — approved (Codex round 3; Neon wrote it). Final before/after stills (7 regions × 3 seasons + windy day, plus an observed-data refinement pair) in `docs/design/qa/canvas/land/final/`; §6 of the scene plan documents the full pipeline. Follow-ups (round-3 minors): `e2e/landPerfMeasure.mjs` canopy milestones on a navigation-relative clock; report per-revision medians and paired deltas instead of "zero residual delay"; per-strip timing in `remoteCache.ts`; drop write-only `Entry.formKey/lightKey/ratio` and dedupe pending strips before building descriptors.
+- [~] Merge `origin/main` (polish tracks A, B, C, E, F) into `land-living` — 2026-11-22: remote cache keeps strip chunking/preemption
+      plus main's per-bitmap layout desc and scrub-back guard; canopy sway follows the same wall-time scene phase as birds;
+      world types (land + mist + seat pool) folded into the split type files; landmark cache v10 (crops + seat candidates).

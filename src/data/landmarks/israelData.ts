@@ -1,10 +1,17 @@
 import type { Place } from '../../config/place'
 import { cropSectorOf, type CropArea } from './cropAreas'
 import type { Fame, Landmark, MarkKind } from './types'
+import { HALL_M, LEGACY_DEFAULTS } from './worship'
 
 /** kind, lat, lon, height, name ('' when it has none but is famous), fame (`fame.ts`). */
 export type Row = [MarkKind, number, number, number, string?, Fame?]
 export type CropRow = [lat: number, lon: number, area: CropArea]
+/** Evidence-tagged cell payload written by `scripts/landmarks/build.ts`; legacy cells are bare `Row[]`. */
+export interface EvidenceCell {
+  heights: 'evidence'
+  rows: Row[]
+}
+export type LandmarkCell = Row[] | EvidenceCell
 export interface IsraelLandmarkIndex {
   generatedAt: string
   source: 'OpenStreetMap via Geofabrik (ODbL)'
@@ -66,11 +73,24 @@ async function getIndex(): Promise<IsraelLandmarkIndex | null> {
   return await indexPromise
 }
 
-async function loadCell(cell: string, signal: AbortSignal): Promise<Row[]> {
+function rowToLandmark([kind, lat, lon, heightM, nameHe, fame]: Row, evidence: boolean): Landmark {
+  return {
+    id: `il-${kind}-${lat}-${lon}`,
+    kind, lat, lon,
+    // Legacy bare-array cells wrote flat defaults onto untagged worship rows, so those heights are no evidence of a tower.
+    heightM: !evidence && heightM === LEGACY_DEFAULTS[kind] ? HALL_M : heightM,
+    ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}),
+  }
+}
+
+async function loadCell(cell: string, signal: AbortSignal): Promise<Landmark[]> {
   const response = await fetch(`${ROOT}/${cell}.json`, { signal })
   if (response.status === 404) return []
   if (!response.ok) throw new Error(`Israel landmark cell HTTP ${response.status}`)
-  return await response.json() as Row[]
+  const payload = await response.json() as LandmarkCell
+  if (Array.isArray(payload)) return payload.map((item) => rowToLandmark(item, false))
+  const evidence = payload.heights === 'evidence'
+  return payload.rows.map((item) => rowToLandmark(item, evidence))
 }
 
 function cropCell(sector: string) {
@@ -89,23 +109,20 @@ function cropCell(sector: string) {
 export async function loadIsrael(place: Place, signal: AbortSignal): Promise<Landmark[] | null> {
   const index = await getIndex()
   if (!index || !inCoverage(index, place)) return null
-  const strip = cellsForStrip(place)
-  const cells = strip.filter((cell) => index.cells.includes(cell))
+  const cells = cellsForStrip(place).filter((cell) => index.cells.includes(cell))
   const cropBox = box(place, CROP_REACH_KM, CROP_REACH_KM)
   const sectorBox = box(place, CROP_REACH_KM + CROP_SECTOR_PAD_KM, CROP_REACH_KM + CROP_SECTOR_PAD_KM)
   const sectors = [...new Set(cellsForBox(sectorBox).map((cell) => {
     const [lat, lon] = cell.split('_').map(Number)
     return cropSectorOf(lat / 10, lon / 10)
   }))]
-  const [rows, areas] = await Promise.all([Promise.all(cells.map((cell) => loadCell(cell, signal))), Promise.all(sectors.map(cropCell))])
-  const places = rows.flat().map(([kind, lat, lon, heightM, nameHe, fame]): Landmark => ({ id: `il-${kind}-${lat}-${lon}`,
-    kind, lat, lon, heightM, ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}) }))
+  const [places, areas] = await Promise.all([Promise.all(cells.map((cell) => loadCell(cell, signal))), Promise.all(sectors.map(cropCell))])
   const crops = areas.flat().filter(([, , cropArea]) => areaIntersectsBox(cropArea, cropBox))
     .map(([lat, lon, cropArea], i): Landmark => ({
     id: `il-crop-${i}`, kind: cropArea.kind === 'palm' ? 'palms' : cropArea.kind === 'vineyard' ? 'vineyard' : 'orchard',
     lat, lon, heightM: 0, source: 'osm', cropArea, areaOnly: true,
   }))
-  return [...places, ...crops]
+  return [...places.flat(), ...crops]
 }
 
 export function resetIsraelDataForTests() { indexPromise = null; cropPromises.clear() }

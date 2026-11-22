@@ -10,6 +10,8 @@ import { BOW, HALO_DEG, onCircle, separation } from '../../world/optics'
 import { buildWorld } from '../../world/world'
 import { rainbowStops, RED, SHADE, VIOLET, type Stop } from '../paint/optics'
 import { sceneModel } from './index'
+import { trackAt } from './anim'
+import { trailAt } from './contrailMotion'
 import { crestOf } from './life'
 import { haloFrame, rainbowFrame } from './optics'
 import { skyGeom } from './sky'
@@ -24,7 +26,7 @@ const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 12
 const CLEAR: Partial<AirInput> = { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0 }
 const CIRRUS: Partial<AirInput> = { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 }
 const SHOWERS: Partial<AirInput> = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,
-  windDirection: 250, humidity: 80 }
+  windDirection: 250, humidity: 80, visibilityKm: 30 }
 
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {
@@ -105,11 +107,13 @@ describe('C10 fix: contrails are straight', () => {
     for (const place of SCENE_PLACES) {
       for (const hour of ['08:00', '11:00', '14:00']) {
         for (const [forced, veil] of [[null, false], [CIRRUS, true]] as const) {
-          const { model } = at(place.id, `2026-11-17T${hour}`, forced, veil)
+          const { model, world } = at(place.id, `2026-11-17T${hour}`, forced, veil)
+          const { horizon } = skyGeom(world, BOX)
           const trails = ofKind(model.layers, 'contrail')
           expect(trails.length, `${place.id} ${hour}`).toBeLessThanOrEqual(4)
           for (const t of trails) {
-            const p = t.points
+            const p = trailAt(t, 0).filter(({ point: [x, y] }) => x >= -60 && x <= BOX.width + 60 && y >= -40 && y <= horizon)
+              .map((puff) => puff.point)
             if (p.length < 3) continue
             seen++
             const dirs = p.slice(1).map(([x, y], i) => Math.atan2(y - p[i][1], x - p[i][0]))
@@ -141,10 +145,15 @@ describe('C10 fix: contrails are straight', () => {
         const plane = ofKind(model.layers, 'aircraft').find((a) => a.id === `aircraft.high.${t.id.slice('contrail.'.length)}`)
         if (!plane) continue
         seen++
-        // Its newest puff is at the plane (the trail grows from it), its old end wider than there.
-        const [hx, hy] = t.points.at(-1)!
-        expect(Math.hypot(hx - plane.placed!.x, hy - plane.placed!.y)).toBeLessThan(2)
-        expect(t.widths[0]).toBeGreaterThanOrEqual(t.widths.at(-1)!)
+        for (const phase of [0, 30.387, 60]) {
+          const puffs = trailAt(t, phase), tip = puffs.at(-1)
+          if (!tip || tip.ageS !== 0 || puffs.length < 2) continue
+          const planeFlight = trackAt(plane.animated!.flight, phase)!
+          const [hx, hy] = tip.point
+          if (hx < 0 || hx > BOX.width || hy < 0 || hy > BOX.landTop) continue
+          expect(Math.hypot(hx - plane.placed!.x - planeFlight.x, hy - plane.placed!.y - planeFlight.y)).toBeLessThanOrEqual(1)
+          expect(puffs[0].width).toBeGreaterThanOrEqual(tip.width)
+        }
       }
     }
     expect(seen).toBeGreaterThan(0)

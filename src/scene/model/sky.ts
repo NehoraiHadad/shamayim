@@ -34,6 +34,8 @@ export interface SkyGeom {
   horizon: number
   /** Px round the whole horizon (360°), a whole number of device px: where a drifting cloud band repeats. */
   period: number
+  /** Exact azimuth span in sky px. The seam is 55° outside either edge of the reference 250° view. */
+  azimuthRange: { min: number; period: number }
   /** x of an azimuth (unwrapped: the camera's seam is behind the view). */
   x: (azimuth: number) => number
   /** y of a body at an (apparent) altitude: the world's relief. */
@@ -54,9 +56,10 @@ export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
   const y = (altitude: number) => box.landTop + world.relief.y(altitude)
   const yDome = y(DOME_ALT)
   const top = Math.min(DOME_TOP, yDome * 0.5)
-  const period = Math.round(360 * world.camera.pxPerDeg * s * box.dpr) / box.dpr
+  const span = 360 * world.camera.pxPerDeg * s
+  const period = Math.round(span * box.dpr) / box.dpr
   return {
-    s, left, width, horizon: y(0), period,
+    s, left, width, horizon: y(0), period, azimuthRange: { min: left + (box.width - span) / 2, period: span },
     x: (azimuth) => left + xOf(azimuth, world.camera) * s,
     y,
     dome: (altitude) => altitude <= DOME_ALT ? y(altitude)

@@ -1,9 +1,16 @@
 import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
+import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
+import { paintContrail } from '../paint/contrail'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
+import { formKeyOf } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
 import type { SceneStats } from './stats'
 import { compositeOrder } from './compositeOrder'
+
+function layoutOf(desc: LayerDesc, cached: { formKey: string; desc: LayerDesc } | null, dpr: number) {
+  return !cached || cached.desc === desc || cached.formKey === formKeyOf(desc, dpr).key ? desc : cached.desc
+}
 
 export interface SurfaceOptions extends CacheOptions {
   /**
@@ -78,12 +85,12 @@ export class Surface {
   }
 
   fresh(desc: LayerDesc) {
-    return this.active.fresh(desc, this.dpr)
+    return desc.kind === 'contrail' || this.active.fresh(desc, this.dpr)
   }
 
   /** Brings a layer up to date: painted here, or asked of the worker (sent by `flush`, or by `render`). */
   paint(desc: LayerDesc, phase = 0): Painted {
-    return this.active.update(desc, this.dpr, phase)
+    return desc.kind === 'contrail' ? 'none' : this.active.update(desc, this.dpr, phase)
   }
 
   /** Sends what was asked of the worker (a no-op without one). */
@@ -130,31 +137,35 @@ export class Surface {
     if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
     for (const { desc, part } of this.order.passes) {
       if (part === 'light' && !desc.light) continue
-      // A strip's frame is painted when it is first laid (the main thread's cache; the worker paints whole strips).
-      if (part !== 'light' && cache instanceof LayerCache && desc.animated?.frames) cache.ensureFrame(desc, motion)
+      if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
+      const layout = layoutOf(desc, cached, d)
+      // The main thread paints a strip's frames on demand, using the description that matches its canvas.
+      if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
       const { form, light, ratio, rect } = cached
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
       const k = d / ratio
-      const anim = desc.animated
+      const anim = layout.animated
       const alpha = flashAt(anim, motion) * fadeAt(anim, phase, still) * (anim?.alpha ?? 1)
       if (alpha <= 0.003) continue
       const reach = revealAt(anim, phase, this.width, still)
       if (reach < 0) continue
-      // C10: a flock's sway round its place (a closed track).
+      // Unplaced closed tracks (clothesline drips) retain their whole-device-pixel offsets.
       const flown = trackAt(anim?.flight, motion, still)
       if (!flown) continue
       const fx = Math.round(flown.x * d), fy = Math.round(flown.y * d)
       // The clothesline's gust (`Sway`), applied after the flight.
       const sway = swayAt(anim?.sway, motion, still)
       // The sky's life, laid where its object is at the shown minute (painted round its own origin), scaled and faded.
-      const lay = desc.placed
-      if (lay && alpha * lay.alpha <= 0.003) continue
-      ctx.globalAlpha = lay ? alpha * lay.alpha : alpha
+      const lay = layout.placed
+      const opacity = alpha * (lay?.alpha ?? 1) * flown.alpha
+      if (opacity <= 0.003) continue
+      ctx.globalAlpha = Math.min(1, opacity)
+      const clipped = lay?.above !== undefined
+      if (clipped) ctx.save()
       if (lay?.above !== undefined) {
-        ctx.save()
         ctx.beginPath()
         ctx.rect(0, 0, this.canvas.width, Math.round(lay.above * d))
         ctx.clip()
@@ -165,7 +176,8 @@ export class Surface {
       const dy = anim?.glide && k === 1 && cache.fresh(desc, d) ? Math.round(glideAt(anim, phase, still) * d) : 0
       const y = rect.y + dy
       if (anim?.mode === 'fall' && anim.fall) {
-        if (k === 1 && form) this.fall(form, desc, rect, motion, period, shift, alpha)
+        if (k === 1 && form) this.fall(form, layout, rect, motion, period, shift, alpha)
+        if (clipped) ctx.restore()
         ctx.globalAlpha = 1
         continue
       }
@@ -175,14 +187,18 @@ export class Surface {
         const held = Math.max(1, Math.round((image as { height: number }).height / rect.h))
         const sy = held > 1 ? (frameAt(anim, motion) % held) * rect.h : 0
         if (lay) {
-          const sc = lay.scale * k
-          // At full size on whole device px (crisp); smaller, where it truly is (a far object moves smoothly).
-          const lx = sc === 1 ? Math.round(lay.x * d) + rect.x : lay.x * d + rect.x * sc
-          const ly = sc === 1 ? Math.round(lay.y * d) + rect.y : lay.y * d + rect.y * sc
-          // (A sway, should a laid layer have one, goes through its affine as below.)
-          if (sway) ctx.setTransform(sway[0], sway[1], sway[2], sway[3], sway[4] * d, sway[5] * d)
-          ctx.drawImage(source, 0, sy, rect.w, rect.h, lx + fx, ly + fy, rect.w * sc, rect.h * sc)
-          if (sway) ctx.setTransform(1, 0, 0, 1, 0, 0)
+          const sc = lay.scale * flown.scale * k
+          const turn = (lay.turn ?? 0) + flown.turn
+          const cos = Math.cos(turn), sin = Math.sin(turn)
+          const x = (lay.x + flown.x) * d, y = (lay.y + flown.y) * d
+          if (sway) {
+            ctx.setTransform(sway[0], sway[1], sway[2], sway[3], sway[4] * d, sway[5] * d)
+            ctx.transform(cos * sc, sin * sc, -sin * sc, cos * sc, x, y)
+          } else {
+            ctx.setTransform(cos * sc, sin * sc, -sin * sc, cos * sc, x, y)
+          }
+          ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h)
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
           return
         }
         if (k !== 1) return ctx.drawImage(source, 0, sy, rect.w, rect.h, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
@@ -200,13 +216,13 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
-      if (part !== 'light' && form && !cache.formless(desc)) {
-        if (desc.blend) ctx.globalCompositeOperation = desc.blend
+      if (part !== 'light' && form && !cache.formless(layout)) {
+        if (layout.blend) ctx.globalCompositeOperation = layout.blend
         draw(form)
-        if (desc.blend) ctx.globalCompositeOperation = 'source-over'
+        if (layout.blend) ctx.globalCompositeOperation = 'source-over'
       }
-      if (part !== 'form' && light && desc.light) {
-        ctx.globalCompositeOperation = desc.light.blend
+      if (part !== 'form' && light && layout.light) {
+        ctx.globalCompositeOperation = layout.light.blend
         draw(light)
         ctx.globalCompositeOperation = 'source-over'
       }
@@ -221,7 +237,7 @@ export class Surface {
           }
         } else if (existing && existing.fresh) existing.fresh = false
       }
-      if (lay?.above !== undefined) ctx.restore()
+      if (clipped) ctx.restore()
       ctx.globalAlpha = 1
     }
   }
@@ -307,7 +323,9 @@ export class Surface {
   private animState(layers: readonly LayerDesc[], phase: number, still: boolean) {
     const motion = still ? 0 : phase
     let out = still ? 's' : ''
-    for (const layer of layers) {
+    for (const desc of layers) {
+      if (desc.kind === 'contrail') { out += `${trailTimeAt(desc, motion, still)};`; continue }
+      const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr)
       const anim = layer.animated
       if (!anim) continue
       out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${frameAt(anim, motion)}`
@@ -320,7 +338,7 @@ export class Surface {
       if (anim.reveal) out += `:${Math.round(Math.min(1e5, revealAt(anim, phase, this.width, still)) * this.dpr)}`
       if (anim.flight) {
         const f = trackAt(anim.flight, motion, still)
-        out += f ? `:${Math.round(f.x * this.dpr)},${Math.round(f.y * this.dpr)}` : ':off'
+        out += f ? `:${Math.round(f.x * this.dpr * 16)},${Math.round(f.y * this.dpr * 16)},${Math.round(f.scale * 1024)},${Math.round(f.alpha * 1024)},${Math.round(f.turn * 1024)}` : ':off'
       }
       if (anim.sway) {
         const m = swayAt(anim.sway, motion, still)!
@@ -337,8 +355,9 @@ export class Surface {
    */
   render(layers: readonly LayerDesc[], phase = 0, still = this.still): Painted[] {
     this.last = layers
-    const keep = new Set(layers.map((layer) => layer.id))
-    this.prune(keep)
+    this.phase = phase
+    this.still = still
+    this.prune(new Set(layers.map((layer) => layer.id)))
     const painted = layers.map((desc) => this.paint(desc, phase))
     if (this.stats?.trackShown) {
       for (const desc of layers) {

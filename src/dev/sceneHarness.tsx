@@ -17,6 +17,7 @@ import { loadWaterMask } from '../data/water/waterMask'
 import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
 import { layersOn, sceneModel } from '../scene/model'
+import { hideLayers } from './hideLayers'
 import { glideAt, strikes } from '../scene/model/anim'
 import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
@@ -67,6 +68,9 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   fog: { humidity: 99, visibilityKm: 1.5, cloudCover: 60, thickCloud: 30, precipitation: 0, weatherCode: 45, windSpeed: 6, windGusts: 10 },
   showers: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45, windDirection: 250,
     humidity: 80 },
+  // Track F: a calm, clear, damp night's air held all day (no visibility given): radiation fog in the valleys at dawn that
+  // burns off as the sun climbs and the ground warms.
+  damp: { humidity: 96, cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 4, windGusts: 7 },
   gale: { windSpeed: 50, windGusts: 75, windDirection: 270, cloudCover: 30, thickCloud: 10, precipitation: 0, weatherCode: 2 },
   // C10's moments: a veil of cirrostratus over a clear lower sky (the halo, persistent contrails), a sunny calm (thermals).
   cirrus: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
@@ -133,8 +137,8 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
     source: 'fixture', models: [] }
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
   return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks),
-    cropAreas: source.cropAreas, city, far, forced: WEATHER[weather] ?? null, forcedLayers: LAYERS[weather] ?? null,
-    waterMask: mask, bounds, cover }
+    seatCandidates: source.seatCandidates, cropAreas: source.cropAreas, city, far, forced: WEATHER[weather] ?? null,
+    forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover }
 }
 
 /** The land's moment (`land=`): its status for the world, and the clock the model is built with. */
@@ -156,7 +160,7 @@ function Scene({ input: given }: { input: WorldInput }) {
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
-  const model = useMemo(() => SCENE_STATS.time('modelCold', () => sceneModel(world, box, moment.clock)), [world, box, moment])
+  const model = useMemo(() => SCENE_STATS.time('modelCold', () => hideLayers(sceneModel(world, box, moment.clock), params.get('hide'))), [world, box, moment])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())

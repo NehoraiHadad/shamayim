@@ -3,6 +3,7 @@ import { moonIllumination, moonPosition } from '../astro/moon'
 import { sunPosition } from '../astro/sun'
 import { utcOf } from '../astro/utc'
 import type { Camera } from '../domain/camera'
+import { addMinutes } from '../domain/minutes'
 import type { LocalTime } from '../domain/types'
 import { airOf } from './air'
 import { layerCovers } from './clouds'
@@ -85,8 +86,10 @@ export function makeLifeDays() {
       }
       return s
     }
-    const date = at.slice(0, 10)
-    return lifeAt([{ schedule: schedule(dayBefore(date)), offsetS: -86_400 }, { schedule: schedule(date), offsetS: 0 }], secondsOf(at), shown,
+    // Move the schedule through local dates while the shown sky, light and weather stay at the selected minute.
+    const lifeAtMinute = input.lifeOffsetMinutes ? addMinutes(at, input.lifeOffsetMinutes) : at
+    const date = lifeAtMinute.slice(0, 10)
+    return lifeAt([{ schedule: schedule(dayBefore(date)), offsetS: -86_400 }, { schedule: schedule(date), offsetS: 0 }], secondsOf(lifeAtMinute), shown,
       flight?.terrain.blockedKm)
   }
 }

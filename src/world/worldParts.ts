@@ -6,6 +6,7 @@ import { anglePx } from '../data/terrain/angleScale'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { xOf } from '../domain/camera'
 import type { HourPoint, LocalTime } from '../domain/types'
+import { heightText } from '../text/isolate'
 import { drawnSkyline } from './drawnSkyline'
 import { farCitiesOf } from './farCities'
 import { flightTerrain } from './flightTerrain'
@@ -58,13 +59,13 @@ export const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('
 export function unknownPlace(place: WorldInput['place'], elevation: number) {
   const rounded = Math.round(elevation)
   const labels: WorldLabels = {
-    height: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0, x: SCENE_W / 2, y: 0 },
+    height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2, y: 0 },
     notes: [],
   }
   const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }
   return {
     place3: { kind: 'unknown' as const, dot, reachKm: 0, seed: hashId(place.id) },
-    marks: [], labels, ownSkyline: false, coastalSea: null, nearLine: null, placeKey: 'unknown', marksKey: 'unknown',
+    marks: [], seatPool: [], labels, ownSkyline: false, coastalSea: null, nearLine: null, placeKey: 'unknown', marksKey: 'unknown',
   }
 }
 
@@ -98,10 +99,10 @@ export function makeWorldMemos() {
     })),
     planesOf: memoOne(terrainPlanes),
     placePart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
-      city: WorldInput['city'], width: number, elevation: number, bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'],
-      cover: WorldInput['cover']) => {
-      const part = placeOf({ place, terrain, landmarks, city, width, elevation, bounds, waterMask, cover })
-      return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey(part.marks, 1) }
+      seatCandidates: WorldInput['seatCandidates'], city: WorldInput['city'], width: number, elevation: number,
+      bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'], cover: WorldInput['cover']) => {
+      const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, elevation, bounds, waterMask, cover })
+      return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey([part.marks, part.seatPool], 1) }
     }),
     farCitiesPart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {
       const part = farCitiesOf(place, terrain, far, ownSkyline)

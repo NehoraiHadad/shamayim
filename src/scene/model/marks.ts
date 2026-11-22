@@ -2,17 +2,18 @@
 import { hashId } from '../../data/landmarks/hash'
 import { groundFn } from '../../data/landmarks/seat'
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
+import type { WorldMark } from '../../world/markGeometry'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
-import type { RGB, WorldMark, WorldState } from '../../world/types'
+import type { RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
+import { glyphHand } from './glyphHand'
 
-/** Draw order on the land: the far ridge's and the plain's marks over the far towns, under the near ridge; the near ridge's
- * portrait (houses, trees, the marks among them) over the near ridge and its water. */
+/** Far and plain marks lie over the far towns and under the near ridge. The portrait lies over the near ridge and its water. */
 const Z = { far: 17, near: 40 }
 /** The trees' sway (C7): four frames at two a second, a two-second rock about the lean. */
 export const SWAY_FRAMES = { count: 4, fps: 2 }
@@ -147,9 +148,10 @@ function glyphOf(world: WorldState, mark: WorldMark, sx: number, tones: Tones): 
     const n = Math.max(2, Math.round(mark.w))
     return Array.from({ length: n + 1 }, (_, i) => g(mark.x - mark.w / 2 + i * mark.w / n) + mark.depth! - mark.base)
   })()
+  const seed = hashId(mark.id)
   return {
-    kind: mark.glyphKind, x: mark.x * sx, base: mark.base, h: mark.h, scale: mark.scale, w: mark.w, seed: hashId(mark.id),
-    litSide: world.light.side, tones, famous: mark.named, ...(ground ? { ground } : {}),
+    kind: mark.glyphKind, x: mark.x * sx, base: mark.base, h: mark.h, scale: mark.scale, w: mark.w, seed,
+    hand: glyphHand(mark.glyphKind, seed), tones, famous: mark.named, ...(ground ? { ground } : {}),
   }
 }
 
@@ -173,8 +175,8 @@ function boundsOf(boxes: { left: number; right: number; top: number; bottom: num
 }
 
 const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
-export const facesKey = (s: Shine) => s.faces ? [s.faces.front, s.faces.left, s.faces.right, s.faces.top, s.faces.rim, s.faces.across,
-  s.glint ?? 0].map((v) => Math.round(v * 64)) : null
+export const facesKey = (s: Shine) => [s.faces.front, s.faces.left, s.faces.right, s.faces.top, s.faces.rim, s.faces.across,
+  s.glint ?? 0].map((v) => Math.round(v * 64))
 const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
   Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), s.aviation, Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 
@@ -187,7 +189,7 @@ const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.roun
 export function marksLayers(world: WorldState, box: SceneBox): LayerOf<'marks'>[] {
   const sx = box.width / SCENE_W
   const shine = shineOf(world)
-  const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box))
+  const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box), glyphs.map((g) => g.hand))
   // Each by its own distance (tones quantised to a few distances, so a scrub reuses them).
   const far = world.marks.filter((m) => m.plane !== 'near')
   if (!far.length) return []
@@ -195,6 +197,6 @@ export function marksLayers(world: WorldState, box: SceneBox): LayerOf<'marks'>[
   const bounds = boundsOf(glyphs.map(reachOf), box)
   if (!bounds) return []
   return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,
-    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)), world.light.side, shineKey(shine)),
+    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)), Math.round(world.light.across * 64), shineKey(shine)),
       blend: 'source-over', tint: glyphs[0].tones.wall, faces: [] } }]
 }

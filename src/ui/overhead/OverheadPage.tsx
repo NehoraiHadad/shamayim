@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { Place } from '../../config/place'
 import type { RadarOutlook } from '../../domain/outlookNow'
 import { mapSentence, rainVerdict } from '../../domain/rainVerdict'
+import { IconButton } from '../IconButton'
+import { CloseIcon } from '../icons'
 import { OverheadMap } from './OverheadMap'
 import { RAIN_MAP } from './rainMapName'
 import { RainLegend, TimeRail } from './TimeRail'
@@ -88,7 +90,7 @@ function OverheadContent({ place, rain, title, heading, onClose }: {
     <div className={styles.panel}>
       <header className={styles.heading} {...swipe}>
         <p className={styles.eyebrow}>{RAIN_MAP}</p>
-        <button type="button" className={styles.close} onClick={onClose} aria-label="סגירה">✕</button>
+        <IconButton label="סגירה" onClick={onClose}><CloseIcon /></IconButton>
       </header>
       <div className={styles.verdict} aria-live="polite" aria-atomic="true">
         <h2 id={title} ref={heading} tabIndex={-1} className={state.kind === 'loading' ? styles.waiting : undefined}>

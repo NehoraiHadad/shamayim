@@ -90,9 +90,9 @@ export default function App() {
     cloudsSeen: selected ? 0 : seenClouds.length, ...forcedWeather() } : null), [forecast, now, place, selected, seenClouds])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
-  const worldInput = useMemo(() => (forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
-    cropAreas: landmarks.cropAreas, seenClouds, forced: forcedWeather(), land } : null),
-    [place, forecast, now, selected, terrain, marks, landmarks.cropAreas, city, seenClouds, land])
+  const worldInput = useMemo(() => (forecast ? { place, forecast, now, selected, terrain, landmarks: marks,
+    seatCandidates: landmarks.seatCandidates, cropAreas: landmarks.cropAreas, city, seenClouds, forced: forcedWeather(), land } : null),
+    [place, forecast, now, selected, terrain, marks, landmarks.seatCandidates, landmarks.cropAreas, city, seenClouds, land])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
     air: air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],
@@ -129,41 +129,43 @@ export default function App() {
       {/* The scene draws the sky itself (clouds, stars, the bodies) into the sky's host; the CSS gradient is its first paint. */}
       {/* The birds, the aircraft and the meteors are the sky canvas's own (C10). */}
       <Sky />
-      <main className="sky-area" data-air-band>
-        <TopBar place={place} recent={recent} onSelectPlace={selectPlace} status={statusLine} />
-        {!forecast && status === 'error' && <ErrorState failure={error} onRetry={refresh} />}
-        {!forecast && status !== 'error' && <LoadingState />}
+      <main>
+        <div className="sky-area" data-air-band>
+          <TopBar place={place} recent={recent} onSelectPlace={selectPlace} status={statusLine} />
+          {!forecast && status === 'error' && <ErrorState failure={error} onRetry={refresh} />}
+          {!forecast && status !== 'error' && <LoadingState />}
+          {forecast && (
+            <>
+              <Hero current={forecast.current} />
+              <Sentence sentences={sentences} />
+              <HourlyStrip slots={hourly} label="24 השעות הקרובות" selected={selected} onSelect={sceneTime.pick}
+                onScrub={sceneTime.scrub} onRelease={sceneTime.release} scrubbing={sceneTime.scrubbing} />
+            </>
+          )}
+        </div>
         {forecast && (
-          <>
-            <Hero current={forecast.current} />
-            <Sentence sentences={sentences} />
-            <HourlyStrip slots={hourly} label="24 השעות הקרובות" selected={selected} onSelect={sceneTime.pick}
-              onScrub={sceneTime.scrub} onRelease={sceneTime.release} scrubbing={sceneTime.scrubbing} />
-          </>
+          <div className="lower">
+            {worldInput && (
+              <Suspense fallback={<SceneFallback />}>
+                <CanvasScene input={worldInput} forecast={forecast} now={now} selected={selected}
+                  readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
+                  first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
+                  last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
+                  onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} />
+              </Suspense>
+            )}
+            <div className="paper" data-intro="sheet">
+              <Sheet>
+                <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />
+                <WearCard tip={wear} />
+                <WeekList forecast={forecast} now={now} />
+                <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
+              </Sheet>
+              <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
+            </div>
+          </div>
         )}
       </main>
-      {forecast && (
-        <div className="lower">
-          {worldInput && (
-            <Suspense fallback={<SceneFallback />}>
-              <CanvasScene input={worldInput} forecast={forecast} now={now} selected={selected}
-                readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
-                first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
-                last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
-                onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} />
-            </Suspense>
-          )}
-          <div className="paper" data-intro="sheet">
-            <Sheet>
-              <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />
-              <WearCard tip={wear} />
-              <WeekList forecast={forecast} now={now} />
-              <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
-            </Sheet>
-            <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
-          </div>
-        </div>
-      )}
       <OverheadPage open={overhead.open} place={place} rain={rain} onClose={overhead.close} />
     </div>
   )

@@ -22,7 +22,7 @@
 }
 
 .dialog::backdrop {
-  background: rgb(5 9 20 / 50%);
+  background: var(--scrim);
 }
 
 .panel {
@@ -35,6 +35,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-inline-end: -12px;
 }
 
 .heading h2 {
@@ -42,7 +43,6 @@
   font: 500 var(--text-place) / 1.2 var(--font-serif);
 }
 
-.close,
 .well,
 .row {
   min-height: 44px;
@@ -50,22 +50,6 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-}
-
-.close {
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  margin-inline-end: -12px;
-  padding: 0;
-  background: transparent;
-}
-
-.close svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
 }
 
 .well {
@@ -131,17 +115,8 @@
   background: var(--picker-wash);
 }
 
-.close:focus-visible,
-.well:focus-visible,
-.row:focus-visible,
-.input:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-
 /* Forced colours drop backgrounds; borders keep the wells and rows visible (outlines are recoloured by the UA). */
 @media (forced-colors: active) {
-  .close,
   .well,
   .row {
     border: 1px solid ButtonText;

@@ -31,6 +31,11 @@ bdi {
   unicode-bidi: isolate;
 }
 
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .app {
   min-height: 100svh;
   max-width: 520px;
@@ -41,15 +46,22 @@ bdi {
   transition: color var(--d4) var(--ease-in-out);
 }
 
+.app > main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .sky-area {
   /* Above the valley scene, so the sun's halo glows behind the strip's text, not over it. */
   position: relative;
   z-index: 1;
-  padding: calc(env(safe-area-inset-top) + 8px) var(--gutter) 0;
+  padding-block-start: calc(env(safe-area-inset-top) + 8px);
+  padding-inline: var(--gutter); /* The sky has its own 20 px content gutter. */
 }
 
 .lower {
-  padding: 0 16px;
+  padding-inline: var(--page-pad);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -57,6 +69,7 @@ bdi {
 
 /* The sheet and attribution rise together as one paper surface. */
 .paper {
+  --focus: var(--sheet-ink);
   flex: 1;
   display: flex;
   flex-direction: column;

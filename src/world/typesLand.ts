@@ -1,13 +1,11 @@
 import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/outsideView'
 import type { PlainPatch } from '../data/city/plainData'
-import type { PlacedMark } from '../data/landmarks/types'
 import type { SceneNote } from '../data/terrain/sceneNotes'
 import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
 import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
 import type { Datum } from './datum'
 import type { PlaneFace } from './face'
-import type { GlyphKind } from './glyphSpecs'
 import type { LandForm } from './land'
 import type { Pt } from './typesAtmo'
 
@@ -82,21 +80,6 @@ export interface Dot { x: number; y: number }
 /** The place while its land is not known (C8, `unknownPlace`): dot waits at guessed eye level. */
 export interface PlaceUnknown { kind: 'unknown'; dot: Dot; reachKm: number; seed: number }
 
-/** A mark as the world places it (stage C4, `marks.ts`): data's placed mark, glyph, and scene-px position. */
-export interface WorldMark extends PlacedMark {
-  glyphKind: GlyphKind
-  /** Centre x and base y (px). */
-  x: number; base: number
-  /** Drawn height in glyph px, and px per glyph px (far marks 0.6, plain ones by distance). */
-  h: number; scale: number
-  /** Box width (px, after scale). */
-  w: number
-  /** A field: px under the crest its first row lies (its rows follow the ground). */
-  depth?: number
-  /** How far (km) it stands: the haze it takes. */
-  km: number; plane: 'near' | 'far' | 'plain'; named: boolean
-}
-
 /** A tree of the place seen from outside (layout px): `x` its centre on `base`, `km` its haze. */
 export interface OutsideTreeSite {
   x: number; base: number; w: number; h: number; near: number; kind: 'tree' | 'cypress' | 'palm'; seed: number; km: number
@@ -105,8 +88,8 @@ export interface OutsideTreeSite {
 /** A tower beyond the place (C5 item 3), in the outside view's perspective at its true spot. */
 export interface BeyondTower extends OutsideTower { km: number }
 
-/** A built square of a town beyond the place (C9), in the outside view (px). */
-export interface BeyondBlock { x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
+/** A built square of a town beyond the place (C9), in the outside view: its raster square id and box (px). */
+export interface BeyondBlock { id: string; x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
 
 /** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
 export interface OutsideView {

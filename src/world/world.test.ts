@@ -113,7 +113,7 @@ describe('light', () => {
       const { light, bodies } = world
       if (light.source === 'sun') {
         const side = xOf(bodies.sun.azimuth, world.camera) < world.camera.width / 2 ? 'left' : 'right'
-        expect(light.side, now).toBe(side)
+        if (Math.abs(light.across) > 0.05) expect(Math.sign(light.across), now).toBe(side === 'left' ? -1 : 1)
         expect(sign(light.shadow.dx), now).toBe(side === 'left' ? 1 : -1)
         expect(light.ray![0] > 0 ? 'right' : 'left').toBe(side)
       } else {
@@ -124,7 +124,8 @@ describe('light', () => {
 
   it('lights the land from the left at sunrise and from the sun\'s side at noon', () => {
     const morning = worldAt('shadmot-mehola', '2026-11-17T07:30', { forecast: everyHour(forecastFrom(live, 'shadmot-mehola'), { cloudCover: 0, thickCloud: 0 }) })
-    expect(morning.light).toMatchObject({ source: 'sun', side: 'left' })
+    expect(morning.light.source).toBe('sun')
+    expect(morning.light.across).toBeLessThan(0)
     expect(morning.light.direct).toBeGreaterThan(0.2)
     expect(morning.light.shadow.softness).toBeLessThan(1)
   })
@@ -133,7 +134,7 @@ describe('light', () => {
     const grey = worldAt('haifa', '2026-11-17T12:00', { forecast: everyHour(forecastFrom(live, 'haifa'), { cloudCover: 100, thickCloud: 100 }) })
     expect(grey.light.direct).toBeLessThan(0.2)
     expect(grey.light.shadow.softness).toBe(1)
-    expect(grey.light.side).toBeNull()
+    expect(Math.abs(grey.light.across)).toBe(0)
   })
 
   it('takes the moon by night: cool and dim', () => {
@@ -148,10 +149,11 @@ describe('light', () => {
 
 describe('air', () => {
   it('fades far land faster in thicker air', () => {
-    const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 40000 } } })
-    const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...forecastFrom(live, 'jerusalem'),
-      current: { ...forecastFrom(live, 'jerusalem').current, visibility: 5000 } } })
+    const base = forecastFrom(live, 'jerusalem')
+    const clear = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...base,
+      current: { ...base.current, time: '2026-11-17T12:00', visibility: 40000 } } })
+    const thick = worldAt('jerusalem', '2026-11-17T12:00', { forecast: { ...base,
+      current: { ...base.current, time: '2026-11-17T12:00', visibility: 5000 } } })
     expect(thick.air.visibilityKm).toBe(5)
     expect(thick.air.fade(10)).toBeGreaterThan(clear.air.fade(10))
     for (const world of [clear, thick]) {

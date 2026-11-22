@@ -33,15 +33,20 @@ export function score(mark: Landmark, dx: number, dy: number, band: number): num
  */
 export type FarRule = 'kind' | 'landmark'
 
+/** Maximum near-layer landmarks kept for a figure of `width` px: 5 at the 375 px phone width, +1 per extra 150 px up to 8. */
+export const nearLimit = (width: number) => Math.min(8, 5 + Math.max(0, Math.floor((width - 375) / 150)))
+/** Score penalty per already-chosen OSM mark of the same kind, so a crowded skyline keeps kind variety. */
+export const KIND_REPEAT_PENALTY = 3
+
 export function select(candidates: Candidate[], width: number, large = false, farRule: FarRule = 'kind'): Candidate[] {
-  const nearLimit = Math.min(8, 5 + Math.max(0, Math.floor((width - 375) / 150)))
+  const limit = nearLimit(width)
   const far = candidates.filter((c) => c.layer === 'far' && (farRule === 'landmark' ||
     c.mark.heightM >= 60 || ['chimney', 'cooling', 'turbine'].includes(c.mark.kind)
   )).sort(desc).slice(0, 2)
   const nearCandidates = candidates.filter((c) => c.layer === 'near')
   const reserved = large ? nearCandidates.filter((c) => c.mark.kind === 'highrise' && Math.hypot(c.dx, c.dy) <= 3)
     .sort((a, b) => b.mark.heightM - a.mark.heightM).slice(0, 2) : []
-  const picked = pick(nearCandidates, nearLimit, reserved, large ? 6 : 4)
+  const picked = pick(nearCandidates, limit, reserved, large ? 6 : 4)
   const near = picked.filter((candidate) => candidate.reserved || !picked.some((other) => other.reserved
     && Math.abs(other.x - candidate.x) < (other.width + candidate.width) / 2 + 6))
   const plain: Candidate[] = []
@@ -61,7 +66,7 @@ function pick(candidates: Candidate[], limit: number, reserved: Candidate[] = []
   const chosen: Candidate[] = reserved.map((candidate) => ({ ...candidate, reserved: true }))
   const counts = new Map<Landmark['kind'], number>()
   reserved.forEach((candidate) => counts.set(candidate.mark.kind, (counts.get(candidate.mark.kind) ?? 0) + 1))
-  const value = (c: Candidate) => c.score - (c.mark.source === 'osm' ? 3 * (counts.get(c.mark.kind) ?? 0) : 0)
+  const value = (c: Candidate) => c.score - (c.mark.source === 'osm' ? KIND_REPEAT_PENALTY * (counts.get(c.mark.kind) ?? 0) : 0)
   let competitive = 0
   while (competitive < limit && pool.length) {
     pool.sort((a, b) => value(b) - value(a))

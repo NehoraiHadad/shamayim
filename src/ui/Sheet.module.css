@@ -2,8 +2,10 @@
   position: relative;
   /* A page laid over the bottom of the landscape, not a piece of it: the paper is lighter than any near ground could be,
      so it reads honestly as its own surface, with soft top corners and a faint shadow onto the valley below it. */
-  margin: -14px -16px 0;
-  padding: var(--space-4) var(--gutter) var(--space-2);
+  margin-block-start: -14px; /* Paper overlaps the bottom of the valley. */
+  margin-inline: var(--bleed);
+  padding-block: var(--space-4) var(--space-2);
+  padding-inline: var(--gutter);
   border-radius: 22px 22px 0 0;
   background: var(--sheet);
   color: var(--sheet-ink);

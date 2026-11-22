@@ -1,5 +1,6 @@
 import type { Relief } from '../data/terrain/angleScale'
 import type { SkyLight } from '../theme/skyLight'
+import type { Mist } from './mist'
 
 /** Atmosphere, celestial body, light, wind, cloud and precipitation types for `WorldState`. */
 export type RGB = readonly [number, number, number]
@@ -33,8 +34,8 @@ export interface Light {
   /** Of the source (the sun's for 'sky'). */
   azimuth: number
   altitude: number
-  /** Screen side the light comes from (`lateral` of its azimuth through the camera); null for 'sky' or straight on. */
-  side: 'left' | 'right' | null
+  /** Signed lateral direction (negative left, positive right), attenuated by the direct-light shading ramp. */
+  across: number
   /** The light's direction in drawn space, [across, up], as the ridge lighting takes it; null for 'sky'. */
   ray: [number, number] | null
   /** Direct light after air mass and aerosol (`sceneLight.ts`); the moon's is cool and dim. */
@@ -76,6 +77,8 @@ export interface Air {
   farFade: number
   nearFade: number
   horizonBand: { rgb: RGB; alpha: number }
+  /** Shallow valley/ground mist and fog (radiation vs persistent, 0–1; `mist.ts`). */
+  mist: Mist
   /** Heat shimmer amplitude (px). */
   heat: number
 }

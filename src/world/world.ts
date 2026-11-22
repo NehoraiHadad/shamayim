@@ -51,16 +51,14 @@ export function makeWorldBuilder() {
     const dayGiven = forecast.days.find((d) => d.date === datePart(at))
     const forced = input.forced ?? {}
 
-    const placePartResult = status === 'ready' ? m.placePart(place, terrain, input.landmarks, input.city, width, forecast.elevation,
-      input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
+    const placePartResult = status === 'ready' ? m.placePart(place, terrain, input.landmarks, input.seatCandidates, input.city,
+      width, forecast.elevation, input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
     const drawn = m.drawnOf(terrain, placePartResult.nearLine)
     const farCities = m.farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const sunSkyline = status === 'ready' ? m.judgeOf(drawn, placePartResult.place3, placePartResult.marks, farCities.part, skyline) : skyline
     const day = dayGiven && status === 'ready' ? visibleDay(dayGiven, place, sunSkyline) : dayGiven
     const sun = sunBody(at, day, place, skyline, sunSkyline)
     const moon = moonBody(at, place, skyline, sun, sunSkyline)
-    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview,
-      forcedVisibility: 'visibilityKm' in forced })
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
       hour, preview, forced: 'windDirection' in forced }, camera)
     const rate = rainOf(shown)
@@ -69,6 +67,8 @@ export function makeWorldBuilder() {
     const snow = snowFall(shown, forecast.elevation)
     const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
     const covers = raining.covers
+    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview, forcedVisibility: 'visibilityKm' in forced,
+      mist: { sun, windMs: wind.ms, current: forecast.current, hour: between, forced, forcedLayers: input.forcedLayers, hours: forecast.hours, at } })
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
     const rain = rainFrom(clouds, rate, wind, shown.weatherCode, preview, hashId(`${place.id}:rain:${hourKey(at)}`))
@@ -118,7 +118,7 @@ export function makeWorldBuilder() {
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => horizonY - anglePx(altitude) },
       bodies, light, air, clouds, rain, snow, snowfall, wind,
       terrain: planes, water: { ...water, coastalSea: placePartResult.coastalSea },
-      farCities: farCities.part, place3: placePartResult.place3, marks: placePartResult.marks, labels: placePartResult.labels,
+      farCities: farCities.part, place3: placePartResult.place3, marks: placePartResult.marks, seatPool: placePartResult.seatPool, labels: placePartResult.labels,
       night, ground, env, life, nightSky, optics, shadows, land: land.part,
       cropAreas: input.cropAreas ?? mappedCropAreas(input.landmarks),
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,

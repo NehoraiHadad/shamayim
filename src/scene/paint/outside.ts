@@ -1,6 +1,6 @@
 import type { LayerOf, OutsideItem, RGB, SeaDesc, Shine, SkyForm, Tones } from '../model/types'
 import { rng } from './core'
-import { drawGlyph, drawLamps, glyphShadow, glyphSide } from './glyphs'
+import { drawGlyph, drawLamps, glyphShadow, glyphLight } from './glyphs'
 import { AVIATION, type Lamp } from './glyphs/kit'
 import { css, mix, outline, type Ctx2D, type PaintEnv } from './hand'
 import { grain, rockOf, tree } from './marks'
@@ -21,7 +21,7 @@ import { running, twinkling } from './water'
  * edge catching the sky. ORDER: the coastal sea (wash down the band, ripples, the shore, the light's path) → the cast
  * shadows of towers and marks → the bodies back to front (beyond the place, then the place by where it stands) → the
  * grain over all → lamps and halos (windows lit by night, aviation lights), which no grain dulls.
- * Screen px, the light's side as `side` (+1 left, −1 right, 0 none). Pure: randomness only from the items' seeds.
+ * Screen px. Pure: randomness only from the items' seeds.
  */
 
 /** A box narrower than this (px) shows no window rows; a storey must be this tall (px). */
@@ -71,15 +71,10 @@ function sea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
   ctx.stroke()
 }
 
-/**
- * The light on a box's faces (the living light): each face's share from the shine (`Shine.faces`, by its normal), or the
- * old one-sided light from `side` where a shine has none. `on` is how much direct light there is at all.
- */
-interface Faces { left: number; right: number; front: number; top: number; rim: number; on: number; glint: number }
-function facesOf(s: Shine, side: number): Faces {
+/** A box's face light and the direct share used for shading. */
+function facesOf(s: Shine) {
   const on = Math.min(1, Math.max(0, (s.direct - 0.04) / 0.41))
-  if (s.faces) return { ...s.faces, on, glint: s.glint ?? 0 }
-  return { left: side > 0 ? 1 : 0, right: side < 0 ? 1 : 0, front: 0, top: side ? 0.5 : 0, rim: 0, on: side ? 1 : 0, glint: 0 }
+  return { ...s.faces, on, glint: s.glint ?? 0 }
 }
 
 /**
@@ -102,11 +97,11 @@ function sideFace(ctx: Ctx2D, x: number, top: number, w: number, h: number, k: n
  * others; a house its tile roof (each plane by its own share) or flat roof (with a heater on some), a block of the mass
  * its roof edge.
  */
-function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: Shine, side: number, lamps: Lamp[], f: SkyForm) {
+function box(ctx: Ctx2D, b: Extract<OutsideItem, { kind: 'box' }>, t: Tones, s: Shine, lamps: Lamp[], f: SkyForm) {
   const r = rng(b.seed)
   const tint = r()
   const x0 = b.x - b.w / 2, h = b.foot - b.top
-  const fl = facesOf(s, side)
+  const fl = facesOf(s)
   const wall = mix(t.wall, t.stone, .1 + .45 * tint)
   ctx.fillStyle = css(wall)
   ctx.fillRect(x0, b.top, b.w, h)
@@ -261,7 +256,7 @@ function towerShadow(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t:
  * glass shaft brighter toward the sky, the floor bands, a lit edge on the light's side, its crown: a parapet, a setback
  * or a mast), windows lit by night, an aviation light on the tall.
  */
-function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones, s: Shine, side: number, lamps: Lamp[], f: SkyForm) {
+function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones, s: Shine, lamps: Lamp[], f: SkyForm) {
   const r = rng(tw.seed * 7 + 1)
   const day = 1 - s.night
   const x0 = tw.x - tw.w / 2, top = tw.base - tw.h
@@ -308,7 +303,7 @@ function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones
   }
   // Each side face by its own share of the light, its outer edge catching it (a fine bright line, as glass and stone
   // corners do); a back-lit tower's edges both catch the light beyond it.
-  const fl = facesOf(s, side)
+  const fl = facesOf(s)
   const faceW = Math.max(lit, shadeW) * .85
   const litTone = mix(t.lit, t.glassLit, tw.full ? .35 : .1)
   sideFace(ctx, x0, shaftTop, faceW, tw.base - shaftTop, fl.left, fl.on, t, litTone)
@@ -365,7 +360,7 @@ function tower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones
 /** The place seen from outside, back to front. */
 export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s, tiers } = desc
-  const side = desc.litSide === 'left' ? 1 : desc.litSide === 'right' ? -1 : 0
+  const lateralLight = glyphLight(s)
   const frames = desc.animated?.frames
   const t = frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
   if (desc.land) paintOutsideLand(ctx, desc.land, s)
@@ -376,11 +371,10 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   }
   const lamps: Lamp[] = []
   for (const item of desc.items) {
-    if (item.kind === 'box') box(ctx, item, tiers[item.tier], s, side, lamps, desc.form)
-    else if (item.kind === 'tower') tower(ctx, item, tiers[item.tier], s, side, lamps, desc.form)
+    if (item.kind === 'box') box(ctx, item, tiers[item.tier], s, lamps, desc.form)
+    else if (item.kind === 'tower') tower(ctx, item, tiers[item.tier], s, lamps, desc.form)
     else if (item.kind === 'tree') {
-      const g = glyphSide({ litSide: desc.litSide }, s)
-      tree(ctx, item.tree, tiers[item.tier], s, g.side, rockOf(desc, env, item.tree.seed), g.k)
+      tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
   }

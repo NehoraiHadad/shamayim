@@ -13,11 +13,15 @@ import { Surface } from './surface'
 /** A canvas that records what is done to it (node has no canvas). */
 function fakeCanvas(width: number, height: number) {
   const calls: string[] = []
+  const transforms: number[][] = []
   const ctx = new Proxy({ calls }, {
-    get: (target, prop) => (prop === 'calls' ? target.calls : (...args: unknown[]) => { calls.push(`${String(prop)}(${args.length})`) }),
+    get: (target, prop) => (prop === 'calls' ? target.calls : (...args: unknown[]) => {
+      calls.push(`${String(prop)}(${args.length})`)
+      if (prop === 'setTransform') transforms.push(args as number[])
+    }),
     set: (_, prop, value) => { calls.push(`${String(prop)}=${String(value)}`); return true },
   })
-  return { width, height, calls, getContext: () => ctx } as unknown as LayerCanvas & { calls: string[] }
+  return { width, height, calls, transforms, getContext: () => ctx } as unknown as LayerCanvas & { calls: string[]; transforms: number[][] }
 }
 
 function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane'> {
@@ -115,6 +119,31 @@ describe('surface and schedule', () => {
     surface.render(layers(3))
     expect(surface.render(layers(3))).toEqual(['none', 'none', 'none'])
     expect(count.form).toBe(3)
+  })
+
+  it('composes a widening trail at each phase without a cached raster and holds it under reduced motion', () => {
+    const canvas = fakeCanvas(375, 428), surface = new Surface(canvas, { factory: fakeCanvas })
+    surface.resize(375, 428, 1)
+    const projection = (x: number) => Array.from({ length: 3 }, () => ({ point: [x, 20] as [number, number], widthPerM: 0.02, visibility: 0.8 }))
+    const trail: LayerOf<'contrail'> = {
+      id: 'contrail.a', kind: 'contrail', surface: 'sky', z: 6, key: 'trail',
+      bounds: { x: 0, y: 0, w: 375, h: 300 }, rgb: [0.9, 0.9, 0.9], shade: [0.8, 0.8, 0.8],
+      placed: { x: 0, y: 0, scale: 1, alpha: 1 },
+      animated: { mode: 'settle', flight: { open: true, at: 0, path: [[0, 0]], step: 2 } },
+      trail: { lifeS: 1_200, spreadM: 1_800, endInS: -1, head: null,
+        puffs: [{ samples: projection(30), seed: 1, ageS: 20 }, { samples: projection(40), seed: 2, ageS: 0 }] },
+    }
+    const widths = () => canvas.calls.filter((call) => call.startsWith('lineWidth='))
+    expect(surface.render([trail], 0)).toEqual(['none'])
+    const start = widths()
+    expect(start.length).toBeGreaterThan(0)
+    canvas.calls.length = 0
+    expect(surface.render([trail], 45)).toEqual(['none'])
+    expect(widths()).not.toEqual(start)
+    expect(surface.peek(trail.id)).toBeNull()
+    canvas.calls.length = 0
+    surface.render([trail], 45, true)
+    expect(widths()).toEqual(start)
   })
 })
 
@@ -262,6 +291,63 @@ describe('painting in the worker', () => {
     quietSurface.resize(375, 128, 2)
     quietSurface.render([plane('a', 'l1')])
     expect(quietStats.shown).toEqual({})
+  })
+})
+
+describe('compositing flights', () => {
+  const layer = (key: string, x: number): LayerOf<'aircraft'> => ({
+    kind: 'aircraft', id: 'aircraft.test', surface: 'sky', key, z: 1, bounds: { x: -5, y: -5, w: 10, h: 10 },
+    placed: { x, y: 20, scale: 0.5, alpha: 0.8 }, x: 0, y: 0, angle: 0, size: 3, rgb: [1, 1, 1], lit: [1, 1, 1],
+    lights: 0, landing: false, trail: 0, trailRgb: [1, 1, 1], seed: 0,
+    animated: { mode: 'settle', flight: { open: true, at: 0, step: 2, path: [[0, 0], [0, 0]], scale: [1, 2],
+      alpha: [1, 0.5], turn: [0, Math.PI / 2] } },
+  })
+  const painters = () => ({ form: () => {} })
+
+  it('draws about the sprite origin, recompositing when only scale, opacity and turn change', () => {
+    const canvas = fakeCanvas(100, 100)
+    const surface = new Surface(canvas, { factory: fakeCanvas, painters })
+    surface.resize(100, 100, 1)
+    const layers = [layer('a', 10)]
+    surface.render(layers, 0)
+    surface.render(layers, 2)
+    expect(canvas.transforms.at(-2)).toEqual([expect.closeTo(0, 6), 1, -1, expect.closeTo(0, 6), 10, 20])
+    expect(canvas.calls).toContain('globalAlpha=0.4')
+    expect(canvas.calls.filter((call) => call === 'clearRect(4)')).toHaveLength(2)
+  })
+
+  it.each(['local', 'worker'] as const)('lays a stale %s sprite with its last compatible placement and track', (mode) => {
+    const canvas = fakeCanvas(100, 100)
+    const worker = fakeWorker()
+    const surface = new Surface(canvas, { factory: fakeCanvas, painters, worker: mode === 'worker' ? () => worker : undefined })
+    const x = () => canvas.transforms.at(-2)![4]
+    surface.resize(100, 100, 1)
+    surface.render([layer('a', 10)])
+    if (mode === 'worker') worker.answer()
+    surface.render([layer('a', 20)])
+    expect(x()).toBe(20)
+    const b = layer('b', 70)
+    b.animated!.flight!.path[1] = [8, 0]
+    if (mode === 'worker') surface.render([b], 1)
+    else surface.composite([b], 1)
+    expect(x()).toBe(20)
+    if (mode === 'worker') worker.answer()
+    else surface.render([b], 1)
+    expect(x()).toBe(74)
+  })
+
+  it('keeps the matching sprite when a superseded worker answer arrives after a scrub back', () => {
+    const canvas = fakeCanvas(100, 100)
+    const worker = fakeWorker()
+    const surface = new Surface(canvas, { factory: fakeCanvas, painters, worker: () => worker })
+    surface.resize(100, 100, 1)
+    surface.render([layer('a', 10)])
+    worker.answer()
+    surface.render([layer('b', 70)])
+    surface.render([layer('a', 20)])
+    worker.answer()
+    expect(canvas.transforms.at(-2)![4]).toBe(20)
+    expect(worker.sent).toHaveLength(0)
   })
 })
 

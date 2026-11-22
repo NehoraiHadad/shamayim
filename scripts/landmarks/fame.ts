@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
-import type { Row } from '../../src/data/landmarks/israelData'
+import type { LandmarkCell, Row } from '../../src/data/landmarks/israelData'
 import { offsetKm } from '../../src/data/landmarks/project'
 import type { Landmark } from '../../src/data/landmarks/types'
 import { parseGeoJsonSequence, row, type LandmarkIndex } from './build'
@@ -56,10 +56,11 @@ async function main() {
     const marks = byCell.get(cell)
     if (!marks) continue
     const file = `${values.dir}/${cell}.json`
-    const result = patchCell(JSON.parse(await readFile(file, 'utf8')) as Row[], marks)
+    const parsed = JSON.parse(await readFile(file, 'utf8')) as LandmarkCell
+    const result = patchCell(Array.isArray(parsed) ? parsed : parsed.rows, marks)
     patched += result.patched
     missed += result.missed
-    await writeFile(file, JSON.stringify(result.rows))
+    await writeFile(file, JSON.stringify(Array.isArray(parsed) ? result.rows : { ...parsed, rows: result.rows }))
   }
   const outside = [...byCell.entries()].filter(([cell]) => !index.cells.includes(cell)).reduce((n, [, m]) => n + m.length, 0)
   console.log(`${famous.length} famous marks: ${patched} rows patched, ${missed} with no row, ${outside} outside the cells.`)

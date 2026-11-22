@@ -100,15 +100,19 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   openUrl.search = new URLSearchParams({ name: query, language: 'he', count: '6' }).toString()
   const osmUrl = new URL('https://nominatim.openstreetmap.org/search')
   osmUrl.search = new URLSearchParams({ q: query, format: 'jsonv2', 'accept-language': 'he', addressdetails: '1', extratags: '1', limit: '6' }).toString()
-  const [open, osm] = await Promise.all([
-    requestOpenMeteo(openUrl, signal).then((items) => items.map(mapGeocodingResult)).catch(() => []),
+  const [open, osm] = await Promise.allSettled([
+    requestOpenMeteo(openUrl, signal).then((items) => items.map(mapGeocodingResult)),
     fetch(osmUrl, { signal }).then(async (response) => {
       if (!response.ok) throw new Error('Nominatim search failed')
       return (await response.json() as NominatimResult[]).map(mapNominatimResult).filter((place): place is Place => place !== null)
-    }).catch(() => []),
+    }),
   ])
   if (signal?.aborted) throw signal.reason
-  return mergePlaceResults(open, osm)
+  if (open.status === 'rejected' && osm.status === 'rejected') throw open.reason
+  return mergePlaceResults(
+    open.status === 'fulfilled' ? open.value : [],
+    osm.status === 'fulfilled' ? osm.value : [],
+  )
 }
 
 export async function reversePlace(lat: number, lon: number, signal?: AbortSignal): Promise<Place> {

@@ -2,6 +2,7 @@ import { THRESHOLDS as T } from '../../config/thresholds'
 import { clockOf } from '../../domain/time'
 import type { DayPoint, Forecast, LocalTime } from '../../domain/types'
 import { airLabel, formatProb, uvLabel } from '../../text/format'
+import { clockRange } from '../../text/isolate'
 import { mm } from '../../text/phrases'
 import { HourlyStrip } from '../hourly/HourlyStrip'
 import { buildTimeline } from '../hourly/timeline'
@@ -30,7 +31,7 @@ export function DayDetail({ day, forecast, now, nextDate }: Props) {
   const facts = [
     { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)}, כ־${mm(day.precipSum)}` : 'לא צפוי' },
     { label: 'רוח', value: `משבים עד ${Math.round(day.windGustsMax)} קמ״ש` },
-    { label: 'אור יום', value: <bdi>{clockOf(day.sunrise)}–{clockOf(day.sunset)}</bdi> },
+    { label: 'אור יום', value: clockRange(clockOf(day.sunrise), clockOf(day.sunset)) },
   ]
   const air = (forecast.air ?? []).filter((a) => a.time.startsWith(day.date))
   const uv = air.map((a) => a.uv).filter((v): v is number => v !== null)

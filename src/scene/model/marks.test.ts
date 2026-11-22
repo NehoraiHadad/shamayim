@@ -85,8 +85,7 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
       const world = worldAt(id, at)
       for (const layer of sceneModel(world, BOX).layers) {
         if (layer.kind !== 'marks') continue
-        for (const glyph of layer.glyphs) expect(glyph.litSide).toBe(world.light.side)
-        if (world.light.side && layer.shine.cast.alpha > 0) expect(Math.sign(layer.shine.cast.dx)).toBe(world.light.side === 'left' ? 1 : -1)
+        if (Math.abs(world.light.across) > 0.05) expect(Math.sign(layer.shine.cast.dx)).toBe(-Math.sign(world.light.across))
       }
     }
   })
@@ -159,7 +158,7 @@ describe('icons and glyph tones', () => {
       : l.kind === 'outside' ? l.items.flatMap((i) => i.kind === 'mark' ? [i.glyph] : []) : [])
       .filter((g) => ['westernWall', 'chordsBridge', 'azrieli', 'babShrine'].includes(g.kind))
     expect(icons.length).toBeGreaterThan(0)
-    for (const icon of icons) expect(icon.litSide).toBe(world.light.side)
+    for (const icon of icons) expect(icon.hand).toBe(1)
   })
 
   it('keeps the layers’ shapes through a scrub; only their light moves', () => {

@@ -56,8 +56,17 @@ export function glyphOf(mark: { kind: MarkKind; glyph?: string }): GlyphKind | n
   return mark.kind === 'custom' ? null : mark.kind
 }
 
+/** Drawn glyph box dimensions (px) scaled so the glyph renders at its true projected height `hPx`. */
+export function glyphAtHeight(kind: GlyphKind, hPx: number) {
+  const spec = GLYPH_SPECS[kind]
+  const h = spec.h(hPx)
+  const scale = hPx / h
+  return { h, scale, w: spec.w * scale }
+}
+
 export const isIcon = (kind: GlyphKind): kind is IconKind => kind in ICON_KINDS
 const ICON_KINDS: Record<IconKind, true> = { westernWall: true, babShrine: true, azrieli: true, chordsBridge: true }
+export const isField = (kind: GlyphKind) => Boolean(GLYPH_SPECS[kind].field)
 
 /** How far a field's lowest row reaches below its depth (px). */
 export function fieldReach(kind: GlyphKind) { return kind === 'solar' ? 5.9 : kind === 'vineyard' ? 6.5 : 7.3 }

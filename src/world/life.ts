@@ -26,6 +26,10 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 export type BirdKind = 'stork' | 'crane' | 'swift' | 'gull' | 'raptor' | 'crow' | 'pigeon' | 'bat'
 
+export interface FlightPoint { e: number; n: number; up: number }
+export type FlockSample = Pick<Flock, 'azimuth' | 'altitude' | 'distanceM' | 'fade'>
+export type LowSample = Pick<LowPlane, 'at' | 'ahead' | 'fieldKm' | 'overFieldM'>
+
 /** A flock (or a lone bird) under way at the shown moment (`lifeSchedule.ts` `flockAt`). */
 export interface Flock {
   /** Its event's id: the same flock from minute to minute. */
@@ -50,6 +54,7 @@ export interface Flock {
   at?: { e: number; n: number; up: number }
   /** How far off (km over the ground) the land truly stands in its line of sight, or null when nothing does. */
   blockedKm?: number | null
+  samples?: FlockSample[]
 }
 
 /** A day of the year (1–366) of a local time. */
@@ -197,13 +202,27 @@ export const PREVALENCE: Record<BirdKind, number> = { stork: 0.55, crane: 0.35, 
 export const CRUISE_M = 10_400
 
 /** A puff of a contrail: where the upper wind has carried it (km east, north; m up) and its age (s). */
-export interface TrailPuff { e: number; n: number; up: number; ageS: number; seed: number }
+export interface TrailPuff { e: number; n: number; up: number; ageS: number; seed: number
+  /** Seconds until a future puff is emitted. Its coordinates are pre-offset by that much wind. */
+  inS?: number
+  /** A snapshot endpoint between emissions, replaced by the continuous head in the scene. */
+  liveTip?: true }
 
 /** An airliner at cruise at the shown moment (`lifeSchedule.ts` `highAt`): the plane while it crosses, its trail's puffs. */
 export interface HighPlane {
   id: string
   /** The plane (km east, north; m up), or null once it has flown beyond the reach (its trail lives on). */
-  plane: { e: number; n: number; up: number } | null
+  plane: FlightPoint | null
+  /** Stable reference points used to project the crossing's trail into one frame. */
+  crossing: { start: FlightPoint; centre: FlightPoint; end: FlightPoint }
+  /** Upper wind in km/s, fixed at the crossing's start. */
+  driftE: number
+  driftN: number
+  samples?: (FlightPoint | null)[]
+  /** Age-zero puffs ahead of the head, with their positions referred to the start of this window. */
+  futureTrail?: TrailPuff[]
+  /** Seconds from the start of this window until the final emission (negative after the crossing). */
+  trailEndInS?: number
   headingDeg: number
   speedMs: number
   persists: boolean
@@ -234,6 +253,7 @@ export interface LowPlane {
   seed: number
   /** How far off (km over the ground) the land truly stands in its line of sight, or null when nothing does. */
   blockedKm?: number | null
+  samples?: LowSample[]
 }
 
 /** A route near an airport within reach, on the runway the wind picks: its path out from the field (every 0.5 km). */
@@ -289,6 +309,8 @@ function pathOf(airport: Airport, kind: 'arrive' | 'depart', heading: number, ae
 
 /* Meteors. */
 
+export const METEOR_FLASH_S = 0.7
+
 export interface Meteors {
   shower: string
   /** The shower's rate tonight (ZHR) and the rate seen here (meteors an hour over the whole sky). */
@@ -302,7 +324,7 @@ export interface Meteors {
   flashes: MeteorFlash[]
 }
 
-export interface MeteorFlash { id: string; inS: number; seed: number }
+export interface MeteorFlash { id: string; inS: number; seed: number; radiant?: Meteors['radiant']; speed?: number }
 
 /**
  * The naked-eye limiting magnitude for meteors (C10): the sky's own (`skyLimit`: the twilight, the moon) less what the
@@ -313,17 +335,33 @@ export function limitingMagnitude(sunAlt: number, moon: { altitude: number; illu
 }
 
 /** The meteors of a shower night: only when the night is dark and a shower is on; the rate by the radiant, moon, glow, cloud. */
+function showerAt(at: LocalTime) {
+  // The night's date: the small hours belong to the evening before.
+  const hour = Number(at.slice(11, 13))
+  const date = hour < 12 ? new Date(Date.UTC(Number(at.slice(0, 4)), Number(at.slice(5, 7)) - 1, Number(at.slice(8, 10)) - 1))
+    .toISOString().slice(0, 10) : at.slice(0, 10)
+  return showerOn(date)
+}
+
+function radiantAt(input: LifeInput, on: NonNullable<ReturnType<typeof showerOn>>, offsetS: number) {
+  const instant = new Date(utcOf(input.at, input.timezone).getTime() + offsetS * 1000)
+  return horizontalPosition({ rightAscension: on.shower.ra * RAD, declination: on.shower.dec * RAD, distanceKm: Infinity }, instant,
+    input.lat, input.lon)
+}
+
+/** A scheduled flash uses its own radiant, so its painted shape stays fixed as the minute changes. */
+export function meteorLook(input: LifeInput, offsetS: number): Pick<MeteorFlash, 'radiant' | 'speed'> {
+  const on = showerAt(input.at)
+  if (!on) return {}
+  const radiant = radiantAt(input, on, offsetS)
+  return { radiant: { azimuth: radiant.azimuth, altitude: apparentAltitude(radiant.altitude) }, speed: on.shower.speed }
+}
+
 export function meteorsOf(input: LifeInput): Omit<Meteors, 'flashes'> | null {
   if (input.dark < 0.85) return null
-  // The night's date: the small hours belong to the evening before.
-  const hour = Number(input.at.slice(11, 13))
-  const date = hour < 12 ? new Date(Date.UTC(Number(input.at.slice(0, 4)), Number(input.at.slice(5, 7)) - 1, Number(input.at.slice(8, 10)) - 1))
-    .toISOString().slice(0, 10) : input.at.slice(0, 10)
-  const on = showerOn(date)
+  const on = showerAt(input.at)
   if (!on) return null
-  const instant = utcOf(input.at, input.timezone)
-  const radiant = horizontalPosition({ rightAscension: on.shower.ra * RAD, declination: on.shower.dec * RAD, distanceKm: Infinity }, instant,
-    input.lat, input.lon)
+  const radiant = radiantAt(input, on, 0)
   if (radiant.altitude <= 0) return null
   const lm = limitingMagnitude(input.sun.altitude, input.moon, input.env.glow)
   // Observed rate: ZHR × sin(radiant altitude) × r^(LM − 6.5), population index r ≈ 2.2; through the clear share of the sky.

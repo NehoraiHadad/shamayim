@@ -24,9 +24,10 @@ it('preserves the Nahalal vegetation descriptor and bounds the relative cold cro
       const input = { ...world, land: { ...world.land }, cropAreas: withCrops ? world.cropAreas : [] }
       return planeVegetationOf(input, BOX, 'near', world.terrain.near, near.fill, model.clear)
     }
-    // All packed positions, widths, weights and palette values from the prefilter's parent revision.
+    // All packed positions, widths, weights and palette values. Re-pinned at the origin/main merge: track B's own-footprint
+    // marks (a solar field at Nahalal) move the drawn near line, so the near plane's points and its rows moved with it.
     expect(createHash('sha256').update(JSON.stringify(build(true))).digest('hex'))
-      .toBe('02f962802194884e3abfeb176ea4b9f450240709fdca2f76daa0061d41b64a8f')
+      .toBe('ec8dce628883f6f7c98cba03de37edf70e5af159e5765ff90d836736e27ae2bc')
     const time = (withCrops: boolean) => {
       const start = performance.now()
       build(withCrops)

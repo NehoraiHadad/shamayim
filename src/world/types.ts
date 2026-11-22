@@ -19,7 +19,8 @@ import type { Optics } from './optics'
 import type { PlaceEnv } from './placeEnv'
 import type { SnowFall } from './snowLine'
 import type { Air, Body, CloudLayer, CloudShadows, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
-import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState, WorldLabels, WorldMark } from './typesLand'
+import type { SeatedWorldMark, WorldMark } from './markGeometry'
+import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState, WorldLabels } from './typesLand'
 
 export * from './typesAtmo'
 export * from './typesLand'
@@ -39,11 +40,15 @@ export interface WorldInput {
   now: LocalTime
   /** An hour picked in the strip (a preview), or null for now. */
   selected: LocalTime | null
+  /** Whole real minutes elapsed since anchoring the selected minute, for life positions and events. */
+  lifeOffsetMinutes?: number
   terrain: SceneTerrain
   /** Unused since 2026-11-20 (sun/moon judged on `drawnSkyline.ts`); kept for the turning view (`camera-fable.md`). */
   sunTerrain?: SceneTerrain
   /** Landmarks, the place's own homes and the satellite's groves (App's `marks`). */
   landmarks: readonly Landmark[]
+  /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
+  seatCandidates?: readonly Landmark[]
   cropAreas?: readonly CropArea[]
   city?: CityResult | null
   /** The far raster (`far.json`: built share and storeys per ~0.5 km cell, towers of 80 m+); the far towns need it. */
@@ -107,8 +112,10 @@ export interface WorldState {
   water: WaterState
   farCities: FarCities
   place3: PlaceUnknown | OutsideView
-  /** The marks after the portrait / outside rules (`marks.ts`), seated on the land they stand on. */
+  /** The marks after the portrait / outside rules, with beyond seats budgeted for world layout and skyline. */
   marks: WorldMark[]
+  /** All viable beyond seats, ranked for re-budgeting after the scene's screen-space cull. */
+  seatPool: SeatedWorldMark[]
   /** The height label and the notes on the land (the place part: independent of the hour). */
   labels: WorldLabels
   night: Night
