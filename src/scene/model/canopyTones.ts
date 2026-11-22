@@ -14,7 +14,7 @@ export function plantInk(bytes: Uint8Array, offset: number): RGB {
   return [bytes[offset] / 255, bytes[offset + 1] / 255, bytes[offset + 2] / 255]
 }
 
-export function canopyTones(plane: LayerOf<'plane'>) {
+export function canopyTones(plane: LayerOf<'plane'>, paired: boolean) {
   const veg = plane.vegetation, field = plane.light.litField
   const palette = veg.tones.map((rgb) => albedoLinear(rgb, 1))
   const sample = vegetationField(field, plane.outline, plane.bounds)
@@ -24,7 +24,7 @@ export function canopyTones(plane: LayerOf<'plane'>) {
     tufts: new Uint8Array(veg.tufts.length / 4 * TUFT_TONE_STRIDE),
   })
   const tones = allocate()
-  const shaded = plane.cloudShadow && allocate()
+  const shaded = paired ? allocate() : undefined
   const write = (dest: Uint8Array, o: number, index: number, beam: number) => {
     shadeLinearRgb(palette[index] ?? palette[0], field.eSun, field.eMoon, field.eSky,
       light.sVis * beam, light.mVis, light.vSky, field.yHorizon, light.haze, field.hazeLin, rgb)
@@ -32,7 +32,14 @@ export function canopyTones(plane: LayerOf<'plane'>) {
   }
   const tone = (part: keyof CanopyTones, o: number, index: number) => {
     write(tones[part], o, index, 1)
-    if (shaded) write(shaded[part], o, index, 0)
+    if (shaded) {
+      if (light.sVis) write(shaded[part], o, index, 0)
+      else {
+        shaded[part][o] = tones[part][o]
+        shaded[part][o + 1] = tones[part][o + 1]
+        shaded[part][o + 2] = tones[part][o + 2]
+      }
+    }
   }
   if (palette.length) {
     for (let i = 0; i < veg.trees.length; i += 6) {

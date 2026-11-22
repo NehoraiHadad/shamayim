@@ -116,7 +116,7 @@ export function paintLitSurface(
   }
   stamp(ctx, image)
   if (env.shade && shade) stamp(env.shade, shade)
-  paintCrestSamples(ctx, t)
+  paintCrestSamples(ctx, t, env.shade)
 }
 
 function encodeTexel(data: Uint8ClampedArray, o: number, rgb: RGB) {
@@ -124,7 +124,7 @@ function encodeTexel(data: Uint8ClampedArray, o: number, rgb: RGB) {
 }
 
 /** Resolve narrow sun-facing crest colour that the body grid's texture raster would average down. */
-function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx) {
+function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, shade?: Ctx2D) {
   if (t.litField.eSun[1] < 0.015) return
   for (let i = 0; i < t.wPx; i++) {
     const left = t.bounds.x + i * TEXEL, x = left + TEXEL / 2, y = t.crestY[i]
@@ -133,5 +133,9 @@ function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx) {
     if (rim.sVis - face.sVis < 0.025) continue
     ctx.fillStyle = css(shadeTexelSrgb(t, rim))
     ctx.fillRect(left, y - 0.75, TEXEL, 2.2)
+    if (shade) {
+      shade.fillStyle = css(shadeTexelSrgb(t, rim, 0))
+      shade.fillRect(left, y - 0.75, TEXEL, 2.2)
+    }
   }
 }

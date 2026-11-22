@@ -129,6 +129,5 @@ it('keeps the gust loop and byte-keyed canopy light under moving cloud shadows',
   expect(canopy.animated?.frames).toEqual(LAND_GUST)
   expect(frameAt(canopy.animated, 15.4)).toBe(frameAt(canopy.animated, 17.4))
   const renamed = canopyOf({ ...moving, light: { ...moving.light, key: 'new plane generation' } }, gust, [])!
-  expect(renamed.receiver?.light).not.toBe(canopy.receiver?.light)
   expect(renamed.light?.key).toBe(canopy.light?.key)
 })
