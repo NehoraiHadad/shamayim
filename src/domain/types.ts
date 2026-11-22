@@ -32,7 +32,13 @@ export interface CurrentWeather {
 
 export interface HourPoint {
   time: LocalTime
+  /** What the app shows: the models' blend with the national station correction (domain/correction/temperature). */
   temperature: number
+  /**
+   * The models' own blend (the weights every other field uses), uncorrected; absent in older cached answers. The
+   * forecast cloud field derives its cloud base from it, so the clouds stay consistent with the models' own clouds.
+   */
+  modelTemperature?: number
   precipProb: number | null
   precipitation: number
   weatherCode: number

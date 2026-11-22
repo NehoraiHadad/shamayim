@@ -1,9 +1,14 @@
 import { blendDirection, blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
+import { hourlyTemperatureAdd, temperatureIconWeight } from '../../domain/correction/temperature'
 import type { HourPoint, WindVector } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
 import { pairs, thickCloud } from './mapHelpers'
 
-export function mapHours(raw: Json, today: string): HourPoint[] {
+/**
+ * `now` (the response's current time) and `utcOffsetSeconds` place each hour's lead and standard-time hour for the
+ * national temperature correction (domain/correction/temperature).
+ */
+export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds: number): HourPoint[] {
   const hourly = obj(raw.hourly, 'hourly')
   const time = hourly.time
   if (!Array.isArray(time)) throw new DataError('hourly.time: missing')
@@ -35,13 +40,15 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
 
   return time.flatMap((value, index) => {
     const stamp = str(value, `hourly.time[${index}]`)
-    const weight = iconWeight(dates.indexOf(stamp.slice(0, 10)) - todayIndex)
-    const blendedTemp = blendNumber(temp[index], weight)
+    const dayOffset = dates.indexOf(stamp.slice(0, 10)) - todayIndex
+    const weight = iconWeight(dayOffset)
+    const blendedTemp = blendNumber(temp[index], temperatureIconWeight(dayOffset))
     if (blendedTemp === null) return []
 
     return [{
       time: stamp,
-      temperature: roundTemperature(blendedTemp),
+      temperature: roundTemperature(blendedTemp + hourlyTemperatureAdd(stamp, now, utcOffsetSeconds)),
+      modelTemperature: roundTemperature(blendNumber(temp[index], weight) ?? blendedTemp),
       precipProb: blendNumber(precipProb[index], weight),
       precipitation: blendNumber(precipitation[index], weight) ?? 0,
       weatherCode: blendWeatherCode(weatherCode[index], precipProb[index], weight) ?? 0,
