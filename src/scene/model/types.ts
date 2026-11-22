@@ -6,11 +6,11 @@ import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
 import type { PlantWind } from './landWind'
 import type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneShadeField, PlaneVegetation, Rim, SnowCap, Wash,
 } from './typesLand'
 
 export type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneShadeField, PlaneVegetation, Rim, SnowCap, Wash,
 }
 import type { ContrailMotion } from './contrailMotion'
 
@@ -178,8 +178,8 @@ interface LayerBase {
   light?: LightPart
   /** Laid where its object is now (`Lay`): the layer's bounds and coordinates are round its own origin. */
   placed?: Lay
-  /** How its canvas meets the surface under it (`source-over` when absent; the cloud shadows lie `source-atop` the land). */
-  blend?: 'source-over' | 'source-atop'
+  /** How its canvas meets the surface under it (`source-over` when absent; cloud shadows use linear-correct `multiply`). */
+  blend?: 'source-over' | 'source-atop' | 'multiply'
 }
 
 /* Shapes drawn from C2 on (placeholders, refined by the stage that draws them). */

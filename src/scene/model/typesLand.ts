@@ -91,18 +91,29 @@ export interface PlaneVegetation {
 /** The upright vegetation is the only part needed by the canopy strips. */
 export type CanopyVegetation = Pick<PlaneVegetation, 'seed' | 'tones' | 'trees' | 'treeMeta' | 'tufts' | 'tuftMeta'>
 
+/** Compact structured-cloneable grid of linear-light sRGB `multiply` colours across a plane face (Stage 7). */
+export interface PlaneShadeField {
+  cols: number
+  rows: number
+  /** Flat `rows * cols * 3` RGB bytes (0..255, sRGB `lightMultiplierRgb` per cell). */
+  rgb: Uint8Array
+}
+
 /**
- * A plane's light part (C2 + Living Land Stage 3). The form under it carries the light-free quantised land albedo,
- * seeded patches, mottle, gullies, terraces and vegetation; this canvas lays the scene's mood, wet-ground & aerial haze
- * veil (`veil`, `source-over`), snow, shaded and lit bands, floor shadow, crest rim and ground/canopy lift over it.
+ * A plane's light part (C2 + Living Land Stages 3 & 7). The form under it carries light-free reflectance-form
+ * albedo, strata, fields, gullies, terraces and vegetation; Band 0 multiplies by `shadeField` (full-face normal
+ * irradiance + wetness + floor cast shadows in linear light) and Band 1 lays linear Koschmieder aerial haze,
+ * snow, illustrated face washes, crest rims and ground/canopy lift over it.
  */
 export interface PlaneLight extends Omit<LightPart, 'tint'> {
-  /** Source-over mood, wet-ground attenuation & aerial haze veil across the plane (x px -> [colour, alpha]). */
+  /** Full-face per-cell linear-light irradiance multiplier grid (Band 0, `multiply`). */
+  shadeField?: PlaneShadeField
+  /** Linear-equivalent `source-over` Koschmieder aerial haze veil across the plane (x px -> [airRgb, alpha]). */
   veil: [number, RGB, number][]
-  /** Shade on the faces turned from the light, then light on the faces turned to it. */
+  /** Soft illustrated face washes in the computed shade/lit tones. */
   shade: Wash[]
   lit: Wash[]
-  /** Faces after the washes: the ridge's shadow on the floor. */
+  /** Floor cast shadows (painted in Band 0 `multiply`, removing only direct light). */
   faces: Face[]
   rims: Rim[]
   snow: SnowCap | null
