@@ -4,7 +4,7 @@ import type { DeviceRect } from './paintJob'
 
 const MASK_TEXEL = 2
 
-interface Patch { canvas: LayerCanvas; box: DeviceRect }
+interface Patch { canvas: LayerCanvas; box: DeviceRect; revision: number }
 interface Mask {
   canvas: LayerCanvas
   image: ImageData
@@ -14,6 +14,7 @@ interface Mask {
   alpha: Uint8Array
   depth: Float32Array
   seconds: number
+  revision: number
   box?: DeviceRect
   poses: Map<number, Patch>
   beam?: CanvasImageSource
@@ -42,7 +43,7 @@ export class ShadowComposite {
       const canvas = this.factory(cols, rows)
       const image = ctxOf(canvas).createImageData(cols, rows)
       mask = { canvas, image, rect, ratio: dpr, shadow, alpha: this.alphaOf(shadow), depth: new Float32Array(cols * rows),
-        seconds: NaN, poses: new Map() }
+        seconds: NaN, revision: 0, poses: new Map() }
       this.masks.set(id, mask)
     } else if (mask.shadow === shadow && mask.seconds === step) return mask
     if (mask.shadow !== shadow) {
@@ -86,7 +87,7 @@ export class ShadowComposite {
         h: Math.min(h, Math.ceil((bottom + 2) * texel)) - py }
     }
     mask.seconds = step
-    mask.poses.clear()
+    mask.revision++
     return mask
   }
 
@@ -116,32 +117,35 @@ export class ShadowComposite {
     const box = mask.box
     if (!box) return
     if (mask.beam !== beam || mask.shade !== shade || mask.paintKey !== paintKey || mask.opaque !== opaque) {
-      mask.poses.clear()
+      mask.revision++
       mask.beam = beam; mask.shade = shade; mask.paintKey = paintKey; mask.opaque = opaque
     }
     const held = mask.poses.get(sy)
-    if (held) return held
+    if (held?.revision === mask.revision) return held
     const { x, y, w, h } = box
-    const canvas = this.factory(w, h)
+    const canvas = held && held.canvas.width >= w && held.canvas.height >= h
+      ? held.canvas : this.factory(w, h)
     if (!opaque && (!this.tint || this.tint.width < w || this.tint.height < h)) {
       this.tint = this.factory(Math.max(w, this.tint?.width ?? 0), Math.max(h, this.tint?.height ?? 0))
     }
     const fill = ctxOf(opaque ? canvas : this.tint!)
     const maskW = mask.canvas.width * MASK_TEXEL * ratio, maskH = mask.canvas.height * MASK_TEXEL * ratio
     fill.globalCompositeOperation = 'source-over'
-    if (!opaque) fill.clearRect(0, 0, w, h)
+    fill.clearRect(0, 0, w, h)
     fill.drawImage(shade, x, sy + y, w, h, 0, 0, w, h)
     fill.globalCompositeOperation = 'destination-in'
     fill.drawImage(mask.canvas as CanvasImageSource, -x, -y, maskW, maskH)
     if (!opaque) {
       const base = ctxOf(canvas)
+      base.globalCompositeOperation = 'source-over'
+      base.clearRect(0, 0, w, h)
       base.drawImage(beam, x, sy + y, w, h, 0, 0, w, h)
       base.globalCompositeOperation = 'destination-out'
       base.drawImage(mask.canvas as CanvasImageSource, -x, -y, maskW, maskH)
       base.globalCompositeOperation = 'lighter'
       base.drawImage(this.tint as CanvasImageSource, 0, 0, w, h, 0, 0, w, h)
     }
-    const patch = { canvas, box }
+    const patch = { canvas, box, revision: mask.revision }
     mask.poses.set(sy, patch)
     return patch
   }

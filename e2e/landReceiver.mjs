@@ -51,6 +51,7 @@ export async function receiverPixels(page, dpr = 1) {
     const gustCanopy = canopyOf(fixedShadow, { lean: 0.6, gust: 0.55 }, [])
     const gustPixels = () => Array.from(ctx.getImageData(19 * dpr, 14 * dpr, 10 * dpr, 11 * dpr).data)
     local.render([fixedShadow, gustCanopy], 10, false)
+    local.lay(10)
     const gustStart = gustPixels()
     local.lay(10.8)
     const gustBent = gustPixels()
