@@ -1,10 +1,11 @@
 //# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
+import { coinOf } from '../../world/air'
 import { smoothstep } from '../../world/ridgeLighting'
 import { aerosolDepth, sunLight } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { coinOf, skyAt, skyGeom, veilOf, type SkyGeom } from './sky'
+import { skyAt, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import type { LayerOf, Ray, RGB, SceneBox } from './types'
 import { brokenness } from './weather'
@@ -70,7 +71,7 @@ export function rayStrengths(world: WorldState) {
   // Fog scatters the beams and blocks them: every case is seen through the same air (`beamThrough`).
   const beam = beamThrough(world)
   const low = lowness(sun.altitude)
-  const coin = coinOf(world)
+  const coin = coinOf(world.air)
   const up = smoothstep(-3, -0.5, sun.altitude) * (1 - dark)
   const seen = 1 - veilOf(world)
   // Through cloud gaps: a low sun's long path shows them in any air; higher, only as the haze has it.

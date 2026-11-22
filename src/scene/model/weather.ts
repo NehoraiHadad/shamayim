@@ -1,11 +1,12 @@
 //# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
+import { coinOf } from '../../world/air'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { CloudBank, RainCell, WorldState } from '../../world/types'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './planeLight'
-import { coinOf, coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
+import { coversOf, skyAt, skyGeom, type SkyGeom } from './sky'
 import { rayLayersOf } from './rays'
 import { mixRgb } from './tone'
 import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, MistBandDesc, MistPuff, Plume, Precip, Pt, RGB, SceneBox, Sheen,
@@ -20,7 +21,7 @@ import type { BankDesc, Box, FallMark, LayerDesc, LayerOf, MistBandDesc, MistPuf
  *   edge on the side the rain truly lies (the true-scene plan's edge mark);
  * - the ground's sheen after rain (`world.ground.wet`), the darkening being the planes' own (C2);
  * - mist and fog lying level in the low ground, the valleys first, from the humidity and the visibility;
- * - dust in the wind (`air.dust`), wind streaks in a gale;
+ * - dust grains (`air.dustWeight`) and wind streaks in a gale;
  * - crepuscular rays from a low sun behind broken cloud;
  * - chimney smoke and cooling-tower steam from the marks that have them, carried by the wind.
  * Animation is laid at composite time (`anim.ts`): falling tiles moved as patterns, drifting tiles, strips of frames.
@@ -254,13 +255,15 @@ const median = (v: number[]) => {
   return s.length ? s[Math.floor(s.length / 2)] : 0
 }
 
-/** How misty the air is (0–1): a damp air near saturation, or a visibility down to a few km (fog), never in dust. */
-export function mistiness(world: WorldState): number {
-  if (world.air.dust) return 0
+/** How much mist humidity and short visibility would produce before dust suppresses it. */
+function moistureMistiness(world: WorldState): number {
   const damp = smoothstep(84, 99, world.air.humidity ?? 0)
   const fog = smoothstep(10, 1.5, world.air.visibilityKm)
   return Math.max(damp * (0.5 + 0.5 * smoothstep(20, 6, world.air.visibilityKm)), fog)
 }
+
+/** How misty the air is (0–1) after accounting for dust. */
+export const mistiness = (world: WorldState) => moistureMistiness(world) * (1 - world.air.dustWeight)
 
 /** Seeded puffs along a band's top, wrapping round the tile. */
 function puffsOf(seed: string, w: number, top: number, depth: number, n: number): MistPuff[] {
@@ -278,15 +281,17 @@ function puffsOf(seed: string, w: number, top: number, depth: number, n: number)
  * that drifts slowly with the wind at the ground.
  */
 export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] {
-  const m = mistiness(world)
-  if (m < 0.08) return []
+  const moisture = moistureMistiness(world)
+  const clearShare = 1 - world.air.dustWeight
+  if (moisture <= 0.08 || clearShare === 0) return []
+  const m = moisture * clearShare
   const sx = box.width / SCENE_W
   const xs = Array.from({ length: 16 }, (_, i) => (i + 0.5) * (SCENE_W / 16))
   const nearMed = median(xs.map((x) => crestAt(world.terrain.near.points, x)))
   const farMed = world.terrain.far.points.length ? median(xs.map((x) => crestAt(world.terrain.far.points, x))) : nearMed - 20
   const dark = world.night.dark
   const sky = skyAt(world, box)
-  const rgb = mixRgb(mixRgb(sky(3), hazeOf(world), 0.35), WHITE, 0.3 * (1 - dark) * (1 - 0.5 * coinOf(world)))
+  const rgb = mixRgb(mixRgb(sky(3), hazeOf(world), 0.35), WHITE, 0.3 * (1 - dark) * (1 - 0.5 * coinOf(world.air)))
   const period = whole(240, box.dpr)
   const across = world.wind.across
   const speed = (Math.abs(across) > 0.05 ? Math.sign(across) : 1) * (0.5 + 0.55 * world.wind.ms) * sx
@@ -298,13 +303,14 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
       bounds: { x: 0, y: y0, w: period, h: y1 - y0 },
       animated: { mode: 'drift', speed, period },
       key: layerKey(id, landBoxKey(box, true), period, y0, y1),
-      light: lightPart(layerKey(id, 'light', q(band.top, 0.5), q(band.fade, 0.5), q(band.bottom, 0.5), tone(band.rgb), q(band.alpha, 0.02),
+      light: lightPart(layerKey(id, 'light', q(band.top, 0.5), q(band.fade, 0.5), q(band.bottom, 0.5), tone(band.rgb), Math.round(band.alpha * 255),
         band.puffs.length), band.rgb) })
   }
   // The valley's lake of mist: its top a few px over the near crest at first, rising toward the far crest.
   const rise = Math.max(4, nearMed - farMed)
   const top = nearMed - (5 + 0.75 * m * rise)
-  add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: 0.35 + 0.5 * m,
+  const valleyAlpha = (0.35 + 0.5 * m) * clearShare * smoothstep(0.08, 0.2, moisture)
+  add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: valleyAlpha,
     puffs: puffsOf(`${world.place.id}:mist.valley`, period, top - 4, 10, 9) })
   // Ground fog over the near ridge's foot, when the visibility is down to a few km (a damp but clear air keeps to the
   // valleys).
@@ -312,43 +318,53 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
   if (fog > 0.3) {
     const k = Math.min(1, (fog - 0.3) / 0.7)
     const gTop = box.landHeight - (14 + k * (box.landHeight - nearMed) * 0.75)
-    add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: 0.2 + 0.4 * k,
+    const groundAlpha = (0.2 + 0.4 * k) * clearShare * smoothstep(0, 0.25, k)
+    add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: groundAlpha,
       puffs: puffsOf(`${world.place.id}:mist.ground`, period, gTop - 4, 12, 8) })
   }
   return out
 }
 
 /**
- * Dust in the wind (air.dust) or, without dust, the streaks of a gale (≥ 10 m/s): a tile of fine streaks along the wind,
- * drifting fast with it; dust over the land and the low sky, wind streaks in the sky only.
+ * Dust drifts over the land and the low sky. In a gale (≥ 10 m/s) the sky's wind streaks fade as the dust fades in.
+ * Each tile keeps its pattern and drift as its opacity changes.
  */
 export function grainLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'grains'>[] {
-  const dust = world.air.dust
-  const gale = !dust && world.wind.ms >= 10
-  if (!dust && !gale) return []
+  const dustWeight = world.air.dustWeight
+  const galeWeight = world.wind.ms >= 10 ? 1 - dustWeight : 0
+  if (dustWeight === 0 && galeWeight === 0) return []
   const across = world.wind.across
   const dir = Math.abs(across) > 0.05 ? Math.sign(across) : 1
   const sx = box.width / SCENE_W
-  const speed = dir * (dust ? 6 + 4 * world.wind.ms : 25 + 6 * world.wind.ms) * sx
-  const period = whole(dust ? 120 : 260, box.dpr)
   const dark = world.night.dark
-  const rgb = dust ? mixRgb(hazeOf(world), [0.85, 0.72, 0.5], 0.35 * (1 - dark)) : mixRgb(skyAt(world, box)(10), WHITE, 0.5 * (1 - dark))
-  const mark = (id: string, h: number, n: number): FallMark[] => {
-    const r = seeded(hashId(`${world.place.id}:${id}`))
-    return Array.from({ length: n }, () => ({ x: r() * period, y: r() * h, len: dust ? 1 + 3 * r() : 18 + 40 * r(), r: dust ? 0.4 + 0.5 * r() : 0.5,
-      alpha: (dust ? 0.12 + 0.18 * r() : 0.04 + 0.07 * r()) * (1 - 0.6 * dark) }))
-  }
   const out: LayerOf<'grains'>[] = []
-  const skyTop = Math.max(0, Math.floor(geom.horizon - (dust ? 110 : 200)))
-  const skyH = Math.max(1, Math.ceil(gale ? geom.horizon - 10 - skyTop : box.skyHeight - skyTop))
-  out.push({ kind: 'grains', id: 'grains.sky', surface: 'sky', z: 10.5, soft: true, rgb, marks: mark('grains.sky', skyH, dust ? 70 : 12),
-    bounds: { x: 0, y: skyTop, w: period, h: skyH }, animated: { mode: 'drift', speed, period },
-    key: layerKey('grains.sky', dust, skyBoxKey(box, true), period, skyTop, skyH, tone(rgb), q(dark, 0.05)) })
-  if (dust) {
-    out.push({ kind: 'grains', id: 'grains.land', surface: 'land', z: 50, soft: true, rgb, marks: mark('grains.land', box.landHeight, 60),
-      bounds: { x: 0, y: 0, w: period, h: box.landHeight }, animated: { mode: 'drift', speed: speed * 1.4, period },
-      key: layerKey('grains.land', landBoxKey(box, true), period, tone(rgb), q(dark, 0.05)) })
+  const add = (dust: boolean, weight: number) => {
+    if (weight === 0) return
+    const speed = dir * (dust ? 6 + 4 * world.wind.ms : 25 + 6 * world.wind.ms) * sx
+    const period = whole(dust ? 120 : 260, box.dpr)
+    const opacity = weight * (1 - 0.6 * dark)
+    const rgb = dust ? mixRgb(hazeOf(world), [0.85, 0.72, 0.5], 0.35 * (1 - dark))
+      : mixRgb(skyAt(world, box)(10), WHITE, 0.5 * (1 - dark))
+    const marks = (id: string, h: number, n: number): FallMark[] => {
+      const r = seeded(hashId(`${world.place.id}:${id}`))
+      return Array.from({ length: n }, () => ({ x: r() * period, y: r() * h, len: dust ? 1 + 3 * r() : 18 + 40 * r(), r: dust ? 0.4 + 0.5 * r() : 0.5,
+        alpha: (dust ? 0.12 + 0.18 * r() : 0.04 + 0.07 * r()) * opacity }))
+    }
+    const id = dust ? 'grains.sky' : 'grains.gale'
+    const skyTop = Math.max(0, Math.floor(geom.horizon - (dust ? 110 : 200)))
+    const skyH = Math.max(1, Math.ceil((dust ? box.skyHeight : geom.horizon - 10) - skyTop))
+    const toneKey = [tone(rgb), Math.round(opacity * 255)]
+    out.push({ kind: 'grains', id, surface: 'sky', z: 10.5, soft: true, rgb, marks: marks('grains.sky', skyH, dust ? 70 : 12),
+      bounds: { x: 0, y: skyTop, w: period, h: skyH }, animated: { mode: 'drift', speed, period },
+      key: layerKey(id, skyBoxKey(box, true), period, skyTop, skyH, toneKey) })
+    if (dust) {
+      out.push({ kind: 'grains', id: 'grains.land', surface: 'land', z: 50, soft: true, rgb, marks: marks('grains.land', box.landHeight, 60),
+        bounds: { x: 0, y: 0, w: period, h: box.landHeight }, animated: { mode: 'drift', speed: speed * 1.4, period },
+        key: layerKey('grains.land', landBoxKey(box, true), period, toneKey) })
+    }
   }
+  add(false, galeWeight)
+  add(true, dustWeight)
   return out
 }
 

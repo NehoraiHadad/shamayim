@@ -5,6 +5,9 @@ import type { Air, RGB, WorldSources } from './types'
 /** sRGB 0–1 of a `#rrggbb` colour. */
 export const rgbOf = (hex: string): RGB => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as unknown as RGB
 
+/** How much dust and haze flatten the sun into a pale coin. */
+export const coinOf = ({ dustWeight, farFade }: Pick<Air, 'dustWeight' | 'farFade'>) => dustWeight * farFade
+
 /** Koschmieder: the extinction that leaves 2 % contrast at the visibility, per km. */
 const KOSCHMIEDER = 3.912
 
@@ -46,7 +49,6 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
     air: {
       visibilityKm: v,
       humidity: shown.humidity,
-      dust: (shown.dust ?? shown.pm10 ?? 0) >= 50,
       dustWeight: dustShare(shown),
       haze: tint,
       fade: (distanceKm: number) => 1 - Math.exp(-KOSCHMIEDER * Math.max(0, distanceKm) / v),

@@ -1,10 +1,11 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
+import { coinOf } from '../../world/air'
 import { cloudTransmit, MOON_RGB } from '../../world/light'
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { coinOf, coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
+import { coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
 import { mixRgb, rgbOf } from './tone'
 import type { BankDesc, LayerOf, RGB, SceneBox, Veil } from './types'
 
@@ -42,7 +43,7 @@ function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLa
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)
     const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
-    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world)), above, sun: true,
+    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
       under: layer.litUnderside, seen: 1 - veilOf(world) }
   }
   const after = world.light.afterglow

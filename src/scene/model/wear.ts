@@ -155,7 +155,7 @@ export function wearLayers(world: WorldState, garments: readonly string[], paper
   const sx = (u: number) => PAD.x + u * k, sy = (v: number) => PAD.top + v * k
   const wet = wearWet(world)
   const snow = clamp01(world.snowfall?.amount ?? 0)
-  const dust = world.air.dust ? clamp01((12 - world.air.visibilityKm) / 9) : 0
+  const dust = world.air.dustWeight * clamp01((12 - world.air.visibilityKm) / 9)
   const air = wearAir(world, wet)
   const light = wearLight(world)
   const P = rgbOf(paper.sheet), I = rgbOf(paper.ink), M = rgbOf(paper.muted), A = rgbOf(paper.accent)

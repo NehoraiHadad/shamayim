@@ -175,7 +175,7 @@ export interface Air {
   /** Horizontal visibility (km, 1–40), dust folded in. */
   visibilityKm: number
   humidity: number | null
-  dust: boolean
+  /** Coarse dust share (0–1), eased over concentrations of 40–60 µg/m³. */
   dustWeight: number
   /** The colour far planes fade toward. */
   haze: RGB

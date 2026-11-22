@@ -9,7 +9,7 @@ import { datePart } from '../domain/time'
 import type { HourPoint, LocalTime } from '../domain/types'
 import { heightText } from '../text/isolate'
 import { skyLight } from '../theme/skyLight'
-import { airOf } from './air'
+import { airOf, coinOf } from './air'
 import { moonBody, sunBody } from './bodies'
 import { cloudLayers, layerCovers } from './clouds'
 import { farCitiesOf } from './farCities'
@@ -232,7 +232,7 @@ export function makeWorldBuilder() {
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
     const optics = opticsOf({ sun, direct: light.shares.sun, sunLights: light.source === 'sun', covers,
-      rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dustWeight * air.farFade })
+      rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: coinOf(air) })
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,
       visible: sun.visible }, moon }
 

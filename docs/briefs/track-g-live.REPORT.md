@@ -66,3 +66,28 @@ The same tests check exact light continuity at receipt, observation weight halfw
 - `npx oxlint` exited 0 with 12 existing warnings.
 - `npx vitest run src/atmo/airInput.test.ts src/domain/cloudSightings.test.ts src/domain/observedCloud.test.ts src/world/liveLight.test.ts src/world/sceneLight.test.ts src/world/world.test.ts --testTimeout=180000 --silent=false --reporter=default` reported `Test Files 6 passed (6)` and `Tests 71 passed (71)`.
 - The commands used the Node installation’s bundled `npx-cli.js`, as in Round 1.
+
+## Round 3
+
+- The scene uses the required `Air.dustWeight` for coarse dust. The weight is the existing smoothstep from 40 to 60 µg/m³, using measured dust when available and PM10 otherwise. The 50 µg/m³ boolean was removed from world air. `src/world/airParts.ts:64`, `src/world/air.ts:52`, `src/world/types.ts:178`.
+- Mistiness and both mist-band opacities scale with `1 − dustWeight`. The valley fades in over moisture mistiness 0.08–0.20, and ground fog fades in as its strength rises from 0.30 to 0.475. Wear dust keeps its existing short-visibility factor and scales it by `dustWeight`. `src/scene/model/weather.ts:258`, `src/scene/model/weather.ts:312`, `src/scene/model/weather.ts:321`, `src/scene/model/wear.ts:158`.
+- Dust grain opacity scales with `dustWeight`. In a gale, the sky's long wind streaks fade with `1 − dustWeight` on a separate tile. Each tile keeps its seeded positions, counts, sizes, bounds, and drift as the dust weight changes. The grain cache key includes opacity. `src/scene/model/weather.ts:332`.
+- The sky and world optics share `coinOf(air)`, which computes `dustWeight × farFade`. `src/world/air.ts:8`, `src/scene/model/sky.ts:133`, `src/world/world.ts:234`.
+
+### PM10 sweep
+
+The Jerusalem fixture at noon on 2026-11-17 holds humidity at 99%, visibility at 4 km, and wind at 45 km/h. The test sweeps PM10 from 30 to 70 µg/m³ in 1 µg/m³ steps. It compares mistiness and both band opacities, peak mark alpha on each of the three grain tiles, wear dust, and each normalized RGB channel of the sun disc, core, and limb. It also checks that the grain tiles retain the same geometry and drift throughout the sweep. `src/scene/model/dust.test.ts:22`.
+
+| Measurement | Maximum absolute change per step | Bound |
+| --- | ---: | ---: |
+| Mist | 0.07475000 | 0.102 |
+| Grain alpha | 0.02233685 | 0.023 |
+| Wear dust | 0.06644444 | 0.067 |
+| Sun colour | 0.02593236 | 0.030 |
+
+### Test output
+
+- `npx tsc -b` reported `TS5033` on both existing `node_modules/.tmp` build-info files because the sandbox denied writes. Build mode passed with exit 0 and no diagnostics using temporary configs that extend the repo configs and redirect build metadata.
+- `npx oxlint` exited 0 with 12 existing warnings.
+- `npx vitest run src/scene/model/dust.test.ts --testTimeout=180000 --silent=false --reporter=default` reported `Test Files 1 passed (1)` and `Tests 1 passed (1)`.
+- The commands used the Node installation's bundled `npx-cli.js`.
