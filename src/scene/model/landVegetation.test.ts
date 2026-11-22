@@ -95,10 +95,10 @@ describe('Stage 4: vegetation rules, seasonal fields, distance cut & purity', ()
     expect(labOf(summerGrass).a).toBeGreaterThan(labOf(winterGrass).a + 0.03)
     expect(labOf(summerGrass).l).toBeGreaterThan(labOf(winterGrass).l + 0.04)
     expect(labOf(summerGrass).b).toBeGreaterThan(labOf(winterGrass).b)
-    // Observed high-NDVI grass stays greener than dry low-NDVI grass at the same semi-arid dryness.
-    const greenObs = buildVegPalette([0.2, 0.25, 0.18], 0.55, { grassDryness: 0.55, minClimateDry: 0.42, grassNdvi: 0.48 })[TONE.GRASS]
-    const dryObs = buildVegPalette([0.2, 0.25, 0.18], 0.55, { grassDryness: 0.55, minClimateDry: 0.42, grassNdvi: 0.16 })[TONE.GRASS]
-    expect(labOf(greenObs).a).toBeLessThan(labOf(dryObs).a - 0.02)
+    // Sampled high-NDVI grass stays greener than dry low-NDVI grass at the same semi-arid dryness.
+    const greenSample = buildVegPalette([0.2, 0.25, 0.18], 0.55, { grassDryness: 0.55, minClimateDry: 0.42, grassNdvi: 0.48 })[TONE.GRASS]
+    const drySample = buildVegPalette([0.2, 0.25, 0.18], 0.55, { grassDryness: 0.55, minClimateDry: 0.42, grassNdvi: 0.16 })[TONE.GRASS]
+    expect(labOf(greenSample).a).toBeLessThan(labOf(drySample).a - 0.02)
 
     // Generic untagged `orchard` uses a neutral unknown-species motif, distinct from silvery `olive`.
     expect(TREE_KIND_CODE.orchard).not.toBe(TREE_KIND_CODE.olive)

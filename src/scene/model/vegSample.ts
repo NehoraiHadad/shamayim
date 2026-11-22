@@ -74,7 +74,7 @@ export interface VegPaletteOpts {
   grassDryness?: number
   /** Regional wet-season dryness floor from `seasonalDrynessRange` (so semi-arid winter annuals stay green). */
   minClimateDry?: number
-  /** Mean sampled NDVI across grass cells (MOD13Q1 herbaceous senescence: green >= 0.36, straw <= 0.18). */
+  /** Mean world-sampled NDVI across grass cells, including satellite and climatology contributions. */
   grassNdvi?: number
 }
 
@@ -83,8 +83,9 @@ export function buildVegPalette(medianLand: RGB, dryness: number, opts?: VegPale
   const d = clamp(dryness, 0, 1)
   const gDry = clamp(opts?.grassDryness ?? d, 0, 1)
   const minDry = clamp(opts?.minClimateDry ?? 0.14, 0, 1)
-  // Onset tied to the climate's wet floor (capped at 0.52 so unirrigated arid desert stays dry) plus observed NDVI
-  // herbaceous senescence (Huete et al. 2002; Karnieli et al. 2002: active winter annuals >= 0.36, dry straw <= 0.18).
+  // NDVI tracks seasonal greenness (https://doi.org/10.1016/S0034-4257(02)00096-2,
+  // https://doi.org/10.1006/jare.1999.0607). The green-to-straw ramp (0.36 to 0.18), its 55% weight,
+  // and the climate-relative dryness ramp are illustrative settings for mixed pixels.
   const dryFactor = clamp((gDry - Math.min(minDry + 0.08, 0.52)) / 0.38, 0, 1)
   const grassDry = opts?.grassNdvi !== undefined && Number.isFinite(opts.grassNdvi)
     ? clamp(0.55 * clamp((0.36 - opts.grassNdvi) / 0.18, 0, 1) + 0.45 * dryFactor, 0, 1)
