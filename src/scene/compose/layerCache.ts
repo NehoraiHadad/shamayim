@@ -83,11 +83,11 @@ export class LayerCache {
   }
 
   private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number,
-    only?: readonly number[], shade?: Painter['shade']) {
+    only?: readonly number[]) {
     paintPart(ctxOf(canvas), canvas, desc, ratio, rect, paint, phase, this.hand, (w, h) => {
       const scratch = this.factory(w, h)
       return { canvas: scratch, ctx: ctxOf(scratch) }
-    }, only, shade)
+    }, only)
   }
 
   /**
@@ -124,15 +124,13 @@ export class LayerCache {
     }
     const start = this.now()
     const rect = deviceRect(desc, ratio)
-    const { w, h } = canvasSize(desc, rect, 'form')
-    const lightSize = canvasSize(desc, rect, 'light')
+    const { w, h } = canvasSize(desc, rect)
     const strip = frameCount(desc.animated) > 1
     const frame = frameAt(desc.animated, phase)
     const resized = !entry || entry.form.width !== w || entry.form.height !== h
-      || (lightKey !== null && entry.light !== null && (entry.light.width !== lightSize.w || entry.light.height !== lightSize.h))
     if (!entry || resized) {
       const form = this.factory(w, h)
-      const light = lightKey ? this.factory(lightSize.w, lightSize.h) : null
+      const light = lightKey ? this.factory(w, h) : null
       entry = { formKey: '', desc, lightKey: null, ratio, rect, form, light }
       this.entries.set(desc.id, entry)
     }
@@ -149,10 +147,10 @@ export class LayerCache {
       painted = 'form'
     }
     if (lightKey && painter?.light) {
-      entry.light ??= this.factory(lightSize.w, lightSize.h)
+      entry.light ??= this.factory(w, h)
       if (entry.lightKey !== lightKey) {
-        if (strip) ctxOf(entry.light).clearRect(0, 0, lightSize.w, lightSize.h)
-        this.paintOn(entry.light, desc, ratio, entry.rect, painter.light, phase, strip ? [frame] : undefined, painter.shade)
+        if (strip) ctxOf(entry.light).clearRect(0, 0, w, h)
+        this.paintOn(entry.light, desc, ratio, entry.rect, painter.light, phase, strip ? [frame] : undefined)
         entry.lightFrames = strip ? new Set([frame]) : undefined
       }
     }

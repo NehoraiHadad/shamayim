@@ -25,7 +25,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
   function canvasFor(job: PaintJob): WorkerCanvas {
     const name = `${job.id}:${job.part}`
     let canvas = canvases.get(name)
-    const { w, h } = canvasSize(job.desc, job.rect, job.part)
+    const { w, h } = canvasSize(job.desc, job.rect)
     if (!canvas || canvas.width !== w || canvas.height !== h) {
       canvas = createCanvas(w, h)
       canvases.set(name, canvas)
@@ -47,7 +47,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
           paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, (w, h): Scratch => {
             const scratch = createCanvas(w, h)
             return { canvas: scratch as unknown as Scratch['canvas'], ctx: scratch.getContext('2d') as Ctx2D }
-          }, job.frames, job.part === 'light' ? painter?.shade : undefined)
+          }, job.frames)
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }

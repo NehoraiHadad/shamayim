@@ -7,9 +7,8 @@ import { farTownHazeAtTier, farTownTier, TIER_KM } from './farTownHaze'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { againstLight, shineOf, wallShade } from './marks'
 import { nearGroundAlbedo } from './landColour'
-import { FLAT_NORMAL, litLandRgb } from './landRadiance'
+import { albedoLinear, landIrradiance, linearRgbToSrgb, shadeLinearRgb, srgbRgbToLinear } from './landRadiance'
 import { aerialFor } from './landVeil'
-import { mixRgb, rgbOf } from './tone'
 import type { Box, CityBlock, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
 
 /** Draw order on the land surface: over the far plane and its water, under the near ridge. */
@@ -21,7 +20,6 @@ const LAMP: RGB = [1, 0.81, 0.53]
 /** Below this contrast (Koschmieder's 2 % threshold is at the visibility; 5 % a little nearer) a town is lost in the air. */
 const MIN_CONTRAST = 0.05
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const hits = (clear: readonly Box[], x: number, y: number, w: number, h: number) =>
   clear.some((b) => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
 
@@ -91,20 +89,23 @@ function geometryOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Ge
 export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly Box[] = []): LayerOf<'farCities'> | null {
   const far = world.farCities
   if (!far.patches.length && !far.towers.length) return null
-  const { light, night, air } = world
+  const { night, air } = world
   const visibility = air.visibilityKm
   const geometry = geometryOf(world, box, clear)
   const aerial = aerialFor(world)
   const dark = night.dark
-  const day = 1 - dark
   const shade = wallShade(world)
-  const ground = litLandRgb(world, nearGroundAlbedo(world), FLAT_NORMAL, 0, undefined, 1 - shade)
-  const direct = clamp01(light.direct)
-  // Stone in the light of the hour: lit by the light's colour, shade by the sky; toward the night land's dark by night.
-  // C9: against the light (and under a dull sky) the walls the eye sees stand in their own shade, as the place's do
-  // (`wallShade`): the stone lifts them less, the lit face keeps its light.
-  const litOwn = mixRgb(ground, mixRgb(ALBEDO, light.colour, 0.3), day * (0.5 + 0.38 * direct))
-  const shadeOwn = mixRgb(ground, mixRgb(ALBEDO, rgbOf(light.palette.mid), 0.5), day * (0.42 + 0.08 * (1 - direct)) * (1 - 0.55 * shade))
+  const irr = landIrradiance(world)
+  // Limestone & plaster lit by shared irradiance + bounded local ground bounce (<= 0.09, zero soil tint).
+  const gRho = albedoLinear(nearGroundAlbedo(world), 1), gUp = Math.max(0, irr.sunDir.up) * (1 - shade)
+  const eWallSky: [number, number, number] = [
+    irr.eSkyVec[0] + 0.09 * gRho[0] * (irr.eSunVec[0] * gUp + irr.eSkyVec[0]),
+    irr.eSkyVec[1] + 0.09 * gRho[1] * (irr.eSunVec[1] * gUp + irr.eSkyVec[1]),
+    irr.eSkyVec[2] + 0.09 * gRho[2] * (irr.eSunVec[2] * gUp + irr.eSkyVec[2]),
+  ]
+  const stoneLin = srgbRgbToLinear(ALBEDO)
+  const litOwn = linearRgbToSrgb(shadeLinearRgb(stoneLin, irr.eSunVec, irr.eMoonVec, eWallSky, 0.85, 0.7, 0.55, irr.yHorizon))
+  const shadeOwn = linearRgbToSrgb(shadeLinearRgb(stoneLin, irr.eSunVec, irr.eMoonVec, eWallSky, 0.15 * (1 - shade), 0.1, 0.45 * (1 - 0.5 * shade), irr.yHorizon))
   const shown = (km: number) => plainContrast(km, visibility) >= MIN_CONTRAST
   const tiers: CityTier[] = []
   geometry.tiers.forEach((tier, i) => {

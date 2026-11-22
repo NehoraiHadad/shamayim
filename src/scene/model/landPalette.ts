@@ -3,15 +3,12 @@ import { unknownLandRgb } from '../../data/land/climatology'
 import type { LivingLand } from '../../world/landLiving'
 import { linearRgbToSrgb, tciRgbToReflectance } from '../../world/landRadiometry'
 import type { RGB } from '../../world/types'
-import { albedoToFormTone } from './landRadiance'
 import { labOf, rgbOfLab } from './tone'
 
 /**
- * Deterministic Oklab palette quantisation and ray-band albedo sampling (Stages 3 & 7: living land).
- * Albedo-to-form conversion lives in `landRadiance.ts` (`albedoToFormTone`, no narrow lightness squeeze).
+ * Deterministic Oklab palette quantisation and ray-band albedo sampling (Stages 3 & 7 round 2: living land).
+ * Raw BOA sRGB albedos are preserved without lightness squeezing; lighting, compression and chroma live in `landRadiance.ts`.
  */
-
-export { albedoToFormTone }
 
 /** Minimum squared Oklab separation between quantised centroids (~0.018 ΔE). */
 const MIN_CLUSTER_SEP_SQ = 0.018 * 0.018

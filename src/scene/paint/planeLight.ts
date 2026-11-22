@@ -1,17 +1,19 @@
-import type { LayerOf, Pt, Wash } from '../model/types'
+import type { LayerOf, Wash } from '../model/types'
+import { displace, sample, tube } from './core'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
+import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
+import { paintLitSurface } from './planeTexel'
 
 /*
- * Plane light painter (Stage C2 + Living Land Stages 3, 4 & 7):
- * Band 1 (`source-over` after Band 0's `multiply` irradiance pass `planeShade.ts`):
- * linear-equivalent Koschmieder aerial haze veil, lying snow, soft illustrated face washes,
- * crest rims and gully catchlights. When `shadeField` is present, `Surface.composite` masks the
- * combined plane+canopy+Band0+Band1 pass once against `plane:form`'s antialiased silhouette.
+ * Self-contained single-pass lit plane painter (Stages C2, 3, 4 & 7 round 2):
+ * renders exact linear-light `ρ · E -> ^0.6 -> per-sample linear Koschmieder haze -> finishing paper grain`,
+ * then lays lit geological strata, cropland fields, gullies, terraces, orchard rows, single-hazed crest washes,
+ * sunlit crest rims and gully catchlights, masked once by `destination-in` against the antialiased plane outline.
  * Worker-safe; no clock; no `ctx.filter`.
  */
 
-/** The nested bands of a wash: each depth's share of the band and its strength (soft fall-off, no filter). */
 const WASH = [[1, 0.22], [0.78, 0.22], [0.57, 0.22], [0.37, 0.22], [0.18, 0.22]] as const
+
 function paintWashes(ctx: Ctx2D, washes: readonly Wash[]) {
   if (!washes.length) return
   for (const [f, w] of WASH) {
@@ -26,35 +28,46 @@ function paintWashes(ctx: Ctx2D, washes: readonly Wash[]) {
   }
 }
 
-function paintSoft(ctx: Ctx2D, points: Pt[], fill: string, soft: number) {
-  const offsets: [number, number][] = soft > 0
-    ? [[0, 0], [-soft, 0], [soft, 0], [0, -soft / 2], [0, soft / 2], [-soft / 2, -soft / 4], [soft / 2, soft / 4]]
-    : [[0, 0]]
-  ctx.fillStyle = fill
-  for (const [dx, dy] of offsets) {
+function paintGroundMarks(ctx: Ctx2D, desc: LayerOf<'plane'>) {
+  desc.gullies.forEach((gully, i) => {
+    const line = displace(sample(gully.points, false, 5), 1.1, 0.3, 2, desc.grain.seed + i * 13)
+    const n = line.length
+    for (const [from, to, fade] of [[0, 0.45, 1], [0.4, 0.75, 0.65], [0.7, 1, 0.35]] as const) {
+      const piece = line.slice(Math.floor(from * (n - 1)), Math.ceil(to * (n - 1)) + 1)
+      if (piece.length < 2) continue
+      const w0 = gully.w * (1 - from * 0.7), w1 = gully.w * (1 - to * 0.7)
+      for (const [k, a] of [[1, 0.35], [0.45, 1]] as const) {
+        outline(ctx, tube(piece, w0 * k / 2, w1 * k / 2, false))
+        ctx.fillStyle = `rgb(0 0 0 / ${(gully.alpha * a * fade).toFixed(3)})`
+        ctx.fill()
+      }
+    }
+  })
+  if (desc.terraces.length) {
     ctx.beginPath()
-    points.forEach(([x, y], i) => (i ? ctx.lineTo(x + dx, y + dy) : ctx.moveTo(x + dx, y + dy)))
-    ctx.closePath()
-    ctx.fill()
+    for (const run of desc.terraces) run.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + 0.45) : ctx.moveTo(x, y + 0.45)))
+    ctx.strokeStyle = 'rgb(0 0 0 / 0.11)'
+    ctx.lineWidth = 0.55
+    ctx.lineCap = 'round'
+    ctx.stroke()
   }
 }
 
-/** Paints Band 1 of one terrain plane's light pass (`source-over` aerial haze, snow, washes, rims and lift). */
-export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintEnv): void {
-  const light = desc.light
-  const { x, y, w, h } = desc.bounds
+/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`). */
+export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
+  const { light } = desc
+  const { litField } = light
   ctx.save()
 
-  // Soft illustrated face washes (glaze in computed shade/lit radiance) before aerial haze lifts distant air.
-  paintWashes(ctx, light.shade)
-  paintWashes(ctx, light.lit)
-  // Floor cast shadows belong to Band 0 `multiply` when `shadeField` is present; keep fallback for legacy callers.
-  if (!light.shadeField) {
-    for (const face of light.faces) paintSoft(ctx, face.points, css(face.rgb, face.alpha / (face.soft ? 4 : 1)), face.soft ?? 0)
-  }
-
-  // Linear-equivalent Koschmieder aerial haze veil over the lit land form.
-  if (light.veil.length && light.veil.some(([, , a]) => a > 0.002)) {
+  if (litField && desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.grain.amount * env.hand.grain, desc.grain.seed, env)
+    const litVeg = litField.litTones.length ? { ...desc.vegetation, tones: [...litField.litTones] } : desc.vegetation
+    paintVegStrata(ctx, litVeg)
+    paintVegFields(ctx, litVeg)
+    paintGroundMarks(ctx, desc)
+    paintVegRows(ctx, litVeg)
+  } else if (light.veil.length && light.veil.some(([, , a]) => a > 0.002)) {
+    const { x, y, w, h } = desc.bounds
     if (light.veil.length > 1) {
       const g = ctx.createLinearGradient(x, 0, x + w, 0)
       for (const [at, rgb, a] of light.veil) g.addColorStop(Math.min(1, Math.max(0, (at - x) / (w || 1))), css(rgb, a))
@@ -63,22 +76,13 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
     ctx.fillRect(x, y, w, h)
   }
 
-  if (light.snow) {
-    const { edge, rgb, alpha } = light.snow
-    for (const [dy, a] of [[-3, 0.45], [0, 0.35], [2.5, 0.3]] as const) {
-      ctx.beginPath()
-      ctx.moveTo(edge[0][0], y - 20)
-      ctx.lineTo(edge.at(-1)![0], y - 20)
-      for (let i = edge.length - 1; i >= 0; i--) ctx.lineTo(edge[i][0], edge[i][1] + dy)
-      ctx.closePath()
-      ctx.fillStyle = css(rgb, alpha * a)
-      ctx.fill()
-    }
-  }
+  // Single-hazed illustrated crest washes & crisp sunlit rims (never double-hazed).
+  paintWashes(ctx, light.shade)
+  paintWashes(ctx, light.lit)
 
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.lineWidth = 0.7
+  ctx.lineWidth = 0.8
   for (const alpha of [...new Set(light.rims.map((rim) => rim.alpha))]) {
     const rims = light.rims.filter((rim) => rim.alpha === alpha)
     ctx.beginPath()
@@ -94,15 +98,15 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
       const lip = gully.points.slice(0, Math.max(2, Math.ceil(gully.points.length * 0.7)))
       lip.forEach(([px, py], i) => (i ? ctx.lineTo(px + lift.dx * gully.w * 0.6, py) : ctx.moveTo(px + lift.dx * gully.w * 0.6, py)))
     }
-    ctx.strokeStyle = css(lift.rgb, lift.alpha * 0.3)
+    ctx.strokeStyle = css(lift.rgb, lift.alpha * 0.32)
     ctx.lineWidth = 0.45
     ctx.stroke()
   }
-  if (!light.shadeField) {
-    ctx.globalCompositeOperation = 'destination-in'
-    outline(ctx, desc.outline)
-    ctx.fillStyle = '#000'
-    ctx.fill()
-  }
+
+  // Single antialiased silhouette mask (zero fringe halo, zero median bleed).
+  ctx.globalCompositeOperation = 'destination-in'
+  outline(ctx, desc.outline)
+  ctx.fillStyle = '#000'
+  ctx.fill()
   ctx.restore()
 }

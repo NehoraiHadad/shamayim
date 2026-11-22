@@ -5,15 +5,16 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
-import { albedoToFormTone, linearLuminance, litLandRgb, srgbRgbToLinear } from './landRadiance'
+import { linearLuminance, srgbRgbToLinear } from './landRadiance'
+import { planeGeomOf } from './planeGeometry'
 import { labOf, rgbOfLab } from './tone'
 import type { PlanePalette } from './types'
 
 /**
  * Samples `WorldState.land` along each plane's ray columns and visible face profiles into compact, structured-cloneable
- * quantised reflectance-form palettes (`PlanePalette`, Stages 3 & 7). WorldCover open water (`COVER_WATER = 8`) is excluded.
+ * raw BOA sRGB albedo palettes (`PlanePalette`, Stages 3 & 7 round 2). WorldCover open water (`COVER_WATER = 8`) is excluded.
  */
-export { albedoToFormTone, quantiseTones } from './landPalette'
+export { quantiseTones } from './landPalette'
 export type { PlaneName } from './faceProjection'
 
 export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB; medianAlbedo: RGB }
@@ -35,11 +36,12 @@ const dominantSource = (counts: Map<string, number>, fallback: string) => {
   return out
 }
 
-/** Builds and caches the compact quantised reflectance-form `PlanePalette`, form median and raw BOA albedo median. */
+/** Builds and caches the compact quantised raw BOA sRGB `PlanePalette` and median BOA albedo for one plane. */
 export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane, landHeight = SCENE_H): PlaneSurfaceSpec {
   let byPlane = planeCache.get(world.land)
   if (!byPlane) planeCache.set(world.land, byPlane = new Map())
-  const key = `${name}:${world.keys.terrain}:${landHeight}`
+  const geom = planeGeomOf(world, name, plane, landHeight)
+  const key = `${name}:${geom.geomKey}:${landHeight}`
   const cached = byPlane.get(key)
   if (cached) return cached
   const { cols, rows, maxColours } = SPEC[name]
@@ -58,10 +60,9 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
       if (shown) sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
       visible.push(shown)
       rawAlbedos.push(hit.albedo)
-      raw.push(labOf(albedoToFormTone(hit.albedo)))
+      raw.push(labOf(hit.albedo))
     }
   }
-  // Fill hidden far-plane cells from the nearest visible cell in the same row so hidden near ground never uses palette slots.
   if (name === 'far' && visible.some(Boolean)) {
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
       const i = r * cols + c
@@ -79,10 +80,11 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const { palette, indices } = quantiseTones(smoothed, maxColours)
   const fallbackSrc = nonWaterLocalFallback(world.land).source
   const shownAlbedos = rawAlbedos.filter((_, i) => visible[i])
+  const med = roundRgb(medianByLum(shownAlbedos.length ? shownAlbedos : rawAlbedos) ?? nonWaterLocalFallback(world.land).albedo)
   const spec: PlaneSurfaceSpec = {
     palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
-    median: roundRgb(medianByLum(smoothed) ?? palette[0]),
-    medianAlbedo: roundRgb(medianByLum(shownAlbedos.length ? shownAlbedos : rawAlbedos) ?? nonWaterLocalFallback(world.land).albedo),
+    median: med,
+    medianAlbedo: med,
   }
   if (byPlane.size > 12) byPlane.clear()
   byPlane.set(key, spec)
@@ -98,9 +100,4 @@ export function nearGroundAlbedo(world: WorldState): RGB {
   const albedo = roundRgb(medianByLum(albedos))
   ownAlbedoCache.set(world.land, albedo)
   return albedo
-}
-
-/** Physically lit tone of the place's own ground (at zero distance, flat normal, shared `landRadiance` exposure). */
-export function nearGroundTone(world: WorldState): RGB {
-  return litLandRgb(world, nearGroundAlbedo(world))
 }

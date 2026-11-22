@@ -2,14 +2,12 @@
 import type { LivingLand } from '../../world/landLiving'
 import type { RGB } from '../../world/types'
 import { COVER_WATER, roundRgb } from './landPalette'
-import { albedoToFormTone } from './landRadiance'
 import { labOf, mixRgb, rgbOfLab } from './tone'
 
 /**
- * Living-land vegetation cell sampling and light-free reflectance-form palette (Stages 4 & 7: living land).
- * Encodes each vegetation class via `albedoToFormTone` in the exact same light-free reflectance-form space as
- * `planeSurfaceOf`, so `plane:light`'s `multiply` irradiance pass and linear Koschmieder haze light both ground
- * and vegetation under one exposure.
+ * Living-land vegetation cell sampling and raw BOA sRGB vegetation palette (Stages 4 & 7 round 2).
+ * Stores raw physical BOA sRGB albedos anchored to the plane's BOA `medianLand`; `planeLight` lights all 18 entries
+ * through the exact shared `landRadiance` pipeline so canopies, fields and strata agree with the lit ground.
  */
 
 export interface VegSample { cover: number | null; ndvi: number; dryness: number; elevationM: number }
@@ -96,10 +94,10 @@ export function buildVegPalette(medianLand: RGB, dryness: number, opts?: VegPale
   const grassDry = opts?.grassNdvi !== undefined && Number.isFinite(opts.grassNdvi)
     ? clamp(0.55 * clamp((0.36 - opts.grassNdvi) / 0.18, 0, 1) + 0.45 * dryFactor, 0, 1)
     : dryFactor
-  const veg = (albedo: RGB, share = 0.14) => roundRgb(mixRgb(albedoToFormTone(albedo), medianLand, share))
+  const veg = (albedo: RGB, share = 0.14) => roundRgb(mixRgb(albedo, medianLand, share))
   const lab = labOf(medianLand)
-  const strataLight = roundRgb(rgbOfLab({ l: clamp(lab.l + 0.055, 0.28, 0.90), a: lab.a * 1.05, b: lab.b * 1.15 }))
-  const strataDark = roundRgb(rgbOfLab({ l: clamp(lab.l - 0.055, 0.18, 0.80), a: lab.a * 1.10, b: lab.b * 1.05 }))
+  const strataLight = roundRgb(rgbOfLab({ l: clamp(lab.l + 0.055, 0.20, 0.85), a: lab.a * 1.05, b: lab.b * 1.15 }))
+  const strataDark = roundRgb(rgbOfLab({ l: clamp(lab.l - 0.055, 0.12, 0.75), a: lab.a * 1.10, b: lab.b * 1.05 }))
   return [
     veg([0.11, 0.18, 0.12], 0.06),                         // 0: PINE_UNDER (dark woodland understory, ρ ≈ 0.025)
     veg([0.19, 0.29, 0.19], 0.08),                         // 1: PINE_SHADE (shaded pine/oak crown, ρ ≈ 0.055)

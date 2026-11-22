@@ -1,4 +1,4 @@
-import { layerKey } from './keys'
+import { colourKey, layerKey } from './keys'
 import { frondTravel, LAND_GUST, plantWindFade, treeTravel, tuftTravel, type PlantWind } from './landWind'
 import type { Box, LayerOf, PlaneVegetation } from './types'
 import { treeExtent, tuftExtent } from './vegShapes'
@@ -47,13 +47,15 @@ export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: re
   const h = Math.max(1, Math.min(bounds.y + bounds.h, bottom) - y)
   const gust = Math.abs(response.gust) * travel >= MIN_SWAY_PX ? response.gust : 0
   const lean = travel ? response.lean : 0
+  const { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta } = vegetation
+  const tones = plane.light.litField?.litTones.length ? [...plane.light.litField.litTones] : rawTones
+  const toneHash = plane.light.litField?.litTones.length ? tones.map(colourKey) : ''
   const key = layerKey('canopy', plane.key, lean, gust)
-  const { seed, tones, trees, treeMeta, tufts, tuftMeta } = vegetation
   return {
-    kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key,
+    kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key, planeFormKey: plane.key,
     bounds: { x, y, w, h }, outline, vegetation: { seed, tones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust }, lift,
     clear: lean || gust ? clear : [],
     animated: gust ? { mode: 'frames', frames: LAND_GUST } : undefined,
-    light: lift ? { key: layerKey(key, lift), blend: 'source-over', faces: [] } : undefined,
+    light: { key: layerKey(key, toneHash, lift ?? ''), blend: 'source-over', faces: [] },
   }
 }

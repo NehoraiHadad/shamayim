@@ -17,20 +17,13 @@ function mask(ctx: Ctx2D, desc: LayerOf<'canopy'>) {
   ctx.fill()
 }
 
+/** Paints tufts, crowns, and optional sunlit crown lift in one pass (formless light layer), masked to the plane once. */
 export function paintCanopy(ctx: Ctx2D, desc: LayerOf<'canopy'>, env: PaintEnv): void {
   ctx.save()
   const wind = desc.wind.lean || desc.wind.gust ? desc.wind : undefined
   paintVegTufts(ctx, desc.vegetation, wind, env.phase)
   paintVegCrowns(ctx, desc.vegetation, wind, env.phase)
-  mask(ctx, desc)
-  ctx.restore()
-}
-
-export function paintCanopyLight(ctx: Ctx2D, desc: LayerOf<'canopy'>, env: PaintEnv): void {
-  if (!desc.lift) return
-  ctx.save()
-  const wind = desc.wind.lean || desc.wind.gust ? desc.wind : undefined
-  paintVegLight(ctx, desc.vegetation, desc.lift, wind, env.phase)
+  if (desc.lift) paintVegLight(ctx, desc.vegetation, desc.lift, wind, env.phase)
   mask(ctx, desc)
   ctx.restore()
 }

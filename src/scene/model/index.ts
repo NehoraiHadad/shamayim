@@ -72,7 +72,7 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear) ?? [])
   const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
-    ...cloudShadowLayers(world, box).map((shadow) => carriedShadow(shadow, minuteStart(life))),
+    ...cloudShadowLayers(world, box, planes).map((shadow) => carriedShadow(shadow, minuteStart(life))),
     ...landDustLayers(world, box), ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
