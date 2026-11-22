@@ -2633,8 +2633,9 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
    - Twilight estimates diffuse horizontal light with an 8 × 12 cosine-weighted hemisphere quadrature
      of a broad dome, cloud-scattered fill, and a low aerosol forward-scattering lobe. The lobe's
      first azimuthal moment corrects the sky view factor for surface orientation. The broad sky controls exposure.
-     The directional glow contributes to horizon and path chromaticity. The lobe widths and twilight meter
-     gains are illustration approximations fitted jointly to the approved 06:20 and 16:30 exposures.
+     The directional glow contributes to horizon and path chromaticity. Palette chromaticity, the
+     cloud-conditioned lobe weights and the meter gain are one display calibration fitted jointly to the
+     approved 06:20 and 16:30 exposures. The direct beam has its own physical deck transmission.
      [Haber, Magnor and Seidel](https://doi.org/10.1145/1095878.1095884)
    - The separate lunar beam uses a 0.30 lx full-moon reference, the phase and air/height/deck share,
      and a 0.625 lx illustrative night reference. Colour includes the cooler apparent night response.
@@ -2649,13 +2650,21 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      separates overlapping snowy slopes. Paper grain is applied to the result at one CSS pixel.
    - The DEM gives real across and radial m/m slopes, column-relative bearing, and distances. For an
      unmeasured face the model uses an explicit geometric fallback and assumes open light where
-     a terrain blocker cannot be measured. Rims resolve the same local receiver material, visibility,
-     beam transmission, and haze near the crest at finer depth than the body raster.
-   - Deck openness and projected chord depth both use Beer–Lambert `exp(−τ)`. The receiver samples
-     the moving field relative to the deck transmission already in the beam, then shades the stationary
-     material. Up to three bounded poses are painted into receiver-local strips. Reduced motion requests
-     only phase zero. A pose inherits its
-     plane's reveal and cache generation, and each canopy requires the displayed plane's form and light
-     keys. Material samples are cached across scrub and pose changes.
+     a terrain blocker cannot be measured. Starting beyond the 250 m local cell, marches cache
+     the curvature-corrected horizon angle per geometry node and half-degree bearing. Interpolated
+     horizon angles meet the source altitude through a soft 0.53° disc. Rims resolve the same local
+     receiver material, visibility and haze at a finer depth than the body raster.
+   - The Worker paints two stationary receiver endpoints, with full beam and with solar beam removed.
+     The full-beam endpoint can show while the second is in flight. Optical depth adds where projected
+     cloud chords overlap. Local transmission is `min(1, exp(−τ) / deckOpen)`. The compositor moves the
+     footprints on the cloud sheet's minute clock, then interpolates the paired endpoint pixels in
+     premultiplied alpha. The mask uses a plane-average beam-to-ambient ratio, the 0.6 compression and
+     a 2.2 display-transfer approximation. The painted endpoints retain the terrain texture, material
+     colours and per-sample haze.
+   - Plant tones are evaluated once per root and encoded in eight-bit per-plant palettes. Their bytes key
+     canopy paint independently of changes in the plane's irradiance key. The compositor checks that the
+     canopy can pair with the displayed plane generation. The 10 canopy poses at 5 fps use the wind's
+     own clock. The Worker publishes pose zero before filling the strip after the scrub settles. Reduced
+     motion uses pose zero and the unadvected shadow footprints.
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
      moving transmission and out-of-order receiver paint with the browser's Worker.
