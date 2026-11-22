@@ -41,6 +41,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
   const pxPerDeg = world.camera.pxPerDeg * geom.s
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
+  const stretch = sceneStretch(geom, pxPerDeg)
   const placed: (Placed & { km: number; top: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
@@ -50,9 +51,10 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const y = geom.dome(Math.max(0, p.aNear))
     const under = Math.max(0, geom.dome(Math.max(0, p.aFar)) - y)
-    // The dome stretches the sky near the horizon far more than across it: a tower keeps its true aspect (its depth
-    // against its width) at the width's scale, so a far one is a low heap, not a streak to the dome's top altitude.
-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), w * cell.vKm / (2 * cell.r)))
+    // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
+    // tower stands to its top's altitude, but no taller than its true aspect at the scene's stretch, so a far one is a
+    // heap and not a streak, and a near one keeps its height.
+    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), w * stretch * cell.vKm / (2 * cell.r)))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, cell, light, union, x, y, w, under, tall)
     placed.push({ sprite, x, y, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
@@ -72,6 +74,12 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under),
       q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05)])),
   }
+}
+
+/** How much taller than wide the scene draws the sky on average: the dome's px per degree of altitude, horizon to
+ *  zenith, against the panorama's px per degree of azimuth. */
+export function sceneStretch(geom: SkyGeom, pxPerDeg: number): number {
+  return Math.max(1, (geom.dome(0) - geom.dome(90)) / 90 / pxPerDeg)
 }
 
 const GENUS: Partial<Record<FieldCell['genus'], SpriteGenus>> = { cu: 'cu', cg: 'cg', cb: 'cb' }

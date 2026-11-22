@@ -40,15 +40,16 @@ export function densityGrid(field: CloudField, lattice: Lattice, cx: number, cy:
 }
 
 /** Collect drawable cells and build the density grid with one visit to this layer. */
-export function layerSnapshot(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t = field.t) {
+export function layerSnapshot(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t = field.t,
+  extra: readonly FieldCell[] = []) {
   const cells: FieldCell[] = []
-  const densityGrid = rasterize(field, lattice, cx, cy, radiusKm, t, cells)
+  const densityGrid = rasterize(field, lattice, cx, cy, radiusKm, t, cells, extra)
   const layer = field.layers.find(item => item.lattice === lattice)
   return { cells, densityGrid, layer, heightKm: layer ? layer.baseKm + layer.meanVKm / 2 : 0 }
 }
 
 function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t: number,
-  cells?: FieldCell[]) {
+  cells?: FieldCell[], extra: readonly FieldCell[] = []) {
   const layer = field.layers.find(item => item.lattice === lattice)
   if (!layer || !layer.cover || radiusKm < 0) {
     const floor = () => layer?.floorTau ?? 0
@@ -92,6 +93,11 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
       if (draw) cells.push(cell)
       if (sample) grid.add(cell, genus === 'cu' || genus === 'cg' || genus === 'cb')
     })
+  // Cells placed from outside the lattice (the satellite's single clouds, `seenCells`), on the same grid.
+  for (const cell of extra) if ((cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= (radius + cell.r) ** 2) {
+    if (cells && (cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= drawRadiusSquared) cells.push(cell)
+    grid.add(cell, cell.genus === 'cu')
+  }
   const intensity = lambdaOf(layer.cover)
   const amplitude = LATTICES[lattice].amplitude * (1 - (1 - 0.2 / 0.35) * layer.form.strat)
   const clumpScale = -intensity * amplitude

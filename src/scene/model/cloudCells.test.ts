@@ -6,6 +6,7 @@ import { projectCell } from '../../world/field/project'
 import type { WorldInput } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
+import { sceneStretch } from './cloudCells'
 import { cloudLayersOf } from './cloudLayers'
 import { skyGeom } from './sky'
 import type { LayerOf, SceneBox } from './types'
@@ -83,12 +84,14 @@ it('makes no towers without convection', () => {
 
 it('keeps each tower in its true aspect, so a far one is a low heap and not a streak', () => {
   const morning = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, windSpeed: 25, windDirection: 250, humidity: 80 }
-  const { world, towers } = towersAt('jerusalem', '07:00', morning)
+  const { world, geom, towers } = towersAt('jerusalem', '07:00', morning)
+  const stretch = sceneStretch(geom, world.camera.pxPerDeg * geom.s)
+  expect(stretch).toBeLessThan(5)
   const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
   expect(towers?.cells.length).toBeGreaterThan(5)
   for (const { sprite } of towers!.cells) {
     const cell = cells.get(sprite.seed)!
-    expect(sprite.tall / sprite.w).toBeLessThanOrEqual(cell.vKm / (2 * cell.r) + 1e-9)
+    expect(sprite.tall / sprite.w).toBeLessThanOrEqual(stretch * cell.vKm / (2 * cell.r) + 1e-9)
   }
 }, 30_000)
 
@@ -106,3 +109,16 @@ it('spreads an anvil only on the most mature storm cells in view', () => {
     }
   }
 }, 60_000)
+
+it('stands a near storm cell of a real day up to its true top', async () => {
+  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T14:00' as LocalTime))
+  const geom = skyGeom(world, BOX)
+  const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
+  const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
+  const near = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm < 15)
+  expect(near.length).toBeGreaterThan(2)
+  for (const { sprite, y } of near) {
+    const p = projectCell(cells.get(sprite.seed)!)
+    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + 0.25 * (y - geom.dome(p.aTop)))
+  }
+}, 30_000)
