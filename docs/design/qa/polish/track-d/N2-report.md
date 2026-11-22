@@ -196,3 +196,77 @@ All eight requested Vitest files passed individually at low priority. TypeScript
 - The browser harness runs ten unsampled scrub frames before the original 60 measured frames and removes the quantized JavaScript heap-delta report. Browser budgets are unchanged.
 
 Both targeted Vitest files passed individually at low priority (seven tests total). TypeScript build-mode checking, targeted oxlint and the browser harness syntax check passed. The opt-in absolute panorama gates and browser performance run still need cloud verification.
+
+## Round 8 (N3a)
+
+- The sky model emits `cloudSheet.<lattice>` immediately below the corresponding cloud level. Each node inverts the camera and apparent dome projection, intersects the curved-Earth layer at mid-height and reads the existing snapshot’s optical depth. Distant rays use the snapshot’s expected density and fall back to the layer mean beyond its query extent.
+- The texture combines seeded, advected world-space scales with an analytical noise quantile. Fine detail loses weight as its footprint grows. Optical depth and the light transmitted from above set the underside tone. The layer’s finite far edge determines the horizon fade. The old deck and wash fade out as sheet weight rises, and the banks still render.
+- The model reuses per-place and per-lattice scratch buffers and copies the populated arrays into each descriptor so that later frames cannot change older arrays.
+
+The coverage test sampled 72 time/place combinations in world area using fixed synthetic covers. The continuity and grid checks compare Haifa at 12:00 and 12:01 with 10 km/h surface wind.
+
+| Lattice | Target cover | World-area alpha > 0.5 | Max minute-to-minute alpha change | Minimum alpha for raster τ > 2 | Grid at 375 px |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Low | 0.7400 | 0.7660 | 0.07792 | 0.26090 | 48 × 30 |
+| Mid | 0.6300 | 0.6491 | 0.05548 | 0.21905 | 48 × 33 |
+| High | 0.8100 | 0.8228 | 0.00251 | 0.49281 | 48 × 36 |
+
+The coverage and continuity readings meet the fixture tolerances. Projection round trips, decreasing row gaps and descriptor purity passed. The dense-ray assertion failed on all three lattices. The analytical quantile applies to the noise component. The additive optical-depth term introduces the coverage offsets above, so exact coverage for the combined density remains unverified.
+
+The measured Sc grid has 7.98 px horizontal spacing and a maximum vertical gap of 40.06 px. The nearest grid centre is within 20.43 px, using half the cell diagonal. This bounds the sampling distance. A 1 km lump can disappear where its projection is smaller than a texel, so the sampled grid cannot guarantee a displacement bound for every lump. Rows start from a ground-range step and merge or subdivide intervals to keep the screen spacing monotone. This produces unequal final ground-range intervals. The field has no Cc genus, so only Ac uses the fine-cell profile.
+
+TypeScript build-mode checking, targeted oxlint and the tracked diff whitespace check passed. The new panorama performance test is ready for cloud execution. Scene-model increment in ms and the baseline ratio are unmeasured. The existing targeted suites and the panorama benchmark were deferred under the local unit-test-only rule.
+
+## Round 9 (N3b)
+
+The sheet reads vertical optical depth from the snapshot's density grid within its query radius and uses the same snapshot's expected clump density outside it. The curved-Earth path factor divides the in-layer chord by `meanVKm`, the field's layer thickness, and caps the chord at the deck edge. Opacity uses the layer's `kappa` and retains N3a's sheet blend, far-edge fade and sun-facing tone. Smooth seeded value noise follows the wind. Each octave fades with its texel footprint, and a correction over the sampled world area preserves both the mean texture and the integral of vertical optical depth.
+
+N1 calibrates geometric occupancy. The fraction of rays above an opacity threshold also depends on the optical depth inside each footprint, the path angle and the layer extinction. The requested sheet equation applies `kappa` to `tauAt`, which already sums optical depths derived from `kappa × thickness`. The light path integrates each cell's slant intersection with a half-depth convention, includes subcell gaps in Ac and Ci, and samples five rays across the solar disc. These differences leave the sheet and direct light without a universal 0.15 per-node bound. Equal area-integrated optical depth alone does not preserve area-integrated transmission because the exponential is nonlinear.
+
+The 72 fixtures used equal-area world samples at normal incidence for the coverage check. The texture and textured-to-original optical-depth means were 1 to floating-point precision on all lattices, and all sampled texture values were nonnegative.
+
+| Lattice | Target cover | World-area alpha > 0.5 | Rows × cols at 375 px | Max row gap (px) | Max alpha change in one minute | Min alpha for τ > 2 above 20° |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Low | 0.7400 | 0.7436 | 44 × 48 | 11.94 | 1.0000 | 1.0000 |
+| Mid | 0.6300 | 0.6059 | 46 × 48 | 11.92 | 1.0000 | 0.9501 |
+| High | 0.8100 | 0.1134 | 49 × 48 | 11.75 | 0.3416 | No qualifying rays |
+
+The low-cover floor and lit-gap versus shaded-core checks passed. Projection, row compression and descriptor reuse passed. The high lattice failed the coverage tolerance, and all three lattices exceeded the one-minute continuity limit of 0.08. Dense rays passed on the two lattices with qualifying samples. For the same-layer transmission comparison, the test used the normalized cloud term from `light.eye` at a grid-aligned synthetic sun direction near 38°. The maximum observed per-node errors were 0.037 in Jerusalem, 0.148 in Haifa and 0.360 in Tiberias. The Tiberias mid layer exceeded 0.15. Genus-specific texture standard deviations and visual tiling were not measured.
+
+The single targeted panorama timing run exceeded both budgets in all three places.
+
+| Panorama | Baseline ms | Increment ms | Increment / baseline |
+| --- | ---: | ---: | ---: |
+| Jerusalem | 4.16 | 4.32 | 1.037 |
+| Haifa | 4.03 | 4.00 | 0.993 |
+| Tiberias | 4.03 | 4.86 | 1.208 |
+
+TypeScript build-mode checking, targeted Oxlint and the tracked diff whitespace check passed. The sheet painter, cloud cover, sky and scene-model files passed. The sheet model had three failed tests out of six. An initial Vitest substring filter also selected unrelated scene-model files and was stopped. The reported unit run used explicit file paths and one low-priority worker. Full suites and browser verification were deferred.
+
+## Round 10 (N3c)
+
+The sheet reads vertical optical depth from the snapshot's `tauAt` and uses `expectedTauAt` from that same snapshot for the footprint average. The extra κ factor is gone. The ray path uses the snapshot layer's `meanVKm` for thickness. The footprint is the larger of the neighbouring radial gaps and the azimuthal column spacing in km. The blend runs from half to twice the lattice's mean radius. This uses the mean of the clipped site-radius distribution times the layer's occupancy radius multiplier `g`, with the major semi-axis for the elliptical high lattice. Individual cells also shrink with their lifecycle share.
+
+The model blends τ for tone and blends transmission for opacity. The snapshot's expected τ is the Boolean model's negative log mean vertical transmission. At unit path and texture multipliers its exponential gives that mean directly. For multiplier `s = slant × texture > 1`, raising the mean transmission to `s` underestimates the mean of transmission to the power `s` by Jensen's inequality, so the expected branch can be too opaque. For `0 < s < 1`, the bias reverses. The raster interpolation between point and expected transmission also avoids the extra opacity of exponentiating the interpolated τ.
+
+| Lattice | Target cover | World-area textured τ > floor + 0.05 | Mean radius (km) | Max Δα below radius | p99 / max Δα at or above radius | Min dense α |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Low | 0.7400 | 0.7427 | 0.7876 | 1.0000 | 0.01729 / 0.02121 | 0.7246 |
+| Mid | 0.6300 | 0.6086 | 2.7604 | 0.9835 | 0.00204 / 0.44414 | 0.2436 |
+| High | 0.8100 | 0.8125 | 26.0685 | 0.5058 | 0.00000149 / 0.00000183 | No qualifying rays |
+
+Coverage used 72 equal-area fixtures and passed ±0.05 on every lattice. The texture and textured-to-original area-integrated depth ratios were 1 to floating-point precision. The clear ray and lit-gap checks passed. The Haifa 12:00–12:01 comparison passed the 0.15 p99 gate at or above the mean radius. All three lattices failed the 0.08 maximum gate below it, and the mid dense-ray minimum failed 0.70.
+
+For a cell with peak depth τ₀ and radius R along the motion axis, the radial kernel slopes are bounded by 2τ₀/R for cumuliform cells and 4τ₀/R for stratiform cells. With fixed texture, path and fade, the stratiform translation bound on Δα is at most `mix × path × (1 − exp(−4 m texture τ₀ Δx/R))`, with the exponent capped at the peak slant depth. At 10 km/h, Δx = 1/6 km per minute. At full mix and path, the slope bound can certify 0.08 only if `m × texture × τ₀ ≤ 0.1251 R` for stratiform cells. For the mean low radius this requires peak textured slant depth ≤ 0.099. As a concrete check, a stratiform cell of that radius and unit peak slant depth yields Δα ≈ 0.459 when its edge moves 1/6 km directly across a point sampled at the edge. The footprint blend is zero below half a mean radius, so the requested formula permits that change in the fine rows. This translation calculation also excludes lifecycle changes and changes in texture. A universal 0.08 pointwise gate is incompatible with those allowed edge crossings.
+
+The same-layer light comparison uses the snapshot ray integrator that supplies the cloud term in `light.eye`. It samples one aligned node per lattice, so the nearest-rank p95 equals the maximum. The per-node limit is 0.20. The light integrator intersects individual cells with its half-depth convention and accounts for Ac/Ci subcell gaps. For instance, Tiberias mid yields sheet transmission near zero and integrated beam transmission near 0.360 with the prescribed full-depth sheet formula.
+
+| Panorama | Light error max / p95 | Scene-model increment (ms) | Increment / baseline |
+| --- | ---: | ---: | ---: |
+| Jerusalem | 0.24487 / 0.24487 | Cloud run pending | Cloud run pending |
+| Haifa | 0.11967 / 0.11967 | Cloud run pending | Cloud run pending |
+| Tiberias | 0.36004 / 0.36004 | Cloud run pending | Cloud run pending |
+
+The sheet skips zero-blend lattices, samples texture only where depth is above the floor or footprint blending is active, drops texture octaves finer than the footprint, reuses seeded noise caches across frames, and hoists direction, lighting, and snapshot sampler work out of the node loops. No local profiling or panorama performance run was performed under the cloud-only benchmark rule. The grid retains the 12 px row cap and 48 columns in the 375 px fixture pending a measured comparison to the 1.5 ms and 0.25 budgets.
+
+TypeScript build-mode checking (no emit), targeted Oxlint and the tracked diff whitespace check passed. The sky and scene-model files passed all 72 tests. They started in separate one-worker, low-priority invocations, but overlapped when the sky command returned a running session. The sheet model passed three of six tests. There is no `clouds.test.ts` in this tree. The panorama benchmark and visual review remain pending.

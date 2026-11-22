@@ -72,7 +72,8 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   if (!sky) return []
   const geom = skyGeom(world, box)
   const field = starsLayer(world, box, geom)
-  const clouds = cloudLayersOf(world, box, geom)
+  const cloudLayers = cloudLayersOf(world, box, geom)
+  const clouds = cloudLayers.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const shimmer = shimmerLayerOf(world, box, geom)
   // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,
   // the aircraft and their contrails, the rainbow and the halo, all from the world's life, night sky and optics.
@@ -83,7 +84,7 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const rainbow = rainbowLayer(world, box, geom)
   const halo = haloLayer(world, box, geom)
   return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
-    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
+    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...cloudLayers, ...flashLayersOf(world, box, clouds, geom),
     ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, life),
     ...lowPlaneLayers(world, box, geom, life), ...birdLayers(world, box, geom, life)]
 }

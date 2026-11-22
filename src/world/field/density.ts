@@ -49,7 +49,8 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   cells?: FieldCell[]) {
   const layer = field.layers.find(item => item.lattice === lattice)
   if (!layer || !layer.cover || radiusKm < 0) {
-    return { tauAt: () => layer?.floorTau ?? 0, cellAt: () => undefined, rayDepthAt: () => 0, rayCells: () => new Set<FieldCell>(), rayRange: 0, meanRayDepth: () => 0 }
+    const floor = () => layer?.floorTau ?? 0
+    return { tauAt: floor, expectedTauAt: floor, queryRadius: radiusKm, cellAt: () => undefined, rayDepthAt: () => 0, rayCells: () => new Set<FieldCell>(), rayRange: 0, meanRayDepth: () => 0 }
   }
   const dt = t - field.t
   const { d: [dx, dy], vel } = (dt && layer.motionAt ? layer.motionAt(t) : layer)
@@ -104,6 +105,8 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
     return scale * (floor / 2 + (fade ? fade * localIntensity(x, y) * (beamExtinction ?? extinction / 2) : 0))
   }
   return {
+    queryRadius: radiusKm,
+    expectedTauAt: (x: number, y: number) => floor + extinction * localIntensity(x, y),
     rayDepthAt(x: number, y: number, low: number, high: number, ds: number, patches: Map<FieldCell, number>) {
       const distanceSquared = (x - cx) ** 2 + (y - cy) ** 2
       const fade = distanceSquared >= expectedFromSquared ? 1

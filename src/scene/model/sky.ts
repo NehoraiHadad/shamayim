@@ -1,5 +1,5 @@
 //# allFunctionsCalledOnLoad
-import { xOf } from '../../domain/camera'
+import { azimuthAt, xOf } from '../../domain/camera'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
@@ -41,6 +41,8 @@ export interface SkyGeom {
   y: (altitude: number) => number
   /** y of a cloud at an altitude: the relief low down, the dome spread over the sky above. */
   dome: (altitude: number) => number
+  azimuthAt: (x: number) => number
+  domeAltitudeAt: (y: number) => number
 }
 
 /** Up to this altitude (deg) clouds stand on the relief; above it the dome is spread over the sky above. */
@@ -60,9 +62,23 @@ export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
   return {
     s, left, width, horizon: y(0), period, azimuthRange: { min: left + (box.width - span) / 2, period: span },
     x: (azimuth) => left + xOf(azimuth, world.camera) * s,
+    azimuthAt: (x) => azimuthAt((x - left) / box.width, world.camera),
     y,
     dome: (altitude) => altitude <= DOME_ALT ? y(altitude)
       : yDome - (yDome - top) * ((Math.min(90, altitude) - DOME_ALT) / (90 - DOME_ALT)) ** 0.85,
+    domeAltitudeAt: (px) => {
+      if (px <= top) return 90
+      if (px < yDome) return DOME_ALT + (90 - DOME_ALT) * ((yDome - px) / (yDome - top)) ** (1 / 0.85)
+      if (px === y(0)) return 0
+      // The relief is monotone and combines sine and tanh, so invert it numerically.
+      let low = -90, high = DOME_ALT
+      for (let i = 0; i < 46; i++) {
+        const mid = (low + high) / 2
+        if (y(mid) > px) low = mid
+        else high = mid
+      }
+      return (low + high) / 2
+    },
   }
 }
 
