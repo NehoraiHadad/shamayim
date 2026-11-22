@@ -40,8 +40,6 @@ export function makeWorldBuilder() {
     const status = landStatusOf(input.terrain)
     const terrain = status === 'ready' ? input.terrain : UNKNOWN[status]
     const at = selected ?? now
-    const preview = selected !== null
-    const isNow = at === now
     const camera = terrain.camera ?? SCENE_CAMERA
     const width = input.width ?? SCENE_W
     const seed = hashId(place.id)
@@ -74,7 +72,7 @@ export function makeWorldBuilder() {
     const raining = rainingLayer(given, cloudRate)
     const covers = raining.covers
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
-      sunAltitude: sun.altitude, wind, raining: raining.level, seen: isNow ? input.seenClouds ?? [] : [] })
+      sunAltitude: sun.altitude, wind, raining: raining.level, seen: shown.seenClouds })
     const fieldWeather = 'humidity' in forced ? { ...shown, mist: { ...shown.mist, humidityWeight: Number(shown.humidity !== null) } } : shown
     const cloudField = m.fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, fieldWeather, sun.altitude,
       { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg },
@@ -84,7 +82,7 @@ export function makeWorldBuilder() {
     const eyeM = grid?.eyeM ?? terrain.eyeM ?? forecast.elevation + 2
     const groundAboveEyeKm = (eastKm: number, northKm: number) =>
       ((grid?.heightAt(eastKm, northKm) ?? forecast.elevation) - eyeM) / 1000
-    const rain = rainFrom(cloudField, rate, wind, shown.fieldWeather, isNow ? shown.thunderWeight : 0, groundAboveEyeKm)
+    const rain = rainFrom(cloudField, rate, wind, shown.fieldWeather, shown.live ? shown.thunderWeight : 0, groundAboveEyeKm)
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
       wet: Math.min(1, rate / 0.8), pm10: shown.opticalPm10, air })
@@ -121,7 +119,7 @@ export function makeWorldBuilder() {
       clearance: sun.clearance, visible: sun.visible }, moon }
 
     return {
-      place, at, preview, seed, camera,
+      place, at, preview: shown.preview, seed, camera,
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => terrainY(horizonY, altitude) },
       bodies, light, air, clouds, cloudField, rain, snow, snowfall, wind,
       terrain: planes, flightTerrain: grid, water: { ...water, coastalSea: placePartResult.coastalSea },

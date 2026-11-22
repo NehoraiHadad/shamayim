@@ -14,7 +14,6 @@ import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
 import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
-import { sightingsNow } from './domain/cloudSightings'
 import { entryHeadline, rainIsNear } from './domain/rainVerdict'
 import { composeSummary } from './text/compose'
 import { wearTip } from './text/wear'
@@ -23,7 +22,7 @@ import { sheetVars, useSheetPaper } from './theme/sheetLight'
 import { skyLight, skyLightVars } from './theme/skyLight'
 import { DARK_SHEET, SKY_THEMES, themeVars } from './theme/skyThemes'
 import { Attribution } from './ui/Attribution'
-import { forcedSightings, forcedTheme, forcedWeather } from './ui/devParams'
+import { forcedTheme, forcedWeather } from './ui/devParams'
 import { Hero } from './ui/Hero'
 import { HourlyStrip } from './ui/hourly/HourlyStrip'
 import { describeHour } from './ui/hourly/stripLayout'
@@ -41,6 +40,7 @@ import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
 import { useSceneTime } from './ui/scrub/useSceneTime'
+import { useSceneSightings } from './ui/scrub/useSceneSightings'
 import { withVisibleSun } from './world/visibleSun'
 import { useNow } from './ui/useNow'
 import { useThemeChrome } from './ui/useThemeChrome'
@@ -82,20 +82,14 @@ export default function App() {
   const sceneTime = useSceneTime(now)
   const selected = sceneTime.at
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
-  // Single clouds the satellite sees near the place: only for "now", on a mostly clear sky (see `cloudSightings.ts`).
   const weather = useMemo(() => {
     if (!timeline) return null
     const forced = forcedWeather()
     const options = { arrivalMs, observedCloud }
     return airInput(timeline, now, place, selected, forced, options)
   }, [timeline, now, place, selected, arrivalMs, observedCloud])
-  const seenClouds = useMemo(() => {
-    const pinned = forcedSightings()
-    if (pinned) return pinned.map((s) => ({ ...s, strength: 1 }))
-    return (selected && selected !== now) || !weather ? [] : sightingsNow(observedCloud, now, weather.cloudCover, arrivalMs)
-  }, [selected, weather, observedCloud, now, arrivalMs])
-  const shown = useMemo(() => weather ? { ...weather, cloudsSeen: selected && selected !== now ? 0 : seenClouds.length } : null,
-    [weather, selected, now, seenClouds])
+  const { seenClouds, cloudsSeen } = useSceneSightings(weather, observedCloud, now, arrivalMs)
+  const shown = useMemo(() => weather ? { ...weather, cloudsSeen } : null, [weather, cloudsSeen])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
   const worldInput = useMemo(() => (timeline ? { place, forecast: timeline, now, selected, arrivalMs, observedCloud, terrain,

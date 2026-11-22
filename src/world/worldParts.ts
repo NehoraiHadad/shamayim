@@ -30,8 +30,9 @@ export const hourKey = (at: LocalTime) => `${at.slice(0, 13)}:00`
 /** The same timeline as App, with the satellite's single clouds and the dev overrides. */
 export function shownAir(input: Pick<WorldInput, 'forecast' | 'now' | 'place' | 'selected' | 'seenClouds' | 'forced' | 'arrivalMs' | 'observedCloud'>) {
   const { forecast, now, place, selected } = input
-  return { ...airInput(forecast, now, place, selected, input.forced, input),
-    cloudsSeen: selected && selected !== now ? 0 : input.seenClouds?.length ?? 0 }
+  const weather = airInput(forecast, now, place, selected, input.forced, input)
+  const seenClouds = weather.live ? input.seenClouds ?? [] : []
+  return { ...weather, seenClouds, cloudsSeen: seenClouds.length }
 }
 
 const liquidPrecipitation = (hour: HourPoint) => isSnowHour(hour) ? 0 : hour.precipitation

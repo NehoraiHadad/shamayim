@@ -40,17 +40,19 @@ function correctedWeather(weather: Weather, cover: number): Weather {
 
 /** Sample live or scrub weather at the viewed minute and evaluate arrivals at the app's current minute. */
 export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, selected: LocalTime | null,
-  forced?: Partial<AirInput> | null, { arrivalMs, observedCloud }: AirTimeline = {}): AirInput & Weather {
+  forced?: Partial<AirInput> | null, { arrivalMs, observedCloud }: AirTimeline = {}): AirInput & Weather & { live: boolean } {
+  const live = selected === null
   const at = selected ?? now
+  const sampleAtNow = at === now
   const instant = utcOf(at, site.timezone)
-  const nowInstant = at === now ? instant : utcOf(now, site.timezone)
+  const nowInstant = sampleAtNow ? instant : utcOf(now, site.timezone)
   const nowMs = arrivalMs ?? nowInstant.getTime()
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
   const sample = (minute: LocalTime, ms: number) =>
     blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone, forced), mixWeather)
   const weather = sample(at, instant.getTime())
   const cover = observedCloud
-    ? correctCloudCover(observedCloud, now, at, nowMs, (at === now ? weather : sample(now, nowInstant.getTime())).cloudCover,
+    ? correctCloudCover(observedCloud, now, at, nowMs, (sampleAtNow ? weather : sample(now, nowInstant.getTime())).cloudCover,
       weather.cloudCover)
     : weather.cloudCover
   const shown = {
@@ -58,8 +60,9 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
     date: datePart(at),
     localHour: Number(at.slice(11, 13)) + Number(at.slice(14, 16)) / 60,
     sunElevation: Math.max(-18, sunPosition(instant, site.lat, site.lon).altitude),
-    preview: selected !== null,
     ...forced,
+    live,
+    preview: !live,
   }
   if (forced && ('dust' in forced || 'pm10' in forced)) shown.dustConcentration = shown.dust ?? shown.pm10 ?? 0
   if (forced && 'pm10' in forced) shown.opticalPm10 = shown.pm10 ?? 0
