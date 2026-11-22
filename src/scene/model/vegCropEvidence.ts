@@ -67,7 +67,7 @@ export function probeCellCropEvidence(
     const hitSample = sampleVegAtKm(world.land, (sxPos / SCENE_W) * nRays, hitFace.km)
     if (hitSample.cover !== 1 && hitSample.cover !== 4) continue
     const hit = evidenceAt(sxPos, hitFace.km)
-    if (hit) return { evidence: hit, x: sxPos, km: hitFace.km, slope: hitFace.slope, cover: hitSample.cover }
+    if (hit) return { evidence: hit, x: sxPos, km: hitFace.km, slope: hitFace.slope, sample: hitSample }
   }
   return undefined
 }

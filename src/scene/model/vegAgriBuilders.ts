@@ -1,7 +1,7 @@
 import { clipSpans } from './vegClipping'
 import { cropFieldState, distanceFade, FIELD_FULL_M_PER_PX, FIELD_MAX_M_PER_PX, FIELD_STATE_CODE } from './vegRules'
 import { TONE } from './vegSample'
-import { CAPS, type BuildEnv, type VegBuffers } from './vegBuilders'
+import { CAPS, type BackgroundWeight, type BuildEnv, type VegBuffers } from './vegBuilders'
 import type { AreaLimit, Footprint } from './vegFootprint'
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -16,9 +16,9 @@ const FIELD_PAD = 1
 
 export function addFieldParcel(
   buf: VegBuffers, env: BuildEnv, rand: () => number, refX: number, yTop: number, yBot: number, halfW: number,
-  mPerPx: number, ndvi: number, dryness: number, weight = 1, cover = 4, mapped?: AreaLimit,
+  mPerPx: number, ndvi: number, dryness: number, cover = 4, mapped?: AreaLimit, weight?: BackgroundWeight,
 ): void {
-  const fade = distanceFade(mPerPx, FIELD_FULL_M_PER_PX, FIELD_MAX_M_PER_PX) * weight
+  const fade = distanceFade(mPerPx, FIELD_FULL_M_PER_PX, FIELD_MAX_M_PER_PX)
   const y0 = Math.max(env.crestAt(refX) + 1.5, yTop), y1 = Math.min(env.footAt(refX) - 0.4, yBot)
   if (fade <= 0.002 || y1 - y0 < 2.5 || buf.fields.length / 9 >= CAPS.fields) return
 
@@ -42,16 +42,19 @@ export function addFieldParcel(
       return clamp(centre + width * side * scale, 1, 374)
     }
     const corners = (a: number, b: number) => [edgeAt(a, -1), edgeAt(a, 1), edgeAt(b, 1), edgeAt(b, -1)] as const
+    const envelope = (a: number, b: number, [l0, r0, r1, l1]: ReturnType<typeof corners>): Footprint =>
+      [Math.min(l0, l1) - FIELD_PAD / env.sx, a - FIELD_PAD, Math.max(r0, r1) + FIELD_PAD / env.sx, b + FIELD_PAD]
     const fits = (a: number, b: number) => {
-      const [l0, r0, r1, l1] = corners(a, b)
-      const area: Footprint = [Math.min(l0, l1) - FIELD_PAD / env.sx, a - FIELD_PAD,
-        Math.max(r0, r1) + FIELD_PAD / env.sx, b + FIELD_PAD]
-      return r1 - l1 >= 2.5 && env.fits(area, coverOk, mapped)
+      const edges = corners(a, b)
+      return edges[2] - edges[3] >= 2.5 && env.fits(envelope(a, b, edges), coverOk, mapped)
     }
     const emit = (a: number, b: number) => {
       if (buf.fields.length / 9 >= CAPS.fields) return
-      const [l0, r0, r1, l1] = corners(a, b).map((x) => x * env.sx)
-      buf.fields.push(l0, a, r0, a, r1, b, l1, b, alpha)
+      const edges = corners(a, b)
+      const localAlpha = alpha * (weight?.(envelope(a, b, edges)) ?? 1)
+      if (localAlpha <= 0.002) return
+      const [l0, r0, r1, l1] = edges.map((x) => x * env.sx)
+      buf.fields.push(l0, a, r0, a, r1, b, l1, b, localAlpha)
       buf.fieldMeta.push(FIELD_STATE_CODE[state], tone)
     }
     return { fits, emit }

@@ -10,7 +10,6 @@ import { treeExtent, tuftExtent } from './vegShapes'
 
 /**
  * Natural vegetation & bare-strata geometry builders (Stage 4: woodland clusters, scrub/grass tufts, strata).
- * Agricultural builders (`addFieldParcel`, `addOrchardBlock`) live in `vegAgriBuilders.ts`.
  * Every feature checks projected cover compatibility & clear zones and obeys a < 10 KB total byte ceiling.
  */
 
@@ -28,6 +27,9 @@ export interface BuildEnv {
   fits: (area: Footprint, accepts: CoverCheck, mapped?: AreaLimit) => boolean
 }
 
+/** Scale coarse vegetation only where its own footprint belongs to a mapped crop. */
+export type BackgroundWeight = (area: Footprint) => number
+
 /**
  * Hard per-buffer caps whose simultaneous worst-case sum stays strictly under 10,000 bytes AND never starves
  * across the 12×3 near grid (36 cells × 6 trees = 216; 36 × 1 field = 36; 36 × 3 tufts = 108):
@@ -40,10 +42,10 @@ const isShrubCover = (c: number | null, src: number | null) => c === 2 || c === 
 /** Clustered multi-tier pine/oak woodland crowns (WorldCover 10), projected from metres, thinning with NDVI & distance. */
 export function addForestCluster(
   buf: VegBuffers, env: BuildEnv, rand: () => number, refX: number, y: number, colW: number, cellH: number,
-  mPerPx: number, density: number, weight = 1, mapped?: AreaLimit,
+  mPerPx: number, density: number, weight?: BackgroundWeight,
 ): void {
   const fade = distanceFade(mPerPx, TREE_FULL_M_PER_PX, TREE_MAX_M_PER_PX)
-  if (fade * weight <= 0.02 || buf.trees.length / 6 >= CAPS.trees) return
+  if (fade <= 0.02 || buf.trees.length / 6 >= CAPS.trees) return
   if (density < 0.45 && rand() > 0.30 + 1.55 * density) return
   // Foreground crowns (~16 m) aggregate into merged woodland crown domes (~38 m) on mid slopes (KKL-JNF / FAO forestry).
   const domeM = 16 + 0.56 * mPerPx
@@ -52,7 +54,7 @@ export function addForestCluster(
   const groves = count >= 9 ? 4 : count >= 6 ? 3 : 2
   const groveOffX = Array.from({ length: groves }, (_, g) => (g - (groves - 1) / 2) * colW * (0.68 / groves) + (rand() - 0.5) * colW * 0.16)
   const groveOffY = Array.from({ length: groves }, (_, g) => (g % 2 === 0 ? -0.24 : 0.24) * cellH + (rand() - 0.5) * cellH * 0.26)
-  const alphaByte = Math.round(clamp(fade * weight * (0.88 + 0.12 * density), 0, 1) * 255)
+  const alpha = fade * (0.88 + 0.12 * density)
   for (let i = 0; i < count && buf.trees.length / 6 < CAPS.trees; i++) {
     const g = i % groves, rank = Math.floor(i / groves)
     // Emergent anchor + overlapping mid-canopy + smaller edge saplings so wooded slopes read as varied, cohesive groves.
@@ -66,12 +68,16 @@ export function addForestCluster(
     const shade = 0.15 + 0.75 * rand(), hMul = 2.0 + 0.7 * rand(), phase = rand() * Math.PI * 2
     let r = fullR
     if (rx < 1 || rx > 374 || ry < env.crestAt(rx) + 1.2 + r * 0.25 || ry > env.footAt(rx) - 0.5) continue
-    if (!env.fits(treeExtent(rx, ry, r, r * hMul, phase, TREE_KIND_CODE.pine, env.sx), (c) => c === 1, mapped)) {
+    let area = treeExtent(rx, ry, r, r * hMul, phase, TREE_KIND_CODE.pine, env.sx)
+    if (!env.fits(area, (c) => c === 1)) {
       r = Math.max(0.90, fullR * 0.62)
-      if (!env.fits(treeExtent(rx, ry, r, r * hMul, phase, TREE_KIND_CODE.pine, env.sx), (c) => c === 1, mapped)) continue
+      area = treeExtent(rx, ry, r, r * hMul, phase, TREE_KIND_CODE.pine, env.sx)
+      if (!env.fits(area, (c) => c === 1)) continue
     }
+    const localWeight = weight?.(area) ?? 1
+    if (fade * localWeight <= 0.02) continue
     buf.trees.push(rx * env.sx, ry, r, r * hMul, phase, shade)
-    buf.treeMeta.push(TREE_KIND_CODE.pine, shade > 0.52 ? TONE.PINE_SHADE : TONE.PINE_MID, alphaByte)
+    buf.treeMeta.push(TREE_KIND_CODE.pine, shade > 0.52 ? TONE.PINE_SHADE : TONE.PINE_MID, Math.round(alpha * localWeight * 255))
   }
 }
 

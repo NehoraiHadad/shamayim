@@ -9,7 +9,7 @@ import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { groundBlocker, groundClearKey } from './groundClear'
 import { addFieldParcel } from './vegAgriBuilders'
-import { addForestCluster, addScrubOrGrass, addStrataBand, type BuildEnv } from './vegBuilders'
+import { addForestCluster, addScrubOrGrass, addStrataBand, type BackgroundWeight, type BuildEnv } from './vegBuilders'
 import { cropEvidence, cropEvidenceKey, probeCellCropEvidence } from './vegCropEvidence'
 import { EMPTY_VEGETATION, packVegetation, vegBuffers } from './vegDescriptor'
 import { projectedFootprints } from './vegFootprint'
@@ -74,6 +74,7 @@ export function planeVegetationOf(
   }
   const buf = vegBuffers()
   const cols = name === 'near' ? 12 : 10, colW = SCENE_W / cols
+  const climate = { koppen, lat: world.place.lat, lon: world.place.lon }
   let drySum = 0, dryN = 0, elevSum = 0, grassDrySum = 0, grassNdviSum = 0, grassN = 0
 
   for (let c = 0; c < cols; c++) {
@@ -95,34 +96,40 @@ export function planeVegetationOf(
       if (cell.cover === 3) { grassDrySum += cell.dryness; grassNdviSum += cell.ndvi; grassN++ }
 
       const mPerPx = scaleAtKm(km)
-      let evX = refX, evKm = km, evSlope = slope, evCover = cell.cover
-      let evidence = cell.cover === 1 || cell.cover === 4 ? evidenceAt(refX, km) : undefined
-      if (!evidence) {
-        const sub = probeCellCropEvidence(world, name, plane, evidenceAt, crestAt, footAt, refX, colW, yTop, yBot, nRays)
-        if (sub) { evidence = sub.evidence; evX = sub.x; evKm = sub.km; evSlope = sub.slope; evCover = sub.cover }
-      }
-      const res = classifyVegCell({
-        cover: evidence ? evCover : cell.cover, ndvi: cell.ndvi, dryness: cell.dryness, koppen,
-        lat: world.place.lat, lon: world.place.lon, elevationM: cell.elevationM,
-        mappedCrop: evidence?.kind,
-      })
-
-      const cellH = Math.max(4, yBot - yTop)
-      const evMPerPx = evidence ? scaleAtKm(evKm) : mPerPx
-      const weight = res.orchard ? 1 - orchardDetail(evMPerPx) : 1
-      if (res.veg === 'crop' || (res.orchard && cell.cover === 4)) {
-        addFieldParcel(buf, env, rand, refX, yTop, yBot, colW * 0.58, mPerPx, cell.ndvi, cell.dryness,
-          weight, cell.cover!, cell.cover === 1 ? evidence?.contains : undefined)
-      }
-      if (res.veg === 'forest' || (res.orchard && cell.cover === 1)) {
-        addForestCluster(buf, env, rand, refX, yMid, colW, cellH, mPerPx, res.density, weight)
-      }
-      if (res.orchard && evidence) {
+      const evidence = cell.cover === 1 || cell.cover === 4 ? evidenceAt(refX, km) : undefined
+      const crop = evidence ? { evidence, sample: cell, x: refX, km, slope }
+        : probeCellCropEvidence(world, name, plane, evidenceAt, crestAt, footAt, refX, colW, yTop, yBot, nRays)
+      let weight: BackgroundWeight | undefined
+      if (crop) {
+        const { kind, contains } = crop.evidence
+        const detailScale = scaleAtKm(crop.km)
+        const detail = classifyVegCell({ ...crop.sample, ...climate, mappedCrop: kind })
         const detailRand = seeded(cellSeed(seed ^ 0x9e3779b9, c, r))
-        addOrchardBlock(buf, env, detailRand, evX, yTop, yBot, colW * 0.94, evMPerPx, res.orchard, res.density, evidence.contains, evSlope)
+        const before = buf.rows.length + buf.trees.length + buf.fields.length
+        if (detail.orchard) {
+          addOrchardBlock(buf, env, detailRand, crop.x, yTop, yBot, colW * 0.94, detailScale,
+            detail.orchard, detail.density, contains, crop.slope)
+        } else if (kind === 'vineyard' && crop.sample.cover === 1) {
+          addFieldParcel(buf, env, detailRand, crop.x, yTop, yBot, colW * 0.58, detailScale,
+            crop.sample.ndvi, crop.sample.dryness, 1, contains)
+        }
+        if (buf.rows.length + buf.trees.length + buf.fields.length > before) {
+          const fade = kind === 'vineyard' ? 1 : orchardDetail(detailScale)
+          weight = (area) => footprintsOf()(area, () => true, contains) ? 1 - fade : 1
+        }
       }
-      else if (res.veg === 'shrub' || res.veg === 'grass') addScrubOrGrass(buf, env, rand, refX, yMid, colW, cellH, mPerPx, res.veg === 'grass', cell.cover, res.density)
-      else if (res.veg === 'bare' && rand() < 0.72) addStrataBand(buf, env, rand, refX, yMid, colW * (1.3 + 1.0 * rand()), mPerPx)
+      // Classify the background independently. Only footprints inside a rendered crop crossfade.
+      const res = classifyVegCell({ ...cell, ...climate })
+      const cellH = Math.max(4, yBot - yTop)
+      if (res.veg === 'crop') {
+        addFieldParcel(buf, env, rand, refX, yTop, yBot, colW * 0.58, mPerPx, cell.ndvi, cell.dryness, 4, undefined, weight)
+      } else if (res.veg === 'forest') {
+        addForestCluster(buf, env, rand, refX, yMid, colW, cellH, mPerPx, res.density, weight)
+      } else if (res.veg === 'shrub' || res.veg === 'grass') {
+        addScrubOrGrass(buf, env, rand, refX, yMid, colW, cellH, mPerPx, res.veg === 'grass', cell.cover, res.density)
+      } else if (res.veg === 'bare' && rand() < 0.72) {
+        addStrataBand(buf, env, rand, refX, yMid, colW * (1.3 + 1.0 * rand()), mPerPx)
+      }
     }
   }
 
