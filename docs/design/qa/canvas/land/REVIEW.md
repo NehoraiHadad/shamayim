@@ -835,6 +835,41 @@ The isolated timing gate passed 1/1 with 7.50 ms paired overhead. The median was
 
 **Browser performance.** The first `npm run test:perf` attempt hit a navigation during Haifa's animation check. The retry completed all three scenes and the App fixture. It exceeded eight timing gates on this Windows host: `modelCold` and `scrub.model` in all three scenes, and land arrival in Haifa and Tel Aviv. The App fixture passed with the expected missing-tile fallback, six unique fine tiles, zero duplicates and land and plane form reused in all 30 scrub steps.
 
+### **Review (Claude Opus, round 6)**
+
+- `src/scene/model/vegCropCold.test.ts:31` · minor · The Nahalal timing gate only runs when `SCENE_CHECK_NAHALAL_COLD=1` is set, so neither the default Vitest suite, CI nor `npm run test:perf` enforces it. It is not flaky: three isolated runs here gave paired overheads of 4.88, 4.99 and 5.83 ms. But the 12 ms budget at `:51` is more than twice the measured overhead. It would catch a return to the round-4 level (16 to 18 ms) but not a doubling of today's cost. The always-on descriptor checksum is the useful part. · In a later stage, add the gate to an npm perf script that is actually run, and state the budget relative to the bare build (for example, crop overhead at most 3× the build with `cropAreas: []`).
+- `src/scene/model/landVegetation.ts:87` · minor · The cold `sceneModel` cost at Nahalal is still about 3× the pre-vegetation base, though it is no longer dominated by crops. The crop path is now about 5 ms. The rest is the general vegetation cost that Tel Aviv and Jerusalem also pay. Unthrottled Nahalal is 15.6 ms, above the 10 ms `modelCold` budget, which this host already misses at every place. · Carry it into the app-wide performance work, for example by building vegetation in the Worker or after first paint. This is not a Stage 4 blocker.
+- `src/data/land/fineCover.ts:13` · nit · On the dev-server fixture: the 5 s `LOCAL_ASSET_TIMEOUT_MS` predates the base (`57ea07c`), and Stage 4 does not change the fine-tile fetch path. Stage 4 does add a crop-area load at startup, which may add enough contention under Vite dev to tip slow tiles past the deadline. · Have the fixture report timeout aborts as their own cause, so that a deadline miss is not read as a duplicate-request or fallback bug.
+
+**Round 5 answers checked.**
+
+1. **Crop-dense cold build cost (`8ddd457`): resolved.** I read the culling for generality and for conservatism.
+   - **No place-specific code.** The culling uses only bearing and distance geometry and the polygons' outer-ring bounding boxes.
+   - **Column buckets.** A bucket covers `baseRefX ± (0.11 + 0.40)·colW`, clamped to the screen. That matches the ±0.11 cell jitter plus the widest sub-probe offset, and `probeX`'s [1, W − 1] clamp keeps every probe inside it. The bucket's sector runs from 0 to `maxKm`. `maxKm` takes the maximum of every crest distance, every DEM face-point distance, the 0.35 km fallback floor and `crestKmAt`'s empty-plane value of 2. That bounds every `faceAtY` result, whether measured, held or from the fallback ramp. With `lo = 0`, `testSector` places the inner edge behind the eye, so the near field is covered. A polygon is kept when its outer-ring box overlaps any quad box, which is a necessary condition for any point in the sector to lie in it. When the sector does not fit the local chart (`geodesicPad` returns undefined), every polygon is kept. Bearings are linear in screen x, so there is no north wrap. `nearby.find` keeps the input order, so the precedence of overlapping crop polygons is unchanged.
+   - **Probe pre-filter.** Every sub-probe y lies in `[yTop, max(yBot, crestHi + 1)]`, and `cropDepth` bounds that range on every strip it touches, including both strips at a seam. The `mPerPx(lo)` early exit is safe because `mPerPxAt` is linear in distance. Moving the cover check after the evidence lookup does not change the result, because both are required and neither has side effects.
+   - **`allowsEdges`.** If a footprint's sector is inside the polygon, its clamped left and right edge rays have points inside the outer ring's box. Each such point's geodesic distance `d` is at most `reach + planePad`, so the pad from `geodesicPad(min(maxKm, reach + planePad))` is a valid bound. The slab test pads the box on both axes, which covers a Euclidean pad. The edge bearings match the slice edges that `fits` tests: the first strip starts at `max(x0, 0)` and the last ends at `min(x1, W)`.
+   - **Containment cache.** The memo is keyed on the exact `(left, right, lo, hi)` and lives only for one build.
+   - **Depth fast path.** `vegFootprintDepth.ts` adds a fast path for regular profiles. I re-derived it: below the first knot under `crestHi`, the walk in `measuredFaceAt` does not depend on the crest. `regularKm`'s binary search picks the same segment as the linear walk, including the hold below the last knot.
+
+   **Output and timing.** I built every still and scene place on four dates (Feb 15 12:00, May 15 09:00, Aug 15 17:00 and Nov 15 12:00), for 88 vegetation descriptors. All 88 SHA-256 hashes are identical at `820b142` and at `HEAD`, and the checksum in `vegCropCold.test.ts` passes. Cold `sceneModel` times are medians of 20 runs after 5 warm-ups, in Node, unthrottled, at DPR 2.75, with a fresh world builder for each run and offline fixtures only:
+
+   | Place | `cf49303` (ms) | `820b142` (ms) | `HEAD` (ms) |
+   |---|---|---|---|
+   | Nahalal | 4.95 | 26.45 | 15.55 |
+   | Rosh Pina | 4.61 | 11.26 | 7.95 |
+   | Haifa | 8.06 | 9.47 | 10.73 |
+   | Tel Aviv | 6.13 | 8.86 | 8.00 |
+   | Jerusalem | 5.91 | 10.13 | 10.02 |
+   | Shadmot Mehola | 3.89 | 6.08 | 6.09 |
+
+   Crop-sparse places are unchanged within noise. The isolated paired crop overhead at Nahalal is about 5 ms, down from 16 to 18 ms, which meets the "a few milliseconds" target.
+2. **Dev-server fixture failures: resolved as pre-existing.** The explanation holds. The 5 s local-asset deadline is older than `cf49303`, and Stage 4 changes no tile-fetch code. Under a deadline miss, a duplicate fine-tile refetch and a fallback to regional cover or `climatology` are exactly what the abort-and-refetch path produces. Codex reproduced the failure at `cf49303` by holding the tiles past 5 s, and the branch passes under ordinary delivery. I did not rerun the browser fixture myself.
+3. **Crossfade nit declined: accepted.** It degrades gracefully, and changing it would change the illustrated output.
+
+**Checks.** `npx tsc -b` passed. The focused Vitest run (`src/scene/model/veg*` and `landVeg*`, `--testTimeout=20000 --maxWorkers=2`) passed 25 tests in 7 files. The timings and hashes came from a temporary Vitest file run in throwaway worktrees at `cf49303` and `820b142` and in this tree, offline, and the file was removed afterwards. All touched modules are at or under 150 lines (`landVegetation.ts` has 150). The diff adds no clock to the model or painters, no `ctx.filter` and no unseeded randomness.
+
+**Verdict:** approved. Leftover minors for the next stage: the opt-in, loose Nahalal gate, and the residual cold vegetation cost at Nahalal.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
