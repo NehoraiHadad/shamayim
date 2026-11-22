@@ -9,7 +9,8 @@ import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import { mPerPxAt } from '../model/vegRules'
 import { buildVegPalette } from '../model/vegSample'
 import type { Ctx2D } from './hand'
-import { paintVegFields, paintVegRows, paintVegStrata, paintVegTufts } from './landVegetation'
+import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
+import { paintVegTufts } from './landVegTufts'
 
 const tones = buildVegPalette([0.2, 0.25, 0.18], 0.3)
 

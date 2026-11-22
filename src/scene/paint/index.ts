@@ -3,6 +3,8 @@ import type { Ctx2D, PaintEnv } from './hand'
 import { paintBodies, paintStars } from './bodies'
 import { paintClouds, paintFlash, paintShimmer } from './clouds'
 import { paintCloudShadow } from './cloudShadows'
+import { paintCanopy, paintCanopyLight } from './canopy'
+import { paintLandDust } from './landDust'
 import { paintFarCities } from './farCities'
 import { paintLoading } from './loading'
 import { paintMarks } from './marks'
@@ -44,6 +46,7 @@ export const PAINTERS: Painters = {
   flash: { form: paintFlash },
   shimmer: { form: paintShimmer },
   plane: { form: paintPlane, light: paintPlaneLight },
+  canopy: { form: paintCanopy, light: paintCanopyLight },
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },
   marks: { form: paintNothing, light: paintMarks, formless: () => true },
@@ -52,6 +55,7 @@ export const PAINTERS: Painters = {
   fall: { form: paintFall },
   mist: { form: paintNothing, light: paintMist, formless: () => true },
   grains: { form: paintGrains },
+  landDust: { form: paintLandDust },
   rays: { form: paintRays },
   smoke: { form: paintNothing, light: paintSmoke, formless: () => true },
   sheen: { form: paintNothing, light: paintSheen, formless: () => true },

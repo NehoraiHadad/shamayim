@@ -3,13 +3,14 @@ import { displace, sample, tube } from './core'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
 import { paintLandSurface } from './landSurface'
 import { paintVegCrowns } from './landVegCrowns'
-import { paintVegFields, paintVegRows, paintVegStrata, paintVegTufts } from './landVegetation'
+import { paintVegTufts } from './landVegTufts'
+import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
 
 /*
  * A terrain plane's light-free form in the enriched hand (Stage C2 + Living Land Stages 3 & 4).
  * ORDER: quantised albedo patches + mottle/grain (`landSurface.ts`) -> bare-desert geological strata ->
- * cropland field patchwork -> gullies & stone terraces -> converging orchard rows -> scrub & grass tufts ->
- * back-to-front tree & orchard crowns -> ONE single `destination-in` antialiased outline mask (matching
+ * cropland field patchwork -> gullies & stone terraces -> converging orchard rows ->
+ * one `destination-in` antialiased outline mask (matching
  * `paintPlaneLight` with exact single coverage and zero median bleed). Worker-safe; no clock; no `ctx.filter`.
  */
 
@@ -55,10 +56,12 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
     ctx.stroke()
   }
 
-  // Living-land vegetation: converging orchard alleys, scrub/grass tufts, and back-to-front tree & palm crowns.
+  // Ground-aligned orchard alleys stay with the static form. Scene canopies are composited over it.
   paintVegRows(ctx, desc.vegetation)
-  paintVegTufts(ctx, desc.vegetation)
-  paintVegCrowns(ctx, desc.vegetation)
+  if (!desc.canopyId) {
+    paintVegTufts(ctx, desc.vegetation)
+    paintVegCrowns(ctx, desc.vegetation)
+  }
 
   // Single application of `ctx.fill()`'s exact antialiased outline coverage so surface, fields and slope-edge
   // vegetation never thicken the silhouette or leak outside `paintPlaneLight`'s mask.

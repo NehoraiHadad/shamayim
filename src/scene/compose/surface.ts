@@ -3,6 +3,7 @@ import type { LayerDesc } from '../model/types'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
 import type { SceneStats } from './stats'
+import { compositeOrder } from './compositeOrder'
 
 export interface SurfaceOptions extends CacheOptions {
   /**
@@ -36,6 +37,7 @@ export class Surface {
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
   private shown: { layers: readonly LayerDesc[]; anim: string } | null = null
+  private order: { layers: readonly LayerDesc[]; passes: ReturnType<typeof compositeOrder> } | null = null
 
   readonly canvas: LayerCanvas
 
@@ -125,9 +127,11 @@ export class Surface {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
     const d = this.dpr
     const cache = this.active
-    for (const desc of [...layers].sort((a, b) => a.z - b.z)) {
+    if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
+    for (const { desc, part } of this.order.passes) {
+      if (part === 'light' && !desc.light) continue
       // A strip's frame is painted when it is first laid (the main thread's cache; the worker paints whole strips).
-      if (cache instanceof LayerCache && desc.animated?.frames) cache.ensureFrame(desc, phase)
+      if (part !== 'light' && cache instanceof LayerCache && desc.animated?.frames) cache.ensureFrame(desc, motion)
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const { form, light, ratio, rect } = cached
@@ -196,15 +200,17 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
-      if (desc.blend) ctx.globalCompositeOperation = desc.blend
-      if (form && !cache.formless(desc)) draw(form)
-      if (desc.blend) ctx.globalCompositeOperation = 'source-over'
-      if (light && desc.light) {
+      if (part !== 'light' && form && !cache.formless(desc)) {
+        if (desc.blend) ctx.globalCompositeOperation = desc.blend
+        draw(form)
+        if (desc.blend) ctx.globalCompositeOperation = 'source-over'
+      }
+      if (part !== 'form' && light && desc.light) {
         ctx.globalCompositeOperation = desc.light.blend
         draw(light)
         ctx.globalCompositeOperation = 'source-over'
       }
-      if (this.stats?.trackShown) {
+      if (part !== 'light' && this.stats?.trackShown) {
         const fresh = cache.fresh(desc, d)
         const existing = this.stats.shown[desc.id]
         if (fresh) {

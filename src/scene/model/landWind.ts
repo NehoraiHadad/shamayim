@@ -1,0 +1,54 @@
+import type { Wind } from '../../world/types'
+import { ease, gustAt } from './anim'
+
+// NOAA's land Beaufort scale: calm below 0.3 m/s, small trees sway at B5,
+// whole trees move at B7 (13.9–17.1 m/s). The square approximates drag at
+// modest speeds. Cap the illustrated mean bend at the upper end of B7.
+// https://www.weather.gov/tbw/beaufort
+const CALM_MS = 0.3
+const FULL_BEND_MS = 17.1
+const load = (ms: number) => (ms / FULL_BEND_MS) ** 2
+
+/** One short gust/lull cycle, sampled by the compositor's existing frame-strip path. */
+export const LAND_GUST = { count: 10, fps: 5 } as const
+const GUST_SECONDS = LAND_GUST.count / LAND_GUST.fps
+
+export interface PlantWind {
+  /** Signed mean and gust load, positive towards screen right, exactly like Wind.across. */
+  lean: number
+  gust: number
+}
+
+/** Quantise the response to 1/64 of full bend, below a tenth px on typical crowns. */
+const step = (v: number) => Math.sign(v) * Math.round(Math.abs(v) * 64) / 64 || 0
+export function plantWindOf({ across, ms, gustMs }: Pick<Wind, 'across' | 'ms' | 'gustMs'>): PlantWind {
+  if (ms < CALM_MS) return { lean: 0, gust: 0 }
+  return {
+    lean: step(across * Math.min(1, load(ms))),
+    // Forecast gust excess supplies the incremental drag. Keep a little travel
+    // above the mean's cap, including in a gale. Identical mean/gust gives no sway.
+    gust: step(across * 0.55 * Math.min(1, load(Math.max(ms, gustMs)) - load(ms))),
+  }
+}
+
+/** Stage 4 visibility already fades with m/px. Quiet the last fifth as silhouettes merge into the surface. */
+export const plantWindFade = (visibility: number) => ease((visibility - 0.20) / 0.80)
+
+/** Scene-pixel tip travel. Frame 0 (also reduced motion) is the mean-wind pose. */
+export function plantWindAt(wind: PlantWind, seconds: number, seedPhase: number): number {
+  if (!wind.gust || !seconds) return wind.lean
+  const t = seconds / GUST_SECONDS
+  // A common gust envelope, with local branch lag of up to ±0.16 s.
+  const delay = (seedPhase / (2 * Math.PI) - 0.5) * 0.16
+  const pulse = gustAt(t + delay) * (0.5 - 0.5 * Math.cos(2 * Math.PI * t))
+  // A lull never bends a crown into the wind.
+  const bend = wind.lean + wind.gust * pulse
+  return wind.lean < 0 || wind.gust < 0 ? Math.min(0, bend) : Math.max(0, bend)
+}
+
+/** Artist-tuned tip travel as a share of drawn height (trees) or radius (fronds/tufts).
+ * Stiff woodland and palm trunks give a little, orchard branches give more, blades and fronds stream.
+ */
+export const treeTravel = (kind: number, height: number) => height * (kind === 3 ? 0.055 : kind === 0 ? 0.095 : 0.18)
+export const frondTravel = (r: number) => r * 0.70
+export const tuftTravel = (kind: number, r: number) => r * (kind === 1 ? 1.10 : 0.32)

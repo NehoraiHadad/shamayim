@@ -58,8 +58,8 @@ export interface PlanePalette {
 
 /**
  * Compact, structured-cloneable vegetation descriptor for one terrain plane (Stage 4: living land).
- * Built on the FORM layer (keyed by `world.keys.land`, independent of hour/light/wind).
- * Typed arrays keep Worker transfer tiny while storing per-tree `(height, phase)` ready for Stage 5 wind sway.
+ * Built with the plane form (keyed by `world.keys.land`, independent of hour/light/wind).
+ * Typed arrays keep Worker transfer small and carry each tree's height and seeded gust phase offset.
  */
 export interface PlaneVegetation {
   /** Coordinate-derived seed for deterministic painterly detail (never from place names). */

@@ -73,20 +73,22 @@ const EMPTY_U8 = new Uint8Array(0)
  * so scrub frames never clone palettes, terraces, field quads, orchard rows or desert strata unnecessarily.
  */
 export function lightJobDesc(desc: LayerDesc): LayerDesc {
-  if (desc.kind !== 'plane') return desc
-  const hasLift = desc.light.lift !== null
+  if (desc.kind !== 'plane' && desc.kind !== 'canopy') return desc
+  const hasLift = desc.kind === 'canopy' ? desc.lift !== null : !desc.canopyId && desc.light.lift !== null
   const veg = desc.vegetation
   return {
     ...desc,
-    surfaceTone: { palette: [], cols: 0, rows: 0, cells: [], source: '' },
-    terraces: [],
-    gullies: hasLift ? desc.gullies : [],
+    ...(desc.kind === 'plane' ? {
+      surfaceTone: { palette: [], cols: 0, rows: 0, cells: [], source: '' },
+      terraces: [],
+      gullies: desc.light.lift ? desc.gullies : [],
+    } : {}),
     vegetation: {
       ...veg,
       trees: hasLift ? veg.trees : EMPTY_F32,
       treeMeta: hasLift ? veg.treeMeta : EMPTY_U8,
       tufts: hasLift ? veg.tufts : EMPTY_F32,
-      tuftMeta: EMPTY_U8,
+      tuftMeta: desc.kind === 'canopy' ? veg.tuftMeta : EMPTY_U8,
       fields: EMPTY_F32, fieldMeta: EMPTY_U8,
       rows: EMPTY_F32, rowMeta: EMPTY_U8,
       strata: EMPTY_F32, strataMeta: EMPTY_U8,

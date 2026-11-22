@@ -1,6 +1,9 @@
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
+import { canopyOf } from './canopy'
+import { plantWindOf } from './landWind'
+import { landDustLayers } from './landDust'
 import { layoutOf } from './layout'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
@@ -57,9 +60,12 @@ function knownModel(world: WorldState, box: SceneBox): SceneModel {
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
-  const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
+  const planes = planeLayers(world, box, layout.clear)
+  const wind = plantWindOf(world.wind)
+  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear) ?? [])
+  const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []), ...cloudShadowLayers(world, box),
-    ...weatherLayers(world, box, clouds, layout.clear)]
+    ...landDustLayers(world, box), ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }

@@ -1,6 +1,7 @@
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
+import type { PlantWind } from './landWind'
 import type {
   Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
 } from './typesLand'
@@ -438,7 +439,8 @@ export type LayerDesc =
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight }
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: PlaneVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[] }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
@@ -459,6 +461,7 @@ export type LayerDesc =
   | LayerBase & { kind: 'mist'; bands: MistBandDesc[] }
   /** Dust in the wind, or wind streaks: a tile of fine streaks drifting across. */
   | LayerBase & { kind: 'grains'; marks: FallMark[]; rgb: RGB }
+  | LayerBase & { kind: 'landDust'; puffs: MistPuff[]; rgb: RGB }
   /** Crepuscular rays from a low sun behind broken cloud: lit and shadowed wedges from `x`, `y`, fading over `reach`. */
   | LayerBase & { kind: 'rays'; x: number; y: number; reach: number; rays: Ray[]; rgb: RGB; shade: RGB
     /** C9: `fan` (beams and shadows fading along their length) or `corona` (fine glare round the disc, brightest near it). */

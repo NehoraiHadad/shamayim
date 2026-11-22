@@ -1,7 +1,9 @@
 import type { PlaneVegetation, RGB } from '../model/types'
-import { palmBend, PALM_CROWN_HEIGHT, PALM_FROND_LENGTH } from '../model/vegShapes'
+import { frondTravel, plantWindAt, plantWindFade, type PlantWind } from '../model/landWind'
+import { PALM_FROND_LENGTH } from '../model/vegShapes'
 import { TONE } from '../model/vegSample'
 import { css, mix, type Ctx2D } from './hand'
+import { treeBend, treeCrownAnchor } from './landVegPose'
 
 /*
  * Illustrated tree & orchard crown painter (Stage 4: living land, anidoodle enriched hand).
@@ -14,21 +16,6 @@ import { css, mix, type Ctx2D } from './hand'
  */
 
 const BLACK_SHADE: RGB = [0.04, 0.06, 0.04]
-
-export interface CrownAnchor { cx: number; cy: number; rx: number; ry: number }
-
-/** Shared crown centre & radii used identically by `paintVegCrowns` (form) and `paintPlaneLight` (sun catchlight). */
-export function treeCrownAnchor(x: number, y: number, r: number, height: number, phase: number, kind: number): CrownAnchor {
-  if (kind === 3) {
-    return { cx: x + palmBend(r, phase), cy: y - height * PALM_CROWN_HEIGHT, rx: r * 1.05, ry: r * 0.62 }
-  }
-  // Vary woodland (kind 0) silhouette aspect subtly within `treeExtent` (conifer domes alongside broader oaks).
-  const rx = kind === 0 ? r * (1.02 + 0.14 * Math.sin(phase * 1.3))
-    : kind === 1 ? r * 1.18 : kind === 2 ? r * 0.98 : r * 1.06
-  const ry = kind === 0 ? r * (0.84 + 0.08 * Math.cos(phase * 1.7))
-    : kind === 1 ? r * 0.78 : kind === 2 ? r * 0.92 : r * 0.86
-  return { cx: x, cy: y - ry * 0.55, rx, ry }
-}
 
 /** Organic 3-to-4-lobe rounded crown silhouette (never a single stamped circle). */
 function traceCrownLobes(ctx: Ctx2D, cx: number, cy: number, rx: number, ry: number, phase: number, lobes: number): void {
@@ -48,9 +35,9 @@ function traceCrownLobes(ctx: Ctx2D, cx: number, cy: number, rx: number, ry: num
 
 /** Draws one date palm in landscape scale: curved trunk + arching fronds + crown knot, weighted by distance fade `alpha`. */
 function paintPalm(
-  ctx: Ctx2D, x: number, y: number, r: number, height: number, phase: number, alpha: number, frondRgb: RGB, trunkRgb: RGB,
+  ctx: Ctx2D, x: number, y: number, r: number, height: number, phase: number, alpha: number, frondRgb: RGB, trunkRgb: RGB, wind: PlantWind | undefined, time: number,
 ): void {
-  const anchor = treeCrownAnchor(x, y, r, height, phase, 3)
+  const anchor = treeCrownAnchor(x, y, r, height, phase, 3, treeBend(3, height, alpha, phase, wind, time))
   const bend = anchor.cx - x, topX = anchor.cx, topY = anchor.cy
   ctx.beginPath()
   ctx.ellipse(x + r * 0.18, y + 0.25, r * 0.72, Math.max(0.32, r * 0.25), 0, 0, Math.PI * 2)
@@ -65,6 +52,7 @@ function paintPalm(
   ctx.lineCap = 'round'
   ctx.stroke()
 
+  const frondBend = wind ? frondTravel(r) * plantWindFade(alpha) * plantWindAt(wind, time, phase) : 0
   const count = r >= 1.3 ? 6 : 4
   const shadeRgb = mix(frondRgb, BLACK_SHADE, 0.32)
   const capRgb = mix(frondRgb, [0.54, 0.62, 0.38], 0.42)
@@ -77,7 +65,7 @@ function paintPalm(
     const rise = r * (0.48 + 0.68 * slot), droop = r * (0.82 - 1.12 * slot)
     ctx.beginPath()
     ctx.moveTo(topX, topY)
-    ctx.quadraticCurveTo(topX + side * len * 0.52, topY - rise, topX + side * len, topY + droop)
+    ctx.quadraticCurveTo(topX + side * len * 0.52 + frondBend * 0.35, topY - rise, topX + side * len + frondBend, topY + droop)
     ctx.strokeStyle = css(slot < 0.35 ? shadeRgb : slot > 0.72 ? capRgb : frondRgb, 0.94 * alpha)
     ctx.lineWidth = Math.max(0.55, r * (0.38 - 0.08 * slot))
     ctx.stroke()
@@ -88,8 +76,8 @@ function paintPalm(
   ctx.fill()
 }
 
-/** Paints all tree and orchard crowns back-to-front on the plane's FORM canvas, fading cleanly with distance. */
-export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation): void {
+/** Tree and orchard crown form, back-to-front, fading with distance. */
+export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation, wind?: PlantWind, time = 0): void {
   const { trees, treeMeta, tones } = veg
   const count = trees.length / 6
   if (!count || !tones.length) return
@@ -124,8 +112,9 @@ export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation): void {
     const kind = treeMeta[i * 3], toneIdx = treeMeta[i * 3 + 1]
     const baseRgb = tones[toneIdx] ?? tones[0]
 
-    if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, trunkRgb); continue }
-    const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind)
+    if (kind === 3) { paintPalm(ctx, x, y, r, height, phase, alpha, baseRgb, trunkRgb, wind, time); continue }
+    const bend = treeBend(kind, height, alpha, phase, wind, time)
+    const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind, bend)
     const lobes = kind === 0 ? (shade > 0.55 ? 5 : 4) : 3
 
     ctx.beginPath()

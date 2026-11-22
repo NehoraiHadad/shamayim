@@ -3,7 +3,8 @@ import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerOf, PlaneVegetation } from '../model/types'
 import { buildVegPalette, TONE } from '../model/vegSample'
 import { HAND, type Ctx2D } from './hand'
-import { paintVegCrowns, treeCrownAnchor } from './landVegCrowns'
+import { paintVegCrowns } from './landVegCrowns'
+import { treeCrownAnchor } from './landVegPose'
 import { paintPlaneLight } from './planeLight'
 
 const env = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: {} as Ctx2D }) }
