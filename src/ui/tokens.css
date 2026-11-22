@@ -7,6 +7,8 @@
   --space-5: 24px;
   --space-6: 32px;
   --gutter: 20px;
+  --page-pad: 16px;
+  --bleed: calc(-1 * var(--page-pad));
 
   --font-digits: 'Karantina', 'Assistant', sans-serif;
   --font-serif: 'Frank Ruhl Libre', serif;
@@ -19,7 +21,7 @@
   --text-lg: 1.125rem;
   --text-md: 0.9375rem;
   --text-sm: 0.8125rem;
-  --text-xs: 0.6875rem;
+  --text-caption: 0.75rem; /* 12 px: the smallest text the app sets */
 
   --radius-sheet: 28px;
   --radius-well: 16px;
@@ -40,12 +42,21 @@
   --sheet-rain: #17607A; /* rain % on the light papers */
   --sheet-curve: #C98A1E; /* temperature line on paper (a mark, not text) */
   --sheet-sun: #8A5A00; /* sunrise/sunset times on paper */
+  --on-accent: #1C1A17;
+  --warn: #8A2A12;
+  --ok: #2E8B57;
+  --mid: #C08A1E;
+  --bad: #C0502E;
+  --scrim: rgb(5 9 20 / 50%);
 }
 
 .dark-sheet {
   --sheet-rain: #7FD3EE;
   --sheet-curve: #F2C46B;
   --sheet-sun: #F2C46B;
+  --ok: #6FD39B;
+  --mid: #F2C46B;
+  --bad: #F28B6B;
 }
 
 @media (prefers-reduced-motion: reduce) {

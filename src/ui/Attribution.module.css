@@ -1,12 +1,13 @@
 .attribution {
   flex: 1;
-  margin: 0 -16px;
-  padding: 18px var(--gutter) calc(env(safe-area-inset-bottom) + var(--space-5));
+  margin-inline: var(--bleed);
+  padding-block: 18px calc(env(safe-area-inset-bottom) + var(--space-5));
+  padding-inline: var(--gutter);
   border-top: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
   background: var(--sheet);
   color: var(--sheet-muted);
   text-align: center;
-  font-size: 0.75rem;
+  font-size: var(--text-caption);
   line-height: 1.6;
   transition: background-color var(--d4), color var(--d4);
 }

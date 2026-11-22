@@ -1,7 +1,8 @@
 .strip {
   --curve: var(--accent);
   position: relative;
-  margin: var(--space-4) -20px 0;
+  margin-block-start: var(--space-4);
+  margin-inline: calc(-1 * var(--gutter)); /* Bleed through the sky content gutter. */
 }
 
 .sky { color: var(--ink); }
@@ -9,7 +10,8 @@
 .sheet {
   --curve: var(--sheet-curve);
   color: var(--sheet-ink);
-  margin: var(--space-1) -8px 0;
+  margin-block-start: var(--space-1);
+  margin-inline: calc(-1 * var(--space-2)); /* Inset strip within the paper, with 8 px of extra scroll room. */
 }
 
 .scroller {
@@ -17,15 +19,15 @@
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
-  padding: 0 20px;
-  scroll-padding-inline: 20px;
+  padding-inline: var(--gutter); /* The scroller's content inset, shared by both strip tones. */
+  scroll-padding-inline: var(--gutter);
   mask-image: linear-gradient(to left, transparent, #000 16px, #000 calc(100% - 24px), transparent);
 }
 
 .scroller::-webkit-scrollbar { display: none; }
 
 /* Room under the band for the sunrise/sunset chips, which hang 6 px below it (markers.module.css). */
-.sky .scroller { padding-bottom: 6px; }
+.sky .scroller { padding-block-end: 6px; }
 
 .track {
   position: relative;
@@ -95,7 +97,6 @@
 button.slot { cursor: pointer; }
 
 button.slot:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -143,7 +144,7 @@ button.slot:focus-visible {
 
 .prob {
   min-height: 14px;
-  font-size: var(--text-xs);
+  font-size: var(--text-caption);
   line-height: 14px;
   font-weight: 600;
   color: var(--sky-rain);

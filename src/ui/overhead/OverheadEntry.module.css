@@ -34,9 +34,3 @@
   text-underline-offset: .2em;
   color: var(--sheet-muted);
 }
-
-.row:focus-visible,
-.link:focus-visible {
-  outline: 2px solid var(--sheet-ink);
-  outline-offset: 2px;
-}

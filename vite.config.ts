@@ -28,7 +28,7 @@ export default defineConfig({
     compileHint(),
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'שמיים — מזג אוויר',
@@ -50,8 +50,6 @@ export default defineConfig({
         ],
       },
       workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         // Keep the map renderer off the network until the overhead page is opened, and the satellite reader (GeoTIFF and

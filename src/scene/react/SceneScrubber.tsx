@@ -1,7 +1,10 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import { useId, useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 import { clockOf } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
+import { isolateText, ltr } from '../../text/isolate'
+import { SCRUBBER_HINT } from '../../text/scrub'
+import { keyStep } from '../../ui/scrub/keyStep'
 import styles from './Scene.module.css'
 
 /** Minutes of the day per px of finger travel: a thumb's sweep across the valley covers about a day. */
@@ -26,6 +29,7 @@ interface Props {
  * drags still scroll the page. For keyboards and screen readers it is a slider stepping by the hour.
  */
 export function SceneScrubber({ at, now, first, last, readout, onScrub, onRelease, onNow }: Props) {
+  const hintId = useId()
   const drag = useRef<{ id: number; x: number; at: LocalTime } | null>(null)
   const clamp = (time: LocalTime) => (time < first ? first : time > last ? last : time)
 
@@ -49,19 +53,22 @@ export function SceneScrubber({ at, now, first, last, readout, onScrub, onReleas
   }
   const key = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') { e.preventDefault(); onNow(); return }
-    const target = { ArrowLeft: () => addMinutes(at, 60), ArrowRight: () => addMinutes(at, -60), Home: () => first,
-      End: () => last }[e.key]
-    if (!target) return
+    const next = keyStep(e.key, minutesBetweenLocal(first, at), 0, minutesBetweenLocal(first, last), 60)
+    if (next === null) return
     e.preventDefault()
-    onScrub(clamp(target()))
+    onScrub(addMinutes(first, next))
     onRelease()
   }
 
   return (
-    <div className={styles.scrubber} role="slider" tabIndex={0} aria-label="שעה בעמק"
-      aria-valuemin={minutesBetweenLocal(now, first)} aria-valuemax={minutesBetweenLocal(now, last)}
-      aria-valuenow={minutesBetweenLocal(now, at)}
-      aria-valuetext={readout ?? `עכשיו, ${clockOf(now)}`}
-      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key} />
+    <>
+      <div className={styles.scrubber} role="slider" tabIndex={0} aria-label="שעה בעמק"
+        aria-describedby={hintId}
+        aria-valuemin={minutesBetweenLocal(now, first)} aria-valuemax={minutesBetweenLocal(now, last)}
+        aria-valuenow={minutesBetweenLocal(now, at)}
+        aria-valuetext={readout ? isolateText(readout) : `עכשיו, ${ltr(clockOf(now))}`}
+        onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key} />
+      <span id={hintId} className="visually-hidden">{SCRUBBER_HINT}</span>
+    </>
   )
 }
