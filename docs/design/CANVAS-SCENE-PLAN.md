@@ -2667,7 +2667,9 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      The painted endpoints carry local material and haze. The compositor moves one optical-depth mask per plane
      on the cloud sheet's minute clock, samples it at the canopy's offset and mixes encoded endpoint pixels
      in premultiplied alpha. The interactive loop staggers plane rasters by fractions of one device pixel,
-     scans the blob bounds and reuses one blended patch per receiver.
+     scans the blob bounds and reuses one blended patch per receiver. The interactive canopy path reads
+     one Worker pose at a time and interpolates premultiplied pixels in the affected rectangle before its
+     single compositing blit.
    - Per-plant eight-bit tones key canopy paint independently of the plane's irradiance key. Each crown or tuft
      path is shared between the endpoints. The previous canopy stays visible over compatible terrain while its
      light changes. The 10 canopy poses at 5 fps use the wind's own clock. A cold canopy can show pose zero at full
@@ -2675,3 +2677,7 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      the unadvected shadow footprints.
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
      moving transmission and out-of-order receiver paint with the browser's Worker.
+   - In the five-pair round 5 benchmark against `6ca2e54`, first fallback and canopy were within 7%
+     and all 24 rendered land/sky ratios were within 0.035% of round 4. The performance gate remains
+     open on scrub latency and the animation tail in Shadmot Mehola. Its land animation p95 was
+     2.8 ms baseline and 6.2 ms round 5. The five runs ranged from 2.5–11.8 and 1.6–24.5 ms respectively.

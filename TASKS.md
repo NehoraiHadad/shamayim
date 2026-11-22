@@ -949,13 +949,17 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
             minute-boundary continuity and light-change Worker arrivals. Run the land-light browser checks
             in the CI stills job.
+      - [x] Verify round 5 against all 24 rendered stills. The maximum land/sky median ratio change from
+            round 4 was 0.035%. A sun-facing glyph fixture also verifies the architectural shadow contrast.
       - [ ] Round 4 performance gate. Across three interleaved pairs against `6ca2e54`, scene-model scrub
             and land-animation p50 improved for all three places, and first fallback paint was within 10%.
             Worker scrub p50 rose 61% in Tel Aviv and 24% in Shadmot Mehola. First canopy rose 14% and
             Shadmot Mehola's animation p95 remained above baseline. The 24 still ratios stayed within
             0.37% of approved round 3.
-      - [ ] Round 5 performance gate. Measure per-step Worker job time and scrub latency with five
-            interleaved pairs against `6ca2e54`, alongside the existing model, first-paint and animation metrics.
+      - [ ] Round 5 performance gate remains open. In five interleaved pairs against `6ca2e54`,
+            first fallback and canopy were within 7%, and Haifa and Tel Aviv land job medians were
+            within 6%. Shadmot land job p50 rose 25% and animation p95 rose from 2.8 to 6.2 ms.
+            Rapid scrub latency p50 rose 22–39%. Animation sample counts varied substantially across runs.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
