@@ -60,7 +60,7 @@ export function coverageEvaluator(layer: FieldLayer, heldOut: boolean) {
   const thresholds = Array.from({ length: 24 }, (_, i) => coverageSample(
     heldOut ? 'cover-validation-b' : 'cover-calibration-a', heldOut ? 100 + i : i,
     layer.lattice === 'high' ? 300 : 60,
-  )(layer)).flatMap(window => Array.from(window)).sort((a, b) => a - b)
+  )(layer)).flatMap(sample => Array.from(sample)).sort((a, b) => a - b)
   return (cover: number, calibrated = true) => {
     // Cover >= 0.98 is the geometric floor rule.
     if (cover >= 0.98) return 1
