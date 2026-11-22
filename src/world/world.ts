@@ -173,8 +173,6 @@ export function makeWorldBuilder() {
     const day = dayGiven && status === 'ready' ? visibleDay(dayGiven, place, sunSkyline) : dayGiven
     const sun = sunBody(at, day, place, skyline, sunSkyline)
     const moon = moonBody(at, place, skyline, sun, sunSkyline)
-    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview,
-      forcedVisibility: 'visibilityKm' in forced })
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
       hour, preview, forced: 'windDirection' in forced }, camera)
     const rate = rainOf(shown)
@@ -185,6 +183,8 @@ export function makeWorldBuilder() {
     // Falling snow needs a cloud to fall from, as the rain does (C7): the same layer rule, from the snowfall.
     const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
     const covers = raining.covers
+    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview, forcedVisibility: 'visibilityKm' in forced,
+      mist: { sun, windMs: wind.ms, current: forecast.current, hour: between, forced, forcedLayers: input.forcedLayers, hours: forecast.hours, at } })
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
       sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
     const rain = rainFrom(clouds, rate, wind, shown.weatherCode, preview, hashId(`${place.id}:rain:${hourKey(at)}`))

@@ -171,7 +171,8 @@ describe('planes: the air, the ground and the light', () => {
   })
 
   it('throws the floor shadow away from a low sun', () => {
-    const shadows = ['shadmot-mehola', 'rosh-pina', 'tiberias'].flatMap((id) => ['08:00', '15:00'].map((hour) => world(id, hour)))
+    const clear = { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, visibilityKm: 30 }
+    const shadows = ['shadmot-mehola', 'rosh-pina', 'tiberias'].flatMap((id) => ['08:00', '15:00'].map((hour) => world(id, hour, clear)))
       .filter((w) => w.light.source === 'sun').map((w) => near(sceneModel(w, BOX)).light.faces)
     expect(shadows.some((faces) => faces.length > 0)).toBe(true)
   })
