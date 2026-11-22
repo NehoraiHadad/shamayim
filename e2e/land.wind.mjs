@@ -79,28 +79,34 @@ async function frameBudget(browser, base) {
       const cdp = await context.newCDPSession(page)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate })
       await loadScene(page, sceneUrl(base, { ...sample, weather: 'land-wind' }), 180000)
-      const before = await page.evaluate(() => {
+      const expected = sample.place === 'ramon-crater' ? 'landDust.near' : 'canopy.near'
+      const before = await page.evaluate(async (id) => {
+        const { sceneModel } = await import('/src/scene/model/index.ts')
+        const box = { width: 375, landTop: 300, landHeight: 128, skyHeight: 428, dpr: devicePixelRatio }
+        const animated = sceneModel(window.__world, box).layers.find((layer) => layer.id === id)?.animated?.mode
         const stats = window.__sceneStats
         stats.steps['anim.land'] = []; stats.steps['anim.sky'] = []
         return {
-          painted: Object.fromEntries(Object.entries(stats.layers).map(([id, layer]) => [id, layer.paints])),
+          animated,
+          offThread: window.__scene.offThread,
+          batches: stats.steps['worker.land']?.length ?? 0,
           memory: Object.values(stats.memory).reduce((a, b) => a + b, 0) / 2 ** 20,
         }
-      })
+      }, expected)
       await page.waitForTimeout(10000)
-      const result = await page.evaluate(({ painted }) => {
-        const { layers, steps } = window.__sceneStats
+      const result = await page.evaluate(({ batches }) => {
+        const { steps } = window.__sceneStats
         const summary = (samples = []) => {
           const sorted = samples.toSorted((a, b) => a - b)
           return { n: sorted.length, p50: sorted[Math.ceil(sorted.length * 0.5) - 1], p95: sorted[Math.ceil(sorted.length * 0.95) - 1] }
         }
         return { land: summary(steps['anim.land']), sky: summary(steps['anim.sky']),
-          repainted: Object.keys(layers).filter((id) => painted[id] !== layers[id].paints) }
+          paintBatches: (steps['worker.land']?.length ?? 0) - batches }
       }, before)
-      const { land, sky, repainted } = result
-      const p95 = land.p95 + sky.p95
-      const expected = sample.place === 'ramon-crater' ? 'landDust.near' : 'canopy.near'
-      const ok = p95 <= 4 && !repainted.length && Object.hasOwn(before.painted, expected)
+      const { land, sky, paintBatches } = result
+      const p95 = Number((land.p95 + sky.p95).toFixed(2))
+      const ok = p95 <= 4 && paintBatches === 0 && before.offThread &&
+        before.animated === (expected === 'landDust.near' ? 'fall' : 'frames')
       console.log(`${sample.place}: ${JSON.stringify(result)}, sum p95=${p95.toFixed(2)} ms, ${before.memory.toFixed(1)} MB ${ok ? 'PASS' : 'FAIL'}`)
       if (!ok) process.exitCode = 1
     } finally { await context.close() }

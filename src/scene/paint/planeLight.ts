@@ -1,11 +1,10 @@
 import type { LayerOf, Pt, Wash } from '../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
-import { paintVegLight } from './landVegLight'
 
 /*
  * Plane light painter (`source-over` onto the light-free living-land form, Stage C2 + Stages 3 & 4):
  * Ambient mood, wet-ground darkening & Koschmieder aerial haze veil, snow, shade and lit crest washes,
- * floor shadow, crest rim and visibility-weighted crown/tuft/gully catchlights, masked once with
+ * floor shadow, crest rim and gully catchlights, masked once with
  * `destination-in` against the plane's antialiased outline. Worker-safe; no clock; no `ctx.filter`.
  */
 
@@ -82,18 +81,15 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
   }
 
   const lift = light.lift
-  if (lift) {
-    if (!desc.canopyId) paintVegLight(ctx, desc.vegetation, lift)
-    if (desc.gullies.length) {
-      ctx.beginPath()
-      for (const gully of desc.gullies) {
-        const lip = gully.points.slice(0, Math.max(2, Math.ceil(gully.points.length * 0.7)))
-        lip.forEach(([px, py], i) => (i ? ctx.lineTo(px + lift.dx * gully.w * 0.6, py) : ctx.moveTo(px + lift.dx * gully.w * 0.6, py)))
-      }
-      ctx.strokeStyle = css(lift.rgb, lift.alpha * 0.3)
-      ctx.lineWidth = 0.45
-      ctx.stroke()
+  if (lift && desc.gullies.length) {
+    ctx.beginPath()
+    for (const gully of desc.gullies) {
+      const lip = gully.points.slice(0, Math.max(2, Math.ceil(gully.points.length * 0.7)))
+      lip.forEach(([px, py], i) => (i ? ctx.lineTo(px + lift.dx * gully.w * 0.6, py) : ctx.moveTo(px + lift.dx * gully.w * 0.6, py)))
     }
+    ctx.strokeStyle = css(lift.rgb, lift.alpha * 0.3)
+    ctx.lineWidth = 0.45
+    ctx.stroke()
   }
   ctx.globalCompositeOperation = 'destination-in'
   outline(ctx, desc.outline)

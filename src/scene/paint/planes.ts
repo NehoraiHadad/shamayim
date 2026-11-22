@@ -2,8 +2,6 @@ import type { LayerOf } from '../model/types'
 import { displace, sample, tube } from './core'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
 import { paintLandSurface } from './landSurface'
-import { paintVegCrowns } from './landVegCrowns'
-import { paintVegTufts } from './landVegTufts'
 import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
 
 /*
@@ -58,10 +56,6 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
 
   // Ground-aligned orchard alleys stay with the static form. Scene canopies are composited over it.
   paintVegRows(ctx, desc.vegetation)
-  if (!desc.canopyId) {
-    paintVegTufts(ctx, desc.vegetation)
-    paintVegCrowns(ctx, desc.vegetation)
-  }
 
   // Single application of `ctx.fill()`'s exact antialiased outline coverage so surface, fields and slope-edge
   // vegetation never thicken the silhouette or leak outside `paintPlaneLight`'s mask.

@@ -1,12 +1,12 @@
 import type { PlantWind } from '../model/landWind'
-import type { Lift, PlaneVegetation } from '../model/types'
+import type { CanopyVegetation, Lift } from '../model/types'
 import { css, type Ctx2D } from './hand'
 import { treeBend, treeCrownAnchor, tuftBend, TUFT_CROWN_BEND } from './landVegPose'
 
 /** Visibility tiers for batched catchlight ellipses so faded marks never outlast the underlying form. */
 const LIFT_TIERS = [[0.08, 0.42, 0.28], [0.42, 0.76, 0.62], [0.76, 1.01, 1.0]] as const
 
-export function paintVegLight(ctx: Ctx2D, vegetation: PlaneVegetation, lift: Lift, wind?: PlantWind, time = 0): void {
+export function paintVegLight(ctx: Ctx2D, vegetation: CanopyVegetation, lift: Lift, wind?: PlantWind, time = 0): void {
   const { trees, treeMeta, tufts, tuftMeta, seed } = vegetation
   if (trees.length) {
     for (const [lo, hi, wVis] of LIFT_TIERS) {

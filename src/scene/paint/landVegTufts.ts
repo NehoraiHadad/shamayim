@@ -1,12 +1,12 @@
 import type { PlantWind } from '../model/landWind'
-import type { PlaneVegetation } from '../model/types'
+import type { CanopyVegetation } from '../model/types'
 import { TONE } from '../model/vegSample'
 import { css, type Ctx2D } from './hand'
 import { TUFT_CROWN_BEND, tuftBend } from './landVegPose'
 import { h01 } from './vegInk'
 
 /** Scattered scrub cushions (WorldCover 20) and grass tufts (WorldCover 30), clearly readable at 375 px. */
-export function paintVegTufts(ctx: Ctx2D, veg: PlaneVegetation, wind?: PlantWind, time = 0): void {
+export function paintVegTufts(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWind, time = 0): void {
   const { tufts, tuftMeta, tones, seed } = veg
   const count = tufts.length / 4
   if (!count || !tones.length) return

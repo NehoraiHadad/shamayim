@@ -1,4 +1,4 @@
-import type { PlaneVegetation, RGB } from '../model/types'
+import type { CanopyVegetation, RGB } from '../model/types'
 import { frondTravel, plantWindAt, plantWindFade, type PlantWind } from '../model/landWind'
 import { PALM_FROND_LENGTH } from '../model/vegShapes'
 import { TONE } from '../model/vegSample'
@@ -77,7 +77,7 @@ function paintPalm(
 }
 
 /** Tree and orchard crown form, back-to-front, fading with distance. */
-export function paintVegCrowns(ctx: Ctx2D, veg: PlaneVegetation, wind?: PlantWind, time = 0): void {
+export function paintVegCrowns(ctx: Ctx2D, veg: CanopyVegetation, wind?: PlantWind, time = 0): void {
   const { trees, treeMeta, tones } = veg
   const count = trees.length / 6
   if (!count || !tones.length) return

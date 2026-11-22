@@ -9,7 +9,7 @@ const CALM_MS = 0.3
 const FULL_BEND_MS = 17.1
 const load = (ms: number) => (ms / FULL_BEND_MS) ** 2
 
-/** One short gust/lull cycle, sampled by the compositor's existing frame-strip path. */
+/** The C7 two-second sway interval, with ten poses to resolve short travel at the frond tips. */
 export const LAND_GUST = { count: 10, fps: 5 } as const
 const GUST_SECONDS = LAND_GUST.count / LAND_GUST.fps
 
@@ -34,7 +34,7 @@ export function plantWindOf({ across, ms, gustMs }: Pick<Wind, 'across' | 'ms' |
 /** Stage 4 visibility already fades with m/px. Quiet the last fifth as silhouettes merge into the surface. */
 export const plantWindFade = (visibility: number) => ease((visibility - 0.20) / 0.80)
 
-/** Scene-pixel tip travel. Frame 0 (also reduced motion) is the mean-wind pose. */
+/** Signed bend factor at this phase. Frame 0 (also reduced motion) is the mean-wind pose. */
 export function plantWindAt(wind: PlantWind, seconds: number, seedPhase: number): number {
   if (!wind.gust || !seconds) return wind.lean
   const t = seconds / GUST_SECONDS

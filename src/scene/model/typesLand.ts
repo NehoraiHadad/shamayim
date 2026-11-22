@@ -88,6 +88,9 @@ export interface PlaneVegetation {
   tones: RGB[]
 }
 
+/** The upright vegetation is the only part needed by the canopy strips. */
+export type CanopyVegetation = Pick<PlaneVegetation, 'seed' | 'tones' | 'trees' | 'treeMeta' | 'tufts' | 'tuftMeta'>
+
 /**
  * A plane's light part (C2 + Living Land Stage 3). The form under it carries the light-free quantised land albedo,
  * seeded patches, mottle, gullies, terraces and vegetation; this canvas lays the scene's mood, wet-ground & aerial haze

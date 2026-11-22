@@ -18,6 +18,9 @@ const BARE = coverOfWorldCover(60)
 // https://www.weather.gov/tbw/beaufort
 const LIFT_MS = 8
 const FULL_MS = 17.1
+// At a source index of 0.1 the strongest near pigment contributes ~1% opacity.
+// Cull weaker ribbons, where outlining and translating the tile would be subvisible.
+const MIN_VISIBLE_DUST = 0.10
 
 export function dustPotential(ms: number, sample: Pick<VegSample, 'cover' | 'ndvi' | 'dryness'>): number {
   if (ms <= LIFT_MS || sample.cover !== BARE) return 0
@@ -66,8 +69,7 @@ function dustRibbons(sources: Source[], carried: number, width: number, height: 
   }
   for (const patch of sources) {
     const strength = patch.shown ? Math.max(patch.strength, carried) : 0
-    // A 2.5% source index would lay less than half an 8-bit step at the edge of the wash.
-    if (strength < 0.025) { finish(); continue }
+    if (strength < MIN_VISIBLE_DUST) { finish(); continue }
     run.push({ ...patch, strength })
     distanceSum += patch.km * strength
     weight += strength

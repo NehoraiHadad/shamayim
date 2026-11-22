@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
-import type { LayerOf, PlaneVegetation } from '../model/types'
+import type { Lift, PlaneVegetation } from '../model/types'
 import { buildVegPalette, TONE } from '../model/vegSample'
-import { HAND, type Ctx2D } from './hand'
+import type { Ctx2D } from './hand'
 import { paintVegCrowns } from './landVegCrowns'
-import { treeCrownAnchor } from './landVegPose'
-import { paintPlaneLight } from './planeLight'
+import { paintVegLight } from './landVegLight'
+import { treeBend, treeCrownAnchor } from './landVegPose'
 
-const env = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: {} as Ctx2D }) }
+const lift: Lift = { dx: 1, dy: -0.7, rgb: [0.85, 0.85, 0.7], alpha: 0.5 }
 
 function recordEllipsesAndFills() {
   const ellipses: { cx: number; cy: number; rx: number; ry: number; fill: string }[] = []
@@ -32,20 +32,7 @@ const alphaOf = (cssStr: string) => {
   return m ? Number(m[1]) : 1
 }
 
-function makePlane(veg: PlaneVegetation): LayerOf<'plane'> {
-  return {
-    kind: 'plane', plane: 'near', id: 'plane.near', surface: 'land', z: 30, key: 'k',
-    bounds: { x: 0, y: 0, w: 375, h: 128 }, outline: [[0, 40], [375, 40], [375, 128], [0, 128]],
-    fill: [0.2, 0.25, 0.18], surfaceTone: { palette: [[0.2, 0.25, 0.18]], cols: 1, rows: 1, cells: [0], source: 'test' },
-    gullies: [], terraces: [], vegetation: veg, grain: { amount: 0, seed: 1 },
-    light: {
-      key: 'l', blend: 'source-over', faces: [], veil: [], shade: [], lit: [], rims: [], snow: null,
-      lift: { dx: 1, dy: -0.7, rgb: [0.85, 0.85, 0.7], alpha: 0.5 },
-    },
-  }
-}
-
-describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
+describe('vegetation painter anchors & distance fade', () => {
   it('places palm catchlight on the bent palm crown rather than the trunk', () => {
     const x = 100, y = 90, r = 3, height = 9, phase = Math.PI / 2
     const anchor = treeCrownAnchor(x, y, r, height, phase, 3)
@@ -59,7 +46,7 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
       tones: buildVegPalette([0.2, 0.25, 0.18], 0.3),
     }
     const { ctx, ellipses } = recordEllipsesAndFills()
-    paintPlaneLight(ctx, makePlane(veg), env)
+    paintVegLight(ctx, veg, lift)
     expect(ellipses).toHaveLength(1)
     // Crown is at cy ≈ 84.42 (well above trunk/base at y - r*0.58 ≈ 88.26).
     expect(ellipses[0].cy).toBeLessThan(85)
@@ -72,13 +59,16 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
     expect(orchardAnchor.ry).toBeGreaterThan(oliveAnchor.ry)
   })
 
-  it('shares phase-dependent woodland crown geometry between paintVegCrowns and paintPlaneLight', () => {
+  it('moves woodland catchlights and forms through the same gust pose', () => {
     const r = 3, height = 6.5, widePhase = Math.PI / (2 * 1.3), narrowPhase = (3 * Math.PI) / (2 * 1.3)
-    const wide = treeCrownAnchor(100, 90, r, height, widePhase, 0)
-    const narrow = treeCrownAnchor(200, 90, r, height, narrowPhase, 0)
+    const wind = { lean: -0.8, gust: -0.5 }, time = 0.8, vis = 240 / 255
+    const bend = (phase: number) => treeBend(0, height, vis, phase, wind, time)
+    const wide = treeCrownAnchor(100, 90, r, height, widePhase, 0, bend(widePhase))
+    const narrow = treeCrownAnchor(200, 90, r, height, narrowPhase, 0, bend(narrowPhase))
     expect(wide.rx).toBeGreaterThan(narrow.rx + 0.5)
     expect(wide.ry).not.toBeCloseTo(narrow.ry, 3)
     expect(wide.cy).not.toBeCloseTo(narrow.cy, 3)
+    expect(wide.cx).toBeLessThan(99.5)
 
     const veg: PlaneVegetation = {
       ...EMPTY_VEGETATION,
@@ -87,7 +77,7 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
       tones: buildVegPalette([0.2, 0.25, 0.18], 0.3),
     }
     const lightRec = recordEllipsesAndFills()
-    paintPlaneLight(lightRec.ctx, makePlane(veg), env)
+    paintVegLight(lightRec.ctx, veg, lift, wind, time)
     expect(lightRec.ellipses).toHaveLength(2)
     for (const [e, a] of [[lightRec.ellipses[0], wide], [lightRec.ellipses[1], narrow]] as const) {
       expect(e.cx).toBeCloseTo(a.cx + a.rx * 0.28, 4)
@@ -97,7 +87,7 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
     }
 
     const formRec = recordEllipsesAndFills()
-    paintVegCrowns(formRec.ctx, veg)
+    paintVegCrowns(formRec.ctx, veg, wind, time)
     // Each crown draws the body first, then the shade and ambient highlights.
     expect(formRec.pathStarts).toHaveLength(6)
     for (const [i, a, phase] of [[0, wide, widePhase], [3, narrow, narrowPhase]] as const) {
@@ -120,7 +110,7 @@ describe('Stage 4 vegetation painter anchors & smooth distance fade', () => {
       tones: buildVegPalette([0.2, 0.25, 0.18], 0.3),
     }
     const { ctx, ellipses } = recordEllipsesAndFills()
-    paintPlaneLight(ctx, makePlane(vegTufts), env)
+    paintVegLight(ctx, vegTufts, lift)
     expect(ellipses).toHaveLength(2)
     const low = ellipses.find((e) => Math.abs(e.cx - 120) < 5)!
     const high = ellipses.find((e) => Math.abs(e.cx - 200) < 5)!
