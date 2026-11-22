@@ -1,26 +1,12 @@
 //# allFunctionsCalledOnLoad
 import { cloudLight } from '../../world/lightCloud'
-import type { WorldState } from '../../world/types'
-import type { PlaneCloudShadow, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
+import type { PlaneCloudShadow, ShadowBox, ShadowPlane } from './planeCloudShadow'
 import { projectCloudShadows } from './cloudShadowProject'
 import { EXPOSURE_GAMMA, landIrradiance, type RadianceWorld } from './landRadiance'
+import type { ShadowWorld } from './cloudShadowWorld'
 
-/**
- * Solar cloud-shadow policy & layer builder (Stage 7 round 2, split from `cloudShadowProject.ts`).
- * Explicitly solar-only: moonlight never projects solar cloud shadows. When paired with terrain `planes`,
- * each shadow layer removes ONLY the receiver's direct solar term before compression and linear haze.
- */
+/** Solar cloud-shadow policy. Each receiver uses optical depth to remove part of its direct solar beam. */
 const RAD = Math.PI / 180
-
-type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
-  flightTerrain?: WorldState['flightTerrain']
-  light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
-    & Partial<Pick<WorldState['light'], 'source' | 'shares' | 'diffuse' | 'colour' | 'ambient' | 'palette' | 'dir'>>
-  ground?: WorldState['ground']
-  air?: RadianceWorld['air']
-  bodies?: Pick<WorldState['bodies'], 'sun' | 'moon'>
-  terrain: ShadowTerrain
-}
 
 export function cloudShadowsOf(world: ShadowWorld, box: ShadowBox): PlaneCloudShadow[] {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world

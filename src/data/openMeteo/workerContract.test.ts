@@ -12,7 +12,9 @@ describe('app requests pass the Worker allowlist', () => {
     // The scene's hourly fields: the Worker in the repo knows them, so flipping ASK_SCENE_HOURLY is safe once it is deployed.
     ['/v1/forecast', forecastUrl(place, { sceneHourly: true })],
     // Living-land past precipitation (60 d) and soil moisture on its dedicated narrow route: gated behind ASK_LAND_WEATHER.
-    ['/v1/land-weather', recentWeatherUrl(place)]] as const)('%s', (path, url) => {
+    ['/v1/land-weather', recentWeatherUrl(place)],
+    // CAPE and the freezing level: listed in the repo Worker, asked once it is deployed (ASK_STORM_HOURLY).
+    ['/v1/forecast', forecastUrl(place, { stormHourly: true })]] as const)('%s', (path, url) => {
     const result = canonicalQuery(ROUTES[path], new URL(url).searchParams)
     expect(result).toMatchObject({ ok: true })
   })

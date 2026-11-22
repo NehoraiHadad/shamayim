@@ -6,9 +6,10 @@ import { score } from '../data/landmarks/rank'
 import { isSettlementMark } from '../data/landmarks/settlement'
 import type { Landmark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
+import { neighbourGeometry } from './neighbourSize'
 import { neighbourRule, viableNeighbour } from './neighbourPolicy'
 import type { SeatMark } from './beyondSeat'
-import { glyphAtHeight, glyphOf } from './glyphSpecs'
+import { glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, type Box, type Point } from './layout'
 import { markBox, type SeatedWorldMark } from './markGeometry'
 import { budgetSeated } from './seatBudget'
@@ -45,13 +46,14 @@ export function beyondMarks(place: Coordinate, marks: Landmark[], width: number,
     const glyphKind = glyphOf(mark)
     if (!seat) { other.push(mark); continue }
     if (!glyphKind || !viableNeighbour(glyphKind, named, seat.hPx)) continue
-    const { h, scale, w } = glyphAtHeight(glyphKind, seat.hPx)
+    const geometry = neighbourGeometry(glyphKind, seat.hPx, named)
+    const { w } = geometry
     if (seat.x - w / 2 < 0 || seat.x + w / 2 > width) continue
     const { dx, dy } = offsetKm(place, mark)
     // Seat geometry is in the outside frame. Panorama top/ground/bearing evidence cannot prove ridge visibility here.
     const worldMark: SeatedWorldMark = { ...markAppearance(mark), id: mark.id, kind: mark.kind, glyphKind, named, landmark: named,
-      heightM: mark.heightM, crestPx: seat.hPx, x: seat.x, xPct: seat.x / width * 100,
-      base: seat.base, baseY: seat.base, hPx: seat.hPx, h, w, scale,
+      ...geometry, heightM: mark.heightM, crestPx: seat.hPx, x: seat.x, xPct: seat.x / width * 100,
+      base: seat.base, baseY: seat.base, hPx: seat.hPx,
       km: seat.km, seatBlockId: seat.blockId, seatRank: score(mark, Math.hypot(dx, dy), 0, SKYLINE_TO_KM),
       dy, layer: 'near', plane: 'near' }
     const box = markBox(worldMark)

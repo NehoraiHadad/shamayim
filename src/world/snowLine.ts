@@ -20,6 +20,8 @@ const LAPSE = .0065
 export const SNOW_TEMP = 2
 /** A heavy fall cools the air it falls through, so the line comes down further (m at amount 1). */
 const HEAVY_DROP = 100
+/** Snow falling through the 0 °C level melts over about this depth (m): the line lies this far below the freezing level. */
+const MELT_M = 300
 /** cm/h that counts as a heavy fall. */
 const HEAVY_CMH = 2
 /** Lying snow thinner than this (m) is patches, not a cover: no cap. */
@@ -35,7 +37,8 @@ export const isSnowCode = (code: number) => CODE_AMOUNT[code] !== undefined
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
-type SnowAir = { weatherCode: number; snowfall: number; temperature: number; snowDepth?: number; fallingSnow?: number }
+type SnowAir = { weatherCode: number; snowfall: number; temperature: number; snowDepth?: number; fallingSnow?: number
+  freezingLevel?: number | null }
 
 export function fallingSnowAmount(weatherCode: number, snowfall: number): number {
   const coded = CODE_AMOUNT[weatherCode] ?? 0
@@ -45,7 +48,8 @@ export function fallingSnowAmount(weatherCode: number, snowfall: number): number
 /**
  * Snow caps while it snows (a snow code or snowfall in the shown hour) and while snow lies on the ground after (the
  * model's snow depth), so a cover stays after the fall and melts away as the depth does; null on any other hour.
- * Falling: the line sits where the air cools to `SNOW_TEMP` going up from the place, never above the place. Lying:
+ * Falling: the line sits a melt depth under the model's freezing level when it gives one, else where the air cools to
+ * `SNOW_TEMP` going up from the place (the standard lapse); never above the place. Lying:
  * the place is under snow, and a deeper cover reaches further down the slopes. The lower line and the larger amount win.
  */
 export function snowFall(air: SnowAir, elevationM: number): SnowFall | null {
@@ -54,7 +58,8 @@ export function snowFall(air: SnowAir, elevationM: number): SnowFall | null {
   const depth = air.snowDepth ?? 0
   const lying = depth >= DEPTH_MIN
   if (!falling && !lying) return null
-  const fallLine = Math.min(elevationM, elevationM + (air.temperature - SNOW_TEMP) / LAPSE) - HEAVY_DROP * fall
+  const zeroLine = air.freezingLevel != null ? air.freezingLevel - MELT_M : elevationM + (air.temperature - SNOW_TEMP) / LAPSE
+  const fallLine = Math.min(elevationM, zeroLine) - HEAVY_DROP * fall
   const cover = lying ? clamp01(Math.max(.2, depth / DEPTH_FULL)) : 0
   const coverLine = elevationM - COVER_BELOW - DEPTH_DROP * cover
   return {

@@ -7,6 +7,7 @@ import { SCENE_W } from '../../world/sceneBox'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
+import { supports, type Projection } from './cloudShadowWorld'
 import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import type { Pt } from './types'
 
@@ -16,11 +17,10 @@ import type { Pt } from './types'
  */
 const RAD = Math.PI / 180
 const RANGE = 60
-const SUPPORTS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
 
-export interface ProjectedShadow { km: number; plane: ShadowPlane; blob: ShadowBlob }
+interface ProjectedShadow { plane: ShadowPlane; blob: ShadowBlob }
 
-export interface ProjectInput {
+interface ProjectInput {
   cloudField: NonNullable<WorldState['cloudField']>
   grid: NonNullable<WorldState['flightTerrain']>
   terrain: ShadowTerrain
@@ -30,8 +30,6 @@ export interface ProjectInput {
   altitude: number
   minDepth: number
 }
-
-type GroundHit = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
 
 export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
   const { cloudField, grid, terrain, camera, box, azimuth, altitude: altDeg, minDepth } = input
@@ -54,7 +52,7 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
   const screenX = (e: number, n: number) => xOf(Math.atan2(e, n) / RAD, camera) * SCENE_W / camera.width
   const perRad = (screenX(Math.sin(heading + 1e-3), Math.cos(heading + 1e-3)) - screenX(Math.sin(heading), Math.cos(heading))) * 1e3 * scale
 
-  function onGround(eastAtEyeKm: number, northAtEyeKm: number): GroundHit | undefined {
+  function onGround(eastAtEyeKm: number, northAtEyeKm: number): Projection | undefined {
     let groundAboveEyeKm = 0, prevAbove = 0, prevRes = 0
     for (let i = 0; i < 6; i++) {
       const eastKm = eastAtEyeKm + groundAboveEyeKm * eastPerUp
@@ -109,7 +107,7 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     const plane: ShadowPlane = !sight || centre.km <= sight.nearKm ? 'near'
       : terrain.back && centre.km > sight.farKm ? 'back' : 'far'
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
-    for (const [u, v] of SUPPORTS) {
+    for (const [u, v] of supports) {
       const cap = -u * depth / 2
       const e = centre.eastKm + r * (u * sin + v * cos) - cap * eastPerUp
       const n = centre.northKm + r * (u * cos - v * sin) - cap * northPerUp
@@ -121,7 +119,7 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     const opticalDepth = slant * invSin
     const centreKm: Pt = [centre.eastKm, centre.northKm]
     const speed = acrossSpeed(vel, [centre.eastKm / centre.km, centre.northKm / centre.km], centre.km, perRad)
-    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
+    accepted.push({ plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
       x: (left + right) / 2, y: (top + bottom) / 2, rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
   }
   return accepted

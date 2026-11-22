@@ -44,9 +44,17 @@ export function carriedSheet(sheet: LayerOf<'cloudSheet'>, from: number): LayerO
   return carried(sheet, from, ys[0], ys[ys.length - 1], (y) => speedAt(ys, speeds, y))
 }
 
-/** Add the sheet's advection from top to bottom in BAND_PX bands. */
-function carried(layer: LayerOf<'cloudSheet'>, from: number, top: number, bottom: number,
-  speedOf: (y: number) => number): LayerOf<'cloudSheet'> {
+/** Towers carried as one: the median of their speeds (a tower spans many bands; per band it would shear). */
+export function carriedCells(layer: LayerOf<'cloudCells'>, from: number): LayerOf<'cloudCells'> {
+  const speeds = layer.cells.map((cell) => cell.speed).sort((a, b) => a - b)
+  const speed = speeds[Math.floor(speeds.length / 2)] ?? 0
+  const { y, h } = layer.bounds
+  return carried(layer, from, y, y + h, () => speed)
+}
+
+/** `layer` with an advection from `top` to `bottom` (surface px) in `BAND_PX` bands; as it was if nothing moves. */
+function carried<L extends LayerOf<'cloudSheet' | 'cloudCells'>>(layer: L, from: number, top: number, bottom: number,
+  speedOf: (y: number) => number): L {
   const bands: { y: number; speed: number }[] = []
   for (let y = top; y < bottom; y += BAND_PX) bands.push({ y, speed: speedOf(y + BAND_PX / 2) })
   if (!bands.some((band) => band.speed)) return layer

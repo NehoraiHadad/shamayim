@@ -56,7 +56,7 @@ it(("culls a floating non-own silo without its own visible town and reuses geome
   expect(outsideMass(changed, BOX, [])).toBe(mass)
 })
 
-it('retains true base-angle size in the world but culls far glyphs without proven town ownership', () => {
+it('retains true base-angle evidence in the world but culls far glyphs without proven town ownership', () => {
   const seenAt = () => ({ y: 70 - NEIGHBOUR_MIN_TRUE_PX, groundY: 70, angle: 1, groundAngle: 1 })
   const terrain = { ...ctx.input.terrain, seenAt, sightAt: () => ({ nearKm: 3, farKm: 30, farShows: false, seenAt }) }
   const source = { id: 'far-hall', lat: PLACE.lat - .14605, lon: PLACE.lon, kind: 'church' as const,
@@ -75,7 +75,7 @@ it('retains true base-angle size in the world but culls far glyphs without prove
     const glyph = tall.marks.find(mark => mark.id === source.id)
     expect(glyph).toBeDefined()
     const a0 = baseAngle(glyph!.base, tall.terrain.horizonY), rise = Math.atan(120 / (km * 1000)) * 180 / Math.PI
-    expect(glyph!.h * glyph!.scale).toBeCloseTo(Math.min(NEIGHBOUR_MIN_TRUE_PX, anglePx(a0 + rise) - anglePx(a0)), 6)
+    expect(glyph!.trueHeightPx).toBeCloseTo(Math.min(NEIGHBOUR_MIN_TRUE_PX, anglePx(a0 + rise) - anglePx(a0)), 6)
     expect(sceneModel(tall, { ...BOX, width }).layers.find(layer => layer.kind === 'marks')?.glyphs ?? []).toEqual([])
     const hidden = sceneModel({ ...tall, farCities }, { ...BOX, width }).layers.find(layer => layer.kind === 'marks')
     expect(hidden?.glyphs.map(glyph => glyph.seed) ?? []).not.toContain(hashId(source.id))

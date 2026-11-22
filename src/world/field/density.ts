@@ -1,38 +1,15 @@
-import { cellularRasterRange, fieldCell, RANGES, visitCells } from './cells'
+import { fieldCell, RANGES, visitCells } from './cells'
 import { smoothstep } from './genus'
 import { clumpAt, dayStart } from './handover'
 import { expectedClumpSampler, LATTICES, maxRadius } from './lattice'
 import { lambdaOf } from './occupancy'
-import { kernel, rasterNodes } from './rasterNodes'
-
-import type { CloudField, FieldCell, FieldLayer, Lattice } from './types'
+import { rasterRange } from './footprint'
+import { rasterNodes } from './rasterNodes'
+import type { CloudField, FieldCell, Lattice } from './types'
 
 export { farStrips } from './farDensity'
 export { shadowTau } from './shadowTau'
-
-/** Squared elliptical radius at a world point, with coordinates in km. */
-export function footprintDistance(cell: FieldCell, x: number, y: number): number {
-  const dx = x - cell.x
-  const dy = y - cell.y
-  if (cell.axis === undefined) return (dx * dx + dy * dy) / (cell.r * cell.r)
-  const angle = cell.axis * Math.PI / 180
-  return ((dx * Math.sin(angle) + dy * Math.cos(angle)) / cell.r) ** 2
-    + ((dx * Math.cos(angle) - dy * Math.sin(angle)) / (cell.rMinor ?? cell.r)) ** 2
-}
-
-/** Vertical optical depth at a world point from one cell. */
-export function cellTauAt(cell: FieldCell, x: number, y: number): number {
-  const rr = footprintDistance(cell, x, y)
-  return kernel(cell.tau0, rr, cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb')
-}
-
-/** Outer raster range in km, including its transition to expected density. */
-export function rasterRange(layer: FieldLayer) {
-  if (layer.lattice === 'low' || layer.lattice === 'mid') return cellularRasterRange(layer)
-  const near = RANGES[layer.lattice][0]
-  // Rays at 6° or higher reach the tower mid-height within this distance in the local tangent frame.
-  return layer.lattice === 'tower' ? Math.min(near, (layer.baseKm + layer.meanVKm / 2) / Math.tan(Math.PI / 30)) : near
-}
+export { cellTauAt, footprintDistance, rasterRange } from './footprint'
 
 /** Index near cells and read optical depth at world x/y in km. t is in minutes. */
 export function densityGrid(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t = field.t) {
@@ -40,15 +17,16 @@ export function densityGrid(field: CloudField, lattice: Lattice, cx: number, cy:
 }
 
 /** Collect drawable cells and build the density grid with one visit to this layer. */
-export function layerSnapshot(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t = field.t) {
+export function layerSnapshot(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t = field.t,
+  extra: readonly FieldCell[] = []) {
   const cells: FieldCell[] = []
-  const densityGrid = rasterize(field, lattice, cx, cy, radiusKm, t, cells)
+  const densityGrid = rasterize(field, lattice, cx, cy, radiusKm, t, cells, extra)
   const layer = field.layers.find(item => item.lattice === lattice)
   return { cells, densityGrid, layer, heightKm: layer ? layer.baseKm + layer.meanVKm / 2 : 0 }
 }
 
 function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t: number,
-  cells?: FieldCell[]) {
+  cells?: FieldCell[], extra: readonly FieldCell[] = []) {
   const layer = field.layers.find(item => item.lattice === lattice)
   if (!layer || !layer.cover || radiusKm < 0) {
     const floor = () => layer?.floorTau ?? 0
@@ -92,6 +70,11 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
       if (draw) cells.push(cell)
       if (sample) grid.add(cell, genus === 'cu' || genus === 'cg' || genus === 'cb')
     })
+  // Cells placed from outside the lattice (the satellite's single clouds, `seenCells`), on the same grid.
+  for (const cell of extra) if ((cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= (radius + cell.r) ** 2) {
+    if (cells && (cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= drawRadiusSquared) cells.push(cell)
+    grid.add(cell, cell.genus === 'cu')
+  }
   const intensity = lambdaOf(layer.cover)
   const amplitude = LATTICES[lattice].amplitude * (1 - (1 - 0.2 / 0.35) * layer.form.strat)
   const clumpScale = -intensity * amplitude
@@ -152,3 +135,4 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
     },
   }
 }
+

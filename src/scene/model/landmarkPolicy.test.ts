@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import type { WorldMark } from '../../world/markGeometry'
 import type { WorldState } from '../../world/types'
+import { LANDMARK_MIN_PX } from '../../world/neighbourSize'
 import { neighbourRule } from '../../world/neighbourPolicy'
 import { evaluateNeighbour } from './evaluateNeighbour'
 import { massAt } from './markOcclusion'
@@ -13,13 +14,13 @@ const home = { left: 100, right: 120, hazeKm: 2 }
 const evaluate = (m = mark, masses: ReturnType<typeof massAt>[] = [], missingTown = false) =>
   evaluateNeighbour(world, m, 375, missingTown ? undefined : null, home, [], masses, 'far')
 
-it('keeps a famous 5x landmark with true-distance haze and a six-pixel home gap', () => {
+it('keeps a famous minimum-sized landmark with true-distance haze and a six-pixel home gap', () => {
   const result = evaluate({ ...mark, x: 129 })
   expect(result.reason).toBe('kept')
-  expect(result.factor).toBe(5)
-  expect(result.placed!.mark.h * result.placed!.mark.scale).toBe(4)
+  expect(result.factor).toBe(LANDMARK_MIN_PX / mark.h)
+  expect(result.placed!.mark.h * result.placed!.mark.scale).toBe(LANDMARK_MIN_PX)
   expect(result.placed!.bounds.left - home.right).toBeCloseTo(6, 7)
-  expect(result.hazeKm).toBeCloseTo(2 * 1.22 ** 9 * 1.1)
+  expect(result.hazeKm).toBe(12)
   expect(result.placed!.mark.baseMode).toBe('foot')
 })
 it('culls an ordinary castle needing 3x', () => {
@@ -39,7 +40,7 @@ it('stands on drawn terrain when the physical foot is hidden but true top is abo
   expect(result.placed!.mark.baseMode).toBe('ridge')
   expect(result.placed!.mark.base).toBe(100)
   expect(result.trueHeightPx).toBeCloseTo(.8)
-  expect(result.factor).toBeCloseTo(5)
+  expect(result.factor).toBeCloseTo(LANDMARK_MIN_PX / .8)
   expect(result.supportId).toBe('ridge:near')
   expect(result.town).toBe(true)
 })

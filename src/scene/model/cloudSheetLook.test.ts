@@ -7,7 +7,7 @@ import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { genusOf } from '../../world/field/genus'
 import { altitudeOf } from '../../world/field/project'
 import { makeWorldBuilder } from '../../world/world'
-import { rainBankDescs } from './clouds'
+import { fallingOf } from './falling'
 import { gridFor, sheetAlphaAt } from './cloudSheetGrid'
 import { sceneModel } from './index'
 import { skyGeom, skyStops, stopAt } from './sky'
@@ -142,12 +142,11 @@ it('projects the Jerusalem broken deck on ground-plane rays', async () => {
     const showers = build({ ...input('haifa'),
       forced: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25,
         windGusts: 45, windDirection: 250, humidity: 80 } })
-    const raining = showers.clouds.find(l => l.rains)
     const rainGeom = skyGeom(showers, box)
-    const banks = raining ? rainBankDescs(showers, box, rainGeom, raining) : []
+    const banks = fallingOf(showers, box, rainGeom, 'rain')?.cells ?? []
     expect(banks).toHaveLength(6)
-    const seen = banks.filter(({ drawn }) => inView(rainGeom, box, drawn))
-    console.info('Haifa rain in view', seen.map(({ bank }) => ({ azimuth: bank.azimuth, altitude: bank.altitude, km: bank.distanceKm })))
+    const seen = banks.filter(cloud => inView(rainGeom, box, cloud))
+    console.info('Haifa rain in view', seen.map(cloud => ({ x: cloud.x, altitude: cloud.altitude, km: cloud.distanceKm })))
     const layers = sceneModel(showers, box).layers
     const shafts = layers.findIndex(l => l.id === 'shafts')
     const rainDeck = layers.findIndex(l => l.id === 'cloudSheet.mid')

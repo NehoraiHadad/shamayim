@@ -39,3 +39,13 @@ describe('snowFall', () => {
     expect(snowFall({ ...dry, weatherCode: 73, snowDepth: .2 }, 1100)!.falling).toBe(true)
   })
 })
+
+it('puts the falling line a melt depth under the forecast freezing level when it has one', () => {
+  const air = { weatherCode: 73, snowfall: 0, temperature: 3 }
+  const lapse = snowFall(air, 1200)!.lineM
+  const given = snowFall({ ...air, freezingLevel: 1400 }, 1200)!.lineM
+  expect(given).not.toBe(lapse)
+  expect(given).toBeLessThan(1400 - 250)
+  expect(snowFall({ ...air, freezingLevel: 3000 }, 950)!.lineM).toBeLessThanOrEqual(950)
+  expect(snowFall({ ...air, freezingLevel: null }, 1200)!.lineM).toBe(lapse)
+})
