@@ -1,7 +1,7 @@
 import { projectCell } from '../../world/field/project'
 import type { FieldCell } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
-import type { CloudSprite, SpriteGenus } from '../paint/clouds/sprite'
+import type { CloudSprite, SpriteGenus } from '../paint/cloudSprite'
 import { acrossSpeed, pxPerRadAt } from './advect'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'

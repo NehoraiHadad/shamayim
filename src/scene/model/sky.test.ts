@@ -6,10 +6,11 @@ import { apparentAltitude } from '../../world/skyProjection'
 import type { WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { paintBodies, paintStars } from '../paint/bodies'
-import { paintClouds, paintFlash } from '../paint/clouds'
+import { paintFlash } from '../paint/flash'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
 import { driftAt, flashAt, strikes } from './anim'
+import { fallingOf } from './falling'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
 
@@ -95,7 +96,7 @@ describe.each(SCENE_PLACES)('sky: $id', ({ id }) => {
     }
   })
 
-  it('flashes lightning only when the world has thunder, inside its raining banks', () => {
+  it('flashes lightning only when the world has thunder, inside its raining cells', () => {
     for (const hour of HOURS) expect(ofKind(sceneModel(world(id, hour), BOX), 'flash')).toHaveLength(0)
     expect(ofKind(sceneModel(world(id, '12:00', { ...THUNDER, weatherCode: 63 }), BOX), 'flash')).toHaveLength(0)
     const w = world(id, '12:00', THUNDER)
@@ -103,15 +104,13 @@ describe.each(SCENE_PLACES)('sky: $id', ({ id }) => {
     const model = sceneModel(w, BOX)
     const flashes = ofKind(model, 'flash')
     expect(flashes.length).toBeGreaterThan(0)
-    const layer = w.clouds.find((c) => c.rains)!
-    // Under a full sheet no clouds layer is left at that level: the flash then drifts by the layer's own drift.
-    const drawn = ofKind(model, 'clouds').find((l) => l.level === layer.level)
     const geom = skyGeom(w, BOX)
-    const cells = new Set(w.rain!.cells.map((c) => `${layer.level}:${c.bank}`))
+    const cells = new Set(w.rain!.cells.map((c) => `${c.level}:${c.bank}`))
+    const rain = fallingOf(w, BOX, geom, 'rain')!
     for (const flash of flashes) {
-      expect(cells.has(flash.bank.id)).toBe(true)
-      // It drifts with its layer.
-      expect(flash.animated!.speed).toBe(drawn?.animated?.speed ?? layer.drift * geom.s)
+      expect(cells.has(flash.cloud.id)).toBe(true)
+      // It drifts with its rain: the field's carry of the raining cells.
+      expect(flash.animated!.speed).toBe(rain.speed)
       expect(flash.animated!.period).toBe(geom.period)
       expect(flash.animated!.pulse).toBeTruthy()
     }
@@ -143,7 +142,7 @@ describe('sky: the animation is a pure function of the phase', () => {
     expect(flashAt(undefined, 5)).toBe(1)
   })
 
-  it('paints the same calls twice (seeded painters, no clock): clouds, flashes, bodies, stars', () => {
+  it('paints the same calls twice (seeded painters, no clock): flashes, bodies, stars', () => {
     const log = (desc: LayerDesc, paint: (ctx: Ctx2D, desc: never, env: PaintEnv) => void) => {
       const calls: string[] = []
       const fake = (): Ctx2D => new Proxy({}, {
@@ -161,7 +160,6 @@ describe('sky: the animation is a pure function of the phase', () => {
     const layers = sky(sceneModel(w, BOX))
     const night = sky(sceneModel(world('haifa', '21:00', CLEAR), BOX))
     const cases: [LayerDesc, (ctx: Ctx2D, desc: never, env: PaintEnv) => void][] = [
-      ...layers.filter((l) => l.kind === 'clouds').map((l) => [l, paintClouds] as [LayerDesc, typeof paintClouds]),
       ...layers.filter((l) => l.kind === 'flash').map((l) => [l, paintFlash] as [LayerDesc, typeof paintFlash]),
       ...night.filter((l) => l.kind === 'bodies').map((l) => [l, paintBodies] as [LayerDesc, typeof paintBodies]),
       ...night.filter((l) => l.kind === 'stars').map((l) => [l, paintStars] as [LayerDesc, typeof paintStars]),

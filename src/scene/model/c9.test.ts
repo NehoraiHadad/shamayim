@@ -55,7 +55,7 @@ describe('C9: the sun behind a cloud and its glow (defect 2)', () => {
       const sky = model.layers.filter((l) => l.surface === 'sky')
       const disc = sky.find((l) => l.id === 'bodies.sun'), aureole = sky.find((l) => l.id === 'bodies.aureole')
       expect(disc && aureole, `${id} ${hour}`).toBeTruthy()
-      for (const cloud of sky.filter((l) => l.kind === 'clouds')) {
+      for (const cloud of sky.filter((l) => l.kind === 'cloudSheet' || l.kind === 'cloudCells')) {
         expect(cloud.z).toBeGreaterThan(disc!.z)
         expect(cloud.z).toBeLessThan(aureole!.z)
       }

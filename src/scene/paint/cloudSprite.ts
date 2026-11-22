@@ -1,4 +1,4 @@
-import type { RGB } from '../../../world/types'
+import type { RGB } from '../../world/types'
 
 /** The cloud genera the field makes (`world/field/types.ts` `Genus`), as the painter draws them. */
 export type SpriteGenus = 'cu' | 'cg' | 'cb' | 'sc' | 'st' | 'ac' | 'as' | 'ns' | 'ci' | 'cs'

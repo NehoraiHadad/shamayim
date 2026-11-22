@@ -1,5 +1,5 @@
 import type { RGB } from '../model/types'
-import type { CloudSprite } from './clouds/sprite'
+import type { CloudSprite } from './cloudSprite'
 import { rng } from './core'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 
