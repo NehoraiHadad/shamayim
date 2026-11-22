@@ -1,0 +1,3 @@
+.play:dir(rtl) {
+  transform: scaleX(-1);
+}

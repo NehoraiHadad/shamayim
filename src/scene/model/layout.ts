@@ -1,12 +1,9 @@
 //# allFunctionsCalledOnLoad
-import { DOT_R, textWidth } from '../../world/layout'
+import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
 import { BACKING_PAD } from '../../world/place'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import type { Box, OverlayItem, SceneBox } from './types'
-
-/** The height label's type (px) and line height, as `sceneLayout.ts` measures it. */
-const LABEL_PX = 11
 
 /**
  * The HTML overlay and the zones the drawing keeps clear (land px): the height label, the notes on the land (the

@@ -73,6 +73,7 @@ export function themeVars(id: ThemeId): Record<string, string> {
     '--sky-mid': t.mid,
     '--sky-horizon': t.horizon,
     '--ink': t.ink,
+    '--focus': 'var(--ink)',
     '--accent': t.accent,
     '--ridge-far': t.ridgeFar,
     '--ridge-near': t.ridgeNear,

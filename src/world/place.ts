@@ -13,7 +13,8 @@ import { noteBoxes, sceneNotes, type SceneNote } from '../data/terrain/sceneNote
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
-import { DOT_R, LABEL_H, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
+import { heightText } from '../text/isolate'
+import { DOT_R, LABEL_H, LABEL_PX, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
 import { markBox, type SeatedWorldMark, type WorldMark } from './markGeometry'
 import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
@@ -75,7 +76,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const reachKm = portraitReach(city?.clusters, place.nameHe)
   const towers = city?.raster?.towers ?? city?.towers ?? []
   const rounded = Math.round(elevation)
-  const label = { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0 }
+  const label = { text: heightText(rounded), below: elevation < 0 }
   const ground = groundFn(terrain.nearPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   const seed = hashId(place.id)
@@ -131,7 +132,7 @@ export const BACKING_PAD = 2.5
  */
 export function besideDot(dot: { x: number; y: number }, text: string, width: number, obstacles: { left: number; right: number; top: number; bottom: number }[],
   notes: WorldLabels['notes']): { x: number; y: number } {
-  const w = textWidth(text, 11)
+  const w = textWidth(text, LABEL_PX)
   const off = DOT_R + BESIDE_GAP + BACKING_PAD + w / 2
   const all = [...obstacles, ...notes.map((n) => ({ left: n.left, right: n.left + n.width, top: n.top, bottom: n.top + n.height }))]
   const top0 = dot.y - LABEL_H / 2

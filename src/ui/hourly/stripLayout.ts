@@ -1,7 +1,8 @@
 import { conditionLabel } from '../../domain/conditions'
 import { clockOf, datePart, hourOf, minutesOfDay, weekdayHe } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
-import { formatProb, formatTemp } from '../../text/format'
+import { formatProb } from '../../text/format'
+import { tempText } from '../../text/isolate'
 import { fillGaps, scaleY, type Pt } from './curve'
 import type { HourSlot, TimelineSlot } from './timeline'
 import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
@@ -74,7 +75,7 @@ export function layoutStrip(slots: TimelineSlot[]): StripLayout {
 
 /** "15:00, מעונן, 26°, רוח 14 קמ״ש" (the time first; `at` names a minute inside the hour, for a moved time). */
 export function describeHour(h: HourSlot, at?: LocalTime): string {
-  const parts = [at ? clockOf(at) : h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), formatTemp(h.temp)]
+  const parts = [at ? clockOf(at) : h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), tempText(h.temp)]
   if (h.prob !== null) parts.push(`סיכוי לגשם ${formatProb(h.prob)}`)
   parts.push(`רוח ${Math.round(h.wind)} קמ״ש`)
   return parts.join(', ')

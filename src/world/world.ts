@@ -6,6 +6,7 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import { SCENE_CAMERA } from '../domain/camera'
 import { datePart } from '../domain/time'
 import type { HourPoint, LocalTime } from '../domain/types'
+import { heightText } from '../text/isolate'
 import { skyLight } from '../theme/skyLight'
 import { airOf } from './air'
 import { moonBody, sunBody } from './bodies'
@@ -80,7 +81,7 @@ const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('offline
  */
 function unknownPlace(place: WorldInput['place'], elevation: number) {
   const rounded = Math.round(elevation)
-  const labels: WorldLabels = { height: { text: `${rounded < 0 ? `−${Math.abs(rounded)}` : rounded} מ׳`, below: elevation < 0, x: SCENE_W / 2,
+  const labels: WorldLabels = { height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2,
     y: 0 }, notes: [] }
   const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }
   return { place3: { kind: 'unknown' as const, dot, reachKm: 0, seed: hashId(place.id) }, marks: [], seatPool: [], labels, ownSkyline: false, coastalSea: null,

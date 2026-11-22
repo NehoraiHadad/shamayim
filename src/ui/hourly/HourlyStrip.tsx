@@ -1,11 +1,15 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useId, type KeyboardEvent } from 'react'
 import { clockOf, hourOf } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
+import { ltr } from '../../text/isolate'
+import { keyStep } from '../scrub/keyStep'
 import { WeatherIcon } from '../WeatherIcon'
 import { smoothPath } from './curve'
 import marks from './markers.module.css'
 import styles from './HourlyStrip.module.css'
+import { NextSunTag } from './NextSunTag'
+import { useNextSunTag } from './useNextSunTag'
 import { BAND_H, BAND_TOP, describeHour, layoutStrip, SLOT_W } from './stripLayout'
 import type { TimelineSlot } from './timeline'
 import { useStripScrub } from './useStripScrub'
@@ -38,12 +42,10 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   const area = `${line} L${pts[pts.length - 1].x},${BAND_H} L${pts[0].x},${BAND_H} Z`
   const focusIndex = Math.max(0, hours.findIndex((h) => (selected ? h.time.slice(0, 13) === selectedHour : h.isNow)))
   const onKey = (e: KeyboardEvent<HTMLOListElement>) => {
-    const last = hours.length - 1
-    // RTL: the left arrow moves later in time; Home/End jump to the first/last hour.
-    const target = { ArrowLeft: (at: number) => at + 1, ArrowRight: (at: number) => at - 1, Home: () => 0, End: () => last }[e.key]
     const at = Number((e.target as HTMLElement).dataset.index)
-    if (!target || !onSelect || Number.isNaN(at)) return
-    const next = Math.min(last, Math.max(0, target(at)))
+    if (!onSelect || Number.isNaN(at)) return
+    const next = keyStep(e.key, at, 0, hours.length - 1)
+    if (next === null) return
     e.preventDefault()
     onSelect(hours[next].time)
     e.currentTarget.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
@@ -131,69 +133,12 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
           </ol>
         </div>
       </div>
-      {away && suns[0] && (
-        <button type="button" className={`${marks.chip} ${marks.sunTag} ${marks[away]}`} onClick={bringNextSun}
-          aria-label={`${suns[0].rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(suns[0].time)}. הצגה ברצועה`}>
-          {away === 'right' && <TagArrow side="right" />}
-          <span>{suns[0].rise ? 'זריחה' : 'שקיעה'} <bdi>{clockOf(suns[0].time)}</bdi></span>
-          {away === 'left' && <TagArrow side="left" />}
-        </button>
-      )}
+      {away && suns[0] && <NextSunTag sun={suns[0]} away={away} onClick={bringNextSun} />}
       {suns.length > 0 && (
         <p className="visually-hidden">
-          {suns.map((s) => `${s.rise ? 'זריחה' : 'שקיעה'} ב־${clockOf(s.time)}`).join(', ')}
+          {suns.map((s) => `${s.rise ? 'זריחה' : 'שקיעה'} ב־${ltr(clockOf(s.time))}`).join(', ')}
         </p>
       )}
     </section>
   )
-}
-
-function TagArrow({ side }: { side: 'left' | 'right' }) {
-  return (
-    <svg width="8" height="8" viewBox="0 0 10 10" aria-hidden="true">
-      <path d={side === 'left' ? 'M6.5 2L3.5 5l3 3' : 'M3.5 2l3 3-3 3'} />
-    </svg>
-  )
-}
-
-/**
- * The next sun event's marker can sit past the visible hours (sunset seen from the morning). While it is scrolled
- * out of view, a tag at that edge names it, and tapping it scrolls the marker into the middle.
- */
-function useNextSunTag(enabled: boolean, slots: TimelineSlot[]) {
-  const scrollerRef = useRef<HTMLDivElement>(null)
-  const [away, setAway] = useState<'left' | 'right' | null>(null)
-  useEffect(() => {
-    const scroller = scrollerRef.current
-    if (!enabled || !scroller) return
-    let frame = 0
-    const check = () => {
-      frame = 0
-      const marker = scroller.querySelector<HTMLElement>('[data-sun]')
-      if (!marker) return setAway(null)
-      const box = scroller.getBoundingClientRect()
-      const x = marker.getBoundingClientRect().left
-      // Inside the edge fades, the hairline is too faint to count as shown.
-      setAway(x < box.left + 24 ? 'left' : x > box.right - 24 ? 'right' : null)
-    }
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(check) }
-    check()
-    scroller.addEventListener('scroll', schedule, { passive: true })
-    window.addEventListener('resize', schedule)
-    return () => {
-      cancelAnimationFrame(frame)
-      scroller.removeEventListener('scroll', schedule)
-      window.removeEventListener('resize', schedule)
-    }
-  }, [enabled, slots])
-  const bring = () => {
-    const scroller = scrollerRef.current
-    const marker = scroller?.querySelector<HTMLElement>('[data-sun]')
-    if (!scroller || !marker) return
-    const box = scroller.getBoundingClientRect()
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
-    scroller.scrollBy({ left: marker.getBoundingClientRect().left - (box.left + box.width / 2),
-      behavior: reduced ? 'auto' : 'smooth' })
-  }
-  return [scrollerRef, away, bring] as const
 }

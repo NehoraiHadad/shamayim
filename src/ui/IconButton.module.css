@@ -1,0 +1,22 @@
+:where(.button) {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.button svg {
+  display: block;
+}
+
+@media (forced-colors: active) {
+  :where(.button) {
+    border: 1px solid ButtonText;
+  }
+}
