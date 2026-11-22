@@ -927,7 +927,7 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
       `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
       `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
-- [x] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–4).
+- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-22, rounds 1–4).
       - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
             luminance compression, and per-face-distance linear haze across terrain receivers.
       - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
@@ -945,6 +945,11 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
             plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
             missing/stale receiver Worker arrivals. Run the land-light browser checks in the CI stills job.
+      - [ ] Round 4 performance gate. Across three interleaved pairs against `6ca2e54`, scene-model scrub
+            and land-animation p50 improved for all three places, and first fallback paint was within 10%.
+            Worker scrub p50 rose 61% in Tel Aviv and 24% in Shadmot Mehola. First canopy rose 14% and
+            Shadmot Mehola's animation p95 remained above baseline. The 24 still ratios stayed within
+            0.37% of approved round 3.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
