@@ -370,6 +370,12 @@ Fable critique before → build → Fable critique after (verdict: belongs; its 
         SMIL + CSS frozen at a time; swing checked over 3 frames (crook stays on the rope)
   - [ ] Not verified: real-time motion feel on a phone (only 3 headless frames checked); SMIL + CSS in Safari
   - [ ] Not verified: the motion by a reviewer (stills only); tomorrow's wind direction (assumed); a phone
+- [x] Likely real cause of "all day": `rollForward` (`src/domain/now.ts`) kept a stale cached dawn's humidity/visibility
+      on screen all day; it now takes the hour row's humidity, visibility and cloud layers (or null when the row lacks them).
+- [x] Review rounds (Codex 1–4): morning-only burn-off with an evening twilight ramp (0° to −6°); low+mid cloud stops
+      radiation fog (capped by total cover); droplet gate (RH 70–90 %) and the reported visibility before the PM10 cap,
+      so dust haze is not fog; raw low cloud for the marine deck; damp-gated rain mist; bands fade at their thresholds;
+      the 12 h night minimum glides as a sample ages out (9–12 h blend toward now): no step at the window edge.
 - Who wrote what: all code and the hazy-sun / ridge / garment glyphs by Claude Opus 5.5 (main thread); Fable critiques only;
   Codex not used — the owner's routing (UI code → Codex sol 6.2, judged from 375 px stills, Opus redo if weak;
   glyphs stay with Claude) arrived after this PR was opened, so 6.2 is untested here. Apply it to the next UI pass.
@@ -840,3 +846,30 @@ Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-
   Codex gpt-6.2-sol briefs 1 and 2 (Neon out of quota); Opus subagent reviewed round 1 and the final diff
 - [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
       model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines
+
+## Birds travel (owner bug "they fly in place") — 2026-11-22 (branch `claude/fix-birds-travel`)
+
+- [x] Diagnose in the built app, live: flocks moved 0.8–2.4 px / 9 s; cause `GROUP` speeds 0.5–2 m/s; prod = main bundle
+- [x] Real flock ground speeds; storks/cranes nearer; raptor thermal drift with the wind
+- [x] Lazy, memoised, frozen flock tracks (first build ≤ main); upcoming flocks laid at alpha 0; speed within ±15 %
+- [x] Tests: `birdsTravel`, `flockLazy`, laid-count gate, opacity-step continuity; browser probe `e2e/birds.motion.mjs`
+- Who wrote what: Claude (Opus 5.5) diagnosis, briefs, probe, lazy/perf tests, verification; agy Gemini 4 Neon the
+  code and test updates (rounds 1–3); Codex gpt-6.2-sol reviewed
+- [ ] Follow-ups: occlusion step at a crest on rebuild (Codex P2); per-sample yaw for near passes; split `lifeSchedule.ts`
+
+## Polish track F — the fog band over the land (owner report) — 2026-11-22 (branch `claude/modest-jennings-b32480`)
+Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weather=damp`, `-no-<id>` = layer hidden).
+- [x] Evidence: in the fixture (RH 60 %, 30 km all day) mistiness is 0 and no mist layer exists; the sky haze band (alpha
+      0.12) moves ≤ 1 luma level when hidden. The pale slab at shadmot-mehola 11:30 is `plane.far` (Gilead, 9–21 km)
+      at Koschmieder haze for 30 km (correct), with `cloudShadow.far` laying a horizontal dark smear across its lower
+      half (handed to track D). With damp air (`?weather=damp`) the valley mist lay over the ridge line all day: the bug.
+- [x] Root rule: `world.air.mist` (`src/world/mist.ts`): radiation mist (RH 84–99 % or data visibility, calm < 3–7 m/s)
+      burns off with the sun (2–26°) and the warming over the 12 h minimum (+0.5–4.5 °C); daytime mist persists only for
+      data visibility ≤ 6 km, rain, or a low stratus deck with RH ≥ 85 %. Never in dust. Scene mist in `scene/model/mist.ts`.
+- [x] Tests: `src/world/mist.test.ts` (burn-off, wind, persistence, dust, humidity-derived visibility, night minimum),
+      `src/scene/model/mist.test.ts` (dawn mist, none at noon); `weather.test.ts` damp case updated (dawn only).
+- [x] Tooling: stills moment field 6 hides layers (`place@HH:MM@weather@phase@land@ids`), harness `?hide=`, `damp` preset.
+- Who wrote what: Claude (Opus 5.5) diagnosis, evidence, brief, verification; Gemini 4 Neon (agy) the rule and tests;
+  Codex gpt-6.2-sol review.
+- [ ] Follow-up (track D): cloud shadows on the far ridge read as horizontal bands.
+- [ ] Follow-up: `App.tsx:89` page background uses `mapAir(shown)` with live visibility even in a picked-hour preview.

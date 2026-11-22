@@ -33,9 +33,15 @@ export function rollForward(forecast: Forecast, now: LocalTime): Forecast {
       isDay,
       weatherCode: row.weatherCode,
       cloudCover: row.cloudCover,
+      thickCloud: row.thickCloud ?? null,
+      cloudLow: row.cloudLow ?? null,
+      cloudMid: row.cloudMid ?? null,
       windSpeed: row.windSpeed,
       windGusts: row.windGusts,
+      windDirection: row.windDirection ?? forecast.current.windDirection,
       precipitation: row.precipitation,
+      visibility: row.visibility ?? null,
+      humidity: row.humidity ?? null,
     },
   }
 }

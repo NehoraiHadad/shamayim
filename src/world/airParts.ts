@@ -62,7 +62,7 @@ export function snow(cmh: number): AirState['snow'] {
 }
 
 /** Dust level: dust concentration when known, else PM10. */
-const dustLevel = (i: AirInput) => i.dust ?? i.pm10 ?? 0
+const dustLevel = (i: AirInput) => i.dustConcentration ?? i.dust ?? i.pm10 ?? 0
 export const dustShare = (i: AirInput) => smoothstep(40, 60, dustLevel(i))
 
 export function grains(i: AirInput): Particles {
@@ -73,7 +73,10 @@ export function grains(i: AirInput): Particles {
 }
 
 /** Visibility in km: the measured value, tightened by a rough dust estimate. */
-const dustVisibilityKm = (i: AirInput) => i.pm10 ? 1300 / i.pm10 : Infinity
+const dustVisibilityKm = (i: AirInput) => {
+  const pm10 = i.opticalPm10 ?? i.pm10 ?? 0
+  return pm10 > 0 ? 1300 / pm10 : Infinity
+}
 
 export function visibilityKm(i: AirInput): number {
   return clamp(Math.min(i.visibilityKm ?? 40, dustVisibilityKm(i)), 1, 40)

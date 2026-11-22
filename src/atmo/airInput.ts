@@ -45,21 +45,24 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
   const instant = utcOf(at, site.timezone)
   const nowInstant = at === now ? instant : utcOf(now, site.timezone)
   const nowMs = arrivalMs ?? nowInstant.getTime()
+  const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
   const sample = (minute: LocalTime, ms: number) =>
-    blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone), mixWeather)
+    blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone, forcedCloud), mixWeather)
   const weather = sample(at, instant.getTime())
   const cover = observedCloud
     ? correctCloudCover(observedCloud, now, at, nowMs, (at === now ? weather : sample(now, nowInstant.getTime())).cloudCover,
       weather.cloudCover)
     : weather.cloudCover
   const shown = {
-    ...correctedWeather(weather, cover),
+    ...(forcedCloud ? { ...weather, cloudCover: cover } : correctedWeather(weather, cover)),
     date: datePart(at),
     localHour: Number(at.slice(11, 13)) + Number(at.slice(14, 16)) / 60,
     sunElevation: Math.max(-18, sunPosition(instant, site.lat, site.lon).altitude),
     preview: selected !== null,
     ...forced,
   }
+  if (forced && ('dust' in forced || 'pm10' in forced)) shown.dustConcentration = shown.dust ?? shown.pm10 ?? 0
+  if (forced && 'pm10' in forced) shown.opticalPm10 = shown.pm10 ?? 0
   if (forced && ('weatherCode' in forced || 'precipitation' in forced || 'snowfall' in forced || 'temperature' in forced)) {
     return { ...shown, ...weatherEffects(shown) }
   }

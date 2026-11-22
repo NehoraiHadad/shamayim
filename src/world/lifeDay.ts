@@ -6,7 +6,6 @@ import type { Camera } from '../domain/camera'
 import { addMinutes } from '../domain/minutes'
 import type { LocalTime } from '../domain/types'
 import { airOf } from './air'
-import { layerCovers } from './clouds'
 import { cloudTransmit } from './light'
 import type { LifeInput } from './life'
 import { dayBefore, lifeAt, lifeSchedule, secondsOf, type FlightContext, type LifeSchedule } from './lifeSchedule'
@@ -35,7 +34,6 @@ export function lifeInputAt(input: WorldInput, at: LocalTime, base: { camera: Ca
   const held = first && at < first ? first : last && at > `${last.slice(0, 13)}:59` ? last : at
   const forced = input.forced ?? {}
   const shown = airInput(forecast, input.now, place, held, forced, input)
-  const hour = hours.find((h) => h.time === `${held.slice(0, 13)}:00`)
   const instant = utcOf(at, place.timezone)
   const sun = sunPosition(instant, place.lat, place.lon)
   const { air } = airOf({ shown, visibilitySource: shown.visibilitySource, forcedVisibility: 'visibilityKm' in forced })
@@ -43,8 +41,7 @@ export function lifeInputAt(input: WorldInput, at: LocalTime, base: { camera: Ca
     directionSource: shown.directionSource, aloft: shown.windAloft,
     forced: 'windDirection' in forced }, base.camera)
   const rate = rainOf(shown)
-  const given = input.forcedLayers ?? ('cloudCover' in forced || 'thickCloud' in forced
-    ? layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour }).covers : shown.covers)
+  const given = input.forcedLayers ?? shown.covers
   const covers = rainingLayer(given, Math.max(rate, shown.snowCloudRate)).covers
   const night = nightOf(shown, covers)
   const high = shown.windAloft.high
@@ -56,7 +53,8 @@ export function lifeInputAt(input: WorldInput, at: LocalTime, base: { camera: Ca
     dark: night.dark, temperature: shown.temperature, covers, rainMmH: rate, thunder: shown.thunderWeight,
     wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs },
     highWind: high ? { towardDeg: (high.fromDeg + 180) % 360, ms: high.speed / KMH } : { towardDeg: wind.towardDeg, ms: wind.aloft.high },
-    hour, starsThrough: night.starsThrough, moon: { altitude: moon.altitude, illumination: moonIllumination(instant).fraction },
+    hour: { cruise: shown.cruise }, starsThrough: night.starsThrough,
+    moon: { altitude: moon.altitude, illumination: moonIllumination(instant).fraction },
     visibilityKm: air.visibilityKm,
   }
 }

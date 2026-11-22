@@ -22,6 +22,7 @@ import type { SkyLight } from '../theme/skyLight'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
+import type { Mist } from './mist'
 import type { SnowFall } from './snowLine'
 
 /**
@@ -185,6 +186,8 @@ export interface Air {
   farFade: number
   nearFade: number
   horizonBand: { rgb: RGB; alpha: number }
+  /** Shallow valley/ground mist and fog (radiation vs persistent, 0–1; `mist.ts`). */
+  mist: Mist
   /** Heat shimmer amplitude (px). */
   heat: number
 }

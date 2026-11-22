@@ -100,7 +100,7 @@ export default function App() {
     landmarks: marks, seatCandidates: landmarks.seatCandidates, city, seenClouds, forced: forcedWeather() } : null),
     [place, timeline, now, selected, arrivalMs, observedCloud, terrain, marks, landmarks.seatCandidates, city, seenClouds])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
-    cloudCover: shown.cloudCover, wet: Math.min(1, shown.rainMmH / 0.8), pm10: shown.pm10,
+    cloudCover: shown.cloudCover, wet: Math.min(1, shown.rainMmH / 0.8), pm10: shown.opticalPm10,
     air: air ? { visibilityKm: air.haze.visibilityKm, dustWeight: dustShare(shown) } : undefined }) : SKY_THEMES[themeId],
   [shown, themeId, air])
   const intro = useIntro(Boolean(forecast))

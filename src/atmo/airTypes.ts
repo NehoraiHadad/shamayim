@@ -27,7 +27,11 @@ export interface AirInput {
   visibilityKm: number | null
   /** µg/m³, null when unknown */
   pm10: number | null
+  /** PM10 contribution to optical effects, eased to zero where no report is available. */
+  opticalPm10?: number
   dust: number | null
+  /** Dust or its PM10 proxy, resolved before blending weather endpoints. */
+  dustConcentration?: number
   /** Discrete label for the readout. Drawing uses the amounts below. */
   weatherCode: number
   /** Interpolated visual snowfall amount and rate used to raise a snow cloud. */

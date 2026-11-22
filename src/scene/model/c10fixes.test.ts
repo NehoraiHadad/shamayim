@@ -26,7 +26,7 @@ const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 12
 const CLEAR: Partial<AirInput> = { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0 }
 const CIRRUS: Partial<AirInput> = { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 }
 const SHOWERS: Partial<AirInput> = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,
-  windDirection: 250, humidity: 80 }
+  windDirection: 250, humidity: 80, visibilityKm: 30 }
 
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {

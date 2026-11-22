@@ -11,11 +11,11 @@ import { heightText } from '../text/isolate'
 import { skyLight } from '../theme/skyLight'
 import { airOf, coinOf } from './air'
 import { moonBody, sunBody } from './bodies'
-import { cloudLayers, layerCovers } from './clouds'
+import { cloudLayers } from './clouds'
 import { farCitiesOf } from './farCities'
 import { partKey } from './keys'
 import { lightOf, visibleDay } from './light'
-import { airDim, cloudDriftKm, hourBetween } from './livingLight'
+import { airDim, cloudDriftKm } from './livingLight'
 import { smoothstep } from './ridgeLighting'
 import { nightOf } from './night'
 import { placeOf } from './place'
@@ -157,7 +157,6 @@ export function makeWorldBuilder() {
     const seed = hashId(place.id)
     const skyline = skylineOf(terrain)
     const shown = shownAir(input)
-    const hour = forecast.hours.find((h) => h.time === hourKey(at))
     const dayGiven = forecast.days.find((d) => d.date === datePart(at))
     const forced = input.forced ?? {}
     const nowMs = input.arrivalMs ?? utcOf(now, place.timezone).getTime()
@@ -175,16 +174,14 @@ export function makeWorldBuilder() {
     const day = dayGiven && status === 'ready' ? visibleDay(dayGiven, place, sunSkyline) : dayGiven
     const sun = sunBody(at, day, place, skyline, sunSkyline)
     const moon = moonBody(at, place, skyline, sun, sunSkyline)
-    const { air, source: visibilitySource } = airOf({ shown, visibilitySource: shown.visibilitySource,
-      forcedVisibility: 'visibilityKm' in forced })
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
       directionSource: shown.directionSource, aloft: shown.windAloft, forced: 'windDirection' in forced }, camera)
+    const { air, source: visibilitySource } = airOf({ shown, visibilitySource: shown.visibilitySource,
+      forcedVisibility: 'visibilityKm' in forced, mist: { sun, windMs: wind.ms, weather: shown.mist, forced, forcedLayers: input.forcedLayers } })
     const rate = rainOf(shown)
     // A dev moment may pin the layers themselves (the harness's C10 moments: a veil of cirrostratus alone).
     const { covers: given, source: cloudSource } = input.forcedLayers ? { covers: input.forcedLayers, source: 'forced' as const }
-      : 'cloudCover' in forced || 'thickCloud' in forced
-        ? layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour: hourBetween(forecast.hours, at) })
-        : { covers: shown.covers, source: shown.cloudSource }
+      : { covers: shown.covers, source: shown.cloudSource }
     const snow = snowFall(shown, forecast.elevation)
     // Falling snow needs a cloud to fall from, as the rain does (C7): the same layer rule, from the snowfall.
     const raining = rainingLayer(given, Math.max(rate, shown.snowCloudRate))
@@ -194,7 +191,7 @@ export function makeWorldBuilder() {
     const rain = rainFrom(clouds, rate, wind, preview ? 0 : shown.thunderWeight, hashId(`${place.id}:rain:${hourKey(at)}`))
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow:${hourKey(at)}`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
-      wet: Math.min(1, rate / 0.8), pm10: shown.pm10, air })
+      wet: Math.min(1, rate / 0.8), pm10: shown.opticalPm10, air })
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
       aerosol: air, covers, cloudCover: shown.cloudCover,
       thickCloud: shown.thickCloud ?? null, farFade: air.farFade, palette })
@@ -219,7 +216,8 @@ export function makeWorldBuilder() {
     const lifeInput: LifeInput = { placeId: place.id, lat: place.lat, lon: place.lon, at, timezone: place.timezone, camera,
       groundM: forecast.elevation, env, sun, direct: light.shares.sun, dark: night.dark,
       temperature: shown.temperature, covers, rainMmH: rate, thunder: shown.thunderWeight,
-      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs }, hour, starsThrough: night.starsThrough, moon,
+      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs },
+      hour: { cruise: shown.cruise }, starsThrough: night.starsThrough, moon,
       visibilityKm: air.visibilityKm }
     // The life is a process in time (`lifeSchedule.ts`): the day's events drawn once per place, day and inputs, and shown
     // where each one's path has brought it at this minute.

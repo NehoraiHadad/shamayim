@@ -67,7 +67,7 @@ export function wearAir(world: WorldState, wet = wearWet(world)): WearAir {
   // A wind straight toward or away from the eye still shakes the cloth: its swing keeps a third of its size, on its side.
   const side = across < 0 ? -1 : 1
   const calm = blow <= 0 && gusty <= 0
-  const lean = 24 * blow * across * heavy
+  const lean = calm ? 0 : 24 * blow * across * heavy
   const flap = calm ? 0 : (2 + 9 * blow + 7 * gusty) * side * Math.max(0.35, Math.abs(across)) * heavy
   return { calm, blow, gusty, lean, flap, lift: calm ? 0 : (1 + 6 * blow + 3 * gusty) * heavy, period: 7 - 4 * blow - 1.2 * gusty, heavy }
 }

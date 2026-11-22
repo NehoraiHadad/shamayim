@@ -166,8 +166,8 @@ export function birdScores(input: LifeInput): Record<BirdKind, number> {
 interface KindShape { count: [number, number]; distanceM: [number, number]; speedMs: number }
 
 export const SHAPES: Record<BirdKind, KindShape> = {
-  stork: { count: [14, 38], distanceM: [1400, 3000], speedMs: 9 },
-  crane: { count: [9, 28], distanceM: [1800, 4000], speedMs: 15 },
+  stork: { count: [14, 38], distanceM: [800, 2200], speedMs: 9 },
+  crane: { count: [9, 28], distanceM: [1200, 3000], speedMs: 15 },
   swift: { count: [5, 12], distanceM: [150, 400], speedMs: 20 },
   gull: { count: [2, 6], distanceM: [200, 600], speedMs: 9 },
   raptor: { count: [1, 3], distanceM: [500, 1200], speedMs: 3 },
