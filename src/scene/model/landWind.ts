@@ -3,10 +3,14 @@ import { ease, gustAt } from './anim'
 
 // NOAA's land Beaufort scale: calm below 0.3 m/s, small trees sway at B5,
 // whole trees move at B7 (13.9–17.1 m/s). The square approximates drag at
-// modest speeds. Cap the illustrated mean bend at the upper end of B7.
+// modest speeds. Mean bend saturates at 1.0 at the upper end of B7; above
+// FULL_BEND_MS, gust excess still uses the unsaturated drag difference
+// (clamped to 1 × GUST_SHARE = 0.55) so gusts remain visible in a gale, giving
+// a peak bend bound of 1.55× full bend (matched by canopy.ts's 1.55 pad).
 // https://www.weather.gov/tbw/beaufort
 const CALM_MS = 0.3
 const FULL_BEND_MS = 17.1
+const GUST_SHARE = 0.55
 const load = (ms: number) => (ms / FULL_BEND_MS) ** 2
 
 /** The C7 two-second sway interval, with ten poses to resolve short travel at the frond tips. */
@@ -26,8 +30,9 @@ export function plantWindOf({ across, ms, gustMs }: Pick<Wind, 'across' | 'ms' |
   return {
     lean: step(across * Math.min(1, load(ms))),
     // Forecast gust excess supplies the incremental drag. Keep a little travel
-    // above the mean's cap, including in a gale. Identical mean/gust gives no sway.
-    gust: step(across * 0.55 * Math.min(1, load(Math.max(ms, gustMs)) - load(ms))),
+    // above the mean's cap, including in a gale (peak lean + gust ≤ 1.55).
+    // Identical mean/gust gives no sway.
+    gust: step(across * GUST_SHARE * Math.min(1, load(Math.max(ms, gustMs)) - load(ms))),
   }
 }
 
@@ -47,8 +52,10 @@ export function plantWindAt(wind: PlantWind, seconds: number, seedPhase: number)
 }
 
 /** Artist-tuned tip travel as a share of drawn height (trees) or radius (fronds/tufts).
- * Stiff woodland and palm trunks give a little, orchard branches give more, blades and fronds stream.
+ * Palm trunks (3) and mature woodland/olive trunks (0, 1: thick woody stems) give a little;
+ * lighter citrus/generic orchard canopies (2, 4) give more; grass blades and palm fronds stream.
  */
-export const treeTravel = (kind: number, height: number) => height * (kind === 3 ? 0.055 : kind === 0 ? 0.095 : 0.18)
+export const treeTravel = (kind: number, height: number) =>
+  height * (kind === 3 ? 0.055 : kind === 0 || kind === 1 ? 0.095 : 0.18)
 export const frondTravel = (r: number) => r * 0.70
 export const tuftTravel = (kind: number, r: number) => r * (kind === 1 ? 1.10 : 0.32)

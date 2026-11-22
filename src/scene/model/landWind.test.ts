@@ -38,7 +38,9 @@ describe('land plants in the scene wind', () => {
     expect(mean(8)).toBeGreaterThan(mean(3))
     expect(mean(14)).toBeGreaterThan(mean(8))
     expect(mean(17.1)).toBe(mean(35))
+    expect(plantWindOf(worldWind(90, 20, 32))).toEqual({ lean: 1, gust: 0.546875 })
     expect(treeTravel(3, 9)).toBeLessThan(treeTravel(0, 9))
+    expect(treeTravel(1, 9)).toBe(treeTravel(0, 9))
     expect(treeTravel(0, 9)).toBeLessThan(treeTravel(2, 9))
   })
 
