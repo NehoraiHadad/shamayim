@@ -1,19 +1,20 @@
 import type { Place } from '../config/place'
-import { inFrame, inSkylineReach, lieBaseY, outsideProject, sameTower, SKYLINE_TO_KM, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
+import { lieBaseY, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
 import type { CityTower } from '../data/city/types'
-import { industrialNamed, landmarkBeyond } from '../data/landmarks/industrial'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
-import { PORTRAIT_MARGIN_KM } from '../data/landmarks/portrait'
-import { distanceOf, offsetKm } from '../data/landmarks/project'
+import { offsetKm } from '../data/landmarks/project'
 import { groundFn, seat } from '../data/landmarks/seat'
 import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
+import { beyondMarks } from './beyondMarks'
+import { rowKm, type SeatMark } from './beyondSeat'
 import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
 import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
-import { lookOf, rowKm } from './outside'
-import type { WorldMark } from './types'
+import { markCandidates } from './markCandidates'
+import type { SeatedWorldMark, WorldMark } from './markGeometry'
+import { lookOf } from './outside'
 
 /**
  * The place's marks (stage C4): which landmarks show, where and how large, by the portrait and outside rules, for every
@@ -31,39 +32,12 @@ const MIN_FIELD_DEPTH = 1
 type Ground = (x: number) => number
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
-/**
- * A landmark needs a name (owner, 2026-11-19): an unnamed mark keeps its kind, not its fame, for every place; an
- * industrial structure's name must be a name (`industrial.ts`: not a status or construction note, not its operator),
- * else it is unnamed too. The place's own houses and the hand-drawn icons are named by definition.
- */
-export function namedOnly(landmarks: readonly Landmark[]): Landmark[] {
-  return landmarks.map((given) => {
-    const mark = industrialNamed(given)
-    return mark.source === 'place' || mark.source === 'curated' || mark.nameHe || !mark.fame ? mark : { ...mark, fame: undefined }
-  })
-}
-
-/** A structure beyond the place this tall (m) shows within the skyline's reach, named or not (C9). */
-const NEAR_BEYOND_M = 20
-
-/** Whether a mark is of the place: in its frame and within its own boundary (seen from outside), or in its reach (+1 km). */
-function ofPlace(place: Place, mark: Landmark, reachKm: number, outside: MarksInput['outside']) {
-  const { dx, dy } = offsetKm(place, mark)
-  if (!outside) return Math.hypot(dx, dy) <= reachKm + PORTRAIT_MARGIN_KM
-  return inFrame(outside.frame, dx, dy, outside.lie.inPlace ? 0 : 1) && (outside.lie.inPlace?.(dx, dy) ?? true)
-}
-
-/** A generic high-rise the place's own raster towers stand for (the outside view draws those; C5). */
-function rasterReplaced(place: Place, landmarks: readonly Landmark[], towers: readonly CityTower[] | null) {
-  if (!towers?.length) return new Set<string>()
-  return new Set(landmarks.filter((mark) => mark.source === 'osm' && isGenericHighrise(mark.kind, mark.glyph)
-    && inSkylineReach(distanceOf(place, mark)) && towers.some((tower) => sameTower(mark, tower))).map((mark) => mark.id))
-}
-
 export interface MarksInput {
   place: Place
   terrain: SceneTerrain
   landmarks: readonly Landmark[]
+  /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
+  seatCandidates?: readonly Landmark[]
   width: number
   dot: Point
   reachKm: number
@@ -78,7 +52,7 @@ export interface MarksInput {
    * The outside view for a city seen from outside (variant B, `outside.ts`): its frame, its own boundary and slope
    * (`lie`), and the near ridge's distance at the dot (the haze of its nearest row); null for a portrait.
    */
-  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number
+  outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number; seatMark: SeatMark | null
     /** The place's own ground over the ridge line (C5b): a mark moved across stands on what is there. */
     land?: { top: readonly (readonly [number, number])[] } | null } | null
 }
@@ -116,14 +90,6 @@ function fieldBox(kind: 'orchard' | 'vineyard' | 'solar', x: number, depth: numb
   const w = GLYPH_SPECS[kind].w
   const ys = [0, .25, .5, .75, 1].map((t) => ground(x - w / 2 + t * w))
   return { left: x - w / 2, right: x + w / 2, top: Math.min(...ys) + depth - 1.6, bottom: Math.max(...ys) + depth + fieldReach(kind) }
-}
-
-/** The box a placed mark covers (px), for the label and the portrait to keep clear of. */
-export function markBox(mark: WorldMark): Box {
-  if (mark.depth !== undefined) {
-    return { left: mark.x - mark.w / 2, right: mark.x + mark.w / 2, top: mark.base - 1.6, bottom: mark.base + mark.h }
-  }
-  return { left: mark.x - mark.w / 2, right: mark.x + mark.w / 2, top: mark.base - mark.h * mark.scale, bottom: mark.base }
 }
 
 /**
@@ -192,33 +158,23 @@ function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGround: Gro
  * layer's rule); an outside view's marks of the place stand where the one outside projection puts them (east left, north
  * nearer and lower), its far marks only when named and famous or huge, and a city's own high-rises left to its towers.
  */
-export function marksOf(input: MarksInput): WorldMark[] {
+export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: SeatedWorldMark[] } {
   const { place, terrain, width, dot, outside } = input
   const ground = groundFn(terrain.nearPoints, width)
   const farGround = groundFn(terrain.farPoints, width)
-  // Beyond the place only landmarks, for every place (SKYLINE.md's rule, C5): a name and fame, or truly huge.
-  // C9 (defect 8): within the skyline's reach (6 km), where the outside view draws the neighbours' towers and towns, a
-  // tall structure of theirs (a chimney, a water tower, a silo, a minaret: 20 m and more) shows as it truly stands, named or
-  // not; the far rule (name and fame, or huge) is for the far towns' range beyond it.
-  const nearBeyond = (mark: Landmark) => Boolean(outside) && mark.heightM >= NEAR_BEYOND_M
-    && Math.hypot(offsetKm(place, mark).dx, offsetKm(place, mark).dy) <= SKYLINE_TO_KM
-  const landmarks = namedOnly(input.landmarks).filter((mark) => ofPlace(place, mark, input.reachKm, outside) || landmarkBeyond(mark)
-    || nearBeyond(mark))
-  const replaced = rasterReplaced(place, landmarks, input.rasterTowers)
-  const kept = landmarks.filter((mark) => !replaced.has(mark.id))
+  const { own, beyond } = markCandidates(input)
   const inBox = (mark: WorldMark) => mark.x - mark.w / 2 >= 0 && mark.x + mark.w / 2 <= width
   const fitted = (placed: PlacedMark[]) => placed.flatMap((mark) => fit(mark, input, ground, farGround) ?? [])
   if (!outside) {
-    return fitted(placeMarks(place, terrain, kept, width, input.homeHalf, false, { reachKm: input.reachKm }, input.notes, 'landmark'))
-      .filter(inBox)
+    const marks = fitted(placeMarks(place, terrain, own, width, input.homeHalf, false, { reachKm: input.reachKm }, input.notes, 'landmark'))
+    return { marks: marks.filter(inBox), seatPool: [] }
   }
   // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
-  const own = kept.filter((mark) => ofPlace(place, mark, input.reachKm, outside))
-  const beyond = kept.filter((mark) => !own.includes(mark))
+  const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot, input.notes)
   const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
   const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
-  const placed = [...ownMarks, ...placeMarks(place, terrain, beyond, width, undefined, false, undefined, input.notes, 'landmark')]
-  let marks = fitted(placed)
+  const placed = [...ownMarks, ...placeMarks(place, terrain, other, width, undefined, false, undefined, input.notes, 'landmark')]
+  let marks = [...fitted(placed), ...seated]
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
   const { frame, isCity, lie, baseKm } = outside
   const look = lookOf(frame)
@@ -266,6 +222,6 @@ export function marksOf(input: MarksInput): WorldMark[] {
     return { ...mark, xPct: x / width * 100, x, hPx, h, scale: 1, w: spec.w, base, baseY: base, km }
   }).filter((mark, i, all) => !mark.portrait || mark.absorbed || GLYPH_SPECS[mark.glyphKind].field
     || all.every((other, j) => j >= i || !other.portrait || GLYPH_SPECS[other.glyphKind].field || Math.abs(other.x - mark.x) >= 6))
-  return (isCity ? marks.filter((mark) => !(mark.portrait && ownPlaced.has(mark.id) && isGenericHighrise(mark.kind, mark.glyph)))
-    : marks).filter(inBox)
+  const kept = isCity ? marks.filter((mark) => !(mark.portrait && ownPlaced.has(mark.id) && isGenericHighrise(mark.kind, mark.glyph))) : marks
+  return { marks: kept.filter(inBox), seatPool }
 }

@@ -16,7 +16,8 @@ function valid(cluster: Cluster | null) {
     (form.tagged === undefined || Number.isInteger(form.tagged) && form.tagged >= 0 && form.tagged <= cluster.measured) &&
     cluster.nearest >= 0 && typeof cluster.urban === 'boolean' &&
     (!place || typeof place.name === 'string' && [0, 1, 2, 3].includes(place.kind) &&
-      [0, 1, 2, 3, 4, 5].includes(place.faith)) &&
+      [0, 1, 2, 3, 4, 5].includes(place.faith) &&
+      (place.at === undefined || Boolean(place.at && finite([place.at.dx, place.at.dy])))) &&
     Array.isArray(bands) && bands.length >= 1 && bands.length <= 3 &&
     bands.every(band => band && Number.isFinite(band.dy) && Array.isArray(band.runs) && band.runs.every(extent) &&
       Array.isArray(band.big) && band.big.every(extent))
@@ -29,8 +30,8 @@ export function validClusters(value: unknown): value is Cluster[] {
 }
 
 // Reserve space for the home; cache only whole cluster records, while the loader retains all clusters.
-export function clustersForCache(clusters: Cluster[]) {
-  const home = homeCluster(clusters)
+export function clustersForCache(clusters: Cluster[], name?: string) {
+  const home = homeCluster(clusters, name)
   if (home && size([home]) > BUDGET) return null
   const kept = home ? [home] : []
   for (const cluster of clusters) {

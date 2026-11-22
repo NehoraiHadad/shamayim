@@ -7,7 +7,7 @@ import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/ou
 import type { FarData } from '../data/city/farData'
 import type { PlainPatch } from '../data/city/plainData'
 import type { CityResult } from '../data/city/types'
-import type { Landmark, PlacedMark } from '../data/landmarks/types'
+import type { Landmark } from '../data/landmarks/types'
 import type { Relief } from '../data/terrain/angleScale'
 import type { SceneNote } from '../data/terrain/sceneNotes'
 import type { Datum } from './datum'
@@ -20,7 +20,7 @@ import type { Forecast, LocalTime } from '../domain/types'
 import type { SkyLight } from '../theme/skyLight'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
-import type { GlyphKind } from './glyphSpecs'
+import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import type { SnowFall } from './snowLine'
 
 /**
@@ -56,6 +56,8 @@ export interface WorldInput {
   sunTerrain?: SceneTerrain
   /** Landmarks, the place's own homes and the satellite's groves (App's `marks`). */
   landmarks: readonly Landmark[]
+  /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
+  seatCandidates?: readonly Landmark[]
   city?: CityResult | null
   /** The far raster (`far.json`: built share and storeys per ~0.5 km cell, towers of 80 m+); the far towns need it. */
   far?: FarData | null
@@ -350,29 +352,6 @@ export interface PlaceUnknown {
   seed: number
 }
 
-/**
- * A mark as the world places it (stage C4, `marks.ts`): the data's placed mark, its glyph, and where it stands in scene
- * px at the layout width.
- */
-export interface WorldMark extends PlacedMark {
-  glyphKind: GlyphKind
-  /** Centre x and base y (px). */
-  x: number
-  base: number
-  /** Drawn height in glyph px, and px per glyph px (far marks 0.6, plain ones by distance). */
-  h: number
-  scale: number
-  /** Box width (px, after scale). */
-  w: number
-  /** A field: px under the crest its first row lies (its rows follow the ground). */
-  depth?: number
-  /** How far (km) it stands: the haze it takes. */
-  km: number
-  plane: 'near' | 'far' | 'plain'
-  /** A landmark, named (an unnamed mark is never one). */
-  named: boolean
-}
-
 /** A tree of the place seen from outside (layout px): `x` its centre on `base`, `km` its haze. */
 export interface OutsideTreeSite { x: number; base: number; w: number; h: number; near: number; kind: 'tree' | 'cypress' | 'palm'
   seed: number; km: number }
@@ -383,8 +362,8 @@ export interface OutsideTreeSite { x: number; base: number; w: number; h: number
  */
 export interface BeyondTower extends OutsideTower { km: number }
 
-/** A built square of a town beyond the place (C9), in the outside view: its middle x, base, width and height (px). */
-export interface BeyondBlock { x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
+/** A built square of a town beyond the place (C9), in the outside view: its raster square id, middle x, base, width and height (px). */
+export interface BeyondBlock { id: string; x: number; baseY: number; w: number; h: number; km: number; heightM: number; seed: number }
 
 /** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
 export interface OutsideView {
@@ -497,8 +476,10 @@ export interface WorldState {
   water: WaterState
   farCities: FarCities
   place3: PlaceUnknown | OutsideView
-  /** The marks after the portrait / outside rules (`marks.ts`), seated on the land they stand on. */
+  /** The marks after the portrait / outside rules, with beyond seats budgeted for world layout and skyline. */
   marks: WorldMark[]
+  /** All viable beyond seats, ranked for re-budgeting after the scene's screen-space cull. */
+  seatPool: SeatedWorldMark[]
   /** The height label and the notes on the land (the place part: independent of the hour). */
   labels: WorldLabels
   night: Night

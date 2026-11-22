@@ -1,0 +1,8 @@
+shadmot-mehola	2	synagogue*@0.01km/9m/near solar*@0.47km/3m/near
+tel-aviv	4	custom*@1.25km/187m/near minaret*@2.29km/30m/near church*@3.79km/25m/near chimney*@2.74km/150m/near
+jerusalem	4	waterTower*@3.91km/55m/near custom*@1.92km/19m/near custom*@2.64km/118m/near waterTower@3.69km/25m/near
+haifa	4	custom*@1.16km/11m/near minaret*@2.90km/30m/near cooling@5.36km/75m/near church*@1.04km/25m/near
+rosh-pina	4	synagogue*@0.33km/9m/near orchard*@2.18km/5m/near minaret@4.80km/30m/near minaret@5.24km/30m/near
+ramon-crater	0	
+tiberias	1	waterTower*@1.89km/40m/near
+ein-gedi	1	orchard*@0.77km/5m/near

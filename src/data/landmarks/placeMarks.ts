@@ -15,6 +15,13 @@ export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
 const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6, palms: 11 }
 const LIGHTS = new Set<Landmark['kind']>(['highrise', 'homes', 'church', 'minaret', 'lighthouse'])
 const LIT_CUSTOM = new Set(['jerusalem-wall', 'tel-aviv-azrieli', 'haifa-bab'])
+
+/** Appearance shared by portrait and outside-view landmarks. Four lit windows and the 60 m tall class are the existing glyph rules. */
+export function markAppearance(mark: Landmark) {
+  return { glyph: mark.glyph ?? mark.kind, lights: LIGHTS.has(mark.kind) || LIT_CUSTOM.has(mark.glyph ?? '') ? 4 : 0,
+    tall: mark.heightM >= 60 }
+}
+
 /** Towers too: a city's high-rises rise out of its blocks instead of standing alone beside an empty hill. */
 const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
 const SETTLEMENTS = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood', 'isolated_dwelling', 'locality'])
@@ -172,13 +179,11 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
       if (hPx < 10) return []
     }
     return [{
-      id: item.mark.id, kind: item.mark.kind, glyph: item.mark.glyph ?? item.mark.kind,
+      id: item.mark.id, kind: item.mark.kind, ...markAppearance(item.mark),
       layer: item.layer, xPct: item.x / 375 * 100, baseY,
       ...(item.plain ? { km: item.dx } : {}),
       hPx,
       ...(item.plain?.visibleTopY === undefined ? {} : { visibleTopY: item.plain.visibleTopY }),
-      lights: LIGHTS.has(item.mark.kind) || LIT_CUSTOM.has(item.mark.glyph ?? '') ? 4 : 0,
-      tall: item.mark.heightM >= 60,
       dy: item.dy,
       ...(item.portrait ? { portrait: true } : {}),
       ...(isLandmark(item.mark) ? { landmark: true } : {}),

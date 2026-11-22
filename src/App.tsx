@@ -88,8 +88,9 @@ export default function App() {
     cloudsSeen: selected ? 0 : seenClouds.length, ...forcedWeather() } : null), [forecast, now, place, selected, seenClouds])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
-  const worldInput = useMemo(() => (forecast ? { place, forecast, now, selected, terrain, landmarks: marks, city,
-    seenClouds, forced: forcedWeather() } : null), [place, forecast, now, selected, terrain, marks, city, seenClouds])
+  const worldInput = useMemo(() => (forecast ? { place, forecast, now, selected, terrain, landmarks: marks,
+    seatCandidates: landmarks.seatCandidates, city, seenClouds, forced: forcedWeather() } : null),
+    [place, forecast, now, selected, terrain, marks, landmarks.seatCandidates, city, seenClouds])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10,
     air: air ? { visibilityKm: air.haze.visibilityKm, dust: air.sunCoin > 0 } : undefined }) : SKY_THEMES[themeId],

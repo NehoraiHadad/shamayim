@@ -1,8 +1,15 @@
 import type { Place } from '../../config/place'
 import type { Fame, Landmark, MarkKind } from './types'
+import { HALL_M, LEGACY_DEFAULTS } from './worship'
 
 /** kind, lat, lon, height, name ('' when it has none but is famous), fame (`fame.ts`). */
 export type Row = [MarkKind, number, number, number, string?, Fame?]
+/** Evidence-tagged cell payload written by `scripts/landmarks/build.ts`; legacy cells are bare `Row[]`. */
+export interface EvidenceCell {
+  heights: 'evidence'
+  rows: Row[]
+}
+export type LandmarkCell = Row[] | EvidenceCell
 export interface IsraelLandmarkIndex {
   generatedAt: string
   source: 'OpenStreetMap via Geofabrik (ODbL)'
@@ -45,20 +52,31 @@ async function getIndex(): Promise<IsraelLandmarkIndex | null> {
   return await indexPromise
 }
 
-async function loadCell(cell: string, signal: AbortSignal): Promise<Row[]> {
+function rowToLandmark([kind, lat, lon, heightM, nameHe, fame]: Row, evidence: boolean): Landmark {
+  return {
+    id: `il-${kind}-${lat}-${lon}`,
+    kind, lat, lon,
+    // Legacy bare-array cells wrote flat defaults onto untagged worship rows, so those heights are no evidence of a tower.
+    heightM: !evidence && heightM === LEGACY_DEFAULTS[kind] ? HALL_M : heightM,
+    ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}),
+  }
+}
+
+async function loadCell(cell: string, signal: AbortSignal): Promise<Landmark[]> {
   const response = await fetch(`${ROOT}/${cell}.json`, { signal })
   if (response.status === 404) return []
   if (!response.ok) throw new Error(`Israel landmark cell HTTP ${response.status}`)
-  return await response.json() as Row[]
+  const payload = await response.json() as LandmarkCell
+  if (Array.isArray(payload)) return payload.map((item) => rowToLandmark(item, false))
+  const evidence = payload.heights === 'evidence'
+  return payload.rows.map((item) => rowToLandmark(item, evidence))
 }
 
 export async function loadIsrael(place: Place, signal: AbortSignal): Promise<Landmark[] | null> {
   const index = await getIndex()
   if (!index || !inCoverage(index, place)) return null
   const cells = cellsForStrip(place).filter((cell) => index.cells.includes(cell))
-  const rows = (await Promise.all(cells.map((cell) => loadCell(cell, signal)))).flat()
-  return rows.map(([kind, lat, lon, heightM, nameHe, fame]) => ({ id: `il-${kind}-${lat}-${lon}`,
-    kind, lat, lon, heightM, ...(nameHe ? { nameHe } : {}), source: 'osm', ...(fame ? { fame } : {}) }))
+  return (await Promise.all(cells.map((cell) => loadCell(cell, signal)))).flat()
 }
 
 export function resetIsraelDataForTests() { indexPromise = null }

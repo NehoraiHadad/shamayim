@@ -1,5 +1,5 @@
 import type { Cluster } from '../city/clusterTypes'
-import { homeCluster } from '../city/homeCluster'
+import { clusterReach, homeCluster } from '../city/homeCluster'
 
 /**
  * The place's portrait (docs/design/TRUE-SCENE-PLAN.md): what lies within its reach belongs to the illustration round
@@ -14,11 +14,10 @@ const DEFAULT_KM = 1.5
 const MIN_KM = 1
 const MAX_KM = 5
 
-export function portraitReach(clusters: readonly Cluster[] | undefined): number {
-  const home = clusters?.length ? homeCluster([...clusters]) : null
+export function portraitReach(clusters: readonly Cluster[] | undefined, name?: string): number {
+  const home = homeCluster(clusters ?? [], name)
   if (!home) return DEFAULT_KM
-  const farthest = Math.max(...home.dx.flatMap(dx => home.dy.map(dy => Math.hypot(dx, dy))))
-  return Math.min(MAX_KM, Math.max(MIN_KM, farthest + PORTRAIT_MARGIN_KM))
+  return Math.min(MAX_KM, Math.max(MIN_KM, clusterReach(home) + PORTRAIT_MARGIN_KM))
 }
 
 /** The widest a portrait reaches: what the landmark shortlist keeps in every direction (north too). */

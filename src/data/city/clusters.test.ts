@@ -4,7 +4,7 @@ import type { Coordinate } from '../landmarks/project'
 import { findClusters } from './clusters'
 import { cellsForBand } from './columns'
 import { decodeRuns } from './grid'
-import { homeCluster, homeTier } from './homeCluster'
+import { homeByName, homeCluster, homeTier } from './homeCluster'
 import { clustersForCache, validClusters } from './clusterCache'
 import type { CityCell, CityIndex } from './types'
 
@@ -48,6 +48,20 @@ it('treats Karmei Tzur as tier C and Yagur as tier A', () => {
   const clusters = findClusters({ lat: 31.6047, lon: 35.1081 }, karmei.grids, karmei.places)
   expect(clusters.some(cluster => cluster.place?.name === 'כרמי צור' && cluster.squares === 16)).toBe(true)
   expect(homeCluster(clusters)).toBeNull()
+  const namedHome = homeByName(clusters, 'כרמי צור')!
+  expect(namedHome.squares).toBe(16)
+  // Fill the 6000-byte cache budget with non-home clusters ahead of Karmei Tzur so it survives only when reserved by name.
+  const filler = clusters.find(cluster => cluster !== namedHome)!
+  const crowded = [
+    ...Array.from({ length: 24 }, (_, i) => ({ ...filler, id: 1000 + i, nearest: .6 + i * .01, place: undefined })),
+    namedHome,
+  ]
+  expect(new TextEncoder().encode(JSON.stringify(crowded)).length).toBeGreaterThan(6000)
+  const withoutName = clustersForCache(crowded)
+  const withName = clustersForCache(crowded, 'כרמי צור')
+  expect(withoutName?.some(cluster => cluster.place?.name === 'כרמי צור')).toBe(false)
+  expect(withName?.some(cluster => cluster.place?.name === 'כרמי צור')).toBe(true)
+  expect(validClusters(withName)).toBe(true)
   expect(homeTier(homeCluster(clusters))).toBe('C')
   const yagur = fixture(['327_350'])
   const home = homeCluster(findClusters({ lat: 32.7417, lon: 35.0764 }, yagur.grids, yagur.places))

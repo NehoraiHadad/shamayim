@@ -1,4 +1,13 @@
 import type { Place } from '../../config/place'
+import type { Landmark, MarkKind } from './types'
+
+/** Building kinds that belong to a town's fabric and seat on drawn town blocks beyond the place. */
+export const SETTLEMENT_KINDS = new Set<MarkKind>(['minaret', 'church', 'synagogue', 'highrise', 'homes'])
+
+/** Whether a mark is a non-curated settlement-fabric building eligible for town-block seating beyond the place. */
+export function isSettlementMark(mark: Landmark): boolean {
+  return mark.source !== 'curated' && SETTLEMENT_KINDS.has(mark.kind)
+}
 
 /** The place's house style and size: what its roofs and blocks are like before (and beside) any data on them. */
 export type SettlementStyle = 'tile' | 'flat-hill' | 'flat-desert' | 'blocks'

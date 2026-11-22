@@ -62,8 +62,8 @@ export const NEAR_DROP = 9
  * margin for a village. The dot (the place point) stays at the scene's centre.
  */
 export function outsideFrame(clusters: readonly Cluster[] | undefined, reachKm: number, centerX: number, width: number,
-  city: boolean): OutsideFrame {
-  const home = clusters?.length ? homeCluster([...clusters]) : null
+  city: boolean, name?: string): OutsideFrame {
+  const home = homeCluster(clusters ?? [], name)
   const margin = city ? 0 : PORTRAIT_MARGIN_KM
   const extent = home ? { w: home.dx[0] - margin, e: home.dx[1] + margin, s: home.dy[0] - margin, n: home.dy[1] + margin } : null
   return frameOfBox(extent, reachKm, centerX, width, city)
@@ -101,6 +101,14 @@ export interface FrameScale { halfPx: (extentKm: number) => number; k: (extentKm
 
 export function inFrame(frame: OutsideFrame, dx: number, dy: number, marginKm = 0) {
   return dx >= frame.w - marginKm && dx <= frame.e + marginKm && dy >= frame.s - marginKm && dy <= frame.n + marginKm
+}
+
+/**
+ * Whether a spot (km east / north of the place) belongs to the place itself in the outside view.
+ * Without bounds (`lie.inPlace`), `marginKm` widens the cluster frame (0 for strict town-block ownership).
+ */
+export function isOwnSpot(frame: OutsideFrame, lie: PlaceLie, dx: number, dy: number, marginKm = 0): boolean {
+  return inFrame(frame, dx, dy, lie.inPlace ? 0 : marginKm) && (lie.inPlace?.(dx, dy) ?? true)
 }
 
 /** Where a point of the place stands: x (east left), its nearness (0 at the far edge, 1 at the near) and px per m. */
@@ -246,7 +254,7 @@ function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: rea
   lie: PlaceLie = {}) {
   const icon = iconStandsFor(place, landmarks)
   const own = dedupeTowers(towers.map(tower => ({ ...tower, ...offsetKm(place, tower) })))
-    .filter(tower => inFrame(frame, tower.dx, tower.dy) && (lie.inPlace?.(tower.dx, tower.dy) ?? true))
+    .filter(tower => isOwnSpot(frame, lie, tower.dx, tower.dy))
     .filter(tower => !icon(tower))
   const fameOf = towerFame(place, own, landmarks)
   return own.map((tower): Prepared => {
