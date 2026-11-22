@@ -13,6 +13,7 @@ export const PRIORITY: Record<LayerKind, number> = {
   cloudShadow: 6,
   // The field's sheets (SPEC §6.0), with the clouds.
   cloudSheet: 5,
+  cloudCells: 5,
 }
 
 export interface SliceJob { surface: Surface; layers: readonly LayerDesc[] }

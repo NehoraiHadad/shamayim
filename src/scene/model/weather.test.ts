@@ -10,7 +10,7 @@ import { paintWater } from '../paint/water'
 import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from '../paint/weather'
 import { sceneModel } from '.'
 import { fallAt, frameAt, framePhase } from './anim'
-import { bandOf, rainBankDescs } from './clouds'
+import { bandOf, rainBankDescs, snowBankDescs } from './clouds'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerKind, LayerOf, SceneBox, SceneModel } from './types'
 import { inView, mistiness, NEAR_ALT } from './weather'
@@ -73,21 +73,20 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
         const cells = w.rain?.cells ?? w.snowfall?.cells ?? []
         expect(cells.length).toBeGreaterThan(0)
         const layer = w.clouds.find((l) => l.rains)!
-        const rainBanks = w.rain ? rainBankDescs(w, BOX, skyGeom(w, BOX), layer) : null
+        const fallBanks = (w.rain ? rainBankDescs : snowBankDescs)(w, BOX, skyGeom(w, BOX), layer)
         const falling = new Set(cells.map((c) => `${layer.level}:${c.bank}`))
         const model = sceneModel(w, BOX)
         for (const shafts of ofKind(model, 'shafts')) {
           for (const s of shafts.shafts) {
             expect(falling.has(s.id)).toBe(true)
             // A far curtain hangs under a bank low on the dome, from its base to the horizon.
-            const bank = (rainBanks?.map(({ bank }) => bank) ?? layer.banks).find((b) => `${layer.level}:${b.id}` === s.id)!
+            const bank = fallBanks.map(({ bank }) => bank).find((b) => `${layer.level}:${b.id}` === s.id)!
             expect(bank.altitude).toBeLessThan(NEAR_ALT)
             expect(s.bottom).toBeGreaterThan(s.top)
           }
         }
         // Rain falls under its banks: every fall area lies under one of them (its top at or below the bank's base).
-        const clouds = ofKind(model, 'clouds').find((l) => l.level === layer.level)!
-        const banks = rainBanks?.map(({ drawn }) => drawn) ?? clouds.banks.filter((b) => falling.has(b.id))
+        const banks = fallBanks.map(({ drawn }) => drawn)
         for (const fall of ofKind(model, 'fall')) {
           const dy = fall.surface === 'land' ? BOX.landTop : 0
           for (const area of fall.animated!.fall!.areas) {
@@ -117,7 +116,7 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
         for (const e of ofKind(model, 'edge')) if (Math.abs(slant) > 0.01) expect(Math.sign(e.lean)).toBe(sign)
         // The curtains and the rain in them drift with the cloud layer that makes them.
         const layer = w.clouds.find((l) => l.rains)!
-        const drift = bandOf(ofKind(model, 'clouds'), layer, skyGeom(w, BOX)).speed
+        const drift = bandOf(layer, skyGeom(w, BOX)).speed
         for (const l of [...ofKind(model, 'shafts'), ...ofKind(model, 'fall')]) expect(l.animated?.speed ?? 0).toBeCloseTo(drift, 9)
       }
     }
@@ -130,9 +129,7 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
         const model = sceneModel(w, BOX)
         const geom = skyGeom(w, BOX)
         const layer = w.clouds.find((l) => l.rains)!
-        const cells = new Set(((w.rain ?? w.snowfall)?.cells ?? []).map((c) => `${layer.level}:${c.bank}`))
-        const banks = w.rain ? rainBankDescs(w, BOX, geom, layer).map(({ drawn }) => drawn)
-          : ofKind(model, 'clouds').find((l) => l.level === layer.level)!.banks.filter((b) => cells.has(b.id))
+        const banks = (w.rain ? rainBankDescs : snowBankDescs)(w, BOX, geom, layer).map(({ drawn }) => drawn)
         if (!banks.length) continue
         const seen = banks.some((b) => inView(geom, BOX, b))
         const edges = ofKind(model, 'edge')

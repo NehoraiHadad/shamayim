@@ -4,7 +4,7 @@ import panorama from '../../test/fixtures/scene/jerusalem.panorama.json'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { makeWorldBuilder } from '../../world/world'
-import { cloudLayersOf } from './clouds'
+import { cloudLayersOf } from './cloudLayers'
 import { skyGeom } from './sky'
 import { mixRgb } from './tone'
 

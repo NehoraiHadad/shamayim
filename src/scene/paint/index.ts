@@ -4,6 +4,7 @@ import { paintBodies, paintStars } from './bodies'
 import { paintClouds, paintFlash, paintShimmer } from './clouds'
 import { paintCloudSheet } from './cloudSheet'
 import { paintCloudShadow } from './cloudShadows'
+import { paintCloudCells } from './cloudCells'
 import { paintFarCities } from './farCities'
 import { paintLoading } from './loading'
 import { paintMarks } from './marks'
@@ -70,6 +71,7 @@ export const PAINTERS: Painters = {
   wearDrip: { form: paintWearDrip },
   cloudShadow: { form: paintCloudShadow },
   cloudSheet: { form: paintCloudSheet },
+  cloudCells: { form: paintCloudCells },
 }
 
 export function painterOf(desc: LayerDesc): Painter | undefined {

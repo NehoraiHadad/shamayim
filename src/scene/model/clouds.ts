@@ -1,150 +1,20 @@
 import { rainBanks } from '../../world/rain'
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { coinOf } from '../../world/air'
-import { MOON_RGB } from '../../world/light'
-import { cloudLight, layerMeanTransmission } from '../../world/lightCloud'
-import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
-import { cloudSheetOf, OVERCAST_HORIZON, sheetBlend, sheetZ } from './cloudSheet'
+import { litOf, nearest, THICK, tonesAt, WHITE, wrap, type CloudLight } from './cloudLight'
+import { sheetZ } from './cloudSheet'
 import { layerKey, skyBoxKey } from './keys'
-import { coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
-import { mixRgb, rgbOf, scaleLight } from './tone'
-import type { BankDesc, LayerOf, RGB, SceneBox, Veil } from './types'
+import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
+import { mixRgb } from './tone'
+import type { BankDesc, LayerOf, RGB, SceneBox } from './types'
 
-const WHITE: RGB = [1, 1, 1]
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-
-/** How much a layer's banks hold (their body's alpha, and how far their shade and lit sides go): low cloud is thick. */
-const THICK: Record<CloudLevel, number> = { low: 1, mid: 0.8, high: 0.42 }
 /** The drawn bank against its angular width: puff banks overhang their core (the world's width is the core's). */
 const SPREAD: Record<CloudLevel, number> = { low: 1.5, mid: 1.6, high: 2.2 }
 /** Height against width as drawn: heaped low cloud, flatter altocumulus, thin cirrus. */
 const ASPECT: Record<CloudLevel, number> = { low: 0.4, mid: 0.26, high: 0.1 }
 const Z: Record<CloudLevel, number> = { high: 6, mid: 7, low: 8 }
-/** The grey of a thick deck's underside by day, and of a deck that rains. */
-const DECK_GREY: RGB = [0.5, 0.55, 0.61]
-const RAIN_GREY: RGB = [0.29, 0.34, 0.39]
-
-/** Where the light that reaches a layer comes from (sky px), its colour and strength, and how much is direct sun. */
-/** `above`: the share of the light the layers above let through (as an expected value: a bank is in a gap or not, `litOf`). */
-interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number
-  /** The sun's disc as the eye sees it through the cloud (1 − its veil): what lights a bank's edge from behind. */
-  seen: number }
-
-/**
- * The light on one layer: the sun while it is up, its strength after the cloud above the layer (a low bank under an
- * overcast of mid cloud is lit by the sky alone); after sunset and before sunrise the afterglow from under the horizon,
- * which the higher layers keep longest (`litUnderside`, the world's); by night the moon by its phase and height.
- */
-function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer): CloudLight | null {
-  const { sun, moon } = world.bodies
-  const covers = coversOf(world)
-  const upper = world.cloudField?.field.layers.filter(({ lattice }) =>
-    layer.level !== 'high' && (lattice === 'high' || (layer.level === 'low' && lattice === 'mid')))
-  const above = upper?.reduce((beam, cloud) =>
-    beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm), 1)
-    ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high }).clear
-  const aerosol = world.air
-  if (sun.altitude > -0.5) {
-    const up = smoothstep(-0.5, 2, sun.altitude)
-    const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
-    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
-      under: layer.litUnderside, seen: 1 - veilOf(world) }
-  }
-  const after = world.light.afterglow
-  if (after && layer.litUnderside > 0.02) {
-    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, strength: layer.litUnderside, above, sun: false,
-      under: layer.litUnderside, seen: 0 }
-  }
-  if (moon.up && world.night.dark > 0.1 && moon.illumination > 0.05) {
-    return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, rgb: MOON_RGB,
-      strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark, above, sun: false, under: 0, seen: 0 }
-  }
-  return null
-}
-
-/** The copy of a band x (every `period`) nearest `ref`. */
-const nearest = (x: number, ref: number, period: number) => x + Math.round((ref - x) / period) * period
-
-/** Wraps an x into the band `0…period`. */
-const wrap = (x: number, period: number) => ((x % period) + period) % period
-
-/**
- * The tones of a bank at its place on the sky: its body in the sky's own light (whiter by day, the sky's horizon grey by
- * night), darker as the cover closes and darkest where it rains; its shade side; its lit side by the layer's light.
- */
-type Tones = { body: RGB; shade: RGB; behind: RGB; fade: number }
-/** The tones of a world, by what they depend on (rounded to what shows): many banks share a row of the sky. */
-const toneMemo = new WeakMap<WorldState, Map<string, Tones>>()
-
-function tonesAt(world: WorldState, box: SceneBox, stops: [number, RGB][], level: CloudLevel, y0: number, union: number, rainWeight: number,
-  km0: number): Tones {
-  // The sky behind changes slowly down the sky, the haze slowly with distance: 4 px rows, 5 % steps of distance.
-  const y = Math.round(y0 / 4) * 4
-  const km = Math.exp(Math.round(Math.log(Math.max(0.1, km0)) / 0.05) * 0.05)
-  const key = `${box.skyHeight}:${box.landTop}:${level}:${y}:${union.toFixed(3)}:${rainWeight}:${km.toFixed(3)}`
-  let memo = toneMemo.get(world)
-  if (!memo) toneMemo.set(world, (memo = new Map()))
-  const hit = memo.get(key)
-  if (hit) return hit
-  const tones = tonesOf(world, box, stops, level, y, union, rainWeight, km)
-  memo.set(key, tones)
-  return tones
-}
-
-function tonesOf(world: WorldState, box: SceneBox, stops: [number, RGB][], level: CloudLevel, y: number, union: number, rainWeight: number,
-  km: number): Tones {
-  const behind = stopAt(stops, clamp01(y / Math.max(1, box.skyHeight)))
-  const { palette } = world.light
-  const thick = THICK[level]
-  const day = smoothstep(-8, 3, world.bodies.sun.altitude)
-  // Fair-weather cloud is whiter than the sky behind it; as the sky closes the cloud is the sky, its base a grey that
-  // deepens where it rains.
-  const fair = mixRgb(behind, [0.95, 0.96, 0.98], 0.55 + 0.3 * thick)
-  const closed = mixRgb(mixRgb(behind, DECK_GREY, 0.3 * thick), mixRgb(behind, RAIN_GREY, 0.55 * thick), rainWeight)
-  const dayBody = mixRgb(fair, closed, smoothstep(0.35, 0.95, union))
-  const nightBody = mixRgb(behind, mixRgb(rgbOf(palette.mid), rgbOf(palette.horizon), 0.6), 0.55 * thick)
-  const near = mixRgb(nightBody, dayBody, day)
-  const nearShade = mixRgb(near, day > 0.5 ? [0.3, 0.34, 0.45] : [0.03, 0.04, 0.1], (0.22 + 0.18 * union) * thick)
-  // The air between: a far bank fades toward the sky behind it, as the far land fades toward the haze (and in dust).
-  const fade = 0.85 * world.air.fade(km)
-  return { body: mixRgb(near, behind, fade), shade: mixRgb(nearShade, behind, fade), behind, fade }
-}
-
-/** How far round the sun its light comes through a bank's thin edges (px): the aureole's reach (`SUN_R` 9 × 3.2). */
-const BEHIND_REACH = 29
-
-/**
- * The light's side of a bank: toward the source, its strength, a silver edge near the sun (forward scattering).
- * C9 (defect 2): a bank standing in front of the sun is lit from behind along the very line the eye sees the disc by, so
- * its thin edges toward the sun glow (the silver lining) as the disc shows through the cloud (`seen`; its square root, as the
- * veil counts the bank itself, whose edge is lit before its own cloud takes the light), whatever the layers above make of
- * its light from above (`through`). The aureole lies over it (`bodies.aureole`).
- */
-function litOf(light: CloudLight | null, cx: number, cy: number, w: number, h: number, thick: number, seed: number) {
-  if (!light || light.strength < 0.02) return { toward: null, litA: 0, silver: 0, backlit: 0, through: 0, front: 0 }
-  // The layers above are broken: a bank stands in one of their gaps (fully lit) or under them (in their shade), as often as
-  // their cover says (seeded by the bank, so the same banks stay lit).
-  const through = seeded(seed ^ 0x9e3779b9)() < light.above ? 1 : 0.12
-  const strength = light.strength * through
-  const dx = light.x - cx, dy = light.y - cy
-  const d = Math.hypot(dx, dy) || 1
-  const gap = Math.max(0, d - w / 2)
-  const near = light.sun ? Math.exp(-gap / 70) : 0
-  // The sun behind the bank's outline (an ellipse w × h round its middle) or within the aureole's reach of it.
-  const outside = Math.max(0, Math.hypot(dx / (w / 2), dy / Math.max(1, h / 2)) - 1) * Math.min(w / 2, Math.max(1, h / 2))
-  const front = light.sun ? light.strength * Math.sqrt(light.seen) * Math.exp(-outside / BEHIND_REACH) : 0
-  return {
-    toward: [dx / d, dy / d] as const,
-    litA: strength * (0.55 + 0.3 * thick),
-    silver: Math.max(0.9 * near * strength * (1 - 0.4 * thick), 0.9 * front),
-    // A thick bank right in front of the sun is seen from its shadowed side.
-    backlit: light.sun ? Math.exp(-gap / 110) * strength * thick : 0,
-    through,
-    front: Math.min(1, front),
-  }
-}
 
 /** A world bank as drawn: on the band at its true azimuth, standing on the dome at its altitude. */
 function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number, RGB][], layer: CloudLayer, bank: CloudBank,
@@ -173,65 +43,6 @@ function bankDesc(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [numbe
   }
 }
 
-/** How much of the field's rain falls from this level, 0–1 (the rate eases it in; mid and low share it); without a field, the layer's own flag. */
-function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): number {
-  const rain = world.cloudField?.field.rain
-  if (!rain) return Number(rains)
-  const midWeight = rain.midWeight ?? Number(rain.level === 'mid')
-  return smoothstep(0, 0.2, rain.rate) * (level === 'mid' ? midWeight : level === 'low' ? 1 - midWeight : 0)
-}
-
-/**
- * The layer's field: what its cover makes of the whole dome besides the world's named banks (which carry the rain and
- * the satellite's clouds). As many clouds as the cover asks for, spread over the dome, more of them low (the far field
- * foreshortened), larger overhead; heaps for broken low cloud, flat sheets once it closes into a deck (and for the mid
- * layer), streaks for cirrus; over a wash that closes the gaps as the cover goes to full. Seeded by the place, the level and
- * the index, so a growing cover keeps the clouds it had and adds more; it drifts with its banks.
- */
-function deckOf(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number, RGB][], layer: CloudLayer, light: CloudLight | null,
-  union: number, lowest: boolean, opacity: number): { sheets: BankDesc[]; veil: Veil | null } {
-  if (opacity === 0) return { sheets: [], veil: null }
-  const c = layer.cover
-  const deck = smoothstep(0.7, 1, c)
-  const field = smoothstep(0.06, 1, c) ** 0.8
-  if (field <= 0.01 && !lowest) return { sheets: [], veil: null }
-  const level = layer.level
-  const thick = THICK[level]
-  const sheets: BankDesc[] = []
-  const rains = layer.rains
-  const weight = rainWeightAt(world, level, rains)
-  // Sheets spread over the dome, more of them low (the far deck foreshortened); seeded by the place, the level and the
-  // sheet's index, so a growing cover keeps the sheets it had and adds more.
-  const max = Math.round((level === 'high' ? 12 : 30) * geom.period / 540)
-  const count = Math.round(max * field)
-  const kind: BankDesc['kind'] = level === 'high' ? 'streak' : level === 'low' && deck < 0.5 ? 'heap' : 'sheet'
-  for (let j = 0; j < count; j++) {
-    const r = seeded(hashId(`${world.place.id}:deck:${level}:${j}`))
-    const alt = 3 + 84 * r() ** 1.5
-    const up = Math.sin((alt * Math.PI) / 180)
-    const y = geom.dome(alt)
-    const heap = kind === 'heap'
-    const w = geom.period * (heap ? 0.05 + 0.08 * r() : 0.1 + 0.2 * r()) * (0.6 + 0.9 * up)
-    const h = heap ? w * (0.32 + 0.18 * up) : (level === 'high' ? 2.5 : 5) + (level === 'high' ? 5 : 20) * up * (0.6 + 0.8 * r())
-    const x = r() * geom.period
-    const tones = tonesAt(world, box, stops, level, y - h / 2, union, weight, layer.baseM / 1000 / Math.tan((alt * Math.PI) / 180))
-    const lit = litOf(light, light ? nearest(x, light.x, geom.period) : x, y - h / 2, w, h, thick, hashId(`${world.place.id}:deck:${level}:${j}`))
-    sheets.push({ id: `${level}:deck:${j}`, x, y, w, h, seed: hashId(`${world.place.id}:deck:${level}:${j}`),
-      puffs: kind === 'heap' ? Math.max(5, Math.round(w / 12)) : Math.max(3, Math.round(w / 26)), kind,
-      alpha: opacity * (0.55 + 0.35 * r()) * (level === 'high' ? 0.5 : 1),
-      body: tones.body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body, litA: 0.6 * lit.litA, toward: lit.toward,
-      under: light ? 0.6 * light.under * light.strength * lit.through : 0, silver: Math.max(0.4 * lit.silver, 0.9 * lit.front), rains,
-      rainWeight: weight })
-  }
-  sheets.sort((a, b) => b.y - a.y)
-  // The wash: this layer's own deck, or (on the lowest layer there is) the whole sky closing over, whatever the layers.
-  const close = Math.max(smoothstep(0.7, 1, c) * (level === 'high' ? 0.35 : 0.85), lowest ? 0.85 * smoothstep(0.75, 1, union) : 0)
-  const bottom = geom.dome(4)
-  const veil = close > 0.02 ? { top: 0, bottom, rgb: tonesAt(world, box, stops, level, bottom * 0.6, union, weight, 3).body,
-    alpha: close * opacity } : null
-  return { sheets, veil }
-}
-
 const q = (v: number, step: number) => Math.round(v / step)
 /** Tones in 1/64 steps: a cloud's soft wash shows no step finer (and a scrub repaints less often). */
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
@@ -256,105 +67,34 @@ function bankKey(b: BankDesc) {
 
 /** Project the shaft adapter on the cloud band without adding it to the painted clouds. */
 export function rainBankDescs(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer) {
-  if (!world.rain) return []
-  const banks = rainBanks(world.rain)
+  return world.rain ? bankDescsOf(world, box, geom, layer, rainBanks(world.rain)) : []
+}
+
+/** The banks that snow, projected as the rain's are (their flakes fall under them). */
+export function snowBankDescs(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer) {
+  const cells = new Set(world.snowfall?.cells.map((c) => c.bank) ?? [])
+  return bankDescsOf(world, box, geom, layer, layer.banks.filter((b) => cells.has(b.id)))
+}
+
+function bankDescsOf(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer,
+  banks: (CloudBank & { level?: CloudLevel })[]) {
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
   const stops = skyStops(world, box)
   const ids = new Set(banks.map(bank => bank.id))
   return banks.map(bank => ({ bank, drawn: snap(bankDesc(world, box, geom, stops,
-    bank.level === layer.level ? layer : world.clouds.find(cloud => cloud.level === bank.level)!, bank, null, union, ids)) }))
+    !bank.level || bank.level === layer.level ? layer : world.clouds.find(cloud => cloud.level === bank.level)!, bank, null, union,
+    ids)) }))
 }
 
-/**
- * The clouds (C6), one layer per level, high behind low: the world's banks (its cover, seeded round the whole horizon,
- * the satellite's single clouds among the low ones) drawn as heaped puffs (low, mid) or streaks (high) at their true
- * azimuths, a deck of sheets over a wash where the cover is high. Lit by the layer's light (`lightOn`): the side toward it
- * catches it, the undersides at a low sun, a silver edge near the sun. Each layer drifts with the wind at its own height
- * (`layer.drift`, + left → right), its band repeating round the horizon (`period`), so nothing pops in or out.
- */
-export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)):
-  (LayerOf<'clouds'> | LayerOf<'cloudSheet'>)[] {
-  const stops = skyStops(world, box)
-  const { low, mid, high } = coversOf(world)
-  const union = 1 - (1 - low) * (1 - mid) * (1 - high)
-  const raining = new Set(world.rain?.cells.map((c) => c.bank) ?? [])
-  const falling = new Set([...raining, ...(world.snowfall?.cells.map((c) => c.bank) ?? [])])
-  const out: (LayerOf<'clouds'> | LayerOf<'cloudSheet'>)[] = []
-  const lowest = world.clouds.find((l) => l.cover >= 0.05)
-  for (const layer of world.clouds) {
-    const light = lightOn(world, box, geom, layer)
-    let blend = 0
-    for (const snapshot of world.cloudField?.snapshot ?? []) {
-      const fieldLayer = snapshot.layer
-      if (!fieldLayer || (fieldLayer.lattice === 'tower' ? 'low' : fieldLayer.lattice) !== layer.level) continue
-      if (sheetBlend(fieldLayer) === 0) continue
-      const rain = rainWeightAt(world, layer.level, layer.rains)
-      const tones = tonesAt(world, box, stops, layer.level, geom.dome(4) * 0.6, union, rain, 3)
-      const day = smoothstep(-8, 3, world.bodies.sun.altitude)
-      // Six tenths cover still exposes the sides of Sc rolls. At deck
-      // closure (the same 0.95 used by tonesOf), the base is a diffuse slab.
-      const closed = smoothstep(0.6, 0.95, fieldLayer.cover)
-      const base = mixRgb(mixRgb(DECK_GREY, WHITE, 0.5), RAIN_GREY, rain)
-      const grey = mixRgb(DECK_GREY, RAIN_GREY, rain)
-      const sheet = cloudSheetOf(world, geom, snapshot, {
-        body: mixRgb(tones.body, base, day),
-        // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
-        shade: mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
-        // Moonlight lifts the lit endpoint in proportion to the beam reaching
-        // the sheet. At moonset it merges into the ambient cloud body.
-        lit: light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
-          light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,
-        closed: closed * day,
-        light: light?.sun ? light.strength * light.above : 0,
-      })
-      if (!sheet) continue
-      out.push(sheet)
-      if (fieldLayer.lattice !== 'tower') blend = sheetBlend(fieldLayer)
-    }
-    if (!layer.banks.length && layer.cover < 0.05) continue
-    const convective = world.cloudField?.field.layers.find(item => item.lattice === layer.level)?.form.conv ?? 0
-    const banks = layer.banks.flatMap((bank) => {
-      // The sheet continues through the horizon. Observed cells and the banks
-      // that anchor precipitation retain their independent opacity.
-      const desc = bankDesc(world, box, geom, stops, layer, bank, light, union, raining)
-      const opacity = bank.seen || falling.has(bank.id)
-        ? 1 : 1 - blend * (1 - convective)
-      return opacity ? [{ ...desc, alpha: desc.alpha * opacity }] : []
-    })
-    const { sheets, veil } = deckOf(world, box, geom, stops, layer, light, union, layer === lowest, 1 - blend)
-    const all = [...sheets, ...banks].map(snap)
-    if (!all.length && !veil) continue
-    const top = veil ? 0 : Math.max(0, Math.floor(Math.min(...all.map((b) => b.y - b.h * 1.6)) - 4))
-    const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(veil?.bottom ?? 0, ...all.map((b) => b.y + b.h * 0.5)) + 6))
-    if (bottom <= top) continue
-    const speed = layer.drift * geom.s
-    // Bank keys already contain quantized coordinates, tones and angles.
-    const bankKeys = JSON.stringify(all.map(bankKey))
-    out.push({
-      kind: 'clouds', id: `clouds.${layer.level}`, surface: 'sky', z: Z[layer.level], soft: true, level: layer.level,
-      banks: all, veil, period: geom.period,
-      bounds: { x: 0, y: top, w: geom.period, h: bottom - top },
-      animated: Math.abs(speed) > 0.01 ? { mode: 'drift', speed, period: geom.period } : undefined,
-      key: layerKey('clouds', layer.level, skyBoxKey(box, true), geom.period, bankKeys,
-        veil && [q(veil.bottom, 0.5), tone(veil.rgb), veil.alpha.toFixed(2)]),
-    })
-  }
-  return out
-}
-
-/**
- * A level's place in the stack and its drift: its drawn clouds layer's, or (under a full sheet, where no clouds layer is
- * left at that level) the same z and the layer's own drift, so rain and lightning keep moving with their cloud.
- */
-export function bandOf(clouds: readonly LayerOf<'clouds'>[], layer: CloudLayer, geom: SkyGeom): { z: number; speed: number } {
-  const drawn = clouds.find((l) => l.level === layer.level)
-  return { z: drawn?.z ?? Z[layer.level], speed: drawn?.animated?.speed ?? layer.drift * geom.s }
+/** A level's place in the stack and its drift (the layer's own), so rain and lightning keep moving with their cloud. */
+export function bandOf(layer: CloudLayer, geom: SkyGeom): { z: number; speed: number } {
+  return { z: Z[layer.level], speed: layer.drift * geom.s }
 }
 
 export function rainSheetZ(world: WorldState): number {
   return Math.max(0, ...(world.cloudField?.snapshot ?? []).map(({ layer, heightKm }) =>
-    layer && heightKm > 0 && sheetBlend(layer) ? sheetZ[layer.lattice] : 0))
+    layer && heightKm > 0 && layer.cover > 0 ? sheetZ[layer.lattice] : 0))
 }
 
 /** The flash's colour: the blue-white of lightning seen through cloud. */
@@ -364,13 +104,13 @@ const FLASH: RGB = [0.86, 0.9, 1]
  * In-cloud lightning at positive `rain.thunderWeight`: the largest banks that rain in view (two at most)
  * each light from within on a seeded schedule of flashes (`anim.ts`), drifting with their layer.
  */
-export function flashLayersOf(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom = skyGeom(world, box)):
+export function flashLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)):
   LayerOf<'flash'>[] {
   if (!world.rain || world.rain.thunderWeight <= 0) return []
   const strength = world.rain.thunderWeight
   const layer = world.clouds.find((l) => l.rains)
   if (!layer) return []
-  const { speed } = bandOf(clouds, layer, geom)
+  const { speed } = bandOf(layer, geom)
   const mid = geom.left + box.width / 2
   const inView = (b: BankDesc) => {
     // The bank's x nearest the middle of the view, among its copies round the band.

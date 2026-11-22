@@ -996,11 +996,14 @@ reviews, Claude manages and draws the painters.
       the old banks drift every frame, shadows never move); rain clouds, lightning and fog from the field; then delete
       the old bank system (`model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`) with its tests, fixtures and devParams.
       Shipped in CI-green pieces (Claude Opus 5.5, branch `claude/cloud-soft-look-413b7e`).
-- [ ] Piece 2 design (Claude): towers on the field. `model/cloudCells.ts` projects the snapshot's `tower` cells (and
-      any rain cell) to `CloudSprite`s (`paint/clouds/sprite.ts`): x from azimuth, y from the near base edge's altitude,
-      `w` from angular width, `under`/`tall` from base/top altitudes, tau, tones as the sheets'; far to near. New layer
-      kind `cloudCells` (sprites + x, y, speed), painted by `paintCloud`, carried by `carried()` bands like shadows.
-      Swap in the same commit that stops the old banks drawing (no double towers). Then rain shafts and flashes from
-      `rainWeight` cells (replaces `rainBankDescs`/`bandOf` in `model/weather.ts`, `flashLayersOf`), then fog, then
-      delete `model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`, their tests and registry/schedule entries.
+- [x] Piece 2a (Claude Opus 5.5): every field layer is one sheet (`sheetBlend`/`sheetWeight` gone: the sheet is drawn
+      at any cover), the towers (`tower` lattice: Cu con, Cb) are sprites (`model/cloudCells.ts` → new kind
+      `cloudCells`, `paint/cloudCells.ts` → `paintCloud`), carried as one at their median across-wind speed
+      (`carriedCells`). `model/cloudLayers.ts` builds both; the light and tone helpers moved to `model/cloudLight.ts`.
+      The old banks no longer draw; snow is projected like rain (`snowBankDescs`); the dead `clouds` layer plumbing
+      left `weather.ts`/`index.ts`. Harness moments `towers`, `cumulus` (low 0.5) show them: the Nov fixtures put
+      thunder and showers at mid level (Ns), so `thunder` itself has no Cb (follow-up for the world's cover split).
+- [ ] Piece 2b: rain shafts and flashes from the field's `rainWeight` cells (replaces `rainBankDescs`/`bandOf`,
+      `flashLayersOf`), then fog, then delete the rest of `model/clouds.ts`, `paint/clouds.ts`, the `clouds` kind,
+      their tests and registry/schedule entries.
 - [ ] N3e midnight reseed (`briefs/N3e-midnight-anchor.md`) after the rebuild.

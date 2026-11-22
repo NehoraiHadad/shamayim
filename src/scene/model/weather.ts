@@ -1,5 +1,5 @@
 //# allFunctionsCalledOnLoad
-import { bandOf, rainBankDescs, rainSheetZ } from './clouds'
+import { bandOf, rainBankDescs, rainSheetZ, snowBankDescs } from './clouds'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
@@ -65,12 +65,11 @@ export function precipOf(world: WorldState, precip: Precip = world.rain?.cells.l
 interface Falling { drawn: BankDesc; bank: CloudBank }
 
 /** The banks that rain or snow, as their cloud layer draws them (C6), and that layer's drift. */
-function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: readonly LayerOf<'clouds'>[], p: PrecipState) {
+function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, p: PrecipState) {
   const layer = world.clouds.find((l) => l.rains)
   if (!layer) return null
   if (p.precip === 'rain') {
-    // Under a full sheet no clouds layer is left at the level: the band still sets the z and the drift.
-    const band = (level: CloudLevel) => bandOf(clouds, world.clouds.find(cloud => cloud.level === level) ?? layer, geom)
+    const band = (level: CloudLevel) => bandOf(world.clouds.find(cloud => cloud.level === level) ?? layer, geom)
     const low = band('low'), mid = band('mid')
     const weight = world.cloudField?.field.rain?.midWeight ?? Number(layer.level === 'mid')
     const mix = (a: number, b: number) => a + (b - a) * weight
@@ -79,12 +78,8 @@ function fallingBanks(world: WorldState, box: SceneBox, geom: SkyGeom, clouds: r
     return { banks: rainBankDescs(world, box, geom, layer), z: Math.max(mix(low.z, mid.z), sheet + 0.5),
       speed: mix(low.speed, mid.speed) }
   }
-  const drawn = clouds.find((l) => l.level === layer.level)
-  if (!drawn) return null
-  const byId = new Map(layer.banks.map((b) => [`${layer.level}:${b.id}`, b]))
-  const cells = new Set(p.cells.map((c) => `${layer.level}:${c.bank}`))
-  const banks: Falling[] = drawn.banks.filter((b) => cells.has(b.id) && byId.has(b.id)).map((b) => ({ drawn: b, bank: byId.get(b.id)! }))
-  return { banks, z: drawn.z, speed: drawn.animated?.speed ?? 0 }
+  const { z, speed } = bandOf(layer, geom)
+  return { banks: snowBankDescs(world, box, geom, layer), z: Math.max(z, rainSheetZ(world) + 0.5), speed }
 }
 
 /** The copy of a band x (every `period`) nearest `ref`. */
@@ -131,18 +126,18 @@ const column = (x: number, top: number, bottom: number, w: number, lean: number)
  * Rain or snow from the world's falling banks (sky): the far banks' curtains and the streaks falling in them, the near
  * rain under the banks overhead (sky and land), or the edge mark when no falling bank is in view.
  */
-export function precipLayers(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom = skyGeom(world, box)):
+export function precipLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)):
   LayerDesc[] {
   return (['rain', 'snow'] as const).flatMap((phase) => {
     const p = precipOf(world, phase)
-    return p ? precipLayersFor(world, box, clouds, geom, p) : []
+    return p ? precipLayersFor(world, box, geom, p) : []
   })
 }
 
-function precipLayersFor(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], geom: SkyGeom, p: PrecipState):
+function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: PrecipState):
   LayerDesc[] {
   const id = (base: string) => p.precip === 'snow' ? base + '.snow' : base
-  const found = fallingBanks(world, box, geom, clouds, p)
+  const found = fallingBanks(world, box, geom, p)
   if (!found || !found.banks.length) return []
   const { banks, z, speed } = found
   const out: LayerDesc[] = []
@@ -404,11 +399,11 @@ export function sheenLayer(world: WorldState, box: SceneBox, clear: readonly Box
 }
 
 /** Every weather layer of the scene (C7), on both surfaces. */
-export function weatherLayers(world: WorldState, box: SceneBox, clouds: readonly LayerOf<'clouds'>[], clear: readonly Box[],
+export function weatherLayers(world: WorldState, box: SceneBox, clear: readonly Box[],
   geom: SkyGeom = skyGeom(world, box)): LayerDesc[] {
   const rays = rayLayersOf(world, box, geom)
   const sheen = sheenLayer(world, box, clear)
-  return [...precipLayers(world, box, clouds, geom), ...rays, ...mistLayers(world, box), ...grainLayers(world, box, geom),
+  return [...precipLayers(world, box, geom), ...rays, ...mistLayers(world, box), ...grainLayers(world, box, geom),
     ...smokeLayers(world, box), ...(sheen ? [sheen] : [])]
 }
 

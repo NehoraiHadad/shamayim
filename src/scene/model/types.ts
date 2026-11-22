@@ -5,6 +5,7 @@ import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
 import type { ContrailMotion } from './contrailMotion'
+import type { CloudSprite } from '../paint/clouds/sprite'
 
 /**
  * The scene model (docs/design/CANVAS-SCENE-PLAN.md §1b): what is drawn, where, in which colour and order, decided
@@ -594,6 +595,8 @@ export type LayerDesc =
       xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB
       /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
       speeds: number[] }
+  /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */
+  | LayerBase & { kind: 'cloudCells'; lattice: 'tower'; cells: { sprite: CloudSprite; x: number; y: number; speed: number }[] }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']

@@ -79,50 +79,19 @@ describe.each(SCENE_PLACES)('sky: $id', ({ id }) => {
     for (const star of starsOf(half)) expect(all.has(keyOf(star))).toBe(true)
   })
 
-  it('lights each cloud from the light’s side: toward the sun on screen, from below at a low sun', () => {
-    let checked = 0
-    for (const hour of ['06:20', '12:00', '16:30']) {
-      const w = world(id, hour, { cloudCover: 60, thickCloud: 40, precipitation: 0, weatherCode: 2 })
-      if (!w.bodies.sun.up) continue
-      const geom = skyGeom(w, BOX)
-      const sx = geom.left + w.bodies.sun.x * geom.s, sy = BOX.landTop + w.bodies.sun.y
-      for (const layer of ofKind(sceneModel(w, BOX), 'clouds')) {
-        for (const bank of layer.banks.filter((b) => b.toward && b.litA > 0.02)) {
-          // The bank's copy nearest the sun on the band.
-          const x = bank.x + Math.round((sx - bank.x) / layer.period) * layer.period
-          const [tx, ty] = bank.toward!
-          const dx = sx - x, dy = sy - (bank.y - bank.h / 2)
-          // The model snaps the direction to 8° steps (the key's step): within half a step of the true one.
-          const off = Math.abs(((Math.atan2(ty, tx) - Math.atan2(dy, dx)) * 180 / Math.PI + 540) % 360 - 180)
-          expect(off).toBeLessThanOrEqual(4.01)
-          if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 0.2) expect(Math.sign(tx)).toBe(Math.sign(dx))
-          checked++
-        }
-        if (w.bodies.sun.altitude < 3) expect(layer.banks.some((b) => b.under > 0.05)).toBe(true)
-      }
-    }
-    expect(checked).toBeGreaterThan(0)
-  })
-
-  it('drifts each layer with the wind at its height, in screen terms (+ = left to right), faster aloft', () => {
+  it('carries each sheet with the wind at its height, in screen terms (+ = left to right)', () => {
     for (const fromDeg of [270, 90]) {
       const base = worldInput(loaded.get(id)!, at('12:00'))
       const forecast = { ...base.forecast, hours: base.forecast.hours.map((h) => ({ ...h, windDirection: fromDeg, windAloft: null })) }
       const w = buildWorld({ ...base, forecast, selected: at('13:00'), forced: { cloudCover: 80, thickCloud: 60, windSpeed: 20 } })
-      const clouds = ofKind(sceneModel(w, BOX), 'clouds')
-      expect(clouds.length).toBeGreaterThan(0)
-      for (const layer of clouds) {
-        const across = w.wind.aloftAcross[layer.level]
+      const sheets = ofKind(sceneModel(w, BOX), 'cloudSheet')
+      expect(sheets.length).toBeGreaterThan(0)
+      for (const sheet of sheets) {
         // A westerly goes east, and east is on the left in the true south-facing view: right to left.
-        expect(Math.sign(layer.animated!.speed!)).toBe(fromDeg === 270 ? -1 : 1)
-        expect(Math.sign(layer.animated!.speed!)).toBe(Math.sign(across))
-        expect(layer.animated!.speed!).toBeCloseTo(w.clouds.find((l) => l.level === layer.level)!.drift * BOX.width / 375, 6)
-        expect(layer.animated!.period).toBe(layer.period)
-        // The band carries every bank round the whole horizon.
-        expect(layer.period).toBeCloseTo(360 * w.camera.pxPerDeg, 0)
+        for (const band of sheet.animated?.advect?.bands ?? []) {
+          if (Math.abs(band.speed) > 1e-6) expect(Math.sign(band.speed)).toBe(fromDeg === 270 ? -1 : 1)
+        }
       }
-      const speeds = Object.fromEntries(clouds.map((l) => [l.level, Math.abs(l.animated!.speed!)]))
-      if (speeds.low && speeds.high) expect(speeds.high).toBeGreaterThan(speeds.low)
     }
   })
 
