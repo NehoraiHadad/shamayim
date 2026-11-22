@@ -7,9 +7,9 @@ import { densityGrid } from '../../world/field/density'
 import { genusOf } from '../../world/field/genus'
 import { groundRangeAt } from '../../world/field/project'
 import { makeWorldBuilder } from '../../world/world'
-import { OVERCAST_HORIZON, sheetBlend, sheetWeight } from './cloudSheet'
+import { OVERCAST_HORIZON } from './cloudSheet'
 import { sheetTexture, textureCorrection } from './cloudSheetTexture'
-import { cloudLayersOf } from './clouds'
+import { cloudLayersOf } from './cloudLayers'
 import { skyGeom } from './sky'
 import { scaleLight } from './tone'
 
@@ -52,7 +52,6 @@ it.each(ids)('shows the recorded %s sheet', id => {
     })
     console.info(id, layer.lattice, {
       cover: layer.cover, genus: sheet?.genus ?? genusOf(layer.lattice, layer.form, 0.5),
-      sheetWeight: sheetWeight(layer), sheetBlend: sheetBlend(layer),
       alphaMean: alpha.reduce((a, b) => a + b, 0) / alpha.length,
       alphaP90: quantile(alpha, 0.9), alphaMax: quantile(alpha, 1),
       tau: [0, 0.1, 0.5, 0.9, 1].map(p => quantile(depths, p)),
@@ -104,6 +103,6 @@ it.each(ids)('shows the recorded %s sheet', id => {
     // the painter's sRGB interpolation. Its sampled upper spread is 0.116.
     expect(spread).toBeGreaterThanOrEqual(0.115)
     expect(spread).toBeCloseTo(opaqueSpread, 3)
-    expect(layers.filter(layer => layer.kind === 'clouds' && (layer.level === 'mid' || layer.level === 'high'))).toEqual([])
+    expect(layers.every(layer => layer.kind === 'cloudSheet' || layer.kind === 'cloudCells')).toBe(true)
   }
 }, 30_000)

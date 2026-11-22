@@ -77,6 +77,9 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   // The wear card's calm: a still, clear noon.
   calm: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 3, windGusts: 5, humidity: 40 },
   sunny: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 10, windGusts: 16, temperature: 24, humidity: 40 },
+  // Track D's field towers: a thunderstorm and showers out of low convective cloud (the fixtures keep these mid-level).
+  towers: { precipitation: 6, weatherCode: 95, cloudCover: 70, windSpeed: 25, windGusts: 50, windDirection: 250, humidity: 90 },
+  cumulus: { precipitation: 0.6, weatherCode: 80, cloudCover: 55, windSpeed: 25, windGusts: 45, windDirection: 250, humidity: 80 },
 }
 
 /** Moments that pin the cloud layers themselves instead of inheriting the fixture's layer proportions. */
@@ -84,6 +87,8 @@ const LAYERS: Record<string, { low: number; mid: number; high: number }> = {
   cirrus: { low: 0, mid: 0, high: 0.75 },
   // Broken stratocumulus with lit gaps (SPEC §6.0).
   broken: { low: 0.6, mid: 0, high: 0 },
+  towers: { low: 0.5, mid: 0.2, high: 0.2 },
+  cumulus: { low: 0.5, mid: 0.2, high: 0.2 },
 }
 
 /** Where the land's figure stands in the sky (px), and so the still's height: the sky above it, the figure under. */

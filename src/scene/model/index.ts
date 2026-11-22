@@ -8,8 +8,10 @@ import { marksLayers } from './marks'
 import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
-import { carriedShadow, carriedSheet, minuteStart } from './advect'
-import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
+import { carriedCells, carriedShadow, carriedSheet, minuteStart } from './advect'
+import { cloudLayersOf } from './cloudLayers'
+import { flashLayersOf } from './flash'
+import { shimmerLayerOf } from './shimmer'
 import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
@@ -48,8 +50,7 @@ export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | 
  */
 function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: LifeClock): SceneModel {
   const sky = skyLayers(world, box, life)
-  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
-  const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, clouds, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
+  const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, overlay: [], clear: [] }
 }
@@ -63,11 +64,10 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
-  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
     ...cloudShadowLayers(world, box).map((shadow) => carriedShadow(shadow, minuteStart(life))),
-    ...weatherLayers(world, box, clouds, layout.clear)]
+    ...weatherLayers(world, box, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }
@@ -87,9 +87,8 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const cloudLayers = previous && cloudBox.every((value, i) => value === previous.box[i])
     ? previous.layers : cloudLayersOf(world, box, geom)
   if (cloudLayers !== previous?.layers) cloudMemo.set(world, { box: cloudBox, layers: cloudLayers })
-  const clouds = cloudLayers.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const from = minuteStart(life)
-  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from) : layer))
+  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from) : carriedCells(layer, from)))
   const shimmer = shimmerLayerOf(world, box, geom)
   // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,
   // the aircraft and their contrails, the rainbow and the halo, all from the world's life, night sky and optics.
@@ -101,7 +100,7 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const veil = cloudLayers.find((layer): layer is LayerOf<'cloudSheet'> => layer.kind === 'cloudSheet' && layer.genus === 'cs')
   const halo = veil ? haloLayer(world, box, geom, veil) : null
   return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
-    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...carried, ...flashLayersOf(world, box, clouds, geom),
+    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...carried, ...flashLayersOf(world, box, geom),
     ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, life),
     ...lowPlaneLayers(world, box, geom, life), ...birdLayers(world, box, geom, life)]
 }

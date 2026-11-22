@@ -55,23 +55,24 @@ describe('C9: the sun behind a cloud and its glow (defect 2)', () => {
       const sky = model.layers.filter((l) => l.surface === 'sky')
       const disc = sky.find((l) => l.id === 'bodies.sun'), aureole = sky.find((l) => l.id === 'bodies.aureole')
       expect(disc && aureole, `${id} ${hour}`).toBeTruthy()
-      for (const cloud of sky.filter((l) => l.kind === 'clouds')) {
+      for (const cloud of sky.filter((l) => l.kind === 'cloudSheet' || l.kind === 'cloudCells')) {
         expect(cloud.z).toBeGreaterThan(disc!.z)
         expect(cloud.z).toBeLessThan(aureole!.z)
       }
     }
   })
 
-  it('gives a bank by the sun its silver edge whatever lights it from above', () => {
-    const world = worldAt('haifa', '15:00', THUNDER)
+  it('gives a tower by the sun its silver edge whatever lights it from above', () => {
+    const world = buildWorld({ ...worldInput(loaded.get('haifa')!, '2026-11-17T16:00' as LocalTime), forced: THUNDER,
+      forcedLayers: { low: 0.5, mid: 0.2, high: 0.2 } })
     const geom = skyGeom(world, BOX)
     const sx = geom.left + world.bodies.sun.x * geom.s, sy = BOX.landTop + world.bodies.sun.y
-    const banks = layers(world, 'clouds').flatMap((l) => l.banks)
-    const near = banks.filter((b) => b.kind !== 'streak' && Math.hypot(b.x - sx, b.y - b.h / 2 - sy) < b.w / 2 && b.toward)
+    const towers = layers(world, 'cloudCells').flatMap((l) => l.cells)
+    const near = towers.filter(({ sprite: s, x, y }) => Math.abs(x - sx) < s.w / 2 && sy > y - s.tall && sy < y + s.under)
     expect(near.length).toBeGreaterThan(0)
-    for (const b of near) expect(b.silver, b.id).toBeGreaterThan(.2)
+    for (const { sprite } of near) expect(sprite.silver, String(sprite.seed)).toBeGreaterThan(.2)
     // Far from the sun, no silver.
-    for (const b of banks.filter((x) => Math.hypot(x.x - sx, x.y - sy) > 300)) expect(b.silver).toBeLessThan(.2)
+    for (const { sprite } of towers.filter((c) => Math.hypot(c.x - sx, c.y - sy) > 300)) expect(sprite.silver).toBeLessThan(.2)
   })
 })
 

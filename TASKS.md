@@ -980,7 +980,7 @@ reviews, Claude manages and draws the painters.
 - [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
 - [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
       As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
-      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png`
+      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png` (all removed in piece 2b)
 - [ ] Painters in scene: wire to N3 cell descs, detail pass at 375 px
 - [ ] After stills `track-d/after/`, before/after sheet; `test:perf`, vitest, `tsc -b`, oxlint
 - [x] N4 soft look, rounds 1–4 (Claude Opus 5.5 wrote code and tests; brief `briefs/N4-soft-look.md`): open decks
@@ -996,4 +996,18 @@ reviews, Claude manages and draws the painters.
       the old banks drift every frame, shadows never move); rain clouds, lightning and fog from the field; then delete
       the old bank system (`model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`) with its tests, fixtures and devParams.
       Shipped in CI-green pieces (Claude Opus 5.5, branch `claude/cloud-soft-look-413b7e`).
+- [x] Piece 2a (Claude Opus 5.5): every field layer is one sheet (`sheetBlend`/`sheetWeight` gone: the sheet is drawn
+      at any cover), the towers (`tower` lattice: Cu con, Cb) are sprites (`model/cloudCells.ts` → new kind
+      `cloudCells`, `paint/cloudCells.ts` → `paintCloud`), carried as one at their median across-wind speed
+      (`carriedCells`). `model/cloudLayers.ts` builds both; the light and tone helpers moved to `model/cloudLight.ts`.
+      The old banks no longer draw; snow is projected like rain (`snowBankDescs`); the dead `clouds` layer plumbing
+      left `weather.ts`/`index.ts`. Harness moments `towers`, `cumulus` (low 0.5) show them: the Nov fixtures put
+      thunder and showers at mid level (Ns), so `thunder` itself has no Cb (follow-up for the world's cover split).
+- [x] Piece 2b, rain/snow/flash and delete (Claude, 22 Nov): shafts, near rain and flashes stand under
+      `world.rain.cells` projected straight (`model/falling.ts`, snow still through the snowing world banks), carried at
+      the field's across-wind speed (`acrossSpeed`, view middle, median range); `model/flash.ts` + `paint/flash.ts`,
+      shimmer moved to `model/shimmer.ts` + `paint/shimmer.ts`. Deleted `model/clouds.ts`, `paint/clouds.ts`,
+      `paint/clouds/` (sprite type kept as `paint/cloudSprite.ts`), the `clouds` kind, `BankDesc`/`Veil`, the cloud
+      proving page (`dev/cloudSheet.tsx`, `e2e/scene.clouds.mjs`). Tests ported; `falling.test.ts` added.
+- [ ] Piece 2b, fog from the field.
 - [ ] N3e midnight reseed (`briefs/N3e-midnight-anchor.md`) after the rebuild.

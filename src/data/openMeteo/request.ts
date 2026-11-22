@@ -3,7 +3,7 @@ import { weatherUrl } from '../weatherApi'
 
 export const FORECAST_MODELS = 'icon_seamless,ecmwf_ifs025'
 
-const CURRENT = [
+export const CURRENT = [
   'temperature_2m', 'apparent_temperature', 'is_day', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m',
   'precipitation', 'snowfall', 'visibility', 'relative_humidity_2m',
@@ -11,7 +11,7 @@ const CURRENT = [
   // these before this ships (README: "Order when the app asks Open-Meteo for something new").
   'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high',
 ]
-const HOURLY = [
+export const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m',
   'relative_humidity_2m', 'snow_depth',
@@ -37,7 +37,7 @@ export const SCENE_HOURLY = [
 /** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility,wind_speed_850hPa` with 200. */
 export const ASK_SCENE_HOURLY = true
 
-const DAILY = [
+export const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
   'precipitation_probability_max', 'precipitation_sum', 'wind_gusts_10m_max',
   'sunrise', 'sunset',
