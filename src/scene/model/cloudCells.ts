@@ -31,6 +31,12 @@ const TROPOPAUSE_KM = 11
 const ANVILS = 2
 /** Narrower than this (px) a tower is a speck in the haze. */
 const W_MIN = 1.5
+/**
+ * Beyond this range (km) a tower is no longer seen as a column of its own: the haze between merges it with its
+ * neighbours (15–25 km apart, a few px on the screen) into one soft mass along the horizon, at least this wide (px)
+ * and no taller than wide.
+ */
+export const MERGE_KM = 40, MERGE_PX = 28
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
 const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
@@ -45,8 +51,10 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   const placed: (Placed & { km: number; top: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
-    const w = p.widthDeg * pxPerDeg
-    if (p.aTop < TOP_MIN || p.aNear > NEAR_MAX || w < W_MIN || cell.share <= 0.01) continue
+    const seen = p.widthDeg * pxPerDeg
+    if (p.aTop < TOP_MIN || p.aNear > NEAR_MAX || seen < W_MIN || cell.share <= 0.01) continue
+    const merged = p.rangeKm > MERGE_KM
+    const w = merged ? Math.max(seen, MERGE_PX) : seen
     const x = geom.x(p.az)
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const y = geom.dome(Math.max(0, p.aNear))
@@ -54,14 +62,16 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
     // tower stands to its top's altitude, but no taller than its true aspect at the scene's stretch, so a far one is a
     // heap and not a streak, and a near one keeps its height.
-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), w * stretch * cell.vKm / (2 * cell.r)))
+    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * stretch * cell.vKm / (2 * cell.r), merged ? w : Infinity))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, cell, light, x, y, w, under, tall)
     placed.push({ sprite, x, y, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
   }
   if (!placed.length) return null
-  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause.
-  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
+  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause, and only over a
+  // column that stands taller than it is wide (a cap on a squat body reads as a disc floating in the sky).
+  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' && c.sprite.tall >= 1.5 * c.sprite.w
+    ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
   placed.filter((c) => mature(c) > 0).sort((a, b) => mature(b) * b.sprite.w - mature(a) * a.sprite.w).slice(0, ANVILS)
     .forEach((c) => { c.sprite.anvil = mature(c) })
   placed.sort((a, b) => b.km - a.km)

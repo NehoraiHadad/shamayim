@@ -986,6 +986,11 @@ Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look
       1.5 km haze they rise out of (`hazePath`); overhead Cb drawn (NEAR_MAX 70); rain curtains in rain grey.
       Field calibration on the real Haifa 15.3 day: towers 35 % of low cover, cores 18 km apart / 2.5 km radius, half
       Cb, rain only from Cb (`stormDay.test.ts`). Overcast nights lit from below by the towns (`cityLight.ts`, env.glow).
+- [x] Storm look (Claude, 22 Nov): forecast convective rain at the place stands one mature Cb 4 km upwind
+      (`hereCell.ts`), ranked first in the rain so its dark base and curtain are near; towers beyond 40 km merge into a
+      soft horizon mass (`MERGE_KM`/`MERGE_PX`); anvils only over columns 1.5x taller than wide, the column flaring into
+      the cap (no saucers, `cloudTower.test.ts`); the overcast city night dim overhead, brighter toward the horizon
+      (`CITY_ZENITH`/`CITY_HORIZON`). Next: CAPE in the Worker whitelist and the world (conv = f(CAPE, code, precip)).
 - [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
 

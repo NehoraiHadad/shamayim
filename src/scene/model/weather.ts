@@ -4,6 +4,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { RainCell, WorldState } from '../../world/types'
 import { RAIN_GREY } from './cloudLight'
+import { sheetZ } from './cloudSheet'
 import { fallingOf } from './falling'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { aerialFor, hazeOf } from './landVeil'
@@ -143,7 +144,9 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
     const shafts = far.map((f) => shaftOf(world, geom, f, p, horizonSky))
     const top = Math.max(0, Math.floor(Math.min(...shafts.map((s) => s.top)) - 2))
     const bottom = Math.min(box.skyHeight, Math.ceil(geom.horizon + 4))
-    out.push({ kind: 'shafts', id: id('shafts'), surface: 'sky', z: z - 0.5, soft: true, precip: p.precip, shafts, period: geom.period,
+    // A curtain falls from under its base, in front of the farther part of that base and of the towers behind it.
+    const curtainZ = Math.max(z - 0.5, sheetZ.tower + 0.01)
+    out.push({ kind: 'shafts', id: id('shafts'), surface: 'sky', z: curtainZ, soft: true, precip: p.precip, shafts, period: geom.period,
       bounds: { x: 0, y: top, w: geom.period, h: Math.max(1, bottom - top) },
       animated: 'speed' in drift ? { mode: 'drift', ...drift } : undefined,
       key: layerKey('shafts', p.precip, skyBoxKey(box, true), geom.period, slantKey,
@@ -152,7 +155,7 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
     const tw = whole(40, box.dpr), th = whole(56, box.dpr)
     const rgb = p.precip === 'rain' ? mixRgb(horizonSky, WHITE, 0.25 * (1 - dark)) : mixRgb(horizonSky, WHITE, 0.6 * (1 - 0.6 * dark))
     const fallV = p.precip === 'rain' ? 80 + 60 * p.strength : 10 + 6 * p.strength
-    out.push({ kind: 'fall', id: id('fall.far'), surface: 'sky', z: z - 0.4, precip: p.precip, slant: tilt, rgb,
+    out.push({ kind: 'fall', id: id('fall.far'), surface: 'sky', z: curtainZ + 0.01, precip: p.precip, slant: tilt, rgb,
       marks: tileMarks(`${world.place.id}:fall.far:${p.precip}`, p, tw, th, false), bounds: { x: 0, y: 0, w: tw, h: th },
       animated: { mode: 'fall', ...drift, fall: { vx: fallV * tilt, vy: fallV,
         areas: shafts.flatMap((s) => [column(s.x, s.top + 4, s.bottom, s.w * 0.8, s.lean), column(s.x, s.top + 10, s.bottom, s.w * 0.45, s.lean)]),
