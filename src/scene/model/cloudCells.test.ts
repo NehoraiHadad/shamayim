@@ -6,7 +6,7 @@ import { projectCell } from '../../world/field/project'
 import type { WorldInput } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
-import { sceneStretch } from './cloudCells'
+import { MERGE_KM, MERGE_PX, sceneStretch } from './cloudCells'
 import { cloudLayersOf } from './cloudLayers'
 import { skyGeom } from './sky'
 import type { LayerOf, SceneBox } from './types'
@@ -122,5 +122,18 @@ it('stands a near storm cell of a real day up to its true top', async () => {
   for (const { sprite, y } of near) {
     const p = projectCell(cells.get(sprite.seed)!)
     expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + 0.25 * (y - geom.dome(p.aTop)))
+  }
+}, 30_000)
+
+it('merges the far towers of a storm day into a soft mass along the horizon, not a row of streaks', () => {
+  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T17:00' as LocalTime))
+  const geom = skyGeom(world, BOX)
+  const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
+  const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
+  const far = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm > MERGE_KM)
+  expect(far.length).toBeGreaterThan(10)
+  for (const { sprite } of far) {
+    expect(sprite.w).toBeGreaterThanOrEqual(MERGE_PX)
+    expect(sprite.tall).toBeLessThanOrEqual(sprite.w)
   }
 }, 30_000)
