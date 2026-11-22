@@ -122,6 +122,8 @@ async function main() {
     stations.push(...mine)
     log(`shard ${k}/${n}: ${stations.length} stations`)
   }
+  const shard = process.argv.includes('--shard') ? process.argv[process.argv.indexOf('--shard') + 1] : null
+  const branch = shard ? `verification-data-${shard.split('/')[0]}` : 'verification-data'
   const failures = []
   for (const [pass, vars] of Object.entries(PASSES)) {
     if (only && Number(pass) !== only) continue
@@ -151,10 +153,10 @@ async function main() {
     console.log(`\n${failures.length} pieces failed (rerun to retry them):\n${failures.join('\n')}`)
   } else {
     console.log(`\nAll done. Send the data back (from the repository root):
-  git switch --orphan verification-data
+  git switch --orphan ${branch}
   git add research/verification/om-archive
-  git commit -m "Open-Meteo previous-runs archive at IMS stations"   (another machine already pushed? git pull first)
-  git push -u origin verification-data
+  git commit -m "Open-Meteo previous-runs archive at IMS stations"
+  git push -u origin ${branch}
   git switch -`)
   }
 }

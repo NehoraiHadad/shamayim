@@ -189,7 +189,7 @@ def is_one_minute(st: dict) -> bool:
 def build_tasks(stations: list[dict], only: set[int] | None, this_year: int,
                 refresh_current: bool) -> tuple[list[tuple], int]:
     tasks, cached = [], 0
-    for prio, channel in enumerate(TEMP_CHANNELS + OTHER_CHANNELS):
+    for channel in TEMP_CHANNELS + OTHER_CHANNELS:
         start = TEMP_START_YEAR if channel in TEMP_CHANNELS else OTHER_START_YEAR
         for st in stations:
             sid = st["stationId"]
@@ -204,7 +204,11 @@ def build_tasks(stations: list[dict], only: set[int] | None, this_year: int,
                 if done and not (refresh_current and year == this_year):
                     cached += 1
                     continue
-                tasks.append((sid, channel, ids[0], year))
+                # download order: TD first, then everything from 2022 on, then the
+                # older TDmax/TDmin - so an interrupted run is as useful as possible
+                tier = 0 if channel == "TD" else 1 if year >= OTHER_START_YEAR else 2
+                tasks.append((tier, sid, channel, ids[0], year))
+    tasks = [t[1:] for t in sorted(tasks, key=lambda t: t[0])]
     return tasks, cached
 
 
