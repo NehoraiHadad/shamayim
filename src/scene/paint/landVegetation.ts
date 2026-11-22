@@ -47,17 +47,16 @@ export function paintVegFields(ctx: Ctx2D, veg: PlaneVegetation): void {
     const b0 = (h01(seed, x0, y0, 11) - 0.5) * 1.4, b1 = (h01(seed, x0, y0, 17) - 0.5) * 1.4
     // Anchor-hashed tonal variation within each NDVI state so adjacent winter/spring fields read as a patchwork.
     const v = h01(seed, x0, y0, 41)
-    const rgb: RGB = state === 0
-      ? (v < 0.5 ? mix(baseRgb, [0.09, 0.23, 0.09], (0.5 - v) * 0.85) : mix(baseRgb, [0.38, 0.53, 0.18], (v - 0.5) * 0.90))
-      : state === 1
-        ? (v < 0.5 ? mix(baseRgb, [0.16, 0.11, 0.07], (0.5 - v) * 0.65) : mix(baseRgb, [0.37, 0.25, 0.15], (v - 0.5) * 0.55))
-        : (v < 0.5 ? mix(baseRgb, [0.40, 0.33, 0.18], (0.5 - v) * 0.55) : mix(baseRgb, [0.62, 0.55, 0.32], (v - 0.5) * 0.55))
+    const k = state === 0 ? (v < 0.5 ? 1 - (0.5 - v) * 0.42 : 1 + (v - 0.5) * 0.36)
+      : state === 1 ? (v < 0.5 ? 1 - (0.5 - v) * 0.36 : 1 + (v - 0.5) * 0.28)
+        : (v < 0.5 ? 1 - (0.5 - v) * 0.24 : 1 + (v - 0.5) * 0.20)
+    const rgb: RGB = [Math.min(1, baseRgb[0] * k), Math.min(1, baseRgb[1] * k), Math.min(1, baseRgb[2] * k)]
     ctx.beginPath()
     ctx.moveTo(x0, y0); wobblyEdge(ctx, x0, y0, x1, y1, b0); wobblyEdge(ctx, x1, y1, x2, y2, b1)
     wobblyEdge(ctx, x2, y2, x3, y3, -b0); wobblyEdge(ctx, x3, y3, x0, y0, -b1); ctx.closePath()
     ctx.fillStyle = css(rgb, alpha); ctx.fill()
     const furrowAlpha = state === 1 ? alpha * 0.58 : state === 2 ? alpha * 0.40 : alpha * 0.34
-    const furrowRgb = state === 2 ? mix(rgb, [0.60, 0.52, 0.32], 0.35) : mix(rgb, DARK_EARTH, 0.42)
+    const furrowRgb = state === 2 ? mix(rgb, [0.92, 0.85, 0.62], 0.25) : mix(rgb, DARK_EARTH, 0.42)
     const rows = state === 1 ? 5 : 4
     ctx.beginPath()
     for (let r = 1; r < rows; r++) {

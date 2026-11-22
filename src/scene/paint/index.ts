@@ -11,6 +11,7 @@ import { paintLoading } from './loading'
 import { paintMarks } from './marks'
 import { paintOutside } from './outside'
 import { paintPlaneLight } from './planeLight'
+import { paintPlaneShade } from './planeShade'
 import { paintPlane } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
@@ -26,6 +27,8 @@ export { HAND, type Ctx2D, type Hand, type PaintEnv, type Scratch } from './hand
 /** A layer's painters: its form, and its light part when it has one (§1d, the scrub split). */
 export interface Painter<K extends LayerKind = LayerKind> {
   form: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
+  /** Optional Band 0 `multiply` shade pass paired with `light` on a dual-band light canvas (`plane`, Stage 7). */
+  shade?: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
   light?: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
   /**
    * The form draws nothing while there is a light part (a layer that is all light: the far towns, the water but for its
@@ -47,7 +50,7 @@ export const PAINTERS: Painters = {
   clouds: { form: paintClouds },
   flash: { form: paintFlash },
   shimmer: { form: paintShimmer },
-  plane: { form: paintPlane, light: paintPlaneLight },
+  plane: { form: paintPlane, shade: paintPlaneShade, light: paintPlaneLight },
   canopy: { form: paintCanopy, light: paintCanopyLight },
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },

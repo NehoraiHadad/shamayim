@@ -2,10 +2,11 @@ import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, t
 import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
+import { css } from '../paint/hand'
 import { paintContrail } from '../paint/contrail'
 import { clipToGround, layCarried } from './advect'
-import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
-import { formKeyOf } from './paintJob'
+import { ctxOf, defaultFactory, LayerCache, type CacheOptions, type CanvasFactory, type LayerCanvas, type Painted } from './layerCache'
+import { formKeyOf, isDualPlaneLight } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
 import type { SceneStats } from './stats'
 import { compositeOrder } from './compositeOrder'
@@ -41,6 +42,8 @@ export class Surface {
   /** Reduced motion (`composite`): set by the shell, the default of every render and composite. */
   still = false
   private readonly now: () => number
+  private readonly factory: CanvasFactory
+  private planeScratch: LayerCanvas | null = null
   private readonly onArrive?: SurfaceOptions['onArrive']
   private readonly stats?: SceneStats
   dpr = 1
@@ -52,6 +55,7 @@ export class Surface {
 
   constructor(canvas: LayerCanvas, options: SurfaceOptions = {}) {
     this.canvas = canvas
+    this.factory = options.factory ?? defaultFactory()
     this.cache = new LayerCache(options)
     this.now = options.now ?? (() => performance.now())
     this.onArrive = options.onArrive
@@ -137,6 +141,9 @@ export class Surface {
     const d = this.dpr
     const cache = this.active
     if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
+    const deferredPlane = new Set<string>()
+    const deferredCanopy = new Set<string>()
+    const byId = new Map(layers.map((layer) => [layer.id, layer]))
     for (const { desc, part } of this.order.passes) {
       if (part === 'light' && !desc.light) continue
       if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
@@ -146,6 +153,17 @@ export class Surface {
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
       if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
       const { form, light, ratio, rect } = cached
+      const dualPlane = Boolean(isDualPlaneLight(layout) && form && light && (light as { height: number }).height >= rect.h * 2)
+      if (dualPlane && part === 'form') {
+        deferredPlane.add(desc.id)
+        if (layout.kind === 'plane' && layout.canopyId) deferredCanopy.add(layout.canopyId)
+        if (this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
+        continue
+      }
+      if (part === 'form' && deferredCanopy.has(desc.id)) {
+        if (this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
+        continue
+      }
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
       const k = d / ratio
@@ -219,32 +237,92 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
-      if (part !== 'light' && form && !cache.formless(layout)) {
-        if (layout.blend) ctx.globalCompositeOperation = layout.blend
-        const grounded = clipToGround(ctx, layout, d)
-        draw(form)
-        if (grounded) ctx.restore()
-        if (layout.blend) ctx.globalCompositeOperation = 'source-over'
+      if (dualPlane && layout.kind === 'plane' && (part === 'both' || (part === 'light' && deferredPlane.has(desc.id)))) {
+        const scratch = this.compositeDualPlane(layout, form!, light!, rect, ratio, byId, cache, motion, d)
+        const prevH = scratch.height
+        // Blit only the plane's `(0, 0, rect.w, rect.h)` sub-rect onto the visible surface (scratch may be larger).
+        const src = scratch as CanvasImageSource
+        if (k !== 1) ctx.drawImage(src, 0, 0, rect.w, rect.h, rect.x * k, rect.y * k, rect.w * k, rect.h * k)
+        else if (anim?.reveal && Number.isFinite(reach)) this.window(src, rect, 0, y, anim.reveal, reach, alpha)
+        else if (fx || fy || dy || prevH !== rect.h || scratch.width !== rect.w) ctx.drawImage(src, 0, 0, rect.w, rect.h, rect.x + fx, y + fy, rect.w, rect.h)
+        else ctx.drawImage(src, rect.x, rect.y)
+      } else {
+        if (part !== 'light' && form && !cache.formless(layout)) {
+          if (layout.blend) ctx.globalCompositeOperation = layout.blend
+          const grounded = clipToGround(ctx, layout, d)
+          draw(form)
+          if (grounded) ctx.restore()
+          if (layout.blend) ctx.globalCompositeOperation = 'source-over'
+        }
+        if (part !== 'form' && light && layout.light) {
+          ctx.globalCompositeOperation = layout.light.blend
+          draw(light)
+          ctx.globalCompositeOperation = 'source-over'
+        }
       }
-      if (part !== 'form' && light && layout.light) {
-        ctx.globalCompositeOperation = layout.light.blend
-        draw(light)
-        ctx.globalCompositeOperation = 'source-over'
-      }
-      if (part !== 'light' && this.stats?.trackShown) {
-        const fresh = cache.fresh(desc, d)
-        const existing = this.stats.shown[desc.id]
-        if (fresh) {
-          const lk = desc.light?.key ?? null
-          if (!existing) this.stats.shown[desc.id] = { key: desc.key, lightKey: lk, fresh: true }
-          else if (existing.key !== desc.key || existing.lightKey !== lk || !existing.fresh) {
-            existing.key = desc.key; existing.lightKey = lk; existing.fresh = true
-          }
-        } else if (existing && existing.fresh) existing.fresh = false
-      }
+      if (part !== 'light' && this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
       if (clipped) ctx.restore()
       ctx.globalAlpha = 1
     }
+  }
+
+  private markShown(desc: LayerDesc, fresh: boolean) {
+    if (!this.stats) return
+    const existing = this.stats.shown[desc.id]
+    if (fresh) {
+      const lk = desc.light?.key ?? null
+      if (!existing) this.stats.shown[desc.id] = { key: desc.key, lightKey: lk, fresh: true }
+      else if (existing.key !== desc.key || existing.lightKey !== lk || !existing.fresh) {
+        existing.key = desc.key; existing.lightKey = lk; existing.fresh = true
+      }
+    } else if (existing && existing.fresh) existing.fresh = false
+  }
+
+  /**
+   * Halo-free dual-band plane composite (Stage 7): seeds opaque `fill`, draws `plane:form` + optional `canopy:form`,
+   * multiplies by Band 0 (`shadeField` + floor shadows), lays Band 1 (linear Koschmieder haze, snow, washes, rims),
+   * and restores `plane:form`'s exact antialiased silhouette once via `destination-in`.
+   */
+  private compositeDualPlane(
+    layout: Extract<LayerDesc, { kind: 'plane' }>, form: CanvasImageSource | OffscreenCanvas,
+    light: CanvasImageSource | OffscreenCanvas, rect: { x: number; y: number; w: number; h: number }, ratio: number,
+    byId: ReadonlyMap<string, LayerDesc>, cache: LayerCache | RemoteCache, motion: number, d: number,
+  ): LayerCanvas {
+    if (!this.planeScratch || this.planeScratch.width < rect.w || this.planeScratch.height < rect.h) {
+      const w = Math.max(rect.w, this.planeScratch?.width ?? 0)
+      const h = Math.max(rect.h, this.planeScratch?.height ?? 0)
+      this.planeScratch = this.factory(w, h)
+    }
+    const sctx = ctxOf(this.planeScratch)
+    sctx.setTransform(1, 0, 0, 1, 0, 0)
+    sctx.globalCompositeOperation = 'source-over'
+    sctx.globalAlpha = 1
+    sctx.clearRect(0, 0, rect.w, rect.h)
+    sctx.fillStyle = css(layout.fill)
+    sctx.fillRect(0, 0, rect.w, rect.h)
+    sctx.drawImage(form as CanvasImageSource, 0, 0, rect.w, rect.h, 0, 0, rect.w, rect.h)
+    if (layout.canopyId) {
+      const canopyCached = cache.peek(layout.canopyId)
+      const canopyDesc = byId.get(layout.canopyId)
+      if (canopyCached?.form && canopyDesc) {
+        const canopyLayout = layoutOf(canopyDesc, canopyCached, d)
+        if (cache instanceof LayerCache && canopyLayout.animated?.frames) cache.ensureFrame(canopyLayout, motion)
+        const cRect = canopyCached.rect
+        const cHeld = Math.max(1, Math.round((canopyCached.form as { height: number }).height / cRect.h))
+        const cSy = cHeld > 1 ? (frameAt(canopyLayout.animated, motion) % cHeld) * cRect.h : 0
+        const scale = ratio / canopyCached.ratio
+        sctx.drawImage(canopyCached.form as CanvasImageSource, 0, cSy, cRect.w, cRect.h,
+          cRect.x * scale - rect.x, cRect.y * scale - rect.y, cRect.w * scale, cRect.h * scale)
+      }
+    }
+    sctx.globalCompositeOperation = 'multiply'
+    sctx.drawImage(light as CanvasImageSource, 0, 0, rect.w, rect.h, 0, 0, rect.w, rect.h)
+    sctx.globalCompositeOperation = 'source-over'
+    sctx.drawImage(light as CanvasImageSource, 0, rect.h, rect.w, rect.h, 0, 0, rect.w, rect.h)
+    sctx.globalCompositeOperation = 'destination-in'
+    sctx.drawImage(form as CanvasImageSource, 0, 0, rect.w, rect.h, 0, 0, rect.w, rect.h)
+    sctx.globalCompositeOperation = 'source-over'
+    return this.planeScratch
   }
 
   /**
@@ -379,9 +457,10 @@ export class Surface {
     return painted
   }
 
-  /** Backing memory: the visible canvas and the cached layers (bytes). */
+  /** Backing memory: the visible canvas, the cached layers and the plane composite scratch (bytes). */
   bytes() {
-    return this.canvas.width * this.canvas.height * 4 + this.active.bytes()
+    const scratch = this.planeScratch ? this.planeScratch.width * this.planeScratch.height * 4 : 0
+    return this.canvas.width * this.canvas.height * 4 + this.active.bytes() + scratch
   }
 
   get size() {

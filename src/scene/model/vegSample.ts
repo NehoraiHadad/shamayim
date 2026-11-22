@@ -2,12 +2,14 @@
 import type { LivingLand } from '../../world/landLiving'
 import type { RGB } from '../../world/types'
 import { COVER_WATER, roundRgb } from './landPalette'
+import { albedoToFormTone } from './landRadiance'
 import { labOf, mixRgb, rgbOfLab } from './tone'
 
 /**
- * Living-land vegetation cell sampling and light-free illustrated palette (Stage 4: living land).
- * Projected face distance & slope are shared via `faceProjection.ts` with Stage 3 (`landColour.ts`).
- * Computes only cover, NDVI, dryness and elevation (never allocating or blending unused albedo).
+ * Living-land vegetation cell sampling and light-free reflectance-form palette (Stages 4 & 7: living land).
+ * Encodes each vegetation class via `albedoToFormTone` in the exact same light-free reflectance-form space as
+ * `planeSurfaceOf`, so `plane:light`'s `multiply` irradiance pass and linear Koschmieder haze light both ground
+ * and vegetation under one exposure.
  */
 
 export interface VegSample { cover: number | null; ndvi: number; dryness: number; elevationM: number }
@@ -78,7 +80,11 @@ export interface VegPaletteOpts {
   grassNdvi?: number
 }
 
-/** Builds the 18-colour light-free illustrated vegetation palette anchored to the plane's median Stage 3 tone. */
+/**
+ * Builds the 18-colour light-free reflectance-form vegetation palette anchored to the plane's reflectance-form
+ * `medianLand`. Each entry starts from a physical BOA sRGB albedo on the Sentinel-2 L2A scale, converted via
+ * `albedoToFormTone` so canopies, fields and strata keep realistic contrast against lit ground at every hour.
+ */
 export function buildVegPalette(medianLand: RGB, dryness: number, opts?: VegPaletteOpts): RGB[] {
   const d = clamp(dryness, 0, 1)
   const gDry = clamp(opts?.grassDryness ?? d, 0, 1)
@@ -90,28 +96,28 @@ export function buildVegPalette(medianLand: RGB, dryness: number, opts?: VegPale
   const grassDry = opts?.grassNdvi !== undefined && Number.isFinite(opts.grassNdvi)
     ? clamp(0.55 * clamp((0.36 - opts.grassNdvi) / 0.18, 0, 1) + 0.45 * dryFactor, 0, 1)
     : dryFactor
-  const calm = (rgb: RGB, share = 0.14) => roundRgb(mixRgb(rgb, medianLand, share))
+  const veg = (albedo: RGB, share = 0.14) => roundRgb(mixRgb(albedoToFormTone(albedo), medianLand, share))
   const lab = labOf(medianLand)
-  const strataLight = roundRgb(rgbOfLab({ l: clamp(lab.l + 0.052, 0.24, 0.44), a: lab.a * 1.05, b: lab.b * 1.15 }))
-  const strataDark = roundRgb(rgbOfLab({ l: clamp(lab.l - 0.048, 0.16, 0.34), a: lab.a * 1.10, b: lab.b * 1.05 }))
+  const strataLight = roundRgb(rgbOfLab({ l: clamp(lab.l + 0.055, 0.28, 0.90), a: lab.a * 1.05, b: lab.b * 1.15 }))
+  const strataDark = roundRgb(rgbOfLab({ l: clamp(lab.l - 0.055, 0.18, 0.80), a: lab.a * 1.10, b: lab.b * 1.05 }))
   return [
-    calm([0.05, 0.10, 0.06], 0.08),                       // 0: PINE_UNDER (dark woodland understory)
-    calm([0.11, 0.20, 0.12], 0.10),                       // 1: PINE_SHADE (shaded pine/oak crown)
-    calm([0.16, 0.29, 0.15], 0.10),                       // 2: PINE_MID   (rich conifer/oak crown)
-    calm([0.29, 0.44, 0.23], 0.10),                       // 3: PINE_LIT   (ambient upper crown dome)
-    calm([0.24, 0.31, 0.21], 0.14),                       // 4: OLIVE      (silvery Mediterranean olive)
-    calm([0.14, 0.28, 0.14], 0.12),                       // 5: CITRUS     (deep glossy citrus)
-    calm([0.20, 0.32, 0.16], 0.12),                       // 6: PALM       (date-palm frond green)
-    calm([0.30, 0.25, 0.19], 0.14),                       // 7: TRUNK
-    calm(lerpRgb([0.18, 0.36, 0.14], [0.27, 0.35, 0.17], d * 0.5), 0.14), // 8: FIELD_GREEN
-    calm([0.27, 0.19, 0.13], 0.14),                       // 9: FIELD_PLOUGH
-    calm([0.52, 0.44, 0.25], 0.13),                       // 10: FIELD_STRAW
-    calm(lerpRgb([0.11, 0.20, 0.10], [0.22, 0.22, 0.14], d * 0.72), 0.12), // 11: SHRUB
-    calm(lerpRgb([0.26, 0.38, 0.20], [0.39, 0.36, 0.22], d * 0.72), 0.10), // 12: SHRUB_LIT
-    calm(lerpRgb([0.20, 0.37, 0.14], [0.54, 0.45, 0.23], grassDry), 0.10), // 13: GRASS
-    calm(lerpRgb([0.32, 0.50, 0.20], [0.64, 0.54, 0.30], grassDry), 0.08), // 14: GRASS_LIT
-    strataLight,                                          // 15: STRATA_LIGHT
-    strataDark,                                           // 16: STRATA_DARK
-    calm(lerpRgb([0.18, 0.32, 0.13], [0.28, 0.33, 0.16], d * 0.45), 0.13), // 17: ORCHARD (neutral unknown-species)
+    veg([0.11, 0.18, 0.12], 0.06),                         // 0: PINE_UNDER (dark woodland understory, ρ ≈ 0.025)
+    veg([0.19, 0.29, 0.19], 0.08),                         // 1: PINE_SHADE (shaded pine/oak crown, ρ ≈ 0.055)
+    veg([0.24, 0.37, 0.22], 0.10),                         // 2: PINE_MID   (conifer/oak crown, ρ ≈ 0.09)
+    veg([0.38, 0.52, 0.30], 0.10),                         // 3: PINE_LIT   (ambient upper crown dome, ρ ≈ 0.18)
+    veg([0.33, 0.39, 0.29], 0.14),                         // 4: OLIVE      (silvery Mediterranean olive, ρ ≈ 0.11)
+    veg([0.21, 0.36, 0.20], 0.12),                         // 5: CITRUS     (deep glossy citrus, ρ ≈ 0.085)
+    veg([0.28, 0.41, 0.23], 0.12),                         // 6: PALM       (date-palm frond green, ρ ≈ 0.11)
+    veg([0.38, 0.32, 0.26], 0.14),                         // 7: TRUNK
+    veg(lerpRgb([0.24, 0.43, 0.20], [0.34, 0.42, 0.23], d * 0.5), 0.14), // 8: FIELD_GREEN
+    veg([0.36, 0.27, 0.19], 0.14),                         // 9: FIELD_PLOUGH
+    veg([0.56, 0.49, 0.31], 0.13),                         // 10: FIELD_STRAW
+    veg(lerpRgb([0.19, 0.30, 0.18], [0.31, 0.31, 0.21], d * 0.72), 0.12), // 11: SHRUB
+    veg(lerpRgb([0.34, 0.46, 0.27], [0.46, 0.43, 0.29], d * 0.72), 0.10), // 12: SHRUB_LIT
+    veg(lerpRgb([0.26, 0.44, 0.20], [0.58, 0.49, 0.24], grassDry), 0.10), // 13: GRASS
+    veg(lerpRgb([0.38, 0.56, 0.27], [0.68, 0.58, 0.30], grassDry), 0.08), // 14: GRASS_LIT
+    strataLight,                                           // 15: STRATA_LIGHT
+    strataDark,                                            // 16: STRATA_DARK
+    veg(lerpRgb([0.25, 0.40, 0.19], [0.35, 0.41, 0.23], d * 0.45), 0.13), // 17: ORCHARD (neutral unknown-species)
   ]
 }

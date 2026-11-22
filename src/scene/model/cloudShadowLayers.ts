@@ -1,5 +1,5 @@
-import type { TerrainPlanes } from '../../world/types'
-import { layerKey } from './keys'
+import type { RGB, TerrainPlanes } from '../../world/types'
+import { colourKey, layerKey } from './keys'
 import { planeCrest } from './planeCrest'
 import type { LayerOf, SceneBox } from './types'
 
@@ -19,8 +19,11 @@ function crestKey(crest: NonNullable<ShadowLayer['clip']>['crest'] | undefined) 
   return key
 }
 
+/** Default linear-correct multiply shadow colour when synthetic callers omit full radiance state. */
+const DEFAULT_SHADOW_RGB: RGB = [0.64, 0.67, 0.74]
+
 export function shadowLayers(terrain: ShadowTerrain, box: ShadowBox,
-  accepted: { km: number; plane: ShadowPlane; blob: ShadowBlob }[]): ShadowLayer[] {
+  accepted: { km: number; plane: ShadowPlane; blob: ShadowBlob }[], rgb: RGB = DEFAULT_SHADOW_RGB): ShadowLayer[] {
   const byPlane = new Map<ShadowPlane, ShadowBlob[]>()
   for (const { plane, blob } of accepted.sort((a, b) => a.km - b.km)) {
     const blobs = byPlane.get(plane)
@@ -33,9 +36,10 @@ export function shadowLayers(terrain: ShadowTerrain, box: ShadowBox,
       .map((t) => planeCrest(t!, box.width))
     const clip = ground && ground.points.length >= 2 ? { crest: planeCrest(ground, box.width), fronts } : null
     return {
-      kind: 'cloudShadow', plane, id: `cloudShadow.${plane}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
-      clip, blobs, rgb: [0.04, 0.06, 0.12], bounds: { x: 0, y: 0, w: box.width, h: box.landHeight },
-      key: layerKey('cloudShadow', plane, box.width, box.landHeight, box.dpr, crestKey(clip?.crest), ...(clip?.fronts ?? []).map(crestKey),
+      kind: 'cloudShadow', plane, id: `cloudShadow.${plane}`, surface: 'land', z: 40.3, soft: true, blend: 'multiply',
+      clip, blobs, rgb, bounds: { x: 0, y: 0, w: box.width, h: box.landHeight },
+      key: layerKey('cloudShadow', plane, box.width, box.landHeight, box.dpr, colourKey(rgb), crestKey(clip?.crest),
+        ...(clip?.fronts ?? []).map(crestKey),
         JSON.stringify(blobs.map(({ x, y, rx, ry, alpha }) => [x * 100, y * 100, rx * 100, ry * 100, alpha * 25500].map(Math.round)))),
     }
   })

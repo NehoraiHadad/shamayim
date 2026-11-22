@@ -27,13 +27,17 @@ const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated
 export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
   (painter?.light && desc.light ? desc.light.key + stripKey(desc) : null)
 
+/** Whether a layer's light canvas carries Band 0 (multiply shade) + Band 1 (source-over haze/snow/rims). */
+export const isDualPlaneLight = (desc: LayerDesc): boolean => desc.kind === 'plane' && Boolean(desc.light.shadeField)
+
 /**
  * Paints one part of a layer (its form or its light) on a context of the layer's device size: cleared, then the painter
  * called in scene px (the transform takes scene px to the canvas's device px). The same on the main thread (`LayerCache`)
  * and in the paint worker (`paintWorker.ts`), so both give the same pixels.
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
-  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[]) {
+  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[],
+  shade?: Painter['shade']) {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
@@ -41,6 +45,25 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
   const canvas = (w: number, h: number) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
   const count = frameCount(desc.animated)
   if (count === 1) {
+    if (shade && isDualPlaneLight(desc) && size.height >= rect.h * 2) {
+      const env: PaintEnv = { hand, phase, scale: ratio, canvas }
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(0, 0, rect.w, rect.h)
+      ctx.clip()
+      ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
+      shade(ctx, desc as never, env)
+      ctx.restore()
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(0, rect.h, rect.w, rect.h)
+      ctx.clip()
+      ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + rect.h)
+      paint(ctx, desc, env)
+      ctx.restore()
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      return
+    }
     ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
     paint(ctx, desc, { hand, phase, scale: ratio, canvas })
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -63,8 +86,11 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
   ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 
-/** A layer's canvas in device px: its frame, times the frames of a strip stacked down it (C7). */
-export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h: rect.h * frameCount(desc.animated) })
+/** A layer's canvas in device px: its frame, times the frames of a strip (or 2 bands for dual plane light). */
+export const canvasSize = (desc: LayerDesc, rect: DeviceRect, part?: 'form' | 'light') => ({
+  w: rect.w,
+  h: rect.h * (part === 'light' && isDualPlaneLight(desc) ? 2 : frameCount(desc.animated)),
+})
 
 /**
  * Trims form-only buffers from a descriptor before posting a `light`-only job across the Worker boundary

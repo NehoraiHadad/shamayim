@@ -15,7 +15,7 @@ import type { Ctx2D, PaintEnv } from './hand'
  * - Low-frequency mottle and subtle paper grain integrate directly into the same pass on the near plane.
  */
 
-const TEXEL = 3
+export const TEXEL = 3
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const smooth = (lo: number, hi: number, t: number) => {
   const x = clamp((t - lo) / (hi - lo), 0, 1)
@@ -53,7 +53,7 @@ function samplePolylineY(pts: readonly Pt[], bounds: Box, cols: number, fallback
 }
 
 /** Extracts both upper crest y and local lower foot y per texel column from a plane's closed outline. */
-function outlineBandY(outline: readonly Pt[], bounds: Box, cols: number): { crestY: Float32Array; footY: Float32Array } {
+export function outlineBandY(outline: readonly Pt[], bounds: Box, cols: number): { crestY: Float32Array; footY: Float32Array } {
   const bottom = bounds.y + bounds.h
   if (outline.length < 2) return { crestY: new Float32Array(cols).fill(bounds.y), footY: new Float32Array(cols).fill(bottom) }
   // The plane outline runs strictly left -> right along the ridge, then returns right -> left along the local foot.

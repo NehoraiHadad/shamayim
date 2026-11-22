@@ -9,7 +9,8 @@ import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
 import { shadowLayers, type ShadowBlob, type ShadowBox, type ShadowPlane, type ShadowTerrain } from './cloudShadowLayers'
-import type { Pt } from './types'
+import { cloudShadowMultiplyRgb, EXPOSURE_GAMMA, linearToSrgb, type RadianceWorld } from './landRadiance'
+import type { Pt, RGB } from './types'
 
 const RAD = Math.PI / 180
 const RANGE = 60
@@ -17,14 +18,35 @@ const supports = [[1, 0], [-1, 0], [0, 1], [0, -1]]
 type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
   flightTerrain?: WorldState['flightTerrain']
   light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
+    & Partial<Pick<WorldState['light'], 'shares' | 'diffuse' | 'colour' | 'ambient' | 'palette' | 'dir'>>
+  ground?: WorldState['ground']
+  bodies?: Pick<WorldState['bodies'], 'sun'>
   terrain: ShadowTerrain
+}
+
+/** Linear-correct `multiply` shadow colour from the full radiance model (or a clean clear-sky fallback for synthetic worlds). */
+function shadowRgbOf(world: ShadowWorld): RGB {
+  const l = world.light
+  if (l.shares && l.palette && l.colour && l.ambient && l.dir && l.diffuse !== undefined) {
+    return cloudShadowMultiplyRgb({
+      light: l as WorldState['light'],
+      ground: world.ground ?? { wet: 0, snowLineM: null },
+      bodies: world.bodies,
+    } as RadianceWorld)
+  }
+  const f = (1 / (1 + 7.6 * Math.max(0, l.direct) * Math.sin(Math.max(0, l.altitude) * RAD))) ** EXPOSURE_GAMMA
+  const g = linearToSrgb(f)
+  return [g, g, Math.min(1, g * 1.04)]
 }
 
 type Projection = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
 export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world
-  // Below one 8-bit alpha step the largest possible shadow is subpixel in opacity.
-  if (!cloudField || !grid || light.altitude <= 0 || 0.65 * light.direct < 1 / 255) return []
+  if (!cloudField || !grid || light.altitude <= 0 || light.direct <= 0) return []
+  const rgb = shadowRgbOf(world)
+  const darkening = 1 - Math.min(rgb[0], rgb[1], rgb[2])
+  // Below one 8-bit luminance step the largest possible shadow is subvisible.
+  if (darkening < 1 / 255) return []
   const { field } = cloudField
   const { open } = cloudLight({ low: 0, mid: 0, high: 0 }, field)
   if (open <= 0) return []
@@ -33,8 +55,7 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
   const sin = Math.sin(light.azimuth * RAD), cos = Math.cos(light.azimuth * RAD)
   const eastPerUp = sin * cot, northPerUp = cos * cot
   const invSin = 1 / Math.sin(altitude)
-  const alphaScale = 0.65 * light.direct
-  const minDepth = -2 * Math.log(open * (1 - 1 / (255 * alphaScale))) / invSin
+  const minDepth = -2 * Math.log(open * Math.max(1e-6, 1 - 1 / (255 * darkening))) / invSin
   const scale = box.width / SCENE_W
   const period = 360 * camera.pxPerDeg * box.width / camera.width
 
@@ -142,12 +163,13 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
       top = Math.min(top, sy)
       bottom = Math.max(bottom, sy)
     }
-    const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
+    // Direct-beam fraction blocked by this cloud cell (`0..1`): under `multiply` with `rgb`, `a = 1` leaves exact diffuse-only radiance.
+    const alpha = Math.min(1, Math.max(0, 1 - Math.exp(-slant * invSin / 2) / open))
     const centreKm: Pt = [centre.eastKm, centre.northKm]
     const speed = acrossSpeed(vel, [centre.eastKm / centre.km, centre.northKm / centre.km], centre.km, perRad)
     accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, alpha, speed,
       x: (left + right) / 2, y: (top + bottom) / 2,
       rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
   }
-  return shadowLayers(terrain, box, accepted)
+  return shadowLayers(terrain, box, accepted, rgb)
 }

@@ -25,7 +25,7 @@ const Z: Record<PlaneName, number> = { back: 5, far: 10, near: 30 }
  */
 const MODEL: Record<PlaneName, number> = { back: 0.3, ...LAND_MODEL }
 /** Bumped when the form's drawing rules change, so cached forms are not reused across versions. */
-const FORM = 8
+const FORM = 9
 
 const shapes = new WeakMap<Plane, Map<string, { outline: Pt[]; top: number }>>()
 
@@ -69,7 +69,7 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.median, clear)
   const key = layerKey('plane', name, FORM, world.keys.terrain, world.keys.place, world.keys.land, landBoxKey(box),
     name === 'back' ? '' : groundClearKey(clear), name === 'back' ? '' : cropEvidenceKey(world))
-  const light = planeLight(world, box, name, plane, k, surface.median)
+  const light = planeLight(world, box, name, plane, k, surface.medianAlbedo)
   const canopyId = vegetation.trees.length || vegetation.tufts.length ? `canopy.${name}` : undefined
   return {
     kind: 'plane', plane: name, id: `plane.${name}`, surface: 'land', z: Z[name],

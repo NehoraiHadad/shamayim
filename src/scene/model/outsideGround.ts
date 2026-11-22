@@ -2,25 +2,28 @@
 import type { OutsideFrame } from '../../data/city/outsideView'
 import type { LivingLand } from '../../world/landLiving'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
-import { albedoToLandTone, COVER_WATER, dominantWeightedSource, nonWaterLocalFallback, quantiseTones } from './landPalette'
-import { applyVeil, veilAt } from './landVeil'
+import { COVER_WATER, dominantWeightedSource, nonWaterLocalFallback, quantiseTones } from './landPalette'
+import { linearLuminance, litLandRgb, srgbRgbToLinear, surfaceNormal } from './landRadiance'
 import { snowOnGround } from './landSnow'
+import { hazeAt, hazeOf } from './landVeil'
 import { skyAt } from './sky'
-import { labOf, mixRgb } from './tone'
+import { mixRgb } from './tone'
 import type { OutsideLandDesc, Pt, SceneBox } from './types'
 
 /**
- * Outside-view own-ground albedo stops and descriptor (Stage C5b + Living Land Stage 3).
- * Resolves ground albedo strictly from `world.land.local` at the silhouette's own local east/north
- * coordinates (`view.land.localKm`, never from distant panorama rays). Aerial haze and snow lighting
- * use `view.land.km` as an explicit portrait-scale approximation (the near-ridge distance at the
- * portrait centre) so the hill silhouette blends seamlessly into the near ridge behind it.
+ * Outside-view own-ground albedo stops and descriptor (Stage C5b + Living Land Stages 3 & 7).
+ * Resolves raw local BOA albedos strictly from `world.land.local` (`view.land.localKm`) and lights every stop
+ * through the shared `litLandRgb` physical radiance model so outside ground agrees with the near ridge behind it.
  */
 
 export interface OutsideGroundSpec { stops: [number, RGB][]; median: RGB; source: string }
 
+/** Gently viewer-facing ridge normal matching the near hillside behind the outside-view portrait. */
+const OUTSIDE_NORMAL = surfaceNormal(0, 0.08)
+
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
-const medianTone = (tones: readonly RGB[]) => [...tones].sort((a, b) => labOf(a).l - labOf(b).l)[Math.floor(tones.length / 2)]
+const medianByLum = (tones: readonly RGB[]) =>
+  [...tones].sort((a, b) => linearLuminance(srgbRgbToLinear(a)) - linearLuminance(srgbRgbToLinear(b)))[Math.floor(tones.length / 2)]
 
 /** Bilinearly samples `world.land.local` at `(eastM, northM)`, excluding open water (`COVER_WATER = 8`). */
 export function sampleLocalField(land: LivingLand, eastM: number, northM: number): { albedo: RGB; source: string } {
@@ -63,7 +66,7 @@ export function sampleLocalField(land: LivingLand, eastM: number, northM: number
 
 const outsideCache = new WeakMap<LivingLand, Map<string, OutsideGroundSpec>>()
 
-/** Quantised light-free stops across the place's own ground polygon from `world.land.local`, memoised per `world.land`. */
+/** Quantised light-free BOA albedo stops across the place's own ground polygon from `world.land.local`, memoised per `world.land`. */
 export function outsideGroundStops(world: WorldState, land: NonNullable<OutsideView['land']>, frame: OutsideFrame): OutsideGroundSpec {
   let byKey = outsideCache.get(world.land)
   if (!byKey) outsideCache.set(world.land, byKey = new Map())
@@ -86,11 +89,11 @@ export function outsideGroundStops(world: WorldState, land: NonNullable<OutsideV
     }
     const hit = sampleLocalField(world.land, dxKm * 1000, dyKm * 1000)
     contribs.push({ source: hit.source, weight: 1 })
-    samples.push(albedoToLandTone(hit.albedo))
+    samples.push(hit.albedo)
   }
   const { palette, indices } = quantiseTones(samples, 4)
   const stops: [number, RGB][] = indices.map((ci, i) => [i / (count - 1), palette[ci]])
-  const spec: OutsideGroundSpec = { stops, median: medianTone(stops.map(([, c]) => c)), source: dominantWeightedSource(contribs) }
+  const spec: OutsideGroundSpec = { stops, median: medianByLum(stops.map(([, c]) => c)), source: dominantWeightedSource(contribs) }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, spec)
   return spec
@@ -111,14 +114,14 @@ function landSnow(world: WorldState, land: NonNullable<OutsideView['land']>) {
   return runs.length ? { ...look, runs } : null
 }
 
-/** Builds the complete outside-ground descriptor with local albedo stops veiled by portrait-scale aerial haze. */
+/** Builds the complete outside-ground descriptor with local albedos lit and hazed through the shared radiance model. */
 export function outsideLandDesc(world: WorldState, view: OutsideView, box: SceneBox, sx: number): OutsideLandDesc | null {
   if (!view.land) return null
   const raw = outsideGroundStops(world, view.land, view.frame)
-  // Portrait-scale haze approximation: `view.land.km` matches the near ridge at the portrait centre.
-  const veil = veilAt(world, view.land.km)
-  const tone = applyVeil(raw.median, veil)
-  const stops: [number, RGB][] = raw.stops.map(([t, c]) => [t, applyVeil(c, veil)])
+  const haze = hazeOf(world)
+  const share = hazeAt(world, view.land.km)
+  const tone = litLandRgb(world, raw.median, OUTSIDE_NORMAL, share, haze)
+  const stops: [number, RGB][] = raw.stops.map(([t, c]) => [t, litLandRgb(world, c, OUTSIDE_NORMAL, share, haze)])
   return {
     top: view.land.top.map(([x, y]): Pt => [x * sx, y]),
     base: view.land.base.map(([x, y]): Pt => [x * sx, y]),

@@ -6,6 +6,8 @@ import type { FarCities, WorldState } from '../../world/types'
 import { farTownHazeAtTier, farTownTier, TIER_KM } from './farTownHaze'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { againstLight, shineOf, wallShade } from './marks'
+import { nearGroundAlbedo } from './landColour'
+import { FLAT_NORMAL, litLandRgb } from './landRadiance'
 import { aerialFor } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import type { Box, CityBlock, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
@@ -95,12 +97,12 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const aerial = aerialFor(world)
   const dark = night.dark
   const day = 1 - dark
-  const ground = rgbOf(light.palette.ridgeNear)
+  const shade = wallShade(world)
+  const ground = litLandRgb(world, nearGroundAlbedo(world), FLAT_NORMAL, 0, undefined, 1 - shade)
   const direct = clamp01(light.direct)
   // Stone in the light of the hour: lit by the light's colour, shade by the sky; toward the night land's dark by night.
   // C9: against the light (and under a dull sky) the walls the eye sees stand in their own shade, as the place's do
   // (`wallShade`): the stone lifts them less, the lit face keeps its light.
-  const shade = wallShade(world)
   const litOwn = mixRgb(ground, mixRgb(ALBEDO, light.colour, 0.3), day * (0.5 + 0.38 * direct))
   const shadeOwn = mixRgb(ground, mixRgb(ALBEDO, rgbOf(light.palette.mid), 0.5), day * (0.42 + 0.08 * (1 - direct)) * (1 - 0.55 * shade))
   const shown = (km: number) => plainContrast(km, visibility) >= MIN_CONTRAST

@@ -2,10 +2,12 @@ import type { LayerOf, Pt, Wash } from '../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from './hand'
 
 /*
- * Plane light painter (`source-over` onto the light-free living-land form, Stage C2 + Stages 3 & 4):
- * Ambient mood, wet-ground darkening & Koschmieder aerial haze veil, snow, shade and lit crest washes,
- * floor shadow, crest rim and gully catchlights, masked once with
- * `destination-in` against the plane's antialiased outline. Worker-safe; no clock; no `ctx.filter`.
+ * Plane light painter (Stage C2 + Living Land Stages 3, 4 & 7):
+ * Band 1 (`source-over` after Band 0's `multiply` irradiance pass `planeShade.ts`):
+ * linear-equivalent Koschmieder aerial haze veil, lying snow, soft illustrated face washes,
+ * crest rims and gully catchlights. When `shadeField` is present, `Surface.composite` masks the
+ * combined plane+canopy+Band0+Band1 pass once against `plane:form`'s antialiased silhouette.
+ * Worker-safe; no clock; no `ctx.filter`.
  */
 
 /** The nested bands of a wash: each depth's share of the band and its strength (soft fall-off, no filter). */
@@ -37,13 +39,21 @@ function paintSoft(ctx: Ctx2D, points: Pt[], fill: string, soft: number) {
   }
 }
 
-/** Paints the light pass of one terrain plane (`source-over` onto the plane form). */
+/** Paints Band 1 of one terrain plane's light pass (`source-over` aerial haze, snow, washes, rims and lift). */
 export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintEnv): void {
   const light = desc.light
   const { x, y, w, h } = desc.bounds
   ctx.save()
 
-  // Mood + wet-ground attenuation + aerial haze veil over the light-free land form.
+  // Soft illustrated face washes (glaze in computed shade/lit radiance) before aerial haze lifts distant air.
+  paintWashes(ctx, light.shade)
+  paintWashes(ctx, light.lit)
+  // Floor cast shadows belong to Band 0 `multiply` when `shadeField` is present; keep fallback for legacy callers.
+  if (!light.shadeField) {
+    for (const face of light.faces) paintSoft(ctx, face.points, css(face.rgb, face.alpha / (face.soft ? 4 : 1)), face.soft ?? 0)
+  }
+
+  // Linear-equivalent Koschmieder aerial haze veil over the lit land form.
   if (light.veil.length && light.veil.some(([, , a]) => a > 0.002)) {
     if (light.veil.length > 1) {
       const g = ctx.createLinearGradient(x, 0, x + w, 0)
@@ -65,9 +75,6 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
       ctx.fill()
     }
   }
-  paintWashes(ctx, light.shade)
-  paintWashes(ctx, light.lit)
-  for (const face of light.faces) paintSoft(ctx, face.points, css(face.rgb, face.alpha / (face.soft ? 4 : 1)), face.soft ?? 0)
 
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -91,9 +98,11 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintE
     ctx.lineWidth = 0.45
     ctx.stroke()
   }
-  ctx.globalCompositeOperation = 'destination-in'
-  outline(ctx, desc.outline)
-  ctx.fillStyle = '#000'
-  ctx.fill()
+  if (!light.shadeField) {
+    ctx.globalCompositeOperation = 'destination-in'
+    outline(ctx, desc.outline)
+    ctx.fillStyle = '#000'
+    ctx.fill()
+  }
   ctx.restore()
 }

@@ -3,42 +3,22 @@ import { ridgeLightSamples, smoothstep, type RidgeSample } from '../../world/rid
 import { groundAt as lineAt } from '../../world/sceneLight'
 import { shadowRuns } from '../../world/shadowRuns'
 import type { Plane, RGB, WorldState } from '../../world/types'
-import { darken, lightness, mixRgb } from './tone'
-import type { Face, Pt, Rim, Wash } from './types'
-import type { PlaneName } from './faceProjection'
+import { localFootY, type PlaneName } from './faceProjection'
+import { cloudShadowMultiplyRgb, FLAT_NORMAL, litLandRgb, surfaceNormal } from './landRadiance'
+import { mixLight } from './tone'
+import type { Face, Pt, Rim, SceneBox, Wash } from './types'
 
 /**
- * Crest-band lighting, shaded faces, crest rims and floor cast shadows for terrain planes (Stage C2).
- * Extracted from `planeLight.ts` to keep each model module focused and under 150 lines.
+ * Illustrated full-face washes, sunlit crest rims and linear-correct floor cast shadows (Stages C2 & 7).
+ * Every tone comes from `landRadiance.ts` (no lightness cap, no hardcoded navy shade); wash depth spans
+ * the plane's visible face (`footY - crestY`), not a narrow crest ribbon.
  */
 
-/** Depth (px) of the lit and shaded bands below a crest. */
-const DEPTH: Record<PlaneName, number> = { back: 7, far: 9, near: 16 }
 /** Floor shadow: how deep below the ground surface it reads, and the narrowest run drawn (px). */
 const FLOOR_DEPTH = 16
 const MIN_RUN = 12
-/** The colour of shade lit only by the sky (as the SVG's floor shadow, #1A2458). */
-const SKY_SHADE: RGB = [0x1a / 255, 0x24 / 255, 0x58 / 255]
 
-/** Mixes `from` toward `to` by `t`, but no lighter than `cap` (Oklab lightness), so a lit crest keeps clear of the sky. */
-export function capped(from: RGB, to: RGB, t: number, cap: number): RGB {
-  let mixed = mixRgb(from, to, t)
-  if (lightness(mixed) <= cap) return mixed
-  let lo = 0, hi = t
-  for (let i = 0; i < 10; i++) {
-    const mid = (lo + hi) / 2
-    if (lightness(mixRgb(from, to, mid)) <= cap) lo = mid
-    else hi = mid
-  }
-  mixed = mixRgb(from, to, lo)
-  return mixed
-}
-
-/**
- * Runs of consecutive samples where `depth` is over a hair, as washes hanging from the crest. The samples are every
- * other crest point (`full`); each run takes the crest points between them too (depth halfway), so a wash's top is the
- * plane's own edge and it needs no clip.
- */
+/** Runs of consecutive samples where `depth` is over a hair, as washes hanging from the crest. */
 function washes(
   samples: RidgeSample[], full: readonly Pt[], depthOf: (s: RidgeSample, i: number) => number, sx: number,
   rgb: RGB, alpha: number,
@@ -67,7 +47,7 @@ function washes(
   return out
 }
 
-/** Caps each depth by its distance from the band's ends, so a band tapers to a point (as the SVG's lit bands do). */
+/** Caps each depth by its distance from the band's ends so bands taper cleanly to a point. */
 function taper(samples: RidgeSample[], depth: number[]) {
   const pass = (order: number[]) => {
     let reach = 0
@@ -75,7 +55,7 @@ function taper(samples: RidgeSample[], depth: number[]) {
       const i = order[k]
       depth[i] = Math.min(depth[i], reach)
       const next = order[k + 1]
-      reach = next === undefined ? 0 : depth[i] + 0.25 * Math.abs(samples[next].x - samples[i].x)
+      reach = next === undefined ? 0 : depth[i] + 0.5 * Math.abs(samples[next].x - samples[i].x)
     }
   }
   const forward = samples.map((_, i) => i)
@@ -85,26 +65,33 @@ function taper(samples: RidgeSample[], depth: number[]) {
 
 export interface CrestLight { shade: Wash[]; lit: Wash[]; rims: Rim[]; faces: Face[] }
 
-/** Computes crest lit/shaded washes, sunlit rims and near-ridge floor shadows when direct light is present. */
+/** Computes full-face lit/shaded washes, sunlit rims and linear-correct near-ridge floor shadows. */
 export function crestLightOf(
-  world: WorldState, name: PlaneName, plane: Plane, sx: number, k: number,
-  tint: RGB, sky: RGB, lightTint: RGB, cap: number, strength: number, fadeIn: number,
+  world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, sx: number, k: number,
+  medianAlbedo: RGB, medHaze: number, haze: RGB, strength: number, fadeIn: number,
 ): CrestLight {
   const { light } = world
   if (!light.ray || fadeIn <= 0) return { shade: [], lit: [], rims: [], faces: [] }
 
-  const depth = DEPTH[name]
   const crest = plane.points.filter((_, i) => i % 2 === 0 || i === plane.points.length - 1)
-  const samples = ridgeLightSamples(crest, { ray: light.ray, noonWeight: light.noonWeight, depth })
-  const litTone = capped(tint, lightTint, 0.6, cap)
+  const depths = crest.map(([x, y]) => Math.max(12, localFootY(world, name, x, y, box.landHeight) - y)).sort((a, b) => a - b)
+  const faceDepth = depths[Math.floor(depths.length / 2)] ?? 32
+  const samples = ridgeLightSamples(crest, { ray: light.ray, noonWeight: light.noonWeight, depth: faceDepth })
   const shows = samples.map((s) => name === 'near' || s.y < lineAt(world.terrain.near.points, s.x) - 0.5)
-  const lit = washes(samples, plane.points, (s, i) => (shows[i] ? s.amount : 0), sx, litTone, Math.min(0.9, 0.2 + 0.75 * strength) * fadeIn * k)
-  const away = samples.map((s) => depth * Math.max(Math.max(0, -s.facing) * (1 - light.noonWeight) * 1.2, s.clearance < 0 ? 0.7 : 0))
-  taper(samples, away)
-  const shadeTone = mixRgb(darken(tint, 0.7), SKY_SHADE, 0.2)
-  const shade = washes(samples, plane.points, (_, i) => (shows[i] ? away[i] : 0), sx, shadeTone, 0.6 * strength * fadeIn * k)
 
-  const rimTone = capped(tint, mixRgb(lightTint, [1, 1, 1], 0.2), 0.9, lightness(sky) - 0.03)
+  // Representative lit and shade tones from the shared radiance model (no lightness cap).
+  const litAcross = -Math.sign(light.dir.across || 1) * 0.25 * (1 - light.noonWeight)
+  const litTone = litLandRgb(world, medianAlbedo, surfaceNormal(litAcross, 0.08), medHaze, haze, 1)
+  const shadeTone = litLandRgb(world, medianAlbedo, FLAT_NORMAL, medHaze, haze, 0)
+
+  // Soft painterly glaze (idempotent over `shadeField`'s exact per-cell normal lighting).
+  const lit = washes(samples, plane.points, (s, i) => (shows[i] ? s.amount : 0), sx, litTone, 0.16 * fadeIn * k)
+  const away = samples.map((s) =>
+    faceDepth * Math.max(Math.max(0, -s.facing) * (1 - light.noonWeight) * 1.1, s.clearance < 0 ? 0.7 : 0))
+  taper(samples, away)
+  const shade = washes(samples, plane.points, (_, i) => (shows[i] ? away[i] : 0), sx, shadeTone, 0.16 * fadeIn * k)
+
+  const rimTone = mixLight(litTone, [1, 1, 1], 0.18)
   const low = 1 - smoothstep(6, 15, light.altitude)
   const levels = [0.12, 0.2, 0.3, 0.4, 0.5]
   const runs: Pt[][][] = levels.map(() => [])
@@ -116,7 +103,7 @@ export function crestLightOf(
       continue
     }
     const near = light.rimX !== null && Math.abs(s.x - light.rimX) < 70 ? low : 0
-    const a = s.clearance > 0 ? Math.min(0.6, Math.max(0, s.facing) * 0.7 * strength * fadeIn * (1 + near)) * k : 0
+    const a = s.clearance > 0 ? Math.min(0.55, Math.max(0, s.facing) * 0.65 * strength * fadeIn * (1 + near)) * k : 0
     const level = a < 0.06 ? -1 : levels.findLastIndex((l) => a >= l * 0.8)
     if (current && current.level !== level) { if (current.pts.length >= 2) runs[current.level].push(current.pts); current = null }
     if (level >= 0) {
@@ -127,13 +114,15 @@ export function crestLightOf(
   if (current && current.pts.length >= 2) runs[current.level].push(current.pts)
   const rims = runs.flatMap((paths, i) => paths.map((points) => ({ points, rgb: rimTone, alpha: levels[i] })))
 
+  // Floor cast shadows remove only the direct beam (painted in Band 0 `multiply`).
   const faces: Face[] = []
   if (name === 'near' && light.shares.sun > 0.002) {
+    const shadowRgb = cloudShadowMultiplyRgb(world)
     for (const [a, b] of shadowRuns(crest, light.ray).filter(([a, b]) => b - a >= MIN_RUN)) {
       const xs = Array.from({ length: Math.round((b - a) / 3) + 1 }, (_, i) => a + i * 3)
       const top = xs.map((x): Pt => [x * sx, lineAt(plane.points, x) - 2])
       const bottom = [...xs].reverse().map((x): Pt => [x * sx, lineAt(plane.points, x) + FLOOR_DEPTH])
-      faces.push({ points: [...top, ...bottom], rgb: SKY_SHADE, alpha: 0.3 * light.shares.sun * fadeIn, soft: 4 })
+      faces.push({ points: [...top, ...bottom], rgb: shadowRgb, alpha: 0.75 * light.shares.sun * fadeIn, soft: 4 })
     }
   }
   return { shade, lit, rims, faces }

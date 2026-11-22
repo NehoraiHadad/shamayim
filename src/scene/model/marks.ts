@@ -3,8 +3,10 @@ import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
+import { nearGroundAlbedo } from './landColour'
+import { FLAT_NORMAL, litLandRgb } from './landRadiance'
 import { aerialFor, hazeOf } from './landVeil'
-import { mixRgb, rgbOf } from './tone'
+import { mixRgb } from './tone'
 import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
 import { farNeighbourMarks } from './farNeighbourMarks'
@@ -62,7 +64,6 @@ export function wallShade(world: WorldState): number {
  */
 export function tonesAt(world: WorldState, km: number): Tones {
   const { light, night } = world
-  const ridge = rgbOf(light.palette.ridgeNear)
   const sky = hazeOf(world)
   const dark = night.dark, day = 1 - dark
   // The living light: the direct share as it is (the moon's fainter), never gated by a side; a face takes it by its own
@@ -70,8 +71,9 @@ export function tonesAt(world: WorldState, km: number): Tones {
   const sunK = directK(world)
   const sun = light.colour
   // Against the light (C9) a wall facing the eye is in its own shade: its stone does not lift it, the dim sky behind the
-  // eye is all it sees (the ridge's own dark, a little of the air between), the bright sky beyond only its rims.
+  // eye is all it sees (shade-lit ridge, a little of the air between), the bright sky beyond only its rims.
   const against = wallShade(world)
+  const ridge = litLandRgb(world, nearGroundAlbedo(world), FLAT_NORMAL, 0, undefined, 1 - against)
   const wallBase = mixRgb(ridge, sky, (0.13 + 0.07 * dark) * (1 - 0.45 * against))
   const wall = mixRgb(wallBase, STONE, 0.1 * day * (1 - against))
   const litFull = mixRgb(mixRgb(ridge, mixRgb(STONE, sun, 0.45), 0.42 + 0.1 * day), sun, 0.08)
