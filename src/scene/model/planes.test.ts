@@ -10,6 +10,8 @@ import { buildWorld } from '../../world/world'
 import { paintPlane } from '../paint/planes'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
+import { azimuthAt, lateral } from '../../domain/camera'
+import { albedoLinear, linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './landVeil'
 import { hexOf } from './tone'
 import type { LayerOf, RGB, SceneBox, SceneModel } from './types'
@@ -32,38 +34,53 @@ const world = (id: string, hour: string, forced: WorldInput['forced'] = null) =>
 const planesOf = (model: SceneModel) => layersOn(model, 'land').filter((l): l is LayerOf<'plane'> => l.kind === 'plane')
 const near = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'near')!
 const far = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'far')!
-/** Rendered tones along a plane crest: Band 0 (`multiply` shadeField) followed by Band 1 (`source-over` aerial haze veil). */
+/** Rendered tones along a plane crest from `litField` (exact single-pass linear lighting + per-sample Koschmieder haze). */
 const renderedTones = (layer: LayerOf<'plane'>): [number, RGB][] => {
-  const sf = layer.light.shadeField
-  return layer.light.veil.map(([x, rgb, alpha], i, all) => {
-    let base: RGB = layer.fill
-    if (sf && sf.cols > 0) {
-      const c = Math.min(sf.cols - 1, Math.round((i / Math.max(1, all.length - 1)) * (sf.cols - 1)))
-      const o = c * 3
-      base = [base[0] * (sf.rgb[o] / 255), base[1] * (sf.rgb[o + 1] / 255), base[2] * (sf.rgb[o + 2] / 255)]
-    }
-    const inv = 1 - alpha
-    return [x, [base[0] * inv + rgb[0] * alpha, base[1] * inv + rgb[1] * alpha, base[2] * inv + rgb[2] * alpha]]
-  })
+  const lf = layer.light.litField
+  if (!lf) return []
+  const rho = albedoLinear(layer.fill)
+  const out: [number, RGB][] = []
+  for (let c = 0; c < lf.cols; c++) {
+    const x = layer.bounds.x + (c / Math.max(1, lf.cols - 1)) * layer.bounds.w
+    const o = c * 4
+    const rgb = linearRgbToSrgb(shadeLinearRgb(
+      rho, lf.eSun, lf.eMoon, lf.eSky, lf.grid[o] / 255, lf.grid[o + 1] / 255, lf.grid[o + 2] / 255,
+      lf.yHorizon, lf.grid[o + 3] / 255, lf.hazeLin,
+    ))
+    out.push([x, rgb])
+  }
+  return out
 }
 
 /**
- * The mean depth of the lit band under steep crest stretches rising to the right (y falling) and under those falling to
- * the right, over the whole crest (an unlit stretch counts as 0).
+ * Mean lit-band depth on steep crest segments facing the active source in each column's own bearing frame
+ * (`toward`) versus steep segments turned away from the source (`away`), respecting the 250° turning panorama.
  */
-function litBySlope(layer: LayerOf<'plane'>) {
+function litByLocalFacing(layer: LayerOf<'plane'>, w: WorldState) {
   const ridge = layer.outline.slice(0, -2)
   const lit = new Map<number, number>()
   for (const wash of layer.light.lit) wash.top.forEach(([x], i) => lit.set(Math.round(x * 10), wash.depth[i]))
-  const sums = { rising: 0, risingN: 0, falling: 0, fallingN: 0 }
+  const byMoon = w.light.shares.moon > w.light.shares.sun
+  const body = byMoon ? w.bodies.moon : w.bodies.sun
+  const sums = { toward: 0, towardN: 0, away: 0, awayN: 0 }
   for (let i = 1; i < ridge.length; i++) {
     const [ax, ay] = ridge[i - 1], [bx, by] = ridge[i]
     const slope = (by - ay) / (bx - ax || 1)
+    if (Math.abs(slope) <= 0.3) continue
+    const midX = (ax + bx) / 2
+    const bearing = azimuthAt(midX / BOX.width, w.camera)
+    const lat = lateral(body.azimuth, { ...w.camera, heading: bearing })
+    if (Math.abs(lat) <= 0.3) continue
     const d = ((lit.get(Math.round(ax * 10)) ?? 0) + (lit.get(Math.round(bx * 10)) ?? 0)) / 2
-    if (slope < -0.3) { sums.rising += d; sums.risingN++ } else if (slope > 0.3) { sums.falling += d; sums.fallingN++ }
+    // `slope < -0.3` rises to screen-right (faces left); lit when local `lat < 0` (source to screen-left).
+    const facesLight = (slope < 0 && lat < 0) || (slope > 0 && lat > 0)
+    if (facesLight) { sums.toward += d; sums.towardN++ } else { sums.away += d; sums.awayN++ }
   }
-  return { risingRight: sums.rising / (sums.risingN || 1), fallingRight: sums.falling / (sums.fallingN || 1),
-    n: Math.min(sums.risingN, sums.fallingN) }
+  return {
+    toward: sums.toward / (sums.towardN || 1),
+    away: sums.away / (sums.awayN || 1),
+    n: Math.min(sums.towardN, sums.awayN),
+  }
 }
 
 describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
@@ -81,13 +98,10 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
       }
       if (Math.abs(w.light.across) <= 0.05) continue
       if (layer.light.lift) expect(Math.sign(layer.light.lift.dx)).toBe(Math.sign(w.light.across))
-      const { risingRight, fallingRight, n } = litBySlope(layer)
+      const { toward, away, n } = litByLocalFacing(layer, w)
       steep = Math.max(steep, n)
-      // Toward noon the light comes from above and the faces even out (`noonWeight`, as the SVG's lighting).
-      if (n < 3 || risingRight + fallingRight < 0.5 || w.light.noonWeight > 0.5) continue
-      // Light from the left falls on slopes that rise to the right (they face left), and the other way round.
-      if (w.light.across < 0) expect(risingRight).toBeGreaterThan(fallingRight)
-      else expect(fallingRight).toBeGreaterThan(risingRight)
+      if (n < 3 || toward + away < 0.5 || w.light.noonWeight > 0.5) continue
+      expect(toward).toBeGreaterThan(away)
       checked++
     }
     // Every place with steep crest stretches is checked at some hour (a flat coast has none).

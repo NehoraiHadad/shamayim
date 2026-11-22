@@ -112,9 +112,14 @@ describe('scene model: layers', () => {
     const passes = compositeOrder(land).map(({ desc, part }) => `${desc.id}:${part}`)
     for (const canopy of land.filter((layer) => layer.kind === 'canopy')) {
       const plane = land.find((l) => l.kind === 'plane' && l.canopyId === canopy.id)!
-      const at = passes.indexOf(`${plane.id}:form`)
-      expect(passes.slice(at, at + 4))
-        .toEqual([`${plane.id}:form`, `${canopy.id}:form`, `${plane.id}:light`, `${canopy.id}:light`])
+      if (plane.kind === 'plane' && plane.light.litField) {
+        const at = passes.indexOf(`${plane.id}:both`)
+        expect(passes.slice(at, at + 2)).toEqual([`${plane.id}:both`, `${canopy.id}:both`])
+      } else {
+        const at = passes.indexOf(`${plane.id}:form`)
+        expect(passes.slice(at, at + 4))
+          .toEqual([`${plane.id}:form`, `${canopy.id}:form`, `${plane.id}:light`, `${canopy.id}:light`])
+      }
     }
     // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
     const sky = layersOn(model, 'sky')

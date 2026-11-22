@@ -3,7 +3,7 @@ import { ridgeLightRay, ridgeLightSamples } from './ridgeLighting'
 
 type Point = [number, number]
 const valley: Point[] = [[0, 20], [10, 28], [20, 40], [30, 28], [40, 20]]
-const options = { noonWeight: 0, depth: 16 }
+const options = { depth: 16 }
 const lit = (profile: Point[], ray: Point) => ridgeLightSamples(profile, { ...options, ray }).filter((s) => s.amount > 0).map((s) => s.x)
 
 describe('ridge geometry', () => {

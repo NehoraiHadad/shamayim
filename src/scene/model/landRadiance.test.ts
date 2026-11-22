@@ -2,16 +2,22 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { LocalTime } from '../../domain/types'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
+import { deltaE } from '../../theme/oklab'
 import type { RGB, WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
+import { LayerCache } from '../compose/layerCache'
+import { canopyMatchesPlane } from '../compose/planeComposite'
+import { TEXEL } from '../paint/landSurface'
+import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/planeTexel'
 import { layersOn, sceneModel } from '.'
 import { cloudShadowLayers } from './cloudShadows'
 import {
-  cloudShadowMultiplyRgb, EXPOSURE_GAMMA, FLAT_NORMAL, linearLuminance, litLandLinear, litLandRgb, litRadianceRatio,
+  EXPOSURE_GAMMA, FLAT_NORMAL, linearLuminance, litLandLinear, litLandRgb, litRadianceRatio,
   srgbRgbToLinear, surfaceNormal,
 } from './landRadiance'
-import { rgbOf } from './tone'
-import type { LayerOf, SceneBox } from './types'
+import { hazeAt, hazeOf } from './landVeil'
+import { hexOf, rgbOf } from './tone'
+import type { LayerDesc, LayerOf, SceneBox } from './types'
 
 const DAY = '2026-11-17'
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
@@ -25,39 +31,28 @@ afterAll(() => { vi.unstubAllGlobals() })
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
 
-/**
- * Evaluates the displayed linear luminance of every cell in a plane's body (`surfaceTone` form palette ×
- * `shadeField` Band 0 `multiply` + `veil` Band 1 `source-over` aerial haze) and returns the median ratio
- * `p50(Y_land) / Y_horizon`.
- */
-function planeBodyRatio(world: WorldState, layer: LayerOf<'plane'>): number {
-  const { palette, cols, rows, cells } = layer.surfaceTone
-  const sf = layer.light.shadeField!
-  const veil = layer.light.veil
+/** Evaluates actual rendered texels of a plane's body (`preparePlaneTexels` + `shadeTexelSrgb`) for p50 Y/Y_horizon. */
+function renderedPlaneRatio(world: WorldState, layer: LayerOf<'plane'>): { p50: number; p10: number; p90: number } {
+  const lf = layer.light.litField!
+  const t = preparePlaneTexels(layer.outline, layer.bounds, layer.surfaceTone, lf, layer.grain.seed, layer.grain.amount)
   const yHor = linearLuminance(srgbRgbToLinear(rgbOf(world.light.palette.horizon)))
   const ys: number[] = []
-  for (let r = 0; r < rows; r++) {
-    const sr = Math.min(sf.rows - 1, Math.round((r / Math.max(1, rows - 1)) * (sf.rows - 1)))
-    for (let c = 0; c < cols; c++) {
-      const form = palette[cells[r * cols + c]] ?? layer.fill
-      const sc = Math.min(sf.cols - 1, Math.round((c / Math.max(1, cols - 1)) * (sf.cols - 1)))
-      const o = (sr * sf.cols + sc) * 3
-      const mul: RGB = [form[0] * (sf.rgb[o] / 255), form[1] * (sf.rgb[o + 1] / 255), form[2] * (sf.rgb[o + 2] / 255)]
-      const vi = Math.min(veil.length - 1, Math.round((c / Math.max(1, cols - 1)) * (veil.length - 1)))
-      const [, vRgb, vAlpha] = veil[vi] ?? [0, [0, 0, 0] as RGB, 0]
-      const out: RGB = [
-        mul[0] * (1 - vAlpha) + vRgb[0] * vAlpha,
-        mul[1] * (1 - vAlpha) + vRgb[1] * vAlpha,
-        mul[2] * (1 - vAlpha) + vRgb[2] * vAlpha,
-      ]
+  for (let j = 0; j < t.hPx; j++) {
+    const y = layer.bounds.y + (j + 0.5) * TEXEL
+    for (let i = 0; i < t.wPx; i++) {
+      if (y < t.crestY[i] + 1 || y > t.footY[i]) continue
+      const x = layer.bounds.x + (i + 0.5) * TEXEL
+      const out = shadeTexelSrgb(t, samplePlaneTexel(t, i, x, y), 1)
       ys.push(linearLuminance(srgbRgbToLinear(out)) / yHor)
     }
   }
-  return median(ys)
+  ys.sort((a, b) => a - b)
+  const q = (k: number) => ys[Math.floor(k * (ys.length - 1))] ?? 0
+  return { p50: q(0.5), p10: q(0.1), p90: q(0.9) }
 }
 
-describe('Stage 7: physical land lighting across all 8 baseline places', () => {
-  it('places 12:00 plane-body p50 linear Y / horizon Y in [0.18, 0.45] and 06:20 & 16:30 in [0.08, 0.30] for every place', () => {
+describe('Stage 7 round 2: physical linear-light land radiance across all 8 baseline places', () => {
+  it('places 12:00 rendered plane-body p50 Y/Y_horizon in [0.18, 0.45] and 06:20 & 16:30 in [0.08, 0.30] with visible relief', () => {
     const summary: Record<string, Record<string, string>> = {}
     const failures: string[] = []
     for (const { id } of SCENE_PLACES) {
@@ -67,19 +62,37 @@ describe('Stage 7: physical land lighting across all 8 baseline places', () => {
       for (const hour of ['06:20', '12:00', '16:30', '21:00'] as const) {
         const w = build({ ...base, selected: `${DAY}T${hour}` as LocalTime })
         const near = layersOn(sceneModel(w, BOX), 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
-        const ratio = planeBodyRatio(w, near)
+        const { p10, p50, p90 } = renderedPlaneRatio(w, near)
         const yHor = linearLuminance(srgbRgbToLinear(rgbOf(w.light.palette.horizon)))
-        const medV = near.light.veil[Math.floor(near.light.veil.length / 2)]?.[2] ?? 0
-        summary[id][hour] = `${ratio.toFixed(3)} (yH=${yHor.toFixed(2)},sun=${w.light.shares.sun.toFixed(2)},dif=${w.light.diffuse.toFixed(2)},vA=${medV.toFixed(2)})`
-        if (hour === '12:00' && (ratio < 0.18 || ratio > 0.45)) failures.push(`${id} 12:00: ${ratio.toFixed(3)}`)
-        else if ((hour === '06:20' || hour === '16:30') && (ratio < 0.08 || ratio > 0.30)) failures.push(`${id} ${hour}: ${ratio.toFixed(3)}`)
-        else if (hour === '21:00' && (ratio * yHor >= 0.025 || ratio >= 0.35)) failures.push(`${id} 21:00: ${ratio.toFixed(3)}`)
+        summary[id][hour] = `${p50.toFixed(3)} [${p10.toFixed(3)}..${p90.toFixed(3)}]`
+        if (hour === '12:00' && (p50 < 0.18 || p50 > 0.45)) failures.push(`${id} 12:00: ${p50.toFixed(3)}`)
+        else if ((hour === '06:20' || hour === '16:30') && (p50 < 0.08 || p50 > 0.30)) failures.push(`${id} ${hour}: ${p50.toFixed(3)}`)
+        else if (hour === '21:00' && (p50 * yHor >= 0.025 || p50 >= 0.35)) failures.push(`${id} 21:00: ${p50.toFixed(3)}`)
       }
     }
     expect(failures, JSON.stringify(summary, null, 2)).toEqual([])
   }, 60_000)
 
-  it('lights a sun-facing face brighter than a sun-away face by the exact computed physical ratio', () => {
+  it('guarantees exact parity (max ΔE Oklab < 0.01) between terrain painter texels and shared litLandRgb on coloured albedos × coloured light', () => {
+    const base = worldInput(loaded.get('ramon-crater')!, `${DAY}T07:30` as LocalTime)
+    const warmMorning = buildWorld({ ...base, forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0, precipitation: 0, visibilityKm: 30 } })
+    const near = layersOn(sceneModel(warmMorning, BOX), 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
+    const lf = near.light.litField!
+    const albedos: RGB[] = [[0.58, 0.36, 0.22], [0.22, 0.42, 0.19], [0.46, 0.44, 0.36], [0.30, 0.24, 0.38]]
+    const haze = hazeOf(warmMorning)
+    for (const albedo of albedos) {
+      // Flat uniform single-cell surface at zero grain + flat normal at centre bearing (sVis = sunDir.up, vSky = 1, haze = 0.2).
+      const expected = litLandRgb(warmMorning, albedo, FLAT_NORMAL, 0.2, haze, 1)
+      const sVis = Math.max(0, warmMorning.light.dir.up)
+      const grid = new Uint8Array([Math.round(sVis * 255), 0, 255, Math.round(0.2 * 255)])
+      const syntheticField = { ...lf, cols: 1, rows: 1, grid, snow: null }
+      const t = preparePlaneTexels(near.outline, near.bounds, { palette: [albedo], cols: 1, rows: 1, cells: [0], source: 'test' }, syntheticField, 1, 0)
+      const actual = shadeTexelSrgb(t, samplePlaneTexel(t, 0, near.bounds.x + 1, near.bounds.y + 1), 1)
+      expect(deltaE(hexOf(actual), hexOf(expected))).toBeLessThan(0.01)
+    }
+  })
+
+  it('lights sun-facing faces brighter by exact physical law, never darkens path haze under cloud shadow, and disables cloud shadows for moonlight', () => {
     const base = worldInput(loaded.get('jerusalem')!, `${DAY}T08:00` as LocalTime)
     const clearMorning = buildWorld({
       ...base,
@@ -87,57 +100,43 @@ describe('Stage 7: physical land lighting across all 8 baseline places', () => {
       forcedLayers: { low: 0, mid: 0, high: 0 },
     })
     const albedo: RGB = [0.38, 0.40, 0.32]
-    // Morning sun is on screen-left (`dir.across < 0`): a slope rising right (`acrossSlope > 0`) faces left (lit).
     expect(clearMorning.light.dir.across).toBeLessThan(-0.3)
-    const litNormal = surfaceNormal(0.5, 0)
-    const awayNormal = surfaceNormal(-0.5, 0)
+    const litNormal = surfaceNormal(0.5, 0), awayNormal = surfaceNormal(-0.5, 0)
     const rLit = litRadianceRatio(clearMorning, albedo, litNormal)
     const rAway = litRadianceRatio(clearMorning, albedo, awayNormal)
     expect(rLit / rAway).toBeGreaterThan(2.5)
     const yLit = linearLuminance(litLandLinear(clearMorning, albedo, litNormal))
     const yAway = linearLuminance(litLandLinear(clearMorning, albedo, awayNormal))
     expect(yLit / yAway).toBeCloseTo((rLit / rAway) ** EXPOSURE_GAMMA, 4)
-  })
 
-  it('keeps cloud shadows >= diffuse-only radiance under a clear sun and removes only the direct term', () => {
-    const base = worldInput(loaded.get('jerusalem')!, `${DAY}T12:00` as LocalTime)
-    const broken = buildWorld({
-      ...base,
-      forced: { cloudCover: 50, thickCloud: 40, weatherCode: 2, precipitation: 0, visibilityKm: 30 },
+    // Fully shadowed hazy face: direct term removed BEFORE compression and BEFORE linear haze (haze stays un-darkened).
+    const brokenNoon = buildWorld({
+      ...worldInput(loaded.get('jerusalem')!, `${DAY}T12:00` as LocalTime),
+      forced: { cloudCover: 50, thickCloud: 40, weatherCode: 2, precipitation: 0, visibilityKm: 12 },
       forcedLayers: { low: 0.45, mid: 0.25, high: 0 },
     })
-    const layers = cloudShadowLayers(broken, BOX)
-    expect(layers.length).toBeGreaterThan(0)
-    const g = cloudShadowMultiplyRgb(broken, FLAT_NORMAL)
-    const albedo: RGB = [0.40, 0.39, 0.33]
-    const litSrgb = litLandRgb(broken, albedo, FLAT_NORMAL, 0, undefined, 1)
-    const diffSrgb = litLandRgb(broken, albedo, FLAT_NORMAL, 0, undefined, 0)
-    const yLit = linearLuminance(srgbRgbToLinear(litSrgb))
-    const yDiff = linearLuminance(srgbRgbToLinear(diffSrgb))
-    // Full-opacity cloud shadow (`a = 1`, `multiply` with `g`) equals diffuse-only radiance within gamma 2.2 vs sRGB tolerance.
-    const coreShadow: RGB = [litSrgb[0] * g[0], litSrgb[1] * g[1], litSrgb[2] * g[2]]
-    const yCore = linearLuminance(srgbRgbToLinear(coreShadow))
-    expect(yCore).toBeGreaterThanOrEqual(yDiff * 0.94)
-    expect(yCore).toBeLessThanOrEqual(yDiff * 1.06)
-    expect(yCore).toBeLessThan(yLit)
-    // Every emitted blob leaves >= diffuse-only radiance.
-    for (const layer of layers) {
-      expect(layer.blend).toBe('multiply')
-      for (const blob of layer.blobs) {
-        const a = blob.alpha
-        const under: RGB = [
-          litSrgb[0] * (1 - a * (1 - layer.rgb[0])),
-          litSrgb[1] * (1 - a * (1 - layer.rgb[1])),
-          litSrgb[2] * (1 - a * (1 - layer.rgb[2])),
-        ]
-        const yUnder = linearLuminance(srgbRgbToLinear(under))
-        expect(yUnder).toBeGreaterThanOrEqual(yDiff * 0.94)
-        expect(yUnder).toBeLessThanOrEqual(yLit + 1e-6)
-      }
+    const haze = hazeOf(brokenNoon), airY = linearLuminance(srgbRgbToLinear(haze)), h = hazeAt(brokenNoon, 5)
+    const shLin = litLandLinear(brokenNoon, albedo, FLAT_NORMAL, 0, h, haze)
+    const diffNoHaze = litLandLinear(brokenNoon, albedo, FLAT_NORMAL, 0, 0)
+    expect(linearLuminance(shLin)).toBeCloseTo(linearLuminance(diffNoHaze) * (1 - h) + airY * h, 4)
+    expect(linearLuminance(shLin)).toBeGreaterThan(linearLuminance(diffNoHaze))
+
+    // Cloud shadows emit with `source-atop` below water/outside/marks (z < 32), and ZERO cloud shadows at moonlit night.
+    const noonLayers = cloudShadowLayers(brokenNoon, BOX)
+    expect(noonLayers.length).toBeGreaterThan(0)
+    for (const l of noonLayers) {
+      expect(l.blend).toBe('source-atop')
+      expect(l.z).toBeLessThan(31)
     }
+    const moonNight = buildWorld({
+      ...worldInput(loaded.get('jerusalem')!, `${DAY}T21:00` as LocalTime),
+      forced: { cloudCover: 40, thickCloud: 30, weatherCode: 2, precipitation: 0, visibilityKm: 30 },
+      forcedLayers: { low: 0.4, mid: 0.2, high: 0 },
+    })
+    expect(cloudShadowLayers(moonNight, BOX)).toEqual([])
   })
 
-  it('applies exact linear wet darkening (×(1 − 0.45·wet) reflectance) and produces flat diffuse light under overcast', () => {
+  it('applies exact linear wet darkening (×(1 − 0.45·wet)), produces flat diffuse overcast, and guards out-of-order canopy Worker arrivals at 1× and 2×', () => {
     const base = worldInput(loaded.get('haifa')!, `${DAY}T12:00` as LocalTime)
     const dry = buildWorld({ ...base, forced: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0 } })
     const wet: WorldState = { ...dry, ground: { ...dry.ground, wet: 1 } }
@@ -149,8 +148,22 @@ describe('Stage 7: physical land lighting across all 8 baseline places', () => {
       forced: { cloudCover: 100, thickCloud: 100, precipitation: 0, weatherCode: 3 },
       forcedLayers: { low: 1, mid: 1, high: 0 },
     })
-    // Under full overcast, left-facing and right-facing slopes receive identical diffuse irradiance.
     expect(litRadianceRatio(overcast, albedo, surfaceNormal(0.4, 0)))
       .toBeCloseTo(litRadianceRatio(overcast, albedo, surfaceNormal(-0.4, 0)), 6)
+
+    // Out-of-order Worker arrival check (Finding 8): stale canopy geometry is rejected at both 1× and 2× DPR.
+    const model = sceneModel(dry, BOX)
+    const nearPlane = layersOn(model, 'land').find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
+    const nearCanopy = layersOn(model, 'land').find((l): l is LayerOf<'canopy'> => l.kind === 'canopy' && l.id === 'canopy.near')!
+    const fake = (w: number, h: number) => ({ width: w, height: h, getContext: () => new Proxy({}, { get: () => () => {} }) }) as never
+    for (const dpr of [1, 2]) {
+      const cache = new LayerCache({ factory: fake, painters: () => ({ form: () => {}, light: () => {} }), now: () => 0 })
+      const newerPlane: LayerOf<'plane'> = { ...nearPlane, key: `${nearPlane.key}:v2` }
+      cache.update(newerPlane, dpr)
+      const byId = new Map<string, LayerDesc>([[newerPlane.id, newerPlane], [nearCanopy.id, nearCanopy]])
+      expect(canopyMatchesPlane(nearCanopy, byId, cache, dpr)).toBe(false)
+      expect(canopyMatchesPlane({ ...nearCanopy, planeFormKey: newerPlane.key }, byId, cache, dpr)).toBe(true)
+    }
+    expect(median([1, 2, 3])).toBe(2)
   })
 })

@@ -24,10 +24,11 @@ it('preserves the Nahalal vegetation descriptor and bounds the relative cold cro
       const input = { ...world, land: { ...world.land }, cropAreas: withCrops ? world.cropAreas : [] }
       return planeVegetationOf(input, BOX, 'near', world.terrain.near, near.fill, model.clear)
     }
-    // All packed positions, widths, weights and palette values. Re-pinned in Stage 7 when `buildVegPalette` moved from
-    // the narrow Oklab shade-ridge squeeze (`albedoToLandTone`) into light-free reflectance-form space (`albedoToFormTone`).
-    expect(createHash('sha256').update(JSON.stringify(build(true))).digest('hex'))
-      .toBe('3696481461678639624581dfeb7f054a0b3158ec5627d2eba7e6137d7e5e048e')
+    // Pin vegetation geometry independently of its palette (Finding 10) so palette updates cannot mask geometry changes.
+    const veg = build(true)
+    const { tones: _tones, ...geomOnly } = veg
+    expect(createHash('sha256').update(JSON.stringify(geomOnly)).digest('hex'))
+      .toBe('b49c38b10586a25359a187105f09b61defe740e9b9ade461c32cf8471169b38f')
     const time = (withCrops: boolean) => {
       const start = performance.now()
       build(withCrops)

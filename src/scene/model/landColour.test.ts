@@ -10,9 +10,9 @@ import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { paintPlaneLight } from '../paint/planeLight'
 import { paintPlane } from '../paint/planes'
 import { layersOn, sceneModel } from '.'
-import { albedoToFormTone, quantiseTones } from './landColour'
+import { quantiseTones } from './landColour'
 import { COVER_WATER, sampleBandAtKm } from './landPalette'
-import { FLAT_NORMAL, litLandRgb } from './landRadiance'
+import { albedoLinear, FLAT_NORMAL, linearRgbToSrgb, litLandRgb } from './landRadiance'
 import { hazeAt, hazeOf, toneAt } from './landVeil'
 import { hexOf, labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
@@ -31,8 +31,8 @@ const sample = (albedo: RGB, source: LivingLandSample['albedoSource'], cover: nu
 })
 
 describe('Stage 3: living-land albedo, bounds, water exclusion, wetness & form/light split', () => {
-  it('encodes BOA sRGB albedo without lightness squeeze, quantises deterministically and preserves band bounds/sources', () => {
-    const pine = albedoToFormTone([0.28, 0.33, 0.25]), desert = albedoToFormTone([0.48, 0.46, 0.42])
+  it('preserves raw BOA sRGB albedo without lightness squeeze, quantises deterministically and preserves band bounds/sources', () => {
+    const pine = linearRgbToSrgb(albedoLinear([0.28, 0.33, 0.25])), desert = linearRgbToSrgb(albedoLinear([0.48, 0.46, 0.42]))
     expect(labOf(desert).l).toBeGreaterThan(labOf(pine).l + 0.1)
     expect(labOf(pine).a).toBeLessThan(labOf(desert).a)
     expect(quantiseTones([pine, pine, pine], 6).palette).toHaveLength(1)
