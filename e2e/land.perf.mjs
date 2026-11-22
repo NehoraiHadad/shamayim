@@ -13,8 +13,18 @@ const SHADMOT = { id: 'shadmot-mehola', nameHe: 'שדמות מחולה', regionH
 
 export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75, dense = false } = {}) {
   const panorama = fs.readFileSync(path.join(root, 'src/test/fixtures/scene/shadmot-mehola.panorama.json'), 'utf8')
-  const { context, releaseLand, fineTileFetches } = await interceptLandPerf(browser, serverUrl, { dpr, dense, panorama })
+  const { context, releaseLand, fineTileFetches, assetDeadlines } = await interceptLandPerf(browser, serverUrl, { dpr, dense, panorama })
+  try {
+    return await measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, releaseLand, fineTileFetches, assetDeadlines })
+  } catch (error) {
+    if (!assetDeadlines.size) throw error
+    return { problems: [`local land asset deadline aborts: ${[...assetDeadlines].sort().join(', ')} (fixture stopped: ${error.message.split('\n')[0]})`] }
+  } finally {
+    await context.close()
+  }
+}
 
+async function measureAppLand(context, serverUrl, { rate, dpr, dense, panorama, releaseLand, fineTileFetches, assetDeadlines }) {
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
   await cdp.send('Emulation.setCPUThrottlingRate', { rate })
@@ -104,8 +114,6 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
     if (!ok.form) formReused = false
   }
   const cover = await page.evaluate(() => window.__world.land.own.cover)
-  await context.close()
-
   const duplicateTiles = [...fineTileFetches.entries()].filter(([, n]) => n > 1)
   const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
   console.log(`\napp living-land mount (shadmot-mehola${dense ? ', dense tree cover' : ''}, CPU ×${rate}, dpr ${dpr}, 100×100 S2 + 60×60 GIBS NDVI+SR intercepted)`)
@@ -115,19 +123,21 @@ export async function runAppLandPerf(browser, serverUrl, { rate = 4, dpr = 2.75,
   console.log(`  coldFineTiles      ${fineTileFetches.size} unique tiles fetched, duplicates=${duplicateTiles.length}`)
 
   const problems = []
+  if (assetDeadlines.size) problems.push(`local land asset deadline aborts: ${[...assetDeadlines].sort().join(', ')}`)
   if (dense && cover !== 1) problems.push(`dense fixture resolved to cover=${cover} (expected 1)`)
   if (fallbackSnap.albedoSource !== 'climatology') problems.push(`first paint albedoSource=${fallbackSnap.albedoSource} (expected climatology)`)
   if (!refinedMeta.farAlbedo?.startsWith('gibs:2026-11-01')) problems.push(`far albedoSource=${refinedMeta.farAlbedo} (expected gibs:2026-11-01*)`)
   // The dense tile removes the missing tile's cover class from the valid near-S2 means.
   const expectedMiss = dense ? 'climatology' : 's2-mean:2026-11-15+climatology'
-  if (refinedMeta.farMissAlbedo !== expectedMiss) {
+  if (!assetDeadlines.size && refinedMeta.farMissAlbedo !== expectedMiss) {
     problems.push(`missing-tile far55km albedoSource=${refinedMeta.farMissAlbedo} (expected ${expectedMiss})`)
   }
   if (refinedMeta.nearKey === fallbackSnap.nearKey) problems.push('plane.near form key did not update on refinement')
   if (refinedMeta.farKey === fallbackSnap.farKey) problems.push('plane.far form key did not update on refinement')
   if (!reused) problems.push('same-day scrub rebuilt world.land')
   if (!formReused) problems.push('same-day scrub repainted plane form')
-  if (duplicateTiles.length) problems.push(`duplicate cold fine-tile fetches: ${duplicateTiles.map(([k, n]) => `${k}×${n}`).join(', ')}`)
+  const unexplained = duplicateTiles.filter(([k]) => !assetDeadlines.has(`/data/land/il/${k}`))
+  if (unexplained.length) problems.push(`duplicate cold fine-tile fetches: ${unexplained.map(([k, n]) => `${k}×${n}`).join(', ')}`)
   return { firstFallbackPaintMs, refinementMs, scrubMedianMs: med(scrubSteps), reused, duplicateTiles, problems }
 }
 

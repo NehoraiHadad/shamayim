@@ -15,10 +15,27 @@ export async function interceptLandPerf(browser, serverUrl, { dpr, dense, panora
   let releaseLand
   const landGate = new Promise((r) => { releaseLand = r })
   const fineTileFetches = new Map()
+  const assetDeadlines = new Set()
   // Uniform tree cover in Shadmot's own 0.1° tile, keeping the surrounding observed cover and the same DEM and imagery.
   // Local tiles encode runs as a cover letter followed by a decimal count (b = tree cover).
   const denseTile = JSON.stringify({ v: 1, r: 'b40000' })
   const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  await context.exposeFunction('recordLandAssetDeadline', (pathname) => { assetDeadlines.add(pathname) })
+  await context.addInitScript(() => {
+    const fetchAsset = window.fetch
+    window.fetch = (input, init) => {
+      const { pathname } = new URL(input.url ?? input, location.href)
+      if (pathname.startsWith('/data/land/')) {
+        const signal = init?.signal ?? input.signal
+        const report = () => {
+          if (signal.reason?.name === 'TimeoutError') void window.recordLandAssetDeadline(pathname)
+        }
+        if (signal?.aborted) report()
+        else signal?.addEventListener('abort', report, { once: true })
+      }
+      return fetchAsset(input, init)
+    }
+  })
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url())
     if (/\/v1\/forecast$/.test(url.pathname)) {
@@ -54,5 +71,5 @@ export async function interceptLandPerf(browser, serverUrl, { dpr, dense, panora
     return route.abort('blockedbyclient')
   })
 
-  return { context, releaseLand, fineTileFetches }
+  return { context, releaseLand, fineTileFetches, assetDeadlines }
 }

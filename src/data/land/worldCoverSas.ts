@@ -27,7 +27,7 @@ export function withDeadline<T>(work: (sig: AbortSignal) => Promise<T | null>, m
   const ctrl = new AbortController()
   const onCaller = () => ctrl.abort()
   caller?.addEventListener('abort', onCaller, { once: true })
-  const timer = setTimeout(() => ctrl.abort(), ms)
+  const timer = setTimeout(() => ctrl.abort(new DOMException('Asset deadline exceeded', 'TimeoutError')), ms)
   return raceAbort(work(ctrl.signal), ctrl.signal).catch(() => null).finally(() => {
     clearTimeout(timer); caller?.removeEventListener('abort', onCaller)
   })
