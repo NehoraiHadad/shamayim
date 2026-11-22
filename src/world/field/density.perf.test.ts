@@ -77,7 +77,7 @@ it('serves all four layers within the 15 ms cold place budget', () => {
   expect(ms).toBeLessThanOrEqual(15)
 })
 
-// Warm budget recalibrated on the field branch's CI runs 45014581197–45019767384 (1.75–3.41 ms, runner-bound): p95 + 15 %.
+// Warm budget recalibrated on the field branch's CI runs 45014581197â€“45019767384 (1.75â€“3.41 ms, runner-bound): p95 + 15 %.
 it('serves all four layers within the 3.9 ms warm scrub budget', () => {
   // Warm the renderer over distinct minutes before sampling the steady-state scrub path.
   for (let minute = SAMPLE_COUNT + 1; minute < SAMPLE_COUNT + 29; minute++) scrub('warm-density', minute)
