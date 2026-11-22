@@ -1,4 +1,7 @@
 import { lateral, SCENE_CAMERA, type Camera } from '../domain/camera'
+import { smoothstep } from '../domain/smoothstep'
+import { mixOklab } from '../theme/oklab'
+import { isSnowCode, SNOW_TEMP } from './snowLine'
 import type { AirInput, AirState, Particles } from '../atmo/airTypes'
 
 export const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v))
@@ -30,16 +33,17 @@ export function streaks(kmh: number, u: number): Particles {
 }
 
 /** Current rain rate; a rain code with a near-zero rate still shows drizzle. */
-export function rainRate(i: AirInput): number {
-  if (i.snowfall > 0 && i.temperature <= 2) return 0
+export function rainRate(i: Pick<AirInput, 'weatherCode' | 'precipitation' | 'snowfall' | 'temperature' | 'rainMmH'>): number {
+  if (i.rainMmH !== undefined) return i.rainMmH
+  if (isSnowCode(i.weatherCode) || (i.snowfall > 0 && i.temperature <= SNOW_TEMP)) return 0
   return RAIN_CODES(i.weatherCode) && i.precipitation < 0.1 ? 0.2 : i.precipitation
 }
 
-export function rain(r: number, kmh: number, u: number, code: number): AirState['rain'] {
-  if (r <= 0) return { ...NONE, slant: 0, breathe: false }
+export function rain(r: number, kmh: number, u: number, showerWeight: number): AirState['rain'] {
+  if (r <= 0) return { ...NONE, slant: 0, breathe: 0 }
   const s = Math.sqrt(r)
   // Apparent fall speed (km/h-equivalent) tuned by eye: drizzle drifts, heavy rain stays rain-like.
-  const fall = r < 0.5 ? 20 : 60
+  const fall = lerp(20, 60, smoothstep(0.3, 0.7, r))
   const slant = Math.min((50 * Math.PI) / 180, Math.atan((kmh * Math.abs(u)) / fall))
   return {
     count: Math.round(Math.min(480, 90 * s)),
@@ -47,7 +51,7 @@ export function rain(r: number, kmh: number, u: number, code: number): AirState[
     speed: Math.min(1600, 500 + 220 * s),
     alpha: lerp(0.18, 0.32, ramp(s, 0.3, 4.5)),
     slant: Math.sign(u || 1) * slant,
-    breathe: code >= 80 && code <= 82,
+    breathe: showerWeight,
   }
 }
 
@@ -58,7 +62,8 @@ export function snow(cmh: number): AirState['snow'] {
 }
 
 /** Dust level: dust concentration when known, else PM10. */
-const dustLevel = (i: AirInput) => i.dust ?? i.pm10 ?? 0
+const dustLevel = (i: AirInput) => i.dustConcentration ?? i.dust ?? i.pm10 ?? 0
+export const dustShare = (i: AirInput) => smoothstep(40, 60, dustLevel(i))
 
 export function grains(i: AirInput): Particles {
   const d = dustLevel(i)
@@ -68,7 +73,10 @@ export function grains(i: AirInput): Particles {
 }
 
 /** Visibility in km: the measured value, tightened by a rough dust estimate. */
-const dustVisibilityKm = (i: AirInput) => i.pm10 ? 1300 / i.pm10 : Infinity
+const dustVisibilityKm = (i: AirInput) => {
+  const pm10 = i.opticalPm10 ?? i.pm10 ?? 0
+  return pm10 > 0 ? 1300 / pm10 : Infinity
+}
 
 export function visibilityKm(i: AirInput): number {
   return clamp(Math.min(i.visibilityKm ?? 40, dustVisibilityKm(i)), 1, 40)
@@ -76,10 +84,11 @@ export function visibilityKm(i: AirInput): number {
 
 export function haze(i: AirInput, r: number, hot: boolean): AirState['haze'] {
   const v = visibilityKm(i)
-  const extra = r >= 20 ? 0.5 : r >= 7.5 ? 0.3 : 0
+  const extra = 0.3 * smoothstep(5, 10, r) + 0.2 * smoothstep(17.5, 22.5, r)
   const farFade = clamp(Math.pow(clamp(1 - (v - 3) / 22), 1.5) + extra)
   const nearFade = 0.6 * clamp(1 - (v - 1) / 5)
-  const color = dustLevel(i) >= 50 ? '#D7BE8C' : r >= 0.5 ? '#6F8FA0' : hot ? '#F2CF92' : '#C9D2D8'
+  const damp = mixOklab(hot ? '#F2CF92' : '#C9D2D8', '#6F8FA0', smoothstep(0.3, 0.7, r))
+  const color = mixOklab(damp, '#D7BE8C', dustShare(i))
   const plainVisibilityKm = Math.max(1, Math.min(i.visibilityKm ?? 25, dustVisibilityKm(i)))
   return { farFade, nearFade, amount: farFade, color, visibilityKm: v, plainVisibilityKm }
 }

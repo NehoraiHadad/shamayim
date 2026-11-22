@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { arrivalWeight } from '../../domain/forecastRefresh'
 import { nowIn } from '../../domain/now'
 import { cloudSightings } from '../../domain/cloudSightings'
 import type { CloudObservation } from '../../domain/observedCloud'
@@ -74,7 +75,7 @@ async function sample(site: Site, slot: number, signal: AbortSignal) {
  * a slot newer than the one already held, so a new image is picked up within ~5 min of being published (every 15 min,
  * ~15 min late). Null while unknown or when the service fails; the model then stands alone.
  */
-export function useObservedCloud(site: Site): CloudObservation | null {
+export function useObservedCloud(site: Site, receiptTime: () => number): CloudObservation | null {
   const { lat, lon, timezone } = site
   const key = `${lat},${lon}`
   // Keyed by place, so switching places never shows the last place's sky.
@@ -93,9 +94,16 @@ export function useObservedCloud(site: Site): CloudObservation | null {
         for (const slot of slots) {
           try {
             const got = await sample({ lat, lon, timezone }, slot, ctrl.signal)
+            if (ctrl.signal.aborted) return
             if (got) {
               held = slot
-              setSeen({ key: `${lat},${lon}`, slot, obs: { ...got, at: nowIn(timezone, new Date(slot)) } })
+              const receivedAt = receiptTime()
+              setSeen((last) => {
+                const outgoing = last?.key === key ? last.obs : undefined
+                const previous = outgoing?.receivedAt !== undefined && arrivalWeight(outgoing.receivedAt, receivedAt) === 1
+                  ? { ...outgoing, previous: undefined } : outgoing
+                return { key, slot, obs: { ...got, at: nowIn(timezone, new Date(slot)), receivedAt, previous } }
+              })
               return
             }
           } catch { if (ctrl.signal.aborted) return }
@@ -113,6 +121,6 @@ export function useObservedCloud(site: Site): CloudObservation | null {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onVisible)
     }
-  }, [lat, lon, timezone])
+  }, [key, lat, lon, timezone, receiptTime])
   return seen?.key === key ? seen.obs : null
 }

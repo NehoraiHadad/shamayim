@@ -1,3 +1,4 @@
+import { smoothstep } from '../../domain/smoothstep'
 import type { FallMark, LayerOf, MistBandDesc, ShaftDesc } from '../model/types'
 import { rng } from './core'
 import { css, type Ctx2D, type PaintEnv } from './hand'
@@ -152,14 +153,16 @@ export function paintFall(ctx: Ctx2D, desc: LayerOf<'fall'>, env: PaintEnv): voi
 const m0 = (marks: readonly FallMark[]) => marks.reduce((max, m) => Math.max(max, m.len), 0)
 
 /** A soft ellipse: a radial gradient squashed by the transform (no filter). */
-export function soft(ctx: Ctx2D, x: number, y: number, rx: number, ry: number, rgb: readonly [number, number, number], alpha: number) {
-  if (rx <= 0 || ry <= 0 || alpha <= 0.003) return
+export function soft(ctx: Ctx2D, x: number, y: number, rx: number, ry: number, rgb: readonly [number, number, number],
+  alpha: number, fadesWithLight = false) {
+  if (rx <= 0 || ry <= 0 || (!fadesWithLight && alpha <= 0.003)) return
+  const opacity = fadesWithLight ? alpha * smoothstep(0, 0.006, alpha) : alpha
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(1, ry / rx)
   const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
-  g.addColorStop(0, css(rgb, alpha))
-  g.addColorStop(0.55, css(rgb, alpha * 0.55))
+  g.addColorStop(0, css(rgb, opacity))
+  g.addColorStop(0.55, css(rgb, opacity * 0.55))
   g.addColorStop(1, css(rgb, 0))
   ctx.fillStyle = g
   ctx.beginPath()
@@ -188,7 +191,7 @@ export function mistBands(ctx: Ctx2D, bands: readonly MistBandDesc[], bounds: { 
       for (const dx of [-w, 0, w]) {
         const x = bx + p.x + dx
         if (x + p.rx < bx || x - p.rx > bx + w) continue
-        soft(ctx, x, p.y, p.rx, p.ry, band.rgb, band.alpha * p.alpha * 0.8)
+        soft(ctx, x, p.y, p.rx, p.ry, band.rgb, band.alpha * p.alpha * 0.8, true)
       }
     }
   }

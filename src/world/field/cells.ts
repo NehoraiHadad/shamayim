@@ -119,7 +119,10 @@ export function cellsAt(field: CloudField, lattice: Lattice, x: number, y: numbe
 }
 
 function rainPotential(genus: FieldCell['genus'], lattice: Lattice, share: number, rain: CloudField['rain']) {
-  if (!rain || rain.rate <= 0 || (lattice !== rain.level && !(lattice === 'tower' && rain.level === 'low'))) return 0
+  if (!rain || rain.rate <= 0) return 0
+  const level = lattice === 'tower' ? 'low' : lattice
+  if (rain.midWeight === undefined ? level !== rain.level
+    : level === 'high' || (level === 'low' ? rain.midWeight === 1 : rain.midWeight === 0)) return 0
   // Ns and mature Cb sustain precipitation across their occupied footprint.
   if (genus === 'ns' || genus === 'cb') return share
   // Growing congestus has less developed precipitation than mature Cb.

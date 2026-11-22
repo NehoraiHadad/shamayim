@@ -894,6 +894,36 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       `FieldRainCell`, `Rain.cells/near`, `Light.eye/clear/meanBeam`, `TerrainPlanes.eyeM` folded into the split type files;
       `WorldState.shadows`/`CloudShadows` dropped. The old haze-tinted shadow tile (`hazeOf`) is gone with main's painter
       (main's shadow layers use a fixed shade). 39 pixel refs re-recorded for main's track D light/cloud/shadow changes.
+- [x] Merge `origin/main` (track A/G: no building flips, live mode is scrub at now) into `land-living` — 2026-11-22:
+      main's `PaintQueue`/`remoteEntry` (keep the last worker picture) now drives land-living's `RemoteQueue` order
+      (single-frame first, strips in bounded chunks; staged chunk time reported with the completing batch; light-only
+      jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
+      `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
+      `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
+
+## Polish track G — no building flips or flickers; live mode is scrub at now (owner: "a building rotated and also flickered", Karmei Tzur) — 2026-11-22 (branch `claude/fix-glyph-flicker-8384c3`)
+Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-g-merge.md` (+ `.REPORT.md`, rounds 1–3).
+- [x] Evidence (probes, one-minute builds, 4 places, live + scrub): glyph hand/seed/form/position never change. Causes found:
+      tower cast mirrored with a `+1` minimum reach as `cast.dx` crossed 0 (Karmei Tzur ~11:25, alpha 0.25); window rng
+      drawn conditionally on the light (Karmei Tzur 17:19: 15 lit windows dark, 26 lit at once at a steady share); the
+      worker cache returned null for a layer whose new form was in flight (blank frame); live mode stepped all light at
+      each hour/refetch (Karmei Tzur 12:59→13:00 direct 0.359→0.143).
+- [x] Outside painters: one cast-shadow law (`scene/paint/castShadow.ts`, reach → 0 with lateral light; tower keeps its
+      look); fixed seeded window thresholds drawn before any light test; both side strips/mast edges drawn with their own
+      weight; lamps/floods fade with night. Painters split into `outsideBox/Tower/Ground/Light.ts`.
+- [x] Worker cache keeps the last picture until a newer one arrives (`remoteEntry.ts`, `paintQueue.ts`; no starvation, A→S→A reuse).
+- [x] Live = scrub at now: weather sampled at `selected ?? now`; the observation and each data arrival ease in (10 min,
+      smoothstep), weighed at now, stamped in the scene's own timeline (pinned time works); snow stays snow; dust one
+      continuous `dustWeight`; track F mist fed from the blended state (merge).
+- [x] Tests: `outside.test.ts` (signed-light sweep geometry, 16:30–18:30 windows monotonic incl. glyphs), `compose.test.ts`
+      (never blank, resize starvation, A→S→A), `liveLight.test.ts` (Jerusalem 13:00 step 0.106 → 0.0006; refresh; held
+      scrub; pinned), `airInput.test.ts`, `dust.test.ts`, `mist.test.ts` live continuity.
+- Who wrote what: Claude (Opus 5.5) diagnosis, probes, briefs, verification; Codex gpt-6.2-sol the code and tests (Neon
+  agy wedged / timed out twice); Opus subagents reviewed each round.
+- Caveat: no Karmei Tzur panorama fixture exists (recording needs live DEM); the probes used Jerusalem's terrain with Karmei
+  Tzur's coordinates. Tests use Jerusalem.
+- [ ] Follow-ups: `pickTheme` (page chrome) still reads `forecast.current`; sea-glint thresholds in `model/outside.ts:86,95`;
+      worker failure never closes shown bitmaps (as before); a reload mid-ramp restarts the 10-min ease.
 
 ## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
 One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light

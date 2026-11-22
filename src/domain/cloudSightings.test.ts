@@ -61,4 +61,20 @@ describe('sightingsNow', () => {
     expect(sightingsNow({ cover: 60, at: '2026-11-18T16:15', sightings }, '2026-11-18T16:27', 60)).toEqual([])
     expect(sightingsNow(null, '2026-11-18T16:27', 5)).toEqual([])
   })
+
+  it('crossfades both satellite sets with stable identities and rolls off on a busy sky', () => {
+    const now = '2026-11-18T16:50'
+    const receivedAt = 900_000
+    const west = { at: '2026-11-18T16:15', cover: 5, sightings, receivedAt: 0 }
+    const east = { at: '2026-11-18T16:30', cover: 5, sightings: [{ ...sightings[0], azimuth: 90 }],
+      receivedAt, previous: west }
+    const before = sightingsNow(east, now, 40, receivedAt)
+    expect(before).toEqual(sightingsNow(west, now, 40, receivedAt))
+    const halfway = sightingsNow(east, now, 45, receivedAt + 300_000)
+    expect(halfway.map(({ strength }) => strength)).toEqual([0.25, 0.25])
+    expect(halfway[0].id).toBe(before[0].id)
+    const after = sightingsNow(east, now, 40, receivedAt + 600_000)
+    expect(after).toEqual([{ ...east.sightings[0], strength: 1, id: halfway[1].id }])
+    expect(sightingsNow(east, now, 50, receivedAt + 600_000)).toEqual([])
+  })
 })

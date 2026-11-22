@@ -13,7 +13,7 @@ it('dims the moon beam under a thin cirrostratus veil', () => {
   const input: Omit<LightInput, 'covers'> = {
     at, day: undefined, site: { lat: 32, lon: 35, timezone: 'Asia/Jerusalem' },
     skyline: FLAT_SKYLINE, sunSkyline: FLAT_SKYLINE, palette, camera: SCENE_CAMERA,
-    farFade: 0, aerosol: { visibilityKm: 30, dust: false },
+    farFade: 0, aerosol: { visibilityKm: 30, dustWeight: 0 },
     sun: { ...body, altitude: -20, azimuth: 0, visible: 0, t: null, clearance: -50 },
     moon: { ...body, altitude: 50, azimuth: 180, illumination: 1, tilt: 0, phase: 0.5 },
   }

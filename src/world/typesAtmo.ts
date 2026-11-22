@@ -74,7 +74,8 @@ export interface Air {
   /** Horizontal visibility (km, 1–40), dust folded in. */
   visibilityKm: number
   humidity: number | null
-  dust: boolean
+  /** Coarse dust share (0–1), eased over concentrations of 40–60 µg/m³. */
+  dustWeight: number
   /** The colour far planes fade toward. */
   haze: RGB
   /** Aerial perspective: 0 near … 1 lost, Koschmieder from `visibilityKm` (contrast 2 % at the visibility). */
@@ -121,7 +122,7 @@ export interface RainCell { fromAzimuth: number; toAzimuth: number; bank: string
 
 /** A rain shaft from the cloud field: its ground spot and radius (km), the cloud it falls from and how much reaches down. */
 export interface FieldRainCell extends RainCell {
-  x: number; y: number; radiusKm: number; share: number; virga: number; atEye: boolean
+  level: CloudLevel; x: number; y: number; radiusKm: number; share: number; virga: number; atEye: boolean
   baseKm: number; cloudX: number; cloudY: number; seed: number
 }
 
@@ -133,6 +134,7 @@ export interface Rain {
   /** Rad from vertical, signed like `wind.across` (rain falls toward where the wind goes). */
   slant: number
   thunder: boolean
+  thunderWeight: number
 }
 
 /** Snow falling (C7): from the precipitating layer's banks, at their true azimuths, carried by the one wind. */

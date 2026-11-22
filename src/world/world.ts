@@ -1,17 +1,18 @@
 import { utcOf } from '../astro/utc'
 import { mappedCropAreas } from '../data/landmarks/cropAreas'
+import { blendForecast, forecastArrivalProgress, forecastObservation } from '../domain/forecastRefresh'
 import { hashId } from '../data/landmarks/hash'
 import { RELIEF } from '../data/terrain/angleScale'
 import { SCENE_CAMERA } from '../domain/camera'
 import { datePart } from '../domain/time'
 import { skyLight } from '../theme/skyLight'
-import { airOf } from './air'
+import { airOf, coinOf } from './air'
 import { moonBody, sunBody } from './bodies'
-import { cloudLayers, layerCovers } from './clouds'
+import { cloudMotion } from './cloudField'
+import { cloudLayers } from './clouds'
 import { partKey } from './keys'
 import type { LifeInput } from './life'
 import { lightOf, visibleDay } from './light'
-import { hourBetween } from './livingLight'
 import { nightOf } from './night'
 import { nightSkyOf } from './nightSky'
 import { opticsOf } from './optics'
@@ -22,7 +23,7 @@ import { landStatusOf, terrainY } from './terrain'
 import type { WorldInput, WorldState } from './types'
 import { waterOf } from './water'
 import { windOf } from './wind'
-import { groundWet, hourKey, makeWorldMemos, shownAir, UNKNOWN, unknownPlace, wetBetween } from './worldParts'
+import { groundWet, makeWorldMemos, shownAir, UNKNOWN, unknownPlace, wetBetween } from './worldParts'
 
 export { groundWet, shownAir }
 
@@ -40,15 +41,17 @@ export function makeWorldBuilder() {
     const terrain = status === 'ready' ? input.terrain : UNKNOWN[status]
     const at = selected ?? now
     const preview = selected !== null
+    const isNow = at === now
     const camera = terrain.camera ?? SCENE_CAMERA
     const width = input.width ?? SCENE_W
     const seed = hashId(place.id)
     const skyline = m.skylineOf(terrain)
     const shown = shownAir(input)
-    const hour = forecast.hours.find((h) => h.time === hourKey(at))
-    const between = hourBetween(forecast.hours, at)
     const dayGiven = forecast.days.find((d) => d.date === datePart(at))
     const forced = input.forced ?? {}
+    const nowMs = input.arrivalMs ?? utcOf(now, place.timezone).getTime()
+    const blendNumber = (sample: (source: typeof forecast) => number) =>
+      blendForecast(forecast, nowMs, sample, (a, b, t) => a + (b - a) * t)
 
     const placePartResult = status === 'ready' ? m.placePart(place, terrain, input.landmarks, input.seatCandidates, input.city,
       width, forecast.elevation, input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
@@ -59,48 +62,56 @@ export function makeWorldBuilder() {
     const sun = sunBody(at, day, place, skyline, sunSkyline)
     const moon = moonBody(at, place, skyline, sun, sunSkyline)
     const { wind, sources: windSources } = windOf({ speedKmh: shown.windSpeed, gustKmh: shown.windGusts, shownFromDeg: shown.windDirection,
-      hour, preview, forced: 'windDirection' in forced }, camera)
+      directionSource: shown.directionSource, aloft: shown.windAloft, forced: 'windDirection' in forced }, camera)
+    const { air, source: visibilitySource } = airOf({ shown, visibilitySource: shown.visibilitySource,
+      forcedVisibility: 'visibilityKm' in forced, mist: { sun, windMs: wind.ms, weather: shown.mist, forced, forcedLayers: input.forcedLayers } })
     const rate = rainOf(shown)
     const { covers: given, source: cloudSource } = input.forcedLayers ? { covers: input.forcedLayers, source: 'forced' as const }
-      : layerCovers({ cloudCover: shown.cloudCover, thickCloud: shown.thickCloud, hour: between })
+      : { covers: shown.covers, source: shown.cloudSource }
     const snow = snowFall(shown, forecast.elevation)
-    const raining = rainingLayer(given, rate > 0 ? rate : snow?.falling ? Math.max(0.1, shown.snowfall) : 0)
+    // Falling snow needs a cloud to fall from, as the rain does (C7): the same layer rule, from the snowfall.
+    const cloudRate = Math.max(rate, shown.snowCloudRate)
+    const raining = rainingLayer(given, cloudRate)
     const covers = raining.covers
-    const { air, source: visibilitySource } = airOf({ shown, hourVisibilityM: between?.visibility, preview, forcedVisibility: 'visibilityKm' in forced,
-      mist: { sun, windMs: wind.ms, current: forecast.current, hour: between, forced, forcedLayers: input.forcedLayers, hours: forecast.hours, at } })
     const clouds = cloudLayers({ placeId: place.id, covers, temperature: shown.temperature, humidity: shown.humidity,
-      sunAltitude: sun.altitude, wind, raining: raining.level, seen: preview ? [] : input.seenClouds ?? [] })
-    const cloudField = m.fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, shown, sun.altitude,
-      { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg }, raining.level ? { level: raining.level, rate } : undefined, forced.weatherCode !== undefined)
+      sunAltitude: sun.altitude, wind, raining: raining.level, seen: isNow ? input.seenClouds ?? [] : [] })
+    const fieldWeather = 'humidity' in forced ? { ...shown, mist: { ...shown.mist, humidityWeight: Number(shown.humidity !== null) } } : shown
+    const cloudField = m.fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, fieldWeather, sun.altitude,
+      { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg },
+      raining.level ? { level: raining.level, rate: cloudRate, midWeight: raining.midWeight } : undefined,
+      cloudMotion(forecast, at, nowMs, forced))
     const grid = status === 'ready' ? m.terrainGrid(terrain, forecast.elevation) : undefined
     const eyeM = grid?.eyeM ?? terrain.eyeM ?? forecast.elevation + 2
     const groundAboveEyeKm = (eastKm: number, northKm: number) =>
       ((grid?.heightAt(eastKm, northKm) ?? forecast.elevation) - eyeM) / 1000
-    const rain = rainFrom(cloudField, rate, wind, shown.weatherCode, preview, shown.humidity, groundAboveEyeKm)
-    const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow:${hourKey(at)}`))
+    const rain = rainFrom(cloudField, rate, wind, shown.fieldWeather, isNow ? shown.thunderWeight : 0, groundAboveEyeKm)
+    const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
-      wet: Math.min(1, shown.precipitation / 0.8), pm10: shown.pm10, air: { visibilityKm: air.visibilityKm, dust: air.dust } })
+      wet: Math.min(1, rate / 0.8), pm10: shown.opticalPm10, air })
     const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
-      aerosol: { visibilityKm: air.visibilityKm, dust: air.dust }, covers, cloudField, farFade: air.farFade, palette })
+      aerosol: air, covers, cloudField, farFade: air.farFade, palette })
     const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, m.ripplesPart(terrain, place.id),
       light.shares.sun, sun.overLand)
     const night = nightOf(shown, covers)
-    const ground = { wet: wetBetween(forecast.hours, at, rate), snowLineM: snow?.lineM ?? null }
+    const ground = { wet: blendNumber((source) => wetBetween(source.hours, at, rate)), snowLineM: snow?.lineM ?? null }
     const horizonY = terrain.horizonY
     const env = m.envPart(place, input.cover, input.far, input.waterMask)
     const lifeInput: LifeInput = { placeId: place.id, lat: place.lat, lon: place.lon, at, timezone: place.timezone, camera,
       groundM: forecast.elevation, env, sun, direct: light.shares.sun, dark: night.dark,
-      temperature: shown.temperature, covers, rainMmH: Math.max(rate, shown.precipitation), thunder: rain?.thunder ?? false,
-      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs }, hour, starsThrough: night.starsThrough, moon,
+      temperature: shown.temperature, covers, rainMmH: rate, thunder: shown.thunderWeight,
+      wind: { fromDeg: wind.fromDeg, towardDeg: wind.towardDeg, ms: wind.ms, gustMs: wind.gustMs },
+      hour: { cruise: shown.cruise }, starsThrough: night.starsThrough, moon,
       visibilityKm: air.visibilityKm }
     const planes = m.planesOf(drawn, place.id)
     const life = m.lifeDays(input, at, lifeInput, { camera, env },
       grid ? m.flightOf(grid, sunSkyline, planes.near, camera, horizonY) : undefined,
-      [place, forecast.hours, forecast.current, forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
+      [place, forecast.hours, forecastObservation(forecast), forecast.air, forecast.previous,
+        forecastArrivalProgress(forecast, nowMs), input.observedCloud, input.observedCloud ? nowMs : undefined,
+        forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
     const optics = opticsOf({ sun, direct: light.meanBeam.sun, eye: light.eye, sunLights: light.source === 'sun', covers,
-      rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: air.dust ? air.farFade : 0 })
+      rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: coinOf(air) })
     const shownUtcDate = utcOf(at, place.timezone).toISOString().slice(0, 10)
     const land = m.landPart(
       place.lat, place.lon, forecast.elevation, datePart(at), shownUtcDate, camera, terrain,

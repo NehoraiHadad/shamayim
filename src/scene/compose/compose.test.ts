@@ -5,7 +5,7 @@ import type { Painter } from '../paint'
 import { LayerCache, type LayerCanvas } from './layerCache'
 import { makeLoop } from './loop'
 import { paintSliced, PRIORITY } from './schedule'
-import type { PaintReply, PaintRequest } from './paintJob'
+import { canvasSize, deviceRect, formKeyOf, type PaintReply, type PaintRequest } from './paintJob'
 import { RemoteCache, type WorkerLike } from './remoteCache'
 import { makeStats } from './stats'
 import { Surface } from './surface'
@@ -159,9 +159,12 @@ function fakeWorker() {
     terminate() { worker.terminated = true },
     answer() {
       const request = sent.shift()!
-      const reply: PaintReply = { batch: request.batch, results: request.jobs.map((job) => ({ id: job.id, part: job.part, key: job.key,
-        formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 1,
-        bitmap: job.final === false ? null : { width: job.rect.w, height: job.rect.h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap })) }
+      const reply: PaintReply = { batch: request.batch, results: request.jobs.map((job) => {
+        const { w, h } = canvasSize(job.desc, job.rect)
+        const bitmap = job.final === false ? null
+          : { width: w, height: h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap
+        return { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 1, bitmap }
+      }) }
       worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
     },
   }
@@ -219,6 +222,120 @@ describe('painting in the worker', () => {
     expect(worker.closed).toEqual(['plane.near:light:l1'])
     worker.answer()
     expect(cache.fresh(plane('a', 'l4'), 2)).toBe(true)
+    expect(cache.settled()).toBe(true)
+  })
+
+  it.each([true, false])('keeps the last worker picture through a form change and strip toggle (formless=%s)', (formless) => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => formless }),
+      onArrive: () => {}, onFail: () => {} })
+    const a = plane('a', 'l1'), b = plane('b', 'l2')
+    b.bounds = { x: 6, y: 44, w: 340, h: 78 }
+    const strip: typeof b = { ...b, animated: { mode: 'frames', frames: { count: 4, fps: 2 } } }
+    const send = (layer: typeof a, dpr: number) => {
+      cache.update(layer, dpr)
+      cache.flush()
+    }
+    const peek = () => cache.peek(a.id)
+    const checkArrival = (layer: typeof a, dpr: number) => {
+      expect(cache.fresh(layer, dpr)).toBe(true)
+      const shown = peek()!
+      expect(shown.desc).toBe(layer)
+      expect(shown.rect).toEqual(deviceRect(layer, dpr))
+      expect(shown.formKey).toBe(formKeyOf(layer, dpr).key)
+      expect(shown.ratio).toBe(dpr)
+      expect(shown.form === null).toBe(formless)
+      expect(shown.light?.height).toBe(canvasSize(layer, shown.rect).h)
+      return shown
+    }
+
+    send(a, 1)
+    expect(peek()).toBeNull()
+    expect(worker.sent[0].jobs.map(({ part }) => part)).toEqual(formless ? ['light'] : ['form', 'light'])
+    worker.answer()
+    let shown = checkArrival(a, 1)
+    for (const layer of [b, strip]) {
+      send(layer, 2)
+      expect(cache.fresh(layer, 2)).toBe(false)
+      expect(peek()).toEqual(shown)
+      expect(peek()?.desc).toBe(shown.desc)
+      expect(peek()?.light).toBe(shown.light)
+      const closed = worker.closed.length
+      worker.answer()
+      // A strip paints in bounded chunks, form and light in turn (`remoteQueue.ts`): the old picture stays until both are in.
+      while (!cache.fresh(layer, 2)) {
+        expect(peek()?.light).toBe(shown.light)
+        worker.answer()
+      }
+      expect(worker.closed).toHaveLength(closed + (formless ? 1 : 2))
+      shown = checkArrival(layer, 2)
+    }
+
+    // The viewport keeps changing before each reply, but each completed picture is shown.
+    const resizes = Array.from({ length: 7 }, (_, i) => ({
+      ...plane(`resize${i}`, 'l3'), bounds: { x: i, y: 40, w: 360 + i, h: 88 },
+    }))
+    send(resizes[0], 1)
+    for (let i = 0; i < resizes.length - 1; i += 2) {
+      send(resizes[i + 1], 1)
+      send(resizes[i + 2], 1)
+      expect(peek()).toEqual(shown)
+      worker.answer()
+      expect(peek()?.desc).toBe(resizes[i])
+      expect(peek()?.rect).toEqual(deviceRect(resizes[i], 1))
+      expect(cache.fresh(resizes[i + 2], 1)).toBe(false)
+      // Light-only jobs carry the trimmed desc (`lightJobDesc`): the newest resize is the one queued.
+      expect(worker.sent[0].jobs[0].rect).toEqual(deviceRect(resizes[i + 2], 1))
+      shown = peek()!
+    }
+    worker.answer()
+    checkArrival(resizes.at(-1)!, 1)
+  })
+
+  it('queues a compatible form when an intermediate picture replaces the form a waiting light needs', () => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters, onArrive: () => {}, onFail: () => {} })
+    cache.update(plane('a', 'l1'), 1)
+    cache.flush()
+    worker.answer()
+    cache.update(plane('b', 'l1'), 1)
+    cache.flush()
+    const final = plane('a', 'l2')
+    expect(cache.update(final, 1)).toBe('light')
+    worker.answer()
+    expect(cache.peek(final.id)?.desc.key).toBe('b')
+    expect(worker.sent[0].jobs.map(({ part }) => part).sort()).toEqual(['form', 'light'])
+    worker.answer()
+    expect(cache.fresh(final, 1)).toBe(true)
+  })
+
+  it.each([true, false])('uses the in-flight A reply on an A → S → A scrub (formless=%s)', (formless) => {
+    const worker = fakeWorker()
+    const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => formless }),
+      onArrive: () => {}, onFail: () => {} })
+    const s = plane('s', 'sky'), a = plane('a', 'afternoon')
+    const send = (layer: typeof a) => {
+      cache.update(layer, 1)
+      cache.flush()
+    }
+    send(s)
+    worker.answer()
+    const shown = cache.peek(s.id)!.light
+
+    send(a) // A's job is in flight while S is still displayed.
+    send(s) // Reusing S advances the displayed generation past A's job.
+    send(plane('intermediate', 'queued'))
+    const back = { ...a, z: a.z + 1 }
+    expect(cache.update(back, 1)).toBe('none')
+    cache.flush()
+    expect(cache.peek(s.id)!.light).toBe(shown)
+    expect(worker.sent).toHaveLength(1)
+    worker.answer()
+
+    expect(cache.fresh(back, 1)).toBe(true)
+    expect(cache.peek(a.id)?.desc).toBe(back)
+    expect(cache.peek(a.id)?.light).not.toBe(shown)
+    expect(worker.sent).toHaveLength(0)
     expect(cache.settled()).toBe(true)
   })
 

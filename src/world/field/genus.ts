@@ -36,8 +36,12 @@ export function convectiveWeight(code: number) {
 
 /** Derive the form weights and the two genus-specific weather gates. */
 export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'sunAltitude' | 'rain'> & { wind10: { speedKmh: number } },
-  covers: Covers, conv = convectiveWeight(input.weatherCode)): Record<Lattice, LayerForm> {
-  const code = input.weatherCode
+  covers: Covers, conv = convectiveWeight(input.weatherCode ?? 0), weather?: FieldInput['weather']): Record<Lattice, LayerForm> {
+  const code = input.weatherCode ?? 0
+  const wetMid = weather ? (input.rain?.midWeight ?? 0) * smoothstep(0, 0.2, input.rain?.rate ?? 0)
+    : Number(input.rain?.level === 'mid' && input.rain.rate > 0)
+  const frontalMid = (weather?.nimbostratus ?? Number(code >= 61 && code <= 65))
+    * smoothstep(0.4, 0.6, covers.low * covers.mid)
   const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
     + 0.5 * (1 - smoothstep(-6, 10, input.sunAltitude)))
   return {
@@ -46,8 +50,7 @@ export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'su
         * (1 - smoothstep(12.6, 16.2, input.wind10.speedKmh)) },
     tower: { conv, strat: 0, sheet: 0, veil: 0 },
     mid: { conv: 0, strat: 0, sheet: smoothstep(0.65, 0.9, covers.mid), veil: 0,
-      nimbostratus: input.rain?.level === 'mid' && input.rain.rate > 0
-        ? 1 : Number(code >= 61 && code <= 65) * smoothstep(0.4, 0.6, covers.low * covers.mid) },
+      nimbostratus: wetMid + (1 - wetMid) * frontalMid },
     high: { conv: 0, strat: 0, sheet: 0, veil: smoothstep(0.55, 0.85, covers.high) },
   }
 }
@@ -66,7 +69,7 @@ export function genusOf(lattice: Lattice, form: LayerForm, ug: number, storm = s
 export function convectiveAt(input: FieldInput) {
   const { hours, at } = input
   const fixed = (code: number) => ({ from: convectiveWeight(code), to: convectiveWeight(code), fraction: 0 })
-  if (input.weatherForced) return fixed(input.weatherCode)
+  if (input.weatherForced) return fixed(input.weatherCode ?? 0)
   let forecast = convection.get(hours)
   if (!forecast) {
     const weights = hours.map(point => convectiveWeight(point.weatherCode))
@@ -80,7 +83,7 @@ export function convectiveAt(input: FieldInput) {
     convection.set(hours, forecast = { weights, indices, adjacent, active: weights.some(Boolean) })
   }
   const hour = forecast.indices.get(at.slice(0, 13))
-  if (hour === undefined || !forecast.active) return fixed(input.weatherCode)
+  if (hour === undefined || !forecast.active) return fixed(input.weatherCode ?? 0)
   const minute = Number(at.slice(14, 16))
   const to = minute < 30 ? hour : hour + 1
   const { weights, adjacent } = forecast

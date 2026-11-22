@@ -1,30 +1,13 @@
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
-import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, type DeviceRect, type PaintJob, type PaintReply, type PaintRequest } from './paintJob'
-import { RemoteQueue } from './remoteQueue'
+import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
+import { PaintQueue, type WorkerLike } from './paintQueue'
+import { accept, isStaged, partsOf, peek, pruneStaged, reuse, sameForm, samePaint, stage, type Entry, type Request } from './remoteEntry'
 
-/** What the cache needs of a worker (a `Worker`, or a fake in tests). */
-export interface WorkerLike {
-  postMessage(message: PaintRequest): void
-  onmessage: ((event: MessageEvent<PaintReply>) => void) | null
-  onerror: ((event: ErrorEvent | Event) => void) | null
-  terminate(): void
-}
+export type { WorkerLike } from './paintQueue'
 
-/** A part as shown: the bitmap last painted for it and what it was painted for. */
-interface Shown { key: string; formKey: string; bitmap: ImageBitmap | null; ratio: number; rect: DeviceRect; desc: LayerDesc }
-
-interface Entry {
-  formKey: string
-  lightKey: string | null
-  desc: LayerDesc
-  /** What is shown. */
-  form: Shown | null
-  light: Shown | null
-}
-
-/** One batch's arrival: the main thread's time to take it in (the composite is the surface's), the oldest job's wait. */
+/** The oldest job's wait, worker paint time, and whether more work is queued. */
 export interface Arrival { latency: number; workerMs: number; settled: boolean }
 
 export interface RemoteOptions {
@@ -32,179 +15,140 @@ export interface RemoteOptions {
   painters?: (desc: LayerDesc) => Painter | undefined
   hand?: Hand
   now?: () => number
+  /** A batch arrived and was taken in: the surface lays the layers again. */
   onArrive: (arrival: Arrival) => void
+  /** The worker failed: the surface goes back to painting itself. */
   onFail: (reason: string) => void
 }
 
-/**
- * Off-thread layer cache (§1d) backed by `paintWorker.ts`. Single-frame layers (terrain, static marks, scrub light)
- * always dispatch ahead of multi-frame strips, and strips paint in bounded pose chunks (`RemoteQueue`) so newly
- * arriving terrain or scrub updates preempt an in-flight strip after at most one short chunk.
- */
+/** Asks the worker for stale layer parts and displays the last compatible picture until a newer one arrives. */
 export class RemoteCache {
   private entries = new Map<string, Entry>()
-  private queue = new RemoteQueue()
-  private inFlight: { batch: number; since: number; jobs: Map<string, PaintJob> } | null = null
-  private stagedWorkerMs = 0
-  private batch = 0
-  private waiters: (() => void)[] = []
-  private failed = false
-  private readonly worker: WorkerLike
-  private readonly painters: (desc: LayerDesc) => Painter | undefined
-  private readonly hand: Hand
-  private readonly now: () => number
+  private readonly queue: PaintQueue
+  private readonly painters: NonNullable<RemoteOptions['painters']>
   private readonly options: RemoteOptions
+  private failed = false
+  /** Worker time of strip chunks staged since the last arrival, reported with the batch that completes them. */
+  private stagedWorkerMs = 0
 
   constructor(options: RemoteOptions) {
     this.options = options
-    this.worker = options.worker
     this.painters = options.painters ?? painterOf
-    this.hand = options.hand ?? HAND
-    this.now = options.now ?? (() => performance.now())
-    this.worker.onmessage = (event) => this.receive(event.data)
-    this.worker.onerror = () => this.fail('paint worker error')
+    this.queue = new PaintQueue(options.worker, options.now ?? (() => performance.now()), (reason) => this.fail(reason))
+    options.worker.onmessage = (event) => this.receive(event.data)
+    options.worker.onerror = () => this.fail('paint worker error')
   }
 
   fresh(desc: LayerDesc, dpr: number): boolean {
-    const entry = this.entries.get(desc.id)
-    const formKey = formKeyOf(desc, dpr).key, lightKey = lightKeyOf(desc, this.painters(desc))
-    return Boolean(entry && entry.form?.key === formKey && (lightKey === null
-      || (entry.light?.key === lightKey && entry.light.formKey === formKey)))
+    const shown = this.entries.get(desc.id)?.shown?.request
+    return shown?.formKey === formKeyOf(desc, dpr).key && shown.formless === this.formless(desc)
+      && shown.lightKey === lightKeyOf(desc, this.painters(desc))
   }
 
   formless(desc: LayerDesc): boolean {
     return Boolean(desc.light && this.painters(desc)?.formless?.(desc))
   }
 
-  /** Asks for what is stale of a layer (`none` when fresh or already queued/finishing for the same keys). */
+  /** Asks for stale parts and reports what was newly queued. */
   update(desc: LayerDesc, dpr: number, phase = 0): Painted {
-    const painter = this.painters(desc)
     const { ratio, key: formKey } = formKeyOf(desc, dpr)
-    const lightKey = lightKeyOf(desc, painter)
-    let entry = this.entries.get(desc.id)
-    if (!entry) {
-      entry = { formKey: '', lightKey: null, desc, form: null, light: null }
-      this.entries.set(desc.id, entry)
+    const entry = this.entries.get(desc.id)
+    const request: Request = { formKey, ratio, desc, phase, rect: deviceRect(desc, ratio),
+      lightKey: lightKeyOf(desc, this.painters(desc)), formless: this.formless(desc), generation: 1 }
+    if (entry) {
+      const unchanged = samePaint(entry.wanted, request)
+      request.generation = entry.wanted.generation + Number(!unchanged)
+      entry.wanted = request
+      return this.ask(entry)
     }
-    entry.formKey = formKey
-    entry.lightKey = lightKey
-    entry.desc = desc
-    if (entry.form?.key === formKey) entry.form.desc = desc
-    if (this.fresh(desc, dpr)) { this.queue.dropLayer(desc.id); return 'none' }
-    const now = this.now()
-    const rect = deviceRect(desc, ratio)
-    const job = (part: 'form' | 'light', key: string): PaintJob =>
-      ({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase, hand: this.hand })
-    let painted: Painted = 'none'
-    // A layer that is all light (`formless`) has an empty form: nothing to paint for it, only its place.
-    if (entry.form?.key !== formKey) {
-      if (this.formless(desc)) {
-        entry.form = { key: formKey, formKey, bitmap: null, ratio, rect, desc }
-        this.queue.drop(`${desc.id}:form`)
-        painted = 'form'
-      } else if (this.queue.ask(job('form', formKey), now)) painted = 'form'
-    } else this.queue.drop(`${desc.id}:form`)
-    if (lightKey !== null && (entry.light?.key !== lightKey || entry.light.formKey !== formKey)) {
-      if (this.queue.ask(job('light', lightKey), now) && painted === 'none') painted = 'light'
-    } else this.queue.drop(`${desc.id}:light`)
-    return painted
+    const cold = { wanted: request, shown: null }
+    this.entries.set(desc.id, cold)
+    return this.ask(cold)
   }
 
-  /** Sends the next batch (single-frame jobs first, else one bounded strip chunk) unless a batch is already in flight. */
-  flush() {
-    if (this.failed || this.inFlight) return
-    const next = this.queue.takeBatch(this.now())
-    if (!next) return
-    this.inFlight = { batch: ++this.batch, since: next.since,
-      jobs: new Map(next.jobs.map((job) => [`${job.id}:${job.part}`, job])) }
-    try {
-      this.worker.postMessage({ batch: this.inFlight.batch, jobs: next.jobs })
-    } catch (error) {
-      this.fail(String(error))
+  private ask(entry: Entry): Painted {
+    reuse(entry)
+    pruneStaged(entry)
+    const request = entry.wanted
+    const { desc, formKey, lightKey, formless, ratio, rect, phase } = request
+    const same = sameForm(entry.shown?.request, request)
+    const ask = (part: PaintJob['part'], key: string | null) => {
+      if (key === null) return this.queue.cancel(desc.id, part)
+      // A light-only job crosses the worker boundary without the form's buffers (`lightJobDesc`).
+      return this.queue.ask({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase,
+        hand: this.options.hand ?? HAND }, request)
     }
+    const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
+    const light = ask('light', (same && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
+    if (form || (light && !same && formless)) return 'form'
+    return light ? 'light' : 'none'
   }
 
   private receive(reply: PaintReply) {
-    if (this.failed || this.inFlight?.batch !== reply.batch) { for (const r of reply.results) r.bitmap?.close(); return }
-    if (reply.error) { this.fail(reply.error); return }
-    let hasBitmap = false
-    for (const r of reply.results) {
-      this.stagedWorkerMs += r.ms
-      if (!r.bitmap) continue
-      const entry = this.entries.get(r.id)
-      const job = this.inFlight.jobs.get(`${r.id}:${r.part}`)
-      if (!entry || !job) { r.bitmap.close(); continue }
-      const wanted = r.part === 'form' ? entry.formKey : entry.lightKey
-      const old = r.part === 'form' ? entry.form : entry.light
-      // Keep the current bitmap if the user scrubbed back to it while this job was in flight.
-      if (old?.key === wanted && old.formKey === entry.formKey && (r.key !== wanted || r.formKey !== entry.formKey)) {
-        r.bitmap.close()
-        continue
-      }
-      hasBitmap = true
-      const shown: Shown = { key: r.key, formKey: r.formKey, bitmap: r.bitmap, ratio: r.ratio, rect: r.rect,
-        desc: r.formKey === entry.formKey ? entry.desc : job.desc }
-      old?.bitmap?.close()
-      if (r.part === 'form') entry.form = shown
-      else entry.light = shown
+    const batch = this.queue.complete(reply.batch)
+    if (!batch || reply.error) {
+      for (const { bitmap } of reply.results) bitmap?.close()
+      if (batch && reply.error) this.fail(reply.error)
+      return
     }
-    const latency = this.now() - (this.inFlight?.since ?? this.now())
-    this.inFlight = null
-    this.queue.finishBatch()
+    const results = new Map<Entry, { request: Request; parts: PaintResult[] }>()
+    for (const result of reply.results) {
+      this.stagedWorkerMs += result.ms
+      // An intermediate strip chunk stays staged in the worker: nothing to take in yet.
+      if (!result.bitmap) continue
+      const entry = this.entries.get(result.id), request = batch.requestOf(result.id, result.part)
+      if (!entry || !request) { result.bitmap.close(); continue }
+      const received = results.get(entry)
+      if (received) received.parts.push(result)
+      else results.set(entry, { request, parts: [result] })
+    }
+    for (const [entry, { request, parts }] of results) {
+      const whole = stage(entry, request, parts)
+      if (whole) accept(entry, request, whole)
+      // Promotion can replace a form that the queued light planned to reuse.
+      this.ask(entry)
+    }
+    const latency = batch.latency()
     this.flush()
     const settled = this.settled()
-    if (hasBitmap) {
+    if (results.size) {
       const workerMs = this.stagedWorkerMs
       this.stagedWorkerMs = 0
       this.options.onArrive({ latency, workerMs, settled })
     } else if (settled) this.stagedWorkerMs = 0
-    if (settled) for (const resolve of this.waiters.splice(0)) resolve()
+    this.queue.resolveIfSettled()
   }
 
   private fail(reason: string) {
     if (this.failed) return
     this.failed = true
-    this.queue.clear()
-    this.inFlight = null
+    this.queue.stop()
     this.stagedWorkerMs = 0
-    this.worker.terminate()
     this.options.onFail(reason)
-    for (const resolve of this.waiters.splice(0)) resolve()
+    this.queue.resolveIfSettled()
   }
 
-  settled(): boolean { return this.failed || (!this.inFlight && !this.queue.size) }
-
-  whenSettled(): Promise<void> {
-    return this.settled() ? Promise.resolve() : new Promise((resolve) => this.waiters.push(resolve))
-  }
-
-  /** The bitmaps shown for a layer: its form (null when it has none), its light if it was painted for that form. */
-  peek(id: string) {
-    const entry = this.entries.get(id)
-    if (!entry?.form) return null
-    const light = entry.light && entry.light.formKey === entry.form.key ? entry.light.bitmap : null
-    if (!entry.form.bitmap && !light) return null
-    return { form: entry.form.bitmap, light, ratio: entry.form.ratio, rect: entry.form.rect,
-      formKey: entry.form.key, desc: entry.form.desc }
-  }
+  flush() { this.queue.flush() }
+  settled() { return this.queue.settled() }
+  whenSettled() { return this.queue.whenSettled() }
+  peek(id: string) { return peek(this.entries.get(id)) }
+  get isFailed() { return this.failed }
 
   prune(keep: ReadonlySet<string>) {
     for (const [id, entry] of this.entries) {
       if (keep.has(id)) continue
-      entry.form?.bitmap?.close()
-      entry.light?.bitmap?.close()
+      for (const bitmap of partsOf(entry.shown, entry.staged)) bitmap?.close()
       this.entries.delete(id)
-      this.queue.dropLayer(id)
+      this.queue.prune(id)
     }
   }
 
+  /** RGBA bytes of the retained bitmaps on the main thread. */
   bytes(): number {
     let total = 0
     for (const entry of this.entries.values()) {
-      for (const part of [entry.form, entry.light]) if (part?.bitmap) total += part.bitmap.width * part.bitmap.height * 4
+      for (const bitmap of partsOf(entry.shown, entry.staged)) if (bitmap) total += bitmap.width * bitmap.height * 4
     }
     return total
   }
-
-  get isFailed() { return this.failed }
 }

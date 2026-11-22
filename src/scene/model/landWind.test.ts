@@ -19,7 +19,7 @@ const input = makeWorldInput(SHADMOT, `${DAY}T12:00`, {
 })
 const westerly = { cloudCover: 0, thickCloud: 0, weatherCode: 0, precipitation: 0, windSpeed: 60, windGusts: 90, windDirection: 270 }
 const worldWind = (from: number, ms: number, gustMs: number, camera = SCENE_CAMERA) => windOf({
-  speedKmh: ms * 3.6, gustKmh: gustMs * 3.6, shownFromDeg: from, preview: false, forced: true,
+  speedKmh: ms * 3.6, gustKmh: gustMs * 3.6, shownFromDeg: from, directionSource: 'forced', forced: true,
 }, camera).wind
 
 describe('land plants in the scene wind', () => {

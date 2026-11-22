@@ -1,3 +1,4 @@
+import type { AirTimeline } from '../atmo/airInput'
 import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
 import type { BoundsFile } from '../data/city/bounds'
@@ -33,9 +34,9 @@ export * from './typesLand'
  */
 
 /** What `buildWorld` takes: what App already holds. */
-export interface WorldInput {
+export interface WorldInput extends AirTimeline {
   place: Place
-  /** The forecast as App shows it (rolled forward, with the observed cloud and the visible sun). */
+  /** The model forecast, with its original observation preserved through rollover. */
   forecast: Forecast
   now: LocalTime
   /** An hour picked in the strip (a preview), or null for now. */

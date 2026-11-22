@@ -17,17 +17,17 @@ const WAVELENGTH = [650, 550, 450] as const
 const EXPOSURE = 4
 
 /** The hour's air: visibility (km) and whether its particles are coarse desert dust rather than fine haze. */
-export interface Aerosol { visibilityKm?: number; dust?: boolean }
+export interface Aerosol { visibilityKm?: number; dustWeight?: number }
 
 /**
  * Vertical aerosol optical depth per channel from surface visibility. Koschmieder gives extinction 3.912 / V (km⁻¹);
  * less the air's own Rayleigh share, times a ~1.5 km mixed layer. The Ångström exponent sets how much more blue it
  * removes: fine haze (~1.3) reddens strongly, coarse dust (~0.3) is nearly grey and mostly dims.
  */
-export function aerosolDepth({ visibilityKm = 40, dust = false }: Aerosol = {}) {
+export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}) {
   const extinction = Math.max(0, 3.912 / Math.max(1, visibilityKm) - 0.0116)
   const tau550 = extinction * 1.5
-  const angstrom = dust ? 0.3 : 1.3
+  const angstrom = 1.3 - dustWeight
   return WAVELENGTH.map((lambda) => tau550 * (lambda / 550) ** -angstrom)
 }
 

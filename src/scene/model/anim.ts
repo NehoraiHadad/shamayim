@@ -62,7 +62,7 @@ export function flashAt(spec: AnimSpec | undefined, phase: number): number {
     if (s.at > t) break
     alpha = Math.max(alpha, stroke(t - s.at, s.twice))
   }
-  return alpha
+  return alpha * (pulse.strength ?? 1)
 }
 
 /** The frame of a strip laid at `phase` (C7): `floor(phase × fps)` round the strip; 0 without frames. */

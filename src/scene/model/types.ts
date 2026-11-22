@@ -148,7 +148,7 @@ export interface Fall { vx: number; vy: number; areas: Pt[][]; alphas?: number[]
 
 /** A one-shot meteor or a seeded lightning schedule (default cycle 600 s). */
 export type Pulse = { first: number } & (
-  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number }
+  { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number; strength?: number }
 )
 
 interface LayerBase {
@@ -203,7 +203,7 @@ export interface MoonDisc { x: number; y: number; r: number; rgb: RGB; alpha: nu
  */
 export interface BankDesc { id: string; x: number; y: number; w: number; h: number; puffs: number; seed: number
   kind: 'heap' | 'sheet' | 'streak'; alpha: number; body: RGB; shade: RGB; lit: RGB; litA: number
-  toward: readonly [number, number] | null; under: number; silver: number; rains: boolean }
+  toward: readonly [number, number] | null; under: number; silver: number; rains: boolean; rainWeight?: number }
 /** A flat wash under a deck (overcast): the sky's cover between `top` and `bottom`, fading out toward the horizon. */
 export interface Veil { top: number; bottom: number; rgb: RGB; alpha: number }
 /**
@@ -321,7 +321,8 @@ export interface Shine {
   glint?: number
   cast: { dx: number; length: number; alpha: number }
   windows: number
-  aviation: boolean
+  /** Continuous aviation lamp strength (0–1). */
+  aviationStrength: number
   lean: number
   /** C7: how far (rad) trees sway about their lean in the gusts, over the portrait's strip of frames; 0 in a calm. */
   sway?: number

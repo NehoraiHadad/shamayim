@@ -17,6 +17,8 @@ export interface AirInput {
   windDirection: number
   /** mm/h */
   precipitation: number
+  /** Interpolated liquid rain rate, including any hourly drizzle fallback. */
+  rainMmH?: number
   /** cm/h */
   snowfall: number
   /** Snow lying on the ground, metres. */
@@ -25,8 +27,19 @@ export interface AirInput {
   visibilityKm: number | null
   /** µg/m³, null when unknown */
   pm10: number | null
+  /** PM10 contribution to optical effects, eased to zero where no report is available. */
+  opticalPm10?: number
   dust: number | null
+  /** Dust or its PM10 proxy, resolved before blending weather endpoints. */
+  dustConcentration?: number
+  /** Discrete label for the readout. Drawing uses the amounts below. */
   weatherCode: number
+  /** Interpolated visual snowfall amount and rate used to raise a snow cloud. */
+  fallingSnow?: number
+  snowCloudRate?: number
+  /** 0-1 shares of thunderstorm and shower conditions. */
+  thunderWeight?: number
+  showerWeight?: number
   /** Degrees above the horizon; negative after sunset. */
   sunElevation: number
   /** Selected-hour preview: no lightning. */
@@ -56,7 +69,7 @@ export interface AirState {
     cloudDrift: number
   }
   streaks: Particles
-  rain: Particles & { slant: number; breathe: boolean }
+  rain: Particles & { slant: number; breathe: number }
   snow: Particles & { sway: number }
   grains: Particles
   cloud: { coverage: number; low: boolean; darken: number; seen?: boolean }

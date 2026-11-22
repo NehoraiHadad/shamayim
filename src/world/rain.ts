@@ -1,9 +1,12 @@
 import type { WorldCloudField } from './cloudField'
 import { altitudeOf, projectCell } from './field/project'
 import type { AirInput } from '../atmo/airTypes'
+import type { FieldWeather } from '../atmo/fieldWeather'
 import { rainRate } from './airParts'
 import { seeded } from '../data/landmarks/hash'
+import { smoothstep } from '../domain/smoothstep'
 import type { Covers } from './clouds'
+import type { Lattice } from './field/types'
 import type { SnowFall } from './snowLine'
 import type { CloudLayer, CloudLevel, Rain, Snowfall, Wind } from './types'
 
@@ -20,38 +23,48 @@ export const rainOf = (shown: AirInput) => rainRate(shown)
  * is, the low layer is raised so the rain has a cloud to fall from (the forecast's rain is the truth; its cover per
  * layer, blended from two models, may not agree with it).
  */
-export function rainingLayer(covers: Covers, rateMmH: number): { level: CloudLevel | null; covers: Covers; raised: boolean } {
-  if (rateMmH <= 0) return { level: null, covers, raised: false }
-  if (covers.low >= RAIN_COVER) return { level: 'low', covers, raised: false }
-  if (covers.mid >= RAIN_COVER) return { level: 'mid', covers, raised: false }
-  return { level: 'low', covers: { ...covers, low: RAISED_COVER }, raised: true }
+export function rainingLayer(covers: Covers, rateMmH: number): { level: CloudLevel | null; covers: Covers; raised: boolean; midWeight: number } {
+  if (rateMmH <= 0) return { level: null, covers, raised: false, midWeight: 0 }
+  const midWeight = (1 - smoothstep(0.25, RAIN_COVER, covers.low)) * smoothstep(0.25, RAIN_COVER, covers.mid)
+  if (covers.low >= RAIN_COVER) return { level: 'low', covers, raised: false, midWeight }
+  if (covers.mid >= RAIN_COVER) return { level: 'mid', covers, raised: false, midWeight }
+  // The extra cover grows with the shower and tapers as an existing layer becomes thick enough to rain.
+  const weight = smoothstep(0, 0.2, rateMmH) * (1 - smoothstep(0.25, RAIN_COVER, Math.max(covers.low, covers.mid)))
+  return { level: 'low', covers: { ...covers, low: covers.low + (RAISED_COVER - covers.low) * weight }, raised: true, midWeight }
 }
 
 /** Rank the actual on-cells. Low candidates are the individually drawn cells within 10 km. Towers reach 80 km, beyond their raster. */
-export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, weatherCode: number, preview: boolean,
-  humidity: number | null, groundAboveEyeKm: number | ((eastKm: number, northKm: number) => number)): Rain | null {
-  const level = cloud.field.rain?.level
-  if (rateMmH <= 0 || !level) return null
+export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind,
+  { steadyRain, fallMs, dryVirga }: Pick<FieldWeather, 'steadyRain' | 'fallMs' | 'dryVirga'>,
+  thunderWeight: number, groundAboveEyeKm: number | ((eastKm: number, northKm: number) => number)): Rain | null {
+  const rain = cloud.field.rain
+  if (rateMmH <= 0 || !rain) return null
   const candidates = cloud.snapshot
-    .filter(({ layer }) => layer?.lattice === level || (level === 'low' && layer?.lattice === 'tower'))
     .flatMap(({ cells, layer }) => cells.filter(cell => cell.rainWeight > 0).map(cell => ({ cell, layer: layer!, area: cell.r * (cell.rMinor ?? cell.r),
       score: cell.rainWeight * cell.tau0 * cell.r ** 2 })))
     .sort((a, b) => Number(b.cell.lattice === 'tower') - Number(a.cell.lattice === 'tower')
       || b.score - a.score)
-  const total = candidates.reduce((sum, item) => sum + item.area, 0)
-  const fraction = rainAreaShare(weatherCode, rateMmH)
-  const fallMs = weatherCode >= 71 && weatherCode <= 77 ? 1 : rateMmH < 0.5 ? 1.5 : rateMmH < 2.5 ? 4 : rateMmH < 8 ? 6 : 8
+  const groupOf = (lattice: Lattice): CloudLevel => lattice === 'tower' ? 'low' : lattice
+  const total = new Map<CloudLevel, number>()
+  for (const { layer, area } of candidates) {
+    const group = groupOf(layer.lattice)
+    total.set(group, (total.get(group) ?? 0) + area)
+  }
+  const fraction = rainAreaShare(steadyRain, rateMmH)
   const toward = wind.towardDeg * Math.PI / 180
   const groundWind = [Math.sin(toward) * wind.ms * 0.06, Math.cos(toward) * wind.ms * 0.06]
-  let cumulative = 0, near = false
+  const cumulative = new Map<CloudLevel, number>()
   const cells: Rain['cells'] = []
   for (const { cell, layer, area } of candidates) {
-    const start = cumulative / total
-    cumulative += area
-    const end = cumulative / total
-    const share = (rainRankIntegral(end, fraction) - rainRankIntegral(start, fraction)) / (end - start)
-    if (share <= 0) break
-    const dry = rateMmH < 0.2 && humidity !== null && humidity < 45
+    const group = groupOf(layer.lattice)
+    const previous = cumulative.get(group) ?? 0
+    const areaSum = total.get(group)!
+    const start = previous / areaSum, end = (previous + area) / areaSum
+    cumulative.set(group, previous + area)
+    if (end <= start || start >= fraction + 0.05) continue
+    const levelWeight = rain.midWeight === undefined ? 1 : group === 'mid' ? rain.midWeight : 1 - rain.midWeight
+    const share = levelWeight * (rainRankIntegral(end, fraction) - rainRankIntegral(start, fraction)) / (end - start)
+    if (share <= 0) continue
     const vx = layer.vel[0] - groundWind[0], vy = layer.vel[1] - groundWind[1]
     let x = cell.x, y = cell.y, virga = 1
     // Solve for the ground at the displaced foot. Successive estimates stop
@@ -59,7 +72,7 @@ export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, we
     for (let i = 0; i < 12; i++) {
       const footAboveEyeKm = typeof groundAboveEyeKm === 'number' ? groundAboveEyeKm : groundAboveEyeKm(x, y)
       const depth = Math.max(0, cell.baseKm - footAboveEyeKm)
-      virga = Math.min(1, depth > 2.5 ? 2.5 / depth : 1, dry ? humidity / 45 : 1)
+      virga = Math.min(depth > 2.5 ? 2.5 / depth : 1, dryVirga)
       const trail = virga ** 2 * depth / (2 * fallMs * 0.06)
       const nextX = cell.x - vx * trail, nextY = cell.y - vy * trail
       const residual = Math.hypot(nextX - x, nextY - y)
@@ -69,18 +82,18 @@ export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind, we
     }
     const radiusKm = 0.6 * cell.r
     const atEye = virga === 1 && Math.hypot(x, y) <= radiusKm
-    near ||= atEye
     const projected = projectCell(cell)
     const half = Math.atan2(radiusKm, projected.rangeKm) * 180 / Math.PI
-    cells.push({ x, y, radiusKm, share, virga, fromAzimuth: projected.az - half, toAzimuth: projected.az + half,
+    cells.push({ level: group, x, y, radiusKm, share, virga, fromAzimuth: projected.az - half, toAzimuth: projected.az + half,
       bank: String(cell.id), atEye, baseKm: cell.baseKm, cloudX: cell.x, cloudY: cell.y, seed: cell.seed })
   }
-  return { rateMmH, cells, near, slant: Math.atan(wind.ms * wind.across / fallMs), thunder: weatherCode >= 95 && !preview }
+  return { rateMmH, cells, near: cells.some(cell => cell.atEye), slant: Math.atan(wind.ms * wind.across / fallMs),
+    thunder: thunderWeight > 0, thunderWeight }
 }
 
-export function rainAreaShare(code: number, rate: number) {
-  if ((code >= 51 && code <= 65) || (code >= 71 && code <= 75)) return 0.9
-  return Math.max(0.08, Math.min(0.6, rate / (4 + 2 * rate)))
+export function rainAreaShare(steadyWeight: number, rate: number) {
+  const showers = Math.max(0.08, Math.min(0.6, rate / (4 + 2 * rate)))
+  return showers + (0.9 - showers) * steadyWeight
 }
 
 // Integral of the descending smoothstep over a symmetric 0.1-wide area ramp.
@@ -91,11 +104,11 @@ function rainRankIntegral(rank: number, fraction: number) {
 }
 
 /** Provide bank IDs to the existing shaft painter until it can consume physical shaft geometry. */
-export function rainBanks(rain: Rain): CloudLayer['banks'] {
+export function rainBanks(rain: Rain) {
   return rain.cells.map(cell => {
     const distanceKm = Math.hypot(cell.cloudX, cell.cloudY)
     const altitude = altitudeOf(cell.baseKm, distanceKm)
-    return { id: cell.bank, distanceKm, altitude: cell.atEye ? Math.max(30, altitude) : Math.min(29.999, altitude),
+    return { level: cell.level, id: cell.bank, distanceKm, altitude: cell.atEye ? Math.max(30, altitude) : Math.min(29.999, altitude),
       azimuth: (cell.fromAzimuth + cell.toAzimuth) / 2, w: (cell.toAzimuth - cell.fromAzimuth) / 0.6,
       h: 1, puffs: 3, seed: cell.seed, share: cell.share }
   })
@@ -109,12 +122,14 @@ export function snowFrom(layers: readonly CloudLayer[], snow: SnowFall | null, w
   const layer = layers.find((l) => l.rains)
   if (!snow?.falling || !layer || !layer.banks.length) return null
   const r = seeded(seed)
-  const share = Math.min(1, Math.max(0.3, snow.amount))
-  let falling = layer.banks.filter(() => r() < share)
-  if (!falling.length) falling = [layer.banks[0]]
+  const share = Math.min(1, Math.max(0.3, snow.fallAmount))
+  const banks = layer.banks.filter((bank) => !bank.seen)
+  let falling = banks.filter(() => r() < share)
+  if (!falling.length) falling = banks.slice(0, 1)
+  if (!falling.length) return null
   const slant = Math.min((65 * Math.PI) / 180, Math.atan((wind.ms * Math.abs(wind.across)) / 1.2))
   return {
-    amount: snow.amount,
+    amount: snow.fallAmount,
     cells: falling.map((bank) => ({ fromAzimuth: bank.azimuth - bank.w / 2, toAzimuth: bank.azimuth + bank.w / 2, bank: bank.id })),
     slant: Math.sign(wind.across) * slant,
   }

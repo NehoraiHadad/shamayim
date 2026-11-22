@@ -1,8 +1,9 @@
+import { coinOf } from '../../world/air'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
-import { coinOf, coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
+import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
@@ -23,9 +24,9 @@ const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
 export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): Disc | null {
   const sun = world.bodies.sun
   if (!sun.up) return null
-  const aerosol = { visibilityKm: world.air.visibilityKm, dust: world.air.dust }
+  const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
-  const coin = coinOf(world)
+  const coin = coinOf(aerosol)
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)
   const limb: RGB = mixRgb([rgb[0] * 0.86, rgb[1] * 0.78, rgb[2] * 0.66], COIN, coin)
   return {

@@ -1,5 +1,4 @@
 import { airInput } from '../atmo/airInput'
-import type { AirInput } from '../atmo/airTypes'
 import { hashId } from '../data/landmarks/hash'
 import type { LandData } from '../data/land/types'
 import type { SceneTerrain } from '../data/terrain/terrain'
@@ -22,33 +21,38 @@ import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { terrainPlanes, terrainY, unknownLand } from './terrain'
 import type { WorldInput, WorldLabels, WorldState } from './types'
+import { isSnowHour } from './snowLine'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf } from './water'
 
 export const hourKey = (at: LocalTime) => `${at.slice(0, 13)}:00`
 
-/** The air of the shown minute as App reduces it (`airInput`), plus satellite single clouds and dev overrides. */
-export function shownAir(input: Pick<WorldInput, 'forecast' | 'now' | 'place' | 'selected' | 'seenClouds' | 'forced'>): AirInput {
+/** The same timeline as App, with the satellite's single clouds and the dev overrides. */
+export function shownAir(input: Pick<WorldInput, 'forecast' | 'now' | 'place' | 'selected' | 'seenClouds' | 'forced' | 'arrivalMs' | 'observedCloud'>) {
   const { forecast, now, place, selected } = input
-  return { ...airInput(forecast, now, place, selected), cloudsSeen: selected ? 0 : input.seenClouds?.length ?? 0, ...input.forced }
+  return { ...airInput(forecast, now, place, selected, input.forced, input),
+    cloudsSeen: selected && selected !== now ? 0 : input.seenClouds?.length ?? 0 }
 }
+
+const liquidPrecipitation = (hour: HourPoint) => isSnowHour(hour) ? 0 : hour.precipitation
 
 /** How wet the ground is (0–1): the shown hour's rain, and the three hours before it, fading as it dries. */
 export function groundWet(hours: readonly HourPoint[], at: LocalTime, shownRate: number): number {
   const index = hours.findIndex((h) => h.time === hourKey(at))
   let wet = Math.min(1, shownRate / 0.8)
-  for (let k = 1; k <= 3 && index - k >= 0; k++) wet = Math.max(wet, Math.min(1, hours[index - k].precipitation / 0.8) * (1 - k / 4))
+  for (let k = 1; k <= 3 && index - k >= 0; k++) wet = Math.max(wet, Math.min(1, liquidPrecipitation(hours[index - k]) / 0.8) * (1 - k / 4))
   return wet
 }
 
-/** `groundWet` read straight between the shown minute's hour and the next, never a step on the hour. */
+/** Read ground wetness between the two hours while the rain rate comes from the shown weather. */
 export function wetBetween(hours: readonly HourPoint[], at: LocalTime, shownRate: number): number {
   const f = Number(at.slice(14, 16)) / 60
   const floor = `${at.slice(0, 13)}:00` as LocalTime
   const index = hours.findIndex((h) => h.time === floor)
   const next = hours[index + 1]
   if (index < 0 || !next || f <= 0) return groundWet(hours, at, shownRate)
-  const a = groundWet(hours, floor, hours[index].precipitation), b = groundWet(hours, next.time, next.precipitation)
+  const a = groundWet(hours, floor, 0), b = groundWet(hours, next.time, 0)
+  // The shown rate already includes the current hour and its observation. Interpolate only the historical wetness.
   return Math.max(Math.min(1, shownRate / 0.8), a + (b - a) * f)
 }
 

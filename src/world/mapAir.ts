@@ -1,5 +1,5 @@
 import type { AirInput, AirState } from '../atmo/airTypes'
-import { cloud, grains, haze, heat, rain, rainRate, rays, snow, streaks, windU } from './airParts'
+import { cloud, dustShare, grains, haze, heat, rain, rainRate, rays, snow, streaks, windU } from './airParts'
 
 const NONE = { count: 0, speed: 0, length: 0, alpha: 0 }
 
@@ -19,18 +19,18 @@ export function mapAir(i: AirInput): AirState {
       cloudDrift: Math.max(1.5, 0.4 * i.windSpeed) * Math.sign(u || 1),
     },
     streaks: streaks(i.windSpeed, u),
-    rain: rain(r, i.windSpeed, u, i.weatherCode),
+    rain: rain(r, i.windSpeed, u, i.showerWeight ?? Number(i.weatherCode >= 80 && i.weatherCode <= 82)),
     snow: snow(i.snowfall),
     grains: grains(i),
     cloud: { ...cloud(i.cloudCover, r), seen: (i.cloudsSeen ?? 0) > 0 },
     heat: heat(i, r),
     haze: { farFade: 0, nearFade: 0, amount: 0, color: '' },
     rays: { alpha: rays(i, r) },
-    thunder: i.weatherCode >= 95 && !i.preview,
+    thunder: (i.thunderWeight ?? Number(i.weatherCode >= 95)) > 0 && !i.preview,
     sunCoin: 0,
   }
   st.haze = haze(i, r, st.heat.bloom > 0)
-  st.sunCoin = st.haze.color === '#D7BE8C' ? st.haze.farFade : 0
+  st.sunCoin = dustShare(i) * st.haze.farFade
 
   // One carrier per variable: wind shows through rain or dust when they are there.
   if (r >= 0.5 || st.grains.count > 0) st.streaks = { ...st.streaks, count: Math.round(st.streaks.count * 0.3) }

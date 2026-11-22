@@ -1,5 +1,6 @@
 import { isField, type GlyphKind } from '../../../world/glyphSpecs'
 import type { GlyphDesc, Shine } from '../../model/types'
+import { castShadow } from '../castShadow'
 import { css, type Ctx2D } from '../hand'
 import { azrieli } from '../icons/azrieli'
 import { babShrine } from '../icons/babShrine'
@@ -39,33 +40,13 @@ const DRAW: Record<GlyphKind, Draw> = {
   chordsBridge,
 }
 
+const GLYPH_CONTACT = { alpha: .55, height: .9 }
+const GLYPH_CAST = { alpha: 1, inset: 0, edgeY: -.2, tipY: .6, bottomY: 1.3, tipInset: (reach: number) => Math.min(1.2, reach) }
+
 /** The glyph's cast shadow on the ground, away from the light, and its contact shade (screen px). */
 export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
   if (isField(d.kind)) return
-  const half = d.w / 2
-  const height = d.h * d.scale
-  ctx.fillStyle = css(d.tones.deep, 0.55)
-  ctx.fillRect(d.x - half - 0.2, d.base - 0.3, d.w + 0.4, 0.9)
-  if (shine.cast.alpha <= 0 || !shine.cast.dx) return
-  const dir = Math.sign(shine.cast.dx)
-  // The shadow's reach across the screen is its run's across part: a light straight ahead or behind casts it toward or
-  // away from the eye, foreshortened to a stub (it shrinks to the contact shade, never flips at full length).
-  const reach = Math.min(14, shine.cast.length * height * 0.6 * Math.min(1, Math.abs(shine.cast.dx) * 1.6))
-  if (reach <= 0) return
-  const from = d.x + dir * half, to = d.x + dir * (half + reach)
-  const g = ctx.createLinearGradient(from, 0, to, 0)
-  // Fade the cast through its last screen pixel, leaving only the contact shade.
-  g.addColorStop(0, css(d.tones.shade, shine.cast.alpha * Math.min(1, reach)))
-  g.addColorStop(1, css(d.tones.shade, 0))
-  ctx.beginPath()
-  ctx.moveTo(d.x - dir * half, d.base)
-  ctx.lineTo(d.x + dir * half, d.base - 0.2)
-  ctx.lineTo(to, d.base + 0.6)
-  ctx.lineTo(to - dir * Math.min(1.2, reach), d.base + 1.3)
-  ctx.lineTo(d.x - dir * half, d.base + 1.3)
-  ctx.closePath()
-  ctx.fillStyle = g
-  ctx.fill()
+  castShadow(ctx, { x: d.x, base: d.base, w: d.w, h: d.h * d.scale }, d.tones, shine.cast, GLYPH_CONTACT, GLYPH_CAST)
 }
 
 /**
@@ -92,15 +73,16 @@ export function glyphLight(shine: Shine): number {
 /** Lamps: a soft halo, then the hot core (screen px). */
 export function drawLamps(ctx: Ctx2D, lamps: readonly Lamp[], hair: number) {
   for (const l of lamps) {
+    const fade = l.fade ?? 1
     const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r)
-    g.addColorStop(0, css(l.c, 0.55 * l.a))
-    g.addColorStop(0.35, css(l.c, 0.18 * l.a))
+    g.addColorStop(0, css(l.c, 0.55 * l.a * fade))
+    g.addColorStop(0.35, css(l.c, 0.18 * l.a * fade))
     g.addColorStop(1, css(l.c, 0))
     ctx.fillStyle = g
     ctx.beginPath()
     ctx.arc(l.x, l.y, l.r, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = css(l.c, Math.min(1, l.a + 0.1))
+    ctx.fillStyle = css(l.c, Math.min(1, l.a + 0.1) * fade)
     const s = Math.max(hair, 0.5)
     ctx.fillRect(l.x - s / 2, l.y - s / 2, s, s)
   }

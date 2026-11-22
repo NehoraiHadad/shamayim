@@ -46,6 +46,10 @@ export class RemoteQueue {
     return true
   }
 
+  has(slot: string) {
+    return this.pending.has(slot)
+  }
+
   drop(slot: string) {
     this.pending.delete(slot)
   }

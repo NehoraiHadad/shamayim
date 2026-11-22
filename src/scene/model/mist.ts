@@ -1,11 +1,12 @@
 //# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
+import { coinOf } from '../../world/air'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import { landBoxKey, layerKey } from './keys'
 import { hazeOf } from './landVeil'
-import { coinOf, skyAt } from './sky'
+import { skyAt } from './sky'
 import { mixRgb } from './tone'
 import type { LayerOf, MistBandDesc, MistPuff, Pt, RGB, SceneBox } from './types'
 
@@ -38,9 +39,9 @@ const median = (v: number[]) => {
   return s.length ? s[Math.floor(s.length / 2)] : 0
 }
 
-/** How misty the air is (0–1): read from the world's mist state, always 0 in dust. */
+/** How misty the air is (0–1), after the world's dust attenuation. */
 export function mistiness(world: WorldState): number {
-  return world.air.dust ? 0 : world.air.mist.amount
+  return world.air.mist.amount
 }
 
 /** Seeded puffs along a band's top, wrapping round the tile. */
@@ -60,17 +61,20 @@ function puffsOf(seed: string, w: number, top: number, depth: number, n: number)
  */
 export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] {
   const m = mistiness(world)
-  if (m <= 0.08) return []
+  const clearShare = 1 - world.air.dustWeight
+  // Apply the band thresholds to the water mist, then fade its opacity as dust replaces it.
+  if (clearShare === 0 || m <= 0.08 * clearShare) return []
+  const moisture = m / clearShare
   const sx = box.width / SCENE_W
   const xs = Array.from({ length: 16 }, (_, i) => (i + 0.5) * (SCENE_W / 16))
   const nearMed = median(xs.map((x) => crestAt(world.terrain.near.points, x)))
   const farMed = world.terrain.far.points.length ? median(xs.map((x) => crestAt(world.terrain.far.points, x))) : nearMed - 20
   const dark = world.night.dark
   const sky = skyAt(world, box)
-  const rgb = mixRgb(mixRgb(sky(3), hazeOf(world), 0.35), WHITE, 0.3 * (1 - dark) * (1 - 0.5 * coinOf(world)))
+  const rgb = mixRgb(mixRgb(sky(3), hazeOf(world), 0.35), WHITE, 0.3 * (1 - dark) * (1 - 0.5 * coinOf(world.air)))
   const period = whole(240, box.dpr)
   const across = world.wind.across
-  const speed = (Math.abs(across) > 0.05 ? Math.sign(across) : 1) * (0.5 + 0.55 * world.wind.ms) * sx
+  const speed = (2 * smoothstep(-0.05, 0.05, across) - 1) * (0.5 + 0.55 * world.wind.ms) * sx
   const out: LayerOf<'mist'>[] = []
   const add = (id: string, z: number, band: MistBandDesc) => {
     const y0 = Math.max(0, Math.floor(band.top - 10)), y1 = Math.min(box.landHeight, Math.ceil(band.bottom))
@@ -79,21 +83,21 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
       bounds: { x: 0, y: y0, w: period, h: y1 - y0 },
       animated: { mode: 'drift', speed, period },
       key: layerKey(id, landBoxKey(box, true), period, y0, y1),
-      light: lightPart(layerKey(id, 'light', q(band.top, 0.5), q(band.fade, 0.5), q(band.bottom, 0.5), tone(band.rgb), q(band.alpha, 0.02),
+      light: lightPart(layerKey(id, 'light', q(band.top, 0.5), q(band.fade, 0.5), q(band.bottom, 0.5), tone(band.rgb), Math.round(band.alpha * 255),
         band.puffs.length), band.rgb) })
   }
   // The valley's lake of mist: its top a few px over the near crest at first, rising toward the far crest.
   const rise = Math.max(4, nearMed - farMed)
   const top = nearMed - (5 + 0.75 * m * rise)
-  const valleyAlpha = (0.35 + 0.5 * m) * smoothstep(0.08, 0.25, m)
+  const valleyAlpha = (0.35 + 0.5 * m) * clearShare * smoothstep(0.08, 0.25, moisture)
   add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: valleyAlpha,
     puffs: puffsOf(`${world.place.id}:mist.valley`, period, top - 4, 10, 9) })
   // Ground fog over the near ridge's foot, only on data-reported fog; alpha eases continuously from 0 at the threshold.
-  const fog = Math.min(m, world.air.mist.fog)
+  const fog = Math.min(m, world.air.mist.fog) / clearShare
   if (fog > 0.3) {
     const k = Math.min(1, (fog - 0.3) / 0.7)
     const gTop = box.landHeight - (14 + k * (box.landHeight - nearMed) * 0.75)
-    const groundAlpha = (0.2 + 0.4 * k) * smoothstep(0.3, 0.5, fog)
+    const groundAlpha = (0.2 + 0.4 * k) * clearShare * smoothstep(0.3, 0.5, fog)
     add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: groundAlpha,
       puffs: puffsOf(`${world.place.id}:mist.ground`, period, gTop - 4, 12, 8) })
   }

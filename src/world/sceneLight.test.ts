@@ -58,7 +58,7 @@ describe('the hour air in the sun colour', () => {
   })
 
   it('keeps coarse dust greyer than fine haze of the same visibility', () => {
-    expect(sunLight(4, { visibilityKm: 6, dust: true }).rgb[1]).toBeGreaterThan(sunLight(4, { visibilityKm: 6 }).rgb[1])
+    expect(sunLight(4, { visibilityKm: 6, dustWeight: 1 }).rgb[1]).toBeGreaterThan(sunLight(4, { visibilityKm: 6 }).rgb[1])
   })
 
   it('deepens the aerosol as the air grows hazier', () => {

@@ -1,5 +1,49 @@
-import type { OutsideLandDesc, Shine } from '../model/types'
-import { css, type Ctx2D } from './hand'
+import type { OutsideLandDesc, SeaDesc, Shine } from '../model/types'
+import { css, outline, type Ctx2D } from './hand'
+import { running, twinkling } from './water'
+
+export function paintOutsideSea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
+  const g = ctx.createLinearGradient(0, s.top, 0, s.bottom)
+  for (const [t, c] of s.stops) g.addColorStop(t, css(c))
+  outline(ctx, s.points)
+  ctx.fillStyle = g
+  ctx.fill()
+  ctx.save()
+  outline(ctx, s.points)
+  ctx.clip()
+  // Ripples: light ones catching the low sky, a darker trough under each.
+  // C7: each runs a little downwind over the loop, rising and falling as it goes.
+  for (const r of running(s.ripples, t, s.drift ?? 0, 0)) {
+    ctx.fillStyle = css(s.light, r.alpha * (1 - .5 * shine.night))
+    ctx.fillRect(r.x, r.y - .25, r.w, .4)
+    ctx.fillStyle = css(s.dark, r.alpha * .8)
+    ctx.fillRect(r.x + .3, r.y + .2, r.w * .8, .35)
+  }
+  if (s.glint) {
+    const { x, rgb, alpha } = s.glint
+    const core = ctx.createLinearGradient(x - 3, 0, x + 3, 0)
+    core.addColorStop(0, css(rgb, 0))
+    core.addColorStop(.5, css(rgb, .35 * alpha))
+    core.addColorStop(1, css(rgb, 0))
+    ctx.fillStyle = core
+    ctx.fillRect(x - 3, s.top, 6, s.bottom - s.top)
+    for (const sp of twinkling(s.glint.sparks, t)) {
+      ctx.fillStyle = css(rgb, sp.alpha)
+      ctx.fillRect(sp.x, sp.y - .2, sp.w, .45)
+    }
+  }
+  ctx.restore()
+  // The horizon: the far water mirroring the sky at grazing angle, a fine light line, level.
+  const hz = s.horizon
+  ctx.fillStyle = css(hz.rgb, hz.alpha * (1 - .5 * shine.night))
+  ctx.fillRect(hz.x0, hz.y - .25, hz.x1 - hz.x0, .5)
+  // The shore: a fine pale line where the land meets the water, broken where the sea's edge turns.
+  ctx.strokeStyle = css(s.shore, .7 - .35 * shine.night)
+  ctx.lineWidth = .55
+  ctx.beginPath()
+  s.coast.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+  ctx.stroke()
+}
 
 /**
  * Paints the place's own ground polygon over the ridge line in the outside view (C5b + Stage 3):
