@@ -847,6 +847,16 @@ Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-
 - [ ] Follow-ups: per-minute terrain sight line can step a mover's occlusion at a crest (carry it in the track);
       model cost is outside/land planes/sky, not life; `surface.ts`, `lifeSchedule.ts`, `life.ts` over 150 lines
 
+## Birds travel (owner bug "they fly in place") — 2026-11-22 (branch `claude/fix-birds-travel`)
+
+- [x] Diagnose in the built app, live: flocks moved 0.8–2.4 px / 9 s; cause `GROUP` speeds 0.5–2 m/s; prod = main bundle
+- [x] Real flock ground speeds; storks/cranes nearer; raptor thermal drift with the wind
+- [x] Lazy, memoised, frozen flock tracks (first build ≤ main); upcoming flocks laid at alpha 0; speed within ±15 %
+- [x] Tests: `birdsTravel`, `flockLazy`, laid-count gate, opacity-step continuity; browser probe `e2e/birds.motion.mjs`
+- Who wrote what: Claude (Opus 5.5) diagnosis, briefs, probe, lazy/perf tests, verification; agy Gemini 4 Neon the
+  code and test updates (rounds 1–3); Codex gpt-6.2-sol reviewed
+- [ ] Follow-ups: occlusion step at a crest on rebuild (Codex P2); per-sample yaw for near passes; split `lifeSchedule.ts`
+
 ## Polish track F — the fog band over the land (owner report) — 2026-11-22 (branch `claude/modest-jennings-b32480`)
 Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weather=damp`, `-no-<id>` = layer hidden).
 - [x] Evidence: in the fixture (RH 60 %, 30 km all day) mistiness is 0 and no mist layer exists; the sky haze band (alpha
@@ -890,6 +900,8 @@ reviews, Claude manages and draws the painters.
       Jerusalem 30 ms gap was test order (first-call model cost ~10 ms predates N2). N2d: rank before terrain work, a
       real CPU-reference perf guard, cheaper slow scene tests. All rounds written by Codex gpt-6.2-sol, reviewed by an
       Opus subagent (Neon out of quota).
+      N2d CI (run 44993185800): 5/1540 failed (purity name, shadow ratio 0.31–0.46 > 0.2, Tel Aviv sea glint), perf
+      scrub.model p95 23.6 > 15 ms (Haifa, Tel Aviv). N2e: glitter on the eye ray, one shadow layer per land plane.
 - [ ] Shadow painter (Claude): field blobs clipped to the land faces / `rim` polygon; acceptance includes track F's
       far-ridge band (`cloudShadow.far` horizontal smear) gone
 - [ ] Rain shaft, trail and virga painter (Claude) from `rain.cells`; then retire the `rainBanks` adapter
