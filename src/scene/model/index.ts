@@ -8,7 +8,7 @@ import { marksLayers } from './marks'
 import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
-import { carriedSheet, minuteStart } from './advect'
+import { carriedShadow, carriedSheet, minuteStart } from './advect'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
 import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
@@ -65,7 +65,8 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   const sky = skyLayers(world, box, life)
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []), ...cloudShadowLayers(world, box),
+    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
+    ...cloudShadowLayers(world, box).map((shadow) => carriedShadow(shadow, minuteStart(life))),
     ...weatherLayers(world, box, clouds, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }

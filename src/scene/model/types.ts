@@ -582,7 +582,8 @@ export type LayerDesc =
   | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
       /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
       clip: { crest: Pt[]; fronts: Pt[][] } | null
-      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number }[] }
+      /** Each cell's footprint; `speed` how fast its cloud's wind carries it across, land px/s (+ left → right). */
+      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number; speed: number }[] }
   /**
    * One field layer drawn as a continuous sheet over the dome (SPEC §6.0), in sky px. A grid of screen rays: `xs` the
    * column centres, `ys` the row centres (top to bottom, denser toward the horizon, where the deck compresses). Per node

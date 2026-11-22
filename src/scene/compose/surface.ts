@@ -3,7 +3,7 @@ import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
 import { paintContrail } from '../paint/contrail'
-import { layCarried } from './advect'
+import { clipToGround, layCarried } from './advect'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { formKeyOf } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
@@ -213,7 +213,9 @@ export class Surface {
         }
       }
       if (layout.blend) ctx.globalCompositeOperation = layout.blend
+      const grounded = clipToGround(ctx, layout, d)
       if (form && !cache.formless(layout)) draw(form)
+      if (grounded) ctx.restore()
       if (layout.blend) ctx.globalCompositeOperation = 'source-over'
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend

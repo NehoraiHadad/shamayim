@@ -171,16 +171,19 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
-    speeds: rowSpeeds(geom, layer.vel, east, north, ranges),
+    speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
     key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit),
   }
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet
 }
 
-/** Each row's carry across the view (px/s): the layer's wind at the row's range, along the view's mean direction. */
-function rowSpeeds(geom: SkyGeom, vel: FieldLayer['vel'], east: readonly number[], north: readonly number[], ranges: readonly number[]) {
+/**
+ * Each row's carry across the view (px/s): the layer's wind across the view's mean direction over the row's slant range
+ * (not its ground range, which vanishes overhead: the deck there moves at its wind over its height, never tears).
+ */
+function rowSpeeds(geom: SkyGeom, vel: FieldLayer['vel'], east: readonly number[], north: readonly number[], slants: readonly number[]) {
   const look: [number, number] = [east.reduce((a, b) => a + b, 0) / east.length, north.reduce((a, b) => a + b, 0) / north.length]
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
-  return ranges.map((range) => acrossSpeed(vel, look, range, perRad))
+  return slants.map((slant) => acrossSpeed(vel, look, slant, perRad))
 }
