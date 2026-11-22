@@ -101,6 +101,13 @@ function colour(c: Ctx2D, s: CloudSprite, box: { x: number; y: number; w: number
     c.fillStyle = side
     c.fillRect(box.x, box.y, box.w, box.h)
   }
+  // The sun lights the side, not the underside: the base stays in its own shade, darkest at the bottom.
+  const shadow = c.createLinearGradient(0, s.under, 0, -0.3 * s.tall)
+  shadow.addColorStop(0, css(under, 0.9))
+  shadow.addColorStop(0.4, css(under, 0.45))
+  shadow.addColorStop(1, css(under, 0))
+  c.fillStyle = shadow
+  c.fillRect(box.x, box.y, box.w, box.h)
   if (s.silver > 0.05) {
     const cx = tx * s.w * 0.3, cy = -s.tall * 0.85
     const g = c.createRadialGradient(cx, cy, 0, cx, cy, s.w * 0.6)

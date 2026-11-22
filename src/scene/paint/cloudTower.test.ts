@@ -34,3 +34,27 @@ it('flares a mature Cb up into its anvil, with no narrow neck under the cap', ()
   expect(cap).toBeGreaterThan(waist)
   expect(neck).toBeGreaterThan(0.75 * cap)
 })
+
+it('keeps the base of a sunlit tower in its own shade, over the light on its side', () => {
+  const fills: string[] = []
+  const stops: Record<number, string[]> = {}
+  let n = 0
+  const scratch = {
+    setTransform() {}, save() {}, restore() {}, scale() {}, translate() {}, fill() {}, beginPath() {}, arc() {},
+    globalCompositeOperation: '', fillStyle: null as unknown,
+    createRadialGradient: () => ({ addColorStop() {} }),
+    createLinearGradient: () => {
+      const id = n++
+      stops[id] = []
+      return { id, addColorStop: (_t: number, colour: string) => stops[id].push(colour) }
+    },
+    fillRect() { fills.push(String((scratch.fillStyle as { id?: number })?.id)) },
+  }
+  const ctx = { save() {}, restore() {}, drawImage() {}, globalAlpha: 1 } as unknown as Ctx2D
+  const env = { scale: 1, canvas: () => ({ canvas: {}, ctx: scratch }) } as unknown as PaintEnv
+  paintTower(ctx, { ...cb, anvil: 0, litA: 0.9, toward: [1, 0] } as CloudSprite, 0, 0, env)
+  // The last vertical fill is the base shade, laid after the sunlit side, and opaque at the bottom.
+  const last = Number(fills.filter((f) => f !== 'undefined').at(-1))
+  expect(last).toBeGreaterThan(1)
+  expect(stops[last][0]).toMatch(/\/ 0\.900\)$/)
+})

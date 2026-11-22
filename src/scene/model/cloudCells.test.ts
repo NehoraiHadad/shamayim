@@ -137,3 +137,14 @@ it('merges the far towers of a storm day into a soft mass along the horizon, not
     expect(sprite.tall).toBeLessThanOrEqual(sprite.w)
   }
 }, 30_000)
+
+it('hangs the curtain of the raining core beside the place under its base, in front of the towers', () => {
+  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T14:00' as LocalTime))
+  const layers = sceneModel(world, BOX).layers
+  const towers = layers.find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
+  const shafts = layers.find((l): l is LayerOf<'shafts'> => l.kind === 'shafts')!
+  expect(shafts.z).toBeGreaterThan(towers.z)
+  const near = shafts.shafts.filter((s) => s.bottom - s.top > 50)
+  expect(near.length).toBeGreaterThan(0)
+  expect(Math.max(...near.map((s) => s.alpha))).toBeGreaterThan(0.35)
+}, 30_000)
