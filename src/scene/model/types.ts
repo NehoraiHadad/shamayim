@@ -124,7 +124,7 @@ export interface Lay { x: number; y: number; scale: number; alpha: number; turn?
 export interface Advect { from: number; bands: readonly { y: number; speed: number }[] }
 
 /** When the shown time was laid on the scene timeline, and how far it was already into that minute (seconds). */
-export interface LifeClock { laidAt: number; sinceS: number }
+export interface LifeClock { laidAt: number; sinceS: number; still?: boolean }
 
 /**
  * One cycle of gusts on the clothesline (`anim.ts` `gustAt`, the stops of the old line's `GUST`), as a transform of a

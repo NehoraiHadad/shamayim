@@ -30,7 +30,7 @@ const HOLD_SECONDS = 75
 const MAX_POSES = 3
 const POSE_PX = 1.5
 
-export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number): LayerOf<'plane'> {
+export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number, animate = true): LayerOf<'plane'> {
   if (!shadow || !plane.light.litField) return plane
   const bounds = plane.bounds
   const blobs = shadow.blobs.filter((blob) => {
@@ -40,7 +40,7 @@ export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow 
   })
   if (!blobs.length) return plane
   const travel = Math.max(...blobs.map((blob) => Math.abs(blob.speed))) * HOLD_SECONDS
-  const count = travel < 0.75 ? 1 : Math.min(MAX_POSES, 1 + Math.ceil(travel / POSE_PX))
+  const count = !animate || travel < 0.75 ? 1 : Math.min(MAX_POSES, 1 + Math.ceil(travel / POSE_PX))
   const animated = count > 1 ? { mode: 'frames' as const, frames: { count, fps: (count - 1) / HOLD_SECONDS, from } } : undefined
   const key = layerKey(plane.light.key, JSON.stringify([shadow.open,
     blobs.map(({ x, y, rx, ry, opticalDepth, speed }) => [x, y, rx, ry, opticalDepth, speed])]))

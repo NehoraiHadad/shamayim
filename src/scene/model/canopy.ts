@@ -38,7 +38,7 @@ function footprintOf(veg: PlaneVegetation): CanopyFootprint {
 }
 
 /** The crowns/tufts interleave with their parent plane's light. Their placement is cached with the ground. */
-export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: readonly Box[]): LayerOf<'canopy'> | null {
+export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: readonly Box[], animate = true): LayerOf<'canopy'> | null {
   if (!plane.canopyId) return null
   const { vegetation, outline, bounds } = plane
   const { left, right, top, bottom, travel } = footprintOf(vegetation)
@@ -53,7 +53,7 @@ export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: re
     kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key, receiver: { form: plane.key, light: plane.light.key },
     bounds: { x, y, w, h }, outline, vegetation: { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust },
     clear: lean || gust ? clear : [],
-    animated: plane.animated ?? (gust ? { mode: 'frames', frames: LAND_GUST } : undefined),
+    animated: animate ? plane.animated ?? (gust ? { mode: 'frames', frames: LAND_GUST } : undefined) : undefined,
     cloudShadow: plane.cloudShadow, receiverField: plane.light.litField, receiverBounds: bounds,
     light: { key: layerKey(key, plane.light.key), blend: 'source-over', faces: [] },
   }

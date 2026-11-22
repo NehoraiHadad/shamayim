@@ -70,9 +70,9 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const shadows = cloudShadowsOf(world, box)
   const planes = planeLayers(world, box, layout.clear)
-    .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life)))
+    .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
   const wind = plantWindOf(world.wind)
-  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear) ?? [])
+  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear, !life.still) ?? [])
   const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
     ...landDustLayers(world, box), ...weatherLayers(world, box, clouds, layout.clear)]

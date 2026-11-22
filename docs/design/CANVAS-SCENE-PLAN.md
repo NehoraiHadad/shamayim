@@ -2653,7 +2653,8 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      beam transmission, and haze near the crest at finer depth than the body raster.
    - Deck openness and projected chord depth both use Beer–Lambert `exp(−τ)`. The receiver samples
      the moving field relative to the deck transmission already in the beam, then shades the stationary
-     material. Up to three bounded poses are painted into receiver-local strips. A pose inherits its
+     material. Up to three bounded poses are painted into receiver-local strips. Reduced motion requests
+     only phase zero. A pose inherits its
      plane's reveal and cache generation, and each canopy requires the displayed plane's form and light
      keys. Material samples are cached across scrub and pose changes.
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises

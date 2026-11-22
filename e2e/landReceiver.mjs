@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
 /** Browser pixels across a moving footprint, then controlled arrivals through a real paint Worker. */
-export async function receiverPixels(page) {
-  const result = await page.evaluate(async () => {
+export async function receiverPixels(page, dpr = 1) {
+  const result = await page.evaluate(async (dpr) => {
     const { Surface } = await import('/src/scene/compose/surface.ts')
     const { paintWorker } = await import('/src/scene/compose/worker.ts')
     const { shadowedPlane } = await import('/src/scene/model/planeCloudShadow.ts')
@@ -30,8 +30,8 @@ export async function receiverPixels(page) {
     const withShadow = shadowedPlane(plane, shadow, 10)
     const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true })
     const local = new Surface(canvas)
-    local.resize(96, 48, 1)
-    const sample = (x, y) => Array.from(ctx.getImageData(x, y, 1, 1).data)
+    local.resize(96, 48, dpr)
+    const sample = (x, y) => Array.from(ctx.getImageData(x * dpr, y * dpr, 1, 1).data)
     const material = (phase) => [sample(24, 25), sample(72, 25), sample(47, 25), phase]
     local.render([plane], 10)
     const unshadowed = material(10)
@@ -39,15 +39,17 @@ export async function receiverPixels(page) {
     const first = material(10)
     local.lay(85)
     const moved = material(85)
+    local.render([shadowedPlane(plane, shadow, 10, false)], 85, true)
+    const still = material(10)
 
     const remoteCanvas = document.createElement('canvas')
     const remoteCtx = remoteCanvas.getContext('2d', { willReadFrequently: true })
     const remoteWorker = paintWorker()
     if (!remoteWorker) throw Error('The receiver test needs the production canvas Worker')
     const remote = new Surface(remoteCanvas, { worker: () => remoteWorker })
-    remote.resize(96, 48, 1)
+    remote.resize(96, 48, dpr)
     const canopy = canopyOf(withShadow, { lean: 0, gust: 0 }, [])
-    const pixels = () => Array.from(remoteCtx.getImageData(19, 14, 10, 11).data)
+    const pixels = () => Array.from(remoteCtx.getImageData(19 * dpr, 14 * dpr, 10 * dpr, 11 * dpr).data)
     remote.paint(canopy)
     remote.flush()
     await remote.settled()
@@ -69,9 +71,10 @@ export async function receiverPixels(page) {
     remote.composite([withShadow], 10)
     const planeOnly = pixels()
     remoteWorker.terminate()
-    return { unshadowed, first, moved, missing, paired, stale, planeOnly }
-  })
-  const { unshadowed, first, moved, missing, paired, stale, planeOnly } = result
+    return { unshadowed, first, moved, still, missing, paired, stale, planeOnly }
+  }, dpr)
+  const { unshadowed, first, moved, still, missing, paired, stale, planeOnly } = result
+  assert.deepEqual(still, first)
   assert.deepEqual(first[1], unshadowed[1])
   assert.deepEqual(moved[0], unshadowed[0])
   assert.deepEqual(first[2], moved[2])
@@ -80,5 +83,5 @@ export async function receiverPixels(page) {
   assert.ok(missing.every((channel) => channel === 0), 'an early canopy must leave a transparent canvas')
   assert.deepEqual(stale, planeOnly, 'a canopy carrying the new light must wait for the plane')
   assert.notDeepEqual(paired, planeOnly, 'the paired canopy must be visible')
-  console.log('Rendered shadow boundary and delayed Worker receiver checks passed')
+  console.log(`Rendered shadow boundary and delayed Worker receiver checks passed at ${dpr}×`)
 }

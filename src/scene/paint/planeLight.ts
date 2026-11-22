@@ -39,7 +39,7 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
   ctx.save()
 
   if (litField && desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    const pass = solarTransmission(desc.cloudShadow, env.phase)
+    const pass = solarTransmission(desc.cloudShadow, desc.animated?.frames ? env.phase : 0)
     paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, pass)
     const litVeg = desc.vegetation
     const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, pass)

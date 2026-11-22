@@ -81,6 +81,7 @@ try {
   try {
     await page.goto(server.url + '/scene.html')
     await receiverPixels(page)
+    await receiverPixels(page, 2)
   } catch (error) {
     failures.push(error.message)
   } finally {
