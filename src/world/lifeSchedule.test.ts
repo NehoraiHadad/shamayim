@@ -217,13 +217,14 @@ describe('the life schedule', () => {
         const schedule = lifeSchedule({ placeId: place.id, date, camera, lat: place.lat, lon: place.lon, flight },
           (at) => lifeInputAt(input, at, { camera, env }))
         for (const e of schedule.flocks) {
-          const laid = e.lay()
-          const ratio = laid.rate / e.speedMs
+          // Measured from the sampled ground positions (2 s apart, mid-session), not from the laid track's metadata.
+          const mid = (e.t0 + e.t1) / 2, a = flockAt(e, mid - 1).at, b = flockAt(e, mid + 1).at
+          const ratio = (Math.hypot(b.e - a.e, b.n - a.n) * 1000) / 2 / e.speedMs
           ratios.push(ratio)
-          if (ratio <= 0.87 + 1e-9) lowClamped++
-          if (ratio >= 1.15 - 1e-9) highClamped++
-          expect(ratio, `${place.id} ${e.id}`).toBeGreaterThanOrEqual(0.87 - 1e-9)
-          expect(ratio, `${place.id} ${e.id}`).toBeLessThanOrEqual(1.15 + 1e-9)
+          if (ratio <= 0.87 + 1e-3) lowClamped++
+          if (ratio >= 1.15 - 1e-3) highClamped++
+          expect(ratio, `${place.id} ${e.id}`).toBeGreaterThanOrEqual(0.87 * 0.98)
+          expect(ratio, `${place.id} ${e.id}`).toBeLessThanOrEqual(1.15 + 1e-3)
           expect(flockAt(e, e.t0).fade, `${place.id} ${e.id} t0`).toBe(0)
           expect(flockAt(e, e.t1).fade, `${place.id} ${e.id} t1`).toBe(0)
         }

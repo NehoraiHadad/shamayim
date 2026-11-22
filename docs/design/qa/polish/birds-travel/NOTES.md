@@ -26,12 +26,16 @@ Branch `claude/fix-birds-travel`. Briefs `BRIEF-neon-1..3.md`, reports `IMPL-1..
 
 ## Measured after
 
-- Browser probe, built branch, live: 14–37 px in 9 s (Haifa 16:00, Tel Aviv 15:00).
+- Browser probe, built branch, live, each cluster matched to a world flock's projected x: Haifa 16:00 crow 16.9 px,
+  pigeon 26.4 px; Tel Aviv 15:00 gull 15.7 px in 9 s (main: 0.8–2.4 px).
 - `birdsTravel.test.ts`: visible flocks in the sky, 10 s, three places: median of those within 1.5 km ≥ 8 px, every
   flock within 700 m ≥ 5 px.
 
 ## Follow-up (not done)
 
+- Codex round 2 P2 (deferred, track C follow-up #1): at a rebuild a flock passing behind a crest can step in occlusion
+  (Tiberias gull:10 at 09:05), because sight lines are judged per track sample, not re-judged when the strip is rebuilt.
+- Codex round 2 P3 (accepted): a laid track's `pts` Float32Array is frozen only by reference; no caller writes it.
 - A strip's yaw and view are held for the minute: on a fast near pass the apparent heading can swing (Codex: a crow
   at Haifa 10:23 turns 133° in 59 s while the strip keeps its first yaw). Needs per-sample yaw in the track.
 - `src/world/lifeSchedule.ts` is ~650 lines (was 583): split the flock schedule out.

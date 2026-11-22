@@ -49,7 +49,18 @@ try {
     await page.waitForTimeout(4000)
     const box = await page.locator('figure[data-canvas]').boundingBox()
     const clip = { x: 0, y: box.y - 100, width: 375, height: box.height * 0.6 + 100 }
-    const flocks = await page.evaluate(() => (window.__world?.life?.birds ?? []).map((f) => `${f.kind}×${f.count}@${Math.round(f.distanceM)}m`))
+    // The world's flocks and where their first 30 s of samples project across the view (`domain/camera.ts` xOf).
+    const world = await page.evaluate(() => {
+      const w = window.__world, c = w?.camera
+      const xOf = (az) => c.width / 2 + c.handed * c.pxPerDeg * ((((az - c.heading) % 360) + 540) % 360 - 180)
+      return (w?.life?.birds ?? []).map((f) => {
+        const xs = (f.samples ?? [f]).slice(0, 16).map((p) => xOf(p.azimuth))
+        return { name: `${f.kind}×${f.count}@${Math.round(f.distanceM)}m`, x0: Math.min(...xs), x1: Math.max(...xs) }
+      })
+    })
+    const flocks = world.map((f) => f.name)
+    /** A followed cluster is a flock only if a world flock projects within 60 px of it across (anything else: not a bird). */
+    const flockOf = (tr) => world.find((f) => tr.every((p) => p.x >= f.x0 - 60 && p.x <= f.x1 + 60))
     const shots = []
     const t0 = Date.now()
     let last = await page.screenshot({ clip })
@@ -59,15 +70,15 @@ try {
       shots.push({ t: (Date.now() - t0) / 1000, marks: (await findMarks(page, last, shot)).map((m) => ({ ...m, x: m.x / 2, y: m.y / 2 })) })
       last = shot
     }
-    const tracks = follow(shots)
+    const followed = follow(shots), tracks = followed.filter(flockOf)
     measured += tracks.length
-    console.log(`${id}@${hour}  world flocks: ${flocks.join(', ') || 'none'}  clusters followed: ${tracks.length}`)
+    console.log(`${id}@${hour}  world flocks: ${flocks.join(', ') || 'none'}  clusters followed: ${followed.length}, matched to a flock: ${tracks.length}`)
     for (const tr of tracks) {
       const a = tr[0], b = tr[tr.length - 1], d = Math.hypot(b.x - a.x, b.y - a.y), v = d / Math.max(1e-6, b.t - a.t)
       const ok = d >= least
       if (!ok) failed++
       console.log(`  ${ok ? 'ok  ' : 'FAIL'} (${a.x.toFixed(0)},${a.y.toFixed(0)}) → (${b.x.toFixed(0)},${b.y.toFixed(0)}) over ${(b.t - a.t).toFixed(1)} s:`
-        + ` ${d.toFixed(1)} px, ${v.toFixed(2)} px/s, ${a.n} marks  path ${tr.map((p) => `${p.x.toFixed(0)},${p.y.toFixed(0)}`).join(' ')}`)
+        + ` ${d.toFixed(1)} px, ${v.toFixed(2)} px/s (${flockOf(tr).name})  path ${tr.map((p) => `${p.x.toFixed(0)},${p.y.toFixed(0)}`).join(' ')}`)
     }
     await context.close()
   }
