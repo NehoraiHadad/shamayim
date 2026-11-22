@@ -270,3 +270,31 @@ The same-layer light comparison uses the snapshot ray integrator that supplies t
 The sheet skips zero-blend lattices, samples texture only where depth is above the floor or footprint blending is active, drops texture octaves finer than the footprint, reuses seeded noise caches across frames, and hoists direction, lighting, and snapshot sampler work out of the node loops. No local profiling or panorama performance run was performed under the cloud-only benchmark rule. The grid retains the 12 px row cap and 48 columns in the 375 px fixture pending a measured comparison to the 1.5 ms and 0.25 budgets.
 
 TypeScript build-mode checking (no emit), targeted Oxlint and the tracked diff whitespace check passed. The sky and scene-model files passed all 72 tests. They started in separate one-worker, low-priority invocations, but overlapped when the sky command returned a running session. The sheet model passed three of six tests. There is no `clouds.test.ts` in this tree. The panorama benchmark and visual review remain pending.
+
+## Round 11 (N3d)
+
+The original Jerusalem 11:30 broken fixture inherited the recorded layer proportions. Its low and tower cover were zero, mid Ac was 0.350, and high Ci was 0.308. Every lattice had zero sheet weight, blend and alpha. The mid diagnostics sampled a clear column and high vertical optical depth ranged from 0 to 0.140 on the diagnostic rays. The harness now pins the broken fixture to 0.60 low cover. The low sheet uses the stratiform weight and the 0.60 fixture selects Sc at full blend. Equal-area sampling across a 40 km square measured 0.580 world-area coverage.
+
+The sheet shades from two-stream diffuse transmission with transport coefficient `0.75 × (1 − 0.85) = 0.1125`. Above-layer attenuation uses the clear-column reference for the place and hour and averages cloudy and clear paths. The forward component decays by `exp(−τs)`. At full blend, the deck, wash and ordinary banks step aside. Observed cells, convective banks and low horizon heaps are retained.
+
+The eye ray crosses the whole cell. With vertical depth `τ₀ = κv`, integrating through a chord of length `ℓ` yields `∫κ ds = τ₀ℓ/v`. For a vertical centre ray `ℓ = v`, giving `τ₀`. Both exact chord intersections and the reference column quadrature use full depth, including the ensemble and floor terms. The sheet blends the resolved solar chord into the nearest solar texel and retains the projected kernel over the rest of the dome.
+
+The pointwise continuity bound applies the Beer–Lambert slope `exp(−min(τs₁, τs₂))` to each optical-depth difference, averages the bounds for the advected taps and adds changes in the path and footprint weights. The excess allowance is 0.02. The sweep averages transmissions along the wind trajectory. Separate finer texture still controls the diffuse tone. Dense-ray checks now require full path, a resolved footprint and slant depth above 2 across the contributing rays.
+
+Replaying the previous mid-lattice ray at 66.05° reproduced α 0.2436. It had vertical depth 2.2756, full path, zero footprint blend, slant multiplier 1.0941 and texture 0.1121. The thin texture reduced the effective depth to 0.279, which gives α 0.2436 by Beer–Lambert.
+
+At each tested node the continuity change stayed within the bound. The one-minute Δα p99 was 0.1021 low, 0.0909 mid and 0.0452 high. Minimum qualifying dense α was 0.9821, 0.9361 and 0.8683, respectively. The solar-node error against independent 20 m column quadrature was at most 0.000066 in Jerusalem, 0.000208 in Haifa and 0.000041 in Tiberias.
+
+St and Cs use 24 columns and 13 rows, and cellular sheets use 48 columns and 25 rows. Row spacing is compressed toward the horizon. The geometry inverts each row once, identical zenith coordinates are sampled once, and transparent rows skip density and texture work. The model reuses cloud descriptors for the same immutable world and viewport. It rebuilds for a new minute. A five-minute high-sheet hold was omitted because the zenith rays share a point and adjacent near-zenith world texels can be smaller than five minutes of advection.
+
+The shadow baseline retains each lattice and density grid and removes only shadow candidates. The table records local, one-worker low-priority Vitest measurements. The existing warm sheet and shadow gates passed. All three cold sheet increments in the final sheet run were above 1.5 ms.
+
+| Panorama | Sheet warm increment (ms) | Sheet cold increment (ms) | Shadow increment (ms) |
+| --- | ---: | ---: | ---: |
+| Jerusalem | 0.186 | 2.116 | 1.059 |
+| Haifa | 0.068 | 3.223 | 2.240 |
+| Tiberias | 0.956 | 2.390 | 0.992 |
+
+Jerusalem Sc had mean α 0.7554, p90 0.999998 and max 1. Its vertical depth min/p10/p50/p90/max was 0 / 0 / 2.401 / 13.675 / 27.391. The remaining Jerusalem lattices had zero cover, blend, α and vertical depth after the fixture change. Haifa retained As at cover 0.999 and Cs at cover 0.992, both at full blend. The As upper-half tone p10–p90 spread was 0.1228, clearing 0.12. The model produced no mid or high legacy bank layer on that overcast fixture.
+
+The visibility, sheet model, field-transmission and both targeted timing files passed locally. The field-transmission check refined disputed ray columns from 5 m to 1 m and its maximum error was below 0.001 for each weather fixture. TypeScript build-mode checking used `--noEmit`. Oxlint reported the existing `sceneHarness.tsx` hook-dependency warning. No local canvas renderer is installed. Browser stills and CI timings remain pending.

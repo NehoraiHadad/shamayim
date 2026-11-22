@@ -74,7 +74,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   const expectedFromSquared = range ** 2
   const querySquared = radiusKm ** 2
   const rasterSquared = radius ** 2
-  const { floorTau: floor, baseKm, meanVKm, beamExtinction } = layer
+  const { floorTau: floor, baseKm, meanVKm } = layer
   const drawRadiusSquared = drawRadius ** 2
   visitCells(field, lattice, cx, cy, Math.max(drawRadius, rasterVisit), dt,
     (siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis) => {
@@ -102,7 +102,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
     const scale = ds * overlap / ((high - low) * meanVKm)
     const d = Math.hypot(x - cx, y - cy)
     const fade = smoothstep(fadeStart, range, d)
-    return scale * (floor / 2 + (fade ? fade * localIntensity(x, y) * (beamExtinction ?? extinction / 2) : 0))
+    return scale * (floor + (fade ? fade * localIntensity(x, y) * extinction : 0))
   }
   return {
     queryRadius: radiusKm,

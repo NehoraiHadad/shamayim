@@ -26,7 +26,8 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
     if (!column) return 0
     const overlap = Math.min(high, cell.baseKm + cell.vKm * column / cell.tau0) - Math.max(low, cell.baseKm)
     if (overlap <= 0) return 0
-    const slant = cell.tau0 / cell.vKm * ds * overlap / (high - low) / 2
+    // The overlap is the whole intercepted column, with extinction κ = τ₀/v.
+    const slant = cell.tau0 / cell.vKm * ds * overlap / (high - low)
     if (cell.genus !== 'ac' && cell.genus !== 'ci') return slant
     patches.set(cell, (patches.get(cell) ?? 0) + slant)
     return 0

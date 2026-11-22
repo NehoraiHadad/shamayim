@@ -55,7 +55,9 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
   const samples = frames.map((world, minute) => {
     const shadow = timed(() => cloudShadowLayers(world, box))
     // Keep the field's optical layers for the sky. Only remove the shadow candidates.
-    const noShadows = { ...world, cloudField: world.cloudField && { ...world.cloudField, snapshot: [] } }
+    const noShadows = { ...world, cloudField: world.cloudField && { ...world.cloudField,
+      snapshot: world.cloudField.snapshot.map(snapshot => ({ ...snapshot, cells: [] })),
+    } }
     const withField = () => sceneModel(world, box)
     const withoutShadows = () => sceneModel(noShadows, box)
     // Call both variants once before timing either warm call. Alternate the starting variant.

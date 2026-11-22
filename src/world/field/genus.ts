@@ -38,7 +38,8 @@ export function convectiveWeight(code: number) {
 export function formOf(input: Pick<FieldInput, 'weatherCode' | 'lowBaseKm' | 'sunAltitude' | 'rain'> & { wind10: { speedKmh: number } },
   covers: Covers, conv = convectiveWeight(input.weatherCode)): Record<Lattice, LayerForm> {
   const code = input.weatherCode
-  const strat = unit(smoothstep(0.5, 0.75, covers.low) * (1 - conv)
+  // Broken Sc already forms a deck around six tenths cover.
+  const strat = unit(smoothstep(0.35, 0.6, covers.low) * (1 - conv)
     + 0.5 * (1 - smoothstep(-6, 10, input.sunAltitude)))
   return {
     low: { conv, strat, sheet: 0, veil: 0,

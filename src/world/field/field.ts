@@ -113,8 +113,6 @@ export function buildField(input: FieldInput): CloudField {
     const cumuliform = lattice === 'tower' ? 1 : lattice === 'low' ? 1 - form.strat : 0
     return { lattice, baseKm, meanVKm, cover: cover[lattice], Q, g, lowBaseKm: input.lowBaseKm,
       meanExtinction: footprintExtinction(tau, cumuliform),
-      beamExtinction: footprintExtinction(tau / 2, cumuliform)
-        * (lattice === 'mid' ? 1 - 0.35 * (1 - form.sheet) : lattice === 'high' ? 1 - 0.5 * (1 - form.veil) : 1),
       floorTau: floorTau * kappa * meanVKm, kappa, form, derived: steering.derived, motionAt, ...motionAt(t) }
   })
   return { placeId: input.placeId, t, layers, rain: input.rain }

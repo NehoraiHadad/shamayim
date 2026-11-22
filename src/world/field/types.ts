@@ -28,7 +28,6 @@ export interface FieldLayer {
   /** Radius multiplier. */
   g: number
   meanExtinction?: number
-  beamExtinction?: number
   floorTau: number
   kappa: number
   form: LayerForm

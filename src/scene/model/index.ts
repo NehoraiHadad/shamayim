@@ -8,6 +8,7 @@ import { outsideLayer } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
 import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
+import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
 import { birdLayers } from './birds'
@@ -66,13 +67,21 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   return { layers, ...layout }
 }
 
+const cloudMemo = new WeakMap<WorldState, { box: number[]; layers: ReturnType<typeof cloudLayersOf> }>()
+
 /** The sky surface's layers (C6): the base, the stars, the bodies, the clouds by level, lightning, shimmer. */
 export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LIFE_START): LayerDesc[] {
   const sky = skyLayer(world, box)
   if (!sky) return []
   const geom = skyGeom(world, box)
   const field = starsLayer(world, box, geom)
-  const cloudLayers = cloudLayersOf(world, box, geom)
+  const cloudBox = skyBoxKey(box, true)
+  const previous = cloudMemo.get(world)
+  // A minute's world is immutable. Reuse its cloud descriptors when the
+  // land, animation or display asks to redraw at the same dimensions.
+  const cloudLayers = previous && cloudBox.every((value, i) => value === previous.box[i])
+    ? previous.layers : cloudLayersOf(world, box, geom)
+  if (cloudLayers !== previous?.layers) cloudMemo.set(world, { box: cloudBox, layers: cloudLayers })
   const clouds = cloudLayers.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const shimmer = shimmerLayerOf(world, box, geom)
   // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,

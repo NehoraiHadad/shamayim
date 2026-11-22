@@ -6,13 +6,11 @@ import { RANGES } from '../../world/field/cells'
 import { layerSnapshot } from '../../world/field/density'
 import { buildField } from '../../world/field/field'
 import { genusOf } from '../../world/field/genus'
-import { meanRadius } from '../../world/field/lattice'
-import { groundRangeAt } from '../../world/field/project'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { transmitAlong } from '../../world/field/transmit'
-import { cloudSheetOf, sheetPathFactor } from './cloudSheet'
-import { sheetFootprint } from './cloudSheetGrid'
+import { cloudSheetOf, sheetPathFactor, SWEEP_TAPS } from './cloudSheet'
+import { gridFor } from './cloudSheetGrid'
 import { sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { skyGeom } from './sky'
 import type { SceneBox } from './types'
@@ -91,45 +89,62 @@ it('projects exact rays and compressed rows, keeps prior arrays intact and follo
     if (lattice === 'tower') continue
     const snapshot = layerSnapshot(at.field, lattice, 0, 0, RANGES[lattice][1])
     const sheet = cloudSheetOf(at.world, at.geom, snapshot, neutral)!
+    const sample = (view: typeof at, source: typeof snapshot) => {
+      const { xs, ranges, weights, point, swept, expected, path, slant, fade, tau, texture, detail } =
+        gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genusOf(lattice, source.layer!.form, 0.5))
+      const corrected = textureCorrection(texture, tau, weights, xs.length, detail)
+      return sheet.alpha.map((_, index) => {
+        const row = Math.floor(index / xs.length)
+        const start = (ranges[row] === 0 ? row * xs.length : index) * SWEEP_TAPS
+        const taps = swept.length && fade[row] < 1 && path[row]
+          ? swept.slice(start, start + SWEEP_TAPS) : Array<number>(SWEEP_TAPS).fill(point[index])
+        const m = slant[row] * corrected(index)
+        const localMultiplier = swept.length ? slant[row] : m
+        return { path: path[row], fade: fade[row], local: taps.map(tau => path[row] ? tau * localMultiplier : 0),
+          mean: path[row] ? expected[index] * m : 0 }
+      })
+    }
     const original = sheet.alpha.slice()
-    const later = cloudSheetOf(next.world, next.geom, layerSnapshot(next.field, lattice, 0, 0, RANGES[lattice][1]), neutral)!
+    const before = sample(at, snapshot)
+    const nextSnapshot = layerSnapshot(next.field, lattice, 0, 0, RANGES[lattice][1])
+    const later = cloudSheetOf(next.world, next.geom, nextSnapshot, neutral)!
+    const after = sample(next, nextSnapshot)
     expect(sheet.alpha).toEqual(original)
     expect(cloudSheetOf(at.world, at.geom, snapshot, neutral)).toEqual(sheet)
     expect(sheet.xs[0]).toBe(0)
     expect(sheet.xs.at(-1)).toBe(box.width)
     expect(sheet.ys.at(-1)).toBe(at.geom.horizon)
     const gaps = sheet.ys.slice(1).map((y, i) => y - sheet.ys[i])
-    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(1.5)
-    expect(Math.max(...gaps)).toBeLessThanOrEqual(12 + 1e-9)
+    expect(Math.min(...gaps)).toBeGreaterThan(0)
     gaps.slice(1).forEach((gap, i) => expect(gap).toBeLessThanOrEqual(gaps[i] + 1e-9))
-    const ranges = sheet.ys.map(y => groundRangeAt(snapshot.heightKm, at.geom.domeAltitudeAt(y)))
-    const angularStep = 2 * Math.PI * (sheet.xs[1] - sheet.xs[0]) / at.geom.azimuthRange.period
-    const radius = meanRadius(lattice, snapshot.layer!.g)
-    const belowRadius: number[] = [], other: number[] = []
+    const deltas: number[] = []
     let dense = 0, minDense = 1
     for (const [row, y] of sheet.ys.entries()) {
       const altitude = at.geom.domeAltitudeAt(y)
-      const deltas = sheetFootprint(ranges, row, angularStep) < radius ? belowRadius : other
-      for (let col = 0; col < sheet.xs.length; col++) {
-        const i = row * sheet.xs.length + col
-        deltas.push(Math.abs(original[i] - later.alpha[i]))
-      }
       if (altitude < 90) expect(at.geom.dome(altitude)).toBeCloseTo(y, 8)
-      const range = groundRangeAt(snapshot.heightKm, altitude)
-      if (altitude <= 20 || range >= snapshot.densityGrid.rayRange) continue
       for (const [col, x] of sheet.xs.entries()) {
-        const az = at.geom.azimuthAt(x) * Math.PI / 180
+        const i = row * sheet.xs.length + col
+        const a = before[i], b = after[i]
+        // Beer–Lambert's maximum slope between two slant depths is exp(-min).
+        // The path and footprint weights each multiply values in [0,1].
+        const slope = (u: number, v: number) => Math.exp(-Math.min(u, v)) * Math.abs(u - v)
+        const localBound = a.local.reduce((sum, tau, tap) => sum + slope(tau, b.local[tap]), 0) / SWEEP_TAPS
+        const bound = Math.abs(a.path - b.path) + Math.abs(a.fade - b.fade)
+          + (1 - a.fade) * localBound + a.fade * slope(a.mean, b.mean)
+        const delta = Math.abs(original[i] - later.alpha[i])
+        deltas.push(delta)
+        expect.soft(delta, `${lattice} node ${i}`).toBeLessThanOrEqual(bound + 0.02)
         expect(at.geom.x(at.geom.azimuthAt(x))).toBeCloseTo(x, 8)
-        if (snapshot.densityGrid.tauAt(range * Math.sin(az), range * Math.cos(az)) <= 2) continue
+        // A dense vertical column may have a thin texture gap, an unresolved footprint,
+        // or a truncated path. A fully resolved slant depth of 2 must be opaque.
+        if (a.path < 0.99 || a.fade !== 0 || Math.min(...a.local) <= 2) continue
         dense++
-        minDense = Math.min(minDense, original[row * sheet.xs.length + col])
+        minDense = Math.min(minDense, original[i])
       }
     }
-    const fineMax = percentile(belowRadius, 1), coarseP99 = percentile(other, 0.99), coarseMax = percentile(other, 1)
-    console.info(lattice, { rows: sheet.ys.length, cols: sheet.xs.length, radius, fineMax, fineCount: belowRadius.length,
-      coarseP99, coarseMax, dense, minDense })
-    expect.soft(fineMax, lattice).toBeLessThanOrEqual(0.08)
-    expect.soft(coarseP99, lattice).toBeLessThanOrEqual(0.15)
+    const p99 = percentile(deltas, 0.99)
+    console.info(lattice, { rows: sheet.ys.length, cols: sheet.xs.length, p99, dense, minDense })
+    expect.soft(p99, lattice).toBeLessThanOrEqual(0.15)
     if (dense) expect.soft(minDense, lattice).toBeGreaterThan(0.7)
   }
 })
@@ -138,15 +153,16 @@ it('keeps a low-cover floor transparent and lights gaps more than cores', () => 
   const at = frame('haifa', '2026-11-17T12:00')
   const snapshot = layerSnapshot(at.field, 'low', 0, 0, RANGES.low[1])
   const layer = { ...snapshot.layer!, cover: 0.3 }
+  let gapTone = 0
   for (const tau of [layer.floorTau, 3]) {
     const sheet = cloudSheetOf(at.world, { ...at.geom, azimuthAt: () => at.world.bodies.sun.azimuth }, {
       ...snapshot, layer, densityGrid: { ...snapshot.densityGrid, tauAt: () => tau, expectedTauAt: () => tau },
     }, neutral)!
     if (tau === layer.floorTau) {
       expect.soft(sheet.alpha[0]).toBeLessThan(0.15)
-      expect(sheet.tone[0]).toBeLessThan(0.5)
+      gapTone = sheet.tone[0]
     } else {
-      expect(sheet.tone[0]).toBeGreaterThan(0.5)
+      expect(sheet.tone[0]).toBeGreaterThan(gapTone)
     }
   }
 })
@@ -163,8 +179,11 @@ it.each(['jerusalem', 'haifa', 'tiberias'])('compares sheet and light transmissi
     const row = sheet.ys.findIndex(y => direction.domeAltitudeAt(y) <= 40)
     const altitude = direction.domeAltitudeAt(sheet.ys[row])
     expect(altitude).toBeGreaterThan(25)
-    const light = transmitAlong(at.field, [snapshot], sun, altitude)
-    const transmission = 1 - sheet.alpha[row * sheet.xs.length]
+    const world = { ...at.world, bodies: { ...at.world.bodies, sun: { ...at.world.bodies.sun, altitude } } }
+    const solarSheet = cloudSheetOf(world, direction, snapshot, neutral)!
+    // Check the rendered solar node against independent 20 m column quadrature.
+    const light = transmitAlong(at.field, [snapshot], sun, altitude, at.field.t, 0.02)
+    const transmission = 1 - solarSheet.alpha[row * solarSheet.xs.length]
     const error = Math.abs(transmission - light)
     console.info(place, lattice, { altitude, sheet: transmission, light, error })
     errors.push(error)

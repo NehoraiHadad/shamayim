@@ -38,7 +38,8 @@ export function textureCorrection(texture: number[], tau: number[], weights: num
 }
 
 const scales: Record<Genus, [km: number, stretch: number, deviation: number]> = {
-  st: [8, 1, 0.15], sc: [1.5, 1, 0.5], as: [2, 6, 0.3], ac: [0.6, 1, 0.6],
+  // As bands vary on sub-kilometre scales across the wind and merge along it.
+  st: [8, 1, 0.15], sc: [1.5, 1, 0.5], as: [0.75, 6, 0.9], ac: [0.6, 1, 0.6],
   cs: [18, 1, 0.1], ci: [2, 6, 0.1], ns: [6, 1, 0.15],
   cu: [1.5, 1, 0.5], cg: [3, 1, 0.5], cb: [6, 1, 0.5],
 }
@@ -66,7 +67,11 @@ export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
     return (x: number, y: number) => {
       const e = x - dx, n = y - dy
       const u = e * cos - n * sin, v = (e * sin + n * cos) / stretch
-      const signal = 1 + (a ? a * (coarse(u, v, coarseFine) - 0.5) : 0) + (b ? b * (fine(u, v, fineFine) - 0.5) : 0)
+      const variation = (a ? a * (coarse(u, v, coarseFine) - 0.5) : 0)
+        + (b ? b * (fine(u, v, fineFine) - 0.5) : 0)
+      // A thickness deficit in As reaches zero instead of folding into a
+      // second thick band as the squared noise crosses zero.
+      const signal = genus === 'as' ? Math.max(0, 1 + variation) : 1 + variation
       return signal * signal
     }
   }

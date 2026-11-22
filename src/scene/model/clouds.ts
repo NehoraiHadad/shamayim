@@ -5,7 +5,7 @@ import { cloudLight, layerMeanTransmission } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudBank, CloudLayer, CloudLevel, WorldState } from '../../world/types'
-import { cloudSheetOf, sheetBlend } from './cloudSheet'
+import { cloudSheetOf, meanDiffuseTransmission, sheetBlend } from './cloudSheet'
 import { layerKey, skyBoxKey } from './keys'
 import { coinOf, coversOf, skyGeom, skyStops, stopAt, veilOf, type SkyGeom } from './sky'
 import { mixRgb, rgbOf } from './tone'
@@ -278,14 +278,29 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       const tones = tonesAt(world, box, stops, layer.level, geom.dome(4) * 0.6, union, layer.rains, 3)
       const sheet = cloudSheetOf(world, geom, snapshot, {
         body: tones.body, shade: tones.shade, lit: light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body,
-        light: light ? light.strength * light.above : 0,
+        light: light?.sun ? light.strength * light.above : 0,
+        // Use the same unit clear-column reference as bank light. Above the sheet,
+        // covered paths transmit diffuse light; uncovered paths transmit it whole.
+        above: world.cloudField?.field.layers.reduce((diffuse, upper) => {
+          if (upper.lattice !== 'high' && !(upper.lattice === 'mid' && layer.level === 'low')
+            || layer.level === 'high') return diffuse
+          return diffuse * meanDiffuseTransmission(upper.cover, upper.kappa * upper.meanVKm)
+        }, 1),
       })
       if (!sheet) continue
       out.push(sheet)
       if (fieldLayer.lattice !== 'tower') blend = sheetBlend(fieldLayer)
     }
     if (!layer.banks.length && layer.cover < 0.05) continue
-    const banks = layer.banks.map((bank) => bankDesc(world, box, geom, stops, layer, bank, light, union, raining))
+    const convective = world.cloudField?.field.layers.find(item => item.lattice === layer.level)?.form.conv ?? 0
+    const banks = layer.banks.flatMap((bank) => {
+      // The lowest six degrees are the separate horizon heaps. Preserve observed cells and convective banks.
+      const opacity = bank.seen || (layer.level === 'low' && bank.altitude <= 6)
+        ? 1 : 1 - blend * (1 - convective)
+      if (!opacity) return []
+      const desc = bankDesc(world, box, geom, stops, layer, bank, light, union, raining)
+      return [{ ...desc, alpha: desc.alpha * opacity }]
+    })
     const { sheets, veil } = deckOf(world, box, geom, stops, layer, light, union, layer === lowest, 1 - blend)
     const all = [...sheets, ...banks].map(snap)
     if (!all.length && !veil) continue
