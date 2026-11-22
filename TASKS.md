@@ -802,6 +802,9 @@ candidates reach beyond seating only, so own portraits are unchanged; landmark c
 (2 findings). Neon hit quota mid-round 6 (partial edits discarded), so Codex wrote rounds 6-7 and an Opus subagent
 reviewed round 6: the seat budget is applied in the scene model after the final block cull (a freed slot goes to the
 next viable seat), the label and skyline see only the world-width budget, the cap stays 5 on wide screens.
+Codex reviewed rounds 6-7 (3 findings); Codex wrote round 8 (backed height label culls seated glyphs before the
+budget; place.ts trimmed). Its light-per-render-width fix was reviewed by Opus (forked world state, rebuild on resize)
+and withdrawn by the manager in round 8b: one world state at SCENE_W stays.
 Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
 - [x] (a) Worship heights by evidence, the same for every religion: 9 m hall; tower height only from `tower:type=minaret`,
       `building=minaret`, `man_made=tower`, `height` or levels (`src/data/landmarks/worship.ts`, `overpass.ts`). Build writes
@@ -817,6 +820,9 @@ Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
 - [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
       (e.g. famous mosques in Jaffa) get their tower height back.
 - [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.
+- [ ] Follow-up: at render widths other than 375 px the light's sun/moon skyline (`drawnSkyline.ts`) still counts
+      structures the scene culls behind text (town blocks, beyond towers, trees, and now swapped seats). Fix them
+      together, keeping one world state (e.g. a width-independent cull rule), not per-width world rebuilds.
 
 ## Polish track C — life keeps moving (audit #3, #9) — 2026-11-22 (branch `claude/fix-life-motion-740e49`)
 Briefs and reports: `docs/design/qa/polish/track-c/` (`BRIEF-neon-1.md`, `BRIEF-2.md`, `IMPL-1.md`, `IMPL-2.md`, `NOTES.md`).

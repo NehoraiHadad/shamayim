@@ -1,37 +1,24 @@
 import { hashId } from '../../data/landmarks/hash'
 import { groundFn } from '../../data/landmarks/seat'
-import { fitsBlockSpan } from '../../world/beyondSeat'
-import { markBoxAt, type WorldMark } from '../../world/markGeometry'
+import type { WorldMark } from '../../world/markGeometry'
+import { finalSeats, visibleOutsideMark, type TownBlockSpan } from '../../world/outsideSeats'
 import { SCENE_W } from '../../world/sceneBox'
-import { budgetSeated } from '../../world/seatBudget'
 import type { WorldState } from '../../world/types'
 import { glyphHand } from './glyphHand'
-import type { GlyphDesc, OutsideItem, Tones } from './types'
+import type { Box, GlyphDesc, OutsideItem, Tones } from './types'
 
 /** The outside layer sorts marks just in front of other items at the same base. This is a sort offset in px, with no draw offset. */
 const MARK_DEPTH_OFFSET_PX = .01
 
 /** Final near marks in screen px, ready to sort into the outside layer at their base depth. */
-export function outsideMarks(world: WorldState, width: number, drawnBlocks: ReadonlyMap<string, { x: number; w: number }>,
-  free: (left: number, top: number, right: number, bottom: number) => boolean, behind: (x: number, y: number) => number) {
+export function outsideMarks(world: WorldState, width: number, drawnBlocks: ReadonlyMap<string, TownBlockSpan>,
+  clear: readonly Box[], behind: (x: number, y: number) => number) {
   const sx = width / SCENE_W
-  const visible = <T extends WorldMark>(mark: T) => {
-    const x = mark.x * sx
-    const bounds = markBoxAt(mark, x)
-    return free(bounds.left, mark.base - mark.h * mark.scale, bounds.right, bounds.bottom) ? { mark, x, bounds } : null
-  }
   const ordinary = world.marks.flatMap((mark) => {
     if (mark.plane !== 'near' || mark.seatBlockId !== undefined) return []
-    const item = visible(mark)
-    return item ? [item] : []
+    return visibleOutsideMark(mark, mark.x * sx, clear)
   })
-  const seated = world.seatPool.flatMap((mark) => {
-    const block = drawnBlocks.get(mark.seatBlockId)
-    if (!block) return []
-    const item = visible(mark)
-    return item && fitsBlockSpan(item.x, mark.w / 2, block.x, block.w) ? [item] : []
-  })
-  return [...ordinary, ...budgetSeated(seated)].map(({ mark, x }): { y: number; item: OutsideItem; km: number } => {
+  return [...ordinary, ...finalSeats(world, width, drawnBlocks, clear)].map(({ mark, x }): { y: number; item: OutsideItem; km: number } => {
     const seed = hashId(mark.id)
     const glyph: GlyphDesc = { kind: mark.glyphKind, x, base: mark.base, h: mark.h, scale: mark.scale, w: mark.w, seed,
       hand: glyphHand(mark.glyphKind, seed), tones: undefined as unknown as Tones, famous: mark.named,

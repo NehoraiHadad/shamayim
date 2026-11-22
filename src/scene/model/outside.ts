@@ -3,7 +3,9 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { ABOVE_PAD, rowKm } from '../../world/outside'
+import type { TownBlockSpan } from '../../world/outsideSeats'
 import { SCENE_W } from '../../world/sceneBox'
+import { hits } from '../../world/sceneClearance'
 import { facetShare } from '../../world/water'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
@@ -38,8 +40,6 @@ const SAND: RGB = [0.86, 0.8, 0.66]
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
-const hits = (clear: readonly Box[], left: number, top: number, right: number, bottom: number) =>
-  clear.some((b) => left < b.x + b.w && right > b.x && top < b.y + b.h && bottom > b.y)
 
 /**
  * The coastal sea (C5b item 1): its tones from the horizon down to the sheet by C3's rule for open water (`openWaterTone`:
@@ -219,7 +219,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${clear.map((c) => [c.x, c.y, c.w, c.h].join(',')).join(';')}|${world.keys.marks}`
+  const key = `${box.width}|${JSON.stringify([clear, world.labels.height.backed && world.labels.height, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W
@@ -239,7 +239,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
     ...(view.beyondTowns ?? []).map((b) => ({ km: b.km, tower: null, block: b }))].sort((a, b) => b.km - a.km)
-  const drawnBlocks = new Map<string, { x: number; w: number }>()
+  const drawnBlocks = new Map<string, TownBlockSpan>()
   for (const { tower: t, block: b } of beyond) {
     if (t) {
       const x = t.x * sx
@@ -278,7 +278,7 @@ function shapeOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape
     if (!free(x - t.w, t.base - t.h, x + t.w, t.base)) continue
     own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
   }
-  own.push(...outsideMarks(world, box.width, drawnBlocks, free, behind))
+  own.push(...outsideMarks(world, box.width, drawnBlocks, clear, behind))
   own.sort((a, b) => a.y - b.y)
   const marks: Shape['marks'] = []
   for (const o of own) {

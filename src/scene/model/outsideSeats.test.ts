@@ -1,16 +1,18 @@
-import { afterAll, beforeAll, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
 import { hashId } from '../../data/landmarks/hash'
 import type { Landmark } from '../../data/landmarks/types'
 import { HALL_M } from '../../data/landmarks/worship'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { beyondMarks } from '../../world/beyondMarks'
+import * as beyondSeat from '../../world/beyondSeat'
 import { roshPina } from '../../world/beyondSeatFixture'
 import { glyphAtHeight } from '../../world/glyphSpecs'
 import { SCENE_W } from '../../world/sceneBox'
-import type { OutsideView, WorldState } from '../../world/types'
+import type { OutsideView, WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
+import { sceneModel } from '.'
 import { outsideLayer } from './outside'
-import type { Box, SceneBox } from './types'
+import type { Box, OutsideItem, SceneBox } from './types'
 
 /** The reference scene viewport from outside.test.ts, in CSS px on a 2× display. */
 const BOX: SceneBox = { width: SCENE_W, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -20,32 +22,39 @@ const NARROW = { ...BOX, width: 320 }
 const MARGINAL_WIDTH = (BOX.width + NARROW.width) / 2
 /** The synthetic seats project one metre of height to half a CSS pixel at their shared depth. */
 const PX_PER_M = .5
+let baseInput: WorldInput
 let base: WorldState
 
 beforeAll(async () => {
   stubPublicFetch()
   const loaded = (await loadPlaces([roshPina])).get(roshPina.id)!
-  base = buildWorld(worldInput(loaded, '2026-11-17T12:00'))
+  baseInput = worldInput(loaded, '2026-11-17T12:00')
+  base = buildWorld(baseInput)
 })
 afterAll(() => vi.unstubAllGlobals())
+afterEach(() => vi.restoreAllMocks())
 
-interface SeatFixture { kind: 'minaret' | 'synagogue' | 'church'; heightM: number; fitsAt?: number }
+interface SeatFixture { kind: 'minaret' | 'synagogue' | 'church'; heightM: number; fitsAt?: number; x?: number }
 
-function seatWorld(fixtures: SeatFixture[]) {
+function seatFixtures(fixtures: SeatFixture[], baseY = 100) {
   // The synthetic marks share the same northward offset for scoring, inside skyline reach.
   const landmarks: Landmark[] = fixtures.map(({ kind, heightM }, index) => ({ id: `seat-${index}`, kind, heightM,
     source: 'osm', lat: roshPina.lat + .02, lon: roshPina.lon }))
-  const blocks = fixtures.map(({ kind, heightM, fitsAt = NARROW.width / 2 }, index) => {
+  const blocks = fixtures.map(({ kind, heightM, fitsAt = NARROW.width / 2, x }, index) => {
     const w = glyphAtHeight(kind, heightM * PX_PER_M).w * SCENE_W / fitsAt
-    // Blocks sit 30 CSS px apart at the reference width, with an 8 px roof above the y = 100 px foot.
-    return { id: `block-${index}`, x: 30 * (index + 1), baseY: 100, w, h: 8, km: 3, heightM: 16, seed: index }
+    return { id: `block-${index}`, x: x ?? 30 * (index + 1), baseY, w, h: 8, km: 3, heightM: 16, seed: index }
   })
   const seats = new Map(landmarks.map((mark, index) => {
     const block = blocks[index]
     return [mark.id, { x: block.x, base: block.baseY, hPx: mark.heightM * PX_PER_M, km: block.km, blockId: block.id }]
   }))
+  return { landmarks, beyondTowns: blocks, seatMark: (mark: Landmark) => seats.get(mark.id) ?? null }
+}
+
+function seatWorld(fixtures: SeatFixture[]) {
+  const { landmarks, beyondTowns: blocks, seatMark } = seatFixtures(fixtures)
   const view: OutsideView = { ...base.place3 as OutsideView, beyond: [], beyondTowns: blocks }
-  const { seated, seatPool } = beyondMarks(roshPina, landmarks, SCENE_W, (mark) => seats.get(mark.id) ?? null, view.dot, [])
+  const { seated, seatPool } = beyondMarks(roshPina, landmarks, SCENE_W, seatMark, view.dot, [])
   const world = { ...base, place3: view, marks: seated, seatPool }
   const drawn = (box = BOX, clear: Box[] = []) => outsideLayer(world, box, clear)!.items
   const glyphs = (box = BOX, clear: Box[] = []) => drawn(box, clear).flatMap((item) => item.kind === 'mark' ? [item.glyph] : [])
@@ -90,6 +99,30 @@ it('gives a 9 m hall a slot when text covers two taller glyphs and their blocks 
   expect(drawnIds()).toEqual(['seat-0', 'seat-1'])
   expect(drawn(BOX, clear).filter((item) => item.kind === 'box' && item.beyond)).toHaveLength(3)
   expect(drawnIds(BOX, clear)).toEqual(['seat-2'])
+})
+
+it('keeps the town under the backed height label and gives the covered backfill seat to the next glyph', () => {
+  const input = { ...baseInput, landmarks: [], seatCandidates: [] }
+  const { height } = buildWorld(input).labels
+  const hallSeed = 2
+  const towns = vi.spyOn(beyondSeat, 'beyondTowns')
+  const draw = (hallX: number) => {
+    const { landmarks, ...seating } = seatFixtures([
+      { kind: 'minaret', heightM: 24, fitsAt: MARGINAL_WIDTH }, { kind: 'minaret', heightM: 22 },
+      { kind: 'minaret', heightM: HALL_M, x: hallX }, { kind: 'minaret', heightM: 8.5, x: 267 },
+    ], height.y + 5)
+    towns.mockReturnValue(seating)
+    const world = buildWorld({ ...input, seatCandidates: landmarks })
+    expect(world.labels.height).toEqual(height)
+    expect(world.marks.map(({ id }) => id)).toEqual(['seat-0', 'seat-1'])
+    return sceneModel(world, NARROW).layers.find((layer) => layer.kind === 'outside')!.items
+  }
+  const seeds = (items: OutsideItem[]) => items.flatMap((item) => item.kind === 'mark' ? [item.glyph.seed] : [])
+  expect(height.backed).toBe(true)
+  expect(seeds(draw(120))).toEqual(['seat-1', 'seat-2'].map(hashId))
+  const covered = draw(height.x)
+  expect(seeds(covered)).toEqual(['seat-1', 'seat-3'].map(hashId))
+  expect(covered.some((item) => item.kind === 'box' && item.beyond && item.seed === hallSeed)).toBe(true)
 })
 
 it.each([SCENE_W, 1280])('caps visible seats at five in total and two per kind at %i px', (width) => {

@@ -20,7 +20,6 @@ import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
 import { datumOfRow, datumOnLand } from './datum'
 import type { CoastalSea, OutsideView, WorldLabels } from './types'
-
 /**
  * The house style and roofs of a place. Roofs only from evidence about the roofs (5+ mapped roof shapes, the majority
  * deciding; a town of blocks or a desert place flat), else mixed (owner, 2026-11-19).
