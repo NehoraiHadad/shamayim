@@ -925,6 +925,24 @@ Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-
 - [ ] Follow-ups: `pickTheme` (page chrome) still reads `forecast.current`; sea-glint thresholds in `model/outside.ts:86,95`;
       worker failure never closes shown bitmaps (as before); a reload mid-ramp restarts the 10-min ease.
 
+## Polish coordination — merged tracks and open follow-ups — 2026-11-22
+
+Merged to main (all CI green): A glyphs (757b768), C life motion (cc9664f), E UI (3366b1e), B mark heights (3ae092d),
+F mist (7c50d4f), C birds travel (c5b1af8), D N2 cloud field (8ac7bd2), G no flip/flicker + live = scrub at now (7ae0286),
+G round 5 explicit live mode (0818fd1), hotfix sky behind <body> (0b21d13, d9bbfce), B worship ownership (31e76d6).
+Open: Track D N4 soft cloud look (`claude/cloud-soft-look-413b7e`).
+
+- [ ] Owner call: ceiling on famous-landmark enlargement (track B: no cap; 84 icons at 20-100x, max 400x). One constant.
+- [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
+- [ ] Track G LOW 1: a scrub can land `selected` exactly on now (useSceneTime.ts, SceneScrubber.tsx, useStripScrub.ts),
+      a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
+- [ ] Track G LOW 2: liveLight.test.ts held-preview test uses equal model and observed cover; it misses correctCloudCover
+      drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
+- [ ] CI gap: stills render the scene harness only, never the built app page. E's <body> background hid the sky in
+      production for hours with CI green. Add one built-app still (vite preview, 375 px) asserting the sky is not the boot colour.
+- [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
+      same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
+
 ## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
 One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
 and rain. Spec: `docs/design/qa/polish/track-d/SPEC.md` (Fable). Roles: Neon codes field/light logic, Codex sol 6.2
