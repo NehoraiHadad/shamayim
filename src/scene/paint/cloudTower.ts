@@ -48,10 +48,12 @@ function silhouette(c: Ctx2D, s: CloudSprite) {
     puff(c, cx, cy, rx, rx * (0.85 + 0.15 * r()), 0.75 + 0.25 * r())
   }
   if (s.genus === 'cb') {
-    const top = -s.tall + s.w * 0.12
-    for (let i = 0; i < 7; i++) {
-      const u = i / 6 - 0.5
-      puff(c, u * s.w * ANVIL * 1.3, top + Math.abs(u) * s.w * 0.08, s.w * 0.42, s.w * 0.13, 0.85)
+    // The anvil: a thick soft cap spread wider than the column, thinning toward its edges.
+    const top = -s.tall + s.w * 0.22
+    for (let i = 0; i < 5; i++) {
+      const u = i / 4 - 0.5
+      const rx = s.w * (0.55 - 0.25 * Math.abs(u))
+      puff(c, u * s.w * (ANVIL - 0.4), top + Math.abs(u) * s.w * 0.1, rx, rx * (0.45 + 0.1 * r()), 0.9)
     }
   }
 }
