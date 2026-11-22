@@ -2470,10 +2470,10 @@ the app's own `__scene.scrub`):
 - The coastal plain gives Ben Gurion straight-in approaches on every runway; the base and downwind legs show where high
   ground stands on a centreline (the tests' made-up hill), not at the base places on this fixture's day.
 
-**Living land (2026-11-21): the land's colour and greenness from observed data; stages 1–3 of 6.** Commits on
+**Living land (2026-11-21): the land's colour and greenness from observed data; stages 1–4 of 6.** Commits on
 `land-living` (from `origin/main`). Brief: `docs/design/LAND-LIVING-BRIEF.md`; review log, handoffs and gates:
-`docs/design/qa/canvas/land/REVIEW.md` (writer Antigravity, reviewer Codex, gated by Claude Code). Stages 4 (vegetation),
-5 (wind on land) and 6 (stills) are added below as they close.
+`docs/design/qa/canvas/land/REVIEW.md` (writer Antigravity, reviewer Codex, gated by Claude Code). Stages 5 (wind on land)
+and 6 (stills) are added below as they close.
 
 *The pipeline* (data → one world state → model → painters; every value carries its source and date):
 1. **Data** (`src/data/land/`, entry `landData.ts`, hook `useLand.ts`; never blocks first paint: the scene draws on the
@@ -2510,6 +2510,21 @@ the app's own `__scene.scrub`):
    the existing light, cloud shadows, aerial perspective and haze act on it unchanged, so scrubbing the hour repaints
    only `plane.*:light` (checked in `npm run test:perf`). Model descriptions stay compact and structured-cloneable.
 
+4. **Vegetation** (model `src/scene/model/landVegetation.ts`, `vegRules.ts`, `vegSample.ts`, `vegBuilders.ts`,
+   `vegAgriBuilders.ts`, `vegOrchard.ts`, `vegCropEvidence.ts`; painters `src/scene/paint/landVegetation.ts`,
+   `landVegCrowns.ts`). Driven only by data per cell (WorldCover class, NDVI, dryness, season, slope magnitude), with a
+   per-cell seeded rng: woodland as clustered groves of rounded crowns, scrub and grass tufts whose density follows NDVI
+   (straw-gold when dry), cropland fields whose state (green, ploughed, stubble) follows NDVI and season, bare/desert
+   ground left bare. Orchard and palm rows appear only inside mapped crop polygons (OSM-derived, `israelData.ts`),
+   each footprint clipped exactly against its polygon (holes included); suitability or greenness alone never makes a
+   plantation, and background vegetation is decided independently of crop discovery. Crop probes are culled to the
+   plane's projected view sectors (output identical, checked by descriptor hashes). Detail drops out by distance before
+   it aliases (a resolvability cut in metres per pixel). Vegetation is form (date and data, not the hour); its sunlit
+   catchlights are on the light layer and share the crowns' geometry. Each tree carries a seeded phase and height for
+   wind. Descriptors stay under 10 KB, compact and structured-cloneable.
+
 *Checks at the stage 3 gate* (`9c13156`): `npx tsc -b` pass; vitest 142 files / 1307 tests; build; pixels 66/66 (the
 references re-recorded for intended changes are listed per stage in REVIEW.md). Stills:
 `docs/design/qa/canvas/land/stage3/` (before/after, winter and late summer).
+*Checks at the stage 4 gate* (`2ae4925`): `npx tsc -b` pass; vitest 151 files / 1339 tests; build; pixels 66/66. Stills:
+`docs/design/qa/canvas/land/stage4/` (8 places × winter, spring, summer).

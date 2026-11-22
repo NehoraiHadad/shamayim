@@ -771,6 +771,6 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       raw TTL tables restricted to near/far/weather).
 - [x] Stage 2: world state — approved (Codex round 2) + round-2 minors/nit folded in (`07db0b5`: `e2e/land.perf.mjs` waits for `firstShown.land`/`firstPaint.land` before releasing satellite fixtures, `s2-mean` tested end-to-end through `livingLandOf` and test-only `sampleAt`/`sampleLandAt` retired, calendar-day approximation documented in `landAgeBlend.ts`, unused sun-angle fields stripped with legacy cache compat).
 - [x] Stage 3: land colour painting — approved (Codex round 2) + round-2 minors folded in (`26368e9`: `landSnow.ts` split, `PlaneLight.tint` dropped, opt-in `SceneStats.trackShown` with in-place reuse, exact GIBS SR tile `8/103/153` matching + missing-tile check in `e2e/land.perf.mjs`).
-- [~] Stage 4: vegetation — Round 5 fixes pushed and awaiting review. Spatial crop filtering cuts Nahalal cold near-plane build time while preserving all 48 near and far vegetation descriptors across the 24 recorded scenes. The dev fixture failures were reproduced at `cf49303`. See `docs/design/qa/canvas/land/REVIEW.md` for the timing gate and verification.
-- [ ] Stage 5: wind on land
+- [x] Stage 4: vegetation — approved (Claude Opus round 6, after Codex/Neon rounds 1–5). Crop-probe culling keeps all descriptors identical (88 hashes) and cuts the Nahalal cold build 26.5 → 15.6 ms. Leftover minors carried into Stage 5: make the Nahalal cold gate run by default with a tighter, host-robust budget; residual cold vegetation cost at Nahalal; dev fixture to report deadline aborts as their own cause.
+- [~] Stage 5: wind on land — writer started.
 - [ ] Stage 6: stills, docs, PR

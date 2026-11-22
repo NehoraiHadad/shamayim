@@ -870,6 +870,8 @@ The isolated timing gate passed 1/1 with 7.50 ms paired overhead. The median was
 
 **Verdict:** approved. Leftover minors for the next stage: the opt-in, loose Nahalal gate, and the residual cold vegetation cost at Nahalal.
 
+**Orchestrator gate (Claude Code, 2026-11-22): Stage 4 closed.** On `2ae4925`: `npx tsc -b` pass; vitest 151 files / 1339 tests pass; `npm run build` pass; `npm run test:pixels` 66/66. Stills under `stage4/after/` inspected by the round-5 and round-6 reviewers. The leftover minors carry into Stage 5.
+
 ## Stage 5: wind on land
 
 ## Stage 6: stills and docs
