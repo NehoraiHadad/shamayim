@@ -48,6 +48,8 @@ export interface SceneTerrain {
    * panorama's local grid (`LocalGround`, ~6 km); null beyond it or for a panorama stored without it.
    */
   heightNear?: (dx: number, dy: number) => number | null
+  /** Maximum elevation of the local grid used by heightNear, when its bounds are known. */
+  localHeightMaxM?: number
   /** DEM height in metres relative to the eye, including ground in front of the near ridge. */
   groundAt?: (x: number, km: number) => number | null
   angleY?: (angle: number) => number

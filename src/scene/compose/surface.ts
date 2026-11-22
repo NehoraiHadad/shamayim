@@ -257,11 +257,31 @@ export class Surface {
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
         const sy = (preview ? 0 : frame) * rect.h
+        const opaque = layout.kind === 'plane' && alpha === 1 && !anim?.reveal && !still && this.interactive
         const mixed = shadow && matchedShade && this.shadows.blend(layout.id, cached.lightKey, light as CanvasImageSource,
-          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy, this.interactive && !still ? shadowStep(shadow, phase, still, ratio) : undefined)
+          matchedShade as CanvasImageSource, shadow, rect, ratio, shadowSeconds(shadow, phase, still), sy, opaque,
+          this.interactive && !still ? shadowStep(shadow, phase, still, ratio) : undefined)
         if (!mixed) draw(light)
-        else if (anim?.reveal && Number.isFinite(reach)) this.window(mixed, rect, 0, y, anim.reveal, reach, alpha)
-        else ctx.drawImage(mixed, 0, 0, rect.w, rect.h, rect.x * k, y * k, rect.w * k, rect.h * k)
+        else {
+          const { x: mx, y: my, w, h } = mixed.box
+          const x0 = rect.x + mx, y0 = y + my
+          if (opaque) {
+            draw(light)
+            // The terrain interior is opaque. At the crest, source-atop keeps its laid coverage.
+            ctx.globalCompositeOperation = 'source-atop'
+          } else {
+            ctx.save()
+            ctx.beginPath()
+            ctx.rect(rect.x * k, y * k, rect.w * k, rect.h * k)
+            ctx.rect(x0 * k, y0 * k, w * k, h * k)
+            ctx.clip('evenodd')
+            draw(light)
+            ctx.restore()
+          }
+          const image = mixed.canvas as CanvasImageSource
+          if (anim?.reveal && Number.isFinite(reach)) this.window(image, { x: x0, y: y0, w, h }, 0, y0, anim.reveal, reach, alpha)
+          else ctx.drawImage(image, 0, 0, w, h, x0 * k, y0 * k, w * k, h * k)
+        }
         ctx.globalCompositeOperation = 'source-over'
       }
       if (this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))

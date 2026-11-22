@@ -19,7 +19,7 @@ function valueNoise(seed: number, x: number, y: number) {
 }
 
 /** Light-independent palette, gouache drift and asymmetric dark flecks. */
-export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v: number): [number, number, number] {
+export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v: number, out: [number, number, number] = [0, 0, 0]): [number, number, number] {
   const { surface, paletteLin, seed, grainAmount } = t
   const pCols = surface.cols, pRows = surface.rows, cells = surface.cells
 
@@ -47,7 +47,8 @@ export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v:
     rr = clamp(rr * f, 0, 1); rg = clamp(rg * f, 0, 1); rb = clamp(rb * f, 0, 1)
   }
   // Lying snow enters receiver reflectance BEFORE lighting and haze (Finding 7).
-  return [rr, rg, rb]
+  out[0] = rr; out[1] = rg; out[2] = rb
+  return out
 }
 
 const materials = new Map<string, Float32Array>()
@@ -59,13 +60,14 @@ export function planeMaterial(t: PlaneTexelCtx, form: string) {
   const held = materials.get(key)
   if (held) return held
   const material = new Float32Array(wPx * hPx * 3)
+  const rgb: [number, number, number] = [0, 0, 0]
   for (let j = 0; j < hPx; j++) {
     const y = bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < wPx; i++) {
       const offset = (i + 0.5) * TEXEL
       const u = clamp(offset / Math.max(1, bounds.w), 0, 1)
       const v = clamp((y - crestY[i]) / Math.max(1, footY[i] - crestY[i]), 0, 1)
-      material.set(materialAt(t, bounds.x + offset, y, u, v), (j * wPx + i) * 3)
+      material.set(materialAt(t, bounds.x + offset, y, u, v, rgb), (j * wPx + i) * 3)
     }
   }
   if (materials.size >= 8) materials.delete(materials.keys().next().value!)

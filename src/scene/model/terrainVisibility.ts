@@ -20,7 +20,8 @@ const STEPS = (() => {
 
 type Terrain = NonNullable<WorldState['flightTerrain']>
 interface Receiver { east: number; north: number; height: number | null }
-interface HorizonGrid { positions: Receiver[]; bins: Map<number, Float32Array> }
+interface HorizonBin { angle: Float32Array; slope: Float64Array; next: Uint8Array }
+interface HorizonGrid { positions: Receiver[]; bins: Map<number, HorizonBin> }
 const offsets = new Map<number, { east: number; north: number; drop: number; invMetres: number }[]>()
 
 function rayFor(bin: number) {
@@ -52,22 +53,37 @@ function gridFor(terrain: Terrain, geom: PlaneGeomGrid): HorizonGrid {
 
 function binFor(grid: HorizonGrid, azBin: number) {
   let bin = grid.bins.get(azBin)
-  if (!bin) grid.bins.set(azBin, bin = new Float32Array(grid.positions.length).fill(NaN))
+  if (!bin) {
+    const length = grid.positions.length
+    bin = { angle: new Float32Array(length).fill(NaN), slope: new Float64Array(length).fill(-Infinity), next: new Uint8Array(length) }
+    grid.bins.set(azBin, bin)
+  }
   return bin
 }
 
-function march(terrain: Terrain, grid: HorizonGrid, bin: Float32Array, azBin: number, i: number) {
-  const cached = bin[i]
+function march(terrain: Terrain, grid: HorizonGrid, bin: HorizonBin, azBin: number, i: number, clearSlope = -Infinity) {
+  const cached = bin.angle[i]
   if (!Number.isNaN(cached)) return cached
   const { east, north, height } = grid.positions[i]
-  if (height === null) return bin[i] = -90
-  let slope = -Infinity
+  if (height === null) return bin.angle[i] = -90
   const ray = rayFor(azBin), heightAt = terrain.heightAt
-  for (const step of ray) {
+  const heightGap = Math.max(0, (terrain.heightCeilingM ?? Infinity) - height)
+  let slope = bin.slope[i]
+  for (let j = bin.next[i]; j < ray.length; j++) {
+    const step = ray[j]
+    // Dropping curvature and the 2 m tolerance gives an upper bound that decreases with distance.
+    const remaining = heightGap * step.invMetres
+    if (remaining <= slope) break
+    if (slope < clearSlope && remaining < clearSlope) {
+      // Both bounds certify clear light. Save this altitude-independent partial horizon for a lower sun.
+      bin.slope[i] = slope
+      bin.next[i] = j
+      return NaN
+    }
     const h = heightAt(east + step.east, north + step.north)
     if (h !== null) slope = Math.max(slope, (h - height - step.drop) * step.invMetres)
   }
-  return bin[i] = Math.atan(slope) / RAD
+  return bin.angle[i] = Math.atan(slope) / RAD
 }
 
 /** The DEM horizon in neighbouring half-degree azimuth bins. Solar/lunar altitude only enters the disc edge. */
@@ -77,9 +93,14 @@ export function terrainVisibility(terrain: WorldState['flightTerrain'], geom: Pl
   const a = ((azimuth * AZ_BINS_PER_DEG) % AZ_BINS + AZ_BINS) % AZ_BINS
   const lo = Math.floor(a), hi = (lo + 1) % AZ_BINS, mix = a - lo
   const low = binFor(grid, lo), high = mix ? binFor(grid, hi) : low
+  const lower = altitude - SOLAR_RADIUS
+  const clearSlope = lower > 0 ? Math.tan(lower * RAD) : -Infinity
   return (i: number) => {
-    const h0 = march(terrain, grid, low, lo, i)
-    const h1 = mix ? march(terrain, grid, high, hi, i) : h0
+    let h0 = march(terrain, grid, low, lo, i, clearSlope)
+    let h1 = mix ? march(terrain, grid, high, hi, i, clearSlope) : h0
+    if ((Number.isNaN(h0) || h0 < lower) && (Number.isNaN(h1) || h1 < lower)) return 1
+    if (Number.isNaN(h0)) h0 = march(terrain, grid, low, lo, i)
+    if (Number.isNaN(h1)) h1 = march(terrain, grid, high, hi, i)
     // At the coverage edge use the measured ray if its neighbour has no DEM hits.
     const angle = h0 === -90 ? h1 : h1 === -90 ? h0 : h0 + (h1 - h0) * mix
     return smoothstep(-SOLAR_RADIUS, SOLAR_RADIUS, altitude - angle)
