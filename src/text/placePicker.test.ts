@@ -1,27 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import {
-  EMPTY_NOTE,
-  geolocationErrorText,
-  LOCATING,
-  NO_RESULTS,
-  PICKER_LIVE_INITIAL,
-  pickerLiveReducer,
-  pickerVisible,
-  SEARCHING,
-  searchErrorText,
-  searchNote,
-  searchResultsText,
+  EMPTY_NOTE, geolocationErrorText, LOCATING, NO_RESULTS, PICKER_LIVE_INITIAL,
+  pickerLiveReducer, pickerVisible, SEARCHING, searchErrorText, searchNote, searchResultsText,
+  type LiveSource, type PickerLiveAction, type PickerLiveState, type PickerNote,
 } from './placePicker'
 
-const searching = { text: SEARCHING, hidden: false }
-const locating = { text: LOCATING, hidden: true }
+const noteAction = (type: LiveSource, note: PickerNote, requestId = 1, terminal = false) =>
+  ({ type, note, requestId, terminal })
+const locating = noteAction('gps', { text: LOCATING, hidden: true })
+const searching = (requestId = 1) => noteAction('search', { text: SEARCHING, hidden: false }, requestId)
+const clear = noteAction('search', EMPTY_NOTE, 2)
+const result = (count: number, requestId = 1) => noteAction('search', searchNote(count), requestId, true)
+const gpsError = (code: number, requestId = 1) =>
+  noteAction('gps', { text: geolocationErrorText(code), hidden: false }, requestId, true)
+const advance: PickerLiveAction = { type: 'advance' }
+const reduce = (state: PickerLiveState, ...actions: PickerLiveAction[]) => actions.reduce(pickerLiveReducer, state)
+const start = (...actions: PickerLiveAction[]) => reduce(PICKER_LIVE_INITIAL, ...actions)
 
 describe('geolocationErrorText', () => {
-  it('maps each GeolocationPositionError code to a specific Hebrew message', () => {
-    expect(geolocationErrorText(1)).toBe('אין הרשאה למיקום. אפשר לחפש יישוב בשדה החיפוש.')
-    expect(geolocationErrorText(2)).toBe('לא הצלחנו לקבוע את המיקום כרגע. אפשר לחפש יישוב בשדה החיפוש.')
-    expect(geolocationErrorText(3)).toBe('איתור המיקום לקח יותר מדי זמן. אפשר לנסות שוב או לחפש יישוב.')
-    expect(geolocationErrorText(99)).toBe('לא הצלחנו לקבוע את המיקום כרגע. אפשר לחפש יישוב בשדה החיפוש.')
+  it.each([
+    [1, 'אין הרשאה למיקום. אפשר לחפש יישוב בשדה החיפוש.'],
+    [2, 'לא הצלחנו לקבוע את המיקום כרגע. אפשר לחפש יישוב בשדה החיפוש.'],
+    [3, 'איתור המיקום לקח יותר מדי זמן. אפשר לנסות שוב או לחפש יישוב.'],
+    [99, 'לא הצלחנו לקבוע את המיקום כרגע. אפשר לחפש יישוב בשדה החיפוש.'],
+  ])('maps geolocation error %i to its Hebrew message', (code, message) => {
+    expect(geolocationErrorText(code)).toBe(message)
   })
 })
 
@@ -33,109 +36,113 @@ describe('searchErrorText', () => {
 })
 
 describe('searchResultsText', () => {
-  it('uses Hebrew number agreement and isolates plural counts in LTR', () => {
-    expect(searchResultsText(0)).toBe(NO_RESULTS)
-    expect(searchResultsText(1)).toBe('נמצא מקום אחד')
-    expect(searchResultsText(2)).toBe('נמצאו \u20662\u2069 מקומות')
-    expect(searchResultsText(12)).toBe('נמצאו \u206612\u2069 מקומות')
+  it.each([
+    [0, NO_RESULTS], [1, 'נמצא מקום אחד'],
+    [2, 'נמצאו \u20662\u2069 מקומות'], [12, 'נמצאו \u206612\u2069 מקומות'],
+  ])('uses Hebrew agreement and LTR isolation for count %i', (count, message) => {
+    expect(searchResultsText(count)).toBe(message)
   })
 })
 
 describe('pickerLiveReducer & pickerVisible', () => {
-  it('delivers GPS and search outcomes in arrival order both ways and keeps GPS queued across search clears', () => {
-    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: locating, terminal: false, requestId: 1 })
-    expect(s.spoken).toBe(LOCATING)
-    expect(pickerVisible(s)).toBe('')
+  it('delivers search then GPS outcomes in arrival order across a search clear', () => {
+    let state = start(locating)
+    expect(state.spoken).toBe(LOCATING)
+    expect(pickerVisible(state)).toBe('')
+    state = reduce(state, searching())
+    expect(state.spoken).toBe(SEARCHING)
+    expect(pickerVisible(state)).toBe(SEARCHING)
 
-    s = pickerLiveReducer(s, { type: 'search', note: searching, terminal: false, requestId: 1 })
-    expect(s.spoken).toBe(SEARCHING)
-    expect(pickerVisible(s)).toBe(SEARCHING)
-
-    const gpsErr = { text: geolocationErrorText(3), hidden: false }
-    s = pickerLiveReducer(s, { type: 'search', note: searchNote(3), terminal: true, requestId: 1 })
-    s = pickerLiveReducer(s, { type: 'gps', note: gpsErr, terminal: true, requestId: 1 })
-    // Clearing search must not drop the queued GPS error.
-    s = pickerLiveReducer(s, { type: 'search', note: EMPTY_NOTE, terminal: false, requestId: 2 })
-    expect(s.spoken).toBe('נמצאו \u20663\u2069 מקומות')
-    expect(pickerVisible(s)).toBe(gpsErr.text)
-
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.phase).toBe('gap')
-    expect(s.spoken).toBe('')
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.spoken).toBe(gpsErr.text)
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.spoken).toBe('')
-    expect(s.phase).toBe('idle')
-
-    const gpsFirst = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: gpsErr, terminal: true, requestId: 1 })
-    let s2 = pickerLiveReducer(gpsFirst, { type: 'search', note: searchNote(2), terminal: true, requestId: 1 })
-    expect(s2.spoken).toBe(gpsErr.text)
-    s2 = pickerLiveReducer(pickerLiveReducer(s2, { type: 'advance' }), { type: 'advance' })
-    expect(s2.spoken).toBe('נמצאו \u20662\u2069 מקומות')
-    s2 = pickerLiveReducer(s2, { type: 'advance' })
-    expect(s2.phase).toBe('idle')
+    const error = gpsError(3)
+    state = reduce(state, result(3), error, clear)
+    expect(state.spoken).toBe('נמצאו \u20663\u2069 מקומות')
+    expect(pickerVisible(state)).toBe(error.note.text)
+    state = reduce(state, advance)
+    expect(state).toMatchObject({ phase: 'gap', spoken: '' })
+    state = reduce(state, advance)
+    expect(state.spoken).toBe(error.note.text)
+    expect(reduce(state, advance)).toMatchObject({ phase: 'idle', spoken: '' })
   })
 
-  it('announces a same-count refine from a newer request once after the gap, while deduping same requestId', () => {
-    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'search', note: searchNote(3), terminal: true, requestId: 1 })
-    s = pickerLiveReducer(s, { type: 'search', note: searchNote(3), terminal: true, requestId: 1 })
-    expect(s.queue).toEqual([])
+  it('delivers GPS then search outcomes in arrival order', () => {
+    const error = gpsError(3)
+    const state = start(error, result(2))
+    expect(state.spoken).toBe(error.note.text)
+    const next = reduce(state, advance, advance)
+    expect(next.spoken).toBe('נמצאו \u20662\u2069 מקומות')
+    expect(reduce(next, advance).phase).toBe('idle')
+  })
 
-    s = pickerLiveReducer(s, { type: 'search', note: searching, terminal: false, requestId: 2 })
-    s = pickerLiveReducer(s, { type: 'search', note: searchNote(3), terminal: true, requestId: 2 })
-    s = pickerLiveReducer(s, { type: 'search', note: searchNote(3), terminal: true, requestId: 2 })
-    expect(s.spoken).toBe('נמצאו \u20663\u2069 מקומות')
-    expect(s.queue).toEqual([{ source: 'search', requestId: 2, text: 'נמצאו \u20663\u2069 מקומות' }])
-
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.phase).toBe('gap')
-    expect(s.spoken).toBe('')
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.phase).toBe('holding')
-    expect(s.spoken).toBe('נמצאו \u20663\u2069 מקומות')
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.phase).toBe('idle')
-    expect(s.spoken).toBe('')
+  it('announces a same-count refine once after the gap and dedupes the same request', () => {
+    const first = start(result(3), result(3))
+    expect(first.queue).toEqual([])
+    const next = reduce(first, searching(2), result(3, 2), result(3, 2))
+    expect(next.spoken).toBe('נמצאו \u20663\u2069 מקומות')
+    expect(next.queue).toEqual([{ source: 'search', requestId: 2, text: 'נמצאו \u20663\u2069 מקומות' }])
+    const gap = reduce(next, advance)
+    expect(gap).toMatchObject({ phase: 'gap', spoken: '' })
+    const holding = reduce(gap, advance)
+    expect(holding).toMatchObject({ phase: 'holding', spoken: 'נמצאו \u20663\u2069 מקומות' })
+    expect(reduce(holding, advance)).toMatchObject({ phase: 'idle', spoken: '' })
   })
 
   it('drops a queued search count when input is cleared during a GPS hold', () => {
-    const gpsErr = { text: geolocationErrorText(1), hidden: false }
-    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: gpsErr, terminal: true, requestId: 1 })
-    s = pickerLiveReducer(s, { type: 'search', note: searchNote(4), terminal: true, requestId: 1 })
-    s = pickerLiveReducer(s, { type: 'search', note: EMPTY_NOTE, terminal: false, requestId: 2 })
-    expect(s.queue).toEqual([])
-    expect(s.spoken).toBe(gpsErr.text)
-    expect(pickerVisible(s)).toBe(gpsErr.text)
-
-    s = pickerLiveReducer(s, { type: 'advance' })
-    expect(s.phase).toBe('idle')
-    expect(s.spoken).toBe('')
+    const error = gpsError(1)
+    const state = start(error, result(4), clear)
+    expect(state.queue).toEqual([])
+    expect(state.spoken).toBe(error.note.text)
+    expect(pickerVisible(state)).toBe(error.note.text)
+    expect(reduce(state, advance)).toMatchObject({ phase: 'idle', spoken: '' })
   })
 
-  it('drops older queued search on a new search, keeps pending progress across hold, and announces the new result', () => {
-    const gpsErr = { text: geolocationErrorText(2), hidden: false }
-    let s = pickerLiveReducer(PICKER_LIVE_INITIAL, { type: 'gps', note: gpsErr, terminal: true, requestId: 1 })
-    s = pickerLiveReducer(s, { type: 'search', note: searchNote(5), terminal: true, requestId: 1 })
-    s = pickerLiveReducer(s, { type: 'search', note: searching, terminal: false, requestId: 2 })
-    expect(s.queue).toEqual([])
-    expect(s.spoken).toBe(gpsErr.text)
-    expect(pickerVisible(s)).toBe(SEARCHING)
+  it('replaces an older queued search and keeps the newer progress through the hold', () => {
+    const error = gpsError(2)
+    const state = start(error, result(5), searching(2))
+    expect(state.queue).toEqual([])
+    expect(state.spoken).toBe(error.note.text)
+    expect(pickerVisible(state)).toBe(SEARCHING)
 
-    // If the hold finishes before request 2 completes, pending "מחפש…" surfaces without being lost.
-    const afterHold = pickerLiveReducer(s, { type: 'advance' })
-    expect(afterHold.phase).toBe('progress')
-    expect(afterHold.spoken).toBe(SEARCHING)
-    const afterDone = pickerLiveReducer(afterHold, { type: 'search', note: searchNote(2), terminal: true, requestId: 2 })
+    const afterHold = reduce(state, advance)
+    expect(afterHold).toMatchObject({ phase: 'progress', spoken: SEARCHING })
+    const afterDone = reduce(afterHold, result(2, 2))
     expect(afterDone.spoken).toBe('נמצאו \u20662\u2069 מקומות')
-    expect(pickerLiveReducer(afterDone, { type: 'advance' }).phase).toBe('idle')
+    expect(reduce(afterDone, advance).phase).toBe('idle')
 
-    // If request 2 completes during the hold, only request 2 plays after the gap (and stale request 1 is ignored).
-    let s2 = pickerLiveReducer(s, { type: 'search', note: searchNote(2), terminal: true, requestId: 2 })
-    s2 = pickerLiveReducer(s2, { type: 'search', note: searchNote(9), terminal: true, requestId: 1 })
-    s2 = pickerLiveReducer(pickerLiveReducer(s2, { type: 'advance' }), { type: 'advance' })
-    expect(s2.spoken).toBe('נמצאו \u20662\u2069 מקומות')
-    expect(pickerLiveReducer(s2, { type: 'advance' }).phase).toBe('idle')
-    expect(pickerLiveReducer(s2, { type: 'reset' })).toBe(PICKER_LIVE_INITIAL)
+    // If the newer search completes during the hold, only its result plays after the gap.
+    const duringHold = reduce(state, result(2, 2), result(9), advance, advance)
+    expect(duringHold.spoken).toBe('נמצאו \u20662\u2069 מקומות')
+    expect(reduce(duringHold, advance).phase).toBe('idle')
+    expect(reduce(duringHold, { type: 'reset' })).toBe(PICKER_LIVE_INITIAL)
+  })
+
+  it('clears the live region when a search result hold ends with GPS still pending', () => {
+    const pending = start(locating)
+    expect(pending.spoken).toBe(LOCATING)
+    const state = reduce(pending, searching(), result(3), advance)
+    expect(state).toMatchObject({ phase: 'idle', spoken: '' })
+    expect(pickerVisible(state)).toBe('')
+  })
+
+  it('does not repeat pending GPS progress when the search is cleared', () => {
+    expect(start(locating, searching(), clear)).toMatchObject({ phase: 'idle', spoken: '' })
+  })
+
+  it('restores already-spoken search progress visibly after the GPS error hold', () => {
+    const error = gpsError(3)
+    const holding = start(searching(), error)
+    expect(pickerVisible(holding)).toBe(error.note.text)
+    const state = reduce(holding, advance)
+    expect(state).toMatchObject({ phase: 'idle', spoken: '' })
+    expect(pickerVisible(state)).toBe(SEARCHING)
+  })
+
+  it('announces search progress started during a hold once, even across another hold', () => {
+    const afterHold = start(gpsError(3), searching(), advance)
+    expect(afterHold).toMatchObject({ phase: 'progress', spoken: SEARCHING })
+    const state = reduce(afterHold, gpsError(3, 2), advance)
+    expect(state).toMatchObject({ phase: 'idle', spoken: '' })
+    expect(pickerVisible(state)).toBe(SEARCHING)
+    const nextRequest = reduce(state, gpsError(3, 3), searching(2), advance)
+    expect(nextRequest).toMatchObject({ phase: 'progress', spoken: SEARCHING })
   })
 })

@@ -50,6 +50,7 @@ export interface PickerSlot {
   seq: number
   progress: string
   progressSeq: number
+  spokenProgressId: number
   requestId: number
   doneId: number
 }
@@ -65,7 +66,7 @@ export interface PickerLiveState {
   phase: LivePhase
 }
 
-const EMPTY_SLOT: PickerSlot = { text: '', seq: 0, progress: '', progressSeq: 0, requestId: 0, doneId: -1 }
+const EMPTY_SLOT: PickerSlot = { text: '', seq: 0, progress: '', progressSeq: 0, spokenProgressId: -1, requestId: 0, doneId: -1 }
 export const PICKER_LIVE_INITIAL: PickerLiveState = {
   search: EMPTY_SLOT, gps: EMPTY_SLOT, seq: 0, spoken: '', queue: [], phase: 'idle',
 }
@@ -77,69 +78,71 @@ export type PickerLiveAction =
 
 const newest = (a: string, aSeq: number, b: string, bSeq: number) => (!a ? b : !b ? a : aSeq >= bSeq ? a : b)
 
-function idleOrProgress(state: PickerLiveState, queue: readonly LiveEntry[] = state.queue): PickerLiveState {
-  const progress = newest(state.search.progress, state.search.progressSeq, state.gps.progress, state.gps.progressSeq)
-  return { ...state, spoken: progress, queue, phase: progress ? 'progress' : 'idle' }
+function progressSource({ search, gps }: Pick<PickerLiveState, 'search' | 'gps'>): LiveSource {
+  return !gps.progress || (search.progress && search.progressSeq >= gps.progressSeq) ? 'search' : 'gps'
+}
+
+function idleOrProgress(state: PickerLiveState, previous = state): PickerLiveState {
+  const source = progressSource(state)
+  const slot = state[source]
+  if (slot.progress && slot.spokenProgressId !== slot.requestId) {
+    return { ...state, [source]: { ...slot, spokenProgressId: slot.requestId }, spoken: slot.progress, phase: 'progress' }
+  }
+  // Leave an uninterrupted announcement in place. Returning to it later should clear the live region.
+  if (slot.progress && previous.phase === 'progress' && progressSource(previous) === source &&
+    previous[source].requestId === slot.requestId) return state
+  return state.phase === 'idle' ? state : { ...state, spoken: '', phase: 'idle' }
 }
 
 /** Queue terminal announcements keyed by `(source, requestId)` so current outcomes play once and superseded ones are dropped. */
 export function pickerLiveReducer(state: PickerLiveState, action: PickerLiveAction): PickerLiveState {
   if (action.type === 'reset') return state === PICKER_LIVE_INITIAL ? state : PICKER_LIVE_INITIAL
   if (action.type === 'advance') {
-    if (state.phase === 'holding') {
-      return state.queue.length > 0 ? { ...state, spoken: '', phase: 'gap' } : idleOrProgress(state)
-    }
+    if (state.phase === 'holding') return state.queue.length ? { ...state, spoken: '', phase: 'gap' } : idleOrProgress(state)
     if (state.phase === 'gap') {
       const [next, ...rest] = state.queue
-      return next ? { ...state, spoken: next.text, queue: rest, phase: 'holding' } : idleOrProgress(state, [])
+      return next ? { ...state, spoken: next.text, queue: rest, phase: 'holding' } : idleOrProgress(state)
     }
     return state
   }
 
   const source = action.type
   const current = state[source]
-  const { requestId } = action
+  const { requestId, terminal, note: { text, hidden } } = action
   if (requestId < current.requestId || requestId <= current.doneId) return state
 
-  const visible = action.note.hidden ? '' : action.note.text
-  const progress = action.terminal ? '' : action.note.text
+  const visible = hidden ? '' : text
+  const progress = terminal ? '' : text
   const visChanged = visible !== current.text || (visible !== '' && current.seq !== state.seq)
-  const progChanged = progress !== current.progress || (progress !== '' && current.progressSeq !== state.seq)
+  const progChanged = progress !== current.progress || (progress !== '' && requestId !== current.requestId)
   const seq = visChanged || progChanged ? state.seq + 1 : state.seq
-  const doneId = action.terminal ? requestId : current.doneId
+  const doneId = terminal ? requestId : current.doneId
   const slotChanged = visChanged || progChanged || requestId !== current.requestId || doneId !== current.doneId
   const nextSlot: PickerSlot = slotChanged
-    ? { text: visible, seq: visChanged ? seq : current.seq, progress, progressSeq: progChanged ? seq : current.progressSeq, requestId, doneId }
+    ? { ...current, text: visible, seq: visChanged ? seq : current.seq, progress, progressSeq: progChanged ? seq : current.progressSeq, requestId, doneId }
     : current
 
-  let { spoken, queue, phase } = state
+  const { phase } = state
+  let { queue } = state
   if (requestId > current.requestId && queue.some((e) => e.source === source && e.requestId < requestId)) {
     queue = queue.filter((e) => e.source !== source || e.requestId >= requestId)
   }
 
-  const other = state[source === 'search' ? 'gps' : 'search']
-  const pending = newest(nextSlot.progress, nextSlot.progressSeq, other.progress, other.progressSeq)
-  const text = action.note.text
-  if (action.terminal && text) {
-    if (phase === 'idle' || phase === 'progress') {
-      spoken = text
-      phase = 'holding'
-    } else {
-      queue = [...queue, { source, requestId, text }]
-    }
-  } else if (phase === 'idle' || phase === 'progress') {
-    spoken = pending
-    phase = pending ? 'progress' : 'idle'
-  } else if (phase === 'gap' && queue.length === 0 && !pending) {
-    spoken = ''
-    phase = 'idle'
+  const next = slotChanged || queue !== state.queue ? { ...state, [source]: nextSlot, seq, queue } : state
+  if (terminal && text) {
+    return phase === 'idle' || phase === 'progress'
+      ? { ...next, spoken: text, phase: 'holding' }
+      : { ...next, queue: [...queue, { source, requestId, text }] }
   }
-
-  if (!slotChanged && spoken === state.spoken && queue === state.queue && phase === state.phase) return state
-  return { ...state, [source]: nextSlot, seq, spoken, queue, phase }
+  if (phase === 'idle' || phase === 'progress') return idleOrProgress(next, state)
+  if (phase === 'gap' && queue.length === 0 && !next.search.progress && !next.gps.progress) return idleOrProgress(next)
+  return next
 }
 
-/** Visible status note for sighted users: newest non-empty visible text across search and GPS. */
-export function pickerVisible({ search, gps }: Pick<PickerLiveState, 'search' | 'gps'>): string {
+/** Restore visible pending progress outside holds, even when the live region is empty. */
+export function pickerVisible(state: Pick<PickerLiveState, 'search' | 'gps' | 'phase'>): string {
+  const { search, gps, phase } = state
+  const pending = state[progressSource(state)]
+  if ((phase === 'idle' || phase === 'progress') && pending.progress && pending.text) return pending.text
   return newest(search.text, search.seq, gps.text, gps.seq)
 }
