@@ -1,5 +1,5 @@
 import type { LayerOf } from '../model/types'
-import { sheetTexels, softRadius } from './cloudLook'
+import { sheetTexels, softRadii } from './cloudLook'
 import type { Ctx2D, PaintEnv } from './hand'
 import { soften } from './soften'
 
@@ -23,8 +23,8 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const out = Math.max(2, Math.ceil(span / ROW) + 1)
   const { buf, spacing } = resampleRows(sheetTexels(desc), cols, ys, out)
   const colPx = (xs[cols - 1] - xs[0]) / (cols - 1), rowPx = span / (out - 1)
-  const radii = spacing.map(softRadius)
-  soften(buf, cols, out, radii.map((px) => px / colPx), radii.map((px) => px / rowPx))
+  const radii = spacing.map(softRadii)
+  soften(buf, cols, out, radii.map(([across]) => across / colPx), radii.map(([, down]) => down / rowPx))
   const { canvas, ctx: s } = env.canvas(cols, out)
   s.putImageData(unpremultiplied(s, buf, cols, out), 0, 0)
   ctx.save()
