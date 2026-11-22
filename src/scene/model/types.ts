@@ -6,11 +6,11 @@ import type { CloudLevel, Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
 import type { PlantWind } from './landWind'
 import type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneShadeField, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
 } from './typesLand'
 
 export type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneShadeField, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
 }
 import type { ContrailMotion } from './contrailMotion'
 
@@ -450,7 +450,7 @@ export type LayerDesc =
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
       gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string }
-  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[] }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[]; planeFormKey?: string }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
@@ -542,6 +542,8 @@ export type LayerDesc =
   | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
       /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
       clip: { crest: Pt[]; fronts: Pt[][] } | null
+      /** Receiving plane's geometry & radiance field so shadows remove ONLY direct light before compression and haze. */
+      litPlane?: { outline: Pt[]; bounds: Box; surfaceTone: PlanePalette; litField: PlaneLitField; grainSeed: number; grainAmount: number }
       /** Each cell's footprint; `speed` how fast its cloud's wind carries it across, land px/s (+ left → right). */
       blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number; speed: number }[] }
   /**

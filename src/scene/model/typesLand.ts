@@ -91,29 +91,39 @@ export interface PlaneVegetation {
 /** The upright vegetation is the only part needed by the canopy strips. */
 export type CanopyVegetation = Pick<PlaneVegetation, 'seed' | 'tones' | 'trees' | 'treeMeta' | 'tufts' | 'tuftMeta'>
 
-/** Compact structured-cloneable grid of linear-light sRGB `multiply` colours across a plane face (Stage 7). */
-export interface PlaneShadeField {
+/** Compact structured-cloneable per-plane linear-light irradiance, visibility, per-sample haze and lit-veg descriptor (Stage 7 round 2). */
+export interface PlaneLitField {
   cols: number
   rows: number
-  /** Flat `rows * cols * 3` RGB bytes (0..255, sRGB `lightMultiplierRgb` per cell). */
-  rgb: Uint8Array
+  /** Stride-4 `[sVis, mVis, vSky, hazeShare]` in `0..255` per `(r * cols + c)` node. */
+  grid: Uint8Array
+  /** Hoisted linear irradiance vectors `(E_k / π · C_k · wetFactor)` for sun, moon and diffuse sky. */
+  eSun: readonly [number, number, number]
+  eMoon: readonly [number, number, number]
+  eSky: readonly [number, number, number]
+  /** Linear RGB of `hazeOf(world)` and displayed linear horizon luminance `Y_horizon`. */
+  hazeLin: readonly [number, number, number]
+  yHorizon: number
+  /** The 18 vegetation/strata tones lit through the shared `landRadiance` model. */
+  litTones: readonly RGB[]
+  /** Optional ragged snow-line edge (`[x, y]` in box px) and snow cover (`0..1`), blended into reflectance before lighting. */
+  snow?: { edge: Pt[]; cover: number } | null
 }
 
 /**
- * A plane's light part (C2 + Living Land Stages 3 & 7). The form under it carries light-free reflectance-form
- * albedo, strata, fields, gullies, terraces and vegetation; Band 0 multiplies by `shadeField` (full-face normal
- * irradiance + wetness + floor cast shadows in linear light) and Band 1 lays linear Koschmieder aerial haze,
- * snow, illustrated face washes, crest rims and ground/canopy lift over it.
+ * A plane's light part (C2 + Living Land Stages 3 & 7 round 2). `litField` carries exact single-pass linear-light
+ * shading, per-sample linear Koschmieder haze, reflectance-space snow and lit vegetation tones; `shade`, `lit`,
+ * `rims` and `lift` add single-hazed illustrated crest accents over the lit surface.
  */
 export interface PlaneLight extends Omit<LightPart, 'tint'> {
-  /** Full-face per-cell linear-light irradiance multiplier grid (Band 0, `multiply`). */
-  shadeField?: PlaneShadeField
-  /** Linear-equivalent `source-over` Koschmieder aerial haze veil across the plane (x px -> [airRgb, alpha]). */
+  /** Exact per-plane linear irradiance, visibility, per-sample haze and snow descriptor. */
+  litField?: PlaneLitField
+  /** Legacy veil stops (empty when `litField` handles per-sample linear haze). */
   veil: [number, RGB, number][]
-  /** Soft illustrated face washes in the computed shade/lit tones. */
+  /** Soft illustrated crest washes in single-hazed shade/lit tones. */
   shade: Wash[]
   lit: Wash[]
-  /** Floor cast shadows (painted in Band 0 `multiply`, removing only direct light). */
+  /** Floor cast shadows (folded into `litField`'s `sVis`; kept empty when `litField` is present). */
   faces: Face[]
   rims: Rim[]
   snow: SnowCap | null

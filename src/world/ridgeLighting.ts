@@ -25,7 +25,6 @@ interface Lighting {
    * looks its own way, so the sun's side is the sun's turn from that column (`useRidgeLighting`).
    */
   rayAt?: (x: number) => Point
-  noonWeight: number
   depth: number
 }
 
