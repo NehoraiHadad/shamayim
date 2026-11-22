@@ -78,6 +78,8 @@ describe('mistOf: radiation fog, burn-off and diurnal asymmetry', () => {
     const single65 = mist({ ...calmNight, lowCloudPct: 65, midCloudPct: 0 }).radiation
     expect(combined).toBeCloseTo(single88, 2)
     expect(combined).toBeLessThan(single65 * 0.3)
+    // ...but never more than the whole sky's cover: 65 % low + 65 % mid under a 65 % sky is a 65 % sky.
+    expect(mist({ ...calmNight, lowCloudPct: 65, midCloudPct: 65, totalCloudPct: 65 }).radiation).toBeCloseTo(single65, 6)
     // Pure high cloud does not block radiation (low=0, mid=0).
     expect(mist({ ...calmNight, lowCloudPct: 0, midCloudPct: 0 }).radiation).toBe(clear)
   })
@@ -134,5 +136,15 @@ describe('nightMinimum continuity', () => {
     const at00 = mist({ humidity: 96, sunAltitude: -5, temperature: 16, nightMinTemp: nightMinimum(coldEdge, '2026-11-17T06:00') })
     const at01 = mist({ humidity: 96, sunAltitude: -5, temperature: 16, nightMinTemp: nightMinimum(coldEdge, '2026-11-17T06:01') })
     expect(Math.abs(at00.radiation - at01.radiation)).toBeLessThan(0.05)
+    // And no sudden rise while that (unphysically 19 °C) cold sample ages out (9–12 h): the minimum glides over 3 h, so even this
+    // extreme case moves the mist < 0.07 a minute (bounded by the smoothstep slopes: 1.5/180 min x 19 °C x 1.5/4 °C).
+    // Before, the whole swing came in one minute.
+    let last: number | null = null
+    for (let m = 2 * 60 + 30; m <= 6 * 60 + 30; m++) {
+      const at = `2026-11-17T${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+      const r = mist({ humidity: 96, sunAltitude: -5, temperature: 16, nightMinTemp: nightMinimum(coldEdge, at) }).radiation
+      if (last != null) expect(Math.abs(r - last)).toBeLessThan(0.07)
+      last = r
+    }
   })
 })

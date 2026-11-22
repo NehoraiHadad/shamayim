@@ -38,6 +38,8 @@ export interface MistInput {
   midCloudPct: number | null
   /** Thick/total cloud fallback (0–100) for longwave blocking when both raw low and mid layers are unknown. */
   thickCloudPct?: number | null
+  /** Total cloud cover (0–100), the cap on the low+mid union; null when unknown. */
+  totalCloudPct?: number | null
   /** 10 m wind speed (m/s). */
   windMs: number
   /** True solar altitude (deg); <= 0 below the horizon. */
@@ -60,31 +62,34 @@ export const isDataVisibility = (source: WorldSources['visibility']): boolean =>
 const WIND_CALM: readonly [number, number] = [3, 7]
 const SUN_BURN: readonly [number, number] = [2, 26]
 const WARM_BURN: readonly [number, number] = [0.5, 4.5]
-const FADE_START_MINUTES = 10 * 60
+const FADE_START_MINUTES = 9 * 60
 const WINDOW_MINUTES = 12 * 60
-const EDGE_PENALTY_C = 15
+
+/** The hourly temperature at `at` (°C), read between the hour and the next; null when the hours do not cover it. */
+function temperatureAt(hours: readonly Pick<HourPoint, 'time' | 'temperature'>[], at: LocalTime): number | null {
+  for (let i = 0; i < hours.length; i++) {
+    const h = hours[i], age = minutesBetweenLocal(h.time, at)
+    if (age < 0 || age >= 60 || !Number.isFinite(h.temperature)) continue
+    const next = hours[i + 1]
+    if (age === 0 || !next || !Number.isFinite(next.temperature) || minutesBetweenLocal(h.time, next.time) !== 60) return h.temperature
+    return h.temperature + (next.temperature - h.temperature) * (age / 60)
+  }
+  return null
+}
 
 /**
- * Lowest hourly temperature (°C) in the 12 h up to `at`, or null when no hourly samples fall in that window.
- * Samples near the 12 h edge fade out with an unbounded penalty over 10–12 h and cooling between consecutive hours is
- * interpolated at `at`, so there is no step at hh:00 / hh:01 for any temperature swing.
+ * Lowest temperature (°C) in the 12 h up to `at`, or null when no hourly samples fall in that window. A sample aging out
+ * (9–12 h) is blended toward the temperature now before it leaves, so the minimum (and the burn-off it drives) moves
+ * smoothly at any temperature swing: no step and no sudden rise when a cold sample expires.
  */
 export function nightMinimum(hours: readonly Pick<HourPoint, 'time' | 'temperature'>[], at: LocalTime): number | null {
-  let min = Infinity
-  for (let i = 0; i < hours.length; i++) {
-    const h = hours[i]
-    if (!Number.isFinite(h.temperature)) continue
+  const now = temperatureAt(hours, at)
+  let min = now ?? Infinity
+  for (const h of hours) {
     const age = minutesBetweenLocal(h.time, at)
-    if (age >= 0 && age < WINDOW_MINUTES) {
-      const fade = smoothstep(FADE_START_MINUTES, WINDOW_MINUTES, age)
-      const effective = h.temperature + (fade > 0 ? EDGE_PENALTY_C * (fade / (1 - fade)) : 0)
-      if (effective < min) min = effective
-    }
-    const next = hours[i + 1]
-    if (age > 0 && age < 60 && next && Number.isFinite(next.temperature) && minutesBetweenLocal(h.time, next.time) === 60) {
-      const interp = h.temperature + (next.temperature - h.temperature) * (age / 60)
-      if (interp < min) min = interp
-    }
+    if (age < 0 || age > WINDOW_MINUTES || !Number.isFinite(h.temperature)) continue
+    const keep = 1 - smoothstep(FADE_START_MINUTES, WINDOW_MINUTES, age)
+    min = Math.min(min, now == null ? h.temperature : h.temperature * keep + now * (1 - keep))
   }
   return Number.isFinite(min) ? min : null
 }
@@ -113,8 +118,10 @@ export function mistOf(input: MistInput): Mist {
   const warmBurn = input.nightMinTemp == null ? 1 : 1 - smoothstep(WARM_BURN[0], WARM_BURN[1], input.temperature - input.nightMinTemp)
   const low = input.lowCloudPct == null ? null : Math.min(1, Math.max(0, input.lowCloudPct / 100))
   const mid = input.midCloudPct == null ? null : Math.min(1, Math.max(0, input.midCloudPct / 100))
-  const lowMid = low != null || mid != null ? 1 - (1 - (low ?? 0)) * (1 - (mid ?? 0))
+  // Low and mid overlap at random (as `thickCloud` in openMeteo/mapHelpers.ts), never more than the whole sky's cover.
+  const union = low != null || mid != null ? 1 - (1 - (low ?? 0)) * (1 - (mid ?? 0))
     : input.thickCloudPct != null ? input.thickCloudPct / 100 : 0
+  const lowMid = input.totalCloudPct == null ? union : Math.min(union, Math.max(0, input.totalCloudPct / 100))
   const clearSky = 1 - 0.9 * smoothstep(0.4, 0.9, lowMid)
   const radiation = potential * calm * sunFactor * warmBurn * clearSky
 

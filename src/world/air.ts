@@ -55,9 +55,10 @@ function rawCloudLayers(m: NonNullable<AirSourceInput['mist']>, preview: boolean
   if (m.forced && ('cloudCover' in m.forced || 'thickCloud' in m.forced)) {
     return { lowCloudPct: null, midCloudPct: null, thickCloudPct: m.forced.thickCloud ?? m.forced.cloudCover ?? shown.cloudCover }
   }
+  const totalCloudPct = shown.cloudCover
   const lowCloudPct = preview ? (m.hour?.cloudLow ?? null) : (m.current?.cloudLow ?? m.hour?.cloudLow ?? null)
   const midCloudPct = preview ? (m.hour?.cloudMid ?? null) : (m.current?.cloudMid ?? m.hour?.cloudMid ?? null)
-  return { lowCloudPct, midCloudPct, thickCloudPct: shown.thickCloud ?? shown.cloudCover }
+  return { lowCloudPct, midCloudPct, thickCloudPct: shown.thickCloud ?? shown.cloudCover, totalCloudPct }
 }
 
 /** The air: visibility and haze, the aerial perspective every plane fades by, the horizon band and heat shimmer. */
