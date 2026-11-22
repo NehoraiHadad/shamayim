@@ -54,13 +54,14 @@ function silhouette(c: Ctx2D, s: CloudSprite) {
     puff(c, cx, cy, rx, rx * (0.85 + 0.15 * r()), 0.75 + 0.25 * r())
   }
   // The crown's turrets: small crisp puffs along the upper outline, over the top and down the upper sides.
-  const turrets = s.w < 6 ? 0 : Math.min(60, Math.round(10 + 8 * s.tall / s.w))
+  const turrets = s.w < 16 ? 0 : Math.min(60, Math.round(10 + 8 * s.tall / s.w))
   for (let i = 0; i < turrets; i++) {
     const u = r() * 2 - 1, t = 0.55 + 0.45 * Math.cos(u * Math.PI / 2)
     const flare = anvil * 0.9 * Math.max(0, (t - 0.55) / 0.45) ** 1.5
     const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t + flare)
     const rx = s.w * (0.05 + 0.07 * r())
-    puff(c, u * (half - rx * 0.4), -t * (s.tall - rx), rx, rx * (0.85 + 0.15 * r()), 0.9, true)
+    // Inside the outline the body puffs fill, so a turret is a bump on the crown and never a bead beside it.
+    puff(c, u * Math.max(0, half * 0.85 - rx * 1.2), -t * (s.tall - rx * 1.3), rx, rx * (0.85 + 0.15 * r()), 0.8, true)
   }
   if (anvil > 0.05) {
     // The anvil: a thick soft cap spread wider than the column as far as the top has spread, thinning toward its edges.
