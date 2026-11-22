@@ -25,7 +25,19 @@ cell then slides hundreds of km instead of cutting.
      it isn't.
    - Each field advects by its own origin, both with the same wind, so their motion agrees.
    - Use the existing seeded lifecycle (no `Math.random`, no clock).
+   - **Morph, don't swap.** Being true to nature means the handover must not read as the sky changing. Rank-preserved
+     cover is the floor, not the bar.
+     - Pair each incoming cell with the outgoing cell of the same lattice and genus whose footprint overlaps it most.
+       Use a greedy, deterministic match by overlap area, with ties broken by id.
+     - Over the window, interpolate each pair in place, with `w`: centre, r, rMinor, axis (the shortest way round),
+       tau0, vKm and rainWeight. The pair is one cell with a stable id for the window, so shadows, light and rain move
+       with it.
+     - Only unpaired cells dissolve or form through `share`.
+     - Report the paired fraction per lattice for overcast and for broken cloud.
 3. **Tests** (`field.test.ts` / `continuity.test.ts`):
+   - **change metric:** the mean |Δ vertical τ| over a fixed 41 × 41 world grid within the raster range, 23:50 → 00:10,
+     is ≤ the same metric over 21:50 → 22:10 (any 20 minutes without a handover). Do this for an overcast fixture and
+     a broken one at one place.
    - **refresh invariance:** build the same `at` (in the morning, at 23:50 and at 00:10) from a forecast starting
      D−1 and one starting D (the same hours, trimmed). Expect byte-identical cell lists in all three lattices.
    - **continuity:** a minute-by-minute scrub through 23:00–01:00 stays continuous by the existing continuity
@@ -48,3 +60,6 @@ cell then slides hundreds of km instead of cutting.
 - Run `tsc -b`, oxlint on the touched files, and vitest with explicit paths: `field.test.ts`, `continuity.test.ts`,
   `density.test.ts`, `transmit.test.ts`.
 - Append `## Round 12 (N3e)` to `N2-report.md`.
+
+## Evidence (after CI)
+Claude runs CI stills at one place, overcast and broken: 23:20 / 23:40 / 00:00 / 00:20 / 00:40, and assembles a strip.
