@@ -82,9 +82,11 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   sunny: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 10, windGusts: 16, temperature: 24, humidity: 40 },
 }
 
-/** C10's moments that pin the cloud layers themselves (the fixture's hours always carry mid cloud with their high). */
+/** Moments that pin the cloud layers themselves instead of inheriting the fixture's layer proportions. */
 const LAYERS: Record<string, { low: number; mid: number; high: number }> = {
   cirrus: { low: 0, mid: 0, high: 0.75 },
+  // Broken stratocumulus with lit gaps (SPEC §6.0).
+  broken: { low: 0.6, mid: 0, high: 0 },
 }
 
 /** Where the land's figure stands in the sky (px), and so the still's height: the sky above it, the figure under. */

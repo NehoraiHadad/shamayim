@@ -3,6 +3,7 @@ import { BOW, HALO_DEG, onCircle } from '../../world/optics'
 import { spanDeg, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
+import { sheetAlphaAt } from './cloudSheetGrid'
 import { layerKey, skyBoxKey } from './keys'
 import { crestOf } from './life'
 import { skyGeom, type SkyGeom } from './sky'
@@ -96,22 +97,24 @@ export function haloFrame(world: WorldState, box: SceneBox, geom: SkyGeom): Tang
 }
 
 /** The 22° halo and the sun dogs (sky, in the high cloud). */
-export function haloLayer(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bow'> | null {
+export function haloLayer(world: WorldState, box: SceneBox, geom: SkyGeom, veil: LayerOf<'cloudSheet'>): LayerOf<'bow'> | null {
   const halo = world.optics.halo
   const frame = haloFrame(world, box, geom)
   if (!halo || !frame) return null
-  const crest = crestOf(world, box, geom)
   const [cx, cy] = frame.at
+  const opacity = sheetAlphaAt(veil, cx, cy)
+  if (!opacity) return null
+  const crest = crestOf(world, box, geom)
   const dogs: SunDog[] = []
   if (halo.dogs > 0.04 && halo.dogOffset !== null) {
     for (const side of [-1, 1] as const) {
       const x = cx + side * frame.k * halo.dogOffset
       if (cy < Math.min(crest(x), geom.horizon) - 2 && x > -10 && x < geom.width + 10) {
-        dogs.push({ x, y: cy, r: 3 * frame.k, alpha: 0.85 * halo.dogs, side })
+        dogs.push({ x, y: cy, r: 3 * frame.k, alpha: 0.85 * halo.dogs * opacity, side })
       }
     }
   }
-  return bowLayer('halo', world, box, geom, crest, frame, halo.strength, 0, [], dogs, (HALO_DEG + 10) * frame.k, 6.2)
+  return bowLayer('halo', world, box, geom, crest, frame, halo.strength * opacity, 0, [], dogs, (HALO_DEG + 10) * frame.k, 6.2)
 }
 
 function bowLayer(look: 'rainbow' | 'halo', world: WorldState, box: SceneBox, geom: SkyGeom, crest: (x: number) => number, frame: TangentFrame,

@@ -10,7 +10,7 @@ import { paintWater } from '../paint/water'
 import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from '../paint/weather'
 import { sceneModel } from '.'
 import { fallAt, frameAt, framePhase } from './anim'
-import { rainBankDescs } from './clouds'
+import { bandOf, rainBankDescs } from './clouds'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerKind, LayerOf, SceneBox, SceneModel } from './types'
 import { inView, mistiness, NEAR_ALT } from './weather'
@@ -117,7 +117,7 @@ describe.each(SCENE_PLACES)('weather: $id', ({ id }) => {
         for (const e of ofKind(model, 'edge')) if (Math.abs(slant) > 0.01) expect(Math.sign(e.lean)).toBe(sign)
         // The curtains and the rain in them drift with the cloud layer that makes them.
         const layer = w.clouds.find((l) => l.rains)!
-        const drift = ofKind(model, 'clouds').find((l) => l.level === layer.level)?.animated?.speed ?? 0
+        const drift = bandOf(ofKind(model, 'clouds'), layer, skyGeom(w, BOX)).speed
         for (const l of [...ofKind(model, 'shafts'), ...ofKind(model, 'fall')]) expect(l.animated?.speed ?? 0).toBeCloseTo(drift, 9)
       }
     }

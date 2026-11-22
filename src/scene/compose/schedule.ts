@@ -11,6 +11,8 @@ export const PRIORITY: Record<LayerKind, number> = {
   wearRope: 0, wearItem: 1, wearDrip: 2,
   // The living light: the cloud's shadows on the land, with the weather.
   cloudShadow: 6,
+  // The field's sheets (SPEC §6.0), with the clouds.
+  cloudSheet: 5,
 }
 
 export interface SliceJob { surface: Surface; layers: readonly LayerDesc[] }

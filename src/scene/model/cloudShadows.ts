@@ -7,6 +7,7 @@ import type { FieldCell } from '../../world/field/types'
 import { cloudLight } from '../../world/lightCloud'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
+import { acrossSpeed } from './advect'
 import { shadowLayers, type ShadowBlob, type ShadowBox, type ShadowPlane, type ShadowTerrain } from './cloudShadowLayers'
 import type { Pt } from './types'
 
@@ -51,6 +52,8 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
   const rightAllowance = allowance(rightEast * eastPerUp + rightNorth * northPerUp)
   const screenX = (eastKm: number, northKm: number) =>
     xOf(Math.atan2(eastKm, northKm) / RAD, camera) * SCENE_W / camera.width
+  // Land px per radian of azimuth at the view's centre, for each shadow's carry.
+  const perRad = (screenX(Math.sin(heading + 1e-3), Math.cos(heading + 1e-3)) - screenX(Math.sin(heading), Math.cos(heading))) * 1e3 * scale
   function onGround(eastAtEyeKm: number, northAtEyeKm: number): Projection | undefined {
     let groundAboveEyeKm = 0, previousAboveEyeKm = 0, previousResidualKm = 0
     // Allow six samples and accept only a horizontal projection-equation residual of at most 10 m.
@@ -79,7 +82,7 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
     }
   }
 
-  const candidates: { cell: FieldCell; east: number; north: number; eyeDistanceSquared: number; slant: number }[] = []
+  const candidates: { cell: FieldCell; east: number; north: number; eyeDistanceSquared: number; slant: number; vel: [number, number] }[] = []
   for (const { cells, layer } of cloudField.snapshot) {
     if (!layer || layer.lattice === 'high') continue
     for (const cell of cells) {
@@ -105,13 +108,13 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
       const profile = spread > 0 ? extent / spread * (1 - (cumulus ? extent2 / 3 : extent2 * extent2 / 5)) : 1
       const slant = tau * profile
       if (slant < minDepth) continue
-      candidates.push({ cell, east, north, eyeDistanceSquared, slant })
+      candidates.push({ cell, east, north, eyeDistanceSquared, slant, vel: layer.vel })
     }
   }
   // Eye-level distance differs from true range by at most |groundM - eyeM| × cot(alt)/1000 + 0.01 km.
   candidates.sort((a, b) => a.eyeDistanceSquared - b.eyeDistanceSquared)
   const accepted: { km: number; plane: ShadowPlane; blob: ShadowBlob }[] = []
-  for (const { cell: { id, r, vKm: depth }, east: eastAtEye, north: northAtEye, slant } of candidates) {
+  for (const { cell: { id, r, vKm: depth }, east: eastAtEye, north: northAtEye, slant, vel } of candidates) {
     if (accepted.length === 64) break
     if (shadowBlocked?.(eastAtEye, northAtEye, eastPerUp, northPerUp)) continue
     const centre = onGround(eastAtEye, northAtEye)
@@ -141,7 +144,8 @@ export function cloudShadowLayers(world: ShadowWorld, box: ShadowBox) {
     }
     const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
     const centreKm: Pt = [centre.eastKm, centre.northKm]
-    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, alpha,
+    const speed = acrossSpeed(vel, [centre.eastKm / centre.km, centre.northKm / centre.km], centre.km, perRad)
+    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, alpha, speed,
       x: (left + right) / 2, y: (top + bottom) / 2,
       rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
   }

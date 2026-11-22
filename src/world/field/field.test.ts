@@ -8,6 +8,7 @@ import { coverageEvaluator } from './calibration.test-helper'
 import { cellsAround, RANGES } from './cells'
 
 import { buildField } from './field'
+import { measureMidnight } from './midnight.test-helper'
 import { COVER_KNOTS, splitLowCover } from './occupancy'
 import { altitudeOf, groundRangeAt, projectCell } from './project'
 import type { FieldInput, Lattice } from './types'
@@ -22,6 +23,28 @@ const input: FieldInput = {
 const start = wallMinutes(input.at)
 const timestamp = (minute: number) => new Date((start + minute) * 60_000).toISOString().slice(0, 16)
 const fieldAt = (minute: number) => buildField({ ...input, at: timestamp(minute) })
+
+it('keeps every lattice byte-identical when the forecast drops the previous day', () => {
+  const untrimmed = hours.filter(hour => hour.time >= '2026-11-17T00:00')
+  const trimmed = untrimmed.slice(24).map(hour => ({ ...hour }))
+  expect(untrimmed[0].time).toBe('2026-11-17T00:00')
+  expect(trimmed[0].time).toBe('2026-11-18T00:00')
+  for (const minute of [1440 + 480, 2880 - 10, 2880 + 10]) {
+    const before = buildField({ ...input, hours: untrimmed, at: timestamp(minute) })
+    const after = buildField({ ...input, hours: trimmed, at: timestamp(minute) })
+    for (const { lattice } of before.layers) {
+      const cells = (field: typeof before) => JSON.stringify(cellsAround(field, lattice, 0, 0, RANGES[lattice][0]))
+      expect(cells(after), `${timestamp(minute)} ${lattice}`).toBe(cells(before))
+    }
+  }
+})
+
+it.each([
+  ['overcast', { low: 0.95, mid: 0.95, high: 0.95 }],
+  ['broken', { low: 0.55, mid: 0.5, high: 0.45 }],
+] as const)('preserves cover and optical-depth continuity through midnight for %s', (_name, covers) => {
+  measureMidnight({ ...input, covers, weatherCode: 80, weatherForced: true, sunAltitude: 20 }, timestamp)
+}, 20_000)
 
 it('calibrates held-out cover across the original and intermediate knots (cover >= 0.98 is the floor rule)', () => {
   for (const layer of fieldAt(0).layers) {
@@ -46,15 +69,17 @@ it('changes visible directions over three hours and one day', () => {
     })
   type Direction = ReturnType<typeof directions>[number]
   const matches = (a: Direction, b: Direction) => a.x * b.x + a.y * b.y + a.z * b.z >= Math.cos(Math.PI / 180)
-  const field = fieldAt(480)
-  const unrelated = buildField({ ...input, at: timestamp(480), placeId: 'unrelated-directions' })
+  // Sample the forecast's first day, retaining the original seeded control window.
+  const minute = wallMinutes(hours[0].time) - start + 480
+  const field = fieldAt(minute)
+  const unrelated = buildField({ ...input, at: timestamp(minute), placeId: 'unrelated-directions' })
   for (const { lattice } of field.layers) {
     const original = directions(field, lattice)
     expect(original.length, lattice).toBeGreaterThan(0)
     const reference = directions(unrelated, lattice)
     const baseline = original.filter(a => reference.some(b => matches(a, b))).length / original.length
     for (const dt of [180, 1440]) {
-      const later = directions(fieldAt(480 + dt), lattice)
+      const later = directions(fieldAt(minute + dt), lattice)
       const similar = original.filter(a => later.some(b => matches(a, b))).length / original.length
       const byId = original.filter(a => later.some(b => a.id === b.id && matches(a, b))).length / original.length
       expect(similar, `${lattice} after ${dt} min`).toBeLessThanOrEqual(baseline + 0.05)
@@ -67,16 +92,24 @@ it('integrates meteorological vectors from the midnight anchor', () => {
   const first = { time: '2026-11-17T23:00', windSpeed: 60, windDirection: 270,
     windAloft: { low: { speed: 120, fromDeg: 180 }, mid: null, high: null } }
   const second = { ...first, time: '2026-11-18T00:00', windSpeed: 120 }
-  const timeline = steeringTimeline([first, second], ['surface', 'aloft'], () => ({
+  const third = { ...second, time: '2026-11-18T01:00', windSpeed: 60 }
+  const timeline = steeringTimeline([first, second, third], ['surface', 'aloft'], () => ({
     surface: 0.51, aloft: (0.51 + 1.46) / 2,
   }), 0.5)
-  expect(timeline.date).toBe('2026-11-18')
-  const v = timeline.at(1, wallMinutes(first.time), [0, 0]).vel
+  const midnight = wallMinutes(second.time)
+  const v = timeline.at(1, wallMinutes(first.time), [0, 0], midnight).vel
   expect(v[0]).toBeCloseTo(0.5)
   expect(v[1]).toBeCloseTo(1)
-  const { d, vel } = timeline.at(0, wallMinutes('2026-11-17T23:30'), [500, 0])
-  expect(d[0]).toBeCloseTo(447.5)
+  const { d, vel } = timeline.at(0, wallMinutes('2026-11-18T00:30'), [500, 0], midnight)
+  expect(d[0]).toBeCloseTo(552.5)
   expect(vel[0]).toBeCloseTo(1.5)
+  expect(timeline.at(0, wallMinutes(first.time) + 30, [500, 0], midnight).d[0]).toBeCloseTo(447.5)
+  expect(timeline.at(0, midnight, [500, 0], midnight - 1440).d[0]).toBeCloseTo(590)
+  const shifted = steeringTimeline([
+    { ...first, time: '2026-11-17T23:30' },
+    { ...second, time: '2026-11-18T00:30' },
+  ], ['surface'], () => ({ surface: 0.51 }), 0.5)
+  expect(shifted.at(0, midnight + 30, [500, 0], midnight).d[0]).toBeCloseTo(552.5)
 })
 
 it('closes the forecast layers smoothly from 98% to 100% total cover', () => {

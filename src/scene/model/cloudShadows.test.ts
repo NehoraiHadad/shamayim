@@ -10,7 +10,7 @@ it('describes the far ridge strip in land pixels even when a blob crosses both c
   const far = { points: [[0, 20], [375, 20]] as [number, number][], distanceKm: [10, 10] }
   const box = { width: 750, landHeight: 128, dpr: 1 }
   const [layer] = shadowLayers({ horizonY: 60, near, far }, box, [{
-    plane: 'far', km: 10, blob: { cellId: 1, centre: [0, 10], x: 375, y: 40, rx: 10, ry: 30, alpha: 0.5 },
+    plane: 'far', km: 10, blob: { cellId: 1, centre: [0, 10], x: 375, y: 40, rx: 10, ry: 30, alpha: 0.5, speed: 0 },
   }])
   expect(layer.clip).toEqual({ crest: [[0, 20], [750, 20]], fronts: [[[0, 40], [750, 40]]] })
 })

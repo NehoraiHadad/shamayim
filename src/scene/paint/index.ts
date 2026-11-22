@@ -2,6 +2,7 @@ import type { LayerDesc, LayerKind, LayerOf } from '../model/types'
 import type { Ctx2D, PaintEnv } from './hand'
 import { paintBodies, paintStars } from './bodies'
 import { paintClouds, paintFlash, paintShimmer } from './clouds'
+import { paintCloudSheet } from './cloudSheet'
 import { paintCloudShadow } from './cloudShadows'
 import { paintCanopy, paintCanopyLight } from './canopy'
 import { paintLandDust } from './landDust'
@@ -73,6 +74,7 @@ export const PAINTERS: Painters = {
   wearItem: { form: paintWearItem },
   wearDrip: { form: paintWearDrip },
   cloudShadow: { form: paintCloudShadow },
+  cloudSheet: { form: paintCloudSheet },
 }
 
 export function painterOf(desc: LayerDesc): Painter | undefined {

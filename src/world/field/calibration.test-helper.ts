@@ -19,7 +19,7 @@ export function coverageSample(placeId: string, sample: number, spanKm: number, 
   points.forEach(([x, y], i) => bins[bin(y) * n + bin(x)].push(i))
   return (layer: FieldLayer) => {
     const largest = occupancyOf(layer.lattice, 0.979999, false)
-    const field = { placeId, t, layers: [{ ...layer, ...largest, d, vel }] }
+    const field = { placeId, t, layers: [{ ...layer, ...largest, d, vel, dayMotion: undefined }] }
     const thresholds = new Float64Array(count).fill(Infinity)
     visitCells(field, layer.lattice, 0, 0, Math.SQRT2 * spanKm / 2 + maxRadius(layer.lattice) * largest.g, 0,
       (_i, _j, x, y, r, _base, _v, _tau, share, _seed, _genus, rank, axis) => {

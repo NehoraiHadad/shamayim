@@ -50,7 +50,8 @@ function ray(snapshot: FieldSnapshot, az: number, alt: number, columnStep?: numb
         const weight = (d: number) => 1 - smoothstep(range * 0.85, range, d)
         const length = from >= hi ? hi - lo : from - lo
           + (hi - from) * (weight(from) + 4 * weight((from + hi) / 2) + weight(hi)) / 6
-        const slant = cell.tau0 * length / (2 * cell.vKm * cos)
+        // τ₀ = κv, so integrating κ along the whole chord gives τ₀·ds/v.
+        const slant = cell.tau0 * length / (cell.vKm * cos)
         if (cell.genus === 'ac' || cell.genus === 'ci') patches.set(cell, slant)
         else tau += slant
       }

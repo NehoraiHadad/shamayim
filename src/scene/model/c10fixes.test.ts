@@ -13,7 +13,7 @@ import { sceneModel } from './index'
 import { trackAt } from './anim'
 import { trailAt } from './contrailMotion'
 import { crestOf } from './life'
-import { haloFrame, rainbowFrame } from './optics'
+import { haloFrame, haloLayer, rainbowFrame } from './optics'
 import { skyGeom } from './sky'
 import { gnomonic } from './tangent'
 import type { LayerDesc, LayerOf, Pt, SceneBox } from './types'
@@ -48,6 +48,18 @@ const radii = (pts: Pt[]) => {
 
 describe('C10 fix: the 22° halo is a circle round the sun', () => {
   const moments: LocalTime[] = ['2026-11-17T07:15', '2026-11-17T08:30', '2026-11-17T11:00', '2026-11-17T14:30']
+
+  it('requires a drawn cirrostratus veil over the solar ray', () => {
+    const when = '2026-11-17T07:15'
+    const { world, model } = at('jerusalem', when, CIRRUS, true)
+    const veil = ofKind(model.layers, 'cloudSheet').find(sheet => sheet.genus === 'cs')!
+    expect(ofKind(model.layers, 'bow').some(bow => bow.look === 'halo')).toBe(true)
+    expect(haloLayer(world, BOX, skyGeom(world, BOX), { ...veil, alpha: veil.alpha.map(() => 0) })).toBeNull()
+    const thin = buildWorld({ ...worldInput(places.get('jerusalem')!, when),
+      forced: CIRRUS, forcedLayers: { low: 0, mid: 0, high: 0.55 } })
+    expect(thin.optics.halo).toBeTruthy()
+    expect(ofKind(sceneModel(thin, BOX).layers, 'bow').some(bow => bow.look === 'halo')).toBe(false)
+  })
 
   it('projects the true 22° circle round in its frame (x and y radii equal), centred on the drawn sun', () => {
     let seen = 0
