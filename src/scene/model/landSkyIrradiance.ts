@@ -54,7 +54,7 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
   const ySky = linearLuminance(integrated)
   // Under a thick deck the distribution of diffuse radiance broadens and the
   // wide meter needs less additional gain. Both coefficients are display calibration.
-  const gain = (0.38 + 1.65 * cloud) * (0.84 - 0.20 * smoothstep(0.55, 0.85, cloud))
+  const gain = (0.38 + 1.65 * cloud) * (0.84 - 0.15 * smoothstep(0.55, 0.85, cloud))
   const amount = 0.2 + (gain * ySky / yHorizon - 0.2) * twilight
   const rgb = dayRgb.map((d, i) => d + (integrated[i] * yDay / Math.max(1e-6, ySky) - d) * twilight) as [number, number, number]
   return { rgb, amount, exposure, bias: dayBias * (1 - twilight) + twilight * Math.min(0.25, moment / Math.max(1e-6, ySky)) }
