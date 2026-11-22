@@ -2616,7 +2616,7 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
   (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
 
-7. **Physical daytime land lighting (Stage 7, 2026-11-22, rounds 1–5).** Terrain, vegetation, outside ground,
+7. **Physical daytime land lighting (Stage 7, 2026-11-23, rounds 1–6).** Terrain, vegetation, outside ground,
    and buildings use the same linear Lambertian product. With linear reflectance `ρ` and unit-luminance
    RGB illuminants `C`, the relative radiance is
    `L/L_ref = (ρ/π) · [E_sun C_sun max(0,n·s) V_s T + E_moon C_moon max(0,n·m) V_m + E_sky C_sky V_sky]`.
@@ -2656,27 +2656,33 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      the curvature-corrected horizon angle per geometry node and half-degree bearing. Interpolated
      horizon angles meet the source altitude through a soft 0.53° disc. A verified terrain height ceiling
      can certify clear light without a full march. The partial horizon can resume if the disc
-     drops closer to the terrain. Rims resolve the same local
-     receiver material, visibility and haze at a finer depth than the body raster.
+     drops closer to the terrain. In both endpoints, rims resolve the same local receiver material, visibility
+     and haze at a finer depth than the body raster.
    - Each receiver job samples the terrain and vegetation once and paints the full-beam and solar-beam-removed
      endpoints together. The cache swaps both bitmaps in one promotion. Optical depths add where projected
      cloud chords overlap, with local transmission `T = min(1, exp(−τ) / deckOpen)`. The mask interpolation is
      `α = (e(1) − e(T)) / (e(1) − e(0))`, where `e(t) = sRGB((1−h̄) k(1+Rt)^0.6 + h̄H)`.
      `R` averages beam and ambient incidence over texels with positive direct incidence, `k` is the ambient-only
-     display luminance for the plane's representative albedo, `h̄` is mean path haze and `H` is air luminance.
+     display luminance for the plane's representative albedo, `h̄` is the same lit texels' mean path haze and
+     `H` is air luminance.
      The painted endpoints carry local material and haze. The compositor moves one optical-depth mask per plane
      on the cloud sheet's minute clock, samples it at the canopy's offset and mixes encoded endpoint pixels
-     in premultiplied alpha. The interactive loop staggers plane rasters by fractions of one device pixel,
-     scans the blob bounds and reuses one blended patch per receiver. The interactive canopy path reads
-     one Worker pose at a time and interpolates premultiplied pixels in the affected rectangle before its
-     single compositing blit.
+     in premultiplied alpha. Arrivals and interactive renders share raster steps staggered by fractions of
+     a device pixel. Explicit lays use the requested phase. The mask cache compares projected footprint values
+     and quantized display parameters. Each receiver reuses a blended frame, with sampling offsets cached
+     per axis and mask weights evaluated only where an endpoint covers the pixel. This preserves fractional
+     coverage at the crest before the scene draws terrain over what is behind it.
    - Per-plant eight-bit tones key canopy paint independently of the plane's irradiance key. Each crown or tuft
      path is shared between the endpoints. The previous canopy stays visible over compatible terrain while its
      light changes. The 10 canopy poses at 5 fps use the wind's own clock. A cold canopy can show pose zero at full
-     beam while its pair waits. Remaining work yields to scrub requests. Reduced motion uses pose zero and
-     the unadvected shadow footprints.
+     beam while its pair waits. A compatible warm canopy publishes its paired pose zero with its plane.
+     The canopy skips the second endpoint when the swept footprints miss its bounds. A plane whose shadow
+     leaves can retain its full-beam bitmap. Remaining strip work yields to scrub requests. The Worker releases
+     completed or canceled staging canvases, and retirement of an entry closes both bitmaps of each pose.
+     Reduced motion uses pose zero and the unadvected shadow footprints.
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
-     moving transmission and out-of-order receiver paint with the browser's Worker.
+     moving transmission, a shadowed antialiased crest, paired arrivals, and failure of a Worker with a
+     filled shaded canopy strip.
    - In the five-pair round 5 benchmark against `6ca2e54`, first fallback and canopy were within 7%
      and all 24 rendered land/sky ratios were within 0.035% of round 4. The performance gate remains
      open on scrub latency and the animation tail in Shadmot Mehola. Its land animation p95 was
