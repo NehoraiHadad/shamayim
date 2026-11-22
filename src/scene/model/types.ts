@@ -576,6 +576,14 @@ export type LayerDesc =
       /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
       clip: { crest: Pt[]; fronts: Pt[][] } | null
       blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number }[] }
+  /**
+   * One field layer drawn as a continuous sheet over the dome (SPEC §6.0), in sky px. A grid of screen rays: `xs` the
+   * column centres, `ys` the row centres (top to bottom, denser toward the horizon, where the deck compresses). Per node
+   * (row-major, `ys.length × xs.length`): `alpha` the drawn coverage after the soft threshold, 0–1; `tone` 0 lit to 1
+   * shade (from τ and the light at the node). `body`, `shade` and `lit` the layer's colours at this hour.
+   */
+  | LayerBase & { kind: 'cloudSheet'; lattice: 'low' | 'tower' | 'mid' | 'high'; genus: string
+      xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']
