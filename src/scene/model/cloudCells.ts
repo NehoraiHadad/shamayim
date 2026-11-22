@@ -22,6 +22,8 @@ type Placed = LayerOf<'cloudCells'>['cells'][number]
 
 /** A tower's top below this altitude (deg) is behind the horizon's haze: not drawn. */
 const TOP_MIN = 0.4
+/** A cell whose near edge stands higher than this (deg) is overhead: its base, not its column, is what shows. */
+const NEAR_MAX = 25
 /** Narrower than this (px) a tower is a speck in the haze. */
 const W_MIN = 1.5
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
@@ -38,7 +40,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   for (const cell of cells) {
     const p = projectCell(cell)
     const w = p.widthDeg * pxPerDeg
-    if (p.aTop < TOP_MIN || w < W_MIN || cell.share <= 0.01) continue
+    if (p.aTop < TOP_MIN || p.aNear > NEAR_MAX || w < W_MIN || cell.share <= 0.01) continue
     const x = geom.x(p.az)
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const y = geom.dome(Math.max(0, p.aNear))
