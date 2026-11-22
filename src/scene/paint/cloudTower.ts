@@ -82,8 +82,9 @@ function colour(c: Ctx2D, s: CloudSprite, box: { x: number; y: number; w: number
   c.globalCompositeOperation = 'source-in'
   const up = c.createLinearGradient(0, s.under, 0, -s.tall)
   up.addColorStop(0, css(under))
-  up.addColorStop(0.12, css(mix(under, s.body, 0.35)))
-  up.addColorStop(0.5, css(s.body))
+  // The lower column stands in the shade of the tower above it: the base's dark climbs a third of the way up.
+  up.addColorStop(0.2, css(mix(under, s.body, 0.4)))
+  up.addColorStop(0.55, css(s.body))
   up.addColorStop(1, css(s.body))
   c.fillStyle = up
   c.fillRect(box.x, box.y, box.w, box.h)
