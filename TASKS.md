@@ -996,4 +996,11 @@ reviews, Claude manages and draws the painters.
       the old banks drift every frame, shadows never move); rain clouds, lightning and fog from the field; then delete
       the old bank system (`model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`) with its tests, fixtures and devParams.
       Shipped in CI-green pieces (Claude Opus 5.5, branch `claude/cloud-soft-look-413b7e`).
+- [ ] Piece 2 design (Claude): towers on the field. `model/cloudCells.ts` projects the snapshot's `tower` cells (and
+      any rain cell) to `CloudSprite`s (`paint/clouds/sprite.ts`): x from azimuth, y from the near base edge's altitude,
+      `w` from angular width, `under`/`tall` from base/top altitudes, tau, tones as the sheets'; far to near. New layer
+      kind `cloudCells` (sprites + x, y, speed), painted by `paintCloud`, carried by `carried()` bands like shadows.
+      Swap in the same commit that stops the old banks drawing (no double towers). Then rain shafts and flashes from
+      `rainWeight` cells (replaces `rainBankDescs`/`bandOf` in `model/weather.ts`, `flashLayersOf`), then fog, then
+      delete `model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`, their tests and registry/schedule entries.
 - [ ] N3e midnight reseed (`briefs/N3e-midnight-anchor.md`) after the rebuild.
