@@ -902,12 +902,18 @@ reviews, Claude manages and draws the painters.
       Opus subagent (Neon out of quota).
       N2d CI (run 44993185800): 5/1540 failed (purity name, shadow ratio 0.31–0.46 > 0.2, Tel Aviv sea glint), perf
       scrub.model p95 23.6 > 15 ms (Haifa, Tel Aviv). N2e: glitter on the eye ray, one shadow layer per land plane.
-- [ ] Shadow painter (Claude): field blobs clipped to the land faces / `rim` polygon; acceptance includes track F's
-      far-ridge band (`cloudShadow.far` horizontal smear) gone
+      N2f 3e2c755: clip crests in the shadow contract, horizon pre-cull, snapshot buffer reuse, relational glint test.
+      N2g 7a93be4: shadow gate = shadow/baseline model <= 0.30, increment <= 2.5 ms; density on absolute medians
+      (21 samples); perf harness warm-up. Opus round 10 SIGNED OFF N2 at 7a93be4 (CI 44999491674 green); READY sent
+      for an interim merge. Perf job is report-only; scrub.model p95 over 15 ms is main-wide.
+- [x] Shadow painter (Claude, 6f66ebe + 13acbde): blobs clipped to the plane's face minus every nearer face
+      (`paint/shadowClip.ts`); track F's far-ridge band gone in the after-stills
 - [ ] Rain shaft, trail and virga painter (Claude) from `rain.cells`; then retire the `rainBanks` adapter
 - [ ] Follow-up (outside D): first-call `sceneModel` cost ~10 ms on a new minute (`tone.ts`, `keys.ts` `partKey`)
-- [ ] Sheet-mode painter (Claude): layers as continuous density textures over the dome (SPEC §6.0, owner note
-      2026-11-22: "the sky is cloudy" is a layer, not shapes); sprites only for conv cells and horizon heaps
+- [x] Sheet-mode painter (Claude, 5b85f7b): `paint/cloudSheet.ts`, `cloudSheet` contract in `model/types.ts`
+      (screen-ray grid, alpha + tone, stretched centre to centre)
+- [ ] N3a sheet model (Codex gpt-6.2-sol, brief `track-d/briefs/N3a-sheet-model.md`): `model/cloudSheet.ts` from the
+      field snapshot + genus noise, coverage = cover by construction, crossfade off the old deck sheets
 - [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
 - [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
       As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
