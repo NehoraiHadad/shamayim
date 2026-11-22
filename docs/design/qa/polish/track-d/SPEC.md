@@ -143,6 +143,8 @@ Per cell:
 Life cycle:
 - `u'_i(t) = u'_i + 0.12·sin(2π(t/T_i + φ_i))`.
 - T is 20–40 min (Cu), 60–180 min (Sc, Ac), 90–240 min (Ci).
+- Tower lattice (Cg, Cb): one site is one cell, 30–60 min (Byers–Braham: three stages of 15–30 min). Its share ramp
+  is δ = 0.4, a developing stage of about 24 min. (Review round 4; the N1e 60–120 min fit the bound, not the physics.)
 
 Closing floor:
 - Above c = 0.9 a sheet closes the gaps: `τ_floor = smoothstep(0.9, 1, c)·0.5·κV̄`.

@@ -821,10 +821,11 @@ reviews, Claude manages and draws the painters.
       total (`src/world/clouds.ts`), two ill-posed tests, density grid too fine. N1c brief `briefs/N1c-fix-round.md`.
       N1c 5c96188 and N1d (Codex): 187/187 src/world tests; RMS ≤ 3.9 %; arrival 1–2 ms, cold place 9–14 ms, warm
       3.3–3.8 ms alone (warm target 3 ms not yet met; strict budgets run with `FIELD_PERF=1`, default run guards at 3×).
-      Next: Opus review of N1c+N1d, then N2. N3 writes against main's `LifeClock` (track C merged cc9664f).
+      N1e (Codex) physical cover fit, analytic near raster, warm 1.7 ms. Opus round 4: **ship N1** (82b8e5b); six
+      follow-ups folded into N2 (effective τ beyond the raster, slant shadowTau, tower periods 30–60 min, rain weight).
 - Heavy checks (full vitest, build, stills, perf) run on GitHub CI on push of this branch; locally only targeted vitest.
 - Done = READY line to the polish-audit session: no blocking review findings, CI green on final sha incl. perf budget, TASKS updated, main merged first if C landed. The audit session merges, not us.
-- [ ] N2 `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),
+- [ ] N2 (Codex writes, Opus reviews) brief `briefs/N2-light-shadow-rain.md`: `densityAt(layer,x,y,t)` (cells' kernels + genus noise; shared by transmit, shadows and the sheet painter),
       transmit, eye/direct light, shadows, rain; tests 2, 3, 8
 - [ ] Sheet-mode painter (Claude): layers as continuous density textures over the dome (SPEC §6.0, owner note
       2026-11-22: "the sky is cloudy" is a layer, not shapes); sprites only for conv cells and horizon heaps
