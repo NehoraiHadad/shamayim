@@ -1,0 +1,27 @@
+{
+ "l0": {
+  "raw": 1.072,
+  "national_loso": 1.061,
+  "regional_loso": 1.074
+ },
+ "l1": {
+  "raw": 1.213,
+  "national_loso": 1.139,
+  "regional_loso": 1.152
+ },
+ "l2": {
+  "raw": 1.261,
+  "national_loso": 1.181,
+  "regional_loso": 1.193
+ },
+ "l4": {
+  "raw": 1.363,
+  "national_loso": 1.293,
+  "regional_loso": 1.304
+ },
+ "l6": {
+  "raw": 1.658,
+  "national_loso": 1.573,
+  "regional_loso": 1.581
+ }
+}
