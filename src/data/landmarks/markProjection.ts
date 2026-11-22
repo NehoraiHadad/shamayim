@@ -1,3 +1,4 @@
+import { SCENE_W } from '../../world/sceneBox'
 import type { Place } from '../../config/place'
 import { screenSide } from '../../domain/camera'
 import { RIDGE_WIDTH } from '../terrain/ridgeProjection'
@@ -73,4 +74,12 @@ export function projectMark(place: Place, mark: Landmark, terrain: SceneTerrain,
   const offset = offsetKm(place, mark)
   const projected = toX(offset.dx)
   return projected && { ...projected, offset }
+}
+
+export function elevationAt(values: number[] | undefined, x: number): number | undefined {
+  if (!values?.length) return undefined
+  const position = Math.max(0, Math.min(values.length - 1, x / SCENE_W * (values.length - 1)))
+  const left = Math.floor(position)
+  const t = position - left
+  return values[left] + ((values[left + 1] ?? values[left]) - values[left]) * t
 }

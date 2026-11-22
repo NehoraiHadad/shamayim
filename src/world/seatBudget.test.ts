@@ -27,18 +27,19 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
   const label = baseline.world.labels.height
   const labelX = Math.round(label.x)
   const labelColumn = labelX / SCENE_W
-  // Put the lowest-ranked minaret next to the dot under the label, with its tip above the existing skyline.
+  // Put the lowest-ranked highrise next to the dot under the label, with its tip above the existing skyline.
   const roofPx = 5
   const labelBase = baseline.world.place3.dot.y + roofPx
   const labelHeight = labelBase - Math.min(label.y, baseline.skyline(labelColumn)) + roofPx
-  // The other seven minarets are to the left of the dot. Their supports and spans are disjoint.
+  // The other seven highrises are to the left of the dot. Their supports and spans are disjoint.
   const sites = [25, 45, 65, 85, 105, 125, 145, labelX].map((x, i) => {
     const hPx = labelHeight + (i === 7 ? 0 : 8 - i)
     const baseY = i === 7 ? labelBase : baseline.skyline(x / SCENE_W) + roofPx
     // All the synthetic seats project one metre to half a pixel at their shared distance.
-    const mark: Landmark = { id: `minaret-${i}`, kind: 'minaret', source: 'osm', heightM: hPx * 2,
+    const mark: Landmark = { id: `highrise-${i}`, kind: 'highrise', source: 'osm', glyph: 'synthetic-distinct-tower',
+      heightM: hPx * 2,
       lat: roshPina.lat + .02, lon: roshPina.lon + i * .0001 }
-    const block = { id: `block-${i}`, x, baseY, w: glyphAtHeight('minaret', hPx).w + 1,
+    const block = { id: `block-${i}`, x, baseY, w: glyphAtHeight('highrise', hPx).w + 1,
       h: roofPx, heightM: roofPx * 2, km: 3, seed: i }
     return { mark, block, hPx }
   })

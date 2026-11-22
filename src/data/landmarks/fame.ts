@@ -26,6 +26,10 @@ const NOT_LANDMARKS = new Set<MarkKind>(['palms', 'orchard', 'vineyard', 'solar'
 export const isLandmark = (mark: Pick<Landmark, 'fame' | 'source' | 'kind'>) =>
   (mark.source === 'curated' || Boolean(mark.fame)) && !NOT_LANDMARKS.has(mark.kind)
 
+/** Uncapped neighbours are named Wikipedia-famous structures or curated icons; Wikidata alone is only known. */
+export const isFamousLandmark = (mark: Pick<Landmark, 'fame' | 'source' | 'kind' | 'nameHe'>) =>
+  isLandmark(mark) && (mark.source === 'curated' || mark.fame === 2 && Boolean(mark.nameHe))
+
 /** Which of two duplicates (same kind, side by side) to keep: the more famous, then the taller. */
 export function outranks(a: Pick<Landmark, 'fame' | 'heightM'>, b: Pick<Landmark, 'fame' | 'heightM'>) {
   const fa = a.fame ?? 0, fb = b.fame ?? 0

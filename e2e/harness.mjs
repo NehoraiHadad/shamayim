@@ -3,6 +3,7 @@
 // serves the forecast fixture for the app's own forecast request. Every other request off the dev server is refused,
 // so nothing reaches Open-Meteo or any other host.
 import fs from 'node:fs'
+import { SCENE_W } from '../src/world/sceneBox.ts'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +17,7 @@ const { chromium } = require('playwright')
 const FORECAST = fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'))
 
 /** The still: the sky above the land's figure and the figure (scene.html's LAND_TOP + SCENE_H). */
-export const CLIP = { x: 0, y: 0, width: 375, height: 428 }
+export const CLIP = { x: 0, y: 0, width: SCENE_W, height: 428 }
 
 export async function startServer() {
   const { createServer } = await import('vite')
@@ -54,7 +55,7 @@ export function sceneUrl(base, { place, at, weather = '', overlay = false, phase
  * pixels whenever it is taken and a scrub frame is not raced by the drifting clouds.
  */
 export async function openPage(browser, base, dpr = 1, { motion = false } = {}) {
-  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr,
+  const context = await browser.newContext({ viewport: { width: SCENE_W, height: 812 }, deviceScaleFactor: dpr,
     reducedMotion: motion ? 'no-preference' : 'reduce' })
   const host = new URL(base).host
   await context.route('**/*', (route) => {

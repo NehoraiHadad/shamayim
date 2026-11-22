@@ -1,19 +1,21 @@
+import { localTownAt } from './markContext'
 import type { Place } from '../config/place'
 import { lieBaseY, outsideProject, type OutsideFrame, type PlaceLie } from '../data/city/outsideView'
-import type { CityTower } from '../data/city/types'
+import type { CityResult, CityTower } from '../data/city/types'
 import { isGenericHighrise, placeMarks } from '../data/landmarks/placeMarks'
 import { offsetKm } from '../data/landmarks/project'
-import { groundFn, seat } from '../data/landmarks/seat'
-import { settlementReach, type SettlementStyle } from '../data/landmarks/settlement'
+import { groundFn } from '../data/landmarks/seat'
+import { type SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
 import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { beyondMarks } from './beyondMarks'
-import { rowKm, type SeatMark } from './beyondSeat'
-import { fieldReach, GLYPH_SPECS, glyphOf } from './glyphSpecs'
-import { boxAround, DOT_R, overlaps, SHEET_CLEAR, shifts, VISIBLE_BOTTOM, type Box, type Point } from './layout'
+import { beyondKm, type SeatMark } from './beyondSeat'
+import { fieldReach, GLYPH_SPECS } from './glyphSpecs'
+import { DOT_R, SHEET_CLEAR, VISIBLE_BOTTOM, type Point } from './layout'
 import { markCandidates } from './markCandidates'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
+import { markPerspective } from './markPerspective'
 import { lookOf } from './outside'
 
 /**
@@ -24,16 +26,11 @@ import { lookOf } from './outside'
  * which is what made the cold world slow.
  */
 
-/** How much a mark of the place may be lifted off the sheet edge (px) rather than dropped. */
-const MAX_LIFT = 6
-const FAR_SCALE = .6
-const MIN_FIELD_DEPTH = 1
-
-type Ground = (x: number) => number
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+import { fit, MIN_FIELD_DEPTH } from './markFitting'
 
 export interface MarksInput {
   place: Place
+  city?: CityResult | null
   terrain: SceneTerrain
   landmarks: readonly Landmark[]
   /** Extra settlement-kind marks within skyline reach carried solely for beyond-town seating (never the own portrait). */
@@ -57,102 +54,6 @@ export interface MarksInput {
     land?: { top: readonly (readonly [number, number])[] } | null } | null
 }
 
-/** Distance (km) of the land along a line of points at px x (the plane's own distances). */
-function kmAlong(terrain: SceneTerrain, x: number, layer: 'near' | 'far', width: number): number {
-  const sight = terrain.sightAt?.(x * 375 / width)
-  if (!sight) return layer === 'near' ? 1 : 20
-  return layer === 'near' ? sight.nearKm : sight.farShows ? sight.farKm : sight.nearKm
-}
-
-/** Where a building glyph stands: its base, drawn height, scale and box; null when it cannot stand there. */
-function building(mark: PlacedMark, kind: NonNullable<ReturnType<typeof glyphOf>>, x: number, ground: Ground, far: boolean) {
-  const spec = GLYPH_SPECS[kind]
-  if (mark.layer === 'plain') {
-    const h = spec.h(mark.hPx)
-    const scale = mark.hPx / h
-    const base = mark.visibleTopY === undefined ? mark.baseY : mark.visibleTopY + mark.hPx
-    return { h, scale, base }
-  }
-  const depth = clamp01(Math.abs(mark.dy) / 1.5)
-  // The plane a near mark stands on (R1): among the roofs or on the line; well behind the line a little smaller and
-  // higher; in front of it, down the face.
-  const plane = far || mark.absorbed || mark.portrait || mark.landmark ? 'line' : mark.dy < -.3 ? 'face' : mark.dy > .3 && kind !== 'castle' ? 'behind' : 'line'
-  const h = spec.h(far ? mark.hPx / FAR_SCALE : mark.hPx)
-  const scale = far ? FAR_SCALE : plane === 'behind' ? 1 - .2 * depth : 1
-  const seated = seat(ground, x, spec.w * scale, 0, far || Boolean(mark.absorbed || mark.portrait || mark.landmark))
-  if (!seated) return null
-  const base = plane === 'face' ? ground(x) + 3 + 9 * depth : seated.baseY + (plane === 'behind' ? .25 * depth * h * scale : 0)
-  return { h, scale, base }
-}
-
-/** A field's box at a depth under the ground (px). */
-function fieldBox(kind: 'orchard' | 'vineyard' | 'solar', x: number, depth: number, ground: Ground): Box {
-  const w = GLYPH_SPECS[kind].w
-  const ys = [0, .25, .5, .75, 1].map((t) => ground(x - w / 2 + t * w))
-  return { left: x - w / 2, right: x + w / 2, top: Math.min(...ys) + depth - 1.6, bottom: Math.max(...ys) + depth + fieldReach(kind) }
-}
-
-/**
- * The place's mark among its roofs slides up toward the crest when its true x falls down a steep face below where the
- * houses reach (across the dot if need be), to the nearest spot inside the town.
- */
-function intoTown(x: number, w: number, ground: Ground, dot: Point, style: SettlementStyle) {
-  const reach = settlementReach(style).down / 2
-  const base = (at: number) => Math.max(ground(at - w / 2), ground(at + w / 2)) - dot.y
-  if (base(x) <= reach) return x
-  const clear = DOT_R + w / 2 + 1
-  const toward = Math.sign(dot.x - x) || 1
-  for (let at = x; Math.abs(at - x) <= 80; at += toward * 2) {
-    if (Math.abs(at - dot.x) >= clear && base(at) <= reach) return at
-  }
-  return x
-}
-
-/** One placed mark seated and fitted to what shows; null when it does not fit. */
-function fit(mark: PlacedMark, input: MarksInput, ground: Ground, farGround: Ground): WorldMark | null {
-  const { dot, width, terrain } = input
-  const kind = glyphOf(mark)
-  if (!kind) return null
-  const spec = GLYPH_SPECS[kind]
-  const named = mark.landmark ?? false
-  let x = mark.xPct / 100 * width
-  const km = mark.layer === 'plain' ? mark.km ?? 10 : kmAlong(terrain, x, mark.layer, width)
-  const common = { ...mark, glyphKind: kind, named, plane: mark.layer, km }
-  if (mark.layer === 'near' && spec.field) {
-    // A field slides onto the visible face under the crest, out of the dot.
-    const want = 2 + 6 * clamp01(Math.abs(mark.dy) / 1.5)
-    const field = kind as 'orchard' | 'vineyard' | 'solar'
-    for (const at of shifts(48, 4).map((shift) => x + shift)) {
-      if (at - spec.w / 2 < 8 || at + spec.w / 2 > width - 8) continue
-      const depth = Math.min(want, VISIBLE_BOTTOM - 2 - fieldBox(field, at, 0, ground).bottom)
-      if (depth < MIN_FIELD_DEPTH || overlaps(fieldBox(field, at, depth, ground), boxAround(dot.x, dot.y, DOT_R))) continue
-      const box = fieldBox(field, at, depth, ground)
-      return { ...common, xPct: at / width * 100, x: at, base: box.top + 1.6, h: box.bottom - box.top - 1.6, scale: 1, w: spec.w,
-        depth, km: Math.min(km, input.reachKm), baseY: ground(at) }
-    }
-    return null
-  }
-  if (mark.layer === 'near' && mark.absorbed) x = intoTown(x, spec.w, ground, dot, input.style)
-  let geometry = building(mark, kind, x, mark.layer === 'far' ? farGround : ground, mark.layer === 'far')
-  if (!geometry) return null
-  if (mark.layer === 'near') {
-    const half = spec.w * geometry.scale / 2
-    const box = { left: x - half, right: x + half, top: geometry.base - geometry.h * geometry.scale, bottom: geometry.base }
-    if (!mark.absorbed && overlaps(box, boxAround(dot.x, dot.y, DOT_R))) {
-      x = dot.x + Math.sign(x - dot.x || 1) * (half + DOT_R + 1)
-      geometry = building(mark, kind, x, ground, false)
-      if (!geometry) return null
-    }
-    const need = geometry.base - (VISIBLE_BOTTOM - SHEET_CLEAR)
-    if (need > 0) {
-      if (!(mark.landmark || mark.absorbed || mark.portrait) || need > MAX_LIFT) return null
-      geometry = { ...geometry, base: geometry.base - need }
-    }
-  }
-  const portraitKm = mark.portrait ? Math.min(km, input.reachKm) : km
-  return { ...common, xPct: x / width * 100, x, ...geometry, w: spec.w * geometry.scale, km: portraitKm, baseY: geometry.base }
-}
-
 /**
  * The marks of a place, seated and fitted, in px at `width`. A portrait's marks stand by their side of the place (the data
  * layer's rule); an outside view's marks of the place stand where the one outside projection puts them (east left, north
@@ -170,10 +71,14 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
     return { marks: marks.filter(inBox), seatPool: [] }
   }
   // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
-  const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot, input.notes)
+  const perspective = markPerspective(place, terrain, outside.frame, outside.baseKm, input.city)
+  const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot, input.notes,
+    mark => localTownAt(input.city, mark) === true)
   const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
   const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
-  const placed = [...ownMarks, ...placeMarks(place, terrain, other, width, undefined, false, undefined, input.notes, 'landmark')]
+  const otherMarks = placeMarks(place, terrain, other, width, undefined, false, undefined,
+    input.notes, 'landmark', perspective)
+  const placed = [...ownMarks, ...otherMarks]
   let marks = [...fitted(placed), ...seated]
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
   const { frame, isCity, lie, baseKm } = outside
@@ -205,7 +110,7 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
       const left = note.left - spec.w / 2 - 1, right = note.right + spec.w / 2 + 1
       x = Math.abs(x - left) <= Math.abs(right - x) ? left : right
     }
-    const km = rowKm(frame, baseKm, dy)
+    const km = beyondKm(frame, baseKm, dx, dy)
     if (spec.field) {
       // A field lies on the face under the crest at its depth, its row's drop added (down the slope with its row); on the
       // place's own ground (C5b) its row's ground is the crest it lies under.
