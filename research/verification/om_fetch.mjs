@@ -30,6 +30,8 @@ const PASSES = {
     'temperature_2m_previous_day4', 'temperature_2m_previous_day6'],
   2: ['wind_gusts_10m', 'wind_gusts_10m_previous_day1', 'relative_humidity_2m',
     'relative_humidity_2m_previous_day1', 'precipitation_previous_day1'],
+  3: ['wind_speed_10m', 'wind_speed_10m_previous_day1', 'wind_speed_10m_previous_day2',
+    'precipitation', 'precipitation_previous_day2'],
 }
 
 const HOURLY_BUDGET = 4000 // stay under Open-Meteo's 5,000/hour
