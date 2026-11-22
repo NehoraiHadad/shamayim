@@ -1,6 +1,7 @@
 import { smoothstep } from '../../world/ridgeLighting'
 import type { CloudLevel, WorldState } from '../../world/types'
 import { towerLayerOf } from './cloudCells'
+import { cityLit } from './cityLight'
 import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
 import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
@@ -47,10 +48,12 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     const closed = smoothstep(0.6, 0.95, fieldLayer.cover)
     const base = mixRgb(mixRgb(DECK_GREY, WHITE, 0.5), RAIN_GREY, rain)
     const grey = mixRgb(DECK_GREY, RAIN_GREY, rain)
+    // By night a deck over the towns gives their light back from its base (an overcast city night is not black).
+    const city = cityLit(world, level, fieldLayer.cover)
     const sheet = cloudSheetOf(world, geom, snapshot, {
-      body: mixRgb(tones.body, base, day),
+      body: mixRgb(mixRgb(tones.body, city.rgb, city.weight), base, day),
       // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
-      shade: mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
+      shade: mixRgb(mixRgb(tones.shade, city.rgb, city.weight), mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
       // Moonlight lifts the lit endpoint in proportion to the beam reaching the sheet; at moonset it merges into the body.
       lit: light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
         light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,

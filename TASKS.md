@@ -943,6 +943,10 @@ Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look
 - [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
       (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
       distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
+- [x] Storm and night (Claude, 22 Nov): tower bodies fair-white, dark genus bases (darker raining), seen through the
+      1.5 km haze they rise out of (`hazePath`); overhead Cb drawn (NEAR_MAX 70); rain curtains in rain grey.
+      Field calibration on the real Haifa 15.3 day: towers 35 % of low cover, cores 18 km apart / 2.5 km radius, half
+      Cb, rain only from Cb (`stormDay.test.ts`). Overcast nights lit from below by the towns (`cityLight.ts`, env.glow).
 - [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
 

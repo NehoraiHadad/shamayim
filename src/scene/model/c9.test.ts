@@ -63,16 +63,21 @@ describe('C9: the sun behind a cloud and its glow (defect 2)', () => {
   })
 
   it('gives a tower by the sun its silver edge whatever lights it from above', () => {
-    const world = buildWorld({ ...worldInput(loaded.get('haifa')!, '2026-11-17T16:00' as LocalTime), forced: THUNDER,
-      forcedLayers: { low: 0.5, mid: 0.2, high: 0.2 } })
-    const geom = skyGeom(world, BOX)
-    const sx = geom.left + world.bodies.sun.x * geom.s, sy = BOX.landTop + world.bodies.sun.y
-    const towers = layers(world, 'cloudCells').flatMap((l) => l.cells)
-    const near = towers.filter(({ sprite: s, x, y }) => Math.abs(x - sx) < s.w / 2 && sy > y - s.tall && sy < y + s.under)
-    expect(near.length).toBeGreaterThan(0)
-    for (const { sprite } of near) expect(sprite.silver, String(sprite.seed)).toBeGreaterThan(.2)
-    // Far from the sun, no silver.
-    for (const { sprite } of towers.filter((c) => Math.hypot(c.x - sx, c.y - sy) > 300)) expect(sprite.silver).toBeLessThan(.2)
+    // A storm is a few large cores now: walk the afternoon until the low sun stands behind one.
+    let seen = 0
+    for (const hour of ['15:00', '15:20', '15:40', '16:00', '16:20']) {
+      const world = buildWorld({ ...worldInput(loaded.get('haifa')!, `2026-11-17T${hour}` as LocalTime), forced: THUNDER,
+        forcedLayers: { low: 0.5, mid: 0.2, high: 0.2 } })
+      const geom = skyGeom(world, BOX)
+      const sx = geom.left + world.bodies.sun.x * geom.s, sy = BOX.landTop + world.bodies.sun.y
+      const towers = layers(world, 'cloudCells').flatMap((l) => l.cells)
+      const near = towers.filter(({ sprite: s, x, y }) => Math.abs(x - sx) < s.w / 2 && sy > y - s.tall && sy < y + s.under)
+      seen += near.length
+      for (const { sprite } of near) expect(sprite.silver, String(sprite.seed)).toBeGreaterThan(.2)
+      // Far from the sun, no silver.
+      for (const { sprite } of towers.filter((c) => Math.hypot(c.x - sx, c.y - sy) > 300)) expect(sprite.silver).toBeLessThan(.2)
+    }
+    expect(seen).toBeGreaterThan(0)
   })
 })
 
