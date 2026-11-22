@@ -1,4 +1,3 @@
-import type { RGB } from '../model/types'
 import type { CloudSprite } from './cloudSprite'
 import { rng } from './core'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
@@ -79,8 +78,7 @@ function puff(c: Ctx2D, cx: number, cy: number, rx: number, ry: number, a: numbe
 
 /** The colour, once over the whole mass: base to body up the column, then the light's side, then the silver crown. */
 function colour(c: Ctx2D, s: CloudSprite, box: { x: number; y: number; w: number; h: number }) {
-  const base: RGB = s.rains ? mix(s.shade, [0.2, 0.23, 0.27], 0.35) : s.shade
-  const under = mix(base, s.lit, 0.6 * s.glow)
+  const under = mix(s.shade, s.lit, 0.6 * s.glow)
   c.globalCompositeOperation = 'source-in'
   const up = c.createLinearGradient(0, s.under, 0, -s.tall)
   up.addColorStop(0, css(under))
