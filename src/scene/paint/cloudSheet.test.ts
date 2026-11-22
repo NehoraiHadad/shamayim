@@ -11,34 +11,39 @@ const sheet = (alpha: number[]): LayerOf<'cloudSheet'> => ({
 
 function harness() {
   const draws: number[][] = []
-  let texels: Uint8ClampedArray | null = null
+  let texels: { data: Uint8ClampedArray; width: number; height: number } | null = null
   const scratchCtx = {
     createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h }),
-    putImageData: (img: { data: Uint8ClampedArray }) => { texels = img.data },
+    putImageData: (img: { data: Uint8ClampedArray; width: number; height: number }) => { texels = img },
   }
   const ctx = {
     save() {}, restore() {}, imageSmoothingEnabled: false, imageSmoothingQuality: 'low',
     drawImage: (_c: unknown, ...args: number[]) => draws.push(args),
   } as unknown as Ctx2D
   const env = { hand: { grain: 1 }, phase: 0, scale: 1, canvas: () => ({ canvas: {}, ctx: scratchCtx }) } as unknown as PaintEnv
-  return { ctx, env, draws, texels: () => texels }
+  return { ctx, env, draws, texels: () => texels! }
 }
 
 describe('cloud sheet painter', () => {
-  it('stretches one strip per row gap, centre to centre, edge to edge of the grid', () => {
+  it('resamples the uneven rows to even ones and stretches them in one draw, centre to centre, edge to edge', () => {
     const h = harness()
     paintCloudSheet(h.ctx, sheet(Array(12).fill(0.5)), h.env)
-    expect(h.draws).toEqual([
-      [0.5, 0.5, 2, 1, -10, 0, 400, 200], [0.5, 1.5, 2, 1, -10, 200, 400, 100], [0.5, 2.5, 2, 1, -10, 300, 400, 30],
-    ])
+    // 330 px at 2 px a row: 166 rows, the first on ys[0] and the last on ys[3].
+    expect(h.texels().height).toBe(166)
+    expect(h.draws).toEqual([[0.5, 0.5, 2, 165, -10, 0, 400, 330]])
   })
 
-  it('writes alpha and the lit→body→shade tone per ray', () => {
+  it('writes alpha and the lit→body→shade tone per ray, and blends between rays down the column', () => {
     const h = harness()
     paintCloudSheet(h.ctx, sheet([0, ...Array(10).fill(0.5), 1]), h.env)
-    const t = h.texels()!
-    expect([t[0], t[1], t[3]]).toEqual([255, 255, 0]) // tone 0, lit, clear
-    expect([t[44], t[47]]).toEqual([77, 255]) // tone 1, shade, opaque
+    const { data, height } = h.texels()
+    const px = (row: number, col: number) => Array.from(data.slice((row * 3 + col) * 4, (row * 3 + col) * 4 + 4))
+    expect(px(0, 0)[3]).toBe(0) // clear ray
+    expect(px(height - 1, 2)).toEqual([77, 77, 77, 255]) // tone 1, shade, opaque
+    // Halfway between ys[0] and ys[1] (row 50 of 166 is y = 100), alpha is halfway between the two rays.
+    expect(px(50, 0)[3]).toBe(64)
+    // Premultiplied: a clear neighbour does not darken the colour.
+    expect(px(50, 0).slice(0, 3)).toEqual(px(100, 0).slice(0, 3))
   })
 
   it('paints nothing on a clear sheet', () => {
