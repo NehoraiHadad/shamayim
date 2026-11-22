@@ -4,7 +4,7 @@ import type { DeviceRect } from './paintJob'
 
 export const MASK_TEXEL = 2
 
-interface Mask {
+export interface ShadowMask {
   canvas: LayerCanvas
   image: ImageData
   ratio: number
@@ -14,6 +14,7 @@ interface Mask {
   step?: number
   revision: number
   box?: DeviceRect
+  active?: DeviceRect
 }
 
 export function intersect(a: DeviceRect, b: DeviceRect): DeviceRect | undefined {
@@ -24,14 +25,14 @@ export function intersect(a: DeviceRect, b: DeviceRect): DeviceRect | undefined 
 
 /** One 2-CSS-px optical-depth raster per plane, in the land surface's coordinates. */
 export class ShadowComposite {
-  private masks = new Map<string, Mask>()
+  private masks = new Map<string, ShadowMask>()
   private tables = new WeakMap<ReceiverShadow, Uint8Array>()
   private revision = 0
 
   private readonly factory: CanvasFactory
   constructor(factory: CanvasFactory) { this.factory = factory }
 
-  maskAt(id: string, shadow: ReceiverShadow, rect: DeviceRect, ratio: number, seconds: number, step: number): Mask {
+  maskAt(id: string, shadow: ReceiverShadow, rect: DeviceRect, ratio: number, seconds: number, step: number): ShadowMask {
     const { x, y, w, h } = rect
     let mask = this.masks.get(id)
     const old = mask?.rect
@@ -69,6 +70,7 @@ export class ShadowComposite {
       ctx.clearRect(px, py, Math.ceil((bx + bw - x) / texel) - px, Math.ceil((by + bh - y) / texel) - py)
     }
     mask.box = undefined
+    mask.active = undefined
     const depth = mask.depth
     for (let j = top; j <= bottom; j++) depth.fill(0, j * width + left, j * width + right + 1)
     for (const b of blobs) {
@@ -91,6 +93,7 @@ export class ShadowComposite {
       }
     }
     if (x1 >= x0) {
+      mask.active = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }
       ctx.putImageData(mask.image, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1)
       // Include one texel around the active area for bilinear filtering at the edge.
       const px = Math.max(0, Math.floor((x0 - 1) * texel)), py = Math.max(0, Math.floor((y0 - 1) * texel))

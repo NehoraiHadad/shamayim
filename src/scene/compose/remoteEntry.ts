@@ -1,5 +1,5 @@
 import type { LayerDesc } from '../model/types'
-import { shadeKeyOf, type DeviceRect, type PaintResult } from './paintJob'
+import { resultBitmaps, shadeKeyOf, type DeviceRect, type PaintPose, type PaintResult } from './paintJob'
 
 export interface Request {
   /** Advances when the layer's requested paint keys change, including on a scrub back. */
@@ -20,6 +20,7 @@ interface Shown {
   form: ImageBitmap | null
   light: ImageBitmap | null
   shade?: ImageBitmap | null
+  poses?: PaintPose[]
 }
 
 export interface Entry {
@@ -33,10 +34,9 @@ export interface Entry {
 }
 
 export function partsOf(shown: Shown | null, staged?: Entry['staged']) {
-  return new Set([shown?.form, shown?.light, shown?.shade, ...(staged?.parts ?? []).flatMap(bitmaps)])
+  const picture = shown && resultBitmaps({ bitmap: shown.light, shade: shown.shade, poses: shown.poses })
+  return new Set([shown?.form, ...(picture ?? []), ...(staged?.parts ?? []).flatMap(resultBitmaps)])
 }
-
-export const bitmaps = ({ bitmap, shade }: PaintResult) => [bitmap, shade]
 
 /** A staged part still fits the wanted picture: a form for the same form, a light for the same paint. */
 const fits = (part: PaintResult['part'], staged: Request, wanted: Request) =>
@@ -47,7 +47,7 @@ export function pruneStaged(entry: Entry) {
   const { staged, wanted } = entry
   if (!staged) return
   const keep = staged.parts.filter(({ part }) => fits(part, staged.request, wanted))
-  for (const part of staged.parts) if (!keep.includes(part)) for (const bitmap of bitmaps(part)) bitmap?.close()
+  for (const part of staged.parts) if (!keep.includes(part)) for (const bitmap of resultBitmaps(part)) bitmap?.close()
   entry.staged = keep.length ? { request: staged.request, parts: keep } : null
 }
 
@@ -66,7 +66,7 @@ function completes(entry: Entry, request: Request, parts: readonly PaintResult[]
 export function stage(entry: Entry, request: Request, parts: PaintResult[]): PaintResult[] | null {
   const staged = entry.staged
   const kept = staged ? staged.parts.filter(({ part }) => fits(part, staged.request, request) && !parts.some((p) => p.part === part)) : []
-  for (const part of staged?.parts ?? []) if (!kept.includes(part)) for (const bitmap of bitmaps(part)) bitmap?.close()
+  for (const part of staged?.parts ?? []) if (!kept.includes(part)) for (const bitmap of resultBitmaps(part)) bitmap?.close()
   const all = [...kept, ...parts]
   if (completes(entry, request, all)) {
     entry.staged = null
@@ -122,14 +122,14 @@ export function accept(entry: Entry, request: Request, results: readonly PaintRe
     const completeLight = request.lightKey === null || (light && (shade || !shadeKeyOf(request.desc) || (preview && !shown?.shade)))
     if ((request.formless || form) && completeLight) {
       const layout = current ? wanted : sameForm(wanted, request) ? { ...request, desc: wanted.desc } : request
-      promote(entry, { request: layout, form, light, shade, preview, lightDesc: request.desc })
+      promote(entry, { request: layout, form, light, shade, poses: painted ? painted.poses : held?.poses, preview, lightDesc: request.desc })
     }
   }
-  closeReplaced(entry.shown, results.flatMap(bitmaps))
+  closeReplaced(entry.shown, results.flatMap(resultBitmaps))
 }
 
 export function peek(entry: Entry | undefined) {
   if (!entry?.shown) return null
-  const { form, light, shade, preview, lightDesc, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
-  return { form, light, shade, preview, lightDesc, ratio, rect, formKey, lightKey, desc }
+  const { form, light, shade, poses, preview, lightDesc, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
+  return { form, light, shade, poses, preview, lightDesc, ratio, rect, formKey, lightKey, desc }
 }

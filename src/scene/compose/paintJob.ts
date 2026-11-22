@@ -43,7 +43,7 @@ export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined) {
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
   paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[],
-  shade?: Ctx2D) {
+  shade?: Ctx2D, pose?: number) {
   const targets = shade ? [ctx, shade] : [ctx]
   for (const target of targets) {
     target.setTransform(1, 0, 0, 1, 0, 0)
@@ -52,10 +52,10 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
     if (!only) target.clearRect(0, 0, size.width, size.height)
   }
   const canvas = (w: number, h: number) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
-  const count = frameCount(desc.animated)
+  const count = pose === undefined ? frameCount(desc.animated) : 1
   if (count === 1) {
     for (const target of targets) target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    paint(ctx, desc, { hand, phase, scale: ratio, canvas, shade })
+    paint(ctx, desc, { hand, phase: pose === undefined ? phase : framePhase(desc.animated, pose), scale: ratio, canvas, shade })
     for (const target of targets) target.setTransform(1, 0, 0, 1, 0, 0)
     return
   }
@@ -123,6 +123,8 @@ export interface PaintJob {
   shade?: true
   /** A cold canopy may publish frame zero with just its beam image before requesting its pair. */
   coldPreview?: true
+  /** A new lit terrain receiver takes precedence over other queued land work during a scrub. */
+  scrubReceiver?: true
 }
 
 export interface PaintRequest { batch: number; jobs: PaintJob[] }
@@ -137,9 +139,17 @@ export interface PaintResult {
   /** Transferred bitmap on completion, or null for an intermediate strip chunk still staged in the worker. */
   bitmap: ImageBitmap | null
   shade?: ImageBitmap | null
+  /** Additional paired canopy poses, individually drawable at their device size. */
+  poses?: PaintPose[]
   preview?: true
   /** The worker's time for this part (ms), raster included. */
   ms: number
+}
+
+export interface PaintPose { bitmap: ImageBitmap; shade: ImageBitmap }
+
+export function resultBitmaps({ bitmap, shade, poses }: Pick<PaintResult, 'bitmap' | 'shade' | 'poses'>) {
+  return [bitmap, shade, ...(poses ?? []).flatMap((pose) => [pose.bitmap, pose.shade])]
 }
 
 export interface PaintReply { batch: number; results: PaintResult[]; error?: string }

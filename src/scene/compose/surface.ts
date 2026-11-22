@@ -135,11 +135,11 @@ export class Surface {
    * `still` (reduced motion): the drifts, strips, falls and flashes stand at phase 0 and nothing glides or forms; the
    * fades still run with the phase (the arrival's simple fade).
    */
-  composite(layers: readonly LayerDesc[], phase = this.phase, still = this.still) {
+  composite(layers: readonly LayerDesc[], phase = this.phase, still = this.still, animState = this.animState(layers, phase, still)) {
     this.last = layers
     this.phase = phase
     this.still = still
-    this.shown = { layers, anim: this.animState(layers, phase, still) }
+    this.shown = { layers, anim: animState }
     const motion = still ? 0 : phase
     const ctx = ctxOf(this.canvas)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -243,10 +243,13 @@ export class Surface {
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
         if (plane && cached.shade) {
-          const sy = (preview ? 0 : frame) * rect.h
+          const poses = 'poses' in cached ? cached.poses : undefined
+          const pose = poses?.[frame - 1]
+          const sy = (preview || poses ? 0 : frame) * rect.h
           const opaque = layout.kind === 'plane' && alpha === 1 && !anim?.reveal && !still && this.interactive
           const reveal = anim?.reveal
-          this.receivers.draw({ ctx, id: layout.id, cached, plane, phase, still, interactive: this.interactive, opaque, sy, y, scale: k, draw,
+          this.receivers.draw({ ctx, id: layout.id, cached: pose ? { ...cached, light: pose.bitmap, shade: pose.shade } : cached,
+            plane, phase, still, interactive: this.interactive, opaque, sy, y, scale: k, draw,
             reveal: reveal && Number.isFinite(reach) ? (image, patch) => this.window(image, patch, 0, patch.y, reveal, reach, alpha) : undefined })
         } else draw(light)
         ctx.globalCompositeOperation = 'source-over'
@@ -259,6 +262,7 @@ export class Surface {
 
   private markShown(desc: LayerDesc, fresh: boolean) {
     if (!this.stats) return
+    if (desc.kind === 'canopy' && !this.stats.steps[`visible.${desc.id}`]) this.stats.record(`visible.${desc.id}`, this.now())
     const existing = this.stats.shown[desc.id]
     if (fresh) {
       const lk = desc.light?.key ?? null
@@ -403,10 +407,11 @@ export class Surface {
     }
     this.flush()
     // An animation tick that moved nothing a whole pixel (and repainted or asked for nothing) leaves the canvas as it is.
-    if (this.shown && this.shown.layers === layers && this.shown.anim === this.animState(layers, phase, still)
+    const state = this.animState(layers, phase, still)
+    if (this.shown && this.shown.layers === layers && this.shown.anim === state
       && painted.every((p) => p === 'none')) return painted
     this.interactive = true
-    try { this.composite(layers, phase, still) } finally { this.interactive = false }
+    try { this.composite(layers, phase, still, state) } finally { this.interactive = false }
     return painted
   }
 

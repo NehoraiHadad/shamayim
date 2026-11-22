@@ -110,15 +110,26 @@ export async function receiverPixels(page, dpr = 1) {
       local.render([{ ...desc, cloudShadow: undefined }], 10)
       groundOnly[desc.light.key].beam = sample(24, 25)
     }
+    remote.render([fixedShadow, gustCanopy], 10)
+    await remote.settled()
+    remote.lay(10)
+    const remoteStart = pixels()
+    remote.lay(10.8)
+    const remoteBent = pixels()
+    remote.render([fixedShadow, gustCanopy], 10.8)
+    const interactiveBent = pixels()
     remoteWorker.terminate()
     return { unshadowed, first, intermediate, beforeOldJump, afterOldJump, beforeMinute, afterMinute, moved, still,
-      gustStart, gustBent, gustRepeat, coldCanopy, missing, paired, changes, groundOnly }
+      gustStart, gustBent, gustRepeat, remoteStart, remoteBent, interactiveBent, coldCanopy, missing, paired, changes, groundOnly }
   }, dpr)
   const { unshadowed, first, intermediate, beforeOldJump, afterOldJump, beforeMinute, afterMinute, moved, still,
-    gustStart, gustBent, gustRepeat, coldCanopy, missing, paired, changes, groundOnly } = result
+    gustStart, gustBent, gustRepeat, remoteStart, remoteBent, interactiveBent, coldCanopy, missing, paired, changes, groundOnly } = result
   assert.deepEqual(still, first)
   assert.deepEqual(gustStart, gustRepeat, 'canopy gust must repeat every two seconds')
   assert.notDeepEqual(gustStart, gustBent, 'canopy gust must keep moving under a stationary cloud shadow')
+  assert.deepEqual(remoteStart, gustStart, 'split Worker pose zero must match the fallback')
+  assert.deepEqual(remoteBent, gustBent, 'split Worker gust pose must match the fallback')
+  assert.ok(interactiveBent.every((c, i) => Math.abs(c - remoteBent[i]) <= 3), 'interactive canopy blend retains pixel coverage and colour')
   assert.deepEqual(first[1], unshadowed[1])
   assert.ok(intermediate[0][0] > first[0][0] && intermediate[0][0] < unshadowed[0][0], 'the shadow must advance between old poses')
   assert.ok(beforeOldJump.every((channel, i) => Math.abs(channel - afterOldJump[i]) <= 2), 'the former pose boundary must stay continuous')

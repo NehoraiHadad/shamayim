@@ -1,5 +1,6 @@
 import type { Ctx2D, Painter, Scratch } from '../paint'
-import { canvasSize, paintPart, type PaintJob, type PaintResult } from './paintJob'
+import { frameCount } from '../model/anim'
+import { canvasSize, paintPart, resultBitmaps, type PaintJob, type PaintPose, type PaintResult } from './paintJob'
 
 /** Minimal `OffscreenCanvas` surface needed by the worker batch runner (and Node unit tests). */
 export interface WorkerCanvas {
@@ -22,15 +23,36 @@ export interface WorkerRunnerDeps {
 export function makeWorkerRunner({ createCanvas, painterOf, now = () => performance.now() }: WorkerRunnerDeps) {
   const canvases = new Map<string, WorkerCanvas>()
 
-  function canvasFor(job: PaintJob, endpoint = job.part as string): WorkerCanvas {
-    const name = `${job.id}:${endpoint}`
+  function canvasFor(job: PaintJob, endpoint = job.part as string, pose?: number): WorkerCanvas {
+    const name = `${job.id}:${endpoint}:${pose ?? ''}`
     let canvas = canvases.get(name)
-    const { w, h } = canvasSize(job.desc, job.rect)
+    const { w, h } = pose === undefined ? canvasSize(job.desc, job.rect) : job.rect
     if (!canvas || canvas.width !== w || canvas.height !== h) {
       canvas = createCanvas(w, h)
       canvases.set(name, canvas)
     }
     return canvas
+  }
+
+  function scratch(w: number, h: number): Scratch {
+    const canvas = createCanvas(w, h)
+    return { canvas: canvas as unknown as Scratch['canvas'], ctx: canvas.getContext('2d') as Ctx2D }
+  }
+
+  function paintCanopyPoses(job: PaintJob, paint: Painter['form']) {
+    // Software raster can read the full strip for a small crop. Keep each pair directly drawable.
+    for (const pose of job.frames!) {
+      const canvas = canvasFor(job, 'light', pose), shade = canvasFor(job, 'shade', pose)
+      paintPart(canvas.getContext('2d') as Ctx2D, canvas, job.desc, job.ratio, job.rect,
+        paint, job.phase, job.hand, scratch, undefined, shade.getContext('2d') as Ctx2D, pose)
+    }
+    const first = { bitmap: snapshot(job, canvasFor(job, 'light', 0)), shade: snapshot(job, canvasFor(job, 'shade', 0)) }
+    if (job.final === false) return first
+    const poses: PaintPose[] = []
+    for (let i = 1; i < frameCount(job.desc.animated); i++) {
+      poses.push({ bitmap: canvasFor(job, 'light', i).transferToImageBitmap(), shade: canvasFor(job, 'shade', i).transferToImageBitmap() })
+    }
+    return { ...first, poses }
   }
 
   function snapshot(job: PaintJob, canvas: WorkerCanvas) {
@@ -48,36 +70,34 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
     try {
       for (const job of jobs) {
         const start = now()
+        const painter = painterOf(job.desc)
+        const paint = job.part === 'form' ? painter?.form : painter?.light
+        const info = { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, preview: job.preview }
+        if (paint && job.shade && job.progressive && job.frames) {
+          const endpoints = paintCanopyPoses(job, paint)
+          results.push({ ...info, ...endpoints, ms: now() - start })
+          continue
+        }
         const canvas = canvasFor(job)
         const ctx = canvas.getContext('2d') as Ctx2D
         const shade = job.shade && canvasFor(job, 'shade')
         const shadeCtx = shade ? shade.getContext('2d') as Ctx2D : undefined
-        const painter = painterOf(job.desc)
-        const paint = job.part === 'form' ? painter?.form : painter?.light
         if (job.frames?.[0] === 0) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
           shadeCtx?.clearRect(0, 0, canvas.width, canvas.height)
         }
         if (paint) {
-          paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, (w, h): Scratch => {
-            const scratch = createCanvas(w, h)
-            return { canvas: scratch as unknown as Scratch['canvas'], ctx: scratch.getContext('2d') as Ctx2D }
-          }, job.frames, shadeCtx)
+          paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, scratch, job.frames, shadeCtx)
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }
         const bitmap = snapshot(job, canvas)
-        results.push({ id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect,
-          bitmap, preview: job.preview, ms: now() - start })
-        const result = results[results.length - 1]
-        if (shade) {
-          result.shade = snapshot(job, shade)
-          result.ms = now() - start
-        }
+        const shadeBitmap = shade ? snapshot(job, shade) : undefined
+        results.push({ ...info, bitmap, shade: shadeBitmap, ms: now() - start })
       }
       return results
     } catch (error) {
-      for (const result of results) { result.bitmap?.close(); result.shade?.close() }
+      for (const result of results) for (const bitmap of resultBitmaps(result)) bitmap?.close()
       throw error
     }
   }

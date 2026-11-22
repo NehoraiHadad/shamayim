@@ -5,10 +5,12 @@ import { ctxOf, type CanvasFactory, type LayerCache, type LayerCanvas } from './
 import type { DeviceRect } from './paintJob'
 import type { RemoteCache } from './remoteCache'
 import { intersect, MASK_TEXEL, ShadowComposite } from './shadowComposite'
+import { CanopyBlend } from './canopyBlend'
 
 type Cache = LayerCache | RemoteCache
 type Cached = NonNullable<ReturnType<Cache['peek']>>
 type Plane = LayerOf<'plane'>
+type Endpoints = Pick<Cached, 'light' | 'shade' | 'rect' | 'ratio'>
 
 interface Patch {
   canvas: LayerCanvas
@@ -22,7 +24,7 @@ interface Patch {
 interface DrawReceiver {
   ctx: Ctx2D
   id: string
-  cached: Cached
+  cached: Endpoints
   plane: Cached
   phase: number
   still: boolean
@@ -38,6 +40,7 @@ interface DrawReceiver {
 /** Receiver colour stays fixed in land coordinates while the shared transmission mask moves over it. */
 export class ReceiverComposite {
   private readonly masks: ShadowComposite
+  private readonly canopy: CanopyBlend
   // One patch per receiver. Gust frames reuse the backing store without retaining a strip of patches.
   private patches = new Map<string, Patch>()
   private tint?: LayerCanvas
@@ -46,6 +49,7 @@ export class ReceiverComposite {
   constructor(factory: CanvasFactory) {
     this.factory = factory
     this.masks = new ShadowComposite(factory)
+    this.canopy = new CanopyBlend(factory)
   }
 
   draw({ ctx, id, cached, plane, phase, still, interactive, opaque, sy, y, scale, draw, reveal }: DrawReceiver) {
@@ -57,6 +61,10 @@ export class ReceiverComposite {
     const mask = this.masks.maskAt(plane.desc.id, shadow, plane.rect, plane.ratio, seconds, step)
     const rect = cached.rect, box = mask.box && intersect(mask.box, rect)
     if (!box) return draw(beam)
+    if (interactive && id !== plane.desc.id && !reveal) {
+      const mixed = this.canopy.mix(id, beam, cached.shade as CanvasImageSource, rect, mask, box, sy)
+      return draw(mixed as CanvasImageSource)
+    }
     const patch = this.patch(id, cached, mask, box, sy, opaque)
     const { x, w, h } = box, top = y + box.y - rect.y
     if (opaque) {
@@ -77,7 +85,7 @@ export class ReceiverComposite {
     else ctx.drawImage(image, 0, 0, w, h, x * scale, top * scale, w * scale, h * scale)
   }
 
-  private patch(id: string, cached: Cached, mask: ReturnType<ShadowComposite['maskAt']>, box: DeviceRect, sy: number, opaque: boolean) {
+  private patch(id: string, cached: Endpoints, mask: ReturnType<ShadowComposite['maskAt']>, box: DeviceRect, sy: number, opaque: boolean) {
     const held = this.patches.get(id)
     if (held?.revision === mask.revision && held.beam === cached.light && held.shade === cached.shade
       && held.sy === sy && held.opaque === opaque) return held
@@ -114,11 +122,12 @@ export class ReceiverComposite {
 
   prune(keep: ReadonlySet<string>) {
     this.masks.prune(keep)
+    this.canopy.prune(keep)
     for (const id of this.patches.keys()) if (!keep.has(id)) this.patches.delete(id)
   }
 
   bytes() {
-    let bytes = this.masks.bytes() + (this.tint ? this.tint.width * this.tint.height * 4 : 0)
+    let bytes = this.masks.bytes() + this.canopy.bytes() + (this.tint ? this.tint.width * this.tint.height * 4 : 0)
     for (const { canvas } of this.patches.values()) bytes += canvas.width * canvas.height * 4
     return bytes
   }
