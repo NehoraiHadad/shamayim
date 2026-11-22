@@ -13,10 +13,9 @@ let load: Awaited<ReturnType<typeof bundledWorldLoader>>
 beforeAll(async () => { stubCachedPublicFetch(); load = await bundledWorldLoader(root) })
 afterAll(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-// Offline fixtures, flat 100 m when unrecorded. Round 5: 46.32 s including startup, largest group 5.38 s.
-// The 90 s group timeout gives over 16x measured headroom, above the requested 3x.
-// One world per place covers both widths; the old single test had taken 80.81 s against its 60 s timeout.
-it.each(groups)('checks $name at both widths', { timeout: 90_000 }, async ({ name, entries }) => {
+// Offline fixtures, flat 100 m when unrecorded. Landmark-size R2: final width/DPR group maximum 11.27 s.
+// One world per place covers both widths and DPRs; a 60 s group limit leaves over 5x measured headroom.
+it.each(groups)('checks $name at both widths and DPRs', { timeout: 60_000 }, async ({ name, entries }) => {
   const started = Date.now()
   let seated = 0, unseated = 0, raster = 0
   for (const entry of entries) {
@@ -24,8 +23,8 @@ it.each(groups)('checks $name at both widths', { timeout: 90_000 }, async ({ nam
     if (world.place3.kind !== 'outside') throw new Error(entry.place.id)
     assertFarScale(world)
     for (const block of world.place3.beyondTowns ?? []) assertTownScale(block, world, terrain)
-    for (const width of [375, 1280]) {
-      const box = { width, skyHeight: 0, landTop: 0, landHeight: SCENE_H, dpr: 2 }
+    for (const width of [375, 1280]) for (const dpr of [1, 2]) {
+      const box = { width, skyHeight: 0, landTop: 0, landHeight: SCENE_H, dpr }
       const checked = assertDrawnSeats(world, box, sceneModel(world, box), landmarkById, terrain)
       seated += checked.seated; unseated += checked.unseated; raster += checked.raster
     }

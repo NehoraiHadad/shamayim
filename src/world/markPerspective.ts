@@ -4,6 +4,7 @@ import { farCellId } from '../data/city/townFootprints'
 import type { OutsideFrame } from '../data/city/outsideView'
 import { bearingOf, distanceOf, offsetKm, type Coordinate } from '../data/landmarks/project'
 import type { Landmark, MarkPerspective } from '../data/landmarks/types'
+import { neighbourGeometry } from './neighbourSize'
 import { viableNeighbour } from './neighbourPolicy'
 import { visibleMarkHeight } from './visibleMarkHeight'
 import { localTownAt } from './markContext'
@@ -11,7 +12,6 @@ import { SCENE_W } from './sceneBox'
 import { beyondKm, outsideDistance, overTheCrest } from './beyondSeat'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WorldMark } from './markGeometry'
-import { glyphAtHeight } from './glyphSpecs'
 
 /** Outside marks share the town's depth/haze frame. Far-layer marks retain the panorama eye. */
 export function markPerspective(place: Coordinate, terrain: SceneTerrain, frame: OutsideFrame,
@@ -38,7 +38,8 @@ export function angularMark<T extends WorldMark>(mark: T, horizonY: number): T |
   if (mark.sightKm === undefined || mark.heightM === undefined) return mark
   const hPx = visibleMarkHeight(mark.heightM, mark.sightKm, mark.base, horizonY, mark.crestPx)
   if (!viableNeighbour(mark.glyphKind, mark.named, hPx)) return null
-  return { ...mark, ...glyphAtHeight(mark.glyphKind, hPx), hPx }
+  const geometry = neighbourGeometry(mark.glyphKind, hPx, mark.named)
+  return { ...mark, ...geometry, hPx }
 }
 
 /** Distance (km) of the land along a line of points at px x (the plane's own distances). */
