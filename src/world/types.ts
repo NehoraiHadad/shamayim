@@ -489,7 +489,7 @@ export interface WorldState {
   /** Snow falling now from the clouds (C7), or null. */
   snowfall: Snowfall | null
   wind: Wind
-  flightTerrain?: Pick<import('./flightTerrain').FlightTerrain, 'eyeM' | 'heightAt' | 'blockedKm'>
+  flightTerrain?: Pick<import('./flightTerrain').FlightTerrain, 'eyeM' | 'heightAt' | 'blockedKm' | 'panoramaHeightsM'>
   terrain: TerrainPlanes
   water: WaterState
   farCities: FarCities

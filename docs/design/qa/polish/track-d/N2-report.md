@@ -125,3 +125,42 @@ The niced local panorama run measured above 1 ms for shadows and above 2 ms for 
 The fixture costs above were identified by code inspection. The first local run reported a timeout terminating the Vitest fork for `c10.test.ts` and was stopped. The niced single-thread follow-up passed all 30 selected cases across the nine reported routes, including all eight places each for planes, mist and rain. The longest plane, mist and rain cases took 9.27, 9.54 and 21.83 s respectively. The ring took 6.68 s, sea glitter 12.78 s, trails 23.57 s, and the Haifa and Tel Aviv hand-offs 19.55 s and 18.35 s. These runs found no wrong values in the nine routes. The timing of the original parallel failures was not reproduced. The final density changes and the shadow-only comparator still need timing verification.
 
 All four synthetic slope and datum cases passed with one niced Vitest thread. TypeScript build-mode checking and `git diff --check` passed. Oxlint passed with the existing control-regex warning in `scripts/city/geometry.ts`. The timing budgets and test deadlines were kept. The optional flight-terrain split was skipped. The combined world and scene-model run and opt-in performance run require cloud execution under the local testing limits.
+
+## Round 5
+
+### Sunset glint
+
+At Tel Aviv on 2026-11-17 at 16:30, `light.clear` was 0.09892, `light.eye` was 9.23e-26, `light.direct` was 0.003197, and the old glint input `light.meanBeam.sun` was 0.002789. Main at 7c50d4f gives `cloudTransmit` = 0.13500 when evaluated on the same covers (low 0.474, mid 0.810, high 0.375). Main gives the fixture's sun a nonzero statistical transmission without tracing the disc. The cloud field makes this particular disc effectively invisible. The coastal glint now consumes the dominant source's eye-ray beam. The regression asserts suppression for the recorded cloud and retains the original spark-count requirement for a clear sky at the same minute and place.
+
+### Shadow work and layers
+
+The first new minute in each recorded panorama made the following terrain calls. Each solve iteration calls `heightAt` once. The current ellipse uses four support projections per accepted blob and stores no rim points.
+
+| Panorama | Before height / blocked / rim points per blob | After height / blocked / rim points per blob | Local shadow ratio before → after |
+| --- | ---: | ---: | ---: |
+| Jerusalem | 1364 / 411 / 5.25 | 848 / 293 / 0 | 0.312 → 0.170 |
+| Haifa | 1569 / 670 / 6.02 | 740 / 289 / 0 | 0.441 → 0.199 |
+| Tiberias | 1376 / 489 / 6.22 | 874 / 294 / 0 | 0.304 → 0.176 |
+
+The centre solver permits six terrain samples and accepts only a horizontal projection-equation residual of at most 10 m. Nonconvergent centres are discarded. The view rejects candidates conservatively from the polar grid's height bounds beyond local-grid reach. Each centre keeps its terrain visibility check. Its ellipse projects the cloud footprint at the centre elevation, trading terrain-following rims for a receiving-plane footprint. No sun-direction memo is used.
+
+The stable compositor identity is `cloudShadow.<plane>`. Each descriptor carries its own blob array with cell ID, projected centre and radii, and alpha. The canvas content key updates with the ellipses. The interim painter draws the ellipses and the receiving-face clipping remains future work.
+
+### Scrub tail
+
+A local 20-minute-sample diagnostic followed the same day and ranked by scene-model elapsed time. All figures are milliseconds at the median-model sample and at the p95-model sample. Field snapshot, eye transmission and rain construction run in world building. Shadows and weather descriptors run in the scene model.
+
+| Place / sample | Model | Snapshot | Eye ray | Shadows | Rain construction | Model weather |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Haifa p50 | 13.86 | 2.14 | 0.59 | 0.68 | 0.006 | 0.58 |
+| Haifa p95 | 23.67 | 3.77 | 1.11 | 1.85 | 0.009 | 0.29 |
+| Tel Aviv p50 | 11.45 | 0.53 | 0.17 | 0.49 | 0.005 | 0.20 |
+| Tel Aviv p95 | 19.09 | 1.00 | 0.38 | 2.15 | 0.006 | 0.19 |
+
+Shadows accounted for 1.17 ms of Haifa's 9.81 ms model increase and 1.66 ms of Tel Aviv's 7.63 ms increase in this sample. A second, noisier trace measured Tel Aviv's cloud descriptor work at 2.42 → 9.48 ms between its median and tail samples. The model now serializes already-quantized cloud-bank key data without a per-value replacer and caches the exact outside item bounds with the existing outside shape (0 px error at 375 px). The browser perf gate and final CI timing remain to be measured in the cloud.
+
+### Verification
+
+The final local panorama run passed the ratio and model-increment gates. Haifa's ratio was 0.1994 against 0.2, so that run showed little margin. The observed median shadow times were 1.13, 1.32 and 1.17 ms for Jerusalem, Haifa and Tiberias. The opt-in 1 ms gate and 60-scrub browser performance job require cloud verification. The existing oxlint warning in scripts/city/geometry.ts is unrelated.
+
+The targeted Vitest files passed individually at low priority: outside, cloudShadows, cloudShadowPanorama, weather, model, world and scene livingLight, and planes. TypeScript build-mode checking, oxlint and git diff --check passed.

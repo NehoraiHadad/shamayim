@@ -10,7 +10,7 @@ import { fractionOf, SCENE_CAMERA } from '../domain/camera'
 export const curveDrop = (km: number) => ((km * km) * (1 - REFRACTION_K) / (2 * EARTH_R_KM)) * 1000
 
 /** The local grid is preferred out to this far (km) where the rays do not reach (behind the view). */
-const LOCAL_KM = 5.9
+export const FLIGHT_LOCAL_KM = 5.9
 
 export interface FlightTerrain {
   /** The eye's height (m above sea level). */
@@ -23,6 +23,8 @@ export interface FlightTerrain {
   blockedKm(e: number, n: number, upM: number): number | null
   /** Whether any land is known (a panorama or a local grid). */
   known: boolean
+  /** Limits of the polar grid. The local fallback is separate. */
+  panoramaHeightsM?: readonly [number, number]
 }
 
 /** The sample at or before each 50 m of distance (a look-up in place of a search: the paths ask thousands of times). */
@@ -80,7 +82,13 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
       }
     }
   }
-  const hasRays = grid.some(Number.isFinite)
+  let minM = Infinity, maxM = -Infinity
+  for (const h of grid) {
+    if (!Number.isFinite(h)) continue
+    minM = Math.min(minM, h)
+    maxM = Math.max(maxM, h)
+  }
+  const hasRays = minM <= maxM
   const blockCount = Math.ceil(D / SLOPE_BLOCK)
   const maxSlope = new Float64Array(RAYS * blockCount).fill(-Infinity)
   for (let i = 0; i < RAYS && hasRays; i++) for (let j = 0; j < D; j++) {
@@ -116,7 +124,7 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
         if (Number.isFinite(h)) return h
       }
     }
-    if (local && km <= LOCAL_KM) return local(e, n)
+    if (local && km <= FLIGHT_LOCAL_KM) return local(e, n)
     if (km < RAY_DISTANCES[0]) return own
     return null
   }
@@ -151,13 +159,14 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
     }
     if (!local) return null
     // Behind the view only the local grid is known.
-    for (let d = 0.25; d < Math.min(until, LOCAL_KM); d += 0.125) {
+    for (let d = 0.25; d < Math.min(until, FLIGHT_LOCAL_KM); d += 0.125) {
       const h = local(ue * d, un * d)
       if (h !== null && h - eyeM - curveDrop(d) > slope * d) return d
     }
     return null
   }
-  const field: FlightTerrain = { eyeM, heightAt, groundAt, blockedKm, known: hasRays || !!local }
+  const field: FlightTerrain = { eyeM, heightAt, groundAt, blockedKm, known: hasRays || !!local,
+    panoramaHeightsM: hasRays ? [minM, maxM] : undefined }
   FIELDS.set(terrain, field)
   return field
 }

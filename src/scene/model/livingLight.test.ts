@@ -153,14 +153,17 @@ describe('the living light: cloud shadows', () => {
     const a = layers(first)
     const b = cloudShadowLayers(second, BOX)
     expect(a.length).toBeGreaterThan(0)
-    expect(a.length).toBeLessThanOrEqual(64)
-    expect(a.every(l => l.surface === 'land' && l.blend === 'source-atop' && l.placed && l.placed.alpha > 0)).toBe(true)
-    const byId = new Map(b.map(layer => [layer.id, layer]))
-    const matched = a.filter(layer => byId.has(layer.id))
-    expect(matched.length).toBeGreaterThan(0)
-    expect(matched.some(layer => {
-      const next = byId.get(layer.id)!
-      return next.placed!.x !== layer.placed!.x
+    expect(new Set(a.map(layer => layer.plane)).size).toBe(a.length)
+    expect(a.every(layer => layer.surface === 'land' && layer.blend === 'source-atop' &&
+      layer.id === `cloudShadow.${layer.plane}`)).toBe(true)
+    const blobs = a.flatMap(layer => layer.blobs)
+    expect(blobs.length).toBeLessThanOrEqual(64)
+    expect(blobs.every(blob => blob.alpha > 0)).toBe(true)
+    expect(a.some(layer => b.some(next => next.id === layer.id))).toBe(true)
+    const byId = new Map(b.flatMap(layer => layer.blobs).map(blob => [blob.cellId, blob]))
+    expect(blobs.some(blob => {
+      const next = byId.get(blob.cellId)
+      return next !== undefined && next.x !== blob.x
     })).toBe(true)
     expect(layers(build({ ...input, ...CLEAR }))).toEqual([])
     expect(layers(build({ ...input, forced: { cloudCover: 100, thickCloud: 100 }, forcedLayers: { low: 1, mid: 1, high: 0 } }))).toEqual([])

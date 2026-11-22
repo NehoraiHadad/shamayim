@@ -17,19 +17,21 @@ it.each([5, 20, 45, 70])('emits shadows at the slant intersection at %s degrees'
         heightAt: (eastKm: number, northKm: number) => 720 + ground * 1000 + 5 * Math.hypot(eastKm, northKm),
         blockedKm: () => null,
       } }
-    const blobs = cloudShadowLayers(world, { width: 375, dpr: 1 })
+    const layers = cloudShadowLayers(world, { width: 375, landHeight: 128, dpr: 1 })
+    expect(layers.map(layer => layer.id)).toEqual(['cloudShadow.near'])
+    const blobs = layers.flatMap(layer => layer.blobs)
     expect(blobs.length).toBeGreaterThan(0)
     expect(blobs.length).toBeLessThanOrEqual(64)
-    const byId = new Map(blobs.map(blob => [blob.id, blob]))
+    const byId = new Map(blobs.map(blob => [blob.cellId, blob]))
     let maxError = 0, count = 0
     for (const { id, x, y, baseKm: base, vKm: depth } of snapshot[0].cells) {
-      const blob = byId.get(`cloudShadow.${id}`)
+      const blob = byId.get(id)
       if (!blob) continue
       count++
       const [sx, sy] = blob.centre
       const error = 1000 * Math.hypot(sx - (x - (base + depth / 2 - ground - 0.005 * Math.hypot(sx, sy)) * cot), sy - y)
       maxError = Math.max(error, maxError)
-      expect(blob.blend).toBe('source-atop')
+      expect(blob.alpha).toBeGreaterThan(0)
     }
     expect(count).toBe(blobs.length)
     expect(maxError).toBeLessThanOrEqual(10)

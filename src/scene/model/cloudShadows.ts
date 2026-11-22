@@ -1,7 +1,8 @@
 //# allFunctionsCalledOnLoad
 import { apparentAngle } from '../../data/terrain/panorama'
+import { FLIGHT_LOCAL_KM } from '../../world/flightTerrain'
 import { terrainY } from '../../world/terrain'
-import { xOf } from '../../domain/camera'
+import { spanDeg, xOf } from '../../domain/camera'
 import type { FieldCell } from '../../world/field/types'
 import { cloudLight } from '../../world/lightCloud'
 import { SCENE_W } from '../../world/sceneBox'
@@ -12,45 +13,19 @@ import type { LayerOf, Pt, SceneBox } from './types'
 const RAD = Math.PI / 180
 const SHADE: RGB = [0.04, 0.06, 0.12]
 const RANGE = 60
-// Eight support directions miss the level-ground circular footprint by at most r × (1 − cos(π/8)).
-const rim = Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4), Math.sin(i * Math.PI / 4)])
-const ASPECT_STEP = 1.125
-const LOG_ASPECT_STEP = Math.log(ASPECT_STEP)
-
-type ShadowSprite = Pick<LayerOf<'cloudShadow'>, 'blobs' | 'rgb' | 'bounds' | 'period' | 'band' | 'key'>
-const sprites = new Map<number, ShadowSprite>()
-let spriteDpr: number
-
-function shadowSprite(bucket: number, dpr: number): ShadowSprite {
-  if (spriteDpr !== dpr) {
-    spriteDpr = dpr
-    sprites.clear()
-  }
-  const hit = sprites.get(bucket)
-  if (hit) return hit
-  const rx = 32 * ASPECT_STEP ** -Math.max(0, bucket)
-  const ry = 32 * ASPECT_STEP ** Math.min(0, bucket)
-  const w = 2 * (rx + 1), h = Math.ceil(2 * (ry + 1))
-  const sprite = {
-    blobs: [{ x: 0, y: 0, rx, ry, alpha: 1 }], rgb: SHADE,
-    bounds: { x: -w / 2, y: -h / 2, w, h }, period: w * 4,
-    band: { top: -h / 2, bottom: h / 2, fadeIn: null, fadeOut: null },
-    key: layerKey('cloudShadow', bucket, dpr),
-  }
-  sprites.set(bucket, sprite)
-  return sprite
-}
-
+// Sample the footprint on its two principal axes; emit an ellipse for the painter.
+const supports = [[1, 0], [-1, 0], [0, 1], [0, -1]]
 type ShadowWorld = Pick<WorldState, 'cloudField' | 'camera'> & {
-  flightTerrain?: Pick<NonNullable<WorldState['flightTerrain']>, 'eyeM' | 'heightAt' | 'blockedKm'>
+  flightTerrain?: Pick<NonNullable<WorldState['flightTerrain']>, 'eyeM' | 'heightAt' | 'blockedKm' | 'panoramaHeightsM'>
   light: Pick<WorldState['light'], 'azimuth' | 'altitude' | 'direct'>
-  terrain: Pick<WorldState['terrain'], 'horizonY'>
+  terrain: Pick<WorldState['terrain'], 'horizonY' | 'sightAt' | 'back'>
 }
 
 type Projection = { x: number; km: number; eastKm: number; northKm: number; seaLevelM: number }
-type ShadowBlob = LayerOf<'cloudShadow'> & { rim: Pt[]; centre: Pt }
+type ShadowBlob = LayerOf<'cloudShadow'>['blobs'][number]
+type ShadowPlane = LayerOf<'cloudShadow'>['plane']
 
-export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width' | 'dpr'>) {
+export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width' | 'dpr' | 'landHeight'>) {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world
   // Below one 8-bit alpha step the largest possible shadow is subpixel in opacity.
   if (!cloudField || !grid || light.altitude <= 0 || 0.65 * light.direct < 1 / 255) return []
@@ -66,19 +41,29 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
   const alphaScale = 0.65 * light.direct
   const minDepth = -2 * Math.log(open * (1 - 1 / (255 * alphaScale))) / invSin
   const scale = box.width / SCENE_W
+  const period = 360 * camera.pxPerDeg * box.width / camera.width
 
-  const { eyeM, heightAt, blockedKm } = grid
+  const { eyeM, heightAt, blockedKm, panoramaHeightsM } = grid
+  const halfView = spanDeg(camera) * RAD / 2
+  const heading = camera.heading * RAD
+  const leftEast = Math.cos(heading - halfView), leftNorth = -Math.sin(heading - halfView)
+  const rightEast = -Math.cos(heading + halfView), rightNorth = Math.sin(heading + halfView)
+  const groundMin = ((panoramaHeightsM?.[0] ?? 0) - eyeM) / 1000
+  const groundMax = ((panoramaHeightsM?.[1] ?? 0) - eyeM) / 1000
+  const furthestEyeProjection = RANGE + Math.max(Math.abs(groundMin), Math.abs(groundMax)) * cot + 0.010001
+  const leftSun = leftEast * eastPerUp + leftNorth * northPerUp
+  const rightSun = rightEast * eastPerUp + rightNorth * northPerUp
   const screenX = (eastKm: number, northKm: number) =>
     xOf(Math.atan2(eastKm, northKm) / RAD, camera) * SCENE_W / camera.width
   const visible = (point: Projection) =>
     blockedKm(point.eastKm, point.northKm, point.seaLevelM - eyeM) === null
 
-  function onGround(cellEastKm: number, cellNorthKm: number, cloudAboveEyeKm: number, groundAboveEyeKm = 0): Projection | undefined {
-    let previousAboveEyeKm = groundAboveEyeKm, previousResidualKm = 0
-    // Accept only solutions with a horizontal projection-equation residual of at most 10 m.
-    for (let i = 0; i < 12; i++) {
-      const eastKm = cellEastKm - (cloudAboveEyeKm - groundAboveEyeKm) * eastPerUp
-      const northKm = cellNorthKm - (cloudAboveEyeKm - groundAboveEyeKm) * northPerUp
+  function onGround(eastAtEyeKm: number, northAtEyeKm: number): Projection | undefined {
+    let groundAboveEyeKm = 0, previousAboveEyeKm = 0, previousResidualKm = 0
+    // Allow six samples and accept only a horizontal projection-equation residual of at most 10 m.
+    for (let i = 0; i < 6; i++) {
+      const eastKm = eastAtEyeKm + groundAboveEyeKm * eastPerUp
+      const northKm = northAtEyeKm + groundAboveEyeKm * northPerUp
       const seaLevelM = heightAt(eastKm, northKm)
       if (seaLevelM === null) return
       const nextAboveEyeKm = (seaLevelM - eyeM) / 1000
@@ -97,7 +82,7 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
     }
   }
 
-  const candidates: { cell: FieldCell; eyeDistanceSquared: number; slant: number }[] = []
+  const candidates: { cell: FieldCell; east: number; north: number; eyeDistanceSquared: number; slant: number }[] = []
   for (const { cells, layer } of cloudField.snapshot) {
     if (!layer || layer.lattice === 'high') continue
     for (const cell of cells) {
@@ -114,48 +99,62 @@ export function cloudShadowLayers(world: ShadowWorld, box: Pick<SceneBox, 'width
 
       const h = baseAboveEyeKm + depth / 2
       const east = x - h * eastPerUp, north = y - h * northPerUp
-      candidates.push({ cell, eyeDistanceSquared: east * east + north * north, slant })
+      const eyeDistanceSquared = east * east + north * north
+      // The centre moves along the sun axis. Beyond local-grid reach,
+      // project both terrain-height limits onto the camera edge normals.
+      if (panoramaHeightsM && halfView < Math.PI && Math.abs(x * cos - y * sin) > FLIGHT_LOCAL_KM) {
+        if (eyeDistanceSquared > furthestEyeProjection ** 2) continue
+        const leftmost = east * leftEast + north * leftNorth + Math.max(groundMin * leftSun, groundMax * leftSun)
+        const rightmost = east * rightEast + north * rightNorth + Math.max(groundMin * rightSun, groundMax * rightSun)
+        // Keep the accepted centre residual (10 m) inside the bound.
+        const outsideLeft = leftmost < -0.010001, outsideRight = rightmost < -0.010001
+        if (halfView <= Math.PI / 2 ? outsideLeft || outsideRight : outsideLeft && outsideRight) continue
+      }
+      candidates.push({ cell, east, north, eyeDistanceSquared, slant })
     }
   }
   // By the reverse triangle inequality, the eye-level distance differs from
   // the accepted centre distance by at most |groundM - eyeM| × cot(alt) / 1000 + 0.01 km.
   // Two centres can swap rank only if their proxy gap is within the sum of those bounds.
   candidates.sort((a, b) => a.eyeDistanceSquared - b.eyeDistanceSquared)
-  const accepted: { km: number; blob: ShadowBlob }[] = []
-  for (const { cell: { id, x, y, r, baseKm: baseAboveEyeKm, vKm: depth }, slant } of candidates) {
+  const accepted: { km: number; plane: ShadowPlane; blob: ShadowBlob }[] = []
+  for (const { cell: { id, r, vKm: depth }, east: eastAtEye, north: northAtEye, slant } of candidates) {
     if (accepted.length === 64) break
-    const centre = onGround(x, y, baseAboveEyeKm + depth / 2)
+    const centre = onGround(eastAtEye, northAtEye)
     if (!centre || !visible(centre)) continue
-    const polygon: Pt[] = []
+    const sight = terrain.sightAt?.(centre.x)
+    const plane = !sight || centre.km <= sight.nearKm ? 'near'
+      : terrain.back && centre.km > sight.farKm ? 'back' : 'far'
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
-    for (let i = 0; i < rim.length; i++) {
-      const [u, v] = rim[i]
-      const rx = x + r * (u * sin + v * cos)
-      const ry = y + r * (u * cos - v * sin)
-      const p = onGround(rx, ry, u < 0 ? baseAboveEyeKm + depth : baseAboveEyeKm, (centre.seaLevelM - eyeM) / 1000)
-      if (!p || !visible(p)) continue
-      const sx = p.x * scale
-      const sy = terrainY(terrain.horizonY, apparentAngle(p.seaLevelM, p.km, eyeM))
-      polygon.push([sx, sy])
+    // Project the footprint at the centre's sampled elevation for the receiving plane.
+    for (const [u, v] of supports) {
+      const cap = -u * depth / 2
+      const east = centre.eastKm + r * (u * sin + v * cos) - cap * eastPerUp
+      const north = centre.northKm + r * (u * cos - v * sin) - cap * northPerUp
+      const rawX = screenX(east, north) * scale
+      const sx = rawX + Math.round((centre.x * scale - rawX) / period) * period
+      const sy = terrainY(terrain.horizonY, apparentAngle(centre.seaLevelM, Math.sqrt(east * east + north * north), eyeM))
       left = Math.min(left, sx)
       right = Math.max(right, sx)
       top = Math.min(top, sy)
       bottom = Math.max(bottom, sy)
     }
-    if (polygon.length < 3) continue
-    const rx = Math.max(0.1, (right - left) / 2), ry = Math.max(0.1, (bottom - top) / 2)
-    // Cache fixed unit ellipses. Quantizing the aspect in 1.125× steps moves
-    // the vertical bounds by at most sqrt(1.125) - 1 = 6.1% of the radius.
-    const bucket = Math.round(Math.log(ry / rx) / LOG_ASPECT_STEP)
-    const sprite = shadowSprite(bucket, box.dpr)
     const alpha = alphaScale * (1 - Math.exp(-slant * invSin / 2) / open)
-    const blob: ShadowBlob = {
-      kind: 'cloudShadow', id: `cloudShadow.${id}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
-      rim: polygon, centre: [centre.eastKm, centre.northKm],
-      placed: { x: (left + right) / 2, y: (top + bottom) / 2, scale: rx / sprite.blobs[0].rx, alpha },
-      ...sprite,
-    }
-    accepted.push({ km: centre.km, blob })
+    const centreKm: Pt = [centre.eastKm, centre.northKm]
+    accepted.push({ km: centre.km, plane, blob: { cellId: id, centre: centreKm, alpha,
+      x: (left + right) / 2, y: (top + bottom) / 2,
+      rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
   }
-  return accepted.sort((a, b) => a.km - b.km).map(({ blob }) => blob)
+  const byPlane = new Map<ShadowPlane, ShadowBlob[]>()
+  for (const { plane, blob } of accepted.sort((a, b) => a.km - b.km)) {
+    const blobs = byPlane.get(plane)
+    if (blobs) blobs.push(blob)
+    else byPlane.set(plane, [blob])
+  }
+  return Array.from(byPlane, ([plane, blobs]): LayerOf<'cloudShadow'> => ({
+    kind: 'cloudShadow', plane, id: `cloudShadow.${plane}`, surface: 'land', z: 40.3, soft: true, blend: 'source-atop',
+    blobs, rgb: SHADE, bounds: { x: 0, y: 0, w: box.width, h: box.landHeight },
+    key: layerKey('cloudShadow', plane, box.width, box.landHeight, box.dpr, JSON.stringify(blobs.map(({ x, y, rx, ry, alpha }) =>
+      [x * 100, y * 100, rx * 100, ry * 100, alpha * 25500].map(Math.round)))),
+  }))
 }

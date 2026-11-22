@@ -8,9 +8,12 @@ import { css, type Ctx2D } from './hand'
  * (`destination-in` with a vertical ramp). The surface lays it `source-atop` the land. Pure: the patches are the model's.
  */
 export function paintCloudShadow(ctx: Ctx2D, desc: LayerOf<'cloudShadow'>): void {
-  const { blobs, rgb, period, band } = desc
+  const { blobs, rgb } = desc
+  const period = desc.bounds.w
+  const band: { top: number; bottom: number; fadeIn: [number, number] | null; fadeOut: [number, number] | null } =
+    { top: 0, bottom: desc.bounds.h, fadeIn: null, fadeOut: null }
   for (const b of blobs) {
-    for (const x of [b.x - period, b.x, b.x + period]) {
+    for (const x of [b.x]) {
       if (x + b.rx < 0 || x - b.rx > period) continue
       ctx.save()
       ctx.translate(x, b.y)

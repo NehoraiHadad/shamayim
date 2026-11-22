@@ -93,7 +93,14 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
       }
     }
   }
-  const blobs = samples[0].shadow.value
+  let heights = 0, blocked = 0
+  const grid = first.flightTerrain!
+  const profile = cloudShadowLayers({ ...first, flightTerrain: { ...grid,
+    heightAt: (e, n) => { heights++; return grid.heightAt(e, n) },
+    blockedKm: (e, n, h) => { blocked++; return grid.blockedKm(e, n, h) },
+  } }, box)
+  console.info({ id, heights, blocked, rimPoints: 0, accepted: profile.flatMap(layer => layer.blobs).length })
+  const blobs = samples[0].shadow.value.flatMap(layer => layer.blobs)
   console.info({ id, shadowMs, modelMs, baselineMs, incrementMs, coldOverheadMs, referenceMs, shadowRatio, sampledGridErrorM, blobs: blobs.length,
     before: counts(facesBefore), after: counts(terrain.faces) })
   expect(shadowRatio).toBeLessThanOrEqual(SHADOW_RATIO_LIMIT)

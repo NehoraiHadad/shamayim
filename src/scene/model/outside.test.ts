@@ -368,7 +368,13 @@ describe('the coastal sea (C5 item 1)', () => {
   })
 
   it('lays the light’s path toward the setting sun over Tel Aviv’s sea', () => {
-    const sea = layerOf(worldAt('tel-aviv', '2026-11-17T16:30'))!.sea!
+    const at = '2026-11-17T16:30'
+    const input = worldInput(loaded.get('tel-aviv')!, at)
+    const cloudy = worldAt('tel-aviv', at)
+    const clear = buildWorld({ ...input, forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0 },
+      forcedLayers: { low: 0, mid: 0, high: 0 } })
+    expect(layerOf(cloudy)!.sea!.glint).toBeNull()
+    const sea = layerOf(clear)!.sea!
     expect(sea.glint).not.toBeNull()
     expect(sea.glint!.sparks.length).toBeGreaterThan(3)
   })

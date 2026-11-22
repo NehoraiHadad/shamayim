@@ -275,12 +275,14 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(veil?.bottom ?? 0, ...all.map((b) => b.y + b.h * 0.5)) + 6))
     if (bottom <= top) continue
     const speed = layer.drift * geom.s
+    // Bank keys already contain quantized coordinates, tones and angles.
+    const bankKeys = JSON.stringify(all.map(bankKey))
     out.push({
       kind: 'clouds', id: `clouds.${layer.level}`, surface: 'sky', z: Z[layer.level], soft: true, level: layer.level,
       banks: all, veil, period: geom.period,
       bounds: { x: 0, y: top, w: geom.period, h: bottom - top },
       animated: Math.abs(speed) > 0.01 ? { mode: 'drift', speed, period: geom.period } : undefined,
-      key: layerKey('clouds', layer.level, skyBoxKey(box, true), geom.period, all.map(bankKey),
+      key: layerKey('clouds', layer.level, skyBoxKey(box, true), geom.period, bankKeys,
         veil && [q(veil.bottom, 0.5), tone(veil.rgb), veil.alpha.toFixed(2)]),
     })
   }
