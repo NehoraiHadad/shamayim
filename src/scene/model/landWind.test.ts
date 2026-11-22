@@ -104,6 +104,9 @@ describe('wind-blown land dust', () => {
     const layers = landDustLayers({ ...world, land }, BOX)
     expect(layers.map((l) => l.id)).toEqual(['landDust.far', 'landDust.near'])
     expect(layers[1].animated?.fall?.vx).toBeLessThan(0)
+    // Horizontal dust advection scales linearly with widthScale (box.width / SCENE_W) in CSS px/s.
+    const wide = landDustLayers({ ...world, land }, { ...BOX, width: BOX.width * 2 })
+    expect(wide[1].animated!.fall!.vx).toBeCloseTo(layers[1].animated!.fall!.vx * 2, 10)
     expect(Math.max(...layers[0].animated!.fall!.alphas!)).toBeLessThan(Math.max(...layers[1].animated!.fall!.alphas!))
     const mirrored = { ...world, land, wind: worldWind(270, 16, 24, STORED_CAMERA) }
     expect(landDustLayers(mirrored, BOX)[1].animated?.fall?.vx).toBeGreaterThan(0)
