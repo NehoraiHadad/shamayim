@@ -1,7 +1,6 @@
 import { shadowAlphaTable, type ReceiverShadow } from '../model/planeCloudShadow'
 import { ctxOf, type CanvasFactory, type LayerCanvas } from './layerCache'
 import type { DeviceRect } from './paintJob'
-
 const MASK_TEXEL = 2
 
 interface Patch { canvas: LayerCanvas; box: DeviceRect; revision: number }
@@ -29,7 +28,6 @@ export class ShadowComposite {
   private tint?: LayerCanvas
 
   private readonly factory: CanvasFactory
-
   constructor(factory: CanvasFactory) {
     this.factory = factory
   }
