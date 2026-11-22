@@ -6,6 +6,12 @@ import type { RGB } from './types'
 const CITY_RGB: RGB = [0.34, 0.27, 0.21]
 /** How much of the towns' light reaches a layer's base: the low deck is nearest and takes most. */
 const CITY_REACH: Record<CloudLevel, number> = { low: 1, mid: 0.65, high: 0.3 }
+/**
+ * The deck's base takes the light of the towns under it: overhead only the place's own streets, toward the horizon the
+ * ring of towns out to the deck's edge and the glow of the air the slant ray crosses. The zenith gets this share of the
+ * mean weight, the horizon (the sheet's shade endpoint, where its ramp runs) the rest.
+ */
+export const CITY_ZENITH = 0.55, CITY_HORIZON = 1.35
 
 /**
  * A layer's base lit from below by the towns at night: the place's artificial sky glow (`env.glow`, Walker's law: ~1 at a
