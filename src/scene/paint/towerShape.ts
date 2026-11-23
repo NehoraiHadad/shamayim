@@ -12,13 +12,13 @@ import { halfAt, headsOf } from './towerHeads'
 /** The base's depth below the near edge at least, against the width: a flat underside seen nearly edge on. */
 const BASE_DEPTH = 0.08
 /** How flat the underside is: a power on the way down it (1 is a round bowl). */
-const BASE_FLAT = 1.7
+const BASE_FLAT = 2.4
 /** How far down the underside the heads round off into it. */
-const HEAD_FOOT = 0.6
+const HEAD_FOOT = 0.75
 /** How far the noise moves the outline (against a head's half width): broad swells, then rounded cauliflower lumps. */
 const SWELL = 0.5, LUMPS = 0.4
 /** The share of that left on the underside: the base is flat, the lumps grow upward. */
-const BASE_ROUGH = 0.15
+const BASE_ROUGH = 0.2
 /** The noise tile's width against the tower's; its octaves: broad soft billows, no fine grain. How much finer the lumps are. */
 const TILE_W = 1.9, OCTAVES = 2, LUMP_RATE = 1.8
 /** How far the column's axis sways with height, against the half width: no straight pillar. */
@@ -39,6 +39,9 @@ const REACH = 0.45
 /** The width (px) under which a tower is far: one broad octave, its edges softer by this much, its foot (a share of
  * its height) melting into the haze to this share. */
 const FAR = 70, FAR_SOFT = 0.15, FOOT = 0.4, FOOT_LEFT = 0.55
+/** The width (px) from which and to which a tower is near: its lumps finer (a smaller tile, a higher rate) and standing
+ *  out more, so a big cloud is not one smooth egg. */
+const NEAR = [80, 170] as const, NEAR_SMALLER = 0.1, NEAR_FINER = 0.05, NEAR_ROUGHER = 0.08
 /** Room past a head's own half width for the noise and the sway. */
 const ROOM = 1.5
 const NOISE_SEED = 4127
@@ -55,15 +58,16 @@ export interface TowerShape {
 }
 
 export function towerShape(s: CloudSprite): TowerShape {
-  const far = 1 - Math.min(1, s.w / FAR)
+  const far = 1 - Math.min(1, s.w / FAR), near = smoothstep(NEAR[0], NEAR[1], s.w)
+  const rate = LUMP_RATE * (1 + NEAR_FINER * near), tileW = TILE_W * (1 - NEAR_SMALLER * near) * s.w
   const tile = detailTile(NOISE_SEED, far > 0 ? 1 : OCTAVES)
   const ou = (s.seed % 997) / 997, ov = (s.seed % 613) / 613
   const depth = Math.max(2, s.under, BASE_DEPTH * s.w)
   const heads = headsOf(s)
   const relief = (x: number, y: number) => {
-    const u = x / (TILE_W * s.w) + ou, v = y / (TILE_W * s.w) + ov
-    const lump = 2 * Math.abs(tileAt(tile, u * LUMP_RATE + 0.37, v * LUMP_RATE + 0.71) - 0.5)
-    return SWELL * (tileAt(tile, u, v) - 0.5) + LUMPS * (lump - 0.18)
+    const u = x / tileW + ou, v = y / tileW + ov
+    const lump = 2 * Math.abs(tileAt(tile, u * rate + 0.37, v * rate + 0.71) - 0.5)
+    return (1 + NEAR_ROUGHER * near) * (SWELL * (tileAt(tile, u, v) - 0.5) + LUMPS * (lump - 0.18))
   }
   // What a row shares: each head's half width, axis and distance past its column, and the row's softness and roughness.
   const row = heads.map(() => ({ wide: 1, axis: 0, beyond: 0, knee: 0 }))
@@ -85,12 +89,12 @@ export function towerShape(s: CloudSprite): TowerShape {
   }
   const at = (px: number, y: number) => {
     if (y !== rowY) toRow(y)
-    let mass = -9, core = -9, near = row[0], rho = 9
+    let mass = -9, core = -9, main = row[0], rho = 9
     for (const h of row) {
       const across = (px - h.axis) / h.wide, r = Math.sqrt(across * across + h.beyond * h.beyond)
       const inside = 1 - r
       core = Math.max(core, CORE - r)
-      if (inside > mass) { near = h; rho = r }
+      if (inside > mass) { main = h; rho = r }
       const meet = Math.max(0, 1 - Math.abs(inside - mass) / CREASE)
       mass = Math.max(inside, mass) + (meet * meet * CREASE) / 4
     }
@@ -101,7 +105,7 @@ export function towerShape(s: CloudSprite): TowerShape {
     // The outline moves by the noise partly read at the outline itself: one value out from the axis, so a lump stands out
     // of the mass more than it parts from it.
     const out = 1 / Math.max(0.3, rho)
-    const edge = relief(near.axis + (px - near.axis) * out, near.knee + (y - near.knee) * out)
+    const edge = relief(main.axis + (px - main.axis) * out, main.knee + (y - main.knee) * out)
     const inside = Math.max(mass + rough * (EDGE * edge + (1 - EDGE) * bump), (core / CORE) * soft * 2)
     const a = smoothstep(0, soft, inside) * body
     return a > 0 ? { a, bump } : null
