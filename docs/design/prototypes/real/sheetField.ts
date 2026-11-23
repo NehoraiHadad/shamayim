@@ -4,7 +4,7 @@ import type { LayerOf } from '../../../../src/scene/model/types'
 import { soften } from '../../../../src/scene/paint/shared/base/soften'
 import { deckOpenness } from '../../../../src/scene/paint/shared/cloud/deck'
 import { resampleRows, ROW } from '../../../../src/scene/paint/shared/cloud/resampleRows'
-import { noiseAt, puffTile, wispTile } from './cloudNoise'
+import { noiseAt, puffTile, swellTile, wispTile } from './cloudNoise'
 
 /*
  * A sheet's density on a raster: the model's coverage (where and how thick) as a soft body, its edge carried in and out
@@ -16,7 +16,7 @@ export const RASTER = 0.75
 
 export interface SheetField {
   w: number; h: number
-  /** Drawn opacity 0–1, the cloud's thickness 0–1, the model's tone 0–1, the towns' light 0–1, the relief the light models. */
+  /** Drawn opacity 0–1, the cloud's thickness 0–1, the model's tone 0–1, the towns' light 0–1, how far the heads face away from the light. */
   alpha: Float32Array; thick: Float32Array; tone: Float32Array; city: Float32Array; relief: Float32Array
   /** The deck's scale by row: 1 overhead, small far off. */
   scale: Float32Array
@@ -50,7 +50,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, size = w * h
   const field: SheetField = { w, h, alpha: new Float32Array(size), thick: new Float32Array(size), tone: new Float32Array(size),
     city: new Float32Array(size), relief: new Float32Array(size), scale: new Float32Array(h) }
-  const seed = hashId(desc.id) % 9973, puffs = puffTile(seed), wisps = wispTile(seed)
+  const seed = hashId(desc.id) % 9973, puffs = puffTile(seed), wisps = wispTile(seed), swell = swellTile(seed)
   let v = 0
   for (let j = 0; j < h; j++) {
     const gy = Math.min(out - 1.001, (j * (out - 1)) / (h - 1)), r = Math.floor(gy), ty = gy - r
@@ -76,7 +76,8 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       const rimmed = a + make.carry * (noise - 0.5) * Math.min(1, 4.4 * a * (1 - a)) - 0.1
       const d = smoothstep(0, 1, Math.max(0, rimmed - 0.12) / make.rim)
       if (d <= 0.004) continue
-      field.relief[p] = noise
+      const su = u * 1.1 + bend * 0.1 + 0.2, sv = v * 1.1 - bend * 0.08
+      field.relief[p] = noiseAt(swell, su, sv) - noiseAt(swell, su - 0.035, sv - 0.05)
       field.thick[p] = Math.min(1, Math.max(0, rimmed)) * (1 - make.thin * (1 - noise))
       field.alpha[p] = d * (1 - make.thin * 0.75 * (1 - noise) ** 1.4)
       field.tone[p] = at(0) / a

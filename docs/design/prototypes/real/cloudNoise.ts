@@ -59,6 +59,10 @@ function tile(key: string, at: (u: number, v: number) => number): Float32Array {
 export const puffTile = (seed: number) => tile(`p${seed}`, (u, v) =>
   0.58 * cells(u, v, 4, seed) + 0.28 * cells(u, v, 9, seed + 5) + 0.14 * cells(u, v, 19, seed + 9))
 
+/** The heads' own slow swell, for the light on them: no fine octave, so it models without scratching. */
+export const swellTile = (seed: number) => tile(`s${seed}`, (u, v) =>
+  0.6 * cells(u, v, 5, seed) + 0.4 * gradient(u, v, 4, seed + 3) + 0.2 * gradient(u, v, 9, seed + 4))
+
 export const wispTile = (seed: number) => tile(`w${seed}`, (u, v) => {
   let sum = 0, a = 1
   for (let o = 0, n = 4; o < 5; o++, n *= 2, a *= 0.52) sum += a * gradient(u, v, n, seed + o * 17)

@@ -10,8 +10,11 @@ import { RASTER } from './sheetField'
 /** March steps, sky px overhead, and the light's loss per px of full thickness. */
 const STEPS = [3, 7, 13, 22, 34] as const
 const LOSS_SUN = 0.05, LOSS_SKY = 0.032
+/** How far round a point its depth in the mass is taken, sky px overhead. */
+const DEEP = 26
 
-export interface Lit { sun: Float32Array; sky: Float32Array }
+/** The sun's and the sky's light 0–1, and how deep inside the mass a point is 0–1. */
+export interface Lit { sun: Float32Array; sky: Float32Array; deep: Float32Array }
 
 /** `from` the light's place in sky px, the sheet's corner at (x0, y0). */
 export function sheetLight(f: SheetField, from: { x: number; y: number }, x0: number, y0: number): Lit {
@@ -49,7 +52,33 @@ export function sheetLight(f: SheetField, from: { x: number; y: number }, x0: nu
       skyHalf[n] = Math.exp(-LOSS_SKY * sky)
     }
   }
-  return { sun: up(sunHalf, w, h, f), sky: up(skyHalf, w, h, f) }
+  return { sun: up(sunHalf, w, h, f), sky: up(skyHalf, w, h, f), deep: up(depth(small, w, h, f), w, h, f) }
+}
+
+/** The thickness round a point, over the deck's own reach: what stands between it and any bright rim. */
+function depth(small: Float32Array, w: number, h: number, f: SheetField) {
+  const rowReach = (j: number) => Math.max(1, DEEP * f.scale[Math.min(f.h - 1, 2 * j)] * RASTER / 2)
+  let a = small
+  for (let pass = 0; pass < 2; pass++) {
+    const across = new Float32Array(w * h), down = new Float32Array(w * h)
+    for (let j = 0; j < h; j++) {
+      const r = Math.round(rowReach(j))
+      let sum = 0
+      for (let i = -r; i <= r; i++) sum += a[j * w + Math.min(w - 1, Math.max(0, i))]
+      for (let i = 0; i < w; i++) {
+        across[j * w + i] = sum / (2 * r + 1)
+        sum += a[j * w + Math.min(w - 1, i + r + 1)] - a[j * w + Math.max(0, i - r)]
+      }
+    }
+    const total = new Float32Array((h + 1) * w)
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) total[(j + 1) * w + i] = total[j * w + i] + across[j * w + i]
+    for (let j = 0; j < h; j++) {
+      const r = Math.round(rowReach(j)), top = Math.max(0, j - r), end = Math.min(h, j + r + 1)
+      for (let i = 0; i < w; i++) down[j * w + i] = (total[end * w + i] - total[top * w + i]) / (end - top)
+    }
+    a = down
+  }
+  return a
 }
 
 /** A half-size grid on the field's raster, bilinear. */
