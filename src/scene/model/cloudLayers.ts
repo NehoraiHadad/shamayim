@@ -6,6 +6,7 @@ import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
 import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
 import { mixRgb, scaleLight } from './tone'
+import { lowSheetRgb, type Beyond } from './towerStorms'
 import type { LayerOf, SceneBox } from './types'
 
 /*
@@ -30,7 +31,10 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
   const day = smoothstep(-8, 3, world.bodies.sun.altitude)
   const out: CloudLayerDesc[] = []
-  for (const snapshot of world.cloudField?.snapshot ?? []) {
+  // The towers last: they stand before the low sheet, so they are seen against it.
+  const towersLast = (s: NonNullable<WorldState['cloudField']>['snapshot'][number]) => Number(s.layer?.lattice === 'tower')
+  let beyond: Beyond | null = null
+  for (const snapshot of [...world.cloudField?.snapshot ?? []].sort((a, b) => towersLast(a) - towersLast(b))) {
     const fieldLayer = snapshot.layer
     if (!fieldLayer) continue
     const level: CloudLevel = fieldLayer.lattice === 'tower' ? 'low' : fieldLayer.lattice
@@ -38,7 +42,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     if (!cloud) continue
     const light = lightOn(world, box, geom, cloud)
     if (fieldLayer.lattice === 'tower') {
-      const towers = towerLayerOf(world, box, geom, snapshot, light, stops)
+      const towers = towerLayerOf(world, box, geom, snapshot, light, stops, beyond)
       if (towers) out.push(towers)
       continue
     }
@@ -52,7 +56,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     // dim overhead, brightest low over the ring of towns toward the horizon.
     const city = cityLit(world, level, fieldLayer.cover)
     const zenith = CITY_ZENITH * city.weight, horizon = Math.min(1, CITY_HORIZON * city.weight)
-    const sheet = cloudSheetOf(world, geom, snapshot, {
+    const colours = {
       body: mixRgb(mixRgb(tones.body, city.rgb, zenith), base, day),
       // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
       shade: mixRgb(mixRgb(tones.shade, city.rgb, horizon), mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
@@ -61,7 +65,9 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
         light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,
       closed: closed * day,
       light: light?.sun ? light.strength * light.above : 0,
-    })
+    }
+    if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover }
+    const sheet = cloudSheetOf(world, geom, snapshot, colours)
     if (sheet) out.push(sheet)
   }
   return out

@@ -17,6 +17,9 @@ export interface CloudSprite {
   /** Width across (px). */
   w: number
   under: number
+  /** How much of `under` the outline closes over: the underside's disc is widest where its sides stand, not at its near
+   *  edge, so seen from below only the far half of it curves in (the whole of `under` when not given). */
+  bowl?: number
   tall: number
   /** −1…1: how far the tops lean downwind on screen (+ to the right). */
   lean: number

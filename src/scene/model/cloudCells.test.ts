@@ -121,7 +121,9 @@ it('stands a near storm cell of a real day up to its true top', async () => {
   expect(near.length).toBeGreaterThan(0)
   for (const { sprite, y } of near) {
     const p = projectCell(cells.get(sprite.seed)!)
-    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + 0.25 * (y - geom.dome(p.aTop)))
+    // A near storm stands to its top; one far off is a heap at its own aspect, lower than the stretched sky would draw it.
+    const short = p.rangeKm < 5 ? 0.25 : 0.5
+    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + short * (y - geom.dome(p.aTop)))
   }
 }, 30_000)
 

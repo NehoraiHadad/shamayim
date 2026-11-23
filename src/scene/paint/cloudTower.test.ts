@@ -21,7 +21,7 @@ function rasterOf(sprite: CloudSprite) {
   return { w, rows, red }
 }
 
-const cb = { genus: 'cb', w: 40, tall: 110, under: 8, tau: 30, share: 1, seed: 7, anvil: 1,
+const cb = { genus: 'cb', w: 40, tall: 110, under: 8, lean: 0, tau: 30, share: 1, seed: 7, anvil: 1,
   body: [0.8, 0.8, 0.8], shade: [0.3, 0.3, 0.3], lit: [1, 1, 1], litA: 0, silver: 0, glow: 0 } as unknown as CloudSprite
 const cloudy = (a: readonly number[]) => a.filter((v) => v > 0.5).length
 
@@ -59,9 +59,11 @@ describe('a tower is one mass', () => {
   it.each(shapes)('w $w tall $tall: no beads up the column and no blob beside it, whatever the seed', (shape) => {
     for (let seed = 1; seed <= 40; seed++) {
       const raster = rasterOf({ ...shape, seed: seed * 7919 } as CloudSprite)
+      // A far tower's foot melts into the haze: its cloud is counted above it.
+      const foot = shape.w < 70 ? 0.4 : 0
       // Every row of the column holds cloud at least a third of the base wide: never a neck between two beads.
       for (const r of raster.rows) {
-        if (r.up > 0 && r.up < 0.7 * shape.tall) expect(cloudy(r.a) / raster.rows[0].a.length).toBeGreaterThan(0.1)
+        if (r.up > foot * shape.tall && r.up < 0.7 * shape.tall) expect(cloudy(r.a) / raster.rows[0].a.length).toBeGreaterThan(0.1)
       }
       expect(detachedShare(raster, 0.2)).toBeLessThan(0.02)
       // A lumpy outline may fold over itself in a few rows; it does not break up.

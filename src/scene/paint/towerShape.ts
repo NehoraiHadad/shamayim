@@ -1,7 +1,7 @@
 import { smoothstep } from '../../domain/smoothstep'
 import type { CloudSprite } from './cloudSprite'
-import { detailTile, tileAt } from './detailTile'
-import { halfAt, headsOf } from './towerHeads'
+import { detailTile, domeTile, tileAt } from './detailTile'
+import { carriedAt, halfAt, headsOf } from './towerHeads'
 
 /*
  * A tower's body as one field (no puffs): its heads (`towerHeads`) grown together, over a flat base; the outline moved in
@@ -12,22 +12,24 @@ import { halfAt, headsOf } from './towerHeads'
 /** The base's depth below the near edge at least, against the width: a flat underside seen nearly edge on. */
 const BASE_DEPTH = 0.08
 /** How flat the underside is: a power on the way down it (1 is a round bowl). */
-const BASE_FLAT = 2.4
+const BASE_FLAT = 1.5
 /** How far down the underside the heads round off into it. */
 const HEAD_FOOT = 0.75
 /** How far the noise moves the outline (against a head's half width): broad swells, then rounded cauliflower lumps. */
-const SWELL = 0.5, LUMPS = 0.4
+const SWELL = 0.45, LUMPS = 0.55
 /** The share of that left on the underside: the base is flat, the lumps grow upward. */
 const BASE_ROUGH = 0.2
 /** The noise tile's width against the tower's; its octaves: broad soft billows, no fine grain. How much finer the lumps are. */
-const TILE_W = 1.9, OCTAVES = 2, LUMP_RATE = 1.8
+const TILE_W = 1.9, OCTAVES = 2, LUMP_RATE = 0.9
 /** How far the column's axis sways with height, against the half width: no straight pillar. */
 const SWAY = 0.5
 /** The softness of the edge against the half width: crisper on a growing crown than down the column, an
  * anvil's ice fraying out. */
 const SOFT = 0.42, SOFT_CROWN = 0.32, SOFT_ANVIL = 0.45
 /** How much softer the underside of a near tower is: its base melts into the rain under it, no hard bowl. */
-const SOFT_BASE = 0.5
+const SOFT_BASE = 0.6
+/** How much of the underside is gone at its far edge: it fades into the rain and the haze below, with no drawn edge. */
+const UNDER_FADE = 0.55
 /** The share of a head's half width that is cloud whatever the noise: the column never parts. */
 const CORE = 0.6
 /** How far the noise thins the body from inside. */
@@ -40,10 +42,10 @@ const CREASE = 0.4
 const REACH = 0.45
 /** The width (px) under which a tower is far: one broad octave, its edges softer by this much, its foot (a share of
  * its height) melting into the haze to this share. */
-const FAR = 70, FAR_SOFT = 0.15, FOOT = 0.4, FOOT_LEFT = 0.55
+const FAR = 70, FAR_SOFT = 0.1, FOOT = 0.5, FOOT_LEFT = 0.15
 /** The width (px) from which and to which a tower is near: its lumps finer (a smaller tile, a higher rate) and standing
  *  out more, so a big cloud is not one smooth egg. */
-const NEAR = [80, 170] as const, NEAR_SMALLER = 0.1, NEAR_FINER = 0.05, NEAR_ROUGHER = 0.08
+const NEAR = [80, 170] as const, NEAR_SMALLER = 0, NEAR_FINER = 0.3, NEAR_ROUGHER = 0.1
 /** Room past a head's own half width for the noise and the sway. */
 const ROOM = 1.5
 const NOISE_SEED = 4127
@@ -62,14 +64,15 @@ export interface TowerShape {
 export function towerShape(s: CloudSprite): TowerShape {
   const far = 1 - Math.min(1, s.w / FAR), near = smoothstep(NEAR[0], NEAR[1], s.w)
   const rate = LUMP_RATE * (1 + NEAR_FINER * near), tileW = TILE_W * (1 - NEAR_SMALLER * near) * s.w
-  const tile = detailTile(NOISE_SEED, far > 0 ? 1 : OCTAVES)
+  const tile = detailTile(NOISE_SEED, far > 0 ? 1 : OCTAVES), domes = domeTile(NOISE_SEED)
   const ou = (s.seed % 997) / 997, ov = (s.seed % 613) / 613
-  const depth = Math.max(2, s.under, BASE_DEPTH * s.w)
+  const bowl = Math.max(2, Math.min(s.bowl ?? s.under, s.under), BASE_DEPTH * s.w), straight = Math.max(0, s.under - bowl)
+  const depth = straight + bowl
   const heads = headsOf(s)
   const relief = (x: number, y: number) => {
     const u = x / tileW + ou, v = y / tileW + ov
-    const lump = 2 * Math.abs(tileAt(tile, u * rate + 0.37, v * rate + 0.71) - 0.5)
-    return (1 + NEAR_ROUGHER * near) * (SWELL * (tileAt(tile, u, v) - 0.5) + LUMPS * (lump - 0.18))
+    const lump = tileAt(domes, u * rate + 0.37, v * rate + 0.71)
+    return (1 + NEAR_ROUGHER * near) * (SWELL * (tileAt(tile, u, v) - 0.5) + LUMPS * lump)
   }
   // What a row shares: each head's half width, axis and distance past its column, and the row's softness and roughness.
   const row = heads.map(() => ({ wide: 1, axis: 0, beyond: 0, knee: 0 }))
@@ -80,15 +83,16 @@ export function towerShape(s: CloudSprite): TowerShape {
     heads.forEach((h, n) => {
       const at = row[n]
       at.wide = halfAt(h, y)
-      at.axis = h.x + at.wide * sway
-      at.beyond = y > 0 ? (n === heads.length - 1 ? (y / depth) ** BASE_FLAT : y / (HEAD_FOOT * depth)) : y < h.joint ? (h.joint - y) / h.crown : 0
+      at.axis = h.x + at.wide * sway + carriedAt(h, y, s.lean)
+      at.beyond = y > straight ? (n === heads.length - 1 ? ((y - straight) / bowl) ** BASE_FLAT : (y - straight) / (HEAD_FOOT * bowl))
+        : y < h.joint ? (h.joint - y) / h.crown : 0
       at.knee = y > 0 ? 0 : Math.max(y, h.joint)
     })
     const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
     soft = SOFT + (top - SOFT) * smoothstep(0.5, 0.9, -y / s.tall) + FAR_SOFT * far
-      + SOFT_BASE * near * smoothstep(0, 0.8 * depth, y)
-    foot = 1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))
-    rough = 1 + (BASE_ROUGH - 1) * smoothstep(-0.15 * s.w, 0.3 * depth, y)
+      + SOFT_BASE * near * smoothstep(-0.1 * s.w, depth, y)
+    foot = (1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))) * (1 - UNDER_FADE * smoothstep(0, depth, y))
+    rough = 1 + (BASE_ROUGH - 1) * smoothstep(straight - 0.3 * s.w, straight + 0.3 * bowl, y)
   }
   const at = (px: number, y: number) => {
     if (y !== rowY) toRow(y)
@@ -114,6 +118,6 @@ export function towerShape(s: CloudSprite): TowerShape {
     return a > 0 ? { a, bump } : null
   }
   // The noise and the sway carry the outline out by about a quarter of a head.
-  const reach = Math.max(...heads.map((h) => Math.abs(h.x) + ROOM * Math.max(h.half, halfAt(h, -h.tall))))
+  const reach = Math.max(...heads.map((h) => Math.abs(h.x) + ROOM * Math.max(h.half, halfAt(h, -h.tall)) + Math.abs(carriedAt(h, -h.tall, s.lean))))
   return { depth, reach, at, relief }
 }
