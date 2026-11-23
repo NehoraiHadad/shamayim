@@ -2,7 +2,7 @@ import type { Ctx2D } from '../paint/shared/base/hand'
 import type { CanvasFactory, LayerCanvas } from './layerCache'
 import type { DeviceRect } from './paintJob'
 
-export const readContext = (canvas: LayerCanvas) => canvas.getContext('2d', { willReadFrequently: true }) as Ctx2D
+export const cpuContext = (canvas: LayerCanvas) => canvas.getContext('2d', { willReadFrequently: true }) as Ctx2D
 
 interface Source {
   crops: Map<string, ImageData>
@@ -12,7 +12,6 @@ interface Source {
 /** Straight RGBA after one 1:1 copy into a CPU canvas, matching the original endpoint reads. */
 export class ReceiverPixels {
   private readonly sources = new WeakMap<CanvasImageSource, Source>()
-  private readonly recent = new Map<ImageData, () => void>()
   private readonly factory: CanvasFactory
   private readonly limit: number
   private scratch?: LayerCanvas
@@ -32,46 +31,29 @@ export class ReceiverPixels {
   release(source: CanvasImageSource) {
     const held = this.sources.get(source)!
     if (--held.users) return
-    for (const image of held.crops.values()) this.recent.get(image)!()
+    for (const image of held.crops.values()) this.retained -= image.data.byteLength
     this.sources.delete(source)
   }
 
-  read(source: CanvasImageSource, { x, y, w, h }: DeviceRect): ImageData {
+  readCached(source: CanvasImageSource, { x, y, w, h }: DeviceRect): ImageData | undefined {
     const entries = this.sources.get(source)!.crops
     const key = [x, y, w, h].join(',')
     const cached = entries.get(key)
-    if (cached) {
-      const drop = this.recent.get(cached)!
-      this.recent.delete(cached)
-      this.recent.set(cached, drop)
-      return cached
-    }
+    if (cached) return cached
 
     const size = w * h * 4
-    if (size <= this.limit) {
-      for (const drop of this.recent.values()) {
-        if (this.retained + size <= this.limit) break
-        drop()
-      }
-    }
-    const image = this.readCrop(source, x, y, w, h)
-    if (size <= this.limit) {
-      entries.set(key, image)
-      this.retained += size
-      this.recent.set(image, () => {
-        entries.delete(key)
-        this.recent.delete(image)
-        this.retained -= size
-      })
-    }
+    if (this.retained + size > this.limit) return
+    const image = this.readBox(source, { x, y, w, h })
+    entries.set(key, image)
+    this.retained += size
     return image
   }
 
-  private readCrop(source: CanvasImageSource, x: number, y: number, w: number, h: number) {
+  readBox(source: CanvasImageSource, { x, y, w, h }: DeviceRect) {
     const canvas = this.scratch ??= this.factory(w, h)
     if (canvas.width !== w) canvas.width = w
     if (canvas.height !== h) canvas.height = h
-    const scratch = readContext(canvas)
+    const scratch = cpuContext(canvas)
     try {
       scratch.globalCompositeOperation = 'copy'
       scratch.drawImage(source, x, y, w, h, 0, 0, w, h)

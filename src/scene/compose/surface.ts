@@ -193,9 +193,10 @@ export class Surface {
       }
       const layout = layoutOf(desc, cached, d, this.active.style)
       const plane = layout.kind === 'plane' ? cached : layout.kind === 'canopy' ? cache.peek(layout.id.replace(/^canopy\./, 'plane.')) : null
+      const poses = 'poses' in cached ? cached.poses : undefined
       if (layout.kind === 'canopy' && (!plane?.light || (cached.lightDesc.kind === 'canopy'
         && cached.lightDesc.receiver?.form !== plane.lightDesc.key))) {
-        this.receivers.invalidate(layout.id)
+        this.receivers.skip(layout.id, cached, poses)
         continue
       }
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
@@ -284,7 +285,6 @@ export class Surface {
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
         if (plane && cached.shade) {
-          const poses = 'poses' in cached ? cached.poses : undefined
           const pose = poses?.[frame - 1]
           const sy = (preview || poses ? 0 : frame) * rect.h
           this.receivers.draw({ id: layout.id, cached, poses, pose, plane, phase, still, exact, sy, draw })
