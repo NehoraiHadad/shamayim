@@ -54,7 +54,7 @@ describe('WhatsApp message', () => {
   })
 })
 
-/** Mirrors StyleVote.module.css: everything is mixed from the paper's ink. */
+/** Mirrors StyleVote*.module.css: everything is mixed from the paper's ink. */
 describe('style panel contrast (WCAG AA)', () => {
   for (const { name, paper } of contrastSamples) {
     it(`${name}: texts ≥ 4.5, the vote's border ≥ 3`, () => {

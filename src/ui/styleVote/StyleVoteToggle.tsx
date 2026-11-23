@@ -1,4 +1,4 @@
-import styles from './StyleVote.module.css'
+import styles from './StyleVoteToggle.module.css'
 import { PANEL_ID } from './StyleVotePanel'
 import { TITLE } from './styleVoteText'
 import type { StyleVoteState } from './useStyleVote'
