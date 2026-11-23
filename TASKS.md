@@ -1231,6 +1231,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             drawn (`src/scene/model/waterSurface.ts`, test `waterArrival.test.ts`). Third: `mist.valley` kept the first
             crest's sub-step edges under one key (`mist.ts`, test `mist.test.ts`). Open: fixture `current.precipitation`
             is an hour's total read as 15 min (`scripts/fixtures/recordForecast.ts`), so the 12:00 rain is drawn 4x too strong
+      - [x] 1b2. The audit's plain losses fixed, one commit each with a test that fails without it: life events keep their identity
+            (28fb9ef6), the moon's lit limb (145d824c), live cloud layers feed sky and mist (f6992189), hourly sums and gusts belong to the
+            hour before their stamp (8caa87f2), missing hours / air past its ends / DST minutes / the label's moment (cc4a64e1)
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
