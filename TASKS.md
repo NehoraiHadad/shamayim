@@ -1007,7 +1007,8 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
       ground, full at + 6 km; without freezing-level data the tropopause rule stays.
 - [x] City night glow by direction: the far raster's built cells light the cloud base over them (`world/townLights.ts`) and
       the air over each bearing (`townAir.ts`, Walker's law, the place's mean stays `env.glow`); a city is lit overhead and
-      on every side. `CITY_ZENITH`/`CITY_HORIZON` are gone.
+      on every side. `CITY_ZENITH`/`CITY_HORIZON` are gone. The light is added (`tone.ts` `addLight`), so it never darkens a
+      dusk; the base's light is a square grid with each town's true place and shape to 110 km (within 15 % of the sum).
 - [ ] The far raster holds no towns of Jordan, Lebanon, Syria or Egypt: the glow over Amman and Irbid is missing. Towers
       (`cloudCells`) take no town light at night.
 - [x] Track D midnight reseed (N3e 884b2af1 + N3g c606afd1, in main; field.test.ts measureMidnight) (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph

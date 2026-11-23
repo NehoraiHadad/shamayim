@@ -2,7 +2,7 @@ import type { FarData } from '../data/city/farData'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import type { Place } from '../config/place'
-import { eachBuiltCell, walker } from './builtCells'
+import { eachBuiltCell, KM_LAT, kmLon, walker } from './builtCells'
 import { AIR_REACH_KM } from './townAir'
 
 /*
@@ -30,9 +30,6 @@ export interface PlaceEnv {
   glow: number
   sources: { land: 'cover' | 'population'; glow: 'far' | 'cover' | 'population' }
 }
-
-const KM_LAT = 110.57
-const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180)
 
 /** The nearest water of a kind along 24 bearings, out to 20 km in 0.4 km steps: its distance and bearing. */
 function waterKm(place: Place, mask: WaterMask | null | undefined, kind: 'sea' | 'lake'): { km: number; az: number } | null {

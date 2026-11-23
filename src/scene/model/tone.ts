@@ -60,6 +60,15 @@ export function mixLight(from: RGB, to: RGB, amount: number): RGB {
 export const scaleLight = (c: RGB, k: number): RGB =>
   [0, 1, 2].map((i) => Math.min(1, Math.max(0, toSrgb(toLinear(c[i]) * k)))) as unknown as RGB
 
+/**
+ * A share of one light added over another, channel by channel (a square root for the sRGB curve, as cheap as a mix): it
+ * only lightens, and what is bright already hardly changes.
+ */
+export const addLight = (rgb: RGB, light: RGB, share: number): RGB => {
+  const add = (i: 0 | 1 | 2) => Math.min(1, Math.sqrt(rgb[i] ** 2 + share * light[i] ** 2))
+  return [add(0), add(1), add(2)]
+}
+
 /** Oklab lightness of an sRGB colour (0 black … 1 white). */
 export const lightness = (rgb: RGB) => labOf(rgb).l
 

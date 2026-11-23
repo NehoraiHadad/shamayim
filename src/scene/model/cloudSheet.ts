@@ -7,6 +7,7 @@ import type { Lattice } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { CITY_RGB, type CityOnBase } from './cityLight'
+import { sheetCity } from './cloudSheetCity'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
@@ -84,8 +85,8 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const corrected = textureCorrection(raw, tau, weights, xs.length, detail)
   const solar = solarTexel(world, geom, snapshot, grid, angularStep)
   const closed = colours.closed ?? 0
-  const city = cityAt ? new Array<number>(alpha.length).fill(0) : null
-  let fingerprint = 2166136261
+  const city = cityAt && sheetCity(cityAt, grid, heightKm, deckEnd)
+  let fingerprint = (city ?? []).reduce((sum, w) => Math.imul(sum ^ Math.round(w * 255), 16777619), 2166136261)
   for (let row = 0; row < ys.length; row++) {
     const f = fade[row], visibility = path[row], multiplier = slant[row]
     const limb = 1 - Math.sin(altitudes[row] * RAD)
@@ -95,7 +96,6 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     // The far source includes sky fill as the ray traverses extra air.
     const aerial = cellular ? 0.25 * (world.air?.fade(Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) ?? 0) : 0
     const farTone = farSource + aerial * (0.5 - farSource)
-    const meanRange = Math.min(ranges[row], deckEnd), baseKm = Math.hypot(meanRange, heightKm)
     if (!visibility) continue
     for (let col = 0; col < xs.length; col++) {
       const index = row * xs.length + col
@@ -129,12 +129,6 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         localTone += thick * (baseTone - thinTone)
       }
       tone[index] = unit(cellular && opacity ? (resolved * localTone + unresolved * farTone) / opacity : localTone)
-      if (city) {
-        // A thick column gives more of the light from below back (two streams) than a thin one.
-        const back = 0.6 + 0.8 * (1 - 1 / (1 + DIFFUSE_EXTINCTION * depth))
-        city[index] = unit(back * cityAt!(meanRange * east[col], meanRange * north[col], altitudes[row], baseKm))
-        fingerprint = Math.imul(fingerprint ^ Math.round(city[index] * 255), 16777619)
-      }
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
@@ -150,4 +144,3 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet
 }
-

@@ -3,6 +3,7 @@ import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } f
 import type { FarData } from '../data/city/farData'
 import { loadPlaces, stubPublicFetch, type LoadedPlace } from '../test/sceneWorld'
 import { SCENE_PLACES } from '../test/scenePlaces'
+import { builtCells } from './builtCells'
 import { placeEnvOf } from './placeEnv'
 import { townLightsOf } from './townLights'
 
@@ -58,6 +59,17 @@ it('lights a base over the town itself, whichever way the base is seen', () => {
   // A higher base is lit more widely and less.
   expect(under('high', ...en(130, 14))).toBeLessThan(at(130, 14))
   expect(under('high', ...en(310, 5))).toBeGreaterThan(at(310, 5))
+})
+
+it('keeps a far town’s own shape on the base: the exact sum of its cells, off the grid’s nodes too', () => {
+  for (const [azimuth, km] of [[77, 23.6], [204, 50.3], [341, 87.7]] as const) {
+    const far = townsAt({ azimuth, km, half: 2 }), { under } = townLightsOf(EYE, far, 0)
+    const [e, n] = en(azimuth, km), cells = builtCells(EYE, far, 110)
+    for (const [level, h] of [['low', 3], ['mid', 5]] as const) for (const [de, dn] of [[0, 0], [2.3, 0.7], [-1.1, -4.2]]) {
+      const exact = cells.reduce((sum, c) => sum + c.area * h * h / (Math.PI * ((c.e - e - de) ** 2 + (c.n - n - dn) ** 2 + h * h) ** 2), 0)
+      expect(Math.abs(under(level, e + de, n + dn) / exact - 1), `${level} ${azimuth}° ${km} km`).toBeLessThan(0.15)
+    }
+  }
 })
 
 it('is dark in the desert', () => {

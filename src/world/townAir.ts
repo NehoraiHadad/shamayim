@@ -1,5 +1,4 @@
-import type { FarData } from '../data/city/farData'
-import { eachBuiltCell, walker } from './builtCells'
+import { walker, type BuiltCell } from './builtCells'
 
 /*
  * The air the towns light at night, by bearing: each built cell's share of the place's sky glow (Walker's law, the sum
@@ -25,30 +24,31 @@ const DOME_KM = 3
 /** A dome in front of, or over, the eye fills the sky up to here (deg). */
 const HIGHEST = 60
 const DOMES = 3
-export const SECTOR = 5, SECTORS = 360 / SECTOR
+const SECTOR = 5, SECTORS = 360 / SECTOR
 const RAD = Math.PI / 180
 
-/** Sector values (from index `from`) at a bearing, linear between the sectors. */
-export function sectorAt(values: ArrayLike<number>, azimuth: number, from = 0): number {
+/** Sector values at a bearing, linear between the sectors. */
+function sectorAt(values: ArrayLike<number>, azimuth: number): number {
   const at = (((azimuth / SECTOR) % SECTORS) + SECTORS) % SECTORS
   const i = Math.floor(at), t = at - i
-  return values[from + i % SECTORS] * (1 - t) + values[from + (i + 1) % SECTORS] * t
+  return values[i % SECTORS] * (1 - t) + values[(i + 1) % SECTORS] * t
 }
 
 const apart = (a: number, b: number) => Math.min(Math.abs(a - b), SECTORS - Math.abs(a - b))
 
 /** Each cell's share spread over the sectors its dome fills (a Gaussian), and the mean height of what stands there. */
-function ringOf(place: { lat: number; lon: number }, far: FarData) {
+function ringOf(cells: readonly BuiltCell[]) {
   const glow = new Float64Array(SECTORS), height = new Float64Array(SECTORS)
   // Cells gathered by bearing and by the width their dome is seen at (sectors): each spread is laid once.
   const seen = new Map<number, { from: number; width: number; share: number }>()
-  eachBuiltCell(place, far, AIR_REACH_KM, (e, n, km, area) => {
+  for (const { e, n, km, area } of cells) {
+    if (km > AIR_REACH_KM) continue
     const width = Math.max(1, Math.min(SECTORS / 4, Math.round(Math.atan2(DOME_KM, km) / RAD / SECTOR)))
     const from = (Math.round(Math.atan2(e, n) / RAD / SECTOR) + SECTORS) % SECTORS
     const key = from * SECTORS + width, share = walker(km, area), s = seen.get(key)
     if (s) s.share += share
     else seen.set(key, { from, width, share })
-  })
+  }
   const sectors = Array.from({ length: SECTORS }, (_, k) => k)
   for (const { from, width, share } of seen.values()) {
     const weight = sectors.map((k) => Math.exp(-0.5 * (apart(k, from) / width) ** 2))
@@ -72,16 +72,17 @@ function domesOf(glow: ArrayLike<number>, height: ArrayLike<number>, even: numbe
     const peak = left.indexOf(Math.max(...left)), top = left[peak]
     if (!(top > 0.02)) break
     // Its half-width: where it has fallen to half on its nearer side (at most a quarter of the horizon).
+    // It stands no higher than it is wide: what is lit overhead is in the even glow.
     let k = 1
     while (k < SECTORS / 4 && left[(peak + k) % SECTORS] > top / 2 && left[(peak - k + SECTORS) % SECTORS] > top / 2) k++
-    out.push({ azimuth: peak * SECTOR, glow: top, width: k * SECTOR, height: height[peak] })
+    out.push({ azimuth: peak * SECTOR, glow: top, width: k * SECTOR, height: Math.min(height[peak], k * SECTOR) })
     left.forEach((_, i) => { left[i] -= top * Math.max(0, 1 - apart(i, peak) / (2 * k)) })
   }
   return out
 }
 
-export function townAirOf(place: { lat: number; lon: number }, far: FarData): TownAir {
-  const { glow, height } = ringOf(place, far)
+export function townAirOf(cells: readonly BuiltCell[]): TownAir {
+  const { glow, height } = ringOf(cells)
   const even = Math.min(...glow)
   return {
     even: { glow: even, height: height[glow.indexOf(even)] },

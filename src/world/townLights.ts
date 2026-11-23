@@ -1,7 +1,7 @@
 import type { FarData } from '../data/city/farData'
 import type { CloudLevel } from './types'
-import { eachBuiltCell } from './builtCells'
-import { evenAir, SECTOR, sectorAt, SECTORS, townAirOf, type TownAir } from './townAir'
+import { builtCells, type BuiltCell } from './builtCells'
+import { evenAir, townAirOf, type TownAir } from './townAir'
 
 /*
  * Where the towns' light comes from at night, from the far raster's built shares (the same cells the far towns are drawn
@@ -16,68 +16,70 @@ export interface TownLights {
   air: () => TownAir
 }
 
-type Place = { lat: number; lon: number }
-interface Source { e: number; n: number; area: number }
-
 /** A low deck's horizon: no base further off is seen over eye level. */
 const REACH_KM = 110
 /**
- * The height (km) a level's base is lit from: its own (~1, 3, 8 km) and a km more for the light scattered on its way up,
- * so a town stands on the base as a wide soft patch. Sources are gathered into blocks as wide, under that softness.
+ * The height (km) a level's base is lit from: its own (~1, 3, 8 km) and two more for the light scattered on its way up
+ * and in the base, so a town stands on the base as a wide soft patch.
  */
-const LIT_FROM: Record<CloudLevel, number> = { low: 2, mid: 4, high: 9 }
-/** The ranges (km) the light on a base is worked at, denser near. */
-const RINGS = [0, 1, 2, 3.5, 5, 7.5, 10, 14, 20, 28, 40, 56, 80, REACH_KM]
+const LIT_FROM: Record<CloudLevel, number> = { low: 3, mid: 5, high: 10 }
+/** A base's light is worked on a square grid of this many steps to its height, from the ground within this many heights. */
+const STEPS = 2, SEEN = 5
 /** Without the raster: an `env.glow` of 40 is a wholly built plain (a metropolis's ~10 is a quarter built). */
 const GLOW_OF_BUILT = 40
-const RAD = Math.PI / 180
 
-function blocksOf(place: Place, far: FarData, width: number): Source[] {
-  const blocks = new Map<string, Source>()
-  eachBuiltCell(place, far, REACH_KM + 10, (e, n, _km, area) => {
-    const key = `${Math.floor(e / width)},${Math.floor(n / width)}`
-    const b = blocks.get(key)
-    if (b) { b.e += e * area; b.n += n * area; b.area += area } else blocks.set(key, { e: e * area, n: n * area, area })
-  })
-  return [...blocks.values()].map((b) => ({ e: b.e / b.area, n: b.n / b.area, area: b.area }))
-}
-
-/**
- * The light on a base `h` up, on the polar grid: each source a Lambertian patch under a level base, h² / (π (ρ² + h²)²) of
- * its area (1 over a wholly built plain), so a base is lit by the ground within about its own height.
- */
-function baseGrid(sources: readonly Source[], h: number): Float32Array {
-  const out = new Float32Array(RINGS.length * SECTORS)
-  RINGS.forEach((km, ring) => {
-    for (let k = 0; k < SECTORS; k++) {
-      const e = km * Math.sin(k * SECTOR * RAD), n = km * Math.cos(k * SECTOR * RAD)
-      let sum = 0
-      for (const s of sources) {
-        const de = s.e - e, dn = s.n - n, d = de * de + dn * dn + h * h
-        sum += s.area * h * h / (Math.PI * d * d)
-      }
-      out[ring * SECTORS + k] = Math.min(1, sum)
-    }
-  })
+/** Each built cell's area shared between the grid's nodes round it. */
+function groundGrid(cells: readonly BuiltCell[], step: number, half: number): Float32Array {
+  const side = 2 * half + 1, out = new Float32Array(side * side)
+  for (const { e, n, area } of cells) {
+    const x = e / step + half, y = n / step + half, col = Math.floor(x), row = Math.floor(y), tx = x - col, ty = y - row
+    const at = row * side + col
+    out[at] += area * (1 - tx) * (1 - ty)
+    out[at + 1] += area * tx * (1 - ty)
+    out[at + side] += area * (1 - tx) * ty
+    out[at + side + 1] += area * tx * ty
+  }
   return out
 }
 
-export function townLightsOf(place: Place, far: FarData | null | undefined, glow: number): TownLights {
+/**
+ * The light on a base `h` up, over any point: each built cell a Lambertian patch under a level base,
+ * h² / (π (ρ² + h²)²) of its area, and a wholly built plain 1, so a base is lit by the ground within about its own height.
+ */
+function baseLight(cells: readonly BuiltCell[], h: number): (e: number, n: number) => number {
+  const step = h / STEPS, reach = SEEN * STEPS, half = Math.ceil(REACH_KM / step) + reach + 1, side = 2 * half + 1
+  const ground = groundGrid(cells, step, half), base = new Float32Array(side * side)
+  const kernel: { by: number; share: number }[] = []
+  let whole = 0
+  for (let dr = -reach; dr <= reach; dr++) for (let dc = -reach; dc <= reach; dc++) {
+    const away = dr * dr + dc * dc
+    if (away > reach * reach) continue
+    const share = h * h / (Math.PI * (away * step * step + h * h) ** 2)
+    whole += share * step * step
+    kernel.push({ by: dr * side + dc, share })
+  }
+  for (const k of kernel) k.share /= whole
+  ground.forEach((area, at) => {
+    if (area) for (const { by, share } of kernel) base[at + by] += area * share
+  })
+  return (e, n) => {
+    const x = e / step + half, y = n / step + half, col = Math.floor(x), row = Math.floor(y), tx = x - col, ty = y - row
+    if (col < 0 || row < 0 || col + 1 >= side || row + 1 >= side) return 0
+    const at = row * side + col
+    return (base[at] * (1 - tx) + base[at + 1] * tx) * (1 - ty) + (base[at + side] * (1 - tx) + base[at + side + 1] * tx) * ty
+  }
+}
+
+export function townLightsOf(place: { lat: number; lon: number }, far: FarData | null | undefined, glow: number): TownLights {
   if (!far) {
     const air = evenAir(glow)
     return { under: () => Math.min(1, glow / GLOW_OF_BUILT), air: () => air }
   }
-  let air: TownAir | undefined
-  const grids: Partial<Record<CloudLevel, Float32Array>> = {}
+  let cells: BuiltCell[] | undefined, air: TownAir | undefined
+  const near = () => cells ??= builtCells(place, far, REACH_KM)
+  const bases: Partial<Record<CloudLevel, ReturnType<typeof baseLight>>> = {}
   return {
-    under(level, e, n) {
-      const grid = grids[level] ??= baseGrid(blocksOf(place, far, LIT_FROM[level]), LIT_FROM[level])
-      const km = Math.hypot(e, n), azimuth = Math.atan2(e, n) / RAD
-      let ring = 0
-      while (ring + 2 < RINGS.length && RINGS[ring + 1] < km) ring++
-      const t = Math.min(1, (km - RINGS[ring]) / (RINGS[ring + 1] - RINGS[ring]))
-      return sectorAt(grid, azimuth, ring * SECTORS) * (1 - t) + sectorAt(grid, azimuth, (ring + 1) * SECTORS) * t
-    },
-    air: () => air ??= townAirOf(place, far),
+    under: (level, e, n) => Math.min(1, (bases[level] ??= baseLight(near(), LIT_FROM[level]))(e, n)),
+    air: () => air ??= townAirOf(near()),
   }
 }

@@ -1,8 +1,8 @@
 import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from '../data/city/farGrid'
 import type { FarData } from '../data/city/farData'
 
-const KM_LAT = 110.57
-const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180)
+export const KM_LAT = 110.57
+export const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180)
 
 /**
  * Every built cell of the far raster within `reachKm` of a place: its centre (east, north km from it), its distance and its
@@ -24,6 +24,14 @@ export function eachBuiltCell(place: { lat: number; lon: number }, far: FarData,
       if (km <= reachKm) visit(e, n, km, (built / 15) * cellKm2)
     }
   }
+}
+
+/** The built cells as a list, for what is worked from them more than once. */
+export interface BuiltCell { e: number; n: number; km: number; area: number }
+export function builtCells(place: { lat: number; lon: number }, far: FarData, reachKm: number): BuiltCell[] {
+  const out: BuiltCell[] = []
+  eachBuiltCell(place, far, reachKm, (e, n, km, area) => out.push({ e, n, km, area }))
+  return out
 }
 
 /** Walker's law: a built km² at `km` brightens the sky as (d + 0.5 km)^−2.5, scaled so ~1 is the edge of a small town. */
