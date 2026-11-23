@@ -43,18 +43,24 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
   forced?: Partial<AirInput> | null, { arrivalMs, observedCloud }: AirTimeline = {}): AirInput & Weather & { live: boolean } {
   const live = selected === null
   const at = selected ?? now
-  const sampleAtNow = at === now
   const instant = utcOf(at, site.timezone)
-  const nowInstant = sampleAtNow ? instant : utcOf(now, site.timezone)
-  const nowMs = arrivalMs ?? nowInstant.getTime()
+  const nowMs = arrivalMs ?? (at === now ? instant : utcOf(now, site.timezone)).getTime()
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
-  const sample = (minute: LocalTime, ms: number) =>
+  const sample = (minute: LocalTime, ms = utcOf(minute, site.timezone).getTime()) =>
     blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone, forced), mixWeather)
   const weather = sample(at, instant.getTime())
+  let observationModels: Map<LocalTime, number> | undefined
+  const modelCoverAt = (minute: LocalTime) => {
+    if (minute === at) return weather.cloudCover
+    observationModels ??= new Map()
+    const cached = observationModels.get(minute)
+    if (cached !== undefined) return cached
+    const cover = sample(minute).cloudCover
+    observationModels.set(minute, cover)
+    return cover
+  }
   const cover = observedCloud
-    ? correctCloudCover(observedCloud, now, at, nowMs, (sampleAtNow ? weather : sample(now, nowInstant.getTime())).cloudCover,
-      weather.cloudCover)
-    : weather.cloudCover
+    ? correctCloudCover(observedCloud, at, nowMs, weather.cloudCover, modelCoverAt) : weather.cloudCover
   const shown = {
     ...(forcedCloud ? { ...weather, cloudCover: cover } : correctedWeather(weather, cover)),
     date: datePart(at),

@@ -1,8 +1,9 @@
-import { FAR_COLS, FAR_LAT_STEP, FAR_LON_STEP, FAR_ROWS, FAR_SOUTH, FAR_WEST } from '../data/city/farGrid'
 import type { FarData } from '../data/city/farData'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import type { Place } from '../config/place'
+import { eachBuiltCell, KM_LAT, kmLon, walker } from './builtCells'
+import { AIR_REACH_KM } from './townAir'
 
 /*
  * What the land round a place is like, for the life in its sky and the darkness of its night (C10): how far the sea and the
@@ -29,9 +30,6 @@ export interface PlaceEnv {
   glow: number
   sources: { land: 'cover' | 'population'; glow: 'far' | 'cover' | 'population' }
 }
-
-const KM_LAT = 110.57
-const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180)
 
 /** The nearest water of a kind along 24 bearings, out to 20 km in 0.4 km steps: its distance and bearing. */
 function waterKm(place: Place, mask: WaterMask | null | undefined, kind: 'sea' | 'lake'): { km: number; az: number } | null {
@@ -64,25 +62,11 @@ function coverShares(place: Place, cover: LandCover): { built: number; open: num
   return n ? { built: built / n, open: open / n, n } : { built: 0, open: 0, n: 0 }
 }
 
-/** Sky glow from the far raster: every built cell within 60 km, its built area × (d + 0.5 km)^−2.5. */
+/** Sky glow from the far raster: every built cell within reach by Walker's law. */
 function farGlow(place: Place, far: FarData): number {
-  const cellKm2 = FAR_LAT_STEP * KM_LAT * FAR_LON_STEP * kmLon(place.lat)
-  const r0 = Math.floor((place.lat - FAR_SOUTH) / FAR_LAT_STEP), c0 = Math.floor((place.lon - FAR_WEST) / FAR_LON_STEP)
-  const dr = Math.ceil(60 / (FAR_LAT_STEP * KM_LAT)), dc = Math.ceil(60 / (FAR_LON_STEP * kmLon(place.lat)))
   let sum = 0
-  for (let r = Math.max(0, r0 - dr); r <= Math.min(FAR_ROWS - 1, r0 + dr); r++) {
-    const n = (FAR_SOUTH + (r + 0.5) * FAR_LAT_STEP - place.lat) * KM_LAT
-    for (let c = Math.max(0, c0 - dc); c <= Math.min(FAR_COLS - 1, c0 + dc); c++) {
-      const v = far.grid[r * FAR_COLS + c] >> 4
-      if (!v) continue
-      const e = (FAR_WEST + (c + 0.5) * FAR_LON_STEP - place.lon) * kmLon(place.lat)
-      const d = Math.hypot(n, e)
-      if (d > 60) continue
-      sum += (v / 15) * cellKm2 * (d + 0.5) ** -2.5
-    }
-  }
-  // Scaled so ~1 is the edge of a small town's glow (see `placeEnv.test.ts`).
-  return sum / 0.35
+  eachBuiltCell(place, far, AIR_REACH_KM, (_e, _n, km, area) => { sum += walker(km, area) })
+  return sum
 }
 
 /** The place's surroundings, from whatever data is at hand (each fallback marked). */

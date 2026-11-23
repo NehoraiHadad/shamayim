@@ -17,6 +17,7 @@ import { altitudeOver, type FlightContext } from './lifeSchedule'
 import { drawnTerrain } from './outside'
 import { placeOf } from './place'
 import { placeEnvOf } from './placeEnv'
+import { townLightsOf } from './townLights'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { terrainPlanes, terrainY, unknownLand } from './terrain'
@@ -118,6 +119,7 @@ export function makeWorldMemos() {
     ripplesPart: memoOne((terrain: SceneTerrain, placeId: string) => ripplesOf(terrain.water ?? [], placeId)),
     envPart: memoOne((place: WorldInput['place'], cover: WorldInput['cover'], far: WorldInput['far'], waterMask: WorldInput['waterMask']) =>
       placeEnvOf(place, { cover, far, waterMask })),
+    townLightsPart: memoOne(townLightsOf),
     // Keyed strictly by coordinates, elevation, shown local/UTC dates, camera, terrain and data sources (never place name/id).
     landPart: memoOne((
       lat: number, lon: number, elevationM: number, shownDate: string, shownUtcDate: string,
