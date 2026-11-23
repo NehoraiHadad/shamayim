@@ -13,6 +13,8 @@ import { soften } from '../soften'
 const SOFT = 0.5, SOFT_MAX = 9
 /** How far into a mass its top's light and its foot's shade reach, against the local row spacing. */
 const DEEP = 4.5
+/** What a clear row still carries on of it (one mass does not shade the next), and the alpha that carries it whole. */
+const GAP = 0.7, SOLID = 0.6
 /** Softening across against down: masses spread along the horizon, as v1b's banks do. */
 const STRETCH = 1.5
 /** Rows either side a row's spacing is eased over. */
@@ -58,8 +60,9 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField | null {
 /** Each part's place in its mass: the cloud under it against the cloud over it, the near weighing more (`keep` a row). */
 function sides(alpha: Float32Array, cols: number, keep: readonly number[]): Float32Array {
   const over = new Float32Array(alpha), under = new Float32Array(alpha)
-  for (let n = cols; n < over.length; n++) over[n] += keep[Math.floor(n / cols)] * over[n - cols]
-  for (let n = over.length - cols - 1; n >= 0; n--) under[n] += keep[Math.floor(n / cols)] * under[n + cols]
+  const carried = (n: number) => keep[Math.floor(n / cols)] * Math.min(1, GAP + (1 - GAP) * alpha[n] / SOLID)
+  for (let n = cols; n < over.length; n++) over[n] += carried(n - cols) * over[n - cols]
+  for (let n = over.length - cols - 1; n >= 0; n--) under[n] += carried(n + cols) * under[n + cols]
   return over.map((o, n) => (under[n] - o) / (under[n] + o + 1e-3))
 }
 

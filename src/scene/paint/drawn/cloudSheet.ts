@@ -28,10 +28,12 @@ const CAP = 1.7, FOOT = 1.9, BROAD_LIT = 0.8, BROAD_SHADE = 1.1
 /** The puffs' light inside a mass against its edge: calmer in the middle; the small heads' light on the edge. */
 const INSIDE = 0.85, SMALL_LIT = 0.25
 /** A closed deck's banks: how far their light moves the tone. */
-const BANKS = 0.32
+const BANKS = 0.27
 /** The share of the model's own tone an open deck's body keeps against the lit: its thin parts', and what a core adds; how
  *  much less under a low sun. */
 const BODY = 0.45, CORE_GREY = 0.35, LOW_SUN = 0.35
+/** How much calmer the puffs' own light is under a low sun: the whole mass takes it. */
+const LOW_CALM = 0.5
 /** The smallest size of the heads against the zenith's, at the horizon. */
 const SIZE_MIN = 0.12
 
@@ -70,7 +72,7 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
       const broad = fieldAt(f.side, cols, rows, gx, gy)
       const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
       const lift = open * (broad > 0 ? BROAD_LIT : BROAD_SHADE) * broad
-        + (open + (1 - open) * BANKS) * (relief > 0 ? CAP : FOOT) * relief
+        + (open + (1 - open) * BANKS) * (relief > 0 ? CAP : FOOT) * (1 - LOW_CALM * low) * relief
       const body = toneOf(desc, fieldAt(f.tone, cols, rows, gx, gy))
       const base = open ? mix(body, mix(desc.lit, body, (BODY + CORE_GREY * a * a) * (1 - LOW_SUN * low)), open) : body
       put(out, at, underTowns(desc, f, gx, gy, lightOf(base, bright, desc.shade, lift, low)), alpha)
