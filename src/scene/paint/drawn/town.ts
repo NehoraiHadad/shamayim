@@ -6,6 +6,7 @@ import { mix, type Ctx2D, type PaintEnv } from '../hand'
 import { grain, rockOf, tree } from '../marks'
 import { stripPhase, TOWER_CAST, TOWER_CONTACT } from '../outside'
 import { paintOutsideLand, paintOutsideSea } from '../outsideGround'
+import { skyFormIn } from './light/outsideLook'
 import { paintBlock } from './townBlock'
 import { townBodies } from './townBlocks'
 import { paintTownGlyph } from './townGlyph'
@@ -29,7 +30,7 @@ const LEAF = 0.4
 const RECEDE = 0.3, RECEDE_OVER = 16, TIERS_OWN = 0.14
 
 export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
-  const { shine: s, tiers, form } = desc
+  const { shine: s, tiers } = desc, form = skyFormIn(desc)
   if (!form) return
   const light = townLight(s, form), lateral = glyphLight(s), far = receding(desc.items, tiers)
   if (desc.land) paintOutsideLand(ctx, desc.land, s)

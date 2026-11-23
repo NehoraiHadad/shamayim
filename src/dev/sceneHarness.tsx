@@ -23,7 +23,7 @@ import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { onSkyCanvas } from '../scene/paint/sky'
-import { DEFAULT_STYLE } from '../scene/paint/styles'
+import { DEFAULT_STYLE, STYLES } from '../scene/paint/styles'
 import { forcedStyle } from '../scene/react/forcedStyle'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
@@ -170,7 +170,7 @@ function Scene({ input: given }: { input: WorldInput }) {
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
   const style = forcedStyle() ?? DEFAULT_STYLE
   const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
-    hideLayers(sceneModel(world, box, moment.clock, undefined, style), params.get('hide'))), [world, box, moment, style])
+    hideLayers(sceneModel(world, box, moment.clock, undefined, STYLES[style].light), params.get('hide'))), [world, box, moment, style])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())
@@ -214,7 +214,7 @@ function Scene({ input: given }: { input: WorldInput }) {
         const t0 = performance.now()
         const next = build({ ...input, selected: at })
         const t1 = performance.now()
-        const nextModel = sceneModel(next, box, moment.clock, undefined, style)
+        const nextModel = sceneModel(next, box, moment.clock, undefined, STYLES[style].light)
         win.__world = next
         const t2 = performance.now()
         // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the

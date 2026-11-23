@@ -288,7 +288,6 @@ export interface SeaDesc {
   horizon: { y: number; x0: number; x1: number; rgb: RGB; alpha: number }
 }
 export type { GlyphKind, IconKind }
-export type { SkyForm } from './ownSkyForm'
 
 /**
  * The colours a glyph, a house or a tree is painted in (stage C4), after the light and the air at its distance: the
@@ -460,7 +459,6 @@ export type LayerDesc =
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
       land: OutsideLandDesc | null
-      form?: import('./ownSkyForm').SkyForm
       receivers: Record<number, BuildingFaces>[]; accessories: (ReturnType<typeof accessoryTones> | null)[] }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */

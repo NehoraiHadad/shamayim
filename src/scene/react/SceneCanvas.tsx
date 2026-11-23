@@ -8,7 +8,7 @@ import { useWidth } from './useWidth'
 import styles from './Scene.module.css'
 import { SCENE_H } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
-import { DEFAULT_STYLE, type SceneStyle } from '../paint/styles'
+import { DEFAULT_STYLE, STYLES, type SceneStyle } from '../paint/styles'
 import { layersOn, sceneModel, type LifeClock } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
@@ -55,7 +55,7 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
     skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
   const { clock, labelStyle, ready } = useLandClock(world)
   const still = typeof window !== 'undefined' && reducedMotion()
-  const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }, style), [world, box, clock, life, still, style])
+  const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }, STYLES[style].light), [world, box, clock, life, still, style])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const label = sceneLabel(world, forecast, now, selected, { temperature, hasLightning: sky.some((layer) => layer.kind === 'flash') })

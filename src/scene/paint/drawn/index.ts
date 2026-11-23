@@ -4,6 +4,7 @@ import { SHARED } from '../shared/painters'
 import { paintEdge } from '../weather'
 import { paintDrawnCells } from './cloudTower'
 import { paintDrawnSheet } from './cloudSheet'
+import { DRAWN_LIGHT } from './light'
 import { paintDrawnOutside } from './town'
 
 /** A curtain of rain as a few long planes of heavier and lighter fall, no fibres. */
@@ -12,6 +13,7 @@ const PLANES: Fibres = { thick: 0.7, rate: 0.62, long: 0.06, octaves: 1, gather:
 /** The drawn hand (docs/design/ILLUSTRATION.md, the v1b stills): clouds, curtains and town as an illustrator masses them. */
 export const DRAWN: Style = {
   id: 'drawn',
+  light: DRAWN_LIGHT,
   painters: {
     ...SHARED,
     cloudSheet: { form: paintDrawnSheet },

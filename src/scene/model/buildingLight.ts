@@ -1,25 +1,24 @@
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
-import type { SceneStyle } from '../paint/styles'
 import { groundLighting } from './buildingGround'
 import { FLAT_ROOF, PALE_METAL, PANEL, STONE, TILE, receiverMaterial } from './buildingMaterial'
 import { incidence } from './buildingIncidence'
 import { exposedColors, facadeTwilight } from './buildingExposure'
 import { hazeAt } from './landVeil'
 import { glassIncidence } from './glassLight'
-import { drawnTwilightScreen } from './drawnArchitectureLight'
+import { PLAIN_LIGHT, type StyleLight } from './styleLight'
 
 export const buildingSurroundings = (world: WorldState) => groundLighting(world).buildings
 export { groundView, reflectedGround } from './buildingGround'
 const UNIT_REFLECTANCE: RGB = [1, 1, 1]
 
-const worlds = new WeakMap<WorldState, ReturnType<typeof worldReceivers>>()
-const drawnWorlds = new WeakMap<WorldState, ReturnType<typeof worldReceivers>>()
+/** A minute's receivers, once per hand's light. */
+const receiversOf = new WeakMap<StyleLight, WeakMap<WorldState, ReturnType<typeof worldReceivers>>>()
 
-function worldReceivers(world: WorldState, style: SceneStyle) {
+function worldReceivers(world: WorldState, light: StyleLight) {
   const state = buildingSurroundings(world)
-  const drawnScreen = style === 'drawn' ? drawnTwilightScreen(state.irr) : undefined
-  const incident = incidence(state, drawnScreen)
+  const screen = light.screen?.(state.irr)
+  const incident = incidence(state, screen)
   const normals = new WeakMap<Normal, ReturnType<typeof faceLight>>()
   const roofs = new WeakMap<Normal, RGB>()
   const { front, left, right, top } = NORMALS
@@ -27,7 +26,7 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
   const expose = exposedColors(state)
   const tones = new Map<number, ReturnType<typeof expose>>()
   const wallTones = new Map<number, ReturnType<typeof expose>>()
-  const compressFacades = !drawnScreen && facadeTwilight(state.irr.sunAlt) > 0
+  const compressFacades = !screen && facadeTwilight(state.irr.sunAlt) > 0
   const tileTones = new Map<number, WeakMap<Normal, readonly [RGB, RGB, RGB]>>()
   const facades = new Map<number, Map<number, BuildingFaces>>()
   const sides = [incident(front, .82, .83, .92), incident(left, .82, .83, .92),
@@ -62,7 +61,7 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
     unresolved: (km: number, rho: RGB) => toneAt(km, true)(rho, average),
     unresolvedTile: (km: number) => toneAt(km)(TILE, tileAverage),
     sky: (n: Normal, stone: RGB, wall: RGB, band?: boolean) =>
-      (sky ??= glassIncidence(world, state, drawnScreen))(n, stone, wall, band),
+      (sky ??= glassIncidence(world, state, screen))(n, stone, wall, band),
     tiles(km: number, [front, left, right]: readonly [Normal, Normal, Normal]) {
       let facets = tileTones.get(km)
       if (!facets) tileTones.set(km, facets = new WeakMap())
@@ -85,16 +84,17 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
   }
 }
 
-function receivers(world: WorldState, style: SceneStyle) {
-  const cache = style === 'drawn' ? drawnWorlds : worlds
-  let set = cache.get(world)
-  if (!set) cache.set(world, set = worldReceivers(world, style))
+function receivers(world: WorldState, light: StyleLight) {
+  let worlds = receiversOf.get(light)
+  if (!worlds) receiversOf.set(light, worlds = new WeakMap())
+  let set = worlds.get(world)
+  if (!set) worlds.set(world, set = worldReceivers(world, light))
   return set
 }
 
 /** Linear material × irradiance, then the land exposure and one air-light blend. */
-export function buildingLight(world: WorldState, km: number, style: SceneStyle = 'real') {
-  const set = receivers(world, style)
+export function buildingLight(world: WorldState, km: number, light: StyleLight = PLAIN_LIGHT) {
+  const set = receivers(world, light)
   const shade = set.toneAt(km), facade = set.toneAt(km, true)
   const receive = (rho: RGB, n: Normal, open = 1, beam = open) => (n[2] === 0 ? facade : shade)(rho, set.incident(n, open, beam))
   return Object.assign(receive, {
@@ -116,8 +116,8 @@ export interface BuildingFaces {
 const flat = (wall: RGB): FaceTones => ({ wall, foot: wall, eave: wall })
 
 export function buildingFaces(world: WorldState, km: number, id: number, tiled = false, plain = false, detail = true,
-  style: SceneStyle = 'real'): BuildingFaces {
-  const set = receivers(world, style)
+  light: StyleLight = PLAIN_LIGHT): BuildingFaces {
+  const set = receivers(world, light)
   let byMaterial = set.facades.get(km)
   if (!byMaterial) set.facades.set(km, byMaterial = new Map())
   const key = id * 8 + Number(tiled) + Number(plain) * 2 + Number(detail) * 4

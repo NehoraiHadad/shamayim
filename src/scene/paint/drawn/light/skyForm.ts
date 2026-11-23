@@ -1,10 +1,10 @@
-import type { WorldState } from '../../world/types'
-import { smoothstep } from '../../world/ridgeLighting'
-import { againstLight } from './drawnTones'
-import { drawnAerialFor as aerialFor, drawnHazeOf as hazeOf } from './drawnHaze'
-import { skyAt } from './sky'
-import { lightness, mixRgb, scaleLight } from './tone'
-import type { SceneBox, Tones, RGB } from './types'
+import type { WorldState } from '../../../../world/types'
+import { smoothstep } from '../../../../world/ridgeLighting'
+import { againstLight } from '../../../model/drawnTones'
+import { drawnAerialFor as aerialFor, drawnHazeOf as hazeOf } from '../../../model/drawnHaze'
+import { skyAt } from '../../../model/sky'
+import { lightness, mixRgb, scaleLight } from '../../../model/tone'
+import type { SceneBox, Tones, RGB } from '../../../model/types'
 
 /** How much sky light reaches the drawn town, its brighter side, and the colour at each tier. */
 export interface SkyForm { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }

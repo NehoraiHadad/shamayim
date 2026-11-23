@@ -5,7 +5,7 @@ import { addLight } from '../../model/tone'
 import { toneOf } from '../cloudLook'
 import { mix, type Ctx2D, type PaintEnv } from '../hand'
 import { billows } from './billows'
-import { lowLight, whitened } from './light'
+import { lowLight, whitened } from './cloudLight'
 import { fieldAt, sheetField, type SheetField } from './sheetField'
 
 /*

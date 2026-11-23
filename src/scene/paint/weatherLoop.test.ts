@@ -7,7 +7,7 @@ import { buildWorld } from '../../world/world'
 import { sceneModel } from '../model'
 import type { LayerDesc, LayerKind, LayerOf, SceneBox, SceneModel } from '../model/types'
 import { HAND, type Ctx2D, type PaintEnv } from './hand'
-import { painterOf, SCENE_STYLES } from './styles'
+import { painterOf, SCENE_STYLES, STYLES } from './styles'
 
 /** Every style's weather, water and town painters: pure in the phase, and a loop later the same frame (C7). */
 const DAY = '2026-11-17'
@@ -57,17 +57,17 @@ it.each(SCENE_STYLES)('%s: paints the same calls twice and the same frame a loop
     for (const l of model.layers) if (KINDS.has(l.kind) && (l.animated || !['water', 'outside'].includes(l.kind))) cases.push(l)
   }
   const wet = world('haifa', '12:00', RAIN(270))
-  add(sceneModel(wet, BOX, null, undefined, style))
+  add(sceneModel(wet, BOX, null, undefined, STYLES[style].light))
   const distant = wet.rain!.cells.find(cell => !cell.atEye)!
   const camera = { ...wet.camera, heading: (distant.fromAzimuth + distant.toAzimuth) / 2 + 180 }
-  const outOfView = sceneModel({ ...wet, camera, rain: { ...wet.rain!, cells: [distant], near: false } }, BOX, null, undefined, style)
+  const outOfView = sceneModel({ ...wet, camera, rain: { ...wet.rain!, cells: [distant], near: false } }, BOX, null, undefined, STYLES[style].light)
   expect(ofKind(outOfView, 'edge')).toHaveLength(1)
   add(outOfView)
-  add(sceneModel(world('haifa', '16:30', BROKEN), BOX, null, undefined, style))
-  add(sceneModel(world('tiberias', '07:30', { ...FOG, windSpeed: 25 }), BOX, null, undefined, style))
-  add(sceneModel(world('jerusalem', '12:00', DUST), BOX, null, undefined, style))
-  add(sceneModel(world('jerusalem', '12:00', SHOWERS), BOX, null, undefined, style))
-  add(sceneModel(world('rosh-pina', '12:00', { ...CLEAR, windSpeed: 50 }), BOX, null, undefined, style))
+  add(sceneModel(world('haifa', '16:30', BROKEN), BOX, null, undefined, STYLES[style].light))
+  add(sceneModel(world('tiberias', '07:30', { ...FOG, windSpeed: 25 }), BOX, null, undefined, STYLES[style].light))
+  add(sceneModel(world('jerusalem', '12:00', DUST), BOX, null, undefined, STYLES[style].light))
+  add(sceneModel(world('jerusalem', '12:00', SHOWERS), BOX, null, undefined, STYLES[style].light))
+  add(sceneModel(world('rosh-pina', '12:00', { ...CLEAR, windSpeed: 50 }), BOX, null, undefined, STYLES[style].light))
   const kinds = new Set(cases.map((l) => l.kind))
   for (const kind of KINDS) expect(kinds.has(kind), kind).toBe(true)
   for (const desc of cases) {

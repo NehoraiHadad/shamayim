@@ -1,3 +1,4 @@
+import type { StyleLight } from '../model/styleLight'
 import type { LayerKind, LayerOf } from '../model/types'
 import type { Ctx2D, PaintEnv } from './hand'
 
@@ -24,10 +25,12 @@ export type OwnKind = 'cloudSheet' | 'cloudCells' | 'shafts' | 'edge' | 'outside
 /** The kinds every style paints with the same painter. */
 export type SharedPainters = Omit<Painters, OwnKind>
 
-/** One hand of the scene: its id in the registry (`styles.ts`) and its painters. Same world, same facts: only the hand differs. */
+/** One hand of the scene: its id in the registry (`styles.ts`), its painters and its light. Same world, same facts: only the hand differs. */
 export interface Style {
   readonly id: string
   readonly painters: Painters
+  /** The model's own light (`PLAIN_LIGHT`), or where the hand lights things its own way. */
+  readonly light: StyleLight
 }
 
 /** The form of a layer that is all light (water, far towns): only its place, nothing drawn. */

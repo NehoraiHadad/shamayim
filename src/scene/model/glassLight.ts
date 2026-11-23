@@ -3,9 +3,9 @@ import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import type { Surroundings } from './buildingGround'
 import { facadeTwilight } from './buildingExposure'
-import type { drawnTwilightScreen } from './drawnArchitectureLight'
 import { linearLuminance } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
+import type { TwilightScreen } from './styleLight'
 
 // Four incoherent air/glass interfaces in series. Each adds R/(1−R)
 // to the reflectance odds once the internal returns are summed.
@@ -19,13 +19,13 @@ function paneAndBand(pane: RGB): Returns {
 
 /** Directional sky in rough window glass, with Fresnel reflectance and diffuse light
  * from the interior. The mullions see the same sky but return less of it. */
-export function glassIncidence(world: WorldState, { irr }: Surroundings, drawnScreen?: ReturnType<typeof drawnTwilightScreen>) {
+export function glassIncidence(world: WorldState, { irr }: Surroundings, screenOf?: TwilightScreen) {
   // Use the broad directional sky. The gilding's concentrated forward
   // accent would paint the warm horizon across whole panes.
   const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, 0)
   // Keep the passive pane within its facade's tonal range at twilight.
   // Fade the bound into daylight and as the scene reaches full night.
-  const twilight = drawnScreen ? 0 : facadeTwilight(irr.sunAlt)
+  const twilight = screenOf ? 0 : facadeTwilight(irr.sunAlt)
   const az = Math.hypot(irr.sunDir.across, irr.sunDir.ahead) || 1
   const memo = new WeakMap<Normal, Returns>()
   const limited = new WeakMap<RGB, WeakMap<RGB, Returns>>()
@@ -38,7 +38,7 @@ export function glassIncidence(world: WorldState, { irr }: Surroundings, drawnSc
       // sky sample just above the horizon. Projected area limits each return.
       const fresnel = DOUBLE_GLAZING_F0 + (1 - DOUBLE_GLAZING_F0) * (1 - nv) ** 5
       const directional = sky(.14 + 2 * nv * Math.max(0, n[2]), toward)
-      const pane = mixReflection(directional, irr.eSkyVec, fresnel, drawnScreen?.(n).sky ?? 1)
+      const pane = mixReflection(directional, irr.eSkyVec, fresnel, screenOf?.(n).sky ?? 1)
       reflection = paneAndBand(pane)
       memo.set(n, reflection)
     }
