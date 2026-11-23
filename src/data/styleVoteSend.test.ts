@@ -16,18 +16,19 @@ describe('sendStyleVote', () => {
     vi.stubGlobal('fetch', fetch)
     vi.stubEnv('VITE_WEATHER_API_BASE', '')
     expect(styleVoteUrl()).toBeNull()
-    expect(await sendStyleVote(VOTE)).toBe(false)
+    expect(await sendStyleVote(VOTE)).toBe('refused')
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('posts only the id, the style and the round, and answers whether it was taken', async () => {
+  it('posts only the id, the style and the round, and tells taken from refused and failed', async () => {
     const fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(new Response(null, { status: 429 })).mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 })).mockRejectedValueOnce(new TypeError('offline'))
     vi.stubGlobal('fetch', fetch)
     vi.stubEnv('VITE_WEATHER_API_BASE', 'https://w.test/')
     const results = []
-    for (let i = 0; i < 3; i++) results.push(await sendStyleVote(VOTE))
-    expect(results).toEqual([true, false, false])
+    for (let i = 0; i < 4; i++) results.push(await sendStyleVote(VOTE))
+    expect(results).toEqual(['taken', 'refused', 'failed', 'failed'])
     const [url, init] = fetch.mock.calls[0]
     expect(url).toBe('https://w.test/v1/style-vote')
     expect(init).toMatchObject({ method: 'POST', body: JSON.stringify({ ...VOTE, round: VOTE_ROUND }) })

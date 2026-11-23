@@ -8,7 +8,9 @@ export interface StyleVote extends SavedVote {
   readonly sending: boolean
 }
 
-export type SendVote = (vote: { id: string; style: VoteStyle }) => Promise<boolean>
+/** `refused`: the Worker does not take it now; `failed`: no answer, or the Worker is unwell. */
+export type SendAnswer = 'taken' | 'refused' | 'failed'
+export type SendVote = (vote: { id: string; style: VoteStyle }) => Promise<SendAnswer>
 
 export interface StyleVoteStore {
   get(): StyleVote
@@ -33,7 +35,7 @@ const PAUSE_MS = 2000
 
 const pauseBefore = () => new Promise<void>((resolve) => { setTimeout(resolve, PAUSE_MS) })
 
-/** One store for the app's lifetime; `send` answers whether the Worker took the vote. */
+/** One store for the app's lifetime. */
 export function createStyleVote(send: SendVote, store: Store | null = storage(),
   newId: () => string | null = () => globalThis.crypto?.randomUUID?.() ?? null, pause = pauseBefore): StyleVoteStore {
   let state: StyleVote = { ...readStyleVote(store), sending: false }
@@ -57,11 +59,11 @@ export function createStyleVote(send: SendVote, store: Store | null = storage(),
     for (;;) {
       const { id, vote }: StyleVote = state
       if (!id || !vote) break
-      const taken = await send({ id, style: vote }).catch(() => false)
+      const answer = await send({ id, style: vote }).catch((): SendAnswer => 'failed')
       // Changed while it was on its way: the newer vote follows.
       const changed = state.id !== id || state.vote !== vote
-      if (taken && !changed) set({ sent: true })
-      if (state.sent || (!changed && retries-- === 0)) break
+      if (answer === 'taken' && !changed) set({ sent: true })
+      if (!changed && (answer !== 'failed' || retries-- === 0)) break
       await pause()
     }
     show({ sending: false })

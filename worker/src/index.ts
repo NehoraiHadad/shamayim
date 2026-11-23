@@ -10,7 +10,7 @@ import { cacheKey, proxy } from './proxy'
 import { routeFor } from './routes'
 import { castVote, TOTALS_PATH, VOTE_PATH, voteTotals } from './styleVote'
 import { canonicalQuery } from './validate'
-import { overVoteLimit, type VoteLimits } from './voteLimit'
+import { overVoteLimit, overVotesOfAll, type VoteLimits } from './voteLimit'
 
 /** VoteLimits is temporary (`wrangler.toml` [[ratelimits]]). */
 export interface Env extends VoteLimits {
@@ -81,7 +81,7 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext, 
   }
   if (url.pathname === VOTE_PATH) {
     // Only the app's own pages vote: unlike the reads, a request without an Origin is refused.
-    const answer = check === 'allowed' ? await castVote(request, env.LIVE, Date.now()) : plain(403, 'Origin not allowed')
+    const answer = check === 'allowed' ? await castVote(request, env.LIVE, Date.now(), () => overVotesOfAll(env)) : plain(403, 'Origin not allowed')
     return withHeaders(answer, cors)
   }
   if (url.pathname === TOTALS_PATH) return withHeaders(await voteTotals(env.LIVE, Date.now()), cors)

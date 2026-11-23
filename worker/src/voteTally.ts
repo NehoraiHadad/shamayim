@@ -27,6 +27,15 @@ interface Tally {
   full: boolean
 }
 
+/**
+ * KV's free plan allows 1000 writes a day, shared with the live correction and the forecast log (~50). Every isolate counts
+ * from a listing some minutes old, so the day can pass this by what VOTE_LIMIT_ALL lets through meanwhile.
+ */
+export const DAILY_WRITES = 200
+
+/** No more votes on its day. */
+export const isClosed = ({ full, today }: Pick<Tally, 'full' | 'today'>) => full || today >= DAILY_WRITES
+
 /** 1000 keys a page; KV's free plan allows 1000 listings a day. */
 const MAX_PAGES = 5
 
@@ -63,10 +72,10 @@ async function count(kv: VoteKV, day: string): Promise<Tally> {
   return { ...out, full: true }
 }
 
-/** The totals, at most `age` old. */
+/** The totals, at most `age` old; those of a closed day stay. */
 export async function tally(kv: VoteKV, now: number, age = MEMO_MS): Promise<Tally> {
   const day = new Date(now).toISOString().slice(0, 10)
-  if (memo && memo.tally.day === day && now - memo.readAt < age) return memo.tally
+  if (memo && memo.tally.day === day && (isClosed(memo.tally) || now - memo.readAt < age)) return memo.tally
   memo = { tally: await count(kv, day), readAt: now }
   return memo.tally
 }
