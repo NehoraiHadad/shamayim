@@ -15,21 +15,19 @@ import { fieldAt, sheetField, type SheetField } from './sheetField'
  */
 
 /** Raster px per sky px. */
-const RASTER = 0.42
+const RASTER = 0.5
 /** A mass's opacity in its core, and how its thin parts fall off (exponent on the model's alpha). */
 const CORE = 0.94, THIN = 0.55
 /** The alpha the drawn edge stands at and its softness: crisper on a lit top than underneath. */
-const EDGE = 0.4, SOFT_TOP = 0.15, SOFT_BASE = 0.27
+const EDGE = 0.4, SOFT_TOP = 0.08, SOFT_BASE = 0.27
 /** How far the heads, and the small ones on them, move the edge, against a half-thick part. */
-const HEADS = 0.85, SMALL = 0.26
+const HEADS = 0.85, SMALL = 0.42
 /** The light's hand: a puff's lit cap and shaded foot, a mass's broad lit top and shaded base. */
-const CAP = 1.7, FOOT = 1.9, BROAD_LIT = 1.3, BROAD_SHADE = 1.5
+const CAP = 1.7, FOOT = 1.9, BROAD_LIT = 0.8, BROAD_SHADE = 1.1
 /** The puffs' light inside a mass against its edge: calmer in the middle; the small heads' light on the edge. */
 const INSIDE = 0.85, SMALL_LIT = 0.25
 /** A closed deck's banks: how far their light moves the tone. */
-const BANKS = 0.6
-/** The broad light's half reach (sky px at the zenith). */
-const REACH = 12
+const BANKS = 0.42
 /** The share of the model's own tone an open deck's body keeps against the lit: its thin parts', and what a core adds; how
  *  much less under a low sun. */
 const BODY = 0.45, CORE_GREY = 0.35, LOW_SUN = 0.35
@@ -59,7 +57,6 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
   for (let j = 0; j < h; j++) {
     const gy = (j * (rows - 1)) / (h - 1), size = Math.max(SIZE_MIN, Math.sqrt(Math.min(1, f.spacing[Math.round(gy)] / 20)))
     if (j) v += 1 / (RASTER * size)
-    const reach = (REACH * size * (rows - 1)) / f.height
     for (let i = 0; i < w; i++) {
       const gx = (i * (cols - 1)) / (w - 1), at = (j * w + i) * 4
       const a = fieldAt(f.alpha, cols, rows, gx, gy)
@@ -69,7 +66,7 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
       const part = 4 * a * (1 - a)
       const alpha = drawnAlpha(a, HEADS * puff.high + SMALL * puff.small, part, rise, open)
       if (alpha < 0.004) continue
-      const broad = fieldAt(f.broad, cols, rows, gx, gy + reach) - fieldAt(f.broad, cols, rows, gx, gy - reach)
+      const broad = fieldAt(f.side, cols, rows, gx, gy)
       const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
       const lift = open * (broad > 0 ? BROAD_LIT : BROAD_SHADE) * broad
         + (open + (1 - open) * BANKS) * (relief > 0 ? CAP : FOOT) * relief

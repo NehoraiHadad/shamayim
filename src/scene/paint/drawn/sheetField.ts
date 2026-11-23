@@ -5,14 +5,16 @@ import { soften } from '../soften'
 
 /*
  * A field layer's sheet as the drawn hand reads it: the model's own alpha and tone on an even grid, softened into calm
- * masses (wider than tall, less with distance), and a broader copy of the same alpha for each mass's large light and
- * shade. Where the cloud is and how much of it stays the model's. Pure: the desc alone.
+ * masses (wider than tall, less with distance), and how near its own top or foot each part of a mass lies, for the mass's
+ * large light and shade. Where the cloud is and how much of it stays the model's. Pure: the desc alone.
  */
 
-/** Softening against the local row spacing, and at most (sky px): the near masses' and their broad light's. */
-const SOFT = 0.5, SOFT_MAX = 9, BROAD = 1.5, BROAD_MAX = 26
+/** Softening against the local row spacing, and at most (sky px). */
+const SOFT = 0.5, SOFT_MAX = 9
+/** How far into a mass its top's light and its foot's shade reach, against the local row spacing. */
+const DEEP = 4.5
 /** Softening across against down: masses spread along the horizon, as v1b's banks do. */
-const STRETCH = 2.2
+const STRETCH = 1.5
 /** Rows either side a row's spacing is eased over. */
 const EASE = 14
 
@@ -20,8 +22,8 @@ export interface SheetField {
   cols: number; rows: number; x0: number; y0: number; width: number; height: number
   /** 0 closed … 1 open (`deckOpenness`). */
   open: number
-  /** Per cell: the soft alpha, the tone over it, and the broad alpha. */
-  alpha: Float32Array; tone: Float32Array; broad: Float32Array
+  /** Per cell: the soft alpha, the tone over it, and its place in its mass (1 top … −1 foot). */
+  alpha: Float32Array; tone: Float32Array; side: Float32Array
   /** Per row: the model's row spacing there (px), its perspective. */
   spacing: number[]
 }
@@ -38,21 +40,24 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField | null {
   const { buf, spacing: stepped } = resampleRows(texels, cols, ys, rows)
   const spacing = eased(stepped)
   const colPx = width / (cols - 1), rowPx = height / (rows - 1)
-  const blur = (share: number, max: number) => {
-    const down = spacing.map((s) => Math.min(max, share * s))
-    soften(buf, cols, rows, down.map((r) => (STRETCH * r) / colPx), down.map((r) => r / rowPx))
-  }
-  const open = deckOpenness(desc)
-  blur(SOFT, SOFT_MAX)
+  const down = spacing.map((s) => Math.min(SOFT_MAX, SOFT * s))
+  soften(buf, cols, rows, down.map((r) => (STRETCH * r) / colPx), down.map((r) => r / rowPx))
   const n = cols * rows
-  const alpha = new Float32Array(n), tone = new Float32Array(n), broad = new Float32Array(n)
+  const alpha = new Float32Array(n), tone = new Float32Array(n)
   for (let i = 0; i < n; i++) {
     alpha[i] = buf[i * 4 + 3]
     tone[i] = alpha[i] > 1e-3 ? buf[i * 4] / alpha[i] : 0
   }
-  blur(BROAD, BROAD_MAX)
-  for (let i = 0; i < n; i++) broad[i] = buf[i * 4 + 3]
-  return { cols, rows, x0: xs[0], y0: ys[0], width, height, open, alpha, tone, broad, spacing }
+  const side = sides(alpha, cols, spacing.map((s) => Math.exp(-rowPx / (DEEP * s))))
+  return { cols, rows, x0: xs[0], y0: ys[0], width, height, open: deckOpenness(desc), alpha, tone, side, spacing }
+}
+
+/** Each part's place in its mass: the cloud under it against the cloud over it, the near weighing more (`keep` a row). */
+function sides(alpha: Float32Array, cols: number, keep: readonly number[]): Float32Array {
+  const over = new Float32Array(alpha), under = new Float32Array(alpha)
+  for (let n = cols; n < over.length; n++) over[n] += keep[Math.floor(n / cols)] * over[n - cols]
+  for (let n = over.length - cols - 1; n >= 0; n--) under[n] += keep[Math.floor(n / cols)] * under[n + cols]
+  return over.map((o, n) => (under[n] - o) / (under[n] + o + 1e-3))
 }
 
 /** The rows' spacings eased over their neighbours: the model's steps would show as seams across the sky. */

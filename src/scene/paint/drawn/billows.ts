@@ -13,13 +13,13 @@ const TILE = 128, TILE_SEED = 12_139
 /** Puffs per tile across and down; their radius against a cell, and the share of cells left empty. */
 const ACROSS = 6, DOWN = 8, RADIUS = [0.62, 1.15], EMPTY = 0.18
 /** A puff's soft rim: the share of its radius it fades over. */
-const RIM = 0.46
+const RIM = 0.3
 /** A puff's light down its height: lit to here, then falling to the shade at its foot. */
 const FOOT = -0.75
 /** A tile's width and height on the sky (px) for the puffs; the banks' and the small heads' against theirs. */
-const TILE_W = 430, TILE_H = 300, BANK = 2.3, SMALL = 0.43
+const TILE_W = 430, TILE_H = 410, BANK = 2.3, SMALL = 0.43
 /** How far a slow noise bends the rows (tile widths), and how much it swells and calms the puffs. */
-const BEND = 0.09, UNEVEN = 1
+const BEND = 0.1, UNEVEN = 1
 
 interface Tiles { high: Float32Array; light: Float32Array }
 let made: Tiles | null = null
@@ -75,8 +75,9 @@ export function billows(seed: number): (x: number, y: number) => Billow {
     const pu = u + BEND * bend, pv = v - BEND * bend, bu = u / BANK + 0.43, bv = v / BANK + 0.19 + BEND * bend
     const swell = Math.max(0.15, 1 + UNEVEN * 2 * bend)
     out.high = 0.6 * tileAt(high, bu, bv) + 0.5 * swell * tileAt(high, pu, pv)
-    out.light = 0.75 * tileAt(light, bu, bv) + 0.6 * swell * tileAt(light, pu, pv)
-    out.small = tileAt(high, pu / SMALL + 0.31, pv / SMALL + 0.67)
+    const su = pu / SMALL + 0.31, sv = pv / SMALL + 0.67
+    out.light = 0.6 * tileAt(light, bu, bv) + 0.6 * swell * tileAt(light, pu, pv) + 0.13 * (2 - swell) * tileAt(light, su, sv)
+    out.small = tileAt(high, su, sv)
     return out
   }
 }

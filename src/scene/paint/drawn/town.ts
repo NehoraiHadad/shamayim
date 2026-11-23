@@ -21,6 +21,8 @@ import { paintDrawnTower } from './townTower'
 const GRAIN = 0.25
 /** A tree of the town reads as a clump: its size against its own, at least this wide (px); taller by this at most. */
 const GROWN = 1.2, GROWN_MIN = 2.3, GROWN_TALL = 1.25
+/** A crown's body against its lit half: how far it goes to the deep (a clump reads as one dark mass, lit on its side). */
+const LEAF = 0.4
 /** How far the farthest row of a place recedes into its own air, over the rows' real spread (px at full
  *  depth); none where its tiers' own air already spreads this far (tone). */
 const RECEDE = 0.3, RECEDE_OVER = 16, TIERS_OWN = 0.14
@@ -72,5 +74,6 @@ const LIGHTS: ReadonlySet<string> = new Set(['win', 'gold', 'mist'])
 function aired(t: Tones, share: number): Tones {
   const out = { ...t }
   for (const key of Object.keys(t) as (keyof Tones)[]) if (!LIGHTS.has(key)) out[key] = mix(t[key] as RGB, t.mist, share)
+  out.green = mix(out.green, out.deep, LEAF)
   return out
 }
