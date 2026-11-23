@@ -6,14 +6,14 @@ import { css, mix, outline, type Ctx2D } from '../../../../src/scene/paint/share
 import { aviationLamp, type Lamp } from '../../../../src/scene/paint/shared/town/glyphs/kit'
 
 /*
- * A house, a block and a tower, cut: a front, one wide plane on the light's side and one in shade, a roof plane, and a few
- * clean windows. No texture, no outline; a thin gap of shade parts a body from what stands behind it.
+ * A house, a block and a tower, printed: a front, one plane on the light's side and one in shade, a roof, each a flat ink
+ * wiped a little darker to its foot, the windows carved slots, and a key line round the body.
  */
 
-const GAP = 0.35, GAP_DARK = 0.24
+const KEY = 0.42, KEY_DARK = 0.8
 const SIDE = 0.16, SIDE_LIT = 0.2, SIDE_MAX = 5
 /** A window's size and pitch (px); how dark it is by day; the share there are. */
-const WIN_W = 0.95, WIN_H = 1.15, PITCH_X = 2.5, PITCH_Y = 2.7, DARK = 0.5, PRESENT = 0.72
+const WIN_W = 0.95, WIN_H = 1.15, PITCH_X = 2.5, PITCH_Y = 2.7, DARK = 0.78, PRESENT = 0.72
 
 type Sides = readonly [number, number]
 const sidesOf = (l: TownLight, w: number): Sides => [l.left, l.right].map((k) => Math.min(SIDE_MAX, w * (SIDE + SIDE_LIT * Math.min(1, 1.6 * k)))) as [number, number]
@@ -27,23 +27,30 @@ function body(ctx: Ctx2D, x: number, top: number, w: number, h: number, [left, r
   if (w > 5 || !lead) { ctx.fillStyle = css(p.right); ctx.fillRect(x + w - right, top, right, h) }
 }
 
-function gap(ctx: Ctx2D, x: number, top: number, w: number, h: number, t: Tones) {
-  ctx.fillStyle = css(t.deep, GAP_DARK)
-  ctx.fillRect(x - GAP, top - GAP, w + 2 * GAP, h + GAP)
+/** The body's ink, wiped darker to its foot, and the key line round it. */
+function key(ctx: Ctx2D, x: number, top: number, w: number, h: number, t: Tones) {
+  const wipe = ctx.createLinearGradient(0, top, 0, top + h)
+  wipe.addColorStop(0.35, css(t.deep, 0))
+  wipe.addColorStop(1, css(t.deep, 0.3))
+  ctx.fillStyle = wipe
+  ctx.fillRect(x, top, w, h)
+  ctx.strokeStyle = css(t.deep, KEY_DARK)
+  ctx.lineWidth = KEY
+  ctx.strokeRect(x, top, w, h)
 }
 
 export function cutBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: Lamp[], windows: number) {
   const r = rng(b.seed ^ 0x3c1), stone = 0.35 + 0.65 * r(), x0 = b.x - b.w / 2, h = b.foot - b.top
   const plaster = plasterOf(t, stone), planes = planesOf(t, l, plaster, stone), sides = sidesOf(l, b.w)
-  gap(ctx, x0, b.top, b.w, h, t)
   body(ctx, x0, b.top, b.w, h, sides, planes, l)
-  ctx.fillStyle = css(t.deep, 0.22)
-  ctx.fillRect(x0, b.foot - Math.min(1.1, h * 0.2), b.w, Math.min(1.1, h * 0.2))
+  key(ctx, x0, b.top, b.w, h, t)
   panes(ctx, x0 + sides[0], x0 + b.w - sides[1], b.top + (b.roof === 'tile' ? 0.8 : 1.2), b.foot - 0.8, b.storeys, t, l, plaster, r, lamps, windows)
   if (b.roof === 'tile') tiles(ctx, b, t, l)
   else {
     ctx.fillStyle = css(planes.roof)
-    ctx.fillRect(x0 - 0.15, b.top, b.w + 0.3, Math.min(1.1, Math.max(0.5, h * 0.16)))
+    ctx.fillRect(x0 - 0.15, b.top, b.w + 0.3, Math.min(1, Math.max(0.5, h * 0.14)))
+    ctx.fillStyle = css(t.deep, 0.7)
+    ctx.fillRect(x0 - 0.3, b.top - 0.2, b.w + 0.6, 0.35)
   }
 }
 
@@ -58,8 +65,12 @@ function tiles(ctx: Ctx2D, b: Block, t: Tones, l: TownLight) {
   ctx.fillStyle = plane(lead ? l.right * 0.4 : l.right)
   outline(ctx, [[x1, eave], [b.x + ridge, top], [split, top], [split + (lead ? ridge : -ridge) * 0.6, eave]])
   ctx.fill()
-  ctx.fillStyle = css(t.deep, 0.35)
+  ctx.fillStyle = css(t.deep, 0.6)
   ctx.fillRect(x0 + 0.5, eave, b.w, 0.5)
+  outline(ctx, [[x0, eave], [b.x - ridge, top], [b.x + ridge, top], [x1, eave]])
+  ctx.strokeStyle = css(t.deep, KEY_DARK)
+  ctx.lineWidth = KEY
+  ctx.stroke()
 }
 
 function panes(ctx: Ctx2D, x0: number, x1: number, top: number, foot: number, storeys: number, t: Tones, l: TownLight, plaster: RGB,
@@ -85,8 +96,8 @@ export function cutTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>
   const setback = tw.crown === 1 ? Math.min(tw.h * 0.14, 4) : 0, shaft = top + setback, h = tw.base - shaft
   const plaster = tw.full ? mix(plasterOf(t, 0.5), t.glass, 0.6 * day) : plasterOf(t, 0.4 + 0.6 * stone)
   const planes = planesOf(t, l, plaster, stone), sides = sidesOf(l, tw.w), in0 = x0 + sides[0], in1 = x0 + tw.w - sides[1]
-  gap(ctx, x0, shaft, tw.w, h, t)
   body(ctx, x0, shaft, tw.w, h, sides, planes, l)
+  key(ctx, x0, shaft, tw.w, h, t)
   if (tw.full && day > 0.3) {
     // Glass: one slanted plane of mirrored sky.
     ctx.fillStyle = css(t.glassLit, 0.45 * day)
@@ -102,6 +113,7 @@ export function cutTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>
   if (setback) {
     const w = tw.w * 0.62
     body(ctx, tw.x - w / 2, top, w, setback, sidesOf(l, w), planes, l)
+    key(ctx, tw.x - w / 2, top, w, setback, t)
   }
   let tip = top
   if (tw.crown === 2) {

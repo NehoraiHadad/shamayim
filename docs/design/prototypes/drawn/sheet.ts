@@ -9,8 +9,9 @@ import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight
 import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
 import { traceOver, type Frame, type Grid } from './contour'
 import { farRows } from './farRows'
-import { lobesOf, paintLobes } from './lobes'
-import { pigment } from './palette'
+import { billowed, block, feet, keyline, paintCaps } from './billow'
+import { lobesOf } from './lobes'
+import { papered, pigment, valued } from './palette'
 
 /*
  * A cloud sheet as cut paper. Every mass is one flat silhouette, where the model puts it; broken cloud stands on it as
@@ -67,17 +68,25 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
   const mean = tones / solid, t = tonesOf(desc, mean, city / solid)
   ctx.save()
   if (desc.lattice === 'high') ctx.globalAlpha *= 0.4
-  cut(ctx, edge, 0, frame, broken ? t.shade : t.local)
+  const rowAt = (y: number) => f.spacing[Math.min(f.rows - 1, Math.max(0, Math.round(((y - f.y0) / f.height) * (f.rows - 1))))]
+  const nearAt = (y: number) => Math.min(1, rowAt(y) / NEAR)
   if (broken) {
-    const part = (by: (s: number) => number): Grid => ({ ...edge, at: edge.at.map((e, n) => (e > 0 ? Math.min(e * 12, by(side.at[n])) : -9)) })
-    cut(ctx, part((s) => -0.5 - s), 0, frame, t.foot)
-    cut(ctx, part((s) => s + 0.12), 0, frame, t.half)
-    cut(ctx, part((s) => s - 0.3), 0, frame, t.local)
+    const loops = billowed(edge, 0, frame, (y) => Math.min(26, Math.max(3.5, 1.5 * rowAt(y))), seed)
+    block(ctx, loops, [t.lit, t.local, t.half, t.shade])
     const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])) / CELL
     const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
-    paintLobes(ctx, lobes, [
-      { down: 0.3, rgb: t.half, cap: t.lit }, { down: -0.12, rgb: t.shade, cap: t.local }, { down: -0.5, rgb: t.foot, cap: t.half }], { x: f.x0, y: f.y0, step: CELL, toward: 0 })
+    paintCaps(ctx, lobes, {
+      x: f.x0, y: f.y0, step: CELL, toward: 0, seed,
+      ink: (l) => {
+        const up = Math.min(1, Math.max(0, 0.5 + 0.7 * l.side))
+        return { lit: mix(t.local, t.lit, up), local: mix(t.half, t.local, up), shade: mix(t.foot, t.half, 0.2 + 0.6 * up), key: t.key }
+      },
+      line: (l) => nearAt(f.y0 + l.y * CELL),
+    })
+    feet(ctx, loops, css(t.foot), 0.75, seed)
+    keyline(ctx, loops, 0.55, css(t.key, 0.42), seed)
   } else {
+    cut(ctx, edge, 0, frame, t.local)
     cut(ctx, tone, mean + 0.05, frame, t.shade)
     cut(ctx, tone, mean + 0.13, frame, t.foot)
     cut(ctx, { ...tone, at: tone.at.map((v, n) => (edge.at[n] > 0 ? Math.min(edge.at[n] * 12, 1 - v) : -9)) }, 1 - mean + 0.07, frame, t.lit)
@@ -100,6 +109,7 @@ function tonesOf(desc: LayerOf<'cloudSheet'>, tone: number, city: number) {
     shade: pigment(under(mix(body, desc.shade, 0.5)), -0.8),
     half: pigment(under(mix(body, desc.lit, 0.14)), -0.45),
     local: pigment(under(mix(body, desc.lit, 0.62)), 0),
-    lit: pigment(under(mix(desc.lit, whitened(desc.lit), 1 - low)), 0.4),
+    lit: papered(pigment(under(mix(desc.lit, whitened(desc.lit), 1 - low)), 0.3), 0.7),
+    key: pigment(valued(under(mix(body, desc.shade, 0.9)), -0.2), -0.9),
   }
 }

@@ -14,6 +14,15 @@ export function traceOver(ctx: Ctx2D, grid: Grid, level: number, f: Frame, least
   for (const loop of loopsOver(grid, level)) if (loop.length >= least * 2) round(ctx, loop, grid, f)
 }
 
+/** Every outline of `grid > level` as eased points in the caller's px, inside on the right. */
+export function loopsIn(grid: Grid, level: number, f: Frame, least = 6): [number, number][][] {
+  const sx = f.w / (grid.cols - 1), sy = f.h / (grid.rows - 1)
+  return loopsOver(grid, level).filter((l) => l.length >= least * 2).map((raw) => {
+    const l = eased(raw)
+    return Array.from({ length: l.length / 2 }, (_, i): [number, number] => [f.x + Math.min(grid.cols - 1, Math.max(0, l[i * 2])) * sx, f.y + Math.min(grid.rows - 1, Math.max(0, l[i * 2 + 1])) * sy])
+  })
+}
+
 /** The outline's sides of a cell by its corners' code (top-left 8, top-right 4, foot-right 2, foot-left 1), inside on the right. */
 const TOP = 0, RIGHT = 1, FOOT = 2, LEFT = 3
 const SIDES: readonly (readonly number[])[] = [

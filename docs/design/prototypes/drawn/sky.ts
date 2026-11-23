@@ -1,40 +1,37 @@
 import type { Band, Glow, LayerOf, RGB } from '../../../../src/scene/model/types'
 import { css, mix, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
-import { fractal } from '../../../../src/scene/paint/shared/base/core'
-import { pigment } from './palette'
+import { fractal, rng } from '../../../../src/scene/paint/shared/base/core'
+import { carve, type P } from './carve'
+import { pigment, valued } from './palette'
 
 /*
- * The sky as flat bands of paint: the model's gradient and haze cut into steps of even colour, each laid over the one above
- * with a long hand-cut edge; the glow round the sun or the moon as rings of the same paint.
+ * The sky as one inked block: the model's gradient and haze as a graded wipe of ink down the paper, the plank's grain
+ * through it as long level lines, and the glow round the sun or the moon wiped out of the ink.
  */
 
-/** The bands' least and most number, and the step of colour (sRGB distance) that makes a new one. */
-const FEWEST = 5, MOST = 11, STEP = 0.045
-/** A band edge's wave: its height against the band's, at most (px), and its frequency across (1/px). */
-const WAVE = 0.6, WAVE_MAX = 11, FREQ = 0.0062
-const RINGS = 4, SAMPLES = 160
-
-interface Row { y: number; rgb: RGB }
+/** The gradient's stops; the grain's lines, their length (px), width and how far their value goes from the ink's. */
+const STOPS = 40, GRAIN = 260, LONG = [30, 220] as const, THIN = [0.3, 0.7] as const, DARK = -0.01, LIGHT = 0.02
+/** The rings' slow wave: its height (px) and frequency (1/px). */
+const WAVE = 9, FREQ = 0.004
 
 export function paintDrawnSky(ctx: Ctx2D, desc: LayerOf<'sky'>, _env: PaintEnv): void {
   const { x, y, w, h } = desc.bounds, foot = desc.band ? desc.band.y + 8 : y + h
-  const rows = Array.from({ length: SAMPLES + 1 }, (_, i): Row => {
-    const at = y + (i / SAMPLES) * (foot - y)
-    return { y: at, rgb: hazed(desc, at, (at - y) / h) }
-  })
-  bandsOf(rows).forEach((band, i) => {
-    ctx.fillStyle = css(pigment(band.rgb))
-    if (!i) { ctx.fillRect(x, y, w, h); return }
-    const amp = Math.min(WAVE_MAX, WAVE * (band.to - band.from))
+  const inkAt = (at: number) => pigment(hazed(desc, Math.min(foot, at), (Math.min(foot, at) - y) / h))
+  const wipe = ctx.createLinearGradient(0, y, 0, y + h)
+  for (let i = 0; i <= STOPS; i++) wipe.addColorStop(i / STOPS, css(inkAt(y + (i / STOPS) * h)))
+  ctx.fillStyle = wipe
+  ctx.fillRect(x, y, w, h)
+  for (const glow of desc.glow) wiped(ctx, glow)
+  const r = rng(4177)
+  for (let n = 0; n < GRAIN; n++) {
+    const at = y + ((n + r()) / GRAIN) * (foot - y), long = LONG[0] + (LONG[1] - LONG[0]) * r() ** 2, from = x - long + r() * (w + long)
+    const lit = r() < 0.6, line: P[] = []
+    for (let px = from; px <= from + long; px += 7) line.push([px, at + WAVE * (fractal(311, px, at, FREQ, 0.012, 2) - 0.5)])
     ctx.beginPath()
-    ctx.moveTo(x - 2, y + h)
-    for (let px = x - 2; px <= x + w + 6; px += 6) {
-      ctx.lineTo(px, band.from + (fractal(311 + i * 7, px, band.from, FREQ, 0.02, 2) - 0.5) * 2 * amp)
-    }
-    ctx.lineTo(x + w + 6, y + h)
+    carve(ctx, line, THIN[0] + (THIN[1] - THIN[0]) * r(), n, 0.9)
+    ctx.fillStyle = css(valued(inkAt(at), lit ? LIGHT : DARK), 0.75)
     ctx.fill()
-  })
-  for (const glow of desc.glow) rings(ctx, glow)
+  }
 }
 
 /** The gradient's colour at a row, the haze band over it. */
@@ -52,23 +49,17 @@ function share(band: Band, y: number): number {
   return t <= 0 ? 0 : t < 0.585 ? (0.35 * t) / 0.585 : t <= 1 ? 0.35 + (0.65 * (t - 0.585)) / 0.415 : 1
 }
 
-/** The rows cut into bands of one colour step each. */
-function bandsOf(rows: readonly Row[]) {
-  const along = [0]
-  for (let i = 1; i < rows.length; i++) along.push(along[i - 1] + Math.hypot(...rows[i].rgb.map((c, k) => c - rows[i - 1].rgb[k])))
-  const whole = along[along.length - 1]
-  const count = Math.max(FEWEST, Math.min(MOST, Math.round(whole / STEP)))
-  const rowAt = (part: number) => rows[Math.max(0, along.findIndex((v) => v >= whole * part - 1e-9))]
-  return Array.from({ length: count }, (_, n) => ({ from: rowAt(n / count).y, to: rowAt((n + 1) / count).y, rgb: rowAt((n + 0.5) / count).rgb }))
-}
-
-/** A glow as rings of paint: the radial fade's strength, held over each step. */
-function rings(ctx: Ctx2D, g: Glow) {
-  ctx.fillStyle = css(pigment(g.rgb), g.alpha / RINGS)
-  for (let n = RINGS; n >= 1; n--) {
-    const k = n / (RINGS + 0.5)
-    ctx.beginPath()
-    ctx.ellipse(g.x, g.y, g.r * k, (g.ry ?? g.r) * k, 0, 0, Math.PI * 2)
-    ctx.fill()
-  }
+/** A glow: the ink wiped thinner toward its middle. */
+function wiped(ctx: Ctx2D, g: Glow) {
+  const rgb = pigment(g.rgb, 0.4)
+  ctx.save()
+  ctx.translate(g.x, g.y)
+  ctx.scale(1, (g.ry ?? g.r) / g.r)
+  const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, g.r)
+  fade.addColorStop(0, css(rgb, g.alpha))
+  fade.addColorStop(0.35, css(rgb, g.alpha * 0.45))
+  fade.addColorStop(1, css(rgb, 0))
+  ctx.fillStyle = fade
+  ctx.fillRect(-g.r, -g.r, 2 * g.r, 2 * g.r)
+  ctx.restore()
 }

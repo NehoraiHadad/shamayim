@@ -8,7 +8,7 @@ import type { RGB } from '../../../../src/scene/model/types'
  */
 
 /** How far a colour's chroma goes, and the most it may reach (Oklab). */
-const GAIN = 1.62, MOST = 0.17
+const GAIN = 1.5, MOST = 0.15
 /** The cool a shade takes and the warmth a light takes (Oklab a, b), at full strength. */
 const COOL = { a: -0.004, b: -0.03 }, WARM = { a: 0.006, b: 0.03 }
 const HELD = 4000
@@ -33,4 +33,13 @@ export function pigment(rgb: RGB, turn = 0, gain = GAIN): RGB {
 export function valued(rgb: RGB, by: number): RGB {
   const lab = labOf(rgb)
   return rgbOfLab({ ...lab, l: Math.min(1, Math.max(0, lab.l + by)) })
+}
+
+/** The paper, seen where the ink is thin: a warm cream (Oklab), as bright as the light lets it be. */
+const PAPER = { a: 0.004, b: 0.024 }, PAPER_L = 0.965
+
+/** A light let through to the paper by `k`: brighter and creamier by day, unchanged in the dark. */
+export function papered(rgb: RGB, k: number): RGB {
+  const lab = labOf(rgb), by = k * Math.min(1, Math.max(0, (lab.l - 0.35) / 0.45))
+  return rgbOfLab({ l: lab.l + by * Math.max(0, PAPER_L - lab.l), a: lab.a + by * (PAPER.a - lab.a), b: lab.b + by * (PAPER.b - lab.b) })
 }
