@@ -2,6 +2,7 @@ import type { Normal } from '../../world/livingLight'
 import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import type { Surroundings } from './buildingGround'
+import { twilightStreetScreen } from './buildingIncidence'
 import { skyReflection } from './landSkyIrradiance'
 
 // Four incoherent air/glass interfaces in series. Each adds R/(1−R)
@@ -15,6 +16,7 @@ export function glassIncidence(world: WorldState, { irr }: Surroundings) {
   // Use the broad directional sky. The gilding's concentrated forward
   // accent would paint the warm horizon across whole panes.
   const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, 0)
+  const screenAt = twilightStreetScreen(irr)
   const az = Math.hypot(irr.sunDir.across, irr.sunDir.ahead) || 1
   const memo = new WeakMap<Normal, readonly [RGB, RGB]>()
   return (n: Normal, mullion = false): RGB => {
@@ -26,7 +28,7 @@ export function glassIncidence(world: WorldState, { irr }: Surroundings) {
       // sky sample just above the horizon. Projected area limits each return.
       const fresnel = DOUBLE_GLAZING_F0 + (1 - DOUBLE_GLAZING_F0) * (1 - nv) ** 5
       const directional = sky(.14 + 2 * nv * Math.max(0, n[2]), toward)
-      const pane = mixReflection(directional, irr.eSkyVec, fresnel)
+      const pane = mixReflection(directional, irr.eSkyVec, fresnel, screenAt(n).sky)
       reflection = [pane, [pane[0] * .84, pane[1] * .84, pane[2] * .84]]
       memo.set(n, reflection)
     }
@@ -34,7 +36,7 @@ export function glassIncidence(world: WorldState, { irr }: Surroundings) {
   }
 }
 
-function mixReflection(sky: RGB, fill: RGB, fresnel: number): RGB {
-  const channel = (i: 0 | 1 | 2) => fresnel * sky[i] + .37 * (1 - fresnel) * fill[i]
+function mixReflection(sky: RGB, fill: RGB, fresnel: number, screen: number): RGB {
+  const channel = (i: 0 | 1 | 2) => screen * (fresnel * sky[i] + .37 * (1 - fresnel) * fill[i])
   return [channel(0), channel(1), channel(2)]
 }

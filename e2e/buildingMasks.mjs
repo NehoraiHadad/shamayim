@@ -100,7 +100,7 @@ export async function buildingMasks(png) {
   }
   const groundY = q(samples.bare)
   return { ground: groundY, horizon, peak: peak / horizon, peakAt, frontHorizon: q(samples.front) / horizon,
-    tileRed: tileRed / horizonRed, highpass: Math.sqrt(highpass / count),
+    tileRed: tileRed / horizonRed, horizonRed, highpass: Math.sqrt(highpass / count),
     chimney: q(samples.chimney) / horizon, cooling: q(samples.cooling) / horizon,
     pairs: spreads.length, spread: q(spreads),
     n: Object.fromEntries(Object.entries(samples).map(([k, a]) => [k, a.length])),

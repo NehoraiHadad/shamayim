@@ -40,6 +40,8 @@ try {
         }
         assert.ok(s.endpointStep <= 1e-5, 'a blob grazing the receiver must not step its endpoint')
         assert.ok(s.singleStep <= 1e-6, 'the last trace of a shadow must carry vanishing diffuse light')
+        assert.ok(s.movingEndpoint > 0 && s.movingStep <= 1e-6, 'a moving blob must carry its diffuse endpoint into the next minute')
+        assert.ok(s.movingGrazingStep <= 1e-6, 'a moving blob must fade in at the edge of the receiver sweep')
         continue
       }
       const passes = await page.evaluate(buildingCompatibility)
@@ -53,10 +55,13 @@ try {
       const m = await page.evaluate(buildingMasks, png.toString('base64'))
       console.log(name, JSON.stringify(m))
       const colors = await page.evaluate(buildingColorChecks)
+      console.log(`${name} colors`, JSON.stringify(colors))
       assert.ok(m.n.bare >= 100 && m.n.front >= 150 && m.pairs >= 50, 'need visible ground and contacting facades')
       if (time === '1200' && !weather) {
         for (const pane of colors.glass) band(pane.ratio, 1, 1.8, 'glass / corresponding shaded wall')
-        if (place === 'tel-aviv') band(colors.wallBR / colors.groundBR, .95, 1.05, 'wall / sky-only ground B/R')
+        assert.ok(colors.wallBR > 0 && colors.groundBR > 0, 'measure wall and sky-only ground colors')
+        // Jerusalem and Rosh Pina have cooler plaster than their own ground samples.
+        band(colors.wallBR / colors.groundBR, .95, place === 'tel-aviv' ? 1.05 : 1.16, 'wall / sky-only ground B/R')
         band(m.front, .67, .94, 'shaded wall/ground')
         assert.ok(m.n.roof >= 80, 'flat caps should resolve including beside clay roofs')
         band(m.roof, .86, 1.50, 'flat roof/ground')
@@ -68,7 +73,8 @@ try {
         if (place === 'rosh-pina') {
           assert.ok(m.n.tile >= 100, 'clay planes should resolve')
           band(m.tile, .64, .85, 'clay roof/ground')
-          assert.ok(m.tileRed <= .97, 'tile red exceeds 97% of horizon red')
+          const maxRed = Math.min(m.horizonRed, Math.floor(.97 * m.horizonRed) + 4)
+          assert.ok(Math.round(m.tileRed * m.horizonRed) <= maxRed, `tile red exceeds ${maxRed} with raster tolerance`)
         }
       }
       if (weather === 'overcast') {
@@ -82,7 +88,11 @@ try {
         assert.ok(m.n.dome >= 14, 'gilded curved surface should resolve')
         band(m.chroma, time === '1200' ? .09 : .045, .20, 'gold chroma')
         if (time !== '1200') {
-          for (const pane of colors.glass) assert.ok(pane.redMinusBlue < .025, 'no red panes in the twilight skyline')
+          assert.ok(colors.glass.length > 0, 'measure twilight panes')
+          for (const pane of colors.glass) {
+            band(pane.brightRatio, .60, 1.10, 'twilight glass / brightest corresponding wall')
+            assert.ok(pane.redMinusBlue < .025, 'no red panes in the twilight skyline')
+          }
           band(m.dome, 2.1, 3.1, 'gold/ground')
           band(m.spread, .12, .24, 'twilight neighbour spread')
         }

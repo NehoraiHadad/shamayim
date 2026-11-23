@@ -953,9 +953,10 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             sun-facing texels, their mean haze and the sRGB curve. Key masks on projected footprint values
             and quantized exposure. Reuse the same staggered mask and premultiplied blend for Worker arrivals
             and interactive rendering, including the antialiased crest. Lunar light retains its deck share.
-            Project the sky sheet's seeded cell outline. Combine the thin ragged rim and finite solar disc
-            in a cached transmission stamp with the same integrated beam removal as the earlier profile.
-            Weight diffuse return by visible footprint coverage at the receiver bounds.
+            Seed the ground shadow rim by cloud genus and blend the outlines of matched cells during the
+            midnight handover. Project tower shadows from the shared tower heads. Combine the ragged rim and
+            solar disc in a cached transmission stamp with the same integrated beam removal as the earlier profile.
+            Weight diffuse return by peak visible footprint coverage over the 75 s receiver sweep.
       - [x] Cache terrain horizon angles by geometry grid and half-degree azimuth. Interpolate bearings
             and apply the soft disc edge at the current solar or lunar altitude.
       - [x] Resolve the crest from body samples in both endpoints, retain seeded reflectance mottle with its
@@ -964,7 +965,7 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             and distance haze. Use seeded plaster and facing bins, and screen sky, beam and ground bounce
             at eaves and feet. Paint shallow caps and pitched clay planes, with a continuous blend into
             unresolved fabric. Preserve plaster luminance with a 0.025–0.030 warm axis. Shade glass with
-            double-glazed Fresnel reflectance and interior fill, and use metal albedo on bands only.
+            double-glazed Fresnel reflectance and interior fill with the street's twilight sky screen. Use metal albedo on bands only.
             Gilding keeps its rough conductor reflection. Keep the same geometry and
             emissive window and lamp pass through twilight.
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,

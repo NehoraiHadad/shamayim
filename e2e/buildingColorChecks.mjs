@@ -25,8 +25,10 @@ export async function buildingColorChecks() {
   const glass = outside.items.filter(i => i.kind === 'tower' && i.receiver >= 0 && i.receiver % 2).map(i => {
     const pane = outside.receivers[i.tier][i.receiver].front.wall
     const sameStone = buildingFaces(world, shape.kms[i.tier], i.receiver ^ 1)
-    const shaded = Math.min(...['front', 'left', 'right'].map(face => y(sameStone[face].wall)))
-    return { x: i.x, width: i.w, paneY: y(pane), wallY: shaded, ratio: y(pane) / shaded, redMinusBlue: pane[0] - pane[2] }
+    const faces = ['front', 'left', 'right'].map(face => y(sameStone[face].wall))
+    const shaded = Math.min(...faces), bright = Math.max(...faces)
+    return { x: i.x, width: i.w, paneY: y(pane), wallY: shaded, ratio: y(pane) / shaded,
+      brightRatio: y(pane) / bright, redMinusBlue: pane[0] - pane[2] }
   })
   return { wallBR: median(walls), groundBR: median(sky), glass }
 }
