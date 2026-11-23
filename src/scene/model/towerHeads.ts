@@ -74,7 +74,13 @@ export function headsOf(s: TowerHeadShape): Head[] {
 }
 
 /** How far a head's anvil has spread at a height: a share of its half width. */
-const flareAt = (h: Head, t: number) => ANVIL_FLARE * h.anvil * Math.max(0, (t - FLARE_FROM) / (1 - FLARE_FROM)) ** 1.4
+const flareAt = (h: Head, t: number) => {
+  // A developing ice cap gets at most the review's 1.4× head/trunk ratio.
+  // Ease out that restriction as the true-aspect maturity reaches its endpoint.
+  const mature = smoothstep(1 / ANVIL_FLARE, 1, h.anvil)
+  const spread = 0.4 * h.anvil + (ANVIL_FLARE - 0.4) * mature
+  return spread * Math.max(0, (t - FLARE_FROM) / (1 - FLARE_FROM)) ** 1.4
+}
 
 /** A head's half width at a height. */
 export function halfAt(h: Head, y: number): number {

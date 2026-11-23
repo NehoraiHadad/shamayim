@@ -45,7 +45,9 @@ const CREASE = 0.4
 const REACH = 0.45
 /** The width (px) under which a tower is far: one broad octave, its edges softer by this much, its foot (a share of
  * its height) melting into the haze to this share. */
-const FAR = 70, FAR_SOFT = 0.1, FOOT = 0.5, FOOT_LEFT = 0.15
+// Leave the distant column's above-base foot visible at the .25 contour
+// through mottling and edge softness. Only the underside fades out.
+const FAR = 70, FAR_SOFT = 0.1, FOOT = 0.5, FOOT_LEFT = 0.75
 /** The width (px) from which and to which a tower is near: its lumps finer (a smaller tile, a higher rate) and standing
  *  out more, so a big cloud is not one smooth egg. */
 const NEAR = [80, 170] as const, NEAR_SMALLER = 0, NEAR_FINER = 0.3, NEAR_ROUGHER = 0.1

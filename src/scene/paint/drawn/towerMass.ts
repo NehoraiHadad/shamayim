@@ -27,7 +27,8 @@ const SOFT_CROWN = 0.2, SOFT = 0.3, SOFT_FAR = 0.4, SOFT_ANVIL = 0.42, SOFT_BASE
 /** The underside's fade at its far edge, and the depth against the width it runs over. */
 const UNDER_FADE = 0.8, FADE_DEEP = 0.35
 /** A far tower's width (px), and the share of its height its foot melts into the haze over, to this share. */
-const FAR = 70, FOOT = 0.6, FOOT_LEFT = 0.1
+// Keep three quarters of the far foot through the above-base haze fade.
+const FAR = 70, FOOT = 0.6, FOOT_LEFT = 0.75
 /** Room past a head's half width for the puffs. */
 const ROOM = 1.4
 

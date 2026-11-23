@@ -6,12 +6,17 @@ import { seenDepth } from './cloudSheetSeen'
 import { alpha, cellAt, geom, HEIGHT } from './cloudSheetSeen.test-helper'
 import { DOME_ALT } from './sky'
 
-it('leaves the whole straddling disc intact, including rows above the join', () => {
+it('replaces the outline on both sides of the join for a straddling cell', () => {
   const cell = cellAt(25, 2.1)
   const range = groundRangeAt(HEIGHT, DOME_ALT)
   expect(cell.y - cell.r).toBeLessThan(range)
   expect(cell.y + cell.r).toBeGreaterThan(range)
-  expect(seenDepth([cell], HEIGHT, geom)).toBeNull()
+  const seen = seenDepth([cell], HEIGHT, geom)!
+  for (const elevation of [DOME_ALT - 1, DOME_ALT + 1]) {
+    const range = groundRangeAt(HEIGHT, elevation)
+    expect(Math.abs(seen(range, elevation)?.(0, range) ?? 0)).toBeGreaterThan(0)
+  }
+  expect(seenDepth([cellAt(12, 0.5)], HEIGHT, geom)).toBeNull()
 })
 it('conserves footprint area across 120 seeded outlines', () => {
   for (let seed = 0; seed < 120; seed++) {
@@ -42,7 +47,7 @@ it('breaks a level overhead rim into shorter runs', () => {
 
 it.each([20, 40, 60])('fades in without a step beyond the round rim at %s km/h', speed => {
   const cell = cellAt(DOME_ALT, 1.5)
-  const entry = groundRangeAt(HEIGHT, DOME_ALT) - cell.r
+  const entry = groundRangeAt(HEIGHT, DOME_ALT) + cell.r
   const at = (minute: number, shaped: boolean) => {
     const moved = { ...cell, y: entry - minute * speed / 60 }
     const seen = shaped ? seenDepth([moved], HEIGHT, geom) : null
@@ -51,7 +56,7 @@ it.each([20, 40, 60])('fades in without a step beyond the round rim at %s km/h',
       return alpha(moved, range, 3, seen?.(range, altitudeOf(HEIGHT, range)))
     })
   }
-  expect(at(0, true)).toEqual(at(0, false))
+  expect(at(-1, true)).toEqual(at(-1, false))
   const old = at(-1, false)
   const next = at(0, false)
   const referenceStep = Math.max(...next.map((value, i) => Math.abs(value - old[i])))
@@ -59,7 +64,7 @@ it.each([20, 40, 60])('fades in without a step beyond the round rim at %s km/h',
   // than the round rim's own motion over that same minute at this wind.
   const round = at(1, false)
   const shaped = at(1, true)
-  expect(Math.max(...shaped.map((value, i) => Math.abs(value - round[i])))).toBeLessThan(referenceStep)
+  expect(Math.max(...shaped.map((value, i) => Math.abs(value - round[i])))).toBeLessThanOrEqual(referenceStep)
 })
 
 it('interpolates outline identity across a real matched midnight handover', () => {

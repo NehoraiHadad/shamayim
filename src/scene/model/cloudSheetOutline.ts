@@ -38,18 +38,19 @@ function seedOutline(seed: number) {
   return outline
 }
 
-export function outlineOf(seed: number, blend?: FieldCell['seedBlend']): Float32Array {
+export function outlineOf(seed: number, blend?: FieldCell['seedBlend'], strength = 1): Float32Array {
   const outgoing = seedOutline(seed)
+  if (strength < 1) return normalized(outgoing.lobes, blend && seedOutline(blend[0]).lobes, blend?.[1], strength)
   if (!blend || blend[1] <= 0) return outgoing.table ??= normalized(outgoing.lobes)
   const incoming = seedOutline(blend[0])
   if (blend[1] >= 1) return incoming.table ??= normalized(incoming.lobes)
   return normalized(outgoing.lobes, incoming.lobes, blend[1])
 }
 
-function normalized(lobes: Float32Array, incoming?: Float32Array, weight = 0) {
+function normalized(lobes: Float32Array, incoming?: Float32Array, weight = 0, strength = 1) {
   const table = Float32Array.from(lobes, (lobe, i) => {
     const radius = incoming ? lobe + weight * (incoming[i] - lobe) : lobe
-    return (1 + radius) ** 2
+    return (1 + strength * radius) ** 2
   })
   const area = table.reduce((sum, radius2) => sum + radius2, 0) / TABLE
   for (let i = 0; i < TABLE; i++) table[i] = area / table[i]

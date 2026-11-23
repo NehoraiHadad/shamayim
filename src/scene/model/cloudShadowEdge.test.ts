@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { FieldCell } from '../../world/field/types'
 import { shadowEdge, shadowLobes } from './cloudShadowEdge'
 
-const tower = { seed: 521, lattice: 'tower', genus: 'cb', baseKm: 1.5, vKm: 10, r: 2 } as FieldCell
+// Unshared 4 km base, 10 km column and an 11.5 km top reach full anvil maturity.
+const tower = { seed: 521, lattice: 'tower', genus: 'cb', baseKm: 1.5, vKm: 10, r: 2, share: 1 } as FieldCell
 
 describe('tower shadow heads', () => {
   it('projects the visible head proportions and anvil along the solar ray', () => {

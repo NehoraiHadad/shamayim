@@ -68,7 +68,13 @@ function contours(sheet: LayerOf<'cloudSheet'>) {
       }
       if (edge) corners.push([x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1])
     }
-    result.push({ aspect: (yMax - yMin) / (xMax - xMin), convexity: cells.length / hullArea(corners) })
+    const rows = new Uint32Array(yMax - yMin)
+    for (const cell of cells) rows[Math.floor(cell / width) - yMin]++
+    // Compare the mean lower-third width to the widest painted row.
+    const lower = rows.slice(Math.floor(2 * rows.length / 3))
+    const base = lower.reduce((sum, count) => sum + count, 0) / lower.length
+    result.push({ aspect: (yMax - yMin) / (xMax - xMin), convexity: cells.length / hullArea(corners),
+      baseRatio: base / rows.reduce((max, count) => Math.max(max, count), 0) })
   }
   return result
 }
@@ -78,7 +84,8 @@ it.each(['ac', 'cu'] as const)('keeps the painted %s components broad and convex
     ? ['mid', 5, 1.5, 0.4, 15] as const : ['low', 1.4, 0.45, 0.36, 30] as const
   const geom = skyGeom(world, box)
   const layer: FieldLayer = {
-    lattice, baseKm: heightKm - thickness / 2, meanVKm: thickness, kappa, cover: 0.25, Q: 1, g: 1,
+    // This isolated Cu stands in a field whose mean radius resolves the low-elevation texel.
+    lattice, baseKm: heightKm - thickness / 2, meanVKm: thickness, kappa, cover: 0.25, Q: 1, g: genus === 'cu' ? 2 : 1,
     // A mixed low layer can contain isolated Cu among Sc and uses the cellular ray grid.
     floorTau: 0, form: { conv: 0, strat: lattice === 'low' ? 0.55 : 0, sheet: 0, veil: 0 }, d: [0, 0], vel: [0, 0],
   }
@@ -97,6 +104,7 @@ it.each(['ac', 'cu'] as const)('keeps the painted %s components broad and convex
     for (const shape of shapes) {
       expect(shape.aspect, String(elevation)).toBeLessThanOrEqual(1)
       expect(shape.convexity, String(elevation)).toBeGreaterThanOrEqual(0.8)
+      if (genus === 'cu' && elevation > 22) expect(shape.baseRatio, String(elevation)).toBeGreaterThanOrEqual(0.75)
     }
   }
 })

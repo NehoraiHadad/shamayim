@@ -19,6 +19,7 @@ it.each([
   }] }
   const height = baseKm + 0.3
   let roundCover = 0, shapedCover = 0, roundSky = 0, shapedSky = 0, count = 0
+  let roundTau = 0, shapedTau = 0
   for (let i = 0; i < 120; i++) {
     const cells = cellsAround({ ...field, placeId: `cover-${i}` }, lattice, 0, 0, 18)
     const seen = seenDepth(cells, height, geom)
@@ -41,6 +42,8 @@ it.each([
           if (isCover) {
             roundCover += Number(round > 0.05)
             shapedCover += Number(shaped > 0.05)
+            roundTau += round
+            shapedTau += shaped
           } else {
             roundSky += sheetOpacity(round, slant)
             shapedSky += sheetOpacity(shaped, slant)
@@ -54,4 +57,6 @@ it.each([
   }
   expect.soft(Math.abs(shapedCover - roundCover) / count).toBeLessThanOrEqual(0.02)
   expect.soft(Math.abs(shapedSky - roundSky) / count).toBeLessThan(0.02)
+  // Use the same 2% budget for the relative tau error in this cropped field.
+  expect.soft(Math.abs(shapedTau / roundTau - 1)).toBeLessThanOrEqual(0.02)
 })
