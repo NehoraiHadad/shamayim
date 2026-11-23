@@ -38,10 +38,21 @@ export function babShrine(k: Kit, h: number, { gilding: gold, floodlitDome }: Gl
     c.bezierCurveTo(1.43, dome, 2.7, dome + 1.05, 2.8, -9.5)
     c.closePath()
   }
-  if (floodlitDome) paintFloodlitDome(k, h, floodlitDome)
-  else if (gold) {
+  const paintMetal = () => {
+    if (!gold) return
     paintGilding(k, canopy, dome, -9.5, gold)
     k.fill(rect(-.5, -h, 1, 1.8), gold[1][3])
+  }
+  if (!floodlitDome) paintMetal()
+  else if (floodlitDome.strength === 1) paintFloodlitDome(k, h, floodlitDome.tones)
+  else {
+    const c = k.c, alpha = c.globalAlpha
+    c.save()
+    c.globalAlpha = alpha * (1 - floodlitDome.strength)
+    paintMetal()
+    c.globalAlpha = alpha * floodlitDome.strength
+    paintFloodlitDome(k, h, floodlitDome.tones)
+    c.restore()
   }
   k.lamp(0, -5, 6, t.win, 0.25 * k.night, flood)
 }

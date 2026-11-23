@@ -23,8 +23,8 @@ const LEFT: Normal = [-1, 0, 0], RIGHT: Normal = [1, 0, 0]
 const CLAY_LEFT = roofNormal(LEFT), CLAY_RIGHT = roofNormal(RIGHT), CLAY_FRONT = roofNormal(NORMALS.front)
 
 export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t: Tones, convert: (c: RGB) => RGB, style: SceneStyle) {
-  const flood = glyph.kind === 'babShrine' ? floodlitDome(world, km) : undefined
-  const gilding = glyph.kind === 'babShrine' && !flood ? domeSectors(world, km)
+  const flood = glyph.kind === 'babShrine' ? floodlitDome(world, km, convert) : undefined
+  const gilding = glyph.kind === 'babShrine' ? domeSectors(world, km)
     .map(row => (glyph.hand === 1 ? row : row.reverse()).map(convert)) : undefined
   if (isField(glyph.kind) || glyph.kind === 'palms') return { tones: t, gilding }
   const shades = buildingLight(world, km, style)
@@ -55,9 +55,7 @@ export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t
     roof: receive(TILE, CLAY_FRONT), glass: glazed ? glass(front) : t.glass,
     soot: receive(SOOT, front, .45, 0),
   }
-  return { tones, surfaces, gilding, ...(flood ? { floodlitDome: {
-    gold: convert(flood.gold), rim: convert(flood.rim), shade: convert(flood.shade), refl: convert(flood.refl),
-  } } : {}) }
+  return { tones, surfaces, gilding, floodlitDome: flood }
 }
 
 /** The lightweight colour signature covers surfaces whose normals don't appear in the base palette. */

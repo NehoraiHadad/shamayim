@@ -1,6 +1,6 @@
 import type { BuildingFaces, accessoryTones } from './buildingLight'
 import type { GlyphSurfaces } from './glyphSurfaces'
-import type { FloodlitDome } from './metalLight'
+import type { DomeFloodlight } from './metalLight'
 import type { ReceiverShadow } from './planeCloudShadow'
 import type { CanopyTones } from './canopyTones'
 import type { NeighbourEvidence } from './neighbourEvidence'
@@ -346,7 +346,7 @@ export interface GlyphDesc extends NeighbourEvidence {
   tones: Tones
   surfaces?: GlyphSurfaces
   gilding?: RGB[][]
-  floodlitDome?: FloodlitDome
+  floodlitDome?: DomeFloodlight
   windowWall?: RGB
   shadowTones?: Pick<Tones, 'deep' | 'shade'>
   famous: boolean

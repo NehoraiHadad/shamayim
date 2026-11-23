@@ -17,8 +17,6 @@ const GOLD: RGB = [0.86, 0.68, 0.3]
 const LAMP: RGB = [1, 0.85, 0.63]
 const BLACK: RGB = [0, 0, 0]
 
-export const drawnGold = (ridge: RGB, dark: number): RGB => mixRgb(ridge, GOLD, 0.72 * (1 - dark) + 0.5 * dark)
-
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 /**
@@ -88,7 +86,7 @@ export function drawnTonesAt(world: WorldState, km: number): DrawnTones {
     glass: mixRgb(mixRgb(ridge, BLACK, 0.12), sky, 0.12), glassLit: mixRgb(ridge, sky, (0.42 * day + 0.12) * (1 - 0.6 * against)),
     soot: mixRgb(ridge, BLACK, 0.4),
     green, greenLit: mixRgb(green, mixRgb(sun, LEAF, 0.4), 0.42 * sunK + 0.04),
-    panel: mixRgb(ridge, PANEL, 0.55), gold: drawnGold(ridge, dark),
+    panel: mixRgb(ridge, PANEL, 0.55), gold: mixRgb(ridge, GOLD, 0.72 * day + 0.5 * dark),
     win: LAMP, mist: sky,
   }
   const aerial = aerialFor(world, sky)

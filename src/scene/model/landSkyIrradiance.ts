@@ -88,7 +88,10 @@ export function skyReflection(light: RadianceLight, sunAlt: number, tau: number,
     ? afterglowWeight(sunAlt) : 0
   const glow = horizon.map((c, i) => c + (afterglow[i] - c) * glowWeight)
   const cloudFill = 1.8 * cloud ** 2 * aerosol * linearLuminance(horizon)
-  const forward = (.8 + forwardAccent * glowWeight) * aerosol * (1 - .65 * cloud)
+  // The low reflected band loses its directional accent through civil
+  // twilight as the sun moves below the horizon of the rough reflector.
+  const accent = forwardAccent * smoothstep(-10, 0, sunAlt)
+  const forward = (.8 + accent * glowWeight) * aerosol * (1 - .65 * cloud)
   const broad = mid.map((v, i) => v + (top[i] - v) * DOME.zenith + .16 * (horizon[i] - v)
     + cloudFill + forward * DOME.roughForward * glow[i]) as [number, number, number]
   const gain = twilight * linearLuminance(mean) / Math.max(1e-6, linearLuminance(broad))
