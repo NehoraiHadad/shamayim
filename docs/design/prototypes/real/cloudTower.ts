@@ -44,7 +44,7 @@ function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEn
 
 /** The foot's own cover: a far tower's melts into the haze, a near one's into the rain under it. */
 const footAt = (s: CloudSprite, up: number, py: number) =>
-  (0.35 + 0.65 * smoothstep(0, s.w < 70 ? 0.4 : 0.18, up)) * (1 - smoothstep(0, Math.max(2, 0.06 * s.w), py))
+  (s.w < 70 ? 0.35 + 0.65 * smoothstep(0, 0.4, up) : 0.8 + 0.2 * smoothstep(0, 0.15, up)) * (1 - smoothstep(-0.04 * s.w, Math.max(2, 0.07 * s.w), py))
 
 function toneAt(s: CloudSprite, nx: number, ny: number, nz: number, high: number, up: number, a: number): RGB {
   const [tx, ty] = s.toward ?? [0, -1], lit = Math.min(1, s.litA)

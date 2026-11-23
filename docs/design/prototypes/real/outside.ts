@@ -21,7 +21,7 @@ import { paintSea } from './sea'
  */
 
 /** The foot's shade, the light side's lift and the top's sky, at full. */
-const FOOT = 0.3, LIFT = 0.26, OPEN = 0.42
+const FOOT = 0.2, LIFT = 0.2, OPEN = 0.16
 
 type Body = Extract<OutsideItem, { kind: 'box' | 'tower' }>
 const bodyOf = (b: Body) => b.kind === 'box'
@@ -71,7 +71,7 @@ function seat(ctx: Ctx2D, item: Body, top: RGB, t: Tones, s: Shine, side: number
   const warm = mix(t.stone, [1, 0.97, 0.9], 0.75)
   across.addColorStop(0, css(warm, LIFT * beam))
   across.addColorStop(0.55, css(warm, 0.35 * LIFT * beam))
-  across.addColorStop(1, css(t.shade, 0.16 * beam))
+  across.addColorStop(1, css(warm, 0))
   ctx.fillStyle = across
   ctx.fillRect(x, y, w, h)
 }
