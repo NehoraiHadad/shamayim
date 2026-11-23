@@ -25,17 +25,21 @@ import { paintTower } from './outsideTower'
  * Screen px. Pure: randomness only from the items' seeds.
  */
 
-const TOWER_CONTACT = { alpha: .5, height: .8 }
-const TOWER_CAST = { alpha: .8, inset: .5, edgeY: -.3, tipY: .5, bottomY: 1.2, tipInset: () => 1.2 }
+export const TOWER_CONTACT = { alpha: .5, height: .8 }
+export const TOWER_CAST = { alpha: .8, inset: .5, edgeY: -.3, tipY: .5, bottomY: 1.2, tipInset: () => 1.2 }
+
+/** Where in its strip's loop this frame stands (0…1); 0 for a still layer. */
+export function stripPhase(desc: LayerOf<'outside'>, env: PaintEnv): number {
+  const frames = desc.animated?.frames
+  return frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
+}
 
 /** The place seen from outside, back to front. */
 export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s, tiers } = desc
   const lateralLight = glyphLight(s)
-  const frames = desc.animated?.frames
-  const t = frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
   if (desc.land) paintOutsideLand(ctx, desc.land, s)
-  if (desc.sea) paintOutsideSea(ctx, desc.sea, s, t)
+  if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
     else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)

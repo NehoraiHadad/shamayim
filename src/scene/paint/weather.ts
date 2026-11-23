@@ -1,7 +1,7 @@
 import { smoothstep } from '../../domain/smoothstep'
 import type { FallMark, LayerOf, MistBandDesc } from '../model/types'
 import { rng } from './core'
-import { curtain } from './curtain'
+import { curtain, FIBRES } from './curtain'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /*
@@ -235,13 +235,13 @@ export function paintSheen(ctx: Ctx2D, desc: LayerOf<'sheen'>, env: PaintEnv): v
 }
 
 /** The edge mark: a heavy bank cut by the frame's edge, its curtain leaning downwind to the horizon. */
-export function paintEdge(ctx: Ctx2D, desc: LayerOf<'edge'>, env: PaintEnv): void {
+export function paintEdge(ctx: Ctx2D, desc: LayerOf<'edge'>, env: PaintEnv, fibres = FIBRES): void {
   const { x, y, w, h, side, seed } = desc
   const dir = side === 'left' ? 1 : -1
   const cx = x + dir * w * 0.35
   const r = rng(seed)
   curtain(ctx, { x: cx, top: y - h * 0.15, bottom: desc.bounds.y + desc.bounds.h, w: w * 0.75, lean: desc.lean,
-    rgb: desc.curtain, alpha: desc.alpha * 0.9, seed }, desc.precip === 'snow', env)
+    rgb: desc.curtain, alpha: desc.alpha * 0.9, seed }, desc.precip === 'snow', env, fibres)
   // The bank: a shower cloud heaped on a flat base, towering on the side toward the frame (its body grows into the view):
   // puffs of seeded sizes along a rising profile, the base's shade as flattened puffs under them, the body over.
   const n = 11

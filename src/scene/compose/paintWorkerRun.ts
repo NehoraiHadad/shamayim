@@ -11,7 +11,7 @@ export interface WorkerCanvas {
 
 export interface WorkerRunnerDeps {
   createCanvas: (w: number, h: number) => WorkerCanvas
-  painterOf: (desc: PaintJob['desc']) => Painter | undefined
+  painterOf: (desc: PaintJob['desc'], style: PaintJob['style']) => Painter | undefined
   now?: () => number
 }
 
@@ -40,14 +40,14 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         const start = now()
         const canvas = canvasFor(job)
         const ctx = canvas.getContext('2d') as Ctx2D
-        const painter = painterOf(job.desc)
+        const painter = painterOf(job.desc, job.style)
         const paint = job.part === 'form' ? painter?.form : painter?.light
         if (job.frames && job.frames[0] === 0) ctx.clearRect(0, 0, canvas.width, canvas.height)
         if (paint) {
           paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, (w, h): Scratch => {
             const scratch = createCanvas(w, h)
             return { canvas: scratch as unknown as Scratch['canvas'], ctx: scratch.getContext('2d') as Ctx2D }
-          }, job.frames)
+          }, job.frames, job.style)
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }

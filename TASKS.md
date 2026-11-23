@@ -1092,3 +1092,31 @@ reviews, Claude manages and draws the painters.
       proving page (`dev/cloudSheet.tsx`, `e2e/scene.clouds.mjs`). Tests ported; `falling.test.ts` added.
 - [ ] Piece 2b, fog from the field.
 - [ ] N3e midnight reseed (`briefs/N3e-midnight-anchor.md`) after the rebuild.
+
+## Drawn style: the scene's second hand (branch `claude/drawn-painter`, Claude Opus 5.5, 23 Nov 2026)
+
+The valley painted in two hands from the same model: `real` (unchanged, pixel for pixel) and `drawn` (docs/design/ILLUSTRATION.md,
+`qa/styles/v1b/`). A vote decides and the other hand is deleted. Owner's top criterion: not too abstract, not losing detail
+("simplify the texture and the edge, not the content"). Vote UI, App wiring and text are another agent's.
+
+- [x] Seam: `scene/sceneStyle.ts`; `CanvasScene sceneStyle` → `SceneCanvas` → `useSurface`/`SkyCanvas` → `Surface.style` → cache
+      keys (`~drawn`, only on kinds in `paint/drawn/index.ts`) and paint jobs → `painterOf(desc, style)`, `PaintEnv.style`.
+      Dev: `?style=drawn`; stills `place@hour#drawn` (CI too); `test:perf -- --style=drawn` (CI perf job runs both).
+- [x] Drawn clouds (`paint/drawn/`): sheets (`cloudSheet`, `sheetField`) and tower cells (`cloudTower`, `towerMass`) as soft layered
+      lit masses; one seeded puff tile (`billows`) gives both their heads and light. Shares the real hand's rasters and heads
+- [x] Drawn town: `townBlocks` merges the small squares of a spot and row (risers keep their height), `townLight` guarantees a
+      lit/shade gap (direct light, else the brighter sky's side), `townBlock`/`townRoof`/`townWindows`/`townTower` paint them;
+      rows recede where the tiers do not. Lessons of `claude/town-style-trial` @ 0a1a04f5 applied
+- [x] Plane shading: not needed. The hillside sits well under the drawn town; PR 11's physically lit land changes it for both hands
+- [x] Night: drawn sheets take the towns' light (`cloudSheet.city`); main 14c41b82 merged
+- [x] anidoodle craft pass (owner, 23 Nov): worked from its flatVector plate (v1b's own: closed flat planes, no strokes, ramps for
+      shade). The critique changed: found lit tops and lost feet instead of evenly soft edges, rounder puffs, three values inside a
+      mass (lit at its top, shaded at its foot, a clear gap ends it), softer edges with distance, calmer closed decks and low suns
+- [x] Stills rounds 1-3 (CI 45151140114, 45153177347, 45154473864; only the known `cloudCells` red) and round 4 (calmer puffs under a
+      low sun and in closed decks, one mass does not shade the next; CI 45155823030)
+- [x] Main 643d4f5c merged (tower raster, rain curtains, one storm per cell). The real hand is byte-identical to main in five scenes.
+      Drawn: the curtains (`shafts`, `edge`) are long planes (`drawn/index.ts` PLANES, `curtain.ts` Fibres), no fibres. The drawn
+      horizon banks were so dark the curtain was lost: the air now takes their light and shade low in the sky. Round 5 = last
+- [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 2-20 % dearer (Tel Aviv worst), land about even
+- Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
+  pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand

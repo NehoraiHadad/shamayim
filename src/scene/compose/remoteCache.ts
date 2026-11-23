@@ -1,4 +1,5 @@
 import type { LayerDesc } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
 import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
@@ -12,7 +13,7 @@ export interface Arrival { latency: number; workerMs: number; settled: boolean }
 
 export interface RemoteOptions {
   worker: WorkerLike
-  painters?: (desc: LayerDesc) => Painter | undefined
+  painters?: (desc: LayerDesc, style: SceneStyle) => Painter | undefined
   hand?: Hand
   now?: () => number
   /** A batch arrived and was taken in: the surface lays the layers again. */
@@ -25,6 +26,8 @@ export interface RemoteOptions {
 export class RemoteCache {
   private entries = new Map<string, Entry>()
   private readonly queue: PaintQueue
+  /** The scene's hand (`LayerCache.style`), sent with every job. */
+  style: SceneStyle = 'real'
   private readonly painters: NonNullable<RemoteOptions['painters']>
   private readonly options: RemoteOptions
   private failed = false
@@ -41,20 +44,20 @@ export class RemoteCache {
 
   fresh(desc: LayerDesc, dpr: number): boolean {
     const shown = this.entries.get(desc.id)?.shown?.request
-    return shown?.formKey === formKeyOf(desc, dpr).key && shown.formless === this.formless(desc)
-      && shown.lightKey === lightKeyOf(desc, this.painters(desc))
+    return shown?.formKey === formKeyOf(desc, dpr, this.style).key && shown.formless === this.formless(desc)
+      && shown.lightKey === lightKeyOf(desc, this.painters(desc, this.style))
   }
 
   formless(desc: LayerDesc): boolean {
-    return Boolean(desc.light && this.painters(desc)?.formless?.(desc))
+    return Boolean(desc.light && this.painters(desc, this.style)?.formless?.(desc))
   }
 
   /** Asks for stale parts and reports what was newly queued. */
   update(desc: LayerDesc, dpr: number, phase = 0): Painted {
-    const { ratio, key: formKey } = formKeyOf(desc, dpr)
+    const { ratio, key: formKey } = formKeyOf(desc, dpr, this.style)
     const entry = this.entries.get(desc.id)
     const request: Request = { formKey, ratio, desc, phase, rect: deviceRect(desc, ratio),
-      lightKey: lightKeyOf(desc, this.painters(desc)), formless: this.formless(desc), generation: 1 }
+      lightKey: lightKeyOf(desc, this.painters(desc, this.style)), formless: this.formless(desc), generation: 1 }
     if (entry) {
       const unchanged = samePaint(entry.wanted, request)
       request.generation = entry.wanted.generation + Number(!unchanged)
@@ -76,7 +79,7 @@ export class RemoteCache {
       if (key === null) return this.queue.cancel(desc.id, part)
       // A light-only job crosses the worker boundary without the form's buffers (`lightJobDesc`).
       return this.queue.ask({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase,
-        hand: this.options.hand ?? HAND }, request)
+        hand: this.options.hand ?? HAND, style: this.style }, request)
     }
     const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
     const light = ask('light', (same && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)

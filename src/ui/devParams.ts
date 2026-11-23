@@ -1,5 +1,6 @@
 import type { CloudSighting } from '../domain/cloudSightings'
 import type { LocalTime } from '../domain/types'
+import { isSceneStyle, type SceneStyle } from '../scene/sceneStyle'
 import { SKY_THEMES, type ThemeId } from '../theme/skyThemes'
 
 /** Dev-only URL overrides for visual QA. Always null in production builds. */
@@ -18,6 +19,12 @@ export function pinnedTime(): LocalTime | null {
 export function forcedTheme(): ThemeId | null {
   const id = param('theme')
   return id && id in SKY_THEMES ? (id as ThemeId) : null
+}
+
+/** `?style=drawn` (or `real`) forces the scene's hand. */
+export function forcedStyle(): SceneStyle | null {
+  const style = param('style')
+  return isSceneStyle(style) ? style : null
 }
 
 const WX_KEYS = {

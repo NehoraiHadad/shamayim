@@ -2,7 +2,8 @@ import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerDesc } from '../model/types'
-import type { Ctx2D, Hand, PaintEnv, Painter, Scratch } from '../paint'
+import { styleKey, type Ctx2D, type Hand, type PaintEnv, type Painter, type Scratch } from '../paint'
+import type { SceneStyle } from '../sceneStyle'
 
 /** A layer's canvas in device px: whole pixels, so it is laid into the surface 1:1. */
 export interface DeviceRect { x: number; y: number; w: number; h: number }
@@ -13,11 +14,11 @@ export function deviceRect(desc: LayerDesc, ratio: number): DeviceRect {
   return { x: x0, y: y0, w: Math.max(1, Math.ceil((x + w) * ratio - 1e-6) - x0), h: Math.max(1, Math.ceil((y + h) * ratio - 1e-6) - y0) }
 }
 
-/** The pixel ratio a layer is cached at and the key its form canvas holds (the layer's key, its ratio and bounds). */
-export function formKeyOf(desc: LayerDesc, dpr: number): { ratio: number; key: string } {
+/** The pixel ratio a layer is cached at and the key its form canvas holds (the layer's key, its ratio, bounds and style). */
+export function formKeyOf(desc: LayerDesc, dpr: number, style: SceneStyle = 'real'): { ratio: number; key: string } {
   const ratio = cacheRatio(dpr, desc.soft)
   const { x, y, w, h } = desc.bounds
-  return { ratio, key: `${desc.key}@${ratio}:${x},${y},${w},${h}${stripKey(desc)}` }
+  return { ratio, key: `${desc.key}@${ratio}:${x},${y},${w},${h}${stripKey(desc)}${styleKey(desc, style)}` }
 }
 
 /** A strip's frames are part of what its canvas holds (C7). */
@@ -33,7 +34,8 @@ export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
  * and in the paint worker (`paintWorker.ts`), so both give the same pixels.
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
-  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[]) {
+  paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[],
+  style?: SceneStyle) {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
@@ -42,7 +44,7 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
   const count = frameCount(desc.animated)
   if (count === 1) {
     ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    paint(ctx, desc, { hand, phase, scale: ratio, canvas })
+    paint(ctx, desc, { hand, style, phase, scale: ratio, canvas })
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     return
   }
@@ -56,7 +58,7 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
     ctx.rect(0, i * rect.h, rect.w, rect.h)
     ctx.clip()
     ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
-    const env: PaintEnv = { hand, phase: framePhase(desc.animated, i), scale: ratio, canvas }
+    const env: PaintEnv = { hand, style, phase: framePhase(desc.animated, i), scale: ratio, canvas }
     paint(ctx, desc, env)
     ctx.restore()
   }
@@ -95,6 +97,7 @@ export interface PaintJob {
   rect: DeviceRect
   phase: number
   hand: Hand
+  style?: SceneStyle
   /** Subset of strip frame indices to paint in this batch (for chunked multi-frame strips). */
   frames?: readonly number[]
   /** Whether this job completes the part and transfers its bitmap (defaults to true). */
