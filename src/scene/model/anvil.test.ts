@@ -4,8 +4,11 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { glaciationOf } from '../../world/glaciation'
 import { buildWorld } from '../../world/world'
-import { anvilOf } from './anvil'
+import type { CloudSprite, SpriteGenus } from '../paint/cloudSprite'
+import { anvilOf, spreadAnvils } from './anvil'
+import { cloudLayersOf } from './cloudLayers'
 
+const BOX = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
 let haifa: LoadedPlace
 beforeAll(async () => {
   stubPublicFetch()
@@ -43,4 +46,29 @@ it('takes a real storm day’s freezing level at the shown hour', () => {
   expect(at('2026-03-15T06:00')!.fromKm).toBeCloseTo(2.35 - 0.265 + 3, 1)
   expect(at('2026-03-15T14:00')!.fromKm).toBeLessThan(at('2026-03-15T06:00')!.fromKm)
   expect(at('2026-11-17T12:00')).toBeNull()
+}, 60_000)
+
+/** A tower of a genus whose top stands so high, as wide and tall as it looks. */
+const tower = (genus: SpriteGenus, top: number, w = 40, tall = 90) => ({ sprite: { genus, w, tall } as CloudSprite, top })
+const spread = (towers: ReturnType<typeof tower>[], ice: Parameters<typeof spreadAnvils>[1]) => {
+  spreadAnvils(towers, ice)
+  return towers.map((t) => t.sprite.anvil ?? 0)
+}
+
+it('spreads the towers’ tops by the freezing level they rose through, where no tropopause rule would', () => {
+  const winter = glaciationOf(2300, 0), summer = glaciationOf(4600, 0)
+  const line = () => [tower('cb', 9), tower('cb', 6), tower('cg', 9), tower('cb', 9, 80, 90)]
+  expect(spread(line(), winter)).toEqual([1, anvilOf(6, winter), 0, 0])
+  expect(spread(line(), summer)).toEqual([anvilOf(9, summer), 0, 0, 0])
+  expect(spread(line(), null)).toEqual([0, 0, 0, 0])
+  // The two most spread of a line, however many have risen.
+  expect(spread([tower('cb', 7), tower('cb', 9), tower('cb', 8)], winter)).toEqual([0, 1, anvilOf(8, winter)])
+})
+
+it('draws a real storm’s anvils from its own freezing level', () => {
+  const world = buildWorld(worldInput(haifa, '2026-03-15T11:00' as LocalTime))
+  const anvils = (w: typeof world) => cloudLayersOf(w, BOX)
+    .flatMap((l) => l.kind === 'cloudCells' ? l.cells.filter((c) => (c.sprite.anvil ?? 0) > 0) : []).length
+  expect(anvils(world)).toBeGreaterThan(0)
+  expect(anvils({ ...world, glaciation: { fromKm: 30, fullKm: 33 } })).toBe(0)
 }, 60_000)
