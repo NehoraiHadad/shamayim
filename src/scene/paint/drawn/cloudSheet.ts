@@ -1,6 +1,7 @@
 import { hashId } from '../../../data/landmarks/hash'
 import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf, RGB } from '../../model/types'
+import { addLight } from '../../model/tone'
 import { toneOf } from '../cloudLook'
 import { mix, type Ctx2D, type PaintEnv } from '../hand'
 import { billows } from './billows'
@@ -18,16 +19,16 @@ import { fieldAt, sheetField, type SheetField } from './sheetField'
 const RASTER = 0.5
 /** A mass's opacity in its core, and how its thin parts fall off (exponent on the model's alpha). */
 const CORE = 0.94, THIN = 0.55
-/** The alpha the drawn edge stands at and its softness: crisper on a lit top than underneath. */
-const EDGE = 0.4, SOFT_TOP = 0.08, SOFT_BASE = 0.27
+/** The alpha the drawn edge stands at and its softness: crisper on a lit top than underneath, and what the air before a far one adds. */
+const EDGE = 0.4, SOFT_TOP = 0.08, SOFT_BASE = 0.27, SOFT_AIR = 0.12
 /** How far the heads, and the small ones on them, move the edge, against a half-thick part. */
-const HEADS = 0.85, SMALL = 0.42
+const HEADS = 0.85, SMALL = 0.34
 /** The light's hand: a puff's lit cap and shaded foot, a mass's broad lit top and shaded base. */
 const CAP = 1.7, FOOT = 1.9, BROAD_LIT = 0.8, BROAD_SHADE = 1.1
 /** The puffs' light inside a mass against its edge: calmer in the middle; the small heads' light on the edge. */
 const INSIDE = 0.85, SMALL_LIT = 0.25
 /** A closed deck's banks: how far their light moves the tone. */
-const BANKS = 0.42
+const BANKS = 0.32
 /** The share of the model's own tone an open deck's body keeps against the lit: its thin parts', and what a core adds; how
  *  much less under a low sun. */
 const BODY = 0.45, CORE_GREY = 0.35, LOW_SUN = 0.35
@@ -64,7 +65,7 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
       const x = (i / RASTER - f.width / 2) / size
       const puff = head(x, v), rise = puff.light
       const part = 4 * a * (1 - a)
-      const alpha = drawnAlpha(a, HEADS * puff.high + SMALL * puff.small, part, rise, open)
+      const alpha = drawnAlpha(a, HEADS * puff.high + SMALL * puff.small, part, rise, open, SOFT_AIR * (1 - size))
       if (alpha < 0.004) continue
       const broad = fieldAt(f.side, cols, rows, gx, gy)
       const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
@@ -72,15 +73,15 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
         + (open + (1 - open) * BANKS) * (relief > 0 ? CAP : FOOT) * relief
       const body = toneOf(desc, fieldAt(f.tone, cols, rows, gx, gy))
       const base = open ? mix(body, mix(desc.lit, body, (BODY + CORE_GREY * a * a) * (1 - LOW_SUN * low)), open) : body
-      put(out, at, lightOf(base, bright, desc.shade, lift, low), alpha)
+      put(out, at, underTowns(desc, f, gx, gy, lightOf(base, bright, desc.shade, lift, low)), alpha)
     }
   }
 }
 
 /** The mass's drawn alpha: the model's for a closed deck; an open one's edge stands on its heads. */
-function drawnAlpha(a: number, head: number, part: number, rise: number, open: number) {
+function drawnAlpha(a: number, head: number, part: number, rise: number, open: number, air: number) {
   if (!open) return a
-  const soft = SOFT_BASE + (SOFT_TOP - SOFT_BASE) * smoothstep(-0.2, 0.2, rise)
+  const soft = air + SOFT_BASE + (SOFT_TOP - SOFT_BASE) * smoothstep(-0.2, 0.2, rise)
   const edge = smoothstep(EDGE - soft, EDGE + soft, a + head * part)
   return a + open * (CORE * edge * a ** THIN - a)
 }
@@ -91,13 +92,18 @@ function lightOf(base: RGB, bright: RGB, shade: RGB, lift: number, low: number):
   return facing > 0 ? mix(base, bright, Math.min(0.95, facing)) : mix(base, shade, Math.min(0.85 - 0.5 * low, -facing * (1 - 0.6 * low)))
 }
 
+/** A tone with the towns' light on it, by night. */
+function underTowns({ city }: LayerOf<'cloudSheet'>, f: SheetField, gx: number, gy: number, rgb: RGB): RGB {
+  return city ? addLight(rgb, city.rgb, fieldAt(f.city, f.cols, f.rows, gx, gy)) : rgb
+}
+
 /** A high veil: the model's own, softened. */
 function veil(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetField, w: number, h: number) {
   for (let j = 0; j < h; j++) {
     const gy = (j * (f.rows - 1)) / (h - 1)
     for (let i = 0; i < w; i++) {
       const gx = (i * (f.cols - 1)) / (w - 1), a = fieldAt(f.alpha, f.cols, f.rows, gx, gy)
-      if (a > 0.004) put(out, (j * w + i) * 4, toneOf(desc, fieldAt(f.tone, f.cols, f.rows, gx, gy)), a)
+      if (a > 0.004) put(out, (j * w + i) * 4, underTowns(desc, f, gx, gy, toneOf(desc, fieldAt(f.tone, f.cols, f.rows, gx, gy))), a)
     }
   }
 }

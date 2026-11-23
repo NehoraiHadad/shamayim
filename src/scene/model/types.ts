@@ -547,6 +547,8 @@ export type LayerDesc =
    */
   | LayerBase & { kind: 'cloudSheet'; lattice: 'low' | 'tower' | 'mid' | 'high'; genus: string
       xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB
+      /** By night, the towns' light on each texel: its tone and its weight (row-major, 0–1). */
+      city?: { rgb: RGB; weight: number[] }
       /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
       speeds: number[] }
   /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */

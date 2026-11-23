@@ -65,8 +65,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - id: browser
+        run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Built app still
+        run: |
+          npx vite build
+          node e2e/scene.app.mjs ci-stills/app haifa@2026-03-15T12:00 --built --page --dpr=2
       - name: Render stills
+        # Also after a red built app, when its own stills help to see why; not without a browser.
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
         env:
           STILLS: ${{ inputs.stills }}
         run: node e2e/scene.stills.mjs ci-stills ${STILLS:-$DEFAULT_STILLS} --dpr=2

@@ -10,12 +10,12 @@ const sheet = (alpha: number[]) => ({ kind: 'cloudSheet', id: 'cloudSheet.low', 
   ys: [0, 100, 200, 300], alpha, tone: alpha.map(() => 0.5), body: [0.6, 0.6, 0.65], shade: [0.3, 0.3, 0.35],
   lit: [0.95, 0.95, 0.95] }) as unknown as LayerOf<'cloudSheet'>
 
-function painted(alpha: number[]) {
+function painted(alpha: number[], over: Partial<LayerOf<'cloudSheet'>> = {}) {
   let image = { data: new Uint8ClampedArray(), width: 0, height: 0 }
   const scratch = { createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4), width, height }),
     putImageData: (next: typeof image) => { image = next } }
   const ctx = { save() {}, restore() {}, drawImage() {} } as unknown as Ctx2D
-  paintDrawnSheet(ctx, sheet(alpha), { canvas: () => ({ canvas: {}, ctx: scratch }) } as unknown as PaintEnv)
+  paintDrawnSheet(ctx, { ...sheet(alpha), ...over }, { canvas: () => ({ canvas: {}, ctx: scratch }) } as unknown as PaintEnv)
   return image
 }
 
@@ -38,6 +38,15 @@ describe('drawn clouds', () => {
   it('keeps an even closed deck at the model opacity', () => {
     const { data } = painted(Array(12).fill(0.5))
     for (let n = 3; n < data.length; n += 4) expect(Math.abs(data[n] - 127.5)).toBeLessThan(2)
+  })
+
+  it('takes the light of the towns by night, as much as the model gives each place', () => {
+    const city = { rgb: [0.9, 0.6, 0.3] as [number, number, number], weight: Array.from({ length: 12 }, (_, n) => (n % 3 === 2 ? 0.2 : 0)) }
+    const dark = painted(Array(12).fill(0.5)), lit = painted(Array(12).fill(0.5), { city })
+    const last = (dark.width - 1) * 4
+    expect(lit.data[0] - dark.data[0]).toBeLessThan(2)
+    expect(lit.data[last] - dark.data[last]).toBeGreaterThan(8)
+    expect(lit.data[last + 3]).toBe(dark.data[last + 3])
   })
 })
 

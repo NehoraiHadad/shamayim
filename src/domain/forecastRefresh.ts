@@ -3,6 +3,9 @@ import { smoothstep } from './smoothstep'
 
 export const forecastObservation = (forecast: Forecast) => forecast.observation ?? forecast.current
 
+/** The provider's reading tells the sky within 15 minutes of its time and gives way to the hours by 45. */
+export const readingWeight = (minutesOff: number) => 1 - smoothstep(15, 45, Math.abs(minutesOff))
+
 /** The transition is evaluated against the scene minute, in epoch milliseconds. */
 const EASE_MS = 10 * 60_000
 
