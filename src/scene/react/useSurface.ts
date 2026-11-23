@@ -6,7 +6,7 @@ import { makeStats, type SceneStats } from '../compose/stats'
 import { Surface } from '../compose/surface'
 import { paintWorker, warmPaintWorkers } from '../compose/worker'
 import type { LayerDesc } from '../model/types'
-import type { SceneStyle } from '../sceneStyle'
+import { DEFAULT_STYLE, type SceneStyle } from '../paint/painters'
 
 /** The page's scene timings (`compose/stats.ts`), left on `window.__sceneStats` for the perf runner and the HUD. */
 const trackShown = typeof window !== 'undefined' && Boolean((window as Window & { __trackSceneShown?: boolean }).__trackSceneShown)
@@ -63,7 +63,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
   const laid = useRef(onLaid)
   useEffect(() => { ready.current = onReady }, [onReady])
   useEffect(() => { laid.current = onLaid }, [onLaid])
-  const { width, height, dpr, style = 'real' } = size
+  const { width, height, dpr, style = DEFAULT_STYLE } = size
 
   useEffect(() => {
     const canvas = ref.current

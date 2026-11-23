@@ -12,6 +12,10 @@ on:
         description: 'Scene stills, space-separated: place@HH:MM|YYYY-MM-DDTHH:MM[@weather][#drawn] (empty = the default set)'
         required: false
         default: ''
+      identity:
+        description: 'Base ref: prove both styles paint the same bytes as it, on the stills given above or the still set (empty = skip)'
+        required: false
+        default: ''
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -84,6 +88,44 @@ jobs:
         with:
           name: stills-${{ github.sha }}
           path: ci-stills/
+          retention-days: 14
+
+  # Both styles against a base commit, byte for byte in one browser (only when a run asks for it). Red on a difference.
+  identity:
+    if: inputs.identity != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - id: browser
+        run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Base checkout, with its own dependencies
+        env:
+          BASE: ${{ inputs.identity }}
+        run: |
+          commit=$(git rev-parse --verify --quiet "refs/remotes/origin/$BASE^{commit}" || git rev-parse --verify "$BASE^{commit}")
+          git worktree add --detach ../base "$commit"
+          cd ../base && npm ci
+      - name: Compare
+        env:
+          STILLS: ${{ inputs.stills }}
+        run: node e2e/styleIdentity.mjs ../base ci-identity $STILLS --dpr=2 --shard=${{ matrix.shard }}/6
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: identity-${{ matrix.shard }}-${{ github.sha }}
+          path: ci-identity/
           retention-days: 14
 
   # The scene's perf budgets, on a quiet machine; reported, never blocking (shared runners are noisy).

@@ -1,6 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
-import { rng } from '../core'
-import { detailTile, tileAt } from '../detailTile'
+import { rng } from '../shared/base/core'
+import { detailTile, tileAt } from '../shared/base/detailTile'
 
 /*
  * The drawn hand's cloud puffs (v1b's `cloudBank`: ellipses laid back to front, each lit on its top): a seeded, periodic
@@ -62,7 +62,7 @@ function level(tile: Float32Array): Float32Array {
 }
 
 /** `small` is the height of the small heads that break a lone puff's outline. */
-export interface Billow { high: number; light: number; small: number }
+interface Billow { high: number; light: number; small: number }
 
 /** The puffs at (x, y) sky px: their height (the silhouette) and their light, about 0 (the returned object is reused). */
 export function billows(seed: number): (x: number, y: number) => Billow {

@@ -1,6 +1,6 @@
 import type { GlyphDesc, Shine } from '../../model/types'
-import { drawGlyphShape, glyphLight, placeGlyph } from '../glyphs'
-import type { Ctx2D } from '../hand'
+import { drawGlyphShape, glyphLight, placeGlyph } from '../shared/town/glyphs'
+import type { Ctx2D } from '../shared/base/hand'
 import { church, minaret, synagogue, waterTower } from './glyphBuildings'
 import { azrieli, babShrine, chordsBridge } from './glyphIcons'
 import { cooling, highrise, silo } from './glyphIndustry'

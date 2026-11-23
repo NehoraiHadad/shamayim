@@ -1,4 +1,4 @@
-import type { CloudSprite } from '../paint/cloudSprite'
+import type { CloudSprite } from './cloudSprite'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { Tones } from './cloudLight'
 import { addLight, mixRgb } from './tone'

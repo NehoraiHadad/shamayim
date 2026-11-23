@@ -22,7 +22,10 @@ import { glideAt, strikes } from '../scene/model/anim'
 import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
-import { onSkyCanvas } from '../scene/paint/sky'
+import { onSkyCanvas } from '../scene/paint/shared/sky/skyBackground'
+import { DEFAULT_STYLE } from '../scene/paint/painters'
+import { STYLES } from '../scene/paint/styles'
+import { forcedStyle } from '../scene/react/forcedStyle'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
 import { SCENE_H } from '../world/sceneBox'
@@ -32,7 +35,6 @@ import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
 import { harnessPlace, fixturePanorama } from './sceneFixture'
 import { ARRIVAL } from '../scene/model/loading'
-import { forcedStyle } from '../ui/devParams'
 import { WearCanvas } from '../scene/react/WearCanvas'
 import { isDarkPaper, sheetLight } from '../theme/sheetLight'
 import type { ThemeId } from '../theme/skyThemes'
@@ -167,9 +169,9 @@ function Scene({ input: given }: { input: WorldInput }) {
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
-  const style = forcedStyle() ?? 'real'
+  const style = forcedStyle() ?? DEFAULT_STYLE
   const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
-    hideLayers(sceneModel(world, box, moment.clock, undefined, style), params.get('hide'))), [world, box, moment, style])
+    hideLayers(sceneModel(world, box, moment.clock, undefined, STYLES[style].light), params.get('hide'))), [world, box, moment, style])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())
@@ -213,7 +215,7 @@ function Scene({ input: given }: { input: WorldInput }) {
         const t0 = performance.now()
         const next = build({ ...input, selected: at })
         const t1 = performance.now()
-        const nextModel = sceneModel(next, box, moment.clock, undefined, style)
+        const nextModel = sceneModel(next, box, moment.clock, undefined, STYLES[style].light)
         win.__world = next
         const t2 = performance.now()
         // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerDesc, LayerOf } from '../model/types'
-import type { Painter } from '../paint'
+import type { Painter } from '../paint/contract'
 import { LayerCache, type LayerCanvas } from './layerCache'
 import { makeLoop } from './loop'
 import { paintSliced, PRIORITY } from './schedule'

@@ -8,7 +8,7 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { BOW, HALO_DEG, onCircle, separation } from '../../world/optics'
 import { buildWorld } from '../../world/world'
-import { rainbowStops, RED, SHADE, VIOLET, type Stop } from '../paint/optics'
+import { rainbowStops, RED, SHADE, VIOLET, type Stop } from '../paint/shared/sky/optics'
 import { sceneModel } from './index'
 import { trackAt } from './anim'
 import { trailAt } from './contrailMotion'

@@ -2,10 +2,10 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
-import { drawnLightOf } from '../../world/drawnLight'
+import { halfDepthLightOf } from '../../world/halfDepthLight'
 import type { WorldState } from '../../world/types'
 import { crestAt } from './edgeMark'
-import { drawnHazeOf } from './drawnHaze'
+import { illustratedHazeOf } from './illustratedHaze'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
 import { precipLayers } from './precip'
@@ -67,7 +67,7 @@ export function grainLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sk
     const skyH = Math.max(1, Math.ceil((dust ? box.skyHeight : geom.horizon - 10) - skyTop))
     // The grains suspended in the sky keep its atmospheric palette. The
     // land's aerial light is calibrated separately for terrain receivers.
-    const skyRgb = dust ? mixRgb(drawnHazeOf({ ...world, light: drawnLightOf(world.light) }), [0.85, 0.72, 0.5], 0.35 * (1 - dark)) : rgb
+    const skyRgb = dust ? mixRgb(illustratedHazeOf({ ...world, light: halfDepthLightOf(world.light) }), [0.85, 0.72, 0.5], 0.35 * (1 - dark)) : rgb
     const toneKey = (color: typeof rgb) => [tone(color), Math.round(opacity * 255)]
     out.push({ kind: 'grains', id, surface: 'sky', z: 10.5, soft: true, rgb: skyRgb, marks: marks('grains.sky', skyH, dust ? 70 : 12),
       bounds: { x: 0, y: skyTop, w: period, h: skyH }, animated: { mode: 'drift', speed, period },

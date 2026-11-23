@@ -4,9 +4,10 @@ import { loadFar, type FarData } from '../../data/city/farData'
 import { loadLandCover, type LandCover } from '../../data/land/landData'
 import { loadWaterMask, type WaterMask } from '../../data/water/waterMask'
 import type { Forecast, LocalTime } from '../../domain/types'
-import { forcedStyle, pinnedTime } from '../../ui/devParams'
+import { pinnedTime } from '../../ui/devParams'
 import type { WorldInput } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import { DEFAULT_STYLE, type SceneStyle } from '../paint/painters'
+import { forcedStyle } from './forcedStyle'
 import { SceneCanvas } from './SceneCanvas'
 import { useLifeClock } from './useLifeClock'
 import type { WearLine } from './WearCanvas'
@@ -35,7 +36,7 @@ interface Props {
  * module lazily, so the world, the model, the painters and the compositor load as their own chunk after the page's first
  * paint. The world is left on `window.__world` for inspection.
  */
-export default function CanvasScene({ input, sceneStyle = 'real', ...scene }: Props) {
+export default function CanvasScene({ input, sceneStyle = DEFAULT_STYLE, ...scene }: Props) {
   const { offsetMinutes, laidAt, sinceS } = useLifeClock(scene.selected ?? scene.now, scene.selected ?? pinnedTime(), input.place.timezone)
   const life = useMemo(() => ({ laidAt, sinceS }), [laidAt, sinceS])
   // The far towns' raster (`far.json`), loaded once; the world places the towns from it.
