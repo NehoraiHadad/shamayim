@@ -43,15 +43,14 @@ export function babShrine(k: Kit, h: number, { gilding: gold, floodlitDome }: Gl
     paintGilding(k, canopy, dome, -9.5, gold)
     k.fill(rect(-.5, -h, 1, 1.8), gold[1][3])
   }
+  // The floodlit dome stays solid beneath the fading metal, so the hill never shows through twilight.
+  if (floodlitDome) paintFloodlitDome(k, h, floodlitDome.tones)
   if (!floodlitDome) paintMetal()
-  else if (floodlitDome.strength === 1) paintFloodlitDome(k, h, floodlitDome.tones)
-  else {
-    const c = k.c, alpha = c.globalAlpha
+  else if (floodlitDome.strength < 1) {
+    const c = k.c
     c.save()
-    c.globalAlpha = alpha * (1 - floodlitDome.strength)
+    c.globalAlpha *= 1 - floodlitDome.strength
     paintMetal()
-    c.globalAlpha = alpha * floodlitDome.strength
-    paintFloodlitDome(k, h, floodlitDome.tones)
     c.restore()
   }
   k.lamp(0, -5, 6, t.win, 0.25 * k.night, flood)
