@@ -8,7 +8,7 @@ import { SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import { sceneClock } from '../ui/useNow'
 import { faceLight } from './livingLight'
-import { liveLightSatelliteCases } from './liveLightSatelliteCases'
+import { liveLightSatelliteCases } from '../test/liveLightSatelliteCases'
 import type { WorldState } from './types'
 import { makeWorldBuilder, shownAir } from './world'
 

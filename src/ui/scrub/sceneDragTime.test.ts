@@ -14,6 +14,14 @@ describe('valley drag time', () => {
     expect(sceneDragTime(drag, 116, NOW, FIRST, LAST)).toBe(FIRST)
   })
 
+  it('lands on now from a preview whose steps straddle it', () => {
+    const drag = { x: 100, at: '2026-11-17T15:00', moved: true }
+    // 15:00 less 28 minutes is 14:32, less 32 is 14:28: both within half a px of 14:30.
+    expect(sceneDragTime(drag, 107, NOW, FIRST, LAST)).toBe(NOW)
+    expect(sceneDragTime(drag, 108, NOW, FIRST, LAST)).toBe(NOW)
+    expect(sceneDragTime(drag, 106, NOW, FIRST, LAST)).toBe('2026-11-17T14:36')
+  })
+
   it('returns to the current minute when a live drag crosses its origin after a tick', () => {
     const drag = { x: 100, at: null, moved: false }
     expect(sceneDragTime(drag, 101, NOW, FIRST, LAST)).toBe('2026-11-17T14:26')

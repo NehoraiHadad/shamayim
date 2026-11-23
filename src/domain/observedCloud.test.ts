@@ -25,7 +25,20 @@ describe('observationWeight', () => {
   })
 })
 
+/** A morning clouding over from 20 to 60 in the hours, its provider's reading at 09:00. */
+const rising = (reading: number): Forecast => ({ ...forecast, current: { ...forecast.current, cloudCover: reading },
+  hours: [hour('2026-11-18T09:00', 20), hour('2026-11-18T10:00', 60)] })
+
 describe('withObservedCloud', () => {
+  it('keeps the card on the provider’s reading when the satellite agrees with it and the hours do not', () => {
+    const out = withObservedCloud(rising(90), { cover: 90, at: '2026-11-18T09:05' }, '2026-11-18T09:10')
+    expect(out.current.cloudCover).toBe(90)
+  })
+  it('gives the card back its own reading as the observation grows old, with no step at the end', () => {
+    const model = rising(90), now = '2026-11-18T09:59'
+    expect(withObservedCloud(model, { cover: 10, at: '2026-11-18T07:29' }, now).current).toBe(model.current)
+    expect(withObservedCloud(model, { cover: 10, at: '2026-11-18T07:31' }, now).current.cloudCover).toBeGreaterThan(88)
+  })
   const seen = { cover: 30, at: '2026-11-18T08:35' }
   it('adds the clouds the satellite saw now and fades the correction over the next hours', () => {
     const out = withObservedCloud(forecast, seen, '2026-11-18T09:00')
@@ -61,19 +74,20 @@ describe('withObservedCloud', () => {
     expect(withObservedCloud(forecast, null, '2026-11-18T09:30')).toBe(forecast)
   })
   it('corrects the card and strip from the same interpolated timeline through the app rollover', () => {
-    const model = { ...forecast, hours: [hour('2026-11-18T09:00', 20), hour('2026-11-18T10:00', 60)] }
-    const seen = { cover: 70, at: '2026-11-18T09:30' }
+    const model = rising(20)
+    // The scene's model then: half way from the 09:00 reading of 20 to the hours' 40.
+    const seen = { cover: 60, at: '2026-11-18T09:30' }
     const before = withObservedCloud(model, seen, '2026-11-18T09:59')
     const now = '2026-11-18T10:00'
     const after = withObservedCloud(rollForward(model, now), seen, now)
-    // The satellite adds 70 - 40 = 30 points to both the viewed minute and the hour row.
+    // The satellite adds 60 - 30 = 30 points to both the viewed minute and the hour row.
     expect(before.current.cloudCover).toBeCloseTo(90 - 40 / 60)
     expect(after.current.cloudCover).toBe(90)
     expect(after.hours[1].cloudCover).toBe(after.current.cloudCover)
   })
   it('eases in the first observation without stepping the card at receipt or rollover', () => {
-    const model = { ...forecast, hours: [hour('2026-11-18T09:00', 20), hour('2026-11-18T10:00', 60)] }
-    const seen = { cover: 70, at: '2026-11-18T09:30', receivedAt: 0 }
+    const model = rising(20)
+    const seen = { cover: 60, at: '2026-11-18T09:30', receivedAt: 0 }
     const receipt = '2026-11-18T09:55'
     expect(withObservedCloud(model, seen, receipt, 0).current.cloudCover).toBe(model.current.cloudCover)
     const rollover = '2026-11-18T10:00'

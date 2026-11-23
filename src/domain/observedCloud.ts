@@ -1,5 +1,5 @@
-import { bracketAt } from '../atmo/bracket'
-import { arrivalWeight } from './forecastRefresh'
+import { bracketAt } from './bracket'
+import { arrivalWeight, forecastObservation, readingWeight } from './forecastRefresh'
 import { minutesBetweenLocal } from './minutes'
 import type { CloudSighting } from './cloudSightings'
 import type { Forecast, LocalTime } from './types'
@@ -48,15 +48,30 @@ export function blendObservations<T>(obs: CloudObservation, nowMs: number | unde
   return weight === 0 ? before : mix(before, sample(obs), weight)
 }
 
-/** Correct the viewed minute with the model error measured at each satellite observation (`before` the first: the model). */
+/** 0–1 trust in what an observation says of the cover at a minute: from its own time on, till the documented horizon. */
+function coverTrust(obs: CloudObservation, at: LocalTime): number {
+  const age = minutesBetweenLocal(obs.at, at)
+  return age < 0 ? 0 : clamp((COVER_FADE_MIN - age) / (COVER_FADE_MIN - FRESH_MIN), 0, 1)
+}
+
+const lerp = (from: number, to: number, weight: number) => from + (to - from) * weight
+
+/** Correct the viewed minute with the model error measured at each satellite observation. */
 export function correctCloudCover(obs: CloudObservation, at: LocalTime, nowMs: number | undefined, modelAt: number,
-  modelCoverAt: (minute: LocalTime) => number, before = modelAt): number {
-  return blendObservations(obs, nowMs, before, (sample) => {
-    const age = minutesBetweenLocal(sample.at, at)
-    if (age < 0 || age >= COVER_FADE_MIN) return modelAt
-    const trust = Math.min(1, (COVER_FADE_MIN - age) / (COVER_FADE_MIN - FRESH_MIN))
-    return clamp(modelAt + clamp(sample.cover - modelCoverAt(sample.at), -MAX_SHIFT, MAX_SHIFT) * trust, 0, 100)
-  }, (from, to, weight) => from + (to - from) * weight)
+  modelCoverAt: (minute: LocalTime) => number): number {
+  return blendObservations(obs, nowMs, modelAt, (sample) => {
+    const trust = coverTrust(sample, at)
+    return trust === 0 ? modelAt : clamp(modelAt + clamp(sample.cover - modelCoverAt(sample.at), -MAX_SHIFT, MAX_SHIFT) * trust, 0, 100)
+  }, lerp)
+}
+
+/** The model's cover at a minute as the scene takes it (`atmo/weatherAt.ts`): the hours, and the reading near its time. */
+function modelCover(forecast: Forecast, at: LocalTime): number {
+  const reading = forecastObservation(forecast)
+  const { before, after, fraction } = bracketAt(forecast.hours, at)
+  const hour = before?.cloudCover ?? reading.cloudCover
+  return lerp(lerp(hour, after?.cloudCover ?? hour, fraction), reading.cloudCover,
+    readingWeight(minutesBetweenLocal(reading.time, at)))
 }
 
 /** Apply the correction to the weather card and hourly strip. The scene samples it at its own exact minute. */
@@ -66,15 +81,16 @@ export function withObservedCloud(forecast: Forecast, obs: CloudObservation | nu
   const modelCoverAt = (at: LocalTime) => {
     const cached = modelCovers.get(at)
     if (cached !== undefined) return cached
-    const { before, after, fraction } = bracketAt(forecast.hours, at)
-    const first = before?.cloudCover ?? forecast.current.cloudCover
-    const cover = first + ((after?.cloudCover ?? first) - first) * fraction
+    const cover = modelCover(forecast, at)
     modelCovers.set(at, cover)
     return cover
   }
-  const adjust = (at: LocalTime, cover: number, before?: number) => correctCloudCover(obs, at, nowMs, cover, modelCoverAt, before)
-  // The card goes over from the provider's reading to the strip's corrected timeline as the first observation arrives.
-  const coverNow = adjust(now, modelCoverAt(now), forecast.current.cloudCover)
+  const adjust = (at: LocalTime, cover: number) => correctCloudCover(obs, at, nowMs, cover, modelCoverAt)
+  // The card stands on the scene's corrected minute as far as an observation is trusted, and on its own reading otherwise.
+  const trust = blendObservations(obs, nowMs, 0, (sample) => coverTrust(sample, now), lerp)
+  const modelNow = modelCoverAt(now)
+  const coverNow = trust === 0 ? forecast.current.cloudCover
+    : clamp(adjust(now, modelNow) + (forecast.current.cloudCover - modelNow) * (1 - trust), 0, 100)
   let changed = coverNow !== forecast.current.cloudCover
   const hours = forecast.hours.map((h) => {
     const cover = adjust(h.time, h.cloudCover)
@@ -85,6 +101,7 @@ export function withObservedCloud(forecast: Forecast, obs: CloudObservation | nu
   return changed ? {
     ...forecast,
     hours,
-    current: { ...forecast.current, cloudCover: coverNow, weatherCode: skyCode(forecast.current.weatherCode, coverNow) },
+    current: coverNow === forecast.current.cloudCover ? forecast.current
+      : { ...forecast.current, cloudCover: coverNow, weatherCode: skyCode(forecast.current.weatherCode, coverNow) },
   } : forecast
 }
