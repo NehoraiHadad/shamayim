@@ -1,8 +1,10 @@
 import { vi } from 'vitest'
-import { VOTE_ROUND } from '../../src/data/styleVoteRound'
+import { VOTE_ROUND, VOTE_STYLES } from '../../src/data/styleVoteRound'
 import { handle, type Env } from '../src/index'
 import type { VoteMeta } from '../src/voteTally'
 
+/** The style that is not the default. */
+export const [, DRAWN] = VOTE_STYLES
 export const ORIGIN = 'https://app.test'
 export const VOTE = 'https://w.test/v1/style-vote'
 export const TOTALS = 'https://w.test/v1/style-votes'

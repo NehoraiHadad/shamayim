@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SendVote } from './styleVote'
-import { ID, memoryStore, open, settle, slowSend, VOTE_KEY } from './styleVoteFixture'
+import { DRAWN, ID, memoryStore, open, settle, slowSend, VOTE_KEY } from './styleVoteFixture'
 import { readStyleVote } from './styleVoteSaved'
 
 describe('two tabs of one device', () => {
@@ -9,13 +9,13 @@ describe('two tabs of one device', () => {
     const send = vi.fn<SendVote>(async () => 'taken')
     const a = open(async () => 'taken', store)
     const b = open(send, store, 'another id')
-    a.choose('drawn')
+    a.choose(DRAWN)
     a.vote()
     await settle()
     b.follow('shamayim:place:v1')
     expect(b.get().vote).toBeNull()
     b.follow(VOTE_KEY)
-    expect(b.get()).toMatchObject({ style: 'drawn', vote: 'drawn', sent: true, id: ID })
+    expect(b.get()).toMatchObject({ style: DRAWN, vote: DRAWN, sent: true, id: ID })
     b.choose('real')
     b.vote()
     await settle()
@@ -27,20 +27,20 @@ describe('two tabs of one device', () => {
     const send = vi.fn<SendVote>(async () => 'taken')
     const a = open(async () => 'taken', store)
     const b = open(send, store, 'another id')
-    b.choose('drawn')
-    a.choose('drawn')
+    b.choose(DRAWN)
+    a.choose(DRAWN)
     a.vote()
     b.vote()
-    expect(send).toHaveBeenCalledExactlyOnceWith({ id: ID, style: 'drawn' })
+    expect(send).toHaveBeenCalledExactlyOnceWith({ id: ID, style: DRAWN })
   })
 
   it('follow while sending: the newer vote of the other tab goes next', async () => {
     const { answers, send } = slowSend()
     const store = memoryStore()
     const votes = open(send, store)
-    votes.choose('drawn')
+    votes.choose(DRAWN)
     votes.vote()
-    store.setItem(VOTE_KEY, JSON.stringify({ seen: ['real', 'drawn'], vote: 'real', sent: false, id: ID }))
+    store.setItem(VOTE_KEY, JSON.stringify({ seen: ['real', DRAWN], vote: 'real', sent: false, id: ID }))
     votes.follow(null)
     answers[0]('taken')
     await settle()
@@ -54,20 +54,20 @@ describe('two tabs of one device', () => {
     const store = memoryStore()
     const frozen = open(async () => 'taken', store, 'another id')
     const other = open(async () => 'taken', store)
-    other.choose('drawn')
+    other.choose(DRAWN)
     other.vote()
     frozen.follow(null)
     frozen.choose('real')
-    expect(readStyleVote(store)).toMatchObject({ style: 'real', vote: 'drawn', id: ID })
+    expect(readStyleVote(store)).toMatchObject({ style: 'real', vote: DRAWN, id: ID })
   })
 
   it('a tab that could not save keeps its own choice', () => {
     const full = { ...memoryStore(), setItem: () => { throw new Error('full') } }
     for (const store of [full, null]) {
       const votes = open(async () => 'taken', store)
-      votes.choose('drawn')
+      votes.choose(DRAWN)
       votes.follow(null)
-      expect(votes.get()).toMatchObject({ style: 'drawn', seen: ['real', 'drawn'] })
+      expect(votes.get()).toMatchObject({ style: DRAWN, seen: ['real', DRAWN] })
     }
   })
 })

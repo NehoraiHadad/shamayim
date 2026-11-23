@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { VOTE_ROUND } from '../../src/data/styleVoteRound'
 import { clearVoteMemory } from '../src/styleVote'
-import { ORIGIN, today, TOTALS, uuid, VOTE, voteKey, voteWorker } from './voteKv'
+import { DRAWN, ORIGIN, today, TOTALS, uuid, VOTE, voteKey, voteWorker } from './voteKv'
 
 let worker: ReturnType<typeof voteWorker>
 
@@ -12,15 +12,15 @@ beforeEach(() => {
 
 describe('POST /v1/style-vote', () => {
   it('keeps the vote in metadata for a year, and nothing about the voter', async () => {
-    const res = await worker.vote(1, 'drawn', { 'CF-Connecting-IP': '203.0.113.9', 'User-Agent': 'phone' })
+    const res = await worker.vote(1, DRAWN, { 'CF-Connecting-IP': '203.0.113.9', 'User-Agent': 'phone' })
     expect(res.status).toBe(204)
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN)
-    expect([...worker.kv.data]).toEqual([[voteKey(1), { value: 'drawn', expirationTtl: 365 * 24 * 3600,
-      metadata: { style: 'drawn', day: today(), n: 1 } }]])
+    expect([...worker.kv.data]).toEqual([[voteKey(1), { value: DRAWN, expirationTtl: 365 * 24 * 3600,
+      metadata: { style: DRAWN, day: today(), n: 1 } }]])
   })
 
   it('replaces the vote of the same id, also back within the read delay of KV', async () => {
-    for (const style of ['real', 'drawn', 'real']) await worker.vote(1, style)
+    for (const style of ['real', DRAWN, 'real']) await worker.vote(1, style)
     expect(worker.kv.data.size).toBe(1)
     expect(worker.kv.data.get(voteKey(1))?.metadata).toMatchObject({ style: 'real', n: 3 })
     expect(await worker.totals()).toMatchObject({ round: VOTE_ROUND, real: 1, drawn: 0 })
@@ -28,13 +28,13 @@ describe('POST /v1/style-vote', () => {
 
   it('counts a voter once while KV does not answer their vote yet', async () => {
     worker.kv.getWithMetadata.mockResolvedValue({ value: null, metadata: null })
-    for (const style of ['real', 'drawn']) await worker.vote(1, style)
+    for (const style of ['real', DRAWN]) await worker.vote(1, style)
     expect(worker.kv.data.get(voteKey(1))?.metadata?.n).toBe(2)
     expect(await worker.totals()).toMatchObject({ real: 0, drawn: 1, today: 2 })
   })
 
   it('writes a change back although KV still answers the older, same style (another isolate took the change)', async () => {
-    await worker.vote(1, 'drawn')
+    await worker.vote(1, DRAWN)
     clearVoteMemory()
     worker.kv.getWithMetadata.mockResolvedValueOnce({ value: 'real', metadata: { style: 'real', day: today(), n: 1 } })
     expect((await worker.vote(1, 'real')).status).toBe(204)

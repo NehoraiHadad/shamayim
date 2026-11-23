@@ -1,9 +1,9 @@
-import type { VoteStyle } from '../../data/styleVoteRound'
+import { VOTE_NAMES, type VoteStyle } from '../../data/styleVoteRound'
 import type { LocalTime } from '../../domain/types'
 import type { SceneStyle } from '../../scene/paint/painters'
 
 /** Keyed by the scene's styles: a style added there without a vote fails the type check here. */
-export const STYLE_NAMES: Record<SceneStyle, string> = { real: 'מציאותי', drawn: 'מאויר' }
+export const STYLE_NAMES: Record<SceneStyle, string> = VOTE_NAMES
 
 export const TITLE = 'סגנון התצוגה'
 export const VOTE = 'הסגנון הזה עדיף בעיניי'

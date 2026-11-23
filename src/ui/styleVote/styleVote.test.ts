@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { DRAWN } from '../../data/styleVoteFixture'
 import { mix, ratio } from '../../theme/contrast'
 import { contrastSamples } from '../../theme/contrastSamples'
 import { StyleVotePanel } from './StyleVotePanel'
@@ -21,24 +22,24 @@ describe('style panel', () => {
   })
 
   it('offers the vote once both were seen', () => {
-    const html = panel({ style: 'drawn', vote: null, seenBoth: true })
+    const html = panel({ style: DRAWN, vote: null, seenBoth: true })
     expect(html).toContain(VOTE)
     expect(html).not.toContain(SEE_OTHER)
   })
 
   it('thanks and marks the choice, and offers a change on the other style', () => {
-    const voted = panel({ style: 'drawn', vote: 'drawn', seenBoth: true })
+    const voted = panel({ style: DRAWN, vote: DRAWN, seenBoth: true })
     expect(voted).toContain(THANKS)
     expect(voted).not.toContain(VOTE)
     expect(voted).not.toContain(PENDING)
     expect(voted.split(PREFERRED)).toHaveLength(2)
-    const other = panel({ style: 'real', vote: 'drawn', seenBoth: true })
+    const other = panel({ style: 'real', vote: DRAWN, seenBoth: true })
     expect(other).toContain(VOTE)
     expect(other).not.toContain(THANKS)
   })
 
   it('says a vote the Worker does not have goes out later, and offers it no second time', () => {
-    const html = panel({ style: 'drawn', vote: 'drawn', seenBoth: true, pending: true })
+    const html = panel({ style: DRAWN, vote: DRAWN, seenBoth: true, pending: true })
     expect(html).toContain(PENDING)
     expect(html).not.toContain(THANKS)
     expect(html).not.toContain(VOTE)
@@ -49,7 +50,7 @@ describe('WhatsApp message', () => {
   const text = (url: string) => new URL(url).searchParams.get('text')
 
   it('names the preferred style, the place and the hour shown, and no contact', () => {
-    const url = whatsappUrl({ vote: 'drawn', style: 'real', placeName: 'חיפה', at: '2026-11-17T14:00' })
+    const url = whatsappUrl({ vote: DRAWN, style: 'real', placeName: 'חיפה', at: '2026-11-17T14:00' })
     expect(url).toMatch(/^https:\/\/wa\.me\/\?text=/)
     expect(text(url)).toContain('הסגנון המועדף עליי: מאויר.')
     expect(text(url)).toContain('חיפה, 17.11 בשעה 14:00.')
