@@ -9,7 +9,8 @@ import { hashId, seeded } from '../landmarks/hash'
 import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
-import { composeFabric, visibleFabric } from './fabricSlots'
+import { composeFabric, visibleFabric, type FabricCandidate } from './fabricSlots'
+import { fabricFrontage } from './fabricFrontage'
 import { MassIndex, SkylineFootprint, visible } from './skylineFootprint'
 import { TOWER_FRONT_M } from './towerWidth'
 
@@ -377,7 +378,7 @@ export interface FabricCell {
  */
 function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput,
   look?: OutsideLook, footprint?: SkylineFootprint): OutsideBox[] {
-  const candidates: { box: OutsideBox; expanded: boolean }[] = []
+  const candidates: FabricCandidate[] = []
   for (const cell of cells) {
     if (!inFrame(frame, cell.dx, cell.dy)) continue
     const { x, near, k, depth } = outsideProject(frame, cell.dx, cell.dy)
@@ -386,17 +387,17 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     const heightM = Math.min(capM, cell.heightM)
     const h = Math.max(1, pxOf(look, heightM, k))
     // Roof type changes at HOUSE_TOP_M. The same footprint keeps its width on either side.
-    const legible = !look ? 0 : Math.max(look.house.w * k / frame.k, planPx(look, frame, cell.frontM ?? 0, k))
-    const bodyW = Math.max(w, legible)
+    const houseWidth = look ? look.house.w * k / frame.k : 0
+    const bodyW = look ? fabricFrontage(w, houseWidth, planPx(look, frame, cell.frontM ?? 0, k), heightM, HOUSE_TOP_M) : w
     const foot = lieBaseY(lie, ground, x, near, floor, bodyW, cell.dx, cell.dy)
     const box = { x, w: bodyW, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
-    candidates.push({ box, expanded: bodyW > w })
+    candidates.push({ box, expanded: bodyW > w, house: heightM < HOUSE_TOP_M })
     if (footprint) {
       const roof = Math.min(capM, cell.skylineHeightM ?? cell.heightM)
-      const houseWidth = look && roof < HOUSE_TOP_M ? look.house.w * k / frame.k : 0
-      const base = lieBaseY(lie, ground, x, near, floor, Math.max(w, houseWidth), cell.dx, cell.dy)
+      const nominalWidth = roof < HOUSE_TOP_M ? houseWidth : 0
+      const base = lieBaseY(lie, ground, x, near, floor, Math.max(w, nominalWidth), cell.dx, cell.dy)
       const height = Math.max(1, pxOf(look, roof, k))
-      footprint.add({ ...box, w, top: base - height, foot: base, heightM: roof }, houseWidth, height)
+      footprint.add({ ...box, w, top: base - height, foot: base, heightM: roof }, nominalWidth, height)
     }
   }
   return look ? composeFabric(candidates, look.house.w) : visible(candidates.map(({ box }) => box), width)

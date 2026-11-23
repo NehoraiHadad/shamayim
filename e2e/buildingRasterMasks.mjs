@@ -1,7 +1,6 @@
 // Geometry masks use the scene painter and visible draw order.
 export async function buildingRasterMasks(layers, outside, w, h) {
   const { paintBoxGeometry } = await import('/src/scene/paint/real/outsideBox.ts')
-  const { capDepth, topPlane } = await import('/src/scene/paint/shared/town/buildingFaces.ts')
   const { paintTower } = await import('/src/scene/paint/real/outsideTower.ts')
   const { paintFarCities } = await import('/src/scene/paint/shared/town/farCities.ts')
   const { isField } = await import('/src/world/glyphSpecs.ts')
@@ -18,6 +17,8 @@ export async function buildingRasterMasks(layers, outside, w, h) {
   const ownerColors = new Map()
   const f = c => ({ wall: c, eave: c, foot: c })
   const black = [0, 0, 0], tile = [1, 0, 1], red = [1, 0, 0], green = [0, 1, 0], blue = [0, 0, 1], yellow = [1, 1, 0]
+  const capMask = { front: f(black), left: f(black), right: f(black), top: [1, 1, 1],
+    tile: [black, black, black], tileBase: black, unresolved: black }
   const props = { panel: black, heater: black }
   const shine = { ...outside.shine, glint: 0, windows: 0 }
   let index = 0
@@ -44,7 +45,8 @@ export async function buildingRasterMasks(layers, outside, w, h) {
       top: value, tile: [value, value, value], tileBase: value, recess: value, unresolved: value }
     paintBoxGeometry(m, { ...b, heater: false }, outside.tiers[b.tier], shine, facade, props)
     paintBoxGeometry(owner, { ...b, heater: false }, outside.tiers[b.tier], shine, owned, props)
-    if (b.roof !== 'tile') topPlane(caps, b.x - b.w / 2, b.top, b.w, capDepth(b.w, b.foot - b.top), yellow)
+    // Paint occluders in the same order. A rear cap under a front wall is not a roof sample.
+    paintBoxGeometry(caps, { ...b, heater: false }, outside.tiers[b.tier], shine, { ...p, ...capMask }, props)
   }
 
   const domeCtx = canvas().getContext('2d')

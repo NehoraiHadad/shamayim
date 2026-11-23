@@ -1,4 +1,5 @@
 import type { OutsideBox } from './outsideView'
+import { houseRowPitch } from './fabricFrontage'
 
 /** Cull roofs hidden across their full screen span by nearer rows. */
 export function visible(boxes: OutsideBox[], width: number): OutsideBox[] {
@@ -23,7 +24,7 @@ export class SkylineFootprint {
   add(box: OutsideBox, houseWidth: number, height: number) {
     if (box.w >= houseWidth) { this.boxes.push(box); return }
     // Historical representative spacing. These buckets are only used to recover the prominence footprint.
-    const slotW = houseWidth * 1.1, slotH = Math.max(1.2, .6 * height)
+    const slotW = houseWidth * 1.1, slotH = houseRowPitch(height)
     const x = Math.round(box.x / slotW), y = Math.round(box.foot / slotH)
     const off = Math.hypot((box.x - x * slotW) / slotW, (box.foot - y * slotH) / slotH)
     const key = `${x}:${y}`

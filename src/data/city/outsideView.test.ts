@@ -13,7 +13,7 @@ describe('the place seen from outside', () => {
   const frame = outsideFrame(undefined, 3, 195, 390, true)
   const look = { house: { w: 3 }, plan: 3 / 13, px: (heightM: number, k: number) => heightM * k }
 
-  it('keeps the mapped frontage at both sides of the house roof threshold', () => {
+  it('changes frontage continuously through the house roof threshold', () => {
     const frontM = 26
     const widths = [12.4, 12.6, 13.4].map(heightM => {
       const result = outsideSkyline({ place, towers: [], landmarks: [], frame, ground: () => 100,
@@ -21,7 +21,9 @@ describe('the place seen from outside', () => {
       expect(result.boxes).toHaveLength(1)
       return result.boxes[0].w
     })
-    for (const w of widths) expect(w).toBeCloseTo(look.plan * frontM)
+    expect(widths[0]).toBeCloseTo(look.house.w)
+    expect(widths[1] - widths[0]).toBeCloseTo((look.plan * frontM - look.house.w) * .1 / 12.5)
+    expect(widths[2]).toBeGreaterThan(widths[1])
   })
 
   it('projects the mapped frontage at the same depth as each roof', () => {
@@ -29,7 +31,7 @@ describe('the place seen from outside', () => {
     for (const dy of [-1, 1]) {
       const { k } = outsideProject(frame, 0, dy)
       const result = outsideSkyline({ place, towers: [], landmarks: [], frame, ground: () => 100,
-        floor: 120, width: 390, look, fabric: [{ dx: 0, dy, wKm: .01, heightM: 19, frontM, seed: 1 }] })
+        floor: 120, width: 390, look, fabric: [{ dx: 0, dy, wKm: .01, heightM: 25, frontM, seed: 1 }] })
       expect(result.boxes).toHaveLength(1)
       expect(result.boxes[0].w).toBeCloseTo(frontM * look.plan * k / frame.k)
     }
@@ -58,6 +60,15 @@ describe('the place seen from outside', () => {
     const front = { x: 100.4, w: .8, top: 90, foot: 100, near: .8, kind: 'mass' as const }
     const behind = { ...front, x: 100.6, top: 94, near: .6 }
     expect(visibleFabric([front, behind], 390)).toEqual([front, behind])
+  })
+
+  it('keeps a short house row between same-frontage rows on a slope', () => {
+    const house = (foot: number, near: number) => ({ expanded: true, house: true,
+      box: { x: 100, w: 3, top: foot - 2, foot, near, kind: 'mass' as const } })
+    const front = house(100, .8), middle = house(98.7, .7), rear = house(97.4, .6)
+    expect(composeFabric([front, middle, rear], 3)).toEqual([front.box, middle.box, rear.box])
+    const lowerRear = { ...rear.box, top: 104, foot: 106 }
+    expect(visibleFabric([front.box, lowerRear], 390)).toEqual([lowerRear, front.box])
   })
 
   it('keeps the spire when only a widened, newly raised facade reaches its bearing', () => {
