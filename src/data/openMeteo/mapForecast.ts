@@ -11,6 +11,8 @@ export interface MappedForecast {
   hours: HourPoint[]
   days: DayPoint[]
   nowcast: NowcastPoint[] | null
+  /** The response's offset from UTC (Israel: 7200 in winter, 10800 in summer). */
+  utcOffsetSeconds: number
 }
 
 export function mapForecast(input: unknown): MappedForecast {
@@ -27,5 +29,6 @@ export function mapForecast(input: unknown): MappedForecast {
   const utcOffsetSeconds = numOrNull(raw.utc_offset_seconds) ?? 7200
   return {
     elevation, current, hours: mapHours(raw, today, current.time, utcOffsetSeconds), days: mapDays(raw, today), nowcast: mapNowcast(raw),
+    utcOffsetSeconds,
   }
 }

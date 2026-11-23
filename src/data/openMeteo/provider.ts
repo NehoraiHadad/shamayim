@@ -1,6 +1,8 @@
 import type { Place } from '../../config/place'
 import type { Forecast } from '../../domain/types'
 import { HttpError } from '../fetchFailure'
+import { applyLive } from '../../domain/correction/live'
+import { fetchLive } from '../live'
 import { fetchNormals, normalsFor } from '../normals'
 import type { WeatherProvider } from '../WeatherProvider'
 import { fetchedAtOf } from '../weatherApi'
@@ -49,13 +51,17 @@ async function getJsonRetry(url: string, signal?: AbortSignal): Promise<Fetched>
 export const openMeteoIcon: WeatherProvider = {
   id: 'open-meteo-icon',
   async getForecast(place: Place, signal?: AbortSignal): Promise<Forecast> {
-    const [forecastRes, airRes, normalsRes] = await Promise.allSettled([
+    const [forecastRes, airRes, normalsRes, liveRes] = await Promise.allSettled([
       getJsonRetry(forecastUrl(place), signal),
       getJson(airUrl(place), signal),
       fetchNormals(place, signal),
+      fetchLive(place, signal),
     ])
     if (forecastRes.status === 'rejected') throw forecastRes.reason
-    const mapped = mapForecast(forecastRes.value.body)
+    const { utcOffsetSeconds, ...base } = mapForecast(forecastRes.value.body)
+    // The IMS stations' current anomaly around the place, on "now" and the next hours (domain/correction/live).
+    const live = liveRes.status === 'fulfilled' ? liveRes.value : null
+    const mapped = { ...base, ...applyLive(base.current, base.hours, live, utcOffsetSeconds) }
     let air = null
     if (airRes.status === 'fulfilled') {
       try {

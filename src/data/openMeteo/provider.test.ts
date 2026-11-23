@@ -42,7 +42,7 @@ describe('openMeteoIcon provider', () => {
     expect(urls.some((u) => u.startsWith('https://w.test/v1/normals?'))).toBe(true)
   })
 
-  it('starts forecast, air and normals in parallel and retains forecast on normals failure', async () => {
+  it('starts forecast, air, normals and the live anomaly in parallel and retains forecast on their failure', async () => {
     vi.stubEnv('VITE_WEATHER_API_BASE', 'https://w.test')
     let release: () => void = () => {}
     const gate = new Promise<void>((resolve) => { release = resolve })
@@ -53,7 +53,8 @@ describe('openMeteoIcon provider', () => {
       return url.includes('/forecast?') ? new Response(JSON.stringify(live)) : new Response('{}', { status: 503 })
     }))
     const pending = openMeteoIcon.getForecast(SHADMOT_MEHOLA)
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(4)
+    expect(calls.some((u) => u.startsWith('https://w.test/v1/live?'))).toBe(true)
     release()
     const f = await pending
     expect(f.normals).toBeNull()
