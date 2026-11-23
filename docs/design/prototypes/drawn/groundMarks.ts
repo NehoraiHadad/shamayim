@@ -28,8 +28,8 @@ export function groundLines(ctx: Ctx2D, desc: LayerOf<'plane'>): void {
 }
 
 /** Dabs a plane takes per 1000 px²; their length (px) at the foot, their thickness, how far their value goes from the ground's. */
-const DENSITY = { near: 5.5, far: 1.6, back: 0 } as const
-const LONG = [5, 15] as const, THICK = 1.15, LIGHT = 0.045, DARK = -0.04, SEED = 5501
+const DENSITY = { near: 9, far: 2.5, back: 0 } as const
+const LONG = [5, 15] as const, THICK = 1.15, LIGHT = 0.06, DARK = -0.055, SEED = 5501
 
 export function groundDabs(ctx: Ctx2D, desc: LayerOf<'plane'>, t: PlaneTexelCtx, colourAt: (x: number, y: number) => RGB): void {
   const { bounds } = desc, r = rng(SEED + desc.grain.seed)

@@ -1,16 +1,16 @@
-import type { Disc, LayerOf, MoonDisc } from '../../../../src/scene/model/types'
+import type { Disc, LayerOf } from '../../../../src/scene/model/types'
 import { paintBodies } from '../../../../src/scene/paint/shared/sky/bodies'
 import { css, type Ctx2D } from '../../../../src/scene/paint/shared/base/hand'
 import { pigment } from './palette'
 
 /* The sun as a cut disc on stepped rings, no limb shading; the moon the shared one (its phase and seas are facts). */
 
-const RINGS = [2.9, 2.15, 1.5] as const
+const RINGS = [2.5, 1.95, 1.45] as const
 
 export function paintDrawnBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
-  if (desc.sun && desc.part === 'aureole') rings(ctx, desc.sun)
+  if (desc.sun && desc.part === 'aureole') { if (desc.sun.veil < 0.5) rings(ctx, desc.sun) }
   else if (desc.sun) disc(ctx, desc.sun)
-  if (desc.moon && desc.part !== 'aureole') moon(ctx, desc, desc.moon)
+  if (desc.moon && desc.part !== 'aureole') paintBodies(ctx, { ...desc, sun: undefined })
 }
 
 function rings(ctx: Ctx2D, d: Disc) {
@@ -21,14 +21,6 @@ function rings(ctx: Ctx2D, d: Disc) {
 function disc(ctx: Ctx2D, d: Disc) {
   ctx.fillStyle = css(pigment(d.core, 0.5), Math.max(0.1, 1 - 0.97 * d.veil ** 0.7))
   circle(ctx, d.x, d.y, d.r * 1.04, d.flatten)
-}
-
-function moon(ctx: Ctx2D, desc: LayerOf<'bodies'>, m: MoonDisc) {
-  if (m.daylight < 0.5) {
-    ctx.fillStyle = css(m.rgb, 0.07 * m.alpha * m.fraction)
-    for (const k of [3.6, 2.4]) circle(ctx, m.x, m.y, m.r * k, 1)
-  }
-  paintBodies(ctx, { ...desc, sun: undefined })
 }
 
 function circle(ctx: Ctx2D, x: number, y: number, r: number, flatten: number) {

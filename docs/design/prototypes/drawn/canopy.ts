@@ -61,9 +61,9 @@ function pure(bytes: Uint8Array): Uint8Array {
 type Crown = { cx: number; cy: number; rx: number; ry: number }
 
 function tree(ctx: Ctx2D, x: number, y: number, r: number, kind: number, c: Crown, phase: number, ink: (slot: number) => RGB) {
-  const body = pigment(ink(0), 0), small = r < 0.85
-  const dark = pigment(valued(small ? ink(0) : mix(ink(0), ink(1), 0.7), -0.06), -0.8)
-  const lit = pigment(valued(small ? ink(0) : mix(ink(0), ink(2), 0.75), 0.07), 0.8)
+  const body = pigment(ink(0), 0, 1.25), small = r < 0.85
+  const dark = pigment(valued(small ? ink(0) : mix(ink(0), ink(1), 0.7), -0.06), -0.8, 1.25)
+  const lit = pigment(valued(small ? ink(0) : mix(ink(0), ink(2), 0.75), 0.07), 0.8, 1.25)
   if (r > 1.6) {
     ctx.fillStyle = css(pigment(mix(dark, [0.36, 0.24, 0.17], 0.45)))
     ctx.fillRect(x - r * 0.09, c.cy, r * 0.18, y - c.cy + 0.3)

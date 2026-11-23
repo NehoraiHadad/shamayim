@@ -3,80 +3,84 @@ import type { LayerOf, RGB } from '../../../../src/scene/model/types'
 import { addLight } from '../../../../src/scene/model/tone'
 import { toneOf } from '../../../../src/scene/paint/shared/cloud/deck'
 import { css, mix, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
-import { billows } from '../../../../src/scene/paint/drawn/billows'
-import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { soften } from '../../../../src/scene/paint/shared/base/soften'
-import { fieldAt, sheetField, type SheetField } from '../../../../src/scene/paint/drawn/sheetField'
+import { fractal } from '../../../../src/scene/paint/shared/base/core'
+import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
+import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
 import { traceOver, type Frame, type Grid } from './contour'
+import { lobesOf, paintLobes } from './lobes'
 import { pigment } from './palette'
 
 /*
- * A cloud sheet as cut paper: each mass is one flat shade plane with a scalloped head and a calm foot, a local plane over
- * it and a lit plane on its tops, every edge a closed outline (`contour`).
+ * A cloud sheet as cut paper. Every mass is one flat silhouette, where the model puts it; broken cloud stands on it as
+ * lobes (`lobes`), a closed deck lies in broad planes of its own tone, and a high veil is thin translucent planes.
  */
 
-/** Grid px per sky px; where the edge stands; how far the heads move it. */
-const CELL = 2, EDGE = 0.42, HEADS = 1.5, SMALL = 0.16
-/** A puff's light and the mass's, against the planes' levels. */
-const PUFF = 1.15, BROAD = 0.75
-const LOCAL = -0.12, LIT = 0.36
-const SIZE_MIN = 0.12
-/** The room heads stand in, against the rows' spacing, and at most (px). */
-const HEAD_ROOM = 0.55, HEAD_MAX = 12
+/** Grid px per sky px; where the edge stands; how far a slow noise bends it. */
+const CELL = 2, EDGE = 0.5, FAR_EDGE = 0, BEND = 0.16, FREQ = 0.035
+/** How far the model's own rows are eased into each other (against their spacing), and the far ones along themselves (px). */
+const EASE = 0.16, FAR = 7
+/** A lobe's size against its row's spacing, and at least and at most (px). */
+const LOBE = 2.3, LOBE_MIN = 5, LOBE_MAX = 42
+/** A row this far apart (px) is near. */
+const NEAR = 14
+/** A deck this open stands in lobes. */
+const OPEN = 0.3
 
 export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: PaintEnv): void {
   const f = sheetField(desc)
   if (!f) return
-  const wide = eased(f)
-  const cols = Math.ceil(f.width / CELL) + 1, rows = Math.ceil(f.height / CELL) + 1
+  const cols = Math.ceil(f.width / CELL) + 1, rows = Math.ceil(f.height / CELL) + 1, seed = hashId(desc.id)
   const frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }
-  const grid = () => ({ cols, rows, at: new Float32Array(cols * rows).fill(-9) })
-  const edge = grid(), light = grid()
-  const head = billows(hashId(desc.id))
-  let v = 0, solid = 0, tones = 0, city = 0
+  const wide = new Float32Array(f.alpha.length * 4), ease = f.spacing.map((s) => EASE * s)
+  f.alpha.forEach((a, n) => { wide[n * 4] = a })
+  const grid = (): Grid => ({ cols, rows, at: new Float32Array(cols * rows).fill(-9) })
+  // The model's rows are far apart overhead: their steps are eased before an edge is cut along them.
+  const far = f.spacing.map((s) => Math.max(0, 1 - s / NEAR))
+  soften(wide, f.cols, f.rows, ease.map((v, n) => (1.4 * v + FAR * far[n]) / (f.width / (f.cols - 1))), ease.map((v) => v / (f.height / (f.rows - 1))))
+  const edge = grid(), side = grid(), tone = grid()
+  const alpha = f.alpha.map((_, n) => wide[n * 4])
+  let solid = 0, tones = 0, city = 0
   for (let j = 0; j < rows; j++) {
-    const gy = (j * (f.rows - 1)) / (rows - 1), size = Math.max(SIZE_MIN, Math.sqrt(Math.min(1, f.spacing[Math.round(gy)] / 20)))
-    v += CELL / size
+    const gy = (j * (f.rows - 1)) / (rows - 1), near = Math.min(1, f.spacing[Math.round(gy)] / NEAR)
     for (let i = 0; i < cols; i++) {
-      const gx = (i * (f.cols - 1)) / (cols - 1), a = fieldAt(wide, f.cols, f.rows, gx, gy)
+      const gx = (i * (f.cols - 1)) / (cols - 1), a = fieldAt(alpha, f.cols, f.rows, gx, gy), n = j * cols + i
       if (a < 0.004) continue
-      const puff = head((i * CELL - f.width / 2) / size, v), part = 4 * a * (1 - a), n = j * cols + i
-      const broad = fieldAt(f.side, f.cols, f.rows, gx, gy)
-      // A calm foot: heads stand on tops, not under a base.
-      const top = broad > 0 ? 1 : Math.max(0.15, 1 + broad * 1.4)
-      edge.at[n] = a + f.open * part * top * (HEADS * puff.high + SMALL * puff.small) - EDGE
-      light.at[n] = Math.min(edge.at[n] * 12, PUFF * puff.light + BROAD * broad * f.open + 0.1 * puff.small)
-      if (edge.at[n] > 0) {
-        solid += a
-        tones += a * fieldAt(f.tone, f.cols, f.rows, gx, gy)
-        city += a * fieldAt(f.city, f.cols, f.rows, gx, gy)
-      }
+      const bend = fractal(seed % 997, i * CELL, j * CELL, FREQ / (0.3 + near), (1.6 * FREQ) / (0.3 + near), 2) - 0.5
+      edge.at[n] = a + BEND * 4 * a * (1 - a) * bend - EDGE - FAR_EDGE * (1 - near)
+      side.at[n] = fieldAt(f.side, f.cols, f.rows, gx, gy)
+      const t = fieldAt(f.tone, f.cols, f.rows, gx, gy)
+      tone.at[n] = Math.min(edge.at[n] * 12, t + 0.1 * bend)
+      if (edge.at[n] > 0) { solid += a; tones += a * t; city += a * fieldAt(f.city, f.cols, f.rows, gx, gy) }
     }
   }
   if (!solid) return
-  const t = tonesOf(desc, tones / solid, city / solid)
+  const mean = tones / solid, t = tonesOf(desc, mean, city / solid)
   ctx.save()
   if (desc.lattice === 'high') ctx.globalAlpha *= 0.4
-  cut(ctx, edge, -0.1, frame, t.shade, 0.28)
-  cut(ctx, edge, 0, frame, t.shade)
-  cut(ctx, light, LOCAL, frame, t.local)
-  cut(ctx, light, LIT, frame, t.lit)
+  const broken = f.open > OPEN && desc.lattice !== 'high'
+  cut(ctx, edge, 0, frame, broken ? t.shade : t.local)
+  if (broken) {
+    const part = (by: (s: number) => number): Grid => ({ ...edge, at: edge.at.map((e, n) => (e > 0 ? Math.min(e * 12, by(side.at[n])) : -9)) })
+    cut(ctx, part((s) => -0.5 - s), 0, frame, t.foot)
+    cut(ctx, part((s) => s + 0.12), 0, frame, t.half)
+    cut(ctx, part((s) => s - 0.3), 0, frame, t.local)
+    const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])) / CELL
+    const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
+    paintLobes(ctx, lobes, [
+      { down: 0.3, rgb: t.half, cap: t.lit }, { down: -0.12, rgb: t.shade, cap: t.local }, { down: -0.5, rgb: t.foot, cap: t.half }], { x: f.x0, y: f.y0, step: CELL, toward: 0 })
+  } else {
+    cut(ctx, tone, mean + 0.05, frame, t.shade)
+    cut(ctx, tone, mean + 0.13, frame, t.foot)
+    cut(ctx, { ...tone, at: tone.at.map((v, n) => (edge.at[n] > 0 ? Math.min(edge.at[n] * 12, 1 - v) : -9)) }, 1 - mean + 0.07, frame, t.lit)
+  }
   ctx.restore()
 }
 
-/** The mass's outline eased over a share of its rows' spacing: the room its heads stand in. */
-function eased(f: SheetField): Float32Array {
-  const buf = new Float32Array(f.alpha.length * 4), cell = f.height / (f.rows - 1), across = f.width / (f.cols - 1)
-  f.alpha.forEach((a, n) => { buf[n * 4] = a })
-  const px = f.spacing.map((s) => Math.min(HEAD_MAX, HEAD_ROOM * s) * f.open)
-  soften(buf, f.cols, f.rows, px.map((v) => (1.3 * v) / across), px.map((v) => v / cell))
-  return f.alpha.map((_, n) => buf[n * 4])
-}
-
-function cut(ctx: Ctx2D, grid: Grid, level: number, frame: Frame, rgb: RGB, alpha = 1) {
+function cut(ctx: Ctx2D, grid: Grid, level: number, frame: Frame, rgb: RGB) {
   ctx.beginPath()
-  traceOver(ctx, grid, level, frame, 10)
-  ctx.fillStyle = css(rgb, alpha)
+  traceOver(ctx, grid, level, frame, 8)
+  ctx.fillStyle = css(rgb)
   ctx.fill()
 }
 
@@ -84,8 +88,10 @@ function tonesOf(desc: LayerOf<'cloudSheet'>, tone: number, city: number) {
   const body = toneOf(desc, tone), low = lowLight(desc)
   const under = (rgb: RGB) => (desc.city ? addLight(rgb, desc.city.rgb, city) : rgb)
   return {
-    shade: pigment(under(mix(body, desc.shade, 0.55)), -1),
-    local: pigment(under(mix(body, desc.lit, 0.35)), -0.3),
+    foot: pigment(under(mix(body, desc.shade, 0.8)), -0.9),
+    shade: pigment(under(mix(body, desc.shade, 0.5)), -0.8),
+    half: pigment(under(mix(body, desc.lit, 0.14)), -0.45),
+    local: pigment(under(mix(body, desc.lit, 0.62)), 0),
     lit: pigment(under(mix(desc.lit, whitened(desc.lit), 1 - low)), 0.4),
   }
 }

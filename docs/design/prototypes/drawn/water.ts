@@ -74,7 +74,7 @@ export function flat(ctx: Ctx2D, stops: Stops, x0: number, x1: number, top: numb
 export function dashes(ctx: Ctx2D, streaks: readonly Streak[], rgb: RGB, thick: number, keep = KEEP) {
   const peak = Math.max(0, ...streaks.map((s) => s.alpha))
   if (peak <= 0.005) return
-  ctx.fillStyle = css(rgb, Math.min(1, peak * 1.25))
+  ctx.fillStyle = css(rgb, Math.min(1, 0.22 + peak * 1.1))
   ctx.beginPath()
   streaks.forEach((s, i) => {
     if ((i * 0.618034) % 1 > keep) return

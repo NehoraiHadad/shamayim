@@ -1,3 +1,4 @@
+import { fractal } from '../../../../src/scene/paint/shared/base/core'
 import { shadowBeam } from '../../../../src/scene/model/planeField'
 import { labOf, rgbOfLab } from '../../../../src/scene/model/tone'
 import type { LayerOf, RGB } from '../../../../src/scene/model/types'
@@ -21,7 +22,9 @@ import { pigment } from './palette'
 
 /** The pots a plane takes; how far its values part about their mean; how many cells the colours are gathered over. */
 const POTS = { near: 6, far: 4, back: 3 } as const
-const PART = 1.4, GATHER = 1.3, EDGE = 0.43, LEAST = 7
+const PART = 1.7, GATHER = 1.3, EDGE = 0.43, LEAST = 7
+/** How far a slow noise bends the patches' sides (px): the model's lie in columns, the land's do not. */
+const BENT = 70, BENT_SEED = 733
 
 export function paintCutPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
   lay(ctx, desc, env, desc.light.litField.eSun)
@@ -60,7 +63,9 @@ function shapes(ctx: Ctx2D, t: PlaneTexelCtx, k: number, beam: RGB): (x: number,
   for (let j = 0, n = 0; j < rows; j++) {
     const y = bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < cols; i++, n++) {
-      const lab = labOf(shadeTexelSrgb(t, samplePlaneTexel(t, i, bounds.x + (i + 0.5) * TEXEL, y), 1, beam))
+      const deep = Math.min(1, Math.max(0, (y - crestY[i]) / 40)), x = bounds.x + (i + 0.5) * TEXEL
+      const bx = x + deep * BENT * (fractal(BENT_SEED, x, y, 0.012, 0.03, 2) - 0.5), bi = Math.min(cols - 1, Math.max(0, Math.floor((bx - bounds.x) / TEXEL)))
+      const lab = labOf(shadeTexelSrgb(t, samplePlaneTexel(t, bi, bx, y), 1, beam))
       buf.set([lab.l, lab.a, lab.b, 1], n * 4)
       on[n] = y >= crestY[i] - TEXEL && y <= footY[i] + TEXEL ? 1 : 0
     }

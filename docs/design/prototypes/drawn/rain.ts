@@ -9,7 +9,7 @@ import { pigment, valued } from './palette'
  */
 
 const PANES = [[0, 0.62, 1], [-0.18, 0.4, 0.86], [0.2, 0.26, 0.94]] as const
-const PANE = 0.5, STROKES = 9
+const PANE = 1.5, STROKES = 14
 
 export function paintCutShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: PaintEnv): void {
   const { bounds, period } = desc
@@ -31,10 +31,13 @@ function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, env: PaintEnv) {
     const teeth: [number, number][] = []
     for (let n = 0; n <= 6; n++) teeth.push(at(mid + half * (1 - n / 3), reach - (n % 2 ? 0.07 + 0.12 * r() : 0.02 * r())))
     outline(ctx, [at(mid - half, 0), at(mid + half, 0), ...teeth])
-    ctx.fillStyle = css(rgb, Math.min(0.75, s.alpha * PANE))
+    const down = ctx.createLinearGradient(0, s.top, 0, s.top + 0.3 * h)
+    down.addColorStop(0, css(rgb, 0))
+    down.addColorStop(1, css(rgb, Math.min(0.8, s.alpha * PANE)))
+    ctx.fillStyle = down
     ctx.fill()
   }
-  ctx.strokeStyle = css(valued(rgb, 0.1), Math.min(0.5, s.alpha * 0.5))
+  ctx.strokeStyle = css(valued(rgb, 0.1), Math.min(0.5, s.alpha * 0.7))
   ctx.lineWidth = Math.max(0.6, 1 / env.scale)
   ctx.lineCap = 'round'
   ctx.beginPath()

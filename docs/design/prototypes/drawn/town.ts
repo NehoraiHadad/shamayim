@@ -13,7 +13,7 @@ import { stripPhase } from '../../../../src/scene/paint/shared/town/stripPhase'
 import { cutBlock, cutTower } from './townBody'
 import { cutTree } from './townTree'
 import { mixed } from './townTones'
-import { pigment } from './palette'
+import { pigment, valued } from './palette'
 import { dashes, flat } from './water'
 
 /*
@@ -85,8 +85,8 @@ function sea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
   outline(ctx, s.points)
   ctx.clip()
   const ripples = running(s.ripples, t, s.drift ?? 0, 0), lit = 1 - 0.5 * shine.night
-  dashes(ctx, ripples, pigment(s.light, 0.2), 0.8 * lit)
-  dashes(ctx, ripples.map((r) => ({ ...r, y: r.y + 1 })), pigment(s.dark, -0.4), 0.6)
+  dashes(ctx, ripples, pigment(valued(s.light, 0.06), 0.2), 0.8 * lit)
+  dashes(ctx, ripples.map((r) => ({ ...r, y: r.y + 1 })), pigment(valued(s.dark, -0.06), -0.4), 0.7)
   if (s.glint) dashes(ctx, twinkling(s.glint.sparks, t), pigment(s.glint.rgb, 0.4), 0.9, 1)
   ctx.restore()
   ctx.fillStyle = css(pigment(s.horizon.rgb), s.horizon.alpha * lit)

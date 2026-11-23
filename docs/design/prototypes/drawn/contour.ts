@@ -21,6 +21,8 @@ const SIDES: readonly (readonly number[])[] = [
   [TOP, LEFT], [TOP, FOOT], [TOP, RIGHT, FOOT, LEFT], [TOP, RIGHT], [RIGHT, LEFT], [RIGHT, FOOT], [FOOT, LEFT], [],
 ]
 
+const EASE = 3
+
 /** Every loop, as grid coordinates; one cell of "below" round the grid closes a shape that meets the frame. */
 function loopsOver({ cols, rows, at }: Grid, level: number): number[][] {
   const W = cols + 2, H = rows + 2
@@ -52,9 +54,19 @@ function loopsOver({ cols, rows, at }: Grid, level: number): number[][] {
   return out
 }
 
+/** A loop's points each eased toward its neighbours: the grid's own steps are not the hand's. */
+function eased(loop: readonly number[]): readonly number[] {
+  let at = loop
+  for (let pass = 0; pass < EASE; pass++) {
+    const was = at, n = was.length
+    at = was.map((v, i) => 0.5 * v + 0.25 * (was[(i + n - 2) % n] + was[(i + 2) % n]))
+  }
+  return at
+}
+
 /** A loop as a rounded path: through the middles of its edges, its points as the curves' handles. */
-function round(ctx: Ctx2D, loop: readonly number[], { cols, rows }: Grid, f: Frame) {
-  const n = loop.length / 2, sx = f.w / (cols - 1), sy = f.h / (rows - 1)
+function round(ctx: Ctx2D, raw: readonly number[], { cols, rows }: Grid, f: Frame) {
+  const loop = eased(raw), n = loop.length / 2, sx = f.w / (cols - 1), sy = f.h / (rows - 1)
   const X = (i: number) => f.x + Math.min(cols - 1, Math.max(0, loop[(i % n) * 2])) * sx
   const Y = (i: number) => f.y + Math.min(rows - 1, Math.max(0, loop[(i % n) * 2 + 1])) * sy
   ctx.moveTo((X(n - 1) + X(0)) / 2, (Y(n - 1) + Y(0)) / 2)

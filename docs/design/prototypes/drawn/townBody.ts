@@ -10,8 +10,8 @@ import { aviationLamp, type Lamp } from '../../../../src/scene/paint/shared/town
  * clean windows. No texture, no outline; a thin gap of shade parts a body from what stands behind it.
  */
 
-const GAP = 0.45, GAP_DARK = 0.34
-const SIDE = 0.22, SIDE_LIT = 0.2, SIDE_MAX = 5
+const GAP = 0.35, GAP_DARK = 0.24
+const SIDE = 0.16, SIDE_LIT = 0.2, SIDE_MAX = 5
 /** A window's size and pitch (px); how dark it is by day; the share there are. */
 const WIN_W = 0.95, WIN_H = 1.15, PITCH_X = 2.5, PITCH_Y = 2.7, DARK = 0.5, PRESENT = 0.72
 
@@ -64,13 +64,14 @@ function tiles(ctx: Ctx2D, b: Block, t: Tones, l: TownLight) {
 
 function panes(ctx: Ctx2D, x0: number, x1: number, top: number, foot: number, storeys: number, t: Tones, l: TownLight, plaster: RGB,
   r: () => number, lamps: Lamp[], lit: number) {
-  const rows = Math.min(storeys, Math.floor((foot - top) / PITCH_Y + 0.35)), many = Math.floor((x1 - x0) / PITCH_X + 0.45)
+  const least = l.night > 0.5 ? 1 : 0
+  const rows = Math.max(least, Math.min(storeys, Math.floor((foot - top) / PITCH_Y + 0.35))), many = Math.max(least, Math.floor((x1 - x0) / PITCH_X + 0.45))
   if (rows < 1 || many < 1) return
   const dark = css(mix(plaster, t.deep, DARK)), warm = css(mix(plaster, t.win, 0.95))
   for (let k = 0; k < rows; k++) {
     for (let n = 0; n < many; n++) {
-      const there = r() < PRESENT, on = r() < lit * 1.15
-      if (!there) continue
+      const there = r() < PRESENT, on = r() < lit * 1.6
+      if (!there && !on) continue
       const x = x0 + ((n + 0.5) / many) * (x1 - x0) - WIN_W / 2, y = top + ((k + 0.5) / rows) * (foot - top) - WIN_H / 2
       ctx.fillStyle = on ? warm : dark
       ctx.fillRect(x, y, WIN_W, WIN_H)

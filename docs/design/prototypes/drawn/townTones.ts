@@ -5,7 +5,7 @@ import { pigment, valued } from './palette'
 
 /** Each tone's turn (warm +, cool -) and its step of value; the rest are taken as they are. */
 const TURN: Partial<Record<keyof Tones, readonly [number, number]>> = {
-  wall: [0.35, 0.02], lit: [0.9, 0.07], shade: [-0.9, -0.03], deep: [-1, -0.05], rim: [0.4, 0.04], stone: [0.6, 0.03], stoneLit: [1, 0.07],
+  wall: [0.5, 0.05], lit: [0.9, 0.09], shade: [-0.9, -0.03], deep: [-1, -0.05], rim: [0.4, 0.04], stone: [0.6, 0.05], stoneLit: [1, 0.07],
   roof: [0.5, 0], roofLit: [1, 0.05], glass: [-0.4, 0], glassLit: [0, 0.03], green: [-0.1, -0.02], greenLit: [0.6, 0.05],
 }
 
