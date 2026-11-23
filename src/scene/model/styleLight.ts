@@ -2,7 +2,7 @@ import type { Normal } from '../../world/livingLight'
 import type { WorldState } from '../../world/types'
 import type { LandIrradiance } from './landIrradiance'
 import type { outsideShape } from './outsideShape'
-import type { OutsideItem, SceneBox, Shine, Tones } from './types'
+import type { OutsideItem, Plain, SceneBox, Shine, Tones } from './types'
 
 /** How much of the sky's and the ground's light a face keeps at twilight. */
 export type TwilightScreen = (n: Normal) => { sky: number; ground: number }
@@ -23,8 +23,8 @@ export interface OutsideLook {
   shine: Shine
   /** What the layer's light key carries of it. */
   key: string
-  /** Fields for this hand's painter alone, laid into the desc as they are: neither the model nor a shared painter reads them. */
-  own: object
+  /** Data for this hand's painter alone, the desc's `own`: neither the model nor a shared painter reads it. */
+  own?: Plain
 }
 
 /** A hand's light, where it does not take the model's own. Passed as a value: the model knows no hand. */

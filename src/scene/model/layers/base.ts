@@ -11,6 +11,9 @@ export interface SceneBox { width: number; skyHeight: number; landTop: number; l
 
 export interface Box { x: number; y: number; w: number; h: number }
 
+/** Plain data: what a worker's message carries as it is. */
+export type Plain = string | number | boolean | null | undefined | readonly Plain[] | { readonly [key: string]: Plain }
+
 export type LayerId = string
 export type Surface = 'sky' | 'land' | 'wear'
 

@@ -5,9 +5,7 @@ import { illustratedAerialFor as aerialFor, illustratedHazeOf as hazeOf } from '
 import { skyAt } from '../../../model/sky'
 import { lightness, mixRgb, scaleLight } from '../../../model/tone'
 import type { SceneBox, Tones, RGB } from '../../../model/types'
-
-/** How much sky light reaches the drawn town, its brighter side, and the colour at each tier. */
-export interface SkyForm { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }
+import type { SkyForm } from '../outsideOwn'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 

@@ -1,7 +1,7 @@
 import type { BuildingFaces, accessoryTones } from '../buildingLight'
 import type { CityTier } from '../cityMass'
 import type { RGB } from '../../../world/types'
-import type { LayerBase } from './base'
+import type { LayerBase, Plain } from './base'
 import type { OutsideLandDesc } from './land'
 import type { GlyphDesc, Shine, Tones, TreeDesc } from './town'
 import type { SeaDesc } from './water'
@@ -32,4 +32,6 @@ export type OutsideLayers =
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
       land: OutsideLandDesc | null
-      receivers: Record<number, BuildingFaces>[]; accessories: (ReturnType<typeof accessoryTones> | null)[] }
+      receivers: Record<number, BuildingFaces>[]; accessories: (ReturnType<typeof accessoryTones> | null)[]
+      /** What a style's own light adds, for its painter alone (`OutsideLook.own`). */
+      own?: Plain }

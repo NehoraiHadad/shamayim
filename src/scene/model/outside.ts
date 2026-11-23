@@ -79,7 +79,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
     items: out, tiers: tones, sea, shine, land: landDesc, receivers,
     accessories: look ? [] : wallKms.map((km, i) => shape.heaters.has(i) ? accessoryTones(world, km) : null),
-    ...look?.own,
+    ...(look?.own === undefined ? {} : { own: look.own }),
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
       glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),

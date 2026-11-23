@@ -22,8 +22,8 @@ export type Painters = { readonly [K in PaintedKind]: Painter<K> }
 /** The kinds every style paints its own way: the shared painters hold none of them. */
 type OwnKind = 'cloudSheet' | 'cloudCells' | 'shafts' | 'edge' | 'outside'
 
-/** The kinds every style paints with the same painter. */
-export type SharedPainters = Omit<Painters, OwnKind>
+/** The kinds every style paints with the same painter, and none of the kinds each paints its own way. */
+export type SharedPainters = Omit<Painters, OwnKind> & { readonly [K in OwnKind]?: never }
 
 /** One hand of the scene: its id in the registry (`styles.ts`), its painters and its light. Same world, same facts: only the hand differs. */
 export interface Style {

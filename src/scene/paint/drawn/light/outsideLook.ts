@@ -6,15 +6,9 @@ import { landmarkContrast, refreshLandmarkItems } from '../../../model/landmarkA
 import { shineOf } from '../../../model/marks'
 import type { OutsideFacts, OutsideLook } from '../../../model/styleLight'
 import { mixRgb } from '../../../model/tone'
-import type { LayerOf } from '../../../model/types'
+import type { OwnOutside } from '../outsideOwn'
 import { drawnGroundToneAt } from './groundTone'
-import { skyFormOf, type SkyForm } from './skyForm'
-
-/** What this hand's light adds to the outside layer. */
-interface OwnOutside { form: SkyForm }
-
-/** The sky's form over the town, where this hand's light made the layer. */
-export const skyFormIn = (desc: LayerOf<'outside'>) => (desc as LayerOf<'outside'> & Partial<OwnOutside>).form
+import { skyFormOf } from './skyForm'
 
 /** The town in the illustrated palette, with the sky's form over it. */
 export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): OutsideLook {

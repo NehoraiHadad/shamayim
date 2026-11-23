@@ -3,7 +3,7 @@ import type { LayerOf, OutsideItem, Shine } from '../../model/types'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
 import { paintDrawnSheet } from './cloudSheet'
-import type { SkyForm } from './light/skyForm'
+import type { SkyForm } from './outsideOwn'
 import { townBodies, type Box } from './townBlocks'
 import { townLight } from './townLight'
 
