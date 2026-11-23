@@ -17,7 +17,7 @@ it('fades aircraft lights and planet halos without changing their geometry', () 
       const draw = recording()
       paintAircraft(draw.ctx, { ...aircraft, lights: night }, env)
       paintPlanets(draw.ctx, { ...base, kind: 'planets',
-        planets: [{ name: 'venus', x: 20, y: 20, r: 1, rgb: litTone, alpha: night, glow: night }] }, env)
+        planets: [{ name: 'venus', x: 20, y: 20, r: 1, rgb: litTone, alpha: night, glow: night }] })
       return draw
     }
     let previous = at(0)
@@ -37,9 +37,8 @@ it.each([[0.4, false], [0.5, false], [0.501, true], [0.55, true], [0.6, true]] a
   'keeps the star halo appearance at full-night alpha %f',
   (alpha, halo) => {
     const draw = recording()
-    const env: PaintEnv = { phase: 0, scale: 1, hand: { grain: 0 }, canvas: () => { throw new Error('Unexpected scratch canvas') } }
     paintStars(draw.ctx, { id: 'stars', kind: 'stars', z: 2, key: 'stars', surface: 'sky',
-      bounds: { x: 0, y: 0, w: 100, h: 100 }, through: 1, stars: [{ x: 30, y: 30, r: 1, alpha }] }, env)
+      bounds: { x: 0, y: 0, w: 100, h: 100 }, through: 1, stars: [{ x: 30, y: 30, r: 1, alpha }] })
     expect(draw.light.filter(([op]) => op === 'createRadialGradient')).toHaveLength(Number(halo))
     expect(draw.light.filter(([op]) => op === 'stop')).toEqual(halo ? [
       ['stop', `rgb(232 238 255 / ${(0.25 * alpha).toFixed(3)})`], ['stop', 'rgb(232 238 255 / 0)'],

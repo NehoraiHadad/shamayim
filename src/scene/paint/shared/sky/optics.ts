@@ -1,6 +1,6 @@
 import type { RGB } from '../../../../world/types'
 import type { LayerOf } from '../../../model/types'
-import { css, mix, outline, type Ctx2D, type PaintEnv } from '../base/hand'
+import { css, mix, outline, type Ctx2D } from '../base/hand'
 
 /*
  * The rainbow and the halo in the hand (C10): each a true circle round its centre, laid as radial washes (its colour bands
@@ -24,7 +24,7 @@ const WHITE: RGB = [1, 1, 1]
 export const SHADE: RGB = [0.16, 0.19, 0.27]
 
 /** The halo's washes at strength `s`: the darker sky inside, then the ring (a sharp reddish inner rim fading out white). */
-export function haloStops(s: number): { inside: Stop[]; ring: Stop[] } {
+function haloStops(s: number): { inside: Stop[]; ring: Stop[] } {
   return {
     inside: [[7, SHADE, 0], [15, SHADE, 0.045 * s], [21.5, SHADE, 0.075 * s], [21.9, SHADE, 0]],
     ring: [[21.6, [1, 0.45, 0.32], 0], [22, [1, 0.5, 0.36], 0.34 * s], [22.5, [1, 0.8, 0.62], 0.32 * s], [23.4, [0.98, 0.95, 0.9], 0.24 * s],
@@ -107,7 +107,7 @@ function paintRainbow(ctx: Ctx2D, desc: LayerOf<'bow'>) {
   }
 }
 
-export function paintBow(ctx: Ctx2D, desc: LayerOf<'bow'>, _env: PaintEnv): void {
+export function paintBow(ctx: Ctx2D, desc: LayerOf<'bow'>): void {
   ctx.save()
   // The sky over the land only: what falls under the horizon or behind the land is not seen.
   outline(ctx, desc.clip)

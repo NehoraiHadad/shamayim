@@ -4,7 +4,7 @@ import { carriedAt, halfAt, headsOf } from '../../model/towerHeads'
 import { billows } from './billows'
 
 /*
- * A tower's body in the drawn hand: the real hand's own heads (`towerHeads`: the cell's column, shoulders, base and
+ * A tower's body in the drawn hand: the model's heads (`towerHeads`: the cell's column, shoulders, base and
  * anvil) grown together, its outline standing on round puffs. Sprite px, the origin at the middle of the near base edge,
  * y down. Pure: the sprite alone.
  */
@@ -39,7 +39,7 @@ export interface TowerPoint {
   across: number; edge: number
 }
 
-export interface TowerMass { depth: number; reach: number; at(x: number, y: number): TowerPoint | null }
+interface TowerMass { depth: number; reach: number; at(x: number, y: number): TowerPoint | null }
 
 export function towerMass(s: CloudSprite): TowerMass {
   const far = 1 - Math.min(1, s.w / FAR), near = smoothstep(80, 170, s.w)

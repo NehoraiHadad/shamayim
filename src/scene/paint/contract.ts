@@ -20,7 +20,7 @@ export type PaintedKind = Exclude<LayerKind, 'contrail'>
 export type Painters = { readonly [K in PaintedKind]: Painter<K> }
 
 /** The kinds every style paints its own way: the shared painters hold none of them. */
-export type OwnKind = 'cloudSheet' | 'cloudCells' | 'shafts' | 'edge' | 'outside'
+type OwnKind = 'cloudSheet' | 'cloudCells' | 'shafts' | 'edge' | 'outside'
 
 /** The kinds every style paints with the same painter. */
 export type SharedPainters = Omit<Painters, OwnKind>

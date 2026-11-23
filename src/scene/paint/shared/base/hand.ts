@@ -6,7 +6,7 @@ export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 /**
  * The enriched hand (§1c): what painters add on top of the model's geometry and colours. Parameterised by tones from the
  * model, never by moment names. The drawing helpers ported from the anidoodle skill are in `core.ts`; the land's
- * texture, washes and soft edges in `planes.ts` (after `prototypes/canvas-scene/styleRich.ts`).
+ * material and light in `shared/land/` (after `prototypes/canvas-scene/styleRich.ts`).
  */
 export interface Hand {
   /** The ground texture's strength (0: none, 1: as the model gives it). */

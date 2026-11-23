@@ -1,9 +1,9 @@
 import type { LayerOf, MistBandDesc } from '../../../model/types'
-import { css, type Ctx2D, type PaintEnv } from '../base/hand'
+import { css, type Ctx2D } from '../base/hand'
 import { soft } from '../base/softEllipse'
 
 /** Mist lying level: its body fading in at its top, the soft puffs along the top (wrapping round the tile). */
-export function paintMist(ctx: Ctx2D, desc: LayerOf<'mist'>, _env: PaintEnv): void {
+export function paintMist(ctx: Ctx2D, desc: LayerOf<'mist'>): void {
   mistBands(ctx, desc.bands, desc.bounds)
 }
 

@@ -1,5 +1,5 @@
 import type { Disc, LayerOf, MoonDisc, Star } from '../../../model/types'
-import { css, type Ctx2D, type PaintEnv } from '../base/hand'
+import { css, type Ctx2D } from '../base/hand'
 
 /**
  * MEDIUM: the app's sky hand: the sun as light, not a coin cut out of paper: a hot core easing into a darker, redder limb
@@ -8,7 +8,7 @@ import { css, type Ctx2D, type PaintEnv } from '../base/hand'
  * seas fixed on the face, a hairline round the dark disc of a thin crescent, earthshine by night. Stars: points of light,
  * the brightest with a breath of halo.
  */
-export function paintBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>, _env: PaintEnv): void {
+export function paintBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
   if (desc.sun && desc.part === 'aureole') { paintAureole(ctx, desc.sun); return }
   if (desc.sun) paintSun(ctx, desc.sun)
   if (desc.moon) paintMoon(ctx, desc.moon)
@@ -107,7 +107,7 @@ function paintMoon(ctx: Ctx2D, d: MoonDisc) {
   ctx.restore()
 }
 
-export function paintStars(ctx: Ctx2D, desc: LayerOf<'stars'>, _env: PaintEnv): void {
+export function paintStars(ctx: Ctx2D, desc: LayerOf<'stars'>): void {
   for (const s of desc.stars) paintStar(ctx, s)
 }
 

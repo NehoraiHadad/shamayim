@@ -199,6 +199,9 @@ the sun stands on the same line in the sky and behind the ridge.
 
 ### 1c. Painters (`src/scene/paint/`)
 
+Painters now stand under `paint/shared/` (both styles'), `paint/real/` and `paint/drawn/`, listed in `styles.ts` over `contract.ts`; the
+stage notes below name the files as they stood at their stage.
+
 `paint<Kind>(ctx: CanvasRenderingContext2D, desc, env: PaintEnv): void`, one per layer kind (C1: `env` holds the
 `hand`, the `phase`, the device `scale` and `canvas(w, h)` for scratch surfaces, after the anidoodle skill's `Env`). `hand.ts`
 holds the enriched hand from `styleRich.ts`/`sceneGlyphs.ts` (`mix`, `css`, `tonesOf`, the grain, the puff bank
@@ -2519,7 +2522,7 @@ gated by Claude Code).
    only `plane.*:light` (checked in `npm run test:perf`). Model descriptions stay compact and structured-cloneable.
 
 4. **Vegetation** (model `src/scene/model/landVegetation.ts`, `vegRules.ts`, `vegSample.ts`, `vegBuilders.ts`,
-   `vegAgriBuilders.ts`, `vegOrchard.ts`, `vegCropEvidence.ts`; painters `src/scene/paint/landVegetation.ts`,
+   `vegAgriBuilders.ts`, `vegOrchard.ts`, `vegCropEvidence.ts`; painters `src/scene/paint/shared/land/landVegetation.ts`,
    `landVegCrowns.ts`). Driven only by data per cell (WorldCover class, NDVI, dryness, season, slope magnitude), with a
    per-cell seeded rng: woodland as clustered groves of rounded crowns, scrub and grass tufts whose density follows NDVI
    (straw-gold when dry), cropland fields whose state (green, ploughed, stubble) follows NDVI and season, bare/desert
@@ -2531,7 +2534,7 @@ gated by Claude Code).
    catchlights are on the light layer and share the crowns' geometry. Each tree carries a seeded phase and height for
    wind. Descriptors stay under 10 KB, compact and structured-cloneable.
 
-5. **Wind** (model `src/scene/model/landWind.ts`, `canopy.ts`, `landDust.ts`; painters `src/scene/paint/canopy.ts`,
+5. **Wind** (model `src/scene/model/landWind.ts`, `canopy.ts`, `landDust.ts`; painters `src/scene/paint/shared/land/canopy.ts`,
    `landVegPose.ts`, `landVegCrowns.ts`, `landVegTufts.ts`, `landVegLight.ts`, `landDust.ts`; compositor
    `src/scene/compose/compositeOrder.ts`, `paintJob.ts`, `surface.ts`).
    - *Lean curve & provenance:* NOAA/NWS land Beaufort scale (`CALM_MS = 0.3` m/s zero cutoff; quadratic drag proxy
@@ -2551,7 +2554,7 @@ gated by Claude Code).
    - *Dust threshold:* `landDust.ts` lifts low dust on sustained 10 m wind `> 8` m/s (Beaufort 5, full at `17.1` m/s),
      WorldCover 60 (bare/sparse), `NDVI < 0.16` (USGS barren–sparse transition) and `dryness > 0.72`, suppressed by
      rain, snowfall or wet ground (`wet > 0.5`), culled below source strength `0.10`. A two-tone soft wrapped tile
-     (`paint/landDust.ts`) advects horizontally at `windMs * across * widthScale / mPerPxAt(max(350, distanceKm * 1000), camera)`
+     (`paint/shared/weather/landDust.ts`) advects horizontally at `windMs * across * widthScale / mPerPxAt(max(350, distanceKm * 1000), camera)`
      in CSS pixels per second (`widthScale = box.width / SCENE_W`, `350` m near floor), with a weaker far veil
      (`0.26` vs `0.75` near alpha).
    - *Animation & per-frame cost:* windy canopies bake 10 poses (`LAND_GUST`, 5 fps over 2 s) once per key in the

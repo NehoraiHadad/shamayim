@@ -11,7 +11,7 @@ import { css, mix, type Ctx2D, type PaintEnv } from '../base/hand'
 
 const TAU = Math.PI * 2
 
-export function paintPlanets(ctx: Ctx2D, desc: LayerOf<'planets'>, _env: PaintEnv): void {
+export function paintPlanets(ctx: Ctx2D, desc: LayerOf<'planets'>): void {
   for (const p of desc.planets) {
     const glow = p.glow * smoothstep(0, 0.04, p.glow)
     const R = p.r * 4.5
@@ -66,7 +66,7 @@ export function paintTwinkle(ctx: Ctx2D, desc: LayerOf<'twinkle'>, env: PaintEnv
  * elsewhere). Faint throughout: it never outshines the bright stars. Segments that jump across the screen (where the band
  * passes behind the eye or near the zenith) are skipped.
  */
-export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>, _env: PaintEnv): void {
+export function paintMilkyWay(ctx: Ctx2D, desc: LayerOf<'milkyWay'>): void {
   const { spine, upper, lower, bright, rift, clouds, alpha, seed } = desc
   const r = rng(seed)
   const gauss = () => Math.sqrt(-2 * Math.log(Math.max(1e-6, r()))) * Math.cos(TAU * r())

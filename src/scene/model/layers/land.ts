@@ -9,8 +9,6 @@ import type { Box, LayerBase, LightPart } from './base'
  * Pure structured-cloneable data shared across model builders and Worker painters.
  */
 
-/** A filled shape; `soft` > 0 softens its edge over about that many px (stacked offset copies, no filter). */
-export interface Face { points: Pt[]; rgb: RGB; alpha: number; soft?: number }
 export type Path = Pt[]
 export interface Dot { x: number; y: number; r: number; rgb: RGB }
 /** The ground's low-frequency mottle and fine grain on a plane's form: strength 0–1 and its seed. */

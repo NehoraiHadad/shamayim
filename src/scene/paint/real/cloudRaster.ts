@@ -11,7 +11,7 @@ import type { PaintEnv } from '../shared/base/hand'
 /** Raster px per sky px: half resolution, then stretched; the finest detail octave still spans several px. */
 const RASTER = 0.5
 
-export interface SheetGrid { buf: Float32Array; cols: number; rows: number; spacing: readonly number[] }
+interface SheetGrid { buf: Float32Array; cols: number; rows: number; spacing: readonly number[] }
 
 /** The grid as a raster `width` × `height` sky px on a scratch surface, its pixels' centres on the grid's edges. */
 export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height: number, open: number, seed: number) {

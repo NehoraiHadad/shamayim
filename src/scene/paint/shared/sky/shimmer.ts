@@ -1,8 +1,8 @@
 import type { LayerOf } from '../../../model/types'
-import { css, type Ctx2D, type PaintEnv } from '../base/hand'
+import { css, type Ctx2D } from '../base/hand'
 
 /** Heat shimmer: fine wavering lines of light across the tile, whole waves so the tile lays edge to edge. */
-export function paintShimmer(ctx: Ctx2D, desc: LayerOf<'shimmer'>, _env: PaintEnv): void {
+export function paintShimmer(ctx: Ctx2D, desc: LayerOf<'shimmer'>): void {
   const { x, y, w } = desc.bounds
   ctx.lineWidth = 0.7
   ctx.lineCap = 'round'

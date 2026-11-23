@@ -12,7 +12,7 @@ const RASTER = 0.7, RASTER_PX = 10_000
 const ROOM_TOP = 0.25
 
 /** A hand's tower: its base's depth, how far it reaches from its middle, and its alpha and colour at a point (sprite px). */
-export interface TowerBody {
+interface TowerBody {
   depth: number
   reach: number
   at(x: number, y: number): { a: number; rgb: Readonly<RGB> } | null

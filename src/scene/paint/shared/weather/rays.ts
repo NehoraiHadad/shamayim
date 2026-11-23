@@ -1,11 +1,11 @@
 import type { LayerOf } from '../../../model/types'
-import { css, type Ctx2D, type PaintEnv } from '../base/hand'
+import { css, type Ctx2D } from '../base/hand'
 
 /**
  * Rays (C7, C9): lit and shadowed wedges fanning from their point (the sun, or the point opposite it), each fading out
  * along its length, soft-edged; a corona's fine lit rays brightest near the disc.
  */
-export function paintRays(ctx: Ctx2D, desc: LayerOf<'rays'>, _env: PaintEnv): void {
+export function paintRays(ctx: Ctx2D, desc: LayerOf<'rays'>): void {
   const { x, y, reach } = desc
   for (const ray of desc.rays) {
     const rgb = ray.lit ? desc.rgb : desc.shade

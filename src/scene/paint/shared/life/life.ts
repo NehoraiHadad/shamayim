@@ -60,7 +60,7 @@ export function paintAircraft(ctx: Ctx2D, desc: LayerOf<'aircraft'>, env: PaintE
 }
 
 /** A meteor: a fine streak, faint at its start, brightest near its head, with a short glow there. */
-export function paintMeteor(ctx: Ctx2D, desc: LayerOf<'meteor'>, _env: PaintEnv): void {
+export function paintMeteor(ctx: Ctx2D, desc: LayerOf<'meteor'>): void {
   const g = ctx.createLinearGradient(desc.x0, desc.y0, desc.x1, desc.y1)
   g.addColorStop(0, css(desc.rgb, 0))
   g.addColorStop(0.75, css(desc.rgb, 0.7))

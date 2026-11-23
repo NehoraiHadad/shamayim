@@ -5,14 +5,14 @@
  * Greenshpun. This product includes software developed as an original work, licensed under the Apache License, Version
  * 2.0." Changes from the original: typed for this codebase (readonly points), `noise2` without per-call closures (the same numbers), one seeded generator shared with the world
  * (`rng` is `data/landmarks/hash.ts`'s `seeded`, the same mulberry32), the noise table cache bounded, comments added.
- * Only the helpers the scene uses are ported (rng, fractal, sample, jitter, displace, oval, softBox, line, tube); the
+ * Only the helpers the scene uses are ported (rng, fractal, sample, displace, tube); the
  * film machinery (cues, score, Gfx, probe) is not.
  *
  * Pure: no DOM, no clock, no `Math.random`; the same seed gives the same numbers on every machine.
  */
 import { seeded } from '../../../../data/landmarks/hash'
 
-export type P = readonly [number, number]
+type P = readonly [number, number]
 
 /** A seeded generator in 0…1 (mulberry32): the world's `seeded`, so the world and the paint share one generator. */
 export const rng = (seed: number) => seeded(seed)
@@ -69,13 +69,6 @@ export function fractal(seed: number, x: number, y: number, fx: number, fy: numb
   return (sum + 1) / 2
 }
 
-/** Each point moved by up to `amt` in x and y (seeded): the hand's wobble on an edge. */
-export function jitter(pts: readonly P[], amt: number, seed: number): P[] {
-  if (amt <= 0) return pts.slice()
-  const r = rng(seed)
-  return pts.map(([x, y]): P => [x + (r() - 0.5) * 2 * amt, y + (r() - 0.5) * 2 * amt])
-}
-
 /** A Catmull-Rom resampling of a polyline, `per` points per segment: a smooth line through the given points. */
 export function sample(pts: readonly P[], closed = false, per = 10): P[] {
   if (pts.length < 2) return pts.slice()
@@ -100,29 +93,6 @@ export function sample(pts: readonly P[], closed = false, per = 10): P[] {
 export function displace(pts: readonly P[], amp: number, freq: number, oct: number, seed: number): P[] {
   return pts.map(([x, y]): P => [x + (fractal(seed, x, y, freq, freq, oct) - 0.5) * amp,
     y + (fractal(seed + 50, x, y, freq, freq, oct) - 0.5) * amp])
-}
-
-/** A closed ellipse of `n` points. */
-export function oval(cx: number, cy: number, rx: number, ry = rx, n = 10, a0 = -1.9): P[] {
-  return Array.from({ length: n }, (_, i): P => {
-    const a = a0 + (i / n) * Math.PI * 2
-    return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]
-  })
-}
-
-/** A superellipse (a box with soft corners) of `n` points, `w × h` round (cx, cy). */
-export function softBox(cx: number, cy: number, w: number, h: number, e = 3.2, n = 16): P[] {
-  return Array.from({ length: n }, (_, i): P => {
-    const a = -2.2 + (i / n) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a)
-    const k = 1 / (Math.abs(c) ** e + Math.abs(s) ** e) ** (1 / e)
-    return [cx + (c * k * w) / 2, cy + (s * k * h) / 2]
-  })
-}
-
-/** A line from a to b with its middle bowed `bow` to its left: three points to `sample`. */
-export function line(a: P, b: P, bow = 0): P[] {
-  const nx = -(b[1] - a[1]), ny = b[0] - a[0], l = Math.hypot(nx, ny) || 1
-  return [a, [(a[0] + b[0]) / 2 + (nx / l) * bow, (a[1] + b[1]) / 2 + (ny / l) * bow], b]
 }
 
 /** A centreline → a closed outline `r0` wide at its start and `r1` at its end (a tapered stroke), capped at the end. */

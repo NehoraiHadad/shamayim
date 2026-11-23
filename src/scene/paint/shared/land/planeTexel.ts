@@ -46,7 +46,7 @@ export function preparePlaneTexels(
   }
 }
 
-export interface TexelSample extends FieldSample { rho: [number, number, number] }
+interface TexelSample extends FieldSample { rho: [number, number, number] }
 const texelSample = (): TexelSample => ({ rho: [0, 0, 0], sVis: 0, mVis: 0, vSky: 0, haze: 0 })
 
 /** Samples raw linear reflectance (with gouache warp, material mottle & snow reflectance) plus field irradiance terms. */

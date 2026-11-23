@@ -15,11 +15,11 @@ import { paintDrawnTower } from './townTower'
 
 /*
  * The place seen from outside in the drawn hand (v1b's Haifa on its hill): the model's land, sea, houses, towers, trees and
- * marks, in the same order and place as the real hand's, gathered into bodies that read (`townBlocks`), each of clear lit
+ * marks, in the model's own order and places, gathered into bodies that read (`townBlocks`), each of clear lit
  * and shaded planes. Pure: the desc and its seeds.
  */
 
-/** The paper's grain against the real hand's. */
+/** The paper's grain, as a share of the hand's. */
 const GRAIN = 0.25
 /** A tree of the town reads as a clump: its size against its own, at least this wide (px); taller by this at most. */
 const GROWN = 1.2, GROWN_MIN = 2.3, GROWN_TALL = 1.25

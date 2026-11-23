@@ -2,7 +2,7 @@ import { plantWindAt, plantWindFade, treeTravel, tuftTravel, type PlantWind } fr
 import { palmBend, PALM_CROWN_HEIGHT } from '../../../model/vegShapes'
 import { h01 } from './vegInk'
 
-export interface CrownAnchor { cx: number; cy: number; rx: number; ry: number }
+interface CrownAnchor { cx: number; cy: number; rx: number; ry: number }
 
 /** Shared crown centre & radii used identically by `paintVegCrowns` (form) and `paintPlaneLight` (sun catchlight). */
 export function treeCrownAnchor(x: number, y: number, r: number, height: number, phase: number, kind: number, bend = 0): CrownAnchor {
