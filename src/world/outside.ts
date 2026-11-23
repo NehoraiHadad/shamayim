@@ -123,6 +123,8 @@ export const FRAME_SCALE: FrameScale = {
 }
 /** The frame takes the place's built cells between these quantiles each way: a lone shed far out does not widen it. */
 const FRAME_Q = .02
+/** A house's frontage (m): the legible house's, the place's plan scale. */
+const HOUSE_FRONT_M = 13
 /** A built cell's roof where the city raster knows nothing of it: a one- or two-storey house. */
 const HOUSE_M = [STOREY_M + 1.5, 2 * STOREY_M + 1.5] as const
 /** Trees stand where the cover has them within this many km of a built cell (the place's gardens, yards, streets). */
@@ -153,9 +155,9 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   const cos = Math.cos(place.lat * Math.PI / 180)
   const cells: FabricCell[] = []
   const trees: PlaceTree[] = []
-  const heightAt = (lat: number, lon: number, u: number) => {
-    const at = raster?.at(lat, lon)
-    return at && at.built >= .2 ? roofHeight(at.levels, at.p90, u) : HOUSE_M[u < .6 ? 0 : 1]
+  const heightAt = (at: ReturnType<NonNullable<typeof raster>['at']> | undefined, u: number) => {
+    return at && (at.levels > 0 || at.p90 > 0)
+      ? roofHeight(at.levels, at.p90, u) : HOUSE_M[u < .6 ? 0 : 1]
   }
   if (cover) {
     const step = LAND_STEP
@@ -176,15 +178,16 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
         if (c === TREE) { treeSpots.push({ dx, dy, lat, lon }); continue }
         const seed = hashId(`${row}:${col}`)
         const random = seeded(seed)
-        const heightM = heightAt(lat, lon, random())
+        const at = raster?.at(lat, lon)
+        const heightM = heightAt(at, random())
         // C9 (defect 10): a built cell is as wide as its buildings' frontage, not wall to wall: its width by the root of
         // the raster square's built share (the share of the ground under roofs; a row of blocks shows about its root
         // across), at a seeded spot inside the cell, so the streets and yards between them open and the rows behind,
         // with their own heights, show through. A cell the raster knows nothing of is whole.
-        const built = raster?.at(lat, lon).built ?? 0
+        const { built, front: frontM } = at ?? { built: 0 }
         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
         const shift = (random() - .5) * (1 - front) * wKm
-        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM, seed })
+        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM, seed, ...(frontM ? { frontM } : {}) })
         const list = builtRows.get(row)
         if (list) list.push(col)
         else builtRows.set(row, [col])
@@ -211,7 +214,9 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     if (!(inPlace?.(sq.dx, sq.dy) ?? true)) continue
     const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
     const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`)
-    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, heightM: heightAt(lat, lon, seeded(seed)()), seed })
+    const at = raster?.at(lat, lon)
+    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, heightM: heightAt(at, seeded(seed)()), seed,
+      ...(at?.front ? { frontM: at.front } : {}) })
   }
   return { cells, trees, source: 'raster' as const }
 }
@@ -295,6 +300,7 @@ export function lookOf(frame: OutsideFrame): OutsideLook {
   return {
     px: (heightM, k) => k / frame.k * (heightM <= HOUSE_TOP_M ? heightM * kMin : low + (heightM - HOUSE_TOP_M) * frame.k),
     house: { w: house.w },
+    plan: house.w / HOUSE_FRONT_M,
   }
 }
 

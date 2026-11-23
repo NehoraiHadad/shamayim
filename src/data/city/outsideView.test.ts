@@ -10,6 +10,36 @@ const tower = (dx: number, dy: number, heightM: number, name?: string): CityTowe
 
 describe('the place seen from outside', () => {
   const frame = outsideFrame(undefined, 3, 195, 390, true)
+  const look = { house: { w: 3 }, plan: 3 / 13, px: (heightM: number, k: number) => heightM * k }
+
+  it('keeps the mapped frontage at both sides of the house roof threshold', () => {
+    const frontM = 26
+    const widths = [12.4, 12.6, 13.4].map(heightM => {
+      const result = outsideSkyline({ place, towers: [], landmarks: [], frame, ground: () => 100,
+        floor: 120, width: 390, look, fabric: [{ dx: 0, dy: 0, wKm: .01, heightM, frontM, seed: 1 }] })
+      expect(result.boxes).toHaveLength(1)
+      return result.boxes[0].w
+    })
+    for (const w of widths) expect(w).toBeCloseTo(look.plan * frontM)
+  })
+
+  it('projects the mapped frontage at the same depth as each roof', () => {
+    const frontM = 26
+    for (const dy of [-1, 1]) {
+      const { k } = outsideProject(frame, 0, dy)
+      const result = outsideSkyline({ place, towers: [], landmarks: [], frame, ground: () => 100,
+        floor: 120, width: 390, look, fabric: [{ dx: 0, dy, wKm: .01, heightM: 19, frontM, seed: 1 }] })
+      expect(result.boxes).toHaveLength(1)
+      expect(result.boxes[0].w).toBeCloseTo(frontM * look.plan * k / frame.k)
+    }
+  })
+
+  it('keeps a folded tower at its own plan width where it shows beside a taller block', () => {
+    const result = outsideSkyline({ place, towers: [tower(0, 0, 45)], landmarks: [], frame, ground: () => 100,
+      floor: 120, width: 390, look, fabric: [{ dx: 0, dy: 0, wKm: .01, heightM: 60, seed: 1 }] })
+    expect(result.stats.folded).toBe(1)
+    expect(result.boxes.find(b => b.heightM === 45)?.w).toBeCloseTo(look.plan * 22)
+  })
 
   it('puts east on the left, the dot in the middle, and the north nearer and larger', () => {
     expect(outsideProject(frame, 0, 0).x).toBe(195)

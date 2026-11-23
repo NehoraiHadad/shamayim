@@ -7,7 +7,13 @@ export function decodeForm(byte: number) {
 }
 
 // Half-open footprint area bands in square metres. Class 0 is reserved for absent footprints.
+const AREA_BOUNDS = [0, 60, 120, 220, 450, 1200, 5000] as const
+
+/** Square-equivalent frontage at each area's midpoint. The open class uses its lower bound. */
+export const FRONT_M = [0, ...AREA_BOUNDS.slice(1).map((upper, i) =>
+  Math.sqrt((AREA_BOUNDS[i] + upper) / 2)), Math.sqrt(AREA_BOUNDS[AREA_BOUNDS.length - 1])]
+
 export function sizeClass(area: number) {
-  return area < 60 ? 1 : area < 120 ? 2 : area < 220 ? 3 : area < 450 ? 4 :
-    area < 1200 ? 5 : area < 5000 ? 6 : 7
+  const size = AREA_BOUNDS.findIndex((upper, i) => i > 0 && area < upper)
+  return size < 0 ? AREA_BOUNDS.length : size
 }

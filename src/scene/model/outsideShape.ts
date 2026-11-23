@@ -17,6 +17,8 @@ import { townGroundKm, wallStep } from './wallDistance'
 
 /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
 export const KM_STEP = .5
+/** Trim in fifths, keeping at least three fifths so a body still reads as a building. */
+const TRIMMED_WIDTHS = [.8, .6]
 
 /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
 function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
@@ -84,6 +86,17 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const { frame, skyline, baseKm } = view
   const out: OutsideItem[] = []
   const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
+  // Keep the wider clear portion, anchored at one of the body's original edges.
+  const beside = (x: number, w: number, top: number, foot: number) => {
+    const left = x - w / 2, right = x + w / 2
+    if (free(left, top, right, foot)) return { x, w }
+    for (const share of TRIMMED_WIDTHS) {
+      const kept = w * share
+      if (free(left, top, left + kept, foot)) return { x: left + kept / 2, w: kept }
+      if (free(right - kept, top, right, foot)) return { x: right - kept / 2, w: kept }
+    }
+    return null
+  }
   // The towers beyond the place: at their true distance, far first, behind the place.
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
@@ -109,24 +122,25 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
   const own: { y: number; item: OutsideItem; km?: number }[] = []
   for (const b of skyline.boxes) {
-    const x = b.x * sx, w = b.w * sx
-    if (!free(x - w / 2, b.top, x + w / 2, b.foot)) continue
+    const body = beside(b.x * sx, b.w * sx, b.top, b.foot)
+    if (!body) continue
+    const { x, w } = body
     mass.push(massAt(x, w, b.top, outsideItemKm(frame, baseKm, b)))
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     const heightM = b.heightM ?? 3 * STOREY_M
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot, true),
+    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), x / sx, b.foot, true),
       seed, receiver: receiverId(seed),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }
   for (const t of skyline.towers) {
-    const x = t.x * sx
-    if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
-    mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY, true)) })
+    const body = beside(t.x * sx, t.w, t.baseY - t.h, t.baseY)
+    if (!body) continue
+    mass.push(massAt(body.x, body.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
+    own.push({ y: t.baseY, item: towerItem({ ...t, x: body.x / sx, w: body.w }, sx, tier(outsideItemKm(frame, baseKm, t), body.x / sx, t.baseY, true)) })
   }
   for (const t of view.trees) {
     const x = t.x * sx

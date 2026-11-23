@@ -155,12 +155,15 @@ export const HOUSE_TOP_M = 12.5
  * How the canvas scene's outside view sizes what it draws (C5b), beyond the true perspective: `px` the height (m) a
  * thing takes where the perspective gives `k` px a metre (the true `heightM·k`, or more for the low fabric so a house
  * stays legible, every height in its true order); `house` the smallest legible house (px wide, at the frame's middle
- * depth): where the built cells are narrower on screen, fewer, larger houses are composed inside the footprint.
+ * depth): where the built cells are narrower on screen, fewer, larger houses are composed inside the footprint; `plan`
+ * the px a metre of frontage takes there, the house's own (one plan scale for the whole town: a block beside the houses
+ * keeps its proportions to them instead of shrinking to its cell).
  * Absent (the SVG study): true sizes.
  */
 export interface OutsideLook {
   px: (heightM: number, k: number) => number
   house: { w: number }
+  plan: number
 }
 const pxOf = (look: OutsideLook | undefined, heightM: number, k: number) => look ? look.px(heightM, k) : heightM * k
 
@@ -190,6 +193,10 @@ export interface OutsideBox { x: number; w: number; top: number; foot: number; n
 export const GLYPH_W = [4.5, 5.5, 7] as const
 /** An ordinary tower's silhouette, by width class. */
 export const SILHOUETTE_W = [2, 2.5, 3.5] as const
+/** The width (px) a `frontM` m frontage takes where the perspective gives `k` px a metre, on the place's plan scale. */
+const planPx = (look: OutsideLook, frame: OutsideFrame, frontM: number, k: number) => look.plan * frontM * k / frame.k
+/** A tower's estimated frontage from its glyph width at the study's 4 m per pixel. */
+const TOWER_FRONT_M = GLYPH_W.map(w => w * 4)
 export const GLYPH_M = 150
 export const MAX_GLYPHS = 10
 
@@ -271,8 +278,9 @@ function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: rea
 
 const byRank = (a: Prepared, b: Prepared) => Number(b.famous) - Number(a.famous) || b.heightM - a.heightM || b.near - a.near
 
-function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number, look?: OutsideLook): OutsideTower {
-  const w = lod === 'glyph' ? GLYPH_W[tower.wClass] : SILHOUETTE_W[tower.wClass]
+function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number, frame: OutsideFrame, look?: OutsideLook): OutsideTower {
+  const w = lod === 'glyph' ? GLYPH_W[tower.wClass]
+    : Math.max(SILHOUETTE_W[tower.wClass], look ? planPx(look, frame, TOWER_FRONT_M[tower.wClass], tower.k) : 0)
   const h = Math.max(4, pxOf(look, tower.heightM, tower.k))
   return { x: tower.x, baseY: lieBaseY(tower.lie, ground, tower.x, tower.near, floor, w, tower.dx, tower.dy), w, h, near: tower.near,
     heightM: tower.heightM,
@@ -299,7 +307,8 @@ interface MassInput {
 
 /**
  * The built squares of the place (`CityRaster`) as boxes in the outside view: each at its real width on the screen, its
- * roof at its real height (capped), standing on its own ground. Boxes wholly hidden behind nearer ones are left out.
+ * roof at its real height (capped), standing on its own ground. Used by the variant B skyline study, which supplies
+ * coarse raster squares instead of the app's finer fabric cells. Boxes wholly hidden behind nearer ones are left out.
  */
 function rasterBoxes({ place, raster, frame, ground, floor, width, capM, kind, lie }: MassInput): OutsideBox[] {
   if (!raster) return []
@@ -386,12 +395,15 @@ export interface OutsideSkylineInput {
 }
 
 /** One built cell of the place: km east / north, its width (km), its roof's height (m) and a seed. */
-export interface FabricCell { dx: number; dy: number; wKm: number; heightM: number; seed: number }
+export interface FabricCell {
+  dx: number; dy: number; wKm: number; heightM: number; seed: number
+  /** Its typical building's frontage (m), where the map knows it. */
+  frontM?: number
+}
 
 /**
- * The fabric cells as boxes in the outside view (as `rasterBoxes`), hidden ones left out. With a `look`, a house cell
- * narrower on screen than the smallest legible house is not shrunk: the houses are composed fewer and larger inside the
- * footprint, one per slot of that size on the screen (the cell nearest the slot's middle keeps it, at its own spot).
+ * Built fabric composed on the town's plan scale. Where projected cells are narrower than their buildings,
+ * keep one per screen slot, at the position of the cell nearest the slot's centre. Cull hidden boxes.
  */
 function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput, look?: OutsideLook): OutsideBox[] {
   const boxes: OutsideBox[] = []
@@ -403,7 +415,8 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     if (x + w / 2 < -4 || x - w / 2 > width + 4) continue
     const heightM = Math.min(capM, cell.heightM)
     const h = Math.max(1, pxOf(look, heightM, k))
-    const legible = look && heightM < HOUSE_TOP_M ? look.house.w * k / frame.k : 0
+    // Roof type changes at HOUSE_TOP_M. The same footprint keeps its width on either side.
+    const legible = !look ? 0 : Math.max(look.house.w * k / frame.k, planPx(look, frame, cell.frontM ?? 0, k))
     if (w >= legible) {
       const foot = lieBaseY(lie, ground, x, near, floor, w, cell.dx, cell.dy)
       boxes.push({ x, w, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy })
@@ -433,6 +446,8 @@ export interface OutsideSkyline {
 const MASS_M = 60
 /** A tower must clear the mass by this many px to rise as a spire. */
 const RISE_PX = 7
+/** The middle share of a folded tower's width that folds another into it: a tower behind its shoulder still shows its edge. */
+const CORE = .5
 
 export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const { place, towers, landmarks, raster, frame, ground, floor, width, lie = {}, look } = input
@@ -448,18 +463,22 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const ranked = [...prepared].sort(byRank)
   // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
   const index = new MassIndex(boxes)
-  const massTop = (_boxes: readonly OutsideBox[], x: number) => index.top(x)
-  const fold = (tower: OutsideTower) => { const box = asBox(tower, 'mass'); boxes.push(box); index.add(box); folded++ }
+  const fold = (tower: OutsideTower) => {
+    const box = asBox(tower, 'mass')
+    boxes.push(box)
+    index.add(look ? { ...box, w: box.w * CORE } : box)
+    folded++
+  }
   for (const tower of [...ranked].reverse()) {
-    if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, look)); continue }
-    const drawn = placed(tower, 'silhouette', ground, floor, look)
-    if (drawn.baseY - drawn.h < massTop(boxes, drawn.x) - RISE_PX) out.push(drawn)
+    if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, frame, look)); continue }
+    const drawn = placed(tower, 'silhouette', ground, floor, frame, look)
+    if (drawn.baseY - drawn.h < index.top(drawn.x) - RISE_PX) out.push(drawn)
     else fold(drawn)
   }
   // A spire placed before the mass rose round it may no longer clear it: it folds in too.
   for (let i = out.length - 1; i >= 0; i--) {
     const tower = out[i]
-    if (tower.lod === 'silhouette' && tower.baseY - tower.h >= massTop(boxes, tower.x) - RISE_PX) {
+    if (tower.lod === 'silhouette' && tower.baseY - tower.h >= index.top(tower.x) - RISE_PX) {
       out.splice(i, 1)
       fold(tower)
     }

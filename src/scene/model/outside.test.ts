@@ -24,6 +24,7 @@ import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 import { tonesAt } from './marks'
 import { landBehind } from './landBehind'
+import { outsideShape } from './outsideShape'
 import type { Box, LayerOf, SceneBox } from './types'
 
 /**
@@ -54,6 +55,35 @@ function worldAt(id: string, at: LocalTime = NOON) {
 const viewOf = (id: string) => worldAt(id).place3 as OutsideView
 const layerOf = (world: WorldState) => sceneModel(world, BOX).layers.find((l) => l.kind === 'outside') as LayerOf<'outside'> | undefined
 const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+
+describe('mapped town frontage and roof heights', () => {
+  it.each(['haifa', 'tel-aviv', 'jerusalem'])('%s keeps ordinary blocks in proportion', id => {
+    const blocks = viewOf(id).skyline.boxes.filter(b => b.seed !== undefined &&
+      b.heightM !== undefined && b.heightM >= HOUSE_TOP_M && b.heightM < 60)
+    const ratios = blocks.map(b => (b.foot - b.top) / b.w).sort((a, b) => a - b)
+    expect(ratios.length).toBeGreaterThan(0)
+    expect(ratios[Math.floor(ratios.length / 2)]).toBeLessThanOrEqual(1.6)
+  })
+
+  it.each([[5, 0, 5 * STOREY_M + 1], [0, 10, 10]])('uses sparse raster height (%i storeys, p90 %i m)', (levels, p90, roof) => {
+    const fixture = loaded.get('haifa')!
+    const city = { ...fixture.city!, raster: { at: () => ({ built: 2 / 15, levels, p90 }) } }
+    const world = buildWorld(worldInput({ ...fixture, city }, NOON))
+    const boxes = (world.place3 as OutsideView).skyline.boxes
+    expect(boxes.some(b => b.heightM === roof)).toBe(true)
+  })
+
+  it('keeps the clear side of a wide body alongside text', () => {
+    const world = worldAt('haifa')
+    const view = viewOf('haifa')
+    const body = view.skyline.boxes.find(b => b.seed !== undefined)!
+    const clear = [{ x: body.x + .35 * body.w, y: body.top, w: body.w, h: body.foot - body.top }]
+    const shape = outsideShape({ ...world, place3: { ...view, skyline: { ...view.skyline, boxes: [body], towers: [] } } }, BOX, clear)
+    const item = shape.items.find(i => i.kind === 'box' && !i.beyond)
+    expect(item?.kind === 'box' && item.w).toBeCloseTo(.8 * body.w)
+    expect(item?.kind === 'box' && item.x).toBeCloseTo(body.x - .1 * body.w)
+  })
+})
 
 describe.each(CITIES)('outside view: %s', (id) => {
   it('is seen from outside, its frame cut at its own mapped boundary', () => {
