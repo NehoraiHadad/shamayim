@@ -1,5 +1,6 @@
 import type { WindVector } from '../domain/types'
 import type { Covers } from '../world/clouds'
+import { blockingCloudCover } from '../world/mist'
 import type { WorldSources } from '../world/types'
 import { ALOFT_FACTOR } from '../world/wind'
 import type { AirInput } from './airTypes'
@@ -29,14 +30,17 @@ export type Weather = Omit<AirInput, 'date' | 'localHour' | 'sunElevation' | 'pr
     weightedVisibilityKm: number
     fogCodeWeight: number
     lowCloudPct: number
-    midCloudPct: number
-    rawLayerWeight: number
     blockingCloudPct: number
     nightMinTemp: number
   }
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+export function cloudMist({ low, mid }: Covers, source: Weather['cloudSource']) {
+  return { lowCloudPct: source === 'forecast' ? low * 100 : 0,
+    blockingCloudPct: blockingCloudCover(low * 100, mid * 100, 0) }
+}
 
 /** Shortest arc in degrees, so 350° → 10° passes through north. */
 function lerpDirection(a: number, b: number, t: number): number {
@@ -49,6 +53,8 @@ const mixKnown = (a: number | null, b: number | null, t: number) => a === null |
 export function mixWeather(a: Weather, b: Weather, t: number): Weather {
   const nearest = t < 0.5 ? a : b
   const mistValue = (key: keyof Weather['mist']) => lerp(a.mist[key], b.mist[key], t)
+  const covers = { low: lerp(a.covers.low, b.covers.low, t), mid: lerp(a.covers.mid, b.covers.mid, t),
+    high: lerp(a.covers.high, b.covers.high, t) }
   const cruise = a.cruise && b.cruise ? {
     temperature: lerp(a.cruise.temperature, b.cruise.temperature, t),
     humidity: lerp(a.cruise.humidity, b.cruise.humidity, t),
@@ -95,13 +101,10 @@ export function mixWeather(a: Weather, b: Weather, t: number): Weather {
       visibilityWeight: mistValue('visibilityWeight'),
       weightedVisibilityKm: mistValue('weightedVisibilityKm'),
       fogCodeWeight: mistValue('fogCodeWeight'),
+      ...cloudMist(covers, 'forecast'),
       lowCloudPct: mistValue('lowCloudPct'),
-      midCloudPct: mistValue('midCloudPct'),
-      rawLayerWeight: mistValue('rawLayerWeight'),
-      blockingCloudPct: mistValue('blockingCloudPct'),
       nightMinTemp: mistValue('nightMinTemp'),
     },
-    covers: { low: lerp(a.covers.low, b.covers.low, t), mid: lerp(a.covers.mid, b.covers.mid, t),
-      high: lerp(a.covers.high, b.covers.high, t) },
+    covers,
   }
 }

@@ -7,7 +7,7 @@ import type { Forecast, LocalTime } from '../domain/types'
 import { layerCovers, unionOf } from '../world/clouds'
 import type { AirInput } from './airTypes'
 import { weatherAt } from './weatherAt'
-import { mixWeather, type Weather } from './weatherMix'
+import { cloudMist, mixWeather, type Weather } from './weatherMix'
 
 /** Where the sky is computed: the place's coordinates and its wall-clock zone. */
 export interface SkySite {
@@ -35,7 +35,8 @@ function correctedWeather(weather: Weather, cover: number): Weather {
   const correctedUnion = Math.max(0, Math.min(100, union * 100 + cover - weather.cloudCover))
   const { covers } = layerCovers({ cloudCover: correctedUnion, thickCloud, hour: union > 0
     ? { cloudLow: low * 100, cloudMid: mid * 100, cloudHigh: high * 100 } : undefined })
-  return { ...weather, cloudCover: cover, thickCloud, covers }
+  return { ...weather, cloudCover: cover, thickCloud, covers,
+    mist: { ...weather.mist, ...cloudMist(covers, weather.cloudSource) } }
 }
 
 /** Sample live or scrub weather at the viewed minute and evaluate arrivals at the app's current minute. */
