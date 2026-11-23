@@ -1025,13 +1025,20 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 
 - [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
       contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
-- [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
-- [ ] Track G LOW 1: a scrub can land `selected` exactly on now (useSceneTime.ts, SceneScrubber.tsx, useStripScrub.ts),
-      a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
-- [ ] Track G LOW 2: liveLight.test.ts held-preview test uses equal model and observed cover; it misses correctCloudCover
-      drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
-- [ ] CI gap: stills render the scene harness only, never the built app page. E's <body> background hid the sky in
-      production for hours with CI green. Add one built-app still (vite preview, 375 px) asserting the sky is not the boot colour.
+- [x] "Planes" left of the sun (Jerusalem 11:30) were a flock of 11 cranes: a wedge spaced closer than its drawn wingspans, of
+      straight crosses with a body twice its true length. The V is now spaced in drawn spans with true unequal arms
+      (`craneV.ts`) and the crane has bent broad wings and a body half a span long.
+- [ ] A short, non-persistent contrail paints as a white dot at a high airliner. Other kinds' dense flocks unchanged.
+- [x] Track G LOW 1: a pick or drag that lands on the current minute is live (null) at once (`ui/scrub/sceneTimeController.ts`,
+      `sceneDragTime.ts`, tested without a DOM); a clock tick never changes a held preview.
+- [x] Track G LOW 2: the satellite's correction is measured at its own minute (cover − model there, ±40 points, full for
+      40 min, nothing at 150), so a held preview does not drift while the clock runs, nor at the hour's rollover
+      (`observedCloud.ts`, `liveLightSatelliteCases.ts` with unequal model and observed cover).
+- [ ] The correction steps 0 → full where a scrub back crosses the observation's own minute (unchanged from before).
+- [x] CI gap: the stills job renders the built page too (`vite build` + preview, 375 px, recorded Haifa 15.3 noon, other hosts
+      refused): `e2e/skyShown.mjs` fails when the sky is the boot colour, when hiding the sky changes nothing, or when its
+      canvas holds no ink. Proven red with an opaque `body` in the boot colour and in a sky blue
+      (`docs/briefs/open-tasks-1-built-still.REPORT.md`).
 - [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
       (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
       distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
@@ -1045,10 +1052,16 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
       the cap (no saucers, `cloudTower.test.ts`); the overcast city night dim overhead, brighter toward the horizon
       (`CITY_ZENITH`/`CITY_HORIZON`). Next: CAPE in the Worker whitelist and the world (conv = f(CAPE, code, precip)).
 - [x] Crowns and storm hours (Claude, 22 Nov): Open-Meteo CAPE + freezing level asked (ASK_STORM_HOURLY on, app works without them); tower crowns are crisp cauliflower turrets in a dome half the width deep (no beads down narrow columns); a curtain hangs from its base's near edge; city night glow stays radial (no direction data). Open: bead column at the left edge in haifa 17:00, near curtain still faint at 14:00, freezing level unused (snow line), shaft drift time origin, fog in new style.
-- [x] Track D N4 close (Claude, 22 Nov): tower body puffs stratified up the column (no bead strings); a near rain curtain thickens with nearness (grey wall, cap 0.85); the falling snow line hangs 300 m under the forecast freezing level when given, else the lapse rule; weather/cloudSheet/cloudShadows/density split under 150 lines (shafts, precip, edgeMark, smoke, weatherShared, cloudSheetMath, cloudShadowWorld, field/footprint). Open: a column of blobs at the left edge in haifa 17:00 is the low Cu sheet's texture (sheet alpha 1 at css rows 268-311 by the edge), not towers; the near curtain at 14:00 is mostly hidden by the Carmel; glaciation height (FL+3 km) not used for the anvil.
+- [x] Track D N4 close (Claude, 22 Nov): tower body puffs stratified up the column (no bead strings); a near rain curtain thickens with nearness (grey wall, cap 0.85); the falling snow line hangs 300 m under the forecast freezing level when given, else the lapse rule; weather/cloudSheet/cloudShadows/density split under 150 lines (shafts, precip, edgeMark, smoke, weatherShared, cloudSheetMath, cloudShadowWorld, field/footprint). Open: a column of blobs at the left edge in haifa 17:00 is the low Cu sheet's texture (sheet alpha 1 at css rows 268-311 by the edge), not towers; the near curtain at 14:00 is mostly hidden by the Carmel.
 - [ ] Low Cu sheet texture makes a column of blobs at the screen edge (haifa 17:00, sheet alpha 1 at css rows 268-311).
-- [ ] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top.
-- [ ] City night glow is radial: no direction data for where the towns lie.
+- [x] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top. Not doing for now (owner, 23 Nov): glaciation changes
+      the top's texture, not where it flattens; today's rule (top reaching the tropopause, `cloudCells.ts`) stays.
+- [x] City night glow by direction: the far raster's built cells light the cloud base over them (`world/townLights.ts`) and
+      the air over each bearing (`townAir.ts`, Walker's law, the place's mean stays `env.glow`); a city is lit overhead and
+      on every side. `CITY_ZENITH`/`CITY_HORIZON` are gone. The light is added (`tone.ts` `addLight`), so it never darkens a
+      dusk; the base's light is a square grid with each town's true place and shape to 110 km (within 15 % of the sum).
+- [ ] The far raster holds no towns of Jordan, Lebanon, Syria or Egypt: the glow over Amman and Irbid is missing. Towers
+      (`cloudCells`) take no town light at night.
 - [x] Track D midnight reseed (N3e 884b2af1 + N3g c606afd1, in main; field.test.ts measureMidnight) (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Done before N4.
 

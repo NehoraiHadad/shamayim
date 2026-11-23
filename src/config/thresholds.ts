@@ -4,7 +4,12 @@ export const THRESHOLDS = {
   dayTemp: { cool: 18, pleasant: 25, warm: 31, hot: 36, veryHot: 41 },
   /** Night low → word. */
   nightTemp: { cold: 8, cool: 14, warmNight: 24 },
-  rain: { possible: 30, likely: 55, heavy: 80, heavyMm: 10, floodMm: 20, startHour: 50 },
+  /**
+   * heavyMm / floodMm: the blend spreads rain over a model grid cell, so a point's heavy day arrives as a smaller
+   * forecast amount. Against 84 IMS gauges (research/verification/fable3_*), a blended 7 mm best matches a gauge's
+   * 10 mm and 14 mm its 20 mm. quoteMm: under 1 mm the gauge stayed dry on most days (80% under 0.5 mm), so no amount is quoted.
+   */
+  rain: { possible: 30, likely: 55, heavy: 80, heavyMm: 7, floodMm: 14, startHour: 50, quoteMm: 1 },
   wind: { brisk: 20, strong: 35, gusts: 45 },
   dust: { light: 100, heavy: 300 },
   /** Mention feels-like only when it differs by at least this many degrees. */

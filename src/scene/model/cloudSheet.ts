@@ -6,6 +6,8 @@ import { meanRadius } from '../../world/field/lattice'
 import type { Lattice } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
+import { CITY_RGB, type CityOnBase } from './cityLight'
+import { sheetCity } from './cloudSheetCity'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
@@ -20,9 +22,8 @@ type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number
 
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
-
-
-export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours): LayerOf<'cloudSheet'> | null {
+export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours,
+  cityAt: CityOnBase | null = null): LayerOf<'cloudSheet'> | null {
   const { layer, heightKm, densityGrid } = snapshot
   if (!layer || heightKm <= 0 || geom.horizon <= 0 || geom.width <= 0) return null
   if (layer.lattice === 'tower' || !layer.cover) return null
@@ -84,7 +85,8 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const corrected = textureCorrection(raw, tau, weights, xs.length, detail)
   const solar = solarTexel(world, geom, snapshot, grid, angularStep)
   const closed = colours.closed ?? 0
-  let fingerprint = 2166136261
+  const city = cityAt && sheetCity(cityAt, grid, heightKm, deckEnd)
+  let fingerprint = (city ?? []).reduce((sum, w) => Math.imul(sum ^ Math.round(w * 255), 16777619), 2166136261)
   for (let row = 0; row < ys.length; row++) {
     const f = fade[row], visibility = path[row], multiplier = slant[row]
     const limb = 1 - Math.sin(altitudes[row] * RAD)
@@ -135,10 +137,10 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
+    ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
     key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit),
   }
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet
 }
-

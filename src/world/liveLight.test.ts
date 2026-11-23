@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { utcOf } from '../astro/utc'
-import { sightingsNow } from '../domain/cloudSightings'
 import { withForecastRefresh } from '../domain/forecastRefresh'
 import { addMinutes } from '../domain/minutes'
 import { rollForward } from '../domain/now'
@@ -9,6 +8,7 @@ import { SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import { sceneClock } from '../ui/useNow'
 import { faceLight } from './livingLight'
+import { liveLightSatelliteCases } from '../test/liveLightSatelliteCases'
 import type { WorldState } from './types'
 import { makeWorldBuilder, shownAir } from './world'
 
@@ -52,37 +52,7 @@ function refreshed(base: Forecast, changeHours = false): Forecast {
 }
 
 describe('live weather and light', () => {
-  it('keeps sightings, lightning and light fixed when now passes a held storm preview', () => {
-    const selected = '2026-11-17T14:00'
-    const input = worldInput(loaded, selected)
-    const forecast: Forecast = {
-      ...input.forecast,
-      hours: input.forecast.hours.map((hour) => ({ ...hour, cloudCover: 25, thickCloud: 25,
-        cloudLow: 25, cloudMid: 0, cloudHigh: 0,
-        ...(hour.time === selected ? { weatherCode: 95, temperature: 18, precipitation: 2 } : {}) })),
-    }
-    const observedCloud = { at: addMinutes(selected, -15), cover: 25,
-      sightings: [{ azimuth: 250, distanceKm: 8, widthKm: 6 }] }
-    const seenClouds = sightingsNow(observedCloud, selected, 25)
-    const build = makeWorldBuilder()
-    const frame = (now: LocalTime, selection: LocalTime | null) => {
-      const frameInput = { ...input, forecast, now, selected: selection, observedCloud, seenClouds }
-      const world = build(frameInput)
-      const shown = shownAir(frameInput)
-      return { preview: world.preview, seenClouds: shown.seenClouds, cloudsSeen: shown.cloudsSeen,
-        banks: world.clouds.flatMap((layer) => layer.banks.filter((bank) => bank.seen)),
-        thunderWeight: world.rain?.thunderWeight, light: world.light }
-    }
-
-    const before = frame(addMinutes(selected, -1), selected)
-    expect(before).toMatchObject({ preview: true, seenClouds: [], cloudsSeen: 0, banks: [], thunderWeight: 0 })
-    expect(frame(selected, selected)).toEqual(before)
-    expect(frame(addMinutes(selected, 1), selected)).toEqual(before)
-
-    const live = frame(selected, null)
-    expect(live).toMatchObject({ preview: false, seenClouds, cloudsSeen: 1, thunderWeight: 1 })
-    expect(live.banks).toHaveLength(1)
-  })
+  liveLightSatelliteCases(() => ({ loaded, bound }))
 
   it('carries a fresh reading through the app rollover and eases in a refetch with an older provider timestamp', () => {
     const build = makeWorldBuilder()
