@@ -13,12 +13,10 @@ import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
 import type { Box, OutsideItem, SceneBox } from './types'
+import { townGroundKm, wallStep } from './wallDistance'
 
 /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
 export const KM_STEP = .5
-
-/** A wall's own path of air, in steps of an eighth of an octave: the nearest rows differ most by it. */
-const wallKm = (km: number) => 2 ** (Math.round(Math.log2(Math.max(.1, km)) * 8) / 8)
 
 /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
 function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
@@ -52,8 +50,9 @@ interface Shape {
   bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
-  /** Each tier's own distance: the path of air a wall is seen through, never the land's behind it. */
+  /** Each tier's distance for its walls (a step of their own; the land's cap for what is beyond), and the town's ground. */
   wallKms: number[]
+  groundKm: number
   receivers: Map<number, { detail: boolean; tile: boolean }>[]
   heaters: Set<number>
   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
@@ -76,7 +75,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const behind = landBehind(world)
   const tier = (km: number, x: number, foot: number, own = false) => {
     const q = Math.round(Math.min(km, behind(x, foot)) / KM_STEP) * KM_STEP
-    const wall = own ? wallKm(km) : q
+    const wall = own ? wallStep(Math.min(km, view.land?.km ?? Infinity)) : q
     const key = `${q}:${wall}`
     let i = index.get(key)
     if (i === undefined) { i = kms.length; index.set(key, i); kms.push(q); wallKms.push(wall) }
@@ -146,7 +145,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
   const { receivers, heaters } = receiversUsed(out, kms.length)
-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, receivers, heaters, marks, mass, home }
+  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape

@@ -4,7 +4,8 @@ import type { WorldState } from '../../world/types'
 import type { SceneStyle } from '../sceneStyle'
 import { drawnOutsideLight } from './drawnOutsideLight'
 import { colourCode, colourKey, landBoxKey, layerKey } from './keys'
-import { glyphAtmosphereKey, refreshLandmarkItems } from './landmarkAtmosphere'
+import { glyphAtmosphereKey, refreshLandmarkGlyph, refreshLandmarkItems } from './landmarkAtmosphere'
+import { hazeAt } from './landVeil'
 import type { DrawnMass } from './markOcclusion'
 import { facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
 import { outsideLandDesc } from './outsideGround'
@@ -12,6 +13,7 @@ import { outsideSea } from './outsideSea'
 import { KM_STEP, outsideShape } from './outsideShape'
 import { accessoryTones, buildingFaces, type BuildingFaces } from './buildingLight'
 import { receiverLightKey } from './receiverKey'
+import { wallAir } from './wallDistance'
 import type { Box, LayerOf, SceneBox, Shine, Tones } from './types'
 
 /**
@@ -49,13 +51,15 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const shine: Shine = drawn?.shine ?? shineOf(world)
   // The hour's tones per tier, and the marks' glyphs in them (the rest of the shapes kept as they are).
   const tones = drawn?.tiers ?? shape.kms.map((km) => tonesAt(world, km))
-  const out = drawn?.items ?? refreshLandmarkItems(world, shape.items, shape.marks)
+  const air = wallAir(world, shape.groundKm), wallKms = shape.wallKms.map(air)
+  const out = drawn?.items ?? refreshLandmarkItems(world, shape.items, shape.marks, (_, glyph, km) =>
+    refreshLandmarkGlyph(world, glyph, air(km)))
   const sea = outsideSea(world, box, sx, clear)
   const view = world.place3
   const landDesc = outsideLandDesc(world, view, box, sx)
   const receivers = drawn ? [] : shape.receivers.map((ids, i) => {
     const palette: Record<number, BuildingFaces> = {}
-    for (const [id, { detail, tile }] of ids) palette[id] = buildingFaces(world, shape.wallKms[i], id, tile, false, detail)
+    for (const [id, { detail, tile }] of ids) palette[id] = buildingFaces(world, wallKms[i], id, tile, false, detail)
     return palette
   })
   if (!out.length && !sea) return null
@@ -75,14 +79,14 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   return {
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
     items: out, tiers: tones, sea, shine, land: landDesc, receivers,
-    accessories: drawn ? [] : shape.wallKms.map((km, i) => shape.heaters.has(i) ? accessoryTones(world, km) : null),
+    accessories: drawn ? [] : wallKms.map((km, i) => shape.heaters.has(i) ? accessoryTones(world, km) : null),
     ...(drawn ? { form: drawn.form } : {}),
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
       glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
-      sea && Math.round((sea.drift ?? 0) * 4), groundKey, drawn?.key ?? receiverLightKey(world)),
+      sea && Math.round((sea.drift ?? 0) * 4), groundKey, drawn?.key ?? [receiverLightKey(world), wallKms.map(km => Math.round(hazeAt(world, km) * 255))]),
     blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25] },
   }
 }

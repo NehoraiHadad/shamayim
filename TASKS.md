@@ -1023,6 +1023,9 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       - [x] Pre-merge review fixes. Facade exposure runs before the shared veil, and dense fog removes the
             contrast floor, so low-sun fog veils the town like the ground. Haifa's shrine dome matches main at
             21:00 and stays opaque through twilight. Four stills re-recorded.
+      - [x] Town walls are veiled by their own distance, and through twilight by the mean distance of the town's ground (`wallDistance.ts`), never by the
+            land behind each column, which drew vertical blocks in low sun and fog. `outsideNeighbours.test.ts`
+            bounds adjacent walls at 9/255 in five places, four airs and seven hours.
       - [ ] Follow-up, performance (software Chromium, CPU ×4). Haifa `modelCold` median is 242 ms against 187 ms
             on main. Shadmot Mehola thunder `canopy.near` peaks at 900 ms in the Worker against 69 ms on main,
             from the paired gust poses.
