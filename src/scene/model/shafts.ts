@@ -1,6 +1,7 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState, RainCell } from '../../world/types'
+import { sceneStretch } from './cloudCells'
 import { RAIN_GREY } from './cloudLight'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
@@ -34,16 +35,23 @@ export function inView(geom: SkyGeom, box: SceneBox, b: { x: number; w: number }
   return Math.abs(nearest(b.x, mid, geom.period) - mid) < box.width / 2 + b.w * 0.3
 }
 
+/**
+ * The slope a far curtain falls at on the screen (px across per px down): the wind's, on a sky drawn taller than it is
+ * wide (`sceneStretch`). Without it a curtain lies along the horizon as a comb of slanted lines.
+ */
+export const farTilt = (world: WorldState, geom: SkyGeom, p: PrecipState) =>
+  Math.tan(p.slant) / sceneStretch(geom, world.camera.pxPerDeg * geom.s)
+
 /** The curtain under a far bank: from inside its base to the ground at the horizon, the foot carried downwind. */
 export function shaftOf(world: WorldState, geom: SkyGeom, b: FallingCloud, p: PrecipState, horizonSky: RGB): ShaftDesc {
   const top = b.y - b.h * 0.2
   const bottom = geom.horizon + 2
-  const lean = Math.tan(p.slant) * (bottom - top) * (p.precip === 'snow' ? 0.6 : 1)
+  const lean = farTilt(world, geom, p) * (bottom - top) * (p.precip === 'snow' ? 0.6 : 1)
   const far = world.air.fade(b.distanceKm)
   // A rain curtain is the dark of the base it falls from (heavy shower rain is opaque to the light behind it), faded
   // only by the air between, as far land is.
   // By night it is a darker patch of the night sky.
-  const rgb = p.precip === 'rain' ? mixRgb(mixRgb(RAIN_GREY, horizonSky, 0.15 + 0.7 * far),
+  const rgb = p.precip === 'rain' ? mixRgb(mixRgb(mixRgb(RAIN_GREY, b.shade, 0.5), horizonSky, 0.05 + 0.2 * far),
     mixRgb(horizonSky, [0, 0, 0], 0.3), world.night.dark)
     : mixRgb(mixRgb(b.body, WHITE, 0.25 * (1 - world.night.dark)), horizonSky, 0.3 + 0.5 * far)
   // A shower a few kilometres off is a grey wall, not a veil: nearness thickens it, the air between thins it.

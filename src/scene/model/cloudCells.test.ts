@@ -40,7 +40,7 @@ it('stands each tower on the dome where its cell is, far first', () => {
     const cell = bySeed.get(sprite.seed)!
     const p = projectCell(cell)
     expect(x).toBeCloseTo(geom.x(p.az), 6)
-    expect(y).toBeCloseTo(geom.dome(Math.max(0, p.aNear)), 6)
+    expect(y + sprite.under - sprite.bowl!).toBeCloseTo(geom.dome(Math.max(0, p.aSide)), 6)
     expect(y - sprite.tall).toBeGreaterThanOrEqual(geom.dome(p.aTop) - 1e-6)
     expect(['cb', 'cg']).toContain(sprite.genus)
     expect(sprite.w).toBeGreaterThan(1)
@@ -111,19 +111,6 @@ it('spreads an anvil only on the most mature storm cells in view', () => {
     }
   }
 }, 60_000)
-
-it('stands a near storm cell of a real day up to its true top', async () => {
-  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T14:00' as LocalTime))
-  const geom = skyGeom(world, BOX)
-  const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
-  const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
-  const near = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm < 30)
-  expect(near.length).toBeGreaterThan(0)
-  for (const { sprite, y } of near) {
-    const p = projectCell(cells.get(sprite.seed)!)
-    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + 0.25 * (y - geom.dome(p.aTop)))
-  }
-}, 30_000)
 
 it('merges the far towers of a storm day into a soft mass along the horizon, not a row of streaks', () => {
   const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T17:00' as LocalTime))

@@ -30,6 +30,7 @@ export function projectCell(cell: FieldCell) {
   return {
     az,
     aFar: altitudeOf(cell.baseKm, dKm + radial),
+    aSide: dKm <= radial ? 90 : altitudeOf(cell.baseKm, Math.sqrt(dKm * dKm - radial * radial)),
     aNear: dKm <= radial ? 90 : altitudeOf(cell.baseKm, dKm - radial),
     aTop: altitudeOf(cell.baseKm + cell.vKm, dKm),
     rangeKm,
