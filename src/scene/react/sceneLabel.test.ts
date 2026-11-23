@@ -67,12 +67,13 @@ describe('sceneLabel', () => {
     const forecast = makeForecast([
       { max: 20, min: 5 },
       { max: 20, min: 5, hour: (h) => (h === 22 ? { weatherCode: 0, temperature: -2 } : {}) },
+      { max: 20, min: 5 },
     ])
     forecast.elevation = 790
     forecast.current = { ...forecast.current, weatherCode: 61, temperature: 18, isDay: true }
 
     expect(label(world('ירושלים', false), forecast, `${TODAY}T12:00`, `${TODAY}T22:00`)).toBe(
-      'ירושלים, בהיר, \u2066−2°\u2069. שקיעה ב־\u206619:45\u2069. גובה היישוב \u2066790\u2069 מטר.',
+      'ירושלים, בהיר, \u2066−2°\u2069. זריחה ב־\u206605:40\u2069. גובה היישוב \u2066790\u2069 מטר.',
     )
   })
 

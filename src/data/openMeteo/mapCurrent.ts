@@ -1,16 +1,18 @@
-import type { CurrentWeather } from '../../domain/types'
+import { nearestWindDirection } from '../../domain/bracket'
+import type { CurrentWeather, HourPoint } from '../../domain/types'
 import { expectUnit, num, numOrNull, obj, str, type Json } from './guards'
 import { thickCloud } from './mapHelpers'
 
-export function mapCurrent(raw: Json): CurrentWeather {
+export function mapCurrent(raw: Json, hours: readonly Pick<HourPoint, 'time' | 'windDirection'>[] = []): CurrentWeather {
   const current = obj(raw.current, 'current')
   expectUnit(obj(raw.current_units ?? {}, 'current_units'), 'temperature_2m', '°C', 'current_units')
 
   const cloudLow = numOrNull(current.cloud_cover_low)
   const cloudMid = numOrNull(current.cloud_cover_mid)
 
+  const time = str(current.time, 'current.time')
   return {
-    time: str(current.time, 'current.time'),
+    time,
     temperature: num(current.temperature_2m, 'current.temperature_2m'),
     feelsLike: num(current.apparent_temperature, 'current.apparent_temperature'),
     isDay: num(current.is_day, 'current.is_day') === 1,
@@ -19,10 +21,10 @@ export function mapCurrent(raw: Json): CurrentWeather {
     thickCloud: thickCloud(cloudLow, cloudMid),
     cloudLow,
     cloudMid,
+    cloudHigh: numOrNull(current.cloud_cover_high),
     windSpeed: num(current.wind_speed_10m, 'current.wind_speed_10m'),
     windGusts: num(current.wind_gusts_10m, 'current.wind_gusts_10m'),
-    cloudHigh: numOrNull(current.cloud_cover_high),
-    windDirection: numOrNull(current.wind_direction_10m) ?? 0,
+    windDirection: numOrNull(current.wind_direction_10m) ?? nearestWindDirection(hours, time) ?? 0,
     precipitation: numOrNull(current.precipitation) ?? 0,
     snowfall: numOrNull(current.snowfall) ?? 0,
     visibility: numOrNull(current.visibility),

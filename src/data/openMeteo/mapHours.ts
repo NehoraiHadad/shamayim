@@ -1,15 +1,34 @@
 import { blendDirection, blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
 import { hourlyTemperatureAdd, temperatureIconWeight } from '../../domain/correction/temperature'
 import { correctGust, correctHumidity, humidityIconWeight } from '../../domain/correction/windHumidity'
-import type { HourPoint, WindVector } from '../../domain/types'
+import { minutesBetweenLocal } from '../../domain/minutes'
+import type { HourPoint, LocalTime, WindVector } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
-import { pairs, thickCloud } from './mapHelpers'
+import { pairs, thickCloud, type Pair } from './mapHelpers'
+
+/** Fill from original samples up to three wall-clock hours away, earlier first on ties. */
+function fillNeighbours(stamps: readonly LocalTime[], values: readonly (number | null)[]) {
+  let before = -1, after = 0
+  return values.map((value, i) => {
+    if (value !== null) {
+      before = i
+      return value
+    }
+    if (after <= i) {
+      after = i + 1
+      while (after < values.length && values[after] === null) after++
+    }
+    const back = before < 0 ? Infinity : minutesBetweenLocal(stamps[before], stamps[i])
+    const ahead = after === values.length ? Infinity : minutesBetweenLocal(stamps[i], stamps[after])
+    return Math.min(back, ahead) > 180 ? null : values[back <= ahead ? before : after]
+  })
+}
 
 /**
  * `now` (the response's current time) and `utcOffsetSeconds` place each hour's lead and standard-time hour for the
  * national temperature correction (domain/correction/temperature).
  */
-export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds: number): HourPoint[] {
+export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds: number) {
   const hourly = obj(raw.hourly, 'hourly')
   const time = hourly.time
   if (!Array.isArray(time)) throw new DataError('hourly.time: missing')
@@ -38,45 +57,62 @@ export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
   const snowDepth = pairs(hourly, 'snow_depth', length, 'hourly')
-  const dates = [...new Set(time.map((value, index) => str(value, `hourly.time[${index}]`).slice(0, 10)))]
+  const stamps = time.map((value, index) => str(value, `hourly.time[${index}]`))
+  const dates = [...new Set(stamps.map(stamp => stamp.slice(0, 10)))]
   const todayIndex = dates.indexOf(today)
+  const offsets = stamps.map(stamp => dates.indexOf(stamp.slice(0, 10)) - todayIndex)
+  const weights = offsets.map(iconWeight)
+  const fill = (read: (i: number) => number | null) => fillNeighbours(stamps, stamps.map((_, i) => read(i)))
+  const numeric = (column: Pair[], weight = weights) => fill(i => blendNumber(column[i], weight[i]))
+  const temperatures = numeric(temp, offsets.map(temperatureIconWeight)), modelTemperatures = numeric(temp)
+  const probabilities = numeric(precipProb), rain = numeric(precipitation)
+  const codes = fill(i => blendWeatherCode(weatherCode[i], precipProb[i], weights[i]))
+  const cover = numeric(cloudCover)
+  const low = numeric(cloudLow), mid = numeric(cloudMid), high = numeric(cloudHigh)
+  const rawDirection = stamps.map((_, i) => blendDirection(windDirection[i], weights[i]))
+  const directions = fillNeighbours(stamps, rawDirection)
+  const observedDirections = stamps.map((time, i) => ({ time, windDirection: rawDirection[i] }))
+  const visible = numeric(visibility)
+  const winds = aloft.map(({ speed, from }) => ({ speed: numeric(speed), from: fill(i => blendDirection(from[i], weights[i])) }))
+  const cruiseTemp = numeric(cruiseT), cruiseHumidity = numeric(cruiseRh)
+  const fuel = numeric(cape), freezing = numeric(freezingLevel)
+  const speeds = numeric(windSpeed10), gusts = numeric(windGusts), depth = numeric(snowDepth)
+  const humidities = numeric(humidity, offsets.map(humidityIconWeight)), modelHumidities = numeric(humidity)
 
-  return time.flatMap((value, index) => {
-    const stamp = str(value, `hourly.time[${index}]`)
-    const dayOffset = dates.indexOf(stamp.slice(0, 10)) - todayIndex
-    const weight = iconWeight(dayOffset)
-    const blendedTemp = blendNumber(temp[index], temperatureIconWeight(dayOffset))
+  const hours: HourPoint[] = stamps.flatMap((stamp, index) => {
+    const blendedTemp = temperatures[index]
     if (blendedTemp === null) return []
-    const windSpeed = blendNumber(windSpeed10[index], weight) ?? 0
-    const gust = blendNumber(windGusts[index], weight)
-    const rh = blendNumber(humidity[index], humidityIconWeight(dayOffset))
-    const modelRh = blendNumber(humidity[index], weight)
+    const windSpeed = speeds[index] ?? 0
+    const gust = gusts[index]
+    const rh = humidities[index]
+    const modelRh = modelHumidities[index]
 
     return [{
       time: stamp,
       temperature: roundTemperature(blendedTemp + hourlyTemperatureAdd(stamp, now, utcOffsetSeconds)),
-      modelTemperature: roundTemperature(blendNumber(temp[index], weight) ?? blendedTemp),
-      precipProb: blendNumber(precipProb[index], weight),
-      precipitation: blendNumber(precipitation[index], weight) ?? 0,
-      weatherCode: blendWeatherCode(weatherCode[index], precipProb[index], weight) ?? 0,
-      cloudCover: blendNumber(cloudCover[index], weight) ?? 0,
-      thickCloud: thickCloud(blendNumber(cloudLow[index], weight), blendNumber(cloudMid[index], weight)),
+      modelTemperature: roundTemperature(modelTemperatures[index] ?? blendedTemp),
+      precipProb: probabilities[index],
+      precipitation: rain[index] ?? 0,
+      weatherCode: codes[index] ?? 0,
+      cloudCover: cover[index] ?? 0,
+      thickCloud: thickCloud(low[index], mid[index]),
       windSpeed,
       windGusts: gust === null ? 0 : correctGust(gust, windSpeed, stamp, now, utcOffsetSeconds),
       humidity: rh === null ? null : correctHumidity(rh, stamp, now, utcOffsetSeconds),
       ...(modelRh === null ? {} : { modelHumidity: modelRh }),
-      snowDepth: blendNumber(snowDepth[index], weight) ?? 0,
-      cloudLow: blendNumber(cloudLow[index], weight),
-      cloudMid: blendNumber(cloudMid[index], weight),
-      cloudHigh: blendNumber(cloudHigh[index], weight),
-      windDirection: blendDirection(windDirection[index], weight),
-      visibility: blendNumber(visibility[index], weight),
-      windAloft: windAloft(aloft.map(({ speed, from }) => vector(blendNumber(speed[index], weight), blendDirection(from[index], weight)))),
-      cruise: cruiseOf(blendNumber(cruiseT[index], weight), blendNumber(cruiseRh[index], weight)),
-      cape: blendNumber(cape[index], weight),
-      freezingLevel: blendNumber(freezingLevel[index], weight),
+      snowDepth: depth[index] ?? 0,
+      cloudLow: low[index],
+      cloudMid: mid[index],
+      cloudHigh: high[index],
+      windDirection: directions[index],
+      visibility: visible[index],
+      windAloft: windAloft(winds.map(({ speed, from }) => vector(speed[index], from[index]))),
+      cruise: cruiseOf(cruiseTemp[index], cruiseHumidity[index]),
+      cape: fuel[index],
+      freezingLevel: freezing[index],
     }]
   })
+  return { hours, observedDirections }
 }
 
 const vector = (speed: number | null, fromDeg: number | null): WindVector | null =>

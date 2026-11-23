@@ -10,7 +10,12 @@ import { bracketAt } from '../domain/bracket'
 import { weatherEffects, type PhaseInput } from './weatherEffects'
 import { cloudMist, mixPrecedingHour, mixWeather, type Weather } from './weatherMix'
 
-const airAt = (air: AirPoint[] | null, at: LocalTime) => air?.find((point) => point.time === at)
+function airAt(air: AirPoint[] | null, at: LocalTime) {
+  if (!air?.length) return undefined
+  if (at <= air[0].time) return air[0]
+  if (at >= air[air.length - 1].time) return air[air.length - 1]
+  return air.find(point => point.time === at)
+}
 const clippedThick = (thick: number | null | undefined, total: number) => thick == null ? null : Math.min(thick, total)
 
 export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs: number, timezone: string,
