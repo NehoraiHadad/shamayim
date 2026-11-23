@@ -1,3 +1,4 @@
+import { bracketAt } from '../atmo/bracket'
 import { arrivalWeight } from './forecastRefresh'
 import { minutesBetweenLocal } from './minutes'
 import type { CloudSighting } from './cloudSightings'
@@ -13,12 +14,13 @@ export interface CloudObservation {
   sightings?: CloudSighting[]
 }
 
-/** The correction decays to nothing over this much forecast time, so later hours stay the model's. */
-const DECAY_MIN = 150
-/** An observation counts fully while fresh and not at all once this old (satellite runs ~20–35 min late). */
+/** Satellite data runs ~20–35 minutes late, so allow full trust through 40 minutes. */
 const FRESH_MIN = 40
+/** Individual patches are too old to show as live sightings after 100 minutes. */
 const STALE_MIN = 100
-/** Never move the model by more than this many points: a cloud mask is binary and can be fooled. */
+/** Fade bulk cover to the model by the documented ~2.5-hour horizon as the observed sky loses relevance. */
+const COVER_FADE_MIN = 150
+/** Cap the error in percentage points because a binary cloud mask can misclassify pixels. */
 const MAX_SHIFT = 40
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -26,6 +28,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 /** 0–1 trust in an observation by its age at `now`. */
 export function observationWeight(obs: CloudObservation, now: LocalTime): number {
   const age = minutesBetweenLocal(obs.at, now)
+  // Allow a slightly ahead timestamp for live sightings when the clocks differ.
   if (age < -15) return 0
   return clamp(1 - (age - FRESH_MIN) / (STALE_MIN - FRESH_MIN), 0, 1)
 }
@@ -45,23 +48,33 @@ export function blendObservations<T>(obs: CloudObservation, nowMs: number | unde
   return weight === 0 ? before : mix(before, sample(obs), weight)
 }
 
-/** The satellite can correct a minute only from its observation onward. */
-export function correctCloudCover(obs: CloudObservation, now: LocalTime, at: LocalTime, nowMs: number | undefined,
-  modelNow: number, modelAt: number): number {
-  const decay = clamp(1 - minutesBetweenLocal(now, at) / DECAY_MIN, 0, 1)
-  const shift = blendObservations(obs, nowMs, 0, (sample) => {
-    if (at < sample.at) return 0
-    return clamp((sample.cover - modelNow) * observationWeight(sample, now), -MAX_SHIFT, MAX_SHIFT) * decay
-  }, (before, after, weight) => before + (after - before) * weight)
-  return clamp(modelAt + shift, 0, 100)
+/** Correct the viewed minute with the model error measured at each satellite observation (`before` the first: the model). */
+export function correctCloudCover(obs: CloudObservation, at: LocalTime, nowMs: number | undefined, modelAt: number,
+  modelCoverAt: (minute: LocalTime) => number, before = modelAt): number {
+  return blendObservations(obs, nowMs, before, (sample) => {
+    const age = minutesBetweenLocal(sample.at, at)
+    if (age < 0 || age >= COVER_FADE_MIN) return modelAt
+    const trust = Math.min(1, (COVER_FADE_MIN - age) / (COVER_FADE_MIN - FRESH_MIN))
+    return clamp(modelAt + clamp(sample.cover - modelCoverAt(sample.at), -MAX_SHIFT, MAX_SHIFT) * trust, 0, 100)
+  }, (from, to, weight) => from + (to - from) * weight)
 }
 
 /** Apply the correction to the weather card and hourly strip. The scene samples it at its own exact minute. */
 export function withObservedCloud(forecast: Forecast, obs: CloudObservation | null, now: LocalTime, nowMs?: number): Forecast {
   if (!obs) return forecast
-  const modelNow = (forecast.observation ?? forecast.current).cloudCover
-  const adjust = (at: LocalTime, cover: number) => correctCloudCover(obs, now, at, nowMs, modelNow, cover)
-  const coverNow = adjust(now, forecast.current.cloudCover)
+  const modelCovers = new Map<LocalTime, number>()
+  const modelCoverAt = (at: LocalTime) => {
+    const cached = modelCovers.get(at)
+    if (cached !== undefined) return cached
+    const { before, after, fraction } = bracketAt(forecast.hours, at)
+    const first = before?.cloudCover ?? forecast.current.cloudCover
+    const cover = first + ((after?.cloudCover ?? first) - first) * fraction
+    modelCovers.set(at, cover)
+    return cover
+  }
+  const adjust = (at: LocalTime, cover: number, before?: number) => correctCloudCover(obs, at, nowMs, cover, modelCoverAt, before)
+  // The card goes over from the provider's reading to the strip's corrected timeline as the first observation arrives.
+  const coverNow = adjust(now, modelCoverAt(now), forecast.current.cloudCover)
   let changed = coverNow !== forecast.current.cloudCover
   const hours = forecast.hours.map((h) => {
     const cover = adjust(h.time, h.cloudCover)

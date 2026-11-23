@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import { makeForecast } from '../test/makeForecast'
+import { rollForward } from './now'
 import { correctCloudCover, observationWeight, withObservedCloud } from './observedCloud'
-import type { Forecast } from './types'
+import type { Forecast, HourPoint } from './types'
 
-const hour = (time: string, cloudCover: number, weatherCode = 0) =>
-  ({ time, temperature: 15, precipProb: 0, precipitation: 0, weatherCode, cloudCover, windSpeed: 5, windGusts: 9, humidity: 60 })
+const hour = (time: string, cloudCover: number, weatherCode = 0): HourPoint =>
+  ({ time, temperature: 15, precipProb: 0, precipitation: 0, weatherCode, cloudCover, windSpeed: 5, windGusts: 9,
+    humidity: 60, snowDepth: 0 })
 
-const forecast = {
+const forecast: Forecast = {
+  ...makeForecast([]),
   current: { time: '2026-11-18T09:00', temperature: 15, feelsLike: 15, isDay: true, weatherCode: 0, cloudCover: 0,
     windSpeed: 5, windGusts: 9, windDirection: 270, precipitation: 0, snowfall: 0, visibility: null, humidity: 60 },
   hours: [hour('2026-11-18T09:00', 0), hour('2026-11-18T10:00', 0), hour('2026-11-18T12:00', 0), hour('2026-11-18T13:00', 0, 61)],
-} as unknown as Forecast
+}
 
 describe('observationWeight', () => {
   it('trusts a fresh observation fully and a 100-minute-old one not at all', () => {
@@ -27,7 +31,8 @@ describe('withObservedCloud', () => {
     const out = withObservedCloud(forecast, seen, '2026-11-18T09:00')
     expect(out.current.cloudCover).toBe(30)
     expect(out.current.weatherCode).toBe(1)
-    expect(out.hours[1].cloudCover).toBeCloseTo(18)
+    // At 10:00 the observation is 85 minutes old: 30 points times (150 - 85) / (150 - 40).
+    expect(out.hours[1].cloudCover).toBeCloseTo(30 * 65 / 110)
     expect(out.hours[2].cloudCover).toBe(0)
   })
   it('leaves rain codes alone and caps the shift', () => {
@@ -47,11 +52,33 @@ describe('withObservedCloud', () => {
     const now = '2026-11-18T09:30'
     const seen = { at: '2026-11-18T09:15', cover: 30, receivedAt: 0 }
     expect(withObservedCloud(forecast, seen, now, 600_000).hours[0]).toBe(forecast.hours[0])
-    expect(correctCloudCover(seen, now, '2026-11-18T09:14', 600_000, 0, 0)).toBe(0)
-    expect(correctCloudCover(seen, now, seen.at, 300_000, 0, 0)).toBe(15)
-    expect(correctCloudCover(seen, now, seen.at, 600_000, 0, 0)).toBe(30)
+    const model = () => 0
+    expect(correctCloudCover(seen, '2026-11-18T09:14', 600_000, 0, model)).toBe(0)
+    expect(correctCloudCover(seen, seen.at, 300_000, 0, model)).toBe(15)
+    expect(correctCloudCover(seen, seen.at, 600_000, 0, model)).toBe(30)
   })
   it('returns the forecast untouched without an observation', () => {
-    expect(withObservedCloud(forecast, null, '2026-11-18T09:00')).toBe(forecast)
+    expect(withObservedCloud(forecast, null, '2026-11-18T09:30')).toBe(forecast)
+  })
+  it('corrects the card and strip from the same interpolated timeline through the app rollover', () => {
+    const model = { ...forecast, hours: [hour('2026-11-18T09:00', 20), hour('2026-11-18T10:00', 60)] }
+    const seen = { cover: 70, at: '2026-11-18T09:30' }
+    const before = withObservedCloud(model, seen, '2026-11-18T09:59')
+    const now = '2026-11-18T10:00'
+    const after = withObservedCloud(rollForward(model, now), seen, now)
+    // The satellite adds 70 - 40 = 30 points to both the viewed minute and the hour row.
+    expect(before.current.cloudCover).toBeCloseTo(90 - 40 / 60)
+    expect(after.current.cloudCover).toBe(90)
+    expect(after.hours[1].cloudCover).toBe(after.current.cloudCover)
+  })
+  it('eases in the first observation without stepping the card at receipt or rollover', () => {
+    const model = { ...forecast, hours: [hour('2026-11-18T09:00', 20), hour('2026-11-18T10:00', 60)] }
+    const seen = { cover: 70, at: '2026-11-18T09:30', receivedAt: 0 }
+    const receipt = '2026-11-18T09:55'
+    expect(withObservedCloud(model, seen, receipt, 0).current.cloudCover).toBe(model.current.cloudCover)
+    const rollover = '2026-11-18T10:00'
+    expect(withObservedCloud(rollForward(model, rollover), seen, rollover, 5 * 60_000).current.cloudCover).toBe(75)
+    const settled = '2026-11-18T10:05'
+    expect(withObservedCloud(rollForward(model, settled), seen, settled, 10 * 60_000).current.cloudCover).toBe(90)
   })
 })

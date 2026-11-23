@@ -975,10 +975,12 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 - [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
       contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
 - [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
-- [ ] Track G LOW 1: a scrub can land `selected` exactly on now (useSceneTime.ts, SceneScrubber.tsx, useStripScrub.ts),
-      a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
-- [ ] Track G LOW 2: liveLight.test.ts held-preview test uses equal model and observed cover; it misses correctCloudCover
-      drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
+- [x] Track G LOW 1: a pick or drag that lands on the current minute is live (null) at once (`ui/scrub/sceneTimeController.ts`,
+      `sceneDragTime.ts`, tested without a DOM); a clock tick never changes a held preview.
+- [x] Track G LOW 2: the satellite's correction is measured at its own minute (cover − model there, ±40 points, full for
+      40 min, nothing at 150), so a held preview does not drift while the clock runs, nor at the hour's rollover
+      (`observedCloud.ts`, `liveLightSatelliteCases.ts` with unequal model and observed cover).
+- [ ] The correction steps 0 → full where a scrub back crosses the observation's own minute (unchanged from before).
 - [x] CI gap: the stills job renders the built page too (`vite build` + preview, 375 px, recorded Haifa 15.3 noon, other hosts
       refused): `e2e/skyShown.mjs` fails when the sky is the boot colour, when hiding the sky changes nothing, or when its
       canvas holds no ink. Proven red with an opaque `body` in the boot colour and in a sky blue
