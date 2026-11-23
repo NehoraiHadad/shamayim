@@ -1,6 +1,5 @@
 //# allFunctionsCalledOnLoad
 import { farMasses } from './markOcclusion'
-//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
