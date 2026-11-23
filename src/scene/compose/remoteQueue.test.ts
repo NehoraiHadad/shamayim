@@ -202,7 +202,7 @@ describe('bounded strip scheduling in RemoteCache', () => {
     }
   })
 
-  it('publishes the cold canopy as a pair and resumes at pose one', () => {
+  it('keeps the cold canopy beam ahead of the shade and later poses', () => {
     vi.useFakeTimers()
     try {
       const worker = fakeWorker()
@@ -214,14 +214,35 @@ describe('bounded strip scheduling in RemoteCache', () => {
         shadedTones: { key: 'shade', trees: new Uint8Array(), tufts: new Uint8Array() } }
       cache.update(desc, 2)
       cache.flush()
+      expect(worker.sent[0].jobs[0]).toMatchObject({ frames: [0], shade: undefined, preview: true })
+      worker.answer()
+      expect(cache.peek(desc.id)?.shade).toBeFalsy()
+      vi.advanceTimersByTime(80)
       expect(worker.sent[0].jobs[0]).toMatchObject({ frames: [0], shade: true, preview: true })
       worker.answer()
       expect(cache.peek(desc.id)?.shade).toBeTruthy()
-      vi.advanceTimersByTime(80)
       expect(worker.sent[0].jobs[0]).toMatchObject({ frames: [1, 2], shade: true })
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('reuses the painted beam when adding the cold canopy shade', () => {
+    const ctx = new Proxy({}, { get: () => () => undefined, set: () => true })
+    const written: (number | undefined)[] = []
+    const runner = makeWorkerRunner({
+      createCanvas: (width, height) => ({ width, height, getContext: () => ctx, transferToImageBitmap: () => bitmap(width, height) }),
+      painterOf: () => ({ form: () => {}, light: (_ctx, desc) => {
+        if (desc.kind === 'canopy') written.push(desc.tones?.trees[0])
+      } }),
+    })
+    const desc = { ...canopy('c1', 'cl1'), tones: { trees: Uint8Array.of(1), tufts: new Uint8Array() },
+      shadedTones: { key: 'shade', trees: Uint8Array.of(2), tufts: new Uint8Array() } }
+    const job = { id: desc.id, part: 'light' as const, key: 'cl1', formKey: 'c1', ratio: 1, desc, phase: 0, hand: HAND,
+      rect: { x: 0, y: 40, w: 375, h: 88 }, frames: [0], progressive: true, final: false, preview: true as const }
+    expect(runner([{ ...job, coldPreview: true }])[0].shade).toBeUndefined()
+    expect(runner([{ ...job, shade: true }])[0].shade).toBeTruthy()
+    expect(written).toEqual([1, 2])
   })
 
   it('paints all strip frames across chunks in makeWorkerRunner and transfers only on the final chunk', () => {

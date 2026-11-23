@@ -41,11 +41,21 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
   function paintCanopyPoses(canvases: Map<string, WorkerCanvas>, job: PaintJob, paint: Painter['form'],
     transfer: (canvas: WorkerCanvas) => ImageBitmap) {
     // Software raster can read the full strip for a small crop. Keep each pair directly drawable.
-    for (const pose of job.frames!) {
-      const canvas = canvasFor(canvases, job, 'light', pose), shade = canvasFor(canvases, job, 'shade', pose)
-      paintPart(canvas.getContext('2d') as Ctx2D, canvas, job.desc, job.ratio, job.rect,
-        paint, job.phase, job.hand, scratch, undefined, job.style, shade.getContext('2d') as Ctx2D, pose)
+    for (const pose of job.frames ?? [0]) {
+      const beamReady = canvases.has(`light:${pose}`)
+      const canvas = canvasFor(canvases, job, 'light', pose)
+      const shade = job.shade ? canvasFor(canvases, job, 'shade', pose) : undefined
+      if (beamReady && shade && job.desc.kind === 'canopy') {
+        // The beam canvas was already shown at cold start. Fill just the missing endpoint.
+        const desc = { ...job.desc, tones: job.desc.shadedTones }
+        paintPart(shade.getContext('2d') as Ctx2D, shade, desc, job.ratio, job.rect,
+          paint, job.phase, job.hand, scratch, undefined, job.style, undefined, pose)
+      } else {
+        paintPart(canvas.getContext('2d') as Ctx2D, canvas, job.desc, job.ratio, job.rect,
+          paint, job.phase, job.hand, scratch, undefined, job.style, shade?.getContext('2d') as Ctx2D | undefined, pose)
+      }
     }
+    if (!job.shade) return { bitmap: snapshot(job, canvasFor(canvases, job, 'light', 0), transfer) }
     const first = { bitmap: snapshot(job, canvasFor(canvases, job, 'light', 0), transfer),
       shade: snapshot(job, canvasFor(canvases, job, 'shade', 0), transfer) }
     if (job.final === false) return first
@@ -82,11 +92,12 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         const paint = job.part === 'form' ? painter?.form : painter?.light
         const info = { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, preview: job.preview }
         const slot = paintSlot(job.id, job.part)
-        const previous = job.frames?.[0] ? staged.get(slot) : undefined
+        const canopy = job.progressive && (job.shade || job.coldPreview)
+        const previous = job.frames?.[0] || (canopy && job.shade) ? staged.get(slot) : undefined
         const canvases = previous ?? new Map<string, WorkerCanvas>()
         if (job.final === false) staged.set(slot, canvases)
         else staged.delete(slot)
-        if (paint && job.shade && job.progressive && job.frames) {
+        if (paint && canopy) {
           const endpoints = paintCanopyPoses(canvases, job, paint, transfer)
           results.push({ ...info, ...endpoints, ms: now() - start })
           continue

@@ -80,7 +80,7 @@ export class RemoteCache {
     const ask = (part: PaintJob['part'], key: string | null) => {
       if (key === null) return this.queue.cancel(desc.id, part)
       return this.queue.ask({ id: desc.id, part, key, formKey, ratio, rect, phase, hand: this.options.hand ?? HAND, style: this.style,
-        ...receiverJob(desc, part, formless, same) }, request)
+        ...receiverJob(desc, part, formless, same, Boolean(entry.shown)) }, request)
     }
     const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
     const light = ask('light', (same && !entry.shown?.preview && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
