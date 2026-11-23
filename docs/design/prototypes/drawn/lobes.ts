@@ -1,26 +1,19 @@
 import { rng } from '../../../../src/scene/paint/shared/base/core'
-import { css, type Ctx2D } from '../../../../src/scene/paint/shared/base/hand'
-import type { RGB } from '../../../../src/scene/model/types'
 
 /*
- * A cloud mass as lobes of cut paper: round discs inscribed in the mass the model gives, the largest first, each stepping
- * a little over its edge on top and lying flat at the foot. They are laid from the mass's lit top to its shaded foot in a
- * few flat values, each lobe with a paler cap. Pure: the mask and the seed.
+ * Where a cloud mass's caps stand: round discs inscribed in the mass the model gives, the largest first, each stepping a
+ * little over its edge on top and lying flat at the foot. Pure: the mask and the seed.
  */
 
 /** A mass on a grid: over 0 inside, `side` its place in the mass (1 top … -1 foot), `most` a row's largest lobe (cells). */
 export interface Mass { cols: number; rows: number; at: Float32Array; side: Float32Array; most: (row: number) => number; seed: number }
 export interface Lobe { x: number; y: number; r: number; side: number }
-/** A value of the mass: the place in it a lobe takes it down to, its plane and its caps. */
-export interface Value { down: number; rgb: RGB; cap: RGB }
-interface Place { x: number; y: number; step: number; toward: number }
 
 /** A lobe's most against its distance to the edge: a round mass is several lobes, not one ball. */
 const INNER = 0.78
 const DIAG = Math.SQRT2, LEAST = 1.15, APART = 0.62, BIN = 12
 /** How far a lobe swells (against its radius); it rises by as much, so that its foot stays in the mass. */
 const OVER = 0.3
-const CAP = 0.84, CAP_UP = 0.17, CAP_ACROSS = 0.12, CAP_LEAST = 2.5
 /** Lobes smaller than this share of their row's most stand only on a top; none stand at the foot or in the far rows (cells). */
 const SMALL = 0.42, TOP = 0.05, FOOT = -0.5, NEAR = 6
 
@@ -90,27 +83,4 @@ function agreed(lobes: readonly Lobe[]): Lobe[] {
     }
     return { ...l, side: 0.5 * l.side + 0.5 * (sum / whole) }
   })
-}
-
-/** The lobes value by value, the mass's top first, so that a lower one stands before it. */
-export function paintLobes(ctx: Ctx2D, lobes: readonly Lobe[], values: readonly Value[], f: Place) {
-  let from = Infinity
-  for (const value of values) {
-    const mine = lobes.filter((l) => l.side <= from && l.side > value.down)
-    from = value.down
-    plane(ctx, mine, 1, 0, 0, value.rgb, f)
-    plane(ctx, mine.filter((l) => l.r > CAP_LEAST), CAP, f.toward * CAP_ACROSS, -CAP_UP, value.cap, f)
-  }
-}
-
-function plane(ctx: Ctx2D, lobes: readonly Lobe[], by: number, dx: number, dy: number, rgb: RGB, f: Place) {
-  if (!lobes.length) return
-  ctx.beginPath()
-  for (const l of lobes) {
-    const x = f.x + (l.x + dx * l.r) * f.step, y = f.y + (l.y + dy * l.r) * f.step, r = l.r * by * f.step
-    ctx.moveTo(x + r, y)
-    ctx.ellipse(x, y, r, r * 0.94, 0, 0, Math.PI * 2)
-  }
-  ctx.fillStyle = css(rgb)
-  ctx.fill()
 }

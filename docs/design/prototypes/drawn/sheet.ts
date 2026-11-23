@@ -7,15 +7,16 @@ import { soften } from '../../../../src/scene/paint/shared/base/soften'
 import { fractal } from '../../../../src/scene/paint/shared/base/core'
 import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
-import { traceOver, type Frame, type Grid } from './contour'
+import { traceOver, type Grid } from './contour'
+import { paintDeck } from './deck'
 import { farRows } from './farRows'
 import { billowed, block, feet, keyline, paintCaps } from './billow'
 import { lobesOf } from './lobes'
 import { papered, pigment, valued } from './palette'
 
 /*
- * A cloud sheet as cut paper. Every mass is one flat silhouette, where the model puts it; broken cloud stands on it as
- * lobes (`lobes`), a closed deck lies in broad planes of its own tone, and a high veil is thin translucent planes.
+ * A cloud sheet as a print. Broken cloud is billowed blocks with caps (`billow`), where the model puts them, and far off low
+ * arches over a level foot; a closed deck lies in rolls (`deck`), a high veil thin over the sky.
  */
 
 /** Grid px per sky px; where the edge stands; how much a far cloud is cut back from the next, how far a slow noise bends it. */
@@ -40,7 +41,7 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
   // The model's rows are far apart overhead: their steps are eased before an edge is cut along them.
   const far = f.spacing.map((s) => Math.max(0, 1 - s / NEAR))
   soften(wide, f.cols, f.rows, ease.map((v, n) => (1.4 * v + FAR * far[n]) / (f.width / (f.cols - 1))), ease.map((v) => v / (f.height / (f.rows - 1))))
-  const edge = grid(), side = grid(), tone = grid()
+  const edge = grid(), side = grid()
   const alpha = f.alpha.map((_, n) => wide[n * 4])
   const broken = f.open > OPEN && desc.lattice !== 'high', rowsOf = broken ? farRows(f, alpha, seed) : null
   let solid = 0, tones = 0, city = 0
@@ -53,14 +54,13 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
       edge.at[n] = a + BEND * 4 * a * (1 - a) * bend - EDGE
       side.at[n] = fieldAt(f.side, f.cols, f.rows, gx, gy)
       // A far cloud ends before the next one under it begins.
-      edge.at[n] -= PARTED * (1 - near) * Math.max(0, Math.abs(side.at[n]) - 0.45)
+      if (broken) edge.at[n] -= PARTED * (1 - near) * Math.max(0, Math.abs(side.at[n]) - 0.45)
       if (rowsOf && near < ROWS) {
         const far = rowsOf(i * CELL, j * CELL), w = Math.min(1, (3 * (ROWS - near)) / ROWS)
         edge.at[n] += w * (far.edge - edge.at[n])
         side.at[n] += w * (far.side - side.at[n])
       }
       const t = fieldAt(f.tone, f.cols, f.rows, gx, gy)
-      tone.at[n] = Math.min(edge.at[n] * 12, t + 0.1 * bend)
       if (edge.at[n] > 0) { solid += a; tones += a * t; city += a * fieldAt(f.city, f.cols, f.rows, gx, gy) }
     }
   }
@@ -79,26 +79,19 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
       x: f.x0, y: f.y0, step: CELL, toward: 0, seed,
       ink: (l) => {
         const up = Math.min(1, Math.max(0, 0.5 + 0.7 * l.side))
-        return { lit: mix(t.local, t.lit, up), local: mix(t.half, t.local, up), shade: mix(t.foot, t.half, 0.2 + 0.6 * up), key: t.key }
+        return { lit: mix(t.local, t.lit, up), local: mix(t.half, t.local, up), shade: mix(t.foot, t.half, 0.1 + 0.5 * up), key: t.key }
       },
       line: (l) => nearAt(f.y0 + l.y * CELL),
     })
-    feet(ctx, loops, css(t.foot), 0.75, seed)
+    feet(ctx, loops, css(t.foot), css(t.key, 0.32), 1.15, seed, (y) => 2.4 * rowAt(y))
     keyline(ctx, loops, 0.55, css(t.key, 0.42), seed)
   } else {
-    cut(ctx, edge, 0, frame, t.local)
-    cut(ctx, tone, mean + 0.05, frame, t.shade)
-    cut(ctx, tone, mean + 0.13, frame, t.foot)
-    cut(ctx, { ...tone, at: tone.at.map((v, n) => (edge.at[n] > 0 ? Math.min(edge.at[n] * 12, 1 - v) : -9)) }, 1 - mean + 0.07, frame, t.lit)
+    ctx.beginPath()
+    traceOver(ctx, edge, 0, frame, 8)
+    ctx.clip()
+    paintDeck(ctx, f, mean, t, seed)
   }
   ctx.restore()
-}
-
-function cut(ctx: Ctx2D, grid: Grid, level: number, frame: Frame, rgb: RGB) {
-  ctx.beginPath()
-  traceOver(ctx, grid, level, frame, 8)
-  ctx.fillStyle = css(rgb)
-  ctx.fill()
 }
 
 function tonesOf(desc: LayerOf<'cloudSheet'>, tone: number, city: number) {
@@ -108,8 +101,8 @@ function tonesOf(desc: LayerOf<'cloudSheet'>, tone: number, city: number) {
     foot: pigment(under(mix(body, desc.shade, 0.8)), -0.9),
     shade: pigment(under(mix(body, desc.shade, 0.5)), -0.8),
     half: pigment(under(mix(body, desc.lit, 0.14)), -0.45),
-    local: pigment(under(mix(body, desc.lit, 0.62)), 0),
-    lit: papered(pigment(under(mix(desc.lit, whitened(desc.lit), 1 - low)), 0.3), 0.7),
+    local: papered(pigment(under(mix(body, desc.lit, 0.62)), 0), 0.2),
+    lit: papered(pigment(under(mix(desc.lit, whitened(desc.lit), 1 - low)), 0.3), 0.85),
     key: pigment(valued(under(mix(body, desc.shade, 0.9)), -0.2), -0.9),
   }
 }

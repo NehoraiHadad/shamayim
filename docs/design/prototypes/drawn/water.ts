@@ -2,15 +2,17 @@ import type { LayerOf, RGB, Streak } from '../../../../src/scene/model/types'
 import { rng } from '../../../../src/scene/paint/shared/base/core'
 import { css, mix, outline, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
 import { running, twinkling } from '../../../../src/scene/paint/shared/land/water'
-import { pigment } from './palette'
+import { carve, type P } from './carve'
+import { pigment, valued } from './palette'
 
 /*
- * Water as a few flat bands of paint down its depth, their edges broken into long horizontal tongues; the wind as a few
- * tapered dashes, the light's path as stacked lozenges. Places, colours and motion are the model's.
+ * Water as a wipe of ink that deepens to the near, with level wave cuts; the wind as carved dashes, the light's path as
+ * stacked lozenges. Places, colours and motion are the model's.
  */
 
 type Stops = readonly (readonly [number, RGB])[]
-const BANDS = 4, TONGUE = 34, KEEP = 0.55
+/** How much deeper the ink is at the near edge, and how far a wave cut's value goes from it. */
+const WIPED = 0.06, WAVE = 0.055, KEEP = 0.55
 const hair = (env: PaintEnv) => Math.max(0.55, 1 / env.scale)
 
 export function paintCutWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): void {
@@ -40,7 +42,7 @@ export function paintCutWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv)
   datum(ctx, desc)
 }
 
-/** The current outline filled with its gradient as flat bands, laid back to front inside it. */
+/** The current outline filled with its gradient as a wipe of ink, with long level wave cuts, closer far off. */
 export function flat(ctx: Ctx2D, stops: Stops, x0: number, x1: number, top: number, bottom: number, seed: number) {
   const at = (u: number): RGB => {
     let n = 1
@@ -49,23 +51,23 @@ export function flat(ctx: Ctx2D, stops: Stops, x0: number, x1: number, top: numb
     return mix(a, b, t1 > t0 ? Math.min(1, Math.max(0, (u - t0) / (t1 - t0))) : 0)
   }
   ctx.save()
-  ctx.fillStyle = css(pigment(at(0.5 / BANDS)))
+  const wipe = ctx.createLinearGradient(0, top, 0, bottom)
+  for (let n = 0; n <= 8; n++) wipe.addColorStop(n / 8, css(pigment(valued(at(n / 8), -WIPED * (n / 8) ** 2))))
+  ctx.fillStyle = wipe
   ctx.fill()
   ctx.clip()
-  const r = rng(seed)
-  for (let n = 1; n < BANDS; n++) {
-    const y = top + ((bottom - top) * n) / BANDS, reach = Math.min(1.6, (bottom - top) / BANDS / 3)
-    ctx.beginPath()
-    ctx.moveTo(x0, bottom + 2)
-    ctx.lineTo(x0, y)
-    for (let x = x0, up = 1; x < x1 + TONGUE; up = -up) {
-      const next = x + TONGUE * (0.4 + r())
-      ctx.bezierCurveTo(x + 3, y + up * reach, next - 3, y + up * reach, next, y)
-      x = next
+  for (let y = top + 1.2, gap = 1.3, n = 0; y < bottom; y += gap, gap *= 1.16, n++) {
+    const r = rng(seed + n * 31), u = (y - top) / Math.max(1, bottom - top), ink = at(u)
+    for (const [by, share] of [[-WAVE, 0.65], [WAVE, 0.35]] as const) {
+      ctx.beginPath()
+      for (let x = x0 - 40 * r(); x < x1;) {
+        const long = (10 + 46 * r()) * (0.5 + u)
+        if (r() < share) carve(ctx, [0, 0.14, 0.28, 0.43, 0.57, 0.71, 0.86, 1].map((k): P => [x + k * long, y + (by > 0 ? gap / 2 : 0) + (0.2 + 0.5 * u) * Math.sin(k * long * 0.5 + n)]), 0.4 + 0.5 * u, n, 0.9)
+        x += long * (1.1 + r())
+      }
+      ctx.fillStyle = css(pigment(valued(ink, by), by < 0 ? -0.5 : 0.2), 0.7)
+      ctx.fill()
     }
-    ctx.lineTo(x1 + 2 * TONGUE, bottom + 2)
-    ctx.fillStyle = css(pigment(at((n + 0.5) / BANDS)))
-    ctx.fill()
   }
   ctx.restore()
 }
@@ -78,10 +80,8 @@ export function dashes(ctx: Ctx2D, streaks: readonly Streak[], rgb: RGB, thick: 
   ctx.beginPath()
   streaks.forEach((s, i) => {
     if ((i * 0.618034) % 1 > keep) return
-    const w = s.w * 1.25, h = thick * (0.45 + 0.55 * (s.alpha / peak))
-    ctx.moveTo(s.x, s.y)
-    ctx.quadraticCurveTo(s.x + w / 2, s.y - h, s.x + w, s.y)
-    ctx.quadraticCurveTo(s.x + w / 2, s.y + h, s.x, s.y)
+    const w = s.w * 1.6, h = thick * (0.45 + 0.55 * (s.alpha / peak))
+    carve(ctx, [0, 0.2, 0.4, 0.6, 0.8, 1].map((u): P => [s.x + u * w, s.y + 0.5 * h * Math.sin(6.3 * u + i)]), h, i, 0.9)
   })
   ctx.fill()
 }

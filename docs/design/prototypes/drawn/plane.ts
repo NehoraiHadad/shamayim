@@ -27,11 +27,11 @@ const PART = 1.3, GATHER = 1.3, EDGE = 0.43, LEAST = 7
 const BENT = 70, BENT_SEED = 733
 
 export function paintCutPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
-  lay(ctx, desc, env, desc.light.litField.eSun)
-  if (env.shade) lay(env.shade, desc, env, shadowBeam(desc.light.litField))
+  lay(ctx, desc, desc.light.litField.eSun)
+  if (env.shade) lay(env.shade, desc, shadowBeam(desc.light.litField))
 }
 
-function lay(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, beam: RGB) {
+function lay(ctx: Ctx2D, desc: LayerOf<'plane'>, beam: RGB) {
   ctx.save()
   const { bounds } = desc, field = desc.light.litField
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {

@@ -21,7 +21,7 @@ const TOP_OUT = 0.34, FOOT_LONG = 2.2, STEP = 1.2
 /** The least height of a mass whose foot is cut (px). */
 const FEET = 14
 /** The undersides' depth against the mass, at most (px), and the steps of the wipe. */
-const FOOT_DEEP = 0.34, FOOT_MOST = 34, WIPES = 7
+const FOOT_DEEP = 0.34, FOOT_MOST = 34, WIPES = 16
 /** A mass up to this tall (px) is a lone cloud; where its foot begins and how far it is pressed. */
 const LONE = 96, PRESS_FROM = 0.62, PRESS = 0.42
 const LINE = 0.62, LINE_ALPHA = 0.6
@@ -67,7 +67,7 @@ export function block(ctx: Ctx2D, loops: readonly Outline[], inks: readonly RGB[
 }
 
 /** The undersides: ink wiped up from every edge that looks down, in a few steps, and level cuts in the lowest part. */
-export function feet(ctx: Ctx2D, loops: readonly Outline[], ink: string, strength: number, seed: number) {
+export function feet(ctx: Ctx2D, loops: readonly Outline[], ink: string, line: string, strength: number, seed: number, most = (_y: number) => FOOT_MOST) {
   loops.forEach(({ shape }, l) => {
     const xs = shape.map((p) => p[0]), ys = shape.map((p) => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), foot = Math.max(...ys), tall = foot - Math.min(...ys)
     const r = rng(seed + l * 211), deep = Math.min(FOOT_MOST, FOOT_DEEP * tall)
@@ -76,16 +76,17 @@ export function feet(ctx: Ctx2D, loops: readonly Outline[], ink: string, strengt
     closed(ctx, shape)
     ctx.clip()
     ctx.fillStyle = ink
-    ctx.globalAlpha *= strength / WIPES
+    ctx.globalAlpha *= (1.6 * strength) / WIPES
     for (let k = 1; k <= WIPES; k++) {
       ctx.beginPath()
       ctx.rect(x0 - 9, Math.min(...ys) - deep - 9, x1 - x0 + 18, tall + 2 * deep + 18)
-      closed(ctx, shape.map(([x, y]): P => [x, y - (deep * k * k) / (WIPES * WIPES)]))
+      closed(ctx, shape.map(([x, y]): P => [x, y - (Math.min(deep, most(y)) * k * k) / (WIPES * WIPES)]))
       ctx.fill('evenodd')
     }
     if (tall > FEET) {
       const many = Math.min(8, 2 + Math.round(tall / 22))
-      ctx.globalAlpha *= WIPES * 0.6
+      ctx.fillStyle = line
+      ctx.globalAlpha = Math.min(1, (ctx.globalAlpha * WIPES) / (1.6 * strength))
       ctx.beginPath()
       for (let n = 0; n < many; n++) {
         const u = n / many, y = foot - (0.05 + 0.24 * u) * Math.min(tall, 90), long = (x1 - x0) * (0.14 + 0.3 * r()) * (1 - 0.5 * u), x = x0 + r() * (x1 - x0 - long)
@@ -121,8 +122,9 @@ function capTop(x: number, y: number, r: number, random: () => number): P[] {
 /** The caps, the mass's top first, so that a lower one stands before it. */
 export function paintCaps(ctx: Ctx2D, lobes: readonly Lobe[], f: Caps) {
   const back = [...lobes].sort((a, b) => a.y - 0.2 * a.r - (b.y - 0.2 * b.r))
-  back.forEach((l, n) => {
-    const x = f.x + l.x * f.step, y = f.y + l.y * f.step, r = l.r * f.step, ink = f.ink(l), top = capTop(x, y, r, rng(f.seed + n * 37))
+  back.forEach((l) => {
+    const n = Math.round(l.x) * 31 + Math.round(l.y) * 6151
+    const x = f.x + l.x * f.step, y = f.y + l.y * f.step, r = l.r * f.step, ink = f.ink(l), top = capTop(x, y, r, rng(f.seed + n))
     const [x0, y0] = top[0], [x1, y1] = top[top.length - 1], lean = f.toward * r * 0.7
     ctx.beginPath()
     top.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)))

@@ -3,6 +3,7 @@ import type { Block } from '../../../../src/scene/paint/drawn/townBlocks'
 import { planesOf, plasterOf, type Planes, type TownLight } from '../../../../src/scene/paint/drawn/townLight'
 import { rng } from '../../../../src/scene/paint/shared/base/core'
 import { css, mix, outline, type Ctx2D } from '../../../../src/scene/paint/shared/base/hand'
+import { pigment } from './palette'
 import { aviationLamp, type Lamp } from '../../../../src/scene/paint/shared/town/glyphs/kit'
 
 /*
@@ -10,7 +11,7 @@ import { aviationLamp, type Lamp } from '../../../../src/scene/paint/shared/town
  * wiped a little darker to its foot, the windows carved slots, and a key line round the body.
  */
 
-const KEY = 0.42, KEY_DARK = 0.8
+const KEY = 0.36, KEY_DARK = 0.72
 const SIDE = 0.16, SIDE_LIT = 0.2, SIDE_MAX = 5
 /** A window's size and pitch (px); how dark it is by day; the share there are. */
 const WIN_W = 0.95, WIN_H = 1.15, PITCH_X = 2.5, PITCH_Y = 2.7, DARK = 0.78, PRESENT = 0.72
@@ -30,8 +31,8 @@ function body(ctx: Ctx2D, x: number, top: number, w: number, h: number, [left, r
 /** The body's ink, wiped darker to its foot, and the key line round it. */
 function key(ctx: Ctx2D, x: number, top: number, w: number, h: number, t: Tones) {
   const wipe = ctx.createLinearGradient(0, top, 0, top + h)
-  wipe.addColorStop(0.35, css(t.deep, 0))
-  wipe.addColorStop(1, css(t.deep, 0.3))
+  wipe.addColorStop(0.35, css(t.shade, 0))
+  wipe.addColorStop(1, css(t.shade, 0.35))
   ctx.fillStyle = wipe
   ctx.fillRect(x, top, w, h)
   ctx.strokeStyle = css(t.deep, KEY_DARK)
@@ -78,7 +79,7 @@ function panes(ctx: Ctx2D, x0: number, x1: number, top: number, foot: number, st
   const least = l.night > 0.5 ? 1 : 0
   const rows = Math.max(least, Math.min(storeys, Math.floor((foot - top) / PITCH_Y + 0.35))), many = Math.max(least, Math.floor((x1 - x0) / PITCH_X + 0.45))
   if (rows < 1 || many < 1) return
-  const dark = css(mix(plaster, t.deep, DARK)), warm = css(mix(plaster, t.win, 0.95))
+  const dark = css(mix(plaster, t.deep, DARK)), warm = css(pigment(t.win, 0.5))
   for (let k = 0; k < rows; k++) {
     for (let n = 0; n < many; n++) {
       const there = r() < PRESENT, on = r() < lit * 1.6
@@ -103,6 +104,8 @@ export function cutTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>
     ctx.fillStyle = css(t.glassLit, 0.45 * day)
     outline(ctx, [[in0, shaft], [in1, shaft], [in1, shaft + h * 0.28], [in0, shaft + h * 0.5]])
     ctx.fill()
+    ctx.fillStyle = css(t.deep, 0.35)
+    for (let x = in0 + 1.6; x < in1 - 0.8; x += 1.8) ctx.fillRect(x, shaft + 1, 0.3, h - 2)
   } else if (day > 0.3 && tw.w > 2.2) {
     ctx.fillStyle = css(t.deep, 0.16)
     for (let y = shaft + 3; y < tw.base - 2; y += 3) ctx.fillRect(in0, y, in1 - in0, 0.7)

@@ -1,4 +1,4 @@
-import type { GlyphDesc, LayerOf, OutsideLandDesc, RGB, SeaDesc, Shine, Tones, TreeDesc } from '../../../../src/scene/model/types'
+import type { GlyphDesc, LayerOf, OutsideLandDesc, RGB, SeaDesc, Shine, TreeDesc } from '../../../../src/scene/model/types'
 import { paintTownGlyph } from '../../../../src/scene/paint/drawn/townGlyph'
 import { skyFormIn } from '../../../../src/scene/paint/drawn/outsideOwn'
 import { townBodies } from '../../../../src/scene/paint/drawn/townBlocks'
@@ -17,8 +17,8 @@ import { pigment, valued } from './palette'
 import { dashes, flat } from './water'
 
 /*
- * The place seen from outside, cut from paper: the model's land, sea, houses, towers, trees and marks in their own order
- * and places, each body three clean planes (front, lit side, shade side) of warm stone against cool shade.
+ * The place seen from outside, printed: the model's land, sea, houses, towers, trees and marks in their own order
+ * and places, each body in three inks (front, lit side, shade side) inside a key line.
  */
 
 const GROWN = 1.25, GROWN_MIN = 2.6
@@ -52,7 +52,7 @@ export function paintCutMarks(ctx: Ctx2D, desc: LayerOf<'marks'>, env: PaintEnv)
 /** A mark in the hand's tones; a floodlit dome is the model's own lit gold. */
 function gilt(g: GlyphDesc): GlyphDesc {
   const tones = mixed(g.tones), flood = g.floodlitDome
-  return { ...g, tones: flood ? { ...tones, gold: mix(tones.gold, pigment(flood.tones.gold, 0.4), flood.strength) } : tones }
+  return { ...g, tones: flood && tones.gold ? Object.assign({}, tones, { gold: mix(tones.gold, pigment(flood.tones.gold, 0.4), flood.strength) }) : tones }
 }
 
 function grown(tree: TreeDesc): TreeDesc {
@@ -102,13 +102,4 @@ function sea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
   ctx.beginPath()
   s.coast.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
   ctx.stroke()
-}
-
-/** The far towns' tiers in the hand's colours. */
-export function mixedTiers<T>(value: T): T {
-  if (Array.isArray(value)) {
-    if (value.length === 3 && value.every((c) => typeof c === 'number' && c >= 0 && c <= 1)) return pigment(value as unknown as RGB, 0.2) as unknown as T
-    return value.map(mixedTiers) as unknown as T
-  }
-  return value
 }

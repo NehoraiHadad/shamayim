@@ -31,8 +31,8 @@ export function groundLines(ctx: Ctx2D, desc: LayerOf<'plane'>): void {
 }
 
 /** Cuts a plane takes per 1000 px²; their length (px) at the foot, their width, how far their value goes from the ground's. */
-const DENSITY = { near: 15, far: 5, back: 1.2 } as const
-const LONG = [4, 17] as const, WIDE = [0.35, 0.6] as const, LIGHT = 0.06, DARK = -0.13, DARKS = 0.78, SEED = 5501
+const DENSITY = { near: 26, far: 8, back: 1.5 } as const
+const LONG = [3, 20] as const, WIDE = [0.35, 0.6] as const, LIGHT = 0.06, DARK = -0.13, DARKS = 0.78, SEED = 5501
 
 /** The graver's cuts along the slope: mostly dark, closer and shorter far off. */
 export function groundDabs(ctx: Ctx2D, desc: LayerOf<'plane'>, t: PlaneTexelCtx, colourAt: (x: number, y: number) => RGB): void {

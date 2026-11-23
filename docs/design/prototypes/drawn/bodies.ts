@@ -13,7 +13,7 @@ const RING = 1.75, AUREOLE = 2.5
 export function paintDrawnBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
   if (desc.sun && desc.part === 'aureole') aureole(ctx, desc.sun)
   else if (desc.sun) disc(ctx, desc.sun)
-  if (desc.moon && desc.part !== 'aureole') paintBodies(ctx, { ...desc, sun: undefined })
+  if (desc.moon && desc.part !== 'aureole') paintBodies(ctx, { ...desc, sun: null })
 }
 
 function aureole(ctx: Ctx2D, d: Disc) {
