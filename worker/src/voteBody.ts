@@ -1,3 +1,4 @@
+import { VOTE_ROUND } from '../../src/data/styleVoteRound'
 import { isStyle, type Style } from './voteTally'
 
 /** A lower-case UUID, as `crypto.randomUUID()` gives. */
@@ -22,15 +23,16 @@ export async function readSmall(request: Request, limit: number): Promise<string
   }
 }
 
-/** Exactly `{id, style}`, or null. */
-export function parseVote(text: string): { id: string; style: Style } | null {
+/** Exactly `{id, style, round}`; `old` for a vote of another round (an app not updated yet); null for anything else. */
+export function parseVote(text: string): { id: string; style: Style } | 'old' | null {
   let body: unknown
   try {
     body = JSON.parse(text)
   } catch {
     return null
   }
-  if (!body || typeof body !== 'object' || Object.keys(body).length !== 2) return null
-  const { id, style } = body as { id?: unknown; style?: unknown }
-  return typeof id === 'string' && UUID.test(id) && isStyle(style) ? { id, style } : null
+  if (!body || typeof body !== 'object' || Object.keys(body).length !== 3) return null
+  const { id, style, round } = body as { id?: unknown; style?: unknown; round?: unknown }
+  if (typeof id !== 'string' || !UUID.test(id) || !isStyle(style) || typeof round !== 'string') return null
+  return round === VOTE_ROUND ? { id, style } : 'old'
 }

@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest'
 import { mix, ratio } from '../../theme/contrast'
 import { contrastSamples } from '../../theme/contrastSamples'
 import { StyleVotePanel } from './StyleVotePanel'
-import { SEE_OTHER, THANKS, VOTE, whatsappUrl } from './styleVoteText'
+import { PENDING, PREFERRED, SEE_OTHER, THANKS, VOTE, whatsappUrl } from './styleVoteText'
 import type { StyleVoteState } from './useStyleVote'
 
 const none = () => undefined
-const panel = (state: Pick<StyleVoteState, 'style' | 'vote' | 'seenBoth'>) => renderToStaticMarkup(createElement(StyleVotePanel, {
-  state: { ...state, choose: none, castVote: none, close: none }, placeName: 'חיפה', at: '2026-11-17T14:00', picked: false }))
+const panel = (state: Pick<StyleVoteState, 'style' | 'vote' | 'seenBoth'> & { pending?: boolean }) => renderToStaticMarkup(createElement(StyleVotePanel, {
+  state: { pending: false, ...state, choose: none, castVote: none, close: none }, placeName: 'חיפה', at: '2026-11-17T14:00', picked: false }))
 
 describe('style panel', () => {
   it('asks to see the other style before a vote', () => {
@@ -30,10 +30,18 @@ describe('style panel', () => {
     const voted = panel({ style: 'drawn', vote: 'drawn', seenBoth: true })
     expect(voted).toContain(THANKS)
     expect(voted).not.toContain(VOTE)
-    expect(voted.match(/הסגנון שהעדפתם/g)).toHaveLength(1)
+    expect(voted).not.toContain(PENDING)
+    expect(voted.split(PREFERRED)).toHaveLength(2)
     const other = panel({ style: 'real', vote: 'drawn', seenBoth: true })
     expect(other).toContain(VOTE)
     expect(other).not.toContain(THANKS)
+  })
+
+  it('says a vote the Worker does not have goes out later, and offers it no second time', () => {
+    const html = panel({ style: 'drawn', vote: 'drawn', seenBoth: true, pending: true })
+    expect(html).toContain(PENDING)
+    expect(html).not.toContain(THANKS)
+    expect(html).not.toContain(VOTE)
   })
 })
 
@@ -43,14 +51,14 @@ describe('WhatsApp message', () => {
   it('names the preferred style, the place and the hour shown, and no contact', () => {
     const url = whatsappUrl({ vote: 'drawn', style: 'real', placeName: 'חיפה', at: '2026-11-17T14:00' })
     expect(url).toMatch(/^https:\/\/wa\.me\/\?text=/)
-    expect(text(url)).toContain('הסגנון שאני מעדיף: מאויר.')
+    expect(text(url)).toContain('הסגנון המועדף עליי: מאויר.')
     expect(text(url)).toContain('חיפה, 17.11 בשעה 14:00.')
   })
 
   it('says so when there is no vote yet', () => {
     const message = text(whatsappUrl({ vote: null, style: 'real', placeName: 'חיפה', at: '2026-11-17T09:30' }))
     expect(message).toContain('עוד לא בחרתי. מוצג לי הסגנון: מציאותי.')
-    expect(message).not.toContain('מעדיף')
+    expect(message).not.toContain('המועדף')
   })
 })
 
