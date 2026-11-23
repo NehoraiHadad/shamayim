@@ -18,11 +18,17 @@ const FIXTURES = path.join(root, 'src/test/fixtures')
 const FORECAST = fs.readFileSync(path.join(FIXTURES, 'forecast-layers-2026-11-17.json'))
 export const DEFAULT_DAY = '2026-11-17'
 
-/** The forecast for a page's day: a recorded real day (`forecast-<place>-<day>.json`) when there is one, else the default. */
-function forecastFor(pageUrl) {
-  const day = new URL(pageUrl).searchParams.get('at')?.slice(0, 10)
-  const real = day && day !== DEFAULT_DAY && fs.readdirSync(FIXTURES).find((f) => /^forecast-.+\.json$/.test(f) && f.endsWith(`-${day}.json`))
+/** Prefer the place's recording, then any recording of that day, then the synthetic fixture. */
+export function forecastForDay(day, place) {
+  if (!day || day === DEFAULT_DAY) return FORECAST
+  const recordings = fs.readdirSync(FIXTURES).filter((file) => file.startsWith('forecast-') && file.endsWith(`-${day}.json`))
+  const real = recordings.find((file) => file === `forecast-${place}-${day}.json`) ?? recordings[0]
   return real ? fs.readFileSync(path.join(FIXTURES, real)) : FORECAST
+}
+
+function forecastFor(pageUrl) {
+  const params = new URL(pageUrl).searchParams
+  return forecastForDay(params.get('at')?.slice(0, 10), params.get('place'))
 }
 
 /** The still: the sky above the land's figure and the figure (scene.html's LAND_TOP + SCENE_H). */
@@ -39,7 +45,11 @@ export async function startServer() {
 export async function startPreview(appRoot = root) {
   const { preview } = await import('vite')
   const server = await preview({ root: appRoot, logLevel: 'error', preview: { host: '127.0.0.1', port: 0 } })
-  return { url: server.resolvedUrls.local[0].replace(/\/$/, ''), close: () => server.close() }
+  // Vite's close also runs plugin cleanup. Older preview servers expose only the HTTP server.
+  const close = () => server.close?.() ?? new Promise((resolve, reject) => {
+    server.httpServer.close((error) => error ? reject(error) : resolve())
+  })
+  return { url: server.resolvedUrls.local[0].replace(/\/$/, ''), close }
 }
 
 /**

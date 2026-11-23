@@ -4,6 +4,7 @@ import { coinOf } from '../../world/air'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
+import { cityDomes, cityOnSky } from './cityLight'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
@@ -91,7 +92,10 @@ export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
 export function skyStops(world: WorldState, box: SceneBox): [number, RGB][] {
   const { palette } = world.light
   const horizon = clamp01((box.landTop + world.relief.horizonY) / box.skyHeight)
-  return [[0, rgbOf(palette.top)], [horizon * 0.55, rgbOf(palette.mid)], [horizon, rgbOf(palette.horizon)], [1, rgbOf(palette.horizon)]]
+  // By night inside a town its lit air is over every side, less and less up to the zenith (the mid stop stands ~30° up).
+  const at = (colour: string, altitude: number) => cityOnSky(world, rgbOf(colour), altitude)
+  const low = at(palette.horizon, 0)
+  return [[0, at(palette.top, 90)], [horizon * 0.55, at(palette.mid, 30)], [horizon, low], [1, low]]
 }
 
 /** The gradient's colour at a fraction of the sky's height. */
@@ -139,10 +143,10 @@ export const veilOf = (world: WorldState) => 1 - world.light.clear
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright
  * aureole), its colour the sun's after air mass and aerosol, weaker as the sun climbs and as the cloud in front takes its
  * direct light, none in dust; the twilight glow where the sun crosses the land round sunrise and sunset; a cool glow round
- * the moon by night.
+ * the moon and the lit air over the towns by night.
  */
 export function skyGlows(world: WorldState, box: SceneBox, geom = skyGeom(world, box)): Glow[] {
-  const out: Glow[] = []
+  const out: Glow[] = cityDomes(world, geom)
   const { sun, moon } = world.bodies
   const veil = veilOf(world)
   const coin = coinOf(world.air)

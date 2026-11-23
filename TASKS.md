@@ -988,13 +988,20 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 
 - [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
       contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
-- [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
-- [ ] Track G LOW 1: a scrub can land `selected` exactly on now (useSceneTime.ts, SceneScrubber.tsx, useStripScrub.ts),
-      a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
-- [ ] Track G LOW 2: liveLight.test.ts held-preview test uses equal model and observed cover; it misses correctCloudCover
-      drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
-- [ ] CI gap: stills render the scene harness only, never the built app page. E's <body> background hid the sky in
-      production for hours with CI green. Add one built-app still (vite preview, 375 px) asserting the sky is not the boot colour.
+- [x] "Planes" left of the sun (Jerusalem 11:30) were a flock of 11 cranes: a wedge spaced closer than its drawn wingspans, of
+      straight crosses with a body twice its true length. The V is now spaced in drawn spans with true unequal arms
+      (`craneV.ts`) and the crane has bent broad wings and a body half a span long.
+- [ ] A short, non-persistent contrail paints as a white dot at a high airliner. Other kinds' dense flocks unchanged.
+- [x] Track G LOW 1: a pick or drag that lands on the current minute is live (null) at once (`ui/scrub/sceneTimeController.ts`,
+      `sceneDragTime.ts`, tested without a DOM); a clock tick never changes a held preview.
+- [x] Track G LOW 2: the satellite's correction is measured at its own minute (cover − model there, ±40 points, full for
+      40 min, nothing at 150), so a held preview does not drift while the clock runs, nor at the hour's rollover
+      (`observedCloud.ts`, `liveLightSatelliteCases.ts` with unequal model and observed cover).
+- [ ] The correction steps 0 → full where a scrub back crosses the observation's own minute (unchanged from before).
+- [x] CI gap: the stills job renders the built page too (`vite build` + preview, 375 px, recorded Haifa 15.3 noon, other hosts
+      refused): `e2e/skyShown.mjs` fails when the sky is the boot colour, when hiding the sky changes nothing, or when its
+      canvas holds no ink. Proven red with an opaque `body` in the boot colour and in a sky blue
+      (`docs/briefs/open-tasks-1-built-still.REPORT.md`).
 - [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
       (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
       distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
@@ -1013,13 +1020,21 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 - [x] Towers as one soft raster mass (Claude, 23 Nov): no puffs; seeded heads over one shared base, outline moved by fractal noise (`towerHeads`, `towerShape`, `towerTone`, `cloudTower`). Stills, CI run 45135571038 (18d8b831, all jobs green): no beads at 17:00; no balloon lumps or detached blob at 14:00.
 - [x] Rain curtain as a fibrous raster at the screen's own slope, toned by its base (`curtain.ts`, `farTilt`; `FAR_STREAKS` .22) (Claude, 23 Nov). Same stills: the streak comb is gone; at 14:00 a slanted shaft left of the near cloud, up to about 39 grey levels darker than the same still without `shafts,fall`.
 - [x] Near storm of haifa 14:00 (Claude, 23 Nov, d45787b1, 2c0dae6d): the vertical tone step near x 640 was two overlapping cells (the here-cell at 4.1 km and a lattice Cb at 4.7 km) painted as two towers, now one storm (`oneStormEach`, `towerStorms.ts`). The bowl was depth: the outline closed over the whole foreshortened underside, with the dome's stretch; now the sides stand where they truly do (`aSide`) and only the far half curves in (`bowl`). Crown and sides are cauliflower domes (`domeTile`), the base melts into the rain, anvils have an overshooting head and lean downwind.
-- [x] Far towers (Claude, 23 Nov, d45787b1, 3daa7f51): the bullets were the far widening, one smooth octave and the full stretch height; now stepped shoulders narrowing upward, a foot melting into the haze, height `stretch ** STAND` (.55: lower than the true top; the `cloudCells.test.ts` guard is loosened to .25 of it under 5 km and .5 beyond). Tone: same light as the sheet, but they faded to the clear sky's gradient; now to the low sheet's colour by its cover (`beforeSheet`), warmed by a low sun.
+- [x] Far towers (Claude, 23 Nov, d45787b1, 3daa7f51): the bullets were the far widening, one smooth octave and the full stretch height; now stepped shoulders narrowing upward, a foot melting into the haze, height `stretch ** STAND` (.55: lower than the true top; the guard, `towerHeight.test.ts`, states the rule that shortens it: a tower under 5 km stands to its true top, a farther one to at least its true aspect at the root of the stretch). Tone: same light as the sheet, but they faded to the clear sky's gradient; now to the low sheet's colour by its cover (`beforeSheet`), warmed by a low sun.
 - [x] A tower behind a nearer storm is not painted through it (Claude, 23 Nov, `hideBehind`): in jerusalem 15.3 14:00 a 9 km tower showed as a seam in the near one and a pillar under its base.
 - [ ] Cloud look left over (23 Nov): haifa 10:00 keeps a separate cell's anvil wing left of the near storm, at the near storm's mid height; haifa 17:00 right storm is still a flat-toned column; the 14:00 curtain is soft.
-- [ ] `cloudShadowPanorama.test.ts` ratio: both sides now take the fastest of 7 interleaved warm runs (Claude, 23 Nov); limit .30 unchanged. CI runs, jerusalem/haifa/tiberias: 45140595447 .228/.232/.303 (failed); 45141606372 .238/.272/.281 (green); 45142613271 .238/.283/.305 (failed, the only failing test). 45143778186 .245/.294/.297 (green). Tiberias sits at the limit (.281-.305) with the new measurement too, so `check` still goes red on some runs. The cloud-shadow code is not in this branch's diff. Before: main .21-.295, branch failures .300-.329.
+- [x] `cloudShadowPanorama.test.ts` ratio: both sides now take the fastest of 7 interleaved warm runs (Claude, 23 Nov); limit then .30. CI runs, jerusalem/haifa/tiberias: 45140595447 .228/.232/.303 (failed); 45141606372 .238/.272/.281 (green); 45142613271 .238/.283/.305 (failed, the only failing test). 45143778186 .245/.294/.297 (green). Tiberias sits at the limit (.281-.305) with the new measurement too, so `check` still goes red on some runs. The cloud-shadow code is not in this branch's diff. Before: main .21-.295, branch failures .300-.329. Limit set to .40 by the coordinating session (6dcbe6f4): shadowMs is unchanged, the memoised town layer cut the baseline.
 - [ ] Follow-ups not started: fog in the new style, shaft drift time origin, snow accumulation test, and the cause of the haifa `cloudSheet.perf` drop (town-layer memo and min-of-7 landed together; neither shown alone).
-- [ ] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top.
-- [ ] City night glow is radial: no direction data for where the towns lie.
+- [x] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top. Not doing for now (owner, 23 Nov): glaciation changes
+      the top's texture, not where it flattens; today's rule (top reaching the tropopause, `cloudCells.ts`) stays.
+- [x] City night glow by direction: the far raster's built cells light the cloud base over them (`world/townLights.ts`) and
+      the air over each bearing (`townAir.ts`, Walker's law, the place's mean stays `env.glow`); a city is lit overhead and
+      on every side. `CITY_ZENITH`/`CITY_HORIZON` are gone. The light is added (`tone.ts` `addLight`), so it never darkens a
+      dusk; the base's light is a square grid with each town's true place and shape to 110 km (within 15 % of the sum).
+- [ ] The far raster holds no towns of Jordan, Lebanon, Syria or Egypt: the glow over Amman and Irbid is missing. Towers
+      (`cloudCells`) take no town light at night of their own.
+- [x] A far night tower fades to the low sheet as it is drawn behind it, the towns' light on it included (Claude, 23 Nov,
+      `beforeSheet`; the merge of 14c41b82 had left it fading to the unlit sheet).
 - [x] Track D midnight reseed (N3e 884b2af1 + N3g c606afd1, in main; field.test.ts measureMidnight) (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Done before N4.
 
@@ -1101,8 +1116,21 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - [x] Seam: `scene/sceneStyle.ts`; `CanvasScene sceneStyle` → `SceneCanvas` → `useSurface`/`SkyCanvas` → `Surface.style` → cache
       keys (`~drawn`, only on kinds in `paint/drawn/index.ts`) and paint jobs → `painterOf(desc, style)`, `PaintEnv.style`.
       Dev: `?style=drawn`; stills `place@hour#drawn` (CI too); `test:perf -- --style=drawn` (CI perf job runs both).
-- [ ] Drawn clouds (`paint/drawn/`): sheets and tower cells as soft layered lit masses
-- [ ] Drawn town: merged lit blocks, roofs, lit/shade planes, windows, vegetation clumps; lessons of
-      `claude/town-style-trial` @ 0a1a04f5 (merge silhouettes first, guaranteed lit/shade gap, foot/top shade per group)
-- [ ] Plane shading, only if the hillside looks foreign under the drawn town
-- [ ] Stills rounds (max 4), perf, comparison sheets
+- [x] Drawn clouds (`paint/drawn/`): sheets (`cloudSheet`, `sheetField`) and tower cells (`cloudTower`, `towerMass`) as soft layered
+      lit masses; one seeded puff tile (`billows`) gives both their heads and light. Shares the real hand's rasters and heads
+- [x] Drawn town: `townBlocks` merges the small squares of a spot and row (risers keep their height), `townLight` guarantees a
+      lit/shade gap (direct light, else the brighter sky's side), `townBlock`/`townRoof`/`townWindows`/`townTower` paint them;
+      rows recede where the tiers do not. Lessons of `claude/town-style-trial` @ 0a1a04f5 applied
+- [x] Plane shading: not needed. The hillside sits well under the drawn town; PR 11's physically lit land changes it for both hands
+- [x] Night: drawn sheets take the towns' light (`cloudSheet.city`); main 14c41b82 merged
+- [x] anidoodle craft pass (owner, 23 Nov): worked from its flatVector plate (v1b's own: closed flat planes, no strokes, ramps for
+      shade). The critique changed: found lit tops and lost feet instead of evenly soft edges, rounder puffs, three values inside a
+      mass (lit at its top, shaded at its foot, a clear gap ends it), softer edges with distance, calmer closed decks and low suns
+- [x] Stills rounds 1-3 (CI 45151140114, 45153177347, 45154473864; only the known `cloudCells` red) and round 4 (calmer puffs under a
+      low sun and in closed decks, one mass does not shade the next; CI 45155823030)
+- [x] Main 643d4f5c merged (tower raster, rain curtains, one storm per cell). The real hand is byte-identical to main in five scenes.
+      Drawn: the curtains (`shafts`, `edge`) are long planes (`drawn/index.ts` PLANES, `curtain.ts` Fibres), no fibres. The drawn
+      horizon banks were so dark the curtain was lost: the air now takes their light and shade low in the sky. Round 5 = last
+- [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 2-20 % dearer (Tel Aviv worst), land about even
+- Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
+  pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand

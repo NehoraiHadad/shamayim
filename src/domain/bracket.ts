@@ -1,5 +1,5 @@
-import { minutesBetweenLocal } from '../domain/minutes'
-import type { LocalTime } from '../domain/types'
+import { minutesBetweenLocal } from './minutes'
+import type { LocalTime } from './types'
 
 /** Bracket the viewed minute, holding the nearest sample outside the available range. */
 export function bracketAt<T extends { time: LocalTime }>(points: readonly T[], at: LocalTime) {

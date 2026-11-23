@@ -1,6 +1,5 @@
 import { utcOf } from '../astro/utc'
-import { forecastArrivalProgress, forecastObservation } from '../domain/forecastRefresh'
-import { smoothstep } from '../domain/smoothstep'
+import { forecastArrivalProgress, forecastObservation, readingWeight } from '../domain/forecastRefresh'
 import type { AirPoint, Forecast, LocalTime } from '../domain/types'
 import { visibilityFromHumidity } from '../world/air'
 import { rainRate } from '../world/airParts'
@@ -8,7 +7,7 @@ import { layerCovers } from '../world/clouds'
 import { blockingCloudCover, isFogCode, nightMinimum } from '../world/mist'
 import { fallingSnowAmount, isSnowHour } from '../world/snowLine'
 import type { AirInput } from './airTypes'
-import { bracketAt } from './bracket'
+import { bracketAt } from '../domain/bracket'
 import { fieldWeather } from './fieldWeather'
 import { mixWeather, type Weather } from './weatherMix'
 
@@ -143,8 +142,7 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
   }
   if (!background) return observation
 
-  const age = Math.abs(atMs - utcOf(c.time, timezone).getTime()) / 60_000
-  const ageWeight = 1 - smoothstep(15, 45, age)
-  const weight = ageWeight * forecastArrivalProgress(forecast, nowMs)
+  const minutesOff = (atMs - utcOf(c.time, timezone).getTime()) / 60_000
+  const weight = readingWeight(minutesOff) * forecastArrivalProgress(forecast, nowMs)
   return weight === 0 ? background : mixWeather(background, observation, weight)
 }

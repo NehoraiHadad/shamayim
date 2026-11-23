@@ -18,6 +18,7 @@ import type { SkyLife } from './life'
 import type { NightSky } from './nightSky'
 import type { Optics } from './optics'
 import type { PlaceEnv } from './placeEnv'
+import type { TownLights } from './townLights'
 import type { SnowFall } from './snowLine'
 import type { Air, Body, CloudLayer, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
@@ -126,6 +127,8 @@ export interface WorldState {
   ground: { wet: number; snowLineM: number | null }
   /** C10: the land round the place (sea, lakes, built and open ground, the towns' sky glow). */
   env: PlaceEnv
+  /** Where the towns' light comes from at night: under a cloud base, and in the air by bearing. */
+  townLights: TownLights
   /** C10: birds, aircraft and meteors at the shown hour. */
   life: SkyLife
   /** C10: the planets and the Milky Way. */
