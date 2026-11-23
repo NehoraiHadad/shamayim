@@ -127,7 +127,7 @@ function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyo
   const genus = GENUS[cell.genus] ?? 'cg'
   // A tower stands in its own gap of the sky (union 0): its body is lit as a fair-weather cloud's.
   const range = Math.hypot(cell.x, cell.y)
-  const tones = beforeSheet(tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2)), beyond)
+  const tones = beforeSheet(tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2)), beyond, x, y - tall / 2)
   const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
   const day = smoothstep(-8, 3, world.bodies.sun.altitude)
   const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
