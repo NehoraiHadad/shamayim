@@ -1121,9 +1121,12 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - [x] Review fixes (branch `claude/drawn-fixes` from a92d405f):
   - [x] No bridges: the mass's edge is the model's own unsoftened alpha (`massForm`: depth from the gap and thickness); every head's
         radius is at most its middle's depth, so drawn keeps every gap. `coverage.test.ts`: gaps, no cloud lost, flat base, crown
-  - [x] Cumulus, not barrels: `heads` (puffs of seven sizes, back to front) replaces the edge billows of a sheet; `massBase` cuts the
+  - Stopped here by the coordinator (real and drawn read too alike; a bolder brief may follow). The next three are first passes that came
+    with the edge and are not reviewed on CI stills:
+  - [ ] Cumulus, not barrels: `heads` (puffs of seven sizes, back to front) replaces the edge billows of a sheet; `massBase` cuts the
         round feet flat where a base is seen from the side; the billows stay as the broad light in the middle of large masses
-  - [x] Low sun: lit rims that face it, lit tops, shaded feet (no flip); three values at 16:30
-  - [x] Closed rain deck: banks to a hint (`BANKS`)
-- Weak spots: the model's cells are tall, so a lone cloud is still tall; the horizon's far cloudlets are firmer and fewer than the
-  real hand's speckle; pale trees and Western Wall tiers in Jerusalem (model haze); towers take no town light by night in either hand
+  - [ ] Low sun: lit rims that face it, lit tops, shaded feet (no flip); three values at 16:30
+  - [ ] Closed rain deck: banks to a hint (`BANKS`)
+- Weak spots: the model's cells are tall, so a lone cloud is still tall, and Tel Aviv's small ones step in (vase-like) where its 22 px rows
+  change width; the horizon's far cloudlets are firm little blocks, fewer than
+  the real hand's speckle; pale trees and Western Wall tiers in Jerusalem (model haze); towers take no town light by night in either hand
