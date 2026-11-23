@@ -72,3 +72,14 @@ it('takes a far tower to the sheet behind it as far as the air and the cover do'
   expect(full.body[0]).toBeCloseTo(0.7)
   expect(full.body[2]).toBeCloseTo(0.4)
 })
+
+it('gives a far night tower the light of the towns on the sheet behind it, where it stands', () => {
+  const dark: RGB = [0.08, 0.09, 0.12]
+  const tones = { body: dark, shade: dark, behind: dark, fade: 0.5 }
+  const sheet = { xs: [0, 100], ys: [0, 50], city: { rgb: [0.36, 0.3, 0.14] as RGB, weight: [0, 0, 0, 0.5] } }
+  const over = beforeSheet(tones, { rgb: dark, cover: 1, sheet }, 90, 45)
+  const away = beforeSheet(tones, { rgb: dark, cover: 1, sheet }, 10, 45)
+  expect(away.body[0]).toBeCloseTo(dark[0])
+  expect(over.behind[0]).toBeGreaterThan(0.2)
+  expect(over.body[0]).toBeGreaterThan(dark[0] + 0.05)
+})

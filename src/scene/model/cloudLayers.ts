@@ -62,9 +62,9 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       closed: closed * day,
       light: light?.sun ? light.strength * light.above : 0,
     }
-    if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover }
     // By night a deck over the towns gives their light back from its base (an overcast city night is not black).
     const sheet = cloudSheetOf(world, geom, snapshot, colours, cityLit(world, level, fieldLayer.cover))
+    if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover, sheet }
     if (sheet) out.push(sheet)
   }
   return out

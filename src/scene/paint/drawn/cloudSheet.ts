@@ -36,6 +36,9 @@ const BODY = 0.45, CORE_GREY = 0.35, LOW_SUN = 0.35
 const LOW_CALM = 0.5
 /** The smallest size of the heads against the zenith's, at the horizon. */
 const SIZE_MIN = 0.12
+/** How much of the light and the shade on a bank low in the sky the air before it takes, and the height it comes in over (of
+ *  the sheet's, from its far edge): the rain that falls before the banks reads against them. */
+const AIR_LIT = 0.6, AIR_SHADE = 0.9, AIR_FROM = 0.34, AIR_FULL = 0.12
 
 export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const field = sheetField(desc)
@@ -59,6 +62,7 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
   let v = 0
   for (let j = 0; j < h; j++) {
     const gy = (j * (rows - 1)) / (h - 1), size = Math.max(SIZE_MIN, Math.sqrt(Math.min(1, f.spacing[Math.round(gy)] / 20)))
+    const air = smoothstep(AIR_FROM, AIR_FULL, 1 - j / (h - 1))
     if (j) v += 1 / (RASTER * size)
     for (let i = 0; i < w; i++) {
       const gx = (i * (cols - 1)) / (w - 1), at = (j * w + i) * 4
@@ -71,10 +75,11 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
       if (alpha < 0.004) continue
       const broad = fieldAt(f.side, cols, rows, gx, gy)
       const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
-      const lift = open * (broad > 0 ? BROAD_LIT : BROAD_SHADE) * broad
+      const full = open * (broad > 0 ? BROAD_LIT : BROAD_SHADE) * broad
         + (open + (1 - open) * BANKS) * (relief > 0 ? CAP : FOOT) * (1 - LOW_CALM * low) * relief
+      const lift = full * (1 - air * (full > 0 ? AIR_LIT : AIR_SHADE))
       const body = toneOf(desc, fieldAt(f.tone, cols, rows, gx, gy))
-      const base = open ? mix(body, mix(desc.lit, body, (BODY + CORE_GREY * a * a) * (1 - LOW_SUN * low)), open) : body
+      const base = open ? mix(body, mix(desc.lit, body, (BODY + CORE_GREY * (1 - air) * a * a) * (1 - LOW_SUN * low)), open) : body
       put(out, at, underTowns(desc, f, gx, gy, lightOf(base, bright, desc.shade, lift, low)), alpha)
     }
   }

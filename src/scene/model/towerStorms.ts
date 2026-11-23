@@ -1,8 +1,8 @@
 import type { CloudSprite } from '../paint/cloudSprite'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { Tones } from './cloudLight'
-import { mixRgb } from './tone'
-import type { RGB } from './types'
+import { addLight, mixRgb } from './tone'
+import type { LayerOf, RGB } from './types'
 
 /*
  * What a tower's neighbours and its wind make of it, before it is painted: cells whose cores overlap are one storm, and a
@@ -60,13 +60,21 @@ function coveredBy(near: Standing, far: Standing): number {
 /** −1…1: how far the tops lean downwind on screen, from the wind across the view and the whole wind there (both px/s). */
 export const leanOf = (across: number, whole: number) => (whole > 0 ? Math.max(-1, Math.min(1, across / whole / CARRIED)) : 0)
 
-/** The low sheet a far tower stands before: its colour low in the sky, and how much of the sky it covers. */
-export interface Beyond { rgb: RGB; cover: number }
+/** The low sheet a far tower stands before: its colour low in the sky, how much of the sky it covers, and the sheet as drawn. */
+export interface Beyond { rgb: RGB; cover: number; sheet?: Pick<LayerOf<'cloudSheet'>, 'xs' | 'ys' | 'city'> | null }
+
+const nearest = (at: readonly number[], v: number) => at.reduce((best, a, n) => (Math.abs(a - v) < Math.abs(at[best] - v) ? n : best), 0)
+
+/** The sheet's colour behind (x, y) on the sky: by night with the towns' light it is drawn with there. */
+function sheetAt({ rgb, sheet }: Beyond, x: number, y: number): RGB {
+  if (!sheet?.city) return rgb
+  return addLight(rgb, sheet.city.rgb, sheet.city.weight[nearest(sheet.ys, y) * sheet.xs.length + nearest(sheet.xs, x)] ?? 0)
+}
 
 /** A tower's tones as the air takes them to what stands behind it: the sheet there, as far as it covers, not the clear sky. */
-export function beforeSheet(tones: Tones, beyond: Beyond | null): Tones {
+export function beforeSheet(tones: Tones, beyond: Beyond | null, x = 0, y = 0): Tones {
   if (!beyond) return tones
-  const behind = mixRgb(tones.behind, beyond.rgb, beyond.cover)
+  const behind = mixRgb(tones.behind, sheetAt(beyond, x, y), beyond.cover)
   const moved = (c: RGB) => c.map((v, n) => v + (behind[n] - tones.behind[n]) * tones.fade) as unknown as RGB
   return { body: moved(tones.body), shade: moved(tones.shade), behind, fade: tones.fade }
 }
