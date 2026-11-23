@@ -25,8 +25,9 @@ function lattice(n: number, at: (i: number, j: number) => number): Float32Array 
   return out
 }
 
-/** Adds `weight` × the nearness of one jittered point a cell, `n` cells round the tile: 1 at a point, 0 a cell away. */
-function addCells(out: Float32Array, n: number, seed: number, weight: number): void {
+/** Adds `weight` × the nearness of one jittered point a cell, `n` cells round the tile: 1 at a point, 0 a cell away; a cone,
+ *  or a dome. */
+function addCells(out: Float32Array, n: number, seed: number, weight: number, dome = false): void {
   const px = lattice(n, (i, j) => hash(i, j, seed)), py = lattice(n, (i, j) => hash(i, j, seed + 71)), side = n + 3
   for (let y = 0, o = 0; y < SIDE; y++) {
     const v = (y * n) / SIDE, j = v | 0, fy = v - j
@@ -37,7 +38,7 @@ function addCells(out: Float32Array, n: number, seed: number, weight: number): v
         const c = (j + 1 + b) * side + i + 1 + a, dx = a + px[c] - fx, dy = b + py[c] - fy
         best = Math.min(best, dx * dx + dy * dy)
       }
-      out[o] += weight * (1 - Math.sqrt(best))
+      out[o] += weight * (1 - (dome ? best : Math.sqrt(best)))
     }
   }
 }
@@ -78,7 +79,7 @@ export const puffTile = () => tile('puff', (out) => {
 
 /** The heads' own slow swell, for the light on them: no fine octave, so it models without scratching. */
 export const swellTile = () => tile('swell', (out) => {
-  addCells(out, 5, SEED, 0.6); addGradient(out, 4, SEED + 3, 0.4); addGradient(out, 9, SEED + 4, 0.2)
+  addCells(out, 5, SEED, 0.7, true); addCells(out, 11, SEED + 2, 0.22, true); addGradient(out, 4, SEED + 3, 0.3)
 })
 
 export const wispTile = () => tile('wisp', (out) => {

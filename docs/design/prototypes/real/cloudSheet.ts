@@ -35,7 +35,8 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
     if (a <= 0.003) continue
     const near = KEEP + (1 - KEEP) * smoothstep(0, FAR, 1 - Math.floor(p / field.w) / field.h)
     let rgb = cloudTone(desc, { tone: field.tone[p], sun: light.sun[p], sky: light.sky[p], deep: light.deep[p] * depth,
-      base: light.base[p], relief: field.relief[p], thick: field.thick[p], near, own: field.open })
+      base: light.base[p], relief: field.relief[p], thick: field.thick[p], near, own: field.open,
+      wall: field.wall[p], flat: field.flat[p] })
     if (desc.city) rgb = addLight(rgb, desc.city.rgb, field.city[p])
     data[o] = rgb[0] * 255; data[o + 1] = rgb[1] * 255; data[o + 2] = rgb[2] * 255
     data[o + 3] = a * CORE * 255

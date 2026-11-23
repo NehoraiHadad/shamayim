@@ -37,7 +37,7 @@ function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEn
       if (a < 0.004) continue
       const over = smoothstep(0, 0.7, up)
       let rgb: RGB = cloudTone(s, { tone: FOOT_TONE + (TOP_TONE - FOOT_TONE) * over, sun: beam * light.sun[n], sky: light.sky[n] * (0.4 + 0.6 * over),
-        deep: light.deep[n], base: Math.max(light.base[n], 1 - smoothstep(0, 0.16, up)), relief: f.relief[n] * beam, thick: f.thick[n], near, own: 1 })
+        deep: light.deep[n], base: Math.max(light.base[n], 1 - smoothstep(0, 0.16, up)), relief: f.relief[n] * beam, thick: f.thick[n], near, own: 1, wall: 0, flat: 0 })
       rgb = mix(rgb, s.lit, 0.5 * s.silver * (1 - a) * over)
       if (s.glow > 0) rgb = mix(rgb, s.lit, 0.5 * s.glow * (1 - over))
       data[o] = rgb[0] * 255; data[o + 1] = rgb[1] * 255; data[o + 2] = rgb[2] * 255
@@ -55,4 +55,4 @@ function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEn
 
 /** The foot's own cover: a far tower's melts into the haze, a near one's into the rain under it. */
 const footAt = (s: CloudSprite, up: number, py: number) =>
-  (s.w < 70 ? 0.35 + 0.65 * smoothstep(0, 0.4, up) : 0.8 + 0.2 * smoothstep(0, 0.15, up)) * (1 - smoothstep(-0.04 * s.w, Math.max(2, 0.07 * s.w), py))
+  (s.w < 70 ? 0.35 + 0.65 * smoothstep(0, 0.4, up) : 0.94 + 0.06 * smoothstep(0, 0.15, up)) * (1 - smoothstep(-0.04 * s.w, Math.max(2, 0.07 * s.w), py))

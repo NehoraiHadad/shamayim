@@ -18,8 +18,8 @@ const WIDE = 130
 /** The billows on the outline, big and small: their size against the tower's width, how deep they cut in (of a head's half
  *  width); how far out of it the biggest stand. */
 const BILLOWS = [[1.5, 0.55], [0.62, 0.3]] as const, STAND = 0.26
-/** The least softness of an edge, px. */
-const LEAST = 2.5
+/** The softness of an edge: of the tower's width, px at least. */
+const SOFT = 0.09, LEAST = 3
 /** The ice's cover, and its softness against the heads'. */
 const ICE = 0.5, ICE_SOFT = 2.4
 const FROM_ICE = 0.58
@@ -44,7 +44,7 @@ export function towerField(s: CloudSprite, toward: readonly [number, number]): T
   const y1 = Math.max(4, 0.08 * s.w)
   const k = Math.min(RASTER, Math.sqrt(PX / ((x1 - x0) * (y1 - y0))))
   const w = Math.max(4, Math.ceil((x1 - x0) * k)), h = Math.max(4, Math.ceil((y1 - y0) * k)), size = w * h
-  const scale = Math.min(1, Math.max(0.1, s.w / WIDE)), soft = Math.max(LEAST, HEAP.soft * scale)
+  const scale = Math.min(1, Math.max(0.1, s.w / WIDE)), soft = Math.min(1.5 * HEAP.soft, Math.max(LEAST, SOFT * s.w))
   const out: TowerField = { w, h, k, x: x0, y: y0, alpha: new Float32Array(size), thick: new Float32Array(size),
     relief: new Float32Array(size), scale: new Float32Array(h).fill(scale) }
   const grain = grainRows(HEAP, s.seed % 9973)(scale), from = placeOf(s.seed % 997)

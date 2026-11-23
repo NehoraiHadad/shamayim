@@ -13,6 +13,8 @@ const FOOT = 0.26, OPEN = 0.2, SUN = 0.42, SHADE = 0.34, EDGE = 0.8
 const AIR = 0.16
 /** A cast's opacity, and how far across it may reach (of the house's height, px at most). */
 const CAST = 0.5, REACH = 0.75, FARTHEST = 12
+/** A house this wide (px) shows its corner. */
+const CORNER = 3
 const WARM: RGB = [1, 0.965, 0.88]
 
 type Body = Extract<OutsideItem, { kind: 'box' | 'tower' }>
@@ -59,16 +61,15 @@ export function houseLight(ctx: Ctx2D, item: Body, top: RGB, t: Tones, s: Shine,
   if (beam < 0.02) return
   const lean = Math.abs(side)
   if (lean > 0.05) {
-    const across = side > 0 ? ctx.createLinearGradient(x + w, 0, x, 0) : ctx.createLinearGradient(x, 0, x + w, 0)
+    // Seen at a corner: one wall in the sun, one in the sky's shade, each of one tone.
     const warm = mix(t.stoneLit, WARM, 0.7), cool = mix(t.shade, t.deep, 0.35)
-    across.addColorStop(0, css(warm, SUN * beam * lean))
-    across.addColorStop(0.42, css(warm, 0.3 * SUN * beam * lean))
-    across.addColorStop(0.5, css(warm, 0))
-    across.addColorStop(0.5, css(cool, 0))
-    across.addColorStop(0.72, css(cool, 0.7 * SHADE * beam * lean))
-    across.addColorStop(1, css(cool, SHADE * beam * lean))
-    ctx.fillStyle = across
-    ctx.fillRect(x, y, w, h)
+    const wall = w < CORNER ? w : w * (0.3 + 0.25 * (1 - lean) + 0.1 * Math.sin(x * 12.9898))
+    ctx.fillStyle = css(warm, SUN * beam * lean * (w < CORNER ? 0.4 : 0.8))
+    ctx.fillRect(side > 0 ? x + w - wall : x, y, wall, h)
+    if (w >= CORNER) {
+      ctx.fillStyle = css(cool, 0.75 * SHADE * beam * lean)
+      ctx.fillRect(side > 0 ? x : x + wall, y, w - wall, h)
+    }
   }
   const edge = EDGE * day * Math.max(s.faces.rim, 0.5 * s.faces.top * s.direct), thin = Math.min(0.7, 0.12 * h)
   if (edge < 0.03 || w < 2) return

@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../../src/domain/smoothstep'
 import { hashId } from '../../../../src/data/landmarks/hash'
 import type { LayerOf } from '../../../../src/scene/model/types'
 import { soften } from '../../../../src/scene/paint/shared/base/soften'
@@ -15,10 +16,14 @@ import type { LitBody } from './cloudLight'
 export const RASTER = 0.6
 /** How far over and under a point its underside is looked for, px overhead; how readily a step of cover is one. */
 const FOOT = 12, STEP = 1.6
+/** How far over its far rim a hole shows its wall, px overhead: the eye looks up at a slant, into the hole. */
+const WALL = 9
 
 export interface SheetField extends LitBody {
   /** Drawn opacity 0–1, the model's tone 0–1, the towns' light 0–1, how far the heads face away from the light. */
   alpha: Float32Array; tone: Float32Array; city: Float32Array; relief: Float32Array
+  /** A hole's far wall, and the straight edge of an underside, 0–1. */
+  wall: Float32Array; flat: Float32Array
   /** How open the deck is 0–1: what is closed keeps the model's own cover and tone. */
   open: number
 }
@@ -43,13 +48,15 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
   soften(buf, cols, out, scaleAt.map((s) => make.soft * Math.max(0.12, s) / colPx), scaleAt.map((s) => 0.6 * make.soft * s / ROW))
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, size = w * h
   const field: SheetField = { w, h, k: RASTER, alpha: new Float32Array(size), thick: new Float32Array(size), tone: new Float32Array(size),
-    city: new Float32Array(size), relief: new Float32Array(size), open, scale: new Float32Array(h) }
+    city: new Float32Array(size), relief: new Float32Array(size),
+    wall: new Float32Array(size), flat: new Float32Array(size), open, scale: new Float32Array(h) }
   const grains = grainRows(make, hashId(desc.id) % 9973)
   const veiled = desc.lattice === 'high', kept = veiled ? 0 : open
   for (let j = 0; j < h; j++) {
     const gy = Math.min(out - 1.001, (j * (out - 1)) / (h - 1)), r = Math.floor(gy), ty = gy - r
     const scale = field.scale[j] = scaleAt[r], grain = grains(scale), y = j / RASTER
     const reach = Math.max(1, Math.round((FOOT * scale) / ROW))
+    const deep = Math.min(out - 1, r + Math.max(1, Math.round((WALL * scale) / ROW))) * cols
     const over = Math.max(0, r - reach) * cols, under = Math.min(out - 1, r + reach) * cols
     for (let i = 0; i < w; i++) {
       const gx = Math.min(cols - 1.001, (i * (cols - 1)) / (w - 1)), c = Math.floor(gx), tx = gx - c
@@ -58,7 +65,10 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
         const top = buf[n + k] + (buf[n + 4 + k] - buf[n + k]) * tx
         return top + (buf[below + k] + (buf[below + 4 + k] - buf[below + k]) * tx - top) * ty
       }
-      const a = at(3)
+      const here = at(3), wallAt = buf[(deep + c) * 4 + 3] * (1 - tx) + buf[(deep + c + 1) * 4 + 3] * tx
+      // Open here and cloud just under: the far wall of a hole (of a deck: a heap's own sides are the model's).
+      const wall = veiled ? 0 : (1 - open) * Math.max(0, wallAt - here) * smoothstep(0.3, 0.8, wallAt)
+      const a = here + wall * 0.8
       if (a < 0.012) continue
       const p = j * w + i, x = i / RASTER
       const dx = from.x - xs[0] - x, dy = from.y - ys[0] - y, far = Math.hypot(dx, dy) || 1
@@ -68,13 +78,16 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
       const flat = veiled ? 0 : Math.min(1, Math.max(0, STEP * (edge(c, c) * (1 - tx) + edge(c + 1, c + 1) * tx)))
       const [body, thick] = bodyOf(make, a, g, flat)
       field.relief[p] = g.relief
+      field.wall[p] = wall
+      field.flat[p] = flat * (1 - open)
       field.thick[p] = thick
       // A veil has no body to carry: its own cover, drawn out in wisps of the same mean.
       const own = veiled ? a * Math.max(0, 1 + 2.6 * (1 - a) * (g.wisp - 0.5)) : a
       const drawn = field.alpha[p] = Math.min(1, kept * body + (1 - kept) * own)
       if (drawn <= 0.004) continue
-      field.tone[p] = at(0) / a
-      field.city[p] = at(1) / a
+      const sure = Math.max(0.05, here)
+      field.tone[p] = at(0) / sure
+      field.city[p] = at(1) / sure
     }
   }
   return field

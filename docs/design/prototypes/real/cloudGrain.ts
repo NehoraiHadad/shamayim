@@ -9,7 +9,7 @@ import { noiseAt, placeOf, puffTile, swellTile, wispTile } from './cloudNoise'
 /** How far a soft cover is spread (px overhead); how far the noise carries its edge; the noise tile's width (px) and its
  *  stretch along the wind; the puffs' part in the noise (the rest wisps); the rim's softness; how much the noise thins it. */
 export interface Make { soft: number; carry: number; tile: number; along: number; puff: number; rim: number; thin: number }
-export const HEAP: Make = { soft: 10, carry: 0.95, tile: 230, along: 1.1, puff: 0.62, rim: 0.42, thin: 0.3 }
+export const HEAP: Make = { soft: 10, carry: 0.95, tile: 230, along: 1.1, puff: 0.62, rim: 0.56, thin: 0.3 }
 export const FLEECE: Make = { soft: 10, carry: 1.15, tile: 170, along: 1.15, puff: 0.6, rim: 0.34, thin: 0.34 }
 export const VEIL: Make = { soft: 14, carry: 1, tile: 300, along: 3, puff: 0, rim: 1, thin: 0.75 }
 export const DECK: Make = { soft: 9, carry: 1, tile: 210, along: 1.4, puff: 0.5, rim: 0.44, thin: 0.12 }
@@ -17,7 +17,7 @@ export const DECK: Make = { soft: 9, carry: 1, tile: 210, along: 1.4, puff: 0.5,
 /** How far the rim stands back from the faintest cover, so a mass keeps its mean cover. */
 const BIAS = 0.06
 /** A cloud's heads, big and small: the noise's rate, how far toward the light a slope is taken (tile widths), its part. */
-const HEADS = [[0.42, 0.11, 0.75], [1.1, 0.06, 0.6]] as const
+const HEADS = [[0.75, 0.09, 0.8], [1.7, 0.07, 0.4]] as const
 /** From this cover to this the inside is whole: no noise lets the sky through it. */
 const WHOLE = [0.6, 0.95] as const
 
@@ -56,7 +56,9 @@ export function grainRows(make: Make, seed: number) {
 export function bodyOf(make: Make, a: number, g: Grain, flat: number): readonly [alpha: number, thick: number] {
   const carry = make.carry * (1 - 0.7 * flat) * Math.min(1, 4.4 * a * (1 - a))
   const rimmed = a + carry * (g.noise - 0.5) - BIAS
-  const d = smoothstep(0, 1, Math.max(0, rimmed - BIAS) / (make.rim * (1 - 0.35 * flat)))
+  // Here crisp, there soft: no cloud has one edge all round.
+  const rim = make.rim * (0.55 + 0.9 * g.wisp) * (1 - 0.35 * flat)
+  const d = smoothstep(0, 1, Math.max(0, rimmed - BIAS) / rim)
   const open = 1 - smoothstep(WHOLE[0], WHOLE[1], a), hollow = 1 - g.noise
   return [d * (1 - make.thin * 0.75 * open * hollow ** 1.4), Math.min(1, Math.max(0, rimmed)) * (1 - make.thin * (0.25 + 0.75 * open) * hollow)]
 }
