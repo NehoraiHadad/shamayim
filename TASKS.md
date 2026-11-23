@@ -13,7 +13,8 @@ WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVot
       caps 300 writes a day and 10 changes per voter a day, counted from the listing, no extra writes
 - [x] Client store: style, styles seen, vote, retry at the next open
 - [x] UI: toggle in the wear card's title row, docked panel that leaves the scene visible, wiring in App
-- [ ] Tests, stills at 375x812 (day, night, light paper; closed and open), CI green
+- [x] Tests; looked at in the app at 375x812 (day, night, dawn paper, rain, an hour picked) and 375x667, closed and open
+- [ ] CI green; merge the drawn painter (claude/drawn-painter): until then both styles look the same
 - [ ] Owner: deploy the worker (`cd worker && npx wrangler deploy`) before the app goes out
 
 ## Worship ownership (audit follow-up)

@@ -137,8 +137,8 @@
   display: grid;
   place-items: center;
   min-height: 44px;
-  color: var(--sheet-muted);
-  font-size: var(--text-sm);
+  color: inherit;
+  font-size: var(--text-md);
   text-decoration: underline;
   text-underline-offset: .2em;
 }
