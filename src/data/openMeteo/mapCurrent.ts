@@ -21,6 +21,7 @@ export function mapCurrent(raw: Json): CurrentWeather {
     cloudMid,
     windSpeed: num(current.wind_speed_10m, 'current.wind_speed_10m'),
     windGusts: num(current.wind_gusts_10m, 'current.wind_gusts_10m'),
+    cloudHigh: numOrNull(current.cloud_cover_high),
     windDirection: numOrNull(current.wind_direction_10m) ?? 0,
     precipitation: numOrNull(current.precipitation) ?? 0,
     snowfall: numOrNull(current.snowfall) ?? 0,

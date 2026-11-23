@@ -13,9 +13,10 @@ export interface CurrentWeather {
   cloudCover: number
   /** Low and mid cloud together, 0–100 (what hides the moon; thin high cloud does not). Null when not known. */
   thickCloud?: number | null
-  /** Raw low and mid cloud cover, 0–100 each; null or absent when not known. */
+  /** Raw low, mid and high cloud cover, 0–100 each; null or absent when not known. */
   cloudLow?: number | null
   cloudMid?: number | null
+  cloudHigh?: number | null
   windSpeed: number
   windGusts: number
   /** Degrees the wind comes FROM (meteorological), 0 = north. */

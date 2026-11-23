@@ -36,6 +36,7 @@ export function rollForward(forecast: Forecast, now: LocalTime): Forecast {
       thickCloud: row.thickCloud ?? null,
       cloudLow: row.cloudLow ?? null,
       cloudMid: row.cloudMid ?? null,
+      cloudHigh: row.cloudHigh ?? null,
       windSpeed: row.windSpeed,
       windGusts: row.windGusts,
       windDirection: row.windDirection ?? forecast.current.windDirection,

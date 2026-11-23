@@ -33,9 +33,9 @@ export interface MistInput {
   dustWeight: number
   /** Rain rate (mm/h), 0 when dry. */
   rainRateMmH: number
-  /** Raw low cloud cover (< 2 km, 0–100), with zero evidence when unknown. */
+  /** Low cloud cover (< 2 km, 0–100) supported by forecast layers or explicitly forced layers. */
   lowCloudPct: number
-  /** Low+mid overlap (0–100), with thick/total cover as the fallback. */
+  /** Low and mid cloud union (0–100) from the sky layering, including inferred layers. */
   blockingCloudPct: number
   /** Total cloud cover (0–100), the cap on the low+mid union; null when unknown. */
   totalCloudPct?: number | null
@@ -100,7 +100,7 @@ export function nightMinimum(hours: readonly Pick<HourPoint, 'time' | 'temperatu
 }
 
 /**
- * Mist state (0–1) from the shown air, wind, raw low/mid cloud, sun altitude/side and 12 h minimum temperature.
+ * Mist state (0–1) from the shown air, wind, cloud evidence, sun altitude/side and 12 h minimum temperature.
  * Full dust yields zero mist.
  */
 export function mistOf(input: MistInput): Mist {
@@ -127,7 +127,7 @@ export function mistOf(input: MistInput): Mist {
   const radiation = potential * calm * sunFactor * warmBurn * clearSky * clearShare
 
   // Persistent mist: reported low visibility (or fog weather code 45/48 when visibility is absent), rain in damp air,
-  // or a raw low-cloud marine stratus deck trapping moisture.
+  // or a supported low-cloud marine stratus deck trapping moisture.
   const visFog = input.visibilityWeight * smoothstep(6, 1.5, input.visibilityKm)
   const codeFog = input.fogCodeWeight * 0.8
   const dataFog = (visFog + codeFog) * droplet
