@@ -4,6 +4,7 @@ import type { WorldState } from '../../world/types'
 import type { CloudSprite, SpriteGenus } from '../paint/cloudSprite'
 import { smoothstep } from '../../world/ridgeLighting'
 import { acrossSpeed, pxPerRadAt } from './advect'
+import { spreadAnvils } from './anvil'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
 import { layerKey, skyBoxKey } from './keys'
@@ -25,10 +26,6 @@ type Placed = LayerOf<'cloudCells'>['cells'][number]
 const TOP_MIN = 0.4
 /** A cell whose near edge stands higher than this (deg) is right overhead: the sheet under it is what shows. */
 const NEAR_MAX = 70
-/** The tropopause over the Levant in the cool season (km): a Cb whose top reaches it spreads into an anvil. */
-const TROPOPAUSE_KM = 11
-/** Anvils in view at most: only the most mature cells of a storm line have spread theirs. */
-const ANVILS = 2
 /** Narrower than this (px) a tower is a speck in the haze. */
 const W_MIN = 1.5
 /**
@@ -68,12 +65,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     placed.push({ sprite, x, y, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed: acrossSpeed(layer.vel, look, p.rangeKm, perRad) })
   }
   if (!placed.length) return null
-  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause, and only over a
-  // column that stands taller than it is wide (a cap on a squat body reads as a disc floating in the sky).
-  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' && c.sprite.tall >= 1.5 * c.sprite.w
-    ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
-  placed.filter((c) => mature(c) > 0).sort((a, b) => mature(b) * b.sprite.w - mature(a) * a.sprite.w).slice(0, ANVILS)
-    .forEach((c) => { c.sprite.anvil = mature(c) })
+  spreadAnvils(placed, world.glaciation)
   placed.sort((a, b) => b.km - a.km)
   const top = Math.max(0, Math.floor(Math.min(...placed.map((c) => c.y - c.sprite.tall)) - 12))
   const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(...placed.map((c) => c.y + c.sprite.under)) + 8))
