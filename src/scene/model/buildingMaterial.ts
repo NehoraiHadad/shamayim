@@ -7,7 +7,7 @@ const Y = [.424, .435, .449, .466, .526, .542, .558, .574]
 export const WALL_ALBEDOS: readonly RGB[] = Y.map((y, i) => {
   // Warm mineral plaster. This axis preserves Y, so warmer pigment does
   // not also brighten the blocks or replace the shared sky and path haze.
-  const warm = .055 + .006 * (i % 3)
+  const warm = .025 + .0025 * (i % 3)
   return [y + warm, y - .17 * warm, y - 1.26 * warm]
 })
 export const TILE = srgbRgbToLinear([.43, .275, .185])
