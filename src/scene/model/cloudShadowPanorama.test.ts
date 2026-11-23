@@ -14,7 +14,9 @@ import type { SceneBox } from './types'
 const ids = ['jerusalem', 'haifa', 'tiberias']
 const box: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
 const at = '2026-11-17T13:00'
-const SHADOW_RATIO_LIMIT = 0.30
+/** The shadows' share of a minute's model without them. Set at .30 of a 3.2 ms baseline (Tiberias, .96 ms); since the town
+ * layer is memoised (454374cd) that baseline is ~2.0 ms while the shadows still take ~.55 ms. .40 of it allows .8 ms: less work, not more. */
+const SHADOW_RATIO_LIMIT = 0.40
 /** Warm runs per minute of each side of the ratio: the fastest stands for the work, the rest for the runner's noise. */
 const WARM_REPS = 7
 let places: Map<string, LoadedPlace>
