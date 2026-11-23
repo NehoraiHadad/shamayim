@@ -95,7 +95,7 @@ describe('sceneLabel', () => {
     const at1420 = `${TODAY}T14:20`
     const shown20 = airInput(forecast, `${TODAY}T12:00`, w.place, at1420)
     expect(shown20.weatherCode).toBe(0)
-    expect(rainRate(shown20)).toBeCloseTo(0.8)
+    expect(rainRate(shown20)).toBeCloseTo(2)
     expect(Math.round(shown20.temperature)).toBe(22)
     expect(label(w, forecast, `${TODAY}T12:00`, at1420)).toBe(
       'ירושלים, גשום, \u206624°\u2069. שקיעה ב־\u206619:45\u2069. גובה היישוב \u2066790\u2069 מטר.',
@@ -129,9 +129,9 @@ describe('sceneLabel', () => {
     const w = world('ירושלים', true)
 
     expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:20`)).toContain('ירושלים, מעונן חלקית,')
-    expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:40`)).toContain('ירושלים, מעונן חלקית,')
-    expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:55`)).toContain('ירושלים, מעונן,')
-    expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T15:20`)).toContain('ירושלים, טפטוף,')
+    expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:40`)).toContain('ירושלים, טפטוף,')
+    expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T14:55`)).toContain('ירושלים, טפטוף,')
+    expect(label(w, forecast, `${TODAY}T12:00`, `${TODAY}T15:20`)).toContain('ירושלים, גשום,')
   })
 
   it('speaks scrubbed WMO 95 as rain or drizzle and live lightning as thunder', () => {
@@ -144,7 +144,7 @@ describe('sceneLabel', () => {
       buildWorld({ place, forecast, now, selected, terrain: unknownLand('offline'), landmarks: [] })
     const flashes = (w: WorldState, box = BOX) => skyLayers(w, box).filter((layer) => layer.kind === 'flash')
 
-    for (const [forecast, rate, condition] of [[heavy, 1.6, 'גשום'], [light, 0.2, 'טפטוף']] as const) {
+    for (const [forecast, rate, condition] of [[heavy, 2, 'גשום'], [light, 0.25, 'טפטוף']] as const) {
       const scrubbed = build(forecast, noon, storm)
       expect(scrubbed.rain?.rateMmH).toBeCloseTo(rate, 6)
       expect(scrubbed.rain?.thunderWeight).toBe(0)
@@ -160,7 +160,7 @@ describe('sceneLabel', () => {
     expect(label(dry, heavy, noon, null)).toContain('ירושלים, שמשי,')
 
     const live = build(heavy, storm, null)
-    expect(live.rain?.thunderWeight).toBeCloseTo(2 / 3, 6)
+    expect(live.rain?.thunderWeight).toBeCloseTo(5 / 6, 6)
     const lightning = flashes(live)
     expect(lightning.length).toBeGreaterThan(0)
     expect(lightning[0].animated?.pulse).toMatchObject({ strength: live.rain?.thunderWeight })

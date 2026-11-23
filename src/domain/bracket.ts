@@ -1,4 +1,4 @@
-import { minutesBetweenLocal } from './minutes'
+import { addMinutes, minutesBetweenLocal } from './minutes'
 import type { LocalTime } from './types'
 
 /** Bracket the viewed minute, holding the nearest sample outside the available range. */
@@ -8,4 +8,9 @@ export function bracketAt<T extends { time: LocalTime }>(points: readonly T[], a
   const after = following > 0 ? points[following] : undefined
   const fraction = before && after ? minutesBetweenLocal(before.time, at) / minutesBetweenLocal(before.time, after.time) : 0
   return { before, after, fraction }
+}
+
+/** Provider sums and maxima describe the preceding 60 minutes; anchor them at the interval centre. */
+export function precedingHourAt<T extends { time: LocalTime }>(points: readonly T[], at: LocalTime) {
+  return bracketAt(points, addMinutes(at, 30))
 }
