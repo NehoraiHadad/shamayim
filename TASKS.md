@@ -1113,7 +1113,10 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
       shade). The critique changed: found lit tops and lost feet instead of evenly soft edges, rounder puffs, three values inside a
       mass (lit at its top, shaded at its foot, a clear gap ends it), softer edges with distance, calmer closed decks and low suns
 - [x] Stills rounds 1-3 (CI 45151140114, 45153177347, 45154473864; only the known `cloudCells` red) and round 4 (calmer puffs under a
-      low sun and in closed decks, one mass does not shade the next); 4 of 5 used
+      low sun and in closed decks, one mass does not shade the next; CI 45155823030)
+- [x] Main 643d4f5c merged (tower raster, rain curtains, one storm per cell). The real hand is byte-identical to main in five scenes.
+      Drawn: the curtains (`shafts`, `edge`) are long planes (`drawn/index.ts` PLANES, `curtain.ts` Fibres), no fibres. The drawn
+      horizon banks were so dark the curtain was lost: the air now takes their light and shade low in the sky. Round 5 = last
 - [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 2-20 % dearer (Tel Aviv worst), land about even
 - Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
   pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand
