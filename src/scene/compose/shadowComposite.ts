@@ -102,13 +102,22 @@ export class ShadowComposite {
       }
     }
     let x0 = width, x1 = -1, y0 = height, y1 = -1
-    for (let j = 0; j < height; j++) for (let i = rowFirst[j]; i <= rowLast[j]; i++) {
-      const o = j * width + i
-      const a = table[Math.min(table.length - 1, Math.round(depth[o] * SHADOW_DEPTH_STEPS))]
-      alpha[o] = a
-      if (a) {
-        x0 = Math.min(x0, i); x1 = Math.max(x1, i)
-        y0 = Math.min(y0, j); y1 = Math.max(y1, j)
+    const lastBin = table.length - 1, saturated = table[lastBin]
+    for (let j = 0; j < height; j++) {
+      const row = j * width
+      let litFirst = width, litLast = -1
+      for (let i = rowFirst[j]; i <= rowLast[j]; i++) {
+        const o = row + i, bin = depth[o] * SHADOW_DEPTH_STEPS + .5
+        const a = bin >= lastBin ? saturated : table[bin | 0]
+        if (!a) continue
+        alpha[o] = a
+        if (litLast < 0) litFirst = i
+        litLast = i
+      }
+      if (litLast >= 0) {
+        x0 = Math.min(x0, litFirst); x1 = Math.max(x1, litLast)
+        if (y1 < 0) y0 = j
+        y1 = j
       }
     }
     if (x1 >= x0) {

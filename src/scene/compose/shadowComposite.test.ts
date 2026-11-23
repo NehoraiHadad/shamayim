@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import type { ReceiverShadow } from '../model/planeCloudShadow'
+import { shadowAlphaTable, SHADOW_DEPTH_STEPS, type ReceiverShadow } from '../model/planeCloudShadow'
 import { shadowEdge } from '../model/cloudShadowEdge'
 import { ShadowComposite } from './shadowComposite'
 
@@ -35,7 +35,9 @@ it('adds overlapping cell depth and carries the same lobed mask over a minute bo
   const after = cache.maskAt('near', next, rect, 1, .001, 2).alpha.slice()
   expect(Math.max(...before.map((value, i) => Math.abs(value - after[i])))).toBeLessThanOrEqual(1)
   const one = cache.maskAt('near', next, rect, 1, 0, 3).depth.slice()
-  const two = cache.maskAt('near', { ...next, blobs: [moved, moved] }, rect, 1, 0, 4).depth
+  const { depth: two, alpha } = cache.maskAt('near', { ...next, blobs: [moved, moved] }, rect, 1, 0, 4)
+  const table = shadowAlphaTable(next)
+  expect(alpha.every((value, i) => value === table[Math.min(table.length - 1, Math.round(two[i] * SHADOW_DEPTH_STEPS))])).toBe(true)
   expect(Math.max(...one)).toBeGreaterThan(0)
   expect(Math.max(...one.map((value, i) => Math.abs(value * 2 - two[i])))).toBeLessThan(.0001)
 })
