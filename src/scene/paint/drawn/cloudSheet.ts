@@ -27,7 +27,7 @@ const CAP = 1.7, FOOT = 1.9, BROAD_LIT = 1.3, BROAD_SHADE = 1.5
 /** The puffs' light inside a mass against its edge: calmer in the middle; the small heads' light on the edge. */
 const INSIDE = 0.85, SMALL_LIT = 0.25
 /** A closed deck's banks: how far their light moves the tone. */
-const BANKS = 0.7
+const BANKS = 0.6
 /** The broad light's half reach (sky px at the zenith). */
 const REACH = 12
 /** The share of the model's own tone an open deck's body keeps against the lit: its thin parts', and what a core adds; how
