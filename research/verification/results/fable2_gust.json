@@ -1,0 +1,36 @@
+{
+ "min_stations_required": 15,
+ "stations_with_2000h_since_2024": {
+  "ws_gust": 2,
+  "rh": 14,
+  "rain": 3
+ },
+ "station_ids": {
+  "ws_gust": [
+   22,
+   178
+  ],
+  "rh": [
+   2,
+   6,
+   8,
+   10,
+   11,
+   13,
+   16,
+   20,
+   21,
+   22,
+   23,
+   24,
+   64,
+   178
+  ],
+  "rain": [
+   22,
+   64,
+   178
+  ]
+ },
+ "gust_update_run": false
+}

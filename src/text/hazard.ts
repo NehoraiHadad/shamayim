@@ -5,7 +5,7 @@ import { windowFacts, type WindowFacts } from './facts'
 import { afterMinutes, nowcastOf } from './nowcast'
 import { dayPartOf, FROM, mm, nowcastPhrase } from './phrases'
 
-const amountOf = (w: WindowFacts) => w.rainMm >= 1 ? `, כ־${mm(w.rainMm)}` : ''
+const amountOf = (w: WindowFacts) => w.rainMm >= T.rain.quoteMm ? `, כ־${mm(w.rainMm)}` : ''
 const floodOf = (w: WindowFacts) => w.thunder || w.rainMm >= T.rain.floodMm ? '. חשש לשיטפונות בנחלים' : ''
 const imminent = (w: WindowFacts, now: LocalTime) => !w.rainStart || w.rainStart <= afterMinutes(now, 60)
 

@@ -86,9 +86,14 @@ export function paintBirds(ctx: Ctx2D, desc: LayerOf<'birds'>, env: PaintEnv): v
         break
       }
       case 'crane': {
-        // A slow deep beat; the long neck out ahead and the legs trailing, grey.
-        wings(ctx, f, S, w * 1.2, ink, line * 1.1, 0.02)
-        stroke(ctx, [f(-0.45 * S, 0), f(0.5 * S, 0, 0.02 * S)], line * 0.75, ink)
+        // A slow deep beat of broad wings, held a little forward at the wrist, the tips swept back; half a span long in all
+        // (the neck out ahead ~0.3, the legs trailing ~0.25), so it reads as a bird and never as an airframe.
+        const wrist = (0.16 * w + 0.07) * S, tip = (0.42 * w + 0.02) * S
+        for (const side of [-1, 1]) {
+          stroke(ctx, [f(-0.1 * S, side * 0.5 * S, tip), f(0.06 * S, side * 0.24 * S, wrist), f(0.02 * S, 0, 0)], Math.max(0.75, 0.15 * S), ink)
+        }
+        stroke(ctx, [f(0.12 * S, 0), f(-0.1 * S, 0)], Math.max(0.8, 0.17 * S), ink)
+        stroke(ctx, [f(0.3 * S, 0, 0.02 * S), f(-0.25 * S, 0)], Math.max(0.45, 0.06 * S), ink)
         break
       }
       case 'crow': {

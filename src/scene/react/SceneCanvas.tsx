@@ -58,7 +58,6 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
   const onLand = useCallback(() => ready('land'), [ready])
   const onSky = useCallback(() => ready('sky'), [ready])
   const { ref } = useSurface('land', land, { width, height: SCENE_H, dpr }, onLand)
-  const at = selected ?? now
   // The wear card's clothesline is drawn from this same world (the shown hour's wind, light and weather), into the
   // card's own box through a portal, as the sky is.
   const wearHost = useWearHost(Boolean(wear))
@@ -69,7 +68,7 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
         <canvas ref={ref} aria-hidden="true"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
         <SceneOverlay items={model.overlay} width={width} style={labelStyle} />
-        <SceneScrubber at={at} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
+        <SceneScrubber at={selected} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
           onNow={onNow} />
       </figure>
       {readout && (

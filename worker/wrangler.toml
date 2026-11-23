@@ -1,4 +1,5 @@
-# Shamayim weather proxy (Cloudflare Workers, free plan). No secrets: Open-Meteo's free tier needs no key.
+# Shamayim weather proxy (Cloudflare Workers, free plan). Open-Meteo's free tier needs no key; the live correction
+# needs one secret, the IMS API token: `wrangler secret put IMS_TOKEN`.
 # The account is chosen by `wrangler login`; no account_id is committed.
 name = "shamayim-weather"
 main = "src/index.ts"
@@ -16,3 +17,15 @@ ALLOWED_ORIGINS = "https://shamayim.nehoraihadad.com,https://sky.nehoraihadad.co
 
 [observability]
 enabled = true
+
+# Live correction (src/live.ts): once an hour, 25 minutes past (IMS readings arrive ~20 min late), read the IMS
+# station network and store each station's current forecast anomaly for `/v1/live`.
+# Forecast log (src/forecastLog.ts): every 6 hours, keep the IMS and Open-Meteo forecasts for later verification.
+# The second expression must match FORECAST_LOG_CRON in src/index.ts.
+[triggers]
+crons = ["25 * * * *", "40 */6 * * *"]
+
+# Create once with `npx wrangler kv namespace create LIVE` and paste the id it prints.
+[[kv_namespaces]]
+binding = "LIVE"
+id = "8e500d4c6ae147dca41d514f6649b293"
