@@ -11,8 +11,8 @@ WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVot
 
 - [x] Worker: `POST /v1/style-vote`, `GET /v1/style-votes` (KV `LIVE`, prefix `vote:`, style in metadata, a year);
       caps 300 writes a day and 10 changes per voter a day, counted from the listing, no extra writes
-- [ ] Client store: style, styles seen, vote, retry at the next open
-- [ ] UI: toggle in the wear card's title row, docked panel that leaves the scene visible, wiring in App
+- [x] Client store: style, styles seen, vote, retry at the next open
+- [x] UI: toggle in the wear card's title row, docked panel that leaves the scene visible, wiring in App
 - [ ] Tests, stills at 375x812 (day, night, light paper; closed and open), CI green
 - [ ] Owner: deploy the worker (`cd worker && npx wrangler deploy`) before the app goes out
 
