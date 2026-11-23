@@ -10,8 +10,8 @@ import type { Glow, RGB } from './types'
  * light added to what is there, so it lightens and warms a night and never darkens a dusk.
  */
 
-/** The towns' light as the air and a cloud base give it back: sodium and warm LED, greyed. */
-export const CITY_RGB: RGB = [0.34, 0.27, 0.21]
+/** The towns' light as the air and a cloud base give it back: sodium and warm LED, with little blue to add. */
+export const CITY_RGB: RGB = [0.36, 0.3, 0.14]
 /** How much of the towns' light reaches a layer's base: the low deck is nearest and takes most. */
 const CITY_REACH: Record<CloudLevel, number> = { low: 1, mid: 0.65, high: 0.3 }
 /** The built share under a base that lights it to 1 − 1/e of a bright city's (a village's few hundredths show faintly). */
@@ -19,9 +19,9 @@ const FULL_BUILT = 0.1
 /** The sky glow (Walker's units) that lights the air to 1 − 1/e of a metropolis's. */
 const FULL_GLOW = 4
 /** The most of the city's light a base overhead gives back, and the long path of lit air before a far one. */
-const ON_BASE = 0.33, IN_AIR = 0.55
+const ON_BASE = 0.28, IN_AIR = 0.65
 /** The most of it clear air over a metropolis gives at eye level (there is little in it to give light back). */
-const ON_SKY = 0.12
+const ON_SKY = 0.09
 /** The most a dome of lit air stands out of the sky round it. */
 const ON_DOME = 0.3
 
