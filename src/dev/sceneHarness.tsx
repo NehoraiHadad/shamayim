@@ -32,6 +32,7 @@ import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
 import { harnessPlace, fixturePanorama } from './sceneFixture'
 import { ARRIVAL } from '../scene/model/loading'
+import { forcedStyle } from '../ui/devParams'
 import { WearCanvas } from '../scene/react/WearCanvas'
 import { isDarkPaper, sheetLight } from '../theme/sheetLight'
 import type { ThemeId } from '../theme/skyThemes'
@@ -198,7 +199,8 @@ function Scene({ input: given }: { input: WorldInput }) {
   }, [sky, lay])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
-  const size = { width: box.width, height: box.landHeight, dpr: box.dpr }
+  const style = forcedStyle() ?? 'real'
+  const size = { width: box.width, height: box.landHeight, dpr: box.dpr, style }
   const { ref, surface: landSurface } = useSurface('land', land, size, onLand)
   useEffect(() => { landHold.current = landSurface.current })
   const skySurface = useRef<Surface | null>(null)
@@ -240,7 +242,7 @@ function Scene({ input: given }: { input: WorldInput }) {
   const vars = { '--ink': palette.ink, '--ridge-near': palette.ridgeNear, '--accent': palette.accent } as CSSProperties
   return (
     <div style={{ position: 'relative', width: box.width, height: box.skyHeight, overflow: 'hidden', fontFamily: 'var(--font-sans)', ...vars }}>
-      <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr }} onReady={onSky} surfaceRef={skySurface} />
+      <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr, style }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
         {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}

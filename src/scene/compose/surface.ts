@@ -3,6 +3,7 @@ import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
 import { shadowStep } from '../model/planeCloudShadow'
 import type { LayerDesc } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
 import { paintContrail } from '../paint/contrail'
 import { layCarried } from './advect'
 import { ctxOf, defaultFactory, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
@@ -12,8 +13,9 @@ import { ReceiverComposite } from './receiverComposite'
 import type { SceneStats } from './stats'
 import { compositeOrder } from './compositeOrder'
 
-function layoutOf(desc: LayerDesc, cached: { formKey: string; desc: LayerDesc } | null, dpr: number) {
-  return !cached || cached.desc === desc || cached.formKey === formKeyOf(desc, dpr).key ? desc : cached.desc
+function layoutOf(desc: LayerDesc, cached: { formKey: string; desc: LayerDesc } | null, dpr: number,
+  style: SceneStyle) {
+  return !cached || cached.desc === desc || cached.formKey === formKeyOf(desc, dpr, style).key ? desc : cached.desc
 }
 
 export interface SurfaceOptions extends CacheOptions {
@@ -79,6 +81,12 @@ export class Surface {
 
   private get active(): LayerCache | RemoteCache {
     return this.remote ?? this.cache
+  }
+
+  /** The scene's hand: a switch shows with the next `render`, the old painting standing until the new one is in. */
+  set style(style: SceneStyle) {
+    this.cache.style = style
+    if (this.remote) this.remote.style = style
   }
 
   /** Sizes the visible canvas (CSS px × dpr); a no-op when nothing changed. */
@@ -155,7 +163,7 @@ export class Surface {
       if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
-      const layout = layoutOf(desc, cached, d)
+      const layout = layoutOf(desc, cached, d, this.active.style)
       const plane = layout.kind === 'plane' ? cached : layout.kind === 'canopy' ? cache.peek(layout.id.replace(/^canopy\./, 'plane.')) : null
       if (layout.kind === 'canopy' && (!plane?.light || (cached.lightDesc.kind === 'canopy'
         && cached.lightDesc.receiver?.form !== plane.lightDesc.key))) continue
@@ -359,7 +367,7 @@ export class Surface {
     for (const desc of layers) {
       if (desc.kind === 'contrail') { out += `${trailTimeAt(desc, motion, still)};`; continue }
       const cached = this.active.peek(desc.id)
-      const layer = layoutOf(desc, cached, this.dpr)
+      const layer = layoutOf(desc, cached, this.dpr, this.active.style)
       const lit = cached?.lightDesc
       if (cached?.shade && lit?.kind === 'plane' && lit.cloudShadow?.speed) {
         out += `s${shadowStep(lit.cloudShadow, phase, still, cached.ratio)};`

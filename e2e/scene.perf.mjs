@@ -11,7 +11,7 @@
 // C8: the land not known yet, on its own pages with motion on: the cold world, model and first paint of the mist, its
 // frames for 6 s (the bank drifting, the line forming), and the frames of the land's arrival (2.5 s from the start of its
 // reveal: the land's layers fading up, the mist thinning, the crest drawn, the sky gliding).
-//   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main] [-- --no-land]
+//   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main] [-- --no-land] [-- --style=drawn]
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 import { runAppLandPerf } from './land.perf.mjs'
 import { measurePaintJobs } from './scenePerfJobs.mjs'
@@ -21,6 +21,8 @@ const arg = (name, fallback) => args.find((a) => a.startsWith(`--${name}=`))?.sl
 const places = arg('place', 'haifa,tel-aviv,shadmot-mehola').split(',')
 const rate = Number(arg('rate', 4))
 const paintMain = arg('paint', 'worker') === 'main'
+/** The scene's hand (`drawn`); empty: the real one. */
+const style = arg('style', '')
 const DPR = 2.75
 const SLACK = 1.5
 
@@ -68,7 +70,7 @@ try {
     const { context, page } = await openPage(browser, server.url, DPR)
     const cdp = await context.newCDPSession(page)
     await cdp.send('Emulation.setCPUThrottlingRate', { rate })
-    const url = sceneUrl(server.url, { place, at: '2026-11-17T06:00' }) + (paintMain ? '&paint=main' : '')
+    const url = sceneUrl(server.url, { place, at: '2026-11-17T06:00', style }) + (paintMain ? '&paint=main' : '')
     await loadScene(page, url, 180000)
     const offThread = await page.evaluate(() => window.__scene.offThread)
     const cold = await page.evaluate(() => {
@@ -162,7 +164,7 @@ try {
     const moving = await openPage(browser, server.url, DPR, { motion: true })
     const cdp2 = await moving.context.newCDPSession(moving.page)
     await cdp2.send('Emulation.setCPUThrottlingRate', { rate })
-    await loadScene(moving.page, sceneUrl(server.url, { place, at: '2026-11-17T12:00', weather: 'thunder' }) + (paintMain ? '&paint=main' : ''), 180000)
+    await loadScene(moving.page, sceneUrl(server.url, { place, at: '2026-11-17T12:00', weather: 'thunder', style }) + (paintMain ? '&paint=main' : ''), 180000)
     // C7: the land animates too (falling rain, mist, smoke, water, the place's trees): both surfaces' frames are measured,
     // and the animated frame is their sum (two loops on one main thread).
     const firstBatches = await moving.page.evaluate(() => ({ sky: window.__sceneStats.steps['worker.sky'] ?? [],
@@ -188,7 +190,7 @@ try {
       const page = await openPage(browser, server.url, DPR, { motion: true })
       const cdp3 = await page.context.newCDPSession(page.page)
       await cdp3.send('Emulation.setCPUThrottlingRate', { rate })
-      await loadScene(page.page, sceneUrl(server.url, { place, at: '2026-11-17T16:30', land }) + (paintMain ? '&paint=main' : ''), 180000)
+      await loadScene(page.page, sceneUrl(server.url, { place, at: '2026-11-17T16:30', land, style }) + (paintMain ? '&paint=main' : ''), 180000)
       const coldLand = await page.page.evaluate(() => window.__sceneStats.steps)
       await page.page.evaluate(() => { window.__sceneStats.steps['anim.sky'] = []; window.__sceneStats.steps['anim.land'] = [] })
       await page.page.waitForTimeout(seconds * 1000)

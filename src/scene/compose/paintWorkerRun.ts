@@ -12,7 +12,7 @@ export interface WorkerCanvas {
 
 export interface WorkerRunnerDeps {
   createCanvas: (w: number, h: number) => WorkerCanvas
-  painterOf: (desc: PaintJob['desc']) => Painter | undefined
+  painterOf: (desc: PaintJob['desc'], style: PaintJob['style']) => Painter | undefined
   now?: () => number
 }
 
@@ -44,7 +44,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
     for (const pose of job.frames!) {
       const canvas = canvasFor(canvases, job, 'light', pose), shade = canvasFor(canvases, job, 'shade', pose)
       paintPart(canvas.getContext('2d') as Ctx2D, canvas, job.desc, job.ratio, job.rect,
-        paint, job.phase, job.hand, scratch, undefined, shade.getContext('2d') as Ctx2D, pose)
+        paint, job.phase, job.hand, scratch, undefined, job.style, shade.getContext('2d') as Ctx2D, pose)
     }
     const first = { bitmap: snapshot(job, canvasFor(canvases, job, 'light', 0), transfer),
       shade: snapshot(job, canvasFor(canvases, job, 'shade', 0), transfer) }
@@ -78,7 +78,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
     try {
       for (const job of jobs) {
         const start = now()
-        const painter = painterOf(job.desc)
+        const painter = painterOf(job.desc, job.style)
         const paint = job.part === 'form' ? painter?.form : painter?.light
         const info = { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, preview: job.preview }
         const slot = paintSlot(job.id, job.part)
@@ -100,7 +100,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
           shadeCtx?.clearRect(0, 0, canvas.width, canvas.height)
         }
         if (paint) {
-          paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, scratch, job.frames, shadeCtx)
+          paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, scratch, job.frames, job.style, shadeCtx)
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }
