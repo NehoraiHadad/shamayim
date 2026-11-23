@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearVoteMemory, DAILY_PER_VOTER, DAILY_WRITES } from '../src/styleVote'
+import { clearVoteMemory, DAILY_PER_VOTER } from '../src/styleVote'
 import { network } from '../src/voteLimit'
+import { DAILY_WRITES } from '../src/voteTally'
 import { ORIGIN, today, TOTALS, voteKey, voteWorker } from './voteKv'
 
 const EARLIER = '2026-01-01'
@@ -16,7 +17,11 @@ describe('daily caps', () => {
     expect(await totals()).toMatchObject({ today: DAILY_WRITES, open: false })
     kv.getWithMetadata.mockClear()
     expect((await vote(4, 'real')).status).toBe(429)
+    vi.useFakeTimers({ now: Date.now() + 10 * 60_000, toFake: ['Date'] })
+    expect((await vote(5, 'real')).status).toBe(429)
+    vi.useRealTimers()
     expect(kv.getWithMetadata).not.toHaveBeenCalled()
+    expect(kv.list).toHaveBeenCalledTimes(1)
   })
 
   it('limit the writes of one voter in a day, and start again the next', async () => {
@@ -66,6 +71,8 @@ describe('requests from one address', () => {
   it('of everyone together limit the votes, not the totals', async () => {
     const VOTE_LIMIT_ALL = limiter(async () => ({ success: false }))
     const worker = voteWorker({ env: { VOTE_LIMIT_ALL } })
+    expect((await worker.post('{}', from)).status).toBe(400)
+    expect(VOTE_LIMIT_ALL.limit).not.toHaveBeenCalled()
     expect((await worker.vote(1, 'real', from)).status).toBe(429)
     expect(worker.kv.list).not.toHaveBeenCalled()
     expect((await worker.call(TOTALS, { headers: from })).status).toBe(200)

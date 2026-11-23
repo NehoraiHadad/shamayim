@@ -44,7 +44,7 @@ describe('style shown', () => {
 
 describe('vote', () => {
   it('waits until both styles were seen', () => {
-    const send = vi.fn<SendVote>(async () => true)
+    const send = vi.fn<SendVote>(async () => 'taken')
     const votes = open(send)
     expect(seenBoth(votes.get())).toBe(false)
     votes.vote()
@@ -57,7 +57,7 @@ describe('vote', () => {
   })
 
   it('is marked sent when the Worker took it, and the same vote is not sent again', async () => {
-    const send = vi.fn<SendVote>(async () => true)
+    const send = vi.fn<SendVote>(async () => 'taken')
     const store = memoryStore()
     const votes = open(send, store)
     votes.choose('drawn')
@@ -80,7 +80,7 @@ describe('vote', () => {
     await settle()
     expect(isPending(offline.get())).toBe(true)
     expect(readStyleVote(store)).toMatchObject({ vote: 'drawn', sent: false })
-    const send = vi.fn<SendVote>(async () => true)
+    const send = vi.fn<SendVote>(async () => 'taken')
     const next = open(send, store)
     await next.flush()
     expect(send).toHaveBeenCalledExactlyOnceWith({ id: ID, style: 'drawn' })
@@ -88,19 +88,29 @@ describe('vote', () => {
     expect(readStyleVote(store).sent).toBe(true)
   })
 
-  it('refused once is sent again after a pause, meanwhile as on its way', async () => {
+  it('without an answer is sent again after a pause, meanwhile as on its way', async () => {
     const { answers, send } = slowSend()
     const votes = open(send)
     votes.choose('drawn')
     votes.vote()
-    answers[0](false)
+    answers[0]('failed')
     await settle()
     expect(votes.get().sending).toBe(true)
     expect(send).toHaveBeenCalledTimes(2)
-    answers[1](false)
+    answers[1]('failed')
     await settle()
     expect(isPending(votes.get())).toBe(true)
     expect(send).toHaveBeenCalledTimes(2)
+  })
+
+  it('refused by the Worker waits for the next open, with no second try', async () => {
+    const send = vi.fn<SendVote>(async () => 'refused')
+    const votes = open(send)
+    votes.choose('drawn')
+    votes.vote()
+    await settle()
+    expect(isPending(votes.get())).toBe(true)
+    expect(send).toHaveBeenCalledTimes(1)
   })
 
   it('changed while on its way: the newer vote follows, one at a time', async () => {
@@ -112,10 +122,10 @@ describe('vote', () => {
     votes.vote()
     await votes.flush()
     expect(send).toHaveBeenCalledTimes(1)
-    answers[0](false)
+    answers[0]('failed')
     await settle()
     expect(send.mock.calls.map(([v]) => v.style)).toEqual(['drawn', 'real'])
-    answers[1](true)
+    answers[1]('taken')
     await settle()
     expect(votes.get()).toMatchObject({ vote: 'real', sent: true, sending: false })
   })

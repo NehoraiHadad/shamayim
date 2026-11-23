@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import { createStyleVote, type SendVote } from './styleVote'
+import { createStyleVote, type SendAnswer, type SendVote } from './styleVote'
 import { VOTE_ROUND } from './styleVoteRound'
 
 export const ID = '00000000-0000-4000-8000-000000000001'
@@ -17,7 +17,7 @@ export const open = (send: SendVote, store: ReturnType<typeof memoryStore> | nul
 
 /** A send that waits for the answer of the test. */
 export function slowSend() {
-  const answers: ((ok: boolean) => void)[] = []
+  const answers: ((answer: SendAnswer) => void)[] = []
   return { answers, send: vi.fn<SendVote>(() => new Promise((resolve) => answers.push(resolve))) }
 }
 

@@ -22,15 +22,13 @@ export function network(address: string | null): string | null {
 export interface VoteLimits {
   /** Requests of one address. */
   VOTE_LIMIT?: RateLimit
-  /** Votes of everyone. */
+  /** Votes of everyone, the well-formed ones. */
   VOTE_LIMIT_ALL?: RateLimit
 }
 
-/**
- * True when one address asks too often, or everyone votes too often. The address is a key in Cloudflare's own short-lived
- * counter; nothing of it is kept or logged.
- */
-export async function overVoteLimit(request: Request, { VOTE_LIMIT, VOTE_LIMIT_ALL }: VoteLimits): Promise<boolean> {
-  return await over(VOTE_LIMIT, network(request.headers.get('CF-Connecting-IP')))
-    || (request.method === 'POST' && await over(VOTE_LIMIT_ALL, 'all'))
-}
+/** One address asks too often. It is a key in Cloudflare's own short-lived counter; nothing of it is kept or logged. */
+export const overVoteLimit = (request: Request, { VOTE_LIMIT }: VoteLimits) =>
+  over(VOTE_LIMIT, network(request.headers.get('CF-Connecting-IP')))
+
+/** Everyone votes too often. */
+export const overVotesOfAll = ({ VOTE_LIMIT_ALL }: VoteLimits) => over(VOTE_LIMIT_ALL, 'all')

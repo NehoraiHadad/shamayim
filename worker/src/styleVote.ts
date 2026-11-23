@@ -7,18 +7,13 @@
 import { VOTE_ROUND, type VoteStyle } from '../../src/data/styleVoteRound'
 import { plain } from './plain'
 import { parseVote, readSmall } from './voteBody'
-import { countedVote, forgetTally, rememberVote, tally, VOTE_PREFIX, type VoteKV, type VoteMeta } from './voteTally'
+import { countedVote, forgetTally, isClosed, rememberVote, tally, VOTE_PREFIX, type VoteKV, type VoteMeta } from './voteTally'
 
 export const VOTE_PATH = '/v1/style-vote'
 export const TOTALS_PATH = '/v1/style-votes'
 
 const VOTE_TTL_SECONDS = 365 * 24 * 3600
 const MAX_BODY_BYTES = 200
-/**
- * KV's free plan allows 1000 writes a day, shared with the live correction and the forecast log (~50). Every isolate counts
- * from a listing some minutes old, so the day can pass this by what VOTE_LIMIT_ALL lets through meanwhile.
- */
-export const DAILY_WRITES = 200
 /** Votes per voter per day: the first and its changes. */
 export const DAILY_PER_VOTER = 10
 const MEMORY_LIMIT = 500
@@ -43,23 +38,23 @@ const saved = () => new Response(null, { status: 204, headers: { 'Cache-Control'
 const unavailable = () => plain(503, 'Votes are not available')
 
 async function store(kv: VoteKV, id: string, style: VoteStyle, now: number): Promise<Response> {
-  const { day, today, full } = await tally(kv, now)
-  if (full || today >= DAILY_WRITES) return plain(429, 'No more votes today') // Before the read: those are limited too.
+  const counted = await tally(kv, now)
+  if (isClosed(counted)) return plain(429, 'No more votes today') // Before the read: those are limited too.
   const key = VOTE_PREFIX + id
   // Written even when KV answers the same style: its copy may be older than a change made through another isolate.
   const previous = written.get(key) ?? countedVote((await kv.getWithMetadata(key)).metadata)
-  const n = previous?.day === day ? previous.n + 1 : 1
+  const n = previous?.day === counted.day ? previous.n + 1 : 1
   if (n > DAILY_PER_VOTER) return plain(429, 'Too many changes today')
 
-  const meta: VoteMeta = { style, day, n }
+  const meta: VoteMeta = { style, day: counted.day, n }
   await kv.put(key, style, { metadata: meta, expirationTtl: VOTE_TTL_SECONDS })
   remember(key, meta)
   rememberVote(previous, meta)
   return saved()
 }
 
-/** `POST /v1/style-vote` `{id, style, round}`: one vote per id, a later vote replaces it. */
-export async function castVote(request: Request, kv: VoteKV | undefined, now: number): Promise<Response> {
+/** `POST /v1/style-vote` `{id, style, round}`: one vote per id, a later vote replaces it; `busy`: too many votes just now. */
+export async function castVote(request: Request, kv: VoteKV | undefined, now: number, busy: () => Promise<boolean>): Promise<Response> {
   if (!kv) return unavailable()
   if (!/^application\/json\b/i.test(request.headers.get('Content-Type') ?? '')) return plain(415, 'JSON expected')
   const text = await readSmall(request, MAX_BODY_BYTES)
@@ -67,6 +62,7 @@ export async function castVote(request: Request, kv: VoteKV | undefined, now: nu
   const vote = parseVote(text)
   if (!vote) return plain(400, 'id, style and round are required')
   if (vote === 'old') return plain(409, 'Another round')
+  if (await busy()) return plain(429, 'Too many votes now')
   try {
     return await store(kv, vote.id, vote.style, now)
   } catch {
@@ -79,8 +75,9 @@ export async function castVote(request: Request, kv: VoteKV | undefined, now: nu
 export async function voteTotals(kv: VoteKV | undefined, now: number): Promise<Response> {
   if (!kv) return unavailable()
   try {
-    const { real, drawn, today, full } = await tally(kv, now, TOTALS_AGE_MS)
-    return new Response(JSON.stringify({ round: VOTE_ROUND, real, drawn, today, open: !full && today < DAILY_WRITES }), {
+    const counted = await tally(kv, now, TOTALS_AGE_MS)
+    const { real, drawn, today } = counted
+    return new Response(JSON.stringify({ round: VOTE_ROUND, real, drawn, today, open: !isClosed(counted) }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
     })
   } catch {

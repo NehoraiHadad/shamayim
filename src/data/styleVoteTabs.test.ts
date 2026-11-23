@@ -6,8 +6,8 @@ import { readStyleVote } from './styleVoteSaved'
 describe('two tabs of one device', () => {
   it('agree on style and vote, and keep one id', async () => {
     const store = memoryStore()
-    const send = vi.fn<SendVote>(async () => true)
-    const a = open(async () => true, store)
+    const send = vi.fn<SendVote>(async () => 'taken')
+    const a = open(async () => 'taken', store)
     const b = open(send, store, 'another id')
     a.choose('drawn')
     a.vote()
@@ -24,8 +24,8 @@ describe('two tabs of one device', () => {
 
   it('take the id another tab made even before hearing of it', () => {
     const store = memoryStore()
-    const send = vi.fn<SendVote>(async () => true)
-    const a = open(async () => true, store)
+    const send = vi.fn<SendVote>(async () => 'taken')
+    const a = open(async () => 'taken', store)
     const b = open(send, store, 'another id')
     b.choose('drawn')
     a.choose('drawn')
@@ -42,18 +42,18 @@ describe('two tabs of one device', () => {
     votes.vote()
     store.setItem(VOTE_KEY, JSON.stringify({ seen: ['real', 'drawn'], vote: 'real', sent: false, id: ID }))
     votes.follow(null)
-    answers[0](true)
+    answers[0]('taken')
     await settle()
     expect(votes.get().sent).toBe(false)
-    answers[1](true)
+    answers[1]('taken')
     await settle()
     expect(votes.get()).toMatchObject({ vote: 'real', sent: true, id: ID })
   })
 
   it('a tab that missed the other one\'s vote keeps it when it catches up first', () => {
     const store = memoryStore()
-    const frozen = open(async () => true, store, 'another id')
-    const other = open(async () => true, store)
+    const frozen = open(async () => 'taken', store, 'another id')
+    const other = open(async () => 'taken', store)
     other.choose('drawn')
     other.vote()
     frozen.follow(null)
@@ -64,7 +64,7 @@ describe('two tabs of one device', () => {
   it('a tab that could not save keeps its own choice', () => {
     const full = { ...memoryStore(), setItem: () => { throw new Error('full') } }
     for (const store of [full, null]) {
-      const votes = open(async () => true, store)
+      const votes = open(async () => 'taken', store)
       votes.choose('drawn')
       votes.follow(null)
       expect(votes.get()).toMatchObject({ style: 'drawn', seen: ['real', 'drawn'] })
