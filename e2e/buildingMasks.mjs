@@ -31,6 +31,7 @@ export async function buildingMasks(png) {
   }
   const lin = Array.from({ length: 256 }, (_, b) => b / 255 <= .04045 ? b / 3294.6 : ((b / 255 + .055) / 1.055) ** 2.4)
   const samples = { front: [], sun: [], side: [], roof: [], tile: [], bare: [], dome: [], chroma: [], chimney: [], cooling: [], built: [] }
+  const frontRgb = [], groundRgb = []
   const blocks = new Map(), contacts = new Set()
   const ownerId = pixel => {
     const offset = scale * (Math.floor(pixel / w) * superWidth + pixel % w)
@@ -64,10 +65,15 @@ export async function buildingMasks(png) {
         : g > 50 && b < 30 ? 'sun' : b > 50 && g < 30 ? 'side' : r > 175 ? 'front' : null
       if (part === 'tile') tileRed = Math.max(tileRed, colors[i])
       if (part) samples[part].push(y)
+      if (part === 'front') frontRgb.push(colors.subarray(i, i + 3))
     }
     if (dry[i + 3] > 248 && wet[i + 3] < 12 && facet[i + 3] < 8) {
       for (const delta of [-12 * w, -8 * w, -4 * w, 12 * w, 24, -24]) {
-        if (facet[i + 4 * delta + 3] > 220) { samples.bare.push(y); break }
+        if (facet[i + 4 * delta + 3] > 220) {
+          samples.bare.push(y)
+          groundRgb.push(colors.subarray(i, i + 3))
+          break
+        }
       }
     }
     if (dome[i] >= 175 && dome[i + 1] >= 175 && dome[i + 3] >= 160) {
@@ -99,7 +105,15 @@ export async function buildingMasks(png) {
     }
   }
   const groundY = q(samples.bare)
+  const shifted = (byte, by) => lin[Math.max(0, Math.min(255, byte + by))]
+  const br = ([r, , b], by = 0) => shifted(b, by) / Math.max(1e-8, shifted(r, -by))
+  const groundBR = q(groundRgb.map(rgb => br(rgb)))
+  // Four sRGB levels of relative facade/ground tolerance for software raster backends.
+  const frontYRange = [-4, 4].map(by => q(frontRgb.map(([r, g, b]) =>
+    .2126 * shifted(r, by) + .7152 * shifted(g, by) + .0722 * shifted(b, by))) / groundY)
+  const frontBRRange = [-4, 4].map(by => q(frontRgb.map(rgb => br(rgb, by))) / groundBR)
   return { ground: groundY, horizon, peak: peak / horizon, peakAt, frontHorizon: q(samples.front) / horizon,
+    frontYRange, frontBRRange, frontBR: q(frontRgb.map(rgb => br(rgb))) / groundBR,
     tileRed: tileRed / horizonRed, horizonRed, highpass: Math.sqrt(highpass / count),
     chimney: q(samples.chimney) / horizon, cooling: q(samples.cooling) / horizon,
     pairs: spreads.length, spread: q(spreads),

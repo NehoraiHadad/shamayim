@@ -962,9 +962,12 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             dark tail, and finish with finer paper grain. Mix lying snow on terrain and outside ground into reflectance.
       - [x] Give buildings one linear receiver per face. Use the land's solar, lunar and sky irradiance, exposure
             and distance haze. Use seeded plaster and facing bins, and screen sky, beam and ground bounce
-            at eaves and feet. Paint shallow caps and pitched clay planes, with a continuous blend into
-            unresolved fabric. Preserve plaster luminance with a 0.025–0.030 warm axis. Shade glass with
-            double-glazed Fresnel reflectance and interior fill with the street's twilight sky screen. Use metal albedo on bands only.
+            at eaves and feet. Let vertical walls see half the broad sky and half the ground. In twilight,
+            compress excess facade contrast against the lit ground with a soft luminance shoulder.
+            Paint shallow caps and pitched clay planes, with a continuous blend into unresolved fabric.
+            Preserve plaster luminance with a 0.025–0.030 warm axis. Shade glass with double-glazed
+            Fresnel reflectance and interior fill, and limit its twilight luminance to the matching wall.
+            Use metal albedo on bands only. Retain the drawn hand's distant-town and landmark tones.
             Gilding keeps its rough conductor reflection. Keep the same geometry and
             emissive window and lamp pass through twilight.
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
@@ -976,6 +979,9 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             with architecture present and removed in the same browser. Swap the facade palettes and check
             the tagged emissive pass for byte equality. Check pane luminance at noon and chroma at twilight.
             Use the Jerusalem broken-deck fixture to check shadow area, feather, hue and edge continuity.
+      - [ ] Investigate the remaining February and August twilight hue differences with matched wall and
+            ground-contact samples. The largest differences occur where local soil or vegetation albedo
+            and direct light differ from the front facade.
       - [x] Verify round 5 against all 24 rendered stills. The maximum land/sky median ratio change from
             round 4 was 0.035%. A sun-facing glyph fixture also verifies the architectural shadow contrast.
       - [x] Rerender the 24 measured round 6 stills and review the dawn, noon, dusk and shadowed-crest crops

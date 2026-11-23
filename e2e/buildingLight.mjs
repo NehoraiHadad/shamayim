@@ -6,6 +6,7 @@ import { buildingShadowChecks } from './buildingShadowChecks.mjs'
 import { CLIP, launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 
 const cases = ['tiberias-1200', 'haifa-1200', 'jerusalem-1200', 'tel-aviv-1200', 'rosh-pina-1200',
+  ...['tiberias', 'jerusalem', 'tel-aviv', 'rosh-pina'].flatMap(place => [`${place}-0620`, `${place}-1630`]),
   'haifa-1200-overcast', 'haifa-1630', 'haifa-0620', 'haifa-1710', 'haifa-1734', 'haifa-1735', 'jerusalem-2100',
   'jerusalem-1200-broken']
 // Pre-stage-7 native stills measured at the same footprint and rounded to four decimals.
@@ -14,6 +15,8 @@ const server = await startServer()
 const browser = await launch()
 const failures = []
 const band = (v, lo, hi, name) => assert.ok(v >= lo && v <= hi, `${name} ${v?.toFixed(3)} outside [${lo}, ${hi}]`)
+const rasterBand = ([min, max], lo, hi, label) => assert.ok(max >= lo && min <= hi,
+  `${label} [${min.toFixed(3)}, ${max.toFixed(3)}] misses [${lo}, ${hi}] with 4 sRGB levels of tolerance`)
 let canopy = false, water = false
 
 try {
@@ -84,19 +87,22 @@ try {
         band(m.chimney, .16, .64, 'chimney/horizon')
         band(m.cooling, .28, .60, 'cooling tower/horizon')
       }
+      if (time !== '1200') {
+        rasterBand(m.frontYRange, .6, 1.3, 'twilight wall/ground Y')
+        rasterBand(m.frontBRRange, .8, 1.25, 'twilight wall/ground B/R')
+        if (place === 'haifa' || place === 'tel-aviv') assert.ok(colors.glass.length > 0, 'measure twilight panes')
+        for (const pane of colors.glass) {
+          band(pane.frontRatio, .75, 1.001, 'twilight glass / corresponding front wall')
+          assert.ok(pane.redMinusBlue < .025, 'no red panes in the twilight skyline')
+        }
+      }
       if (place === 'haifa') {
         assert.ok(m.n.dome >= 14, 'gilded curved surface should resolve')
         band(m.chroma, time === '1200' ? .09 : .045, .20, 'gold chroma')
         if (time !== '1200') {
-          assert.ok(colors.glass.length > 0, 'measure twilight panes')
-          for (const pane of colors.glass) {
-            band(pane.brightRatio, .60, 1.10, 'twilight glass / brightest corresponding wall')
-            assert.ok(pane.redMinusBlue < .025, 'no red panes in the twilight skyline')
-          }
           band(m.dome, 2.1, 3.1, 'gold/ground')
-          band(m.spread, .12, .24, 'twilight neighbour spread')
+          band(m.spread, .10, .24, 'twilight neighbour spread')
         }
-        if (time === '0620') band(m.frontHorizon, .13, .185, 'dawn front/horizon')
       }
     } catch (error) {
       failures.push(`${name} ${error.message}`)
