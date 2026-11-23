@@ -93,12 +93,14 @@ export function sheetTexels(desc: LayerOf<'cloudSheet'>, open: number): number[]
  */
 function openLook({ lit, shade }: LayerOf<'cloudSheet'>, model: RGB, a: number, relief: number, open: number): [RGB, number] {
   if (!open) return [model, a]
-  const veil = CORE_OPACITY * a ** VEIL_CURVE
   const soft = mix(lit, model, CORE_GREY * a ** GREY_CURVE)
   const formed = relief > 0 ? mix(soft, shade, Math.min(1, BASE_SHADE * relief))
     : mix(soft, lit, Math.min(1, -TOP_LIGHT * relief))
-  return [mix(model, formed, open), a + open * (veil - a)]
+  return [mix(model, formed, open), openAlpha(a, open)]
 }
+
+/** A node's alpha as an open deck draws it: thin parts thinner, the core near-opaque. */
+export const openAlpha = (a: number, open: number) => a + open * (CORE_OPACITY * a ** VEIL_CURVE - a)
 
 /** The model's colour for a tone: lit at 0, the body at ½, the shaded underside at 1. */
 export function toneOf({ lit, body, shade }: LayerOf<'cloudSheet'>, tone: number): RGB {

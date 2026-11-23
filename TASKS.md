@@ -1117,6 +1117,13 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - [x] Main 643d4f5c merged (tower raster, rain curtains, one storm per cell). The real hand is byte-identical to main in five scenes.
       Drawn: the curtains (`shafts`, `edge`) are long planes (`drawn/index.ts` PLANES, `curtain.ts` Fibres), no fibres. The drawn
       horizon banks were so dark the curtain was lost: the air now takes their light and shade low in the sky. Round 5 = last
-- [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 2-20 % dearer (Tel Aviv worst), land about even
-- Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
-  pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand
+- [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 11-25 % dearer (up to ~31 %), land about even
+- [x] Review fixes (branch `claude/drawn-fixes` from a92d405f):
+  - [x] No bridges: the mass's edge is the model's own unsoftened alpha (`massForm`: depth from the gap and thickness); every head's
+        radius is at most its middle's depth, so drawn keeps every gap. `coverage.test.ts`: gaps, no cloud lost, flat base, crown
+  - [x] Cumulus, not barrels: `heads` (puffs of seven sizes, back to front) replaces the edge billows of a sheet; `massBase` cuts the
+        round feet flat where a base is seen from the side; the billows stay as the broad light in the middle of large masses
+  - [x] Low sun: lit rims that face it, lit tops, shaded feet (no flip); three values at 16:30
+  - [x] Closed rain deck: banks to a hint (`BANKS`)
+- Weak spots: the model's cells are tall, so a lone cloud is still tall; the horizon's far cloudlets are firmer and fewer than the
+  real hand's speckle; pale trees and Western Wall tiers in Jerusalem (model haze); towers take no town light by night in either hand
