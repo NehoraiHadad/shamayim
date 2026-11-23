@@ -1013,7 +1013,9 @@ Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-
 Merged to main (all CI green): A glyphs (757b768), C life motion (cc9664f), E UI (3366b1e), B mark heights (3ae092d),
 F mist (7c50d4f), C birds travel (c5b1af8), D N2 cloud field (8ac7bd2), G no flip/flicker + live = scrub at now (7ae0286),
 G round 5 explicit live mode (0818fd1), hotfix sky behind <body> (0b21d13, d9bbfce), B worship ownership (31e76d6).
-Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look-413b7e`).
+Track D N4 merged: b23df02 (0f05815), d0d3c290 (9dd0061d), b82e7609 (bb09b17d), 27987a4a (f6642e8b),
+4b173ac9 (ad712e9a), cf78b8df + B landmark size (3038caab), dad9157a (7f5f57f4), bb899e21 (4f606c2d), 454374cd (0a93adf3).
+B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing_level_height (version 448728a6, 22 Nov).
 
 - [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
       contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
@@ -1032,14 +1034,17 @@ Open: Track D N4 soft cloud look + rebuild on the field (`claude/cloud-soft-look
       Field calibration on the real Haifa 15.3 day: towers 35 % of low cover, cores 18 km apart / 2.5 km radius, half
       Cb, rain only from Cb (`stormDay.test.ts`). Overcast nights lit from below by the towns (`cityLight.ts`, env.glow).
 - [x] Storm look (Claude, 22 Nov): forecast convective rain at the place stands one mature Cb 4 km upwind
-- [x] Crowns and storm hours (Claude, 22 Nov): Open-Meteo CAPE + freezing level asked (ASK_STORM_HOURLY on, app works without them); tower crowns are crisp cauliflower turrets in a dome half the width deep (no beads down narrow columns); a curtain hangs from its base's near edge; city night glow stays radial (no direction data). Open: bead column at the left edge in haifa 17:00, near curtain still faint at 14:00, freezing level unused (snow line), shaft drift time origin, fog in new style.
-- [x] Track D N4 close (Claude, 22 Nov): tower body puffs stratified up the column (no bead strings); a near rain curtain thickens with nearness (grey wall, cap 0.85); the falling snow line hangs 300 m under the forecast freezing level when given, else the lapse rule; weather/cloudSheet/cloudShadows/density split under 150 lines (shafts, precip, edgeMark, smoke, weatherShared, cloudSheetMath, cloudShadowWorld, field/footprint). Open: a column of blobs at the left edge in haifa 17:00 is the low Cu sheet's texture (sheet alpha 1 at css rows 268-311 by the edge), not towers; the near curtain at 14:00 is mostly hidden by the Carmel; glaciation height (FL+3 km) not used for the anvil.
       (`hereCell.ts`), ranked first in the rain so its dark base and curtain are near; towers beyond 40 km merge into a
       soft horizon mass (`MERGE_KM`/`MERGE_PX`); anvils only over columns 1.5x taller than wide, the column flaring into
       the cap (no saucers, `cloudTower.test.ts`); the overcast city night dim overhead, brighter toward the horizon
       (`CITY_ZENITH`/`CITY_HORIZON`). Next: CAPE in the Worker whitelist and the world (conv = f(CAPE, code, precip)).
-- [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
-      same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
+- [x] Crowns and storm hours (Claude, 22 Nov): Open-Meteo CAPE + freezing level asked (ASK_STORM_HOURLY on, app works without them); tower crowns are crisp cauliflower turrets in a dome half the width deep (no beads down narrow columns); a curtain hangs from its base's near edge; city night glow stays radial (no direction data). Open: bead column at the left edge in haifa 17:00, near curtain still faint at 14:00, freezing level unused (snow line), shaft drift time origin, fog in new style.
+- [x] Track D N4 close (Claude, 22 Nov): tower body puffs stratified up the column (no bead strings); a near rain curtain thickens with nearness (grey wall, cap 0.85); the falling snow line hangs 300 m under the forecast freezing level when given, else the lapse rule; weather/cloudSheet/cloudShadows/density split under 150 lines (shafts, precip, edgeMark, smoke, weatherShared, cloudSheetMath, cloudShadowWorld, field/footprint). Open: a column of blobs at the left edge in haifa 17:00 is the low Cu sheet's texture (sheet alpha 1 at css rows 268-311 by the edge), not towers; the near curtain at 14:00 is mostly hidden by the Carmel; glaciation height (FL+3 km) not used for the anvil.
+- [ ] Low Cu sheet texture makes a column of blobs at the screen edge (haifa 17:00, sheet alpha 1 at css rows 268-311).
+- [ ] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top.
+- [ ] City night glow is radial: no direction data for where the towns lie.
+- [x] Track D midnight reseed (N3e 884b2af1 + N3g c606afd1, in main; field.test.ts measureMidnight) (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
+      same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Done before N4.
 
 ## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
 One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
