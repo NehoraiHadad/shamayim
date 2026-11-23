@@ -2,6 +2,7 @@ import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, t
 import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
 import type { LayerDesc } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
 import { paintContrail } from '../paint/contrail'
 import { clipToGround, layCarried } from './advect'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
@@ -10,8 +11,9 @@ import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
 import type { SceneStats } from './stats'
 import { compositeOrder } from './compositeOrder'
 
-function layoutOf(desc: LayerDesc, cached: { formKey: string; desc: LayerDesc } | null, dpr: number) {
-  return !cached || cached.desc === desc || cached.formKey === formKeyOf(desc, dpr).key ? desc : cached.desc
+function layoutOf(desc: LayerDesc, cached: { formKey: string; desc: LayerDesc } | null, dpr: number,
+  style: SceneStyle) {
+  return !cached || cached.desc === desc || cached.formKey === formKeyOf(desc, dpr, style).key ? desc : cached.desc
 }
 
 export interface SurfaceOptions extends CacheOptions {
@@ -74,6 +76,12 @@ export class Surface {
 
   private get active(): LayerCache | RemoteCache {
     return this.remote ?? this.cache
+  }
+
+  /** The scene's hand: a switch shows with the next `render`, the old painting standing until the new one is in. */
+  set style(style: SceneStyle) {
+    this.cache.style = style
+    if (this.remote) this.remote.style = style
   }
 
   /** Sizes the visible canvas (CSS px × dpr); a no-op when nothing changed. */
@@ -142,7 +150,7 @@ export class Surface {
       if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
-      const layout = layoutOf(desc, cached, d)
+      const layout = layoutOf(desc, cached, d, this.active.style)
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
       if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
       const { form, light, ratio, rect } = cached
@@ -330,7 +338,7 @@ export class Surface {
     let out = still ? 's' : ''
     for (const desc of layers) {
       if (desc.kind === 'contrail') { out += `${trailTimeAt(desc, motion, still)};`; continue }
-      const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr)
+      const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr, this.active.style)
       const anim = layer.animated
       if (!anim) continue
       out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${frameAt(anim, motion)}`
