@@ -1121,6 +1121,8 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - [x] Review fixes (branch `claude/drawn-fixes` from a92d405f):
   - [x] No bridges: the mass's edge is the model's own unsoftened alpha (`massForm`: depth from the gap and thickness); every head's
         radius is at most its middle's depth, so drawn keeps every gap. `coverage.test.ts`: gaps, no cloud lost, flat base, crown
+  - [ ] Cost, unsolved (CI 45164912662, one cold sample each): the cold sky is about twice the real hand's: 424/430/351 ms against
+        207/190/174 (haifa, tel-aviv, shadmot-mehola); it was +11-25 % before `heads`/`massForm`. Fix before this branch is merged
   - Stopped here by the coordinator (real and drawn read too alike; a bolder brief may follow). The next three are first passes that came
     with the edge and are not reviewed on CI stills:
   - [ ] Cumulus, not barrels: `heads` (puffs of seven sizes, back to front) replaces the edge billows of a sheet; `massBase` cuts the
