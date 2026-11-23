@@ -4,6 +4,7 @@ import { destination } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { azimuthAt, type Camera } from '../domain/camera'
 import { monthFromIsoDate } from './landAgeBlend'
+import { foregroundAlbedo, type ForegroundAlbedo } from './foregroundAlbedo'
 import { LIVING_LAND_DISTANCES_M, LIVING_LAND_RAYS } from './landRays'
 import { farGainOf, type FarGain } from './landReflectance'
 import { samplePoint, type LivingLandSample } from './landSample'
@@ -42,6 +43,7 @@ export interface LivingLand {
   own: LivingLandSample
   /** 3×3 grid over the place's own ground (±1.5 km east/north). */
   local: LandLocalPoint[]
+  foreground?: ForegroundAlbedo
   /** How the far GIBS colour was put on the near S2 reflectance scale (`landReflectance.ts`). */
   farGain: FarGain
 }
@@ -92,5 +94,10 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
     rays.push({ x, azimuth, bands })
   }
 
-  return { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
+  const foreground = data.cover || data.near ? foregroundAlbedo(lat, lon, Boolean(data.cover), data.near?.stepM,
+    (ptLat, ptLon, eastM, northM) => samplePoint(
+      sampler, ptLat, ptLon, terrain.heightNear?.(eastM / 1000, northM / 1000) ?? elevationM,
+      shownDate, utcDate, month, farGain,
+    )) : undefined
+  return { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain, foreground }
 }

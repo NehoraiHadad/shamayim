@@ -6,6 +6,8 @@ import type { Box, PlaneLitField, PlanePalette, Pt, RGB } from '../../../model/t
 import { css, type Ctx2D, type PaintEnv } from '../base/hand'
 import { outlineBandY, TEXEL } from '../../../model/planeBands'
 import { materialAt, planeMaterial } from './planeMaterial'
+import type { ForegroundMaterial } from '../../../model/foregroundMaterial'
+import { prepareForeground } from './foregroundMaterial'
 
 /** Stationary receiver reflectance, light, snow and haze sampled by the terrain painter. */
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
@@ -31,10 +33,12 @@ export interface PlaneTexelCtx {
   wPx: number; hPx: number; bounds: Box; surface: PlanePalette; litField: PlaneLitField
   paletteLin: [number, number, number][]; crestY: Float32Array; footY: Float32Array
   snowY: Float32Array | null; snowCover: number; seed: number; grainAmount: number
+  foreground?: ReturnType<typeof prepareForeground>
 }
 
 export function preparePlaneTexels(
   outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField, seed: number, grainAmount: number,
+  foreground?: ForegroundMaterial,
 ): PlaneTexelCtx {
   const wPx = Math.max(1, Math.ceil(bounds.w / TEXEL)), hPx = Math.max(1, Math.ceil(bounds.h / TEXEL))
   const { crestY, footY } = outlineBandY(outline, bounds, wPx)
@@ -42,7 +46,7 @@ export function preparePlaneTexels(
   const snowY = litField.snow ? sampleEdgeY(litField.snow.edge, bounds, wPx) : null
   return {
     wPx, hPx, bounds, surface, litField, paletteLin, crestY, footY,
-    snowY, snowCover: litField.snow?.cover ?? 0, seed, grainAmount,
+    snowY, snowCover: litField.snow?.cover ?? 0, seed, grainAmount, foreground: foreground && prepareForeground(foreground),
   }
 }
 
@@ -84,9 +88,10 @@ export function shadeTexelSrgb(t: PlaneTexelCtx, s: TexelSample, cloudVis = 1, b
 export function paintLitSurface(
   ctx: Ctx2D, outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField,
   form: string, grainAmount: number, seed: number, env: PaintEnv,
+  foreground?: ForegroundMaterial,
 ): void {
   if (!surface.palette.length || !surface.cells.length) return
-  const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount)
+  const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount, foreground)
   const material = planeMaterial(t, form)
   const scratch = env.canvas(t.wPx, t.hPx)
   const image = scratch.ctx.createImageData(t.wPx, t.hPx), data = image.data

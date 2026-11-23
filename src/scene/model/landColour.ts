@@ -4,6 +4,7 @@ import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProjection'
+import { foregroundMaterialOf } from './foregroundMaterial'
 import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
@@ -17,7 +18,7 @@ import type { PlanePalette } from './types'
 export { quantiseTones } from './landPalette'
 export type { PlaneName } from './faceProjection'
 
-export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB }
+export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB; foreground?: ReturnType<typeof foregroundMaterialOf> }
 
 const SPEC: Record<PlaneName, { rows: number; maxColours: number }> = {
   near: { rows: 4, maxColours: 14 },
@@ -85,6 +86,7 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const spec: PlaneSurfaceSpec = {
     palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
     median: med,
+    foreground: name === 'near' ? foregroundMaterialOf(world, geom) : undefined,
   }
   if (byPlane.size > 12) byPlane.clear()
   byPlane.set(key, spec)
