@@ -12,38 +12,13 @@ import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
+import { boundsOf, clearBody, towerItem } from './outsideBody'
 import type { Box, OutsideItem, SceneBox } from './types'
 import { townGroundKm, wallStep } from './wallDistance'
 
 /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
 export const KM_STEP = .5
-/** Trim in fifths, keeping at least three fifths so a body still reads as a building. */
-const TRIMMED_WIDTHS = [.8, .6]
 
-/** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
-function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
-  lod: string; famous: boolean; industrial?: true }, sx: number, tier: number): OutsideItem {
-  return { kind: 'tower', x: t.x * sx, base: t.baseY, w: t.w, h: t.h, tier, seed: t.seed, crown: t.crown,
-    receiver: receiverId(t.seed, t.lod === 'glyph', t.industrial),
-    ...(t.industrial ? { industrial: true as const } : {}),
-    full: t.lod === 'glyph', famous: t.famous, storeys: Math.max(1, Math.round(t.heightM / STOREY_M)) }
-}
-
-function boundsOf(items: OutsideItem[]) {
-  // The layer's box: everything with the longest cast shadow either side, independent of the light (a scrub never resizes it).
-  const reach = (left: number, top: number, right: number, bottom: number, height: number) => {
-    const cast = Math.min(14, 2.5 * height * .6 + 1)
-    return { left: left - cast - 2, top: top - 4, right: right + cast + 2, bottom: bottom + 2 }
-  }
-  const boxes = items.map((item) => item.kind === 'box' ? reach(item.x - item.w / 2, item.top - 2.5, item.x + item.w / 2, item.foot, item.foot - item.top)
-    : item.kind === 'tree' ? reach(item.tree.x - item.tree.w, item.tree.base - item.tree.h - 1, item.tree.x + item.tree.w, item.tree.base, 0)
-    : item.kind === 'tower' ? reach(item.x - item.w / 2, item.base - item.h - 4, item.x + item.w / 2, item.base, item.h)
-      : reach(item.glyph.x - item.glyph.w / 2, item.glyph.base - item.glyph.h * item.glyph.scale, item.glyph.x + item.glyph.w / 2,
-        item.glyph.base, item.glyph.h * item.glyph.scale))
-  if (!boxes.length) return
-  return { left: Math.min(...boxes.map(b => b.left)), right: Math.max(...boxes.map(b => b.right)),
-    top: Math.min(...boxes.map(b => b.top)), bottom: Math.max(...boxes.map(b => b.bottom)) }
-}
 interface Shape {
   key: string
   items: OutsideItem[]
@@ -86,17 +61,6 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const { frame, skyline, baseKm } = view
   const out: OutsideItem[] = []
   const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
-  // Keep the wider clear portion, anchored at one of the body's original edges.
-  const beside = (x: number, w: number, top: number, foot: number) => {
-    const left = x - w / 2, right = x + w / 2
-    if (free(left, top, right, foot)) return { x, w }
-    for (const share of TRIMMED_WIDTHS) {
-      const kept = w * share
-      if (free(left, top, left + kept, foot)) return { x: left + kept / 2, w: kept }
-      if (free(right - kept, top, right, foot)) return { x: right - kept / 2, w: kept }
-    }
-    return null
-  }
   // The towers beyond the place: at their true distance, far first, behind the place.
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
@@ -121,11 +85,18 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
   const own: { y: number; item: OutsideItem; km?: number }[] = []
+  const stacks = skyline.towers.filter(t => t.industrial && free(t.x * sx - t.w / 2, t.baseY - t.h, t.x * sx + t.w / 2, t.baseY))
+    .map(t => ({ x: t.x * sx - t.w / 2, y: t.baseY - t.h, w: t.w, h: t.h, base: t.baseY,
+      km: outsideItemKm(frame, baseKm, t) }))
   for (const b of skyline.boxes) {
-    const body = beside(b.x * sx, b.w * sx, b.top, b.foot)
+    const km = outsideItemKm(frame, baseKm, b)
+    // A widened foreground body must leave the separately mapped industrial shaft readable.
+    const stacksAheadOfBody = stacks.filter(stack => stack.km > km && stack.base <= b.foot)
+    const zones = stacksAheadOfBody.length ? [...clear, ...stacksAheadOfBody] : clear
+    const body = clearBody(zones, b.x * sx, b.w * sx, b.top, b.foot)
     if (!body) continue
     const { x, w } = body
-    mass.push(massAt(x, w, b.top, outsideItemKm(frame, baseKm, b)))
+    mass.push(massAt(x, w, b.top, km))
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     const heightM = b.heightM ?? 3 * STOREY_M
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
@@ -137,7 +108,9 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
       heater: roof === 'flat' && r() < .45 } })
   }
   for (const t of skyline.towers) {
-    const body = beside(t.x * sx, t.w, t.baseY - t.h, t.baseY)
+    const body = t.industrial
+      ? (free(t.x * sx - t.w / 2, t.baseY - t.h, t.x * sx + t.w / 2, t.baseY) ? { x: t.x * sx, w: t.w } : null)
+      : clearBody(clear, t.x * sx, t.w, t.baseY - t.h, t.baseY)
     if (!body) continue
     mass.push(massAt(body.x, body.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
     own.push({ y: t.baseY, item: towerItem({ ...t, x: body.x / sx, w: body.w }, sx, tier(outsideItemKm(frame, baseKm, t), body.x / sx, t.baseY, true)) })

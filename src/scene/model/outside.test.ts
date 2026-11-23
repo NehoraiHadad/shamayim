@@ -57,6 +57,12 @@ const layerOf = (world: WorldState) => sceneModel(world, BOX).layers.find((l) =>
 const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 describe('mapped town frontage and roof heights', () => {
+  it.each([['tel-aviv', 26], ['haifa', 10], ['jerusalem', 9]] as const)('%s keeps the base tower count', (id, count) => {
+    const seeds = viewOf(id).skyline.towers.map(t => t.seed)
+    expect(seeds).toHaveLength(count)
+    expect(new Set(seeds).size).toBe(count)
+  })
+
   it.each(['haifa', 'tel-aviv', 'jerusalem'])('%s keeps ordinary blocks in proportion', id => {
     const blocks = viewOf(id).skyline.boxes.filter(b => b.seed !== undefined &&
       b.heightM !== undefined && b.heightM >= HOUSE_TOP_M && b.heightM < 60)
@@ -71,6 +77,18 @@ describe('mapped town frontage and roof heights', () => {
     const world = buildWorld(worldInput({ ...fixture, city }, NOON))
     const boxes = (world.place3 as OutsideView).skyline.boxes
     expect(boxes.some(b => b.heightM === roof)).toBe(true)
+  })
+
+  it('still gives dense squares without height data their raster default roof', () => {
+    const fixture = loaded.get('haifa')!
+    const city = { ...fixture.city!, raster: { at: () => ({ built: .2, levels: 0, p90: 0 }) } }
+    const world = buildWorld(worldInput({ ...fixture, city }, NOON))
+    expect((world.place3 as OutsideView).skyline.boxes.some(b => b.heightM === 10)).toBe(true)
+  })
+
+  it('keeps the mapped industrial stack in the Haifa scene', () => {
+    expect(layerOf(worldAt('haifa'))?.items.some(i =>
+      (i.kind === 'tower' && i.industrial) || (i.kind === 'mark' && i.glyph.kind === 'chimney'))).toBe(true)
   })
 
   it('keeps the clear side of a wide body alongside text', () => {

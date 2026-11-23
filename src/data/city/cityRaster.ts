@@ -1,4 +1,4 @@
-import { decodeForm, FRONT_M } from './form'
+import { FRONT_M } from './form'
 import { COLS, LAT_STEP, LON_STEP, squareOf, strideFor } from './grid'
 import type { RayGrid } from './rayWalk'
 import type { CityTower } from './types'
@@ -27,7 +27,7 @@ export function cityRaster(grids: ReadonlyMap<string, Uint8Array>, towers: reado
       const stride = strideFor(bytes)
       const i = (row * COLS + col) * stride
       const meta = bytes[i]
-      const size = stride === 3 ? decodeForm(bytes[i + 2]).size : 0
+      const size = stride === 3 ? bytes[i + 2] & 7 : 0
       return { built: (meta >> 4) / 15, levels: meta & 15, p90: bytes[i + 1],
         ...(size ? { front: FRONT_M[size] } : {}) }
     },

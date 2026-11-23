@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { baseYAt, budget, dedupeTowers, outsideFrame, outsideProject, outsideSkyline } from './outsideView'
+import { composeFabric, visibleFabric } from './fabricSlots'
 import type { CityTower } from './types'
 
 const place = { lat: 32.08, lon: 34.78 }
@@ -38,7 +39,32 @@ describe('the place seen from outside', () => {
     const result = outsideSkyline({ place, towers: [tower(0, 0, 45)], landmarks: [], frame, ground: () => 100,
       floor: 120, width: 390, look, fabric: [{ dx: 0, dy: 0, wKm: .01, heightM: 60, seed: 1 }] })
     expect(result.stats.folded).toBe(1)
-    expect(result.boxes.find(b => b.heightM === 45)?.w).toBeCloseTo(look.plan * 22)
+    expect(result.boxes.find(b => b.heightM === 45)?.w).toBeCloseTo(look.plan * Math.sqrt(25 * 50))
+  })
+
+  it('keeps distant mixed frontages and resolves overlap across slot boundaries', () => {
+    const body = (x: number, w: number, foot: number, near: number) => ({
+      expanded: true, box: { x, w, foot, top: foot - 8, near, kind: 'mass' as const },
+    })
+    const small = body(100, 4.5, 100, .8)
+    const wide = body(157, 7.8, 100, .8)
+    const overlapping = body(104, 8, 100, .7)
+    const backRow = body(157, 7.8, 96, .6)
+    expect(composeFabric([small, wide, overlapping, backRow], 3))
+      .toEqual([small.box, wide.box, backRow.box])
+  })
+
+  it('keeps a roof exposed through a subpixel gap', () => {
+    const front = { x: 100.4, w: .8, top: 90, foot: 100, near: .8, kind: 'mass' as const }
+    const behind = { ...front, x: 100.6, top: 94, near: .6 }
+    expect(visibleFabric([front, behind], 390)).toEqual([front, behind])
+  })
+
+  it('keeps the spire when only a widened, newly raised facade reaches its bearing', () => {
+    const spire = tower(0, 0, 45)
+    const result = outsideSkyline({ place, towers: [spire], landmarks: [], frame, ground: () => 100,
+      floor: 120, width: 390, look, fabric: [{ dx: .12, dy: 0, wKm: .01, heightM: 60, skylineHeightM: 7.7, frontM: 45, seed: 1 }] })
+    expect(result.towers.map(t => [t.x, t.heightM])).toEqual([[frame.centerX, 45]])
   })
 
   it('puts east on the left, the dot in the middle, and the north nearer and larger', () => {

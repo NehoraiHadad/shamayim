@@ -9,6 +9,9 @@ import { hashId, seeded } from '../landmarks/hash'
 import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
+import { composeFabric, visibleFabric } from './fabricSlots'
+import { MassIndex, SkylineFootprint, visible } from './skylineFootprint'
+import { TOWER_FRONT_M } from './towerWidth'
 
 /** The outside view's reach (km): a city's own skyline from the panorama's first ray out to 6 km; the far towns beyond. */
 export const SKYLINE_FROM_KM = RAY_DISTANCES[0]
@@ -195,8 +198,6 @@ export const GLYPH_W = [4.5, 5.5, 7] as const
 export const SILHOUETTE_W = [2, 2.5, 3.5] as const
 /** The width (px) a `frontM` m frontage takes where the perspective gives `k` px a metre, on the place's plan scale. */
 const planPx = (look: OutsideLook, frame: OutsideFrame, frontM: number, k: number) => look.plan * frontM * k / frame.k
-/** A tower's estimated frontage from its glyph width at the study's 4 m per pixel. */
-const TOWER_FRONT_M = GLYPH_W.map(w => w * 4)
 export const GLYPH_M = 150
 export const MAX_GLYPHS = 10
 
@@ -279,8 +280,9 @@ function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: rea
 const byRank = (a: Prepared, b: Prepared) => Number(b.famous) - Number(a.famous) || b.heightM - a.heightM || b.near - a.near
 
 function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number, frame: OutsideFrame, look?: OutsideLook): OutsideTower {
-  const w = lod === 'glyph' ? GLYPH_W[tower.wClass]
-    : Math.max(SILHOUETTE_W[tower.wClass], look ? planPx(look, frame, TOWER_FRONT_M[tower.wClass], tower.k) : 0)
+  const minimum = (lod === 'glyph' ? GLYPH_W : SILHOUETTE_W)[tower.wClass]
+  // Industrial stacks use their silhouette: the catalogue building band can include the plant around the shaft.
+  const w = Math.max(minimum, look && !tower.industrial ? planPx(look, frame, TOWER_FRONT_M[tower.wClass], tower.k) : 0)
   const h = Math.max(4, pxOf(look, tower.heightM, tower.k))
   return { x: tower.x, baseY: lieBaseY(tower.lie, ground, tower.x, tower.near, floor, w, tower.dx, tower.dy), w, h, near: tower.near,
     heightM: tower.heightM,
@@ -338,39 +340,6 @@ function rasterBoxes({ place, raster, frame, ground, floor, width, capM, kind, l
   return visible(boxes, width)
 }
 
-/** Near to far: a box whose top is under the nearer boxes' tops all across it is hidden. */
-function visible(boxes: OutsideBox[], width: number): OutsideBox[] {
-  const cover = new Float64Array(Math.ceil(width) + 8).fill(Infinity)
-  const kept: OutsideBox[] = []
-  for (const box of [...boxes].sort((a, b) => b.near - a.near)) {
-    const from = Math.max(0, Math.floor(box.x - box.w / 2)), to = Math.min(cover.length, Math.ceil(box.x + box.w / 2))
-    let shows = false
-    for (let px = from; px < to; px++) if (box.top < cover[px] - .25) shows = true
-    if (!shows) continue
-    kept.push(box)
-    for (let px = from; px < to; px++) cover[px] = Math.min(cover[px], box.top)
-  }
-  return kept
-}
-
-/** The mass's top at x (the highest box over it), boxes bucketed by the px columns they span (the same answer, faster). */
-class MassIndex {
-  private columns = new Map<number, OutsideBox[]>()
-  constructor(boxes: readonly OutsideBox[]) { for (const box of boxes) this.add(box) }
-  add(box: OutsideBox) {
-    for (let px = Math.floor(box.x - box.w / 2); px <= Math.floor(box.x + box.w / 2); px++) {
-      const list = this.columns.get(px)
-      if (list) list.push(box)
-      else this.columns.set(px, [box])
-    }
-  }
-  top(x: number) {
-    let top = Infinity
-    for (const box of this.columns.get(Math.floor(x)) ?? []) if (Math.abs(box.x - x) <= box.w / 2) top = Math.min(top, box.top)
-    return top
-  }
-}
-
 const asBox = (tower: OutsideTower, kind: OutsideBox['kind'], top = tower.baseY - tower.h): OutsideBox =>
   ({ x: tower.x, w: tower.w, top, foot: tower.baseY, near: tower.near, kind, heightM: tower.heightM, dx: tower.dx, dy: tower.dy })
 
@@ -399,15 +368,16 @@ export interface FabricCell {
   dx: number; dy: number; wKm: number; heightM: number; seed: number
   /** Its typical building's frontage (m), where the map knows it. */
   frontM?: number
+  /** Dense-raster height used when establishing the original tower prominence footprint. */
+  skylineHeightM?: number
 }
 
 /**
- * Built fabric composed on the town's plan scale. Where projected cells are narrower than their buildings,
- * keep one per screen slot, at the position of the cell nearest the slot's centre. Cull hidden boxes.
+ * Built fabric composed on the town's plan scale, with competition between overlapping enlarged bodies.
  */
-function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput, look?: OutsideLook): OutsideBox[] {
-  const boxes: OutsideBox[] = []
-  const slots = new Map<string, { box: OutsideBox; off: number }>()
+function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput,
+  look?: OutsideLook, footprint?: SkylineFootprint): OutsideBox[] {
+  const candidates: { box: OutsideBox; expanded: boolean }[] = []
   for (const cell of cells) {
     if (!inFrame(frame, cell.dx, cell.dy)) continue
     const { x, near, k, depth } = outsideProject(frame, cell.dx, cell.dy)
@@ -417,22 +387,19 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     const h = Math.max(1, pxOf(look, heightM, k))
     // Roof type changes at HOUSE_TOP_M. The same footprint keeps its width on either side.
     const legible = !look ? 0 : Math.max(look.house.w * k / frame.k, planPx(look, frame, cell.frontM ?? 0, k))
-    if (w >= legible) {
-      const foot = lieBaseY(lie, ground, x, near, floor, w, cell.dx, cell.dy)
-      boxes.push({ x, w, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy })
-      continue
+    const bodyW = Math.max(w, legible)
+    const foot = lieBaseY(lie, ground, x, near, floor, bodyW, cell.dx, cell.dy)
+    const box = { x, w: bodyW, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
+    candidates.push({ box, expanded: bodyW > w })
+    if (footprint) {
+      const roof = Math.min(capM, cell.skylineHeightM ?? cell.heightM)
+      const houseWidth = look && roof < HOUSE_TOP_M ? look.house.w * k / frame.k : 0
+      const base = lieBaseY(lie, ground, x, near, floor, Math.max(w, houseWidth), cell.dx, cell.dy)
+      const height = Math.max(1, pxOf(look, roof, k))
+      footprint.add({ ...box, w, top: base - height, foot: base, heightM: roof }, houseWidth, height)
     }
-    const foot = lieBaseY(lie, ground, x, near, floor, legible, cell.dx, cell.dy)
-    const slotW = legible * 1.1, slotH = Math.max(1.2, .6 * h)
-    const sx = Math.round(x / slotW), sy = Math.round(foot / slotH)
-    const off = Math.hypot((x - sx * slotW) / slotW, (foot - sy * slotH) / slotH)
-    const key = `${sx}:${sy}`
-    const held = slots.get(key)
-    if (held && held.off <= off) continue
-    slots.set(key, { off, box: { x, w: legible, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy } })
   }
-  for (const { box } of slots.values()) boxes.push(box)
-  return visible(boxes, width)
+  return look ? composeFabric(candidates, look.house.w) : visible(candidates.map(({ box }) => box), width)
 }
 
 export interface OutsideSkyline {
@@ -446,8 +413,6 @@ export interface OutsideSkyline {
 const MASS_M = 60
 /** A tower must clear the mass by this many px to rise as a spire. */
 const RISE_PX = 7
-/** The middle share of a folded tower's width that folds another into it: a tower behind its shoulder still shows its edge. */
-const CORE = .5
 
 export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const { place, towers, landmarks, raster, frame, ground, floor, width, lie = {}, look } = input
@@ -457,33 +422,42 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const fullGlyphs = glyphs(prepared)
   const mass: MassInput = { place, raster, frame, ground, floor, width, lie,
     capM: MASS_M, kind: 'mass' }
-  let boxes = input.fabric ? fabricBoxes(input.fabric, mass, input.look) : rasterBoxes(mass)
+  const footprint = input.fabric && prepared.length > fullGlyphs.size ? new SkylineFootprint() : undefined
+  let boxes = input.fabric ? fabricBoxes(input.fabric, mass, look, footprint) : rasterBoxes(mass)
   const out: OutsideTower[] = []
   let folded = 0, dropped = 0
   const ranked = [...prepared].sort(byRank)
   // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
-  const index = new MassIndex(boxes)
+  const index = footprint?.index(width) ?? new MassIndex(boxes)
+  const probe = (tower: OutsideTower, { wClass, dx, dy }: Prepared) => {
+    const w = SILHOUETTE_W[wClass]
+    return { ...tower, w, baseY: lieBaseY(lie, ground, tower.x, tower.near, floor, w, dx, dy) }
+  }
+  const probes = new Map<OutsideTower, OutsideTower>()
   const fold = (tower: OutsideTower) => {
     const box = asBox(tower, 'mass')
     boxes.push(box)
-    index.add(look ? { ...box, w: box.w * CORE } : box)
+    index.add(asBox(probes.get(tower)!, 'mass'))
     folded++
   }
   for (const tower of [...ranked].reverse()) {
     if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, frame, look)); continue }
     const drawn = placed(tower, 'silhouette', ground, floor, frame, look)
-    if (drawn.baseY - drawn.h < index.top(drawn.x) - RISE_PX) out.push(drawn)
+    const nominal = probe(drawn, tower)
+    probes.set(drawn, nominal)
+    if (nominal.baseY - nominal.h < index.top(nominal.x) - RISE_PX) out.push(drawn)
     else fold(drawn)
   }
   // A spire placed before the mass rose round it may no longer clear it: it folds in too.
   for (let i = out.length - 1; i >= 0; i--) {
     const tower = out[i]
-    if (tower.lod === 'silhouette' && tower.baseY - tower.h >= index.top(tower.x) - RISE_PX) {
+    const nominal = probes.get(tower)
+    if (nominal && nominal.baseY - nominal.h >= index.top(nominal.x) - RISE_PX) {
       out.splice(i, 1)
       fold(tower)
     }
   }
-  boxes = visible(boxes, width)
+  boxes = input.fabric && look ? visibleFabric(boxes, width) : visible(boxes, width)
   const stats = {
     inPlace, glyph: out.filter(t => t.lod === 'glyph').length, silhouette: out.filter(t => t.lod === 'silhouette').length,
     folded, dropped, duplicates: towers.length - deduped.length,
