@@ -75,8 +75,10 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   }
   const smoothed = raw.map((cur, idx) => {
     const c = idx % cols, l = c > 0 ? raw[idx - 1] : cur, r = c < cols - 1 ? raw[idx + 1] : cur
-    return rgbOfLab({ l: 0.08 * l.l + 0.84 * cur.l + 0.08 * r.l,
-      a: 0.12 * l.a + 0.76 * cur.a + 0.12 * r.a, b: 0.12 * l.b + 0.76 * cur.b + 0.12 * r.b })
+    // Average the ray footprint across its neighbours before quantising.
+    // An isolated bright or dark ray should not read as a band of its own.
+    return rgbOfLab({ l: 0.2 * l.l + 0.6 * cur.l + 0.2 * r.l,
+      a: 0.2 * l.a + 0.6 * cur.a + 0.2 * r.a, b: 0.2 * l.b + 0.6 * cur.b + 0.2 * r.b })
   })
   const { palette, indices } = quantiseTones(smoothed, maxColours)
   const fallbackSrc = nonWaterLocalFallback(world.land).source
