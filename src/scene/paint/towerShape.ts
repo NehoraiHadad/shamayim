@@ -1,37 +1,40 @@
 import { smoothstep } from '../../domain/smoothstep'
 import type { CloudSprite } from './cloudSprite'
 import { detailTile, tileAt } from './detailTile'
+import { halfAt, headsOf } from './towerHeads'
 
 /*
- * A tower's body as one field (no puffs): a column narrowing upward under a domed crown, a mature Cb's top flaring into
- * its anvil, a flat base; its outline moved in and out by fractal noise, so the mass is always one piece with a soft,
- * lumpy edge. Sprite px, the origin at the middle of the near base edge, y down. Pure: the sprite alone.
+ * A tower's body as one field (no puffs): its heads (`towerHeads`) grown together, over a flat base; the outline moved in
+ * and out by fractal noise, so the mass is always one piece with a soft, lumpy edge. Sprite px, the origin at the middle
+ * of the near base edge, y down. Pure: the sprite alone.
  */
 
-/** The column's top width against its base; how much wider an anvil's top is than the base. */
-const TOP_WIDTH = 0.75, ANVIL_FLARE = 0.9
-/** The height (0 base … 1 top) the anvil flares from. */
-const FLARE_FROM = 0.55
-/** The crown's depth against the width: a dome, or an anvil's flat cap. */
-const DOME = 0.5, CAP = 0.2
 /** The base's depth below the near edge at least, against the width: a flat underside seen nearly edge on. */
 const BASE_DEPTH = 0.08
-/** How far the noise moves the outline (against the half width): broad swells, then rounded cauliflower lumps. */
-const SWELL = 0.6, LUMPS = 0.5
-/** The noise tile's width against the tower's; its octaves: broad soft billows, no fine grain. */
-const TILE_W = 1.7, OCTAVES = 2
+/** How far the noise moves the outline (against a head's half width): broad swells, then rounded cauliflower lumps. */
+const SWELL = 0.5, LUMPS = 0.4
+/** The share of that left on the underside: the base is flat, the lumps grow upward. */
+const BASE_ROUGH = 0.15
+/** The noise tile's width against the tower's; its octaves: broad soft billows, no fine grain. How much finer the lumps are. */
+const TILE_W = 1.9, OCTAVES = 2, LUMP_RATE = 1.8
 /** How far the column's axis sways with height, against the half width: no straight pillar. */
 const SWAY = 0.5
-/** The softness of the edge against the half width: crisper on a growing crown than down the column. */
-const SOFT = 0.42, SOFT_CROWN = 0.32
-/** The share of the half width that is cloud whatever the noise: the column never parts. */
+/** The softness of the edge against the half width: crisper on a growing crown than down the column, an
+ * anvil's ice fraying out. */
+const SOFT = 0.42, SOFT_CROWN = 0.32, SOFT_ANVIL = 0.45
+/** The share of a head's half width that is cloud whatever the noise: the column never parts. */
 const CORE = 0.6
 /** How far the noise thins the body from inside. */
 const MOTTLE = 0.5
 /** The share of the outline's noise read at the outline, the rest at the point itself (small overhangs). */
-const EDGE = 0.35
-/** Half widths out from the axis past which there is no cloud; the width (px) under which the lumps shrink. */
-const REACH = 1.5, SMALL = 40
+const EDGE = 0.45
+/** How rounded the crease between two heads is, against their half width. */
+const CREASE = 0.4
+/** How far out of the mass (against the half width) the noise can still make cloud. */
+const REACH = 0.45
+/** The width (px) under which a tower is far: one broad octave, its edges softer by this much, its foot (a share of
+ * its height) melting into the haze to this share. */
+const FAR = 70, FAR_SOFT = 0.15, FOOT = 0.4, FOOT_LEFT = 0.55
 const NOISE_SEED = 4127
 
 export interface TowerShape {
@@ -44,44 +47,54 @@ export interface TowerShape {
 }
 
 export function towerShape(s: CloudSprite): TowerShape {
-  const anvil = s.anvil ?? 0
-  const tile = detailTile(NOISE_SEED, OCTAVES)
+  const far = 1 - Math.min(1, s.w / FAR)
+  const tile = detailTile(NOISE_SEED, far > 0 ? 1 : OCTAVES)
   const ou = (s.seed % 997) / 997, ov = (s.seed % 613) / 613
   const depth = Math.max(2, s.under, BASE_DEPTH * s.w)
-  const crown = Math.min(0.6 * s.tall, s.w * (DOME + (CAP - DOME) * anvil))
-  const joint = -(s.tall - crown)
-  const half = (y: number) => {
-    const t = Math.min(1, Math.max(0, -y / s.tall))
-    return (s.w / 2) * (1 - (1 - TOP_WIDTH) * t * (1 - anvil)
-      + ANVIL_FLARE * anvil * Math.max(0, (t - FLARE_FROM) / (1 - FLARE_FROM)) ** 1.5)
-  }
+  const heads = headsOf(s)
   const relief = (x: number, y: number) => {
     const u = x / (TILE_W * s.w) + ou, v = y / (TILE_W * s.w) + ov
-    const lump = 2 * Math.abs(tileAt(tile, u * 2 + 0.37, v * 2 + 0.71) - 0.5)
+    const lump = 2 * Math.abs(tileAt(tile, u * LUMP_RATE + 0.37, v * LUMP_RATE + 0.71) - 0.5)
     return SWELL * (tileAt(tile, u, v) - 0.5) + LUMPS * (lump - 0.18)
   }
-  const bumps = Math.min(1, s.w / SMALL)
-  // What a row shares: its half width, its axis, how far past the column it is, its softness.
-  let rowY = NaN, wide = 1, axis = 0, beyond = 0, knee = 0, soft = SOFT
+  // What a row shares: each head's half width, axis and distance past its column, and the row's softness and roughness.
+  const row = heads.map(() => ({ wide: 1, axis: 0, beyond: 0, knee: 0 }))
+  let rowY = NaN, soft = SOFT, rough = 1, foot = 1
   const toRow = (y: number) => {
     rowY = y
-    wide = Math.max(0.5, half(y))
-    axis = wide * SWAY * (tileAt(tile, ou, ov + y / (3 * s.w)) - 0.5) * Math.min(1, Math.max(0, -y / s.w))
-    beyond = y > 0 ? y / depth : y < joint ? (joint - y) / crown : 0
-    knee = y > 0 ? 0 : y < joint ? joint : y
-    soft = SOFT + (SOFT_CROWN - SOFT) * smoothstep(0.5, 0.9, -y / s.tall) * (1 - anvil)
+    const sway = SWAY * (tileAt(tile, ou, ov + y / (3 * s.w)) - 0.5) * Math.min(1, Math.max(0, -y / s.w))
+    heads.forEach((h, n) => {
+      const at = row[n]
+      at.wide = halfAt(h, y)
+      at.axis = h.x + at.wide * sway
+      at.beyond = y > 0 ? y / depth : y < h.joint ? (h.joint - y) / h.crown : 0
+      at.knee = y > 0 ? 0 : Math.max(y, h.joint)
+    })
+    const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
+    soft = SOFT + (top - SOFT) * smoothstep(0.5, 0.9, -y / s.tall) + FAR_SOFT * far
+    foot = 1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))
+    rough = 1 + (BASE_ROUGH - 1) * smoothstep(-0.15 * s.w, 0.3 * depth, y)
   }
   const at = (px: number, y: number) => {
     if (y !== rowY) toRow(y)
-    const x = px - axis, across = x / wide, rho = Math.sqrt(across * across + beyond * beyond)
-    if (rho > REACH) return null
-    const bump = relief(x, y)
-    const body = Math.min(1, 1 + MOTTLE * Math.min(0, bump))
-    if (rho < CORE / 2) return { a: body, bump }
+    let mass = -9, core = -9, near = row[0], rho = 9
+    for (const h of row) {
+      const across = (px - h.axis) / h.wide, r = Math.sqrt(across * across + h.beyond * h.beyond)
+      const inside = 1 - r
+      core = Math.max(core, CORE - r)
+      if (inside > mass) { near = h; rho = r }
+      const meet = Math.max(0, 1 - Math.abs(inside - mass) / CREASE)
+      mass = Math.max(inside, mass) + (meet * meet * CREASE) / 4
+    }
+    if (mass < -REACH) return null
+    const bump = relief(px, y)
+    const body = foot * Math.min(1, 1 + MOTTLE * Math.min(0, bump))
+    if (core > CORE / 2) return { a: body, bump }
     // The outline moves by the noise partly read at the outline itself: one value out from the axis, so a lump stands out
     // of the mass more than it parts from it.
-    const out = 1 / rho, edge = relief(x * out, knee + (y - knee) * out)
-    const inside = Math.max(1 - rho + bumps * (EDGE * edge + (1 - EDGE) * bump), ((CORE - rho) / CORE) * soft * 2)
+    const out = 1 / Math.max(0.3, rho)
+    const edge = relief(near.axis + (px - near.axis) * out, near.knee + (y - near.knee) * out)
+    const inside = Math.max(mass + rough * (EDGE * edge + (1 - EDGE) * bump), (core / CORE) * soft * 2)
     const a = smoothstep(0, soft, inside) * body
     return a > 0 ? { a, bump } : null
   }
