@@ -16,6 +16,14 @@ on:
         description: 'Base ref: prove both styles paint the same bytes as it, on the stills given above or the still set (empty = skip)'
         required: false
         default: ''
+      concept:
+        description: 'Concept stills of the real style (docs/design/prototypes/real) as place@time[@weather], space-separated; runs only that job'
+        required: false
+        default: ''
+      model:
+        description: 'With concept: branches merged in order into one tree, whose model is drawn (empty = this ref)'
+        required: false
+        default: ''
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -30,6 +38,7 @@ env:
 
 jobs:
   check:
+    if: inputs.concept == ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -44,6 +53,7 @@ jobs:
       - run: npm run build
 
   worker:
+    if: inputs.concept == ''
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,6 +71,7 @@ jobs:
 
   # 375 px stills of the canvas scene from the recorded fixtures (no live services), kept as an artifact for review.
   stills:
+    if: inputs.concept == ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -128,8 +139,50 @@ jobs:
           path: ci-identity/
           retention-days: 14
 
+  # The real style's concept beside today's painters on the same model (only when a run asks for it).
+  concept:
+    if: inputs.concept != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: The model's tree
+        if: inputs.model != ''
+        env:
+          MODEL: ${{ inputs.model }}
+        run: |
+          set -- $MODEL
+          git config user.name ci && git config user.email ci@localhost
+          git worktree add --detach ../model "origin/$1"
+          cd ../model
+          shift
+          for ref in "$@"; do git merge --no-edit "origin/$ref"; done
+          npm ci
+      - name: Render
+        env:
+          CONCEPT: ${{ inputs.concept }}
+          TREE: ${{ inputs.model != '' && '--tree=../model' || '' }}
+        run: |
+          render="node --experimental-strip-types docs/design/prototypes/real/stills.mjs"
+          $render ci-concept/concept $CONCEPT $TREE
+          $render ci-concept/today $CONCEPT $TREE --base
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: concept-${{ github.sha }}
+          path: ci-concept/
+          retention-days: 14
+
   # The scene's perf budgets, on a quiet machine; reported, never blocking (shared runners are noisy).
   perf:
+    if: inputs.concept == ''
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
