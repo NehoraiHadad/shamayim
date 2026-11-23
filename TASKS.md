@@ -1112,6 +1112,6 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
       mass (lit at its top, shaded at its foot, a clear gap ends it), softer edges with distance, calmer closed decks and low suns
 - [x] Stills rounds 1-3 (CI 45151140114, 45153177347, 45154473864; only the known `cloudCells` red) and round 4 (calmer puffs under a
       low sun and in closed decks, one mass does not shade the next); 4 of 5 used
-- [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky up to 10 % dearer, land cheaper
+- [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 2-20 % dearer (Tel Aviv worst), land about even
 - Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
   pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand
