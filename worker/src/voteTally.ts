@@ -1,6 +1,7 @@
-/** Temporary (see styleVote.ts): the votes counted from a listing of their keys' metadata. */
+/** Temporary (see styleVote.ts): the round's votes counted from a listing of their keys' metadata. */
+import { VOTE_ROUND } from '../../src/data/styleVoteRound'
 
-export const VOTE_PREFIX = 'vote:'
+export const VOTE_PREFIX = `vote:${VOTE_ROUND}:`
 
 export type Style = 'real' | 'drawn'
 
@@ -33,6 +34,9 @@ interface Tally {
 /** 1000 keys a page; KV's free plan allows 1000 listings a day. */
 const MAX_PAGES = 5
 
+/** Long, as one isolate polled for the totals must not spend the listings the other isolates need. */
+const MEMO_MS = 5 * 60_000
+
 let memo: { tally: Tally; readAt: number } | null = null
 
 export function forgetTally(): void {
@@ -63,10 +67,10 @@ async function count(kv: VoteKV, day: string): Promise<Tally> {
   return { ...out, full: true }
 }
 
-/** The totals, at most `maxAgeMs` old. */
-export async function tally(kv: VoteKV, now: number, maxAgeMs: number): Promise<Tally> {
+/** The totals, up to five minutes old. */
+export async function tally(kv: VoteKV, now: number): Promise<Tally> {
   const day = new Date(now).toISOString().slice(0, 10)
-  if (memo && memo.tally.day === day && now - memo.readAt < maxAgeMs) return memo.tally
+  if (memo && memo.tally.day === day && now - memo.readAt < MEMO_MS) return memo.tally
   memo = { tally: await count(kv, day), readAt: now }
   return memo.tally
 }
