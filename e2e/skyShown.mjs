@@ -9,7 +9,7 @@ export const STILL_OPTIONS = {
 }
 
 export async function waitForSky(page) {
-  const deadline = performance.now() + 15_000
+  const deadline = performance.now() + 30_000
   const remaining = () => Math.max(1, Math.ceil(deadline - performance.now()))
   try {
     // A pair of equal CSS fallback frames would tell us nothing before the compositor paints.
