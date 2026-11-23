@@ -31,6 +31,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      # Foundations' clouds and town as they were when the concept was drawn; goes when they are in main.
+      - run: git apply docs/design/prototypes/drawn/foundations.patch
       - run: node --experimental-strip-types --no-warnings docs/design/prototypes/drawn/render.mjs out/${{ matrix.as }} $MOMENTS --as=${{ matrix.as }}
       - uses: actions/upload-artifact@v4
         if: always()

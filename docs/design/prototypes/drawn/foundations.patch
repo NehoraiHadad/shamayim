@@ -1,0 +1,420 @@
+diff --git a/src/data/city/cityRaster.ts b/src/data/city/cityRaster.ts
+index 8a2f111d..12384b9d 100644
+--- a/src/data/city/cityRaster.ts
++++ b/src/data/city/cityRaster.ts
+@@ -1,8 +1,10 @@
++import { decodeForm, FRONT_M } from './form'
+ import { COLS, LAT_STEP, LON_STEP, squareOf, strideFor } from './grid'
+ import type { RayGrid } from './rayWalk'
+ import type { CityTower } from './types'
+ 
+-export type RasterSquare = { built: number; levels: number; p90: number }
++/** `front`: its typical building's frontage (m), from the mapped footprints. */
++export type RasterSquare = { built: number; levels: number; p90: number; front?: number }
+ export type CityRaster = {
+   /** Whether this point has an actual loaded raster cell, including known unbuilt cells. */
+   has?: (lat: number, lon: number) => boolean
+@@ -22,9 +24,11 @@ export function cityRaster(grids: ReadonlyMap<string, Uint8Array>, towers: reado
+       const { cell, col, row } = squareOf(lat, lon)
+       const bytes = grids.get(cell)
+       if (!bytes) return EMPTY
+-      const i = (row * COLS + col) * strideFor(bytes)
++      const stride = strideFor(bytes)
++      const i = (row * COLS + col) * stride
+       const meta = bytes[i]
+-      return { built: (meta >> 4) / 15, levels: meta & 15, p90: bytes[i + 1] }
++      return { built: (meta >> 4) / 15, levels: meta & 15, p90: bytes[i + 1],
++        ...(stride === 3 ? { front: FRONT_M[decodeForm(bytes[i + 2]).size] } : {}) }
+     },
+   }
+ }
+diff --git a/src/data/city/form.ts b/src/data/city/form.ts
+index 21ba3e21..797be428 100644
+--- a/src/data/city/form.ts
++++ b/src/data/city/form.ts
+@@ -6,6 +6,9 @@ export function decodeForm(byte: number) {
+   return { size: byte & 7, big: (byte >> 3) & 3, roof: (byte >> 5) & 3, evidence: Boolean(byte & 128) }
+ }
+ 
++/** A building's frontage (m) by size class: the side of a square of the class's middle area (class 0: unmapped). */
++export const FRONT_M = [13, 7, 9.5, 13, 18, 26, 45, 60] as const
++
+ // Half-open footprint area bands in square metres. Class 0 is reserved for absent footprints.
+ export function sizeClass(area: number) {
+   return area < 60 ? 1 : area < 120 ? 2 : area < 220 ? 3 : area < 450 ? 4 :
+diff --git a/src/data/city/outsideView.ts b/src/data/city/outsideView.ts
+index a1858acd..93ee2158 100644
+--- a/src/data/city/outsideView.ts
++++ b/src/data/city/outsideView.ts
+@@ -155,12 +155,15 @@ export const HOUSE_TOP_M = 12.5
+  * How the canvas scene's outside view sizes what it draws (C5b), beyond the true perspective: `px` the height (m) a
+  * thing takes where the perspective gives `k` px a metre (the true `heightM·k`, or more for the low fabric so a house
+  * stays legible, every height in its true order); `house` the smallest legible house (px wide, at the frame's middle
+- * depth): where the built cells are narrower on screen, fewer, larger houses are composed inside the footprint.
++ * depth): where the built cells are narrower on screen, fewer, larger houses are composed inside the footprint; `plan`
++ * the px a metre of frontage takes there, the house's own (one plan scale for the whole town: a block beside the houses
++ * keeps its proportions to them instead of shrinking to its cell).
+  * Absent (the SVG study): true sizes.
+  */
+ export interface OutsideLook {
+   px: (heightM: number, k: number) => number
+   house: { w: number }
++  plan: number
+ }
+ const pxOf = (look: OutsideLook | undefined, heightM: number, k: number) => look ? look.px(heightM, k) : heightM * k
+ 
+@@ -190,6 +193,10 @@ export interface OutsideBox { x: number; w: number; top: number; foot: number; n
+ export const GLYPH_W = [4.5, 5.5, 7] as const
+ /** An ordinary tower's silhouette, by width class. */
+ export const SILHOUETTE_W = [2, 2.5, 3.5] as const
++/** The width (px) a `frontM` m frontage takes where the perspective gives `k` px a metre, on the place's plan scale. */
++const planPx = (look: OutsideLook, frame: OutsideFrame, frontM: number, k: number) => look.plan * frontM * k / frame.k
++/** A tower's drawn frontage (m) by width class (the glyphs' widths on a city's plan scale). */
++const TOWER_FRONT_M = [18, 22, 28] as const
+ export const GLYPH_M = 150
+ export const MAX_GLYPHS = 10
+ 
+@@ -271,8 +278,9 @@ function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: rea
+ 
+ const byRank = (a: Prepared, b: Prepared) => Number(b.famous) - Number(a.famous) || b.heightM - a.heightM || b.near - a.near
+ 
+-function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number, look?: OutsideLook): OutsideTower {
+-  const w = lod === 'glyph' ? GLYPH_W[tower.wClass] : SILHOUETTE_W[tower.wClass]
++function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number, frame: OutsideFrame, look?: OutsideLook): OutsideTower {
++  const w = lod === 'glyph' ? GLYPH_W[tower.wClass]
++    : Math.max(SILHOUETTE_W[tower.wClass], look ? planPx(look, frame, TOWER_FRONT_M[tower.wClass], tower.k) : 0)
+   const h = Math.max(4, pxOf(look, tower.heightM, tower.k))
+   return { x: tower.x, baseY: lieBaseY(tower.lie, ground, tower.x, tower.near, floor, w, tower.dx, tower.dy), w, h, near: tower.near,
+     heightM: tower.heightM,
+@@ -386,12 +394,14 @@ export interface OutsideSkylineInput {
+ }
+ 
+ /** One built cell of the place: km east / north, its width (km), its roof's height (m) and a seed. */
+-export interface FabricCell { dx: number; dy: number; wKm: number; heightM: number; seed: number }
++export interface FabricCell { dx: number; dy: number; wKm: number; heightM: number; seed: number
++  /** Its typical building's frontage (m), where the map knows it. */
++  frontM?: number }
+ 
+ /**
+- * The fabric cells as boxes in the outside view (as `rasterBoxes`), hidden ones left out. With a `look`, a house cell
+- * narrower on screen than the smallest legible house is not shrunk: the houses are composed fewer and larger inside the
+- * footprint, one per slot of that size on the screen (the cell nearest the slot's middle keeps it, at its own spot).
++ * The fabric cells as boxes in the outside view (as `rasterBoxes`), hidden ones left out. With a `look`, a cell
++ * narrower on screen than its building (the smallest legible house; a block by its frontage on the place's plan scale) is
++ * not shrunk to a post: the buildings are composed fewer and larger inside the footprint, one per slot of that size on the screen (the cell nearest the slot's middle keeps it, at its own spot).
+  */
+ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput, look?: OutsideLook): OutsideBox[] {
+   const boxes: OutsideBox[] = []
+@@ -403,7 +413,8 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
+     if (x + w / 2 < -4 || x - w / 2 > width + 4) continue
+     const heightM = Math.min(capM, cell.heightM)
+     const h = Math.max(1, pxOf(look, heightM, k))
+-    const legible = look && heightM < HOUSE_TOP_M ? look.house.w * k / frame.k : 0
++    const legible = !look ? 0 : Math.max(look.house.w * k / frame.k,
++      heightM < HOUSE_TOP_M ? 0 : planPx(look, frame, cell.frontM ?? 0, k))
+     if (w >= legible) {
+       const foot = lieBaseY(lie, ground, x, near, floor, w, cell.dx, cell.dy)
+       boxes.push({ x, w, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy })
+@@ -433,6 +444,8 @@ export interface OutsideSkyline {
+ const MASS_M = 60
+ /** A tower must clear the mass by this many px to rise as a spire. */
+ const RISE_PX = 7
++/** The middle share of a folded tower's width that folds another into it: a tower behind its shoulder still shows its edge. */
++const CORE = .5
+ 
+ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
+   const { place, towers, landmarks, raster, frame, ground, floor, width, lie = {}, look } = input
+@@ -449,10 +462,10 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
+   // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
+   const index = new MassIndex(boxes)
+   const massTop = (_boxes: readonly OutsideBox[], x: number) => index.top(x)
+-  const fold = (tower: OutsideTower) => { const box = asBox(tower, 'mass'); boxes.push(box); index.add(box); folded++ }
++  const fold = (tower: OutsideTower) => { const box = asBox(tower, 'mass'); boxes.push(box); index.add(look ? { ...box, w: box.w * CORE } : box); folded++ }
+   for (const tower of [...ranked].reverse()) {
+-    if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, look)); continue }
+-    const drawn = placed(tower, 'silhouette', ground, floor, look)
++    if (fullGlyphs.has(tower)) { out.push(placed(tower, 'glyph', ground, floor, frame, look)); continue }
++    const drawn = placed(tower, 'silhouette', ground, floor, frame, look)
+     if (drawn.baseY - drawn.h < massTop(boxes, drawn.x) - RISE_PX) out.push(drawn)
+     else fold(drawn)
+   }
+diff --git a/src/scene/model/cloudCells.ts b/src/scene/model/cloudCells.ts
+index f49177c0..f6fca7f5 100644
+--- a/src/scene/model/cloudCells.ts
++++ b/src/scene/model/cloudCells.ts
+@@ -8,7 +8,7 @@ import { litOf, tonesAt, type CloudLight } from './cloudLight'
+ import { sheetZ } from './cloudSheet'
+ import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
+ import { layerKey, skyBoxKey } from './keys'
+-import type { SkyGeom } from './sky'
++import { DOME_ALT, type SkyGeom } from './sky'
+ import { mixRgb } from './tone'
+ import { towerAnvil } from './towerHeads'
+ import type { LayerOf, RGB, SceneBox } from './types'
+@@ -39,6 +39,14 @@ const W_MIN = 1.5
+ export const MERGE_KM = 40, MERGE_PX = 28
+ /** How much of the sky's stretch a tower's own shape takes (an exponent): all of it draws every far heap as a pillar. */
+ const STAND = 0.55
++/** A top this high (deg) is well up the dome: a tower a few km off. */
++const TOP_UP = 60
++/** A tower's height against its width, its own being `aspect`: with that part of the stretch where its top is well up the
++ *  dome. One that stands on the relief, as the hills do, takes it only up to as tall as wide: no taller than its own. */
++export const shapeOf = (aspect: number, stretch: number, top: number) => {
++  const up = aspect * stretch ** STAND, far = Math.max(aspect, Math.min(1, up))
++  return far + (up - far) * smoothstep(DOME_ALT, TOP_UP, top)
++}
+ /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
+ const q = (v: number, step = 0.5) => Math.round(v / step)
+ const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
+@@ -49,7 +57,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
+   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
+   const pxPerDeg = world.camera.pxPerDeg * geom.s
+   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
+-  const stretch = sceneStretch(geom, pxPerDeg) ** STAND
++  const stretch = sceneStretch(geom, pxPerDeg)
+   const placed: (Placed & Standing & { top: number })[] = []
+   for (const cell of cells) {
+     const p = projectCell(cell)
+@@ -70,7 +78,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
+     // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
+     // tower stands to its top's altitude, but no taller than its true aspect at part of the scene's stretch, so a far one
+     // is a heap and not a streak, and a near one keeps its height.
+-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * stretch * cell.vKm / (2 * cell.r), merged ? w : Infinity))
++    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * shapeOf(cell.vKm / (2 * cell.r), stretch, merged ? 90 : p.aTop), merged ? w : Infinity))
+     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
+     const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
+     sprite.bowl = bowl
+diff --git a/src/scene/model/cloudSheet.ts b/src/scene/model/cloudSheet.ts
+index 81491604..33e07719 100644
+--- a/src/scene/model/cloudSheet.ts
++++ b/src/scene/model/cloudSheet.ts
+@@ -8,6 +8,7 @@ import type { WorldState } from '../../world/types'
+ import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
+ import { CITY_RGB, type CityOnBase } from './cityLight'
+ import { sheetCity } from './cloudSheetCity'
++import { seenDepth } from './cloudSheetSeen'
+ import { layerKey } from './keys'
+ import type { SkyGeom } from './sky'
+ import type { LayerOf, RGB } from './types'
+@@ -41,7 +42,9 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
+   const deckEnd = Math.min(groundRangeAt(heightKm, 0), RANGES[layer.lattice][1])
+   const angularStep = 360 * RAD * (xs[1] - xs[0]) / geom.azimuthRange.period
+   const { expectedTauAt, rayRange, queryRadius } = densityGrid
+-  const depthAt = cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt
++  const fieldDepth = cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt
++  const seen = seenDepth(snapshot.cells, heightKm, geom)
++  const depthAt = seen ? (x: number, y: number) => Math.max(layer.floorTau, fieldDepth(x, y) + seen(x, y)) : fieldDepth
+   const resolvedEnd = Math.min(rayRange, queryRadius)
+   const radius = meanRadius(layer.lattice, layer.g)
+   // One centred tap has zero sweep, within both the texel footprint and
+diff --git a/src/scene/model/cloudSheetSeen.ts b/src/scene/model/cloudSheetSeen.ts
+new file mode 100644
+index 00000000..55f15dec
+--- /dev/null
++++ b/src/scene/model/cloudSheetSeen.ts
+@@ -0,0 +1,110 @@
++import { seeded } from '../../data/landmarks/hash'
++import { smoothstep } from '../../world/field/genus'
++import { altitudeOf } from '../../world/field/project'
++import { kernel } from '../../world/field/rasterNodes'
++import type { FieldCell } from '../../world/field/types'
++import { DOME_ALT, type SkyGeom } from './sky'
++
++/*
++ * The shape of a cell the dome draws. Above `DOME_ALT` the sky is drawn several times taller than it is wide, for the sky to
++ * fill the screen: that places a cloud, and would draw the cloud itself as an egg, and a deck's gap between two overhead
++ * cells as a box. Such a cell keeps its place and its area on the ground (so the cover stays), takes the proportions it has
++ * to the eye (its disc as it is foreshortened, and its own thickness seen from the side), and as it nears an outline of its
++ * own in place of the circle. Nothing that stands below `DOME_ALT` changes. Pure: the cell (its seed), the sky's geometry.
++ */
++
++const DEG = 180 / Math.PI
++/** A parabolic heap's side, at most half as tall as it is wide: what its thickness adds to the disc seen from below. */
++const SIDE_MAX = 0.5
++/** A cell whose edge is right overhead has no side to the eye: from this share of its radius off it, all of the rule. */
++const OVERHEAD = [1, 1.5] as const
++/** The outline: lobes round it, their size falling as a cloud's perimeter does (Lovejoy 1982, dimension 1.35, so the
++ *  amplitude goes as m^-(2 - 1.35 + 1/2)), and the radius's scatter over all of them. */
++const LOBES = [2, 9] as const, FALL = 1.15, SCATTER = 0.18
++const TABLE = 96
++/** The sites are more regular than chance, so shapes that reach past their circle overlap more: the area that gives the
++ *  cover back (400 drawn lattices each of Ac, As and Cu). */
++const OVERLAP = 1.07
++
++interface Seen { cell: FieldCell; d: number; off: number; east: number; north: number; radial: number; across: number; reach: number; cumulus: boolean; outline: Float32Array }
++
++const offOverhead = (cell: FieldCell, d: number) => smoothstep(OVERHEAD[0], OVERHEAD[1], d / cell.r)
++
++/** How much taller than its true proportions the dome draws a cell: 1 where it stands on the relief. */
++export function stretchOf(cell: FieldCell, heightKm: number, geom: SkyGeom): number {
++  const d = Math.hypot(cell.x, cell.y)
++  if (cell.rMinor !== undefined || d <= cell.r) return 1
++  const near = altitudeOf(heightKm, d - cell.r), far = altitudeOf(heightKm, d + cell.r)
++  if (near <= DOME_ALT) return 1
++  const wide = 2 * Math.atan2(cell.r, Math.hypot(d, heightKm)) * DEG
++  const cos = d / Math.hypot(d, heightKm)
++  const eye = (near - far) / wide + Math.min(SIDE_MAX, cell.vKm / (2 * cell.r)) * cos
++  const pxPerDeg = geom.azimuthRange.period / 360
++  const drawn = (geom.dome(far) - geom.dome(near)) / (2 * Math.asin(cell.r / d) * DEG * pxPerDeg)
++  return 1 + Math.max(0, drawn / eye - 1) * offOverhead(cell, d)
++}
++
++/** 1 / ρ² round the outline (from the radial direction): `amount` of the cell's own lobes, its area the circle's. */
++export function outlineOf(seed: number, amount: number): Float32Array {
++  const lobes = lobesOf(seed)
++  let area = 0
++  for (const v of lobes) area += (1 + amount * v) ** 2 / TABLE
++  return Float32Array.from(lobes, (v) => area / Math.max(0.25, (1 + amount * v) ** 2))
++}
++
++const cache = new Map<number, Float64Array>()
++/** The cell's own lobes round its circle: they stay with it as it drifts. */
++function lobesOf(seed: number): Float64Array {
++  const cached = cache.get(seed)
++  if (cached) return cached
++  const rng = seeded(seed ^ 0x0c10d), rho = new Float64Array(TABLE)
++  let power = 0
++  for (let m = LOBES[0]; m <= LOBES[1]; m++) power += m ** (-2 * FALL) / 2
++  const scale = SCATTER / Math.sqrt(power)
++  for (let m = LOBES[0]; m <= LOBES[1]; m++) {
++    const phase = 2 * Math.PI * rng(), a = scale * m ** -FALL
++    for (let n = 0; n < TABLE; n++) rho[n] += a * Math.cos(2 * Math.PI * m * n / TABLE + phase)
++  }
++  if (cache.size >= 512) cache.clear()
++  cache.set(seed, rho)
++  return rho
++}
++
++/** What the seen shapes change in the sheet's vertical depth at a ground point (km): null where nothing does. */
++export function seenDepth(cells: readonly FieldCell[], heightKm: number, geom: SkyGeom): ((x: number, y: number) => number) | null {
++  const seen: Seen[] = []
++  for (const cell of cells) {
++    const d = Math.hypot(cell.x, cell.y)
++    const near = d <= cell.r ? 90 : altitudeOf(heightKm, d - cell.r)
++    if (cell.rMinor !== undefined || near <= DOME_ALT) continue
++    const root = Math.sqrt(stretchOf(cell, heightKm, geom)), amount = smoothstep(DOME_ALT, 2 * DOME_ALT, near)
++    const outline = outlineOf(cell.seed, amount), size = cell.r * Math.sqrt(1 + (OVERLAP - 1) * amount)
++    const widest = 1 / Math.sqrt(Math.min(...outline))
++    seen.push({ cell, d, off: offOverhead(cell, d), east: d ? cell.x / d : 0, north: d ? cell.y / d : 1, radial: size / root, across: size * root,
++      reach: (size / root + size * root * (1 + cell.r / Math.max(d, cell.r))) ** 2 * widest * widest, outline, cumulus: cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb' })
++  }
++  if (!seen.length) return null
++  const end = Math.max(...seen.map(({ d, reach }) => d + Math.sqrt(reach))) ** 2
++  return (x, y) => {
++    const squared = x * x + y * y
++    if (squared > end) return 0
++    let sum = 0
++    const range = Math.sqrt(squared)
++    for (const { cell, d, off, east, north, radial, across, reach, cumulus, outline } of seen) {
++      const dx = x - cell.x, dy = y - cell.y, rr = dx * dx + dy * dy
++      if (rr >= reach) continue
++      // Off the zenith the shape lies along the circle of its range, as the dome's azimuth does: none of it drifts outward.
++      const along = dx * east + dy * north, aside = dx * north - dy * east
++      const u = (along + off * (range - d - along)) / radial
++      const v = (off ? aside + off * (d * Math.atan2(aside, d + along) - aside) : aside) / across
++      const uu = u * u + v * v
++      let own = 0
++      if (uu < 4) {
++        const at = (Math.atan2(v, u) / (2 * Math.PI) + 1) * TABLE, n = Math.floor(at), f = at - n
++        own = kernel(cell.tau0, uu * (outline[n % TABLE] * (1 - f) + outline[(n + 1) % TABLE] * f), cumulus)
++      }
++      sum += own - kernel(cell.tau0, rr / (cell.r * cell.r), cumulus)
++    }
++    return sum
++  }
++}
+diff --git a/src/scene/model/outsideShape.ts b/src/scene/model/outsideShape.ts
+index 204ed6ca..75671085 100644
+--- a/src/scene/model/outsideShape.ts
++++ b/src/scene/model/outsideShape.ts
+@@ -17,6 +17,8 @@ import { townGroundKm, wallStep } from './wallDistance'
+ 
+ /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
+ export const KM_STEP = .5
++/** The shares of a body's width kept beside a text zone, widest first. */
++const KEPT = [1, .8, .6]
+ 
+ /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
+ function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
+@@ -84,6 +86,14 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
+   const { frame, skyline, baseKm } = view
+   const out: OutsideItem[] = []
+   const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
++  // A body whose edge enters a text zone keeps the part beside it (`KEPT`), or is left out.
++  const beside = (x: number, w: number, top: number, foot: number) => {
++    for (const share of KEPT) for (const side of share < 1 ? [-1, 1] : [0]) {
++      const at = x + side * w * (1 - share) / 2, kept = w * share
++      if (free(at - kept / 2, top, at + kept / 2, foot)) return { x: at, w: kept }
++    }
++    return null
++  }
+   // The towers beyond the place: at their true distance, far first, behind the place.
+   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
+   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
+@@ -109,24 +119,25 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
+   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
+   const own: { y: number; item: OutsideItem; km?: number }[] = []
+   for (const b of skyline.boxes) {
+-    const x = b.x * sx, w = b.w * sx
+-    if (!free(x - w / 2, b.top, x + w / 2, b.foot)) continue
++    const body = beside(b.x * sx, b.w * sx, b.top, b.foot)
++    if (!body) continue
++    const { x, w } = body
+     mass.push(massAt(x, w, b.top, outsideItemKm(frame, baseKm, b)))
+     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
+     const heightM = b.heightM ?? 3 * STOREY_M
+     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
+     const r = seeded(seed + 7)
+     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
+-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot, true),
++    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), x / sx, b.foot, true),
+       seed, receiver: receiverId(seed),
+       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
+       heater: roof === 'flat' && r() < .45 } })
+   }
+   for (const t of skyline.towers) {
+-    const x = t.x * sx
+-    if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
+-    mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
+-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY, true)) })
++    const body = beside(t.x * sx, t.w, t.baseY - t.h, t.baseY)
++    if (!body) continue
++    mass.push(massAt(body.x, body.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
++    own.push({ y: t.baseY, item: towerItem({ ...t, x: body.x / sx, w: body.w }, sx, tier(outsideItemKm(frame, baseKm, t), body.x / sx, t.baseY, true)) })
+   }
+   for (const t of view.trees) {
+     const x = t.x * sx
+diff --git a/src/world/outside.ts b/src/world/outside.ts
+index f2e50f5f..ef2a9a30 100644
+--- a/src/world/outside.ts
++++ b/src/world/outside.ts
+@@ -123,6 +123,8 @@ export const FRAME_SCALE: FrameScale = {
+ }
+ /** The frame takes the place's built cells between these quantiles each way: a lone shed far out does not widen it. */
+ const FRAME_Q = .02
++/** A house's frontage (m): the legible house's, the place's plan scale. */
++const HOUSE_FRONT_M = 13
+ /** A built cell's roof where the city raster knows nothing of it: a one- or two-storey house. */
+ const HOUSE_M = [STOREY_M + 1.5, 2 * STOREY_M + 1.5] as const
+ /** Trees stand where the cover has them within this many km of a built cell (the place's gardens, yards, streets). */
+@@ -181,10 +183,10 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
+         // the raster square's built share (the share of the ground under roofs; a row of blocks shows about its root
+         // across), at a seeded spot inside the cell, so the streets and yards between them open and the rows behind,
+         // with their own heights, show through. A cell the raster knows nothing of is whole.
+-        const built = raster?.at(lat, lon).built ?? 0
++        const { built, front: frontM } = raster?.at(lat, lon) ?? { built: 0 }
+         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
+         const shift = (random() - .5) * (1 - front) * wKm
+-        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM, seed })
++        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM, seed, ...(frontM ? { frontM } : {}) })
+         const list = builtRows.get(row)
+         if (list) list.push(col)
+         else builtRows.set(row, [col])
+@@ -295,6 +297,7 @@ export function lookOf(frame: OutsideFrame): OutsideLook {
+   return {
+     px: (heightM, k) => k / frame.k * (heightM <= HOUSE_TOP_M ? heightM * kMin : low + (heightM - HOUSE_TOP_M) * frame.k),
+     house: { w: house.w },
++    plan: house.w / HOUSE_FRONT_M,
+   }
+ }
+ 
