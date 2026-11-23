@@ -119,7 +119,7 @@
   cursor: pointer;
 }
 
-.whatsapp {
+.write {
   display: grid;
   place-items: center;
   min-height: 44px;

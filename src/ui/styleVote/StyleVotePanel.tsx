@@ -4,7 +4,7 @@ import type { LocalTime } from '../../domain/types'
 import { IconButton } from '../IconButton'
 import { CloseIcon } from '../icons'
 import styles from './StyleVotePanel.module.css'
-import { CLOSE, PENDING, PREFERRED, SEE_OTHER, STYLE_NAMES, THANKS, TITLE, VOTE, WHATSAPP, whatsappUrl } from './styleVoteText'
+import { CLOSE, PENDING, PREFERRED, SEE_OTHER, STYLE_NAMES, THANKS, TITLE, VOTE, WRITE, mailUrl } from './styleVoteText'
 import { useStylePanel } from './useStylePanel'
 import type { StyleVoteState } from './useStyleVote'
 
@@ -55,7 +55,7 @@ export function StyleVotePanel({ state, placeName, at, picked }: Props) {
         <p role="status">{voted ? (pending ? PENDING : THANKS) : seenBoth ? '' : SEE_OTHER}</p>
         {seenBoth && !voted && <button type="button" className={styles.vote} onClick={prefer}>{VOTE}</button>}
       </div>
-      <a className={styles.whatsapp} href={whatsappUrl({ vote, style, placeName, at })} target="_blank" rel="noreferrer">{WHATSAPP}</a>
+      <a className={styles.write} href={mailUrl({ vote, style, placeName, at })}>{WRITE}</a>
     </section>
   )
 }
