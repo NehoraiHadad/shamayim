@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { lambert, type Normal } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import { halfDepthLightOf } from '../../world/halfDepthLight'

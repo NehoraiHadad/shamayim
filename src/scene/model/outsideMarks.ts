@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldMark } from '../../world/markGeometry'
 import { visibleOutsideMark } from '../../world/outsideSeats'
 import { heightLabelBox } from '../../world/sceneClearance'

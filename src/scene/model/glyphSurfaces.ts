@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { isField } from '../../world/glyphSpecs'
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'

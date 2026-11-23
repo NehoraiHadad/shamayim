@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState, RainCell } from '../../world/types'

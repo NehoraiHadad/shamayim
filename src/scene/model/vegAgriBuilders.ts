@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { clipSpans } from './vegClipping'
 import { cropFieldState, distanceFade, FIELD_FULL_M_PER_PX, FIELD_MAX_M_PER_PX, FIELD_STATE_CODE } from './vegRules'
 import { TONE } from './vegSample'

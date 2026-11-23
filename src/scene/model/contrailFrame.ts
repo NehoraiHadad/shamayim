@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { FlightPoint, HighPlane } from '../../world/life'
 import { skyDirection } from '../../world/lifeSchedule'
 import type { WorldState } from '../../world/types'

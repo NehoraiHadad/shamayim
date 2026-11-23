@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import type { RGB, WorldState } from '../../world/types'
 import { colourKey, layerKey } from './keys'

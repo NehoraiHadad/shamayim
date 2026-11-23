@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { CropArea } from '../../data/landmarks/cropAreas'
 import { destination } from '../../data/terrain/panorama'
 import { azimuthAt } from '../../domain/camera'

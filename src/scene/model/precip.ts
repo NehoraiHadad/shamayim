@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { sheetZ } from './cloudSheet'
 import { edgeMark } from './edgeMark'

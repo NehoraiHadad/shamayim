@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { FacePoint } from '../../world/face'
 import { FACE_EPSILON, fallbackFaceKm, measuredFaceAt } from './faceProjection'
 

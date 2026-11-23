@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'

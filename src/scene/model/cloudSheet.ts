@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
 import { RANGES } from '../../world/field/cells'
 import { groundRangeAt } from '../../world/field/project'

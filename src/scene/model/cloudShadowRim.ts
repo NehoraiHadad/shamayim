@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import type { FieldCell, Genus } from '../../world/field/types'
 

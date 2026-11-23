@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Normal } from '../../world/livingLight'
 import type { WorldState } from '../../world/types'
 import type { LandIrradiance } from './landIrradiance'

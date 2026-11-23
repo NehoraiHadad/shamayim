@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { groundAt as lineAt } from '../../world/sceneLight'
 import { ABOVE_PAD } from '../../world/outside'
 import { SCENE_H } from '../../world/sceneBox'

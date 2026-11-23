@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState, RGB } from '../../world/types'
 import { illustratedHazeAt as hazeAt } from './landVeil'
 import { labOf, mixRgb, rgbOf, rgbOfLab } from './tone'

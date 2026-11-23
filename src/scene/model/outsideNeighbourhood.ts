@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { OutsideItem } from './types'
 
 /** Compact kernel around each foot in reference scene units. The x-sorted search

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { ABOVE_PAD } from '../../world/outside'
 import type { WorldState } from '../../world/types'
 import { outsideRidge } from '../../world/outsideDepth'

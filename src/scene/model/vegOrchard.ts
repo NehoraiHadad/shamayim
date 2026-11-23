@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import type { AreaLimit, Footprint } from './vegFootprint'
 import { clipSpans } from './vegClipping'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { smoothstep } from '../../domain/smoothstep'
 import { seeded } from '../../data/landmarks/hash'
 

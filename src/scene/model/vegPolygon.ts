@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { CropArea, CropRing } from '../../data/landmarks/cropAreas'
 import { EARTH_R_KM } from '../../data/terrain/panorama'
 

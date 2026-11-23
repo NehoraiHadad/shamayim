@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { smoothstep } from '../../domain/smoothstep'
 
 /** Cross-fade facet light as the block grows past the scene's minimum legible width

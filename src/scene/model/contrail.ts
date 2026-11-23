@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { FlightPoint, HighPlane, TrailPuff } from '../../world/life'
 import { skyDirection } from '../../world/lifeSchedule'
 import { smoothstep } from '../../world/ridgeLighting'

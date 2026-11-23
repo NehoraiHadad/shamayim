@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldMark } from '../../world/markGeometry'
 import { neighbourRule } from '../../world/neighbourPolicy'
 import { isFamousNonOwn } from '../../world/neighbourIdentity'

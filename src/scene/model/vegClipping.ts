@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 /** Subdivide only rejected spans. Every retained span passed a conservative footprint check. */
 export function clipSpans(
   top: number, bottom: number, fits: (a: number, b: number) => boolean, emit: (a: number, b: number) => void,

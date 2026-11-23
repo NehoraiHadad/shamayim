@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Advect, AnimSpec, LayerOf, LifeClock } from './types'
 
 /*

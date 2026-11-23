@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { fallingOf } from './falling'
 import { layerKey, skyBoxKey } from './keys'

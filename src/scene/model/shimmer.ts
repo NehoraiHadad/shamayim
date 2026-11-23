@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { sunLight } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'

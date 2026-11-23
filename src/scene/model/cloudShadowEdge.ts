@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { FieldCell } from '../../world/field/types'
 import { cellRim, rimRadiusSquared } from './cloudShadowRim'
 import { crownAt, halfAt, headsOf, towerAnvil, type TowerHeadShape } from './towerHeads'

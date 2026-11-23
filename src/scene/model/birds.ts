@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import { lateral, toward } from '../../domain/camera'
 import type { BirdKind, Flock } from '../../world/life'

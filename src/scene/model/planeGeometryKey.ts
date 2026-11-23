@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Plane, TerrainPlanes } from '../../world/types'
 import { SCENE_W } from '../../world/sceneBox'
 import { PALETTE_COLS, type PlaneName } from './faceProjection'

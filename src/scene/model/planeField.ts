@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { outlineBandY, TEXEL } from './planeBands'
 import type { Box, PlaneLitField, Pt, RGB } from './types'
 

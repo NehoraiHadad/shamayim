@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { facadeTwilight } from './buildingExposure'
 import { buildingSurroundings } from './buildingLight'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import type { Normal } from '../../world/livingLight'
 import type { RGB } from '../../world/types'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { expect } from 'vitest'
 import type { HighPlane } from '../../world/life'
 import { AHEAD_STEP_S } from '../../world/lifeAhead'

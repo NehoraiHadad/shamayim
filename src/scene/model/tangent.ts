@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import type { SkyGeom } from './sky'
 import type { Pt } from './types'

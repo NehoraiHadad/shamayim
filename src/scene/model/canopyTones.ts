@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { encodedByte } from './displayByte'
 import { byteKey } from './keys'
 import { albedoLinear, shadeLinearRgb } from './landRadiance'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { SHEET_CLEAR, VISIBLE_BOTTOM } from '../../world/layout'
 import type { WorldMark } from '../../world/markGeometry'
 import { neighbourSize } from '../../world/neighbourSize'

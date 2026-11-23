@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { isField, isIcon, type GlyphKind } from '../../world/glyphSpecs'
 import { seeded } from '../../data/landmarks/hash'
 

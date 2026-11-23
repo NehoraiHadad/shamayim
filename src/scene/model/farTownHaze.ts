@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 /** Distance tiers (km): geometric, so each holds a similar change of haze. */
 export const TIER_KM = Array.from({ length: 19 }, (_, i) => 2 * 1.22 ** i)
 

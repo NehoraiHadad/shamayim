@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Footprint } from './vegFootprint'
 
 export const PALM_CROWN_HEIGHT = 0.62

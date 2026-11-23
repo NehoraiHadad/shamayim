@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { STAR_CLASSES, starShare } from './starClasses'
 import { smoothstep } from '../../world/ridgeLighting'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { groundRangeAt } from '../../world/field/project'
 import { CELLULAR_COLUMNS, CELLULAR_LOW_EDGE, CELLULAR_LOW_POWER, CELLULAR_LOW_ROWS } from '../../world/field/cells'
 import { unit } from '../../world/field/genus'

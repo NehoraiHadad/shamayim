@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { projectCell } from '../../world/field/project'
 import type { FieldCell } from '../../world/field/types'
 import type { WorldState } from '../../world/types'

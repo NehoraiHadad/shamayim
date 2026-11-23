@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { lambert, type Normal } from '../../world/livingLight'
 import type { RGB } from '../../world/types'
 import { groundView, type Surroundings } from './buildingGround'

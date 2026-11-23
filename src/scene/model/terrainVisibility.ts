@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { LOCAL_STEP_KM } from '../../data/terrain/panorama'
 import { curveDrop } from '../../world/flightTerrain'
 import type { LightDir } from '../../world/livingLight'

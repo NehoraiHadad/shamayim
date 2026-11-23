@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { smoothstep } from '../../domain/smoothstep'
 import { toSrgb } from './tone'
 import type { RGB } from '../../world/types'

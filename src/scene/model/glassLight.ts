@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Normal } from '../../world/livingLight'
 import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'

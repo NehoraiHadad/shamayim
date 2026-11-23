@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { wrap180 } from '../../domain/camera'
 import { NORMALS, type Normal } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'

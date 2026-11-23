@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'

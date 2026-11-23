@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { AHEAD_S } from '../../world/lifeAhead'
 import { smoothstep } from '../../world/ridgeLighting'
 import { trackAt } from './anim'

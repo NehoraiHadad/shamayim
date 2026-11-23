@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import type { RadianceWorld } from './landRadiance'
 import type { ShadowTerrain } from './planeCloudShadow'

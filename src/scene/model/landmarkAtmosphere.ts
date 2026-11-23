@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { plainContrast } from '../../data/city/plainHaze'
 import type { WorldState } from '../../world/types'
 import { isFamousNonOwn } from '../../world/neighbourIdentity'

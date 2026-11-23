@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldMark } from '../../world/markGeometry'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'

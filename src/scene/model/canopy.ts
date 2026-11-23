@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { canopyTones } from './canopyTones'
 import { layerKey } from './keys'
 import { frondTravel, LAND_GUST, plantWindFade, treeTravel, tuftTravel, type PlantWind } from './landWind'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { SCENE_W } from '../../world/sceneBox'
 import type { Plane } from '../../world/types'
 import type { Pt } from './types'

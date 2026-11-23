@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { RGB, TerrainPlanes } from '../../world/types'
 import { EXPOSURE_GAMMA, linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { toSrgb } from './tone'

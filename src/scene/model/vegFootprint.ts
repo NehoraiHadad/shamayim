@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { FaceColumn } from '../../world/face'
 import type { LivingLand } from '../../world/landLiving'
 import { SCENE_W } from '../../world/sceneBox'

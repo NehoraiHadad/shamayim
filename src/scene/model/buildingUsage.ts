@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { facadeDetail } from './buildingDetail'
 import type { OutsideItem } from './types'
 

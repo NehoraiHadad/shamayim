@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'

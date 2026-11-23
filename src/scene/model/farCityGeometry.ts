@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
 import { SCENE_W } from '../../world/sceneBox'
 import type { FarCities, WorldState } from '../../world/types'

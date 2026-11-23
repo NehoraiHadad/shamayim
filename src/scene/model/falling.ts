@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { altitudeOf } from '../../world/field/project'
 import type { Lattice } from '../../world/field/types'
 import type { CloudLevel, FieldRainCell, WorldState } from '../../world/types'

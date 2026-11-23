@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { groundRangeAt, R_EFF_KM } from '../../world/field/project'
 import { unit } from '../../world/field/genus'
 import type { FieldLayer } from '../../world/field/types'

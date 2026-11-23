@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { coinOf } from '../../world/air'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'

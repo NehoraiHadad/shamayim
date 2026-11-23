@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { toSrgb } from './tone'
 
 // The table differs from the rounded IEC sRGB transfer by at most one display byte.

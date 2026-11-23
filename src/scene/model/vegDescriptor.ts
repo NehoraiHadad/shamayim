@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { RGB } from '../../world/types'
 import type { PlaneVegetation } from './types'
 import type { VegBuffers } from './vegBuilders'

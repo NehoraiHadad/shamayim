@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldMark } from '../../world/markGeometry'
 import { massAt, type DrawnMass } from './markOcclusion'
 

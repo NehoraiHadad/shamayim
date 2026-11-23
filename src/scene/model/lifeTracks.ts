@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { FlightPoint, Flock, FlockSample, HighPlane, LowPlane, LowSample } from '../../world/life'
 import { AHEAD_STEP_S } from '../../world/lifeAhead'
 import { airDirection, skyDirection } from '../../world/lifeSchedule'

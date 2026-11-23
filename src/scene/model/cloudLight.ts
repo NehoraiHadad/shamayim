@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import { coinOf } from '../../world/air'
 import { MOON_RGB } from '../../world/light'

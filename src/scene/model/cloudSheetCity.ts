@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { unit } from '../../world/field/genus'
 import type { CityOnBase } from './cityLight'
 import type { gridFor } from './cloudSheetGrid'

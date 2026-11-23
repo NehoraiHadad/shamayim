@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 /**
  * What the clothesline needs to know of each garment (`wear.ts`), in the garment's own frame: (0, 0) is where the rope
  * passes, y grows down, about 34 units across a shirt. Its shapes are the painter's (`paint/shared/wear/shapes.ts`), drawn in the same

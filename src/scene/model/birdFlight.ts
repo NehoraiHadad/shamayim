@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { BirdDesc, BirdKind, Pt } from './types'
 
 /*

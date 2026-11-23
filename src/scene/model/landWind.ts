@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Wind } from '../../world/types'
 import { ease, gustAt } from './anim'
 

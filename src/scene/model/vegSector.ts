@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { EARTH_R_KM } from '../../data/terrain/panorama'
 import { quadInPolygon, type Bounds, type LocalFrame, type LocalPolygon, type Quad } from './vegPolygon'
 

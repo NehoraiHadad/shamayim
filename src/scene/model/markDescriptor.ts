@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { isNonOwnMark } from '../../world/neighbourIdentity'
 import { hashId } from '../../data/landmarks/hash'
 import { groundFn } from '../../data/landmarks/seat'

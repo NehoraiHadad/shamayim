@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { hits } from '../../world/sceneClearance'
 import type { RGB, WorldState } from '../../world/types'

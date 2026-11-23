@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 /**
  * The night sky's stars in three brightness classes, each appearing at the sun depression where it really does:
  * a handful of the brightest (planets, first-magnitude stars) once civil twilight ends (~−5°), the bulk of the

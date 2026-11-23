@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { createClumpSampler } from '../../world/field/clump'
 import { smoothstep } from '../../world/field/genus'
 import type { FieldLayer, Genus } from '../../world/field/types'

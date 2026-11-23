@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
 import { nearGroundAlbedo } from './landColour'

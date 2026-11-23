@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldMark } from '../../world/markGeometry'
 import { outsideRidge } from '../../world/outsideDepth'
 import { SCENE_W } from '../../world/sceneBox'

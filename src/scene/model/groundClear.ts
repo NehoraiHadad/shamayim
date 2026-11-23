@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { SCENE_W } from '../../world/sceneBox'
 import type { Box, SceneBox } from './types'
 import type { Footprint } from './vegFootprint'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { coverOfWorldCover } from '../../data/land/grid'
 import { SCENE_W } from '../../world/sceneBox'

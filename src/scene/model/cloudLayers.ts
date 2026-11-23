@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { smoothstep } from '../../world/ridgeLighting'
 import type { CloudLevel, WorldState } from '../../world/types'
 import { towerLayerOf } from './cloudCells'

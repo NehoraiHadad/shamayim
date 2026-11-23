@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { seeded } from '../../data/landmarks/hash'
 import { METEOR_FLASH_S } from '../../world/life'
 import type { AnimSpec, Pulse, Ramp, Sway, Track } from './types'

@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { WorldMark } from '../../world/markGeometry'
 import { markBoxAt } from '../../world/markGeometry'
 import type { OutsideItem } from './types'

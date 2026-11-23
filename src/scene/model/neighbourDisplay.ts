@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { visibleMarkHeight } from '../../world/visibleMarkHeight'
 import type { WorldMark } from '../../world/markGeometry'
 import { neighbourSize } from '../../world/neighbourSize'

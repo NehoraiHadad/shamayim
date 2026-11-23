@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import { refreshLandmarkGlyph } from './landmarkAtmosphere'
 import type { WorldMark } from '../../world/markGeometry'
 import { needsTown } from '../../world/markContext'

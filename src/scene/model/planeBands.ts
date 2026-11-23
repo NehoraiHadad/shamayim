@@ -1,3 +1,4 @@
+//# allFunctionsCalledOnLoad
 import type { Box, Pt } from './types'
 
 export const TEXEL = 3
