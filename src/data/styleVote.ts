@@ -57,8 +57,8 @@ export function createStyleVote(send: SendVote, store: Store | null = storage(),
     show({ sending: true })
     let retries = 1
     for (;;) {
-      const { id, vote }: StyleVote = state
-      if (!id || !vote) break
+      const { id, vote, sent }: StyleVote = state
+      if (!id || !vote || sent) break
       const answer = await send({ id, style: vote }).catch((): SendAnswer => 'failed')
       // Changed while it was on its way: the newer vote follows.
       const changed = state.id !== id || state.vote !== vote
