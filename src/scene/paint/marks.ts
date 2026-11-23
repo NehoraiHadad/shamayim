@@ -1,6 +1,7 @@
 import type { LayerOf, Shine, Tones, TreeDesc } from '../model/types'
 import { rng } from './core'
 import { drawGlyph, drawLamps, glyphShadow } from './glyphs'
+import { paintPass } from './paintPass'
 import { css, mix, type Ctx2D, type PaintEnv, type Scratch } from './hand'
 
 /*
@@ -54,7 +55,7 @@ export function paintMarks(ctx: Ctx2D, desc: LayerOf<'marks'>, env: PaintEnv): v
   const glyphs = [...desc.glyphs].sort((a, b) => a.base - b.base)
   for (const g of glyphs) glyphShadow(ctx, g, desc.shine)
   const lamps = glyphs.flatMap((g) => drawGlyph(ctx, g, desc.shine))
-  grain(ctx, env, 7, 1 - 0.4 * desc.shine.night)
+  paintPass(ctx, 'background', () => grain(ctx, env, 7, 1 - 0.4 * desc.shine.night))
   drawLamps(ctx, lamps, 1 / env.scale)
 }
 

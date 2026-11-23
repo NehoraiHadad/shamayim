@@ -1,5 +1,6 @@
-import { OWN_GLYPH_EVIDENCE } from '../../test/glyphEvidence'
+import { glyphPaintEvidence, OWN_GLYPH_EVIDENCE } from '../../test/glyphEvidence'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
+import { smoothstep } from '../../domain/smoothstep'
 import { addMinutes } from '../../domain/time'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
@@ -8,8 +9,8 @@ import { makeWorldBuilder } from '../../world/world'
 import { shineOf } from '../model/marks'
 import { outsideLayer } from '../model/outside'
 import type { GlyphDesc, LayerOf, SceneBox, Shine } from '../model/types'
+import { PAINT_PASS } from './paintPass'
 import { drawGlyph } from './glyphs'
-import { css, mix } from './hand'
 import type { Ctx2D, PaintEnv } from './hand'
 import { paintOutside } from './outside'
 
@@ -34,11 +35,16 @@ function record(layer: LayerOf<'outside'>, windowsOnly = false) {
   const form: [string, ...number[]][] = [], channels: number[] = []
   const casts: { span: number; alpha: number; path: typeof form }[] = []
   const halos: number[] = []
-  const lit = new Set<string>()
-  let pathStart = 0
+  const lit = new Set<string>(), emissions: unknown[] = []
+  let emissive = false, pathStart = 0
   let fill: string | Gradient, stroke: string
   const ctx = new Proxy({}, {
-    get: (_, op: string) => (...args: number[]) => {
+    get: (_, op: string | symbol) => op === PAINT_PASS ? (kind: string, draw: () => void) => {
+      emissive = kind === 'emission'
+      draw()
+      emissive = false
+      return true
+    } : (...args: number[]) => {
       if (op === 'createLinearGradient' || op === 'createRadialGradient') {
         const stops: number[][] = []
         // Casts have two stops across the ground. Round glyph bodies have a multi-stop falloff.
@@ -50,13 +56,14 @@ function record(layer: LayerOf<'outside'>, windowsOnly = false) {
         const [, , w, h] = args
         if ((w === .55 || (w === .5 && h === .55)) && !fill.includes('/')) lit.add(args.join(','))
       }
-      if (windowsOnly || !FORM.has(op)) return
+      if (windowsOnly || typeof op !== 'string' || !FORM.has(op)) return
       if (op === 'beginPath') pathStart = form.length
       form.push([op, ...args])
       if (op === 'fill' && typeof fill !== 'string' && fill.cast && fill.stops.length === 2) {
         casts.push({ span: fill.span, alpha: fill.stops[0][3], path: form.splice(pathStart) })
       } else if (op === 'fill' || op === 'fillRect' || op === 'stroke') {
         const paint = op === 'stroke' ? stroke : fill
+        if (emissive) emissions.push([op, args, typeof paint === 'string' ? paint : paint.stops])
         if (typeof paint !== 'string' && paint.halo) halos.push(paint.stops[0][3])
         channels.push(...(typeof paint === 'string' ? colour(paint) : paint.stops.flat()))
       }
@@ -68,36 +75,41 @@ function record(layer: LayerOf<'outside'>, windowsOnly = false) {
     },
   }) as Ctx2D
   paintOutside(ctx, layer, env)
-  return { form, channels, casts, lit, halos }
+  return { form, channels, casts, lit, halos, emissions }
 }
 
 const WINDOW_GLYPHS = ['minaret', 'church', 'synagogue', 'homes', 'chimney', 'highrise', 'silo', 'azrieli', 'babShrine'] as const
 
 /** Identifies each warm, opaque window fill by its path in glyph space. */
 function glyphWindows(glyph: GlyphDesc, shine: Shine) {
-  const { wall, win } = glyph.tones
-  const warm = new Set([.5, .55, .6, .7, .75, .8, .85, .9].map((share) => css(mix(wall, win, share))))
+  let emissive = false
   const lit = new Set<string>()
   let path: [string, ...number[]][] = [], fill: unknown
   const ctx = new Proxy({}, {
-    get: (_, op: string) => (...args: number[]) => {
+    get: (_, op: string | symbol) => op === PAINT_PASS ? (_: unknown, draw: () => void) => {
+      emissive = true
+      draw()
+      emissive = false
+      return true
+    } : (...args: number[]) => {
       if (op === 'createLinearGradient' || op === 'createRadialGradient') return { addColorStop() {} }
       if (op === 'beginPath') path = []
       else if (op === 'fill') {
-        if (typeof fill === 'string' && warm.has(fill)) lit.add(`${glyph.seed}:${JSON.stringify(path)}`)
-      } else if (FORM.has(op)) path.push([op, ...args])
+        if (typeof fill === 'string' && emissive) lit.add(`${glyph.seed}:${JSON.stringify(path)}`)
+      } else if (typeof op === 'string' && FORM.has(op)) path.push([op, ...args])
     },
     set: (_, key, value) => { if (key === 'fillStyle') fill = value; return true },
   }) as Ctx2D
-  drawGlyph(ctx, glyph, shine)
+  drawGlyph(ctx, { ...glyph, ...glyphPaintEvidence(glyph.tones) }, shine)
   return lit
 }
 
-let jerusalem: LoadedPlace
+let jerusalem: LoadedPlace, haifa: LoadedPlace
 beforeAll(async () => {
   stubPublicFetch()
-  const place = SCENE_PLACES.find(({ id }) => id === 'jerusalem')!
-  jerusalem = (await loadPlaces([place])).get(place.id)!
+  const places = await loadPlaces(SCENE_PLACES.filter(({ id }) => id === 'jerusalem' || id === 'haifa'))
+  jerusalem = places.get('jerusalem')!
+  haifa = places.get('haifa')!
 })
 afterAll(() => vi.unstubAllGlobals())
 
@@ -249,3 +261,62 @@ it('never extinguishes a lit box, tower or glyph window as the Jerusalem share r
   expect(increases).toBeGreaterThan(0)
   for (const [kind, windows] of previousGlyphs) expect(windows.size, kind).toBeGreaterThan(0)
 })
+
+function receiverBytes(layer: LayerOf<'outside'>) {
+  const bytes: number[] = []
+  const visit = (value: unknown) => {
+    if (!value || typeof value !== 'object') return
+    if (Array.isArray(value) && value.length === 3 && value.every(v => typeof v === 'number')) {
+      bytes.push(...value.map(v => Math.round(v * 255)))
+    } else Object.values(value).forEach(visit)
+  }
+  visit(layer.receivers)
+  visit(layer.accessories)
+  for (const item of layer.items) if (item.kind === 'mark') {
+    visit(item.glyph.surfaces)
+    visit(item.glyph.gilding)
+    if (item.glyph.surfaces) for (const name of ['wall', 'shade', 'deep', 'rim', 'stone', 'roof', 'glass'] as const) visit(item.glyph.tones[name])
+  }
+  return bytes
+}
+
+const byteStep = (a: number[], b: number[]) => {
+  expect(a).toHaveLength(b.length)
+  return a.reduce((max, v, i) => Math.max(max, Math.abs(v - b[i])), 0)
+}
+
+it('keeps Haifa building geometry and emitters across solar altitudes −11.9° and −12.1°', () => {
+  const time = '2026-11-17T17:34'
+  const world = makeWorldBuilder()(worldInput(haifa, time, time))
+  const at = (altitude: number) => {
+    const layer = outsideLayer({ ...world, bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } },
+      night: { ...world.night, dark: smoothstep(-4, -12, altitude) } }, BOX)!
+    return { ...layer, sea: null, land: null }
+  }
+  const before = at(-11.9), after = at(-12.1)
+  const fabric = (layer: LayerOf<'outside'>) => ({ ...layer, items: layer.items.filter(i => i.kind === 'box' || i.kind === 'tower') })
+  const a = record(fabric(before)), b = record(fabric({ ...after, shine: before.shine, tiers: before.tiers }))
+  expect(a.form.length).toBeGreaterThan(200)
+  expect(b.form).toEqual(a.form)
+  expect(a.lit.size).toBeGreaterThan(0)
+  expect(b.lit).toEqual(a.lit)
+  expect(b.halos).toEqual(a.halos)
+  expect(b.emissions).toEqual(a.emissions)
+  for (const [i, alpha] of record(fabric(after)).halos.entries()) expect(Math.abs(alpha - a.halos[i])).toBeLessThanOrEqual(.00101)
+  expect(byteStep(receiverBytes(before), receiverBytes(after))).toBeLessThanOrEqual(1)
+})
+
+it('bounds every one-minute architectural tone step over Haifa’s evening', () => {
+  const start = '2026-11-17T16:00'
+  const build = makeWorldBuilder(), input = worldInput(haifa, start, start)
+  let previous = receiverBytes(outsideLayer(build(input), BOX)!)
+  let largest = 0, largestAt = start as string
+  for (let minute = 1; minute <= 300; minute++) {
+    const selected = addMinutes(start, minute)
+    const next = receiverBytes(outsideLayer(build({ ...input, selected }), BOX)!)
+    const step = byteStep(previous, next)
+    if (step > largest) { largest = step; largestAt = selected }
+    previous = next
+  }
+  expect(largest, largestAt).toBeLessThanOrEqual(8)
+}, 60_000)

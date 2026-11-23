@@ -1,61 +1,41 @@
 import type { LayerOf } from '../model/types'
 import { boxFaces, capDepth, topPlane } from './buildingFaces'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
+import { paintPass } from './paintPass'
 
-/*
- * The far towns in the enriched hand. MEDIUM: the scene's flat opaque bodies, one-sided light, haze by distance, no
- * outlines. ORDER, far tier to near: each tier's mass (the town as the eye resolves it, soft-edged by its strength steps),
- * the blocks blend from lit to shade with the strength of lateral light, then their faces toward the light take a
- * narrow lit strip; last the lit windows by night, each a point with a faint halo. One
- * path per tone, so a town of a thousand blocks is a handful of fills.
- */
+/** Averaged town fabric, emerging facets, then lit windows and their halos. */
 export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: PaintEnv): void {
   const hair = 1 / env.scale
   for (const tier of desc.tiers) {
-    // The town's mass in the mean of its lit and shaded stone, one fill per strength step.
-    const stone = tier.unresolved ?? mix(tier.lit, tier.shade, 0.45)
     for (const { alpha, boxes } of tier.mass) {
       if (!boxes.length) continue
       ctx.beginPath()
       for (const m of boxes) ctx.rect(m.x, m.y, m.w, m.h)
-      ctx.fillStyle = css(stone, alpha)
+      ctx.fillStyle = css(tier.unresolved, alpha)
       ctx.fill()
     }
     if (!tier.blocks.length) continue
-    if (tier.resolved && tier.unresolved) {
-      ctx.beginPath()
-      for (const b of tier.blocks) {
-        if (b.w < 3.2 * hair || b.h < 2.4 * hair) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
-      }
-      ctx.fillStyle = css(tier.unresolved, .86)
-      ctx.fill()
-      for (const b of tier.blocks) {
-        if (b.w < 3.2 * hair || b.h < 2.4 * hair) continue
-        const faces = tier.resolved[b.receiver!], y = b.base - b.h
-        const cap = capDepth(b.w, b.h, env.scale)
-        boxFaces(ctx, b.x, y + cap, b.w, b.h - cap, faces, 0, 0)
-        topPlane(ctx, b.x, y, b.w, cap, faces.top)
-      }
-      continue
-    }
+    // The same base footprint stays under the detail at every size.
     ctx.beginPath()
     for (const b of tier.blocks) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
-    // Under an even sky the bodies take the lit tone, then shade as the lateral light increases.
-    const k = Math.abs(desc.lateralLight)
-    ctx.fillStyle = css(mix(tier.lit, tier.shade, k), 0.85 + 0.15 * k)
+    ctx.fillStyle = css(tier.unresolved, .86)
     ctx.fill()
-    for (const dir of [1, -1]) {
-      ctx.beginPath()
-      for (const b of tier.blocks) {
-        const w = Math.max(hair, b.w * .55)
-        ctx.rect(dir > 0 ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
-      }
-      ctx.fillStyle = css(tier.lit, Math.max(0, dir * desc.lateralLight))
-      ctx.fill()
+    for (const b of tier.blocks) {
+      const { detail } = b
+      if (!detail) continue
+      const faces = { ...tier.resolved[b.receiver], unresolved: tier.unresolved }
+      const y = b.base - b.h, cap = capDepth(b.w, b.h, env.scale)
+      ctx.save()
+      ctx.globalAlpha *= detail
+      boxFaces(ctx, b.x, y + cap, b.w, b.h - cap, faces, 1, 0)
+      topPlane(ctx, b.x, y, b.w, cap, mix(tier.unresolved, faces.top, .65))
+      ctx.restore()
     }
   }
-  if (!desc.lights.length) return
-  // Lights by strength (four steps), each with a halo of three times its size.
+  if (desc.lights.length) paintPass(ctx, 'emission', () => paintCityLights(ctx, desc, hair))
+}
+
+function paintCityLights(ctx: Ctx2D, desc: LayerOf<'farCities'>, hair: number) {
   const steps = [0.25, 0.5, 0.75, 1]
   const peak = Math.max(...desc.lights.map((l) => l.alpha))
   for (const [scale, a] of [[2.6, 0.16], [1, 1]] as const) {

@@ -1,7 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
-import { colourKey, landBoxKey, layerKey } from './keys'
+import { colourCode, colourKey, landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey, refreshLandmarkItems } from './landmarkAtmosphere'
 import type { DrawnMass } from './markOcclusion'
 import { facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
@@ -26,7 +26,7 @@ import type { Box, LayerOf, SceneBox, Shine, Tones } from './types'
 
 const Z = 38
 
-const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
+const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourCode(t[k]))
 
 export function outsideMass(world: WorldState, box: SceneBox, clear: readonly Box[]): readonly DrawnMass[] {
   return world.place3.kind === 'outside' ? outsideShape(world, box, clear).mass : []
@@ -51,7 +51,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const landDesc = outsideLandDesc(world, view, box, sx)
   const receivers = shape.receivers.map((ids, i) => {
     const palette: Record<number, BuildingFaces> = {}
-    if (shine.night < 1) for (const id of ids) palette[id] = buildingFaces(world, shape.kms[i], id)
+    for (const [id, { detail, tile }] of ids) palette[id] = buildingFaces(world, shape.kms[i], id, tile, false, detail)
     return palette
   })
   if (!out.length && !sea) return null
@@ -70,7 +70,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))
   return {
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
-    items: out, tiers: tones, sea, shine, land: landDesc, receivers, accessories: shine.night < 1 ? shape.kms.map(km => accessoryTones(world, km)) : [],
+    items: out, tiers: tones, sea, shine, land: landDesc, receivers, accessories: shape.kms.map((km, i) => shape.heaters.has(i) ? accessoryTones(world, km) : null),
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
       glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),

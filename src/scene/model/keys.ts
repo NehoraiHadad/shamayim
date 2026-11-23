@@ -15,6 +15,10 @@ export function byteKey(bytes: Uint8Array) {
 
 export const colourKey = (rgb: RGB) => rgb.map((c) => Math.round(c * 255))
 
+/** Pack channel bytes for palette keys with many swatches. */
+export const colourCode = ([r, g, b]: RGB, shift = 0) =>
+  ((Math.round(r * 255) >> shift) << 16) | ((Math.round(g * 255) >> shift) << 8) | (Math.round(b * 255) >> shift)
+
 /**
  * The pixel ratio a layer is cached at: the device's, for every layer. The plan's cap for soft layers (`min(dpr, 2)`)
  * is not used: a cached bitmap is never scaled up (the anidoodle contract), and a 1:1 blit is the fast path (a scaled

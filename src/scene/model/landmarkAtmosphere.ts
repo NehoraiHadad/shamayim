@@ -3,7 +3,7 @@ import type { WorldState } from '../../world/types'
 import { isFamousNonOwn } from '../../world/neighbourIdentity'
 import { tonesAt } from './marks'
 import { glyphSurfaces, glyphSurfaceKey } from './glyphSurfaces'
-import { colourKey } from './keys'
+import { colourCode } from './keys'
 import { toneAt } from './landVeil'
 import { mixRgb } from './tone'
 import type { GlyphDesc, OutsideItem, Tones } from './types'
@@ -44,7 +44,7 @@ export function refreshLandmarkItems(world: WorldState, items: readonly OutsideI
 
 /** The palette and Allard lamp transmission at the compositor's colour/alpha-byte precision. */
 export const glyphAtmosphereKey = (glyphs: readonly GlyphDesc[]) => glyphs.map(g => [
-  (Object.keys(g.tones) as (keyof Tones)[]).map(k => colourKey(g.tones[k])),
-  g.windowWall && colourKey(g.windowWall), glyphSurfaceKey(g.surfaces), g.gilding?.flat().map(c => colourKey(c).map(v => v >> 2)),
+  (Object.keys(g.tones) as (keyof Tones)[]).map(k => colourCode(g.tones[k])),
+  g.windowWall && colourCode(g.windowWall), glyphSurfaceKey(g.surfaces), g.gilding?.flat().map(c => colourCode(c, 2)),
   isFamousNonOwn(g) ? Math.round(Math.cbrt(g.contrast!) * 255) : null,
 ])

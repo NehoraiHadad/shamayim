@@ -7,7 +7,7 @@ import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
 import { hazeAt } from './landVeil'
 
-const GOLD_F0: RGB = [.95, .73, .13]
+const GOLD_F0: RGB = [1, .77, .34]
 const SILVER_F0: RGB = [.89, .91, .92]
 
 /** Rough conductor in the camera frame. V is toward the eye, so R = 2(N·V)N − V. */
@@ -19,17 +19,17 @@ export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
   return (n: Normal): RGB => {
     const nv = Math.max(0, -n[1]), r: Normal = [2 * nv * n[0], 1 + 2 * nv * n[1], 2 * nv * n[2]]
     const towardSun = (r[0] * irr.sunDir.across + r[1] * irr.sunDir.ahead) / sunHorizontal
-    const sky = skyAt(r[2], towardSun)
-    const open = smoothstep(-.24, .24, r[2])
+    const sky = skyAt(.16 + .62 * r[2], .79 * towardSun)
+    const open = smoothstep(-.45, .32, r[2])
     const reflection: RGB = [0, 1, 2].map(i => ground[i] + (sky[i] - ground[i]) * open) as [number, number, number]
     // Normalized broad cosine lobe for the tiled metal. Its input is the terrain's attenuated beam.
-    const lobe = lambert(n, irr.sunDir) * lambert(r, irr.sunDir) ** 6 * 2.8
+    const lobe = lambert(n, irr.sunDir) * lambert(r, irr.sunDir) ** 2.7 * 1.8
     return linearRgbToSrgb(shadeLinearRgb(f0, irr.eSunVec, irr.eMoonVec, reflection, lobe, 0, 1, irr.yHorizon, haze, air))
   }
 }
 
-const DOME_X = [-.93, -.70, -.35, 0, .35, .70, .93]
-const DOME_UP = [.05, .40, .76, .97]
+const DOME_X = [-1, -2/3, -1/3, 0, 1/3, 2/3, 1]
+const DOME_UP = [.05, .35, .65, .94]
 
 export function domeSectors(world: WorldState, km: number): RGB[][] {
   const gold = metalLight(world, km)

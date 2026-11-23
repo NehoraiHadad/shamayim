@@ -2,8 +2,8 @@ import { wrap180 } from '../../domain/camera'
 import { NORMALS, type Normal } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
-import { reflectedGround, surfaceReceiver } from './buildingLight'
-import { nearGroundAlbedo } from './landColour'
+import { accentSurface } from './buildingIncidence'
+import { groundLighting } from './buildingGround'
 import { landIrradiance, srgbRgbToLinear, surfaceNormal } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
 import { mixLight } from './tone'
@@ -28,22 +28,6 @@ function glassBacklight(world: WorldState): number {
   return clamp01(ahead * low * up * (1 - world.night.dark))
 }
 
-const surroundings = new WeakMap<WorldState, ReturnType<typeof buildingSurroundings>>()
-
-function buildingSurroundings(world: WorldState) {
-  const irr = landIrradiance(world)
-  // Preserve the historical palette for plants, lamp tints and the fully dark painter.
-  const ground = reflectedGround(srgbRgbToLinear(nearGroundAlbedo(world)), irr, .18, 1)
-  return { irr, ground, air: srgbRgbToLinear(hazeOf(world)) }
-}
-
-export function legacySurface(world: WorldState, km: number) {
-  let state = surroundings.get(world)
-  if (!state) surroundings.set(world, state = buildingSurroundings(world))
-  const receive = surfaceReceiver(state, hazeAt(world, km))
-  return (albedo: RGB, n: Normal, open = 1, beam = 1) => receive(srgbRgbToLinear(albedo), n, open, beam)
-}
-
 const palettes = new WeakMap<WorldState, Map<number, Tones>>()
 
 export function tonesAt(world: WorldState, km: number): Tones {
@@ -52,7 +36,8 @@ export function tonesAt(world: WorldState, km: number): Tones {
   const hit = known.get(km)
   if (hit) return hit
   const sky = hazeOf(world)
-  const shadeMat = legacySurface(world, km)
+  const receive = accentSurface(groundLighting(world).accents, hazeAt(world, km))
+  const shadeMat = (albedo: RGB, n: Normal, open = 1, beam = 1) => receive(srgbRgbToLinear(albedo), n, open, beam)
   const { front, top } = NORMALS
   const side = smoothstep(-.025, .025, landIrradiance(world).sunDir.across)
   const lateral = (material: RGB) => side === 0 ? shadeMat(material, NORMALS.left)
@@ -64,7 +49,6 @@ export function tonesAt(world: WorldState, km: number): Tones {
   const tones: Tones = {
     wall, lit, shade, rim: lateral(STONE),
     deep: shadeMat(WALL, front, 0.24, 0),
-    refl: mixLight(shade, sky, 0.18),
     roof, roofLit: shadeMat(TILE, top),
     stone: shadeMat(STONE, front), stoneLit: lateral(STONE),
     glass: mixLight(shadeMat(BLACK, front), sky, 0.13),

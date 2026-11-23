@@ -1,6 +1,7 @@
 import { hashId } from '../../data/landmarks/hash'
 import { SCENE_W } from '../../world/sceneBox'
 import type { FarCities, WorldState } from '../../world/types'
+import { farFacadeDetail } from './buildingDetail'
 import { receiverId } from './buildingMaterial'
 import { farTownTier, TIER_KM } from './farTownHaze'
 import type { Box, CityBlock, CityLight, SceneBox } from './types'
@@ -47,7 +48,7 @@ export function geometryOf(world: WorldState, box: SceneBox, clear: readonly Box
   for (const b of far.shapes.blocks) {
     const x = b.x * sx, w = b.w * Math.max(1, sx)
     if (hits(clear, x, b.base - b.h, w, b.h)) continue
-    tiers[farTownTier(b.km)].blocks.push({ x, base: b.base, w, h: b.h, km: b.km, receiver: receiverId(hashId(`${b.x}:${b.base}`)) })
+    tiers[farTownTier(b.km)].blocks.push({ x, base: b.base, w, h: b.h, km: b.km, receiver: receiverId(hashId(`${b.x}:${b.base}`)), detail: farFacadeDetail(w, b.h) })
     extend(x, b.base - b.h, w, b.h)
   }
   const lights = far.shapes.lights.flatMap((dot) => {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LocalTime } from '../domain/types'
+import { refreshLandmarkGlyph } from '../scene/model/landmarkAtmosphere'
 import { shineOf, tonesAt } from '../scene/model/marks'
 import { rgbOf } from '../scene/model/tone'
 import type { GlyphDesc, LayerOf } from '../scene/model/types'
@@ -59,7 +60,7 @@ function Cell({ world, kind, zoom, w, h }: { world: WorldState; kind: GlyphKind;
     const desc: GlyphDesc = { factor: 1, kind, x: w / 2, base: field ? groundY + 1.5 * zoom : groundY, h: gh, scale: zoom, w: spec.w * zoom, seed: 3,
       hand: glyphHand(kind, 3), tones: tonesAt(world, 1.5), famous: false,
       ...(field ? { ground: Array.from({ length: spec.w + 1 }, (_, i) => -0.08 * (i - spec.w / 2)) } : {}) }
-    const layer = { kind: 'marks', glyphs: [desc], shine: shineOf(world) } as unknown as LayerOf<'marks'>
+    const layer = { kind: 'marks', glyphs: [refreshLandmarkGlyph(world, desc, 1.5)], shine: shineOf(world) } as unknown as LayerOf<'marks'>
     // On its own canvas, as the layer is in the scene: the grain takes only what the glyph draws.
     const own = env(dpr).canvas(w * dpr, h * dpr)
     own.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)

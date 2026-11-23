@@ -2,7 +2,9 @@ import type { OutsideItem, RGB, Shine, Tones } from '../model/types'
 import { rng } from './core'
 import { aviationLamp, type Lamp } from './glyphs/kit'
 import { css, mix, type Ctx2D } from './hand'
-import { MIN_STOREY_PX } from './outsideLight'
+import { paintPass } from './paintPass'
+
+const MIN_STOREY_PX = .85
 
 export type Box = Extract<OutsideItem, { kind: 'box' }>
 export type Tower = Extract<OutsideItem, { kind: 'tower' }>
@@ -25,8 +27,12 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Tones, s: Shine, lamps: L
         const threshold = r(), catches = r() < .45, halo = r() < .12
         if (!present) continue
         const on = threshold < s.windows
-        ctx.fillStyle = css(on ? warm : recess, on ? 1 : .5 - .2 * s.night)
-        ctx.fillRect(wx, wy, .55, Math.min(.6, storey * .5))
+        const wh = Math.min(.6, storey * .5)
+        if (on) emitWindow(ctx, wx, wy, .55, wh, warm)
+        else {
+          ctx.fillStyle = css(recess, .35 - .15 * s.night)
+          ctx.fillRect(wx, wy, .55, wh)
+        }
         if (!on && catches && glint > 0) {
           ctx.fillStyle = css(specular, .9 * glint * s.faces.front)
           ctx.fillRect(wx, wy, .55, Math.min(.6, storey * .5))
@@ -55,10 +61,20 @@ export function paintTowerWindows(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lam
       for (let x = inner0; x + .5 <= inner1; x += 1.1) {
         const threshold = r(), recess = r() < .55
         const on = threshold < s.windows * .8
-        ctx.fillStyle = css(on ? warm : windowRecess, on ? 1 : tw.full && recess ? .3 * (1 - s.night) : 0)
-        ctx.fillRect(x, y, .5, .55)
+        if (on) emitWindow(ctx, x, y, .5, .55, warm)
+        else {
+          ctx.fillStyle = css(windowRecess, tw.full && recess ? .25 * (1 - s.night) : 0)
+          ctx.fillRect(x, y, .5, .55)
+        }
       }
     }
   }
   if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tipY - .4, s))
+}
+
+function emitWindow(ctx: Ctx2D, x: number, y: number, w: number, h: number, warm: RGB) {
+  paintPass(ctx, 'emission', () => {
+    ctx.fillStyle = css(warm)
+    ctx.fillRect(x, y, w, h)
+  })
 }

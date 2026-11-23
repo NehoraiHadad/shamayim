@@ -211,6 +211,7 @@ function Scene({ input: given }: { input: WorldInput }) {
         const next = build({ ...input, selected: at })
         const t1 = performance.now()
         const nextModel = sceneModel(next, box, moment.clock)
+        win.__world = next
         const t2 = performance.now()
         // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the
         // browser's to composite (not timed).

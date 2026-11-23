@@ -166,9 +166,8 @@ const pxOf = (look: OutsideLook | undefined, heightM: number, k: number) => look
 
 export type TowerLod = 'glyph' | 'silhouette' | 'block'
 export interface OutsideTower {
-  footprintBearing?: number
   x: number; baseY: number; w: number; h: number; near: number
-  heightM: number; seed: number; name?: string; famous: boolean; lod: TowerLod
+  heightM: number; seed: number; name?: string; famous: boolean; lod: TowerLod; industrial?: true
   /** A crown on the silhouette: 0 flat, 1 a setback, 2 a mast (the tall ones). */
   crown: 0 | 1 | 2
   /** Where it stands: km east / north of the place. */
@@ -180,8 +179,6 @@ export interface OutsideTower {
  * the mass (`b`), or one member of a tower block (`c`, drawn in one tone so the block reads as one stepped shape).
  */
 export interface OutsideBox { x: number; w: number; top: number; foot: number; near: number; kind: 'fabric' | 'mass' | 'block'
-  /** Surveyed outward footprint orientation, clockwise from north, when supplied. */
-  footprintBearing?: number
   /** Its roof's real height (m): a built square's, or a folded tower's. */
   heightM?: number
   seed?: number
@@ -221,7 +218,7 @@ export function dedupeTowers<T extends CityTower>(towers: readonly T[]): T[] {
   return kept
 }
 
-interface Prepared extends CityTower { famous: boolean; seed: number; x: number; near: number; k: number; lie: PlaceLie }
+interface Prepared extends CityTower { industrial?: true; famous: boolean; seed: number; x: number; near: number; k: number; lie: PlaceLie }
 
 /** A hand-drawn icon stands for the towers at its spot (Azrieli) when it is about as tall as they are; a bridge is not. */
 function iconStandsFor(place: Coordinate, landmarks: readonly Landmark[]) {
@@ -260,10 +257,14 @@ function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: rea
     .filter(tower => isOwnSpot(frame, lie, tower.dx, tower.dy))
     .filter(tower => !icon(tower))
   const fameOf = towerFame(place, own, landmarks)
+  const industrial = landmarks.filter(mark => mark.nameHe && (mark.kind === 'chimney' || mark.kind === 'cooling'))
   return own.map((tower): Prepared => {
     const mark = fameOf.get(tower)
     const { x, near, k } = outsideProject(frame, tower.dx, tower.dy)
+    // A skyline source can also be catalogued as an industrial landmark.
+    const stack = industrial.some(candidate => candidate.nameHe === tower.name && sameTower(candidate, tower))
     return { ...tower, name: mark?.nameHe ?? tower.name, famous: Boolean(mark), x, near, k, lie,
+      ...(stack ? { industrial: true as const } : {}),
       seed: hashId(`${tower.lat.toFixed(5)}:${tower.lon.toFixed(5)}`) }
   })
 }
@@ -276,6 +277,7 @@ function placed(tower: Prepared, lod: TowerLod, ground: Ground, floor: number, l
   return { x: tower.x, baseY: lieBaseY(tower.lie, ground, tower.x, tower.near, floor, w, tower.dx, tower.dy), w, h, near: tower.near,
     heightM: tower.heightM,
     seed: tower.seed, name: tower.name, famous: tower.famous, lod, dx: tower.dx, dy: tower.dy,
+    ...(tower.industrial ? { industrial: true as const } : {}),
     crown: tower.heightM >= 180 ? 2 : (tower.seed >>> 3) % 3 === 0 ? 1 : 0 }
 }
 

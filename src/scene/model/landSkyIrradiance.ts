@@ -27,6 +27,9 @@ const DOME = (() => {
   return { zenith, forward, moment, roughForward }
 })()
 
+export const afterglowWeight = (sunAlt: number) =>
+  smoothstep(AFTERGLOW.to, AFTERGLOW.to + 2, sunAlt) * smoothstep(AFTERGLOW.from, AFTERGLOW.from - 2.3, sunAlt)
+
 export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): { rgb: RGB; amount: number; exposure: number; bias: number } {
   const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon))
   const mid = srgbRgbToLinear(light.ambient)
@@ -77,7 +80,7 @@ export function skyReflection(light: RadianceLight, sunAlt: number, tau: number,
   const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon)), aerosol = -Math.expm1(-2 * tau)
   const afterglow = light.afterglow ? srgbRgbToLinear(light.afterglow.rgb) : horizon
   const glowWeight = light.afterglow
-    ? smoothstep(AFTERGLOW.to, AFTERGLOW.to + 1, sunAlt) * smoothstep(AFTERGLOW.from, AFTERGLOW.from - .65, sunAlt) : 0
+    ? afterglowWeight(sunAlt) : 0
   const glow = horizon.map((c, i) => c + (afterglow[i] - c) * glowWeight)
   const cloudFill = 1.8 * cloud ** 2 * aerosol * linearLuminance(horizon)
   const forward = (.8 + 5.7 * glowWeight) * aerosol * (1 - .65 * cloud)

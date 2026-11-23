@@ -1,21 +1,20 @@
 import type { OutsideItem } from './types'
 
-/** Nearby projected walls close off the sky from a box's foot. Count the solids in fixed scene-space bins
- * at its street level. This footprint proxy stays fixed through a scrub and has no per-city parameters. */
-export function neighbourhood(items: readonly OutsideItem[]) {
-  const cells = new Map<number, number>(), size = 5
-  const at = (x: number, y: number) => y * 4096 + x
-  for (const box of items) {
-    if (box.kind !== 'box') continue
-    const y = Math.floor(box.foot / size), x = Math.floor(box.x / size), key = at(x, y)
-    cells.set(key, (cells.get(key) ?? 0) + 1)
-  }
-  for (const box of items) {
-    if (box.kind !== 'box') continue
-    const y = Math.floor(box.foot / size), x = Math.floor(box.x / size)
-    const local = (cells.get(at(x, y)) ?? 1) - 1
-    const sides = (cells.get(at(x - 1, y)) ?? 0) + (cells.get(at(x + 1, y)) ?? 0)
-    const street = cells.get(at(x, y + 1)) ?? 0
-    box.neighbours = Math.min(1, (local + .5 * sides + .8 * street) / 3)
+/** Compact kernel around each foot in reference scene units. The x-sorted search
+ * only limits the distance checked, so crossing its boundary cannot change the shade. */
+export function neighbourhood(items: readonly OutsideItem[], sx: number) {
+  const boxes = items.filter(item => item.kind === 'box').sort((a, b) => a.x - b.x)
+  for (const [i, box] of boxes.entries()) {
+    let shade = 0
+    for (const step of [-1, 1]) {
+      for (let j = i + step; j >= 0 && j < boxes.length; j += step) {
+        const other = boxes[j], dx = (other.x - box.x) / (8 * sx)
+        if (Math.abs(dx) >= 1) break
+        const dy = (other.foot - box.foot) / 5
+        const weight = Math.max(0, 1 - dx * dx - dy * dy)
+        shade += weight * weight * Math.min(1, (other.foot - other.top) / 3)
+      }
+    }
+    box.neighbours = 1 - Math.exp(-shade / 2.6)
   }
 }

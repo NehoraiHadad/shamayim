@@ -1,4 +1,5 @@
 import { css, mix } from '../hand'
+import { paintPass } from '../paintPass'
 import { Kit, poly, rect } from './kit'
 
 /*
@@ -44,8 +45,9 @@ export function lighthouse(k: Kit, h: number) {
   k.fill(rect(-3.5, -body - 1, 1, 1), k.litL)
   k.rim(-3.5, -body - 1, 4)
   const lit = k.nightFade(0.2, 0.4)
-  k.fill(rect(-2.6, -body - 2.8, 2.2, 1.8), mix(t.deep, mix(t.wall, t.win, 0.95), lit), 0.9)
-  k.round((c) => { c.beginPath(); c.moveTo(-2.8, -body - 2.8); c.arc(-1.5, -body - 2.8, 1.3, Math.PI, 0); c.closePath() }, -2.8, -0.2, 0.5)
+  paintPass(k.c, 'emission', () =>
+    k.fill(rect(-2.6, -body - 2.8, 2.2, 1.8), mix(k.windowRecess, mix(k.windowWall, t.win, .95), lit), .9))
+  k.round((c) => { c.beginPath(); c.moveTo(-2.8, -body - 2.8); c.arc(-1.5, -body - 2.8, 1.3, Math.PI, 0); c.closePath() }, -2.8, -0.2)
   k.fill(rect(-1.75, -h, 0.5, 1.2), t.wall)
   k.lamp(-1.5, -body - 1.9, 4, t.win, 0.55 * k.night, lit)
 }
@@ -65,8 +67,8 @@ export function turbine(k: Kit, h: number) {
     const rotation = angle * Math.PI / 180 + (k.r() - 0.5) * 0.02
     c.rotate(rotation)
     k.fill(poly([-0.6, 0, -0.25, -length, 0.25, -length, 0.6, 0]), t.wall, 0.95)
-    k.fill(poly([-0.6, 0, -0.25, -length, -0.05, -length, -0.1, 0]), k.surfaces?.silver ?? k.face(t.wall, t.lit, Math.cos(rotation)), 0.75)
-    k.fill(poly([0.1, 0, 0.05, -length, 0.25, -length, 0.6, 0]), k.surfaces?.silver ?? k.face(t.wall, t.lit, -Math.cos(rotation)), 0.75)
+    k.fill(poly([-0.6, 0, -0.25, -length, -0.05, -length, -0.1, 0]), k.surfaces!.silver!, 0.75)
+    k.fill(poly([0.1, 0, 0.05, -length, 0.25, -length, 0.6, 0]), k.surfaces!.silver!, 0.75)
     c.restore()
   }
   k.fill(rect(-1, -0.75, 2.5, 1.5), t.wall)

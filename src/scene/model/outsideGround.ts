@@ -113,6 +113,12 @@ function coveredStops(world: WorldState, land: NonNullable<OutsideView['land']>,
   })
 }
 
+/** The representative surface seen by architectural ground bounce, including snow cover. */
+export function outsideGroundAlbedo(world: WorldState, land: NonNullable<OutsideView['land']>, frame: OutsideFrame): RGB {
+  const { stops, median } = outsideGroundStops(world, land, frame)
+  return world.snow ? medianByLum(coveredStops(world, land, stops).map(([, color]) => color)) : median
+}
+
 /** Builds the complete outside-ground descriptor with local albedos lit and hazed through the shared radiance model. */
 export function outsideLandDesc(world: WorldState, view: OutsideView, box: SceneBox, sx: number): OutsideLandDesc | null {
   if (!view.land) return null

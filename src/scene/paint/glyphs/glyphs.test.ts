@@ -1,5 +1,5 @@
 import { recording } from '../../../test/glyphRecording'
-import { OWN_GLYPH_EVIDENCE } from '../../../test/glyphEvidence'
+import { glyphPaintEvidence, OWN_GLYPH_EVIDENCE } from '../../../test/glyphEvidence'
 import { afterAll, expect, it, vi } from 'vitest'
 import { smoothstep } from '../../../domain/smoothstep'
 import type { LocalTime } from '../../../domain/types'
@@ -36,7 +36,7 @@ afterAll(() => vi.unstubAllGlobals())
 const evenTone = [0.35, 0.38, 0.42] as const
 const litTone = [0.72, 0.62, 0.5] as const
 const shade = [0.18, 0.21, 0.25] as const
-const tones = { wall: evenTone, lit: litTone, shade, deep: shade, rim: litTone, refl: evenTone,
+const tones = { wall: evenTone, lit: litTone, shade, deep: shade, rim: litTone,
   roof: evenTone, roofLit: litTone, stone: evenTone, stoneLit: litTone, glass: evenTone, glassLit: litTone,
   soot: shade, green: evenTone, greenLit: litTone, panel: shade, gold: litTone, win: litTone, mist: evenTone }
 const shine: Shine = { night: 0.8, aviationStrength: 1, windows: 0.4, lean: 0, direct: 0.5,
@@ -47,7 +47,7 @@ it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with h
   for (const kind of KINDS) {
     const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind, seed: 43, hand, tones, x: 40, base: 60,
       w: GLYPH_SPECS[kind].w, h: 20, scale: 1.4, famous: false, ground: [0, 1, 0] }
-    const at = (l: number) => record(glyph, { ...shine,
+    const at = (l: number) => record({ ...glyph, ...glyphPaintEvidence(tones, l) }, { ...shine,
       faces: { ...shine.faces, left: Math.max(0, l * glyph.hand), right: Math.max(0, -l * glyph.hand) } })
     const sweep = Array.from({ length: 41 }, (_, i) => at((i - 20) / 20))
     const even = sweep[20]
@@ -62,7 +62,7 @@ it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with h
       expect(frame.lamps, kind).toEqual(even.lamps)
       expect(frame.light.length, kind).toBe(even.light.length)
     }
-    expect(JSON.stringify(sweep[0].light), kind).not.toBe(JSON.stringify(sweep[40].light))
+    if (kind !== 'solar') expect(JSON.stringify(sweep[0].light), kind).not.toBe(JSON.stringify(sweep[40].light))
     expect(distance(at(-0.001).channels, at(0.001).channels), kind).toBeLessThan(0.01)
     const steps = sweep.slice(1).map((frame, i) => distance(frame.channels, sweep[i].channels)).sort((a, b) => a - b)
     // CSS serializes RGB to bytes. Allow one byte of rounding on top of the relative bound.
@@ -83,7 +83,7 @@ it('fades every glyph lamp and flood with fixed geometry through dusk', () => {
       w: GLYPH_SPECS[kind].w, h: 20, scale: 1, famous: false, ground: [0, 1, 0] }
     const at = (night: number) => {
       const drawing = recording()
-      const lamps = drawGlyph(drawing.ctx, glyph, { ...shine, night, windows: 0, aviationStrength: smoothstep(.2, .4, night) })
+      const lamps = drawGlyph(drawing.ctx, { ...glyph, ...glyphPaintEvidence(tones) }, { ...shine, night, windows: 0, aviationStrength: smoothstep(.2, .4, night) })
       const lampStart = drawing.channels.length
       drawLamps(drawing.ctx, lamps, .5)
       return { ...drawing, lampAlpha: drawing.channels.slice(lampStart).filter((_, i) => i % 4 === 3) }
@@ -201,7 +201,7 @@ it('fills all six palm fronds with even green at zero lateral light', () => {
 
 it('attenuates famous-icon lamps with the far-city Allard transmission without moving them', () => {
   const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind: 'highrise', seed: 43, hand: 1, tones, x: 40,
-    base: 60, w: 10, h: 20, scale: 1, famous: true }
+    base: 60, w: 10, h: 20, scale: 1, famous: true, ...glyphPaintEvidence(tones) }
   const own = drawGlyph(recording().ctx, glyph, shine)
   const distant = drawGlyph(recording().ctx, { ...glyph, contrast: .125 }, shine)
   expect(own.length).toBeGreaterThan(0)

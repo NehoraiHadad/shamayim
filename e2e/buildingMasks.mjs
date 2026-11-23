@@ -2,51 +2,13 @@
 export async function buildingMasks(png) {
   const { sceneModel, layersOn } = await import('/src/scene/model/index.ts')
   const { Surface } = await import('/src/scene/compose/surface.ts')
-  const { paintBoxGeometry } = await import('/src/scene/paint/outsideBox.ts')
-  const { drawGlyph } = await import('/src/scene/paint/glyphs/index.ts')
+  const { buildingRasterMasks } = await import('/e2e/buildingRasterMasks.mjs')
   const w = innerWidth, h = 128
   const layers = layersOn(sceneModel(window.__world, { width: w, landHeight: h, landTop: 300, skyHeight: 428, dpr: 1 }), 'land')
   const outside = layers.find(l => l.kind === 'outside')
   const canvas = () => Object.assign(document.createElement('canvas'), { width: w, height: h })
-  const m = canvas().getContext('2d', { willReadFrequently: true })
-  const scale = 4, superWidth = scale * w
-  const owner = Object.assign(document.createElement('canvas'), { width: superWidth, height: scale * h })
-    .getContext('2d', { willReadFrequently: true })
-  owner.scale(scale, scale)
-  const ownerColors = new Map()
-  const f = c => ({ wall: c, eave: c, foot: c })
-  const black = [0, 0, 0], tile = [1, 0, 1], red = [1, 0, 0], green = [0, 1, 0], blue = [0, 0, 1], yellow = [1, 1, 0]
-  const props = { panel: black, heater: black }
-  const shine = { ...outside.shine, glint: 0, windows: 0 }
-  let index = 0
-  for (const b of outside.items) {
-    if (b.kind !== 'box' || b.beyond) continue
-    const p = outside.receivers[b.tier][b.receiver]
-    const luminance = c => .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
-    const right = luminance(p.right.wall) >= luminance(p.left.wall)
-    const facade = { ...p, front: f(red), left: f(right ? blue : green), right: f(right ? green : blue),
-      top: yellow, tile: [tile, tile, tile], recess: black }
-    const id = ++index
-    const hash = Math.imul(id + 1000, 0x45d9f3b) >>> 0
-    const key = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) & 0xffffff
-    ownerColors.set(key, id)
-    const value = [key & 255, (key >> 8) & 255, key >> 16].map(v => v / 255)
-    const owned = { ...p, front: f(value), left: f(value), right: f(value),
-      top: value, tile: [value, value, value], recess: value }
-    paintBoxGeometry(m, { ...b, heater: false }, outside.tiers[b.tier], shine, facade, props, 1)
-    paintBoxGeometry(owner, { ...b, heater: false }, outside.tiers[b.tier], shine, owned, props, 1)
-  }
-
-  const domeCtx = canvas().getContext('2d')
-  for (const i of outside.items) {
-    if (i.kind !== 'mark' || i.glyph.kind !== 'babShrine') continue
-    const { tones, surfaces } = i.glyph
-    const dark = Object.fromEntries(Object.keys(tones).map(key => [key, black]))
-    const pairs = [black, black], shell = Array(4).fill(Array(7).fill(yellow))
-    drawGlyph(domeCtx, { ...i.glyph, tones: dark, gilding: shell, surfaces: { ...surfaces, wall: pairs, stone: pairs,
-      round: [black, black] } }, shine)
-  }
-
+  const { m, caps, industrial, owner, ownerColors, domeCtx, builtObjects, scale, superWidth } =
+    await buildingRasterMasks(layers, outside, w, h)
   const ground = new Surface(canvas()), water = new Surface(canvas())
   for (const surface of [ground, water]) surface.resize(w, h, 1)
   ground.render([...layers.filter(l => l.kind === 'plane'), { ...outside, items: [], sea: null }], 0, true)
@@ -56,6 +18,10 @@ export async function buildingMasks(png) {
   const scene = canvas().getContext('2d')
   scene.drawImage(actual, 0, -300)
   const pixels = c => c.getImageData(0, 0, w, h).data
+  const cap = pixels(caps), industry = pixels(industrial), objects = pixels(builtObjects)
+  const full = Object.assign(document.createElement('canvas'), { width: w, height: 428 }).getContext('2d')
+  full.drawImage(actual, 0, 0)
+  const sky = full.getImageData(0, 290, w, 10).data
   const colors = pixels(scene), dry = pixels(ground.canvas.getContext('2d')), wet = pixels(water.canvas.getContext('2d'))
   const facet = pixels(m), raw = owner.getImageData(0, 0, superWidth, scale * h).data, dome = pixels(domeCtx)
   const owners = new Int32Array(superWidth * scale * h)
@@ -64,7 +30,7 @@ export async function buildingMasks(png) {
     if (raw[i + 3] === 255) owners[j] = ownerColors.get(raw[i] | (raw[i + 1] << 8) | (raw[i + 2] << 16)) ?? 0
   }
   const lin = Array.from({ length: 256 }, (_, b) => b / 255 <= .04045 ? b / 3294.6 : ((b / 255 + .055) / 1.055) ** 2.4)
-  const samples = { front: [], sun: [], side: [], roof: [], tile: [], bare: [], dome: [], chroma: [] }
+  const samples = { front: [], sun: [], side: [], roof: [], tile: [], bare: [], dome: [], chroma: [], chimney: [], cooling: [], built: [] }
   const blocks = new Map(), contacts = new Set()
   const ownerId = pixel => {
     const offset = scale * (Math.floor(pixel / w) * superWidth + pixel % w)
@@ -77,12 +43,26 @@ export async function buildingMasks(png) {
     return 0
   }
   const q = values => values.length ? values.sort((a, b) => a - b)[Math.floor(values.length * .5)] : null
+  const yAt = (rgba, i) => .2126 * lin[rgba[i]] + .7152 * lin[rgba[i + 1]] + .0722 * lin[rgba[i + 2]]
+  const horizon = q(Array.from({ length: sky.length / 4 }, (_, j) => yAt(sky, j * 4)))
+  const horizonRed = q(Array.from({ length: sky.length / 4 }, (_, j) => sky[j * 4]))
+  let highpass = 0, count = 0, tileRed = 0, peak = 0, peakAt = null
   for (let i = 0; i < colors.length; i += 4) {
-    const y = .2126 * lin[colors[i]] + .7152 * lin[colors[i + 1]] + .0722 * lin[colors[i + 2]]
+    const y = yAt(colors, i), p = i / 4
+    if ((objects[i + 3] >= 225 || facet[i + 3] >= 135 || dome[i + 3] >= 160) && y > peak) {
+      peak = y
+      peakAt = [p % w, Math.floor(p / w) + 300]
+    }
     const [r, g, b] = facet.subarray(i, i + 3)
     if (facet[i + 3] >= 135) {
-      const part = r > 220 && g > 160 ? 'roof' : r > 220 && b > 160 ? 'tile'
-        : r > 180 && g < 55 && b < 55 ? 'front' : g > 115 && r < 128 ? 'sun' : b > 115 && r < 128 ? 'side' : null
+      samples.built.push(y)
+      if (p % w > 0 && p % w < w - 1 && p >= w && p < w * (h - 1)) {
+        highpass += (y - (yAt(colors, i - 4) + yAt(colors, i + 4) + yAt(colors, i - 4 * w) + yAt(colors, i + 4 * w)) / 4) ** 2
+        count++
+      }
+      const part = r > 175 && b > 150 ? 'tile' : cap[i + 3] > 65 ? 'roof'
+        : g > 50 && b < 30 ? 'sun' : b > 50 && g < 30 ? 'side' : r > 175 ? 'front' : null
+      if (part === 'tile') tileRed = Math.max(tileRed, colors[i])
       if (part) samples[part].push(y)
     }
     if (dry[i + 3] > 248 && wet[i + 3] < 12 && facet[i + 3] < 8) {
@@ -94,16 +74,21 @@ export async function buildingMasks(png) {
       samples.dome.push(y)
       samples.chroma.push(lin[colors[i]] - lin[colors[i + 2]])
     }
-    const id = ownerId(i / 4)
+    if (industry[i + 3] >= 110) samples[industry[i] > industry[i + 2] ? 'chimney' : 'cooling'].push(y)
+    const id = ownerId(p)
     if (id) {
       if (!blocks.has(id)) blocks.set(id, [])
       blocks.get(id).push(y)
     }
   }
-  for (let j = 0; j < owners.length; j++) for (const step of [1, 4]) {
-    if (j % superWidth + step >= superWidth) continue
-    const a = owners[j], b = owners[j + step]
-    if (a && b && a !== b) contacts.add(Math.max(a, b) * 65536 + Math.min(a, b))
+  for (let j = 0; j < owners.length; j++) {
+    const a = owners[j]
+    if (!a) continue
+    for (const step of [1, scale, superWidth, superWidth * scale]) {
+      if (step < superWidth && j % superWidth + step >= superWidth) continue
+      const b = owners[j + step]
+      if (b && a !== b) contacts.add(Math.max(a, b) * 65536 + Math.min(a, b))
+    }
   }
   const spreads = []
   for (const pair of contacts) {
@@ -114,8 +99,11 @@ export async function buildingMasks(png) {
     }
   }
   const groundY = q(samples.bare)
-  return { ground: groundY, pairs: spreads.length, spread: q(spreads),
+  return { ground: groundY, horizon, peak: peak / horizon, peakAt, frontHorizon: q(samples.front) / horizon,
+    tileRed: tileRed / horizonRed, highpass: Math.sqrt(highpass / count),
+    chimney: q(samples.chimney) / horizon, cooling: q(samples.cooling) / horizon,
+    pairs: spreads.length, spread: q(spreads),
     n: Object.fromEntries(Object.entries(samples).map(([k, a]) => [k, a.length])),
-    ...Object.fromEntries(['front', 'sun', 'side', 'roof', 'tile', 'dome'].map(k => [k, q(samples[k]) / groundY])),
+    ...Object.fromEntries(['built', 'front', 'sun', 'side', 'roof', 'tile', 'dome'].map(k => [k, q(samples[k]) / groundY])),
     chroma: q(samples.chroma) }
 }

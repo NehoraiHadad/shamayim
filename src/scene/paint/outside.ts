@@ -4,10 +4,9 @@ import { drawGlyph, drawLamps, glyphShadow, glyphLight } from './glyphs'
 import type { Lamp } from './glyphs/kit'
 import type { Ctx2D, PaintEnv } from './hand'
 import { grain, rockOf, tree } from './marks'
-import { paintNightBox } from './nightBox'
-import { paintNightTower } from './nightTower'
 import { paintBox } from './outsideBox'
 import { paintOutsideLand, paintOutsideSea } from './outsideGround'
+import { paintPass } from './paintPass'
 import { paintTower } from './outsideTower'
 
 /*
@@ -36,8 +35,10 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const lateralLight = glyphLight(s)
   const frames = desc.animated?.frames
   const t = frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
-  if (desc.land) paintOutsideLand(ctx, desc.land, s)
-  if (desc.sea) paintOutsideSea(ctx, desc.sea, s, t)
+  paintPass(ctx, 'background', () => {
+    if (desc.land) paintOutsideLand(ctx, desc.land, s)
+    if (desc.sea) paintOutsideSea(ctx, desc.sea, s, t)
+  })
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
     else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
@@ -45,18 +46,15 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const lamps: Lamp[] = []
   for (const item of desc.items) {
     if (item.kind === 'box' || item.kind === 'tower') {
-      const f = desc.receivers[item.tier][item.receiver!], tones = tiers[item.tier]
-      if (item.kind === 'box') {
-        if (f) paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale)
-        else paintNightBox(ctx, item, tones, s, lamps)
-      } else if (f) paintTower(ctx, item, tones, s, lamps, f, env.scale)
-      else paintNightTower(ctx, item, tones, s, lamps)
+      const f = desc.receivers[item.tier][item.receiver], tones = tiers[item.tier]
+      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale)
+      else paintTower(ctx, item, tones, s, lamps, f, env.scale)
     }
     else if (item.kind === 'tree') {
-      tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed))
+      paintPass(ctx, 'background', () => tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
   }
-  grain(ctx, env, 13, 1 - .4 * s.night)
+  paintPass(ctx, 'background', () => grain(ctx, env, 13, 1 - .4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)
 }

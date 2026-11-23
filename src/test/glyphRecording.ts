@@ -15,7 +15,7 @@ export function recording() {
   }
   let gradientId = 0
   const ctx = new Proxy({}, {
-    get: (_, key: string) => (...args: unknown[]) => {
+    get: (_, key: string) => typeof key === 'symbol' ? undefined : (...args: unknown[]) => {
       if (FORM.has(key)) form.push([key, ...rounded(args)])
       if (key.startsWith('create') && key.endsWith('Gradient')) {
         light.push([key, ...rounded(args)])

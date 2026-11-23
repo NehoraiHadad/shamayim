@@ -245,7 +245,7 @@ export interface GlintPath { x: number; top: number; bottom: number; spread: num
 export interface Line { x1: number; x2: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number; rgb: RGB }
 /** A block of a far town (or a far tower), standing on `base`, `km` away. */
-export interface CityBlock { x: number; base: number; w: number; h: number; km: number; receiver?: number }
+export interface CityBlock { x: number; base: number; w: number; h: number; km: number; receiver: number; detail: number }
 /** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
 export interface CityLight { x: number; y: number; r: number; alpha: number }
 /**
@@ -259,10 +259,10 @@ export type OutsideItem =
       /** A house's roof (tile or flat, a heater on some flat ones); null for a block of the mass. */
       roof: 'tile' | 'flat' | null; heater: boolean
       /** C9: a block of a town beyond the place (drawn behind it, far first). */
-      beyond?: true; receiver?: number; neighbours?: number }
+      beyond?: true; receiver: number; neighbours?: number }
   | { kind: 'tree'; tree: TreeDesc; tier: number }
   | { kind: 'tower'; x: number; base: number; w: number; h: number; tier: number; seed: number; crown: 0 | 1 | 2; full: boolean
-      famous: boolean; storeys: number; receiver?: number }
+      famous: boolean; storeys: number; receiver: number; industrial?: true }
   | { kind: 'mark'; glyph: GlyphDesc }
 
 /**
@@ -295,7 +295,7 @@ export type { GlyphKind, IconKind }
  * gold, lamps).
  */
 export interface Tones {
-  wall: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB; refl: RGB
+  wall: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB
   roof: RGB; roofLit: RGB; stone: RGB; stoneLit: RGB; glass: RGB; glassLit: RGB; soot: RGB
   green: RGB; greenLit: RGB; panel: RGB
   /** A lit window, a lamp. */
@@ -453,13 +453,11 @@ export type LayerDesc =
       tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
-  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB
-      /** Signed face-light difference, positive from screen-left. */
-      lateralLight: number }
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
       land: OutsideLandDesc | null
-      receivers: Record<number, BuildingFaces>[]; accessories: ReturnType<typeof accessoryTones>[] }
+      receivers: Record<number, BuildingFaces>[]; accessories: (ReturnType<typeof accessoryTones> | null)[] }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */
   | LayerBase & { kind: 'shafts'; precip: Precip; shafts: ShaftDesc[]; period: number }

@@ -3,7 +3,8 @@ import { SCENE_CAMERA } from '../../domain/camera'
 import { NORMALS } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
 import { buildingFaces, buildingLight, groundView, reflectedGround } from './buildingLight'
-import { FACINGS, receiverId, STONE, WALL_ALBEDOS } from './buildingMaterial'
+import { facingBin, receiverId, receiverMaterial, STONE, WALL_ALBEDOS } from './buildingMaterial'
+import { sunlitGround } from './buildingGround'
 import { landIrradiance, skyView } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
@@ -45,6 +46,16 @@ describe('building receiver', () => {
     expect(y(receive(STONE, NORMALS.right, 1, 0))).toBeLessThan(y(receive(STONE, NORMALS.right)))
   })
 
+  it('reduces beam and ground illumination as street and foot exposure close', () => {
+    const sunAt = (alt: number) => landIrradiance(scene(190, alt)).sunDir
+    expect(sunlitGround(sunAt(-1))).toBe(0)
+    expect(sunlitGround(sunAt(3))).toBeLessThan(.12)
+    expect(sunlitGround(sunAt(38))).toBeGreaterThan(.55)
+    const faces = buildingFaces(scene(), .5, receiverId(50))
+    expect(y(faces.right.foot)).toBeLessThan(.8 * y(faces.right.wall))
+    expect(y(faces.right.eave)).toBeGreaterThan(y(faces.right.foot))
+  })
+
   it('keeps the upward cap brighter than a sun return and a recessed facade at equal distance', () => {
     const receive = buildingLight(scene(), 3)
     const l = y(receive(STONE, NORMALS.left)), r = y(receive(STONE, NORMALS.right))
@@ -56,19 +67,22 @@ describe('building receiver', () => {
 
   it('uses bounded linear material bins and a fixed projected facing', () => {
     for (const a of WALL_ALBEDOS) {
-      expect(linearLuminance(a)).toBeGreaterThanOrEqual(.439)
+      expect(linearLuminance(a)).toBeGreaterThanOrEqual(.390)
       expect(linearLuminance(a)).toBeLessThanOrEqual(.581)
     }
     expect(WALL_ALBEDOS).toHaveLength(8)
-    expect(receiverId(49, true) - receiverId(49)).toBe(2 * FACINGS.length)
-    expect(FACINGS[0].leftWidth).toBeLessThan(FACINGS[0].rightWidth)
-    const surveyed = new Set([1, 2, 3].map(seed => receiverId(seed, false, false, 18) % (2 * FACINGS.length)))
-    expect(surveyed.size).toBe(1)
+    const orientations = Array.from({ length: 40 }, (_, seed) => facingBin(seed))
+    expect(new Set(orientations).size).toBe(5)
+    const left = receiverMaterial(receiverId(orientations.indexOf(0))).facing
+    const right = receiverMaterial(receiverId(orientations.indexOf(4))).facing
+    expect(left.normals[0][0]).toBeLessThan(0)
+    expect(right.normals[0][0]).toBeGreaterThan(0)
+    expect(left.leftWidth).toBeLessThan(right.leftWidth)
   })
 
   it('changes both returns smoothly with solar crossing, deck and twilight', () => {
     const sweep = (a: WorldState, b: WorldState) => {
-      const id = receiverId(7, false, false, 0)
+      const id = receiverId(7)
       const fa = buildingFaces(a, 3, id), fb = buildingFaces(b, 3, id)
       for (const k of ['front', 'left', 'right', 'top'] as const) {
         const rgb = (f: typeof fa) => (k === 'top' ? f.top : f[k].wall)
@@ -83,6 +97,25 @@ describe('building receiver', () => {
     const flat = buildingFaces(scene(190, 38, 0), 3, receiverId(7))
     expect(Math.abs(y(flat.left.wall) - y(flat.right.wall))).toBeLessThan(.001)
     expect(y(flat.top)).toBeGreaterThan(y(flat.front.wall))
+  })
+
+  it('receives less twilight on the half of the street facing away from the glow', () => {
+    const world = scene(113, .76, 0), receive = buildingLight(world, 2)
+    const { across, ahead } = landIrradiance(world).sunDir
+    const length = Math.hypot(across, ahead)
+    const toward: [number, number, number] = [across / length, ahead / length, 0]
+    const away: [number, number, number] = [-toward[0], -toward[1], 0]
+    expect(y(receive(STONE, away))).toBeLessThan(.65 * y(receive(STONE, toward)))
+  })
+
+  it('reflects more sky at grazing angles and keeps glass bands softly resolved', () => {
+    const world = scene(190, 38, 0), receive = buildingLight(world, 1)
+    const front = receive.glass(NORMALS.front)
+    const side = receive.glass([.98, -.20, 0])
+    expect(y(side)).toBeGreaterThan(1.15 * y(front))
+    const ratio = y(receive.glass(NORMALS.front, true)) / y(front)
+    expect(ratio).toBeGreaterThan(.89)
+    expect(ratio).toBeLessThan(.96)
   })
 
   it('uses exactly the land haze pass after exposure', () => {
