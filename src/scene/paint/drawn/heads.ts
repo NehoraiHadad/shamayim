@@ -62,7 +62,7 @@ export function paintHeads(f: SheetField, w: number, h: number, seed: number, si
       if (depth <= 0) continue
       const thick = Math.min(THICK_MAX, Math.max(0.5, fieldAt(f.thick, f.cols, f.rows, gx, gy)))
       const deep = depth / thick, base = fieldAt(f.base, f.cols, f.rows, gx, gy)
-      cover[n] = Math.max(cover[n], smoothstep(MIDDLE, WHOLE, deep)) * smoothstep(0, BASE_FADE, base)
+      cover[n] = Math.max(cover[n], smoothstep(MIDDLE, WHOLE, deep)) * smoothstep(0, Math.min(BASE_FADE, FADE_OF * thick), base)
       light[n] = light[n] * (1 - CALM * smoothstep(0.3, 1.3, deep)) - BASE_SHADE * smoothstep(BASE_UP * thick, 0, base)
     }
   }

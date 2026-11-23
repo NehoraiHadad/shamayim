@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../domain/smoothstep'
 import { soften } from '../soften'
 import type { Grid, MassForm } from './massForm'
 
@@ -7,13 +8,13 @@ import type { Grid, MassForm } from './massForm'
  */
 
 /** How much of a mass's thickness its base cuts; the least height (px) of a mass cut; how far across (thicknesses) one base goes; the
- *  most thickness (px) a base is drawn for: a deck's underside is no one base. */
-const CUT = 0.5, HEIGHT_MIN = 3, REACH = 1.2, THICK_MAX = 45
+ *  most thickness (px) a base is drawn for; and the thicknesses over which a mass becomes a deck, whose underside is no one base. */
+const CUT = 0.5, HEIGHT_MIN = 8, REACH = 1.2, THICK_MAX = 45, DECK_FROM = 65, DECK = 110
 /** How far up (px) a base is told, how far under it, and what its columns are eased over (px). */
 const UP = 40, UNDER = 24, EASE = 4
 
 /** One column's part of a mass: its rows, its thickness, and the row its base stands at. */
-interface Post { top: number; foot: number; thick: number; base: number }
+interface Post { top: number; foot: number; thick: number; whole: number; base: number }
 
 /** How far (px) each cell stands over its mass's flat base, cut as far as `flat` (0…1 a row) says it is seen from the side. */
 export function overBases(form: MassForm, grid: Grid, flat: readonly number[]): Float32Array {
@@ -31,7 +32,7 @@ export function overBases(form: MassForm, grid: Grid, flat: readonly number[]): 
     for (const p of own) {
       const around = near(c, p, reachOf(p.thick)), thick = Math.max(...around.map((q) => q.thick))
       // What runs on past the sheet's far edge stands on no base of its own.
-      p.base = p.foot === grid.rows - 1 ? p.foot + UP / rowPx : Math.max(...around.map((q) => q.foot)) - (CUT * thick * flat[p.foot]) / rowPx
+      p.base = p.foot === grid.rows - 1 ? p.foot + UP / rowPx : Math.max(...around.map((q) => q.foot)) - (CUT * thick * flat[p.foot] * smoothstep(DECK, DECK_FROM, Math.max(...around.map((q) => q.whole)))) / rowPx
     }
   })
   const told = new Float32Array(form.depth.length * 4)
@@ -56,9 +57,10 @@ function column({ depth, thick }: MassForm, { cols, rows, rowPx }: Grid, c: numb
   for (let r = 0, run: Post | null = null; r < rows; r++) {
     const n = r * cols + c
     if (depth[n] <= 0) { run = null; continue }
-    if (!run) found.push(run = { top: r, foot: r, thick: 0, base: r })
+    if (!run) found.push(run = { top: r, foot: r, thick: 0, whole: 0, base: r })
     run.foot = r
-    run.thick = Math.min(THICK_MAX, Math.max(run.thick, thick[n]))
+    run.whole = Math.max(run.whole, thick[n])
+    run.thick = Math.min(THICK_MAX, run.whole)
   }
   return found.filter((p) => (p.foot - p.top) * rowPx >= HEIGHT_MIN)
 }
