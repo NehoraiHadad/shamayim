@@ -1,0 +1,435 @@
+diff --git a/src/scene/model/cloudBeam.test.ts b/src/scene/model/cloudBeam.test.ts
+new file mode 100644
+index 00000000..f381ef7b
+--- /dev/null
++++ b/src/scene/model/cloudBeam.test.ts
+@@ -0,0 +1,62 @@
++import { beforeAll, describe, expect, it } from 'vitest'
++import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
++import * as scenePlaces from '../../test/scenePlaces'
++import type { Place } from '../../config/place'
++import type { WorldInput } from '../../world/types'
++import { makeWorldBuilder } from '../../world/world'
++import { solarBeam, sunLight } from '../../world/sceneLight'
++import { litTone } from './cloudBeam'
++import { cloudLayersOf } from './cloudLayers'
++import { labOf, toSrgb } from './tone'
++import type { LayerOf, RGB } from './types'
++
++const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
++const PLACES = ['haifa', 'neve-zohar', 'ramon-crater']
++let loaded: Map<string, LoadedPlace>
++beforeAll(async () => {
++  stubPublicFetch()
++  const all = (Object.values(scenePlaces) as unknown[]).flat().filter((p): p is Place => !!p && typeof p === 'object' && 'id' in p)
++  loaded = await loadPlaces(PLACES.map((id) => all.find((p) => p.id === id)!))
++}, 120_000)
++
++function sheets(id: string, at: string, over: Partial<WorldInput> = {}) {
++  const world = makeWorldBuilder()({ ...worldInput(loaded.get(id)!, at), ...over })
++  return cloudLayersOf(world, box).filter((l): l is LayerOf<'cloudSheet'> => l.kind === 'cloudSheet')
++}
++const hue = (rgb: RGB) => { const { a, b } = labOf(rgb); return { h: (Math.atan2(b, a) * 180 / Math.PI + 360) % 360, c: Math.hypot(a, b) } }
++
++describe('the sun on a cloud', () => {
++  it('lightens a sheet and never turns it olive, straw or dark red', () => {
++    for (const [id, at] of [['haifa', '2026-11-17T15:30'], ['neve-zohar', '2026-11-17T16:00'], ['haifa', '2026-11-17T16:30']]) {
++      for (const { lit, body, id: layer } of sheets(id, at)) {
++        expect(labOf(lit).l, `${id} ${at} ${layer}`).toBeGreaterThanOrEqual(labOf(body).l - 0.002)
++        const { h, c } = hue(lit)
++        if (c > 0.02) expect(h < 92 || h > 240, `${id} ${at} ${layer} hue ${h.toFixed(0)} chroma ${c.toFixed(3)}`).toBe(true)
++      }
++    }
++  })
++
++  it('reddens with the air above the cloud, along the true hue of sunlight', () => {
++    const air = { visibilityKm: 12.4 }
++    const beam = (z: number) => { const t = solarBeam(11.95, air, z).transmission; return t.map((v) => toSrgb(v / Math.max(...t))) as unknown as RGB }
++    expect(Math.abs(hue(beam(0)).h - 70)).toBeLessThan(6) // spectral truth 70° (3008 K), the disc's tone map 96°
++    expect(beam(4)[2]).toBeGreaterThan(beam(0)[2])
++    expect(sunLight(11.95, air).rgb[1]).toBeGreaterThan(0.85) // the disc's own look is the owner's: unchanged
++  })
++
++  it('only adds light', () => {
++    const grey: RGB = [0.74, 0.77, 0.8]
++    for (const ratio of [0, 0.2, 1, 8]) for (const rgb of [[1, 0.4, 0.3], [1, 0.9, 0.7]] as RGB[]) {
++      expect(labOf(litTone(grey, { rgb, ratio, relayed: 0 }, 1, 0)).l).toBeGreaterThanOrEqual(labOf(grey).l - 0.03)
++    }
++  })
++
++  it('lets dust fade a deck into the dust sky (no pale deck with brown gaps)', () => {
++    const dust = { pm10: 400, dust: 400, visibilityKm: 3 } as unknown as WorldInput['forced']
++    for (const sheet of sheets('ramon-crater', '2026-11-17T15:00', { forced: dust })) {
++      expect(sheet.through, sheet.id).toBeDefined()
++      expect(Math.max(...sheet.through!), sheet.id).toBeLessThan(sheet.lattice === 'low' ? 0.65 : 0.25)
++    }
++    for (const sheet of sheets('haifa', '2026-11-17T15:30')) expect(sheet.through).toBeUndefined()
++  })
++})
+diff --git a/src/scene/model/cloudBeam.ts b/src/scene/model/cloudBeam.ts
+new file mode 100644
+index 00000000..95ff507d
+--- /dev/null
++++ b/src/scene/model/cloudBeam.ts
+@@ -0,0 +1,49 @@
++import { smoothstep } from '../../domain/smoothstep'
++import { pinked } from '../../world/afterglow'
++import { solarBeam } from '../../world/sceneLight'
++import type { CloudLayer, RGB, WorldState } from '../../world/types'
++import { REF_BEAM, SUN_TO_SKY } from './landIrradiance'
++import { linearLuminance } from './landRadiance'
++import { DAY_CLOUD_DHI_GAIN } from './landSkyIrradiance'
++import { mixRgb, toLinear, toSrgb } from './tone'
++
++/*
++ * The sun's beam where a cloud stands, and the tone it gives the cloud: light ADDED to the body's own (sky) light. Pure.
++ */
++const WHITE: RGB = [1, 1, 1]
++const RAD = Math.PI / 180
++
++/** Clear-sky diffuse illuminance (IES Handbook: 0.8 + 15.5 √sin h klx) against its value at the land's reference, 38°. */
++const diffuseAt = (altitude: number) => (0.8 + 15.5 * Math.sqrt(Math.max(0, Math.sin(altitude * RAD)))) / (0.8 + 15.5 * Math.sqrt(Math.sin(38 * RAD)))
++/** At a low sun the lit cloud round a layer lights it in turn: the least share a deck under a low sun takes of its colour. */
++const RELAYED = 0.35
++
++/** The beam at the layer's height: its colour (linear transmission encoded once, the eye partly adapted) and its light against the sky's. */
++export function cloudBeam(world: WorldState, layer: CloudLayer): { rgb: RGB; ratio: number; relayed: number } {
++  const altitude = world.bodies.sun.altitude
++  const field = world.cloudField?.field.layers.find(({ lattice }) => lattice === layer.level)
++  const zKm = field ? field.baseKm + field.meanVKm / 2 : layer.baseM / 1000
++  const { transmission, strength } = solarBeam(Math.max(0, altitude), world.air, zKm)
++  const bright = Math.max(...transmission)
++  const colour = pinked(transmission.map((v) => toSrgb(v / bright)) as unknown as RGB, altitude)
++  // Below the horizon the beam leaves the layer as Earth's shadow climbs past it (`litUnderside`).
++  const reached = altitude > 0 ? 1 : layer.litUnderside
++  return {
++    rgb: mixRgb(colour, WHITE, 0.25 + 0.45 * smoothstep(6, 40, altitude)),
++    ratio: reached * SUN_TO_SKY * Math.min(1.15, strength / REF_BEAM) / (diffuseAt(altitude) * (1 + DAY_CLOUD_DHI_GAIN * world.light.diffuse)),
++    relayed: RELAYED * layer.litUnderside,
++  }
++}
++
++/**
++ * A body in its own sky light with the sun's added, `through` the cloud above and the air between: the mean of the two lights
++ * by their shares (the eye's exposure follows), never darker than the body (light is only added).
++ */
++export function litTone(body: RGB, light: { rgb: RGB; ratio: number; relayed: number }, through: number, fade: number): RGB {
++  const beam = light.ratio * through
++  const share = (1 - fade) * Math.max(beam / (1 + beam), light.relayed)
++  const own = body.map(toLinear) as [number, number, number]
++  const both = own.map((c, i) => c + share * (toLinear(light.rgb[i]) - c)) as [number, number, number]
++  const kept = Math.max(0, linearLuminance(own) - linearLuminance(both))
++  return both.map((c) => toSrgb(c + kept)) as unknown as RGB
++}
+diff --git a/src/scene/model/cloudCells.ts b/src/scene/model/cloudCells.ts
+index bb3dc574..33742da7 100644
+--- a/src/scene/model/cloudCells.ts
++++ b/src/scene/model/cloudCells.ts
+@@ -4,6 +4,7 @@ import type { WorldState } from '../../world/types'
+ import type { CloudSprite, SpriteGenus } from '../paint/cloudSprite'
+ import { smoothstep } from '../../world/ridgeLighting'
+ import { acrossSpeed, pxPerRadAt } from './advect'
++import { litTone } from './cloudBeam'
+ import { litOf, tonesAt, type CloudLight } from './cloudLight'
+ import { sheetZ } from './cloudSheet'
+ import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
+@@ -131,7 +132,8 @@ function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyo
+   const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
+     0.85 * world.air.fade(hazePath(range, cell.baseKm)))
+   const shade = mixRgb(tones.shade, base, day)
+-  const beam = light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body
++  const beam = !light ? tones.body : light.sun || light.under > 0 ? litTone(tones.body, light, 1, tones.fade)
++    : mixRgb(light.rgb, tones.behind, tones.fade)
+   // A low sun lights a whole tower's height from the side, as it does the sheet's underside round it.
+   const glow = light ? light.under * light.strength * lit.through : 0
+   return {
+diff --git a/src/scene/model/cloudLayers.ts b/src/scene/model/cloudLayers.ts
+index 7c29b27f..47b07a67 100644
+--- a/src/scene/model/cloudLayers.ts
++++ b/src/scene/model/cloudLayers.ts
+@@ -1,6 +1,7 @@
+ import { smoothstep } from '../../world/ridgeLighting'
+ import type { CloudLevel, WorldState } from '../../world/types'
+ import { towerLayerOf } from './cloudCells'
++import { litTone } from './cloudBeam'
+ import { cityLit } from './cityLight'
+ import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
+ import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
+@@ -56,9 +57,10 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom =
+       body: mixRgb(tones.body, base, day),
+       // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
+       shade: mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
+-      // Moonlight lifts the lit endpoint in proportion to the beam reaching the sheet; at moonset it merges into the body.
+-      lit: light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
+-        light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,
++      // The sun's light is added to the body's own. Moonlight lifts the lit endpoint in proportion to the beam reaching the
++      // sheet; at moonset it merges into the body.
++      lit: !light ? tones.body : light.sun || light.under > 0 ? litTone(mixRgb(tones.body, base, day), light, light.above, tones.fade)
++        : mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade), light.strength * light.above),
+       closed: closed * day,
+       light: light?.sun ? light.strength * light.above : 0,
+     }
+diff --git a/src/scene/model/cloudLight.ts b/src/scene/model/cloudLight.ts
+index 3f067b30..1f6aaa15 100644
+--- a/src/scene/model/cloudLight.ts
++++ b/src/scene/model/cloudLight.ts
+@@ -3,8 +3,8 @@ import { coinOf } from '../../world/air'
+ import { MOON_RGB } from '../../world/light'
+ import { cloudLight, layerMeanTransmission, SKY_CLOUD_DEPTH_SCALE } from '../../world/lightCloud'
+ import { smoothstep } from '../../world/ridgeLighting'
+-import { sunLight } from '../../world/sceneLight'
+ import type { CloudLayer, CloudLevel, WorldState } from '../../world/types'
++import { cloudBeam } from './cloudBeam'
+ import { coversOf, stopAt, veilOf, type SkyGeom } from './sky'
+ import { mixRgb, rgbOf } from './tone'
+ import type { RGB, SceneBox } from './types'
+@@ -25,6 +25,8 @@ export const RAIN_GREY: RGB = [0.29, 0.34, 0.39]
+ /** Where the light that reaches a layer comes from (sky px), its colour and strength, and how much is direct sun. */
+ /** `above`: the share of the light the layers above let through (as an expected value: a bank is in a gap or not, `litOf`). */
+ export interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number
++  /** The beam at the layer's height against the sky's light on it, and the least share of its colour a low sun's clouds relay. */
++  ratio: number; relayed: number
+   /** The sun's disc as the eye sees it through the cloud (1 − its veil): what lights a bank's edge from behind. */
+   seen: number }
+ 
+@@ -42,20 +44,18 @@ export function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer:
+     beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm * SKY_CLOUD_DEPTH_SCALE), 1)
+     ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high },
+       undefined, SKY_CLOUD_DEPTH_SCALE).clear
+-  const aerosol = world.air
+   if (sun.altitude > -0.5) {
+     const up = smoothstep(-0.5, 2, sun.altitude)
+-    const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
+-    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
++    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, ...cloudBeam(world, layer), strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
+       under: layer.litUnderside, seen: 1 - veilOf(world) }
+   }
+   const after = world.light.afterglow
+   if (after && layer.litUnderside > 0.02) {
+-    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, strength: layer.litUnderside, above, sun: false,
++    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, ...cloudBeam(world, layer), strength: layer.litUnderside, above, sun: false,
+       under: layer.litUnderside, seen: 0 }
+   }
+   if (moon.up && world.night.dark > 0.1 && moon.illumination > 0.05) {
+-    return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, rgb: MOON_RGB,
++    return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, rgb: MOON_RGB, ratio: 0, relayed: 0,
+       strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark, above, sun: false, under: 0, seen: 0 }
+   }
+   return null
+diff --git a/src/scene/model/cloudSheet.ts b/src/scene/model/cloudSheet.ts
+index 81491604..84b8a68a 100644
+--- a/src/scene/model/cloudSheet.ts
++++ b/src/scene/model/cloudSheet.ts
+@@ -12,7 +12,7 @@ import { layerKey } from './keys'
+ import type { SkyGeom } from './sky'
+ import type { LayerOf, RGB } from './types'
+ import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
+-import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
++import { DIFFUSE_EXTINCTION, rowSpeeds, dustTransmission, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
+ 
+ export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
+ export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
+@@ -133,13 +133,15 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
+     }
+   }
+   const { body, shade, lit } = colours
++  const through = world.air?.dustWeight ? altitudes.map((a) => dustTransmission(world.air, layer.baseKm, a)) : null
+   const sheet: LayerOf<'cloudSheet'> = {
+     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
+     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
+     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
++    ...(through && { through }),
+     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
+     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
+-    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit),
++    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit, through?.map((t) => Math.round(t * 255))),
+   }
+   sheetCache.set(snapshot, { world, key, sheet })
+   return sheet
+diff --git a/src/scene/model/cloudSheetMath.ts b/src/scene/model/cloudSheetMath.ts
+index f7abf85e..a16d6ef9 100644
+--- a/src/scene/model/cloudSheetMath.ts
++++ b/src/scene/model/cloudSheetMath.ts
+@@ -1,3 +1,4 @@
++import { aerosolDepth, airMass, hazeAbove, type Aerosol } from '../../world/sceneLight'
+ import { groundRangeAt, R_EFF_KM } from '../../world/field/project'
+ import { unit } from '../../world/field/genus'
+ import type { FieldLayer } from '../../world/field/types'
+@@ -23,6 +24,10 @@ export function sheetPathFactor(base: number, thickness: number, altitude: numbe
+ 
+ export const sheetOpacity = (tau: number, slant: number) => -Math.expm1(-tau * slant)
+ 
++/** What desert dust under the sheet leaves of it along the ray (the sky's own colour is the dust's airlight: `skyLight`). */
++export const dustTransmission = (air: Aerosol | undefined, baseKm: number, altitude: number) =>
++  Math.exp(-(air?.dustWeight ?? 0) * aerosolDepth(air)[1] * (1 - hazeAbove(baseKm)) * airMass(Math.max(0, altitude)))
++
+ // CIE standard overcast source: (1 + 2 sin altitude) / 3.
+ export const OVERCAST_HORIZON = 1 / 3
+ 
+diff --git a/src/scene/model/landIrradiance.ts b/src/scene/model/landIrradiance.ts
+index 2403a454..6d1b1262 100644
+--- a/src/scene/model/landIrradiance.ts
++++ b/src/scene/model/landIrradiance.ts
+@@ -44,9 +44,10 @@ export function skyView(normal: Normal, sun: LightDir, bias: number) {
+ // DNI ≈ 828 W/m², DHI ≈ 109 W/m². This reference fixes the clear beam/fill ratio.
+ // The 5.65 divisor is the illustration's daytime radiance scale, independent of horizon azimuth.
+ const DAY_DHI = 1 / 5.65
+-const DAY_DNI = 7.62 * DAY_DHI
++export const SUN_TO_SKY = 7.62
++const DAY_DNI = SUN_TO_SKY * DAY_DHI
+ const REF_AIR = { visibilityKm: 30, dustWeight: 0 }
+-const REF_BEAM = solarBeam(38, REF_AIR).strength
++export const REF_BEAM = solarBeam(38, REF_AIR).strength
+ const REF_SCATTER = 0.099 + aerosolDepth(REF_AIR)[1]
+ 
+ // Kyba, Mohar & Posch 2017, doi:10.1093/astrogeo/atx025: ~0.05–0.1 lx typical moonlight,
+diff --git a/src/scene/model/types.ts b/src/scene/model/types.ts
+index e77b8ba5..92fcad76 100644
+--- a/src/scene/model/types.ts
++++ b/src/scene/model/types.ts
+@@ -549,6 +549,8 @@ export type LayerDesc =
+       xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB
+       /** By night, the towns' light on each texel: its tone and its weight (row-major, 0–1). */
+       city?: { rgb: RGB; weight: number[] }
++      /** Per row of `ys`: the share of the sheet the dust before it leaves (absent in clean air). */
++      through?: number[]
+       /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
+       speeds: number[] }
+   /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */
+diff --git a/src/scene/paint/cloudRaster.ts b/src/scene/paint/cloudRaster.ts
+index 9797cbb4..fe87a564 100644
+--- a/src/scene/paint/cloudRaster.ts
++++ b/src/scene/paint/cloudRaster.ts
+@@ -1,6 +1,8 @@
+ import { detailTilePx, drawnAlpha } from './cloudLook'
+ import { detailTile, tileAt } from './detailTile'
++import type { LayerOf } from '../model/types'
+ import type { PaintEnv } from './hand'
++import { throughAir } from './throughAir'
+ 
+ /*
+  * The softened sheet grid laid on a raster in sky px, each pixel given the fine detail a grid ray cannot carry (the first
+@@ -14,7 +16,8 @@ const RASTER = 0.5
+ export interface SheetGrid { buf: Float32Array; cols: number; rows: number; spacing: readonly number[] }
+ 
+ /** The grid as a raster `width` × `height` sky px on a scratch surface, its pixels' centres on the grid's edges. */
+-export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height: number, open: number, seed: number) {
++export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height: number, open: number, seed: number,
++  desc: LayerOf<'cloudSheet'>) {
+   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(height * RASTER) + 1
+   const scratch = env.canvas(w, h)
+   const image = scratch.ctx.createImageData(w, h)
+@@ -30,6 +33,7 @@ export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height:
+       writePixel(image.data, (j * w + i) * 4, grid, gx, gy, (alpha) => drawnAlpha(alpha, detail, open))
+     }
+   }
++  throughAir(image.data, w, h, desc)
+   scratch.ctx.putImageData(image, 0, 0)
+   return { canvas: scratch.canvas, w, h }
+ }
+diff --git a/src/scene/paint/cloudSheet.ts b/src/scene/paint/cloudSheet.ts
+index 6397cd9f..b7485a8e 100644
+--- a/src/scene/paint/cloudSheet.ts
++++ b/src/scene/paint/cloudSheet.ts
+@@ -29,7 +29,7 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
+   const radii = spacing.map(softRadii)
+   soften(buf, cols, out, radii.map(([across]) => across / colPx), radii.map(([, down]) => down / rowPx))
+   const width = xs[cols - 1] - xs[0]
+-  const { canvas, w, h } = rasterise(env, { buf, cols, rows: out, spacing }, width, span, open, hashId(desc.id))
++  const { canvas, w, h } = rasterise(env, { buf, cols, rows: out, spacing }, width, span, open, hashId(desc.id), desc)
+   ctx.save()
+   ctx.imageSmoothingEnabled = true
+   ctx.imageSmoothingQuality = 'high'
+diff --git a/src/scene/paint/drawn/cloudSheet.ts b/src/scene/paint/drawn/cloudSheet.ts
+index 509cef14..700d44ef 100644
+--- a/src/scene/paint/drawn/cloudSheet.ts
++++ b/src/scene/paint/drawn/cloudSheet.ts
+@@ -4,6 +4,7 @@ import type { LayerOf, RGB } from '../../model/types'
+ import { addLight } from '../../model/tone'
+ import { toneOf } from '../cloudLook'
+ import { mix, type Ctx2D, type PaintEnv } from '../hand'
++import { throughAir } from '../throughAir'
+ import { billows } from './billows'
+ import { lowLight, whitened } from './light'
+ import { fieldAt, sheetField, type SheetField } from './sheetField'
+@@ -48,6 +49,7 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
+   const image = scratch.ctx.createImageData(w, h)
+   if (desc.lattice === 'high') veil(image.data, desc, field, w, h)
+   else masses(image.data, desc, field, w, h)
++  throughAir(image.data, w, h, desc)
+   scratch.ctx.putImageData(image, 0, 0)
+   ctx.save()
+   ctx.imageSmoothingEnabled = true
+diff --git a/src/scene/paint/drawn/light.ts b/src/scene/paint/drawn/light.ts
+index f610fe23..464798ce 100644
+--- a/src/scene/paint/drawn/light.ts
++++ b/src/scene/paint/drawn/light.ts
+@@ -14,5 +14,5 @@ export function whitened(lit: RGB): RGB {
+ 
+ /** How low the light stands, read from its own colour (0 high … 1 low): a low sun's is warm against the cloud's body. */
+ export function lowLight({ lit, body }: { lit: RGB; body: RGB }): number {
+-  return smoothstep(0.08, 0.3, lit[0] - lit[2] - (body[0] - body[2]))
++  return smoothstep(0.18, 0.36, lit[0] - lit[2] - (body[0] - body[2]))
+ }
+diff --git a/src/scene/paint/throughAir.ts b/src/scene/paint/throughAir.ts
+new file mode 100644
+index 00000000..fa018ef4
+--- /dev/null
++++ b/src/scene/paint/throughAir.ts
+@@ -0,0 +1,15 @@
++import type { LayerOf } from '../model/types'
++
++/** A sheet's raster as the dusty air before it leaves it (`through`, per row of `ys`): it fades into the sky behind. In place. */
++export function throughAir(data: Uint8ClampedArray, w: number, h: number, { ys, through }: Pick<LayerOf<'cloudSheet'>, 'ys' | 'through'>): void {
++  if (!through) return
++  const span = ys[ys.length - 1] - ys[0]
++  let r = 0
++  for (let j = 0; j < h; j++) {
++    const y = ys[0] + (j * span) / (h - 1)
++    while (r + 2 < ys.length && ys[r + 1] < y) r++
++    const t = Math.min(1, Math.max(0, (y - ys[r]) / (ys[r + 1] - ys[r] || 1)))
++    const left = through[r] + (through[r + 1] - through[r]) * t
++    for (let i = 0; i < w; i++) data[(j * w + i) * 4 + 3] *= left
++  }
++}
+diff --git a/src/world/afterglow.ts b/src/world/afterglow.ts
+index 4c62b393..59d57641 100644
+--- a/src/world/afterglow.ts
++++ b/src/world/afterglow.ts
+@@ -18,7 +18,11 @@ const smooth = (t: number) => {
+  * the sun sinks, when only red direct light is left and the blue of the sky above mixes into the lit cloud faces.
+  */
+ export function afterglowColour(altitude: number, air: Aerosol = {}) {
+-  const { rgb } = sunLight(Math.max(0.3, altitude), air)
++  return pinked(sunLight(Math.max(0.3, altitude), air).rgb, altitude)
++}
++
++/** A beam's colour turning pink as the sun sinks below the horizon. */
++export function pinked(rgb: readonly number[], altitude: number) {
+   const pink = [1, 0.42, 0.55]
+   const t = 0.75 * smooth(-altitude / 3)
+   return rgb.map((v, i) => v + (pink[i] - v) * t) as [number, number, number]
+diff --git a/src/world/sceneLight.ts b/src/world/sceneLight.ts
+index 15e5e07d..704d8c72 100644
+--- a/src/world/sceneLight.ts
++++ b/src/world/sceneLight.ts
+@@ -34,10 +34,15 @@ export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}
+ const cleanNoon = aerosolDepth().map((tau, i) => Math.exp(-tau - RAYLEIGH[i]))
+ const luminance = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+ 
+-/** Linear spectral transmission and its photopic strength relative to a clean zenith sun. */
+-export function solarBeam(altitude: number, air: Aerosol = {}) {
+-  const m = airMass(altitude)
+-  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(-(tau + RAYLEIGH[i]) * m))
++/** Scale heights (km) of the air's molecules and of its haze (the mixed layer `aerosolDepth` assumes). */
++const AIR_KM = 8.4, HAZE_KM = 1.5
++/** The share of the haze that lies above `zKm`. */
++export const hazeAbove = (zKm: number) => Math.exp(-zKm / HAZE_KM)
++
++/** Linear spectral transmission down to `zKm` up, and its photopic strength relative to a clean zenith sun. */
++export function solarBeam(altitude: number, air: Aerosol = {}, zKm = 0) {
++  const m = airMass(altitude), aloft = Math.exp(-zKm / AIR_KM)
++  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(-(tau * hazeAbove(zKm) + RAYLEIGH[i] * aloft) * m))
+   return { transmission, strength: Math.min(1, luminance(transmission) / luminance(cleanNoon)) }
+ }
+ 

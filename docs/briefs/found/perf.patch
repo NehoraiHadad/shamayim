@@ -1,0 +1,578 @@
+diff --git a/src/scene/model/buildingDetail.ts b/src/scene/model/buildingDetail.ts
+index e820495b..f2d64139 100644
+--- a/src/scene/model/buildingDetail.ts
++++ b/src/scene/model/buildingDetail.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { smoothstep } from '../../domain/smoothstep'
+ 
+ /** Cross-fade facet light as the block grows past the scene's minimum legible width
+diff --git a/src/scene/model/buildingExposure.ts b/src/scene/model/buildingExposure.ts
+index 1a70e978..da57f46a 100644
+--- a/src/scene/model/buildingExposure.ts
++++ b/src/scene/model/buildingExposure.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { smoothstep } from '../../domain/smoothstep'
+ import { toSrgb } from './tone'
+ import type { RGB } from '../../world/types'
+@@ -14,7 +15,6 @@ function encode(value: number) {
+ }
+ 
+ const NO_BEAM: RGB = [0, 0, 0]
+-type Exposure = (rho: RGB, light: RGB) => RGB
+ 
+ export const facadeTwilight = (sunAlt: number) => smoothstep(-18, -12, sunAlt) * smoothstep(15, 6, sunAlt)
+ 
+@@ -32,37 +32,44 @@ function expose(rho: RGB, light: RGB, horizon: number) {
+   return shadeLinearRgb(rho, NO_BEAM, NO_BEAM, light, 0, 0, 1, horizon)
+ }
+ 
+-/** Reuse exposure of the same material and incident light across distance tiers. */
++/**
++ * A colour in two steps. The surface (material and incident light, with the street's contrast on a facade) is the same at every
++ * distance and worked out once; the path then adds its air to it, once per distance.
++ */
+ export function exposedColors({ irr, air, streetY }: BuildingSurroundings) {
+-  const cache = new WeakMap<RGB, WeakMap<RGB, RGB>>()
+-  const facadeCache = new WeakMap<RGB, RGB>()
++  const surfaces = new Map<RGB, Map<RGB, RGB>>()
++  const facades = new Map<RGB, RGB>()
+   const twilight = facadeTwilight(irr.sunAlt)
+-  return (haze: number, facade = false): Exposure => {
+-    const displayed = new WeakMap<RGB, WeakMap<RGB, RGB>>()
+-    const transmits = 1 - haze
+-    const [red, green, blue] = [air[0] * haze, air[1] * haze, air[2] * haze]
+-    return (rho, light) => {
+-      let colors = displayed.get(light)
+-      if (!colors) displayed.set(light, colors = new WeakMap())
+-      let color = colors.get(rho)
+-      if (color) return color
+-      let materials = cache.get(light)
+-      if (!materials) cache.set(light, materials = new WeakMap())
++  return {
++    surface(rho: RGB, light: RGB): RGB {
++      let materials = surfaces.get(light)
++      if (!materials) surfaces.set(light, materials = new Map())
+       let rgb = materials.get(rho)
+       if (!rgb) materials.set(rho, rgb = expose(rho, light, irr.yHorizon))
+-      // Exposure and street contrast act on the surface. The path's scattered
+-      // light comes from the same air as the ground and cannot be in shade.
+-      if (facade && twilight) {
+-        let own = facadeCache.get(rgb)
+-        if (!own) {
+-          const scale = facadeScale(rgb, streetY, twilight)
+-          facadeCache.set(rgb, own = [rgb[0] * scale, rgb[1] * scale, rgb[2] * scale])
++      return rgb
++    },
++    facade(rgb: RGB): RGB {
++      if (!twilight) return rgb
++      let own = facades.get(rgb)
++      if (!own) {
++        const scale = facadeScale(rgb, streetY, twilight)
++        facades.set(rgb, own = [rgb[0] * scale, rgb[1] * scale, rgb[2] * scale])
++      }
++      return own
++    },
++    // The path's scattered light comes from the same air as the ground and cannot be in shade.
++    through(haze: number) {
++      const shown = new Map<RGB, RGB>()
++      const transmits = 1 - haze
++      const [red, green, blue] = [air[0] * haze, air[1] * haze, air[2] * haze]
++      return (surface: RGB): RGB => {
++        let color = shown.get(surface)
++        if (!color) {
++          color = [encode(surface[0] * transmits + red), encode(surface[1] * transmits + green), encode(surface[2] * transmits + blue)]
++          shown.set(surface, color)
+         }
+-        rgb = own
++        return color
+       }
+-      color = [encode(rgb[0] * transmits + red), encode(rgb[1] * transmits + green), encode(rgb[2] * transmits + blue)]
+-      colors.set(rho, color)
+-      return color
+-    }
++    },
+   }
+ }
+diff --git a/src/scene/model/buildingGround.ts b/src/scene/model/buildingGround.ts
+index 4a983028..97d5c4be 100644
+--- a/src/scene/model/buildingGround.ts
++++ b/src/scene/model/buildingGround.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { Normal } from '../../world/livingLight'
+ import type { RGB, WorldState } from '../../world/types'
+ import { nearGroundAlbedo } from './landColour'
+diff --git a/src/scene/model/buildingIncidence.ts b/src/scene/model/buildingIncidence.ts
+index f469e285..8fc766b5 100644
+--- a/src/scene/model/buildingIncidence.ts
++++ b/src/scene/model/buildingIncidence.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { lambert, type Normal } from '../../world/livingLight'
+ import type { RGB } from '../../world/types'
+ import { groundView, type Surroundings } from './buildingGround'
+diff --git a/src/scene/model/buildingLight.ts b/src/scene/model/buildingLight.ts
+index 131ae72d..f2d01709 100644
+--- a/src/scene/model/buildingLight.ts
++++ b/src/scene/model/buildingLight.ts
+@@ -1,10 +1,11 @@
++//# allFunctionsCalledOnLoad
+ import { NORMALS, type Normal } from '../../world/livingLight'
+ import type { RGB, WorldState } from '../../world/types'
+ import type { SceneStyle } from '../sceneStyle'
+ import { groundLighting } from './buildingGround'
+ import { FLAT_ROOF, PALE_METAL, PANEL, STONE, TILE, receiverMaterial } from './buildingMaterial'
+ import { incidence } from './buildingIncidence'
+-import { exposedColors, facadeTwilight } from './buildingExposure'
++import { exposedColors } from './buildingExposure'
+ import { hazeAt } from './landVeil'
+ import { glassIncidence } from './glassLight'
+ import { drawnTwilightScreen } from './drawnArchitectureLight'
+@@ -21,14 +22,12 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
+   const drawnScreen = style === 'drawn' ? drawnTwilightScreen(state.irr) : undefined
+   const incident = incidence(state, drawnScreen)
+   const normals = new WeakMap<Normal, ReturnType<typeof faceLight>>()
+-  const roofs = new WeakMap<Normal, RGB>()
+   const { front, left, right, top } = NORMALS
+   let sky: ReturnType<typeof glassIncidence> | undefined
+-  const expose = exposedColors(state)
+-  const tones = new Map<number, ReturnType<typeof expose>>()
+-  const wallTones = new Map<number, ReturnType<typeof expose>>()
+-  const compressFacades = !drawnScreen && facadeTwilight(state.irr.sunAlt) > 0
+-  const tileTones = new Map<number, WeakMap<Normal, readonly [RGB, RGB, RGB]>>()
++  const { surface, facade: compress, through } = exposedColors(state)
++  const shown = new Map<number, ReturnType<typeof through>>()
++  const tileSurfaces = new Map<Normal, RGB>()
++  const templates = new Map<number, BuildingFaces>()
+   const facades = new Map<number, Map<number, BuildingFaces>>()
+   const sides = [incident(front, .82, .83, .92), incident(left, .82, .83, .92),
+     incident(right, .82, .83, .92)]
+@@ -48,34 +47,22 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
+   }
+   const topLight = incident(top)
+   const tileAverage = average.map((v, i) => .5 * (v + topLight[i])) as unknown as RGB
+-  function toneAt(km: number, facade = false) {
+-    const compress = facade && compressFacades
+-    const cache = compress ? wallTones : tones
+-    let tone = cache.get(km)
+-    if (!tone) {
+-      cache.set(km, tone = expose(hazeAt(world, km), compress))
+-    }
+-    return tone
++  const wall = (rho: RGB, light: RGB) => drawnScreen ? surface(rho, light) : compress(surface(rho, light))
++  function showAt(km: number) {
++    let show = shown.get(km)
++    if (!show) shown.set(km, show = through(hazeAt(world, km)))
++    return show
+   }
+ 
+-  return { incident, topLight, toneAt, facades,
+-    unresolved: (km: number, rho: RGB) => toneAt(km, true)(rho, average),
+-    unresolvedTile: (km: number) => toneAt(km)(TILE, tileAverage),
++  return { incident, topLight, showAt, facades, surface, wall, templates,
++    unresolved: (rho: RGB) => wall(rho, average),
++    unresolvedTile: () => surface(TILE, tileAverage),
+     sky: (n: Normal, stone: RGB, wall: RGB, band?: boolean) =>
+       (sky ??= glassIncidence(world, state, drawnScreen))(n, stone, wall, band),
+-    tiles(km: number, [front, left, right]: readonly [Normal, Normal, Normal]) {
+-      let facets = tileTones.get(km)
+-      if (!facets) tileTones.set(km, facets = new WeakMap())
+-      let colors = facets.get(front)
+-      if (!colors) {
+-        const tone = toneAt(km), pitch = (n: Normal) => {
+-          let rgb = roofs.get(n)
+-          if (!rgb) roofs.set(n, rgb = incident(roofNormal(n)))
+-          return tone(TILE, rgb)
+-        }
+-        facets.set(front, colors = [pitch(front), pitch(left), pitch(right)])
+-      }
+-      return colors
++    tile(n: Normal) {
++      let rgb = tileSurfaces.get(n)
++      if (!rgb) tileSurfaces.set(n, rgb = surface(TILE, incident(roofNormal(n))))
++      return rgb
+     },
+     face(n: Normal) {
+       let face = normals.get(n)
+@@ -95,12 +82,13 @@ function receivers(world: WorldState, style: SceneStyle) {
+ /** Linear material × irradiance, then the land exposure and one air-light blend. */
+ export function buildingLight(world: WorldState, km: number, style: SceneStyle = 'real') {
+   const set = receivers(world, style)
+-  const shade = set.toneAt(km), facade = set.toneAt(km, true)
+-  const receive = (rho: RGB, n: Normal, open = 1, beam = open) => (n[2] === 0 ? facade : shade)(rho, set.incident(n, open, beam))
++  const show = set.showAt(km)
++  const receive = (rho: RGB, n: Normal, open = 1, beam = open) =>
++    show((n[2] === 0 ? set.wall : set.surface)(rho, set.incident(n, open, beam)))
+   return Object.assign(receive, {
+-    unresolved: (rho: RGB) => set.unresolved(km, rho),
++    unresolved: (rho: RGB) => show(set.unresolved(rho)),
+     glass: (n: Normal, mullion = false, stone = STONE, open = 1, beam = open) =>
+-      facade(mullion ? PALE_METAL : UNIT_REFLECTANCE, set.sky(n, stone, set.incident(n, open, beam), mullion)),
++      show(set.wall(mullion ? PALE_METAL : UNIT_REFLECTANCE, set.sky(n, stone, set.incident(n, open, beam), mullion))),
+   })
+ }
+ 
+@@ -122,18 +110,33 @@ export function buildingFaces(world: WorldState, km: number, id: number, tiled =
+   if (!byMaterial) set.facades.set(km, byMaterial = new Map())
+   const key = id * 8 + Number(tiled) + Number(plain) * 2 + Number(detail) * 4
+   let faces = byMaterial.get(key)
+-  if (!faces) byMaterial.set(key, faces = makeBuildingFaces(set, km, id, tiled, plain, detail))
++  if (!faces) {
++    let surfaces = set.templates.get(key)
++    if (!surfaces) set.templates.set(key, surfaces = surfaceFaces(set, id, tiled, plain, detail))
++    byMaterial.set(key, faces = facesThrough(set.showAt(km), surfaces))
++  }
+   return faces
+ }
+ 
+-function makeBuildingFaces(set: ReturnType<typeof worldReceivers>, km: number, id: number, tiled: boolean, plain: boolean,
+-  detail: boolean): BuildingFaces {
+-  const tone = set.toneAt(km)
+-  const tint = set.toneAt(km, true)
++/** The same faces seen through their path of air. */
++function facesThrough(show: (surface: RGB) => RGB, s: BuildingFaces): BuildingFaces {
++  const face = (f: FaceTones): FaceTones => f.foot === f.wall && f.eave === f.wall ? flat(show(f.wall))
++    : { wall: show(f.wall), foot: show(f.foot), eave: show(f.eave) }
++  const front = face(s.front)
++  const shared = s.left === s.front
++  return { front, left: shared ? front : face(s.left), right: shared ? front : face(s.right), top: show(s.top),
++    recess: show(s.recess), unresolved: show(s.unresolved), leftWidth: s.leftWidth, rightWidth: s.rightWidth,
++    ...(s.band ? { band: show(s.band) } : {}),
++    ...(s.tile ? { tile: [show(s.tile[0]), show(s.tile[1]), show(s.tile[2])] } : {}),
++    ...(s.tileBase ? { tileBase: show(s.tileBase) } : {}) }
++}
++
++/** A building's faces before any air: shared by every distance it stands at. */
++function surfaceFaces(set: ReturnType<typeof worldReceivers>, id: number, tiled: boolean, plain: boolean, detail: boolean): BuildingFaces {
+   const { stone, glass, facing: { normals, leftWidth, rightWidth } } = receiverMaterial(id)
+   const [front, left, right] = normals
+-  const unresolved = set.unresolved(km, stone)
+-  const tileBase = tiled ? set.unresolvedTile(km) : undefined
++  const unresolved = set.unresolved(stone)
++  const tileBase = tiled ? set.unresolvedTile() : undefined
+   if (!detail) {
+     const face = flat(unresolved)
+     return { front: face, left: face, right: face, top: unresolved, recess: unresolved, unresolved,
+@@ -141,14 +144,14 @@ function makeBuildingFaces(set: ReturnType<typeof worldReceivers>, km: number, i
+   }
+   const face = (n: Normal) => {
+     const rgb = set.face(n)
+-    if (glass) return flat(tint(UNIT_REFLECTANCE, set.sky(n, stone, rgb.wall)))
+-    const wall = tint(stone, rgb.wall)
+-    return plain ? flat(wall) : { wall, foot: tint(stone, rgb.foot), eave: tint(stone, rgb.eave) }
++    if (glass) return flat(set.wall(UNIT_REFLECTANCE, set.sky(n, stone, rgb.wall)))
++    const wall = set.wall(stone, rgb.wall)
++    return plain ? flat(wall) : { wall, foot: set.wall(stone, rgb.foot), eave: set.wall(stone, rgb.eave) }
+   }
+-  return { front: face(front), left: face(left), right: face(right), top: tone(id < 0 ? stone : FLAT_ROOF, set.topLight),
+-    recess: plain ? unresolved : tint(stone, set.face(front).recess), unresolved, leftWidth, rightWidth,
+-    ...(glass ? { band: tint(PALE_METAL, set.sky(front, stone, set.face(front).wall, true)) } : {}),
+-    ...(tileBase ? { tile: set.tiles(km, normals), tileBase } : {}),
++  return { front: face(front), left: face(left), right: face(right), top: set.surface(id < 0 ? stone : FLAT_ROOF, set.topLight),
++    recess: plain ? unresolved : set.wall(stone, set.face(front).recess), unresolved, leftWidth, rightWidth,
++    ...(glass ? { band: set.wall(PALE_METAL, set.sky(front, stone, set.face(front).wall, true)) } : {}),
++    ...(tileBase ? { tile: [set.tile(front), set.tile(left), set.tile(right)] as const, tileBase } : {}),
+   }
+ }
+ 
+diff --git a/src/scene/model/buildingMaterial.ts b/src/scene/model/buildingMaterial.ts
+index 61fc4eb2..b05911fb 100644
+--- a/src/scene/model/buildingMaterial.ts
++++ b/src/scene/model/buildingMaterial.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { seeded } from '../../data/landmarks/hash'
+ import type { Normal } from '../../world/livingLight'
+ import type { RGB } from '../../world/types'
+diff --git a/src/scene/model/buildingUsage.ts b/src/scene/model/buildingUsage.ts
+index 82b77b35..11d2b9cb 100644
+--- a/src/scene/model/buildingUsage.ts
++++ b/src/scene/model/buildingUsage.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { facadeDetail } from './buildingDetail'
+ import type { OutsideItem } from './types'
+ 
+diff --git a/src/scene/model/canopyTones.ts b/src/scene/model/canopyTones.ts
+index fbbf6ea4..a8cb4577 100644
+--- a/src/scene/model/canopyTones.ts
++++ b/src/scene/model/canopyTones.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { encodedByte } from './displayByte'
+ import { byteKey } from './keys'
+ import { albedoLinear, shadeLinearRgb } from './landRadiance'
+diff --git a/src/scene/model/cloudShadowEdge.ts b/src/scene/model/cloudShadowEdge.ts
+index 78b8a026..9eb5631a 100644
+--- a/src/scene/model/cloudShadowEdge.ts
++++ b/src/scene/model/cloudShadowEdge.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { FieldCell } from '../../world/field/types'
+ import { cellRim, rimRadiusSquared } from './cloudShadowRim'
+ import { crownAt, halfAt, headsOf, towerAnvil, type TowerHeadShape } from './towerHeads'
+diff --git a/src/scene/model/cloudShadowRim.ts b/src/scene/model/cloudShadowRim.ts
+index c2111111..4785649a 100644
+--- a/src/scene/model/cloudShadowRim.ts
++++ b/src/scene/model/cloudShadowRim.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { seeded } from '../../data/landmarks/hash'
+ import type { FieldCell, Genus } from '../../world/field/types'
+ 
+diff --git a/src/scene/model/displayByte.ts b/src/scene/model/displayByte.ts
+index 427df7b6..ce286975 100644
+--- a/src/scene/model/displayByte.ts
++++ b/src/scene/model/displayByte.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { toSrgb } from './tone'
+ 
+ // The table differs from the rounded IEC sRGB transfer by at most one display byte.
+diff --git a/src/scene/model/drawnArchitectureLight.ts b/src/scene/model/drawnArchitectureLight.ts
+index a3fd4ed3..ba3ff3bf 100644
+--- a/src/scene/model/drawnArchitectureLight.ts
++++ b/src/scene/model/drawnArchitectureLight.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { smoothstep } from '../../domain/smoothstep'
+ import type { Normal } from '../../world/livingLight'
+ import type { LandIrradiance } from './landIrradiance'
+diff --git a/src/scene/model/drawnHaze.ts b/src/scene/model/drawnHaze.ts
+index d5abec47..a795b6a0 100644
+--- a/src/scene/model/drawnHaze.ts
++++ b/src/scene/model/drawnHaze.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { WorldState, RGB } from '../../world/types'
+ import { COVER_WATER, nonWaterLocalFallback, roundRgb } from './landPalette'
+ import { illustratedHazeAt as hazeAt } from './landVeil'
+diff --git a/src/scene/model/farCityGeometry.ts b/src/scene/model/farCityGeometry.ts
+index a8d4a439..70a111b8 100644
+--- a/src/scene/model/farCityGeometry.ts
++++ b/src/scene/model/farCityGeometry.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { hashId } from '../../data/landmarks/hash'
+ import { SCENE_W } from '../../world/sceneBox'
+ import type { FarCities, WorldState } from '../../world/types'
+diff --git a/src/scene/model/glassLight.ts b/src/scene/model/glassLight.ts
+index c408460d..3c638cb3 100644
+--- a/src/scene/model/glassLight.ts
++++ b/src/scene/model/glassLight.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { Normal } from '../../world/livingLight'
+ import { aerosolDepth } from '../../world/sceneLight'
+ import type { RGB, WorldState } from '../../world/types'
+diff --git a/src/scene/model/glyphSurfaces.ts b/src/scene/model/glyphSurfaces.ts
+index 1b6ad837..93a3de91 100644
+--- a/src/scene/model/glyphSurfaces.ts
++++ b/src/scene/model/glyphSurfaces.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { isField } from '../../world/glyphSpecs'
+ import { NORMALS, type Normal } from '../../world/livingLight'
+ import type { RGB, WorldState } from '../../world/types'
+diff --git a/src/scene/model/markTones.ts b/src/scene/model/markTones.ts
+index b0b5d021..246e158e 100644
+--- a/src/scene/model/markTones.ts
++++ b/src/scene/model/markTones.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { wrap180 } from '../../domain/camera'
+ import { NORMALS, type Normal } from '../../world/livingLight'
+ import { smoothstep } from '../../world/ridgeLighting'
+diff --git a/src/scene/model/metalLight.ts b/src/scene/model/metalLight.ts
+index 82ce1f3d..e0e1c8f8 100644
+--- a/src/scene/model/metalLight.ts
++++ b/src/scene/model/metalLight.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { lambert, type Normal } from '../../world/livingLight'
+ import { smoothstep } from '../../world/ridgeLighting'
+ import { drawnLightOf } from '../../world/drawnLight'
+diff --git a/src/scene/model/outside.ts b/src/scene/model/outside.ts
+index 065d4bbf..c8f1c4a0 100644
+--- a/src/scene/model/outside.ts
++++ b/src/scene/model/outside.ts
+@@ -13,7 +13,7 @@ import { outsideSea } from './outsideSea'
+ import { KM_STEP, outsideShape } from './outsideShape'
+ import { accessoryTones, buildingFaces, type BuildingFaces } from './buildingLight'
+ import { receiverLightKey } from './receiverKey'
+-import { wallAir } from './wallDistance'
++import { townGroundKm, wallAir } from './wallDistance'
+ import type { Box, LayerOf, SceneBox, Shine, Tones } from './types'
+ 
+ /**
+@@ -45,17 +45,17 @@ export function outsideHome(world: WorldState, box: SceneBox, clear: readonly Bo
+ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly Box[] = [],
+   style: SceneStyle = 'real'): LayerOf<'outside'> | null {
+   if (world.place3.kind !== 'outside') return null
++  const view = world.place3
+   const sx = box.width / SCENE_W
+   const shape = outsideShape(world, box, clear)
+   const drawn = style === 'drawn' ? drawnOutsideLight(world, box, shape, sx) : undefined
+   const shine: Shine = drawn?.shine ?? shineOf(world)
+   // The hour's tones per tier, and the marks' glyphs in them (the rest of the shapes kept as they are).
+   const tones = drawn?.tiers ?? shape.kms.map((km) => tonesAt(world, km))
+-  const air = wallAir(world, shape.groundKm), wallKms = shape.wallKms.map(air)
++  const air = wallAir(world, () => shape.groundKm ??= townGroundKm(world, view)), wallKms = shape.wallKms.map(air)
+   const out = drawn?.items ?? refreshLandmarkItems(world, shape.items, shape.marks, (_, glyph, km) =>
+     refreshLandmarkGlyph(world, glyph, air(km)))
+   const sea = outsideSea(world, box, sx, clear)
+-  const view = world.place3
+   const landDesc = outsideLandDesc(world, view, box, sx)
+   const receivers = drawn ? [] : shape.receivers.map((ids, i) => {
+     const palette: Record<number, BuildingFaces> = {}
+diff --git a/src/scene/model/outsideNeighbourhood.ts b/src/scene/model/outsideNeighbourhood.ts
+index a145dca4..65db45d6 100644
+--- a/src/scene/model/outsideNeighbourhood.ts
++++ b/src/scene/model/outsideNeighbourhood.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { OutsideItem } from './types'
+ 
+ /** Compact kernel around each foot in reference scene units. The x-sorted search
+diff --git a/src/scene/model/outsideSea.ts b/src/scene/model/outsideSea.ts
+index cf8c5aa8..42493d12 100644
+--- a/src/scene/model/outsideSea.ts
++++ b/src/scene/model/outsideSea.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { hashId, seeded } from '../../data/landmarks/hash'
+ import { hits } from '../../world/sceneClearance'
+ import type { RGB, WorldState } from '../../world/types'
+diff --git a/src/scene/model/outsideShape.ts b/src/scene/model/outsideShape.ts
+index 204ed6ca..c8833266 100644
+--- a/src/scene/model/outsideShape.ts
++++ b/src/scene/model/outsideShape.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { STOREY_M } from '../../data/city/skylineHeight'
+ import { HOUSE_TOP_M } from '../../data/city/outsideView'
+ import { hashId, seeded } from '../../data/landmarks/hash'
+@@ -13,7 +14,7 @@ import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
+ import { neighbourhood } from './outsideNeighbourhood'
+ import { outsideMarks } from './outsideMarks'
+ import type { Box, OutsideItem, SceneBox } from './types'
+-import { townGroundKm, wallStep } from './wallDistance'
++import { wallStep } from './wallDistance'
+ 
+ /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
+ export const KM_STEP = .5
+@@ -50,9 +51,9 @@ interface Shape {
+   bounds: ReturnType<typeof boundsOf>
+   /** The km of each tier the items refer to (their tones are the hour's). */
+   kms: number[]
+-  /** Each tier's distance for its walls (a step of their own; the land's cap for what is beyond), and the town's ground. */
++  /** Each tier's distance for its walls (a step of their own; the land's cap for what is beyond), and the town's ground (once a twilight asks). */
+   wallKms: number[]
+-  groundKm: number
++  groundKm?: number
+   receivers: Map<number, { detail: boolean; tile: boolean }>[]
+   heaters: Set<number>
+   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
+@@ -145,7 +146,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
+   }
+   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
+   const { receivers, heaters } = receiversUsed(out, kms.length)
+-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
++  const shape: Shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, receivers, heaters, marks, mass, home }
+   if (byKey.size > 8) byKey.clear()
+   byKey.set(key, shape)
+   return shape
+diff --git a/src/scene/model/planeBands.ts b/src/scene/model/planeBands.ts
+index 43e2d899..83770f4c 100644
+--- a/src/scene/model/planeBands.ts
++++ b/src/scene/model/planeBands.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { Box, Pt } from './types'
+ 
+ export const TEXEL = 3
+diff --git a/src/scene/model/planeCloudShadow.ts b/src/scene/model/planeCloudShadow.ts
+index 8b7b8acf..d0e9282c 100644
+--- a/src/scene/model/planeCloudShadow.ts
++++ b/src/scene/model/planeCloudShadow.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { RGB, TerrainPlanes } from '../../world/types'
+ import { EXPOSURE_GAMMA, linearLuminance, srgbRgbToLinear } from './landRadiance'
+ import { toSrgb } from './tone'
+diff --git a/src/scene/model/planeField.ts b/src/scene/model/planeField.ts
+index b30030b9..acc64575 100644
+--- a/src/scene/model/planeField.ts
++++ b/src/scene/model/planeField.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { outlineBandY, TEXEL } from './planeBands'
+ import type { Box, PlaneLitField, Pt, RGB } from './types'
+ 
+diff --git a/src/scene/model/planeGeometryKey.ts b/src/scene/model/planeGeometryKey.ts
+index 83575268..a20adcb2 100644
+--- a/src/scene/model/planeGeometryKey.ts
++++ b/src/scene/model/planeGeometryKey.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { Plane, TerrainPlanes } from '../../world/types'
+ import { SCENE_W } from '../../world/sceneBox'
+ import { PALETTE_COLS, type PlaneName } from './faceProjection'
+diff --git a/src/scene/model/plantVisibility.ts b/src/scene/model/plantVisibility.ts
+index d3f64a48..a643edc1 100644
+--- a/src/scene/model/plantVisibility.ts
++++ b/src/scene/model/plantVisibility.ts
+@@ -1,2 +1,3 @@
++//# allFunctionsCalledOnLoad
+ /** Shared cutoff for painted plants and the tone bytes that invalidate their canvases. */
+ export const plantVisible = (alpha: number) => alpha > 0.02
+diff --git a/src/scene/model/receiverKey.ts b/src/scene/model/receiverKey.ts
+index b29aa434..7feb1dae 100644
+--- a/src/scene/model/receiverKey.ts
++++ b/src/scene/model/receiverKey.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import type { WorldState } from '../../world/types'
+ import { facadeTwilight } from './buildingExposure'
+ import { buildingSurroundings } from './buildingLight'
+diff --git a/src/scene/model/terrainVisibility.ts b/src/scene/model/terrainVisibility.ts
+index c5d4a767..14819f7a 100644
+--- a/src/scene/model/terrainVisibility.ts
++++ b/src/scene/model/terrainVisibility.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { LOCAL_STEP_KM } from '../../data/terrain/panorama'
+ import { curveDrop } from '../../world/flightTerrain'
+ import type { LightDir } from '../../world/livingLight'
+diff --git a/src/scene/model/towerHeads.ts b/src/scene/model/towerHeads.ts
+index 6a194602..770d6b8b 100644
+--- a/src/scene/model/towerHeads.ts
++++ b/src/scene/model/towerHeads.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { smoothstep } from '../../domain/smoothstep'
+ import { seeded } from '../../data/landmarks/hash'
+ 
+diff --git a/src/scene/model/wallDistance.ts b/src/scene/model/wallDistance.ts
+index 5aecacd0..920c9a3a 100644
+--- a/src/scene/model/wallDistance.ts
++++ b/src/scene/model/wallDistance.ts
+@@ -1,3 +1,4 @@
++//# allFunctionsCalledOnLoad
+ import { groundAt as lineAt } from '../../world/sceneLight'
+ import { ABOVE_PAD } from '../../world/outside'
+ import { SCENE_H } from '../../world/sceneBox'
+@@ -33,7 +34,9 @@ export const wallStep = (km: number) => 2 ** (Math.round(Math.log2(Math.max(.1,
+  * street, they share its air too, under one cap for the whole town. Never the land behind this one wall: that steps from
+  * column to column.
+  */
+-export function wallAir(world: WorldState, groundKm: number) {
++export function wallAir(world: WorldState, groundKm: () => number) {
+   const share = facadeTwilight(world.bodies.sun.altitude)
+-  return (km: number) => km + (Math.min(km, groundKm) - km) * share
++  if (!share) return (km: number) => km
++  const ground = groundKm()
++  return (km: number) => km + (Math.min(km, ground) - km) * share
+ }
