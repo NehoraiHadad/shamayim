@@ -11,6 +11,7 @@ import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import { towerAnvil } from './towerHeads'
+import { raisedAspect, sceneStretch, shapeOf } from './towerAspect'
 import type { LayerOf, RGB, SceneBox } from './types'
 
 /*
@@ -37,8 +38,6 @@ const W_MIN = 1.5
  * and no taller than wide.
  */
 export const MERGE_KM = 40, MERGE_PX = 28
-/** How much of the sky's stretch a tower's own shape takes (an exponent): all of it draws every far heap as a pillar. */
-const STAND = 0.55
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
 const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
@@ -49,7 +48,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
   const pxPerDeg = world.camera.pxPerDeg * geom.s
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
-  const stretch = sceneStretch(geom, pxPerDeg) ** STAND
+  const stretch = sceneStretch(geom, pxPerDeg)
   const placed: (Placed & Standing & { top: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
@@ -70,7 +69,9 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
     // tower stands to its top's altitude, but no taller than its true aspect at part of the scene's stretch, so a far one
     // is a heap and not a streak, and a near one keeps its height.
-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * stretch * cell.vKm / (2 * cell.r), merged ? w : Infinity))
+    const aspect = cell.vKm / (2 * cell.r)
+    const limit = cell.genus === 'cb' && !merged ? shapeOf(aspect, stretch, p.aTop) : raisedAspect(aspect, stretch)
+    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * limit, merged ? w : Infinity))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
     sprite.bowl = bowl
@@ -96,12 +97,6 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under), q(s.bowl ?? 0),
       q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
   }
-}
-
-/** How much taller than wide the scene draws the sky on average: the dome's px per degree of altitude, horizon to
- *  zenith, against the panorama's px per degree of azimuth. */
-export function sceneStretch(geom: SkyGeom, pxPerDeg: number): number {
-  return Math.max(1, (geom.dome(0) - geom.dome(90)) / 90 / pxPerDeg)
 }
 
 type TowerGenus = Extract<SpriteGenus, 'cu' | 'cg' | 'cb'>

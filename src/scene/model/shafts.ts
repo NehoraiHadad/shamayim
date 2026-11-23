@@ -1,7 +1,7 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState, RainCell } from '../../world/types'
-import { sceneStretch } from './cloudCells'
+import { sceneStretch } from './towerAspect'
 import { RAIN_GREY } from './cloudLight'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
