@@ -43,7 +43,9 @@ it.each(['strip', 'worker bitmaps'] as const)('reads each endpoint pose once acr
   expect(draw).toHaveBeenCalledTimes(6)
   expect(put).toHaveBeenCalledTimes(revision)
   const before = blend.bytes()
-  blend.mix('layer', null, source(), source(), rect, mask(++revision), box, 0)
+  const next = [source(), source()] as const
+  // The first mix of a new pair restores the whole rect; the second holds the same box buffer as before.
+  for (let step = 0; step < 2; step++) blend.mix('layer', null, ...next, rect, mask(++revision), box, 0)
   expect(read).toHaveBeenCalledTimes(8)
   expect(blend.bytes()).toBe(before - 4 * rect.w * rect.h * 4)
   blend.prune(new Set())
