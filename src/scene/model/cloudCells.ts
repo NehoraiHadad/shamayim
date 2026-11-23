@@ -6,7 +6,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { acrossSpeed, pxPerRadAt } from './advect'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
-import { beforeSheet, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
+import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
 import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
@@ -81,6 +81,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   }
   if (!placed.length) return null
   oneStormEach(placed)
+  hideBehind(placed)
   // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause, and only over a
   // column that stands taller than it is wide (a cap on a squat body reads as a disc floating in the sky).
   const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' && c.sprite.tall >= 1.5 * c.sprite.w

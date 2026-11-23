@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { CloudSprite } from '../paint/cloudSprite'
-import { beforeSheet, leanOf, oneStormEach, type Standing } from './towerStorms'
+import { beforeSheet, hideBehind, leanOf, oneStormEach, type Standing } from './towerStorms'
 import type { RGB } from './types'
 
-const standing = (x: number, km: number): Standing => ({ sprite: { share: 1 } as CloudSprite, at: [x, km], r: 3, km })
+const standing = (x: number, km: number): Standing => ({ sprite: { share: 1 } as CloudSprite, at: [x, km], r: 3, km, x: 0, y: 0 })
 
 describe('oneStormEach', () => {
   it('fades the farther of two cells whose cores overlap into the nearer', () => {
@@ -28,6 +28,31 @@ describe('oneStormEach', () => {
       if (last >= 0) expect(Math.abs(sum - last)).toBeLessThan(0.1)
       last = sum
     }
+  })
+})
+
+describe('hideBehind', () => {
+  const tower = (x: number, y: number, w: number, tall: number, km: number): Standing =>
+    ({ sprite: { share: 1, w, tall, under: 20 } as CloudSprite, at: [0, km], r: 3, km, x, y })
+
+  it('hides a tower behind a nearer one, whichever comes first', () => {
+    const near = tower(0, 0, 100, 300, 4), far = tower(10, 25, 40, 120, 9)
+    hideBehind([far, near])
+    expect([near.sprite.share, far.sprite.share]).toEqual([1, 0])
+  })
+
+  it('leaves what stands beside it or over it, and goes smoothly between', () => {
+    let last = 0
+    for (let x = 0; x <= 80; x++) {
+      const near = tower(0, 0, 100, 300, 4), far = tower(x, 25, 40, 120, 9)
+      hideBehind([near, far])
+      expect(Math.abs(far.sprite.share - last)).toBeLessThan(0.15)
+      last = far.sprite.share
+    }
+    expect(last).toBe(1)
+    const low = tower(0, 0, 100, 60, 4), high = tower(0, 5, 60, 200, 9)
+    hideBehind([low, high])
+    expect(high.sprite.share).toBe(1)
   })
 })
 

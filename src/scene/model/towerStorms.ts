@@ -9,8 +9,9 @@ import type { RGB } from './types'
  * tower's top is carried the way its wind blows across the view. Pure.
  */
 
-/** A tower as it stands: its sprite, its cell's middle (km east, north) and radius, and its range. */
-export interface Standing { sprite: CloudSprite; at: readonly [number, number]; r: number; km: number }
+/** A tower as it stands: its sprite, its cell's middle (km east, north) and radius, and its range, and where on the
+ * sky its near base edge is (px). */
+export interface Standing { sprite: CloudSprite; at: readonly [number, number]; r: number; km: number; x: number; y: number }
 
 /** Cells whose middles stand nearer than this (of the larger radius) are one storm; from this on, two. */
 const ONE = 0.6, TWO = 1.2
@@ -30,6 +31,30 @@ export function oneStormEach(towers: readonly Standing[]) {
       far.sprite.share *= 1 - (1 - apart) * shares[n] * smoothstep(0, FARTHER, (far.km - near.km) / r)
     })
   }
+}
+
+/** A tower this much behind a nearer one (a share of its own face) begins to go, and from here on is hidden. */
+const HIDDEN = [0.5, 0.8] as const
+
+/**
+ * A storm hides what stands behind it: the soft hand paints a tower slightly see-through, so one behind a nearer one would
+ * show in it as a seam and under its base as a pillar. It goes as far as the nearer one covers it.
+ */
+export function hideBehind(towers: readonly Standing[]) {
+  const shares = towers.map(({ sprite }) => sprite.share)
+  for (const far of towers) {
+    towers.forEach((near, n) => {
+      if (near.km < far.km) far.sprite.share *= 1 - shares[n] * smoothstep(HIDDEN[0], HIDDEN[1], coveredBy(near, far))
+    })
+  }
+}
+
+/** The share of the farther tower's face (its column's width by its height) that the nearer one stands in front of. */
+function coveredBy(near: Standing, far: Standing): number {
+  const n = near.sprite, f = far.sprite
+  const across = Math.min(near.x + n.w / 2, far.x + f.w / 2) - Math.max(near.x - n.w / 2, far.x - f.w / 2)
+  const up = Math.min(near.y + n.under, far.y) - Math.max(near.y - n.tall, far.y - f.tall)
+  return Math.max(0, across) * Math.max(0, up) / Math.max(1, f.w * f.tall)
 }
 
 /** −1…1: how far the tops lean downwind on screen, from the wind across the view and the whole wind there (both px/s). */
