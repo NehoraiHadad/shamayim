@@ -23,25 +23,22 @@ export function landmarkTonesAt(world: WorldState, km: number, contrast = landma
 }
 
 /** Refresh only light, including visibility-only changes on a cached outside shape. */
-export function refreshLandmarkGlyph(world: WorldState, glyph: GlyphDesc, km: number, style: SceneStyle = 'real', accentKm = km): GlyphDesc {
+export function refreshLandmarkGlyph(world: WorldState, glyph: GlyphDesc, km: number, style: SceneStyle = 'real'): GlyphDesc {
   const far = isFamousNonOwn(glyph), distance = far ? glyph.trueDistanceKm! : km
   const contrast = far ? landmarkContrast(world, distance) : 1
   const t = far ? landmarkTonesAt(world, distance, contrast) : tonesAt(world, distance)
   const land = far ? toneAt(world, distance) : null
   const use = glyphSurfaces(world, glyph, distance, t, c => land ? mixRgb(land, c, contrast) : c, style)
-  const accent = far || accentKm === km ? t : tonesAt(world, accentKm)
-  return { ...glyph, ...use, windowWall: accent.wall, shadowTones: { deep: accent.deep, shade: accent.shade }, ...(far ? { contrast } : {}) }
+  return { ...glyph, ...use, windowWall: t.wall, shadowTones: { deep: t.deep, shade: t.shade }, ...(far ? { contrast } : {}) }
 }
 
 /** Preserve cached outside geometry while refreshing the descriptors' hour-dependent colours. */
 export function refreshLandmarkItems(world: WorldState, items: readonly OutsideItem[],
-  marks: readonly { at: number; km: number; groundKm?: number }[],
-  refresh: (world: WorldState, glyph: GlyphDesc, km: number, groundKm: number) => GlyphDesc = (w, g, km) => refreshLandmarkGlyph(w, g, km),
-): OutsideItem[] {
+  marks: readonly { at: number; km: number }[], refresh = refreshLandmarkGlyph): OutsideItem[] {
   const out = [...items]
-  for (const { at, km, groundKm = km } of marks) {
+  for (const { at, km } of marks) {
     const item = out[at] as Extract<OutsideItem, { kind: 'mark' }>
-    out[at] = { kind: 'mark', glyph: refresh(world, item.glyph, km, groundKm) }
+    out[at] = { kind: 'mark', glyph: refresh(world, item.glyph, km) }
   }
   return out
 }

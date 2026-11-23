@@ -1,9 +1,6 @@
 import { ABOVE_PAD } from '../../world/outside'
 import type { WorldState } from '../../world/types'
 import { outsideRidge } from '../../world/outsideDepth'
-import { SCENE_H } from '../../world/sceneBox'
-import type { SceneStyle } from '../sceneStyle'
-import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 
 /**
  * The farthest anything can be where it is seen against the land (C9 defect 1): a thing whose foot shows in front of a
@@ -11,7 +8,9 @@ import { faceAtY, localFootY, type PlaneName } from './faceProjection'
   * where
  * the foot is seen against the sky). The place's far rows over the near ridge then take its haze, not the far air's.
  */
-export function landBehind(world: WorldState, style: SceneStyle = 'drawn', landHeight = SCENE_H): (x: number, y: number) => number {
+export function landBehind(world: WorldState): (x: number, y: number) => number {
+  const planes = [world.terrain.near, world.terrain.far, world.terrain.back].filter((p): p is NonNullable<typeof p> =>
+     Boolean(p?.points.length))
   const along = (pts: readonly (readonly [number, number])[], kms: readonly number[]) => (x: number): [number,
      number] => {
     if (x <= pts[0][0]) return [pts[0][1], kms[0]]
@@ -28,13 +27,9 @@ export function landBehind(world: WorldState, style: SceneStyle = 'drawn', landH
   const view = world.place3.kind === 'outside' ? world.place3 : null
   const own = view?.land ? { x0: view.land.top[0][0], x1: view.land.top.at(-1)![0],
     top: along(view.land.top, view.land.top.map(() => view.land!.km)) } : null
-  const names: readonly PlaneName[] = ['near', 'far', 'back']
-  const crests = names.flatMap(name => {
-    const given = world.terrain[name]
-    if (!given?.points.length) return []
-    const plane = style === 'drawn' ? outsideRidge(world, given) : given
-    const at = along(plane.points, style === 'drawn' ? plane.hazeKm ?? plane.distanceKm : plane.distanceKm)
-    return [{ at, plane, name, pad: name === 'near' ? ABOVE_PAD + 0.5 : -0.5 }]
+  const crests = planes.map((given, i) => {
+    const plane = outsideRidge(world, given)
+    return { at: along(plane.points, plane.hazeKm ?? plane.distanceKm), pad: i === 0 ? ABOVE_PAD + 0.5 : -0.5 }
   })
   return (x, y) => {
     if (own && x >= own.x0 && x <= own.x1) {
@@ -43,10 +38,7 @@ export function landBehind(world: WorldState, style: SceneStyle = 'drawn', landH
     }
     for (const crest of crests) {
       const [cy, km] = crest.at(x)
-      if (y < cy - crest.pad) continue
-      if (style === 'drawn' || y <= cy) return km
-      const foot = localFootY(world, crest.name, x, cy, landHeight)
-      return faceAtY(world, crest.name, crest.plane, x, cy, foot, y, km).km
+      if (y >= cy - crest.pad) return km
     }
     return Infinity
   }

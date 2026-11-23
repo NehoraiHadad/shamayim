@@ -5,7 +5,6 @@ import { outsideItemKm } from '../../world/outsideDepth'
 import { hits } from '../../world/sceneClearance'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
 import { receiversUsed } from './buildingUsage'
 import { receiverId } from './buildingMaterial'
 import { landBehind } from './landBehind'
@@ -17,6 +16,9 @@ import type { Box, OutsideItem, SceneBox } from './types'
 
 /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
 export const KM_STEP = .5
+
+/** A wall's own path of air, in steps of an eighth of an octave: the nearest rows differ most by it. */
+const wallKm = (km: number) => 2 ** (Math.round(Math.log2(Math.max(.1, km)) * 8) / 8)
 
 /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
 function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
@@ -50,34 +52,34 @@ interface Shape {
   bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
-  groundKms: number[]
+  /** Each tier's own distance: the path of air a wall is seen through, never the land's behind it. */
+  wallKms: number[]
   receivers: Map<number, { detail: boolean; tile: boolean }>[]
   heaters: Set<number>
   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
-  marks: { at: number; km: number; groundKm: number }[]
+  marks: { at: number; km: number }[]
 }
 
 /** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
 
-export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[], style: SceneStyle = 'real'): Shape {
+export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${box.landHeight}|${style}|${JSON.stringify([clear, world.labels.height.backed && world.labels.height, world.keys.marks])}`
+  const key = `${box.width}|${JSON.stringify([clear, world.labels.height.backed && world.labels.height, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W
-  const kms: number[] = [], groundKms: number[] = []
+  const kms: number[] = [], wallKms: number[] = []
   const index = new Map<string, number>()
   const behind = landBehind(world)
-  const groundBehind = style === 'real' ? landBehind(world, style, box.landHeight) : undefined
-  const tier = (km: number, x?: number, foot?: number) => {
-    const q = Math.round(Math.min(km, x === undefined ? Infinity : behind(x, foot!)) / KM_STEP) * KM_STEP
-    const ground = x === undefined || !groundBehind ? q : Math.round(Math.min(q, groundBehind(x, foot!)) / KM_STEP) * KM_STEP
-    const key = `${q}:${ground}`
+  const tier = (km: number, x: number, foot: number, own = false) => {
+    const q = Math.round(Math.min(km, behind(x, foot)) / KM_STEP) * KM_STEP
+    const wall = own ? wallKm(km) : q
+    const key = `${q}:${wall}`
     let i = index.get(key)
-    if (i === undefined) { i = kms.length; index.set(key, i); kms.push(q); groundKms.push(ground) }
+    if (i === undefined) { i = kms.length; index.set(key, i); kms.push(q); wallKms.push(wall) }
     return i
   }
   const { frame, skyline, baseKm } = view
@@ -110,14 +112,13 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   for (const b of skyline.boxes) {
     const x = b.x * sx, w = b.w * sx
     if (!free(x - w / 2, b.top, x + w / 2, b.foot)) continue
-    const km = outsideItemKm(frame, baseKm, b)
-    mass.push(massAt(x, w, b.top, km))
+    mass.push(massAt(x, w, b.top, outsideItemKm(frame, baseKm, b)))
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     const heightM = b.heightM ?? 3 * STOREY_M
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, b.x, b.foot),
+    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot, true),
       seed, receiver: receiverId(seed),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
@@ -125,9 +126,8 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   for (const t of skyline.towers) {
     const x = t.x * sx
     if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
-    const km = outsideItemKm(frame, baseKm, t)
-    mass.push(massAt(x, t.w, t.baseY - t.h, km))
-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(km, t.x, t.baseY)) })
+    mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
+    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY, true)) })
   }
   for (const t of view.trees) {
     const x = t.x * sx
@@ -141,15 +141,12 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   own.sort((a, b) => a.y - b.y)
   const marks: Shape['marks'] = []
   for (const o of own) {
-    if (o.km !== undefined) {
-      const glyph = (o.item as Extract<OutsideItem, { kind: 'mark' }>).glyph
-      marks.push({ at: out.length, km: o.km, groundKm: Math.min(o.km, groundBehind?.(glyph.x / sx, glyph.base) ?? Infinity) })
-    }
+    if (o.km !== undefined) marks.push({ at: out.length, km: o.km })
     out.push(o.item)
   }
   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
   const { receivers, heaters } = receiversUsed(out, kms.length)
-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, groundKms, receivers, heaters, marks, mass, home }
+  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, receivers, heaters, marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape
