@@ -1,16 +1,10 @@
-// The app's valley as the app shows it, for review and smoke tests (docs/design/qa/canvas/<stage>/). Replaces the C9
-// review's SVG | canvas runner (`scene.compare.mjs`): the SVG scene is gone, so each moment is one still.
-//   node e2e/scene.app.mjs <out-dir> <place>@<HH:MM>[@<weather>] … [--built] [--dpr=2] [--page]
-// `--built`: the production build in `dist/` (run `npm run build` first), served by `vite preview`, service worker
-// blocked; else the Vite dev server. `--page`: the whole first screen, else the figure with the sky above it.
-// The place and its recorded panorama are put in storage as the app keeps them, the clock set to the moment (2026-11-17,
-// the fixture's day), the forecast answered from the fixture at the place's own height; every other request off the
-// server is refused, so nothing reaches Open-Meteo. Each moment also checks the figure's accessibility as the SVG scene
-// had it: `role="group"` with a spoken label, the hour slider (`role="slider"`, keyboard: ← an hour later, Escape back to
-// now) and the readout pill while a time is shown.
+// App stills and smoke checks at 375×812, with the day defaulting to the harness fixture's day.
+// `--built` serves dist/ via Vite preview. `--page` saves the first screen instead of the figure and a strip of sky.
 import fs from 'node:fs'
 import path from 'node:path'
-import { launch, root, startServer } from './harness.mjs'
+import { openAppPage } from './appPage.mjs'
+import { caseName, DEFAULT_DAY, launch, root, startPreview, startServer } from './harness.mjs'
+import { skyProblem, STILL_OPTIONS, waitForSky } from './skyShown.mjs'
 
 const args = process.argv.slice(2)
 const dpr = Number(args.find((a) => a.startsWith('--dpr='))?.slice(6) ?? 2)
@@ -31,95 +25,74 @@ const WX = {
 }
 const [outDir, ...moments] = args.filter((a) => !a.startsWith('--'))
 if (!outDir || !moments.length) {
-  console.log('usage: node e2e/scene.app.mjs <out-dir> <place>@<HH:MM>[@<weather>] … [--built] [--dpr=2] [--page]')
+  console.log('usage: node e2e/scene.app.mjs <out-dir> <place>@<HH:MM|YYYY-MM-DDTHH:MM>[@<weather>] …'
+    + ' [--built] [--dpr=2] [--page]')
   process.exit(2)
 }
-if (built && !fs.existsSync(path.join(root, 'dist/index.html'))) throw new Error('no dist/: run npm run build first')
-const placesSrc = fs.readFileSync(path.join(root, 'src/test/scenePlaces.ts'), 'utf8')
-const placeOf = (id) => {
-  const m = placesSrc.match(new RegExp(`\\{ id: '${id}'[\\s\\S]*?\\}`))
-  if (!m) throw new Error(`unknown place ${id}`)
-  return Function(`return (${m[0]})`)()
+if (built && !fs.existsSync(path.join(root, 'dist/index.html'))) throw new Error('no dist/: run npx vite build first')
+
+async function checkKeyboard({ page, errors, refused }, figure, name) {
+  const role = await figure.getAttribute('role'), label = await figure.getAttribute('aria-label')
+  const slider = page.locator('[role="slider"][aria-label="שעה בעמק"]')
+  const before = await slider.getAttribute('aria-valuenow')
+  await slider.focus()
+  await page.keyboard.press('ArrowLeft')
+  await page.waitForTimeout(400)
+  const after = await slider.getAttribute('aria-valuenow')
+  const readout = await page.locator('button', { hasText: 'עכשיו' }).count()
+  const text = await slider.getAttribute('aria-valuetext')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(400)
+  const back = await slider.getAttribute('aria-valuenow')
+  const canvasHidden = await figure.locator('canvas').getAttribute('aria-hidden')
+  const ok = role === 'group' && Boolean(label) && Number(after) === Number(before) + 60 && readout > 0
+    && back === before && canvasHidden === 'true' && errors.length === 0
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}  label="${label}"  slider ${before}→${after}→${back} "${text}"`
+    + `  readout ${readout > 0}`
+    + `${errors.length ? `  errors: ${errors.join(' | ')}` : ''}${refused.size ? `  refused: ${[...refused].join(',')}` : ''}`)
+  return ok
 }
 
-async function startPreview() {
-  const { preview } = await import('vite')
-  const server = await preview({ root, logLevel: 'error', preview: { host: '127.0.0.1', port: 0, strictPort: false } })
-  const url = server.resolvedUrls.local[0].replace(/\/$/, '')
-  return { url, close: () => new Promise((resolve) => server.httpServer.close(resolve)) }
-}
-
-const server = built ? await startPreview() : await startServer()
-const browser = await launch()
-const host = new URL(server.url).host
-const problems = []
-fs.mkdirSync(path.resolve(root, outDir), { recursive: true })
-try {
-  for (const moment of moments) {
-    const [id, hour, weather = ''] = moment.split('@')
-    if (weather && !WX[weather]) throw new Error(`unknown weather ${weather}`)
-    const place = placeOf(id)
-    const panorama = fs.readFileSync(path.join(root, `src/test/fixtures/scene/${id}.panorama.json`), 'utf8')
-    const at = `2026-11-17T${hour}:00+02:00`
-    const context = await browser.newContext({ viewport: { width: 375, height: 812 }, deviceScaleFactor: dpr,
-      reducedMotion: 'reduce', serviceWorkers: 'block' })
-    const forecast = JSON.parse(fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'), 'utf8'))
-    forecast.elevation = JSON.parse(panorama).groundM
-    const refused = new Set()
-    await context.route('**/*', (route) => {
-      const url = new URL(route.request().url())
-      if (/\/v1\/forecast$/.test(url.pathname)) {
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(forecast) })
-      }
-      if (url.host === host) return route.continue()
-      refused.add(url.host)
-      return route.abort('blockedbyclient')
-    })
-    const page = await context.newPage()
-    const errors = []
-    page.on('pageerror', (err) => errors.push(String(err)))
-    await page.addInitScript(({ place, panorama, id, at }) => {
-      localStorage.setItem('shamayim:place:v1', JSON.stringify(place))
-      localStorage.setItem(`shamayim:horizon:v3:${id}`, panorama)
-      const R = Date, off = R.parse(at) - R.now()
-      class S extends R { constructor(...a) { super(...(a.length ? a : [R.now() + off])) } static now() { return R.now() + off } }
-      window.Date = S
-    }, { place, panorama, id, at })
-    // `?wx=` is a dev override: the built app ignores it, so a weather moment is a dev-server moment.
-    const q = new URLSearchParams(weather ? { wx: WX[weather] } : {})
-    await page.goto(`${server.url}/${q.size ? `?${q}` : ''}`)
-    await page.waitForSelector('figure[data-canvas]', { timeout: 60000 })
-    await page.waitForTimeout(3500)
+async function renderMoment(browser, base, moment) {
+  const [id, time, weather = ''] = moment.split('@')
+  if (weather && !Object.hasOwn(WX, weather)) throw new Error(`unknown weather ${weather}`)
+  const at = /^\d{2}:\d{2}$/.test(time) ? `${DEFAULT_DAY}T${time}` : time
+  const app = await openAppPage(browser, base, { id, at, dpr, wx: weather ? WX[weather] : '' })
+  const { context, page } = app
+  try {
+    const stable = await waitForSky(page)
+    const name = caseName({ place: id, at, weather })
     const figure = page.locator('figure[data-canvas]')
-    const name = `${id}-${hour.replace(':', '')}${weather ? `-${weather}` : ''}`
-    const box = await figure.boundingBox()
-    const top = Math.max(0, box.y - 160)
-    const shot = whole ? { fullPage: false } : { clip: { x: 0, y: top, width: 375, height: box.y + box.height - top } }
-    fs.writeFileSync(path.resolve(root, outDir, `${name}.png`), await page.screenshot(shot))
-    // Accessibility, as the SVG scene had it.
-    const role = await figure.getAttribute('role'), label = await figure.getAttribute('aria-label')
-    const slider = page.locator('[role="slider"][aria-label="שעה בעמק"]')
-    const before = await slider.getAttribute('aria-valuenow')
-    await slider.focus()
-    await page.keyboard.press('ArrowLeft')
-    await page.waitForTimeout(400)
-    const after = await slider.getAttribute('aria-valuenow')
-    const readout = await page.locator('button', { hasText: 'עכשיו' }).count()
-    const text = await slider.getAttribute('aria-valuetext')
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(400)
-    const back = await slider.getAttribute('aria-valuenow')
-    const canvasHidden = await figure.locator('canvas').getAttribute('aria-hidden')
-    const ok = role === 'group' && Boolean(label) && Number(after) === Number(before) + 60 && readout > 0
-      && back === before && canvasHidden === 'true' && errors.length === 0
-    const line = `${ok ? 'ok  ' : 'FAIL'} ${name}  label="${label}"  slider ${before}→${after}→${back} "${text}"  readout ${readout > 0}`
-      + `${errors.length ? `  errors: ${errors.join(' | ')}` : ''}${refused.size ? `  refused: ${[...refused].join(',')}` : ''}`
-    console.log(line)
-    if (!ok) problems.push(name)
+    const box = await figure.count() === 1 ? await figure.boundingBox() : null
+    const top = box ? Math.max(0, box.y - 160) : 0
+    const clip = { x: 0, y: top, width: page.viewportSize().width, height: box ? box.y + box.height - top : 0 }
+    const shot = await page.screenshot({ ...STILL_OPTIONS, ...(whole || !box ? {} : { clip }) })
+    fs.writeFileSync(path.resolve(root, outDir, `${name}.png`), shot)
+
+    const sky = await skyProblem(page)
+    if (!stable) console.log(`FAIL ${name}  sky did not reach two equal screenshots after painting within 15 s`)
+    if (sky) console.log(`FAIL ${name}  ${sky}`)
+    const keyboard = box && await checkKeyboard(app, figure, name)
+    return stable && !sky && keyboard ? null : name
+  } finally {
     await context.close()
   }
-} finally {
-  await browser.close()
-  await server.close()
 }
-if (problems.length) { console.log(`${problems.length} failed: ${problems.join(', ')}`); process.exit(1) }
+
+fs.mkdirSync(path.resolve(root, outDir), { recursive: true })
+const server = await (built ? startPreview() : startServer())
+const problems = []
+let browser
+try {
+  browser = await launch()
+  for (const moment of moments) {
+    const problem = await renderMoment(browser, server.url, moment)
+    if (problem) problems.push(problem)
+  }
+} finally {
+  try { await browser?.close() } finally { await server.close() }
+}
+if (problems.length) {
+  console.log(`${problems.length} failed: ${problems.join(', ')}`)
+  process.exitCode = 1
+}

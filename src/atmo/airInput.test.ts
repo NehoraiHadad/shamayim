@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { utcOf } from '../astro/utc'
 import { addMinutes } from '../domain/minutes'
 import { rollForward } from '../domain/now'
 import { makeForecast, TODAY } from '../test/makeForecast'
 import { airInput, sunElevation } from './airInput'
+import * as weatherTimeline from './weatherAt'
 
 const SITE = { lat: 32.33, lon: 35.53, timezone: 'Asia/Jerusalem' }
 // 14:00 dry and clear, 15:00 a downpour under full cloud: a moved time between them blends the two.
@@ -88,6 +89,38 @@ describe('airInput at a moved minute', () => {
     const sample = (at: string) => airInput(patchy, TODAY + 'T08:00', SITE, TODAY + 'T' + at)
     expect(sample('14:01')).toMatchObject({ humidity: 80, pm10: 64 })
     expect(sample('14:59')).toMatchObject({ humidity: 80, pm10: 64 })
+  })
+})
+
+describe('airInput satellite cover', () => {
+  const now = `${TODAY}T15:17`
+  const at = `${TODAY}T15:15`
+  const receivedAt = utcOf(now, SITE.timezone).getTime() - 5 * 60_000
+  const previous = { at: `${TODAY}T14:30`, cover: 40 }
+  const latest = { at: `${TODAY}T15:00`, cover: 70, receivedAt }
+  afterEach(() => vi.restoreAllMocks())
+
+  it('calibrates the previous and latest observations against their own model minutes', () => {
+    const sample = vi.spyOn(weatherTimeline, 'weatherAt')
+    const shown = airInput(forecast, now, SITE, at, null, { observedCloud: { ...latest, previous } })
+    expect(shown.cloudCover).toBeCloseTo(76.25 + ((40 - 52.5) * 105 / 110 + (70 - 100)) / 2)
+    expect(sample.mock.calls.map(([, minute]) => minute)).toEqual([at, previous.at, latest.at])
+  })
+
+  it('reuses the viewed model and samples a repeated observation minute only once per call', () => {
+    const sample = vi.spyOn(weatherTimeline, 'weatherAt')
+    airInput(forecast, now, SITE, at, null, { observedCloud: { ...latest, previous: { ...previous, at: latest.at } } })
+    expect(sample.mock.calls.map(([, minute]) => minute)).toEqual([at, latest.at])
+    sample.mockClear()
+    airInput(forecast, now, SITE, at, null, { observedCloud: { ...latest, at } })
+    expect(sample.mock.calls.map(([, minute]) => minute)).toEqual([at])
+  })
+
+  it('samples no extra weather for observations that are too new or too old for the viewed minute', () => {
+    const sample = vi.spyOn(weatherTimeline, 'weatherAt')
+    const observedCloud = { ...latest, at: addMinutes(at, 1), previous: { ...previous, at: addMinutes(at, -150) } }
+    expect(airInput(forecast, now, SITE, at, null, { observedCloud }).cloudCover).toBeCloseTo(76.25)
+    expect(sample.mock.calls.map(([, minute]) => minute)).toEqual([at])
   })
 })
 

@@ -124,7 +124,7 @@ export function makeWorldBuilder() {
       bodies, light, air, clouds, cloudField, rain, snow, snowfall, wind,
       terrain: planes, flightTerrain: grid, water: { ...water, coastalSea: placePartResult.coastalSea },
       farCities: farCities.part, place3: placePartResult.place3, marks: placePartResult.marks, seatPool: placePartResult.seatPool, labels: placePartResult.labels,
-      night, ground, env, life, nightSky, optics, land: land.part,
+      night, ground, env, townLights: m.townLightsPart(place, input.far, env.glow), life, nightSky, optics, land: land.part,
       cropAreas: input.cropAreas ?? mappedCropAreas(input.landmarks),
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,
         windAloft: windSources.windAloft, visibility: visibilitySource, cruise: life.aircraft.cruise.source, glow: env.sources.glow },
