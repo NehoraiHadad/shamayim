@@ -6,7 +6,7 @@ import type { FarCities, WorldState } from '../../world/types'
 import { farTownHazeAtTier, farTownTier, TIER_KM } from './farTownHaze'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { againstLight, shineOf, wallShade } from './marks'
-import { aerialFor } from './planeLight'
+import { aerialFor } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import type { Box, CityBlock, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
 

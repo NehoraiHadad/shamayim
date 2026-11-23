@@ -24,7 +24,7 @@ import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 import { againstLight, tonesAt } from './marks'
 import { landBehind } from './landBehind'
-import { hazeOf, toneAt } from './planeLight'
+import { hazeOf, toneAt } from './landVeil'
 import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
 

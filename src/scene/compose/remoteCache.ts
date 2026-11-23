@@ -1,9 +1,9 @@
 import type { LayerDesc } from '../model/types'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
-import { deviceRect, formKeyOf, lightKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
+import { deviceRect, formKeyOf, lightJobDesc, lightKeyOf, type PaintJob, type PaintReply, type PaintResult } from './paintJob'
 import { PaintQueue, type WorkerLike } from './paintQueue'
-import { accept, partsOf, peek, reuse, sameForm, samePaint, type Entry, type Request } from './remoteEntry'
+import { accept, isStaged, partsOf, peek, pruneStaged, reuse, sameForm, samePaint, stage, type Entry, type Request } from './remoteEntry'
 
 export type { WorkerLike } from './paintQueue'
 
@@ -28,6 +28,8 @@ export class RemoteCache {
   private readonly painters: NonNullable<RemoteOptions['painters']>
   private readonly options: RemoteOptions
   private failed = false
+  /** Worker time of strip chunks staged since the last arrival, reported with the batch that completes them. */
+  private stagedWorkerMs = 0
 
   constructor(options: RemoteOptions) {
     this.options = options
@@ -66,16 +68,18 @@ export class RemoteCache {
 
   private ask(entry: Entry): Painted {
     reuse(entry)
+    pruneStaged(entry)
     const request = entry.wanted
     const { desc, formKey, lightKey, formless, ratio, rect, phase } = request
     const same = sameForm(entry.shown?.request, request)
     const ask = (part: PaintJob['part'], key: string | null) => {
       if (key === null) return this.queue.cancel(desc.id, part)
-      return this.queue.ask({ id: desc.id, part, key, formKey, desc, ratio, rect, phase,
+      // A light-only job crosses the worker boundary without the form's buffers (`lightJobDesc`).
+      return this.queue.ask({ id: desc.id, part, key, formKey, desc: part === 'light' ? lightJobDesc(desc) : desc, ratio, rect, phase,
         hand: this.options.hand ?? HAND }, request)
     }
-    const form = ask('form', same || formless ? null : formKey)
-    const light = ask('light', same && entry.shown?.request.lightKey === lightKey ? null : lightKey)
+    const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)
+    const light = ask('light', (same && entry.shown?.request.lightKey === lightKey) || isStaged(entry, 'light') ? null : lightKey)
     if (form || (light && !same && formless)) return 'form'
     return light ? 'light' : 'none'
   }
@@ -83,14 +87,15 @@ export class RemoteCache {
   private receive(reply: PaintReply) {
     const batch = this.queue.complete(reply.batch)
     if (!batch || reply.error) {
-      for (const { bitmap } of reply.results) bitmap.close()
+      for (const { bitmap } of reply.results) bitmap?.close()
       if (batch && reply.error) this.fail(reply.error)
       return
     }
-    let workerMs = 0
     const results = new Map<Entry, { request: Request; parts: PaintResult[] }>()
     for (const result of reply.results) {
-      workerMs += result.ms
+      this.stagedWorkerMs += result.ms
+      // An intermediate strip chunk stays staged in the worker: nothing to take in yet.
+      if (!result.bitmap) continue
       const entry = this.entries.get(result.id), request = batch.requestOf(result.id, result.part)
       if (!entry || !request) { result.bitmap.close(); continue }
       const received = results.get(entry)
@@ -98,13 +103,19 @@ export class RemoteCache {
       else results.set(entry, { request, parts: [result] })
     }
     for (const [entry, { request, parts }] of results) {
-      accept(entry, request, parts)
+      const whole = stage(entry, request, parts)
+      if (whole) accept(entry, request, whole)
       // Promotion can replace a form that the queued light planned to reuse.
       this.ask(entry)
     }
     const latency = batch.latency()
     this.flush()
-    this.options.onArrive({ latency, workerMs, settled: this.settled() })
+    const settled = this.settled()
+    if (results.size) {
+      const workerMs = this.stagedWorkerMs
+      this.stagedWorkerMs = 0
+      this.options.onArrive({ latency, workerMs, settled })
+    } else if (settled) this.stagedWorkerMs = 0
     this.queue.resolveIfSettled()
   }
 
@@ -112,6 +123,7 @@ export class RemoteCache {
     if (this.failed) return
     this.failed = true
     this.queue.stop()
+    this.stagedWorkerMs = 0
     this.options.onFail(reason)
     this.queue.resolveIfSettled()
   }
@@ -125,7 +137,7 @@ export class RemoteCache {
   prune(keep: ReadonlySet<string>) {
     for (const [id, entry] of this.entries) {
       if (keep.has(id)) continue
-      for (const bitmap of partsOf(entry.shown)) bitmap?.close()
+      for (const bitmap of partsOf(entry.shown, entry.staged)) bitmap?.close()
       this.entries.delete(id)
       this.queue.prune(id)
     }
@@ -135,7 +147,7 @@ export class RemoteCache {
   bytes(): number {
     let total = 0
     for (const entry of this.entries.values()) {
-      for (const bitmap of partsOf(entry.shown)) if (bitmap) total += bitmap.width * bitmap.height * 4
+      for (const bitmap of partsOf(entry.shown, entry.staged)) if (bitmap) total += bitmap.width * bitmap.height * 4
     }
     return total
   }

@@ -2,6 +2,9 @@ import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
+import { canopyOf } from './canopy'
+import { plantWindOf } from './landWind'
+import { landDustLayers } from './landDust'
 import { layoutOf } from './layout'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
@@ -64,10 +67,13 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
-  const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
+  const planes = planeLayers(world, box, layout.clear)
+  const wind = plantWindOf(world.wind)
+  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear) ?? [])
+  const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
     ...cloudShadowLayers(world, box).map((shadow) => carriedShadow(shadow, minuteStart(life))),
-    ...weatherLayers(world, box, layout.clear)]
+    ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }

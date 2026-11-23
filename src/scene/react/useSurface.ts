@@ -8,7 +8,8 @@ import { paintWorker, warmPaintWorkers } from '../compose/worker'
 import type { LayerDesc } from '../model/types'
 
 /** The page's scene timings (`compose/stats.ts`), left on `window.__sceneStats` for the perf runner and the HUD. */
-export const SCENE_STATS: SceneStats = makeStats()
+const trackShown = typeof window !== 'undefined' && Boolean((window as Window & { __trackSceneShown?: boolean }).__trackSceneShown)
+export const SCENE_STATS: SceneStats = makeStats(undefined, { trackShown })
 if (typeof window !== 'undefined') (window as Window & { __sceneStats?: SceneStats }).__sceneStats = SCENE_STATS
 
 export const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches

@@ -4,7 +4,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
 import { landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey } from './landmarkAtmosphere'
-import { aerialFor, hazeOf } from './planeLight'
+import { aerialFor, hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import { faceLight } from '../../world/livingLight'
 import type { Box, GlyphDesc, LayerOf, SceneBox, Shine, Tones } from './types'
@@ -161,8 +161,12 @@ export const facesKey = (s: Shine) => [s.faces.front, s.faces.left, s.faces.righ
 const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
   Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 
-/** Far-ridge and plain landmarks (C4), lit from one world. Shapes follow the place/box; light alone repaints
- * during scrubbing, while the place's own marks remain among its mass in outside.ts (C5). */
+/**
+ * The glyphs and the landmarks on the far ridge and the plain (stage C4), as one layer in the one world light
+ * (`marks.far`): their shapes follow from the place and the box; every colour, side and shadow is light (a layer all of
+ * light, repainted alone while scrubbing over an empty form, as the far towns). The place's own marks stand among its
+ * mass, in the outside view's layer (`outside.ts`, C5).
+ */
 export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null = null,
   home: HomeRoofline | null = null, clear: readonly Box[] = [], foreground: readonly DrawnMass[] = []): LayerOf<'marks'>[] {
   const shine = shineOf(world)

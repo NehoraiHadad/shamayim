@@ -7,6 +7,8 @@ import { clipToGround, layCarried } from './advect'
 import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { formKeyOf } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
+import type { SceneStats } from './stats'
+import { compositeOrder } from './compositeOrder'
 
 function layoutOf(desc: LayerDesc, cached: { formKey: string; desc: LayerDesc } | null, dpr: number) {
   return !cached || cached.desc === desc || cached.formKey === formKeyOf(desc, dpr).key ? desc : cached.desc
@@ -40,9 +42,11 @@ export class Surface {
   still = false
   private readonly now: () => number
   private readonly onArrive?: SurfaceOptions['onArrive']
+  private readonly stats?: SceneStats
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
   private shown: { layers: readonly LayerDesc[]; anim: string } | null = null
+  private order: { layers: readonly LayerDesc[]; passes: ReturnType<typeof compositeOrder> } | null = null
 
   readonly canvas: LayerCanvas
 
@@ -51,6 +55,7 @@ export class Surface {
     this.cache = new LayerCache(options)
     this.now = options.now ?? (() => performance.now())
     this.onArrive = options.onArrive
+    this.stats = options.stats
     const worker = options.worker?.()
     if (worker) {
       this.remote = new RemoteCache({ worker, painters: options.painters, hand: options.hand, now: this.now,
@@ -131,13 +136,15 @@ export class Surface {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
     const d = this.dpr
     const cache = this.active
-    for (const desc of [...layers].sort((a, b) => a.z - b.z)) {
-      if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
+    if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
+    for (const { desc, part } of this.order.passes) {
+      if (part === 'light' && !desc.light) continue
+      if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const layout = layoutOf(desc, cached, d)
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
-      if (cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
+      if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
       const { form, light, ratio, rect } = cached
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
@@ -212,15 +219,28 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
-      if (layout.blend) ctx.globalCompositeOperation = layout.blend
-      const grounded = clipToGround(ctx, layout, d)
-      if (form && !cache.formless(layout)) draw(form)
-      if (grounded) ctx.restore()
-      if (layout.blend) ctx.globalCompositeOperation = 'source-over'
-      if (light && layout.light) {
+      if (part !== 'light' && form && !cache.formless(layout)) {
+        if (layout.blend) ctx.globalCompositeOperation = layout.blend
+        const grounded = clipToGround(ctx, layout, d)
+        draw(form)
+        if (grounded) ctx.restore()
+        if (layout.blend) ctx.globalCompositeOperation = 'source-over'
+      }
+      if (part !== 'form' && light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
         draw(light)
         ctx.globalCompositeOperation = 'source-over'
+      }
+      if (part !== 'light' && this.stats?.trackShown) {
+        const fresh = cache.fresh(desc, d)
+        const existing = this.stats.shown[desc.id]
+        if (fresh) {
+          const lk = desc.light?.key ?? null
+          if (!existing) this.stats.shown[desc.id] = { key: desc.key, lightKey: lk, fresh: true }
+          else if (existing.key !== desc.key || existing.lightKey !== lk || !existing.fresh) {
+            existing.key = desc.key; existing.lightKey = lk; existing.fresh = true
+          }
+        } else if (existing && existing.fresh) existing.fresh = false
       }
       if (clipped) ctx.restore()
       ctx.globalAlpha = 1
@@ -345,6 +365,12 @@ export class Surface {
     this.still = still
     this.prune(new Set(layers.map((layer) => layer.id)))
     const painted = layers.map((desc) => this.paint(desc, phase))
+    if (this.stats?.trackShown) {
+      for (const desc of layers) {
+        const existing = this.stats.shown[desc.id]
+        if (existing && existing.fresh && !this.fresh(desc)) existing.fresh = false
+      }
+    }
     this.flush()
     // An animation tick that moved nothing a whole pixel (and repainted or asked for nothing) leaves the canvas as it is.
     if (this.shown && this.shown.layers === layers && this.shown.anim === this.animState(layers, phase, still)

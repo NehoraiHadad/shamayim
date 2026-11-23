@@ -649,6 +649,20 @@ was deployed by the rebuild):
    ```
    Until step 2 the world takes a climatological guess for the air at 250 hPa (−53 °C in January to −40 °C in July; the
    humidity from the forecast's high cloud), marked `sources.cruise: 'climate'`.
+7. **(Living land, stage 1 — pending deploy)** Dedicated narrow `/v1/land-weather` Worker route (`worker/src/routes.ts`):
+   past 60 days of daily liquid/snow precipitation (`rain_sum,showers_sum,snowfall_sum,precipitation_sum`) and current
+   volumetric soil moisture (`soil_moisture_0_to_1cm,1_to_3cm,3_to_9cm,9_to_27cm`) with `forecast_days=1` only (no hourly
+   fields; `/v1/forecast` stays capped at `past_days=1`). Gated behind `ASK_LAND_WEATHER = false` in
+   `src/data/land/recentWeather.ts` until deployed; until then land dryness falls back to climatology
+   (`drynessSource: 'climatology'`). After `land-living` is merged to `main`:
+   ```bash
+   cd worker && npm ci && npm test && npx wrangler deploy
+   curl -sS -D - -H "Origin: https://shamayim.pages.dev" \
+     "https://shamayim-api.nehoraihadad.com/v1/land-weather?latitude=32.3465&longitude=35.5325&timezone=Asia%2FJerusalem&models=icon_seamless,ecmwf_ifs025&forecast_days=1&past_days=60&current=soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm&daily=rain_sum,showers_sum,snowfall_sum,precipitation_sum" \
+     | node -e "const raw = require('fs').readFileSync(0,'utf8'); const [h,b] = raw.split(/\r?\n\r?\n/); const j = JSON.parse(b); console.log(h.split(/\r?\n/).filter(l => /^HTTP|^x-fetched-at|^x-cache/i.test(l)).join(' | ')); console.log('daily:', j.daily?.time?.length, 'rain:', Array.isArray(j.daily?.rain_sum_icon_seamless), 'soil:', typeof j.current?.soil_moisture_0_to_1cm_icon_seamless);"
+   # Expect HTTP 200, X-Fetched-At header, ~61 daily rows, rain: true, soil: number. Stop if 404/400 or missing fields.
+   ```
+   Then flip `ASK_LAND_WEATHER` to `true` in `src/data/land/recentWeather.ts` and merge to `main`.
 
 **Principle:** as few point fixes as possible: no special handling for particular places, mountains or settlements; the
 algorithms must handle every place correctly (see the rules at the top).
@@ -2455,3 +2469,149 @@ the app's own `__scene.scrub`):
   nearer than an object (the place's rows and towers) hides it without a sight line of its own.
 - The coastal plain gives Ben Gurion straight-in approaches on every runway; the base and downwind legs show where high
   ground stands on a centreline (the tests' made-up hill), not at the base places on this fixture's day.
+
+**Living land (2026-11-21–22): the land's colour, greenness, vegetation and wind from observed data; stages 1–6.**
+Commits on `land-living` (from `origin/main`). Brief: `docs/design/LAND-LIVING-BRIEF.md`; review log, handoffs and
+gates: `docs/design/qa/canvas/land/REVIEW.md` (writer Antigravity / Codex stand-in, reviewer Codex / Claude Opus,
+gated by Claude Code).
+
+*The pipeline* (data → one world state → model → painters; every value carries its source and date):
+1. **Data** (`src/data/land/`, entry `landData.ts`, hook `useLand.ts`; never blocks first paint: the scene draws on the
+   fallback and refines when data lands).
+   - *Near (±5 km):* the newest clear Sentinel-2 L2A scene from Earth Search STAC (`satellite.ts`, `cogReader.ts`,
+     `nearGrid.ts`, `s2Aggregate.ts`, `s2Math.ts`). True colour (TCI, 0..255 ↔ reflectance 0..0.25, checked on the
+     recorded fixture), NDVI = (B08−B04)/(B08+B04) on reflectance, snow from SCL 11 and NDSI (B03/B11). Only SCL
+     {4,5,6,7,11} are valid. Earth Search's COGs are already harmonised (`earthsearch:boa_offset_applied`), so the
+     `raster:bands` offset of −0.1 is not applied again (checked live: sea ≈ 1–21 DN, land ≈ 700 DN in B04). L2A is
+     terrain-corrected by Sen2Cor, so no de-lighting is applied on top.
+   - *Far (the panorama, tens of km):* NASA GIBS MODIS Terra 8-day NDVI (palette PNG, validated) and surface reflectance
+     bands 1-4-3 (JPEG) (`gibs.ts`, `gibsDecode.ts`, `gibsPalette.ts`), CORS `*`, cross-calibrated against the near
+     scene where they overlap.
+   - *Recent weather:* past rain and soil moisture through the Worker's new narrow `/v1/land-weather` route
+     (`recentWeather.ts`), off behind `ASK_LAND_WEATHER = false` until deployed (deploy item 7 above).
+   - *Cover:* ESA WorldCover 2021 v200 classes (`worldCoverCog.ts`, `worldCoverGrid.ts`, `fineCover.ts`, `landData.ts`):
+     bundled local 50 m tiles (`public/data/land/il/`) for ±6 km and a bundled regional 0.01° (~1 km) overview
+     `public/data/land/il/coarse.json` (`28.8–33.4° N, 34.0–36.8° E`, built by `scripts/land/buildCoarse.ts`) as the fast
+     path where the ±60 km footprint is covered or intersects; outside that regional box (or where it only partially covers
+     the footprint), `loadFootprintLandCoverResult` serves any persisted cached cover immediately and returns without a
+     remote request when a fresh persisted mosaic already covers the footprint (`landData.ts`); only on a cache miss,
+     incomplete coverage or stale/expired refresh does it fetch remote ESA WorldCover COGs via Planetary Computer SAS
+     (`worldCoverCog.ts`), caching the 1 km mosaic in IndexedDB.
+   - *Fallback:* climatology by Köppen–Geiger class (0.5° table generated from Beck et al. 2018 by
+     `scripts/land/buildKoppen.ts`, checksum pinned), month and cover class (`climatology.ts`).
+   - *Cache:* IndexedDB `shamayim-land-v1` (`landCache.ts`), with per-source fresh TTLs and hard stale caps (evicted past
+     the stale cap): near Sentinel-2 fresh 5 d / stale cap 30 d; far GIBS fresh 3 d / stale cap 30 d; recent weather
+     anchored to upstream `fetchedAt`, fresh 6 h / stale cap 24 h; remote coarse WorldCover fresh 30 d when complete
+     (1 h for a partial mosaic) / stale cap 90 d.
+   - *Tests* never touch the network: recorded fixtures `src/test/fixtures/land-*.json` (`scripts/land/recordFixtures.ts`
+     records them).
+2. **World** (`src/world/landLiving.ts` → `WorldState.land`, key `keys.land`; rebuilt only when the date or the data
+   change, never on the hour). Sampled along the view's rays (`landRays.ts`) and over the place's own ground
+   (`landSample.ts`): cover class, light-free albedo (`landReflectance.ts`, `landRadiometry.ts`), NDVI, dryness, snow,
+   each with source and date. An old observation blends toward climatology by its age (`landAgeBlend.ts`,
+   w = exp(−age/τ), τ albedo 30 d, NDVI 25 d, dryness 10 d, snow 5 d; heuristic timescales, causal: only observations
+   on or before the shown date). Never from place names.
+3. **Colour** (`src/scene/model/landColour.ts`, `landPalette.ts`, `landSnow.ts`, `landVeil.ts`; painter
+   `src/scene/paint/landSurface.ts`). Each land plane (back, far, near) gets a small deterministic Oklab-quantised
+   palette (farthest-point + Lloyd, no randomness) of the albedo sampled by distance along each ray column, with soft
+   transitions between distance bands. Open water (WorldCover 80) is excluded. The palette is part of the form layer;
+   the existing light, cloud shadows, aerial perspective and haze act on it unchanged, so scrubbing the hour repaints
+   only `plane.*:light` (checked in `npm run test:perf`). Model descriptions stay compact and structured-cloneable.
+
+4. **Vegetation** (model `src/scene/model/landVegetation.ts`, `vegRules.ts`, `vegSample.ts`, `vegBuilders.ts`,
+   `vegAgriBuilders.ts`, `vegOrchard.ts`, `vegCropEvidence.ts`; painters `src/scene/paint/landVegetation.ts`,
+   `landVegCrowns.ts`). Driven only by data per cell (WorldCover class, NDVI, dryness, season, slope magnitude), with a
+   per-cell seeded rng: woodland as clustered groves of rounded crowns, scrub and grass tufts whose density follows NDVI
+   (straw-gold when dry), cropland fields whose state (green, ploughed, stubble) follows NDVI and season, bare/desert
+   ground left bare. Orchard and palm rows appear only inside mapped crop polygons (OSM-derived, `israelData.ts`),
+   each footprint clipped exactly against its polygon (holes included); suitability or greenness alone never makes a
+   plantation, and background vegetation is decided independently of crop discovery. Crop probes are culled to the
+   plane's projected view sectors (output identical, checked by descriptor hashes). Detail drops out by distance before
+   it aliases (a resolvability cut in metres per pixel). Vegetation is form (date and data, not the hour); its sunlit
+   catchlights are on the light layer and share the crowns' geometry. Each tree carries a seeded phase and height for
+   wind. Descriptors stay under 10 KB, compact and structured-cloneable.
+
+5. **Wind** (model `src/scene/model/landWind.ts`, `canopy.ts`, `landDust.ts`; painters `src/scene/paint/canopy.ts`,
+   `landVegPose.ts`, `landVegCrowns.ts`, `landVegTufts.ts`, `landVegLight.ts`, `landDust.ts`; compositor
+   `src/scene/compose/compositeOrder.ts`, `paintJob.ts`, `surface.ts`).
+   - *Lean curve & provenance:* NOAA/NWS land Beaufort scale (`CALM_MS = 0.3` m/s zero cutoff; quadratic drag proxy
+     `(ms / 17.1)²` capped at `1.0` at `FULL_BEND_MS = 17.1` m/s, upper Beaufort 7 "whole trees in motion"), quantised
+     to `1/64` of full bend. Artist-tuned tip travel per kind: palm trunk `0.055 × h`, woodland and mature olive
+     `0.095 × h`, citrus/generic orchard `0.18 × h`, palm fronds `0.70 × r`, shrub tufts `0.32 × r`, grass blades
+     `1.10 × r`.
+   - *Sign convention:* takes `world.wind.across` unchanged (`+` left→right on screen; easterly moves left→right and
+     westerly moves right→left in true south-facing `SCENE_CAMERA`, reversed in mirrored `STORED_CAMERA`), matching
+     cloud drift, rain slant, smoke and mark lean.
+   - *Gust sway & distance fade:* incremental drag excess `0.55 × min(1, load(max(ms, gustMs)) − load(ms))` (identical
+     mean/gust gives zero sway; above `17.1` m/s the unsaturated excess allows peak bend up to `1.55×` full bend in a
+     gale, matched by `canopy.ts`'s `1.55` footprint pad). Driven by `gustAt` over a 2 s cycle with ±0.16 s seeded
+     per-tree lag, clamped so a lull never bends into the wind; frame 0 and reduced motion hold the mean-wind pose.
+     `plantWindFade(visibility)` eases out over Stage 4's visibility (`0.20 → 1.0`, exact `0` at the resolvability
+     cut); planes with peak gust sway under `0.25` CSS px (`MIN_SWAY_PX`) stay static.
+   - *Dust threshold:* `landDust.ts` lifts low dust on sustained 10 m wind `> 8` m/s (Beaufort 5, full at `17.1` m/s),
+     WorldCover 60 (bare/sparse), `NDVI < 0.16` (USGS barren–sparse transition) and `dryness > 0.72`, suppressed by
+     rain, snowfall or wet ground (`wet > 0.5`), culled below source strength `0.10`. A two-tone soft wrapped tile
+     (`paint/landDust.ts`) advects horizontally at `windMs * across * widthScale / mPerPxAt(max(350, distanceKm * 1000), camera)`
+     in CSS pixels per second (`widthScale = box.width / SCENE_W`, `350` m near floor), with a weaker far veil
+     (`0.26` vs `0.75` near alpha).
+   - *Animation & per-frame cost:* windy canopies bake 10 poses (`LAND_GUST`, 5 fps over 2 s) once per key in the
+     paint worker (or lazily per frame on the main thread); `RemoteCache` + `RemoteQueue` (`remoteQueue.ts`,
+     `paintWorkerRun.ts`) dispatch single-frame terrain/static layers and scrub light ahead of multi-frame strips and
+     split each strip across bounded 2-pose chunks (`STRIP_CHUNK_FRAMES = 2`, transferring one complete `ImageBitmap`
+     on the final chunk; `PRIORITY.canopy = 3` after `plane = 2` on the main thread) so newly arriving terrain or light
+     updates preempt after at most one short chunk and superseded strip keys cancel immediately. `compositeOrder`
+     interleaves `plane:form → canopy:form → plane:light → canopy:light` so terrain light washes over crowns and crown
+     catchlights stay above. `plane` form keys never depend on wind or hour. Active playback costs 1–2 strip blits per
+     canopy plus 1 pattern fill per dust ribbon (`0` paint batches during playback). Across 3 repeat runs of
+     `node e2e/land.wind.mjs --perf` (CPU ×4, DPR 2.75, **exit 1** on all 3 repeats against the runner's strict `4.00`
+     ms sum-of-p95 cap): `rosh-pina` sum p95 median `3.20` ms (`3.10–5.60` ms, PASS 2/3, `23.8` MB), `kalya` median
+     `4.00` ms (`3.20–7.40` ms, PASS 2/3, `17.4` MB), `ramon-crater` dust playback median `5.00` ms (`4.40–7.10` ms,
+     FAIL 3/3; `land p95` `2.30–3.40` ms vs Stage 5's `2.30` ms while `sky p95` varied `2.10–3.70` ms, `10.6` MB).
+
+*Final stills, checks and limits (stage 6):* Final before (`origin/main`) vs after (`land-living`) stills at 375 px live
+in `docs/design/qa/canvas/land/final/` (captured offline by `e2e/land.final.mjs` + `e2e/landObservedStill.mjs`, alongside
+stage stills in `stage3/`, `stage4/`, `stage5/`):
+- *Seasonal & windy fallback matrix* (`before/`, `after/`, `sheet-{winter,spring,summer,windy}.png`): 7 regions
+  (Galilee/Rosh Pina, Coast/Zikhron Yaakov, Jezreel/Nahalal, Jordan/Shadmot Mehola, Jerusalem, Negev/Ramon Crater, Dead
+  Sea/Kalya) across winter, late spring and late summer plus a **westerly near gale** day (sustained 50 km/h = 13.9 m/s,
+  Beaufort 7; gusts 75 km/h; phase 0.8 s). Because the scene harness feeds mapped WorldCover/OSM cover and the forecast
+  fixture without satellite imagery, this matrix exercises **seasonal climatology + WorldCover/OSM fallback** coverage
+  (all albedo and NDVI samples resolve to `climatology`).
+- *Observed satellite refinement pair* (`observed/shadmot-{fallback,refined}.png`, `observed/sources.json`,
+  `sheet-observed.png`): matched offline fallback → refined capture on the real App mount at Shadmot Mehola
+  (`2026-11-17T12:00+02:00`) using fixture-backed Sentinel-2 (`2026-11-15`), GIBS NDVI (`2026-11-15`) and GIBS SR
+  (`2026-11-01`) inputs. Provenance (`sources.json`): Sentinel-2 (`11×11` crop tiled to `256×256` 40 m UTM 36N GeoTIFFs)
+  and GIBS NDVI (`16×16` indexed-palette crop tiled to `256×256` PNG and repeated at every requested tile address) are
+  tiled reconstructions of recorded crops — verifying fixture-backed source selection and refinement plumbing rather than
+  geographic accuracy — whereas GIBS SR (`2026-11-01`) is the exact recorded `8/103/153` JPEG tile (`404` elsewhere).
+  Resolved sources: *fallback* — near, far 20 km and far 55 km all `climatology` (cover `worldcover-2021:local-50m` /
+  `regional-1km`); *refined* — near `albedo = s2:2026-11-15+climatology`, `ndvi = gibs:2026-11-15+climatology`; far 20 km
+  `albedo = gibs:2026-11-01+climatology`, `ndvi = gibs:2026-11-15+climatology`; far 55 km (missing GIBS SR tile)
+  `albedo = s2-mean:2026-11-15+climatology`, `ndvi = gibs:2026-11-15+climatology`.
+- *Final checks:* `npx tsc -b` (0 errors), `npx vitest run --maxWorkers=2 --testTimeout=20000` (153 files / 1,350 tests),
+  `worker` (`npm run typecheck && npm test`: 6 files / 51 tests), `npm run lint` (0 errors), `npm run build` (484
+  modules), `npm run test:pixels` (69/69; 0 references changed in stage 6). Browser performance runners on this Windows
+  host (CPU ×4, DPR 2.75): `npm run test:perf` **exited 1** (17/27 gates passed; App living-land fixture passed with 6
+  unique fine tiles, 0 duplicates, missing-tile `s2-mean+climatology` fallback and 30/30 scrubs reusing `world.land` and
+  plane form; 10 overruns on pre-existing host-baseline `modelCold`/`scrub.model`/storm `anim`/`arrive` gates — note the
+  App-mount runs do not exercise storm or arrival gates); `node e2e/land.wind.mjs --perf` **exited 1** on 3/3 repeat runs
+  due to the Ramon Crater dust playback overrun above (with `rosh-pina` and `kalya` medians within 4.00 ms).
+- *Stage 5 first-paint follow-up (matched alternating preview runs vs Stage 4 `8c594af`, CPU ×4, DPR 2.75, 3 pairs each):*
+  static-canopy results are **mixed** — ordinary Shadmot first paint `5048.6 → 5783.8` ms (+14.6% median, slower 2/3;
+  refinement `1226.7 → 835.9` ms; scrub `317.9 → 301.6` ms), dense-tree Shadmot first paint `3805.2 → 3458.1` ms (−9%;
+  refinement `977.9 → 629.5` ms; scrub `254.8 → 252.5` ms). With an **animated canopy** (`e2e/land.perf.mjs --windy`,
+  dense tree cover, 58/86 km/h westerly, motion on), unpatched `HEAD` held terrain behind 10-frame canopy strips in the
+  same worker batch (`firstFallbackPaint` `8435 / 7676 / 11180` ms, `refinement` `5709 / 5493 / 6629` ms vs Stage 4
+  `2844 / 3963 / 3878` ms). With single-frame prioritization plus 2-pose chunked strip scheduling (`RemoteQueue` +
+  `makeWorkerRunner`), matched 3-pair alternating preview runs using **identical terrain-milestone triggers** on both
+  revisions (`e2e/landPerfMeasure.mjs`, passive canopy timestamping) show zero residual delay: `firstFallbackPaint`
+  `12,400.6 / 12,979.8 / 18,865.6` ms (median `12,979.8` ms) vs Stage 4 `9,455.2 / 16,157.1 / 13,340.0` ms (median
+  `13,340.0` ms, −2.7%), `refinement` `6,795.0 / 5,541.6 / 8,696.4` ms (median `6,795.0` ms) vs Stage 4
+  `4,789.0 / 6,860.1 / 7,532.5` ms (median `6,860.1` ms, −0.9%; passive `refCanopy` `5,452.5–9,201.5` ms), and
+  `sameDayScrubLight` p50 `856.2 / 1,236.8 / 1,449.4` ms (median `1,236.8` ms) vs Stage 4 `691.7 / 1,919.8 / 1,722.2` ms
+  (median `1,722.2` ms, −28.2%).
+- *Known limits:* recent-weather dryness stays on climatology until Worker deploy item 7 (`/v1/land-weather`) is live and
+  `ASK_LAND_WEATHER` is flipped to `true`; residual cold `sceneModel` cost at crop-dense places (Nahalal ~15.6 ms
+  unthrottled), Ramon Crater dust playback over the strict 4.00 ms sum-of-p95 budget, and host-baseline browser overruns
+  carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
+  (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).

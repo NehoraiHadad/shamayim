@@ -907,6 +907,38 @@ Stills: `docs/design/qa/polish/track-f/` (`before/`, `after/`; `-damp` = `?weath
 - [ ] Follow-up (track D): cloud shadows on the far ridge read as horizontal bands.
 - [ ] Follow-up: `App.tsx:89` page background uses `mapAir(shown)` with live visibility even in a picked-hour preview.
 
+## Living land — branch `land-living` — started 2026-11-20
+Brief: `docs/design/LAND-LIVING-BRIEF.md`. Review log: `docs/design/qa/canvas/land/REVIEW.md`.
+Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Claude Code.
+- [x] Stage 1: data layer — approved (Codex round 6) + round-6 minors/nit folded in (`f3f3f77`: v4 cover cache payload
+      validation via `isValidCoarseCoverJson`, bounded local asset deadlines releasing hung shared slots via `withDeadline`,
+      raw TTL tables restricted to near/far/weather).
+- [x] Stage 2: world state — approved (Codex round 2) + round-2 minors/nit folded in (`07db0b5`: `e2e/land.perf.mjs` waits for `firstShown.land`/`firstPaint.land` before releasing satellite fixtures, `s2-mean` tested end-to-end through `livingLandOf` and test-only `sampleAt`/`sampleLandAt` retired, calendar-day approximation documented in `landAgeBlend.ts`, unused sun-angle fields stripped with legacy cache compat).
+- [x] Stage 3: land colour painting — approved (Codex round 2) + round-2 minors folded in (`26368e9`: `landSnow.ts` split, `PlaneLight.tint` dropped, opt-in `SceneStats.trackShown` with in-place reuse, exact GIBS SR tile `8/103/153` matching + missing-tile check in `e2e/land.perf.mjs`).
+- [x] Stage 4: vegetation — approved (Claude Opus round 6, after Codex/Neon rounds 1–5). Crop-probe culling keeps all descriptors identical (88 hashes) and cuts the Nahalal cold build 26.5 → 15.6 ms. Track the residual Nahalal cold model cost with app-wide performance work.
+- [x] Stage 5: wind on land — approved (Claude Opus round 1; Codex wrote it). Trees, palms and tufts lean and sway with the camera-projected wind (Beaufort-based saturating lean, gust sway, distance fade), catchlights follow leaned crowns, dust over dry bare windy ground. Carried into Stage 6: possible first-paint/refine slowdown (matched perf 5.5 s → 6.5–7.3 s), gust overshoot doc, olive stiffness, label cut-out nit.
+- [x] Stage 6: stills, docs, PR — approved (Codex round 3; Neon wrote it). Final before/after stills (7 regions × 3 seasons + windy day, plus an observed-data refinement pair) in `docs/design/qa/canvas/land/final/`; §6 of the scene plan documents the full pipeline. Follow-ups (round-3 minors): `e2e/landPerfMeasure.mjs` canopy milestones on a navigation-relative clock; report per-revision medians and paired deltas instead of "zero residual delay"; per-strip timing in `remoteCache.ts`; drop write-only `Entry.formKey/lightKey/ratio` and dedupe pending strips before building descriptors.
+- [x] Merge `origin/main` (polish tracks A, B, C, E, F, birds travel) into `land-living` — 2026-11-22 (`8df79cc`, `ad3c076`): remote cache keeps strip chunking/preemption
+      plus main's per-bitmap layout desc and scrub-back guard; canopy sway follows the same wall-time scene phase as birds;
+      world types (land + mist + seat pool) folded into the split type files; landmark cache v10 (crops + seat candidates).
+      47 pixel refs re-recorded (`d104fe7`): main had never re-recorded its own (42/66 failed on main alone).
+- [x] Merge `origin/main` (track D cloud field) into `land-living` — 2026-11-22: main's cloud field, shadow layers,
+      `flightTerrain`/`terrainY` adopted; `fieldOf`/`terrainGrid`/new `flightOf` live in `worldParts.ts` `makeWorldMemos`;
+      `FieldRainCell`, `Rain.cells/near`, `Light.eye/clear/meanBeam`, `TerrainPlanes.eyeM` folded into the split type files;
+      `WorldState.shadows`/`CloudShadows` dropped. The old haze-tinted shadow tile (`hazeOf`) is gone with main's painter
+      (main's shadow layers use a fixed shade). 39 pixel refs re-recorded for main's track D light/cloud/shadow changes.
+- [x] Merge `origin/main` (track A/G: no building flips, live mode is scrub at now) into `land-living` — 2026-11-22:
+      main's `PaintQueue`/`remoteEntry` (keep the last worker picture) now drives land-living's `RemoteQueue` order
+      (single-frame first, strips in bounded chunks; staged chunk time reported with the completing batch; light-only
+      jobs still trimmed by `lightJobDesc`); main's air timeline (`AirTimeline`, `dustWeight`, `thunderWeight`,
+      `FieldRainCell.level`) folded into the split type files and `worldParts.ts`; `outsideGround.ts` holds main's
+      `paintOutsideSea` and land-living's living-land `paintOutsideLand`.
+- [x] Merge `origin/main` 9dd0061 (track D N4 piece 2: clouds on the field, falling clouds, old cloud system deleted,
+      storm fixture) into `land-living` — 2026-11-22: main's `cloudLayers`/`flash`/`shimmer` modules, `carriedCells`,
+      `cloudCells` layer + painter, `FallingCloud` and `weatherLayers(world, box, clear)` adopted on top of land-living's
+      canopy / land dust / plant wind wiring; land helper types stay in `typesLand.ts`; `sceneWorld.ts` keeps `cropAreas`
+      and takes main's recorded-day `fixtureFor`.
+
 ## Polish track G — no building flips or flickers; live mode is scrub at now (owner: "a building rotated and also flickered", Karmei Tzur) — 2026-11-22 (branch `claude/fix-glyph-flicker-8384c3`)
 Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-g-merge.md` (+ `.REPORT.md`, rounds 1–3).
 - [x] Evidence (probes, one-minute builds, 4 places, live + scrub): glyph hand/seed/form/position never change. Causes found:

@@ -11,14 +11,15 @@ import { facetShare } from '../../world/water'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey, refreshLandmarkItems } from './landmarkAtmosphere'
+import { aerialFor, hazeOf } from './landVeil'
 import { facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
 import { landBehind } from './landBehind'
 import { massAt, type DrawnMass } from './markOcclusion'
+import { outsideLandDesc } from './outsideGround'
 import { outsideMarks } from './outsideMarks'
-import { aerialFor, hazeOf, snowOnGround, toneAt } from './planeLight'
 import { skyAt } from './sky'
 import { mixRgb } from './tone'
-import type { Box, LayerOf, OutsideItem, Pt, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
+import type { Box, LayerOf, OutsideItem, SceneBox, SeaDesc, Shine, Streak, Tones } from './types'
 import { openWaterTone } from './water'
 
 /**
@@ -264,11 +265,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const out = refreshLandmarkItems(world, shape.items, shape.marks)
   const sea = seaOf(world, box, sx, clear)
   const view = world.place3
-  // The place's own ground where it rises over the ridge line: the near land's tone at its distance, its crest lit by
-  // the sky as the ridge's is.
-  const landDesc = view.land ? { top: view.land.top.map(([x, y]): Pt => [x * sx, y]), base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
-    tone: toneAt(world, view.land.km), rim: mixRgb(toneAt(world, view.land.km), skyAt(world, box)(2), 0.35),
-    snow: landSnow(world, view.land) } : null
+  const landDesc = outsideLandDesc(world, view, box, sx)
   const form = skyFormOf(world, box, shape.kms, tones, sx)
   if (!out.length && !sea) return null
   const boxes = shape.bounds ? [shape.bounds] : []
@@ -282,7 +279,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
   const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
-    landDesc && [colourKey(landDesc.tone), colourKey(landDesc.rim), landDesc.snow && [colourKey(landDesc.snow.rgb),
+    landDesc && [colourKey(landDesc.tone), landDesc.stops?.map(([, c]) => colourKey(c)), colourKey(landDesc.rim), landDesc.snow && [colourKey(landDesc.snow.rgb),
       Math.round(landDesc.snow.alpha * 64), landDesc.snow.runs]]]
   // C7: its trees sway in the wind and its sea's ripples run with it, in a strip of frames (the light canvas only).
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))
@@ -290,9 +287,8 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
     items: out, tiers: tones, sea, shine, land: landDesc, form,
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
-    light: { key: layerKey('outside:light', formKey, tones.map(tonesKey),
-      shape.marks.map(m => Math.round(m.km / KM_STEP)),
-      glyphAtmosphereKey(out.flatMap(i => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
+    light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
+      glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
       sea && Math.round((sea.drift ?? 0) * 4), skyKey),
@@ -300,21 +296,3 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   }
 }
 
-/**
- * Snow on the place's own ground over the ridge line (C9): where its crest stands at or above the snow line, the snow the
- * planes lie at that distance (`snowOnGround`), so the land whitens with the ridge under it instead of standing dark on
- * it. Runs of top points, first to last index.
- */
-function landSnow(world: WorldState, land: NonNullable<OutsideView['land']>) {
-  const look = snowOnGround(world, land.km)
-  const lineM = world.snow?.lineM
-  if (!look || lineM === undefined || !land.heightM) return null
-  const runs: [number, number][] = []
-  land.heightM.forEach((h, i) => {
-    if (!(h >= lineM)) return
-    const last = runs.at(-1)
-    if (last && last[1] === i - 1) last[1] = i
-    else runs.push([i, i])
-  })
-  return runs.length ? { ...look, runs } : null
-}

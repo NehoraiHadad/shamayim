@@ -4,7 +4,7 @@ import type { WorldMark } from '../../world/markGeometry'
 import { farNeighbourMarks } from './farNeighbourMarks'
 import { landmarkContrast, landmarkTonesAt } from './landmarkAtmosphere'
 import { tonesAt } from './marks'
-import { toneAt } from './planeLight'
+import { toneAt } from './landVeil'
 import { labOf, mixRgb } from './tone'
 import type { RGB } from './types'
 
@@ -12,7 +12,7 @@ const world = { light: { palette: { ridgeNear: '#283948', mid: '#93a8be', horizo
   shares: { sun: 1, moon: 0 }, direct: 1, colour: [1, .95, .85], ambient: [.5, .6, .7], diffuse: .2 },
   night: { dark: 0 }, bodies: { sun: { azimuth: 0, altitude: 45 } }, ground: { wet: 0 },
   air: { haze: [.65, .7, .75], visibilityKm: 25, fade: (km: number) => 1 - Math.exp(-3.912 * km / 25) },
-  place3: { kind: 'unknown' }, terrain: { horizonY: 70,
+  land: { local: [{ eastM: 0, northM: 0, elevationM: 0, sample: { cover: 30, albedo: [.18, .2, .14] } }] }, place3: { kind: 'unknown' }, terrain: { horizonY: 70,
     near: { points: [[0, 110], [375, 110]], distanceKm: [1, 1] } } } as unknown as WorldState
 const gap = (a: RGB, b: RGB) => {
   const x = labOf(a), y = labOf(b)

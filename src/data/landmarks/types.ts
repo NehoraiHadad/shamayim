@@ -1,4 +1,6 @@
+import type { CropArea } from './cropAreas'
 import type { MarkTerrainEvidence } from '../../world/markTerrainEvidence'
+
 export type MarkKind =
   | 'highrise' | 'chimney' | 'cooling' | 'mast' | 'waterTower'
   | 'minaret' | 'church' | 'silo' | 'lighthouse' | 'turbine'
@@ -14,6 +16,9 @@ export interface Landmark {
   lon: number
   heightM: number
   source: 'curated' | 'osm' | 'place' | 'cover'
+  cropArea?: CropArea
+  /** Separate geometry records from the static crop layer do not enter the portrait landmark shortlist. */
+  areaOnly?: boolean
   /**
    * How well known it is (`fame.ts`): 2 when OpenStreetMap links it to a Wikipedia article, 1 to a Wikidata item only;
    * absent when anonymous.

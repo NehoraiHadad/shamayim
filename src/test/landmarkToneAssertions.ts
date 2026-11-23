@@ -2,7 +2,7 @@ import { expect } from 'vitest'
 import type { WorldState } from '../world/types'
 import { LANDMARK_MAX_PX } from '../world/neighbourSize'
 import { tonesAt } from '../scene/model/marks'
-import { toneAt } from '../scene/model/planeLight'
+import { toneAt } from '../scene/model/landVeil'
 import { mixRgb } from '../scene/model/tone'
 import type { GlyphDesc } from '../scene/model/types'
 

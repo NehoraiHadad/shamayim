@@ -7,6 +7,7 @@ import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
 import { markBox } from '../../world/markGeometry'
 import { BACKING_PAD } from '../../world/place'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
+import { compositeOrder } from '../compose/compositeOrder'
 import { layersOn, sceneModel } from '.'
 import type { SceneBox } from './types'
 
@@ -15,7 +16,7 @@ const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 /** The weather's kinds (C7). */
 // The living light: the cloud's shadows on the land come and go with the cloud, as the weather does.
-const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'cloudShadow'])
+const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'cloudShadow', 'landDust'])
 let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {
@@ -76,14 +77,16 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     expect(JSON.stringify(sceneModel(world, BOX))).toBe(JSON.stringify(sceneModel(world, BOX)))
   })
 
-  it('keeps the land form keys through a scrub; only light and sky keys move', () => {
+  it('keeps static land forms through a scrub, including when the forecast wind changes', () => {
     const build = makeWorldBuilder()
     const input = worldInput(loaded.get(id)!, TIMES[0])
     const models = TIMES.map((at) => sceneModel(build({ ...input, selected: at }), BOX))
     // The weather comes and goes with the hour (C7: mist with the humidity, falling rain with the rain), so the scrub's
     // rule is held for the rest of the land.
-    // C10: what flies in front of the land (a flock's or a plane's copy there) comes and goes with the minute, as the sky does.
-    const land = models.map((model) => layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind) && !layer.placed))
+    // Canopy strips follow the wind forecast while their terrain form stays fixed.
+    // A flock's or plane's copy in front of the land comes and goes with the minute.
+    const land = models.map((model) =>
+      layersOn(model, 'land').filter((layer) => !WEATHER.has(layer.kind) && layer.kind !== 'canopy' && !layer.placed))
     for (const layers of land.slice(1)) {
       expect(layers.map((layer) => layer.key)).toEqual(land[0].map((layer) => layer.key))
     }
@@ -103,8 +106,16 @@ describe('scene model: layers', () => {
     // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
     // C4–C5: the place seen from outside over it all, its marks (the Báb, the Carmel's church and mosque) among its mass;
     // C7: the weather the hour has over them. (What flies in front of the land, laid where it is, comes and goes.)
-    expect(layersOn(model, 'land').filter((layer) => !layer.placed).map((layer) => layer.id)).toEqual(['plane.far', 'farCities', 'plane.near', 'water.near',
-      'outside', 'smoke.near'])
+    const land = layersOn(model, 'land')
+    expect(land.filter((layer) => !layer.placed && layer.kind !== 'canopy').map((layer) => layer.id))
+      .toEqual(['plane.far', 'farCities', 'plane.near', 'water.near', 'outside', 'smoke.near'])
+    const passes = compositeOrder(land).map(({ desc, part }) => `${desc.id}:${part}`)
+    for (const canopy of land.filter((layer) => layer.kind === 'canopy')) {
+      const plane = land.find((l) => l.kind === 'plane' && l.canopyId === canopy.id)!
+      const at = passes.indexOf(`${plane.id}:form`)
+      expect(passes.slice(at, at + 4))
+        .toEqual([`${plane.id}:form`, `${canopy.id}:form`, `${plane.id}:light`, `${canopy.id}:light`])
+    }
     // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
     const sky = layersOn(model, 'sky')
     expect(sky[0].id).toBe('sky')

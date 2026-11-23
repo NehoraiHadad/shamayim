@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -48,10 +50,55 @@ describe('Israel landmark cells', () => {
     const cell = cellsForStrip(place())[0]
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).endsWith('index.json')
       ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : String(input).includes('/crops/') ? new Response('', { status: 404 })
       : new Response(JSON.stringify([['waterTower', 31.6092, 35.1009, 25, 'מגדל מים']]))))
     const marks = await loadIsrael(place(), new AbortController().signal)
     expect(marks).toHaveLength(1)
     expect(marks?.[0]).toMatchObject({ kind: 'waterTower', nameHe: 'מגדל מים', source: 'osm' })
+  })
+
+  it('loads crop geometry beside the legacy points without entering it in the portrait shortlist', async () => {
+    const crop = { source: 'osm', kind: 'palm', polygons: [[[
+      [35.1, 31.60], [35.11, 31.60], [35.11, 31.62], [35.1, 31.62], [35.1, 31.60],
+    ]]] }
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('index.json')) return new Response(JSON.stringify(index()))
+      return String(input).endsWith('/crops/63_70.json')
+        ? new Response(JSON.stringify([[31.61, 35.105, crop]])) : new Response('', { status: 404 })
+    }))
+    const result = await loadLandmarkSource(place(), new AbortController().signal)
+    expect(result.cropAreas).toEqual([crop])
+    expect(result.sceneMarks.some((m) => m.kind === 'palms')).toBe(false)
+  })
+
+  it('bounds kept crop polygons by actual distance to the place (staying compact at dense Jerusalem)', async () => {
+    const nearCrop = { source: 'osm', kind: 'olive', polygons: [[[
+      [35.10, 31.605], [35.105, 31.605], [35.105, 31.61], [35.10, 31.61], [35.10, 31.605],
+    ]]] }
+    // Same 0.1° cell (316_351), ~8.5 km away — must be rejected instead of kept by coarse cell membership.
+    const sameCellFar = { source: 'osm', kind: 'orchard', polygons: [[[
+      [35.18, 31.66], [35.19, 31.66], [35.19, 31.67], [35.18, 31.67], [35.18, 31.66],
+    ]]] }
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('index.json')) return new Response(JSON.stringify(index()))
+      return String(input).endsWith('/crops/63_70.json')
+        ? new Response(JSON.stringify([[31.607, 35.102, nearCrop], [31.665, 35.185, sameCellFar]]))
+        : new Response('', { status: 404 })
+    }))
+    const filtered = await loadLandmarkSource(place(), new AbortController().signal)
+    expect(filtered.cropAreas).toEqual([nearCrop])
+
+    // Real dense sector (Jerusalem, 63_70.json): keeps only polygons overlapping ±3 km, not all 647 cell-box polygons.
+    resetIsraelDataForTests()
+    const root = path.resolve(__dirname, '../../..')
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const file = path.join(root, 'public', String(input).replace(/^\//, ''))
+      return fs.existsSync(file) ? new Response(fs.readFileSync(file)) : new Response('', { status: 404 })
+    }))
+    const jerusalem = await loadLandmarkSource(place({ id: 'jerusalem', lat: 31.769, lon: 35.2163 }), new AbortController().signal)
+    expect(jerusalem.cropAreas.length).toBeGreaterThan(0)
+    expect(jerusalem.cropAreas.length).toBeLessThan(80)
+    expect(JSON.stringify(jerusalem.cropAreas).length).toBeLessThan(60_000)
   })
 })
 
@@ -60,6 +107,7 @@ describe('fame in the shipped rows', () => {
     const cell = cellsForStrip(place())[0]
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).endsWith('index.json')
       ? new Response(JSON.stringify(index({ cells: [cell] })))
+      : String(input).includes('/crops/') ? new Response('', { status: 404 })
       : new Response(JSON.stringify([['church', 31.6092, 35.1009, 25, '', 2], ['waterTower', 31.61, 35.1, 25, 'מגדל', 1],
         ['minaret', 31.62, 35.1, 30]]))))
     const marks = await loadIsrael(place(), new AbortController().signal)
@@ -73,6 +121,7 @@ describe('fame in the shipped rows', () => {
   it('preserves tower heights from an evidence cell even under an index with no heights flag', async () => {
     const [legacyCell, evidenceCell] = cellsForStrip(place())
     vi.stubGlobal('fetch', async (input: string) => {
+      if (input.includes('/crops/')) return new Response('', { status: 404 })
       if (input.endsWith('index.json')) return new Response(JSON.stringify(index({ cells: [legacyCell, evidenceCell] })))
       if (input.endsWith(`${legacyCell}.json`)) return new Response(JSON.stringify([['minaret', 31.60, 35.1, 30]]))
       return new Response(JSON.stringify({ heights: 'evidence', rows: [['church', 31.6092, 35.1009, 25], ['minaret', 31.62, 35.1, 30]] }))
@@ -83,8 +132,8 @@ describe('fame in the shipped rows', () => {
 
   it('keeps a non-default tagged height in a legacy array cell while downgrading flat defaults to HALL_M', async () => {
     const cell = cellsForStrip(place())[0]
-    vi.stubGlobal('fetch', async (input: string) => input.endsWith('index.json')
-      ? new Response(JSON.stringify(index({ cells: [cell] })))
+    vi.stubGlobal('fetch', async (input: string) => input.includes('/crops/') ? new Response('', { status: 404 })
+      : input.endsWith('index.json') ? new Response(JSON.stringify(index({ cells: [cell] })))
       : new Response(JSON.stringify([['minaret', 31.62, 35.1, 30], ['minaret', 31.63, 35.1, 22], ['church', 31.61, 35.1, 18]])))
     const marks = await loadIsrael(place(), new AbortController().signal)
     expect(marks?.map((mark) => mark.heightM)).toEqual([HALL_M, 22, 18])
@@ -92,14 +141,14 @@ describe('fame in the shipped rows', () => {
 })
 
 describe('landmark cache version', () => {
-  it('ignores a fresh v8 cache entry and reads v9 with seatCandidates instead', () => {
+  it('ignores a fresh v9 cache entry and reads v10 with seatCandidates instead', () => {
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k) ?? null,
       setItem: (k: string, v: string) => storage.set(k, v) })
     const p = place()
-    const stale: Landmark = { id: 'stale-v8-minaret', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
-    const fresh: Landmark = { id: 'fresh-v9-hall', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
-    const seat: Landmark = { id: 'fresh-v9-seat', kind: 'synagogue', lat: p.lat + .02, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const stale: Landmark = { id: 'stale-v9-minaret', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const fresh: Landmark = { id: 'fresh-v10-hall', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const seat: Landmark = { id: 'fresh-v10-seat', kind: 'synagogue', lat: p.lat + .02, lon: p.lon, heightM: HALL_M, source: 'osm' }
     const payload = (marks: Landmark[], seatCandidates: Landmark[] = []) =>
       JSON.stringify({ at: Date.now(), marks, panoramaMarks: marks, aroundMarks: marks, sceneMarks: marks, seatCandidates })
     const readHook = () => {
@@ -108,11 +157,11 @@ describe('landmark cache version', () => {
       renderToStaticMarkup(createElement(Probe))
       return result!
     }
-    storage.set(`shamayim:landmarks:v8:${p.id}`, payload([stale], [seat]))
+    storage.set(`shamayim:landmarks:v9:${p.id}`, payload([stale], [seat]))
     expect(readHook().marks.some((m) => m.id === stale.id)).toBe(false)
     expect(readHook().seatCandidates).toEqual([])
     expect(readHook().usesOsm).toBe(false)
-    storage.set(`shamayim:landmarks:v9:${p.id}`, payload([fresh], [seat]))
+    storage.set(`shamayim:landmarks:v10:${p.id}`, payload([fresh], [seat]))
     expect(readHook().marks.some((m) => m.id === fresh.id)).toBe(true)
     expect(readHook().seatCandidates.map((m) => m.id)).toEqual([seat.id])
     expect(readHook().usesOsm).toBe(true)

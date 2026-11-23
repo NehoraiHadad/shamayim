@@ -1,7 +1,7 @@
 import type { WorldState } from '../../world/types'
 import { smoothstep } from '../../world/ridgeLighting'
 import { againstLight } from './marks'
-import { aerialFor, hazeOf } from './planeLight'
+import { aerialFor, hazeOf } from './landVeil'
 import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
 import type { SceneBox, Tones, RGB } from './types'

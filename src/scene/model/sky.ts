@@ -5,7 +5,7 @@ import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
-import { hazeOf } from './planeLight'
+import { hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
 import type { Arch, Band, Glow, LayerOf, RGB, SceneBox } from './types'
 

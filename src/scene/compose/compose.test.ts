@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerDesc, LayerOf } from '../model/types'
 import type { Painter } from '../paint'
 import { LayerCache, type LayerCanvas } from './layerCache'
 import { makeLoop } from './loop'
-import { paintSliced } from './schedule'
+import { paintSliced, PRIORITY } from './schedule'
 import { canvasSize, deviceRect, formKeyOf, type PaintReply, type PaintRequest } from './paintJob'
 import { RemoteCache, type WorkerLike } from './remoteCache'
 import { makeStats } from './stats'
@@ -25,8 +26,10 @@ function fakeCanvas(width: number, height: number) {
 
 function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane'> {
   return { kind: 'plane', plane: 'near', id, surface: 'land', z: 30, key, bounds: { x: 0, y: 40, w: 375, h: 88 },
-    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4], gullies: [], terraces: [], scrub: [],
-    grain: { amount: 0, seed: 1 }, light: { key: lightKey, blend: 'source-over', tint: [0.2, 0.2, 0.3], faces: [], tones: [],
+    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
+    surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
+    gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
+    light: { key: lightKey, blend: 'source-over', faces: [], veil: [],
       shade: [], lit: [], rims: [], snow: null, lift: null } }
 }
 
@@ -106,6 +109,7 @@ describe('surface and schedule', () => {
     expect(report.slices.length).toBe(3)
     expect(Math.max(...report.slices)).toBeLessThanOrEqual(9)
     expect(layers(7).every((layer) => surface.fresh(layer))).toBe(true)
+    expect(PRIORITY.canopy).toBeGreaterThan(PRIORITY.plane)
   })
 
   it('a warm frame repaints nothing when the model is the same', () => {
@@ -157,7 +161,8 @@ function fakeWorker() {
       const request = sent.shift()!
       const reply: PaintReply = { batch: request.batch, results: request.jobs.map((job) => {
         const { w, h } = canvasSize(job.desc, job.rect)
-        const bitmap = { width: w, height: h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap
+        const bitmap = job.final === false ? null
+          : { width: w, height: h, close: () => { closed.push(`${job.id}:${job.part}:${job.key}`) } } as unknown as ImageBitmap
         return { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 1, bitmap }
       }) }
       worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
@@ -200,6 +205,11 @@ describe('painting in the worker', () => {
     expect(cache.update(plane('a', 'l2'), 2)).toBe('light')
     cache.flush()
     expect(worker.sent[0].jobs.map((job) => [job.part, job.key])).toEqual([['light', 'l2']])
+    // Light-only plane jobs strip form-only palettes, terraces, fields, rows, strata (and trees/gullies when lift is null).
+    const lightPlane = worker.sent[0].jobs[0].desc as LayerOf<'plane'>
+    expect(lightPlane.surfaceTone.cells).toEqual([])
+    expect(lightPlane.vegetation.fields.byteLength).toBe(0)
+    expect(lightPlane.vegetation.tones).toEqual([])
     // While l2 is on its way the hand moves on twice: only the newest is sent, once l2 is back.
     cache.update(plane('a', 'l3'), 2)
     cache.flush()
@@ -252,6 +262,11 @@ describe('painting in the worker', () => {
       expect(peek()?.light).toBe(shown.light)
       const closed = worker.closed.length
       worker.answer()
+      // A strip paints in bounded chunks, form and light in turn (`remoteQueue.ts`): the old picture stays until both are in.
+      while (!cache.fresh(layer, 2)) {
+        expect(peek()?.light).toBe(shown.light)
+        worker.answer()
+      }
       expect(worker.closed).toHaveLength(closed + (formless ? 1 : 2))
       shown = checkArrival(layer, 2)
     }
@@ -269,7 +284,8 @@ describe('painting in the worker', () => {
       expect(peek()?.desc).toBe(resizes[i])
       expect(peek()?.rect).toEqual(deviceRect(resizes[i], 1))
       expect(cache.fresh(resizes[i + 2], 1)).toBe(false)
-      expect(worker.sent[0].jobs[0].desc).toBe(resizes[i + 2])
+      // Light-only jobs carry the trimmed desc (`lightJobDesc`): the newest resize is the one queued.
+      expect(worker.sent[0].jobs[0].rect).toEqual(deviceRect(resizes[i + 2], 1))
       shown = peek()!
     }
     worker.answer()
@@ -323,24 +339,75 @@ describe('painting in the worker', () => {
     expect(cache.settled()).toBe(true)
   })
 
-  it('lays the arrivals on the surface, and paints on the main thread once the worker fails', () => {
+  it('sends single-frame terrain layers before multi-frame strips so animated canopies do not block first terrain paint', async () => {
     const worker = fakeWorker()
+    const arrivals: boolean[] = []
+    const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: ({ settled }) => arrivals.push(settled), onFail: () => {} })
+    const animatedCanopy: LayerOf<'canopy'> = {
+      kind: 'canopy', id: 'canopy.near', surface: 'land', z: 30.1, key: 'c1', bounds: { x: 0, y: 40, w: 375, h: 88 },
+      outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 }, lift: null,
+      vegetation: { seed: 1, tones: [], trees: new Float32Array(), treeMeta: new Uint8Array(), tufts: new Float32Array(), tuftMeta: new Uint8Array() },
+      animated: { mode: 'frames', frames: { count: 10, fps: 5 } },
+      light: { key: 'cl1', blend: 'source-over', faces: [] },
+    }
+    cache.update(plane('a', 'l1'), 2)
+    cache.update(animatedCanopy, 2)
+    cache.flush()
+    // Batch 1 contains only the single-frame terrain plane; the 10-frame canopy strip waits in pending.
+    expect(worker.sent).toHaveLength(1)
+    expect(worker.sent[0].jobs.map((job) => `${job.id}:${job.part}`)).toEqual(['plane.near:form', 'plane.near:light'])
+    const settled = cache.whenSettled()
+    worker.answer()
+    // Terrain is already fresh and composited while the animated canopy strip begins painting in bounded chunks.
+    expect(cache.fresh(plane('a', 'l1'), 2)).toBe(true)
+    expect(cache.fresh(animatedCanopy, 2)).toBe(false)
+    expect(arrivals).toEqual([false])
+    expect(worker.sent).toHaveLength(1)
+    expect(worker.sent[0].jobs.map((job) => [job.id, job.part, job.frames, job.final])).toEqual([['canopy.near', 'form', [0, 1], false]])
+    while (worker.sent.length) worker.answer()
+    await settled
+    expect(arrivals).toEqual([false, false, true])
+    expect(cache.fresh(animatedCanopy, 2)).toBe(true)
+  })
+
+  it('lays the arrivals on the surface, reuses shown entries when trackShown is on, and paints on main thread once worker fails', () => {
+    const worker = fakeWorker()
+    const stats = makeStats(() => 0, { trackShown: true })
     const { count, painters: counted } = counting()
     let laid = 0
-    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, now: () => 0, worker: () => worker,
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, stats, now: () => 0, worker: () => worker,
       onArrive: () => { laid++ } })
     surface.resize(375, 128, 2)
     surface.render([plane('a', 'l1')])
     expect(count).toEqual({ form: 0, light: 0 })
+    expect(stats.shown['plane.near']).toBeUndefined()
     worker.answer()
     expect(laid).toBe(1)
     expect(surface.fresh(plane('a', 'l1'))).toBe(true)
-    surface.render([plane('a', 'l2')])
+    const entryRef = stats.shown['plane.near']
+    expect(entryRef).toEqual({ key: 'a', lightKey: 'l1', fresh: true })
+    // Stable re-composite reuses the same ShownLayer object without re-allocating.
+    surface.composite([plane('a', 'l1')])
+    expect(stats.shown['plane.near']).toBe(entryRef)
+    surface.render([plane('b', 'l1')])
+    expect(stats.shown['plane.near']).toEqual({ key: 'a', lightKey: 'l1', fresh: false })
+    worker.answer()
+    expect(stats.shown['plane.near']).toBe(entryRef)
+    expect(stats.shown['plane.near']).toEqual({ key: 'b', lightKey: 'l1', fresh: true })
+    surface.render([plane('b', 'l2')])
     worker.onerror?.(new Event('error'))
     expect(worker.terminated).toBe(true)
     expect(surface.remote).toBeNull()
     expect(count).toEqual({ form: 1, light: 1 })
-    expect(surface.fresh(plane('a', 'l2'))).toBe(true)
+    expect(surface.fresh(plane('b', 'l2'))).toBe(true)
+    expect(stats.shown['plane.near']).toEqual({ key: 'b', lightKey: 'l2', fresh: true })
+
+    // Default stats (trackShown: false) skips composite-key tracking completely.
+    const quietStats = makeStats(() => 0)
+    const quietSurface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counted, stats: quietStats, now: () => 0 })
+    quietSurface.resize(375, 128, 2)
+    quietSurface.render([plane('a', 'l1')])
+    expect(quietStats.shown).toEqual({})
   })
 })
 

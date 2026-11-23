@@ -15,6 +15,9 @@ export const CASES = [
   ...[['haifa', '16:30', 'loading'], ['jerusalem', '12:00', 'offline'], ['ein-gedi', '21:00', 'loading'],
     ['tiberias', '12:00', 'loading', 'rain'], ['haifa', '16:30', 'arrive', '', '0.7'], ['rosh-pina', '06:20', 'arrive', '', '1.2']]
     .map(([place, hour, land, weather = '', phase = '0']) => ({ place, at: `${DAY}T${hour}`, land, weather, phase })),
+  { place: 'rosh-pina', at: '2026-02-15T12:00', weather: 'land-wind', name: 'land-wind-rosh-pina' },
+  { place: 'kalya', at: '2026-02-15T12:00', weather: 'land-wind', phase: '0.8', nearPalmFixture: true, name: 'land-wind-kalya-palms' },
+  { place: 'ramon-crater', at: '2026-08-15T12:00', weather: 'land-wind', phase: '2', name: 'land-wind-ramon-crater' },
 ]
 
 // The wear card's clothesline (`scene.html?wear=`): calm and sunny, a gale, rain, dusk and night, two at dpr 2. Each its own

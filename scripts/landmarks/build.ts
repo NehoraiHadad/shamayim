@@ -1,9 +1,10 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import { cropSectorOf } from '../../src/data/landmarks/cropAreas'
 import { evidenceOf, industrialNamed } from '../../src/data/landmarks/industrial'
 import { parseOverpass } from '../../src/data/landmarks/overpass'
-import type { EvidenceCell, IsraelLandmarkIndex, Row } from '../../src/data/landmarks/israelData'
+import type { CropRow, EvidenceCell, IsraelLandmarkIndex, Row } from '../../src/data/landmarks/israelData'
 import { score } from '../../src/data/landmarks/rank'
 import type { Landmark, MarkKind } from '../../src/data/landmarks/types'
 
@@ -40,7 +41,7 @@ function numericId(value: string | number | undefined, fallback: number): number
   return hash >>> 0
 }
 
-export function parseGeoJsonSequence(input: string): Landmark[] {
+export function parseGeoJsonSequence(input: string, includeAreas = false): Landmark[] {
   const records = input.includes('\x1e') ? input.split('\x1e') : input.split(/\r?\n/)
   const elements = records.flatMap((record, index) => {
     const text = record.trim()
@@ -52,7 +53,7 @@ export function parseGeoJsonSequence(input: string): Landmark[] {
     const tags = Object.fromEntries(Object.entries(properties)
       .filter(([key, value]) => !key.startsWith('@') && typeof value === 'string'))
     const rawId = feature.id ?? properties['@id'] as string | number | undefined
-    return [{ id: numericId(rawId, index), center: point, tags }]
+    return [{ id: numericId(rawId, index), center: point, tags, areaGeometry: includeAreas ? feature.geometry : undefined }]
   })
   // An industrial structure is a landmark only by its own data: a name that is a name, then fame or size.
   return parseOverpass({ elements }, { name: (mark, tags) => industrialNamed(mark, evidenceOf(tags)) })
@@ -82,6 +83,7 @@ export async function buildDataset(input: string, options: BuildOptions) {
   const cells = [...grouped.keys()].sort()
   await rm(options.outputDir, { recursive: true, force: true })
   await mkdir(options.outputDir, { recursive: true })
+  const cropBytes = await writeCropSectors(input, options.outputDir)
   let bytes = 0
   for (const cell of cells) {
     const contents = JSON.stringify(compact(grouped.get(cell)!, options.maxCellBytes ?? 150_000))
@@ -93,7 +95,31 @@ export async function buildDataset(input: string, options: BuildOptions) {
   const indexJson = JSON.stringify(index)
   bytes += Buffer.byteLength(indexJson)
   await writeFile(`${options.outputDir}/index.json`, indexJson)
-  return { index, marks: marks.length, bytes }
+  return { index, marks: marks.length, bytes: bytes + cropBytes }
+}
+
+/** Keep area evidence independently of the size-limited landmark tiles and their point deduplication. */
+export async function writeCropSectors(input: string, outputDir: string): Promise<number> {
+  const sectors = new Map<string, CropRow[]>()
+  for (const { lat, lon, cropArea } of parseGeoJsonSequence(input, true)) {
+    if (!cropArea) continue
+    // Same 0.5° sectors as the browser's crop loader. Six decimal places encode about 0.11 m at the equator.
+    const sector = cropSectorOf(lat, lon)
+    const rows = sectors.get(sector) ?? []
+    if (!sectors.has(sector)) sectors.set(sector, rows)
+    const round = (value: number) => Math.round(value * 1e6) / 1e6
+    const polygons = cropArea.polygons.map((polygon) =>
+      polygon.map((ring) => ring.map(([x, y]) => [round(x), round(y)] as const)))
+    rows.push([lat, lon, { ...cropArea, polygons }])
+  }
+  await mkdir(`${outputDir}/crops`, { recursive: true })
+  let bytes = 0
+  for (const [sector, rows] of [...sectors].sort(([a], [b]) => a.localeCompare(b))) {
+    const json = JSON.stringify(rows)
+    bytes += Buffer.byteLength(json)
+    await writeFile(`${outputDir}/crops/${sector}.json`, json)
+  }
+  return bytes
 }
 
 async function stdin() {
@@ -106,8 +132,13 @@ async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     out: { type: 'string', default: 'public/data/landmarks/il' },
     'generated-at': { type: 'string' },
+    'crops-only': { type: 'boolean' },
   } })
   const input = positionals[0] ? await readFile(positionals[0], 'utf8') : await stdin()
+  if (values['crops-only']) {
+    console.log(`Built crop sectors (${await writeCropSectors(input, values.out!)} bytes).`)
+    return
+  }
   const result = await buildDataset(input, { outputDir: values.out!, generatedAt: values['generated-at'] })
   console.log(`Built ${result.marks} landmarks in ${result.index.cells.length} cells (${result.bytes} bytes).`)
 }

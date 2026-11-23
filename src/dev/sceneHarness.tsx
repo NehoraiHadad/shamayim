@@ -3,7 +3,7 @@ import type { AirInput } from '../atmo/airTypes'
 import type { Place } from '../config/place'
 import { loadBounds } from '../data/city/bounds'
 import { loadCity } from '../data/city/cityData'
-import { loadLandCover } from '../data/land/landData'
+import { loadFootprintLandCover } from '../data/land/landData'
 import { loadFar } from '../data/city/farData'
 import { loadIsrael } from '../data/landmarks/israelData'
 import { withPlaceHomes } from '../data/landmarks/placeMarks'
@@ -76,6 +76,9 @@ const WEATHER: Record<string, Partial<AirInput>> = {
   cirrus: { cloudCover: 75, thickCloud: 0, precipitation: 0, weatherCode: 2, windSpeed: 8, windGusts: 14 },
   // The wear card's calm: a still, clear noon.
   calm: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 3, windGusts: 5, humidity: 40 },
+  // Stage 5 stills share the same clear air, changing only the 10 m wind (km/h, meteorological direction).
+  'land-calm': { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 0, windGusts: 0, windDirection: 270, humidity: 30 },
+  'land-wind': { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 58, windGusts: 86, windDirection: 270, humidity: 30 },
   sunny: { cloudCover: 0, thickCloud: 0, precipitation: 0, weatherCode: 0, windSpeed: 10, windGusts: 16, temperature: 24, humidity: 40 },
   // Track D's field towers: a thunderstorm and showers out of low convective cloud (the fixtures keep these mid-level).
   towers: { precipitation: 6, weatherCode: 95, cloudCover: 70, windSpeed: 25, windGusts: 50, windDirection: 250, humidity: 90 },
@@ -128,7 +131,7 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
     loadCity(place, signal),
     loadFar(),
     loadBounds(),
-    loadLandCover(place, signal, 6),
+    loadFootprintLandCover(place, signal, 6),
     fetch(forecastUrl(place)).then((res) => {
       if (!res.ok) throw new Error(`forecast ${res.status}`)
       return res.json() as Promise<unknown>
@@ -140,7 +143,7 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
     source: 'fixture', models: [] }
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
   return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks),
-    seatCandidates: source.seatCandidates, city, far, forced: WEATHER[weather] ?? null,
+    seatCandidates: source.seatCandidates, cropAreas: source.cropAreas, city, far, forced: WEATHER[weather] ?? null,
     forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover }
 }
 

@@ -3,7 +3,7 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { buildWorld } from '../../world/world'
 import { tonesAt } from './marks'
-import { aerialFor, hazeOf } from './planeLight'
+import { aerialFor, hazeOf } from './landVeil'
 import { skyAt } from './sky'
 import { skyFormOf } from './ownSkyForm'
 

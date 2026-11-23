@@ -4,12 +4,17 @@
  * it on `window.__sceneStats`; `?perf=1` shows it in a small HUD.
  */
 export interface LayerStat { paints: number; lightPaints: number; hits: number; lastMs: number }
+/** Last composited form/light keys per layer id (`fresh: true` only once painted for the current model and composited). */
+export interface ShownLayer { key: string; lightKey: string | null; fresh: boolean }
 
 export interface StepSummary { n: number; p50: number; p95: number; max: number }
 
 export interface SceneStats {
   steps: Record<string, number[]>
   layers: Record<string, LayerStat>
+  shown: Record<string, ShownLayer>
+  /** Opt-in flag (e.g. perf/e2e runners) to record per-layer composite keys in `shown`; off on ordinary frames. */
+  trackShown: boolean
   /** Backing memory of each surface's visible and cached canvases (bytes). */
   memory: Record<string, number>
   record(step: string, ms: number): void
@@ -28,13 +33,15 @@ export function quantile(sorted: readonly number[], q: number): number {
   return sorted[at]
 }
 
-export function makeStats(now: () => number = () => performance.now()): SceneStats {
+export function makeStats(now: () => number = () => performance.now(), options: { trackShown?: boolean } = {}): SceneStats {
   const marks = typeof performance !== 'undefined' && typeof performance.mark === 'function'
     && typeof performance.measure === 'function'
   let serial = 0
   const stats: SceneStats = {
     steps: {},
     layers: {},
+    shown: {},
+    trackShown: options.trackShown ?? false,
     memory: {},
     record(step, ms) {
       const list = (stats.steps[step] ??= [])
@@ -68,6 +75,7 @@ export function makeStats(now: () => number = () => performance.now()): SceneSta
     },
     reset() {
       stats.steps = {}
+      stats.shown = {}
       for (const layer of Object.values(stats.layers)) Object.assign(layer, { paints: 0, lightPaints: 0, hits: 0, lastMs: 0 })
     },
   }

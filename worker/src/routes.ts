@@ -19,7 +19,7 @@ export type ParamSpec =
   | { kind: 'timezone' }
 
 export interface Route {
-  name: 'forecast' | 'air-quality' | 'elevation' | 'normals'
+  name: 'forecast' | 'land-weather' | 'air-quality' | 'elevation' | 'normals'
   upstream: string
   upstreamQuery?: (canonical: string) => string
   transform?: (body: string) => string
@@ -59,13 +59,15 @@ const DAILY = [
   'precipitation_probability_max', 'precipitation_sum', 'wind_gusts_10m_max',
   'sunrise', 'sunset',
 ]
+const LAND_CURRENT = [
+  'soil_moisture_0_to_1cm', 'soil_moisture_1_to_3cm', 'soil_moisture_3_to_9cm', 'soil_moisture_9_to_27cm',
+]
+const LAND_DAILY = ['rain_sum', 'showers_sum', 'snowfall_sum', 'precipitation_sum']
 const AIR_HOURLY = ['pm10', 'dust', 'uv_index']
 
 /** The app sends 41 points per elevation call; a little headroom, no more. */
 export const MAX_ELEVATION_POINTS = 50
-
-const LAT: ParamSpec = { kind: 'coord', axis: 'lat' }
-const LON: ParamSpec = { kind: 'coord', axis: 'lon' }
+const LAT: ParamSpec = { kind: 'coord', axis: 'lat' }, LON: ParamSpec = { kind: 'coord', axis: 'lon' }
 
 export const ROUTES: Record<string, Route> = {
   '/v1/normals': {
@@ -98,6 +100,24 @@ export const ROUTES: Record<string, Route> = {
     required: ['latitude', 'longitude'],
     freshMs: 15 * MINUTE,
     staleMs: 12 * HOUR,
+  },
+  /** Narrow living-land route: past 60d daily precip + current soil moisture only (never hourly). */
+  '/v1/land-weather': {
+    name: 'land-weather',
+    upstream: 'https://api.open-meteo.com/v1/forecast',
+    params: {
+      latitude: LAT,
+      longitude: LON,
+      timezone: { kind: 'timezone' },
+      models: { kind: 'list', values: FORECAST_MODELS },
+      forecast_days: { kind: 'int', min: 1, max: 1 },
+      past_days: { kind: 'int', min: 0, max: 60 },
+      current: { kind: 'list', values: LAND_CURRENT },
+      daily: { kind: 'list', values: LAND_DAILY },
+    },
+    required: ['latitude', 'longitude', 'forecast_days'],
+    freshMs: 6 * HOUR,
+    staleMs: 24 * HOUR,
   },
   '/v1/air-quality': {
     name: 'air-quality',

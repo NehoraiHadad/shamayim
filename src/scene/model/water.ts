@@ -7,7 +7,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { aerialFor, hazeOf, toneAt } from './planeLight'
+import { aerialFor, hazeOf, toneAt } from './landVeil'
 import { skyAt } from './sky'
 import { mixLight, mixRgb, rgbOf } from './tone'
 import type { Box, GlintPath, LayerOf, Pt, RGB, SceneBox, Streak, WaterBand } from './types'
@@ -302,8 +302,10 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const x0 = Math.max(0, Math.floor(left - 2)), y0 = Math.max(0, Math.floor(top - 2))
   const bounds = { x: x0, y: y0, w: Math.max(1, Math.min(box.width, Math.ceil(right + 2)) - x0),
     h: Math.max(1, Math.min(box.landHeight, Math.ceil(bottom + 2)) - y0) }
+  const bandStopsKey = bands.map((b) => b.stops.map(([, c]) => colourKey(c)))
   const lightKey = layerKey('water.light', name, world.keys.terrain, world.keys.water, world.keys.light, world.keys.air,
-    Math.round(world.wind.ms), Math.sign(Math.round(world.wind.across * 20)), world.keys.night, world.labels.height.below, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
+    world.keys.ground, bandStopsKey, Math.round(world.wind.ms), Math.sign(Math.round(world.wind.across * 20)),
+    world.keys.night, world.labels.height.below, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
   return {
     kind: 'water', id: `water.${name}`, surface: 'land', z: Z[name], bounds,
     // All of the water is light (the sky it mirrors, the hour's glint, the wind's ripples, the datum in the ink of the

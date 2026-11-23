@@ -10,9 +10,9 @@ import { buildWorld } from '../../world/world'
 import { paintPlane } from '../paint/planes'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
-import { HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './planeLight'
+import { applyVeil, HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './landVeil'
 import { hexOf } from './tone'
-import type { LayerOf, SceneBox, SceneModel } from './types'
+import type { LayerOf, RGB, SceneBox, SceneModel } from './types'
 
 /** Stage C2 (docs/design/CANVAS-SCENE-PLAN.md §4): the planes in the enriched hand, structurally. */
 const DAY = '2026-11-17'
@@ -32,6 +32,9 @@ const world = (id: string, hour: string, forced: WorldInput['forced'] = null) =>
 const planesOf = (model: SceneModel) => layersOn(model, 'land').filter((l): l is LayerOf<'plane'> => l.kind === 'plane')
 const near = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'near')!
 const far = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'far')!
+/** Rendered tones along a plane crest: the `source-over` light veil composited over the light-free form median. */
+const renderedTones = (layer: LayerOf<'plane'>): [number, RGB][] =>
+  layer.light.veil.map(([x, rgb, alpha]) => [x, applyVeil(layer.fill, { rgb, alpha })])
 
 /**
  * The mean depth of the lit band under steep crest stretches rising to the right (y falling) and under those falling to
@@ -80,13 +83,16 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
     if (steep >= 3) expect(checked).toBeGreaterThan(0)
   })
 
-  it('keeps gullies, terraces and scrub on the ground under the crest and out of the text zones', () => {
+  it('keeps gullies, terraces and vegetation on the ground under the crest and out of the text zones', () => {
     const model = sceneModel(world(id, '12:00'), BOX)
     const sx = BOX.width / SCENE_W
     for (const layer of planesOf(model)) {
       const ridge = layer.outline.slice(0, -2)
-      const points = [...layer.gullies.flatMap((g) => g.points), ...layer.terraces.flat(),
-        ...layer.scrub.map((d) => [d.x, d.y] as const)]
+      const vegPts: (readonly [number, number])[] = []
+      const { trees, tufts } = layer.vegetation
+      for (let i = 0; i < trees.length; i += 6) vegPts.push([trees[i], trees[i + 1]])
+      for (let i = 0; i < tufts.length; i += 4) vegPts.push([tufts[i], tufts[i + 1]])
+      const points = [...layer.gullies.flatMap((g) => g.points), ...layer.terraces.flat(), ...vegPts]
       for (const [x, y] of points) {
         expect(y).toBeGreaterThanOrEqual(lineAt(ridge, x) - 0.6)
         expect(y).toBeLessThanOrEqual(BOX.landHeight)
@@ -96,12 +102,16 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
         }
       }
     }
-    expect(near(model).scrub.length).toBeGreaterThan(0)
+    const v = near(model).vegetation
+    // Bare desert carries strata only (zero vegetation); vegetated places carry trees, fields or tufts.
+    const vegCount = v.trees.length + v.fields.length + v.tufts.length
+    expect(vegCount + v.strata.length).toBeGreaterThan(0)
   })
 
   it('draws the same texture every time, seeded by the place', () => {
     const a = near(sceneModel(world(id, '12:00'), BOX)), b = near(sceneModel(world(id, '12:00'), BOX))
-    expect(JSON.stringify([a.gullies, a.terraces, a.scrub, a.grain])).toBe(JSON.stringify([b.gullies, b.terraces, b.scrub, b.grain]))
+    expect(JSON.stringify([a.gullies, a.terraces, a.grain])).toBe(JSON.stringify([b.gullies, b.terraces, b.grain]))
+    expect(a.vegetation).toEqual(b.vegetation)
     expect(record(a)).toEqual(record(b))
   })
 
@@ -112,7 +122,7 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
     gaps.slice(1).forEach((gap, i) => expect(gap).toBeLessThanOrEqual(gaps[i] + 1e-3))
     expect(gaps.at(-1)!).toBeLessThan(gaps[0])
     const model = sceneModel(w, BOX)
-    const farTones = far(model).light.tones, nearTones = near(model).light.tones
+    const farTones = renderedTones(far(model)), nearTones = renderedTones(near(model))
     const mean = (tones: typeof farTones) => tones.reduce((sum, [, rgb]) => sum + deltaE(hexOf(rgb), haze), 0) / tones.length
     expect(mean(farTones)).toBeLessThan(mean(nearTones))
   })
@@ -124,7 +134,7 @@ describe('planes: the air, the ground and the light', () => {
       const gap = (km: number) => {
         const w = world(id, '12:00', { visibilityKm: km })
         const haze = hexOf(hazeOf(w))
-        const tones = far(sceneModel(w, BOX)).light.tones
+        const tones = renderedTones(far(sceneModel(w, BOX)))
         return tones.reduce((sum, [, rgb]) => sum + deltaE(hexOf(rgb), haze), 0) / tones.length
       }
       expect(gap(5)).toBeLessThan(gap(40))
@@ -144,7 +154,7 @@ describe('planes: the air, the ground and the light', () => {
     // tone turns over the whole stretch, a little at each stop, never a stark step between two stops ~16 px apart (a
     // step of the old ~25 px smoothing was 0.011 a px).
     const w = world('tiberias', '12:00', { humidity: 99, visibilityKm: 1.5, cloudCover: 60, thickCloud: 30, weatherCode: 45 })
-    const tones = near(sceneModel(w, BOX)).light.tones
+    const tones = renderedTones(near(sceneModel(w, BOX)))
     const steps = tones.slice(1).map(([x, rgb], i) => deltaE(hexOf(rgb), hexOf(tones[i][1])) / (x - tones[i][0]))
     expect(Math.max(...steps)).toBeLessThan(0.004)
   })

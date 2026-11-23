@@ -3,7 +3,7 @@ import type { WorldState } from '../../world/types'
 import { isFamousNonOwn } from '../../world/neighbourIdentity'
 import { tonesAt } from './marks'
 import { colourKey } from './keys'
-import { toneAt } from './planeLight'
+import { toneAt } from './landVeil'
 import { mixRgb } from './tone'
 import type { GlyphDesc, OutsideItem, Tones } from './types'
 

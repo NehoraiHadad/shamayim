@@ -4,6 +4,14 @@ export type { CityTier } from './cityMass'
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
 import type { Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
+import type { PlantWind } from './landWind'
+import type {
+  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+} from './typesLand'
+
+export type {
+  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+}
 import type { ContrailMotion } from './contrailMotion'
 import type { CloudSprite } from '../paint/cloudSprite'
 
@@ -156,38 +164,6 @@ export type Pulse = { first: number } & (
   { look: 'meteor' } | { look?: 'stroke'; seed: number; every: [number, number]; cycle?: number; strength?: number }
 )
 
-/**
- * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
- * texture: no light), this `key` covers what the light changes. The compositor repaints the light canvas alone when only
- * this key changes, and lays it over the form with `blend`; the light painter keeps inside the form's shape.
- */
-export interface LightPart {
-  key: string
-  /** How the light canvas meets the form under it (`source-over` covers it; the planes lay theirs on with `overlay`). */
-  blend: 'source-over' | 'multiply' | 'screen' | 'overlay' | 'soft-light'
-  /** The layer's tone after light and haze (its mean, where it varies). */
-  tint: RGB
-  faces: Face[]
-}
-
-/**
- * A plane's light part (C2). The form under it is light-free and laid down in values round a neutral 0.5 grey (texture,
- * gullies, terraces, scrub darken it); this canvas holds the colours after light and haze and is laid over the form with
- * `overlay`, so a neutral form shows these colours exactly and the form's marks darken (or tint) them.
- */
-export interface PlaneLight extends LightPart {
-  /** The tone at the crest across the plane (x px → colour): aerial perspective by each direction's distance. */
-  tones: [number, RGB][]
-  /** Shade on the faces turned from the light, then light on the faces turned to it. */
-  shade: Wash[]
-  lit: Wash[]
-  /** Faces after the washes: the ridge's shadow on the floor. */
-  faces: Face[]
-  rims: Rim[]
-  snow: SnowCap | null
-  lift: Lift | null
-}
-
 interface LayerBase {
   id: LayerId
   surface: Surface
@@ -238,22 +214,6 @@ export interface MoonDisc { x: number; y: number; r: number; rgb: RGB; alpha: nu
  */
 export interface FallingCloud { id: string; x: number; y: number; w: number; h: number; seed: number; alpha: number
   body: RGB; shade: RGB; altitude: number; distanceKm: number; share: number }
-/** A filled shape; `soft` > 0 softens its edge over about that many px (stacked offset copies, no filter). */
-export interface Face { points: Pt[]; rgb: RGB; alpha: number; soft?: number }
-export type Path = Pt[]
-export interface Dot { x: number; y: number; r: number; rgb: RGB }
-/** The ground's low-frequency mottle and fine grain on a plane's form: strength 0–1 and its seed. */
-export interface Grain { amount: number; seed: number }
-/** A gully: a tapered cut down a slope, `w` px wide at its top, darkening the ground by `alpha`. */
-export interface Gully { points: Pt[]; w: number; alpha: number }
-/** A wash hanging from a line (a lit or shaded band below a crest): `depth[i]` px below `top[i]`, fading downward. */
-export interface Wash { top: Pt[]; depth: number[]; rgb: RGB; alpha: number }
-/** A fine stroke along a crest where it catches the light. */
-export interface Rim { points: Pt[]; rgb: RGB; alpha: number }
-/** Where the small things of the ground catch the light: toward (dx, dy), in this colour and strength. */
-export interface Lift { dx: number; dy: number; rgb: RGB; alpha: number }
-/** Snow over a plane above its snow line (`edge`, west to east), lit by the scene's light. */
-export interface SnowCap { edge: Pt[]; rgb: RGB; alpha: number }
 /**
  * One stretch of water in view (C3): its surface between the far edge and the near edge (land px), and its colours down
  * the surface: the sky it mirrors (by the Fresnel share at that depression, the higher sky nearer the eye) over the
@@ -483,8 +443,9 @@ export type LayerDesc =
   | LayerBase & { kind: 'flash'; cloud: FallingCloud; rgb: RGB; period: number }
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
-  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; gullies: Gully[];
-      terraces: Path[]; scrub: Dot[]; grain: Grain; light: PlaneLight }
+  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[] }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
   /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
@@ -492,10 +453,8 @@ export type LayerDesc =
       /** Signed face-light difference, positive from screen-left. */
       lateralLight: number }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
-      /** The place's own ground over the ridge line (C5b): its top line and the ridge line under it, its tone and crest. */
-      land: { top: Pt[]; base: Pt[]; tone: RGB; rim: RGB
-        /** Snow lying on it (C9): its colour and cover, over the runs of top points (first, last index) at or over the line. */
-        snow: { rgb: RGB; alpha: number; runs: [number, number][] } | null } | null
+      /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
+      land: OutsideLandDesc | null
       form: SkyForm }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */
@@ -506,6 +465,7 @@ export type LayerDesc =
   | LayerBase & { kind: 'mist'; bands: MistBandDesc[] }
   /** Dust in the wind, or wind streaks: a tile of fine streaks drifting across. */
   | LayerBase & { kind: 'grains'; marks: FallMark[]; rgb: RGB }
+  | LayerBase & { kind: 'landDust'; puffs: MistPuff[]; rgb: RGB }
   /** Crepuscular rays from a low sun behind broken cloud: lit and shadowed wedges from `x`, `y`, fading over `reach`. */
   | LayerBase & { kind: 'rays'; x: number; y: number; reach: number; rays: Ray[]; rgb: RGB; shade: RGB
     /** C9: `fan` (beams and shadows fading along their length) or `corona` (fine glare round the disc, brightest near it). */

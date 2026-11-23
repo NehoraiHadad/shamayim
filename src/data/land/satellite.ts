@@ -1,87 +1,146 @@
 import type { Coordinate } from '../landmarks/project'
-import { toUtm } from './utm'
+import { alignBandToScl } from './alignBand'
+import { defaultOpenTiff, readCogWindow, type OpenTiffFn, type UtmBox, type UtmCrs } from './cogReader'
+import { gridCoverage, makeNearBuffers, mergeOlderGrid } from './nearGrid'
+import { aggregatePatch, type GridBuffers, type GridTransform } from './s2Aggregate'
+import { bandScalingOf, type StacBandMeta, type StacItemProps } from './s2Math'
+import type { AcquisitionMeta, NearLandGrid } from './types'
+import { toUtm, utmBoxToWgs84Bbox, utmZoneOf } from './utm'
 
 /**
- * This week's colour of the land: the newest clear Copernicus Sentinel-2 L2A scene over the place (cloud under 20 %, the
- * last 45 days), read as a window of its true-colour image at 20 m and averaged into a coarse grid (`STEP_M`). Green
- * after rain, straw in summer, ploughed brown, snow on a peak: whatever the satellite saw last.
+ * Near-field Copernicus Sentinel-2 L2A reader (Earth Search STAC v1, open AWS COGs).
+ * Aligns each spectral/visual band onto the SCL lattice in UTM, composites up to 4 newest-first
+ * acquisition dates so deficient channels/cells fill from older clear passes with their own dates,
+ * and stops early once both RGB and NDVI clear the overall and central-footprint coverage gates.
  */
-const STAC = 'https://earth-search.aws.element84.com/v1/search'
-/** Half the window's side (m), and the grid it is kept at (m). */
-export const REACH_M = 5000
-export const STEP_M = 100
+export const STAC_SEARCH = 'https://earth-search.aws.element84.com/v1/search'
+export const REACH_M = 5000, STEP_M = 100, MAX_OVERVIEW_RES_M = STEP_M / 2
+const LOOKBACK_DAYS = 45, MAX_DATES_TO_TRY = 4
+const MIN_USABLE_CELL_VALID = 0.2, MIN_GRID_COVERAGE = 0.05
+const COMPLETE_COVERAGE = 0.85, COMPLETE_CENTER = 0.5
 
-export interface LandColour {
-  /** The scene's date (YYYY-MM-DD). */
-  date: string
-  fetchedAt: number
-  lat: number
-  lon: number
-  /** Cells across the window: `size` × `size`, row-major from the north-west; RGB bytes. */
-  size: number
-  rgb: Uint8Array
+export interface StacAsset { href: string; 'raster:bands'?: StacBandMeta[] }
+export interface StacItem {
+  properties: StacItemProps
+  assets: { visual?: StacAsset; red?: StacAsset; nir?: StacAsset; green?: StacAsset; swir16?: StacAsset; scl?: StacAsset }
+}
+export type { TiffImageLike, TiffLike } from './cogReader'
+export interface NearFetchDeps { fetchImpl?: typeof fetch; openTiff?: OpenTiffFn }
+
+async function readItemWindow(
+  item: StacItem, targetBox: UtmBox, targetCrs: UtmCrs, grid: GridTransform,
+  out: GridBuffers, acqId: number, openTiff: OpenTiffFn, signal?: AbortSignal,
+): Promise<boolean> {
+  const { visual, red, nir, scl, green, swir16 } = item.assets
+  if (!scl) return false
+  const props = item.properties
+  const redScale = red ? bandScalingOf(props, red['raster:bands']?.[0]) : null
+  const nirScale = nir ? bandScalingOf(props, nir['raster:bands']?.[0]) : null
+  const greenScale = green ? bandScalingOf(props, green['raster:bands']?.[0]) : null
+  const swirScale = swir16 ? bandScalingOf(props, swir16['raster:bands']?.[0]) : null
+  const hasSpectral = Boolean(red && nir && redScale && nirScale)
+  if (!visual && !hasSpectral) return false
+
+  const sclRead = await readCogWindow(scl.href, targetBox, targetCrs, MAX_OVERVIEW_RES_M, openTiff, { signal })
+  if (!sclRead) return false
+  const sclBox: UtmBox = {
+    minE: sclRead.west, maxN: sclRead.north,
+    maxE: sclRead.west + sclRead.width * sclRead.resX,
+    minN: sclRead.north - sclRead.height * sclRead.resY,
+  }
+  const sclCrs: UtmCrs = { zone: sclRead.zone, south: sclRead.south }
+  const safeRead = (asset?: StacAsset) =>
+    asset
+      ? readCogWindow(asset.href, sclBox, sclCrs, MAX_OVERVIEW_RES_M, openTiff, { signal })
+          .catch((err) => { if (signal?.aborted) throw err; return null })
+      : Promise.resolve(null)
+
+  const [visRead, redRead, nirRead, greenRead, swirRead] = await Promise.all([
+    safeRead(visual), hasSpectral ? safeRead(red) : Promise.resolve(null), hasSpectral ? safeRead(nir) : Promise.resolve(null),
+    greenScale && swirScale ? safeRead(green) : Promise.resolve(null), greenScale && swirScale ? safeRead(swir16) : Promise.resolve(null),
+  ])
+  if (!visRead && !(redRead && nirRead)) return false
+
+  aggregatePatch({
+    width: sclRead.width, height: sclRead.height,
+    west: sclRead.west, north: sclRead.north, resX: sclRead.resX, resY: sclRead.resY,
+    zone: sclRead.zone, south: sclRead.south, acqId,
+    scl: sclRead.data as Uint8Array,
+    visual: visRead ? alignBandToScl(visRead, sclRead, 3) : undefined,
+    red: redRead && nirRead ? alignBandToScl(redRead, sclRead, 1) : undefined,
+    nir: redRead && nirRead ? alignBandToScl(nirRead, sclRead, 1) : undefined,
+    redScale: redScale ?? undefined, nirScale: nirScale ?? undefined,
+    green: greenRead && swirRead ? alignBandToScl(greenRead, sclRead, 1) : undefined,
+    swir: greenRead && swirRead ? alignBandToScl(swirRead, sclRead, 1) : undefined,
+    greenScale: greenScale ?? undefined, swirScale: swirScale ?? undefined,
+  }, grid, out)
+  return true
 }
 
-/** Metres east and north of the place to the colour grid's [row, col]. */
-export function colourAt(colour: LandColour, lat: number, lon: number): [number, number, number] | null {
-  const n = (lat - colour.lat) * 111_320
-  const e = (lon - colour.lon) * 111_320 * Math.cos((colour.lat * Math.PI) / 180)
-  const col = Math.floor((e + REACH_M) / STEP_M), row = Math.floor((REACH_M - n) / STEP_M)
-  if (row < 0 || col < 0 || row >= colour.size || col >= colour.size) return null
-  const i = (row * colour.size + col) * 3
-  const { rgb } = colour
-  return rgb[i] || rgb[i + 1] || rgb[i + 2] ? [rgb[i], rgb[i + 1], rgb[i + 2]] : null
-}
+export async function fetchNearLand(
+  place: Coordinate, signal?: AbortSignal, now = new Date(), deps: NearFetchDeps = {},
+): Promise<NearLandGrid | null> {
+  const fetchImpl = deps.fetchImpl ?? fetch, openTiff = deps.openTiff ?? defaultOpenTiff
+  const utmZone = utmZoneOf(place.lon), utmSouth = place.lat < 0
+  const center = toUtm(place.lat, place.lon, utmZone, utmSouth)
+  const originE = center.e - REACH_M, originN = center.n + REACH_M
+  const targetBox: UtmBox = { minE: originE, minN: center.n - REACH_M, maxE: center.e + REACH_M, maxN: originN }
+  const targetCrs: UtmCrs = { zone: utmZone, south: utmSouth }
+  const bbox = utmBoxToWgs84Bbox(targetBox.minE, targetBox.minN, targetBox.maxE, targetBox.maxN, utmZone, utmSouth)
+  const from = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString()
+  const query = new URLSearchParams({
+    collections: 'sentinel-2-l2a', limit: '24', sortby: '-properties.datetime',
+    bbox: bbox.map((v) => v.toFixed(6)).join(','),
+    datetime: `${from}/${now.toISOString()}`, query: JSON.stringify({ 'eo:cloud_cover': { lt: 20 } }),
+  })
+  const response = await fetchImpl(`${STAC_SEARCH}?${query}`, { signal })
+  if (!response.ok) return null
+  const items = ((await response.json()) as { features?: StacItem[] }).features ?? []
+  if (!items.length) return null
 
-interface StacItem { properties: { datetime: string }; assets: { visual: { href: string } } }
+  const byDate = new Map<string, StacItem[]>()
+  for (const item of items) {
+    const d = item.properties.datetime.slice(0, 10)
+    const list = byDate.get(d) ?? []
+    list.push(item)
+    byDate.set(d, list)
+  }
 
-/** One scene's true-colour window around the place, averaged into the grid; empty cells stay 0 (outside the tile). */
-async function readWindow(href: string, place: Coordinate, size: number, rgb: Uint8Array, signal?: AbortSignal) {
-  const { fromUrl } = await import('geotiff')
-  const tiff = await fromUrl(href, { allowFullFile: false }, signal)
-  const full = await tiff.getImage(0)
-  const [west, , east, north] = full.getBoundingBox()
-  const zone = (full.getGeoKeys().ProjectedCSTypeGeoKey as number) - 32600
-  const overview = await tiff.getImage(1)
-  const res = ((east - west) / full.getWidth()) * (full.getWidth() / overview.getWidth())
-  const p = toUtm(place.lat, place.lon, zone)
-  const px = (e: number) => Math.round((e - west) / res), py = (n: number) => Math.round((north - n) / res)
-  const window = [px(p.e - REACH_M), py(p.n + REACH_M), px(p.e + REACH_M), py(p.n - REACH_M)]
-  const data = await overview.readRasters({ window, interleave: true, signal, fillValue: 0 }) as unknown as Uint8Array
-  const width = window[2] - window[0]
-  const block = STEP_M / res
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      const o = (row * size + col) * 3
-      if (rgb[o] || rgb[o + 1] || rgb[o + 2]) continue
-      let r = 0, g = 0, b = 0, count = 0
-      for (let y = Math.floor(row * block); y < Math.floor((row + 1) * block); y++) {
-        for (let x = Math.floor(col * block); x < Math.floor((col + 1) * block); x++) {
-          const i = (y * width + x) * 3
-          if (!data[i] && !data[i + 1] && !data[i + 2]) continue
-          r += data[i]; g += data[i + 1]; b += data[i + 2]; count++
-        }
+  const size = Math.round((2 * REACH_M) / STEP_M)
+  const transform: GridTransform = { size, originE, originN, stepM: STEP_M, utmZone, utmSouth }
+  const composite = makeNearBuffers(size)
+  const acquisitions: AcquisitionMeta[] = []
+  let newestDate: string | null = null
+  let tried = 0
+
+  for (const [date, group] of byDate) {
+    if (++tried > MAX_DATES_TO_TRY) break
+    const dayBuf = makeNearBuffers(size)
+    for (const item of group) {
+      if (acquisitions.length >= 254) break
+      const acqId = acquisitions.length
+      acquisitions.push({ date })
+      try {
+        await readItemWindow(item, targetBox, targetCrs, transform, dayBuf, acqId, openTiff, signal)
+      } catch (err) {
+        if (signal?.aborted) throw err
       }
-      if (count) { rgb[o] = r / count; rgb[o + 1] = g / count; rgb[o + 2] = b / count }
+    }
+    const dayCov = gridCoverage(dayBuf, MIN_USABLE_CELL_VALID)
+    if (dayCov.any === 0) continue
+    if (!newestDate) newestDate = date
+    mergeOlderGrid(composite, dayBuf, MIN_USABLE_CELL_VALID)
+    const cov = gridCoverage(composite, MIN_USABLE_CELL_VALID)
+    if (cov.rgb >= COMPLETE_COVERAGE && cov.ndvi >= COMPLETE_COVERAGE && cov.centerRgb >= COMPLETE_CENTER && cov.centerNdvi >= COMPLETE_CENTER) {
+      break
     }
   }
-}
 
-export async function fetchLandColour(place: Coordinate, signal?: AbortSignal, now = new Date()): Promise<LandColour | null> {
-  const from = new Date(now.getTime() - 45 * 86_400_000).toISOString()
-  const query = new URLSearchParams({ collections: 'sentinel-2-l2a', limit: '12', sortby: '-properties.datetime',
-    bbox: `${place.lon - .05},${place.lat - .05},${place.lon + .05},${place.lat + .05}`, datetime: `${from}/${now.toISOString()}`,
-    query: JSON.stringify({ 'eo:cloud_cover': { lt: 20 } }) })
-  const response = await fetch(`${STAC}?${query}`, { signal })
-  if (!response.ok) return null
-  const items = ((await response.json()) as { features: StacItem[] }).features
-  if (!items.length) return null
-  // The newest pass, and every tile of it (a place near a tile's edge needs its neighbour to fill the window).
-  const date = items[0].properties.datetime.slice(0, 10)
-  const size = Math.round((2 * REACH_M) / STEP_M)
-  const rgb = new Uint8Array(size * size * 3)
-  for (const item of items.filter(item => item.properties.datetime.slice(0, 10) === date)) {
-    await readWindow(item.assets.visual.href, place, size, rgb, signal)
+  const finalCov = gridCoverage(composite, MIN_USABLE_CELL_VALID)
+  if (!newestDate || finalCov.any < MIN_GRID_COVERAGE) return null
+  return {
+    date: newestDate, source: `s2:${newestDate}`, fetchedAt: now.getTime(),
+    lat: place.lat, lon: place.lon, utmZone, utmSouth, originE, originN,
+    reachM: REACH_M, stepM: STEP_M, ...composite, acquisitions,
   }
-  return { date, fetchedAt: now.getTime(), lat: place.lat, lon: place.lon, size, rgb }
 }

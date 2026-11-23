@@ -1,5 +1,6 @@
 import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
+import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerDesc } from '../model/types'
 import type { Ctx2D, Hand, PaintEnv, Painter, Scratch } from '../paint'
 
@@ -65,6 +66,22 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
 /** A layer's canvas in device px: its frame, times the frames of a strip stacked down it (C7). */
 export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h: rect.h * frameCount(desc.animated) })
 
+/**
+ * Trims form-only buffers from a descriptor before posting a `light`-only job across the Worker boundary
+ * so scrub frames never clone palettes, terraces, field quads, orchard rows or desert strata unnecessarily.
+ */
+export function lightJobDesc(desc: LayerDesc): LayerDesc {
+  if (desc.kind === 'canopy') return { ...desc, vegetation: { ...desc.vegetation, tones: [] } }
+  if (desc.kind !== 'plane') return desc
+  return {
+    ...desc,
+    surfaceTone: { palette: [], cols: 0, rows: 0, cells: [], source: '' },
+    terraces: [],
+    gullies: desc.light.lift ? desc.gullies : [],
+    vegetation: EMPTY_VEGETATION,
+  }
+}
+
 /** One part of one layer for the paint worker to paint. */
 export interface PaintJob {
   id: string
@@ -78,6 +95,10 @@ export interface PaintJob {
   rect: DeviceRect
   phase: number
   hand: Hand
+  /** Subset of strip frame indices to paint in this batch (for chunked multi-frame strips). */
+  frames?: readonly number[]
+  /** Whether this job completes the part and transfers its bitmap (defaults to true). */
+  final?: boolean
 }
 
 export interface PaintRequest { batch: number; jobs: PaintJob[] }
@@ -89,7 +110,8 @@ export interface PaintResult {
   formKey: string
   ratio: number
   rect: DeviceRect
-  bitmap: ImageBitmap
+  /** Transferred bitmap on completion, or null for an intermediate strip chunk still staged in the worker. */
+  bitmap: ImageBitmap | null
   /** The worker's time for this part (ms), raster included. */
   ms: number
 }
