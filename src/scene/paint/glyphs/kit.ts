@@ -111,11 +111,11 @@ export class Kit {
 
   /** A window or opening: a dark recess, or a warm lamp by night when it is one of the lit share. */
   open(tr: Tracer, canLight = false, warm = 0.85) {
-    if (canLight && this.r() < this.s.windows) this.window(tr, warm, true)
+    if (canLight && this.r() < this.s.windows) this.pane(tr, warm, true)
     else this.fill(tr, this.t.deep, 0.85 - 0.25 * this.night)
   }
 
-  window(tr: Tracer, warm: number, on: boolean) {
+  pane(tr: Tracer, warm: number, on: boolean) {
     if (on) paintPass(this.c, 'emission', () => this.fill(tr, mix(this.windowWall, this.t.win, warm)))
     else this.fill(tr, this.t.win, 0)
   }

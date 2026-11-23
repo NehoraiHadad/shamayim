@@ -1,6 +1,7 @@
 import { expect } from 'vitest'
 import type { WorldState } from '../world/types'
 import { LANDMARK_MAX_PX } from '../world/neighbourSize'
+import { glyphSurfaces } from '../scene/model/glyphSurfaces'
 import { tonesAt } from '../scene/model/marks'
 import { toneAt } from '../scene/model/landVeil'
 import { mixRgb } from '../scene/model/tone'
@@ -10,7 +11,8 @@ import type { GlyphDesc } from '../scene/model/types'
 export function assertLandmarkTones(world: WorldState, glyph: GlyphDesc, km: number, hint: string) {
   const tier = Math.max(0, Math.min(18, Math.floor(Math.log(km / 2) / Math.log(1.22))))
   expect(glyph.hazeKm, hint).toBeCloseTo(glyph.famous ? km : 2 * 1.22 ** tier * 1.1, 8)
-  const material = tonesAt(world, glyph.hazeKm!)
+  // The building's lit faces at its true haze distance, before any far-city contrast.
+  const material = glyphSurfaces(world, glyph, glyph.hazeKm!, tonesAt(world, glyph.hazeKm!), (c) => c, 'real').tones
   if (!glyph.famous) { expect(glyph.tones, hint).toEqual(material); return }
   const visibility = world.air.visibilityKm > 0 ? world.air.visibilityKm : 25
   const contrast = Math.exp(-3.912 * km / visibility), land = toneAt(world, km)

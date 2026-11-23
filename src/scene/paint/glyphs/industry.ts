@@ -55,7 +55,7 @@ export function highrise(k: Kit, h: number) {
   k.fill(rect(0.9, -h - 1.6, 0.4, 2.8), t.wall)
   k.fill(rect(0.9, -h - 1.6, 0.2, 2.8), k.litL)
   for (let y = -4.5; y > crown + 0.8; y -= 1.5) {
-    for (let x = x0 + 0.4; x < x1 - 0.6; x += 1.2) k.window(rect(x, y, .8, .8), .8, k.r() < k.s.windows * .7)
+    for (let x = x0 + 0.4; x < x1 - 0.6; x += 1.2) k.pane(rect(x, y, .8, .8), .8, k.r() < k.s.windows * .7)
   }
   k.aviation(1.1, -h - 1.8)
 }

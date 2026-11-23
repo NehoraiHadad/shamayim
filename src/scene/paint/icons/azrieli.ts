@@ -30,7 +30,7 @@ export function azrieli(k: Kit, h: number) {
   }
   for (const [x0, x1, top] of [[-7.5, -3, -round + 3], [-1.6, 2.8, -tri + 2], [4, 7.8, -square + 2]] as const) {
     for (let y = top; y < -3.5; y += 1.6) for (let x = x0; x < x1; x += 1.3) {
-      k.window(rect(x, y, .7, .7), .8, k.r() < k.s.windows * .8)
+      k.pane(rect(x, y, .7, .7), .8, k.r() < k.s.windows * .8)
     }
   }
   k.aviation(-5.25, -round - 1.1)
