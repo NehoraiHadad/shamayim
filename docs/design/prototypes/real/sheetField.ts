@@ -51,12 +51,18 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const field: SheetField = { w, h, alpha: new Float32Array(size), thick: new Float32Array(size), tone: new Float32Array(size),
     city: new Float32Array(size), relief: new Float32Array(size), scale: new Float32Array(h) }
   const seed = hashId(desc.id) % 9973, puffs = puffTile(seed), wisps = wispTile(seed), swell = swellTile(seed)
-  let v = 0
   for (let j = 0; j < h; j++) {
     const gy = Math.min(out - 1.001, (j * (out - 1)) / (h - 1)), r = Math.floor(gy), ty = gy - r
     const scale = field.scale[j] = scaleAt[r]
-    const tile = make.tile * (0.12 + 0.88 * scale)
-    v += 1 / (RASTER * tile)
+    // The grain's size steps down the sky in octaves, two blended: a size sliding with the row would shear into streaks.
+    const level = Math.min(2.999, -Math.log2(0.1 + 0.9 * scale)), step = Math.floor(level), part = level - step
+    const read = (tile: Float32Array, i: number, rate: number, a: number, b: number) => {
+      const one = (l: number) => {
+        const size = make.tile * 2 ** -l
+        return noiseAt(tile, (i / RASTER - width / 2) * rate / (size * make.along) + a + 0.37 * l, (j / RASTER) * rate * (1 + 0.45 * l) / size + b + 0.61 * l)
+      }
+      return one(step) * (1 - part) + one(step + 1) * part
+    }
     for (let i = 0; i < w; i++) {
       const gx = Math.min(cols - 1.001, (i * (cols - 1)) / (w - 1)), c = Math.floor(gx), tx = gx - c
       const n = (r * cols + c) * 4, below = n + cols * 4
@@ -67,17 +73,15 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       const a = at(3)
       if (a < 0.012) continue
       const p = j * w + i
-      const u = (i / RASTER - width / 2) / (tile * make.along)
       // The grain is bent by a slow swirl, so a tear curls.
-      const bend = noiseAt(wisps, u * 0.5 + 0.31, v * 0.5 + 0.17) - 0.5
-      const wisp = noiseAt(wisps, u + bend * 0.22, v + bend * 0.16)
-      const puff = make.puff ? noiseAt(puffs, u * 1.1 + bend * 0.1 + 0.2, v * 1.1 - bend * 0.08) : 0
+      const bend = read(wisps, i, 0.5, 0.31, 0.17) - 0.5
+      const wisp = read(wisps, i, 1, bend * 0.22, bend * 0.16)
+      const puff = make.puff ? read(puffs, i, 1.1, bend * 0.1 + 0.2, -bend * 0.08) : 0
       const noise = wisp + (puff - wisp) * make.puff
       const rimmed = a + make.carry * (noise - 0.5) * Math.min(1, 4.4 * a * (1 - a)) - 0.1
       const d = smoothstep(0, 1, Math.max(0, rimmed - 0.12) / make.rim)
       if (d <= 0.004) continue
-      const su = u * 1.1 + bend * 0.1 + 0.2, sv = v * 1.1 - bend * 0.08
-      field.relief[p] = noiseAt(swell, su, sv) - noiseAt(swell, su - 0.035, sv - 0.05)
+      field.relief[p] = read(swell, i, 1.1, bend * 0.1, -bend * 0.08) - read(swell, i, 1.1, bend * 0.1 - 0.035, -bend * 0.08 - 0.05)
       field.thick[p] = Math.min(1, Math.max(0, rimmed)) * (1 - make.thin * (1 - noise))
       field.alpha[p] = d * (1 - make.thin * 0.75 * (1 - noise) ** 1.4)
       field.tone[p] = at(0) / a

@@ -27,3 +27,9 @@ export function readFacts(world: WorldState) {
   const { sun, moon } = world.bodies
   FACTS.light = { sun: at(sun), moon: { ...at(moon), fraction: moon.fraction }, horizon: geom.horizon }
 }
+
+/** The light's side across the picture: −1 left … 1 right. */
+export function lightSide(): number {
+  const { sun, moon } = FACTS.light, lamp = sun.altitude > -4 ? sun : moon
+  return Math.max(-1, Math.min(1, (lamp.x - 187) / 110))
+}

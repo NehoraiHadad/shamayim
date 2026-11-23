@@ -9,6 +9,7 @@ import { PAINTERS } from '../../../../src/scene/paint/painters'
 import { makeWorldBuilder } from '../../../../src/world/world'
 import { CONCEPT } from './concept'
 import { readFacts } from './facts'
+import { watchSky } from './skyGrade'
 
 /*
  * The real style's concept page: the scene harness itself (same world, model, surfaces, overlay), with the concept's
@@ -24,6 +25,7 @@ async function start() {
   const only = params.get('only')?.split(',')
   const kept = Object.fromEntries(Object.entries(CONCEPT).filter(([kind]) => !only || only.includes(kind)))
   Object.assign(PAINTERS.real, kept)
+  if (!only || only.includes('sky')) watchSky()
   createRoot(document.getElementById('root')!).render(<SceneHarness />)
 }
 
