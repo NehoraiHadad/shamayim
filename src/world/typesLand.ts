@@ -76,8 +76,6 @@ export interface BeyondBlock { id: string; x: number; baseY: number; w: number; 
 
 /** A city seen from outside (variant B, `data/city/outsideView.ts`, `outside.ts`): mass of built squares and spires. */
 export interface OutsideView {
-  /** Local profile geometry from the portrait projection, shared by its land receivers. */
-  nearLine?: Pick<import('./outside').NearLine, 'own' | 'baseY'> | null
   kind: 'outside'; dot: Dot; reachKm: number; frame: OutsideFrame; skyline: OutsideSkyline; seed: number
   bounds: { source: 'boundary' | 'cell' | 'cluster'; name?: string }
   topM: number | null; beyond: BeyondTower[]; beyondTowns?: BeyondBlock[]

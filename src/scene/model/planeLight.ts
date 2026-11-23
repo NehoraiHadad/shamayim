@@ -17,7 +17,7 @@ const incidence = (n: Normal, s: LightDir) => n[0] * s.across + n[1] * s.ahead +
 /** Pack local incidence, DEM visibility, sky view and face-distance haze for the Worker. */
 export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane): PlaneLight {
   const geom = planeGeomOf(world, name, plane, box.landHeight)
-  const { cols, rows, xs, bearing, nx, ny, nz, veilKm } = geom
+  const { cols, rows, xs, bearing, nx, ny, nz, km } = geom
   const irr = landIrradiance(world)
   const hasSun = irr.eSunPi > 1e-5, hasMoon = irr.eMoonPi > 1e-5
   // A beam below 1/150 of diffuse gives less than one display byte of cast-light contrast.
@@ -26,7 +26,7 @@ export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, pl
   const grid = new Uint8Array(cols * rows * 4)
   const columns = Array.from(xs)
   const hazeRows = Array.from({ length: rows }, (_, r) =>
-    hazeAlong(columns, Array.from({ length: cols }, (_, c) => hazeAt(world, veilKm[r * cols + c]))))
+    hazeAlong(columns, Array.from({ length: cols }, (_, c) => hazeAt(world, km[r * cols + c]))))
   for (let c = 0; c < cols; c++) {
     const s = hasSun || irr.skyBias ? dirAtBearing(irr.sunAz, irr.sunAlt, bearing[c], world.camera.handed) : irr.sunDir
     const m = hasMoon ? dirAtBearing(irr.moonAz, irr.moonAlt, bearing[c], world.camera.handed) : irr.moonDir

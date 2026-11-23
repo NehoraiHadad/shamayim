@@ -9,7 +9,7 @@ import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProject
 import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
-import { labOf, rgbOfLab } from './tone'
+import { labOf, mixLight, rgbOfLab } from './tone'
 import type { PlanePalette } from './types'
 
 /**
@@ -43,7 +43,8 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   let byPlane = planeCache.get(world.land)
   if (!byPlane) planeCache.set(world.land, byPlane = new Map())
   const geom = planeGeomOf(world, name, plane, landHeight)
-  const key = `${name}:${geom.geomKey}:${landHeight}`
+  const local = name === 'near' && world.place3.kind === 'outside' && world.land.local.length > 0
+  const key = `${name}:${geom.geomKey}:${landHeight}${local ? ':local' : ''}`
   const cached = byPlane.get(key)
   if (cached) return cached
   const { rows, maxColours } = SPEC[name], cols = PALETTE_COLS[name]
@@ -52,6 +53,10 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const xs = Array.from({ length: cols }, (_, c) => (cols > 1 ? c / (cols - 1) : 0.5) * SCENE_W)
   const crests = xs.map((x) => lineAt(plane.points, x))
   const feet = xs.map((x, c) => localFootY(world, name, x, crests[c], landHeight))
+  const directions = local ? xs.map(x => {
+    const bearing = azimuthAt(x / SCENE_W, world.camera) * Math.PI / 180
+    return { east: Math.sin(bearing), north: Math.cos(bearing) }
+  }) : undefined
   for (let r = 0; r < rows; r++) {
     const rowFrac = rows > 1 ? r / (rows - 1) : 0
     for (let c = 0; c < cols; c++) {
@@ -59,10 +64,9 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
       const shown = name !== 'far' || (world.terrain.sightAt ? world.terrain.sightAt(x).farShows : true)
       const targetY = crests[c] + rowFrac * Math.max(0, feet[c] - crests[c])
       const km = faceAtY(world, name, plane, x, crests[c], feet[c], targetY).km
-      const hit = sampleBandAtKm(world.land, frac * nRays, km, distanceM => {
-        const bearing = azimuthAt(frac, world.camera) * Math.PI / 180
-        return sampleLocalField(world.land, distanceM * Math.sin(bearing), distanceM * Math.cos(bearing))
-      })
+      const ray = directions?.[c]
+      const hit = sampleBandAtKm(world.land, frac * nRays, km, ray && km < .7
+        ? distanceM => sampleLocalField(world.land, distanceM * ray.east, distanceM * ray.north) : undefined)
       if (shown) sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
       visible.push(shown)
       rawAlbedos.push(hit.albedo)
@@ -84,12 +88,17 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
     return rgbOfLab({ l: 0.08 * l.l + 0.84 * cur.l + 0.08 * r.l,
       a: 0.12 * l.a + 0.76 * cur.a + 0.12 * r.a, b: 0.12 * l.b + 0.76 * cur.b + 0.12 * r.b })
   })
-  const { palette, indices } = quantiseTones(smoothed, maxColours)
+  // Subdivide only the portrait foreground's palette intervals. The painter's
+  // existing interpolation then spans half the original distance per cell.
+  const paletteCols = local ? 2 * cols - 1 : cols
+  const colours = local ? smoothed.flatMap((rgb, i) => i % cols === cols - 1
+    ? [rgb] : [rgb, mixLight(rgb, smoothed[i + 1], .5)]) : smoothed
+  const { palette, indices } = quantiseTones(colours, maxColours)
   const fallbackSrc = nonWaterLocalFallback(world.land).source
   const shownAlbedos = rawAlbedos.filter((_, i) => visible[i])
   const med = roundRgb(medianByLum(shownAlbedos.length ? shownAlbedos : rawAlbedos) ?? nonWaterLocalFallback(world.land).albedo)
   const spec: PlaneSurfaceSpec = {
-    palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
+    palette: { palette, cols: paletteCols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
     median: med,
   }
   if (byPlane.size > 12) byPlane.clear()

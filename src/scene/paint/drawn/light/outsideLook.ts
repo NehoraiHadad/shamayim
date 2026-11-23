@@ -3,6 +3,7 @@ import { partKey } from '../../../../world/keys'
 import { isFamousNonOwn } from '../../../../world/neighbourIdentity'
 import { illustratedTonesAt, type IllustratedTones } from '../../../model/illustratedTones'
 import { landmarkContrast, refreshLandmarkItems } from '../../../model/landmarkAtmosphere'
+import { hazeAt } from '../../../model/landVeil'
 import { shineOf } from '../../../model/marks'
 import type { OutsideFacts, OutsideLook } from '../../../model/styleLight'
 import { mixRgb } from '../../../model/tone'
@@ -16,7 +17,7 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
   const palettes = new Map<number, IllustratedTones>()
   const at = (km: number): IllustratedTones => {
     let tones = palettes.get(km)
-    if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km))
+    if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km, hazeAt(world, km)))
     return tones
   }
   const tiers = shape.wallKms.map(at)

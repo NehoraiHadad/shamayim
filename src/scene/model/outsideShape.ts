@@ -2,13 +2,12 @@ import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { outsideItemKm } from '../../world/outsideDepth'
-import { rowKm } from '../../world/beyondSeat'
 import { hits } from '../../world/sceneClearance'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
 import { receiversUsed } from './buildingUsage'
 import { receiverId } from './buildingMaterial'
-import { landBehind } from './landBehind'
+import { receiverKm } from './receiverKm'
 import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
@@ -68,24 +67,26 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${JSON.stringify([clear, world.labels.height.backed && world.labels.height, world.keys.marks])}`
+  const key = `${box.width}:${box.landHeight}|${JSON.stringify([
+    clear, world.labels.height.backed && world.labels.height, world.keys.marks, world.keys.terrain,
+  ])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W
   const kms: number[] = [], wallKms: number[] = []
   const index = new Map<string, number>()
-  const behind = landBehind(world)
+  const behind = receiverKm(world, box)
   const tier = (km: number, x: number, foot: number, own = false) => {
-    const q = Math.round((own ? km : Math.min(km, behind(x, foot))) / KM_STEP) * KM_STEP
-    const wall = own ? wallStep(km) : Math.round(km / KM_STEP) * KM_STEP
+    const ground = behind(x, foot)
+    const air = own && Number.isFinite(ground) ? ground : Math.min(km, ground)
+    const q = Math.round(air / KM_STEP) * KM_STEP
+    const wall = wallStep(air)
     const key = `${q}:${wall}`
     let i = index.get(key)
     if (i === undefined) { i = kms.length; index.set(key, i); kms.push(q); wallKms.push(wall) }
     return i
   }
   const { frame, skyline, baseKm } = view
-  const ownRowKm = ({ dy, near }: { dy?: number; near: number }) =>
-    rowKm(frame, baseKm, dy ?? frame.s + near * (frame.n - frame.s))
   const out: OutsideItem[] = []
   const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
   // The towers beyond the place: at their true distance, far first, behind the place.
@@ -104,7 +105,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
       const x = b.x * sx, w = b.w * sx
       if (!free(x - w / 2, b.baseY - b.h, x + w / 2, b.baseY)) continue
       const blockTier = tier(b.km, b.x, b.baseY)
-      drawnBlocks.set(b.id, { id: b.id, x, w, top: b.baseY - b.h, foot: b.baseY, hazeKm: kms[blockTier] })
+      drawnBlocks.set(b.id, { id: b.id, x, w, top: b.baseY - b.h, foot: b.baseY, hazeKm: wallKms[blockTier] })
       mass.push(massAt(x, w, b.baseY - b.h, b.km, b.id))
       out.push({ kind: 'box', x, w, top: b.baseY - b.h, foot: b.baseY, tier: blockTier, seed: b.seed,
         storeys: Math.max(1, Math.round((b.heightM - 1) / STOREY_M)), folded: false, roof: null, heater: false, beyond: true, receiver: receiverId(b.seed) })
@@ -121,7 +122,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(ownRowKm(b), b.x, b.foot, true),
+    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot, true),
       seed, receiver: receiverId(seed),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
@@ -130,16 +131,16 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const x = t.x * sx
     if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
     mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(ownRowKm(t), t.x, t.baseY, true)) })
+    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY, true)) })
   }
   for (const t of view.trees) {
     const x = t.x * sx
     if (!free(x - t.w, t.base - t.h, x + t.w, t.base)) continue
-    own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
+    own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base, true) } })
   }
   const localItems = own.map(o => o.item)
   neighbourhood(localItems, sx)
-  const home = homeRoofline(localItems, kms)
+  const home = homeRoofline(localItems, wallKms)
   own.push(...outsideMarks(world, box.width, drawnBlocks, clear, behind, mass, home))
   own.sort((a, b) => a.y - b.y)
   const marks: Shape['marks'] = []

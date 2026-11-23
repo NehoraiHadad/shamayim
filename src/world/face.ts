@@ -40,24 +40,24 @@ type Planes = Pick<TerrainPlanes, 'near' | 'far' | 'groundAt' | 'sightAt'>
 type AngleY = (angle: number) => number
 
 /** The faces of the near and the far plane, with their contours. */
-export function facesOf(terrain: Planes, y: AngleY, portrait = false): Record<PlaneName, PlaneFace> {
-  return { near: buildFace(terrain, y, 'near', portrait), far: buildFace(terrain, y, 'far', portrait) }
+export function facesOf(terrain: Planes, y: AngleY): Record<PlaneName, PlaneFace> {
+  return { near: buildFace(terrain, y, 'near'), far: buildFace(terrain, y, 'far') }
 }
 
-function buildFace(terrain: Planes, relief: AngleY, name: PlaneName, portrait: boolean): PlaneFace {
+function buildFace(terrain: Planes, relief: AngleY, name: PlaneName): PlaneFace {
   const plane = terrain[name]
   const columns: FaceColumn[] = []
   if (plane.points.length < 2) return { columns, contours: [] }
   const x0 = plane.points[0][0], x1 = plane.points.at(-1)![0]
   for (let x = Math.ceil(x0); x <= x1; x += COLUMN) {
     const crest = lineAt(plane.points, x)
-    columns.push({ x, crest, points: terrain.groundAt && terrain.sightAt ? visible(terrain, relief, name, x, crest, portrait) : [] })
+    columns.push({ x, crest, points: terrain.groundAt && terrain.sightAt ? visible(terrain, relief, name, x, crest) : [] })
   }
   return { columns, contours: contoursOf(columns) }
 }
 
 /** The ground that shows in one column: from the eye outward, each point that rises over all before it. */
-function visible(terrain: Planes, relief: AngleY, name: PlaneName, x: number, crest: number, portrait: boolean): FacePoint[] {
+function visible(terrain: Planes, relief: AngleY, name: PlaneName, x: number, crest: number): FacePoint[] {
   const sight = terrain.sightAt!(x)
   const nearCrest = lineAt(terrain.near.points, x)
   if (name === 'far' && !sight.farShows) return []
@@ -78,17 +78,10 @@ function visible(terrain: Planes, relief: AngleY, name: PlaneName, x: number, cr
     if (y >= top - 0.05) continue
     top = y
     // Only what shows: below its own crest, and for the far plane above the near ridge in front of it.
-    if (!portrait && (y < crest || (name === 'far' && y > nearCrest - 0.5))) continue
+    if (y < crest || (name === 'far' && y > nearCrest - 0.5)) continue
     const a = Math.max(0, i - 1), b = Math.min(kms.length - 1, i + 1)
     const slope = b > a ? (hs[b] - hs[a]) / ((kms[b] - kms[a]) * 1000) : 0
     out.push({ y, km, h, slope })
-  }
-  if (portrait && out.length) {
-    const demCrest = out.at(-1)!.y, foot = out[0].y
-    // Move the crest while retaining the foot wherever there is still room for the profile.
-    const scale = foot > crest && foot > demCrest ? (foot - crest) / (foot - demCrest) : 1
-    for (const pt of out) pt.y = crest + (pt.y - demCrest) * scale
-    if (name === 'far') return out.filter(pt => pt.y <= nearCrest - .5).reverse()
   }
   return out.reverse()
 }

@@ -23,7 +23,9 @@ export function outsideMarks(world: WorldState, width: number, drawnBlocks: Read
     const town = needsTown(world, mark)
     const block = town ? drawnBlocks.get(mark.seatBlockId ?? mark.supportBlockId ?? '') : null
     const result = evaluateNeighbour(world, mark, width, block, home, zones, foreground)
-    return result.placed ? { ...result.placed, hazeKm: result.hazeKm, supportId: result.supportId, town } : null
+    if (!result.placed) return null
+    const ground = behind(result.placed.x / sx, result.placed.mark.base)
+    return { ...result.placed, hazeKm: Math.min(result.hazeKm, block?.hazeKm ?? ground), supportId: result.supportId, town }
   }
   const ordinary = world.marks.filter(mark => mark.plane === 'near' && mark.seatBlockId === undefined)
   const sources = new Map(world.seatPool.map(mark => [mark.id, mark]))
@@ -37,7 +39,8 @@ export function outsideMarks(world: WorldState, width: number, drawnBlocks: Read
     const result = nearestMarks(candidates, mass, (mark, foreground) => {
       if (mark.sightKm !== undefined || mark.seatBlockId !== undefined) return neighbour(mark, foreground)
       const seat = visibleOutsideMark(mark, mark.x * sx, clear)[0]
-      return seat ? { ...seat, hazeKm: Math.min(mark.km, behind(mark.x, mark.base)),
+      const ground = seat ? behind(seat.x / sx, seat.mark.base) : Infinity
+      return seat ? { ...seat, hazeKm: Number.isFinite(ground) ? ground : mark.km,
         supportId: undefined as string | undefined, town: false } : null
     })
     const kept = new Set(result.kept.map(seat => seat.mark.id))

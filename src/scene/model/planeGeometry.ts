@@ -6,7 +6,6 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, TerrainPlanes, WorldState } from '../../world/types'
 import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { planeGeometryKey } from './planeGeometryKey'
-import { planeVeilDepth } from './planeVeilDepth'
 import { surfaceNormal } from './landRadiance'
 
 /**
@@ -26,7 +25,6 @@ export interface PlaneGeomGrid {
   ny: Float32Array
   nz: Float32Array
   km: Float32Array
-  veilKm: Float32Array
   /** Stable revision key of sampled crest points, measured DEM slopes, face distances and haze distances. */
   geomKey: string
 }
@@ -41,17 +39,6 @@ const RAD = Math.PI / 180
 const DX_DEM = 1.5
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const geomCache = new WeakMap<TerrainPlanes, Map<string, PlaneGeomGrid>>()
-const portraitIds = new WeakMap<object, number>()
-function portraitKey(world: WorldState): string {
-  const view = world.place3
-  if (view.kind !== 'outside') return ''
-  const geometry = view.nearLine ?? view.frame
-  let id = portraitIds.get(geometry)
-  if (id === undefined) portraitIds.set(geometry, id = nextPortraitId++)
-  const { centerX, f, eyeN, n, s } = view.frame
-  return `:${id}:${view.baseKm}:${centerX}:${f}:${eyeN}:${n}:${s}`
-}
-let nextPortraitId = 0
 
 /**
  * True DEM across slope `∂z / ∂across` in m/m at `(x, km)`. Uses `terrain.groundAt(x ± dx, km)` over the real
@@ -80,7 +67,7 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
   let byKey = geomCache.get(world.terrain)
   if (!byKey) geomCache.set(world.terrain, byKey = new Map())
   const cam = world.camera
-  const cacheKey = `${name}:${landHeight}:${cam.heading}:${cam.handed}:${cam.pxPerDeg}${portraitKey(world)}`
+  const cacheKey = `${name}:${landHeight}:${cam.heading}:${cam.handed}:${cam.pxPerDeg}`
   const hit = byKey.get(cacheKey)
   if (hit) return hit
 
@@ -88,7 +75,6 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
   const n = cols * rows
   const xs = new Float32Array(cols), crestY = new Float32Array(cols), footY = new Float32Array(cols), bearing = new Float32Array(cols)
   const nx = new Float32Array(n), ny = new Float32Array(n), nz = new Float32Array(n), km = new Float32Array(n)
-  const veilKm = world.place3.kind === 'outside' ? new Float32Array(n) : km
   const radPerPx = (spanDeg(cam) * RAD) / SCENE_W
   const pxPerRadY = horizonSlope() / RAD
 
@@ -98,7 +84,6 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
     const cy = lineAt(plane.points, x), fy = localFootY(world, name, x, cy, landHeight)
     xs[c] = x; crestY[c] = cy; footY[c] = fy
     bearing[c] = azimuthAt(frac, cam)
-    const veilDepth = planeVeilDepth(world, name, x, bearing[c])
     const xL = Math.max(0, x - DX_DEM), xR = Math.min(SCENE_W, x + DX_DEM)
     const dAngleRad = (lineAt(plane.points, xL) - lineAt(plane.points, xR)) / Math.max(1, pxPerRadY)
     const fallbackAcross = dAngleRad / Math.max(1e-5, (xR - xL) * radPerPx)
@@ -111,13 +96,10 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
       const [ux, uy, uz] = surfaceNormal(across, sample.slope)
       const idx = r * cols + c
       nx[idx] = ux; ny[idx] = uy; nz[idx] = uz; km[idx] = sample.km
-      if (veilDepth) veilKm[idx] = veilDepth(sample.km, targetY)
     }
   }
-  const arrays = [crestY, footY, bearing, nx, ny, nz, km]
-  if (veilKm !== km) arrays.push(veilKm)
-  const geomKey = planeGeometryKey(world.terrain, name, plane, arrays)
-  const grid: PlaneGeomGrid = { cols, rows, xs, crestY, footY, bearing, nx, ny, nz, km, veilKm, geomKey }
+  const geomKey = planeGeometryKey(world.terrain, name, plane, [crestY, footY, bearing, nx, ny, nz, km])
+  const grid: PlaneGeomGrid = { cols, rows, xs, crestY, footY, bearing, nx, ny, nz, km, geomKey }
   if (byKey.size > 12) byKey.clear()
   byKey.set(cacheKey, grid)
   return grid

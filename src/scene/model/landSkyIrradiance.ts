@@ -39,9 +39,9 @@ const DOME = (() => {
 const domeChannel = (mid: number, top: number, horizon: number, zenithShare: number, lowShare: number) =>
   mid + (top - mid) * zenithShare + (horizon - mid) * lowShare
 
-function twilightIntegral(mid: RGB, top: RGB, horizon: RGB, fill: number, forward: number): RGB {
+function twilightIntegral(mid: RGB, top: RGB, horizon: RGB, fill: number, forward: number, lobe: RGB = horizon): RGB {
   return mid.map((m, i) => domeChannel(m, top[i], horizon[i], DOME.zenith, DOME.horizon)
-    + fill + forward * DOME.roughForward * horizon[i]) as [number, number, number]
+    + fill + forward * DOME.roughForward * lobe[i]) as [number, number, number]
 }
 
 export const afterglowWeight = (sunAlt: number) =>
@@ -97,26 +97,32 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
  * Directional form of the shared sky for a rough reflector. The broader low lobe
  * is normalized against its own cosine integral, keeping the land's sky energy.
  */
-export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB, forwardAccent = 5.7) {
+export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB,
+  forwardAccent = 0, directionalAfterglow = false) {
   const cloud = Math.min(1, Math.max(0, light.diffuse))
   const twilight = twilightShare(sunAlt)
   const top = srgbRgbToLinear(rgbOf(light.palette.top)), mid = srgbRgbToLinear(light.ambient)
   const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon)), aerosol = -Math.expm1(-2 * tau)
   const glowWeight = light.afterglow
     ? afterglowWeight(sunAlt) : 0
+  const afterglow = light.afterglow && srgbRgbToLinear(light.afterglow.rgb)
+  // Glazing resolves the extra aerosol radiance near the sun. The broad
+  // sky and a rough conductor's highlight use the painted horizon.
+  const lobeColor = directionalAfterglow && afterglow
+    ? horizon.map((h, i) => h + (afterglow[i] - h) * glowWeight) as [number, number, number] : horizon
   const cloudFill = cloudScatter(cloud, aerosol) * Math.max(1e-4, linearLuminance(horizon))
   // The low reflected band loses its directional accent through civil
   // twilight as the sun moves below the horizon of the rough reflector.
   const accent = forwardAccent * smoothstep(-10, 0, sunAlt)
   const forward = (BASE_FORWARD + accent * glowWeight) * lowScatter(cloud, aerosol)
-  const broad = twilightIntegral(mid, top, horizon, cloudFill, forward)
+  const broad = twilightIntegral(mid, top, horizon, cloudFill, forward, lobeColor)
   const gain = twilight * linearLuminance(mean) / Math.max(1e-6, linearLuminance(broad))
   const bias = .065 * smoothstep(3, 16, sunAlt) * (1 - cloud)
   return (up: number, towardSun: number): RGB => {
     const m = Math.max(0, up), low = horizonShare(m)
     const lobe = lowLobe(m, towardSun)
     const channel = (i: 0 | 1 | 2) => mean[i] * (1 - twilight) * (1 + bias * towardSun)
-      + gain * (domeChannel(mid[i], top[i], horizon[i], m ** 2, low) + cloudFill + forward * lobe * horizon[i])
+      + gain * (domeChannel(mid[i], top[i], horizon[i], m ** 2, low) + cloudFill + forward * lobe * lobeColor[i])
     return [channel(0), channel(1), channel(2)]
   }
 }

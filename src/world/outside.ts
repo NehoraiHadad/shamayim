@@ -420,8 +420,6 @@ export interface NearLine {
   points: [number, number][]; elevations: number[]; farPoints: [number, number][]; farElevations: number[]
   /** How much of each point is the place's near land (1) rather than the panorama's ridge (0), and the place's scale. */
   own: number[]; s: number
-  /** Own ground elevation projected at an east/north position in the portrait. */
-  baseY?: (dx: number, dy: number) => number
 }
 
 /**
@@ -433,7 +431,7 @@ export function drawnTerrain(terrain: SceneTerrain, nearLine: NearLine | null): 
   if (!nearLine) return terrain
   const { points, elevations, own, s } = nearLine
   const snowEdge = terrain.snowEdge
-  return { ...terrain, portraitOutline: true, nearPoints: points, nearElevations: elevations, farPoints: nearLine.farPoints, farElevations: nearLine.farElevations,
+  return { ...terrain, nearPoints: points, nearElevations: elevations, farPoints: nearLine.farPoints, farElevations: nearLine.farElevations,
     ...(snowEdge ? { snowEdge: (layer: 'near' | 'far', lineM: number) => {
       const pano = snowEdge(layer, lineM)
       if (layer !== 'near') return pano
@@ -853,7 +851,6 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
   // The near land the place stands in front of: its own ground and the terrain behind it, on its own scale (the
   // panorama's ridge beyond its span); everything of the place is laid against it.
   const nearLine = vscale && around ? nearLineOf(input, spots, around, levelY, frame, vscale.s) : null
-  if (nearLine && baseY) nearLine.baseY = baseY
   const ground = nearLine ? groundFn(nearLine.points, width) : input.ground
   const shaped = { ...input, ground }
   const land = baseY ? landOf(shaped, frame, spots, baseY) : null

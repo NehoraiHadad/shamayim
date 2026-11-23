@@ -25,8 +25,6 @@ type Pt = [number, number]
 export type LandStatus = 'ready' | 'loading' | 'offline'
 
 export interface SceneTerrain {
-  /** The portrait has replaced the panorama's near and far outlines. */
-  portraitOutline?: boolean
   centerLeft: string
   seaY: number
   /** The sea (not a lake) is in view, on this side (`water`). */

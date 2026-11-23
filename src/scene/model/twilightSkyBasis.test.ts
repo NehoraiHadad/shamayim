@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { receiverScene } from '../../test/receiverScene'
+import type { RGB } from '../../world/types'
 import { diffuseSky, skyReflection } from './landSkyIrradiance'
 import type { RadianceLight } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { rgbOf } from './tone'
+import { domeSectors } from './metalLight'
 
 const light = {
   ambient: [.36, .29, .63],
@@ -18,8 +21,7 @@ function xy([r, g, b]: readonly number[]) {
   return [x / (x + y + z), y / (x + y + z)]
 }
 
-function goldHue(rgb: readonly number[]) {
-  const [r, g, b] = [rgb[0], .766 * rgb[1], .336 * rgb[2]]
+function hue([r, g, b]: RGB) {
   // CIELAB's reference is D65. Normalize both samples to equal luminance.
   const scale = .2 / linearLuminance([r, g, b])
   const x = Math.cbrt(scale * (.4124 * r + .3576 * g + .1805 * b) / .95047)
@@ -32,7 +34,7 @@ describe('clear twilight sky', () => {
   it.each([1.4, -5])('uses the same reflected and diffuse chromaticity at %s°', (altitude) => {
     const tau = .099
     const diffuse = diffuseSky(light, altitude, tau).rgb
-    const sample = skyReflection(light, altitude, tau, diffuse, 0)
+    const sample = skyReflection(light, altitude, tau, diffuse)
     const integral = [0, 0, 0]
     for (let i = 0; i < 24; i++) {
       const up = (i + .5) / 24
@@ -43,22 +45,21 @@ describe('clear twilight sky', () => {
     }
     const [dx, dy] = xy(diffuse), [rx, ry] = xy(integral)
     const dxy = Math.hypot(dx - rx, dy - ry)
-    console.log(JSON.stringify({ altitude, diffuseXY: [dx, dy], reflectionXY: [rx, ry], dxy }))
     expect(dxy).toBeLessThan(.03)
   })
 })
 
 describe('sunward reflected sky lobe', () => {
-  it.each([0, .87])('reflects the painted horizon in gold at cloud fraction %s', (diffuse) => {
-    const fixture = { ...light, diffuse }
-    const altitude = .78, tau = .099
-    const sample = skyReflection(fixture, altitude, tau, diffuseSky(fixture, altitude, tau).rgb)
-    const peak = sample(0, 1), opposite = sample(0, -1)
-    const lobe = peak.map((channel, i) => channel - opposite[i])
-    const horizon = srgbRgbToLinear(rgbOf(fixture.palette.horizon))
-    const reflectedHue = goldHue(lobe), horizonHue = goldHue(horizon)
-    const error = Math.abs(reflectedHue - horizonHue)
-    console.log(JSON.stringify({ cloud: diffuse, reflectedHue, horizonHue, error }))
-    expect(error).toBeLessThan(8)
+  it('puts the painted sunward hue on the brightest sector of the conductor', () => {
+    const scene = receiverScene(252, -.78, 0)
+    const painted = '#f69d66'
+    const fixture = { ...scene, light: { ...scene.light, diffuse: .15, palette: {
+      ...scene.light.palette, horizon: painted, top: painted,
+    }, ambient: rgbOf(painted) } }
+    const sectors = domeSectors(fixture, 0).flat().map(srgbRgbToLinear)
+    const peak = sectors.reduce((a, b) => linearLuminance(a) > linearLuminance(b) ? a : b)
+    const [r, g, b] = srgbRgbToLinear(rgbOf(painted))
+    const delta = hue(peak) - hue([r, .766 * g, .336 * b])
+    expect(Math.abs((delta + 540) % 360 - 180)).toBeLessThan(8)
   })
 })

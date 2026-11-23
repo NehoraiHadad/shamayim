@@ -4,21 +4,31 @@ import { COVER_WATER, dominantWeightedSource, nonWaterLocalFallback } from './la
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-const axes = new WeakMap<LivingLand['local'], { xs: number[]; ys: number[] }>()
+type LocalPoints = LivingLand['local']
+const grids = new WeakMap<LocalPoints, {
+  xs: number[]; ys: number[]; points: Map<number, Map<number, LocalPoints[number]>>
+}>()
 
 /** Bilinearly samples `world.land.local` at `(eastM, northM)`, excluding open water (`COVER_WATER = 8`). */
 export function sampleLocalField(land: LivingLand, eastM: number, northM: number): { albedo: RGB; source: string } {
   const pts = land.local
   if (!pts.length) return nonWaterLocalFallback(land)
-  let grid = axes.get(pts)
+  let grid = grids.get(pts)
   if (!grid) {
+    const points = new Map<number, Map<number, LocalPoints[number]>>()
+    for (const point of pts) {
+      let row = points.get(point.northM)
+      if (!row) points.set(point.northM, row = new Map())
+      if (!row.has(point.eastM)) row.set(point.eastM, point)
+    }
     grid = {
       xs: [...new Set(pts.map((p) => p.eastM))].sort((a, b) => a - b),
-      ys: [...new Set(pts.map((p) => p.northM))].sort((a, b) => a - b),
+      ys: [...points.keys()].sort((a, b) => a - b),
+      points,
     }
-    axes.set(pts, grid)
+    grids.set(pts, grid)
   }
-  const { xs, ys } = grid
+  const { xs, ys, points } = grid
   const ex = clamp(eastM, xs[0], xs.at(-1)!), ny = clamp(northM, ys[0], ys.at(-1)!)
   const bracket = (arr: number[], v: number): [number, number, number] => {
     if (arr.length <= 1 || v <= arr[0]) return [0, 0, 0]
@@ -28,7 +38,7 @@ export function sampleLocalField(land: LivingLand, eastM: number, northM: number
     return [hi - 1, hi, (v - arr[hi - 1]) / Math.max(1e-6, arr[hi] - arr[hi - 1])]
   }
   const [ix0, ix1, tx] = bracket(xs, ex), [iy0, iy1, ty] = bracket(ys, ny)
-  const at = (e: number, n: number) => pts.find((p) => p.eastM === e && p.northM === n)
+  const at = (e: number, n: number) => points.get(n)?.get(e)
   const corners = [
     { pt: at(xs[ix0], ys[iy0]), w: (1 - tx) * (1 - ty) },
     { pt: at(xs[ix1], ys[iy0]), w: tx * (1 - ty) },
