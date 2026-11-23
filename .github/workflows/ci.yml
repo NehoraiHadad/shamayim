@@ -66,7 +66,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Built app still
+        run: |
+          npx vite build
+          node e2e/scene.app.mjs ci-stills/app haifa@2026-03-15T12:00 --built --page --dpr=2
       - name: Render stills
+        if: ${{ !cancelled() }}
         env:
           STILLS: ${{ inputs.stills }}
         run: node e2e/scene.stills.mjs ci-stills ${STILLS:-$DEFAULT_STILLS} --dpr=2

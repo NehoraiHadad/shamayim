@@ -979,8 +979,10 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
       a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
 - [ ] Track G LOW 2: liveLight.test.ts held-preview test uses equal model and observed cover; it misses correctCloudCover
       drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
-- [ ] CI gap: stills render the scene harness only, never the built app page. E's <body> background hid the sky in
-      production for hours with CI green. Add one built-app still (vite preview, 375 px) asserting the sky is not the boot colour.
+- [x] CI gap: the stills job renders the built page too (`vite build` + preview, 375 px, recorded Haifa 15.3 noon, other hosts
+      refused): `e2e/skyShown.mjs` fails when the sky is the boot colour, when hiding the sky changes nothing, or when its
+      canvas holds no ink. Proven red with an opaque `body` in the boot colour and in a sky blue
+      (`docs/briefs/open-tasks-1-built-still.REPORT.md`).
 - [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
       (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
       distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
