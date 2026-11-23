@@ -13,11 +13,11 @@ const MODEL_SHARE = 0.34, OWN_SHADE = 0.8, BASE = 0.5
 /** The share of the sun's light in the light on a point (the rest the open sky's, from above). */
 const FROM_SUN = 0.58
 /** How strongly a head's side toward the light and its far side part, and what of it is left deep in the mass's shade. */
-const RELIEF = 1.15, IN_SHADE = 0.5
+const RELIEF = 0.62, IN_SHADE = 0.45
 /** How far over the model's lit colour the brightest crowns stand, as light (the model's lit is a mass's mean). */
 const CROWN = 0.24
 /** How far under the model's shade the deepest shade stands (its red the most: a shade is lit by the sky), from which place. */
-const UNDER = 0.5, UNDER_FROM = 0.5
+const UNDER = 0.42, UNDER_FROM = 0.5
 /** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
 const WALL = 0.7, EDGE = 0.3
 
@@ -39,7 +39,9 @@ export function cloudTone(ramp: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 'sh
     + p.near * (OWN_SHADE * (1 - light) ** 1.2 * (0.45 + 0.55 * p.deep) + BASE * p.base * (0.4 + 0.6 * p.deep) + heads - 0.2 * light)
   const there = p.tone + (shaded - p.tone) * (0.25 + 0.75 * p.own) + p.near * (EDGE * p.flat - WALL * p.wall)
   const place = Math.min(1.2, Math.max(0, there))
-  const [r, g, b] = toneOf(ramp as LayerOf<'cloudSheet'>, place), under = UNDER * p.own * p.near * Math.max(0, place - UNDER_FROM)
+  // A sky whose lit and shade hardly part has no deep shade either.
+  const range = Math.min(1, 0.2 + 4 * Math.max(0, ramp.lit[1] - ramp.shade[1]))
+  const [r, g, b] = toneOf(ramp as LayerOf<'cloudSheet'>, place), under = UNDER * range * p.own * p.near * Math.max(0, place - UNDER_FROM)
   const rgb: RGB = [r * (1 - under), g * (1 - 0.85 * under), b * (1 - 0.65 * under)]
   const crown = Math.min(1, Math.max(0, (0.4 - place) * 2.4)) * (0.35 + 0.65 * light) * p.near * Math.max(p.own, p.wall)
   // A dim sky's lit cloud is no sunlit crown.
