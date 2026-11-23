@@ -29,7 +29,9 @@ const SOFT = 0.42, SOFT_CROWN = 0.32, SOFT_ANVIL = 0.45
 /** How much softer the underside of a near tower is: its base melts into the rain under it, no hard bowl. */
 const SOFT_BASE = 0.6
 /** How much of the underside is gone at its far edge: it fades into the rain and the haze below, with no drawn edge. */
-const UNDER_FADE = 0.55
+const UNDER_FADE = 0.8
+/** The depth it fades over, against the width, where the underside itself is thinner. */
+const FADE_DEEP = 0.4
 /** The share of a head's half width that is cloud whatever the noise: the column never parts. */
 const CORE = 0.6
 /** How far the noise thins the body from inside. */
@@ -91,7 +93,7 @@ export function towerShape(s: CloudSprite): TowerShape {
     const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
     soft = SOFT + (top - SOFT) * smoothstep(0.5, 0.9, -y / s.tall) + FAR_SOFT * far
       + SOFT_BASE * near * smoothstep(-0.1 * s.w, depth, y)
-    foot = (1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))) * (1 - UNDER_FADE * smoothstep(0, depth, y))
+    foot = (1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))) * (1 - UNDER_FADE * smoothstep(Math.min(0, depth - FADE_DEEP * s.w), depth, y))
     rough = 1 + (BASE_ROUGH - 1) * smoothstep(straight - 0.3 * s.w, straight + 0.3 * bowl, y)
   }
   const at = (px: number, y: number) => {

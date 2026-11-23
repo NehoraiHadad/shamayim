@@ -40,7 +40,7 @@ it('stands each tower on the dome where its cell is, far first', () => {
     const cell = bySeed.get(sprite.seed)!
     const p = projectCell(cell)
     expect(x).toBeCloseTo(geom.x(p.az), 6)
-    expect(y).toBeCloseTo(geom.dome(Math.max(0, p.aNear)), 6)
+    expect(y + sprite.under - sprite.bowl!).toBeCloseTo(geom.dome(Math.max(0, p.aSide)), 6)
     expect(y - sprite.tall).toBeGreaterThanOrEqual(geom.dome(p.aTop) - 1e-6)
     expect(['cb', 'cg']).toContain(sprite.genus)
     expect(sprite.w).toBeGreaterThan(1)

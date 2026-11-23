@@ -14,8 +14,8 @@ import type { LayerOf, RGB, SceneBox } from './types'
 
 /*
  * The field's towers (SPEC §6: cumulus congestus and cumulonimbus, the cells a sheet cannot show standing) as sprites, each
- * where its cell stands in true perspective: its near base edge on the dome at that edge's altitude, its underside down to
- * the far edge's, its top up to the top's, as wide as its disc looks from here. Far to near, so the near ones stand in
+ * where its cell stands in true perspective: its base's sides on the dome at their altitude, its underside as deep as its
+ * disc is foreshortened, its top up to the top's, as wide as its disc looks from here. Far to near, so the near ones stand in
  * front. Pure: the field's snapshot, the light and the sky's geometry.
  */
 
@@ -39,7 +39,7 @@ const W_MIN = 1.5
  */
 export const MERGE_KM = 40, MERGE_PX = 28
 /** How much of the sky's stretch a tower's own shape takes (an exponent): all of it draws every far heap as a pillar. */
-const STAND = 0.5
+const STAND = 0.55
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
 const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
@@ -60,17 +60,21 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     const w = merged ? Math.max(seen, MERGE_PX) : seen
     const x = geom.x(p.az)
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
-    const y = geom.dome(Math.max(0, p.aNear))
     // The underside is as deep as its disc is foreshortened at the scale the tower is wide at, not at the dome's: a near
-    // base spans a third of the sky's height there, and would hang as a bowl deeper than it is wide.
-    const under = Math.max(0, Math.min(geom.dome(Math.max(0, p.aFar)) - y, (p.aNear - p.aFar) * pxPerDeg))
+    // base spans a third of the sky's height there, and would hang as a bowl deeper than it is wide. Its sides stand
+    // where they truly do, and only the far half past them curves in (`bowl`).
+    const side = geom.dome(Math.max(0, p.aSide)), far = geom.dome(Math.max(0, p.aFar))
+    const span = Math.max(0, far - geom.dome(Math.max(0, p.aNear)))
+    const under = Math.min(span, (p.aNear - p.aFar) * pxPerDeg)
+    const bowl = span > 0 ? (under / span) * (far - side) : 0
+    const y = side + bowl - under
     // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
     // tower stands to its top's altitude, but no taller than its true aspect at part of the scene's stretch, so a far one
     // is a heap and not a streak, and a near one keeps its height.
     const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * stretch * cell.vKm / (2 * cell.r), merged ? w : Infinity))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
-    sprite.bowl = under * Math.max(0, (p.aSide - p.aFar) / Math.max(1e-6, p.aNear - p.aFar))
+    sprite.bowl = bowl
     const speed = acrossSpeed(layer.vel, look, p.rangeKm, perRad)
     sprite.lean = leanOf(speed, (Math.hypot(...layer.vel) / p.rangeKm / 60) * Math.abs(perRad))
     placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed })

@@ -59,8 +59,8 @@ describe('a tower is one mass', () => {
   it.each(shapes)('w $w tall $tall: no beads up the column and no blob beside it, whatever the seed', (shape) => {
     for (let seed = 1; seed <= 40; seed++) {
       const raster = rasterOf({ ...shape, seed: seed * 7919 } as CloudSprite)
-      // A far tower's foot melts into the haze: its cloud is counted above it.
-      const foot = shape.w < 70 ? 0.4 : 0
+      // The foot melts into the rain and the haze: the column is counted above it.
+      const foot = 0.4
       // Every row of the column holds cloud at least a third of the base wide: never a neck between two beads.
       for (const r of raster.rows) {
         if (r.up > foot * shape.tall && r.up < 0.7 * shape.tall) expect(cloudy(r.a) / raster.rows[0].a.length).toBeGreaterThan(0.1)
