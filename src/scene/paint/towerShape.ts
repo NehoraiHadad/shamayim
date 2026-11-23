@@ -26,6 +26,8 @@ const SWAY = 0.5
 /** The softness of the edge against the half width: crisper on a growing crown than down the column, an
  * anvil's ice fraying out. */
 const SOFT = 0.42, SOFT_CROWN = 0.32, SOFT_ANVIL = 0.45
+/** How much softer the underside of a near tower is: its base melts into the rain under it, no hard bowl. */
+const SOFT_BASE = 0.5
 /** The share of a head's half width that is cloud whatever the noise: the column never parts. */
 const CORE = 0.6
 /** How far the noise thins the body from inside. */
@@ -84,6 +86,7 @@ export function towerShape(s: CloudSprite): TowerShape {
     })
     const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
     soft = SOFT + (top - SOFT) * smoothstep(0.5, 0.9, -y / s.tall) + FAR_SOFT * far
+      + SOFT_BASE * near * smoothstep(0, 0.8 * depth, y)
     foot = 1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))
     rough = 1 + (BASE_ROUGH - 1) * smoothstep(-0.15 * s.w, 0.3 * depth, y)
   }
