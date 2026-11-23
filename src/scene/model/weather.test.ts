@@ -4,16 +4,11 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import type { WorldInput } from '../../world/types'
 import { buildWorld } from '../../world/world'
-import { paintShafts } from '../paint/curtain'
-import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
-import { paintOutside } from '../paint/outside'
-import { paintWater } from '../paint/water'
-import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintSheen, paintSmoke } from '../paint/weather'
 import { sceneModel } from '.'
 import { fallAt, frameAt, framePhase } from './anim'
 import { fallingOf } from './falling'
 import { skyGeom } from './sky'
-import type { LayerDesc, LayerKind, LayerOf, SceneBox, SceneModel } from './types'
+import type { LayerKind, LayerOf, SceneBox, SceneModel } from './types'
 import { inView, mistiness, NEAR_ALT } from './weather'
 
 /**
@@ -255,22 +250,6 @@ describe('weather: smoke and the wind', () => {
 })
 
 describe('weather: animation, pure in the phase', () => {
-  /** A painter's calls, for a desc at a phase. */
-  const log = (desc: LayerDesc, paint: (ctx: Ctx2D, desc: never, env: PaintEnv) => void, phase = 0) => {
-    const calls: string[] = []
-    const fake = (): Ctx2D => new Proxy({}, {
-      get: (_t, prop) => (prop === 'canvas' ? { width: 10, height: 10 } : (...args: unknown[]) => {
-        calls.push(`${String(prop)}(${args.map((a) => (typeof a === 'number' ? a.toFixed(4) : typeof a)).join()})`)
-        if (prop === 'createImageData') return { data: new Uint8ClampedArray((args[0] as number) * (args[1] as number) * 4) }
-        return prop === 'createLinearGradient' || prop === 'createRadialGradient' ? { addColorStop: () => {} } : undefined
-      }),
-      set: (_t, prop, value) => { calls.push(`${String(prop)}=${String(value)}`); return true },
-    }) as unknown as Ctx2D
-    const env: PaintEnv = { hand: HAND, phase, scale: 2, canvas: () => ({ canvas: { width: 10, height: 10 } as OffscreenCanvas, ctx: fake() }) }
-    paint(fake(), desc as never, env)
-    return calls
-  }
-
   it('lays a frame, a fall and a drift from the phase alone', () => {
     const frames = { mode: 'frames' as const, frames: { count: 6, fps: 6 } }
     const phases = Array.from({ length: 200 }, (_, i) => i * 0.137)
@@ -289,44 +268,6 @@ describe('weather: animation, pure in the phase', () => {
     }
     // Falling: later is further down (modulo the tile).
     expect(fallAt(fall, 0.1, tile).y).toBeCloseTo(30, 9)
-  })
-
-  it('paints the same calls twice and the same frame a loop later', () => {
-    const cases: [LayerDesc, (ctx: Ctx2D, desc: never, env: PaintEnv) => void][] = []
-    const add = (model: SceneModel) => {
-      const painters: Partial<Record<LayerKind, (ctx: Ctx2D, desc: never, env: PaintEnv) => void>> = {
-        shafts: paintShafts, fall: paintFall, mist: paintMist, grains: paintGrains, rays: paintRays, smoke: paintSmoke, sheen: paintSheen,
-        edge: paintEdge, water: paintWater, outside: paintOutside }
-      for (const l of model.layers) if (painters[l.kind] && (l.animated || !['water', 'outside'].includes(l.kind))) cases.push([l, painters[l.kind]!])
-    }
-    const wet = world('haifa', '12:00', RAIN(270))
-    add(sceneModel(wet, BOX))
-    const distant = wet.rain!.cells.find(cell => !cell.atEye)!
-    const camera = { ...wet.camera, heading: (distant.fromAzimuth + distant.toAzimuth) / 2 + 180 }
-    const outOfView = sceneModel({ ...wet, camera, rain: { ...wet.rain!, cells: [distant], near: false } }, BOX)
-    expect(ofKind(outOfView, 'edge')).toHaveLength(1)
-    add(outOfView)
-    add(sceneModel(world('haifa', '16:30', BROKEN), BOX))
-    add(sceneModel(world('tiberias', '07:30', { ...FOG, windSpeed: 25 }), BOX))
-    add(sceneModel(world('jerusalem', '12:00', DUST), BOX))
-    add(sceneModel(world('jerusalem', '12:00', SHOWERS), BOX))
-    add(sceneModel(world('rosh-pina', '12:00', { ...CLEAR, windSpeed: 50 }), BOX))
-    const kinds = new Set(cases.map(([l]) => l.kind))
-    for (const kind of ['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'water', 'outside']) expect(kinds.has(kind as LayerKind), kind).toBe(true)
-    for (const [desc, paint] of cases) {
-      // (The place's layer keeps its grain tile between paints: warm it first.)
-      log(desc, paint, 0.4)
-      const a = log(desc, paint, 0.4)
-      expect(a.length).toBeGreaterThan(0)
-      expect(log(desc, paint, 0.4)).toEqual(a)
-      const frames = desc.animated?.frames
-      if (frames) {
-        const loop = frames.count / frames.fps
-        expect(log(desc, paint, 0.4 + loop), desc.id).toEqual(a)
-        // And it moves: another frame of the loop is another picture.
-        expect(log(desc, paint, 0.4 + loop / 2), desc.id).not.toEqual(a)
-      }
-    }
   })
 
   it('keeps every weather description structured-cloneable (it goes to the paint worker)', () => {

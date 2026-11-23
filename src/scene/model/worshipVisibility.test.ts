@@ -20,6 +20,7 @@ import { sceneModel } from '.'
 import { glyphSurfaces } from './glyphSurfaces'
 import { tonesAt } from './marks'
 import { outsideLayer, outsideMass } from './outside'
+import { PLAIN_LIGHT } from './styleLight'
 
 const KARMEI: Place = { id: 'osm:way:462664109', lat: 31.6092, lon: 35.1009, nameHe: '×›×¨×ž×™ ×¦×•×¨',
   regionHe: '×”×¨×™ ×™×”×•×“×”', timezone: 'Asia/Jerusalem', usesOsm: true, settlementType: 'village' }
@@ -104,7 +105,7 @@ it('uses far-town haze at true distance independently of its enlarged size', () 
   expect(layer.tiers[block.tier]).toEqual(tonesAt(given, 6.5))
   const tier = Math.floor(Math.log(6.46 / 2) / Math.log(1.22))
   const km = 2 * 1.22 ** tier * 1.1
-  expect(mark.glyph.tones).toEqual(glyphSurfaces(given, mark.glyph, km, tonesAt(given, km), (c) => c, 'real').tones)
+  expect(mark.glyph.tones).toEqual(glyphSurfaces(given, mark.glyph, km, tonesAt(given, km), (c) => c, PLAIN_LIGHT).tones)
   expect(mark.glyph.factor).toBeCloseTo(LEGIBLE_PX / 2.5, 6)
 })
 

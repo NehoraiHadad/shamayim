@@ -4,7 +4,7 @@ import { makeNear, makeWorldInput, SHADMOT, typedCover } from '../../test/living
 import { windOf } from '../../world/wind'
 import { makeWorldBuilder } from '../../world/world'
 import { formKeyOf } from '../compose/paintJob'
-import { treeBend } from '../paint/landVegPose'
+import { treeBend } from '../paint/shared/land/landVegPose'
 import { sceneModel } from '.'
 import { canopyOf } from './canopy'
 import { shadowedPlane } from './planeCloudShadow'

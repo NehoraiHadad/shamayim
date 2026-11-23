@@ -1,8 +1,9 @@
 import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
 import type { LayerDesc } from '../model/types'
-import { styleKey, type Ctx2D, type Hand, type PaintEnv, type Painter, type Scratch } from '../paint'
-import type { SceneStyle } from '../sceneStyle'
+import type { Painter } from '../paint/contract'
+import type { Ctx2D, Hand, PaintEnv, Scratch } from '../paint/shared/base/hand'
+import { DEFAULT_STYLE, styleKey, type SceneStyle } from '../paint/painters'
 import { shadeKeyOf } from './paintReceiver'
 
 /** A layer's canvas in device px: whole pixels, so it is laid into the surface 1:1. */
@@ -15,19 +16,19 @@ export function deviceRect(desc: LayerDesc, ratio: number): DeviceRect {
 }
 
 /** The pixel ratio a layer is cached at and the key its form canvas holds (the layer's key, its ratio, bounds and style). */
-export function formKeyOf(desc: LayerDesc, dpr: number, style: SceneStyle = 'real'): { ratio: number; key: string } {
+export function formKeyOf(desc: LayerDesc, dpr: number, style = DEFAULT_STYLE): { ratio: number; key: string } {
   const ratio = cacheRatio(dpr, desc.soft)
   const { x, y, w, h } = desc.bounds
   return { ratio, key: `${desc.key}@${ratio}:${x},${y},${w},${h}${stripKey(desc)}${styleKey(desc, style)}` }
 }
 
 /** A strip's frames are part of what its canvas holds (C7). */
-export const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
+const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
 
 export const beamKeyOf = (desc: LayerDesc) => desc.light ? desc.light.key + stripKey(desc) : null
 
 /** The key a layer's light canvas holds, or null when there is no light painter. */
-export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined, style: SceneStyle = 'real') {
+export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined, style = DEFAULT_STYLE) {
   if (!painter?.light || !desc.light) return null
   const shade = shadeKeyOf(desc)
   return beamKeyOf(desc) + styleKey(desc, style) + (shade ? `:${shade}` : '')
@@ -40,7 +41,7 @@ export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined, style:
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
   paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[],
-  style?: SceneStyle, shade?: Ctx2D, pose?: number) {
+  shade?: Ctx2D, pose?: number) {
   const targets = shade ? [ctx, shade] : [ctx]
   for (const target of targets) {
     target.setTransform(1, 0, 0, 1, 0, 0)
@@ -52,7 +53,7 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
   const count = pose === undefined ? frameCount(desc.animated) : 1
   if (count === 1) {
     for (const target of targets) target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    paint(ctx, desc, { hand, style, phase: pose === undefined ? phase : framePhase(desc.animated, pose), scale: ratio, canvas, shade })
+    paint(ctx, desc, { hand, phase: pose === undefined ? phase : framePhase(desc.animated, pose), scale: ratio, canvas, shade })
     for (const target of targets) target.setTransform(1, 0, 0, 1, 0, 0)
     return
   }
@@ -68,7 +69,7 @@ export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, d
       target.clip()
       target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
     }
-    const env: PaintEnv = { hand, style, phase: framePhase(desc.animated, i), scale: ratio, canvas, shade }
+    const env: PaintEnv = { hand, phase: framePhase(desc.animated, i), scale: ratio, canvas, shade }
     paint(ctx, desc, env)
     for (const target of targets) target.restore()
   }

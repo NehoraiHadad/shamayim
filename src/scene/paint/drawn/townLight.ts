@@ -1,5 +1,6 @@
-import type { RGB, Shine, SkyForm, Tones } from '../../model/types'
-import { mix } from '../hand'
+import type { RGB, Shine, Tones } from '../../model/types'
+import { mix } from '../shared/base/hand'
+import type { SkyForm } from './outsideOwn'
 import { facesOf } from './outsideLight'
 
 /*

@@ -198,7 +198,7 @@ export function skyArch(world: WorldState, box: SceneBox, geom = skyGeom(world, 
 /**
  * The sky's base: the gradient from the light's palette (`theme/skyLight.ts`), the glows of the sun, the twilight and the
  * moon, Earth's shadow, and the haze band at the horizon. One layer, repainted only when one of these changes (the app
- * lays it as the sky canvas's CSS background, see `paint/sky.ts`).
+ * lays it as the sky canvas's CSS background, see `paint/shared/sky/skyBackground.ts`).
  */
 export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | null {
   if (box.skyHeight <= 0 || box.width <= 0) return null

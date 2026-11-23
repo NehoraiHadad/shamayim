@@ -1,30 +1,23 @@
 import type { CloudSighting } from '../domain/cloudSightings'
 import type { LocalTime } from '../domain/types'
-import { isSceneStyle, type SceneStyle } from '../scene/sceneStyle'
 import { SKY_THEMES, type ThemeId } from '../theme/skyThemes'
 
 /** Dev-only URL overrides for visual QA. Always null in production builds. */
-function param(name: string): string | null {
+export function devParam(name: string): string | null {
   if (!import.meta.env.DEV) return null
   return new URLSearchParams(window.location.search).get(name)
 }
 
 /** `?at=2026-11-17T13:00` pins the clock (day/night themes, sentences). */
 export function pinnedTime(): LocalTime | null {
-  const at = param('at')
+  const at = devParam('at')
   return at && /^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(at) ? at : null
 }
 
 /** `?theme=rain` forces a sky theme. */
 export function forcedTheme(): ThemeId | null {
-  const id = param('theme')
+  const id = devParam('theme')
   return id && id in SKY_THEMES ? (id as ThemeId) : null
-}
-
-/** `?style=drawn` (or `real`) forces the scene's hand. */
-export function forcedStyle(): SceneStyle | null {
-  const style = param('style')
-  return isSceneStyle(style) ? style : null
 }
 
 const WX_KEYS = {
@@ -39,7 +32,7 @@ const WX_KEYS = {
  * depth (lying snow, m).
  */
 export function forcedWeather(): Record<string, number> | null {
-  const wx = param('wx')
+  const wx = devParam('wx')
   if (!wx) return null
   const out: Record<string, number> = {}
   for (const pair of wx.split(',')) {
@@ -57,7 +50,7 @@ export function forcedWeather(): Record<string, number> | null {
  * for visual QA on a day without them.
  */
 export function forcedSightings(): CloudSighting[] | null {
-  const seen = param('seen')
+  const seen = devParam('seen')
   if (!seen) return null
   return seen.split(',').map((part) => part.split(':').map(Number))
     .filter((v) => v.length === 3 && v.every(Number.isFinite))
@@ -66,12 +59,12 @@ export function forcedSightings(): CloudSighting[] | null {
 
 /** `?perf=1` shows the canvas scene's timings in a small HUD (`scene/react/PerfHud.tsx`). */
 export function perfHud(): boolean {
-  return param('perf') === '1'
+  return devParam('perf') === '1'
 }
 
 /** `?picker=open` opens the place picker on load, for screenshots of it. */
 export function pickerOpenOnLoad(): boolean {
-  return param('picker') === 'open'
+  return devParam('picker') === 'open'
 }
 
 /**
@@ -79,5 +72,5 @@ export function pickerOpenOnLoad(): boolean {
  * the radar with synthetic moving rain, for QA of the radar page's rainy states (see `data/overhead/syntheticRain.ts`).
  */
 export function forcedRain(): string | null {
-  return param('rain')
+  return devParam('rain')
 }

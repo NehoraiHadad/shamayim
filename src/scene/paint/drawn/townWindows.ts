@@ -1,6 +1,6 @@
 import type { RGB, Tones } from '../../model/types'
-import type { Lamp } from '../glyphs/kit'
-import { css, mix, type Ctx2D } from '../hand'
+import type { Lamp } from '../shared/town/glyphs/kit'
+import { css, mix, type Ctx2D } from '../shared/base/hand'
 import type { TownLight } from './townLight'
 
 /*

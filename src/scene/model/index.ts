@@ -1,7 +1,6 @@
 import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
@@ -19,6 +18,7 @@ import { shimmerLayerOf } from './shimmer'
 import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
+import { PLAIN_LIGHT, type StyleLight } from './styleLight'
 import { birdLayers } from './birds'
 import { contrailLayers, lowPlaneLayers, meteorLayers } from './life'
 import { LIFE_START } from './lifeTracks'
@@ -42,11 +42,13 @@ export type * from './types'
  * (drifting), the lightning and the heat shimmer; C7: the weather (rain and snow from their banks, mist, dust, rays, smoke,
  * the wet ground's sheen); C8: while the land is not known, a mist in its place with a ridge line forming (`loading.ts`),
  * and the land's arrival timed by the shell's `clock` (no clock: the land shown as it is, the mist from phase 0).
+ *
+ * `light` is the painting hand's own light of the buildings, a value (`styleLight.ts`): the model knows no hand.
  */
 export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null, life: LifeClock = LIFE_START,
-  style: SceneStyle = 'real'): SceneModel {
+  light: StyleLight = PLAIN_LIGHT): SceneModel {
   if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 }, life)
-  const model = knownModel(world, box, life, style)
+  const model = knownModel(world, box, life, light)
   return clock?.reveal ? { ...model, layers: arrivingLayers(world, box, model.layers, clock) } : model
 }
 
@@ -61,13 +63,13 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
   return { layers, overlay: [], clear: [] }
 }
 
-function knownModel(world: WorldState, box: SceneBox, life: LifeClock, style: SceneStyle): SceneModel {
+function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
   const layout = layoutOf(world, box)
-  const towns = farCitiesLayer(world, box, layout.clear, style)
-  const outside = outsideOf(world, box, layout.clear, style)
+  const towns = farCitiesLayer(world, box, layout.clear, light)
+  const outside = outsideOf(world, box, layout.clear, light)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
-  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)], style)
+  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)], light)
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))
@@ -83,18 +85,20 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, style: Sc
 }
 
 type OutsideMemo = { box: string; layer: ReturnType<typeof outsideLayer> }
-const outsideMemo: Record<SceneStyle, WeakMap<WorldState, OutsideMemo>> = { real: new WeakMap(), drawn: new WeakMap() }
+const outsideMemo = new WeakMap<StyleLight, WeakMap<WorldState, OutsideMemo>>()
 
 /**
  * The town in view (every building's tones by its distance): a minute's world is immutable and the clear zones follow
  * from it and the box, so a redraw of the same minute at the same size reuses it rather than relighting every building.
  */
-function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[], style: SceneStyle) {
+function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[], light: StyleLight) {
   const key = `${box.width},${box.skyHeight},${box.landTop},${box.landHeight},${box.dpr}`
-  const previous = outsideMemo[style].get(world)
+  let worlds = outsideMemo.get(light)
+  if (!worlds) outsideMemo.set(light, worlds = new WeakMap())
+  const previous = worlds.get(world)
   if (previous?.box === key) return previous.layer
-  const layer = outsideLayer(world, box, clear, style)
-  outsideMemo[style].set(world, { box: key, layer })
+  const layer = outsideLayer(world, box, clear, light)
+  worlds.set(world, { box: key, layer })
   return layer
 }
 

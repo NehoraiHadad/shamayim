@@ -1,12 +1,12 @@
 import type { RGB } from '../../../world/types'
-import type { DrawnTones } from '../../model/drawnTones'
-import { Kit, rect, type Tracer } from '../glyphs/kit'
-import { mix } from '../hand'
-import { roundGradient } from './glyphLight'
+import type { IllustratedTones } from '../../model/illustratedTones'
+import { Kit, rect, type Tracer } from '../shared/town/glyphs/kit'
+import { mix } from '../shared/base/hand'
+import { roundGradient } from '../shared/town/glyphs/roundGradient'
 
 /** The drawn town keeps the illustrated falloff, ledges and windows of its original glyphs. */
 export class DrawnGlyphKit extends Kit {
-  declare readonly t: DrawnTones
+  declare readonly t: IllustratedTones
 
   get litL() { return this.face(this.t.wall, this.t.lit) }
   get litR() { return this.face(this.t.wall, this.t.lit, -1) }

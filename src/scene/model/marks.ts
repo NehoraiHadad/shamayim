@@ -1,7 +1,6 @@
 //# allFunctionsCalledOnLoad
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
 import { landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey } from './landmarkAtmosphere'
 import { faceLight } from '../../world/livingLight'
@@ -10,6 +9,7 @@ import { farNeighbourMarks } from './farNeighbourMarks'
 import { glyphGeometryKey } from './markDescriptor'
 import type { DrawnMass } from './markOcclusion'
 import type { HomeRoofline } from './neighbourPlacement'
+import { PLAIN_LIGHT, type StyleLight } from './styleLight'
 
 /** Far and plain marks lie over the far towns and under the near ridge. The portrait lies over the near ridge and its water. */
 const Z = { far: 17, near: 40 }
@@ -84,10 +84,10 @@ const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.roun
  */
 export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null = null,
   home: HomeRoofline | null = null, clear: readonly Box[] = [], foreground: readonly DrawnMass[] = [],
-  style: SceneStyle = 'real'): LayerOf<'marks'>[] {
+  light: StyleLight = PLAIN_LIGHT): LayerOf<'marks'>[] {
   const shine = shineOf(world)
   const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box), glyphs.map(glyphGeometryKey))
-  const glyphs = farNeighbourMarks(world, box, towns, home, clear, foreground, style)
+  const glyphs = farNeighbourMarks(world, box, towns, home, clear, foreground, light)
   const bounds = boundsOf(glyphs.map(reachOf), box)
   if (!bounds) return []
   return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,
