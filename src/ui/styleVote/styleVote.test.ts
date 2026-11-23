@@ -5,7 +5,7 @@ import { DRAWN } from '../../data/styleVoteFixture'
 import { mix, ratio } from '../../theme/contrast'
 import { contrastSamples } from '../../theme/contrastSamples'
 import { StyleVotePanel } from './StyleVotePanel'
-import { PENDING, PREFERRED, SEE_OTHER, THANKS, VOTE, whatsappUrl } from './styleVoteText'
+import { PENDING, PREFERRED, SEE_OTHER, THANKS, VOTE, mailUrl } from './styleVoteText'
 import type { StyleVoteState } from './useStyleVote'
 
 const none = () => undefined
@@ -46,18 +46,18 @@ describe('style panel', () => {
   })
 })
 
-describe('WhatsApp message', () => {
-  const text = (url: string) => new URL(url).searchParams.get('text')
+describe('mail message', () => {
+  const text = (url: string) => new URL(url).searchParams.get('body')
 
-  it('names the preferred style, the place and the hour shown, and no contact', () => {
-    const url = whatsappUrl({ vote: DRAWN, style: 'real', placeName: 'חיפה', at: '2026-11-17T14:00' })
-    expect(url).toMatch(/^https:\/\/wa\.me\/\?text=/)
+  it('names the preferred style, the place and the hour shown', () => {
+    const url = mailUrl({ vote: DRAWN, style: 'real', placeName: 'חיפה', at: '2026-11-17T14:00' })
+    expect(url).toMatch(/^mailto:sky@nehoraihadad\.com\?subject=/)
     expect(text(url)).toContain('הסגנון המועדף עליי: מאויר.')
     expect(text(url)).toContain('חיפה, 17.11 בשעה 14:00.')
   })
 
   it('says so when there is no vote yet', () => {
-    const message = text(whatsappUrl({ vote: null, style: 'real', placeName: 'חיפה', at: '2026-11-17T09:30' }))
+    const message = text(mailUrl({ vote: null, style: 'real', placeName: 'חיפה', at: '2026-11-17T09:30' }))
     expect(message).toContain('עוד לא בחרתי. מוצג לי הסגנון: מציאותי.')
     expect(message).not.toContain('המועדף')
   })

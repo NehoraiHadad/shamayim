@@ -5,8 +5,8 @@ Plan: `docs/PLAN.md`. Brief: `docs/PLANNING_BRIEF.md`. Codex briefs: `docs/brief
 
 ## Style switch and vote (branch `claude/style-vote`, temporary)
 
-Owner, 23 Nov 2026: people try the two scene styles (`real`, `drawn`), say which they prefer and send the owner a
-WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVote/`, `src/data/styleVote*`,
+Owner, 23 Nov 2026: people try the two scene styles (`real`, `drawn`), say which they prefer and write to the owner
+(`sky@nehoraihadad.com`, forwarded by Cloudflare Email Routing). Deleted when the vote is decided, so everything is in `src/ui/styleVote/`, `src/data/styleVote*`,
 `worker/src/styleVote.ts` + `voteBody.ts` + `voteTally.ts` + `voteLimit.ts`.
 
 - [x] Worker: `POST /v1/style-vote`, `GET /v1/style-votes` (KV `LIVE`, prefix `vote:<round>:`, style in metadata, a year);
@@ -21,6 +21,8 @@ WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVot
       it; votes of another round are refused and uncounted), style choice kept apart from the vote, tabs agree on one id,
       retry on return/online, honest "will be sent later", rate limit, a change within KV's delay no longer lost, neutral copy,
       the page's end and focus clear of the panel
+- [x] The panel's link is a prefilled mail instead of WhatsApp's contact picker (owner, 24 Nov 2026). When the vote ends, the
+      routing rule of `sky@` goes too
 - [ ] Merge to main: on the owner's word, worker first (`cd worker && npm ci && npx wrangler deploy`); steps in `vote/RELEASE.md`
       of the manager's shared notes folder. Bump `VOTE_ROUND` if either style changes after voting began
 
