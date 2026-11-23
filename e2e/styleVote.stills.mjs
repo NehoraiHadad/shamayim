@@ -84,12 +84,13 @@ async function offline({ page, net, shot, saved }) {
   await openPanel(page)
   await pick(page, 'drawn')
   await page.locator(VOTE).click()
+  await page.waitForTimeout(2500)
   await shot('7-not-sent')
   console.log('     status:', await status(page))
   check((await saved()).sent === false, 'unsent vote stays')
   net.mode = 'ok'
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(3000)
   check((await saved()).sent === true, 'goes out when back online', `posts ${net.bodies.length}`)
   console.log('     status:', await status(page))
 }
@@ -113,6 +114,20 @@ async function bottom({ page, shot }) {
   check(gap >= 0, 'the page end clears the panel', gap)
 }
 
+async function move({ page }) {
+  await openPanel(page)
+  await page.evaluate((p) => { document.querySelector(p).dataset.stamp = '1' }, PANEL)
+  const place = page.locator('header button[aria-haspopup="dialog"]').first()
+  const from = await place.getAttribute('aria-label')
+  await place.click()
+  await page.locator('dialog[open] button:not([aria-label])').filter({ hasText: 'אילת' }).first().click()
+  await page.waitForTimeout(1500)
+  const to = await place.getAttribute('aria-label')
+  check(from !== to, 'another place is shown', `${from} > ${to}`)
+  check(await page.evaluate((p) => document.querySelector(p)?.dataset.stamp === '1' && !document.querySelector(p).contains(document.activeElement), PANEL),
+    'the panel stays and takes no focus')
+}
+
 const server = await startPreview(appRoot)
 const browser = await launch()
 try {
@@ -120,10 +135,11 @@ try {
   await session(browser, server.url, 'jerusalem@12:00', 320, tour, { height: 640 })
   for (const moment of ['jerusalem@12:00', 'haifa@21:00']) await session(browser, server.url, moment, 375, offline, { posts: 'offline' })
   await session(browser, server.url, 'jerusalem@12:00', 375, async (s) => {
-    await openPanel(s.page); await pick(s.page, 'drawn'); await s.page.locator(VOTE).click(); await s.page.waitForTimeout(500)
+    await openPanel(s.page); await pick(s.page, 'drawn'); await s.page.locator(VOTE).click(); await s.page.waitForTimeout(3000)
     check((await s.saved()).sent === false, '429 keeps the vote unsent', await status(s.page))
   }, { posts: '429' })
   await session(browser, server.url, 'jerusalem@12:00', 375, hour)
+  await session(browser, server.url, 'jerusalem@12:00', 375, (s) => move(s).catch((e) => check(false, 'move', e.message)))
   await session(browser, server.url, 'jerusalem@12:00', 375, bottom)
 } finally {
   await browser.close()
