@@ -28,4 +28,4 @@ crons = ["25 * * * *", "40 */6 * * *"]
 # Create once with `npx wrangler kv namespace create LIVE` and paste the id it prints.
 [[kv_namespaces]]
 binding = "LIVE"
-id = "REPLACE_WITH_THE_ID_FROM_wrangler_kv_namespace_create_LIVE"
+id = "8e500d4c6ae147dca41d514f6649b293"
