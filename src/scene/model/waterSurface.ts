@@ -15,8 +15,8 @@ const smooth = (values: number[]) => values.map((v, i) =>
 export interface Shape {
   xs: number[]; farY: number[]; nearY: number[]
   points: Pt[]; far: Pt[]; top: number; bottom: number
-  /** Medians over the span: the edges' y, depression (deg, + below eye level) and distance (km). */
-  far0: { y: number; dep: number; km: number }; near0: { y: number; dep: number; km: number }
+  /** Medians over the far edge: depression (deg, + below eye level) and distance (km). */
+  far0: { dep: number; km: number }
 }
 
 const shapes = new WeakMap<WaterSpan, Map<number, Shape>>()
@@ -46,8 +46,7 @@ export function shapeOf(span: WaterSpan, box: SceneBox): Shape {
   const points: Pt[] = [...far, ...xs.map((x, i): Pt => [x, nearY[i]]).reverse()]
   const shape: Shape = {
     xs, farY, nearY, points, far, top: Math.min(...farY), bottom: Math.max(...nearY),
-    far0: { y: median(farY), dep: -median(edges.map((e) => e.farAngle)), km: median(edges.map((e) => e.farKm)) },
-    near0: { y: median(nearY), dep: -median(edges.map((e) => e.nearAngle)), km: median(edges.map((e) => e.nearKm)) },
+    far0: { dep: -median(edges.map((e) => e.farAngle)), km: median(edges.map((e) => e.farKm)) },
   }
   byWidth.set(box.width, shape)
   return shape

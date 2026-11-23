@@ -1228,8 +1228,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause: the reading was eased in
             from its receipt (`receivedAt`) even with nothing shown before, a reload shows it whole. Only `blendForecast` eases
             now; test `src/world/forecastArrival.test.ts`. Second cause, load order: the water mirrored the first land
-            drawn (`src/scene/model/waterSurface.ts`, test `waterArrival.test.ts`). Open: late `bounds.json` leaves `mist.valley`
-            0.1 px off under its 0.5 px key step (faint); fixture `current.precipitation`
+            drawn (`src/scene/model/waterSurface.ts`, test `waterArrival.test.ts`). Third: `mist.valley` kept the first
+            crest's sub-step edges under one key (`mist.ts`, test `mist.test.ts`). Open: fixture `current.precipitation`
             is an hour's total read as 15 min (`scripts/fixtures/recordForecast.ts`), so the 12:00 rain is drawn 4x too strong
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00

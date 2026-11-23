@@ -19,6 +19,8 @@ import type { LayerOf, MistBandDesc, MistPuff, Pt, RGB, SceneBox } from './types
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const WHITE: RGB = [1, 1, 1]
 const q = (v: number, step: number) => Math.round(v / step)
+/** A band's edge on the raster's own half-pixel step: what the key names is exactly what is painted, whichever land came first. */
+const onStep = (y: number) => q(y, 0.5) * 0.5
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
 /** A tile's size in CSS px that is a whole number of device px (a pattern repeats on its device size). */
 const whole = (px: number, dpr: number) => Math.max(1, Math.round(px * dpr)) / dpr
@@ -88,17 +90,17 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
   }
   // The valley's lake of mist: its top a few px over the near crest at first, rising toward the far crest.
   const rise = Math.max(4, nearMed - farMed)
-  const top = nearMed - (5 + 0.75 * m * rise)
+  const top = onStep(nearMed - (5 + 0.75 * m * rise))
   const valleyAlpha = (0.35 + 0.5 * m) * clearShare * smoothstep(0.08, 0.25, moisture)
-  add('mist.valley', 20, { top, fade: 6 + 10 * m, bottom: Math.min(box.landHeight, nearMed + 24), rgb, alpha: valleyAlpha,
+  add('mist.valley', 20, { top, fade: onStep(6 + 10 * m), bottom: onStep(Math.min(box.landHeight, nearMed + 24)), rgb, alpha: valleyAlpha,
     puffs: puffsOf(`${world.place.id}:mist.valley`, period, top - 4, 10, 9) })
   // Ground fog over the near ridge's foot, only on data-reported fog; alpha eases continuously from 0 at the threshold.
   const fog = Math.min(m, world.air.mist.fog) / clearShare
   if (fog > 0.3) {
     const k = Math.min(1, (fog - 0.3) / 0.7)
-    const gTop = box.landHeight - (14 + k * (box.landHeight - nearMed) * 0.75)
+    const gTop = onStep(box.landHeight - (14 + k * (box.landHeight - nearMed) * 0.75))
     const groundAlpha = (0.2 + 0.4 * k) * clearShare * smoothstep(0.3, 0.5, fog)
-    add('mist.ground', 45, { top: gTop, fade: 14 + 12 * k, bottom: box.landHeight, rgb, alpha: groundAlpha,
+    add('mist.ground', 45, { top: gTop, fade: onStep(14 + 12 * k), bottom: onStep(box.landHeight), rgb, alpha: groundAlpha,
       puffs: puffsOf(`${world.place.id}:mist.ground`, period, gTop - 4, 12, 8) })
   }
   return out

@@ -40,6 +40,21 @@ describe('mistLayers: radiation burn-off, real hourly fog and exclusions', () =>
     expect(mistLayers(afternoon, BOX)).toEqual([])
   })
 
+  it('paints one raster for one key however the crest shifts as the land data arrives', () => {
+    const dawn = at('shadmot-mehola', '2026-11-17T05:00', DAMP_CALM)
+    const geometry = new Map<string, string>()
+    for (let shift = 0; shift < 3; shift += 0.07) {
+      const near = { ...dawn.terrain.near, points: dawn.terrain.near.points.map(([x, y]): [number, number] => [x, y + shift]) }
+      for (const layer of mistLayers({ ...dawn, terrain: { ...dawn.terrain, near } }, BOX)) {
+        const key = `${layer.key} ${layer.light?.key}`
+        const drawn = JSON.stringify(layer.bands.map(({ top, fade, bottom, puffs }) => ({ top, fade, bottom, puffs })))
+        expect(geometry.get(key) ?? drawn).toBe(drawn)
+        geometry.set(key, drawn)
+      }
+    }
+    expect(geometry.size).toBeGreaterThan(3)
+  })
+
   it('keeps real hourly-source fog (valley and ground) through noon without forced overrides', () => {
     const noonFog = withHour('shadmot-mehola', '2026-11-17T06:00', '2026-11-17T12:00', {
       visibility: 1500, humidity: 96, weatherCode: 45, cloudCover: 60, cloudLow: 20, cloudMid: 20, cloudHigh: 20,
