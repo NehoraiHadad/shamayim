@@ -1,9 +1,11 @@
-import { litTone } from './cloudBeam'
+import { cloudIncident, diffuseIlluminance, litTone, type CloudBeam } from './cloudBeam'
+import { cloudExposure, tintFill } from './cloudExposure'
+import { cloudFade, towerDust } from './cloudDust'
+import { linearLuminance } from './landRadiance'
 import { projectCell } from '../../world/field/project'
 import type { FieldCell } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import type { CloudSprite, SpriteGenus } from './cloudSprite'
-import { smoothstep } from '../../world/ridgeLighting'
 import { acrossSpeed, pxPerRadAt } from './advect'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
@@ -45,7 +47,7 @@ const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
 
 export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, snapshot: Snapshot,
-  light: CloudLight | null, stops: [number, RGB][], beyond: Beyond | null = null): LayerOf<'cloudCells'> | null {
+  light: CloudLight | null, stops: [number, RGB][], beyond: Beyond | null = null, solar?: CloudBeam): LayerOf<'cloudCells'> | null {
   const { layer, cells } = snapshot
   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
   const pxPerDeg = world.camera.pxPerDeg * geom.s
@@ -73,7 +75,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     // is a heap and not a streak, and a near one keeps its height.
     const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * stretch * cell.vKm / (2 * cell.r), merged ? w : Infinity))
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
-    const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
+    const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall, solar)
     sprite.bowl = bowl
     const speed = acrossSpeed(layer.vel, look, p.rangeKm, perRad)
     sprite.lean = leanOf(speed, (Math.hypot(...layer.vel) / p.rangeKm / 60) * Math.abs(perRad))
@@ -95,7 +97,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     kind: 'cloudCells', id: 'cloudCells.tower', lattice: 'tower', surface: 'sky', z: sheetZ.tower, soft: true, cells: drawn,
     bounds: { x: 0, y: top, w: geom.width, h: Math.max(1, bottom - top) },
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under), q(s.bowl ?? 0),
-      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
+      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1), ...(s.through ? [s.through] : [])])),
   }
 }
 
@@ -121,25 +123,30 @@ export const hazePath = (rangeKm: number, heightKm: number) => rangeKm * Math.mi
 const GLOWING = 0.6
 
 function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyond: Beyond | null, cell: FieldCell, light: CloudLight | null,
-  x: number, y: number, w: number, under: number, tall: number): CloudSprite {
+  x: number, y: number, w: number, under: number, tall: number, solar?: CloudBeam): CloudSprite {
   const rains = cell.rainWeight > 0.3
   const genus = GENUS[cell.genus] ?? 'cg'
   // A tower stands in its own gap of the sky (union 0): its body is lit as a fair-weather cloud's.
   const range = Math.hypot(cell.x, cell.y)
   const tones = beforeSheet(tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2)), beyond, x, y - tall / 2)
   const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
-  const day = smoothstep(-8, 3, world.bodies.sun.altitude)
+  const day = cloudExposure(world)
   const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
-    0.85 * world.air.fade(hazePath(range, cell.baseKm)))
-  const shade = mixRgb(tones.shade, base, day)
-  const beam = !light ? tones.body : light.solar ? litTone(tones.body, light.solar.direct, 1 - tones.fade)
-    : mixRgb(light.rgb, tones.behind, tones.fade)
+    cloudFade(world.air, hazePath(range, cell.baseKm)))
+  const diffuse = diffuseIlluminance(world.bodies.sun.altitude, world.light.diffuse)
+  const relay = solar ? linearLuminance(solar.relay) : 0
+  const tint = (rgb: RGB) => solar ? tintFill(rgb, solar.relay, relay / (diffuse + relay)) : rgb
+  const body = tint(tones.body)
+  const shade = tint(mixRgb(tones.shade, base, day))
+  const direct = solar ? litTone(body, cloudIncident(world, cell.baseKm + cell.vKm / 2), (1 - tones.fade) / (1 + diffuse)) : body
+  const beam = light?.moonRgb ? mixRgb(light.moonRgb, tones.behind, tones.fade) : direct
+  const through = towerDust(world.air, range, cell.baseKm, cell.baseKm + cell.vKm)
   // A low sun lights a whole tower's height from the side, as it does the sheet's underside round it.
   const glow = light ? light.under * light.strength * lit.through : 0
   return {
     genus, seed: cell.seed, w, under, tall, lean: 0, tau: cell.tau0,
-    body: mixRgb(mixRgb(tones.body, beam, GLOWING * glow), shade, 0.5 * lit.backlit), shade, lit: beam, litA: lit.litA, toward: lit.toward,
+    body: mixRgb(mixRgb(body, beam, GLOWING * glow), shade, 0.5 * lit.backlit), shade, lit: beam, litA: lit.litA, toward: lit.toward,
     silver: Math.max(lit.silver, 0.9 * lit.front), glow,
-    rains, share: cell.share,
+    rains, share: cell.share, ...(through && { through }),
   }
 }

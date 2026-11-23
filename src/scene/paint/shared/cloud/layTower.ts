@@ -1,5 +1,6 @@
 import type { RGB } from '../../../../world/types'
 import type { CloudSprite } from '../../../model/cloudSprite'
+import { attenuateRow } from './throughAir'
 import type { Ctx2D, PaintEnv } from '../base/hand'
 
 /* A tower laid as a raster on a scratch sheet, stretched with the canvas's own smoothing. */
@@ -37,6 +38,14 @@ export function layTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: Pa
       if (!here) continue
       for (let n = 0; n < 3; n++) image.data[at + n] = Math.round(Math.min(1, Math.max(0, here.rgb[n])) * 255)
       image.data[at + 3] = Math.round(here.a * 255)
+    }
+  }
+  if (s.through) {
+    const [top, base] = s.through
+    for (let j = 0; j < h; j++) {
+      const py = box.y + ((j + 0.5) / h) * box.h
+      const t = Math.min(1, Math.max(0, (py + s.tall) / (s.tall + s.under)))
+      attenuateRow(image.data, w, j, top + (base - top) * t)
     }
   }
   sheet.ctx.putImageData(image, 0, 0)

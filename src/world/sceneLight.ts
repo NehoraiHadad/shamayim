@@ -15,6 +15,9 @@ export function airMass(altitude: number) {
 const RAYLEIGH = [0.055, 0.099, 0.222] as const
 const WAVELENGTH = [650, 550, 450] as const
 const EXPOSURE = 4
+/** Exponential scale heights of molecular air and mixed-layer haze, in km. */
+const AIR_KM = 8.4
+export const HAZE_SCALE_KM = 1.5
 
 /** The hour's air: visibility (km) and whether its particles are coarse desert dust rather than fine haze. */
 export interface Aerosol { visibilityKm?: number; dustWeight?: number }
@@ -26,7 +29,7 @@ export interface Aerosol { visibilityKm?: number; dustWeight?: number }
  */
 export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}) {
   const extinction = Math.max(0, 3.912 / Math.max(1, visibilityKm) - 0.0116)
-  const tau550 = extinction * 1.5
+  const tau550 = extinction * HAZE_SCALE_KM
   const angstrom = 1.3 - dustWeight
   return WAVELENGTH.map((lambda) => tau550 * (lambda / 550) ** -angstrom)
 }
@@ -34,27 +37,33 @@ export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}
 const cleanNoon = aerosolDepth().map((tau, i) => Math.exp(-tau - RAYLEIGH[i]))
 const luminance = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 
-/** Scale heights (km) of the air's molecules and of its haze (the mixed layer `aerosolDepth` assumes). */
-const AIR_KM = 8.4, HAZE_KM = 1.5
 export const EARTH_RADIUS_KM = 6371 // mean terrestrial radius
 /** The share of the haze that lies above `zKm`. */
-export const hazeAbove = (zKm: number) => Math.exp(-zKm / HAZE_KM)
+export const hazeAbove = (zKm: number) => Math.exp(-zKm / HAZE_SCALE_KM)
+
+// The horizontal half-column of a spherical exponential atmosphere is Gaussian to
+// first order in H/R. Interpolate its denominator to the plane-parallel secant.
+function slantMass(altitude: number, scaleKm: number) {
+  const sin = Math.sin(altitude * Math.PI / 180)
+  const curvature = 2 * scaleKm / (Math.PI * EARTH_RADIUS_KM)
+  return 2 / (sin + Math.sqrt(sin * sin + 4 * curvature * (1 - sin * sin)))
+}
 
 /** Linear spectral transmission down to `zKm` up, and its photopic strength relative to a clean zenith sun. */
 export function solarBeam(altitude: number, air: Aerosol = {}, zKm = 0) {
-  const m = airMass(altitude)
-  let molecular = zKm ? m * Math.exp(-zKm / AIR_KM) : m
-  let aerosol = zKm ? m * hazeAbove(zKm) : m
+  const surface = zKm <= 0
+  const absAlt = Math.abs(altitude)
+  const m = surface ? airMass(altitude) : slantMass(absAlt, AIR_KM)
+  let molecular = surface ? m : m * Math.exp(-zKm / AIR_KM)
+  let aerosol = surface ? m : slantMass(absAlt, HAZE_SCALE_KM) * hazeAbove(zKm)
   if (zKm > 0 && altitude < 0) {
     const tangent = Math.max(0, (EARTH_RADIUS_KM + zKm) * Math.cos(altitude * Math.PI / 180) - EARTH_RADIUS_KM)
     // Along a spherical exponential atmosphere, the full tangent chord is twice the
     // outgoing horizontal column. Subtract the outward column beyond the cloud.
-    const chord = 2 * airMass(0)
-    const outward = airMass(-altitude)
-    molecular = chord * Math.exp(-tangent / AIR_KM) - outward * Math.exp(-zKm / AIR_KM)
-    aerosol = chord * hazeAbove(tangent) - outward * hazeAbove(zKm)
+    molecular = 2 * slantMass(0, AIR_KM) * Math.exp(-tangent / AIR_KM) - molecular
+    aerosol = 2 * slantMass(0, HAZE_SCALE_KM) * hazeAbove(tangent) - aerosol
   }
-  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(zKm ? -tau * aerosol - RAYLEIGH[i] * molecular : -(tau + RAYLEIGH[i]) * m))
+  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(surface ? -(tau + RAYLEIGH[i]) * m : -tau * aerosol - RAYLEIGH[i] * molecular))
   return { transmission, strength: Math.min(1, luminance(transmission) / luminance(cleanNoon)) }
 }
 

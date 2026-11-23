@@ -4,7 +4,8 @@ import { MOON_RGB } from '../../world/light'
 import { cloudLight, layerMeanTransmission, SKY_CLOUD_DEPTH_SCALE } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { CloudLayer, CloudLevel, WorldState } from '../../world/types'
-import type { CloudBeam } from './cloudBeam'
+import { cloudExposure } from './cloudExposure'
+import { cloudFade } from './cloudDust'
 import { coversOf, stopAt, veilOf, type SkyGeom } from './sky'
 import { mixRgb, rgbOf } from './tone'
 import type { RGB, SceneBox } from './types'
@@ -24,40 +25,36 @@ export const RAIN_GREY: RGB = [0.29, 0.34, 0.39]
 
 /** Where the light that reaches a layer comes from (sky px), its colour and strength, and how much is direct sun. */
 /** `above`: the share of the light the layers above let through (as an expected value: a bank is in a gap or not, `litOf`). */
-export interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number
-  /** The beam at the layer's height against the sky's light on it, and the diffuse share scattered by upper decks. */
-  solar?: CloudBeam
+export interface CloudLight { x: number; y: number; moonRgb?: RGB; strength: number; sun: boolean; under: number; above: number
   /** The sun's disc as the eye sees it through the cloud (1 − its veil): what lights a bank's edge from behind. */
   seen: number }
 
 /** Expected direct transmission through the decks above the receiving layer. */
 export function transmissionAbove(world: WorldState, layer: CloudLayer): number {
-  const covers = coversOf(world)
   const upper = world.cloudField?.field.layers.filter(({ lattice }) =>
     layer.level !== 'high' && (lattice === 'high' || (layer.level === 'low' && lattice === 'mid')))
-  return upper?.reduce((beam, cloud) =>
+  if (upper) return upper.reduce((beam, cloud) =>
     beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm * SKY_CLOUD_DEPTH_SCALE), 1)
-    ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high },
+  const covers = coversOf(world)
+  return cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high },
       undefined, SKY_CLOUD_DEPTH_SCALE).clear
 }
 
 /** Direction and masking for paint effects. The sheet’s incident light follows its own Earth shadow. */
-export function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer, solar?: CloudBeam): CloudLight | null {
+export function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer, above = transmissionAbove(world, layer)): CloudLight | null {
   const { sun, moon } = world.bodies
-  const above = transmissionAbove(world, layer)
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)
-    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb: world.light.colour, solar,
-      strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
+    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
       under: layer.litUnderside, seen: 1 - veilOf(world) }
   }
   const after = world.light.afterglow
   if (after && layer.litUnderside > 0.02) {
-    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, solar, strength: layer.litUnderside, above, sun: false,
+    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, strength: layer.litUnderside, above, sun: false,
       under: layer.litUnderside, seen: 0 }
   }
   if (moon.up && world.night.dark > 0.1 && moon.illumination > 0.05) {
-    return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, rgb: MOON_RGB,
+    return { x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, moonRgb: MOON_RGB,
       strength: 0.55 * moon.illumination * smoothstep(0, 12, moon.altitude) * world.night.dark, above, sun: false, under: 0, seen: 0 }
   }
   return null
@@ -73,7 +70,7 @@ export const wrap = (x: number, period: number) => ((x % period) + period) % per
  * The tones of a bank at its place on the sky: its body in the sky's own light (whiter by day, the sky's horizon grey by
  * night), darker as the cover closes and darkest where it rains; its shade side; its lit side by the layer's light.
  */
-export type Tones = { body: RGB; shade: RGB; behind: RGB; fade: number }
+export type Tones = { body: RGB; shade: RGB; night?: RGB; behind: RGB; fade: number }
 /** The tones of a world, by what they depend on (rounded to what shows): many banks share a row of the sky. */
 const toneMemo = new WeakMap<WorldState, Map<string, Tones>>()
 
@@ -97,7 +94,7 @@ function tonesOf(world: WorldState, box: SceneBox, stops: [number, RGB][], level
   const behind = stopAt(stops, clamp01(y / Math.max(1, box.skyHeight)))
   const { palette } = world.light
   const thick = THICK[level]
-  const day = smoothstep(-8, 3, world.bodies.sun.altitude)
+  const day = cloudExposure(world)
   // Fair-weather cloud is whiter than the sky behind it; as the sky closes the cloud is the sky, its base a grey that
   // deepens where it rains.
   const fair = mixRgb(behind, [0.95, 0.96, 0.98], 0.55 + 0.3 * thick)
@@ -105,10 +102,10 @@ function tonesOf(world: WorldState, box: SceneBox, stops: [number, RGB][], level
   const dayBody = mixRgb(fair, closed, smoothstep(0.35, 0.95, union))
   const nightBody = mixRgb(behind, mixRgb(rgbOf(palette.mid), rgbOf(palette.horizon), 0.6), 0.55 * thick)
   const near = mixRgb(nightBody, dayBody, day)
-  const nearShade = mixRgb(near, day > 0.5 ? [0.3, 0.34, 0.45] : [0.03, 0.04, 0.1], (0.22 + 0.18 * union) * thick)
+  const nearShade = mixRgb(near, mixRgb([0.03, 0.04, 0.1], [0.3, 0.34, 0.45], day), (0.22 + 0.18 * union) * thick)
   // The air between: a far bank fades toward the sky behind it, as the far land fades toward the haze (and in dust).
-  const fade = 0.85 * world.air.fade(km)
-  return { body: mixRgb(near, behind, fade), shade: mixRgb(nearShade, behind, fade), behind, fade }
+  const fade = cloudFade(world.air, km)
+  return { body: mixRgb(near, behind, fade), night: mixRgb(nightBody, behind, fade), shade: mixRgb(nearShade, behind, fade), behind, fade }
 }
 
 /** How far round the sun its light comes through a bank's thin edges (px): the aureole's reach (`SUN_R` 9 × 3.2). */

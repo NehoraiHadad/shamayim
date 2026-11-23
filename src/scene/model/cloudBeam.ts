@@ -1,4 +1,6 @@
 import { smoothstep } from '../../domain/smoothstep'
+import { GENERA } from '../../world/field/genus'
+import { layerMeanTransmission, SKY_CLOUD_DEPTH_SCALE } from '../../world/lightCloud'
 import type { FieldLayer } from '../../world/field/types'
 import { EARTH_RADIUS_KM, solarBeam } from '../../world/sceneLight'
 import type { CloudLayer, RGB, WorldState } from '../../world/types'
@@ -12,16 +14,47 @@ const RAD = Math.PI / 180
 const SUN_RADIUS = 0.266 // mean angular semidiameter in degrees
 const LUX_AT_38 = 0.8 + 15.5 * Math.sqrt(Math.sin(38 * RAD))
 
-function incident(world: WorldState, height: number) {
+// IES clear-sky diffuse illuminance in klx by day, extended by approximately
+// one decade by −3 degrees and three by −8, using a quadratic in log illuminance.
+export function diffuseIlluminance(altitude: number, diffuse: number) {
+  const lux = altitude >= 0 ? 0.8 + 15.5 * Math.sqrt(Math.sin(altitude * RAD))
+    : 0.8 * 10 ** (altitude / 3 - altitude * altitude / 192)
+  return lux / LUX_AT_38 * (1 + DAY_CLOUD_DHI_GAIN * diffuse)
+}
+
+// Six tenths cover still exposes the sides of Sc rolls. At 0.95, the deck is closed.
+export const deckClosure = (cover: number) => smoothstep(0.6, 0.95, cover)
+
+// Area-weight the genera as the field morphs, so a genus handoff cannot step the light.
+function cellularShare(deck: FieldLayer) {
+  if (deck.lattice === 'low') return 1 - (deck.form.stratus ?? 0)
+  if (deck.lattice === 'mid') return 1 - Math.max(deck.form.sheet, deck.form.nimbostratus ?? 0)
+  return Number(deck.lattice === 'tower')
+}
+
+export function beamIncidence(deck: FieldLayer, altitude: number): number {
+  const h = altitude * RAD
+  const sin = Math.abs(Math.sin(h))
+  if (deck.lattice === 'high') {
+    // Ci scatters through its optically thin ice volume, while Cs is a slab.
+    const ice = (1 - deck.form.veil) * -Math.expm1(-deck.kappa * deck.meanVKm)
+    return ice + (1 - ice) * sin
+  }
+  const side = cellularShare(deck) * (1 - deckClosure(deck.cover))
+  return sin * (1 - side) + Math.abs(Math.cos(h)) * side
+}
+
+export function cloudIncident(world: WorldState, height: number): RGB {
   height = Math.max(0, height)
   const altitude = world.bodies.sun.altitude
+  // Body altitude is geometric. Treat this as a straight ray: the dense tangent column
+  // already extinguishes light near the refracted limb.
   const dip = Math.acos(EARTH_RADIUS_KM / (EARTH_RADIUS_KM + height)) / RAD
   const visible = smoothstep(-SUN_RADIUS, SUN_RADIUS, altitude + dip)
   if (!visible) return [0, 0, 0] as const
   const { transmission } = solarBeam(altitude, world.air, height)
-  // IES clear-sky diffuse illuminance (klx) relative to the land reference, with the existing cloud DHI gain.
-  const diffuse = (0.8 + 15.5 * Math.sqrt(Math.max(0, Math.sin(altitude * RAD)))) / LUX_AT_38
-  const scale = visible * SUN_TO_SKY / (REF_BEAM * diffuse * (1 + DAY_CLOUD_DHI_GAIN * world.light.diffuse))
+  // A fixed daylight reference keeps the beam in the land's irradiance units through twilight.
+  const scale = visible * SUN_TO_SKY / REF_BEAM
   // Solar bands are linear. Scale against the same clean-zenith photopic reference as solarBeam.strength.
   const factor = scale / CLEAN_ZENITH
   return [transmission[0] * factor, transmission[1] * factor, transmission[2] * factor] as const
@@ -34,25 +67,31 @@ export interface CloudBeam { direct: RGB; relay: RGB }
 export function cloudBeam(world: WorldState, layer: CloudLayer, fieldLayer?: FieldLayer): CloudBeam {
   const field = world.cloudField?.field.layers
   const own = fieldLayer ?? field?.find(({ lattice }) => lattice === layer.level)
-  const direct = incident(world, own ? own.baseKm + own.meanVKm / 2 : layer.baseM / 1000)
+  const direct = cloudIncident(world, own ? own.baseKm + own.meanVKm / 2 : layer.baseM / 1000)
   const relay: [number, number, number] = [0, 0, 0]
   let skyView = 1
   const altitude = world.bodies.sun.altitude
   const horizontal = Math.abs(Math.sin(altitude * RAD))
-  for (const level of ['mid', 'high'] as const) {
-    if (!horizontal || layer.level === 'high' || layer.level === level) continue
-    const deck = field?.find(({ lattice }) => lattice === level)
-    if (!deck) continue
-    // A Lambertian deck covering fraction c of the upper hemisphere contributes c of the cosine-weighted sky view.
-    // Conservative isotropic scattering puts at most half the intercepted beam into the downward hemisphere.
-    // Beer extinction gives intercepted energy; two-stream vertical transmission accounts for the deck screening its own base.
+  const high = field?.find(({ lattice }) => lattice === 'high')
+  const mid = field?.find(({ lattice }) => lattice === 'mid')
+  for (const deck of layer.level === 'low' ? [mid, high] : layer.level === 'mid' ? [high] : []) {
+    if (!deck?.cover) continue
     const tau = deck.kappa * deck.meanVKm
     const escape = 1 / (1 + DIFFUSE_EXTINCTION * tau)
-    // From below, single backscatter escapes through the incident face.
-    const scatter = -Math.expm1(-tau / horizontal) * (altitude < 0 ? 1 : escape) / 2
-    const share = skyView * deck.cover * horizontal * scatter
+    const size = deck === mid ? GENERA.ac.elements : GENERA.ci.crossWidth
+    const exposed = deck === mid ? cellularShare(deck) * (1 - deckClosure(deck.cover)) : 1 - deck.form.veil
+    // Cylindrical elements expose projected side area 4h/(πd) per unit footprint.
+    const side = exposed * 4 * deck.meanVKm / (Math.PI * Math.sqrt(size[0] * size[1])) * Math.abs(Math.cos(altitude * RAD))
+    const projected = Math.min(1, horizontal + side)
+    // A Lambertian deck's cover is its projected share of the receiver's sky.
+    // Beer interception bounds the energy, half of which scatters down in the isotropic approximation.
+    const intercepted = projected > 0 ? projected * -Math.expm1(-tau / projected) : 0
+    const downward = 0.5 * (side + horizontal * (altitude < 0 ? 1 : escape)) / Math.max(Number.EPSILON, side + horizontal)
+    const upperTransmission = deck === mid && high
+      ? layerMeanTransmission(high.cover, high.kappa * high.meanVKm * SKY_CLOUD_DEPTH_SCALE) : 1
+    const share = skyView * upperTransmission * deck.cover * intercepted * downward
     if (share > 0) {
-      const upper = incident(world, altitude < 0 ? deck.baseKm : deck.baseKm + deck.meanVKm)
+      const upper = cloudIncident(world, deck.baseKm + deck.meanVKm / 2)
       for (let i = 0; i < 3; i++) relay[i] += upper[i] * share
     }
     skyView *= 1 - deck.cover * (1 - escape)

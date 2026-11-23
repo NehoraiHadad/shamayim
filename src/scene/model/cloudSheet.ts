@@ -12,14 +12,14 @@ import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
-import { DIFFUSE_EXTINCTION, rowSpeeds, dustTransmission, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
+import { sheetDust, cloudHaze } from './cloudDust'
+import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
 
 export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
 type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number; lowSun?: number }
-
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
 export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours,
@@ -94,7 +94,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const ambientSlant = cellular ? 1 : veil ? Math.min(1.5, multiplier) : multiplier
     const farSource = 1 - 1 / (1 + DIFFUSE_EXTINCTION * layer.kappa * layer.meanVKm * multiplier)
     // The far source includes sky fill as the ray traverses extra air.
-    const aerial = cellular ? 0.25 * (world.air?.fade(Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) ?? 0) : 0
+    const aerial = cellular ? 0.25 * (world.air ? cloudHaze(world.air, Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) : 0) : 0
     const farTone = farSource + aerial * (0.5 - farSource)
     if (!visibility) continue
     for (let col = 0; col < xs.length; col++) {
@@ -134,14 +134,12 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   }
   const { body, shade, lit } = colours
   const lowSun = layer.lattice === 'high' ? 0 : Math.round((colours.lowSun ?? 0) * 255)
-  const transmission = world.air?.dustWeight ? dustTransmission(world.air, layer.baseKm, altitudes) : undefined
-  const dust = transmission?.some((value) => value < 255) ? transmission : undefined
+  const dust = sheetDust(world.air, layer.baseKm, altitudes)
   const sheet: LayerOf<'cloudSheet'> = {
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
-    ...(dust && { through: dust.map((value) => value / 255) }),
-    ...(lowSun > 0 && { lowSun: lowSun / 255 }),
+    ...(dust && { through: dust }), ...(lowSun > 0 && { lowSun: lowSun / 255 }),
     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
     key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit,
