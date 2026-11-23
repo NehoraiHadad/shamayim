@@ -3,8 +3,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { exactDiff } from './exactCompare.mjs'
 
-/** A red result: the run fails on it. */
-export const isRed = ({ verdict, firstDiffer }) => verdict === 'DIFF' || verdict === 'ERROR' || (verdict === 'unstable' && firstDiffer)
+/** The green verdicts: four equal loads, or one equal load of each tree (reported apart). Every other one fails the run. */
+const CONTROLLED = ['same'], SINGLE = ['equal', 'empty']
+export const isRed = ({ verdict }) => ![...CONTROLLED, ...SINGLE].includes(verdict)
 
 const pairText = ({ pixels, maxDelta, box, size }) => size ? `size ${size}`
   : pixels ? `${pixels} px, max ${maxDelta}, ${box.w}×${box.h} at ${box.x},${box.y}` : '0'
@@ -41,6 +42,15 @@ const tally = (results) => {
   return Object.entries(counts).map(([verdict, n]) => `${n} ${verdict}`).join(', ') || '–'
 }
 
+/** The whole run in one line: what was judged with its control, and apart from it the single loads. */
+export const summary = (results) => {
+  const single = results.filter(({ verdict }) => SINGLE.includes(verdict))
+  return `${tally(results.filter((r) => !single.includes(r)))}${single.length ? `; apart, one load of each tree and no control: ${tally(single)}` : ''}`
+}
+
+const layersText = (paints) => paints.length === 2 ? 'both paint paths' : paints.length
+  ? `the ${paints[0]} paint path only (by default the worker, for the time they take; \`--layers=worker,main\`: both)` : 'not shot'
+
 /** The results in markdown: what is not the same in full, then a row for each moment, style and paint path. */
 function markdown(run, results) {
   const loud = results.filter(({ verdict }) => verdict === 'DIFF' || verdict === 'unstable')
@@ -50,10 +60,12 @@ function markdown(run, results) {
   return ['# Style identity', '', `- base \`${run.base}\`, head \`${run.head}\``,
     `- Chromium ${run.chromium}, dpr ${run.dpr}, ${run.pages} pages at once, shard ${run.shard}, ${run.minutes.toFixed(1)} min`,
     `- decoded RGBA, byte for byte; styles: ${run.styles.join(', ')}; paint paths of the whole clip: ${run.paints.join(', ')}`,
-    `- each layer alone (over black and over white), and the clip with its labels: ${run.layers.join(', ') || 'no paint path'}`,
+    ...Object.entries(run.lone).filter(([, ids]) => ids.length).map(([tree, ids]) => `- **not compared, in ${tree} only: ${ids.join(', ')}**`),
+    '- every shot: its paint path and its style as the settled page really had them (another one is an `ERROR`, never compared)',
+    `- each layer alone (over black and over white), and the clip with its labels: ${layersText(run.layers)}`,
     `- \`same\`: four fresh loads (base, head, base, head) all equal: ${run.controls === 'all' ? 'every unit' : 'the whole clips'}`,
     ...(run.controls === 'all' ? [] : ['- `equal`, `empty` (nothing shown): base and head equal in one fresh load each; four loads only where those differ']), '',
-    `**${tally(results)}** (${results.filter(isRed).length} red, ${results.reduce((sum, r) => sum + (r.retries ?? 0), 0)} loads retried)`, '',
+    `**${summary(results)}** (${results.filter(isRed).length} red, ${results.reduce((sum, r) => sum + (r.retries ?? 0), 0)} loads retried)`, '',
     ...results.filter((r) => r.error).map((r) => `- ERROR \`${r.name}\`: ${r.error}`),
     ...(loud.length ? ['## Not the same', '', `| unit | verdict | ${Object.keys(loud[0].pairs).join(' | ')} |`,
       `|---|---|${Object.keys(loud[0].pairs).map(() => '---|').join('')}`,
@@ -68,5 +80,5 @@ export function writeReport(out, run, results) {
   fs.writeFileSync(path.join(out, 'identity.json'),
     JSON.stringify({ run, results: results.map((r) => ({ ...r, shots: undefined })) }, null, 1) + '\n')
   fs.writeFileSync(path.join(out, 'identity.md'), markdown(run, results))
-  console.log(`\n${tally(results)}; ${results.filter(isRed).length} red; ${run.minutes.toFixed(1)} min`)
+  console.log(`\n${summary(results)}; ${results.filter(isRed).length} red; ${run.minutes.toFixed(1)} min`)
 }
