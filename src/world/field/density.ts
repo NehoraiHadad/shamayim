@@ -1,5 +1,4 @@
 import { fieldCell, RANGES, visitCells } from './cells'
-import { rimReach } from './cellRim'
 import { smoothstep } from './genus'
 import { clumpAt, dayStart } from './handover'
 import { expectedClumpSampler, LATTICES, maxRadius } from './lattice'
@@ -53,8 +52,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
   const b = lattice === 'high' ? -8 * sin * cos : 0
   const c = lattice === 'high' ? cos * cos + 9 * sin * sin : 1
   const grid = rasterNodes(left, bottom, width, width, step, a, b, c)
-  const reach = rimReach(lattice)
-  const rasterVisit = radius + reach * maxRadius(lattice) * layer.g
+  const rasterVisit = radius + maxRadius(lattice) * layer.g
   const fadeStartSquared = fadeStart ** 2
   const expectedFromSquared = range ** 2
   const querySquared = radiusKm ** 2
@@ -66,14 +64,14 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
     (siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis, materialized) => {
       const distanceSquared = (x - cx) ** 2 + (y - cy) ** 2
       const draw = cells && distanceSquared <= drawRadiusSquared
-      const sample = distanceSquared <= (radius + reach * r) ** 2
+      const sample = distanceSquared <= (radius + r) ** 2
       if (!draw && !sample) return
       const cell = materialized ?? fieldCell(lattice, siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis, field.rain, day)
       if (draw) cells.push(cell)
       if (sample) grid.add(cell, genus === 'cu' || genus === 'cg' || genus === 'cb')
     })
   // Cells placed from outside the lattice (the satellite's single clouds, `seenCells`), on the same grid.
-  for (const cell of extra) if ((cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= (radius + reach * cell.r) ** 2) {
+  for (const cell of extra) if ((cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= (radius + cell.r) ** 2) {
     if (cells && (cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= drawRadiusSquared) cells.push(cell)
     grid.add(cell, cell.genus === 'cu')
   }

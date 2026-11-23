@@ -1,5 +1,5 @@
-import { cellRim, rimRadiusSquared } from '../../world/field/cellRim'
 import type { FieldCell } from '../../world/field/types'
+import { cellRim, rimRadiusSquared } from './cloudShadowRim'
 import { crownAt, halfAt, headsOf, towerAnvil, type TowerHeadShape } from './towerHeads'
 
 const SECTORS = 12
@@ -9,17 +9,24 @@ const RIM = Array.from({ length: SECTORS }, (_, i) => {
 })
 export const SOLAR_DIAMETER_RAD = 0.53 * Math.PI / 180
 
-/** Read the drawn cell's outline in the local screen basis. */
+/** Orient the projected shadow rim in the local screen basis. */
 export function shadowLobes(cell: FieldCell, bearing: number, handed: number, sunOffset: number, cot: number, slope: number,
-  sprite?: TowerHeadShape) {
-  if (cell.lattice === 'tower') return towerLobes(cell, sunOffset, handed, cot, slope, sprite)
-  const rim = cellRim(cell)
-  if (!rim) return RIM.map(() => 0)
-  const sin = Math.sin(bearing), cos = Math.cos(bearing)
-  return RIM.map(([x, y]) => {
-    const across = handed * x, away = slope * y
-    return Math.sqrt(rimRadiusSquared(rim, across * cos + away * sin, -across * sin + away * cos)) - 1
-  })
+  sprite?: TowerHeadShape, nextSeed?: number, weight = 0) {
+  const lobesAt = (sample: FieldCell, shape?: TowerHeadShape) => {
+    if (sample.lattice === 'tower') return towerLobes(sample, sunOffset, handed, cot, slope, shape)
+    const rim = cellRim(sample)
+    if (!rim) return RIM.map(() => 0)
+    const sin = Math.sin(bearing), cos = Math.cos(bearing)
+    return RIM.map(([x, y]) => {
+      const across = handed * x, away = slope * y
+      return Math.sqrt(rimRadiusSquared(rim, across * cos + away * sin, -across * sin + away * cos)) - 1
+    })
+  }
+  const lobes = lobesAt(cell, sprite)
+  if (nextSeed === undefined || nextSeed === cell.seed) return lobes
+  // Keep the field's geometry morph and bring in the matched cell's outline on the same curve.
+  const next = lobesAt({ ...cell, seed: nextSeed }, sprite && { ...sprite, seed: nextSeed })
+  return lobes.map((lobe, i) => lobe + weight * (next[i] - lobe))
 }
 
 const HEAD_SLICES = 16
@@ -57,8 +64,6 @@ function towerLobes(cell: FieldCell, sunOffset: number, handed: number, cot: num
 
 export interface ShadowEdge {
   lobes: readonly number[]
-  penumbraX: number
-  penumbraY: number
   centre: number
   widthX: number
   widthY: number
@@ -66,6 +71,9 @@ export interface ShadowEdge {
 
 const radialQuadrature = [[.019855, .050614], [.101667, .111191], [.237234, .156853], [.408283, .181342],
   [.591717, .181342], [.762766, .156853], [.898333, .111191], [.980145, .050614]]
+
+// Keep the unresolved ragged rim soft over several CSS pixels on foreshortened receivers.
+const RAGGED_RIM_WIDTH_PX = 6.8
 
 /** Mean beam removal of the old τ(1−r²)² profile divided by its peak.
  * With u = 1−r² the area measure is uniform. Above τ=20 the Gaussian
@@ -81,7 +89,7 @@ export function shadowEdge(lobes: readonly number[], tau: number, rx: number, ry
   // Give it room across a foreshortened axis, within the cell's own scale
   // so a subpixel cell cannot become an opaque multi-pixel smear.
   const width = (axis: number, disc: number) => Math.min(1.25 * radius,
-    Math.hypot(.42 * radius, Math.min(.96 * radius, 6.8 / axis), disc / axis))
+    Math.hypot(.42 * radius, Math.min(.96 * radius, RAGGED_RIM_WIDTH_PX / axis), disc / axis))
   const widthX = width(rx, penumbraX), widthY = width(ry, penumbraY)
   const rim = lobes.map(lobe => lobe * radius)
   const mean = rim.reduce((sum, lobe) => sum + lobe, 0) / rim.length
@@ -93,7 +101,7 @@ export function shadowEdge(lobes: readonly number[], tau: number, rx: number, ry
   // The disc profile is a CDF with radial variance width²/16. Its
   // angular mean plus the squared rim radius gives the integrated area.
   const centre = Math.sqrt(area - variance - (widthX ** 2 + widthY ** 2) / 32) - mean
-  return { lobes: rim, penumbraX, penumbraY, centre, widthX, widthY }
+  return { lobes: rim, centre, widthX, widthY }
 }
 
 export const DISC_EDGE_10_90 = .68

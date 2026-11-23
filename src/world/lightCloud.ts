@@ -2,6 +2,9 @@ import type { Covers } from './clouds'
 import { smoothstep } from './ridgeLighting'
 import type { CloudField } from './field/types'
 
+/** The sky renderer uses mean half-depth transmission for glows and illumination between decks. */
+export const SKY_CLOUD_DEPTH_SCALE = .5
+
 export const layerMeanTransmission = (cover: number, tau: number) => 1 + cover * Math.expm1(-tau)
 const openness = (cover: number, transmission: number) => transmission ** smoothstep(0.75, 0.97, cover)
 

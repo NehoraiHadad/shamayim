@@ -1,5 +1,4 @@
 import { cellularRasterRange, RANGES } from './cells'
-import { cellRim, rimDistance } from './cellRim'
 import { kernel } from './rasterNodes'
 import type { FieldCell, FieldLayer } from './types'
 
@@ -7,7 +6,7 @@ import type { FieldCell, FieldLayer } from './types'
 export function footprintDistance(cell: FieldCell, x: number, y: number): number {
   const dx = x - cell.x
   const dy = y - cell.y
-  if (cell.axis === undefined) return rimDistance(cellRim(cell), dx, dy, (dx * dx + dy * dy) / (cell.r * cell.r))
+  if (cell.axis === undefined) return (dx * dx + dy * dy) / (cell.r * cell.r)
   const angle = cell.axis * Math.PI / 180
   return ((dx * Math.sin(angle) + dy * Math.cos(angle)) / cell.r) ** 2
     + ((dx * Math.cos(angle) - dy * Math.sin(angle)) / (cell.rMinor ?? cell.r)) ** 2

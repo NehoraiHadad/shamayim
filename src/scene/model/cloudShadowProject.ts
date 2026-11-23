@@ -8,15 +8,13 @@ import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
 import { shadowEdge, shadowLobes, SOLAR_DIAMETER_RAD } from './cloudShadowEdge'
+import { shadowRimHandover } from './cloudShadowRim'
 import { supports, type Projection } from './cloudShadowWorld'
 import type { TowerHeadShape } from './towerHeads'
 import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import type { Pt } from './types'
 
-/**
- * Pure solar cloud-shadow geometric projection onto ground planes (Stage 7 round 2, split from `cloudShadows.ts`).
- * Strictly solar-driven (`sunAlt > 0` and solar direct share > 0); moonlight never projects solar cloud shadows.
- */
+/** Geometric projection of the solar cloud shadow onto ground planes. */
 const RAD = Math.PI / 180
 const RANGE = 60
 
@@ -100,6 +98,7 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
   }
 
   candidates.sort((a, b) => a.d2 - b.d2)
+  const handover = candidates.length ? shadowRimHandover(cloudField) : undefined
   const accepted: ProjectedShadow[] = []
   for (const { cell, east: eastAtEye, north: northAtEye, slant, layer } of candidates) {
     const { id, r, vKm: depth, baseKm } = cell
@@ -138,7 +137,7 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     const bearing = Math.atan2(centre.eastKm, centre.northKm)
     const slope = Math.sign(edgeY(km + .01) - edgeY(km))
     const lobes = shadowLobes(cell, bearing, camera.handed, azimuth * RAD - heading, cot, slope || -1,
-      cell.lattice === 'tower' ? towerShapes?.get(cell.seed) : undefined)
+      cell.lattice === 'tower' ? towerShapes?.get(cell.seed) : undefined, handover?.seeds.get(id), handover?.weight)
     const rx = Math.max(.1, (right - left) / 2), ry = Math.max(.1, (bottom - top) / 2)
     accepted.push({ plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
       x: (left + right) / 2, y: (top + bottom) / 2, rx, ry,

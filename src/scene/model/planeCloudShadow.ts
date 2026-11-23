@@ -56,6 +56,7 @@ export function shadowRadii({ rx, ry, edge }: ShadowBlob): Pt {
 }
 
 export const SHADOW_CARRY_SECONDS = 75
+const sweepEnd = (blob: ShadowBlob, animate: boolean) => blob.x + (animate ? blob.speed * SHADOW_CARRY_SECONDS : 0)
 
 export function shadowSeconds(shadow: ReceiverShadow, phase: number, still: boolean) {
   return still || !shadow.speed ? 0 : Math.max(0, Math.min(SHADOW_CARRY_SECONDS, phase - shadow.from))
@@ -70,7 +71,7 @@ export function shadowStep(shadow: ReceiverShadow, phase: number, still: boolean
 
 export function receiverBlobs(shadow: PlaneCloudShadow, bounds: Box, animate: boolean) {
   const blobs = shadow.blobs.filter((blob) => {
-    const atEnd = blob.x + (animate ? blob.speed * SHADOW_CARRY_SECONDS : 0)
+    const atEnd = sweepEnd(blob, animate)
     const [rx, ry] = shadowRadii(blob)
     return blob.y + ry >= bounds.y && blob.y - ry <= bounds.y + bounds.h
       && Math.max(blob.x, atEnd) + rx >= bounds.x && Math.min(blob.x, atEnd) - rx <= bounds.x + bounds.w
@@ -101,7 +102,9 @@ export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow 
   const overlap = (at: number, r: number, start: number, span: number) => Math.max(0, Math.min(at + r, start + span) - Math.max(at - r, start))
   for (const blob of blobs) {
     const [rx, ry] = shadowRadii(blob)
-    const weight = blob.rx * blob.ry * overlap(blob.x, rx, x, w) * overlap(blob.y, ry, y, h) / (4 * rx * ry)
+    // Peak visible coverage along the same carry interval used to admit the blob.
+    const end = sweepEnd(blob, animate), peakX = Math.max(Math.min(blob.x, end), Math.min(x + w / 2, Math.max(blob.x, end)))
+    const weight = blob.rx * blob.ry * overlap(peakX, rx, x, w) * overlap(blob.y, ry, y, h) / (4 * rx * ry)
     area += weight
     view += weight * (blob.diffuseView ?? 1)
     scatter += weight * cloudScatter(blob.opticalDepth)
@@ -110,8 +113,7 @@ export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow 
   const neutral = Math.min(...eSun) * view / Math.max(1, area)
   const neutralBeam = neutral / linearLuminance(eSun)
   const coreDiffuse = scatter / Math.max(1, area)
-  const diffuse = coreDiffuse * neutral
-  const cloudDiffuse: RGB = [diffuse, diffuse, diffuse]
+  const diffuse = coreDiffuse * neutral, cloudDiffuse: RGB = [diffuse, diffuse, diffuse]
   const light = { ...plane.light, litField: { ...plane.light.litField, cloudDiffuse } }
   const speed = animate ? Math.max(...blobs.map((blob) => Math.abs(blob.speed))) : 0
   return { ...plane, light, cloudShadow: { ...shadow, blobs, from, speed, beamOverSky: beam / ambient, skyDisplay, neutralBeam, coreDiffuse,
@@ -119,7 +121,6 @@ export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow 
 }
 
 export type ShadowExposure = Pick<ReceiverShadow, 'open' | 'beamOverSky' | 'skyDisplay' | 'hazeShare' | 'hazeY' | 'neutralBeam' | 'coreDiffuse'>
-
 export function shadowTransport(tau: number, open: number, coreDiffuse: number) {
   const direct = Math.min(1, Math.exp(-tau) / open)
   // Redistribute only light removed here. The deck has already changed the

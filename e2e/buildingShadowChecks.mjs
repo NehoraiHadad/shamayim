@@ -2,7 +2,7 @@
 export async function buildingShadowChecks() {
   const { projectCloudShadows } = await import('/src/scene/model/cloudShadowProject.ts')
   const { edgeCoverage } = await import('/src/scene/model/cloudShadowEdge.ts')
-  const { shadowedPlane, shadowRadii } = await import('/src/scene/model/planeCloudShadow.ts')
+  const { shadowedPlane, shadowRadii, SHADOW_CARRY_SECONDS } = await import('/src/scene/model/planeCloudShadow.ts')
   const { sceneModel } = await import('/src/scene/model/index.ts')
   const { Surface } = await import('/src/scene/compose/surface.ts')
   const { prepareShadowStamp } = await import('/src/scene/compose/cloudShadowStamp.ts')
@@ -41,15 +41,17 @@ export async function buildingShadowChecks() {
       diffuseView: blob.diffuseView }
   })
 
-  const receive = (blobs, bounds = plane.bounds) => shadowedPlane({ ...plane, bounds, cloudShadow: undefined },
-    { plane: 'near', open, blobs }, 0, false)
+  const { light } = plane
+  const unshadowed = { ...plane, cloudShadow: undefined, light: { ...light, litField: { ...light.litField, cloudDiffuse: [0, 0, 0] } } }
+  const receive = (blobs, animate = false) => shadowedPlane(unshadowed,
+    { plane: 'near', open, blobs }, 0, animate)
   const render = layer => {
     const surface = new Surface(document.createElement('canvas'))
     surface.resize(box.width, box.landHeight, 1)
     surface.render([layer], 0, true)
     return surface.canvas.getContext('2d').getImageData(0, 0, box.width, box.landHeight).data
   }
-  const lit = render({ ...plane, cloudShadow: undefined })
+  const lit = render(unshadowed)
   const broad = interest.map(blob => {
     const shadow = receive([blob]), shade = render(shadow)
     const ratios = [], cool = []
@@ -73,7 +75,7 @@ export async function buildingShadowChecks() {
     const stamp = prepareShadowStamp({ ...blob, y: 64, speed: 0 }, { x: -375, y: 0, w: 1125, h: 128 }, 1, texel)
     const stampArea = stamp.data.reduce((sum, tau) => sum - Math.expm1(-tau), 0) * texel ** 2
     return { id: blob.cellId, x: blob.x, y: blob.y, rx: blob.rx, ry: blob.ry, edgePx: t90 - t10,
-      discPx: [blob.edge.penumbraX, blob.edge.penumbraY], area: area.oldArea, stampArea, diffuseView: blob.diffuseView,
+      area: area.oldArea, stampArea, diffuseView: blob.diffuseView,
       samples: ratios.length, shadowY: median(ratios), cool: median(cool) }
   })
 
@@ -83,5 +85,11 @@ export async function buildingShadowChecks() {
   const inside = receive([stationary, at(.0001)]), outside = receive([stationary, at(-.0001)])
   const endpointStep = Math.abs(inside.light.litField.cloudDiffuse[0] - outside.light.litField.cloudDiffuse[0])
   const singleStep = receive([at(.0001)]).light.litField.cloudDiffuse[0]
-  return { blobs, broad, endpointStep, singleStep }
+  // The blob starts outside at one minute and inside at the next. Both sweeps include its full width.
+  const speed = leave / 10, entering = { ...at(-1), speed }
+  const before = receive([entering], true).light.litField.cloudDiffuse[0]
+  const after = receive([{ ...entering, x: entering.x + speed * 60 }], true).light.litField.cloudDiffuse[0]
+  const grazing = offset => receive([{ ...at(offset - speed * SHADOW_CARRY_SECONDS), speed }], true).light.litField.cloudDiffuse[0]
+  return { blobs, broad, endpointStep, singleStep, movingEndpoint: before, movingStep: Math.abs(before - after),
+    movingGrazingStep: Math.abs(grazing(.0001) - grazing(-.0001)) }
 }
