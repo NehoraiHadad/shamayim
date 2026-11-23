@@ -1,6 +1,7 @@
 export async function buildingColorChecks() {
   const { sceneModel } = await import('/src/scene/model/index.ts')
   const { outsideShape } = await import('/src/scene/model/outsideShape.ts')
+  const { outsideTerrainShare } = await import('/src/scene/model/outside.ts')
   const { buildingFaces } = await import('/src/scene/model/buildingLight.ts')
   const { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } = await import('/src/scene/paint/planeTexel.ts')
   const { srgbRgbToLinear, linearLuminance } = await import('/src/scene/model/landRadiance.ts')
@@ -24,7 +25,8 @@ export async function buildingColorChecks() {
     .map(i => br(outside.receivers[i.tier][i.receiver].front.wall))
   const glass = outside.items.filter(i => i.kind === 'tower' && i.receiver >= 0 && i.receiver % 2).map(i => {
     const pane = outside.receivers[i.tier][i.receiver].front.wall
-    const sameStone = buildingFaces(world, shape.kms[i.tier], i.receiver ^ 1)
+    const km = shape.kms[i.tier], groundKm = shape.groundKms[i.tier]
+    const sameStone = buildingFaces(world, km + (groundKm - km) * outsideTerrainShare(world), i.receiver ^ 1)
     const faces = ['front', 'left', 'right'].map(face => y(sameStone[face].wall))
     const shaded = Math.min(...faces), bright = Math.max(...faces)
     return { x: i.x, width: i.w, paneY: y(pane), wallY: shaded, ratio: y(pane) / shaded,

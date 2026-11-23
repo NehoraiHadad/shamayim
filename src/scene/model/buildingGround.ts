@@ -44,7 +44,7 @@ export function groundLighting(world: WorldState) {
   const visibleGround = .92
   const ground = reflectedGround(albedoLinear(albedo), buildingIrr, visibleGround, sunlitGround(buildingIrr.sunDir))
   const result = {
-    buildings: { irr: buildingIrr, air: srgbRgbToLinear(hazeOf(lightWorld)),
+    buildings: { irr: buildingIrr, air,
       ground, streetY: buildingIrr.yHorizon * (linearLuminance(ground) / visibleGround) ** EXPOSURE_GAMMA },
     // Existing plant, cast-shadow and lamp tints retain their original ground input.
     accents: { irr, air, ground: reflectedGround(srgbRgbToLinear(nearby), irr, .18, 1) },

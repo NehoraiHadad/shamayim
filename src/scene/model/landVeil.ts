@@ -12,7 +12,7 @@ import { mixLight, mixRgb, rgbOf, scaleLight } from './tone'
  * Koschmieder aerial-perspective haze and shared lit ground tones (Stages 3 & 7).
  *
  * Physical basis:
- * - Aerial perspective: `AERIAL · air.fade(km)²` (Koschmieder contrast decay from hourly visibility/dust),
+ * - Aerial perspective: `air.fade(km)²` scaled by the clear-weather contrast floor, which vanishes in dense fog,
  *   composited in linear light: `L = L_0 · (1 − h) + L_air · h` (`mixLight`).
  * - Wet-ground darkening: `×(1 − 0.45 · wet)` linear reflectance attenuation (Twomey et al. 1986;
  *   Lekner & Dorf 1988), applied in `landRadiance.ts` for known land and here for `ambientToneAt`.
@@ -57,8 +57,14 @@ export function hazeOf(world: WorldState): RGB {
   return rgb
 }
 
-/** How far toward the air the ground at a distance (km) goes: `AERIAL · fade(km)²`. */
-export const hazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
+/** The illustrated palette retains the original aerial contrast floor. */
+export const illustratedHazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
+
+/** Dense fog removes the clear-weather contrast floor for every land receiver. */
+export function hazeAt(world: WorldState, km: number) {
+  const { air } = world
+  return (AERIAL + (1 - AERIAL) * (air.mist?.fog ?? 0)) * air.fade(km) ** 2
+}
 
 /**
  * The ground's physically lit tone at distance `km`: the place's living-land albedo through `landRadiance`
@@ -101,7 +107,7 @@ export function hazeAlong(xs: readonly number[], shares: readonly number[], slop
 
 /**
  * Linear-light Koschmieder aerial perspective for anything on the land (water, far towns, marks): mixes in linear light
- * toward `haze` by `AERIAL · fade(km)²` so everything at one distance fades alike without sRGB darkening.
+ * toward `haze` by the shared haze fraction so every receiver at one distance fades alike without sRGB darkening.
  */
 export function aerialFor(world: WorldState, haze = hazeOf(world)): (rgb: RGB, km: number) => RGB {
   return (rgb, km) => mixLight(rgb, haze, hazeAt(world, km))

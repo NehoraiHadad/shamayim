@@ -1,6 +1,6 @@
 import type { WorldState, RGB } from '../../world/types'
 import { COVER_WATER, nonWaterLocalFallback, roundRgb } from './landPalette'
-import { hazeAt } from './landVeil'
+import { illustratedHazeAt as hazeAt } from './landVeil'
 import { labOf, lightness, mixRgb, rgbOf, rgbOfLab } from './tone'
 
 /** The drawn hand's original aerial perspective and the ground reference used to fade its far glyphs. */

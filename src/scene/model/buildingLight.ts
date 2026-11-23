@@ -4,7 +4,7 @@ import type { SceneStyle } from '../sceneStyle'
 import { groundLighting } from './buildingGround'
 import { FLAT_ROOF, PALE_METAL, PANEL, STONE, TILE, receiverMaterial } from './buildingMaterial'
 import { incidence } from './buildingIncidence'
-import { colorOf, exposedColors, facadeTwilight } from './buildingExposure'
+import { exposedColors, facadeTwilight } from './buildingExposure'
 import { hazeAt } from './landVeil'
 import { glassIncidence } from './glassLight'
 import { drawnTwilightScreen } from './drawnArchitectureLight'
@@ -24,11 +24,12 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
   const roofs = new WeakMap<Normal, RGB>()
   const { front, left, right, top } = NORMALS
   let sky: ReturnType<typeof glassIncidence> | undefined
-  const tones = new Map<number, ReturnType<typeof colorOf>>()
-  const wallTones = new Map<number, ReturnType<typeof colorOf>>()
+  const expose = exposedColors(state)
+  const tones = new Map<number, ReturnType<typeof expose>>()
+  const wallTones = new Map<number, ReturnType<typeof expose>>()
   const compressFacades = !drawnScreen && facadeTwilight(state.irr.sunAlt) > 0
   const tileTones = new Map<number, WeakMap<Normal, readonly [RGB, RGB, RGB]>>()
-  const expose = exposedColors(state)
+  const facades = new Map<number, Map<number, BuildingFaces>>()
   const sides = [incident(front, .82, .83, .92), incident(left, .82, .83, .92),
     incident(right, .82, .83, .92)]
   // The painter resolves the roof separately. Its sky view and beam must
@@ -57,7 +58,7 @@ function worldReceivers(world: WorldState, style: SceneStyle) {
     return tone
   }
 
-  return { state, incident, topLight, toneAt,
+  return { incident, topLight, toneAt, facades,
     unresolved: (km: number, rho: RGB) => toneAt(km, true)(rho, average),
     unresolvedTile: (km: number) => toneAt(km)(TILE, tileAverage),
     sky: (n: Normal, stone: RGB, wall: RGB, band?: boolean) =>
@@ -93,8 +94,8 @@ function receivers(world: WorldState, style: SceneStyle) {
 
 /** Linear material × irradiance, then the land exposure and one air-light blend. */
 export function buildingLight(world: WorldState, km: number, style: SceneStyle = 'real') {
-  const set = receivers(world, style), haze = hazeAt(world, km)
-  const shade = colorOf(set.state, haze), facade = style === 'drawn' ? shade : colorOf(set.state, haze, true)
+  const set = receivers(world, style)
+  const shade = set.toneAt(km), facade = set.toneAt(km, true)
   const receive = (rho: RGB, n: Normal, open = 1, beam = open) => (n[2] === 0 ? facade : shade)(rho, set.incident(n, open, beam))
   return Object.assign(receive, {
     unresolved: (rho: RGB) => set.unresolved(km, rho),
@@ -116,7 +117,18 @@ const flat = (wall: RGB): FaceTones => ({ wall, foot: wall, eave: wall })
 
 export function buildingFaces(world: WorldState, km: number, id: number, tiled = false, plain = false, detail = true,
   style: SceneStyle = 'real'): BuildingFaces {
-  const set = receivers(world, style), tone = set.toneAt(km)
+  const set = receivers(world, style)
+  let byMaterial = set.facades.get(km)
+  if (!byMaterial) set.facades.set(km, byMaterial = new Map())
+  const key = id * 8 + Number(tiled) + Number(plain) * 2 + Number(detail) * 4
+  let faces = byMaterial.get(key)
+  if (!faces) byMaterial.set(key, faces = makeBuildingFaces(set, km, id, tiled, plain, detail))
+  return faces
+}
+
+function makeBuildingFaces(set: ReturnType<typeof worldReceivers>, km: number, id: number, tiled: boolean, plain: boolean,
+  detail: boolean): BuildingFaces {
+  const tone = set.toneAt(km)
   const tint = set.toneAt(km, true)
   const { stone, glass, facing: { normals, leftWidth, rightWidth } } = receiverMaterial(id)
   const [front, left, right] = normals

@@ -45,8 +45,8 @@ export function localFootY(world: WorldState, name: PlaneName, x: number, crestY
  */
 export function faceAtY(
   world: WorldState, name: PlaneName, plane: Plane, x: number, crestY: number, footY: number, targetY: number,
+  crestKm = crestKmAt(plane, x),
 ): FaceSample {
-  const crestKm = crestKmAt(plane, x)
   if (name === 'back') return { km: crestKm, slope: 0 }
   const pts = faceColumnAt(world.terrain.faces[name]?.columns ?? [], x)?.points
   if (pts?.length) return measuredFaceAt(pts, crestKm, crestY, targetY)

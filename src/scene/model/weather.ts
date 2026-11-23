@@ -2,8 +2,10 @@
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
+import { drawnLightOf } from '../../world/drawnLight'
 import type { WorldState } from '../../world/types'
 import { crestAt } from './edgeMark'
+import { drawnHazeOf } from './drawnHaze'
 import { landBoxKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
 import { precipLayers } from './precip'
@@ -63,14 +65,17 @@ export function grainLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sk
     const id = dust ? 'grains.sky' : 'grains.gale'
     const skyTop = Math.max(0, Math.floor(geom.horizon - (dust ? 110 : 200)))
     const skyH = Math.max(1, Math.ceil((dust ? box.skyHeight : geom.horizon - 10) - skyTop))
-    const toneKey = [tone(rgb), Math.round(opacity * 255)]
-    out.push({ kind: 'grains', id, surface: 'sky', z: 10.5, soft: true, rgb, marks: marks('grains.sky', skyH, dust ? 70 : 12),
+    // The grains suspended in the sky keep its atmospheric palette. The
+    // land's aerial light is calibrated separately for terrain receivers.
+    const skyRgb = dust ? mixRgb(drawnHazeOf({ ...world, light: drawnLightOf(world.light) }), [0.85, 0.72, 0.5], 0.35 * (1 - dark)) : rgb
+    const toneKey = (color: typeof rgb) => [tone(color), Math.round(opacity * 255)]
+    out.push({ kind: 'grains', id, surface: 'sky', z: 10.5, soft: true, rgb: skyRgb, marks: marks('grains.sky', skyH, dust ? 70 : 12),
       bounds: { x: 0, y: skyTop, w: period, h: skyH }, animated: { mode: 'drift', speed, period },
-      key: layerKey(id, skyBoxKey(box, true), period, skyTop, skyH, toneKey) })
+      key: layerKey(id, skyBoxKey(box, true), period, skyTop, skyH, toneKey(skyRgb)) })
     if (dust) {
       out.push({ kind: 'grains', id: 'grains.land', surface: 'land', z: 50, soft: true, rgb, marks: marks('grains.land', box.landHeight, 60),
         bounds: { x: 0, y: 0, w: period, h: box.landHeight }, animated: { mode: 'drift', speed: speed * 1.4, period },
-        key: layerKey('grains.land', landBoxKey(box, true), period, toneKey) })
+        key: layerKey('grains.land', landBoxKey(box, true), period, toneKey(rgb)) })
     }
   }
   add(false, galeWeight)

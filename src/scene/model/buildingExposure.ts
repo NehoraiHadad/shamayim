@@ -2,7 +2,7 @@ import { smoothstep } from '../../domain/smoothstep'
 import { toSrgb } from './tone'
 import type { RGB } from '../../world/types'
 import type { BuildingSurroundings } from './buildingGround'
-import { linearLuminance, linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
+import { linearLuminance, shadeLinearRgb } from './landRadiance'
 
 // Interpolated in linear light. At this spacing the sRGB error is below 0.01 byte.
 const LEVELS = 4096
@@ -28,26 +28,19 @@ function facadeScale(rgb: RGB, streetY: number, twilight: number) {
   return 1 - twilight * (excess / y) * (excess / (excess + .3 * streetY))
 }
 
-function expose(rho: RGB, light: RGB, horizon: number, haze = 0, air?: RGB) {
-  return shadeLinearRgb(rho, NO_BEAM, NO_BEAM, light, 0, 0, 1, horizon, haze, air)
-}
-
-export function colorOf({ irr, air, streetY }: BuildingSurroundings, haze: number, facade = false): Exposure {
-  const twilight = facade ? facadeTwilight(irr.sunAlt) : 0
-  if (!twilight) return (rho, light) => linearRgbToSrgb(expose(rho, light, irr.yHorizon, haze, air))
-  return (rho, light) => {
-    const rgb = expose(rho, light, irr.yHorizon, haze, air)
-    const scale = facadeScale(rgb, streetY, twilight)
-    return linearRgbToSrgb([rgb[0] * scale, rgb[1] * scale, rgb[2] * scale])
-  }
+function expose(rho: RGB, light: RGB, horizon: number) {
+  return shadeLinearRgb(rho, NO_BEAM, NO_BEAM, light, 0, 0, 1, horizon)
 }
 
 /** Reuse exposure of the same material and incident light across distance tiers. */
 export function exposedColors({ irr, air, streetY }: BuildingSurroundings) {
   const cache = new WeakMap<RGB, WeakMap<RGB, RGB>>()
+  const facadeCache = new WeakMap<RGB, RGB>()
   const twilight = facadeTwilight(irr.sunAlt)
   return (haze: number, facade = false): Exposure => {
     const displayed = new WeakMap<RGB, WeakMap<RGB, RGB>>()
+    const transmits = 1 - haze
+    const [red, green, blue] = [air[0] * haze, air[1] * haze, air[2] * haze]
     return (rho, light) => {
       let colors = displayed.get(light)
       if (!colors) displayed.set(light, colors = new WeakMap())
@@ -57,10 +50,17 @@ export function exposedColors({ irr, air, streetY }: BuildingSurroundings) {
       if (!materials) cache.set(light, materials = new WeakMap())
       let rgb = materials.get(rho)
       if (!rgb) materials.set(rho, rgb = expose(rho, light, irr.yHorizon))
-      const lit: RGB = [rgb[0] + (air[0] - rgb[0]) * haze, rgb[1] + (air[1] - rgb[1]) * haze,
-        rgb[2] + (air[2] - rgb[2]) * haze]
-      const scale = facadeScale(lit, streetY, facade ? twilight : 0)
-      color = [encode(lit[0] * scale), encode(lit[1] * scale), encode(lit[2] * scale)]
+      // Exposure and street contrast act on the surface. The path's scattered
+      // light comes from the same air as the ground and cannot be in shade.
+      if (facade && twilight) {
+        let own = facadeCache.get(rgb)
+        if (!own) {
+          const scale = facadeScale(rgb, streetY, twilight)
+          facadeCache.set(rgb, own = [rgb[0] * scale, rgb[1] * scale, rgb[2] * scale])
+        }
+        rgb = own
+      }
+      color = [encode(rgb[0] * transmits + red), encode(rgb[1] * transmits + green), encode(rgb[2] * transmits + blue)]
       colors.set(rho, color)
       return color
     }

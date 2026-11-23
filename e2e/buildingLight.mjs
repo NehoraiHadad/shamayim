@@ -8,7 +8,7 @@ import { CLIP, launch, loadScene, openPage, sceneUrl, startServer } from './harn
 const cases = ['tiberias-1200', 'haifa-1200', 'jerusalem-1200', 'tel-aviv-1200', 'rosh-pina-1200',
   ...['tiberias', 'jerusalem', 'tel-aviv', 'rosh-pina'].flatMap(place => [`${place}-0620`, `${place}-1630`]),
   'haifa-1200-overcast', 'haifa-1630', 'haifa-0620', 'haifa-1710', 'haifa-1734', 'haifa-1735', 'jerusalem-2100',
-  'jerusalem-1200-broken']
+  'jerusalem-1200-broken', 'jerusalem-0700-fog', 'tel-aviv-1200-fog']
 // Pre-stage-7 native stills measured at the same footprint and rounded to four decimals.
 const preStage7FineRms = { tiberias: .0208, haifa: .0260, jerusalem: .0300, 'tel-aviv': .0267, 'rosh-pina': .0268 }
 const server = await startServer()
@@ -21,7 +21,7 @@ let canopy = false, water = false
 
 try {
   for (const name of cases) {
-    const [, place, time, weather] = /^(.+)-(\d{4})(?:-(overcast|broken))?$/.exec(name)
+    const [, place, time, weather] = /^(.+)-(\d{4})(?:-(overcast|broken|fog))?$/.exec(name)
     const at = `2026-11-17T${time.slice(0, 2)}:${time.slice(2)}`
     const { context, page } = await openPage(browser, server.url, 1)
     try {
@@ -57,6 +57,11 @@ try {
       const png = await page.screenshot({ clip: CLIP, animations: 'disabled' })
       const m = await page.evaluate(buildingMasks, png.toString('base64'))
       console.log(name, JSON.stringify(m))
+      if (weather === 'fog') {
+        assert.ok(m.n.bare >= 100 && m.n.front >= 150, 'exercise visible walls and their fogged ground')
+        band(m.front, .85, 1.15, 'fogged wall / neighbouring ground Y')
+        continue
+      }
       const colors = await page.evaluate(buildingColorChecks)
       console.log(`${name} colors`, JSON.stringify(colors))
       assert.ok(m.n.bare >= 100 && m.n.front >= 150 && m.pairs >= 50, 'need visible ground and contacting facades')
