@@ -1221,10 +1221,8 @@ Goal (owner): `real` (default) and `drawn` clearly different, one true world und
 Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 
 - [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
-      - [~] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
-            (facts only), architecture test. `real` and `drawn` byte-identical. Own READY, own merge. Built on
-            `claude/scene-foundations-2b66cc` (CI job `identity`: the still set, both styles, both paint paths, byte for byte
-            against a base ref); waits for its final CI run, then for the manager's merge
+      - [x] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
+            (facts only), architecture test. Byte-identical (identity CI 45271259016). Merged b0181337, main CI 45276145093 green
       - [x] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`,
             verified; its plain losses go with 1d, its design questions to the manager)
       - [~] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause proven and fixed on a side
@@ -1233,6 +1231,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
+      - [ ] 1g. Village composition (owner, 24 Nov, Karmei Tzur), separate from 1c-1e: (1) the height number covers the settlement
+            (`besideDot` does not see the houses; seen at Shadmot Mehola too); (2) odd detached buildings around it; (3) the place
+            does not resemble itself, houses too far apart. Evidence (record the real panorama in CI) -> proposal of the rule for
+            what a settlement shows -> owner's approval -> code. Foundations session, own worktree from its town patch
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
