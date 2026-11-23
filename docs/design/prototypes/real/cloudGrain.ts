@@ -16,8 +16,8 @@ export const DECK: Make = { soft: 9, carry: 1, tile: 210, along: 1.4, puff: 0.5,
 
 /** How far the rim stands back from the faintest cover, so a mass keeps its mean cover. */
 const BIAS = 0.06
-/** How far toward the light a head's slope is taken, in tile widths. */
-const SLOPE = 0.06
+/** A cloud's heads, big and small: the noise's rate, how far toward the light a slope is taken (tile widths), its part. */
+const HEADS = [[0.42, 0.11, 0.75], [1.1, 0.06, 0.6]] as const
 /** From this cover to this the inside is whole: no noise lets the sky through it. */
 const WHOLE = [0.6, 0.95] as const
 
@@ -42,8 +42,11 @@ export function grainRows(make: Make, seed: number) {
       const puff = make.puff ? read(puffs, x, y, 1.1, bend * 0.1 + 0.2, -bend * 0.08) : 0
       out.noise = out.wisp + (puff - out.wisp) * make.puff
       // A head's slope rising toward the light is its far side.
-      const head = (a: number, b: number) => read(swell, x, y, 1.1, bend * 0.1 + a, -bend * 0.08 + b)
-      out.relief = head(SLOPE * ux, SLOPE * uy) - head(0, 0)
+      out.relief = 0
+      for (const [rate, slope, part] of HEADS) {
+        const head = (a: number, b: number) => read(swell, x, y, rate, bend * 0.1 + a, -bend * 0.08 + b)
+        out.relief += part * (head(slope * ux, slope * uy) - head(0, 0))
+      }
       return out
     }
   }

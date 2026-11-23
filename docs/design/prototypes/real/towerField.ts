@@ -15,8 +15,11 @@ import { noiseAt, placeOf, puffTile } from './cloudNoise'
 const RASTER = 0.6, PX = 40_000
 /** The width (px) of a tower drawn at the overhead scale. */
 const WIDE = 130
-/** How deep the billows cut in from the outline (of a head's half width), and their size against the tower's width. */
-const BILLOW = 0.34, BILLOWS = 1.5
+/** The billows on the outline, big and small: their size against the tower's width, how deep they cut in (of a head's half
+ *  width); how far out of it the biggest stand. */
+const BILLOWS = [[1.5, 0.55], [0.62, 0.3]] as const, STAND = 0.26
+/** The least softness of an edge, px. */
+const LEAST = 2.5
 /** The ice's cover, and its softness against the heads'. */
 const ICE = 0.5, ICE_SOFT = 2.4
 const FROM_ICE = 0.58
@@ -41,10 +44,10 @@ export function towerField(s: CloudSprite, toward: readonly [number, number]): T
   const y1 = Math.max(4, 0.08 * s.w)
   const k = Math.min(RASTER, Math.sqrt(PX / ((x1 - x0) * (y1 - y0))))
   const w = Math.max(4, Math.ceil((x1 - x0) * k)), h = Math.max(4, Math.ceil((y1 - y0) * k)), size = w * h
-  const scale = Math.min(1, Math.max(0.1, s.w / WIDE)), soft = HEAP.soft * scale
+  const scale = Math.min(1, Math.max(0.1, s.w / WIDE)), soft = Math.max(LEAST, HEAP.soft * scale)
   const out: TowerField = { w, h, k, x: x0, y: y0, alpha: new Float32Array(size), thick: new Float32Array(size),
     relief: new Float32Array(size), scale: new Float32Array(h).fill(scale) }
-  const grain = grainRows(HEAP, s.seed % 9973)(scale), from = placeOf(s.seed % 997), tile = BILLOWS * s.w
+  const grain = grainRows(HEAP, s.seed % 9973)(scale), from = placeOf(s.seed % 997)
   for (let j = 0, n = 0; j < h; j++) {
     const y = y0 + (j + 0.5) / k, up = Math.min(1, Math.max(0, -y / s.tall))
     for (let i = 0; i < w; i++, n++) {
@@ -54,8 +57,9 @@ export function towerField(s: CloudSprite, toward: readonly [number, number]): T
         const d = inside(head, x, y, s.lean, false)
         if (d > deep) { deep = d; half = head.half }
       }
-      const billow = BILLOW * half * (1 - noiseAt(puff, x / tile + from.u, y / tile + from.v)) * smoothstep(0, 0.2, up)
-      const a = smoothstep(-soft, soft, deep - billow)
+      let billow = -STAND
+      for (const [tile, cut] of BILLOWS) billow += cut * (1 - noiseAt(puff, x / (tile * s.w) + from.u, y / (tile * s.w) + from.v))
+      const a = smoothstep(-soft, soft, deep - billow * half * smoothstep(0, 0.2, up))
       let veil = 0
       for (const head of iced) veil = Math.max(veil, smoothstep(0, ICE_SOFT * soft, inside(head, x, y, s.lean, true)))
       veil *= smoothstep(FROM_ICE, FROM_ICE + 0.2, up)
