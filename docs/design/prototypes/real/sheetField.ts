@@ -4,7 +4,7 @@ import type { LayerOf } from '../../../../src/scene/model/types'
 import { soften } from '../../../../src/scene/paint/shared/base/soften'
 import { deckOpenness } from '../../../../src/scene/paint/shared/cloud/deck'
 import { resampleRows, ROW } from '../../../../src/scene/paint/shared/cloud/resampleRows'
-import { noiseAt, puffTile, swellTile, wispTile } from './cloudNoise'
+import { noiseAt, placeOf, puffTile, swellTile, wispTile } from './cloudNoise'
 
 /*
  * A sheet's density on a raster: the model's coverage (where and how thick) as a soft body, its edge carried in and out
@@ -12,7 +12,7 @@ import { noiseAt, puffTile, swellTile, wispTile } from './cloudNoise'
  */
 
 /** Raster px per sky px. */
-export const RASTER = 0.75
+export const RASTER = 0.6
 
 export interface SheetField {
   w: number; h: number
@@ -50,7 +50,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, size = w * h
   const field: SheetField = { w, h, alpha: new Float32Array(size), thick: new Float32Array(size), tone: new Float32Array(size),
     city: new Float32Array(size), relief: new Float32Array(size), scale: new Float32Array(h) }
-  const seed = hashId(desc.id) % 9973, puffs = puffTile(seed), wisps = wispTile(seed), swell = swellTile(seed)
+  const at0 = placeOf(hashId(desc.id) % 9973), puffs = puffTile(), wisps = wispTile(), swell = swellTile()
   for (let j = 0; j < h; j++) {
     const gy = Math.min(out - 1.001, (j * (out - 1)) / (h - 1)), r = Math.floor(gy), ty = gy - r
     const scale = field.scale[j] = scaleAt[r]
@@ -59,7 +59,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
     const read = (tile: Float32Array, i: number, rate: number, a: number, b: number) => {
       const one = (l: number) => {
         const size = make.tile * 2 ** -l
-        return noiseAt(tile, (i / RASTER - width / 2) * rate / (size * make.along) + a + 0.37 * l, (j / RASTER) * rate * (1 + 0.45 * l) / size + b + 0.61 * l)
+        return noiseAt(tile, (i / RASTER - width / 2) * rate / (size * make.along) + a + at0.u + 0.37 * l, (j / RASTER) * rate * (1 + 0.45 * l) / size + b + at0.v + 0.61 * l)
       }
       return one(step) * (1 - part) + one(step + 1) * part
     }

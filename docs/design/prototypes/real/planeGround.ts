@@ -1,7 +1,7 @@
 import { materialAt } from '../../../../src/scene/paint/shared/land/planeMaterial'
 import type { PlaneTexelCtx } from '../../../../src/scene/paint/shared/land/planeTexel'
 import { TEXEL } from '../../../../src/scene/model/planeBands'
-import { noiseAt, puffTile, wispTile } from './cloudNoise'
+import { noiseAt, placeOf, puffTile, wispTile } from './cloudNoise'
 
 /*
  * The ground's own surface, seen at a slant and from afar: the model's palette where it lies, broken into patches that
@@ -22,7 +22,7 @@ interface GroundPoint { rho: [number, number, number]; relief: number }
 export function planeGround(t: PlaneTexelCtx, sunSide: number) {
   // Grain off: the shared mottle and its dark flecks are what the surface here replaces.
   const plain: PlaneTexelCtx = { ...t, grainAmount: 0 }
-  const seed = t.seed % 9973, wisp = wispTile(seed), puff = puffTile(seed + 3)
+  const from = placeOf(t.seed % 9973), wisp = wispTile(), puff = puffTile()
   const rough = Math.min(1, 0.4 + 3 * t.grainAmount)
   const out: GroundPoint = { rho: [0, 0, 0], relief: 1 }
   return (x: number, y: number): GroundPoint => {
@@ -33,7 +33,7 @@ export function planeGround(t: PlaneTexelCtx, sunSide: number) {
     materialAt(plain, x * 0.5, y * 0.5, u, v, out.rho)
     const near = v * v * (3 - 2 * v)
     const mix = (pick: (size: number) => number) => pick(PATCH[1]) * (1 - near) + pick(PATCH[0]) * near
-    const ox = x - t.bounds.x + 37, oy = (y - t.bounds.y) * FLAT
+    const ox = x - t.bounds.x + 900 * from.u, oy = (y - t.bounds.y) * FLAT + 900 * from.v
     const bend = noiseAt(wisp, ox / 260, oy / 260) - 0.5
     const read = (tile: Float32Array, rate: number, a = 0, b = 0) =>
       mix((size) => noiseAt(tile, ox * rate / size + 0.25 * bend + a, oy * rate / size + 0.25 * bend + b))

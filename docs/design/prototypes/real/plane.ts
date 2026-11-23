@@ -19,7 +19,7 @@ import { paintGullies } from './planeGullies'
  */
 
 /** Surface px per sky px. */
-const FINE = 1.6
+const FINE = 1.1
 /** How much deeper the model's own haze lies in the plane's foot. */
 const POOL = 0.3
 

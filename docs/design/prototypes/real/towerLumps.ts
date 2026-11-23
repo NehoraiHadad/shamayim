@@ -1,7 +1,7 @@
 import type { CloudSprite } from '../../../../src/scene/model/cloudSprite'
 import { carriedAt, crownAt, halfAt, headsOf, type Head } from '../../../../src/scene/model/towerHeads'
 import { seeded } from '../../../../src/data/landmarks/hash'
-import { noiseAt, wispTile } from './cloudNoise'
+import { noiseAt, placeOf, wispTile } from './cloudNoise'
 
 /*
  * A tower as a heap of rounded heads: lumps packed inside the model's own outline (`towerHeads`), big in the body, small
@@ -61,15 +61,28 @@ function lumpIn(h: Head, s: CloudSprite, order: number, r: () => number): Lump {
     z: Math.sqrt(Math.max(0, 1 - side * side)) * room * (0.5 + 0.5 * r()) * (1 - 0.7 * spread), flat: 1 - 0.45 * spread }
 }
 
+/** How the air tears the edge at each point of the raster, once for every lump. */
+function tears(wisp: Float32Array, from: { u: number; v: number }, tile: number, f: TowerSurface): Float32Array {
+  const torn = new Float32Array(f.w * f.h)
+  for (let j = 0, n = 0; j < f.h; j++) {
+    const v = (f.y + (j + 0.5) / f.k) / tile
+    for (let i = 0; i < f.w; i++, n++) {
+      const u = (f.x + (i + 0.5) / f.k) / tile
+      torn[n] = noiseAt(wisp, u + from.u, v + from.v) - 0.5 + 0.5 * (noiseAt(wisp, 3.1 * u, 3.1 * v) - 0.5)
+    }
+  }
+  return torn
+}
+
 export function towerSurface(s: CloudSprite): TowerSurface {
-  const lumps = lumpsOf(s), wisp = wispTile(s.seed % 997)
+  const lumps = lumpsOf(s), wisp = wispTile(), from = placeOf(s.seed % 997)
   const pad = 0.12 * s.w + 2
   const x0 = Math.min(...lumps.map((l) => l.x - l.r)) - pad, x1 = Math.max(...lumps.map((l) => l.x + l.r)) + pad
   const y0 = Math.min(...lumps.map((l) => l.y - l.r)) - pad, y1 = Math.max(s.under * 0.6, FOOT * s.w) + 2
   const k = Math.min(RASTER, Math.sqrt(PX / ((x1 - x0) * (y1 - y0))))
   const w = Math.max(2, Math.ceil((x1 - x0) * k)), h = Math.max(2, Math.ceil((y1 - y0) * k)), size = w * h
   const out: TowerSurface = { w, h, x: x0, y: y0, k, cover: new Float32Array(size), nx: new Float32Array(size), ny: new Float32Array(size), nz: new Float32Array(size), high: new Float32Array(size) }
-  const weight = new Float32Array(size), tile = 0.55 * s.w + 8
+  const weight = new Float32Array(size), torn = tears(wisp, from, 0.55 * s.w + 8, out)
   for (const l of lumps) {
     const ry = l.r * l.flat
     const i0 = Math.max(0, Math.floor((l.x - l.r * 1.25 - x0) * k)), i1 = Math.min(w - 1, Math.ceil((l.x + l.r * 1.25 - x0) * k))
@@ -78,9 +91,10 @@ export function towerSurface(s: CloudSprite): TowerSurface {
       const py = y0 + (j + 0.5) / k
       for (let i = i0; i <= i1; i++) {
         const px = x0 + (i + 0.5) / k, n = j * w + i
-        const torn = noiseAt(wisp, px / tile + 0.3, py / tile) - 0.5 + 0.5 * (noiseAt(wisp, px * 3.1 / tile, py * 3.1 / tile) - 0.5)
         const dx = (px - l.x) / l.r, dy = (py - l.y) / ry
-        const d = Math.hypot(dx, dy) + TORN * (torn + 0.25)
+        const far = dx * dx + dy * dy
+        if (far > 1.57) continue
+        const d = Math.sqrt(far) + TORN * (torn[n] + 0.25)
         if (d >= 1) continue
         const dome = Math.sqrt(1 - d * d), z = (l.z + l.r * dome) / s.w
         out.cover[n] = 1 - (1 - out.cover[n]) * (1 - Math.min(1, (1 - d) / 0.4) ** 1.5)

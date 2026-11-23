@@ -1,10 +1,10 @@
 /*
- * The clouds' own noise, two seeded periodic tiles: `puffs` (inverted cellular noise over three octaves: round heads
- * packed together, dark creases between) and `wisps` (gradient noise over five, with no lattice to see). Both 0–1 round ½.
- * Pure: a function of the seed.
+ * The clouds' own noise, seeded periodic tiles: `puffs` (inverted cellular noise over three octaves: round heads packed
+ * together, dark creases between), `swell` (slow) and `wisps` (gradient noise over five, with no lattice to see). Each 0–1
+ * round ½, built once: one set for every cloud and plane, each reading it from its own place (`placeOf`).
  */
 
-export const SIDE = 256
+const SIDE = 256, SEED = 4127
 
 const kept = new Map<string, Float32Array>()
 
@@ -15,58 +15,74 @@ function hash(x: number, y: number, seed: number) {
   return (h >>> 0) / 4294967296
 }
 
-/** Distance to the nearest of one jittered point a cell, `n` cells round the tile: 1 at a point, 0 a cell away. */
-function cells(u: number, v: number, n: number, seed: number) {
-  const x = u * n, y = v * n, i = Math.floor(x), j = Math.floor(y)
-  let best = 9
-  for (let b = -1; b <= 1; b++) {
-    for (let a = -1; a <= 1; a++) {
-      const ci = ((i + a) % n + n) % n, cj = ((j + b) % n + n) % n
-      const dx = i + a + hash(ci, cj, seed) - x, dy = j + b + hash(ci, cj, seed + 71) - y
-      best = Math.min(best, dx * dx + dy * dy)
+/** Where a seed reads the tiles from, in tile widths. */
+export const placeOf = (seed: number) => ({ u: hash(seed, 1, SEED), v: hash(seed, 2, SEED) })
+
+/** A value per cell of an n×n lattice that repeats, with a cell's margin on every side. */
+function lattice(n: number, at: (i: number, j: number) => number): Float32Array {
+  const side = n + 3, out = new Float32Array(side * side)
+  for (let j = 0; j < side; j++) for (let i = 0; i < side; i++) out[j * side + i] = at((i - 1 + n) % n, (j - 1 + n) % n)
+  return out
+}
+
+/** Adds `weight` × the nearness of one jittered point a cell, `n` cells round the tile: 1 at a point, 0 a cell away. */
+function addCells(out: Float32Array, n: number, seed: number, weight: number): void {
+  const px = lattice(n, (i, j) => hash(i, j, seed)), py = lattice(n, (i, j) => hash(i, j, seed + 71)), side = n + 3
+  for (let y = 0, o = 0; y < SIDE; y++) {
+    const v = (y * n) / SIDE, j = v | 0, fy = v - j
+    for (let x = 0; x < SIDE; x++, o++) {
+      const u = (x * n) / SIDE, i = u | 0, fx = u - i
+      let best = 1
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
+        const c = (j + 1 + b) * side + i + 1 + a, dx = a + px[c] - fx, dy = b + py[c] - fy
+        best = Math.min(best, dx * dx + dy * dy)
+      }
+      out[o] += weight * (1 - Math.sqrt(best))
     }
   }
-  return 1 - Math.min(1, Math.sqrt(best))
 }
 
 const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10)
 
-function gradient(u: number, v: number, n: number, seed: number) {
-  const x = u * n, y = v * n, i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j
-  const dot = (a: number, b: number) => {
-    const angle = hash(((i + a) % n + n) % n, ((j + b) % n + n) % n, seed) * Math.PI * 2
-    return Math.cos(angle) * (fx - a) + Math.sin(angle) * (fy - b)
+/** Adds `weight` × gradient noise of `n` cells round the tile. */
+function addGradient(out: Float32Array, n: number, seed: number, weight: number): void {
+  const gx = lattice(n, (i, j) => Math.cos(hash(i, j, seed) * Math.PI * 2)), gy = lattice(n, (i, j) => Math.sin(hash(i, j, seed) * Math.PI * 2)), side = n + 3
+  for (let y = 0, o = 0; y < SIDE; y++) {
+    const v = (y * n) / SIDE, j = v | 0, fy = v - j, sy = fade(fy)
+    for (let x = 0; x < SIDE; x++, o++) {
+      const u = (x * n) / SIDE, i = u | 0, fx = u - i, sx = fade(fx), c = (j + 1) * side + i + 1, d = c + side
+      const a = gx[c] * fx + gy[c] * fy, b = gx[c + 1] * (fx - 1) + gy[c + 1] * fy
+      const e = gx[d] * fx + gy[d] * (fy - 1), f = gx[d + 1] * (fx - 1) + gy[d + 1] * (fy - 1)
+      const top = a + (b - a) * sx
+      out[o] += weight * (top + (e + (f - e) * sx - top) * sy)
+    }
   }
-  const sx = fade(fx), sy = fade(fy)
-  const top = dot(0, 0) + (dot(1, 0) - dot(0, 0)) * sx
-  return top + (dot(0, 1) + (dot(1, 1) - dot(0, 1)) * sx - top) * sy
 }
 
-/** An octave sum stretched to 0–1 (its 2nd and 98th percentiles), so every seed has the same contrast. */
-function tile(key: string, at: (u: number, v: number) => number): Float32Array {
+/** An octave sum stretched to 0–1 (its 2nd and 98th percentiles). */
+function tile(key: string, add: (out: Float32Array) => void): Float32Array {
   const have = kept.get(key)
   if (have) return have
   const out = new Float32Array(SIDE * SIDE)
-  for (let j = 0; j < SIDE; j++) for (let i = 0; i < SIDE; i++) out[j * SIDE + i] = at(i / SIDE, j / SIDE)
+  add(out)
   const sorted = Float32Array.from(out).sort()
   const lo = sorted[Math.floor(0.02 * out.length)], hi = sorted[Math.floor(0.98 * out.length)]
   for (let n = 0; n < out.length; n++) out[n] = Math.min(1, Math.max(0, (out[n] - lo) / (hi - lo)))
-  if (kept.size > 12) kept.clear()
   kept.set(key, out)
   return out
 }
 
-export const puffTile = (seed: number) => tile(`p${seed}`, (u, v) =>
-  0.58 * cells(u, v, 4, seed) + 0.28 * cells(u, v, 9, seed + 5) + 0.14 * cells(u, v, 19, seed + 9))
+export const puffTile = () => tile('puff', (out) => {
+  addCells(out, 4, SEED, 0.58); addCells(out, 9, SEED + 5, 0.28); addCells(out, 19, SEED + 9, 0.14)
+})
 
 /** The heads' own slow swell, for the light on them: no fine octave, so it models without scratching. */
-export const swellTile = (seed: number) => tile(`s${seed}`, (u, v) =>
-  0.6 * cells(u, v, 5, seed) + 0.4 * gradient(u, v, 4, seed + 3) + 0.2 * gradient(u, v, 9, seed + 4))
+export const swellTile = () => tile('swell', (out) => {
+  addCells(out, 5, SEED, 0.6); addGradient(out, 4, SEED + 3, 0.4); addGradient(out, 9, SEED + 4, 0.2)
+})
 
-export const wispTile = (seed: number) => tile(`w${seed}`, (u, v) => {
-  let sum = 0, a = 1
-  for (let o = 0, n = 4; o < 5; o++, n *= 2, a *= 0.52) sum += a * gradient(u, v, n, seed + o * 17)
-  return sum
+export const wispTile = () => tile('wisp', (out) => {
+  for (let o = 0, n = 4, a = 1; o < 5; o++, n *= 2, a *= 0.52) addGradient(out, n, SEED + o * 17, a)
 })
 
 /** A tile at (u, v) in tile widths, bilinear and wrapped. */
