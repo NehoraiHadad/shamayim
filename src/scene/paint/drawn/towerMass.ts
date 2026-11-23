@@ -15,19 +15,19 @@ const BASE_DEPTH = 0.08, BASE_FLAT = 1.6, HEAD_FOOT = 0.75
 const CREASE = 0.4
 /** A puff's width against the tower's, what a far one's adds (fewer, calmer), and at least (px); its height against a
  *  sheet puff's. */
-const PUFF = 0.3, PUFF_FAR = 0.3, PUFF_MIN = 9, PUFF_TALL = 1.5
+const PUFF = 0.3, PUFF_FAR = 0.14, PUFF_MIN = 7, PUFF_TALL = 1.5
 /** The width (px) of a sheet puff (`billows`): its scale here. */
 const SHEET_PUFF = 72
-/** How far the puffs move the outline, against a head's half width; on the flat base. */
-const HEADS = 0.5, HEADS_BASE = 0.12
+/** How far the puffs move the outline, against a head's half width; on the flat base; the small heads' weight. */
+const HEADS = 0.6, HEADS_BASE = 0.12, SMALL = 0.28
 /** How far inside the outline the column is cloud whatever the puffs: it never parts. */
-const CORE = [0.12, 0.5] as const
-/** The edge's softness: a growing crown's, the column's, an anvil's ice, and what a near base adds. */
-const SOFT_CROWN = 0.2, SOFT = 0.3, SOFT_ANVIL = 0.42, SOFT_BASE = 0.5
+const CORE = [0.2, 0.6] as const
+/** The edge's softness: a growing crown's, the column's and what a far one's adds (its air), an anvil's ice, and what a near base adds. */
+const SOFT_CROWN = 0.2, SOFT = 0.3, SOFT_FAR = 0.4, SOFT_ANVIL = 0.42, SOFT_BASE = 0.5
 /** The underside's fade at its far edge, and the depth against the width it runs over. */
 const UNDER_FADE = 0.8, FADE_DEEP = 0.35
 /** A far tower's width (px), and the share of its height its foot melts into the haze over, to this share. */
-const FAR = 70, FOOT = 0.45, FOOT_LEFT = 0.15
+const FAR = 70, FOOT = 0.6, FOOT_LEFT = 0.1
 /** Room past a head's half width for the puffs. */
 const ROOM = 1.4
 
@@ -57,7 +57,7 @@ export function towerMass(s: CloudSprite): TowerMass {
         : y < h.joint ? (h.joint - y) / h.crown : 0
     })
     const up = -y / s.tall, top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
-    soft = SOFT + (top - SOFT) * smoothstep(0.4, 0.85, up) + SOFT_BASE * near * smoothstep(-0.1 * s.w, depth, y)
+    soft = SOFT_FAR * far * (1 - up) + SOFT + (top - SOFT) * smoothstep(0.4, 0.85, up) + SOFT_BASE * near * smoothstep(-0.1 * s.w, depth, y)
     foot = (1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, up)))
       * (1 - UNDER_FADE * smoothstep(Math.min(0, depth - FADE_DEEP * s.w), depth, y))
     rough = HEADS + (HEADS_BASE - HEADS) * smoothstep(straight - 0.3 * s.w, straight + 0.3 * bowl, y)
@@ -74,7 +74,7 @@ export function towerMass(s: CloudSprite): TowerMass {
     }
     if (mass < -HEADS) return null
     const p = puff(x / size, y / (size * PUFF_TALL))
-    out.alpha = Math.max(smoothstep(0, soft, mass + rough * p.high), smoothstep(CORE[0], CORE[1], mass)) * foot
+    out.alpha = Math.max(smoothstep(0, soft, mass + rough * (p.high + SMALL * p.small)), smoothstep(CORE[0], CORE[1], mass)) * foot
     out.light = p.light
     out.across = Math.max(-1, Math.min(1, across))
     out.edge = 1 - Math.min(1, Math.max(0, mass))

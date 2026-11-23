@@ -13,13 +13,13 @@ const TILE = 128, TILE_SEED = 12_139
 /** Puffs per tile across and down; their radius against a cell, and the share of cells left empty. */
 const ACROSS = 6, DOWN = 8, RADIUS = [0.62, 1.15], EMPTY = 0.18
 /** A puff's soft rim: the share of its radius it fades over. */
-const RIM = 0.55
+const RIM = 0.46
 /** A puff's light down its height: lit to here, then falling to the shade at its foot. */
 const FOOT = -0.75
-/** A tile's width and height on the sky (px) for the puffs; the banks' against theirs. */
-const TILE_W = 430, TILE_H = 300, BANK = 2.3
+/** A tile's width and height on the sky (px) for the puffs; the banks' and the small heads' against theirs. */
+const TILE_W = 430, TILE_H = 300, BANK = 2.3, SMALL = 0.43
 /** How far a slow noise bends the rows (tile widths), and how much it swells and calms the puffs. */
-const BEND = 0.09, UNEVEN = 1.2
+const BEND = 0.09, UNEVEN = 1
 
 interface Tiles { high: Float32Array; light: Float32Array }
 let made: Tiles | null = null
@@ -61,13 +61,14 @@ function level(tile: Float32Array): Float32Array {
   return tile.map((v) => v - mean)
 }
 
-export interface Billow { high: number; light: number }
+/** `small` is the height of the small heads that break a lone puff's outline. */
+export interface Billow { high: number; light: number; small: number }
 
 /** The puffs at (x, y) sky px: their height (the silhouette) and their light, about 0 (the returned object is reused). */
 export function billows(seed: number): (x: number, y: number) => Billow {
   const { high, light } = puffTiles(), slow = detailTile(TILE_SEED, 2)
   const du = (seed % 887) / 887, dv = (seed % 541) / 541
-  const out: Billow = { high: 0, light: 0 }
+  const out: Billow = { high: 0, light: 0, small: 0 }
   return (x, y) => {
     const u = x / TILE_W + du, v = y / TILE_H + dv
     const bend = tileAt(slow, u * 0.55, v * 0.55) - 0.5
@@ -75,6 +76,7 @@ export function billows(seed: number): (x: number, y: number) => Billow {
     const swell = Math.max(0.15, 1 + UNEVEN * 2 * bend)
     out.high = 0.6 * tileAt(high, bu, bv) + 0.5 * swell * tileAt(high, pu, pv)
     out.light = 0.75 * tileAt(light, bu, bv) + 0.6 * swell * tileAt(light, pu, pv)
+    out.small = tileAt(high, pu / SMALL + 0.31, pv / SMALL + 0.67)
     return out
   }
 }

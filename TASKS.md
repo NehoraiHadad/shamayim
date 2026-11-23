@@ -1087,8 +1087,10 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - [x] Seam: `scene/sceneStyle.ts`; `CanvasScene sceneStyle` → `SceneCanvas` → `useSurface`/`SkyCanvas` → `Surface.style` → cache
       keys (`~drawn`, only on kinds in `paint/drawn/index.ts`) and paint jobs → `painterOf(desc, style)`, `PaintEnv.style`.
       Dev: `?style=drawn`; stills `place@hour#drawn` (CI too); `test:perf -- --style=drawn` (CI perf job runs both).
-- [ ] Drawn clouds (`paint/drawn/`): sheets and tower cells as soft layered lit masses
-- [ ] Drawn town: merged lit blocks, roofs, lit/shade planes, windows, vegetation clumps; lessons of
-      `claude/town-style-trial` @ 0a1a04f5 (merge silhouettes first, guaranteed lit/shade gap, foot/top shade per group)
+- [x] Drawn clouds (`paint/drawn/`): sheets (`cloudSheet`, `sheetField`) and tower cells (`cloudTower`, `towerMass`) as soft layered
+      lit masses; one seeded puff tile (`billows`) gives both their heads and light. Shares the real hand's rasters and heads
+- [x] Drawn town: `townBlocks` merges the small squares of a spot and row (risers keep their height), `townLight` guarantees a
+      lit/shade gap (direct light, else the brighter sky's side), `townBlock`/`townRoof`/`townWindows`/`townTower` paint them;
+      rows recede where the tiers do not. Lessons of `claude/town-style-trial` @ 0a1a04f5 applied
 - [ ] Plane shading, only if the hillside looks foreign under the drawn town
 - [ ] Stills rounds (max 4), perf, comparison sheets

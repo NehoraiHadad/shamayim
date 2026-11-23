@@ -15,23 +15,24 @@ import { fieldAt, sheetField, type SheetField } from './sheetField'
  */
 
 /** Raster px per sky px. */
-const RASTER = 0.5
+const RASTER = 0.42
 /** A mass's opacity in its core, and how its thin parts fall off (exponent on the model's alpha). */
 const CORE = 0.94, THIN = 0.55
 /** The alpha the drawn edge stands at and its softness: crisper on a lit top than underneath. */
 const EDGE = 0.4, SOFT_TOP = 0.15, SOFT_BASE = 0.27
-/** How far the heads move the edge, against a half-thick part. */
-const HEADS = 0.85
+/** How far the heads, and the small ones on them, move the edge, against a half-thick part. */
+const HEADS = 0.85, SMALL = 0.26
 /** The light's hand: a puff's lit cap and shaded foot, a mass's broad lit top and shaded base. */
-const CAP = 1.5, FOOT = 1.5, BROAD_LIT = 1.2, BROAD_SHADE = 1.1
-/** The puffs' light inside a mass against its edge: calmer in the middle. */
-const INSIDE = 0.6
+const CAP = 1.7, FOOT = 1.9, BROAD_LIT = 1.3, BROAD_SHADE = 1.5
+/** The puffs' light inside a mass against its edge: calmer in the middle; the small heads' light on the edge. */
+const INSIDE = 0.85, SMALL_LIT = 0.25
 /** A closed deck's banks: how far their light moves the tone. */
 const BANKS = 0.7
 /** The broad light's half reach (sky px at the zenith). */
 const REACH = 12
-/** The share of the model's own tone an open deck's body keeps against the lit: its thin parts', and what a core adds. */
-const BODY = 0.5, CORE_GREY = 0.35
+/** The share of the model's own tone an open deck's body keeps against the lit: its thin parts', and what a core adds; how
+ *  much less under a low sun. */
+const BODY = 0.45, CORE_GREY = 0.35, LOW_SUN = 0.35
 /** The smallest size of the heads against the zenith's, at the horizon. */
 const SIZE_MIN = 0.12
 
@@ -66,14 +67,14 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
       const x = (i / RASTER - f.width / 2) / size
       const puff = head(x, v), rise = puff.light
       const part = 4 * a * (1 - a)
-      const alpha = drawnAlpha(a, puff.high, part, rise, open)
+      const alpha = drawnAlpha(a, HEADS * puff.high + SMALL * puff.small, part, rise, open)
       if (alpha < 0.004) continue
       const broad = fieldAt(f.broad, cols, rows, gx, gy + reach) - fieldAt(f.broad, cols, rows, gx, gy - reach)
-      const relief = puff.light * (INSIDE + (1 - INSIDE) * part)
+      const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
       const lift = open * (broad > 0 ? BROAD_LIT : BROAD_SHADE) * broad
         + (open + (1 - open) * BANKS) * (relief > 0 ? CAP : FOOT) * relief
       const body = toneOf(desc, fieldAt(f.tone, cols, rows, gx, gy))
-      const base = open ? mix(body, mix(desc.lit, body, BODY + CORE_GREY * a * a), open) : body
+      const base = open ? mix(body, mix(desc.lit, body, (BODY + CORE_GREY * a * a) * (1 - LOW_SUN * low)), open) : body
       put(out, at, lightOf(base, bright, desc.shade, lift, low), alpha)
     }
   }
@@ -82,8 +83,8 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
 /** The mass's drawn alpha: the model's for a closed deck; an open one's edge stands on its heads. */
 function drawnAlpha(a: number, head: number, part: number, rise: number, open: number) {
   if (!open) return a
-  const soft = rise > 0 ? SOFT_TOP : SOFT_BASE
-  const edge = smoothstep(EDGE - soft, EDGE + soft, a + HEADS * head * part)
+  const soft = SOFT_BASE + (SOFT_TOP - SOFT_BASE) * smoothstep(-0.2, 0.2, rise)
+  const edge = smoothstep(EDGE - soft, EDGE + soft, a + head * part)
   return a + open * (CORE * edge * a ** THIN - a)
 }
 

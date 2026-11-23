@@ -1,6 +1,7 @@
 import type { Painters } from '../index'
 import { paintDrawnCells } from './cloudTower'
 import { paintDrawnSheet } from './cloudSheet'
+import { paintDrawnOutside } from './town'
 
 /**
  * The drawn hand (docs/design/ILLUSTRATION.md, the v1b stills): the layer kinds it paints its own way. Every other kind is
@@ -9,4 +10,5 @@ import { paintDrawnSheet } from './cloudSheet'
 export const DRAWN: Painters = {
   cloudSheet: { form: paintDrawnSheet },
   cloudCells: { form: paintDrawnCells },
+  outside: { form: () => {}, light: paintDrawnOutside, formless: () => true },
 }
