@@ -69,6 +69,7 @@ export function greedyPairs(outgoing: FieldCell[], incoming: FieldCell[], maxRad
 function morph(a: FieldCell, b: FieldCell, w: number): FieldCell {
   const axisDelta = a.axis === undefined ? 0 : ((b.axis! - a.axis + 540) % 360) - 180
   return { ...a, x: mix(a.x, b.x, w), y: mix(a.y, b.y, w),
+    ...(a.seed !== b.seed && (a.lattice === 'low' || a.lattice === 'mid') && { seedBlend: [b.seed, w] as const }),
     r: mix(a.r, b.r, w), rMinor: a.rMinor === undefined ? undefined : mix(a.rMinor, b.rMinor!, w),
     axis: a.axis === undefined ? undefined : (a.axis + w * axisDelta + 360) % 360,
     baseKm: mix(a.baseKm, b.baseKm, w), vKm: mix(a.vKm, b.vKm, w),

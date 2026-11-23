@@ -54,6 +54,8 @@ export interface FieldCell {
   rainWeight: number
   share: number
   seed: number
+  /** Incoming cell identity and interpolation weight during a matched midnight handover. */
+  seedBlend?: readonly [seed: number, weight: number]
   genus: Genus
   rank: number
   /** Minor semi-axis in km and major-axis bearing in degrees clockwise from north. */

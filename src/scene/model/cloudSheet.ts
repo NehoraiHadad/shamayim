@@ -8,6 +8,7 @@ import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { CITY_RGB, type CityOnBase } from './cityLight'
 import { sheetCity } from './cloudSheetCity'
+import { seenDepth } from './cloudSheetSeen'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
@@ -42,6 +43,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const angularStep = 360 * RAD * (xs[1] - xs[0]) / geom.azimuthRange.period
   const { expectedTauAt, rayRange, queryRadius } = densityGrid
   const depthAt = cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt
+  const seen = layer.lattice === 'low' || layer.lattice === 'mid' ? seenDepth(snapshot.cells, heightKm, geom) : null
   const resolvedEnd = Math.min(rayRange, queryRadius)
   const radius = meanRadius(layer.lattice, layer.g)
   // One centred tap has zero sweep, within both the texel footprint and
@@ -57,6 +59,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const handoff = cellular ? smoothstep(resolvedEnd / 2, resolvedEnd, range)
       : smoothstep(queryRadius - 2 * radius, queryRadius - radius, range)
     const f = fade[row] = veil ? 1 : Math.max(handoff, smoothstep(radius, 2 * radius, footprint))
+    const correction = f < 1 ? seen?.(range, alt) : null
     const level = f === 1 ? 0 : sheetDetail(genus, footprint)
     const sample = level ? texture(footprint) : null
     path[row] = 1
@@ -76,7 +79,9 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         raw[index] = raw[first]
         continue
       }
-      const depth = tau[index] = f < 1 ? depthAt(x, y) : 0
+      let depth = f < 1 ? depthAt(x, y) : 0
+      if (correction) depth = Math.max(layer.floorTau, depth + correction(x, y))
+      tau[index] = depth
       expected[index] = f ? expectedTauAt(meanRange * east[col], meanRange * north[col]) : 0
       detail[index] = depth > layer.floorTau || (!cellular && f > 0) ? level : 0
       raw[index] = sample && detail[index] ? sample(x, y) : 1
