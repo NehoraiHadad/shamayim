@@ -7,7 +7,7 @@ import { STILL_OPTIONS, waitForSky } from './skyShown.mjs'
 
 const [outDir, appRoot = '.', mode = 'after'] = process.argv.slice(2)
 fs.mkdirSync(outDir, { recursive: true })
-const KEY = 'shamayim:style-vote:v1'
+const KEY = `shamayim:style-vote:${mode === 'before' ? 'v1' : 'v2'}`
 const PANEL = '#style-vote-panel', TOGGLE = '[data-style-vote]', VOTE = `${PANEL} button:not([aria-label])`
 let failed = 0
 const check = (ok, what, detail = '') => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${what} ${detail}`) }
