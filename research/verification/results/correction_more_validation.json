@@ -1,0 +1,24 @@
+{
+ "gust_l0": {
+  "hourly_raw": 5.717,
+  "hourly_corrected": 5.334,
+  "daily_max_raw": 6.351,
+  "daily_max_scaled": 6.106
+ },
+ "gust_l1": {
+  "hourly_raw": 6.558,
+  "hourly_corrected": 6.239,
+  "daily_max_raw": 7.746,
+  "daily_max_scaled": 6.962
+ },
+ "rh_l0": {
+  "app": 6.115,
+  "new_weight": 5.974,
+  "new_weight_plus_table": 5.979
+ },
+ "rh_l1": {
+  "app": 7.136,
+  "new_weight": 7.073,
+  "new_weight_plus_table": 6.998
+ }
+}

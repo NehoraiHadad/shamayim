@@ -1,9 +1,15 @@
 import { blendDirection, blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
+import { hourlyTemperatureAdd, temperatureIconWeight } from '../../domain/correction/temperature'
+import { correctGust, correctHumidity, humidityIconWeight } from '../../domain/correction/windHumidity'
 import type { HourPoint, WindVector } from '../../domain/types'
 import { DataError, obj, str, type Json } from './guards'
 import { pairs, thickCloud } from './mapHelpers'
 
-export function mapHours(raw: Json, today: string): HourPoint[] {
+/**
+ * `now` (the response's current time) and `utcOffsetSeconds` place each hour's lead and standard-time hour for the
+ * national temperature correction (domain/correction/temperature).
+ */
+export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds: number): HourPoint[] {
   const hourly = obj(raw.hourly, 'hourly')
   const time = hourly.time
   if (!Array.isArray(time)) throw new DataError('hourly.time: missing')
@@ -28,7 +34,7 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
   const cruiseRh = pairs(hourly, 'relative_humidity_250hPa', length, 'hourly')
   const cape = pairs(hourly, 'cape', length, 'hourly')
   const freezingLevel = pairs(hourly, 'freezing_level_height', length, 'hourly')
-  const windSpeed = pairs(hourly, 'wind_speed_10m', length, 'hourly')
+  const windSpeed10 = pairs(hourly, 'wind_speed_10m', length, 'hourly')
   const windGusts = pairs(hourly, 'wind_gusts_10m', length, 'hourly')
   const humidity = pairs(hourly, 'relative_humidity_2m', length, 'hourly')
   const snowDepth = pairs(hourly, 'snow_depth', length, 'hourly')
@@ -37,21 +43,28 @@ export function mapHours(raw: Json, today: string): HourPoint[] {
 
   return time.flatMap((value, index) => {
     const stamp = str(value, `hourly.time[${index}]`)
-    const weight = iconWeight(dates.indexOf(stamp.slice(0, 10)) - todayIndex)
-    const blendedTemp = blendNumber(temp[index], weight)
+    const dayOffset = dates.indexOf(stamp.slice(0, 10)) - todayIndex
+    const weight = iconWeight(dayOffset)
+    const blendedTemp = blendNumber(temp[index], temperatureIconWeight(dayOffset))
     if (blendedTemp === null) return []
+    const windSpeed = blendNumber(windSpeed10[index], weight) ?? 0
+    const gust = blendNumber(windGusts[index], weight)
+    const rh = blendNumber(humidity[index], humidityIconWeight(dayOffset))
+    const modelRh = blendNumber(humidity[index], weight)
 
     return [{
       time: stamp,
-      temperature: roundTemperature(blendedTemp),
+      temperature: roundTemperature(blendedTemp + hourlyTemperatureAdd(stamp, now, utcOffsetSeconds)),
+      modelTemperature: roundTemperature(blendNumber(temp[index], weight) ?? blendedTemp),
       precipProb: blendNumber(precipProb[index], weight),
       precipitation: blendNumber(precipitation[index], weight) ?? 0,
       weatherCode: blendWeatherCode(weatherCode[index], precipProb[index], weight) ?? 0,
       cloudCover: blendNumber(cloudCover[index], weight) ?? 0,
       thickCloud: thickCloud(blendNumber(cloudLow[index], weight), blendNumber(cloudMid[index], weight)),
-      windSpeed: blendNumber(windSpeed[index], weight) ?? 0,
-      windGusts: blendNumber(windGusts[index], weight) ?? 0,
-      humidity: blendNumber(humidity[index], weight),
+      windSpeed,
+      windGusts: gust === null ? 0 : correctGust(gust, windSpeed, stamp, now, utcOffsetSeconds),
+      humidity: rh === null ? null : correctHumidity(rh, stamp, now, utcOffsetSeconds),
+      ...(modelRh === null ? {} : { modelHumidity: modelRh }),
       snowDepth: blendNumber(snowDepth[index], weight) ?? 0,
       cloudLow: blendNumber(cloudLow[index], weight),
       cloudMid: blendNumber(cloudMid[index], weight),
