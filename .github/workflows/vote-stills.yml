@@ -1,0 +1,32 @@
+name: Vote stills
+on:
+  push:
+    branches: ['claude/vote-stills-04ce33']
+env:
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+jobs:
+  stills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v5
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: npx vite build
+      - run: node e2e/styleVote.stills.mjs vote-out/after . after
+      - name: Before
+        if: always()
+        run: |
+          git worktree add ../before 38ec3798
+          ln -s "$PWD/node_modules" ../before/node_modules
+          (cd ../before && npx vite build)
+          node e2e/styleVote.stills.mjs vote-out/before ../before before || true
+      - name: Worker bundle, no deploy
+        if: always()
+        working-directory: worker
+        run: npm ci && npx wrangler deploy --dry-run --outdir /tmp/worker-out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: vote-stills, path: vote-out/, retention-days: 14 }
