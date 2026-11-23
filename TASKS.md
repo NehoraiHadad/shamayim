@@ -938,7 +938,7 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       `cloudCells` layer + painter, `FallingCloud` and `weatherLayers(world, box, clear)` adopted on top of land-living's
       canopy / land dust / plant wind wiring; land helper types stay in `typesLand.ts`; `sceneWorld.ts` keeps `cropAreas`
       and takes main's recorded-day `fixtureFor`.
-- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-23). Approved by Opus, stills to re-record.
+- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-23). Approved by Opus, 39 stills re-recorded.
       - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
             luminance compression, and per-face-distance linear haze across terrain receivers.
       - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
