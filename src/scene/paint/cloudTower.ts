@@ -14,14 +14,14 @@ import { towerTone } from './towerTone'
 const OPACITY = 0.92, TAU_FULL = 6
 /** Raster px per sky px at most, and raster px in a tower at most (a near giant is soft anyway). */
 const RASTER = 0.7, RASTER_PX = 10_000
-/** Room across for the noise and a wide anvil, against the width on each side; room over the crown. */
-const ROOM = 0.8, ROOM_ANVIL = 1.35, ROOM_TOP = 0.25
+/** Room over the crown for the noise, against the width. */
+const ROOM_TOP = 0.25
 
 export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv): void {
   if (s.w < 0.5 || s.share <= 0.005 || s.tall < 0.5) return
   const opacity = OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
   const shape = towerShape(s)
-  const reach = s.w * (ROOM + (ROOM_ANVIL - ROOM) * (s.anvil ?? 0)), over = s.w * ROOM_TOP
+  const { reach } = shape, over = s.w * ROOM_TOP
   const box = { x: -reach, y: -s.tall - over, w: 2 * reach, h: s.tall + over + shape.depth * 1.5 }
   const k = Math.min(RASTER, Math.sqrt(RASTER_PX / (box.w * box.h)))
   const w = Math.max(2, Math.ceil(box.w * k)), h = Math.max(2, Math.ceil(box.h * k))

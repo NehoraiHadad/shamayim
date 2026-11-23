@@ -35,11 +35,15 @@ const REACH = 0.45
 /** The width (px) under which a tower is far: one broad octave, its edges softer by this much, its foot (a share of
  * its height) melting into the haze to this share. */
 const FAR = 70, FAR_SOFT = 0.15, FOOT = 0.4, FOOT_LEFT = 0.55
+/** Room past a head's own half width for the noise and the sway. */
+const ROOM = 1.5
 const NOISE_SEED = 4127
 
 export interface TowerShape {
   /** The base's depth below the near edge, px. */
   depth: number
+  /** How far from the middle the cloud can reach, px. */
+  reach: number
   /** The cloud at (x, y): its alpha, 0…1, and its relief there; null in open sky. */
   at(x: number, y: number): { a: number; bump: number } | null
   /** The surface's relief at (x, y), about 0: lumps stand out, creases lie in. */
@@ -67,7 +71,7 @@ export function towerShape(s: CloudSprite): TowerShape {
       const at = row[n]
       at.wide = halfAt(h, y)
       at.axis = h.x + at.wide * sway
-      at.beyond = y > 0 ? y / depth : y < h.joint ? (h.joint - y) / h.crown : 0
+      at.beyond = y > 0 ? y / (n === heads.length - 1 ? depth : 0.25 * depth) : y < h.joint ? (h.joint - y) / h.crown : 0
       at.knee = y > 0 ? 0 : Math.max(y, h.joint)
     })
     const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
@@ -98,5 +102,7 @@ export function towerShape(s: CloudSprite): TowerShape {
     const a = smoothstep(0, soft, inside) * body
     return a > 0 ? { a, bump } : null
   }
-  return { depth, at, relief }
+  // The noise and the sway carry the outline out by about a quarter of a head.
+  const reach = Math.max(...heads.map((h) => Math.abs(h.x) + ROOM * Math.max(h.half, halfAt(h, -h.tall))))
+  return { depth, reach, at, relief }
 }

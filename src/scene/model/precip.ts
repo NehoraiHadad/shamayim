@@ -10,7 +10,7 @@ import type { LayerDesc, SceneBox } from './types'
 import { q, tone, whole, WHITE } from './weatherShared'
 
 /** The streaks inside a far curtain, against its own strength: a glint of falling in the mass, not the mass itself. */
-const FAR_STREAKS = 0.35
+const FAR_STREAKS = 0.22
 
 /**
  * Rain or snow from the world's falling banks (sky): the far banks' curtains and the streaks falling in them, the near

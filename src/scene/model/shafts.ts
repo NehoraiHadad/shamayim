@@ -51,7 +51,7 @@ export function shaftOf(world: WorldState, geom: SkyGeom, b: FallingCloud, p: Pr
   // A rain curtain is the dark of the base it falls from (heavy shower rain is opaque to the light behind it), faded
   // only by the air between, as far land is.
   // By night it is a darker patch of the night sky.
-  const rgb = p.precip === 'rain' ? mixRgb(mixRgb(mixRgb(RAIN_GREY, b.shade, 0.5), horizonSky, 0.08 + 0.5 * far),
+  const rgb = p.precip === 'rain' ? mixRgb(mixRgb(mixRgb(RAIN_GREY, b.shade, 0.5), horizonSky, 0.08 + 0.35 * far),
     mixRgb(horizonSky, [0, 0, 0], 0.3), world.night.dark)
     : mixRgb(mixRgb(b.body, WHITE, 0.25 * (1 - world.night.dark)), horizonSky, 0.3 + 0.5 * far)
   // A shower a few kilometres off is a grey wall, not a veil: nearness thickens it, the air between thins it.
