@@ -1,0 +1,40 @@
+name: Drawn concept
+
+# The drawn style's prototype drawn on the branch's own scene (this branch only; goes away when the painters move into src).
+on:
+  push:
+    branches: ['claude/drawn-style-accc0f']
+    paths: ['docs/design/prototypes/drawn/**', '.github/workflows/drawn-concept.yml']
+
+concurrency:
+  group: drawn-concept
+  cancel-in-progress: true
+
+env:
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+  MOMENTS: >-
+    tel-aviv@12:00 rosh-pina@10:00 haifa@2026-03-15T14:00 haifa@21:00
+    beit-shean@12:00@rain haifa@16:30 jerusalem@16:30@broken jerusalem@06:20 haifa@07:00@fog ramon-crater@15:00@dust
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        as: [concept, drawn, real]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: node --experimental-strip-types --no-warnings docs/design/prototypes/drawn/render.mjs out/${{ matrix.as }} $MOMENTS --as=${{ matrix.as }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drawn-concept-${{ matrix.as }}-${{ github.sha }}
+          path: out/
+          retention-days: 14

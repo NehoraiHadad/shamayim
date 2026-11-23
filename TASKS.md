@@ -1239,8 +1239,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             the notes folder (`drawn/concept/`, crops in `drawn/map/`)
       - [x] Second hand: colour woodblock print (carved billows, key line, wipes) in place of cut paper (kept in
             `drawn/concept-a-paper/`); doc, stills, map and extra weather (`drawn/concept/more-weather-concept-only.png`) rebuilt
-      - [ ] Waits for the owner's verdict on the concept, then the manager's word that `src/scene` is open. Render needs a base tree:
-            `../drawn-concept-base` (detached `ac4262e8`), removed after phase 1. Owed before `src/scene`: doc §4 end, §6 (over budget)
+      - [ ] Waits for the owner's verdict on the concept, then the manager's word that `src/scene` is open. The prototype is
+            drawn on CI only (`.github/workflows/drawn-concept.yml`, this branch, not for main; no local renders). Owed before `src/scene`: doc §4 end, §6 (over budget)
       - [ ] Concept approved by the owner; `src/scene` open; contract needs (sky base per style) settled with the manager
       - [ ] Build in `paint/drawn/` (sky, sheets and cells, ground, town, water and canopy, rain, mist and dust), perf plan of §6
       - [ ] CI still set, perf, review, owner's approval, merged
