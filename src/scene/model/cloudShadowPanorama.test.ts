@@ -15,6 +15,8 @@ const ids = ['jerusalem', 'haifa', 'tiberias']
 const box: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
 const at = '2026-11-17T13:00'
 const SHADOW_RATIO_LIMIT = 0.30
+/** Warm runs per minute of each side of the ratio: the fastest stands for the work, the rest for the runner's noise. */
+const WARM_REPS = 7
 let places: Map<string, LoadedPlace>
 
 beforeAll(async () => {
@@ -53,7 +55,7 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
     [faces.near, faces.far].map(face => face.columns.reduce((total, column) => total + column.points.length, 0))
 
   const samples = frames.map((world, minute) => {
-    const shadow = timed(() => cloudShadowLayers(world, box))
+    const shadows = () => cloudShadowLayers(world, box)
     // Keep the field's optical layers for the sky. Only remove the shadow candidates.
     const noShadows = { ...world, cloudField: world.cloudField && { ...world.cloudField,
       snapshot: world.cloudField.snapshot.map(snapshot => ({ ...snapshot, cells: [] })),
@@ -64,7 +66,15 @@ it.each(ids)('projects new-minute shadows on the recorded %s panorama', id => {
     const fieldFirst = minute % 2 === 0
     const [firstModel, secondModel] = fieldFirst ? [withField, withoutShadows] : [withoutShadows, withField]
     const cold = timed(firstModel).ms + timed(secondModel).ms
-    const secondWarm = timed(secondModel).ms, firstWarm = timed(firstModel).ms
+    // Both sides warm, interleaved, the fastest of each: one sample apiece put a runner's GC pause or a busy neighbour
+    // into one side of the ratio (a cold shadow run against a warm scene read 0.302 and 0.305 on CI).
+    let firstWarm = Infinity, secondWarm = Infinity, shadow = timed(shadows)
+    for (let rep = 0; rep < WARM_REPS; rep++) {
+      secondWarm = Math.min(secondWarm, timed(secondModel).ms)
+      firstWarm = Math.min(firstWarm, timed(firstModel).ms)
+      const again = timed(shadows)
+      if (again.ms < shadow.ms) shadow = again
+    }
     const model = fieldFirst ? firstWarm : secondWarm
     const baseline = fieldFirst ? secondWarm : firstWarm
     return { shadow, model, baseline, coldOverhead: (cold - model - baseline) / 2 }
