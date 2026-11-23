@@ -7,6 +7,8 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { compareExactly } from './exactCompare.mjs'
 import { CLIP, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
+import { assertPaintedBy, paintedBy, prepare, WrongShot } from './identityPage.mjs'
+import { supportedStyles } from './sceneHand.mjs'
 
 /** Grey levels of the page behind a layer alone: over black and over white its colour and its alpha both show. */
 const BACKDROPS = [0, 255]
@@ -35,22 +37,40 @@ export async function serveTree(name, dir, cacheDir) {
   return { name, root, commit: commitOf(root), ...server }
 }
 
+/** The styles a served tree's page supports, read on an empty page of its origin (once more if the cold server failed it). */
+export async function stylesOf(browser, tree, attempts = 2) {
+  const { context, page } = await openPage(browser, tree.url, 1, { treeRoot: tree.root })
+  try {
+    await page.route('**/empty', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }))
+    await page.goto(`${tree.url}/empty`)
+    return await supportedStyles(page, tree.root)
+  } catch (err) {
+    if (attempts < 2) throw err
+  } finally {
+    await context.close()
+  }
+  return stylesOf(browser, tree, attempts - 1)
+}
+
 /**
- * In the page, before its code: the composited layers listed, and no deadline of a second or more ever struck. The land's
- * files are given up after 5 s (`src/data/land/fineCover.ts`) and the scene drawn without them, so a still would otherwise
- * depend on how busy the machine is.
+ * The styles to compare: the ones asked for, which both trees must have, or all that both have; `lone`, the ones only one
+ * tree has (`{ base, head }`).
  */
-function prepare() {
-  window.__trackSceneShown = true
-  const set = window.setTimeout.bind(window), timeout = AbortSignal.timeout
-  const NEVER = 2 ** 31 - 1
-  window.setTimeout = (run, ms, ...rest) => set(run, ms >= 1000 ? NEVER : ms, ...rest)
-  AbortSignal.timeout = (ms) => timeout.call(AbortSignal, ms >= 1000 ? NEVER : ms)
+export function chosenStyles(have, asked) {
+  for (const [tree, ids] of Object.entries(have)) {
+    const unknown = asked.filter((id) => !ids.includes(id))
+    if (unknown.length) throw new Error(`--styles: ${tree} has no style ${unknown.join(', ')} (it has ${ids.join(', ') || 'none'})`)
+  }
+  const both = have.base.filter((id) => have.head.includes(id))
+  if (!both.length) throw new Error(`no style in common: base has ${have.base.join(', ')}, head has ${have.head.join(', ')}`)
+  const lone = (ids) => ids.filter((id) => !both.includes(id))
+  return { styles: asked.length ? asked : both, lone: { base: lone(have.base), head: lone(have.head) } }
 }
 
 /**
  * One load of a unit in a fresh context: its PNGs (one a backdrop) and the ids of the layers composited. A request of the
- * tree's own that fails is an error: the scene may have been drawn without it.
+ * tree's own that fails is an error (the scene may have been drawn without it), and so is another paint path or style than
+ * the unit's.
  */
 async function load(browser, tree, unit, dpr) {
   const { context, page } = await openPage(browser, tree.url, dpr, { treeRoot: tree.root })
@@ -63,23 +83,27 @@ async function load(browser, tree, unit, dpr) {
     await page.addInitScript(prepare)
     await loadScene(page, sceneUrl(tree.url, { ...unit.moment, style: unit.style, paint: unit.paint,
       overlay: unit.overlay ?? false, hide: unit.hide ?? unit.moment.hide }), LOAD_TIMEOUT, 0)
+    await page.evaluate(() => window.__scene.settled())
     const pngs = []
     for (const grey of unit.alone ? BACKDROPS : [null]) {
       if (grey !== null) await page.evaluate((g) => { document.body.style.background = `rgb(${g}, ${g}, ${g})` }, grey)
       pngs.push(await page.screenshot({ clip: CLIP }))
     }
     if (lost.length) throw new Error(`${lost.length} of the tree's own requests failed: ${lost[0]}`)
-    return { pngs, ids: await page.evaluate(() => Object.keys(window.__sceneStats.shown)) }
+    const seen = await paintedBy(page)
+    assertPaintedBy(unit, seen)
+    return { pngs, ids: seen.ids }
   } finally {
     await context.close()
   }
 }
 
-/** `load`, once more in another fresh context if the first one failed to load (counted in the report). */
+/** `load`, once more in another fresh context if the first one failed to load (counted in the report); a wrong shot is not. */
 export async function shoot(browser, tree, unit, dpr) {
   try {
     return { ...await load(browser, tree, unit, dpr), retries: 0 }
   } catch (first) {
+    if (first instanceof WrongShot) throw first
     console.log(`retry    ${tree.name} ${unit.name}: ${String(first.message).split('\n')[0]}`)
     return { ...await load(browser, tree, unit, dpr), retries: 1 }
   }
@@ -87,7 +111,8 @@ export async function shoot(browser, tree, unit, dpr) {
 
 /**
  * The verdict of a unit's four shots. `same`: all equal. `unstable`: the base differs from itself (`firstDiffer`: and the
- * first loads differ too). `DIFF`: a stable base, and a head that is not it.
+ * first loads differ too; some head load differs from some base load either way). `DIFF`: a stable base, and a head that is
+ * not it.
  */
 export function verdictOf(pairs) {
   if (pairs['base1/base2'].pixels) return { verdict: 'unstable', firstDiffer: pairs['base1/head1'].pixels > 0 }

@@ -1,12 +1,13 @@
 // Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/), with the HTML overlay.
-//   node e2e/scene.stills.mjs <outDir> <moment>[#drawn] … [--dpr=2]    (a moment: `moments.mjs`)
-// (`#drawn`: painted in the drawn hand, `-drawn` in the file's name.)
+//   node e2e/scene.stills.mjs <outDir> <moment>[#<style>] … [--dpr=2]    (a moment: `moments.mjs`)
+// (`#drawn`: painted in the drawn hand, `-drawn` in the file's name; a style the scene does not have is refused.)
 // (`land`: loading | offline | arrive, C8: the land not known yet, or its reveal begun at phase 0.)
 // (A full date picks another day: the moon in another phase. The fixture's forecast is rolled to it.)
 import fs from 'node:fs'
 import path from 'node:path'
 import { CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from './harness.mjs'
 import { momentName, parseMoment } from './moments.mjs'
+import { assertStyle } from './sceneHand.mjs'
 
 /** Bottom band includes the neighbours and home roofs in the 428 px still; taller marks extend it upward. */
 const NEIGHBOUR_BAND_PX = 53
@@ -32,6 +33,7 @@ try {
     if (flat) for (const [key, value] of Object.entries({ terrain: 'flat', lat: flat[0], lon: flat[1], name:
       flat[2] ?? place })) url.searchParams.set(key, value)
     await loadScene(page, url.href)
+    if (moment.style) await assertStyle(page, moment.style)
     if (flat) await page.evaluate(name => {
       const label = document.createElement('div')
       label.textContent = `${name} · Offline flat 100 m · no recorded panorama`
