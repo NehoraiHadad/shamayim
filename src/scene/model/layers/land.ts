@@ -1,4 +1,8 @@
-import type { Pt, RGB } from '../../world/types'
+import type { Pt, RGB } from '../../../world/types'
+import type { CanopyTones } from '../canopyTones'
+import type { PlantWind } from '../landWind'
+import type { ReceiverShadow } from '../planeCloudShadow'
+import type { Box, LayerBase, LightPart } from './base'
 
 /**
  * Land, plane and outside-ground scene-model descriptors (Stage C2 + Living Land Stage 3).
@@ -13,19 +17,6 @@ export interface Dot { x: number; y: number; r: number; rgb: RGB }
 export interface Grain { amount: number; seed: number }
 /** A gully: a tapered cut down a slope, `w` px wide at its top, darkening the ground by `alpha`. */
 export interface Gully { points: Pt[]; w: number; alpha: number }
-
-/**
- * The light part of a light-dependent layer (the scrub split, §1d): the layer's own `key` covers its form only (fills,
- * texture: no light), this `key` covers what the light changes. The compositor repaints the light canvas alone when only
- * this key changes, and lays it over the form with `blend`; the light painter keeps inside the form's shape.
- */
-export interface LightPart {
-  key: string
-  /** How the light canvas meets the form under it (`source-over` covers it; the planes lay theirs on with `source-over`). */
-  blend: 'source-over' | 'multiply' | 'screen' | 'overlay' | 'soft-light'
-  /** Optional layer tone after light and haze (omitted on terrain planes). */
-  tint?: RGB
-}
 
 /**
  * Compact, structured-cloneable quantised land albedo palette for one terrain plane (Stage 3: living land).
@@ -117,3 +108,9 @@ export interface OutsideLandDesc {
   source: string
   rim: RGB
 }
+
+export type LandLayers =
+  | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string }; cloudShadow?: ReceiverShadow;
+      tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
