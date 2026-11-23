@@ -8,6 +8,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, type PlaneName } from './faceProjection'
 import { groundBlocker, groundClearKey } from './groundClear'
+import { planeGeomOf } from './planeGeometry'
 import { addFieldParcel } from './vegAgriBuilders'
 import { addForestCluster, addScrubOrGrass, addStrataBand, type BackgroundWeight, type BuildEnv } from './vegBuilders'
 import { CROP_PROBE_REACH, cropBuckets, cropEvidenceKey, probeCellCropEvidence } from './vegCropEvidence'
@@ -46,7 +47,8 @@ export function planeVegetationOf(
   if (name === 'back' || plane.points.length < 2) return EMPTY_VEGETATION
   let byKey = cache.get(world.land)
   if (!byKey) cache.set(world.land, byKey = new Map())
-  const key = `${name}:${world.keys.terrain}:${cropEvidenceKey(world)}:${box.width}:${box.landHeight}:${groundClearKey(clear)}`
+  const geom = planeGeomOf(world, name, plane, box.landHeight)
+  const key = `${name}:${geom.geomKey}:${medianLand.join(',')}:${cropEvidenceKey(world)}:${box.width}:${box.landHeight}:${groundClearKey(clear)}`
   const hit = byKey.get(key)
   if (hit) return hit
 

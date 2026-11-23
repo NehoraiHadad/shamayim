@@ -1,6 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { CloudSprite } from '../cloudSprite'
-import { carriedAt, halfAt, headsOf } from '../towerHeads'
+import { carriedAt, halfAt, headsOf } from '../../model/towerHeads'
 import { billows } from './billows'
 
 /*

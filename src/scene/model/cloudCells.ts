@@ -10,6 +10,7 @@ import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standi
 import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
+import { towerAnvil } from './towerHeads'
 import type { LayerOf, RGB, SceneBox } from './types'
 
 /*
@@ -26,8 +27,6 @@ type Placed = LayerOf<'cloudCells'>['cells'][number]
 const TOP_MIN = 0.4
 /** A cell whose near edge stands higher than this (deg) is right overhead: the sheet under it is what shows. */
 const NEAR_MAX = 70
-/** The tropopause over the Levant in the cool season (km): a Cb whose top reaches it spreads into an anvil. */
-const TROPOPAUSE_KM = 11
 /** Anvils in view at most: only the most mature cells of a storm line have spread theirs. */
 const ANVILS = 2
 /** Narrower than this (px) a tower is a speck in the haze. */
@@ -84,8 +83,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   hideBehind(placed)
   // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause, and only over a
   // column that stands taller than it is wide (a cap on a squat body reads as a disc floating in the sky).
-  const mature = (c: (typeof placed)[number]) => c.sprite.genus === 'cb' && c.sprite.tall >= 1.5 * c.sprite.w
-    ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, c.top) : 0
+  const mature = ({ sprite, top }: (typeof placed)[number]) => towerAnvil(sprite.genus === 'cb', top, sprite.w, sprite.tall)
   placed.filter((c) => mature(c) > 0).sort((a, b) => mature(b) * b.sprite.w - mature(a) * a.sprite.w).slice(0, ANVILS)
     .forEach((c) => { c.sprite.anvil = mature(c) })
   placed.sort((a, b) => b.km - a.km)

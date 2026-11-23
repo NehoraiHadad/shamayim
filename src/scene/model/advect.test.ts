@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acrossSpeed, carriedS, carriedShadow, carriedSheet, minuteStart, pxPerRadAt } from './advect'
+import { acrossSpeed, carriedS, carriedSheet, minuteStart, pxPerRadAt } from './advect'
 import type { LayerOf } from './types'
 
 const sheet = (speeds: number[]): LayerOf<'cloudSheet'> => ({
@@ -54,18 +54,5 @@ describe('the wind carry between minutes', () => {
   it('leaves a sheet with no wind still', () => {
     const still = sheet([0, 0, 0])
     expect(carriedSheet(still, 5)).toBe(still)
-  })
-
-  it('carries a plane of shadows at the speed of the shadows at each height', () => {
-    const blob = (y: number, speed: number) => ({ cellId: y, centre: [0, 5] as [number, number], x: 100, y, rx: 20, ry: 5, alpha: 0.4, speed })
-    const shadow: LayerOf<'cloudShadow'> = { kind: 'cloudShadow', id: 'cloudShadow.far', surface: 'land', z: 40.3, plane: 'far',
-      rgb: [0, 0, 0], clip: null, bounds: { x: 0, y: 0, w: 375, h: 60 }, blobs: [blob(50, 1), blob(10, 0.2)], key: 'k' }
-    const bands = carriedShadow(shadow, 0).animated!.advect!.bands
-    expect(bands.length).toBe(10)
-    expect(bands[0].speed).toBeCloseTo(0.2, 9)
-    expect(bands[bands.length - 1].speed).toBeCloseTo(1, 9)
-    expect(bands[4].speed).toBeGreaterThan(0.2)
-    expect(bands[4].speed).toBeLessThan(1)
-    expect(carriedShadow({ ...shadow, blobs: [] }, 0).animated).toBeUndefined()
   })
 })

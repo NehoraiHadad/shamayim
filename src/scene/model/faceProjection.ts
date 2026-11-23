@@ -10,6 +10,7 @@ import type { Plane, WorldState } from '../../world/types'
  */
 
 export type PlaneName = 'back' | 'far' | 'near'
+export const PALETTE_COLS = { near: 21, far: 21, back: 13 } as const
 export interface FaceSample { km: number; slope: number }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
@@ -46,9 +47,10 @@ export function faceAtY(
   world: WorldState, name: PlaneName, plane: Plane, x: number, crestY: number, footY: number, targetY: number,
 ): FaceSample {
   const crestKm = crestKmAt(plane, x)
-  if (name === 'back' || targetY <= crestY + 1e-4) return { km: crestKm, slope: 0.08 }
+  if (name === 'back') return { km: crestKm, slope: 0 }
   const pts = faceColumnAt(world.terrain.faces[name]?.columns ?? [], x)?.points
   if (pts?.length) return measuredFaceAt(pts, crestKm, crestY, targetY)
+  if (targetY <= crestY + FACE_EPSILON) return { km: crestKm, slope: name === 'near' ? 0.14 : 0.10 }
   const rowFrac = clamp((targetY - crestY) / Math.max(1, footY - crestY), 0, 1)
   return {
     km: fallbackFaceKm(name, crestKm, rowFrac),
@@ -66,7 +68,7 @@ export function faceColumnAt(cols: readonly FaceColumn[], x: number): FaceColumn
 }
 
 export function measuredFaceAt(pts: readonly FacePoint[], crestKm: number, crestY: number, targetY: number): FaceSample {
-  if (targetY <= crestY + FACE_EPSILON) return { km: crestKm, slope: 0.08 }
+  if (targetY <= crestY + FACE_EPSILON) return { km: crestKm, slope: pts[0].slope }
   let prevY = crestY, prevKm = crestKm, prevSlope = pts[0].slope
   for (const pt of pts) {
     if (pt.y <= prevY + FACE_EPSILON) continue

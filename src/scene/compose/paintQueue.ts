@@ -1,4 +1,4 @@
-import type { PaintJob, PaintReply, PaintRequest } from './paintJob'
+import { paintSlot, type PaintJob, type PaintReply, type PaintRequest } from './paintJob'
 import type { Request } from './remoteEntry'
 import { RemoteQueue } from './remoteQueue'
 
@@ -11,7 +11,6 @@ export interface WorkerLike {
 }
 
 interface Queued { job: PaintJob; request: Request; final: boolean }
-const partId = (id: string, part: PaintJob['part']) => `${id}:${part}`
 
 /**
  * One batch in flight and only the latest queued ask for each layer part. The order is `RemoteQueue`'s: single-frame
@@ -21,10 +20,19 @@ const partId = (id: string, part: PaintJob['part']) => `${id}:${part}`
 export class PaintQueue {
   private pending = new RemoteQueue()
   private requests = new Map<string, Request>()
+  private discard = new Set<string>()
   private inFlight: { batch: number; since: number; jobs: Map<string, Queued> } | null = null
   private batch = 0
   private waiters: (() => void)[] = []
   private stopped = false
+  private fillCanopies = false
+  private fillTimer: ReturnType<typeof setTimeout> | undefined
+
+  private deferCanopies() {
+    this.fillCanopies = false
+    clearTimeout(this.fillTimer)
+    this.fillTimer = undefined
+  }
   private readonly worker: WorkerLike
   private readonly now: () => number
   private readonly fail: (reason: string) => void
@@ -36,44 +44,70 @@ export class PaintQueue {
   }
 
   ask(job: PaintJob, request: Request) {
-    const id = partId(job.id, job.part)
+    const id = paintSlot(job.id, job.part)
     const sent = this.inFlight?.jobs.get(id)
     if (sent?.final && sent.job.key === job.key && sent.job.formKey === job.formKey && sent.request.formless === request.formless) {
       // The original job can satisfy a scrub back to these keys. Keep its request for the reply.
       this.cancel(job.id, job.part)
       return false
     }
+    const staged = this.pending.staged(id)
     const added = this.pending.ask(job, this.now())
+    if (added) {
+      if (staged) this.discard.add(id)
+      this.deferCanopies()
+    }
     if (this.pending.has(id)) this.requests.set(id, request)
     return added
   }
 
   cancel(id: string, part: PaintJob['part']) {
-    this.pending.drop(partId(id, part))
-    this.requests.delete(partId(id, part))
+    const slot = paintSlot(id, part)
+    if (this.pending.staged(slot)) this.discard.add(slot)
+    this.pending.drop(slot)
+    this.requests.delete(slot)
   }
 
   prune(id: string) {
     for (const part of ['form', 'light'] as const) {
       this.cancel(id, part)
-      this.inFlight?.jobs.delete(partId(id, part))
+      this.inFlight?.jobs.delete(paintSlot(id, part))
     }
   }
 
   flush() {
     if (this.stopped || this.inFlight) return
-    const next = this.pending.takeBatch(this.now())
-    if (!next) return
+    const next = this.pending.takeBatch(this.now(), this.fillCanopies)
+    if (!next) {
+      if (this.discard.size) this.post({ batch: 0, jobs: [] })
+      if (this.pending.size && this.fillTimer === undefined) {
+        // Let a rapid scrub publish fresh frame-zero poses without filling superseded strips.
+        this.fillTimer = setTimeout(() => {
+          this.fillTimer = undefined
+          this.fillCanopies = true
+          this.flush()
+        }, 80)
+      }
+      return
+    }
     const batch = ++this.batch
     const jobs = new Map<string, Queued>()
     for (const job of next.jobs) {
-      const id = partId(job.id, job.part), final = job.final !== false
+      const id = paintSlot(job.id, job.part), final = job.final !== false
       jobs.set(id, { job, request: this.requests.get(id)!, final })
       if (final) this.requests.delete(id)
     }
     this.inFlight = { batch, since: next.since, jobs }
+    this.post({ batch, jobs: next.jobs })
+  }
+
+  private post(request: PaintRequest) {
+    if (this.discard.size) {
+      request.discard = [...this.discard]
+      this.discard.clear()
+    }
     try {
-      this.worker.postMessage({ batch, jobs: next.jobs })
+      this.worker.postMessage(request)
     } catch (error) {
       this.fail(String(error))
     }
@@ -85,7 +119,7 @@ export class PaintQueue {
     this.inFlight = null
     this.pending.finishBatch()
     return { latency: () => this.now() - flight.since,
-      requestOf: (id: string, part: PaintJob['part']) => flight.jobs.get(partId(id, part))?.request }
+      requestOf: (id: string, part: PaintJob['part']) => flight.jobs.get(paintSlot(id, part))?.request }
   }
 
   settled() {
@@ -98,13 +132,17 @@ export class PaintQueue {
   }
 
   resolveIfSettled() {
-    if (this.settled()) for (const resolve of this.waiters.splice(0)) resolve()
+    if (!this.settled()) return
+    this.deferCanopies()
+    for (const resolve of this.waiters.splice(0)) resolve()
   }
 
   stop() {
     this.stopped = true
+    this.deferCanopies()
     this.pending.clear()
     this.requests.clear()
+    this.discard.clear()
     this.inFlight = null
     this.worker.terminate()
   }

@@ -6,6 +6,7 @@ import type { WorldState } from '../../world/types'
 import { faceAtY, localFootY } from './faceProjection'
 import { groundBlocker, groundClearKey } from './groundClear'
 import { COVER_WATER } from './landPalette'
+import { planeGeomOf } from './planeGeometry'
 import type { Box, Gully, Path, Pt, SceneBox } from './types'
 import { sampleCoverAtKm } from './vegSample'
 
@@ -22,12 +23,13 @@ const cache = new WeakMap<LivingLand, Map<string, GroundForm>>()
 export function groundForm(world: WorldState, box: SceneBox, name: 'near' | 'far', clear: readonly Box[]): GroundForm {
   let byKey = cache.get(world.land)
   if (!byKey) cache.set(world.land, byKey = new Map())
-  const key = `${name}:${world.keys.terrain}:${box.width}:${box.landHeight}:${groundClearKey(clear)}`
+  const plane = world.terrain[name]
+  const geom = planeGeomOf(world, name, plane, box.landHeight)
+  const key = `${name}:${geom.geomKey}:${box.width}:${box.landHeight}:${groundClearKey(clear)}`
   const hit = byKey.get(key)
   if (hit) return hit
 
   const land = world.terrain.land[name]
-  const plane = world.terrain[name]
   const sx = box.width / SCENE_W
   const nRays = Math.max(1, world.land.rays.length - 1)
   const blocked = groundBlocker(box, clear)

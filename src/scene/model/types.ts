@@ -1,3 +1,8 @@
+import type { BuildingFaces, accessoryTones } from './buildingLight'
+import type { GlyphSurfaces } from './glyphSurfaces'
+import type { DomeFloodlight } from './metalLight'
+import type { ReceiverShadow } from './planeCloudShadow'
+import type { CanopyTones } from './canopyTones'
 import type { NeighbourEvidence } from './neighbourEvidence'
 import type { CityTier } from './cityMass'
 export type { CityTier } from './cityMass'
@@ -6,11 +11,11 @@ import type { Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
 import type { PlantWind } from './landWind'
 import type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation,
 } from './typesLand'
 
 export type {
-  CanopyVegetation, Dot, Face, Grain, Gully, Lift, LightPart, OutsideLandDesc, Path, PlaneLight, PlanePalette, PlaneVegetation, Rim, SnowCap, Wash,
+  CanopyVegetation, Dot, Face, Grain, Gully, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation,
 }
 import type { ContrailMotion } from './contrailMotion'
 import type { CloudSprite } from '../paint/cloudSprite'
@@ -124,7 +129,7 @@ export interface Lay { x: number; y: number; scale: number; alpha: number; turn?
 export interface Advect { from: number; bands: readonly { y: number; speed: number }[] }
 
 /** When the shown time was laid on the scene timeline, and how far it was already into that minute (seconds). */
-export interface LifeClock { laidAt: number; sinceS: number }
+export interface LifeClock { laidAt: number; sinceS: number; still?: boolean }
 
 /**
  * One cycle of gusts on the clothesline (`anim.ts` `gustAt`, the stops of the old line's `GUST`), as a transform of a
@@ -179,8 +184,8 @@ interface LayerBase {
   light?: LightPart
   /** Laid where its object is now (`Lay`): the layer's bounds and coordinates are round its own origin. */
   placed?: Lay
-  /** How its canvas meets the surface under it (`source-over` when absent; the cloud shadows lie `source-atop` the land). */
-  blend?: 'source-over' | 'source-atop'
+  /** How its canvas meets the surface under it (`source-over` when absent). */
+  blend?: 'source-over' | 'source-atop' | 'multiply'
 }
 
 /* Shapes drawn from C2 on (placeholders, refined by the stage that draws them). */
@@ -241,7 +246,7 @@ export interface GlintPath { x: number; top: number; bottom: number; spread: num
 export interface Line { x1: number; x2: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number; rgb: RGB }
 /** A block of a far town (or a far tower), standing on `base`, `km` away. */
-export interface CityBlock { x: number; base: number; w: number; h: number; km: number }
+export interface CityBlock { x: number; base: number; w: number; h: number; km: number; receiver: number; detail: number }
 /** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
 export interface CityLight { x: number; y: number; r: number; alpha: number }
 /**
@@ -255,10 +260,10 @@ export type OutsideItem =
       /** A house's roof (tile or flat, a heater on some flat ones); null for a block of the mass. */
       roof: 'tile' | 'flat' | null; heater: boolean
       /** C9: a block of a town beyond the place (drawn behind it, far first). */
-      beyond?: true }
+      beyond?: true; receiver: number; neighbours?: number }
   | { kind: 'tree'; tree: TreeDesc; tier: number }
   | { kind: 'tower'; x: number; base: number; w: number; h: number; tier: number; seed: number; crown: 0 | 1 | 2; full: boolean
-      famous: boolean; storeys: number }
+      famous: boolean; storeys: number; receiver: number; industrial?: true }
   | { kind: 'mark'; glyph: GlyphDesc }
 
 /**
@@ -283,10 +288,7 @@ export interface SeaDesc {
   horizon: { y: number; x0: number; x1: number; rgb: RGB; alpha: number }
 }
 export type { GlyphKind, IconKind }
-
-/** The light the outside view's mass takes from the sky (C5b): its strength, the brighter sky's side, tones per tier. */
-/** `side`: −1…1, the brighter sky's side (+ left) and how far toward it the sun's part of the sky stands (continuous). */
-export interface SkyForm { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }
+export type { SkyForm } from './ownSkyForm'
 
 /**
  * The colours a glyph, a house or a tree is painted in (stage C4), after the light and the air at its distance: the
@@ -295,9 +297,9 @@ export interface SkyForm { strength: number; side: number; tiers: { top: RGB; fa
  * gold, lamps).
  */
 export interface Tones {
-  wall: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB; refl: RGB
+  wall: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB
   roof: RGB; roofLit: RGB; stone: RGB; stoneLit: RGB; glass: RGB; glassLit: RGB; soot: RGB
-  green: RGB; greenLit: RGB; panel: RGB; gold: RGB
+  green: RGB; greenLit: RGB; panel: RGB
   /** A lit window, a lamp. */
   win: RGB
   /** The foot mist: the air at the glyph's distance. */
@@ -342,6 +344,11 @@ export interface GlyphDesc extends NeighbourEvidence {
   /** Fixed horizontal orientation in the scene, from the mark seed or its known orientation. */
   hand: 1 | -1
   tones: Tones
+  surfaces?: GlyphSurfaces
+  gilding?: RGB[][]
+  floodlitDome?: DomeFloodlight
+  windowWall?: RGB
+  shadowTones?: Pick<Tones, 'deep' | 'shade'>
   famous: boolean
   /** A field's ground under it: y (px, relative to `base`) every glyph px across its width, west to east. */
   ground?: number[]
@@ -444,18 +451,17 @@ export type LayerDesc =
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string }
-  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; lift: Lift | null; clear: readonly Box[] }
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow }
+  | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string }; cloudShadow?: ReceiverShadow;
+      tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
-  /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
-  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB; litFace?: number
-      /** Signed face-light difference, positive from screen-left. */
-      lateralLight: number }
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
       land: OutsideLandDesc | null
-      form: SkyForm }
+      form?: import('./ownSkyForm').SkyForm
+      receivers: Record<number, BuildingFaces>[]; accessories: (ReturnType<typeof accessoryTones> | null)[] }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */
   | LayerBase & { kind: 'shafts'; precip: Precip; shafts: ShaftDesc[]; period: number }
@@ -533,12 +539,6 @@ export type LayerDesc =
   | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
       beads: WearBead[]; snow: number; seed: number }
   | LayerBase & { kind: 'wearItem'; item: WearItem }
-  /** Cloud footprints on a receiving land plane, in land pixels. */
-  | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
-      /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
-      clip: { crest: Pt[]; fronts: Pt[][] } | null
-      /** Each cell's footprint; `speed` how fast its cloud's wind carries it across, land px/s (+ left → right). */
-      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number; speed: number }[] }
   /**
    * One field layer drawn as a continuous sheet over the dome (SPEC §6.0), in sky px. A grid of screen rays: `xs` the
    * column centres, `ys` the row centres (top to bottom, denser toward the horizon, where the deck compresses). Per node

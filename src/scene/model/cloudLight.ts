@@ -1,7 +1,7 @@
 import { seeded } from '../../data/landmarks/hash'
 import { coinOf } from '../../world/air'
 import { MOON_RGB } from '../../world/light'
-import { cloudLight, layerMeanTransmission } from '../../world/lightCloud'
+import { cloudLight, layerMeanTransmission, SKY_CLOUD_DEPTH_SCALE } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudLayer, CloudLevel, WorldState } from '../../world/types'
@@ -39,8 +39,9 @@ export function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: 
   const upper = world.cloudField?.field.layers.filter(({ lattice }) =>
     layer.level !== 'high' && (lattice === 'high' || (layer.level === 'low' && lattice === 'mid')))
   const above = upper?.reduce((beam, cloud) =>
-    beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm), 1)
-    ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high }).clear
+    beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm * SKY_CLOUD_DEPTH_SCALE), 1)
+    ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high },
+      undefined, SKY_CLOUD_DEPTH_SCALE).clear
   const aerosol = world.air
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)

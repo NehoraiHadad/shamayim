@@ -1,7 +1,7 @@
 import { smoothstep } from '../../domain/smoothstep'
 import type { CloudSprite } from './cloudSprite'
 import { detailTile, domeTile, tileAt } from './detailTile'
-import { carriedAt, halfAt, headsOf } from './towerHeads'
+import { carriedAt, crownAt, halfAt, headsOf } from '../model/towerHeads'
 
 /*
  * A tower's body as one field (no puffs): its heads (`towerHeads`) grown together, over a flat base; the outline moved in
@@ -87,7 +87,7 @@ export function towerShape(s: CloudSprite): TowerShape {
       at.wide = halfAt(h, y)
       at.axis = h.x + at.wide * sway + carriedAt(h, y, s.lean)
       at.beyond = y > straight ? (n === heads.length - 1 ? ((y - straight) / bowl) ** BASE_FLAT : (y - straight) / (HEAD_FOOT * bowl))
-        : y < h.joint ? (h.joint - y) / h.crown : 0
+        : crownAt(h, y)
       at.knee = y > 0 ? 0 : Math.max(y, h.joint)
     })
     const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)

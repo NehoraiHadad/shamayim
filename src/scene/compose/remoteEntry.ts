@@ -1,5 +1,6 @@
 import type { LayerDesc } from '../model/types'
-import type { DeviceRect, PaintResult } from './paintJob'
+import { beamKeyOf, resultBitmaps, type DeviceRect, type PaintPose, type PaintResult } from './paintJob'
+import { shadeKeyOf } from './paintReceiver'
 
 export interface Request {
   /** Advances when the layer's requested paint keys change, including on a scrub back. */
@@ -15,8 +16,12 @@ export interface Request {
 
 interface Shown {
   request: Request
+  preview?: true
+  lightDesc: LayerDesc
   form: ImageBitmap | null
   light: ImageBitmap | null
+  shade?: ImageBitmap | null
+  poses?: PaintPose[]
 }
 
 export interface Entry {
@@ -30,7 +35,12 @@ export interface Entry {
 }
 
 export function partsOf(shown: Shown | null, staged?: Entry['staged']) {
-  return new Set([shown?.form, shown?.light, ...(staged?.parts ?? []).map(({ bitmap }) => bitmap)])
+  const picture = shown && resultBitmaps({ bitmap: shown.light, shade: shown.shade, poses: shown.poses })
+  return new Set([shown?.form, ...(picture ?? []), ...(staged?.parts ?? []).flatMap(resultBitmaps)])
+}
+
+export function closeEntry(entry: Entry) {
+  for (const bitmap of partsOf(entry.shown, entry.staged)) bitmap?.close()
 }
 
 /** A staged part still fits the wanted picture: a form for the same form, a light for the same paint. */
@@ -42,7 +52,7 @@ export function pruneStaged(entry: Entry) {
   const { staged, wanted } = entry
   if (!staged) return
   const keep = staged.parts.filter(({ part }) => fits(part, staged.request, wanted))
-  for (const { bitmap } of staged.parts) if (!keep.some((k) => k.bitmap === bitmap)) bitmap?.close()
+  for (const part of staged.parts) if (!keep.includes(part)) for (const bitmap of resultBitmaps(part)) bitmap?.close()
   entry.staged = keep.length ? { request: staged.request, parts: keep } : null
 }
 
@@ -61,7 +71,7 @@ function completes(entry: Entry, request: Request, parts: readonly PaintResult[]
 export function stage(entry: Entry, request: Request, parts: PaintResult[]): PaintResult[] | null {
   const staged = entry.staged
   const kept = staged ? staged.parts.filter(({ part }) => fits(part, staged.request, request) && !parts.some((p) => p.part === part)) : []
-  for (const { bitmap } of staged?.parts ?? []) if (!kept.some((k) => k.bitmap === bitmap)) bitmap?.close()
+  for (const part of staged?.parts ?? []) if (!kept.includes(part)) for (const bitmap of resultBitmaps(part)) bitmap?.close()
   const all = [...kept, ...parts]
   if (completes(entry, request, all)) {
     entry.staged = null
@@ -93,31 +103,44 @@ function promote(entry: Entry, shown: Shown) {
 export function reuse(entry: Entry) {
   const { wanted, shown } = entry
   if (!shown || !sameForm(shown.request, wanted)) return
-  if (wanted.lightKey === shown.request.lightKey) shown.request = wanted
-  else if (wanted.lightKey === null) {
-    promote(entry, { request: wanted, form: shown.form, light: null })
+  if (wanted.lightKey === shown.request.lightKey) {
+    shown.request = wanted
+    shown.lightDesc = wanted.desc
+  } else if (wanted.lightKey === null) {
+    promote(entry, { request: wanted, form: shown.form, light: null, lightDesc: wanted.desc })
+  } else if (shown.shade && wanted.desc.kind === 'plane' && !wanted.desc.cloudShadow
+    && wanted.lightKey === beamKeyOf(shown.lightDesc)) {
+    promote(entry, { request: wanted, form: shown.form, light: shown.light, lightDesc: wanted.desc })
   } else shown.request = { ...shown.request, desc: wanted.desc }
 }
 
-/** A complete picture can replace the one shown if it is newer or matches the current ask. */
+/** Promote a complete picture: the newest complete pair replaces the shown one, so a drag keeps moving. */
 export function accept(entry: Entry, request: Request, results: readonly PaintResult[]) {
   const { shown, wanted } = entry
   const current = samePaint(request, wanted)
-  if (current || request.generation > (shown?.request.generation ?? 0)) {
+  const preview = results.some((part) => part.preview) ? true : undefined
+  let changed = false
+  if ((current || request.generation > (shown?.request.generation ?? 0))
+    && !(preview && shown && !shown.preview && samePaint(shown.request, request))) {
     const compatible = shown && sameForm(shown.request, request) ? shown : null
     const form = results.find((result) => result.part === 'form')?.bitmap ?? compatible?.form ?? null
-    const light = results.find((result) => result.part === 'light')?.bitmap
-      ?? (compatible?.request.lightKey === request.lightKey ? compatible?.light ?? null : null)
-    if ((request.formless || form) && (request.lightKey === null || light)) {
+    const painted = results.find((result) => result.part === 'light')
+    const held = compatible?.request.lightKey === request.lightKey ? compatible : null
+    const light = painted ? painted.bitmap : held?.light ?? null
+    const shade = painted ? painted.shade : held?.shade
+    const completeLight = request.lightKey === null || (light && (shade || !shadeKeyOf(request.desc) || (preview && !shown?.shade)))
+    if ((request.formless || form) && completeLight) {
       const layout = current ? wanted : sameForm(wanted, request) ? { ...request, desc: wanted.desc } : request
-      promote(entry, { request: layout, form, light })
+      promote(entry, { request: layout, form, light, shade, poses: painted ? painted.poses : held?.poses, preview, lightDesc: request.desc })
+      changed = true
     }
   }
-  closeReplaced(entry.shown, results.map(({ bitmap }) => bitmap))
+  closeReplaced(entry.shown, results.flatMap(resultBitmaps))
+  return changed
 }
 
 export function peek(entry: Entry | undefined) {
   if (!entry?.shown) return null
-  const { form, light, request: { ratio, rect, formKey, desc } } = entry.shown
-  return { form, light, ratio, rect, formKey, desc }
+  const { form, light, shade, poses, preview, lightDesc, request: { ratio, rect, formKey, lightKey, desc } } = entry.shown
+  return { form, light, shade, poses, preview, lightDesc, ratio, rect, formKey, lightKey, desc }
 }

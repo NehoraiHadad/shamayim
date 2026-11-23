@@ -1,6 +1,6 @@
 import type { RGB, Shine, SkyForm, Tones } from '../../model/types'
 import { mix } from '../hand'
-import { facesOf } from '../outsideLight'
+import { facesOf } from './outsideLight'
 
 /*
  * The drawn town's light: three clear planes for every body, front, left and right, and its roof, each from the model's

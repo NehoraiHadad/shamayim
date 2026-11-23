@@ -167,7 +167,9 @@ function Scene({ input: given }: { input: WorldInput }) {
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
-  const model = useMemo(() => SCENE_STATS.time('modelCold', () => hideLayers(sceneModel(world, box, moment.clock), params.get('hide'))), [world, box, moment])
+  const style = forcedStyle() ?? 'real'
+  const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
+    hideLayers(sceneModel(world, box, moment.clock, undefined, style), params.get('hide'))), [world, box, moment, style])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())
@@ -175,8 +177,8 @@ function Scene({ input: given }: { input: WorldInput }) {
   const landHold = useRef<Surface | null>(null)
   /** Both surfaces laid at a phase as the loop lays them with motion on (`still` false), whatever the page's reduced motion. */
   const lay = useCallback((phase: number) => {
-    skySurface.current?.composite(onSkyCanvas(sky), phase, false)
-    landHold.current?.composite(land, phase, false)
+    skySurface.current?.lay(phase, false, onSkyCanvas(sky))
+    landHold.current?.lay(phase, false, land)
     // The sky's base glides by its background's position (C8), as `SkyCanvas` lays it.
     const base = sky.find((layer): layer is LayerOf<'sky'> => layer.kind === 'sky')
     const canvas = skySurface.current?.canvas as HTMLCanvasElement | undefined
@@ -199,7 +201,6 @@ function Scene({ input: given }: { input: WorldInput }) {
   }, [sky, lay])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
-  const style = forcedStyle() ?? 'real'
   const size = { width: box.width, height: box.landHeight, dpr: box.dpr, style }
   const { ref, surface: landSurface } = useSurface('land', land, size, onLand)
   useEffect(() => { landHold.current = landSurface.current })
@@ -212,7 +213,8 @@ function Scene({ input: given }: { input: WorldInput }) {
         const t0 = performance.now()
         const next = build({ ...input, selected: at })
         const t1 = performance.now()
-        const nextModel = sceneModel(next, box, moment.clock)
+        const nextModel = sceneModel(next, box, moment.clock, undefined, style)
+        win.__world = next
         const t2 = performance.now()
         // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the
         // browser's to composite (not timed).
@@ -234,7 +236,7 @@ function Scene({ input: given }: { input: WorldInput }) {
       get offThread() { return Boolean(skySurface.current?.remote && landSurface.current?.remote) },
       lay,
     }
-  }, [world, build, input, box, landSurface, moment, lay])
+  }, [world, build, input, box, landSurface, moment, lay, style])
 
   // The labels wait for the land as the app's do (`useLandClock`): an arriving still shows them once it has settled.
   const labelsShown = !moment.clock?.reveal || (Number(params.get('phase')) || 0) >= ARRIVAL.land.at + ARRIVAL.land.dur * 0.6 + 0.3

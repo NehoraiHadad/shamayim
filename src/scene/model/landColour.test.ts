@@ -8,11 +8,11 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { paintPlaneLight } from '../paint/planeLight'
-import { paintPlane } from '../paint/planes'
 import { layersOn, sceneModel } from '.'
-import { albedoToLandTone, quantiseTones } from './landColour'
+import { quantiseTones } from './landColour'
 import { COVER_WATER, sampleBandAtKm } from './landPalette'
-import { applyVeil, hazeOf, moodVeilOf, toneAt, veilAt } from './landVeil'
+import { albedoLinear, FLAT_NORMAL, linearRgbToSrgb, litLandRgb } from './landRadiance'
+import { hazeAt, hazeOf, toneAt } from './landVeil'
 import { hexOf, labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
 
@@ -30,11 +30,9 @@ const sample = (albedo: RGB, source: LivingLandSample['albedoSource'], cover: nu
 })
 
 describe('Stage 3: living-land albedo, bounds, water exclusion, wetness & form/light split', () => {
-  it('calibrates BOA sRGB albedo, quantises deterministically and preserves band bounds/sources', () => {
-    const pine = albedoToLandTone([0.28, 0.33, 0.25]), desert = albedoToLandTone([0.48, 0.46, 0.42])
-    expect(labOf(pine).l).toBeGreaterThanOrEqual(0.22)
-    expect(labOf(desert).l).toBeLessThanOrEqual(0.375)
-    expect(labOf(desert).l).toBeGreaterThan(labOf(pine).l)
+  it('preserves raw BOA sRGB albedo without lightness squeeze, quantises deterministically and preserves band bounds/sources', () => {
+    const pine = linearRgbToSrgb(albedoLinear([0.28, 0.33, 0.25])), desert = linearRgbToSrgb(albedoLinear([0.48, 0.46, 0.42]))
+    expect(labOf(desert).l).toBeGreaterThan(labOf(pine).l + 0.1)
     expect(labOf(pine).a).toBeLessThan(labOf(desert).a)
     expect(quantiseTones([pine, pine, pine], 6).palette).toHaveLength(1)
 
@@ -106,23 +104,22 @@ describe('Stage 3: living-land albedo, bounds, water exclusion, wetness & form/l
     expect(labOf(galW.fill).a).toBeLessThan(labOf(galS.fill).a)
     expect(labOf(neg.fill).l).toBeGreaterThan(labOf(galW.fill).l)
 
-    const haze = hexOf(hazeOf(negev))
-    const gaps = [0.5, 2, 10, 35].map((km) => deltaE(hexOf(applyVeil(neg.fill, veilAt(negev, km))), haze))
+    const hazeRgb = hazeOf(negev), haze = hexOf(hazeRgb)
+    const gaps = [0.5, 2, 10, 35].map((km) => deltaE(hexOf(toneAt(negev, km, hazeRgb)), haze))
     for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeLessThanOrEqual(gaps[i - 1] + 1e-3)
     expect(gaps.at(-1)!).toBeLessThan(gaps[0])
 
-    // Wetness monotonicity over BOTH darkest palette entry (L = 0.23) and brightest (L = 0.365) at zero haze
-    const darkBase: RGB = [0.145, 0.145, 0.145], brightBase: RGB = [0.32, 0.29, 0.23]
-    for (const base of [darkBase, brightBase]) {
+    // Wetness monotonicity over BOTH dark pine and bright desert BOA albedos in linear light (`×(1 - 0.45*wet)`)
+    const darkAlbedo: RGB = [0.24, 0.32, 0.22], brightAlbedo: RGB = [0.50, 0.47, 0.41]
+    for (const albedo of [darkAlbedo, brightAlbedo]) {
       let prev = Infinity
       for (const wet of [0, 0.25, 0.5, 0.75, 1]) {
-        const l = labOf(applyVeil(base, moodVeilOf({ ...negev, ground: { ...negev.ground, wet } }))).l
+        const l = labOf(litLandRgb({ ...negev, ground: { ...negev.ground, wet } }, albedo, FLAT_NORMAL, hazeAt(negev, 0))).l
         expect(l).toBeLessThan(prev)
         prev = l
       }
     }
     const negevNight = buildWorld(worldInput(loaded.get('ramon-crater')!, '2026-08-15T21:00'))
-    expect(moodVeilOf(negevNight).alpha).toBeGreaterThan(0.8)
     expect(labOf(toneAt(negevNight, 1)).l).toBeLessThan(0.22)
   })
 
@@ -147,6 +144,6 @@ describe('Stage 3: living-land albedo, bounds, water exclusion, wetness & form/l
       set: () => true,
     }) as unknown as Ctx2D
     const env: PaintEnv = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: fakeCtx() }) }
-    expect(() => { paintPlane(fakeCtx(), observed[1], env); paintPlaneLight(fakeCtx(), observed[1], env) }).not.toThrow()
+    expect(() => { paintPlaneLight(fakeCtx(), observed[1], env) }).not.toThrow()
   })
 })

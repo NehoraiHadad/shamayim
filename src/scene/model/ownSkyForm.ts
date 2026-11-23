@@ -1,10 +1,13 @@
 import type { WorldState } from '../../world/types'
 import { smoothstep } from '../../world/ridgeLighting'
-import { againstLight } from './marks'
-import { aerialFor, hazeOf } from './landVeil'
+import { againstLight } from './drawnTones'
+import { drawnAerialFor as aerialFor, drawnHazeOf as hazeOf } from './drawnHaze'
 import { skyAt } from './sky'
 import { lightness, mixRgb, scaleLight } from './tone'
 import type { SceneBox, Tones, RGB } from './types'
+
+/** How much sky light reaches the drawn town, its brighter side, and the colour at each tier. */
+export interface SkyForm { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
@@ -26,7 +29,7 @@ const VIEW = { top: 0.62, face: 0.55 }
  * walls the eye sees face the sky behind the eye, so against the light (`againstLight`: a low sun beyond the land) they
  * see its dim half and the mass reads as a dark silhouette, its tops and rims alone catching the bright sky beyond.
  */
-export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number) {
+export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number): SkyForm {
   const { light, night } = world
   const day = 1 - night.dark
   const strength = day * (0.35 + 0.65 * (1 - clamp01(light.direct)))
@@ -52,4 +55,3 @@ export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers
       foot: mixRgb(t.wall, t.deep, 0.7) }
   }) }
 }
-

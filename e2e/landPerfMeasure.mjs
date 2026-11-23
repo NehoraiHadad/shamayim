@@ -112,7 +112,7 @@ export async function measureAppLand(context, serverUrl, { rate, dpr, dense, win
     const p = window.__perfCanopy
     return {
       cover: window.__world.land.own.cover,
-      firstCanopyPaintMs: p?.firstAt ? p.firstAt - p.t0 : null,
+      firstCanopyPaintMs: window.__sceneStats?.steps['visible.canopy.near']?.[0] ?? (p?.firstAt ? p.firstAt - p.t0 : null),
       refinementCanopyMs: p?.refAt ? p.refAt - p.tRelease : null,
     }
   })

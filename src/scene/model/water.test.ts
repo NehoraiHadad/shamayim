@@ -166,7 +166,7 @@ describe('haze', () => {
       // Tiers come far to near; their distance from the air's colour grows as they come nearer.
       for (let i = 1; i < towns.tiers.length; i++) {
         expect(towns.tiers[i].km).toBeLessThan(towns.tiers[i - 1].km)
-        expect(de(towns.tiers[i].lit, haze)).toBeGreaterThanOrEqual(de(towns.tiers[i - 1].lit, haze) - 1e-9)
+        expect(de(towns.tiers[i].unresolved, haze)).toBeGreaterThanOrEqual(de(towns.tiers[i - 1].unresolved, haze) - 1e-9)
       }
       const count = (t: LayerOf<'farCities'> | undefined) => t?.tiers.reduce((n, tier) => n + tier.blocks.length, 0) ?? 0
       const hazy = townsOf(sceneModel(world(id, '11:00', { visibilityKm: 6 }), BOX))

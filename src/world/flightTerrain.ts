@@ -26,6 +26,8 @@ export interface FlightTerrain {
   known: boolean
   /** Limits of the polar grid. The local fallback is separate. */
   panoramaHeightsM?: readonly [number, number]
+  /** Verified upper bound for all finite samples returned by heightAt. */
+  heightCeilingM?: number
   shadowBlocked?(east: number, north: number, eastPerUp: number, northPerUp: number): boolean
   occludedAt?(east: number, north: number, upM: number): boolean | undefined
 }
@@ -172,7 +174,8 @@ export function flightTerrain(terrain: SceneTerrain | null | undefined, groundM:
     ? shadowHorizon(grid, eyeM, minM, maxM, rayOf, distanceIndex, curveDrop, RAY_CURVE_DROP, FLIGHT_LOCAL_KM)
     : undefined
   const field: FlightTerrain = { eyeM, heightAt, groundAt, blockedKm, ...shadowVisibility, known: hasRays || !!local,
-    panoramaHeightsM: hasRays ? [minM, maxM] : undefined }
+    panoramaHeightsM: hasRays ? [minM, maxM] : undefined,
+    heightCeilingM: local && terrain.localHeightMaxM === undefined ? undefined : Math.max(maxM, own, terrain.localHeightMaxM ?? -Infinity) }
   FIELDS.set(terrain, field)
   return field
 }

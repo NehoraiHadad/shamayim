@@ -9,7 +9,8 @@ export interface LoopDeps {
   still: () => boolean
 }
 
-export const animates = (layers: readonly LayerDesc[]) => layers.some((layer) => layer.animated)
+export const animates = (layers: readonly LayerDesc[]) => layers.some((layer) => layer.animated ||
+  ((layer.kind === 'plane' || layer.kind === 'canopy') && layer.cloudShadow?.speed))
 
 /**
  * The one animation loop (§1d): runs only while a layer is animated and the page is visible, capped at `fps` (30);

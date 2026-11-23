@@ -42,7 +42,7 @@ export interface Light {
   colour: RGB
   /** 0–1: beam reaching the observer along the disc ray. */
   eye: number
-  /** Mean cloud transmission available to illuminate the scene. */
+  /** Mean cloud transmission at half depth for the sky glows and disc veils. */
   clear: number
   /** Sun and moon illuminance after mean cloud transmission. */
   meanBeam: { sun: number; moon: number }

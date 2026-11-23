@@ -7,6 +7,7 @@ import { LayerCache, type LayerCanvas } from './layerCache'
 import { formKeyOf, type PaintRequest } from './paintJob'
 import { makeWorkerRunner, type WorkerCanvas } from './paintWorkerRun'
 import { RemoteCache, type WorkerLike } from './remoteCache'
+import { Surface } from './surface'
 
 const canvas = (width: number, height: number) => ({ width, height, transferToImageBitmap: () => ({ close() {} }),
   getContext: () => new Proxy({}, { get: () => () => undefined, set: () => true }) }) as unknown as LayerCanvas & WorkerCanvas
@@ -63,6 +64,36 @@ describe('scene style', () => {
     cache.flush()
     expect(sent[0].jobs[0].style).toBe('drawn')
     expect(sent[0].jobs[0].formKey).toContain('~drawn')
+  })
+
+  it('revisits a frame-batched render with the same layer array when the style changes', () => {
+    const painted: string[] = []
+    const painters = (desc: LayerDesc): Painter => ({
+      form: (_ctx, _desc, env) => { painted.push(`${desc.kind} ${env.style}`) },
+    })
+    const surface = new Surface(canvas(20, 10), { factory: canvas, painters, now: () => 0 })
+    const layers = [layer('cloudSheet'), layer(shared)]
+    surface.resize(20, 10, 1)
+    surface.render(layers)
+    surface.style = 'drawn'
+    surface.render(layers)
+    surface.render(layers)
+    surface.style = 'real'
+    surface.render(layers)
+    expect(painted).toEqual(['cloudSheet real', `${shared} real`, 'cloudSheet drawn', 'cloudSheet real'])
+  })
+
+  it('uses the stored hand when filling an older strip before the next render', () => {
+    const painted: unknown[] = []
+    const cache = new LayerCache({ factory: canvas, now: () => 0, painters: () => ({
+      form: (_ctx, _desc, env) => { painted.push([env.style, env.phase]) },
+    }) })
+    const strip: LayerDesc = { ...layer('outside'), animated: { mode: 'frames', frames: { count: 4, fps: 2 } } }
+    cache.update(strip, 1)
+    cache.style = 'drawn'
+    cache.ensureFrame(strip, .5)
+    cache.update(strip, 1, .5)
+    expect(painted).toEqual([['real', 0], ['real', .5], ['drawn', .5]])
   })
 
   it('hands the job style to the worker painter and its env', () => {

@@ -16,7 +16,7 @@ import { SceneOverlay } from './SceneOverlay'
 import { SkyCanvas } from './SkyCanvas'
 import { useLandClock } from './useLandClock'
 import { useSkyHost } from './useSkyHost'
-import { useSurface } from './useSurface'
+import { reducedMotion, useSurface } from './useSurface'
 import { WearCanvas, type WearLine } from './WearCanvas'
 import { useWearHost } from './useWearHost'
 
@@ -54,7 +54,8 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
   const box = useMemo(() => ({ width, skyHeight: host?.height ?? 0, landTop: host?.landTop ?? 0, landHeight: SCENE_H, dpr,
     skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
   const { clock, labelStyle, ready } = useLandClock(world)
-  const model = useMemo(() => sceneModel(world, box, clock, life), [world, box, clock, life])
+  const still = typeof window !== 'undefined' && reducedMotion()
+  const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }, style), [world, box, clock, life, still, style])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const label = sceneLabel(world, forecast, now, selected, { temperature, hasLightning: sky.some((layer) => layer.kind === 'flash') })

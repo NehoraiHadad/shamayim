@@ -7,7 +7,17 @@ import type { SceneBox } from './types'
  * Layer keys (§1d): a hash of a layer's exact inputs, numbers rounded to what can change a pixel. Colours count in
  * 1/256 steps; the box and the cache's pixel ratio are in every key; `phase` never is.
  */
+export function byteKey(bytes: Uint8Array) {
+  let hash = 2166136261
+  for (const byte of bytes) hash = Math.imul(hash ^ byte, 16777619)
+  return (hash >>> 0).toString(36)
+}
+
 export const colourKey = (rgb: RGB) => rgb.map((c) => Math.round(c * 255))
+
+/** Pack channel bytes for palette keys with many swatches. */
+export const colourCode = ([r, g, b]: RGB, shift = 0) =>
+  ((Math.round(r * 255) >> shift) << 16) | ((Math.round(g * 255) >> shift) << 8) | (Math.round(b * 255) >> shift)
 
 /**
  * The pixel ratio a layer is cached at: the device's, for every layer. The plan's cap for soft layers (`min(dpr, 2)`)

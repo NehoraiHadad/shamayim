@@ -9,8 +9,6 @@ export const PRIORITY: Record<LayerKind, number> = {
   milkyWay: 2, planets: 1, twinkle: 7, meteor: 7, bow: 6, contrail: 7, aircraft: 7, birds: 7,
   // The clothesline in the wear card (its own surface): the rope, then the garments, then their drops.
   wearRope: 0, wearItem: 1, wearDrip: 2,
-  // The living light: the cloud's shadows on the land, with the weather.
-  cloudShadow: 6,
   // The field's sheets (SPEC §6.0), with the clouds.
   cloudSheet: 5,
   cloudCells: 5,
@@ -47,7 +45,7 @@ export function paintSliced(jobs: readonly SliceJob[], options: SliceOptions): S
   const { budgetMs = 8, frame, cancelFrame, now, phase = 0 } = options
   const queue = jobs.flatMap(({ surface, layers }) => layers.map((desc) => ({ surface, desc })))
     .sort((a, b) => PRIORITY[a.desc.kind] - PRIORITY[b.desc.kind] || a.desc.z - b.desc.z)
-  for (const { surface, layers } of jobs) surface.prune(new Set(layers.map((layer) => layer.id)))
+  for (const { surface, layers } of jobs) surface.prune(new Set(layers.map(({ id }) => id)))
   const report: SliceReport = { slices: [], totalMs: 0, painted: 0 }
   let handle: number | null = null
   let cancelled = false

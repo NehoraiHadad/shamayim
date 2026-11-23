@@ -2615,3 +2615,119 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
   unthrottled), Ramon Crater dust playback over the strict 4.00 ms sum-of-p95 budget, and host-baseline browser overruns
   carry into app-wide performance work; mapped orchards/palms outside Israel rely on OSM crop polygons where present
   (coarse woodland, cropland, scrub and bare ground work globally via WorldCover + Köppen–Geiger climatology).
+
+7. **Physical daytime land lighting (Stage 7, 2026-11-23, rounds 1–6).** Terrain, vegetation, outside ground,
+   and buildings use the same linear Lambertian product. With linear reflectance `ρ` and unit-luminance
+   RGB illuminants `C`, the relative radiance is
+   `L/L_ref = (ρ/π) · [E_sun C_sun max(0,n·s) V_s T + E_moon C_moon max(0,n·m) V_m + E_sky C_sky V_sky]`.
+   `E` are irradiances in units compatible with radiance `L_ref`, and the Lambertian 1/π converts irradiance
+   into radiance. `T` is incremental cloud transmission and `V_s` and `V_m` are separate receiver-space DEM
+   visibility. The building receiver adds `(1−n_up)/2 × 0.92 × ρ_ground` times ground irradiance.
+   The 0.92 is the open terrain fraction in the ground hemisphere. The sunlit share uses a typical street
+   gap of two building heights divided by the gap plus the projected shadow length. The cloud deck and
+   the wet-ground factor are already part of the shared irradiance, and the local land sample supplies
+   ground albedo. The feet and eaves reduce sky view, ground view and beam access. Low twilight from the
+   sunward horizon is screened in street canyons.
+
+   - Existing seeds select one of eight reflectance bins for plaster and fixed facade angles for raster
+     footprints. The plaster bins keep linear luminance and vary along a 0.025–0.030 warm axis.
+     The angle controls incidence and projected return width. Flat roofs and crowns use the up normal,
+     clay roofs use their pitch. Caps cover at most 0.84 CSS px, 20% of width and 32% of height.
+     Small blocks blend continuously toward projected average irradiance. A compact neighbourhood kernel
+     at street level provides enclosure.
+   - Far towns use the same average and resolved receivers. Landmark contrast and Allard lamp transmission
+     follow true receiving-eye distance. The pane reflects the broad directional sky and retains interior
+     diffuse fill, both with the same twilight screen as the street walls. Four incoherent air/glass
+     interfaces with single-interface F0 of 0.04 give normal reflectance 4 × 0.04 / (1 + 3 × 0.04) ≈ 0.143.
+     Pale-metal albedo applies at the bands.
+   - The Báb shrine uses curved sectors of rough conductor reflection from the sky, afterglow and beam
+     with linear gold F0 `(1.00, 0.77, 0.34)`. Diffuse and specular architecture keep their geometry through
+     twilight. Tagged emissive windows and lamps retain the established placement, tint and timing.
+   - The land surface composites the newest complete worker pairs at most once per animation frame for
+     arrivals. Plane and canopy changes remain visible while a drag continues.
+
+   - The clear-sky check uses Bird and Hulstrom at 52° zenith, relative air mass 1.62, 101325 Pa, 1361 W/m²
+     extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water vapour, AOD₅₀₀ 0.116, AOD₃₈₀ 0.166,
+     aerosol asymmetry 0.85 and ground albedo 0.18. It gives about 828 W/m² DNI and 109 W/m² DHI.
+     The renderer uses a 7.62 beam/fill reference and a dimensionless daylight display divisor of 5.65.
+     Daylight beam colour comes from the linear three-channel atmospheric transmission. This divisor is
+     an illustration calibration and has no CIE horizon-azimuth interpretation. [Bird clear-sky model](https://www.nlr.gov/grid/solar-resource/clear-sky)
+   - Twilight estimates diffuse horizontal light with an 8 × 12 cosine-weighted hemisphere quadrature
+     of a broad dome, cloud-scattered fill, and a low aerosol forward-scattering lobe. The lobe's
+     first azimuthal moment corrects the sky view factor for surface orientation. The broad sky controls exposure.
+     The directional glow contributes to horizon and path chromaticity. Palette chromaticity, the
+     cloud-conditioned lobe weights and the meter gain are one display calibration fitted jointly to the
+     approved 06:20 and 16:30 exposures. The direct beam has its own physical deck transmission.
+     [Haber, Magnor and Seidel](https://doi.org/10.1145/1095878.1095884)
+   - The separate lunar beam uses a 0.30 lx full-moon reference, the phase and air/height/deck share,
+     and a 0.625 lx illustrative night reference. Colour includes the cooler apparent night response.
+     Local cloud footprints shadow the solar beam only, so moonlight retains its deck share.
+     [Kyba, Mohar and Posch](https://doi.org/10.1093/astrogeo/atx025)
+   - One compression uses `Y_display = Y_meter · (Y(L/L_ref))^0.6`. The shader then mixes the RGB
+     path term `L_display(1−h) + L_air h` with `h = AERIAL · fade(km)²` for each face sample and applies
+     the sRGB gamut at encoding. Land albedo keeps its local linear luminance contrast, with
+     a 1.35× illustration chroma factor, a seeded dark reflectance tail, and wet attenuation
+     `1−0.45·wet` models the wetting effect. The 0.45 coefficient is an illustration setting.
+     [Twomey, Bohren and Mergenthaler](https://doi.org/10.1364/AO.25.000431)
+     Snow mixes into linear reflectance before shading. A narrow sky-view accent
+     separates overlapping snowy slopes. Paper grain is applied to the result at one CSS pixel.
+   - The DEM gives real across and radial m/m slopes, column-relative bearing, and distances. For an
+     unmeasured face the model uses an explicit geometric fallback and assumes open light where
+     a terrain blocker cannot be measured. Starting beyond the 250 m local cell, marches cache
+     the curvature-corrected horizon angle per geometry node and half-degree bearing. Interpolated
+     horizon angles meet the source altitude through a soft 0.53° disc. A verified terrain height ceiling
+     can certify clear light without a full march. The partial horizon can resume if the disc
+     drops closer to the terrain. In both endpoints, rims resolve the same local receiver material, visibility
+     and haze at a finer depth than the body raster.
+   - Each receiver job samples the terrain and vegetation once and paints the full-beam and solar-beam-removed
+     endpoints together. The cache swaps both bitmaps in one promotion. Optical depths add where projected
+     cloud chords overlap, with local transmission `T = min(1, exp(−τ) / deckOpen)`. The mask interpolation is
+     `α = (e(1) − e(T)) / (e(1) − e(0))`, where `e(t) = sRGB((1−h̄) k(1+Rt)^0.6 + h̄H)`.
+     `R` averages beam and ambient incidence over texels with positive direct incidence, `k` is the ambient-only
+     display luminance for the plane's representative albedo, `h̄` is the same lit texels' mean path haze and
+     `H` is air luminance.
+     The painted endpoints carry local material and haze. The compositor moves one optical-depth mask per plane
+     on the cloud sheet's minute clock, samples it at the canopy's offset and mixes encoded endpoint pixels
+     in premultiplied alpha. Arrivals and interactive renders share raster steps staggered by fractions of
+     a device pixel. Explicit lays use the requested phase. The mask cache compares projected footprint values
+     and quantized display parameters. A sheet shadow uses its own seeded squared-radius outline. Tower shadows
+     project the same head geometry as the sky painter. The cloud's thin ragged rim is resolved in screen pixels and combined
+     with the projected 0.53° solar disc. The edge centre accounts for the rim's area and blur variance so
+     the integrated beam lost by each cell equals that of
+     τ(1−r²)². Each stamp is built once for a projected footprint. Peak visible support over the 75 s sweep
+     weights the near-neutral diffuse return, which fades to zero as the sweep clears the receiver bounds.
+     Each receiver reuses a blended frame, with sampling offsets cached
+     per axis and mask weights evaluated only where an endpoint covers the pixel. This preserves fractional
+     coverage at the crest before the scene draws terrain over what is behind it.
+     Sky glows, illumination between cloud decks and rainbows retain the sky renderer's half-depth transmission.
+   - `diffuseSky` neutralises cloudy skylight while preserving luminance. The mean bare-land RGB shift versus
+     `e4ca77ca` was (+1.0, −0.1, −1.6) in Haifa at noon, (+2.3, −0.3, −3.5) in Haifa overcast and
+     (+4.3, −0.7, −4.1) in Jerusalem rain. At night it was zero.
+   - Per-plant eight-bit tones key canopy paint independently of the plane's irradiance key. Each crown or tuft
+     path is shared between the endpoints. The previous canopy stays visible over compatible terrain while its
+     light changes. The 10 canopy poses at 5 fps use the wind's own clock. A cold canopy can show pose zero at full
+     beam while its pair waits. A compatible warm canopy publishes its paired pose zero with its plane.
+     A warm receiver keeps the previous pair while a newer scrub is pending. Superseded same-form pairs
+     release their bitmaps and count toward Worker timing without triggering a composite.
+     The canopy skips the second endpoint when the swept footprints miss its bounds. A plane whose shadow
+     leaves can retain its full-beam bitmap. Remaining strip work yields to scrub requests. The Worker releases
+     completed or canceled staging canvases, and retirement of an entry closes both bitmaps of each pose.
+     Reduced motion uses pose zero and the unadvected shadow footprints.
+   - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
+     moving transmission, a shadowed antialiased crest, paired arrivals, and failure of a Worker with a
+     filled shaded canopy strip. The broken-deck Jerusalem still also exercises both foreshortened
+     shadows, integrating the removed beam and measuring the receiver's hue and 10–90% edge width.
+   - Across 24 freshly rendered round 6 stills, the median land/sky ratios matched round 5 and the
+     mean ratios moved at most 0.031%. Shadmot Mehola at 12:00 in showers used 38.2 MiB of canvas
+     backing memory at DPR 2.75 after the Worker published the complete shaded near-canopy strip.
+   - For round 6, both revisions ran `npm run test:perf -- --no-land` on the same six performance cores,
+     with DPR 2.75, software raster and CPU throttled ×4. Four of eight interleaved pairs against
+     `6ca2e54` kept every control within 30% of its revision median. Land scrub p95 in ms (median and
+     range) was 4.30 [4.20–4.60] to 2.95 [2.40–3.50] in Haifa, 2.60 [2.10–3.60] to 3.20 [2.40–3.90]
+     in Tel Aviv, and 3.55 [2.50–4.00] to 3.45 [2.60–6.00] in Shadmot Mehola. The Shadmot Worker step
+     p95 was 58.20 [47.90–62.90] to 83.65 [77.30–97.50] ms, or 1.44× by the medians.
+     Three of the four individual Shadmot pairs exceeded 1.5× (paired ratios 1.63×, 1.69×, 1.23×, 1.52×).
+   - The relative performance gate stays open. Shadmot land animation p95 was 2.75 [2.30–3.20] to
+     4.75 [3.90–5.00] ms with two shaded planes and a shaded gust canopy in the thunder fixture.
+     First fresh canopy rose 14.5%, Haifa's first canvas paint rose 21.9%, and cold model time rose
+     23.5–68.5%. App fallback paint and same-day scrub times fell 4.7% and 2.6%.

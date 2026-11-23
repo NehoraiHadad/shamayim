@@ -12,7 +12,8 @@ import { cloudMotion } from './cloudField'
 import { cloudLayers } from './clouds'
 import { partKey } from './keys'
 import type { LifeInput } from './life'
-import { lightOf, visibleDay } from './light'
+import { drawnLightOf, rememberLightInput } from './drawnLight'
+import { lightOf, visibleDay, type LightInput } from './light'
 import { nightOf } from './night'
 import { nightSkyOf } from './nightSky'
 import { opticsOf } from './optics'
@@ -86,8 +87,10 @@ export function makeWorldBuilder() {
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow`))
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
       wet: Math.min(1, rate / 0.8), pm10: shown.opticalPm10, air })
-    const light = lightOf({ at, day, site: place, camera, skyline, sunSkyline, sun, moon,
-      aerosol: air, covers, cloudField, farFade: air.farFade, palette })
+    const lightInput: LightInput = { at, day, site: place, camera, skyline, sunSkyline, sun, moon,
+      aerosol: air, covers, cloudField, farFade: air.farFade, palette }
+    const light = lightOf(lightInput)
+    rememberLightInput(light, lightInput)
     const water = waterOf(at, place, terrain, skyline, shown.cloudCover, camera, wind.ms, m.ripplesPart(terrain, place.id),
       light.shares.sun, sun.overLand)
     const night = nightOf(shown, covers)
@@ -108,7 +111,8 @@ export function makeWorldBuilder() {
         forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
-    const optics = opticsOf({ sun, direct: light.meanBeam.sun, sunLights: light.source === 'sun', covers,
+    const opticsLight = rain ? drawnLightOf(light) : light
+    const optics = opticsOf({ sun, direct: opticsLight.meanBeam.sun, sunLights: opticsLight.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: coinOf(air) })
     const shownUtcDate = utcOf(at, place.timezone).toISOString().slice(0, 10)
     const land = m.landPart(

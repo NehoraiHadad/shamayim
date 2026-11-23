@@ -3,6 +3,7 @@ import type { WorldMark } from '../../world/markGeometry'
 import { needsTown } from '../../world/markContext'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
+import type { SceneStyle } from '../sceneStyle'
 import { evaluateNeighbour } from './evaluateNeighbour'
 import { farTownSupports } from './farTownSupport'
 import { markDescriptor } from './markDescriptor'
@@ -23,7 +24,7 @@ export function evaluateFarNeighbour(world: WorldState, mark: WorldMark, width: 
 
 /** Nearer retained glyphs are foreground too. Paint the final list far first. */
 export function farNeighbourMarks(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null,
-  home: HomeRoofline | null, clear: readonly Box[], foreground: readonly DrawnMass[]): GlyphDesc[] {
+  home: HomeRoofline | null, clear: readonly Box[], foreground: readonly DrawnMass[], style: SceneStyle = 'real'): GlyphDesc[] {
   const candidates = world.marks.filter(mark => mark.plane !== 'near')
   const { kept } = nearestMarks(candidates, foreground, (mark, mass) => {
     if (mark.sightKm === undefined) return { mark, x: mark.x * box.width / SCENE_W,
@@ -34,6 +35,6 @@ export function farNeighbourMarks(world: WorldState, box: SceneBox, towns: Layer
   })
   return kept.reverse().map(({ mark, x, hazeKm, supportId, town }) => {
     const glyph = markDescriptor(world, mark, x, tonesAt(world, hazeKm), hazeKm, supportId, town)
-    return refreshLandmarkGlyph(world, glyph, hazeKm)
+    return refreshLandmarkGlyph(world, glyph, hazeKm, style)
   })
 }

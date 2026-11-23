@@ -29,8 +29,8 @@ function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane
     outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
     surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
     gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
-    light: { key: lightKey, blend: 'source-over', faces: [], veil: [],
-      shade: [], lit: [], rims: [], snow: null, lift: null } }
+    light: { key: lightKey, blend: 'source-over', litField: { cols: 1, rows: 1, grid: new Uint8Array([0, 0, 255, 0]),
+      eSun: [0, 0, 0], eMoon: [0, 0, 0], eSky: [1, 1, 1], hazeLin: [0, 0, 0], yHorizon: 1 } } }
 }
 
 function counting() {
@@ -205,11 +205,11 @@ describe('painting in the worker', () => {
     expect(cache.update(plane('a', 'l2'), 2)).toBe('light')
     cache.flush()
     expect(worker.sent[0].jobs.map((job) => [job.part, job.key])).toEqual([['light', 'l2']])
-    // Light-only plane jobs strip form-only palettes, terraces, fields, rows, strata (and trees/gullies when lift is null).
+    // The lit terrain painter keeps the ground palette and leaves upright vegetation to the canopy job.
     const lightPlane = worker.sent[0].jobs[0].desc as LayerOf<'plane'>
-    expect(lightPlane.surfaceTone.cells).toEqual([])
-    expect(lightPlane.vegetation.fields.byteLength).toBe(0)
-    expect(lightPlane.vegetation.tones).toEqual([])
+    expect(lightPlane.surfaceTone.cells).toEqual([0])
+    expect(lightPlane.vegetation.trees.byteLength).toBe(0)
+    expect(lightPlane.vegetation.tufts.byteLength).toBe(0)
     // While l2 is on its way the hand moves on twice: only the newest is sent, once l2 is back.
     cache.update(plane('a', 'l3'), 2)
     cache.flush()
@@ -345,10 +345,10 @@ describe('painting in the worker', () => {
     const cache = new RemoteCache({ worker, painters, now: () => 0, onArrive: ({ settled }) => arrivals.push(settled), onFail: () => {} })
     const animatedCanopy: LayerOf<'canopy'> = {
       kind: 'canopy', id: 'canopy.near', surface: 'land', z: 30.1, key: 'c1', bounds: { x: 0, y: 40, w: 375, h: 88 },
-      outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 }, lift: null,
+      outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 },
       vegetation: { seed: 1, tones: [], trees: new Float32Array(), treeMeta: new Uint8Array(), tufts: new Float32Array(), tuftMeta: new Uint8Array() },
       animated: { mode: 'frames', frames: { count: 10, fps: 5 } },
-      light: { key: 'cl1', blend: 'source-over', faces: [] },
+      light: { key: 'cl1', blend: 'source-over' },
     }
     cache.update(plane('a', 'l1'), 2)
     cache.update(animatedCanopy, 2)
@@ -368,6 +368,28 @@ describe('painting in the worker', () => {
     await settled
     expect(arrivals).toEqual([false, false, true])
     expect(cache.fresh(animatedCanopy, 2)).toBe(true)
+  })
+
+  it('lays the newest complete worker arrivals once in a frame and settles after the draw', async () => {
+    const worker = fakeWorker(), callbacks: (() => void)[] = [], received: boolean[] = []
+    const stats = makeStats(() => 0, { trackShown: true })
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counting().painters,
+      stats, worker: () => worker, scheduleArrival: cb => callbacks.push(cb),
+      onArrive: a => received.push(a.settled) })
+    surface.resize(375, 128, 2)
+    surface.render([plane('a', 'l1')])
+    worker.answer()
+    surface.render([plane('a', 'l2')])
+    surface.render([plane('a', 'l3')])
+    worker.answer()
+    worker.answer()
+    expect(callbacks).toHaveLength(1)
+    expect(received).toEqual([])
+    const settled = surface.settled()
+    callbacks.shift()!()
+    await settled
+    expect(received).toEqual([true])
+    expect(stats.shown['plane.near'].lightKey).toBe('l3')
   })
 
   it('lays the arrivals on the surface, reuses shown entries when trackShown is on, and paints on main thread once worker fails', () => {

@@ -22,7 +22,11 @@ it('dims the moon beam under a thin cirrostratus veil', () => {
   const cloudField = cloudFieldAt([], 'moon-veil', 0)(at, covers, { temperature: 17, humidity: 50, weatherCode: 0 } as AirInput,
     -20, { speedKmh: 0, fromDeg: 0 }, undefined)
   const veil = lightOf({ ...input, covers, cloudField })
+  const halfDepth = lightOf({ ...input, covers, cloudField }, .5)
   expect(veil.source).toBe('moon')
+  expect(veil.clear).toBe(halfDepth.clear)
+  expect(veil.clear).toBeGreaterThan(1 - veil.diffuse)
+  expect(veil.meanBeam.moon).toBeLessThan(halfDepth.meanBeam.moon)
   expect(veil.meanBeam.moon).toBeLessThan(clear.meanBeam.moon)
   const dimmest = Math.min(...Array.from({ length: 18 }, (_, i) =>
     lightOf({ ...input, moon: { ...input.moon, azimuth: i * 20 }, covers, cloudField }).eye))

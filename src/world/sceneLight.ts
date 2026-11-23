@@ -31,27 +31,26 @@ export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}
   return WAVELENGTH.map((lambda) => tau550 * (lambda / 550) ** -angstrom)
 }
 
-/**
- * Direct sunlight colour at this altitude through this hour's air, normalised to its brightest channel, and its
- * strength against a clean noon (0..1). Dawn and dusk differ only as their air does: an evening of dust or haze
- * turns the sun deep red and dim, a clean morning keeps it pale.
- */
-export function sunLight(altitude: number, air: Aerosol = {}) {
+const cleanNoon = aerosolDepth().map((tau, i) => Math.exp(-tau - RAYLEIGH[i]))
+const luminance = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+/** Linear spectral transmission and its photopic strength relative to a clean zenith sun. */
+export function solarBeam(altitude: number, air: Aerosol = {}) {
   const m = airMass(altitude)
-  const aerosol = aerosolDepth(air)
-  const depth = RAYLEIGH.map((tau, i) => tau + aerosol[i])
-  const t = depth.map((tau) => Math.exp(-tau * m))
+  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(-(tau + RAYLEIGH[i]) * m))
+  return { transmission, strength: Math.min(1, luminance(transmission) / luminance(cleanNoon)) }
+}
+
+/** Display-mapped colour for the solar disc and its bloom. */
+export function sunLight(altitude: number, air: Aerosol = {}) {
+  const { transmission: t, strength } = solarBeam(altitude, air)
   // The eye adapts to the dimmer dawn and saturates on the disc: tone-mapped against its brightest channel, the sun
   // stays white-yellow until it is low, then passes smoothly through gold and orange to red.
   const bright = Math.max(...t)
   const seen = t.map((v) => 1 - Math.exp(-EXPOSURE * v / bright))
   const top = Math.max(...seen)
   const rgb = seen.map((v) => v / top) as [number, number, number]
-  // Strength against noon, by luminance, so a low sun lights faces less as well as redder.
-  const clean = aerosolDepth()
-  const noon = RAYLEIGH.map((tau, i) => Math.exp(-tau - clean[i]))
-  const lum = (c: number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
-  return { rgb, strength: Math.min(1, lum(t) / lum(noon)) }
+  return { rgb, strength }
 }
 
 /**

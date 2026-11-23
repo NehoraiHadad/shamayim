@@ -938,6 +938,99 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       `cloudCells` layer + painter, `FallingCloud` and `weatherLayers(world, box, clear)` adopted on top of land-living's
       canopy / land dust / plant wind wiring; land helper types stay in `typesLand.ts`; `sceneWorld.ts` keeps `cropAreas`
       and takes main's recorded-day `fixtureFor`.
+- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-23). Approved by Opus, 39 stills re-recorded.
+      - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
+            luminance compression, and per-face-distance linear haze across terrain receivers.
+      - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
+            with aerosol and cloud scatter and broad-sky metering. Keep the daylight scale distinct from the
+            atmosphere's directional horizon radiance. Retain the sky as the source of path colour.
+      - [x] Paint both stationary solar endpoints in one job per receiver. Keep the previous pair and canopy
+            visible during light changes. Promote each newer complete pair, so a drag keeps shaded planes moving
+            with the sky. A cold canopy can show full-beam pose zero while its pair waits.
+            Key paint on byte-encoded plant tones, geometry and clear zones. Cull footprints against canopy
+            bounds, send a warm canopy preview with its plane, and fill the gust strip after scrub.
+      - [x] Share one moving Beer–Lambert mask per plane with its canopy. Use the mean beam-to-sky ratio of
+            sun-facing texels, their mean haze and the sRGB curve. Key masks on projected footprint values
+            and quantized exposure. Reuse the same staggered mask and premultiplied blend for Worker arrivals
+            and interactive rendering, including the antialiased crest. Lunar light retains its deck share.
+            Seed the ground shadow rim by cloud genus. Project tower shadows from the shared tower heads. Combine
+            the ragged rim and solar disc in a cached transmission stamp with the earlier integrated beam removal.
+            Weight diffuse return by peak visible footprint coverage over the 75 s receiver sweep.
+      - [x] Cache terrain horizon angles by geometry grid and half-degree azimuth. Interpolate bearings
+            and apply the soft disc edge at the current solar or lunar altitude.
+      - [x] Resolve the crest from body samples in both endpoints, retain seeded reflectance mottle with its
+            dark tail, and finish with finer paper grain. Mix lying snow on terrain and outside ground into reflectance.
+      - [x] Give buildings one linear receiver per face. Use the land's solar, lunar and sky irradiance, exposure
+            and distance haze. Use seeded plaster and facing bins, and screen sky, beam and ground bounce
+            at eaves and feet. Let vertical walls see half the broad sky and half the ground. In twilight,
+            compress excess facade contrast against the lit ground with a soft luminance shoulder.
+            Paint shallow caps and pitched clay planes, with a continuous blend into unresolved fabric.
+            Preserve plaster luminance with a 0.025–0.030 warm axis. Shade glass with double-glazed
+            Fresnel reflectance and interior fill, and limit its twilight luminance to the matching wall.
+            Use metal albedo on bands only. Retain the drawn hand's distant-town and landmark tones.
+            Gilding keeps its rough conductor reflection. Keep the same geometry and
+            emissive window and lamp pass through twilight.
+      - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
+            plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
+            minute-boundary continuity and paired light-change Worker arrivals. Check that a Worker failure
+            releases all twenty canopy endpoint bitmaps and repaints the shaded strip on the main thread.
+            Run the land-light browser checks in the CI stills job. Check native masked building ratios and
+            contact spread, overcast relief and gilding at noon and twilight. Compare land, canopy and water
+            with architecture present and removed in the same browser. Swap the facade palettes and check
+            the tagged emissive pass for byte equality. Check pane luminance at noon and chroma at twilight.
+            Use the Jerusalem broken-deck fixture to check shadow area, feather, hue and edge continuity.
+      - [ ] Investigate the remaining February and August twilight hue differences with matched wall and
+            ground-contact samples. The largest differences occur where local soil or vegetation albedo
+            and direct light differ from the front facade.
+      - [x] Verify round 5 against all 24 rendered stills. The maximum land/sky median ratio change from
+            round 4 was 0.035%. A sun-facing glyph fixture also verifies the architectural shadow contrast.
+      - [x] Rerender the 24 measured round 6 stills and review the dawn, noon, dusk and shadowed-crest crops
+            at 2×. The median land/sky ratios matched round 5 and the mean ratios moved at most 0.031%.
+            Shadmot Mehola at noon in showers used 38.2 MiB after the shaded ten-pose strip finished.
+      - [x] Record round 4 performance. Across three interleaved pairs against `6ca2e54`, scene-model scrub
+            and land-animation p50 improved for all three places, and first fallback paint was within 10%.
+            Worker scrub p50 rose 61% in Tel Aviv and 24% in Shadmot Mehola. First canopy rose 14% and
+            Shadmot Mehola's animation p95 remained above baseline. The 24 still ratios stayed within
+            0.37% of approved round 3.
+      - [x] Compare round 6 against `6ca2e54` in eight interleaved pairs at DPR 2.75 and CPU ×4. Both
+            revisions used the same six performance cores. Four pairs passed the 30% control filter.
+            Land scrub p95 was 2.95 ms in Haifa, 3.20 ms in Tel Aviv, and 3.45 ms in Shadmot Mehola.
+            The Shadmot Worker step p95 was 83.65 ms against 58.20 ms baseline (1.44×).
+      - [ ] Close the remaining relative performance gaps. Shadmot land animation p95 rose from 2.75 to
+            4.75 ms, first fresh canopy rose 14.5%, Haifa's cold first paint rose 21.9%, and cold model
+            time rose 23.5–68.5%. Tel Aviv land scrub p95 rose by 0.60 ms (+23.1%) and stayed below 10 ms.
+      - [x] Merge the PR head with main's Haifa clouds and drawn town. The drawn town uses the original tier
+            palettes, sky form, shine and glyph shading. The outside descriptor cache and paint jobs carry
+            the hand. Shared painters retain their keys. Solar shadows use the same seeded heads as the
+            tower painters, projected from each field cell's base and depth with the existing area correction.
+      - [x] Verify the drawn town against main `a92d405f` in Chromium at 1×, 2026-11-17 noon. All 7,059
+            Haifa and 5,097 Tel Aviv town pixels matched on a transparent background. In the full scene,
+            1,525 Haifa and 848 Tel Aviv translucent town pixels differed over the changed background.
+            Haifa's 5,055 opaque pixels matched. One of Tel Aviv's 3,870 opaque pixels differed by one
+            green byte where the town overlaps the differently lit ground.
+      - [x] Compare the real hand with `1480734f` at the same times. Both complete 375×428 frames and
+            both isolated outside layers were byte-identical.
+      - [x] Verify the merge with `tsc -b`, 226 targeted Vitest tests at two workers, and the 13-case
+            building and shadow browser runner. The Jerusalem broken-deck fixture preserved removed beam
+            area within 0.005%, with 5.20–5.28 px vertical edge widths on its two broad shadows.
+      - [x] Record the cloudy land colour change. `diffuseSky` neutralises cloudy skylight while preserving
+            luminance. Mean bare-land RGB shift versus `e4ca77ca` was (+1.0, −0.1, −1.6) in Haifa at noon,
+            (+2.3, −0.3, −3.5) in Haifa overcast and (+4.3, −0.7, −4.1) in Jerusalem rain. At night it was zero.
+      - [ ] Recheck night composites when re-recording stills. At 2× and 21:00, box and tower window
+            geometry and fill colours and isolated lamps matched `e4ca77ca`. After restoring the parapet
+            shade, composited warm window samples still differed by up to 2 levels in Jerusalem, 16 in
+            Haifa and 4 in Tel Aviv, including pixels over overlapping facades.
+      - [x] Pre-merge review fixes. Facade exposure runs before the shared veil, and dense fog removes the
+            contrast floor, so low-sun fog veils the town like the ground. Haifa's shrine dome matches main at
+            21:00 and stays opaque through twilight. Four stills re-recorded.
+      - [x] Town walls are veiled by their own distance, and through twilight by the mean distance of the town's ground (`wallDistance.ts`), never by the
+            land behind each column, which drew vertical blocks in low sun and fog. `outsideNeighbours.test.ts`
+            bounds adjacent walls at 9/255 in five places, four airs and seven hours.
+      - [ ] Follow-up, performance (software Chromium, CPU ×4). Haifa `modelCold` median is 242 ms against 187 ms
+            on main. Shadmot Mehola thunder `canopy.near` peaks at 900 ms in the Worker against 69 ms on main,
+            from the paired gust poses.
+      - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
+            `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
 ## Polish track G — no building flips or flickers; live mode is scrub at now (owner: "a building rotated and also flickered", Karmei Tzur) — 2026-11-22 (branch `claude/fix-glyph-flicker-8384c3`)
 Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-g-merge.md` (+ `.REPORT.md`, rounds 1–3).

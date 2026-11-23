@@ -22,7 +22,7 @@ const q = (v: number, step: number) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
 /** A tile's size in CSS px that is a whole number of device px (a pattern repeats on its device size). */
 const whole = (px: number, dpr: number) => Math.max(1, Math.round(px * dpr)) / dpr
-const lightPart = (key: string, tint: RGB) => ({ key, blend: 'source-over' as const, tint, faces: [] })
+const lightPart = (key: string, tint: RGB) => ({ key, blend: 'source-over' as const, tint })
 
 /** The crest's y (land px) at a reference x, from a plane's points. */
 function crestAt(points: readonly Pt[], x: number): number {

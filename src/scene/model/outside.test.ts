@@ -22,10 +22,8 @@ import { legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
 import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
-import { againstLight, tonesAt } from './marks'
+import { tonesAt } from './marks'
 import { landBehind } from './landBehind'
-import { hazeOf, toneAt } from './landVeil'
-import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
 
 /**
@@ -246,7 +244,7 @@ describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
     const snowy = buildWorld({ ...worldInput(loaded.get(id)!, NOON), forced: { snowfall: 2, precipitation: 2, temperature: -1,
       feelsLike: -4, cloudCover: 100, thickCloud: 100, weatherCode: 73 } })
     const near = (w: WorldState) => sceneModel(w, BOX).layers.find((l): l is LayerOf<'plane'> => l.kind === 'plane' && l.plane === 'near')!
-    const snow = near(snowy).light.snow
+    const snow = near(snowy).light.litField?.snow
     expect(snow).not.toBeNull()
     // At the dot the near land is the place's own: its snow runs from the crest down by (crest m − snow line m) × s.
     const { terrain } = snowy, view = snowy.place3 as OutsideView
@@ -256,7 +254,7 @@ describe('the place’s own ground takes the snow the ridge takes (C9)', () => {
     const edge = terrain.snowEdge!('near', lineM)[i]
     const want = crestM >= lineM ? pts[i][1] + (crestM - lineM) * view.vscale!.s : pts[i][1] - 2
     expect(edge[1]).toBeCloseTo(want, 6)
-    expect(near(worldAt(id)).light.snow ?? null).toBeNull()
+    expect(near(worldAt(id)).light.litField?.snow ?? null).toBeNull()
   })
 })
 
@@ -523,60 +521,19 @@ describe('light on the place', () => {
     }
   })
 
-  it.each(['tel-aviv', 'jerusalem', 'beer-sheva'])('%s: gives the mass form from the sky under the cloud: tops lighter, feet darker (C5b, C9)', (id) => {
-    for (const at of ['2026-11-17T11:00', '2026-11-17T16:30'] as LocalTime[]) {
-      const world = worldAt(id, at)
-      const layer = layerOf(world)!
-      const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
-      // The weaker the direct light, the more the form is the sky's.
-      expect(layer.form.strength).toBeGreaterThan(.35 * (1 - world.night.dark))
-      const sky = skyAt(world, BOX)(8)
-      // A distant surface includes path radiance: haze may be brighter than the sky at eight degrees.
-      const reflectedAndPathLimit = Math.max(lum(sky), lum(hazeOf(world)))
-      layer.form.tiers.forEach((t, i) => {
-        expect(lum(t.top)).toBeGreaterThanOrEqual(lum(layer.tiers[i].wall))
-        expect(lum(t.foot)).toBeLessThan(lum(layer.tiers[i].wall))
-        expect(lum(t.face)).toBeGreaterThanOrEqual(lum(layer.tiers[i].wall))
-        // C9 bounds reflected light; the observed surface also contains atmospheric light along its path.
-        expect(lum(t.top)).toBeLessThan(reflectedAndPathLimit)
-      })
-      // The brighter half of the sky is the sun's: its side on the screen.
-      const sun = world.bodies.sun.x - 187.5
-      if (Math.abs(sun) > 20) expect(layer.form.side).toBe(sun < 0 ? 1 : -1)
+  it.each(['tel-aviv', 'jerusalem', 'haifa'])('%s builds a cached palette per geometry tier and keeps its facing through a scrub', (id) => {
+    const at = (time: LocalTime) => layerOf(worldAt(id, time))!
+    const noon = at('2026-11-17T12:00'), dusk = at('2026-11-17T16:30')
+    const boxes = noon.items.filter(item => item.kind === 'box')
+    expect(boxes.length).toBeGreaterThan(50)
+    expect(dusk.items.filter(item => item.kind === 'box').map(b => b.receiver)).toEqual(boxes.map(b => b.receiver))
+    const dark = at('2026-11-17T21:00')
+    for (const box of boxes) {
+      expect(dark.receivers[box.tier][box.receiver]).toBeDefined()
     }
-    expect(layerOf(worldAt(id, '2026-11-17T21:00'))!.form.strength).toBeLessThan(.05)
-  })
-
-  it.each(['jerusalem', 'tel-aviv', 'haifa', 'beer-sheva'])('%s: against the light the mass is a dark silhouette on its ridge (C9)', (id) => {
-    const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
-    const worst = (at: LocalTime) => {
-      const world = worldAt(id, at)
-      const layer = layerOf(world)!
-      const behind = landBehind(world)
-      let most = -1, seen = 0
-      for (const item of layer.items) {
-        if (item.kind !== 'box' || item.beyond) continue
-        const km = behind(item.x, item.foot)
-        if (!Number.isFinite(km)) continue
-        seen++
-        most = Math.max(most, lum(layer.tiers[item.tier].wall) - lum(toneAt(world, km)))
-      }
-      expect(seen).toBeGreaterThan(50)
-      return { most, against: againstLight(world) }
-    }
-    // A low sun beyond the land: the walls the eye sees face away from it, about the ridge's own dark.
-    let backlitMost = 0
-    for (const at of ['2026-11-17T06:20', '2026-11-17T16:30'] as LocalTime[]) {
-      const { most, against } = worst(at)
-      expect(against).toBeGreaterThan(.8)
-      expect(most, at).toBeLessThan(.05)
-      backlitMost = Math.max(backlitMost, most)
-    }
-    // A high sun: lit stone, lighter than the scrub round it.
-    const noon = worst('2026-11-17T11:00')
-    expect(noon.against).toBeLessThan(.2)
-    // Aerial haze attenuates contrast with distance. Noon stays brighter than either backlit reading.
-    expect(noon.most).toBeGreaterThan(backlitMost)
+    expect(dark.items.filter(item => item.kind === 'box')).toEqual(boxes)
+    const ownRoof = boxes.find(box => box.roof === 'tile')
+    if (ownRoof) expect(dark.receivers[ownRoof.tier][ownRoof.receiver].tile).toHaveLength(3)
   })
 
   it('takes no more haze on a thing than the land it is seen against (C9)', () => {

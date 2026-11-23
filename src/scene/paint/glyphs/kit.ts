@@ -1,40 +1,25 @@
 import type { RGB } from '../../../world/types'
 import { smoothstep } from '../../../domain/smoothstep'
+import type { GlyphSurfaces } from '../../model/glyphSurfaces'
 import type { Shine, Tones } from '../../model/types'
 import { rng } from '../core'
 import { css, mix, type Ctx2D } from '../hand'
-import { roundGradient } from './kitLight'
+import { paintPass } from '../paintPass'
+import { sectorGradient } from './kitLight'
 
 /*
  * The glyphs' drawing kit (stage C4), after the prototype's `sceneGlyphs.ts` (docs/design/prototypes/canvas-scene/).
  * MEDIUM: the scene's own hand: flat opaque tone shapes with hard edges, no outline, cut from the ridge colour and lifted
  * toward the sky; round bodies take a falloff (lit → wall → shade → a sliver of reflected sky); edges facing the light
  * take a 0.5 px rim. ORDER: cast shadow → body → lit face → core shadow → openings → rim → grain → lamps.
- * Glyph space has fixed handedness. Signed lateral light is positive from glyph-left.
+ * Glyph space has fixed handedness. Architectural palettes carry the angle of each surface in that space.
  * Randomness comes only from the glyph seed.
  */
 
-export type Tracer = (c: Ctx2D) => void
-export interface Lamp { x: number; y: number; r: number; c: RGB; a: number; fade?: number }
+import { rect, type Tracer } from './kitGeometry'
+export { arch, disc, poly, rect, type Tracer } from './kitGeometry'
 
-export const poly = (pts: readonly number[]): Tracer => (c) => {
-  c.beginPath()
-  c.moveTo(pts[0], pts[1])
-  for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1])
-  c.closePath()
-}
-export const rect = (x: number, y: number, w: number, h: number): Tracer => (c) => { c.beginPath(); c.rect(x, y, w, h) }
-/** An arched opening: a rectangle with a round head, standing on `y` (its sill). */
-export const arch = (x: number, y: number, w: number, h: number): Tracer => (c) => {
-  const r = w / 2
-  c.beginPath()
-  c.moveTo(x, y)
-  c.lineTo(x, y - h + r)
-  c.arc(x + r, y - h + r, r, Math.PI, 0)
-  c.lineTo(x + w, y)
-  c.closePath()
-}
-export const disc = (x: number, y: number, r: number): Tracer => (c) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2) }
+export interface Lamp { x: number; y: number; r: number; c: RGB; a: number; fade?: number }
 
 /** Red aviation light; a minaret's green balcony lamp. */
 const AVIATION: RGB = [1, 0.35, 0.29]
@@ -57,7 +42,10 @@ export class Kit {
   readonly kr: number
   /** Magnitude of the lateral face difference, from even (0) to fully sided (1). */
   readonly k: number
-  constructor(c: Ctx2D, t: Tones, s: Shine, seed: number, l: number) {
+  readonly surfaces?: GlyphSurfaces
+  readonly windowWall: RGB
+  readonly windowRecess: RGB
+  constructor(c: Ctx2D, t: Tones, s: Shine, seed: number, l: number, surfaces?: GlyphSurfaces, windowWall = t.wall, windowRecess = t.deep) {
     this.c = c
     this.l = Math.max(-1, Math.min(1, l))
     this.kl = Math.max(0, this.l)
@@ -65,14 +53,17 @@ export class Kit {
     this.k = Math.abs(this.l)
     this.t = t
     this.s = s
+    this.surfaces = surfaces
+    this.windowWall = windowWall
+    this.windowRecess = windowRecess
     this.r = rng(seed * 31 + 7)
   }
 
-  get litL() { return this.face(this.t.wall, this.t.lit) }
-  get litR() { return this.face(this.t.wall, this.t.lit, -1) }
-  get stoneL() { return this.face(this.t.stone, this.t.stoneLit) }
-  get roofL() { return this.face(this.t.roof, this.t.roofLit) }
-  get roofR() { return this.face(this.t.roof, this.t.roofLit, -1) }
+  get litL() { return this.surfaces!.wall[0] }
+  get litR() { return this.surfaces!.wall[1] }
+  get stoneL() { return this.surfaces!.stone[0] }
+  get roofL() { return this.surfaces!.tile[0] }
+  get roofR() { return this.surfaces!.tile[1] }
 
   /** Tone for a fixed face, with a signed horizontal component of its normal. */
   face(even: RGB, lit: RGB, normal = 1, shade = even) {
@@ -90,14 +81,12 @@ export class Kit {
     this.c.fill()
   }
 
-  /**
-   * A round body (cylinder, cone, dome) between x0 and x1: the light falls off from the lit side, a sliver of reflected
-   * sky comes back on the far edge. With no side to the light (overcast, night) it evens out to wall with a faint rim.
-   */
-  round(tr: Tracer, x0: number, x1: number, term = 0.62, wall = this.t.wall, lit = this.t.lit) {
-    const g = roundGradient(this.c, this.t, this.l, x0, x1, term, wall, lit)
+  /** Interpolate the receiver samples across the projected curved wall. */
+  round(tr: Tracer, x0: number, x1: number, glass = false) {
+    const surfaces = this.surfaces!
+    const sectors = glass ? surfaces.roundGlass! : surfaces.round
     tr(this.c)
-    this.c.fillStyle = g
+    this.c.fillStyle = sectorGradient(this.c, x0, x1, sectors)
     this.c.fill()
   }
 
@@ -105,22 +94,30 @@ export class Kit {
   box(x: number, y: number, w: number, h: number, side: number, opts: { shadeW?: number; front?: RGB; sideC?: RGB } = {}) {
     const front = opts.front ?? this.t.wall
     this.fill(rect(x, y, w, h), front)
-    // The side face: turned away from the eye, so a little in shade under an even sky; lit as the light comes to its side.
-    if (side > 0) this.fill(rect(x, y, side, h), this.face(mix(front, this.t.shade, 0.25), opts.sideC ?? this.t.lit, 1, this.t.shade))
-    const sw = opts.shadeW ?? 0
-    if (sw > 0) this.fill(rect(x + w - sw, y, sw, h), mix(this.t.shade, opts.sideC ?? this.t.lit, this.kr), 0.25 + 0.3 * this.kl)
+    const surfaces = this.surfaces!
+    const faces = opts.sideC === this.t.stoneLit || opts.front === this.t.stone ? surfaces.stone : surfaces.wall
+    if (side > 0) this.fill(rect(x, y, side, h), faces[0])
+    if (opts.shadeW) this.fill(rect(x + w - opts.shadeW, y, opts.shadeW, h), faces[1])
   }
 
-  /** Rim light on an edge facing the light or the sky (0.5 px). */
-  rim(x: number, y: number, w: number, a = 0.9) {
-    // A back-lit edge catches more of it (the source low beyond the glyph).
-    this.fill(rect(x, y, w, 0.5), this.t.rim, Math.min(1, a * (1 - 0.5 * this.night) * (1 + 0.5 * (this.s.faces.rim))))
+  /** Projected top of a ledge or parapet. */
+  rim(x: number, y: number, w: number, opacity = 1) {
+    this.fill(rect(x, y, w, Math.min(.48, w * .15)), this.t.rim, opacity)
+  }
+
+  eave(x: number, y: number, w: number, h: number) {
+    this.vgrad(rect(x, y, w, h), y, y + h, this.surfaces!.eave, this.t.wall)
   }
 
   /** A window or opening: a dark recess, or a warm lamp by night when it is one of the lit share. */
   open(tr: Tracer, canLight = false, warm = 0.85) {
-    if (canLight && this.r() < this.s.windows) this.fill(tr, mix(this.t.wall, this.t.win, warm))
+    if (canLight && this.r() < this.s.windows) this.pane(tr, warm, true)
     else this.fill(tr, this.t.deep, 0.85 - 0.25 * this.night)
+  }
+
+  pane(tr: Tracer, warm: number, on: boolean) {
+    if (on) paintPass(this.c, 'emission', () => this.fill(tr, mix(this.windowWall, this.t.win, warm)))
+    else this.fill(tr, this.t.win, 0)
   }
 
   lamp(x: number, y: number, r: number, c: RGB, a = 1, fade?: number) { this.lamps.push({ x, y, r, c, a, fade }) }

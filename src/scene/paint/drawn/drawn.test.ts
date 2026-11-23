@@ -20,7 +20,7 @@ function painted(alpha: number[], over: Partial<LayerOf<'cloudSheet'>> = {}) {
 }
 
 const box = (over: Partial<Box>): Box => ({ kind: 'box', x: 10, w: 1, top: 94, foot: 100, tier: 0, seed: 1, storeys: 4,
-  folded: false, roof: null, heater: false, ...over })
+  folded: false, roof: null, heater: false, receiver: 0, ...over })
 
 describe('drawn clouds', () => {
   it('reads the same puffs for the same seed', () => {

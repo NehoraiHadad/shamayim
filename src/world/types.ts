@@ -112,7 +112,7 @@ export interface WorldState {
   snowfall: Snowfall | null
   wind: Wind
   flightTerrain?: Pick<import('./flightTerrain').FlightTerrain,
-    'eyeM' | 'heightAt' | 'blockedKm' | 'panoramaHeightsM' | 'shadowBlocked' | 'occludedAt'>
+    'eyeM' | 'heightAt' | 'blockedKm' | 'panoramaHeightsM' | 'heightCeilingM' | 'shadowBlocked' | 'occludedAt'>
   terrain: TerrainPlanes
   water: WaterState
   farCities: FarCities

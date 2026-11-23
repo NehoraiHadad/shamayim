@@ -313,7 +313,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
     // when the ink turns.
     key: layerKey('water', name, world.keys.terrain, datum && [datum.y, ...datum.segments.flatMap((seg) => [seg.x1, seg.x2, seg.fadeLeft, seg.fadeRight])], landBoxKey(box)),
     light: { key: bands.length ? lightKey : layerKey('water.datum', datum && colourKey(datum.rgb), landBoxKey(box)),
-      blend: 'source-over', tint: bands[0]?.stops[0][1] ?? body, faces: [] },
+      blend: 'source-over', tint: bands[0]?.stops[0][1] ?? body },
     bands, ruffle: { light: aerial(mixRgb(sky(0.2), [1, 1, 1], 0.18 * (1 - dark)), median(spans.map(({ span }) => span.distanceKm))),
       dark: mixRgb(sky(25), body, 0.5), lit, shade, drift },
     // C7: the ripples run with the wind and the glint's sparks come and go, in a strip of frames (the light canvas only).

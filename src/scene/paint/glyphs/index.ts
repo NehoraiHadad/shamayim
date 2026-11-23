@@ -2,6 +2,7 @@ import { isField, type GlyphKind } from '../../../world/glyphSpecs'
 import type { GlyphDesc, Shine } from '../../model/types'
 import { castShadow } from '../castShadow'
 import { css, type Ctx2D } from '../hand'
+import { paintPass } from '../paintPass'
 import { azrieli } from '../icons/azrieli'
 import { babShrine } from '../icons/babShrine'
 import { chordsBridge } from '../icons/chordsBridge'
@@ -35,7 +36,7 @@ const DRAW: Record<GlyphKind, Draw> = {
   vineyard: (k, h, d) => vineyard(k, h, d),
   solar: (k, h, d) => solar(k, h, d),
   westernWall,
-  babShrine: (k, h) => babShrine(k, h),
+  babShrine,
   azrieli,
   chordsBridge,
 }
@@ -46,7 +47,10 @@ const GLYPH_CAST = { alpha: 1, inset: 0, edgeY: -.2, tipY: .6, bottomY: 1.3, tip
 /** The glyph's cast shadow on the ground, away from the light, and its contact shade (screen px). */
 export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
   if (isField(d.kind)) return
-  castShadow(ctx, { x: d.x, base: d.base, w: d.w, h: d.h * d.scale }, d.tones, shine.cast, GLYPH_CONTACT, GLYPH_CAST)
+  const shadow = () => castShadow(ctx, { x: d.x, base: d.base, w: d.w, h: d.h * d.scale },
+    d.shadowTones ?? d.tones, shine.cast, GLYPH_CONTACT, GLYPH_CAST)
+  if (d.kind === 'palms') paintPass(ctx, 'background', shadow)
+  else shadow()
 }
 
 /**
@@ -54,14 +58,24 @@ export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
  * screen px, to be laid after the grain.
  */
 export function drawGlyph(ctx: Ctx2D, d: GlyphDesc, shine: Shine): Lamp[] {
+  return placeGlyph(ctx, d, () => {
+    const k = new Kit(ctx, d.tones, shine, d.seed, d.hand * glyphLight(shine), d.surfaces, d.windowWall, d.shadowTones?.deep)
+    if (isField(d.kind) || d.kind === 'palms') paintPass(ctx, 'background', () => drawGlyphShape(k, d))
+    else drawGlyphShape(k, d)
+    return k.lamps
+  })
+}
+
+export const drawGlyphShape = (kit: Kit, glyph: GlyphDesc) => DRAW[glyph.kind](kit, glyph.h, glyph)
+
+export function placeGlyph(ctx: Ctx2D, d: GlyphDesc, draw: () => Lamp[]): Lamp[] {
   const { hand } = d
   ctx.save()
   ctx.translate(d.x, d.base)
   ctx.scale(d.scale * hand, d.scale)
-  const k = new Kit(ctx, d.tones, shine, d.seed, hand * glyphLight(shine))
-  DRAW[d.kind](k, d.h, d)
+  const lamps = draw()
   ctx.restore()
-  return k.lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * hand, y: d.base + l.y * d.scale,
+  return lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * hand, y: d.base + l.y * d.scale,
     r: l.r * Math.max(0.7, d.scale),
     ...(d.contrast === undefined ? {} : { fade: (l.fade ?? 1) * Math.cbrt(d.contrast) }) }))
 }
@@ -74,6 +88,10 @@ export function glyphLight(shine: Shine): number {
 
 /** Lamps: a soft halo, then the hot core (screen px). */
 export function drawLamps(ctx: Ctx2D, lamps: readonly Lamp[], hair: number) {
+  if (lamps.length) paintPass(ctx, 'emission', () => paintLamps(ctx, lamps, hair))
+}
+
+function paintLamps(ctx: Ctx2D, lamps: readonly Lamp[], hair: number) {
   for (const l of lamps) {
     const fade = l.fade ?? 1
     const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r)

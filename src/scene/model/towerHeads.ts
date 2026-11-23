@@ -1,6 +1,5 @@
 import { smoothstep } from '../../domain/smoothstep'
-import { rng } from './core'
-import type { CloudSprite } from './cloudSprite'
+import { seeded } from '../../data/landmarks/hash'
 
 /*
  * The heads a tower is made of, as the painter's field reads them: the main column under its crown, and lower shoulders
@@ -40,9 +39,16 @@ export interface Head {
   anvil: number
 }
 
+export interface TowerHeadShape { seed: number; w: number; tall: number; anvil?: number }
+
+/** Above the cool-season Levant tropopause (km), a tall Cb can spread into an anvil. */
+const TROPOPAUSE_KM = 11
+export const towerAnvil = (cb: boolean, top: number, w: number, tall: number) =>
+  cb && tall >= 1.5 * w ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
+
 /** The main column first, then its shoulders, last the base they all stand on (the whole underside is its own). */
-export function headsOf(s: CloudSprite): Head[] {
-  const r = rng(s.seed ^ 0x51ed), anvil = s.anvil ?? 0
+export function headsOf(s: TowerHeadShape): Head[] {
+  const r = seeded(s.seed ^ 0x51ed), anvil = s.anvil ?? 0
   const slender = smoothstep(SLENDER[0], SLENDER[1], s.tall / s.w)
   const between = ([a, b]: readonly number[], t = r()) => a + (b - a) * t
   const head = (x: number, w: number, tall: number, flare: number): Head => {
@@ -71,6 +77,9 @@ export function halfAt(h: Head, y: number): number {
   const t = Math.min(1, Math.max(0, -y / h.tall))
   return Math.max(0.5, h.half * (1 - (1 - h.top) * t * (1 - h.anvil) + flareAt(h, t)))
 }
+
+/** Vertical distance from the column, in crown radii. */
+export const crownAt = (h: Head, y: number) => y < h.joint ? (h.joint - y) / h.crown : 0
 
 /** How far a head's axis is carried downwind at a height (px): its anvil's spread, on the wind's side. */
 export function carriedAt(h: Head, y: number, lean: number): number {

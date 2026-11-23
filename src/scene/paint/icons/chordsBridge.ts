@@ -1,4 +1,4 @@
-import { css, mix } from '../hand'
+import { css } from '../hand'
 import { Kit, poly, rect } from '../glyphs/kit'
 
 /**
@@ -18,7 +18,7 @@ export function chordsBridge(k: Kit, h: number) {
   k.fill(rect(-8, deck + 1, 21, 0.5), t.shade)
   // The stays first, behind the pylon: fine lines lit by the light.
   c.lineWidth = 0.22
-  c.strokeStyle = css(mix(t.wall, t.rim, k.k), 0.85)
+  c.strokeStyle = css(k.surfaces!.silver!, 0.85)
   c.beginPath()
   ;[0.42, 0.5, 0.58, 0.66, 0.74, 0.82, 0.9].forEach((f, i) => {
     const [x, y] = along(f)

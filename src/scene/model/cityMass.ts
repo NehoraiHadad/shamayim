@@ -1,3 +1,4 @@
+import type { BuildingFaces } from './buildingLight'
 import type { Box, CityBlock, RGB } from './types'
 
 /** Painted far-city ground retains its source town and panorama-eye distance after visibility/text culls. */
@@ -9,4 +10,4 @@ export interface CityMass { alpha: number; boxes: CityGround[] }
  * strength step each) and the blocks rising from it with a lit face toward the light, in tones after the air at `km`;
  * drawn far to near.
  */
-export interface CityTier { km: number; lit: RGB; shade: RGB; mass: CityMass[]; blocks: CityBlock[] }
+export interface CityTier { km: number; mass: CityMass[]; blocks: CityBlock[]; resolved: Record<number, BuildingFaces>; unresolved: RGB }

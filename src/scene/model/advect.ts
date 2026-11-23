@@ -44,13 +44,6 @@ export function carriedSheet(sheet: LayerOf<'cloudSheet'>, from: number): LayerO
   return carried(sheet, from, ys[0], ys[ys.length - 1], (y) => speedAt(ys, speeds, y))
 }
 
-/** A plane's cloud shadows laid moving with their clouds: bands down the land, each at the speed of the shadows there. */
-export function carriedShadow(shadow: LayerOf<'cloudShadow'>, from: number): LayerOf<'cloudShadow'> {
-  const blobs = [...shadow.blobs].sort((a, b) => a.y - b.y)
-  const { y, h } = shadow.bounds
-  return carried(shadow, from, y, y + h, (at) => speedAt(blobs.map((b) => b.y), blobs.map((b) => b.speed), at))
-}
-
 /** Towers carried as one: the median of their speeds (a tower spans many bands; per band it would shear). */
 export function carriedCells(layer: LayerOf<'cloudCells'>, from: number): LayerOf<'cloudCells'> {
   const speeds = layer.cells.map((cell) => cell.speed).sort((a, b) => a - b)
@@ -60,7 +53,7 @@ export function carriedCells(layer: LayerOf<'cloudCells'>, from: number): LayerO
 }
 
 /** `layer` with an advection from `top` to `bottom` (surface px) in `BAND_PX` bands; as it was if nothing moves. */
-function carried<L extends LayerOf<'cloudSheet' | 'cloudShadow' | 'cloudCells'>>(layer: L, from: number, top: number, bottom: number,
+function carried<L extends LayerOf<'cloudSheet' | 'cloudCells'>>(layer: L, from: number, top: number, bottom: number,
   speedOf: (y: number) => number): L {
   const bands: { y: number; speed: number }[] = []
   for (let y = top; y < bottom; y += BAND_PX) bands.push({ y, speed: speedOf(y + BAND_PX / 2) })

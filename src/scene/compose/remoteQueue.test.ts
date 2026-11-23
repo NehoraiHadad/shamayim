@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerOf } from '../model/types'
 import { HAND } from '../paint'
@@ -13,19 +13,22 @@ function plane(key: string, lightKey: string, id = 'plane.near'): LayerOf<'plane
     outline: [[0, 50], [375, 60], [375, 128], [0, 128]], fill: [0.4, 0.4, 0.4],
     surfaceTone: { palette: [[0.4, 0.4, 0.4]], cols: 1, rows: 1, cells: [0], source: 'test' },
     gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
-    light: { key: lightKey, blend: 'source-over', faces: [], veil: [], shade: [], lit: [], rims: [], snow: null, lift: null },
+    light: { key: lightKey, blend: 'source-over', litField: { cols: 1, rows: 1, grid: new Uint8Array([0, 0, 255, 0]),
+      eSun: [0, 0, 0], eMoon: [0, 0, 0], eSky: [1, 1, 1], hazeLin: [0, 0, 0], yHorizon: 1 } },
   }
 }
 
 function canopy(key: string, lightKey: string, id = 'canopy.near', count = 10): LayerOf<'canopy'> {
   return {
     kind: 'canopy', id, surface: 'land', z: 30.1, key, bounds: { x: 0, y: 40, w: 375, h: 88 },
-    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 }, lift: null,
+    outline: [[0, 50], [375, 60], [375, 128], [0, 128]], clear: [], wind: { lean: -0.5, gust: -0.25 },
     vegetation: { seed: 1, tones: [], trees: new Float32Array(), treeMeta: new Uint8Array(), tufts: new Float32Array(), tuftMeta: new Uint8Array() },
     animated: { mode: 'frames', frames: { count, fps: 5 } },
-    light: { key: lightKey, blend: 'source-over', faces: [] },
+    light: { key: lightKey, blend: 'source-over' },
   }
 }
+
+const bitmap = (w: number, h: number) => ({ width: w, height: h, close: vi.fn() }) as unknown as ImageBitmap
 
 function fakeWorker() {
   const sent: PaintRequest[] = []
@@ -39,10 +42,11 @@ function fakeWorker() {
       const request = sent.shift()!
       const reply: PaintReply = {
         batch: request.batch,
-        results: request.jobs.map((job) => ({
-          id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 2,
-          bitmap: job.final === false ? null : { width: job.rect.w, height: job.rect.h, close() {} } as unknown as ImageBitmap,
-        })),
+        results: request.jobs.map((job) => {
+          const image = () => job.final === false && !job.preview ? null : bitmap(job.rect.w, job.rect.h)
+          return { id: job.id, part: job.part, key: job.key, formKey: job.formKey, ratio: job.ratio, rect: job.rect, ms: 2,
+            preview: job.preview, bitmap: image(), shade: job.shade ? image() : undefined }
+        }),
       }
       worker.onmessage?.({ data: reply } as MessageEvent<PaintReply>)
     },
@@ -53,6 +57,50 @@ function fakeWorker() {
 const painters = () => ({ form: () => {}, light: () => {} })
 
 describe('bounded strip scheduling in RemoteCache', () => {
+  it('swaps whole pairs through a light change and retires each pair together', () => {
+    const worker = fakeWorker()
+    const arrivals: boolean[] = []
+    const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
+      onArrive: ({ changed }) => arrivals.push(changed), onFail: () => {} })
+    const cloudShadow = { plane: 'near', open: 1, blobs: [], from: 0, speed: 0,
+      beamOverSky: 2, skyDisplay: 0.05, hazeShare: 0.1, hazeY: 0.2 } as const
+    const first = { ...plane('terrain', 'old'), cloudShadow: { ...cloudShadow, blobs: [] } }
+    const next = { ...first, light: { ...first.light, key: 'new' } }
+    cache.update(first, 2)
+    cache.flush()
+    expect(worker.sent[0].jobs).toHaveLength(1)
+    expect(worker.sent[0].jobs[0].shade).toBe(true)
+    worker.answer()
+    const held = cache.peek(first.id)!
+    expect(held.shade).toBeTruthy()
+    cache.update({ ...first, light: { ...first.light, key: 'superseded' } }, 2)
+    cache.flush()
+    cache.update(next, 2)
+    worker.answer()
+    // A newer complete pair is promoted even while the wanted light has moved on, so a drag keeps moving.
+    expect(arrivals.at(-1)).toBe(true)
+    const between = cache.peek(first.id)!
+    expect(between.light).not.toBe(held.light)
+    expect(between.shade).not.toBe(held.shade)
+    expect(held.shade!.close).toHaveBeenCalledOnce()
+    expect(held.light!.close).toHaveBeenCalledOnce()
+    cache.flush()
+    worker.answer()
+    const swapped = cache.peek(first.id)!
+    expect(swapped.light).not.toBe(between.light)
+    expect(swapped.shade).not.toBe(between.shade)
+    expect(cache.fresh(next, 2)).toBe(true)
+
+    const clear = { ...next, cloudShadow: undefined }
+    expect(cache.update(clear, 2)).toBe('none')
+    cache.flush()
+    expect(worker.sent).toHaveLength(0)
+    expect(cache.peek(clear.id)).toMatchObject({ light: swapped.light, lightDesc: clear })
+    expect(cache.peek(clear.id)?.shade).toBeUndefined()
+    expect(swapped.shade!.close).toHaveBeenCalledOnce()
+    expect(swapped.light!.close).not.toHaveBeenCalled()
+  })
+
   it('preempts an in-flight animated strip after one bounded chunk when new terrain and scrub-light jobs arrive', async () => {
     const worker = fakeWorker()
     const arrivals: { settled: boolean; workerMs: number }[] = []
@@ -117,6 +165,84 @@ describe('bounded strip scheduling in RemoteCache', () => {
     cache.update(canopy('c2', 'cl2'), 2)
     worker.answer()
     expect(worker.sent[0].jobs[0]).toMatchObject({ id: 'canopy.near', part: 'form', key: 'c2@2:0,40,375,88#10/5', frames: [0, 1], final: false })
+    expect(worker.sent[0].discard).toEqual(['canopy.near:form'])
+  })
+
+  it('shows canopy pose zero during a scrub and fills only the surviving strip after it settles', async () => {
+    vi.useFakeTimers()
+    try {
+      const worker = fakeWorker()
+      const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
+        onArrive: () => {}, onFail: () => {} })
+      const first = canopy('c1', 'cl1'), next = canopy('c1', 'cl2')
+      cache.update(first, 2)
+      cache.flush()
+      expect(worker.sent[0].jobs[0]).toMatchObject({ key: 'cl1#10/5', frames: [0], preview: true })
+      worker.answer()
+      expect(cache.peek(first.id)).toMatchObject({ preview: true, lightKey: 'cl1#10/5' })
+      expect(worker.sent).toHaveLength(0)
+
+      vi.advanceTimersByTime(50)
+      cache.update(next, 2)
+      cache.flush()
+      worker.answer()
+      vi.advanceTimersByTime(50)
+      expect(worker.sent).toHaveLength(0)
+      expect(cache.peek(next.id)).toMatchObject({ preview: true, lightKey: 'cl2#10/5' })
+
+      const settled = cache.whenSettled()
+      vi.advanceTimersByTime(30)
+      expect(worker.sent[0].jobs[0]).toMatchObject({ key: 'cl2#10/5', frames: [1, 2] })
+      while (worker.sent.length) worker.answer()
+      await settled
+      expect(cache.peek(next.id)?.preview).toBeUndefined()
+      expect(cache.fresh(next, 2)).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the cold canopy beam ahead of the shade and later poses', () => {
+    vi.useFakeTimers()
+    try {
+      const worker = fakeWorker()
+      const cache = new RemoteCache({ worker, painters: () => ({ ...painters(), formless: () => true }),
+        onArrive: () => {}, onFail: () => {} })
+      const desc = { ...canopy('c1', 'cl1'),
+        cloudShadow: { plane: 'near' as const, open: 1, blobs: [], from: 0, speed: 0,
+          beamOverSky: 1, skyDisplay: .2, hazeShare: 0, hazeY: 0 },
+        shadedTones: { key: 'shade', trees: new Uint8Array(), tufts: new Uint8Array() } }
+      cache.update(desc, 2)
+      cache.flush()
+      expect(worker.sent[0].jobs[0]).toMatchObject({ frames: [0], shade: undefined, preview: true })
+      worker.answer()
+      expect(cache.peek(desc.id)?.shade).toBeFalsy()
+      vi.advanceTimersByTime(80)
+      expect(worker.sent[0].jobs[0]).toMatchObject({ frames: [0], shade: true, preview: true })
+      worker.answer()
+      expect(cache.peek(desc.id)?.shade).toBeTruthy()
+      expect(worker.sent[0].jobs[0]).toMatchObject({ frames: [1, 2], shade: true })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reuses the painted beam when adding the cold canopy shade', () => {
+    const ctx = new Proxy({}, { get: () => () => undefined, set: () => true })
+    const written: (number | undefined)[] = []
+    const runner = makeWorkerRunner({
+      createCanvas: (width, height) => ({ width, height, getContext: () => ctx, transferToImageBitmap: () => bitmap(width, height) }),
+      painterOf: () => ({ form: () => {}, light: (_ctx, desc) => {
+        if (desc.kind === 'canopy') written.push(desc.tones?.trees[0])
+      } }),
+    })
+    const desc = { ...canopy('c1', 'cl1'), tones: { trees: Uint8Array.of(1), tufts: new Uint8Array() },
+      shadedTones: { key: 'shade', trees: Uint8Array.of(2), tufts: new Uint8Array() } }
+    const job = { id: desc.id, part: 'light' as const, key: 'cl1', formKey: 'c1', ratio: 1, desc, phase: 0, hand: HAND,
+      rect: { x: 0, y: 40, w: 375, h: 88 }, frames: [0], progressive: true, final: false, preview: true as const }
+    expect(runner([{ ...job, coldPreview: true }])[0].shade).toBeUndefined()
+    expect(runner([{ ...job, shade: true }])[0].shade).toBeTruthy()
+    expect(written).toEqual([1, 2])
   })
 
   it('paints all strip frames across chunks in makeWorkerRunner and transfers only on the final chunk', () => {

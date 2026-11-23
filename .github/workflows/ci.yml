@@ -67,7 +67,9 @@ jobs:
       - run: npm ci
       - id: browser
         run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: npm run test:land-light
       - name: Built app still
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
         run: |
           npx vite build
           node e2e/scene.app.mjs ci-stills/app haifa@2026-03-15T12:00 --built --page --dpr=2

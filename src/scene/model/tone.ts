@@ -16,8 +16,13 @@ export function hexOf(rgb: RGB): string {
 /** Mixed in Oklab, as the SVG scene's `color-mix(in oklab, …)` mixes. */
 export const mixHex = (from: string, to: string, amount: number) => mixOklab(from, to, amount)
 
-const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
-const toSrgb = (c: number) => {
+/** IEC 61966-2-1 sRGB `[0, 1]` -> linear `[0, 1]`. */
+export const toLinear = (c: number) => {
+  const v = Math.min(1, Math.max(0, c))
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+}
+/** IEC 61966-2-1 linear `[0, 1]` -> sRGB `[0, 1]`. */
+export const toSrgb = (c: number) => {
   const v = Math.min(1, Math.max(0, c))
   return v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055
 }

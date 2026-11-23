@@ -1,104 +1,88 @@
 //# allFunctionsCalledOnLoad
+import { wrap180 } from '../../domain/camera'
+import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
-import { nearGroundTone } from './landColour'
-import { darken, labOf, lightness, mixRgb, rgbOf, rgbOfLab } from './tone'
+import { nearGroundAlbedo } from './landColour'
+import {
+  FLAT_NORMAL, linearLuminance, linearRgbToSrgb, litLandRgb, srgbRgbToLinear, unitChroma, WET_REFLECTANCE_DROP,
+} from './landRadiance'
+import { mixLight, mixRgb, rgbOf, scaleLight } from './tone'
 
 /**
- * Ambient mood, wet-ground attenuation and Koschmieder aerial-perspective veil construction (Stage 3).
+ * Koschmieder aerial-perspective haze and shared lit ground tones (Stages 3 & 7).
  *
  * Physical basis:
- * - Aerial perspective: `AERIAL · air.fade(km)²` (Koschmieder contrast decay from hourly visibility/dust).
- * - Wet-ground darkening: thin water films on porous soil/rock cause internal reflection and absorption,
- *   reducing diffuse reflectance by ~35–50 % linearly (Twomey et al. 1986; Lekner & Dorf 1988). Modelled
- *   as multiplicative sRGB attenuation `(1 - WET_ATTEN * wet)` (`0.76` at `wet = 1`, ~45 % linear drop)
- *   applied BEFORE aerial haze so every land tone (from dark pine `L = 0.23` to bright desert `L = 0.365`)
- *   darkens monotonically from dry to wet.
+ * - Aerial perspective: `air.fade(km)²` scaled by the clear-weather contrast floor, which vanishes in dense fog,
+ *   composited in linear light: `L = L_0 · (1 − h) + L_air · h` (`mixLight`).
+ * - Wet-ground darkening: `×(1 − 0.45 · wet)` linear reflectance attenuation (Twomey et al. 1986;
+ *   Lekner & Dorf 1988), applied in `landRadiance.ts` for known land and here for `ambientToneAt`.
+ * - Cloud cover is NEVER applied here via `palette.ridgeNear`: direct/diffuse light and discrete cloud
+ *   shadows in `landRadiance.ts` + `cloudShadows.ts` already account for clouds once.
  */
 
 /** How far toward the air's colour a plane at the visibility goes (the rest is the crest's own dark against the sky). */
 export const AERIAL = 0.88
-/** Oklab lightness of the clear-day ridge anchor (`SKY_THEMES.clearDay.ridgeNear` `#2E3B4E`), scaling ambient mood dimming. */
-const DAY_RIDGE_L = 0.351
-/** Multiplicative sRGB darkening factor at `wet = 1` (see header note; Twomey et al. 1986, Lekner & Dorf 1988). */
-const WET_ATTEN = 0.24
 /** The most the air's share in a plane's tone changes a px across (reference width): a jump spreads over >= 1/this px. */
 export const HAZE_SLOPE = 0.006
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-
-export interface LandVeil { rgb: RGB; alpha: number }
 
 /**
  * The air's colour a plane fades toward with distance: the sky at the horizon (night-aware, from the light's palette),
  * tinted by the air itself by day (dust tan, rain grey-blue).
  */
+const hazeCache = new WeakMap<WorldState, RGB>()
+
 export function hazeOf(world: WorldState): RGB {
-  const { palette } = world.light
-  const sky = mixRgb(rgbOf(palette.mid), rgbOf(palette.horizon), 0.45)
-  return mixRgb(sky, world.air.haze, 0.3 * (1 - world.night.dark))
+  const hold = hazeCache.get(world)
+  if (hold) return hold
+  const { palette, afterglow } = world.light
+  const { altitude, azimuth } = world.bodies.sun
+  const towards = (0.5 + 0.5 * Math.cos(wrap180(azimuth - world.camera.heading) * Math.PI / 180)) ** 3
+  const glow = towards * smoothstep(7, 1, altitude) * smoothstep(-10, -3, altitude) * (1 - 0.65 * world.light.diffuse)
+  const horizon = rgbOf(palette.horizon)
+  const sky = mixRgb(rgbOf(palette.mid), horizon, 0.45)
+  const w = 0.3 * (1 - world.night.dark)
+  if (w <= 1e-4) return sky
+  // Aerosol (`air.haze`) tints the path-scattered sky's chromaticity at the sky's own luminance (never injects daytime brightness at dusk).
+  const skyLin = srgbRgbToLinear(sky), ySky = linearLuminance(skyLin)
+  const scatter = unitChroma(world.air.haze)
+  const glowTint = unitChroma(afterglow?.rgb ?? horizon)
+  // Bearing changes the warm path chromaticity at twilight. Its luminance is set by the broad sky.
+  const tint = scatter.map((value, i) => value + (glowTint[i] - value) * glow)
+  const rgb = linearRgbToSrgb([
+    skyLin[0] * (1 - w) + ySky * tint[0] * w,
+    skyLin[1] * (1 - w) + ySky * tint[1] * w,
+    skyLin[2] * (1 - w) + ySky * tint[2] * w,
+  ])
+  hazeCache.set(world, rgb)
+  return rgb
+}
+
+/** The illustrated palette retains the original aerial contrast floor. */
+export const illustratedHazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
+
+/** Dense fog removes the clear-weather contrast floor for every land receiver. */
+export function hazeAt(world: WorldState, km: number) {
+  const { air } = world
+  return (AERIAL + (1 - AERIAL) * (air.mist?.fog ?? 0)) * air.fade(km) ** 2
 }
 
 /**
- * Ambient mood & wet-ground veil (`source-over` onto the light-free land form), continuous across day/twilight/night/rain.
- * Composes multiplicative wet darkening `(1 - WET_ATTEN * wet)` over ambient mood dimming so dark and bright tones both
- * darken monotonically with wetness before aerial haze is added.
- */
-export function moodVeilOf(world: WorldState): LandVeil {
-  const raw = rgbOf(world.light.palette.ridgeNear)
-  const ratio = clamp01(lightness(raw) / DAY_RIDGE_L)
-  const moodAlpha = clamp01(Math.max(1 - ratio ** 2.2, 0.86 * world.night.dark))
-  const wetAlpha = clamp01(WET_ATTEN * world.ground.wet)
-  const alpha = clamp01(wetAlpha + moodAlpha * (1 - wetAlpha))
-  if (alpha <= 1e-5) return { rgb: raw, alpha: 0 }
-  const k = (moodAlpha * (1 - wetAlpha)) / alpha
-  return { rgb: [raw[0] * k, raw[1] * k, raw[2] * k], alpha }
-}
-
-/** How far toward the air the ground at a distance (km) goes: `AERIAL · fade(km)²`. */
-export const hazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2
-
-/** Exact `source-over` composition of aerial haze (`t`) over the ambient mood + wet-ground veil. */
-export function veilOfHaze(world: WorldState, haze: RGB): (t: number) => LandVeil {
-  const mood = moodVeilOf(world)
-  return (t) => {
-    const a = clamp01(t + mood.alpha * (1 - t))
-    if (a <= 1e-5) return { rgb: haze, alpha: 0 }
-    const m = mood.alpha * (1 - t)
-    return {
-      rgb: [(haze[0] * t + mood.rgb[0] * m) / a, (haze[1] * t + mood.rgb[1] * m) / a, (haze[2] * t + mood.rgb[2] * m) / a],
-      alpha: a,
-    }
-  }
-}
-
-/** Applies a `source-over` veil onto a light-free land tone (matches Canvas 2D compositing of `light` over `form`). */
-export function applyVeil(base: RGB, veil: LandVeil): RGB {
-  const a = veil.alpha, inv = 1 - a
-  return [base[0] * inv + veil.rgb[0] * a, base[1] * inv + veil.rgb[1] * a, base[2] * inv + veil.rgb[2] * a]
-}
-
-/** The source-over mood + wet-ground + aerial haze veil at distance `km` (shared by planes and outside ground). */
-export function veilAt(world: WorldState, km: number, haze = hazeOf(world)): LandVeil {
-  return veilOfHaze(world, haze)(hazeAt(world, km))
-}
-
-/**
- * The ground's tone at a distance (km): the place's living-land base tone carried through the scene's ambient mood,
- * wet-ground darkening and Koschmieder aerial perspective (`air.fade`) toward the air.
+ * The ground's physically lit tone at distance `km`: the place's living-land albedo through `landRadiance`
+ * (direct + diffuse irradiance, linear wetness, horizon-relative exposure & compression) and linear Koschmieder haze.
  */
 export function toneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB {
-  return applyVeil(nearGroundTone(world), veilOfHaze(world, haze)(hazeAt(world, km)))
+  return litLandRgb(world, nearGroundAlbedo(world), FLAT_NORMAL, hazeAt(world, km), haze)
 }
 
 /**
- * Land-independent ambient ridge tone at distance `km` (palette + wet + aerial haze): used while the land is not
- * known yet (`loading.ts`) so loading mist and forming lines keep identical keys before and through arrival.
+ * Land-independent ambient ridge tone at distance `km` (palette + linear wet + linear Koschmieder haze): used while
+ * the land is not known yet (`loading.ts`) so loading mist and forming lines keep identical keys before and through arrival.
  */
 export function ambientToneAt(world: WorldState, km: number, haze = hazeOf(world)): RGB {
-  const wet = world.ground.wet
+  const wet = Math.min(1, Math.max(0, world.ground.wet))
   const raw = rgbOf(world.light.palette.ridgeNear)
-  const near = wet > 0 ? darken(raw, 1 - WET_ATTEN * wet, 1 + 0.2 * wet) : raw
-  return mixRgb(near, haze, hazeAt(world, km))
+  const near = wet > 0 ? scaleLight(raw, 1 - WET_REFLECTANCE_DROP * wet) : raw
+  return mixLight(near, haze, hazeAt(world, km))
 }
 
 /**
@@ -122,14 +106,9 @@ export function hazeAlong(xs: readonly number[], shares: readonly number[], slop
 }
 
 /**
- * Aerial perspective for anything on the land (water, far towns): its own colour carried toward the air by the same rule
- * as the ground (`AERIAL · fade(km)²`, Koschmieder from the visibility), so everything at one distance fades alike.
+ * Linear-light Koschmieder aerial perspective for anything on the land (water, far towns, marks): mixes in linear light
+ * toward `haze` by the shared haze fraction so every receiver at one distance fades alike without sRGB darkening.
  */
 export function aerialFor(world: WorldState, haze = hazeOf(world)): (rgb: RGB, km: number) => RGB {
-  const air = labOf(haze)
-  return (rgb, km) => {
-    const t = hazeAt(world, km)
-    const own = labOf(rgb)
-    return rgbOfLab({ l: own.l + (air.l - own.l) * t, a: own.a + (air.a - own.a) * t, b: own.b + (air.b - own.b) * t })
-  }
+  return (rgb, km) => mixLight(rgb, haze, hazeAt(world, km))
 }

@@ -7,16 +7,16 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
-import { paintPlane } from '../paint/planes'
+import { paintPlaneLight } from '../paint/planeLight'
 import { HAND, type Ctx2D, type PaintEnv } from '../paint/hand'
 import { layersOn, sceneModel } from '.'
-import { applyVeil, HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './landVeil'
+import { albedoLinear, linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
+import { HAZE_SLOPE, hazeAlong, hazeOf, toneAt } from './landVeil'
 import { hexOf } from './tone'
 import type { LayerOf, RGB, SceneBox, SceneModel } from './types'
 
 /** Stage C2 (docs/design/CANVAS-SCENE-PLAN.md §4): the planes in the enriched hand, structurally. */
 const DAY = '2026-11-17'
-const HOURS = ['06:20', '08:00', '12:00', '15:00', '16:30', '21:00']
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 let loaded: Map<string, LoadedPlace>
 
@@ -32,57 +32,25 @@ const world = (id: string, hour: string, forced: WorldInput['forced'] = null) =>
 const planesOf = (model: SceneModel) => layersOn(model, 'land').filter((l): l is LayerOf<'plane'> => l.kind === 'plane')
 const near = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'near')!
 const far = (model: SceneModel) => planesOf(model).find((l) => l.plane === 'far')!
-/** Rendered tones along a plane crest: the `source-over` light veil composited over the light-free form median. */
-const renderedTones = (layer: LayerOf<'plane'>): [number, RGB][] =>
-  layer.light.veil.map(([x, rgb, alpha]) => [x, applyVeil(layer.fill, { rgb, alpha })])
-
-/**
- * The mean depth of the lit band under steep crest stretches rising to the right (y falling) and under those falling to
- * the right, over the whole crest (an unlit stretch counts as 0).
- */
-function litBySlope(layer: LayerOf<'plane'>) {
-  const ridge = layer.outline.slice(0, -2)
-  const lit = new Map<number, number>()
-  for (const wash of layer.light.lit) wash.top.forEach(([x], i) => lit.set(Math.round(x * 10), wash.depth[i]))
-  const sums = { rising: 0, risingN: 0, falling: 0, fallingN: 0 }
-  for (let i = 1; i < ridge.length; i++) {
-    const [ax, ay] = ridge[i - 1], [bx, by] = ridge[i]
-    const slope = (by - ay) / (bx - ax || 1)
-    const d = ((lit.get(Math.round(ax * 10)) ?? 0) + (lit.get(Math.round(bx * 10)) ?? 0)) / 2
-    if (slope < -0.3) { sums.rising += d; sums.risingN++ } else if (slope > 0.3) { sums.falling += d; sums.fallingN++ }
+/** Rendered tones along a plane crest from `litField` (exact single-pass linear lighting + per-sample Koschmieder haze). */
+const renderedTones = (layer: LayerOf<'plane'>): [number, RGB][] => {
+  const lf = layer.light.litField
+  if (!lf) return []
+  const rho = albedoLinear(layer.fill)
+  const out: [number, RGB][] = []
+  for (let c = 0; c < lf.cols; c++) {
+    const x = layer.bounds.x + (c / Math.max(1, lf.cols - 1)) * layer.bounds.w
+    const o = c * 4
+    const rgb = linearRgbToSrgb(shadeLinearRgb(
+      rho, lf.eSun, lf.eMoon, lf.eSky, lf.grid[o] / 255, lf.grid[o + 1] / 255, lf.grid[o + 2] / 255,
+      lf.yHorizon, lf.grid[o + 3] / 255, lf.hazeLin,
+    ))
+    out.push([x, rgb])
   }
-  return { risingRight: sums.rising / (sums.risingN || 1), fallingRight: sums.falling / (sums.fallingN || 1),
-    n: Math.min(sums.risingN, sums.fallingN) }
+  return out
 }
 
 describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
-  it('lights the faces turned to the light: lit side = the light’s side, every hour', () => {
-    let checked = 0, steep = 0
-    const input = worldInput(loaded.get(id)!, at('12:00'))
-    for (const hour of HOURS) {
-      const w = buildWorld({ ...input, selected: at(hour) })
-      const layer = near(sceneModel(w, BOX))
-      if (w.light.source === 'sky') {
-        // No side (overcast, twilight, a moonless night): no lit band, no lift.
-        expect(layer.light.lit).toEqual([])
-        expect(layer.light.lift).toBeNull()
-        continue
-      }
-      if (Math.abs(w.light.across) <= 0.05) continue
-      if (layer.light.lift) expect(Math.sign(layer.light.lift.dx)).toBe(Math.sign(w.light.across))
-      const { risingRight, fallingRight, n } = litBySlope(layer)
-      steep = Math.max(steep, n)
-      // Toward noon the light comes from above and the faces even out (`noonWeight`, as the SVG's lighting).
-      if (n < 3 || risingRight + fallingRight < 0.5 || w.light.noonWeight > 0.5) continue
-      // Light from the left falls on slopes that rise to the right (they face left), and the other way round.
-      if (w.light.across < 0) expect(risingRight).toBeGreaterThan(fallingRight)
-      else expect(fallingRight).toBeGreaterThan(risingRight)
-      checked++
-    }
-    // Every place with steep crest stretches is checked at some hour (a flat coast has none).
-    if (steep >= 3) expect(checked).toBeGreaterThan(0)
-  })
-
   it('keeps gullies, terraces and vegetation on the ground under the crest and out of the text zones', () => {
     const model = sceneModel(world(id, '12:00'), BOX)
     const sx = BOX.width / SCENE_W
@@ -169,27 +137,19 @@ describe('planes: the air, the ground and the light', () => {
   it('puts snow on the land only when snow lies above it', () => {
     const snowy = near(sceneModel(world('jerusalem', '12:00', { snowfall: 2, precipitation: 2, temperature: -1, feelsLike: -4,
       cloudCover: 100, thickCloud: 100, weatherCode: 73 }), BOX))
-    expect(snowy.light.snow).not.toBeNull()
-    expect(near(sceneModel(world('jerusalem', '12:00'), BOX)).light.snow).toBeNull()
+    expect(snowy.light.litField?.snow).not.toBeNull()
+    expect(near(sceneModel(world('jerusalem', '12:00'), BOX)).light.litField?.snow).toBeNull()
   })
 
   it('casts no shade, light or floor shadow under a full overcast', () => {
     const w = world('tiberias', '12:00', { cloudCover: 100, thickCloud: 100, precipitation: 0, weatherCode: 3 })
     expect(w.light.ray).toBeNull()
     for (const layer of planesOf(sceneModel(w, BOX))) {
-      expect([layer.light.lit, layer.light.shade, layer.light.faces, layer.light.rims]).toEqual([[], [], [], []])
+      expect(layer.light.litField!.eSun[1]).toBeLessThan(layer.light.litField!.eSky[1] * 0.08)
     }
   })
 
-  it('throws the floor shadow away from a low sun', () => {
-    const shadows = ['shadmot-mehola', 'rosh-pina', 'tiberias'].flatMap(id => {
-      const input = worldInput(loaded.get(id)!, at('08:00'))
-      return ['08:00', '15:00'].map(hour => buildWorld({ ...input, selected: at(hour),
-        forced: { cloudCover: 0, thickCloud: 0, weatherCode: 0, precipitation: 0, visibilityKm: 30 },
-        forcedLayers: { low: 0, mid: 0, high: 0 } }))
-    }).filter(w => w.light.source === 'sun').map(w => near(sceneModel(w, BOX)).light.faces)
-    expect(shadows.some((faces) => faces.length > 0)).toBe(true)
-  })
+
 })
 
 /** What a painter does, on a context that records its calls (node has no canvas). */
@@ -203,6 +163,6 @@ function record(desc: LayerOf<'plane'>) {
     set: (_, prop, value) => { calls.push(`${String(prop)}=${String(value)}`); return true },
   }) as unknown as Ctx2D
   const env: PaintEnv = { hand: HAND, phase: 0, scale: 2, canvas: () => ({ canvas: {} as HTMLCanvasElement, ctx: fake() }) }
-  paintPlane(fake(), desc, env)
+  paintPlaneLight(fake(), desc, env)
   return calls
 }

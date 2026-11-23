@@ -16,7 +16,7 @@ const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 /** The weather's kinds (C7). */
 // The living light: the cloud's shadows on the land come and go with the cloud, as the weather does.
-const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'cloudShadow', 'landDust'])
+const WEATHER = new Set(['shafts', 'fall', 'mist', 'grains', 'rays', 'smoke', 'sheen', 'edge', 'landDust'])
 let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {
@@ -109,12 +109,10 @@ describe('scene model: layers', () => {
     const land = layersOn(model, 'land')
     expect(land.filter((layer) => !layer.placed && layer.kind !== 'canopy').map((layer) => layer.id))
       .toEqual(['plane.far', 'farCities', 'plane.near', 'water.near', 'outside', 'smoke.near'])
-    const passes = compositeOrder(land).map(({ desc, part }) => `${desc.id}:${part}`)
+    const order = compositeOrder(land).map(({ id }) => id)
     for (const canopy of land.filter((layer) => layer.kind === 'canopy')) {
       const plane = land.find((l) => l.kind === 'plane' && l.canopyId === canopy.id)!
-      const at = passes.indexOf(`${plane.id}:form`)
-      expect(passes.slice(at, at + 4))
-        .toEqual([`${plane.id}:form`, `${canopy.id}:form`, `${plane.id}:light`, `${canopy.id}:light`])
+      expect(order[order.indexOf(plane.id) + 1]).toBe(canopy.id)
     }
     // C6: the sky's base first, then the stars, the bodies, the clouds high to low (lightning, shimmer).
     const sky = layersOn(model, 'sky')

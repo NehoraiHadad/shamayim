@@ -6,6 +6,7 @@ import type { Ctx2D, PaintEnv } from './hand'
 import { grain, rockOf, tree } from './marks'
 import { paintBox } from './outsideBox'
 import { paintOutsideLand, paintOutsideSea } from './outsideGround'
+import { paintPass } from './paintPass'
 import { paintTower } from './outsideTower'
 
 /*
@@ -38,21 +39,26 @@ export function stripPhase(desc: LayerOf<'outside'>, env: PaintEnv): number {
 export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s, tiers } = desc
   const lateralLight = glyphLight(s)
-  if (desc.land) paintOutsideLand(ctx, desc.land, s)
-  if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
+  paintPass(ctx, 'background', () => {
+    if (desc.land) paintOutsideLand(ctx, desc.land, s)
+    if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
+  })
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
     else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
   }
   const lamps: Lamp[] = []
   for (const item of desc.items) {
-    if (item.kind === 'box') paintBox(ctx, item, tiers[item.tier], s, lamps, desc.form)
-    else if (item.kind === 'tower') paintTower(ctx, item, tiers[item.tier], s, lamps, desc.form)
+    if (item.kind === 'box' || item.kind === 'tower') {
+      const f = desc.receivers[item.tier][item.receiver], tones = tiers[item.tier]
+      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale)
+      else paintTower(ctx, item, tones, s, lamps, f, env.scale)
+    }
     else if (item.kind === 'tree') {
-      tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed))
+      paintPass(ctx, 'background', () => tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
   }
-  grain(ctx, env, 13, 1 - .4 * s.night)
+  paintPass(ctx, 'background', () => grain(ctx, env, 13, 1 - .4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)
 }

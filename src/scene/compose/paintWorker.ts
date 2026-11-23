@@ -1,5 +1,5 @@
 import { painterOf } from '../paint'
-import type { PaintReply, PaintRequest } from './paintJob'
+import { resultBitmaps, type PaintReply, type PaintRequest } from './paintJob'
 import { makeWorkerRunner } from './paintWorkerRun'
 
 /**
@@ -19,10 +19,11 @@ const runBatch = makeWorkerRunner({
 })
 
 scope.onmessage = (event) => {
-  const { batch, jobs } = event.data
+  const { batch, jobs, discard } = event.data
   try {
-    const results = runBatch(jobs)
-    const transfer = results.flatMap((result) => (result.bitmap ? [result.bitmap] : []))
+    const results = runBatch(jobs, discard)
+    if (!batch) return
+    const transfer = results.flatMap(resultBitmaps).filter((part): part is ImageBitmap => Boolean(part))
     scope.postMessage({ batch, results }, transfer)
   } catch (error) {
     scope.postMessage({ batch, results: [], error: String(error) }, [])

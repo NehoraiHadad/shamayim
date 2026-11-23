@@ -1,99 +1,68 @@
-import type { LayerOf, Pt, Wash } from '../model/types'
-import { css, outline, type Ctx2D, type PaintEnv } from './hand'
+import { css } from './hand'
+import { vegetationLight } from './vegetationLight'
+import type { LayerOf } from '../model/types'
+import { displace, sample, tube } from './core'
+import { outline, type Ctx2D, type PaintEnv } from './hand'
+import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
+import { paintPaperGrain } from './paperGrain'
+import { paintLitSurface } from './planeTexel'
+import { receiverBrush, type ReceiverBrush, type ReceiverInk } from './receiverBrush'
 
-/*
- * Plane light painter (`source-over` onto the light-free living-land form, Stage C2 + Stages 3 & 4):
- * Ambient mood, wet-ground darkening & Koschmieder aerial haze veil, snow, shade and lit crest washes,
- * floor shadow, crest rim and gully catchlights, masked once with
- * `destination-in` against the plane's antialiased outline. Worker-safe; no clock; no `ctx.filter`.
- */
+const BLACK: ReceiverInk = [[0, 0, 0]]
 
-/** The nested bands of a wash: each depth's share of the band and its strength (soft fall-off, no filter). */
-const WASH = [[1, 0.22], [0.78, 0.22], [0.57, 0.22], [0.37, 0.22], [0.18, 0.22]] as const
-function paintWashes(ctx: Ctx2D, washes: readonly Wash[]) {
-  if (!washes.length) return
-  for (const [f, w] of WASH) {
-    ctx.beginPath()
-    for (const wash of washes) {
-      wash.top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
-      for (let i = wash.top.length - 1; i >= 0; i--) ctx.lineTo(wash.top[i][0], wash.top[i][1] + wash.depth[i] * f)
-      ctx.closePath()
+function paintGroundMarks(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
+  desc.gullies.forEach((gully, i) => {
+    const line = displace(sample(gully.points, false, 5), 1.1, 0.3, 2, desc.grain.seed + i * 13)
+    const n = line.length
+    for (const [from, to, fade] of [[0, 0.45, 1], [0.4, 0.75, 0.65], [0.7, 1, 0.35]] as const) {
+      const piece = line.slice(Math.floor(from * (n - 1)), Math.ceil(to * (n - 1)) + 1)
+      if (piece.length < 2) continue
+      const w0 = gully.w * (1 - from * 0.7), w1 = gully.w * (1 - to * 0.7)
+      for (const [k, a] of [[1, 0.35], [0.45, 1]] as const) {
+        const path = brush.path()
+        tube(piece, w0 * k / 2, w1 * k / 2, false).forEach(([x, y], j) => j ? path.lineTo(x, y) : path.moveTo(x, y))
+        path.closePath()
+        brush.fill(BLACK, gully.alpha * a * fade)
+      }
     }
-    ctx.fillStyle = css(washes[0].rgb, washes[0].alpha * w)
-    ctx.fill()
+  })
+  if (desc.terraces.length) {
+    const ctx = brush.path()
+    for (const run of desc.terraces) run.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + 0.45) : ctx.moveTo(x, y + 0.45)))
+    brush.stroke(BLACK, 0.11, 0.55)
   }
 }
 
-function paintSoft(ctx: Ctx2D, points: Pt[], fill: string, soft: number) {
-  const offsets: [number, number][] = soft > 0
-    ? [[0, 0], [-soft, 0], [soft, 0], [0, -soft / 2], [0, soft / 2], [-soft / 2, -soft / 4], [soft / 2, soft / 4]]
-    : [[0, 0]]
-  ctx.fillStyle = fill
-  for (const [dx, dy] of offsets) {
-    ctx.beginPath()
-    points.forEach(([x, y], i) => (i ? ctx.lineTo(x + dx, y + dy) : ctx.moveTo(x + dx, y + dy)))
-    ctx.closePath()
-    ctx.fill()
-  }
-}
+/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`). */
+export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
+  const { light } = desc
+  const { litField } = light
+  const targets = env.shade ? [ctx, env.shade] : [ctx]
+  for (const target of targets) target.save()
 
-/** Paints the light pass of one terrain plane (`source-over` onto the plane form). */
-export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, _env: PaintEnv): void {
-  const light = desc.light
-  const { x, y, w, h } = desc.bounds
-  ctx.save()
-
-  // Mood + wet-ground attenuation + aerial haze veil over the light-free land form.
-  if (light.veil.length && light.veil.some(([, , a]) => a > 0.002)) {
-    if (light.veil.length > 1) {
-      const g = ctx.createLinearGradient(x, 0, x + w, 0)
-      for (const [at, rgb, a] of light.veil) g.addColorStop(Math.min(1, Math.max(0, (at - x) / (w || 1))), css(rgb, a))
-      ctx.fillStyle = g
-    } else ctx.fillStyle = css(light.veil[0][1], light.veil[0][2])
-    ctx.fillRect(x, y, w, h)
+  if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env)
+    const litVeg = desc.vegetation
+    const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, Boolean(env.shade))
+    const brush = receiverBrush(ctx, env.shade)
+    paintVegStrata(brush, litVeg, toneAt)
+    paintVegFields(brush, litVeg, toneAt)
+    paintGroundMarks(brush, desc)
+    paintVegRows(brush, litVeg, toneAt)
+    const grain = desc.grain.amount * env.hand.grain
+    // White paper specks have a stronger relative effect in the shadows of the display.
+    paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
+  } else for (const target of targets) {
+    target.fillStyle = css(desc.fill)
+    target.fillRect(desc.bounds.x, desc.bounds.y, desc.bounds.w, desc.bounds.h)
   }
 
-  if (light.snow) {
-    const { edge, rgb, alpha } = light.snow
-    for (const [dy, a] of [[-3, 0.45], [0, 0.35], [2.5, 0.3]] as const) {
-      ctx.beginPath()
-      ctx.moveTo(edge[0][0], y - 20)
-      ctx.lineTo(edge.at(-1)![0], y - 20)
-      for (let i = edge.length - 1; i >= 0; i--) ctx.lineTo(edge[i][0], edge[i][1] + dy)
-      ctx.closePath()
-      ctx.fillStyle = css(rgb, alpha * a)
-      ctx.fill()
-    }
+  // Single antialiased silhouette mask (zero fringe halo, zero median bleed).
+  for (const target of targets) {
+    target.globalCompositeOperation = 'destination-in'
+    outline(target, desc.outline)
+    target.fillStyle = '#000'
+    target.fill()
+    target.restore()
   }
-  paintWashes(ctx, light.shade)
-  paintWashes(ctx, light.lit)
-  for (const face of light.faces) paintSoft(ctx, face.points, css(face.rgb, face.alpha / (face.soft ? 4 : 1)), face.soft ?? 0)
-
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = 0.7
-  for (const alpha of [...new Set(light.rims.map((rim) => rim.alpha))]) {
-    const rims = light.rims.filter((rim) => rim.alpha === alpha)
-    ctx.beginPath()
-    for (const rim of rims) rim.points.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)))
-    ctx.strokeStyle = css(rims[0].rgb, alpha)
-    ctx.stroke()
-  }
-
-  const lift = light.lift
-  if (lift && desc.gullies.length) {
-    ctx.beginPath()
-    for (const gully of desc.gullies) {
-      const lip = gully.points.slice(0, Math.max(2, Math.ceil(gully.points.length * 0.7)))
-      lip.forEach(([px, py], i) => (i ? ctx.lineTo(px + lift.dx * gully.w * 0.6, py) : ctx.moveTo(px + lift.dx * gully.w * 0.6, py)))
-    }
-    ctx.strokeStyle = css(lift.rgb, lift.alpha * 0.3)
-    ctx.lineWidth = 0.45
-    ctx.stroke()
-  }
-  ctx.globalCompositeOperation = 'destination-in'
-  outline(ctx, desc.outline)
-  ctx.fillStyle = '#000'
-  ctx.fill()
-  ctx.restore()
 }

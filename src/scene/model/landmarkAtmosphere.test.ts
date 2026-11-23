@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { SCENE_CAMERA } from '../../domain/camera'
 import type { WorldState } from '../../world/types'
 import type { WorldMark } from '../../world/markGeometry'
 import { farNeighbourMarks } from './farNeighbourMarks'
@@ -8,10 +9,10 @@ import { toneAt } from './landVeil'
 import { labOf, mixRgb } from './tone'
 import type { RGB } from './types'
 
-const world = { light: { palette: { ridgeNear: '#283948', mid: '#93a8be', horizon: '#d2d9de' },
+const world = { camera: SCENE_CAMERA, light: { palette: { ridgeNear: '#283948', top: '#6381a0', mid: '#93a8be', horizon: '#d2d9de' },
   shares: { sun: 1, moon: 0 }, direct: 1, colour: [1, .95, .85], ambient: [.5, .6, .7], diffuse: .2 },
-  night: { dark: 0 }, bodies: { sun: { azimuth: 0, altitude: 45 } }, ground: { wet: 0 },
-  air: { haze: [.65, .7, .75], visibilityKm: 25, fade: (km: number) => 1 - Math.exp(-3.912 * km / 25) },
+  night: { dark: 0 }, bodies: { sun: { azimuth: 0, altitude: 45 }, moon: { azimuth: 180, altitude: -25 } }, ground: { wet: 0 },
+  air: { haze: [.65, .7, .75], visibilityKm: 25, dustWeight: 0, fade: (km: number) => 1 - Math.exp(-3.912 * km / 25) },
   land: { local: [{ eastM: 0, northM: 0, elevationM: 0, sample: { cover: 30, albedo: [.18, .2, .14] } }] }, place3: { kind: 'unknown' }, terrain: { horizonY: 70,
     near: { points: [[0, 110], [375, 110]], distanceKm: [1, 1] } } } as unknown as WorldState
 const gap = (a: RGB, b: RGB) => {
@@ -40,5 +41,7 @@ it('keeps two equally sized icons at different true distances with different haz
   expect(near.contrast).toBeCloseTo(Math.exp(-3.912 * 4 / 25), 12)
   expect(far.contrast).toBeCloseTo(Math.exp(-3.912 * 18 / 25), 12)
   expect(far.contrast).toBeLessThan(near.contrast!)
-  expect(far.tones).toEqual(landmarkTonesAt(world, 18))
+  expect(far.windowWall).toEqual(landmarkTonesAt(world, 18).wall)
+  expect(gap(far.tones.wall, toneAt(world, 18))).toBeLessThan(gap(near.tones.wall, toneAt(world, 4)))
+  expect(far.surfaces?.stone).toHaveLength(2)
 })

@@ -1,60 +1,56 @@
 //# allFunctionsCalledOnLoad
-import { smoothstep } from '../../world/ridgeLighting'
-import { SHADING } from '../../world/livingLight'
-import { SCENE_W } from '../../world/sceneBox'
-import type { Plane, RGB, WorldState } from '../../world/types'
+import type { Plane, WorldState } from '../../world/types'
 import type { PlaneName } from './faceProjection'
-import { landBoxKey, layerKey } from './keys'
-import { nearGroundTone } from './landColour'
-import { lightTintOf, snowOf } from './landSnow'
-import { applyVeil, hazeAlong, hazeAt, hazeOf, veilOfHaze } from './landVeil'
-import { capped, crestLightOf } from './planeCrestLight'
-import { lightness, mixRgb, rgbOf } from './tone'
+import { byteKey, layerKey } from './keys'
+import { skyView } from './landIrradiance'
+import { dirAtBearing, landIrradiance, srgbRgbToLinear } from './landRadiance'
+import { snowMaskOf } from './landSnow'
+import { hazeAlong, hazeAt, hazeOf } from './landVeil'
+import { planeGeomOf } from './planeGeometry'
+import { terrainVisibility } from './terrainVisibility'
 import type { PlaneLight, SceneBox } from './types'
+import type { LightDir, Normal } from '../../world/livingLight'
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
+const byte = (value: number) => Math.round(Math.max(0, Math.min(1, value)) * 255)
+const incidence = (n: Normal, s: LightDir) => n[0] * s.across + n[1] * s.ahead + n[2] * s.up
 
-/**
- * The light part of a plane (§1d's scrub split): mood/wet/aerial veil (`landVeil.ts`), lit and shaded crest washes
- * (`planeCrestLight.ts`), floor shadow, crest rim, lying snow (`landSnow.ts`) and canopy/gully lift.
- */
-export function planeLight(
-  world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, k: number, base = nearGroundTone(world),
-): PlaneLight {
-  const { light } = world
-  const sx = box.width / SCENE_W
-  const haze = hazeOf(world)
-
-  const kms = plane.hazeKm ?? plane.distanceKm
-  const shares = hazeAlong(plane.points.map(([x]) => x), kms.map((km) => hazeAt(world, km)))
-  const veilOf = veilOfHaze(world, haze)
-  const every = Math.max(1, Math.round(plane.points.length / 24))
-  const veil: [number, RGB, number][] = []
-  plane.points.forEach(([x], i) => {
-    if (i % every === 0 || i === plane.points.length - 1) {
-      const v = veilOf(shares[i])
-      veil.push([x * sx, v.rgb, v.alpha])
+/** Pack local incidence, DEM visibility, sky view and face-distance haze for the Worker. */
+export function planeLight(world: WorldState, box: SceneBox, name: PlaneName, plane: Plane): PlaneLight {
+  const geom = planeGeomOf(world, name, plane, box.landHeight)
+  const { cols, rows, xs, bearing, nx, ny, nz, km } = geom
+  const irr = landIrradiance(world)
+  const hasSun = irr.eSunPi > 1e-5, hasMoon = irr.eMoonPi > 1e-5
+  // A beam below 1/150 of diffuse gives less than one display byte of cast-light contrast.
+  const sunVisible = irr.eSunPi > irr.eSkyPi / 150 ? terrainVisibility(world.flightTerrain, geom, irr.sunAz, irr.sunAlt, irr.sunDir) : undefined
+  const moonVisible = irr.eMoonPi > irr.eSkyPi / 150 && terrainVisibility(world.flightTerrain, geom, irr.moonAz, irr.moonAlt, irr.moonDir)
+  const grid = new Uint8Array(cols * rows * 4)
+  const columns = Array.from(xs)
+  const hazeRows = Array.from({ length: rows }, (_, r) =>
+    hazeAlong(columns, Array.from({ length: cols }, (_, c) => hazeAt(world, km[r * cols + c]))))
+  for (let c = 0; c < cols; c++) {
+    const s = hasSun || irr.skyBias ? dirAtBearing(irr.sunAz, irr.sunAlt, bearing[c], world.camera.handed) : irr.sunDir
+    const m = hasMoon ? dirAtBearing(irr.moonAz, irr.moonAlt, bearing[c], world.camera.handed) : irr.moonDir
+    for (let r = 0; r < rows; r++) {
+      const i = r * cols + c
+      const n: Normal = [nx[i], ny[i], nz[i]]
+      const sun = hasSun ? incidence(n, s) : 0
+      const moon = hasMoon ? incidence(n, m) : 0
+      grid[i * 4] = byte(sun > 0 ? sun * (sunVisible?.(i) ?? 1) : 0)
+      grid[i * 4 + 1] = byte(moon > 0 ? moon * (moonVisible ? moonVisible(i) : 1) : 0)
+      grid[i * 4 + 2] = byte(skyView(n, s, irr.skyBias))
+      grid[i * 4 + 3] = byte(hazeRows[r][c])
     }
-  })
-
-  const tint = applyVeil(base, veilOf(hazeAt(world, median(plane.distanceKm))))
-  const sky = rgbOf(light.palette.horizon)
-  const lightTint = lightTintOf(world)
-  const cap = Math.min(lightness(tint) + (name === 'near' ? 0.12 : 0.1), lightness(sky) - 0.05)
-  const strength = clamp01(light.direct * 1.3)
-  const fadeIn = smoothstep(SHADING[0] * 1.3, SHADING[1] * 0.5, strength)
-
-  const crest = crestLightOf(world, name, plane, sx, k, tint, sky, lightTint, cap, strength, fadeIn)
-  const snow = snowOf(world, box, name, light.ray ? strength : 0, lightTint)
-  const rims = snow ? crest.rims.map((rim) => ({ ...rim, rgb: mixRgb(snow.rgb, [1, 1, 1], 0.4) })) : crest.rims
-
-  const sideOf = Math.max(-1, Math.min(1, light.dir.across / 0.25))
-  const lift = fadeIn > 0 && Math.abs(sideOf) > 0.02
-    ? { dx: sideOf, dy: -0.7, rgb: capped(tint, mixRgb(lightTint, [1, 1, 1], 0.35), 0.85, cap + 0.06),
-      alpha: Math.min(0.6, 0.12 + 0.6 * strength) * fadeIn * Math.min(1, Math.abs(sideOf) * 2) * k }
-    : null
-  const key = layerKey('plane.light', name, world.keys.terrain, world.keys.light, world.keys.air, world.keys.ground,
-    world.keys.night, world.keys.land, world.snow, landBoxKey(box))
-  return { key, blend: 'source-over', veil, shade: crest.shade, lit: crest.lit, faces: crest.faces, rims, snow, lift }
+  }
+  const snow = snowMaskOf(world, box, name)
+  const hazeLin = srgbRgbToLinear(hazeOf(world))
+  const snowSeam = name === 'near' && snow && world.terrain.far.points.length > 1 ? snow.cover : 0
+  const key = layerKey('plane.light', geom.geomKey, byteKey(grid),
+    JSON.stringify([irr.eSunVec, irr.eMoonVec, irr.eSkyVec, hazeLin, irr.yHorizon, snow, snowSeam]))
+  return {
+    key, blend: 'source-over',
+    litField: {
+      cols, rows, grid, eSun: irr.eSunVec, eMoon: irr.eMoonVec, eSky: irr.eSkyVec,
+      hazeLin, yHorizon: irr.yHorizon, snow, snowSeam,
+    },
+  }
 }

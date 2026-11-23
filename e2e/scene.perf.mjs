@@ -1,5 +1,5 @@
 // Performance of the canvas scene (docs/design/CANVAS-SCENE-PLAN.md §3, performance budget), in Chromium with the CPU
-// throttled ×4 (CDP Emulation.setCPUThrottlingRate) at the reference phone's dpr (2.75): a cold load, 60 scrub frames
+// throttled ×4 (CDP Emulation.setCPUThrottlingRate) at the reference phone's dpr (2.75): a cold load, 120 scrub frames
 // across the day and, once a layer animates (C6–C8), 10 s of animation. Prints p50 / p95 per step and fails a gated
 // step above 1.5 × its budget.
 // With the paint worker (the default where the browser has one) the main thread only asks for layers and lays the bitmaps
@@ -14,6 +14,7 @@
 //   npm run test:perf [-- --place=haifa] [-- --rate=4] [-- --gpu] [-- --paint=main] [-- --no-land] [-- --style=drawn]
 import { launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
 import { runAppLandPerf } from './land.perf.mjs'
+import { measurePaintJobs } from './scenePerfJobs.mjs'
 
 const args = process.argv.slice(2)
 const arg = (name, fallback) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
@@ -85,7 +86,7 @@ try {
       const steps = window.__sceneStats.steps
       const since = (name, from) => (steps[name] ?? []).slice(from).reduce((a, b) => a + b, 0)
       const scrubAt = (i) => {
-        const minutes = 6 * 60 + i * 12
+        const minutes = 6 * 60 + i * 6
         return `2026-11-17T${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
       }
       const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()))
@@ -99,11 +100,12 @@ try {
       const workerEnd = ['sky', 'land'].map((name) => steps[`worker.${name}`]?.length ?? 0)
       const frames = []
       const latency0 = steps['latency.land']?.length ?? 0
-      for (let i = 1; i <= 60; i++) {
+      for (let i = 1; i <= 120; i++) {
         const n = { land: steps['arrive.land']?.length ?? 0, sky: steps['arrive.sky']?.length ?? 0 }
         const frame = window.__scene.scrub(scrubAt(i))
         await nextFrame()
-        frames.push({ ...frame, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky) })
+        frames.push({ ...frame, land: frame.land + since('arrive.land', n.land), sky: frame.sky + since('arrive.sky', n.sky),
+          landArrivals: (steps['arrive.land']?.length ?? 0) - n.land })
       }
       await window.__scene.settled()
       const workerMs = ['sky', 'land'].map((name, i) => {
@@ -112,6 +114,11 @@ try {
       })
       return { frames, latency: (steps['latency.land'] ?? []).slice(latency0), workerMs }
     })
+    if (offThread) {
+      const peak = Math.max(...scrub.map(f => f.landArrivals))
+      const shown = scrub.filter(f => f.landArrivals > 0).length
+      console.log(`${place} land arrivals in ${shown}/${scrub.length} scrub frames (max ${peak}/frame)`)
+    }
     const memoryAfter = await page.evaluate(() => window.__sceneStats.memory)
     const layerMs = await page.evaluate(() => Object.entries(window.__sceneStats.layers)
       .map(([id, l]) => `${id} ${l.lastMs.toFixed(1)}`).join(', '))
@@ -140,8 +147,9 @@ try {
       if (!list.length) continue
       const budget = BUDGET[step]
       const p50 = q(list, 0.5), p95 = q(list, 0.95)
-      const over = budget.gate && p95 > budget.ms * SLACK
-      if (over) failures.push(`${place} ${step} p95 ${p95.toFixed(1)} ms > ${(budget.ms * SLACK).toFixed(1)}`)
+      const limit = budget.ms * (step === 'scrub.land' ? 1 : SLACK)
+      const over = budget.gate && p95 > limit
+      if (over) failures.push(`${place} ${step} p95 ${p95.toFixed(1)} ms > ${limit.toFixed(1)}`)
       console.log(`  ${step.padEnd(12)} p50 ${p50.toFixed(2).padStart(7)}  p95 ${p95.toFixed(2).padStart(7)} ms  (n ${String(list.length).padStart(2)}, budget ${budget.ms}${budget.gate ? '' : ', reported only'})${over ? '  OVER' : ''}`)
     }
     const mb = Object.values(memoryAfter).reduce((a, b) => a + b, 0) / 2 ** 20
@@ -152,6 +160,11 @@ try {
       console.log(`  worker cold  (ms, form+light): sky ${cold.workerCold.sky.map((v) => v.toFixed(1)).join('/') || '-'}, land ${cold.workerCold.land.map((v) => v.toFixed(1)).join('/') || '-'}`)
       console.log(`  worker scrub (ms, light only): ${workerScrubMs.map(([name, list]) =>
         `${name} p50 ${q(list, 0.5).toFixed(1)} p95 ${q(list, 0.95).toFixed(1)} (n ${list.length})`).join(', ')}`)
+      const jobs = await measurePaintJobs(page)
+      for (const name of ['land', 'paired', 'sky']) {
+        const list = jobs.map((step) => step[name])
+        console.log(`  scrub.jobs.${name} p50 ${q(list, 0.5).toFixed(2)} p95 ${q(list, 0.95).toFixed(2)} ms (n ${list.length})`)
+      }
     } else console.log(`  last paint per layer (ms): ${layerMs}`)
     await context.close()
     // The sky's animation: 10 s at a stormy hour with the loop running.

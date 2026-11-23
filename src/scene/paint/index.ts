@@ -6,8 +6,7 @@ import { paintBodies, paintStars } from './bodies'
 import { paintFlash } from './flash'
 import { paintShimmer } from './shimmer'
 import { paintCloudSheet } from './cloudSheet'
-import { paintCloudShadow } from './cloudShadows'
-import { paintCanopy, paintCanopyLight } from './canopy'
+import { paintCanopy } from './canopy'
 import { paintLandDust } from './landDust'
 import { paintCloudCells } from './cloudCells'
 import { paintFarCities } from './farCities'
@@ -15,7 +14,6 @@ import { paintLoading } from './loading'
 import { paintMarks } from './marks'
 import { paintOutside } from './outside'
 import { paintPlaneLight } from './planeLight'
-import { paintPlane } from './planes'
 import { paintSky } from './sky'
 import { paintWater } from './water'
 import { paintBirds } from './birds'
@@ -51,8 +49,8 @@ export const PAINTERS: Painters = {
   bodies: { form: paintBodies },
   flash: { form: paintFlash },
   shimmer: { form: paintShimmer },
-  plane: { form: paintPlane, light: paintPlaneLight },
-  canopy: { form: paintCanopy, light: paintCanopyLight },
+  plane: { form: paintNothing, light: paintPlaneLight, formless: () => true },
+  canopy: { form: paintNothing, light: paintCanopy, formless: () => true },
   water: { form: paintNothing, light: paintWater, formless: () => true },
   farCities: { form: paintNothing, light: paintFarCities, formless: () => true },
   marks: { form: paintNothing, light: paintMarks, formless: () => true },
@@ -77,7 +75,6 @@ export const PAINTERS: Painters = {
   wearRope: { form: paintWearRope },
   wearItem: { form: paintWearItem },
   wearDrip: { form: paintWearDrip },
-  cloudShadow: { form: paintCloudShadow },
   cloudSheet: { form: paintCloudSheet },
   cloudCells: { form: paintCloudCells },
 }

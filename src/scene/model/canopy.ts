@@ -1,5 +1,7 @@
+import { canopyTones } from './canopyTones'
 import { layerKey } from './keys'
 import { frondTravel, LAND_GUST, plantWindFade, treeTravel, tuftTravel, type PlantWind } from './landWind'
+import { receiverBlobs } from './planeCloudShadow'
 import type { Box, LayerOf, PlaneVegetation } from './types'
 import { treeExtent, tuftExtent } from './vegShapes'
 
@@ -38,22 +40,28 @@ function footprintOf(veg: PlaneVegetation): CanopyFootprint {
 }
 
 /** The crowns/tufts interleave with their parent plane's light. Their placement is cached with the ground. */
-export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: readonly Box[]): LayerOf<'canopy'> | null {
+export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: readonly Box[], animate = true): LayerOf<'canopy'> | null {
   if (!plane.canopyId) return null
-  const { vegetation, light: { lift }, outline, bounds } = plane
+  const { vegetation, outline, bounds } = plane
   const { left, right, top, bottom, travel } = footprintOf(vegetation)
   const x = Math.max(bounds.x, left), y = Math.max(bounds.y, top)
   const w = Math.max(1, Math.min(bounds.x + bounds.w, right) - x)
   const h = Math.max(1, Math.min(bounds.y + bounds.h, bottom) - y)
   const gust = Math.abs(response.gust) * travel >= MIN_SWAY_PX ? response.gust : 0
   const lean = travel ? response.lean : 0
-  const key = layerKey('canopy', plane.key, lean, gust)
-  const { seed, tones, trees, treeMeta, tufts, tuftMeta } = vegetation
+  const { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta } = vegetation
+  const zones = lean || gust ? clear : []
+  const key = layerKey('canopy', plane.key, lean, gust, zones)
+  const canopyBounds = { x, y, w, h }
+  const shadow = plane.cloudShadow
+  const cloudShadow = shadow && receiverBlobs(shadow, canopyBounds, shadow.speed !== 0) ? shadow : undefined
+  const { tones, shadedTones } = canopyTones(plane, Boolean(cloudShadow))
   return {
-    kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key,
-    bounds: { x, y, w, h }, outline, vegetation: { seed, tones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust }, lift,
-    clear: lean || gust ? clear : [],
-    animated: gust ? { mode: 'frames', frames: LAND_GUST } : undefined,
-    light: lift ? { key: layerKey(key, lift), blend: 'source-over', faces: [] } : undefined,
+    kind: 'canopy', surface: 'land', id: plane.canopyId, z: plane.z + 0.1, key, receiver: { form: plane.key },
+    bounds: canopyBounds, outline, vegetation: { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust },
+    clear: zones,
+    animated: animate && gust ? { mode: 'frames', frames: LAND_GUST } : undefined,
+    cloudShadow: shadedTones && cloudShadow, tones, shadedTones,
+    light: { key: layerKey(key, tones.key), blend: 'source-over' },
   }
 }

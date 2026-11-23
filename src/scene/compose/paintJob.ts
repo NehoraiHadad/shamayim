@@ -1,9 +1,9 @@
 import { frameCount, framePhase } from '../model/anim'
 import { cacheRatio } from '../model/keys'
-import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerDesc } from '../model/types'
 import { styleKey, type Ctx2D, type Hand, type PaintEnv, type Painter, type Scratch } from '../paint'
 import type { SceneStyle } from '../sceneStyle'
+import { shadeKeyOf } from './paintReceiver'
 
 /** A layer's canvas in device px: whole pixels, so it is laid into the surface 1:1. */
 export interface DeviceRect { x: number; y: number; w: number; h: number }
@@ -22,11 +22,16 @@ export function formKeyOf(desc: LayerDesc, dpr: number, style: SceneStyle = 'rea
 }
 
 /** A strip's frames are part of what its canvas holds (C7). */
-const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
+export const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
 
-/** The key a layer's light canvas holds, or null when the layer has no light part (or no light painter). */
-export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
-  (painter?.light && desc.light ? desc.light.key + stripKey(desc) : null)
+export const beamKeyOf = (desc: LayerDesc) => desc.light ? desc.light.key + stripKey(desc) : null
+
+/** The key a layer's light canvas holds, or null when there is no light painter. */
+export function lightKeyOf(desc: LayerDesc, painter: Painter | undefined, style: SceneStyle = 'real') {
+  if (!painter?.light || !desc.light) return null
+  const shade = shadeKeyOf(desc)
+  return beamKeyOf(desc) + styleKey(desc, style) + (shade ? `:${shade}` : '')
+}
 
 /**
  * Paints one part of a layer (its form or its light) on a context of the layer's device size: cleared, then the painter
@@ -35,54 +40,42 @@ export const lightKeyOf = (desc: LayerDesc, painter: Painter | undefined) =>
  */
 export function paintPart(ctx: Ctx2D, size: { width: number; height: number }, desc: LayerDesc, ratio: number, rect: DeviceRect,
   paint: Painter['form'], phase: number, hand: Hand, scratch: (w: number, h: number) => Scratch, only?: readonly number[],
-  style?: SceneStyle) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
-  ctx.globalCompositeOperation = 'source-over'
-  ctx.globalAlpha = 1
-  if (!only) ctx.clearRect(0, 0, size.width, size.height)
+  style?: SceneStyle, shade?: Ctx2D, pose?: number) {
+  const targets = shade ? [ctx, shade] : [ctx]
+  for (const target of targets) {
+    target.setTransform(1, 0, 0, 1, 0, 0)
+    target.globalCompositeOperation = 'source-over'
+    target.globalAlpha = 1
+    if (!only) target.clearRect(0, 0, size.width, size.height)
+  }
   const canvas = (w: number, h: number) => scratch(Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)))
-  const count = frameCount(desc.animated)
+  const count = pose === undefined ? frameCount(desc.animated) : 1
   if (count === 1) {
-    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    paint(ctx, desc, { hand, style, phase, scale: ratio, canvas })
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    for (const target of targets) target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
+    paint(ctx, desc, { hand, style, phase: pose === undefined ? phase : framePhase(desc.animated, pose), scale: ratio, canvas, shade })
+    for (const target of targets) target.setTransform(1, 0, 0, 1, 0, 0)
     return
   }
   // A strip (C7): each frame painted at its own phase in its own band of the canvas, clipped to it (`only`: those frames
   // alone, each band cleared first; the main thread's cache paints a strip's frames as they are first laid).
   for (let i = 0; i < count; i++) {
     if (only && !only.includes(i)) continue
-    if (only) ctx.clearRect(0, i * rect.h, rect.w, rect.h)
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(0, i * rect.h, rect.w, rect.h)
-    ctx.clip()
-    ctx.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
-    const env: PaintEnv = { hand, style, phase: framePhase(desc.animated, i), scale: ratio, canvas }
+    for (const target of targets) {
+      if (only) target.clearRect(0, i * rect.h, rect.w, rect.h)
+      target.save()
+      target.beginPath()
+      target.rect(0, i * rect.h, rect.w, rect.h)
+      target.clip()
+      target.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y + i * rect.h)
+    }
+    const env: PaintEnv = { hand, style, phase: framePhase(desc.animated, i), scale: ratio, canvas, shade }
     paint(ctx, desc, env)
-    ctx.restore()
+    for (const target of targets) target.restore()
   }
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
 }
 
-/** A layer's canvas in device px: its frame, times the frames of a strip stacked down it (C7). */
+/** A layer's canvas in device px: its frame, times the frames of a strip (1 for a still layer). */
 export const canvasSize = (desc: LayerDesc, rect: DeviceRect) => ({ w: rect.w, h: rect.h * frameCount(desc.animated) })
-
-/**
- * Trims form-only buffers from a descriptor before posting a `light`-only job across the Worker boundary
- * so scrub frames never clone palettes, terraces, field quads, orchard rows or desert strata unnecessarily.
- */
-export function lightJobDesc(desc: LayerDesc): LayerDesc {
-  if (desc.kind === 'canopy') return { ...desc, vegetation: { ...desc.vegetation, tones: [] } }
-  if (desc.kind !== 'plane') return desc
-  return {
-    ...desc,
-    surfaceTone: { palette: [], cols: 0, rows: 0, cells: [], source: '' },
-    terraces: [],
-    gullies: desc.light.lift ? desc.gullies : [],
-    vegetation: EMPTY_VEGETATION,
-  }
-}
 
 /** One part of one layer for the paint worker to paint. */
 export interface PaintJob {
@@ -102,9 +95,20 @@ export interface PaintJob {
   frames?: readonly number[]
   /** Whether this job completes the part and transfers its bitmap (defaults to true). */
   final?: boolean
+  /** Publish a copy of frame zero while the strip remains staged. */
+  preview?: true
+  progressive?: boolean
+  /** The job paints both solar endpoints in the same invocation. */
+  shade?: true
+  /** The first canopy can show its beam before filling the shade and gust strip. */
+  coldPreview?: true
+  /** A new lit terrain receiver takes precedence over other queued land work during a scrub. */
+  scrubReceiver?: true
 }
 
-export interface PaintRequest { batch: number; jobs: PaintJob[] }
+export interface PaintRequest { batch: number; jobs: PaintJob[]; discard?: string[] }
+
+export const paintSlot = (id: string, part: PaintJob['part']) => `${id}:${part}`
 
 export interface PaintResult {
   id: string
@@ -115,8 +119,18 @@ export interface PaintResult {
   rect: DeviceRect
   /** Transferred bitmap on completion, or null for an intermediate strip chunk still staged in the worker. */
   bitmap: ImageBitmap | null
+  shade?: ImageBitmap | null
+  /** Additional paired canopy poses, individually drawable at their device size. */
+  poses?: PaintPose[]
+  preview?: true
   /** The worker's time for this part (ms), raster included. */
   ms: number
+}
+
+export interface PaintPose { bitmap: ImageBitmap; shade: ImageBitmap }
+
+export function resultBitmaps({ bitmap, shade, poses }: Pick<PaintResult, 'bitmap' | 'shade' | 'poses'>) {
+  return [bitmap, shade, ...(poses ?? []).flatMap((pose) => [pose.bitmap, pose.shade])]
 }
 
 export interface PaintReply { batch: number; results: PaintResult[]; error?: string }

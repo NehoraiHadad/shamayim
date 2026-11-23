@@ -11,8 +11,11 @@ import { buildVegPalette } from '../model/vegSample'
 import type { Ctx2D } from './hand'
 import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
 import { paintVegTufts } from './landVegTufts'
+import { receiverBrush } from './receiverBrush'
+import type { VegetationToneAt } from './vegetationLight'
 
 const tones = buildVegPalette([0.2, 0.25, 0.18], 0.3)
+const toneAt: VegetationToneAt = (i) => [tones[i] ?? tones[0]]
 
 function trace() {
   const commands: (readonly unknown[])[] = [], alpha: number[] = []
@@ -42,10 +45,10 @@ describe('Stage 4 painter stability', () => {
       strata: dense.strata.slice(6), strataMeta: dense.strataMeta.slice(1),
       tufts: dense.tufts.slice(4), tuftMeta: dense.tuftMeta.slice(2),
     }
-    for (const paint of [paintVegFields, paintVegStrata, paintVegTufts]) {
+    for (const paint of [paintVegFields, paintVegStrata, (brush: ReturnType<typeof receiverBrush>, veg: PlaneVegetation) => paintVegTufts(brush, veg)]) {
       const a = trace(), b = trace()
-      paint(a.ctx, dense)
-      paint(b.ctx, after)
+      paint(receiverBrush(a.ctx), dense, toneAt)
+      paint(receiverBrush(b.ctx), after, toneAt)
       const fromFeature = (list: typeof a.commands) => list.slice(list.findIndex((cmd) =>
         cmd[0] === 'moveTo' && cmd[1] === 230 || cmd[0] === 'ellipse' && Number(cmd[1]) > 220))
       expect(fromFeature(a.commands)).toEqual(fromFeature(b.commands))
@@ -53,7 +56,7 @@ describe('Stage 4 painter stability', () => {
 
     // Two adjacent growing parcels receive distinct anchor-hashed green tones so winter/spring fields read as a patchwork.
     const patch = trace()
-    paintVegFields(patch.ctx, dense)
+    paintVegFields(receiverBrush(patch.ctx), dense, toneAt)
     const fillColors = patch.commands.filter((cmd) => cmd[0] === 'fillStyle').map((cmd) => String(cmd[1]))
     expect(new Set(fillColors).size).toBe(2)
   })
@@ -74,8 +77,9 @@ describe('Stage 4 painter stability', () => {
         ] } } } }
       const veg = planeVegetationOf(world, box, 'near', plane, tones[0], [])
       const rows = trace(), fields = trace()
-      paintVegRows(rows.ctx, veg)
-      paintVegFields(fields.ctx, veg)
+      const ink: VegetationToneAt = (i) => [veg.tones[i] ?? veg.tones[0]]
+      paintVegRows(receiverBrush(rows.ctx), veg, ink)
+      paintVegFields(receiverBrush(fields.ctx), veg, ink)
       return { row: Math.max(0, ...rows.alpha), field: Math.max(0, ...fields.alpha) }
     }
     const measures = [14, 16, 18, 20, 22, 23.5, 23.9, 24, 24.1, 24.5].map(painted)

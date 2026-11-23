@@ -17,6 +17,7 @@ import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import type { WorldInput, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
+import { glyphSurfaces } from './glyphSurfaces'
 import { tonesAt } from './marks'
 import { outsideLayer, outsideMass } from './outside'
 
@@ -102,7 +103,8 @@ it('uses far-town haze at true distance independently of its enlarged size', () 
   if (block?.kind !== 'box' || mark?.kind !== 'mark') return
   expect(layer.tiers[block.tier]).toEqual(tonesAt(given, 6.5))
   const tier = Math.floor(Math.log(6.46 / 2) / Math.log(1.22))
-  expect(mark.glyph.tones).toEqual(tonesAt(given, 2 * 1.22 ** tier * 1.1))
+  const km = 2 * 1.22 ** tier * 1.1
+  expect(mark.glyph.tones).toEqual(glyphSurfaces(given, mark.glyph, km, tonesAt(given, km), (c) => c, 'real').tones)
   expect(mark.glyph.factor).toBeCloseTo(LEGIBLE_PX / 2.5, 6)
 })
 

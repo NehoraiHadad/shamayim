@@ -1,6 +1,6 @@
 import type { LayerOf, OutsideItem, RGB, Tones, TreeDesc } from '../../model/types'
 import { castShadow } from '../castShadow'
-import { drawGlyph, drawLamps, glyphLight, glyphShadow } from '../glyphs'
+import { drawLamps, glyphLight, glyphShadow } from '../glyphs'
 import type { Lamp } from '../glyphs/kit'
 import { mix, type Ctx2D, type PaintEnv } from '../hand'
 import { grain, rockOf, tree } from '../marks'
@@ -8,6 +8,7 @@ import { stripPhase, TOWER_CAST, TOWER_CONTACT } from '../outside'
 import { paintOutsideLand, paintOutsideSea } from '../outsideGround'
 import { paintBlock } from './townBlock'
 import { townBodies } from './townBlocks'
+import { paintTownGlyph } from './townGlyph'
 import { townLight } from './townLight'
 import { paintDrawnTower } from './townTower'
 
@@ -29,6 +30,7 @@ const RECEDE = 0.3, RECEDE_OVER = 16, TIERS_OWN = 0.14
 
 export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s, tiers, form } = desc
+  if (!form) return
   const light = townLight(s, form), lateral = glyphLight(s), far = receding(desc.items, tiers)
   if (desc.land) paintOutsideLand(ctx, desc.land, s)
   if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
@@ -41,7 +43,7 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
     if (block) paintBlock(ctx, block, far(block.tier, block.foot), light, form, lamps, s.windows)
     else if (item.kind === 'tower') paintDrawnTower(ctx, item, far(item.tier, item.base), light, form, s, lamps)
     else if (item.kind === 'tree') tree(ctx, grown(item.tree), far(item.tier, item.tree.base), s, lateral, rockOf(desc, env, item.tree.seed))
-    else lamps.push(...drawGlyph(ctx, item.glyph, s))
+    else lamps.push(...paintTownGlyph(ctx, item.glyph, s))
   }
   grain(ctx, env, 13, GRAIN * (1 - 0.4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)

@@ -6,10 +6,12 @@ import { makeWorldBuilder } from '../../world/world'
 import { formKeyOf } from '../compose/paintJob'
 import { treeBend } from '../paint/landVegPose'
 import { sceneModel } from '.'
+import { canopyOf } from './canopy'
+import { shadowedPlane } from './planeCloudShadow'
 import { frameAt } from './anim'
 import { dustPotential, landDustLayers } from './landDust'
-import { plantWindAt, plantWindOf, treeTravel } from './landWind'
-import type { SceneBox } from './types'
+import { LAND_GUST, plantWindAt, plantWindOf, treeTravel } from './landWind'
+import type { LayerOf, SceneBox } from './types'
 import { distanceFade, TREE_FULL_M_PER_PX, TREE_MAX_M_PER_PX } from './vegRules'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2.75 }
@@ -111,4 +113,21 @@ describe('wind-blown land dust', () => {
     const mirrored = { ...world, land, wind: worldWind(270, 16, 24, STORED_CAMERA) }
     expect(landDustLayers(mirrored, BOX)[1].animated?.fall?.vx).toBeGreaterThan(0)
   })
+})
+
+it('keeps the gust loop and byte-keyed canopy light under moving cloud shadows', () => {
+  const world = makeWorldBuilder()({ ...input, forced: westerly })
+  const plane = sceneModel(world, BOX).layers.find((layer): layer is LayerOf<'plane'> => layer.kind === 'plane' && layer.plane === 'near')!
+  const gust = { lean: 0.7, gust: 0.5 }
+  const shadow = { plane: 'near', open: 0.8, blobs: [
+    { cellId: 'test', centre: [100, 100], x: 100, y: 100, rx: 40, ry: 30, speed: 1, opticalDepth: 2 },
+  ] } as const
+  const moving = shadowedPlane(plane, { ...shadow, blobs: [...shadow.blobs] }, 15)
+  expect(moving.cloudShadow?.speed).toBe(1)
+  expect(moving.animated?.frames).toBeUndefined()
+  const canopy = canopyOf(moving, gust, [])!
+  expect(canopy.animated?.frames).toEqual(LAND_GUST)
+  expect(frameAt(canopy.animated, 15.4)).toBe(frameAt(canopy.animated, 17.4))
+  const renamed = canopyOf({ ...moving, light: { ...moving.light, key: 'new plane generation' } }, gust, [])!
+  expect(renamed.light?.key).toBe(canopy.light?.key)
 })

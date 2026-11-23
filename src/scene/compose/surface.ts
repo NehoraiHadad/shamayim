@@ -1,13 +1,15 @@
 import { driftAt, fadeAt, fallAt, flashAt, frameAt, glideAt, revealAt, swayAt, trackAt } from '../model/anim'
 import { carriedS } from '../model/advect'
 import { trailTimeAt } from '../model/contrailMotion'
+import { shadowStep } from '../model/planeCloudShadow'
 import type { LayerDesc } from '../model/types'
 import type { SceneStyle } from '../sceneStyle'
 import { paintContrail } from '../paint/contrail'
-import { clipToGround, layCarried } from './advect'
-import { ctxOf, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
+import { layCarried } from './advect'
+import { ctxOf, defaultFactory, LayerCache, type CacheOptions, type LayerCanvas, type Painted } from './layerCache'
 import { formKeyOf } from './paintJob'
 import { RemoteCache, type Arrival, type WorkerLike } from './remoteCache'
+import { ReceiverComposite } from './receiverComposite'
 import type { SceneStats } from './stats'
 import { compositeOrder } from './compositeOrder'
 
@@ -24,6 +26,8 @@ export interface SurfaceOptions extends CacheOptions {
   worker?: () => WorkerLike | null
   /** A batch of the worker's came in and was laid (`ms`: the main thread's time for it, the composite included). */
   onArrive?: (arrival: Arrival & { ms: number }) => void
+  /** Batch visible worker arrivals on surfaces with expensive receiver composites. */
+  scheduleArrival?: (draw: () => void) => void
 }
 
 /**
@@ -45,9 +49,13 @@ export class Surface {
   private readonly now: () => number
   private readonly onArrive?: SurfaceOptions['onArrive']
   private readonly stats?: SceneStats
+  private queuedArrival?: Arrival
+  private arrivalDraw?: Promise<void>
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
-  private shown: { layers: readonly LayerDesc[]; anim: string } | null = null
+  private shown: { layers: readonly LayerDesc[]; anim: string; exact: boolean } | null = null
+  private readonly receivers: ReceiverComposite
+  private paintedLayers?: { layers: readonly LayerDesc[]; dpr: number; cache: LayerCache | RemoteCache }
   private order: { layers: readonly LayerDesc[]; passes: ReturnType<typeof compositeOrder> } | null = null
 
   readonly canvas: LayerCanvas
@@ -55,6 +63,7 @@ export class Surface {
   constructor(canvas: LayerCanvas, options: SurfaceOptions = {}) {
     this.canvas = canvas
     this.cache = new LayerCache(options)
+    this.receivers = new ReceiverComposite(options.factory ?? defaultFactory())
     this.now = options.now ?? (() => performance.now())
     this.onArrive = options.onArrive
     this.stats = options.stats
@@ -62,9 +71,20 @@ export class Surface {
     if (worker) {
       this.remote = new RemoteCache({ worker, painters: options.painters, hand: options.hand, now: this.now,
         onArrive: (arrival) => {
-          const start = this.now()
-          this.composite(this.last, this.phase, this.still)
-          this.onArrive?.({ ...arrival, ms: this.now() - start })
+          const schedule = options.scheduleArrival
+          if (!schedule) return this.drawArrival(arrival)
+          const queued = this.queuedArrival
+          this.queuedArrival = queued ? {
+            changed: queued.changed || arrival.changed, settled: arrival.settled,
+            latency: Math.max(queued.latency, arrival.latency), workerMs: queued.workerMs + arrival.workerMs,
+          } : { ...arrival }
+          if (!this.arrivalDraw) this.arrivalDraw = new Promise(resolve => schedule(() => {
+            const latest = this.queuedArrival!
+            this.queuedArrival = undefined
+            this.arrivalDraw = undefined
+            this.drawArrival(latest)
+            resolve()
+          }))
         },
         onFail: () => {
           // Back to painting here: what the worker had not delivered is painted now.
@@ -74,12 +94,20 @@ export class Surface {
     }
   }
 
+  private drawArrival(arrival: Arrival) {
+    const start = this.now()
+    if (arrival.changed) this.composite(this.last, this.phase, this.still)
+    this.onArrive?.({ ...arrival, ms: this.now() - start })
+  }
+
   private get active(): LayerCache | RemoteCache {
     return this.remote ?? this.cache
   }
 
   /** The scene's hand: a switch shows with the next `render`, the old painting standing until the new one is in. */
   set style(style: SceneStyle) {
+    if (this.cache.style === style) return
+    this.paintedLayers = undefined
     this.cache.style = style
     if (this.remote) this.remote.style = style
   }
@@ -90,17 +118,23 @@ export class Surface {
     this.width = width
     this.height = height
     this.dpr = dpr
+    if (this.paintedLayers?.dpr !== dpr) this.paintedLayers = undefined
     if (this.canvas.width !== w) { this.canvas.width = w; this.shown = null }
     if (this.canvas.height !== h) { this.canvas.height = h; this.shown = null }
   }
 
   fresh(desc: LayerDesc) {
-    return desc.kind === 'contrail' || this.active.fresh(desc, this.dpr)
+    if (desc.kind === 'contrail') return true
+    return this.active.fresh(desc, this.dpr)
   }
 
   /** Brings a layer up to date: painted here, or asked of the worker (sent by `flush`, or by `render`). */
   paint(desc: LayerDesc, phase = 0): Painted {
-    return desc.kind === 'contrail' ? 'none' : this.active.update(desc, this.dpr, phase)
+    this.paintedLayers = undefined
+    if (desc.kind === 'contrail') return 'none'
+    const painted = this.active.update(desc, this.dpr, this.still ? 0 : phase)
+    if (!this.remote && painted !== 'none') this.receivers.invalidate(desc.id)
+    return painted
   }
 
   /** Sends what was asked of the worker (a no-op without one). */
@@ -114,12 +148,15 @@ export class Surface {
   }
 
   prune(keep: ReadonlySet<string>) {
+    this.paintedLayers = undefined
     this.active.prune(keep)
+    this.receivers.prune(keep)
   }
 
   /** Resolves once the worker has delivered everything asked of it (at once without a worker). */
-  settled(): Promise<void> {
-    return this.remote?.whenSettled() ?? Promise.resolve()
+  async settled(): Promise<void> {
+    await this.remote?.whenSettled()
+    await this.arrivalDraw
   }
 
   /**
@@ -131,11 +168,13 @@ export class Surface {
    * `still` (reduced motion): the drifts, strips, falls and flashes stand at phase 0 and nothing glides or forms; the
    * fades still run with the phase (the arrival's simple fade).
    */
-  composite(layers: readonly LayerDesc[], phase = this.phase, still = this.still) {
+  composite(layers: readonly LayerDesc[], phase = this.phase, still = this.still, animState = this.animState(layers, phase, still),
+    exact = false) {
     this.last = layers
     this.phase = phase
     this.still = still
-    this.shown = { layers, anim: this.animState(layers, phase, still) }
+    this.shown = { layers, anim: animState, exact }
+    if (this.queuedArrival) this.queuedArrival.changed = false
     const motion = still ? 0 : phase
     const ctx = ctxOf(this.canvas)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -145,14 +184,15 @@ export class Surface {
     const d = this.dpr
     const cache = this.active
     if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
-    for (const { desc, part } of this.order.passes) {
-      if (part === 'light' && !desc.light) continue
-      if (desc.kind === 'contrail') { if (part !== 'light') paintContrail(ctx, desc, motion, still, d); continue }
+    for (const desc of this.order.passes) {
+      if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
       if (!cached) continue
       const layout = layoutOf(desc, cached, d, this.active.style)
+      const plane = layout.kind === 'plane' ? cached : layout.kind === 'canopy' ? cache.peek(layout.id.replace(/^canopy\./, 'plane.')) : null
+      if (layout.kind === 'canopy' && (!plane?.light || (cached.lightDesc.kind === 'canopy'
+        && cached.lightDesc.receiver?.form !== plane.lightDesc.key))) continue
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
-      if (part !== 'light' && cache instanceof LayerCache && layout.animated?.frames) cache.ensureFrame(layout, motion)
       const { form, light, ratio, rect } = cached
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
@@ -191,11 +231,14 @@ export class Surface {
         ctx.globalAlpha = 1
         continue
       }
+      const frame = still ? 0 : frameAt(anim, motion)
+      const preview = 'preview' in cached && cached.preview
+      if (cache instanceof LayerCache && anim?.frames) cache.ensureFrame(layout, motion)
       const draw = (image: CanvasImageSource | OffscreenCanvas) => {
         const source = image as CanvasImageSource
         // A strip (C7): the frame at this phase, of the frames the canvas holds.
         const held = Math.max(1, Math.round((image as { height: number }).height / rect.h))
-        const sy = held > 1 ? (frameAt(anim, motion) % held) * rect.h : 0
+        const sy = held > 1 ? ((preview ? 0 : frame) % held) * rect.h : 0
         if (lay) {
           const sc = lay.scale * flown.scale * k
           const turn = (lay.turn ?? 0) + flown.turn
@@ -227,32 +270,42 @@ export class Surface {
           if (x + rect.w > 0) ctx.drawImage(source, 0, sy, rect.w, rect.h, x, y, rect.w, rect.h)
         }
       }
-      if (part !== 'light' && form && !cache.formless(layout)) {
+      if (form && !cache.formless(layout)) {
         if (layout.blend) ctx.globalCompositeOperation = layout.blend
-        const grounded = clipToGround(ctx, layout, d)
         draw(form)
-        if (grounded) ctx.restore()
         if (layout.blend) ctx.globalCompositeOperation = 'source-over'
       }
-      if (part !== 'form' && light && layout.light) {
+      if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
-        draw(light)
+        if (plane && cached.shade) {
+          const poses = 'poses' in cached ? cached.poses : undefined
+          const pose = poses?.[frame - 1]
+          const sy = (preview || poses ? 0 : frame) * rect.h
+          this.receivers.draw({ id: layout.id, cached: pose ? { ...cached, light: pose.bitmap, shade: pose.shade } : cached,
+            plane, phase, still, exact, sy, draw })
+        } else {
+          if (plane) this.receivers.invalidate(layout.id)
+          draw(light)
+        }
         ctx.globalCompositeOperation = 'source-over'
       }
-      if (part !== 'light' && this.stats?.trackShown) {
-        const fresh = cache.fresh(desc, d)
-        const existing = this.stats.shown[desc.id]
-        if (fresh) {
-          const lk = desc.light?.key ?? null
-          if (!existing) this.stats.shown[desc.id] = { key: desc.key, lightKey: lk, fresh: true }
-          else if (existing.key !== desc.key || existing.lightKey !== lk || !existing.fresh) {
-            existing.key = desc.key; existing.lightKey = lk; existing.fresh = true
-          }
-        } else if (existing && existing.fresh) existing.fresh = false
-      }
+      if (this.stats?.trackShown) this.markShown(desc, cache.fresh(desc, d))
       if (clipped) ctx.restore()
       ctx.globalAlpha = 1
     }
+  }
+
+  private markShown(desc: LayerDesc, fresh: boolean) {
+    if (!this.stats) return
+    if (desc.kind === 'canopy' && !this.stats.steps[`visible.${desc.id}`]) this.stats.record(`visible.${desc.id}`, this.now())
+    const existing = this.stats.shown[desc.id]
+    if (fresh) {
+      const lk = desc.light?.key ?? null
+      if (!existing) this.stats.shown[desc.id] = { key: desc.key, lightKey: lk, fresh: true }
+      else if (existing.key !== desc.key || existing.lightKey !== lk || !existing.fresh) {
+        existing.key = desc.key; existing.lightKey = lk; existing.fresh = true
+      }
+    } else if (existing && existing.fresh) existing.fresh = false
   }
 
   /**
@@ -286,8 +339,8 @@ export class Surface {
   }
 
   /** Lays the last layers again at `phase` (a frame of a clip or a still, laid by a harness): nothing is repainted. */
-  lay(phase: number, still = false) {
-    this.composite(this.last, phase, still)
+  lay(phase: number, still = false, layers = this.last) {
+    this.composite(layers, phase, still, undefined, true)
   }
 
   /**
@@ -338,10 +391,15 @@ export class Surface {
     let out = still ? 's' : ''
     for (const desc of layers) {
       if (desc.kind === 'contrail') { out += `${trailTimeAt(desc, motion, still)};`; continue }
-      const layer = layoutOf(desc, this.active.peek(desc.id), this.dpr, this.active.style)
+      const cached = this.active.peek(desc.id)
+      const layer = layoutOf(desc, cached, this.dpr, this.active.style)
+      const lit = cached?.lightDesc
+      if (cached?.shade && lit?.kind === 'plane' && lit.cloudShadow?.speed) {
+        out += `s${shadowStep(lit.cloudShadow, phase, still, cached.ratio)};`
+      }
       const anim = layer.animated
       if (!anim) continue
-      out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${frameAt(anim, motion)}`
+      out += `${Math.round(driftAt(anim, motion) * this.dpr)}:${Math.round(flashAt(anim, motion) * 255)}:${still ? 0 : frameAt(anim, motion)}`
       if (anim.fall) {
         const off = fallAt(anim, motion, layer.bounds)
         out += `:${Math.round(off.x * this.dpr)},${Math.round(off.y * this.dpr)}`
@@ -371,8 +429,11 @@ export class Surface {
     this.last = layers
     this.phase = phase
     this.still = still
-    this.prune(new Set(layers.map((layer) => layer.id)))
-    const painted = layers.map((desc) => this.paint(desc, phase))
+    const active = this.active
+    const unchanged = this.paintedLayers?.layers === layers && this.paintedLayers.dpr === this.dpr && this.paintedLayers.cache === active
+    if (!unchanged) this.prune(new Set(layers.map(({ id }) => id)))
+    const painted = unchanged ? layers.map((): Painted => 'none') : layers.map((desc) => this.paint(desc, phase))
+    if (!unchanged) this.paintedLayers = { layers, dpr: this.dpr, cache: active }
     if (this.stats?.trackShown) {
       for (const desc of layers) {
         const existing = this.stats.shown[desc.id]
@@ -381,15 +442,16 @@ export class Surface {
     }
     this.flush()
     // An animation tick that moved nothing a whole pixel (and repainted or asked for nothing) leaves the canvas as it is.
-    if (this.shown && this.shown.layers === layers && this.shown.anim === this.animState(layers, phase, still)
+    const state = this.animState(layers, phase, still)
+    if (this.shown && !this.shown.exact && this.shown.layers === layers && this.shown.anim === state
       && painted.every((p) => p === 'none')) return painted
-    this.composite(layers, phase, still)
+    this.composite(layers, phase, still, state)
     return painted
   }
 
   /** Backing memory: the visible canvas and the cached layers (bytes). */
   bytes() {
-    return this.canvas.width * this.canvas.height * 4 + this.active.bytes()
+    return this.canvas.width * this.canvas.height * 4 + this.active.bytes() + this.receivers.bytes()
   }
 
   get size() {

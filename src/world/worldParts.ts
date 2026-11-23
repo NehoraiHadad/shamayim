@@ -129,7 +129,8 @@ export function makeWorldMemos() {
       const part = livingLandOf({ lat, lon, elevationM, shownDate, shownUtcDate, camera, terrain, data: { cover, near, far, weather } })
       return { part, key: livingLandKey(part) }
     }),
-    terrainKey: memoOne((terrain: SceneTerrain) => partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2)),
+    terrainKey: memoOne((terrain: SceneTerrain) =>
+      partKey([terrain.nearPoints, terrain.farPoints, terrain.horizonY, terrain.water], 2)),
     drawnOf: memoOne(drawnTerrain),
   }
 }

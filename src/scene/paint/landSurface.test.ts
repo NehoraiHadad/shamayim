@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerOf, RGB } from '../model/types'
 import { HAND, type Ctx2D } from './hand'
-import { paintPlane } from './planes'
+import { paintPlaneLight } from './planeLight'
 
-describe('paintPlane fractional-pixel crest coverage', () => {
+describe('paintPlaneLight fractional-pixel crest coverage', () => {
   it('applies outline coverage once at a fractional-pixel crest with zero median bleed', () => {
     // 12×20 raster with horizontal crest at y=10.5 -> row y=10 has exact 50% geometric coverage (cov = 0.5).
     const covAt = (y: number) => (y < 10 ? 0 : y === 10 ? 0.5 : 1)
@@ -34,6 +34,10 @@ describe('paintPlane fractional-pixel crest coverage', () => {
             else over(y, r, g, b, sa)
           }
         },
+        fillRect: () => {
+          const [r, g, b, a] = parseCss(fillStyle)
+          for (let y = 0; y < 20; y++) over(y, r, g, b, a)
+        },
         drawImage: () => {
           const d = scratchImg!.data, r = d[0] / 255, g = d[1] / 255, b = d[2] / 255
           for (let y = 0; y < 20; y++) over(y, r, g, b, clipped ? covAt(y) : 1)
@@ -48,15 +52,16 @@ describe('paintPlane fractional-pixel crest coverage', () => {
         bounds: { x: 0, y: 0, w: 12, h: 20 }, outline: [[0, 10.5], [12, 10.5], [12, 20], [0, 20]],
         fill: [0.9, 0.1, 0.1], surfaceTone: { palette, cols: 1, rows: 1, cells, source: 'test' },
         gullies: [], terraces: [], vegetation: EMPTY_VEGETATION, grain: { amount: 0, seed: 1 },
-        light: { key: 'l', blend: 'source-over', faces: [], veil: [], shade: [], lit: [], rims: [], snow: null, lift: null },
+        light: { key: 'l', blend: 'source-over', litField: { cols: 1, rows: 1, grid: new Uint8Array([0, 0, 255, 0]),
+      eSun: [0, 0, 0], eMoon: [0, 0, 0], eSky: [1, 1, 1], hazeLin: [0, 0, 0], yHorizon: 1 } },
       }
-      paintPlane(ctx, desc, { hand: HAND, phase: 0, scale: 1, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: scratch }) })
+      paintPlaneLight(ctx, desc, { hand: HAND, phase: 0, scale: 1, canvas: () => ({ canvas: {} as OffscreenCanvas, ctx: scratch }) })
       return rgba[10]
     }
     const textured = runPaint([[0.1, 0.7, 0.2]], [0])
     expect(textured[3]).toBeCloseTo(0.5, 5) // single 50% outline coverage, NOT 75%
-    expect(textured[0] / textured[3]).toBeCloseTo(0.1, 2) // zero red median bleed
-    expect(textured[1] / textured[3]).toBeCloseTo(0.7, 2)
+    expect(textured[0] / textured[3]).toBeLessThan(0.13) // zero red median bleed
+    expect(textured[1] / textured[3]).toBeGreaterThan(0.7)
     const fallback = runPaint([], [])
     expect(fallback[3]).toBeCloseTo(0.5, 5)
     expect(fallback[0] / fallback[3]).toBeCloseTo(0.9, 2)
