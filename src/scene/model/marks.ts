@@ -1,6 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
+import type { SceneStyle } from '../sceneStyle'
 import { landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey } from './landmarkAtmosphere'
 import { faceLight } from '../../world/livingLight'
@@ -82,10 +83,11 @@ const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.roun
  * mass, in the outside view's layer (`outside.ts`, C5).
  */
 export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null = null,
-  home: HomeRoofline | null = null, clear: readonly Box[] = [], foreground: readonly DrawnMass[] = []): LayerOf<'marks'>[] {
+  home: HomeRoofline | null = null, clear: readonly Box[] = [], foreground: readonly DrawnMass[] = [],
+  style: SceneStyle = 'real'): LayerOf<'marks'>[] {
   const shine = shineOf(world)
   const formKey = (id: string) => layerKey(id, world.keys.marks, world.keys.place, landBoxKey(box), glyphs.map(glyphGeometryKey))
-  const glyphs = farNeighbourMarks(world, box, towns, home, clear, foreground)
+  const glyphs = farNeighbourMarks(world, box, towns, home, clear, foreground, style)
   const bounds = boundsOf(glyphs.map(reachOf), box)
   if (!bounds) return []
   return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,

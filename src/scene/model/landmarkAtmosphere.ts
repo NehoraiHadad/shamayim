@@ -1,5 +1,6 @@
 import { plainContrast } from '../../data/city/plainHaze'
 import type { WorldState } from '../../world/types'
+import type { SceneStyle } from '../sceneStyle'
 import { isFamousNonOwn } from '../../world/neighbourIdentity'
 import { tonesAt } from './marks'
 import { glyphSurfaces, glyphSurfaceKey } from './glyphSurfaces'
@@ -22,12 +23,12 @@ export function landmarkTonesAt(world: WorldState, km: number, contrast = landma
 }
 
 /** Refresh only light, including visibility-only changes on a cached outside shape. */
-export function refreshLandmarkGlyph(world: WorldState, glyph: GlyphDesc, km: number): GlyphDesc {
+export function refreshLandmarkGlyph(world: WorldState, glyph: GlyphDesc, km: number, style: SceneStyle = 'real'): GlyphDesc {
   const far = isFamousNonOwn(glyph), distance = far ? glyph.trueDistanceKm! : km
   const contrast = far ? landmarkContrast(world, distance) : 1
   const t = far ? landmarkTonesAt(world, distance, contrast) : tonesAt(world, distance)
   const land = far ? toneAt(world, distance) : null
-  const use = glyphSurfaces(world, glyph, distance, t, c => land ? mixRgb(land, c, contrast) : c)
+  const use = glyphSurfaces(world, glyph, distance, t, c => land ? mixRgb(land, c, contrast) : c, style)
   return { ...glyph, ...use, windowWall: t.wall, shadowTones: { deep: t.deep, shade: t.shade }, ...(far ? { contrast } : {}) }
 }
 

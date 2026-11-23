@@ -63,11 +63,11 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, style: SceneStyle): SceneModel {
   const layout = layoutOf(world, box)
-  const towns = farCitiesLayer(world, box, layout.clear)
+  const towns = farCitiesLayer(world, box, layout.clear, style)
   const outside = outsideOf(world, box, layout.clear, style)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
-  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
+  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)], style)
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))

@@ -98,13 +98,15 @@ describe('building receiver', () => {
     expect(y(flat.top)).toBeGreaterThan(y(flat.front.wall))
   })
 
-  it('receives less twilight on the half of the street facing away from the glow', () => {
+  it('keeps broad sky fill on the half of the street facing away from the twilight glow', () => {
     const world = scene(113, .76, 0), receive = buildingLight(world, 2)
     const { across, ahead } = landIrradiance(world).sunDir
     const length = Math.hypot(across, ahead)
     const toward: [number, number, number] = [across / length, ahead / length, 0]
     const away: [number, number, number] = [-toward[0], -toward[1], 0]
-    expect(y(receive(STONE, away))).toBeLessThan(.65 * y(receive(STONE, toward)))
+    const ratio = y(receive(STONE, away)) / y(receive(STONE, toward))
+    expect(ratio).toBeGreaterThan(.9)
+    expect(ratio).toBeLessThan(1)
   })
 
   it('reflects more sky at grazing angles and keeps glass bands softly resolved', () => {

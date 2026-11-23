@@ -1,6 +1,7 @@
 import { isField } from '../../world/glyphSpecs'
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
+import type { SceneStyle } from '../sceneStyle'
 import { buildingLight, roofNormal } from './buildingLight'
 import { SOOT, STACK_CONCRETE, STONE, TILE, WALL_ALBEDOS, materialBin } from './buildingMaterial'
 import { domeSectors, silverLight } from './metalLight'
@@ -21,11 +22,11 @@ const CURVES = ([-1, 1] as const).map(hand => SECTORS.map(x => [hand * x, -Math.
 const LEFT: Normal = [-1, 0, 0], RIGHT: Normal = [1, 0, 0]
 const CLAY_LEFT = roofNormal(LEFT), CLAY_RIGHT = roofNormal(RIGHT), CLAY_FRONT = roofNormal(NORMALS.front)
 
-export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t: Tones, convert: (c: RGB) => RGB) {
+export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t: Tones, convert: (c: RGB) => RGB, style: SceneStyle) {
   const gilding = glyph.kind === 'babShrine' ? domeSectors(world, km)
     .map(row => (glyph.hand === 1 ? row : row.reverse()).map(convert)) : undefined
   if (isField(glyph.kind) || glyph.kind === 'palms') return { tones: t, gilding }
-  const shades = buildingLight(world, km)
+  const shades = buildingLight(world, km, style)
   const receive = (rho: RGB, n: Normal, open?: number, beam?: number) => convert(shades(rho, n, open, beam))
   const hand = glyph.hand
   const front = NORMALS.front
@@ -35,13 +36,13 @@ export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t
   const returns = (rho: RGB): Returns => [receive(rho, left), receive(rho, right)]
   const curved = CURVES[hand === 1 ? 1 : 0]
   const glazed = glyph.kind === 'azrieli' || glyph.kind === 'highrise'
-  const glass = (n: Normal) => convert(shades.glass(n))
+  const glass = (n: Normal) => convert(shades.glass(n, false, wall))
   const surfaces: GlyphSurfaces = {
     wall: returns(wall), stone: returns(STONE), tile: [receive(TILE, hand === 1 ? CLAY_LEFT : CLAY_RIGHT), receive(TILE, hand === 1 ? CLAY_RIGHT : CLAY_LEFT)],
     round: curved.map(n => receive(wall, n, .82, .85)), eave: receive(wall, front, .65, .6),
-    ...(glazed ? { glass: [glass(left), glass(right)] as const, band: convert(shades.glass(front, true)) } : {}),
+    ...(glazed ? { glass: [glass(left), glass(right)] as const, band: convert(shades.glass(front, true, wall)) } : {}),
   }
-  if (glyph.kind === 'azrieli') surfaces.roundGlass = curved.map(glass)
+  if (glyph.kind === 'azrieli') surfaces.roundGlass = curved.map(n => convert(shades.glass(n, false, wall, .82, .85)))
   if (glyph.kind === 'chordsBridge' || glyph.kind === 'turbine' || glyph.kind === 'mast') {
     surfaces.silver = convert(silverLight(world, km)([0, -.8, .6]))
   }

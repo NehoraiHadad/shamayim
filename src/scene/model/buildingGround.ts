@@ -2,7 +2,7 @@ import type { Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
 import { nearGroundAlbedo } from './landColour'
 import { landIrradiance, type LandIrradiance } from './landIrradiance'
-import { albedoLinear, srgbRgbToLinear } from './landRadiance'
+import { albedoLinear, EXPOSURE_GAMMA, linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { afterglowWeight } from './landSkyIrradiance'
 import { mixLight, rgbOf } from './tone'
 import { hazeOf } from './landVeil'
@@ -25,7 +25,8 @@ export function sunlitGround({ up }: LandIrradiance['sunDir']) {
 }
 
 export interface Surroundings { irr: LandIrradiance; ground: RGB; air: RGB }
-const memo = new WeakMap<WorldState, { buildings: Surroundings; accents: Surroundings }>()
+export interface BuildingSurroundings extends Surroundings { streetY: number }
+const memo = new WeakMap<WorldState, { buildings: BuildingSurroundings; accents: Surroundings }>()
 
 export function groundLighting(world: WorldState) {
   const cached = memo.get(world)
@@ -40,9 +41,11 @@ export function groundLighting(world: WorldState) {
     ...glow, rgb: mixLight(rgbOf(world.light.palette.horizon), glow.rgb, weight),
   } } } : world
   const buildingIrr = lightWorld === world ? irr : landIrradiance(lightWorld)
+  const visibleGround = .92
+  const ground = reflectedGround(albedoLinear(albedo), buildingIrr, visibleGround, sunlitGround(buildingIrr.sunDir))
   const result = {
     buildings: { irr: buildingIrr, air: srgbRgbToLinear(hazeOf(lightWorld)),
-      ground: reflectedGround(albedoLinear(albedo), buildingIrr, .92, sunlitGround(buildingIrr.sunDir)) },
+      ground, streetY: buildingIrr.yHorizon * (linearLuminance(ground) / visibleGround) ** EXPOSURE_GAMMA },
     // Existing plant, cast-shadow and lamp tints retain their original ground input.
     accents: { irr, air, ground: reflectedGround(srgbRgbToLinear(nearby), irr, .18, 1) },
   }
