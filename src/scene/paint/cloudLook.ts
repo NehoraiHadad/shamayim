@@ -71,14 +71,15 @@ export function deckOpenness(desc: LayerOf<'cloudSheet'>): number {
   return smoothstep(OPEN_FROM, OPEN_TO, clear / count)
 }
 
-/** Each node's drawn colour times its drawn alpha, and that alpha: the quantities that interpolate without dark fringes. */
+/** Each node's drawn colour (by night the towns' light over it) times its drawn alpha, and that alpha: the quantities that interpolate without dark fringes. */
 export function sheetTexels(desc: LayerOf<'cloudSheet'>, open: number): number[][] {
   const cols = desc.xs.length, count = cols * desc.ys.length
   const alphaAt = (n: number) => Math.min(1, Math.max(0, desc.alpha[Math.min(count - 1, Math.max(0, n))] ?? 0))
   return Array.from({ length: count }, (_, n) => {
     const a = alphaAt(n), relief = alphaAt(n - cols) - alphaAt(n + cols)
     const [rgb, alpha] = openLook(desc, toneOf(desc, desc.tone[n] ?? 0), a, relief, open)
-    return [rgb[0] * alpha, rgb[1] * alpha, rgb[2] * alpha, alpha]
+    const drawn = desc.city ? mix(rgb, desc.city.rgb, desc.city.weight[n] ?? 0) : rgb
+    return [drawn[0] * alpha, drawn[1] * alpha, drawn[2] * alpha, alpha]
   })
 }
 

@@ -1004,7 +1004,11 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 - [x] Track D N4 close (Claude, 22 Nov): tower body puffs stratified up the column (no bead strings); a near rain curtain thickens with nearness (grey wall, cap 0.85); the falling snow line hangs 300 m under the forecast freezing level when given, else the lapse rule; weather/cloudSheet/cloudShadows/density split under 150 lines (shafts, precip, edgeMark, smoke, weatherShared, cloudSheetMath, cloudShadowWorld, field/footprint). Open: a column of blobs at the left edge in haifa 17:00 is the low Cu sheet's texture (sheet alpha 1 at css rows 268-311 by the edge), not towers; the near curtain at 14:00 is mostly hidden by the Carmel; glaciation height (FL+3 km) not used for the anvil.
 - [ ] Low Cu sheet texture makes a column of blobs at the screen edge (haifa 17:00, sheet alpha 1 at css rows 268-311).
 - [ ] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top.
-- [ ] City night glow is radial: no direction data for where the towns lie.
+- [x] City night glow by direction: the far raster's built cells light the cloud base over them (`world/townLights.ts`) and
+      the air over each bearing (`townAir.ts`, Walker's law, the place's mean stays `env.glow`); a city is lit overhead and
+      on every side. `CITY_ZENITH`/`CITY_HORIZON` are gone.
+- [ ] The far raster holds no towns of Jordan, Lebanon, Syria or Egypt: the glow over Amman and Irbid is missing. Towers
+      (`cloudCells`) take no town light at night.
 - [x] Track D midnight reseed (N3e 884b2af1 + N3g c606afd1, in main; field.test.ts measureMidnight) (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
       same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Done before N4.
 

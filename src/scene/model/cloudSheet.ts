@@ -6,6 +6,7 @@ import { meanRadius } from '../../world/field/lattice'
 import type { Lattice } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
+import { CITY_RGB, type CityOnBase } from './cityLight'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
@@ -20,9 +21,8 @@ type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number
 
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
-
-
-export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours): LayerOf<'cloudSheet'> | null {
+export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours,
+  cityAt: CityOnBase | null = null): LayerOf<'cloudSheet'> | null {
   const { layer, heightKm, densityGrid } = snapshot
   if (!layer || heightKm <= 0 || geom.horizon <= 0 || geom.width <= 0) return null
   if (layer.lattice === 'tower' || !layer.cover) return null
@@ -84,6 +84,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const corrected = textureCorrection(raw, tau, weights, xs.length, detail)
   const solar = solarTexel(world, geom, snapshot, grid, angularStep)
   const closed = colours.closed ?? 0
+  const city = cityAt ? new Array<number>(alpha.length).fill(0) : null
   let fingerprint = 2166136261
   for (let row = 0; row < ys.length; row++) {
     const f = fade[row], visibility = path[row], multiplier = slant[row]
@@ -94,6 +95,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     // The far source includes sky fill as the ray traverses extra air.
     const aerial = cellular ? 0.25 * (world.air?.fade(Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) ?? 0) : 0
     const farTone = farSource + aerial * (0.5 - farSource)
+    const meanRange = Math.min(ranges[row], deckEnd), baseKm = Math.hypot(meanRange, heightKm)
     if (!visibility) continue
     for (let col = 0; col < xs.length; col++) {
       const index = row * xs.length + col
@@ -127,6 +129,12 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         localTone += thick * (baseTone - thinTone)
       }
       tone[index] = unit(cellular && opacity ? (resolved * localTone + unresolved * farTone) / opacity : localTone)
+      if (city) {
+        // A thick column gives more of the light from below back (two streams) than a thin one.
+        const back = 0.6 + 0.8 * (1 - 1 / (1 + DIFFUSE_EXTINCTION * depth))
+        city[index] = unit(back * cityAt!(meanRange * east[col], meanRange * north[col], altitudes[row], baseKm))
+        fingerprint = Math.imul(fingerprint ^ Math.round(city[index] * 255), 16777619)
+      }
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
@@ -135,6 +143,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
+    ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
     key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit),
   }
