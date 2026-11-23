@@ -9,7 +9,9 @@
  */
 export const VOTE_ROUND = 'v2'
 
-export const VOTE_STYLES = ['real', 'drawn'] as const
-export type VoteStyle = (typeof VOTE_STYLES)[number]
+/** The styles voted on and their names; the code knows none by its id (`src/test/architecture.ts`). */
+export const VOTE_NAMES = { real: 'מציאותי', drawn: 'מאויר' }
+export type VoteStyle = keyof typeof VOTE_NAMES
+export const VOTE_STYLES = Object.keys(VOTE_NAMES) as readonly VoteStyle[]
 
 export const isVoteStyle = (value: unknown): value is VoteStyle => VOTE_STYLES.includes(value as VoteStyle)

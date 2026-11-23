@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearVoteMemory, DAILY_PER_VOTER } from '../src/styleVote'
 import { network } from '../src/voteLimit'
 import { DAILY_WRITES } from '../src/voteTally'
-import { ORIGIN, today, TOTALS, voteKey, voteWorker } from './voteKv'
+import { DRAWN, ORIGIN, today, TOTALS, voteKey, voteWorker } from './voteKv'
 
 const EARLIER = '2026-01-01'
 
@@ -27,9 +27,9 @@ describe('daily caps', () => {
   it('limit the writes of one voter in a day, and start again the next', async () => {
     const { seed, vote, kv } = voteWorker()
     seed(1, { style: 'real', day: today(), n: DAILY_PER_VOTER })
-    expect((await vote(1, 'drawn')).status).toBe(429)
+    expect((await vote(1, DRAWN)).status).toBe(429)
     seed(2, { style: 'real', day: EARLIER, n: DAILY_PER_VOTER })
-    expect((await vote(2, 'drawn')).status).toBe(204)
+    expect((await vote(2, DRAWN)).status).toBe(204)
     expect(kv.data.get(voteKey(2))?.metadata?.n).toBe(1)
   })
 })

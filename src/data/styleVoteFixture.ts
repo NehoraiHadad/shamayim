@@ -1,7 +1,9 @@
 import { vi } from 'vitest'
 import { createStyleVote, type SendAnswer, type SendVote } from './styleVote'
-import { VOTE_ROUND } from './styleVoteRound'
+import { VOTE_ROUND, VOTE_STYLES } from './styleVoteRound'
 
+/** The style that is not the default. */
+export const [, DRAWN] = VOTE_STYLES
 export const ID = '00000000-0000-4000-8000-000000000001'
 export const STYLE_KEY = 'shamayim:scene-style:v1'
 export const VOTE_KEY = `shamayim:style-vote:${VOTE_ROUND}`
