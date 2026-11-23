@@ -2,7 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { breaches, factsOf, PAINT, resolve, type Sources, type Styles } from '../../test/architecture'
-import { DEFAULT_STYLE, SCENE_STYLES, STYLES } from './styles'
+import { DEFAULT_STYLE, SCENE_STYLES } from './painters'
+import { STYLES } from './styles'
 
 const root = path.resolve(__dirname, '../../..')
 const ACTUAL: Styles = { ids: SCENE_STYLES, default: DEFAULT_STYLE }

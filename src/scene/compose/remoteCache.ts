@@ -1,7 +1,7 @@
 import type { LayerDesc } from '../model/types'
 import type { Painter } from '../paint/contract'
 import { HAND, type Hand } from '../paint/shared/base/hand'
-import { DEFAULT_STYLE, painterOf, type SceneStyle } from '../paint/styles'
+import { DEFAULT_STYLE, painterOf, type SceneStyle } from '../paint/painters'
 import type { Painted } from './layerCache'
 import { deviceRect, formKeyOf, lightKeyOf, resultBitmaps, type PaintJob, type PaintReply } from './paintJob'
 import { receiverJob, shadeKeyOf } from './paintReceiver'

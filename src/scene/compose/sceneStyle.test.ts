@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { LayerDesc } from '../model/types'
 import type { Painter } from '../paint/contract'
-import { DEFAULT_STYLE, SCENE_STYLES, STYLES, isSceneStyle, painterOf, styleKey, type SceneStyle } from '../paint/styles'
+import { DEFAULT_STYLE, PAINTERS, SCENE_STYLES, isSceneStyle, painterOf, styleKey, type SceneStyle } from '../paint/painters'
+import { STYLES } from '../paint/styles'
 import { LayerCache, type LayerCanvas } from './layerCache'
 import { formKeyOf, type PaintRequest } from './paintJob'
 import { makeWorkerRunner, type WorkerCanvas } from './paintWorkerRun'
@@ -25,7 +26,11 @@ const OTHERS = SCENE_STYLES.filter((style): boolean => style !== DEFAULT_STYLE).
 describe('scene style', () => {
   it('names the hands by their ids in the registry', () => {
     expect(SCENE_STYLES.every(isSceneStyle)).toBe(true)
-    for (const style of SCENE_STYLES) expect(STYLES[style].id).toBe(style)
+    expect(Object.keys(STYLES)).toEqual(SCENE_STYLES)
+    for (const style of SCENE_STYLES) {
+      expect(STYLES[style].id).toBe(style)
+      expect(STYLES[style].painters).toBe(PAINTERS[style])
+    }
     expect(isSceneStyle('sketch')).toBe(false)
     expect(isSceneStyle(null)).toBe(false)
   })

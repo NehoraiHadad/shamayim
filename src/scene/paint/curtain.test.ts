@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { LayerOf } from '../model/types'
 import type { Ctx2D, PaintEnv } from './shared/base/hand'
-import { DEFAULT_STYLE, SCENE_STYLES, STYLES } from './styles'
+import { DEFAULT_STYLE, PAINTERS, SCENE_STYLES } from './painters'
 
 const ALPHA = 0.58, LEAN = 50
 const SEEDS = [1, 77, 4021, 245934642, 98765]
@@ -16,7 +16,7 @@ function curtainOf(seed: number, style = DEFAULT_STYLE) {
   const ctx = { save() {}, restore() {}, drawImage: (_c: unknown, x: number, _y: number, dw: number) => { drawn = { x, w: dw } } }
   const shaft = { x: 0, top: 10, bottom: 100, w: 110, lean: LEAN, rgb: [0.4, 0.45, 0.5] as const, alpha: ALPHA, seed }
   const desc = { kind: 'shafts', precip: 'rain', shafts: [shaft], period: 1e4, bounds: { x: -200, y: 0, w: 500, h: 120 } }
-  STYLES[style].painters.shafts.form(ctx as unknown as Ctx2D, desc as unknown as LayerOf<'shafts'>, env)
+  PAINTERS[style].shafts.form(ctx as unknown as Ctx2D, desc as unknown as LayerOf<'shafts'>, env)
   return (t: number) => {
     const j = Math.min(h - 1, Math.floor(t * h))
     return Array.from({ length: w }, (_, i) => ({ x: drawn.x + ((i + 0.5) / w) * drawn.w, a: data[(j * w + i) * 4 + 3] / 255 }))

@@ -199,8 +199,8 @@ the sun stands on the same line in the sky and behind the ridge.
 
 ### 1c. Painters (`src/scene/paint/`)
 
-Painters now stand under `paint/shared/` (both styles'), `paint/real/` and `paint/drawn/`, listed in `styles.ts` over `contract.ts`; the
-stage notes below name the files as they stood at their stage.
+Painters now stand under `paint/shared/` (both styles'), `paint/real/` and `paint/drawn/`, listed in `painters.ts` (what the paint worker
+loads) and `styles.ts` (with each style's light) over `contract.ts`; the stage notes below name the files as they stood at their stage.
 
 `paint<Kind>(ctx: CanvasRenderingContext2D, desc, env: PaintEnv): void`, one per layer kind (C1: `env` holds the
 `hand`, the `phase`, the device `scale` and `canvas(w, h)` for scratch surfaces, after the anidoodle skill's `Env`). `hand.ts`

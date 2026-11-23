@@ -3,7 +3,7 @@ import { cacheRatio } from '../model/keys'
 import type { LayerDesc } from '../model/types'
 import type { Painter } from '../paint/contract'
 import type { Ctx2D, Hand, PaintEnv, Scratch } from '../paint/shared/base/hand'
-import { DEFAULT_STYLE, styleKey, type SceneStyle } from '../paint/styles'
+import { DEFAULT_STYLE, styleKey, type SceneStyle } from '../paint/painters'
 import { shadeKeyOf } from './paintReceiver'
 
 /** A layer's canvas in device px: whole pixels, so it is laid into the surface 1:1. */

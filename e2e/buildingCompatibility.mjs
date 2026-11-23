@@ -3,7 +3,7 @@ export async function buildingCompatibility() {
   const { sceneModel, layersOn } = await import('/src/scene/model/index.ts')
   const { Surface } = await import('/src/scene/compose/surface.ts')
   const { isField } = await import('/src/world/glyphSpecs.ts')
-  const { painterOf } = await import('/src/scene/paint/styles.ts')
+  const { painterOf } = await import('/src/scene/paint/painters.ts')
   const { PAINT_PASS } = await import('/src/scene/paint/shared/base/paintPass.ts')
   const box = { width: innerWidth, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
   const layers = layersOn(sceneModel(window.__world, box), 'land')

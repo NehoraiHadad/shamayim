@@ -7,7 +7,8 @@ import { receiverId, STONE } from '../model/buildingMaterial'
 import { srgbRgbToLinear } from '../model/landRadiance'
 import { hazeAt, hazeOf, toneAt } from '../model/landVeil'
 import { metalLight } from '../model/metalLight'
-import { SCENE_STYLES, STYLES } from './styles'
+import { SCENE_STYLES } from './painters'
+import { STYLES } from './styles'
 
 it.each(SCENE_STYLES)('fades %s building receivers and the ground by one transmission', style => {
   const { light } = STYLES[style]
