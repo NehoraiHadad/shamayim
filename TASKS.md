@@ -14,7 +14,10 @@ WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVot
 - [x] Client store: style, styles seen, vote, retry at the next open
 - [x] UI: toggle in the wear card's title row, docked panel that leaves the scene visible, wiring in App
 - [x] Tests; looked at in the app at 375x812 (day, night, dawn paper, rain, an hour picked) and 375x667, closed and open
-- [ ] CI green; merge the drawn painter (claude/drawn-painter): until then both styles look the same
+- [x] Main a92d405f merged (the drawn hand; main's seam). Built app, frozen clock, Haifa and Jerusalem: default `real`; each switch
+      repaints sky and town, and real and drawn each return pixel for pixel; drawn survives a reload
+- [x] Worker unreachable, 404, 500 or hanging: the vote stays on the phone (`sent: false`) and goes out at a later open
+- [ ] Merge to main: on the owner's word
 - [ ] Owner: deploy the worker (`cd worker && npx wrangler deploy`) before the app goes out
 
 ## Worship ownership (audit follow-up)
