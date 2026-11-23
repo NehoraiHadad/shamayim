@@ -1,4 +1,5 @@
 //# allFunctionsCalledOnLoad
+import { AFTERGLOW } from '../../world/afterglow'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB } from '../../world/types'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
@@ -10,7 +11,7 @@ import type { RadianceLight } from './landIrradiance'
 // illumination and a low, forward-scattering band. These lobes approximate that
 // distribution for illustration without a wavelength-resolved atmosphere or cloud heights.
 const DOME = (() => {
-  let zenith = 0, forward = 0, moment = 0
+  let zenith = 0, forward = 0, moment = 0, roughForward = 0
   for (let i = 0; i < 8; i++) {
     const up = (i + 0.5) / 8, horizontal = Math.sqrt(1 - up * up)
     const low = Math.exp(-up / 0.17)
@@ -18,11 +19,12 @@ const DOME = (() => {
     for (let j = 0; j < 12; j++) {
       const cos = Math.cos((j + 0.5) * Math.PI / 6)
       const share = low * (0.5 + 0.5 * cos * horizontal) ** 3 * up / 48
+      roughForward += Math.exp(-up / .38) * (0.5 + 0.5 * cos * horizontal) ** 2 * up / 48
       forward += share
       moment += share * horizontal * cos
     }
   }
-  return { zenith, forward, moment }
+  return { zenith, forward, moment, roughForward }
 })()
 
 export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): { rgb: RGB; amount: number; exposure: number; bias: number } {
@@ -62,4 +64,32 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
   const amount = 0.2 + (gain * ySky / yHorizon - 0.2) * twilight
   const rgb = dayRgb.map((d, i) => d + (integrated[i] * yDay / Math.max(1e-6, ySky) - d) * twilight) as [number, number, number]
   return { rgb, amount, exposure, bias: dayBias * (1 - twilight) + twilight * Math.min(0.25, moment / Math.max(1e-6, ySky)) }
+}
+
+/**
+ * Directional form of the shared sky for a rough reflector. The broader low lobe
+ * is normalized against its own cosine integral, keeping the land's sky energy.
+ */
+export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB) {
+  const cloud = Math.min(1, Math.max(0, light.diffuse))
+  const twilight = smoothstep(10, 3, sunAlt) * smoothstep(-10, -3, sunAlt)
+  const top = srgbRgbToLinear(rgbOf(light.palette.top)), mid = srgbRgbToLinear(light.ambient)
+  const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon)), aerosol = -Math.expm1(-2 * tau)
+  const afterglow = light.afterglow ? srgbRgbToLinear(light.afterglow.rgb) : horizon
+  const glowWeight = light.afterglow
+    ? smoothstep(AFTERGLOW.to, AFTERGLOW.to + 1, sunAlt) * smoothstep(AFTERGLOW.from, AFTERGLOW.from - .65, sunAlt) : 0
+  const glow = horizon.map((c, i) => c + (afterglow[i] - c) * glowWeight)
+  const cloudFill = 1.8 * cloud ** 2 * aerosol * linearLuminance(horizon)
+  const forward = (.8 + 5.7 * glowWeight) * aerosol * (1 - .65 * cloud)
+  const broad = mid.map((v, i) => v + (top[i] - v) * DOME.zenith + .16 * (horizon[i] - v)
+    + cloudFill + forward * DOME.roughForward * glow[i]) as [number, number, number]
+  const gain = twilight * linearLuminance(mean) / Math.max(1e-6, linearLuminance(broad))
+  const bias = .065 * smoothstep(3, 16, sunAlt) * (1 - cloud)
+  return (up: number, towardSun: number): RGB => {
+    const m = Math.max(0, up), low = .78 * Math.exp(-m / .37)
+    const lobe = Math.exp(-m / .38) * (.5 + .5 * towardSun) ** 2
+    const channel = (i: 0 | 1 | 2) => mean[i] * (1 - twilight) * (1 + bias * towardSun)
+      + gain * (mid[i] + (top[i] - mid[i]) * m ** 2 + low * (horizon[i] - mid[i]) + cloudFill + forward * lobe * glow[i])
+    return [channel(0), channel(1), channel(2)]
+  }
 }

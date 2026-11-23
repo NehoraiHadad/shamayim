@@ -65,8 +65,8 @@ export function turbine(k: Kit, h: number) {
     const rotation = angle * Math.PI / 180 + (k.r() - 0.5) * 0.02
     c.rotate(rotation)
     k.fill(poly([-0.6, 0, -0.25, -length, 0.25, -length, 0.6, 0]), t.wall, 0.95)
-    k.fill(poly([-0.6, 0, -0.25, -length, -0.05, -length, -0.1, 0]), k.face(t.wall, t.lit, Math.cos(rotation)), 0.75)
-    k.fill(poly([0.1, 0, 0.05, -length, 0.25, -length, 0.6, 0]), k.face(t.wall, t.lit, -Math.cos(rotation)), 0.75)
+    k.fill(poly([-0.6, 0, -0.25, -length, -0.05, -length, -0.1, 0]), k.surfaces?.silver ?? k.face(t.wall, t.lit, Math.cos(rotation)), 0.75)
+    k.fill(poly([0.1, 0, 0.05, -length, 0.25, -length, 0.6, 0]), k.surfaces?.silver ?? k.face(t.wall, t.lit, -Math.cos(rotation)), 0.75)
     c.restore()
   }
   k.fill(rect(-1, -0.75, 2.5, 1.5), t.wall)

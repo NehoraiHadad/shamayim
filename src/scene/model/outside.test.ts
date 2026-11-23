@@ -22,12 +22,8 @@ import { legibleHouse, lookOf, rowKm, seaHorizonY } from '../../world/outside'
 import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
-import { againstLight, tonesAt } from './marks'
-import { buildingLight } from './buildingLight'
-import { NORMALS } from '../../world/livingLight'
+import { tonesAt } from './marks'
 import { landBehind } from './landBehind'
-import { hazeOf, toneAt } from './landVeil'
-import { skyAt } from './sky'
 import type { Box, LayerOf, SceneBox } from './types'
 
 /**
@@ -525,60 +521,18 @@ describe('light on the place', () => {
     }
   })
 
-  it.each(['tel-aviv', 'jerusalem', 'beer-sheva'])('%s: gives the mass form from the sky under the cloud: tops lighter, feet darker (C5b, C9)', (id) => {
-    for (const at of ['2026-11-17T11:00', '2026-11-17T16:30'] as LocalTime[]) {
-      const world = worldAt(id, at)
-      const layer = layerOf(world)!
-      const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
-      // The weaker the direct light, the more the form is the sky's.
-      expect(layer.form.strength).toBeGreaterThan(.35 * (1 - world.night.dark))
-      const sky = skyAt(world, BOX)(8)
-      // A distant surface includes path radiance: haze may be brighter than the sky at eight degrees.
-      const reflectedAndPathLimit = Math.max(lum(sky), lum(hazeOf(world)))
-      layer.form.tiers.forEach((t, i) => {
-        expect(lum(t.top)).toBeGreaterThanOrEqual(lum(layer.tiers[i].wall))
-        expect(lum(t.foot)).toBeLessThan(lum(layer.tiers[i].wall))
-        expect(lum(t.face)).toBeGreaterThanOrEqual(lum(layer.tiers[i].wall))
-        // C9 bounds reflected light; the observed surface also contains atmospheric light along its path.
-        expect(lum(t.top)).toBeLessThan(reflectedAndPathLimit)
-      })
-      // The brighter half of the sky is the sun's: its side on the screen.
-      const sun = world.bodies.sun.x - 187.5
-      if (Math.abs(sun) > 20) expect(layer.form.side).toBe(sun < 0 ? 1 : -1)
+  it.each(['tel-aviv', 'jerusalem', 'haifa'])('%s builds a cached palette per geometry tier and keeps its facing through a scrub', (id) => {
+    const at = (time: LocalTime) => layerOf(worldAt(id, time))!
+    const noon = at('2026-11-17T12:00'), dusk = at('2026-11-17T16:30')
+    const boxes = noon.items.filter(item => item.kind === 'box')
+    expect(boxes.length).toBeGreaterThan(50)
+    expect(dusk.items.filter(item => item.kind === 'box').map(b => b.receiver)).toEqual(boxes.map(b => b.receiver))
+    for (const box of boxes) {
+      const palette = noon.receivers[box.tier][box.receiver!]
+      expect(palette).toBeDefined()
+      expect(palette.leftWidth + palette.rightWidth).toBeCloseTo(.44)
     }
-    expect(layerOf(worldAt(id, '2026-11-17T21:00'))!.form.strength).toBeLessThan(.05)
-  })
-
-  it.each(['jerusalem', 'tel-aviv', 'haifa', 'beer-sheva'])('%s: against the light the mass is a dark silhouette on its ridge (C9)', (id) => {
-    const lum = (rgb: readonly number[]) => .3 * rgb[0] + .6 * rgb[1] + .1 * rgb[2]
-    const worst = (at: LocalTime) => {
-      const world = worldAt(id, at)
-      const layer = layerOf(world)!
-      const behind = landBehind(world)
-      let most = -1, seen = 0
-      for (const item of layer.items) {
-        if (item.kind !== 'box' || item.beyond) continue
-        const km = behind(item.x, item.foot)
-        if (!Number.isFinite(km)) continue
-        seen++
-        most = Math.max(most, lum(layer.tiers[item.tier].wall) - lum(toneAt(world, km)))
-      }
-      expect(seen).toBeGreaterThan(50)
-      return { most, against: againstLight(world) }
-    }
-    // A low sun beyond the land: the walls the eye sees face away from it, about the ridge's own dark.
-    for (const at of ['2026-11-17T06:20', '2026-11-17T16:30'] as LocalTime[]) {
-      const { most, against } = worst(at)
-      expect(against).toBeGreaterThan(.8)
-      expect(most, at).toBeLessThan(.05)
-    }
-    const world = worldAt(id, '2026-11-17T11:00')
-    expect(againstLight(world)).toBeLessThan(.2)
-    // With the sun beyond the city, a plaster roof takes direct light while the
-    // eye-facing wall keeps the diffuse and reflected share.
-    const shade = buildingLight(world, 0)
-    const plaster = [0.64, 0.64, 0.64] as const
-    expect(lum(shade(plaster, NORMALS.top))).toBeGreaterThan(lum(shade(plaster, NORMALS.front)))
+    expect(at('2026-11-17T21:00').receivers.every(p => !Object.keys(p).length)).toBe(true)
   })
 
   it('takes no more haze on a thing than the land it is seen against (C9)', () => {

@@ -8,7 +8,6 @@ import type { RGB, WorldState } from '../../world/types'
 import { sceneModel } from './index'
 import { cloudShadowsOf } from './cloudShadows'
 import { shineOf, tonesAt } from './marks'
-import { outsideLayer } from './outside'
 import { wearLight } from './wear'
 import type { SceneBox } from './types'
 
@@ -55,7 +54,7 @@ function seen(w: WorldState): Record<string, number> {
     castBeam: 1 - w.light.shadow.softness,
     clothSide: cloth.across * cloth.shine, clothFront: cloth.front * cloth.shine, clothBack: cloth.back * cloth.shine,
     low: w.clouds[0].cover, mid: w.clouds[1].cover, high: w.clouds[2].cover,
-    windows: s.windows, sky: (outsideLayer(w, BOX)?.form.side ?? 0) * (outsideLayer(w, BOX)?.form.strength ?? 0),
+    windows: s.windows,
   }
 }
 

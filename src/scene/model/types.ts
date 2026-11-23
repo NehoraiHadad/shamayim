@@ -1,3 +1,5 @@
+import type { BuildingFaces, accessoryTones } from './buildingLight'
+import type { GlyphSurfaces } from './glyphSurfaces'
 import type { ReceiverShadow } from './planeCloudShadow'
 import type { CanopyTones } from './canopyTones'
 import type { NeighbourEvidence } from './neighbourEvidence'
@@ -243,7 +245,7 @@ export interface GlintPath { x: number; top: number; bottom: number; spread: num
 export interface Line { x1: number; x2: number; y: number }
 export interface Rect { x: number; y: number; w: number; h: number; rgb: RGB }
 /** A block of a far town (or a far tower), standing on `base`, `km` away. */
-export interface CityBlock { x: number; base: number; w: number; h: number; km: number }
+export interface CityBlock { x: number; base: number; w: number; h: number; km: number; receiver?: number }
 /** A lit window of a far town by night: a point with a faint halo, through the haze (Allard). */
 export interface CityLight { x: number; y: number; r: number; alpha: number }
 /**
@@ -257,10 +259,10 @@ export type OutsideItem =
       /** A house's roof (tile or flat, a heater on some flat ones); null for a block of the mass. */
       roof: 'tile' | 'flat' | null; heater: boolean
       /** C9: a block of a town beyond the place (drawn behind it, far first). */
-      beyond?: true }
+      beyond?: true; receiver?: number; neighbours?: number }
   | { kind: 'tree'; tree: TreeDesc; tier: number }
   | { kind: 'tower'; x: number; base: number; w: number; h: number; tier: number; seed: number; crown: 0 | 1 | 2; full: boolean
-      famous: boolean; storeys: number }
+      famous: boolean; storeys: number; receiver?: number }
   | { kind: 'mark'; glyph: GlyphDesc }
 
 /**
@@ -286,10 +288,6 @@ export interface SeaDesc {
 }
 export type { GlyphKind, IconKind }
 
-/** The light the outside view's mass takes from the sky (C5b): its strength, the brighter sky's side, tones per tier. */
-/** `side`: −1…1, the brighter sky's side (+ left) and how far toward it the sun's part of the sky stands (continuous). */
-export interface SkyForm { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }
-
 /**
  * The colours a glyph, a house or a tree is painted in (stage C4), after the light and the air at its distance: the
  * scene's hand cut from the ridge colour and lifted toward the sky (walls), the light's colour on the faces turned to
@@ -299,7 +297,7 @@ export interface SkyForm { strength: number; side: number; tiers: { top: RGB; fa
 export interface Tones {
   wall: RGB; lit: RGB; shade: RGB; deep: RGB; rim: RGB; refl: RGB
   roof: RGB; roofLit: RGB; stone: RGB; stoneLit: RGB; glass: RGB; glassLit: RGB; soot: RGB
-  green: RGB; greenLit: RGB; panel: RGB; gold: RGB
+  green: RGB; greenLit: RGB; panel: RGB
   /** A lit window, a lamp. */
   win: RGB
   /** The foot mist: the air at the glyph's distance. */
@@ -344,6 +342,10 @@ export interface GlyphDesc extends NeighbourEvidence {
   /** Fixed horizontal orientation in the scene, from the mark seed or its known orientation. */
   hand: 1 | -1
   tones: Tones
+  surfaces?: GlyphSurfaces
+  gilding?: RGB[][]
+  windowWall?: RGB
+  shadowTones?: Pick<Tones, 'deep' | 'shade'>
   famous: boolean
   /** A field's ground under it: y (px, relative to `base`) every glyph px across its width, west to east. */
   ground?: number[]
@@ -451,14 +453,13 @@ export type LayerDesc =
       tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
       datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
-  /** `litFace` (C9): the share of a block's width its lit face shows (a sliver, a rim, against the light). */
-  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB; litFace?: number
+  | LayerBase & { kind: 'farCities'; tiers: CityTier[]; lights: CityLight[]; lightRgb: RGB
       /** Signed face-light difference, positive from screen-left. */
       lateralLight: number }
   | LayerBase & { kind: 'outside'; items: OutsideItem[]; tiers: Tones[]; sea: SeaDesc | null; shine: Shine
       /** The place's own ground over the ridge line (C5b + Stage 3): its top/base lines, living-land tone stops and crest. */
       land: OutsideLandDesc | null
-      form: SkyForm }
+      receivers: Record<number, BuildingFaces>[]; accessories: ReturnType<typeof accessoryTones>[] }
   | LayerBase & { kind: 'marks'; glyphs: GlyphDesc[]; shine: Shine }
   /** Rain or snow curtains under the banks that rain or snow (sky, drifting with their cloud layer). */
   | LayerBase & { kind: 'shafts'; precip: Precip; shafts: ShaftDesc[]; period: number }

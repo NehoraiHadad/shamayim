@@ -166,6 +166,7 @@ const pxOf = (look: OutsideLook | undefined, heightM: number, k: number) => look
 
 export type TowerLod = 'glyph' | 'silhouette' | 'block'
 export interface OutsideTower {
+  footprintBearing?: number
   x: number; baseY: number; w: number; h: number; near: number
   heightM: number; seed: number; name?: string; famous: boolean; lod: TowerLod
   /** A crown on the silhouette: 0 flat, 1 a setback, 2 a mast (the tall ones). */
@@ -179,6 +180,8 @@ export interface OutsideTower {
  * the mass (`b`), or one member of a tower block (`c`, drawn in one tone so the block reads as one stepped shape).
  */
 export interface OutsideBox { x: number; w: number; top: number; foot: number; near: number; kind: 'fabric' | 'mass' | 'block'
+  /** Surveyed outward footprint orientation, clockwise from north, when supplied. */
+  footprintBearing?: number
   /** Its roof's real height (m): a built square's, or a folded tower's. */
   heightM?: number
   seed?: number

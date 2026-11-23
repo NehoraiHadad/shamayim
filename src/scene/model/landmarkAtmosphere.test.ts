@@ -41,5 +41,7 @@ it('keeps two equally sized icons at different true distances with different haz
   expect(near.contrast).toBeCloseTo(Math.exp(-3.912 * 4 / 25), 12)
   expect(far.contrast).toBeCloseTo(Math.exp(-3.912 * 18 / 25), 12)
   expect(far.contrast).toBeLessThan(near.contrast!)
-  expect(far.tones).toEqual(landmarkTonesAt(world, 18))
+  expect(far.windowWall).toEqual(landmarkTonesAt(world, 18).wall)
+  expect(gap(far.tones.wall, toneAt(world, 18))).toBeLessThan(gap(near.tones.wall, toneAt(world, 4)))
+  expect(far.surfaces?.stone).toHaveLength(2)
 })

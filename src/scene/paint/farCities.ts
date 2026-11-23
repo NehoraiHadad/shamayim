@@ -1,4 +1,5 @@
 import type { LayerOf } from '../model/types'
+import { boxFaces, capDepth, topPlane } from './buildingFaces'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 
 /*
@@ -12,7 +13,7 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
   const hair = 1 / env.scale
   for (const tier of desc.tiers) {
     // The town's mass in the mean of its lit and shaded stone, one fill per strength step.
-    const stone = mix(tier.lit, tier.shade, 0.45)
+    const stone = tier.unresolved ?? mix(tier.lit, tier.shade, 0.45)
     for (const { alpha, boxes } of tier.mass) {
       if (!boxes.length) continue
       ctx.beginPath()
@@ -21,6 +22,22 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
       ctx.fill()
     }
     if (!tier.blocks.length) continue
+    if (tier.resolved && tier.unresolved) {
+      ctx.beginPath()
+      for (const b of tier.blocks) {
+        if (b.w < 3.2 * hair || b.h < 2.4 * hair) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
+      }
+      ctx.fillStyle = css(tier.unresolved, .86)
+      ctx.fill()
+      for (const b of tier.blocks) {
+        if (b.w < 3.2 * hair || b.h < 2.4 * hair) continue
+        const faces = tier.resolved[b.receiver!], y = b.base - b.h
+        const cap = capDepth(b.w, b.h, env.scale)
+        boxFaces(ctx, b.x, y + cap, b.w, b.h - cap, faces, 0, 0)
+        topPlane(ctx, b.x, y, b.w, cap, faces.top)
+      }
+      continue
+    }
     ctx.beginPath()
     for (const b of tier.blocks) ctx.rect(b.x, b.base - b.h, Math.max(hair, b.w), Math.max(hair, b.h))
     // Under an even sky the bodies take the lit tone, then shade as the lateral light increases.
@@ -30,7 +47,7 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
     for (const dir of [1, -1]) {
       ctx.beginPath()
       for (const b of tier.blocks) {
-        const w = Math.max(hair, b.w * (desc.litFace ?? 0.55))
+        const w = Math.max(hair, b.w * .55)
         ctx.rect(dir > 0 ? b.x : b.x + b.w - w, b.base - b.h, w, Math.max(hair, b.h))
       }
       ctx.fillStyle = css(tier.lit, Math.max(0, dir * desc.lateralLight))

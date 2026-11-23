@@ -8,7 +8,8 @@ import { facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
 import { outsideLandDesc } from './outsideGround'
 import { outsideSea } from './outsideSea'
 import { KM_STEP, outsideShape } from './outsideShape'
-import { skyFormOf } from './ownSkyForm'
+import { accessoryTones, buildingFaces, type BuildingFaces } from './buildingLight'
+import { receiverLightKey } from './receiverKey'
 import type { Box, LayerOf, SceneBox, Shine, Tones } from './types'
 
 /**
@@ -48,7 +49,11 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const sea = outsideSea(world, box, sx, clear)
   const view = world.place3
   const landDesc = outsideLandDesc(world, view, box, sx)
-  const form = skyFormOf(world, box, shape.kms, sx)
+  const receivers = shape.receivers.map((ids, i) => {
+    const palette: Record<number, BuildingFaces> = {}
+    if (shine.night < 1) for (const id of ids) palette[id] = buildingFaces(world, shape.kms[i], id)
+    return palette
+  })
   if (!out.length && !sea) return null
   const boxes = shape.bounds ? [shape.bounds] : []
   if (sea) boxes.push({ left: Math.min(...sea.points.map(([x]) => x)), right: Math.max(...sea.points.map(([x]) => x)), top: sea.top - 1, bottom: sea.bottom + 1 })
@@ -60,19 +65,18 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const formKey = layerKey('outside', world.keys.place, landBoxKey(box), shape.key)
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
-  const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
-    landDesc && [colourKey(landDesc.tone), landDesc.stops.map(([at, c]) => [at.toFixed(5), colourKey(c)]), colourKey(landDesc.rim)]]
+  const groundKey = landDesc && [colourKey(landDesc.tone), landDesc.stops.map(([at, c]) => [at.toFixed(5), colourKey(c)]), colourKey(landDesc.rim)]
   // C7: its trees sway in the wind and its sea's ripples run with it, in a strip of frames (the light canvas only).
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))
   return {
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
-    items: out, tiers: tones, sea, shine, land: landDesc, form,
+    items: out, tiers: tones, sea, shine, land: landDesc, receivers, accessories: shine.night < 1 ? shape.kms.map(km => accessoryTones(world, km)) : [],
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
       glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
-      sea && Math.round((sea.drift ?? 0) * 4), skyKey),
+      sea && Math.round((sea.drift ?? 0) * 4), groundKey, receiverLightKey(world)),
     blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25] },
   }
 }

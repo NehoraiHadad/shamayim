@@ -12,7 +12,7 @@ interface CastOutline {
 
 /** Symmetric contact shade and a cast foreshortened by the lateral light, in screen px. */
 export function castShadow(ctx: Ctx2D, d: { x: number; base: number; w: number; h: number },
-  tones: Tones, cast: Shine['cast'], contact: { alpha: number; height: number }, outline: CastOutline) {
+  tones: Pick<Tones, 'deep' | 'shade'>, cast: Shine['cast'], contact: { alpha: number; height: number }, outline: CastOutline) {
   const half = d.w / 2
   ctx.fillStyle = css(tones.deep, contact.alpha)
   ctx.fillRect(d.x - half - 0.2, d.base - 0.3, d.w + 0.4, contact.height)

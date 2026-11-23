@@ -1,14 +1,19 @@
 //# allFunctionsCalledOnLoad
 import { plainContrast } from '../../data/city/plainHaze'
 import { smoothstep } from '../../world/ridgeLighting'
-import { SCENE_W } from '../../world/sceneBox'
-import type { FarCities, WorldState } from '../../world/types'
-import { farTownHazeAtTier, farTownTier, TIER_KM } from './farTownHaze'
+import type { WorldState } from '../../world/types'
+import { geometryOf, MASS_ALPHA } from './farCityGeometry'
+import { farTownHazeAtTier } from './farTownHaze'
 import { colourKey, landBoxKey, layerKey } from './keys'
-import { againstLight, shineOf } from './marks'
-import { buildingLight, brightWall } from './buildingLight'
+import { shineOf } from './marks'
+import { receiverLightKey } from './receiverKey'
+import { mixLight } from './tone'
+import { buildingFaces, buildingLight } from './buildingLight'
+import { landIrradiance } from './landIrradiance'
+import { legacySurface } from './markTones'
+import { DISTANT_PLASTER } from './buildingMaterial'
 import { NORMALS } from '../../world/livingLight'
-import type { Box, CityBlock, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
+import type { Box, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
 
 /** Draw order on the land surface: over the far plane and its water, under the near ridge. */
 const Z = 16
@@ -18,66 +23,6 @@ const ALBEDO: RGB = [0.86, 0.83, 0.77]
 const LAMP: RGB = [1, 0.81, 0.53]
 /** Below this contrast (Koschmieder's 2 % threshold is at the visibility; 5 % a little nearer) a town is lost in the air. */
 const MIN_CONTRAST = 0.05
-
-const hits = (clear: readonly Box[], x: number, y: number, w: number, h: number) =>
-  clear.some((b) => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
-
-interface Geometry {
-  /** By tier (index into `TIER_KM`): the town masses (by strength step) and blocks, each with its own distance. */
-  tiers: { mass: (Box & { km: number; townId?: number })[][]; blocks: CityBlock[] }[]
-  lights: (CityLight & { km: number })[]
-  bounds: Box | null
-}
-
-/** The mass's strength by step (`world/farCities.ts`'s `MASS_FROM`): one fill each. */
-const MASS_ALPHA = [0.18, 0.32, 0.5, 0.68, 0.85]
-
-const geometries = new WeakMap<FarCities, Map<string, Geometry>>()
-
-/**
- * The world's town shapes (`townShapes`, at the reference width) in the box, by distance tier, out of the text zones,
- * with the layer's extent: every town and light it could show whatever the hour's air keeps, so it never moves.
- * Memoised per place and box.
- */
-function geometryOf(world: WorldState, box: SceneBox, clear: readonly Box[]): Geometry {
-  const far = world.farCities
-  let byKey = geometries.get(far)
-  if (!byKey) geometries.set(far, byKey = new Map())
-  const key = `${box.width}:${box.landHeight}:${clear.map((b) => `${b.x.toFixed(1)},${b.y.toFixed(1)},${b.w.toFixed(1)}`).join(';')}`
-  const cached = byKey.get(key)
-  if (cached) return cached
-  const sx = box.width / SCENE_W
-  const tiers: Geometry['tiers'] = TIER_KM.map(() => ({ mass: MASS_ALPHA.map(() => []), blocks: [] }))
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-  const extend = (x: number, y: number, w: number, h: number) => {
-    x0 = Math.min(x0, x); x1 = Math.max(x1, x + w); y0 = Math.min(y0, y); y1 = Math.max(y1, y + h)
-  }
-  for (const m of far.shapes.mass) {
-    const x = m.x * sx, w = m.w * sx
-    if (hits(clear, x, m.y, w, m.h)) continue
-    tiers[farTownTier(m.km)].mass[m.step].push({ x, y: m.y, w, h: m.h, km: m.km, townId: m.townId })
-    extend(x, m.y, w, m.h)
-  }
-  for (const b of far.shapes.blocks) {
-    const x = b.x * sx, w = b.w * Math.max(1, sx)
-    if (hits(clear, x, b.base - b.h, w, b.h)) continue
-    tiers[farTownTier(b.km)].blocks.push({ x, base: b.base, w, h: b.h, km: b.km })
-    extend(x, b.base - b.h, w, b.h)
-  }
-  const lights = far.shapes.lights.flatMap((dot) => {
-    const r = dot.r * Math.max(0.8, sx), x = dot.x * sx
-    if (hits(clear, x - r, dot.y - r, 2 * r, 2 * r)) return []
-    extend(x - 3 * r, dot.y - 3 * r, 6 * r, 6 * r)
-    return [{ x, y: dot.y, r, alpha: dot.alpha, km: dot.km }]
-  })
-  const bx = Math.max(0, Math.floor(x0 - 1)), by = Math.max(0, Math.floor(y0 - 1))
-  const bounds = Number.isFinite(x0) ? { x: bx, y: by, w: Math.max(1, Math.min(box.width, Math.ceil(x1 + 1)) - bx),
-    h: Math.max(1, Math.min(box.landHeight, Math.ceil(y1 + 1)) - by) } : null
-  const geometry = { tiers, lights, bounds }
-  if (byKey.size > 6) byKey.clear()
-  byKey.set(key, geometry)
-  return geometry
-}
 
 /**
  * The far towns (stage C3) in the shared light and air, for every place alike: their stone pale in the day's light (a
@@ -92,7 +37,10 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const visibility = air.visibilityKm
   const geometry = geometryOf(world, box, clear)
   const dark = night.dark
-  const side = brightWall(world)
+  const dir = landIrradiance(world).sunDir
+  const turn = smoothstep(-.025, .025, dir.across)
+  const side = (shade: ReturnType<typeof legacySurface>) => turn === 0 ? shade(ALBEDO, NORMALS.left)
+    : turn === 1 ? shade(ALBEDO, NORMALS.right) : mixLight(shade(ALBEDO, NORMALS.left), shade(ALBEDO, NORMALS.right), turn)
   const shown = (km: number) => plainContrast(km, visibility) >= MIN_CONTRAST
   const tiers: CityTier[] = []
   geometry.tiers.forEach((tier, i) => {
@@ -100,9 +48,11 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
     const blocks = tier.blocks.filter((b) => shown(b.km))
     const mass = tier.mass.map((step) => step.filter((m) => shown(m.km)))
     if (!blocks.length && !mass.some((step) => step.length)) return
-    const shade = buildingLight(world, km)
-    tiers.push({ km, lit: shade(ALBEDO, side), shade: shade(ALBEDO, NORMALS.front), mass: mass.map((boxes, k) => ({ alpha: MASS_ALPHA[k], boxes })),
-      blocks })
+    const shade = legacySurface(world, km)
+    const resolved = dark < 1 ? Object.fromEntries([...new Set(blocks.map(b => b.receiver!))]
+      .map(id => [id, buildingFaces(world, km, id)])) : undefined
+    tiers.push({ km, lit: side(shade), shade: shade(ALBEDO, NORMALS.front), mass: mass.map((boxes, k) => ({ alpha: MASS_ALPHA[k], boxes })),
+      blocks, resolved, unresolved: resolved && buildingLight(world, km).unresolved(DISTANT_PLASTER) })
   })
   // Far first: nearer blocks stand in front.
   tiers.sort((a, b) => b.km - a.km)
@@ -120,14 +70,14 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const lightKey = layerKey('farCities.light', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box),
     tiers.map((t) => [colourKey(t.lit), colourKey(t.shade), t.blocks.length, t.mass.map((m) => m.boxes.length)]),
     Math.round(lateralLight * 64),
-    Math.round(againstLight(world) * 32),
+    receiverLightKey(world),
     lights.length, Math.round(on * 64), Math.round(visibility * 4))
   return {
     kind: 'farCities', id: 'farCities', surface: 'land', z: Z, bounds,
     // The towns' shapes follow from the place, the text zones and the box; every colour and what the air keeps is light,
     // repainted alone while scrubbing (§1d), over an empty form.
     key: layerKey('farCities', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box)),
-    light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? buildingLight(world, 0)(ALBEDO, side) },
-    tiers, lateralLight, lights, lightRgb: LAMP, litFace: 0.55 * (1 - 0.7 * againstLight(world)),
+    light: { key: lightKey, blend: 'source-over', tint: tiers[0]?.lit ?? side(legacySurface(world, 0)) },
+    tiers, lateralLight, lights, lightRgb: LAMP,
   }
 }

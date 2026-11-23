@@ -4,6 +4,8 @@ import { drawGlyph, drawLamps, glyphShadow, glyphLight } from './glyphs'
 import type { Lamp } from './glyphs/kit'
 import type { Ctx2D, PaintEnv } from './hand'
 import { grain, rockOf, tree } from './marks'
+import { paintNightBox } from './nightBox'
+import { paintNightTower } from './nightTower'
 import { paintBox } from './outsideBox'
 import { paintOutsideLand, paintOutsideSea } from './outsideGround'
 import { paintTower } from './outsideTower'
@@ -42,8 +44,14 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   }
   const lamps: Lamp[] = []
   for (const item of desc.items) {
-    if (item.kind === 'box') paintBox(ctx, item, tiers[item.tier], s, lamps, desc.form)
-    else if (item.kind === 'tower') paintTower(ctx, item, tiers[item.tier], s, lamps, desc.form)
+    if (item.kind === 'box' || item.kind === 'tower') {
+      const f = desc.receivers[item.tier][item.receiver!], tones = tiers[item.tier]
+      if (item.kind === 'box') {
+        if (f) paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale)
+        else paintNightBox(ctx, item, tones, s, lamps)
+      } else if (f) paintTower(ctx, item, tones, s, lamps, f, env.scale)
+      else paintNightTower(ctx, item, tones, s, lamps)
+    }
     else if (item.kind === 'tree') {
       tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed))
     }

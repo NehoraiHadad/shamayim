@@ -44,22 +44,28 @@ export function highrise(k: Kit, h: number) {
   k.rim(-5, -2.6, 10, 0.7)
   k.fill(rect(-3.8, -1.6, 7.4, 1), t.deep, 0.5)
   const x0 = -3.4, x1 = 3.4, crown = -h + 2.6, side = 1.8
-  const day = 1 - k.night
-  const glassSide = k.face(t.glass, t.glassLit, 1, t.shade)
-  const g = c.createLinearGradient(0, crown, 0, -2.6)
-  g.addColorStop(0, css(mix(t.wall, mix(t.rim, glassSide, 0.85), day)))
-  g.addColorStop(1, css(mix(t.wall, mix(t.wall, glassSide, 0.75), day)))
-  rect(x0, crown, side, -2.6 - crown)(c)
-  c.fillStyle = g
-  c.fill()
-  const gf = c.createLinearGradient(0, crown, 0, -2.6)
-  gf.addColorStop(0, css(mix(t.wall, t.glass, day)))
-  gf.addColorStop(1, css(mix(mix(t.wall, t.shade, 0.3), t.glass, day)))
-  rect(x0 + side, crown, x1 - x0 - side, -2.6 - crown)(c)
-  c.fillStyle = gf
-  c.fill()
-  k.fill(rect(x1 - 0.8, crown, 0.8, -2.6 - crown), k.face(t.shade, t.glassLit, -1, t.deep), 0.5 - 0.25 * k.night)
-  for (let y = -4; y > crown + 0.6; y -= 1.5) {
+  if (k.surfaces) {
+    k.fill(rect(x0, crown, side, -2.6 - crown), k.surfaces.glass[0])
+    k.fill(rect(x0 + side, crown, x1 - x0 - side - .8, -2.6 - crown), t.glass)
+    k.fill(rect(x1 - .8, crown, .8, -2.6 - crown), k.surfaces.glass[1])
+  } else {
+    const day = 1 - k.night
+    const glassSide = k.face(t.glass, t.glassLit, 1, t.shade)
+    const g = c.createLinearGradient(0, crown, 0, -2.6)
+    g.addColorStop(0, css(mix(t.wall, mix(t.rim, glassSide, 0.85), day)))
+    g.addColorStop(1, css(mix(t.wall, mix(t.wall, glassSide, 0.75), day)))
+    rect(x0, crown, side, -2.6 - crown)(c)
+    c.fillStyle = g
+    c.fill()
+    const gf = c.createLinearGradient(0, crown, 0, -2.6)
+    gf.addColorStop(0, css(mix(t.wall, t.glass, day)))
+    gf.addColorStop(1, css(mix(mix(t.wall, t.shade, 0.3), t.glass, day)))
+    rect(x0 + side, crown, x1 - x0 - side, -2.6 - crown)(c)
+    c.fillStyle = gf
+    c.fill()
+    k.fill(rect(x1 - 0.8, crown, 0.8, -2.6 - crown), k.face(t.shade, t.glassLit, -1, t.deep), 0.5 - 0.25 * k.night)
+  }
+  if (!k.surfaces) for (let y = -4; y > crown + 0.6; y -= 1.5) {
     k.fill(rect(x0, y, side, 0.5), t.rim, 0.35 - 0.2 * k.night)
     k.fill(rect(x0 + side, y, x1 - x0 - side, 0.5), t.wall, 0.42 - 0.17 * k.night)
   }
@@ -69,7 +75,7 @@ export function highrise(k: Kit, h: number) {
   k.fill(rect(0.9, -h - 1.6, 0.4, 2.8), t.wall)
   k.fill(rect(0.9, -h - 1.6, 0.2, 2.8), k.litL)
   for (let y = -4.5; y > crown + 0.8; y -= 1.5) {
-    for (let x = x0 + 0.4; x < x1 - 0.6; x += 1.2) k.fill(rect(x, y, 0.8, 0.8), mix(t.wall, t.win, 0.8), Number(k.r() < k.s.windows * 0.7))
+    for (let x = x0 + 0.4; x < x1 - 0.6; x += 1.2) k.fill(rect(x, y, 0.8, 0.8), mix(k.windowWall, t.win, 0.8), Number(k.r() < k.s.windows * 0.7))
   }
   k.aviation(1.1, -h - 1.8)
 }

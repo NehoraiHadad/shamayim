@@ -1,104 +1,91 @@
-import { wrap180 } from '../../domain/camera'
 import { lambert, NORMALS, type Normal } from '../../world/livingLight'
-import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
+import { PALE_METAL, PANEL, TILE, receiverMaterial } from './buildingMaterial'
 import { nearGroundAlbedo } from './landColour'
-import { skyView } from './landIrradiance'
-import { landIrradiance, linearRgbToSrgb, shadeLinearRgb, srgbRgbToLinear, surfaceNormal } from './landRadiance'
+import { landIrradiance, skyView } from './landIrradiance'
+import { albedoLinear, linearRgbToSrgb, shadeLinearRgb, srgbRgbToLinear } from './landRadiance'
+import { outsideGroundStops } from './outsideGround'
 import { hazeAt, hazeOf } from './landVeil'
-import { mixLight } from './tone'
-import type { Tones } from './types'
 
-const WALL: RGB = [0.64, 0.64, 0.64]
-const STONE: RGB = [0.82, 0.80, 0.74]
-const TILE: RGB = [0.64, 0.30, 0.21]
-const LEAF: RGB = [0.19, 0.28, 0.21]
-const PANEL: RGB = [0.11, 0.17, 0.30]
-const GOLD: RGB = [0.84, 0.66, 0.28]
-const LAMP: RGB = [1, 0.85, 0.63]
-const BLACK: RGB = [0, 0, 0]
-const ROOF = surfaceNormal(0, 0.25)
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+interface Surroundings { irr: ReturnType<typeof landIrradiance>; ground: RGB; air: RGB }
+const surroundings = new WeakMap<WorldState, Surroundings>()
 
-/**
- * How much the light stands beyond the land (C9 defect 1): the walls the eye sees face it, so with the sun low in the
- * half of the sky the eye looks into (its azimuth within 90° of the view's heading) they face away from the sun and from
- * the bright half of the sky, and see only the dim sky behind the eye. 1 for a low sun ahead (sunrise and sunset over the
- * land), falling as it climbs (a high sun lights the ground in front, which lights the walls back) and as it turns to the
- * eye's side; through twilight while its glow is still beyond the land; none by night.
- */
-export function againstLight(world: WorldState): number {
-  const sun = world.bodies.sun
-  const ahead = smoothstep(-0.1, 0.4, Math.cos(wrap180(sun.azimuth - world.camera.heading) * Math.PI / 180))
-  const low = 1 - smoothstep(12, 40, sun.altitude)
-  const up = smoothstep(-8, -1, sun.altitude)
-  return clamp01(ahead * low * up * (1 - world.night.dark))
+/** The first factor covers open terrain in the ground hemisphere, the second the share outside cast shadows. */
+export const GROUND_VISIBLE = .92
+export const GROUND_SUNLIT = .70
+
+export function reflectedGround(rho: RGB, irr: ReturnType<typeof landIrradiance>, visible: number, sunlit: number): RGB {
+  const sun = sunlit * Math.max(0, irr.sunDir.up), moon = Math.max(0, irr.moonDir.up)
+  const channel = (i: 0 | 1 | 2) => visible * rho[i] * (irr.eSkyVec[i] + sun * irr.eSunVec[i] + moon * irr.eMoonVec[i])
+  return [channel(0), channel(1), channel(2)]
 }
 
-export function brightWall(world: WorldState): Normal {
-  return landIrradiance(world).sunDir.across < 0 ? NORMALS.left : NORMALS.right
-}
+export function groundView(n: Normal) { return (1 - n[2]) * .5 }
 
-const surroundings = new WeakMap<WorldState, ReturnType<typeof buildingSurroundings>>()
-
-function buildingSurroundings(world: WorldState) {
+export function buildingSurroundings(world: WorldState): Surroundings {
+  const known = surroundings.get(world)
+  if (known) return known
   const irr = landIrradiance(world)
-  const rhoGround = srgbRgbToLinear(nearGroundAlbedo(world))
-  const upSun = Math.max(0, irr.sunDir.up), upMoon = Math.max(0, irr.moonDir.up)
-  // Illustration calibration for unknown surroundings: treat 18% of the ground-facing
-  // hemisphere as diffuse terrain fill, with the rest occupied by the building and nearby shade.
-  const bounceFill = 0.18
-  const ground = rhoGround.map((rho, i) => bounceFill * rho * (irr.eSkyVec[i] + upSun * irr.eSunVec[i] + upMoon * irr.eMoonVec[i]))
-  return { irr, ground, air: srgbRgbToLinear(hazeOf(world)) }
+  const view = world.place3
+  const albedo = view?.kind === 'outside' && view.land ? outsideGroundStops(world, view.land, view.frame).median : nearGroundAlbedo(world)
+  const ground = reflectedGround(albedoLinear(albedo), irr, GROUND_VISIBLE, GROUND_SUNLIT)
+  const state = { irr, ground, air: srgbRgbToLinear(hazeOf(world)) }
+  surroundings.set(world, state)
+  return state
 }
 
-/** Shading for architecture with unknown orientation: view-aligned façades and roof pitches. */
+/** Linear material, incident beam and fill, then the land's exposure and a single air light blend. */
 export function buildingLight(world: WorldState, km: number) {
-  let state = surroundings.get(world)
-  if (!state) surroundings.set(world, state = buildingSurroundings(world))
-  const { irr, ground, air } = state
-  const share = hazeAt(world, km)
-  return (albedo: RGB, n: Normal, open = 1, beam = 1): RGB => {
-    const view = skyView(n, irr.sunDir, irr.skyBias) * open
-    // The ground hemisphere occupies (1 − n_up)/2. The reflected contribution is
-    // limited to the portion of the nearby landscape seen by a façade.
-    const bounceView = (1 - n[2]) * 0.5
-    const sky: [number, number, number] = [
-      irr.eSkyVec[0] * view + ground[0] * bounceView,
-      irr.eSkyVec[1] * view + ground[1] * bounceView,
-      irr.eSkyVec[2] * view + ground[2] * bounceView,
+  return surfaceReceiver(buildingSurroundings(world), hazeAt(world, km))
+}
+
+export function surfaceReceiver({ irr, ground, air }: Surroundings, share: number) {
+  const evaluate = (rho: RGB, view: number, bounce: number, sun: number, moon: number): RGB => {
+    const sky: RGB = [
+      irr.eSkyVec[0] * view + ground[0] * bounce,
+      irr.eSkyVec[1] * view + ground[1] * bounce,
+      irr.eSkyVec[2] * view + ground[2] * bounce,
     ]
-    return linearRgbToSrgb(shadeLinearRgb(srgbRgbToLinear(albedo), irr.eSunVec, irr.eMoonVec, sky,
-      beam * lambert(n, irr.sunDir), beam * lambert(n, irr.moonDir), 1, irr.yHorizon, share, air))
+    return linearRgbToSrgb(shadeLinearRgb(rho, irr.eSunVec, irr.eMoonVec, sky,
+      sun, moon, 1, irr.yHorizon, share, air))
   }
+  const receive = (rho: RGB, n: Normal, open = 1, beam = 1) => evaluate(rho,
+    skyView(n, irr.sunDir, irr.skyBias) * open, groundView(n), beam * lambert(n, irr.sunDir), beam * lambert(n, irr.moonDir))
+  return Object.assign(receive, {
+    unresolved(rho: RGB) {
+      // Projected fractions of front, returns and top for fabric below a pixel.
+      const normals = [NORMALS.front, NORMALS.left, NORMALS.right, NORMALS.top]
+      const sum = (f: (n: Normal) => number) => .78 * f(normals[0]) + .07 * (f(normals[1]) + f(normals[2])) + .08 * f(normals[3])
+      return evaluate(rho, sum(n => skyView(n, irr.sunDir, irr.skyBias)), sum(groundView),
+        sum(n => lambert(n, irr.sunDir)), sum(n => lambert(n, irr.moonDir)))
+    },
+  })
 }
 
-const palettes = new WeakMap<WorldState, Map<number, Tones>>()
-
-export function tonesAt(world: WorldState, km: number): Tones {
-  let known = palettes.get(world)
-  if (!known) palettes.set(world, known = new Map())
-  const hit = known.get(km)
-  if (hit) return hit
-  const sky = hazeOf(world)
-  const shadeMat = buildingLight(world, km)
-  const { front, top } = NORMALS, side = brightWall(world)
-  const wall = shadeMat(WALL, front), lit = shadeMat(WALL, side)
-  const shade = shadeMat(WALL, front, 0.64, 0)
-  const roof = shadeMat(TILE, ROOF), green = shadeMat(LEAF, ROOF)
-  const tones: Tones = {
-    wall, lit, shade, rim: shadeMat(STONE, side),
-    deep: shadeMat(WALL, front, 0.24, 0),
-    refl: mixLight(shade, sky, 0.18),
-    roof, roofLit: shadeMat(TILE, top),
-    stone: shadeMat(STONE, front), stoneLit: shadeMat(STONE, side),
-    glass: mixLight(shadeMat(BLACK, front), sky, 0.13),
-    glassLit: mixLight(wall, sky, 0.34 * (1 - 0.6 * againstLight(world))),
-    soot: shadeMat([0.25, 0.22, 0.20], front, 0.45, 0),
-    green, greenLit: shadeMat(LEAF, top),
-    panel: shadeMat(PANEL, ROOF), gold: shadeMat(GOLD, top),
-    win: LAMP, mist: sky,
-  }
-  known.set(km, tones)
-  return tones
+export interface FaceTones { wall: RGB; foot: RGB; eave: RGB }
+export interface BuildingFaces {
+  front: FaceTones; left: FaceTones; right: FaceTones; top: RGB; recess: RGB
+  tile: readonly [RGB, RGB, RGB]
+  leftWidth: number; rightWidth: number
 }
+
+export function buildingFaces(world: WorldState, km: number, id: number): BuildingFaces {
+  const receive = buildingLight(world, km)
+  const { wall, stone, facing: { normals: [front, left, right], leftWidth, rightWidth } } = receiverMaterial(id)
+  const face = (n: Normal): FaceTones => ({
+    wall: receive(wall, n),
+    foot: receive(wall, n, .22),
+    eave: receive(wall, n, .55),
+  })
+  return { front: face(front), left: face(left), right: face(right), top: receive(stone, NORMALS.top),
+    recess: receive(wall, front, .25, 0), tile: [front, left, right].map(n => receive(TILE, roofNormal(n))) as [RGB, RGB, RGB],
+    leftWidth, rightWidth }
+}
+
+export function accessoryTones(world: WorldState, km: number) {
+  const receive = buildingLight(world, km)
+  return { panel: receive(PANEL, [0, -.56, .83]), heater: receive(PALE_METAL, NORMALS.top) }
+}
+
+/** Hipped clay roof, 30° pitch. The three visible planes turn with the footprint. */
+export function roofNormal(n: Normal): Normal { return [n[0] * .5, n[1] * .5, Math.sqrt(.75)] }

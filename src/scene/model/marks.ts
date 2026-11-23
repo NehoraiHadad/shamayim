@@ -15,7 +15,7 @@ const Z = { far: 17, near: 40 }
 /** The trees' sway (C7): four frames at two a second, a two-second rock about the lean. */
 export const SWAY_FRAMES = { count: 4, fps: 2 }
 
-export { againstLight, tonesAt } from './buildingLight'
+export { tonesAt } from './markTones'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 

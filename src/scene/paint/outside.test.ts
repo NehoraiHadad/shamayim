@@ -107,7 +107,6 @@ it('keeps Jerusalem’s building geometry fixed as lateral light sweeps through 
   expect(layer.sea).toBeNull()
   expect(layer.items.some(({ kind }) => kind === 'tower')).toBe(true)
   const at = (side: number) => record({ ...layer,
-    form: { ...layer.form, side, strength: Math.max(.3, layer.form.strength) },
     shine: { ...layer.shine, night: .4, windows: .25, glint: .5,
       faces: { ...layer.shine.faces, across: side, left: Math.max(0, side), right: Math.max(0, -side) },
       cast: { dx: -side, length: 2, alpha: .25 } },
@@ -156,15 +155,14 @@ it('keeps Jerusalem’s building geometry fixed as lateral light sweeps through 
   }
 })
 
-it('fades sky highlights and box lamp halos through their old cutoffs with fixed geometry', () => {
+it('fades box lamp halos through their old cutoffs with fixed geometry', () => {
   const time = '2026-11-17T12:00'
   const layer = outsideLayer(makeWorldBuilder()(worldInput(jerusalem, time, time)), BOX)!
-  const at = (strength: number, night: number) => record({ ...layer, land: null,
+  const at = (night: number) => record({ ...layer, land: null,
     items: layer.items.filter(({ kind }) => kind === 'box' || kind === 'tower'),
-    form: { ...layer.form, strength, side: .5 },
     shine: { ...layer.shine, night, windows: 1, aviationStrength: 0, cast: { dx: 0, alpha: 0, length: 0 } },
   })
-  const below = at(.019, .599), above = at(.021, .601), full = at(.8, .8)
+  const below = at(.599), above = at(.601), full = at(.8)
   const fixed = JSON.stringify(below.form)
   expect(JSON.stringify(above.form) === fixed).toBe(true)
   expect(JSON.stringify(full.form) === fixed).toBe(true)

@@ -1,3 +1,4 @@
+import type { Camera } from '../../domain/camera'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
@@ -5,9 +6,11 @@ import { outsideItemKm } from '../../world/outsideDepth'
 import { hits } from '../../world/sceneClearance'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
+import { receiverId } from './buildingMaterial'
 import { landBehind } from './landBehind'
 import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
+import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
 import type { Box, OutsideItem, SceneBox } from './types'
 
@@ -15,9 +18,10 @@ import type { Box, OutsideItem, SceneBox } from './types'
 export const KM_STEP = .5
 
 /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
-function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
-  lod: string; famous: boolean }, sx: number, tier: number): OutsideItem {
+function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2; footprintBearing?: number;
+  lod: string; famous: boolean }, sx: number, tier: number, camera: Camera): OutsideItem {
   return { kind: 'tower', x: t.x * sx, base: t.baseY, w: t.w, h: t.h, tier, seed: t.seed, crown: t.crown,
+    receiver: receiverId(t.seed, false, t.lod === 'glyph', t.footprintBearing === undefined ? undefined : (camera.heading - t.footprintBearing) * camera.handed),
     full: t.lod === 'glyph', famous: t.famous, storeys: Math.max(1, Math.round(t.heightM / STOREY_M)) }
 }
 
@@ -44,6 +48,7 @@ interface Shape {
   bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
+  receivers: number[][]
   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
   marks: { at: number; km: number }[]
 }
@@ -82,7 +87,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
       const x = t.x * sx
       if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
       mass.push(massAt(x, t.w, t.baseY - t.h, t.km))
-      out.push(towerItem(t, sx, tier(t.km, t.x, t.baseY)))
+      out.push(towerItem(t, sx, tier(t.km, t.x, t.baseY), world.camera))
     } else if (b) {
       const x = b.x * sx, w = b.w * sx
       if (!free(x - w / 2, b.baseY - b.h, x + w / 2, b.baseY)) continue
@@ -90,11 +95,12 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
       drawnBlocks.set(b.id, { id: b.id, x, w, top: b.baseY - b.h, foot: b.baseY, hazeKm: kms[blockTier] })
       mass.push(massAt(x, w, b.baseY - b.h, b.km, b.id))
       out.push({ kind: 'box', x, w, top: b.baseY - b.h, foot: b.baseY, tier: blockTier, seed: b.seed,
-        storeys: Math.max(1, Math.round((b.heightM - 1) / STOREY_M)), folded: false, roof: null, heater: false, beyond: true })
+        storeys: Math.max(1, Math.round((b.heightM - 1) / STOREY_M)), folded: false, roof: null, heater: false, beyond: true, receiver: receiverId(b.seed) })
     }
   }
   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
   const own: { y: number; item: OutsideItem; km?: number }[] = []
+  const limestone = world.place.id === 'jerusalem'
   for (const b of skyline.boxes) {
     const x = b.x * sx, w = b.w * sx
     if (!free(x - w / 2, b.top, x + w / 2, b.foot)) continue
@@ -105,21 +111,24 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
     own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot),
-      seed, storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
+      seed, receiver: receiverId(seed, limestone, false, b.footprintBearing === undefined ? undefined : (world.camera.heading - b.footprintBearing) * world.camera.handed),
+      storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }
   for (const t of skyline.towers) {
     const x = t.x * sx
     if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
     mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY)) })
+    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY), world.camera) })
   }
   for (const t of view.trees) {
     const x = t.x * sx
     if (!free(x - t.w, t.base - t.h, x + t.w, t.base)) continue
     own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
   }
-  const home = homeRoofline(own.map(o => o.item), kms)
+  const localItems = own.map(o => o.item)
+  neighbourhood(localItems)
+  const home = homeRoofline(localItems, kms)
   own.push(...outsideMarks(world, box.width, drawnBlocks, clear, behind, mass, home))
   own.sort((a, b) => a.y - b.y)
   const marks: Shape['marks'] = []
@@ -128,7 +137,9 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     out.push(o.item)
   }
   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, marks, mass, home }
+  const bins = kms.map(() => new Set<number>())
+  for (const item of out) if (item.kind === 'box' || item.kind === 'tower') bins[item.tier].add(item.receiver!)
+  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, receivers: bins.map(bin => [...bin]), marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape

@@ -1,13 +1,14 @@
+import type { RGB } from '../../../world/types'
 import { mix } from '../hand'
-import { arch, Kit, rect } from '../glyphs/kit'
+import { paintGilding } from '../glyphs/gilding'
+import { arch, Kit, rect, type Tracer } from '../glyphs/kit'
 
 /**
  * The Shrine of the Báb (stage C4 icon): a granite arcade, an octagon, a drum with tall windows, the golden fish-scale
  * dome with its lantern, and below it the garden terraces stepping down the Carmel (references: Wikipedia, Bahá'í World
- * News Service photographs; the SVG icon `curated/haifa.tsx`). Floodlit by night: the arcade glows and the dome stays
- * gold. The arcade and dome keep their orientation as the light moves.
+ * News Service photographs; the SVG icon `curated/haifa.tsx`). The arcade is floodlit by night. The arcade and dome keep their orientation as the light moves.
  */
-export function babShrine(k: Kit, h: number) {
+export function babShrine(k: Kit, h: number, gold?: RGB[][]) {
   const { t } = k
   const flood = k.nightFade(0.3, 0.5)
   // The terraces: a stair of gardens down the face, a pale stair line down the middle.
@@ -28,18 +29,21 @@ export function babShrine(k: Kit, h: number) {
   k.rim(-3.5, -7, 7)
   k.round(rect(-2.5, -9.5, 5, 2.5), -2.5, 2.5)
   for (const x of [-1.75, 0.25]) k.open(rect(x, -9.1, 1.5, 1.8), true, 0.9)
-  // The dome: gold, lit on the light's side, its scales as faint bands; the lantern.
+  // The gilded dome and lantern reflect the sky and beam across their curved sectors.
   const dome = -h + 1.5
-  k.round((c) => {
+  const canopy: Tracer = c => {
     c.beginPath()
     c.moveTo(-2.8, -9.5)
     c.quadraticCurveTo(-3, dome + 1.3, 0, dome)
     c.quadraticCurveTo(3, dome + 1.3, 2.8, -9.5)
     c.closePath()
-  }, -2.8, 2.8, 0.62, t.gold, mix(t.gold, t.rim, 0.45))
-  for (let i = 1; i < 3; i++) k.fill(rect(-2.6 + i * 0.3, -9.5 - i * 1.3, 5.2 - i * 0.6, 0.3), t.shade, 0.18)
-  k.fill(rect(-0.5, -h, 1, 1.8), t.gold)
-  k.fill(rect(-0.5, -h, 0.4, 1.8), k.face(t.gold, t.rim, 1))
-  k.fill(rect(0.1, -h, 0.4, 1.8), k.face(t.gold, t.rim, -1))
+  }
+  if (gold) {
+    paintGilding(k, canopy, dome, -9.5, gold)
+    k.fill(rect(-.5, -h, 1, 1.8), gold[1][3])
+  } else {
+    k.fill(canopy, t.stone)
+    k.fill(rect(-.5, -h, 1, 1.8), t.stone)
+  }
   k.lamp(0, -5, 6, t.win, 0.25 * k.night, flood)
 }
