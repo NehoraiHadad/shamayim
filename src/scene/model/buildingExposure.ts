@@ -15,7 +15,6 @@ function encode(value: number) {
 }
 
 const NO_BEAM: RGB = [0, 0, 0]
-type Exposure = (rho: RGB, light: RGB) => RGB
 
 export const facadeTwilight = (sunAlt: number) => smoothstep(-18, -12, sunAlt) * smoothstep(15, 6, sunAlt)
 
@@ -33,37 +32,44 @@ function expose(rho: RGB, light: RGB, horizon: number) {
   return shadeLinearRgb(rho, NO_BEAM, NO_BEAM, light, 0, 0, 1, horizon)
 }
 
-/** Reuse exposure of the same material and incident light across distance tiers. */
+/**
+ * A colour in two steps. The surface (material and incident light, with the street's contrast on a facade) is the same at every
+ * distance and worked out once; the path then adds its air to it, once per distance.
+ */
 export function exposedColors({ irr, air, streetY }: BuildingSurroundings) {
-  const cache = new WeakMap<RGB, WeakMap<RGB, RGB>>()
-  const facadeCache = new WeakMap<RGB, RGB>()
+  const surfaces = new WeakMap<RGB, WeakMap<RGB, RGB>>()
+  const facades = new WeakMap<RGB, RGB>()
   const twilight = facadeTwilight(irr.sunAlt)
-  return (haze: number, facade = false): Exposure => {
-    const displayed = new WeakMap<RGB, WeakMap<RGB, RGB>>()
-    const transmits = 1 - haze
-    const [red, green, blue] = [air[0] * haze, air[1] * haze, air[2] * haze]
-    return (rho, light) => {
-      let colors = displayed.get(light)
-      if (!colors) displayed.set(light, colors = new WeakMap())
-      let color = colors.get(rho)
-      if (color) return color
-      let materials = cache.get(light)
-      if (!materials) cache.set(light, materials = new WeakMap())
+  return {
+    surface(rho: RGB, light: RGB): RGB {
+      let materials = surfaces.get(light)
+      if (!materials) surfaces.set(light, materials = new WeakMap())
       let rgb = materials.get(rho)
       if (!rgb) materials.set(rho, rgb = expose(rho, light, irr.yHorizon))
-      // Exposure and street contrast act on the surface. The path's scattered
-      // light comes from the same air as the ground and cannot be in shade.
-      if (facade && twilight) {
-        let own = facadeCache.get(rgb)
-        if (!own) {
-          const scale = facadeScale(rgb, streetY, twilight)
-          facadeCache.set(rgb, own = [rgb[0] * scale, rgb[1] * scale, rgb[2] * scale])
-        }
-        rgb = own
+      return rgb
+    },
+    facade(rgb: RGB): RGB {
+      if (!twilight) return rgb
+      let own = facades.get(rgb)
+      if (!own) {
+        const scale = facadeScale(rgb, streetY, twilight)
+        facades.set(rgb, own = [rgb[0] * scale, rgb[1] * scale, rgb[2] * scale])
       }
-      color = [encode(rgb[0] * transmits + red), encode(rgb[1] * transmits + green), encode(rgb[2] * transmits + blue)]
-      colors.set(rho, color)
-      return color
-    }
+      return own
+    },
+    // The path's scattered light comes from the same air as the ground and cannot be in shade.
+    through(haze: number) {
+      const shown = new WeakMap<RGB, RGB>()
+      const transmits = 1 - haze
+      const [red, green, blue] = [air[0] * haze, air[1] * haze, air[2] * haze]
+      return (surface: RGB): RGB => {
+        let color = shown.get(surface)
+        if (!color) {
+          color = [encode(surface[0] * transmits + red), encode(surface[1] * transmits + green), encode(surface[2] * transmits + blue)]
+          shown.set(surface, color)
+        }
+        return color
+      }
+    },
   }
 }
