@@ -81,6 +81,13 @@ npx wrangler tail                        # after 25 past the hour: "[live] 84 st
 curl 'https://shamayim-api.nehoraihadad.com/v1/live?latitude=32.43&longitude=35.55'
 ```
 
+**Forecast log (`worker/src/forecastLog.ts`).** Every 6 hours (cron `40 */6 * * *`) the Worker also keeps, in the same
+KV namespace, the IMS's own forecasts (175 cities, 6-hourly for 8 days with the first 3 days by a forecaster; the INCA
+model hourly for 72 h at 10 stations; public XML, no archive exists) and Open-Meteo's two models at the same points,
+including the rain probability the app shows. Nothing in production reads it: after a few weeks,
+`research/verification/fetch_forecast_log.sh` copies it out to check whether the IMS forecasts beat the corrected blend
+(and deserve a place in it) and whether the rain probability is calibrated. About 0.9 MB per entry, 4 a day.
+
 **Order when the app asks Open-Meteo for something new** (a new hourly/current variable, a new parameter): the Worker
 refuses any name it does not list, so a production app that sends it before the Worker knows it gets 400 for every
 forecast (this took the forecast down on 2026-11-18). Always:

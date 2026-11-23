@@ -3,6 +3,7 @@
  * requests to Open-Meteo follows the number of places rather than the number of users.
  */
 import { checkOrigin, corsHeaders, parseOrigins, preflight } from './cors'
+import { writeForecastLog } from './forecastLog'
 import { liveFor, refreshLive, type LiveRun } from './live'
 import { cacheKey, proxy } from './proxy'
 import { routeFor } from './routes'
@@ -64,6 +65,9 @@ function plain(status: number, reason: string): Response {
   })
 }
 
+/** Must match the second cron in wrangler.toml. */
+export const FORECAST_LOG_CRON = '40 */6 * * *'
+
 export async function handle(request: Request, env: Env, ctx: ExecutionContext, cache: Cache): Promise<Response> {
   const origin = request.headers.get('Origin')
   const check = checkOrigin(origin, parseOrigins(env.ALLOWED_ORIGINS))
@@ -94,15 +98,26 @@ export default {
   fetch(request, env, ctx) {
     return handle(request, env, ctx, caches.default)
   },
-  /** Hourly (wrangler.toml [triggers]): read the IMS stations and store the live anomalies. */
-  scheduled(_event, env, ctx) {
+  /**
+   * wrangler.toml [triggers]: hourly, read the IMS stations and store the live anomalies; every 6 hours, also log the
+   * IMS and Open-Meteo forecasts for later verification (forecastLog.ts).
+   */
+  scheduled(event, env, ctx) {
     const kv = env.LIVE
-    const token = env.IMS_TOKEN
-    if (!kv || !token) {
-      console.warn('[live] skipped: LIVE KV namespace or IMS_TOKEN secret missing')
+    if (!kv) {
+      console.warn('[cron] skipped: LIVE KV namespace missing')
       return
     }
-    ctx.waitUntil(refreshLive({ kv, token, fetch: (i, init) => fetch(i, init), now: Date.now })
-      .then((run) => console.log(`[live] ${run.stations.length} stations`)))
+    const deps = { kv, fetch: (i: RequestInfo | URL, init?: RequestInit) => fetch(i, init), now: Date.now }
+    if (event.cron === FORECAST_LOG_CRON) {
+      ctx.waitUntil(writeForecastLog(deps).then((key) => console.log(`[log] ${key}`)))
+      return
+    }
+    const token = env.IMS_TOKEN
+    if (!token) {
+      console.warn('[live] skipped: IMS_TOKEN secret missing')
+      return
+    }
+    ctx.waitUntil(refreshLive({ ...deps, token }).then((run) => console.log(`[live] ${run.stations.length} stations`)))
   },
 } satisfies ExportedHandler<Env>

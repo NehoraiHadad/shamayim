@@ -20,8 +20,10 @@ enabled = true
 
 # Live correction (src/live.ts): once an hour, 25 minutes past (IMS readings arrive ~20 min late), read the IMS
 # station network and store each station's current forecast anomaly for `/v1/live`.
+# Forecast log (src/forecastLog.ts): every 6 hours, keep the IMS and Open-Meteo forecasts for later verification.
+# The second expression must match FORECAST_LOG_CRON in src/index.ts.
 [triggers]
-crons = ["25 * * * *"]
+crons = ["25 * * * *", "40 */6 * * *"]
 
 # Create once with `npx wrangler kv namespace create LIVE` and paste the id it prints.
 [[kv_namespaces]]
