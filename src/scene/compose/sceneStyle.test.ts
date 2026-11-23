@@ -17,7 +17,7 @@ const layer = (kind: LayerDesc['kind']) => ({ kind, id: kind, surface: 'land', z
 const base = STYLES[DEFAULT_STYLE].painters
 const KINDS = Object.keys(base) as (keyof typeof base)[]
 /** The styles but the default: what each paints its own way, and what it shares. */
-const OTHERS = SCENE_STYLES.filter((style) => style !== DEFAULT_STYLE).map((style) => {
+const OTHERS = SCENE_STYLES.filter((style): boolean => style !== DEFAULT_STYLE).map((style) => {
   const painters = STYLES[style].painters
   return { style, own: KINDS.filter((kind) => painters[kind] !== base[kind]), shared: KINDS.filter((kind) => painters[kind] === base[kind]) }
 })
