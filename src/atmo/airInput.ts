@@ -47,7 +47,7 @@ export function airInput(forecast: Forecast, now: LocalTime, site: SkySite, sele
   const nowMs = arrivalMs ?? (at === now ? instant : utcOf(now, site.timezone)).getTime()
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
   const sample = (minute: LocalTime, ms = utcOf(minute, site.timezone).getTime()) =>
-    blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, nowMs, site.timezone, forced), mixWeather)
+    blendForecast(forecast, nowMs, (source) => weatherAt(source, minute, ms, site.timezone, forced), mixWeather)
   const weather = sample(at, instant.getTime())
   let observationModels: Map<LocalTime, number> | undefined
   const modelCoverAt = (minute: LocalTime) => {

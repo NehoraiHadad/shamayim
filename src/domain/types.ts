@@ -122,8 +122,6 @@ export interface Forecast {
   current: CurrentWeather
   /** The original reading when `current` has been rolled forward for display. */
   observation?: CurrentWeather
-  /** Receipt in the scene clock, independent of the provider's fetch time. Never persisted. */
-  receivedAt?: number
   hours: HourPoint[]
   /** Includes yesterday at index 0 (past_days=1). */
   days: DayPoint[]
@@ -131,7 +129,7 @@ export interface Forecast {
   nowcast: NowcastPoint[] | null
   normals: Record<LocalDate, DayNormal> | null
   fetchedAt: number
-  /** In-memory source data for easing a refresh from its arrival time. */
+  /** The data a refresh replaced and its receipt in the scene clock, to ease from. In memory only, never persisted. */
   previous?: { forecast: Forecast; receivedAt: number }
   source: string
   models: string[]

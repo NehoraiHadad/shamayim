@@ -1,5 +1,5 @@
 import { utcOf } from '../astro/utc'
-import { forecastArrivalProgress, forecastObservation, readingWeight } from '../domain/forecastRefresh'
+import { forecastObservation, readingWeight } from '../domain/forecastRefresh'
 import type { AirPoint, Forecast, LocalTime } from '../domain/types'
 import { visibilityFromHumidity } from '../world/air'
 import { rainRate } from '../world/airParts'
@@ -29,7 +29,8 @@ type PhaseInput = Pick<AirInput, 'weatherCode' | 'precipitation' | 'snowfall' | 
 const airAt = (air: AirPoint[] | null, at: LocalTime) => air?.find((point) => point.time === at)
 const clippedThick = (thick: number | null | undefined, total: number) => thick == null ? null : Math.min(thick, total)
 
-export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs: number, timezone: string,
+/** What one forecast says of a minute. How it took over from an earlier one is `blendForecast`'s alone to weigh. */
+export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, timezone: string,
   forced?: Partial<AirInput> | null): Weather {
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
   const phase = (source: PhaseInput) => ({
@@ -143,6 +144,6 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
   if (!background) return observation
 
   const minutesOff = (atMs - utcOf(c.time, timezone).getTime()) / 60_000
-  const weight = readingWeight(minutesOff) * forecastArrivalProgress(forecast, nowMs)
+  const weight = readingWeight(minutesOff)
   return weight === 0 ? background : mixWeather(background, observation, weight)
 }

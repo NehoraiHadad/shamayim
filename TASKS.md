@@ -1221,14 +1221,14 @@ Goal (owner): `real` (default) and `drawn` clearly different, one true world und
 Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 
 - [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
-      - [~] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
-            (facts only), architecture test. `real` and `drawn` byte-identical. Own READY, own merge. Built on
-            `claude/scene-foundations-2b66cc` (CI job `identity`: the still set, both styles, both paint paths, byte for byte
-            against a base ref); waits for its final CI run, then for the manager's merge
+      - [x] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
+            (facts only), architecture test. `real` and `drawn` byte-identical (CI job `identity`). Merged: main b0181337
       - [x] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`,
             verified; its plain losses go with 1d, its design questions to the manager)
-      - [~] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause proven and fixed on a side
-            branch (3fdcb44a, 73c457aa), reviewed and added after 1a
+      - [x] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause: the reading was eased in
+            from its receipt (`receivedAt`) even with nothing shown before, a reload shows it whole. Only `blendForecast` eases
+            now; test `src/world/forecastArrival.test.ts`. Painting was never involved. Open: fixture `current.precipitation`
+            is an hour's total read as 15 min (`scripts/fixtures/recordForecast.ts`), so the 12:00 rain is drawn 4x too strong
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
