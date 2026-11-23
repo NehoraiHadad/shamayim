@@ -159,7 +159,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     const house = HOUSE_M[u < .6 ? 0 : 1]
     const heightM = at && (at.built >= .2 || at.levels > 0 || at.p90 > 0)
       ? roofHeight(at.levels, at.p90, u) : house
-    return { heightM, ...(at && at.built < .2 && heightM !== house ? { skylineHeightM: house } : {}) }
+    return { heightM, ...(at && at.built < .2 && heightM !== house ? { siteHeightM: house } : {}) }
   }
   if (cover) {
     const step = LAND_STEP

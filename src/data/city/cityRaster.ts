@@ -3,7 +3,7 @@ import { COLS, LAT_STEP, LON_STEP, squareOf, strideFor } from './grid'
 import type { RayGrid } from './rayWalk'
 import type { CityTower } from './types'
 
-/** Frontage is the typical mapped building width in metres. */
+/** `front`: the typical mapped building's frontage (m), where the raster has its size class. */
 export type RasterSquare = { built: number; levels: number; p90: number; front?: number }
 export type CityRaster = {
   /** Whether this point has an actual loaded raster cell, including known unbuilt cells. */

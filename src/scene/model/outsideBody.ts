@@ -6,10 +6,11 @@ import type { Box, OutsideItem } from './types'
 /** Trim in fifths, keeping at least three fifths so a body still reads as a building. */
 const TRIMMED_WIDTHS = [.8, .6]
 
-/** Keep the wider clear portion, anchored at one of the body's original edges. */
-export function clearBody(zones: readonly Box[], x: number, w: number, top: number, foot: number) {
+/** The body clear of the zones: whole, or (`trim`) its wider clear portion, anchored at one of its own edges; else none. */
+export function clearBody(zones: readonly Box[], x: number, w: number, top: number, foot: number, trim: boolean) {
   const left = x - w / 2, right = x + w / 2
   if (!hits(zones, left, top, right, foot)) return { x, w }
+  if (!trim) return null
   for (const share of TRIMMED_WIDTHS) {
     const kept = w * share
     if (!hits(zones, left, top, left + kept, foot)) return { x: left + kept / 2, w: kept }

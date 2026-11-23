@@ -9,9 +9,9 @@ import { hashId, seeded } from '../landmarks/hash'
 import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
-import { composeFabric, visibleFabric, type FabricCandidate } from './fabricSlots'
 import { fabricFrontage } from './fabricFrontage'
-import { MassIndex, SkylineFootprint, visible } from './skylineFootprint'
+import { composeBodies, standingSites, type FabricSite } from './fabricSlots'
+import { MassIndex, visible } from './skylineMass'
 import { TOWER_FRONT_M } from './towerWidth'
 
 /** The outside view's reach (km): a city's own skyline from the panorama's first ray out to 6 km; the far towns beyond. */
@@ -369,38 +369,34 @@ export interface FabricCell {
   dx: number; dy: number; wKm: number; heightM: number; seed: number
   /** Its typical building's frontage (m), where the map knows it. */
   frontM?: number
-  /** Dense-raster height used when establishing the original tower prominence footprint. */
-  skylineHeightM?: number
+  /** The house its site is laid out as (m), where a sparse square's own roof differs. */
+  siteHeightM?: number
 }
 
 /**
- * Built fabric composed on the town's plan scale, with competition between overlapping enlarged bodies.
+ * The fabric cells in the outside view: the sites that stand, laid out as houses and blocks (`FabricSite`), and with a
+ * `look` the bodies on them, each as wide as its own height needs on the place's plan scale. Hidden ones are left out.
  */
-function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput,
-  look?: OutsideLook, footprint?: SkylineFootprint): OutsideBox[] {
-  const candidates: FabricCandidate[] = []
+function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width, capM, kind, lie }: MassInput, look?: OutsideLook) {
+  const sites: FabricSite[] = []
   for (const cell of cells) {
     if (!inFrame(frame, cell.dx, cell.dy)) continue
     const { x, near, k, depth } = outsideProject(frame, cell.dx, cell.dy)
     const w = Math.max(.9, frame.f * cell.wKm / depth)
     if (x + w / 2 < -4 || x - w / 2 > width + 4) continue
-    const heightM = Math.min(capM, cell.heightM)
-    const h = Math.max(1, pxOf(look, heightM, k))
-    // Roof type changes at HOUSE_TOP_M. The same footprint keeps its width on either side.
-    const houseWidth = look ? look.house.w * k / frame.k : 0
-    const bodyW = look ? fabricFrontage(w, houseWidth, planPx(look, frame, cell.frontM ?? 0, k), heightM, HOUSE_TOP_M) : w
-    const foot = lieBaseY(lie, ground, x, near, floor, bodyW, cell.dx, cell.dy)
-    const box = { x, w: bodyW, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
-    candidates.push({ box, expanded: bodyW > w, house: heightM < HOUSE_TOP_M })
-    if (footprint) {
-      const roof = Math.min(capM, cell.skylineHeightM ?? cell.heightM)
-      const nominalWidth = roof < HOUSE_TOP_M ? houseWidth : 0
-      const base = lieBaseY(lie, ground, x, near, floor, Math.max(w, nominalWidth), cell.dx, cell.dy)
-      const height = Math.max(1, pxOf(look, roof, k))
-      footprint.add({ ...box, w, top: base - height, foot: base, heightM: roof }, nominalWidth, height)
-    }
+    const heightM = Math.min(capM, cell.heightM), siteM = Math.min(capM, cell.siteHeightM ?? cell.heightM)
+    const house = look ? look.house.w * k / frame.k : 0
+    const legible = siteM < HOUSE_TOP_M ? house : 0
+    const siteW = Math.max(w, legible)
+    const foot = lieBaseY(lie, ground, x, near, floor, siteW, cell.dx, cell.dy)
+    const roof = (m: number) => foot - Math.max(1, pxOf(look, m, k))
+    const box = { x, w: siteW, top: roof(siteM), foot, near, kind, heightM: siteM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
+    const bodyW = look ? fabricFrontage(w, house, planPx(look, frame, cell.frontM ?? 0, k), heightM, HOUSE_TOP_M) : w
+    sites.push({ box, slotW: w < legible ? legible : 0, body: { ...box, w: bodyW, top: roof(heightM), heightM } })
   }
-  return look ? composeFabric(candidates, look.house.w) : visible(candidates.map(({ box }) => box), width)
+  const standing = standingSites(sites)
+  const bodies = look ? composeBodies(standing, look.house.w, HOUSE_TOP_M) : standing.map(({ body }) => body)
+  return { sites: standing.map(({ box }) => box), boxes: visible(bodies, width) }
 }
 
 export interface OutsideSkyline {
@@ -423,13 +419,14 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const fullGlyphs = glyphs(prepared)
   const mass: MassInput = { place, raster, frame, ground, floor, width, lie,
     capM: MASS_M, kind: 'mass' }
-  const footprint = input.fabric && prepared.length > fullGlyphs.size ? new SkylineFootprint() : undefined
-  let boxes = input.fabric ? fabricBoxes(input.fabric, mass, look, footprint) : rasterBoxes(mass)
+  const fabric = input.fabric && fabricBoxes(input.fabric, mass, look)
+  let boxes = fabric?.boxes ?? rasterBoxes(mass)
   const out: OutsideTower[] = []
   let folded = 0, dropped = 0
   const ranked = [...prepared].sort(byRank)
   // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
-  const index = footprint?.index(width) ?? new MassIndex(boxes)
+  // Which towers rise is the sites' question (a body's drawn width raises no new mass): each is probed as its silhouette.
+  const index = new MassIndex(fabric && prepared.length > fullGlyphs.size ? visible(fabric.sites, width) : boxes)
   const probe = (tower: OutsideTower, { wClass, dx, dy }: Prepared) => {
     const w = SILHOUETTE_W[wClass]
     return { ...tower, w, baseY: lieBaseY(lie, ground, tower.x, tower.near, floor, w, dx, dy) }
@@ -458,7 +455,7 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
       fold(tower)
     }
   }
-  boxes = input.fabric && look ? visibleFabric(boxes, width) : visible(boxes, width)
+  boxes = visible(boxes, width)
   const stats = {
     inPlace, glyph: out.filter(t => t.lod === 'glyph').length, silhouette: out.filter(t => t.lod === 'silhouette').length,
     folded, dropped, duplicates: towers.length - deduped.length,

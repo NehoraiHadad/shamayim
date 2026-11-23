@@ -86,34 +86,31 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
   const own: { y: number; item: OutsideItem; km?: number }[] = []
   const stacks = skyline.towers.filter(t => t.industrial && free(t.x * sx - t.w / 2, t.baseY - t.h, t.x * sx + t.w / 2, t.baseY))
-    .map(t => ({ x: t.x * sx - t.w / 2, y: t.baseY - t.h, w: t.w, h: t.h, base: t.baseY,
-      km: outsideItemKm(frame, baseKm, t) }))
+    .map(t => ({ x: t.x * sx - t.w / 2, y: t.baseY - t.h, w: t.w, h: t.h, base: t.baseY, km: outsideItemKm(frame, baseKm, t) }))
   for (const b of skyline.boxes) {
     const km = outsideItemKm(frame, baseKm, b)
-    // A widened foreground body must leave the separately mapped industrial shaft readable.
-    const stacksAheadOfBody = stacks.filter(stack => stack.km > km && stack.base <= b.foot)
-    const zones = stacksAheadOfBody.length ? [...clear, ...stacksAheadOfBody] : clear
-    const body = clearBody(zones, b.x * sx, b.w * sx, b.top, b.foot)
+    const heightM = b.heightM ?? 3 * STOREY_M
+    // A wide block keeps its clear side, and leaves a mapped stack behind it readable; a house is whole or not there.
+    const zones = heightM < HOUSE_TOP_M ? clear : [...clear, ...stacks.filter(stack => stack.km > km && stack.base <= b.foot)]
+    const body = clearBody(zones, b.x * sx, b.w * sx, b.top, b.foot, heightM >= HOUSE_TOP_M)
     if (!body) continue
     const { x, w } = body
     mass.push(massAt(x, w, b.top, km))
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
-    const heightM = b.heightM ?? 3 * STOREY_M
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), x / sx, b.foot, true),
+    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
       seed, receiver: receiverId(seed),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }
   for (const t of skyline.towers) {
-    const body = t.industrial
-      ? (free(t.x * sx - t.w / 2, t.baseY - t.h, t.x * sx + t.w / 2, t.baseY) ? { x: t.x * sx, w: t.w } : null)
-      : clearBody(clear, t.x * sx, t.w, t.baseY - t.h, t.baseY)
+    const body = clearBody(clear, t.x * sx, t.w, t.baseY - t.h, t.baseY, !t.industrial)
     if (!body) continue
-    mass.push(massAt(body.x, body.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
-    own.push({ y: t.baseY, item: towerItem({ ...t, x: body.x / sx, w: body.w }, sx, tier(outsideItemKm(frame, baseKm, t), body.x / sx, t.baseY, true)) })
+    const km = outsideItemKm(frame, baseKm, t)
+    mass.push(massAt(body.x, body.w, t.baseY - t.h, km))
+    own.push({ y: t.baseY, item: towerItem({ ...t, x: body.x / sx, w: body.w }, sx, tier(km, body.x / sx, t.baseY, true)) })
   }
   for (const t of view.trees) {
     const x = t.x * sx

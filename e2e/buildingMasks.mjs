@@ -61,8 +61,7 @@ export async function buildingMasks(png) {
         highpass += (y - (yAt(colors, i - 4) + yAt(colors, i + 4) + yAt(colors, i - 4 * w) + yAt(colors, i + 4 * w)) / 4) ** 2
         count++
       }
-      // Three-quarter white identifies a full cap pixel. Retain the existing 65/255 coverage cutoff.
-      const part = r > 175 && b > 150 ? 'tile' : cap[i] * cap[i + 3] > .75 * 255 * 65 ? 'roof'
+      const part = r > 175 && b > 150 ? 'tile' : cap[i + 3] > 65 ? 'roof'
         : g > 50 && b < 30 ? 'sun' : b > 50 && g < 30 ? 'side' : r > 175 ? 'front' : null
       if (part === 'tile') tileRed = Math.max(tileRed, colors[i])
       if (part) samples[part].push(y)
@@ -117,7 +116,7 @@ export async function buildingMasks(png) {
     frontYRange, frontBRRange, frontBR: q(frontRgb.map(rgb => br(rgb))) / groundBR,
     tileRed: tileRed / horizonRed, horizonRed, highpass: Math.sqrt(highpass / count),
     chimney: q(samples.chimney) / horizon, cooling: q(samples.cooling) / horizon,
-    contacts: contacts.size, pairs: spreads.length, spread: q(spreads),
+    pairs: spreads.length, spread: q(spreads),
     n: Object.fromEntries(Object.entries(samples).map(([k, a]) => [k, a.length])),
     ...Object.fromEntries(['built', 'front', 'sun', 'side', 'roof', 'tile', 'dome'].map(k => [k, q(samples[k]) / groundY])),
     chroma: q(samples.chroma) }

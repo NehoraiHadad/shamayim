@@ -94,7 +94,7 @@ describe('mapped town frontage and roof heights', () => {
   it('keeps the clear side of a wide body alongside text', () => {
     const world = worldAt('haifa')
     const view = viewOf('haifa')
-    const body = view.skyline.boxes.find(b => b.seed !== undefined)!
+    const body = view.skyline.boxes.find(b => b.seed !== undefined && b.heightM! >= HOUSE_TOP_M)!
     const clear = [{ x: body.x + .35 * body.w, y: body.top, w: body.w, h: body.foot - body.top }]
     const shape = outsideShape({ ...world, place3: { ...view, skyline: { ...view.skyline, boxes: [body], towers: [] } } }, BOX, clear)
     const item = shape.items.find(i => i.kind === 'box' && !i.beyond)
