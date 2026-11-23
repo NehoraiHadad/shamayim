@@ -2622,8 +2622,27 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
    `L/L_ref = (ρ/π) · [E_sun C_sun max(0,n·s) V_s T + E_moon C_moon max(0,n·m) V_m + E_sky C_sky V_sky]`.
    `E` are irradiances in units compatible with radiance `L_ref`, and the Lambertian 1/π converts irradiance
    into radiance. `T` is incremental cloud transmission and `V_s` and `V_m` are separate receiver-space DEM
-   visibility. Building walls also see an additive ground term weighted by `(1−n_up)/2`. Cast, contact and
-   eave shadow tones receive sky and bounce. Openness scales their sky view.
+   visibility. The building receiver adds `(1−n_up)/2 × 0.92 × ρ_ground` times ground irradiance. The
+   0.92 is the assumed unblocked fraction of the ground hemisphere. Ground irradiance includes diffuse sky,
+   moonlight and the projected solar beam over the 0.70 share of ground assumed outside cast shadows.
+   Ground reflectance comes from the same local land albedo sample, and the beam includes the deck's
+   transmission and the near-horizon attenuation shared by land. Eaves and street-level enclosure
+   restrict the sky aperture. The deep openings also exclude the direct beam.
+
+   - Buildings choose one of eight bounded linear plaster and limestone bins (Y about 0.44–0.58).
+     Existing seeds select materials and fixed facade angles for raster footprints. Supplied
+     footprint bearings use the same angle bins. The angle controls both incidence and projected
+     return width. Flat roofs and crowns use the up normal, clay roofs their pitch. Panels and glazing
+     use their own reflectance before exposure. The painter interpolates solved colours at eaves and
+     feet and antialiases the projected top inside the silhouette.
+   - Far towns shade resolved faces with the same receiver. Below the resolution of a block's faces,
+     projected face irradiances are averaged before exposure and haze. Landmark distance contrast
+     and the Allard lamp transmission use the true receiving-eye distance.
+   - The Báb shrine's gold resolves curved sectors, sampling the shared sky along their reflected
+     directions. A broad low lobe carries the off-axis afterglow and a separate rough lobe takes the
+     attenuated beam. The sector material is conductive at every hour. Existing window and lamp
+     timing, colour and position are retained. At full darkness the compatibility painter preserves
+     facade and crown tones.
 
    - The clear-sky check uses Bird and Hulstrom at 52° zenith, relative air mass 1.62, 101325 Pa, 1361 W/m²
      extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water vapour, AOD₅₀₀ 0.116, AOD₃₈₀ 0.166,

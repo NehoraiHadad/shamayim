@@ -1,0 +1,57 @@
+{
+  "source": "f1296b6c",
+  "chromium": "Playwright 1.63.0",
+  "signatures": {
+    "tiberias-1200": {
+      "land": "e2eedfca24537bbc48bdd46adf1466f8131ae70bf091dab2a04fec5f0464c399"
+    },
+    "tiberias-2100": {
+      "land": "ad2c06700ab34493a7f3cd1eb466472ceecc71af4214939f6ab3189b0f2bb7dd",
+      "lamps": "e1104b3d1aa4c3d3c967d6f2feafc2b5756617544217403b93ed83337b835dd5",
+      "lampPixels": 474,
+      "nightWalls": "a158fa8cfc4fdcb1218a8e089470d913e228b0f76ec143d22888ea1eb87110bc"
+    },
+    "haifa-1200": {
+      "land": "5438d3bd5e1cdbe6fbb6cedccd1e3f08da008ccb538517795b17cd71d7c24926"
+    },
+    "haifa-1630": {
+      "land": "407ae4011ec4f3014dffe0feda80514a973cc018c2534990bb01d924f39f4ff6"
+    },
+    "haifa-2100": {
+      "land": "1a2b669378a2edb0474ee99edbde2d3c73b0cad9df2236b21aff47b6d00cd9fc",
+      "lamps": "c7f6e04f7e443cfd7a231256aec72c846fc1ebddd49bce170c838e23fd87abee",
+      "lampPixels": 1556,
+      "nightWalls": "0518b16b942785eda6530ccd68b714bb60c3f8ea44a2462b84c89c4303a8a9b2"
+    },
+    "haifa-1200-overcast": {
+      "land": "8432a4520b684260d8bbef9da9b7ef0c630631e318276157cb390f2348b23ec7"
+    },
+    "jerusalem-1200": {
+      "land": "ef75c199547989e71f884d48915b4f0cfe85b059bd5cee65cb4fe9588260469f"
+    },
+    "jerusalem-2100": {
+      "land": "4e5b0609500ec9a1bd4ae8a9aafc1bc85d30834ff905fd9ae18e13e4d38b4691",
+      "lamps": "1e0891bcd4c5edaacb444ecc954b56e432848592e9fd1b5f7a6b218ffa5ba3b4",
+      "lampPixels": 404,
+      "nightWalls": "961646bd0d4a776c0a6c109f888ac17aede3a7a9f427af7258287dffc9e7c44b"
+    },
+    "tel-aviv-1200": {
+      "land": "12edb252082c3165f89d3bf370e651961a3c1134a766e66409f9ff6e5b4b52cd"
+    },
+    "tel-aviv-2100": {
+      "land": "e58b99e1c1c50fd4a40c5c7a1d01dc30ba22f24972e93ac2d1cc989d4c139bc1",
+      "lamps": "74cdfdf4f30beece0cf337b701138502547be17f3aa7842925433cabcaa79070",
+      "lampPixels": 820,
+      "nightWalls": "7c22cf9d21e5ed91d59c3659689bbf31a9946831ce028d3540e7ccd15ee3b2d6"
+    },
+    "rosh-pina-1200": {
+      "land": "54b04abae80f5dd5aa0ce54ab9bc7f34bc858662bf51f1e7dab09d9cbd61c163"
+    },
+    "rosh-pina-2100": {
+      "land": "05aa9cbc52a7eac774bcde581abbc00bbc117e01961e69e8052b6961a696aafd",
+      "lamps": "32d2b4fd416cb24383ef65e6441f213067ba2e019e6bd73a995ff123b5b5e570",
+      "lampPixels": 344,
+      "nightWalls": "99793f533c75d80d4a197f442d920d898d975b6456b71190bb8a8c5572cafcef"
+    }
+  }
+}

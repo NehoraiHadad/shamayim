@@ -957,13 +957,18 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             and apply the soft disc edge at the current solar or lunar altitude.
       - [x] Resolve the crest from body samples in both endpoints, retain seeded reflectance mottle with its
             dark tail, and finish with finer paper grain. Mix lying snow on terrain and outside ground into reflectance.
-      - [x] Use face incidence and additive ground bounce for building materials, with gamut handling after haze.
-            Cast/contact/eave shadow tones omit direct light and scale sky view by openness.
+      - [x] Give buildings one linear receiver per face. Use the land's solar, lunar and sky irradiance, exposure
+            and distance haze. Use seeded plaster and limestone bins, fixed footprint-facing bins, and visible
+            ground bounce. Model the eave and street-level occlusion as reduced sky view. Paint upward flat
+            caps and tilted clay planes directly. Far towns integrate the same receiver over unresolved footprints.
+            Render gilding with rough reflected sky and a beam lobe. Keep the fully dark window and lamp pass.
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
             plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
             minute-boundary continuity and paired light-change Worker arrivals. Check that a Worker failure
             releases all twenty canopy endpoint bitmaps and repaints the shaded strip on the main thread.
-            Run the land-light browser checks in the CI stills job.
+            Run the land-light browser checks in the CI stills job. Check native masked building ratios and
+            contact spread, overcast relief and gilding at noon and twilight. Assert byte equality against
+            f1296b6c for the architecture-free land and the fully dark window/lamp pass.
       - [x] Verify round 5 against all 24 rendered stills. The maximum land/sky median ratio change from
             round 4 was 0.035%. A sun-facing glyph fixture also verifies the architectural shadow contrast.
       - [x] Rerender the 24 measured round 6 stills and review the dawn, noon, dusk and shadowed-crest crops
