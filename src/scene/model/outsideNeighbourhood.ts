@@ -6,16 +6,18 @@ export function neighbourhood(items: readonly OutsideItem[], sx: number) {
   const boxes = items.filter(item => item.kind === 'box').sort((a, b) => a.x - b.x)
   const weights = boxes.map(box => Math.min(1, (box.foot - box.top) / 3))
   const shade = new Float64Array(boxes.length)
-  const radius = 8 * sx
+  const radius = 8 * sx, inverseRadius = 1 / radius
   for (let i = 0; i < boxes.length; i++) {
     const box = boxes[i]
     for (let j = i + 1; j < boxes.length; j++) {
-      const other = boxes[j], dx = (other.x - box.x) / radius
-      if (dx >= 1) break
-      const dy = (other.foot - box.foot) / 5
-      const weight = Math.max(0, 1 - dx * dx - dy * dy) ** 2
-      shade[i] += weight * weights[j]
-      shade[j] += weight * weights[i]
+      const other = boxes[j], gap = other.x - box.x
+      if (gap >= radius) break
+      const dx = gap * inverseRadius, dy = (other.foot - box.foot) * .2
+      const weight = 1 - dx * dx - dy * dy
+      if (weight <= 0) continue
+      const influence = weight * weight
+      shade[i] += influence * weights[j]
+      shade[j] += influence * weights[i]
     }
     box.neighbours = 1 - Math.exp(-shade[i] / 2.6)
   }

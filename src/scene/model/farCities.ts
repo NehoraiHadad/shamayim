@@ -1,5 +1,5 @@
 //# allFunctionsCalledOnLoad
-import { plainContrast } from '../../data/city/plainHaze'
+import { MIN_PLAIN_CONTRAST, plainContrast, plainContrastDistance } from '../../data/city/plainHaze'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { buildingFaces, buildingLight } from './buildingLight'
@@ -12,8 +12,6 @@ import type { Box, CityLight, CityTier, LayerOf, RGB, SceneBox } from './types'
 
 const Z = 16
 const LAMP: RGB = [1, 0.81, 0.53]
-/** Below this contrast (Koschmieder's 2 % threshold is at the visibility; 5 % a little nearer) a town is lost in the air. */
-const MIN_CONTRAST = 0.05
 
 /** Far towns use averaged surfaces below resolution, and the same facet light as the near city as they resolve. */
 export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly Box[] = []): LayerOf<'farCities'> | null {
@@ -23,7 +21,9 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const visibility = air.visibilityKm
   const geometry = geometryOf(world, box, clear)
   if (!geometry.bounds) return null
-  const shown = (km: number) => plainContrast(km, visibility) >= MIN_CONTRAST
+  // A single distance cutoff per frame replaces one exponential per town fragment.
+  const limit = plainContrastDistance(MIN_PLAIN_CONTRAST, visibility)
+  const shown = (km: number) => km <= limit
   const tiers: CityTier[] = []
   geometry.tiers.forEach((tier, i) => {
     const km = farTownHazeAtTier(i)
@@ -39,7 +39,7 @@ export function farCitiesLayer(world: WorldState, box: SceneBox, clear: readonly
   const on = smoothstep(0, 0.12, night.litShare) * (0.35 + 0.65 * smoothstep(0.1, 0.7, night.dark))
   const lights: CityLight[] = on <= 0 ? [] : geometry.lights.flatMap((dot) => {
     const transmission = Math.cbrt(plainContrast(dot.km, visibility))
-    if (transmission < MIN_CONTRAST) return []
+    if (transmission < MIN_PLAIN_CONTRAST) return []
     return [{ x: dot.x, y: dot.y, r: dot.r, alpha: dot.alpha * transmission * on }]
   })
   const key = layerKey('farCities', world.keys.farCities, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
