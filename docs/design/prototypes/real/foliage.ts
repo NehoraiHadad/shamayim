@@ -33,11 +33,11 @@ export function crown(brush: ReceiverBrush, cx: number, cy: number, rx: number, 
     }
     brush.fill(ink, a)
   }
-  pass(leaf.dark, 0.95 * alpha, clumps, 0.7, 0.42, -0.06 * side, 0.12)
-  pass(leaf.body, 0.85 * alpha, clumps, 0.62, 0.32, 0.06 * side, -0.1)
-  if (size < 1.1) return
-  pass(leaf.lit, 0.55 * alpha, Math.round(clumps * 0.75), 0.46, 0.22, 0.26 * side, -0.3)
-  pass(leaf.lit, 0.5 * alpha, Math.round(clumps * 0.4), 0.3, 0.15, 0.34 * side, -0.42)
+  pass(leaf.dark, 0.95 * alpha, clumps, 0.64, 0.36, -0.08 * side, 0.16)
+  pass(leaf.body, 0.8 * alpha, Math.round(clumps * 1.4), 0.66, 0.27, 0.08 * side, -0.08)
+  if (size < 0.9) return
+  pass(leaf.lit, 0.62 * alpha, clumps, 0.54, 0.2, 0.22 * side, -0.28)
+  pass(leaf.lit, 0.55 * alpha, Math.round(clumps * 0.5), 0.34, 0.14, 0.34 * side, -0.42)
 }
 
 /** The crown's soft shade on the ground, away from the light. */

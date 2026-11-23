@@ -79,5 +79,5 @@ function seat(ctx: Ctx2D, item: Body, top: RGB, t: Tones, s: Shine, side: number
 function roundTree(ctx: Ctx2D, tr: TreeDesc, t: Tones, side: number) {
   const brush = receiverBrush(ctx, undefined), rx = tr.w / 2, ry = Math.max(rx * 0.75, tr.h / 2 - 0.2)
   underShade(brush, tr.x, tr.base, rx, side, 0.9)
-  crown(brush, tr.x, tr.base - ry * 0.95, rx * 1.1, ry, tr.seed, { dark: [mix(t.green, t.deep, 0.5)], body: [t.green], lit: [t.greenLit] }, side, 0.95)
+  crown(brush, tr.x, tr.base - ry * 0.95, rx * 1.1, ry, tr.seed, { dark: [mix(t.green, t.deep, 0.35)], body: [t.green], lit: [t.greenLit] }, side, 0.95)
 }

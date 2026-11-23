@@ -16,7 +16,7 @@ import { crown, underShade } from './foliage'
  */
 
 /** How far the crowns' ink is taken toward its own grey, and its underside toward the dark. */
-const DRY = 0.22
+const DRY = 0.1
 const UNDER: RGB = [0.05, 0.08, 0.06]
 
 const grey = (rgb: RGB) => 0.3 * rgb[0] + 0.55 * rgb[1] + 0.15 * rgb[2]
@@ -44,8 +44,8 @@ export function paintCanopy(ctx: Ctx2D, desc: LayerOf<'canopy'>, env: PaintEnv):
       if (!plantVisible(shown(i))) continue
       const [x, y, r, height, phase, shade] = trees.slice(i * 6, i * 6 + 6), kind = treeMeta[i * 3]
       const { cx, cy, rx, ry } = treeCrownAnchor(x, y, r, height, phase, kind, treeBend(kind, height, shown(i), phase, wind, time))
-      const body = mapInk(tone(i, 0, treeMeta[i * 3 + 1]), (rgb) => mix(rgb, UNDER, 0.06 + 0.2 * shade))
-      const leaf = { dark: mapInk(tone(i, 1, TONE.PINE_UNDER), (rgb) => mix(rgb, UNDER, 0.35)), body, lit: tone(i, 2, TONE.PINE_LIT) }
+      const body = mapInk(tone(i, 0, treeMeta[i * 3 + 1]), (rgb) => mix(rgb, UNDER, 0.12 * shade))
+      const leaf = { dark: mapInk(tone(i, 1, TONE.PINE_UNDER), (rgb) => mix(rgb, UNDER, 0.12)), body, lit: tone(i, 2, TONE.PINE_LIT) }
       crown(brush, cx, cy, rx, ry, Math.round(phase * 1e4) + i, leaf, side, shown(i))
     }
   }
