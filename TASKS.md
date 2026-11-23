@@ -1213,3 +1213,23 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - [x] Perf (CI 45154473864, CPU x4): a frame, memory and the scrub as the real hand; a cold sky 2-20 % dearer (Tel Aviv worst), land about even
 - Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
   pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand
+
+## Two styles of one world — coordination (manager session, started 2026-11-23)
+
+Goal (owner): `real` (default) and `drawn` clearly different, one true world under both, then an in-app vote. Binding brief:
+`two-styles-manager-brief.md` in the sessions' shared notes folder. The manager owns every merge to main (each goes live).
+Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
+
+- [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
+      - [ ] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
+            (facts only), architecture test. `real` and `drawn` byte-identical. Own READY, own merge.
+      - [ ] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`)
+      - [ ] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock)
+      - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
+            neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
+      - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
+            twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
+      - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
+- [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
+- [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+- [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
