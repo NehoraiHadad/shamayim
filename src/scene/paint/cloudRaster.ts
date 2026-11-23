@@ -1,5 +1,5 @@
 import { detailTilePx, drawnAlpha } from './cloudLook'
-import { fractal } from './core'
+import { detailTile, tileAt } from './detailTile'
 import type { PaintEnv } from './hand'
 
 /*
@@ -10,9 +10,6 @@ import type { PaintEnv } from './hand'
 
 /** Raster px per sky px: half resolution, then stretched; the finest detail octave still spans several px. */
 const RASTER = 0.5
-/** Detail tile side, in tile cells; octaves of the fractal noise in it. */
-const TILE = 128, OCTAVES = 4
-const tiles = new Map<number, Float32Array>()
 
 export interface SheetGrid { buf: Float32Array; cols: number; rows: number; spacing: readonly number[] }
 
@@ -50,28 +47,6 @@ function writePixel(out: Uint8ClampedArray, at: number, { buf, cols, rows }: She
   const alpha = texel(3)
   for (let k = 0; k < 3; k++) out[at + k] = byte(alpha > 0 ? texel(k) / alpha : 0)
   out[at + 3] = byte(alpha > 0 ? drawn(alpha) : 0)
-}
-
-/** The seed's periodic fractal detail, TILE × TILE, 0…1 around ½. */
-function detailTile(seed: number): Float32Array {
-  let tile = tiles.get(seed)
-  if (tile) return tile
-  tile = new Float32Array(TILE * TILE)
-  for (let y = 0; y < TILE; y++) {
-    for (let x = 0; x < TILE; x++) tile[y * TILE + x] = fractal(seed, x, y, 4 / TILE, 4 / TILE, OCTAVES, TILE)
-  }
-  if (tiles.size >= 16) tiles.clear()
-  tiles.set(seed, tile)
-  return tile
-}
-
-/** The tile at (u, v) in tile widths, bilinear and wrapped. */
-function tileAt(tile: Float32Array, u: number, v: number): number {
-  const x = (((u * TILE) % TILE) + TILE) % TILE, y = (((v * TILE) % TILE) + TILE) % TILE
-  const x0 = Math.floor(x), y0 = Math.floor(y), x1 = (x0 + 1) % TILE, y1 = (y0 + 1) % TILE
-  const fx = x - x0, fy = y - y0
-  const top = tile[y0 * TILE + x0] + (tile[y0 * TILE + x1] - tile[y0 * TILE + x0]) * fx
-  return top + (tile[y1 * TILE + x0] + (tile[y1 * TILE + x1] - tile[y1 * TILE + x0]) * fx - top) * fy
 }
 
 const byte = (c: number) => Math.round(Math.min(1, Math.max(0, c)) * 255)
