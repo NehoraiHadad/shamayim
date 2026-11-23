@@ -1234,6 +1234,11 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
-- [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
+- [~] 2a. Drawn style end to end (branch `claude/drawn-style-accc0f`, no `src/scene` before the manager's word)
+      - [x] Layer map and plan (`docs/design/DRAWN-STYLE.md`), prototype (`docs/design/prototypes/drawn/`), four concept stills in
+            the notes folder (`drawn/concept/`, crops in `drawn/map/`)
+      - [ ] Concept approved by the owner; `src/scene` open; contract needs (sky base per style) settled with the manager
+      - [ ] Build in `paint/drawn/` (sky, sheets and cells, ground, town, water and canopy, rain, mist and dust), perf plan of §6
+      - [ ] CI still set, perf, review, owner's approval, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
