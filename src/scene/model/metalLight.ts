@@ -1,10 +1,10 @@
 import { lambert, type Normal } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
-import { drawnLightOf } from '../../world/drawnLight'
+import { halfDepthLightOf } from '../../world/halfDepthLight'
 import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { buildingSurroundings } from './buildingLight'
-import { drawnTonesAt, type DrawnTones } from './drawnTones'
+import { illustratedTonesAt, type IllustratedTones } from './illustratedTones'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
 import { aerialFor, hazeAt } from './landVeil'
@@ -34,17 +34,17 @@ export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
 const DOME_X = [-1, -2/3, -1/3, 0, 1/3, 2/3, 1]
 const DOME_UP = [.05, .35, .65, .94]
 
-export type FloodlitDome = Pick<DrawnTones, 'gold' | 'rim' | 'shade' | 'refl'>
+export type FloodlitDome = Pick<IllustratedTones, 'gold' | 'rim' | 'shade' | 'refl'>
 export interface DomeFloodlight { strength: number; tones: FloodlitDome }
 
 /** Bring the floodlights up through twilight, independent of the moonlit metal. */
 export function floodlitDome(world: WorldState, km: number, convert: (rgb: RGB) => RGB): DomeFloodlight | undefined {
   const strength = smoothstep(-6, -24, world.bodies.sun.altitude)
   if (!strength) return
-  const lampWorld = { ...world, light: drawnLightOf(world.light) }
-  const legacy = drawnTonesAt(lampWorld, km)
+  const lampWorld = { ...world, light: halfDepthLightOf(world.light) }
+  const legacy = illustratedTonesAt(lampWorld, km)
   const fog = world.air.mist?.fog ?? 0
-  const local = fog ? drawnTonesAt(lampWorld, 0) : legacy
+  const local = fog ? illustratedTonesAt(lampWorld, 0) : legacy
   const aerial = aerialFor(world)
   const tone = (key: keyof FloodlitDome) => convert(fog ? mixLight(legacy[key], aerial(local[key], km), fog) : legacy[key])
   return { strength, tones: { gold: tone('gold'), rim: tone('rim'), shade: tone('shade'), refl: tone('refl') } }

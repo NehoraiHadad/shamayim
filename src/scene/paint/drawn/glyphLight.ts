@@ -1,9 +1,9 @@
 import type { RGB } from '../../../world/types'
-import type { DrawnTones } from '../../model/drawnTones'
+import type { IllustratedTones } from '../../model/illustratedTones'
 import { css, mix, type Ctx2D } from '../hand'
 
 /** Keep the union of the two falloffs' stops fixed and reverse the samples for right light. */
-export function roundGradient(c: Ctx2D, t: Pick<DrawnTones, 'shade' | 'rim' | 'refl'>, l: number,
+export function roundGradient(c: Ctx2D, t: Pick<IllustratedTones, 'shade' | 'rim' | 'refl'>, l: number,
   x0: number, x1: number, term: number, wall: RGB, lit: RGB) {
   const g = c.createLinearGradient(x0, 0, x1, 0)
   // Even (the sky's light from above: a little light down the middle, both edges turning away) blended into the side

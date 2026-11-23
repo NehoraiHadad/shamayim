@@ -1,7 +1,7 @@
-import { drawnLightOf } from '../../../../world/drawnLight'
+import { halfDepthLightOf } from '../../../../world/halfDepthLight'
 import { partKey } from '../../../../world/keys'
 import { isFamousNonOwn } from '../../../../world/neighbourIdentity'
-import { drawnTonesAt, type DrawnTones } from '../../../model/drawnTones'
+import { illustratedTonesAt, type IllustratedTones } from '../../../model/illustratedTones'
 import { landmarkContrast, refreshLandmarkItems } from '../../../model/landmarkAtmosphere'
 import { shineOf } from '../../../model/marks'
 import type { OutsideFacts, OutsideLook } from '../../../model/styleLight'
@@ -18,11 +18,11 @@ export const skyFormIn = (desc: LayerOf<'outside'>) => (desc as LayerOf<'outside
 
 /** The town in the illustrated palette, with the sky's form over it. */
 export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): OutsideLook {
-  const litWorld = { ...world, light: drawnLightOf(world.light) }
-  const palettes = new Map<number, DrawnTones>()
-  const at = (km: number): DrawnTones => {
+  const litWorld = { ...world, light: halfDepthLightOf(world.light) }
+  const palettes = new Map<number, IllustratedTones>()
+  const at = (km: number): IllustratedTones => {
     let tones = palettes.get(km)
-    if (!tones) palettes.set(km, tones = drawnTonesAt(litWorld, km))
+    if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km))
     return tones
   }
   const tiers = shape.kms.map(at)
@@ -30,7 +30,7 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
     if (!isFamousNonOwn(glyph)) return { ...glyph, tones: at(km) }
     const distance = glyph.trueDistanceKm!, contrast = landmarkContrast(litWorld, distance)
     const tones = { ...at(distance) }, land = drawnGroundToneAt(litWorld, distance)
-    for (const key of Object.keys(tones) as (keyof DrawnTones)[]) {
+    for (const key of Object.keys(tones) as (keyof IllustratedTones)[]) {
       if (key !== 'mist') tones[key] = mixRgb(land, tones[key], key === 'win' ? Math.cbrt(contrast) : contrast)
     }
     return { ...glyph, tones, contrast }

@@ -1,12 +1,13 @@
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
-import { drawnAerialFor as aerialFor, drawnHazeOf as hazeOf } from './drawnHaze'
+import { illustratedAerialFor as aerialFor, illustratedHazeOf as hazeOf } from './illustratedHaze'
 import { directK } from './marks'
 import { mixRgb, rgbOf } from './tone'
 import type { Tones } from './types'
 
-export interface DrawnTones extends Tones { refl: RGB; gold: RGB }
+/** The illustrated palette: the tones of what is built or grown, with a body's reflected edge and the gilding. */
+export interface IllustratedTones extends Tones { refl: RGB; gold: RGB }
 
 /** Plaster, limestone and concrete; red clay tile; olive and pine foliage; a solar panel's blue; the Báb's gilding. */
 const STONE: RGB = [0.87, 0.84, 0.78]
@@ -51,7 +52,7 @@ function wallShade(world: WorldState): number {
  * (none under overcast or with no side: then a soft sky light from above); faces away sink toward a sky-lit dark. Every
  * tone but the lamps is then carried toward the air by the land's aerial rule at that distance.
  */
-export function drawnTonesAt(world: WorldState, km: number): DrawnTones {
+export function illustratedTonesAt(world: WorldState, km: number): IllustratedTones {
   const { light, night } = world
   const ridge = rgbOf(light.palette.ridgeNear)
   const sky = hazeOf(world)
@@ -77,7 +78,7 @@ export function drawnTonesAt(world: WorldState, km: number): DrawnTones {
   const rim = mixRgb(rimSky, rimSun, smoothstep(0, 0.35, sunK))
   const roof = mixRgb(ridge, TILE, 0.5 * day + 0.16 * dark)
   const green = mixRgb(ridge, LEAF, 0.5 * day + 0.18 * dark)
-  const own: DrawnTones = {
+  const own: IllustratedTones = {
     wall, lit, shade, rim,
     deep: mixRgb(ridge, BLACK, 0.45),
     refl: mixRgb(shade, sky, 0.28),
@@ -90,7 +91,7 @@ export function drawnTonesAt(world: WorldState, km: number): DrawnTones {
     win: LAMP, mist: sky,
   }
   const aerial = aerialFor(world, sky)
-  const out = {} as Record<keyof DrawnTones, RGB>
-  for (const name of Object.keys(own) as (keyof DrawnTones)[]) out[name] = name === 'win' || name === 'mist' ? own[name] : aerial(own[name], km)
-  return out as DrawnTones
+  const out = {} as Record<keyof IllustratedTones, RGB>
+  for (const name of Object.keys(own) as (keyof IllustratedTones)[]) out[name] = name === 'win' || name === 'mist' ? own[name] : aerial(own[name], km)
+  return out as IllustratedTones
 }

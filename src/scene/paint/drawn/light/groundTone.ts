@@ -1,5 +1,5 @@
 import type { WorldState, RGB } from '../../../../world/types'
-import { drawnHazeOf } from '../../../model/drawnHaze'
+import { illustratedHazeOf } from '../../../model/illustratedHaze'
 import { COVER_WATER, nonWaterLocalFallback, roundRgb } from '../../../model/landPalette'
 import { illustratedHazeAt as hazeAt } from '../../../model/landVeil'
 import { labOf, lightness, rgbOf, rgbOfLab } from '../../../model/tone'
@@ -61,5 +61,5 @@ export function drawnGroundToneAt(world: WorldState, km: number): RGB {
     tone = tones[Math.floor(tones.length / 2)]
     ownCache.set(world.land, tone)
   }
-  return applyVeil(tone, veilOfHaze(world, drawnHazeOf(world))(hazeAt(world, km)))
+  return applyVeil(tone, veilOfHaze(world, illustratedHazeOf(world))(hazeAt(world, km)))
 }
