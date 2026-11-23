@@ -7,7 +7,7 @@ export interface WearEnd { x: number; y: number; w: number; rgb: RGB; side: -1 |
 export interface WearBead { x: number; y: number; r: number }
 
 /**
- * A garment or a piece of gear on the line (`wear.ts`), drawn in its own frame (`model/wearKit.ts`: (0, 0) where the rope
+ * A garment or a piece of gear on the line (`model/wear.ts`), drawn in its own frame (`model/wearKit.ts`: (0, 0) where the rope
  * passes, y down) placed at `x`, `y` (surface px), turned `tilt` rad to the rope's chord between its pegs and scaled
  * `scale` (surface px per garment unit). Tones after the light, the night, the rain and the dust; `side` the screen
  * side the light comes from (−1 left, 1 right, 0 none) and `shine` how strongly.
@@ -23,7 +23,7 @@ export interface WearItem {
   pegTilts: number[]
   side: -1 | 0 | 1
   shine: number
-  /** The living light (`wear.ts` `wearLight`): the side light's signed strength, the light on the front, through the back, from above. */
+  /** The living light (`model/wear.ts` `wearLight`): the side light's signed strength, the light on the front, through the back, from above. */
   across: number
   front: number
   back: number
@@ -41,8 +41,8 @@ export interface WearItem {
 
 export type WearLayers =
   /**
-   * The "מה ללבוש" clothesline (`wear.ts`), on its own surface in the card: the rope (or the stretch of it in front of a
-   * hook's far arm, `part: 'bit'`), each garment as a sprite, and the drops that fall from wet cloth.
+   * The "מה ללבוש" clothesline (`model/wear.ts`, painted by `paint/shared/wear/`), on its own surface in the card: the
+   * rope (or the stretch of it in front of a hook's far arm, `part: 'bit'`), each garment as a sprite, and the drops that fall from wet cloth.
    */
   | LayerBase & { kind: 'wearRope'; part: 'line' | 'bit'; points: Pt[]; width: number; rgb: RGB; lay: RGB; ends: WearEnd[]
       beads: WearBead[]; snow: number; seed: number }

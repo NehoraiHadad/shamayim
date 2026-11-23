@@ -60,7 +60,7 @@ export interface AnimSpec {
    */
   flight?: Track
   /**
-   * The clothesline (`wear.ts`): the layer's sprite laid through an affine about `pivot` that follows one cycle of gusts
+   * The clothesline (`model/wear.ts`): the layer's sprite laid through an affine about `pivot` that follows one cycle of gusts
    * (`anim.ts` `swayAt`): lifted with the line, sheared at the hem (pegged cloth), turned about its hook (hooked things),
    * the rope's sag eased. Applied after `flight` (a drip falls in the frame of what it drips from).
    */

@@ -5,21 +5,31 @@ import { fractal } from './core'
 /** Detail tile side, in tile cells; octaves of the fractal noise in it (the sheets' full grain). */
 export const TILE = 128
 const OCTAVES = 4
-/** Every tile made, by its seed and kind. */
-export const tiles = new Map<string, Float32Array>()
+/** Tiles kept before the cache is emptied. */
+const KEPT = 16
+const tiles = new Map<string, Float32Array>()
+
+/**
+ * The tile a key names (its seed and kind), made once and kept by every caller together. A full cache is emptied as a tile
+ * of noise comes in; `capped` false adds past the cap.
+ */
+export function keptTile(key: string, fill: (tile: Float32Array) => void, capped = true): Float32Array {
+  const kept = tiles.get(key)
+  if (kept) return kept
+  const tile = new Float32Array(TILE * TILE)
+  fill(tile)
+  if (capped && tiles.size >= KEPT) tiles.clear()
+  tiles.set(key, tile)
+  return tile
+}
 
 /** The seed's periodic fractal detail, TILE × TILE, 0…1 around ½. */
 export function detailTile(seed: number, octaves = OCTAVES): Float32Array {
-  const key = `${seed}:${octaves}`
-  let tile = tiles.get(key)
-  if (tile) return tile
-  tile = new Float32Array(TILE * TILE)
-  for (let y = 0; y < TILE; y++) {
-    for (let x = 0; x < TILE; x++) tile[y * TILE + x] = fractal(seed, x, y, 4 / TILE, 4 / TILE, octaves, TILE)
-  }
-  if (tiles.size >= 16) tiles.clear()
-  tiles.set(key, tile)
-  return tile
+  return keptTile(`${seed}:${octaves}`, (tile) => {
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) tile[y * TILE + x] = fractal(seed, x, y, 4 / TILE, 4 / TILE, octaves, TILE)
+    }
+  })
 }
 
 /** The tile at (u, v) in tile widths, bilinear and wrapped. */

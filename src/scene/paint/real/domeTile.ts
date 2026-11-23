@@ -1,20 +1,16 @@
 import { rng } from '../shared/base/core'
-import { TILE, tiles } from '../shared/base/detailTile'
+import { keptTile, TILE } from '../shared/base/detailTile'
 
 /** Domes per tile side: a cauliflower's heads, and the smaller ones on them; how much the smaller ones weigh. */
 const DOMES = 7, SMALL_DOMES = 17, SMALL = 0.45
 
 /** The seed's periodic field of domes, TILE × TILE, about 0: rounded heads that meet in sharp creases (cauliflower). */
 export function domeTile(seed: number): Float32Array {
-  const key = `${seed}:domes`
-  let tile = tiles.get(key)
-  if (tile) return tile
-  tile = new Float32Array(TILE * TILE)
-  for (const [per, weight] of [[DOMES, 1], [SMALL_DOMES, SMALL]] as const) addDomes(tile, rng(seed + per), per, weight)
-  const mean = tile.reduce((s, v) => s + v, 0) / tile.length
-  for (let n = 0; n < tile.length; n++) tile[n] -= mean
-  tiles.set(key, tile)
-  return tile
+  return keptTile(`${seed}:domes`, (tile) => {
+    for (const [per, weight] of [[DOMES, 1], [SMALL_DOMES, SMALL]] as const) addDomes(tile, rng(seed + per), per, weight)
+    const mean = tile.reduce((s, v) => s + v, 0) / tile.length
+    for (let n = 0; n < tile.length; n++) tile[n] -= mean
+  }, false)
 }
 
 function addDomes(tile: Float32Array, random: () => number, per: number, weight: number) {

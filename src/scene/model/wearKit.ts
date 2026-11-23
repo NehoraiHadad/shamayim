@@ -35,6 +35,4 @@ export const HANGING = {
   water: { cloth: '#7FD3EE', weight: 1.3, pegs: [], hook: true, drips: [[0, 32.4]], over: [-4.2, -1.8], box: [-7.5, -3, 7.5, 33.5] },
 } satisfies Record<string, Hanging>
 
-export type WearGarment = keyof typeof HANGING
-
 export const hangingOf = (garment: string): Hanging | null => (HANGING as Record<string, Hanging>)[garment] ?? null

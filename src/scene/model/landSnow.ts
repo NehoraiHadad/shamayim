@@ -1,12 +1,10 @@
 //# allFunctionsCalledOnLoad
 import { hashId } from '../../data/landmarks/hash'
-import { smoothstep } from '../../world/ridgeLighting'
 import { SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { fractal } from '../paint/shared/base/core'
 import { albedoLinear, linearRgbToSrgb, SNOW_ALBEDO_LIN } from './landRadiance'
-import { mixRgb, rgbOf } from './tone'
 import type { Pt, SceneBox } from './types'
 
 /**
@@ -15,13 +13,6 @@ import type { Pt, SceneBox } from './types'
  */
 
 type PlaneName = 'back' | 'far' | 'near'
-
-/** The light's colour on the land: the sun's (after air mass) through the sky's horizon, warmer toward a low sun. */
-export function lightTintOf(world: WorldState): RGB {
-  const { light } = world
-  const warm = 1 - smoothstep(4, 18, light.altitude)
-  return mixRgb(mixRgb(rgbOf(light.palette.horizon), light.colour, 0.55), rgbOf(light.palette.accent), warm * 0.4 * smoothstep(0, 0.1, light.shares.sun))
-}
 
 /** Ragged snow-line edge (`[x, y]` in box px) and cover fraction (`0..1`) for reflectance-space terrain snow. */
 export function snowMaskOf(world: WorldState, box: SceneBox, name: PlaneName): { edge: Pt[]; cover: number } | null {

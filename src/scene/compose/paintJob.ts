@@ -23,7 +23,7 @@ export function formKeyOf(desc: LayerDesc, dpr: number, style = DEFAULT_STYLE): 
 }
 
 /** A strip's frames are part of what its canvas holds (C7). */
-export const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
+const stripKey = (desc: LayerDesc) => (desc.animated?.frames ? `#${desc.animated.frames.count}/${desc.animated.frames.fps}` : '')
 
 export const beamKeyOf = (desc: LayerDesc) => desc.light ? desc.light.key + stripKey(desc) : null
 
