@@ -8,7 +8,7 @@ const HOUR = 3600_000
 
 function memoryKv(): KV & { data: Map<string, string> } {
   const data = new Map<string, string>()
-  return { data, get: async (k) => data.get(k) ?? null, put: async (k, v) => { data.set(k, v) } }
+  return { data, get: async (k) => data.get(k) ?? null, put: async (k, v) => { data.set(k, String(v)) } }
 }
 
 describe('IMS readings', () => {

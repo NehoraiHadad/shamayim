@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { parseCities, parseInca, writeForecastLog } from '../src/forecastLog'
+import { LOG_TTL_SECONDS, parseCities, parseInca, writeForecastLog } from '../src/forecastLog'
+
+async function gunzip(data: ArrayBuffer): Promise<string> {
+  return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
+}
 
 const CITIES = `<?xml version="1.0" encoding="utf-8"?><LocationForecasts><Identification><IssueDateTime>Mon Nov 23 05:08:23 IST 2026</IssueDateTime></Identification>
 <Location><LocationMetaData><LocationId>2</LocationId><LocationNameEng>Tel Aviv Coast</LocationNameEng><DisplayLat>32.0821</DisplayLat><DisplayLon>34.7802</DisplayLon></LocationMetaData>
@@ -20,8 +24,11 @@ describe('forecast log', () => {
   })
 
   it('stores IMS and Open-Meteo at the same points, recording a failed part instead of dropping the entry', async () => {
-    const data = new Map<string, string>()
-    const kv = { get: async (k: string) => data.get(k) ?? null, put: async (k: string, v: string) => { data.set(k, v) } }
+    const data = new Map<string, ArrayBuffer>()
+    const ttl = new Map<string, number | undefined>()
+    const kv = { get: async () => null, put: async (k: string, v: string | ArrayBuffer, o?: { expirationTtl?: number }) => {
+      data.set(k, v as ArrayBuffer); ttl.set(k, o?.expirationTtl)
+    } }
     const fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('isr_cities_1week_6hr_forecast.xml')) return new Response(CITIES)
@@ -30,7 +37,8 @@ describe('forecast log', () => {
     })
     const key = await writeForecastLog({ kv, fetch: fetch as unknown as typeof globalThis.fetch, now: () => Date.UTC(2026, 10, 23, 6, 40) })
     expect(key).toBe('log:2026-11-23T06')
-    const entry = JSON.parse(data.get(key)!)
+    expect(ttl.get(key)).toBe(LOG_TTL_SECONDS)
+    const entry = JSON.parse(await gunzip(data.get(key)!))
     expect(entry.cities.points).toHaveLength(1)
     expect(entry.openMeteo.c2).toMatchObject({ time0: '2026-11-23T00:00', temperature_2m_icon_seamless: [15] })
     expect(entry.errors[0]).toContain('IMS_001.xml')

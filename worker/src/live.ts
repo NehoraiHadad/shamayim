@@ -24,7 +24,7 @@ const MIN_WEIGHT = 0.05
 
 export interface KV {
   get(key: string): Promise<string | null>
-  put(key: string, value: string): Promise<void>
+  put(key: string, value: string | ArrayBuffer, options?: { expirationTtl?: number }): Promise<void>
 }
 
 export interface LiveDeps {

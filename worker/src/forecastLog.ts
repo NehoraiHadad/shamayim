@@ -7,12 +7,16 @@
  *    way to learn whether they beat the corrected Open-Meteo blend and deserve a place in it.
  *  - Open-Meteo at the same points: both models' hourly temperature, rain, rain probability, humidity, wind and gusts,
  *    3 days. The rain probability is the number the app shows; logging it is how its calibration can be checked.
- * Stored in Workers KV under `log:<UTC issue hour>` (a few hundred kB each, four writes a day).
+ * Stored in Workers KV under `log:<UTC issue hour>`, gzipped JSON, kept 13 months (a full year of seasons plus time to
+ * copy it out with research/verification/fetch_forecast_log.sh).
  */
 import type { KV } from './live'
 
 const XML = 'https://ims.gov.il/sites/default/files/ims_data/xml_files'
 const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast'
+/** How long KV keeps each entry: a full year of seasons, plus a month to copy the log out. */
+export const LOG_TTL_SECONDS = 395 * 24 * 3600
+
 const OM_HOURLY = ['temperature_2m', 'precipitation', 'precipitation_probability', 'relative_humidity_2m',
   'wind_speed_10m', 'wind_gusts_10m']
 
@@ -50,6 +54,11 @@ export function parseInca(xml: string): { issued: string; points: (LogPoint & { 
     ]),
   })).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon) && p.steps.length)
   return { issued, points }
+}
+
+export async function gzip(text: string): Promise<ArrayBuffer> {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))
+  return new Response(stream).arrayBuffer()
 }
 
 async function getText(f: typeof fetch, url: string, encoding = 'utf-8'): Promise<string> {
@@ -104,6 +113,6 @@ export async function writeForecastLog(deps: { kv: KV; fetch: typeof fetch; now:
       entry.openMeteo = Object.fromEntries(points.map((p, i) => [p.id, om[i]]))
     } catch (err) { errors.push(String(err)) }
   }
-  await deps.kv.put(key, JSON.stringify(entry))
+  await deps.kv.put(key, await gzip(JSON.stringify(entry)), { expirationTtl: LOG_TTL_SECONDS })
   return key
 }

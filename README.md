@@ -86,7 +86,8 @@ KV namespace, the IMS's own forecasts (175 cities, 6-hourly for 8 days with the 
 model hourly for 72 h at 10 stations; public XML, no archive exists) and Open-Meteo's two models at the same points,
 including the rain probability the app shows. Nothing in production reads it: after a few weeks,
 `research/verification/fetch_forecast_log.sh` copies it out to check whether the IMS forecasts beat the corrected blend
-(and deserve a place in it) and whether the rain probability is calibrated. About 0.9 MB per entry, 4 a day.
+(and deserve a place in it) and whether the rain probability is calibrated. Entries are gzipped (~160 kB, 4 a day) and
+expire after 13 months: a full year of seasons is about 250 MB of the free plan's 1 GB.
 
 **Order when the app asks Open-Meteo for something new** (a new hourly/current variable, a new parameter): the Worker
 refuses any name it does not list, so a production app that sends it before the Worker knows it gets 400 for every
