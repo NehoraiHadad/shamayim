@@ -19,7 +19,6 @@ import type { NightSky } from './nightSky'
 import type { Optics } from './optics'
 import type { PlaceEnv } from './placeEnv'
 import type { TownLights } from './townLights'
-import type { Glaciation } from './glaciation'
 import type { SnowFall } from './snowLine'
 import type { Air, Body, CloudLayer, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
@@ -107,8 +106,6 @@ export interface WorldState {
   /** low, mid, high (in that order). */
   clouds: CloudLayer[]
   cloudField?: import('./cloudField').WorldCloudField
-  /** Where a storm's top turns to ice at the shown hour; null without the forecast's freezing level. */
-  glaciation: Glaciation | null
   rain: Rain | null
   snow: SnowFall | null
   /** Snow falling now from the clouds (C7), or null. */
