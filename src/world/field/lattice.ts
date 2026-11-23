@@ -5,7 +5,8 @@ import type { Lattice } from './types'
 /** Lattice pitch, radius distribution and clump wavelengths in km. */
 export const LATTICES = {
   low: { pitch: 1.5, median: 0.30, sigma: 0.45, wavelength: 12, amplitude: 0.35, period: [20, 40] },
-  tower: { pitch: 8, median: 1.2, sigma: 0.4, wavelength: 12, amplitude: 0.35, period: [30, 60] },
+  // Convective cells: cores some 15–25 km apart, a mature tower 5–8 km across (winter storms over the Levant).
+  tower: { pitch: 18, median: 2.5, sigma: 0.4, wavelength: 40, amplitude: 0.35, period: [30, 60] },
   mid: { pitch: 6, median: 2.2, sigma: 0.4, wavelength: 40, amplitude: 0.5, period: [60, 180] },
   high: { pitch: 25, median: 15, sigma: 0.4, wavelength: 150, amplitude: 0.5, period: [90, 240] },
 } as const
@@ -79,6 +80,13 @@ export function clumpSampler(placeId: string, lattice: Lattice) {
 export function maxRadius(lattice: Lattice): number {
   const { median, sigma } = LATTICES[lattice]
   return lattice === 'low' ? 0.60 : median * Math.exp(sigma * 2.326347874)
+}
+
+// E[clamp(radius)] for the site distributions above, in kilometres.
+const meanSiteRadius = { low: 0.323631, tower: 1.295237, mid: 2.374601, high: 16.190461 }
+
+export function meanRadius(lattice: Lattice, radiusMultiplier: number) {
+  return meanSiteRadius[lattice] * radiusMultiplier
 }
 
 /** Read packed site attributes without allocating on cache hits. */

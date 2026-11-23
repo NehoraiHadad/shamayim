@@ -10,6 +10,7 @@ import { hits } from '../../world/sceneClearance'
 import { facetShare } from '../../world/water'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
+import { glyphAtmosphereKey, refreshLandmarkItems } from './landmarkAtmosphere'
 import { facesKey, shineOf, SWAY_FRAMES, tonesAt } from './marks'
 import { landBehind } from './landBehind'
 import { massAt, type DrawnMass } from './markOcclusion'
@@ -260,12 +261,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const shape = shapeOf(world, box, clear)
   // The hour's tones per tier, and the marks' glyphs in them (the rest of the shapes kept as they are).
   const tones = shape.kms.map((km) => tonesAt(world, km))
-  const out = [...shape.items]
-  const near = shape.marks
-  for (const { at, km } of near) {
-    const item = out[at] as Extract<OutsideItem, { kind: 'mark' }>
-    out[at] = { kind: 'mark', glyph: { ...item.glyph, tones: tonesAt(world, km) } }
-  }
+  const out = refreshLandmarkItems(world, shape.items, shape.marks)
   const sea = seaOf(world, box, sx, clear)
   const view = world.place3
   // The place's own ground where it rises over the ridge line: the near land's tone at its distance, its crest lit by
@@ -294,7 +290,9 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
     items: out, tiers: tones, sea, shine, land: landDesc, form,
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
-    light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), near.map((m) => Math.round(m.km / KM_STEP)), Math.round(world.light.across * 64),
+    light: { key: layerKey('outside:light', formKey, tones.map(tonesKey),
+      shape.marks.map(m => Math.round(m.km / KM_STEP)),
+      glyphAtmosphereKey(out.flatMap(i => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
       sea && Math.round((sea.drift ?? 0) * 4), skyKey),

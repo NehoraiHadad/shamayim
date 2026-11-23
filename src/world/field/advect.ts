@@ -6,6 +6,8 @@ type Vector = [number, number]
 type WindHour = Pick<HourPoint, 'time' | 'windSpeed' | 'windDirection' | 'windAloft'>
 const heightsKm = [0.01, 1.46, 3.01, 9.16]
 const levels = ['low', 'mid', 'high'] as const
+// Integer nanokilometres make prefix subtraction independent of the forecast's start.
+const ticksPerKm = 1e9
 
 /** Local wall time treated as UTC, continuous except across a DST change. */
 export function wallMinutes(at: LocalTime): number {
@@ -71,8 +73,6 @@ export function steeringTimeline<T extends WindHour, K extends string>(hours: re
   heightsAt: (hour: T) => Record<K, number>, elevationKm: number) {
   const samples: Sample[] = []
   const zero: Vector = [0, 0]
-  let midnight: Sample | undefined
-  let date = '1970-01-01'
   let derived = !hours.length
   for (const hour of hours) {
     let windSample = windSamples.get(hour)
@@ -93,40 +93,42 @@ export function steeringTimeline<T extends WindHour, K extends string>(hours: re
       const wind = atHeight(values, heights[keys[i]], elevationKm)
       winds.push(wind)
       cumulative.push(previous ? [
-        previous.cumulative[i][0] + (previous.winds[i][0] + wind[0]) * halfElapsed,
-        previous.cumulative[i][1] + (previous.winds[i][1] + wind[1]) * halfElapsed,
+        previous.cumulative[i][0] + Math.round((previous.winds[i][0] + wind[0]) * halfElapsed * ticksPerKm),
+        previous.cumulative[i][1] + Math.round((previous.winds[i][1] + wind[1]) * halfElapsed * ticksPerKm),
       ] : zero)
     }
     const sample = { minute, winds, cumulative }
-    if (!previous) date = hour.time.slice(0, 10)
-    if (!midnight && minute % 1440 === 0) {
-      midnight = sample
-      date = hour.time.slice(0, 10)
-    }
     samples.push(sample)
   }
+  const cumulativeAt = (index: number, minute: number) => {
+    if (!samples.length) return { base: zero, local: zero, vel: zero }
+    let lo = 0
+    let hi = samples.length - 1
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >>> 1
+      if (samples[mid].minute <= minute) lo = mid
+      else hi = mid
+    }
+    const a = minute >= samples[hi].minute ? samples[hi] : samples[lo]
+    const b = minute <= a.minute ? a : samples[hi]
+    const elapsed = minute - a.minute
+    const start = a.winds[index]
+    const vel: Vector = a === b ? [start[0], start[1]] : mix(start, b.winds[index], elapsed / (b.minute - a.minute))
+    const local: Vector = [elapsed * (start[0] + vel[0]) / 2, elapsed * (start[1] + vel[1]) / 2]
+    return { base: a.cumulative[index], local, vel }
+  }
   return {
-    date, derived,
-    at(index: number, minute: number, offset: Vector) {
-      if (!samples.length) return { d: [...offset] as Vector, vel: [0, 0] as Vector }
-      let lo = 0
-      let hi = samples.length - 1
-      while (hi - lo > 1) {
-        const mid = (lo + hi) >>> 1
-        if (samples[mid].minute <= minute) lo = mid
-        else hi = mid
-      }
-      const a = minute >= samples[hi].minute ? samples[hi] : samples[lo]
-      const b = minute <= a.minute ? a : samples[hi]
-      const elapsed = minute - a.minute
-      const start = a.winds[index]
-      const vel: Vector = a === b ? [start[0], start[1]] : mix(start, b.winds[index], elapsed / (b.minute - a.minute))
-      const origin = midnight?.cumulative[index] ?? zero
+    derived,
+    at(index: number, minute: number, offset: Vector, midnight: number) {
+      const current = cumulativeAt(index, minute)
+      // Missing midnight falls back to the first forecast sample.
+      const origin = midnight >= samples[0]?.minute && midnight <= samples[samples.length - 1]?.minute
+        ? cumulativeAt(index, midnight) : { base: zero, local: zero }
       const d: Vector = [
-        offset[0] + a.cumulative[index][0] - origin[0] + elapsed * (start[0] + vel[0]) / 2,
-        offset[1] + a.cumulative[index][1] - origin[1] + elapsed * (start[1] + vel[1]) / 2,
+        offset[0] + ((current.base[0] - origin.base[0]) / ticksPerKm + current.local[0] - origin.local[0]),
+        offset[1] + ((current.base[1] - origin.base[1]) / ticksPerKm + current.local[1] - origin.local[1]),
       ]
-      return { d, vel }
+      return { d, vel: current.vel }
     },
   }
 }

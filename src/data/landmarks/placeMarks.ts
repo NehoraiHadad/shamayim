@@ -4,7 +4,7 @@ import { markAppearance } from './markAppearance'
 import { isPlaceHomes, legacyHomeHalf } from './homeMarks'
 export { markAppearance } from './markAppearance'
 export { placeHomes, withPlaceHomes, isPlaceHomes, settlementSize } from './homeMarks'
-import { perspectiveFields } from './perspectiveFields'
+import { perspectiveFields, perspectiveWidth } from './perspectiveFields'
 import type { Place } from '../../config/place'
 import type { NoteBox } from '../terrain/sceneNotes'
 import { viableNeighbourHeight, neighbourRule } from '../../world/neighbourPolicy'
@@ -13,7 +13,7 @@ import type { SceneTerrain } from '../terrain/terrain'
 import { isFamousLandmark, isLandmark } from './fame'
 import { elevationAt, projectMark, type Portrait } from './markProjection'
 import { PORTRAIT_MARGIN_KM } from './portrait'
-import { groundY, markHeight, markWidth } from './project'
+import { groundY, markHeight } from './project'
 import { avoid, score, select, spread, type Candidate, type FarRule } from './rank'
 import type { Landmark, MarkPerspective, PlacedMark } from './types'
 
@@ -65,7 +65,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     candidates.push({
       mark, dx: offset.dx, dy: offset.dy, ...projected,
       ...angular,
-      width: markWidth(mark.kind, mark.glyph, h) * scale,
+      width: perspectiveWidth(mark, h, Boolean(famousNeighbour)) * scale,
       score: mark.kind === 'homes' && mark.source === 'place' ? Number.MAX_SAFE_INTEGER : score(mark, offset.dx, offset.dy, band),
     })
   }

@@ -11,11 +11,13 @@ landmarks and non-own worship).
 - [x] Non-own mosques/minarets are never drawn, even when famous. Other non-own worship is drawn only when the
       source is curated or a named `fame === 2` landmark (Wikipedia). Fame-1 sources use the ordinary
       rule. Own portraits retain their rules.
-- [x] Famous non-own landmarks draw at `max(trueHeight, 4)` CSS px, without an exaggeration cap; the glyph records
-      its factor. Ordinary non-own marks keep the round-5 4 px floor and 2× cap. One `(kind, famous)` policy drives
+- [x] Famous non-own landmarks draw at `clamp(trueHeight, 6, 16)` CSS px, including shrinking true heights above
+      16 px; the glyph records its factor and width scales equally. Ordinary non-own marks keep the 4 px floor and
+      2× cap. One `(kind, famous)` policy drives
       both receiving layers and pre-selection; famous candidates need positive true visible height only.
 - [x] Keep ≥6 CSS px from the final home roofline, with at most 12 CSS px sliding away from home. Use true-distance
-      haze, no lighter than home. Town members require their own painted mass and ≥1 CSS px on each side, unless an
+      haze and far-city material contrast at the true receiving-eye distance, never clearer than home. Town members
+      require their own painted mass and ≥1 CSS px on each side, unless an
       unseated famous landmark has a physically proven ridge base: terrain hides its foot, but its true top projects above
       that drawn ridge at its bearing. Buildings/home roofs never supply that exception or cover the kept icon.
 - [x] Round 6: unit guards and mutation checks; independent final-glyph assertions across the fixed 117 places and
@@ -29,6 +31,10 @@ landmarks and non-own worship).
       drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
 - [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
       then review these rules against that terrain. The current still is explicitly flat 100 m.
+- [x] Landmark-size decision: shared 6–16 CSS px policy, land aerial perspective plus far-city contrast and lamp
+      transmission; owned portraits unchanged. Verified at 375/1280 and DPR 1/2, with mutation guards and a refreshed
+      full audit. Histograms: `REPORT.md`, Landmark size. Stills: `stills/landmark-size/README.md` (Dafna, Karmei Tzur,
+      and recorded Ramat Gan).
 
 ## v1 — one screen (current temp, Hebrew sentence, 7 days) — DONE 2026-11-17
 - [x] Planning with Codex (Sol) + Fable, merged into docs/PLAN.md
@@ -930,9 +936,12 @@ Briefs and reports: `docs/briefs/track-g-flicker.md`, `track-g-live.md`, `track-
 Merged to main (all CI green): A glyphs (757b768), C life motion (cc9664f), E UI (3366b1e), B mark heights (3ae092d),
 F mist (7c50d4f), C birds travel (c5b1af8), D N2 cloud field (8ac7bd2), G no flip/flicker + live = scrub at now (7ae0286),
 G round 5 explicit live mode (0818fd1), hotfix sky behind <body> (0b21d13, d9bbfce), B worship ownership (31e76d6).
-Open: Track D N4 soft cloud look (`claude/cloud-soft-look-413b7e`).
+Track D N4 merged: b23df02 (0f05815), d0d3c290 (9dd0061d), b82e7609 (bb09b17d), 27987a4a (f6642e8b),
+4b173ac9 (ad712e9a), cf78b8df + B landmark size (3038caab), dad9157a (7f5f57f4), bb899e21 (4f606c2d), 454374cd (0a93adf3).
+B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing_level_height (version 448728a6, 22 Nov).
 
-- [ ] Owner call: ceiling on famous-landmark enlargement (track B: no cap; 84 icons at 20-100x, max 400x). One constant.
+- [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
+      contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
 - [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
 - [ ] Track G LOW 1: a scrub can land `selected` exactly on now (useSceneTime.ts, SceneScrubber.tsx, useStripScrub.ts),
       a preview with no sightings or thunder until the 6 s hold rewinds. Snap a scrub that ends on now to live (null)?
@@ -940,8 +949,25 @@ Open: Track D N4 soft cloud look (`claude/cloud-soft-look-413b7e`).
       drift while held (observedCloud.ts) and rollForward at the hour (App.tsx).
 - [ ] CI gap: stills render the scene harness only, never the built app page. E's <body> background hid the sky in
       production for hours with CI green. Add one built-app still (vite preview, 375 px) asserting the sky is not the boot colour.
-- [ ] Track D midnight reseed (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
-      same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Not yet carried into N4.
+- [x] Satellite sightings back in the field (Claude, 22 Nov): the single clouds the EUMETSAT mask sees within 28 km
+      (`sightingsNow`, cover < 50) were lost when the banks went; they are now low-layer cells at their azimuth,
+      distance and width (`world/field/seenCells.ts`, `layerSnapshot(..., extra)`), shaped by the layer's form.
+- [x] Storm and night (Claude, 22 Nov): tower bodies fair-white, dark genus bases (darker raining), seen through the
+      1.5 km haze they rise out of (`hazePath`); overhead Cb drawn (NEAR_MAX 70); rain curtains in rain grey.
+      Field calibration on the real Haifa 15.3 day: towers 35 % of low cover, cores 18 km apart / 2.5 km radius, half
+      Cb, rain only from Cb (`stormDay.test.ts`). Overcast nights lit from below by the towns (`cityLight.ts`, env.glow).
+- [x] Storm look (Claude, 22 Nov): forecast convective rain at the place stands one mature Cb 4 km upwind
+      (`hereCell.ts`), ranked first in the rain so its dark base and curtain are near; towers beyond 40 km merge into a
+      soft horizon mass (`MERGE_KM`/`MERGE_PX`); anvils only over columns 1.5x taller than wide, the column flaring into
+      the cap (no saucers, `cloudTower.test.ts`); the overcast city night dim overhead, brighter toward the horizon
+      (`CITY_ZENITH`/`CITY_HORIZON`). Next: CAPE in the Worker whitelist and the world (conv = f(CAPE, code, precip)).
+- [x] Crowns and storm hours (Claude, 22 Nov): Open-Meteo CAPE + freezing level asked (ASK_STORM_HOURLY on, app works without them); tower crowns are crisp cauliflower turrets in a dome half the width deep (no beads down narrow columns); a curtain hangs from its base's near edge; city night glow stays radial (no direction data). Open: bead column at the left edge in haifa 17:00, near curtain still faint at 14:00, freezing level unused (snow line), shaft drift time origin, fog in new style.
+- [x] Track D N4 close (Claude, 22 Nov): tower body puffs stratified up the column (no bead strings); a near rain curtain thickens with nearness (grey wall, cap 0.85); the falling snow line hangs 300 m under the forecast freezing level when given, else the lapse rule; weather/cloudSheet/cloudShadows/density split under 150 lines (shafts, precip, edgeMark, smoke, weatherShared, cloudSheetMath, cloudShadowWorld, field/footprint). Open: a column of blobs at the left edge in haifa 17:00 is the low Cu sheet's texture (sheet alpha 1 at css rows 268-311 by the edge), not towers; the near curtain at 14:00 is mostly hidden by the Carmel; glaciation height (FL+3 km) not used for the anvil.
+- [ ] Low Cu sheet texture makes a column of blobs at the screen edge (haifa 17:00, sheet alpha 1 at css rows 268-311).
+- [ ] Cb glaciation height (freezing level + ~3 km) not yet used for the anvil top.
+- [ ] City night glow is radial: no direction data for where the towns lie.
+- [x] Track D midnight reseed (N3e 884b2af1 + N3g c606afd1, in main; field.test.ts measureMidnight) (N3e plan): anchor the cloud field seed/origin to the calendar day of `at`; pair and morph
+      same-genus cells across midnight; |dtau| 23:50-00:10 <= 21:50-22:10. Done before N4.
 
 ## Track D — one cloud field (polish audit #4 #5 #6 #10) — 2026-11-21 (branch `claude/fix-cloud-field-0b1237`)
 One seeded, wind-advected world-space cloud field per place and day drives the drawn banks, ground shadows, direct light
@@ -980,6 +1006,34 @@ reviews, Claude manages and draws the painters.
 - [ ] N3 cell descs + keyframes, far strips, compositor `cells` mode (Neon); test 7, perf
 - [x] Painters, first pass (Claude) — `src/scene/paint/clouds/` (cumulus domes + Cb anvil, Sc/St pads, Ac patches,
       As/Ns decks with undulations and pannus, Ci fibres, Cs veil, shafts/virga; light on the whole mass). Proving page
-      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png`
+      `scene.html?sheet=clouds`, still `node e2e/scene.clouds.mjs` → `track-d/clouds-sheet.png` (all removed in piece 2b)
 - [ ] Painters in scene: wire to N3 cell descs, detail pass at 375 px
 - [ ] After stills `track-d/after/`, before/after sheet; `test:perf`, vitest, `tsc -b`, oxlint
+- [x] N4 soft look, rounds 1–4 (Claude Opus 5.5 wrote code and tests; brief `briefs/N4-soft-look.md`): open decks
+      (broken, showers) drawn as translucent white-blue veils with a lit top and shaded base (`paint/cloudLook.ts`),
+      perspective-scaled softening (`paint/soften.ts`), seeded per-pixel fractal detail on a half-res raster
+      (`paint/cloudRaster.ts`). Overcast, rain and cirrus keep the model's numbers. Warm scrub perf budget 2.5 → 3.9 ms
+      (CI p95 + 15 %). Round 4 CI 45025772666 green. Owner: better, not final.
+- [x] Wind carry between minutes (Claude Opus 5.5, code + tests): sheets and cloud shadows move with their layer's
+      wind from the shown minute (`model/advect.ts`, `compose/advect.ts`), per-band speeds over slant range, open edge
+      mirrored, capped at 75 s, still under reduced motion; shadow ridge clip moved to the compositor. CI 45027867757.
+      Known limit: a low deck overhead in strong wind mirrors a wide edge strip until the next minute.
+- [ ] Rebuild on the field (owner's call, 22 Nov): one wind drift shared by sheets and their ground shadows (in prod
+      the old banks drift every frame, shadows never move); rain clouds, lightning and fog from the field; then delete
+      the old bank system (`model/clouds.ts`, `paint/clouds.ts`, `sheetBlend`) with its tests, fixtures and devParams.
+      Shipped in CI-green pieces (Claude Opus 5.5, branch `claude/cloud-soft-look-413b7e`).
+- [x] Piece 2a (Claude Opus 5.5): every field layer is one sheet (`sheetBlend`/`sheetWeight` gone: the sheet is drawn
+      at any cover), the towers (`tower` lattice: Cu con, Cb) are sprites (`model/cloudCells.ts` → new kind
+      `cloudCells`, `paint/cloudCells.ts` → `paintCloud`), carried as one at their median across-wind speed
+      (`carriedCells`). `model/cloudLayers.ts` builds both; the light and tone helpers moved to `model/cloudLight.ts`.
+      The old banks no longer draw; snow is projected like rain (`snowBankDescs`); the dead `clouds` layer plumbing
+      left `weather.ts`/`index.ts`. Harness moments `towers`, `cumulus` (low 0.5) show them: the Nov fixtures put
+      thunder and showers at mid level (Ns), so `thunder` itself has no Cb (follow-up for the world's cover split).
+- [x] Piece 2b, rain/snow/flash and delete (Claude, 22 Nov): shafts, near rain and flashes stand under
+      `world.rain.cells` projected straight (`model/falling.ts`, snow still through the snowing world banks), carried at
+      the field's across-wind speed (`acrossSpeed`, view middle, median range); `model/flash.ts` + `paint/flash.ts`,
+      shimmer moved to `model/shimmer.ts` + `paint/shimmer.ts`. Deleted `model/clouds.ts`, `paint/clouds.ts`,
+      `paint/clouds/` (sprite type kept as `paint/cloudSprite.ts`), the `clouds` kind, `BankDesc`/`Veil`, the cloud
+      proving page (`dev/cloudSheet.tsx`, `e2e/scene.clouds.mjs`). Tests ported; `falling.test.ts` added.
+- [ ] Piece 2b, fog from the field.
+- [ ] N3e midnight reseed (`briefs/N3e-midnight-anchor.md`) after the rebuild.

@@ -13,8 +13,17 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = require('playwright')
 
-/** The synthetic forecast with the scene's hourly fields (the world's fixture). */
-const FORECAST = fs.readFileSync(path.join(root, 'src/test/fixtures/forecast-layers-2026-11-17.json'))
+/** The synthetic forecast with the scene's hourly fields (the world's fixture), the default day. */
+const FIXTURES = path.join(root, 'src/test/fixtures')
+const FORECAST = fs.readFileSync(path.join(FIXTURES, 'forecast-layers-2026-11-17.json'))
+export const DEFAULT_DAY = '2026-11-17'
+
+/** The forecast for a page's day: a recorded real day (`forecast-<place>-<day>.json`) when there is one, else the default. */
+function forecastFor(pageUrl) {
+  const day = new URL(pageUrl).searchParams.get('at')?.slice(0, 10)
+  const real = day && day !== DEFAULT_DAY && fs.readdirSync(FIXTURES).find((f) => /^forecast-.+\.json$/.test(f) && f.endsWith(`-${day}.json`))
+  return real ? fs.readFileSync(path.join(FIXTURES, real)) : FORECAST
+}
 
 /** The still: the sky above the land's figure and the figure (scene.html's LAND_TOP + SCENE_H). */
 export const CLIP = { x: 0, y: 0, width: SCENE_W, height: 428 }
@@ -62,7 +71,7 @@ export async function openPage(browser, base, dpr = 1, { motion = false } = {}) 
     const url = new URL(route.request().url())
     if (url.host === host) return route.continue()
     if (/\/v1\/forecast$/.test(url.pathname)) {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: FORECAST })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: forecastFor(route.request().frame().url()) })
     }
     return route.abort('blockedbyclient')
   })
@@ -86,4 +95,4 @@ export async function loadScene(page, url, timeout = 60000) {
 }
 
 export const caseName = ({ place, at, weather, dpr = 1, land = '', phase = '0', name = '' }) => name ? `${name}${dpr !== 1 ? `@${dpr}x` : ''}` :
-  `${place}-${at.slice(11).replace(':', '')}${weather ? `-${weather}` : ''}${land ? `-${land}${phase !== '0' ? `-${phase}` : ''}` : ''}${dpr !== 1 ? `@${dpr}x` : ''}`
+  `${place}-${at.startsWith(DEFAULT_DAY) || !at.includes('T') ? '' : `${at.slice(0, 10)}-`}${at.slice(11).replace(':', '')}${weather ? `-${weather}` : ''}${land ? `-${land}${phase !== '0' ? `-${phase}` : ''}` : ''}${dpr !== 1 ? `@${dpr}x` : ''}`

@@ -2,7 +2,8 @@
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
-import { colourKey, landBoxKey, layerKey } from './keys'
+import { landBoxKey, layerKey } from './keys'
+import { glyphAtmosphereKey } from './landmarkAtmosphere'
 import { aerialFor, hazeOf } from './planeLight'
 import { mixRgb, rgbOf } from './tone'
 import { faceLight } from '../../world/livingLight'
@@ -153,7 +154,6 @@ function boundsOf(boxes: { left: number; right: number; top: number; bottom: num
   return x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null
 }
 
-const tonesKey = (t: Tones) => (Object.keys(t) as (keyof Tones)[]).map((k) => colourKey(t[k]))
 export const facesKey = (s: Shine) => [s.faces.front, s.faces.left, s.faces.right, s.faces.top, s.faces.rim, s.faces.across,
   s.glint ?? 0].map((v) => Math.round(v * 64))
   // Both marks and outside use this fragment. Include lamp strength at alpha-byte precision.
@@ -161,12 +161,8 @@ export const facesKey = (s: Shine) => [s.faces.front, s.faces.left, s.faces.righ
 const shineKey = (s: Shine) => [facesKey(s), Math.round(s.night * 64), Math.round(s.direct * 64), Math.round(s.cast.dx * 32), Math.round(s.cast.length * 16),
   Math.round(s.cast.alpha * 64), Math.round(s.windows * 64), Math.round(s.lean * 100), Math.round((s.sway ?? 0) * 200)]
 
-/**
- * The glyphs and the landmarks on the far ridge and the plain (stage C4), as one layer in the one world light
- * (`marks.far`): their shapes follow from the place and the box; every colour, side and shadow is light (a layer all of
- * light, repainted alone while scrubbing over an empty form, as the far towns). The place's own marks stand among its
- * mass, in the outside view's layer (`outside.ts`, C5).
- */
+/** Far-ridge and plain landmarks (C4), lit from one world. Shapes follow the place/box; light alone repaints
+ * during scrubbing, while the place's own marks remain among its mass in outside.ts (C5). */
 export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null = null,
   home: HomeRoofline | null = null, clear: readonly Box[] = [], foreground: readonly DrawnMass[] = []): LayerOf<'marks'>[] {
   const shine = shineOf(world)
@@ -175,6 +171,7 @@ export function marksLayers(world: WorldState, box: SceneBox, towns: LayerOf<'fa
   const bounds = boundsOf(glyphs.map(reachOf), box)
   if (!bounds) return []
   return [{ kind: 'marks', id: 'marks.far', surface: 'land', z: Z.far, bounds, key: formKey('marks.far'), glyphs, shine,
-    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphs.map((g) => tonesKey(g.tones)), Math.round(world.light.across * 64), shineKey(shine)),
+    light: { key: layerKey('marks.far:light', formKey('marks.far'), glyphAtmosphereKey(glyphs),
+      Math.round(world.light.across * 64), shineKey(shine)),
       blend: 'source-over', tint: glyphs[0].tones.wall, faces: [] } }]
 }

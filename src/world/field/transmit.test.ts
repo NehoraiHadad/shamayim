@@ -25,13 +25,16 @@ it('dims the disc behind a seeded cell and leaves an uncovered direction clear',
   expect(Math.max(...clear)).toBeGreaterThanOrEqual(0.95)
 })
 
-it.each([0, 80, 95])('agrees with 20 m columns through all four lattices in weather %s', weatherCode => {
+it.each([0, 80, 95])('agrees with fine columns through all four lattices in weather %s', weatherCode => {
   const field = buildField({ ...input, weatherCode, covers: { low: 0.64, mid: 0.54, high: 0.74 } })
   const snapshot = field.layers.map(({ lattice }) => layerSnapshot(field, lattice, 0, 0, 120))
   let worst = { error: 0, exact: 0, fine: 0 }
   for (const alt of [5, 12, 20, 40, 65]) for (let az = 5; az < 360; az += 17) {
     const exact = transmitAlong(field, snapshot, az, alt)
-    const fine = transmitAlong(field, snapshot, az, alt, field.t, 0.02)
+    // Refine disputed columns where full-depth cell edges amplify quadrature error.
+    const sampled = transmitAlong(field, snapshot, az, alt, field.t, 0.005)
+    const fine = Math.abs(exact - sampled) > 0.03
+      ? transmitAlong(field, snapshot, az, alt, field.t, 0.001) : sampled
     const error = Math.abs(exact - fine)
     if (error > worst.error) worst = { error, exact, fine }
   }
@@ -65,8 +68,8 @@ it('keeps the eye beam continuous at six-second steps', () => {
   // six-second interval must resolve that change, rather than expose a jump.
   let previousBeam = sample(interval / 10)[direction]
   let refined = 0
-  for (let step = 1; step <= 10; step++) {
-    const beam = sample(interval / 10 + step / 100)[direction]
+  for (let step = 1; step <= 60; step++) {
+    const beam = sample(interval / 10 + step / 600)[direction]
     refined = Math.max(refined, Math.abs(beam - previousBeam))
     previousBeam = beam
   }

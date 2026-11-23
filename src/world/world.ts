@@ -195,7 +195,7 @@ export function makeWorldBuilder() {
     const cloudField = fieldOf(forecast.hours, place.id, forecast.elevation)(at, covers, fieldWeather, sun.altitude,
       { speedKmh: wind.ms * 3.6, fromDeg: wind.fromDeg },
       raining.level ? { level: raining.level, rate: cloudRate, midWeight: raining.midWeight } : undefined,
-      cloudMotion(forecast, at, nowMs, forced))
+      cloudMotion(forecast, at, nowMs, forced), shown.seenClouds)
     const grid = status === 'ready' ? terrainGrid(terrain, forecast.elevation) : undefined
     const eyeM = grid?.eyeM ?? terrain.eyeM ?? forecast.elevation + 2
     const groundAboveEyeKm = (eastKm: number, northKm: number) =>
@@ -230,7 +230,7 @@ export function makeWorldBuilder() {
         forecast.elevation, input.forced, input.forcedLayers, camera, env, sunSkyline])
     const nightSky = nightSkyOf({ at, timezone: place.timezone, lat: place.lat, lon: place.lon, placeId: place.id, sun, moon,
       starsThrough: night.starsThrough, visibilityKm: air.visibilityKm, glow: env.glow })
-    const optics = opticsOf({ sun, direct: light.meanBeam.sun, eye: light.eye, sunLights: light.source === 'sun', covers,
+    const optics = opticsOf({ sun, direct: light.meanBeam.sun, sunLights: light.source === 'sun', covers,
       rain: rain ? { rateMmH: rain.rateMmH, cells: rain.cells } : null, coin: coinOf(air) })
     const bodies = { sun: { azimuth: sun.azimuth, altitude: sun.altitude, x: sun.x, y: sun.y, up: sun.up, overLand: sun.overLand, clearance: sun.clearance,
       visible: sun.visible }, moon }

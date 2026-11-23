@@ -47,7 +47,11 @@ export function createClumpSampler(seed: number, wavelength: number) {
   }
   const coarse = octave(0, 1)
   const fine = octave(1, 2)
-  return (x: number, y: number) => (2 * coarse(x / wavelength, y / wavelength) + fine(x / wavelength, y / wavelength)) / 3
+  return (x: number, y: number, fineWeight = 1) => {
+    x /= wavelength
+    y /= wavelength
+    return (2 * coarse(x, y) + (fineWeight ? fineWeight * fine(x, y) + (1 - fineWeight) * 0.5 : 0.5)) / 3
+  }
 }
 
 /** Lazy coarse air-frame cache. The 2:1 octave mix has axis curvature at most 12/wavelength²,

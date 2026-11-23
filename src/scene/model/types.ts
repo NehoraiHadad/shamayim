@@ -2,9 +2,10 @@ import type { NeighbourEvidence } from './neighbourEvidence'
 import type { CityTier } from './cityMass'
 export type { CityTier } from './cityMass'
 import type { GlyphKind, IconKind } from '../../world/glyphSpecs'
-import type { CloudLevel, Pt, RGB } from '../../world/types'
+import type { Pt, RGB } from '../../world/types'
 import type { BirdKind } from '../../world/life'
 import type { ContrailMotion } from './contrailMotion'
+import type { CloudSprite } from '../paint/cloudSprite'
 
 /**
  * The scene model (docs/design/CANVAS-SCENE-PLAN.md §1b): what is drawn, where, in which colour and order, decided
@@ -62,6 +63,8 @@ export interface AnimSpec {
   period?: number
   /** Flashes (lightning): the layer is laid with the alpha of a seeded schedule of flashes (`flashAt`). */
   pulse?: Pulse
+  /** Carried by the wind from the shown minute, each band at its own speed (`Advect`). */
+  advect?: Advect
   /**
    * A strip of `count` frames (C7), painted at phases `i / fps` and stacked down the layer's canvas (each `bounds` high);
    * the frame at `phase` is laid (`frameAt`). The motion loops every `count / fps` s, so a painter's motion must be
@@ -104,6 +107,13 @@ export interface AnimSpec {
  * top of that pose. `above` clips to this surface y when a copy on the other surface takes the rest.
  */
 export interface Lay { x: number; y: number; scale: number; alpha: number; turn?: number; above?: number }
+
+/**
+ * A layer carried by the wind from the minute it shows: its canvas cut into bands, each from `y` (surface px) down to the
+ * next band's, laid `speed` surface px/s across × the seconds since `from` (the minute's phase; `anim.ts` caps it). The
+ * speeds follow perspective (fast overhead, slow at the horizon), so the field's next minute takes over where this left.
+ */
+export interface Advect { from: number; bands: readonly { y: number; speed: number }[] }
 
 /** When the shown time was laid on the scene timeline, and how far it was already into that minute (seconds). */
 export interface LifeClock { laidAt: number; sinceS: number }
@@ -222,17 +232,12 @@ export interface Disc { x: number; y: number; r: number; rgb: RGB; veil: number;
 export interface MoonDisc { x: number; y: number; r: number; rgb: RGB; alpha: number; fraction: number; tilt: number; daylight: number
   ring: boolean; earthshine: number }
 /**
- * A cloud bank as drawn (C6), in sky px on its layer's band (`x` its centre in `0…period`, `y` its base): the shape
- * (`kind`: heaped cumulus, a flat sheet of a deck, a cirrus streak), its tones after the light (`body` in the sky's light,
- * `shade` on the side turned away, `lit` on the side toward the light with strength `litA`), the direction the light comes
- * from on screen (`toward`, a unit vector; null under a sky with no direct light), a lit underside at a low sun (`under`),
- * the silver edge of a bank near the sun (`silver`), and a darker base under a bank that rains.
+ * A cloud rain or snow falls from, as drawn (C7, `falling.ts`), in sky px on the band (`x` its centre in `0…period`, `y`
+ * its base on the dome): its size, its tones in the hour's light (`body`, and `shade` underneath), its strength, and where
+ * it truly is (`altitude` of its base, deg; `distanceKm`) with the share of the rain it makes.
  */
-export interface BankDesc { id: string; x: number; y: number; w: number; h: number; puffs: number; seed: number
-  kind: 'heap' | 'sheet' | 'streak'; alpha: number; body: RGB; shade: RGB; lit: RGB; litA: number
-  toward: readonly [number, number] | null; under: number; silver: number; rains: boolean; rainWeight?: number }
-/** A flat wash under a deck (overcast): the sky's cover between `top` and `bottom`, fading out toward the horizon. */
-export interface Veil { top: number; bottom: number; rgb: RGB; alpha: number }
+export interface FallingCloud { id: string; x: number; y: number; w: number; h: number; seed: number; alpha: number
+  body: RGB; shade: RGB; altitude: number; distanceKm: number; share: number }
 /** A filled shape; `soft` > 0 softens its edge over about that many px (stacked offset copies, no filter). */
 export interface Face { points: Pt[]; rgb: RGB; alpha: number; soft?: number }
 export type Path = Pt[]
@@ -474,9 +479,8 @@ export type LayerDesc =
    * again over the place's own mass, C9's `over`, is gone: whatever is drawn in front of a body hides it.)
    */
   | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null; part?: 'aureole' }
-  | LayerBase & { kind: 'clouds'; level: CloudLevel; banks: BankDesc[]; veil: Veil | null; period: number }
-  /** In-cloud lightning: one bank drawn lit from within, laid with a flash schedule's alpha and drifting with its layer. */
-  | LayerBase & { kind: 'flash'; bank: BankDesc; rgb: RGB; period: number }
+  /** In-cloud lightning: one raining cloud lit from within, laid with a flash schedule's alpha and drifting with its rain. */
+  | LayerBase & { kind: 'flash'; cloud: FallingCloud; rgb: RGB; period: number }
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */
   | LayerBase & { kind: 'shimmer'; lines: { y: number; amp: number; waves: number; phase: number; alpha: number }[]; rgb: RGB }
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; gullies: Gully[];
@@ -573,7 +577,20 @@ export type LayerDesc =
   | LayerBase & { kind: 'cloudShadow'; plane: 'near' | 'far' | 'back'; rgb: RGB
       /** Keep pixels at or below `crest` and outside every nearer plane's face (each `fronts` crest down to the base). */
       clip: { crest: Pt[]; fronts: Pt[][] } | null
-      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number }[] }
+      /** Each cell's footprint; `speed` how fast its cloud's wind carries it across, land px/s (+ left → right). */
+      blobs: { cellId: string | number; centre: Pt; x: number; y: number; rx: number; ry: number; alpha: number; speed: number }[] }
+  /**
+   * One field layer drawn as a continuous sheet over the dome (SPEC §6.0), in sky px. A grid of screen rays: `xs` the
+   * column centres, `ys` the row centres (top to bottom, denser toward the horizon, where the deck compresses). Per node
+   * (row-major, `ys.length × xs.length`): `alpha` the drawn coverage after the soft threshold, 0–1; `tone` 0 lit to 1
+   * shade (from τ and the light at the node). `body`, `shade` and `lit` the layer's colours at this hour.
+   */
+  | LayerBase & { kind: 'cloudSheet'; lattice: 'low' | 'tower' | 'mid' | 'high'; genus: string
+      xs: number[]; ys: number[]; alpha: number[]; tone: number[]; body: RGB; shade: RGB; lit: RGB
+      /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
+      speeds: number[] }
+  /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */
+  | LayerBase & { kind: 'cloudCells'; lattice: 'tower'; cells: { sprite: CloudSprite; x: number; y: number; speed: number }[] }
   | LayerBase & { kind: 'wearDrip'; x: number; y: number; r: number; rgb: RGB; lit: RGB }
 
 export type LayerKind = LayerDesc['kind']

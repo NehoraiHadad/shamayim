@@ -1,4 +1,14 @@
-import type { Candidate } from './types'
+import { glyphOf } from '../../world/glyphSpecs'
+import { neighbourSize } from '../../world/neighbourSize'
+import { markWidth } from './project'
+import type { Candidate, Landmark } from './types'
+
+/** Contest widths use the same famous icon bounds that the world and receiving layers will fit. */
+export function perspectiveWidth(mark: Landmark, heightPx: number, famous: boolean) {
+  const kind = glyphOf(mark)
+  const icon = famous && kind ? neighbourSize(kind, heightPx, true) : null
+  return icon?.w ?? markWidth(mark.kind, mark.glyph, heightPx)
+}
 
 /** Transport the viewing evidence without leaking ranking fields into the drawn-world descriptions. */
 export function perspectiveFields(item: Candidate) {

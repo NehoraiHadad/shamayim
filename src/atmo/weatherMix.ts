@@ -12,6 +12,8 @@ export type Weather = Omit<AirInput, 'date' | 'localHour' | 'sunElevation' | 'pr
   thunderWeight: number
   showerWeight: number
   fieldWeather: FieldWeather
+  /** The 0 °C height (m above sea level) the model gives; null when not asked or a chosen sky's temperature rules. */
+  freezingLevel: number | null
   covers: Covers
   windAloft: { low: WindVector | null; mid: WindVector | null; high: WindVector | null }
   cloudSource: WorldSources['cloudLayers']
@@ -77,6 +79,7 @@ export function mixWeather(a: Weather, b: Weather, t: number): Weather {
     thunderWeight: lerp(a.thunderWeight, b.thunderWeight, t),
     showerWeight: lerp(a.showerWeight, b.showerWeight, t),
     fieldWeather: mixFieldWeather(a.fieldWeather, b.fieldWeather, t),
+    freezingLevel: mixKnown(a.freezingLevel, b.freezingLevel, t),
     snowfall: lerp(a.snowfall, b.snowfall, t),
     snowDepth: lerp(a.snowDepth, b.snowDepth, t),
     visibilityKm: lerp(a.visibilityKm ?? 40, b.visibilityKm ?? 40, t),

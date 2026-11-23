@@ -1,4 +1,5 @@
 import type { WorldCloudField } from './cloudField'
+import { isHere } from './field/hereCell'
 import { altitudeOf, projectCell } from './field/project'
 import type { AirInput } from '../atmo/airTypes'
 import type { FieldWeather } from '../atmo/fieldWeather'
@@ -42,7 +43,8 @@ export function rainFrom(cloud: WorldCloudField, rateMmH: number, wind: Wind,
   const candidates = cloud.snapshot
     .flatMap(({ cells, layer }) => cells.filter(cell => cell.rainWeight > 0).map(cell => ({ cell, layer: layer!, area: cell.r * (cell.rMinor ?? cell.r),
       score: cell.rainWeight * cell.tau0 * cell.r ** 2 })))
-    .sort((a, b) => Number(b.cell.lattice === 'tower') - Number(a.cell.lattice === 'tower')
+    .sort((a, b) => Number(isHere(b.cell)) - Number(isHere(a.cell))
+      || Number(b.cell.lattice === 'tower') - Number(a.cell.lattice === 'tower')
       || b.score - a.score)
   const groupOf = (lattice: Lattice): CloudLevel => lattice === 'tower' ? 'low' : lattice
   const total = new Map<CloudLevel, number>()

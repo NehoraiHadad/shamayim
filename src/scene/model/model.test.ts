@@ -134,7 +134,8 @@ describe('scene model: layers', () => {
     const world = buildWorld(worldInput(loaded.get('jerusalem')!, TIMES[1]))
     const model = sceneModel(world, { ...BOX, skyHeight: 0, landTop: 0 })
     expect(layersOn(model, 'sky')).toEqual([])
-    // (Less what the sky lays in front of the land: with no sky, nothing flies.)
-    expect(layersOn(model, 'land').filter((layer) => layer.kind !== 'cloudShadow').map((layer) => layer.id)).toEqual(layersOn(sceneModel(world, BOX), 'land').filter((layer) => !layer.placed).map((layer) => layer.id))
+    // Airborne overlays need a sky box. Land lighting, including cloud shadows, belongs to both views.
+    expect(layersOn(model, 'land').map((layer) => layer.id)).toEqual(
+      layersOn(sceneModel(world, BOX), 'land').filter((layer) => !layer.placed).map((layer) => layer.id))
   })
 })

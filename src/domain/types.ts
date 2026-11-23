@@ -74,6 +74,9 @@ export interface HourPoint {
    * absent when not asked or not known; the world then takes a climatological guess for contrails (marked as a fallback).
    */
   cruise?: { temperature: number; humidity: number } | null
+  /** Convective available potential energy (J/kg) and the freezing level (m); null or absent when not asked or known. */
+  cape?: number | null
+  freezingLevel?: number | null
 }
 
 /** A wind: speed in km/h and the direction it comes FROM (deg, 0 = north). */

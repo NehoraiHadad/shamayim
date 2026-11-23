@@ -3,7 +3,7 @@ import { weatherUrl } from '../weatherApi'
 
 export const FORECAST_MODELS = 'icon_seamless,ecmwf_ifs025'
 
-const CURRENT = [
+export const CURRENT = [
   'temperature_2m', 'apparent_temperature', 'is_day', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m',
   'precipitation', 'snowfall', 'visibility', 'relative_humidity_2m',
@@ -11,7 +11,7 @@ const CURRENT = [
   // these before this ships (README: "Order when the app asks Open-Meteo for something new").
   'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high',
 ]
-const HOURLY = [
+export const HOURLY = [
   'temperature_2m', 'precipitation_probability', 'precipitation', 'weather_code',
   'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m',
   'relative_humidity_2m', 'snow_depth',
@@ -36,8 +36,15 @@ export const SCENE_HOURLY = [
 ] as const
 /** Flip to true once the deployed Worker answers `hourly=wind_direction_10m,visibility,wind_speed_850hPa` with 200. */
 export const ASK_SCENE_HOURLY = true
+/**
+ * The storm's fuel (CAPE, J/kg) and the freezing level (m): how convective an hour's cloud is beyond what its weather code
+ * says. Without them the code alone decides (`atmo/fieldWeather.ts`).
+ */
+export const STORM_HOURLY = ['cape', 'freezing_level_height'] as const
+/** On since the deployed Worker (448728a6, 22 Nov) answers `hourly=cape,freezing_level_height` with values. */
+export const ASK_STORM_HOURLY = true
 
-const DAILY = [
+export const DAILY = [
   'weather_code', 'temperature_2m_max', 'temperature_2m_min',
   'precipitation_probability_max', 'precipitation_sum', 'wind_gusts_10m_max',
   'sunrise', 'sunset',
@@ -51,14 +58,15 @@ function base(place: Place): URLSearchParams {
   })
 }
 
-export function forecastUrl(place: Place, { sceneHourly = ASK_SCENE_HOURLY }: { sceneHourly?: boolean } = {}): string {
+export function forecastUrl(place: Place, { sceneHourly = ASK_SCENE_HOURLY, stormHourly = ASK_STORM_HOURLY }:
+  { sceneHourly?: boolean; stormHourly?: boolean } = {}): string {
   const p = base(place)
   p.set('models', FORECAST_MODELS)
   p.set('forecast_days', '7')
   p.set('past_days', '1')
   p.set('wind_speed_unit', 'kmh')
   p.set('current', CURRENT.join(','))
-  p.set('hourly', (sceneHourly ? [...HOURLY, ...SCENE_HOURLY] : HOURLY).join(','))
+  p.set('hourly', [...HOURLY, ...(sceneHourly ? SCENE_HOURLY : []), ...(stormHourly ? STORM_HOURLY : [])].join(','))
   p.set('daily', DAILY.join(','))
   p.set('minutely_15', 'precipitation')
   p.set('forecast_minutely_15', '12')

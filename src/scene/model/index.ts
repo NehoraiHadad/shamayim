@@ -8,7 +8,11 @@ import { marksLayers } from './marks'
 import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
-import { cloudLayersOf, flashLayersOf, shimmerLayerOf } from './clouds'
+import { carriedCells, carriedShadow, carriedSheet, minuteStart } from './advect'
+import { cloudLayersOf } from './cloudLayers'
+import { flashLayersOf } from './flash'
+import { shimmerLayerOf } from './shimmer'
+import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
 import { starsLayer } from './stars'
 import { birdLayers } from './birds'
@@ -16,7 +20,7 @@ import { contrailLayers, lowPlaneLayers, meteorLayers } from './life'
 import { LIFE_START } from './lifeTracks'
 import { milkyWayLayer, planetsLayer, twinkleOf } from './nightSky'
 import { haloLayer, rainbowLayer } from './optics'
-import type { LandClock, LayerDesc, LayerOf, LifeClock, SceneBox, SceneModel } from './types'
+import type { Box, LandClock, LayerDesc, LayerOf, LifeClock, SceneBox, SceneModel } from './types'
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
 
@@ -46,8 +50,7 @@ export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | 
  */
 function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: LifeClock): SceneModel {
   const sky = skyLayers(world, box, life)
-  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
-  const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, clouds, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
+  const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, overlay: [], clear: [] }
 }
@@ -55,19 +58,36 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
-  const outside = outsideLayer(world, box, layout.clear)
+  const outside = outsideOf(world, box, layout.clear)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
   const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
-  const clouds = sky.filter((layer): layer is LayerOf<'clouds'> => layer.kind === 'clouds')
   const layers: LayerDesc[] = [...sky, ...planeLayers(world, box, layout.clear), ...waterLayers(world, box, layout.clear),
-    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []), ...cloudShadowLayers(world, box),
-    ...weatherLayers(world, box, clouds, layout.clear)]
+    ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
+    ...cloudShadowLayers(world, box).map((shadow) => carriedShadow(shadow, minuteStart(life))),
+    ...weatherLayers(world, box, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
 }
+
+const outsideMemo = new WeakMap<WorldState, { box: string; layer: ReturnType<typeof outsideLayer> }>()
+
+/**
+ * The town in view (every building's tones by its distance): a minute's world is immutable and the clear zones follow
+ * from it and the box, so a redraw of the same minute at the same size reuses it rather than relighting every building.
+ */
+function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[]) {
+  const key = `${box.width},${box.skyHeight},${box.landTop},${box.landHeight},${box.dpr}`
+  const previous = outsideMemo.get(world)
+  if (previous?.box === key) return previous.layer
+  const layer = outsideLayer(world, box, clear)
+  outsideMemo.set(world, { box: key, layer })
+  return layer
+}
+
+const cloudMemo = new WeakMap<WorldState, { box: number[]; layers: ReturnType<typeof cloudLayersOf> }>()
 
 /** The sky surface's layers (C6): the base, the stars, the bodies, the clouds by level, lightning, shimmer. */
 export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LIFE_START): LayerDesc[] {
@@ -75,7 +95,15 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   if (!sky) return []
   const geom = skyGeom(world, box)
   const field = starsLayer(world, box, geom)
-  const clouds = cloudLayersOf(world, box, geom)
+  const cloudBox = skyBoxKey(box, true)
+  const previous = cloudMemo.get(world)
+  // A minute's world is immutable. Reuse its cloud descriptors when the
+  // land, animation or display asks to redraw at the same dimensions.
+  const cloudLayers = previous && cloudBox.every((value, i) => value === previous.box[i])
+    ? previous.layers : cloudLayersOf(world, box, geom)
+  if (cloudLayers !== previous?.layers) cloudMemo.set(world, { box: cloudBox, layers: cloudLayers })
+  const from = minuteStart(life)
+  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from) : carriedCells(layer, from)))
   const shimmer = shimmerLayerOf(world, box, geom)
   // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,
   // the aircraft and their contrails, the rainbow and the halo, all from the world's life, night sky and optics.
@@ -84,9 +112,10 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const planets = planetsLayer(world, box, geom)
   const milkyWay = milkyWayLayer(world, box, geom)
   const rainbow = rainbowLayer(world, box, geom)
-  const halo = haloLayer(world, box, geom)
+  const veil = cloudLayers.find((layer): layer is LayerOf<'cloudSheet'> => layer.kind === 'cloudSheet' && layer.genus === 'cs')
+  const halo = veil ? haloLayer(world, box, geom, veil) : null
   return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
-    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...clouds, ...flashLayersOf(world, box, clouds, geom),
+    ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom), ...carried, ...flashLayersOf(world, box, geom),
     ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, life),
     ...lowPlaneLayers(world, box, geom, life), ...birdLayers(world, box, geom, life)]
 }
