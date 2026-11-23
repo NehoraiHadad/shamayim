@@ -1,7 +1,7 @@
 import { encodedByte } from './displayByte'
 import { byteKey } from './keys'
 import { albedoLinear, shadeLinearRgb } from './landRadiance'
-import { fieldSample, vegetationField } from './planeField'
+import { fieldSample, shadowBeam, vegetationField } from './planeField'
 import { plantVisible } from './plantVisibility'
 import { TONE } from './vegSample'
 import type { LayerOf, RGB } from './types'
@@ -16,6 +16,7 @@ export function plantInk(bytes: Uint8Array, offset: number): RGB {
 
 export function canopyTones(plane: LayerOf<'plane'>, paired: boolean) {
   const veg = plane.vegetation, field = plane.light.litField
+  const diffuse = shadowBeam(field)
   const palette = veg.tones.map((rgb) => albedoLinear(rgb, 1))
   const sample = vegetationField(field, plane.outline, plane.bounds)
   const light = fieldSample(), rgb: [number, number, number] = [0, 0, 0]
@@ -25,15 +26,15 @@ export function canopyTones(plane: LayerOf<'plane'>, paired: boolean) {
   })
   const tones = allocate()
   const shaded = paired ? allocate() : undefined
-  const write = (dest: Uint8Array, o: number, index: number, beam: number) => {
-    shadeLinearRgb(palette[index] ?? palette[0], field.eSun, field.eMoon, field.eSky,
-      light.sVis * beam, light.mVis, light.vSky, field.yHorizon, light.haze, field.hazeLin, rgb)
+  const write = (dest: Uint8Array, o: number, index: number, beam: RGB) => {
+    shadeLinearRgb(palette[index] ?? palette[0], beam, field.eMoon, field.eSky,
+      light.sVis, light.mVis, light.vSky, field.yHorizon, light.haze, field.hazeLin, rgb)
     dest[o] = encodedByte(rgb[0]); dest[o + 1] = encodedByte(rgb[1]); dest[o + 2] = encodedByte(rgb[2])
   }
   const tone = (part: keyof CanopyTones, o: number, index: number) => {
-    write(tones[part], o, index, 1)
+    write(tones[part], o, index, field.eSun)
     if (shaded) {
-      if (light.sVis) write(shaded[part], o, index, 0)
+      if (light.sVis) write(shaded[part], o, index, diffuse)
       else {
         shaded[part][o] = tones[part][o]
         shaded[part][o + 1] = tones[part][o + 1]

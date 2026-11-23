@@ -1,5 +1,5 @@
 import type { CloudSprite } from './cloudSprite'
-import { rng } from './core'
+import { cloudBodyPuffs } from '../model/cloudBodyPuffs'
 import { css, mix, type Ctx2D, type PaintEnv } from './hand'
 
 /*
@@ -10,8 +10,8 @@ import { css, mix, type Ctx2D, type PaintEnv } from './hand'
  * No outlines, no filter; seeded by the cell. Pure: the sprite, its place and the scratch surface from `env`.
  */
 
-/** Puffs per column width of height; the column's top width against its base; a Cb anvil's spread. */
-const PUFFS = 5, TOP_WIDTH = 0.75, ANVIL = 1.3
+/** The column's top width against its base and a Cb anvil's spread. */
+const TOP_WIDTH = 0.75, ANVIL = 1.3
 /** Opacity of the thickest tower; optical depth over which a thin one comes up to it. */
 const OPACITY = 0.92, TAU_FULL = 6
 
@@ -39,22 +39,9 @@ export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: 
  * with crisp edges round the crown (cauliflower: Cu con is sharp where it is still growing; only the anvil is soft).
  */
 function silhouette(c: Ctx2D, s: CloudSprite) {
-  const r = rng(s.seed)
   const anvil = s.anvil ?? 0
-  const n = Math.max(8, Math.min(200, Math.round((s.tall / s.w) * PUFFS * 2) + 8))
   puff(c, 0, s.under * 0.3, s.w * 0.5, Math.max(1, s.under * 0.5 + s.w * 0.06), 0.9)
-  for (let i = 0; i < n; i++) {
-    // Stratified up the column, a little denser high up where the crown is: a tall narrow tower stays one mass and
-    // never thins into a string of beads below its top.
-    const t = ((i + r()) / n) ** 0.75
-    // A mature Cb's upper third flares out into its anvil: no narrow neck under a disc (a saucer, not a storm).
-    const flare = anvil * 0.9 * Math.max(0, (t - 0.55) / 0.45) ** 1.5
-    const half = (s.w / 2) * (1 - (1 - TOP_WIDTH) * t + flare)
-    const rx = half * (0.3 + 0.25 * r()) * (0.8 + 0.4 * t)
-    const cx = (r() * 2 - 1) * (half - rx * 0.6)
-    const cy = -t * (s.tall - rx * 0.7)
-    puff(c, cx, cy, rx, rx * (0.85 + 0.15 * r()), 0.75 + 0.25 * r())
-  }
+  const r = cloudBodyPuffs(s.seed, s.w, s.tall, anvil, (x, y, rx, ry, opacity) => puff(c, x, y, rx, ry, opacity))
   // The crown's turrets: small crisp puffs along the upper outline, over the top and down the upper sides.
   // The crown is a dome about as deep as half the tower is wide, whatever its height: a tall narrow tower keeps its
   // turrets at the top and never strings them down its column.

@@ -1,5 +1,8 @@
 import { outlineBandY, TEXEL } from './planeBands'
-import type { Box, PlaneLitField, Pt } from './types'
+import type { Box, PlaneLitField, Pt, RGB } from './types'
+
+const NO_BEAM: RGB = [0, 0, 0]
+export const shadowBeam = (field: PlaneLitField) => field.cloudDiffuse ?? NO_BEAM
 
 export interface FieldSample { sVis: number; mVis: number; vSky: number; haze: number }
 export const fieldSample = (): FieldSample => ({ sVis: 0, mVis: 0, vSky: 0, haze: 0 })

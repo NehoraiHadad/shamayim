@@ -90,6 +90,8 @@ export interface PlaneLitField {
   grid: Uint8Array
   /** Hoisted linear irradiance vectors `(E_k / π · C_k · wetFactor)` for sun, moon and diffuse sky. */
   eSun: readonly [number, number, number]
+  /** Neutral solar light scattered through the cloud, in the shaded endpoint only. */
+  cloudDiffuse?: readonly [number, number, number]
   eMoon: readonly [number, number, number]
   eSky: readonly [number, number, number]
   /** Linear RGB of `hazeOf(world)` and linear display exposure in the sky reference frame. */

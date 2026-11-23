@@ -8,7 +8,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { aerosolDepth, solarBeam } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { dirAtBearing, linearLuminance, unitChroma, WET_REFLECTANCE_DROP } from './landRadiance'
-import { diffuseSky } from './landSkyIrradiance'
+import { DAY_CLOUD_DHI_GAIN, diffuseSky } from './landSkyIrradiance'
 
 export type RadianceLight = Pick<WorldState['light'], 'azimuth' | 'altitude' | 'dir' | 'palette' | 'ambient' | 'shares' | 'diffuse'>
   & Partial<Pick<WorldState['light'], 'afterglow'>>
@@ -81,7 +81,7 @@ export function landIrradiance(world: RadianceWorld): LandIrradiance {
   const tau = 0.099 + aerosolDepth(air)[1]
   const scatter = Math.min(0.7, Math.max(0, 1 - Math.exp(REF_SCATTER - tau)))
   const sky = diffuseSky(light, sunAlt, tau)
-  const eSkyPi = sky.amount * (1 - day) + DAY_DHI * (1 + 1.25 * Math.max(clamp01(light.diffuse), scatter)) * day
+  const eSkyPi = sky.amount * (1 - day) + DAY_DHI * (1 + DAY_CLOUD_DHI_GAIN * Math.max(clamp01(light.diffuse), scatter)) * day
   const eSunPi = DAY_DNI * openVisible * Math.min(1.15, beam.strength / REF_BEAM)
   const eMoonPi = FULL_MOON_LUX / NIGHT_EXPOSURE_LUX * clamp01(moonShare)
   const cSun = normalized(beam.transmission as unknown as RGB), cMoon = unitChroma(MOON_RGB), cSky = normalized(sky.rgb)

@@ -30,6 +30,8 @@ const DOME = (() => {
 export const afterglowWeight = (sunAlt: number) =>
   smoothstep(AFTERGLOW.to, AFTERGLOW.to + 2, sunAlt) * smoothstep(AFTERGLOW.from, AFTERGLOW.from - 2.3, sunAlt)
 
+export const DAY_CLOUD_DHI_GAIN = 1.25
+
 export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): { rgb: RGB; amount: number; exposure: number; bias: number } {
   const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon))
   const mid = srgbRgbToLinear(light.ambient)
@@ -37,8 +39,11 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
   const cloud = Math.min(1, Math.max(0, light.diffuse))
   const dayRgb = mid.map((m, i) => 0.35 * m + 0.65 * horizon[i]) as [number, number, number]
   const yDay = linearLuminance(dayRgb)
-  // Cloud-scattered light varies less in chromaticity across the dome.
-  for (let i = 0; i < 3; i++) dayRgb[i] += (yDay - dayRgb[i]) * 0.45 * cloud
+  // Keep the daylight diffuse energy. The uncovered share of the dome
+  // supplies blue skylight; the covered share and the added DHI are cloud-scattered.
+  const day = smoothstep(2, 15, sunAlt)
+  const cloudSky = .45 * cloud * (1 - day) + day * (1 - (1 - cloud) / (1 + DAY_CLOUD_DHI_GAIN * cloud))
+  for (let i = 0; i < 3; i++) dayRgb[i] += (yDay - dayRgb[i]) * cloudSky
   const twilight = smoothstep(10, 3, sunAlt) * smoothstep(-10, -3, sunAlt)
   const dayBias = 0.065 * smoothstep(3, 16, sunAlt) * (1 - cloud)
   if (twilight <= 0) return { rgb: dayRgb, amount: 0.2, exposure: yHorizon, bias: dayBias }

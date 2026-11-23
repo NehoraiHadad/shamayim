@@ -4,7 +4,7 @@ import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { PaintJob } from './paintJob'
 
 export function shadeKeyOf(desc: LayerDesc) {
-  if (desc.kind === 'plane' && desc.cloudShadow) return desc.light.key
+  if (desc.kind === 'plane' && desc.cloudShadow) return layerKey(desc.light.key, desc.light.litField.cloudDiffuse?.[0] ?? 0)
   if (desc.kind === 'canopy' && desc.cloudShadow && desc.shadedTones) return layerKey(desc.key, desc.shadedTones.key)
 }
 

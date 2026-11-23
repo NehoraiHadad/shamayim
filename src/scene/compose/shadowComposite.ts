@@ -1,4 +1,5 @@
-import { shadowAlphaTable, type ReceiverShadow } from '../model/planeCloudShadow'
+import { shadowAlphaTable, SHADOW_DEPTH_STEPS, type ReceiverShadow } from '../model/planeCloudShadow'
+import { prepareShadowStamp } from './cloudShadowStamp'
 import type { DeviceRect } from './paintJob'
 
 export const MASK_TEXEL = 2
@@ -16,6 +17,9 @@ export interface ShadowMask {
   revision: number
   box?: DeviceRect
   active?: DeviceRect
+  stamps?: ReturnType<typeof prepareShadowStamp>[]
+  first: Int32Array
+  last: Int32Array
 }
 
 export function intersect(a: DeviceRect, b: DeviceRect): DeviceRect | undefined {
@@ -25,10 +29,12 @@ export function intersect(a: DeviceRect, b: DeviceRect): DeviceRect | undefined 
 }
 
 function shadowKeys(shadow: ReceiverShadow) {
-  const exposure = [shadow.open, shadow.beamOverSky, shadow.skyDisplay, shadow.hazeShare, shadow.hazeY]
+  const exposure = [shadow.open, shadow.beamOverSky, shadow.skyDisplay, shadow.hazeShare, shadow.hazeY,
+    shadow.neutralBeam ?? 0, shadow.coreDiffuse ?? 0]
     .map((value) => Number(value.toPrecision(5)))
   const alphaKey = exposure.join(',')
-  const footprints = shadow.blobs.map(({ x, y, rx, ry, speed, opticalDepth }) => [x, y, rx, ry, speed, opticalDepth].join(','))
+  const footprints = shadow.blobs.map(({ x, y, rx, ry, speed, opticalDepth, edge }) =>
+    [x, y, rx, ry, speed, opticalDepth, edge?.penumbraX, edge?.penumbraY, edge?.lobes.join(',')].join(','))
   return { alphaKey, key: [alphaKey, shadow.from, shadow.speed, ...footprints].join(';'), exposure }
 }
 
@@ -48,51 +54,57 @@ export class ShadowComposite {
     const texel = ratio * MASK_TEXEL
     if (!mask || !old || mask.ratio !== ratio || old.x !== x || old.y !== y || old.w !== w || old.h !== h) {
       const cols = Math.ceil(w / texel), rows = Math.ceil(h / texel)
-      mask = { cols, rows, alpha: new Uint8Array(cols * rows), rect, ratio, depth: new Float32Array(cols * rows), revision: 0 }
+      mask = { cols, rows, alpha: new Uint8Array(cols * rows), rect, ratio, depth: new Float32Array(cols * rows), revision: 0,
+        first: new Int32Array(rows).fill(cols), last: new Int32Array(rows).fill(-1) }
       this.masks.set(id, mask)
     } else if (mask.key === keys.key && mask.step === step) return mask
 
     let table = this.tables.get(keys.alphaKey)
     if (!table) {
-      const [open, beamOverSky, skyDisplay, hazeShare, hazeY] = keys.exposure
+      const [open, beamOverSky, skyDisplay, hazeShare, hazeY, neutralBeam, coreDiffuse] = keys.exposure
       if (this.tables.size >= MAX_TABLES) this.tables.delete(this.tables.keys().next().value!)
-      this.tables.set(keys.alphaKey, table = shadowAlphaTable({ open, beamOverSky, skyDisplay, hazeShare, hazeY }))
+      this.tables.set(keys.alphaKey, table = shadowAlphaTable({ open, beamOverSky, skyDisplay, hazeShare, hazeY, neutralBeam, coreDiffuse }))
     }
-    const { cols: width, rows: height, alpha, depth } = mask
-    const blobs = shadow.blobs.map((blob) => {
-      const bx = (blob.x + blob.speed * seconds) / MASK_TEXEL - x / texel - 0.5
-      const by = blob.y / MASK_TEXEL - y / texel - 0.5
-      const rx = blob.rx / MASK_TEXEL, ry = blob.ry / MASK_TEXEL
-      const left = Math.max(0, Math.ceil(bx - rx)), right = Math.min(width - 1, Math.floor(bx + rx))
-      const top = Math.max(0, Math.ceil(by - ry)), bottom = Math.min(height - 1, Math.floor(by + ry))
-      return { bx, by, rx, ry, left, right, top, bottom, tau: blob.opticalDepth }
-    })
-    let left = width, right = -1, top = height, bottom = -1
-    for (const b of blobs) {
-      if (b.left > b.right || b.top > b.bottom) continue
-      left = Math.min(left, b.left); right = Math.max(right, b.right)
-      top = Math.min(top, b.top); bottom = Math.max(bottom, b.bottom)
+    const { cols: width, rows: height, alpha, depth, first: rowFirst, last: rowLast } = mask
+    if (!mask.stamps || mask.key !== keys.key) {
+      mask.stamps = shadow.blobs.map((blob) => prepareShadowStamp(blob, table, rect, ratio, MASK_TEXEL))
     }
-    if (mask.active) {
-      const { x: ax, y: ay, w: aw, h: ah } = mask.active
-      for (let j = ay; j < ay + ah; j++) alpha.fill(0, j * width + ax, j * width + ax + aw)
+    for (let j = 0; j < height; j++) {
+      const first = rowFirst[j], last = rowLast[j]
+      if (first > last) continue
+      const start = j * width + first, end = j * width + last + 1
+      depth.fill(0, start, end)
+      alpha.fill(0, start, end)
+      rowFirst[j] = width; rowLast[j] = -1
     }
     mask.box = undefined
     mask.active = undefined
-    for (let j = top; j <= bottom; j++) depth.fill(0, j * width + left, j * width + right + 1)
-    for (const b of blobs) {
-      for (let j = b.top; j <= b.bottom; j++) {
-        const dy = (j - b.by) / b.ry, chord = 1 - dy * dy
-        for (let i = b.left; i <= b.right; i++) {
-          const dx = (i - b.bx) / b.rx, edge = chord - dx * dx
-          if (edge > 0) depth[j * width + i] += b.tau * edge * edge
+    const origin = x / ratio
+    for (const s of mask.stamps) {
+      const shift = (s.x + s.speed * seconds - origin) / MASK_TEXEL - .5
+      const whole = Math.floor(shift), frac = shift - whole, offset = s.first + whole
+      if (offset >= width || s.last + whole + 1 < 0) continue
+      for (let j = s.top; j <= s.bottom; j++) {
+        const index = j - s.top, row = index * s.width, dest = j * width
+        const head = s.spans[index * 2], tail = s.spans[index * 2 + 1]
+        if (head > tail) continue
+        const start = offset + head, end = offset + tail + 1
+        if (start >= width || end < 0) continue
+        rowFirst[j] = Math.min(rowFirst[j], Math.max(0, start))
+        rowLast[j] = Math.max(rowLast[j], Math.min(width - 1, end))
+        const first = Math.max(0, start + 1), last = Math.min(width - 1, end - 1)
+        if (start >= 0) depth[dest + start] += s.data[row + head] * (1 - frac)
+        for (let i = first, o = row + first - offset; i <= last; i++, o++) {
+          const t = s.data[o]
+          depth[dest + i] += t + (s.data[o - 1] - t) * frac
         }
+        if (end < width) depth[dest + end] += s.data[row + tail] * frac
       }
     }
     let x0 = width, x1 = -1, y0 = height, y1 = -1
-    for (let j = top; j <= bottom; j++) for (let i = left; i <= right; i++) {
+    for (let j = 0; j < height; j++) for (let i = rowFirst[j]; i <= rowLast[j]; i++) {
       const o = j * width + i
-      const a = table[Math.min(table.length - 1, Math.round(depth[o] * 64))]
+      const a = table[Math.min(table.length - 1, Math.round(depth[o] * SHADOW_DEPTH_STEPS))]
       alpha[o] = a
       if (a) {
         x0 = Math.min(x0, i); x1 = Math.max(x1, i)
@@ -119,7 +131,10 @@ export class ShadowComposite {
   bytes() {
     let bytes = 0
     for (const table of this.tables.values()) bytes += table.byteLength
-    for (const { alpha, depth } of this.masks.values()) bytes += alpha.byteLength + depth.byteLength
+    for (const { alpha, depth, first, last, stamps } of this.masks.values()) {
+      bytes += alpha.byteLength + depth.byteLength + first.byteLength + last.byteLength
+      if (stamps) for (const { data, spans } of stamps) bytes += data.byteLength + spans.byteLength
+    }
     return bytes
   }
 }

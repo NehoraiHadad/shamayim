@@ -1,5 +1,5 @@
 import { ALBEDO_CHROMA_BOOST, albedoLinear, shadeLinearRgb, SNOW_ALBEDO_LIN } from '../model/landRadiance'
-import { samplePlaneField, type FieldSample } from '../model/planeField'
+import { samplePlaneField, shadowBeam, type FieldSample } from '../model/planeField'
 import { encodedByte } from '../model/displayByte'
 import { toSrgb } from '../model/tone'
 import type { Box, PlaneLitField, PlanePalette, Pt, RGB } from '../model/types'
@@ -69,14 +69,14 @@ export function samplePlaneTexel(t: PlaneTexelCtx, i: number, x: number, y: numb
   return out
 }
 
-function shadeTexel(t: PlaneTexelCtx, s: TexelSample, cloudVis: number, out?: [number, number, number]) {
+function shadeTexel(t: PlaneTexelCtx, s: TexelSample, beam: RGB, cloudVis: number, out?: [number, number, number]) {
   const f = t.litField
-  return shadeLinearRgb(s.rho, f.eSun, f.eMoon, f.eSky, s.sVis * cloudVis, s.mVis, s.vSky, f.yHorizon, s.haze, f.hazeLin, out)
+  return shadeLinearRgb(s.rho, beam, f.eMoon, f.eSky, s.sVis * cloudVis, s.mVis, s.vSky, f.yHorizon, s.haze, f.hazeLin, out)
 }
 
 /** Evaluates one texel to sRGB `[0..1]` using the exact shared `shadeLinearRgb` equation. */
-export function shadeTexelSrgb(t: PlaneTexelCtx, s: TexelSample, cloudVis = 1): [number, number, number] {
-  const [cr, cg, cb] = shadeTexel(t, s, cloudVis)
+export function shadeTexelSrgb(t: PlaneTexelCtx, s: TexelSample, cloudVis = 1, beam = t.litField.eSun): [number, number, number] {
+  const [cr, cg, cb] = shadeTexel(t, s, beam, cloudVis)
   return [toSrgb(cr), toSrgb(cg), toSrgb(cb)]
 }
 
@@ -91,6 +91,7 @@ export function paintLitSurface(
   const scratch = env.canvas(t.wPx, t.hPx)
   const image = scratch.ctx.createImageData(t.wPx, t.hPx), data = image.data
   const shade = env.shade && scratch.ctx.createImageData(t.wPx, t.hPx)
+  const diffuse = shadowBeam(litField)
   const sample = texelSample(), rho: [number, number, number] = [0, 0, 0], rgb: typeof rho = [0, 0, 0]
   for (let j = 0; j < t.hPx; j++) {
     const y = bounds.y + (j + 0.5) * TEXEL
@@ -100,10 +101,10 @@ export function paintLitSurface(
       rho[0] = material[m]; rho[1] = material[m + 1]; rho[2] = material[m + 2]
       samplePlaneTexel(t, i, x, y, rho, sample)
       const o = (j * t.wPx + i) * 4
-      shadeTexel(t, sample, 1, rgb)
+      shadeTexel(t, sample, litField.eSun, 1, rgb)
       encodeTexel(data, o, rgb)
       if (shade) {
-        if (sample.sVis) shadeTexel(t, sample, 0, rgb)
+        if (sample.sVis) shadeTexel(t, sample, diffuse, 1, rgb)
         encodeTexel(shade.data, o, rgb)
       }
     }
@@ -134,7 +135,7 @@ function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, shade?: Ctx2D) {
     ctx.fillStyle = css(shadeTexelSrgb(t, rim))
     ctx.fillRect(left, y - 0.75, TEXEL, 2.2)
     if (shade) {
-      shade.fillStyle = css(shadeTexelSrgb(t, rim, 0))
+      shade.fillStyle = css(shadeTexelSrgb(t, rim, 1, shadowBeam(t.litField)))
       shade.fillRect(left, y - 0.75, TEXEL, 2.2)
     }
   }

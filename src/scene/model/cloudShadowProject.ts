@@ -1,12 +1,13 @@
 //# allFunctionsCalledOnLoad
 import { apparentAngle } from '../../data/terrain/panorama'
 import { spanDeg, xOf } from '../../domain/camera'
-import type { FieldCell } from '../../world/field/types'
+import type { FieldCell, FieldLayer } from '../../world/field/types'
 import { FLIGHT_LOCAL_KM } from '../../world/flightTerrain'
 import { SCENE_W } from '../../world/sceneBox'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
+import { shadowLobes, SOLAR_DIAMETER_RAD } from './cloudShadowEdge'
 import { supports, type Projection } from './cloudShadowWorld'
 import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import type { Pt } from './types'
@@ -75,7 +76,7 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     }
   }
 
-  const candidates: { cell: FieldCell; east: number; north: number; d2: number; slant: number; vel: [number, number] }[] = []
+  const candidates: { cell: FieldCell; east: number; north: number; d2: number; slant: number; layer: FieldLayer }[] = []
   for (const { cells, layer } of cloudField.snapshot) {
     if (!layer || layer.lattice === 'high') continue
     for (const cell of cells) {
@@ -92,13 +93,14 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
       const cum = lattice === 'tower' || genus === 'cu' || genus === 'cg' || genus === 'cb'
       const slant = tau * (spread > 0 ? (extent / spread) * (1 - (cum ? e2 / 3 : e2 * e2 / 5)) : 1)
       if (slant < minDepth) continue
-      candidates.push({ cell, east, north, d2, slant, vel: layer.vel })
+      candidates.push({ cell, east, north, d2, slant, layer })
     }
   }
 
   candidates.sort((a, b) => a.d2 - b.d2)
   const accepted: ProjectedShadow[] = []
-  for (const { cell: { id, r, vKm: depth }, east: eastAtEye, north: northAtEye, slant, vel } of candidates) {
+  for (const { cell, east: eastAtEye, north: northAtEye, slant, layer } of candidates) {
+    const { id, r, vKm: depth, baseKm } = cell
     if (accepted.length === 64) break
     if (shadowBlocked?.(eastAtEye, northAtEye, eastPerUp, northPerUp)) continue
     const centre = onGround(eastAtEye, northAtEye)
@@ -118,9 +120,23 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     }
     const opticalDepth = slant * invSin
     const centreKm: Pt = [centre.eastKm, centre.northKm]
-    const speed = acrossSpeed(vel, [centre.eastKm / centre.km, centre.northKm / centre.km], centre.km, perRad)
+    const km = Math.max(.01, centre.km)
+    const speed = acrossSpeed(layer.vel, [centre.eastKm / km, centre.northKm / km], km, perRad)
+    const path = Math.max(0, baseKm - (centre.seaLevelM - eyeM) / 1000) * invSin
+    const discKm = SOLAR_DIAMETER_RAD * path
+    // Only the diffuse flux in the cloud's apparent disc and sunlit sides
+    // reaches the footprint. The rest spreads out over the surrounding land.
+    const diffuseView = Math.min(1, r * (r + depth / 2) / (r * r + path * path))
+    const along = (centre.eastKm * sin + centre.northKm * cos) / km
+    const across = (centre.eastKm * cos - centre.northKm * sin) / km
+    const penumbraX = Math.abs(perRad) * discKm / km * Math.hypot(along, across * invSin)
+    const dh = discKm * Math.hypot(across, along * invSin)
+    const edgeY = (range: number) => terrainY(terrain.horizonY, apparentAngle(centre.seaLevelM, range, eyeM))
+    const penumbraY = Math.abs(edgeY(km + dh / 2) - edgeY(Math.max(.01, km - dh / 2)))
+    const lobes = shadowLobes(cell, layer, cloudField.field.placeId, heading, camera.handed, azimuth * RAD - heading, cot)
     accepted.push({ plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
-      x: (left + right) / 2, y: (top + bottom) / 2, rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2) } })
+      x: (left + right) / 2, y: (top + bottom) / 2, rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2),
+      edge: { lobes, penumbraX, penumbraY }, diffuseView } })
   }
   return accepted
 }
