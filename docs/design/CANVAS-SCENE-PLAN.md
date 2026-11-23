@@ -2630,13 +2630,15 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
    sunward horizon is screened in street canyons.
 
    - Existing seeds select one of eight reflectance bins for plaster and fixed facade angles for raster
-     footprints. The angle controls incidence and projected return width. Flat roofs and crowns use the
-     up normal, clay roofs use their pitch. Caps cover at most 0.55 CSS px, 0.6 device px or 23% of height.
+     footprints. The plaster bins keep linear luminance and vary along a 0.025–0.030 warm axis.
+     The angle controls incidence and projected return width. Flat roofs and crowns use the up normal,
+     clay roofs use their pitch. Caps cover at most 0.84 CSS px, 20% of width and 32% of height.
      Small blocks blend continuously toward projected average irradiance. A compact neighbourhood kernel
      at street level provides enclosure.
    - Far towns use the same average and resolved receivers. Landmark contrast and Allard lamp transmission
-     follow true receiving-eye distance. Glass combines rough sky reflection with an interior diffuse term
-     and soft floor bands.
+     follow true receiving-eye distance. The pane reflects the broad directional sky and retains the
+     interior diffuse fill. Four incoherent air/glass interfaces with single-interface F0 of 0.04 give
+     normal reflectance 4 × 0.04 / (1 + 3 × 0.04) ≈ 0.143. Pale-metal albedo applies at the bands.
    - The Báb shrine uses curved sectors of rough conductor reflection from the sky, afterglow and beam
      with linear gold F0 `(1.00, 0.77, 0.34)`. Diffuse and specular architecture keep their geometry through
      twilight. Tagged emissive windows and lamps retain the established placement, tint and timing.
@@ -2687,7 +2689,13 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      on the cloud sheet's minute clock, samples it at the canopy's offset and mixes encoded endpoint pixels
      in premultiplied alpha. Arrivals and interactive renders share raster steps staggered by fractions of
      a device pixel. Explicit lays use the requested phase. The mask cache compares projected footprint values
-     and quantized display parameters. Each receiver reuses a blended frame, with sampling offsets cached
+     and quantized display parameters. A sheet cell's seeded squared-radius outline is shared by its sky
+     raster and projected shadow. Towers use their seeded body puffs. The cloud's thin ragged rim is
+     resolved in screen pixels and combined with the projected 0.53° solar disc. The edge centre accounts
+     for the rim's area and blur variance so the integrated beam lost by each cell equals that of
+     τ(1−r²)². Each stamp is built once for a projected footprint. Visible support in the receiver weights
+     the near-neutral diffuse return, which fades to zero as the final footprint leaves the bounds.
+     Each receiver reuses a blended frame, with sampling offsets cached
      per axis and mask weights evaluated only where an endpoint covers the pixel. This preserves fractional
      coverage at the crest before the scene draws terrain over what is behind it.
    - Per-plant eight-bit tones key canopy paint independently of the plane's irradiance key. Each crown or tuft
@@ -2702,7 +2710,8 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      Reduced motion uses pose zero and the unadvected shadow footprints.
    - `npm run test:land-light` compares rendered twilight, noon, texture and snow samples and exercises
      moving transmission, a shadowed antialiased crest, paired arrivals, and failure of a Worker with a
-     filled shaded canopy strip.
+     filled shaded canopy strip. The broken-deck Jerusalem still also exercises both foreshortened
+     shadows, integrating the removed beam and measuring the receiver's hue and 10–90% edge width.
    - Across 24 freshly rendered round 6 stills, the median land/sky ratios matched round 5 and the
      mean ratios moved at most 0.031%. Shadmot Mehola at 12:00 in showers used 38.2 MiB of canvas
      backing memory at DPR 2.75 after the Worker published the complete shaded near-canopy strip.

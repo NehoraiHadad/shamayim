@@ -953,6 +953,9 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             sun-facing texels, their mean haze and the sRGB curve. Key masks on projected footprint values
             and quantized exposure. Reuse the same staggered mask and premultiplied blend for Worker arrivals
             and interactive rendering, including the antialiased crest. Lunar light retains its deck share.
+            Project the sky sheet's seeded cell outline. Combine the thin ragged rim and finite solar disc
+            in a cached transmission stamp with the same integrated beam removal as the earlier profile.
+            Weight diffuse return by visible footprint coverage at the receiver bounds.
       - [x] Cache terrain horizon angles by geometry grid and half-degree azimuth. Interpolate bearings
             and apply the soft disc edge at the current solar or lunar altitude.
       - [x] Resolve the crest from body samples in both endpoints, retain seeded reflectance mottle with its
@@ -960,7 +963,9 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       - [x] Give buildings one linear receiver per face. Use the land's solar, lunar and sky irradiance, exposure
             and distance haze. Use seeded plaster and facing bins, and screen sky, beam and ground bounce
             at eaves and feet. Paint shallow caps and pitched clay planes, with a continuous blend into
-            unresolved fabric. Shade glass and gilding with rough reflection. Keep the same geometry and
+            unresolved fabric. Preserve plaster luminance with a 0.025–0.030 warm axis. Shade glass with
+            double-glazed Fresnel reflectance and interior fill, and use metal albedo on bands only.
+            Gilding keeps its rough conductor reflection. Keep the same geometry and
             emissive window and lamp pass through twilight.
       - [x] Add real browser checks for twilight and noon ratios, foreground texture and the snow seam,
             plus continuous shadow motion across a snow boundary, gusts over shadowed terrain, and
@@ -969,7 +974,8 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             Run the land-light browser checks in the CI stills job. Check native masked building ratios and
             contact spread, overcast relief and gilding at noon and twilight. Compare land, canopy and water
             with architecture present and removed in the same browser. Swap the facade palettes and check
-            the tagged emissive pass for byte equality.
+            the tagged emissive pass for byte equality. Check pane luminance at noon and chroma at twilight.
+            Use the Jerusalem broken-deck fixture to check shadow area, feather, hue and edge continuity.
       - [x] Verify round 5 against all 24 rendered stills. The maximum land/sky median ratio change from
             round 4 was 0.035%. A sun-facing glyph fixture also verifies the architectural shadow contrast.
       - [x] Rerender the 24 measured round 6 stills and review the dawn, noon, dusk and shadowed-crest crops
