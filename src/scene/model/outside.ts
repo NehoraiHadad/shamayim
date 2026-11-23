@@ -10,6 +10,7 @@ import { outsideLandDesc } from './outsideGround'
 import { outsideSea } from './outsideSea'
 import { KM_STEP, outsideShape } from './outsideShape'
 import { accessoryTones, buildingFaces, type BuildingFaces } from './buildingLight'
+import { buildingRowVeil } from './buildingRowVeil'
 import { receiverLightKey } from './receiverKey'
 import { PLAIN_LIGHT, type StyleLight } from './styleLight'
 import { wallAir } from './wallDistance'
@@ -42,15 +43,19 @@ export function outsideHome(world: WorldState, box: SceneBox, clear: readonly Bo
 
 /** The place seen from outside, as one layer (null for a portrait). */
 export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly Box[] = [],
-  light: StyleLight = PLAIN_LIGHT): LayerOf<'outside'> | null {
+  light: StyleLight = PLAIN_LIGHT, planes?: readonly LayerOf<'plane'>[]): LayerOf<'outside'> | null {
   if (world.place3.kind !== 'outside') return null
   const sx = box.width / SCENE_W
-  const shape = outsideShape(world, box, clear)
-  const look = light.outside?.({ world, box, shape, sx })
+  const base = outsideShape(world, box, clear)
+  const correction = buildingRowVeil(world, box, base, planes)
+  const shape = correction?.shape ?? base
+  const shares = correction?.shares
+  const look = light.outside?.({ world, box, shape, sx, shares })
   const shine: Shine = look?.shine ?? shineOf(world)
   // The hour's tones per tier, and the marks' glyphs in them (the rest of the shapes kept as they are).
   const tones = look?.tiers ?? shape.kms.map((km) => tonesAt(world, km))
-  const air = wallAir(world, shape.groundKm), wallKms = shape.wallKms.map(air)
+  const air = wallAir(world, shape.groundKm)
+  const wallKms = base.wallKms.map(air)
   const out = look?.items ?? refreshLandmarkItems(world, shape.items, shape.marks, (_, glyph, km) =>
     refreshLandmarkGlyph(world, glyph, air(km)))
   const sea = outsideSea(world, box, sx, clear)
@@ -58,7 +63,9 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const landDesc = outsideLandDesc(world, view, box, sx)
   const receivers = look ? [] : shape.receivers.map((ids, i) => {
     const palette: Record<number, BuildingFaces> = {}
-    for (const [id, { detail, tile }] of ids) palette[id] = buildingFaces(world, wallKms[i], id, tile, false, detail)
+    const km = wallKms[i] ?? shape.wallKms[i]
+    const share = shares?.[i]
+    for (const [id, { detail, tile }] of ids) palette[id] = buildingFaces(world, km, id, tile, false, detail, PLAIN_LIGHT, share)
     return palette
   })
   if (!out.length && !sea) return null
@@ -78,14 +85,18 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   return {
     kind: 'outside', id: 'outside', surface: 'land', z: Z, bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, key: formKey,
     items: out, tiers: tones, sea, shine, land: landDesc, receivers,
-    accessories: look ? [] : wallKms.map((km, i) => shape.heaters.has(i) ? accessoryTones(world, km) : null),
+    accessories: look ? [] : shape.wallKms.map((km, i) =>
+      shape.heaters.has(i) ? accessoryTones(world, wallKms[i] ?? km, shares?.[i]) : null),
     ...(look?.own === undefined ? {} : { own: look.own }),
     ...(moving ? { animated: { mode: 'frames' as const, frames: SWAY_FRAMES } } : {}),
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
       glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
-      sea && Math.round((sea.drift ?? 0) * 4), groundKey, look?.key ?? [receiverLightKey(world), wallKms.map(km => Math.round(hazeAt(world, km) * 255))]),
+      sea && Math.round((sea.drift ?? 0) * 4), groundKey,
+      look?.key ?? [receiverLightKey(world), wallKms.map(km => Math.round(hazeAt(world, km) * 255))],
+      ...(correction ? [[shape.items.map(i => i.kind === 'mark' ? -1 : i.tier),
+        shares?.map(h => h === undefined ? null : Math.round(h * 255))]] : [])),
     blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25] },
   }
 }

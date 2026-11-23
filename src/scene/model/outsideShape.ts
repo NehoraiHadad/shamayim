@@ -50,9 +50,10 @@ interface Shape {
   bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
-  /** Each tier's distance for its walls (a step of their own; the land's cap for what is beyond), and the town's ground. */
+  /** Baseline wall distance per tier, independent of weather. */
   wallKms: number[]
   groundKm: number
+  wallDepths: ReadonlyMap<OutsideItem, number>
   receivers: Map<number, { detail: boolean; tile: boolean }>[]
   heaters: Set<number>
   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
@@ -83,6 +84,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   const { frame, skyline, baseKm } = view
   const out: OutsideItem[] = []
+  const wallDepths = new Map<OutsideItem, number>()
   const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
   // The towers beyond the place: at their true distance, far first, behind the place.
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
@@ -111,16 +113,19 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   for (const b of skyline.boxes) {
     const x = b.x * sx, w = b.w * sx
     if (!free(x - w / 2, b.top, x + w / 2, b.foot)) continue
-    mass.push(massAt(x, w, b.top, outsideItemKm(frame, baseKm, b)))
+    const km = outsideItemKm(frame, baseKm, b)
+    mass.push(massAt(x, w, b.top, km))
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     const heightM = b.heightM ?? 3 * STOREY_M
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot, true),
+    const item: OutsideItem = { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, b.x, b.foot, true),
       seed, receiver: receiverId(seed),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
-      heater: roof === 'flat' && r() < .45 } })
+      heater: roof === 'flat' && r() < .45 }
+    own.push({ y: b.foot - .001 * b.near, item })
+    if (view.land) wallDepths.set(item, km)
   }
   for (const t of skyline.towers) {
     const x = t.x * sx
@@ -145,7 +150,8 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
   const { receivers, heaters } = receiversUsed(out, kms.length)
-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
+  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, wallDepths,
+    groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape

@@ -11,7 +11,7 @@ import { drawnGroundToneAt } from './groundTone'
 import { skyFormOf } from './skyForm'
 
 /** The town in the illustrated palette, with the sky's form over it. */
-export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): OutsideLook {
+export function drawnOutsideLook({ world, box, shape, sx, shares }: OutsideFacts): OutsideLook {
   const litWorld = { ...world, light: halfDepthLightOf(world.light) }
   const palettes = new Map<number, IllustratedTones>()
   const at = (km: number): IllustratedTones => {
@@ -19,7 +19,10 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
     if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km))
     return tones
   }
-  const tiers = shape.kms.map(at)
+  const tiers = shape.kms.map((km, i) => {
+    const share = shares?.[i]
+    return share === undefined ? at(km) : illustratedTonesAt(litWorld, km, share)
+  })
   const items = refreshLandmarkItems(litWorld, shape.items, shape.marks, (_, glyph, km) => {
     if (!isFamousNonOwn(glyph)) return { ...glyph, tones: at(km) }
     const distance = glyph.trueDistanceKm!, contrast = landmarkContrast(litWorld, distance)
@@ -29,7 +32,7 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
     }
     return { ...glyph, tones, contrast }
   })
-  const form = skyFormOf(litWorld, box, shape.kms, tiers, sx)
+  const form = skyFormOf(litWorld, box, shape.kms, tiers, sx, shares)
   const shine = shineOf(litWorld)
   const own: OwnOutside = { form }
   return { tiers, items, shine, key: partKey([form, shine], 8), own }

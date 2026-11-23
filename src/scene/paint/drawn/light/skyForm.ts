@@ -27,7 +27,8 @@ const VIEW = { top: 0.62, face: 0.55 }
  * walls the eye sees face the sky behind the eye, so against the light (`againstLight`: a low sun beyond the land) they
  * see its dim half and the mass reads as a dark silhouette, its tops and rims alone catching the bright sky beyond.
  */
-export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number): SkyForm {
+export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number,
+  shares?: readonly (number | undefined)[]): SkyForm {
   const { light, night } = world
   const day = 1 - night.dark
   const strength = day * (0.35 + 0.65 * (1 - clamp01(light.direct)))
@@ -45,10 +46,10 @@ export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers
   const lighter = (wall: RGB, c: RGB) => (lightness(c) > lightness(wall) ? c : wall)
   return { strength, side, tiers: kms.map((km, i) => {
     const t = tiers[i]
-    const lit = aerial(scaleLight(mean, WALL_ALBEDO * VIEW.top), km)
+    const lit = aerial(scaleLight(mean, WALL_ALBEDO * VIEW.top), km, shares?.[i])
     // The brighter half of the sky round the sun takes the sun's own colour through the cloud.
     const bright = aerial(scaleLight(mixRgb(mean, light.colour, 0.35 * day),
-      WALL_ALBEDO * VIEW.face * (1 + 0.6 * (1 - against))), km)
+      WALL_ALBEDO * VIEW.face * (1 + 0.6 * (1 - against))), km, shares?.[i])
     return { top: lighter(t.wall, mixRgb(t.wall, lit, 0.62)), face: lighter(t.wall, mixRgb(t.wall, bright, 0.38)),
       foot: mixRgb(t.wall, t.deep, 0.7) }
   }) }

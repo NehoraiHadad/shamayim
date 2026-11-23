@@ -66,7 +66,6 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear, light)
-  const outside = outsideOf(world, box, layout.clear, light)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
   const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)], light)
@@ -75,6 +74,7 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
   const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))
   const planes = planeLayers(world, box, layout.clear)
     .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
+  const outside = outsideOf(world, box, layout.clear, light, planes)
   const wind = plantWindOf(world.wind)
   const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear, !life.still) ?? [])
   const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
@@ -91,13 +91,13 @@ const outsideMemo = new WeakMap<StyleLight, WeakMap<WorldState, OutsideMemo>>()
  * The town in view (every building's tones by its distance): a minute's world is immutable and the clear zones follow
  * from it and the box, so a redraw of the same minute at the same size reuses it rather than relighting every building.
  */
-function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[], light: StyleLight) {
+function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[], light: StyleLight, planes: ReturnType<typeof planeLayers>) {
   const key = `${box.width},${box.skyHeight},${box.landTop},${box.landHeight},${box.dpr}`
   let worlds = outsideMemo.get(light)
   if (!worlds) outsideMemo.set(light, worlds = new WeakMap())
   const previous = worlds.get(world)
   if (previous?.box === key) return previous.layer
-  const layer = outsideLayer(world, box, clear, light)
+  const layer = outsideLayer(world, box, clear, light, planes)
   worlds.set(world, { box: key, layer })
   return layer
 }

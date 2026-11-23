@@ -12,6 +12,8 @@ export interface OutsideFacts {
   world: WorldState
   box: SceneBox
   shape: ReturnType<typeof outsideShape>
+  /** Ground veil shares for corrected architectural tiers. */
+  shares?: readonly (number | undefined)[]
   /** Screen px per scene unit. */
   sx: number
 }

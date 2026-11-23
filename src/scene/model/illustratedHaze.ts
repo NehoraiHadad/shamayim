@@ -10,10 +10,9 @@ export function illustratedHazeOf(world: WorldState): RGB {
 }
 
 /** That palette's aerial perspective: a tone taken toward its air by distance, in Oklab. */
-export function illustratedAerialFor(world: WorldState, haze = illustratedHazeOf(world)): (rgb: RGB, km: number) => RGB {
+export function illustratedAerialFor(world: WorldState, haze = illustratedHazeOf(world)): (rgb: RGB, km: number, share?: number) => RGB {
   const air = labOf(haze)
-  return (rgb, km) => {
-    const t = hazeAt(world, km)
+  return (rgb, km, t = hazeAt(world, km)) => {
     const own = labOf(rgb)
     return rgbOfLab({ l: own.l + (air.l - own.l) * t, a: own.a + (air.a - own.a) * t, b: own.b + (air.b - own.b) * t })
   }

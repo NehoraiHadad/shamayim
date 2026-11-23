@@ -14,6 +14,9 @@ export type { BuildingFaces, FaceTones } from './buildingFaces'
 export const buildingSurroundings = (world: WorldState) => groundLighting(world).buildings
 export { groundView, reflectedGround } from './buildingGround'
 
+// Explicit veil shares occupy a separate cache range from nonnegative path distances.
+const pathKey = (km: number, haze?: number) => haze === undefined ? Math.max(0, km) : -1 - haze
+
 /** A minute's receivers, once per hand's light. */
 const receiversOf = new WeakMap<StyleLight, WeakMap<WorldState, ReturnType<typeof worldReceivers>>>()
 
@@ -48,9 +51,10 @@ function worldReceivers(world: WorldState, light: StyleLight) {
   const topLight = incident(top)
   const tileAverage = average.map((v, i) => .5 * (v + topLight[i])) as unknown as RGB
   const wall = screen ? surface : (rho: RGB, irradiance: RGB) => facade(surface(rho, irradiance))
-  function showAt(km: number) {
-    let show = shown.get(km)
-    if (!show) shown.set(km, show = through(hazeAt(world, km)))
+  function showAt(km: number, haze?: number) {
+    const key = pathKey(km, haze)
+    let show = shown.get(key)
+    if (!show) shown.set(key, show = through(haze ?? hazeAt(world, km)))
     return show
   }
 
@@ -81,9 +85,9 @@ function receivers(world: WorldState, light: StyleLight) {
 }
 
 /** Linear material × irradiance, then the land exposure and one air-light blend. */
-export function buildingLight(world: WorldState, km: number, light: StyleLight = PLAIN_LIGHT) {
+export function buildingLight(world: WorldState, km: number, light: StyleLight = PLAIN_LIGHT, haze?: number) {
   const set = receivers(world, light)
-  const show = set.showAt(km)
+  const show = set.showAt(km, haze)
   const receive = (rho: RGB, n: Normal, open = 1, beam = open) => show((n[2] === 0 ? set.wall : set.surface)(rho, set.incident(n, open, beam)))
   return Object.assign(receive, {
     unresolved: (rho: RGB) => show(set.unresolved(rho)),
@@ -93,22 +97,23 @@ export function buildingLight(world: WorldState, km: number, light: StyleLight =
 }
 
 export function buildingFaces(world: WorldState, km: number, id: number, tiled = false, plain = false, detail = true,
-  light: StyleLight = PLAIN_LIGHT): BuildingFaces {
+  light: StyleLight = PLAIN_LIGHT, haze?: number): BuildingFaces {
   const set = receivers(world, light)
-  let byMaterial = set.facades.get(km)
-  if (!byMaterial) set.facades.set(km, byMaterial = new Map())
+  const path = pathKey(km, haze)
+  let byMaterial = set.facades.get(path)
+  if (!byMaterial) set.facades.set(path, byMaterial = new Map())
   const key = id * 8 + Number(tiled) + Number(plain) * 2 + Number(detail) * 4
   let faces = byMaterial.get(key)
   if (!faces) {
     let surface = set.surfaces.get(key)
     if (!surface) set.surfaces.set(key, surface = surfaceFaces(set, id, tiled, plain, detail))
-    byMaterial.set(key, faces = facesThrough(set.showAt(km), surface))
+    byMaterial.set(key, faces = facesThrough(set.showAt(km, haze), surface))
   }
   return faces
 }
 
 const PANEL_NORMAL: Normal = [0, -.56, .83]
-export function accessoryTones(world: WorldState, km: number) {
-  const receive = buildingLight(world, km)
+export function accessoryTones(world: WorldState, km: number, haze?: number) {
+  const receive = buildingLight(world, km, PLAIN_LIGHT, haze)
   return { panel: receive(PANEL, PANEL_NORMAL), heater: receive(PALE_METAL, NORMALS.top) }
 }

@@ -52,7 +52,7 @@ function wallShade(world: WorldState): number {
  * (none under overcast or with no side: then a soft sky light from above); faces away sink toward a sky-lit dark. Every
  * tone but the lamps is then carried toward the air by the land's aerial rule at that distance.
  */
-export function illustratedTonesAt(world: WorldState, km: number): IllustratedTones {
+export function illustratedTonesAt(world: WorldState, km: number, share?: number): IllustratedTones {
   const { light, night } = world
   const ridge = rgbOf(light.palette.ridgeNear)
   const sky = hazeOf(world)
@@ -92,6 +92,6 @@ export function illustratedTonesAt(world: WorldState, km: number): IllustratedTo
   }
   const aerial = aerialFor(world, sky)
   const out = {} as Record<keyof IllustratedTones, RGB>
-  for (const name of Object.keys(own) as (keyof IllustratedTones)[]) out[name] = name === 'win' || name === 'mist' ? own[name] : aerial(own[name], km)
+  for (const name of Object.keys(own) as (keyof IllustratedTones)[]) out[name] = name === 'win' || name === 'mist' ? own[name] : aerial(own[name], km, share)
   return out as IllustratedTones
 }
