@@ -112,18 +112,16 @@ it('spreads an anvil only on the most mature storm cells in view', () => {
   }
 }, 60_000)
 
-it('stands a near storm cell of a real day up to its true top', async () => {
+it('stands a near storm cell of a real day up to its true top, a far heap to half of it', async () => {
   const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T14:00' as LocalTime))
   const geom = skyGeom(world, BOX)
   const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
   const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
   const near = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm < 30)
-  expect(near.length).toBeGreaterThan(0)
+  expect(near).not.toHaveLength(0)
   for (const { sprite, y } of near) {
     const p = projectCell(cells.get(sprite.seed)!)
-    // A near storm stands to its top; one far off is a heap at its own aspect, lower than the stretched sky would draw it.
-    const short = p.rangeKm < 5 ? 0.25 : 0.5
-    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + short * (y - geom.dome(p.aTop)))
+    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + (p.rangeKm < 5 ? 0.25 : 0.5) * (y - geom.dome(p.aTop)))
   }
 }, 30_000)
 
