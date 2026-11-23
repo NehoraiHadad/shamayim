@@ -12,21 +12,19 @@ interface PendingSlot {
   nextFrame: number
   totalFrames: number
   since: number
-  coldShown?: true
 }
 
 const priority = (item: PendingSlot) => {
   if (item.job.scrubReceiver) return -1
-  if (item.coldShown && !item.nextFrame) return 2
-  if (item.job.progressive && !item.nextFrame && (item.totalFrames > 1 || (item.job.shade && !item.job.coldPreview))) return 1
-  return item.totalFrames === 1 ? 0 : 3
+  if (item.job.progressive && !item.nextFrame && (item.totalFrames > 1 || item.job.shade)) return 1
+  return item.totalFrames === 1 ? 0 : 2
 }
 const tagOf = (key: string, formKey: string) => `${key}\0${formKey}`
 
 /**
  * Priority queue for `RemoteCache`:
- * Terrain and static layers go first, followed by canopy previews. A cold canopy's shade and the rest of
- * each gust strip wait for the scrub to settle, with at most one chunk in flight.
+ * Terrain and static layers go first, followed by canopy pose zero. The rest of each gust strip
+ * waits for the scrub to settle, with at most one chunk in flight.
  */
 export class RemoteQueue {
   private pending = new Map<string, PendingSlot>()
@@ -76,7 +74,7 @@ export class RemoteQueue {
   takeBatch(now: number, fillCanopies = true): { jobs: PaintJob[]; since: number } | null {
     const eligible = [...this.pending].filter(([, item]) => fillCanopies || !item.job.progressive || priority(item) < 2)
     if (!eligible.length) return null
-    let first = 3
+    let first = 2
     for (const [, item] of eligible) first = Math.min(first, priority(item))
     const selected = eligible.filter(([, item]) => priority(item) === first)
     this.inFlightFinal.clear()
@@ -85,7 +83,7 @@ export class RemoteQueue {
         if (job.desc.kind !== 'plane' || !job.desc.canopyId) continue
         const slot = paintSlot(job.desc.canopyId, 'light')
         const canopy = this.pending.get(slot)
-        if (canopy?.job.shade && !canopy.job.coldPreview && !canopy.nextFrame && priority(canopy) === 1
+        if (canopy?.job.shade && !canopy.nextFrame && priority(canopy) === 1
           && canopy.job.desc.kind === 'canopy' && canopy.job.desc.receiver?.form === job.desc.key) {
           selected.push([slot, canopy])
         }
@@ -97,11 +95,6 @@ export class RemoteQueue {
     const jobs: PaintJob[] = []
     for (const [slot, item] of selected) {
       since = Math.min(since, item.since)
-      if (item.job.coldPreview && !item.coldShown) {
-        item.coldShown = true
-        jobs.push({ ...item.job, shade: undefined, frames: item.totalFrames > 1 ? [0] : undefined, final: false, preview: true })
-        continue
-      }
       const preview = item.job.progressive && item.totalFrames > 1 && !item.nextFrame
       const end = Math.min(item.totalFrames, item.nextFrame + (preview ? 1 : STRIP_CHUNK_FRAMES))
       const final = end === item.totalFrames

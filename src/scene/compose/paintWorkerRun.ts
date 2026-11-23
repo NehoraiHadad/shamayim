@@ -84,7 +84,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         const slot = paintSlot(job.id, job.part)
         const previous = job.frames?.[0] ? staged.get(slot) : undefined
         const canvases = previous ?? new Map<string, WorkerCanvas>()
-        if (job.final === false && !(job.coldPreview && !job.shade)) staged.set(slot, canvases)
+        if (job.final === false) staged.set(slot, canvases)
         else staged.delete(slot)
         if (paint && job.shade && job.progressive && job.frames) {
           const endpoints = paintCanopyPoses(canvases, job, paint, transfer)

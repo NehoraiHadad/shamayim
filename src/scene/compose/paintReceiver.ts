@@ -23,11 +23,10 @@ function lightJobDesc(desc: LayerDesc): LayerDesc {
   }
 }
 
-export function receiverJob(desc: LayerDesc, part: PaintJob['part'], formless: boolean, sameForm: boolean,
-  shown: boolean): Pick<PaintJob, 'desc' | 'shade' | 'progressive' | 'scrubReceiver' | 'coldPreview'> {
+export function receiverJob(desc: LayerDesc, part: PaintJob['part'], formless: boolean, sameForm: boolean):
+  Pick<PaintJob, 'desc' | 'shade' | 'progressive' | 'scrubReceiver'> {
   const shade = part === 'light' && shadeKeyOf(desc) ? true : undefined
   const progressive = desc.kind === 'canopy' && formless
   const scrubReceiver = formless && sameForm && desc.kind === 'plane' ? true : undefined
-  const coldPreview = shade && progressive && !shown ? true : undefined
-  return { desc: part === 'light' ? lightJobDesc(desc) : desc, shade, progressive, scrubReceiver, coldPreview }
+  return { desc: part === 'light' ? lightJobDesc(desc) : desc, shade, progressive, scrubReceiver }
 }

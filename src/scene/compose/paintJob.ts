@@ -100,8 +100,6 @@ export interface PaintJob {
   progressive?: boolean
   /** The job paints both solar endpoints in the same invocation. */
   shade?: true
-  /** A cold canopy may publish frame zero with just its beam image before requesting its pair. */
-  coldPreview?: true
   /** A new lit terrain receiver takes precedence over other queued land work during a scrub. */
   scrubReceiver?: true
 }

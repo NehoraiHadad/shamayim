@@ -65,5 +65,7 @@ export function canopyTones(plane: LayerOf<'plane'>, paired: boolean) {
     }
   }
   const keyed = (ink: CanopyTones) => ({ ...ink, key: byteKey(ink.trees) + '.' + byteKey(ink.tufts) })
-  return { tones: keyed(tones), shadedTones: shaded && keyed(shaded) }
+  const hasShade = shaded && (shaded.trees.some((byte, i) => byte !== tones.trees[i])
+    || shaded.tufts.some((byte, i) => byte !== tones.tufts[i]))
+  return { tones: keyed(tones), shadedTones: hasShade ? keyed(shaded) : undefined }
 }

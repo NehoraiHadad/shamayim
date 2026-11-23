@@ -61,7 +61,7 @@ export function canopyOf(plane: LayerOf<'plane'>, response: PlantWind, clear: re
     bounds: canopyBounds, outline, vegetation: { seed, tones: rawTones, trees, treeMeta, tufts, tuftMeta }, wind: { lean, gust },
     clear: zones,
     animated: animate && gust ? { mode: 'frames', frames: LAND_GUST } : undefined,
-    cloudShadow, tones, shadedTones,
+    cloudShadow: shadedTones && cloudShadow, tones, shadedTones,
     light: { key: layerKey(key, tones.key), blend: 'source-over' },
   }
 }
