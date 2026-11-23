@@ -2,6 +2,7 @@
 import { AFTERGLOW } from '../../world/afterglow'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB } from '../../world/types'
+import type { Glow } from './types'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { rgbOf } from './tone'
 import type { RadianceLight } from './landIrradiance'
@@ -46,6 +47,19 @@ function twilightIntegral(mid: RGB, top: RGB, horizon: RGB, fill: number, forwar
 
 export const afterglowWeight = (sunAlt: number) =>
   smoothstep(AFTERGLOW.to, AFTERGLOW.to + 2, sunAlt) * smoothstep(AFTERGLOW.from, AFTERGLOW.from - 2.3, sunAlt)
+
+/** Solar glow over the palette horizon at a point on the reference sky surface. */
+export function sunwardHorizon(horizon: RGB, glows: readonly Glow[], x: number, y: number): RGB {
+  let rgb = horizon
+  for (const glow of glows) {
+    // skyBackground fades each elliptical gradient linearly to transparent at its edge.
+    const radius = Math.hypot((x - glow.x) / glow.r, (y - glow.y) / (glow.ry ?? glow.r))
+    const alpha = glow.alpha * Math.max(0, 1 - radius)
+    // Composite the displayed sRGB layers in paint order, then decode the result for irradiance.
+    rgb = [0, 1, 2].map(i => rgb[i] + (glow.rgb[i] - rgb[i]) * alpha) as [number, number, number]
+  }
+  return srgbRgbToLinear(rgb)
+}
 
 export const DAY_CLOUD_DHI_GAIN = 1.25
 
@@ -98,7 +112,7 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
  * is normalized against its own cosine integral, keeping the land's sky energy.
  */
 export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB,
-  forwardAccent = 0, directionalAfterglow = false) {
+  forwardAccent = 0, directionalTint?: true | (() => RGB)) {
   const cloud = Math.min(1, Math.max(0, light.diffuse))
   const twilight = twilightShare(sunAlt)
   const top = srgbRgbToLinear(rgbOf(light.palette.top)), mid = srgbRgbToLinear(light.ambient)
@@ -106,10 +120,10 @@ export function skyReflection(light: RadianceLight, sunAlt: number, tau: number,
   const glowWeight = light.afterglow
     ? afterglowWeight(sunAlt) : 0
   const afterglow = light.afterglow && srgbRgbToLinear(light.afterglow.rgb)
-  // Glazing resolves the extra aerosol radiance near the sun. The broad
-  // sky and a rough conductor's highlight use the painted horizon.
-  const lobeColor = directionalAfterglow && afterglow
-    ? horizon.map((h, i) => h + (afterglow[i] - h) * glowWeight) as [number, number, number] : horizon
+  // Glazing retains its aerosol tint. Gilding samples the painted sky on the solar side.
+  const lobeColor = directionalTint === true && afterglow
+    ? horizon.map((h, i) => h + (afterglow[i] - h) * glowWeight) as [number, number, number]
+    : typeof directionalTint === 'function' && twilight > 0 ? directionalTint() : horizon
   const cloudFill = cloudScatter(cloud, aerosol) * Math.max(1e-4, linearLuminance(horizon))
   // The low reflected band loses its directional accent through civil
   // twilight as the sun moves below the horizon of the rough reflector.

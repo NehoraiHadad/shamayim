@@ -5,7 +5,8 @@ import { diffuseSky, skyReflection } from './landSkyIrradiance'
 import type { RadianceLight } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { rgbOf } from './tone'
-import { domeSectors } from './metalLight'
+import { domeSectors, GOLD_F0 } from './metalLight'
+import { solarSkyGlows } from './sky'
 
 const light = {
   ambient: [.36, .29, .63],
@@ -51,15 +52,31 @@ describe('clear twilight sky', () => {
 
 describe('sunward reflected sky lobe', () => {
   it('puts the painted sunward hue on the brightest sector of the conductor', () => {
-    const scene = receiverScene(252, -.78, 0)
-    const painted = '#f69d66'
-    const fixture = { ...scene, light: { ...scene.light, diffuse: .15, palette: {
-      ...scene.light.palette, horizon: painted, top: painted,
-    }, ambient: rgbOf(painted) } }
+    // At the solar aura cutoff, only the ridge glow overlays this uniform sky.
+    const altitude = -1.5
+    const scene = receiverScene(252, altitude, 0)
+    const x = 295, y = 390
+    const painted = '#aeaa65'
+    const horizon = rgbOf(painted)
+    const fixture = {
+      ...scene,
+      relief: { ...scene.relief, horizonY: y },
+      bodies: { ...scene.bodies, sun: { ...scene.bodies.sun, x, y } },
+      light: { ...scene.light, clear: .85, diffuse: .15, ambient: horizon,
+        palette: { ...scene.light.palette, horizon: painted, top: painted },
+        glow: { side: 'west' as const, opacity: .34, x, y },
+        afterglow: { x, altitude, rgb: [1, .45, .25] as RGB },
+      },
+    }
+    const [glow] = solarSkyGlows(fixture, 0, 0, 1)
+    // At the center the gradient has its full painted alpha over the horizon.
+    const rgb: RGB = [0, 1, 2].map(i => (1 - glow.alpha) * horizon[i] + glow.alpha * glow.rgb[i]) as [number, number, number]
     const sectors = domeSectors(fixture, 0).flat().map(srgbRgbToLinear)
+    const unlit = { ...fixture, light: { ...fixture.light, glow: null } }
+    expect(sectors).not.toEqual(domeSectors(unlit, 0).flat().map(srgbRgbToLinear))
     const peak = sectors.reduce((a, b) => linearLuminance(a) > linearLuminance(b) ? a : b)
-    const [r, g, b] = srgbRgbToLinear(rgbOf(painted))
-    const delta = hue(peak) - hue([r, .766 * g, .336 * b])
+    const [r, g, b] = srgbRgbToLinear(rgb)
+    const delta = hue(peak) - hue([GOLD_F0[0] * r, GOLD_F0[1] * g, GOLD_F0[2] * b])
     expect(Math.abs((delta + 540) % 360 - 180)).toBeLessThan(8)
   })
 })

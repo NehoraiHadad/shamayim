@@ -6,20 +6,25 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildingSurroundings } from './buildingLight'
 import { illustratedTonesAt, type IllustratedTones } from './illustratedTones'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
-import { skyReflection } from './landSkyIrradiance'
+import { skyReflection, sunwardHorizon } from './landSkyIrradiance'
 import { aerialFor, hazeAt } from './landVeil'
-import { mixLight } from './tone'
+import { solarSkyGlows } from './sky'
+import { mixLight, rgbOf } from './tone'
 
 // Linear RGB gold at normal incidence, Google Filament's Metallic F0 table.
 // https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-const GOLD_F0: RGB = [1, .766, .336]
+export const GOLD_F0: RGB = [1, .766, .336]
 const SILVER_F0: RGB = [.89, .91, .92]
 
 /** Rough conductor in the camera frame. V is toward the eye, so R = 2(N·V)N − V. */
 export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
   const { irr, ground, air } = buildingSurroundings(world)
   const tau = .099 + aerosolDepth(world.air)[1], haze = hazeAt(world, km)
-  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec, 5.7)
+  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec, 5.7, f0 === GOLD_F0 && world.relief
+    // Evaluate the glow at eye level on the Sun's meridian, in the reference projection.
+    ? () => sunwardHorizon(rgbOf(world.light.palette.horizon), solarSkyGlows(world, 0, 0, 1),
+      world.bodies.sun.x, world.relief.horizonY)
+    : undefined)
   const sunHorizontal = Math.hypot(irr.sunDir.across, irr.sunDir.ahead) || 1
   return (n: Normal): RGB => {
     const nv = Math.max(0, -n[1]), r: Normal = [2 * nv * n[0], 1 + 2 * nv * n[1], 2 * nv * n[2]]
