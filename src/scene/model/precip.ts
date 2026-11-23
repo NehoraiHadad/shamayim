@@ -4,10 +4,13 @@ import { edgeMark } from './edgeMark'
 import { fallingOf } from './falling'
 import { layerKey, skyBoxKey } from './keys'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
-import { column, inView, NEAR_ALT, precipOf, shaftOf, tileMarks, type PrecipState } from './shafts'
+import { column, farTilt, inView, NEAR_ALT, precipOf, shaftOf, tileMarks, type PrecipState } from './shafts'
 import { mixRgb } from './tone'
 import type { LayerDesc, SceneBox } from './types'
 import { q, tone, whole, WHITE } from './weatherShared'
+
+/** The streaks inside a far curtain, against its own strength: a glint of falling in the mass, not the mass itself. */
+const FAR_STREAKS = 0.22
 
 /**
  * Rain or snow from the world's falling banks (sky): the far banks' curtains and the streaks falling in them, the near
@@ -58,11 +61,12 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
     const tw = whole(40, box.dpr), th = whole(56, box.dpr)
     const rgb = p.precip === 'rain' ? mixRgb(horizonSky, WHITE, 0.25 * (1 - dark)) : mixRgb(horizonSky, WHITE, 0.6 * (1 - 0.6 * dark))
     const fallV = p.precip === 'rain' ? 80 + 60 * p.strength : 10 + 6 * p.strength
-    out.push({ kind: 'fall', id: id('fall.far'), surface: 'sky', z: curtainZ + 0.01, precip: p.precip, slant: tilt, rgb,
+    const lie = farTilt(world, geom, p)
+    out.push({ kind: 'fall', id: id('fall.far'), surface: 'sky', z: curtainZ + 0.01, precip: p.precip, slant: lie, rgb,
       marks: tileMarks(`${world.place.id}:fall.far:${p.precip}`, p, tw, th, false), bounds: { x: 0, y: 0, w: tw, h: th },
-      animated: { mode: 'fall', ...drift, fall: { vx: fallV * tilt, vy: fallV,
+      animated: { mode: 'fall', ...drift, fall: { vx: fallV * lie, vy: fallV,
         areas: shafts.flatMap((s) => [column(s.x, s.top + 4, s.bottom, s.w * 0.8, s.lean), column(s.x, s.top + 10, s.bottom, s.w * 0.45, s.lean)]),
-        alphas: shafts.flatMap((s) => [Math.min(1, 1.2 * s.alpha), Math.min(1, 1.2 * s.alpha)]),
+        alphas: shafts.flatMap((s) => [FAR_STREAKS * s.alpha, FAR_STREAKS * s.alpha]),
         ...(p.precip === 'snow' ? { sway: 1.5, swayPeriod: 4 } : {}) } },
       key: layerKey('fall.far', p.precip, skyBoxKey(box), tw, th, slantKey, q(p.strength, 0.05), tone(rgb)) })
   }

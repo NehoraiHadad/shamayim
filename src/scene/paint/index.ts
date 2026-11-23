@@ -21,7 +21,8 @@ import { paintAircraft, paintMeteor } from './life'
 import { paintMilkyWay, paintPlanets, paintTwinkle } from './nightSky'
 import { paintBow } from './optics'
 import { paintWearDrip, paintWearItem, paintWearRope } from './wear'
-import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintShafts, paintSheen, paintSmoke } from './weather'
+import { paintShafts } from './curtain'
+import { paintEdge, paintFall, paintGrains, paintMist, paintRays, paintSheen, paintSmoke } from './weather'
 
 export { HAND, type Ctx2D, type Hand, type PaintEnv, type Scratch } from './hand'
 
