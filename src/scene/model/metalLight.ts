@@ -7,7 +7,7 @@ import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
 import { hazeAt } from './landVeil'
 
-const GOLD_F0: RGB = [1, .77, .34]
+const GOLD_F0: RGB = [1, .75, .28]
 const SILVER_F0: RGB = [.89, .91, .92]
 
 /** Rough conductor in the camera frame. V is toward the eye, so R = 2(N·V)N − V. */

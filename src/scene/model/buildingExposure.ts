@@ -26,15 +26,21 @@ export function colorOf({ irr, air }: Surroundings, haze: number): Exposure {
 /** Reuse exposure of the same material and incident light across distance tiers. */
 export function exposedColors({ irr, air }: Surroundings) {
   const cache = new WeakMap<RGB, WeakMap<RGB, RGB>>()
-  return (haze: number): Exposure => (rho, light) => {
-    let materials = cache.get(light)
-    if (!materials) cache.set(light, materials = new WeakMap())
-    let rgb = materials.get(rho)
-    if (!rgb) {
-      rgb = expose(rho, light, irr.yHorizon)
-      materials.set(rho, rgb)
+  return (haze: number): Exposure => {
+    const displayed = new WeakMap<RGB, WeakMap<RGB, RGB>>()
+    return (rho, light) => {
+      let colors = displayed.get(light)
+      if (!colors) displayed.set(light, colors = new WeakMap())
+      let color = colors.get(rho)
+      if (color) return color
+      let materials = cache.get(light)
+      if (!materials) cache.set(light, materials = new WeakMap())
+      let rgb = materials.get(rho)
+      if (!rgb) materials.set(rho, rgb = expose(rho, light, irr.yHorizon))
+      color = [encode(rgb[0] + (air[0] - rgb[0]) * haze), encode(rgb[1] + (air[1] - rgb[1]) * haze),
+        encode(rgb[2] + (air[2] - rgb[2]) * haze)]
+      colors.set(rho, color)
+      return color
     }
-    return [encode(rgb[0] + (air[0] - rgb[0]) * haze), encode(rgb[1] + (air[1] - rgb[1]) * haze),
-      encode(rgb[2] + (air[2] - rgb[2]) * haze)]
   }
 }

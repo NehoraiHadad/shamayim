@@ -4,17 +4,19 @@ import type { OutsideItem } from './types'
  * only limits the distance checked, so crossing its boundary cannot change the shade. */
 export function neighbourhood(items: readonly OutsideItem[], sx: number) {
   const boxes = items.filter(item => item.kind === 'box').sort((a, b) => a.x - b.x)
-  for (const [i, box] of boxes.entries()) {
-    let shade = 0
-    for (const step of [-1, 1]) {
-      for (let j = i + step; j >= 0 && j < boxes.length; j += step) {
-        const other = boxes[j], dx = (other.x - box.x) / (8 * sx)
-        if (Math.abs(dx) >= 1) break
-        const dy = (other.foot - box.foot) / 5
-        const weight = Math.max(0, 1 - dx * dx - dy * dy)
-        shade += weight * weight * Math.min(1, (other.foot - other.top) / 3)
-      }
+  const weights = boxes.map(box => Math.min(1, (box.foot - box.top) / 3))
+  const shade = new Float64Array(boxes.length)
+  const radius = 8 * sx
+  for (let i = 0; i < boxes.length; i++) {
+    const box = boxes[i]
+    for (let j = i + 1; j < boxes.length; j++) {
+      const other = boxes[j], dx = (other.x - box.x) / radius
+      if (dx >= 1) break
+      const dy = (other.foot - box.foot) / 5
+      const weight = Math.max(0, 1 - dx * dx - dy * dy) ** 2
+      shade[i] += weight * weights[j]
+      shade[j] += weight * weights[i]
     }
-    box.neighbours = 1 - Math.exp(-shade / 2.6)
+    box.neighbours = 1 - Math.exp(-shade[i] / 2.6)
   }
 }

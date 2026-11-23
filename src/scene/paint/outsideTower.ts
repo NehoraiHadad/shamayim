@@ -17,9 +17,9 @@ export function paintTower(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lamps: Lam
   const podium = tw.full ? Math.min(2.6, tw.h * .12) : 0
   const shaftBase = tw.base - podium
   const block = (x: number, y: number, w: number, h: number) => {
-    const detail = facadeDetail(w, h), cap = capDepth(w, h, scale)
-    boxFaces(ctx, x, y + cap, w, h - cap, f, detail, .18)
-    topPlane(ctx, x, y, w, cap, mix(f.unresolved, f.top, .50 * detail))
+    const detail = facadeDetail(w, h), cap = capDepth(w, h)
+    boxFaces(ctx, x, y, w, h, f, detail, .18)
+    topPlane(ctx, x, y, w, cap, mix(f.unresolved, f.top, .66))
   }
   block(x0, shaftTop, tw.w, shaftBase - shaftTop)
   if (f.band) {

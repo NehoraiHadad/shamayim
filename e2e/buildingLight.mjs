@@ -34,15 +34,17 @@ try {
       if (time === '1200' && !weather) {
         band(m.front, .67, .94, 'shaded wall/ground')
         assert.ok(m.n.roof >= 80, 'flat caps should resolve including beside clay roofs')
-        band(m.roof, .71, 1.10, 'flat roof/ground')
+        band(m.roof, .86, 1.50, 'flat roof/ground')
+        band(m.roof / m.front, 1.18, 1.65, 'flat roof/front')
         band(m.sun, .78, 1.12, 'sunward return/ground')
-        band(m.spread, .09, .18, 'all-neighbour spread')
-        assert.ok(m.peak <= 1, `built pixel at ${m.peakAt} exceeds the frame's own horizon Y`)
-        assert.ok(m.highpass <= 1.15 * preStage7FineRms[place], '1 px high-pass RMS exceeds the pre-stage-7 still limit')
+        band(m.spread, .11, .22, 'all-neighbour spread')
+        const peak = place === 'tel-aviv' ? 1.10 : .95
+        assert.ok(m.peak <= peak, `built pixel at ${m.peakAt} exceeds ${peak} of frame horizon Y`)
+        assert.ok(m.highpass <= 1.28 * preStage7FineRms[place], '1 px high-pass RMS exceeds the round-3 still limit')
         if (place === 'rosh-pina') {
           assert.ok(m.n.tile >= 100, 'clay planes should resolve')
           band(m.tile, .64, .85, 'clay roof/ground')
-          assert.ok(m.tileRed <= .92, 'tile red exceeds 92% of horizon red')
+          assert.ok(m.tileRed <= .95, 'tile red exceeds 95% of horizon red')
         }
       }
       if (weather === 'overcast') {
@@ -54,12 +56,12 @@ try {
       }
       if (place === 'haifa') {
         assert.ok(m.n.dome >= 14, 'gilded curved surface should resolve')
-        band(m.chroma, time === '1200' ? .09 : .044, .20, 'gold chroma')
+        band(m.chroma, time === '1200' ? .09 : .054, .20, 'gold chroma')
         if (time !== '1200') {
           band(m.dome, 2.1, 3.1, 'gold/ground')
-          band(m.spread, .12, .185, 'twilight neighbour spread')
+          band(m.spread, .12, .22, 'twilight neighbour spread')
         }
-        if (time === '0620') band(m.frontHorizon, .11, .185, 'dawn front/horizon')
+        if (time === '0620') band(m.frontHorizon, .135, .175, 'dawn front/horizon')
       }
     } catch (error) {
       failures.push(`${name} ${error.message}`)

@@ -24,7 +24,7 @@ export function paintFarCities(ctx: Ctx2D, desc: LayerOf<'farCities'>, env: Pain
       const { detail } = b
       if (!detail) continue
       const faces = { ...tier.resolved[b.receiver], unresolved: tier.unresolved }
-      const y = b.base - b.h, cap = capDepth(b.w, b.h, env.scale)
+      const y = b.base - b.h, cap = capDepth(b.w, b.h)
       ctx.save()
       ctx.globalAlpha *= detail
       boxFaces(ctx, b.x, y + cap, b.w, b.h - cap, faces, 1, 0)

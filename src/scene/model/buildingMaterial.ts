@@ -3,12 +3,16 @@ import type { Normal } from '../../world/livingLight'
 import type { RGB } from '../../world/types'
 import { srgbRgbToLinear } from './landRadiance'
 
-const Y = [.391, .398, .409, .428, .558, .569, .576, .58]
+const Y = [.424, .435, .449, .466, .526, .542, .558, .574]
 export const WALL_ALBEDOS: readonly RGB[] = Y.map((y, i) => {
-  const warm = .01 + .005 * (i % 3)
+  // Warm mineral plaster. This axis preserves Y, so warmer pigment does
+  // not also brighten the blocks or replace the shared sky and path haze.
+  const warm = .055 + .006 * (i % 3)
   return [y + warm, y - .17 * warm, y - 1.26 * warm]
 })
-export const TILE = srgbRgbToLinear([.43, .31, .245])
+export const TILE = srgbRgbToLinear([.43, .275, .185])
+// Flat concrete/membrane roofs share an albedo independent of the plaster bins.
+export const FLAT_ROOF: RGB = [.55, .532, .494]
 export const LEAF = srgbRgbToLinear([.19, .28, .21])
 export const PANEL = srgbRgbToLinear([.11, .17, .30])
 export const STACK_CONCRETE: RGB = [.24, .235, .22]

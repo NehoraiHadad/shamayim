@@ -34,17 +34,17 @@ export async function buildingRasterMasks(layers, outside, w, h) {
     const luminance = c => .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
     const right = luminance(p.right.wall) >= luminance(p.left.wall)
     const facade = { ...p, front: f(red), left: f(right ? blue : green), right: f(right ? green : blue),
-      top: yellow, tile: [tile, tile, tile], recess: black, unresolved: red }
+      top: yellow, tile: [tile, tile, tile], tileBase: tile, recess: black, unresolved: red }
     const id = ++index
     const hash = Math.imul(id + 1000, 0x45d9f3b) >>> 0
     const key = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) & 0xffffff
     ownerColors.set(key, id)
     const value = [key & 255, (key >> 8) & 255, key >> 16].map(v => v / 255)
     const owned = { ...p, front: f(value), left: f(value), right: f(value),
-      top: value, tile: [value, value, value], recess: value, unresolved: value }
-    paintBoxGeometry(m, { ...b, heater: false }, outside.tiers[b.tier], shine, facade, props, 1)
-    paintBoxGeometry(owner, { ...b, heater: false }, outside.tiers[b.tier], shine, owned, props, 1)
-    if (b.roof !== 'tile') topPlane(caps, b.x - b.w / 2, b.top, b.w, capDepth(b.w, b.foot - b.top, 1), yellow)
+      top: value, tile: [value, value, value], tileBase: value, recess: value, unresolved: value }
+    paintBoxGeometry(m, { ...b, heater: false }, outside.tiers[b.tier], shine, facade, props)
+    paintBoxGeometry(owner, { ...b, heater: false }, outside.tiers[b.tier], shine, owned, props)
+    if (b.roof !== 'tile') topPlane(caps, b.x - b.w / 2, b.top, b.w, capDepth(b.w, b.foot - b.top), yellow)
   }
 
   const domeCtx = canvas().getContext('2d')

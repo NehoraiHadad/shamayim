@@ -9,23 +9,25 @@ import { skyReflection } from './landSkyIrradiance'
 export function glassIncidence(world: WorldState, { irr }: Surroundings) {
   const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec)
   const az = Math.hypot(irr.sunDir.across, irr.sunDir.ahead) || 1
-  const memo = new WeakMap<Normal, RGB>()
+  const memo = new WeakMap<Normal, readonly [RGB, RGB]>()
   return (n: Normal, mullion = false): RGB => {
     let reflection = memo.get(n)
     if (!reflection) {
       const nv = Math.max(0, -n[1])
       const toward = (2 * nv * n[0] * irr.sunDir.across + (1 + 2 * nv * n[1]) * irr.sunDir.ahead) / az
-      // Average Schlick over the shallow viewing angles of the rough panes.
-      const fresnel = .04 + .96 * (1 - .58 * nv) ** 5
-      const directional = sky(.14 + .5 * nv * Math.max(0, n[2]), .47 * toward)
-      reflection = mixReflection(directional, irr.eSkyVec, fresnel)
+      // V points toward the eye, so R = 2(N·V)N − V. Roughness lifts the
+      // sky sample just above the horizon. Projected area limits each return.
+      const fresnel = .04 + .96 * (1 - nv) ** 5
+      const directional = sky(.14 + 2 * nv * Math.max(0, n[2]), toward)
+      const pane = mixReflection(directional, irr.eSkyVec, fresnel)
+      reflection = [pane, [pane[0] * .84, pane[1] * .84, pane[2] * .84]]
       memo.set(n, reflection)
     }
-    return mullion ? [reflection[0] * .84, reflection[1] * .84, reflection[2] * .84] : reflection
+    return reflection[Number(mullion)]
   }
 }
 
 function mixReflection(sky: RGB, fill: RGB, fresnel: number): RGB {
-  const channel = (i: 0 | 1 | 2) => (1.65 * fresnel + .62) * sky[i] + .25 * (1 - fresnel) * fill[i]
+  const channel = (i: 0 | 1 | 2) => fresnel * sky[i] + .37 * (1 - fresnel) * fill[i]
   return [channel(0), channel(1), channel(2)]
 }

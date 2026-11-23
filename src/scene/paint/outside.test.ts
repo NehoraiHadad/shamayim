@@ -52,7 +52,7 @@ function record(layer: LayerOf<'outside'>, windowsOnly = false) {
         return { cast, halo: op === 'createRadialGradient' && args[5] === 1.3, span: args[2] - args[0], stops,
           addColorStop: (_: number, css: string) => { if (!windowsOnly) stops.push(colour(css)) } }
       }
-      if (op === 'fillRect' && typeof fill === 'string') {
+      if (op === 'fillRect' && emissive && typeof fill === 'string') {
         const [, , w, h] = args
         if ((w === .55 || (w === .5 && h === .55)) && !fill.includes('/')) lit.add(args.join(','))
       }

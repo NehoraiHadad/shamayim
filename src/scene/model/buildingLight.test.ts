@@ -118,6 +118,12 @@ describe('building receiver', () => {
     expect(ratio).toBeLessThan(.96)
   })
 
+  it('shows the anti-solar sky in a head-on pane when the glow is behind the facade', () => {
+    const sunBehindFacade = buildingLight(scene(180, .76, 0), 0).glass(NORMALS.front)
+    const sunBehindViewer = buildingLight(scene(0, .76, 0), 0).glass(NORMALS.front)
+    expect(sunBehindFacade[0] - sunBehindFacade[2]).toBeLessThan(sunBehindViewer[0] - sunBehindViewer[2])
+  })
+
   it('uses exactly the land haze pass after exposure', () => {
     const w = scene(), km = 9
     const near = buildingLight(w, 0)(STONE, NORMALS.front)
