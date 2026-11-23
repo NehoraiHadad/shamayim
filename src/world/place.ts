@@ -115,7 +115,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y, backed: true }, notes, datum }
   return { marks, seatPool, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
-    trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,
+    trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land, nearLine: view.nearLine,
     vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null } }
 }
 

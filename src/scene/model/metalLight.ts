@@ -10,7 +10,8 @@ import { skyReflection } from './landSkyIrradiance'
 import { aerialFor, hazeAt } from './landVeil'
 import { mixLight } from './tone'
 
-const GOLD_F0: RGB = [1, .75, .28]
+// Measured linear RGB normal-incidence gold reflectance, from the dome diagnosis.
+const GOLD_F0: RGB = [1, .766, .336]
 const SILVER_F0: RGB = [.89, .91, .92]
 
 /** Rough conductor in the camera frame. V is toward the eye, so R = 2(N·V)N − V. */

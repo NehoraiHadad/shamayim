@@ -53,6 +53,6 @@ export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlane
     eyeM: terrain.eyeM,
     snowEdge: terrain.snowEdge,
   }
-  const faces = facesOf(planes, (angle) => terrainY(terrain.horizonY, angle))
+  const faces = facesOf(planes, (angle) => terrainY(terrain.horizonY, angle), terrain.portraitOutline)
   return { ...planes, faces, land: landOf(planes, faces, placeId) }
 }

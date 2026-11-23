@@ -2,6 +2,7 @@ import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { outsideItemKm } from '../../world/outsideDepth'
+import { rowKm } from '../../world/beyondSeat'
 import { hits } from '../../world/sceneClearance'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
@@ -13,10 +14,12 @@ import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
 import type { Box, OutsideItem, SceneBox } from './types'
-import { townGroundKm, wallStep } from './wallDistance'
 
 /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
 export const KM_STEP = .5
+
+/** Eighth-octave receiver tiers preserve more depth resolution in nearby rows. */
+const wallStep = (km: number) => 2 ** (Math.round(Math.log2(Math.max(.1, km)) * 8) / 8)
 
 /** A full tower or a spire as a glyph-like item (screen px), its seed from its spot. */
 function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;
@@ -50,9 +53,8 @@ interface Shape {
   bounds: ReturnType<typeof boundsOf>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
-  /** Each tier's distance for its walls (a step of their own; the land's cap for what is beyond), and the town's ground. */
+  /** Each tier's receiver distance, with octave steps for the town's own walls. */
   wallKms: number[]
-  groundKm: number
   receivers: Map<number, { detail: boolean; tile: boolean }>[]
   heaters: Set<number>
   /** The marks among the items: where they sit in `items`, and the world mark (its tones are the hour's). */
@@ -74,14 +76,16 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const index = new Map<string, number>()
   const behind = landBehind(world)
   const tier = (km: number, x: number, foot: number, own = false) => {
-    const q = Math.round(Math.min(km, behind(x, foot)) / KM_STEP) * KM_STEP
-    const wall = own ? wallStep(Math.min(km, view.land?.km ?? Infinity)) : q
+    const q = Math.round((own ? km : Math.min(km, behind(x, foot))) / KM_STEP) * KM_STEP
+    const wall = own ? wallStep(km) : Math.round(km / KM_STEP) * KM_STEP
     const key = `${q}:${wall}`
     let i = index.get(key)
     if (i === undefined) { i = kms.length; index.set(key, i); kms.push(q); wallKms.push(wall) }
     return i
   }
   const { frame, skyline, baseKm } = view
+  const ownRowKm = ({ dy, near }: { dy?: number; near: number }) =>
+    rowKm(frame, baseKm, dy ?? frame.s + near * (frame.n - frame.s))
   const out: OutsideItem[] = []
   const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
   // The towers beyond the place: at their true distance, far first, behind the place.
@@ -117,7 +121,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(outsideItemKm(frame, baseKm, b), b.x, b.foot, true),
+    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(ownRowKm(b), b.x, b.foot, true),
       seed, receiver: receiverId(seed),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
@@ -126,7 +130,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const x = t.x * sx
     if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
     mass.push(massAt(x, t.w, t.baseY - t.h, outsideItemKm(frame, baseKm, t)))
-    own.push({ y: t.baseY, item: towerItem(t, sx, tier(outsideItemKm(frame, baseKm, t), t.x, t.baseY, true)) })
+    own.push({ y: t.baseY, item: towerItem(t, sx, tier(ownRowKm(t), t.x, t.baseY, true)) })
   }
   for (const t of view.trees) {
     const x = t.x * sx
@@ -145,7 +149,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
   const { receivers, heaters } = receiversUsed(out, kms.length)
-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
+  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, receivers, heaters, marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape

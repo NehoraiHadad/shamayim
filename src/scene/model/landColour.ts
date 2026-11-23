@@ -1,5 +1,7 @@
 //# allFunctionsCalledOnLoad
+import { azimuthAt } from '../../domain/camera'
 import type { LivingLand } from '../../world/landLiving'
+import { sampleLocalField } from './localLandField'
 import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
@@ -56,7 +58,11 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
       const frac = cols > 1 ? c / (cols - 1) : 0.5, x = xs[c]
       const shown = name !== 'far' || (world.terrain.sightAt ? world.terrain.sightAt(x).farShows : true)
       const targetY = crests[c] + rowFrac * Math.max(0, feet[c] - crests[c])
-      const hit = sampleBandAtKm(world.land, frac * nRays, faceAtY(world, name, plane, x, crests[c], feet[c], targetY).km)
+      const km = faceAtY(world, name, plane, x, crests[c], feet[c], targetY).km
+      const hit = sampleBandAtKm(world.land, frac * nRays, km, distanceM => {
+        const bearing = azimuthAt(frac, world.camera) * Math.PI / 180
+        return sampleLocalField(world.land, distanceM * Math.sin(bearing), distanceM * Math.cos(bearing))
+      })
       if (shown) sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
       visible.push(shown)
       rawAlbedos.push(hit.albedo)

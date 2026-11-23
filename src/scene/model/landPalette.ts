@@ -86,7 +86,7 @@ export function dominantWeightedSource(entries: readonly { source: string; weigh
 }
 
 /** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
-export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
+export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number, localAt?: (distanceM: number) => { albedo: RGB; source: string }): { albedo: RGB; source: string } {
   const rays = land.rays
   if (!rays.length) return nonWaterLocalFallback(land)
   const idx = clamp(Math.round(rayIdx), 0, rays.length - 1)
@@ -116,11 +116,13 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
     albedo = lerpRgb(a.sample.albedo, b.sample.albedo, t)
     contribs.push({ source: a.sample.albedoSource, weight: 1 - t }, { source: b.sample.albedoSource, weight: t })
   }
-  if (distM < 700 && land.own.cover !== COVER_WATER) {
+  // The existing 700 m overlap fades the local grid into the panorama bands.
+  if (distM < 700 && (localAt || land.own.cover !== COVER_WATER)) {
+    const local = localAt?.(distM) ?? { albedo: land.own.albedo, source: land.own.albedoSource }
     const ownW = clamp((700 - distM) / 500, 0, 0.55)
-    albedo = lerpRgb(albedo, land.own.albedo, ownW)
+    albedo = lerpRgb(albedo, local.albedo, ownW)
     for (const c of contribs) c.weight *= 1 - ownW
-    contribs.push({ source: land.own.albedoSource, weight: ownW })
+    contribs.push({ source: local.source, weight: ownW })
   }
   return { albedo, source: dominantWeightedSource(contribs) }
 }

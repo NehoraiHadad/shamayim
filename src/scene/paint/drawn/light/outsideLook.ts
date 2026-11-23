@@ -19,7 +19,7 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
     if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km))
     return tones
   }
-  const tiers = shape.kms.map(at)
+  const tiers = shape.wallKms.map(at)
   const items = refreshLandmarkItems(litWorld, shape.items, shape.marks, (_, glyph, km) => {
     if (!isFamousNonOwn(glyph)) return { ...glyph, tones: at(km) }
     const distance = glyph.trueDistanceKm!, contrast = landmarkContrast(litWorld, distance)
@@ -29,7 +29,7 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
     }
     return { ...glyph, tones, contrast }
   })
-  const form = skyFormOf(litWorld, box, shape.kms, tiers, sx)
+  const form = skyFormOf(litWorld, box, shape.wallKms, tiers, sx)
   const shine = shineOf(litWorld)
   const own: OwnOutside = { form }
   return { tiers, items, shine, key: partKey([form, shine], 8), own }

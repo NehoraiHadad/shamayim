@@ -12,7 +12,6 @@ import { KM_STEP, outsideShape } from './outsideShape'
 import { accessoryTones, buildingFaces, type BuildingFaces } from './buildingLight'
 import { receiverLightKey } from './receiverKey'
 import { PLAIN_LIGHT, type StyleLight } from './styleLight'
-import { wallAir } from './wallDistance'
 import type { Box, LayerOf, SceneBox, Shine, Tones } from './types'
 
 /**
@@ -50,9 +49,9 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const shine: Shine = look?.shine ?? shineOf(world)
   // The hour's tones per tier, and the marks' glyphs in them (the rest of the shapes kept as they are).
   const tones = look?.tiers ?? shape.kms.map((km) => tonesAt(world, km))
-  const air = wallAir(world, shape.groundKm), wallKms = shape.wallKms.map(air)
+  const { wallKms } = shape
   const out = look?.items ?? refreshLandmarkItems(world, shape.items, shape.marks, (_, glyph, km) =>
-    refreshLandmarkGlyph(world, glyph, air(km)))
+    refreshLandmarkGlyph(world, glyph, km))
   const sea = outsideSea(world, box, sx, clear)
   const view = world.place3
   const landDesc = outsideLandDesc(world, view, box, sx)

@@ -68,8 +68,10 @@ export function faceColumnAt(cols: readonly FaceColumn[], x: number): FaceColumn
 }
 
 export function measuredFaceAt(pts: readonly FacePoint[], crestKm: number, crestY: number, targetY: number): FaceSample {
-  if (targetY <= crestY + FACE_EPSILON) return { km: crestKm, slope: pts[0].slope }
-  let prevY = crestY, prevKm = crestKm, prevSlope = pts[0].slope
+  const first = pts[0]
+  const startKm = Math.abs(first.y - crestY) <= FACE_EPSILON ? first.km : crestKm
+  if (targetY <= crestY + FACE_EPSILON) return { km: startKm, slope: first.slope }
+  let prevY = crestY, prevKm = startKm, prevSlope = first.slope
   for (const pt of pts) {
     if (pt.y <= prevY + FACE_EPSILON) continue
     if (targetY <= pt.y) {

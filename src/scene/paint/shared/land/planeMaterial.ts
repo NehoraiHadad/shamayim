@@ -28,7 +28,7 @@ export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v:
   const gx = clamp(u * maxC + (n1 * 0.68 + n2 * 0.32 - 0.5) * 1.4, 0, maxC)
   const gy = maxR > 0 ? clamp(v * maxR + (n2 - 0.5) * 0.55 + (n1 - 0.5) * 0.35, 0, maxR) : 0
   const c0 = Math.floor(gx), c1 = Math.min(maxC, c0 + 1), r0 = Math.floor(gy), r1 = Math.min(maxR, r0 + 1)
-  const fx = smooth(0.16, 0.84, gx - c0), fy = smooth(0.16, 0.84, gy - r0)
+  const fx = gx - c0, fy = smooth(0.16, 0.84, gy - r0)
   const k00 = paletteLin[cells[r0 * pCols + c0]] ?? paletteLin[0]
   const k10 = paletteLin[cells[r0 * pCols + c1]] ?? paletteLin[0]
   const k01 = paletteLin[cells[r1 * pCols + c0]] ?? paletteLin[0]
