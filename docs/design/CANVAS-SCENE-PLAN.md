@@ -2622,27 +2622,26 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
    `L/L_ref = (ρ/π) · [E_sun C_sun max(0,n·s) V_s T + E_moon C_moon max(0,n·m) V_m + E_sky C_sky V_sky]`.
    `E` are irradiances in units compatible with radiance `L_ref`, and the Lambertian 1/π converts irradiance
    into radiance. `T` is incremental cloud transmission and `V_s` and `V_m` are separate receiver-space DEM
-   visibility. The building receiver adds `(1−n_up)/2 × 0.92 × ρ_ground` times ground irradiance. The
-   0.92 is the assumed unblocked fraction of the ground hemisphere. Ground irradiance includes diffuse sky,
-   moonlight and the projected solar beam over the 0.70 share of ground assumed outside cast shadows.
-   Ground reflectance comes from the same local land albedo sample, and the beam includes the deck's
-   transmission and the near-horizon attenuation shared by land. Eaves and street-level enclosure
-   restrict the sky aperture. The deep openings also exclude the direct beam.
+   visibility. The building receiver adds `(1−n_up)/2 × 0.92 × ρ_ground` times ground irradiance.
+   The 0.92 is the open terrain fraction in the ground hemisphere. The sunlit share uses a typical street
+   gap of two building heights divided by the gap plus the projected shadow length. The cloud deck and
+   the wet-ground factor are already part of the shared irradiance, and the local land sample supplies
+   ground albedo. The feet and eaves reduce sky view, ground view and beam access. Low twilight from the
+   sunward horizon is screened in street canyons.
 
-   - Buildings choose one of eight bounded linear plaster and limestone bins (Y about 0.44–0.58).
-     Existing seeds select materials and fixed facade angles for raster footprints. Supplied
-     footprint bearings use the same angle bins. The angle controls both incidence and projected
-     return width. Flat roofs and crowns use the up normal, clay roofs their pitch. Panels and glazing
-     use their own reflectance before exposure. The painter interpolates solved colours at eaves and
-     feet and antialiases the projected top inside the silhouette.
-   - Far towns shade resolved faces with the same receiver. Below the resolution of a block's faces,
-     projected face irradiances are averaged before exposure and haze. Landmark distance contrast
-     and the Allard lamp transmission use the true receiving-eye distance.
-   - The Báb shrine's gold resolves curved sectors, sampling the shared sky along their reflected
-     directions. A broad low lobe carries the off-axis afterglow and a separate rough lobe takes the
-     attenuated beam. The sector material is conductive at every hour. Existing window and lamp
-     timing, colour and position are retained. At full darkness the compatibility painter preserves
-     facade and crown tones.
+   - Existing seeds select one of eight reflectance bins for plaster and fixed facade angles for raster
+     footprints. The angle controls incidence and projected return width. Flat roofs and crowns use the
+     up normal, clay roofs use their pitch. Caps cover at most 0.55 CSS px, 0.6 device px or 23% of height.
+     Small blocks blend continuously toward projected average irradiance. A compact neighbourhood kernel
+     at street level provides enclosure.
+   - Far towns use the same average and resolved receivers. Landmark contrast and Allard lamp transmission
+     follow true receiving-eye distance. Glass combines rough sky reflection with an interior diffuse term
+     and soft floor bands.
+   - The Báb shrine uses curved sectors of rough conductor reflection from the sky, afterglow and beam
+     with linear gold F0 `(1.00, 0.77, 0.34)`. Diffuse and specular architecture keep their geometry through
+     twilight. Tagged emissive windows and lamps retain the established placement, tint and timing.
+   - The land surface composites the newest complete worker pairs at most once per animation frame for
+     arrivals. Plane and canopy changes remain visible while a drag continues.
 
    - The clear-sky check uses Bird and Hulstrom at 52° zenith, relative air mass 1.62, 101325 Pa, 1361 W/m²
      extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water vapour, AOD₅₀₀ 0.116, AOD₃₈₀ 0.166,

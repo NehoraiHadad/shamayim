@@ -527,12 +527,13 @@ describe('light on the place', () => {
     const boxes = noon.items.filter(item => item.kind === 'box')
     expect(boxes.length).toBeGreaterThan(50)
     expect(dusk.items.filter(item => item.kind === 'box').map(b => b.receiver)).toEqual(boxes.map(b => b.receiver))
+    const dark = at('2026-11-17T21:00')
     for (const box of boxes) {
-      const palette = noon.receivers[box.tier][box.receiver!]
-      expect(palette).toBeDefined()
-      expect(palette.leftWidth + palette.rightWidth).toBeCloseTo(.44)
+      expect(dark.receivers[box.tier][box.receiver]).toBeDefined()
     }
-    expect(at('2026-11-17T21:00').receivers.every(p => !Object.keys(p).length)).toBe(true)
+    expect(dark.items.filter(item => item.kind === 'box')).toEqual(boxes)
+    const ownRoof = boxes.find(box => box.roof === 'tile')
+    if (ownRoof) expect(dark.receivers[ownRoof.tier][ownRoof.receiver].tile).toHaveLength(3)
   })
 
   it('takes no more haze on a thing than the land it is seen against (C9)', () => {
