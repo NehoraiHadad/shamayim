@@ -1,6 +1,6 @@
 import { cellRim, rimRadiusSquared } from '../../world/field/cellRim'
 import type { FieldCell } from '../../world/field/types'
-import { cloudBodyPuffs } from './cloudBodyPuffs'
+import { crownAt, halfAt, headsOf, towerAnvil, type TowerHeadShape } from './towerHeads'
 
 const SECTORS = 12
 const RIM = Array.from({ length: SECTORS }, (_, i) => {
@@ -10,8 +10,9 @@ const RIM = Array.from({ length: SECTORS }, (_, i) => {
 export const SOLAR_DIAMETER_RAD = 0.53 * Math.PI / 180
 
 /** Read the drawn cell's outline in the local screen basis. */
-export function shadowLobes(cell: FieldCell, bearing: number, handed: number, sunOffset: number, cot: number, slope: number) {
-  if (cell.lattice === 'tower') return towerLobes(cell, sunOffset, handed, cot)
+export function shadowLobes(cell: FieldCell, bearing: number, handed: number, sunOffset: number, cot: number, slope: number,
+  sprite?: TowerHeadShape) {
+  if (cell.lattice === 'tower') return towerLobes(cell, sunOffset, handed, cot, slope, sprite)
   const rim = cellRim(cell)
   if (!rim) return RIM.map(() => 0)
   const sin = Math.sin(bearing), cos = Math.cos(bearing)
@@ -21,23 +22,37 @@ export function shadowLobes(cell: FieldCell, bearing: number, handed: number, su
   })
 }
 
-function towerLobes(cell: FieldCell, sunOffset: number, handed: number, cot: number) {
-  const lobes = new Array<number>(SECTORS).fill(-.20)
-  const span = cell.r + cell.vKm * cot / 2
+const HEAD_SLICES = 16
+// A kilometre-scale shape uses the same generator without hitting the painter's half-pixel minimum.
+const SHAPE_UNITS_PER_KM = 64
+
+function towerLobes(cell: FieldCell, sunOffset: number, handed: number, cot: number, slope: number, sprite?: TowerHeadShape) {
+  const radii = new Array<number>(SECTORS).fill(0)
+  const { r, vKm, seed, baseKm, genus } = cell
+  const span = r + vKm * cot / 2
+  const w = 2 * r * SHAPE_UNITS_PER_KM, tall = vKm * SHAPE_UNITS_PER_KM
+  const shape = sprite && sprite.tall > 0 ? sprite : { seed, w, tall, anvil: towerAnvil(genus === 'cb', baseKm + vKm, w, tall) }
+  const kmPerX = 2 * r / shape.w, kmPerY = vKm / shape.tall
   const sin = Math.sin(sunOffset), cos = Math.cos(sunOffset)
-  cloudBodyPuffs(cell.seed, 2 * cell.r, cell.vKm, 0, (x, y, rx) => {
-    const along = (-y - cell.vKm / 2) * cot
-    const u = (x - sin * along) * handed / span
-    const v = cos * along / span
-    const puff = rx / span
-    const chordBase = puff * puff - u * u - v * v
-    for (let i = 0; i < SECTORS; i++) {
-      const dot = RIM[i][0] * u + RIM[i][1] * v
-      const chord = chordBase + dot * dot
-      if (chord > 0) lobes[i] = Math.max(lobes[i], Math.min(.20, dot + Math.sqrt(chord) - .75))
+  // Project the union of horizontal slices of the painted heads. The sprite gives their relative outlines.
+  // The cell's own base and depth place the slices in the solar projection, independently of perspective.
+  for (const head of headsOf(shape)) {
+    for (let row = 0; row < HEAD_SLICES; row++) {
+      const y = -head.tall * row / HEAD_SLICES
+      const along = (-y * kmPerY - vKm / 2) * cot
+      const u = (head.x * kmPerX - sin * along) * handed / span
+      const v = -slope * cos * along / span
+      const radius = halfAt(head, y) * Math.sqrt(1 - crownAt(head, y) ** 2) * kmPerX / span
+      const chordBase = radius * radius - u * u - v * v
+      for (let i = 0; i < SECTORS; i++) {
+        const dot = RIM[i][0] * u + RIM[i][1] * v
+        const chord = chordBase + dot * dot
+        if (chord > 0) radii[i] = Math.max(radii[i], dot + Math.sqrt(chord))
+      }
     }
-  })
-  return lobes
+  }
+  const mean = radii.reduce((sum, radius) => sum + radius, 0) / SECTORS
+  return radii.map(radius => Math.max(-.20, Math.min(.20, radius - mean)))
 }
 
 export interface ShadowEdge {

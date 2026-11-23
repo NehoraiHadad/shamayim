@@ -99,14 +99,14 @@ function glowOf(input: LightInput): Light['glow'] {
  * changes only where its share is nil, the direction (`dir`) is the one giving the direct light, and the colour fades to
  * the sky's as the direct share goes. Every face, shadow and glint takes its direction, colour and strength.
  */
-export function lightOf(input: LightInput): Light {
+export function lightOf(input: LightInput, cloudDepthScale = 1): Light {
   const { sun, moon, camera, aerosol, covers, palette } = input
   const ambient = rgbOf(palette.mid)
   const glow = glowOf(input)
   const afterglow = sun.altitude < AFTERGLOW.from && sun.altitude > AFTERGLOW.to
     ? { x: sun.x, altitude: sun.altitude, rgb: afterglowColour(sun.altitude, aerosol) as RGB } : null
   const noonWeight = sun.t === null ? 0 : 1 - smoothstep(0, 0.18, Math.abs(sun.t - 0.5))
-  const { open, clear: meanTransmission, diffuse } = cloudLight(covers, input.cloudField?.field)
+  const { open, clear: meanTransmission, diffuse } = cloudLight(covers, input.cloudField?.field, cloudDepthScale)
   const base = { ambient, glow, afterglow, palette, diffuse, clear: meanTransmission }
 
   // The sun: its disc over the drawn land, through the air (a haze too thick lets nothing through), through the cloud.

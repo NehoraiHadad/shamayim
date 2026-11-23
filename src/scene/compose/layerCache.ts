@@ -1,5 +1,6 @@
 import { frameAt, frameCount } from '../model/anim'
 import type { LayerDesc } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
 import { HAND, painterOf, type Ctx2D, type Hand, type Painter } from '../paint'
 import { canvasSize, deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
 import { shadeKeyOf } from './paintReceiver'
@@ -21,6 +22,7 @@ export const ctxOf = (canvas: LayerCanvas) => (canvas as HTMLCanvasElement).getC
 interface Entry {
   /** The key the form canvas holds (the layer's key, its pixel ratio and bounds). */
   formKey: string
+  style: SceneStyle
   desc: LayerDesc
   lightKey: string | null
   ratio: number
@@ -35,7 +37,7 @@ interface Entry {
 
 export interface CacheOptions {
   factory?: CanvasFactory
-  painters?: (desc: LayerDesc) => Painter | undefined
+  painters?: (desc: LayerDesc, style: SceneStyle) => Painter | undefined
   hand?: Hand
   stats?: SceneStats
   now?: () => number
@@ -53,8 +55,10 @@ export type Painted = 'none' | 'light' | 'form'
 export class LayerCache {
   private entries = new Map<string, Entry>()
   private readonly factory: CanvasFactory
-  private readonly painters: (desc: LayerDesc) => Painter | undefined
+  private readonly painters: (desc: LayerDesc, style: SceneStyle) => Painter | undefined
   private readonly hand: Hand
+  /** The scene's hand: part of the keys of the layers it paints its own way, so a switch repaints those. */
+  style: SceneStyle = 'real'
   private readonly stats?: SceneStats
   private readonly now: () => number
 
@@ -69,13 +73,14 @@ export class LayerCache {
   /** The layer's canvas is up to date for this desc and dpr. */
   fresh(desc: LayerDesc, dpr: number): boolean {
     const entry = this.entries.get(desc.id)
-    return Boolean(entry && entry.formKey === formKeyOf(desc, dpr).key && entry.lightKey === lightKeyOf(desc, this.painters(desc)))
+    return Boolean(entry && entry.formKey === formKeyOf(desc, dpr, this.style).key
+      && entry.lightKey === lightKeyOf(desc, this.painters(desc, this.style), this.style))
   }
 
   /** The canvases last painted for a layer (possibly stale): its form, its light (if any), their ratio and place. */
   /** The layer's form draws nothing under its light (`Painter.formless`): the surface lays its light alone. */
   formless(desc: LayerDesc): boolean {
-    return Boolean(desc.light && this.painters(desc)?.formless?.(desc))
+    return Boolean(desc.light && this.painters(desc, this.style)?.formless?.(desc))
   }
 
   peek(id: string) {
@@ -85,11 +90,11 @@ export class LayerCache {
   }
 
   private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number,
-    only?: readonly number[], shade?: LayerCanvas) {
+    only?: readonly number[], shade?: LayerCanvas, style = this.style) {
     paintPart(ctxOf(canvas), canvas, desc, ratio, rect, paint, phase, this.hand, (w, h) => {
       const scratch = this.factory(w, h)
       return { canvas: scratch, ctx: ctxOf(scratch) }
-    }, only, shade && ctxOf(shade))
+    }, only, style, shade && ctxOf(shade))
   }
 
   /**
@@ -99,15 +104,16 @@ export class LayerCache {
   ensureFrame(desc: LayerDesc, phase: number) {
     if (frameCount(desc.animated) === 1) return
     const entry = this.entries.get(desc.id)
-    const painter = this.painters(desc)
-    if (!entry || !painter) return
+    if (!entry) return
+    const painter = this.painters(desc, entry.style)
+    if (!painter) return
     const f = frameAt(desc.animated, phase)
     if (entry.form && entry.formFrames && !entry.formFrames.has(f)) {
-      this.paintOn(entry.form, desc, entry.ratio, entry.rect, painter.form, phase, [f])
+      this.paintOn(entry.form, desc, entry.ratio, entry.rect, painter.form, phase, [f], undefined, entry.style)
       entry.formFrames.add(f)
     }
     if (entry.light && entry.lightKey && painter.light && entry.lightFrames && !entry.lightFrames.has(f)) {
-      this.paintOn(entry.light, desc, entry.ratio, entry.rect, painter.light, phase, [f], entry.shade)
+      this.paintOn(entry.light, desc, entry.ratio, entry.rect, painter.light, phase, [f], entry.shade, entry.style)
       entry.lightFrames.add(f)
     }
   }
@@ -115,11 +121,14 @@ export class LayerCache {
   /** Brings a layer's canvas up to date: what had to be painted (`none` is a cache hit). */
   update(desc: LayerDesc, dpr: number, phase = 0): Painted {
     const stat = this.stats?.layer(desc.id)
-    const painter = this.painters(desc)
-    const { ratio, key: formKey } = formKeyOf(desc, dpr)
-    const lightKey = lightKeyOf(desc, painter)
+    const painter = this.painters(desc, this.style)
+    const { ratio, key: formKey } = formKeyOf(desc, dpr, this.style)
+    const lightKey = lightKeyOf(desc, painter, this.style)
     let entry = this.entries.get(desc.id)
-    if (entry?.formKey === formKey) entry.desc = desc
+    if (entry?.formKey === formKey) {
+      entry.desc = desc
+      entry.style = this.style
+    }
     if (entry && entry.formKey === formKey && entry.lightKey === lightKey) {
       if (stat) stat.hits++
       return 'none'
@@ -133,7 +142,7 @@ export class LayerCache {
     const existing = entry?.form ?? entry?.light
     if (!entry || existing?.width !== w || existing.height !== h || Boolean(entry.form) === formless) {
       const form = formless ? null : this.factory(w, h)
-      entry = { formKey: '', desc, lightKey: null, ratio, rect, form, light: null }
+      entry = { formKey: '', style: this.style, desc, lightKey: null, ratio, rect, form, light: null }
       this.entries.set(desc.id, entry)
     }
     if (entry.formKey !== formKey) entry.lightKey = null
@@ -148,6 +157,7 @@ export class LayerCache {
       }
       entry.formKey = formKey
       entry.desc = desc
+      entry.style = this.style
       painted = 'form'
     }
     if (lightKey && painter?.light) {

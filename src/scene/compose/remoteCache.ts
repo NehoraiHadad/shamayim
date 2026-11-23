@@ -1,4 +1,5 @@
 import type { LayerDesc } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
 import { HAND, painterOf, type Hand, type Painter } from '../paint'
 import type { Painted } from './layerCache'
 import { deviceRect, formKeyOf, lightKeyOf, resultBitmaps, type PaintJob, type PaintReply } from './paintJob'
@@ -14,7 +15,7 @@ export interface Arrival { latency: number; workerMs: number; settled: boolean; 
 
 export interface RemoteOptions {
   worker: WorkerLike
-  painters?: (desc: LayerDesc) => Painter | undefined
+  painters?: (desc: LayerDesc, style: SceneStyle) => Painter | undefined
   hand?: Hand
   now?: () => number
   /** A batch arrived and was taken in: the surface lays the layers again. */
@@ -27,6 +28,8 @@ export interface RemoteOptions {
 export class RemoteCache {
   private entries = new Map<string, Entry>()
   private readonly queue: PaintQueue
+  /** The scene's hand (`LayerCache.style`), sent with every job. */
+  style: SceneStyle = 'real'
   private readonly painters: NonNullable<RemoteOptions['painters']>
   private readonly options: RemoteOptions
   private failed = false
@@ -43,20 +46,20 @@ export class RemoteCache {
 
   fresh(desc: LayerDesc, dpr: number): boolean {
     const shown = this.entries.get(desc.id)?.shown
-    return shown?.request.formKey === formKeyOf(desc, dpr).key && shown.request.formless === this.formless(desc)
-      && shown.request.lightKey === lightKeyOf(desc, this.painters(desc)) && (!shadeKeyOf(desc) || Boolean(shown.shade))
+    return shown?.request.formKey === formKeyOf(desc, dpr, this.style).key && shown.request.formless === this.formless(desc)
+      && shown.request.lightKey === lightKeyOf(desc, this.painters(desc, this.style), this.style) && (!shadeKeyOf(desc) || Boolean(shown.shade))
   }
 
   formless(desc: LayerDesc): boolean {
-    return Boolean(desc.light && this.painters(desc)?.formless?.(desc))
+    return Boolean(desc.light && this.painters(desc, this.style)?.formless?.(desc))
   }
 
   /** Asks for stale parts and reports what was newly queued. */
   update(desc: LayerDesc, dpr: number, phase = 0): Painted {
-    const { ratio, key: formKey } = formKeyOf(desc, dpr)
+    const { ratio, key: formKey } = formKeyOf(desc, dpr, this.style)
     const entry = this.entries.get(desc.id)
     const request: Request = { formKey, ratio, desc, phase, rect: deviceRect(desc, ratio),
-      lightKey: lightKeyOf(desc, this.painters(desc)), formless: this.formless(desc), generation: 1 }
+      lightKey: lightKeyOf(desc, this.painters(desc, this.style), this.style), formless: this.formless(desc), generation: 1 }
     if (entry) {
       const unchanged = samePaint(entry.wanted, request)
       request.generation = entry.wanted.generation + Number(!unchanged)
@@ -76,7 +79,7 @@ export class RemoteCache {
     const same = sameForm(entry.shown?.request, request)
     const ask = (part: PaintJob['part'], key: string | null) => {
       if (key === null) return this.queue.cancel(desc.id, part)
-      return this.queue.ask({ id: desc.id, part, key, formKey, ratio, rect, phase, hand: this.options.hand ?? HAND,
+      return this.queue.ask({ id: desc.id, part, key, formKey, ratio, rect, phase, hand: this.options.hand ?? HAND, style: this.style,
         ...receiverJob(desc, part, formless, same, Boolean(entry.shown)) }, request)
     }
     const form = ask('form', same || formless || isStaged(entry, 'form') ? null : formKey)

@@ -1,6 +1,7 @@
 import { smoothstep } from '../../domain/smoothstep'
-import type { FallMark, LayerOf, MistBandDesc, ShaftDesc } from '../model/types'
+import type { FallMark, LayerOf, MistBandDesc } from '../model/types'
 import { rng } from './core'
+import { curtain, FIBRES } from './curtain'
 import { css, type Ctx2D, type PaintEnv } from './hand'
 
 /*
@@ -19,76 +20,6 @@ import { css, type Ctx2D, type PaintEnv } from './hand'
  */
 
 const STEPS = [0.25, 0.5, 0.75, 1]
-
-/** One curtain (rain or snow) at `x`: a soft body and fibrous strands from the base down to the ground, leaning downwind. */
-function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean) {
-  const { x, top, bottom, w, lean, rgb, alpha, seed } = s
-  const h = bottom - top
-  if (h <= 1 || alpha < 0.01) return
-  const r = rng(seed)
-  // The body: three nested columns (a soft edge without a filter), denser under the base, thinner toward the ground.
-  const body = ctx.createLinearGradient(0, top, 0, bottom)
-  body.addColorStop(0, css(rgb, 0))
-  body.addColorStop(0.12, css(rgb, alpha * 0.55))
-  body.addColorStop(0.6, css(rgb, alpha * (snow ? 0.4 : 0.48)))
-  body.addColorStop(1, css(rgb, alpha * (snow ? 0.18 : 0.3)))
-  ctx.fillStyle = body
-  for (const k of [1, 0.78, 0.55]) {
-    const half = (w * k) / 2
-    ctx.beginPath()
-    ctx.moveTo(x - half, top)
-    ctx.lineTo(x + half, top)
-    ctx.lineTo(x + half + lean, bottom)
-    ctx.lineTo(x - half + lean, bottom)
-    ctx.closePath()
-    ctx.globalAlpha = 0.45
-    ctx.fill()
-  }
-  ctx.globalAlpha = 1
-  // The strands: fibres of rain of seeded widths, bunched (not an even comb), some stopping short of the ground (virga).
-  const strands = Math.max(3, Math.round(w / (snow ? 4 : 2.6)))
-  const groups: Path2DLike[] = STEPS.map(() => [])
-  let at = -w / 2
-  for (let i = 0; i < strands && at < w / 2; i++) {
-    const sw = (snow ? 1.6 : 0.7) + (snow ? 2.4 : 1.6) * r() ** 2
-    const reach = r() < 0.3 ? 0.45 + 0.4 * r() : 1
-    const k = Math.min(3, Math.floor(r() * 4 * (1 - Math.abs(at) / w)))
-    groups[k].push([x + at, sw, reach])
-    at += sw + (r() < 0.25 ? 2 + 3 * r() : 0.4 * r())
-  }
-  groups.forEach((group, k) => {
-    if (!group.length) return
-    const g = ctx.createLinearGradient(0, top, 0, bottom)
-    g.addColorStop(0, css(rgb, 0))
-    g.addColorStop(0.1, css(rgb, alpha * STEPS[k] * 0.8))
-    g.addColorStop(1, css(rgb, alpha * STEPS[k] * 0.25))
-    ctx.fillStyle = g
-    ctx.beginPath()
-    for (const [sx, sw, reach] of group) {
-      const foot = top + h * reach
-      const l = lean * reach
-      ctx.moveTo(sx, top)
-      ctx.lineTo(sx + sw, top)
-      ctx.lineTo(sx + sw * 0.7 + l, foot)
-      ctx.lineTo(sx + l, foot)
-      ctx.closePath()
-    }
-    ctx.fill()
-  })
-}
-type Path2DLike = [number, number, number][]
-
-/** The curtains under the far banks that rain or snow, on their cloud layer's band (each also a period over, to wrap). */
-export function paintShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, _env: PaintEnv): void {
-  const { bounds, period } = desc
-  for (const s of desc.shafts) {
-    for (const k of [-1, 0, 1]) {
-      const x = s.x + k * period
-      if (x + s.w + Math.abs(s.lean) < bounds.x || x - s.w - Math.abs(s.lean) > bounds.x + bounds.w) continue
-      curtain(ctx, { ...s, x }, desc.precip === 'snow')
-    }
-  }
-}
 
 /** Each mark of a tile, and its copies across the tile's edges (the tile repeats as a pattern). */
 function wrapped(marks: readonly FallMark[], w: number, h: number, reach: number, each: (m: FallMark, x: number, y: number) => void) {
@@ -304,13 +235,13 @@ export function paintSheen(ctx: Ctx2D, desc: LayerOf<'sheen'>, env: PaintEnv): v
 }
 
 /** The edge mark: a heavy bank cut by the frame's edge, its curtain leaning downwind to the horizon. */
-export function paintEdge(ctx: Ctx2D, desc: LayerOf<'edge'>, _env: PaintEnv): void {
+export function paintEdge(ctx: Ctx2D, desc: LayerOf<'edge'>, env: PaintEnv, fibres = FIBRES): void {
   const { x, y, w, h, side, seed } = desc
   const dir = side === 'left' ? 1 : -1
   const cx = x + dir * w * 0.35
   const r = rng(seed)
   curtain(ctx, { x: cx, top: y - h * 0.15, bottom: desc.bounds.y + desc.bounds.h, w: w * 0.75, lean: desc.lean,
-    rgb: desc.curtain, alpha: desc.alpha * 0.9, seed }, desc.precip === 'snow')
+    rgb: desc.curtain, alpha: desc.alpha * 0.9, seed }, desc.precip === 'snow', env, fibres)
   // The bank: a shower cloud heaped on a flat base, towering on the side toward the frame (its body grows into the view):
   // puffs of seeded sizes along a rising profile, the base's shade as flattened puffs under them, the body over.
   const n = 11

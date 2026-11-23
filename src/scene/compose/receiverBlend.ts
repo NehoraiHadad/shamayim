@@ -8,6 +8,7 @@ interface Frame {
   box: DeviceRect
   beam: CanvasImageSource
   shade: CanvasImageSource
+  lightKey: string | null
   revision: number
   sy: number
   sampling: Sampling
@@ -28,16 +29,18 @@ export class ReceiverBlend {
 
   constructor(factory: CanvasFactory) { this.factory = factory }
 
-  mix(id: string, beam: CanvasImageSource, shade: CanvasImageSource, rect: DeviceRect, mask: ShadowMask, box: DeviceRect, sy: number) {
+  mix(id: string, lightKey: string | null, beam: CanvasImageSource, shade: CanvasImageSource,
+    rect: DeviceRect, mask: ShadowMask, box: DeviceRect, sy: number) {
     const held = this.frames.get(id)
-    if (held && held.beam === beam && held.shade === shade && held.revision === mask.revision && held.sy === sy) return held.canvas
+    const sameSource = held && held.lightKey === lightKey && held.beam === beam && held.shade === shade && held.sy === sy
+    if (sameSource && held.revision === mask.revision) return held.canvas
     const canvas = held?.canvas.width === rect.w && held.canvas.height === rect.h ? held.canvas : this.factory(rect.w, rect.h)
     const { w, h } = box, x = box.x - rect.x, y = box.y - rect.y
     if (!this.scratch || this.scratch.width < w || this.scratch.height < h) {
       this.scratch = this.factory(Math.max(w, this.scratch?.width ?? 0), Math.max(h, this.scratch?.height ?? 0))
     }
     const output = context(canvas), scratch = context(this.scratch)
-    const sameFrame = held && held.canvas === canvas && held.beam === beam && held.shade === shade && held.sy === sy
+    const sameFrame = sameSource && held.canvas === canvas
     const restore = sameFrame ? union(held.box, box) : rect
     const rx = restore.x - rect.x, ry = restore.y - rect.y
     output.globalCompositeOperation = sameFrame ? 'source-over' : 'copy'
@@ -49,7 +52,7 @@ export class ReceiverBlend {
     const sampling = held && held.sampling.rect === mask.rect && sameRect(held.box, box) ? held.sampling : maskSampling(mask, box)
     blendPixels(pixels.data, scratch.getImageData(0, 0, w, h).data, mask.alpha, sampling)
     output.putImageData(pixels, x, y)
-    this.frames.set(id, { canvas, box, beam, shade, revision: mask.revision, sy, sampling })
+    this.frames.set(id, { canvas, box, beam, shade, lightKey, revision: mask.revision, sy, sampling })
     return canvas
   }
 

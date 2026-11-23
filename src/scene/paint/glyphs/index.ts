@@ -58,15 +58,24 @@ export function glyphShadow(ctx: Ctx2D, d: GlyphDesc, shine: Shine) {
  * screen px, to be laid after the grain.
  */
 export function drawGlyph(ctx: Ctx2D, d: GlyphDesc, shine: Shine): Lamp[] {
+  return placeGlyph(ctx, d, () => {
+    const k = new Kit(ctx, d.tones, shine, d.seed, d.hand * glyphLight(shine), d.surfaces, d.windowWall, d.shadowTones?.deep)
+    if (isField(d.kind) || d.kind === 'palms') paintPass(ctx, 'background', () => drawGlyphShape(k, d))
+    else drawGlyphShape(k, d)
+    return k.lamps
+  })
+}
+
+export const drawGlyphShape = (kit: Kit, glyph: GlyphDesc) => DRAW[glyph.kind](kit, glyph.h, glyph)
+
+export function placeGlyph(ctx: Ctx2D, d: GlyphDesc, draw: () => Lamp[]): Lamp[] {
   const { hand } = d
   ctx.save()
   ctx.translate(d.x, d.base)
   ctx.scale(d.scale * hand, d.scale)
-  const k = new Kit(ctx, d.tones, shine, d.seed, hand * glyphLight(shine), d.surfaces, d.windowWall, d.shadowTones?.deep)
-  if (isField(d.kind) || d.kind === 'palms') paintPass(ctx, 'background', () => DRAW[d.kind](k, d.h, d))
-  else DRAW[d.kind](k, d.h, d)
+  const lamps = draw()
   ctx.restore()
-  return k.lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * hand, y: d.base + l.y * d.scale,
+  return lamps.map((l) => ({ ...l, x: d.x + l.x * d.scale * hand, y: d.base + l.y * d.scale,
     r: l.r * Math.max(0.7, d.scale),
     ...(d.contrast === undefined ? {} : { fade: (l.fade ?? 1) * Math.cbrt(d.contrast) }) }))
 }

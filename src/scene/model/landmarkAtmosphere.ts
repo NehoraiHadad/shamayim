@@ -33,11 +33,11 @@ export function refreshLandmarkGlyph(world: WorldState, glyph: GlyphDesc, km: nu
 
 /** Preserve cached outside geometry while refreshing the descriptors' hour-dependent colours. */
 export function refreshLandmarkItems(world: WorldState, items: readonly OutsideItem[],
-  marks: readonly { at: number; km: number }[]): OutsideItem[] {
+  marks: readonly { at: number; km: number }[], refresh = refreshLandmarkGlyph): OutsideItem[] {
   const out = [...items]
   for (const { at, km } of marks) {
     const item = out[at] as Extract<OutsideItem, { kind: 'mark' }>
-    out[at] = { kind: 'mark', glyph: refreshLandmarkGlyph(world, item.glyph, km) }
+    out[at] = { kind: 'mark', glyph: refresh(world, item.glyph, km) }
   }
   return out
 }

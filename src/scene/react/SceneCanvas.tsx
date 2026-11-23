@@ -8,6 +8,7 @@ import { useWidth } from './useWidth'
 import styles from './Scene.module.css'
 import { SCENE_H } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
+import type { SceneStyle } from '../sceneStyle'
 import { layersOn, sceneModel, type LifeClock } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
@@ -22,6 +23,8 @@ import { useWearHost } from './useWearHost'
 interface Props {
   world: WorldState
   life: LifeClock
+  /** The hand the valley is painted with. */
+  style?: SceneStyle
   forecast: Forecast
   now: LocalTime
   selected: LocalTime | null
@@ -43,7 +46,8 @@ interface Props {
  * From C8, while the place's land is not known the land's place holds a mist and the labels wait; the land's arrival is
  * timed by `useLandClock`. The wear card's clothesline is drawn from the same world, into the card (`WearCanvas`).
  */
-export function SceneCanvas({ world, life, forecast, now, selected, temperature, readout = null, first, last, onScrub, onRelease, onNow, wear = null }: Props) {
+export function SceneCanvas({ world, life, forecast, now, selected, temperature, readout = null, first, last, onScrub, onRelease, onNow, wear = null,
+  style = 'real' }: Props) {
   const [sceneRef, width] = useWidth<HTMLElement>(375)
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
   const host = useSkyHost(sceneRef)
@@ -51,13 +55,13 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
     skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
   const { clock, labelStyle, ready } = useLandClock(world)
   const still = typeof window !== 'undefined' && reducedMotion()
-  const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }), [world, box, clock, life, still])
+  const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }, style), [world, box, clock, life, still, style])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const label = sceneLabel(world, forecast, now, selected, { temperature, hasLightning: sky.some((layer) => layer.kind === 'flash') })
   const onLand = useCallback(() => ready('land'), [ready])
   const onSky = useCallback(() => ready('sky'), [ready])
-  const { ref } = useSurface('land', land, { width, height: SCENE_H, dpr }, onLand)
+  const { ref } = useSurface('land', land, { width, height: SCENE_H, dpr, style }, onLand)
   // The wear card's clothesline is drawn from this same world (the shown hour's wind, light and weather), into the
   // card's own box through a portal, as the sky is.
   const wearHost = useWearHost(Boolean(wear))
@@ -78,7 +82,8 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
         </span>
       )}
       {perfHud() && <PerfHud />}
-      {host && createPortal(<SkyCanvas layers={sky} size={{ width: host.width, height: host.height, dpr }} onReady={onSky} />, host.element)}
+      {host && createPortal(<SkyCanvas layers={sky} size={{ width: host.width, height: host.height, dpr, style }} onReady={onSky} />,
+        host.element)}
       {wear && wearHost && createPortal(<WearCanvas world={world} garments={wear.garments} paper={wear.paper} width={wearHost.width} />,
         wearHost.element)}
     </>

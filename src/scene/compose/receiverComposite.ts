@@ -5,7 +5,7 @@ import type { RemoteCache } from './remoteCache'
 import { intersect, ShadowComposite } from './shadowComposite'
 
 type Cached = NonNullable<ReturnType<(LayerCache | RemoteCache)['peek']>>
-type Endpoints = Pick<Cached, 'light' | 'shade' | 'rect' | 'ratio'>
+type Endpoints = Pick<Cached, 'light' | 'lightKey' | 'shade' | 'rect' | 'ratio'>
 
 interface DrawReceiver {
   id: string
@@ -37,7 +37,7 @@ export class ReceiverComposite {
     const mask = this.masks.maskAt(plane.desc.id, shadow, plane.rect, plane.ratio, seconds, step)
     const rect = cached.rect, box = mask.box && intersect(mask.box, rect)
     if (!box) return draw(beam)
-    const mixed = this.blend.mix(id, beam, shade, rect, mask, box, sy)
+    const mixed = this.blend.mix(id, cached.lightKey, beam, shade, rect, mask, box, sy)
     draw(mixed as CanvasImageSource)
   }
 

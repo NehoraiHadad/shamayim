@@ -6,6 +6,7 @@ import { makeStats, type SceneStats } from '../compose/stats'
 import { Surface } from '../compose/surface'
 import { paintWorker, warmPaintWorkers } from '../compose/worker'
 import type { LayerDesc } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
 
 /** The page's scene timings (`compose/stats.ts`), left on `window.__sceneStats` for the perf runner and the HUD. */
 const trackShown = typeof window !== 'undefined' && Boolean((window as Window & { __trackSceneShown?: boolean }).__trackSceneShown)
@@ -38,7 +39,8 @@ const offThread = () => typeof location === 'undefined' || new URLSearchParams(l
 // first world is built (a worker started with its surface took ~100 ms more to show the first layer, CPU ×4).
 if (typeof window !== 'undefined' && offThread()) warmPaintWorkers(3)
 
-export interface SurfaceSize { width: number; height: number; dpr: number }
+/** What a surface is painted for: its CSS box, its pixel ratio and the scene's hand (`real` when not given). */
+export interface SurfaceSize { width: number; height: number; dpr: number; style?: SceneStyle }
 
 /**
  * A visible canvas and its compositor (§1e). With the paint worker (where the browser has one) every layer is painted
@@ -61,7 +63,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
   const laid = useRef(onLaid)
   useEffect(() => { ready.current = onReady }, [onReady])
   useEffect(() => { laid.current = onLaid }, [onLaid])
-  const { width, height, dpr } = size
+  const { width, height, dpr, style = 'real' } = size
 
   useEffect(() => {
     const canvas = ref.current
@@ -76,6 +78,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
         SCENE_STATS.memory[name] = surface.bytes()
       } }))
     surface.resize(width, height, dpr)
+    surface.style = style
     surface.still = reducedMotion()
     const phase = harnessStill() ? 0 : scenePhase()
     const done = () => {
@@ -126,7 +129,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
       loop.stop()
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [name, layers, width, height, dpr])
+  }, [name, layers, width, height, dpr, style])
 
   return { ref, surface: surfaceRef }
 }

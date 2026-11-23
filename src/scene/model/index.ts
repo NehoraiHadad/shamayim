@@ -1,6 +1,7 @@
 import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
+import type { SceneStyle } from '../sceneStyle'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
@@ -42,9 +43,10 @@ export type * from './types'
  * the wet ground's sheen); C8: while the land is not known, a mist in its place with a ridge line forming (`loading.ts`),
  * and the land's arrival timed by the shell's `clock` (no clock: the land shown as it is, the mist from phase 0).
  */
-export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null, life: LifeClock = LIFE_START): SceneModel {
+export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null, life: LifeClock = LIFE_START,
+  style: SceneStyle = 'real'): SceneModel {
   if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 }, life)
-  const model = knownModel(world, box, life)
+  const model = knownModel(world, box, life, style)
   return clock?.reveal ? { ...model, layers: arrivingLayers(world, box, model.layers, clock) } : model
 }
 
@@ -59,16 +61,16 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
   return { layers, overlay: [], clear: [] }
 }
 
-function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneModel {
+function knownModel(world: WorldState, box: SceneBox, life: LifeClock, style: SceneStyle): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
-  const outside = outsideOf(world, box, layout.clear)
+  const outside = outsideOf(world, box, layout.clear, style)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
   const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
-  const shadows = cloudShadowsOf(world, box)
+  const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))
   const planes = planeLayers(world, box, layout.clear)
     .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
   const wind = plantWindOf(world.wind)
@@ -80,18 +82,19 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
   return { layers, ...layout }
 }
 
-const outsideMemo = new WeakMap<WorldState, { box: string; layer: ReturnType<typeof outsideLayer> }>()
+type OutsideMemo = { box: string; layer: ReturnType<typeof outsideLayer> }
+const outsideMemo: Record<SceneStyle, WeakMap<WorldState, OutsideMemo>> = { real: new WeakMap(), drawn: new WeakMap() }
 
 /**
  * The town in view (every building's tones by its distance): a minute's world is immutable and the clear zones follow
  * from it and the box, so a redraw of the same minute at the same size reuses it rather than relighting every building.
  */
-function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[]) {
+function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[], style: SceneStyle) {
   const key = `${box.width},${box.skyHeight},${box.landTop},${box.landHeight},${box.dpr}`
-  const previous = outsideMemo.get(world)
+  const previous = outsideMemo[style].get(world)
   if (previous?.box === key) return previous.layer
-  const layer = outsideLayer(world, box, clear)
-  outsideMemo.set(world, { box: key, layer })
+  const layer = outsideLayer(world, box, clear, style)
+  outsideMemo[style].set(world, { box: key, layer })
   return layer
 }
 

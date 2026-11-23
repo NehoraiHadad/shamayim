@@ -9,6 +9,7 @@ import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
 import { shadowEdge, shadowLobes, SOLAR_DIAMETER_RAD } from './cloudShadowEdge'
 import { supports, type Projection } from './cloudShadowWorld'
+import type { TowerHeadShape } from './towerHeads'
 import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import type { Pt } from './types'
 
@@ -30,10 +31,11 @@ interface ProjectInput {
   azimuth: number
   altitude: number
   minDepth: number
+  towerShapes?: ReadonlyMap<number, TowerHeadShape>
 }
 
 export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
-  const { cloudField, grid, terrain, camera, box, azimuth, altitude: altDeg, minDepth } = input
+  const { cloudField, grid, terrain, camera, box, azimuth, altitude: altDeg, minDepth, towerShapes } = input
   const altitude = altDeg * RAD, cot = 1 / Math.tan(altitude), invSin = 1 / Math.sin(altitude)
   const sin = Math.sin(azimuth * RAD), cos = Math.cos(azimuth * RAD)
   const eastPerUp = sin * cot, northPerUp = cos * cot
@@ -135,7 +137,8 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     const penumbraY = Math.abs(edgeY(km + dh / 2) - edgeY(Math.max(.01, km - dh / 2)))
     const bearing = Math.atan2(centre.eastKm, centre.northKm)
     const slope = Math.sign(edgeY(km + .01) - edgeY(km))
-    const lobes = shadowLobes(cell, bearing, camera.handed, azimuth * RAD - heading, cot, slope || -1)
+    const lobes = shadowLobes(cell, bearing, camera.handed, azimuth * RAD - heading, cot, slope || -1,
+      cell.lattice === 'tower' ? towerShapes?.get(cell.seed) : undefined)
     const rx = Math.max(.1, (right - left) / 2), ry = Math.max(.1, (bottom - top) / 2)
     accepted.push({ plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
       x: (left + right) / 2, y: (top + bottom) / 2, rx, ry,

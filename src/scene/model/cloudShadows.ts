@@ -4,11 +4,12 @@ import type { PlaneCloudShadow, ShadowBox, ShadowPlane } from './planeCloudShado
 import { projectCloudShadows } from './cloudShadowProject'
 import { EXPOSURE_GAMMA, landIrradiance, type RadianceWorld } from './landRadiance'
 import type { ShadowWorld } from './cloudShadowWorld'
+import type { LayerOf } from './types'
 
 /** Solar cloud-shadow policy. Each receiver uses optical depth to remove part of its direct solar beam. */
 const RAD = Math.PI / 180
 
-export function cloudShadowsOf(world: ShadowWorld, box: ShadowBox): PlaneCloudShadow[] {
+export function cloudShadowsOf(world: ShadowWorld, box: ShadowBox, towers?: LayerOf<'cloudCells'>): PlaneCloudShadow[] {
   const { light, terrain, cloudField, camera, flightTerrain: grid } = world
   if (!cloudField || !grid) return []
   // Explicitly solar-only gate (Finding 7): a night moon never triggers solar cloud-shadow projection.
@@ -35,7 +36,8 @@ export function cloudShadowsOf(world: ShadowWorld, box: ShadowBox): PlaneCloudSh
   if (maxDrop < 1 / 255) return []
   const invSin = 1 / Math.sin(sunAlt * RAD)
   const minDepth = -Math.log(open * Math.max(1e-6, 1 - 1 / (255 * maxDrop))) / invSin
-  const accepted = projectCloudShadows({ cloudField, grid, terrain, camera, box, azimuth: sunAz, altitude: sunAlt, minDepth })
+  const towerShapes = towers && new Map(towers.cells.map(({ sprite }) => [sprite.seed, sprite]))
+  const accepted = projectCloudShadows({ cloudField, grid, terrain, camera, box, azimuth: sunAz, altitude: sunAlt, minDepth, towerShapes })
   const received = new Map<ShadowPlane, PlaneCloudShadow>()
   for (const { plane, blob } of accepted) {
     let receiver = received.get(plane)

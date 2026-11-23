@@ -32,6 +32,7 @@ import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
 import { harnessPlace, fixturePanorama } from './sceneFixture'
 import { ARRIVAL } from '../scene/model/loading'
+import { forcedStyle } from '../ui/devParams'
 import { WearCanvas } from '../scene/react/WearCanvas'
 import { isDarkPaper, sheetLight } from '../theme/sheetLight'
 import type { ThemeId } from '../theme/skyThemes'
@@ -166,7 +167,9 @@ function Scene({ input: given }: { input: WorldInput }) {
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
-  const model = useMemo(() => SCENE_STATS.time('modelCold', () => hideLayers(sceneModel(world, box, moment.clock), params.get('hide'))), [world, box, moment])
+  const style = forcedStyle() ?? 'real'
+  const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
+    hideLayers(sceneModel(world, box, moment.clock, undefined, style), params.get('hide'))), [world, box, moment, style])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const ready = useRef(new Set<string>())
@@ -198,7 +201,7 @@ function Scene({ input: given }: { input: WorldInput }) {
   }, [sky, lay])
   const onSky = useCallback(() => onReady('sky'), [onReady])
   const onLand = useCallback(() => onReady('land'), [onReady])
-  const size = { width: box.width, height: box.landHeight, dpr: box.dpr }
+  const size = { width: box.width, height: box.landHeight, dpr: box.dpr, style }
   const { ref, surface: landSurface } = useSurface('land', land, size, onLand)
   useEffect(() => { landHold.current = landSurface.current })
   const skySurface = useRef<Surface | null>(null)
@@ -210,7 +213,7 @@ function Scene({ input: given }: { input: WorldInput }) {
         const t0 = performance.now()
         const next = build({ ...input, selected: at })
         const t1 = performance.now()
-        const nextModel = sceneModel(next, box, moment.clock)
+        const nextModel = sceneModel(next, box, moment.clock, undefined, style)
         win.__world = next
         const t2 = performance.now()
         // The sky's base is the canvas's CSS background (C6): a scrub frame here repaints the rest; the base's CSS is the
@@ -233,7 +236,7 @@ function Scene({ input: given }: { input: WorldInput }) {
       get offThread() { return Boolean(skySurface.current?.remote && landSurface.current?.remote) },
       lay,
     }
-  }, [world, build, input, box, landSurface, moment, lay])
+  }, [world, build, input, box, landSurface, moment, lay, style])
 
   // The labels wait for the land as the app's do (`useLandClock`): an arriving still shows them once it has settled.
   const labelsShown = !moment.clock?.reveal || (Number(params.get('phase')) || 0) >= ARRIVAL.land.at + ARRIVAL.land.dur * 0.6 + 0.3
@@ -241,7 +244,7 @@ function Scene({ input: given }: { input: WorldInput }) {
   const vars = { '--ink': palette.ink, '--ridge-near': palette.ridgeNear, '--accent': palette.accent } as CSSProperties
   return (
     <div style={{ position: 'relative', width: box.width, height: box.skyHeight, overflow: 'hidden', fontFamily: 'var(--font-sans)', ...vars }}>
-      <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr }} onReady={onSky} surfaceRef={skySurface} />
+      <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr, style }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
         {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
