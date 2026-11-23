@@ -8,6 +8,7 @@ import { fractal } from '../../../../src/scene/paint/shared/base/core'
 import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
 import { traceOver, type Grid } from './contour'
+import { within } from './base'
 import { paintDeck } from './deck'
 import { farRows } from './farRows'
 import { billowed, block, feet, keyline, paintCaps } from './billow'
@@ -75,7 +76,8 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
     block(ctx, loops, [t.lit, t.local, t.half, t.shade])
     const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])) / CELL
     const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
-    paintCaps(ctx, lobes, {
+    const shapes = loops.map((l) => l.shape)
+    paintCaps(ctx, lobes.filter((l) => within(shapes, f.x0 + l.x * CELL, f.y0 + (l.y + 0.35 * l.r) * CELL)), {
       x: f.x0, y: f.y0, step: CELL, toward: 0, seed,
       ink: (l) => {
         const up = Math.min(1, Math.max(0, 0.5 + 0.7 * l.side))

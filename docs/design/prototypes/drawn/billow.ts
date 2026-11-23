@@ -2,6 +2,7 @@ import { rng } from '../../../../src/scene/paint/shared/base/core'
 import { css, mix, type Ctx2D } from '../../../../src/scene/paint/shared/base/hand'
 import type { RGB } from '../../../../src/scene/model/types'
 import { bump, carve, closed, even, type P } from './carve'
+import { pressed } from './base'
 import { loopsIn, type Frame, type Grid } from './contour'
 import type { Lobe } from './lobes'
 
@@ -22,14 +23,12 @@ const TOP_OUT = 0.34, FOOT_LONG = 2.2, STEP = 1.2
 const FEET = 14
 /** The undersides' depth against the mass, at most (px), and the steps of the wipe. */
 const FOOT_DEEP = 0.34, FOOT_MOST = 34, WIPES = 16
-/** A mass up to this tall (px) is a lone cloud; where its foot begins and how far it is pressed. */
-const LONE = 96, PRESS_FROM = 0.62, PRESS = 0.42
 const LINE = 0.62, LINE_ALPHA = 0.6
 
-/** A mass's outline in billows about `size(y)` px wide, with its tops for the key line. */
-export function billowed(grid: Grid, over: number, f: Frame, size: (y: number) => number, seed: number, least = 8): Outline[] {
-  return loopsIn(grid, over, f, least).map((raw, l) => {
-    const pts = even(level(raw), STEP), r = rng(seed + l * 101), shape: P[] = [], tops: P[][] = []
+/** A mass's outline in billows about `size(y)` px wide, with its tops for the key line; its base pressed level, or left to `hang`. */
+export function billowed(grid: Grid, over: number, f: Frame, size: (y: number) => number, seed: number, hang = false): Outline[] {
+  return loopsIn(grid, over, f, 8).map((raw, l) => {
+    const pts = even(hang ? raw : pressed(raw), STEP), r = rng(seed + l * 101), shape: P[] = [], tops: P[][] = []
     let run: P[] = []
     for (let i = 0; i < pts.length;) {
       const [x, y] = pts[i], ahead = pts[(i + 4) % pts.length], d = Math.hypot(ahead[0] - x, ahead[1] - y) || 1
@@ -46,12 +45,6 @@ export function billowed(grid: Grid, over: number, f: Frame, size: (y: number) =
     if (run.length) tops.push(run)
     return { shape, tops }
   })
-}
-
-/** A lone cloud's foot pressed level, as its base is (the height cloud begins at): a larger mass keeps its own. */
-function level(loop: readonly P[]): readonly P[] {
-  const ys = loop.map((p) => p[1]), top = Math.min(...ys), tall = Math.max(...ys) - top, from = top + PRESS_FROM * tall
-  return tall > LONE ? loop : loop.map(([x, y]): P => [x, y > from ? from + PRESS * (y - from) : y])
 }
 
 /** Each mass filled whole, its ink wiped from its own top down to its foot. */

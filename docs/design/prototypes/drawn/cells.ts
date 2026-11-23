@@ -42,7 +42,7 @@ function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number) {
   const key = pigment(valued(mix(s.body, under, 0.9), -0.17), -0.8, 1.35)
   const grid = { cols, rows, at }, frame = { x: x - mass.reach, y: y + top, w: (cols - 1) * step, h: (rows - 1) * step }
   const most = Math.min(LOBE_MAX, Math.max(5, LOBE * s.w))
-  const loops = billowed(grid, 0, frame, () => most * 0.5, s.seed)
+  const loops = billowed(grid, 0, frame, () => most * 0.5, s.seed, true)
   block(ctx, loops, [tones.local, tones.half, tones.shade, tones.foot])
   paintCaps(ctx, lobesOf({ cols, rows, at, side, most: () => most / step, seed: s.seed }), {
     x: frame.x, y: frame.y, step, toward: Math.sign(tx), seed: s.seed,
