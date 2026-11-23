@@ -28,28 +28,26 @@ export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v:
   const gx = clamp(u * maxC + (n1 * 0.68 + n2 * 0.32 - 0.5) * 1.4, 0, maxC)
   const gy = maxR > 0 ? clamp(v * maxR + (n2 - 0.5) * 0.55 + (n1 - 0.5) * 0.35, 0, maxR) : 0
   const c0 = Math.floor(gx), c1 = Math.min(maxC, c0 + 1), r0 = Math.floor(gy), r1 = Math.min(maxR, r0 + 1)
-  // Each ray represents an area. Reconstruct across four neighbouring rays
-  // with a cubic B-spline so isolated dark samples do not create stripes.
-  const dx = gx - c0, inv = 1 - dx, fy = smooth(0.16, 0.84, gy - r0)
-  const cPrev = Math.max(0, c0 - 1), cNext = Math.min(maxC, c1 + 1)
-  const wPrev = inv ** 3 / 6, wNext = dx ** 3 / 6
-  const w0 = (4 + dx * dx * (3 * dx - 6)) / 6, w1 = 1 - wPrev - w0 - wNext
-  const sample = (row: number, col: number) => paletteLin[cells[row * pCols + col]] ?? paletteLin[0]
-  const prev0 = sample(r0, cPrev), left0 = sample(r0, c0), right0 = sample(r0, c1), next0 = sample(r0, cNext)
-  const prev1 = sample(r1, cPrev), left1 = sample(r1, c0), right1 = sample(r1, c1), next1 = sample(r1, cNext)
-  const blend = (i: 0 | 1 | 2) => {
-    const upper = prev0[i] * wPrev + left0[i] * w0 + right0[i] * w1 + next0[i] * wNext
-    const lower = prev1[i] * wPrev + left1[i] * w0 + right1[i] * w1 + next1[i] * wNext
-    return upper + (lower - upper) * fy
-  }
-  let rr = blend(0), rg = blend(1), rb = blend(2)
+  const fx = smooth(0.16, 0.84, gx - c0), fy = smooth(0.16, 0.84, gy - r0)
+  const k00 = paletteLin[cells[r0 * pCols + c0]] ?? paletteLin[0]
+  const k10 = paletteLin[cells[r0 * pCols + c1]] ?? paletteLin[0]
+  const k01 = paletteLin[cells[r1 * pCols + c0]] ?? paletteLin[0]
+  const k11 = paletteLin[cells[r1 * pCols + c1]] ?? paletteLin[0]
+  const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy
+  let rr = k00[0] * w00 + k10[0] * w10 + k01[0] * w01 + k11[0] * w11
+  let rg = k00[1] * w00 + k10[1] * w10 + k01[1] * w01 + k11[1] * w11
+  let rb = k00[2] * w00 + k10[2] * w10 + k01[2] * w01 + k11[2] * w11
 
   // Material mottle: linear reflectance variation BEFORE lighting so texture stays crisp in sunlit relief.
   if (grainAmount > 0) {
     const coarse = valueNoise(seed, x * 0.055, y * 0.095) - 0.5
     const fine = valueNoise(seed + 7, x * 0.12, y * 0.20)
     const fleck = Math.max(0, (0.62 - fine) / 0.62)
-    const f = clamp(1 + (0.95 * coarse + 0.17 - 0.8 * fleck ** 2) * grainAmount, 0.38, 1.42)
+    // Roll off the strongest marks continuously so overlapping dark mottles
+    // and flecks cannot hit a flat reflectance floor across the terrain.
+    const delta = (0.95 * coarse + 0.17 - 0.8 * fleck ** 2) * grainAmount
+    const headroom = delta < 0 ? 0.62 : 0.42
+    const f = 1 + headroom * Math.tanh(delta / headroom)
     rr = clamp(rr * f, 0, 1); rg = clamp(rg * f, 0, 1); rb = clamp(rb * f, 0, 1)
   }
   // Lying snow enters receiver reflectance BEFORE lighting and haze (Finding 7).
