@@ -1,11 +1,12 @@
 import type { LayerOf } from '../../model/types'
-import { castShadow } from '../shared/town/castShadow'
+import { castShadow, TOWER_CAST, TOWER_CONTACT } from '../shared/town/castShadow'
 import { drawGlyph, drawLamps, glyphShadow, glyphLight } from '../shared/town/glyphs'
 import type { Lamp } from '../shared/town/glyphs/kit'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
 import { grain, rockOf, tree } from '../shared/town/marks'
 import { paintBox } from './outsideBox'
 import { paintOutsideLand, paintOutsideSea } from '../shared/town/outsideGround'
+import { stripPhase } from '../shared/town/stripPhase'
 import { paintPass } from '../shared/base/paintPass'
 import { paintTower } from './outsideTower'
 
@@ -25,15 +26,6 @@ import { paintTower } from './outsideTower'
  * grain over all → lamps and halos (windows lit by night, aviation lights), which no grain dulls.
  * Screen px. Pure: randomness only from the items' seeds.
  */
-
-export const TOWER_CONTACT = { alpha: .5, height: .8 }
-export const TOWER_CAST = { alpha: .8, inset: .5, edgeY: -.3, tipY: .5, bottomY: 1.2, tipInset: () => 1.2 }
-
-/** Where in its strip's loop this frame stands (0…1); 0 for a still layer. */
-export function stripPhase(desc: LayerOf<'outside'>, env: PaintEnv): number {
-  const frames = desc.animated?.frames
-  return frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
-}
 
 /** The place seen from outside, back to front. */
 export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {

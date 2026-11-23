@@ -1,6 +1,6 @@
 import type { LayerOf } from '../../model/types'
-import { deckOpenness } from '../real/cloudLook'
-import { resampleRows, ROW } from '../real/cloudSheet'
+import { deckOpenness } from '../shared/cloud/deck'
+import { resampleRows, ROW } from '../shared/cloud/resampleRows'
 import { soften } from '../shared/base/soften'
 
 /*

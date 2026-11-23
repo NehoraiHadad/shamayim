@@ -2,6 +2,7 @@ import { smoothstep } from '../../../domain/smoothstep'
 import { addLight } from '../../model/tone'
 import type { LayerOf, RGB } from '../../model/types'
 import { mix } from '../shared/base/hand'
+import { toneOf } from '../shared/cloud/deck'
 
 /*
  * How a cloud sheet is drawn (the owner's call, 22 Nov: the first WebGL sky's soft, translucent, white-blue veils, not
@@ -11,10 +12,6 @@ import { mix } from '../shared/base/hand'
  * deck (overcast, rain: no gaps) and the high veils keep the model's own numbers. Pure: the desc alone, nothing per place.
  */
 
-/** Below this a node is open sky: one of the deck's gaps. */
-const CLEAR = 0.05
-/** Share of clear nodes over which a deck turns from closed (overcast, rain ≤ 0.03) to open (broken, showers ≈ 0.2). */
-const OPEN_FROM = 0.05, OPEN_TO = 0.15
 /** Opacity curve exponent: thin parts thin out faster than linear, so the sky shows through them. */
 const VEIL_CURVE = 1.6
 /** Opacity of the thickest core: near-opaque, with a breath of sky still behind it. */
@@ -63,15 +60,6 @@ export function drawnAlpha(alpha: number, detail: number, open: number): number 
   return grained * (1 + open * (smoothstep(0, RIM, grained) - 1))
 }
 
-/** 0 for a closed deck (overcast, rain) or a high veil, 1 for a low or mid deck with gaps: its share of open-sky nodes. */
-export function deckOpenness(desc: LayerOf<'cloudSheet'>): number {
-  if (desc.lattice === 'high') return 0
-  const count = desc.xs.length * desc.ys.length
-  let clear = 0
-  for (let n = 0; n < count; n++) if ((desc.alpha[n] ?? 0) < CLEAR) clear++
-  return smoothstep(OPEN_FROM, OPEN_TO, clear / count)
-}
-
 /**
  * Each node's drawn colour (by night with the towns' light added) times its drawn alpha, and that alpha: the quantities
  * that interpolate without dark fringes.
@@ -98,10 +86,4 @@ function openLook({ lit, shade }: LayerOf<'cloudSheet'>, model: RGB, a: number, 
   const formed = relief > 0 ? mix(soft, shade, Math.min(1, BASE_SHADE * relief))
     : mix(soft, lit, Math.min(1, -TOP_LIGHT * relief))
   return [mix(model, formed, open), a + open * (veil - a)]
-}
-
-/** The model's colour for a tone: lit at 0, the body at ½, the shaded underside at 1. */
-export function toneOf({ lit, body, shade }: LayerOf<'cloudSheet'>, tone: number): RGB {
-  const t = Math.min(1, Math.max(0, tone))
-  return t < 0.5 ? mix(lit, body, t * 2) : mix(body, shade, t * 2 - 1)
 }

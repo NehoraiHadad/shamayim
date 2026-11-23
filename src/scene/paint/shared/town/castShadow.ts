@@ -10,6 +10,10 @@ interface CastOutline {
   tipInset(reach: number): number
 }
 
+/** A tower's own contact and cast. */
+export const TOWER_CONTACT = { alpha: .5, height: .8 }
+export const TOWER_CAST = { alpha: .8, inset: .5, edgeY: -.3, tipY: .5, bottomY: 1.2, tipInset: () => 1.2 }
+
 /** Symmetric contact shade and a cast foreshortened by the lateral light, in screen px. */
 export function castShadow(ctx: Ctx2D, d: { x: number; base: number; w: number; h: number },
   tones: Pick<Tones, 'deep' | 'shade'>, cast: Shine['cast'], contact: { alpha: number; height: number }, outline: CastOutline) {

@@ -1,6 +1,7 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { CloudSprite } from '../../model/cloudSprite'
-import { detailTile, domeTile, tileAt } from '../shared/base/detailTile'
+import { detailTile, tileAt } from '../shared/base/detailTile'
+import { domeTile } from './domeTile'
 import { carriedAt, crownAt, halfAt, headsOf } from '../../model/towerHeads'
 
 /*
