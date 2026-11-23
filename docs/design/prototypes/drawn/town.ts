@@ -1,9 +1,9 @@
-import type { LayerOf, OutsideLandDesc, RGB, SeaDesc, Shine, Tones, TreeDesc } from '../../../../src/scene/model/types'
+import type { GlyphDesc, LayerOf, OutsideLandDesc, RGB, SeaDesc, Shine, Tones, TreeDesc } from '../../../../src/scene/model/types'
 import { paintTownGlyph } from '../../../../src/scene/paint/drawn/townGlyph'
 import { skyFormIn } from '../../../../src/scene/paint/drawn/outsideOwn'
 import { townBodies } from '../../../../src/scene/paint/drawn/townBlocks'
 import { townLight } from '../../../../src/scene/paint/drawn/townLight'
-import { css, outline, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
+import { css, mix, outline, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
 import { running, twinkling } from '../../../../src/scene/paint/shared/land/water'
 import { castShadow, TOWER_CAST, TOWER_CONTACT } from '../../../../src/scene/paint/shared/town/castShadow'
 import { drawLamps, glyphLight, glyphShadow } from '../../../../src/scene/paint/shared/town/glyphs'
@@ -38,7 +38,7 @@ export function paintCutOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Paint
     if (block) cutBlock(ctx, block, tiers[block.tier], light, lamps, s.windows)
     else if (item.kind === 'tower') cutTower(ctx, item, tiers[item.tier], light, s, lamps)
     else if (item.kind === 'tree') cutTree(ctx, grown(item.tree), tiers[item.tier], s, lateral, rockOf(desc, env, item.tree.seed))
-    else lamps.push(...paintTownGlyph(ctx, { ...item.glyph, tones: mixed(item.glyph.tones) }, s))
+    else lamps.push(...paintTownGlyph(ctx, gilt(item.glyph), s))
   }
   drawLamps(ctx, lamps, 1 / env.scale)
 }
@@ -46,7 +46,13 @@ export function paintCutOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Paint
 export function paintCutMarks(ctx: Ctx2D, desc: LayerOf<'marks'>, env: PaintEnv): void {
   const glyphs = [...desc.glyphs].sort((a, b) => a.base - b.base)
   for (const g of glyphs) glyphShadow(ctx, g, desc.shine)
-  drawLamps(ctx, glyphs.flatMap((g) => paintTownGlyph(ctx, { ...g, tones: mixed(g.tones) }, desc.shine)), 1 / env.scale)
+  drawLamps(ctx, glyphs.flatMap((g) => paintTownGlyph(ctx, gilt(g), desc.shine)), 1 / env.scale)
+}
+
+/** A mark in the hand's tones; a floodlit dome is the model's own lit gold. */
+function gilt(g: GlyphDesc): GlyphDesc {
+  const tones = mixed(g.tones), flood = g.floodlitDome
+  return { ...g, tones: flood ? { ...tones, gold: mix(tones.gold, pigment(flood.tones.gold, 0.4), flood.strength) } : tones }
 }
 
 function grown(tree: TreeDesc): TreeDesc {

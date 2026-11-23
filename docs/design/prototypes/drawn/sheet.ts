@@ -8,6 +8,7 @@ import { fractal } from '../../../../src/scene/paint/shared/base/core'
 import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
 import { traceOver, type Frame, type Grid } from './contour'
+import { farRows } from './farRows'
 import { lobesOf, paintLobes } from './lobes'
 import { pigment } from './palette'
 
@@ -16,14 +17,14 @@ import { pigment } from './palette'
  * lobes (`lobes`), a closed deck lies in broad planes of its own tone, and a high veil is thin translucent planes.
  */
 
-/** Grid px per sky px; where the edge stands; how far a slow noise bends it. */
-const CELL = 2, EDGE = 0.5, FAR_EDGE = 0, BEND = 0.16, FREQ = 0.035
+/** Grid px per sky px; where the edge stands; how much a far cloud is cut back from the next, how far a slow noise bends it. */
+const CELL = 2, EDGE = 0.56, PARTED = 0.8, BEND = 0.16, FREQ = 0.035
 /** How far the model's own rows are eased into each other (against their spacing), and the far ones along themselves (px). */
 const EASE = 0.16, FAR = 7
 /** A lobe's size against its row's spacing, and at least and at most (px). */
 const LOBE = 2.3, LOBE_MIN = 5, LOBE_MAX = 42
-/** A row this far apart (px) is near. */
-const NEAR = 14
+/** A row this far apart (px) is near; nearer to 0 than this, the sheet stands in rows (`farRows`). */
+const NEAR = 14, ROWS = 0.24
 /** A deck this open stands in lobes. */
 const OPEN = 0.3
 
@@ -40,6 +41,7 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
   soften(wide, f.cols, f.rows, ease.map((v, n) => (1.4 * v + FAR * far[n]) / (f.width / (f.cols - 1))), ease.map((v) => v / (f.height / (f.rows - 1))))
   const edge = grid(), side = grid(), tone = grid()
   const alpha = f.alpha.map((_, n) => wide[n * 4])
+  const broken = f.open > OPEN && desc.lattice !== 'high', rowsOf = broken ? farRows(f, alpha, seed) : null
   let solid = 0, tones = 0, city = 0
   for (let j = 0; j < rows; j++) {
     const gy = (j * (f.rows - 1)) / (rows - 1), near = Math.min(1, f.spacing[Math.round(gy)] / NEAR)
@@ -47,8 +49,15 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
       const gx = (i * (f.cols - 1)) / (cols - 1), a = fieldAt(alpha, f.cols, f.rows, gx, gy), n = j * cols + i
       if (a < 0.004) continue
       const bend = fractal(seed % 997, i * CELL, j * CELL, FREQ / (0.3 + near), (1.6 * FREQ) / (0.3 + near), 2) - 0.5
-      edge.at[n] = a + BEND * 4 * a * (1 - a) * bend - EDGE - FAR_EDGE * (1 - near)
+      edge.at[n] = a + BEND * 4 * a * (1 - a) * bend - EDGE
       side.at[n] = fieldAt(f.side, f.cols, f.rows, gx, gy)
+      // A far cloud ends before the next one under it begins.
+      edge.at[n] -= PARTED * (1 - near) * Math.max(0, Math.abs(side.at[n]) - 0.45)
+      if (rowsOf && near < ROWS) {
+        const far = rowsOf(i * CELL, j * CELL), w = Math.min(1, (3 * (ROWS - near)) / ROWS)
+        edge.at[n] += w * (far.edge - edge.at[n])
+        side.at[n] += w * (far.side - side.at[n])
+      }
       const t = fieldAt(f.tone, f.cols, f.rows, gx, gy)
       tone.at[n] = Math.min(edge.at[n] * 12, t + 0.1 * bend)
       if (edge.at[n] > 0) { solid += a; tones += a * t; city += a * fieldAt(f.city, f.cols, f.rows, gx, gy) }
@@ -58,7 +67,6 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
   const mean = tones / solid, t = tonesOf(desc, mean, city / solid)
   ctx.save()
   if (desc.lattice === 'high') ctx.globalAlpha *= 0.4
-  const broken = f.open > OPEN && desc.lattice !== 'high'
   cut(ctx, edge, 0, frame, broken ? t.shade : t.local)
   if (broken) {
     const part = (by: (s: number) => number): Grid => ({ ...edge, at: edge.at.map((e, n) => (e > 0 ? Math.min(e * 12, by(side.at[n])) : -9)) })
