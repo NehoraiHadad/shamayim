@@ -25,3 +25,7 @@ dist-ssr
 
 # Canvas scene runners (e2e/): failed stills and diffs
 test-results
+
+# Forecast-verification study: downloaded/processed data is not committed
+research/verification/data/
+__pycache__/

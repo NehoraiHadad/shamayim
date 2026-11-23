@@ -1,0 +1,144 @@
+{
+ "l0": {
+  "train_cell_rmse_ridge_a3": 0.9698,
+  "train_cell_rmse_ridge_a10": 0.965,
+  "train_cell_rmse_ridge_a30": 0.9608,
+  "train_cell_rmse_ridge_a100": 0.9597,
+  "train_cell_rmse_ridge_a300": 0.9622,
+  "train_cell_rmse_national": 1.0201,
+  "alpha": 100,
+  "train_cell_rmse_gbm": 0.9817,
+  "test_mae_raw": 1.0698,
+  "test_mae_nat": 1.0588,
+  "test_mae_ridge": 1.042,
+  "test_mae_gbm": 1.06,
+  "stations_better_ridge_vs_nat": 48,
+  "stations_better_gbm_vs_nat": 42,
+  "n_stations": 84
+ },
+ "l1": {
+  "train_cell_rmse_ridge_a3": 0.9766,
+  "train_cell_rmse_ridge_a10": 0.972,
+  "train_cell_rmse_ridge_a30": 0.9679,
+  "train_cell_rmse_ridge_a100": 0.967,
+  "train_cell_rmse_ridge_a300": 0.9698,
+  "train_cell_rmse_national": 1.0279,
+  "alpha": 100,
+  "train_cell_rmse_gbm": 1.002,
+  "test_mae_raw": 1.2104,
+  "test_mae_nat": 1.1373,
+  "test_mae_ridge": 1.1211,
+  "test_mae_gbm": 1.1433,
+  "stations_better_ridge_vs_nat": 49,
+  "stations_better_gbm_vs_nat": 46,
+  "n_stations": 84
+ },
+ "l2": {
+  "train_cell_rmse_ridge_a3": 0.9797,
+  "train_cell_rmse_ridge_a10": 0.9751,
+  "train_cell_rmse_ridge_a30": 0.971,
+  "train_cell_rmse_ridge_a100": 0.9701,
+  "train_cell_rmse_ridge_a300": 0.9727,
+  "train_cell_rmse_national": 1.0311,
+  "alpha": 100,
+  "train_cell_rmse_gbm": 0.9932,
+  "test_mae_raw": 1.2588,
+  "test_mae_nat": 1.1789,
+  "test_mae_ridge": 1.1627,
+  "test_mae_gbm": 1.1785,
+  "stations_better_ridge_vs_nat": 52,
+  "stations_better_gbm_vs_nat": 46,
+  "n_stations": 84
+ },
+ "l4": {
+  "train_cell_rmse_ridge_a3": 0.9859,
+  "train_cell_rmse_ridge_a10": 0.9815,
+  "train_cell_rmse_ridge_a30": 0.9777,
+  "train_cell_rmse_ridge_a100": 0.977,
+  "train_cell_rmse_ridge_a300": 0.9796,
+  "train_cell_rmse_national": 1.0371,
+  "alpha": 100,
+  "train_cell_rmse_gbm": 1.0157,
+  "test_mae_raw": 1.3613,
+  "test_mae_nat": 1.2917,
+  "test_mae_ridge": 1.2764,
+  "test_mae_gbm": 1.298,
+  "stations_better_ridge_vs_nat": 53,
+  "stations_better_gbm_vs_nat": 43,
+  "n_stations": 84
+ },
+ "l6": {
+  "train_cell_rmse_ridge_a3": 1.064,
+  "train_cell_rmse_ridge_a10": 1.058,
+  "train_cell_rmse_ridge_a30": 1.0526,
+  "train_cell_rmse_ridge_a100": 1.0511,
+  "train_cell_rmse_ridge_a300": 1.0566,
+  "train_cell_rmse_national": 1.1427,
+  "alpha": 100,
+  "train_cell_rmse_gbm": 1.1213,
+  "test_mae_raw": 1.6558,
+  "test_mae_nat": 1.5709,
+  "test_mae_ridge": 1.5554,
+  "test_mae_gbm": 1.5774,
+  "stations_better_ridge_vs_nat": 51,
+  "stations_better_gbm_vs_nat": 39,
+  "n_stations": 84
+ },
+ "feature_correlations_l1": {
+  "z": {
+   "all": -0.05,
+   "night": -0.19,
+   "afternoon": 0.11
+  },
+  "tpi_1": {
+   "all": -0.17,
+   "night": -0.34,
+   "afternoon": 0.17
+  },
+  "tpi_3": {
+   "all": -0.18,
+   "night": -0.39,
+   "afternoon": 0.23
+  },
+  "tpi_10": {
+   "all": -0.09,
+   "night": -0.39,
+   "afternoon": 0.38
+  },
+  "above_min3": {
+   "all": -0.16,
+   "night": -0.38,
+   "afternoon": 0.24
+  },
+  "dz_cell7": {
+   "all": -0.16,
+   "night": -0.4,
+   "afternoon": 0.26
+  },
+  "dz_cell25": {
+   "all": -0.04,
+   "night": -0.34,
+   "afternoon": 0.37
+  },
+  "sea10": {
+   "all": -0.06,
+   "night": -0.11,
+   "afternoon": 0.17
+  },
+  "sea25": {
+   "all": -0.05,
+   "night": -0.05,
+   "afternoon": 0.03
+  },
+  "coast_km": {
+   "all": 0.18,
+   "night": 0.1,
+   "afternoon": 0.12
+  },
+  "slope1": {
+   "all": -0.21,
+   "night": -0.37,
+   "afternoon": 0.17
+  }
+ }
+}

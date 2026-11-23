@@ -1,0 +1,68 @@
+{
+ "hourly": {
+  "l0": {
+   "app_today": 1.0698,
+   "new_weights": 1.053,
+   "new_weights_plus_season_step_table": 1.0486,
+   "new_weights_plus_smooth_table": 1.0478
+  },
+  "l1": {
+   "app_today": 1.2104,
+   "new_weights": 1.1922,
+   "new_weights_plus_season_step_table": 1.1365,
+   "new_weights_plus_smooth_table": 1.1354
+  },
+  "l2": {
+   "app_today": 1.2588,
+   "new_weights": 1.2414,
+   "new_weights_plus_season_step_table": 1.1819,
+   "new_weights_plus_smooth_table": 1.1806
+  },
+  "l4": {
+   "app_today": 1.3613,
+   "new_weights": 1.3613,
+   "new_weights_plus_season_step_table": 1.2917,
+   "new_weights_plus_smooth_table": 1.2886
+  },
+  "l6": {
+   "app_today": 1.6558,
+   "new_weights": 1.6558,
+   "new_weights_plus_season_step_table": 1.5709,
+   "new_weights_plus_smooth_table": 1.5595
+  }
+ },
+ "daily_max": {
+  "l0": {
+   "raw": 1.0452,
+   "corrected": 0.9073,
+   "offset": 0.66
+  },
+  "l1": {
+   "raw": 1.3167,
+   "corrected": 1.0098,
+   "offset": 0.96
+  },
+  "l2": {
+   "raw": 1.356,
+   "corrected": 1.0654,
+   "offset": 0.95
+  },
+  "l4": {
+   "raw": 1.4729,
+   "corrected": 1.1962,
+   "offset": 0.87
+  },
+  "l6": {
+   "raw": 1.857,
+   "corrected": 1.5097,
+   "offset": 1.12
+  }
+ },
+ "shipped_daily_max_offset": {
+  "l0": 0.65,
+  "l1": 0.98,
+  "l2": 0.97,
+  "l4": 0.92,
+  "l6": 1.17
+ }
+}

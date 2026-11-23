@@ -29,7 +29,7 @@ export function DayDetail({ day, forecast, now, nextDate }: Props) {
   const prob = day.precipProbMax ?? 0
   const confidence = day.confidence ?? (day.lowConfidence ? 'low' : 'high')
   const facts = [
-    { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)}, כ־${mm(day.precipSum)}` : 'לא צפוי' },
+    { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)}${day.precipSum >= T.rain.quoteMm ? `, כ־${mm(day.precipSum)}` : ''}` : 'לא צפוי' },
     { label: 'רוח', value: `משבים עד ${Math.round(day.windGustsMax)} קמ״ש` },
     { label: 'אור יום', value: clockRange(clockOf(day.sunrise), clockOf(day.sunset)) },
   ]
