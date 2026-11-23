@@ -67,6 +67,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
     const canvas = ref.current
     if (!canvas || width <= 0 || height <= 0) return
     const surface = (surfaceRef.current ??= new Surface(canvas, { stats: SCENE_STATS, worker: offThread() ? paintWorker : undefined,
+      scheduleArrival: name === 'land' ? requestAnimationFrame : undefined,
       onArrive: ({ ms, latency, workerMs }) => {
         SCENE_STATS.record(`worker.${name}`, workerMs)
         arrived.current += ms

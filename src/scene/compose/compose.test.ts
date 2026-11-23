@@ -370,6 +370,28 @@ describe('painting in the worker', () => {
     expect(cache.fresh(animatedCanopy, 2)).toBe(true)
   })
 
+  it('lays the newest complete worker arrivals once in a frame and settles after the draw', async () => {
+    const worker = fakeWorker(), callbacks: (() => void)[] = [], received: boolean[] = []
+    const stats = makeStats(() => 0, { trackShown: true })
+    const surface = new Surface(fakeCanvas(750, 256), { factory: fakeCanvas, painters: counting().painters,
+      stats, worker: () => worker, scheduleArrival: cb => callbacks.push(cb),
+      onArrive: a => received.push(a.settled) })
+    surface.resize(375, 128, 2)
+    surface.render([plane('a', 'l1')])
+    worker.answer()
+    surface.render([plane('a', 'l2')])
+    surface.render([plane('a', 'l3')])
+    worker.answer()
+    worker.answer()
+    expect(callbacks).toHaveLength(1)
+    expect(received).toEqual([])
+    const settled = surface.settled()
+    callbacks.shift()!()
+    await settled
+    expect(received).toEqual([true])
+    expect(stats.shown['plane.near'].lightKey).toBe('l3')
+  })
+
   it('lays the arrivals on the surface, reuses shown entries when trackShown is on, and paints on main thread once worker fails', () => {
     const worker = fakeWorker()
     const stats = makeStats(() => 0, { trackShown: true })

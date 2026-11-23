@@ -24,6 +24,8 @@ export interface SurfaceOptions extends CacheOptions {
   worker?: () => WorkerLike | null
   /** A batch of the worker's came in and was laid (`ms`: the main thread's time for it, the composite included). */
   onArrive?: (arrival: Arrival & { ms: number }) => void
+  /** Batch visible worker arrivals on surfaces with expensive receiver composites. */
+  scheduleArrival?: (draw: () => void) => void
 }
 
 /**
@@ -45,6 +47,8 @@ export class Surface {
   private readonly now: () => number
   private readonly onArrive?: SurfaceOptions['onArrive']
   private readonly stats?: SceneStats
+  private queuedArrival?: Arrival
+  private arrivalDraw?: Promise<void>
   dpr = 1
   /** What the visible canvas last showed: the layers and their animation state (an unchanged frame is not recomposited). */
   private shown: { layers: readonly LayerDesc[]; anim: string; exact: boolean } | null = null
@@ -65,9 +69,20 @@ export class Surface {
     if (worker) {
       this.remote = new RemoteCache({ worker, painters: options.painters, hand: options.hand, now: this.now,
         onArrive: (arrival) => {
-          const start = this.now()
-          if (arrival.changed) this.composite(this.last, this.phase, this.still)
-          this.onArrive?.({ ...arrival, ms: this.now() - start })
+          const schedule = options.scheduleArrival
+          if (!schedule) return this.drawArrival(arrival)
+          const queued = this.queuedArrival
+          this.queuedArrival = queued ? {
+            changed: queued.changed || arrival.changed, settled: arrival.settled,
+            latency: Math.max(queued.latency, arrival.latency), workerMs: queued.workerMs + arrival.workerMs,
+          } : { ...arrival }
+          if (!this.arrivalDraw) this.arrivalDraw = new Promise(resolve => schedule(() => {
+            const latest = this.queuedArrival!
+            this.queuedArrival = undefined
+            this.arrivalDraw = undefined
+            this.drawArrival(latest)
+            resolve()
+          }))
         },
         onFail: () => {
           // Back to painting here: what the worker had not delivered is painted now.
@@ -75,6 +90,12 @@ export class Surface {
           this.render(this.last, this.phase, this.still)
         } })
     }
+  }
+
+  private drawArrival(arrival: Arrival) {
+    const start = this.now()
+    if (arrival.changed) this.composite(this.last, this.phase, this.still)
+    this.onArrive?.({ ...arrival, ms: this.now() - start })
   }
 
   private get active(): LayerCache | RemoteCache {
@@ -123,8 +144,9 @@ export class Surface {
   }
 
   /** Resolves once the worker has delivered everything asked of it (at once without a worker). */
-  settled(): Promise<void> {
-    return this.remote?.whenSettled() ?? Promise.resolve()
+  async settled(): Promise<void> {
+    await this.remote?.whenSettled()
+    await this.arrivalDraw
   }
 
   /**
@@ -142,6 +164,7 @@ export class Surface {
     this.phase = phase
     this.still = still
     this.shown = { layers, anim: animState, exact }
+    if (this.queuedArrival) this.queuedArrival.changed = false
     const motion = still ? 0 : phase
     const ctx = ctxOf(this.canvas)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
