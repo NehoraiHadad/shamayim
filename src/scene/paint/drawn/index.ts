@@ -1,7 +1,7 @@
 import { lightOnly, type Style } from '../contract'
 import { paintShafts, type Fibres } from '../shared/weather/curtain'
 import { SHARED } from '../shared/painters'
-import { paintEdge } from '../shared/weather/weather'
+import { paintEdge } from '../shared/weather/edge'
 import { paintDrawnCells } from './cloudTower'
 import { paintDrawnSheet } from './cloudSheet'
 import { DRAWN_LIGHT } from './light'

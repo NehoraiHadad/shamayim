@@ -2,7 +2,8 @@ import { smoothstep } from '../../../../domain/smoothstep'
 import type { LayerOf } from '../../../model/types'
 import { fractal } from '../base/core'
 import { css, type Ctx2D, type PaintEnv } from '../base/hand'
-import { mistBands, soft } from './weather'
+import { soft } from '../base/softEllipse'
+import { mistBands } from './mist'
 
 /*
  * The land not known yet (stage C8), after the anidoodle skill's craft notes (`realism-and-craft.md`: no filter, soft

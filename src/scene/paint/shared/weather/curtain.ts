@@ -4,7 +4,7 @@ import { detailTile, tileAt } from '../base/detailTile'
 import type { Ctx2D, PaintEnv } from '../base/hand'
 
 /*
- * A curtain of rain or snow (stage C7; reference in `weather.ts`): one soft body leaning downwind, densest in its middle
+ * A curtain of rain or snow (stage C7; reference in `fall.ts`): one soft body leaning downwind, densest in its middle
  * under the base and thinning to its edges and toward the ground, and broad fibres of heavier fall in it. A raster on a
  * scratch sheet, stretched with the canvas's own smoothing: stacked faint gradients add up to a visible dither grid.
  * Pure: the shaft alone, seeded, and the scratch surface from `env`.

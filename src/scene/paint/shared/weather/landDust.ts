@@ -1,6 +1,6 @@
 import type { LayerOf } from '../../../model/types'
 import { mix, type Ctx2D } from '../base/hand'
-import { soft } from './weather'
+import { soft } from '../base/softEllipse'
 
 /** Broken pigment over the ground, with a lighter, ragged upper edge. Tile wraps both ways. */
 export function paintLandDust(ctx: Ctx2D, desc: LayerOf<'landDust'>): void {

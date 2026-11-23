@@ -14,8 +14,15 @@ import { paintPlaneLight } from './land/planeLight'
 import { paintShimmer } from './sky/shimmer'
 import { paintSky } from './sky/sky'
 import { paintWater } from './land/water'
-import { paintWearDrip, paintWearItem, paintWearRope } from './wear/wear'
-import { paintFall, paintGrains, paintMist, paintRays, paintSheen, paintSmoke } from './weather/weather'
+import { paintWearDrip } from './wear/drip'
+import { paintWearItem } from './wear/item'
+import { paintWearRope } from './wear/rope'
+import { paintFall } from './weather/fall'
+import { paintGrains } from './weather/grains'
+import { paintMist } from './weather/mist'
+import { paintRays } from './weather/rays'
+import { paintSheen } from './weather/sheen'
+import { paintSmoke } from './weather/smoke'
 
 /** The painters of the layer kinds every style paints alike. */
 export const SHARED: SharedPainters = {
