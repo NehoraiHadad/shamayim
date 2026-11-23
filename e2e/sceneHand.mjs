@@ -3,8 +3,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-/** Where a tree lists its styles (`SCENE_STYLES`): the registry, and its place before the painters' split. */
-const REGISTRIES = ['src/scene/paint/styles.ts', 'src/scene/sceneStyle.ts']
+/** Where a tree lists its styles (`SCENE_STYLES`): the painters' registry, and its place before their split. */
+const REGISTRIES = ['src/scene/paint/painters.ts', 'src/scene/sceneStyle.ts']
 
 /** The style ids a tree's page supports, from the module the page itself loads (`page`: any page of the tree's origin). */
 export async function supportedStyles(page, treeRoot) {
