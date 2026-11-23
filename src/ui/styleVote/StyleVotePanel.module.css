@@ -26,7 +26,8 @@
   --panel-room: calc(env(safe-area-inset-bottom) + 292px);
 }
 
-:global(.app):has(.panel) {
+/* Inside the page's last part, so the sheet's colour goes on behind the panel. */
+:root:has(.panel) :global(.paper) > :last-child {
   padding-bottom: var(--panel-room);
 }
 
