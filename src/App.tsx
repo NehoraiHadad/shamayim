@@ -175,7 +175,7 @@ export default function App() {
           </div>
         )}
       </main>
-      {forecast && styleVote.open && (
+      {styleVote.open && (
         <StyleVotePanel state={styleVote} placeName={place.nameHe} at={selected ?? now} picked={selected !== null} />
       )}
       <OverheadPage open={overhead.open} place={place} rain={rain} onClose={overhead.close} />

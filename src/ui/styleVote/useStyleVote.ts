@@ -6,7 +6,11 @@ const store = createStyleVote(sendStyleVote)
 
 /** A vote made offline goes out at the next app open, return to it or connection; a device's tabs agree. */
 function keepInTouch(): () => void {
-  const onVisible = () => { if (!document.hidden) void store.flush() }
+  const onVisible = () => {
+    if (document.hidden) return
+    store.follow(null) // A frozen tab hears of no storage events.
+    void store.flush()
+  }
   const onStorage = (event: StorageEvent) => store.follow(event.key)
   onVisible()
   document.addEventListener('visibilitychange', onVisible)

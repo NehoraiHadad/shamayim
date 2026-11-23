@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SendVote } from './styleVote'
 import { ID, memoryStore, open, settle, slowSend, VOTE_KEY } from './styleVoteFixture'
+import { readStyleVote } from './styleVoteSaved'
 
 describe('two tabs of one device', () => {
   it('agree on style and vote, and keep one id', async () => {
@@ -47,5 +48,26 @@ describe('two tabs of one device', () => {
     answers[1](true)
     await settle()
     expect(votes.get()).toMatchObject({ vote: 'real', sent: true, id: ID })
+  })
+
+  it('a tab that missed the other one\'s vote keeps it when it catches up first', () => {
+    const store = memoryStore()
+    const frozen = open(async () => true, store, 'another id')
+    const other = open(async () => true, store)
+    other.choose('drawn')
+    other.vote()
+    frozen.follow(null)
+    frozen.choose('real')
+    expect(readStyleVote(store)).toMatchObject({ style: 'real', vote: 'drawn', id: ID })
+  })
+
+  it('a tab that could not save keeps its own choice', () => {
+    const full = { ...memoryStore(), setItem: () => { throw new Error('full') } }
+    for (const store of [full, null]) {
+      const votes = open(async () => true, store)
+      votes.choose('drawn')
+      votes.follow(null)
+      expect(votes.get()).toMatchObject({ style: 'drawn', seen: ['real', 'drawn'] })
+    }
   })
 })

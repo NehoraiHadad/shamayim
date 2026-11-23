@@ -88,6 +88,21 @@ describe('vote', () => {
     expect(readStyleVote(store).sent).toBe(true)
   })
 
+  it('refused once is sent again after a pause, meanwhile as on its way', async () => {
+    const { answers, send } = slowSend()
+    const votes = open(send)
+    votes.choose('drawn')
+    votes.vote()
+    answers[0](false)
+    await settle()
+    expect(votes.get().sending).toBe(true)
+    expect(send).toHaveBeenCalledTimes(2)
+    answers[1](false)
+    await settle()
+    expect(isPending(votes.get())).toBe(true)
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+
   it('changed while on its way: the newer vote follows, one at a time', async () => {
     const { answers, send } = slowSend()
     const votes = open(send)

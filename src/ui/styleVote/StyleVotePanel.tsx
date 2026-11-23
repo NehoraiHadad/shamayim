@@ -1,6 +1,6 @@
 import { useRef } from 'react'
+import { VOTE_STYLES } from '../../data/styleVoteRound'
 import type { LocalTime } from '../../domain/types'
-import { SCENE_STYLES } from '../../scene/sceneStyle'
 import { IconButton } from '../IconButton'
 import { CloseIcon } from '../icons'
 import styles from './StyleVotePanel.module.css'
@@ -37,7 +37,7 @@ export function StyleVotePanel({ state, placeName, at, picked }: Props) {
         <IconButton label={CLOSE} onClick={close}><CloseIcon /></IconButton>
       </div>
       <div className={styles.options} role="radiogroup" aria-labelledby="style-vote-title">
-        {SCENE_STYLES.map((option) => (
+        {VOTE_STYLES.map((option) => (
           <label key={option} className={styles.option}>
             <input type="radio" name="scene-style" value={option} checked={style === option} onChange={() => choose(option)} />
             <span>

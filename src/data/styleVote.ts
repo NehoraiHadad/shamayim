@@ -1,5 +1,5 @@
-import type { SceneStyle } from '../scene/sceneStyle'
 import { storage, type Store } from './placeStorage'
+import type { VoteStyle } from './styleVoteRound'
 import { isVoteKey, readStyleVote, saveStyleVote, type SavedVote } from './styleVoteSaved'
 
 /** Temporary: the scene style a person chose to see, the styles they have seen, and the one they prefer. */
@@ -8,18 +8,18 @@ export interface StyleVote extends SavedVote {
   readonly sending: boolean
 }
 
-export type SendVote = (vote: { id: string; style: SceneStyle }) => Promise<boolean>
+export type SendVote = (vote: { id: string; style: VoteStyle }) => Promise<boolean>
 
 export interface StyleVoteStore {
   get(): StyleVote
   subscribe(listener: () => void): () => void
   /** Shows a style, from now on. */
-  choose(style: SceneStyle): void
+  choose(style: VoteStyle): void
   /** Votes for the style shown. */
   vote(): void
   /** Sends a vote the Worker does not have yet. */
   flush(): Promise<void>
-  /** Another tab wrote to storage (null: cleared it all); this tab follows. */
+  /** Another tab wrote this key to storage (null: perhaps any); this tab follows. */
   follow(key: string | null): void
 }
 
@@ -28,10 +28,17 @@ export const seenBoth = (state: SavedVote) => state.seen.length > 1
 /** Voted, and the Worker does not have it: refused, or no connection. */
 export const isPending = (state: StyleVote) => state.vote !== null && !state.sent && !state.sending
 
+/** Before a vote is sent again: KV takes one write a second to a key. */
+const PAUSE_MS = 2000
+
+const pauseBefore = () => new Promise<void>((resolve) => { setTimeout(resolve, PAUSE_MS) })
+
 /** One store for the app's lifetime; `send` answers whether the Worker took the vote. */
 export function createStyleVote(send: SendVote, store: Store | null = storage(),
-  newId: () => string | null = () => globalThis.crypto?.randomUUID?.() ?? null): StyleVoteStore {
+  newId: () => string | null = () => globalThis.crypto?.randomUUID?.() ?? null, pause = pauseBefore): StyleVoteStore {
   let state: StyleVote = { ...readStyleVote(store), sending: false }
+  /** Storage holds what this tab holds, so another tab's writes may replace it. */
+  let saved = store !== null
   const listeners = new Set<() => void>()
 
   const show = (patch: Partial<StyleVote>) => {
@@ -39,20 +46,25 @@ export function createStyleVote(send: SendVote, store: Store | null = storage(),
     for (const listener of listeners) listener()
   }
   const set = (patch: Partial<SavedVote>) => {
-    const { sending: _, ...saved } = { ...state, ...patch }
-    saveStyleVote(saved, store)
-    show(saved)
+    show(patch)
+    saved = saveStyleVote(state, store)
   }
 
   const flush = async (): Promise<void> => {
-    const { id, vote, sent, sending } = state
-    if (sending || !id || !vote || sent) return
+    if (state.sending || !state.id || !state.vote || state.sent) return
     show({ sending: true })
-    const taken = await send({ id, style: vote }).catch(() => false)
-    const changed = state.id !== id || state.vote !== vote
-    if (taken && !changed) set({ sent: true })
+    let retries = 1
+    for (;;) {
+      const { id, vote }: StyleVote = state
+      if (!id || !vote) break
+      const taken = await send({ id, style: vote }).catch(() => false)
+      // Changed while it was on its way: the newer vote follows.
+      const changed = state.id !== id || state.vote !== vote
+      if (taken && !changed) set({ sent: true })
+      if (state.sent || (!changed && retries-- === 0)) break
+      await pause()
+    }
     show({ sending: false })
-    if (changed) return flush() // Changed while it was on its way: the newer vote follows.
   }
 
   return {
@@ -71,7 +83,7 @@ export function createStyleVote(send: SendVote, store: Store | null = storage(),
     },
     flush,
     follow(key) {
-      if (key === null || isVoteKey(key)) show(readStyleVote(store))
+      if (saved && (key === null || isVoteKey(key))) show(readStyleVote(store))
     },
   }
 }
