@@ -62,8 +62,8 @@ function seat(ctx: Ctx2D, item: Body, top: RGB, t: Tones, s: Shine, side: number
   // Its top stands open to the sky: the sky's own light on it, the model's top tone.
   down.addColorStop(0, css(top, OPEN * (1 - s.night)))
   down.addColorStop(0.4, css(top, 0))
-  down.addColorStop(0.45, css(t.deep, 0.06 * FOOT))
-  down.addColorStop(1, css(t.deep, FOOT))
+  down.addColorStop(0.45, css(t.deep, 0.06 * FOOT * (1 - s.night)))
+  down.addColorStop(1, css(t.deep, FOOT * (1 - s.night)))
   ctx.fillStyle = down
   ctx.fillRect(x, y, w, h)
   if (beam < 0.02) return

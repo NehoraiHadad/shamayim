@@ -18,6 +18,8 @@ export interface SheetField {
   w: number; h: number
   /** Drawn opacity 0–1, the cloud's thickness 0–1, the model's tone 0–1, the towns' light 0–1, how far the heads face away from the light. */
   alpha: Float32Array; thick: Float32Array; tone: Float32Array; city: Float32Array; relief: Float32Array
+  /** How open the deck is 0–1: what is closed keeps the model's own cover and tone. */
+  open: number
   /** The deck's scale by row: 1 overhead, small far off. */
   scale: Float32Array
 }
@@ -25,19 +27,25 @@ export interface SheetField {
 /** How a kind of cloud is made: its softening overhead (px); how far the noise carries its edge; the noise tile's width
  *  overhead (px) and its stretch along the wind; the puffs' part in the noise (the rest wisps); the rim's softness; how much
  *  the noise thins the inside. */
+/** How far the rim stands back from the model's faintest cover, so a mass keeps its mean cover. */
+const BIAS = 0.06
+/** How far toward the light a head's slope is taken, in tile widths. */
+const SLOPE = 0.06
 interface Make { soft: number; carry: number; tile: number; along: number; puff: number; rim: number; thin: number }
-const HEAP: Make = { soft: 10, carry: 0.95, tile: 230, along: 1.1, puff: 0.62, rim: 0.5, thin: 0.3 }
-const FLEECE: Make = { soft: 10, carry: 1, tile: 190, along: 1.2, puff: 0.5, rim: 0.65, thin: 0.5 }
+const HEAP: Make = { soft: 10, carry: 0.95, tile: 230, along: 1.1, puff: 0.62, rim: 0.46, thin: 0.3 }
+const FLEECE: Make = { soft: 10, carry: 1, tile: 190, along: 1.2, puff: 0.5, rim: 0.48, thin: 0.42 }
 const VEIL: Make = { soft: 14, carry: 1, tile: 300, along: 3, puff: 0, rim: 1, thin: 0.75 }
-const DECK: Make = { soft: 9, carry: 0.5, tile: 300, along: 1.8, puff: 0.4, rim: 0.6, thin: 0.12 }
+const DECK: Make = { soft: 9, carry: 0.85, tile: 300, along: 1.8, puff: 0.4, rim: 0.6, thin: 0.12 }
 
 const makeOf = (desc: LayerOf<'cloudSheet'>): Make => desc.lattice === 'high' ? VEIL
   : ['st', 'ns', 'as'].includes(desc.genus) ? DECK : desc.lattice === 'mid' ? FLEECE : HEAP
 
-export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
+/** `from`: the light's place in sky px. */
+export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: number }): SheetField {
   const { xs, ys } = desc, cols = xs.length, rows = ys.length
   const width = xs[cols - 1] - xs[0], span = ys[rows - 1] - ys[0]
-  const make = blend(DECK, makeOf(desc), desc.lattice === 'high' ? 1 : deckOpenness(desc))
+  const open = desc.lattice === 'high' ? 1 : deckOpenness(desc)
+  const make = blend(DECK, makeOf(desc), open)
   const out = Math.ceil(span / ROW) + 1
   const texels = Array.from({ length: cols * rows }, (_, n) => {
     const a = Math.min(1, Math.max(0, desc.alpha[n] ?? 0))
@@ -49,8 +57,9 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   soften(buf, cols, out, scaleAt.map((s) => make.soft * Math.max(0.12, s) / colPx), scaleAt.map((s) => 0.6 * make.soft * s / ROW))
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, size = w * h
   const field: SheetField = { w, h, alpha: new Float32Array(size), thick: new Float32Array(size), tone: new Float32Array(size),
-    city: new Float32Array(size), relief: new Float32Array(size), scale: new Float32Array(h) }
+    city: new Float32Array(size), relief: new Float32Array(size), open, scale: new Float32Array(h) }
   const at0 = placeOf(hashId(desc.id) % 9973), puffs = puffTile(), wisps = wispTile(), swell = swellTile()
+  const veiled = desc.lattice === 'high'
   for (let j = 0; j < h; j++) {
     const gy = Math.min(out - 1.001, (j * (out - 1)) / (h - 1)), r = Math.floor(gy), ty = gy - r
     const scale = field.scale[j] = scaleAt[r]
@@ -78,12 +87,18 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       const wisp = read(wisps, i, 1, bend * 0.22, bend * 0.16)
       const puff = make.puff ? read(puffs, i, 1.1, bend * 0.1 + 0.2, -bend * 0.08) : 0
       const noise = wisp + (puff - wisp) * make.puff
-      const rimmed = a + make.carry * (noise - 0.5) * Math.min(1, 4.4 * a * (1 - a)) - 0.1
-      const d = smoothstep(0, 1, Math.max(0, rimmed - 0.12) / make.rim)
-      if (d <= 0.004) continue
-      field.relief[p] = read(swell, i, 1.1, bend * 0.1, -bend * 0.08) - read(swell, i, 1.1, bend * 0.1 - 0.035, -bend * 0.08 - 0.05)
+      const rimmed = a + make.carry * (noise - 0.5) * Math.min(1, 4.4 * a * (1 - a)) - BIAS
+      const d = smoothstep(0, 1, Math.max(0, rimmed - BIAS) / make.rim)
+      // A head's slope rising toward the light is its far side.
+      const dx = from.x - xs[0] - i / RASTER, dy = from.y - ys[0] - j / RASTER, far = Math.hypot(dx, dy) || 1
+      field.relief[p] = read(swell, i, 1.1, bend * 0.1 + (SLOPE * dx) / far, -bend * 0.08 + (SLOPE * dy) / far) - read(swell, i, 1.1, bend * 0.1, -bend * 0.08)
       field.thick[p] = Math.min(1, Math.max(0, rimmed)) * (1 - make.thin * (1 - noise))
-      field.alpha[p] = d * (1 - make.thin * 0.75 * (1 - noise) ** 1.4)
+      const body = d * (1 - make.thin * 0.75 * (1 - noise) ** 1.4)
+      // A veil has no body to carry: its own cover, drawn out in wisps of the same mean.
+      const own = veiled ? a * Math.max(0, 1 + 2.6 * (1 - a) * (wisp - 0.5)) : a
+      const kept = veiled ? 0 : open
+      const drawn = field.alpha[p] = Math.min(1, kept * body + (1 - kept) * own)
+      if (drawn <= 0.004) continue
       field.tone[p] = at(0) / a
       field.city[p] = at(1) / a
     }

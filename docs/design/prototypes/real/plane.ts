@@ -15,13 +15,11 @@ import { paintGullies } from './planeGullies'
 
 /*
  * A plane of land in natural light: the model's palette, light field, snow and haze on a fine raster, the ground's own
- * surface at the eye's slant, and haze lying a little deeper at a far plane's foot. Pure.
+ * surface at the eye's slant. Pure.
  */
 
 /** Surface px per sky px. */
 const FINE = 1.1
-/** How much deeper the model's own haze lies in the plane's foot. */
-const POOL = 0.3
 
 /** How far daylight opens the land's mid tones and its colour (linear light): the eye's own adaptation, none by night. */
 const OPEN = 0.2, CHROMA = 0.12
@@ -51,11 +49,9 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
       const x = bounds.x + (i + 0.5) / FINE, col = Math.min(t.wPx - 1, Math.floor((x - bounds.x) / TEXEL))
       const { rho, relief } = ground(x, y)
       const s = samplePlaneTexel(t, col, x, y, rho)
-      const v = Math.min(1, Math.max(0, (y - t.crestY[col]) / Math.max(1, t.footY[col] - t.crestY[col])))
-      const haze = Math.min(1, s.haze * (1 + POOL * v * v))
       for (let n = 0; n < images.length; n++) {
         shadeLinearRgb(s.rho, n ? shadows : litField.eSun, litField.eMoon, litField.eSky, Math.min(1, s.sVis * relief), s.mVis * relief,
-          Math.min(1, s.vSky * (0.5 + 0.5 * relief)), litField.yHorizon, haze, litField.hazeLin, rgb)
+          Math.min(1, s.vSky * (0.5 + 0.5 * relief)), litField.yHorizon, s.haze, litField.hazeLin, rgb)
         const data = images[n].data
         lift(rgb, day)
         data[o] = encodedByte(rgb[0]); data[o + 1] = encodedByte(rgb[1]); data[o + 2] = encodedByte(rgb[2]); data[o + 3] = 255

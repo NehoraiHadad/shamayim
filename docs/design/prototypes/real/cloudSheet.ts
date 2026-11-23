@@ -17,7 +17,7 @@ import { sheetLight } from './sheetLight'
 /** Opacity of the thickest cloud: a breath of sky stays behind it. */
 const CORE = 0.97
 /** How far the model's tone, and how far this raster's own light, place a point between lit and shade. */
-const MODEL_SHARE = 0.45, OWN_SHADE = 0.66
+const MODEL_SHARE = 0.45, OWN_SHADE = 0.6
 /** Low over the horizon a cloud is far: the share of the sky's height over which the air takes its depth, and what it keeps. */
 const FAR = 0.34, KEEP = 0.2
 /** How strongly a head's side toward the light and its far side part. */
@@ -31,9 +31,9 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const { xs, ys } = desc, cols = xs.length, rows = ys.length
   if (cols < 2 || rows < 2 || !desc.alpha.some((a) => a > 0)) return
   const width = xs[cols - 1] - xs[0], span = ys[rows - 1] - ys[0]
-  const field = sheetField(desc)
-  const { sun, moon } = FACTS.light
-  const light = sheetLight(field, sun.altitude > -4 ? sun : moon, xs[0], ys[0])
+  const { sun, moon } = FACTS.light, lamp = sun.altitude > -4 ? sun : moon
+  const field = sheetField(desc, lamp)
+  const light = sheetLight(field, lamp, xs[0], ys[0])
   const { canvas, ctx: sheet } = env.canvas(field.w, field.h)
   const image = sheet.createImageData(field.w, field.h), data = image.data
   const thin = desc.lattice === 'high' ? 0.6 : 1
@@ -42,8 +42,8 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
     if (a <= 0.003) continue
     const lit = (1 - FROM_SKY) * light.sun[p] + FROM_SKY * light.sky[p]
     const near = KEEP + (1 - KEEP) * smoothstep(0, FAR, 1 - Math.floor(p / field.w) / field.h)
-    const relief = field.relief[p] * RELIEF * near * Math.min(1, 1.6 * field.thick[p]) * (1 - 0.5 * light.deep[p])
-    const rgb = colourAt(desc, field.tone[p], lit, relief, light.deep[p] * thin, near, field.city[p])
+    const relief = field.relief[p] * RELIEF * near * field.open * Math.min(1, 1.6 * field.thick[p]) * (1 - 0.5 * light.deep[p])
+    const rgb = colourAt(desc, field.tone[p], lit, relief, light.deep[p] * thin, near, field.open, field.city[p])
     data[o] = rgb[0] * 255; data[o + 1] = rgb[1] * 255; data[o + 2] = rgb[2] * 255
     data[o + 3] = a * CORE * 255
   }
@@ -56,10 +56,12 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
 }
 
 /** A point's colour: its place between the model's lit and shade colours, and over the lit one on a crown. */
-function colourAt(desc: LayerOf<'cloudSheet'>, tone: number, lit: number, relief: number, deep: number, near: number, city: number): RGB {
-  const shade = MODEL_SHARE * tone * (0.5 + 0.5 * near) + OWN_SHADE * near * deep ** 1.5 * (1 - lit * 0.7) + relief - 0.14 * lit * near
+function colourAt(desc: LayerOf<'cloudSheet'>, tone: number, lit: number, relief: number, deep: number, near: number, open: number, city: number): RGB {
+  const body = MODEL_SHARE * tone * (0.5 + 0.5 * near) + OWN_SHADE * near * deep ** 1.5 * (1 - lit * 0.7) + relief - 0.14 * lit * near
+  // A closed deck keeps the model's tone: its own light is the overcast sky's.
+  const shade = tone + (body - tone) * (0.25 + 0.75 * open)
   const rgb = toneOf(desc, Math.min(0.96, Math.max(0, shade)))
-  const crown = Math.min(1, Math.max(0, (0.42 - shade) * 2.4)) * (0.35 + 0.65 * lit) * near
+  const crown = Math.min(1, Math.max(0, (0.42 - shade) * 2.4)) * (0.35 + 0.65 * lit) * near * open
   const bright = (c: number) => Math.min(1, c * (1 + CROWN))
   const out: RGB = mix(rgb, [bright(rgb[0]), bright(rgb[1]), bright(rgb[2])], crown)
   return desc.city ? addLight(out, desc.city.rgb, city) : out

@@ -58,11 +58,20 @@ Order by gain at phone size. "Contract" = a need outside `paint/real` that goes 
 ## 3. Truth checks
 
 Every painter in phase 2 keeps, with a test beside it:
-- a sheet's mean drawn opacity within ±0.04 of today's, and a full core or an open sky stays so: the noise moves the rim only;
-- a tower's top, base and width within 2 px of `headsOf`; the rain curtain at least as visible as today (mean |ΔL| under it);
-- no lit point under a closed deck brighter than the model's `lit`;
-- windows: exactly the model's lit ones; the glow scales with their share and is 0 by day;
-- ground: the mean colour of a plane within 0.03 of today's per band, snow and fields where they are.
+- a sheet's mean drawn opacity within ±0.04 of the model's, at every flat cover (a lookup per kind, from its noise); a closed
+  deck and a veil at full cover draw the model's alpha itself (the concept: within 0.025 over whole sheets in three stills);
+- a closed deck keeps the model's tone (the overcast sky's own law); no point of it brighter than the model's `lit`;
+- a tower's top, width and **base** within 2 px of `headsOf`, its underside (`under`, `bowl`) drawn; rain at the desc's own alpha,
+  one fibre look for `shafts` and `edge`, read at least as well as today (mean |ΔL| under it);
+- relief, rims and sides from the light's own direction and strength: none with no direct light, continuous as the light crosses;
+- windows: exactly the model's lit ones, nothing laid over them; the town's glow scales with their share and is 0 by day;
+- the sea: today's wind (count, length and drift of ripples), the `clear` zones of the labels and the glint over the waves;
+- trees: the lean and gust of today, rocks; ground: the mean colour of a plane within 0.03 of today's per band, crest samples,
+  snow and fields where they are; daylight's lift on the reflectance, before the haze.
+
+Second-model review of the concept (Opus, 15 findings): the overcast law, the cover of veils and decks, the relief's direction, lights
+that were not the model's, the seat over lit windows, the haze pool and the rain's gain were fixed in the concept. The rest is
+the list above and §4, for phase 2: tower undersides, sea wind and `clear`, tree lean, crest samples, the lift before the haze.
 
 ## 4. Perf
 
@@ -71,9 +80,9 @@ anim 4 ms, memory 48 MB). Mean ms a paint, concept against today, same desktop, 
 
 | | today | concept | how it comes down |
 |---|---|---|---|
-| `cloudSheet` | 86–144 | 216–294 | tiles built once (200 ms, warm on idle in the worker); `bend` and swell on the half raster; depth of a step as a lookup, not `smoothstep`/`**`; raster 0.5 |
-| `plane` | 20–33 | 69–278 | surface noise on the 3 px texel grid and bilinear between; relief by rows; raster 0.8; far planes at texel size |
-| `cloudCells` | 120–163 | 225 | 60 000 px cap already; fewer lumps under another lump |
+| `cloudSheet` | 86–144 | 216–294 | tiles built once (200 ms, warm on idle in the worker); `bend`, swell, light and colour on the half raster; a 256-step shade table; row constants out of the loop; one octave where the blend is near its end |
+| `plane` | 20–33 | 69–278 | reflectance and slope on the 3 px texel grid, kept by `desc.key`; the light per texel; a fine overlay kept as form; no allocation per sample |
+| `cloudCells` | 120–163 | 225 | cap 20–25 000 px; front to back, covered pixels skipped; tears near edges only; tables for the powers |
 | `outside` | 45–106 | 55–137 | gradients per tone and size bucket, not per body |
 | `canopy`, `water`, `shafts` | 4–29 | 4–24 | nothing |
 
@@ -93,5 +102,6 @@ resolution with the finer surface as a kept overlay. The first phase 2 step is t
 
 - Buildings gain little by day; tel-aviv's fronts stay brown (model).
 - The giant column (rosh-pina), the vase (storm) and the egg (night) are the model's shapes: better light does not cure them.
+- A broken middle deck (jerusalem 13:00, `jerusalem-1300-concept-weak.png`) is still soft paper with smooth holes: rims and bases are next.
 - Palms keep today's hand. Jerusalem noon, dusk, fog, dust, snow and near rain are planned, not drawn.
 - The plane and the sheet cost more than today (§4).
