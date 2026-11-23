@@ -115,12 +115,16 @@ async function bottom({ page, shot }) {
 }
 
 async function move({ page }) {
+  await page.evaluate(() => localStorage.setItem('shamayim:recent-places:v1', JSON.stringify([
+    { ...JSON.parse(localStorage.getItem('shamayim:place:v1')), id: 'other', nameHe: 'אחר', lat: 31.5, lon: 35 }])))
+  await page.reload()
+  await waitForSky(page)
   await openPanel(page)
   await page.evaluate((p) => { document.querySelector(p).dataset.stamp = '1' }, PANEL)
   const place = page.locator('header button[aria-haspopup="dialog"]').first()
   const from = await place.getAttribute('aria-label')
   await place.click()
-  await page.locator('dialog[open] button:not([aria-label])').filter({ hasText: 'אילת' }).first().click()
+  await page.locator('dialog[open] button:not([aria-label])').filter({ hasText: 'אחר' }).first().click()
   await page.waitForTimeout(1500)
   const to = await place.getAttribute('aria-label')
   check(from !== to, 'another place is shown', `${from} > ${to}`)
