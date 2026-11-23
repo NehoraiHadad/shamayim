@@ -1,11 +1,12 @@
 import type { LayerOf, OutsideItem, RGB, Tones, TreeDesc } from '../../model/types'
-import { castShadow } from '../castShadow'
-import { drawLamps, glyphLight, glyphShadow } from '../glyphs'
-import type { Lamp } from '../glyphs/kit'
-import { mix, type Ctx2D, type PaintEnv } from '../hand'
-import { grain, rockOf, tree } from '../marks'
-import { stripPhase, TOWER_CAST, TOWER_CONTACT } from '../outside'
-import { paintOutsideLand, paintOutsideSea } from '../outsideGround'
+import { castShadow, TOWER_CAST, TOWER_CONTACT } from '../shared/town/castShadow'
+import { drawLamps, glyphLight, glyphShadow } from '../shared/town/glyphs'
+import type { Lamp } from '../shared/town/glyphs/kit'
+import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
+import { grain, rockOf, tree } from '../shared/town/marks'
+import { stripPhase } from '../shared/town/stripPhase'
+import { paintOutsideLand, paintOutsideSea } from '../shared/town/outsideGround'
+import { skyFormIn } from './outsideOwn'
 import { paintBlock } from './townBlock'
 import { townBodies } from './townBlocks'
 import { paintTownGlyph } from './townGlyph'
@@ -14,11 +15,11 @@ import { paintDrawnTower } from './townTower'
 
 /*
  * The place seen from outside in the drawn hand (v1b's Haifa on its hill): the model's land, sea, houses, towers, trees and
- * marks, in the same order and place as the real hand's, gathered into bodies that read (`townBlocks`), each of clear lit
+ * marks, in the model's own order and places, gathered into bodies that read (`townBlocks`), each of clear lit
  * and shaded planes. Pure: the desc and its seeds.
  */
 
-/** The paper's grain against the real hand's. */
+/** The paper's grain, as a share of the hand's. */
 const GRAIN = 0.25
 /** A tree of the town reads as a clump: its size against its own, at least this wide (px); taller by this at most. */
 const GROWN = 1.2, GROWN_MIN = 2.3, GROWN_TALL = 1.25
@@ -29,7 +30,7 @@ const LEAF = 0.4
 const RECEDE = 0.3, RECEDE_OVER = 16, TIERS_OWN = 0.14
 
 export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
-  const { shine: s, tiers, form } = desc
+  const { shine: s, tiers } = desc, form = skyFormIn(desc)
   if (!form) return
   const light = townLight(s, form), lateral = glyphLight(s), far = receding(desc.items, tiers)
   if (desc.land) paintOutsideLand(ctx, desc.land, s)

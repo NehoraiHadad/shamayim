@@ -1,5 +1,5 @@
-import { arch, disc, MINARET_LAMP, poly, rect } from '../glyphs/kit'
-import { mix } from '../hand'
+import { arch, disc, MINARET_LAMP, poly, rect } from '../shared/town/glyphs/kit'
+import { mix } from '../shared/base/hand'
 import type { DrawnGlyphKit } from './glyphKit'
 
 export function minaret(k: DrawnGlyphKit, h: number) {

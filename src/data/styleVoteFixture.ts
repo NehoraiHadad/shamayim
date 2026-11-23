@@ -13,7 +13,7 @@ export function memoryStore(initial: Record<string, string> = {}) {
 }
 
 export const open = (send: SendVote, store: ReturnType<typeof memoryStore> | null = memoryStore(), id = ID) =>
-  createStyleVote(send, store, () => id)
+  createStyleVote(send, store, () => id, async () => undefined)
 
 /** A send that waits for the answer of the test. */
 export function slowSend() {

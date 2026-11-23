@@ -1,14 +1,13 @@
-import { isSceneStyle, type SceneStyle } from '../scene/sceneStyle'
 import type { Store } from './placeStorage'
-import { VOTE_ROUND } from './styleVoteRound'
+import { isVoteStyle, VOTE_ROUND, type VoteStyle } from './styleVoteRound'
 
 /** What the device keeps of the style switch and the round's vote. */
 export interface SavedVote {
   /** The style shown; it outlives the round. */
-  readonly style: SceneStyle
-  readonly seen: readonly SceneStyle[]
+  readonly style: VoteStyle
+  readonly seen: readonly VoteStyle[]
   /** The style they voted for, and whether the Worker has it. */
-  readonly vote: SceneStyle | null
+  readonly vote: VoteStyle | null
   readonly sent: boolean
   /** A random id, made with the round's first vote (null where the page is not secure): a later vote replaces the earlier one. */
   readonly id: string | null
@@ -28,26 +27,29 @@ function readRound(store: Store | null): Fields {
 }
 
 export function readStyleVote(store: Store | null): SavedVote {
-  let style: SceneStyle = 'real'
+  let style: VoteStyle = 'real'
   let round: Fields = {}
   try {
     const shown = store?.getItem(STYLE_KEY)
-    if (isSceneStyle(shown)) style = shown
+    if (isVoteStyle(shown)) style = shown
     round = readRound(store)
   } catch {
     // Blocked or broken storage: as on a first visit.
   }
-  const seen = Array.isArray(round.seen) ? round.seen.filter(isSceneStyle) : []
-  const vote = isSceneStyle(round.vote) ? round.vote : null
+  const seen = Array.isArray(round.seen) ? round.seen.filter(isVoteStyle) : []
+  const vote = isVoteStyle(round.vote) ? round.vote : null
   return { style, seen: [...new Set([...seen, style])], vote, sent: vote !== null && round.sent === true,
     id: typeof round.id === 'string' ? round.id : null }
 }
 
-export function saveStyleVote({ style, ...round }: SavedVote, store: Store | null): void {
+/** False when storage is blocked or full: the choice then holds for this session alone. */
+export function saveStyleVote({ style, seen, vote, sent, id }: SavedVote, store: Store | null): boolean {
+  if (!store) return false
   try {
-    store?.setItem(STYLE_KEY, style)
-    store?.setItem(VOTE_KEY, JSON.stringify(round))
+    store.setItem(STYLE_KEY, style)
+    store.setItem(VOTE_KEY, JSON.stringify({ seen, vote, sent, id }))
+    return true
   } catch {
-    // Storage can be blocked or full; the choice still holds for this session.
+    return false
   }
 }

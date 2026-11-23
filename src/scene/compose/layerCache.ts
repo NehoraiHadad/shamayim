@@ -1,7 +1,8 @@
 import { frameAt, frameCount } from '../model/anim'
 import type { LayerDesc } from '../model/types'
-import type { SceneStyle } from '../sceneStyle'
-import { HAND, painterOf, type Ctx2D, type Hand, type Painter } from '../paint'
+import type { Painter } from '../paint/contract'
+import { HAND, type Ctx2D, type Hand } from '../paint/shared/base/hand'
+import { DEFAULT_STYLE, painterOf, type SceneStyle } from '../paint/painters'
 import { canvasSize, deviceRect, formKeyOf, lightKeyOf, paintPart, type DeviceRect } from './paintJob'
 import { shadeKeyOf } from './paintReceiver'
 import type { SceneStats } from './stats'
@@ -58,7 +59,7 @@ export class LayerCache {
   private readonly painters: (desc: LayerDesc, style: SceneStyle) => Painter | undefined
   private readonly hand: Hand
   /** The scene's hand: part of the keys of the layers it paints its own way, so a switch repaints those. */
-  style: SceneStyle = 'real'
+  style = DEFAULT_STYLE
   private readonly stats?: SceneStats
   private readonly now: () => number
 
@@ -90,11 +91,11 @@ export class LayerCache {
   }
 
   private paintOn(canvas: LayerCanvas, desc: LayerDesc, ratio: number, rect: DeviceRect, paint: Painter['form'], phase: number,
-    only?: readonly number[], shade?: LayerCanvas, style = this.style) {
+    only?: readonly number[], shade?: LayerCanvas) {
     paintPart(ctxOf(canvas), canvas, desc, ratio, rect, paint, phase, this.hand, (w, h) => {
       const scratch = this.factory(w, h)
       return { canvas: scratch, ctx: ctxOf(scratch) }
-    }, only, style, shade && ctxOf(shade))
+    }, only, shade && ctxOf(shade))
   }
 
   /**
@@ -109,11 +110,11 @@ export class LayerCache {
     if (!painter) return
     const f = frameAt(desc.animated, phase)
     if (entry.form && entry.formFrames && !entry.formFrames.has(f)) {
-      this.paintOn(entry.form, desc, entry.ratio, entry.rect, painter.form, phase, [f], undefined, entry.style)
+      this.paintOn(entry.form, desc, entry.ratio, entry.rect, painter.form, phase, [f])
       entry.formFrames.add(f)
     }
     if (entry.light && entry.lightKey && painter.light && entry.lightFrames && !entry.lightFrames.has(f)) {
-      this.paintOn(entry.light, desc, entry.ratio, entry.rect, painter.light, phase, [f], entry.shade, entry.style)
+      this.paintOn(entry.light, desc, entry.ratio, entry.rect, painter.light, phase, [f], entry.shade)
       entry.lightFrames.add(f)
     }
   }

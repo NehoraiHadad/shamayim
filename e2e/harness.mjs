@@ -13,30 +13,31 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers'
 const { chromium } = require('playwright')
 
-/** The synthetic forecast with the scene's hourly fields (the world's fixture), the default day. */
-const FIXTURES = path.join(root, 'src/test/fixtures')
-const FORECAST = fs.readFileSync(path.join(FIXTURES, 'forecast-layers-2026-11-17.json'))
+/** The day of the synthetic forecast with the scene's hourly fields (the world's fixture), the default day. */
 export const DEFAULT_DAY = '2026-11-17'
 
-/** Prefer the place's recording, then any recording of that day, then the synthetic fixture. */
-export function forecastForDay(day, place) {
-  if (!day || day === DEFAULT_DAY) return FORECAST
-  const recordings = fs.readdirSync(FIXTURES).filter((file) => file.startsWith('forecast-') && file.endsWith(`-${day}.json`))
+/** Prefer the place's recording, then any recording of that day, then the synthetic fixture (of the tree at `treeRoot`). */
+export function forecastForDay(day, place, treeRoot = root) {
+  const fixtures = path.join(treeRoot, 'src/test/fixtures')
+  const recordings = !day || day === DEFAULT_DAY ? []
+    : fs.readdirSync(fixtures).filter((file) => file.startsWith('forecast-') && file.endsWith(`-${day}.json`))
   const real = recordings.find((file) => file === `forecast-${place}-${day}.json`) ?? recordings[0]
-  return real ? fs.readFileSync(path.join(FIXTURES, real)) : FORECAST
+  return fs.readFileSync(path.join(fixtures, real ?? `forecast-layers-${DEFAULT_DAY}.json`))
 }
 
-function forecastFor(pageUrl) {
+function forecastFor(pageUrl, treeRoot) {
   const params = new URL(pageUrl).searchParams
-  return forecastForDay(params.get('at')?.slice(0, 10), params.get('place'))
+  return forecastForDay(params.get('at')?.slice(0, 10), params.get('place'), treeRoot)
 }
 
 /** The still: the sky above the land's figure and the figure (scene.html's LAND_TOP + SCENE_H). */
 export const CLIP = { x: 0, y: 0, width: SCENE_W, height: 428 }
 
-export async function startServer() {
+/** A dev server of the tree at `treeRoot` (its own sources, fixtures and Vite config); `config` adds to Vite's options. */
+export async function startServer(treeRoot = root, config = {}) {
   const { createServer } = await import('vite')
-  const server = await createServer({ root, logLevel: 'error', server: { host: '127.0.0.1', port: 0, strictPort: false } })
+  const server = await createServer({ root: treeRoot, logLevel: 'error', ...config,
+    server: { host: '127.0.0.1', port: 0, strictPort: false, ...config.server } })
   await server.listen()
   const url = server.resolvedUrls.local[0].replace(/\/$/, '')
   return { url, close: () => server.close() }
@@ -62,7 +63,8 @@ export function launch({ gpu = false } = {}) {
   return chromium.launch({ executablePath, args })
 }
 
-export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0', land = '', wear = '', hide = '', style = '' }) {
+export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0', land = '', wear = '', hide = '', style = '',
+  paint = process.env.SCENE_PAINT }) {
   const q = new URLSearchParams({ place, at, phase: String(phase) })
   if (wear) q.set('wear', wear)
   if (weather) q.set('weather', weather)
@@ -70,17 +72,18 @@ export function sceneUrl(base, { place, at, weather = '', overlay = false, phase
   if (hide) q.set('hide', hide)
   if (style) q.set('style', style)
   if (overlay) q.set('overlay', '1')
-  // SCENE_PAINT=main: the layers painted on the main thread (the fallback where a browser has no paint worker).
-  if (process.env.SCENE_PAINT === 'main') q.set('paint', 'main')
+  // paint (or SCENE_PAINT) = main: the layers painted on the main thread (the fallback where a browser has no paint worker).
+  if (paint === 'main') q.set('paint', 'main')
   return `${base}/scene.html?${q}`
 }
 
 /**
  * A page at 375 × 812 and the given dpr; the forecast request answered from the fixture, other hosts refused. Reduced
  * motion unless `motion` (C6): the scene then draws one still frame at phase 0 and runs no loop, so a still is the same
- * pixels whenever it is taken and a scrub frame is not raced by the drifting clouds.
+ * pixels whenever it is taken and a scrub frame is not raced by the drifting clouds. `treeRoot`: the tree the forecast
+ * fixture is read from, for a server of another tree.
  */
-export async function openPage(browser, base, dpr = 1, { motion = false } = {}) {
+export async function openPage(browser, base, dpr = 1, { motion = false, treeRoot = root } = {}) {
   const context = await browser.newContext({ viewport: { width: SCENE_W, height: 812 }, deviceScaleFactor: dpr,
     reducedMotion: motion ? 'no-preference' : 'reduce' })
   const host = new URL(base).host
@@ -88,7 +91,7 @@ export async function openPage(browser, base, dpr = 1, { motion = false } = {}) 
     const url = new URL(route.request().url())
     if (url.host === host) return route.continue()
     if (/\/v1\/forecast$/.test(url.pathname)) {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: forecastFor(route.request().frame().url()) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: forecastFor(route.request().frame().url(), treeRoot) })
     }
     return route.abort('blockedbyclient')
   })
@@ -96,8 +99,11 @@ export async function openPage(browser, base, dpr = 1, { motion = false } = {}) 
   return { context, page }
 }
 
-/** Opens the harness and waits until both surfaces are painted (one retry: Vite may reload once on a cold cache). */
-export async function loadScene(page, url, timeout = 60000) {
+/**
+ * Opens the harness and waits until both surfaces are painted (by default one retry in the same page: Vite may reload once
+ * on a cold cache).
+ */
+export async function loadScene(page, url, timeout = 60000, retries = 1) {
   for (let attempt = 0; ; attempt++) {
     try {
       await page.goto(url)
@@ -106,7 +112,7 @@ export async function loadScene(page, url, timeout = 60000) {
       if (error) throw new Error(`harness: ${error}`)
       return
     } catch (err) {
-      if (attempt >= 1 || String(err).includes('harness:')) throw err
+      if (attempt >= retries || String(err).includes('harness:')) throw err
     }
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CloudSprite } from '../paint/cloudSprite'
+import type { CloudSprite } from './cloudSprite'
 import { beforeSheet, hideBehind, leanOf, oneStormEach, type Standing } from './towerStorms'
 import type { RGB } from './types'
 

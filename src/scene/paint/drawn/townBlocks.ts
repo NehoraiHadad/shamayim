@@ -13,7 +13,7 @@ export interface Block {
   roof: Box['roof']; heater: boolean; beyond: boolean
 }
 /** Back to front: a block, or the item as the model gives it. */
-export type TownBody = { block: Block; item: null } | { block: null; item: Exclude<OutsideItem, Box> }
+type TownBody = { block: Block; item: null } | { block: null; item: Exclude<OutsideItem, Box> }
 
 /** A square keeps its own body from this width and height (px); a tile roof always does. */
 const OWN_W = 2.9, OWN_H = 2.8

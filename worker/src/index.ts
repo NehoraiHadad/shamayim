@@ -10,17 +10,16 @@ import { cacheKey, proxy } from './proxy'
 import { routeFor } from './routes'
 import { castVote, TOTALS_PATH, VOTE_PATH, voteTotals } from './styleVote'
 import { canonicalQuery } from './validate'
-import { overVoteLimit } from './voteLimit'
+import { overVoteLimit, type VoteLimits } from './voteLimit'
 
-export interface Env {
+/** VoteLimits is temporary (`wrangler.toml` [[ratelimits]]). */
+export interface Env extends VoteLimits {
   /** Comma-separated browser origins allowed to call the Worker. */
   ALLOWED_ORIGINS?: string
   /** IMS (Israel Meteorological Service) API token, a secret: `wrangler secret put IMS_TOKEN`. */
   IMS_TOKEN?: string
   /** Where the hourly live-correction run is kept (`wrangler.toml` [[kv_namespaces]]). */
   LIVE?: KVNamespace
-  /** Temporary: the style vote's requests a minute from one address (`wrangler.toml` [[ratelimits]]). */
-  VOTE_LIMIT?: RateLimit
 }
 
 /** The latest live run, kept per isolate for a few minutes so `/v1/live` does not read KV on every request. */
@@ -77,8 +76,8 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext, 
   if (check === 'denied') return withHeaders(plain(403, 'Origin not allowed'), cors)
   if (request.method !== method) return withHeaders(plain(405, 'Method not allowed'), { ...cors, Allow: `${method}, OPTIONS` })
 
-  if (url.pathname === VOTE_PATH || url.pathname === TOTALS_PATH) {
-    if (await overVoteLimit(request, env.VOTE_LIMIT)) return withHeaders(plain(429, 'Too many requests'), cors)
+  if ((url.pathname === VOTE_PATH || url.pathname === TOTALS_PATH) && await overVoteLimit(request, env)) {
+    return withHeaders(plain(429, 'Too many requests'), cors)
   }
   if (url.pathname === VOTE_PATH) {
     // Only the app's own pages vote: unlike the reads, a request without an Origin is refused.

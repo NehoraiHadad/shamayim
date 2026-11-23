@@ -4,7 +4,7 @@ import type { MarkKind } from '../data/landmarks/types'
  * The glyphs' sizes in scene px (stage C4): a box width and the drawn height from the mark's projected height, per
  * generic kind and per hand-drawn icon. The same numbers as the SVG scene's `generic/buildingSpecs.ts` and
  * `curated/index.ts` had (deleted at C9), so the marks stand where they stood; the painters
- * (`scene/paint/glyphs`, `scene/paint/icons`) draw in this box.
+ * (`scene/paint/shared/town/glyphs`, `…/icons`) draw in this box.
  */
 export type IconKind = 'westernWall' | 'babShrine' | 'azrieli' | 'chordsBridge'
 export type GlyphKind = Exclude<MarkKind, 'custom'> | IconKind

@@ -69,7 +69,7 @@ describe('style panel contrast (WCAG AA)', () => {
       const wash = mix(paper.sheet, paper.sheetInk, 0.09)
       expect(ratio(paper.sheetInk, wash), 'style not shown').toBeGreaterThanOrEqual(4.5)
       expect(ratio(paper.sheet, paper.sheetInk), 'style shown').toBeGreaterThanOrEqual(4.5)
-      expect(ratio(paper.sheetMuted, paper.sheet), 'toggle and link').toBeGreaterThanOrEqual(4.5)
+      expect(ratio(paper.sheetMuted, paper.sheet), 'toggle and answer').toBeGreaterThanOrEqual(4.5)
       expect(ratio(mix(paper.sheet, paper.sheetInk, 0.6), paper.sheet), 'vote border').toBeGreaterThanOrEqual(3)
     })
   }

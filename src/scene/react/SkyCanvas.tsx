@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo } from 'react'
 import type { Surface } from '../compose/surface'
 import { glideAt } from '../model/anim'
 import type { LayerDesc, LayerOf } from '../model/types'
-import { css } from '../paint/hand'
-import { onSkyCanvas, skyBackground } from '../paint/sky'
+import { css } from '../paint/shared/base/hand'
+import { onSkyCanvas, skyBackground } from '../paint/shared/sky/skyBackground'
 import { useSurface, type SurfaceSize } from './useSurface'
 
 interface Props {

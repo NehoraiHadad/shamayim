@@ -1,6 +1,6 @@
 import { hashId, seeded } from '../data/landmarks/hash'
 import type { Glint, WaterLight } from '../data/water/glint'
-import { fractal } from '../scene/paint/core'
+import { fractal } from '../scene/paint/shared/base/core'
 import type { WaterSpan } from '../data/water/waterInView'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { xOf, type Camera } from '../domain/camera'

@@ -23,7 +23,14 @@ describe('POST /v1/style-vote', () => {
     for (const style of ['real', 'drawn', 'real']) await worker.vote(1, style)
     expect(worker.kv.data.size).toBe(1)
     expect(worker.kv.data.get(voteKey(1))?.metadata).toMatchObject({ style: 'real', n: 3 })
-    expect(await worker.totals()).toEqual({ round: VOTE_ROUND, real: 1, drawn: 0 })
+    expect(await worker.totals()).toMatchObject({ round: VOTE_ROUND, real: 1, drawn: 0 })
+  })
+
+  it('counts a voter once while KV does not answer their vote yet', async () => {
+    worker.kv.getWithMetadata.mockResolvedValue({ value: null, metadata: null })
+    for (const style of ['real', 'drawn']) await worker.vote(1, style)
+    expect(worker.kv.data.get(voteKey(1))?.metadata?.n).toBe(2)
+    expect(await worker.totals()).toMatchObject({ real: 0, drawn: 1, today: 2 })
   })
 
   it('writes a change back although KV still answers the older, same style (another isolate took the change)', async () => {

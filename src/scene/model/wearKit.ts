@@ -1,6 +1,6 @@
 /**
  * What the clothesline needs to know of each garment (`wear.ts`), in the garment's own frame: (0, 0) is where the rope
- * passes, y grows down, about 34 units across a shirt. Its shapes are the painter's (`paint/wear.ts`), drawn in the same
+ * passes, y grows down, about 34 units across a shirt. Its shapes are the painter's (`paint/shared/wear/shapes.ts`), drawn in the same
  * frame. The garments and their choice are the tip's (`text/wear.ts`); these are the ones the line has always drawn.
  */
 export interface Hanging {
@@ -34,7 +34,5 @@ export const HANGING = {
   sunHat: { cloth: '#CDAE7C', weight: 0.5, pegs: [], hook: true, drips: [[-12, 24], [11, 24]], over: [-2.6, -0.4], box: [-16.5, -2.5, 16.5, 28] },
   water: { cloth: '#7FD3EE', weight: 1.3, pegs: [], hook: true, drips: [[0, 32.4]], over: [-4.2, -1.8], box: [-7.5, -3, 7.5, 33.5] },
 } satisfies Record<string, Hanging>
-
-export type WearGarment = keyof typeof HANGING
 
 export const hangingOf = (garment: string): Hanging | null => (HANGING as Record<string, Hanging>)[garment] ?? null

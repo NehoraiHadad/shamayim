@@ -1,14 +1,10 @@
 /** Temporary (see styleVote.ts): the round's votes counted from a listing of their keys' metadata. */
-import { VOTE_ROUND } from '../../src/data/styleVoteRound'
+import { isVoteStyle, VOTE_ROUND, type VoteStyle } from '../../src/data/styleVoteRound'
 
 export const VOTE_PREFIX = `vote:${VOTE_ROUND}:`
 
-export type Style = 'real' | 'drawn'
-
-export const isStyle = (value: unknown): value is Style => value === 'real' || value === 'drawn'
-
 export interface VoteMeta {
-  style: Style
+  style: VoteStyle
   /** UTC day of the last write, and how many writes this voter made on it. */
   day: string
   n: number
@@ -47,7 +43,7 @@ export function forgetTally(): void {
 export function countedVote(metadata: unknown): VoteMeta | null {
   if (!metadata || typeof metadata !== 'object') return null
   const { style, day, n } = metadata as Partial<VoteMeta>
-  return isStyle(style) && typeof day === 'string' && typeof n === 'number' ? { style, day, n } : null
+  return isVoteStyle(style) && typeof day === 'string' && typeof n === 'number' ? { style, day, n } : null
 }
 
 async function count(kv: VoteKV, day: string): Promise<Tally> {
@@ -67,18 +63,18 @@ async function count(kv: VoteKV, day: string): Promise<Tally> {
   return { ...out, full: true }
 }
 
-/** The totals, up to five minutes old. */
-export async function tally(kv: VoteKV, now: number): Promise<Tally> {
+/** The totals, at most `age` old. */
+export async function tally(kv: VoteKV, now: number, age = MEMO_MS): Promise<Tally> {
   const day = new Date(now).toISOString().slice(0, 10)
-  if (memo && memo.tally.day === day && now - memo.readAt < MEMO_MS) return memo.tally
+  if (memo && memo.tally.day === day && now - memo.readAt < age) return memo.tally
   memo = { tally: await count(kv, day), readAt: now }
   return memo.tally
 }
 
-/** Adds a vote just written to the remembered totals, ahead of KV's own listing. */
+/** Adds a vote just written to the remembered totals, ahead of KV's own listing (which may not have counted `previous`). */
 export function rememberVote(previous: VoteMeta | null, vote: VoteMeta): void {
   if (!memo) return
-  if (previous) memo.tally[previous.style]--
+  if (previous) memo.tally[previous.style] = Math.max(0, memo.tally[previous.style] - 1)
   memo.tally[vote.style]++
   memo.tally.today++
 }

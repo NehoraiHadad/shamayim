@@ -3,7 +3,7 @@ export async function buildingColorChecks() {
   const { outsideShape } = await import('/src/scene/model/outsideShape.ts')
   const { wallAir } = await import('/src/scene/model/wallDistance.ts')
   const { buildingFaces } = await import('/src/scene/model/buildingLight.ts')
-  const { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } = await import('/src/scene/paint/planeTexel.ts')
+  const { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } = await import('/src/scene/paint/shared/land/planeTexel.ts')
   const { srgbRgbToLinear, linearLuminance } = await import('/src/scene/model/landRadiance.ts')
   const { TEXEL } = await import('/src/scene/model/planeBands.ts')
   const world = window.__world, box = { width: innerWidth, landHeight: 128, landTop: 300, skyHeight: 428, dpr: 1 }

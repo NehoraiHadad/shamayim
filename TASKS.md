@@ -10,14 +10,14 @@ WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVot
 `worker/src/styleVote.ts` + `voteBody.ts` + `voteTally.ts` + `voteLimit.ts`.
 
 - [x] Worker: `POST /v1/style-vote`, `GET /v1/style-votes` (KV `LIVE`, prefix `vote:<round>:`, style in metadata, a year);
-      caps 300 writes a day and 10 per voter a day, counted from the listing, no extra writes; 20 requests a minute per address
+      caps 200 writes a day and 10 per voter a day, counted from the listing, no extra writes; a minute: 20 requests per address, 40 votes of all
 - [x] Client store: style, styles seen, vote, retry at the next open
 - [x] UI: toggle in the wear card's title row, docked panel that leaves the scene visible, wiring in App
 - [x] Tests; looked at in the app at 375x812 (day, night, dawn paper, rain, an hour picked) and 375x667, closed and open
 - [x] Main a92d405f merged (the drawn hand; main's seam). Built app, frozen clock, Haifa and Jerusalem: default `real`; each switch
       repaints sky and town, and real and drawn each return pixel for pixel; drawn survives a reload
 - [x] Worker unreachable, 404, 500 or hanging: the vote stays on the phone (`sent: false`) and goes out at a later open
-- [x] Release preparation (branch `claude/vote-prep-04ce33`, main fcd96b26 merged in): vote round `VOTE_ROUND` (app and Worker share
+- [x] Release preparation (branch `claude/vote-prep-04ce33`, main b0181337 merged in): vote round `VOTE_ROUND` (app and Worker share
       it; votes of another round are refused and uncounted), style choice kept apart from the vote, tabs agree on one id,
       retry on return/online, honest "will be sent later", rate limit, a change within KV's delay no longer lost, neutral copy,
       the page's end and focus clear of the panel
@@ -1242,10 +1242,14 @@ Goal (owner): `real` (default) and `drawn` clearly different, one true world und
 Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 
 - [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
-      - [ ] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
-            (facts only), architecture test. `real` and `drawn` byte-identical. Own READY, own merge.
-      - [ ] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`)
-      - [ ] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock)
+      - [~] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
+            (facts only), architecture test. `real` and `drawn` byte-identical. Own READY, own merge. Built on
+            `claude/scene-foundations-2b66cc` (CI job `identity`: the still set, both styles, both paint paths, byte for byte
+            against a base ref); waits for its final CI run, then for the manager's merge
+      - [x] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`,
+            verified; its plain losses go with 1d, its design questions to the manager)
+      - [~] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause proven and fixed on a side
+            branch (3fdcb44a, 73c457aa), reviewed and added after 1a
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
@@ -1253,5 +1257,5 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
-- [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main fcd96b26);
+- [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main b0181337);
       waits for both styles' approval, then main into it, re-verify, owner approves merge and worker deploy (worker first)

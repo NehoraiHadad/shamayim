@@ -1,11 +1,11 @@
 import { lambert, type Normal } from '../../world/livingLight'
 import type { RGB } from '../../world/types'
 import { groundView, type Surroundings } from './buildingGround'
-import type { drawnTwilightScreen } from './drawnArchitectureLight'
 import { skyView } from './landIrradiance'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
+import type { TwilightScreen } from './styleLight'
 
-export function incidence({ irr, ground }: Surroundings, drawnScreen?: ReturnType<typeof drawnTwilightScreen>) {
+export function incidence({ irr, ground }: Surroundings, screenOf?: TwilightScreen) {
   const memo = new WeakMap<Normal, { sky: number; ground: number; sun: number; moon: number }>()
   const { sunDir } = irr
   return (n: Normal, open = 1, beam = open, groundOpen = open) => {
@@ -13,7 +13,7 @@ export function incidence({ irr, ground }: Surroundings, drawnScreen?: ReturnTyp
     if (!face) {
       // A vertical face sees half the broad sky dome and half the ground.
       // Eave and street occlusion are applied by the caller's view factors.
-      const screen = drawnScreen?.(n)
+      const screen = screenOf?.(n)
       face = { sky: skyView(n, sunDir, irr.skyBias) * (screen?.sky ?? 1), ground: groundView(n) * (screen?.ground ?? 1),
         sun: lambert(n, sunDir), moon: lambert(n, irr.moonDir) }
       memo.set(n, face)

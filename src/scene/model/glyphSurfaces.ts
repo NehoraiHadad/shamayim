@@ -1,11 +1,11 @@
 import { isField } from '../../world/glyphSpecs'
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
 import { buildingLight, roofNormal } from './buildingLight'
 import { SOOT, STACK_CONCRETE, STONE, TILE, WALL_ALBEDOS, materialBin } from './buildingMaterial'
 import { domeSectors, floodlitDome, silverLight } from './metalLight'
 import { colourCode } from './keys'
+import type { StyleLight } from './styleLight'
 import type { GlyphDesc, Tones } from './types'
 
 type Returns = readonly [RGB, RGB]
@@ -22,12 +22,12 @@ const CURVES = ([-1, 1] as const).map(hand => SECTORS.map(x => [hand * x, -Math.
 const LEFT: Normal = [-1, 0, 0], RIGHT: Normal = [1, 0, 0]
 const CLAY_LEFT = roofNormal(LEFT), CLAY_RIGHT = roofNormal(RIGHT), CLAY_FRONT = roofNormal(NORMALS.front)
 
-export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t: Tones, convert: (c: RGB) => RGB, style: SceneStyle) {
+export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t: Tones, convert: (c: RGB) => RGB, light: StyleLight) {
   const flood = glyph.kind === 'babShrine' ? floodlitDome(world, km, convert) : undefined
   const gilding = glyph.kind === 'babShrine' ? domeSectors(world, km)
     .map(row => (glyph.hand === 1 ? row : row.reverse()).map(convert)) : undefined
   if (isField(glyph.kind) || glyph.kind === 'palms') return { tones: t, gilding }
-  const shades = buildingLight(world, km, style)
+  const shades = buildingLight(world, km, light)
   const receive = (rho: RGB, n: Normal, open?: number, beam?: number) => convert(shades(rho, n, open, beam))
   const hand = glyph.hand
   const front = NORMALS.front

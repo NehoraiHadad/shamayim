@@ -1,6 +1,6 @@
-import { arch, poly, rect } from '../glyphs/kit'
-import { paintFloodlitDome } from '../glyphs/gilding'
-import { css, mix } from '../hand'
+import { arch, poly, rect } from '../shared/town/glyphs/kit'
+import { paintFloodlitDome } from '../shared/town/glyphs/gilding'
+import { css, mix } from '../shared/base/hand'
 import type { DrawnGlyphKit } from './glyphKit'
 
 export function azrieli(k: DrawnGlyphKit, h: number) {
