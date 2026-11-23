@@ -39,7 +39,7 @@ const W_MIN = 1.5
  */
 export const MERGE_KM = 40, MERGE_PX = 28
 /** How much of the sky's stretch a tower's own shape takes (an exponent): all of it draws every far heap as a pillar. */
-const STAND = 0.45
+const STAND = 0.5
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
 const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
