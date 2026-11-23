@@ -239,3 +239,28 @@ describe('the life schedule', () => {
     expect(ratios.length).toBeGreaterThanOrEqual(500)
   }, 120_000)
 })
+
+it('keeps airport events outside a one-hour interruption of their rate', () => {
+  const inputAt = day()
+  const original = lifeSchedule(ctx(), inputAt).low
+  const updated = lifeSchedule(ctx(), at => {
+    const input = inputAt(at)
+    return at.slice(11, 13) === '12' ? { ...input, covers: { ...input.covers, low: 1 } } : input
+  }).low
+  // Rates interpolate between ten-minute samples.
+  const outside = (event: { t0: number }) => event.t0 < 12 * 3600 - 600 || event.t0 >= 13 * 3600
+  const identity = ({ id, t0, seed }: (typeof original)[number]) => ({ id, t0, seed })
+  const originalOutside = original.filter(outside).map(identity)
+  const updatedOutside = updated.filter(outside).map(identity)
+  expect(originalOutside.length).toBeGreaterThan(0)
+  expect(updated.length).toBeLessThan(original.length)
+  expect(updatedOutside).toEqual(originalOutside)
+})
+
+it('keeps meteor times and seeds when the daily peak rises by 5 percent', () => {
+  const date = '2026-12-14'
+  const original = lifeSchedule(ctx(date), day({ starsThrough: 0.8 })).meteors
+  const updated = lifeSchedule(ctx(date), day({ starsThrough: 0.84 })).meteors
+  expect(original.length).toBeGreaterThan(0)
+  expect(updated).toEqual(expect.arrayContaining(original))
+})
