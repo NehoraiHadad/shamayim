@@ -1,5 +1,5 @@
 // The trees the identity check compares, each served by its own dev server, and one unit of it: the same still shot from
-// base, head, base again, head again (each a fresh context) and compared exactly.
+// base, head and, as a control, base and head again (each a fresh context) and compared exactly.
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
@@ -35,11 +35,32 @@ export async function serveTree(name, dir, cacheDir) {
   return { name, root, commit: commitOf(root), ...server }
 }
 
-/** One load of a unit in a fresh context: its PNGs (one a backdrop) and the ids of the layers composited. */
+/**
+ * In the page, before its code: the composited layers listed, and no deadline of a second or more ever struck. The land's
+ * files are given up after 5 s (`src/data/land/fineCover.ts`) and the scene drawn without them, so a still would otherwise
+ * depend on how busy the machine is.
+ */
+function prepare() {
+  window.__trackSceneShown = true
+  const set = window.setTimeout.bind(window), timeout = AbortSignal.timeout
+  const NEVER = 2 ** 31 - 1
+  window.setTimeout = (run, ms, ...rest) => set(run, ms >= 1000 ? NEVER : ms, ...rest)
+  AbortSignal.timeout = (ms) => timeout.call(AbortSignal, ms >= 1000 ? NEVER : ms)
+}
+
+/**
+ * One load of a unit in a fresh context: its PNGs (one a backdrop) and the ids of the layers composited. A request of the
+ * tree's own that fails is an error: the scene may have been drawn without it.
+ */
 async function load(browser, tree, unit, dpr) {
   const { context, page } = await openPage(browser, tree.url, dpr, { treeRoot: tree.root })
   try {
-    await page.addInitScript(() => { window.__trackSceneShown = true })
+    const lost = []
+    const own = (url) => new URL(url).host === new URL(tree.url).host
+    page.on('requestfailed', (request) => { if (own(request.url())) lost.push(request.url()) })
+    page.on('response', (response) => { if (own(response.url()) && response.status() >= 500) lost.push(response.url()) })
+    page.setDefaultNavigationTimeout(LOAD_TIMEOUT)
+    await page.addInitScript(prepare)
     await loadScene(page, sceneUrl(tree.url, { ...unit.moment, style: unit.style, paint: unit.paint,
       overlay: unit.overlay ?? false, hide: unit.hide ?? unit.moment.hide }), LOAD_TIMEOUT, 0)
     const pngs = []
@@ -47,6 +68,7 @@ async function load(browser, tree, unit, dpr) {
       if (grey !== null) await page.evaluate((g) => { document.body.style.background = `rgb(${g}, ${g}, ${g})` }, grey)
       pngs.push(await page.screenshot({ clip: CLIP }))
     }
+    if (lost.length) throw new Error(`${lost.length} of the tree's own requests failed: ${lost[0]}`)
     return { pngs, ids: await page.evaluate(() => Object.keys(window.__sceneStats.shown)) }
   } finally {
     await context.close()
@@ -64,8 +86,8 @@ export async function shoot(browser, tree, unit, dpr) {
 }
 
 /**
- * The verdict of a unit's pairs. `same`: all four shots equal. `unstable`: the base differs from itself (`firstDiffer`:
- * and the first loads differ too). `DIFF`: a stable base, and a head that is not it.
+ * The verdict of a unit's four shots. `same`: all equal. `unstable`: the base differs from itself (`firstDiffer`: and the
+ * first loads differ too). `DIFF`: a stable base, and a head that is not it.
  */
 export function verdictOf(pairs) {
   if (pairs['base1/base2'].pixels) return { verdict: 'unstable', firstDiffer: pairs['base1/head1'].pixels > 0 }
@@ -73,16 +95,16 @@ export function verdictOf(pairs) {
 }
 
 /**
- * Shoots and compares one unit in `comparer` (a blank page). A layer alone that shows nothing in either tree's first load
- * is `empty` and not shot again.
+ * Shoots and compares one unit in `comparer` (a blank page). Without `unit.control` it is shot again only when the first
+ * loads differ; otherwise it is `equal` (one load of each tree, no control), or `empty` where neither shows anything.
  */
 export async function judge(browser, comparer, { base, head }, unit, dpr) {
   const started = Date.now()
   const shots = { base1: await shoot(browser, base, unit, dpr), head1: await shoot(browser, head, unit, dpr) }
   const pngs = () => Object.fromEntries(Object.entries(shots).map(([name, shot]) => [name, shot.pngs]))
-  let compared, verdict = { verdict: 'empty', firstDiffer: false }
-  if (unit.alone) compared = await compareExactly(comparer, pngs(), [PAIRS[0]], BACKDROPS)
-  if (!(compared?.empty.base1 && compared.empty.head1)) {
+  let compared = await compareExactly(comparer, pngs(), [PAIRS[0]], BACKDROPS)
+  let verdict = { verdict: compared.empty.base1 ? 'empty' : 'equal', firstDiffer: false }
+  if (unit.control || compared.pairs['base1/head1'].pixels) {
     shots.base2 = await shoot(browser, base, unit, dpr)
     shots.head2 = await shoot(browser, head, unit, dpr)
     compared = await compareExactly(comparer, pngs(), PAIRS, BACKDROPS)

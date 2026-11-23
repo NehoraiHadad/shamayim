@@ -2,6 +2,8 @@
 //   node e2e/styleIdentity.mjs <baseDir> [<outDir>] [options] [moment …]    (moments: `moments.mjs`; default: `stillSet.mjs`)
 //     --dpr=2 --styles=real,drawn --paint=worker,main   what is shot
 //     --layers=worker     the paint paths whose layers are also shot each alone (`--layers=`: none), with the labels' still
+//     --controls=whole    what is always shot twice from each tree, as a control: the whole clips (the rest only where its
+//                         first loads differ), or `all`
 //     --pages=3 --shard=1/1   pages at once; the i-th of n parts of the moments and styles
 // `baseDir`: a checkout of the base commit, with its dependencies. Each tree serves its own sources and fixtures; this
 // tree's runner shoots both in one Chromium. Only scene.html's URL parameters and window hooks are relied on.
@@ -27,13 +29,14 @@ const dpr = Number(option('dpr', 2)), pages = Number(option('pages', 3)), shard 
 const [part, parts] = shard.split('/').map(Number)
 const styles = list('styles', 'real,drawn'), paints = list('paint', 'worker,main')
 const layers = list('layers', 'worker').filter((paint) => paints.includes(paint))
-const known = ['dpr', 'styles', 'paint', 'layers', 'pages', 'shard']
+const controls = option('controls', 'whole')
+const known = ['dpr', 'styles', 'paint', 'layers', 'controls', 'pages', 'shard']
 const unknown = args.filter((a) => a.startsWith('--') && !known.some((name) => a.startsWith(`--${name}=`)))
 const bad = (values, allowed) => !values.length || values.some((v) => !allowed.includes(v))
 if (!baseDir || unknown.length || !(dpr > 0) || !(pages >= 1) || !(part >= 1 && part <= parts)
-  || bad(styles, ['real', 'drawn']) || bad(paints, ['worker', 'main'])) {
+  || bad(styles, ['real', 'drawn']) || bad(paints, ['worker', 'main']) || bad([controls], ['whole', 'all'])) {
   console.log(`usage: node e2e/styleIdentity.mjs <baseDir> [<outDir>] [--dpr=2] [--styles=real,drawn] [--paint=worker,main]
-  [--layers=worker] [--pages=3] [--shard=1/1] [moment …]${unknown.length ? `\nunknown: ${unknown.join(' ')}` : ''}`)
+  [--layers=worker] [--controls=whole|all] [--pages=3] [--shard=1/1] [moment …]${unknown.length ? `\nunknown: ${unknown.join(' ')}` : ''}`)
   process.exit(2)
 }
 
@@ -48,7 +51,8 @@ const results = []
 /** A unit: what is shot (`kind`: the whole clip, the clip with its labels, or a layer alone) of a moment in a style and paint path. */
 const unitOf = (moment, style, paint, kind, partName = kind, more = {}) => {
   const row = `${momentName({ ...moment, style })} ${paint}`
-  return { moment, style, paint, kind, row, name: `${row} ${partName}`, alone: kind === 'layer', overlay: kind === 'labels', ...more }
+  return { moment, style, paint, kind, row, name: `${row} ${partName}`, alone: kind === 'layer', overlay: kind === 'labels',
+    control: kind === 'whole' || controls === 'all', ...more }
 }
 
 async function judgeUnit(comparer, unit) {
@@ -95,7 +99,7 @@ try {
   const order = new Map(whole.map(({ row }, i) => [row, i]))
   results.sort((a, b) => order.get(a.row) - order.get(b.row) || (a.kind === b.kind ? a.name.localeCompare(b.name, 'en') : a.kind < b.kind ? 1 : -1))
   writeReport(out, { base: trees.base.commit, head: trees.head.commit, chromium: browser.version(), dpr, pages, shard, styles,
-    paints, layers, minutes: (Date.now() - started) / 60000 }, results)
+    paints, layers, controls, minutes: (Date.now() - started) / 60000 }, results)
 } finally {
   await browser.close()
   for (const tree of Object.values(trees)) await tree.close()

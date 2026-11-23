@@ -49,9 +49,10 @@ function markdown(run, results) {
   const cell = (list, kind) => tally(list.filter((r) => r.kind === kind))
   return ['# Style identity', '', `- base \`${run.base}\`, head \`${run.head}\``,
     `- Chromium ${run.chromium}, dpr ${run.dpr}, ${run.pages} pages at once, shard ${run.shard}, ${run.minutes.toFixed(1)} min`,
-    `- decoded RGBA, byte for byte; four fresh loads each (base, head, base, head); paint: ${run.paints.join(', ')}; styles: ${run.styles.join(', ')}`,
-    `- each layer alone (over black and over white): ${run.layers.join(', ') || 'no paint path'}; labels with them`,
-    `- an \`empty\` part shows nothing in either tree's first load, and is not shot again`, '',
+    `- decoded RGBA, byte for byte; styles: ${run.styles.join(', ')}; paint paths of the whole clip: ${run.paints.join(', ')}`,
+    `- each layer alone (over black and over white), and the clip with its labels: ${run.layers.join(', ') || 'no paint path'}`,
+    `- \`same\`: four fresh loads (base, head, base, head) all equal: ${run.controls === 'all' ? 'every unit' : 'the whole clips'}`,
+    ...(run.controls === 'all' ? [] : ['- `equal`, `empty` (nothing shown): base and head equal in one fresh load each; four loads only where those differ']), '',
     `**${tally(results)}** (${results.filter(isRed).length} red, ${results.reduce((sum, r) => sum + (r.retries ?? 0), 0)} loads retried)`, '',
     ...results.filter((r) => r.error).map((r) => `- ERROR \`${r.name}\`: ${r.error}`),
     ...(loud.length ? ['## Not the same', '', `| unit | verdict | ${Object.keys(loud[0].pairs).join(' | ')} |`,
