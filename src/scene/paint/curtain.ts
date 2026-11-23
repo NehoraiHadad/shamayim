@@ -20,6 +20,8 @@ const REACH = 0.62, WAVER = 0.35
 const FIBRE = 1.1, FIBRE_RATE = 0.55, FIBRE_LONG = 0.16
 /** A thin fibre stops short of the ground (virga): the height it fades from. */
 const VIRGA = 0.45
+/** The middle of the curtain against the shaft's own strength: its soft flanks take the rest. */
+const HEAVY = 1.5
 /** Raster px per sky px at most, and raster px in a curtain at most. */
 const RASTER = 0.6, RASTER_PX = 6000
 const NOISE_SEED = 7351, OCTAVES = 3
@@ -49,9 +51,9 @@ export function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env
       const across = (left + ((i + 0.5) / cols) * wide - lean * t) / w
       const fibre = 2 * tileAt(tile, across * FIBRE_RATE + ou, t * FIBRE_RATE * FIBRE_LONG + ov) - 1
       const out = Math.min(1, Math.abs(across) / (REACH * (1 + WAVER * fibre)))
-      const body = (1 - out * out) ** 1.5
+      const body = (1 - out * out) ** 1.2
       const short = 1 - smoothstep(VIRGA, 1.2, t) * smoothstep(0.1, -0.5, fibre)
-      const density = Math.max(0, down * body * short * (1 + FIBRE * fibre))
+      const density = Math.max(0, HEAVY * down * body * short * (1 + FIBRE * fibre))
       image.data[at] = r; image.data[at + 1] = g; image.data[at + 2] = b
       image.data[at + 3] = Math.round(255 * (1 - (1 - alpha) ** density))
     }

@@ -11,6 +11,10 @@ import { halfAt, headsOf } from './towerHeads'
 
 /** The base's depth below the near edge at least, against the width: a flat underside seen nearly edge on. */
 const BASE_DEPTH = 0.08
+/** How flat the underside is: a power on the way down it (1 is a round bowl). */
+const BASE_FLAT = 1.7
+/** How far down the underside the heads round off into it. */
+const HEAD_FOOT = 0.6
 /** How far the noise moves the outline (against a head's half width): broad swells, then rounded cauliflower lumps. */
 const SWELL = 0.5, LUMPS = 0.4
 /** The share of that left on the underside: the base is flat, the lumps grow upward. */
@@ -71,7 +75,7 @@ export function towerShape(s: CloudSprite): TowerShape {
       const at = row[n]
       at.wide = halfAt(h, y)
       at.axis = h.x + at.wide * sway
-      at.beyond = y > 0 ? y / (n === heads.length - 1 ? depth : 0.25 * depth) : y < h.joint ? (h.joint - y) / h.crown : 0
+      at.beyond = y > 0 ? (n === heads.length - 1 ? (y / depth) ** BASE_FLAT : y / (HEAD_FOOT * depth)) : y < h.joint ? (h.joint - y) / h.crown : 0
       at.knee = y > 0 ? 0 : Math.max(y, h.joint)
     })
     const top = SOFT_CROWN + (SOFT_ANVIL - SOFT_CROWN) * (s.anvil ?? 0)
