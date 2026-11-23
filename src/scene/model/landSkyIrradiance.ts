@@ -78,7 +78,7 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
  * Directional form of the shared sky for a rough reflector. The broader low lobe
  * is normalized against its own cosine integral, keeping the land's sky energy.
  */
-export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB) {
+export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB, forwardAccent = 5.7) {
   const cloud = Math.min(1, Math.max(0, light.diffuse))
   const twilight = smoothstep(10, 3, sunAlt) * smoothstep(-10, -3, sunAlt)
   const top = srgbRgbToLinear(rgbOf(light.palette.top)), mid = srgbRgbToLinear(light.ambient)
@@ -88,7 +88,7 @@ export function skyReflection(light: RadianceLight, sunAlt: number, tau: number,
     ? afterglowWeight(sunAlt) : 0
   const glow = horizon.map((c, i) => c + (afterglow[i] - c) * glowWeight)
   const cloudFill = 1.8 * cloud ** 2 * aerosol * linearLuminance(horizon)
-  const forward = (.8 + 5.7 * glowWeight) * aerosol * (1 - .65 * cloud)
+  const forward = (.8 + forwardAccent * glowWeight) * aerosol * (1 - .65 * cloud)
   const broad = mid.map((v, i) => v + (top[i] - v) * DOME.zenith + .16 * (horizon[i] - v)
     + cloudFill + forward * DOME.roughForward * glow[i]) as [number, number, number]
   const gain = twilight * linearLuminance(mean) / Math.max(1e-6, linearLuminance(broad))

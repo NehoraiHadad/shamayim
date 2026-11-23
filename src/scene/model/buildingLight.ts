@@ -9,6 +9,7 @@ import { glassIncidence } from './glassLight'
 
 export const buildingSurroundings = (world: WorldState) => groundLighting(world).buildings
 export { groundView, reflectedGround } from './buildingGround'
+const UNIT_REFLECTANCE: RGB = [1, 1, 1]
 
 const worlds = new WeakMap<WorldState, ReturnType<typeof worldReceivers>>()
 
@@ -86,7 +87,7 @@ export function buildingLight(world: WorldState, km: number) {
   const receive = (rho: RGB, n: Normal, open = 1, beam = open) => shade(rho, set.incident(n, open, beam))
   return Object.assign(receive, {
     unresolved: (rho: RGB) => set.unresolved(km, rho),
-    glass: (n: Normal, mullion = false) => shade(PALE_METAL, set.sky(n, mullion)),
+    glass: (n: Normal, mullion = false) => shade(mullion ? PALE_METAL : UNIT_REFLECTANCE, set.sky(n, mullion)),
   })
 }
 
@@ -113,7 +114,7 @@ export function buildingFaces(world: WorldState, km: number, id: number, tiled =
       leftWidth, rightWidth, ...(tileBase ? { tile: [tileBase, tileBase, tileBase], tileBase } : {}) }
   }
   const face = (n: Normal) => {
-    if (glass) return flat(tone(PALE_METAL, set.sky(n)))
+    if (glass) return flat(tone(UNIT_REFLECTANCE, set.sky(n)))
     const rgb = set.face(n)
     const wall = tone(stone, rgb.wall)
     return plain ? flat(wall) : { wall, foot: tone(stone, rgb.foot), eave: tone(stone, rgb.eave) }

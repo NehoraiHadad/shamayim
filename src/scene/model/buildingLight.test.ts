@@ -24,7 +24,6 @@ function scene(azimuth = 190, altitude = 38, open = 1) {
 }
 
 const y = (srgb: RGB) => linearLuminance(srgbRgbToLinear(srgb))
-
 describe('building receiver', () => {
   it('uses complementary ground and open-sky factors for up, horizontal and down normals', () => {
     const irr = landIrradiance(scene())
@@ -112,10 +111,10 @@ describe('building receiver', () => {
     const world = scene(190, 38, 0), receive = buildingLight(world, 1)
     const front = receive.glass(NORMALS.front)
     const side = receive.glass([.98, -.20, 0])
-    expect(y(side)).toBeGreaterThan(1.15 * y(front))
+    expect(y(side)).toBeGreaterThan(1.12 * y(front))
     const ratio = y(receive.glass(NORMALS.front, true)) / y(front)
-    expect(ratio).toBeGreaterThan(.89)
-    expect(ratio).toBeLessThan(.96)
+    expect(ratio).toBeGreaterThan(.55)
+    expect(ratio).toBeLessThan(.75)
   })
 
   it('shows the anti-solar sky in a head-on pane when the glow is behind the facade', () => {
