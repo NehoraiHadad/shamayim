@@ -1020,6 +1020,12 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             geometry and fill colours and isolated lamps matched `e4ca77ca`. After restoring the parapet
             shade, composited warm window samples still differed by up to 2 levels in Jerusalem, 16 in
             Haifa and 4 in Tel Aviv, including pixels over overlapping facades.
+      - [x] Pre-merge review fixes. Facade exposure runs before the shared veil, and dense fog removes the
+            contrast floor, so low-sun fog veils the town like the ground. Haifa's shrine dome matches main at
+            21:00 and stays opaque through twilight. Four stills re-recorded.
+      - [ ] Follow-up, performance (software Chromium, CPU ×4). Haifa `modelCold` median is 242 ms against 187 ms
+            on main. Shadmot Mehola thunder `canopy.near` peaks at 900 ms in the Worker against 69 ms on main,
+            from the paired gust poses.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
