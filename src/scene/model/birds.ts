@@ -3,6 +3,7 @@ import { lateral, toward } from '../../domain/camera'
 import type { BirdKind, Flock } from '../../world/life'
 import type { WorldState } from '../../world/types'
 import { seen } from './birdFlight'
+import { craneV } from './craneV'
 import { layerKey, skyBoxKey } from './keys'
 import { placedInDepth, q, tone } from './life'
 import { birdPoses, flightInView, LIFE_START, poseTrack, RAD, trackBaseAlpha } from './lifeTracks'
@@ -30,7 +31,7 @@ interface KindLook {
 // swifts hawk in quick eights; gulls hang on the wind; crows row and cranes beat slowly in a V.
 const LOOKS: Record<BirdKind, KindLook> = {
   stork: { fps: 4, count: 48, flap: 0, soar: 1, span: 8, loop: [9, 1.5], spread: [26, 20] },
-  crane: { fps: 12, count: 12, flap: 2, soar: 0.2, span: 6.5, loop: [0, 0.5], spread: [0, 0] },
+  crane: { fps: 12, count: 12, flap: 2, soar: 0.2, span: 4.4, loop: [0, 0.5], spread: [0, 0] },
   swift: { fps: 15, count: 30, flap: 7.5, soar: 0.45, span: 4.5, loop: [9, 3], spread: [22, 12] },
   gull: { fps: 12, count: 48, flap: 2.5, soar: 0.5, span: 7, loop: [3, 2], spread: [26, 6] },
   raptor: { fps: 4, count: 48, flap: 0, soar: 1, span: 10, loop: [9, 1.5], spread: [16, 8] },
@@ -51,19 +52,11 @@ function yawOf(flock: Flock, world: WorldState) {
 /** The birds of a flock round its middle (world px; x across, y up, z away): a kettle, a V, a loose party, a wheeling flock. */
 function flockBirds(flock: Flock, look: KindLook, k: number, yaw: number): BirdDesc[] {
   const r = seeded(flock.seed)
+  if (flock.kind === 'crane') return craneV(flock.count, look.span, k, yaw, look.loop[1], r)
   const out: BirdDesc[] = []
-  const c = Math.cos(yaw), s = Math.sin(yaw)
   for (let i = 0; i < flock.count; i++) {
     const size = look.span * k * (0.85 + 0.3 * r())
-    if (flock.kind === 'crane') {
-      // A V trailing back from its leader in the air, its arms ~35° off its way (a ragged line now and then).
-      const arm = i === 0 ? 0 : i % 2 ? 1 : -1, rank = Math.ceil(i / 2)
-      const back = rank * 3.4 * k, side = arm * rank * (r() < 0.3 ? 0.5 : 2.4) * k
-      out.push({ x: -back * c - side * s, y: 0.2 * k * (r() - 0.5), z: -back * s + side * c, rx: 0, ry: look.loop[1] * k, turn: 1, lag: r(),
-        size, beat: (rank * 0.08) % 1 })
-      continue
-    }
-    // The rest: on a level disc round the middle, more of them near it, at their own heights; a kettle circles one way.
+    // On a level disc round the middle, more of them near it, at their own heights; a kettle circles one way.
     const a = r() * 2 * Math.PI, d = Math.sqrt(r())
     const sameWay = flock.kind === 'stork' || flock.kind === 'raptor' || flock.kind === 'pigeon'
     out.push({ x: Math.cos(a) * d * look.spread[0] * k, y: (r() - 0.5) * look.spread[1] * k, z: Math.sin(a) * d * look.spread[0] * k,

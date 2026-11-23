@@ -974,7 +974,10 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 
 - [x] Owner-delegated landmark-size decision: clamp famous non-own height to 6–16 CSS px, with true-distance haze and
       contrast. Factor remains diagnostic. See worship ownership above and `REPORT.md`, Landmark size.
-- [ ] Planes: several aircraft overlap in one cluster left of the sun (Jerusalem 11:30, CI run 44999491674 still).
+- [x] "Planes" left of the sun (Jerusalem 11:30) were a flock of 11 cranes: a wedge spaced closer than its drawn wingspans, of
+      straight crosses with a body twice its true length. The V is now spaced in drawn spans with true unequal arms
+      (`craneV.ts`) and the crane has bent broad wings and a body half a span long.
+- [ ] A short, non-persistent contrail paints as a white dot at a high airliner. Other kinds' dense flocks unchanged.
 - [x] Track G LOW 1: a pick or drag that lands on the current minute is live (null) at once (`ui/scrub/sceneTimeController.ts`,
       `sceneDragTime.ts`, tested without a DOM); a clock tick never changes a held preview.
 - [x] Track G LOW 2: the satellite's correction is measured at its own minute (cover − model there, ±40 points, full for
