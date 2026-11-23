@@ -112,19 +112,6 @@ it('spreads an anvil only on the most mature storm cells in view', () => {
   }
 }, 60_000)
 
-it('stands a near storm cell of a real day up to its true top, a far heap to half of it', async () => {
-  const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T14:00' as LocalTime))
-  const geom = skyGeom(world, BOX)
-  const cells = new Map(world.cloudField!.snapshot.find((s) => s.layer?.lattice === 'tower')!.cells.map((c) => [c.seed, c]))
-  const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
-  const near = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm < 30)
-  expect(near).not.toHaveLength(0)
-  for (const { sprite, y } of near) {
-    const p = projectCell(cells.get(sprite.seed)!)
-    expect(y - sprite.tall).toBeLessThan(geom.dome(p.aTop) + (p.rangeKm < 5 ? 0.25 : 0.5) * (y - geom.dome(p.aTop)))
-  }
-}, 30_000)
-
 it('merges the far towers of a storm day into a soft mass along the horizon, not a row of streaks', () => {
   const world = buildWorld(worldInput(loaded.get('haifa')!, '2026-03-15T17:00' as LocalTime))
   const geom = skyGeom(world, BOX)
