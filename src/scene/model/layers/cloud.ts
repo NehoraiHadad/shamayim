@@ -14,6 +14,10 @@ export type CloudLayers =
       /** By night, the towns' light on each texel: its tone and its weight (row-major, 0–1). */
       city?: { rgb: RGB; weight: number[] }
       /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
-      speeds: number[] }
+      speeds: number[]
+      /** Per-row foreground aerosol transmission. Present in dusty air. */
+      through?: number[]
+      /** Share of low-angle illumination on the underside. */
+      lowSun?: number }
   /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */
   | LayerBase & { kind: 'cloudCells'; lattice: 'tower'; cells: { sprite: CloudSprite; x: number; y: number; speed: number }[] }

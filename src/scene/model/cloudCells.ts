@@ -1,3 +1,4 @@
+import { litTone } from './cloudBeam'
 import { projectCell } from '../../world/field/project'
 import type { FieldCell } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
@@ -131,7 +132,8 @@ function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyo
   const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
     0.85 * world.air.fade(hazePath(range, cell.baseKm)))
   const shade = mixRgb(tones.shade, base, day)
-  const beam = light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body
+  const beam = !light ? tones.body : light.solar ? litTone(tones.body, light.solar.direct, 1 - tones.fade)
+    : mixRgb(light.rgb, tones.behind, tones.fade)
   // A low sun lights a whole tower's height from the side, as it does the sheet's underside round it.
   const glow = light ? light.under * light.strength * lit.through : 0
   return {

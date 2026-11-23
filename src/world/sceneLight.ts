@@ -34,10 +34,27 @@ export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}
 const cleanNoon = aerosolDepth().map((tau, i) => Math.exp(-tau - RAYLEIGH[i]))
 const luminance = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 
-/** Linear spectral transmission and its photopic strength relative to a clean zenith sun. */
-export function solarBeam(altitude: number, air: Aerosol = {}) {
+/** Scale heights (km) of the air's molecules and of its haze (the mixed layer `aerosolDepth` assumes). */
+const AIR_KM = 8.4, HAZE_KM = 1.5
+export const EARTH_RADIUS_KM = 6371 // mean terrestrial radius
+/** The share of the haze that lies above `zKm`. */
+export const hazeAbove = (zKm: number) => Math.exp(-zKm / HAZE_KM)
+
+/** Linear spectral transmission down to `zKm` up, and its photopic strength relative to a clean zenith sun. */
+export function solarBeam(altitude: number, air: Aerosol = {}, zKm = 0) {
   const m = airMass(altitude)
-  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(-(tau + RAYLEIGH[i]) * m))
+  let molecular = zKm ? m * Math.exp(-zKm / AIR_KM) : m
+  let aerosol = zKm ? m * hazeAbove(zKm) : m
+  if (zKm > 0 && altitude < 0) {
+    const tangent = Math.max(0, (EARTH_RADIUS_KM + zKm) * Math.cos(altitude * Math.PI / 180) - EARTH_RADIUS_KM)
+    // Along a spherical exponential atmosphere, the full tangent chord is twice the
+    // outgoing horizontal column. Subtract the outward column beyond the cloud.
+    const chord = 2 * airMass(0)
+    const outward = airMass(-altitude)
+    molecular = chord * Math.exp(-tangent / AIR_KM) - outward * Math.exp(-zKm / AIR_KM)
+    aerosol = chord * hazeAbove(tangent) - outward * hazeAbove(zKm)
+  }
+  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(zKm ? -tau * aerosol - RAYLEIGH[i] * molecular : -(tau + RAYLEIGH[i]) * m))
   return { transmission, strength: Math.min(1, luminance(transmission) / luminance(cleanNoon)) }
 }
 

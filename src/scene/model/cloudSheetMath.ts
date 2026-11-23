@@ -1,3 +1,4 @@
+import { aerosolDepth, airMass, hazeAbove, type Aerosol } from '../../world/sceneLight'
 import { groundRangeAt, R_EFF_KM } from '../../world/field/project'
 import { unit } from '../../world/field/genus'
 import type { FieldLayer } from '../../world/field/types'
@@ -22,6 +23,13 @@ export function sheetPathFactor(base: number, thickness: number, altitude: numbe
 }
 
 export const sheetOpacity = (tau: number, slant: number) => -Math.expm1(-tau * slant)
+
+/** Dust transmission from the 550 nm aerosol column below the cloud and the row's slant path. */
+export function dustTransmission(air: Aerosol, baseKm: number, altitudes: readonly number[]): number[] {
+  const depth = (air.dustWeight ?? 0) * aerosolDepth(air)[1] * (1 - hazeAbove(baseKm))
+  // The raster stores 8-bit alpha. Quantize the row coefficients at this precision for its cache key.
+  return altitudes.map((altitude) => Math.round(255 * Math.exp(-depth * airMass(Math.max(0, altitude)))))
+}
 
 // CIE standard overcast source: (1 + 2 sin altitude) / 3.
 export const OVERCAST_HORIZON = 1 / 3

@@ -3,8 +3,8 @@ import { coinOf } from '../../world/air'
 import { MOON_RGB } from '../../world/light'
 import { cloudLight, layerMeanTransmission, SKY_CLOUD_DEPTH_SCALE } from '../../world/lightCloud'
 import { smoothstep } from '../../world/ridgeLighting'
-import { sunLight } from '../../world/sceneLight'
 import type { CloudLayer, CloudLevel, WorldState } from '../../world/types'
+import type { CloudBeam } from './cloudBeam'
 import { coversOf, stopAt, veilOf, type SkyGeom } from './sky'
 import { mixRgb, rgbOf } from './tone'
 import type { RGB, SceneBox } from './types'
@@ -25,33 +25,35 @@ export const RAIN_GREY: RGB = [0.29, 0.34, 0.39]
 /** Where the light that reaches a layer comes from (sky px), its colour and strength, and how much is direct sun. */
 /** `above`: the share of the light the layers above let through (as an expected value: a bank is in a gap or not, `litOf`). */
 export interface CloudLight { x: number; y: number; rgb: RGB; strength: number; sun: boolean; under: number; above: number
+  /** The beam at the layer's height against the sky's light on it, and the diffuse share scattered by upper decks. */
+  solar?: CloudBeam
   /** The sun's disc as the eye sees it through the cloud (1 − its veil): what lights a bank's edge from behind. */
   seen: number }
 
-/**
- * The light on one layer: the sun while it is up, its strength after the cloud above the layer (a low bank under an
- * overcast of mid cloud is lit by the sky alone); after sunset and before sunrise the afterglow from under the horizon,
- * which the higher layers keep longest (`litUnderside`, the world's); by night the moon by its phase and height.
- */
-export function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer): CloudLight | null {
-  const { sun, moon } = world.bodies
+/** Expected direct transmission through the decks above the receiving layer. */
+export function transmissionAbove(world: WorldState, layer: CloudLayer): number {
   const covers = coversOf(world)
   const upper = world.cloudField?.field.layers.filter(({ lattice }) =>
     layer.level !== 'high' && (lattice === 'high' || (layer.level === 'low' && lattice === 'mid')))
-  const above = upper?.reduce((beam, cloud) =>
+  return upper?.reduce((beam, cloud) =>
     beam * layerMeanTransmission(cloud.cover, cloud.kappa * cloud.meanVKm * SKY_CLOUD_DEPTH_SCALE), 1)
     ?? cloudLight({ low: 0, mid: layer.level === 'low' ? covers.mid : 0, high: layer.level === 'high' ? 0 : covers.high },
       undefined, SKY_CLOUD_DEPTH_SCALE).clear
-  const aerosol = world.air
+}
+
+/** Direction and masking for paint effects. The sheet’s incident light follows its own Earth shadow. */
+export function lightOn(world: WorldState, box: SceneBox, geom: SkyGeom, layer: CloudLayer, solar?: CloudBeam): CloudLight | null {
+  const { sun, moon } = world.bodies
+  const above = transmissionAbove(world, layer)
   if (sun.altitude > -0.5) {
     const up = smoothstep(-0.5, 2, sun.altitude)
-    const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.25 + 0.45 * smoothstep(6, 40, sun.altitude))
-    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb, strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
+    return { x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, rgb: world.light.colour, solar,
+      strength: up * (1 - 0.7 * coinOf(world.air)), above, sun: true,
       under: layer.litUnderside, seen: 1 - veilOf(world) }
   }
   const after = world.light.afterglow
   if (after && layer.litUnderside > 0.02) {
-    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, strength: layer.litUnderside, above, sun: false,
+    return { x: geom.left + after.x * geom.s, y: geom.horizon + 60, rgb: after.rgb, solar, strength: layer.litUnderside, above, sun: false,
       under: layer.litUnderside, seen: 0 }
   }
   if (moon.up && world.night.dark > 0.1 && moon.illumination > 0.05) {
