@@ -1,3 +1,4 @@
+import { expect } from 'vitest'
 import type { Ctx2D } from '../scene/paint/shared/base/hand'
 
 const FORM = new Set(['save', 'restore', 'translate', 'scale', 'rotate', 'transform', 'beginPath', 'moveTo',
@@ -34,4 +35,9 @@ export function recording() {
     },
   }) as Ctx2D
   return { form, light, channels, ctx }
+}
+/** The largest step between two frames' paint channels. */
+export function distance(a: readonly number[], b: readonly number[]) {
+  expect(a.length).toBe(b.length)
+  return a.reduce((max, v, i) => Math.max(max, Math.abs(v - b[i])), 0)
 }
