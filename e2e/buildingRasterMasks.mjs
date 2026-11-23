@@ -1,11 +1,11 @@
 // Geometry masks use the scene painter and visible draw order.
 export async function buildingRasterMasks(layers, outside, w, h) {
-  const { paintBoxGeometry } = await import('/src/scene/paint/outsideBox.ts')
-  const { capDepth, topPlane } = await import('/src/scene/paint/buildingFaces.ts')
-  const { paintTower } = await import('/src/scene/paint/outsideTower.ts')
-  const { paintFarCities } = await import('/src/scene/paint/farCities.ts')
+  const { paintBoxGeometry } = await import('/src/scene/paint/real/outsideBox.ts')
+  const { capDepth, topPlane } = await import('/src/scene/paint/shared/town/buildingFaces.ts')
+  const { paintTower } = await import('/src/scene/paint/real/outsideTower.ts')
+  const { paintFarCities } = await import('/src/scene/paint/shared/town/farCities.ts')
   const { isField } = await import('/src/world/glyphSpecs.ts')
-  const { drawGlyph } = await import('/src/scene/paint/glyphs/index.ts')
+  const { drawGlyph } = await import('/src/scene/paint/shared/town/glyphs/index.ts')
   const canvas = () => Object.assign(document.createElement('canvas'), { width: w, height: h })
   const m = canvas().getContext('2d', { willReadFrequently: true })
   const caps = canvas().getContext('2d', { willReadFrequently: true })

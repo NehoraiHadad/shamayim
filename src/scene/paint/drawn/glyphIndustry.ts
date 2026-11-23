@@ -1,5 +1,5 @@
-import { poly, rect, type Tracer } from '../glyphs/kit'
-import { css, mix } from '../hand'
+import { poly, rect, type Tracer } from '../shared/town/glyphs/kit'
+import { css, mix } from '../shared/base/hand'
 import type { DrawnGlyphKit } from './glyphKit'
 
 export function highrise(k: DrawnGlyphKit, h: number) {

@@ -1,5 +1,5 @@
 import { type CanvasFactory, type LayerCanvas } from './layerCache'
-import type { Ctx2D } from '../paint/hand'
+import type { Ctx2D } from '../paint/shared/base/hand'
 import type { DeviceRect } from './paintJob'
 import { MASK_TEXEL, type ShadowMask } from './shadowComposite'
 

@@ -7,7 +7,7 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { outlineBandY, TEXEL } from './planeBands'
 import { skyLayer, stopAt } from './sky'
-import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/planeTexel'
+import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/shared/land/planeTexel'
 import { layersOn, sceneModel } from '.'
 import { cloudShadowsOf } from './cloudShadows'
 import {

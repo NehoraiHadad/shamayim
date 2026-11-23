@@ -1,6 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { RGB } from '../../model/types'
-import { mix } from '../hand'
+import { mix } from '../shared/base/hand'
 
 /* The drawn hand's reading of the model's light: from its tones alone, never from a time. */
 

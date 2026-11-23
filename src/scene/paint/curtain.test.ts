@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { LayerOf } from '../model/types'
-import type { Ctx2D, PaintEnv } from './hand'
+import type { Ctx2D, PaintEnv } from './shared/base/hand'
 import { DEFAULT_STYLE, SCENE_STYLES, STYLES } from './styles'
 
 const ALPHA = 0.58, LEAN = 50

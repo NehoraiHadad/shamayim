@@ -18,7 +18,7 @@ export type {
   CanopyVegetation, Dot, Face, Grain, Gully, LightPart, OutsideLandDesc, Path, PlaneLight, PlaneLitField, PlanePalette, PlaneVegetation,
 }
 import type { ContrailMotion } from './contrailMotion'
-import type { CloudSprite } from '../paint/cloudSprite'
+import type { CloudSprite } from './cloudSprite'
 
 /**
  * The scene model (docs/design/CANVAS-SCENE-PLAN.md §1b): what is drawn, where, in which colour and order, decided

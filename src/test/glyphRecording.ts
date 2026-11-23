@@ -1,4 +1,4 @@
-import type { Ctx2D } from '../scene/paint/hand'
+import type { Ctx2D } from '../scene/paint/shared/base/hand'
 
 const FORM = new Set(['save', 'restore', 'translate', 'scale', 'rotate', 'transform', 'beginPath', 'moveTo',
   'lineTo', 'bezierCurveTo', 'quadraticCurveTo', 'arc', 'ellipse', 'rect', 'closePath', 'clip', 'fill', 'stroke', 'fillRect', 'strokeRect'])

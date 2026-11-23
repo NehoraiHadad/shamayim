@@ -1,6 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
-import { rng } from '../core'
-import { detailTile, tileAt } from '../detailTile'
+import { rng } from '../shared/base/core'
+import { detailTile, tileAt } from '../shared/base/detailTile'
 
 /*
  * The drawn hand's cloud puffs (v1b's `cloudBank`: ellipses laid back to front, each lit on its top): a seeded, periodic

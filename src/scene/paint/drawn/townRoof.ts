@@ -1,5 +1,5 @@
 import type { Tones } from '../../model/types'
-import { css, mix, outline, type Ctx2D } from '../hand'
+import { css, mix, outline, type Ctx2D } from '../shared/base/hand'
 import type { Block } from './townBlocks'
 import type { Planes, TownLight } from './townLight'
 

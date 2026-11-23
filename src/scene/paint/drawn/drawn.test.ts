@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LayerOf, OutsideItem, Shine } from '../../model/types'
-import type { Ctx2D, PaintEnv } from '../hand'
+import type { Ctx2D, PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
 import { paintDrawnSheet } from './cloudSheet'
 import type { SkyForm } from './light/skyForm'

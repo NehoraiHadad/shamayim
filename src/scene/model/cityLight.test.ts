@@ -7,7 +7,7 @@ import { CITY_RGB, cityDomes, cityLit, cityOnSky } from './cityLight'
 import { cloudLayersOf } from './cloudLayers'
 import { skyGeom, skyStops, stopAt } from './sky'
 import { addLight, rgbOf } from './tone'
-import { mix } from '../paint/hand'
+import { mix } from '../paint/shared/base/hand'
 
 /* A night over the towns: an overcast deck gives their light back from its base, a clear sky keeps it low, each over its town. */
 const OVERCAST = { cloudCover: 100, precipitation: 0, weatherCode: 3, humidity: 85 }

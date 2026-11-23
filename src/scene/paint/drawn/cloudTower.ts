@@ -1,7 +1,7 @@
 import type { LayerOf, RGB } from '../../model/types'
-import type { CloudSprite } from '../cloudSprite'
-import { mix, type Ctx2D, type PaintEnv } from '../hand'
-import { layTower } from '../cloudTower'
+import type { CloudSprite } from '../../model/cloudSprite'
+import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
+import { layTower } from '../real/cloudTower'
 import { whitened } from './cloudLight'
 import { towerMass, type TowerPoint } from './towerMass'
 

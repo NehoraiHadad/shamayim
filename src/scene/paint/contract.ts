@@ -1,6 +1,6 @@
 import type { StyleLight } from '../model/styleLight'
 import type { LayerKind, LayerOf } from '../model/types'
-import type { Ctx2D, PaintEnv } from './hand'
+import type { Ctx2D, PaintEnv } from './shared/base/hand'
 
 /** A layer's painters: its form, and its light part when it has one (§1d, the scrub split). */
 export interface Painter<K extends LayerKind = LayerKind> {

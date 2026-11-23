@@ -1,5 +1,5 @@
 import type { Painter } from '../paint/contract'
-import type { Ctx2D, Scratch } from '../paint/hand'
+import type { Ctx2D, Scratch } from '../paint/shared/base/hand'
 import { frameCount } from '../model/anim'
 import { canvasSize, paintPart, paintSlot, type PaintJob, type PaintPose, type PaintResult } from './paintJob'
 

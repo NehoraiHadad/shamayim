@@ -1,7 +1,7 @@
 import type { LayerOf } from '../../model/types'
-import { deckOpenness } from '../cloudLook'
-import { resampleRows, ROW } from '../cloudSheet'
-import { soften } from '../soften'
+import { deckOpenness } from '../real/cloudLook'
+import { resampleRows, ROW } from '../real/cloudSheet'
+import { soften } from '../shared/base/soften'
 
 /*
  * A field layer's sheet as the drawn hand reads it: the model's own alpha and tone on an even grid, softened into calm

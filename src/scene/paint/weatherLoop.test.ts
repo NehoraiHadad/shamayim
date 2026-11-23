@@ -6,7 +6,7 @@ import type { WorldInput } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '../model'
 import type { LayerDesc, LayerKind, LayerOf, SceneBox, SceneModel } from '../model/types'
-import { HAND, type Ctx2D, type PaintEnv } from './hand'
+import { HAND, type Ctx2D, type PaintEnv } from './shared/base/hand'
 import { painterOf, SCENE_STYLES, STYLES } from './styles'
 
 /** Every style's weather, water and town painters: pure in the phase, and a loop later the same frame (C7). */
