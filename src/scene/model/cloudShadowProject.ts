@@ -7,7 +7,7 @@ import { SCENE_W } from '../../world/sceneBox'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed } from './advect'
-import { shadowLobes, SOLAR_DIAMETER_RAD } from './cloudShadowEdge'
+import { shadowEdge, shadowLobes, SOLAR_DIAMETER_RAD } from './cloudShadowEdge'
 import { supports, type Projection } from './cloudShadowWorld'
 import type { ShadowBlob, ShadowBox, ShadowPlane, ShadowTerrain } from './planeCloudShadow'
 import type { Pt } from './types'
@@ -133,10 +133,13 @@ export function projectCloudShadows(input: ProjectInput): ProjectedShadow[] {
     const dh = discKm * Math.hypot(across, along * invSin)
     const edgeY = (range: number) => terrainY(terrain.horizonY, apparentAngle(centre.seaLevelM, range, eyeM))
     const penumbraY = Math.abs(edgeY(km + dh / 2) - edgeY(Math.max(.01, km - dh / 2)))
-    const lobes = shadowLobes(cell, layer, cloudField.field.placeId, heading, camera.handed, azimuth * RAD - heading, cot)
+    const bearing = Math.atan2(centre.eastKm, centre.northKm)
+    const slope = Math.sign(edgeY(km + .01) - edgeY(km))
+    const lobes = shadowLobes(cell, bearing, camera.handed, azimuth * RAD - heading, cot, slope || -1)
+    const rx = Math.max(.1, (right - left) / 2), ry = Math.max(.1, (bottom - top) / 2)
     accepted.push({ plane, blob: { cellId: id, centre: centreKm, opticalDepth, speed,
-      x: (left + right) / 2, y: (top + bottom) / 2, rx: Math.max(0.1, (right - left) / 2), ry: Math.max(0.1, (bottom - top) / 2),
-      edge: { lobes, penumbraX, penumbraY }, diffuseView } })
+      x: (left + right) / 2, y: (top + bottom) / 2, rx, ry,
+      edge: shadowEdge(lobes, opticalDepth, rx, ry, penumbraX, penumbraY), diffuseView } })
   }
   return accepted
 }

@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import type { ReceiverShadow } from '../model/planeCloudShadow'
+import { shadowEdge } from '../model/cloudShadowEdge'
 import { ShadowComposite } from './shadowComposite'
 
 it('reuses the mask across cloned descriptors with the same projected footprints and display exposure', () => {
@@ -25,7 +26,7 @@ it('adds overlapping cell depth and carries the same lobed mask over a minute bo
   const cache = new ShadowComposite()
   const rect = { x: 0, y: 0, w: 128, h: 80 }
   const blob = { cellId: 'moving', centre: [0, 0] as const, x: 35, y: 38, rx: 11, ry: 13,
-    opticalDepth: 18, speed: .187, edge: { lobes: [.12, -.09, .16, -.08], penumbraX: 2, penumbraY: 3 } }
+    opticalDepth: 18, speed: .187, edge: shadowEdge([.12, -.09, .16, -.08], 18, 11, 13, 2, 3) }
   const shadow: ReceiverShadow = { plane: 'near', open: 1, from: 0, speed: blob.speed, beamOverSky: 5,
     skyDisplay: .12, hazeShare: 0, hazeY: .2, neutralBeam: .9, coreDiffuse: .25, blobs: [blob] }
   const before = cache.maskAt('near', shadow, rect, 1, 59.999, 1).alpha.slice()

@@ -34,7 +34,7 @@ function shadowKeys(shadow: ReceiverShadow) {
     .map((value) => Number(value.toPrecision(5)))
   const alphaKey = exposure.join(',')
   const footprints = shadow.blobs.map(({ x, y, rx, ry, speed, opticalDepth, edge }) =>
-    [x, y, rx, ry, speed, opticalDepth, edge?.penumbraX, edge?.penumbraY, edge?.lobes.join(',')].join(','))
+    [x, y, rx, ry, speed, opticalDepth, edge?.centre, edge?.widthX, edge?.widthY, edge?.lobes.join(',')].join(','))
   return { alphaKey, key: [alphaKey, shadow.from, shadow.speed, ...footprints].join(';'), exposure }
 }
 
@@ -67,7 +67,7 @@ export class ShadowComposite {
     }
     const { cols: width, rows: height, alpha, depth, first: rowFirst, last: rowLast } = mask
     if (!mask.stamps || mask.key !== keys.key) {
-      mask.stamps = shadow.blobs.map((blob) => prepareShadowStamp(blob, table, rect, ratio, MASK_TEXEL))
+      mask.stamps = shadow.blobs.map((blob) => prepareShadowStamp(blob, rect, ratio, MASK_TEXEL))
     }
     for (let j = 0; j < height; j++) {
       const first = rowFirst[j], last = rowLast[j]

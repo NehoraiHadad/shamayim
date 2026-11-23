@@ -1,4 +1,5 @@
 import type { FieldCell } from './types'
+import { cellRim, rimDistance, rimReach } from './cellRim'
 
 /** Uniform raster of footprint references. A bin contains every cell whose bounding box intersects it. */
 export function rasterNodes(left: number, bottom: number, width: number, height: number, step: number,
@@ -16,7 +17,7 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
     const dx = x - footprint.cell.x
     const dy = y - footprint.cell.y
     const rr = ((a * dx + cross * dy) * dx + c * dy * dy) * footprint.inverseR2
-    return kernel(footprint.cell.tau0, rr, footprint.cumulus)
+    return kernel(footprint.cell.tau0, rimDistance(footprint.rim, dx, dy, rr), footprint.cumulus)
   }
 
   function rayDepth(footprint: Footprint, x: number, y: number, low: number, high: number, ds: number,
@@ -57,10 +58,11 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
     },
     add(cell: FieldCell, cumulus: boolean) {
       const { x, y, r } = cell
-      const east = eastScale * r, north = northScale * r
+      const rim = cellRim(cell), reach = r * rimReach(cell.lattice)
+      const east = eastScale * reach, north = northScale * reach
       const first = Math.max(0, indexX(x - east)), last = Math.min(width - 1, indexX(x + east))
       const top = Math.min(height - 1, indexY(y + north))
-      const footprint = { cell, cumulus, inverseR2: 1 / (r * r) }
+      const footprint = { cell, cumulus, inverseR2: 1 / (r * r), rim }
       for (let row = Math.max(0, indexY(y - north)); row <= top; row++) {
         for (let col = first; col <= last; col++) {
           const index = row * width + col
@@ -100,6 +102,7 @@ interface Footprint {
   cell: FieldCell
   cumulus: boolean
   inverseR2: number
+  rim: ReturnType<typeof cellRim>
 }
 
 export function kernel(tau: number, rr: number, cumulus: boolean) {

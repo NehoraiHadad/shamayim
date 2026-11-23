@@ -2,7 +2,7 @@ import type { RGB, TerrainPlanes } from '../../world/types'
 import { EXPOSURE_GAMMA, linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { toSrgb } from './tone'
 import type { Box, LayerOf, Pt, SceneBox } from './types'
-import { shadowEdgeWidth } from './cloudShadowEdge'
+import type { ShadowEdge } from './cloudShadowEdge'
 
 export type ShadowPlane = LayerOf<'plane'>['plane']
 export type ShadowTerrain = Pick<TerrainPlanes, 'horizonY' | 'sightAt' | 'back'> & Partial<Pick<TerrainPlanes, 'near' | 'far'>>
@@ -15,7 +15,7 @@ export interface ShadowBlob {
   rx: number
   ry: number
   opticalDepth: number
-  edge?: { lobes: readonly number[]; penumbraX: number; penumbraY: number }
+  edge?: ShadowEdge
   diffuseView?: number
   /** Horizontal wind advection in land pixels per second. */
   speed: number
@@ -51,9 +51,8 @@ export const cloudScatter = (tau: number) => .75 * diffuseTransmission(tau) + .2
 
 export function shadowRadii({ rx, ry, edge }: ShadowBlob): Pt {
   if (!edge) return [rx, ry]
-  const reach = 1 + Math.max(0, ...edge.lobes)
-  return [rx * reach + shadowEdgeWidth(rx * reach, edge.penumbraX) / 2,
-    ry * reach + shadowEdgeWidth(ry * reach, edge.penumbraY) / 2]
+  const reach = edge.centre + Math.max(...edge.lobes), blur = Math.max(edge.widthX, edge.widthY) / 2
+  return [rx * (reach + blur), ry * (reach + blur)]
 }
 
 export const SHADOW_CARRY_SECONDS = 75
@@ -76,7 +75,7 @@ export function receiverBlobs(shadow: PlaneCloudShadow, bounds: Box, animate: bo
     return blob.y + ry >= bounds.y && blob.y - ry <= bounds.y + bounds.h
       && Math.max(blob.x, atEnd) + rx >= bounds.x && Math.min(blob.x, atEnd) - rx <= bounds.x + bounds.w
   })
-  return blobs.length && blobs.reduce((depth, blob) => depth + blob.opticalDepth, 0) > -Math.log(shadow.open) ? blobs : undefined
+  return blobs.length ? blobs : undefined
 }
 
 export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow | undefined, from: number, animate = true): LayerOf<'plane'> {
@@ -97,18 +96,20 @@ export function shadowedPlane(plane: LayerOf<'plane'>, shadow: PlaneCloudShadow 
   const ambient = Math.max(0.001, sky * linearLuminance(eSky) + moon * linearLuminance(eMoon))
   const neutralAlbedo = linearLuminance(srgbRgbToLinear(plane.fill))
   const skyDisplay = yHorizon * (neutralAlbedo * ambient / (lit * 255)) ** EXPOSURE_GAMMA
-  let area = 0, view = 0, maxDepth = 0
+  let area = 0, view = 0, scatter = 0
+  const { x, y, w, h } = plane.bounds
+  const overlap = (at: number, r: number, start: number, span: number) => Math.max(0, Math.min(at + r, start + span) - Math.max(at - r, start))
   for (const blob of blobs) {
-    const weight = blob.rx * blob.ry
+    const [rx, ry] = shadowRadii(blob)
+    const weight = blob.rx * blob.ry * overlap(blob.x, rx, x, w) * overlap(blob.y, ry, y, h) / (4 * rx * ry)
     area += weight
     view += weight * (blob.diffuseView ?? 1)
-    maxDepth = Math.max(maxDepth, blob.opticalDepth)
+    scatter += weight * cloudScatter(blob.opticalDepth)
   }
-  const neutral = Math.min(...eSun) * (area ? view / area : 0)
+  // Fade the endpoint to zero over the last pixel of visible support.
+  const neutral = Math.min(...eSun) * view / Math.max(1, area)
   const neutralBeam = neutral / linearLuminance(eSun)
-  // All receivers on the plane interpolate to the same deep-shadow endpoint.
-  // The alpha table handles the stronger diffuse transmission through thinner cloud.
-  const coreDiffuse = Math.round(256 * cloudScatter(maxDepth)) / 256
+  const coreDiffuse = scatter / Math.max(1, area)
   const diffuse = coreDiffuse * neutral
   const cloudDiffuse: RGB = [diffuse, diffuse, diffuse]
   const light = { ...plane.light, litField: { ...plane.light.litField, cloudDiffuse } }

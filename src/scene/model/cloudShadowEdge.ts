@@ -1,7 +1,5 @@
-import { hashId } from '../../data/landmarks/hash'
-import { genusOf } from '../../world/field/genus'
-import type { FieldCell, FieldLayer } from '../../world/field/types'
-import { sheetTexture } from './cloudSheetTexture'
+import { cellRim, rimRadiusSquared } from '../../world/field/cellRim'
+import type { FieldCell } from '../../world/field/types'
 import { cloudBodyPuffs } from './cloudBodyPuffs'
 
 const SECTORS = 12
@@ -11,18 +9,15 @@ const RIM = Array.from({ length: SECTORS }, (_, i) => {
 })
 export const SOLAR_DIAMETER_RAD = 0.53 * Math.PI / 180
 
-/** The same advected clumps the sky sheet uses for its local thickness.
- * Read them around the cell's rim, then interpolate the outline between them. */
-export function shadowLobes(cell: FieldCell, layer: FieldLayer, placeId: string, heading: number, handed: number, sunOffset: number, cot: number) {
-  if (layer.lattice === 'tower') return towerLobes(cell, sunOffset, handed, cot)
-  const genus = genusOf(layer.lattice, layer.form, .5)
-  const seed = hashId(`${placeId}:sheet:${layer.lattice}`)
-  const sample = sheetTexture(genus, layer, seed)(2 * Math.PI * cell.r / SECTORS)
-  const sin = Math.sin(heading), cos = Math.cos(heading)
+/** Read the drawn cell's outline in the local screen basis. */
+export function shadowLobes(cell: FieldCell, bearing: number, handed: number, sunOffset: number, cot: number, slope: number) {
+  if (cell.lattice === 'tower') return towerLobes(cell, sunOffset, handed, cot)
+  const rim = cellRim(cell)
+  if (!rim) return RIM.map(() => 0)
+  const sin = Math.sin(bearing), cos = Math.cos(bearing)
   return RIM.map(([x, y]) => {
-    const across = handed * x * cell.r, away = -y * cell.r
-    const thickness = sample(cell.x + across * cos + away * sin, cell.y - across * sin + away * cos)
-    return .25 * (thickness - 1) / (thickness + 1)
+    const across = handed * x, away = slope * y
+    return Math.sqrt(rimRadiusSquared(rim, across * cos + away * sin, -across * sin + away * cos)) - 1
   })
 }
 
@@ -45,18 +40,64 @@ function towerLobes(cell: FieldCell, sunOffset: number, handed: number, cot: num
   return lobes
 }
 
-/** 10–90% width as a fraction of a circular solar disc's diameter. */
+export interface ShadowEdge {
+  lobes: readonly number[]
+  penumbraX: number
+  penumbraY: number
+  centre: number
+  widthX: number
+  widthY: number
+}
+
+const radialQuadrature = [[.019855, .050614], [.101667, .111191], [.237234, .156853], [.408283, .181342],
+  [.591717, .181342], [.762766, .156853], [.898333, .111191], [.980145, .050614]]
+
+/** Mean beam removal of the old τ(1−r²)² profile divided by its peak.
+ * With u = 1−r² the area measure is uniform. Above τ=20 the Gaussian
+ * tail beyond u=1 is negligible. */
+function equivalentArea(tau: number) {
+  return (tau > 20 ? 1 - Math.sqrt(Math.PI / tau) / 2
+    : radialQuadrature.reduce((sum, [u, w]) => sum - w * Math.expm1(-tau * u * u), 0)) / -Math.expm1(-tau)
+}
+
+export function shadowEdge(lobes: readonly number[], tau: number, rx: number, ry: number, penumbraX: number, penumbraY: number): ShadowEdge {
+  const area = equivalentArea(tau), radius = Math.sqrt(area)
+  // The thin ragged cloud rim dominates the projected solar disc at 1×.
+  // Give it room across a foreshortened axis, within the cell's own scale
+  // so a subpixel cell cannot become an opaque multi-pixel smear.
+  const width = (axis: number, disc: number) => Math.min(1.25 * radius,
+    Math.hypot(.42 * radius, Math.min(.96 * radius, 6.8 / axis), disc / axis))
+  const widthX = width(rx, penumbraX), widthY = width(ry, penumbraY)
+  const rim = lobes.map(lobe => lobe * radius)
+  const mean = rim.reduce((sum, lobe) => sum + lobe, 0) / rim.length
+  let variance = 0
+  for (let i = 0; i < rim.length; i++) {
+    const a = rim[i] - mean, b = rim[(i + 1) % rim.length] - mean
+    variance += (a * a + a * b + b * b) / (3 * rim.length)
+  }
+  // The disc profile is a CDF with radial variance width²/16. Its
+  // angular mean plus the squared rim radius gives the integrated area.
+  const centre = Math.sqrt(area - variance - (widthX ** 2 + widthY ** 2) / 32) - mean
+  return { lobes: rim, penumbraX, penumbraY, centre, widthX, widthY }
+}
+
 export const DISC_EDGE_10_90 = .68
-export const shadowEdgeWidth = (radius: number, penumbra: number) => Math.hypot(.4 * radius, penumbra)
 
 /** Effective depth after spatially averaging the transmission through the
  * cloud edge. Blurring depth before exponentiating would bring back the rim. */
-export function shadowCoverage(distance: number, radius: number, penumbra: number) {
-  // The mixing shell widens with the footprint. The solar disc imposes a
-  // lower bound even on a smooth, sharply bounded cloud.
-  const width = shadowEdgeWidth(radius, penumbra)
+export function shadowCoverage(distance: number, radius: number, width: number) {
   const t = 2 * (radius - distance) / width
   if (t <= -1) return 0
   if (t >= 1) return 1
   return .5 + (Math.asin(t) + t * Math.sqrt(1 - t * t)) / Math.PI
+}
+
+export function edgeCoverage(edge: ShadowEdge, x: number, y: number) {
+  const distance = Math.hypot(x, y)
+  if (!distance) return 1
+  const count = edge.lobes.length
+  const sector = (Math.atan2(y, x) / (2 * Math.PI) * count + count) % count, k = Math.floor(sector)
+  const a = edge.lobes[k], b = edge.lobes[(k + 1) % count]
+  const width = Math.hypot(x * edge.widthX, y * edge.widthY) / distance
+  return shadowCoverage(distance, edge.centre + a + (b - a) * (sector - k), width)
 }

@@ -1,4 +1,5 @@
 import { spanDeg } from '../../domain/camera'
+import { rimReach } from './cellRim'
 import { maxRadius, meanRadius } from './lattice'
 import { altitudeOf, groundRangeAt } from './project'
 import { visitDay, type Emit } from './visitDay'
@@ -127,7 +128,7 @@ const latticeTag = { low: 0, tower: 1, mid: 2, high: 3 }
 /** Enumerate all occupied centres that could cover the query point, in km. */
 export function cellsAt(field: CloudField, lattice: Lattice, x: number, y: number): FieldCell[] {
   const g = field.layers.find(layer => layer.lattice === lattice)?.g ?? 1
-  return collect(field, lattice, x, y, maxRadius(lattice) * g, 0)
+  return collect(field, lattice, x, y, rimReach(lattice) * maxRadius(lattice) * g, 0)
 }
 
 function rainPotential(genus: FieldCell['genus'], lattice: Lattice, share: number, rain: CloudField['rain']) {
