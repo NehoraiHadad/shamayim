@@ -1,7 +1,25 @@
 import type { RGB } from '../../../world/types'
+import type { FloodlitDome } from '../../model/metalLight'
+import { roundGradient } from '../drawn/glyphLight'
 import { mix } from '../hand'
-import type { Kit, Tracer } from './kit'
+import { rect, type Kit, type Tracer } from './kit'
 import { sectorGradient } from './kitLight'
+
+/** The original gold silhouette and falloff under the shrine's floodlights. */
+export function paintFloodlitDome(k: Kit, h: number, t: FloodlitDome) {
+  const c = k.c, dome = -h + 1.5
+  c.fillStyle = roundGradient(c, t, k.l, -2.8, 2.8, .62, t.gold, mix(t.gold, t.rim, .45))
+  c.beginPath()
+  c.moveTo(-2.8, -9.5)
+  c.quadraticCurveTo(-3, dome + 1.3, 0, dome)
+  c.quadraticCurveTo(3, dome + 1.3, 2.8, -9.5)
+  c.closePath()
+  c.fill()
+  for (let i = 1; i < 3; i++) k.fill(rect(-2.6 + i * .3, -9.5 - i * 1.3, 5.2 - i * .6, .3), t.shade, .18)
+  k.fill(rect(-.5, -h, 1, 1.8), t.gold)
+  k.fill(rect(-.5, -h, .4, 1.8), k.face(t.gold, t.rim, 1))
+  k.fill(rect(.1, -h, .4, 1.8), k.face(t.gold, t.rim, -1))
+}
 
 /** Paint the projected sector grid, interpolated in elevation and across the curved shell. */
 export function paintGilding(k: Kit, shape: Tracer, top: number, base: number, colours: RGB[][]) {

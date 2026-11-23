@@ -1,4 +1,5 @@
 import { arch, poly, rect } from '../glyphs/kit'
+import { paintFloodlitDome } from '../glyphs/gilding'
 import { css, mix } from '../hand'
 import type { DrawnGlyphKit } from './glyphKit'
 
@@ -56,19 +57,7 @@ export function babShrine(k: DrawnGlyphKit, h: number) {
   k.rim(-3.5, -7, 7)
   k.round(rect(-2.5, -9.5, 5, 2.5), -2.5, 2.5)
   for (const x of [-1.75, 0.25]) k.open(rect(x, -9.1, 1.5, 1.8), true, 0.9)
-  // The dome: gold, lit on the light's side, its scales as faint bands; the lantern.
-  const dome = -h + 1.5
-  k.round((c) => {
-    c.beginPath()
-    c.moveTo(-2.8, -9.5)
-    c.quadraticCurveTo(-3, dome + 1.3, 0, dome)
-    c.quadraticCurveTo(3, dome + 1.3, 2.8, -9.5)
-    c.closePath()
-  }, -2.8, 2.8, 0.62, t.gold, mix(t.gold, t.rim, 0.45))
-  for (let i = 1; i < 3; i++) k.fill(rect(-2.6 + i * 0.3, -9.5 - i * 1.3, 5.2 - i * 0.6, 0.3), t.shade, 0.18)
-  k.fill(rect(-0.5, -h, 1, 1.8), t.gold)
-  k.fill(rect(-0.5, -h, 0.4, 1.8), k.face(t.gold, t.rim, 1))
-  k.fill(rect(0.1, -h, 0.4, 1.8), k.face(t.gold, t.rim, -1))
+  paintFloodlitDome(k, h, t)
   k.lamp(0, -5, 6, t.win, 0.25 * k.night, flood)
 }
 

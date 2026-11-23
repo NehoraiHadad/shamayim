@@ -36,7 +36,7 @@ const DRAW: Record<GlyphKind, Draw> = {
   vineyard: (k, h, d) => vineyard(k, h, d),
   solar: (k, h, d) => solar(k, h, d),
   westernWall,
-  babShrine: (k, h, d) => babShrine(k, h, d.gilding!),
+  babShrine,
   azrieli,
   chordsBridge,
 }

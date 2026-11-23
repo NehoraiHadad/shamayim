@@ -50,5 +50,6 @@ export function refreshLandmarkItems(world: WorldState, items: readonly OutsideI
 export const glyphAtmosphereKey = (glyphs: readonly GlyphDesc[]) => glyphs.map(g => [
   (Object.keys(g.tones) as (keyof Tones)[]).map(k => colourCode(g.tones[k])),
   g.windowWall && colourCode(g.windowWall), glyphSurfaceKey(g.surfaces), g.gilding?.flat().map(c => colourCode(c, 2)),
+  g.floodlitDome && Object.values(g.floodlitDome).map(c => colourCode(c)),
   isFamousNonOwn(g) ? Math.round(Math.cbrt(g.contrast!) * 255) : null,
 ])

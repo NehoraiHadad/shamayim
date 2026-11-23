@@ -4,7 +4,7 @@ import type { RGB, WorldState } from '../../world/types'
 import type { SceneStyle } from '../sceneStyle'
 import { buildingLight, roofNormal } from './buildingLight'
 import { SOOT, STACK_CONCRETE, STONE, TILE, WALL_ALBEDOS, materialBin } from './buildingMaterial'
-import { domeSectors, silverLight } from './metalLight'
+import { domeSectors, floodlitDome, silverLight } from './metalLight'
 import { colourCode } from './keys'
 import type { GlyphDesc, Tones } from './types'
 
@@ -23,7 +23,8 @@ const LEFT: Normal = [-1, 0, 0], RIGHT: Normal = [1, 0, 0]
 const CLAY_LEFT = roofNormal(LEFT), CLAY_RIGHT = roofNormal(RIGHT), CLAY_FRONT = roofNormal(NORMALS.front)
 
 export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t: Tones, convert: (c: RGB) => RGB, style: SceneStyle) {
-  const gilding = glyph.kind === 'babShrine' ? domeSectors(world, km)
+  const flood = glyph.kind === 'babShrine' ? floodlitDome(world, km) : undefined
+  const gilding = glyph.kind === 'babShrine' && !flood ? domeSectors(world, km)
     .map(row => (glyph.hand === 1 ? row : row.reverse()).map(convert)) : undefined
   if (isField(glyph.kind) || glyph.kind === 'palms') return { tones: t, gilding }
   const shades = buildingLight(world, km, style)
@@ -54,7 +55,9 @@ export function glyphSurfaces(world: WorldState, glyph: GlyphDesc, km: number, t
     roof: receive(TILE, CLAY_FRONT), glass: glazed ? glass(front) : t.glass,
     soot: receive(SOOT, front, .45, 0),
   }
-  return { tones, surfaces, gilding }
+  return { tones, surfaces, gilding, ...(flood ? { floodlitDome: {
+    gold: convert(flood.gold), rim: convert(flood.rim), shade: convert(flood.shade), refl: convert(flood.refl),
+  } } : {}) }
 }
 
 /** The lightweight colour signature covers surfaces whose normals don't appear in the base palette. */

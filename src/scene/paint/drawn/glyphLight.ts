@@ -3,7 +3,8 @@ import type { DrawnTones } from '../../model/drawnTones'
 import { css, mix, type Ctx2D } from '../hand'
 
 /** Keep the union of the two falloffs' stops fixed and reverse the samples for right light. */
-export function roundGradient(c: Ctx2D, t: DrawnTones, l: number, x0: number, x1: number, term: number, wall: RGB, lit: RGB) {
+export function roundGradient(c: Ctx2D, t: Pick<DrawnTones, 'shade' | 'rim' | 'refl'>, l: number,
+  x0: number, x1: number, term: number, wall: RGB, lit: RGB) {
   const g = c.createLinearGradient(x0, 0, x1, 0)
   // Even (the sky's light from above: a little light down the middle, both edges turning away) blended into the side
   // light's falloff by `k`: the same stops for both, so the body turns with the light.

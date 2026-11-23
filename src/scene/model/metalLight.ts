@@ -1,11 +1,14 @@
 import { lambert, type Normal } from '../../world/livingLight'
 import { smoothstep } from '../../world/ridgeLighting'
+import { drawnLightOf } from '../../world/drawnLight'
 import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { buildingSurroundings } from './buildingLight'
+import { drawnGold, drawnTonesAt, type DrawnTones } from './drawnTones'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
-import { hazeAt } from './landVeil'
+import { aerialFor, hazeAt } from './landVeil'
+import { mixLight, rgbOf } from './tone'
 
 const GOLD_F0: RGB = [1, .75, .28]
 const SILVER_F0: RGB = [.89, .91, .92]
@@ -31,11 +34,24 @@ export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
 const DOME_X = [-1, -2/3, -1/3, 0, 1/3, 2/3, 1]
 const DOME_UP = [.05, .35, .65, .94]
 
+export type FloodlitDome = Pick<DrawnTones, 'gold' | 'rim' | 'shade' | 'refl'>
+
+export function floodlitDome(world: WorldState, km: number): FloodlitDome | undefined {
+  if (world.night.dark !== 1 || world.air.mist?.fog) return
+  const { gold, rim, shade, refl } = drawnTonesAt({ ...world, light: drawnLightOf(world.light) }, km)
+  return { gold, rim, shade, refl }
+}
+
 export function domeSectors(world: WorldState, km: number): RGB[][] {
   const gold = metalLight(world, km)
+  // Restore the floodlit gold palette through nightfall. It is a light on the
+  // dome, so it reaches the eye through the same path as reflected daylight.
+  const flood = smoothstep(.5, 1, world.night.dark)
+  const lamp = flood && aerialFor(world)(drawnGold(rgbOf(drawnLightOf(world.light).palette.ridgeNear), world.night.dark), km)
   return DOME_UP.map(up => DOME_X.map(x => {
     const radius = Math.sqrt(1 - up * up)
-    return gold([radius * x, -radius * Math.sqrt(1 - x * x), up])
+    const reflected = gold([radius * x, -radius * Math.sqrt(1 - x * x), up])
+    return lamp ? mixLight(reflected, lamp, flood) : reflected
   }))
 }
 

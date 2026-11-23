@@ -1,6 +1,6 @@
-import type { RGB } from '../../../world/types'
+import type { GlyphDesc } from '../../model/types'
 import { mix } from '../hand'
-import { paintGilding } from '../glyphs/gilding'
+import { paintFloodlitDome, paintGilding } from '../glyphs/gilding'
 import { arch, Kit, rect, type Tracer } from '../glyphs/kit'
 
 /**
@@ -8,7 +8,7 @@ import { arch, Kit, rect, type Tracer } from '../glyphs/kit'
  * dome with its lantern, and below it the garden terraces stepping down the Carmel (references: Wikipedia, Bahá'í World
  * News Service photographs; the SVG icon `curated/haifa.tsx`). The arcade is floodlit by night. The arcade and dome keep their orientation as the light moves.
  */
-export function babShrine(k: Kit, h: number, gold: RGB[][]) {
+export function babShrine(k: Kit, h: number, { gilding: gold, floodlitDome }: GlyphDesc) {
   const { t } = k
   const flood = k.nightFade(0.3, 0.5)
   // The terraces: a stair of gardens down the face, a pale stair line down the middle.
@@ -38,7 +38,10 @@ export function babShrine(k: Kit, h: number, gold: RGB[][]) {
     c.bezierCurveTo(1.43, dome, 2.7, dome + 1.05, 2.8, -9.5)
     c.closePath()
   }
-  paintGilding(k, canopy, dome, -9.5, gold)
-  k.fill(rect(-.5, -h, 1, 1.8), gold[1][3])
+  if (floodlitDome) paintFloodlitDome(k, h, floodlitDome)
+  else if (gold) {
+    paintGilding(k, canopy, dome, -9.5, gold)
+    k.fill(rect(-.5, -h, 1, 1.8), gold[1][3])
+  }
   k.lamp(0, -5, 6, t.win, 0.25 * k.night, flood)
 }
