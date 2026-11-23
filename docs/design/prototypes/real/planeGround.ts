@@ -15,11 +15,15 @@ const PATCH = [150, 46] as const, FLAT = 3.1
 const PATCHES = 0.3, SCRUB = 0.5
 /** The share of the noise above which scrub stands. */
 const BUSH = 0.66
-const RELIEF = 0.7
+/** How hard the light rakes the ground's swells, at a high sun and at a low one, and its scrub; the sun it leaves. */
+const RELIEF = [1.1, 1.9] as const, BUSHES = 0.9, RAKED = [0.35, 1.45] as const
 
 interface GroundPoint { rho: [number, number, number]; relief: number }
 
-export function planeGround(t: PlaneTexelCtx, sunSide: number) {
+/** `lamp`: the sun's (else the moon's) place in sky px and its altitude, deg. */
+export function planeGround(t: PlaneTexelCtx, lamp: { x: number; altitude: number }) {
+  const side = Math.max(-1, Math.min(1, (lamp.x - t.bounds.x - t.bounds.w / 2) / 110))
+  const raked = RELIEF[1] + (RELIEF[0] - RELIEF[1]) * Math.min(1, Math.max(0, lamp.altitude) / 50)
   // Grain off: the shared mottle and its dark flecks are what the surface here replaces.
   const plain: PlaneTexelCtx = { ...t, grainAmount: 0 }
   const from = placeOf(t.seed % 9973), wisp = wispTile(), puff = puffTile()
@@ -38,14 +42,16 @@ export function planeGround(t: PlaneTexelCtx, sunSide: number) {
     const read = (tile: Float32Array, rate: number, a = 0, b = 0) =>
       mix((size) => noiseAt(tile, ox * rate / size + 0.25 * bend + a, oy * rate / size + 0.25 * bend + b))
     const patch = read(wisp, 1) - 0.5, fine = read(wisp, 2.6) - 0.5
-    const scrub = Math.max(0, read(puff, 1.7) - BUSH + 0.3 * patch) / (1 - BUSH) * rough
+    const bushes = (a: number, b: number) => Math.max(0, read(puff, 1.7, a, b) - BUSH + 0.3 * patch) / (1 - BUSH) * rough
+    const scrub = bushes(0, 0)
     const f = 1 + rough * (PATCHES * patch + 0.2 * fine)
     const dark = 1 - SCRUB * Math.min(1, scrub * 1.6)
     out.rho[0] = clamp(out.rho[0] * f * dark * (1 - 0.1 * scrub))
     out.rho[1] = clamp(out.rho[1] * f * (dark + 0.06 * scrub))
     out.rho[2] = clamp(out.rho[2] * f * dark)
-    const swell = (a: number, b: number) => read(puff, 0.6, a, b) + 0.5 * read(wisp, 1.4, 1.6 * a, 1.6 * b)
-    out.relief = Math.max(0.6, Math.min(1.25, 1 + RELIEF * rough * (swell(0, 0) - swell(0.03 * sunSide, -0.05))))
+    const swell = (a: number, b: number) => 0.8 * read(puff, 0.34, a, b) + 0.7 * read(puff, 0.6, 1.3 * a, 1.3 * b) + 0.4 * read(wisp, 1.4, 1.8 * a, 1.8 * b)
+    const slope = raked * (swell(0, 0) - swell(0.04 * side, -0.05)) + BUSHES * (scrub - bushes(0.03 * side, -0.04))
+    out.relief = Math.max(RAKED[0], Math.min(RAKED[1], 1 + rough * slope))
     return out
   }
 }

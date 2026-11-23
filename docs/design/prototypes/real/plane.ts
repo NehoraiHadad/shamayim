@@ -1,8 +1,9 @@
 import { encodedByte } from '../../../../src/scene/model/displayByte'
 import { shadeLinearRgb } from '../../../../src/scene/model/landRadiance'
+import { toLinear, toSrgb } from '../../../../src/scene/model/tone'
 import { shadowBeam } from '../../../../src/scene/model/planeField'
 import { TEXEL } from '../../../../src/scene/model/planeBands'
-import type { LayerOf } from '../../../../src/scene/model/types'
+import type { LayerOf, RGB } from '../../../../src/scene/model/types'
 import { outline, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
 import { paintPlaneLight } from '../../../../src/scene/paint/shared/land/planeLight'
 import { paintVegFields, paintVegRows, paintVegStrata } from '../../../../src/scene/paint/shared/land/landVegetation'
@@ -10,6 +11,7 @@ import { preparePlaneTexels, samplePlaneTexel } from '../../../../src/scene/pain
 import { receiverBrush } from '../../../../src/scene/paint/shared/land/receiverBrush'
 import { vegetationLight } from '../../../../src/scene/paint/shared/land/vegetationLight'
 import { FACTS } from './facts'
+import { gradeRgb } from './skyGrade'
 import { planeGround } from './planeGround'
 import { paintGullies } from './planeGullies'
 
@@ -22,7 +24,9 @@ import { paintGullies } from './planeGullies'
 const FINE = 1.1
 
 /** How far daylight opens the land's mid tones and its colour (linear light): the eye's own adaptation, none by night. */
-const OPEN = 0.2, CHROMA = 0.12
+const OPEN = 0.3, CHROMA = 0.2
+/** A small slope's open sky against its sun: the sky's light is all round, so a shaded slope turns cool, not black. */
+const SKY_RELIEF = 0.25
 
 function lift(rgb: [number, number, number], day: number) {
   const y = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2], k = 1 + OPEN * day * Math.max(0, 1 - y)
@@ -36,8 +40,10 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
   for (const target of targets) target.save()
   const { sun, moon } = FACTS.light
   const lamp = sun.altitude > -4 ? sun : moon
+  // The air is the sky's: graded as it is.
+  const hazeLin = gradeRgb(litField.hazeLin.map(toSrgb)).map(toLinear) as unknown as RGB
   const t = preparePlaneTexels(desc.outline, bounds, desc.surfaceTone, litField, desc.grain.seed, desc.grain.amount * env.hand.grain)
-  const ground = planeGround(t, lamp.x < bounds.x + bounds.w / 2 ? -1 : 1)
+  const ground = planeGround(t, lamp)
   const w = Math.max(1, Math.ceil(bounds.w * FINE)), h = Math.max(1, Math.ceil(bounds.h * FINE))
   const scratch = env.canvas(w, h), shadows = shadowBeam(litField)
   const images = targets.map(() => scratch.ctx.createImageData(w, h))
@@ -51,7 +57,7 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
       const s = samplePlaneTexel(t, col, x, y, rho)
       for (let n = 0; n < images.length; n++) {
         shadeLinearRgb(s.rho, n ? shadows : litField.eSun, litField.eMoon, litField.eSky, Math.min(1, s.sVis * relief), s.mVis * relief,
-          Math.min(1, s.vSky * (0.5 + 0.5 * relief)), litField.yHorizon, s.haze, litField.hazeLin, rgb)
+          Math.min(1, s.vSky * (1 - SKY_RELIEF + SKY_RELIEF * relief)), litField.yHorizon, s.haze, hazeLin, rgb)
         const data = images[n].data
         lift(rgb, day)
         data[o] = encodedByte(rgb[0]); data[o + 1] = encodedByte(rgb[1]); data[o + 2] = encodedByte(rgb[2]); data[o + 3] = 255
@@ -68,7 +74,7 @@ export function paintPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): v
   const brush = receiverBrush(ctx, env.shade)
   paintVegStrata(brush, veg, toneAt)
   paintVegFields(brush, veg, toneAt)
-  paintGullies(brush, desc)
+  paintGullies(brush, desc, lamp.x, Math.max(0, Math.min(1, litField.eSun[1])))
   paintVegRows(brush, veg, toneAt)
   for (const target of targets) {
     target.globalCompositeOperation = 'destination-in'
