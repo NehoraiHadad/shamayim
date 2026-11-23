@@ -1,0 +1,572 @@
+[
+{
+"id": 2,
+"name": "AVNE ETAN",
+"lat": 32.8174,
+"lon": 35.7622
+},
+{
+"id": 6,
+"name": "BET ZAYDA",
+"lat": 32.88,
+"lon": 35.6504
+},
+{
+"id": 8,
+"name": "ZEMAH",
+"lat": 32.7024,
+"lon": 35.5839
+},
+{
+"id": 10,
+"name": "MEROM GOLAN PICMAN",
+"lat": 33.1288,
+"lon": 35.8045
+},
+{
+"id": 11,
+"name": "YAVNEEL",
+"lat": 32.6978,
+"lon": 35.5101
+},
+{
+"id": 13,
+"name": "TAVOR KADOORIE",
+"lat": 32.7053,
+"lon": 35.4069
+},
+{
+"id": 16,
+"name": "AFULA NIR HAEMEQ",
+"lat": 32.596,
+"lon": 35.2769
+},
+{
+"id": 20,
+"name": "QARNE SHOMERON",
+"lat": 32.1752,
+"lon": 35.0959
+},
+{
+"id": 21,
+"name": "ARIEL",
+"lat": 32.1056,
+"lon": 35.2114
+},
+{
+"id": 22,
+"name": "JERUSALEM GIVAT RAM",
+"lat": 31.7704,
+"lon": 35.1973
+},
+{
+"id": 23,
+"name": "JERUSALEM CENTRE",
+"lat": 31.7806,
+"lon": 35.2217
+},
+{
+"id": 24,
+"name": "HAR HARASHA",
+"lat": 31.9449,
+"lon": 35.1499
+},
+{
+"id": 25,
+"name": "NETIV HALAMED HE",
+"lat": 31.6898,
+"lon": 34.9744
+},
+{
+"id": 28,
+"name": "SHANI",
+"lat": 31.3568,
+"lon": 35.0662
+},
+{
+"id": 29,
+"name": "ARAD",
+"lat": 31.25,
+"lon": 35.1855
+},
+{
+"id": 30,
+"name": "GILGAL",
+"lat": 31.9973,
+"lon": 35.4509
+},
+{
+"id": 33,
+"name": "HAZEVA",
+"lat": 30.7787,
+"lon": 35.2389
+},
+{
+"id": 35,
+"name": "PARAN 20060124",
+"lat": 30.3696,
+"lon": 35.15
+},
+{
+"id": 36,
+"name": "YOTVATA",
+"lat": 29.8851,
+"lon": 35.0771
+},
+{
+"id": 41,
+"name": "HAIFA REFINERIES",
+"lat": 32.8034,
+"lon": 35.0548
+},
+{
+"id": 42,
+"name": "HAIFA UNIVERSITY",
+"lat": 32.7611,
+"lon": 35.0208
+},
+{
+"id": 43,
+"name": "HAIFA TECHNION",
+"lat": 32.774,
+"lon": 35.0225
+},
+{
+"id": 44,
+"name": "EN KARMEL",
+"lat": 32.6808,
+"lon": 34.9594
+},
+{
+"id": 45,
+"name": "ZIKHRON YAAQOV",
+"lat": 32.5724,
+"lon": 34.9546
+},
+{
+"id": 46,
+"name": "HADERA PORT",
+"lat": 32.4732,
+"lon": 34.8815
+},
+{
+"id": 54,
+"name": "BET DAGAN",
+"lat": 32.0073,
+"lon": 34.8138
+},
+{
+"id": 58,
+"name": "BESOR FARM",
+"lat": 31.2716,
+"lon": 34.3894
+},
+{
+"id": 59,
+"name": "BEER SHEVA_20250506",
+"lat": 31.2515,
+"lon": 34.7995
+},
+{
+"id": 60,
+"name": "BEER SHEVA UNI",
+"lat": 31.2612,
+"lon": 34.8047
+},
+{
+"id": 62,
+"name": "ZEFAT HAR KENAAN",
+"lat": 32.98,
+"lon": 35.507
+},
+{
+"id": 64,
+"name": "ELAT",
+"lat": 29.5526,
+"lon": 34.952
+},
+{
+"id": 65,
+"name": "SEDOM",
+"lat": 31.0306,
+"lon": 35.3919
+},
+{
+"id": 67,
+"name": "EN HASHOFET",
+"lat": 32.6028,
+"lon": 35.0964
+},
+{
+"id": 73,
+"name": "ELON",
+"lat": 33.0653,
+"lon": 35.2173
+},
+{
+"id": 74,
+"name": "QEVUZAT YAVNE",
+"lat": 31.8166,
+"lon": 34.7244
+},
+{
+"id": 75,
+"name": "BEIT JIMAL",
+"lat": 31.7248,
+"lon": 34.9762
+},
+{
+"id": 77,
+"name": "ROSH ZURIM",
+"lat": 31.6644,
+"lon": 35.1233
+},
+{
+"id": 78,
+"name": "AFEQ",
+"lat": 32.8466,
+"lon": 35.1123
+},
+{
+"id": 79,
+"name": "DOROT",
+"lat": 31.5036,
+"lon": 34.648
+},
+{
+"id": 82,
+"name": "NEGBA",
+"lat": 31.6585,
+"lon": 34.6798
+},
+{
+"id": 85,
+"name": "BET DAGAN RAD",
+"lat": 32.0079,
+"lon": 34.8147
+},
+{
+"id": 90,
+"name": "ITAMAR",
+"lat": 32.1598,
+"lon": 35.3513
+},
+{
+"id": 98,
+"name": "SEDE BOQER",
+"lat": 30.8702,
+"lon": 34.795
+},
+{
+"id": 99,
+"name": "DEIR HANNA",
+"lat": 32.8627,
+"lon": 35.3739
+},
+{
+"id": 106,
+"name": "ROSH HANIQRA",
+"lat": 33.0806,
+"lon": 35.1079
+},
+{
+"id": 107,
+"name": "EN HAHORESH",
+"lat": 32.3877,
+"lon": 34.9376
+},
+{
+"id": 112,
+"name": "ZOMET HANEGEV",
+"lat": 31.0708,
+"lon": 34.8513
+},
+{
+"id": 115,
+"name": "LEV KINERET",
+"lat": 32.8214,
+"lon": 35.6053
+},
+{
+"id": 121,
+"name": "HAFEZ HAYYIM",
+"lat": 31.791,
+"lon": 34.805
+},
+{
+"id": 123,
+"name": "AMMIAD",
+"lat": 32.915,
+"lon": 35.5135
+},
+{
+"id": 124,
+"name": "ASHDOD PORT",
+"lat": 31.8342,
+"lon": 34.6377
+},
+{
+"id": 178,
+"name": "TEL AVIV COAST",
+"lat": 32.058,
+"lon": 34.7588
+},
+{
+"id": 186,
+"name": "NEWE YAAR",
+"lat": 32.7078,
+"lon": 35.1784
+},
+{
+"id": 188,
+"name": "ZOVA",
+"lat": 31.7878,
+"lon": 35.1258
+},
+{
+"id": 202,
+"name": "KEFAR BLUM",
+"lat": 33.1716,
+"lon": 35.6133
+},
+{
+"id": 205,
+"name": "ESHHAR",
+"lat": 32.8847,
+"lon": 35.3012
+},
+{
+"id": 206,
+"name": "EDEN FARM",
+"lat": 32.4679,
+"lon": 35.4888
+},
+{
+"id": 207,
+"name": "PARAN",
+"lat": 30.3655,
+"lon": 35.1479
+},
+{
+"id": 208,
+"name": "ASHQELON PORT",
+"lat": 31.6394,
+"lon": 34.5215
+},
+{
+"id": 210,
+"name": "METZOKE DRAGOT",
+"lat": 31.5881,
+"lon": 35.3916
+},
+{
+"id": 218,
+"name": "MAALE ADUMMIM",
+"lat": 31.774,
+"lon": 35.2961
+},
+{
+"id": 224,
+"name": "MAALE GILBOA",
+"lat": 32.481,
+"lon": 35.415
+},
+{
+"id": 227,
+"name": "GAMLA",
+"lat": 32.9052,
+"lon": 35.7487
+},
+{
+"id": 228,
+"name": "BET HAARAVA",
+"lat": 31.8052,
+"lon": 35.501
+},
+{
+"id": 232,
+"name": "NEOT SMADAR",
+"lat": 30.048,
+"lon": 35.0233
+},
+{
+"id": 233,
+"name": "KEFAR NAHUM",
+"lat": 32.8835,
+"lon": 35.5792
+},
+{
+"id": 236,
+"name": "GAT",
+"lat": 31.6303,
+"lon": 34.7913
+},
+{
+"id": 241,
+"name": "KEFAR GILADI",
+"lat": 33.2404,
+"lon": 35.5696
+},
+{
+"id": 257,
+"name": "TEL YOSEF 20141223",
+"lat": 32.545,
+"lon": 35.394
+},
+{
+"id": 259,
+"name": "NAHSHON",
+"lat": 31.8341,
+"lon": 34.9616
+},
+{
+"id": 263,
+"name": "GALED",
+"lat": 32.5564,
+"lon": 35.0725
+},
+{
+"id": 265,
+"name": "MIZPE RAMON 20120927",
+"lat": 30.614,
+"lon": 34.797
+},
+{
+"id": 269,
+"name": "HARASHIM",
+"lat": 32.956,
+"lon": 35.3287
+},
+{
+"id": 271,
+"name": "AVDAT",
+"lat": 30.7877,
+"lon": 34.7712
+},
+{
+"id": 274,
+"name": "NIZZAN",
+"lat": 31.7319,
+"lon": 34.6348
+},
+{
+"id": 275,
+"name": "HAKFAR HAYAROK",
+"lat": 32.13,
+"lon": 34.8324
+},
+{
+"id": 293,
+"name": "BEER SHEVA_1m_20250506",
+"lat": 31.2515,
+"lon": 34.7995
+},
+{
+"id": 338,
+"name": "EZUZ",
+"lat": 30.7911,
+"lon": 34.4715
+},
+{
+"id": 343,
+"name": "SHAVE ZIYYON",
+"lat": 32.9836,
+"lon": 35.0923
+},
+{
+"id": 348,
+"name": "DAFNA 20191106",
+"lat": 33.23,
+"lon": 35.6
+},
+{
+"id": 349,
+"name": "NEVATIM",
+"lat": 31.205,
+"lon": 34.9227
+},
+{
+"id": 350,
+"name": "LAHAV",
+"lat": 31.3812,
+"lon": 34.8729
+},
+{
+"id": 352,
+"name": "DAFNA_1m 20191106",
+"lat": 33.23,
+"lon": 35.6
+},
+{
+"id": 353,
+"name": "AYYELET HASHAHAR",
+"lat": 33.0255,
+"lon": 35.577
+},
+{
+"id": 355,
+"name": "MASSADA",
+"lat": 32.6833,
+"lon": 35.6008
+},
+{
+"id": 366,
+"name": "SEDE ELIYYAHU",
+"lat": 32.439,
+"lon": 35.5106
+},
+{
+"id": 379,
+"name": "MIZPE RAMON",
+"lat": 30.6125,
+"lon": 34.7967
+},
+{
+"id": 380,
+"name": "TEL YOSEF",
+"lat": 32.5462,
+"lon": 35.3945
+},
+{
+"id": 381,
+"name": "ASHALIM",
+"lat": 30.983,
+"lon": 34.708
+},
+{
+"id": 411,
+"name": "BEER SHEVA BGU",
+"lat": 31.2642,
+"lon": 34.8045
+},
+{
+"id": 499,
+"name": "DAFNA",
+"lat": 33.2254,
+"lon": 35.6337
+},
+{
+"id": 500,
+"name": "NAZARETH",
+"lat": 32.7104,
+"lon": 35.3034
+},
+{
+"id": 502,
+"name": "TIBERIAS",
+"lat": 32.7724,
+"lon": 35.5458
+},
+{
+"id": 504,
+"name": "MIZPE MIDRAG",
+"lat": 31.4429,
+"lon": 35.2481
+},
+{
+"id": 506,
+"name": "NABI MUSA",
+"lat": 31.7621,
+"lon": 35.4109
+}
+]

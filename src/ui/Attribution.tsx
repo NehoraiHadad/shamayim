@@ -12,6 +12,7 @@ export function Attribution({ withAir, withOsm = false, withLandmarks = false, l
           נתונים: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
           {', '}DWD ICON, ECMWF{withAir ? ', CAMS' : ''}
         </li>
+        <li>תצפיות לכיול: <a href="https://ims.gov.il/" target="_blank" rel="noreferrer">השירות המטאורולוגי</a></li>
         <li>גבהי השטח: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Terrain Tiles</a> (SRTM ועוד)</li>
         {landDate && (
           <li>

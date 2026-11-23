@@ -1,0 +1,110 @@
+{
+ "conditioning": {
+  "obs<=5": {
+   "n": 10374,
+   "bias": 1.8,
+   "mae": 2.17
+  },
+  "fcst<=5": {
+   "n": 7296,
+   "bias": -0.44,
+   "mae": 1.25
+  },
+  "obs>=35": {
+   "n": 60187,
+   "bias": -0.82,
+   "mae": 1.26
+  },
+  "fcst>=35": {
+   "n": 51395,
+   "bias": -0.06,
+   "mae": 1.2
+  }
+ },
+ "other_vars": [
+  {
+   "station": 22,
+   "name": "JERUSALEM GIVAT RAM",
+   "gust_kmh_n": 25304,
+   "gust_kmh_obs_mean": 22.7,
+   "gust_kmh_icon_d0_bias": 7.17,
+   "gust_kmh_icon_d0_mae": 8.22,
+   "gust_kmh_icon_d1_bias": 7.02,
+   "gust_kmh_icon_d1_mae": 8.47,
+   "gust_kmh_ec_d0_bias": 1.88,
+   "gust_kmh_ec_d0_mae": 5.08,
+   "gust_obs>=50_n": 301,
+   "gust_obs>=50_icon_d1_bias": 13.3,
+   "gust_fc>=50_n": 2060,
+   "gust_fc>=50_icon_d1_bias": 19.0,
+   "rh_pct_n": 25303,
+   "rh_pct_obs_mean": 59.9,
+   "rh_pct_icon_d0_bias": 0.6,
+   "rh_pct_icon_d0_mae": 5.58,
+   "rh_pct_icon_d1_bias": 2.33,
+   "rh_pct_icon_d1_mae": 7.23,
+   "rh_pct_ec_d0_bias": -2.07,
+   "rh_pct_ec_d0_mae": 7.25,
+   "rh_pct_ec_d1_bias": -2.47,
+   "rh_pct_ec_d1_mae": 8.27,
+   "rain_days": 1055,
+   "rain_obs_wet_days(>=1mm)": 108,
+   "rain_icon_hit/false/miss": "50/9/58",
+   "rain_icon_total_ratio": 0.23,
+   "rain_ec_hit/false/miss": "78/45/30",
+   "rain_ec_total_ratio": 0.45
+  },
+  {
+   "station": 64,
+   "name": "ELAT",
+   "rh_pct_n": 21571,
+   "rh_pct_obs_mean": 37.3,
+   "rh_pct_icon_d0_bias": 3.66,
+   "rh_pct_icon_d0_mae": 5.68,
+   "rh_pct_icon_d1_bias": 4.07,
+   "rh_pct_icon_d1_mae": 6.45,
+   "rh_pct_ec_d0_bias": 7.09,
+   "rh_pct_ec_d0_mae": 8.6,
+   "rh_pct_ec_d1_bias": 7.14,
+   "rh_pct_ec_d1_mae": 8.96,
+   "rain_days": 898,
+   "rain_obs_wet_days(>=1mm)": 6,
+   "rain_icon_hit/false/miss": "2/8/4",
+   "rain_icon_total_ratio": 1.13,
+   "rain_ec_hit/false/miss": "3/11/3",
+   "rain_ec_total_ratio": 4.41
+  },
+  {
+   "station": 178,
+   "name": "TEL AVIV COAST",
+   "gust_kmh_n": 25311,
+   "gust_kmh_obs_mean": 19.4,
+   "gust_kmh_icon_d0_bias": 0.15,
+   "gust_kmh_icon_d0_mae": 5.47,
+   "gust_kmh_icon_d1_bias": 0.29,
+   "gust_kmh_icon_d1_mae": 5.74,
+   "gust_kmh_ec_d0_bias": -0.39,
+   "gust_kmh_ec_d0_mae": 3.91,
+   "gust_obs>=50_n": 302,
+   "gust_obs>=50_icon_d1_bias": -10.8,
+   "gust_fc>=50_n": 244,
+   "gust_fc>=50_icon_d1_bias": 3.7,
+   "rh_pct_n": 25301,
+   "rh_pct_obs_mean": 67.1,
+   "rh_pct_icon_d0_bias": 1.44,
+   "rh_pct_icon_d0_mae": 6.81,
+   "rh_pct_icon_d1_bias": 2.67,
+   "rh_pct_icon_d1_mae": 8.23,
+   "rh_pct_ec_d0_bias": 6.59,
+   "rh_pct_ec_d0_mae": 8.34,
+   "rh_pct_ec_d1_bias": 7.61,
+   "rh_pct_ec_d1_mae": 9.42,
+   "rain_days": 1055,
+   "rain_obs_wet_days(>=1mm)": 109,
+   "rain_icon_hit/false/miss": "72/36/37",
+   "rain_icon_total_ratio": 0.79,
+   "rain_ec_hit/false/miss": "79/61/30",
+   "rain_ec_total_ratio": 1.1
+  }
+ ]
+}

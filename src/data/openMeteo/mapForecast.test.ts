@@ -10,7 +10,9 @@ describe('mapForecast', () => {
     expect(f.days).toHaveLength(8)
     expect(f.days[0]).toMatchObject({ date: '2026-11-16', confidence: 'medium',
       spread: { tempMax: 1.1, tempMin: 1.8, precipProb: 25 } })
-    expect(f.days[1].tempMax).toBe(25.8)
+    // Today: ICON 25.5, ECMWF 26.3 blended 0.8/0.2 (temperature weights) = 25.66, plus the national daily-max
+    // correction for today (+0.65) = 26.3 (domain/correction/temperature).
+    expect(f.days[1].tempMax).toBe(26.3)
     expect(f.days[1].sunrise).toBe('2026-11-17T06:08')
     expect(f.hours).toHaveLength(192)
   })
