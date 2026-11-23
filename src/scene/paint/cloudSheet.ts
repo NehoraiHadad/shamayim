@@ -14,7 +14,7 @@ import { soften } from './soften'
  * How the sheet looks (its colour, translucency and softness) is `cloudLook`'s; its fine detail `cloudRaster`'s.
  * Pure: every number is the model's; the grid's extent is the sheet's (the model spans the sky edge to edge).
  */
-const ROW = 2
+export const ROW = 2
 
 export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const { xs, ys } = desc
@@ -39,7 +39,7 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
 }
 
 /** The texel grid on `out` even rows from `ys[0]` to its last row, and each output row's source row spacing (px). */
-function resampleRows(texels: number[][], cols: number, ys: readonly number[], out: number) {
+export function resampleRows(texels: number[][], cols: number, ys: readonly number[], out: number) {
   const y0 = ys[0], span = ys[ys.length - 1] - y0
   const buf = new Float32Array(cols * out * 4)
   const spacing: number[] = []
