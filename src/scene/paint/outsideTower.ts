@@ -3,6 +3,11 @@ import { rng } from './core'
 import { aviationLamp, type Lamp } from './glyphs/kit'
 import { css, mix, type Ctx2D } from './hand'
 import { edgeStrips, facesOf, MIN_STOREY_PX, sideFace } from './outsideLight'
+import { paintBody, sideTone } from './townBody'
+import { detailOf, melted, neighbourhood, sidesOf, softEdge } from './townDetail'
+
+/** How much of its floors a named tower shows however small its storeys are. */
+const NAMED_DETAIL = .4
 
 /**
  * A tower: a spire's silhouette (a shaft with its lit edge and shade, a crown) or, `full`, a whole tower (a podium, a
@@ -15,13 +20,18 @@ export function paintTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' 
   const x0 = tw.x - tw.w / 2, top = tw.base - tw.h
   const lit = Math.max(.5, Math.min(1.6, tw.w * (tw.full ? .3 : .24))), shadeW = Math.max(.4, Math.min(1, tw.w * .2))
   const setback = tw.crown === 1 ? Math.min(tw.h * .14, 3.5) : 0
-  const shaftTop = top + setback
+  const shaftTop = top + setback, shaftH = tw.base - shaftTop
+  // A named tower's glass keeps some of its floors at any size: it is drawn as itself, not as one of the mass.
+  const detail = Math.max(detailOf(shaftH / tw.storeys), tw.full ? NAMED_DETAIL : 0), sides = sidesOf(tw.w)
+  const fl = facesOf(s)
+  const faceW = Math.max(lit, shadeW) * .85
+  const litTone = mix(t.lit, t.glassLit, tw.full ? .35 : .1)
   if (tw.full) {
     // Podium: a wider low block at the foot.
     const pw = tw.w + 2.2, ph = Math.min(2.6, tw.h * .12)
     ctx.fillStyle = css(mix(t.wall, t.stone, .2))
     ctx.fillRect(tw.x - pw / 2, tw.base - ph, pw, ph)
-    ctx.fillStyle = css(t.rim, .55 * (1 - .5 * s.night))
+    ctx.fillStyle = css(t.rim, .55 * (1 - .5 * s.night) * detail)
     ctx.fillRect(tw.x - pw / 2, tw.base - ph, pw, .4)
     // The glass shaft: brighter toward the sky it mirrors, the floor bands across it.
     const g = ctx.createLinearGradient(0, shaftTop, 0, tw.base)
@@ -31,12 +41,14 @@ export function paintTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' 
     ctx.fillRect(x0, shaftTop, tw.w, tw.base - ph - shaftTop)
     const band = Math.max(1.1, tw.h / tw.storeys * 2)
     for (let y = shaftTop + 1.2; y < tw.base - ph - .6; y += band) {
-      ctx.fillStyle = css(mix(t.lit, t.wall, .6), (.32 - .16 * s.night) * day + .05)
+      ctx.fillStyle = css(mix(t.lit, t.wall, .6), ((.32 - .16 * s.night) * day + .05) * detail)
       ctx.fillRect(x0, y, tw.w, .35)
     }
   } else {
-    ctx.fillStyle = css(mix(t.wall, mix(t.glass, t.stone, .5), .35 * day))
-    ctx.fillRect(x0, shaftTop, tw.w, tw.h - setback)
+    const front = mix(t.wall, mix(t.glass, t.stone, .5), .35 * day)
+    const faces = { left: sideTone(front, t, litTone, fl.left, fl.on), front, right: sideTone(front, t, litTone, fl.right, fl.on) }
+    paintBody(ctx, x0, shaftTop, tw.w, shaftH, faceW, softEdge(detail, tw.w),
+      melted(faces, faceW / tw.w, sides, neighbourhood(tw.x, tw.base).flank))
   }
   // The sky's light down the shaft: brighter toward the top, which sees the most of it; the foot shaded by the mass.
   const c = f.tiers[tw.tier]
@@ -52,14 +64,13 @@ export function paintTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' 
     .75 * f.strength * Math.max(0, f.side), .75 * f.strength * Math.max(0, -f.side))
   // Each side face by its own share of the light, its outer edge catching it (a fine bright line, as glass and stone
   // corners do); a back-lit tower's edges both catch the light beyond it.
-  const fl = facesOf(s)
-  const faceW = Math.max(lit, shadeW) * .85
-  const litTone = mix(t.lit, t.glassLit, tw.full ? .35 : .1)
-  sideFace(ctx, x0, shaftTop, faceW, tw.base - shaftTop, fl.left, fl.on, t, litTone)
-  sideFace(ctx, x0 + tw.w - faceW, shaftTop, faceW, tw.base - shaftTop, fl.right, fl.on, t, litTone)
+  if (tw.full) {
+    sideFace(ctx, x0, shaftTop, faceW, shaftH, fl.left, fl.on, t, litTone)
+    sideFace(ctx, x0 + tw.w - faceW, shaftTop, faceW, shaftH, fl.right, fl.on, t, litTone)
+  }
   for (const [x, k] of [[x0, fl.left], [x0 + tw.w - .4, fl.right]] as const) {
     const a = k * (.55 * s.direct + .1) + .45 * fl.rim
-    ctx.fillStyle = css(mix(t.lit, t.rim, .6), Math.min(1, a))
+    ctx.fillStyle = css(mix(t.lit, t.rim, .6), Math.min(1, a) * sides * detail)
     ctx.fillRect(x, shaftTop, .4, tw.base - shaftTop)
   }
   // Crown.
@@ -71,11 +82,11 @@ export function paintTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' 
       ctx.fillStyle = css(t.lit, k)
       ctx.fillRect(x, top, lit * .8, setback)
     }
-    ctx.fillStyle = css(t.rim, .7 * (1 - .4 * s.night))
+    ctx.fillStyle = css(t.rim, .7 * (1 - .4 * s.night) * detail)
     ctx.fillRect(tw.x - cw / 2, top, cw, .4)
   }
   ctx.fillStyle = css(mix(mix(t.rim, f.tiers[tw.tier].top, f.strength), mix(t.rim, t.lit, .4),
-    Math.min(1, fl.top + .3 * Math.max(fl.left, fl.right) + .5 * fl.rim)), .8 * (1 - .4 * s.night))
+    Math.min(1, fl.top + .3 * Math.max(fl.left, fl.right) + .5 * fl.rim)), .8 * (1 - .4 * s.night) * detail)
   ctx.fillRect(x0, shaftTop, tw.w, .45)
   let tipY = top
   if (tw.crown === 2) {
@@ -94,7 +105,7 @@ export function paintTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' 
       for (let x = inner0; x + .5 <= inner1; x += 1.1) {
         const threshold = r(), recess = r() < .55
         if (threshold < s.windows * .8) ctx.fillStyle = css(mix(t.wall, t.win, .85))
-        else ctx.fillStyle = css(t.deep, tw.full && recess ? .3 * day : 0)
+        else ctx.fillStyle = css(t.deep, tw.full && recess ? .3 * day * detail : 0)
         ctx.fillRect(x, y, .5, .55)
       }
     }

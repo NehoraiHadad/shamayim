@@ -25,6 +25,8 @@ import { paintTower } from './outsideTower'
  * Screen px. Pure: randomness only from the items' seeds.
  */
 
+/** The grain over the place: felt on a near wall, never as many bright and dark points as the houses themselves. */
+const GRAIN = .35
 const TOWER_CONTACT = { alpha: .5, height: .8 }
 const TOWER_CAST = { alpha: .8, inset: .5, edgeY: -.3, tipY: .5, bottomY: 1.2, tipInset: () => 1.2 }
 
@@ -49,6 +51,6 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
   }
-  grain(ctx, env, 13, 1 - .4 * s.night)
+  grain(ctx, env, 13, GRAIN * (1 - .4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)
 }
