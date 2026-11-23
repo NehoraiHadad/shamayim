@@ -23,7 +23,7 @@ import { contrailLayers, lowPlaneLayers, meteorLayers } from './life'
 import { LIFE_START } from './lifeTracks'
 import { milkyWayLayer, planetsLayer, twinkleOf } from './nightSky'
 import { haloLayer, rainbowLayer } from './optics'
-import type { LandClock, LayerDesc, LayerOf, LifeClock, SceneBox, SceneModel } from './types'
+import type { Box, LandClock, LayerDesc, LayerOf, LifeClock, SceneBox, SceneModel } from './types'
 import { waterLayers } from './water'
 import { weatherLayers } from './weather'
 
@@ -61,7 +61,7 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneModel {
   const layout = layoutOf(world, box)
   const towns = farCitiesLayer(world, box, layout.clear)
-  const outside = outsideLayer(world, box, layout.clear)
+  const outside = outsideOf(world, box, layout.clear)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
   const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)])
@@ -76,6 +76,21 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock): SceneMod
     ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
   return { layers, ...layout }
+}
+
+const outsideMemo = new WeakMap<WorldState, { box: string; layer: ReturnType<typeof outsideLayer> }>()
+
+/**
+ * The town in view (every building's tones by its distance): a minute's world is immutable and the clear zones follow
+ * from it and the box, so a redraw of the same minute at the same size reuses it rather than relighting every building.
+ */
+function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[]) {
+  const key = `${box.width},${box.skyHeight},${box.landTop},${box.landHeight},${box.dpr}`
+  const previous = outsideMemo.get(world)
+  if (previous?.box === key) return previous.layer
+  const layer = outsideLayer(world, box, clear)
+  outsideMemo.set(world, { box: key, layer })
+  return layer
 }
 
 const cloudMemo = new WeakMap<WorldState, { box: number[]; layers: ReturnType<typeof cloudLayersOf> }>()
