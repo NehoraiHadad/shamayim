@@ -36,13 +36,15 @@ export function corsHeaders(origin: string | null, check: OriginCheck): Record<s
   return headers
 }
 
-export function preflight(origin: string | null, check: OriginCheck): Response {
+/** The one POST route (the style vote) takes JSON, so its preflight also allows the Content-Type header. */
+export function preflight(origin: string | null, check: OriginCheck, method: 'GET' | 'POST' = 'GET'): Response {
   if (check !== 'allowed') return new Response(null, { status: 403, headers: { Vary: 'Origin' } })
   return new Response(null, {
     status: 204,
     headers: {
       ...corsHeaders(origin, check),
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Methods': `${method}, OPTIONS`,
+      ...(method === 'POST' ? { 'Access-Control-Allow-Headers': 'Content-Type' } : {}),
       'Access-Control-Max-Age': '86400',
     },
   })

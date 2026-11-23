@@ -5,8 +5,10 @@
 import { checkOrigin, corsHeaders, parseOrigins, preflight } from './cors'
 import { writeForecastLog } from './forecastLog'
 import { liveFor, refreshLive, type LiveRun } from './live'
+import { plain } from './plain'
 import { cacheKey, proxy } from './proxy'
 import { routeFor } from './routes'
+import { castVote, TOTALS_PATH, VOTE_PATH, voteTotals } from './styleVote'
 import { canonicalQuery } from './validate'
 
 export interface Env {
@@ -58,26 +60,26 @@ function withHeaders(res: Response, extra: Record<string, string>): Response {
   return out
 }
 
-function plain(status: number, reason: string): Response {
-  return new Response(JSON.stringify({ error: true, reason }), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  })
-}
-
 /** Must match the second cron in wrangler.toml. */
 export const FORECAST_LOG_CRON = '40 */6 * * *'
 
 export async function handle(request: Request, env: Env, ctx: ExecutionContext, cache: Cache): Promise<Response> {
   const origin = request.headers.get('Origin')
   const check = checkOrigin(origin, parseOrigins(env.ALLOWED_ORIGINS))
-  if (request.method === 'OPTIONS') return preflight(origin, check)
+  const url = new URL(request.url)
+  const method = url.pathname === VOTE_PATH ? 'POST' : 'GET'
+  if (request.method === 'OPTIONS') return preflight(origin, check, method)
   const cors = corsHeaders(origin, check)
   // A disallowed site's browser would still send a simple GET; refuse it before it spends upstream quota.
   if (check === 'denied') return withHeaders(plain(403, 'Origin not allowed'), cors)
-  if (request.method !== 'GET') return withHeaders(plain(405, 'Method not allowed'), { ...cors, Allow: 'GET, OPTIONS' })
+  if (request.method !== method) return withHeaders(plain(405, 'Method not allowed'), { ...cors, Allow: `${method}, OPTIONS` })
 
-  const url = new URL(request.url)
+  if (url.pathname === VOTE_PATH) {
+    // Only the app's own pages vote: unlike the reads, a request without an Origin is refused.
+    const answer = check === 'allowed' ? await castVote(request, env.LIVE, Date.now()) : plain(403, 'Origin not allowed')
+    return withHeaders(answer, cors)
+  }
+  if (url.pathname === TOTALS_PATH) return withHeaders(await voteTotals(env.LIVE, Date.now()), cors)
   if (url.pathname === '/v1/live') return withHeaders(await live(url, env), cors)
   const route = routeFor(url.pathname)
   if (!route) return withHeaders(plain(404, 'Not found'), cors)

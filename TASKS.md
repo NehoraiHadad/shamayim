@@ -3,6 +3,19 @@
 Status legend: [x] done · [~] in progress · [ ] todo. Keep this file current so a new chat can resume.
 Plan: `docs/PLAN.md`. Brief: `docs/PLANNING_BRIEF.md`. Codex briefs: `docs/briefs/`.
 
+## Style switch and vote (branch `claude/style-vote`, temporary)
+
+Owner, 23 Nov 2026: people try the two scene styles (`real`, `drawn`), say which they prefer and send the owner a
+WhatsApp. Deleted when the vote is decided, so everything is in `src/ui/styleVote/`, `src/data/styleVote*`,
+`worker/src/styleVote.ts` + `voteBody.ts` + `voteTally.ts`.
+
+- [x] Worker: `POST /v1/style-vote`, `GET /v1/style-votes` (KV `LIVE`, prefix `vote:`, style in metadata, a year);
+      caps 300 writes a day and 10 changes per voter a day, counted from the listing, no extra writes
+- [ ] Client store: style, styles seen, vote, retry at the next open
+- [ ] UI: toggle in the wear card's title row, docked panel that leaves the scene visible, wiring in App
+- [ ] Tests, stills at 375x812 (day, night, light paper; closed and open), CI green
+- [ ] Owner: deploy the worker (`cd worker && npx wrangler deploy`) before the app goes out
+
 ## Worship ownership (audit follow-up)
 
 Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"** (supersedes the earlier Decision B for famous
