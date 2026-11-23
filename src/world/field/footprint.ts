@@ -1,3 +1,4 @@
+import { isConvective } from './genus'
 import { cellularRasterRange, RANGES } from './cells'
 import { kernel } from './rasterNodes'
 import type { FieldCell, FieldLayer } from './types'
@@ -15,7 +16,7 @@ export function footprintDistance(cell: FieldCell, x: number, y: number): number
 /** Vertical optical depth at a world point from one cell. */
 export function cellTauAt(cell: FieldCell, x: number, y: number): number {
   const rr = footprintDistance(cell, x, y)
-  return kernel(cell.tau0, rr, cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb')
+  return kernel(cell.tau0, rr, isConvective(cell.genus))
 }
 
 /** Outer raster range in km, including its transition to expected density. */

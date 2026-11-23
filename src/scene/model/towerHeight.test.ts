@@ -4,7 +4,8 @@ import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../..
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { projectCell } from '../../world/field/project'
 import { buildWorld } from '../../world/world'
-import { raisedAspect, sceneStretch, shapeOf } from './towerAspect'
+import { MERGE_KM } from './cloudCells'
+import { towerAnvil } from './towerHeads'
 import { cloudLayersOf } from './cloudLayers'
 import { DOME_ALT, skyGeom } from './sky'
 import type { LayerOf, SceneBox } from './types'
@@ -24,25 +25,27 @@ it('stands a near storm cell of a real day up to its true top, and cuts a far on
   const towers = cloudLayersOf(world, BOX, geom).find((l): l is LayerOf<'cloudCells'> => l.kind === 'cloudCells')!
   const near = towers.cells.filter((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm < 40)
   expect(near.some((c) => projectCell(cells.get(c.sprite.seed)!).rangeKm < 5)).toBe(true)
-  const stretch = sceneStretch(geom, world.camera.pxPerDeg * geom.s)
-  const reliefStorms: { rangeKm: number; before: number; after: number; limit: number }[] = []
-  let exceededInOriginalProjection = false
+  let reliefColumns = 0
   for (const { sprite, y } of near) {
-    const cell = cells.get(sprite.seed)!, p = projectCell(cell), top = y - geom.dome(p.aTop)
-    const aspect = cell.vKm / (2 * cell.r)
-    const limit = cell.genus === 'cb' ? shapeOf(aspect, stretch, p.aTop) : raisedAspect(aspect, stretch)
-    const shape = p.rangeKm < 5 ? Infinity : sprite.w * limit
+    const cell = cells.get(sprite.seed)!, p = projectCell(cell), top = Math.max(0, y - geom.dome(p.aTop))
+    const diameter = 2 * cell.r / Math.sqrt(cell.share)
+    const aspect = cell.vKm / diameter
+    const seen = p.widthDeg * world.camera.pxPerDeg * geom.s
     expect(sprite.tall).toBeLessThanOrEqual(top + 1e-6)
-    expect(sprite.tall).toBeGreaterThanOrEqual(Math.min(top, shape) - 1e-6)
-    if (cell.genus === 'cb' && p.rangeKm > 5 && p.aTop < DOME_ALT) {
-      const before = Math.min(top / sprite.w, raisedAspect(aspect, stretch))
-      const after = sprite.tall / sprite.w, reliefLimit = Math.max(1, aspect)
-      reliefStorms.push({ rangeKm: p.rangeKm, before, after, limit: reliefLimit })
-      expect(after).toBeLessThanOrEqual(reliefLimit + 1e-6)
-      exceededInOriginalProjection ||= before > reliefLimit
+    if (p.rangeKm <= MERGE_KM - diameter) {
+      expect(sprite.tall).toBeGreaterThanOrEqual(Math.min(top, sprite.w * aspect) - 1e-6)
+    }
+    if (p.aTop <= DOME_ALT) {
+      expect(sprite.tall).toBeLessThanOrEqual(seen * aspect + 1e-6)
+      reliefColumns++
     }
   }
-  console.log(JSON.stringify({ reliefStorms }))
-  expect(reliefStorms.length).toBeGreaterThan(0)
-  expect(exceededInOriginalProjection).toBe(true)
+  expect(reliefColumns).toBeGreaterThan(0)
 }, 30_000)
+
+it('brings in the anvil continuously as a mature column becomes slender', () => {
+  expect(towerAnvil(true, 11, 1)).toBe(0)
+  expect(towerAnvil(true, 11, 1.25)).toBeCloseTo(0.5)
+  expect(towerAnvil(true, 11, 1.5)).toBe(1)
+  expect(towerAnvil(false, 11, 1.5)).toBe(0)
+})

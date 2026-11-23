@@ -1,14 +1,20 @@
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { addMinutes } from '../../domain/time'
-import { SCENE_PLACES } from '../../test/scenePlaces'
+import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { RANGES } from '../../world/field/cells'
 import { densityGrid } from '../../world/field/density'
 import type { CloudField } from '../../world/field/types'
 import { makeWorldBuilder } from '../../world/world'
+import { cloudSheetOf } from './cloudSheet'
+import { skyGeom } from './sky'
 import { sceneModel } from './index'
 import type { SceneBox } from './types'
 
+const sheetCases = [
+  ['neve-zohar', '2026-11-17T16:00'], ['haifa', '2026-11-17T15:30'],
+  ['tel-aviv', '2026-11-17T12:00'], ['haifa', '2026-03-15T14:00'],
+] as const
 const ids = ['jerusalem', 'haifa', 'tiberias']
 const at = '2026-11-17T13:00'
 const box: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
@@ -16,7 +22,7 @@ let places: Map<string, LoadedPlace>
 
 beforeAll(async () => {
   stubPublicFetch()
-  places = await loadPlaces(SCENE_PLACES.filter(place => ids.includes(place.id)))
+  places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(place => ids.includes(place.id) || sheetCases.some(([id]) => id === place.id)))
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
@@ -87,4 +93,41 @@ it.each(ids)('measures new-minute sheet overhead on the recorded %s panorama', i
   // CI p95 + 15 % (the warm-scrub rule): CI runners measured 1.76 and 3.02 ms on runs that passed on rerun.
   expect(incrementMs + Math.max(0, rasterDeltaMs)).toBeLessThanOrEqual(3.5)
   expect(incrementMs / baselineMs).toBeLessThanOrEqual(0.25)
+}, 120_000)
+
+it.each(sheetCases)('gates fresh sheet and minute-step overhead at %s %s', (id, time) => {
+  const input = worldInput(places.get(id)!, time, time)
+  const build = makeWorldBuilder()
+  const colours = { body: [0.6, 0.65, 0.7], shade: [0.6, 0.65, 0.7], lit: [0.6, 0.65, 0.7], light: 0.5 } as const
+  const samples = Array.from({ length: 24 }, (_, minute) => {
+    const world = build({ ...input, selected: addMinutes(time, minute) })
+    const field = world.cloudField!
+    const geom = skyGeom(world, box)
+    const variants = (shaped: boolean) => field.snapshot.map(snapshot => ({
+      ...snapshot,
+      cells: shaped || (snapshot.layer?.lattice !== 'low' && snapshot.layer?.lattice !== 'mid') ? snapshot.cells : [],
+    }))
+    const cold = (shaped: boolean) => {
+      const snapshots = variants(shaped)
+      const start = performance.now()
+      for (const snapshot of snapshots) cloudSheetOf(world, geom, snapshot, colours)
+      return performance.now() - start
+    }
+    const step = (shaped: boolean) => {
+      const variant = { ...world, cloudField: { ...field, snapshot: variants(shaped) } }
+      return elapsed(() => sceneModel(variant, box)).ms
+    }
+    const pair = (measure: (shaped: boolean) => number) => {
+      const shapedFirst = minute % 2 === 0
+      const first = measure(shapedFirst), second = measure(!shapedFirst)
+      return shapedFirst ? { base: second, shaped: first } : { base: first, shaped: second }
+    }
+    return { cold: pair(cold), step: pair(step) }
+  }).slice(8)
+  for (const key of ['cold', 'step'] as const) {
+    const base = median(samples.map(sample => sample[key].base))
+    const shaped = median(samples.map(sample => sample[key].shaped))
+    console.info({ id, time, mode: key, base, shaped })
+    expect(shaped / base, key).toBeLessThanOrEqual(1.10)
+  }
 }, 120_000)

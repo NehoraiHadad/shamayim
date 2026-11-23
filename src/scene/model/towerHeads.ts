@@ -41,10 +41,10 @@ export interface Head {
 
 export interface TowerHeadShape { seed: number; w: number; tall: number; anvil?: number }
 
-/** Above the cool-season Levant tropopause (km), a tall Cb can spread into an anvil. */
+/** A Cb spreads at the cool-season Levant tropopause (km). Ease the flare from a square column to the old slender threshold. */
 const TROPOPAUSE_KM = 11
-export const towerAnvil = (cb: boolean, top: number, w: number, tall: number) =>
-  cb && tall >= 1.5 * w ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
+export const towerAnvil = (cb: boolean, top: number, aspect: number) =>
+  cb ? smoothstep(1, 1.5, aspect) * smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
 
 /** The main column first, then its shoulders, last the base they all stand on (the whole underside is its own). */
 export function headsOf(s: TowerHeadShape): Head[] {
@@ -57,12 +57,16 @@ export function headsOf(s: TowerHeadShape): Head[] {
   }
   const main = between([MAIN_WIDTH, MAIN_SLENDER], slender * (1 - anvil)) * s.w
   const heads = [head((r() - 0.5) * 0.2 * s.w, main, s.tall * (1 - (1 - SHEET_TOP) * anvil), anvil)]
-  if (anvil > 0.05) heads.push(head(heads[0].x + (r() - 0.5) * 2 * OFF * main, OVERSHOOT * main, s.tall, 0))
+  const overshootWidth = OVERSHOOT * main * anvil
   let side = r() < 0.5 ? -1 : 1
   const many = Math.max(slender > 0.5 ? 2 : 1, Math.floor(r() * SHOULDERS) + 1)
   for (let n = 0; n < many; n++, side = -side) {
     const high = between(HIGH, (many - n - r() * 0.9) / many)
     heads.push(head(heads[0].x + side * between(OUT) * s.w, between(WIDE) * s.w, high * s.tall * (1 - UNDER_ANVIL * anvil), 0))
+  }
+  if (overshootWidth >= 1) {
+    const offset = (seeded(s.seed ^ 0x51ee)() - 0.5) * 2 * OFF * main * anvil
+    heads.push(head(heads[0].x + offset, overshootWidth, s.tall, 0))
   }
   const left = Math.min(...heads.map((h) => h.x - h.half)), right = Math.max(...heads.map((h) => h.x + h.half))
   heads.push(head((left + right) / 2, 0.94 * (right - left), Math.min(0.5 * s.tall, BASE_RISE * s.w), 0))

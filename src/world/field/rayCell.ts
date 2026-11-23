@@ -1,3 +1,4 @@
+import { isConvective } from './genus'
 import type { FieldCell } from './types'
 
 /** Intersection of the ray with the cell top and base. rr is quadratic in range. */
@@ -15,7 +16,7 @@ export function cellInterval(cell: FieldCell, east: number, north: number, slope
   const half = Math.sqrt((1 - rr0) / a)
   const lo = Math.max(start, centre - half), hi = Math.min(end, centre + half)
   if (lo >= hi) return
-  const cumulus = cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb'
+  const cumulus = isConvective(cell.genus)
   if (cumulus) {
     // In coordinates relative to the footprint centre, top minus ray height
     // is a concave quadratic. Solve its roots directly.

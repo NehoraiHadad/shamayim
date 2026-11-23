@@ -1,5 +1,5 @@
 import { fieldCell, RANGES, visitCells } from './cells'
-import { smoothstep } from './genus'
+import { isConvective, smoothstep } from './genus'
 import { clumpAt, dayStart } from './handover'
 import { expectedClumpSampler, LATTICES, maxRadius } from './lattice'
 import { lambdaOf } from './occupancy'
@@ -68,7 +68,7 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
       if (!draw && !sample) return
       const cell = materialized ?? fieldCell(lattice, siteI, siteJ, x, y, r, base, v, tau, share, seed, genus, rank, axis, field.rain, day)
       if (draw) cells.push(cell)
-      if (sample) grid.add(cell, genus === 'cu' || genus === 'cg' || genus === 'cb')
+      if (sample) grid.add(cell, isConvective(genus))
     })
   // Cells placed from outside the lattice (the satellite's single clouds, `seenCells`), on the same grid.
   for (const cell of extra) if ((cell.x - cx) ** 2 + (cell.y - cy) ** 2 <= (radius + cell.r) ** 2) {
@@ -135,4 +135,3 @@ function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, 
     },
   }
 }
-

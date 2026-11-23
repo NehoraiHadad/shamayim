@@ -6,11 +6,11 @@ export function sceneStretch(geom: SkyGeom, pxPerDeg: number): number {
   return Math.max(1, (geom.dome(0) - geom.dome(90)) / 90 / pxPerDeg)
 }
 
-// Retain the existing portrait stretch exponent once the top reaches 60°, two thirds of the way to zenith.
-export function shapeOf(aspect: number, stretch: number, top: number): number {
-  const raised = raisedAspect(aspect, stretch)
-  const relief = Math.max(aspect, Math.min(1, raised))
-  return relief + (raised - relief) * smoothstep(DOME_ALT, 60, top)
+/** Use the true column aspect on the relief. Give the projected top more weight
+ * as the column rises above the join, over the projected angular height of the column. */
+export function shapeOf(aspect: number, top: number, heightDeg: number, projected: number) {
+  return aspect + Math.max(0, projected - aspect) * smoothstep(DOME_ALT, DOME_ALT + heightDeg, top)
 }
 
-export const raisedAspect = (aspect: number, stretch: number) => aspect * stretch ** 0.55
+export const towerAspect = (height: number, radius: number, share: number) =>
+  height * Math.sqrt(share) / (2 * radius)

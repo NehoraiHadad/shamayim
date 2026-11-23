@@ -99,3 +99,6 @@ export function convectiveAt(input: FieldInput) {
 const convection = new WeakMap<FieldInput['hours'], {
   weights: number[]; indices: Map<string, number>; adjacent: boolean[]; active: boolean
 }>()
+
+/** Genera whose optical-depth kernel uses a flat cumulus core. */
+export const isConvective = (genus: Genus) => genus === 'cu' || genus === 'cg' || genus === 'cb'

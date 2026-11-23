@@ -2,6 +2,8 @@ import type { FieldCell } from '../../world/field/types'
 import { cellRim, rimRadiusSquared } from './cloudShadowRim'
 import { crownAt, halfAt, headsOf, towerAnvil, type TowerHeadShape } from './towerHeads'
 
+import { towerAspect } from './towerAspect'
+
 const SECTORS = 12
 const RIM = Array.from({ length: SECTORS }, (_, i) => {
   const angle = 2 * Math.PI * i / SECTORS
@@ -31,7 +33,7 @@ function towerLobes(cell: FieldCell, sunOffset: number, handed: number, cot: num
   const { r, vKm, seed, baseKm, genus } = cell
   const span = r + vKm * cot / 2
   const w = 2 * r * SHAPE_UNITS_PER_KM, tall = vKm * SHAPE_UNITS_PER_KM
-  const shape = sprite && sprite.tall > 0 ? sprite : { seed, w, tall, anvil: towerAnvil(genus === 'cb', baseKm + vKm, w, tall) }
+  const shape = sprite && sprite.tall > 0 ? sprite : { seed, w, tall, anvil: towerAnvil(genus === 'cb', baseKm + vKm, towerAspect(vKm, r, cell.share)) }
   const kmPerX = 2 * r / shape.w, kmPerY = vKm / shape.tall
   const sin = Math.sin(sunOffset), cos = Math.cos(sunOffset)
   // Project the union of horizontal slices of the painted heads. The sprite gives their relative outlines.

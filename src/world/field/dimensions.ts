@@ -1,4 +1,4 @@
-import { GENERA, smoothstep } from './genus'
+import { isConvective, GENERA, smoothstep } from './genus'
 import type { Genus, Lattice, LayerForm } from './types'
 
 const mean = ([a, b]: readonly [number, number]) => (a + b) / 2
@@ -7,7 +7,7 @@ const mix = (a: number, b: number, f: number) => a + (b - a) * f
 /** Physical base, thickness and extinction for a genus and its site aspect. */
 export function dimensions(genus: Genus, lowBaseKm: number, form: LayerForm, aspect: number, widthKm?: number): Dimensions {
   const { base, thickness, kappa } = GENERA[genus]
-  const lcl = genus === 'cu' || genus === 'cg' || genus === 'cb' || genus === 'sc' || genus === 'st'
+  const lcl = isConvective(genus) || genus === 'sc' || genus === 'st'
   const baseKm = lcl ? Math.max(base[0], Math.min(base[1], lowBaseKm)) : mean(base)
   let vKm = mix(thickness[0], thickness[1], aspect)
   if (genus === 'cb') vKm -= baseKm

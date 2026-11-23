@@ -11,7 +11,7 @@ import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import { towerAnvil } from './towerHeads'
-import { raisedAspect, sceneStretch, shapeOf } from './towerAspect'
+import { shapeOf, towerAspect } from './towerAspect'
 import type { LayerOf, RGB, SceneBox } from './types'
 
 /*
@@ -48,14 +48,14 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   if (!layer || layer.lattice !== 'tower' || !cells.length) return null
   const pxPerDeg = world.camera.pxPerDeg * geom.s
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
-  const stretch = sceneStretch(geom, pxPerDeg)
-  const placed: (Placed & Standing & { top: number })[] = []
+  const placed: (Placed & Standing & { top: number; aspect: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
     const seen = p.widthDeg * pxPerDeg
     if (p.aTop < TOP_MIN || p.aNear > NEAR_MAX || seen < W_MIN || cell.share <= 0.01) continue
-    const merged = p.rangeKm > MERGE_KM
-    const w = merged ? Math.max(seen, MERGE_PX) : seen
+    // Blur the merger over one full storm diameter, the distance its own base spans.
+    const merge = smoothstep(MERGE_KM - 2 * cell.r / Math.sqrt(cell.share), MERGE_KM, p.rangeKm)
+    const w = seen + merge * Math.max(0, MERGE_PX - seen)
     const x = geom.x(p.az)
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     // The underside is as deep as its disc is foreshortened at the scale the tower is wide at, not at the dome's: a near
@@ -66,27 +66,32 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     const under = Math.min(span, (p.aNear - p.aFar) * pxPerDeg)
     const bowl = span > 0 ? (under / span) * (far - side) : 0
     const y = side + bowl - under
-    // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
-    // tower stands to its top's altitude, but no taller than its true aspect at part of the scene's stretch, so a far one
-    // is a heap and not a streak, and a near one keeps its height.
-    const aspect = cell.vKm / (2 * cell.r)
-    const limit = cell.genus === 'cb' && !merged ? shapeOf(aspect, stretch, p.aTop) : raisedAspect(aspect, stretch)
-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * limit, merged ? w : Infinity))
+    const aspect = towerAspect(cell.vKm, cell.r, cell.share)
+    const topSpan = Math.max(0, y - geom.dome(p.aTop))
+    const limit = shapeOf(aspect, p.aTop, Math.max(0, p.aTop - p.aSide), topSpan / seen)
+    const column = Math.min(topSpan, seen * limit)
+    const tall = column + merge * (Math.min(column, w) - column)
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
     sprite.bowl = bowl
     const speed = acrossSpeed(layer.vel, look, p.rangeKm, perRad)
     sprite.lean = leanOf(speed, (Math.hypot(...layer.vel) / p.rangeKm / 60) * Math.abs(perRad))
-    placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed })
+    placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, aspect, top: cell.baseKm + cell.vKm, speed })
   }
   if (!placed.length) return null
   oneStormEach(placed)
   hideBehind(placed)
-  // The anvils: the largest mature Cb in view, spread as far as their tops reach the tropopause, and only over a
-  // column that stands taller than it is wide (a cap on a squat body reads as a disc floating in the sky).
-  const mature = ({ sprite, top }: (typeof placed)[number]) => towerAnvil(sprite.genus === 'cb', top, sprite.w, sprite.tall)
-  placed.filter((c) => mature(c) > 0).sort((a, b) => mature(b) * b.sprite.w - mature(a) * a.sprite.w).slice(0, ANVILS)
-    .forEach((c) => { c.sprite.anvil = mature(c) })
+  // Rank the mature columns by visible anvil extent.
+  const mature = ({ sprite, top, aspect }: (typeof placed)[number]) => towerAnvil(sprite.genus === 'cb', top, aspect)
+  const anvils = placed.map(tower => {
+    const flare = mature(tower)
+    return { sprite: tower.sprite, flare, extent: flare * tower.sprite.w }
+  }).filter(({ extent }) => extent > 0).sort((a, b) => b.extent - a.extent)
+  const nextExtent = anvils[ANVILS]?.extent ?? 0
+  for (const { sprite, flare, extent } of anvils.slice(0, ANVILS)) {
+    // Fade within one CSS pixel of a tie so reassignment cannot pop a visible cap.
+    sprite.anvil = nextExtent ? flare * smoothstep(0, 1, extent - nextExtent) : flare
+  }
   placed.sort((a, b) => b.km - a.km)
   const top = Math.max(0, Math.floor(Math.min(...placed.map((c) => c.y - c.sprite.tall)) - 12))
   const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(...placed.map((c) => c.y + c.sprite.under)) + 8))

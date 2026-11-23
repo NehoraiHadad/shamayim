@@ -107,7 +107,7 @@ it('spreads an anvil only on the most mature storm cells in view', () => {
     for (const { sprite } of anvils) {
       const cell = cells.get(sprite.seed)!
       expect(sprite.genus).toBe('cb')
-      expect(sprite.tall).toBeGreaterThanOrEqual(1.5 * sprite.w)
+      expect(cell.vKm * Math.sqrt(cell.share) / (2 * cell.r)).toBeGreaterThan(1)
       expect(cell.baseKm + cell.vKm).toBeGreaterThan(9.5)
     }
   }

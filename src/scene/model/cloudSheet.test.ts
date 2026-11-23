@@ -12,6 +12,8 @@ import { transmitAlong } from '../../world/field/transmit'
 import { cloudSheetOf, sheetPathFactor } from './cloudSheet'
 import { gridFor } from './cloudSheetGrid'
 import { sheetTexture, textureCorrection } from './cloudSheetTexture'
+import { seenDepth } from './cloudSheetSeen'
+import { altitudeOf } from '../../world/field/project'
 import { skyGeom } from './sky'
 import type { SceneBox } from './types'
 
@@ -94,12 +96,17 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
     const depthAt = (source: typeof snapshot) => cellular ? source.densityGrid.resolvedTauAt : source.densityGrid.tauAt
     const sample = (view: typeof at, source: typeof snapshot) => {
       const genus = genusOf(lattice, source.layer!.form, 0.5)
-      const { xs, ranges, east, north, tau, expected, path, slant, fade } =
+      const { xs, altitudes, ranges, east, north, tau, expected, path, slant, fade } =
         gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genus)
+      const seen = lattice === 'low' || lattice === 'mid' ? seenDepth(source.cells, source.heightKm, view.geom) : null
+      const corrections = ranges.map((range, row) => seen?.(range, altitudes[row]))
       let maxError = 0
       const nodes = sheet.alpha.map((_, index) => {
         const row = Math.floor(index / xs.length), col = index % xs.length
-        const exact = fade[row] < 1 ? depthAt(source)(ranges[row] * east[col], ranges[row] * north[col]) : 0
+        const x = ranges[row] * east[col], y = ranges[row] * north[col]
+        const round = fade[row] < 1 ? depthAt(source)(x, y) : 0
+        const shift = fade[row] < 1 ? corrections[row]?.(x, y) : 0
+        const exact = shift ? Math.max(source.layer!.floorTau, round + shift) : round
         maxError = Math.max(maxError, Math.abs(exact - tau[index]))
         return { path: path[row], fade: fade[row], local: tau[index] * slant[row],
           mean: expected[index] * meanSlant(slant[row]), slant: slant[row],
@@ -124,6 +131,7 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
       expect(sheet.xs).toHaveLength(144)
       expect(sheet.ys.filter(y => y >= at.geom.dome(30) && y <= at.geom.dome(5))).toHaveLength(49)
     }
+    const seen = lattice === 'low' || lattice === 'mid' ? seenDepth(snapshot.cells, snapshot.heightKm, at.geom) : null
     const deltas: number[] = []
     let max = 0, maxExcess = -Infinity
     const [vx, vy] = snapshot.layer!.vel
@@ -137,7 +145,10 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
         // Pull back each destination ray by one minute of advection. Resample
         // the source field directly to avoid interpolation across sharp edges.
         const sourceX = b.x - vx, sourceY = b.y - vy
-        const local = b.fade < 1 ? depthAt(snapshot)(sourceX, sourceY) * b.slant : 0
+        const range = Math.hypot(sourceX, sourceY)
+        const shift = b.fade < 1 ? seen?.(range, altitudeOf(snapshot.heightKm, range))?.(sourceX, sourceY) : 0
+        const round = b.fade < 1 ? depthAt(snapshot)(sourceX, sourceY) : 0
+        const local = (shift ? Math.max(snapshot.layer!.floorTau, round + shift) : round) * b.slant
         const mean = b.fade ? snapshot.densityGrid.expectedTauAt(sourceX, sourceY) * meanSlant(b.slant) : 0
         const warped = -a.path * ((1 - b.fade) * Math.expm1(-local) + b.fade * Math.expm1(-mean))
         // Beer–Lambert's maximum slope between two slant depths is exp(-min).
@@ -171,7 +182,7 @@ it('keeps a low-cover floor transparent and lights gaps more than cores', () => 
   let gapTone = 0
   for (const tau of [layer.floorTau, 3]) {
     const sheet = cloudSheetOf(at.world, { ...at.geom, azimuthAt: () => at.world.bodies.sun.azimuth }, {
-      ...snapshot, layer, densityGrid: { ...snapshot.densityGrid, tauAt: () => tau, resolvedTauAt: () => tau, expectedTauAt: () => tau },
+      ...snapshot, cells: [], layer, densityGrid: { ...snapshot.densityGrid, tauAt: () => tau, resolvedTauAt: () => tau, expectedTauAt: () => tau },
     }, neutral)!
     if (tau === layer.floorTau) {
       expect.soft(sheet.alpha[0]).toBeLessThan(0.15)

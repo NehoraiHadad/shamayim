@@ -59,7 +59,6 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const handoff = cellular ? smoothstep(resolvedEnd / 2, resolvedEnd, range)
       : smoothstep(queryRadius - 2 * radius, queryRadius - radius, range)
     const f = fade[row] = veil ? 1 : Math.max(handoff, smoothstep(radius, 2 * radius, footprint))
-    const correction = f < 1 ? seen?.(range, alt) : null
     const level = f === 1 ? 0 : sheetDetail(genus, footprint)
     const sample = level ? texture(footprint) : null
     path[row] = 1
@@ -79,15 +78,17 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         raw[index] = raw[first]
         continue
       }
-      let depth = f < 1 ? depthAt(x, y) : 0
-      if (correction) depth = Math.max(layer.floorTau, depth + correction(x, y))
-      tau[index] = depth
+      const depth = tau[index] = f < 1 ? depthAt(x, y) : 0
       expected[index] = f ? expectedTauAt(meanRange * east[col], meanRange * north[col]) : 0
       detail[index] = depth > layer.floorTau || (!cellular && f > 0) ? level : 0
       raw[index] = sample && detail[index] ? sample(x, y) : 1
     }
   }
   const corrected = textureCorrection(raw, tau, weights, xs.length, detail)
+  // Fit tone on the physical field before applying camera-space silhouette changes.
+  const first = geom.azimuthAt(xs[0]) * RAD
+  const columns = { first, step: geom.azimuthAt(xs[1]) * RAD - first, east, north }
+  const delta = seen && new Float64Array(xs.length)
   const solar = solarTexel(world, geom, snapshot, grid, angularStep)
   const closed = colours.closed ?? 0
   const city = cityAt && sheetCity(cityAt, grid, heightKm, deckEnd)
@@ -102,11 +103,15 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const aerial = cellular ? 0.25 * (world.air?.fade(Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) ?? 0) : 0
     const farTone = farSource + aerial * (0.5 - farSource)
     if (!visibility) continue
+    const shiftRow = f < 1 && delta
+    if (shiftRow) seen!.row(ranges[row], altitudes[row], columns, shiftRow)
     for (let col = 0; col < xs.length; col++) {
       const index = row * xs.length + col
-      const local = tau[index]
-      const depth = cellular ? local : local + f * (expected[index] - local)
       const texel = corrected(index)
+      const shift = shiftRow && shiftRow[col]
+      const local = shift ? Math.max(layer.floorTau, tau[index] + shift) : tau[index]
+      tau[index] = local
+      const depth = cellular ? local : local + f * (expected[index] - local)
       // The far density is already the log of the ensemble transmission for
       // unresolved footprints. Slanting it again turns the gaps into a solid band.
       const ambient = expected[index]

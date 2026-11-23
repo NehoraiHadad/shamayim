@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { SCENE_PLACES } from '../../test/scenePlaces'
+import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { buildWorld } from '../../world/world'
+import { genusOf } from '../../world/field/genus'
+import { gridFor } from './cloudSheetGrid'
 import { cloudSheetOf } from './cloudSheet'
 import { DOME_ALT, skyGeom } from './sky'
 import type { RGB, SceneBox } from './types'
@@ -19,7 +21,7 @@ let places: Map<string, LoadedPlace>
 
 beforeAll(async () => {
   stubPublicFetch()
-  places = await loadPlaces(SCENE_PLACES.filter(place => cases.some(([id]) => id === place.id)))
+  places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(place => cases.some(([id]) => id === place.id)))
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
@@ -29,33 +31,23 @@ it.each(cases)('keeps the relief raster intact on %s at %s', (id, at) => {
   const world = buildWorld(base)
   const geom = skyGeom(world, box)
   const snapshots = world.cloudField!.snapshot
-  const draw = (shape: boolean) => {
-    const start = performance.now()
-    const sheets = snapshots.flatMap(snapshot => {
-      // Give each call a fresh snapshot identity to exercise rasterization instead of its memo.
-      const sheet = cloudSheetOf(world, geom, { ...snapshot, cells: shape ? snapshot.cells : [] }, colours)
-      return sheet ? [sheet] : []
-    })
-    return { sheets, ms: performance.now() - start }
-  }
-  const plain = draw(false), shaped = draw(true)
-  expect(shaped.sheets.length).toBeGreaterThan(0)
-  for (const [index, sheet] of shaped.sheets.entries()) {
-    const start = sheet.ys.findIndex(y => y >= geom.dome(DOME_ALT)) * sheet.xs.length
+  let count = 0
+  for (const snapshot of snapshots) {
+    const { layer, heightKm } = snapshot
+    if (!layer || (layer.lattice !== 'mid' && layer.lattice !== 'low')) continue
+    const genus = genusOf(layer.lattice, layer.form, 0.5)
+    const grid = gridFor(id, layer, geom, heightKm, genus)
+    const round = cloudSheetOf(world, geom, { ...snapshot, cells: [] }, colours)
+    if (!round) continue
+    const start = grid.altitudes.findIndex(alt => alt <= DOME_ALT) * round.xs.length
     expect(start).toBeGreaterThanOrEqual(0)
-    expect(sheet.alpha.slice(start)).toEqual(plain.sheets[index].alpha.slice(start))
+    const end = round.alpha.length
+    const roundTau = grid.tau.slice(start, end)
+    const shaped = cloudSheetOf(world, geom, snapshot, colours)!
+    expect(grid.tau.slice(start, end)).toEqual(roundTau)
+    expect(shaped.alpha.slice(start)).toEqual(round.alpha.slice(start))
+    expect(shaped.tone.slice(start)).toEqual(round.tone.slice(start))
+    count++
   }
-  const before: number[] = [], after: number[] = []
-  // Interleave five timings in both orders, after warming the fixtures and both code paths.
-  for (let rep = 0; rep < 5; rep++) {
-    if (rep % 2) {
-      after.push(draw(true).ms)
-      before.push(draw(false).ms)
-    } else {
-      before.push(draw(false).ms)
-      after.push(draw(true).ms)
-    }
-  }
-  const median = (times: number[]) => times.sort((a, b) => a - b)[Math.floor(times.length / 2)]
-  console.log(JSON.stringify({ id, at, roundMs: median(before), shapedMs: median(after) }))
+  expect(count).toBeGreaterThan(0)
 }, 30_000)
