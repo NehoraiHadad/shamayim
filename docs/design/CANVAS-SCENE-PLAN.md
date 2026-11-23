@@ -2690,9 +2690,8 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      on the cloud sheet's minute clock, samples it at the canopy's offset and mixes encoded endpoint pixels
      in premultiplied alpha. Arrivals and interactive renders share raster steps staggered by fractions of
      a device pixel. Explicit lays use the requested phase. The mask cache compares projected footprint values
-     and quantized display parameters. A sheet shadow uses its own seeded squared-radius outline, with the
-     outgoing and incoming outlines blended for cells matched at midnight. Tower shadows project the same
-     head geometry as the sky painter. The cloud's thin ragged rim is resolved in screen pixels and combined
+     and quantized display parameters. A sheet shadow uses its own seeded squared-radius outline. Tower shadows
+     project the same head geometry as the sky painter. The cloud's thin ragged rim is resolved in screen pixels and combined
      with the projected 0.53° solar disc. The edge centre accounts for the rim's area and blur variance so
      the integrated beam lost by each cell equals that of
      τ(1−r²)². Each stamp is built once for a projected footprint. Peak visible support over the 75 s sweep
@@ -2700,7 +2699,10 @@ stage stills in `stage3/`, `stage4/`, `stage5/`):
      Each receiver reuses a blended frame, with sampling offsets cached
      per axis and mask weights evaluated only where an endpoint covers the pixel. This preserves fractional
      coverage at the crest before the scene draws terrain over what is behind it.
-     Sky glows and illumination between cloud decks retain the sky renderer's half-depth transmission.
+     Sky glows, illumination between cloud decks and rainbows retain the sky renderer's half-depth transmission.
+   - `diffuseSky` neutralises cloudy skylight while preserving luminance. The mean bare-land RGB shift versus
+     `e4ca77ca` was (+1.0, −0.1, −1.6) in Haifa at noon, (+2.3, −0.3, −3.5) in Haifa overcast and
+     (+4.3, −0.7, −4.1) in Jerusalem rain. At night it was zero.
    - Per-plant eight-bit tones key canopy paint independently of the plane's irradiance key. Each crown or tuft
      path is shared between the endpoints. The previous canopy stays visible over compatible terrain while its
      light changes. The 10 canopy poses at 5 fps use the wind's own clock. A cold canopy can show pose zero at full

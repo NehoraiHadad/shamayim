@@ -27,7 +27,7 @@ export function facingBin(seed: number): number {
   return Math.floor(seeded(seed ^ 0x4b1856ad)() * DEGREES.length)
 }
 
-export const FACINGS = DEGREES.map((degrees) => {
+const FACINGS = DEGREES.map((degrees) => {
   const a = degrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a)
   const front: Normal = [s, -c, 0]
   const left: Normal = [-c, -s, 0], right: Normal = [c, s, 0]

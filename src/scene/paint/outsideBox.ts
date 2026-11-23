@@ -24,9 +24,9 @@ export function paintBoxGeometry(ctx: Ctx2D, b: Box, t: Tones, s: Shine,
 }
 
 export function paintBox(ctx: Ctx2D, b: Box, t: Tones, s: Shine, lamps: Lamp[], faces: BuildingFaces,
-  accessories: ReturnType<typeof accessoryTones> | null) {
+  accessories: ReturnType<typeof accessoryTones> | null, scale: number) {
   const r = rng(b.seed), tint = r()
   paintBoxGeometry(ctx, b, t, s, faces, accessories, tint)
   const warm = mix(mix(t.wall, t.stone, .1 + .45 * tint), t.win, .9)
-  paintBoxWindows(ctx, b, t, s, lamps, r, warm, faces.recess, t.win)
+  paintBoxWindows(ctx, b, t, s, lamps, r, warm, faces.recess, t.win, scale)
 }

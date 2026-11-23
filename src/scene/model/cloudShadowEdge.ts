@@ -11,22 +11,15 @@ export const SOLAR_DIAMETER_RAD = 0.53 * Math.PI / 180
 
 /** Orient the projected shadow rim in the local screen basis. */
 export function shadowLobes(cell: FieldCell, bearing: number, handed: number, sunOffset: number, cot: number, slope: number,
-  sprite?: TowerHeadShape, nextSeed?: number, weight = 0) {
-  const lobesAt = (sample: FieldCell, shape?: TowerHeadShape) => {
-    if (sample.lattice === 'tower') return towerLobes(sample, sunOffset, handed, cot, slope, shape)
-    const rim = cellRim(sample)
-    if (!rim) return RIM.map(() => 0)
-    const sin = Math.sin(bearing), cos = Math.cos(bearing)
-    return RIM.map(([x, y]) => {
-      const across = handed * x, away = slope * y
-      return Math.sqrt(rimRadiusSquared(rim, across * cos + away * sin, -across * sin + away * cos)) - 1
-    })
-  }
-  const lobes = lobesAt(cell, sprite)
-  if (nextSeed === undefined || nextSeed === cell.seed) return lobes
-  // Keep the field's geometry morph and bring in the matched cell's outline on the same curve.
-  const next = lobesAt({ ...cell, seed: nextSeed }, sprite && { ...sprite, seed: nextSeed })
-  return lobes.map((lobe, i) => lobe + weight * (next[i] - lobe))
+  sprite?: TowerHeadShape) {
+  if (cell.lattice === 'tower') return towerLobes(cell, sunOffset, handed, cot, slope, sprite)
+  const rim = cellRim(cell)
+  if (!rim) return RIM.map(() => 0)
+  const sin = Math.sin(bearing), cos = Math.cos(bearing)
+  return RIM.map(([x, y]) => {
+    const across = handed * x, away = slope * y
+    return Math.sqrt(rimRadiusSquared(rim, across * cos + away * sin, -across * sin + away * cos)) - 1
+  })
 }
 
 const HEAD_SLICES = 16

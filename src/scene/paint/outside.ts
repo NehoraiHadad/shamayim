@@ -51,7 +51,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   for (const item of desc.items) {
     if (item.kind === 'box' || item.kind === 'tower') {
       const f = desc.receivers[item.tier][item.receiver], tones = tiers[item.tier]
-      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier])
+      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale)
       else paintTower(ctx, item, tones, s, lamps, f, env.scale)
     }
     else if (item.kind === 'tree') {

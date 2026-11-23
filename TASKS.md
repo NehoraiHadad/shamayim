@@ -938,7 +938,7 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       `cloudCells` layer + painter, `FallingCloud` and `weatherLayers(world, box, clear)` adopted on top of land-living's
       canopy / land dust / plant wind wiring; land helper types stay in `typesLand.ts`; `sceneWorld.ts` keeps `cropAreas`
       and takes main's recorded-day `fixtureFor`.
-- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-23, rounds 1–6).
+- [ ] Stage 7 — land lit physically by day (branch `claude/land-light-998984`, 2026-11-23). Approved by Opus, stills to re-record.
       - [x] Share linear Lambertian irradiance, lunar and solar visibility, wet and snow reflectance, a single
             luminance compression, and per-face-distance linear haze across terrain receivers.
       - [x] Integrate directional twilight sky radiance against the cosine of elevation from the surface normal,
@@ -953,9 +953,8 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
             sun-facing texels, their mean haze and the sRGB curve. Key masks on projected footprint values
             and quantized exposure. Reuse the same staggered mask and premultiplied blend for Worker arrivals
             and interactive rendering, including the antialiased crest. Lunar light retains its deck share.
-            Seed the ground shadow rim by cloud genus and blend the outlines of matched cells during the
-            midnight handover. Project tower shadows from the shared tower heads. Combine the ragged rim and
-            solar disc in a cached transmission stamp with the same integrated beam removal as the earlier profile.
+            Seed the ground shadow rim by cloud genus. Project tower shadows from the shared tower heads. Combine
+            the ragged rim and solar disc in a cached transmission stamp with the earlier integrated beam removal.
             Weight diffuse return by peak visible footprint coverage over the 75 s receiver sweep.
       - [x] Cache terrain horizon angles by geometry grid and half-degree azimuth. Interpolate bearings
             and apply the soft disc edge at the current solar or lunar altitude.
@@ -1008,6 +1007,13 @@ Writer Antigravity (`agy`), reviewer Codex (`gpt-6.2-sol`), orchestrated by Clau
       - [x] Verify the merge with `tsc -b`, 226 targeted Vitest tests at two workers, and the 13-case
             building and shadow browser runner. The Jerusalem broken-deck fixture preserved removed beam
             area within 0.005%, with 5.20–5.28 px vertical edge widths on its two broad shadows.
+      - [x] Record the cloudy land colour change. `diffuseSky` neutralises cloudy skylight while preserving
+            luminance. Mean bare-land RGB shift versus `e4ca77ca` was (+1.0, −0.1, −1.6) in Haifa at noon,
+            (+2.3, −0.3, −3.5) in Haifa overcast and (+4.3, −0.7, −4.1) in Jerusalem rain. At night it was zero.
+      - [ ] Recheck night composites when re-recording stills. At 2× and 21:00, box and tower window
+            geometry and fill colours and isolated lamps matched `e4ca77ca`. After restoring the parapet
+            shade, composited warm window samples still differed by up to 2 levels in Jerusalem, 16 in
+            Haifa and 4 in Tel Aviv, including pixels over overlapping facades.
       - [ ] Follow-up outside Stage 7. Split the pre-existing large `src/scene/model/types.ts` and
             `src/scene/compose/surface.ts` around their existing descriptor and compositor boundaries.
 
