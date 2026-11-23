@@ -36,7 +36,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const lateralLight = glyphLight(s)
   const frames = desc.animated?.frames
   const t = frames ? (((env.phase * frames.fps) / frames.count) % 1 + 1) % 1 : 0
-  if (desc.land) paintOutsideLand(ctx, desc.land, s)
+  if (desc.land) paintOutsideLand(ctx, desc.land)
   if (desc.sea) paintOutsideSea(ctx, desc.sea, s, t)
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)

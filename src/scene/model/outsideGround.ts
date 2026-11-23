@@ -7,9 +7,8 @@ import { linearLuminance, litLandRgb, srgbRgbToLinear, surfaceNormal } from './l
 import { snowyAlbedo } from './landSnow'
 import { smoothstep } from '../../world/ridgeLighting'
 import { hazeAt, hazeOf } from './landVeil'
-import { skyAt } from './sky'
-import { mixLight, mixRgb } from './tone'
-import type { OutsideLandDesc, Pt, SceneBox } from './types'
+import { mixLight } from './tone'
+import type { OutsideLandDesc, Pt } from './types'
 
 /**
  * Outside-view own-ground albedo stops and descriptor (Stage C5b + Living Land Stages 3 & 7).
@@ -114,7 +113,7 @@ function coveredStops(world: WorldState, land: NonNullable<OutsideView['land']>,
 }
 
 /** Builds the complete outside-ground descriptor with local albedos lit and hazed through the shared radiance model. */
-export function outsideLandDesc(world: WorldState, view: OutsideView, box: SceneBox, sx: number): OutsideLandDesc | null {
+export function outsideLandDesc(world: WorldState, view: OutsideView, sx: number): OutsideLandDesc | null {
   if (!view.land) return null
   const raw = outsideGroundStops(world, view.land, view.frame)
   const haze = hazeOf(world)
@@ -126,6 +125,5 @@ export function outsideLandDesc(world: WorldState, view: OutsideView, box: Scene
     top: view.land.top.map(([x, y]): Pt => [x * sx, y]),
     base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
     tone, stops, source: raw.source,
-    rim: mixRgb(tone, skyAt(world, box)(2), 0.35),
   }
 }

@@ -47,7 +47,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const out = refreshLandmarkItems(world, shape.items, shape.marks)
   const sea = outsideSea(world, box, sx, clear)
   const view = world.place3
-  const landDesc = outsideLandDesc(world, view, box, sx)
+  const landDesc = outsideLandDesc(world, view, sx)
   const form = skyFormOf(world, box, shape.kms, sx)
   if (!out.length && !sea) return null
   const boxes = shape.bounds ? [shape.bounds] : []
@@ -61,7 +61,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
     Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
   const skyKey = [Math.round(form.strength * 64), Math.round(form.side * 64), form.tiers.map((t) => [colourKey(t.top), colourKey(t.face), colourKey(t.foot)]),
-    landDesc && [colourKey(landDesc.tone), landDesc.stops.map(([at, c]) => [at.toFixed(5), colourKey(c)]), colourKey(landDesc.rim)]]
+    landDesc && [colourKey(landDesc.tone), landDesc.stops.map(([at, c]) => [at.toFixed(5), colourKey(c)])]]
   // C7: its trees sway in the wind and its sea's ripples run with it, in a strip of frames (the light canvas only).
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))
   return {

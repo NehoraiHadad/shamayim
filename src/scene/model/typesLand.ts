@@ -113,5 +113,4 @@ export interface OutsideLandDesc {
   tone: RGB
   stops: [number, RGB][]
   source: string
-  rim: RGB
 }

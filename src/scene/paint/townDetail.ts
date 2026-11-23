@@ -16,7 +16,7 @@ const CELL_X = 11, CELL_Y = 5
 /** How far an unresolved body's flank takes the light of its neighbourhood's flank. */
 const FLANK = 0.75
 /** The softest edge (px) of an unresolved body. */
-const SOFT = 0
+const SOFT = 0.45
 
 export const detailOf = (storeyPx: number) => smoothstep(STOREY[0], STOREY[1], storeyPx)
 export const sidesOf = (widthPx: number) => smoothstep(WIDTH[0], WIDTH[1], widthPx)
