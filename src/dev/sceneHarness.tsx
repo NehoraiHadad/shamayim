@@ -23,6 +23,8 @@ import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { onSkyCanvas } from '../scene/paint/sky'
+import { DEFAULT_STYLE } from '../scene/paint/styles'
+import { forcedStyle } from '../scene/react/forcedStyle'
 import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
 import { SCENE_H } from '../world/sceneBox'
@@ -32,7 +34,6 @@ import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
 import { harnessPlace, fixturePanorama } from './sceneFixture'
 import { ARRIVAL } from '../scene/model/loading'
-import { forcedStyle } from '../ui/devParams'
 import { WearCanvas } from '../scene/react/WearCanvas'
 import { isDarkPaper, sheetLight } from '../theme/sheetLight'
 import type { ThemeId } from '../theme/skyThemes'
@@ -167,7 +168,7 @@ function Scene({ input: given }: { input: WorldInput }) {
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
   const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
-  const style = forcedStyle() ?? 'real'
+  const style = forcedStyle() ?? DEFAULT_STYLE
   const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
     hideLayers(sceneModel(world, box, moment.clock, undefined, style), params.get('hide'))), [world, box, moment, style])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])

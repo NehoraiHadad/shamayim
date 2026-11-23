@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EMPTY_VEGETATION } from '../model/vegDescriptor'
 import type { LayerOf } from '../model/types'
-import { HAND } from '../paint'
+import { HAND } from '../paint/hand'
 import type { PaintReply, PaintRequest } from './paintJob'
 import { makeWorkerRunner, type WorkerCanvas } from './paintWorkerRun'
 import { RemoteCache, type WorkerLike } from './remoteCache'

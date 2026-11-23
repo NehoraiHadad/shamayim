@@ -8,7 +8,7 @@ import { useWidth } from './useWidth'
 import styles from './Scene.module.css'
 import { SCENE_H } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import { DEFAULT_STYLE, type SceneStyle } from '../paint/styles'
 import { layersOn, sceneModel, type LifeClock } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
@@ -47,7 +47,7 @@ interface Props {
  * timed by `useLandClock`. The wear card's clothesline is drawn from the same world, into the card (`WearCanvas`).
  */
 export function SceneCanvas({ world, life, forecast, now, selected, temperature, readout = null, first, last, onScrub, onRelease, onNow, wear = null,
-  style = 'real' }: Props) {
+  style = DEFAULT_STYLE }: Props) {
   const [sceneRef, width] = useWidth<HTMLElement>(375)
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
   const host = useSkyHost(sceneRef)

@@ -1,7 +1,7 @@
 import { isField } from '../../world/glyphSpecs'
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { buildingLight, roofNormal } from './buildingLight'
 import { SOOT, STACK_CONCRETE, STONE, TILE, WALL_ALBEDOS, materialBin } from './buildingMaterial'
 import { domeSectors, floodlitDome, silverLight } from './metalLight'

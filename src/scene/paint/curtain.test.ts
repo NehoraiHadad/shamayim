@@ -1,13 +1,13 @@
 import { expect, it } from 'vitest'
-import { curtain, FIBRES } from './curtain'
-import { PLANES } from './drawn'
+import type { LayerOf } from '../model/types'
 import type { Ctx2D, PaintEnv } from './hand'
+import { DEFAULT_STYLE, SCENE_STYLES, STYLES } from './styles'
 
 const ALPHA = 0.58, LEAN = 50
 const SEEDS = [1, 77, 4021, 245934642, 98765]
 
 /** A curtain read off a recording scratch surface: its alpha along x at a height (0 base … 1 ground). */
-function curtainOf(seed: number, fibres = FIBRES) {
+function curtainOf(seed: number, style = DEFAULT_STYLE) {
   let w = 0, h = 0, data = new Uint8ClampedArray(), drawn = { x: 0, w: 1 }
   const env = { canvas: (cw: number, ch: number) => ({ canvas: {}, ctx: {
     createImageData: () => ({ data: (data = new Uint8ClampedArray(cw * ch * 4)) }),
@@ -15,7 +15,8 @@ function curtainOf(seed: number, fibres = FIBRES) {
   } }) } as unknown as PaintEnv
   const ctx = { save() {}, restore() {}, drawImage: (_c: unknown, x: number, _y: number, dw: number) => { drawn = { x, w: dw } } }
   const shaft = { x: 0, top: 10, bottom: 100, w: 110, lean: LEAN, rgb: [0.4, 0.45, 0.5] as const, alpha: ALPHA, seed }
-  curtain(ctx as unknown as Ctx2D, shaft as never, false, env, fibres)
+  const desc = { kind: 'shafts', precip: 'rain', shafts: [shaft], period: 1e4, bounds: { x: -200, y: 0, w: 500, h: 120 } }
+  STYLES[style].painters.shafts.form(ctx as unknown as Ctx2D, desc as unknown as LayerOf<'shafts'>, env)
   return (t: number) => {
     const j = Math.min(h - 1, Math.floor(t * h))
     return Array.from({ length: w }, (_, i) => ({ x: drawn.x + ((i + 0.5) / w) * drawn.w, a: data[(j * w + i) * 4 + 3] / 255 }))
@@ -35,8 +36,8 @@ it.each(SEEDS)('seed %i: one soft mass, with no edge at its sides or its top', (
   expect(peak(at(0))).toBeLessThan(0.15)
 })
 
-it.each(SEEDS.flatMap((seed) => [[seed, 'real', FIBRES], [seed, 'drawn', PLANES]] as const))('seed %i, %s: a body, heavier and lighter across, thinning toward the ground', (seed, _hand, fibres) => {
-  const at = curtainOf(seed, fibres), row = at(0.4)
+it.each(SEEDS.flatMap((seed) => SCENE_STYLES.map((style) => [seed, style] as const)))('seed %i, %s: a body, heavier and lighter across, thinning toward the ground', (seed, style) => {
+  const at = curtainOf(seed, style), row = at(0.4)
   expect(peak(row)).toBeGreaterThan(0.6 * ALPHA)
   expect(peak(row)).toBeLessThan(1)
   expect(total(at(0.95))).toBeLessThan(0.8 * total(row))

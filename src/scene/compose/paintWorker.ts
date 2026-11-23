@@ -1,4 +1,4 @@
-import { painterOf } from '../paint'
+import { painterOf } from '../paint/styles'
 import { resultBitmaps, type PaintReply, type PaintRequest } from './paintJob'
 import { makeWorkerRunner } from './paintWorkerRun'
 

@@ -1,4 +1,5 @@
-import type { Ctx2D, Painter, Scratch } from '../paint'
+import type { Painter } from '../paint/contract'
+import type { Ctx2D, Scratch } from '../paint/hand'
 import { frameCount } from '../model/anim'
 import { canvasSize, paintPart, paintSlot, type PaintJob, type PaintPose, type PaintResult } from './paintJob'
 
@@ -49,10 +50,10 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
         // The beam canvas was already shown at cold start. Fill just the missing endpoint.
         const desc = { ...job.desc, tones: job.desc.shadedTones }
         paintPart(shade.getContext('2d') as Ctx2D, shade, desc, job.ratio, job.rect,
-          paint, job.phase, job.hand, scratch, undefined, job.style, undefined, pose)
+          paint, job.phase, job.hand, scratch, undefined, undefined, pose)
       } else {
         paintPart(canvas.getContext('2d') as Ctx2D, canvas, job.desc, job.ratio, job.rect,
-          paint, job.phase, job.hand, scratch, undefined, job.style, shade?.getContext('2d') as Ctx2D | undefined, pose)
+          paint, job.phase, job.hand, scratch, undefined, shade?.getContext('2d') as Ctx2D | undefined, pose)
       }
     }
     if (!job.shade) return { bitmap: snapshot(job, canvasFor(canvases, job, 'light', 0), transfer) }
@@ -111,7 +112,7 @@ export function makeWorkerRunner({ createCanvas, painterOf, now = () => performa
           shadeCtx?.clearRect(0, 0, canvas.width, canvas.height)
         }
         if (paint) {
-          paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, scratch, job.frames, job.style, shadeCtx)
+          paintPart(ctx, canvas, job.desc, job.ratio, job.rect, paint, job.phase, job.hand, scratch, job.frames, shadeCtx)
         } else if (!job.frames) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
         }

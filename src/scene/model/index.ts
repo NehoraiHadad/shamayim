@@ -1,7 +1,7 @@
 import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'

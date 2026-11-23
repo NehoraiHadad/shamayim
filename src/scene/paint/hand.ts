@@ -1,5 +1,4 @@
 import type { RGB } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
 
 /** A 2D context: the visible canvas's, or an offscreen layer's. */
 export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -29,8 +28,6 @@ export interface PaintEnv {
   hand: Hand
   /** A second target in the same pose, with the solar beam removed. */
   shade?: Ctx2D
-  /** The scene's style (`real` when not given); the layers a style paints its own way stand in `drawn/index.ts`. */
-  style?: SceneStyle
   /** Seconds since the loop started (animated layers); 0 for a still. */
   phase: number
   /** Device px per scene px on the canvas being painted (the layer's cache ratio). */

@@ -21,7 +21,6 @@ const REACH = 0.62, WAVER = 0.35
  * gathers it into planes of heavier and lighter fall).
  */
 export interface Fibres { thick: number; rate: number; long: number; octaves: number; gather: number }
-export const FIBRES: Fibres = { thick: 1.1, rate: 0.55, long: 0.16, octaves: 3, gather: 1 }
 /** A thin fibre stops short of the ground (virga): the height it fades from. */
 const VIRGA = 0.45
 /** The middle of the curtain against the shaft's own strength: its soft flanks take the rest. */
@@ -38,7 +37,7 @@ function shareDown(stops: typeof RAIN_DOWN | typeof SNOW_DOWN, t: number): numbe
   return 0
 }
 
-export function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env: PaintEnv, fibres = FIBRES) {
+export function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env: PaintEnv, fibres: Fibres) {
   const { top, bottom, w, lean, rgb, seed } = s
   const h = bottom - top, alpha = Math.min(0.95, s.alpha)
   if (h <= 1 || w < 1 || alpha < 0.01) return
@@ -72,7 +71,7 @@ export function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env
 }
 
 /** The curtains under the far banks that rain or snow, on their cloud layer's band (each also a period over, to wrap). */
-export function paintShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: PaintEnv, fibres = FIBRES): void {
+export function paintShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: PaintEnv, fibres: Fibres): void {
   const { bounds, period } = desc
   for (const s of desc.shafts) {
     for (const k of [-1, 0, 1]) {

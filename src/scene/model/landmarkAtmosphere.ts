@@ -1,6 +1,6 @@
 import { plainContrast } from '../../data/city/plainHaze'
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { isFamousNonOwn } from '../../world/neighbourIdentity'
 import { tonesAt } from './marks'
 import { glyphSurfaces, glyphSurfaceKey } from './glyphSurfaces'

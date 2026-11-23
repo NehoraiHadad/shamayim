@@ -1,7 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey } from './landmarkAtmosphere'
 import { faceLight } from '../../world/livingLight'

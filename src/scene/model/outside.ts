@@ -1,7 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { drawnOutsideLight } from './drawnOutsideLight'
 import { colourCode, colourKey, landBoxKey, layerKey } from './keys'
 import { glyphAtmosphereKey, refreshLandmarkGlyph, refreshLandmarkItems } from './landmarkAtmosphere'

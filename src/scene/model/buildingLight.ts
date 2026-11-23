@@ -1,6 +1,6 @@
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { groundLighting } from './buildingGround'
 import { FLAT_ROOF, PALE_METAL, PANEL, STONE, TILE, receiverMaterial } from './buildingMaterial'
 import { incidence } from './buildingIncidence'

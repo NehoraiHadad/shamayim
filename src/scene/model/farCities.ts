@@ -2,7 +2,7 @@
 import { MIN_PLAIN_CONTRAST, plainContrast, plainContrastDistance } from '../../data/city/plainHaze'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
-import type { SceneStyle } from '../sceneStyle'
+import type { SceneStyle } from '../paint/styles'
 import { buildingFaces, buildingLight } from './buildingLight'
 import { DISTANT_PLASTER } from './buildingMaterial'
 import { geometryOf, MASS_ALPHA } from './farCityGeometry'
