@@ -45,7 +45,7 @@ function anchors(rising: boolean): ColorRow[] {
   ]
 }
 
-function keyframe(altitude: number, rising: boolean): [string, string, string] {
+export function clearSkyColours(altitude: number, rising: boolean): [string, string, string] {
   const rows = anchors(rising)
   if (altitude <= rows[0][0]) return rows[0].slice(1) as [string, string, string]
   const upper = rows.findIndex((row) => altitude <= row[0])
@@ -77,7 +77,7 @@ export function dustAirlight(pm10: number | null, altitude: number): number {
 }
 
 export function skyLight(input: SkyLightInput): SkyLight {
-  const [top, clearMid, clearHorizon] = keyframe(input.altitude, input.rising)
+  const [top, clearMid, clearHorizon] = clearSkyColours(input.altitude, input.rising)
   const { mid, horizon } = input.air ? skyAir({ mid: clearMid, horizon: clearHorizon }, input.altitude, input.air)
     : { mid: clearMid, horizon: clearHorizon }
   const result = { top, mid, horizon } as SkyLight

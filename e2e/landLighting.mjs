@@ -14,6 +14,7 @@ const baseSky = {
   'tel-aviv-1200': .570, 'jerusalem-1200': .570, 'rosh-pina-1200': .572,
   'tel-aviv-0620': .291, 'rosh-pina-0620': .308, 'ein-gedi-0620': .324,
   'ramon-crater-1630': .304, 'tel-aviv-1630': .178,
+  'haifa-1200': .563, 'ramon-crater-1200': .554, 'jerusalem-0620': .317, 'haifa-0620': .277,
 }
 const failures = []
 const server = await startServer()
@@ -72,7 +73,7 @@ try {
       const [a, b] = result
       console.log(name, JSON.stringify(a), 'reference', JSON.stringify(b))
       if (baseSky[name] !== undefined) {
-        const tolerance = name.endsWith('-1200') ? 0.05 : 0.15
+        const tolerance = 0.02
         assert.ok(Math.abs(a.skyY / baseSky[name] - 1) <= tolerance, 'horizon luminance outside cloud review tolerance')
       }
       if (name.endsWith('-0620') || name.endsWith('-1630')) {

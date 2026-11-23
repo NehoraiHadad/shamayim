@@ -2,13 +2,14 @@ import { smoothstep } from '../../world/ridgeLighting'
 import type { CloudLevel, WorldState } from '../../world/types'
 import { towerLayerOf } from './cloudCells'
 import { beamIncidence, cloudBeam, deckClosure, diffuseIlluminance, litTone } from './cloudBeam'
-import { cloudExposure, cloudFill, tintFill } from './cloudExposure'
+import { atCloudLuminance, limitCloudChroma } from './cloudChromaticity'
+import { cloudFill, tintFill, twilightCloudFill, twilightWeight } from './cloudExposure'
 import { cityLit } from './cityLight'
-import { linearLuminance, srgbRgbToLinear } from './landRadiance'
-import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, transmissionAbove, WHITE } from './cloudLight'
+import { linearLuminance } from './landRadiance'
+import { DECK_GREY, lightOn, RAIN_GREY, referenceCloudBeam, referenceCloudDay, tonesAt, transmissionAbove, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
 import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
-import { mixRgb, scaleLight } from './tone'
+import { mixLight, mixRgb, scaleLight } from './tone'
 import { lowSheetRgb, type Beyond } from './towerStorms'
 import type { LayerOf, SceneBox } from './types'
 
@@ -29,12 +30,14 @@ function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): num
 }
 
 export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): CloudLayerDesc[] {
-  const stops = skyStops(world, box)
+  const stops = skyStops(world, box, false)
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
   const altitude = world.bodies.sun.altitude
-  const day = cloudExposure(world)
+  const day = referenceCloudDay(altitude)
   const sky = cloudFill(world)
+  const twilight = twilightWeight(altitude)
+  const rose = twilight ? twilightCloudFill(world) : sky
   const diffuse = diffuseIlluminance(altitude, world.light.diffuse)
   const out: CloudLayerDesc[] = []
   // The towers last: they stand before the low sheet, so they are seen against it.
@@ -63,25 +66,29 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     const incidence = beamIncidence(fieldLayer, altitude)
     const beam = linearLuminance(solar.direct) * incidence * above
     const relay = linearLuminance(solar.relay)
-    const fill = tintFill(base, sky, (1 - union) * diffuse / (diffuse + beam + relay))
-    // The daylight body already includes total DHI. Replace its spectral share at fixed Y.
-    const body = tintFill(mixRgb(tones.night ?? tones.body, fill, day), solar.relay, relay / (diffuse + relay))
-    const shadeBase = mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed)
-    const shadeRatio = linearLuminance(srgbRgbToLinear(shadeBase)) / linearLuminance(srgbRgbToLinear(base))
-    const shade = scaleLight(body, shadeRatio)
-    // The display meters the beam against its fixed daylight reference and the local diffuse fill.
-    const through = incidence * above * (1 - tones.fade) / (1 + diffuse)
-    const direct = litTone(body, solar.direct, through)
+    const referenceBody = mixRgb(tones.body, base, day)
+    const referenceShade = mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day)
+    const referenceLit = light ? mixRgb(tones.body, referenceCloudBeam(light, tones),
+      light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body
+    const fill = tintFill(referenceBody, sky, (1 - union) * diffuse / (diffuse + beam + relay))
+    const diffuseBody = tintFill(fill, rose, twilight * diffuse / (diffuse + beam + relay))
+    const body = tintFill(diffuseBody, solar.relay, relay / (diffuse + relay))
+    // In a deck with appreciable directional light, the away-facing face keeps more of the cool sky fill.
+    const away = mixLight(body, fill, twilight * beam / (diffuse + beam + relay))
+    const shade = atCloudLuminance(away, referenceShade)
+    const direct = litTone(body, solar.direct, incidence * above * (1 - tones.fade) / (1 + diffuse))
     const lowSun = cloud.litUnderside * beam / (diffuse + beam + relay)
-    const lit = light?.moonRgb
-      ? litTone(direct, srgbRgbToLinear(light.moonRgb),
-        light.strength * above * (1 - tones.fade))
-      : direct
+    const litColour = atCloudLuminance(direct, referenceLit)
+    const lit = light?.moonRgb ? referenceLit : twilight ? mixLight(litColour,
+      limitCloudChroma(litColour, body), twilight) : litColour
     const colours = { body, shade, lit, closed,
       light: light?.sun ? light.strength * light.above : 0, lowSun }
     // By night a deck over the towns gives their light back from its base (an overcast city night is not black).
     const sheet = cloudSheetOf(world, geom, snapshot, colours, cityLit(world, level, fieldLayer.cover))
-    if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover, sheet }
+    if (level === 'low') beyond = {
+      rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover, sheet,
+      referenceRgb: lowSheetRgb({ body: referenceBody, shade: referenceShade, lit: referenceLit }, light),
+    }
     if (sheet) out.push(sheet)
   }
   return out

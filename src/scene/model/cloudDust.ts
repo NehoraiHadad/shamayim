@@ -2,7 +2,7 @@ import { aerosolDepth, airMass, HAZE_SCALE_KM, hazeAbove } from '../../world/sce
 import type { Air } from '../../world/types'
 
 // The sky's dust airlight and this extinction describe the same sunlit veil.
-const dustDepth = (air: Air) => (air.dustAirlight ?? 0) * aerosolDepth(air)[1]
+export const dustDepth = (air: Air) => air.dustAirlight ? air.dustAirlight * aerosolDepth(air)[1] : 0
 const quantize = (t: number) => Math.round(255 * t) / 255
 
 export function sheetDust(air: Air | undefined, baseKm: number, altitudes: readonly number[]): number[] | undefined {

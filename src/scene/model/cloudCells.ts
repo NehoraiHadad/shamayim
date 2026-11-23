@@ -1,13 +1,14 @@
 import { cloudIncident, diffuseIlluminance, litTone, type CloudBeam } from './cloudBeam'
-import { cloudExposure, tintFill } from './cloudExposure'
-import { cloudFade, towerDust } from './cloudDust'
+import { atCloudLuminance } from './cloudChromaticity'
+import { tintFill } from './cloudExposure'
+import { towerDust } from './cloudDust'
 import { linearLuminance } from './landRadiance'
 import { projectCell } from '../../world/field/project'
 import type { FieldCell } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
 import type { CloudSprite, SpriteGenus } from './cloudSprite'
 import { acrossSpeed, pxPerRadAt } from './advect'
-import { litOf, tonesAt, type CloudLight } from './cloudLight'
+import { litOf, referenceCloudBeam, referenceCloudDay, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
 import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
 import { layerKey, skyBoxKey } from './keys'
@@ -130,22 +131,26 @@ function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyo
   const range = Math.hypot(cell.x, cell.y)
   const tones = beforeSheet(tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2)), beyond, x, y - tall / 2)
   const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
-  const day = cloudExposure(world)
-  const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
-    cloudFade(world.air, hazePath(range, cell.baseKm)))
+  const day = referenceCloudDay(world.bodies.sun.altitude)
+  const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.referenceBehind ?? tones.behind,
+    0.85 * world.air.fade(hazePath(range, cell.baseKm)))
   const diffuse = diffuseIlluminance(world.bodies.sun.altitude, world.light.diffuse)
   const relay = solar ? linearLuminance(solar.relay) : 0
   const tint = (rgb: RGB) => solar ? tintFill(rgb, solar.relay, relay / (diffuse + relay)) : rgb
   const body = tint(tones.body)
-  const shade = tint(mixRgb(tones.shade, base, day))
+  const referenceShade = mixRgb(tones.shade, base, day)
+  const shade = tint(referenceShade)
   const direct = solar ? litTone(body, cloudIncident(world, cell.baseKm + cell.vKm / 2), (1 - tones.fade) / (1 + diffuse)) : body
-  const beam = light?.moonRgb ? mixRgb(light.moonRgb, tones.behind, tones.fade) : direct
+  const referenceBeam = referenceCloudBeam(light, tones)
+  const beam = light?.moonRgb ? referenceBeam : atCloudLuminance(direct, referenceBeam)
   const through = towerDust(world.air, range, cell.baseKm, cell.baseKm + cell.vKm)
   // A low sun lights a whole tower's height from the side, as it does the sheet's underside round it.
   const glow = light ? light.under * light.strength * lit.through : 0
   return {
     genus, seed: cell.seed, w, under, tall, lean: 0, tau: cell.tau0,
-    body: mixRgb(mixRgb(body, beam, GLOWING * glow), shade, 0.5 * lit.backlit), shade, lit: beam, litA: lit.litA, toward: lit.toward,
+    body: atCloudLuminance(mixRgb(mixRgb(body, beam, GLOWING * glow), shade, 0.5 * lit.backlit),
+      mixRgb(mixRgb(tones.body, referenceBeam, GLOWING * glow), referenceShade, 0.5 * lit.backlit)),
+    shade, lit: beam, litA: lit.litA, toward: lit.toward,
     silver: Math.max(lit.silver, 0.9 * lit.front), glow,
     rains, share: cell.share, ...(through && { through }),
   }
