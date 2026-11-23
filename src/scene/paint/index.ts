@@ -1,4 +1,6 @@
 import type { LayerDesc, LayerKind, LayerOf } from '../model/types'
+import type { SceneStyle } from '../sceneStyle'
+import { DRAWN } from './drawn'
 import type { Ctx2D, PaintEnv } from './hand'
 import { paintBodies, paintStars } from './bodies'
 import { paintFlash } from './flash'
@@ -37,7 +39,7 @@ export interface Painter<K extends LayerKind = LayerKind> {
   formless?: (desc: LayerOf<K>) => boolean
 }
 
-type Painters = { [K in LayerKind]?: Painter<K> }
+export type Painters = { [K in LayerKind]?: Painter<K> }
 
 /** The form of a layer that is all light (water, far towns): only its place, nothing drawn. */
 const paintNothing = () => {}
@@ -80,6 +82,10 @@ export const PAINTERS: Painters = {
   cloudCells: { form: paintCloudCells },
 }
 
-export function painterOf(desc: LayerDesc): Painter | undefined {
-  return PAINTERS[desc.kind] as Painter | undefined
+/** The layer's painter in a style: the drawn hand's own where it has one, else the real one. */
+export function painterOf(desc: LayerDesc, style: SceneStyle = 'real'): Painter | undefined {
+  return ((style === 'drawn' && DRAWN[desc.kind]) || PAINTERS[desc.kind]) as Painter | undefined
 }
+
+/** What a layer's keys carry of the style: nothing where both hands share the painter, so a switch repaints only what differs. */
+export const styleKey = (desc: LayerDesc, style: SceneStyle) => (style !== 'real' && DRAWN[desc.kind] ? `~${style}` : '')

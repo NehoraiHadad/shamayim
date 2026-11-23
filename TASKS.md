@@ -1077,3 +1077,18 @@ reviews, Claude manages and draws the painters.
       proving page (`dev/cloudSheet.tsx`, `e2e/scene.clouds.mjs`). Tests ported; `falling.test.ts` added.
 - [ ] Piece 2b, fog from the field.
 - [ ] N3e midnight reseed (`briefs/N3e-midnight-anchor.md`) after the rebuild.
+
+## Drawn style: the scene's second hand (branch `claude/drawn-painter`, Claude Opus 5.5, 23 Nov 2026)
+
+The valley painted in two hands from the same model: `real` (unchanged, pixel for pixel) and `drawn` (docs/design/ILLUSTRATION.md,
+`qa/styles/v1b/`). A vote decides and the other hand is deleted. Owner's top criterion: not too abstract, not losing detail
+("simplify the texture and the edge, not the content"). Vote UI, App wiring and text are another agent's.
+
+- [x] Seam: `scene/sceneStyle.ts`; `CanvasScene sceneStyle` → `SceneCanvas` → `useSurface`/`SkyCanvas` → `Surface.style` → cache
+      keys (`~drawn`, only on kinds in `paint/drawn/index.ts`) and paint jobs → `painterOf(desc, style)`, `PaintEnv.style`.
+      Dev: `?style=drawn`; stills `place@hour#drawn` (CI too); `test:perf -- --style=drawn` (CI perf job runs both).
+- [ ] Drawn clouds (`paint/drawn/`): sheets and tower cells as soft layered lit masses
+- [ ] Drawn town: merged lit blocks, roofs, lit/shade planes, windows, vegetation clumps; lessons of
+      `claude/town-style-trial` @ 0a1a04f5 (merge silhouettes first, guaranteed lit/shade gap, foot/top shade per group)
+- [ ] Plane shading, only if the hillside looks foreign under the drawn town
+- [ ] Stills rounds (max 4), perf, comparison sheets

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       stills:
-        description: 'Scene stills, space-separated: place@HH:MM|YYYY-MM-DDTHH:MM[@weather] (empty = the default set)'
+        description: 'Scene stills, space-separated: place@HH:MM|YYYY-MM-DDTHH:MM[@weather][#drawn] (empty = the default set)'
         required: false
         default: ''
 
@@ -91,9 +91,13 @@ jobs:
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
       - name: Perf
         run: npm run test:perf 2>&1 | tee perf.log
+      # The drawn hand must not cost more than the real one (until the styles' vote decides).
+      - name: Perf, drawn hand
+        if: always()
+        run: npm run test:perf -- --style=drawn 2>&1 | tee perf-drawn.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: perf-${{ github.sha }}
-          path: perf.log
+          path: perf*.log
           retention-days: 14
