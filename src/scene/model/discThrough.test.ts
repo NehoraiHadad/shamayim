@@ -32,6 +32,8 @@ function worldAt(at: string, forced: WorldInput['forced'] = null) {
 /** How much of what is behind it a disc's middle hides, as it is painted. */
 function painted(world: WorldState, id: 'bodies.sun' | 'bodies.moon' | 'bodies.aureole', clouds: LayerDesc[] = cloudLayersOf(world, BOX)) {
   const layer = bodyLayers(world, BOX, undefined, clouds).find((found) => found.id === id)
+  // An aureole with none of the sun's light has no layer.
+  if (!layer && id === 'bodies.aureole') return 0
   if (!layer) throw new Error(`no ${id}`)
   // The moon's seas (ellipses) lie off its middle.
   let style = 'rgb(0 0 0)', clear = 1, sea = false
