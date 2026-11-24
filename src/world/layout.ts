@@ -17,6 +17,8 @@ export const LABEL_PX = 12
 export const LABEL_H = LABEL_PX
 /** CSS padding on the height badge. */
 export const BACKING_PAD = 2.5
+/** A badge this far from the dot's ring reads as adjacent; past it a leader joins them (label brief). */
+export const LEADER_GAP = 12
 
 /** A drawn box in scene px (y grows down). */
 export interface Box { left: number; right: number; top: number; bottom: number }

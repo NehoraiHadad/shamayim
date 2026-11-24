@@ -1,4 +1,4 @@
-import { DOT_R, LABEL_H, VISIBLE_BOTTOM, type Point } from './layout'
+import { DOT_R, LABEL_H, LEADER_GAP, VISIBLE_BOTTOM, type Point } from './layout'
 import { SCENE_W } from './sceneBox'
 import { heightLabelBox } from './sceneClearance'
 import { beyondArea, fabricArea } from './labelCoverage'
@@ -55,10 +55,14 @@ export function besideDot(dot: Point, text: string, obstacles: readonly LabelObs
     // Once all coverage is zero, farther rows and columns cannot improve the score.
     // At reference width, add one pixel per pixel of centre offset with no dead zone.
     const gapX = square(Math.max(0, dx - half))
-    const distanceTo = (gap: number) => dx + (gapX === 0 ? gap : Math.sqrt(gapX + square(gap)))
-    if (bestNotes === 0 && bestMarks === 0 && bestFabric === 0 && bestBeyond === 0 && distanceTo(rows[0].gap) >= bestDistance) break
     const near = square(Math.max(0, dx * narrow - half))
     const far = square(Math.max(0, dx * wide - half))
+    const distanceTo = (gap: number) => {
+      // A drawn leader is one more line over the picture: it costs its own length, at the width where it is longest.
+      const leader = Math.sqrt(far + square(gap)) - DOT_R
+      return dx + Math.sqrt(gapX + square(gap)) + (leader > LEADER_GAP ? leader : 0)
+    }
+    if (bestNotes === 0 && bestMarks === 0 && bestFabric === 0 && bestBeyond === 0 && distanceTo(rows[0].gap) >= bestDistance) break
     const columns = scales.map(({ scale, marks, backdrop, protectedZones }) => {
       const l = x * scale - half, r = x * scale + half
       const zones = protectedZones.flatMap(n => {
