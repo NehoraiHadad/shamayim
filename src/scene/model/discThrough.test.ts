@@ -26,14 +26,16 @@ const worldAt = (at: string, forced: WorldInput['forced'] = null) =>
   buildWorld({ ...worldInput(haifa, at as LocalTime, at as LocalTime), forced })
 
 /** How much of what is behind it a disc's middle hides, as it is painted. */
-function painted(world: WorldState, id: 'bodies.sun' | 'bodies.moon') {
+function painted(world: WorldState, id: 'bodies.sun' | 'bodies.moon' | 'bodies.aureole') {
   const layer = bodyLayers(world, BOX).find((found) => found.id === id)
   if (!layer) throw new Error(`no ${id}`)
-  let style = 'rgb(0 0 0)', clear = 1
+  // The moon's seas (ellipses) lie off its middle.
+  let style = 'rgb(0 0 0)', clear = 1, sea = false
   const alphaOf = (css: string) => Number(/\/ ([\d.]+)\)/.exec(css)?.[1] ?? 1)
   const ctx = new Proxy({ globalAlpha: 1 } as Record<string, unknown>, {
     get: (target, name) => name === 'createRadialGradient' ? () => ({ addColorStop: (at: number, css: string) => { if (!at) style = css } })
-      : name === 'fill' ? () => { clear *= 1 - alphaOf(style) * Number(target.globalAlpha) }
+      : name === 'beginPath' ? () => { sea = false } : name === 'ellipse' ? () => { sea = true }
+      : name === 'fill' || name === 'fillRect' ? () => { if (!sea) clear *= 1 - alphaOf(style) * Number(target.globalAlpha) }
         : name in target ? target[name as string] : () => {},
     set: (target, name, value) => {
       if (name === 'fillStyle' && typeof value === 'string') style = value
@@ -66,6 +68,14 @@ it('fades the sun by its own ray, once: whole in the open and through thin cloud
     before = seen
   }
   expect(painted(through(world, Math.exp(-DEEP), 1), 'bodies.sun') * LEAK).toBeLessThanOrEqual(HALF_CODE)
+})
+
+it('lights the air before a cloud with no more of the sun than it lets through', () => {
+  const world = worldAt('2026-11-17T12:00', SHOWERS), ray = (t: number) => painted(through(world, t, 1), 'bodies.aureole')
+  expect(painted(world, 'bodies.aureole')).toBeLessThanOrEqual(HALF_CODE)
+  expect(ray(Math.exp(-DEEP))).toBeLessThanOrEqual(HALF_CODE)
+  expect(ray(1)).toBeGreaterThan(20 * HALF_CODE)
+  expect(ray(0.1)).toBeLessThan(ray(0.2))
 })
 
 it('fades the moon as the sun', () => {

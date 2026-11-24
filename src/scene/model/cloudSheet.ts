@@ -12,7 +12,8 @@ import { seenDepth } from './cloudSheetSeen'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
-import { baseSource, sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
+import { baseSource } from './cloudSheetBase'
+import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
 
 export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
@@ -133,7 +134,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
-  const source = genus === 'ns' ? baseSource(ys, tau, slant, fade, corrected, xs.length, layer.cover) : null
+  const source = genus === 'ns' ? baseSource(grid, layer, seed, angularStep, corrected) : null
   for (const value of source ?? []) fingerprint = Math.imul(fingerprint ^ Math.round(value * 255), 16777619)
   const { body, shade, lit } = colours
   const sheet: LayerOf<'cloudSheet'> = {

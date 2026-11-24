@@ -1,6 +1,5 @@
 import { createClumpSampler } from '../../world/field/clump'
 import { smoothstep } from '../../world/field/genus'
-import { DIFFUSE_EXTINCTION } from './cloudSheetMath'
 import type { FieldLayer, Genus } from '../../world/field/types'
 
 const depthFraction = (tau: number) => tau / (1 + tau)
@@ -38,20 +37,26 @@ export function textureCorrection(texture: number[], tau: number[], weights: num
   }
 }
 
-const scales: Record<Genus, [km: number, stretch: number, deviation: number]> = {
+/** A thick base's own columns (`cloudSheetBase`): what its layer's broad texture, a few km wide, leaves out. */
+type Texture = Genus | 'base'
+
+const scales: Record<Texture, [km: number, stretch: number, deviation: number]> = {
   // N3h places Sc/Ac tone detail below the typical cell diameter.
   // As bands vary on sub-kilometre scales across the wind and merge along it.
   st: [8, 1, 0.15], sc: [0.4, 1, 0.5], as: [0.75, 6, 0.9], ac: [0.2, 1, 0.6],
   cs: [18, 1, 0.1], ci: [2, 6, 0.1], ns: [6, 1, 0.15],
   cu: [1.5, 1, 0.5], cg: [3, 1, 0.5], cb: [6, 1, 0.5],
+  // The narrowest the light does not even out on its way down (some hundreds of metres: Marshak et al. 1995), and a column's
+  // water off its mean by about a seventh. Look.
+  base: [0.5, 1, 0.1],
 }
 
-const periodFor = (genus: Genus) =>
-  scales[genus][0] * (genus === 'sc' || genus === 'ac' ? 1 : 2)
+const periodFor = (genus: Texture) =>
+  scales[genus][0] * (genus === 'sc' || genus === 'ac' || genus === 'base' ? 1 : 2)
 
 const samplers = new Map<string, [ReturnType<typeof createClumpSampler>, ReturnType<typeof createClumpSampler>]>()
 
-export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
+export function sheetTexture(genus: Texture, layer: FieldLayer, seed: number) {
   const [scale, stretch, deviation] = scales[genus]
   const angle = Math.atan2(layer.vel[0], layer.vel[1])
   const sin = Math.sin(angle), cos = Math.cos(angle)
@@ -85,33 +90,3 @@ export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
 
 export const sheetDetail = (genus: Genus, footprint: number) =>
   1 - smoothstep(periodFor(genus) / 2, periodFor(genus), footprint)
-
-/** Look. How much of a thick base's own variation is seen: the light spreads sideways on its way down through the cloud, and
- *  evens out a good half of what the columns would show alone (radiative smoothing, Marshak et al. 1995). */
-const BASE_CONTRAST = 0.4
-
-/**
- * The light of a thick open cloud's base against its mean (1), per node: what comes through a column as deep as that goes as
- * 1 / (1 + kτ), so it falls as its liquid water grows, the more the thicker it is. Nothing of it in a thin cloud, whose
- * tone and veil show its texture, nor in a closing deck; none on the whole, as it is drawn (`ys`).
- */
-export function baseSource(ys: number[], tau: number[], slant: number[], fade: number[], texel: (index: number) => number,
-  cols: number, cover: number): number[] {
-  const contrast = BASE_CONTRAST * (1 - smoothstep(0.6, 0.95, cover)), out = new Array<number>(ys.length * cols).fill(0)
-  const thick = out.slice()
-  let sum = 0, area = 0
-  if (contrast) for (let row = 0; row < ys.length; row++) {
-    const height = (ys[Math.min(ys.length - 1, row + 1)] - ys[Math.max(0, row - 1)]) / 2
-    for (let i = row * cols; i < (row + 1) * cols; i++) {
-      const depth = DIFFUSE_EXTINCTION * tau[i] * slant[row] * (1 - fade[row])
-      if (!depth) continue
-      // Once for how the light moves with the depth, once for the share of it the cloud's own tone no longer moves with.
-      thick[i] = (depth / (1 + depth)) ** 2
-      out[i] = -Math.log(Math.max(0.1, texel(i)))
-      sum += height * thick[i] * out[i]
-      area += height * thick[i]
-    }
-  }
-  const mean = area && sum / area
-  return out.map((value, i) => 1 + contrast * thick[i] * (value - mean))
-}

@@ -15,15 +15,14 @@ export function paintBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
 }
 
 /**
- * The aureole: forward-scattered light round the limb, wide in haze, taken by the cloud in front (its own layer over the
- * clouds, C9: the air between the eye and any cloud glows too).
+ * The aureole: forward-scattered light round the limb, wide in haze, as much as the cloud leaves of the sun's light (its
+ * own layer over the clouds, C9: the air between the eye and any cloud glows too).
  */
 function paintAureole(ctx: Ctx2D, d: Disc) {
   const { x, y, r } = d
-  const clear = 1 - d.veil
   for (const [reach, a] of [[2.6, 0.2], [1.6, 0.42]] as const) {
     const g = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * reach)
-    g.addColorStop(0, css(d.halo, a * d.aureole * clear))
+    g.addColorStop(0, css(d.halo, a * d.aureole))
     g.addColorStop(1, css(d.halo, 0))
     ctx.fillStyle = g
     ctx.fillRect(x - r * reach, y - r * reach, 2 * r * reach, 2 * r * reach)

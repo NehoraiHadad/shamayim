@@ -32,13 +32,14 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
   if (!sun.up) return null
   const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
-  const coin = coinOf(aerosol)
+  const coin = coinOf(aerosol), veil = veilOf(world), { sun: through } = world.light.through
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)
   const limb: RGB = mixRgb([rgb[0] * 0.86, rgb[1] * 0.78, rgb[2] * 0.66], COIN, coin)
   return {
-    x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, r: SUN_R, rgb, veil: veilOf(world), core, limb, halo: rgb,
-    aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin), flatten: sunFlattening(sun.altitude), coin,
-    shown: shownThrough(world.light.through.sun),
+    x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, r: SUN_R, rgb, veil, core, limb, halo: rgb,
+    // The air before a cloud that hides the sun lies in its shadow; no more than the mean sky leaves, as the disc.
+    aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin) * Math.min(1 - veil, through), flatten: sunFlattening(sun.altitude), coin,
+    shown: shownThrough(through),
   }
 }
 
@@ -88,7 +89,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
       bounds: { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
-        Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50), Math.round(sun.shown * 255)) })
+        Math.round(sun.flatten * 100), Math.round(sun.coin * 50), Math.round(sun.shown * 255)) })
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never
     // reads as a black coin in a bright ring. Under the near rain and the sky's grains.
@@ -97,7 +98,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       out.push({ kind: 'bodies', id: 'bodies.aureole', surface: 'sky', z: AUREOLE_Z, sun, moon: null, part: 'aureole',
         bounds: { x: Math.floor(sun.x - reach), y: Math.floor(sun.y - reach), w: 2 * reach + 1, h: 2 * reach + 1 },
         key: layerKey('aureole', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.halo), Math.round(sun.veil * 100),
-          Math.round(sun.aureole * 50)) })
+          Math.round(sun.aureole * 255)) })
     }
   }
   return out

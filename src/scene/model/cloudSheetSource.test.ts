@@ -5,17 +5,15 @@ import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import type { WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import type { Ctx2D, PaintEnv } from '../paint/shared/base/hand'
-import { paintDrawnSheet } from '../paint/drawn/cloudSheet'
-import { paintCloudSheet } from '../paint/real/cloudSheet'
+import { PAINTERS, SCENE_STYLES, type SceneStyle } from '../paint/painters'
 import { cloudLayersOf } from './cloudLayers'
 import type { LayerOf, SceneBox } from './types'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const SHOWERS = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,
   windDirection: 250, humidity: 80 }
-/** The thick interior's spread (L*) before this, flat, and main's: no more than it. */
-const FLAT = 0.35, MAIN = 0.97
-const styles = { real: paintCloudSheet, drawn: paintDrawnSheet }
+/** The spread (L*) of the thick interior main's painter had, and how much of it is wanted back. */
+const MAIN = 0.97, KEPT = 0.6
 let world: WorldState
 beforeAll(async () => {
   stubPublicFetch()
@@ -29,31 +27,31 @@ afterAll(() => vi.unstubAllGlobals())
 const sheetOf = (lattice: string) =>
   cloudLayersOf(world, BOX).find((layer): layer is LayerOf<'cloudSheet'> => layer.kind === 'cloudSheet' && layer.lattice === lattice)!
 
-/** The L* of a sheet's thick pixels as a style paints it, over the same sky. */
-function lightness(sheet: LayerOf<'cloudSheet'>, paint: typeof paintCloudSheet) {
+/** The L* of a sheet's pixels in the sky's upper half (lower, it is its far source) as a style paints it; none where it is thin. */
+function lightness(sheet: LayerOf<'cloudSheet'>, style: SceneStyle) {
   let image = { data: new Uint8ClampedArray(), width: 0, height: 0 }
   const scratch = { createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4), width, height }),
     putImageData: (next: typeof image) => { image = next } }
-  paint({ save() {}, restore() {}, drawImage() {} } as unknown as Ctx2D, sheet,
+  PAINTERS[style].cloudSheet.form({ save() {}, restore() {}, drawImage() {} } as unknown as Ctx2D, sheet,
     { canvas: (w: number, h: number) => ({ canvas: {}, ctx: scratch, w, h }) } as unknown as PaintEnv)
-  const values: number[] = [], linear = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  // The upper half of the sky: lower, the sheet is its far source.
-  for (let at = 0; at < image.width * 210 / 2 * 4; at += 4) if (image.data[at + 3] >= 234) {
-    const [r, g, b] = [0, 1, 2].map((k) => linear(image.data[at + k] / 255))
-    values.push(116 * Math.cbrt(0.2126 * r + 0.7152 * g + 0.0722 * b) - 16)
-  }
-  const mean = values.reduce((sum, v) => sum + v, 0) / values.length
-  return { count: values.length, mean, deviation: Math.sqrt(values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length) }
+  const linear = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  return Array.from({ length: image.width * Math.floor(image.height / 2) }, (_, i) => {
+    const [r, g, b, a] = image.data.slice(i * 4, i * 4 + 4)
+    return a < 234 ? NaN : 116 * Math.cbrt(0.2126 * linear(r / 255) + 0.7152 * linear(g / 255) + 0.0722 * linear(b / 255)) - 16
+  })
 }
 
-describe.each(Object.entries(styles))('a thick shower cloud, %s', (style, paint) => {
+describe.each(SCENE_STYLES)('a thick shower cloud, %s', (style) => {
   it('has a base that is not one flat grey, as bright on the whole as it was', () => {
-    const sheet = sheetOf('mid'), now = lightness(sheet, paint), flat = lightness({ ...sheet, source: undefined }, paint)
-    console.info('SOURCE', style, JSON.stringify({ now, flat }))
-    expect(now.count).toBeGreaterThan(2000)
-    expect(now.deviation).toBeGreaterThanOrEqual(Math.hypot(flat.deviation, 0.55))
-    expect(now.deviation).toBeLessThanOrEqual(Math.hypot(Math.max(flat.deviation, FLAT), MAIN))
-    expect(Math.abs(now.mean - flat.mean)).toBeLessThanOrEqual(1)
+    const sheet = sheetOf('mid'), now = lightness(sheet, style), flat = lightness({ ...sheet, source: undefined }, style)
+    const change = now.map((value, i) => value - flat[i]).filter((value) => !Number.isNaN(value))
+    const mean = change.reduce((sum, v) => sum + v, 0) / change.length
+    const spread = Math.sqrt(change.reduce((sum, v) => sum + (v - mean) ** 2, 0) / change.length)
+    console.info('SOURCE', style, JSON.stringify({ count: change.length, mean, spread }))
+    expect(change.length).toBeGreaterThan(2000)
+    expect(spread).toBeGreaterThanOrEqual(KEPT * MAIN)
+    expect(spread).toBeLessThanOrEqual(MAIN)
+    expect(Math.abs(mean)).toBeLessThanOrEqual(1)
   })
 })
 

@@ -12,7 +12,7 @@ export interface Arch { x: number; y: number; rx: number; shadow: number; belt: 
 export interface Star { x: number; y: number; r: number; alpha: number }
 /**
  * The sun's disc (C6): its core and darker, redder limb (limb darkening), squashed by refraction (`flatten`), with a close
- * aureole (`halo`, strength `aureole`) of forward-scattered light. `veil` 0–1: the cloud in front softens and dims it.
+ * aureole (`halo`, strength `aureole` after the cloud in front) of forward-scattered light. `veil` 0–1: the cloud in front softens and dims it.
  * `coin`: dust turns it into a flat pale coin with no halo. `shown`: its own contrast before the cloud is painted over it.
  */
 export interface Disc { x: number; y: number; r: number; rgb: RGB; veil: number; core: RGB; limb: RGB; halo: RGB; aureole: number;

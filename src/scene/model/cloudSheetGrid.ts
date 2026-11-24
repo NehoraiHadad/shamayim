@@ -27,7 +27,7 @@ export function sheetAlphaAt({ xs, ys, alpha }: LayerOf<'cloudSheet'>, x: number
   return top + fy * (at(row + 1) - top)
 }
 
-interface Grid {
+export interface Grid {
   xs: number[]
   ys: number[]
   altitudes: number[]
