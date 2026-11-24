@@ -76,6 +76,6 @@ export default defineConfig({
     environment: 'node',
     // The scene-model suites build whole worlds from fixtures (1-5 s a test on a shared CI runner); speed is gated by test:perf, not here.
     testTimeout: 30_000,
-    include: ['src/**/*.test.ts', 'scripts/city/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/city/**/*.test.ts', 'scripts/village/**/*.test.ts'],
   },
 })
