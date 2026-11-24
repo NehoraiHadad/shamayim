@@ -1316,4 +1316,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             on canopy crowns (no canopy lamp), the `water` lamp, own palms. Written down: discs over Ein Gedi (likely the `orchard` glyph), the
             town tree's lean formula twice, dashed foam on Haifa's spit, bodies over the sea without its grain, the sea's light key
             without the sparks' places (as on main). Codex review: 5 findings, 3 fixed
+      - [~] B, the ground (`claude/real-plane`): soil and scrub patches, small relief the lamp rakes, gullies as folds (`paint/real/land/`),
+            through one optional hook in `planeTexel.ts`. Dropped: the day lift (the land's noon target), specks, terraces. Written down: the
+            ground in an overcast stays flat, dust leaves the foreground soft, a fold may reach 2 px into a label's zone. Codex review:
+            3 findings, 2 fixed
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
