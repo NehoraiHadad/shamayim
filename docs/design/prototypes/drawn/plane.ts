@@ -3,7 +3,6 @@ import { shadowBeam } from '../../../../src/scene/model/planeField'
 import { labOf, rgbOfLab } from '../../../../src/scene/model/tone'
 import type { LayerOf, RGB } from '../../../../src/scene/model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
-import { soften } from '../../../../src/scene/paint/shared/base/soften'
 import { paintVegFields, paintVegRows, paintVegStrata } from '../../../../src/scene/paint/shared/land/landVegetation'
 import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb, type PlaneTexelCtx } from '../../../../src/scene/paint/shared/land/planeTexel'
 import { mapInk, receiverBrush } from '../../../../src/scene/paint/shared/land/receiverBrush'
@@ -11,6 +10,7 @@ import { vegetationLight } from '../../../../src/scene/paint/shared/land/vegetat
 import { TEXEL } from '../../../../src/scene/model/planeBands'
 import { classesOf } from './classes'
 import { traceOver } from './contour'
+import { ease } from './ease'
 import { groundDabs, groundFields, groundKey, groundLines } from './groundMarks'
 import { pigment } from './palette'
 
@@ -61,20 +61,24 @@ function lay(ctx: Ctx2D, desc: LayerOf<'plane'>, beam: RGB) {
 /** The pots' shapes over the plane's box; gives back the colour a cell was laid in. */
 function shapes(ctx: Ctx2D, t: PlaneTexelCtx, k: number, beam: RGB): (x: number, y: number) => RGB {
   const cols = t.wPx, rows = t.hPx, { bounds, crestY, footY } = t
-  const buf = new Float32Array(cols * rows * 4), on = new Uint8Array(cols * rows)
+  const parts = [0, 1, 2].map(() => new Float32Array(cols * rows)), on = new Uint8Array(cols * rows)
   for (let j = 0, n = 0; j < rows; j++) {
     const y = bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < cols; i++, n++) {
       const deep = Math.min(1, Math.max(0, (y - crestY[i]) / 40)), x = bounds.x + (i + 0.5) * TEXEL
       const bx = x + deep * BENT * (fractal(BENT_SEED, x, y, 0.012, 0.03, 2) - 0.5), bi = Math.min(cols - 1, Math.max(0, Math.floor((bx - bounds.x) / TEXEL)))
       const lab = labOf(shadeTexelSrgb(t, samplePlaneTexel(t, bi, bx, y), 1, beam))
-      buf.set([lab.l, lab.a, lab.b, 1], n * 4)
+      parts[0][n] = lab.l
+      parts[1][n] = lab.a
+      parts[2][n] = lab.b
       on[n] = y >= crestY[i] - TEXEL && y <= footY[i] + TEXEL ? 1 : 0
     }
   }
-  soften(buf, cols, rows, Array(rows).fill(GATHER * 1.4), Array(rows).fill(GATHER * 0.8))
   const lab = new Float32Array(cols * rows * 3)
-  for (let n = 0; n < on.length; n++) lab.set(buf.subarray(n * 4, n * 4 + 3), n * 3)
+  parts.forEach((part, m) => {
+    ease(part, cols, rows, Array<number>(rows).fill(GATHER * 1.4), Array<number>(rows).fill(GATHER * 0.8))
+    for (let n = 0; n < on.length; n++) lab[n * 3 + m] = part[n]
+  })
   const { label, pots, count } = classesOf(lab, on, k)
   const whole = count.reduce((a, b) => a + b, 0) || 1
   const mean = count.reduce((sum, c, i) => sum + c * pots[i * 3], 0) / whole
@@ -98,8 +102,7 @@ function shapes(ctx: Ctx2D, t: PlaneTexelCtx, k: number, beam: RGB): (x: number,
 
 /** Where a pot lies, its edges eased over a cell or two. */
 function indicator(label: Uint8Array, c: number, cols: number, rows: number): Float32Array {
-  const buf = new Float32Array(cols * rows * 4)
-  for (let n = 0; n < label.length; n++) buf[n * 4] = label[n] === c ? 1 : 0
-  soften(buf, cols, rows, Array(rows).fill(1.1), Array(rows).fill(0.7))
-  return Float32Array.from({ length: label.length }, (_, n) => buf[n * 4])
+  const buf = Float32Array.from(label, (v) => (v === c ? 1 : 0))
+  ease(buf, cols, rows, Array<number>(rows).fill(1.1), Array<number>(rows).fill(0.7))
+  return buf
 }

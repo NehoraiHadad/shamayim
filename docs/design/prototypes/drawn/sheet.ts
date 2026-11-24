@@ -3,7 +3,6 @@ import type { LayerOf, RGB } from '../../../../src/scene/model/types'
 import { addLight } from '../../../../src/scene/model/tone'
 import { toneOf } from '../../../../src/scene/paint/shared/cloud/deck'
 import { css, mix, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
-import { soften } from '../../../../src/scene/paint/shared/base/soften'
 import { fractal } from '../../../../src/scene/paint/shared/base/core'
 import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
@@ -12,10 +11,11 @@ import { paintDeck } from './deck'
 import { farRows } from './farRows'
 import { billowed, inMasses, keyline } from './billow'
 import { paintCaps } from './caps'
-import { feet } from './feet'
+import { ease } from './ease'
+import { footCuts, type Feet } from './feet'
 import { capInks, cloudInks, lightOf } from './inks'
 import { lobesOf } from './lobes'
-import { wash } from './wash'
+import { layWash, washOf } from './wash'
 
 /*
  * A cloud sheet as a print. Broken cloud is billowed blocks with caps (`billow`), where the model puts them, and far off low
@@ -32,8 +32,8 @@ const LOBE = 2.3, LOBE_MIN = 5, LOBE_MAX = 42
 const NEAR = 14, ROWS = 0.24
 /** What a lobe's place in its mass, and the model's own tone there, do to its light. */
 const SIDE = 0.6, TONE = 0.9, TONE_MOST = 0.16
-/** The most a foot's ink rises (px, and against its row). */
-const FOOT = 34, FOOT_ROWS = 2.6, FOOTS = 0.7
+/** The most a foot's ink rises (px, and against its row), how strong it is, what it takes from a cap standing in it. */
+const FOOT = 34, FOOT_ROWS = 2.6, FOOTS = 0.7, SUNK = 0.4
 /** How far the light is eased against its row's spacing, and at most (cells). */
 const LIGHT = 0.18, LIGHT_MOST = 2.5
 /** How much of a closed deck's ink lies in its thin places. */
@@ -48,14 +48,12 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pain
   if (!f) return
   const cols = Math.ceil(f.width / CELL) + 1, rows = Math.ceil(f.height / CELL) + 1, seed = hashId(desc.id)
   const frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }
-  const wide = new Float32Array(f.alpha.length * 4), ease = f.spacing.map((s) => EASE * s)
-  f.alpha.forEach((a, n) => { wide[n * 4] = a })
+  const alpha = Float32Array.from(f.alpha), eased = f.spacing.map((s) => EASE * s)
   const grid = (): Grid => ({ cols, rows, at: new Float32Array(cols * rows).fill(-9) })
   // The model's rows are far apart overhead: their steps are eased before an edge is cut along them.
   const far = f.spacing.map((s) => Math.max(0, 1 - s / NEAR))
-  soften(wide, f.cols, f.rows, ease.map((v, n) => (1.4 * v + FAR * far[n]) / (f.width / (f.cols - 1))), ease.map((v) => v / (f.height / (f.rows - 1))))
+  ease(alpha, f.cols, f.rows, eased.map((v, n) => (1.4 * v + FAR * far[n]) / (f.width / (f.cols - 1))), eased.map((v) => v / (f.height / (f.rows - 1))))
   const edge = grid(), side = grid(), tone = grid()
-  const alpha = f.alpha.map((_, n) => wide[n * 4])
   const broken = f.open > OPEN && desc.lattice !== 'high', rowsOf = broken ? farRows(f, alpha, seed) : null
   let solid = 0, tones = 0, city = 0
   for (let j = 0; j < rows; j++) {
@@ -88,15 +86,19 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pain
     const loops = billowed(edge, 0, frame, (y) => Math.min(26, Math.max(3.5, 1.5 * rowAt(y))), seed)
     const up = side.at.map((v, n) => lightOf(t, 0.5 + SIDE * (0.7 + 0.3 * t.heavy) * v - Math.min(TONE_MOST, Math.max(-TONE_MOST, TONE * (tone.at[n] - mean)))))
     const spacing = Array.from({ length: rows }, (_, j) => f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])
-    wash(ctx, loops, edge, -8, up, spacing.map((s) => Math.min(LIGHT_MOST, LIGHT * s)), frame, t, env)
+    const foot: Feet = { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: FOOTS * (0.6 + 0.4 * t.heavy), seed, most: (y) => Math.min(FOOT * (1 + t.heavy), FOOT_ROWS * rowAt(y)) }
+    const ink = washOf(loops, edge, -8, up, spacing.map((s) => Math.min(LIGHT_MOST, LIGHT * s)), frame, t, foot, env)
     const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * spacing[j])) / CELL
     const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
-    inMasses(ctx, loops, () => paintCaps(ctx, lobes, {
-      x: f.x0, y: f.y0, step: CELL, seed,
-      ink: (l) => capInks(t, up[l.n]),
-      line: (l) => nearAt(f.y0 + l.y * CELL) * t.line,
-    }))
-    feet(ctx, loops, frame, { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: FOOTS * (0.6 + 0.4 * t.heavy), seed, most: (y) => Math.min(FOOT * (1 + t.heavy), FOOT_ROWS * rowAt(y)) }, env)
+    inMasses(ctx, loops, () => {
+      layWash(ctx, ink, edge, frame)
+      paintCaps(ctx, lobes, {
+        x: f.x0, y: f.y0, step: CELL, seed,
+        ink: (l) => capInks(t, up[l.n] - SUNK * ink.under[l.n]),
+        line: (l) => nearAt(f.y0 + l.y * CELL) * t.line,
+      })
+      footCuts(ctx, loops, foot)
+    })
     keyline(ctx, loops, 0.55, css(t.key, 0.42 * t.line), seed)
   } else {
     const loops = billowed(edge, 0, frame, (y) => Math.min(24, Math.max(4, 1.6 * rowAt(y))), seed, true, 0.6)

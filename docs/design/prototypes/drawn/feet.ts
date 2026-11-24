@@ -1,56 +1,56 @@
 import { rng } from '../../../../src/scene/paint/shared/base/core'
-import type { Ctx2D, PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
-import { soften } from '../../../../src/scene/paint/shared/base/soften'
+import type { Ctx2D } from '../../../../src/scene/paint/shared/base/hand'
 import type { RGB } from '../../../../src/scene/model/types'
-import { inMasses, type Outline } from './billow'
+import type { Outline } from './billow'
 import { carve, type P } from './carve'
 import type { Frame } from './contour'
+import { ease } from './ease'
 
 /*
  * The undersides of a mass: ink wiped up from every edge that looks down, as one smooth field, and a few level cuts in the
  * lowest part. Pure: the outlines and the seed.
  */
 
-/** Field px; how deep a foot's ink goes against the cloud over it; how it falls off; how it is eased (cells). */
-const CELL = 2, DEEP = 0.4, FALL = 1.3, EASE = [2.5, 0.7] as const
+/** How deep a foot's ink goes against the cloud over it; how it falls off; how it is eased (cells). */
+const DEEP = 0.4, FALL = 1.3, EASE = [2.5, 0.7] as const
 /** The least height of a mass whose foot is cut (px). */
 const CUT = 14
 
 /** The foot's ink, its cuts' ink, how strong, and the most it rises at a height (px). */
 export interface Feet { ink: RGB; line: string; strength: number; seed: number; most: (y: number) => number }
 
-export function feet(ctx: Ctx2D, loops: readonly Outline[], f: Frame, o: Feet, env: PaintEnv): void {
-  const cols = Math.ceil(f.w / CELL) + 1, rows = Math.ceil(f.h / CELL) + 1, buf = new Float32Array(cols * rows * 4)
+/** How much foot ink lies on each cell of a frame. */
+export function footField(loops: readonly Outline[], f: Frame, cols: number, rows: number, o: Feet): Float32Array {
+  const buf = new Float32Array(cols * rows), sx = f.w / (cols - 1), sy = f.h / (rows - 1)
   for (const l of loops) {
-    for (const [i, a, b] of runs(l, f.x, cols)) {
+    for (const [i, a, b] of runs(l, f.x, cols, sx)) {
       const deep = Math.min(o.most(b), DEEP * (b - a))
       if (deep < 1.5) continue
-      for (let j = Math.max(0, Math.floor((b - deep - f.y) / CELL)); j < Math.min(rows, (b - f.y) / CELL + 2); j++) {
-        const n = (j * cols + i) * 4 + 3
-        buf[n] = Math.max(buf[n], Math.min(1, Math.max(0, 1 - (b - f.y - j * CELL) / deep)) ** FALL)
+      for (let j = Math.max(0, Math.floor((b - deep - f.y) / sy)); j < Math.min(rows, (b - f.y) / sy + 2); j++) {
+        const n = j * cols + i
+        buf[n] = Math.max(buf[n], Math.min(1, Math.max(0, 1 - (b - f.y - j * sy) / deep)) ** FALL)
       }
     }
   }
-  soften(buf, cols, rows, Array<number>(rows).fill(EASE[0]), Array<number>(rows).fill(EASE[1]))
-  const wash = env.canvas(cols, rows), image = wash.ctx.createImageData(cols, rows), [r, g, b] = o.ink.map((c) => Math.round(c * 255))
-  for (let n = 0; n < cols * rows; n++) image.data.set([r, g, b, Math.min(1, buf[n * 4 + 3] * o.strength) * 255], n * 4)
-  wash.ctx.putImageData(image, 0, 0)
-  inMasses(ctx, loops, () => {
-    ctx.imageSmoothingEnabled = true
-    ctx.drawImage(wash.canvas, 0, 0, cols, rows, f.x - CELL / 2, f.y - CELL / 2, cols * CELL, rows * CELL)
-    ctx.fillStyle = o.line
-    loops.forEach(({ shape }, l) => cuts(ctx, shape, o.seed + l * 211))
-  })
+  ease(buf, cols, rows, Array<number>(rows).fill(EASE[0]), Array<number>(rows).fill(EASE[1]))
+  for (let n = 0; n < buf.length; n++) buf[n] = Math.min(1, buf[n] * o.strength)
+  return buf
+}
+
+/** The few level cuts in the lowest part of each mass (the caller clips to them). */
+export function footCuts(ctx: Ctx2D, loops: readonly Outline[], o: Feet): void {
+  ctx.fillStyle = o.line
+  loops.forEach(({ shape }, l) => cuts(ctx, shape, o.seed + l * 211))
 }
 
 /** Each column's runs of cloud, top and foot, from the outline itself. */
-function runs({ shape, holes }: Outline, x0: number, cols: number): [number, number, number][] {
+function runs({ shape, holes }: Outline, x0: number, cols: number, step: number): [number, number, number][] {
   const cross: number[][] = Array.from({ length: cols }, () => [])
   for (const s of [shape, ...holes]) {
     s.forEach(([ax, ay], n) => {
       const [bx, by] = s[(n + 1) % s.length], from = Math.min(ax, bx), to = Math.max(ax, bx)
-      for (let i = Math.max(0, Math.ceil((from - x0) / CELL)); i < cols && x0 + i * CELL < to; i++) {
-        cross[i].push(ay + ((by - ay) * (x0 + i * CELL - ax)) / (bx - ax))
+      for (let i = Math.max(0, Math.ceil((from - x0) / step)); i < cols && x0 + i * step < to; i++) {
+        cross[i].push(ay + ((by - ay) * (x0 + i * step - ax)) / (bx - ax))
       }
     })
   }

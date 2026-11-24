@@ -6,10 +6,10 @@ import { whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { css, mix, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
 import { billowed, inMasses, keyline } from './billow'
 import { paintCaps } from './caps'
-import { feet } from './feet'
+import { footCuts, type Feet } from './feet'
 import { capInks, cloudInks, lightOf } from './inks'
 import { lobesOf } from './lobes'
-import { wash } from './wash'
+import { layWash, washOf } from './wash'
 
 /*
  * A tower as a print: the model's column, shoulders, base and anvil as one billowed block, its caps lit on their tops and
@@ -23,8 +23,8 @@ const CELLS = 10000, LOBE = 0.3, LOBE_MAX = 30
 const ACROSS = 0.75, UP = 1.05, BASE = 0.1, DARK = 0.9
 /** What a cap's place in its mass does to its light. */
 const SIDE = 0.75
-/** How heavy a raining tower is at least; its foot's most, against its width. */
-const RAINS = 0.6, FOOT = 0.4, FOOTS = 0.7
+/** How heavy a raining tower is at least; its foot's most, against its width, how strong, what it takes from a cap. */
+const RAINS = 0.6, FOOT = 0.4, FOOTS = 0.7, SUNK = 0.4
 /** How far the light is eased (cells). */
 const LIGHT = 2.5
 
@@ -53,12 +53,16 @@ function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv) 
   const most = Math.min(LOBE_MAX, Math.max(5, LOBE * s.w)), line = Math.min(1, s.w / 90) * t.line
   const loops = billowed(grid, 0, frame, () => most * 0.5, s.seed, true)
   const light = side.map((v) => lightOf(t, 0.5 + SIDE * (0.6 + 0.4 * t.heavy) * v))
-  wash(ctx, loops, grid, -EDGE, light, Array<number>(rows).fill(LIGHT), frame, t, env)
-  inMasses(ctx, loops, () => paintCaps(ctx, lobesOf({ cols, rows, at, side, most: () => most / step, seed: s.seed }), {
-    x: frame.x, y: frame.y, step, seed: s.seed,
-    ink: (l) => capInks(t, light[l.n]),
-    line: () => line,
-  }))
-  feet(ctx, loops, frame, { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: FOOTS * (0.6 + 0.4 * t.heavy), seed: s.seed, most: () => FOOT * s.w }, env)
+  const foot: Feet = { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: FOOTS * (0.6 + 0.4 * t.heavy), seed: s.seed, most: () => FOOT * s.w }
+  const ink = washOf(loops, grid, -EDGE, light, Array<number>(rows).fill(LIGHT), frame, t, foot, env)
+  inMasses(ctx, loops, () => {
+    layWash(ctx, ink, grid, frame)
+    paintCaps(ctx, lobesOf({ cols, rows, at, side, most: () => most / step, seed: s.seed }), {
+      x: frame.x, y: frame.y, step, seed: s.seed,
+      ink: (l) => capInks(t, light[l.n] - SUNK * ink.under[l.n]),
+      line: () => line,
+    })
+    footCuts(ctx, loops, foot)
+  })
   keyline(ctx, loops, 0.55, css(t.key, 0.42 * line), s.seed)
 }
