@@ -1,8 +1,20 @@
+import type { CaptionTone } from '../../../theme/captionTone'
 import { MARK_W } from '../../../world/caption/benchmark'
 import type { SceneStyle } from '../../paint/painters'
+import type { CaptionHand } from './hands'
 import { pencilPath } from './strokes'
 
 interface Props { x: number; y: number; hand: SceneStyle }
+
+/** A rule in the hand's strokes over a soft halo of its own. */
+export function Rule({ points, hand, tone }: { points: readonly (readonly [number, number])[]; hand: CaptionHand; tone: CaptionTone }) {
+  return (
+    <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path d={hand.rule[0].path(points)} stroke={tone.halo} strokeWidth={2.4} strokeOpacity={.3} />
+      {hand.rule.map((stroke, i) => <path key={i} d={stroke.path(points)} stroke={tone.ink} strokeWidth={stroke.width} strokeOpacity={stroke.alpha} />)}
+    </g>
+  )
+}
 
 /** The real spot, quiet: a small point of the accent in a fine dark ring. */
 export function SpotDot({ x, y, hand, fill, ring }: Props & { fill: string; ring: string }) {
@@ -12,17 +24,15 @@ export function SpotDot({ x, y, hand, fill, ring }: Props & { fill: string; ring
         fill={fill} stroke={ring} strokeWidth={1.1} strokeOpacity={.85} strokeLinejoin="round" />
 }
 
-/** The survey benchmark: a small triangle on the ground round its point. */
-export function CaptionMark({ x, y, hand, ink, halo }: Props & { ink: string; halo: string }) {
-  const w = MARK_W / 2 - .5, top = y - 4, foot = y + 3.6
-  const corners = [[x - w, foot], [x, top], [x + w, foot], [x - w, foot]] as const
-  const ruled = `M${corners.map(c => c.join(' ')).join('L')}Z`
+/** The survey benchmark as it is cut in stone: a level bar and the three strokes that meet under it. */
+export function CaptionMark({ x, y, hand, tone }: Props & { tone: CaptionTone }) {
+  const half = MARK_W / 2 - .4, top = y - 3.6, foot = y + 3.8
+  const strokes = [[[x - half, top], [x + half, top]], [[x, top + 1], [x - 2.5, foot]], [[x, top + 1], [x, foot]], [[x, top + 1], [x + 2.5, foot]]] as const
+  const d = strokes.map(([a, b], i) => hand === 'real' ? `M${a.join(' ')}L${b.join(' ')}` : pencilPath(i)([a, b])).join('')
   return (
-    <g fill="none" strokeLinejoin="round" strokeLinecap="round">
-      <path d={ruled} stroke={halo} strokeWidth={3} strokeOpacity={.72} fill={halo} fillOpacity={.35} />
-      {hand === 'real' ? <path d={ruled} stroke={ink} strokeWidth={1.1} />
-        : corners.slice(1).map((c, i) => <path key={i} d={pencilPath(i)([corners[i], c])} stroke={ink} strokeWidth={1.1} />)}
-      <circle cx={x} cy={foot - 2.4} r={.9} fill={ink} />
+    <g fill="none" strokeLinecap="round">
+      <path d={d} stroke={tone.halo} strokeWidth={3} opacity={.7} style={{ filter: 'blur(.8px)' }} />
+      <path d={d} stroke={tone.ink} strokeWidth={1.05} />
     </g>
   )
 }

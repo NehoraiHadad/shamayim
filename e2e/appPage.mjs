@@ -3,11 +3,11 @@ import path from 'node:path'
 import { utcOf } from '../src/astro/utc.ts'
 import { addMinutes, minutesBetweenLocal } from '../src/domain/minutes.ts'
 import { nowIn } from '../src/domain/now.ts'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../src/test/scenePlaces.ts'
+import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../src/test/scenePlaces.ts'
 import { SCENE_W } from '../src/world/sceneBox.ts'
 import { DEFAULT_DAY, forecastForDay, root } from './harness.mjs'
 
-const places = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES]
+const places = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES, ...VILLAGE_PLACES]
 
 function fixtureFor(place, day, groundM) {
   const forecast = JSON.parse(forecastForDay(day, place.id))

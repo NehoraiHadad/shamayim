@@ -20,7 +20,7 @@ function haloFor(ink: string, from: string, to: string) {
 export function captionTone(palette: SkyLight, on: 'sky' | 'land'): CaptionTone {
   const { ink, ridgeNear } = palette
   if (on === 'land') return { ink, halo: ridgeNear }
-  const sky = mix(palette.mid, palette.horizon, .6)
+  const sky = mix(palette.mid, palette.horizon, .8)
   return ratio(ridgeNear, sky) >= ratio(ink, sky)
     ? { ink: ridgeNear, halo: haloFor(ridgeNear, sky, '#FFFFFF') }
     : { ink, halo: haloFor(ink, sky, '#000000') }

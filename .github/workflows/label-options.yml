@@ -17,7 +17,7 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
   PLACES: karmei-tzur haifa jerusalem tel-aviv rosh-pina
-  EXTRA: bardala@12:00 ein-gedi@12:00 masada@12:00 tiberias@12:00 mitzpe-ramon@12:00 haifa@17:00 jerusalem@12:00@dust haifa@12:00@fog
+  EXTRA: bardala@12:00 ein-gedi@12:00 masada@12:00 tiberias@12:00 ramon-crater@12:00 neve-zohar@12:00 haifa@17:00 jerusalem@12:00@dust haifa@12:00@fog
 jobs:
   stills:
     runs-on: ubuntu-latest

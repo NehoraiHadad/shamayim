@@ -4,6 +4,8 @@ import type { OutsideView, Pt } from '../types'
 
 /** Houses this far apart (px) still read as one settlement. */
 const LINK_PX = 14
+/** A settlement farther than this from the spot is not round it. */
+const ROUND_PX = 14
 /** Half the window (px) the feet are followed over. */
 const FOLLOW = 12
 
@@ -36,7 +38,7 @@ export function ownExtent(view: Pick<OutsideView, 'skyline'>, spotX: number): Ow
   }
   const away = ([a, b]: [number, number]) => Math.max(a - spotX, spotX - b, 0)
   const run = runs.sort((a, b) => away(a) - away(b) || b[1] - b[0] - (a[1] - a[0]))[0]
-  if (!run) return null
+  if (!run || away(run) > ROUND_PX) return null
   const [left, right] = run
   const extreme = (of: Float64Array, pick: (a: number, b: number) => number, start: number) => (x0: number, x1: number) => {
     let y = start
