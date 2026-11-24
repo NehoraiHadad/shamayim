@@ -35,7 +35,7 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
 
 /** Whether `body` covers `other`: within one row, and so near its middle that only a strip of `other` would show. */
 const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
-  Math.abs(body.x - other.x) < body.w / 4 && Math.abs(body.foot - other.foot) < pitch
+  Math.abs(body.x - other.x) < body.w / 5 && Math.abs(body.foot - other.foot) < pitch
 
 /**
  * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: a widened block that a

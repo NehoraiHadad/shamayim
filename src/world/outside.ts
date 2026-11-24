@@ -1,12 +1,12 @@
 import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
 import { boundsForPlace, boundsHoldKm, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
-import { LON_STEP, squareOf } from '../data/city/grid'
+import { LON_STEP } from '../data/city/grid'
 import {
   baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, isOwnSpot, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
   outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
   type OutsideLook, type OutsideSkyline, type PlaceLie,
 } from '../data/city/outsideView'
-import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
+import { STOREY_M } from '../data/city/skylineHeight'
 import { hashId, seeded } from '../data/landmarks/hash'
 import { groundFn } from '../data/landmarks/seat'
 import { COVER, LAND_STEP } from '../data/land/grid'
@@ -19,6 +19,7 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
 import { beyondKm, beyondTowns, builtSquares, outsideDistance, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
 import { ridgeHeightAt } from './datum'
+import { fabricHeights } from './fabricHeight'
 import { VISIBLE_BOTTOM } from './layout'
 import { SCENE_H } from './sceneBox'
 import type { BeyondBlock, BeyondTower, CoastalSea, OutsideTreeSite, OutsideView, Pt } from './types'
@@ -125,10 +126,6 @@ export const FRAME_SCALE: FrameScale = {
 const FRAME_Q = .02
 /** A house's frontage (m): the legible house's, the place's plan scale. */
 const HOUSE_FRONT_M = 13
-/** A built cell's roof where the city raster knows nothing of it: a one- or two-storey house. */
-const HOUSE_M = [STOREY_M + 1.5, 2 * STOREY_M + 1.5] as const
-/** The city raster's typical storeys: of this height (m), and no more than it holds (`scripts/city/raster.ts`). */
-const RASTER_STOREY_M = 3.2, MAX_LEVELS = 15
 /** Trees stand where the cover has them within this many km of a built cell (the place's gardens, yards, streets). */
 const TREE_NEAR_KM = .12
 /**
@@ -157,23 +154,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   const cos = Math.cos(place.lat * Math.PI / 180)
   const cells: FabricCell[] = []
   const trees: PlaceTree[] = []
-  const squareKey = (lat: number, lon: number) => Object.values(squareOf(lat, lon)).join(':')
-  // The lowest mapped tower of each square, in the raster's own storeys.
-  const towerLevels = new Map<string, number>()
-  for (const { lat, lon, heightM } of city?.towers ?? []) {
-    const key = squareKey(lat, lon)
-    towerLevels.set(key, Math.min(towerLevels.get(key) ?? MAX_LEVELS, Math.round(heightM / RASTER_STOREY_M)))
-  }
-  // A sparse square keeps its houses, unless its typical building is a block: then it stands at the typical roof, with no
-  // tail. Where that is as tall as a mapped tower there, it is the tower, which is drawn as itself.
-  const heightsAt = (lat: number, lon: number, u: number) => {
-    const at = raster?.at(lat, lon)
-    const house = HOUSE_M[u < .6 ? 0 : 1]
-    if (at && at.built >= .2) return { heightM: roofHeight(at.levels, at.p90, u) }
-    const typical = at ? roofHeight(at.levels, 0, 0) : house
-    if (typical < HOUSE_TOP_M || at!.levels >= (towerLevels.get(squareKey(lat, lon)) ?? Infinity)) return { heightM: house }
-    return { heightM: typical, siteHeightM: house }
-  }
+  const heightsAt = fabricHeights(city)
   if (cover) {
     const step = LAND_STEP
     // Only the place's own box (its boundary's extent) within the reach is read.
