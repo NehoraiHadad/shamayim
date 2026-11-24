@@ -196,7 +196,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
       for (let d = -r; d <= r; d++) if (builtRows.get(row + d)?.some((c) => Math.abs(c - col) <= r)) return true
       return false
     }
-    for (const spot of highestFirst(treeSpots, ({ km }) => -km)) {
+    for (const spot of highestFirst(treeSpots, treeSpots.map(({ km }) => -km))) {
       if (trees.length >= MAX_TREES) break
       const lat = (spot.row + .5) * step, lon = (spot.col + .5) * step
       if (!near(lat, lon)) continue

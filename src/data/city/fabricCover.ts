@@ -43,30 +43,44 @@ export function shownWidth(body: SiteBox, front: readonly SiteBox[]) {
   return shown
 }
 
-/** By strips of this many px, the highest roof that stands all across each: what stands in front, at the least. */
-const STRIP = 1
+/** The bodies in front by strips of this many px: the highest roof all across each, and the highest over any of it. */
+const STRIP = .5
 
 class Strips {
-  private readonly roofs = new Map<number, SiteBox>()
+  private readonly from: number
+  private readonly across: Float64Array
+  private readonly near: Float64Array
+  private readonly over: Float64Array
 
-  add(body: SiteBox) {
-    const to = Math.floor((body.x + body.w / 2) / STRIP)
-    for (let s = Math.ceil((body.x - body.w / 2) / STRIP); s < to; s++) {
-      const held = this.roofs.get(s)
-      if (!held || body.top < held.top) this.roofs.set(s, body)
+  constructor(bodies: readonly SiteBox[]) {
+    let left = Infinity, right = -Infinity
+    for (const { x, w } of bodies) { left = Math.min(left, x - w / 2); right = Math.max(right, x + w / 2) }
+    this.from = Math.floor(left / STRIP)
+    const n = bodies.length ? Math.floor(right / STRIP) - this.from + 1 : 0
+    this.across = new Float64Array(n).fill(Infinity)
+    this.near = new Float64Array(n).fill(-Infinity)
+    this.over = new Float64Array(n).fill(Infinity)
+  }
+
+  add({ x, w, top, near }: SiteBox) {
+    const left = x - w / 2, right = x + w / 2
+    for (let s = Math.floor(left / STRIP); s * STRIP <= right; s++) {
+      const i = s - this.from
+      if (top < this.over[i]) this.over[i] = top
+      if (top < this.across[i] && s * STRIP >= left && (s + 1) * STRIP <= right) { this.across[i] = top; this.near[i] = near }
     }
   }
 
-  /** No more than this shows of `body` over them, counted no further than `LEAST_SHOWN_PX`. */
-  mostShown(body: SiteBox) {
+  /** Whether `LEAST_SHOWN_PX` of `body` show over them, where what they take at the least or at the most settles it. */
+  shows(body: SiteBox): boolean | undefined {
     const left = body.x - body.w / 2, right = body.x + body.w / 2
-    let shown = 0
-    for (let s = Math.floor(left / STRIP); s * STRIP < right && shown < LEAST_SHOWN_PX; s++) {
-      const held = this.roofs.get(s)
-      const roof = held && held.near >= body.near ? held.top : body.foot
-      shown += (Math.min(right, (s + 1) * STRIP) - Math.max(left, s * STRIP)) * rise(body, roof)
+    let least = 0, most = 0
+    for (let s = Math.floor(left / STRIP); s * STRIP < right && least <= LEAST_SHOWN_PX + SLACK; s++) {
+      const i = s - this.from, px = Math.min(right, (s + 1) * STRIP) - Math.max(left, s * STRIP)
+      least += px * rise(body, this.over[i])
+      most += px * rise(body, this.near[i] >= body.near ? this.across[i] : body.foot)
     }
-    return shown
+    return least > LEAST_SHOWN_PX + SLACK ? true : most < LEAST_SHOWN_PX - SLACK ? false : undefined
   }
 }
 
@@ -95,27 +109,15 @@ class Columns {
   }
 }
 
-/** No less than this shows of `body` over `front`: what each takes of it, as if none stood before another. */
-function leastShown(body: SiteBox, front: readonly SiteBox[]) {
-  const left = body.x - body.w / 2, right = body.x + body.w / 2, whole = rise(body, body.foot)
-  let shown = body.w * whole
-  for (const f of front) shown -= (Math.min(right, f.x + f.w / 2) - Math.max(left, f.x - f.w / 2)) * (whole - rise(body, f.top))
-  return shown
-}
-
-/** Whether `LEAST_SHOWN_PX` of `body` show over `front`: measured only where the least that can show is less. */
-const shows = (body: SiteBox, front: readonly SiteBox[]) =>
-  leastShown(body, front) > LEAST_SHOWN_PX + SLACK || shownWidth(body, front) >= LEAST_SHOWN_PX
-
 /**
  * The blocks that show, painted last first: one drawn wider than its site is left out only where the nearer of those leave
- * less than `LEAST_SHOWN_PX` of it to be seen. Most are hidden whole strips wide, so only the rest are measured.
+ * less than `LEAST_SHOWN_PX` of it to be seen. The strips settle most of them, so only the rest are measured.
  */
 export function shownBlocks(blocks: readonly FabricSite[]): FabricSite[] {
-  const shown: FabricSite[] = [], strips = new Strips(), columns = new Columns()
-  for (const body of highestFirst(blocks, rowY, beside)) {
+  const shown: FabricSite[] = [], strips = new Strips(blocks), columns = new Columns()
+  for (const body of highestFirst(blocks, blocks.map(rowY), beside)) {
     if (body.w > body.siteW) {
-      if (strips.mostShown(body) < LEAST_SHOWN_PX - SLACK || !shows(body, columns.over(body))) continue
+      if (!(strips.shows(body) ?? shownWidth(body, columns.over(body)) >= LEAST_SHOWN_PX)) continue
       strips.add(body)
       columns.add(body)
     }
