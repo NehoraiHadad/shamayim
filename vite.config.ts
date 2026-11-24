@@ -68,6 +68,11 @@ export default defineConfig({
           urlPattern: /\/data\/land\//,
           handler: 'StaleWhileRevalidate',
           options: { cacheName: 'land-data' },
+        }, {
+          // Its addresses carry the tiles' version: an older build's entries are never asked for again, and fall out here.
+          urlPattern: /\/data\/village\//,
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'village-data', expiration: { maxEntries: 60 } },
         }],
       },
     }),
@@ -76,6 +81,6 @@ export default defineConfig({
     environment: 'node',
     // The scene-model suites build whole worlds from fixtures (1-5 s a test on a shared CI runner); speed is gated by test:perf, not here.
     testTimeout: 30_000,
-    include: ['src/**/*.test.ts', 'scripts/city/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/city/**/*.test.ts', 'scripts/village/**/*.test.ts'],
   },
 })

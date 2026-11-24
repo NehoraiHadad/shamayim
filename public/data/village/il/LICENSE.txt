@@ -1,0 +1,16 @@
+The files in this folder (*.json), together, are a database of building footprints in villages. It is a Derivative
+Database, in the meaning of the Open Database License, of Overture Maps buildings, release 2026-11-18.0, and contains data from:
+
+- OpenStreetMap: © OpenStreetMap contributors, Overture Maps Foundation
+- Microsoft ML Buildings: Global ML Building Footprints, licensed by Microsoft under the Open Database License
+
+This database is made available under the Open Database License (ODbL) v1.0: https://opendatacommons.org/licenses/odbl/1-0/
+Any rights in its individual contents are licensed under the Database Contents License: https://opendatacommons.org/licenses/dbcl/1-0/
+
+Share-alike: you may copy, distribute, use and adapt this database, as long as you attribute the sources above, keep this
+notice, and offer any database you adapt from it, and use publicly, under the same licence (ODbL v1.0, or a later or
+compatible one), with no technical measures that restrict it unless you also offer a copy without them.
+
+What was changed: buildings under 30 square metres and those outside villages are left out; each building is reduced to
+a point on a 2 m grid, a size class and a direction; buildings are ordered in rows. These files are themselves the
+machine-readable copy of the whole derivative database that the licence asks for.

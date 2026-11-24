@@ -11,12 +11,17 @@ const BOX_WINDOW_INSET_TOP = .7
 export type Box = Extract<OutsideItem, { kind: 'box' }>
 export type Tower = Extract<OutsideItem, { kind: 'tower' }>
 
+/** Whether a body's storeys stand apart on the screen, each with its own row of windows. */
+export const boxResolved = (b: Box) => b.w >= 1.6 && (b.foot - b.top) / b.storeys >= MIN_STOREY_PX
+export const towerResolved = (tw: Tower, shaftTop: number) =>
+  tw.w >= 2 && (tw.base - shaftTop) / tw.storeys >= MIN_STOREY_PX * .7
+
 export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'deep' | 'win'>, s: Shine, lamps: Lamp[], r: () => number,
   warm: RGB, recess: RGB, specular: RGB, scale: number) {
   const x0 = b.x - b.w / 2, h = b.foot - b.top
   // Keep the window grid and its seeded lamp draws independent of the facade's facing.
   const storey = h / b.storeys
-  if (b.w >= 1.6 && storey >= MIN_STOREY_PX) {
+  if (boxResolved(b)) {
     const face = Math.min(1, b.w * .26)
     const inner0 = x0 + face + .25, inner1 = x0 + b.w - face - .2
     const glint = (s.glint ?? 0) * (1 - s.night)
@@ -84,7 +89,7 @@ export function paintTowerWindows(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lam
   windowRecess: RGB, faceW: number) {
   const x0 = tw.x - tw.w / 2
   const storey = (tw.base - shaftTop) / tw.storeys
-  if (storey >= MIN_STOREY_PX * .7 && tw.w >= 2) {
+  if (towerResolved(tw, shaftTop)) {
     const r = rng(tw.seed * 7 + 1)
     const inner0 = x0 + faceW + .3, inner1 = x0 + tw.w - faceW - .25
     const warm = mix(t.wall, t.win, .85)
@@ -103,7 +108,7 @@ export function paintTowerWindows(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lam
   if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tipY - .4, s))
 }
 
-function emitWindow(ctx: Ctx2D, x: number, y: number, w: number, h: number, warm: RGB) {
+export function emitWindow(ctx: Ctx2D, x: number, y: number, w: number, h: number, warm: RGB) {
   paintPass(ctx, 'emission', () => {
     ctx.fillStyle = css(warm)
     ctx.fillRect(x, y, w, h)

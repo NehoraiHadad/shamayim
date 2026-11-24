@@ -412,7 +412,13 @@ describe('one builder for every place: the density continuum (owner, 2026-11-19)
     }
   })
 
-  it.each(['rosh-pina', 'zikhron-yaakov', 'nahalal', 'shadmot-mehola'])('%s: houses stay legible, composed fewer and larger (C5b)', (id) => {
+  it.each(['nahalal', 'shadmot-mehola'])('%s: a village keeps its houses: they are never specks', (id) => {
+    const houses = viewOf(id).skyline.boxes.filter((b) => b.seed !== undefined)
+    expect(houses.length).toBeGreaterThan(10)
+    for (const b of houses) expect(Math.min(b.w, b.foot - b.top)).toBeGreaterThan(1.2)
+  })
+
+  it.each(['rosh-pina', 'zikhron-yaakov'])('%s: houses stay legible, composed fewer and larger (C5b)', (id) => {
     const view = viewOf(id)
     const { frame } = view
     const extent = Math.max(-frame.w, frame.e, (frame.n - frame.s) / 2)
