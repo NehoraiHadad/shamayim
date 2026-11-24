@@ -20,11 +20,11 @@ const UNDER = 0.26, UNDER_FROM = 0.5
 /** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
 const WALL = 0.45, EDGE = 0.2
 /** How far a low sun's light goes through a cloud, and how much warmer than its body its lit colour then is. */
-const LOW = 0.4, WARM = [0.08, 0.3] as const
+const LOW = 0.5, WARM = [0.08, 0.3] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
-const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.6
-const FAR_CROWNS = 0.3
+const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.46
+const FAR_CROWNS = 0.45
 /** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at. */
 const RAMP = 255, FULL = 1.1
 

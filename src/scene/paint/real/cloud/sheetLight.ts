@@ -19,7 +19,7 @@ function halved(full: Float32Array, w: number, h: number, hw: number, hh: number
 }
 
 /** The part of the model's mean tone a mass's own light keeps as its mean shade. */
-const KEPT = 0.26
+const KEPT = 0.32
 
 /** The mean shade the model's tone leaves to the light. */
 function meanShade({ tone, thick }: SheetField): number {
