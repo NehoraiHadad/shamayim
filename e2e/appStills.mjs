@@ -19,8 +19,7 @@ export async function shootAppStill(browser, base, out, moment, dpr) {
       const shown = await resolvedStyle(page)
       if (shown && shown !== 'drawn') throw new Error(`Drawn app still requested, but the app showed "${shown}"`)
     }
-    // SpecialLine renders a paragraph directly before WeekList, or no element.
-    const special = page.locator('p:has(+ section[aria-labelledby="week-title"])')
+    const special = page.locator('[data-special-line][data-open="true"]')
     const line = await special.allTextContents()
     const name = `app-${momentName({ ...moment, style: drawn ? 'drawn' : '' })}`
     console.log(`${name} special event: ${line[0]?.trim() || 'none'}`)

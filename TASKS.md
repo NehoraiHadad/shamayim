@@ -1328,7 +1328,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] The red low moon, both styles: `moonAir` (`world/moonlight.ts`) takes the sun's own path and aerosol against the zenith's, for the disc,
             its halo and its path on the water; dim is nearer the sky's colour behind it, not a thinner disc
       - [x] Special events (`src/events/`): a detector gives candidates of one shape, `seen` keeps what the place will see, the rarest is told
-      - [x] One quiet line between the clothes and the days (`ui/SpecialLine.tsx`), its own chunk
+      - [x] One quiet line between the clothes and the days (`ui/SpecialLine.tsx`; the owner chose the place), its own chunk; it opens and closes softly
       - [x] Tests against published tables (NASA, AstroPixels, IMO), cited in `published.test.ts`; app stills: `#app` in `e2e/scene.stills.mjs`
       - [ ] The owner: the line's place, before/after images, the merge
       - Polish later: the moon is not flattened at the horizon; north of the 250° view the land counts as flat; town glow from population only;

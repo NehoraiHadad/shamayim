@@ -1,4 +1,24 @@
 /* Between the clothes and the days, in the page's own small muted voice, closed by the same hairline as its neighbours. */
+.slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows var(--d2) var(--ease-in), opacity var(--d2) var(--ease-in), visibility var(--d2);
+  visibility: hidden;
+}
+
+.slot[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows var(--d3) var(--ease-out), opacity var(--d3) var(--ease-out) var(--d1), visibility 0s;
+}
+
+.clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .line {
   margin: 0 0 var(--space-4);
   padding-bottom: var(--space-4);
@@ -7,4 +27,8 @@
   line-height: 1.4;
   color: var(--sheet-muted);
   text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot, .slot[data-open='true'] { transition: none; }
 }
