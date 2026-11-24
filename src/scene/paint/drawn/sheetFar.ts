@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../domain/smoothstep'
 import { rng } from '../shared/base/core'
 import { fieldAt, type SheetField } from './sheetField'
 
@@ -12,17 +13,17 @@ const CALM = 0.3
 const TALL = 3, LEAST = 8, OVER = 1.15
 /** The alpha a row's cloud begins at, and the foot's own slow slant against the height, over this far (px). */
 const FROM = 0.36, SLANT = 0.22, WAVE = 46
-/** How deep a foot's edge is cut (of the row); what a row with next to no cloud is cut back, and under what height (px). */
-const DEEP = 0.08, NONE = 0.4, LOW = 1.2
+/** How deep a foot's edge is cut (of the row); what a row with next to no cloud is cut back, and the height (px) it has none of that from. */
+const DEEP = 0.08, NONE = 0.4, LOW = [0.5, 2.5] as const
 
 /** What stands at a place: over 0 inside a cloud, and its place in it (1 top … -1 foot). */
 interface Place { edge: number; side: number }
 
-/** The rows' clouds at (x, y) px in the field. */
-export function farRows(f: SheetField, alpha: Float32Array, seed: number): (x: number, y: number) => Place {
+/** The rows' clouds at (x, y) px in the field, down from `top`. */
+export function farRows(f: SheetField, alpha: Float32Array, top: number, seed: number): (x: number, y: number) => Place {
   const rows: { foot: number; tall: number; at: Float32Array; turn: number }[] = []
   const colPx = f.width / (f.cols - 1), rowPx = f.height / (f.rows - 1)
-  for (let foot = f.height; foot > 0;) {
+  for (let foot = f.height; foot > top;) {
     const tall = Math.max(LEAST, TALL * f.spacing[Math.min(f.rows - 1, Math.round(foot / rowPx))]), at = new Float32Array(f.cols)
     for (let i = 0; i < f.cols; i++) for (let k = 0; k < 4; k++) at[i] += fieldAt(alpha, f.cols, f.rows, i, Math.max(0, foot - ((k + 0.5) * tall) / 4) / rowPx) / 4
     rows.push({ foot, tall, at, turn: 2 * Math.PI * rng(seed + rows.length * 131)() })
@@ -35,8 +36,8 @@ export function farRows(f: SheetField, alpha: Float32Array, seed: number): (x: n
       if (y > foot + 1 || y < foot - OVER * r.tall - 1) continue
       const gx = x / colPx, i = Math.min(f.cols - 2, Math.floor(gx)), a = r.at[i] + (r.at[i + 1] - r.at[i]) * (gx - i)
       const high = OVER * r.tall * Math.sqrt(Math.max(0, a - FROM) / (1 - FROM)), up = foot - y
-      const e = Math.min(high - up, up + (high > 1 ? DEEP * r.tall : 0)) / r.tall - (high < LOW ? NONE : 0)
-      if (e > edge) { edge = e; side = high > 0.1 ? CALM * Math.max(-1, Math.min(1, 2 * (up / high) - 1)) : 0 }
+      const some = smoothstep(LOW[0], LOW[1], high), e = Math.min(high - up, up + some * DEEP * r.tall) / r.tall - NONE * (1 - some)
+      if (e > edge) { edge = e; side = some * CALM * Math.max(-1, Math.min(1, (2 * up) / Math.max(0.1, high) - 1)) }
     }
     return { edge, side }
   }

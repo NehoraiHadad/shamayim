@@ -36,7 +36,8 @@ export const nearAt = (f: SheetField, gy: number) => Math.min(1, f.spacing[Math.
 
 export function cutOf({ f, alpha }: Eased, seed: number): Cut {
   const cols = Math.ceil(f.width / CELL) + 1, rows = Math.ceil(f.height / CELL) + 1, edge: Grid = { cols, rows, at: new Float32Array(cols * rows) }
-  const side = new Float32Array(cols * rows), far = farRows(f, alpha, seed), sx = f.width / (cols - 1), sy = f.height / (rows - 1)
+  const side = new Float32Array(cols * rows), sx = f.width / (cols - 1), sy = f.height / (rows - 1)
+  const top = (Math.max(0, f.spacing.findIndex((s) => s < ROWS[1] * NEAR)) / (f.rows - 1)) * f.height, far = farRows(f, alpha, top, seed)
   for (let j = 0, n = 0; j < rows; j++) {
     const gy = (j * (f.rows - 1)) / (rows - 1), near = nearAt(f, gy), arched = 1 - smoothstep(ROWS[0], ROWS[1], near)
     const level = EDGE + (FAR_EDGE - EDGE) * (1 - near), parted = PARTED * (1 - near)

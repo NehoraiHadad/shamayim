@@ -38,6 +38,10 @@ describe('the caps of a broken sheet', () => {
     }
   })
 
+  it('stay as they are when the frame that handed over to theirs leaves the list', () => {
+    expect(capsAt([{ d: [3, 1], weight: 0 }, { d: [0, 0], weight: 1 }])).toEqual(still)
+  })
+
   it('grow with the share their frame has', () => {
     const half = capsAt([{ d: [0, 0], weight: 0.5 }]), whole = new Map(still.map((c) => [c.seed, c]))
     expect(half.length).toBeGreaterThan(0)

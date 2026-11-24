@@ -29,7 +29,9 @@ const STEPS = 12
 
 export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv): void {
   const { f } = read, frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }, seed = hashId(desc.id)
-  const cut = cutOf(read, seed), light = sheetLight(desc, read), { t } = light, { wash, mask } = blockOf(desc, read, cut, light, env)
+  const cut = cutOf(read, seed)
+  if (!cut.edge.at.some((v) => v > 0)) return
+  const light = sheetLight(desc, read), { t } = light, { wash, mask } = blockOf(desc, read, cut, light, env)
   const caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), path = new Path2D()
   traceOver(path, cut.edge, 0, frame)
   caps.forEach((cap, i) => traceCap(path, cap, tops[i]))

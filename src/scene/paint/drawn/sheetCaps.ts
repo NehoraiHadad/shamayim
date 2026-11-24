@@ -30,25 +30,25 @@ const FOOT = [-0.85, -0.4] as const
 /** How far a cap leans out of its mass, and at random (rad); what it is taken over (of the row's spacing). */
 const LEAN = 0.9, SWAY = 0.3, ABOUT = 1.5
 /** Keeps the lattices' places apart in the seed. */
-const EAST = 7919, NORTH = 104_729, TIER = 1_299_709, LOWEST = 64, FRAME = 17
+const EAST = 7919, NORTH = 104_729, TIER = 1_299_709, LOWEST = 64
 
 /** The caps, the mass's top first, so that a lower one stands before it. */
 export function sheetCaps(desc: Sheet, read: Eased, cut: Cut, seed: number): SheetCap[] {
   const { air, ys } = desc, { f } = read, out: SheetCap[] = []
   if (!air) return out
   const places = placesOf(desc, air), tiers = tiersOf(places, air.ranges, ys.map((y) => sizeAt(f, ((y - f.y0) / f.height) * (f.rows - 1))))
-  air.frames.forEach(({ d, weight }, n) => {
+  for (const { d, weight } of air.frames) {
     for (const { level, from, to } of tiers) {
       const pitch = 2 ** level, reach = to + pitch, [i0, i1, j0, j1] = [-reach - d[0], reach - d[0], -reach - d[1], reach - d[1]].map((v) => Math.floor(v / pitch))
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
         if (!places.near((i + 0.5) * pitch + d[0], (j + 0.5) * pitch + d[1], pitch, from, to)) continue
-        const own = seed + i * EAST + j * NORTH + (level + LOWEST) * TIER + n * FRAME, random = rng(own)
+        const own = seed + i * EAST + j * NORTH + (level + LOWEST) * TIER, random = rng(own)
         const at = places.seen((i + 0.5 + STRAY * (random() - 0.5)) * pitch + d[0], (j + 0.5 + STRAY * (random() - 0.5)) * pitch + d[1])
         const cap = at && capAt(read, cut, at.x, at.y, (pitch / 2) * at.perKm, weight, random, own)
         if (cap) out.push(cap)
       }
     }
-  })
+  }
   return out.sort((a, b) => a.y - 0.2 * a.r - (b.y - 0.2 * b.r))
 }
 
@@ -62,6 +62,7 @@ function sizeAt({ rows, spacing }: SheetField, gy: number): number {
 function tiersOf({ perKm }: Places, ranges: readonly number[], sizes: readonly number[]): { level: number; from: number; to: number }[] {
   const at = new Map<number, { from: number; to: number }>()
   for (let r = 1; r < ranges.length; r++) {
+    if (!(perKm[r] > 0)) continue
     const pitch = (2 * sizes[r]) / perKm[r], hi = Math.ceil(Math.log2(pitch * GOES[1])), least = (2 * DRAWN) / (SIZES[1] * perKm[r])
     for (let level = Math.floor(Math.log2(Math.max(least, pitch * COMES[0] * FINER))); level <= hi; level++) {
       const { from, to } = at.get(level) ?? { from: Infinity, to: 0 }
