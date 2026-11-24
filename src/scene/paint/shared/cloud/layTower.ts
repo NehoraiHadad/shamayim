@@ -1,11 +1,12 @@
 import type { RGB } from '../../../../world/types'
+import { CORE_LEAK } from '../../../model/bodies'
 import type { CloudSprite } from '../../../model/cloudSprite'
 import type { Ctx2D, PaintEnv } from '../base/hand'
 
 /* A tower laid as a raster on a scratch sheet, stretched with the canvas's own smoothing. */
 
 /** Opacity of the thickest tower; optical depth over which a thin one comes up to it. */
-const OPACITY = 0.92, TAU_FULL = 6
+const OPACITY = 1 - CORE_LEAK, TAU_FULL = 6
 /** Raster px per sky px at most, and raster px in a tower at most (a near giant is soft anyway). */
 const RASTER = 0.7, RASTER_PX = 10_000
 /** Room over the crown for the noise, against the width. */

@@ -37,20 +37,26 @@ export function textureCorrection(texture: number[], tau: number[], weights: num
   }
 }
 
-const scales: Record<Genus, [km: number, stretch: number, deviation: number]> = {
+/** A thick base's own columns (`cloudSheetBase`): what its layer's broad texture, a few km wide, leaves out. */
+type Texture = Genus | 'base'
+
+const scales: Record<Texture, [km: number, stretch: number, deviation: number]> = {
   // N3h places Sc/Ac tone detail below the typical cell diameter.
   // As bands vary on sub-kilometre scales across the wind and merge along it.
   st: [8, 1, 0.15], sc: [0.4, 1, 0.5], as: [0.75, 6, 0.9], ac: [0.2, 1, 0.6],
   cs: [18, 1, 0.1], ci: [2, 6, 0.1], ns: [6, 1, 0.15],
   cu: [1.5, 1, 0.5], cg: [3, 1, 0.5], cb: [6, 1, 0.5],
+  // The narrowest the light does not even out on its way down (some hundreds of metres: Marshak et al. 1995), and a column's
+  // water off its mean by about a seventh. Look.
+  base: [0.5, 1, 0.1],
 }
 
-const periodFor = (genus: Genus) =>
-  scales[genus][0] * (genus === 'sc' || genus === 'ac' ? 1 : 2)
+const periodFor = (genus: Texture) =>
+  scales[genus][0] * (genus === 'sc' || genus === 'ac' || genus === 'base' ? 1 : 2)
 
 const samplers = new Map<string, [ReturnType<typeof createClumpSampler>, ReturnType<typeof createClumpSampler>]>()
 
-export function sheetTexture(genus: Genus, layer: FieldLayer, seed: number) {
+export function sheetTexture(genus: Texture, layer: FieldLayer, seed: number) {
   const [scale, stretch, deviation] = scales[genus]
   const angle = Math.atan2(layer.vel[0], layer.vel[1])
   const sin = Math.sin(angle), cos = Math.cos(angle)
