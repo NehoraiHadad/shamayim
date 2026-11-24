@@ -19,9 +19,9 @@ import { sheetLight } from './sheetLight'
 type Sheet = LayerOf<'cloudSheet'>
 
 /** The px of its sheet at most, and the block's opacity over its thin and its thick cloud. */
-const SHEET_PX = 1_000_000, THIN = 0.72, THICK = 0.95
+const SHEET_PX = 700_000, THIN = 0.72, THICK = 0.95
 /** Sky px per cell of its light, and how far (px) out from the edge that is laid: over what its caps reach. */
-const WASH = 4, REACH = 30
+const WASH = 6, REACH = 30
 /** The key line (px, half of it under the block), its strength, and what of it a far cloud keeps. */
 const LINE = 1.1, STRONG = 0.5, FAR = 0.15
 /** The steps of the key line's fade down the sky. */

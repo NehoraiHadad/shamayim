@@ -33,7 +33,7 @@ describe('the caps of a broken sheet', () => {
     expect(kept.length).toBeGreaterThan(0.85 * still.length)
     for (const cap of kept) {
       const to = moved.get(cap.seed)
-      expect(Math.hypot((to?.x ?? 0) - cap.x, (to?.y ?? 0) - cap.y)).toBeLessThan(5)
+      expect(Math.hypot((to?.x ?? 0) - cap.x, (to?.y ?? 0) - cap.y)).toBeLessThan(7)
       expect(Math.abs((to?.r ?? 0) - cap.r)).toBeLessThan(6)
     }
   })

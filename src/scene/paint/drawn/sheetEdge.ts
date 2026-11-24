@@ -11,7 +11,7 @@ import { fieldAt, type SheetField } from './sheetField'
  */
 
 /** Sky px per grid cell; the alpha an edge is cut at, near and far. */
-const CELL = 2.5, EDGE = 0.36, FAR_EDGE = 0.56
+const CELL = 3, EDGE = 0.36, FAR_EDGE = 0.56
 /** How far the model's rows are eased into each other (against their spacing), and wider, for what is round a place. */
 const EASED = 0.2, WIDE = 1.6
 /** A row this far apart (px) is near; how much a far cloud is cut back from the next, from this far off its middle. */

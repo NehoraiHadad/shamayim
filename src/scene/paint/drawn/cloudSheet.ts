@@ -31,7 +31,7 @@ const SIZE_MIN = 0.12
  *  the sheet's, from its far edge): the rain that falls before the banks reads against them. */
 const AIR_LIT = 0.6, AIR_SHADE = 0.9, AIR_FROM = 0.34, AIR_FULL = 0.12
 /** What of the cloud too thin to be cut stays behind the print, the cloud round it (wide alpha) that takes it, and what stays of the far cloud whole. */
-const WISP = 0.8, ALONE = [0.2, 0.46] as const, VEIL = 0.5
+const WISP = 0.8, ALONE = [0.1, 0.36] as const, VEIL = 0.35
 
 export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const field = sheetField(desc)
@@ -49,7 +49,7 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   scratch.ctx.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
+  ctx.imageSmoothingQuality = open < 1 ? 'high' : 'low'
   ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h - 1, field.x0, field.y0, field.width, field.height)
   ctx.globalAlpha *= open
   if (read) printSheet(ctx, desc, read, env)
