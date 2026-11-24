@@ -1,7 +1,7 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf, RGB, Streak } from '../../model/types'
 import { css, type Ctx2D, type PaintEnv } from '../shared/base/hand'
-import { loopAt, paintDatum, running, twinkling } from '../shared/land/water'
+import { loopAt, running, twinkling } from '../shared/land/water'
 import { carve, type P } from './kit/carve'
 import { pigment, skied } from './kit/palette'
 import { layWater } from './waterInk'
@@ -38,7 +38,6 @@ export function paintDrawnWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEn
     dashes(ctx, twinkling(glint.sparks, t), pigment(glint.rgb, 0.4), 1.5 * hair, 1)
   }
   ctx.globalCompositeOperation = 'source-over'
-  paintDatum(ctx, desc)
   ctx.restore()
 }
 

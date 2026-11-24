@@ -7,8 +7,8 @@ export interface Painter<K extends LayerKind = LayerKind> {
   form: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
   light?: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
   /**
-   * The form draws nothing while there is a light part (a layer that is all light: the far towns, the water but for its
-   * datum): the surface lays the light canvas alone, sparing a blit of an empty canvas every frame.
+   * The form draws nothing while there is a light part (a layer that is all light: the far towns, the
+   * water): the surface lays the light canvas alone, sparing a blit of an empty canvas every frame.
    */
   formless?: (desc: LayerOf<K>) => boolean
 }

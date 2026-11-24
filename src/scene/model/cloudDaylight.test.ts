@@ -1,6 +1,6 @@
 import { beforeAll, expect, it, vi } from 'vitest'
 import * as interpolation from '../../domain/smoothstep'
-import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import type { LocalTime } from '../../domain/types'
 import { makeWorldBuilder } from '../../world/world'
@@ -12,7 +12,7 @@ const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 
 let loaded: Map<string, LoadedPlace>
 beforeAll(async () => {
   stubPublicFetch()
-  loaded = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(({ id }) => ['haifa', 'neve-zohar', 'tiberias'].includes(id)))
+  loaded = await loadPlaces([...SCENE_PLACES, ...BELOW_SEA_PLACES].filter(({ id }) => ['haifa', 'neve-zohar', 'tiberias'].includes(id)))
 }, 120_000)
 
 function frame(id: string, at: LocalTime) {

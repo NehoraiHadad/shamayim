@@ -1,11 +1,11 @@
 import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
+import { sceneClearance } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
 import { landDustLayers } from './landDust'
-import { layoutOf } from './layout'
 import { withCloudAir } from './cloudAir'
 import { withLamp } from './lamp'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
@@ -36,10 +36,10 @@ import { shadowedPlane } from './planeCloudShadow'
 export type * from './types'
 
 /**
- * The scene model (§1b): the world state and the box → the layers of both surfaces (sorted by surface, then `z`), the
- * HTML overlay and the clear zones. Pure: no canvas, no DOM, no clock; runs in vitest under node.
+ * The scene model (§1b): the world state and the box → the layers of both surfaces (sorted by surface, then `z`) and
+ * the clear zones. Pure: no canvas, no DOM, no clock; runs in vitest under node.
  *
- * C1: the sky gradient and the overlay placed from the world's layout; C2: the land's planes in the enriched hand; C3: the
+ * C1: the sky gradient; C2: the land's planes in the enriched hand; C3: the
  * water, the far towns and the haze band at the horizon; C4: the marks and the village portrait; C5: the city seen from
  * outside (its mass, spires, towers, marks and coastal sea); C6: the sky's glows, the sun and the moon, the stars, the clouds
  * (drifting), the lightning and the heat shimmer; C7: the weather (rain and snow from their banks, mist, dust, rays, smoke,
@@ -63,34 +63,34 @@ function shownModel(world: WorldState, box: SceneBox, clock: LandClock | null, l
 
 /**
  * The land not known yet (C8): the sky and the weather that needs no land as they are; in the land's place the mist and
- * the forming line; no labels (they stand on the land), no clear zones.
+ * the forming line; no clear zones.
  */
 function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: LifeClock, light: StyleLight): SceneModel {
   const sky = skyLayers(world, box, life)
   const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers: asked(layers, world, box, light), overlay: [], clear: [] }
+  return { layers: asked(layers, world, box, light), clear: [] }
 }
 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
-  const layout = layoutOf(world, box)
-  const towns = farCitiesLayer(world, box, layout.clear, light)
-  const outside = outsideOf(world, box, layout.clear, light)
-  const home = outsideHome(world, box, layout.clear)
-  const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
-  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)], light)
+  const clear: Box[] = sceneClearance(world.place3.dot, box.width)
+  const towns = farCitiesLayer(world, box, clear, light)
+  const outside = outsideOf(world, box, clear, light)
+  const home = outsideHome(world, box, clear)
+  const foreground = outsideMass(world, box, clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
+  const marks = marksLayers(world, box, towns, home, clear, [...foreground, ...farMasses(towns)], light)
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))
-  const planes = planeLayers(world, box, layout.clear)
+  const planes = planeLayers(world, box, clear)
     .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
   const wind = plantWindOf(world.wind)
-  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear, !life.still) ?? [])
-  const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
+  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, clear, !life.still) ?? [])
+  const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
-    ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]
+    ...landDustLayers(world, box), ...weatherLayers(world, box, clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers: asked(layers, world, box, light), ...layout }
+  return { layers: asked(layers, world, box, light), clear }
 }
 
 /** The layers with what the hand's light asks of the model beyond its own. */

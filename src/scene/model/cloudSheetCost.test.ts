@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { addMinutes } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
 import { box, neutral } from '../../test/cloudSheetFrame'
-import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { RANGES } from '../../world/field/cells'
 import { layerSnapshot } from '../../world/field/density'
@@ -57,7 +57,7 @@ const MINUTES = 8
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {
   stubPublicFetch()
-  places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter((place) => cases.some(([id]) => id === place.id)))
+  places = await loadPlaces([...SCENE_PLACES, ...BELOW_SEA_PLACES].filter((place) => cases.some(([id]) => id === place.id)))
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 

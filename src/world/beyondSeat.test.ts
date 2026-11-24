@@ -53,13 +53,12 @@ it('seats a synthetic 60 m tower on a drawn block at its true hPx and enforces b
   expect(seated!.h * seated!.scale).toBeCloseTo(seated!.hPx, 6)
   expect(seated!.w).toBeCloseTo(GLYPH_SPECS.highrise.w * seated!.scale, 6)
 
-  // beyondMarks drops marks below the legibility floor or overlapping the dot or a note.
+  // beyondMarks drops marks below the legibility floor or overlapping the dot.
   const dot = { x: 100, y: 100 }
-  const note = { left: 195, right: 205, top: 80, bottom: 105 }
   const seatAt = (x: number, hPx: number) => () => ({ x, base: 100, hPx, km: 3, blockId: 'b1' })
-  expect(beyondMarks(seatPlace, [tower], SCENE_W, seatAt(50, .9), dot, []).seated).toEqual([])
-  expect(beyondMarks(seatPlace, [tower], SCENE_W, seatAt(100, 6), dot, []).seated).toEqual([])
-  expect(beyondMarks(seatPlace, [tower], SCENE_W, seatAt(200, 6), dot, [note]).seated).toEqual([])
+  expect(beyondMarks(seatPlace, [tower], SCENE_W, seatAt(50, .9), dot).seated).toEqual([])
+  expect(beyondMarks(seatPlace, [tower], SCENE_W, seatAt(100, 6), dot).seated).toEqual([])
+  expect(beyondMarks(seatPlace, [tower], SCENE_W, seatAt(200, 6), dot).seated).toHaveLength(1)
 })
 
 it(("rejects an off-centre synthetic mark whose projected x or glyph half-width falls " +

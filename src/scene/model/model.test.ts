@@ -2,16 +2,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
-import { heightText } from '../../text/isolate'
-import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
-import { markBox } from '../../world/markGeometry'
-import { BACKING_PAD } from '../../world/place'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { compositeOrder } from '../compose/compositeOrder'
 import { layersOn, sceneModel } from '.'
 import type { SceneBox } from './types'
 
-/** Stage C1 (docs/design/CANVAS-SCENE-PLAN.md §4): the model's skeleton, the overlay and the scrub split. */
+/** Stage C1 (docs/design/CANVAS-SCENE-PLAN.md §4): the model's skeleton and the scrub split. */
 const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T16:30', '2026-11-17T21:00']
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 /** The weather's kinds (C7). */
@@ -25,53 +21,7 @@ beforeAll(async () => {
 })
 afterAll(() => { vi.unstubAllGlobals() })
 
-it('measures the height label without its bidi isolates', () => {
-  expect(textWidth(heightText(-137), LABEL_PX)).toBe(textWidth('−137 מ׳', LABEL_PX))
-})
-
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
-  it('places the dot and the notes, the height label clear of the marks', () => {
-    const place = loaded.get(id)!
-    const input = worldInput(place, TIMES[1])
-    const world = buildWorld(input)
-    const below = input.forecast.elevation < 0
-    const { overlay } = sceneModel(world, BOX)
-    // The height label (stage C4; C9: beside the dot, level with it, on its backing, for every place seen from outside):
-    // the world's own layout, clear of the marks the canvas draws.
-    const height = overlay.find((item) => item.kind === 'height')!
-    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, backed: true })
-    const w = textWidth(world.labels.height.text, LABEL_PX)
-    const dot = world.place3.dot
-    expect(Math.abs(height.y + LABEL_PX / 2 - dot.y), 'level with the dot').toBeLessThanOrEqual(15.5)
-    // Beside it: its backing 2 px off the dot's ring, or a few px farther out where a mark stands there.
-    const gap = Math.abs(height.x - dot.x) - (DOT_R + 2 + BACKING_PAD + w / 2)
-    expect(gap, 'beside the dot').toBeGreaterThan(-0.01)
-    expect(gap, 'beside the dot').toBeLessThan(14.01)
-    // Where the dot is ringed by marks (Tel Aviv: Azrieli, the Reading chimney, a church) no spot beside it is
-    // free: the label takes the one that covers least, one mark at most, on its backing.
-    const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => {
-      const box = markBox(mark)
-      return !(box.right <= height.x - w / 2 - BACKING_PAD || box.left >= height.x + w / 2 + BACKING_PAD
-        || box.bottom <= height.y - BACKING_PAD || box.top >= height.y + LABEL_PX + BACKING_PAD)
-    })
-    expect(covered.length, covered.map((m) => m.id).join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
-    expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',
-      x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y })
-    // The datum only below sea level (the SVG scene's rule); the water's names on their water (C9, `notesOnWater`:
-    // outside.test.ts).
-    expect(overlay.filter((item) => item.kind === 'datum'))
-      .toEqual(world.labels.notes.filter((note) => note.kind === 'datum').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
-    // Below sea level only, and only where the picture's land reaches 0 m above the dot (`world/datum.ts`): the fixture's
-    // height is below sea level at every place, but the ground of most of them is not.
-    expect(overlay.some((item) => item.kind === 'datum')).toBe(below && Boolean(world.labels.datum))
-    if (world.labels.datum) expect(below).toBe(true)
-    expect(overlay.filter((item) => item.kind === 'water'))
-      .toEqual(world.labels.notes.filter((note) => note.kind === 'water').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
-    // Scaled across with the figure, heights as they are.
-    const wide = sceneModel(world, { ...BOX, width: 750 }).overlay
-    overlay.forEach((item, i) => expect(wide[i]).toMatchObject({ x: item.x * 2, y: item.y }))
-  })
-
   it('is a pure function of the world and the box', () => {
     const world = buildWorld(worldInput(loaded.get(id)!, TIMES[2]))
     expect(JSON.stringify(sceneModel(world, BOX))).toBe(JSON.stringify(sceneModel(world, BOX)))
@@ -102,8 +52,7 @@ describe('scene model: layers', () => {
     const world = buildWorld(worldInput(loaded.get('haifa')!, TIMES[2]))
     const model = sceneModel(world, BOX)
     // C3: the far towns between the far plane and the near ridge, the sea (within the near band) over the near plane. (No
-    // far water: the fixture's height is below sea level, but Haifa's ground, from the Carmel to the bay, is not, so the
-    // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
+    // far water.)
     // C4–C5: the place seen from outside over it all, its marks (the Báb and the Carmel's church) among its mass;
     // C7: the weather the hour has over them. (What flies in front of the land, laid where it is, comes and goes.)
     const land = layersOn(model, 'land')

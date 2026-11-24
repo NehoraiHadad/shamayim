@@ -22,7 +22,7 @@ export const MASS_ALPHA = [0.18, 0.32, 0.5, 0.68, 0.85]
 const geometries = new WeakMap<FarCities, Map<string, Geometry>>()
 
 /**
- * The world's town shapes (`townShapes`, at the reference width) in the box, by distance tier, out of the text zones,
+ * The world's town shapes (`townShapes`, at the reference width) in the box, by distance tier, out of the spot's clearing,
  * with the layer's extent: every town and light it could show whatever the hour's air keeps, so it never moves.
  * Memoised per place and box.
  */

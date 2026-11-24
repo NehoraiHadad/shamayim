@@ -7,7 +7,7 @@ import { receiverBrush, type ReceiverBrush } from './receiverBrush'
 /** A style's own hand on the canopy: the plants' inks as it mixes them, and what it lays over a crown. */
 export interface CanopyHand { inks(bytes: Uint8Array): Uint8Array; dress(brush: ReceiverBrush, crown: Crown): void }
 
-/** Both passes use the same plane mask and avoid the label zones when a mark bends into them. */
+/** Both passes use the same plane mask and avoid the spot's clearing when a mark bends into them. */
 function mask(ctx: Ctx2D, desc: LayerOf<'canopy'>) {
   for (const zone of desc.clear) {
     ctx.globalCompositeOperation = 'destination-out'

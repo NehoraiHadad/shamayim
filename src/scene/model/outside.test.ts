@@ -126,17 +126,17 @@ describe.each(CITIES)('outside view: %s', (id) => {
     for (const t of drawn) if (t.famous || t.heightM >= 150) expect(t.lod === 'glyph' || drawn.filter((o) => o.lod === 'glyph').length === 10).toBe(true)
   })
 
-  it('keeps everything it draws out of the text zones and the dot’s clearing', () => {
+  it('keeps everything it draws out of the dot’s clearing', () => {
     const world = worldAt(id)
     const model = sceneModel(world, BOX)
     const layer = layerOf(world)!
-    const [dot, ...text] = model.clear
+    const [dot] = model.clear
     for (const item of layer.items) {
       const box = item.kind === 'box' ? { x: item.x - item.w / 2, y: item.top, w: item.w, h: item.foot - item.top }
         : item.kind === 'tower' ? { x: item.x - item.w / 2, y: item.base - item.h, w: item.w, h: item.h }
           : item.kind === 'tree' ? { x: item.tree.x - item.tree.w, y: item.tree.base - item.tree.h, w: 2 * item.tree.w, h: item.tree.h }
             : { x: item.glyph.x - item.glyph.w / 2, y: item.glyph.base - item.glyph.h * item.glyph.scale, w: item.glyph.w, h: item.glyph.h * item.glyph.scale }
-      for (const zone of [dot, ...text]) expect(overlap(box, zone), `${item.kind} ${JSON.stringify(box)} ${JSON.stringify(zone)}`).toBe(false)
+      expect(overlap(box, dot), `${item.kind} ${JSON.stringify(box)}`).toBe(false)
     }
   })
 

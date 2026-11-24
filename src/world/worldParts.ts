@@ -5,7 +5,6 @@ import type { LandData } from '../data/land/types'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { xOf } from '../domain/camera'
 import type { HourPoint, LocalTime } from '../domain/types'
-import { heightText } from '../text/isolate'
 import { drawnSkyline } from './drawnSkyline'
 import { farCitiesOf } from './farCities'
 import { cloudFieldAt } from './cloudField'
@@ -22,7 +21,7 @@ import { townLightsOf } from './townLights'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { terrainPlanes, terrainY, unknownLand } from './terrain'
-import type { WorldInput, WorldLabels, WorldState } from './types'
+import type { WorldInput, WorldState } from './types'
 import { isSnowHour } from './snowLine'
 import { sceneSkyline } from './visibleSun'
 import { ripplesOf } from './water'
@@ -61,16 +60,11 @@ export function wetBetween(hours: readonly HourPoint[], at: LocalTime, shownRate
 export const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('offline') } as const
 
 /** The place while its land is not known (C8): nothing placed on a guessed ridge. */
-export function unknownPlace(place: WorldInput['place'], elevation: number) {
-  const rounded = Math.round(elevation)
-  const labels: WorldLabels = {
-    height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2, y: 0 },
-    notes: [],
-  }
+export function unknownPlace(place: WorldInput['place']) {
   const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }
   return {
     place3: { kind: 'unknown' as const, dot, reachKm: 0, seed: hashId(place.id) },
-    marks: [], seatPool: [], labels, ownSkyline: false, coastalSea: null, nearLine: null, placeKey: 'unknown', marksKey: 'unknown',
+    marks: [], seatPool: [], watersShown: [], ownSkyline: false, coastalSea: null, nearLine: null, placeKey: 'unknown', marksKey: 'unknown',
   }
 }
 
@@ -106,11 +100,11 @@ export function makeWorldMemos() {
     })),
     planesOf: memoOne(terrainPlanes),
     placePart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
-      seatCandidates: WorldInput['seatCandidates'], city: WorldInput['city'], width: number, elevation: number,
+      seatCandidates: WorldInput['seatCandidates'], city: WorldInput['city'], width: number,
       bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'], cover: WorldInput['cover'],
       village: WorldInput['village']) => {
-      const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, elevation, bounds, waterMask, cover, village })
-      return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey([part.marks, part.seatPool], 1) }
+      const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, bounds, waterMask, cover, village })
+      return { ...part, placeKey: partKey(part.place3, 1), marksKey: partKey([part.marks, part.seatPool], 1) }
     }),
     farCitiesPart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {
       const part = farCitiesOf(place, terrain, far, ownSkyline)

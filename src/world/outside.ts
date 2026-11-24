@@ -23,9 +23,9 @@ import { villageHouseH, type OutsideVillage } from './village/outsideVillage'
 import { drawnWater } from './village/water'
 import type { SettlementSource } from '../data/village/settlement'
 import { beyondKm, beyondTowns, builtSquares, outsideDistance, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
-import { ridgeHeightAt } from './datum'
 import { fabricHeights } from './fabricHeight'
 import { VISIBLE_BOTTOM } from './layout'
+import { ridgeHeightAt } from './ridgeHeight'
 import { SCENE_H } from './sceneBox'
 import type { BeyondBlock, BeyondTower, CoastalSea, OutsideTreeSite, OutsideView, Pt } from './types'
 
@@ -87,19 +87,12 @@ export interface OutsidePlace {
    * (`placeDotY`), and the place point's ground (m). Null without the local ground (the dot on the ridge line, as before).
    */
   vscale: { s: number; dotY: number; h0: number } | null
-  /** Sea level (y, px) at the dot's depth on the place's own scale (the datum below sea level); null without it. */
-  seaLevelY: number | null
   /**
    * The near land as drawn (`nearLineOf`: the place's own ground and the terrain behind it on its scale, the panorama's
    * ridge beyond its span), as many points as the panorama's ridge, with its height (m); the world draws the near plane on it. Null: the
    * panorama's ridge as it is (no local ground).
    */
   nearLine: NearLine | null
-  /**
-   * Where the dot's row rises through 0 m on each side of the dot (layout px; null: its ground stays below 0 m as far as
-   * the local ground is known and in view): the datum's ends (`datum.ts` `datumOfRow`). Worked out when asked.
-   */
-  zeroAlongRow: () => { left: number | null; right: number | null }
 }
 
 export interface OutsideInput {
@@ -382,7 +375,7 @@ function lieOf(input: OutsideInput) {
   samples.forEach((g, i) => { if (!wet[i]) hiM = Math.max(hiM, g.h); else loM = Math.min(loM, g.h) })
   cellGround.forEach((h) => { if (!Number.isNaN(h)) { loM = Math.min(loM, h); hiM = Math.max(hiM, h) } })
   if (coastal) loM = Math.min(loM, 0)
-  // Below sea level the picture holds sea level too (the datum stands at 0 m on the same scale).
+  // Below sea level the scale reaches up to sea level, so the land round the place keeps the height it stands at.
   if (h0 < 0) hiM = Math.max(hiM, 0)
   if (Number.isFinite(crest)) hiM = Math.max(hiM, crest)
   // The place's own land: its ground's spots and its built cells' own ground (a row stands on it, never over the land
@@ -707,7 +700,7 @@ function beyondTowers(input: OutsideInput, frame: OutsideFrame, lie: PlaceLie, b
  */
 export function seaHorizonY(terrain: SceneTerrain): number {
   const { angleY, eyeM } = terrain
-  if (!angleY || eyeM === undefined) return terrain.horizonY ?? terrain.seaY
+  if (!angleY || eyeM === undefined) return terrain.horizonY
   // The farthest sea seen is where the line of sight grazes it: its highest angle (beyond, the sea's bulge hides it).
   let dip = -90
   for (let km = .2; km <= 300; km *= 1.04) dip = Math.max(dip, apparentAngle(0, km, Math.max(0, eyeM)))
@@ -731,13 +724,14 @@ function coastalSeaOf(input: OutsideInput, frame: OutsideFrame, baseKm: number, 
   if (!mask) return null
   const cos = Math.cos(place.lat * Math.PI / 180)
   const horizon = seaHorizonY(terrain)
+  const seaAt = (x: number, dy: number) => {
+    const dx = (frame.centerX - x) * (frame.eyeN - dy) / frame.f
+    const body = mask.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos))
+    return body !== null && mask.bodies[body]?.kind === 'sea' ? mask.bodies[body] : null
+  }
   const coastAt = (dy: number) => {
     const depth = frame.eyeN - dy
-    const wet = (x: number) => {
-      const dx = (frame.centerX - x) * depth / frame.f
-      const body = mask.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos))
-      return body !== null && mask.bodies[body]?.kind === 'sea'
-    }
+    const wet = (x: number) => seaAt(x, dy) !== null
     const coastFrom = (start: number, step: number) => {
       if (!wet(start)) return null
       let x = start
@@ -814,45 +808,13 @@ function coastalSeaOf(input: OutsideInput, frame: OutsideFrame, baseKm: number, 
   const km: [number, number][] = [[horizon, Math.max(seaKm ?? 0, rowKm(frame, baseKm, frame.s) * 2, 15)], [yFar, rowKm(frame, baseKm, far.dy)],
     [yOf(band.at(-1)!.dy), rowKm(frame, baseKm, band.at(-1)!.dy)], [SCENE_H, baseKm * .6]]
   for (let i = 1; i < km.length; i++) km[i] = [Math.max(km[i][0], km[i - 1][0] + .01), Math.min(km[i][1], km[i - 1][1])]
-  return { points, coast, side, top: horizon, bottom: SCENE_H, horizon, km }
+  return { points, coast, side, top: horizon, bottom: SCENE_H, horizon, km, name: seaAt(edge, wetRows.at(-1)!.dy)?.name }
 }
 
 const median = (values: number[]) => values.length ? [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] : null
 
 /** Trees of the place a px slot apart at least (the legible tree's width), so the larger trees do not pile into mush. */
 const TREE_SLOT = .9
-
-/** The dot's row is walked this many km a step for its 0 m crossings (half the ground's sampling). */
-const ROW_STEP = GROUND_STEP / 2
-
-/**
- * Where the place point's own row (its depth, km east and west of it) first rises through 0 m on each side of the dot, as
- * screen x (layout px; east on the left): the true 0 m contour on that row, as far as the local ground is known and the
- * row is in view.
- */
-function zeroAlongRow(terrain: SceneTerrain, frame: OutsideFrame, width: number): { left: number | null; right: number | null } {
-  const out: { left: number | null; right: number | null } = { left: null, right: null }
-  const { heightNear } = terrain
-  const h0 = heightNear?.(0, 0)
-  if (!heightNear || h0 === null || h0 === undefined || h0 >= 0) return out
-  for (const east of [1, -1]) {
-    let prev = h0
-    for (let i = 1; ; i++) {
-      const dx = east * i * ROW_STEP
-      const x = outsideProject(frame, dx, 0).x
-      if (x < 0 || x > width) break
-      const h = heightNear(dx, 0)
-      if (h === null) break
-      if (h >= 0) {
-        const at = outsideProject(frame, east * (i - 1 + prev / (prev - h)) * ROW_STEP, 0).x
-        out[east > 0 ? 'left' : 'right'] = at
-        break
-      }
-      prev = h
-    }
-  }
-  return out
-}
 
 /** The kind of water at a spot (km from the place), null on land. */
 function waterOf({ mask, place }: OutsideInput) {
@@ -901,6 +863,5 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
   })
   return { frame, village, skyline, bounds, topM, lie, beyond: beyondTowers(shaped, frame, lie, baseKm),
     ...beyondTowns(shaped, frame, lie, baseKm), trees, fabric: fabric.source,
-    sea, baseKm, land, vscale: vscale && village ? { ...vscale, dotY: village.dotY } : vscale, nearLine,
-    seaLevelY: village ? village.levelY(0) : vscale ? levelY(0, 0, 0) : null, zeroAlongRow: () => zeroAlongRow(terrain, frame, width) }
+    sea, baseKm, land, vscale: vscale && village ? { ...vscale, dotY: village.dotY } : vscale, nearLine }
 }

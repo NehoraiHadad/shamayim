@@ -16,7 +16,7 @@ export function standsDry({ dx, dy, frontM }: Pick<DrawnHouse, 'dx' | 'dy' | 'fr
 }
 
 /** Whether a spot of the screen lies on the coastal sea as drawn. */
-function onSea(sea: CoastalSea, x: number, y: number): boolean {
+export function onSea(sea: CoastalSea, x: number, y: number): boolean {
   if (y < sea.horizon) return false
   const i = sea.coast.findIndex(([, at]) => at >= y)
   if (i <= 0) return false
@@ -25,8 +25,8 @@ function onSea(sea: CoastalSea, x: number, y: number): boolean {
   return sea.side === 'left' ? x < coast : x > coast
 }
 
-/** Whether a spot of the screen (`x375`: at the reference width) lies on a lake drawn over the near land. */
-function onLake({ from, to, edges }: WaterSpan, x375: number, y: number): boolean {
+/** Whether a spot of the screen (`x375`: at the reference width) lies on a stretch of water in view. */
+export function onLake({ from, to, edges }: WaterSpan, x375: number, y: number): boolean {
   if (x375 < from || x375 > to) return false
   const at = edges.reduce((best, edge) => Math.abs(edge.x - x375) < Math.abs(best.x - x375) ? edge : best)
   return y > at.farY && y < at.nearY

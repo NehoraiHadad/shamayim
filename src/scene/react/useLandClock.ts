@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ARRIVAL, ARRIVAL_END } from '../model/loading'
+import { ARRIVAL_END } from '../model/loading'
 import type { LandClock } from '../model/types'
 import type { WorldState } from '../../world/types'
 import { scenePhase } from './useSurface'
@@ -24,9 +24,8 @@ const HOLD_MS = 4000
  * and is dropped once it is over (the model then shows the land as it is). A frame is a pure function of the model
  * (built with this clock) and the phase.
  *
- * Returns the clock to build the model with (null when the land was known from the start: no mist, no reveal), the
- * labels' style (hidden until the land is in, then a plain CSS fade as it settles), and the callback each surface calls
- * when it has painted.
+ * Returns the clock to build the model with (null when the land was known from the start: no mist, no reveal) and the
+ * callback each surface calls when it has painted.
  */
 export function useLandClock(world: WorldState) {
   const status = world.terrain.status
@@ -74,8 +73,5 @@ export function useLandClock(world: WorldState) {
     : { loadingAt: loadingAt ?? 0, reveal: reveal && { at: reveal.at, fromHorizonY: reveal.fromHorizonY, guessed: reveal.guessed } }),
   [loadingAt, reveal])
 
-  const labels = status === 'ready' && (!reveal || reveal.at !== null)
-  const labelStyle = reveal ? { opacity: labels ? 1 : 0,
-    transition: `opacity 0.6s ease ${(ARRIVAL.land.at + ARRIVAL.land.dur * 0.6).toFixed(2)}s` } : undefined
-  return { clock, labelStyle, ready }
+  return { clock, ready }
 }
