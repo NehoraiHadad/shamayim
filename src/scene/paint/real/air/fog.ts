@@ -12,15 +12,15 @@ import type { Ctx2D, PaintEnv } from '../../shared/base/hand'
 
 /** Raster px per land px: a bank's finest wisp still spans several. */
 const RASTER = 0.5
-const NOISE_SEED = 4253
+const NOISE_SEED = 4253, OCTAVES = 2
 /** Banks round the tile and tile px down, far and near; whole counts, so the tile meets itself. */
-const FAR = { round: 3, down: 46 }, NEAR = { round: 1, down: 120 }
+const FAR = { round: 2, down: 36 }, NEAR = { round: 1, down: 90 }
 /** The share of the room a row has for uneven density that its banks take. */
-const UNEVEN = 0.85
+const UNEVEN = 0.5
 /** How far the top wavers, against its own fade. */
-const WAVER = 0.8
+const WAVER = 0.5
 /** A bank's lit top and shaded hollow, against its colour; read over this many raster rows. */
-const RELIEF = 0.2, LIFT = 2
+const RELIEF = 0.07, LIFT = 2
 /** The bounds cut a tall fade short: the fog starts from nothing over these px. */
 const START = 9
 
@@ -58,7 +58,7 @@ const at = (rows: Float32Array, j: number) => {
 
 /** The uneven density (-1 to 1) of the raster's pixels: the far banks up by the top, the near ones at the foot. */
 function banks(cols: number, rows: number, y0: number, band: MistBandDesc, seed: number): Float32Array {
-  const tile = detailTile(NOISE_SEED, 3), out = new Float32Array(cols * rows)
+  const tile = detailTile(NOISE_SEED, OCTAVES), out = new Float32Array(cols * rows)
   const ou = seed * 0.618, ov = seed * 0.317
   for (let j = 0, n = 0; j < rows; j++) {
     const y = y0 + (j + 0.5) / RASTER, near = smoothstep(0.1, 0.9, (y - band.top) / Math.max(1, band.bottom - band.top))
@@ -66,7 +66,7 @@ function banks(cols: number, rows: number, y0: number, band: MistBandDesc, seed:
       const u = (i + 0.5) / cols
       const far = near < 1 ? tileAt(tile, u * FAR.round + ou, y / FAR.down + ov) : 0
       const close = near > 0 ? tileAt(tile, u * NEAR.round + ov, y / NEAR.down + ou) : 0
-      out[n] = Math.min(1, Math.max(-1, 3.2 * (far * (1 - near) + close * near - 0.5)))
+      out[n] = Math.min(1, Math.max(-1, 2.6 * (far * (1 - near) + close * near - 0.5)))
     }
   }
   return out
@@ -80,9 +80,9 @@ function bank(ctx: Ctx2D, band: MistBandDesc, bounds: { x: number; y: number; w:
   const seed = band.puffs.reduce((sum, p) => sum + p.rx, 0) % 1
   const mean = fogRows(band, bounds, rows)
   const uneven = banks(cols, rows, bounds.y, band, seed)
-  const tile = detailTile(NOISE_SEED, 3)
+  const long = detailTile(NOISE_SEED, 1)
   const waver = Float32Array.from({ length: cols }, (_, i) =>
-    6 * WAVER * (tileAt(tile, ((i + 0.5) / cols) * 2 + seed, seed) - 0.5) * band.fade * RASTER)
+    6 * WAVER * (tileAt(long, (i + 0.5) / cols + seed, seed) - 0.5) * band.fade * RASTER)
   const topRow = (band.top - bounds.y) * RASTER, fade = Math.max(1, band.fade * RASTER)
   const line = new Float32Array(cols)
   for (let j = 0; j < rows; j++) {

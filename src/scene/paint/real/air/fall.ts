@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../../domain/smoothstep'
 import type { FallMark, LayerOf } from '../../../model/types'
 import { rng } from '../../shared/base/core'
 import { css, type Ctx2D, type PaintEnv } from '../../shared/base/hand'
@@ -13,7 +14,7 @@ const ROUND_EYE = 10
 /** A streak's light along it, from the tail: drawn out, brightest just behind the head, no hard end. */
 const ALONG = [[0, 0], [0.5, 0.45], [0.86, 1], [1, 0]] as const
 /** A streak across: a soft body and its core. */
-const ACROSS = [[1.9, 0.3], [0.8, 0.85]] as const
+const ACROSS = [[2, 0.35], [0.9, 0.9]] as const
 /** A flake this large (px) is close by: a loose clump, not a speck. */
 const CLOSE = 1
 /** How far the largest mark reaches past the tile's edge. */
@@ -26,9 +27,9 @@ function paintRain(ctx: Ctx2D, desc: LayerOf<'fall'>, hair: number) {
   ctx.lineCap = 'butt'
   wrapped(desc.marks, w, h, STREAK_REACH, (m, x, y) => {
     // The depth: 0 far, 1 at the eye.
-    const near = longest > ROUND_EYE ? Math.max(0, 2 * (m.len / longest) - 1) ** 2 : 0
+    const near = longest > ROUND_EYE ? smoothstep(0.62, 1, m.len / longest) : 0
     const tx = x - ux * m.len, ty = y - uy * m.len
-    const strength = m.alpha * (0.5 + 0.5 * near), width = hair + 1.1 * near
+    const strength = m.alpha * (0.55 + 0.45 * near), width = hair + 1.3 * near
     for (const [across, share] of near > 0.15 ? ACROSS : ACROSS.slice(1)) {
       const g = ctx.createLinearGradient(tx, ty, x, y)
       for (const [t, a] of ALONG) g.addColorStop(t, css(desc.rgb, a * strength * share))
@@ -58,10 +59,10 @@ function paintSnow(ctx: Ctx2D, desc: LayerOf<'fall'>, hair: number) {
     const close = m.r >= CLOSE
     for (const [dx, dy, size] of lobes(m)) {
       // The closer the softer: a near flake melts outward from its middle, a far one is a speck.
-      const r = Math.max(hair, 1.6 * m.r * size), a = m.alpha * (close ? 0.62 : 0.9)
+      const r = Math.max(hair, (close ? 2.1 : 1.6) * m.r * size), a = m.alpha * (close ? 0.72 : 1)
       const g = ctx.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r)
       g.addColorStop(0, css(desc.rgb, a))
-      g.addColorStop(0.45, css(desc.rgb, a * (close ? 0.6 : 0.75)))
+      g.addColorStop(0.45, css(desc.rgb, a * 0.7))
       g.addColorStop(1, css(desc.rgb, 0))
       ctx.fillStyle = g
       ctx.beginPath()
