@@ -1243,6 +1243,14 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
       - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted
       - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
+        - [~] Village build, claude/found-i-village on claude/found-i-town (notes: foundations/V/village/NOTES.md)
+          - [x] S1 contract, tile format, cells adapter (src/data/village/)
+          - [x] S2 data workflow (.github/workflows/village.yml, scripts/village/): 190 tiles, 715 places, 176,501 houses, checked by
+            scripts/village/committed.test.ts. Overture deletes the pinned release about 2027-01-17 (monthly step: village.yml's header)
+          - [x] S4 loader (src/data/village/{villageData,settlementOf,useVillageTile}.ts, service worker rule)
+          - [x] S3 model (src/world/village/): the village on its own frame, laid on the town's unchanged land (`lay.ts`); towns from 3.5 km on untouched
+          - [x] Landmarks among the houses, held to their size (`landmarks.ts`); ODbL credit line where footprints are drawn
+          - [ ] Follow-ups (not refined, owner's decision): small known faults in NOTES.md; gable direction, soft ground tone
       - [~] N2. The sky both hands wait for (`claude/found-i-grade`, on `found-i-lamp`): `StyleLight.sky.grade` (`skyTone.ts`: stops,
             glows, arch, haze, once; light ungraded; key suffix) and `Style.skyBase` (CSS list; `skyBaseRows.ts`, `e2e/skyBase.mjs`).
             No hand passes either yet. The sky branch takes the grade before `skyFilter` when it lands
@@ -1254,10 +1262,24 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             ink steps at band edges, `turn` leans without direct sun
       - [~] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
             inside the crown); READY `0e3c7cae`. Known: palms take no key, a flat roof hides half its key line
-      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); stills and READY next.
+      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
             Known: canvases allocated per repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
       - [~] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
             second gain (`skied`); stills, review and READY next
       - [ ] S2 cloud sheets (cloud-space position), S6 air (dust)
-- [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+      - [x] Phase 1 on `claude/real-style-13639d` (nothing in `src/scene`): fault map (notes `real/FAULT-MAP.md`), plan `docs/design/REAL-STYLE.md`,
+            concept painters and stills `docs/design/prototypes/real/` (5 moments, side by side in notes `real/concept/`)
+      - [x] Round 2 on the manager's four criticisms (prototype only, stills on CI: the `concept` dispatch input of `ci.yml`): ground raked
+            and gully banks, house corners and casts, haze graded as the sky; one cloud hand for sheets and towers; hole walls; round heads
+            Stills: notes `real/concept/round2/`
+      - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
+      - [x] Build plan: notes `real/BUILD-PLAN.md` (S0 and six slices A-F, needs N1-N9 for foundations, every open fix), reviewed by another model; lightened by the owner's bar
+      - [x] S0 on main 5fb0d856 (CI run 45341294326, scratch `claude/real-meas-base`): notes `real/S0-BASELINE.md`; one dispatch again when the integration lands
+      - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
+      - [ ] Phase 2 after the manager opens `src/scene`: A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
+      - [~] A, night half (`claude/real-town`): street light behind each nearer body, window bloom, far shore lights down the sea,
+            folded windows on bodies of unresolved storeys (`paint/real/town/`). Codex review: 8 findings, reflections fixed. Written down, not
+            chased: a lit pane's bloom pops with the pane; `shine.windows` keyed in 1/64 (a ramp of the strip's poses); the shrine's
+            floodlight blooms as a window; glows squeeze at the layer's edge. Day half waits for the label slice
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

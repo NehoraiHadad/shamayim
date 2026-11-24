@@ -13,6 +13,7 @@ import { forecastUrl } from '../data/openMeteo/request'
 import { type StoredPanorama } from '../data/terrain/panorama'
 import { terrainFromPanorama } from '../data/terrain/panoramaTerrain'
 import { waterAround } from '../data/water/waterInView'
+import { loadVillageTile } from '../data/village/villageData'
 import { loadWaterMask } from '../data/water/waterMask'
 import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
@@ -129,12 +130,13 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   if (!panorama) throw new Error(`no panorama fixture for ${place.id}`)
   const mask = await loadWaterMask()
   const terrain = terrainFromPanorama(panorama, { water: mask ? waterAround(place, mask) : undefined })
-  const [source, city, far, bounds, cover, raw] = await Promise.all([
+  const [source, city, far, bounds, cover, village, raw] = await Promise.all([
     loadLandmarkSource(place, signal, { israel: loadIsrael }),
     loadCity(place, signal),
     loadFar(),
     loadBounds(),
     loadFootprintLandCover(place, signal, 6),
+    loadVillageTile(place, signal),
     fetch(forecastUrl(place)).then((res) => {
       if (!res.ok) throw new Error(`forecast ${res.status}`)
       return res.json() as Promise<unknown>
@@ -147,7 +149,7 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
   return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks),
     seatCandidates: source.seatCandidates, cropAreas: source.cropAreas, city, far, forced: WEATHER[weather] ?? null,
-    forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover }
+    forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover, village }
 }
 
 /** The land's moment (`land=`): its status for the world, and the clock the model is built with. */
