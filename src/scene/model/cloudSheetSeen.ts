@@ -30,10 +30,20 @@ interface Shape {
   d: number; east: number; north: number
   /** The logarithm of its widest range; how much the oval is scaled toward it on its far and on its near side. */
   mid: number; far: number; near: number
-  /** Half its height in log range; how much wider it is drawn, and the cosine of its half width so drawn. */
-  high: number; wide: number; cos: number
+  /** Half its height in log range; the cosine of its half width as drawn, and the bearing's scale (`narrowed`). */
+  high: number; cos: number; narrow: number[]
   /** The ranges (km) it reaches over. */
   from: number; to: number
+}
+
+/**
+ * The cosine of an angle `wide` times narrower, by the powers of sin² of the angle's half: the Chebyshev function
+ * T(1/wide), 2F1(-n, n; 1/2; s). Up to a right angle, the widest half of a cell, seven terms are within 1e-3.
+ */
+function narrowed(wide: number): number[] {
+  const terms = [1], n = 1 / wide
+  for (let k = 0; k < 6; k++) terms.push(terms[k] * (k * k - n * n) / ((k + 0.5) * (k + 1)))
+  return terms
 }
 
 function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: number): Shape | null {
@@ -59,7 +69,7 @@ function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: numbe
   const mid = Math.log(d) + Math.log1p(-q * q) / 2, far = wide / foot, near = wide / (2 - foot)
   return {
     cell, cumulus: cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb',
-    d, east: cell.x / d, north: cell.y / d, mid, far, near, high, wide, cos: Math.cos(half * wide),
+    d, east: cell.x / d, north: cell.y / d, mid, far, near, high, cos: Math.cos(half * wide), narrow: narrowed(wide),
     from: Math.min(d - cell.r, Math.exp(mid - high / near)), to: d + cell.r,
   }
 }
@@ -75,8 +85,9 @@ function change(s: Shape, x: number, y: number, range: number): number {
   const up = Math.log(range) - s.mid, scaled = up * (up > 0 ? s.far : s.near)
   if (scaled >= s.high || scaled <= -s.high) return -native
   const at = Math.exp(s.mid + scaled)
-  const angle = Math.atan2(x * s.north - y * s.east, along) / s.wide
-  return kernel(cell.tau0, (at * at + d * d - 2 * at * d * Math.cos(angle)) * inverse, s.cumulus) - native
+  const half = (1 - along / range) / 2, n = s.narrow
+  const cos = n[0] + half * (n[1] + half * (n[2] + half * (n[3] + half * (n[4] + half * (n[5] + half * n[6])))))
+  return kernel(cell.tau0, (at * at + d * d - 2 * at * d * cos) * inverse, s.cumulus) - native
 }
 
 /** The sector of a bearing given by a vector of any length: a measure that grows with it, with no trigonometry. */
