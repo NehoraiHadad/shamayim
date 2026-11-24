@@ -19,6 +19,11 @@ it('lets a widened block take only the blocks on the ground it covers', () => {
     .toEqual([near.body, beside.body, rowBehind.body, house.body])
 })
 
+it('keeps a taller block that rises behind a nearer one', () => {
+  const near = site(100, 100, .8, 25, 1, 9), taller = site(102, 99, .7, 40, 1, 9)
+  expect(composeBodies([taller, near], 5, HOUSE_TOP_M)).toEqual([taller.body, near.body])
+})
+
 it('gives way to a block that stands at its own width', () => {
   const own = site(100, 100, .5, 25, 9, 9), widened = site(104, 100, .8, 25, 1, 9)
   expect(composeBodies([widened, own], 5, HOUSE_TOP_M)).toEqual([own.body])
