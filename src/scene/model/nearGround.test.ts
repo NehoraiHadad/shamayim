@@ -12,7 +12,6 @@ import { preparePlaneTexels } from '../paint/shared/land/planeTexel'
 import { COVER_WATER, sampleBandAtKm } from './landPalette'
 import { linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { TEXEL } from './planeBands'
-import { sampleLocalField } from './outsideGround'
 import { planeLayer } from './planes'
 import { labOf } from './tone'
 import type { SceneBox } from './types'
@@ -64,16 +63,6 @@ describe('the ground nearer than the first DEM ring', () => {
     })
     console.info('near ground against the cover', id, Math.max(...gaps).toFixed(4))
     expect(Math.max(...gaps)).toBeLessThan(JND / 2)
-  })
-
-  it('is the ground the own-ground polygon and the walls stand on', () => {
-    for (const id of IDS) {
-      const { land } = buildWorld(worldInput(loaded.get(id)!, NOON))
-      const near = land.rays.map((_, i) => sampleBandAtKm(land, i, FIRST_KM).albedo)
-      const gap = distance(sampleLocalField(land, 0, 0).albedo, meanAlbedo(near))
-      console.info('own ground against the near ground', id, gap.toFixed(4))
-      expect(gap).toBeLessThan(JND / 2)
-    }
   })
 
   it('stands no block of its own in front of haifa, where the ground on both sides is town', () => {

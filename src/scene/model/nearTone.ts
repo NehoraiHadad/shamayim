@@ -10,7 +10,7 @@ import { toLinear } from './tone'
 /** WorldCover open water class (excluded from land-plane albedo; water is painted by `water.ts`). */
 export const COVER_WATER = 8
 
-export interface GroundTone { albedo: RGB; source: string }
+interface GroundTone { albedo: RGB; source: string }
 
 /** Picks the source label carrying the highest total contribution weight. */
 export function dominantWeightedSource(entries: readonly { source: string; weight: number }[]): string {
@@ -31,19 +31,13 @@ function meanOf(shares: readonly GroundShare[]): GroundTone | null {
   return { albedo: linearRgbToSrgb([mean(0), mean(1), mean(2)]), source }
 }
 
-const tones = new WeakMap<LivingLand, Map<number | 'own', GroundTone | null>>()
-function held(land: LivingLand, at: number | 'own', shares: () => GroundShare[]): GroundTone | null {
-  let byBearing = tones.get(land)
-  if (!byBearing) tones.set(land, byBearing = new Map())
-  let tone = byBearing.get(at)
-  if (tone === undefined) byBearing.set(at, tone = meanOf(shares()))
-  return tone
-}
+const tones = new WeakMap<LivingLand, Map<number, GroundTone | null>>()
 
 /** The ground between the eye and the first DEM ring on a bearing (the place's own sample where no cover is loaded); null over water. */
-export const nearTone = (land: LivingLand, azimuth: number) =>
-  held(land, azimuth, () => nearGroundAt(land, azimuth) ?? [{ sample: land.own, weight: 1 }])
-
-/** The place's own ground: the same over every bearing in view; null where no cover is loaded or all is water. */
-export const ownGroundTone = (land: LivingLand) =>
-  held(land, 'own', () => land.rays.flatMap(({ azimuth }) => nearGroundAt(land, azimuth) ?? []))
+export function nearTone(land: LivingLand, azimuth: number): GroundTone | null {
+  let byBearing = tones.get(land)
+  if (!byBearing) tones.set(land, byBearing = new Map())
+  let tone = byBearing.get(azimuth)
+  if (tone === undefined) byBearing.set(azimuth, tone = meanOf(nearGroundAt(land, azimuth) ?? [{ sample: land.own, weight: 1 }]))
+  return tone
+}
