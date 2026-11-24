@@ -1,36 +1,17 @@
 import { coinOf } from '../../world/air'
-import { rayThrough } from '../../world/field/transmit'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
-import { sheetAlphaAt } from './cloudSheetGrid'
+import { luminanceOf } from './cloudChromaticity'
+import { solarAerosolSlantDepth } from './cloudDust'
+import { dustDiscColour, sunDiscAlpha } from './dustDisc'
+import { shownThrough, throughDisc } from './discThrough'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
-import { mixRgb } from './tone'
+import { skyColours, skyStops, stopAt } from './skyColour'
+import { filterAt, skyGradeOf, unfilterDisc } from './skyGrade'
+import { mixRgb, mixSrgb } from './tone'
 import type { Disc, LayerDesc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
-
-/** Look. The light a painter's thickest cloud still lets through: its cores are 1 less it. */
-export const CORE_LEAK = 0.08
-/** A disc's own contrast under a cloud of that slant transmission: the painted cloud lets the leak through at least, so
- *  under a thicker one the two together let through what the cloud truly does (half a code value of 255 at a depth of 6.2). */
-const shownThrough = (transmission: number) => Math.min(1, transmission / CORE_LEAK)
-
-/** What the clouds let through of a disc as it is drawn (far larger than its half degree), from its middle and its limb:
- *  the sheets as they are drawn over it, the towers along the rays of where it is drawn. */
-function throughDisc({ cloudField }: WorldState, geom: SkyGeom, clouds: readonly LayerDesc[], x: number, y: number, r: number): number {
-  // A part below the horizon is the land's: a pixel over it instead.
-  const at = (dx: number, dy: number) => ({ x: x + dx, y: Math.min(geom.horizon - 1, y + dy) })
-  const face = [at(0, 0), at(-r, 0), at(r, 0), at(0, -r), at(0, r)]
-  const sheets = clouds.filter((layer) => layer.kind === 'cloudSheet')
-  const towers = cloudField?.snapshot.filter(({ layer }) => layer?.lattice === 'tower') ?? []
-  let sum = 0
-  for (const p of face) {
-    const light = sheets.reduce((left, sheet) => left * (1 - sheetAlphaAt(sheet, p.x, p.y)), 1)
-    sum += light && cloudField && towers.length
-      ? light * rayThrough(cloudField.field, towers, geom.azimuthAt(p.x), geom.domeAltitudeAt(p.y)) : light
-  }
-  return sum / face.length
-}
 
 const WHITE: RGB = [1, 1, 1]
 /** The discs' radii (px), as the SVG scene draws them (an 18 px sun, a 14 px moon). */
@@ -59,7 +40,7 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
     x, y, r: SUN_R, rgb, veil, core, limb, halo: rgb,
     // The air before a cloud that hides the sun lies in its shadow; no more than the mean sky leaves, as the disc.
     aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin) * Math.min(1 - veil, through), flatten: sunFlattening(sun.altitude), coin,
-    shown: shownThrough(through),
+    shown: shownThrough(through), through,
   }
 }
 
@@ -92,11 +73,29 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
 const r1 = (v: number) => Math.round(v * 4) / 4
 /** Over the clouds (6–8) and the rain's edge (8.5), under the flashes (9) and the near fall (11). */
 const AUREOLE_Z = 8.6
+// Restore the part of the beam that cannot fit through the multiply pass at 8.9, before lightning at 9.
+const DISC_LIGHT_Z = 8.95
+
+function discLight(sun: Disc, desired: RGB, grade: ReturnType<typeof skyGradeOf>, bounds: LayerOf<'bodies'>['bounds']): LayerOf<'bodies'> | null {
+  const [r, g, b] = filterAt(grade, sun.y, sun.core)
+  const core: RGB = [Math.max(0, desired[0] - r), Math.max(0, desired[1] - g), Math.max(0, desired[2] - b)]
+  const bytes = colourKey(core)
+  // The beam lies over the clouds: it takes itself what they let through of the disc under them.
+  // Quantize opacity to display precision, and omit a beam whose strongest channel contributes less than one byte.
+  const alphaByte = Math.floor(255 * sunDiscAlpha(sun.veil) * sun.through)
+  if (Math.max(...bytes) * alphaByte < 255) return null
+  return { kind: 'bodies', id: 'bodies.discLight', surface: 'sky', z: DISC_LIGHT_Z, blend: 'lighter',
+    sun: { ...sun, core, limb: [0, 0, 0], beamAlpha: alphaByte / 255 }, moon: null, part: 'discLight', bounds,
+    key: layerKey('discLight', r1(sun.x), r1(sun.y), bytes, alphaByte,
+      Math.round(sun.flatten * 100), sun.coin > 0.5) }
+}
 
 /** The sun and the moon under these clouds, each its own small layer round its disc (a scrub repaints only the disc that moved). */
 export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): LayerOf<'bodies'>[] {
   const out: LayerOf<'bodies'>[] = []
-  const moon = moonDisc(world, box, geom, clouds)
+  const grade = skyGradeOf(world, box)
+  const physicalMoon = moonDisc(world, box, geom, clouds)
+  const moon = physicalMoon && { ...physicalMoon, rgb: unfilterDisc(grade, physicalMoon.y, physicalMoon.rgb) }
   if (moon) {
     const pad = MOON_R + 3
     out.push({ kind: 'bodies', id: 'bodies.moon', surface: 'sky', z: 4, sun: null, moon,
@@ -104,13 +103,32 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       key: layerKey('moon', skyBoxKey(box), r1(moon.x), r1(moon.y), colourKey(moon.rgb), Math.round(moon.alpha * 255),
         Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
   }
-  const sun = sunDisc(world, box, geom, clouds)
+  const physicalSun = sunDisc(world, box, geom, clouds)
+  const colours = skyColours(world)
+  let core = physicalSun?.core
+  let limb = physicalSun?.limb
+  if (physicalSun && colours.bandWeight) {
+    const { y } = physicalSun
+    const local = stopAt(skyStops(world, box, colours), y / box.skyHeight, mixSrgb)
+    const background = filterAt(grade, y, local), horizon = luminanceOf(colours.horizon)
+    const tau = solarAerosolSlantDepth(world.air, world.bodies.sun.altitude)
+    core = dustDiscColour(physicalSun.core, background, horizon, tau, colours.bandWeight)
+    if (physicalSun.coin <= 0.5) limb = dustDiscColour(physicalSun.limb, background, horizon, tau, colours.bandWeight)
+  }
+  const sun = physicalSun && { ...physicalSun,
+    core: unfilterDisc(grade, physicalSun.y, core ?? physicalSun.core),
+    limb: unfilterDisc(grade, physicalSun.y, limb ?? physicalSun.limb),
+    ...(colours.bandWeight && physicalSun.veil > 0.15 && { cloudGlow: physicalSun.core }) }
   if (sun) {
     const pad = Math.ceil(SUN_R * 3.2)
+    const bounds = { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 }
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
-      bounds: { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
+      bounds,
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
-        Math.round(sun.flatten * 100), Math.round(sun.coin * 50), Math.round(sun.shown * 255)) })
+        Math.round(sun.flatten * 100), Math.round(sun.coin * 50), Math.round(sun.shown * 255),
+        ...(sun.cloudGlow ? [colourKey(sun.cloudGlow)] : [])) })
+    const restoration = core && colours.bandWeight && discLight(sun, core, grade, bounds)
+    if (restoration) out.push(restoration)
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never
     // reads as a black coin in a bright ring. Under the near rain and the sky's grains.

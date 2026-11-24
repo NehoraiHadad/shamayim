@@ -169,7 +169,7 @@ export { skyDirection }
 export function contrailLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), life: LifeClock = LIFE_START): LayerDesc10[] {
   const out: LayerDesc10[] = []
   if (!world.life.aircraft.high.length) return out
-  const sky = skyAt(world, box)
+  const sky = skyAt(world, box, true)
   const sunAlt = world.bodies.sun.altitude
   const lightAt = mixRgb(world.light.colour, [1, 1, 1], smoothstep(2, 15, sunAlt) * 0.7)
   const shown = smoothstep(-4.5, -1.5, sunAlt)
