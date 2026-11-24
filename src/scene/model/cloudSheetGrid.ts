@@ -4,10 +4,13 @@ import { unit } from '../../world/field/genus'
 import { transmitAlong, type FieldSnapshot } from '../../world/field/transmit'
 import type { FieldLayer, Genus } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
+import { DOME_ALT } from './dome'
 import type { SkyGeom } from './sky'
 import type { LayerOf } from './types'
 
 const RAD = Math.PI / 180
+/** N3h: elevation intervals of a cellular sheet, two thirds of them over 5–30° and a sixth each above and below. */
+const CELLULAR_ROWS = 72, OVERHEAD_ROWS = 12, OVERHEAD_ALT = 30
 
 /** As painted, the sheet interpolates between ray centres on non-uniform elevation rows. */
 export function sheetAlphaAt({ xs, ys, alpha }: LayerOf<'cloudSheet'>, x: number, y: number) {
@@ -24,7 +27,7 @@ export function sheetAlphaAt({ xs, ys, alpha }: LayerOf<'cloudSheet'>, x: number
   return top + fy * (at(row + 1) - top)
 }
 
-interface Grid {
+export interface Grid {
   xs: number[]
   ys: number[]
   altitudes: number[]
@@ -61,9 +64,9 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
   // Broad St/Cs structures need half the angular resolution of cellular Sc/Ac.
   const broad = genus === 'st' || genus === 'cs'
   const cellular = genus === 'sc' || genus === 'ac'
-  // N3h resolves Sc/Ac elements with 144 azimuth rays and 72 elevation intervals.
+  // N3h resolves Sc/Ac elements with 144 azimuth rays and its elevation intervals.
   const cols = cellular ? CELLULAR_COLUMNS : broad ? 24 : 48
-  const targetRows = cellular ? 72 : broad ? 12 : 24
+  const targetRows = cellular ? CELLULAR_ROWS : broad ? 12 : 24
   xs.length = east.length = north.length = cols
   for (let i = 0; i < cols; i++) {
     const x = xs[i] = i * geom.width / (cols - 1)
@@ -71,16 +74,23 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
     east[i] = Math.sin(az)
     north[i] = Math.cos(az)
   }
-
   const count = targetRows + 1
+  // The rows whose altitude is known, as they are set in degrees.
+  let known = 0
   if (cellular) {
-    // Pack two thirds of the rows into 5–30°. Compress towards 5°,
-    // where one scene pixel covers a larger radial distance.
-    const lowEdge = geom.dome(CELLULAR_LOW_EDGE)
-    const bands = [[0, geom.dome(30), 12, 1], [geom.dome(30), lowEdge, 48, 3],
-      [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]
-    let row = 0
-    for (const [top, bottom, intervals, power] of bands) {
+    // From the overhead rows to the join by the degree, as the dome's scale changes there, and from the join compressed
+    // towards 5°, where one scene pixel covers a larger radial distance. At 30° a cell is twice as far as overhead
+    // (1 / sin 30°): the rows there are half as deep as at the zenith (the power gives 1 to 2.3).
+    const join = geom.dome(DOME_ALT), lowEdge = geom.dome(CELLULAR_LOW_EDGE), byDegree = OVERHEAD_ALT - DOME_ALT
+    for (const [top, bottom, intervals, power] of [[90, OVERHEAD_ALT, OVERHEAD_ROWS, 1.25], [OVERHEAD_ALT, DOME_ALT, byDegree, 1]]) {
+      for (let i = 0; i < intervals; i++) {
+        altitudes[known] = bottom + (top - bottom) * (1 - i / intervals) ** power
+        ys[known] = geom.dome(altitudes[known++])
+      }
+    }
+    let row = known
+    for (const [top, bottom, intervals, power] of [[join, lowEdge, CELLULAR_ROWS - known - CELLULAR_LOW_ROWS, 3],
+      [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]) {
       for (let i = 0; i < intervals; i++) ys[row++] = bottom - (bottom - top) * (1 - i / intervals) ** power
     }
     ys[0] = 0
@@ -97,8 +107,8 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
     ys[0] = 0
   }
   for (let i = 0; i < count; i++) {
-    const altitude = altitudes[i] = geom.domeAltitudeAt(ys[i])
-    ranges[i] = groundRangeAt(height, altitude)
+    if (i >= known) altitudes[i] = geom.domeAltitudeAt(ys[i])
+    ranges[i] = groundRangeAt(height, altitudes[i])
   }
   ys.length = altitudes.length = ranges.length = count
   alpha.length = tone.length = count * cols

@@ -1,7 +1,7 @@
 import { hashId } from '../../../data/landmarks/hash'
 import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf, RGB } from '../../model/types'
-import { addLight } from '../../model/tone'
+import { addLight, scaleLight } from '../../model/tone'
 import { toneOf } from '../shared/cloud/deck'
 import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
@@ -80,7 +80,7 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
       const lift = full * (1 - air * (full > 0 ? AIR_LIT : AIR_SHADE))
       const body = toneOf(desc, fieldAt(f.tone, cols, rows, gx, gy))
       const base = open ? mix(body, mix(desc.lit, body, (BODY + CORE_GREY * (1 - air) * a * a) * (1 - LOW_SUN * low)), open) : body
-      put(out, at, underTowns(desc, f, gx, gy, lightOf(base, bright, desc.shade, lift, low)), alpha)
+      put(out, at, underTowns(desc, f, gx, gy, lightOf(lit(base, f, gx, gy), bright, desc.shade, lift, low)), alpha)
     }
   }
 }
@@ -97,6 +97,11 @@ function drawnAlpha(a: number, head: number, part: number, rise: number, open: n
 function lightOf(base: RGB, bright: RGB, shade: RGB, lift: number, low: number): RGB {
   const facing = lift * (1 - 2 * low)
   return facing > 0 ? mix(base, bright, Math.min(0.95, facing)) : mix(base, shade, Math.min(0.85 - 0.5 * low, -facing * (1 - 0.6 * low)))
+}
+
+/** A tone in the light its thick base has there. */
+function lit(rgb: RGB, f: SheetField, gx: number, gy: number): RGB {
+  return f.source ? scaleLight(rgb, fieldAt(f.source, f.cols, f.rows, gx, gy)) : rgb
 }
 
 /** A tone with the towns' light on it, by night. */

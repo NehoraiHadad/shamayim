@@ -8,9 +8,11 @@ import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { CITY_RGB, type CityOnBase } from './cityLight'
 import { sheetCity } from './cloudSheetCity'
+import { seenDepth } from './cloudSheetSeen'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
+import { baseSource } from './cloudSheetBase'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
 
@@ -41,7 +43,8 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const deckEnd = Math.min(groundRangeAt(heightKm, 0), RANGES[layer.lattice][1])
   const angularStep = 360 * RAD * (xs[1] - xs[0]) / geom.azimuthRange.period
   const { expectedTauAt, rayRange, queryRadius } = densityGrid
-  const depthAt = cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt
+  const seen = seenDepth(world.place.id, world.cloudField?.field.t ?? 0, snapshot, geom,
+    cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt)
   const resolvedEnd = Math.min(rayRange, queryRadius)
   const radius = meanRadius(layer.lattice, layer.g)
   // One centred tap has zero sweep, within both the texel footprint and
@@ -59,6 +62,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const f = fade[row] = veil ? 1 : Math.max(handoff, smoothstep(radius, 2 * radius, footprint))
     const level = f === 1 ? 0 : sheetDetail(genus, footprint)
     const sample = level ? texture(footprint) : null
+    const depthAt = seen(range, alt)
     path[row] = 1
     slant[row] = sheetPathFactor(layer.baseKm, layer.meanVKm, alt, Infinity)
     const inner = Math.min(deckEnd, (previous + range) / 2)
@@ -101,20 +105,18 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       const index = row * xs.length + col
       const local = tau[index]
       const depth = cellular ? local : local + f * (expected[index] - local)
-      const texel = corrected(index)
       // The far density is already the log of the ensemble transmission for
       // unresolved footprints. Slanting it again turns the gaps into a solid band.
       const ambient = expected[index]
-      const resolved = (1 - f) * sheetOpacity(local, multiplier)
-      const unresolved = f * sheetOpacity(ambient, ambientSlant)
+      const resolved = f < 1 && local ? (1 - f) * sheetOpacity(local, multiplier) : 0
+      const unresolved = f ? f * sheetOpacity(ambient, ambientSlant) : 0
       const opacity = resolved + unresolved
       alpha[index] = visibility * (solar?.index === index ? opacity + solar.weight * (solar.opacity - opacity) : opacity)
       // Divide by the incident diffuse light of this same column. The upper
       // layers multiply both the numerator and its clear-column reference.
-      const slantDepth = (veil ? Math.min(1, depth * multiplier) : depth * multiplier) * texel
+      const slantDepth = depth && (veil ? Math.min(1, depth * multiplier) : depth * multiplier) * corrected(index)
       const diffuse = 1 / (1 + DIFFUSE_EXTINCTION * slantDepth)
-      const forward = colours.light * facing[col] * Math.exp(-slantDepth)
-      const thinTone = (1 - diffuse) * (1 - diffuse * forward)
+      const thinTone = slantDepth ? (1 - diffuse) * (1 - diffuse * (colours.light * facing[col] * Math.exp(-slantDepth))) : 0
       // At vertical depth 10 the column is opaque. Preserve the closed
       // deck's source ramp and leave texture in the open-deck tone only.
       let localTone = thinTone
@@ -132,11 +134,14 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
+  const source = genus === 'ns' ? baseSource(grid, layer, seed, angularStep, corrected) : null
+  for (const value of source ?? []) fingerprint = Math.imul(fingerprint ^ Math.round(value * 255), 16777619)
   const { body, shade, lit } = colours
   const sheet: LayerOf<'cloudSheet'> = {
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
+    ...(source && { source }),
     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
     key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit),

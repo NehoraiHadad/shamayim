@@ -1,6 +1,7 @@
 import type { Normal } from '../../world/livingLight'
 import type { WorldState } from '../../world/types'
 import type { LandIrradiance } from './landIrradiance'
+import type { LampKind } from './layers/lamp'
 import type { outsideShape } from './outsideShape'
 import type { OutsideItem, Plain, SceneBox, Shine, Tones } from './types'
 
@@ -32,6 +33,7 @@ export interface StyleLight {
   /** Tells the hands' light keys apart. */
   key: string
   screen?: (irr: LandIrradiance) => TwilightScreen
+  lamp?: readonly LampKind[]
   outside?: (facts: OutsideFacts) => OutsideLook
 }
 

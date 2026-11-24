@@ -4,7 +4,8 @@ export async function buildingMasks(png) {
   const { Surface } = await import('/src/scene/compose/surface.ts')
   const { buildingRasterMasks } = await import('/e2e/buildingRasterMasks.mjs')
   const w = innerWidth, h = 128
-  const layers = layersOn(sceneModel(window.__world, { width: w, landHeight: h, landTop: 300, skyHeight: 428, dpr: 1 }), 'land')
+  const box = { width: w, landHeight: h, landTop: 300, skyHeight: 428, dpr: 1 }
+  const layers = layersOn(sceneModel(window.__world, box), 'land')
   const outside = layers.find(l => l.kind === 'outside')
   const canvas = () => Object.assign(document.createElement('canvas'), { width: w, height: h })
   const { m, caps, industrial, owner, ownerColors, domeCtx, builtObjects, scale, superWidth } =
@@ -46,7 +47,12 @@ export async function buildingMasks(png) {
   const q = values => values.length ? values.sort((a, b) => a - b)[Math.floor(values.length * .5)] : null
   const yAt = (rgba, i) => .2126 * lin[rgba[i]] + .7152 * lin[rgba[i + 1]] + .0722 * lin[rgba[i + 2]]
   const horizon = q(Array.from({ length: sky.length / 4 }, (_, j) => yAt(sky, j * 4)))
-  const horizonRed = q(Array.from({ length: sky.length / 4 }, (_, j) => sky[j * 4]))
+  // The sky's red beside the tiles. 26° up is this fixture's choice, no property of the sky: where `sky`'s rows stood under
+  // the dome the thresholds were measured on, kept so they still compare the same sky.
+  const { skyGeom } = await import('/src/scene/model/sky.ts')
+  const level = Math.round(skyGeom(window.__world, box).dome(26)) - 5
+  const red = full.getImageData(0, level, w, 10).data
+  const horizonRed = q(Array.from({ length: red.length / 4 }, (_, j) => red[j * 4]))
   let highpass = 0, count = 0, tileRed = 0, peak = 0, peakAt = null
   for (let i = 0; i < colors.length; i += 4) {
     const y = yAt(colors, i), p = i / 4
