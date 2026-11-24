@@ -4,7 +4,7 @@ import type { LocalTime } from '../../domain/types'
 import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { RANGES } from '../../world/field/cells'
-import { densityGrid } from '../../world/field/density'
+import { layerSnapshot } from '../../world/field/density'
 import { makeWorldBuilder } from '../../world/world'
 import { cloudSheetOf } from './cloudSheet'
 import type * as Seen from './cloudSheetSeen'
@@ -39,13 +39,11 @@ it.each(cases)('shows the field as the eye sees it within the cold budget at %s 
     const best = { shaped: Infinity, plain: Infinity }
     for (let rep = 0; rep < 2 * REPS; rep++) {
       view.shaped = (rep + minute) % 2 === 0
-      const { field, snapshot } = world.cloudField!
+      const { field } = world.cloudField!
       const start = performance.now()
-      // A new minute's sheet: its layer's raster, and the sheet on it.
-      for (const fresh of snapshot) {
-        const lattice = fresh.layer?.lattice
-        cloudSheetOf(world, geom, lattice === 'low' || lattice === 'mid'
-          ? { ...fresh, densityGrid: densityGrid(field, lattice, 0, 0, RANGES[lattice][1]) } : { ...fresh }, colours)
+      // A new minute's sheets: every layer's cells and raster, as `cloudFieldAt` takes them, and the sheets on them.
+      for (const { lattice } of field.layers) {
+        cloudSheetOf(world, geom, layerSnapshot(field, lattice, 0, 0, RANGES[lattice][1]), colours)
       }
       const variant = view.shaped ? 'shaped' : 'plain'
       best[variant] = Math.min(best[variant], performance.now() - start)

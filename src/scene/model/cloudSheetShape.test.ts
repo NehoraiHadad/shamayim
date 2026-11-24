@@ -39,12 +39,12 @@ function lone(genus: 'ac' | 'cu', x: number, y: number, r: number, vKm: number, 
   } }
 }
 
-/** The painted widths (px) of a lone cloud, half a pixel a row, top to bottom. */
+/** The painted widths (px) of a lone cloud at half its opacity, half a pixel a row, top to bottom. */
 function widths(sheet: LayerOf<'cloudSheet'>) {
   const rows = []
   for (let y = 0; y < sheet.bounds.h; y += 0.5) {
     let count = 0
-    for (let x = 0.25; x < sheet.bounds.w; x += 0.5) count += Number(sheetAlphaAt(sheet, x, y) >= 0.25)
+    for (let x = 0.25; x < sheet.bounds.w; x += 0.5) count += Number(sheetAlphaAt(sheet, x, y) >= 0.5)
     if (count) rows.push(count / 2)
   }
   return rows

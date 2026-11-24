@@ -75,12 +75,12 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
 
   const count = targetRows + 1
   if (cellular) {
-    // Pack two thirds of the rows into 5–30°: to the join by the degree (so are those above), as the dome's scale changes
-    // there, and from the join compressed towards 5°, where one scene pixel covers a larger radial distance.
+    // Pack two thirds of the rows into 5–30°: to the join by the degree, as the dome's scale changes there, and from the
+    // join compressed towards 5°, where one scene pixel covers a larger radial distance (as a row near 30° does above it).
     const join = geom.dome(DOME_ALT), lowEdge = geom.dome(CELLULAR_LOW_EDGE)
     let row = 0
-    for (const [top, bottom, intervals] of [[90, 30, 12], [30, DOME_ALT, 9]]) {
-      for (let i = 0; i < intervals; i++) ys[row++] = geom.dome(top - (top - bottom) * i / intervals)
+    for (const [top, bottom, intervals, power] of [[90, 30, 12, 1.5], [30, DOME_ALT, 9, 1]]) {
+      for (let i = 0; i < intervals; i++) ys[row++] = geom.dome(bottom + (top - bottom) * (1 - i / intervals) ** power)
     }
     for (const [top, bottom, intervals, power] of [[join, lowEdge, 39, 3],
       [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]) {
