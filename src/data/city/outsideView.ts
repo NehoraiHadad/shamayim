@@ -10,7 +10,7 @@ import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
 import { fabricFrontage } from './fabricFrontage'
-import { composeBodies, standingSites, type FabricSite } from './fabricSlots'
+import { composeBodies, standingSites, type FabricSite, type SiteBox } from './fabricSlots'
 import { MassIndex, visible } from './skylineMass'
 import { TOWER_FRONT_M } from './towerWidth'
 
@@ -429,15 +429,14 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
   // Which towers rise is the sites' question (a body's drawn width raises no new mass): each is probed as its silhouette.
   const index = new MassIndex(fabric && prepared.length > fullGlyphs.size ? visible(fabric.sites, width) : boxes)
-  const probe = (tower: OutsideTower, { wClass, dx, dy }: Prepared) => {
-    const w = SILHOUETTE_W[wClass]
-    return { ...tower, w, baseY: lieBaseY(lie, ground, tower.x, tower.near, floor, w, dx, dy) }
+  const probe = ({ x, near, w: drawnW, baseY, h }: OutsideTower, { wClass, dx, dy }: Prepared): SiteBox => {
+    const w = SILHOUETTE_W[wClass], foot = w === drawnW ? baseY : lieBaseY(lie, ground, x, near, floor, w, dx, dy)
+    return { x, w, top: foot - h, foot, near }
   }
-  const probes = new Map<OutsideTower, OutsideTower>()
+  const probes = new Map<OutsideTower, SiteBox>()
   const fold = (tower: OutsideTower) => {
-    const box = asBox(tower, 'mass')
-    boxes.push(box)
-    index.add(asBox(probes.get(tower)!, 'mass'))
+    boxes.push(asBox(tower, 'mass'))
+    index.add(probes.get(tower)!)
     folded++
   }
   for (const tower of [...ranked].reverse()) {
@@ -445,14 +444,14 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
     const drawn = placed(tower, 'silhouette', ground, floor, frame, look)
     const nominal = probe(drawn, tower)
     probes.set(drawn, nominal)
-    if (nominal.baseY - nominal.h < index.top(nominal.x) - RISE_PX) out.push(drawn)
+    if (nominal.top < index.top(nominal.x) - RISE_PX) out.push(drawn)
     else fold(drawn)
   }
   // A spire placed before the mass rose round it may no longer clear it: it folds in too.
   for (let i = out.length - 1; i >= 0; i--) {
     const tower = out[i]
     const nominal = probes.get(tower)
-    if (nominal && nominal.baseY - nominal.h >= index.top(nominal.x) - RISE_PX) {
+    if (nominal && nominal.top >= index.top(nominal.x) - RISE_PX) {
       out.splice(i, 1)
       fold(tower)
     }

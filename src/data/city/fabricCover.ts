@@ -1,10 +1,12 @@
 import type { FabricSite } from './fabricSlots'
+import { highestFirst } from './numberOrder'
 import type { OutsideBox } from './outsideView'
 
 /** Where a body comes in its row's painting (far first): its foot, and its depth where feet are level. */
 export const rowY = (box: OutsideBox) => box.foot - .001 * box.near
-/** The bodies painted last first, the same for any order they come in. */
-export const frontFirst = (a: OutsideBox, b: OutsideBox) => rowY(b) - rowY(a) || a.x - b.x || (a.seed ?? 0) - (b.seed ?? 0)
+/** Blocks painted last first (`rowY`), level ones by where they stand: the same for any order they come in. */
+const siteRowY = ({ body }: FabricSite) => rowY(body)
+const beside = ({ body: a }: FabricSite, { body: b }: FabricSite) => a.x - b.x || (a.seed ?? 0) - (b.seed ?? 0)
 
 /**
  * The least of itself a body must show: this many px of its width with a whole px of wall over what stands in front (a
@@ -15,7 +17,7 @@ export const frontFirst = (a: OutsideBox, b: OutsideBox) => rowY(b) - rowY(a) ||
 export const LEAST_SHOWN_PX = 2.2
 
 /** The bodies in front are looked up by columns this wide (px). */
-const COLUMN = 8
+const COLUMN = 4
 /** The bounds of what shows are taken only this far (px) from the limit, so their rounding never decides. */
 const SLACK = 1e-6
 const NONE: OutsideBox[] = []
@@ -44,7 +46,7 @@ export function shownWidth(body: OutsideBox, front: readonly OutsideBox[]) {
 }
 
 /** By strips of this many px, the highest roof that stands all across each: what stands in front, at the least. */
-const STRIP = .5
+const STRIP = 1
 
 class Strips {
   private readonly roofs = new Map<number, OutsideBox>()
@@ -107,26 +109,13 @@ function leastShown(body: OutsideBox, front: readonly OutsideBox[]) {
 const shows = (body: OutsideBox, front: readonly OutsideBox[]) =>
   leastShown(body, front) > LEAST_SHOWN_PX + SLACK || shownWidth(body, front) >= LEAST_SHOWN_PX
 
-/** The bodies painted last first: by a number of their place and their turn (an order of numbers alone), then exactly. */
-function paintedLastFirst(blocks: readonly FabricSite[]) {
-  const turn = new Float64Array(blocks.length)
-  let low = Infinity, high = -Infinity
-  for (const { body } of blocks) { const y = rowY(body); low = Math.min(low, y); high = Math.max(high, y) }
-  const step = high > low ? 2 ** 32 / (high - low) : 0
-  for (let i = 0; i < blocks.length; i++) turn[i] = Math.floor((high - rowY(blocks[i].body)) * step) * 2 ** 20 + i
-  turn.sort()
-  const order: FabricSite[] = []
-  for (const n of turn) order.push(blocks[n % 2 ** 20])
-  return order.sort((a, b) => frontFirst(a.body, b.body))
-}
-
 /**
  * The blocks that show, painted last first: one drawn wider than its site is left out only where the nearer of those leave
  * less than `LEAST_SHOWN_PX` of it to be seen. Most are hidden whole strips wide, so only the rest are measured.
  */
 export function shownBlocks(blocks: readonly FabricSite[]): OutsideBox[] {
   const shown: OutsideBox[] = [], strips = new Strips(), columns = new Columns()
-  for (const { box, body } of paintedLastFirst(blocks)) {
+  for (const { box, body } of highestFirst(blocks, siteRowY, beside)) {
     if (body.w > box.w) {
       if (strips.mostShown(body) < LEAST_SHOWN_PX - SLACK || !shows(body, columns.over(body))) continue
       strips.add(body)
