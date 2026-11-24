@@ -6,12 +6,12 @@ import { papered, pigment, valued } from './palette'
 
 /** Each tone's turn (warm +, cool -) and its step of value; the rest are taken as they are. */
 const TURN: Partial<Record<keyof IllustratedTones, readonly [number, number]>> = {
-  wall: [0.6, 0.09], lit: [0.8, 0.08], shade: [-1, -0.04], deep: [-1, -0.09], rim: [0.4, 0.04], stone: [0.6, 0.05], stoneLit: [0.9, 0.06],
+  wall: [0.6, 0.04], lit: [0.8, 0.05], shade: [-1, -0.04], deep: [-1, -0.09], rim: [0.4, 0.04], stone: [0.6, 0.03], stoneLit: [0.9, 0.04],
   roof: [0.6, 0], roofLit: [1, 0.05], glass: [-0.4, 0], glassLit: [0, 0.03], green: [-0.1, -0.02], greenLit: [0.6, 0.05], gold: [0.8, 0.12],
 }
 
 /** How far the paper shows through a lit wall. */
-const PAPERED: Partial<Record<keyof IllustratedTones, number>> = { wall: 0.5, lit: 0.8, stone: 0.5, stoneLit: 0.75 }
+const PAPERED: Partial<Record<keyof IllustratedTones, number>> = { wall: 0.12, lit: 0.35, stone: 0.12, stoneLit: 0.3 }
 
 const held = new WeakMap<Tones, Tones & Partial<IllustratedTones>>()
 

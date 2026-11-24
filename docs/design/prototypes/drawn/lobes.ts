@@ -1,4 +1,4 @@
-import { rng } from '../../../../src/scene/paint/shared/base/core'
+import { fractal, rng } from '../../../../src/scene/paint/shared/base/core'
 
 /*
  * Where a cloud mass's caps stand: round discs inscribed in the mass the model gives, the largest first, each stepping a
@@ -7,13 +7,19 @@ import { rng } from '../../../../src/scene/paint/shared/base/core'
 
 /** A mass on a grid: over 0 inside, `side` its place in the mass (1 top … -1 foot), `most` a row's largest lobe (cells). */
 export interface Mass { cols: number; rows: number; at: Float32Array; side: Float32Array; most: (row: number) => number; seed: number }
-export interface Lobe { x: number; y: number; r: number; side: number }
+export interface Lobe { x: number; y: number; r: number; side: number; tilt: number }
 
 /** A lobe's most against its distance to the edge: a round mass is several lobes, not one ball. */
 const INNER = 0.78
 const DIAG = Math.SQRT2, LEAST = 1.15, APART = 0.62, BIN = 12
 /** How far a lobe swells (against its radius); it rises by as much, so that its foot stays in the mass. */
-const OVER = 0.3
+const OVER = 0.12
+/** Slow noise over the mass: where it is busy its lobes are many and small ones stand too, where it is quiet only the tops have any. */
+const SLOW = 0.16, QUIET = 0.43, CALM = 0.4, BUSY = 0.55
+/** A lobe's least and most against its row's, how seldom it is large; how small it may be where the mass is busy. */
+const SIZE = [0.2, 1.1] as const, SELDOM = 1.5, TINY = 0.4
+/** How far a lobe leans out of its mass, and at random (rad); the cells the lean is taken over, and the fall that is all of it. */
+const LEAN = 0.75, SWAY = 0.5, ABOUT = 3, FALL = 6
 /** Lobes smaller than this share of their row's most stand only on a top; none stand at the foot or in the far rows (cells). */
 const SMALL = 0.42, TOP = 0.05, FOOT = -0.5, NEAR = 6
 
@@ -47,8 +53,11 @@ export function lobesOf(mass: Mass): Lobe[] {
     for (let i = (j / step) % 2 ? step >> 1 : 0; i < cols; i += step) {
       const n = j * cols + i
       if (d[n] < LEAST || mass.side[n] < FOOT) continue
-      const r = Math.min(INNER * d[n], most * (0.5 + 0.5 * rng(seed + i * 7919 + j * 104729)()))
-      if (r >= SMALL * most || mass.side[n] > TOP) found.push({ x: i, y: j, r, side: mass.side[n] })
+      const random = rng(seed + i * 7919 + j * 104729), slow = SLOW / Math.sqrt(most), busy = fractal(seed % 971, i, j, slow, slow, 2)
+      if (busy < QUIET && mass.side[n] < CALM) continue
+      const r = Math.min(INNER * d[n], most * (SIZE[0] + (SIZE[1] - SIZE[0]) * random() ** SELDOM * Math.min(1, 2.4 * (1 - busy))))
+      if (r < SMALL * most * (busy > BUSY ? TINY : 1) && mass.side[n] <= TOP) continue
+      found.push({ x: i, y: j, r, side: mass.side[n], tilt: LEAN * lean(d, n) + SWAY * (random() - 0.5) })
     }
   }
   found.sort((a, b) => b.r - a.r)
@@ -70,6 +79,11 @@ export function lobesOf(mass: Mass): Lobe[] {
     const r = l.r * (1 + OVER * (0.6 + 0.6 * rng(seed + l.x * 31 + l.y * 6151)()))
     return { ...l, r, y: l.y - (r - l.r) }
   })
+}
+
+/** Which way the mass faces at a cell, from its distances to the edge: -1 left … 1 right. */
+function lean(d: Float32Array, n: number): number {
+  return Math.max(-1, Math.min(1, ((d[n - ABOUT] ?? 0) - (d[n + ABOUT] ?? 0)) / FALL))
 }
 
 /** Each lobe's place taken with its neighbours': a value is a group of lobes, not one ball. */

@@ -11,7 +11,7 @@ import { vegetationLight } from '../../../../src/scene/paint/shared/land/vegetat
 import { TEXEL } from '../../../../src/scene/model/planeBands'
 import { classesOf } from './classes'
 import { traceOver } from './contour'
-import { groundDabs, groundKey, groundLines } from './groundMarks'
+import { groundDabs, groundFields, groundKey, groundLines } from './groundMarks'
 import { pigment } from './palette'
 
 /*
@@ -21,8 +21,8 @@ import { pigment } from './palette'
  */
 
 /** The pots a plane takes; how far its values part about their mean; how many cells the colours are gathered over. */
-const POTS = { near: 6, far: 4, back: 3 } as const
-const PART = 1.3, GATHER = 1.3, EDGE = 0.43, LEAST = 7
+const POTS = { near: 8, far: 5, back: 3 } as const
+const PART = 1.4, GATHER = 1, EDGE = 0.43, LEAST = 7
 /** How far a slow noise bends the patches' sides (px): the model's lie in columns, the land's do not. */
 const BENT = 70, BENT_SEED = 733
 
@@ -42,6 +42,7 @@ function lay(ctx: Ctx2D, desc: LayerOf<'plane'>, beam: RGB) {
     const brush = receiverBrush(ctx)
     paintVegStrata(brush, veg, toneAt)
     paintVegFields(brush, veg, toneAt)
+    groundFields(ctx, veg.fields, pots)
     groundLines(ctx, desc)
     paintVegRows(brush, veg, toneAt)
     groundDabs(ctx, desc, t, pots)

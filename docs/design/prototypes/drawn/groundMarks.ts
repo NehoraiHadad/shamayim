@@ -1,3 +1,4 @@
+import { labOf } from '../../../../src/scene/model/tone'
 import type { LayerOf, RGB } from '../../../../src/scene/model/types'
 import { displace, rng, sample, tube } from '../../../../src/scene/paint/shared/base/core'
 import { css, type Ctx2D } from '../../../../src/scene/paint/shared/base/hand'
@@ -31,23 +32,47 @@ export function groundLines(ctx: Ctx2D, desc: LayerOf<'plane'>): void {
 }
 
 /** Cuts a plane takes per 1000 px²; their length (px) at the foot, their width, how far their value goes from the ground's. */
-const DENSITY = { near: 26, far: 8, back: 1.5 } as const
+const DENSITY = { near: 18, far: 8, back: 1.5 } as const
 const LONG = [3, 20] as const, WIDE = [0.35, 0.6] as const, LIGHT = 0.06, DARK = -0.13, DARKS = 0.78, SEED = 5501
+/** Cuts stand in hatches, more on darker ground: a hatch's most, the px between its cuts, what a step of value does, its least. */
+const HATCH = 4, BESIDE = 1.9, BY_VALUE = 7, LEAST = 0.3, PROBES = 8
+/** A field's edge (px), how much darker than the ground, how strong. */
+const FIELD = { wide: 0.6, dark: -0.17, alpha: 0.7, stride: 9 } as const
 
 /** The graver's cuts along the slope: mostly dark, closer and shorter far off. */
 export function groundDabs(ctx: Ctx2D, desc: LayerOf<'plane'>, t: PlaneTexelCtx, colourAt: (x: number, y: number) => RGB): void {
   const { bounds } = desc, r = rng(SEED + desc.grain.seed)
   const many = Math.round((DENSITY[desc.plane] * bounds.w * bounds.h) / 1000)
+  let mean = 0
+  for (let n = 0; n < PROBES * PROBES; n++) {
+    mean += labOf(colourAt(bounds.x + (((n % PROBES) + 0.5) / PROBES) * bounds.w, bounds.y + ((Math.floor(n / PROBES) + 0.5) / PROBES) * bounds.h)).l / (PROBES * PROBES)
+  }
   for (let n = 0; n < many; n++) {
-    const x = bounds.x + r() * bounds.w, y = bounds.y + r() * bounds.h, long = r(), lift = r(), bow = r() - 0.5, wide = r()
+    const x = bounds.x + r() * bounds.w, y = bounds.y + r() * bounds.h, long = r(), lift = r(), bow = r() - 0.5, wide = r(), close = r()
     const i = Math.min(t.wPx - 1, Math.max(0, Math.floor((x - bounds.x) / TEXEL)))
     if (y < t.crestY[i] + 2) continue
     const deep = Math.min(1, (y - t.crestY[i]) / 90), len = (LONG[0] + (LONG[1] - LONG[0]) * long * long) * (0.45 + 0.55 * deep)
     const step = 6, slope = (t.crestY[Math.min(t.wPx - 1, i + step)] - t.crestY[Math.max(0, i - step)]) / (2 * step * TEXEL)
     const dy = len * slope * 0.7 * (1 - 0.6 * deep)
+    const ground = colourAt(x, y), dark = Math.min(1, Math.max(0, LEAST + BY_VALUE * (mean - labOf(ground).l)))
+    if (close > 0.25 + dark) continue
     ctx.beginPath()
-    carve(ctx, [-0.5, -0.17, 0.17, 0.5].map((u): P => [x + u * len, y + u * dy + bow * (1 - 4 * u * u)]), WIDE[0] + (WIDE[1] - WIDE[0]) * wide * deep, SEED + n, 1)
-    ctx.fillStyle = css(pigment(valued(colourAt(x, y), lift < DARKS ? DARK : LIGHT), lift < DARKS ? -0.3 : 0.3, 1.05), 0.6)
+    for (let k = 0; k < Math.max(1, Math.round(HATCH * dark * (0.4 + close))); k++) {
+      const below = k * BESIDE * (0.6 + 0.4 * deep)
+      carve(ctx, [-0.5, -0.17, 0.17, 0.5].map((u): P => [x + u * len + 3 * k * bow, y + below + u * dy + bow * (1 - 4 * u * u)]), WIDE[0] + (WIDE[1] - WIDE[0]) * wide * deep, SEED + n + k, 1)
+    }
+    ctx.fillStyle = css(pigment(valued(ground, lift < DARKS ? DARK : LIGHT), lift < DARKS ? -0.3 : 0.3, 1.05), 0.6)
+    ctx.fill()
+  }
+}
+
+/** The fields the model gives, each inside a thin carved edge. */
+export function groundFields(ctx: Ctx2D, fields: Float32Array, colourAt: (x: number, y: number) => RGB): void {
+  for (let o = 0; o + FIELD.stride <= fields.length; o += FIELD.stride) {
+    const at = [0, 1, 2, 3, 0].map((k): P => [fields[o + k * 2], fields[o + k * 2 + 1]])
+    ctx.beginPath()
+    carve(ctx, at, FIELD.wide, SEED + o, 0)
+    ctx.fillStyle = css(pigment(valued(colourAt((at[0][0] + at[2][0]) / 2, (at[0][1] + at[2][1]) / 2), FIELD.dark), -0.4), FIELD.alpha * fields[o + 8])
     ctx.fill()
   }
 }

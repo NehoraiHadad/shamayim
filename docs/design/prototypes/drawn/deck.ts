@@ -10,7 +10,7 @@ import { bump, carve, type P } from './carve'
  * the model's own tone is darker the strip hangs lower and its ink is deeper. Pure: the field, the tones, the seed.
  */
 
-export interface DeckInks { lit: RGB; local: RGB; shade: RGB; foot: RGB; key: RGB }
+export interface DeckInks { lit: RGB; local: RGB; shade: RGB; foot: RGB; key: RGB; line: number }
 
 /** A roll's height against the row spacing, at least and at most (px); how far tone and noise move its foot (against it). */
 const ROLL = 2.6, LEAST = 4, MOST = 58, HANG = 1.1, BEND = 1.9, FREQ = 0.009
@@ -43,7 +43,7 @@ export function paintDeck(ctx: Ctx2D, f: SheetField, mean: number, ink: DeckInks
     ctx.fill()
     ctx.beginPath()
     scallops.forEach((s, i) => { if (fractal(seed % 983, s[0][0], y, 0.02, 0.02, 1) > 0.5) carve(ctx, s, LINE * (0.5 + 0.5 * near), seed + n + i, 0.9) })
-    ctx.fillStyle = css(ink.key, ALPHA * near)
+    ctx.fillStyle = css(ink.key, ALPHA * near * ink.line)
     ctx.fill()
     y -= tall * 0.9
   }

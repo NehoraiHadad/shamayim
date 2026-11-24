@@ -1,11 +1,14 @@
 import type { CloudSprite } from '../../../../src/scene/model/cloudSprite'
-import type { LayerOf, RGB } from '../../../../src/scene/model/types'
+import type { LayerOf } from '../../../../src/scene/model/types'
 import { towerMass } from '../../../../src/scene/paint/drawn/towerMass'
 import { whitened } from '../../../../src/scene/paint/drawn/cloudLight'
+import { smoothstep } from '../../../../src/domain/smoothstep'
 import { css, mix, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
-import { billowed, block, feet, keyline, paintCaps } from './billow'
+import { billowed, block, inMasses, keyline } from './billow'
+import { paintCaps } from './caps'
+import { feet } from './feet'
+import { capInks, cloudInks } from './inks'
 import { lobesOf } from './lobes'
-import { papered, pigment, valued } from './palette'
 
 /*
  * A tower as a print: the model's column, shoulders, base and anvil as one billowed block, its caps lit on their tops and
@@ -17,12 +20,16 @@ const CELL = 2, EDGE = 0.36
 const CELLS = 10000, LOBE = 0.3, LOBE_MAX = 30
 /** The light across against the light from above; where the base ends. */
 const ACROSS = 0.75, UP = 1.05, BASE = 0.1
+/** What a cap's place in its mass does to its light. */
+const SIDE = 0.8
+/** Optical depths from which a tower is heavy; how heavy a deep one and a raining one are; its foot's most, against its width. */
+const DEEP = [8, 40] as const, THICK = 0.45, RAINS = 0.85, FOOT = 0.5
 
-export function paintCutCells(ctx: Ctx2D, desc: LayerOf<'cloudCells'>, _env: PaintEnv): void {
-  for (const { sprite, x, y } of desc.cells) tower(ctx, sprite, x, y)
+export function paintCutCells(ctx: Ctx2D, desc: LayerOf<'cloudCells'>, env: PaintEnv): void {
+  for (const { sprite, x, y } of desc.cells) tower(ctx, sprite, x, y, env)
 }
 
-function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number) {
+function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv) {
   const mass = towerMass(s), top = -s.tall * 1.18 - 0.25 * s.w, w = 2 * mass.reach, h = mass.depth + 2 - top
   const step = Math.max(0.8, Math.min(CELL, s.w / 30), Math.sqrt((w * h) / CELLS))
   const cols = Math.ceil(w / step) + 1, rows = Math.ceil(h / step) + 1
@@ -36,22 +43,19 @@ function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number) {
       side[j * cols + i] = up < BASE ? -0.9 : ACROSS * tx * p.across + UP * (up - 0.5) + 0.12 * p.light
     }
   }
-  const under = mix(s.shade, s.lit, 0.6 * s.glow), bright = mix(whitened(s.lit), s.lit, 0.3), lit = 0.35 + 0.6 * Math.min(1, s.litA)
-  const ink = (by: number, turn: number): RGB => pigment(mix(s.body, by > 0 ? bright : under, Math.abs(by)), turn, 1.35)
-  const light = papered(ink(lit, 0.3), 0.6 * lit), tones = { local: ink(0.35 * lit, 0), half: ink(-0.05, -0.2), shade: ink(-0.5, -0.4), foot: ink(-0.8, -0.5) }
-  const key = pigment(valued(mix(s.body, under, 0.9), -0.17), -0.8, 1.35)
+  const under = mix(s.shade, s.lit, 0.6 * s.glow), caught = 0.35 + 0.6 * Math.min(1, s.litA), lit = mix(s.body, s.lit, caught)
+  const heavy = s.rains ? RAINS : THICK * smoothstep(DEEP[0], DEEP[1], s.tau)
+  const t = cloudInks({ lit, bright: mix(s.body, whitened(s.lit), caught), body: mix(s.body, under, 0.15), shade: under, heavy, gain: 1.35 })
+  console.log('[proto] cell w', s.w, 'tau', s.tau, 'rains', s.rains, 'litA', s.litA, 'line', t.line.toFixed(2), 'lit', s.lit, 'body', s.body, 'shade', s.shade)
   const grid = { cols, rows, at }, frame = { x: x - mass.reach, y: y + top, w: (cols - 1) * step, h: (rows - 1) * step }
-  const most = Math.min(LOBE_MAX, Math.max(5, LOBE * s.w))
+  const most = Math.min(LOBE_MAX, Math.max(5, LOBE * s.w)), line = Math.min(1, s.w / 90) * t.line
   const loops = billowed(grid, 0, frame, () => most * 0.5, s.seed, true)
-  block(ctx, loops, [tones.local, tones.half, tones.shade, tones.foot])
-  paintCaps(ctx, lobesOf({ cols, rows, at, side, most: () => most / step, seed: s.seed }), {
-    x: frame.x, y: frame.y, step, toward: Math.sign(tx), seed: s.seed,
-    ink: (l) => {
-      const up = Math.min(1, Math.max(0, 0.5 + 0.75 * l.side))
-      return { lit: mix(tones.half, light, up), local: mix(tones.shade, tones.local, up), shade: mix(tones.foot, tones.half, 0.8 * up), key }
-    },
-    line: () => Math.min(1, s.w / 90),
-  })
-  feet(ctx, loops, css(tones.foot), css(key, 0.32), 0.8, s.seed)
-  keyline(ctx, loops, 0.55, css(key, 0.4 * Math.min(1, s.w / 90)), s.seed)
+  block(ctx, loops, [t.local, t.half, t.shade, t.foot])
+  inMasses(ctx, loops, () => paintCaps(ctx, lobesOf({ cols, rows, at, side, most: () => most / step, seed: s.seed }), {
+    x: frame.x, y: frame.y, step, seed: s.seed,
+    ink: (l) => capInks(t, Math.min(1, Math.max(0, 0.5 + SIDE * l.side))),
+    line: () => line,
+  }))
+  feet(ctx, loops, frame, { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: 0.9, seed: s.seed, most: () => FOOT * s.w }, env)
+  keyline(ctx, loops, 0.55, css(t.key, 0.42 * line), s.seed)
 }

@@ -1,5 +1,6 @@
 import { hashId } from '../../../../src/data/landmarks/hash'
 import type { LayerOf, RGB } from '../../../../src/scene/model/types'
+import { smoothstep } from '../../../../src/domain/smoothstep'
 import { addLight } from '../../../../src/scene/model/tone'
 import { toneOf } from '../../../../src/scene/paint/shared/cloud/deck'
 import { css, mix, type Ctx2D, type PaintEnv } from '../../../../src/scene/paint/shared/base/hand'
@@ -7,13 +8,14 @@ import { soften } from '../../../../src/scene/paint/shared/base/soften'
 import { fractal } from '../../../../src/scene/paint/shared/base/core'
 import { lowLight, whitened } from '../../../../src/scene/paint/drawn/cloudLight'
 import { fieldAt, sheetField } from '../../../../src/scene/paint/drawn/sheetField'
-import { traceOver, type Grid } from './contour'
-import { within } from './base'
+import type { Grid } from './contour'
 import { paintDeck } from './deck'
 import { farRows } from './farRows'
-import { billowed, block, feet, keyline, paintCaps } from './billow'
-import { lobesOf } from './lobes'
-import { papered, pigment, valued } from './palette'
+import { billowed, block, inMasses, keyline } from './billow'
+import { paintCaps } from './caps'
+import { feet } from './feet'
+import { capInks, cloudInks } from './inks'
+import { lobesOf, type Lobe } from './lobes'
 
 /*
  * A cloud sheet as a print. Broken cloud is billowed blocks with caps (`billow`), where the model puts them, and far off low
@@ -28,10 +30,14 @@ const EASE = 0.16, FAR = 7
 const LOBE = 2.3, LOBE_MIN = 5, LOBE_MAX = 42
 /** A row this far apart (px) is near; nearer to 0 than this, the sheet stands in rows (`farRows`). */
 const NEAR = 14, ROWS = 0.24
+/** What a lobe's place in its mass, and the model's own tone there, do to its light. */
+const SIDE = 0.6, TONE = 1.6
+/** The mean tones from which a sheet is heavy; the most a foot's ink rises (px, and against its row). */
+const HEAVY = [0.4, 0.75] as const, FOOT = 34, FOOT_ROWS = 2.6
 /** A deck this open stands in lobes. */
 const OPEN = 0.3
 
-export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: PaintEnv): void {
+export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const f = sheetField(desc)
   if (!f) return
   const cols = Math.ceil(f.width / CELL) + 1, rows = Math.ceil(f.height / CELL) + 1, seed = hashId(desc.id)
@@ -76,35 +82,27 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, _env: Pai
     block(ctx, loops, [t.lit, t.local, t.half, t.shade])
     const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])) / CELL
     const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
-    const shapes = loops.map((l) => l.shape)
-    paintCaps(ctx, lobes.filter((l) => within(shapes, f.x0 + l.x * CELL, f.y0 + (l.y + 0.35 * l.r) * CELL)), {
-      x: f.x0, y: f.y0, step: CELL, toward: 0, seed,
-      ink: (l) => {
-        const up = Math.min(1, Math.max(0, 0.5 + 0.7 * l.side))
-        return { lit: mix(t.local, t.lit, up), local: mix(t.half, t.local, up), shade: mix(t.foot, t.half, 0.1 + 0.5 * up), key: t.key }
-      },
-      line: (l) => nearAt(f.y0 + l.y * CELL),
-    })
-    feet(ctx, loops, css(t.foot), css(t.key, 0.32), 1.15, seed, (y) => 2.4 * rowAt(y))
-    keyline(ctx, loops, 0.55, css(t.key, 0.42), seed)
+    const toneAt = (l: Lobe) => fieldAt(f.tone, f.cols, f.rows, (l.x * (f.cols - 1)) / (cols - 1), (l.y * (f.rows - 1)) / (rows - 1)) - mean
+    inMasses(ctx, loops, () => paintCaps(ctx, lobes, {
+      x: f.x0, y: f.y0, step: CELL, seed,
+      ink: (l) => capInks(t, Math.min(1, Math.max(0, 0.5 + SIDE * l.side - TONE * toneAt(l)))),
+      line: (l) => nearAt(f.y0 + l.y * CELL) * t.line,
+    }))
+    feet(ctx, loops, frame, { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: 0.95, seed, most: (y) => Math.min(FOOT * (1 + t.heavy), FOOT_ROWS * rowAt(y)) }, env)
+    keyline(ctx, loops, 0.55, css(t.key, 0.42 * t.line), seed)
   } else {
-    ctx.beginPath()
-    traceOver(ctx, edge, 0, frame, 8)
-    ctx.clip()
-    paintDeck(ctx, f, mean, t, seed)
+    const loops = billowed(edge, 0, frame, (y) => Math.min(40, Math.max(5, 2.2 * rowAt(y))), seed, true)
+    inMasses(ctx, loops, () => paintDeck(ctx, f, mean, t, seed))
+    keyline(ctx, loops, 0.55, css(t.key, 0.3 * t.line), seed)
   }
   ctx.restore()
 }
 
+/** The sheet's inks; it is heavy as far as the model's own tone lies in its shade. */
 function tonesOf(desc: LayerOf<'cloudSheet'>, tone: number, city: number) {
-  const body = toneOf(desc, tone), low = lowLight(desc)
-  const under = (rgb: RGB) => (desc.city ? addLight(rgb, desc.city.rgb, city) : rgb)
-  return {
-    foot: pigment(under(mix(body, desc.shade, 0.8)), -0.9),
-    shade: pigment(under(mix(body, desc.shade, 0.5)), -0.8),
-    half: pigment(under(mix(body, desc.lit, 0.14)), -0.45),
-    local: papered(pigment(under(mix(body, desc.lit, 0.62)), 0), 0.2),
-    lit: papered(pigment(under(mix(desc.lit, whitened(desc.lit), 1 - low)), 0.3), 0.85),
-    key: pigment(valued(under(mix(body, desc.shade, 0.9)), -0.2), -0.9),
-  }
+  const low = lowLight(desc), under = (rgb: RGB) => (desc.city ? addLight(rgb, desc.city.rgb, city) : rgb)
+  const body = under(toneOf(desc, tone)), heavy = smoothstep(HEAVY[0], HEAVY[1], tone)
+  const t = cloudInks({ lit: under(desc.lit), bright: under(mix(desc.lit, whitened(desc.lit), 1 - low)), body, shade: under(desc.shade), heavy })
+  console.log('[proto] sheet', desc.id, 'tone', tone.toFixed(2), 'heavy', heavy.toFixed(2), 'line', t.line.toFixed(2), 'lit', desc.lit, 'body', body, 'shade', desc.shade)
+  return t
 }

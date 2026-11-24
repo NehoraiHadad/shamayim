@@ -6,12 +6,13 @@ import { css, mix, outline, type Ctx2D, type PaintEnv } from '../../../../src/sc
 import { treeBend, treeCrownAnchor } from '../../../../src/scene/paint/shared/land/landVegPose'
 import { paintVegTufts } from '../../../../src/scene/paint/shared/land/landVegTufts'
 import { receiverBrush } from '../../../../src/scene/paint/shared/land/receiverBrush'
+import { cap } from './caps'
 import { bump, carve, closed, type P } from './carve'
 import { pigment, valued } from './palette'
 
 /*
- * Trees as prints: each crown one bumped shape, its ink wiped from the light to the shade, a key line round it and leaf cuts
- * inside, a trunk under the ones big enough to show it. The model's own plants, places, kinds and light.
+ * Trees as prints: each crown one bumped shape of shade, caps of leaf standing on it as a cloud's do, the lit ones last, a key
+ * line round it and a few leaf cuts inside, a trunk under the ones big enough to show it. The model's own plants, places, kinds and light.
  */
 
 const CAST: RGB = [0.07, 0.08, 0.14]
@@ -71,18 +72,24 @@ function tree(ctx: Ctx2D, x: number, y: number, r: number, kind: number, c: Crow
   }
   const rx = c.rx * (kind === 1 ? 1 : 1.06), ry = c.ry * 1.06, random = rng(Math.round(phase * 1000) + 5), edge = crown(c.cx, c.cy, rx, ry, phase, random)
   const wipe = ctx.createLinearGradient(c.cx - rx * 0.5, c.cy - ry, c.cx + rx * 0.4, c.cy + ry)
-  wipe.addColorStop(0, css(lit))
-  wipe.addColorStop(0.4, css(body))
+  wipe.addColorStop(0, css(mix(body, lit, small ? 1 : 0.5)))
+  wipe.addColorStop(0.35, css(small ? body : mix(body, dark, 0.3)))
   wipe.addColorStop(1, css(dark))
   ctx.beginPath()
   closed(ctx, edge)
   ctx.fillStyle = wipe
   ctx.fill()
   if (small) return
+  const heads = r > 1.6 ? Math.min(6, 2 + Math.round(r / 2)) : 0
+  for (let n = 0; n < heads; n++) {
+    const u = n / (heads - 1), hr = rx * (0.36 + 0.2 * random()), off = (random() - 0.5) * 1.1, up = Math.min(1, Math.max(0, 1.2 - u - 0.35 * off))
+    cap(ctx, { x: c.cx + off * (rx - 0.6 * hr), y: c.cy + ry * (0.75 * u - 0.4), r: hr, tilt: 0.5 * off, seed: Math.round(phase * 977) + n, line: r > 3 ? 0.8 : 0 },
+      { lit: mix(body, lit, up), local: body, shade: dark, key })
+  }
   ctx.beginPath()
   carve(ctx, [...edge, edge[0]], Math.min(0.8, 0.22 + 0.09 * r), Math.round(phase * 77), 0)
   // Leaf cuts: short arcs that follow the crown's round, closer on its shade side.
-  const many = Math.min(16, Math.round(r * 2.2))
+  const many = Math.min(10, Math.round(r * 1.3))
   for (let n = 0; n < many; n++) {
     const a = random() * Math.PI * 2, k = 0.75 * Math.sqrt(random()), lx = c.cx + rx * (0.12 + Math.cos(a) * k), ly = c.cy + ry * (0.14 + Math.sin(a) * k), s = 0.16 + 0.1 * random()
     carve(ctx, bump([lx - rx * s, ly], [lx + rx * s, ly], 0.4), Math.min(0.55, 0.16 + 0.06 * r), n, 0.9)
