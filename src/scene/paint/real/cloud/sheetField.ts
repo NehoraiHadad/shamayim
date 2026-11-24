@@ -23,7 +23,7 @@ const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
 /** Low over the horizon a cloud is far: the shares of the sky's height from which and over which it has a body of its own. */
-const FAR = [0.08, 0.4] as const
+const FAR = [0.04, 0.37] as const
 
 export interface SheetField {
   w: number; h: number
