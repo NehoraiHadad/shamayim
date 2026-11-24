@@ -4,7 +4,7 @@ import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProjection'
-import { COVER_WATER, dryPartsAtKm, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
+import { COVER_WATER, dryPartsAtKm, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm, UNKNOWN_TONE } from './landPalette'
 import { linearLuminance, linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
 import { labOf, rgbOfLab } from './tone'
@@ -115,12 +115,13 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
       a: 0.12 * l.a + 0.76 * cur.a + 0.12 * r.a, b: 0.12 * l.b + 0.76 * cur.b + 0.12 * r.b })
   })
   const { palette, indices } = quantiseTones(smoothed, maxColours)
-  const fallbackSrc = nonWaterLocalFallback(world.land).source
   const shownAlbedos = rawAlbedos.filter((_, i) => visible[i])
   const median = () => medianByLum((shownAlbedos.length ? shownAlbedos : rawAlbedos).filter(isNumber))
-  const mean = roundRgb(meanAlbedo(dry.filter((p) => isNumber(p.albedo))) ?? median() ?? nonWaterLocalFallback(world.land).albedo)
+  const fallback = nonWaterLocalFallback(world.land)
+  const last = isNumber(fallback.albedo) ? fallback.albedo : UNKNOWN_TONE
+  const mean = roundRgb(meanAlbedo(dry.filter((p) => isNumber(p.albedo))) ?? median() ?? last)
   const spec: PlaneSurfaceSpec = {
-    palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
+    palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallback.source) },
     mean,
   }
   if (byPlane.size > 12) byPlane.clear()

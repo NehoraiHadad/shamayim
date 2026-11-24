@@ -18,6 +18,8 @@ export { COVER_WATER, dominantWeightedSource }
 /** Minimum squared Oklab separation between quantised centroids (~0.018 ΔE). */
 const MIN_CLUSTER_SEP_SQ = 0.018 * 0.018
 
+/** The palette of no colours: the one tone where nothing is known of the land. */
+export const UNKNOWN_TONE: RGB = [0.5, 0.52, 0.48]
 interface Lab { l: number; a: number; b: number }
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const roundByte = (c: number) => Math.round(clamp(c, 0, 1) * 255) / 255
@@ -25,7 +27,7 @@ export const roundRgb = (rgb: RGB): RGB => [roundByte(rgb[0]), roundByte(rgb[1])
 
 /** Deterministic farthest-point + Lloyd Oklab quantiser (pure, zero randomness, 1..maxColours). */
 export function quantiseTones(tones: readonly RGB[], maxColours: number): { palette: RGB[]; indices: number[] } {
-  if (!tones.length) return { palette: [[0.5, 0.52, 0.48]], indices: [] }
+  if (!tones.length) return { palette: [UNKNOWN_TONE], indices: [] }
   const labs: Lab[] = tones.map(labOf)
   const distSq = (a: Lab, b: Lab) => (a.l - b.l) ** 2 + (a.a - b.a) ** 2 + (a.b - b.b) ** 2
   const mean: Lab = {
@@ -87,8 +89,7 @@ const RAYS_FROM_M = 700
 
 /** The two bands either side of a distance, and the way from the first to the second in log distance. */
 function bracketAt(bands: readonly LandRayBand[], distM: number): { a: LandRayBand; b: LandRayBand; t: number } {
-  const hi = bands.findIndex((b) => b.distanceM >= distM)
-  const b = bands.at(hi)!
+  const hi = bands.findIndex((b) => b.distanceM >= distM), b = bands.at(hi)!
   if (hi <= 0) return { a: b, b, t: 0 }
   const a = bands[hi - 1], logs = Math.log(b.distanceM) - Math.log(a.distanceM)
   return { a, b, t: clamp((Math.log(distM) - Math.log(a.distanceM)) / Math.max(1e-6, logs), 0, 1) }
