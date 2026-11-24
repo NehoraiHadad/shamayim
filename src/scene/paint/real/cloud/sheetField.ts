@@ -22,8 +22,8 @@ const WALL = 11, WALL_COVER = 0.8
 const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
-/** Low over the horizon a cloud is far: the share of the sky's height over which the air takes its body. */
-const FAR = 0.34
+/** Low over the horizon a cloud is far: the shares of the sky's height from which and over which it has a body of its own. */
+const FAR = [0.08, 0.4] as const
 
 export interface SheetField {
   w: number; h: number
@@ -50,7 +50,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const { alpha, grain } = field, next = cols * 4
   for (let j = 0, p = 0; j < h; j++) {
     const gy = (j * (rows - 1)) / (h - 1), r = Math.min(rows - 2, Math.floor(gy)), ty = gy - r, y = j / RASTER
-    const size = field.scale[j] = scale[r], near = field.near[j] = smoothstep(0, FAR, 1 - j / h), row = r * next
+    const size = field.scale[j] = scale[r], near = field.near[j] = smoothstep(FAR[0], FAR[1], 1 - j / h), row = r * next
     const rowAt = (px: number) => Math.min(rows - 1, Math.max(0, r + Math.sign(px) * Math.max(1, Math.round((Math.abs(px) * size) / ROW)))) * next - row
     const under = rowAt(FOOT), over = rowAt(-FOOT), into = rowAt(WALL)
     grain.row(size)
