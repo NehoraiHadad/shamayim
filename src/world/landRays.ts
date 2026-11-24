@@ -8,6 +8,8 @@ import type { LivingLand, LivingLandSample } from './landLiving'
 
 /** Ray columns across the camera span (every 5th panorama ray: 6.25° ≈ 109 m at 1 km, 2.2 km at 20 km). */
 export const LIVING_LAND_RAYS = 41
+/** Metres per degree of latitude (mean, WGS-84 spherical approximation as in `panorama.ts`). */
+export const M_PER_DEG = 111_320
 const TARGET_BANDS_KM = [0.5, 1.0, 1.8, 3.0, 4.8, 7.2, 12, 20, 35, 55] as const
 
 function snapRayDistanceM(targetKm: number): number {

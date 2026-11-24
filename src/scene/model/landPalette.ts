@@ -1,9 +1,10 @@
 //# allFunctionsCalledOnLoad
 import { unknownLandRgb } from '../../data/land/climatology'
-import type { LivingLand } from '../../world/landLiving'
+import { nearGroundAt, type LivingLand } from '../../world/landLiving'
 import { linearRgbToSrgb, tciRgbToReflectance } from '../../world/landRadiometry'
+import { FIRST_RING_M } from '../../world/nearGround'
 import type { RGB } from '../../world/types'
-import { labOf, rgbOfLab } from './tone'
+import { labOf, rgbOfLab, toLinear } from './tone'
 
 /**
  * Deterministic Oklab palette quantisation and ray-band albedo sampling (Stages 3 & 7 round 2: living land).
@@ -85,6 +86,26 @@ export function dominantWeightedSource(entries: readonly { source: string; weigh
   return best
 }
 
+/** The panorama's profiles place the ground by 700 m, their fourth ring; from there in, the rays give way to the near ground. */
+const RAYS_FROM_M = 700
+interface NearTone { albedo: RGB; contribs: { source: string; weight: number }[] }
+const nearTones = new WeakMap<LivingLand, Map<number, NearTone | null>>()
+
+/** The dry ground's mean reflectance between the eye and the first DEM ring on a bearing; null over open water. */
+function nearTone(land: LivingLand, azimuth: number): NearTone | null {
+  let byBearing = nearTones.get(land)
+  if (!byBearing) nearTones.set(land, byBearing = new Map())
+  const hit = byBearing.get(azimuth)
+  if (hit !== undefined) return hit
+  const dry = nearGroundAt(land, azimuth).filter(({ sample }) => sample.cover !== COVER_WATER)
+  const sum = dry.reduce((total, { weight }) => total + weight, 0)
+  const mean = (k: number) => dry.reduce((total, { sample, weight }) => total + toLinear(sample.albedo[k]) * weight, 0) / sum
+  const tone = sum > 0 ? { albedo: linearRgbToSrgb([mean(0), mean(1), mean(2)]),
+    contribs: dry.map(({ sample, weight }) => ({ source: sample.albedoSource, weight: weight / sum })) } : null
+  byBearing.set(azimuth, tone)
+  return tone
+}
+
 /** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
 export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
   const rays = land.rays
@@ -116,11 +137,12 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
     albedo = lerpRgb(a.sample.albedo, b.sample.albedo, t)
     contribs.push({ source: a.sample.albedoSource, weight: 1 - t }, { source: b.sample.albedoSource, weight: t })
   }
-  if (distM < 700 && land.own.cover !== COVER_WATER) {
-    const ownW = clamp((700 - distM) / 500, 0, 0.55)
-    albedo = lerpRgb(albedo, land.own.albedo, ownW)
-    for (const c of contribs) c.weight *= 1 - ownW
-    contribs.push({ source: land.own.albedoSource, weight: ownW })
+  const near = distM < RAYS_FROM_M ? nearTone(land, rays[idx].azimuth) : null
+  if (near) {
+    const share = clamp((RAYS_FROM_M - distM) / (RAYS_FROM_M - FIRST_RING_M), 0, 1)
+    albedo = lerpRgb(albedo, near.albedo, share)
+    for (const c of contribs) c.weight *= 1 - share
+    for (const { source, weight } of near.contribs) contribs.push({ source, weight: weight * share })
   }
   return { albedo, source: dominantWeightedSource(contribs) }
 }
