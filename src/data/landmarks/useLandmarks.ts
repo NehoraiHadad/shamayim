@@ -21,7 +21,8 @@ const EMPTY_CROPS: readonly CropArea[] = []
 // v8: rows cached before evidence-based worship heights carry the legacy 30 m minaret / 25 m church defaults.
 // v9: beyond-town seat candidates are carried separately from sceneMarks so the own portrait shortlist stays unchanged.
 // v10: crop footprints overlapping CROP_REACH_KM travel beside the marks, so localStorage stays compact.
-function key(id: string) { return `shamayim:landmarks:v10:${id}` }
+// v11: rerank before the drawing budgets so cached minarets no longer displace visible marks.
+function key(id: string) { return `shamayim:landmarks:v11:${id}` }
 function read(id: string): Cache {
   try { return JSON.parse(localStorage.getItem(key(id)) ?? '{}') as Cache } catch { return {} }
 }

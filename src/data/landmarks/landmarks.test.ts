@@ -75,7 +75,7 @@ describe('placement and selection', () => {
   })
 
   it('caps near and far counts and filters a short far mast', () => {
-    const KINDS = ['highrise', 'chimney', 'cooling', 'waterTower', 'church', 'silo', 'castle', 'minaret', 'turbine'] as const
+    const KINDS = ['highrise', 'chimney', 'cooling', 'waterTower', 'church', 'silo', 'castle', 'mast', 'turbine'] as const
     const candidate = (index: number, layer: 'near' | 'far', heightM = 80): Candidate => ({
       mark: { ...baseMark, id: String(index), heightM, kind: KINDS[index % KINDS.length] }, dx: layer === 'far' ? 20 : index,
       dy: 0, x: 20 + index * 25, layer, width: 10, score: 20 - index,
@@ -88,11 +88,11 @@ describe('placement and selection', () => {
   })
 
   it('caps repeated OSM kinds and prefers variety', () => {
-    const minaret = (index: number): Candidate => ({ mark: { ...baseMark, id: `m${index}`, kind: 'minaret' }, dx: index,
+    const orchard = (index: number): Candidate => ({ mark: { ...baseMark, id: `o${index}`, kind: 'orchard' }, dx: index,
       dy: 0, x: 20 + index * 25, layer: 'near', width: 10, score: 20 - index * .1 })
-    const tower: Candidate = { ...minaret(9), mark: { ...baseMark, id: 'w', kind: 'waterTower' }, score: 15 }
-    const picked = select([...Array.from({ length: 6 }, (_, i) => minaret(i)), tower], 375)
-    expect(picked.filter((item) => item.mark.kind === 'minaret')).toHaveLength(2)
+    const tower: Candidate = { ...orchard(9), mark: { ...baseMark, id: 'w', kind: 'waterTower' }, score: 15 }
+    const picked = select([...Array.from({ length: 6 }, (_, i) => orchard(i)), tower], 375)
+    expect(picked.filter((item) => item.mark.kind === 'orchard')).toHaveLength(2)
     expect(picked.map((item) => item.mark.id)).toContain('w')
   })
 
