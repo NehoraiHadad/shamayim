@@ -7,13 +7,15 @@ import { sheetField } from './sheetField'
 
 type Sheet = LayerOf<'cloudSheet'>
 const RANGES = [0, 1, 1.6, 2.6, 4, 7, 12, 20], COLS = 21
+/** The second row (px): over it, nearly overhead, the cloud is on every side and its air crosses the sky faster. */
+const SECOND = 40
 
 /** The caps of a cloud that fills its air west of the eye, carried as far as its air is. */
 function capsAt(frames: NonNullable<Sheet['air']>['frames']) {
   const az = (c: number) => ((c - 10) * 4 * Math.PI) / 180, [{ d }] = frames.slice(-1)
   const cloud = (n: number) => 0.9 * (1 - smoothstep(-1, 1, RANGES[Math.floor(n / COLS)] * Math.sin(az(n % COLS)) - d[0]))
   const desc = { kind: 'cloudSheet', id: 'cloudSheet.low', lattice: 'low', genus: 'cu', xs: Array.from({ length: COLS }, (_, c) => c * 20),
-    ys: [0, 40, 80, 120, 160, 200, 230, 250], alpha: Array.from({ length: RANGES.length * COLS }, (_, n) => cloud(n)),
+    ys: [0, SECOND, 80, 120, 160, 200, 230, 250], alpha: Array.from({ length: RANGES.length * COLS }, (_, n) => cloud(n)),
     tone: Array(RANGES.length * COLS).fill(0.5), body: [0.6, 0.6, 0.65], shade: [0.3, 0.3, 0.35], lit: [0.95, 0.95, 0.95],
     air: { ranges: RANGES, east: [Math.sin(az(0)), Math.sin(az(1))], north: [Math.cos(az(0)), Math.cos(az(1))], frames } } as unknown as Sheet
   const field = sheetField(desc)
@@ -27,7 +29,7 @@ describe('the caps of a broken sheet', () => {
 
   it('stand where the cloud is, along its rim and inside it', () => {
     expect(still.length).toBeGreaterThan(20)
-    for (const { x, r } of still) expect(x - r).toBeLessThan(260)
+    for (const { x, y, r } of still) if (y > SECOND) expect(x - r).toBeLessThan(260)
   })
 
   it('go with the air and keep their size: none jumps, or grows faster than it goes; few come or go', () => {
@@ -35,7 +37,7 @@ describe('the caps of a broken sheet', () => {
     const kept = still.filter(({ seed }) => moved.has(seed))
     expect(kept.length).toBeGreaterThan(0.85 * still.length)
     for (const cap of kept) {
-      const to = moved.get(cap.seed), most = 2
+      const to = moved.get(cap.seed), most = cap.y > SECOND ? 2 : 6
       expect(Math.hypot((to?.x ?? 0) - cap.x, (to?.y ?? 0) - cap.y)).toBeLessThan(most)
       expect(Math.abs((to?.r ?? 0) - cap.r)).toBeLessThan(most)
     }
