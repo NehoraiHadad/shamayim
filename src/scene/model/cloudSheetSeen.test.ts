@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { SCENE_CAMERA } from '../../domain/camera'
 import { cellsAround } from '../../world/field/cells'
 import { layerSnapshot } from '../../world/field/density'
+import { occupancyOf } from '../../world/field/occupancy'
 import { altitudeOf, groundRangeAt } from '../../world/field/project'
 import { kernel } from '../../world/field/rasterNodes'
 import type { CloudField } from '../../world/field/types'
@@ -24,7 +25,7 @@ it.each([
   let count = 0
   for (let i = 0; i < FIELDS; i++) {
     const field: CloudField = { placeId: `cover-${i}`, t: 960, layers: [{
-      lattice, baseKm, meanVKm: 0.6, cover, Q: 0.95, g: 1, floorTau: 0, kappa: 5,
+      lattice, baseKm, meanVKm: 0.6, cover, kappa: 5, ...occupancyOf(lattice, cover),
       form: { conv: 0, strat: 0, sheet: 0, veil: 0 }, d: [0, 0], vel: [0, 0],
     }] }
     const cells = cellsAround(field, lattice, 0, 0, 18)
