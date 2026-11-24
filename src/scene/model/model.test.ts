@@ -3,9 +3,8 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { heightText } from '../../text/isolate'
-import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
-import { markBox } from '../../world/markGeometry'
-import { BACKING_PAD } from '../../world/place'
+import { DOT_R, LABEL_PX, textWidth, VISIBLE_BOTTOM } from '../../world/layout'
+import { heightLabelBox } from '../../world/sceneClearance'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { compositeOrder } from '../compose/compositeOrder'
 import { layersOn, sceneModel } from '.'
@@ -36,25 +35,19 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const world = buildWorld(input)
     const below = input.forecast.elevation < 0
     const { overlay } = sceneModel(world, BOX)
-    // The height label (stage C4; C9: beside the dot, level with it, on its backing, for every place seen from outside):
-    // the world's own layout, clear of the marks the canvas draws.
     const height = overlay.find((item) => item.kind === 'height')!
     expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, backed: true })
-    const w = textWidth(world.labels.height.text, LABEL_PX)
+    const badge = heightLabelBox(world.labels.height, BOX.width)
     const dot = world.place3.dot
-    expect(Math.abs(height.y + LABEL_PX / 2 - dot.y), 'level with the dot').toBeLessThanOrEqual(15.5)
-    // Beside it: its backing 2 px off the dot's ring, or a few px farther out where a mark stands there.
-    const gap = Math.abs(height.x - dot.x) - (DOT_R + 2 + BACKING_PAD + w / 2)
-    expect(gap, 'beside the dot').toBeGreaterThan(-0.01)
-    expect(gap, 'beside the dot').toBeLessThan(14.01)
-    // Where the dot is ringed by marks (Tel Aviv: Azrieli, the Reading chimney, a church, a minaret) no spot beside it is
-    // free: the label takes the one that covers least, one mark at most, on its backing.
-    const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => {
-      const box = markBox(mark)
-      return !(box.right <= height.x - w / 2 - BACKING_PAD || box.left >= height.x + w / 2 + BACKING_PAD
-        || box.bottom <= height.y - BACKING_PAD || box.top >= height.y + LABEL_PX + BACKING_PAD)
-    })
-    expect(covered.length, covered.map((m) => m.id).join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
+    const dx = Math.max(badge.x - dot.x, dot.x - badge.x - badge.w, 0)
+    const dy = Math.max(badge.y - dot.y, dot.y - badge.y - badge.h, 0)
+    const gap = Math.hypot(dx, dy) - DOT_R
+    expect(gap).toBeGreaterThanOrEqual(2 - 1e-8)
+    expect(gap).toBeLessThanOrEqual(34 + 1e-8)
+    expect(Boolean(world.labels.height.leader)).toBe(gap > 12)
+    expect(badge.x).toBeGreaterThanOrEqual(2 - 1e-8)
+    expect(badge.x + badge.w).toBeLessThanOrEqual(BOX.width - 2 + 1e-8)
+    expect(badge.y + badge.h).toBeLessThanOrEqual(VISIBLE_BOTTOM - 2 + 1e-8)
     expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',
       x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y })
     // The datum only below sea level (the SVG scene's rule); the water's names on their water (C9, `notesOnWater`:

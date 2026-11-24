@@ -1,3 +1,4 @@
+import { LABEL_PX, textWidth } from '../../world/layout'
 import { SEA_LABEL_SIDE } from '../../domain/camera'
 import type { WaterSpan } from '../water/waterInView'
 import type { SceneTerrain } from './terrain'
@@ -19,9 +20,7 @@ export interface SceneNote {
 
 export interface NoteBox { left: number; right: number; top: number; bottom: number }
 
-/** The text's width (px) at the notes' small type: ~6.3 px a letter ("פני הים", 7 letters with the space, is 44). */
-const textWidth = (text: string) => Math.round(text.length * 6.3)
-const HEIGHT = 12
+const HEIGHT = LABEL_PX
 /** A body's name is written only over a stretch at least this wide (px at 375). */
 const MIN_LABEL_SPAN = 24
 /** Clear of the sheet's edges (px). */
@@ -32,7 +31,7 @@ const EDGE = 6
  * slid along it to lie within its span (centred on a span shorter than the text).
  */
 function datumNote(seaY: number, width: number, line?: Omit<DatumLine, 'y'>): SceneNote {
-  const w = textWidth('פני הים')
+  const w = textWidth('פני הים', LABEL_PX)
   let left = SEA_LABEL_SIDE === 'right' ? width * .73 - w : width * .27
   if (line) {
     const scale = width / 375
@@ -68,7 +67,7 @@ export function waterNotes(water: readonly WaterSpan[], width: number, taken: re
   }
   const notes: SceneNote[] = []
   for (const span of widest.values()) {
-    const w = textWidth(span.name!)
+    const w = textWidth(span.name!, LABEL_PX)
     const at = (x: number) => span.edges.reduce((best, e) => Math.abs(e.x - x) < Math.abs(best.x - x) ? e : best)
     const note = (x: number, inside: boolean): SceneNote => {
       const edge = at(x)

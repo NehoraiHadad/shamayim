@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 import styles from './Scene.module.css'
 import own from './SceneOverlay.module.css'
 import type { OverlayItem } from '../model/types'
@@ -18,9 +18,17 @@ export function SceneOverlay({ items, width, style }: { items: readonly OverlayI
         return <span key="dot" className={styles.village} style={at(item)} aria-hidden="true" />
       case 'height':
         return (
-          <span key="height" className={item.backed ? `${styles.depth} ${own.backed}` : styles.depth} style={at(item)} aria-hidden="true">
-            {item.text}
-          </span>
+          <Fragment key="height">
+            {item.leader && (
+              <svg className={own.leader} style={style} aria-hidden="true">
+                <line x1={pct(item.leader.x1, width)} y1={item.leader.y1}
+                  x2={pct(item.leader.x2, width)} y2={item.leader.y2} />
+              </svg>
+            )}
+            <span className={item.backed ? `${styles.depth} ${own.backed}` : styles.depth} style={at(item)} aria-hidden="true">
+              {item.text}
+            </span>
+          </Fragment>
         )
       default:
         return (

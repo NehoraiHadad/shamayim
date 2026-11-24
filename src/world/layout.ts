@@ -1,4 +1,4 @@
-import { SCENE_H } from './sunPath'
+import { SCENE_H } from './sceneBox'
 
 /**
  * The scene's layout constants and box helpers (stage C4): the world places the marks and the height label with them
@@ -35,6 +35,21 @@ export function shifts(max: number, step: number) {
   return out
 }
 
-/** Width of a one-line label (Heebo-like digits and Hebrew run about half an em). */
-export function textWidth(text: string, fontPx: number) { return text.replace(/[\u2066-\u2069]/g, '').length * fontPx * .5 + 1 }
+// Assistant 600 bundled by @fontsource/assistant (600.css), Hebrew and Latin WOFF
+// cmap/hmtx advances in units of 1/1000 em. The scene uses this face for every note.
+const ADVANCE: Readonly<Record<string, number>> = {
+  '1': 463, ' ': 200, '\u00a0': 200, ',': 264, '-': 317, '−': 506,
+  א: 586, ב: 534, ג: 395, ד: 539, ה: 558, ו: 240, ז: 367, ח: 578, ט: 570, י: 240,
+  ך: 507, כ: 478, ל: 486, ם: 585, מ: 621, ן: 240, נ: 374, ס: 583, ע: 551,
+  ף: 555, פ: 548, ץ: 496, צ: 536, ק: 567, ר: 480, ש: 652, ת: 618, '׳': 239, '״': 418,
+}
 
+export function textWidth(text: string, fontPx: number) {
+  let units = 0
+  for (const char of text) {
+    if (/[\u2066-\u2069\p{Mark}]/u.test(char)) continue
+    // Other digits are 506 units. Reserve a full em for an unlisted fallback glyph.
+    units += ADVANCE[char] ?? (/[0-9]/.test(char) ? 506 : 1000)
+  }
+  return Math.ceil(units * fontPx / 1000)
+}

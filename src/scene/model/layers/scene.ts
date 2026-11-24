@@ -1,3 +1,4 @@
+import type { HeightLeader } from '../../../world/heightLabel'
 import type { Box } from './base'
 import type { CloudLayers } from './cloud'
 import type { LandLayers } from './land'
@@ -19,7 +20,7 @@ export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
 /** HTML over the land, placed from the model: positions in scene px (x as `box.width` scales it). */
 export type OverlayItem =
   /** `x` the label's centre, `y` its top. */
-  | { kind: 'height'; text: string; x: number; y: number; below: boolean; backed?: boolean }
+  | { kind: 'height'; text: string; x: number; y: number; below: boolean; backed?: boolean; leader: HeightLeader | null }
   /** `x` the note's left edge, `y` its top. */
   | { kind: 'datum' | 'water'; text: string; x: number; y: number }
   | { kind: 'dot'; x: number; y: number }
@@ -37,6 +38,6 @@ export interface LandClock { loadingAt: number; reveal?: { at: number | null; fr
 export interface SceneModel {
   layers: LayerDesc[]
   overlay: OverlayItem[]
-  /** Text and dot zones (land px) that nothing drawn may cover. */
+  /** Text and dot zones (land px) used for scene clearance. */
   clear: Box[]
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { DOT_R, LABEL_H, LABEL_PX, overlaps, textWidth } from '../../world/layout'
-import { BACKING_PAD, besideDot } from '../../world/place'
+import { LABEL_H, LABEL_PX, textWidth } from '../../world/layout'
+import { BACKING_PAD, heightLabelBox } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
 import { layoutOf } from './layout'
 import type { SceneBox } from './types'
@@ -42,55 +42,17 @@ describe('height label size: one source of truth for CSS and collision layout', 
     expect(LABEL_H).toBe(LABEL_PX * Number(lh![1]))
   })
 
-  it('uses the 12 px label box in besideDot and layoutOf, catching marks outside an 11 px box', () => {
+  it('reserves the full 12 px type and backing in the model', () => {
     const dot = { x: 187.5, y: 80 }
-    const text = '−137 מ׳'
-    const w12 = textWidth(text, 12)
-    const w11 = textWidth(text, 11)
-    expect(LABEL_PX).toBe(12)
-    expect(w12).toBeGreaterThan(w11)
-
-    // Unobstructed placement: centred vertically on the dot at 12 px height, spaced for 12 px width.
-    const free = besideDot(dot, text, 375, [], [])
-    const leftEdge = dot.x + DOT_R + 2
-    expect(free.x).toBeCloseTo(leftEdge + BACKING_PAD + w12 / 2, 6)
-    expect(free.y).toBeCloseTo(dot.y - 12 / 2, 6)
-
-    const box12 = {
-      left: free.x - w12 / 2 - BACKING_PAD,
-      right: free.x + w12 / 2 + BACKING_PAD,
-      top: free.y - BACKING_PAD,
-      bottom: free.y + 12 + BACKING_PAD,
-    }
-    const box11 = {
-      left: leftEdge,
-      right: leftEdge + w11 + 2 * BACKING_PAD,
-      top: dot.y - 11 / 2 - BACKING_PAD,
-      bottom: dot.y + 11 / 2 + BACKING_PAD,
-    }
-    expect(box12.right - box12.left).toBeCloseTo(w12 + 2 * BACKING_PAD, 6)
-    expect(box12.bottom - box12.top).toBeCloseTo(12 + 2 * BACKING_PAD, 6)
-
-    // A mark inside the 12 px width overhang but strictly outside an 11 px box (even with 0.5 px clearance pad).
-    const widthSliver = { left: box11.right + 1, right: box12.right - 0.5, top: dot.y - 2, bottom: dot.y + 2 }
-    expect(overlaps(box11, widthSliver, 0.5)).toBe(false)
-    expect(overlaps(box12, widthSliver, 0.5)).toBe(true)
-    const dodgedW = besideDot(dot, text, 375, [widthSliver], [])
-    expect(dodgedW).not.toEqual(free)
-
-    // A mark inside the 12 px height overhang (with 0.5 px pad) but strictly outside an 11 px box (+ 0.5 px pad).
-    const heightSliver = { left: leftEdge + 2, right: leftEdge + 12, top: box11.bottom + 0.6, bottom: box12.bottom + 3 }
-    expect(overlaps(box11, heightSliver, 0.5)).toBe(false)
-    expect(overlaps(box12, heightSliver, 0.5)).toBe(true)
-    const dodgedH = besideDot(dot, text, 375, [heightSliver], [])
-    expect(dodgedH).not.toEqual(free)
-
-    // Model clear zone for an unbacked height label reserves exact 12 px width and height.
-    const world = {
-      place3: { dot },
-      labels: { height: { text, x: free.x, y: free.y, below: true }, notes: [], datum: null },
-    } as unknown as WorldState
+    const height = { text: '−137 מ׳', x: dot.x, y: 60, below: true, backed: true, leader: null }
+    const w12 = textWidth(height.text, 12)
+    expect(w12).toBeGreaterThan(textWidth(height.text, 11))
+    const world = { place3: { dot }, labels: { height, notes: [], datum: null } } as unknown as WorldState
     const [, labelClear] = layoutOf(world, BOX).clear
-    expect(labelClear).toEqual({ x: free.x - w12 / 2, y: free.y, w: w12, h: 12 })
+    expect(labelClear).toEqual({ ...heightLabelBox(height, BOX.width), overFabric: true })
+    expect(labelClear.w).toBe(w12 + 2 * BACKING_PAD)
+    expect(labelClear.h).toBe(LABEL_H + 2 * BACKING_PAD)
+    const overlayCss = readFileSync(new URL('../react/SceneOverlay.module.css', import.meta.url), 'utf8')
+    expect(Number(cssBodiesFor(overlayCss, '.backed').match(/padding:\s*([\d.]+)px/)?.[1])).toBe(BACKING_PAD)
   })
 })

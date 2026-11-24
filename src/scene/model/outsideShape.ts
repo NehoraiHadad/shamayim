@@ -2,7 +2,7 @@ import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { outsideItemKm } from '../../world/outsideDepth'
-import { hits } from '../../world/sceneClearance'
+import { hits, type ScreenBox } from '../../world/sceneClearance'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
 import { receiversUsed } from './buildingUsage'
@@ -12,7 +12,7 @@ import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
-import type { Box, OutsideItem, SceneBox } from './types'
+import type { OutsideItem, SceneBox } from './types'
 import { townGroundKm, wallStep } from './wallDistance'
 
 /** The haze of the place's rows is quantised to this many km (a scrub reuses the tones of a step). */
@@ -62,11 +62,11 @@ interface Shape {
 /** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
 
-export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
+export function outsideShape(world: WorldState, box: SceneBox, clear: readonly ScreenBox[]): Shape {
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${JSON.stringify([clear, world.labels.height.backed && world.labels.height, world.keys.marks])}`
+  const key = `${box.width}|${JSON.stringify([clear, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W
@@ -83,7 +83,8 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   const { frame, skyline, baseKm } = view
   const out: OutsideItem[] = []
-  const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
+  const fabricZones = clear.filter(zone => !zone.overFabric)
+  const free = (left: number, top: number, right: number, bottom: number) => !hits(fabricZones, left, top, right, bottom)
   // The towers beyond the place: at their true distance, far first, behind the place.
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
   const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),

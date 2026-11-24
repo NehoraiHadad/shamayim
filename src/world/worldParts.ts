@@ -64,7 +64,7 @@ export const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('
 export function unknownPlace(place: WorldInput['place'], elevation: number) {
   const rounded = Math.round(elevation)
   const labels: WorldLabels = {
-    height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2, y: 0 },
+    height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2, y: 0, leader: null },
     notes: [],
   }
   const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }
@@ -109,7 +109,10 @@ export function makeWorldMemos() {
       seatCandidates: WorldInput['seatCandidates'], city: WorldInput['city'], width: number, elevation: number,
       bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'], cover: WorldInput['cover']) => {
       const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, elevation, bounds, waterMask, cover })
-      return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey([part.marks, part.seatPool], 1) }
+      // The leader belongs to the DOM overlay, so it does not invalidate canvas layers.
+      const { leader: _leader, ...height } = part.labels.height
+      return { ...part, placeKey: partKey([part.place3, { ...part.labels, height }], 1),
+        marksKey: partKey([part.marks, part.seatPool], 1) }
     }),
     farCitiesPart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {
       const part = farCitiesOf(place, terrain, far, ownSkyline)

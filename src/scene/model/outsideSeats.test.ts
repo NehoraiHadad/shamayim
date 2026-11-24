@@ -123,7 +123,8 @@ it('keeps the town under the backed height label and gives the covered backfill 
     ], height.y + 5)
     towns.mockReturnValue(seating)
     const world = buildWorld({ ...input, seatCandidates: landmarks })
-    expect(world.labels.height).toEqual(height)
+    // Pin the badge to isolate final seat backfill from world placement.
+    world.labels = { ...world.labels, height }
     expect(world.marks.map(({ id }) => id)).toEqual(['seat-0', 'seat-1'])
     return sceneModel(clearBackdrop(world), NARROW).layers.find((layer) => layer.kind === 'outside')!.items
   }
