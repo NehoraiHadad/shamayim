@@ -19,8 +19,10 @@ const SLENDER = [1.1, 2.2] as const
 const SHOULDERS = 3, OUT = [0.18, 0.3], WIDE = [0.45, 0.65], HIGH = [0.35, 0.88]
 /** How much lower a shoulder stands under an anvil: the mature column rises clear of them. */
 const UNDER_ANVIL = 0.35
-/** How much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. */
-const ANVIL_FLARE = 1.6, FLARE_FROM = 0.58
+/** Look: how much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. A true anvil is
+ *  several columns wide and as thin as a seventh of the storm; on a sprite a few dozen px across that is a lid on a
+ *  stalk, so here it is twice the column, and spreads out of its upper half with no corner. */
+const ANVIL_FLARE = 1, FLARE_FROM = 0.45
 /** The anvil's own height under the column's overshooting top, which is this wide and stands this far off the middle. */
 const SHEET_TOP = 0.95, OVERSHOOT = 0.7, OFF = 0.3
 /** How far an anvil's spread is carried downwind (of the flare). */
@@ -37,27 +39,37 @@ export interface Head {
   joint: number; crown: number
   /** 0…1: how far its top spreads into an anvil. */
   anvil: number
+  /** 0…1: how much of it has grown: an overshooting top's, as much as its anvil's. */
+  grown: number
 }
 
 export interface TowerHeadShape { seed: number; w: number; tall: number; anvil?: number }
 
-/** Above the cool-season Levant tropopause (km), a tall Cb can spread into an anvil. */
-const TROPOPAUSE_KM = 11
+/** Look. No tower is drawn more slender: a Cb 8–12 km deep and 5–8 km across (`LATTICES.tower`) is 1 to 2.4 times as tall
+ *  as wide, 1.6 at the middle of both. The dome stretches a near one past it; it is drawn wider there, not a chimney. */
+export const SLENDEREST = 1.6
+/** Look. The anvil is brought in over a column's last step to the most slender (a cap on a squat body reads as a disc
+ *  floating in the sky). */
+const STANDING = 1.5
+/** The lower of the winter's two tropopauses at 30–35° N, 10–12 km up (Randel, Seidel and Pan 2007), where a Cb's top
+ *  spreads. Look: from 1.5 km under it, as the day's own height in that range is not forecast. */
+const TROPOPAUSE_KM = 11, SPREADS_KM = 1.5
 export const towerAnvil = (cb: boolean, top: number, w: number, tall: number) =>
-  cb && tall >= 1.5 * w ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
+  cb ? smoothstep(STANDING, SLENDEREST, tall / w) * smoothstep(TROPOPAUSE_KM - SPREADS_KM, TROPOPAUSE_KM, top) : 0
 
 /** The main column first, then its shoulders, last the base they all stand on (the whole underside is its own). */
 export function headsOf(s: TowerHeadShape): Head[] {
-  const r = seeded(s.seed ^ 0x51ed), anvil = s.anvil ?? 0
+  const r = seeded(s.seed ^ 0x51ed), above = seeded(s.seed ^ 0x2b1d), anvil = s.anvil ?? 0
   const slender = smoothstep(SLENDER[0], SLENDER[1], s.tall / s.w)
   const between = ([a, b]: readonly number[], t = r()) => a + (b - a) * t
-  const head = (x: number, w: number, tall: number, flare: number): Head => {
+  const head = (x: number, w: number, tall: number, flare: number, grown = 1): Head => {
     const crown = Math.min(0.6 * tall, w * (DOME + (CAP - DOME) * flare))
-    return { x, half: w / 2, tall, joint: crown - tall, crown, anvil: flare, top: between([TOP_WIDTH, TOP_SLENDER], slender) }
+    return { x, half: w / 2, tall, joint: crown - tall, crown, anvil: flare, grown, top: between([TOP_WIDTH, TOP_SLENDER], slender) }
   }
   const main = between([MAIN_WIDTH, MAIN_SLENDER], slender * (1 - anvil)) * s.w
   const heads = [head((r() - 0.5) * 0.2 * s.w, main, s.tall * (1 - (1 - SHEET_TOP) * anvil), anvil)]
-  if (anvil > 0.05) heads.push(head(heads[0].x + (r() - 0.5) * 2 * OFF * main, OVERSHOOT * main, s.tall, 0))
+  // The overshooting top rises out of the column as its anvil spreads; its draws are its own, so the shoulders stay put.
+  if (anvil > 0) heads.push(head(heads[0].x + (above() - 0.5) * 2 * OFF * main * anvil, OVERSHOOT * main * anvil, s.tall * (1 + anvil) / 2, 0, anvil))
   let side = r() < 0.5 ? -1 : 1
   const many = Math.max(slender > 0.5 ? 2 : 1, Math.floor(r() * SHOULDERS) + 1)
   for (let n = 0; n < many; n++, side = -side) {
@@ -72,10 +84,10 @@ export function headsOf(s: TowerHeadShape): Head[] {
 /** How far a head's anvil has spread at a height: a share of its half width. */
 const flareAt = (h: Head, t: number) => ANVIL_FLARE * h.anvil * Math.max(0, (t - FLARE_FROM) / (1 - FLARE_FROM)) ** 1.4
 
-/** A head's half width at a height. */
+/** A head's half width at a height: a grown one's half a pixel at least. */
 export function halfAt(h: Head, y: number): number {
   const t = Math.min(1, Math.max(0, -y / h.tall))
-  return Math.max(0.5, h.half * (1 - (1 - h.top) * t * (1 - h.anvil) + flareAt(h, t)))
+  return Math.max(0.5 * h.grown, h.half * (1 - (1 - h.top) * t * (1 - h.anvil) + flareAt(h, t)))
 }
 
 /** Vertical distance from the column, in crown radii. */

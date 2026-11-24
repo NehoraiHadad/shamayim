@@ -1,11 +1,36 @@
 import { coinOf } from '../../world/air'
+import { rayThrough } from '../../world/field/transmit'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
+import { sheetAlphaAt } from './cloudSheetGrid'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
-import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
+import type { Disc, LayerDesc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
+
+/** Look. The light a painter's thickest cloud still lets through: its cores are 1 less it. */
+export const CORE_LEAK = 0.08
+/** A disc's own contrast under a cloud of that slant transmission: the painted cloud lets the leak through at least, so
+ *  under a thicker one the two together let through what the cloud truly does (half a code value of 255 at a depth of 6.2). */
+const shownThrough = (transmission: number) => Math.min(1, transmission / CORE_LEAK)
+
+/** What the clouds let through of a disc as it is drawn (far larger than its half degree), from its middle and its limb:
+ *  the sheets as they are drawn over it, the towers along the rays of where it is drawn. */
+function throughDisc({ cloudField }: WorldState, geom: SkyGeom, clouds: readonly LayerDesc[], x: number, y: number, r: number): number {
+  // A part below the horizon is the land's: a pixel over it instead.
+  const at = (dx: number, dy: number) => ({ x: x + dx, y: Math.min(geom.horizon - 1, y + dy) })
+  const face = [at(0, 0), at(-r, 0), at(r, 0), at(0, -r), at(0, r)]
+  const sheets = clouds.filter((layer) => layer.kind === 'cloudSheet')
+  const towers = cloudField?.snapshot.filter(({ layer }) => layer?.lattice === 'tower') ?? []
+  let sum = 0
+  for (const p of face) {
+    const light = sheets.reduce((left, sheet) => left * (1 - sheetAlphaAt(sheet, p.x, p.y)), 1)
+    sum += light && cloudField && towers.length
+      ? light * rayThrough(cloudField.field, towers, geom.azimuthAt(p.x), geom.domeAltitudeAt(p.y)) : light
+  }
+  return sum / face.length
+}
 
 const WHITE: RGB = [1, 1, 1]
 /** The discs' radii (px), as the SVG scene draws them (an 18 px sun, a 14 px moon). */
@@ -21,17 +46,20 @@ const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
  * still drawn: whatever land and structures are drawn in front of it hide it (the land surface lies over the sky), and the
  * light judges it on that same drawn line (`world/drawnSkyline.ts`).
  */
-export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): Disc | null {
+export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): Disc | null {
   const sun = world.bodies.sun
   if (!sun.up) return null
   const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
-  const coin = coinOf(aerosol)
+  const coin = coinOf(aerosol), veil = veilOf(world), x = geom.left + sun.x * geom.s, y = box.landTop + sun.y
+  const through = throughDisc(world, geom, clouds, x, y, SUN_R)
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)
   const limb: RGB = mixRgb([rgb[0] * 0.86, rgb[1] * 0.78, rgb[2] * 0.66], COIN, coin)
   return {
-    x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, r: SUN_R, rgb, veil: veilOf(world), core, limb, halo: rgb,
-    aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin), flatten: sunFlattening(sun.altitude), coin,
+    x, y, r: SUN_R, rgb, veil, core, limb, halo: rgb,
+    // The air before a cloud that hides the sun lies in its shadow; no more than the mean sky leaves, as the disc.
+    aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin) * Math.min(1 - veil, through), flatten: sunFlattening(sun.altitude), coin,
+    shown: shownThrough(through),
   }
 }
 
@@ -39,7 +67,7 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
  * The moon where the world puts it, in its true phase with the lit limb at its sky bearing, as the SVG scene
  * shows it (`moonLook`): bone by night, sky-pale by day, veiled from 40 % cover up, gone under overcast or thick haze.
  */
-export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): MoonDisc | null {
+export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): MoonDisc | null {
   const moon = world.bodies.moon
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
@@ -50,8 +78,10 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
     farFade: world.air.farFade })
   if (!look || !moon.up) return null
   const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
+  const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
   return {
-    x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight), alpha: look.opacity * world.light.clear,
+    x, y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight),
+    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,
@@ -63,10 +93,10 @@ const r1 = (v: number) => Math.round(v * 4) / 4
 /** Over the clouds (6–8) and the rain's edge (8.5), under the flashes (9) and the near fall (11). */
 const AUREOLE_Z = 8.6
 
-/** The sun and the moon, each its own small layer round its disc (a scrub repaints only the disc that moved). */
-export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bodies'>[] {
+/** The sun and the moon under these clouds, each its own small layer round its disc (a scrub repaints only the disc that moved). */
+export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): LayerOf<'bodies'>[] {
   const out: LayerOf<'bodies'>[] = []
-  const moon = moonDisc(world, box, geom)
+  const moon = moonDisc(world, box, geom, clouds)
   if (moon) {
     const pad = MOON_R + 3
     out.push({ kind: 'bodies', id: 'bodies.moon', surface: 'sky', z: 4, sun: null, moon,
@@ -74,13 +104,13 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       key: layerKey('moon', skyBoxKey(box), r1(moon.x), r1(moon.y), colourKey(moon.rgb), Math.round(moon.alpha * 255),
         Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
   }
-  const sun = sunDisc(world, box, geom)
+  const sun = sunDisc(world, box, geom, clouds)
   if (sun) {
     const pad = Math.ceil(SUN_R * 3.2)
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
       bounds: { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
-        Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50)) })
+        Math.round(sun.flatten * 100), Math.round(sun.coin * 50), Math.round(sun.shown * 255)) })
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never
     // reads as a black coin in a bright ring. Under the near rain and the sky's grains.
@@ -89,7 +119,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       out.push({ kind: 'bodies', id: 'bodies.aureole', surface: 'sky', z: AUREOLE_Z, sun, moon: null, part: 'aureole',
         bounds: { x: Math.floor(sun.x - reach), y: Math.floor(sun.y - reach), w: 2 * reach + 1, h: 2 * reach + 1 },
         key: layerKey('aureole', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.halo), Math.round(sun.veil * 100),
-          Math.round(sun.aureole * 50)) })
+          Math.round(sun.aureole * 255)) })
     }
   }
   return out
