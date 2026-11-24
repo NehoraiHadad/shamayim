@@ -1241,6 +1241,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
       - [x] 1c2. Slices 1 and 2 on main (5fb0d856, owner approved)
       - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
+      - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted
       - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
