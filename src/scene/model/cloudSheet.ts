@@ -1,4 +1,5 @@
 import { hashId } from '../../data/landmarks/hash'
+import { sheetRecoveryShare } from '../../domain/cloudDaylight'
 import { RANGES } from '../../world/field/cells'
 import { groundRangeAt } from '../../world/field/project'
 import { genusOf, smoothstep, unit } from '../../world/field/genus'
@@ -14,25 +15,24 @@ import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
-
 export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
 type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number; daylit?: number }
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
-
 export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours,
   cityAt: CityOnBase | null = null): LayerOf<'cloudSheet'> | null {
   const { layer, heightKm, densityGrid } = snapshot
   if (!layer || heightKm <= 0 || geom.horizon <= 0 || geom.width <= 0) return null
   if (layer.lattice === 'tower' || !layer.cover) return null
   const genus = genusOf(layer.lattice, layer.form, 0.5)
+  const cellular = genus === 'sc' || genus === 'ac'
+  const recovery = cellular ? sheetRecoveryShare(world.bodies.sun.altitude) : 0
   const key = JSON.stringify([geom.width, geom.horizon, geom.azimuthRange.period, geom.azimuthAt(0),
-    geom.azimuthAt(geom.width), geom.domeAltitudeAt(geom.horizon / 2), colours])
+    geom.azimuthAt(geom.width), geom.domeAltitudeAt(geom.horizon / 2), colours, recovery])
   const cached = sheetCache.get(snapshot)
   if (cached?.world === world && cached.key === key) return cached.sheet
-  const cellular = genus === 'sc' || genus === 'ac'
   const veil = genus === 'cs'
   const grid = gridFor(world.place.id, layer, geom, heightKm, genus)
   const { xs, ys, altitudes, ranges, east, north, alpha, tone, tau, texture: raw, weights, path, slant, detail, expected, fade, facing } = grid
@@ -105,8 +105,8 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       const thinned = corrected(index)
       const localOpacity = sheetOpacity(local, multiplier)
       // Design choice: recover up to half the squared texture deficit in opaque, sunlit cells.
-      const texel = cellular && thinned < 1 && daylit
-        ? thinned + 0.5 * daylit * localOpacity * (1 - thinned) ** 2 : thinned
+      const texel = recovery && thinned < 1
+        ? thinned + 0.5 * recovery * localOpacity * (1 - thinned) ** 2 : thinned
       // The far density is already the log of the ensemble transmission for
       // unresolved footprints. Slanting it again turns the gaps into a solid band.
       const ambient = expected[index]

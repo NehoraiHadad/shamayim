@@ -76,15 +76,15 @@ function maxStep(a: readonly number[], b: readonly number[]) {
 }
 
 it.each(['low', 'mid'] as const)('keeps every %s sheet tone continuous across the daylight gates', (lattice) => {
-  const { frame, snapshot } = fixture(lattice)
+  const { frame } = fixture(lattice)
   for (const dusty of [false, true]) {
     let previous: number[] | undefined
     let previousThrough: number[] | undefined
-    for (let altitude = -4; altitude <= 9; altitude += 0.25) {
+    for (let altitude = -8; altitude <= 9; altitude += 0.25) {
       const current = frame(altitude, dusty, horizon)
       const { sheet, world } = current
       if (altitude <= 3) {
-        expect(maxStep(sheet.tone, uncorrected(current, snapshot))).toBeLessThan(1e-12)
+        expect(sheet.daylit).toBeUndefined()
         expect(sheet.through).toBeUndefined()
         expect(dustSky(world, sky)).toEqual(sky)
       }
@@ -114,11 +114,14 @@ function pixels(style: (typeof SCENE_STYLES)[number], sheet: Sheet) {
   return result!
 }
 
-it.each(['low', 'mid'] as const)('renders the moonlit %s sheet with its uncorrected pixels in both styles', (lattice) => {
+it.each(['low', 'mid'] as const)('renders the %s sheet with uncorrected pixels after civil twilight and by moonlight', (lattice) => {
   const { frame, snapshot } = fixture(lattice)
-  const current = frame(-18, false)
-  const reference = { ...current.sheet, tone: uncorrected(current, snapshot) }
-  for (const style of SCENE_STYLES) expect(pixels(style, current.sheet)).toEqual(pixels(style, reference))
+  // Sample just beyond civil twilight with a residual twilight tint, then with the moon's colour.
+  for (const [altitude, lit] of [[-7, horizon], [-18, colours.lit]] as const) {
+    const current = frame(altitude, false, lit)
+    const reference = { ...current.sheet, tone: uncorrected(current, snapshot) }
+    for (const style of SCENE_STYLES) expect(pixels(style, current.sheet)).toEqual(pixels(style, reference))
+  }
 })
 
 it('keys the transmission that reaches the raster even when every other input is identical', () => {
