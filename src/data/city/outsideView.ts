@@ -208,18 +208,18 @@ export function dedupeTowers<T extends CityTower>(towers: readonly T[]): T[] {
   const order = [...towers].sort((a, b) => Number(Boolean(b.name)) - Number(Boolean(a.name)) || b.heightM - a.heightM)
   // Kept towers bucketed by 15 m squares: a tower meets only those in its own and the neighbouring squares (the same
   // answer as comparing with every kept one, in the same order).
-  const cells = new Map<string, T[]>()
+  const cells = new Map<number, T[]>()
   const cellOf = (v: number) => Math.floor(v / .015)
   for (const tower of order) {
     const cx = cellOf(tower.dx), cy = cellOf(tower.dy)
     let twin = false
     for (let i = -1; i <= 1 && !twin; i++) for (let j = -1; j <= 1 && !twin; j++) {
-      twin = cells.get(`${cx + i}:${cy + j}`)?.some(other => Math.hypot(other.dx - tower.dx, other.dy - tower.dy) <= .015
+      twin = cells.get((cx + i) * 1e6 + cy + j)?.some(other => Math.hypot(other.dx - tower.dx, other.dy - tower.dy) <= .015
         && Math.abs(other.heightM - tower.heightM) <= .15 * Math.max(other.heightM, tower.heightM)) ?? false
     }
     if (twin) continue
     kept.push(tower)
-    const key = `${cx}:${cy}`
+    const key = cx * 1e6 + cy
     const list = cells.get(key)
     if (list) list.push(tower)
     else cells.set(key, [tower])
@@ -255,15 +255,18 @@ export function towerFame<T extends CityTower>(place: Coordinate, towers: readon
   return fameOf
 }
 
+/** The towers as they stand from the place, each once. */
+const ownTowers = (place: Coordinate, towers: readonly CityTower[]) =>
+  dedupeTowers(towers.map(tower => ({ ...tower, ...offsetKm(place, tower) })))
+
 /**
- * The place's towers, deduped, without those a hand-drawn icon stands for (Azrieli), each with its fame from the
+ * The place's towers (`ownTowers`), without those a hand-drawn icon stands for (Azrieli), each with its fame from the
  * famous high-rise marks of the map (the nearest tower within 120 m of one takes its name and fame).
  */
 function prepare(place: Coordinate, towers: readonly CityTower[], landmarks: readonly Landmark[], frame: OutsideFrame,
   lie: PlaceLie = {}) {
   const icon = iconStandsFor(place, landmarks)
-  const own = dedupeTowers(towers.map(tower => ({ ...tower, ...offsetKm(place, tower) })))
-    .filter(tower => isOwnSpot(frame, lie, tower.dx, tower.dy))
+  const own = towers.filter(tower => isOwnSpot(frame, lie, tower.dx, tower.dy))
     .filter(tower => !icon(tower))
   const fameOf = towerFame(place, own, landmarks)
   const industrial = landmarks.filter(mark => mark.nameHe && (mark.kind === 'chimney' || mark.kind === 'cooling'))
@@ -413,8 +416,8 @@ const RISE_PX = 7
 
 export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const { place, towers, landmarks, raster, frame, ground, floor, width, lie = {}, look } = input
-  const deduped = dedupeTowers(towers)
-  const prepared = prepare(place, towers, landmarks, frame, lie)
+  const deduped = ownTowers(place, towers)
+  const prepared = prepare(place, deduped, landmarks, frame, lie)
   const inPlace = prepared.length
   const fullGlyphs = glyphs(prepared)
   const mass: MassInput = { place, raster, frame, ground, floor, width, lie,

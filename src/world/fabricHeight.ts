@@ -45,7 +45,9 @@ export function fabricHeights(city: CityResult | null | undefined) {
     if (at && at.built >= SPARSE) return whole(roofHeight(at.levels, at.p90, u))
     const house = HOUSE_M[u < .6 ? 0 : 1]
     const typical = at ? roofHeight(at.levels, 0, 0) : house
-    if (typical < HOUSE_TOP_M || typicalIsTower(at!, lat, towersOf.get(squareKey(lat, lon)) ?? [])) return whole(house)
+    if (typical < HOUSE_TOP_M) return whole(house)
+    const towers = towersOf.get(squareKey(lat, lon))
+    if (towers && typicalIsTower(at!, lat, towers)) return whole(house)
     return { heightM: typical, siteHeightM: house }
   }
 }

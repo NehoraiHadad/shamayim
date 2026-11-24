@@ -18,12 +18,16 @@ export function highestFirst<T>(items: readonly T[], value: (item: T) => number,
   // A number's step and its turn, as one whole number.
   for (let i = 0; i < n; i++) values[i] = Math.floor((high - values[i]) * scale) * TURNS + i
   values.sort()
+  // Each one's step alone again, its turn told by what is left of the number.
   const out: T[] = []
-  for (let i = 0; i < n; i++) out.push(items[values[i] % TURNS])
+  for (let i = 0; i < n; i++) {
+    const step = Math.floor(values[i] / TURNS)
+    out.push(items[values[i] - step * TURNS])
+    values[i] = step
+  }
   const exact = (a: T, b: T) => value(b) - value(a) || tie(a, b)
   for (let from = 0, to = 1; from < n; from = to++) {
-    const step = Math.floor(values[from] / TURNS)
-    while (to < n && Math.floor(values[to] / TURNS) === step) to++
+    while (to < n && values[to] === values[from]) to++
     if (to - from === 1) continue
     const level = out.slice(from, to).sort(exact)
     for (let i = from; i < to; i++) out[i] = level[i - from]
