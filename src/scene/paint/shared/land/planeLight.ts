@@ -10,12 +10,12 @@ import { receiverBrush, type ReceiverBrush, type ReceiverInk } from './receiverB
 
 const BLACK: ReceiverInk = [[0, 0, 0]]
 
-/** What a hand paints its own way: the ground's surface (then no paper lies over it), the gullies. */
+/** What a hand paints its own way: the ground's surface (then no paper lies over it), its marks for the gullies. */
 export interface PlaneLook {
   ground?: (t: PlaneTexelCtx) => OwnGround
-  gullies: (brush: ReceiverBrush, desc: LayerOf<'plane'>) => void
+  marks: (brush: ReceiverBrush, desc: LayerOf<'plane'>) => void
 }
-const PLAIN: PlaneLook = { gullies: paintGullies }
+const PLAIN: PlaneLook = { marks: paintGullies }
 
 function paintGullies(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   desc.gullies.forEach((gully, i) => {
@@ -57,7 +57,7 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     const brush = receiverBrush(ctx, env.shade)
     paintVegStrata(brush, litVeg, toneAt)
     paintVegFields(brush, litVeg, toneAt)
-    look.gullies(brush, desc)
+    look.marks(brush, desc)
     paintTerraces(brush, desc)
     paintVegRows(brush, litVeg, toneAt)
     const grain = desc.grain.amount * env.hand.grain

@@ -5,23 +5,24 @@ import { fractal } from '../../shared/base/core'
 import { materialAt } from '../../shared/land/planeMaterial'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { foldsOf } from './folds'
+import { specksOf, type Speck } from './specks'
 
 /*
  * The ground's own surface, seen at a slant: the model's palette where it lies, broken into patches of soil and scrub that
  * lengthen across the slope and shrink toward the crest, and the small form the light rakes over. No light in it.
  */
 
-/** A texel's reflectance (3 each), then its fall across, its fall away from the eye and its open sky (3 each). */
-export interface GroundForm { rho: Float32Array; form: Float32Array }
+/** A texel's reflectance (3 each), then its fall across, its fall away from the eye and its open sky (3 each); the specks on it. */
+export interface GroundForm { rho: Float32Array; form: Float32Array; specks: Speck[] }
 
 /** How flat the slant makes a patch; how far it follows the crest's line, eased over this many texels; how far the palette's columns are bent (px). */
-const FLAT = 3, FOLLOW = 0.6, EASED = 10, BENT = 70
+const FLAT = 2.4, FOLLOW = 0.35, EASED = 10, BENT = 24
 /** The sizes across (px): broad, middle, fine; what each weighs at the crest and at the foot. */
-const BROAD = { px: 140, crest: 0.25, foot: 1 }, MIDDLE = { px: 58, crest: 0.6, foot: 0.9 }, FINE = { px: 26, crest: 1, foot: 0.7 }
+const BROAD = { px: 110, crest: 0.25, foot: 1 }, MIDDLE = { px: 44, crest: 0.6, foot: 0.9 }, FINE = { px: 17, crest: 1, foot: 0.85 }
 /** How far the patches move the reflectance; a clump's size (px) and darkening; the swells' heights (px); a fold's depth and dark bed. */
-const PATCHES = 0.42, CLUMP = 34, SCRUB = 0.42, SWELL = [15, 8, 4] as const, DEEP = 2.2, BED = 0.16
+const PATCHES = 0.5, CLUMP = 24, SCRUB = 0.5, SWELL = [13, 8, 4] as const, DEEP = 3, BED = 0.18
 /** What the far planes show of it; the mottle's lift of the mean, kept; the sky a px of depth takes. */
-const PLAIN = 0.45, KEPT = 0.1, OPEN = 0.012
+const PLAIN = 0.45, KEPT = 0.1, OPEN = 0.02
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const smooth = (lo: number, hi: number, v: number) => { const x = clamp01((v - lo) / (hi - lo)); return x * x * (3 - 2 * x) }
@@ -41,7 +42,7 @@ export function groundFormOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundFo
 
 function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   const { wPx: cols, hPx: rows, bounds, crestY, footY, seed } = t, cells = cols * rows
-  const rho = new Float32Array(cells * 3), height = new Float32Array(cells), folds = foldsOf(t, desc)
+  const rho = new Float32Array(cells * 3), height = new Float32Array(cells), folds = foldsOf(t, desc), scrubs = new Float32Array(cells)
   const plain: PlaneTexelCtx = { ...t, grainAmount: 0 }, base: [number, number, number] = [0, 0, 0]
   const rough = Math.min(1, PLAIN + t.grainAmount), line = eased(crestY)
   let was = 0, is = 0
@@ -52,14 +53,14 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const v = clamp01((y - crestY[i]) / Math.max(1, footY[i] - crestY[i])), near = v * v * (3 - 2 * v)
     const down = (y - bounds.y - FOLLOW * (1 - v) * line[i]) * FLAT
     const bend = fractal(seed + 5, off, down, 0.006, 0.006, 1) - 0.5
-    const read = (k: number, px: number) => 2 * fractal(seed + k, off + 2 * BENT * bend, down + BENT * bend, 1 / px, 1 / px, 1) - 1
+    const read = (k: number, px: number) => 2 * fractal(seed + k, off + 2 * BENT * bend, down + 2 * BENT * bend, 1 / px, 1 / px, 1) - 1
     const weigh = (s: typeof BROAD) => s.crest + (s.foot - s.crest) * near
     const b = weigh(BROAD), m = weigh(MIDDLE), f = weigh(FINE), fine = read(13, FINE.px)
-    materialAt(plain, bounds.x + off, y, clamp01((off + BENT * bend) / Math.max(1, bounds.w)), v, base)
+    materialAt(plain, bounds.x + off, y, clamp01((off + 2 * BENT * bend) / Math.max(1, bounds.w)), v, base)
     const patch = b * read(11, BROAD.px) + 0.8 * m * read(12, MIDDLE.px) + 0.6 * f * fine
     // Scrub stands where the model's ground is green.
     const green = smooth(-0.18, 0.12, (base[1] - base[0]) / Math.max(1e-4, base[1] + base[0]))
-    const scrub = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
+    const scrub = scrubs[n] = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
     const shift = rough * PATCHES * patch, dark = (1 + shift) * (1 - SCRUB * scrub) * (1 - BED * folds[n]), o = n * 3
     height[n] = rough * (b * SWELL[0] * read(21, BROAD.px * 0.8) + m * SWELL[1] * read(22, MIDDLE.px) + f * SWELL[2] * fine + 2 * scrub) - DEEP * folds[n]
     rho[o] = clamp01(base[0] * dark * (1 + 0.14 * shift - 0.1 * scrub))
@@ -70,7 +71,7 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   }
   const even = is > 0 ? (was / is) * (1 + KEPT * t.grainAmount) : 1
   for (let k = 0; k < rho.length; k++) rho[k] = Math.min(1, rho[k] * even)
-  return { rho, form: formOf(height, cols, rows) }
+  return { rho, form: formOf(height, cols, rows), specks: specksOf(t, desc, scrubs) }
 }
 
 function formOf(height: Float32Array, cols: number, rows: number): Float32Array {
