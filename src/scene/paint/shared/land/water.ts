@@ -33,7 +33,7 @@ function paintStreaks(ctx: Ctx2D, streaks: readonly Streak[], rgb: readonly [num
 }
 
 /** Where the water's loop stands (0–1) at this frame's phase (C7); 0 for a still. */
-function loopAt(desc: LayerOf<'water'>, env: PaintEnv): number {
+export function loopAt(desc: LayerOf<'water'>, env: PaintEnv): number {
   const frames = desc.animated?.frames
   if (!frames) return 0
   const loop = frames.count / frames.fps
@@ -115,7 +115,7 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
  * The sea-level datum: a quiet dashed note one css px wide, in the hour's ink (below sea level only), segment by segment;
  * an end that meets no land fades out to nothing.
  */
-function paintDatum(ctx: Ctx2D, desc: LayerOf<'water'>) {
+export function paintDatum(ctx: Ctx2D, desc: LayerOf<'water'>) {
   const datum = desc.datum
   if (!datum) return
   ctx.setLineDash([1, 4])
