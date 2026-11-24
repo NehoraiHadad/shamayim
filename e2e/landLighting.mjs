@@ -22,8 +22,9 @@ const baseSky = {
   'rosh-pina-1630': APPROVED_STILL, 'shadmot-mehola-0620': APPROVED_STILL, 'shadmot-mehola-1200': APPROVED_STILL,
   'shadmot-mehola-1630': APPROVED_STILL, 'tiberias-0620': APPROVED_STILL, 'tiberias-1200': APPROVED_STILL,
   'tiberias-1630': APPROVED_STILL,
-  // Measured on 676d6cd3: the thick deck's base carries its own light since the clouds slice (.0970 in the approved still).
-  'tiberias-1200-snow': .0991,
+  // Measured on 97a85d1f: the same deck (.0970 in the approved still); the falling flakes now cover under half of the strip, so
+  // its median is the bare deck's.
+  'tiberias-1200-snow': .0941,
 }
 const failures = []
 const server = await startServer()

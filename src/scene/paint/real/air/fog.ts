@@ -18,11 +18,11 @@ const FAR = { round: 2, down: 36 }, NEAR = { round: 1, down: 90 }
 /** The share of the room a row has for uneven density that its banks take. */
 const UNEVEN = 0.5
 /** How far the top wavers, against its own fade. */
-const WAVER = 0.25
+const WAVER = 0.5
 /** A bank's lit top and shaded hollow, against its colour; read over this many raster rows. */
 const RELIEF = 0.07, LIFT = 2
 /** The bounds cut a tall fade short: the fog starts from nothing over these px. */
-const START = 4
+const START = 9
 
 /** A puff's mean along the tile, at `k` of its half height: its soft disc's chord. */
 function puffShare(k: number): number {
