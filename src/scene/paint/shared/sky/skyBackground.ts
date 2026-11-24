@@ -34,5 +34,6 @@ export function skyBackground(desc: LayerOf<'sky'>): string {
   return out.join(', ')
 }
 
-/** The sky layers the canvas paints: all but the base, which is laid as the canvas's CSS background (`skyBackground`). */
-export const onSkyCanvas = (layers: readonly LayerDesc[]) => layers.filter((layer) => layer.kind !== 'sky')
+/** Multiply needs the opaque base on the same canvas. Ungraded skies retain their CSS base. */
+export const onSkyCanvas = (layers: readonly LayerDesc[]) =>
+  layers.some(layer => layer.kind === 'skyFilter') ? layers : layers.filter(layer => layer.kind !== 'sky')

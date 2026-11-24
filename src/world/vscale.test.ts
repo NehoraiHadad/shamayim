@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NEAR_DROP, outsideProject } from '../data/city/outsideView'
+import { settlementOf } from '../data/village/settlementOf'
 import type { LocalTime } from '../domain/types'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES } from '../test/scenePlaces'
+import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
+import { groundFn } from '../data/landmarks/seat'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import { LAND_TOP, placeDotY, verticalScale, VSCALE } from './outside'
 import type { OutsideView, WorldState } from './types'
@@ -52,7 +54,7 @@ describe('at every harness place', () => {
   const worlds = new Map<string, WorldState>()
   beforeAll(async () => {
     stubPublicFetch()
-    loaded = await loadPlaces(places)
+    loaded = await loadPlaces([...places, ...VILLAGE_PLACES.filter(({ id }) => id === 'majdal-shams')])
   }, 120_000)
   afterAll(() => { vi.unstubAllGlobals() })
   const worldOf = (id: string) => {
@@ -71,6 +73,9 @@ describe('at every harness place', () => {
       expect(s, id).toBeGreaterThanOrEqual(VSCALE.min)
       expect(s, id).toBeLessThanOrEqual(VSCALE.max)
       const near0 = outsideProject(view.frame, 0, 0).near
+      // A village's rows lie on their own frame (lay.test.ts).
+      const { place, cover, city } = loaded.get(id)!
+      if (settlementOf(place, { tile: null, cover: cover ?? null, raster: city?.raster })) continue
       // Every row's foot (off the floor) by its depth and its ground's height on the one scale, above the dot and below.
       const rows = view.skyline.boxes.filter((b) => b.dx !== undefined && b.foot < 108 - 1e-6).map((b) => {
         const h = heightNear!(b.dx!, b.dy!) ?? h0
@@ -104,5 +109,17 @@ describe('at every harness place', () => {
     const view = world.place3 as OutsideView
     // Tiberias's crest at the dot stands 274 m over the town: the dot well under the ridge line, no longer on it.
     expect(view.dot.y - world.terrain.near!.points.find(([x]) => x >= view.dot.x)![1]).toBeGreaterThan(20)
+  })
+
+  it('draws the place’s ground as one edge, never a comb of single columns', { timeout: 120_000 }, () => {
+    const TOOTH_PX = 5, APART_PX = 4
+    const teeth = ['majdal-shams', 'ein-gedi'].flatMap((id) => {
+      const points = worldOf(id).terrain.near!.points
+      const at = groundFn(points.map(([x, y]) => [x, y]), 375)
+      const found = points.filter(([x, y]) => x > APART_PX && x < 375 - APART_PX
+        && Math.min(at(x - APART_PX), at(x + APART_PX)) - y > TOOTH_PX)
+      return found.map(([x, y]) => `${id} ${x.toFixed(1)} ${y.toFixed(1)}`)
+    })
+    expect(teeth).toEqual([])
   })
 })

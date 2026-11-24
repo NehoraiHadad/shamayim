@@ -2,6 +2,7 @@
 import { wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
+import { dustSky } from './cloudDust'
 import { nearGroundAlbedo } from './landColour'
 import {
   FLAT_NORMAL, linearLuminance, linearRgbToSrgb, litLandRgb, srgbRgbToLinear, unitChroma, WET_REFLECTANCE_DROP,
@@ -45,8 +46,9 @@ function airOf(world: WorldState): RGB {
   const { altitude, azimuth } = world.bodies.sun
   const towards = (0.5 + 0.5 * Math.cos(wrap180(azimuth - world.camera.heading) * Math.PI / 180)) ** 3
   const glow = towards * smoothstep(7, 1, altitude) * smoothstep(-10, -3, altitude) * (1 - 0.65 * world.light.diffuse)
-  const horizon = rgbOf(palette.horizon)
-  const sky = mixRgb(rgbOf(palette.mid), horizon, 0.45)
+  const veiled = dustSky(world)
+  const horizon = veiled?.[2] ?? rgbOf(palette.horizon)
+  const sky = mixRgb(veiled?.[1] ?? rgbOf(palette.mid), horizon, 0.45)
   const w = 0.3 * (1 - world.night.dark)
   if (w <= 1e-4) return sky
   // Aerosol (`air.haze`) tints the path-scattered sky's chromaticity at the sky's own luminance (never injects daytime brightness at dusk).

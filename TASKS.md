@@ -1243,6 +1243,16 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
       - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted
       - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
+      - [~] 1h. Cloud-space positions for marks (`claude/found-i-cloudpos`): `StyleLight.cloudAir` puts `air` on `cloudSheet`
+            (`src/scene/model/cloudAir.ts`; `airFrames` in `src/world/field/handover.ts`, shared with the field's own noise)
+        - [~] Village build, claude/found-i-village on claude/found-i-town (notes: foundations/V/village/NOTES.md)
+          - [x] S1 contract, tile format, cells adapter (src/data/village/)
+          - [x] S2 data workflow (.github/workflows/village.yml, scripts/village/): 190 tiles, 715 places, 176,501 houses, checked by
+            scripts/village/committed.test.ts. Overture deletes the pinned release about 2027-01-17 (monthly step: village.yml's header)
+          - [x] S4 loader (src/data/village/{villageData,settlementOf,useVillageTile}.ts, service worker rule)
+          - [x] S3 model (src/world/village/): the village on its own frame, laid on the town's unchanged land (`lay.ts`); towns from 3.5 km on untouched
+          - [x] Landmarks among the houses, held to their size (`landmarks.ts`); ODbL credit line where footprints are drawn
+          - [ ] Follow-ups (not refined, owner's decision): small known faults in NOTES.md; gable direction, soft ground tone
       - [~] N2. The sky both hands wait for (`claude/found-i-grade`, on `found-i-lamp`): `StyleLight.sky.grade` (`skyTone.ts`: stops,
             glows, arch, haze, once; light ungraded; key suffix) and `Style.skyBase` (CSS list; `skyBaseRows.ts`, `e2e/skyBase.mjs`).
             No hand passes either yet. The sky branch takes the grade before `skyFilter` when it lands

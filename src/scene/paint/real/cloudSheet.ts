@@ -1,7 +1,9 @@
 import { smoothstep } from '../../../domain/smoothstep'
-import { CORE_LEAK } from '../../model/bodies'
+import { sheetPaintBound } from '../../model/cloudPaintBounds'
+import { CORE_LEAK } from '../../model/cloudSprite'
 import type { LayerOf } from '../../model/types'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
+import { throughAir } from '../shared/cloud/throughAir'
 import { lampLight } from './cloud/lampLight'
 import { RASTER, sheetField, type SheetField } from './cloud/sheetField'
 import { sheetLight } from './cloud/sheetLight'
@@ -18,6 +20,8 @@ import { cloudPoint, cloudTone } from './cloud/tone'
 const CORE = 1 - CORE_LEAK
 /** Low over the horizon a cloud is far: the share of the sky's height over which the air takes its depth, and what it keeps. */
 const FAR = 0.34, KEEP = 0.2
+/** How fast dusty air holds the crowns to what the sky's filter reckons with (`sheetPaintBound`). */
+const DUSTY = 5
 
 export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const { xs, ys } = desc, cols = xs.length, rows = ys.length
@@ -28,6 +32,7 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const { canvas, ctx: sheet } = env.canvas(w, h)
   const image = sheet.createImageData(w, h)
   colour(image.data, desc, field)
+  throughAir(image.data, w, h, desc)
   sheet.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
@@ -42,6 +47,8 @@ function colour(data: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, field: She
   const { x, y, beam } = lampLight(desc.lamp)
   const light = open ? sheetLight(field, { x: (x - desc.xs[0]) * RASTER, y: (y - desc.ys[0]) * RASTER }, beam) : null
   const tone = cloudTone(desc, open), point = cloudPoint(), rgb = new Float32Array(3), core = 1 + open * (CORE - 1)
+  const { bright } = sheetPaintBound(desc), dusty = desc.through ? Math.min(1, DUSTY * (1 - Math.min(...desc.through))) : 0
+  const most = bright.map((c) => 1 + (c - 1) * dusty)
   for (let j = 0, p = 0; j < h; j++) {
     point.near = KEEP + (1 - KEEP) * smoothstep(0, FAR, 1 - j / h)
     for (let i = 0; i < w; i++, p++) {
@@ -53,7 +60,7 @@ function colour(data: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, field: She
       const o = p * 4, gain = desc.source ? field.source[p] ** (1 / 2.4) : 1, towns = city ? field.city[p] : 0
       for (let k = 0; k < 3; k++) {
         // As `scaleLight` and `addLight`, in place: the sRGB curve's power part, where a cloud's tones are.
-        const own = gain === 1 ? rgb[k] : Math.max(0, (rgb[k] + 0.055) * gain - 0.055)
+        const tint = Math.min(most[k], rgb[k]), own = gain === 1 ? tint : Math.max(0, (tint + 0.055) * gain - 0.055)
         data[o + k] = Math.round(255 * Math.min(1, towns ? Math.sqrt(own * own + towns * city!.rgb[k] ** 2) : own))
       }
       data[o + 3] = Math.round(255 * alpha[p] * core)

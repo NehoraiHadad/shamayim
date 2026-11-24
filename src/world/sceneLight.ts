@@ -15,9 +15,21 @@ export function airMass(altitude: number) {
 const RAYLEIGH = [0.055, 0.099, 0.222] as const
 const WAVELENGTH = [650, 550, 450] as const
 const EXPOSURE = 4
+/** Exponential scale height of molecular air (km). */
+const AIR_KM = 8.4
+/** Exponential scale height of the mixed layer's haze (km). */
+export const HAZE_KM = 1.5
+
+/** The share of the haze that lies above `km`. */
+export const hazeAbove = (km: number) => Math.exp(-km / HAZE_KM)
 
 /** The hour's air: visibility (km) and whether its particles are coarse desert dust rather than fine haze. */
 export interface Aerosol { visibilityKm?: number; dustWeight?: number }
+
+/** Green-band aerosol optical depth for a 1.5 km exponential mixed layer. */
+export function aerosolDepth550(visibilityKm = 40): number {
+  return Math.max(0, 3.912 / Math.max(1, visibilityKm) - 0.0116) * HAZE_KM
+}
 
 /**
  * Vertical aerosol optical depth per channel from surface visibility. Koschmieder gives extinction 3.912 / V (km⁻¹);
@@ -25,8 +37,7 @@ export interface Aerosol { visibilityKm?: number; dustWeight?: number }
  * removes: fine haze (~1.3) reddens strongly, coarse dust (~0.3) is nearly grey and mostly dims.
  */
 export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}) {
-  const extinction = Math.max(0, 3.912 / Math.max(1, visibilityKm) - 0.0116)
-  const tau550 = extinction * 1.5
+  const tau550 = aerosolDepth550(visibilityKm)
   const angstrom = 1.3 - dustWeight
   return WAVELENGTH.map((lambda) => tau550 * (lambda / 550) ** -angstrom)
 }
@@ -34,10 +45,10 @@ export function aerosolDepth({ visibilityKm = 40, dustWeight = 0 }: Aerosol = {}
 const cleanNoon = aerosolDepth().map((tau, i) => Math.exp(-tau - RAYLEIGH[i]))
 const luminance = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 
-/** Linear spectral transmission and its photopic strength relative to a clean zenith sun. */
-export function solarBeam(altitude: number, air: Aerosol = {}) {
-  const m = airMass(altitude)
-  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(-(tau + RAYLEIGH[i]) * m))
+/** Linear spectral transmission down to `km` above the ground and its photopic strength relative to a clean zenith sun. */
+export function solarBeam(altitude: number, air: Aerosol = {}, km = 0) {
+  const m = airMass(altitude), haze = hazeAbove(km), molecular = Math.exp(-km / AIR_KM)
+  const transmission = aerosolDepth(air).map((tau, i) => Math.exp(-(tau * haze + RAYLEIGH[i] * molecular) * m))
   return { transmission, strength: Math.min(1, luminance(transmission) / luminance(cleanNoon)) }
 }
 

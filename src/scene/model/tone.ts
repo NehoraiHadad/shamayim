@@ -37,19 +37,30 @@ export function labOf([r0, g0, b0]: RGB): Oklab {
     b: 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s }
 }
 
-/** Oklab → sRGB 0–1 (clamped). */
-export function rgbOfLab({ l, a, b }: Oklab): RGB {
+/** Oklab → linear sRGB, retaining any out-of-gamut channels. */
+function linearOfLab({ l, a, b }: Oklab): RGB {
   const x = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
   const y = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3
   const z = (l - 0.0894841775 * a - 1.291485548 * b) ** 3
-  return [toSrgb(4.0767416621 * x - 3.3077115913 * y + 0.2309699292 * z), toSrgb(-1.2684380046 * x + 2.6097574011 * y - 0.3413193965 * z),
-    toSrgb(-0.0041960863 * x - 0.7034186147 * y + 1.707614701 * z)]
+  return [4.0767416621 * x - 3.3077115913 * y + 0.2309699292 * z, -1.2684380046 * x + 2.6097574011 * y - 0.3413193965 * z,
+    -0.0041960863 * x - 0.7034186147 * y + 1.707614701 * z]
+}
+
+/** Oklab → sRGB 0–1 (clamped). */
+export function rgbOfLab(lab: Oklab): RGB {
+  const [r, g, b] = linearOfLab(lab)
+  return [toSrgb(r), toSrgb(g), toSrgb(b)]
 }
 
 /** Two sRGB colours mixed in Oklab. */
 export function mixRgb(from: RGB, to: RGB, amount: number): RGB {
   const a = labOf(from), b = labOf(to), t = Math.min(1, Math.max(0, amount))
   return rgbOfLab({ l: a.l + (b.l - a.l) * t, a: a.a + (b.a - a.a) * t, b: a.b + (b.b - a.b) * t })
+}
+
+/** Source-over mixing in the canvas's encoded sRGB channels. */
+export function mixSrgb([r, g, b]: RGB, [rr, gg, bb]: RGB, t: number): RGB {
+  return [r + (rr - r) * t, g + (gg - g) * t, b + (bb - b) * t]
 }
 
 /**

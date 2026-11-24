@@ -374,6 +374,8 @@ export interface FabricCell {
   frontM?: number
   /** The house its site is laid out as (m), where a sparse square's own roof differs. */
   siteHeightM?: number
+  /** One house, drawn at its own width however small, never composed with its neighbours. */
+  whole?: true
 }
 
 /**
@@ -388,7 +390,7 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     const w = Math.max(.9, frame.f * cell.wKm / depth)
     if (x + w / 2 < -4 || x - w / 2 > width + 4) continue
     const heightM = Math.min(capM, cell.heightM), siteM = Math.min(capM, cell.siteHeightM ?? cell.heightM)
-    const house = look ? look.house.w * k / frame.k : 0
+    const house = look && !cell.whole ? look.house.w * k / frame.k : 0
     const legible = siteM < HOUSE_TOP_M ? house : 0
     const siteW = Math.max(w, legible)
     const foot = lieBaseY(lie, ground, x, near, floor, siteW, cell.dx, cell.dy)
