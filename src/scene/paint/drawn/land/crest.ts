@@ -26,7 +26,10 @@ export function groundKey(targets: readonly Ctx2D[], brush: ReceiverBrush, desc:
     ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h)
   })
   rim(brush, t)
-  carve(brush.path(), Array.from({ length: Math.floor(t.wPx / 2) }, (_, i): P => [bounds.x + (i * 2 + 0.5) * TEXEL, t.crestY[i * 2] + 0.35]), KEYS[desc.plane], SEED, 0)
+  carve(brush.path(), Array.from({ length: Math.ceil(t.wPx / 2) + 1 }, (_, n): P => {
+    const i = Math.min(t.wPx - 1, n * 2)
+    return [bounds.x + (i + 0.5) * TEXEL, t.crestY[i] + 0.35]
+  }), KEYS[desc.plane], SEED, 0)
   brush.fill(key, 0.75)
 }
 
