@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { coarseCoverFromJson, combineLandCovers, type LandCover } from '../data/land/coverCodec'
-import { encodeLand, LAND_STEP } from '../data/land/grid'
+import { coarseCoverFromJson, combineLandCovers, lookupCover, type LandCover } from '../data/land/coverCodec'
+import { COVER_NORTH, COVER_SOUTH, encodeLand, LAND_STEP } from '../data/land/grid'
 import { SCENE_CAMERA } from '../domain/camera'
 import { SHADMOT_TERRAIN, typedCover } from '../test/livingLandFixtures'
 import { livingLandOf } from './landLiving'
@@ -26,6 +26,9 @@ describe('the near ground over the antimeridian', () => {
       expect(known(10, lon, run)).not.toContain(false)
     })
 
+  it.each([[-180, grid(179, 181)], [-179.5, grid(179, 181)], [180, grid(-181, -179)], [179.5, grid(-181, -179)], [-180.5, canonical], [180.5, canonical]] as const)(
+    'finds %s, whichever turn its grid is in', (lon, cover) => expect(lookupCover(cover, 10, lon).cover).toBe(4))
+
   it('reads the far side of the line, not this one', () => {
     // Crops east of the line, bare ground west of it.
     const land = landAt(10, 179.999, coverOf((_, lon) => lon >= -180 && lon < -179 ? 4 : lon >= 179 && lon < 180 ? 6 : 0))
@@ -48,6 +51,13 @@ describe('the near ground at 62° N', () => {
       const strip = landAt(lat, lon, coverOf((_, at) => Math.floor(at / LAND_STEP) === column ? 4 : 8))
       expect(strip.rays.some(({ near }) => typeof near === 'object')).toBe(true)
     }
+  })
+
+  it.each([[83.999, 1], [-59.999, -1]])('asks for nothing beyond the cover\'s own limits from %s', (lat, side) => {
+    const asked: number[] = []
+    landAt(lat, 35.0123, coverOf((at) => { asked.push(at * side); return 4 }))
+    expect(asked.length).toBeGreaterThan(100)
+    expect(Math.max(...asked)).toBeLessThanOrEqual(side > 0 ? COVER_NORTH : -COVER_SOUTH)
   })
 
   it('has none nearer the poles than the cover itself goes', () => {

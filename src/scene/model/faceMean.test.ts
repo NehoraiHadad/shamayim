@@ -4,7 +4,7 @@ import type { LandRayColumn, LivingLand } from '../../world/landLiving'
 import { livingLandKey } from '../../world/landRays'
 import type { RGB, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
-import { planeSurfaceOf } from './landColour'
+import { planeSurfaceOf, quantiseTones } from './landColour'
 import { COVER_WATER } from './landPalette'
 import { linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { planeLayer } from './planes'
@@ -73,6 +73,28 @@ describe('the one tone of a land plane', () => {
   it('leaves out a colour that is no number', () => {
     const grey: RGB = [0.5, 0.5, 0.5], [g] = srgbRgbToLinear(grey)
     for (const v of meanOf(landOf((i) => near(i === 10 ? [NaN, 0.5, 0.5] : grey)))) expect(Math.abs(v - g)).toBeLessThan(BYTE)
+  })
+
+  it('is of the ground seen over a nearer crest, not of what that hides', () => {
+    const land = landOf((_, ray) => ({ near: undefined, bands: ray.bands.map((b) =>
+      ({ ...b, sample: { ...b.sample, cover: 4, albedo: b.distanceM > 5000 ? BLACK : WHITE } })) }))
+    // The far face from its crest at 20 px, black to 30 px (10 km) and white at 33 px (1 km).
+    const column = (x: number) => ({ x, crest: 20, points: [{ y: 30, km: 10, h: 0, slope: 0 }, { y: 33, km: 1, h: 0, slope: 0 }] })
+    const toneBehind = (nearY: number) => {
+      const { terrain, ...world } = nearFace(land)
+      const far = plane(line(20), 20)
+      return planeSurfaceOf({ ...world, terrain: { ...terrain, near: plane(line(nearY), 0.3), far, sightAt: () => ({ nearKm: 0.3, farKm: 20, farShows: true }),
+        faces: { ...terrain.faces, far: { columns: [column(0), column(375)], contours: [] } } } }, 'far', far, BOX.landHeight).mean
+    }
+    expect(toneBehind(30)).toEqual(BLACK)
+    expect(srgbRgbToLinear(toneBehind(33))[0]).toBeCloseTo(0.5, 2)
+  })
+
+  it('is the palette\'s own unknown tone where no colour at all is a number', () => {
+    const none: RGB = [NaN, NaN, NaN], own = { ...base.land.own, cover: 4, albedo: none }
+    const land = landOf((_, ray) => ({ ...bandsOf(ray, none), ...near(none) }), { own, local: base.land.local.map((p) => ({ ...p, sample: own })) })
+    const world = nearFace(land)
+    expect(planeSurfaceOf(world, 'near', world.terrain.near, BOX.landHeight).mean).toEqual(quantiseTones([], 1).palette[0].map((v) => Math.round(v * 255) / 255))
   })
 
   it('is main\'s median of the cells where the face shows no land at all', () => {
