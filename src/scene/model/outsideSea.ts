@@ -7,6 +7,7 @@ import { skyAt } from './sky'
 import { mixRgb } from './tone'
 import type { Box, SceneBox, SeaDesc, Streak } from './types'
 import { openWaterTone } from './water'
+import { glintColour } from './waterSurface'
 
 /** The sea's mirrored sky: grazing at the far edge, steeper at the near (deg below the horizon, the virtual eye's). */
 const SEA_DEPRESSION: [number, number] = [1.2, 5]
@@ -71,7 +72,7 @@ export function outsideSea(world: WorldState, box: SceneBox, sx: number, clear: 
         if (s < 0.04 || !wet(x + across, y) || hits(clear, x + across - w / 2, y - .3, x + across + w / 2, y + .3)) continue
         sparks.push({ x: x + across - w / 2, y, w, alpha: s })
       }
-      glint = { x, rgb: byMoon ? [0.88, 0.91, 0.96] : mixRgb(light.colour, [1, 1, 1], 0.5), alpha, sparks }
+      glint = { x, rgb: glintColour(world, byMoon), alpha, sparks }
     }
   }
   // Ripples: short strokes over the water, more with the wind (seeded by the place, never the hour), shorter and fainter

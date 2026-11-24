@@ -1,11 +1,13 @@
-// Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/).
+// Stills of the canvas scene and built app for review (docs/design/qa/canvas/<stage>/).
 //   node e2e/scene.stills.mjs <outDir> <moment>[#<style>] … [--dpr=2]    (a moment: `moments.mjs`)
 // (`#drawn`: painted in the drawn hand, `-drawn` in the file's name; a style the scene does not have is refused.)
+// (`#app` / `#app-drawn`: full-page built app from dist/, optionally with @clear or @rainbow.)
 // (`land`: loading | offline | arrive, C8: the land not known yet, or its reveal begun at phase 0.)
 // (A full date picks another day: the moon in another phase. The fixture's forecast is rolled to it.)
 import fs from 'node:fs'
 import path from 'node:path'
-import { CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from './harness.mjs'
+import { shootAppStill } from './appStills.mjs'
+import { CLIP, launch, loadScene, openPage, root, sceneUrl, startPreview, startServer } from './harness.mjs'
 import { momentName, parseMoment } from './moments.mjs'
 import { assertStyle } from './sceneHand.mjs'
 
@@ -15,18 +17,29 @@ const args = process.argv.slice(2)
 const dpr = Number(args.find((a) => a.startsWith('--dpr='))?.slice(6) ?? 2)
 // Explicit labelled flat 100 m fixture for a gazetteer place without a recorded panorama: --flat=lat,lon,name.
 const flat = args.find(a => a.startsWith('--flat='))?.slice(7).split(',')
-const [outDir, ...moments] = args.filter((a) => !a.startsWith('--'))
-if (!outDir || !moments.length) {
-  console.log('usage: node e2e/scene.stills.mjs <outDir> <place>@<HH:MM>[@<weather>] … [--dpr=2]')
+const [outDir, ...texts] = args.filter((a) => !a.startsWith('--'))
+if (!outDir || !texts.length) {
+  console.log('usage: node e2e/scene.stills.mjs <outDir> <moment>[#drawn|#app|#app-drawn] … [--dpr=2]')
   process.exit(2)
+}
+const moments = texts.map(parseMoment)
+const isApp = ({ style }) => style === 'app' || style === 'app-drawn'
+const needsApp = moments.some(isApp)
+if (needsApp && !fs.existsSync(path.join(root, 'dist/index.html'))) {
+  throw new Error('App stills require dist/index.html. Run npx vite build before capturing them.')
 }
 const out = path.resolve(root, outDir)
 fs.mkdirSync(out, { recursive: true })
-const server = await startServer()
-const browser = await launch()
+let server, preview, browser
 try {
-  for (const text of moments) {
-    const moment = parseMoment(text)
+  if (moments.some(moment => !isApp(moment))) server = await startServer()
+  if (needsApp) preview = await startPreview()
+  browser = await launch()
+  for (const moment of moments) {
+    if (isApp(moment)) {
+      await shootAppStill(browser, preview.url, out, moment, dpr)
+      continue
+    }
     const { place } = moment
     const { context, page } = await openPage(browser, server.url, dpr)
     const url = new URL(sceneUrl(server.url, { ...moment }))
@@ -95,6 +108,7 @@ try {
     await context.close()
   }
 } finally {
-  await browser.close()
-  await server.close()
+  try { await browser?.close() } finally {
+    await Promise.all([server?.close(), preview?.close()])
+  }
 }

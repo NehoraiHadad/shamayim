@@ -1,5 +1,6 @@
 //# allFunctionsCalledOnLoad
 import { coinOf } from '../../world/air'
+import { moonAir, tinted } from '../../world/moonlight'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
@@ -59,7 +60,7 @@ function ridgeGlowColour(world: WorldState): RGB {
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright
  * aureole), its colour the sun's after air mass and aerosol, weaker as the sun climbs and as the cloud in front takes its
  * direct light, suppressed by dust. The twilight glow sits where the sun crosses the land around sunrise and sunset.
- * At night a cool halo surrounds the moon and domes of lit air sit over the towns. Graded here, as the
+ * At night a halo surrounds the moon, cool when it is high and warm when it is low, and domes of lit air sit over the towns. Graded here, as the
  * hand paints them: `solarSkyGlows` is also a light on things.
  */
 export function skyGlows(world: WorldState, box: SceneBox, geom: SkyGeom): Glow[] {
@@ -67,9 +68,10 @@ export function skyGlows(world: WorldState, box: SceneBox, geom: SkyGeom): Glow[
   const { moon } = world.bodies
   const veil = veilOf(world)
   if (moon.up && world.night.dark > 0.05) {
-    const strength = moon.illumination * world.night.dark * (1 - 0.85 * veil)
-    if (strength > 0.02) out.push({ x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: 64 * geom.s, rgb: [0.78, 0.82, 1],
-      alpha: 0.22 * strength })
+    const air = moonAir(moon.altitude, world.air)
+    const strength = moon.illumination * world.night.dark * (1 - 0.85 * veil) * air.dim
+    if (strength > 0.02) out.push({ x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: 64 * geom.s,
+      rgb: tinted([0.78, 0.82, 1], air.tint), alpha: 0.22 * strength })
   }
   return out.map((glow) => ({ ...glow, rgb: gradeSky(world, glow.rgb) }))
 }

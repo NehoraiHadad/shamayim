@@ -1,4 +1,6 @@
 import type { LocalDate } from '../domain/types'
+import { sunLongitude } from './planets'
+import { julianDay } from './sun'
 
 /*
  * The annual meteor showers (C10): the IMO's working list of the major showers, their peak date, peak zenithal hourly rate
@@ -11,6 +13,8 @@ export interface Shower {
   name: string
   /** MM-DD of the peak (the solar longitude's date in a common year; it slips by ≤ 1 day over the leap cycle). */
   peak: string
+  /** The sun's longitude (J2000, deg) at the peak: the IMO Meteor Shower Calendars 2026 and 2027 (imo.net). */
+  longitude: number
   zhr: number
   /** Days for the rate to fall to 61 % of the peak (one sigma). */
   sigma: number
@@ -21,16 +25,16 @@ export interface Shower {
 }
 
 export const SHOWERS: readonly Shower[] = [
-  { name: 'Quadrantids', peak: '01-04', zhr: 110, sigma: 0.45, ra: 230, dec: 49, speed: 41 },
-  { name: 'Lyrids', peak: '04-22', zhr: 18, sigma: 1, ra: 271, dec: 34, speed: 49 },
-  { name: 'eta Aquariids', peak: '05-06', zhr: 50, sigma: 4, ra: 338, dec: -1, speed: 66 },
-  { name: 'Southern delta Aquariids', peak: '07-30', zhr: 25, sigma: 5, ra: 340, dec: -16, speed: 41 },
-  { name: 'Perseids', peak: '08-12', zhr: 100, sigma: 2.5, ra: 48, dec: 58, speed: 59 },
-  { name: 'Draconids', peak: '10-08', zhr: 10, sigma: 0.4, ra: 262, dec: 54, speed: 20 },
-  { name: 'Orionids', peak: '10-21', zhr: 20, sigma: 3.5, ra: 95, dec: 16, speed: 66 },
-  { name: 'Leonids', peak: '11-17', zhr: 15, sigma: 1, ra: 152, dec: 22, speed: 71 },
-  { name: 'Geminids', peak: '12-14', zhr: 150, sigma: 1.1, ra: 112, dec: 33, speed: 35 },
-  { name: 'Ursids', peak: '12-22', zhr: 10, sigma: 0.7, ra: 217, dec: 76, speed: 33 },
+  { name: 'Quadrantids', peak: '01-04', longitude: 283.15, zhr: 110, sigma: 0.45, ra: 230, dec: 49, speed: 41 },
+  { name: 'Lyrids', peak: '04-22', longitude: 32.32, zhr: 18, sigma: 1, ra: 271, dec: 34, speed: 49 },
+  { name: 'eta Aquariids', peak: '05-06', longitude: 45.5, zhr: 50, sigma: 4, ra: 338, dec: -1, speed: 66 },
+  { name: 'Southern delta Aquariids', peak: '07-30', longitude: 128, zhr: 25, sigma: 5, ra: 340, dec: -16, speed: 41 },
+  { name: 'Perseids', peak: '08-12', longitude: 140.05, zhr: 100, sigma: 2.5, ra: 48, dec: 58, speed: 59 },
+  { name: 'Draconids', peak: '10-08', longitude: 195.4, zhr: 10, sigma: 0.4, ra: 262, dec: 54, speed: 20 },
+  { name: 'Orionids', peak: '10-21', longitude: 208, zhr: 20, sigma: 3.5, ra: 95, dec: 16, speed: 66 },
+  { name: 'Leonids', peak: '11-17', longitude: 235.27, zhr: 15, sigma: 1, ra: 152, dec: 22, speed: 71 },
+  { name: 'Geminids', peak: '12-14', longitude: 262.2, zhr: 150, sigma: 1.1, ra: 112, dec: 33, speed: 35 },
+  { name: 'Ursids', peak: '12-22', longitude: 270.7, zhr: 10, sigma: 0.7, ra: 217, dec: 76, speed: 33 },
 ]
 
 /** A night counts as a shower night from this ZHR. */
@@ -60,4 +64,16 @@ export function showerOn(date: LocalDate): { shower: Shower; zhr: number } | nul
     if (zhr >= SHOWER_MIN_ZHR && (!best || zhr > best.zhr)) best = { shower, zhr }
   }
   return best
+}
+
+/** The instant (ms) of a shower's peak nearest to a time: when the sun stands at its longitude. */
+export function peakNear(shower: Shower, ms: number): number {
+  let at = ms
+  for (let k = 0; k < 4; k++) {
+    const date = new Date(at)
+    // The calendar's longitudes are of J2000, the sun's of the date: the precession between them.
+    const longitude = sunLongitude(date) - 1.396971 * (julianDay(date) - 2451545) / 36525
+    at += (((shower.longitude - longitude + 180) % 360 + 360) % 360 - 180) / 360 * 365.25 * DAY_MS
+  }
+  return at
 }

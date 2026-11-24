@@ -1258,24 +1258,85 @@ Goal (owner): `real` (default) and `drawn` clearly different, one true world und
 `two-styles-manager-brief.md` in the sessions' shared notes folder. The manager owns every merge to main (each goes live).
 Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 
-- [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
+- [x] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
       - [x] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
-            (facts only), architecture test. `real` and `drawn` byte-identical (CI job `identity`). Merged: main b0181337
+            (facts only), architecture test. Byte-identical (identity CI 45271259016). Merged b0181337, main CI 45276145093 green
       - [x] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`,
             verified; its plain losses go with 1d, its design questions to the manager)
-      - [x] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause: the reading was eased in
-            from its receipt (`receivedAt`) even with nothing shown before, a reload shows it whole. Only `blendForecast` eases
-            now; test `src/world/forecastArrival.test.ts`. Second cause, load order: the water mirrored the first land
-            drawn (`src/scene/model/waterSurface.ts`, test `waterArrival.test.ts`). Third: `mist.valley` kept the first
-            crest's sub-step edges under one key (`mist.ts`, test `mist.test.ts`). Open: fixture `current.precipitation`
-            is an hour's total read as 15 min (`scripts/fixtures/recordForecast.ts`), so the 12:00 rain is drawn 4x too strong
-      - [x] 1b2. The audit's plain losses fixed, one commit each with a test that fails without it: life events keep their identity
-            (28fb9ef6), the moon's lit limb (145d824c), live cloud layers feed sky and mist (f6992189), hourly sums and gusts belong to the
-            hour before their stamp (8caa87f2), missing hours / air past its ends / DST minutes / the label's moment (cc4a64e1)
-      - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
+      - [x] 1c. Bug: haifa storm differs between first load and reload. Fixed in slice 1 (c04a5590); slice 2 (aef314f9, the audit's
+            plain losses) on top. Verified by the manager: CI 45289854735 green, stills vs main, same code 1.5x apart on two
+            runners so no perf regression shown. Changes the first load of a storm: waits for the owner's approval, then merge
+            Same-machine pairs both ways: scrub.latency +1 to +5 % dry (more in rain), model and cold load flat; cause being looked for.
+            Owner approved 24 Nov; merged 5fb0d856 (tree of aef314f9), main CI 45335406645 green
+      - [x] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
-      - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
+      - [x] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
+            Verified 24 Nov, green, sent to the owner: dusk `69ef8e91`, near ground `ebe40935`. Town, sky, clouds rounds still on CI
+      - [x] 1g. Village composition (owner, 24 Nov, Karmei Tzur), separate from 1c-1e: (1) the height number covers the settlement
+            (`besideDot` does not see the houses; seen at Shadmot Mehola too); (2) odd detached buildings around it; (3) the place
+            does not resemble itself, houses too far apart. Evidence (record the real panorama in CI) -> proposal of the rule for
+            what a settlement shows -> owner's approval -> code. Foundations session, own worktree from its town patch
+            Verified 24 Nov, green, sent to the owner: label `8040e277` (leader pole at Haifa/Tel Aviv still long), minarets out `d1e04862`,
+            V2b prototype 2076ba37 (real footprints at 755 of 2187 places, cover cells elsewhere; ODbL credit needed): owner chose this,
+            being built. Owner chose label option A with the height only, no place name (24 Nov); foundations builds it as a slice
+            bf3b316f (minarets out, dusk, near ground) approved and merged 9416f668, main CI 45348662552 running
+            The blend experiment is closed. Owner's lighter bar (24 Nov): larger slices, CI green on the exact sha, before/after stills,
+            one perf check at merge-ready, one independent review; tests only on GitHub
+            Clouds 545d90a1 approved by the owner ("look fine") and merged d85ec3e5, main CI green
+            Owner: no endless polish. Town + lamp 812bcf85 approved, merged 8b21fb41, main CI 45350798658 green. N2 (skyBase + grade, no look change) merged c121ed23. Waiting for the owner: label c0719ae6 (tick to the dot), sky 1bc369a9 (dust dark brown), real S1 night town e73c6b42. Closed list left: label, village, skyBase + grade, cloud position; sky parked if red again
+            24 Nov: owner said yes to village, real night town, sky as is, label with the tick carried to the dot. integ-1 `6039cb0d`
+            (village 9d85b096 + night town e73c6b42, ODbL credit seen on screen) merged, main CI 45361470172 green, perf log read: no new overrun. On CI: spikes
+            `claude/found-i-spikes` dfeb5f00, label2 f7b9028d, cloudpos2 52e1edf9; sky 534c865a green, merges main next
+            Owner asked about the low red moon of 25-26 Nov: place, time and phase right; not reddened, at the left edge, stars random,
+            no text. Owner said yes (24 Nov): after the styles and the vote, one slice: moon reddens low down, "tonight in the sky" line
+            integ-3 `d0195813` (sky 8ec6fc11, cloud position e3a023bc, spikes a8d38d7c) owner-approved, CI 45366036832 green, merged to main.
+            Label ea208c8d held: the owner wants no line and almost no dot; foundations rebuilds (number only; tiny dot on open land), owner
+            chooses no dot or tiny dot in towns from stills. Codex: only through outsourcerer, never a direct `codex exec`
+            Owner, 24 Nov evening: no text in the scene at all; place, height and waters go to one quiet line at the page foot
+            (`claude/found-i-quiet`, variant with the sea level line `claude/meas-datum`); on CI, then before/after for the owner
+            Clean scene `a4f4f6ab` (no line, owner chose 1; Tiberias roof/front band 1.65 -> 1.67 with evidence) merged 2a0c2fef, main CI 45390507893 green
+      - [x] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
+            Final READY 2a0c2fef (24 Nov). Open, none blocks a user: footer far-edge and width-375 judging; Tiberias band 1.67 tight (1.664);
+            density.perf.test flaky; DST fold; worshipVisibility mojibake; lifeSchedule.ts 626 lines; spikes seams; canopy key with gust;
+            refresh-ease reload. Left to the styles: drawn houses in dust/twilight and Jerusalem wall of blocks; real flat shower tower, ball cumulus
+- [x] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
+      Stack 0f41da2f (slices 4, 5, 3, 1, 2; nothing to build in 6) owner-approved, merged 7e4b5ce6, main CI 45403900858 green. One last round, asked by the
+      owner: big clouds that read as balloons, first paint under x1.25 of real, the missing independent review
+- [x] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 (clouds) in work at 251ca10a)
+      Clouds 3ed29531 + fix 2c1b512b owner-approved, merged cbd769cc (24 Nov), CI 45411460469 green, main run 45413747657 green (new: drawn haifa scrub.land p95 12.7 of 10, sent to drawn). Open in parallel:
+      claude/real-plane (B), claude/real-sea (E), claude/real-air (F), one build + one review + one fix round each
+      Polish later: ring at dusk (jerusalem 16:30), large clouds a little flat (tel-aviv 12:00), dark smudge shadmot 15:00 / neve-zohar 16:00
+      Bug (owner, live, both styles): bare strip under the clouds where the sea horizon dips below eye level (karmei-tzur; run 45417571791). Slice claude/real-strip, first to merge. Merged 77337d11 (b7c9db35, owner "yes to all", 24 Nov; CI 45424749985 green; with the small cloud touch 337074df)
+      Drawn clouds b76775ad owner-approved (24 Nov), verified; conflicts with the strip in drawn/cloudSheet.ts and sheetPrint.ts: joined as 1d7e252d (CI 45427963062: check, worker, stills, perf green, real identity equal), merged 350efdbd
+      Clear sky (owner at Shadmot Mehola, 24 Nov 16:50: clear, app drew clouds): MAX_SHIFT 40 caps the satellite correction; claude/clear-sky by the vote-prep session, domain and data only. 0dbadb6e owner-approved, merged e021acb7 (CI 45441364133 green). Later: infrared second witness (real cloud after a clear afternoon is hidden till overhead; partial night fog cleared)
+      Real ground 5e1bc182, trees and sea f24854eb, air ddde10f9 verified (CI green, drawn identity 8/8). Owner 24 Nov: join into claude/real-join on 350efdbd, bring back the ground grain and the trees green, one CI and perf pair, show, merge
+      Joined c46c3da5 (CI 45448264566; drawn identity 8/8, run 45448273657), owner-approved, merged b76225e8 (24 Nov; CI 45453984245 green on attempt 2: density.perf cold place 16.8 then 4.0 ms, machine noise). Later: shorter cold paint (+5..17 %, thunder land more), smooth sea at tel-aviv
+- [x] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
+      Test mail to the vote address arrived (owner, 24 Nov)
+      Ready 9033482c (main 7e4b5ce6 in, CI 45404925681 green, panel stills seen by the manager); merge main again after the styles, re-verify
+      Last pre-release pass sent to the vote-prep session on main b76225e8 (24 Nov); then owner: final look at both styles, worker deploy, merge
+      READY 64f4fc95 verified by the manager (24 Nov; CI 45460536260, vote stills 45460973165 0 failed; one fix: headline halo); sheets shown; owner approved both styles for the vote (24 Nov), weak spots to polish; worker deployed on the owner's order (version 7764d1ff, before it c4f91a60; live: round v2, 0/0, open), merged d51a027c (same tree as 64f4fc95), main run 45464752625 green, Pages live, panel and drawn switch seen on the live site; no phone vote yet
+      Owner (24 Nov): move to the finish; looks good now, polish later, no tens of rounds per problem
+- [~] 4. After the vote: special-sky slice, started 24 Nov in a clean session (claude/special-sky); the style and vote sessions are archived (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
+      one quiet "special event" line, any kind of event, empty on most days (owner, 24 Nov: general, not only night skies).
+      Every event returns the same shape: what, when, where to look, how rare; drop what the place will not see (cloud, land, daylight);
+      show only the rarest. A new event = one detector, no UI change. First set: full moon rising low, meteor shower peak (`showers.ts`),
+      lunar eclipse (new geometry), planet beside the moon (`planets.ts`), chance of a rainbow (`optics.ts` on forecast hours, worded as a
+      chance). Not storms or heat: the daily summary says them. Computed on the device, no service; a test compares our
+      times with published tables; eclipses proposed from a fixed published table, not our own geometry. Real star positions are not in it
+      - [x] The red low moon, both styles: `moonAir` (`world/moonlight.ts`) takes the sun's own path and aerosol against the zenith's, for the disc,
+            its halo and its path on the water; dim is nearer the sky's colour behind it, not a thinner disc
+      - [x] Special events (`src/events/`): a detector gives candidates of one shape, `seen` keeps what the place will see, the rarest is told
+      - [x] One quiet line between the clothes and the days (`ui/SpecialLine.tsx`; the owner chose the place), its own chunk; it opens and closes softly
+      - [x] Tests against published tables (NASA, AstroPixels, IMO), cited in `published.test.ts`; app stills: `#app` in `e2e/scene.stills.mjs`
+      - [x] Codex review and one fix round; code `f8b8f86c`: CI 45476332833 green, identity against main 45476340602 green (8 moments with no low moon)
+      - [ ] The owner: before/after images, the merge
+      - Polish later: the moon is not flattened at the horizon; north of the 250° view the land counts as flat; town glow from population only;
+        Saturn's conjunctions are not checked against a table; eclipses are listed to 2037; in the hour a clock goes back the first of the two is taken
+
+The branches' own notes on these steps (what was written down and not chased):
+
       - [x] 1c2. Slices 1 and 2 on main (5fb0d856, owner approved)
       - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
       - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted

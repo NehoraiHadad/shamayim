@@ -42,12 +42,14 @@ import { StyleVotePanel } from './ui/styleVote/StyleVotePanel'
 import { StyleVoteToggle } from './ui/styleVote/StyleVoteToggle'
 import { useStyleVote } from './ui/styleVote/useStyleVote'
 import { ErrorState, LoadingState } from './ui/States'
+import { SpecialLine } from './ui/SpecialLine'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
 import { useSceneTime } from './ui/scrub/useSceneTime'
 import { useSceneSightings } from './ui/scrub/useSceneSightings'
 import { withVisibleSun } from './world/visibleSun'
 import { useNow } from './ui/useNow'
+import { useSpecialEvent } from './ui/useSpecialEvent'
 import { useThemeChrome } from './ui/useThemeChrome'
 import { WearCard } from './ui/WearCard'
 import { WeekList } from './ui/WeekList'
@@ -114,6 +116,7 @@ export default function App() {
   const sheet = forced ? SKY_THEMES[themeId] : paper
   const wearLine = useMemo(() => (wear ? { garments: wear.garments, paper: { sheet: sheet.sheet, ink: sheet.sheetInk, muted: sheet.sheetMuted,
     accent: sheet.sheetAccent } } : null), [wear, sheet.sheet, sheet.sheetInk, sheet.sheetMuted, sheet.sheetAccent])
+  const special = useSpecialEvent(place, forecast, now, terrain)
   const overhead = useOverheadDialog()
   const styleVote = useStyleVote()
   const modelRain = forecast ? firstRainHour(forecast.hours, now) : undefined
@@ -175,6 +178,7 @@ export default function App() {
               <Sheet>
                 <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />
                 <WearCard tip={wear} action={<StyleVoteToggle state={styleVote} />} />
+                <SpecialLine text={special} />
                 <WeekList forecast={forecast} now={now} />
                 <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
               </Sheet>

@@ -71,7 +71,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
   if (x1 <= x0 || y1 <= y0) return null
   const formKey = layerKey('outside', world.keys.place, landBoxKey(box), shape.key)
   const seaKey = sea ? [sea.stops.map(([, c]) => colourKey(c)), colourKey(sea.shore), sea.glint && [Math.round(sea.glint.x * 4),
-    Math.round(sea.glint.alpha * 64), sea.glint.sparks.length], colourKey(sea.horizon.rgb)] : null
+    Math.round(sea.glint.alpha * 64), sea.glint.sparks.length, colourKey(sea.glint.rgb)], colourKey(sea.horizon.rgb)] : null
   const groundKey = landDesc && [colourKey(landDesc.tone), landDesc.stops.map(([at, c]) => [at.toFixed(5), colourKey(c)]), colourKey(landDesc.rim)]
   // C7: its trees sway in the wind and its sea's ripples run with it, in a strip of frames (the light canvas only).
   const moving = (out.some((item) => item.kind === 'tree') && (shine.sway ?? 0) > 0.005) || Boolean(sea && (sea.ripples.length || sea.glint))

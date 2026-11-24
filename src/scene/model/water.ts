@@ -9,7 +9,7 @@ import { aerialFor, hazeOf, toneAt } from './landVeil'
 import { skyAt } from './sky'
 import { mixLight, mixRgb, rgbOf } from './tone'
 import type { Box, GlintPath, LayerOf, RGB, SceneBox, Streak, WaterBand } from './types'
-import { angleAt, clamp01, edgeAt, lerp, median, shapeOf, surfaceOf } from './waterSurface'
+import { angleAt, clamp01, edgeAt, glintColour, lerp, median, shapeOf, surfaceOf } from './waterSurface'
 
 type WaterName = 'far' | 'near'
 
@@ -19,8 +19,6 @@ const Z: Record<WaterName, number> = { far: 15, near: 35 }
 export const WATER_FRAMES = { count: 6, fps: 6 }
 /** The water's own colour where it sends back no sky: deep, a little green-blue (scaled by the light of the hour). */
 const DEEP: RGB = [0.06, 0.17, 0.21]
-/** The sun's path on the water in its own colour, the moon's silver. */
-const MOONLIT: RGB = [0.88, 0.91, 0.96]
 
 /**
  * The share of light still water reflects at a grazing angle `depressionDeg` below the horizon (Schlick's Fresnel term for
@@ -138,7 +136,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   // The light's path, where the world puts it.
   const windiness = clamp01(world.wind.ms / 9)
   const slope = Math.sqrt(0.003 + 0.00512 * world.wind.ms)
-  const glintRgb = water.byMoon ? MOONLIT : mixRgb(light.colour, [1, 1, 1], 0.5)
+  const glintRgb = glintColour(world, water.byMoon)
   const glints = water.glints.flatMap((glint): GlintPath[] => {
     const span = water.spans[glint.span]
     if (waterLayer(span) !== name) return []
