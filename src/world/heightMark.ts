@@ -16,7 +16,7 @@ const HOUSE_NEAR = 24
 const COLUMN = 4, HOLD = 9
 /** What is over a roof as drawn (px): a parapet or a ridge, a tower's crown. */
 const ROOF = 2.5, CROWN = 4
-/** Costs, in px of height over the roofs: a px aside, a covered px of the town (at the narrowest figure), letters half on the sky, a note or a mark under them. */
+/** Costs, in px of height over the roofs: a px aside, a covered px of the town, letters half on the sky, a note or a mark under them. */
 const ASIDE = 1, FABRIC = 1, SPLIT = 8, BARRED = 1000
 const EDGE = 2
 
@@ -81,14 +81,14 @@ export function heightMark(input: HeightMarkInput): HeightMark {
     const y = stop - rise - LETTER_H
     if (y < EDGE || (best && rise >= best.cost)) break
     for (let dx = -reach; dx <= reach; dx++) {
-      const x = dot.x + dx, wide = w / 2 * SCENE_W / MARK_WIDTHS[0], box = { left: x - w / 2, right: x + w / 2, top: y, bottom: y + LETTER_H }
+      const x = dot.x + dx, box = { left: x - w / 2, right: x + w / 2, top: y, bottom: y + LETTER_H }
       const hidden = bars.filter(({ sx, boxes }) => {
         const at = { ...box, left: x * sx - w / 2, right: x * sx + w / 2 }
         return at.left < EDGE || at.right > SCENE_W * sx - EDGE || boxes.some((b) => overlaps(b, at, AIR))
       }).length * BARRED
       const land = [box.left, box.right].map((end) => box.bottom > landY(end))
       const cost = rise + Math.abs(dx) * ASIDE + hidden + (land[0] === land[1] ? 0 : SPLIT)
-        + FABRIC * bodies.reduce((sum, b) => sum + area(b, { ...box, left: x - wide, right: x + wide }), 0)
+        + FABRIC * bodies.reduce((sum, b) => sum + area(b, box), 0)
       if (best && cost >= best.cost) continue
       best = { cost, mark: { x, y, on: y + LETTER_H / 2 > landY(x) ? 'land' : 'sky', dotted } }
     }
