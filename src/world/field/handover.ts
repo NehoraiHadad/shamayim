@@ -8,15 +8,26 @@ export const nearestMidnight = (minute: number) => Math.round(minute / 1440) * 1
 const mix = (a: number, b: number, w: number) => a + (b - a) * w
 const compareId = (a: FieldCell, b: FieldCell) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 
-export function clumpAt(layer: FieldLayer, minute: number, sample: (x: number, y: number) => number) {
+/** A layer's own air: `d` how far (km east, north) its wind has carried it over the ground, `weight` its share of the field. */
+export interface AirFrame { d: FieldLayer['d']; weight: number }
+
+/** The airs a layer is drawn in at a minute: its day's, and within half an hour of midnight both days', one over the other. */
+export function airFrames(layer: FieldLayer, minute: number): AirFrame[] {
   const midnight = nearestMidnight(minute)
   const day = layer.dayMotion
-  const read = ([dx, dy]: FieldLayer['d']) => (x: number, y: number) => sample(x - dx, y - dy)
-  if (!day) return read((layer.motionAt?.(minute) ?? layer).d)
-  if (Math.abs(minute - midnight) >= HALF_WINDOW) return read(day(minute, dayStart(minute)).d)
-  const a = read(day(minute, midnight - 1440).d), b = read(day(minute, midnight).d)
-  const w = smoothstep(-HALF_WINDOW, HALF_WINDOW, minute - midnight)
-  return (x: number, y: number) => mix(a(x, y), b(x, y), w)
+  if (!day) return [{ d: (layer.motionAt?.(minute) ?? layer).d, weight: 1 }]
+  if (Math.abs(minute - midnight) >= HALF_WINDOW) return [{ d: day(minute, dayStart(minute)).d, weight: 1 }]
+  const weight = smoothstep(-HALF_WINDOW, HALF_WINDOW, minute - midnight)
+  return [{ d: day(minute, midnight - 1440).d, weight: 1 - weight }, { d: day(minute, midnight).d, weight }]
+}
+
+export function clumpAt(layer: FieldLayer, minute: number, sample: (x: number, y: number) => number) {
+  const read = ({ d: [dx, dy] }: AirFrame) => (x: number, y: number) => sample(x - dx, y - dy)
+  const [first, next] = airFrames(layer, minute)
+  const a = read(first)
+  if (!next) return a
+  const b = read(next)
+  return (x: number, y: number) => mix(a(x, y), b(x, y), next.weight)
 }
 
 /** At the reference minute both fields have the same wind and hence ellipse orientation. */

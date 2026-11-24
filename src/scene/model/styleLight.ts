@@ -34,6 +34,8 @@ export interface StyleLight {
   key: string
   screen?: (irr: LandIrradiance) => TwilightScreen
   lamp?: readonly LampKind[]
+  /** Asks for the cloud sheets' places in their own air (`CloudAir`). */
+  cloudAir?: boolean
   outside?: (facts: OutsideFacts) => OutsideLook
 }
 

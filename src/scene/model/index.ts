@@ -6,6 +6,7 @@ import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
 import { landDustLayers } from './landDust'
 import { layoutOf } from './layout'
+import { withCloudAir } from './cloudAir'
 import { withLamp } from './lamp'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
@@ -61,7 +62,7 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
   const sky = skyLayers(world, box, life)
   const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers: withLamp(layers, world, box, light.lamp), overlay: [], clear: [] }
+  return { layers: asked(layers, world, box, light), overlay: [], clear: [] }
 }
 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
@@ -82,8 +83,12 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
     ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers: withLamp(layers, world, box, light.lamp), ...layout }
+  return { layers: asked(layers, world, box, light), ...layout }
 }
+
+/** The layers with what the hand's light asks of the model beyond its own. */
+const asked = (layers: LayerDesc[], world: WorldState, box: SceneBox, light: StyleLight) =>
+  withCloudAir(withLamp(layers, world, box, light.lamp), world, box, light.cloudAir)
 
 type OutsideMemo = { box: string; layer: ReturnType<typeof outsideLayer> }
 const outsideMemo = new WeakMap<StyleLight, WeakMap<WorldState, OutsideMemo>>()
