@@ -62,7 +62,7 @@ describe('the tile a place stands in', () => {
 })
 
 describe('the settlement', () => {
-  const built = { coverAt: () => COVER.indexOf('built') } as LandCover
+  const built = { coverAt: (lat, lon) => Math.max(Math.abs(lat - PLACE.lat), Math.abs(lon - PLACE.lon)) < .003 ? COVER.indexOf('built') : 0 } as LandCover
   const tile = readTile(storedTile())
   const arrive = (order: (keyof SettlementInput)[], last: SettlementInput) => {
     const input: SettlementInput = { tile: undefined, cover: null }
