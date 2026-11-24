@@ -13,6 +13,7 @@ import { paintBow } from './sky/optics'
 import { paintPlaneLight } from './land/planeLight'
 import { paintShimmer } from './sky/shimmer'
 import { paintSky } from './sky/sky'
+import { paintSkyFilter } from './sky/skyFilter'
 import { paintWater } from './land/water'
 import { paintWearDrip } from './wear/drip'
 import { paintWearItem } from './wear/item'
@@ -27,6 +28,7 @@ import { paintSmoke } from './weather/smoke'
 /** The painters of the layer kinds every style paints alike. */
 export const SHARED: SharedPainters = {
   sky: { form: paintSky },
+  skyFilter: { form: paintSkyFilter },
   stars: { form: paintStars },
   bodies: { form: paintBodies },
   flash: { form: paintFlash },

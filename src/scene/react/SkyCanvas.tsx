@@ -18,10 +18,11 @@ interface Props {
 
 /**
  * The SkySurface (§1e, C6): one canvas over the sky's box. The sky's base (gradient, glows, Earth's shadow, haze band:
- * the `sky` layer) is laid as the canvas's own CSS background, from the same desc (`skyBackground`, or the style's own `skyBase`): the browser
+ * the `sky` layer) normally uses the canvas's CSS background, from the same desc (`skyBackground`, or the style's own `skyBase`): the browser
  * composites it without a per-pixel paint on the main thread, which a full-surface canvas fill pays each time the light
  * moves (C1's sky scrub frame, ~20 ms in software raster ×4). The canvas holds the rest: the stars, the sun and moon, the
- * clouds (drifting), the lightning and the shimmer. In the app it is mounted inside `ui/Sky.tsx` (a portal from the
+ * clouds (drifting), the lightning and the shimmer. In dust the base also paints into the canvas for multiply.
+ * In the app it is mounted inside `ui/Sky.tsx` (a portal from the
  * canvas scene), under the birds. While the land arrives (C8) the sky settles from the eye level it stood on to the land's:
  * the canvas's layers glide in the compositor, the base by its background's position (the gap it leaves filled with the
  * base's own colour at that edge).
@@ -30,6 +31,7 @@ export function SkyCanvas({ layers, size, onReady, surfaceRef }: Props) {
   const base = layers.find((layer): layer is LayerOf<'sky'> => layer.kind === 'sky') ?? null
   const rest = useMemo(() => onSkyCanvas(layers), [layers])
   const { skyBase = skyBackground } = STYLES[size.style ?? DEFAULT_STYLE]
+  // Keep the CSS base behind the canvas as a fallback while the opaque dusty raster arrives.
   const background = useMemo(() => (base ? skyBase(base) : undefined), [base, skyBase])
   const glide = base?.animated?.glide
   // The edge a glide uncovers takes the base's colour there: the top's when the sky stands low, the horizon's when high.

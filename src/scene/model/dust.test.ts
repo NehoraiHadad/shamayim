@@ -64,7 +64,6 @@ it('eases mist, grains, wear dust and sun colour as PM10 rises through 50 Âµg/mÂ
   const limits = { mist: 0.102, grainAlpha: 0.023, wear: 0.067, sun: 0.03 }
   for (const metric of Object.keys(limits) as (keyof typeof limits)[]) {
     const measured = maxStep(samples.map((sample) => sample[metric]))
-    console.info(`${metric} maximum PM10 step`, measured)
     expect(measured, metric).toBeLessThanOrEqual(limits[metric])
   }
 

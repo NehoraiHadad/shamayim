@@ -132,6 +132,6 @@ export function outsideLandDesc(world: WorldState, view: OutsideView, box: Scene
     top: view.land.top.map(([x, y]): Pt => [x * sx, y]),
     base: view.land.base.map(([x, y]): Pt => [x * sx, y]),
     tone, stops, source: raw.source,
-    rim: mixRgb(tone, skyAt(world, box)(2), 0.35),
+    rim: mixRgb(tone, skyAt(world, box, true)(2), 0.35),
   }
 }

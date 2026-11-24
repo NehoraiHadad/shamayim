@@ -38,7 +38,7 @@ export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers
   // side it
   // stands (the living light: it eases in as the sun leaves the middle and as it rises, never a step).
   const side = -Math.sign(across) * smoothstep(0.02, 0.3, Math.abs(across)) * smoothstep(-8, 0, sun.altitude)
-  const sky = skyAt(ungradedWorld(world), box)
+  const sky = skyAt(ungradedWorld(world), box, true)
   const aerial = aerialFor(world, hazeOf(world))
   const against = againstLight(world)
   // The sky the walls face: the view's own, but against the light the dim half behind the eye.

@@ -1,12 +1,9 @@
 import type { RGB } from '../../../../world/types'
-import { CORE_LEAK } from '../../../model/bodies'
-import type { CloudSprite } from '../../../model/cloudSprite'
+import { MIN_TOWER_SHARE, towerOpacity, type CloudSprite } from '../../../model/cloudSprite'
 import type { Ctx2D, PaintEnv } from '../base/hand'
 
 /* A tower laid as a raster on a scratch sheet, stretched with the canvas's own smoothing. */
 
-/** Opacity of the thickest tower; optical depth over which a thin one comes up to it. */
-const OPACITY = 1 - CORE_LEAK, TAU_FULL = 6
 /** Raster px per sky px at most, and raster px in a tower at most (a near giant is soft anyway). */
 const RASTER = 0.7, RASTER_PX = 10_000
 /** Room over the crown for the noise, against the width. */
@@ -21,8 +18,8 @@ interface TowerBody {
 
 /** Lays a tower's raster at its place: the size and opacity both hands share. */
 export function layTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv, bodyOf: (s: CloudSprite) => TowerBody): void {
-  if (s.w < 0.5 || s.share <= 0.005 || s.tall < 0.5) return
-  const opacity = OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
+  if (s.w < 0.5 || s.share <= MIN_TOWER_SHARE || s.tall < 0.5) return
+  const opacity = towerOpacity(s)
   const body = bodyOf(s)
   const { reach } = body, over = s.w * ROOM_TOP
   const box = { x: -reach, y: -s.tall - over, w: 2 * reach, h: s.tall + over + body.depth * 1.5 }
