@@ -7,7 +7,7 @@ import { throughAir } from '../shared/cloud/throughAir'
 import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
 import { lowLight, whitened } from './cloudLight'
-import { easedField } from './sheetEdge'
+import { easedField, nearAt } from './sheetEdge'
 import { fieldAt, sheetField, type SheetField } from './sheetField'
 import { printSheet } from './sheetPrint'
 
@@ -30,8 +30,8 @@ const SIZE_MIN = 0.12
 /** How much of the light and the shade on a bank low in the sky the air before it takes, and the height it comes in over (of
  *  the sheet's, from its far edge): the rain that falls before the banks reads against them. */
 const AIR_LIT = 0.6, AIR_SHADE = 0.9, AIR_FROM = 0.34, AIR_FULL = 0.12
-/** What of the cloud too thin to be cut stays behind the print, and the cloud round it (wide alpha) that takes it. */
-const WISP = 0.8, ALONE = [0.08, 0.34] as const
+/** What of the cloud too thin to be cut stays behind the print, the cloud round it (wide alpha) that takes it, and what stays of the far cloud whole. */
+const WISP = 0.8, ALONE = [0.08, 0.34] as const, VEIL = 0.5
 
 export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const field = sheetField(desc)
@@ -40,8 +40,9 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const w = Math.ceil(field.width * RASTER) + 1, h = Math.ceil(field.height * RASTER) + 1
   const scratch = env.canvas(w, h)
   const image = scratch.ctx.createImageData(w, h)
-  const left = (a: number, gx: number, gy: number) =>
-    (read ? a * (1 - open + open * WISP * (1 - smoothstep(ALONE[0], ALONE[1], fieldAt(read.wide, field.cols, field.rows, gx, gy)))) : a)
+  const wisp = (gx: number, gy: number, wide: Float32Array) =>
+    Math.max(WISP * (1 - smoothstep(ALONE[0], ALONE[1], fieldAt(wide, field.cols, field.rows, gx, gy))), VEIL * (1 - nearAt(field, gy)))
+  const left = (a: number, gx: number, gy: number) => (read ? a * (1 - open + open * wisp(gx, gy, read.wide)) : a)
   if (desc.lattice === 'high') veil(image.data, desc, field, w, h)
   else masses(image.data, desc, field, left, w, h)
   throughAir(image.data, w, h, desc)

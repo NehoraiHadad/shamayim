@@ -7,11 +7,11 @@ import { fieldAt, type SheetField } from './sheetField'
  */
 
 /** A cloud's light across its height, against a near one's: it is a low wall of it, not a top and a foot. */
-const CALM = 0.55
+const CALM = 0.3
 /** A row's height against the model's row spacing, its least (px), and how far an arch stands past its row. */
-const TALL = 5, LEAST = 13, OVER = 1.15
+const TALL = 3, LEAST = 8, OVER = 1.15
 /** The alpha a row's cloud begins at, and the foot's own slow slant against the height, over this far (px). */
-const FROM = 0.42, SLANT = 0.22, WAVE = 46
+const FROM = 0.36, SLANT = 0.22, WAVE = 46
 /** How deep a foot's edge is cut (of the row); what a row with next to no cloud is cut back, and under what height (px). */
 const DEEP = 0.08, NONE = 0.4, LOW = 1.2
 
