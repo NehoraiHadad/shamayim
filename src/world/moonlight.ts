@@ -23,9 +23,9 @@ export function moonAir(altitude: number, air: Aerosol, daylight = 0): { tint: R
   const white = COPPER + (1 - COPPER) * DAY_WASH * daylight
   const raw = low.rgb.map((v, i) => v / high.rgb[i])
   const top = Math.max(...raw)
-  const tint = raw.map((v) => white + (1 - white) * v / top) as RGB
+  const [r, g, b] = raw.map((v) => white + (1 - white) * v / top)
   const lost = low.strength / Math.max(1e-6, solarBeam(90, air).strength)
-  return { tint, dim: Math.min(1, lost) ** (EYE_POWER * (1 - daylight)) }
+  return { tint: [r, g, b], dim: Math.min(1, lost) ** (EYE_POWER * (1 - daylight)) }
 }
 
 /** A colour seen through air of this tint. */
