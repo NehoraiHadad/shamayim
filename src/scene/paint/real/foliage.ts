@@ -12,7 +12,7 @@ export interface Layer { size: number; up: number; across?: number; least: numbe
 
 /** A crown too small for clumps; the dark between them; the leaves; their tops. */
 export const WHOLE: Layer = { size: 1, up: 0, least: -1 }
-export const UNDER: Layer = { size: 1.12, up: -0.1, least: -1 }
+export const UNDER: Layer = { size: 1.26, up: -0.2, least: -1 }
 export const BODY: Layer = { size: 0.94, up: 0.14, least: -1 }
 export const TOPS: Layer = { size: 0.52, up: 0.42, least: -0.25 }
 
