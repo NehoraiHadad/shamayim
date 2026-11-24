@@ -187,11 +187,18 @@ export class Surface {
     for (const desc of this.order.passes) {
       if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
       const cached = cache.peek(desc.id)
-      if (!cached) continue
+      if (!cached) {
+        this.receivers.invalidate(desc.id)
+        continue
+      }
       const layout = layoutOf(desc, cached, d, this.active.style)
       const plane = layout.kind === 'plane' ? cached : layout.kind === 'canopy' ? cache.peek(layout.id.replace(/^canopy\./, 'plane.')) : null
+      const poses = 'poses' in cached ? cached.poses : undefined
       if (layout.kind === 'canopy' && (!plane?.light || (cached.lightDesc.kind === 'canopy'
-        && cached.lightDesc.receiver?.form !== plane.lightDesc.key))) continue
+        && cached.lightDesc.receiver?.form !== plane.lightDesc.key))) {
+        this.receivers.skip(layout.id, cached, poses)
+        continue
+      }
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
       const { form, light, ratio, rect } = cached
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
@@ -278,11 +285,9 @@ export class Surface {
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend
         if (plane && cached.shade) {
-          const poses = 'poses' in cached ? cached.poses : undefined
           const pose = poses?.[frame - 1]
           const sy = (preview || poses ? 0 : frame) * rect.h
-          this.receivers.draw({ id: layout.id, cached: pose ? { ...cached, light: pose.bitmap, shade: pose.shade } : cached,
-            plane, phase, still, exact, sy, draw })
+          this.receivers.draw({ id: layout.id, cached, poses, pose, plane, phase, still, exact, sy, draw })
         } else {
           if (plane) this.receivers.invalidate(layout.id)
           draw(light)
