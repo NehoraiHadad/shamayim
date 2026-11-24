@@ -22,13 +22,13 @@ const UNDER = 0.26, UNDER_FROM = 0.5
 /** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
 const WALL = 0.45, EDGE = 0.2
 /** How far a low sun's light goes through a cloud, and how much warmer than its body its lit colour then is. */
-const LOW = 0.35, WARM = [0.08, 0.3] as const
+const LOW = 0.42, WARM = [0.08, 0.3] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
-const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.34
+const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43
 const FAR_CROWNS = 0.45
-/** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at. */
-const RAMP = 255, FULL = 1.1
+/** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at; how near its ends a place bends. */
+const RAMP = 255, FULL = 1.1, TOE = 0.24
 
 export interface CloudPoint {
   /** The model's tone, the light that reaches the point and its own shade (`CloudLight`). */
@@ -50,6 +50,12 @@ const upTo = (c: RGB, most: number, part: number): RGB => {
   const k = 1 - part * (1 - Math.min(1, most / Math.max(1e-6, lightness(c))))
   return [c[0] * k, c[1] * k, c[2] * k]
 }
+/** A place on the ramp with no hard end: past `TOE` from either end it only nears it, so the palest and the deepest parts of
+ *  a mass keep their form. `own`: how far the place is its own light's. */
+const within = (t: number, own: number) => {
+  const toe = TOE * own, low = t < toe ? (toe * toe) / (2 * toe - t) : t, left = FULL - low
+  return left < toe ? FULL - (toe * toe) / (2 * toe - left) : low
+}
 const clamp = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
 
 /** The colours (0–1) of a cloud's points, written into `out`. `own`: how far its light is its own (0 a closed deck's: the
@@ -67,7 +73,7 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
     const heads = p.relief * RELIEF * self * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * light)
     // Far off and in a closed deck it is the model's tone, a far heap's a little lighter: its crowns are too small to see.
     const far = tone * (1 - FAR_CROWNS * own), there = far + near * own * (MODEL_SHARE * tone + p.shade + heads - far + EDGE * p.flat - WALL * p.wall)
-    const place = there < 0 ? 0 : there > FULL ? FULL : there
+    const place = within(there, own * near)
     const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * near * Math.max(0, place - UNDER_FROM)
     const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * near * own
     out[0] = Math.min(1, ramp[n] * (1 - under) * crown)

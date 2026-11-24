@@ -39,6 +39,7 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
   for (let j = 0, n = 0; j < h; j++) {
     const unit = scale[j] * k
     for (let i = 0; i < w; i++, n++) {
+      if (!deep[n]) continue
       const dx = from.x - i, dy = from.y - j, far = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / far, uy = dy / far
       let sun = 0, sky = 0, down = 0, last = 0
       for (let s = 0; s < STEPS.length; s++) {
