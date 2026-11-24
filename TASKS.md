@@ -1229,7 +1229,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             plain losses) on top. Verified by the manager: CI 45289854735 green, stills vs main, same code 1.5x apart on two
             runners so no perf regression shown. Changes the first load of a storm: waits for the owner's approval, then merge
             Same-machine pairs both ways: scrub.latency +1 to +5 % dry (more in rain), model and cold load flat; cause being looked for.
-            Everything below stacks on it, so the merge is the owner's next decision
+            Owner approved 24 Nov; merged 5fb0d856 (tree of aef314f9), main CI pending
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
@@ -1240,8 +1240,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             does not resemble itself, houses too far apart. Evidence (record the real panorama in CI) -> proposal of the rule for
             what a settlement shows -> owner's approval -> code. Foundations session, own worktree from its town patch
             Verified 24 Nov, green, sent to the owner: label `8040e277` (leader pole at Haifa/Tel Aviv still long), minarets out `d1e04862`,
-            V2b prototype 2076ba37 (real footprints at 755 of 2187 places, cover cells elsewhere; ODbL credit needed): owner to choose
+            V2b prototype 2076ba37 (real footprints at 755 of 2187 places, cover cells elsewhere; ODbL credit needed): owner chose this,
+            being built. Label and dot NOT approved: must clearly speak of the place in the centre; 3 options as stills asked for
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
-- [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock second set sent, waits for the owner)
-- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 sent, waits for the owner)
+- [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; build plan, code waits for `src/scene`)
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan, code waits for `src/scene`)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
