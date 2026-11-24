@@ -64,7 +64,7 @@ export const UNKNOWN = { loading: unknownLand('loading'), offline: unknownLand('
 export function unknownPlace(place: WorldInput['place'], elevation: number) {
   const rounded = Math.round(elevation)
   const labels: WorldLabels = {
-    height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2, y: 0 },
+    height: { text: heightText(rounded), below: elevation < 0, x: SCENE_W / 2, y: 0, on: 'sky', tick: { top: 0, bottom: 0 } },
     notes: [],
   }
   const dot = { x: SCENE_W / 2, y: UNKNOWN.loading.horizonY }

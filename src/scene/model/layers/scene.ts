@@ -1,3 +1,4 @@
+import type { LabelTone } from '../../../theme/labelTone'
 import type { Box } from './base'
 import type { CloudLayers } from './cloud'
 import type { LandLayers } from './land'
@@ -18,11 +19,11 @@ export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
 
 /** HTML over the land, placed from the model: positions in scene px (x as `box.width` scales it). */
 export type OverlayItem =
-  /** `x` the label's centre, `y` its top. */
-  | { kind: 'height'; text: string; x: number; y: number; below: boolean; backed?: boolean }
+  /** `x` the letters' middle, `y` their top; the tick under them and the place's dot stand in the spot's column. */
+  | { kind: 'height'; text: string; x: number; y: number; tick: { top: number; bottom: number }; spot: { x: number; y: number }
+    tone: LabelTone; fill: string; rim: string }
   /** `x` the note's left edge, `y` its top. */
   | { kind: 'datum' | 'water'; text: string; x: number; y: number }
-  | { kind: 'dot'; x: number; y: number }
 
 /**
  * The land's arrival in time (C8), kept by the React shell, which alone reads the clock, as phases of the scene's one

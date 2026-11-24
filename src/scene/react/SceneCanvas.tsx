@@ -72,7 +72,7 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
         data-scene data-canvas>
         <canvas ref={ref} aria-hidden="true"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        <SceneOverlay items={model.overlay} width={width} style={labelStyle} />
+        <SceneOverlay items={model.overlay} width={width} style={labelStyle} hand={style} />
         <SceneScrubber at={selected} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
           onNow={onNow} />
       </figure>

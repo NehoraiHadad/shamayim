@@ -251,7 +251,7 @@ function Scene({ input: given }: { input: WorldInput }) {
       <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr, style }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
+        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} hand={style} />}
       </div>
     </div>
   )

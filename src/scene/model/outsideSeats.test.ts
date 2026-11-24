@@ -111,7 +111,7 @@ it('gives a 9 m hall a slot when text covers two taller glyphs and their blocks 
   expect(drawnIds(BOX, clear)).toEqual(['seat-2'])
 })
 
-it('keeps the town under the backed height label and gives the covered backfill seat to the next glyph', () => {
+it('keeps the town under the letters of the height and gives the covered backfill seat to the next glyph', () => {
   const input = { ...baseInput, landmarks: [], seatCandidates: [] }
   const { height } = buildWorld(input).labels
   const hallSeed = 2
@@ -128,7 +128,6 @@ it('keeps the town under the backed height label and gives the covered backfill 
     return sceneModel(clearBackdrop(world), NARROW).layers.find((layer) => layer.kind === 'outside')!.items
   }
   const seeds = (items: OutsideItem[]) => items.flatMap((item) => item.kind === 'mark' ? [item.glyph.seed] : [])
-  expect(height.backed).toBe(true)
   expect(seeds(draw(120))).toEqual(['seat-1', 'seat-2'].map(hashId))
   const covered = draw(height.x)
   expect(seeds(covered)).toEqual(['seat-1', 'seat-3'].map(hashId))

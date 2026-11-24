@@ -1,23 +1,20 @@
-import { DOT_R, LABEL_PX, textWidth, type Point } from './layout'
-import { BACKING_PAD } from './place'
+import { DOT_R, LETTER_H, letterWidth, type Point } from './layout'
 import { SCENE_W } from './sceneBox'
 import type { WorldLabels } from './types'
 
 export interface ScreenBox { x: number; y: number; w: number; h: number }
 
-/** Text and backing stay the same size in screen px as the label moves with the viewport. */
-export function heightLabelBox(height: WorldLabels['height'], width: number): ScreenBox {
-  const pad = height.backed ? BACKING_PAD : 0
-  const w = textWidth(height.text, LABEL_PX) + 2 * pad
-  return { x: height.x * (width / SCENE_W) - w / 2, y: height.y - pad, w, h: LABEL_PX + 2 * pad }
+/** The letters stay the same size in screen px as they move with the viewport. */
+export function heightLabelBox({ text, x, y }: Pick<WorldLabels['height'], 'text' | 'x' | 'y'>, width: number): ScreenBox {
+  const w = letterWidth(text)
+  return { x: x * (width / SCENE_W) - w / 2, y, w, h: LETTER_H }
 }
 
-export function sceneClearance({ height, notes }: WorldLabels, dot: Point, width: number): ScreenBox[] {
+/** Nothing of the town is drawn over its dot and the notes; the height stands over the roofs and takes no room from them. */
+export function sceneClearance({ notes }: Pick<WorldLabels, 'notes'>, dot: Point, width: number): ScreenBox[] {
   const sx = width / SCENE_W
   return [
     { x: dot.x * sx - DOT_R, y: dot.y - DOT_R, w: 2 * DOT_R, h: 2 * DOT_R },
-    // The backed label lies over the town. Only seated glyphs give way to it.
-    ...(height.backed ? [] : [heightLabelBox(height, width)]),
     ...notes.map((note) => ({ x: note.left * sx, y: note.top, w: note.width, h: note.height })),
   ]
 }

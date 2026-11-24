@@ -89,9 +89,12 @@ export interface OutsideView {
   vscale?: { s: number; h0: number } | null
 }
 
+/** Where the place's height is lettered over its roofs: `x` the letters' middle, `y` their top, what lies behind them, and the tick's ends. */
+export interface HeightMark { x: number; y: number; on: 'sky' | 'land'; tick: { top: number; bottom: number } }
+
 /** The text the scene keeps on the land: place height label, notes and sea-level datum. */
 export interface WorldLabels {
-  height: { text: string; below: boolean; x: number; y: number; backed?: boolean }
+  height: { text: string; below: boolean } & HeightMark
   notes: SceneNote[]
   datum?: Datum | null
 }

@@ -1605,11 +1605,11 @@ and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
    disc, the disc is laid again on the land over the mass (its aureole stays on the sky, glare round the mass's edge). A body
    behind the true land stays hidden (Haifa 16:30, Ein Gedi's cliffs). Haifa 06:20: the sun shows low over the lower city by
    the bay.
-4. **The height label sits beside the dot, level with it, on a small backing** (`world/place.ts` `besideDot`,
-   `BACKING_PAD`; `scene/react/SceneOverlay.module.css` `.backed`), for every place seen from outside: right of the dot,
-   else left, else a few px up or down, then a little farther out; clear of the marks and the notes; where the dot is ringed
-   by marks (Tel Aviv) the spot that covers least. The backing (the near land's tone at 72 %) carries it over the mass, which
-   no longer gives way to it (no clear zone for a backed label).
+4. **The height is lettered over the place's own roofs** (owner, 2026-11-24; `world/heightMark.ts`, it replaced the backed
+   label beside the dot): the number alone in the dot's column, a tick from under it over the roofs down to the dot,
+   and the small dot on the exact spot. Letters,
+   tick and dot keep clear of the notes at 320, 375 and 430 px. No backing: ink and halo from the hour's palette
+   (`theme/labelTone.ts`), ≥ 4.5:1 also over fog. Each style has its own hand (`scene/react/heightHands.ts`).
 5. **A water name is written on its water's surface as drawn** (`world/place.ts` `notesOnWater`): along its own stretch
    where the surface shows deep enough under the far shore for the letters (the shore's raggedness under a letter or two let
    pass), nearest the stretch's middle, clear of the place's mass, towers, trees, the towns and towers beyond and the dot;
@@ -1759,7 +1759,7 @@ sea level stands 137 m above the town.
   contour has a spot above the dot there is no line and no note (the label "−N מ׳" says the place is below sea level,
   the spoken label says it in words); every harness place below sea level has one. The line is `labels.datum` (the far
   water layer draws it, `model/water.ts`), "פני הים" stands over it within its span (`sceneNotes` `datumNote`), and the
-  height label keeps clear of it as of the marks (`besideDot`).
+  height keeps clear of it as of the marks (`heightMark.ts`).
 - *Places checked* (`qa/canvas/datum/`, before / after at 12:00, Tiberias also 16:30; `sheet-before-after.png`):
   Tiberias (own ground: 6 px over the dot, meets the town's slope west of it), Ein Gedi (own ground: 18 px over the dot,
   meets the cliff), Shadmot Mehola, and four new harness places below sea level (`DATUM_PLACES`, panoramas recorded

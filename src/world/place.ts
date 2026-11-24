@@ -16,8 +16,9 @@ import { settlementOf } from '../data/village/settlementOf'
 import type { VillageTile } from '../data/village/tile'
 import type { WaterMask } from '../data/water/waterMask'
 import { heightText } from '../text/isolate'
-import { DOT_R, LABEL_H, LABEL_PX, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
-import { markBox, type SeatedWorldMark, type WorldMark } from './markGeometry'
+import { heightMark, noteOffSpot } from './heightMark'
+import { DOT_R, overlaps, SHEET_CLEAR, VISIBLE_BOTTOM } from './layout'
+import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
 import { datumOfRow, datumOnLand } from './datum'
@@ -69,8 +70,8 @@ export function homeHalf(reachKm: number, known: boolean): number {
  * The place and its marks (stages C4–C5), once its land is known (a panorama; `world.ts` keeps an unknown place while it
  * is not). Every place is seen from outside and built from its own data by one builder (`outside.ts`, owner 2026-11-19):
  * its built cells at their real heights (houses with roofs where low and sparse, blocks where dense, the jagged mass with
- * spires where high), its trees, towers and marks, by true east–west and north–south. The height label beside the dot
- * clears the budgeted marks. Layout is independent of the hour (`night.litShare` controls lit windows).
+ * spires where high), its trees, towers and marks, by true east–west and north–south. The height over the
+ * roofs clears the budgeted marks. Layout is independent of the hour (`night.litShare` controls lit windows).
  */
 export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldMark[]; seatPool: SeatedWorldMark[]; labels: WorldLabels;
   ownSkyline: boolean; coastalSea: CoastalSea | null; nearLine: NearLine | null } {
@@ -109,54 +110,17 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const row = seaLevel && ends ? datumOfRow(seaLevel.y, centerX * 375 / width, { left: to375(ends.left), right: to375(ends.right) }) : null
   const datum = row ? datumOnLand(row, landY, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
-  const notes = notesOnWater(notes0, terrain, view, dot, width)
+  const notes = notesOnWater(noteOffSpot(notes0, datum, centerX), terrain, view, dot, width)
   const { marks, seatPool } = marksOf({ place, city, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
     homeHalf: homeHalf(reachKm, known), style: style.style, notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark, village: view.village } })
-  // The label sits beside the dot, level with it, on a small backing (`backed`, C9 defect 4), whatever the place builds
-  // round it, so it always reads as the dot's; clear of the marks and the datum's dashed line, the near side first.
-  const line = (datum?.segments ?? []).map((seg) => ({ left: seg.x1 * width / 375, right: seg.x2 * width / 375, top: datum!.y - 1, bottom: datum!.y + 1 }))
-  const spot = besideDot(dot, label.text, width, [...marks.filter((m) => m.plane !== 'far').map(markBox), ...line], notes)
-  const labels: WorldLabels = { height: { ...label, x: spot.x, y: spot.y, backed: true }, notes, datum }
+  // The height is lettered over the place's own roofs, in the dot's column (`heightMark.ts`).
+  const mark = heightMark({ text: label.text, dot, view, marks, labels: { notes, datum }, landY })
+  const labels: WorldLabels = { height: { ...label, ...mark }, notes, datum }
   return { marks, seatPool, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
     trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,
     vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null } }
-}
-
-/** Air between the dot's ring and the label's backing, and the backing's own margin round the text (px). */
-const BESIDE_GAP = 2
-export const BACKING_PAD = 2.5
-
-/**
- * The height label beside the dot (C9 defect 4), for every place seen from outside: level with the dot, on the right of
- * it, else on its left, else a few px up or down, clear of the marks and the notes and inside the figure; its backing
- * (`BACKING_PAD` round the text) carries it over the place's mass, so the mass does not give way to it. Returns its centre
- * x and top.
- */
-export function besideDot(dot: { x: number; y: number }, text: string, width: number, obstacles: { left: number; right: number; top: number; bottom: number }[],
-  notes: WorldLabels['notes']): { x: number; y: number } {
-  const w = textWidth(text, LABEL_PX)
-  const off = DOT_R + BESIDE_GAP + BACKING_PAD + w / 2
-  const all = [...obstacles, ...notes.map((n) => ({ left: n.left, right: n.left + n.width, top: n.top, bottom: n.top + n.height }))]
-  const top0 = dot.y - LABEL_H / 2
-  // Level first, a little up or down; then a few px farther out; then higher or lower still.
-  const tries = [...[0, -2, 2, -4, 4, -6, 6, -9, 9].map((d) => [d, 0]), ...[4, 8, 14].flatMap((o) => [0, -4, 4].map((d) => [d, o])),
-    ...[-12, 12, -15, 15].map((d) => [d, 0])]
-  // No spot free (a dot ringed by marks): the one that covers least of them, on its backing.
-  let least: { x: number; y: number; cover: number } | null = null
-  for (const [dy, out] of tries) {
-    for (const side of [1, -1]) {
-      const x = dot.x + side * (off + out), y = Math.min(VISIBLE_BOTTOM - 1 - LABEL_H - BACKING_PAD, top0 + dy)
-      const box = { left: x - w / 2 - BACKING_PAD, right: x + w / 2 + BACKING_PAD, top: y - BACKING_PAD, bottom: y + LABEL_H + BACKING_PAD }
-      if (box.left < 2 || box.right > width - 2) continue
-      const cover = all.reduce((sum, o) => sum + Math.max(0, Math.min(box.right, o.right) - Math.max(box.left, o.left))
-        * Math.max(0, Math.min(box.bottom, o.bottom) - Math.max(box.top, o.top)), 0)
-      if (cover === 0 && all.every((o) => !overlaps(box, o, 0.5))) return { x, y }
-      if (!least || cover < least.cover) least = { x, y, cover }
-    }
-  }
-  return least ? { x: least.x, y: least.y } : { x: dot.x + off, y: Math.min(VISIBLE_BOTTOM - 1 - LABEL_H - BACKING_PAD, top0) }
 }
 
 /**
