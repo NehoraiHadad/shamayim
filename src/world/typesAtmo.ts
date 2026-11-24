@@ -76,7 +76,7 @@ export interface Air {
   humidity: number | null
   /** Coarse dust share (0–1), eased over concentrations of 40–60 µg/m³. */
   dustWeight: number
-  /** Sunlit dust airlight share in the sky palette. */
+  /** How much of the sky's light is sunlit dust airlight (0–1); absent where no world built the air. */
   dustAirlight?: number
   /** The colour far planes fade toward. */
   haze: RGB

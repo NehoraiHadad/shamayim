@@ -1,12 +1,12 @@
-import { throughAir } from '../shared/cloud/throughAir'
 import { hashId } from '../../../data/landmarks/hash'
 import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf, RGB } from '../../model/types'
 import { addLight } from '../../model/tone'
 import { toneOf } from '../shared/cloud/deck'
+import { throughAir } from '../shared/cloud/throughAir'
 import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
-import { whitened } from './cloudLight'
+import { lowLight, whitened } from './cloudLight'
 import { fieldAt, sheetField, type SheetField } from './sheetField'
 
 /*
@@ -49,7 +49,7 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const image = scratch.ctx.createImageData(w, h)
   if (desc.lattice === 'high') veil(image.data, desc, field, w, h)
   else masses(image.data, desc, field, w, h)
-  if (desc.through) throughAir(image.data, w, h, desc)
+  throughAir(image.data, w, h, desc)
   scratch.ctx.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
@@ -59,7 +59,7 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
 }
 
 function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetField, w: number, h: number) {
-  const head = billows(hashId(desc.id)), low = desc.lowSun ?? 0, bright = whitened(desc.lit)
+  const head = billows(hashId(desc.id)), low = lowLight(desc), bright = whitened(desc.lit)
   const { cols, rows, open } = f
   let v = 0
   for (let j = 0; j < h; j++) {

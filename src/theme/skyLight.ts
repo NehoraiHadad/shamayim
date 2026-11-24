@@ -45,7 +45,7 @@ function anchors(rising: boolean): ColorRow[] {
   ]
 }
 
-export function clearSkyColours(altitude: number, rising: boolean): [string, string, string] {
+function keyframe(altitude: number, rising: boolean): [string, string, string] {
   const rows = anchors(rising)
   if (altitude <= rows[0][0]) return rows[0].slice(1) as [string, string, string]
   const upper = rows.findIndex((row) => altitude <= row[0])
@@ -70,14 +70,14 @@ function guard(background: string, inks: string[]): string {
   return oklabToHex(lab)
 }
 
-/** Daylight dust airlight shared with the cloud foreground transfer. */
+/** How much of the sky's light is sunlit dust airlight (0–1), for the sky and for the clouds seen through it. */
 export function dustAirlight(pm10: number | null, altitude: number): number {
   const daylight = Math.min(1, Math.max(0, (altitude + 6) / 10))
   return smoothstep(THRESHOLDS.dust.light, THRESHOLDS.dust.heavy, pm10 ?? 0) * daylight
 }
 
 export function skyLight(input: SkyLightInput): SkyLight {
-  const [top, clearMid, clearHorizon] = clearSkyColours(input.altitude, input.rising)
+  const [top, clearMid, clearHorizon] = keyframe(input.altitude, input.rising)
   const { mid, horizon } = input.air ? skyAir({ mid: clearMid, horizon: clearHorizon }, input.altitude, input.air)
     : { mid: clearMid, horizon: clearHorizon }
   const result = { top, mid, horizon } as SkyLight

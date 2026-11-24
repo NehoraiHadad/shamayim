@@ -8,18 +8,19 @@ import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { CITY_RGB, type CityOnBase } from './cityLight'
 import { sheetCity } from './cloudSheetCity'
+import { sheetThrough } from './cloudDust'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
-import { sheetDust, cloudHaze } from './cloudDust'
 import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
 
 export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
-type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number; lowSun?: number }
+type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number }
+
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
 export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours,
@@ -94,14 +95,16 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const ambientSlant = cellular ? 1 : veil ? Math.min(1.5, multiplier) : multiplier
     const farSource = 1 - 1 / (1 + DIFFUSE_EXTINCTION * layer.kappa * layer.meanVKm * multiplier)
     // The far source includes sky fill as the ray traverses extra air.
-    const aerial = cellular ? 0.25 * (world.air ? cloudHaze(world.air, Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) : 0) : 0
+    const aerial = cellular ? 0.25 * (world.air?.fade(Math.max(0, Math.min(ranges[row], deckEnd) - resolvedEnd)) ?? 0) : 0
     const farTone = farSource + aerial * (0.5 - farSource)
     if (!visibility) continue
     for (let col = 0; col < xs.length; col++) {
       const index = row * xs.length + col
       const local = tau[index]
       const depth = cellular ? local : local + f * (expected[index] - local)
-      const texel = corrected(index)
+      const thinned = corrected(index)
+      // A column that hides the sky is never lit as a thin one: the texture's deficit there ends at half the depth.
+      const texel = cellular && thinned < 1 ? thinned + 0.5 * sheetOpacity(local, multiplier) * (1 - thinned) ** 2 : thinned
       // The far density is already the log of the ensemble transmission for
       // unresolved footprints. Slanting it again turns the gaps into a solid band.
       const ambient = expected[index]
@@ -129,21 +132,20 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         localTone += thick * (baseTone - thinTone)
       }
       tone[index] = unit(cellular && opacity ? (resolved * localTone + unresolved * farTone) / opacity : localTone)
+      ;(globalThis as { diag?: unknown[][] }).diag?.push([layer.lattice, row, col, +ys[row].toFixed(0), +xs[col].toFixed(0), +local.toFixed(2), +multiplier.toFixed(2), +thinned.toFixed(2), +alpha[index].toFixed(3), +tone[index].toFixed(3), +(1 - 1 / (1 + DIFFUSE_EXTINCTION * depth * multiplier * thinned)).toFixed(3), f])
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
   const { body, shade, lit } = colours
-  const lowSun = layer.lattice === 'high' ? 0 : Math.round((colours.lowSun ?? 0) * 255)
-  const dust = sheetDust(world.air, layer.baseKm, altitudes)
+  const through = sheetThrough(world.air, layer.baseKm, altitudes)
   const sheet: LayerOf<'cloudSheet'> = {
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
-    ...(dust && { through: dust }), ...(lowSun > 0 && { lowSun: lowSun / 255 }),
+    ...(through && { through }),
     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
-    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit,
-      ...(lowSun ? [['underside', lowSun]] : []), ...(dust ? [['dust', dust]] : [])),
+    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit, ...(through ? [through] : [])),
   }
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet

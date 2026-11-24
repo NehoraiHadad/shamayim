@@ -61,7 +61,7 @@ function coveredBy(near: Standing, far: Standing): number {
 export const leanOf = (across: number, whole: number) => (whole > 0 ? Math.max(-1, Math.min(1, across / whole / CARRIED)) : 0)
 
 /** The low sheet a far tower stands before: its colour low in the sky, how much of the sky it covers, and the sheet as drawn. */
-export interface Beyond { rgb: RGB; referenceRgb?: RGB; cover: number; sheet?: Pick<LayerOf<'cloudSheet'>, 'xs' | 'ys' | 'city'> | null }
+export interface Beyond { rgb: RGB; cover: number; sheet?: Pick<LayerOf<'cloudSheet'>, 'xs' | 'ys' | 'city'> | null }
 
 const nearest = (at: readonly number[], v: number) => at.reduce((best, a, n) => (Math.abs(a - v) < Math.abs(at[best] - v) ? n : best), 0)
 
@@ -75,11 +75,8 @@ function sheetAt({ rgb, sheet }: Beyond, x: number, y: number): RGB {
 export function beforeSheet(tones: Tones, beyond: Beyond | null, x = 0, y = 0): Tones {
   if (!beyond) return tones
   const behind = mixRgb(tones.behind, sheetAt(beyond, x, y), beyond.cover)
-  const referenceBehind = beyond.referenceRgb
-    ? mixRgb(tones.behind, sheetAt({ ...beyond, rgb: beyond.referenceRgb }, x, y), beyond.cover) : behind
-  const moved = (c: RGB) => c.map((v, n) => v + (referenceBehind[n] - tones.behind[n])
-    * (tones.referenceFade ?? tones.fade)) as unknown as RGB
-  return { ...tones, body: moved(tones.body), shade: moved(tones.shade), behind, referenceBehind }
+  const moved = (c: RGB) => c.map((v, n) => v + (behind[n] - tones.behind[n]) * tones.fade) as unknown as RGB
+  return { body: moved(tones.body), shade: moved(tones.shade), behind, fade: tones.fade }
 }
 
 /** A sheet's colour low in the sky, where its rolls stand edge on: its lit sides over its shade, all lit by a low sun. */

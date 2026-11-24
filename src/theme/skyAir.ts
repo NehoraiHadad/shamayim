@@ -2,6 +2,9 @@ import { aerosolDepth, sunLight, type Aerosol } from '../world/sceneLight'
 import { smoothstep } from '../domain/smoothstep'
 import { mixOklab } from './oklab'
 
+/** The pale buff of sunlit desert dust. */
+export const DUST_VEIL = '#D9CDB4'
+
 const hex = (rgb: readonly number[]) => `#${rgb.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('')}`
 
 /**
@@ -13,7 +16,7 @@ export function skyAir(sky: { mid: string; horizon: string }, altitude: number, 
   const tau = aerosolDepth(air)[1]
   const milk = smoothstep(0.15, 1.1, tau) * smoothstep(-2, 8, altitude)
   // Haze over a sunlit day is milky white; dust is buff.
-  const veil = mixOklab('#D7DCE0', '#D9CDB4', air.dustWeight ?? 0)
+  const veil = mixOklab('#D7DCE0', DUST_VEIL, air.dustWeight ?? 0)
   let horizon = mixOklab(sky.horizon, veil, 0.6 * milk)
   const mid = mixOklab(sky.mid, veil, 0.22 * milk)
   const low = smoothstep(6, 1, altitude) * smoothstep(-5, -1, altitude)

@@ -41,8 +41,6 @@ export interface CloudSprite {
   rains: boolean
   /** How much of the cell has formed (0–1): its alpha. */
   share: number
-  /** Foreground dust transmission at the crown and near edge of the base. */
-  through?: readonly [number, number]
   /** How far a mature Cb's top has spread into an anvil under the tropopause (0–1); none on a young tower. */
   anvil?: number
   /** The axis of a cirrus streak on screen (rad, 0 = across), the direction the wind combs its fibres. */

@@ -15,9 +15,7 @@ export type CloudLayers =
       city?: { rgb: RGB; weight: number[] }
       /** Per row of `ys`: how fast the wind carries it across, surface px/s (+ left → right). */
       speeds: number[]
-      /** Per-row foreground aerosol transmission. Present in dusty air. */
-      through?: number[]
-      /** Share of low-angle illumination on the underside. */
-      lowSun?: number }
+      /** In a dusty air, per row of `ys`: the share of the sheet's light the dust before it lets through (0–1). */
+      through?: number[] }
   /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */
   | LayerBase & { kind: 'cloudCells'; lattice: 'tower'; cells: { sprite: CloudSprite; x: number; y: number; speed: number }[] }

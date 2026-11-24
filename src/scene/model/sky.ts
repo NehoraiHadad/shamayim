@@ -5,7 +5,7 @@ import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { cityDomes, cityOnSky } from './cityLight'
-import { dustSkyColours } from './dustSky'
+import { dustSky } from './cloudDust'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
@@ -90,12 +90,11 @@ export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
  * half way down to the horizon, the horizon colour at eye level (the land's own horizon, offset by `box.landTop`) and
  * below it.
  */
-export function skyStops(world: WorldState, box: SceneBox, dust = true): [number, RGB][] {
+export function skyStops(world: WorldState, box: SceneBox): [number, RGB][] {
   const { palette } = world.light
   const horizon = clamp01((box.landTop + world.relief.horizonY) / box.skyHeight)
   // By night inside a town its lit air is over every side, less and less up to the zenith (the mid stop stands ~30° up).
-  const base: [RGB, RGB, RGB] = [rgbOf(palette.top), rgbOf(palette.mid), rgbOf(palette.horizon)]
-  const [top, mid, low] = dust ? dustSkyColours(world, base) : base
+  const [top, mid, low] = dustSky(world, [rgbOf(palette.top), rgbOf(palette.mid), rgbOf(palette.horizon)])
   const ground = cityOnSky(world, low, 0)
   return [[0, cityOnSky(world, top, 90)], [horizon * 0.55, cityOnSky(world, mid, 30)], [horizon, ground], [1, ground]]
 }

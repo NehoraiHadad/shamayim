@@ -68,15 +68,6 @@ it('lights each tower from the side of the sun on screen, and its underside at a
   expect(checked).toBeGreaterThan(0)
 }, 60_000)
 
-it('carries foreground dust separately from the tower’s geometric share', () => {
-  const forced = { ...THUNDER, visibilityKm: 3 }
-  const { towers: clean } = towersAt('jerusalem', '11:30', { ...forced, pm10: 0, dust: 0 })
-  const { towers: dusty } = towersAt('jerusalem', '11:30', { ...forced, pm10: 400, dust: 400 })
-  expect(clean!.cells.every(({ sprite }) => sprite.through === undefined)).toBe(true)
-  expect(dusty!.cells.some(({ sprite }) => sprite.through && sprite.through[1] < 1)).toBe(true)
-  expect(dusty!.key).not.toBe(clean!.key)
-}, 30_000)
-
 it('carries the towers with the wind across the view, all at one speed', () => {
   const { world } = towersAt('jerusalem', '11:30')
   const carried = sceneModel(world, BOX).layers.find((l) => l.kind === 'cloudCells')!
