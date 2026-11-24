@@ -1257,6 +1257,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             chooses no dot or tiny dot in towns from stills. Codex: only through outsourcerer, never a direct `codex exec`
             Owner, 24 Nov evening: no text in the scene at all; place, height and waters go to one quiet line at the page foot
             (`claude/found-i-quiet`, variant with the sea level line `claude/meas-datum`); on CI, then before/after for the owner
+            Clean scene `a4f4f6ab` (no line, owner chose 1; Tiberias roof/front band 1.65 -> 1.67 with evidence) merged 2a0c2fef, main CI 45390507893
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
