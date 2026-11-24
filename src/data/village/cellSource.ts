@@ -9,8 +9,8 @@ import { groupOf, type CoverCell, type Provenance, type SettlementSource } from 
 const BUILT = COVER.indexOf('built')
 /** The group starts from the built cells within this far of the place, as the footprints' does. */
 const SEED_KM = .25
-/** How far from the place cells are looked for: the group of a town that runs on is cut here. */
-const REACH_KM = 2.5
+/** A group wider than this is a town's or a city's, which is not drawn from its cells (`world/village/share.ts`). */
+export const TOWN_KM = 5
 /** The country's typical house side, m (measured: 13.3 at Karmei Tzur, 13.8 at Nahalal). */
 export const HOUSE_M = 13.5
 /** Houses in a built cell the city raster knows nothing of (choice). */
@@ -27,45 +27,60 @@ const keyOf = (row: number, col: number) => `${row}:${col}`
 
 interface Built extends CoverCell { row: number; col: number }
 
-function builtRound(place: Coordinate, cover: LandCover, raster: CityRaster | undefined): Map<string, Built> {
-  const built = new Map<string, Built>()
+/** The built cell at a grid square, or null. */
+function builtAt(place: Coordinate, cover: LandCover, raster: CityRaster | undefined) {
   const areaM2 = LAND_STEP * LAT_M * LAND_STEP * lonM(place.lat)
-  const row0 = Math.floor(place.lat / LAND_STEP), col0 = Math.floor(place.lon / LAND_STEP)
-  const rows = Math.ceil(REACH_KM * 1000 / (LAND_STEP * LAT_M)), cols = Math.ceil(REACH_KM * 1000 / (LAND_STEP * lonM(place.lat)))
-  for (let row = row0 - rows; row <= row0 + rows; row++) for (let col = col0 - cols; col <= col0 + cols; col++) {
+  return (row: number, col: number): Built | null => {
     const at = { lat: (row + .5) * LAND_STEP, lon: (col + .5) * LAND_STEP }
-    if (cover.coverAt(at.lat, at.lon) !== BUILT) continue
-    const { dx, dy } = offsetKm(place, at)
-    if (Math.hypot(dx, dy) > REACH_KM) continue
+    if (cover.coverAt(at.lat, at.lon) !== BUILT) return null
     const share = raster?.at(at.lat, at.lon).built ?? 0
-    built.set(keyOf(row, col), { dx, dy, row, col, known: share > 0, outline: false, seed: hashId(keyOf(row, col)),
-      holds: share > 0 ? share * areaM2 / HOUSE_M ** 2 : UNKNOWN_HOUSES })
+    return { ...offsetKm(place, at), row, col, known: share > 0, outline: false, seed: hashId(keyOf(row, col)),
+      holds: share > 0 ? share * areaM2 / HOUSE_M ** 2 : UNKNOWN_HOUSES }
   }
-  return built
 }
 
-/** Built cells joined to the place cell by cell, side or corner, with no empty cell between. */
-function linked(built: ReadonlyMap<string, Built>): Map<string, Built> {
-  const group = new Map<string, Built>()
-  const todo = [...built.values()].filter(cell => Math.hypot(cell.dx, cell.dy) <= SEED_KM)
+/** The built cells within the seed distance of the place. */
+function seeds(place: Coordinate, at: ReturnType<typeof builtAt>): Built[] {
+  const row0 = Math.floor(place.lat / LAND_STEP), col0 = Math.floor(place.lon / LAND_STEP)
+  const reach = Math.ceil(SEED_KM * 1000 / (LAND_STEP * lonM(place.lat)))
+  const found: Built[] = []
+  for (let row = row0 - reach; row <= row0 + reach; row++) for (let col = col0 - reach; col <= col0 + reach; col++) {
+    const cell = at(row, col)
+    if (cell && Math.hypot(cell.dx, cell.dy) <= SEED_KM) found.push(cell)
+  }
+  return found
+}
+
+/**
+ * Built cells joined to the place cell by cell, side or corner, with no empty cell between; null as soon as they reach
+ * further than a town's width.
+ */
+function linked(place: Coordinate, at: ReturnType<typeof builtAt>): Map<string, Built> | null {
+  const group = new Map<string, Built>(), todo = seeds(place, at), asked = new Set(todo.map(cell => keyOf(cell.row, cell.col)))
+  let w = Infinity, e = -Infinity, s = Infinity, n = -Infinity
   for (let cell = todo.pop(); cell; cell = todo.pop()) {
-    const key = keyOf(cell.row, cell.col)
-    if (group.has(key)) continue
-    group.set(key, cell)
+    group.set(keyOf(cell.row, cell.col), cell)
+    w = Math.min(w, cell.dx); e = Math.max(e, cell.dx); s = Math.min(s, cell.dy); n = Math.max(n, cell.dy)
+    if (Math.max(e - w, n - s) > TOWN_KM) return null
     for (let r = -1; r <= 1; r++) for (let c = -1; c <= 1; c++) {
-      const next = built.get(keyOf(cell.row + r, cell.col + c))
+      const key = keyOf(cell.row + r, cell.col + c)
+      if (asked.has(key)) continue
+      asked.add(key)
+      const next = at(cell.row + r, cell.col + c)
       if (next) todo.push(next)
     }
   }
   return group
 }
-
 const SIDES = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
 
-/** The place's own group from the cover cells (its order is the grid's, so the same on every load); null with none near. */
+/**
+ * The place's own group from the cover cells (its order is the grid's, so the same on every load); null with none near,
+ * or with a town's or a city's.
+ */
 export function cellSettlement(place: Coordinate, cover: LandCover, raster?: CityRaster): SettlementSource | null {
-  const group = linked(builtRound(place, cover, raster))
-  if (!group.size) return null
+  const group = linked(place, builtAt(place, cover, raster))
+  if (!group?.size) return null
   const spots = [...group.values()].sort((a, b) => a.row - b.row || a.col - b.col).map(({ row, col, ...cell }): CoverCell => ({
     ...cell, outline: SIDES.some(([r, c]) => !group.has(keyOf(row + r, col + c))) }))
   return { kind: 'cells', group: groupOf(spots), spots, provenance: PROVENANCE }

@@ -116,6 +116,11 @@ describe('a settlement of cover cells', () => {
     expect(cells(coverOf([0, 0], [1, 1], [1, 2]))!.spots).toHaveLength(3)
     expect(cells(coverOf(...block, [0, 8], [0, 9]))!.spots).toHaveLength(9)
   })
+  it('is followed to the end, and is none when it is too wide', () => {
+    const line = (count: number) => coverOf(...Array.from({ length: count }, (_, i): [number, number] => [0, i]))
+    expect(cells(line(90))!.group.extentKm).toBeGreaterThan(4)
+    expect(cells(line(130))).toBeNull()
+  })
   it('marks its edge, and only its edge', () =>
     expect(cells(coverOf(...block))!.spots.filter(s => !s.outline).map(s => [s.dx, s.dy])).toEqual([[0, 0]]))
   it('holds the houses the raster says, and a guess where it knows nothing', () => {
