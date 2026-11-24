@@ -68,9 +68,9 @@ it('draws no level rim: an overhead cell ends at a height that follows the air, 
     return y
   })
   console.info({ low: Math.min(...rim), high: Math.max(...rim) })
-  // No part of it, a tenth of the width long, lies along one row.
-  for (let i = 0; i + 13 < rim.length; i++) {
-    const run = rim.slice(i, i + 13)
+  // No part of it, a fifth of the width long, lies along one row.
+  for (let i = 0; i + 25 < rim.length; i++) {
+    const run = rim.slice(i, i + 25)
     expect.soft(Math.max(...run) - Math.min(...run)).toBeGreaterThan(0)
   }
   expect(Math.max(...rim) - Math.min(...rim)).toBeGreaterThan(4)

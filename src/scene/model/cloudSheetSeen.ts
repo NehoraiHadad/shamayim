@@ -1,5 +1,5 @@
 import { smoothstep, unit } from '../../world/field/genus'
-import { altitudeOf } from '../../world/field/project'
+import { altitudeOf, groundRangeAt } from '../../world/field/project'
 import { kernel } from '../../world/field/rasterNodes'
 import type { FieldSnapshot } from '../../world/field/transmit'
 import type { FieldCell } from '../../world/field/types'
@@ -16,8 +16,8 @@ import type { SkyGeom } from './sky'
  * oval. Up to `DOME_ALT` the field is read exactly, as the sun and the land's light read it.
  */
 
-/** The altitude (deg) from which the view is all the eye's: half as high again as the join. */
-const FULL_ALT = 1.5 * DOME_ALT
+/** The altitudes (deg) from which a cell's shape and its outline are all the eye's: a quarter and a half over the join. */
+const SHAPED_ALT = 1.25 * DOME_ALT, EDGED_ALT = 1.5 * DOME_ALT
 /** Rounding left where a cell's own depth is taken from the field's sum. */
 const ROUNDING = 1e-9
 
@@ -39,8 +39,7 @@ function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: numbe
   // Overhead there is no oval: its rim runs round the whole sky.
   if (!(q < 1)) return null
   const farAlt = altitudeOf(heightKm, d + cell.r)
-  const whole = smoothstep(DOME_ALT, FULL_ALT, farAlt)
-  if (!whole) return null
+  const whole = smoothstep(DOME_ALT, SHAPED_ALT, farAlt)
   const nearAlt = altitudeOf(heightKm, d - cell.r), cos = Math.cos(altitudeOf(heightKm, d) * Math.PI / 180)
   const half = Math.asin(q), high = Math.atanh(q)
   // The eye's height over width: the disc's, and over it the side of a cell as thick as it is. No cell of a sheet is taller
@@ -83,17 +82,22 @@ export function seenDepth(placeId: string, minute: number, snapshot: FieldSnapsh
   if (!layer || (layer.lattice !== 'low' && layer.lattice !== 'mid')) return () => depthAt
   const noise = edgeNoise(placeId, layer, minute)
   const perRad = Math.abs(pxPerRadAt(geom.azimuthAt, geom.width / 2))
-  const shapes = cells.map((cell) => shapeOf(cell, heightKm, geom, perRad)).filter((shape) => shape !== null)
+  const edge = groundRangeAt(heightKm, DOME_ALT)
+  const shapes = cells.filter(({ x, y, r }) => r < edge && x * x + y * y < (edge - r) ** 2)
+    .map((cell) => shapeOf(cell, heightKm, geom, perRad)).filter((shape) => shape !== null)
   return (range: number, altitude: number): DepthAt => {
-    const weight = smoothstep(DOME_ALT, FULL_ALT, altitude)
+    const weight = smoothstep(DOME_ALT, EDGED_ALT, altitude)
     if (!weight) return depthAt
-    const reach = weight * noise.reach * Math.SQRT2
+    const reach = weight * noise.reach
     const here = shapes.filter(({ from, to }) => range + reach > from && range - reach < to)
     return (east, north) => {
-      const x = east + weight * noise.east(east, north), y = north + weight * noise.north(east, north)
+      // Along the ray: the projection draws its levels straight. Overhead, where every ray meets, it dies away.
+      const from = Math.sqrt(east * east + north * north)
+      const scale = 1 + weight * noise.at(east, north) / Math.max(from, noise.radius)
+      const x = east * scale, y = north * scale
       const depth = depthAt(x, y)
       if (!here.length) return depth
-      const at = Math.hypot(x, y), log = Math.log(at)
+      const at = from * scale, log = Math.log(at)
       let moved = 0
       for (const shape of here) if (at > shape.from && at < shape.to) moved += change(shape, x, y, at, log)
       const seen = depth + moved

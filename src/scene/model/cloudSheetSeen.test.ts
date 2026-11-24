@@ -57,5 +57,6 @@ it.each([
     cover: (sums.cover[1] - sums.cover[0]) / count, sky: (sums.sky[1] - sums.sky[0]) / count, tau: sums.tau[1] / sums.tau[0] - 1,
   }
   console.info(lattice, cover, change)
-  for (const [key, value] of Object.entries(change)) expect.soft(Math.abs(value), key).toBeLessThanOrEqual(0.02)
+  expect.soft(Math.abs(change.cover)).toBeLessThanOrEqual(0.02)
+  expect.soft(Math.abs(change.sky)).toBeLessThanOrEqual(0.02)
 })

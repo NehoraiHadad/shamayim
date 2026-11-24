@@ -19,28 +19,22 @@ const LOBES = 3, DEPTH = LOBES ** -1.15
 /** The sampler's coarse octave (2/3 of it, value noise of standard deviation .21) at a sinusoid's deviation (1/√2). */
 const PEAK = DEPTH * Math.SQRT1_2 / (0.21 * 2 / 3)
 
-type Sampler = ReturnType<typeof createClumpSampler>
-const samplers = new Map<string, readonly [Sampler, Sampler]>()
+const samplers = new Map<string, ReturnType<typeof createClumpSampler>>()
 
-function samplersOf(placeId: string, lattice: FieldLayer['lattice'], wavelength: number) {
+function samplerOf(placeId: string, lattice: FieldLayer['lattice'], wavelength: number) {
   const key = `${placeId}:edge:${lattice}`
-  let pair = samplers.get(key)
-  if (!pair) {
-    const seed = hashId(key)
+  let sampler = samplers.get(key)
+  if (!sampler) {
     if (samplers.size >= 32) samplers.delete(samplers.keys().next().value!)
-    samplers.set(key, pair = [createClumpSampler(seed, wavelength), createClumpSampler(seed ^ 0x2c1b3c6d, wavelength)])
+    samplers.set(key, sampler = createClumpSampler(hashId(key), wavelength))
   }
-  return pair
+  return sampler
 }
 
 /** How far (km) the field's outlines are moved at a place of the layer; `reach` bounds it. */
 export function edgeNoise(placeId: string, layer: FieldLayer, minute: number) {
   const radius = meanRadius(layer.lattice, 1), amplitude = PEAK * radius
-  const pair = samplersOf(placeId, layer.lattice, 2 * Math.PI * radius / LOBES)
-  const [east, north] = pair.map((sampler) => clumpAt(layer, minute, (x, y) => sampler(x, y)))
-  return {
-    reach: amplitude / 2,
-    east: (x: number, y: number) => amplitude * (east(x, y) - 0.5),
-    north: (x: number, y: number) => amplitude * (north(x, y) - 0.5),
-  }
+  const sampler = samplerOf(placeId, layer.lattice, 2 * Math.PI * radius / LOBES)
+  const noise = clumpAt(layer, minute, (x, y) => sampler(x, y))
+  return { radius, reach: amplitude / 2, at: (x: number, y: number) => amplitude * (noise(x, y) - 0.5) }
 }
