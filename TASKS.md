@@ -1300,4 +1300,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
             capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
             first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
+      - [~] F, weather near the eye (`claude/real-air`): fog in uneven banks with lit tops and shaded hollows, rain streaks with depth, drops and
+            flakes of many sizes on a tile 2x2 as large (`paint/real/air/`, `model/fallTile.ts`, `styleLight.fallTile`). Dropped: dust, smoke (no gain
+            at phone size). Baseline moved: `landLighting.mjs` tiberias-1200-snow .0991 -> .0941. Codex review: 4 findings, 3 fixed (tile key and
+            chains, the fog's light key). Written down, not chased: the fog's crop thins the top few px, near rain a bit fat at its top, the mist repeats every 240 px
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

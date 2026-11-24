@@ -6,9 +6,12 @@ export interface FallTile { x: number; y: number }
 
 /** A layer's marks over a larger tile: each with its own size and strength in every share of it, at a place of its own. */
 function spread(layer: LayerOf<'fall'>, { x, y }: FallTile): FallMark[] {
-  const { w, h } = layer.bounds, r = seeded(hashId(`${layer.id}:${layer.marks[0]?.x}:tile`))
-  return Array.from({ length: x * y }, (_, n) =>
-    layer.marks.map((m) => ({ ...m, x: (n % x + r()) * w, y: (Math.floor(n / x) + r()) * h }))).flat()
+  const { w, h } = layer.bounds
+  return Array.from({ length: x * y }, (_, n) => {
+    // A share's own chain: a mark more at its end moves no other.
+    const r = seeded(hashId(`${layer.id}:${layer.marks[0]?.x}:tile${n}`))
+    return layer.marks.map((m) => ({ ...m, x: (n % x + r()) * w, y: (Math.floor(n / x) + r()) * h }))
+  }).flat()
 }
 
 /**
@@ -18,6 +21,6 @@ function spread(layer: LayerOf<'fall'>, { x, y }: FallTile): FallMark[] {
 export function withFallTile(layers: LayerDesc[], tile?: FallTile): LayerDesc[] {
   if (!tile) return layers
   return layers.map((layer) => layer.kind !== 'fall' || layer.id.startsWith('fall.far') ? layer
-    : { ...layer, marks: spread(layer, tile), key: `${layer.key}:tile${tile.x},${tile.y}`,
+    : { ...layer, marks: spread(layer, tile), key: `${layer.key}:tile${tile.x},${tile.y}:${layer.marks.length}`,
       bounds: { ...layer.bounds, w: layer.bounds.w * tile.x, h: layer.bounds.h * tile.y } })
 }
