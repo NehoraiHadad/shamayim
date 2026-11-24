@@ -21,9 +21,8 @@ export { arch, disc, poly, rect, type Tracer } from './kitGeometry'
 
 export interface Lamp { x: number; y: number; r: number; c: RGB; a: number; fade?: number }
 
-/** Red aviation light; a minaret's green balcony lamp. */
+/** Red aviation light. */
 const AVIATION: RGB = [1, 0.35, 0.29]
-export const MINARET_LAMP: RGB = [0.49, 0.88, 0.63]
 
 export function aviationLamp(x: number, y: number, shine: Shine): Lamp {
   return { x, y, r: 1.3, c: AVIATION, a: 0.5 + 0.5 * shine.night,

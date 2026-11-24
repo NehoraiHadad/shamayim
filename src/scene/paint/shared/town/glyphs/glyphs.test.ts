@@ -2,10 +2,9 @@ import { expect, it } from 'vitest'
 import { smoothstep } from '../../../../../domain/smoothstep'
 import { glyphPaintEvidence, OWN_GLYPH_EVIDENCE } from '../../../../../test/glyphEvidence'
 import { distance, recording } from '../../../../../test/glyphRecording'
-import { litTone, shade, shine, tones } from '../../../../../test/glyphTones'
+import { shine, tones } from '../../../../../test/glyphTones'
 import { GLYPH_SPECS, type GlyphKind } from '../../../../../world/glyphSpecs'
 import type { GlyphDesc, Shine } from '../../../../model/types'
-import { css } from '../../base/hand'
 import { drawGlyph, drawLamps, glyphShadow } from '.'
 
 function record(glyph: GlyphDesc, shine: Shine) {
@@ -15,8 +14,8 @@ function record(glyph: GlyphDesc, shine: Shine) {
 }
 const KINDS = Object.keys(GLYPH_SPECS) as GlyphKind[]
 
-it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with hand %i', (hand) => {
-  expect(KINDS).toHaveLength(22)
+it.each([1, -1] as const)('keeps all 21 glyph forms and night lamps fixed with hand %i', (hand) => {
+  expect(KINDS).toHaveLength(21)
   for (const kind of KINDS) {
     const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind, seed: 43, hand, tones, x: 40, base: 60,
       w: GLYPH_SPECS[kind].w, h: 20, scale: 1.4, famous: false, ground: [0, 1, 0] }
@@ -24,11 +23,6 @@ it.each([1, -1] as const)('keeps all 22 glyph forms and night lamps fixed with h
       faces: { ...shine.faces, left: Math.max(0, l * glyph.hand), right: Math.max(0, -l * glyph.hand) } })
     const sweep = Array.from({ length: 41 }, (_, i) => at((i - 20) / 20))
     const even = sweep[20]
-    if (kind === 'minaret') {
-      expect(even.lamps[0][0]).toBeCloseTo(glyph.x + hand * 3.2 * glyph.scale)
-      // The minaret's first box paints the front, followed by its fixed left face.
-      expect(at(hand).light[1]).toEqual(['fillStyle', css(hand === 1 ? litTone : shade)])
-    }
     const form = JSON.stringify(even.form)
     for (const frame of sweep) {
       expect(JSON.stringify(frame.form), kind).toBe(form)
@@ -49,7 +43,7 @@ it('fades every glyph lamp and flood with fixed geometry through dusk', () => {
   // and its base alpha can grow by .5 per night unit. CSS rounds alpha to .001 and RGB to bytes.
   const alphaLimit = (.5 + .8 * 7.5) * step + .001
   const colourLimit = 7.5 * step + 1 / 255
-  const withLamps: GlyphKind[] = ['minaret', 'waterTower', 'chimney', 'highrise', 'silo', 'mast', 'lighthouse',
+  const withLamps: GlyphKind[] = ['waterTower', 'chimney', 'highrise', 'silo', 'mast', 'lighthouse',
     'turbine', 'azrieli', 'babShrine', 'chordsBridge']
   for (const kind of KINDS) {
     const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind, seed: 43, hand: 1, tones, x: 40, base: 60,
@@ -82,7 +76,7 @@ it('fades every glyph lamp and flood with fixed geometry through dusk', () => {
 })
 
 it('reduces the glyph shadow to its contact shade at zero lateral reach', () => {
-  const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind: 'minaret', x: 40, base: 60, w: 10, h: 20, scale: 1, seed: 3,
+  const glyph: GlyphDesc = { ...OWN_GLYPH_EVIDENCE, kind: 'church', x: 40, base: 60, w: 10, h: 20, scale: 1, seed: 3,
     hand: 1, famous: false, tones }
   const at = (dx: number) => {
     const result = recording()

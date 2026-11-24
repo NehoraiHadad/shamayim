@@ -17,9 +17,9 @@ export interface Portrait {
 
 /** What a portrait can show of its place: what stands in it or grows round it (not masts, not a city's towers). */
 export const PORTRAIT_KINDS = new Set<MarkKind>(['palms', 'orchard', 'vineyard', 'solar', 'waterTower', 'silo', 'synagogue',
-  'church', 'minaret', 'turbine', 'chimney', 'cooling', 'castle', 'lighthouse'])
+  'church', 'turbine', 'chimney', 'cooling', 'castle', 'lighthouse'])
 /** Kinds that stand among the place's own roofs when close (placeMarks' ABSORB). */
-const AMONG_ROOFS = new Set<MarkKind>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
+const AMONG_ROOFS = new Set<MarkKind>(['synagogue', 'waterTower', 'church', 'silo'])
 /** What grows or lies in the fields round the village, a little beyond its houses. */
 const FIELDS = new Set<MarkKind>(['palms', 'orchard', 'vineyard', 'solar'])
 

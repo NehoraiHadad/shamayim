@@ -42,10 +42,12 @@ describe('place homes', () => {
     expect(nearby == null || Math.abs(nearby.xPct - 47) * 3.75 >= 27).toBe(true)
   })
 
-  it('absorbs the own minaret of the place into the cluster, clear of the dot', () => {
+  it('absorbs the own water tower clear of the dot even with competing mosque marks', () => {
     const homes = placeHomes({ ...place, featureCode: 'PPL' })[0]
-    const minaret = { ...baseMark, id: 'own', kind: 'minaret' as const, lon: place.lon + .003, heightM: 25 }
-    const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, minaret], 375)
+    const tower = { ...baseMark, id: 'own', kind: 'waterTower' as const, lon: place.lon + .003, heightM: 25 }
+    const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, tower], 375)
+    const minaret: Landmark = { ...tower, id: 'mosque', kind: 'minaret', heightM: 30 }
+    expect(placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, minaret, tower], 375)).toEqual(marks)
     const own = marks.find((mark) => mark.id === 'own')!
     expect(own.absorbed).toBe(true)
     const offset = (own.xPct - 47) * 3.75

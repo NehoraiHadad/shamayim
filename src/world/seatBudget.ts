@@ -3,7 +3,7 @@ import { overlaps, type Box } from './layout'
 import type { SeatedWorldMark } from './markGeometry'
 import { SCENE_W } from './sceneBox'
 
-/** Maximum beyond seats per settlement kind, extending the landmark ranker's two-minaret cap to every kind. */
+/** Maximum beyond seats per settlement kind, independent of the portrait budget. */
 const BEYOND_KIND_CAP = 2
 /** Minimum gap in px between seated glyph boxes, from the world seating budget. */
 const SEAT_GAP_PX = 1

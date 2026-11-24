@@ -1,3 +1,5 @@
+import { isDrawableMark } from '../data/landmarks/drawableMark'
+
 /** Product settings live here; sizing and every pre-selection path import the same values. */
 export const LEGIBLE_PX = 4
 export const MAX_EXAGGERATION = 2
@@ -7,7 +9,7 @@ export type NeighbourRule = 'hidden' | 'landmark' | 'ordinary'
 /** Owner: “מסגדים לא, ציונים כן”. The mosque veto wins even over curated/famous status. */
 export function neighbourRule(kind: string, famous: boolean): NeighbourRule {
   const name = kind.replace(/[-_\s]/g, '').toLowerCase()
-  if (/minaret|mosque|masjid/.test(name)) return 'hidden'
+  if (!isDrawableMark({ kind: name })) return 'hidden'
   const worship = ['church', 'synagogue', 'shrine', 'temple', 'chapel', 'cathedral', 'westernwall', 'babshrine']
   if (worship.includes(name) && !famous) return 'hidden'
   return famous ? 'landmark' : 'ordinary'
