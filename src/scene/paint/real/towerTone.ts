@@ -1,58 +1,75 @@
+import { smoothstep } from '../../../domain/smoothstep'
 import type { RGB } from '../../../world/types'
 import type { CloudSprite } from '../../model/cloudSprite'
 import { mix } from '../shared/base/hand'
-import type { TowerShape } from './towerShape'
+import { cloudLight, gridAt } from './cloud/light'
+import { cloudPoint, cloudTone } from './cloud/tone'
+import type { TowerPoint, TowerShape } from './towerShape'
 
 /*
- * A tower's colour at a point: greyer at the base, the body above, the light's side lit, its lumps modelled softly by the
- * light, the crown silvered against a sun behind. Every tone is the model's. Pure (the returned colour is reused).
+ * A tower's colour at a point, by the sheets' own light: how much of it goes through the body from the light's side and from
+ * the open sky above, its heads and lumps rounded by it, the lower column and the flat base in the tower's own shade, the
+ * rim silvered before a sun behind. With no direct light the sky's alone, from above. Every tone is the model's. Pure (the
+ * returned colour is reused).
  */
 
-/** How far the lumps' relief moves the colour: toward the lit tone facing the light, toward the shade away from it. */
-const MODEL_LIT = 0.6, MODEL_SHADE = 0.45
-/** The step over which the relief's slope is read, against the width. */
-const STEP = 0.08
+/** Cells of the grid the light is worked out on, at most; its side at most, against the width. */
+const CELLS = 2600, CELL = 0.5
+/** The width (px) of a tower drawn at the overhead scale. */
+const WIDE = 130
+/** How thick the body is in a crease, against a head's. */
+const CREASE = 0.55
+/** How much of the light on a lump's and on a head's side is the sky's, with no direct light; the step over which a lump's slope
+ *  is read (against the width), and how strongly lumps and whole heads round. */
+const SKY_RELIEF = 0.5, STEP = 0.08, LUMP = 0.85, HEAD = 0.34
+/** The tone of a column's foot and of its top: the tower's own mean, darker to its base. */
+const FOOT_TONE = 0.72, TOP_TONE = 0.3
+/** A tower this wide (px) keeps its whole contrast, one this narrow a far cloud's. */
+const NEAR = [14, 70] as const, KEEP = 0.5
+/** How far the base stands in its own shade, and the share of the height it climbs. */
+const BASE = 0.75, CLIMB = 0.3
+/** The silver rim of a tower before the sun. */
+const SILVER = 0.6
 
-type Colour = [number, number, number]
-
-/** `bump` is the shape's relief at (x, y). */
-export function towerTone(s: CloudSprite, shape: TowerShape): (x: number, y: number, bump: number) => Readonly<Colour> {
-  const under = mix(s.shade, s.lit, 0.6 * s.glow)
-  const bottom = shape.depth, [tx, ty] = s.toward ?? [0, -1]
-  const reach = Math.max(s.w, s.tall) * 0.6, mid = -s.tall * 0.55
-  const step = STEP * s.w, lit = Math.min(1, s.litA), lowColumn = mix(under, s.body, 0.4)
-  const c: Colour = [0, 0, 0]
-  // What a row shares: the column's tone up its height, and how much of the base's shade lies on it.
-  let rowY = NaN, tone = under, shaded = 0
-  const toRow = (y: number) => {
-    rowY = y
-    // The lower column stands in the shade of the tower above it: the base's dark climbs a third of the way up.
-    const up = Math.max(0, (bottom - y) / (bottom + s.tall))
-    tone = up < 0.2 ? mix(under, lowColumn, up / 0.2) : mix(lowColumn, s.body, Math.min(1, (up - 0.2) / 0.35))
-    // The sun lights the side, not the underside: the base stays in its own shade, darkest at the bottom.
-    const b = Math.min(1, Math.max(0, (bottom - y) / (bottom + 0.3 * s.tall)))
-    shaded = b < 0.4 ? 0.9 - (0.45 * b) / 0.4 : (0.45 * (1 - b)) / 0.6
-  }
-  return (x, y, bump) => {
-    if (y !== rowY) toRow(y)
-    c[0] = tone[0]; c[1] = tone[1]; c[2] = tone[2]
-    const facing = bump - shape.relief(x + tx * step, y + ty * step)
-    if (facing > 0) pull(c, s.lit, Math.min(0.5, MODEL_LIT * facing * (0.25 + 0.75 * lit)))
-    else pull(c, s.shade, Math.min(0.4, -MODEL_SHADE * facing))
-    if (lit > 0.02) {
-      const p = ((x * tx + (y - mid) * ty) / reach + 1) / 2
-      pull(c, s.lit, lit * Math.max(0, p < 0.55 ? (0.25 * p) / 0.55 : 0.25 + 0.6 * Math.min(1, (p - 0.55) / 0.45)))
-    }
-    pull(c, under, shaded)
-    if (s.silver > 0.05) {
-      const dx = x - tx * s.w * 0.3, dy = y + s.tall * 0.85
-      pull(c, s.lit, 0.6 * s.silver * Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / (s.w * 0.6)))
+export function towerTone(s: CloudSprite, shape: TowerShape): (x: number, y: number, here: TowerPoint) => Readonly<RGB> {
+  const [tx, ty] = s.toward ?? [0, -1], beam = s.toward ? Math.min(1, s.litA) : 0
+  const { light, w, h, k, x0, y0 } = lightIn(s, shape, tx, ty), tone = cloudTone(s, beam)
+  const under = mix(s.shade, s.lit, 0.6 * s.glow), out = new Float32Array(3), c: [number, number, number] = [0, 0, 0]
+  const point = cloudPoint(), round = SKY_RELIEF + (1 - SKY_RELIEF) * beam, step = STEP * s.w
+  point.own = 1
+  point.near = KEEP + (1 - KEEP) * smoothstep(NEAR[0], NEAR[1], s.w)
+  return (x, y, here) => {
+    const up = Math.min(1, Math.max(0, -y / s.tall)), over = smoothstep(0, 0.7, up), gx = (x - x0) * k - 0.5, gy = (y - y0) * k - 0.5
+    const at = (grid: Float32Array) => gridAt(grid, w, h, gx, gy)
+    const facing = LUMP * (here.bump - shape.relief(x + tx * step, y + ty * step)) + HEAD * (here.side * tx - here.rise * ty)
+    point.tone = FOOT_TONE + (TOP_TONE - FOOT_TONE) * over
+    point.sun = at(light.sun)
+    point.sky = at(light.sky) * (0.4 + 0.6 * over)
+    point.deep = at(light.deep)
+    point.base = Math.max(at(light.base), 1 - smoothstep(0, 0.16, up))
+    point.relief = -facing * round
+    point.thick = here.a
+    tone(point, out)
+    const shaded = BASE * (1 - smoothstep(0, 1, (shape.depth - y) / (shape.depth + CLIMB * s.tall))), silver = SILVER * s.silver * (1 - point.deep) * over
+    for (let n = 0; n < 3; n++) {
+      const based = out[n] + (under[n] - out[n]) * shaded
+      c[n] = based + (s.lit[n] - based) * silver
     }
     return c
   }
 }
 
-/** Moves a colour toward another, in place. */
-function pull(c: Colour, to: RGB, t: number) {
-  for (let n = 0; n < 3; n++) c[n] += (to[n] - c[n]) * t
+/** The light through the body, on a coarse grid over it (sprite px from (x0, y0), `k` cells a px). */
+function lightIn(s: CloudSprite, shape: TowerShape, tx: number, ty: number) {
+  const x0 = -shape.reach, y0 = -s.tall - 0.25 * s.w, wide = 2 * shape.reach, high = shape.depth - y0
+  const k = Math.min(CELL, Math.sqrt(CELLS / (wide * high))), w = Math.max(3, Math.ceil(wide * k)), h = Math.max(3, Math.ceil(high * k))
+  const thick = new Float32Array(w * h), scale = new Float32Array(h).fill(Math.min(1, Math.max(0.1, s.w / WIDE)))
+  for (let j = 0, n = 0; j < h; j++) {
+    for (let i = 0; i < w; i++, n++) {
+      const here = shape.at(x0 + (i + 0.5) / k, y0 + (j + 0.5) / k)
+      if (here) thick[n] = here.a * Math.min(1, Math.max(CREASE, 0.8 + here.bump))
+    }
+  }
+  const far = 1e4
+  return { light: cloudLight({ w, h, k, thick, scale }, { x: w / 2 + tx * far, y: h / 2 + ty * far }), w, h, k, x0, y0 }
 }

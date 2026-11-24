@@ -1,40 +1,63 @@
-import { hashId } from '../../../data/landmarks/hash'
+import { smoothstep } from '../../../domain/smoothstep'
+import { CORE_LEAK } from '../../model/bodies'
 import type { LayerOf } from '../../model/types'
-import { sheetTexels, softRadii } from './cloudLook'
-import { rasterise } from './cloudRaster'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
-import { soften } from '../shared/base/soften'
-import { deckOpenness } from '../shared/cloud/deck'
-import { resampleRows, ROW } from '../shared/cloud/resampleRows'
+import { lampLight } from './cloud/lampLight'
+import { RASTER, sheetField, type SheetField } from './cloud/sheetField'
+import { sheetLight } from './cloud/sheetLight'
+import { cloudPoint, cloudTone } from './cloud/tone'
 
 /*
- * A field layer as one continuous sheet over the dome (SPEC §6.0: layers before shapes). MEDIUM: the model's screen-ray
- * grid laid on a scratch surface and stretched over the sky with the canvas's own bilinear smoothing (no filter). The
- * rows (`ys`) are uneven, denser toward the horizon, so they are first resampled here, linearly between the two rays
- * around each output row and in premultiplied colour, to rows ROW px apart. One draw then stretches them: a per-row strip
- * would lose the vertical blend, because the canvas clamps its smoothing to the source rectangle and draws stair-steps.
- * How the sheet looks (its colour, translucency and softness) is `cloudLook`'s; its fine detail `cloudRaster`'s.
- * Pure: every number is the model's; the grid's extent is the sheet's (the model spans the sky edge to edge).
+ * A field layer as one continuous sheet over the dome (SPEC §6.0: layers before shapes): the model's coverage as a body of
+ * cloud that the light goes through. Its crowns and the rim toward the light bright, its core, far side and base in its own
+ * shade, thin parts letting the sky through; a closed deck and the high veils keep the model's own tones. MEDIUM: one raster
+ * (`sheetField`), stretched over the sky by the canvas's own smoothing (no filter). Pure: every number is the model's.
  */
 
+/** Opacity of the thickest cloud of an open deck: a breath of sky stays behind it. */
+const CORE = 1 - CORE_LEAK
+/** Low over the horizon a cloud is far: the share of the sky's height over which the air takes its depth, and what it keeps. */
+const FAR = 0.34, KEEP = 0.2
+
 export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
-  const { xs, ys } = desc
-  const cols = xs.length, rows = ys.length
+  const { xs, ys } = desc, cols = xs.length, rows = ys.length
   if (cols < 2 || rows < 2 || !desc.alpha.some((a) => a > 0)) return
-  const y0 = ys[0], span = ys[rows - 1] - y0
+  const span = ys[rows - 1] - ys[0]
   if (span <= 0) return
-  const out = Math.max(2, Math.ceil(span / ROW) + 1)
-  const open = deckOpenness(desc)
-  const { buf, spacing } = resampleRows(sheetTexels(desc, open), cols, ys, out)
-  const colPx = (xs[cols - 1] - xs[0]) / (cols - 1), rowPx = span / (out - 1)
-  const radii = spacing.map(softRadii)
-  soften(buf, cols, out, radii.map(([across]) => across / colPx), radii.map(([, down]) => down / rowPx))
-  const width = xs[cols - 1] - xs[0]
-  const { canvas, w, h } = rasterise(env, { buf, cols, rows: out, spacing }, width, span, open, hashId(desc.id))
+  const field = sheetField(desc), { w, h } = field
+  const { canvas, ctx: sheet } = env.canvas(w, h)
+  const image = sheet.createImageData(w, h)
+  colour(image.data, desc, field)
+  sheet.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   // Texel centres sit at +0.5: the first and last centres land on the grid's edges.
-  ctx.drawImage(canvas, 0.5, 0.5, w - 1, h - 1, xs[0], y0, width, span)
+  ctx.drawImage(canvas, 0.5, 0.5, w - 1, h - 1, xs[0], ys[0], xs[cols - 1] - xs[0], span)
   ctx.restore()
+}
+
+function colour(data: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, field: SheetField): void {
+  const { w, h, alpha, open } = field, { city } = desc
+  const { x, y, beam } = lampLight(desc.lamp)
+  const light = open ? sheetLight(field, { x: (x - desc.xs[0]) * RASTER, y: (y - desc.ys[0]) * RASTER }) : null
+  const tone = cloudTone(desc, beam), point = cloudPoint(), rgb = new Float32Array(3), core = 1 + open * (CORE - 1)
+  point.own = open
+  for (let j = 0, p = 0; j < h; j++) {
+    point.near = KEEP + (1 - KEEP) * smoothstep(0, FAR, 1 - j / h)
+    for (let i = 0; i < w; i++, p++) {
+      if (alpha[p] <= 0.003) continue
+      point.tone = field.tone[p]
+      light?.(i, j, p, point)
+      tone(point, rgb)
+      // The source's share and the towns' light are on the cloud, whatever its own light.
+      const o = p * 4, gain = desc.source ? field.source[p] ** (1 / 2.4) : 1, towns = city ? field.city[p] : 0
+      for (let k = 0; k < 3; k++) {
+        // As `scaleLight` and `addLight`, in place: the sRGB curve's power part, where a cloud's tones are.
+        const own = gain === 1 ? rgb[k] : Math.max(0, (rgb[k] + 0.055) * gain - 0.055)
+        data[o + k] = Math.round(255 * Math.min(1, towns ? Math.sqrt(own * own + towns * city!.rgb[k] ** 2) : own))
+      }
+      data[o + 3] = Math.round(255 * alpha[p] * core)
+    }
+  }
 }
