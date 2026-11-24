@@ -14,8 +14,8 @@ const INNER = 0.78
 const DIAG = Math.SQRT2, LEAST = 1.15, APART = 0.62, BIN = 12
 /** How far a lobe swells (against its radius); it rises by as much, so that its foot stays in the mass. */
 const OVER = 0.12
-/** Slow noise over the mass: where it is busy its lobes are many and small ones stand too, where it is quiet only the tops have any. */
-const SLOW = 0.16, QUIET = 0.38, CALM = 0.25, BUSY = 0.55
+/** Slow noise over the mass: where it is busy its lobes are many and small ones stand too, where it is quiet only the tops have any, deep inside a mass. */
+const SLOW = 0.16, QUIET = 0.38, CALM = 0.25, INSIDE = 0.8, BUSY = 0.55
 /** A lobe's least and most against its row's, how seldom it is large; how small it may be where the mass is busy. */
 const SIZE = [0.2, 1.1] as const, SELDOM = 1.5, TINY = 0.4
 /** How far a lobe leans out of its mass, and at random (rad); the cells the lean is taken over, and the fall that is all of it. */
@@ -54,7 +54,7 @@ export function lobesOf(mass: Mass): Lobe[] {
       const n = j * cols + i
       if (d[n] < LEAST || mass.side[n] < FOOT) continue
       const random = rng(seed + i * 7919 + j * 104729), slow = SLOW / Math.sqrt(most), busy = fractal(seed % 971, i, j, slow, slow, 2)
-      if (busy < QUIET && mass.side[n] < CALM) continue
+      if (busy < QUIET && mass.side[n] < CALM && d[n] > INSIDE * most) continue
       const r = Math.min(INNER * d[n], most * (SIZE[0] + (SIZE[1] - SIZE[0]) * random() ** SELDOM * Math.min(1, 2.4 * (1 - busy))))
       if (r < SMALL * most * (busy > BUSY ? TINY : 1) && mass.side[n] <= TOP) continue
       found.push({ n, x: i, y: j, r, side: mass.side[n], tilt: LEAN * lean(d, n) + SWAY * (random() - 0.5) })

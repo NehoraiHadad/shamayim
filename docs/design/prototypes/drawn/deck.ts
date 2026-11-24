@@ -10,7 +10,7 @@ import { bump, carve, type P } from './carve'
  * the model's own tone is darker the strip hangs lower and its ink is deeper. Pure: the field, the tones, the seed.
  */
 
-export interface DeckInks { lit: RGB; local: RGB; shade: RGB; foot: RGB; key: RGB; line: number }
+export interface DeckInks { local: RGB; half: RGB; foot: RGB; key: RGB; line: number }
 
 /** A roll's height against the row spacing, at least and at most (px); how far tone and noise move its foot (against it). */
 const ROLL = 2.6, LEAST = 4, MOST = 58, HANG = 1.1, BEND = 1.9, FREQ = 0.009
@@ -32,9 +32,9 @@ export function paintDeck(ctx: Ctx2D, f: SheetField, mean: number, ink: DeckInks
     // Scallops hang down: the way goes left to right, so the bulge is to its right; some are cut with a line, most are not.
     const scallops = foot.slice(1).map((b, i) => [...bump(foot[i], b, -OUT * (0.3 + 1.3 * r())), b]), edge = scallops.flat()
     const deep = 1 - 0.55 * (1 - near), wipe = ctx.createLinearGradient(0, y - 1.5 * tall, 0, y + 0.4 * tall)
-    wipe.addColorStop(0, css(mix(ink.local, ink.lit, 0.35 * deep)))
-    wipe.addColorStop(0.45, css(ink.local))
-    wipe.addColorStop(1, css(mix(ink.local, ink.shade, 0.55 * deep)))
+    wipe.addColorStop(0, css(mix(ink.half, ink.local, 0.6 * deep)))
+    wipe.addColorStop(0.45, css(ink.half))
+    wipe.addColorStop(1, css(mix(ink.half, ink.foot, 0.6 * deep)))
     ctx.beginPath()
     edge.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)))
     ctx.lineTo(f.x0 + f.width + 2 * tall, y - 2.4 * tall)

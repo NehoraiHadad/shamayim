@@ -14,12 +14,18 @@ export function traceOver(ctx: Ctx2D, grid: Grid, level: number, f: Frame, least
   for (const loop of loopsOver(grid, level)) if (loop.length >= least * 2) round(ctx, loop, grid, f)
 }
 
+/** A loop's points this near the grid's sides and top (cells) are the frame's: they go as far past it (px), so no edge is cut along it. */
+const AT_FRAME = 3, PAST = 12
+
 /** Every outline of `grid > level` as eased points in the caller's px, inside on the right. */
 export function loopsIn(grid: Grid, level: number, f: Frame, least = 6): [number, number][][] {
   const sx = f.w / (grid.cols - 1), sy = f.h / (grid.rows - 1)
   return loopsOver(grid, level).filter((l) => l.length >= least * 2).map((raw) => {
     const l = eased(raw)
-    return Array.from({ length: l.length / 2 }, (_, i): [number, number] => [f.x + Math.min(grid.cols - 1, Math.max(0, l[i * 2])) * sx, f.y + Math.min(grid.rows - 1, Math.max(0, l[i * 2 + 1])) * sy])
+    return Array.from({ length: l.length / 2 }, (_, i): [number, number] => {
+      const gx = l[i * 2], gy = l[i * 2 + 1], across = gx < AT_FRAME ? -PAST : gx > grid.cols - 1 - AT_FRAME ? PAST : 0
+      return [f.x + Math.min(grid.cols - 1, Math.max(0, gx)) * sx + across, f.y + Math.min(grid.rows - 1, Math.max(0, gy)) * sy - (gy < AT_FRAME ? PAST : 0)]
+    })
   })
 }
 

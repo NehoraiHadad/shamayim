@@ -21,7 +21,7 @@ const CELLS = 10000, LOBE = 0.3, LOBE_MAX = 30
 /** The light across against the light from above; where the base ends. */
 const ACROSS = 0.75, UP = 1.05, BASE = 0.1
 /** What a cap's place in its mass does to its light. */
-const SIDE = 0.7
+const SIDE = 0.75
 /** How heavy a raining tower is at least; its foot's most, against its width. */
 const RAINS = 0.6, FOOT = 0.4
 
@@ -49,7 +49,7 @@ function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv) 
   const grid = { cols, rows, at }, frame = { x: x - mass.reach, y: y + top, w: (cols - 1) * step, h: (rows - 1) * step }
   const most = Math.min(LOBE_MAX, Math.max(5, LOBE * s.w)), line = Math.min(1, s.w / 90) * t.line
   const loops = billowed(grid, 0, frame, () => most * 0.5, s.seed, true)
-  const light = side.map((v) => Math.min(1, Math.max(0, 0.5 + SIDE * v)))
+  const light = side.map((v) => Math.min(1, Math.max(0, 0.5 + SIDE * (0.6 + 0.4 * t.heavy) * v)))
   wash(ctx, loops, grid, -EDGE, light, frame, t, env)
   inMasses(ctx, loops, () => paintCaps(ctx, lobesOf({ cols, rows, at, side, most: () => most / step, seed: s.seed }), {
     x: frame.x, y: frame.y, step, seed: s.seed,

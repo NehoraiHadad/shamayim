@@ -82,7 +82,7 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pain
   const nearAt = (y: number) => Math.min(1, rowAt(y) / NEAR)
   if (broken) {
     const loops = billowed(edge, 0, frame, (y) => Math.min(26, Math.max(3.5, 1.5 * rowAt(y))), seed)
-    const up = side.at.map((v, n) => Math.min(1, Math.max(0, 0.5 + SIDE * v - TONE * (tone.at[n] - mean))))
+    const up = side.at.map((v, n) => Math.min(1, Math.max(0, 0.5 + SIDE * (0.7 + 0.3 * t.heavy) * v - TONE * (tone.at[n] - mean))))
     wash(ctx, loops, edge, -8, up, frame, t, env)
     const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])) / CELL
     const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
