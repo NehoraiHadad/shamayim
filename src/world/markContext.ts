@@ -16,7 +16,7 @@ export function localTownAt(city: CityResult | null | undefined, mark: Landmark)
 /** Worship/homes require a town; other kinds require support only when their source actually lies in built fabric. */
 export function needsTown(world: WorldState, mark: WorldMark): boolean {
   if (mark.seatBlockId !== undefined) return true
-  if (['minaret', 'church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) return true
+  if (['church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) return true
   if (mark.townFootprint !== undefined) return mark.townFootprint
   const footprint = mark.farCellId === undefined ? undefined : world.farCities.footprints?.get(mark.farCellId)
   return (footprint?.built ?? 0) >= TOWN_BUILT_SHARE

@@ -19,9 +19,9 @@ import { glyphHand } from '../scene/model/glyphHand'
  * bitmap), in one place's world light at four hours: morning (the light on the left), afternoon (light from the right),
  * dusk (low lateral light) and night (lit windows, lamps). Like `qa/glyphs/sheet-v1.png`.
  */
-const KINDS: GlyphKind[] = ['minaret', 'church', 'synagogue', 'waterTower', 'castle', 'homes', 'chimney', 'highrise', 'cooling', 'silo', 'mast',
+const KINDS: GlyphKind[] = ['church', 'synagogue', 'waterTower', 'castle', 'homes', 'chimney', 'highrise', 'cooling', 'silo', 'mast',
   'lighthouse', 'turbine', 'bridge', 'palms', 'orchard', 'vineyard', 'solar', 'westernWall', 'babShrine', 'azrieli', 'chordsBridge']
-const HEIGHT: Partial<Record<GlyphKind, number>> = { minaret: 20, waterTower: 18, chimney: 26, highrise: 28, silo: 16, mast: 20, lighthouse: 16,
+const HEIGHT: Partial<Record<GlyphKind, number>> = { waterTower: 18, chimney: 26, highrise: 28, silo: 16, mast: 20, lighthouse: 16,
   turbine: 20, bridge: 16, palms: 12, homes: 8, babShrine: 16, azrieli: 26, chordsBridge: 24 }
 const HOURS: [string, LocalTime][] = [['08:00', '2026-11-17T08:00'], ['14:00', '2026-11-17T14:00'], ['16:30', '2026-11-17T16:30'],
   ['21:00', '2026-11-17T21:00']]

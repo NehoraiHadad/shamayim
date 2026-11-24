@@ -1,37 +1,6 @@
-import { arch, disc, MINARET_LAMP, poly, rect } from '../shared/town/glyphs/kit'
+import { arch, disc, poly, rect } from '../shared/town/glyphs/kit'
 import { mix } from '../shared/base/hand'
 import type { DrawnGlyphKit } from './glyphKit'
-
-export function minaret(k: DrawnGlyphKit, h: number) {
-  const { t } = k
-  k.box(-7, -5, 9, 5, 1.5, { shadeW: 1 })
-  k.rim(-7, -5, 9)
-  k.fill(rect(-7, -5.5, 9, 0.5), t.wall)
-  k.fill(rect(-7, -5.5, 1.5, 0.5), k.litL)
-  k.rim(-7, -5.5, 9, 0.6)
-  k.round(rect(-5, -6.5, 5, 1), -5, 0)
-  for (const x of [-4.5, -3, -1.5]) k.fill(rect(x, -6.25, 0.5, 0.5), t.deep, 0.5)
-  k.round((c) => {
-    c.beginPath(); c.moveTo(-5.2, -6.5); c.bezierCurveTo(-5.2, -8.9, -3.9, -9.6, -2.5, -9.6)
-    c.bezierCurveTo(-1.1, -9.6, 0.2, -8.9, 0.2, -6.5); c.closePath()
-  }, -5.2, 0.2, 0.55)
-  k.fill(rect(-2.75, -10.6, 0.5, 1), t.wall)
-  k.fill(rect(-2.9, -11.1, 0.8, 0.5), mix(t.wall, t.rim, 0.6))
-  for (const x of [-4.4, -1.6]) k.open(arch(x, -1.2, 1, 2.4), true)
-  k.open(arch(-0.2, 0, 1.2, 2.6), true, 0.6)
-  // The minaret: square base, shaft, balcony on corbels, upper shaft, pencil cone.
-  const bal = -h * 0.68, top = -h + 4.6
-  k.box(1.9, -6, 2.6, 6, 0.9, { shadeW: 0.5 })
-  k.round(rect(2.2, bal, 2, -6 - bal), 2.2, 4.2)
-  k.fill(poly([2.2, bal + 1.2, 4.2, bal + 1.2, 4.9, bal, 1.5, bal]), t.shade)
-  k.round(rect(1.4, bal - 0.6, 3.6, 0.6), 1.4, 5)
-  k.rim(1.4, bal - 0.6, 3.6, 0.8)
-  k.round(rect(2.45, top, 1.5, bal - 0.6 - top), 2.45, 3.95)
-  k.round(poly([2.35, top, 4.05, top, 3.2, -h + 0.9]), 2.35, 4.05, 0.5)
-  k.fill(rect(3.05, -h, 0.3, 0.9), t.wall)
-  k.open(rect(2.95, bal - 3.4, 0.5, 1.2), false)
-  k.lamp(3.2, bal - 0.3, 2.2, MINARET_LAMP, 0.75 * k.night, k.nightFade(0.3, 0.5))
-}
 
 export function church(k: DrawnGlyphKit, h: number) {
   const { t } = k

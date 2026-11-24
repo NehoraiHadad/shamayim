@@ -141,14 +141,14 @@ describe('fame in the shipped rows', () => {
 })
 
 describe('landmark cache version', () => {
-  it('ignores a fresh v9 cache entry and reads v10 with seatCandidates instead', () => {
+  it('ignores a fresh v10 cache entry and reads v11 with seatCandidates instead', () => {
     const storage = new Map<string, string>()
     vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k) ?? null,
       setItem: (k: string, v: string) => storage.set(k, v) })
     const p = place()
-    const stale: Landmark = { id: 'stale-v9-minaret', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
-    const fresh: Landmark = { id: 'fresh-v10-hall', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
-    const seat: Landmark = { id: 'fresh-v10-seat', kind: 'synagogue', lat: p.lat + .02, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const stale: Landmark = { id: 'stale-v10-minaret', kind: 'minaret', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const fresh: Landmark = { id: 'fresh-v11-hall', kind: 'church', lat: p.lat, lon: p.lon, heightM: HALL_M, source: 'osm' }
+    const seat: Landmark = { id: 'fresh-v11-seat', kind: 'synagogue', lat: p.lat + .02, lon: p.lon, heightM: HALL_M, source: 'osm' }
     const payload = (marks: Landmark[], seatCandidates: Landmark[] = []) =>
       JSON.stringify({ at: Date.now(), marks, panoramaMarks: marks, aroundMarks: marks, sceneMarks: marks, seatCandidates })
     const readHook = () => {
@@ -157,11 +157,11 @@ describe('landmark cache version', () => {
       renderToStaticMarkup(createElement(Probe))
       return result!
     }
-    storage.set(`shamayim:landmarks:v9:${p.id}`, payload([stale], [seat]))
+    storage.set(`shamayim:landmarks:v10:${p.id}`, payload([stale], [seat]))
     expect(readHook().marks.some((m) => m.id === stale.id)).toBe(false)
     expect(readHook().seatCandidates).toEqual([])
     expect(readHook().usesOsm).toBe(false)
-    storage.set(`shamayim:landmarks:v10:${p.id}`, payload([fresh], [seat]))
+    storage.set(`shamayim:landmarks:v11:${p.id}`, payload([fresh], [seat]))
     expect(readHook().marks.some((m) => m.id === fresh.id)).toBe(true)
     expect(readHook().seatCandidates.map((m) => m.id)).toEqual([seat.id])
     expect(readHook().usesOsm).toBe(true)

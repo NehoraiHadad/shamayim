@@ -1,3 +1,4 @@
+import { isDrawableMark } from './drawableMark'
 import type { Place } from '../../config/place'
 import { SKYLINE_TO_KM } from '../city/outsideView'
 import { bearingOf, distanceOf, offsetKm, toX } from './project'
@@ -19,6 +20,7 @@ const FAR_KINDS = ['chimney', 'cooling', 'turbine']
  */
 export function panoramaShortlist(place: Place, marks: Landmark[], around = false, farRule: FarRule = 'kind') {
   const ordered = marks.flatMap(mark => {
+    if (!isDrawableMark(mark)) return []
     // Within a portrait's widest reach every direction counts (north too): the portrait shows a mark by its side.
     const km = distanceOf(place, mark)
     const bearing = around || km <= PORTRAIT_MAX_KM ? { km } : bearingOf(place, mark)
@@ -55,7 +57,7 @@ export function panoramaShortlist(place: Place, marks: Landmark[], around = fals
 export function seatCandidates(place: Place, marks: Landmark[], exclude: readonly Landmark[] = []): Landmark[] {
   const kept = new Set(exclude.map((mark) => mark.id))
   return marks.filter((mark) => {
-    if (!isSettlementMark(mark) || kept.has(mark.id)) return false
+    if (!isDrawableMark(mark) || !isSettlementMark(mark) || kept.has(mark.id)) return false
     const { dx, dy } = offsetKm(place, mark)
     return Math.hypot(dx, dy) <= SKYLINE_TO_KM
   })
@@ -63,7 +65,7 @@ export function seatCandidates(place: Place, marks: Landmark[], exclude: readonl
 
 export function shortlist(place: Place, marks: Landmark[]) {
   const ranked = marks.flatMap((mark) => {
-    if (mark.kind === 'highrise' && mark.heightM > 260 && !mark.nameHe) return []
+    if (!isDrawableMark(mark) || (mark.kind === 'highrise' && mark.heightM > 260 && !mark.nameHe)) return []
     const { dx, dy } = offsetKm(place, mark)
     const layer = toX(dx)?.layer
     if (!layer) return []
