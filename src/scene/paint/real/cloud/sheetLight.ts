@@ -5,17 +5,21 @@ import type { CloudPoint } from './tone'
 /** Nearer than this (px) to the light's own place it comes from behind a cloud, not from a side. */
 const BEFORE = 70
 
-/** The mean of each four cells of a w × h grid, on the half-size grid the light is worked out on. */
-function halved(full: Float32Array, w: number, h: number, hw: number, hh: number): Float32Array {
-  const half = new Float32Array(hw * hh)
-  for (let j = 0; j < hh; j++) {
-    const j0 = Math.min(h - 1, 2 * j) * w, j1 = Math.min(h - 1, 2 * j + 1) * w
-    for (let i = 0; i < hw; i++) {
-      const i0 = Math.min(w - 1, 2 * i), i1 = Math.min(w - 1, 2 * i + 1)
-      half[j * hw + i] = (full[j0 + i0] + full[j0 + i1] + full[j1 + i0] + full[j1 + i1]) / 4
-    }
+/** Raster cells per cell of the grid the light is worked out on (light is soft), and the one whose place stands for them. */
+const CELL = 3, MIDDLE = 1
+/** What of its heads' sides a broad body keeps. */
+const HEADS_KEPT = 0.3
+
+/** The mean of each `CELL`² cells of a w × h grid, on the light's grid. */
+function coarse(full: Float32Array, w: number, h: number, cw: number, ch: number): Float32Array {
+  const out = new Float32Array(cw * ch)
+  for (let j = 0, p = 0; j < h; j++) {
+    const row = Math.floor(j / CELL) * cw
+    for (let i = 0; i < w; i++, p++) out[row + Math.floor(i / CELL)] += full[p]
   }
-  return half
+  const cells = (n: number, all: number) => Math.max(1, Math.min(CELL, all - n * CELL))
+  for (let j = 0, n = 0; j < ch; j++) for (let i = 0; i < cw; i++, n++) out[n] /= cells(j, h) * cells(i, w)
+  return out
 }
 
 /** The mean shade of a mass's own light: the palest one's, and what it keeps of the model's mean tone. */
@@ -31,15 +35,15 @@ function meanShade({ tone, thick }: SheetField): number {
   return mass ? PALEST + (KEPT * sum) / mass : 0
 }
 
-/** Writes the light on a sheet's pixel into a point. Worked out at half the raster's size. `from`: the light's place, raster px. */
+/** Writes the light on a sheet's pixel into a point. `from`: the light's place, raster px. */
 export function sheetLight(field: SheetField, from: { x: number; y: number }, beam: number) {
-  const { w, h } = field, hw = Math.max(2, Math.ceil(w / 2)), hh = Math.max(2, Math.ceil(h / 2))
-  const thick = halved(field.thick, w, h, hw, hh), scale = Float32Array.from({ length: hh }, (_, j) => field.scale[Math.min(h - 1, 2 * j)])
-  const { light, shade } = cloudLight({ w: hw, h: hh, k: RASTER / 2, thick, scale }, { x: from.x / 2, y: from.y / 2 }, beam, meanShade(field))
-  const relief = reliefOf(field, thick, hw, hh, from)
+  const { w, h } = field, cw = Math.max(2, Math.ceil(w / CELL)), ch = Math.max(2, Math.ceil(h / CELL))
+  const thick = coarse(field.thick, w, h, cw, ch), scale = Float32Array.from({ length: ch }, (_, j) => field.scale[Math.min(h - 1, CELL * j + MIDDLE)])
+  const { light, shade } = cloudLight({ w: cw, h: ch, k: RASTER / CELL, thick, scale, calm: field.calm }, { x: from.x / CELL, y: from.y / CELL }, beam, meanShade(field))
+  const relief = reliefOf(field, thick, cw, ch, from)
   return (i: number, j: number, p: number, point: CloudPoint) => {
-    const x = Math.min(hw - 1.001, Math.max(0, i / 2 - 0.25)), y = Math.min(hh - 1.001, Math.max(0, j / 2 - 0.25))
-    const c = x | 0, r = y | 0, tx = x - c, ty = y - r, n = r * hw + c, m = n + hw
+    const x = Math.min(cw - 1.001, Math.max(0, (i - MIDDLE) / CELL)), y = Math.min(ch - 1.001, Math.max(0, (j - MIDDLE) / CELL))
+    const c = x | 0, r = y | 0, tx = x - c, ty = y - r, n = r * cw + c, m = n + cw
     const at = (g: Float32Array) => {
       const top = g[n] + (g[n + 1] - g[n]) * tx
       return top + (g[m] + (g[m + 1] - g[m]) * tx - top) * ty
@@ -53,16 +57,16 @@ export function sheetLight(field: SheetField, from: { x: number; y: number }, be
   }
 }
 
-/** How far the heads face away from the light, on the half-size grid. */
-function reliefOf({ w, bend, scale, grain }: SheetField, thick: Float32Array, hw: number, hh: number, from: { x: number; y: number }): Float32Array {
-  const out = new Float32Array(hw * hh), middle = (w - 1) / 2, before = BEFORE * RASTER
-  for (let j = 0, n = 0; j < hh; j++) {
-    const row = Math.min(scale.length - 1, 2 * j)
+/** How far the heads face away from the light, on the light's grid. */
+function reliefOf({ w, bend, scale, grain, calm }: SheetField, thick: Float32Array, cw: number, ch: number, from: { x: number; y: number }): Float32Array {
+  const out = new Float32Array(cw * ch), middle = (w - 1) / 2, before = BEFORE * RASTER, kept = 1 + (HEADS_KEPT - 1) * calm
+  for (let j = 0, n = 0; j < ch; j++) {
+    const row = Math.min(scale.length - 1, CELL * j + MIDDLE)
     grain.row(scale[row])
-    for (let i = 0; i < hw; i++, n++) {
+    for (let i = 0; i < cw; i++, n++) {
       if (!thick[n]) continue
-      const x = Math.min(w - 1, 2 * i), dx = from.x - x, dy = from.y - row, far = Math.max(before, Math.sqrt(dx * dx + dy * dy))
-      out[n] = grain.relief((x - middle) / RASTER, row / RASTER, dx / far, dy / far, bend[row * w + x])
+      const x = Math.min(w - 1, CELL * i + MIDDLE), dx = from.x - x, dy = from.y - row, far = Math.max(before, Math.sqrt(dx * dx + dy * dy))
+      out[n] = kept * grain.relief((x - middle) / RASTER, row / RASTER, dx / far, dy / far, bend[row * w + x])
     }
   }
   return out

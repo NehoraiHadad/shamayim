@@ -1,14 +1,15 @@
 import { smoothstep } from '../../../../domain/smoothstep'
 
 /*
- * The light in a cloud: how much of it reaches each point through the cloud itself. Three marches over a half-size copy of
+ * The light in a cloud: how much of it reaches each point through the cloud itself. Three marches over a coarse copy of
  * its thickness: toward the light in the picture (the lit side, the bright rim, the mass's own shade), up (the open sky's
  * light on the crowns) and down (the flat base). Steps grow outward and shrink with the cloud's perspective. Two losses:
  * the fine one models the heads, the broad one (light scattered many times) the whole mass.
  */
 
-/** What is lit: its thickness 0–1 on a grid of `k` cells per sky px, its scale by row (1 overhead, small far off). */
-export interface LitBody { w: number; h: number; k: number; thick: Float32Array; scale: Float32Array }
+/** What is lit: its thickness 0–1 on a grid of `k` cells per sky px, its scale by row (1 overhead, small far off); how far it is one
+ *  broad body, whose inside varies over its large forms alone (0–1). */
+export interface LitBody { w: number; h: number; k: number; thick: Float32Array; scale: Float32Array; calm: number }
 
 /** The light that reaches each cell (0–1), and how far toward the model's shade the cell's own shade takes it. */
 export interface CloudLight { light: Float32Array; shade: Float32Array }
@@ -27,8 +28,9 @@ const OWN_SHADE = 0.7, BASE = 0.42, LIT = 0.2
 /** A broad thick mass is all shade by this measure, and the model's tone says how dark it is already: how far its mean goes to
  *  the model's. */
 const TO_MEAN = 0.9
-/** Deep in a mass its own puffs show: what a puff thicker than those round it takes of the shade, and from which depth on. */
-const PUFFS = 1.8, INSIDE = [0.5, 0.75] as const
+/** Deep in a mass its own puffs show: what a puff thicker than those round it takes of the shade, and from which depth on; what of it
+ *  a broad body keeps. */
+const PUFFS = 1.3, INSIDE = [0.5, 0.75] as const, PUFFS_KEPT = 0.12
 /** How far round a point its depth in the mass is taken, sky px overhead. */
 const DEEP = 26
 
@@ -36,7 +38,7 @@ const through = (loss: number, depth: number) => (1 - MANY) * Math.exp(-loss * d
 
 /** `from`: the light's place, in cells of the grid. `beam`: how much of it is direct, 0–1. `mean`: the model's own mean shade. */
 export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: number, mean: number, foot?: Foot): CloudLight {
-  const { w, h, k, thick, scale } = body, size = w * h, direct = FROM_SUN * beam, deep = depth(body)
+  const { w, h, k, thick, scale } = body, size = w * h, direct = FROM_SUN * beam, deep = depth(body), puffs = PUFFS * (1 + (PUFFS_KEPT - 1) * body.calm)
   const light = new Float32Array(size), shade = new Float32Array(size)
   let all = 0, mass = 0
   const at = (x: number, y: number) => gridAt(thick, w, h, x, y)
@@ -61,7 +63,7 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       const under = Math.exp(-2 * LOSS_SKY * down) * (1 - Math.exp(-LOSS_SKY * sky)), base = foot ? Math.max(under, foot.base[j]) : under
       const here = light[n] = direct * through(LOSS_SUN, sun) + (1 - direct) * through(LOSS_SKY, sky) * (foot ? foot.sky[j] : 1)
       shade[n] = OWN_SHADE * (1 - here) ** 1.25 * (0.45 + 0.55 * deep[n]) + BASE * base * (0.4 + 0.6 * deep[n]) - LIT * here
-        - PUFFS * (thick[n] - deep[n]) * smoothstep(INSIDE[0], INSIDE[1], deep[n])
+        - puffs * (thick[n] - deep[n]) * smoothstep(INSIDE[0], INSIDE[1], deep[n])
       all += shade[n] * thick[n]
       mass += thick[n]
     }
