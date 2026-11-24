@@ -11,7 +11,7 @@ import { papered, pigment, valued } from './kit/palette'
  * stands on a darker foot, a light one never goes down to it. Pure.
  */
 
-interface CloudLight { lit: RGB; bright: RGB; body: RGB; shade: RGB; least: number; gain: number }
+interface CloudLight { lit: RGB; bright: RGB; body: RGB; shade: RGB; least: number; gain: number; cool?: number }
 export interface CloudInks { lit: RGB; local: RGB; half: RGB; shade: RGB; foot: RGB; key: RGB; line: number; heavy: number }
 /** A cap's inks: its light, its own tone, its shade, its key line. */
 export interface CapInks { lit: RGB; local: RGB; shade: RGB; key: RGB }
@@ -27,10 +27,10 @@ const WIPE = 0.2
 /** A cap against the mass's light: its crest over it, its own tone near it, its foot a little under. */
 const CREST = 0.36, OWN = 0.06, UNDER = 0.16
 
-export function cloudInks({ lit, bright, body, shade, least, gain }: CloudLight): CloudInks {
+export function cloudInks({ lit, bright, body, shade, least, gain, cool: most = 1 }: CloudLight): CloudInks {
   const a = labOf(lit), b = labOf(shade), c = labOf(body), apart = Math.hypot(a.l - b.l, HUE * (a.a - b.a), HUE * (a.b - b.b))
   const heavy = Math.max(least, smoothstep(HEAVY[0], HEAVY[1], (a.l - c.l) / Math.max(0.02, a.l - b.l))), paper = 1 - heavy
-  const own = 1 - HELD * smoothstep(COLOURED[0], COLOURED[1], Math.hypot(a.a, a.b)), cool = own * Math.min(1, Math.max(0, (a.b - b.b) / COOLER))
+  const own = 1 - HELD * smoothstep(COLOURED[0], COLOURED[1], Math.hypot(a.a, a.b)), cool = most * own * Math.min(1, Math.max(0, (a.b - b.b) / COOLER))
   const deep = 1 + (gain - 1) * (0.3 + 0.7 * own), line = smoothstep(APART[0], APART[1], apart)
   const foot = valued(pigment(mix(body, shade, 0.5 + 0.4 * own), -0.8 * cool, deep), -WEIGHT * heavy)
   return {
