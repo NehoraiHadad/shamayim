@@ -1244,7 +1244,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
         - [~] Village build, claude/found-village-b<N> (notes: foundations/V/village/NOTES.md)
           - [x] S1 contract, tile format, cells adapter (src/data/village/)
-          - [ ] S2 data workflow (.github/workflows/village.yml, scripts/village/), real tile total
+          - [~] S2 data workflow (.github/workflows/village.yml, scripts/village/): 190 tiles, 715 places, 176,501 houses, 752 KB
+            gzip; awaits review, tiles not committed yet. Overture deletes the pinned release about 2027-01-17 (bump it to rebuild)
           - [ ] S3 model, S4 loader, S5 painters, S6 outside buildings and credit line (after the town and label slices land)
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
