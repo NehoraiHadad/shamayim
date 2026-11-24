@@ -91,10 +91,6 @@ jobs:
         if: contains(github.event.head_commit.message, '[village search]')
         shell: bash
         run: npx tsx scripts/village/search.ts 2>&1 | tee "$RUNNER_TEMP/groups/search.txt"
-      - name: Rings
-        if: contains(github.event.head_commit.message, '[village rings]')
-        shell: bash
-        run: npx tsx scripts/village/rings.ts 32.6897 35.1953 2>&1 | tee "$RUNNER_TEMP/groups/rings.txt"
       - name: Tiles that passed every gate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

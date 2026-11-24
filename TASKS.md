@@ -1247,8 +1247,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
           - [x] S2 data workflow (.github/workflows/village.yml, scripts/village/): 190 tiles, 715 places, 176,501 houses; the
             first review's seven changes are in, with tests red on 505d5799; tiles are committed on claude/found-village-b3
             only (checked by scripts/village/committed.test.ts). Overture deletes the pinned release about 2027-01-17 (monthly step: village.yml's header)
-          - [~] S4 loader (src/data/village/{villageData,settlementOf,useVillageTile}.ts, service worker rule), not wired
-          - [ ] S3 model: pure part first (claude/found-village-b4), wire-up after the town and label slices land
+          - [x] S4 loader (src/data/village/{villageData,settlementOf,useVillageTile}.ts, service worker rule), not wired
+          - [~] S3 model: pure part done (claude/found-village-b4); first wire-up for stills on b5, the rest after the town and label slices land
           - [ ] S5 painters, S6 outside buildings and credit line      - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
