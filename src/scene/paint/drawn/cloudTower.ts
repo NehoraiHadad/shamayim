@@ -104,6 +104,6 @@ function lightOf(s: CloudSprite, t: CloudInks) {
   const [tx] = s.toward ?? [0, -1], all = SIDE * (0.6 + 0.4 * t.heavy), dark = DARK * (0.4 + 0.6 * t.heavy)
   return (y: number, { across, light, edge }: Pick<TowerPoint, 'across' | 'light' | 'edge'>) => {
     const up = Math.min(1, Math.max(0, -y / s.tall)), raised = smoothstep(0, BASE, up)
-    return Math.min(1, Math.max(0, 0.5 + all * (raised * (ACROSS * tx * across + UP * (up - 0.5) + PUFF * light) - (1 - raised) * dark) + SILVER * s.silver * edge ** RIM))
+    return Math.min(1, Math.max(0, 0.5 + all * (raised * (ACROSS * tx * across + UP * (up - 0.5) + PUFF * light) - (1 - raised) * dark) + SILVER * s.silver * raised * edge ** RIM))
   }
 }
