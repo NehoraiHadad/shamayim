@@ -17,7 +17,9 @@ export const RASTER = 0.6
 /** How far over and under a point its underside is looked for, px overhead; how readily a step of cover is one. */
 const FOOT = 12, STEP = 1.6
 /** How far over its far rim a hole shows its wall, px overhead: the eye looks up at a slant, into the hole. */
-const WALL = 9
+const WALL = 11
+/** A sheet with up to this share of open sky is a deck with holes; from that one on, heaps with sides of their own. */
+const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65
 /** Nearer than this (px) to the light's own place it comes from behind, not from a side. */
 const BEFORE = 70
 
@@ -38,6 +40,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
   const { xs, ys } = desc, cols = xs.length, rows = ys.length
   const width = xs[cols - 1] - xs[0], span = ys[rows - 1] - ys[0]
   const open = desc.lattice === 'high' ? 1 : deckOpenness(desc)
+  const holed = desc.lattice === 'high' ? 0 : 1 - smoothstep(DECK_UP_TO, HEAPS_FROM, desc.alpha.filter((a) => a < 0.05).length / desc.alpha.length)
   const make = blend(DECK, makeOf(desc), open)
   const out = Math.ceil(span / ROW) + 1
   const texels = Array.from({ length: cols * rows }, (_, n) => {
@@ -69,7 +72,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
       }
       const here = at(3), wallAt = buf[(deep + c) * 4 + 3] * (1 - tx) + buf[(deep + c + 1) * 4 + 3] * tx
       // Open here and cloud just under: the far wall of a hole (of a deck: a heap's own sides are the model's).
-      const wall = veiled ? 0 : (1 - open) * Math.max(0, wallAt - here) * smoothstep(0.3, 0.8, wallAt)
+      const wall = veiled ? 0 : holed * Math.max(0, wallAt - here) * smoothstep(0.3, 0.8, wallAt)
       const a = here + wall * 0.8
       if (a < 0.012) continue
       const p = j * w + i, x = i / RASTER
@@ -81,7 +84,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
       const [body, thick] = bodyOf(make, a, g, flat)
       field.relief[p] = g.relief
       field.wall[p] = wall
-      field.flat[p] = flat * (1 - open)
+      field.flat[p] = flat * holed
       field.thick[p] = thick
       // A veil has no body to carry: its own cover, drawn out in wisps of the same mean.
       const own = veiled ? a * Math.max(0, 1 + 2.6 * (1 - a) * (g.wisp - 0.5)) : a
