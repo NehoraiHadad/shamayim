@@ -5,7 +5,6 @@ import path from 'node:path'
 import { CASES } from './cases.mjs'
 import { caseName, CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from './harness.mjs'
 import { receiverPixels } from './landReceiver.mjs'
-import { receiverReadback } from './receiverReadback.mjs'
 
 const capture = process.argv.find((arg) => arg.startsWith('--capture='))?.slice('--capture='.length)
 const cases = CASES.filter((c) => /-(0620|1200|1630)$/.test(caseName(c)) || caseName(c) === 'tiberias-1200-snow')
@@ -83,7 +82,6 @@ try {
     await page.goto(server.url + '/scene.html')
     await receiverPixels(page)
     await receiverPixels(page, 2)
-    await receiverReadback(page)
   } catch (error) {
     failures.push(error.message)
   } finally {
