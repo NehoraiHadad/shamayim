@@ -1311,4 +1311,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             flakes of many sizes on a tile twice as wide (`paint/real/air/`, `model/fallTile.ts`, `styleLight.fallTile`). Dropped: dust, smoke (no gain
             at phone size). No baseline moved. Codex review: 4 findings, 3 fixed (tile key and
             chains, the fog's light key). Written down, not chased: the fog's crop thins the top few px, near rain a bit fat at its top, the mist repeats every 240 px
+      - [~] E, trees and the sea (`claude/real-sea`): leaf-clump crowns with lit tops, the town's round trees too; waves in perspective gathered
+            in gusts, shallows, broken foam, a hazy far edge; lakes' wavelets (`paint/real/foliage.ts`, `paint/real/sea/`). Dropped: a lit side
+            on canopy crowns (no canopy lamp), the `water` lamp, own palms. Written down: discs over Ein Gedi (likely the `orchard` glyph), the
+            town tree's lean formula twice, dashed foam on Haifa's spit, bodies over the sea without its grain, the sea's light key
+            without the sparks' places (as on main). Codex review: 5 findings, 3 fixed
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
