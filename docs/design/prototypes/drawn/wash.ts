@@ -1,4 +1,4 @@
-import type { PaintEnv, Scratch } from '../../../../src/scene/paint/shared/base/hand'
+import type { Ctx2D, PaintEnv, Scratch } from '../../../../src/scene/paint/shared/base/hand'
 import type { Outline } from './billow'
 import type { Frame, Grid } from './contour'
 import { ease } from './ease'
@@ -38,7 +38,7 @@ export function washOf(loops: readonly Outline[], grid: Grid, none: number, up: 
 }
 
 /** Lays the printing over its frame (the caller clips to the masses). */
-export function layWash(ctx: PaintEnv['shade'] & object, { sheet }: Wash, { cols, rows }: Grid, f: Frame): void {
+export function layWash(ctx: Ctx2D, { sheet }: Wash, { cols, rows }: Grid, f: Frame): void {
   const sx = f.w / (cols - 1), sy = f.h / (rows - 1)
   ctx.imageSmoothingEnabled = true
   ctx.drawImage(sheet.canvas, 0, 0, cols, rows, f.x - sx / 2, f.y - sy / 2, cols * sx, rows * sy)

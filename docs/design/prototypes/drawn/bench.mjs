@@ -10,7 +10,7 @@ const RATE = 4, DPR = 2.75, DAY = '2026-11-17'
 const cases = process.argv.slice(2).map((text) => text.split('@'))
 const p = (list, q) => [...list].sort((a, b) => a - b)[Math.max(0, Math.ceil(q * list.length) - 1)] ?? 0
 
-/** A layer's paint is timed with its raster: the canvas is read back once it is painted. */
+/** A layer's paint is timed with its raster: its canvases (the beam's and the shade's) are read back once it is painted. */
 const flush = { name: 'bench-flush', enforce: 'pre', transform: (code, id) => id.split('?')[0].endsWith('/compose/paintJob.ts')
   ? code.replace('export function paintPart(', 'export function paintPart(...args: Parameters<typeof paintInto>) {\n  paintInto(...args)\n  args[0].getImageData(0, 0, 1, 1)\n}\n\nfunction paintInto(') : null }
 
@@ -57,23 +57,27 @@ try {
   // Both module graphs warm before anything is timed.
   for (const as of ['real', 'concept', 'real', 'concept']) await (await open(as, 'haifa', '')).context.close()
   for (const [place, weather = ''] of cases) {
-    const all = { real: {}, concept: {} }
+    const all = { real: {}, concept: {} }, sums = { real: [], concept: [] }
     for (const as of ['real', 'concept', 'concept', 'real']) {
       const o = await open(as, place, weather)
       await o.page.evaluate(drag, { day: DAY, from: 348, count: 3, step: 6 })
       for (const [from, count, step] of [[360, 25, 30], [720, 13, 5]])
-        for (const [id, list] of Object.entries(await o.page.evaluate(drag, { day: DAY, from, count, step }))) (all[as][id] ??= []).push(...list)
+        for (const paints of await o.page.evaluate(drag, { day: DAY, from, count, step })) {
+          for (const [id, ms] of Object.entries(paints)) (all[as][id] ??= []).push(ms)
+          sums[as].push(Object.values(paints).reduce((a, b) => a + b, 0))
+        }
       await o.context.close()
     }
     console.log(`\n## ${place} ${weather}  ms a paint: p50 / p95 (paints)      real | concept`)
-    const ids = [...new Set([...Object.keys(all.real), ...Object.keys(all.concept)])]
     const cell = (list = []) => `${p(list, 0.5).toFixed(0).padStart(5)} /${p(list, 0.95).toFixed(0).padStart(5)} (${String(list.length).padStart(3)})`
+    console.log(`${'a step, every layer'.padEnd(28)} ${cell(sums.real)} | ${cell(sums.concept)}`)
+    const ids = [...new Set([...Object.keys(all.real), ...Object.keys(all.concept)])]
     for (const id of ids.filter((id) => !/^(birds|aircraft|twinkle)/.test(id)).sort((a, b) => p(all.concept[b] ?? [], 0.5) - p(all.concept[a] ?? [], 0.5)))
       console.log(`${id.padEnd(28)} ${cell(all.real[id])} | ${cell(all.concept[id])}`)
     for (const as of ['real', 'concept']) {
       const o = await open(as, place, weather)
-      if (as === 'concept') for (const step of [1, 5, 30])
-        console.log(`form unchanged, ${step} min steps: ${(await o.page.evaluate(kept, { day: DAY, from: 600, count: 13, step })).join('; ')}`)
+      if (as === 'concept') for (const [from, count, step] of [[600, 13, 1], [780, 13, 1], [900, 13, 1], [600, 13, 5], [780, 13, 5], [360, 25, 30]])
+        console.log(`form unchanged from minute ${from}, ${step} min steps: ${(await o.page.evaluate(kept, { day: DAY, from, count, step })).join('; ')}`)
       console.log(`self time a step, ${as}, no throttle:\n${(await profile(o, { day: DAY, from: 480, count: 17, step: 30 })).join('\n')}`)
       await o.context.close()
     }

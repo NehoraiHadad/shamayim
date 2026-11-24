@@ -131,33 +131,25 @@ From an independent review of the prototype (20 findings; the rest are already f
 
 ## 6. Perf budget
 
-Cold sky within about 25 % of `real`. CI on main `fcd96b26` (worker, CPU x4, 2.75 dpr), ms: `real` sky haifa 271, tel-aviv 271, shadmot 245; the thunder batch
-373, 401, 364; land batch 181, 174, 185.
+A case's layers together at most 1.25 of `real`'s. Measured on CI (`3a337f85`, run 45337950427, `bench.mjs`: both styles on one machine in both
+orders, CPU x4, dpr 2.75, raster counted), median ms over a dragged day, all layers:
 
-Measured on the first set; the second adds a raster wash and a flood fill, so it must be measured again on CI. Prototype, local, one cold paint of each kind, ms, `real` | concept (tel-aviv, rosh-pina, storm, night):
+| Case | `real` | concept | budget |
+|---|---|---|---|
+| haifa | 578 | 961 | 722 |
+| tel-aviv | 433 | 709 | 541 |
+| shadmot | 465 | 815 | 581 |
+| rosh-pina | 537 | 961 | 671 |
+| jerusalem, broken | 316 | 680 | 395 |
+| haifa, thunder | 428 | 1276 | 535 |
 
-| Kind | `real` | concept |
-|---|---|---|
-| sky | 22, 12, 12, 11 | 38, 32, 27, 27 |
-| cloudSheet (two sheets) | 246, 278, 335, 260 | 506, 419, 543, 419 |
-| cloudCells | storm 166 | 411 |
-| plane | 60, 76, 87, 57 | 287, 346, 293, 197 |
-| canopy | 7, 14, 8, 6 | 15, 28, 11, 10 |
-| water, shafts | 2 to 3, 34 | 4 to 8, 9 |
-| outside | 75, 41, 93, 91 (drawn v1's) | 71, 35, 74, 79 |
+Over in the low and mid sheets, the planes, the storm's tower and decks, and the sky (a CSS background in `real`, a painted layer here). Under in the high veil
+and the town. Since the second set the sheets' raster work is folded: one-channel `ease` for `soften`, one small raster and one clip a mass (`ease.ts`, `wash.ts`, `feet.ts`); the
+stills differ by 0.05 to 0.34 of 255.
 
-**Phase 2 is designed round the cost, not trimmed after.** The old numbers are over the budget already, so the first thing built is a
-cached sheet: form (outlines, lobes, masks) made once per form and kept, light only re-inks it. No layer goes in before its cost is measured on CI.
-
-So as written the sky is 1.5 to 2 times `real` and the ground 3.5 to 5 times: **over budget**, and not yet worked on. The plan, in order of gain:
-- **Sheets**: 3 px grid (0.44 of the cells); noise only where the alpha is near the edge; empty and full contour cells skipped; the two softens folded into
-  one; lobes found on a coarser mask with an integer hash; feet's 16 wipes to 6 for small masses. Target 300 where `real` is 250.
-- **Cells**: caps drawn once per tower into a sprite and blitted, one mask for block, feet and lobes. Target 200.
-- **Ground**: cluster once for both beams on every 16th texel, all classes softened packed four to a buffer. Target 1.25 of `real`'s plane.
-- **Sky**: 260 grain lines in two paths instead of one each. Target 18.
-- **Scrub and animation** are unchanged in kind: shapes hang on the form, inks on the light. No per-frame work is added.
-
-If a sheet stays over after that, caps are kept for the near row groups only. If the budget still cannot be met, that goes to the manager with numbers.
+**A cached sheet outline never hits**: between two steps of a drag a sheet's alpha changes every time (0 of 24), so a full paint must be in the budget by
+itself. Planes, towers, town and water stand still, so their form is kept. The build plan (slices, what is kept and by which key, memory, proof) is
+`drawn/BUILD-PLAN.md` in the sessions' shared notes folder. No layer goes in before its cost is measured on CI.
 
 ## 7. Phase 2 proof
 
