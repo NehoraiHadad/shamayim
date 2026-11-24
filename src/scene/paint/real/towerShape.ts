@@ -1,5 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { CloudSprite } from '../../model/cloudSprite'
+import { towerBaseDepth, TOWER_PHOTO_REACH } from '../../model/towerPaintBounds'
 import { detailTile, tileAt } from '../shared/base/detailTile'
 import { domeTile } from './domeTile'
 import { carriedAt, crownAt, halfAt, headsOf } from '../../model/towerHeads'
@@ -10,8 +11,6 @@ import { carriedAt, crownAt, halfAt, headsOf } from '../../model/towerHeads'
  * of the near base edge, y down. Pure: the sprite alone.
  */
 
-/** The base's depth below the near edge at least, against the width: a flat underside seen nearly edge on. */
-const BASE_DEPTH = 0.08
 /** How flat the underside is: a power on the way down it (1 is a round bowl). */
 const BASE_FLAT = 1.5
 /** How far down the underside the heads round off into it. */
@@ -42,7 +41,7 @@ const EDGE = 0.45
 /** How rounded the crease between two heads is, against their half width. */
 const CREASE = 0.4
 /** How far out of the mass (against the half width) the noise can still make cloud. */
-const REACH = 0.45
+const REACH = TOWER_PHOTO_REACH
 /** The width (px) under which a tower is far: one broad octave, its edges softer by this much, its foot (a share of
  * its height) melting into the haze to this share. */
 const FAR = 70, FAR_SOFT = 0.1, FOOT = 0.5, FOOT_LEFT = 0.15
@@ -69,7 +68,7 @@ export function towerShape(s: CloudSprite): TowerShape {
   const rate = LUMP_RATE * (1 + NEAR_FINER * near), tileW = TILE_W * (1 - NEAR_SMALLER * near) * s.w
   const tile = detailTile(NOISE_SEED, far > 0 ? 1 : OCTAVES), domes = domeTile(NOISE_SEED)
   const ou = (s.seed % 997) / 997, ov = (s.seed % 613) / 613
-  const bowl = Math.max(2, Math.min(s.bowl ?? s.under, s.under), BASE_DEPTH * s.w), straight = Math.max(0, s.under - bowl)
+  const bowl = towerBaseDepth(s), straight = Math.max(0, s.under - bowl)
   const depth = straight + bowl
   const heads = headsOf(s)
   const relief = (x: number, y: number) => {

@@ -1,5 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { CloudSprite } from '../../model/cloudSprite'
+import { towerBaseDepth, TOWER_BILLOW_REACH } from '../../model/towerPaintBounds'
 import { carriedAt, halfAt, headsOf } from '../../model/towerHeads'
 import { billows } from './billows'
 
@@ -10,7 +11,7 @@ import { billows } from './billows'
  */
 
 /** The base's depth against the width at least, how flat it is, and how far down it the heads round off. */
-const BASE_DEPTH = 0.08, BASE_FLAT = 1.6, HEAD_FOOT = 0.75
+const BASE_FLAT = 1.6, HEAD_FOOT = 0.75
 /** How rounded the crease between two heads is, against their half width. */
 const CREASE = 0.4
 /** A puff's width against the tower's, what a far one's adds (fewer, calmer), and at least (px); its height against a
@@ -19,7 +20,7 @@ const PUFF = 0.3, PUFF_FAR = 0.14, PUFF_MIN = 7, PUFF_TALL = 1.5
 /** The width (px) of a sheet puff (`billows`): its scale here. */
 const SHEET_PUFF = 72
 /** How far the puffs move the outline, against a head's half width; on the flat base; the small heads' weight. */
-const HEADS = 0.6, HEADS_BASE = 0.12, SMALL = 0.28
+const HEADS = TOWER_BILLOW_REACH, HEADS_BASE = 0.12, SMALL = 0.28
 /** How far inside the outline the column is cloud whatever the puffs: it never parts. */
 const CORE = [0.2, 0.6] as const
 /** The edge's softness: a growing crown's, the column's and what a far one's adds (its air), an anvil's ice, and what a near base adds. */
@@ -50,7 +51,7 @@ export interface TowerMass {
 
 export function towerMass(s: CloudSprite): TowerMass {
   const far = 1 - Math.min(1, s.w / FAR), near = smoothstep(80, 170, s.w)
-  const bowl = Math.max(2, Math.min(s.bowl ?? s.under, s.under), BASE_DEPTH * s.w), straight = Math.max(0, s.under - bowl)
+  const bowl = towerBaseDepth(s), straight = Math.max(0, s.under - bowl)
   const depth = straight + bowl, heads = headsOf(s), puff = billows(s.seed)
   const size = Math.max(PUFF_MIN, (PUFF + PUFF_FAR * far) * s.w) / SHEET_PUFF
   const row = heads.map(() => ({ wide: 1, axis: 0, beyond: 0 }))

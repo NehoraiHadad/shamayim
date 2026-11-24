@@ -28,7 +28,7 @@ it('preserves the Nahalal vegetation descriptor and bounds the relative cold cro
     const veg = build(true)
     const { tones: _tones, ...geomOnly } = veg
     expect(createHash('sha256').update(JSON.stringify(geomOnly)).digest('hex'))
-      .toBe('b49c38b10586a25359a187105f09b61defe740e9b9ade461c32cf8471169b38f')
+      .toBe('7eea1357b983e54261137a1beca5fa7c127c894df1ae9123e0b2a9062cd06359')
     const time = (withCrops: boolean) => {
       const start = performance.now()
       build(withCrops)

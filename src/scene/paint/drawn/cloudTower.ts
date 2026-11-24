@@ -1,8 +1,7 @@
 import { smoothstep } from '../../../domain/smoothstep'
-import type { CloudSprite } from '../../model/cloudSprite'
+import { MIN_TOWER_SHARE, towerOpacity, type CloudSprite } from '../../model/cloudSprite'
 import type { LayerOf } from '../../model/types'
 import { css, mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
-import { towerOpacity } from '../shared/cloud/layTower'
 import { capTop, paintCap, traceCap } from './cloudCaps'
 import { capInks, cloudInks, printed, type CloudInks } from './cloudInks'
 import { whitened } from './cloudLight'
@@ -38,8 +37,8 @@ export function paintDrawnCells(ctx: Ctx2D, desc: LayerOf<'cloudCells'>, env: Pa
 }
 
 function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, bounds: Frame, env: PaintEnv) {
+  if (s.w < 0.5 || s.share <= MIN_TOWER_SHARE || s.tall < 0.5) return
   const opacity = smoothstep(0, FIRM, towerOpacity(s))
-  if (!opacity) return
   const mass = towerMass(s), t = inksOf(s), lightAt = lightOf(s, t), line = t.line * Math.min(1, s.w / WHOLE_AT)
   const top = -s.tall - OVER_TOP - ROOM.line, wide = mass.reach + ROOM.wide * s.w
   const f: Frame = { x: -wide, y: top, w: 2 * wide, h: Math.max(mass.depth, s.under) + UNDER_FOOT + ROOM.line - top }, v = within(f, { ...bounds, x: bounds.x - x, y: bounds.y - y })

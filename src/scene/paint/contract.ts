@@ -13,7 +13,7 @@ export interface Painter<K extends LayerKind = LayerKind> {
   formless?: (desc: LayerOf<K>) => boolean
 }
 
-/** Every layer kind a painter paints: all but the contrails, which the surface lays itself. */
+/** Every layer kind a painter paints. The compositor lays the filter form over the assembled sky. */
 export type PaintedKind = Exclude<LayerKind, 'contrail'>
 
 /** A style's painters, one for every painted kind: a kind left out is a type error. */

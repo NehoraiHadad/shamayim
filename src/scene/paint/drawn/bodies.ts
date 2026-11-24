@@ -1,4 +1,5 @@
 import { smoothstep } from '../../../domain/smoothstep'
+import { sunDiscAlpha } from '../../model/dustDisc'
 import { labOf } from '../../model/tone'
 import type { Disc, LayerOf } from '../../model/types'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
@@ -6,8 +7,9 @@ import { paintBodies } from '../shared/sky/bodies'
 import { papered, pigment } from './kit/palette'
 
 /*
- * The sun as the paper left bare in the ink: a flat clean disc in one thin printing of its limb's warm, and the ink wiped thin over and round it, as light as the
- * air's own glow. The moon is the shared one: its phase and seas are facts.
+ * The sun as the paper left bare in the ink: a flat clean disc in one thin printing of its limb's warm, and the ink wiped
+ * thin over and round it, as light as the air's own glow. The moon is the shared one (its phase and seas are facts), and so
+ * is the light of the sun a dusty air's filter leaves out.
  */
 
 /** The disc against the sun's radius, and how far the paper shows in it: less the more coloured (Oklab chroma) the air makes the sun. */
@@ -19,7 +21,7 @@ const WIPE = 2.6, STOPS = [[0, 1], [0.2, 0.6], [0.5, 0.22], [1, 0]] as const, ST
 
 export function paintDrawnBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
   if (desc.sun && desc.part === 'aureole') aureole(ctx, desc.sun)
-  else if (desc.sun) disc(ctx, desc.sun)
+  else if (desc.sun && !desc.part) disc(ctx, desc.sun)
   else paintBodies(ctx, desc)
 }
 
@@ -34,7 +36,7 @@ function aureole(ctx: Ctx2D, { x, y, r, halo, aureole: strength }: Disc) {
 /** The bare paper, as much of it as the cloud and the dust in front leave; a low sun and one in dust keep their colour. */
 function disc(ctx: Ctx2D, { x, y, r, core, limb, veil, flatten, coin, shown }: Disc) {
   const { a, b } = labOf(core), bare = BARE * (1 - coin) * smoothstep(COLOURED[1], COLOURED[0], Math.hypot(a, b))
-  const alpha = Math.max(0.1, 1 - 0.97 * veil ** 0.7) * shown, warm = papered(pigment(limb, 0, GAIN), WARM * bare)
+  const alpha = sunDiscAlpha(veil) * shown, warm = papered(pigment(limb, 0, GAIN), WARM * bare)
   for (const [k, rgb] of [[DISC, mix(warm, core, coin)], [INNER, papered(core, bare)]] as const) {
     ctx.fillStyle = css(rgb, alpha)
     ctx.beginPath()

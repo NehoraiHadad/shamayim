@@ -1,5 +1,5 @@
 import { THRESHOLDS } from '../config/thresholds'
-import { ratio } from './contrast'
+import { luminance, skyContrastCeiling } from './contrast'
 import { hexToOklab, mixOklab, oklabToHex } from './oklab'
 import type { Aerosol } from '../world/sceneLight'
 import { skyAir } from './skyAir'
@@ -66,8 +66,14 @@ function semantic(altitude: number, rising: boolean, field: keyof SkyLight): str
 
 function guard(background: string, inks: string[]): string {
   let lab = hexToOklab(background)
-  while (inks.some((ink) => ratio(ink, oklabToHex(lab)) < 4.6) && lab.l > 0) lab = { ...lab, l: lab.l - 0.005 }
+  const ceiling = Math.min(...inks.map(skyContrastCeiling))
+  while (luminance(oklabToHex(lab)) > ceiling && lab.l > 0) lab = { ...lab, l: lab.l - 0.005 }
   return oklabToHex(lab)
+}
+
+/** Concentration ramp shared by the display palette and the scene's dust optical depth. */
+export function dustVeilPotential(pm10: number | null): number {
+  return smoothstep(THRESHOLDS.dust.light, THRESHOLDS.dust.heavy, pm10 ?? 0)
 }
 
 export function skyLight(input: SkyLightInput): SkyLight {
@@ -77,16 +83,15 @@ export function skyLight(input: SkyLightInput): SkyLight {
   const result = { top, mid, horizon } as SkyLight
   for (const field of ['ink', 'accent', 'ridgeFar', 'ridgeNear'] as const) result[field] = semantic(input.altitude, input.rising, field)
   const cloudWeight = smoothstep(30, 90, input.cloudCover) * 0.85
+  // Keep the display tint through civil twilight (-6°), reaching full weight at +4°.
   const daylight = Math.min(1, Math.max(0, (input.altitude + 6) / 10))
+  const dust = dustVeilPotential(input.pm10) * 0.9 * daylight
   const cloudDaylight = smoothstep(-6, 12, input.altitude)
   for (const field of Object.keys(result) as (keyof SkyLight)[]) {
     const cloudTarget = mixOklab(SKY_THEMES.night[field], SKY_THEMES.cloudy[field], cloudDaylight)
     result[field] = mixOklab(result[field], cloudTarget, cloudWeight)
     if (input.wet > 0) result[field] = mixOklab(result[field], SKY_THEMES.rain[field], 0.7 * Math.min(1, input.wet))
-    if (input.pm10 != null) {
-      const dust = smoothstep(THRESHOLDS.dust.light, THRESHOLDS.dust.heavy, input.pm10) * 0.9 * daylight
-      result[field] = mixOklab(result[field], SKY_THEMES.dust[field], Math.min(0.9, dust * (field === 'horizon' ? 1.3 : 1)))
-    }
+    if (input.pm10 != null) result[field] = mixOklab(result[field], SKY_THEMES.dust[field], Math.min(0.9, dust * (field === 'horizon' ? 1.3 : 1)))
   }
   result.top = guard(result.top, [result.ink])
   result.mid = guard(result.mid, [result.ink, '#E8F9FF'])
