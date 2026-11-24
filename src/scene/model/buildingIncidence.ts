@@ -20,7 +20,7 @@ export function incidence({ irr, ground }: Surroundings, screenOf?: TwilightScre
     }
     const sky = face.sky * open, bounce = face.ground * groundOpen
     const sun = beam * face.sun, moon = beam * face.moon
-    const channel = (i: 0 | 1 | 2) => irr.eSunVec[i] * sun + irr.eMoonVec[i] * moon + irr.eSkyVec[i] * (sky + bounce)
+    const channel = (i: 0 | 1 | 2) => irr.eSunVec[i] * sun + irr.eMoonVec[i] * moon + irr.eSkyVec[i] * sky + ground[i] * bounce
     return [channel(0), channel(1), channel(2)] as RGB
   }
 }
