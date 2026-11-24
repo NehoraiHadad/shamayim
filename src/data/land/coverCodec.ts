@@ -1,4 +1,5 @@
-import { COVER, decodeLand } from './grid'
+import { wrap180 } from '../../domain/camera'
+import { COVER, COVER_NORTH, COVER_SOUTH, decodeLand } from './grid'
 
 /** WorldCover product vintage and winning layer that supplied a cover class at a point. */
 export type CoverLayer = 'local-50m' | 'regional-1km' | 'remote-1km' | 'unspecified'
@@ -61,7 +62,7 @@ export function isValidCoarseCoverJson(v: unknown): v is CoarseCoverJson {
     return false
   }
   const [south, west, north, east] = c.bbox as Bbox
-  if (south < -60 || north > 84 || north <= south) return false
+  if (south < COVER_SOUTH || north > COVER_NORTH || north <= south) return false
   if (west < -185 || east > 185 || east <= west || east - west > 360) return false
   if (typeof c.stepDeg !== 'number' || !Number.isFinite(c.stepDeg) || c.stepDeg <= 0 || c.stepDeg > 1) return false
   if (!Number.isInteger(c.rows) || !Number.isInteger(c.cols)) return false
@@ -78,9 +79,17 @@ export function isValidCoarseCoverJson(v: unknown): v is CoarseCoverJson {
   return true
 }
 
-/** Resolves both cover class (`1..10` or null) and WorldCover layer provenance at `(lat, lon)`. */
+/**
+ * Resolves both cover class (`1..10` or null) and WorldCover layer provenance at `(lat, lon)`. Past the antimeridian a
+ * place's own grid runs on in its own longitudes (to ±185), so the point is looked up as given before the canonical one.
+ */
 export function lookupCover(cover: LandCover | null, lat: number, lon: number): CoverLookup {
   if (!cover) return { cover: null, source: 'unknown' }
+  const given = lookupAt(cover, lat, lon)
+  return given.cover !== null || (lon >= -180 && lon < 180) ? given : lookupAt(cover, lat, wrap180(lon))
+}
+
+function lookupAt(cover: LandCover, lat: number, lon: number): CoverLookup {
   if (cover.coverWithSourceAt) return cover.coverWithSourceAt(lat, lon)
   const cls = cover.coverAt(lat, lon)
   return cls > 0 ? { cover: cls, source: 'worldcover-2021:unspecified' } : { cover: null, source: 'unknown' }

@@ -1,5 +1,5 @@
 import { climatologyAt, type ClimatologySample } from '../data/land/climatology'
-import { COVER_WATER } from '../data/land/grid'
+import { COVER_NORTH, COVER_SOUTH, COVER_WATER } from '../data/land/grid'
 import { prepareLandSampler } from '../data/land/sampleLand'
 import type { LandData } from '../data/land/types'
 import { destination } from '../data/terrain/panorama'
@@ -91,7 +91,8 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
     if (!climate) climates.set(cover, climate = climatologyAt(lat, lon, eyeElevationM, month, cover))
     return climate
   }
-  const footprint = data.cover && footprintOf(lat, lon, cosLat, (eastM, northM): GroundCell => {
+  const covered = data.cover && lat >= COVER_SOUTH && lat <= COVER_NORTH
+  const footprint = covered && footprintOf(lat, lon, cosLat, (eastM, northM): GroundCell => {
     const [cellLat, cellLon] = geoNear(eastM, northM), { cover } = sampler.coverAt(cellLat, cellLon)
     if (cover === null) return null
     return cover === COVER_WATER ? 'water' : albedoAt(sampler, cellLat, cellLon, cover, utcDate, farGain, () => climateOf(cover))

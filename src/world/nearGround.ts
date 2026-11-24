@@ -21,8 +21,8 @@ const CELL_M = LAND_STEP * M_PER_DEG
 export function footprintOf<Cell>(
   lat: number, lon: number, cosLat: number, cellAt: (eastM: number, northM: number) => Cell,
 ): (azimuth: number) => CellShare<Cell>[] {
-  // West to east the grid's own columns, or every nth of them from 48° on, where they are narrower than half a cell.
-  const eastStep = CELL_M * cosLat * Math.max(1, Math.round(1 / cosLat))
+  // West to east the grid's own columns, however narrow: a column passed over is ground not looked at.
+  const eastStep = CELL_M * cosLat
   // From the eye to the centre of its own cell.
   const centre = (deg: number) => (Math.floor(deg / LAND_STEP) + 0.5) * LAND_STEP - deg
   const east0 = centre(lon) * M_PER_DEG * cosLat, north0 = centre(lat) * M_PER_DEG
@@ -39,7 +39,7 @@ export function footprintOf<Cell>(
     const firstRow = Math.ceil((north - reach - north0) / CELL_M), lastRow = Math.floor((north + reach - north0) / CELL_M)
     const areas = new Map<Cell, number>()
     for (let row = firstRow; row <= lastRow; row++) for (let col = firstCol; col <= lastCol; col++) {
-      // The rim crosses a cell over the cell's own width, so its share falls from 1 to 0 over that width.
+      // The rim crosses a cell over the cell's height, so its share falls from 1 to 0 over that height.
       const d = Math.hypot(col * eastStep + east0 - east, row * CELL_M + north0 - north)
       const weight = Math.min(1, (RADIUS_M - d) / CELL_M + 0.5)
       if (weight <= 0) continue

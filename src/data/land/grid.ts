@@ -11,6 +11,9 @@ export const COVER = ['none', 'tree', 'shrub', 'grass', 'crop', 'built', 'bare',
 export type Cover = typeof COVER[number]
 /** Open water's class (left out of land albedo; water is painted by `water.ts`). */
 export const COVER_WATER = COVER.indexOf('water')
+/** The latitudes ESA WorldCover 2021 goes to (degrees). */
+export const COVER_SOUTH = -60
+export const COVER_NORTH = 84
 
 /** WorldCover's codes to our classes. */
 export function coverOfWorldCover(code: number): number {
