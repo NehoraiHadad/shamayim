@@ -50,6 +50,8 @@ function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: numbe
   if (stretch <= 1) return null
   // A cell nearer than its own diameter passes overhead with its foot still in view: it goes back to its own rays by then.
   const wide = 1 + (Math.min(Math.sqrt(stretch), Math.PI / 2 / half) - 1) * whole * unit(2 * (1 - q))
+  // Nothing to show: its sides move by less than half a pixel.
+  if ((wide - 1) * half * perRad < 0.5) return null
   // The far rim is the underside's, the rest of the height the side's and the crown's: a flatter foot under a domed top.
   const foot = 1 + (disc / (disc + side) - 1) * unit(wide * wide - 1)
   const mid = Math.log(d) + Math.log1p(-q * q) / 2, far = wide / foot, near = wide / (2 - foot)
@@ -60,15 +62,15 @@ function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: numbe
   }
 }
 
-/** The cell's drawn depth less the one its rays alone would show, at a place at `range` km and its logarithm. */
-function change(s: Shape, x: number, y: number, range: number, log: number): number {
+/** The cell's drawn depth less the one its rays alone would show, at a place at `range` km. */
+function change(s: Shape, x: number, y: number, range: number): number {
   const { cell, d } = s
   // Off to its side: it is only ever drawn wider.
   const along = x * s.east + y * s.north
   if (along <= range * s.cos) return 0
   const inverse = 1 / (cell.r * cell.r), dx = x - cell.x, dy = y - cell.y
   const native = kernel(cell.tau0, (dx * dx + dy * dy) * inverse, s.cumulus)
-  const up = log - s.mid, scaled = up * (up > 0 ? s.far : s.near)
+  const up = Math.log(range) - s.mid, scaled = up * (up > 0 ? s.far : s.near)
   if (scaled >= s.high || scaled <= -s.high) return -native
   const at = Math.exp(s.mid + scaled)
   const angle = Math.atan2(x * s.north - y * s.east, along) / s.wide
@@ -91,16 +93,16 @@ export function seenDepth(placeId: string, minute: number, snapshot: FieldSnapsh
     if (!weight) return depthAt
     const reach = weight * noise.reach
     const here = shapes.filter(({ from, to }) => range + reach > from && range - reach < to)
+    // Along the ray: the projection draws its levels straight. Overhead, where every ray meets, it dies away.
+    const along = weight / Math.max(range, noise.radius)
     return (east, north) => {
-      // Along the ray: the projection draws its levels straight. Overhead, where every ray meets, it dies away.
-      const from = Math.sqrt(east * east + north * north)
-      const scale = 1 + weight * noise.at(east, north) / Math.max(from, noise.radius)
+      const scale = 1 + along * noise.at(east, north)
       const x = east * scale, y = north * scale
       const depth = depthAt(x, y)
       if (!here.length) return depth
-      const at = from * scale, log = Math.log(at)
+      const at = range * scale
       let moved = 0
-      for (const shape of here) if (at > shape.from && at < shape.to) moved += change(shape, x, y, at, log)
+      for (const shape of here) if (at > shape.from && at < shape.to) moved += change(shape, x, y, at)
       const seen = depth + moved
       return seen < layer.floorTau + ROUNDING ? layer.floorTau : seen
     }

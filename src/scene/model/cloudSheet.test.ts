@@ -8,12 +8,12 @@ import { buildField } from '../../world/field/field'
 import { genusOf } from '../../world/field/genus'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
+import { altitudeOf } from '../../world/field/project'
 import { transmitAlong } from '../../world/field/transmit'
 import { cloudSheetOf, sheetPathFactor } from './cloudSheet'
 import { gridFor } from './cloudSheetGrid'
 import { seenDepth } from './cloudSheetSeen'
 import { sheetTexture, textureCorrection } from './cloudSheetTexture'
-import { DOME_ALT } from './dome'
 import { skyGeom } from './sky'
 import type { SceneBox } from './types'
 
@@ -95,14 +95,14 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
     const meanSlant = (slant: number) => cellular ? 1 : sheet.genus === 'cs' ? Math.min(1.5, slant) : slant
     const depthAt = (source: typeof snapshot) => cellular ? source.densityGrid.resolvedTauAt : source.densityGrid.tauAt
     // Below the dome's join a ray reads the field itself; above it, the field as the eye sees its cells (cloudSheetSeen).
-    const rayAt = (view: typeof at, source: typeof snapshot, altitude: number, range: number) => altitude <= DOME_ALT
-      ? depthAt(source) : seenDepth(view.world.place.id, view.field.t, source, view.geom, depthAt(source))(range, altitude)
+    const seenIn = (view: typeof at, source: typeof snapshot) =>
+      seenDepth(view.world.place.id, view.field.t, source, view.geom, depthAt(source))
     const sample = (view: typeof at, source: typeof snapshot) => {
       const genus = genusOf(lattice, source.layer!.form, 0.5)
       const { xs, altitudes, ranges, east, north, tau, expected, path, slant, fade } =
         gridFor(view.world.place.id, source.layer!, view.geom, source.heightKm, genus)
       let maxError = 0
-      const rays = altitudes.map((altitude, row) => rayAt(view, source, altitude, ranges[row]))
+      const seen = seenIn(view, source), rays = altitudes.map((altitude, row) => seen(ranges[row], altitude))
       const nodes = sheet.alpha.map((_, index) => {
         const row = Math.floor(index / xs.length), col = index % xs.length
         const exact = fade[row] < 1 ? rays[row](ranges[row] * east[col], ranges[row] * north[col]) : 0
@@ -134,17 +134,18 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
     let max = 0, maxExcess = -Infinity
     const [vx, vy] = snapshot.layer!.vel
     let dense = 0, minDense = 1
+    const seenAt = seenIn(at, snapshot)
     for (const [row, y] of sheet.ys.entries()) {
       const altitude = at.geom.domeAltitudeAt(y)
       if (altitude < 90) expect(at.geom.dome(altitude)).toBeCloseTo(y, 8)
-      const sourceAt = rayAt(at, snapshot, altitude, Math.hypot(before[row * sheet.xs.length].x, before[row * sheet.xs.length].y))
       for (const [col, x] of sheet.xs.entries()) {
         const i = row * sheet.xs.length + col
         const a = before[i], b = after[i]
         // Pull back each destination ray by one minute of advection. Resample
         // the source field directly to avoid interpolation across sharp edges.
         const sourceX = b.x - vx, sourceY = b.y - vy
-        const local = b.fade < 1 ? sourceAt(sourceX, sourceY) * b.slant : 0
+        const range = Math.hypot(sourceX, sourceY)
+        const local = b.fade < 1 ? seenAt(range, altitudeOf(snapshot.heightKm, range))(sourceX, sourceY) * b.slant : 0
         const mean = b.fade ? snapshot.densityGrid.expectedTauAt(sourceX, sourceY) * meanSlant(b.slant) : 0
         const warped = -a.path * ((1 - b.fade) * Math.expm1(-local) + b.fade * Math.expm1(-mean))
         // Beer–Lambert's maximum slope between two slant depths is exp(-min).

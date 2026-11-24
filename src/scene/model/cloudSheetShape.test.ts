@@ -16,11 +16,11 @@ import type { LayerOf, SceneBox } from './types'
 const RAD = Math.PI / 180
 const box: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const neutral = { body: [1, 1, 1], shade: [0.5, 0.5, 0.5], lit: [1, 1, 1], light: 0 } as const
-const world = {
-  place: { id: 'shape' }, camera: SCENE_CAMERA, bodies: { sun: { azimuth: 0 } },
+const worldOf = (id: string) => ({
+  place: { id }, camera: SCENE_CAMERA, bodies: { sun: { azimuth: 0 } },
   relief: { y: (altitude: number) => terrainY(box.landHeight, altitude) },
-} as WorldState
-const geom = skyGeom(world, box)
+}) as WorldState
+const geom = skyGeom(worldOf('shape'), box)
 
 /** One cell of a layer, alone in the sky. */
 function lone(genus: 'ac' | 'cu', x: number, y: number, r: number, vKm: number, heightKm: number) {
@@ -55,13 +55,13 @@ it.each([
 ] as const)('draws a lone %s cell as wide as it is tall, on a broad foot', (genus, heightKm, r, vKm) => {
   for (const elevation of [35, 40, 45, 50, 55, 60]) {
     const range = groundRangeAt(heightKm, elevation)
-    // Round the sky: each place has its own lobes.
-    const shapes = [140, 160, 180, 200, 220].map((azimuth) => {
-      const rows = widths(cloudSheetOf(world, geom,
+    // Round the sky of several places: each has its own lobes.
+    const shapes = ['a', 'b', 'c'].flatMap((id) => [140, 160, 180, 200, 220].map((azimuth) => {
+      const rows = widths(cloudSheetOf(worldOf(id), geom,
         lone(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
       const widest = Math.max(...rows)
       return { tall: rows.length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest }
-    })
+    }))
     const mean = (of: (shape: (typeof shapes)[number]) => number) => shapes.reduce((sum, shape) => sum + of(shape), 0) / shapes.length
     const aspect = mean(({ tall, widest }) => tall / widest), foot = mean((shape) => shape.foot)
     console.info(`${genus} ${elevation}: aspect ${aspect.toFixed(2)}, foot ${foot.toFixed(2)}`)
