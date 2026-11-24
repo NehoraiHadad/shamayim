@@ -65,12 +65,17 @@ is one wipe of the model's own light with caps on it; a storm is dark and stands
 dust lose the line; fields and slope cuts show; town walls sit in the light. The table above is of this second set.
 
 Known weak points of the concept:
-- **Dust** is the weakest: the brown blocks at the left edge are the model's own fault (they are in `real` too), and the orange
-  patches low in the wall are the model's tone. `mist` is still the shared painter and the sheet does not take the veil.
+- **Dust** is the weakest by a clear step: the lower clouds are smudged (a soft wash under orange patches of the model's tone). The
+  brown blocks at the left edge are the model's own fault (they are in `real` too). `mist` is still the shared painter and the sheet
+  does not take the veil.
 - **Fog's towns** keep more line than its clouds do: the town painter does not take the veil yet.
 - **Crisp where `real` is half clear**: the storm's low haze and some faint far clouds are gone or firm. A sheet's opacity is not kept yet.
-- **Broken cloud at dawn and dusk** has little shade, for the light itself is coloured: the caps read by their line more than by value.
-- The storm's right-hand towers stand on a hard dark slab; its sides keep the model's own straight column.
+- **Dusk and dawn (06:20)**: one pink value, little form. The light is coloured, so the shade hardly parts from it; caps read by their line only.
+- **Haifa storm**: the pale sun disc lies over the dark slab of the right tower, and the slab ends in a hard edge. The sun must stand
+  behind a heavy tower, the base needs the billow's own foot.
+- **Rosh Pina's tower**: side lobes are translucent, stand outside the mass and have no key line, so the contour doubles; its foot is one
+  flat patch. No cap past the silhouette.
+- **Rosh Pina's ground**: still flat next to `real`; the lit slope has fewer cuts than in the first set.
 - The large clouds keep the model's own outlines (Tel Aviv's arm, Rosh Pina's column): a crisp edge shows a model fault more than a soft one. Foundations' 1d.
 - Vegetation is the smallest gain: `real` crowns were already cut shapes.
 - Birds, aircraft, smoke, near rain, snow, mist, rays and bow are still shared.
@@ -140,6 +145,9 @@ Measured on the first set; the second adds a raster wash and a flood fill, so it
 | canopy | 7, 14, 8, 6 | 15, 28, 11, 10 |
 | water, shafts | 2 to 3, 34 | 4 to 8, 9 |
 | outside | 75, 41, 93, 91 (drawn v1's) | 71, 35, 74, 79 |
+
+**Phase 2 is designed round the cost, not trimmed after.** The old numbers are over the budget already, so the first thing built is a
+cached sheet: form (outlines, lobes, masks) made once per form and kept, light only re-inks it. No layer goes in before its cost is measured on CI.
 
 So as written the sky is 1.5 to 2 times `real` and the ground 3.5 to 5 times: **over budget**, and not yet worked on. The plan, in order of gain:
 - **Sheets**: 3 px grid (0.44 of the cells); noise only where the alpha is near the edge; empty and full contour cells skipped; the two softens folded into
