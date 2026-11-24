@@ -4,9 +4,8 @@ import { paintStreaks, type Trace } from '../../shared/land/water'
 
 /*
  * Waves on water, a train of them from each of the model's own strokes (its place, strength and drift; as many as the wind
- * raises): far off long low swells, near the
- * eye shorter wavelets that break in pieces, each with a face to the low sky and a dark one to the high. The wind's gusts
- * gather them, with slicks between. Pure: a stroke and its place.
+ * raises): far off long low swells, near the eye shorter wavelets that break in pieces, each with a face to the low sky and
+ * a dark one to the high. The wind's gusts gather them, with slicks between. Pure: a stroke and its place.
  */
 
 /** The water the waves lie on: its far and near rows, the labels' boxes, and how long a wave is of its stroke, far and near. */

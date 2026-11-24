@@ -10,9 +10,9 @@ import { layWaves, sparkle, type Water } from './waves'
 /** The far edge's air: how deep it lies on the water (px, and at most that share), its strength. */
 const AIR_DEEP = 9, AIR_SHARE = 0.25, AIR = 0.5
 /** How long a wave is of the model's ripple, far and near; its strength of the ripple's, the trough's of its crest's. */
-const LONG = [14, 3.4] as const, STRONG = 2.6, TROUGH = 0.8
+const LONG = [18, 6] as const, STRONG = 5, TROUGH = 1
 /** How far a crest's ink is taken to the sky low over the horizon, which it mirrors. */
-const LOW_SKY = 0.6
+const LOW_SKY = 0.8
 /** The light path's half width at the near edge, when no spark shows it. */
 const FOOT = 3
 
