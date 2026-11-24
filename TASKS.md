@@ -1266,9 +1266,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       Stack 0f41da2f (slices 4, 5, 3, 1, 2; nothing to build in 6) owner-approved, merged 7e4b5ce6, main CI 45403900858 green. One last round, asked by the
       owner: big clouds that read as balloons, first paint under x1.25 of real, the missing independent review
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 (clouds) in work at 251ca10a)
-      Clouds 3ed29531 + fix 2c1b512b owner-approved, merged cbd769cc (24 Nov), CI 45411460469 green, main run 45413747657. Open in parallel:
+      Clouds 3ed29531 + fix 2c1b512b owner-approved, merged cbd769cc (24 Nov), CI 45411460469 green, main run 45413747657 green (new: drawn haifa scrub.land p95 12.7 of 10, sent to drawn). Open in parallel:
       claude/real-plane (B), claude/real-sea (E), claude/real-air (F), one build + one review + one fix round each
       Polish later: ring at dusk (jerusalem 16:30), large clouds a little flat (tel-aviv 12:00), dark smudge shadmot 15:00 / neve-zohar 16:00
+      Bug (owner, live, both styles): bare strip under the clouds where the sea horizon dips below eye level (karmei-tzur; run 45417571791). Slice claude/real-strip, first to merge
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
       Test mail to the vote address arrived (owner, 24 Nov)
       Ready 9033482c (main 7e4b5ce6 in, CI 45404925681 green, panel stills seen by the manager); merge main again after the styles, re-verify
