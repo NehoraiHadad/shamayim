@@ -1,4 +1,5 @@
 import type { MarkKind } from '../data/landmarks/types'
+import { isDrawableMark, type DrawableMarkKind } from '../data/landmarks/drawableMark'
 
 /**
  * The glyphs' sizes in scene px (stage C4): a box width and the drawn height from the mark's projected height, per
@@ -7,7 +8,7 @@ import type { MarkKind } from '../data/landmarks/types'
  * (`scene/paint/shared/town/glyphs`, `…/icons`) draw in this box.
  */
 export type IconKind = 'westernWall' | 'babShrine' | 'azrieli' | 'chordsBridge'
-export type GlyphKind = Exclude<MarkKind, 'custom' | 'minaret'> | IconKind
+export type GlyphKind = Exclude<DrawableMarkKind, 'custom'> | IconKind
 
 export interface GlyphSpec {
   w: number
@@ -50,7 +51,7 @@ export const ICON_OF: Record<string, IconKind> = {
 
 /** Resolve the icon or generic glyph for a mark that has a drawable form. */
 export function glyphOf(mark: { kind: MarkKind; glyph?: string }): GlyphKind | null {
-  if (mark.kind === 'minaret') return null
+  if (!isDrawableMark(mark)) return null
   const icon = mark.glyph ? ICON_OF[mark.glyph] : undefined
   if (icon) return icon
   return mark.kind === 'custom' ? null : mark.kind

@@ -1,11 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { loadIsrael } from '../../data/landmarks/israelData'
-import { withPlaceHomes } from '../../data/landmarks/placeMarks'
+import { cellsForStrip, loadIsrael, type IsraelLandmarkIndex, type LandmarkCell } from '../../data/landmarks/israelData'
 import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
-import { portraitStyle } from '../../world/place'
 import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
@@ -26,16 +24,26 @@ it('covers the recorded Bardala panorama', () => {
   expect(fixtures).toContain('bardala')
 })
 
+it('loads the bundled minaret rows in Bardala’s landmark strip', async () => {
+  const place = places.get('bardala')!
+  const dir = path.join(__dirname, '../../../public/data/landmarks/il')
+  const read = (file: string) => JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'))
+  const bundled = new Set((read('index.json') as IsraelLandmarkIndex).cells)
+  const expected = cellsForStrip(place).filter(cell => bundled.has(cell)).flatMap(cell => {
+    const payload = read(`${cell}.json`) as LandmarkCell
+    return (Array.isArray(payload) ? payload : payload.rows).flatMap(([kind, lat, lon]) =>
+      kind === 'minaret' ? [`il-${kind}-${lat}-${lon}`] : [])
+  })
+  expect(expected.length).toBeGreaterThan(0)
+  const raw = await loadIsrael(place, new AbortController().signal)
+  expect(raw?.filter(mark => mark.kind === 'minaret').map(mark => mark.id)).toEqual(expected)
+  expect(raw?.some(mark => mark.kind === 'minaret' && mark.heightM === 9)).toBe(true)
+})
+
 it.each(fixtures)('%s keeps mosques out of both painters’ input', async id => {
   const place = places.get(id)
   if (!place) throw new Error(`Missing place metadata for ${id}`)
   const loaded = (await loadPlaces([place])).get(id)!
-  const raw = await loadIsrael(place, new AbortController().signal)
-  if (id === 'bardala') expect(raw?.some(mark => mark.kind === 'minaret' && mark.heightM === 9)).toBe(true)
-  // Compare the evidence input before and after narrowing it to the scene pool.
-  expect(portraitStyle(place, loaded.landmarks, loaded.city))
-    .toEqual(portraitStyle(place, withPlaceHomes(place, raw ?? []), loaded.city))
-
   const world = buildWorld(worldInput(loaded, '2026-11-17T12:00'))
   for (const mark of [...world.marks, ...world.seatPool]) {
     expect(mark.kind).not.toMatch(mosque)

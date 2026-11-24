@@ -47,7 +47,7 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const gap = Math.abs(height.x - dot.x) - (DOT_R + 2 + BACKING_PAD + w / 2)
     expect(gap, 'beside the dot').toBeGreaterThan(-0.01)
     expect(gap, 'beside the dot').toBeLessThan(14.01)
-    // Where the dot is ringed by marks (Tel Aviv: Azrieli, the Reading chimney, a church, a minaret) no spot beside it is
+    // Where the dot is ringed by marks (Tel Aviv: Azrieli, the Reading chimney, a church) no spot beside it is
     // free: the label takes the one that covers least, one mark at most, on its backing.
     const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => {
       const box = markBox(mark)
@@ -104,7 +104,7 @@ describe('scene model: layers', () => {
     // C3: the far towns between the far plane and the near ridge, the sea (within the near band) over the near plane. (No
     // far water: the fixture's height is below sea level, but Haifa's ground, from the Carmel to the bay, is not, so the
     // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
-    // C4–C5: the place seen from outside over it all, its marks (the Báb, the Carmel's church and mosque) among its mass;
+    // C4–C5: the place seen from outside over it all, its marks (the Báb and the Carmel's church) among its mass;
     // C7: the weather the hour has over them. (What flies in front of the land, laid where it is, comes and goes.)
     const land = layersOn(model, 'land')
     expect(land.filter((layer) => !layer.placed && layer.kind !== 'canopy').map((layer) => layer.id))

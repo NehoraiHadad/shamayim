@@ -5,6 +5,7 @@ import { distance, recording } from '../../../../../test/glyphRecording'
 import { shine, tones } from '../../../../../test/glyphTones'
 import { GLYPH_SPECS, type GlyphKind } from '../../../../../world/glyphSpecs'
 import type { GlyphDesc, Shine } from '../../../../model/types'
+import { css, mix } from '../../base/hand'
 import { drawGlyph, drawLamps, glyphShadow } from '.'
 
 function record(glyph: GlyphDesc, shine: Shine) {
@@ -23,6 +24,26 @@ it.each([1, -1] as const)('keeps all 21 glyph forms and night lamps fixed with h
       faces: { ...shine.faces, left: Math.max(0, l * glyph.hand), right: Math.max(0, -l * glyph.hand) } })
     const sweep = Array.from({ length: 41 }, (_, i) => at((i - 20) / 20))
     const even = sweep[20]
+    if (kind === 'lighthouse') {
+      // The lantern is 1.5 glyph px left of the origin in structures.ts.
+      expect(even.lamps[0][0]).toBeCloseTo(glyph.x - hand * 1.5 * glyph.scale)
+    }
+    if (kind === 'highrise') {
+      // The plinth in industry.ts paints the front, then the left and right faces.
+      expect(at(hand).light.slice(1, 3)).toEqual([
+        ['fillStyle', css(hand === 1 ? tones.lit : tones.shade)],
+        ['fillStyle', css(hand === 1 ? tones.shade : tones.lit)],
+      ])
+    }
+    if (kind === 'waterTower') {
+      // The tank underside in buildings.ts paints its left and right facets in that order.
+      // Their highlight uses Kit's signed light, independently of the supplied box-face colours.
+      const highlight = css(mix(tones.shade, tones.lit, 0.35))
+      const leftFacet = at(1).light.findIndex(([op, value]) => op === 'fillStyle' && value === highlight)
+      const faces = [['fillStyle', highlight], ['fillStyle', css(tones.shade)]]
+      expect(leftFacet).toBeGreaterThan(0)
+      expect(at(hand).light.slice(leftFacet, leftFacet + 2)).toEqual(hand === 1 ? faces : faces.reverse())
+    }
     const form = JSON.stringify(even.form)
     for (const frame of sweep) {
       expect(JSON.stringify(frame.form), kind).toBe(form)
