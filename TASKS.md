@@ -1252,6 +1252,17 @@ The valley painted in two hands from the same model: `real` (unchanged, pixel fo
 - Weak spots: rather barrel or egg lone clouds (the model's cells), soft banks in a closed rain deck where the real hand has none,
   pale trees and Western Wall tiers in Jerusalem (model haze), towers take no town light by night in either hand
 
+## Wear tip: rain that makes sense — 2026-11-24 (branch `claude/wear-rain`)
+
+Owner: an umbrella was suggested with no rain in the forecast. The still's umbrella was the synthetic fixture (rain in its
+hours, none in its day); in the app the rain of a morning that had passed still called for one until 15:00.
+
+- [x] Rain gear counts only the hours still ahead (`src/text/wear.ts`, `wearRain.ts` + tests)
+- [x] The sentence says when the rain comes; snow alone calls for a coat and sealed shoes, not an umbrella
+- [x] Week row names the chance: "גשם 80%" / "שלג 80%" (`DayRow.tsx`)
+- [x] Fixture `forecast-layers-2026-11-17.json`: the daily rain of 18.11 matches its hours, held by a test
+- [ ] Not done (owner's call): an amount threshold under which a likely drizzle needs no umbrella
+
 ## Two styles of one world — coordination (manager session, started 2026-11-23)
 
 Goal (owner): `real` (default) and `drawn` clearly different, one true world under both, then an in-app vote. Binding brief:

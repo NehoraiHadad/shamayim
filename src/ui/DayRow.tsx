@@ -75,7 +75,7 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
           <span className={styles.day}>{name}</span>
           <span className={styles.date}>
             <bdi>{shortDate(day.date)}</bdi>
-            {showProb && <span className={styles.prob}> · {kind === 'snow' ? 'שלג' : 'גשם'} {formatProb(prob)}</span>}
+            {showProb && <span className={styles.prob}> · {kind === 'snow' ? 'שלג' : 'גשם'}{' '}{formatProb(prob)}</span>}
             {tag && <> · {tag}</>}
           </span>
         </span>
