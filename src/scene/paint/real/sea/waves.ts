@@ -3,7 +3,8 @@ import type { Ctx2D } from '../../shared/base/hand'
 import { paintStreaks, type Trace } from '../../shared/land/water'
 
 /*
- * Waves on water, from the model's own strokes (their place, number, strength and drift): far off long low swells, near the
+ * Waves on water, a train of them from each of the model's own strokes (its place, strength and drift; as many as the wind
+ * raises): far off long low swells, near the
  * eye shorter wavelets that break in pieces, each with a face to the low sky and a dark one to the high. The wind's gusts
  * gather them, with slicks between. Pure: a stroke and its place.
  */
@@ -11,8 +12,10 @@ import { paintStreaks, type Trace } from '../../shared/land/water'
 /** The water the waves lie on: its far and near rows, the labels' boxes, and how long a wave is of its stroke, far and near. */
 export interface Water { top: number; bottom: number; clear?: readonly Box[]; long: readonly [number, number] }
 
-/** A wave's height (px) far and near, in hairs at least one; from which depth the waves break; a piece's share of its place. */
-const HIGH = [0.45, 1.5] as const, BREAK = 0.3, PIECE = 0.82
+/** A wave's height (px) far and near, in hairs at least one and at most a share of its length; from which depth it breaks; a piece's share of its place. */
+const HIGH = [0.45, 1.4] as const, STEEP = 0.16, BREAK = 0.3, PIECE = 0.82
+/** The crests of a train, the px between them far and near, and how far each is out of line (of its length). */
+const TRAIN = [0, -1, 1], APART = [0.9, 4.2] as const, ASKEW = 0.42
 /** How far a slick takes a stroke's strength down. */
 const SLICK = 0.7
 
@@ -33,13 +36,16 @@ export function crest(ctx: Ctx2D, x: number, y: number, w: number, h: number): v
 }
 
 const wave = (water: Water, by: number): Trace => (ctx, s, hair, i) => {
-  const d = depthAt(water, s.y), w = s.w * lerp(water.long[0], water.long[1], Math.sqrt(d)), h = Math.max(hair, lerp(HIGH[0], HIGH[1], d))
-  const x = s.x + (s.w - w) / 2, y = s.y + by * h
-  if (water.clear?.some((b) => x < b.x + b.w && x + w > b.x && y - 2 * h < b.y + b.h && y + 2 * h > b.y)) return
-  const pieces = d < BREAK ? 1 : 2 + i % 2, step = w / pieces
-  for (let n = 0; n < pieces; n++) {
-    const off = pieces > 1 ? Math.sin(i * 2.4 + n * 1.9) : 0
-    crest(ctx, x + step * (n + 0.12 * off), y + off * h * 0.7, step * (pieces > 1 ? PIECE : 1), h)
+  const d = depthAt(water, s.y), long = s.w * lerp(water.long[0], water.long[1], Math.sqrt(d)), odd = Math.sin(i * 2.4)
+  const pieces = d < BREAK ? 1 : 2 + i % 2
+  for (const row of TRAIN) {
+    const w = long * (1 - 0.3 * Math.abs(row)), step = w / pieces, h = Math.max(hair, Math.min(lerp(HIGH[0], HIGH[1], d), step * STEEP))
+    const x = s.x + (s.w - w) / 2 + row * ASKEW * odd * w, y = s.y + row * (0.8 + 0.3 * odd) * lerp(APART[0], APART[1], d) + by * h
+    if (y < water.top || water.clear?.some((b) => x < b.x + b.w && x + w > b.x && y - 2 * h < b.y + b.h && y + 2 * h > b.y)) continue
+    for (let n = 0; n < pieces; n++) {
+      const off = pieces > 1 ? Math.sin(i * 2.4 + n * 1.9 + row) : 0
+      crest(ctx, x + step * (n + 0.12 * off), y + off * h * 0.7, step * (pieces > 1 ? PIECE : 1), h)
+    }
   }
 }
 

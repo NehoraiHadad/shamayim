@@ -3,13 +3,14 @@ import { castShadow, TOWER_CAST, TOWER_CONTACT } from '../shared/town/castShadow
 import { drawGlyph, drawLamps, glyphShadow, glyphLight } from '../shared/town/glyphs'
 import type { Lamp } from '../shared/town/glyphs/kit'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
-import { grain, rockOf, tree } from '../shared/town/marks'
+import { grain, rockOf } from '../shared/town/marks'
 import { paintBox } from './outsideBox'
 import { paintOutsideLand } from '../shared/town/outsideGround'
 import { stripPhase } from '../shared/town/stripPhase'
 import { hairOf } from '../shared/land/water'
 import { paintPass } from '../shared/base/paintPass'
 import { paintTower } from './outsideTower'
+import { paintTree } from './outsideTree'
 import { offSea, paintRealSea } from './sea/outsideSea'
 import { paintFoldedWindows } from './town/foldedWindows'
 import { nightLight, paintStreetLight, paintWindowBloom } from './town/nightTown'
@@ -53,7 +54,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       else paintTower(ctx, item, tones, s, lamps, f, env.scale)
     }
     else if (item.kind === 'tree') {
-      paintPass(ctx, 'background', () => tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
+      paintPass(ctx, 'background', () => paintTree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
     if (night) {

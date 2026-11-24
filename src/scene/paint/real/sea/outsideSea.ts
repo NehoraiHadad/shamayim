@@ -1,5 +1,5 @@
 import type { SeaDesc, Shine } from '../../../model/types'
-import { css, outline, type Ctx2D } from '../../shared/base/hand'
+import { css, mix, outline, type Ctx2D } from '../../shared/base/hand'
 import { glintCore, paintStreaks, running, twinkling } from '../../shared/land/water'
 import { laySea } from '../../shared/town/outsideGround'
 import { layShallows, layShore } from './shore'
@@ -10,7 +10,9 @@ import { layWaves, sparkle, type Water } from './waves'
 /** The far edge's air: how deep it lies on the water (px, and at most that share), its strength. */
 const AIR_DEEP = 9, AIR_SHARE = 0.25, AIR = 0.5
 /** How long a wave is of the model's ripple, far and near; its strength of the ripple's, the trough's of its crest's. */
-const LONG = [11, 2.8] as const, STRONG = 2.8, TROUGH = 0.9
+const LONG = [14, 3.4] as const, STRONG = 2.6, TROUGH = 0.8
+/** How far a crest's ink is taken to the sky low over the horizon, which it mirrors. */
+const LOW_SKY = 0.6
 /** The light path's half width at the near edge, when no spark shows it. */
 const FOOT = 3
 
@@ -21,7 +23,7 @@ export function paintRealSea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number, ha
   outline(ctx, s.points)
   ctx.clip()
   layShallows(ctx, s)
-  layWaves(ctx, water, running(s.ripples, t, s.drift ?? 0, 0), s.light, [s.dark, TROUGH], hair, STRONG * day)
+  layWaves(ctx, water, running(s.ripples, t, s.drift ?? 0, 0), mix(s.light, hz.rgb, LOW_SKY), [s.dark, TROUGH], hair, STRONG * day)
   const deep = Math.min(AIR_DEEP, (s.bottom - s.top) * AIR_SHARE), air = ctx.createLinearGradient(0, s.top, 0, s.top + deep)
   air.addColorStop(0, css(hz.rgb, AIR * day))
   air.addColorStop(1, css(hz.rgb, 0))

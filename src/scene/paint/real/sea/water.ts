@@ -6,8 +6,8 @@ import { layWaves, sparkle, type Water } from './waves'
 /** A lake or a bay: the model's body, its far shore's light soft on the water, the wind's waves, the light's path over them. */
 
 /** The far rim's strokes: their width (px) and their share of its strength. */
-const RIM = [[5, 0.28], [2.4, 0.4], [1, 0.5]] as const
-const LONG = [2.2, 1.35] as const, STRONG = 1.2
+const RIM = [[3.2, 0.25], [1.4, 0.45]] as const
+const LONG = [2, 1.5] as const, STRONG = 1.1
 
 export function paintRealWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): void {
   layBody(ctx, desc)

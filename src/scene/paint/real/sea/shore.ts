@@ -11,13 +11,14 @@ import { crest } from './waves'
 /** A point of the coast: its direction, the way to the sea, and how near it is (0 far … 1). */
 interface Stand { x: number; y: number; tx: number; ty: number; nx: number; ny: number; near: number }
 
-/** The coast's points every few px. */
+/** The coast's points every few px; not where the sea runs along the picture's own edge. */
 function along({ coast, points, top, bottom }: SeaDesc, step: number): Stand[] {
   const cx = points.reduce((sum, [x]) => sum + x, 0) / points.length, cy = points.reduce((sum, [, y]) => sum + y, 0) / points.length
+  const xs = points.map(([x]) => x), ends = [Math.min(...xs), Math.max(...xs)]
   const out: Stand[] = []
   for (let i = 1; i < coast.length; i++) {
     const [ax, ay] = coast[i - 1], [bx, by] = coast[i], long = Math.hypot(bx - ax, by - ay)
-    if (long < 1e-3) continue
+    if (long < 1e-3 || ends.some((x) => Math.abs(ax - x) < 0.5 && Math.abs(bx - x) < 0.5)) continue
     const tx = (bx - ax) / long, ty = (by - ay) / long, side = -ty * (cx - ax) + tx * (cy - ay) < 0 ? -1 : 1
     for (let n = 0, many = Math.ceil(long / step); n < many; n++) {
       const u = n / many, y = ay + (by - ay) * u
