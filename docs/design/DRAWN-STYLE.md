@@ -131,25 +131,22 @@ From an independent review of the prototype (20 findings; the rest are already f
 
 ## 6. Perf budget
 
-A case's layers together at most 1.25 of `real`'s. Measured on CI (`3a337f85`, run 45337950427, `bench.mjs`: both styles on one machine in both
-orders, CPU x4, dpr 2.75, raster counted), median ms over a dragged day, all layers:
+A drag step's layers together at most 1.25 of `real`'s. Measured on CI (`c354ae34`, run 45341713385, `bench.mjs`: both styles on one machine in both
+orders, CPU x4, dpr 2.75, raster of the beam and shade canvases counted), ms a step, median / p95 over a dragged day:
 
-| Case | `real` | concept | budget |
+| Case | `real` | concept | budget (median) |
 |---|---|---|---|
-| haifa | 578 | 961 | 722 |
-| tel-aviv | 433 | 709 | 541 |
-| shadmot | 465 | 815 | 581 |
-| rosh-pina | 537 | 961 | 671 |
-| jerusalem, broken | 316 | 680 | 395 |
-| haifa, thunder | 428 | 1276 | 535 |
+| haifa | 499 / 589 | 937 / 1157 | 624 |
+| tel-aviv | 302 / 410 | 570 / 736 | 378 |
+| shadmot | 375 / 481 | 786 / 1139 | 469 |
+| jerusalem, broken | 302 / 364 | 609 / 685 | 378 |
 
-Over in the low and mid sheets, the planes, the storm's tower and decks, and the sky (a CSS background in `real`, a painted layer here). Under in the high veil
-and the town. Since the second set the sheets' raster work is folded: one-channel `ease` for `soften`, one small raster and one clip a mass (`ease.ts`, `wash.ts`, `feet.ts`); the
-stills differ by 0.05 to 0.34 of 255.
+Rosh-pina and haifa thunder: only the earlier run's sums of medians, 537 and 961, 428 and 1276. Over in the low and mid sheets, the planes, the storm's
+tower and decks, and the sky (a CSS background in `real`, a painted layer here). Under in the high veil and the town.
 
-**A cached sheet outline never hits**: between two steps of a drag a sheet's alpha changes every time (0 of 24), so a full paint must be in the budget by
-itself. Planes, towers, town and water stand still, so their form is kept. The build plan (slices, what is kept and by which key, memory, proof) is
-`drawn/BUILD-PLAN.md` in the sessions' shared notes folder. No layer goes in before its cost is measured on CI.
+**A cached sheet outline never hits**: between two steps of a drag a sheet's alpha changes every time, so a full paint must be in the budget by
+itself. Planes, town and water stand still, and planes keep their form. Towers are planned as repainted every time. The build plan (slices, what is kept and
+by which key, memory, proof) is `drawn/BUILD-PLAN.md` in the sessions' shared notes folder. The cap is checked after the sheets and at the end.
 
 ## 7. Phase 2 proof
 

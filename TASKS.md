@@ -1241,10 +1241,11 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             `drawn/concept-a-paper/`); doc, stills, map and extra weather (`drawn/concept/more-weather-concept-only.png`) rebuilt
       - [x] Second set after the manager's five points (varied caps and quiet areas, heavier storm, fog and dust without the line,
             fields and cuts, town walls); first set kept in `drawn/concept-b-first/`
-      - [ ] Waits for the owner's verdict on the concept, then the manager's word that `src/scene` is open. The prototype is
-            drawn on CI only (`.github/workflows/drawn-concept.yml`, this branch, not for main; no local renders). Owed before `src/scene`: doc §4 end, §6 (over budget)
-      - [ ] Concept approved by the owner; `src/scene` open; contract needs (sky base per style) settled with the manager
-      - [ ] Build in `paint/drawn/` (sky, sheets and cells, ground, town, water and canopy, rain, mist and dust), perf plan of §6
+      - [x] Owner approved the direction (second set, `50c75d12`). Prototype is drawn on CI only (`drawn-concept.yml`, this branch, not for main)
+      - [x] Build plan: `drawn/BUILD-PLAN.md` in the notes folder, reviewed by a second agent, costs measured (doc §6: concept over the 25 % cap, the plan
+            says how it comes down; rosh-pina and thunder step sums still to come from run 45341713385)
+      - [ ] Manager opens `src/scene` and settles the contract needs (plan §4: `skyBase` + `sky.grade`, cloud positions per node, `lamp: ['cloudSheet']`, `Disc.shown`)
+      - [ ] S1 sky, sun and moon; S2 cloud sheets (perf check); S3 storm; S4 ground and water; S5 town and trees; S6 air (perf check)
       - [ ] CI still set, perf, review, owner's approval, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
