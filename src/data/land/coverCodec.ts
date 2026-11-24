@@ -24,7 +24,7 @@ export interface CoarseCoverJson {
 export const COARSE_COVER_VERSION = 1
 /** Upper bound on coarse grid cells (regional Israel 520×340 = 176,800; ±60 km ≈ 22,000). */
 export const MAX_COARSE_CELLS = 500_000
-/** How far a place's own grid may run on over the antimeridian (degrees): the 60 km of its footprint at 84 degrees is 5.2. */
+/** How far a place's own grid may run on over the antimeridian (degrees): its footprint's 60 km are 5 degrees at 83.8 N. */
 const LON_LIMIT = 185
 const MAX_COVER_CLASS = COVER.length - 1
 const TILE_CODE_RE = /^[NS]\d{2}[EW]\d{3}$/
