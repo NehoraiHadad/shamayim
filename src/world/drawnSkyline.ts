@@ -12,8 +12,8 @@ import type { FarCities, OutsideView, PlaceUnknown, Pt, WorldLabels } from './ty
  * the light judges them up or behind the land, against one line: the top of what the scene draws. That is the near land
  * as drawn (the place's own ground on its scale within its span, the panorama's ridge beyond), the far land, and what
  * stands on them, as it stands clear of the text (`outsideBodies.ts`): the place's rows and towers, its trees, the towers
- * and towns beyond it; the marks, the far towns' towers. (Until this, the bodies were judged on the panorama's own skyline, which the place's own near land now
- * overdraws; and a body the place's eye saw was laid again over the place's mass.)
+ * and towns beyond it; the marks, the far towns' towers. (Until this, the bodies were judged on the panorama's own
+ * skyline, which the place's own near land now overdraws; and a body the place's eye saw was laid again over its mass.)
  */
 
 /** Columns per scene px (at the 375 px reference). */

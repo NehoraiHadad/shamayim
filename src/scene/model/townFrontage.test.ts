@@ -36,11 +36,12 @@ describe('mapped town frontage and roof heights', () => {
     expect(new Set(seeds).size).toBe(count)
   })
 
-  it.each(['haifa', 'tel-aviv', 'jerusalem'])('%s keeps ordinary blocks in proportion', id => {
+  // As many as stand in view: leaving the narrow ones out would not put the rest in proportion.
+  it.each([['haifa', 480], ['tel-aviv', 170], ['jerusalem', 435]] as const)('%s keeps ordinary blocks in proportion', (id, count) => {
     const blocks = viewOf(id).skyline.boxes.filter(b => b.seed !== undefined &&
       b.heightM !== undefined && b.heightM >= HOUSE_TOP_M && b.heightM < 60)
     const ratios = blocks.map(b => (b.foot - b.top) / b.w).sort((a, b) => a - b)
-    expect(ratios.length).toBeGreaterThan(0)
+    expect(ratios.length).toBeGreaterThanOrEqual(count)
     expect(ratios[Math.floor(ratios.length / 2)]).toBeLessThanOrEqual(1.6)
   })
 

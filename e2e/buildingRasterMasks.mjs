@@ -15,10 +15,6 @@ export async function buildingRasterMasks(layers, outside, w, h) {
   const owner = Object.assign(document.createElement('canvas'), { width: superWidth, height: scale * h })
     .getContext('2d', { willReadFrequently: true })
   owner.scale(scale, scale)
-  const mk = () => { const c = Object.assign(document.createElement('canvas'), { width: superWidth, height: scale * h })
-    .getContext('2d', { willReadFrequently: true }); c.scale(scale, scale); return c }
-  const ownB = mk(), ownC = mk(), ownD = mk()
-  const erase = (c, f) => { c.globalCompositeOperation = 'destination-out'; f(c); c.globalCompositeOperation = 'source-over' }
   const ownerColors = new Map()
   const f = c => ({ wall: c, eave: c, foot: c })
   const black = [0, 0, 0], tile = [1, 0, 1], red = [1, 0, 0], green = [0, 1, 0], blue = [0, 0, 1], yellow = [1, 1, 0]
@@ -26,8 +22,6 @@ export async function buildingRasterMasks(layers, outside, w, h) {
   const shine = { ...outside.shine, glint: 0, windows: 0 }
   let index = 0
   for (const b of outside.items) {
-    if (b.kind === 'tower') for (const c of [ownC, ownD]) erase(c, c => paintTower(c, b, outside.tiers[b.tier], shine, [], outside.receivers[b.tier][b.receiver], 1))
-    if (b.kind === 'mark' && !isField(b.glyph.kind) && b.glyph.kind !== 'palms') for (const c of [ownC, ownD]) erase(c, c => drawGlyph(c, b.glyph, shine))
     if (b.kind === 'tower') {
       paintTower(builtObjects, b, outside.tiers[b.tier], shine, [], outside.receivers[b.tier][b.receiver], 1)
       if (b.industrial) {
@@ -50,8 +44,6 @@ export async function buildingRasterMasks(layers, outside, w, h) {
       top: value, tile: [value, value, value], tileBase: value, recess: value, unresolved: value }
     paintBoxGeometry(m, { ...b, heater: false }, outside.tiers[b.tier], shine, facade, props)
     paintBoxGeometry(owner, { ...b, heater: false }, outside.tiers[b.tier], shine, owned, props)
-    for (const c of [ownB, ownC, ownD]) paintBoxGeometry(c, { ...b, heater: false }, outside.tiers[b.tier], shine, owned, props)
-    if (b.roof !== 'tile') for (const c of [ownB, ownD]) erase(c, c => topPlane(c, b.x - b.w / 2, b.top, b.w, capDepth(b.w, b.foot - b.top), yellow))
     if (b.roof !== 'tile') topPlane(caps, b.x - b.w / 2, b.top, b.w, capDepth(b.w, b.foot - b.top), yellow)
   }
 
@@ -74,5 +66,5 @@ export async function buildingRasterMasks(layers, outside, w, h) {
       round: [black, black] } }, shine)
   }
 
-  return { ownB, ownC, ownD, m, caps, industrial, owner, ownerColors, domeCtx, builtObjects, scale, superWidth }
+  return { m, caps, industrial, owner, ownerColors, domeCtx, builtObjects, scale, superWidth }
 }

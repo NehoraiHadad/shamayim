@@ -208,8 +208,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   for (const sq of builtSquares(place, city, reachKm)) {
     if (!(inPlace?.(sq.dx, sq.dy) ?? true)) continue
     const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
-    const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`)
-    const frontM = raster?.front?.(lat, lon)
+    const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`), frontM = raster?.front?.(lat, lon)
     cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(raster?.at(lat, lon), lat, lon, seeded(seed)()), seed,
       ...(frontM ? { frontM } : {}) })
   }

@@ -7,7 +7,7 @@ export async function buildingMasks(png) {
   const layers = layersOn(sceneModel(window.__world, { width: w, landHeight: h, landTop: 300, skyHeight: 428, dpr: 1 }), 'land')
   const outside = layers.find(l => l.kind === 'outside')
   const canvas = () => Object.assign(document.createElement('canvas'), { width: w, height: h })
-  const { ownB, ownC, ownD, m, caps, industrial, owner, ownerColors, domeCtx, builtObjects, scale, superWidth } =
+  const { m, caps, industrial, owner, ownerColors, domeCtx, builtObjects, scale, superWidth } =
     await buildingRasterMasks(layers, outside, w, h)
   const ground = new Surface(canvas()), water = new Surface(canvas())
   for (const surface of [ground, water]) surface.resize(w, h, 1)
@@ -104,40 +104,6 @@ export async function buildingMasks(png) {
       spreads.push(2 * Math.abs(left - right) / (left + right))
     }
   }
-  const dbgItems = outside.items.filter(i => i.kind === 'box' && !i.beyond)
-  const lum = c => .2126 * toLin(c[0]) + .7152 * toLin(c[1]) + .0722 * toLin(c[2])
-  const toLin = v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4
-  const alt = [owner, ownB, ownC, ownD].map(ctx => {
-    const raw = ctx.getImageData(0, 0, superWidth, scale * h).data, own = new Int32Array(superWidth * scale * h)
-    for (let j = 0; j < own.length; j++) if (raw[j * 4 + 3] === 255) own[j] = ownerColors.get(raw[j * 4] | (raw[j * 4 + 1] << 8) | (raw[j * 4 + 2] << 16)) ?? 0
-    const bl = new Map(), ct = new Set()
-    for (let p = 0; p < w * h; p++) {
-      const claimed = new Map(), offset = scale * (Math.floor(p / w) * superWidth + p % w)
-      for (let y = 0; y < scale; y++) for (let x = 0; x < scale; x++) { const id = own[offset + y * superWidth + x]; if (id) claimed.set(id, 1 + (claimed.get(id) ?? 0)) }
-      for (const [id, n] of claimed) if (n >= 10) { if (!bl.has(id)) bl.set(id, []); bl.get(id).push(yAt(colors, p * 4)) }
-    }
-    for (let j = 0; j < own.length; j++) {
-      const a = own[j]; if (!a) continue
-      for (const step of [1, scale, superWidth, superWidth * scale]) {
-        if (step < superWidth && j % superWidth + step >= superWidth) continue
-        const b = own[j + step]; if (b && a !== b) ct.add(Math.max(a, b) * 65536 + Math.min(a, b))
-      }
-    }
-    const out = [], model = [], unres = []
-    for (const pair of ct) {
-      const a = bl.get(pair & 65535), b = bl.get(pair >>> 16)
-      if (!(a?.length >= 2 && b?.length >= 2)) continue
-      const l = q(a), r = q(b); out.push(2 * Math.abs(l - r) / (l + r))
-      const [fa, fb] = [dbgItems[(pair & 65535) - 1], dbgItems[(pair >>> 16) - 1]].map(i => outside.receivers[i.tier][i.receiver])
-      const d = (x, y) => 2 * Math.abs(x - y) / (x + y)
-      model.push(d(lum(fa.front.wall), lum(fb.front.wall))); unres.push(d(lum(fa.unresolved), lum(fb.unresolved)))
-    }
-    const f = v => v?.toFixed(4)
-    return [out.length, f(q(out)), f(q(model)), f(q(unres))]
-  })
-  const used = dbgItems.map(i => outside.receivers[i.tier][i.receiver])
-  const walls = { wall: q(used.map(u => lum(u.front.wall))), unres: q(used.map(u => lum(u.unresolved))), top: q(used.map(u => lum(u.top))),
-    w: q(dbgItems.map(i => i.w)), detail: dbgItems.length }
   const groundY = q(samples.bare)
   const shifted = (byte, by) => lin[Math.max(0, Math.min(255, byte + by))]
   const br = ([r, , b], by = 0) => shifted(b, by) / Math.max(1e-8, shifted(r, -by))
@@ -150,7 +116,7 @@ export async function buildingMasks(png) {
     frontYRange, frontBRRange, frontBR: q(frontRgb.map(rgb => br(rgb))) / groundBR,
     tileRed: tileRed / horizonRed, horizonRed, highpass: Math.sqrt(highpass / count),
     chimney: q(samples.chimney) / horizon, cooling: q(samples.cooling) / horizon,
-    alt, walls, pairs: spreads.length, spread: q(spreads),
+    pairs: spreads.length, spread: q(spreads),
     n: Object.fromEntries(Object.entries(samples).map(([k, a]) => [k, a.length])),
     ...Object.fromEntries(['built', 'front', 'sun', 'side', 'roof', 'tile', 'dome'].map(k => [k, q(samples[k]) / groundY])),
     chroma: q(samples.chroma) }

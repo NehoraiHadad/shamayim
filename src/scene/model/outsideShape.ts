@@ -1,4 +1,3 @@
-import { N } from '../../data/city/tune.tmp'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { rowY } from '../../data/city/fabricCover'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
@@ -39,9 +38,6 @@ interface Shape {
 
 /** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
-
-/** A block's wall is a draw of its own: its seed's first draw is its roof's height. */
-const WALL_DRAW = 0x5bd1e995
 
 export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
   const view = world.place3 as OutsideView
@@ -90,10 +86,11 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const heightM = roofM(b)
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
-    const r = seeded(seed + 7)
+    const looks = seed + 7, r = seeded(looks)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
     own.push({ y: rowY(b), item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
-      seed, receiver: receiverId(seed, false, false, roof ? seed : [seed ^ WALL_DRAW, seed + 0x6D2B79F5, seed + 2 * 0x6D2B79F5, seed + 7][N('salt')], !roof && heightM <= COLLECTORS_TO_M),
+      // A block's roof is its seed's first draw, so its plaster is drawn with its looks: the tall are no paler than the low.
+      seed, receiver: receiverId(seed, false, false, roof ? seed : looks, !roof && heightM <= COLLECTORS_TO_M),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }

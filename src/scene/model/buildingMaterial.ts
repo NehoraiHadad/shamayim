@@ -1,4 +1,3 @@
-import { N } from '../../data/city/tune.tmp'
 import { seeded } from '../../data/landmarks/hash'
 import type { Normal } from '../../world/livingLight'
 import type { RGB } from '../../world/types'
@@ -16,11 +15,11 @@ export const TILE = srgbRgbToLinear([.43, .275, .185])
 export const FLAT_ROOF: RGB = [.55, .532, .494]
 export const PANEL = srgbRgbToLinear([.11, .17, .30])
 /**
- * The roof of a block of flats as seen whole: the same roof under its solar collectors, one to a flat (the building code's
- * rule up to `COLLECTORS_TO_M`), which the drawing has no room to show one by one: 2.2 m² of dark panel to each 100 m² of
- * every storey, at five storeys.
+ * The roof of a block of flats, seen whole: the same roof under its solar collectors, one to a flat (the building code's rule
+ * up to `COLLECTORS_TO_M`), too small to draw one by one: 2.2 m² of dark panel to each 100 m² of a storey, at the 5.5
+ * storeys such blocks have here.
  */
-const COLLECTORS = N('coll')
+const COLLECTORS = .022 * 5.5
 export const COLLECTORS_TO_M = 27
 export const BLOCK_ROOF = FLAT_ROOF.map((y, i) => y * (1 - COLLECTORS) + PANEL[i] * COLLECTORS) as unknown as RGB
 export const LEAF = srgbRgbToLinear([.19, .28, .21])
@@ -49,11 +48,11 @@ export function materialBin(seed: number): number {
 }
 
 /**
- * A body's wall and facing, each by its own draw: `material` where the seed's own plaster draw is already spent; `block`
- * where its roof is a block of flats' (`BLOCK_ROOF`).
+ * A body's wall and facing, each by its own draw: the facing by `seed`, the plaster by `material`; `collectors` where its
+ * roof is a block of flats' (`BLOCK_ROOF`).
  */
-export function receiverId(seed: number, glass = false, industrial = false, material = seed, block = false): number {
-  const wall = materialBin(material) + (block ? WALL_ALBEDOS.length : 0)
+export function receiverId(seed: number, glass = false, industrial = false, material = seed, collectors = false): number {
+  const wall = materialBin(material) + (collectors ? WALL_ALBEDOS.length : 0)
   const id = (wall * FACINGS.length + facingBin(seed)) * 2 + Number(glass)
   return industrial ? -1 - id : id
 }
