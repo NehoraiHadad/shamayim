@@ -2,6 +2,7 @@ import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf } from '../../model/types'
 import { rng } from '../shared/base/core'
 import type { Cap } from './cloudCaps'
+import type { Cut, Eased } from './sheetEdge'
 import { fieldAt, type SheetField } from './sheetField'
 import { placesOf, type Places } from './sheetPlaces'
 
@@ -12,28 +13,27 @@ import { placesOf, type Places } from './sheetPlaces'
  */
 
 type Sheet = LayerOf<'cloudSheet'>
-export interface SheetCap extends Cap { gx: number; gy: number }
+export interface SheetCap extends Cap { gx: number; gy: number; side: number }
 
-/** A cap's size (px) against its row's spacing, at least and at most. */
-const SIZE = 2.1, LEAST = 4.5, MOST = 30
+/** Half a lattice's pitch (px) against its row's spacing, at least and at most. */
+const SIZE = 1.7, LEAST = 3, MOST = 24
 /** Where a lattice is (its half pitch against the size wanted): comes in over, lets go over; how much smaller its caps may be at a rim. */
-const COMES = [0.5, 0.75] as const, GOES = [1.5, 2.1] as const, FINER = 0.5
-/** How far a cap strays (of the pitch), its least and most size, how seldom it is large; the size (px) it is drawn from. */
-const STRAY = 0.85, SIZES = [0.45, 1.25] as const, SELDOM = 1.4, DRAWN = 1.6
-/** How far over the edge the cloud has a whole cap, and where (over it) the rim ends; the share of places kept inside, and what eases it. */
-const WHOLE = [-0.05, 0.12] as const, RIM = [0.08, 0.4] as const, INSIDE = 0.4, STAYS = 0.15
-/** Where in its mass a cap has gone (its foot has none), and how much cloud there must be round it. */
-const FOOT = [-0.85, -0.3] as const, AMONG = [0.05, 0.5] as const
+const COMES = [0.5, 0.75] as const, GOES = [1.5, 2.1] as const, FINER = 0.4
+/** How far a cap strays (of the pitch), its least and most size (of half of it), how seldom it is large; the size (px) it is drawn from. */
+const STRAY = 0.85, SIZES = [0.7, 1.9] as const, SELDOM = 1.4, DRAWN = 1.6
+/** How far over the edge a cap stands there (of its size, at least and at most), and what it grows with each px in from it. */
+const OUT = [0.2, 0.5] as const, IN = 0.8
+/** How far in (of its size) a rim goes; the share of places kept deep inside, and what eases it. */
+const RIM = 1.4, INSIDE = 0.6, STAYS = 0.15
+/** Where in its mass a cap has gone: its foot has none. */
+const FOOT = [-0.6, -0.1] as const
 /** How far a cap leans out of its mass, and at random (rad); what it is taken over (of the row's spacing). */
-const LEAN = 0.6, SWAY = 0.3, ABOUT = 1.5
+const LEAN = 0.9, SWAY = 0.3, ABOUT = 1.5
 /** Keeps the lattices' places apart in the seed. */
 const EAST = 7919, NORTH = 104_729, TIER = 1_299_709, LOWEST = 64, FRAME = 17
 
-/** The cloud as the caps read it: its eased alpha and its wide one, on the field's grid, and the alpha of its edge. */
-export interface CapField { f: SheetField; alpha: Float32Array; wide: Float32Array; edge: number }
-
 /** The caps, the mass's top first, so that a lower one stands before it. */
-export function sheetCaps(desc: Sheet, read: CapField, seed: number): SheetCap[] {
+export function sheetCaps(desc: Sheet, read: Eased, cut: Cut, seed: number): SheetCap[] {
   const { air, ys } = desc, { f } = read, out: SheetCap[] = []
   if (!air) return out
   const places = placesOf(desc, air), tiers = tiersOf(places, air.ranges, ys.map((y) => sizeAt(f, ((y - f.y0) / f.height) * (f.rows - 1))))
@@ -44,7 +44,7 @@ export function sheetCaps(desc: Sheet, read: CapField, seed: number): SheetCap[]
         if (!places.near((i + 0.5) * pitch + d[0], (j + 0.5) * pitch + d[1], pitch, from, to)) continue
         const own = seed + i * EAST + j * NORTH + (level + LOWEST) * TIER + n * FRAME, random = rng(own)
         const at = places.seen((i + 0.5 + STRAY * (random() - 0.5)) * pitch + d[0], (j + 0.5 + STRAY * (random() - 0.5)) * pitch + d[1])
-        const cap = at && capAt(read, at.x, at.y, (pitch / 2) * at.perKm, weight, random, own)
+        const cap = at && capAt(read, cut, at.x, at.y, (pitch / 2) * at.perKm, weight, random, own)
         if (cap) out.push(cap)
       }
     }
@@ -62,8 +62,8 @@ function sizeAt({ rows, spacing }: SheetField, gy: number): number {
 function tiersOf({ perKm }: Places, ranges: readonly number[], sizes: readonly number[]): { level: number; from: number; to: number }[] {
   const at = new Map<number, { from: number; to: number }>()
   for (let r = 1; r < ranges.length; r++) {
-    const pitch = (2 * sizes[r]) / perKm[r], hi = Math.ceil(Math.log2(pitch * GOES[1]))
-    for (let level = Math.floor(Math.log2(pitch * COMES[0] * FINER)); level <= hi; level++) {
+    const pitch = (2 * sizes[r]) / perKm[r], hi = Math.ceil(Math.log2(pitch * GOES[1])), least = (2 * DRAWN) / (SIZES[1] * perKm[r])
+    for (let level = Math.floor(Math.log2(Math.max(least, pitch * COMES[0] * FINER))); level <= hi; level++) {
       const { from, to } = at.get(level) ?? { from: Infinity, to: 0 }
       at.set(level, { from: Math.min(from, ranges[r - 1]), to: Math.max(to, ranges[Math.min(ranges.length - 1, r + 1)]) })
     }
@@ -71,17 +71,16 @@ function tiersOf({ perKm }: Places, ranges: readonly number[], sizes: readonly n
   return [...at].map(([level, t]) => ({ level, ...t }))
 }
 
-function capAt({ f, alpha, wide, edge }: CapField, x: number, y: number, half: number, weight: number, random: () => number, seed: number): SheetCap | null {
-  const gx = ((x - f.x0) / f.width) * (f.cols - 1), gy = ((y - f.y0) / f.height) * (f.rows - 1), on = (grid: Float32Array) => fieldAt(grid, f.cols, f.rows, Math.max(0, gx), gy)
-  const over = on(alpha) - edge
-  if (over <= WHOLE[0]) return null
-  const rim = 1 - smoothstep(RIM[0], RIM[1], over), q = half / sizeAt(f, gy), least = 1 - (1 - FINER) * rim
+function capAt({ f, wide }: Eased, cut: Cut, x: number, y: number, half: number, weight: number, random: () => number, seed: number): SheetCap | null {
+  const gx = ((x - f.x0) / f.width) * (f.cols - 1), gy = ((y - f.y0) / f.height) * (f.rows - 1), size = sizeAt(f, gy), inside = cut.inside(x, y)
+  const most = size * (OUT[0] + (OUT[1] - OUT[0]) * random()) + IN * inside
+  if (most < DRAWN) return null
+  const rim = 1 - smoothstep(0, RIM * size, inside), q = half / size, least = 1 - (1 - FINER) * rim
   const there = smoothstep(COMES[0] * least, COMES[1] * least, q) * (1 - smoothstep(GOES[0], GOES[1], q))
   if (!there) return null
-  const stays = smoothstep(0, STAYS, INSIDE + (1 + STAYS - INSIDE) * rim - random())
-  const grown = there * stays * weight * smoothstep(WHOLE[0], WHOLE[1], over) * smoothstep(FOOT[0], FOOT[1], on(f.side)) * smoothstep(AMONG[0], AMONG[1], on(wide))
-  const r = half * (SIZES[0] + (SIZES[1] - SIZES[0]) * random() ** SELDOM) * grown
-  return r > DRAWN ? { x, y, r, gx, gy, seed, tilt: LEAN * leanAt(wide, f, gx, gy) + SWAY * (random() - 0.5) } : null
+  const side = cut.sideAt(x, y), stays = smoothstep(0, STAYS, INSIDE + (1 + STAYS - INSIDE) * rim - random())
+  const r = Math.min(most, half * (SIZES[0] + (SIZES[1] - SIZES[0]) * random() ** SELDOM)) * there * stays * weight * smoothstep(FOOT[0], FOOT[1], side)
+  return r > DRAWN ? { x, y, r, gx, gy, side, seed, tilt: LEAN * leanAt(wide, f, gx, gy) + SWAY * (random() - 0.5) } : null
 }
 
 /** Which way the mass faces at a place (-1 left … 1 right), from the cloud on either side of it. */

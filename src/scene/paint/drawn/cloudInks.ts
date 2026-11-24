@@ -51,5 +51,5 @@ function ramp(t: CloudInks, u: number, flat = 0): RGB {
 /** The ink of a mass at a light. */
 export const printed = (t: CloudInks, u: number): RGB => ramp(t, u, WIPE)
 
-/** A cap's inks where the mass's light is `u`. */
-export const capInks = (t: CloudInks, u: number): CapInks => ({ lit: ramp(t, u + CREST), local: ramp(t, u + OWN), shade: ramp(t, u - UNDER), key: t.key })
+/** A cap's inks where the mass's light is `u`; `crest`: how far its top stands in the light, under 0 where that comes from below. */
+export const capInks = (t: CloudInks, u: number, crest = 1): CapInks => ({ lit: ramp(t, u + crest * CREST), local: ramp(t, u + OWN), shade: ramp(t, u - UNDER), key: t.key })

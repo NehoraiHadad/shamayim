@@ -7,8 +7,9 @@ import { throughAir } from '../shared/cloud/throughAir'
 import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
 import { lowLight, whitened } from './cloudLight'
+import { easedField } from './sheetEdge'
 import { fieldAt, sheetField, type SheetField } from './sheetField'
-import { printField, printSheet } from './sheetPrint'
+import { printSheet } from './sheetPrint'
 
 /*
  * A cloud sheet in the drawn hand. What is broken is printed as capped blocks (`printSheet`), more of it the more open the
@@ -35,7 +36,7 @@ const WISP = 0.8, ALONE = [0.08, 0.34] as const
 export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv): void {
   const field = sheetField(desc)
   if (!field) return
-  const open = desc.air ? field.open : 0, read = open ? printField(field) : null
+  const open = desc.air ? field.open : 0, read = open ? easedField(field) : null
   const w = Math.ceil(field.width * RASTER) + 1, h = Math.ceil(field.height * RASTER) + 1
   const scratch = env.canvas(w, h)
   const image = scratch.ctx.createImageData(w, h)
