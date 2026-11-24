@@ -28,7 +28,7 @@ const LOW = 0.6, LOW_SHADE = 0.35, WARM = [0.03, 0.2] as const
  *  (a head's lit pink and its grey shade would break it in patches). */
 const GLOW = [0.18, 0.36] as const, SOFTENED = 0.62
 /** There the light that reaches a point says how far it leans to the lit colour: none up to this much, all from this much. */
-const LEAN = [0.3, 0.85] as const
+const LEAN = [0.18, 0.66] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
 const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43

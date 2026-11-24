@@ -20,6 +20,8 @@ const FOOT = 12, STEP = 1.6
 const WALL = 11, WALL_COVER = 0.8
 /** A sheet with up to this share of open sky is a deck with holes; from that one on, heaps with sides of their own. */
 const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
+/** The shares of open sky up to which a deck is one broad body and from which its forms are its own; how calm a holed deck's yet are. */
+const WHOLE_UP_TO = 0.04, BROKEN_FROM = 0.22, HEAP_CALM = 0.25
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
 /** From this cover on no fine edge shows. */
@@ -46,11 +48,11 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const { xs, ys } = desc, width = xs[xs.length - 1] - xs[0], span = ys[ys.length - 1] - ys[0]
   const open = deckOpenness(desc), veiled = desc.lattice === 'high', kind = makeOf(desc, open)
   const clear = desc.alpha.reduce((sum, a) => sum + 1 - smoothstep(0, CLEAR, a), 0) / desc.alpha.length
-  const holed = open * (1 - smoothstep(DECK_UP_TO, HEAPS_FROM, clear)), make = { ...kind, calm: holed }
+  const holed = open * (1 - smoothstep(DECK_UP_TO, HEAPS_FROM, clear)), calm = open * Math.max(1 - smoothstep(WHOLE_UP_TO, BROKEN_FROM, clear), HEAP_CALM * holed), make = { ...kind, calm }
   const { buf, cols, rows, scale } = softCover(desc, make.soft)
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, grid = () => new Float32Array(w * h)
   const field: SheetField = { w, h, scale: new Float32Array(h), near: new Float32Array(h), alpha: grid(), cover: grid(), thick: grid(), tone: grid(), source: grid(), city: grid(),
-    bend: grid(), wall: grid(), flat: grid(), open, calm: holed, grain: cloudGrain(make, hashId(desc.id)) }
+    bend: grid(), wall: grid(), flat: grid(), open, calm, grain: cloudGrain(make, hashId(desc.id)) }
   const { alpha, grain } = field, next = cols * 4
   for (let j = 0, p = 0; j < h; j++) {
     const gy = (j * (rows - 1)) / (h - 1), r = Math.min(rows - 2, Math.floor(gy)), ty = gy - r, y = j / RASTER

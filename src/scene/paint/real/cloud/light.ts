@@ -30,7 +30,9 @@ const OWN_SHADE = 0.7, BASE = 0.42, LIT = 0.2
 const TO_MEAN = 0.9
 /** Deep in a mass its own puffs show: what a puff thicker than those round it takes of the shade, and from which depth on; what of it
  *  a broad body keeps. */
-const PUFFS = 1.3, INSIDE = [0.5, 0.75] as const, PUFFS_KEPT = 0.12
+const PUFFS = 1.6, INSIDE = [0.5, 0.75] as const, PUFFS_KEPT = 0.12
+/** How far a broad body's light is held to its mean. */
+const HELD = 0.45
 /** How far round a point its depth in the mass is taken, sky px overhead. */
 const DEEP = 26
 
@@ -68,8 +70,8 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       mass += thick[n]
     }
   }
-  const over = mass ? TO_MEAN * (all / mass - mean) : 0
-  for (let n = 0; n < size; n++) shade[n] -= over
+  const middle = mass ? all / mass : 0, to = mass ? middle - TO_MEAN * (middle - mean) : 0, kept = 1 - HELD * body.calm
+  for (let n = 0; n < size; n++) shade[n] = to + kept * (shade[n] - middle)
   return { light, shade }
 }
 
