@@ -1251,7 +1251,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             ink steps at band edges, `turn` leans without direct sun
       - [~] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
             inside the crown); READY next. Known: palms take no key, a flat roof hides half its key line
-      - [~] S3 storm (`claude/drawn-storm`): built; judge, review and READY next
+      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY next. Known: canvases allocated per
+            repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
       - [ ] S1 sky and sun (waits for `skyBase` + grade), S2 cloud sheets (cloud-space position), S6 air (dust)
       - [ ] When the sky grade lands: `pigment` in water drops its chroma gain (no double grade)
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
