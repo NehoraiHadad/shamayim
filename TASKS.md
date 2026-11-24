@@ -1264,15 +1264,19 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 - [~] 2a. Drawn style end to end (colour woodblock print). Map, plan and prototype on `claude/drawn-style-accc0f`; build plan
       `drawn/BUILD-PLAN.md` in the notes folder. Start from v1: replace only what a user sees as different
       - [x] Owner approved the direction (second set of stills, `50c75d12`)
-      - [~] S4 ground and water (`claude/drawn-ground`): built, judged, reviewed and fixed (`ab93e476`); READY. Known small faults: hatch
+      - [x] The whole stack is merged: main `7e4b5ce6`, approved by the owner from stills
+      - [~] Last round, clouds and speed (`claude/drawn-cloud2`): heads in groups, rim caps on the edge itself, scalloped feet, the
+            outline never seen through a thin print; one Codex review (direct printing, grey under a deck, fog houses too), one fix
+            round; READY. Polish later: notes `drawn/POLISH-LATER.md`
+      - [x] S4 ground and water (`claude/drawn-ground`): built, judged, reviewed and fixed (`ab93e476`); READY. Known small faults: hatch
             ink steps at band edges, `turn` leans without direct sun
-      - [~] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
+      - [x] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
             inside the crown); READY `0e3c7cae`. Known: palms take no key, a flat roof hides half its key line
-      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
+      - [x] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
             Known: canvases allocated per repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
-      - [~] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
+      - [x] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
             second gain (`skied`); READY, main d0195813 merged in (`c6fa7fca`)
-      - [~] S2 cloud sheets (`claude/drawn-cloud`, on S1): caps in the cloud's air, far arches, closed deck as v1; judged on 10 stills,
+      - [x] S2 cloud sheets (`claude/drawn-cloud`, on S1): caps in the cloud's air, far arches, closed deck as v1; judged on 10 stills,
             Codex review and its fixes, printed straight onto the layer; READY `0f41da2f`, the whole stack on main 2a0c2fef (grey under a deck; houses in fog and dust veiled). Known: flat tops at the zenith
             row, a straight line where a sheet begins mid-sky, dusk clouds smooth, showers one closed mass, caps may enter at 2.6 px
       - [x] S6 air: nothing to build. Dust reads as two flat wipes once S2 prints it, rain shafts and fog are as v1

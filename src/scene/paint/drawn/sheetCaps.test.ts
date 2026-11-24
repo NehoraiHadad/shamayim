@@ -7,8 +7,8 @@ import { sheetField } from './sheetField'
 
 type Sheet = LayerOf<'cloudSheet'>
 const RANGES = [0, 1, 1.6, 2.6, 4, 7, 12, 20], COLS = 21
-/** The second row (px): over it, nearly overhead, the cloud is on every side and its air crosses the sky faster. */
-const SECOND = 40
+/** The second row (px): over it, nearly overhead, the cloud is on every side and its air crosses the sky faster; so do the caps hung from one there. */
+const SECOND = 40, HUNG = 24
 
 /** The caps of a cloud that fills its air west of the eye, carried as far as its air is. */
 function capsAt(frames: NonNullable<Sheet['air']>['frames']) {
@@ -37,7 +37,7 @@ describe('the caps of a broken sheet', () => {
     const kept = still.filter(({ seed }) => moved.has(seed))
     expect(kept.length).toBeGreaterThan(0.85 * still.length)
     for (const cap of kept) {
-      const to = moved.get(cap.seed), most = cap.y > SECOND ? 2 : 6
+      const to = moved.get(cap.seed), most = cap.y > SECOND + HUNG ? 2 : 6
       expect(Math.hypot((to?.x ?? 0) - cap.x, (to?.y ?? 0) - cap.y)).toBeLessThan(most)
       expect(Math.abs((to?.r ?? 0) - cap.r)).toBeLessThan(most)
     }
