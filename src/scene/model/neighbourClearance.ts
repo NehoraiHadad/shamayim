@@ -3,7 +3,7 @@ import type { WorldMark } from '../../world/markGeometry'
 import { markBoxAt } from '../../world/markGeometry'
 import type { WorldState } from '../../world/types'
 import { footSpans, type DrawnMass } from './markOcclusion'
-import { TOWN_SIDE_PX } from './neighbourPlacement'
+import { TOWN_SIDE_PX } from '../../world/neighbourSeparation'
 import type { Box } from './types'
 
 /** Exact centre-position boundaries: painted foot spans, text rectangles and viewport edges, all in CSS px. */

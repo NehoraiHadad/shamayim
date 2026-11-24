@@ -5,8 +5,10 @@ import * as beyondSeat from './beyondSeat'
 import { roshPina } from './beyondSeatFixture'
 import * as skylineLayout from './drawnSkyline'
 import { GLYPH_SPECS, glyphAtHeight } from './glyphSpecs'
+import { LABEL_WIDTHS } from './heightLabel'
 import { DOT_R } from './layout'
-import { outsideMarkBounds } from './outsideSeats'
+import { markBoxAt } from './markGeometry'
+import { TOWN_SIDE_PX } from './neighbourSeparation'
 import { heightLabelBox, hits } from './sceneClearance'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
@@ -55,7 +57,7 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
   })
   const seats = new Map(sites.map(({ mark, block, hPx }) =>
     [mark.id, { x: block.x, base: block.baseY, hPx, km: block.km, blockId: block.id }]))
-  vi.spyOn(beyondSeat, 'beyondTowns').mockReturnValue({
+  const towns = vi.spyOn(beyondSeat, 'beyondTowns').mockReturnValue({
     beyondTowns: sites.map(({ block }) => block),
     seatMark: (mark) => seats.get(mark.id) ?? null,
   })
@@ -71,7 +73,7 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
   expect(crowded.world.labels.height).toEqual(budgeted.world.labels.height)
   const tower = droppedAlone.world.marks.find(mark => mark.id === crowd[7].id)!
   expect(tower).toBeDefined()
-  const { left, right, top, bottom } = outsideMarkBounds(tower, tower.x)
+  const { left, right, top, bottom } = markBoxAt(tower, tower.x)
   const movedBadge = heightLabelBox(droppedAlone.world.labels.height, SCENE_W)
   const boxes = JSON.stringify({ badge, movedBadge, tower: { left, right, top, bottom } })
   expect(hits([badge], left, top, right, bottom), boxes).toBe(true)
@@ -82,4 +84,18 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
   const keptColumn = sites[0].block.x / SCENE_W
   expect(crowded.skyline(keptColumn)).toBe(budgeted.skyline(keptColumn))
   expect(crowded.skyline(keptColumn)).toBeLessThan(droppedAlone.skyline(keptColumn))
+
+  // Fit even at the narrow solver viewport, with one extra CSS pixel beyond both seating seams.
+  const last = sites[7].block
+  const wide = { ...last, w: (tower.w + 2 * TOWN_SIDE_PX + 1) * SCENE_W / LABEL_WIDTHS[0] }
+  towns.mockReturnValue({ beyondTowns: [...sites.slice(0, 7).map(({ block }) => block), wide],
+    seatMark: (mark) => seats.get(mark.id) ?? null })
+  const wideBudgeted = buildWith(crowd.slice(0, 2)).world
+  const wideCrowded = buildWith(crowd).world
+  const wideDroppedAlone = buildWith(crowd.slice(-1)).world
+  expect(wideCrowded.seatPool.map(({ id }) => id)).toContain(tower.id)
+  expect(wideCrowded.marks.map(({ id }) => id)).not.toContain(tower.id)
+  expect(wideDroppedAlone.marks.map(({ id }) => id)).toEqual([tower.id])
+  expect(wideDroppedAlone.labels.height).not.toEqual(wideBudgeted.labels.height)
+  expect(wideCrowded.labels.height).toEqual(wideBudgeted.labels.height)
 })

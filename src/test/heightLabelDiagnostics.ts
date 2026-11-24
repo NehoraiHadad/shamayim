@@ -1,16 +1,6 @@
-import { vi } from 'vitest'
-import { besideDot } from '../world/heightLabel'
-import * as backdrop from '../world/labelBackdrop'
 import type { HeightLeader } from '../scene/model/heightLeader'
 import type { GlyphDesc } from '../scene/model/types'
 import type { Box } from '../world/layout'
-
-export function unquantizedSpot(args: Parameters<typeof besideDot>) {
-  const steps = vi.spyOn(backdrop, 'backdropSteps').mockImplementation(area => area)
-  const contact = vi.spyOn(backdrop, 'hasVisibleContact').mockReturnValue(true)
-  try { return besideDot(...args) }
-  finally { steps.mockRestore(); contact.mockRestore() }
-}
 
 export const glyphBox = (m: GlyphDesc): Box => ({
   left: m.x - m.w / 2, right: m.x + m.w / 2,

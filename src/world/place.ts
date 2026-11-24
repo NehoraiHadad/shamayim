@@ -14,12 +14,11 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import { heightText } from '../text/isolate'
-import { SHEET_CLEAR, VISIBLE_BOTTOM, type Box } from './layout'
+import { SHEET_CLEAR, VISIBLE_BOTTOM } from './layout'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { heightLabelMarks } from './heightLabelMarks'
 import { besideDot } from './heightLabel'
 import { notesOnWater } from './notesOnWater'
-import { SCENE_W } from './sceneBox'
 import { portraitLabelObstacles } from './heightLabelObstacles'
 import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
@@ -118,19 +117,14 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const line = (datum?.segments ?? []).map(seg => ({
     left: seg.x1, right: seg.x2, top: datum!.y - 1, bottom: datum!.y + 1, priority: 'note' as const,
   }))
-  const referenceDot = { x: dot.x * SCENE_W / width, y: dot.y }
-  const referenceBox = (b: Box, anchor: number) => {
-    const shift = anchor * (SCENE_W / width - 1)
-    return { ...b, left: b.left + shift, right: b.right + shift }
-  }
-  const referenceNotes = noteBoxes(notes).map(note => referenceBox(note, note.left))
-  const spot = besideDot(referenceDot, label.text, [
+  const noteObstacles = noteBoxes(notes)
+  const spot = besideDot(dot, label.text, [
     ...portraitLabelObstacles(view),
-    ...heightLabelMarks(marks, view, drawn, referenceNotes, width),
+    ...heightLabelMarks(marks, view, drawn, noteObstacles, width),
     ...line,
-    ...referenceNotes.map(note => ({ ...note, priority: 'note' as const, fixed: 'left' as const })),
+    ...noteObstacles.map(note => ({ ...note, priority: 'note' as const, fixed: 'left' as const })),
   ])
-  const { x, y } = spot ?? referenceDot
+  const { x, y } = spot ?? dot
   const labels: WorldLabels = { height: { ...label, x, y, backed: true }, notes, datum }
   return { marks, seatPool, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,

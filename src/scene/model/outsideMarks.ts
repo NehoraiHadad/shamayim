@@ -36,7 +36,7 @@ export function outsideMarks(world: WorldState, width: number, drawnBlocks: Read
     const candidates = [...ordinary, ...seats.map(seat => sources.get(seat.mark.id)!)]
     const result = nearestMarks(candidates, mass, (mark, foreground) => {
       if (mark.sightKm !== undefined || mark.seatBlockId !== undefined) return neighbour(mark, foreground)
-      const seat = visibleOutsideMark(mark, mark.x * sx, zones)[0]
+      const seat = visibleOutsideMark(mark, mark.x * sx, mark.depth === undefined ? zones : clear)[0]
       return seat ? { ...seat, hazeKm: Math.min(mark.km, behind(mark.x, mark.base)),
         supportId: undefined as string | undefined, town: false } : null
     })

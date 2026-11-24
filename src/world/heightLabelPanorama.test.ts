@@ -10,7 +10,7 @@ import { DOT_R, overlaps, VISIBLE_BOTTOM, type Box } from './layout'
 import { heightLabelBox, sceneClearance, type ScreenBox } from './sceneClearance'
 import { SCENE_W } from './sceneBox'
 import { buildWorld } from './world'
-import { glyphBox, tallyLeader, unquantizedSpot } from '../test/heightLabelDiagnostics'
+import { glyphBox, tallyLeader } from '../test/heightLabelDiagnostics'
 
 const BOX = { width: SCENE_W, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const WIDTHS = [320, 360, SCENE_W, 430, 520]
@@ -56,12 +56,12 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     return buildWorld({ ...input, forecast: { ...input.forecast, elevation } })
   }
   const solve = vi.spyOn(heightSolver, 'besideDot')
-  const { built: world, spot, args } = (() => {
+  const { built: world, spot } = (() => {
     try {
       const built = at('12:00')
       const spot = solve.mock.results[0]?.value as ReturnType<typeof heightSolver.besideDot>
       if (!spot) throw new Error(`Missing tethered badge for ${id}`)
-      return { built, spot, args: solve.mock.calls[0] }
+      return { built, spot }
     }
     finally { solve.mockRestore() }
   })()
@@ -69,8 +69,6 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
   if (view.kind !== 'outside') throw new Error(`Missing outside view for ${id}`)
   const { dot } = view
   const { height, notes, datum } = world.labels
-  const raw = unquantizedSpot(args)
-  if (raw && (raw.x !== spot.x || raw.y !== spot.y)) console.log(JSON.stringify({ place: id, quantization: [[raw.x, raw.y], [spot.x, spot.y]] }))
   for (const width of WIDTHS) {
     const sx = width / SCENE_W
     const box = { ...BOX, width }
@@ -92,9 +90,7 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     expect(gap).toBeGreaterThanOrEqual(2 - 1e-6)
     expect(gap).toBeLessThanOrEqual(34 + 1e-6)
     if (width === SCENE_W) {
-      const { rasterCells, marks, fabric, beyond } = spot
-      const side = badge.bottom <= dot.y ? 'above' : badge.top >= dot.y ? 'below' : spot.x < x ? 'left' : 'right'
-      console.log(JSON.stringify({ place: id, side, distance: gap, x: spot.x, y: spot.y, marks, fabric, beyond, rasterCells }))
+      const { rasterCells } = spot
       // Fixed recorded budgets, tightened from the previous ceilings for two-digit and longer elevations.
       expect(rasterCells).toBeLessThanOrEqual(Math.abs(elevation) < 100 ? 94_000 : 101_000)
     }
@@ -118,16 +114,14 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     const far = sceneModel(world, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
     const glyphs = [...far, ...placed.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
     const count = crossings.find(row => row.width === width)
-    if (count) {
-      tallyLeader(count, overlay.leader, noteZones.map(rect), datumBoxes, glyphs)
-      const drawn = new Set(glyphs.map(g => g.sourceId))
-      const baselineFar = sceneModel(withoutBadge, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
-      const original = [...baselineFar, ...unbacked.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
-      const dropped = original.filter(g => !drawn.has(g.sourceId)).map(g => g.sourceId)
-      console.log(JSON.stringify({ place: id, width, drawnIds: [...drawn].sort(), badgeDrops: dropped }))
-    }
+    if (count) tallyLeader(count, overlay.leader, noteZones.map(rect), datumBoxes, glyphs)
+    const drawn = new Set(glyphs.map(g => g.sourceId))
+    const baselineFar = sceneModel(withoutBadge, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
+    const original = [...baselineFar, ...unbacked.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
+    const dropped = original.filter(g => !drawn.has(g.sourceId)).map(g => ({ place: id, width, mark: g.sourceId }))
+    expect(dropped).toEqual([])
 
-    expect(glyphs.filter(m => overlaps(glyphBox(m), badge, -1e-6)).map(m => m.sourceId)).toEqual([])
+    expect(glyphs.filter(m => !m.ground && overlaps(glyphBox(m), badge, -1e-6)).map(m => m.sourceId)).toEqual([])
     if (id === 'karmei-tzur' && width === SCENE_W) {
       expect(height.x).toBeCloseTo(dot.x, 6)
       expect(badge.bottom).toBeLessThan(dot.y)

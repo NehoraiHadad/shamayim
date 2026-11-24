@@ -1,8 +1,14 @@
-import type { LabelObstacle } from './heightLabel'
 import type { BackdropBoxes } from './labelBackdrop'
 import { coverageRaster } from './labelCoverage'
 import type { Box } from './layout'
 import { SCENE_W } from './sceneBox'
+
+export interface LabelObstacle extends Box {
+  priority?: 'note' | 'mark' | 'beyond'
+  fixed?: 'left' | 'center'
+  overhang?: number
+  viewport?: number
+}
 
 export function obstacleCoverage(region: Box, inputs: readonly LabelObstacle[], width: number) {
   const scale = width / SCENE_W

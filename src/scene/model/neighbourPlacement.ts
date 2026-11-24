@@ -3,7 +3,6 @@ import { markBoxAt } from '../../world/markGeometry'
 import type { OutsideItem } from './types'
 
 import { homeGap, HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, homeSeparation, TOWN_SIDE_PX } from '../../world/neighbourSeparation'
-export { homeGap, HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, TOWN_SIDE_PX } from '../../world/neighbourSeparation'
 /** Below the 1e-6 px geometry assertion tolerance: resolves floating-point contact at an exact boundary. */
 const CONTACT_EPS_PX = 1e-7
 

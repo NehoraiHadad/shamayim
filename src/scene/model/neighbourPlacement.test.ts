@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import { GLYPH_SPECS } from '../../world/glyphSpecs'
-import { HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, placeNeighbour, TOWN_SIDE_PX } from './neighbourPlacement'
+import { HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, TOWN_SIDE_PX } from '../../world/neighbourSeparation'
+import { placeNeighbour } from './neighbourPlacement'
 import type { WorldMark } from '../../world/markGeometry'
 
 const home = { left: 100, right: 120, hazeKm: 2 }

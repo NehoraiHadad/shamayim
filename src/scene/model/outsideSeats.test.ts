@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
-import { TOWN_SIDE_PX } from './neighbourPlacement'
+import { TOWN_SIDE_PX } from '../../world/neighbourSeparation'
 import { hashId } from '../../data/landmarks/hash'
 import type { Landmark } from '../../data/landmarks/types'
 import { HALL_M } from '../../data/landmarks/worship'

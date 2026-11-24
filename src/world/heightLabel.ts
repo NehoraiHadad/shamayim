@@ -1,16 +1,9 @@
-import { DOT_R, LABEL_H, VISIBLE_BOTTOM, type Box, type Point } from './layout'
+import { DOT_R, LABEL_H, VISIBLE_BOTTOM, type Point } from './layout'
 import { SCENE_W } from './sceneBox'
 import { heightLabelBox } from './sceneClearance'
 import { beyondArea, fabricArea } from './labelCoverage'
-import { columnBackdrop, obstacleCoverage } from './labelObstacleCoverage'
+import { columnBackdrop, obstacleCoverage, type LabelObstacle } from './labelObstacleCoverage'
 import { backdropSteps, hasVisibleContact, type BackdropBoxes } from './labelBackdrop'
-
-export interface LabelObstacle extends Box {
-  priority?: 'note' | 'mark' | 'beyond'
-  fixed?: 'left' | 'center'
-  overhang?: number
-  viewport?: number
-}
 
 // CSS-pixel inset and the brief's 34 px tether measured from the dot's rim.
 const INSET = 2

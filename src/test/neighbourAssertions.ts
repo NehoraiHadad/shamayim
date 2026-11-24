@@ -1,6 +1,6 @@
 import { expect } from 'vitest'
 import { groundAt } from '../world/sceneLight'
-import { HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, TOWN_SIDE_PX } from '../scene/model/neighbourPlacement'
+import { HOME_GAP_PX, MAX_NEIGHBOUR_SLIDE_PX, TOWN_SIDE_PX } from '../world/neighbourSeparation'
 import type { GlyphDesc, LayerOf } from '../scene/model/types'
 import type { WorldMark } from '../world/markGeometry'
 import { SCENE_W } from '../world/sceneBox'

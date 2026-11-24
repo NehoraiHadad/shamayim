@@ -1,4 +1,4 @@
-import type { LabelObstacle } from './heightLabel'
+import type { LabelObstacle } from './labelObstacleCoverage'
 import { BUILDING_EAVE, BUILDING_ROOF, TOWER_CROWN, TOWER_PODIUM_OVERHANG, TREE_CROWN, towerMastHeight } from './portraitMargins'
 import type { BeyondTower, OutsideView } from './types'
 
