@@ -35,10 +35,11 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   const { f } = read, frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }, seed = hashId(desc.id)
   const cut = cutOf(read, seed)
   if (!cut.edge.at.some((v) => v > 0)) return
-  const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), block = new Path2D(), key = new Path2D()
+  const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), key = new Path2D()
   const air = desc.through ? rowValues(desc.ys, desc.through, 1) : () => 1
   const opaque: Opaque = (gx, gy) => air(f.y0 + (gy / (f.rows - 1)) * f.height) * (THIN + (THICK - THIN) * Math.min(1, fieldAt(read.alpha, f.cols, f.rows, gx, gy)))
-  for (const path of [block, key]) traceOver(path, cut.edge, 0, frame)
+  traceOver(key, cut.edge, 0, frame)
+  const block = new Path2D(key)
   caps.forEach((cap, i) => {
     if (cut.inside(cap.x, cap.y) > OUTER * cap.r) return
     traceCap(block, cap, tops[i])
