@@ -14,7 +14,8 @@ it('grades the sky in range, with no jump, its value kept', () => {
     const out = DRAWN_GRADE.colour(rgb, 10)
     for (const v of out) expect(v >= 0 && v <= 1).toBe(true)
     expect(Math.abs(labOf(out).l - labOf(rgb).l)).toBeLessThan(0.02)
-    expect(far(out, DRAWN_GRADE.colour(rgb.map((v) => Math.min(1, v + 0.004)) as unknown as RGB, 10))).toBeLessThan(0.03)
+    const next = rgb.map((v) => Math.min(1, v + 0.004)) as unknown as RGB
+    expect(far(out, DRAWN_GRADE.colour(next, 10))).toBeLessThan(2 * far(rgb, next) + 0.01)
   }
 })
 
