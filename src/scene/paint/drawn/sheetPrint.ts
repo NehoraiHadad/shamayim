@@ -11,8 +11,8 @@ import { fieldAt, type SheetField } from './sheetField'
 import { sheetLight, type SheetLight } from './sheetLight'
 
 /*
- * A broken sheet as a print: the model's cloud as one block with capped edges, its light wiped over the whole of it, each cap
- * lit on its top, inside a key line. Where the cloud is, how much of it and every tone are the model's. Pure: the desc and
+ * A broken sheet as a print: the model's cloud as one block with capped edges and a scalloped foot, its light wiped over the
+ * whole of it, each cap lit on its top, inside a key line. Where the cloud is, how much of it and every tone are the model's. Pure: the desc and
  * the scratch surface from `env`.
  */
 
@@ -58,6 +58,7 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   }
   const alpha = ctx.globalAlpha
   caps.forEach((cap, i) => {
+    if (cap.hangs) return
     const inks = capInks(t, light.at(cap.gx, cap.gy, cap.side), light.crest), under = (rgb: RGB) => light.under(rgb, cap.gx, cap.gy)
     ctx.globalAlpha = alpha * opaque(cap.gx, cap.gy)
     paintCap(ctx, cap, tops[i], { lit: under(inks.lit), local: under(inks.local), shade: under(inks.shade), key: inks.key }, t.line * nearAt(f, cap.gy))
