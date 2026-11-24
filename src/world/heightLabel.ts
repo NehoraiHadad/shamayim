@@ -20,6 +20,7 @@ function coverage(region: Box, inputs: readonly LabelObstacle[], scale: number, 
   const marks = coverageRaster(region), fabric = coverageRaster(region)
   const protectedZones: Box[] = []
   const zoom = scale * reference
+  const rasterLeft = Math.floor(region.left), rasterRight = Math.ceil(region.right)
   for (const o of inputs) {
     const anchor = o.fixed === 'center' ? (o.left + o.right) / 2 : o.left
     const shift = anchor * (zoom - 1)
@@ -28,10 +29,12 @@ function coverage(region: Box, inputs: readonly LabelObstacle[], scale: number, 
       right: (o.fixed ? o.right + shift : o.right * zoom) + pad, top: o.top, bottom: o.bottom }
     // Protected offsets keep their sign under horizontal scaling. A fixed-left
     // note or scaled datum clear at both endpoints stays clear between them.
-    if (o.priority === 'note') {
-      if (box.right > region.left && box.left < region.right
-        && box.bottom > region.top && box.top < region.bottom) protectedZones.push(box)
-    } else (o.priority === 'mark' ? marks : fabric).fill(box)
+    // Raster coverage rounds outwards. Keep obstacles in the fractional edge cells.
+    const left = o.priority === 'note' ? region.left : rasterLeft
+    const right = o.priority === 'note' ? region.right : rasterRight
+    if (box.right <= left || box.left >= right) continue
+    if (o.priority === 'note') protectedZones.push(box)
+    else (o.priority === 'mark' ? marks : fabric).fill(box)
   }
   fabric.integrate(marks.cells)
   marks.integrate()
@@ -39,7 +42,7 @@ function coverage(region: Box, inputs: readonly LabelObstacle[], scale: number, 
 }
 
 /** Badge width W and height H bound each of six rasters by
- * (ceil(2×REACH + 2W)+1) × (ceil(2×REACH + 2H)+1) cells, plus a prefix border.
+ * (ceil(2×REACH + 2W)+2) × (ceil(2×REACH + 2H)+2) cells including rounding and the prefix border.
  * At most (floor((2×REACH + W)/(520/375))+1) × (floor(2×REACH + H)+1)
  * lattice points need up to six four-read sums and intersections with local protected zones.
  */
@@ -59,29 +62,37 @@ export function besideDot(dot: Point, text: string, width: number, obstacles: re
   const bottom = Math.floor(Math.min(VISIBLE_BOTTOM - INSET - foot - dot.y, REACH + pad))
   if (left > right || top > bottom) return null
 
+  const regionTop = dot.y + top - pad, regionBottom = dot.y + bottom + foot
+  const rasterTop = Math.floor(regionTop), rasterBottom = Math.ceil(regionBottom)
+  const localInputs = inputs.filter(o => o.priority === 'note'
+    ? o.bottom > regionTop && o.top < regionBottom : o.bottom > rasterTop && o.top < rasterBottom)
   const scales = WIDTHS.map(width => {
     const scale = width / SCENE_W
     const region = { left: (center + left) * scale - half, right: (center + right) * scale + half,
-      top: dot.y + top - pad, bottom: dot.y + bottom + foot }
-    return coverage(region, inputs, scale, reference)
+      top: regionTop, bottom: regionBottom }
+    return coverage(region, localInputs, scale, reference)
   })
   const rows = Array.from({ length: bottom - top + 1 }, (_, i) => {
     const offset = i + top
     const y = dot.y + offset, upper = y - pad, lower = y + foot
-    return { y, upper, lower, gap: square(Math.max(upper - dot.y, dot.y - lower, 0)),
-      distance: square(offset + LABEL_H / 2),
+    const gap = Math.max(upper - dot.y, dot.y - lower, 0)
+    return { y, upper, lower, gap, gap2: square(gap),
+      preference: square(offset + LABEL_H / 2),
       bounds: scales.map(({ marks }) => [marks.top(upper), marks.bottom(lower)] as const) }
-  }).sort((a, b) => a.distance - b.distance)
+  }).sort((a, b) => a.gap - b.gap || a.preference - b.preference)
   const offsets = Array.from({ length: right - left + 1 }, (_, i) => left + i)
     .sort((a, b) => Math.abs(a) - Math.abs(b))
+  // Compare overlap with notes and datum, then marks, fabric, and finally distance.
   let bestX = center, bestY = dot.y
   let bestNotes = Infinity, bestMarks = Infinity, bestFabric = Infinity, bestDistance = Infinity
   const clearance = square(DOT_R + INSET), tether = square(REACH)
   for (const offset of offsets) {
     const x = center + offset, dx = Math.abs(offset)
     // Once all coverage is zero, farther rows and columns cannot improve the score.
-    const dx2 = square(dx)
-    if (bestNotes === 0 && bestMarks === 0 && bestFabric === 0 && dx2 + rows[0].distance >= bestDistance) break
+    // At reference width, add one pixel per pixel of centre offset with no dead zone.
+    const gapX = square(Math.max(0, dx - half))
+    const distanceTo = (gap: number) => dx + (gapX === 0 ? gap : Math.sqrt(gapX + square(gap)))
+    if (bestNotes === 0 && bestMarks === 0 && bestFabric === 0 && distanceTo(rows[0].gap) >= bestDistance) break
     const near = square(Math.max(0, dx * narrow - half))
     const far = square(Math.max(0, dx * wide - half))
     const columns = scales.map(({ scale, marks, protectedZones }) => {
@@ -93,9 +104,9 @@ export function besideDot(dot: Point, text: string, width: number, obstacles: re
       return { left: marks.left(l), right: marks.right(r), zones }
     })
     for (const row of rows) {
-      const distance = dx2 + row.distance
+      const distance = distanceTo(row.gap)
       if (bestNotes === 0 && bestMarks === 0 && bestFabric === 0 && distance >= bestDistance) break
-      if (near + row.gap < clearance || far + row.gap > tether) continue
+      if (near + row.gap2 < clearance || far + row.gap2 > tether) continue
       let note = 0, marks = 0, fabric = 0
       for (let i = 0; i < scales.length; i++) {
         const s = scales[i], c = columns[i], b = row.bounds[i]
@@ -120,5 +131,7 @@ export function besideDot(dot: Point, text: string, width: number, obstacles: re
   }
   return bestDistance === Infinity ? null : {
     x: bestX, y: bestY, notes: bestNotes, marks: bestMarks, fabric: bestFabric,
+    candidates: rows.length * offsets.length,
+    rasterCells: scales.reduce((sum, { marks, fabric }) => sum + marks.cells.length + fabric.cells.length, 0),
   }
 }

@@ -1,12 +1,11 @@
-import { readFileSync, readdirSync } from 'node:fs'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { unpackPanorama, type StoredPanorama } from '../data/terrain/panorama'
+import type { StoredPanorama } from '../data/terrain/panorama'
 import { sceneModel } from '../scene/model'
 import { layoutOf } from '../scene/model/layout'
 import { outsideShape } from '../scene/model/outsideShape'
 import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { measureHeightLabel } from './heightLabelTiming'
+import * as heightSolver from './heightLabel'
 import { DOT_R, overlaps, VISIBLE_BOTTOM, type Box } from './layout'
 import { heightLabelBox, hits, sceneClearance, type ScreenBox } from './sceneClearance'
 import { SCENE_W } from './sceneBox'
@@ -14,14 +13,13 @@ import { buildWorld } from './world'
 
 const BOX = { width: SCENE_W, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const WIDTHS = [320, 360, SCENE_W, 430, 520]
-const records = new URL('../test/fixtures/scene/', import.meta.url)
-const ids = readdirSync(records).filter(file => file.endsWith('.panorama.json')).map(file => file.replace('.panorama.json', ''))
+const records = import.meta.glob<StoredPanorama>('../test/fixtures/scene/*.panorama.json', { eager: true, import: 'default' })
 const places = [...SCENE_PLACES, ...DATUM_PLACES, ...STILL_PLACES, ...SKYLINE_STUDY_PLACES, ...VILLAGE_PLACES]
 let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {
   stubPublicFetch()
-  loaded = await loadPlaces(places.filter(place => ids.includes(place.id)))
+  loaded = await loadPlaces(places)
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
@@ -45,15 +43,23 @@ function unionArea(boxes: readonly Box[], clip: Box) {
   return area
 }
 
-it.each(ids)('%s preserves the fabric and keeps its badge clear across viewport widths', id => {
+it.each(places)('$id preserves the fabric and keeps its badge clear across viewport widths', ({ id }) => {
   const loadedPlace = loaded.get(id)!
-  const raw = JSON.parse(readFileSync(new URL(id + '.panorama.json', records), 'utf8')) as StoredPanorama
-  const elevation = unpackPanorama(raw)!.groundM
+  const elevation = records[`../test/fixtures/scene/${id}.panorama.json`].groundM
   const at = (time: '12:00' | '21:00') => {
     const input = worldInput(loadedPlace, `2026-11-17T${time}`)
     return buildWorld({ ...input, forecast: { ...input.forecast, elevation } })
   }
-  const world = measureHeightLabel(id, () => at('12:00'))
+  const solve = vi.spyOn(heightSolver, 'besideDot')
+  const { built: world, spot } = (() => {
+    try {
+      const built = at('12:00')
+      const spot = solve.mock.results[0]?.value as ReturnType<typeof heightSolver.besideDot>
+      if (!spot) throw new Error(`Missing tethered badge for ${id}`)
+      return { built, spot }
+    }
+    finally { solve.mockRestore() }
+  })()
   const view = world.place3
   if (view.kind !== 'outside') throw new Error(`Missing outside view for ${id}`)
   const { dot } = view
@@ -99,6 +105,15 @@ it.each(ids)('%s preserves the fabric and keeps its badge clear across viewport 
     const gap = Math.hypot(edgeX - x, edgeY - dot.y) - DOT_R
     expect(gap).toBeGreaterThanOrEqual(2 - 1e-6)
     expect(gap).toBeLessThanOrEqual(34 + 1e-6)
+    if (width === SCENE_W) {
+      const { candidates, rasterCells, marks, fabric } = spot
+      const side = badge.bottom <= dot.y ? 'above' : badge.top >= dot.y ? 'below' : spot.x < x ? 'left' : 'right'
+      console.log(JSON.stringify({ place: id, side, distance: gap, marks, fabric, candidates, rasterCells }))
+      // The 34 px rim tether bounds the lattice at 520 px and all six prefix grids.
+      const diameter = 2 * (DOT_R + 34), w = badge.right - badge.left, h = badge.bottom - badge.top
+      expect(candidates).toBeLessThanOrEqual((Math.floor((diameter + w) / (520 / SCENE_W)) + 1) * (Math.floor(diameter + h) + 1))
+      expect(rasterCells).toBeLessThanOrEqual(6 * (Math.ceil(diameter + 2 * w) + 2) * (Math.ceil(diameter + 2 * h) + 2))
+    }
     expect(Boolean(overlay.leader)).toBe(gap > 12)
     if (overlay.leader) {
       const { x1, y1, x2, y2 } = overlay.leader
