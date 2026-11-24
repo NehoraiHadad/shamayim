@@ -6,11 +6,12 @@ import { smoothstep } from '../../world/ridgeLighting'
 import { acrossSpeed, pxPerRadAt } from './advect'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
+import { DOME_ALT } from './dome'
 import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
 import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
-import { towerAnvil } from './towerHeads'
+import { SLENDEREST, towerAnvil } from './towerHeads'
 import type { LayerOf, RGB, SceneBox } from './types'
 
 /*
@@ -32,13 +33,16 @@ const ANVILS = 2
 /** Narrower than this (px) a tower is a speck in the haze. */
 const W_MIN = 1.5
 /**
- * Beyond this range (km) a tower is no longer seen as a column of its own: the haze between merges it with its
+ * Look. Beyond `MERGE_KM` a tower is no longer seen as a column of its own: the haze between merges it with its
  * neighbours (15–25 km apart, a few px on the screen) into one soft mass along the horizon, at least this wide (px)
- * and no taller than wide.
+ * and no taller than wide. It is brought in over the range before it, so a tower drifting out widens as it goes.
  */
+const MERGE_FROM_KM = 30
 export const MERGE_KM = 40, MERGE_PX = 28
-/** How much of the sky's stretch a tower's own shape takes (an exponent): all of it draws every far heap as a pillar. */
+/** How much of the sky's stretch a near tower's own shape takes (an exponent): all of it draws a pillar. */
 const STAND = 0.55
+/** The altitude (deg) of a top from which the tower leans over the place, nearer than it is high. */
+const NEAR_TOP = 45
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
 const q = (v: number, step = 0.5) => Math.round(v / step)
 const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
@@ -55,10 +59,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     const p = projectCell(cell)
     const seen = p.widthDeg * pxPerDeg
     if (p.aTop < TOP_MIN || p.aNear > NEAR_MAX || seen < W_MIN || cell.share <= 0.01) continue
-    const merged = p.rangeKm > MERGE_KM
-    const w = merged ? Math.max(seen, MERGE_PX) : seen
     const x = geom.x(p.az)
-    if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     // The underside is as deep as its disc is foreshortened at the scale the tower is wide at, not at the dome's: a near
     // base spans a third of the sky's height there, and would hang as a bowl deeper than it is wide. Its sides stand
     // where they truly do, and only the far half past them curves in (`bowl`).
@@ -67,10 +68,15 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     const under = Math.min(span, (p.aNear - p.aFar) * pxPerDeg)
     const bowl = span > 0 ? (under / span) * (far - side) : 0
     const y = side + bowl - under
-    // The scene's sky is taller than it is wide (`sceneStretch`), and the dome stretches it most near the horizon: a
-    // tower stands to its top's altitude, but no taller than its true aspect at part of the scene's stretch, so a far one
-    // is a heap and not a streak, and a near one keeps its height.
-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * stretch * cell.vKm / (2 * cell.r), merged ? w : Infinity))
+    // A far tower stands on the relief in its true aspect, whole (`share` grows and wanes its radius alone). The sky over
+    // it is drawn taller than wide (`sceneStretch`): as its top climbs the dome it takes part of that stretch.
+    const over = smoothstep(DOME_ALT, NEAR_TOP, p.aTop), merged = smoothstep(MERGE_FROM_KM, MERGE_KM, p.rangeKm)
+    const shape = cell.vKm / (2 * cell.r) * (Math.sqrt(cell.share) * (1 - over) + stretch * over)
+    const least = seen + merged * Math.max(0, MERGE_PX - seen)
+    const column = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * shape))
+    const tall = column + merged * Math.min(0, least - column)
+    const w = Math.max(least, tall / SLENDEREST)
+    if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
     const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
     sprite.bowl = bowl

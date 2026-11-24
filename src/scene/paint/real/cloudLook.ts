@@ -1,5 +1,6 @@
 import { smoothstep } from '../../../domain/smoothstep'
-import { addLight } from '../../model/tone'
+import { CORE_LEAK } from '../../model/bodies'
+import { addLight, scaleLight } from '../../model/tone'
 import type { LayerOf, RGB } from '../../model/types'
 import { mix } from '../shared/base/hand'
 import { toneOf } from '../shared/cloud/deck'
@@ -15,7 +16,7 @@ import { toneOf } from '../shared/cloud/deck'
 /** Opacity curve exponent: thin parts thin out faster than linear, so the sky shows through them. */
 const VEIL_CURVE = 1.6
 /** Opacity of the thickest core: near-opaque, with a breath of sky still behind it. */
-const CORE_OPACITY = 0.92
+const CORE_OPACITY = 1 - CORE_LEAK
 /** Share of the model's shaded colour a thick core keeps: grey only there; the rest leans to the lit side. */
 const CORE_GREY = 0.55
 /** How fast that grey fades toward the thin edges (exponent on alpha): the edges are lit white. */
@@ -70,7 +71,8 @@ export function sheetTexels(desc: LayerOf<'cloudSheet'>, open: number): number[]
   return Array.from({ length: count }, (_, n) => {
     const a = alphaAt(n), relief = alphaAt(n - cols) - alphaAt(n + cols)
     const [rgb, alpha] = openLook(desc, toneOf(desc, desc.tone[n] ?? 0), a, relief, open)
-    const drawn = desc.city ? addLight(rgb, desc.city.rgb, desc.city.weight[n] ?? 0) : rgb
+    const own = desc.source ? scaleLight(rgb, desc.source[n] ?? 1) : rgb
+    const drawn = desc.city ? addLight(own, desc.city.rgb, desc.city.weight[n] ?? 0) : own
     return [drawn[0] * alpha, drawn[1] * alpha, drawn[2] * alpha, alpha]
   })
 }
