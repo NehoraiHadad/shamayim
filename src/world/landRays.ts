@@ -1,8 +1,9 @@
 import { RAY_DISTANCES } from '../data/terrain/panorama'
+import { exactWords } from './keys'
 import type { LandRayColumn, LivingLand, LivingLandSample } from './landLiving'
 
 /**
- * Panorama ray sampling rings and allocation-free FNV-1a cache key for `WorldState.land`.
+ * Panorama ray sampling rings and the FNV-1a cache key for `WorldState.land`.
  * Reuses `RAY_DISTANCES` from `panorama.ts` so bands align with the terrain sight profile.
  */
 
@@ -21,11 +22,11 @@ function snapRayDistanceM(targetKm: number): number {
 /** Distance bands (m) sampled along each ray, snapped directly to `RAY_DISTANCES`. */
 export const LIVING_LAND_DISTANCES_M: readonly number[] = TARGET_BANDS_KM.map(snapRayDistanceM)
 
-/** Allocation-free FNV-1a key over `LivingLand` (matches `partKey` 3-dp rounding). */
+/** FNV-1a key over `LivingLand`, its numbers exact: any rounding puts some two colours of different bytes under one key. */
 export function livingLandKey(land: LivingLand): string {
   let h = 2166136261
   const mix = (n: number) => { h = Math.imul(h ^ (n | 0), 16777619) }
-  const mixNum = (v: number) => mix(Math.round(v * 1000))
+  const mixNum = exactWords(mix)
   const mixStr = (s: string | null) => {
     if (s === null) { mix(0); return }
     mix(s.length)

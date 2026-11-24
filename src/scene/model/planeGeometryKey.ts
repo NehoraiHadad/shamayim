@@ -1,16 +1,12 @@
+import { exactWords } from '../../world/keys'
 import type { Plane, TerrainPlanes } from '../../world/types'
 import { SCENE_W } from '../../world/sceneBox'
 import { PALETTE_COLS, type PlaneName } from './faceProjection'
 
 /** Hash the complete inputs consumed by the form and receiver builders once per terrain revision. */
 export function planeGeometryKey(terrain: TerrainPlanes, name: PlaneName, plane: Plane, arrays: readonly Float32Array[]) {
-  const value = new Float64Array(1)
-  const bits = new Uint32Array(value.buffer)
   let hash = 2166136261
-  const number = (n: number) => {
-    value[0] = n
-    hash = Math.imul(Math.imul(hash ^ bits[0], 16777619) ^ bits[1], 16777619)
-  }
+  const number = exactWords((word) => { hash = Math.imul(hash ^ word, 16777619) })
   const path = (points: readonly (readonly [number, number])[]) => {
     number(points.length)
     for (const point of points) { number(point[0]); number(point[1]) }
