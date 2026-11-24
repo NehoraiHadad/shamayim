@@ -1,6 +1,6 @@
 import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
 import { boundsForPlace, boundsHoldKm, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
-import { LON_STEP } from '../data/city/grid'
+import { LON_STEP, squareOf } from '../data/city/grid'
 import {
   baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, isOwnSpot, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
   outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
@@ -155,13 +155,17 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   const cos = Math.cos(place.lat * Math.PI / 180)
   const cells: FabricCell[] = []
   const trees: PlaceTree[] = []
+  const squareKey = (lat: number, lon: number) => Object.values(squareOf(lat, lon)).join(':')
+  const towered = new Set(city?.towers.map(t => squareKey(t.lat, t.lon)))
   // A sparse square keeps its houses, unless its typical building is a block: then it stands at the typical roof, with no
-  // tail (of so few buildings the tallest is a tower of its own).
-  const heightsAt = (at: ReturnType<NonNullable<typeof raster>['at']> | undefined, u: number) => {
+  // tail. Where a mapped tower stands, what is typical of so few buildings is the tower, which is drawn as itself.
+  const heightsAt = (lat: number, lon: number, u: number) => {
+    const at = raster?.at(lat, lon)
     const house = HOUSE_M[u < .6 ? 0 : 1]
     if (at && at.built >= .2) return { heightM: roofHeight(at.levels, at.p90, u) }
     const typical = at ? roofHeight(at.levels, 0, 0) : house
-    return typical < HOUSE_TOP_M ? { heightM: house } : { heightM: typical, siteHeightM: house }
+    return typical < HOUSE_TOP_M || towered.has(squareKey(lat, lon)) ? { heightM: house }
+      : { heightM: typical, siteHeightM: house }
   }
   if (cover) {
     const step = LAND_STEP
@@ -182,13 +186,12 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
         if (c === TREE) { treeSpots.push({ dx, dy, lat, lon }); continue }
         const seed = hashId(`${row}:${col}`)
         const random = seeded(seed)
-        const at = raster?.at(lat, lon)
-        const heights = heightsAt(at, random())
+        const heights = heightsAt(lat, lon, random())
         // C9 (defect 10): a built cell is as wide as its buildings' frontage, not wall to wall: its width by the root of
         // the raster square's built share (the share of the ground under roofs; a row of blocks shows about its root
         // across), at a seeded spot inside the cell, so the streets and yards between them open and the rows behind,
         // with their own heights, show through. A cell the raster knows nothing of is whole.
-        const { built, front: frontM } = at ?? { built: 0 }
+        const { built, front: frontM } = raster?.at(lat, lon) ?? { built: 0 }
         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
         const shift = (random() - .5) * (1 - front) * wKm
         cells.push({ dx: dx + shift, dy, wKm: wKm * front, ...heights, seed, ...(frontM ? { frontM } : {}) })
@@ -218,9 +221,9 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     if (!(inPlace?.(sq.dx, sq.dy) ?? true)) continue
     const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
     const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`)
-    const at = raster?.at(lat, lon)
-    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(at, seeded(seed)()), seed,
-      ...(at?.front ? { frontM: at.front } : {}) })
+    const frontM = raster?.at(lat, lon).front
+    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(lat, lon, seeded(seed)()), seed,
+      ...(frontM ? { frontM } : {}) })
   }
   return { cells, trees, source: 'raster' as const }
 }
