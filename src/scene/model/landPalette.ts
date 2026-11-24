@@ -78,8 +78,8 @@ export function nonWaterLocalFallback(land: LivingLand): { albedo: RGB; source: 
   return { albedo: linearRgbToSrgb(tciRgbToReflectance(unknownLandRgb(land.own.dryness))), source: 'climatology' }
 }
 
-/** The first ring's footprint is as deep as the ring is far; past the ring the rays take over across its radius. */
-const RAYS_FROM_M = FIRST_RING_M * 1.5
+/** Half way, in log distance as they are interpolated, between the rays' first two bands (0.5 and 1 km): all the rays' own. */
+const RAYS_FROM_M = 700
 
 /** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
 export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
@@ -116,8 +116,8 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
   if (near) {
     const share = clamp((RAYS_FROM_M - distM) / (RAYS_FROM_M - FIRST_RING_M), 0, 1)
     albedo = lerpRgb(albedo, near.albedo, share)
-    for (const c of contribs) c.weight *= 1 - share
-    contribs.push({ source: near.source, weight: share })
+    // The label is the larger part's; at the even point it is the rays'.
+    if (share > 0.5) return { albedo, source: near.source }
   }
   return { albedo, source: dominantWeightedSource(contribs) }
 }

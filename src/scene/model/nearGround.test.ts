@@ -84,10 +84,10 @@ describe('the ground nearer than the first DEM ring', () => {
     expect(gap).toBeLessThan(JND)
   })
 
-  it('leaves the ground past 600 m to the rays', () => {
+  it('leaves the ground past 700 m to the rays', () => {
     const { land } = buildWorld(worldInput(loaded.get('haifa')!, NOON))
     const copy = { ...land, own: { ...land.own, albedo: [0, 0, 0] as RGB } }
-    for (let i = 0; i < land.rays.length; i += 5) for (const km of [0.6, 0.7, 1, 3, 20]) {
+    for (let i = 0; i < land.rays.length; i += 5) for (const km of [0.7, 1, 3, 20]) {
       expect(sampleBandAtKm(land, i, km)).toEqual(sampleBandAtKm(copy, i, km))
     }
   })
