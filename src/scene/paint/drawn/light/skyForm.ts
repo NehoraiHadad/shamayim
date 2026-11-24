@@ -3,6 +3,7 @@ import { smoothstep } from '../../../../world/ridgeLighting'
 import { againstLight } from '../../../model/illustratedTones'
 import { illustratedAerialFor as aerialFor, illustratedHazeOf as hazeOf } from '../../../model/illustratedHaze'
 import { skyAt } from '../../../model/sky'
+import { ungradedWorld } from '../../../model/skyTone'
 import { lightness, mixRgb, scaleLight } from '../../../model/tone'
 import type { SceneBox, Tones, RGB } from '../../../model/types'
 import type { SkyForm } from '../outsideOwn'
@@ -37,7 +38,7 @@ export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers
   // side it
   // stands (the living light: it eases in as the sun leaves the middle and as it rises, never a step).
   const side = -Math.sign(across) * smoothstep(0.02, 0.3, Math.abs(across)) * smoothstep(-8, 0, sun.altitude)
-  const sky = skyAt(world, box)
+  const sky = skyAt(ungradedWorld(world), box)
   const aerial = aerialFor(world, hazeOf(world))
   const against = againstLight(world)
   // The sky the walls face: the view's own, but against the light the dim half behind the eye.

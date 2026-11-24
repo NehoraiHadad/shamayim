@@ -6,6 +6,7 @@ import { useLandmarks } from './data/landmarks/useLandmarks'
 import { coverMarks } from './data/landmarks/coverMarks'
 import { useLand, useLandCover } from './data/land/useLand'
 import { useCity } from './data/city/useCity'
+import { useHasFootprints } from './data/village/useVillageTile'
 import { useObservedCloud } from './data/overhead/useObservedCloud'
 import { useRainOutlook } from './data/overhead/useRainOutlook'
 import { openMeteoIcon } from './data/openMeteo/provider'
@@ -66,6 +67,7 @@ export default function App() {
   const land = useLand(place, true)
   const marks = useMemo(() => [...landmarks.marks, ...coverMarks(place, cover, landmarks.marks)], [landmarks.marks, place, cover])
   const city = useCity(place)
+  const footprints = useHasFootprints(place)
   const observedCloud = useObservedCloud(place, receiptTime)
   const outlook = useRainOutlook(place)
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
@@ -166,7 +168,7 @@ export default function App() {
                 <WeekList forecast={forecast} now={now} />
                 <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
               </Sheet>
-              <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} />
+              <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} withFootprints={footprints} />
             </div>
           </div>
         )}

@@ -6,6 +6,7 @@ import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
 import { landDustLayers } from './landDust'
 import { layoutOf } from './layout'
+import { withLamp } from './lamp'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
 import { marksLayers } from './marks'
 import { outsideLayer, outsideMass, outsideHome } from './outside'
@@ -17,6 +18,7 @@ import { flashLayersOf } from './flash'
 import { shimmerLayerOf } from './shimmer'
 import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
+import { gradedWorld, withGradeKey } from './skyTone'
 import { starsLayer } from './stars'
 import { PLAIN_LIGHT, type StyleLight } from './styleLight'
 import { birdLayers } from './birds'
@@ -43,11 +45,17 @@ export type * from './types'
  * the wet ground's sheen); C8: while the land is not known, a mist in its place with a ridge line forming (`loading.ts`),
  * and the land's arrival timed by the shell's `clock` (no clock: the land shown as it is, the mist from phase 0).
  *
- * `light` is the painting hand's own light of the buildings, a value (`styleLight.ts`): the model knows no hand.
+ * `light` is the painting hand's own light of the buildings and grade of the sky, a value (`styleLight.ts`): the model knows no hand.
  */
 export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null, life: LifeClock = LIFE_START,
   light: StyleLight = PLAIN_LIGHT): SceneModel {
-  if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 }, life)
+  const grade = light.sky?.grade
+  const model = shownModel(gradedWorld(world, grade), box, clock, life, light)
+  return { ...model, layers: withGradeKey(model.layers, grade) }
+}
+
+function shownModel(world: WorldState, box: SceneBox, clock: LandClock | null, life: LifeClock, light: StyleLight): SceneModel {
+  if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 }, life, light)
   const model = knownModel(world, box, life, light)
   return clock?.reveal ? { ...model, layers: arrivingLayers(world, box, model.layers, clock) } : model
 }
@@ -56,11 +64,11 @@ export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | 
  * The land not known yet (C8): the sky and the weather that needs no land as they are; in the land's place the mist and
  * the forming line; no labels (they stand on the land), no clear zones.
  */
-function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: LifeClock): SceneModel {
+function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: LifeClock, light: StyleLight): SceneModel {
   const sky = skyLayers(world, box, life)
   const layers: LayerDesc[] = [...sky, ...weatherLayers(world, box, []).filter(showsUnknown), ...loadingLayers(world, box, clock)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers, overlay: [], clear: [] }
+  return { layers: withLamp(layers, world, box, light.lamp), overlay: [], clear: [] }
 }
 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
@@ -81,7 +89,7 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
     ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers, ...layout }
+  return { layers: withLamp(layers, world, box, light.lamp), ...layout }
 }
 
 type OutsideMemo = { box: string; layer: ReturnType<typeof outsideLayer> }
