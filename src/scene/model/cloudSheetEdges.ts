@@ -12,10 +12,10 @@ import type { FieldLayer } from '../../world/field/types'
 
 /**
  * Lobes round a mean cell and how far they stand out, in its radii: an outline of perimeter dimension 1.35 (Lovejoy 1982)
- * has a spectrum of amplitudes m^-(2 - 1.35 + 1/2). The three lobes of the coarse octave, with six at half of it in the
- * sampler's fine one.
+ * has a spectrum of amplitudes m^-(2 - 1.35 + 1/2), here from a cell half as wide as it is long (a second harmonic of 1/3)
+ * to its third. The finer lobes are the painters' own.
  */
-const LOBES = 3, DEPTH = LOBES ** -1.15
+const LOBES = 3, DEPTH = (2 / LOBES) ** 1.15 / 3
 /** The sampler's coarse octave (2/3 of it, value noise of standard deviation .21) at a sinusoid's deviation (1/√2). */
 const PEAK = DEPTH * Math.SQRT1_2 / (0.21 * 2 / 3)
 
@@ -35,6 +35,6 @@ function samplerOf(placeId: string, lattice: FieldLayer['lattice'], wavelength: 
 export function edgeNoise(placeId: string, layer: FieldLayer, minute: number) {
   const radius = meanRadius(layer.lattice, 1), amplitude = PEAK * radius
   const sampler = samplerOf(placeId, layer.lattice, 2 * Math.PI * radius / LOBES)
-  const noise = clumpAt(layer, minute, (x, y) => sampler(x, y))
-  return { radius, reach: amplitude / 2, at: (x: number, y: number) => amplitude * (noise(x, y) - 0.5) }
+  const noise = clumpAt(layer, minute, (x, y) => sampler(x, y, 0))
+  return { radius, reach: amplitude / 3, at: (x: number, y: number) => amplitude * (noise(x, y) - 0.5) }
 }

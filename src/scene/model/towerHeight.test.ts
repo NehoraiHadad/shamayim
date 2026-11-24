@@ -30,7 +30,7 @@ it('stands a near storm cell of a real day up to its true top, and cuts a far on
     // What shortens a far tower is its true height against its width as it stands now (its radius grows with `share`).
     const own = sprite.w * cell.vKm * Math.sqrt(cell.share) / (2 * cell.r), shape = p.rangeKm < 5 ? Infinity : own
     expect(sprite.tall).toBeLessThanOrEqual(top + 1e-6)
-    expect(sprite.tall).toBeGreaterThanOrEqual(Math.min(top, shape) - 1e-6)
+    expect(sprite.tall).toBeGreaterThanOrEqual(Math.min(top, shape, SLENDEREST * sprite.w) - 1e-6)
     // No far tower is drawn more slender than it is (an icicle), and none more than a Cb ever is (a chimney).
     if (p.aTop <= DOME_ALT) expect(sprite.tall).toBeLessThanOrEqual(own + 1e-6)
     expect(sprite.tall / sprite.w).toBeLessThanOrEqual(SLENDEREST + 1e-6)

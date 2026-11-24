@@ -63,10 +63,11 @@ function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: numbe
 /** The cell's drawn depth less the one its rays alone would show, at a place at `range` km and its logarithm. */
 function change(s: Shape, x: number, y: number, range: number, log: number): number {
   const { cell, d } = s
+  // Off to its side: it is only ever drawn wider.
+  const along = x * s.east + y * s.north
+  if (along <= range * s.cos) return 0
   const inverse = 1 / (cell.r * cell.r), dx = x - cell.x, dy = y - cell.y
   const native = kernel(cell.tau0, (dx * dx + dy * dy) * inverse, s.cumulus)
-  const along = x * s.east + y * s.north
-  if (along <= range * s.cos) return -native
   const up = log - s.mid, scaled = up * (up > 0 ? s.far : s.near)
   if (scaled >= s.high || scaled <= -s.high) return -native
   const at = Math.exp(s.mid + scaled)

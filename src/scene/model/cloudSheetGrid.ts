@@ -4,6 +4,7 @@ import { unit } from '../../world/field/genus'
 import { transmitAlong, type FieldSnapshot } from '../../world/field/transmit'
 import type { FieldLayer, Genus } from '../../world/field/types'
 import type { WorldState } from '../../world/types'
+import { DOME_ALT } from './dome'
 import type { SkyGeom } from './sky'
 import type { LayerOf } from './types'
 
@@ -74,13 +75,15 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
 
   const count = targetRows + 1
   if (cellular) {
-    // Pack two thirds of the rows into 5–30°. Compress towards 5°, where one scene pixel covers a larger radial
-    // distance, and above 30° towards it, where a row spans more ground than at the zenith.
-    const lowEdge = geom.dome(CELLULAR_LOW_EDGE)
-    const bands = [[0, geom.dome(30), 12, 1.5], [geom.dome(30), lowEdge, 48, 3],
-      [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]
+    // Pack two thirds of the rows into 5–30°: to the join by the degree (so are those above), as the dome's scale changes
+    // there, and from the join compressed towards 5°, where one scene pixel covers a larger radial distance.
+    const join = geom.dome(DOME_ALT), lowEdge = geom.dome(CELLULAR_LOW_EDGE)
     let row = 0
-    for (const [top, bottom, intervals, power] of bands) {
+    for (const [top, bottom, intervals] of [[90, 30, 12], [30, DOME_ALT, 9]]) {
+      for (let i = 0; i < intervals; i++) ys[row++] = geom.dome(top - (top - bottom) * i / intervals)
+    }
+    for (const [top, bottom, intervals, power] of [[join, lowEdge, 39, 3],
+      [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]) {
       for (let i = 0; i < intervals; i++) ys[row++] = bottom - (bottom - top) * (1 - i / intervals) ** power
     }
     ys[0] = 0
