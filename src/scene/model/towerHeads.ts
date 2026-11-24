@@ -19,7 +19,7 @@ const SLENDER = [1.1, 2.2] as const
 const SHOULDERS = 3, OUT = [0.18, 0.3], WIDE = [0.45, 0.65], HIGH = [0.35, 0.88]
 /** How much lower a shoulder stands under an anvil: the mature column rises clear of them. */
 const UNDER_ANVIL = 0.35
-/** How much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. */
+/** Look: how much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. */
 const ANVIL_FLARE = 1, FLARE_FROM = 0.45
 /** The anvil's own height under the column's overshooting top, which is this wide and stands this far off the middle. */
 const SHEET_TOP = 0.95, OVERSHOOT = 0.7, OFF = 0.3
@@ -52,7 +52,7 @@ export const towerAnvil = (cb: boolean, top: number, w: number, tall: number) =>
 
 /** The main column first, then its shoulders, last the base they all stand on (the whole underside is its own). */
 export function headsOf(s: TowerHeadShape): Head[] {
-  const r = seeded(s.seed ^ 0x51ed), anvil = s.anvil ?? 0
+  const r = seeded(s.seed ^ 0x51ed), above = seeded(s.seed ^ 0x2b1d), anvil = s.anvil ?? 0
   const slender = smoothstep(SLENDER[0], SLENDER[1], s.tall / s.w)
   const between = ([a, b]: readonly number[], t = r()) => a + (b - a) * t
   const head = (x: number, w: number, tall: number, flare: number): Head => {
@@ -61,7 +61,8 @@ export function headsOf(s: TowerHeadShape): Head[] {
   }
   const main = between([MAIN_WIDTH, MAIN_SLENDER], slender * (1 - anvil)) * s.w
   const heads = [head((r() - 0.5) * 0.2 * s.w, main, s.tall * (1 - (1 - SHEET_TOP) * anvil), anvil)]
-  if (anvil > 0.05) heads.push(head(heads[0].x + (r() - 0.5) * 2 * OFF * main, OVERSHOOT * main, s.tall, 0))
+  // The overshooting top rises out of the column as its anvil spreads; its draws are its own, so the shoulders stay put.
+  if (anvil > 0) heads.push(head(heads[0].x + (above() - 0.5) * 2 * OFF * main * anvil, OVERSHOOT * main * anvil, s.tall * (1 + anvil) / 2, 0))
   let side = r() < 0.5 ? -1 : 1
   const many = Math.max(slender > 0.5 ? 2 : 1, Math.floor(r() * SHOULDERS) + 1)
   for (let n = 0; n < many; n++, side = -side) {

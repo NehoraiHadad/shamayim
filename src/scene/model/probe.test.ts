@@ -4,10 +4,9 @@ import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { CELLULAR_LOW_EDGE, CELLULAR_LOW_POWER, CELLULAR_LOW_ROWS } from '../../world/field/cells'
 import { genusOf } from '../../world/field/genus'
-import { altitudeOf, groundRangeAt } from '../../world/field/project'
+import { groundRangeAt } from '../../world/field/project'
 import { transmitAlong } from '../../world/field/transmit'
 import { makeWorldBuilder } from '../../world/world'
-import { mix } from '../paint/shared/base/hand'
 import type * as Grid from './cloudSheetGrid'
 import { cloudLayersOf } from './cloudLayers'
 import { sheetPathFactor } from './cloudSheetMath'
@@ -15,8 +14,7 @@ import type * as Edges from './cloudSheetEdges'
 import type * as Seen from './cloudSheetSeen'
 import { seenDepth } from './cloudSheetSeen'
 import type * as Dome from './dome'
-import { skyGeom, skyStops, stopAt } from './sky'
-import type { RGB } from './types'
+import { skyGeom } from './sky'
 
 const on = vi.hoisted(() => ({ dome: true, rows: true, cells: true, noise: true }))
 vi.mock('./cloudSheetSeen', async (load) => {
@@ -86,79 +84,32 @@ afterAll(() => vi.unstubAllGlobals())
 
 const set = (value: Partial<typeof on>) => Object.assign(on, { dome: true, rows: true, cells: true, noise: true }, value)
 const worldAt = (id: string, at: string, extra = {}) => makeWorldBuilder()({ ...worldInput(places.get(id)!, at as LocalTime, at as LocalTime), ...extra })
-const BROKEN = { forcedLayers: { low: 0.6, mid: 0, high: 0 }, forced: { cloudCover: 50, thickCloud: 35, precipitation: 0, weatherCode: 2 } }
 
-it('lists the cells of the scenes', () => {
+it('finds the ball and the towers', () => {
   set({})
-  for (const [id, at, extra] of [['tel-aviv', '2026-11-17T12:00', {}], ['haifa', '2026-11-17T15:30', {}], ['neve-zohar', '2026-11-17T16:00', {}],
-    ['haifa', '2026-03-15T14:00', {}], ['jerusalem', '2026-11-17T16:30', BROKEN]] as const) {
-    const world = worldAt(id, at, extra), geom = skyGeom(world, box)
-    const lines = [`SCENE ${id} ${at} sun ${world.bodies.sun.azimuth.toFixed(0)} ${world.bodies.sun.altitude.toFixed(1)} eye ${world.light.eye.toFixed(3)}`]
-    for (const { layer, cells, heightKm } of world.cloudField!.snapshot) {
-      if (!layer) continue
-      lines.push(`LAYER ${layer.lattice} cover ${layer.cover.toFixed(2)} Q ${layer.Q.toFixed(2)} g ${layer.g.toFixed(2)} base ${layer.baseKm.toFixed(2)} v ${layer.meanVKm.toFixed(2)} h ${heightKm.toFixed(2)} vel ${layer.vel.map((v) => v.toFixed(2))} ${JSON.stringify(layer.form)} ${genusOf(layer.lattice, layer.form, 0.5)}`)
-      if (layer.lattice === 'high') continue
-      for (const c of cells) {
-        const d = Math.hypot(c.x, c.y), alt = altitudeOf(heightKm, d)
-        const az = (Math.atan2(c.x, c.y) / RAD + 360) % 360, x = geom.x(az)
-        if (alt < (layer.lattice === 'tower' ? 3 : 14) || x < -20 || x > 395) continue
-        const near = Math.min(...cells.filter((o) => o !== c).map((o) => Math.hypot(o.x - c.x, o.y - c.y) / (o.r + c.r)))
-        lines.push(`  ${c.genus} x ${x.toFixed(0)} y ${geom.dome(alt).toFixed(0)} alt ${alt.toFixed(0)} q ${(c.r / d).toFixed(2)} r ${c.r.toFixed(2)} v ${c.vKm.toFixed(2)} base ${c.baseKm.toFixed(2)} tau ${c.tau0.toFixed(1)} share ${c.share.toFixed(2)} near ${near.toFixed(2)}`)
-      }
+  const world = worldAt('haifa', '2026-11-17T15:30'), geom = skyGeom(world, box), lines = ['BALL']
+  for (const [x, y] of [[47, 272], [30, 260], [60, 285], [47, 300], [299, 275]]) {
+    const azimuth = geom.azimuthAt(x), altitude = geom.domeAltitudeAt(y)
+    lines.push(` at ${x},${y}: az ${azimuth.toFixed(0)} alt ${altitude.toFixed(1)}`)
+    for (const { layer, cells, heightKm, densityGrid } of world.cloudField!.snapshot) {
+      if (!layer?.cover) continue
+      const range = groundRangeAt(heightKm, altitude), e = range * Math.sin(azimuth * RAD), n = range * Math.cos(azimuth * RAD)
+      lines.push(`  ${layer.lattice} range ${range.toFixed(2)} tau ${densityGrid.tauAt(e, n).toFixed(2)}: ${cells.filter((c) => Math.hypot(c.x - e, c.y - n) < 1.1 * c.r)
+        .map((c) => `[${c.genus} d ${Math.hypot(c.x, c.y).toFixed(2)} r ${c.r.toFixed(2)} tau ${c.tau0.toFixed(1)}]`).join(' ')}`)
     }
-    console.info(lines.join('\n'))
+  }
+  console.info(lines.join('\n'))
+  const storm = worldAt('haifa', '2026-03-15T14:00')
+  for (const layer of cloudLayersOf(storm, box, skyGeom(storm, box))) if (layer.kind === 'cloudCells') {
+    console.info('TOWERS\n' + layer.cells.map(({ sprite: s, x, y }) => `  ${s.genus} x ${x.toFixed(0)} y ${y.toFixed(0)} w ${s.w.toFixed(0)} tall ${s.tall.toFixed(0)} anvil ${s.anvil ?? 0}`).join('\n'))
   }
 })
 
-const lin = (c: number) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-function lab(rgb: RGB) {
-  const [r, g, b] = rgb.map(lin)
-  const f = (t: number) => t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116
-  const x = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047), y = f(0.2126 * r + 0.7152 * g + 0.0722 * b)
-  const z = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883)
-  return [116 * y - 16, 500 * (x - y), 200 * (y - z)].map((v) => v.toFixed(1)).join(' ')
-}
-
-it('switches the changes at neve-zohar', () => {
-  const at = '2026-11-17T16:00'
-  for (const [name, flags] of [['head', {}], ['head-dome', { dome: false }], ['head-rows', { rows: false }], ['head-cells', { cells: false }],
-    ['head-noise', { noise: false }], ['head-cells-noise', { cells: false, noise: false }],
-    ['base', { dome: false, rows: false, cells: false, noise: false }], ['base+dome', { rows: false, cells: false, noise: false }],
-    ['base+rows', { dome: false, cells: false, noise: false }]] as const) {
-    set(flags)
-    const world = worldAt('neve-zohar', at), geom = skyGeom(world, box)
-    const sheets = cloudLayersOf(world, box, geom).filter((l) => l.kind === 'cloudSheet').sort((a, b) => a.z - b.z)
-    const stops = skyStops(world, box)
-    const lines = [`TONE ${name}`]
-    for (const [top, bottom] of [[2, 40], [40, 80], [80, 130], [130, 200], [200, 260], [260, 320], [320, 400]]) {
-      const sum = [0, 0, 0], alphas = sheets.map(() => 0), tones = sheets.map(() => 0)
-      let n = 0
-      for (let y = top; y < bottom; y += 3) for (let x = 2; x < 375; x += 6) {
-        let rgb = stopAt(stops, y / box.skyHeight) as RGB
-        sheets.forEach((s, k) => {
-          const col = Math.round(x / 375 * (s.xs.length - 1))
-          let row = 0
-          s.ys.forEach((v, i) => { if (Math.abs(v - y) < Math.abs(s.ys[row] - y)) row = i })
-          const a = s.alpha[row * s.xs.length + col], t = s.tone[row * s.xs.length + col]
-          const c = t < 0.5 ? mix(s.lit, s.body, t * 2) : mix(s.body, s.shade, t * 2 - 1)
-          rgb = rgb.map((v, i) => v + (c[i] - v) * a) as unknown as RGB
-          alphas[k] += a
-          tones[k] += t
-        })
-        rgb.forEach((v, i) => { sum[i] += v })
-        n++
-      }
-      lines.push(`  y ${top}-${bottom} Lab ${lab(sum.map((v) => v / n) as unknown as RGB)} ${sheets.map((s, k) => `${s.lattice} a ${(alphas[k] / n).toFixed(3)} t ${(tones[k] / n).toFixed(3)}`).join(' ')}`)
-    }
-    lines.push(sheets.map((s) => `${s.lattice} ${s.genus} body ${lab(s.body)} shade ${lab(s.shade)} lit ${lab(s.lit)}`).join(' | '))
-    console.info(lines.join('\n'))
-  }
-  set({})
-}, 60_000)
-
 it('reads the sun through the field', () => {
   set({})
-  const rows = { all: 0, drawnState: 0, drawnT: 0, baseT: 0, rayNative: 0, rayDrawn: 0, rayBase: 0, above: 0, aboveT: 0, sum: [0, 0, 0] }
+  const hits: Record<string, number> = {}
+  const count = (name: string, yes: boolean) => { hits[name] = (hits[name] ?? 0) + Number(yes) }
+  let spots = 0
   for (const { id } of all) for (const day of ['2026-11-17', '2026-03-15']) {
     const build = makeWorldBuilder()
     for (let m = 7 * 60; m <= 17 * 60; m += 10) {
@@ -166,7 +117,7 @@ it('reads the sun through the field', () => {
       const world = build(worldInput(places.get(id)!, `${day}T07:00` as LocalTime, at)), { azimuth, altitude } = world.bodies.sun
       if (altitude < 1) continue
       const geom = skyGeom(world, box), field = world.cloudField!
-      let native = 1, drawn = 1, base = 1
+      const t = { native: 1, drawn: 1, noise: 1, cells: 1, mid: 1 }
       const used = []
       for (const snapshot of field.snapshot) {
         const { layer, heightKm, densityGrid } = snapshot
@@ -174,29 +125,27 @@ it('reads the sun through the field', () => {
         used.push(snapshot)
         const genus = genusOf(layer.lattice, layer.form, 0.5), depth = genus === 'sc' || genus === 'ac' ? densityGrid.resolvedTauAt : densityGrid.tauAt
         const slant = sheetPathFactor(layer.baseKm, layer.meanVKm, altitude, Infinity)
-        const range = groundRangeAt(heightKm, altitude), e = Math.sin(azimuth * RAD), n = Math.cos(azimuth * RAD)
-        native *= Math.exp(-slant * depth(range * e, range * n))
-        const low = groundRangeAt(layer.baseKm, altitude)
-        base *= Math.exp(-slant * depth(low * e, low * n))
-        drawn *= Math.exp(-slant * seenDepth(id, field.field.t, snapshot, geom, depth)(range, altitude)(range * e, range * n))
+        const range = groundRangeAt(heightKm, altitude), e = range * Math.sin(azimuth * RAD), n = range * Math.cos(azimuth * RAD)
+        t.native *= Math.exp(-slant * depth(e, n))
+        const half = groundRangeAt(layer.baseKm + layer.meanVKm / 2, altitude) / range
+        t.mid *= Math.exp(-slant * depth(half * e, half * n))
+        for (const [name, flags] of [['drawn', {}], ['noise', { cells: false }], ['cells', { noise: false }]] as const) {
+          set(flags)
+          t[name] *= Math.exp(-slant * seenDepth(id, field.field.t, snapshot, geom, depth)(range, altitude)(e, n))
+        }
+        set({})
       }
       const ray = transmitAlong(field.field, used, azimuth, altitude)
-      rows.all++
-      rows.drawnState += Number((native > 0.5) !== (drawn > 0.5))
-      rows.drawnT += Number(Math.abs(native - drawn) > 0.1)
-      rows.baseT += Number(Math.abs(native - base) > 0.1)
-      rows.rayNative += Number(Math.abs(ray - native) > 0.1)
-      rows.rayDrawn += Number(Math.abs(ray - drawn) > 0.1)
-      rows.rayBase += Number(Math.abs(ray - base) > 0.1)
-      if (altitude > 22) {
-        rows.above++
-        rows.aboveT += Number(Math.abs(native - drawn) > 0.1)
+      for (const [name, value] of Object.entries({ ...t, ray })) {
+        count(`${name}-drawn`, Math.abs(value - t.drawn) > 0.1)
+        count(`${name}-state`, (value > 0.5) !== (t.drawn > 0.5))
+        count(`${name}-ray`, Math.abs(value - ray) > 0.1)
       }
-      rows.sum[0] += ray
-      rows.sum[1] += native
-      rows.sum[2] += drawn
+      count('all', true)
+      count('high', altitude > 14.67)
+      spots += Math.abs(ray - t.drawn)
     }
   }
-  console.info('SUN', JSON.stringify(rows))
-  expect(rows.all).toBeGreaterThan(100)
+  console.info('SUN', JSON.stringify(hits), spots / hits.all)
+  expect(hits.all).toBeGreaterThan(100)
 }, 600_000)

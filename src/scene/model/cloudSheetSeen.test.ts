@@ -1,11 +1,13 @@
 import { expect, it } from 'vitest'
+import { box } from '../../test/cloudSheetFrame'
 import { SCENE_CAMERA } from '../../domain/camera'
-import { cellsAround } from '../../world/field/cells'
+import { RANGES } from '../../world/field/cells'
 import { layerSnapshot } from '../../world/field/density'
+import { genusOf } from '../../world/field/genus'
+import { maxRadius } from '../../world/field/lattice'
 import { occupancyOf } from '../../world/field/occupancy'
 import { altitudeOf, groundRangeAt } from '../../world/field/project'
-import { kernel } from '../../world/field/rasterNodes'
-import type { CloudField } from '../../world/field/types'
+import type { CloudField, FieldLayer } from '../../world/field/types'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { sheetOpacity, sheetPathFactor } from './cloudSheetMath'
@@ -13,35 +15,41 @@ import { seenDepth } from './cloudSheetSeen'
 import { DOME_ALT } from './dome'
 import { skyGeom } from './sky'
 
-const RAD = Math.PI / 180, ROWS = 24, FIELDS = 120
+const RAD = Math.PI / 180, ROWS = 48, AZIMUTHS = 72, FIELDS = 160, MINUTES = [960, 967, 974]
+/** The altitude of a cell's middle from which it is redrawn (`SHAPED_ALT`): with a cell's radius, all that changes. */
+const SHAPED_ALT = DOME_ALT / 1.5
 const world = { camera: SCENE_CAMERA, relief: { y: (altitude: number) => terrainY(128, altitude) } } as WorldState
-const geom = skyGeom(world, { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 })
+const geom = skyGeom(world, box)
 
-it.each([
-  ['mid', 0.28], ['mid', 0.46], ['mid', 0.75], ['low', 0.28], ['low', 0.46], ['low', 0.75],
-] as const)('keeps the cover and the mean opacity of many %s fields at %s cover', (lattice, cover) => {
-  const baseKm = lattice === 'mid' ? 3.7 : 1.1, height = baseKm + 0.3, edge = groundRangeAt(height, DOME_ALT)
+/** A layer of the field at a minute, carried by its wind, with the depth reader the sheet itself uses. */
+function layerAt(placeId: string, lattice: 'mid' | 'low', cover: number, minute: number) {
+  const vel: [number, number] = [0.31, -0.17], since = minute - MINUTES[0]
+  const layer: FieldLayer = {
+    lattice, baseKm: lattice === 'mid' ? 3.7 : 1.1, meanVKm: 0.6, cover, kappa: 5, ...occupancyOf(lattice, cover),
+    form: { conv: 0, strat: 0, sheet: 0, veil: 0 }, d: [4.2 + vel[0] * since, -7.9 + vel[1] * since], vel,
+  }
+  const field: CloudField = { placeId, t: minute, layers: [layer] }
+  const snapshot = layerSnapshot(field, lattice, 0, 0, Math.min(40, RANGES[lattice][1]))
+  const genus = genusOf(lattice, layer.form, 0.5), cellular = genus === 'sc' || genus === 'ac'
+  return { layer, snapshot, depthAt: cellular ? snapshot.densityGrid.resolvedTauAt : snapshot.densityGrid.tauAt }
+}
+
+it.each((['mid', 'low'] as const).flatMap((lattice) => [0.1, 0.3, 0.5, 0.8].map((cover) => [lattice, cover] as const)),
+)('keeps the ground, the depth and the mean opacity of a drifting %s field at %s cover', (lattice, cover) => {
   const sums = { cover: [0, 0], sky: [0, 0], tau: [0, 0] }
   let count = 0
-  for (let i = 0; i < FIELDS; i++) {
-    const field: CloudField = { placeId: `cover-${i}`, t: 960, layers: [{
-      lattice, baseKm, meanVKm: 0.6, cover, kappa: 5, ...occupancyOf(lattice, cover),
-      form: { conv: 0, strat: 0, sheet: 0, veil: 0 }, d: [0, 0], vel: [0, 0],
-    }] }
-    const cells = cellsAround(field, lattice, 0, 0, 18)
-    const snapshot = { ...layerSnapshot(field, lattice, 0, 0, 1), cells, heightKm: height }
-    const depthAt = (x: number, y: number) => cells.reduce((sum, cell) => sum + kernel(cell.tau0,
-      ((x - cell.x) ** 2 + (y - cell.y) ** 2) / cell.r ** 2, cell.genus === 'cu'), 0)
-    const seen = seenDepth(field.placeId, 960, snapshot, geom, depthAt)
+  for (let i = 0; i < FIELDS; i++) for (const minute of MINUTES) {
+    const { layer, snapshot, depthAt } = layerAt(`cover-${i}`, lattice, cover, minute), { heightKm } = snapshot
+    const seen = seenDepth(`cover-${i}`, minute, snapshot, geom, depthAt)
+    const edge = groundRangeAt(heightKm, SHAPED_ALT) + maxRadius(lattice) * layer.g
+    const top = geom.dome(90), join = geom.dome(DOME_ALT)
     for (let j = 0; j < ROWS; j++) {
-      // Equal ground areas for the cover; equal rows of the screen for the opacity.
-      const ground = edge * Math.sqrt((j + 0.5) / ROWS)
-      const up = geom.domeAltitudeAt(geom.dome(90) + (geom.dome(DOME_ALT) - geom.dome(90)) * (j + 0.5) / ROWS)
-      const rays = [[ground, altitudeOf(height, ground), false], [groundRangeAt(height, up), up, true]] as const
-      for (const [range, altitude, drawn] of rays) {
-        const shaped = seen(range, altitude), slant = sheetPathFactor(baseKm, 0.6, altitude, Infinity)
-        for (let k = -12; k <= 12; k++) {
-          const x = range * Math.sin(k * 10 * RAD), y = range * Math.cos(k * 10 * RAD)
+      // Equal ground areas, out past the last cell that is redrawn, for the cover; equal rows of the screen for the opacity.
+      const ground = edge * Math.sqrt((j + 0.5) / ROWS), up = geom.domeAltitudeAt(top + (join - top) * (j + 0.5) / ROWS)
+      for (const [range, altitude, drawn] of [[ground, altitudeOf(heightKm, ground), false], [groundRangeAt(heightKm, up), up, true]] as const) {
+        const shaped = seen(range, altitude), slant = sheetPathFactor(layer.baseKm, layer.meanVKm, altitude, Infinity)
+        for (let k = 0; k < AZIMUTHS; k++) {
+          const azimuth = (k + (j % 2) / 2) * 360 / AZIMUTHS * RAD, x = range * Math.sin(azimuth), y = range * Math.cos(azimuth)
           for (const [which, tau] of [depthAt(x, y), shaped(x, y)].entries()) {
             if (drawn) sums.sky[which] += sheetOpacity(tau, slant)
             else {
@@ -51,13 +59,15 @@ it.each([
           }
         }
       }
-      count += 25
     }
+    count += ROWS * AZIMUTHS
   }
   const change = {
-    cover: (sums.cover[1] - sums.cover[0]) / count, sky: (sums.sky[1] - sums.sky[0]) / count, tau: sums.tau[1] / sums.tau[0] - 1,
+    native: sums.cover[0] / count, cover: (sums.cover[1] - sums.cover[0]) / count,
+    sky: (sums.sky[1] - sums.sky[0]) / count, tau: sums.tau[1] / sums.tau[0] - 1,
   }
-  console.info(lattice, cover, change)
-  expect.soft(Math.abs(change.cover)).toBeLessThanOrEqual(0.02)
+  console.info('COVER', lattice, cover, JSON.stringify(change))
+  expect.soft(Math.abs(change.cover)).toBeLessThanOrEqual(0.01)
+  expect.soft(Math.abs(change.tau)).toBeLessThanOrEqual(0.01)
   expect.soft(Math.abs(change.sky)).toBeLessThanOrEqual(0.02)
-})
+}, 120_000)

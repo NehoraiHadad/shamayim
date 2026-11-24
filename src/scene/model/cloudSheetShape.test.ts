@@ -22,11 +22,11 @@ const worldOf = (id: string) => ({
 }) as WorldState
 const geom = skyGeom(worldOf('shape'), box)
 
-/** One cell of a layer, alone in the sky. */
+/** One cell of a layer, alone in the sky: its sheet is drawn at its base. */
 function lone(genus: 'ac' | 'cu', x: number, y: number, r: number, vKm: number, heightKm: number) {
   const lattice = genus === 'ac' ? 'mid' as const : 'low' as const
   const layer: FieldLayer = {
-    lattice, baseKm: heightKm - vKm / 2, meanVKm: vKm, kappa: 15, cover: 0.25, Q: 1, g: 1, floorTau: 0,
+    lattice, baseKm: heightKm, meanVKm: vKm, kappa: 15, cover: 0.25, Q: 1, g: 1, floorTau: 0,
     form: { conv: 0, strat: lattice === 'low' ? 0.55 : 0, sheet: 0, veil: 0 }, d: [0, 0], vel: [0, 0],
   }
   const cell: FieldCell = {
@@ -59,13 +59,17 @@ it.each([
       const range = groundRangeAt(heightKm, elevation + step)
       const rows = widths(cloudSheetOf(worldOf(id), geom,
         lone(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
-      const widest = Math.max(...rows)
+      const widest = Math.max(...rows), low = rows.slice(Math.floor(rows.length / 2))
+      // A vase: how far the foot's half narrows before it widens again, and its width near its end.
+      const waist = Math.max(0, ...low.map((wide, i) => Math.max(...low.slice(i)) - wide)) / widest
       // Its body: less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth of its height).
-      return { tall: rows.filter((wide) => wide >= widest / 4).length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest }
+      return { tall: rows.filter((wide) => wide >= widest / 4).length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest, waist }
     })))
     const mean = (of: (shape: (typeof shapes)[number]) => number) => shapes.reduce((sum, shape) => sum + of(shape), 0) / shapes.length
     const aspect = mean(({ tall, widest }) => tall / widest), foot = mean((shape) => shape.foot)
-    console.info(`${genus} ${elevation}: aspect ${aspect.toFixed(2)}, foot ${foot.toFixed(2)}`)
+    const least = Math.min(...shapes.map((shape) => shape.foot)), tallest = Math.max(...shapes.map(({ tall, widest }) => tall / widest))
+    const waist = Math.max(...shapes.map((shape) => shape.waist))
+    console.info(`${genus} ${elevation}: aspect ${aspect.toFixed(2)}, foot ${foot.toFixed(2)}; each: aspect ${tallest.toFixed(2)}, foot ${least.toFixed(2)}, waist ${waist.toFixed(2)}`)
     expect.soft(aspect, `${genus} ${elevation}`).toBeLessThanOrEqual(1.1)
     // An oval is .71 of its width there: no cone, no drop hanging from its tip.
     expect.soft(foot, `${genus} ${elevation}`).toBeGreaterThanOrEqual(0.6)

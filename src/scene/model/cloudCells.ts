@@ -33,10 +33,11 @@ const ANVILS = 2
 /** Narrower than this (px) a tower is a speck in the haze. */
 const W_MIN = 1.5
 /**
- * Beyond this range (km) a tower is no longer seen as a column of its own: the haze between merges it with its
+ * Look. Beyond `MERGE_KM` a tower is no longer seen as a column of its own: the haze between merges it with its
  * neighbours (15–25 km apart, a few px on the screen) into one soft mass along the horizon, at least this wide (px)
- * and no taller than wide.
+ * and no taller than wide. It is brought in over the range before it, so a tower drifting out widens as it goes.
  */
+const MERGE_FROM_KM = 30
 export const MERGE_KM = 40, MERGE_PX = 28
 /** How much of the sky's stretch a near tower's own shape takes (an exponent): all of it draws a pillar. */
 const STAND = 0.55
@@ -69,10 +70,11 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     const y = side + bowl - under
     // A far tower stands on the relief in its true aspect, whole (`share` grows and wanes its radius alone). The sky over
     // it is drawn taller than wide (`sceneStretch`): as its top climbs the dome it takes part of that stretch.
-    const over = smoothstep(DOME_ALT, NEAR_TOP, p.aTop), merged = p.rangeKm > MERGE_KM
+    const over = smoothstep(DOME_ALT, NEAR_TOP, p.aTop), merged = smoothstep(MERGE_FROM_KM, MERGE_KM, p.rangeKm)
     const shape = cell.vKm / (2 * cell.r) * (Math.sqrt(cell.share) * (1 - over) + stretch * over)
-    const least = merged ? Math.max(seen, MERGE_PX) : seen
-    const tall = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * shape, merged ? least : Infinity))
+    const least = seen + merged * Math.max(0, MERGE_PX - seen)
+    const column = Math.max(0, Math.min(y - geom.dome(p.aTop), seen * shape))
+    const tall = column + merged * Math.min(0, least - column)
     const w = Math.max(least, tall / SLENDEREST)
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
