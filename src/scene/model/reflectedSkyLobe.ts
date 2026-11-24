@@ -1,26 +1,45 @@
 import { SCENE_H } from '../../world/sceneBox'
 import type { RGB, WorldState } from '../../world/types'
 import { srgbRgbToLinear } from './landRadiance'
-import { lowLobe, ROUGH_LOBE_HEIGHT, twilightShare } from './landSkyIrradiance'
+import { lowLobe, metalSkyLobe, ROUGH_LOBE_HEIGHT, twilightShare } from './landSkyIrradiance'
 import { horizonBand, skyGeom, skyStops, stopAt } from './sky'
-import { skyGlows } from './skyGlows'
+import { horizonBandAlphaAt, skyGlows } from './skyGlows'
 import { rgbOf } from './tone'
-import type { Band, Glow, SceneBox } from './types'
+import type { Glow, SceneBox } from './types'
 
-const memo = new WeakMap<WorldState, RGB>()
+interface ReflectedSky {
+  sample: ReturnType<typeof paintedSkySampler>
+  rough?: RGB
+  metal?: RGB
+}
+const memo = new WeakMap<WorldState, ReflectedSky>()
 const RAD = Math.PI / 180
 
 // Two-point Gauss–Radau in sin(elevation) over one e-folding height (~22°).
 // The fixed horizon node resolves the band even on strongly stretched relief.
 // Azimuth uses three midpoints across the lobe's half-power width.
 const halfPower = Math.acos(Math.SQRT2 - 1)
-const samples = ([[0, 1 / 4], [2 / 3, 3 / 4]] as const).flatMap(([fraction, measure]) => {
+const roughSamples = ([[0, 1 / 4], [2 / 3, 3 / 4]] as const).map(([fraction, measure]) => {
   const up = fraction * ROUGH_LOBE_HEIGHT
-  return [-2 / 3, 0, 2 / 3].map(side => {
+  const bearings = [-2 / 3, 0, 2 / 3].map(side => {
     const offset = side * halfPower
-    return { altitude: Math.asin(up) / RAD, offset: offset / RAD,
+    return { offset: offset / RAD,
       weight: measure * lowLobe(up, Math.sqrt(1 - up * up) * Math.cos(offset)) }
   })
+  return { altitude: Math.asin(up) / RAD, bearings }
+})
+
+// Composite midpoint integration in equal-solid-angle coordinates (sin elevation
+// and bearing). Use full support: the old rule cropped the tails at one scale
+// height and the half-power bearing. Double the reference's elevation resolution
+// where the gradient and haze change fastest, keeping the same 16 bearings.
+const metalSamples = Array.from({ length: 24 }, (_, i) => {
+  const up = (i + .5) / 24, horizontal = Math.sqrt(1 - up * up)
+  const bearings = Array.from({ length: 16 }, (_, j) => {
+    const offset = (j + .5) * 360 / 16 - 180
+    return { offset, weight: metalSkyLobe(up, horizontal * Math.cos(offset * RAD)) }
+  })
+  return { altitude: Math.asin(up) / RAD, bearings }
 })
 
 // Gradient interpolation and source-over on the displayed sRGB values.
@@ -33,22 +52,9 @@ function glowAlpha(glow: Glow, x: number, y: number): number {
   return glow.alpha * Math.max(0, 1 - radius)
 }
 
-function bandAlpha(band: Band, y: number): number {
-  // Same stops above eye level as skyBackground: 0 and .35 at 0 and .45
-  // of the 1.3h gradient span, then full alpha at the horizon.
-  const fromTop = 1 + (y - band.y) / band.h
-  const mid = .45 * 1.3
-  if (fromTop <= 0) return 0
-  return band.alpha * (fromTop < mid ? .35 * fromTop / mid : .35 + .65 * (fromTop - mid) / (1 - mid))
-}
-
-/** One linear-light average of the illustrated low sky for the glass and metal incident lobes. */
-export function reflectedSkyLobe(world: WorldState): RGB {
-  const known = memo.get(world)
-  if (known) return known
+/** Palette, glows and haze of the CSS sky wash, in linear light at a bearing relative to the sun. */
+export function paintedSkySampler(world: WorldState) {
   const { sun } = world.bodies
-  if (!twilightShare(sun.altitude)) return srgbRgbToLinear(rgbOf(world.light.palette.horizon))
-
   const { camera } = world
   // Reference-pixel projection, padded on both sides to include off-screen sky and city domes.
   const padding = 360 * camera.pxPerDeg / 2
@@ -60,27 +66,45 @@ export function reflectedSkyLobe(world: WorldState): RGB {
   const geom = skyGeom(world, box)
   const stops = skyStops(world, box)
   const band = horizonBand(world, box)
-  // The disc is a separate body layer. The broad glows here are diffuse and
-  // the independent beam already accounts for the disc.
+  // The body layer's disc belongs to the direct beam. The sky wash still has
+  // an aureole and ridge glow when the disc is hidden by terrain.
   const glows = skyGlows(world, box.landTop, geom)
+  return (altitude: number) => {
+    const y = geom.y(altitude)
+    const base = stopAt(stops, y / box.skyHeight, mixSrgb)
+    const bandAlpha = band ? horizonBandAlphaAt(band, y) : 0
+    return (offset: number): RGB => {
+      const x = geom.left + sun.x + offset * camera.handed * camera.pxPerDeg
+      let rgb = base
+      for (const glow of glows) {
+        const alpha = glowAlpha(glow, x, y)
+        if (alpha > 0) rgb = mixSrgb(rgb, glow.rgb, alpha)
+      }
+      if (band && bandAlpha > 0) rgb = mixSrgb(rgb, band.rgb, bandAlpha)
+      return srgbRgbToLinear(rgb)
+    }
+  }
+}
+
+/** Memoize the receiver averages and share the sky projection per world. */
+export function reflectedSkyLobe(world: WorldState, shape: 'rough' | 'metal' = 'rough'): RGB {
+  if (!twilightShare(world.bodies.sun.altitude)) return srgbRgbToLinear(rgbOf(world.light.palette.horizon))
+  let entry = memo.get(world)
+  if (!entry) memo.set(world, entry = { sample: paintedSkySampler(world) })
+  const known = entry[shape]
+  if (known) return known
   const sum: [number, number, number] = [0, 0, 0]
   let total = 0
-  for (const { altitude, offset, weight } of samples) {
-    const y = geom.y(altitude)
-    const x = geom.left + sun.x + offset * camera.handed * camera.pxPerDeg
-    let rgb = stopAt(stops, y / box.skyHeight, mixSrgb)
-    for (const glow of glows) {
-      const alpha = glowAlpha(glow, x, y)
-      if (alpha > 0) rgb = mixSrgb(rgb, glow.rgb, alpha)
+  for (const { altitude, bearings } of shape === 'metal' ? metalSamples : roughSamples) {
+    const sample = entry.sample(altitude)
+    for (const { offset, weight } of bearings) {
+      const [r, g, b] = sample(offset)
+      sum[0] += weight * r
+      sum[1] += weight * g
+      sum[2] += weight * b
+      total += weight
     }
-    if (band) rgb = mixSrgb(rgb, band.rgb, bandAlpha(band, y))
-    const [r, g, b] = srgbRgbToLinear(rgb)
-    sum[0] += weight * r
-    sum[1] += weight * g
-    sum[2] += weight * b
-    total += weight
   }
   const rgb: RGB = [sum[0] / total, sum[1] / total, sum[2] / total]
-  memo.set(world, rgb)
-  return rgb
+  return entry[shape] = rgb
 }

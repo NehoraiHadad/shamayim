@@ -7,12 +7,12 @@ import { buildingLight, buildingSurroundings } from './buildingLight'
 import * as skyIrradiance from './landSkyIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { domeSectors, metalLight, silverLight } from './metalLight'
-import { skyLayer } from './sky'
+import { reflectedSkyLobe } from './reflectedSkyLobe'
 import { rgbOf } from './tone'
+import { referenceSkyLobe, worldAtHaifaTwilight } from './twilightSkyFixture.testSupport'
 
 const GOLD: RGB = [1, .766, .336]
 const SUNWARD = [.63, -.63, .45] as const
-const skyBox = { width: 375, skyHeight: 180, landTop: 0, landHeight: 128, dpr: 1 }
 
 function xy([r, g, b]: readonly number[]) {
   const x = .4124 * r + .3576 * g + .1805 * b
@@ -31,11 +31,12 @@ function hue([r, g, b]: RGB) {
 }
 
 describe('clear twilight sky', () => {
-  it.each([1.4, -5])('keeps the glass and gold sky averages close to the diffuse chromaticity at %s°', altitude => {
-    const world = receiverScene(252, altitude)
-    world.light.palette = { ...world.light.palette, top: '#303d91', mid: '#9d8baf', horizon: '#f69d66' }
-    world.light.ambient = [.36, .29, .63]
-    world.light.afterglow = { x: world.bodies.sun.x, altitude, rgb: [1, .17, .0003] }
+  it.each([[1.4, '16:27'], [-5, '17:00']] as const)(
+    'keeps the glass and gold sky averages close to the diffuse chromaticity near %s°', async (altitude, time) => {
+    const world = await worldAtHaifaTwilight(time)
+    expect(Math.abs(world.bodies.sun.altitude - altitude)).toBeLessThan(.5)
+    expect(world.light.afterglow).not.toBeNull()
+    expect(world.light.ambient).toEqual(rgbOf(world.light.palette.mid))
     // Integrate the sampler returned to each production receiver, before
     // Fresnel, metal F0, ground bounce or exposure changes its spectrum.
     const reflection = vi.spyOn(skyIrradiance, 'skyReflection')
@@ -64,6 +65,43 @@ describe('clear twilight sky', () => {
 })
 
 describe('sunward reflected sky lobe', () => {
+  it('resolves elevation colour where the old two-node rule misses the same lobe integral', () => {
+    const world = receiverScene(252, -1.5)
+    world.light = { ...world.light, glow: null,
+      palette: { ...world.light.palette, top: '#102bda', mid: '#102bda', horizon: '#dd8020' } }
+    const roughReference = referenceSkyLobe(world, skyIrradiance.lowLobe)
+    const old = reflectedSkyLobe(world)
+    expect(Math.max(...old.map((channel, i) => Math.abs(channel / roughReference[i] - 1)))).toBeGreaterThan(.02)
+    const metalReference = referenceSkyLobe(world)
+    reflectedSkyLobe(world, 'metal').forEach((channel, i) => {
+      expect(Math.abs(channel / metalReference[i] - 1)).toBeLessThan(.02)
+    })
+  })
+
+  it.each(['16:27', '16:30', '17:00'] as const)('integrates the painted metal lobe at %s within 2%% per channel', async time => {
+    const world = await worldAtHaifaTwilight(time)
+    const reference = referenceSkyLobe(world)
+    const actual = reflectedSkyLobe(world, 'metal')
+    actual.forEach((channel, i) => expect(Math.abs(channel / reference[i] - 1)).toBeLessThan(.02))
+  })
+
+  it('attenuates only the direct conductor return as the disc goes behind the skyline', async () => {
+    const world = await worldAtHaifaTwilight('16:27')
+    const { irr } = buildingSurroundings(world)
+    const { across, ahead, up } = irr.sunDir
+    const size = Math.hypot(across, ahead - 1, up)
+    const normal = [across / size, (ahead - 1) / size, up / size] as const
+    const atVisibility = (visible: number) => ({
+      ...world, bodies: { ...world.bodies, sun: { ...world.bodies.sun, visible } },
+    })
+    const hidden = atVisibility(0), partial = atVisibility(.5), open = atVisibility(1)
+    expect(reflectedSkyLobe(hidden, 'metal')).toEqual(reflectedSkyLobe(open, 'metal'))
+    const y = (w: typeof world) => linearLuminance(srgbRgbToLinear(metalLight(w, 0)(normal)))
+    expect(y(hidden)).toBeGreaterThan(0)
+    expect(y(partial)).toBeGreaterThan(y(hidden))
+    expect(y(open)).toBeGreaterThan(y(partial))
+  })
+
   it('puts the painted sunward hue on the brightest sector of the conductor', () => {
     // At the solar aura cutoff, only the ridge glow overlays this uniform sky.
     const altitude = -1.5
@@ -73,28 +111,11 @@ describe('sunward reflected sky lobe', () => {
       palette: { ...world.light.palette, horizon: painted, mid: painted, top: painted },
       afterglow: { x: world.bodies.sun.x, altitude, rgb: [1, .45, .25] },
     }
-    const [glow] = skyLayer(world, skyBox)!.glow
     const sectors = domeSectors(world, 0).flat().map(srgbRgbToLinear)
     const unlit = { ...world, light: { ...world.light, glow: null } }
     expect(sectors).not.toEqual(domeSectors(unlit, 0).flat().map(srgbRgbToLinear))
     const peak = sectors.reduce((a, b) => linearLuminance(a) > linearLuminance(b) ? a : b)
-    // Read the ridge paint independently at two heights and three bearings
-    // spread across the reflector's low forward lobe.
-    const sum = [0, 0, 0]
-    for (const [up, measure] of [[0, .25], [.38 * 2 / 3, .75]]) {
-      const y = world.relief.y(Math.asin(up) * 180 / Math.PI)
-      for (const azimuth of [-44, 0, 44]) {
-        const x = world.bodies.sun.x + azimuth * world.camera.pxPerDeg
-        const radius = Math.hypot((x - glow.x) / glow.r, (y - glow.y) / glow.ry!)
-        const alpha = glow.alpha * Math.max(0, 1 - radius)
-        const paintedRgb = horizon.map((channel, i) => (1 - alpha) * channel + alpha * glow.rgb[i]) as [number, number, number]
-        const rgb = srgbRgbToLinear(paintedRgb)
-        const dot = Math.sqrt(1 - up ** 2) * Math.cos(azimuth * Math.PI / 180)
-        const weight = measure * Math.exp(-up / .38) * ((1 + dot) / 2) ** 2
-        rgb.forEach((channel, i) => { sum[i] += weight * channel })
-      }
-    }
-    const [r, g, b] = sum
+    const [r, g, b] = referenceSkyLobe(world)
     const delta = hue(peak) - hue([GOLD[0] * r, GOLD[1] * g, GOLD[2] * b])
     expect(Math.abs((delta + 540) % 360 - 180)).toBeLessThan(8)
   })

@@ -6,7 +6,7 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildingSurroundings } from './buildingLight'
 import { illustratedTonesAt, type IllustratedTones } from './illustratedTones'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
-import { skyReflection } from './landSkyIrradiance'
+import { METAL_POWER, skyReflection } from './landSkyIrradiance'
 import { aerialFor, hazeAt } from './landVeil'
 import { reflectedSkyLobe } from './reflectedSkyLobe'
 import { mixLight } from './tone'
@@ -20,16 +20,25 @@ const SILVER_F0: RGB = [.89, .91, .92]
 export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
   const { irr, ground, air } = buildingSurroundings(world)
   const tau = .099 + aerosolDepth(world.air)[1], haze = hazeAt(world, km)
-  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec, reflectedSkyLobe(world), 5.7)
+  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec, reflectedSkyLobe(world, 'metal'), 5.7, 'metal')
+  // Field-backed land irradiance sees a flat horizon so distant terrain can
+  // stay lit across a valley. The depicted conductor uses the drawn disc's
+  // terrain visibility. Legacy shares already carry that attenuation.
+  const visible = world.cloudField ? world.bodies.sun.visible ?? 1 : 1
   const sunHorizontal = Math.hypot(irr.sunDir.across, irr.sunDir.ahead) || 1
   return (n: Normal): RGB => {
     const nv = Math.max(0, -n[1]), r: Normal = [2 * nv * n[0], 1 + 2 * nv * n[1], 2 * nv * n[2]]
     const towardSun = (r[0] * irr.sunDir.across + r[1] * irr.sunDir.ahead) / sunHorizontal
-    const sky = skyAt(.16 + .62 * r[2], .79 * towardSun)
+    const skyUp = .16 + .62 * r[2]
+    // Lift the rough-sky sample in elevation while keeping the reflection's
+    // bearing. The lobe reads the dot at that elevation, as in quadrature.
+    const horizontal = Math.hypot(r[0], r[1]) || 1
+    const lobeTowardSun = Math.sqrt(1 - Math.max(0, skyUp) ** 2) * Math.max(-1, Math.min(1, towardSun / horizontal))
+    const sky = skyAt(skyUp, .79 * towardSun, lobeTowardSun)
     const open = smoothstep(-.45, .32, r[2])
     const reflection: RGB = [0, 1, 2].map(i => ground[i] + (sky[i] - ground[i]) * open) as [number, number, number]
     // Normalized broad cosine lobe for the tiled metal. Its input is the terrain's attenuated beam.
-    const lobe = lambert(n, irr.sunDir) * lambert(r, irr.sunDir) ** 2.7 * 1.8
+    const lobe = visible * lambert(n, irr.sunDir) * lambert(r, irr.sunDir) ** METAL_POWER * 1.8
     return linearRgbToSrgb(shadeLinearRgb(f0, irr.eSunVec, irr.eMoonVec, reflection, lobe, 0, 1, irr.yHorizon, haze, air))
   }
 }

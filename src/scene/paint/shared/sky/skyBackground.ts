@@ -1,11 +1,7 @@
-import type { Band, LayerDesc, LayerOf } from '../../../model/types'
+import { HORIZON_BAND_PROFILE, HORIZON_BAND_SPAN } from '../../../model/skyGlows'
+import type { LayerDesc, LayerOf } from '../../../model/types'
 import { css } from '../base/hand'
 import { archStops } from './archStops'
-
-/** The band's stops (px from its top `band.y − band.h` to its bottom `band.y + 0.3 band.h`). */
-function bandStops(band: Band): [number, string][] {
-  return [[0, css(band.rgb, 0)], [0.45, css(band.rgb, band.alpha * 0.35)], [1 / 1.3, css(band.rgb, band.alpha)], [1, css(band.rgb, band.alpha * 0.4)]]
-}
 
 const px = (v: number) => `${Math.round(v * 100) / 100}px`
 
@@ -18,8 +14,8 @@ export function skyBackground(desc: LayerOf<'sky'>): string {
   const out: string[] = []
   const band = desc.band
   if (band) {
-    const top = band.y - band.h, span = band.h * 1.3, bottom = top + span
-    const stops = bandStops(band).map(([at, colour]) => `${colour} ${px(top + at * span)}`)
+    const top = band.y - band.h, span = band.h * HORIZON_BAND_SPAN, bottom = top + span
+    const stops = HORIZON_BAND_PROFILE.map(([at, alpha]) => `${css(band.rgb, band.alpha * alpha)} ${px(top + at * span)}`)
     out.push(`linear-gradient(180deg, ${css(band.rgb, 0)} ${px(Math.max(0, top))}, ${stops.join(', ')}, ${css(band.rgb, 0)} ${px(bottom)})`)
   }
   for (const g of [...desc.glow].reverse()) {

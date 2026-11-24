@@ -1,3 +1,4 @@
+import { HORIZON_BAND_PROFILE, HORIZON_BAND_SPAN } from '../../../model/skyGlows'
 import type { LayerOf } from '../../../model/types'
 import type { Ctx2D, PaintEnv } from '../base/hand'
 
@@ -29,9 +30,7 @@ function channelAt(at: readonly number[], value: readonly number[], t: number): 
   return value[value.length - 1]
 }
 
-/** The haze band's gradient (its alpha; its colour is one): 0 → 0.35 → full at eye level → 0.4. */
-const BAND_AT = [0, 0.45, 1 / 1.3, 1]
-const BAND_ALPHA = [0, 0.35, 1, 0.4]
+const BAND_AT = HORIZON_BAND_PROFILE.map(([at]) => at)
 
 /**
  * The pixels the rows are written into, kept for the next paint of the same size: every pixel of it is written each
@@ -58,7 +57,7 @@ export function paintRows(ctx: Ctx2D, desc: LayerOf<'sky'>, env: PaintEnv): void
   const channels = [0, 1, 2].map((j) => desc.stops.map(([, rgb]) => rgb[j]))
   const band = desc.band
   const top = band ? Math.max(y, band.y - band.h) : 0, bottom = band ? Math.min(y + h, band.y + band.h * 0.3) : 0
-  const bandAlpha = band ? BAND_ALPHA.map((a) => a * band.alpha) : []
+  const bandAlpha = band ? HORIZON_BAND_PROFILE.map(([, alpha]) => alpha * band.alpha) : []
   const over = band ? band.rgb.map((c) => Math.round(clamp01(c) * 255)) : []
   const width = dx1 - dx0
   for (let row = dy0; row < dy1; row++) {
@@ -72,7 +71,7 @@ export function paintRows(ctx: Ctx2D, desc: LayerOf<'sky'>, env: PaintEnv): void
       // The band's rect covers this row by this share (its top and bottom rows partly, as an antialiased edge).
       const cover = clamp01(Math.min(row + 1, bottom * k + m.f) - Math.max(row, top * k + m.f))
       if (cover > 0) {
-        const alpha = clamp01(channelAt(BAND_AT, bandAlpha, (sy - (band.y - band.h)) / (band.h * 1.3))) * cover
+        const alpha = clamp01(channelAt(BAND_AT, bandAlpha, (sy - (band.y - band.h)) / (band.h * HORIZON_BAND_SPAN))) * cover
         r = Math.round(over[0] * alpha + r * (1 - alpha))
         g = Math.round(over[1] * alpha + g * (1 - alpha))
         b = Math.round(over[2] * alpha + b * (1 - alpha))

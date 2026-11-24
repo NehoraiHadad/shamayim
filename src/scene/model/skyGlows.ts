@@ -7,10 +7,28 @@ import type { WorldState } from '../../world/types'
 import { cityDomes } from './cityLight'
 import type { SkyGeom } from './sky'
 import { mixRgb } from './tone'
-import type { Glow, RGB } from './types'
+import type { Band, Glow, RGB } from './types'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const WHITE: RGB = [1, 1, 1]
+
+/** The painted band extends one height above eye level and 0.3 heights below it. */
+export const HORIZON_BAND_SPAN = 1.3
+export const HORIZON_BAND_PROFILE = [[0, 0], [.45, .35], [1 / HORIZON_BAND_SPAN, 1], [1, .4]] as const
+
+export function horizonBandAlphaAt(band: Band, y: number): number {
+  if (band.h <= 0) return 0
+  const at = (1 + (y - band.y) / band.h) / HORIZON_BAND_SPAN
+  if (at < 0 || at > 1) return 0
+  for (let i = 1; i < HORIZON_BAND_PROFILE.length; i++) {
+    const [end, opacity] = HORIZON_BAND_PROFILE[i]
+    if (at <= end) {
+      const [start, previous] = HORIZON_BAND_PROFILE[i - 1]
+      return band.alpha * (previous + (opacity - previous) * (at - start) / (end - start))
+    }
+  }
+  return 0
+}
 
 /** Fade the afterglow colour within the altitude range in which it is available. */
 export const afterglowWeight = (sunAlt: number) =>

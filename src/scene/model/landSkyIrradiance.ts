@@ -14,13 +14,21 @@ import type { RadianceLight } from './landIrradiance'
 const horizonShare = (up: number) => .78 * Math.exp(-up / .37)
 export const ROUGH_LOBE_HEIGHT = .38
 export const lowLobe = (up: number, towardSun: number) => Math.exp(-up / ROUGH_LOBE_HEIGHT) * (.5 + .5 * towardSun) ** 2
+// Match the tiled conductor's cosine-power curvature at the lobe axis:
+// ((1 + cos θ)/2)^p ≈ 1 − p θ²/4, so p is four times the cosine power.
+// Scale the elevation e-folding height by the same ratio of angular widths.
+export const METAL_POWER = 2.7
+const METAL_AZ_POWER = 4 * METAL_POWER
+const METAL_HEIGHT = ROUGH_LOBE_HEIGHT * Math.sqrt(2 / METAL_AZ_POWER)
+export const metalSkyLobe = (up: number, towardSun: number) =>
+  Math.exp(-up / METAL_HEIGHT) * (.5 + .5 * towardSun) ** METAL_AZ_POWER
 export { afterglowWeight } from './skyGlows'
 export const twilightShare = (sunAlt: number) => smoothstep(10, 3, sunAlt) * smoothstep(-10, -3, sunAlt)
 const cloudScatter = (cloud: number, aerosol: number) => 1.8 * cloud ** 2 * aerosol
 const lowScatter = (cloud: number, aerosol: number) => aerosol * (1 - .65 * cloud)
 const BASE_FORWARD = .8
 const DOME = (() => {
-  let zenith = 0, horizon = 0, forward = 0, moment = 0, roughForward = 0
+  let zenith = 0, horizon = 0, forward = 0, moment = 0, roughForward = 0, metalForward = 0
   for (let i = 0; i < 8; i++) {
     const up = (i + 0.5) / 8, horizontal = Math.sqrt(1 - up * up)
     const low = Math.exp(-up / 0.17)
@@ -30,11 +38,12 @@ const DOME = (() => {
       const cos = Math.cos((j + 0.5) * Math.PI / 6)
       const share = low * (0.5 + 0.5 * cos * horizontal) ** 3 * up / 48
       roughForward += lowLobe(up, cos * horizontal) * up / 48
+      metalForward += metalSkyLobe(up, cos * horizontal) * up / 48
       forward += share
       moment += share * horizontal * cos
     }
   }
-  return { zenith, horizon, forward, moment, roughForward }
+  return { zenith, horizon, forward, moment, roughForward, metalForward }
 })()
 
 const domeChannel = (mid: number, top: number, horizon: number, zenithShare: number, lowShare: number) =>
@@ -96,7 +105,7 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
  * is normalized to the diffuse reference luminance over the upper hemisphere.
  */
 export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB,
-  lobeColor: RGB, forwardAccent = 0) {
+  lobeColor: RGB, forwardAccent = 0, shape: 'rough' | 'metal' = 'rough') {
   const cloud = Math.min(1, Math.max(0, light.diffuse))
   const twilight = twilightShare(sunAlt)
   const top = srgbRgbToLinear(rgbOf(light.palette.top)), mid = srgbRgbToLinear(light.ambient)
@@ -106,14 +115,18 @@ export function skyReflection(light: RadianceLight, sunAlt: number, tau: number,
   // twilight as the sun moves below the horizon of the rough reflector.
   const accent = forwardAccent * smoothstep(-10, 0, sunAlt)
   const forward = (BASE_FORWARD + accent) * lowScatter(cloud, aerosol)
+  // Concentrate the same hemispheric forward energy into the narrower
+  // conductor shape. The broad luminance meter therefore keeps its meaning.
+  const lobe = shape === 'metal' ? metalSkyLobe : lowLobe
+  const normalization = shape === 'metal' ? DOME.roughForward / DOME.metalForward : 1
   const broad = twilightIntegral(mid, top, horizon, cloudFill, forward, lobeColor)
   const gain = twilight * linearLuminance(mean) / Math.max(1e-6, linearLuminance(broad))
   const bias = .065 * smoothstep(3, 16, sunAlt) * (1 - cloud)
-  return (up: number, towardSun: number): RGB => {
+  return (up: number, towardSun: number, lobeTowardSun = towardSun): RGB => {
     const m = Math.max(0, up), low = horizonShare(m)
-    const lobe = lowLobe(m, towardSun)
+    const forwardLight = forward * normalization * lobe(m, lobeTowardSun)
     const channel = (i: 0 | 1 | 2) => mean[i] * (1 - twilight) * (1 + bias * towardSun)
-      + gain * (domeChannel(mid[i], top[i], horizon[i], m ** 2, low) + cloudFill + forward * lobe * lobeColor[i])
+      + gain * (domeChannel(mid[i], top[i], horizon[i], m ** 2, low) + cloudFill + forwardLight * lobeColor[i])
     return [channel(0), channel(1), channel(2)]
   }
 }
