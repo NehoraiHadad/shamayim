@@ -30,6 +30,15 @@ export async function readGroups(path: string): Promise<RawGroup[]> {
 
 export const readFacts = async (path: string) => JSON.parse(await readFile(path, 'utf8')) as Facts
 
+/** South first, then west. */
+export const southWest = (a: LatLon, b: LatLon) => a[0] - b[0] || a[1] - b[1]
+
+/** In one order, whatever the file's: by every field, so that two houses change places only when they are the same. */
+export const inOrder = (houses: readonly RawHouse[]): RawHouse[] => [...houses].sort((a, b) => {
+  const at = a.findIndex((value, i) => value !== b[i])
+  return at < 0 ? 0 : a[at] < b[at] ? -1 : 1
+})
+
 export const osmShareOf = (houses: readonly RawHouse[]) => houses.filter(house => house[6] === OSM).length / houses.length
 
 /** The group's south-west corner on a 1e-5° grid, never north or east of a house. */

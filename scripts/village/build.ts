@@ -8,7 +8,7 @@ import { MICROSOFT, OSM, readFacts, readGroups } from './input'
 import { builtCover, limitTable, shareTable, sizeTable } from './measure'
 import { verdictOf, type Verdict } from './rule'
 import { readPoints, servedAt } from './serve'
-import { tileKeysOf, tilesOf } from './tiles'
+import { tilesOf } from './tiles'
 import { placesIn, storedTiles, textsOf, writeTiles } from './write'
 
 const { positionals: [input], values } = parseArgs({ allowPositionals: true, options: {
@@ -21,7 +21,8 @@ const groups = await readGroups(join(input, 'groups.jsonl'))
 const verdicts = groups.map(verdictOf)
 const good = groups.filter((_, i) => verdicts[i] === 'good')
 
-const tiles = tilesOf(good, pin.release, new Date().toISOString().slice(0, 10))
+const points = await readPoints('public/data/city/bounds.json')
+const tiles = tilesOf(good, pin.release, new Date().toISOString().slice(0, 10), points)
 const before = await storedTiles(values.out)
 const texts = textsOf(tiles, before)
 const counts: Counts = {
@@ -35,16 +36,16 @@ console.table((['good', 'wide', 'few', 'machine'] as const).map(verdict =>
   ({ verdict, groups: tally(verdict).length, places: tally(verdict).flatMap(g => g.places).length })))
 console.table([counts])
 console.table(sizeTable(texts))
-console.log('records stored more than once (a group beside a tile edge):', good.reduce((sum, g) => sum + tileKeysOf(g).length - 1, 0))
-const served = servedAt(await readPoints('public/data/city/bounds.json'), texts)
+console.log('records stored more than once (a group beside a tile edge):', [...tiles.values()].reduce((sum, tile) => sum + tile.groups.length, 0) - good.length)
+const served = servedAt(points, texts)
 console.log('place points by what one tile gives them:', served)
 console.log('OSM share, groups the other two limits let in:')
 console.table(shareTable(groups, builtCover('public/data/land/il')))
 console.log('the other two limits:')
 console.table(limitTable(groups))
 
-await writeTiles(values.out, texts, pin.release)
 const faults = [...faultsOf(counts, facts, pin), ...servingFaults(served), ...sizeFaults(new Map([...texts].map(([key, text]) => [key, Buffer.byteLength(text)]))),
   ...lostPlaces(placesIn(before.values()), placesIn(tiles.values()), pin.tolerance)]
 for (const fault of faults) console.error(`FAIL: ${fault}`)
-process.exitCode = faults.length ? 1 : 0
+if (faults.length) process.exitCode = 1
+else await writeTiles(values.out, texts, pin.release)

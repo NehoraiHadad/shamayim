@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readTile, type StoredTile } from '../../src/data/village/tile'
+import { NOTICE_FILE, noticeOf } from './notice'
 
 const TILE_FILE = /^(-?\d+_-?\d+)\.json$/
 
@@ -42,6 +43,7 @@ export async function writeTiles(dir: string, texts: ReadonlyMap<string, string>
     if (key && !texts.has(key)) await unlink(join(dir, name))
   }
   for (const [key, text] of texts) await writeFile(join(dir, `${key}.json`), text)
+  await writeFile(join(dir, NOTICE_FILE), noticeOf(release))
   const index = { v: 1, licence: 'ODbL-1.0', release, cells: [...texts.keys()].sort() }
   await writeFile(join(dir, 'index.json'), JSON.stringify(index))
 }
