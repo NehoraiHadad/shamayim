@@ -198,8 +198,11 @@ export function arrivingLayers(world: WorldState, box: SceneBox, layers: readonl
   const at = (step: { at: number }) => t0 + step.at
   const ramp = (step: { at: number; dur: number }, from: number, to: number) => ({ at: at(step), dur: step.dur, from, to })
   const dy = reveal.fromHorizonY - world.relief.horizonY
+  const graded = layers.some(layer => layer.kind === 'skyFilter')
   const out = layers.map((layer): LayerDesc => {
     if (layer.surface === 'sky') {
+      // Hold the opaque backdrop and grade together, without exposing an unpainted edge.
+      if (graded && (layer.kind === 'sky' || layer.kind === 'skyFilter')) return layer
       if (Math.abs(dy) < 0.5) return layer
       return { ...layer, animated: { ...(layer.animated ?? { mode: 'settle' }), glide: { dy, at: at(ARRIVAL.glide), dur: ARRIVAL.glide.dur } } }
     }

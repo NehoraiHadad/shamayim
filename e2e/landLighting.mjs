@@ -9,6 +9,20 @@ import { receiverPixels } from './landReceiver.mjs'
 const capture = process.argv.find((arg) => arg.startsWith('--capture='))?.slice('--capture='.length)
 const cases = CASES.filter((c) => /-(0620|1200|1630)$/.test(caseName(c)) || caseName(c) === 'tiberias-1200-snow')
 const texturePatches = { tiberias: [238, 375, 350, 417], jerusalem: [92, 404, 148, 420], 'ramon-crater': [87, 391, 143, 420] }
+// Horizon-strip medians measured on bea595f8, before the cloud-colour changes.
+// A reference entry takes its independent baseline from the checked-in still.
+const APPROVED_STILL = Symbol('approved still')
+const baseSky = {
+  'tel-aviv-1200': .570, 'jerusalem-1200': .570, 'rosh-pina-1200': .572,
+  'tel-aviv-0620': .291, 'rosh-pina-0620': .308, 'ein-gedi-0620': .324,
+  'ramon-crater-1630': .304, 'tel-aviv-1630': .178,
+  'haifa-1200': .563, 'ramon-crater-1200': .554, 'jerusalem-0620': .317, 'haifa-0620': .277,
+  'haifa-1630': APPROVED_STILL, 'jerusalem-1630': APPROVED_STILL,
+  'ein-gedi-1200': APPROVED_STILL, 'ein-gedi-1630': APPROVED_STILL, 'ramon-crater-0620': APPROVED_STILL,
+  'rosh-pina-1630': APPROVED_STILL, 'shadmot-mehola-0620': APPROVED_STILL, 'shadmot-mehola-1200': APPROVED_STILL,
+  'shadmot-mehola-1630': APPROVED_STILL, 'tiberias-0620': APPROVED_STILL, 'tiberias-1200': APPROVED_STILL,
+  'tiberias-1630': APPROVED_STILL, 'tiberias-1200-snow': APPROVED_STILL,
+}
 const failures = []
 const server = await startServer()
 const browser = await launch()
@@ -19,6 +33,7 @@ try {
     const name = caseName(c)
     const { context, page } = await openPage(browser, server.url)
     try {
+      assert.ok(Object.hasOwn(baseSky, name), `missing horizon baseline for ${name}`)
       await loadScene(page, sceneUrl(server.url, c))
       const actual = await page.screenshot({ clip: CLIP, animations: 'disabled' })
       if (capture) fs.writeFileSync(path.join(capture, name + '.png'), actual)
@@ -57,13 +72,17 @@ try {
             const neighbours = (Y(x - 5, y) + Y(x + 5, y) + Y(x, y - 5) + Y(x, y + 5)) / 4
             if (neighbours > 0) texture.push(Math.abs(Y(x, y) - neighbours) / neighbours)
           }
-          return { ratio: q(land, 0.5) / q(sky, 0.5), spread: [q(land, 0.1), q(land, 0.5), q(land, 0.9)],
+          const skyY = q(sky, 0.5)
+          return { skyY, ratio: q(land, 0.5) / skyY, spread: [q(land, 0.1), q(land, 0.5), q(land, 0.9)],
             texture: q(texture, 0.5), snowPair: snow ? [q(snowNear, 0.5), q(snowFar, 0.5)] : undefined }
         }))
       }, { images: [actual, ref].map((image) => image.toString('base64')),
         patch: name.endsWith('-1200') ? texturePatches[c.place] : undefined, snow: c.weather === 'snow' })
       const [a, b] = result
       console.log(name, JSON.stringify(a), 'reference', JSON.stringify(b))
+      const baseline = baseSky[name] === APPROVED_STILL ? b.skyY : baseSky[name]
+      const tolerance = 0.02
+      assert.ok(Math.abs(a.skyY / baseline - 1) <= tolerance, 'horizon luminance outside cloud review tolerance')
       if (name.endsWith('-0620') || name.endsWith('-1630')) {
         assert.ok(a.ratio / b.ratio >= 0.75 && a.ratio / b.ratio <= 1.25, 'twilight ratio outside 25% of the reference')
       } else if (name.endsWith('-1200')) {
