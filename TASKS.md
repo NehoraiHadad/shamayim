@@ -1243,6 +1243,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             Stills: notes `real/concept/round2/`
       - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
       - [x] Build plan: notes `real/BUILD-PLAN.md` (S0 and six slices A-F, needs N1-N9 for foundations, every open fix), reviewed by another model; lightened by the owner's bar
+      - [x] S0 on main 5fb0d856 (CI run 45341294326, scratch `claude/real-meas-base`): notes `real/S0-BASELINE.md`; one dispatch again when the integration lands
       - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
-      - [ ] Phase 2 after the manager opens `src/scene`: S0, then A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
+      - [ ] Phase 2 after the manager opens `src/scene`: A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
