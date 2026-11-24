@@ -49,7 +49,6 @@ function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv) 
   }
   const under = mix(s.shade, s.lit, 0.6 * s.glow), caught = 0.35 + 0.6 * Math.min(1, s.litA), lit = mix(s.body, s.lit, caught)
   const t = cloudInks({ lit, bright: mix(s.body, whitened(s.lit), caught), body: mix(s.body, under, 0.15), shade: under, least: s.rains ? RAINS : 0, gain: 1.35 })
-  console.log('[proto] cell w', s.w.toFixed(0), 'tau', s.tau.toFixed(0), 'heavy', t.heavy.toFixed(2), 'line', t.line.toFixed(2), 'lit', s.lit, 'shade', s.shade)
   const grid = { cols, rows, at }, frame = { x: x - mass.reach, y: y + top, w: (cols - 1) * step, h: (rows - 1) * step }
   const most = Math.min(LOBE_MAX, Math.max(5, LOBE * s.w)), line = Math.min(1, s.w / 90) * t.line
   const loops = billowed(grid, 0, frame, () => most * 0.5, s.seed, true)

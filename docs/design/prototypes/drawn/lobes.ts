@@ -20,8 +20,34 @@ const SLOW = 0.16, QUIET = 0.38, CALM = 0.25, INSIDE = 1, BUSY = 0.55
 const SIZE = [0.2, 1.1] as const, SELDOM = 1.5, TINY = 0.4
 /** How far a lobe leans out of its mass, and at random (rad); the cells the lean is taken over, and the fall that is all of it. */
 const LEAN = 0.4, SWAY = 0.3, ABOUT = 3, FALL = 6
+/** A lobe's most against its own mass's depth: a small cloud is several small lobes. */
+const OF_MASS = 0.75
 /** Lobes smaller than this share of their row's most stand only on a top; none stand at the foot or in the far rows (cells). */
 const SMALL = 0.42, TOP = 0.05, FOOT = -0.5, NEAR = 6
+
+/** Each cell's mass's greatest depth. */
+function deepest({ cols, rows }: Mass, d: Float32Array): Float32Array {
+  const out = new Float32Array(d.length), stack: number[] = [], found: number[] = []
+  for (let s = 0; s < d.length; s++) {
+    if (!d[s] || out[s]) continue
+    found.length = 0
+    stack.push(s)
+    out[s] = 1
+    let most = 0
+    for (let n = stack.pop(); n !== undefined; n = stack.pop()) {
+      found.push(n)
+      most = Math.max(most, d[n])
+      const i = n % cols, j = (n - i) / cols
+      for (const [k, ok] of [[n - 1, i > 0], [n + 1, i < cols - 1], [n - cols, j > 0], [n + cols, j < rows - 1]] as const) {
+        if (!ok || !d[k] || out[k]) continue
+        out[k] = 1
+        stack.push(k)
+      }
+    }
+    for (const n of found) out[n] = most
+  }
+  return out
+}
 
 /** Each cell's distance to the mass's edge (cells): two passes over its neighbours. */
 function inside({ cols, rows, at }: Mass): Float32Array {
@@ -46,13 +72,14 @@ function inside({ cols, rows, at }: Mass): Float32Array {
 }
 
 export function lobesOf(mass: Mass): Lobe[] {
-  const { cols, rows, seed } = mass, d = inside(mass), found: Lobe[] = []
+  const { cols, rows, seed } = mass, d = inside(mass), deep = deepest(mass, d), found: Lobe[] = []
   for (let j = 0; j < rows; j++) {
-    const most = mass.most(j), step = Math.max(1, Math.floor(most / 5))
-    if (j % step || most < NEAR) continue
+    const row = mass.most(j), step = Math.max(1, Math.floor(row / 5))
+    if (j % step || row < NEAR) continue
     for (let i = (j / step) % 2 ? step >> 1 : 0; i < cols; i += step) {
       const n = j * cols + i
       if (d[n] < LEAST || mass.side[n] < FOOT) continue
+      const most = Math.min(row, OF_MASS * deep[n])
       const random = rng(seed + i * 7919 + j * 104729), slow = SLOW / Math.sqrt(most), busy = fractal(seed % 971, i, j, slow, slow, 2)
       if (busy < QUIET && mass.side[n] < CALM && d[n] > INSIDE * most) continue
       const r = Math.min(INNER * d[n], most * (SIZE[0] + (SIZE[1] - SIZE[0]) * random() ** SELDOM * Math.min(1, 2.4 * (1 - busy))))
