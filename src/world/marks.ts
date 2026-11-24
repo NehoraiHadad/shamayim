@@ -7,7 +7,6 @@ import { offsetKm } from '../data/landmarks/project'
 import { groundFn } from '../data/landmarks/seat'
 import { type SettlementStyle } from '../data/landmarks/settlement'
 import type { Landmark, PlacedMark } from '../data/landmarks/types'
-import type { NoteBox } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { beyondMarks } from './beyondMarks'
 import { beyondKm, type SeatMark } from './beyondSeat'
@@ -43,8 +42,6 @@ export interface MarksInput {
   /** Half the portrait's houses (px): other marks of the place stand outside it, its halls and towers among them. */
   homeHalf: number
   style: SettlementStyle
-  /** The notes written on the land (the datum, the water's names): a mark moves aside or is left out. */
-  notes: readonly NoteBox[]
   /** The place's own raster towers when it has a skyline (their generic OSM twins are left to them). */
   rasterTowers: readonly CityTower[] | null
   /**
@@ -71,17 +68,17 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
   const inBox = (mark: WorldMark) => mark.x - mark.w / 2 >= 0 && mark.x + mark.w / 2 <= width
   const fitted = (placed: PlacedMark[]) => placed.flatMap((mark) => fit(mark, input, ground, farGround) ?? [])
   if (!outside) {
-    const marks = fitted(placeMarks(place, terrain, own, width, input.homeHalf, false, { reachKm: input.reachKm }, input.notes, 'landmark'))
+    const marks = fitted(placeMarks(place, terrain, own, width, input.homeHalf, false, { reachKm: input.reachKm }, 'landmark'))
     return { marks: marks.filter(inBox), seatPool: [] }
   }
   // The outside view: the place's own marks by the one projection; the marks beyond it at their true bearing.
   const perspective = markPerspective(place, terrain, outside.frame, outside.baseKm, input.city)
-  const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot, input.notes,
+  const { other, seated, seatPool } = beyondMarks(place, beyond, width, outside.seatMark, dot,
     mark => localTownAt(input.city, mark) === true)
-  const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, input.notes, 'landmark')
+  const ownMarks = placeMarks(place, terrain, own, width, undefined, false, { reachKm: input.reachKm }, 'landmark')
   const ownPlaced = new Set(ownMarks.filter((mark) => mark.portrait).map((mark) => mark.id))
   const otherMarks = placeMarks(place, terrain, other, width, undefined, false, undefined,
-    input.notes, 'landmark', perspective)
+    'landmark', perspective)
   const placed = [...ownMarks, ...otherMarks]
   let marks = [...fitted(placed), ...seated]
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
@@ -108,14 +105,7 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
     const spec = GLYPH_SPECS[mark.glyphKind]
     // Clear of the dot, on its own side.
     const clear = DOT_R + 2 + spec.w / 2
-    let x = Math.abs(at.x - dot.x) >= clear ? at.x : dot.x + (dx > 0 ? -clear : clear)
-    // Out of the notes written on the land (the datum, the water's names), to the nearer side.
-    for (const note of input.notes) {
-      const base = lieBaseY(lie, ground, x, at.near, floor, 0, dx, dy)
-      if (x + spec.w / 2 <= note.left || x - spec.w / 2 >= note.right || base <= note.top || base - spec.h(mark.hPx) >= note.bottom) continue
-      const left = note.left - spec.w / 2 - 1, right = note.right + spec.w / 2 + 1
-      x = Math.abs(x - left) <= Math.abs(right - x) ? left : right
-    }
+    const x = Math.abs(at.x - dot.x) >= clear ? at.x : dot.x + (dx > 0 ? -clear : clear)
     const km = beyondKm(outside.frame, baseKm, dx, dy)
     if (spec.field) {
       // A field lies on the face under the crest at its depth, its row's drop added (down the slope with its row); on the
@@ -128,7 +118,7 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
       return { ...mark, xPct: x / width * 100, x, base: under + depth, baseY: under + depth, depth, km }
     }
     const h = spec.h(hPx)
-    // On its own ground; moved across (off the dot, out of a note), never above the land that stands there.
+    // On its own ground; moved across (off the dot), never above the land that stands there.
     const base = Math.max(lieBaseY(lie, ground, x, at.near, floor, 0, dx, dy), Math.min(floor, surfaceAt(x)))
     const held = inVillage ? heldToHouses(h, source.heightM, inVillage.village, at.k / frame.k) : 1
     return { ...mark, xPct: x / width * 100, x, hPx, h, scale: held, w: spec.w * held, base, baseY: base, km }

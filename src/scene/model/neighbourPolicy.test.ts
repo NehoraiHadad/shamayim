@@ -9,7 +9,7 @@ import type { LayerOf } from './types'
 
 const world = { place3: { kind: 'unknown' }, terrain: {
   horizonY: 70, near: { points: [[0, 110], [375, 110]], distanceKm: [2, 2] },
-}, labels: { height: { backed: false } }, farCities: { footprints: new Map([[7, { townId: 1, built:
+}, farCities: { footprints: new Map([[7, { townId: 1, built:
   1 }]]) } } as unknown as WorldState
 const mark = { id: 'source', kind: 'castle', glyphKind: 'castle', base: 101, h: 3, scale: 1,
   w: 16 * 3 / 9.5, x: 140, km: 12, sightKm: 12, plane: 'near', townFootprint: false } as WorldMark

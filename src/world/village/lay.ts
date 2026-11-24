@@ -16,7 +16,7 @@ export interface TownLie {
   /** Whether a spot of the screen is the water drawn. */
   onWater: (x: number, y: number) => boolean
 }
-export interface VillageLie { village: OutsideVillage; frame: OutsideFrame; lie: PlaceLie; cells: FabricCell[]; dotY: number; levelY: (h: number) => number }
+export interface VillageLie { village: OutsideVillage; frame: OutsideFrame; lie: PlaceLie; cells: FabricCell[]; dotY: number }
 
 /** The dot stands this far (px) over the base its row stands on (`vscale.dotY`). */
 const DOT_PX = 1
@@ -42,6 +42,6 @@ export function layVillage(source: SettlementSource | null | undefined, town: To
     const { x, depth } = outsideProject(frame, dx, dy), half = wKm * frame.f / depth / 2, y = baseY(dx, dy)
     return !town.onWater(x - half, y) && !town.onWater(x + half, y)
   }
-  return { village, frame, lie: { ...town.lie, baseY }, dotY: dotY - DOT_PX, levelY: h => Math.min(floor, dotY + (h0 - h) * s),
+  return { village, frame, lie: { ...town.lie, baseY }, dotY: dotY - DOT_PX,
     cells: villageCells(village, town.cells, depthPx, town.lat, town.waterAt).filter(dry) }
 }

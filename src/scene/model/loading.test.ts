@@ -57,7 +57,7 @@ describe.each(SCENE_PLACES)('loading: $id', ({ id }) => {
       expect(w.marks).toEqual([])
       expect(w.water.spans).toEqual([])
       expect(w.farCities.patches).toEqual([])
-      expect(w.labels.notes).toEqual([])
+      expect(w.watersShown).toEqual([])
       expect(w.place3.kind).toBe('unknown')
     }
     expect(known(id, '12:00').terrain.status).toBe('ready')
@@ -87,13 +87,12 @@ describe.each(SCENE_PLACES)('loading: $id', ({ id }) => {
     if (fall) expect(fall.z).toBeGreaterThan(byId(rain, 'loading.mist')!.z)
   })
 
-  it('keeps every label back until the land is in', () => {
+  it('keeps no spot clear until the land is in', () => {
     for (const status of ['loading', 'offline'] as const) {
       const model = sceneModel(unknown(id, '16:30', status), BOX, { loadingAt: -2 })
-      expect(model.overlay).toEqual([])
       expect(model.clear).toEqual([])
     }
-    expect(sceneModel(known(id, '16:30'), BOX).overlay.length).toBeGreaterThan(0)
+    expect(sceneModel(known(id, '16:30'), BOX).clear.length).toBeGreaterThan(0)
   })
 
   it('brings the land in monotonically: up under the thinning mist, the crest drawn outward, the sky settling', () => {

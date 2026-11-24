@@ -4,14 +4,14 @@ import { outsideBodies } from './outsideBodies'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
 import { sceneClearance } from './sceneClearance'
 import type { Skyline } from './skyline'
-import type { FarCities, OutsideView, PlaceUnknown, Pt, WorldLabels } from './types'
+import type { FarCities, OutsideView, PlaceUnknown, Pt } from './types'
 
 /*
  * The drawn skyline (the owner's report of 2026-11-20: a low sun drawn over the near hill and the town). Everything in the
  * sky is hidden by whatever land and structures are actually drawn in front of it, so the sun and moon rise and set, and
  * the light judges them up or behind the land, against one line: the top of what the scene draws. That is the near land
  * as drawn (the place's own ground on its scale within its span, the panorama's ridge beyond), the far land, and what
- * stands on them, as it stands clear of the text (`outsideBodies.ts`): the place's rows and towers, its trees, the towers
+ * stands on them, as it stands clear of the place's spot (`outsideBodies.ts`): the place's rows and towers, its trees, the towers
  * and towns beyond it; the marks, the far towns' towers. (Until this, the bodies were judged on the panorama's own
  * skyline, which the place's own near land now overdraws; and a body the place's eye saw was laid again over its mass.)
  */
@@ -24,7 +24,7 @@ const RES = 2
  * eye level and camera (`base`) place each body on its path, and this line determines whether it clears the land.
  */
 export function drawnSkyline(drawn: SceneTerrain, place3: OutsideView | PlaceUnknown, marks: readonly WorldMark[], far: FarCities | null,
-  base: Skyline, labels: WorldLabels, width: number): Skyline {
+  base: Skyline, width: number): Skyline {
   const n = SCENE_W * RES + 1
   const cols = new Float32Array(n).fill(Infinity)
   const line = (points: readonly Pt[]) => {
@@ -46,7 +46,7 @@ export function drawnSkyline(drawn: SceneTerrain, place3: OutsideView | PlaceUnk
   if (place3.kind === 'outside') {
     if (place3.land?.top.length) line(place3.land.top)
     const sx = width / SCENE_W
-    const standing = outsideBodies(place3, sceneClearance(labels, place3.dot, width), sx)
+    const standing = outsideBodies(place3, sceneClearance(place3.dot, width), sx)
     for (const { box, x, w } of standing.boxes) block(x / sx, w / sx, box.top)
     for (const { tower, x, w } of standing.towers) block(x / sx, w / sx, tower.baseY - tower.h)
     for (const t of standing.beyond) block(t.x, t.w / sx, t.baseY - t.h)

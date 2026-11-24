@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { DATUM_PLACES, SCENE_PLACES } from '../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES } from '../test/scenePlaces'
 import { addMinutes } from '../domain/time'
 import { sceneModel } from '../scene/model'
 import { landTopOf } from '../scene/model/life'
@@ -19,7 +19,7 @@ const BOX = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 
 let places: Map<string, LoadedPlace>
 beforeAll(async () => {
   stubPublicFetch()
-  places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES])
+  places = await loadPlaces([...SCENE_PLACES, ...BELOW_SEA_PLACES])
 }, 120_000)
 
 describe('the sun and moon set behind the land as drawn', () => {

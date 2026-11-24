@@ -23,7 +23,7 @@ function clearBody(zones: readonly ScreenBox[], x: number, w: number, top: numbe
 export const roofM = (box: { heightM?: number }) => box.heightM ?? 3 * STOREY_M
 
 /**
- * What of the outside view stands clear of the text and the dot, as drawn: each body's middle and width (land px, x scaled
+ * What of the outside view stands clear of the place's spot, as drawn: each body's middle and width (land px, x scaled
  * from the reference width by `sx`). The one silhouette the scene draws and the sun and moon are judged against.
  */
 export function outsideBodies(view: OutsideView, clear: readonly ScreenBox[], sx: number) {

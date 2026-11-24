@@ -26,7 +26,6 @@ export type LandStatus = 'ready' | 'loading' | 'offline'
 
 export interface SceneTerrain {
   centerLeft: string
-  seaY: number
   /** The sea (not a lake) is in view, on this side (`water`). */
   seaInView: boolean
   seaSide: 'west' | 'east' | null
@@ -55,11 +54,6 @@ export interface SceneTerrain {
   angleY?: (angle: number) => number
   /** The eye's height (m above sea level) the panorama was drawn for (panorama only). */
   eyeM?: number
-  /**
-   * Below sea level (panorama only): where the land passes up through 0 m along each ray as the eye sees it (x, y on the
-   * land's vertical scale), the nearest such spot the eye sees on each ray; the "פני הים" datum's land (`world/datum.ts`).
-   */
-  zeroContour?: Pt[]
   /** Where snow above `lineM` reaches down to on each layer, as points west to east (panorama only). */
   snowEdge?: (layer: 'near' | 'far', lineM: number) => Pt[]
   /**
@@ -88,7 +82,7 @@ export const UNKNOWN_EYE_Y = MIDDLE_Y
  */
 export function unknownLand(status: Exclude<LandStatus, 'ready'>): SceneTerrain {
   const flat: Pt[] = [[0, UNKNOWN_EYE_Y], [375, UNKNOWN_EYE_Y]]
-  return { centerLeft: '50%', seaY: UNKNOWN_EYE_Y, seaInView: false, seaSide: null, nearPoints: flat, farPoints: flat,
+  return { centerLeft: '50%', seaInView: false, seaSide: null, nearPoints: flat, farPoints: flat,
     horizonY: UNKNOWN_EYE_Y, status }
 }
 

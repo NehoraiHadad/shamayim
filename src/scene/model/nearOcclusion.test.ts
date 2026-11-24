@@ -8,7 +8,7 @@ import type { NeighbourBlock } from './neighbourPlacement'
 const baseMark = { kind: 'mast', glyphKind: 'mast', h: LEGIBLE_PX, scale: 1, w: 1.5, base: 100,
   sightKm: 8, townFootprint: false, x: 125, plane: 'near' } as WorldMark
 const world = { place3: { kind: 'unknown' }, terrain: { horizonY: 70,
-  near: { points: [[0, 110], [375, 110]], distanceKm: [1, 1] } }, labels: { height: { backed: false } },
+  near: { points: [[0, 110], [375, 110]], distanceKm: [1, 1] } },
   farCities: {}, marks: [], seatPool: [], air: { fade: () => 0 },
 } as unknown as WorldState
 const home = { left: 100, right: 120, hazeKm: 1 }

@@ -102,11 +102,9 @@ describe('scene terrain from a panorama', () => {
     expect(valley.rays[east].far.angle).toBeGreaterThan(4)
   })
 
-  it('puts eye level under the village and the sea line on the slopes below sea level', () => {
+  it('puts eye level under the village, and no sea in a valley below sea level', () => {
     expect(terrain.nearPoints[Math.floor(terrain.nearPoints.length / 2)][1]).toBeCloseTo(96, 0)
     expect(terrain.seaInView).toBe(false)
-    expect(terrain.seaY).toBeLessThan(terrain.horizonY)
-    expect(terrain.seaY).toBeGreaterThan(terrain.farPoints.reduce((top, [, y]) => Math.min(top, y), 128))
   })
 
   it('finds the sea where the water in view is the sea, on its side', () => {

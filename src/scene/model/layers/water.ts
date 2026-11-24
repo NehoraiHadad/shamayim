@@ -51,5 +51,4 @@ export interface SeaDesc {
 
 export type WaterLayers =
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
-      lamp?: Lamp
-      datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
+      lamp?: Lamp }

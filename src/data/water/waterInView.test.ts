@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { anglePx } from '../terrain/angleScale'
 import { computePanorama, FAR_KM, type HeightAt } from '../terrain/panorama'
 import { inViewOrder } from '../terrain/panoramaTerrain'
-import { sceneNotes } from '../terrain/sceneNotes'
 import { facetShare, glintsOf } from '../../world/water'
 import { SCENE_CAMERA } from '../../domain/camera'
 import { seaSideOf, waterInView, type WaterLookup } from './waterInView'
@@ -72,17 +71,5 @@ describe('the light on the water', () => {
     expect(glint.x).toBeLessThan(spans[0].to)
     expect(glintsOf(spans, low, false, SCENE_CAMERA, 5)).toEqual([])
     expect(glintsOf(spans, { ...low, azimuth: 250 }, true, SCENE_CAMERA, 5)).toEqual([])
-  })
-})
-
-describe('notes on the land', () => {
-  it('names the water over its far edge, and writes the datum only when asked', () => {
-    const water = spansOf(lakeLand(), lake)
-    const notes = sceneNotes({ seaY: 80, water }, false, 375)
-    expect(notes.map((note) => note.text)).toEqual(['כנרת'])
-    const mid = notes[0].left + notes[0].width / 2
-    expect(mid).toBeGreaterThan(water[0].from)
-    expect(mid).toBeLessThan(water[0].to)
-    expect(sceneNotes({ seaY: 80, water }, true, 375).map((note) => note.kind)).toEqual(['datum', 'water'])
   })
 })

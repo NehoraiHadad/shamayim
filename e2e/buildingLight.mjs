@@ -76,7 +76,9 @@ try {
         band(m.front, .67, .94, 'shaded wall/ground')
         assert.ok(m.n.roof >= 80, 'flat caps should resolve including beside clay roofs')
         band(m.roof, .86, 1.50, 'flat roof/ground')
-        band(m.roof / m.front, 1.18, 1.65, 'flat roof/front')
+        // Tiberias: 1.645 while the "פני הים" label kept one block of the front row off the picture, 1.664 with the block drawn
+        // (its shaded front joins the fronts' median; no other wall's pixel changed).
+        band(m.roof / m.front, 1.18, 1.67, 'flat roof/front')
         band(m.sun, .78, 1.12, 'sunward return/ground')
         band(m.spread, .11, .24, 'all-neighbour spread')
         // Tel Aviv's brightest roof pixel kept its own light (.353 to .358, one sRGB level) while the clouds at the horizon

@@ -3,7 +3,7 @@ import { RAY_DISTANCES } from '../../data/terrain/panorama'
 import { xOf } from '../../domain/camera'
 import { addMinutes } from '../../domain/time'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
-import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { CLEARANCE_M, FINAL_KM, FLIGHT } from '../../world/flightPaths'
 import { curveDrop, flightTerrain } from '../../world/flightTerrain'
 import { makeWorldBuilder } from '../../world/world'
@@ -16,7 +16,7 @@ import type { LayerDesc, SceneBox } from './types'
 
 /*
  * Where birds and planes fly (the owner's report of 2026-11-20: "pay attention to where they fly, so that they don't
- * suddenly fly into the mountain"). At every harness place (the 8 base places and the datum places), every minute of a
+ * suddenly fly into the mountain"). At every harness place (the 8 base places and the places below sea level), every minute of a
  * day, through one world builder as the app's scrub:
  * - every flock keeps its kind's least clearance over the ground under it;
  * - a flock nearer than the land drawn at its x, with no ground truly in its line of sight, is never hidden;
@@ -27,7 +27,7 @@ import type { LayerDesc, SceneBox } from './types'
  */
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
-const PLACES = [...SCENE_PLACES, ...DATUM_PLACES]
+const PLACES = [...SCENE_PLACES, ...BELOW_SEA_PLACES]
 const DAY = '2026-11-17'
 /** Doubt (m) between the world's sight lines (heights between the rays) and the panorama's own (angles between them). */
 const SLACK_M = 5

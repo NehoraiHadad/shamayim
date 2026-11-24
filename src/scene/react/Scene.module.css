@@ -1,5 +1,5 @@
-/* The valley scene's figure and its HTML (docs/design/CANVAS-SCENE-PLAN.md §1e): the canvas fills it; the labels, the
-   village dot, the scrubber and the readout are HTML over it. */
+/* The valley scene's figure and its HTML (docs/design/CANVAS-SCENE-PLAN.md §1e): the canvas fills it; the
+   scrubber and the readout are HTML over it. */
 .scene {
   position: relative;
   height: 128px;
@@ -12,32 +12,6 @@
   overflow-x: clip;
   color: var(--ink);
   pointer-events: none;
-}
-
-.village {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  margin: -2.5px 0 0 -2.5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ridge-near) 70%, transparent);
-}
-
-.depth,
-.seaLabel,
-.waterLabel {
-  position: absolute;
-  font-size: var(--text-caption);
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.depth {
-  transform: translateX(-50%);
-  /* A halo in the land's own tone, so the figure reads where the skyline stands behind it. */
-  text-shadow: 0 0 2px var(--ridge-near), 0 0 4px var(--ridge-near);
 }
 
 /*
