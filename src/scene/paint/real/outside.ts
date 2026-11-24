@@ -9,6 +9,7 @@ import { paintOutsideLand, paintOutsideSea } from '../shared/town/outsideGround'
 import { stripPhase } from '../shared/town/stripPhase'
 import { paintPass } from '../shared/base/paintPass'
 import { paintTower } from './outsideTower'
+import { paintFoldedWindows } from './town/foldedWindows'
 import { nightLight, paintStreetLight, paintWindowBloom } from './town/nightTown'
 import { paintNightWater } from './town/nightWater'
 
@@ -53,7 +54,10 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       paintPass(ctx, 'background', () => tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
-    if (night) paintStreetLight(ctx, env, item, night)
+    if (night) {
+      paintFoldedWindows(ctx, item, tiers, s)
+      paintStreetLight(ctx, env, item, night)
+    }
   }
   paintPass(ctx, 'background', () => grain(ctx, env, 13, 1 - .4 * s.night))
   if (night && desc.sea) paintNightWater(ctx, desc.sea, desc.items, night, stripPhase(desc, env))

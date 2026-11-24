@@ -43,12 +43,18 @@ export function nightLight({ shine, tiers, bounds }: LayerOf<'outside'>): NightL
 export interface Stand { x: number; foot: number; w: number; h: number; seed: number }
 
 /** Where a body of the town stands; null for a tree, a field or a mark off the streets. */
-export function standOf(item: OutsideItem): Stand | null {
+function standOf(item: OutsideItem): Stand | null {
   if (item.kind === 'box') return { x: item.x, foot: item.foot, w: item.w, h: item.foot - item.top, seed: item.seed }
   if (item.kind === 'tower') return { x: item.x, foot: item.base, w: item.w, h: item.h, seed: item.seed }
   if (item.kind !== 'mark') return null
   const g = item.glyph
   return isField(g.kind) || UNLIT.has(g.kind) ? null : { x: g.x, foot: g.base, w: g.w, h: g.h * g.scale, seed: g.seed }
+}
+
+/** The body's stand where its street is lit: some of the houses, every landmark. */
+export function litStand(item: OutsideItem): Stand | null {
+  const stand = standOf(item)
+  return stand && (item.kind === 'mark' || rng(stand.seed ^ 0x2d9)() < .55) ? stand : null
 }
 
 /** One glow, its upper and lower halves each kept inside the layer (whose edge would cut it). */
@@ -72,15 +78,14 @@ function added(ctx: Ctx2D, draw: () => void) {
 
 /** The street light round one body of the town, over its own foot and the ground by it. */
 export function paintStreetLight(ctx: Ctx2D, env: PaintEnv, item: OutsideItem, light: NightLight): void {
-  const stand = standOf(item)
+  const stand = litStand(item)
   if (!stand) return
   const { x, foot, w, h, seed } = stand, mark = item.kind === 'mark', r = rng(seed ^ 0x71a)
-  if (r() < .45 && !mark) return
   const size = Math.max(1.6, w * (.55 + .45 * r()))
   const aside = mark ? 0 : (r() - .5) * w, strength = mark ? 1 : .4 + r()
   added(ctx, () => {
-    glow(ctx, env, light, x + aside, foot - .3, size, Math.max(1, .6 * size), .2 * light.street * strength)
-    if (r() < .3) glow(ctx, env, light, x, foot - .4 * h, 4 * w, 3 * w, .035 * light.windows)
+    glow(ctx, env, light, x + aside, foot - .3, size, Math.max(1, .6 * size), .3 * light.street * strength)
+    if (r() < .3) glow(ctx, env, light, x, foot - .4 * h, 4 * w, 3 * w, .05 * light.windows)
   })
 }
 
