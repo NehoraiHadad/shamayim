@@ -36,6 +36,12 @@ export function liveUrl(query: URLSearchParams, base = import.meta.env.VITE_WEAT
   return root ? `${root}/v1/live?${query}` : null
 }
 
+/** Where a style vote goes; only the Worker keeps them. */
+export function styleVoteUrl(base = import.meta.env.VITE_WEATHER_API_BASE): string | null {
+  const root = rootOf(base)
+  return root ? `${root}/v1/style-vote` : null
+}
+
 /**
  * When the data left Open-Meteo: the Worker's `X-Fetched-At` (a shared copy may be minutes old), else now.
  * Never later than now, so a clock ahead of the device's cannot make old data look newer.

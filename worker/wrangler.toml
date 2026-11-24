@@ -25,6 +25,17 @@ enabled = true
 [triggers]
 crons = ["25 * * * *", "40 */6 * * *"]
 
+# Temporary (src/voteLimit.ts): the style vote's requests from one address, and the votes of everyone, per location.
+[[ratelimits]]
+name = "VOTE_LIMIT"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "VOTE_LIMIT_ALL"
+namespace_id = "1002"
+simple = { limit = 40, period = 60 }
+
 # Create once with `npx wrangler kv namespace create LIVE` and paste the id it prints.
 [[kv_namespaces]]
 binding = "LIVE"

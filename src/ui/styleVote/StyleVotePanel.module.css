@@ -1,0 +1,142 @@
+/* Temporary. Painted in the paper's own colours, so it follows the sheet in every light. */
+.panel {
+  --focus: var(--sheet-ink);
+  position: fixed;
+  z-index: 40; /* Over the hour's readout (30). */
+  inset-inline: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  width: min(100% - 20px, 420px);
+  margin-inline: auto;
+  padding: 2px var(--space-4) var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--sheet-ink) 18%, var(--sheet));
+  border-radius: var(--radius-sheet);
+  background: var(--sheet);
+  color: var(--sheet-ink);
+  box-shadow: 0 6px 28px rgb(0 0 0 / 34%);
+  animation: rise var(--d2) var(--ease-out);
+}
+
+/* The card floats over the page's last lines: room to scroll them clear of it, and keyboard focus never behind it. */
+:root:has(.panel) {
+  --panel-room: calc(env(safe-area-inset-bottom) + 240px);
+  scroll-padding-bottom: var(--panel-room);
+}
+
+:root:has(.panel[data-picked]) {
+  --panel-room: calc(env(safe-area-inset-bottom) + 292px);
+}
+
+/* Inside the page's last part, so the sheet's colour goes on behind the panel. */
+:root:has(.panel) :global(.paper) > :last-child {
+  padding-bottom: var(--panel-room);
+}
+
+/* The hour's readout, with its way back to now, stays below the panel. */
+.panel[data-picked] {
+  bottom: calc(env(safe-area-inset-bottom) + 62px);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-inline-end: -12px;
+}
+
+.heading h2 {
+  margin: 0;
+  font: 500 var(--text-lg) / 1.2 var(--font-serif);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-well);
+  background: color-mix(in srgb, var(--sheet-ink) 9%, var(--sheet));
+}
+
+.option {
+  position: relative;
+}
+
+.option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.option > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border-radius: var(--radius-slot);
+  font-weight: 600;
+  transition: background-color var(--d1), color var(--d1);
+}
+
+.option input:checked + span {
+  background: var(--sheet-ink);
+  color: var(--sheet);
+}
+
+.option input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* One height for every state, so the panel never jumps under the finger. */
+.answer {
+  display: grid;
+  align-items: center;
+  min-height: 44px;
+  margin-block-start: var(--space-2);
+}
+
+.answer p {
+  margin: 0;
+  font-size: var(--text-sm);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.vote {
+  width: 100%;
+  min-height: 44px;
+  border: 1.5px solid color-mix(in srgb, var(--sheet-ink) 60%, var(--sheet));
+  border-radius: var(--radius-well);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.write {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  color: inherit;
+  font-size: var(--text-md);
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+  .option > span { transition: none; }
+}
+
+/* Forced colours drop backgrounds: the chosen style keeps a frame. */
+@media (forced-colors: active) {
+  .option input:checked + span { outline: 2px solid Highlight; outline-offset: -2px; }
+}

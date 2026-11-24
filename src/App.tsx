@@ -38,6 +38,9 @@ import { SceneFallback } from './scene/react/SceneFallback'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
 import { Sky } from './ui/Sky'
+import { StyleVotePanel } from './ui/styleVote/StyleVotePanel'
+import { StyleVoteToggle } from './ui/styleVote/StyleVoteToggle'
+import { useStyleVote } from './ui/styleVote/useStyleVote'
 import { ErrorState, LoadingState } from './ui/States'
 import { StatusLine } from './ui/StatusLine'
 import { TopBar } from './ui/TopBar'
@@ -112,6 +115,7 @@ export default function App() {
   const wearLine = useMemo(() => (wear ? { garments: wear.garments, paper: { sheet: sheet.sheet, ink: sheet.sheetInk, muted: sheet.sheetMuted,
     accent: sheet.sheetAccent } } : null), [wear, sheet.sheet, sheet.sheetInk, sheet.sheetMuted, sheet.sheetAccent])
   const overhead = useOverheadDialog()
+  const styleVote = useStyleVote()
   const modelRain = forecast ? firstRainHour(forecast.hours, now) : undefined
   // The radar's verdict on the rain nearby; the model only fills in when the radar sees nothing close.
   const rain = useMemo(() => ({ outlook, forecastRainAt: modelRain?.time.slice(11, 16) ?? null,
@@ -163,13 +167,14 @@ export default function App() {
                   readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
                   first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
                   last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
-                  onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} onWaters={onWaters} />
+                  onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} onWaters={onWaters}
+                  sceneStyle={styleVote.style} />
               </Suspense>
             )}
             <div className="paper" data-intro="sheet">
               <Sheet>
                 <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />
-                <WearCard tip={wear} />
+                <WearCard tip={wear} action={<StyleVoteToggle state={styleVote} />} />
                 <WeekList forecast={forecast} now={now} />
                 <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
               </Sheet>
@@ -178,6 +183,9 @@ export default function App() {
           </div>
         )}
       </main>
+      {styleVote.open && (
+        <StyleVotePanel state={styleVote} placeName={place.nameHe} at={selected ?? now} picked={selected !== null} />
+      )}
       <OverheadPage open={overhead.open} place={place} rain={rain} onClose={overhead.close} />
     </div>
   )

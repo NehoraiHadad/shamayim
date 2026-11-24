@@ -5,7 +5,7 @@ import { withLocalRegion } from './region/israelRegion'
 const PLACE_KEY = 'shamayim:place:v1'
 const RECENT_KEY = 'shamayim:recent-places:v1'
 const MAX_RECENT = 4
-type Store = Pick<Storage, 'getItem' | 'setItem'>
+export type Store = Pick<Storage, 'getItem' | 'setItem'>
 
 function valid(value: unknown): value is Place {
   if (!value || typeof value !== 'object') return false
@@ -15,7 +15,8 @@ function valid(value: unknown): value is Place {
     && typeof place.lon === 'number' && typeof place.timezone === 'string'
 }
 
-function storage(): Store | null {
+/** Local storage, or null where the browser blocks it. */
+export function storage(): Store | null {
   try {
     return localStorage
   } catch {
