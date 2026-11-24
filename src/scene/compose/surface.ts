@@ -183,6 +183,7 @@ export class Surface {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
     const d = this.dpr
     const cache = this.active
+    let opaqueSky = false
     if (this.order?.layers !== layers) this.order = { layers, passes: compositeOrder(layers) }
     for (const desc of this.order.passes) {
       if (desc.kind === 'contrail') { paintContrail(ctx, desc, motion, still, d); continue }
@@ -194,6 +195,8 @@ export class Surface {
         && cached.lightDesc.receiver?.form !== plane.lightDesc.key))) continue
       // The main thread paints a strip's frames on demand, using the description that matches its canvas.
       const { form, light, ratio, rect } = cached
+      // The worker may publish the filter before the opaque sky backdrop.
+      if (desc.kind === 'skyFilter' && !opaqueSky) continue
       // At the device's ratio a whole-pixel blit (the fast path); a stale canvas of another ratio is scaled until
       // it is repainted.
       const k = d / ratio
@@ -274,6 +277,9 @@ export class Surface {
         if (layout.blend) ctx.globalCompositeOperation = layout.blend
         draw(form)
         if (layout.blend) ctx.globalCompositeOperation = 'source-over'
+        if (layout.kind === 'sky') {
+          opaqueSky = rect.x === 0 && rect.y === 0 && rect.w * k >= this.canvas.width && rect.h * k >= this.canvas.height
+        }
       }
       if (light && layout.light) {
         ctx.globalCompositeOperation = layout.light.blend

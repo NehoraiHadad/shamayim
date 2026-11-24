@@ -46,5 +46,5 @@ export interface LayerBase {
   /** Laid where its object is now (`Lay`): the layer's bounds and coordinates are round its own origin. */
   placed?: Lay
   /** How its canvas meets the surface under it (`source-over` when absent). */
-  blend?: 'source-over' | 'source-atop' | 'multiply'
+  blend?: 'source-over' | 'source-atop' | 'multiply' | 'lighter'
 }

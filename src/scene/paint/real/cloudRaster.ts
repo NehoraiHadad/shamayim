@@ -1,3 +1,5 @@
+import type { LayerOf } from '../../model/types'
+import { throughAir } from '../shared/cloud/throughAir'
 import { detailTilePx, drawnAlpha } from './cloudLook'
 import { detailTile, tileAt } from '../shared/base/detailTile'
 import type { PaintEnv } from '../shared/base/hand'
@@ -14,7 +16,8 @@ const RASTER = 0.5
 interface SheetGrid { buf: Float32Array; cols: number; rows: number; spacing: readonly number[] }
 
 /** The grid as a raster `width` × `height` sky px on a scratch surface, its pixels' centres on the grid's edges. */
-export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height: number, open: number, seed: number) {
+export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height: number, open: number, seed: number,
+  air: Pick<LayerOf<'cloudSheet'>, 'ys' | 'through'>) {
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(height * RASTER) + 1
   const scratch = env.canvas(w, h)
   const image = scratch.ctx.createImageData(w, h)
@@ -30,6 +33,7 @@ export function rasterise(env: PaintEnv, grid: SheetGrid, width: number, height:
       writePixel(image.data, (j * w + i) * 4, grid, gx, gy, (alpha) => drawnAlpha(alpha, detail, open))
     }
   }
+  throughAir(image.data, w, h, air)
   scratch.ctx.putImageData(image, 0, 0)
   return { canvas: scratch.canvas, w, h }
 }

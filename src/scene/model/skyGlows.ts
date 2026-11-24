@@ -7,15 +7,13 @@ import { cityDomes } from './cityLight'
 import { srgbRgbToLinear } from './landRadiance'
 import { afterglowWeight } from './landSkyIrradiance'
 import type { SkyGeom } from './sky'
+import { veilOf } from './skyColour'
 import { gradeSky } from './skyTone'
 import { mixRgb } from './tone'
 import type { Glow, RGB, SceneBox } from './types'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const WHITE: RGB = [1, 1, 1]
-
-/** How much of a body's direct light the cloud in front takes (0 clear, 1 hidden). */
-export const veilOf = (world: WorldState) => 1 - world.light.clear
 
 /** The painted solar aureole, cloud brightening and ridge glow, in bottom-to-top order. */
 export function solarSkyGlows(world: WorldState, top: number, left: number, scale: number): Glow[] {

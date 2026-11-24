@@ -1,17 +1,17 @@
 import { projectCell } from '../../world/field/project'
-import type { FieldCell } from '../../world/field/types'
-import type { WorldState } from '../../world/types'
-import type { CloudSprite, SpriteGenus } from './cloudSprite'
 import { smoothstep } from '../../world/ridgeLighting'
+import type { WorldState } from '../../world/types'
 import { acrossSpeed, pxPerRadAt } from './advect'
-import { litOf, tonesAt, type CloudLight } from './cloudLight'
+import { cloudTransmission, dustVeilWeight } from './cloudDust'
+import { MIN_TOWER_SHARE } from './cloudSprite'
+import type { CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
 import { DOME_ALT } from './dome'
-import { beforeSheet, hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
+import { hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
 import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
-import { mixRgb } from './tone'
 import { SLENDEREST, towerAnvil } from './towerHeads'
+import { towerSpriteOf } from './towerSprite'
 import type { LayerOf, RGB, SceneBox } from './types'
 
 /*
@@ -45,7 +45,7 @@ const STAND = 0.55
 const NEAR_TOP = 45
 /** Quantum of a sprite's numbers in its key (px, tones 1/64): what shows, so a scrub repaints only on a visible step. */
 const q = (v: number, step = 0.5) => Math.round(v / step)
-const tone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
+const legacyTone = (rgb: RGB) => rgb.map((c) => Math.round(c * 64))
 
 export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, snapshot: Snapshot,
   light: CloudLight | null, stops: [number, RGB][], beyond: Beyond | null = null): LayerOf<'cloudCells'> | null {
@@ -54,7 +54,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   const pxPerDeg = world.camera.pxPerDeg * geom.s
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
   const stretch = sceneStretch(geom, pxPerDeg) ** STAND
-  const placed: (Placed & Standing & { top: number })[] = []
+  const placed: (Placed & Standing & { top: number; through: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
     const seen = p.widthDeg * pxPerDeg
@@ -78,11 +78,12 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     const w = Math.max(least, tall / SLENDEREST)
     if (x + w / 2 < 0 || x - w / 2 > geom.width) continue
     const look: [number, number] = [cell.x / Math.hypot(cell.x, cell.y), cell.y / Math.hypot(cell.x, cell.y)]
-    const sprite = spriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
+    const sprite = towerSpriteOf(world, box, stops, beyond, cell, light, x, y, w, under, tall)
     sprite.bowl = bowl
     const speed = acrossSpeed(layer.vel, look, p.rangeKm, perRad)
     sprite.lean = leanOf(speed, (Math.hypot(...layer.vel) / p.rangeKm / 60) * Math.abs(perRad))
-    placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed })
+    const through = cloudTransmission(world.air, cell.baseKm, world.bodies.sun.altitude)(p.aSide)
+    placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed, through })
   }
   if (!placed.length) return null
   oneStormEach(placed)
@@ -95,12 +96,19 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   placed.sort((a, b) => b.km - a.km)
   const top = Math.max(0, Math.floor(Math.min(...placed.map((c) => c.y - c.sprite.tall)) - 12))
   const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(...placed.map((c) => c.y + c.sprite.under)) + 8))
-  const drawn = placed.map(({ sprite, x, y, speed }) => ({ sprite, x, y, speed }))
+  const bandWeight = dustVeilWeight(world, 0)
+  const drawn = placed.map(({ sprite, x, y, speed, through }) => {
+    // Occlusion was resolved with undimmed cloud cover. Dust attenuates the remaining sprite.
+    if (through < 1) sprite.share *= through
+    return { sprite, x, y, speed }
+  })
+  if (bandWeight && drawn.every(({ sprite }) => sprite.share <= MIN_TOWER_SHARE)) return null
   return {
     kind: 'cloudCells', id: 'cloudCells.tower', lattice: 'tower', surface: 'sky', z: sheetZ.tower, soft: true, cells: drawn,
     bounds: { x: 0, y: top, w: geom.width, h: Math.max(1, bottom - top) },
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under), q(s.bowl ?? 0),
-      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
+      q(s.tall), legacyTone(s.body), legacyTone(s.shade), legacyTone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05),
+      s.share <= MIN_TOWER_SHARE ? 'hidden' : q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
   }
 }
 
@@ -108,42 +116,4 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
  *  zenith, against the panorama's px per degree of azimuth. */
 export function sceneStretch(geom: SkyGeom, pxPerDeg: number): number {
   return Math.max(1, (geom.dome(0) - geom.dome(90)) / 90 / pxPerDeg)
-}
-
-type TowerGenus = Extract<SpriteGenus, 'cu' | 'cg' | 'cb'>
-const GENUS: Partial<Record<FieldCell['genus'], TowerGenus>> = { cu: 'cu', cg: 'cg', cb: 'cb' }
-/** A tower's flat base by day, in the shadow of the column above it: the deeper the column, the darker (a Cb's tau runs
- *  to hundreds); darker still where it rains. Its sunlit body is fair-weather white whatever the cover round it. */
-const BASE: Record<TowerGenus, RGB> = { cu: [0.52, 0.56, 0.62], cg: [0.38, 0.42, 0.47], cb: [0.25, 0.28, 0.32] }
-const RAIN_BASE: RGB = [0.2, 0.23, 0.27]
-/** Depth of the hazy boundary layer (km): the line of sight to a point above it leaves the haze at this height, so a
- *  tower's upper body is seen through a fraction of the haze its base is (why a far Cb stands white over a hazy foot). */
-const HAZE_KM = 1.5
-/** The length of the line of sight (by ground range, km) that runs through the haze to a point `heightKm` up. */
-export const hazePath = (rangeKm: number, heightKm: number) => rangeKm * Math.min(1, HAZE_KM / Math.max(0.01, heightKm))
-
-/** How far a low sun takes a tower's body to its own colour. */
-const GLOWING = 0.6
-
-function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyond: Beyond | null, cell: FieldCell, light: CloudLight | null,
-  x: number, y: number, w: number, under: number, tall: number): CloudSprite {
-  const rains = cell.rainWeight > 0.3
-  const genus = GENUS[cell.genus] ?? 'cg'
-  // A tower stands in its own gap of the sky (union 0): its body is lit as a fair-weather cloud's.
-  const range = Math.hypot(cell.x, cell.y)
-  const tones = beforeSheet(tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2)), beyond, x, y - tall / 2)
-  const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
-  const day = smoothstep(-8, 3, world.bodies.sun.altitude)
-  const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
-    0.85 * world.air.fade(hazePath(range, cell.baseKm)))
-  const shade = mixRgb(tones.shade, base, day)
-  const beam = light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body
-  // A low sun lights a whole tower's height from the side, as it does the sheet's underside round it.
-  const glow = light ? light.under * light.strength * lit.through : 0
-  return {
-    genus, seed: cell.seed, w, under, tall, lean: 0, tau: cell.tau0,
-    body: mixRgb(mixRgb(tones.body, beam, GLOWING * glow), shade, 0.5 * lit.backlit), shade, lit: beam, litA: lit.litA, toward: lit.toward,
-    silver: Math.max(lit.silver, 0.9 * lit.front), glow,
-    rains, share: cell.share,
-  }
 }

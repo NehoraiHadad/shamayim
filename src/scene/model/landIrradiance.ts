@@ -41,12 +41,13 @@ export function skyView(normal: Normal, sun: LightDir, bias: number) {
 // Bird & Hulstrom (SERI/TR-642-761), evaluated at 52° zenith, air mass 1.62, 101325 Pa,
 // 1361 W/m² extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water, 0.116 AOD at 500 nm,
 // 0.166 at 380 nm (Ångström 1.3), 0.85 aerosol asymmetry and 0.18 ground albedo:
-// DNI ≈ 828 W/m², DHI ≈ 109 W/m². This reference fixes the clear beam/fill ratio.
+// The unrounded DNI and DHI (about 828 and 109 W/m²) give the clear beam/fill ratio 7.62.
 // The 5.65 divisor is the illustration's daytime radiance scale, independent of horizon azimuth.
 const DAY_DHI = 1 / 5.65
-const DAY_DNI = 7.62 * DAY_DHI
+export const SUN_TO_SKY = 7.62
+const DAY_DNI = SUN_TO_SKY * DAY_DHI
 const REF_AIR = { visibilityKm: 30, dustWeight: 0 }
-const REF_BEAM = solarBeam(38, REF_AIR).strength
+export const REF_BEAM = solarBeam(38, REF_AIR).strength
 const REF_SCATTER = 0.099 + aerosolDepth(REF_AIR)[1]
 
 // Kyba, Mohar & Posch 2017, doi:10.1093/astrogeo/atx025: ~0.05–0.1 lx typical moonlight,
