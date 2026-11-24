@@ -1,4 +1,4 @@
-import { shownBlocks } from './fabricCover'
+import { frontFirst, shownBlocks } from './fabricCover'
 import type { OutsideBox } from './outsideView'
 
 /** A built cell on the screen. */
@@ -36,10 +36,13 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
 
 /**
  * The standing sites' bodies, without the blocks drawn wider than their sites that nearer ones hide but for a sliver
- * (`shownBlocks`). Houses, and blocks at their own width, keep their sites, so a low-rise place keeps its layout.
+ * (`shownBlocks`): the houses as they stand, so a low-rise place keeps its layout, then the blocks in an order of their own.
  */
 export function composeBodies(sites: readonly FabricSite[], houseTopM: number): OutsideBox[] {
-  const widened = sites.filter(({ box, body }) => (body.heightM ?? 0) >= houseTopM && body.w > box.w).map(({ body }) => body)
+  const isBlock = ({ body }: FabricSite) => (body.heightM ?? 0) >= houseTopM
+  const blocks = sites.filter(isBlock)
+  const widened = blocks.filter(({ box, body }) => body.w > box.w).map(({ body }) => body)
   const shown = shownBlocks(widened), hidden = new Set(widened.filter(body => !shown.has(body)))
-  return sites.flatMap(({ body }) => hidden.has(body) ? [] : [body])
+  return [...sites.filter(site => !isBlock(site)).map(({ body }) => body),
+    ...blocks.map(({ body }) => body).filter(body => !hidden.has(body)).sort(frontFirst)]
 }
