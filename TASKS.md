@@ -1272,6 +1272,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       Bug (owner, live, both styles): bare strip under the clouds where the sea horizon dips below eye level (karmei-tzur; run 45417571791). Slice claude/real-strip, first to merge. Merged 77337d11 (b7c9db35, owner "yes to all", 24 Nov; CI 45424749985 green; with the small cloud touch 337074df)
       Drawn clouds b76775ad owner-approved (24 Nov), verified; conflicts with the strip in drawn/cloudSheet.ts and sheetPrint.ts: joined as 1d7e252d (CI 45427963062: check, worker, stills, perf green, real identity equal), merged 350efdbd
       Clear sky (owner at Shadmot Mehola, 24 Nov 16:50: clear, app drew clouds): MAX_SHIFT 40 caps the satellite correction; claude/clear-sky by the vote-prep session, domain and data only
+      Real ground 5e1bc182, trees and sea f24854eb, air ddde10f9 verified (CI green, drawn identity 8/8). Owner 24 Nov: join into claude/real-join on 350efdbd, bring back the ground grain and the trees green, one CI and perf pair, show, merge
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
       Test mail to the vote address arrived (owner, 24 Nov)
       Ready 9033482c (main 7e4b5ce6 in, CI 45404925681 green, panel stills seen by the manager); merge main again after the styles, re-verify
