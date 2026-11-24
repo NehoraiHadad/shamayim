@@ -92,7 +92,7 @@ describe('C9 defect 3, superseded (2026-11-20): the place\'s own mass hides a bo
 })
 
 describe('C9: the waters of the picture (defect 5)', () => {
-  it.each([['netanya', ['ים']], ['haifa', ['ים']], ['tiberias', ['כנרת']], ['ein-gedi', ['ים המלח']], ['jerusalem', []], ['ramat-gan', []]] as const)(
+  it.each([['netanya', ['ים']], ['haifa', ['ים']], ['tiberias', ['כנרת']], ['ein-gedi', ['ים המלח']], ['jerusalem', []], ['ramat-gan', ['ים']]] as const)(
     '%s: names the waters truly drawn, whatever the hour', (id, names) => {
       expect(worldAt(id).watersShown).toEqual(names)
       expect(worldAt(id, '21:00').watersShown).toEqual(names)
