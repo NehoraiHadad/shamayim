@@ -1263,7 +1263,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             density.perf.test flaky; DST fold; worshipVisibility mojibake; lifeSchedule.ts 626 lines; spikes seams; canopy key with gust;
             refresh-ease reload. Left to the styles: drawn houses in dust/twilight and Jerusalem wall of blocks; real flat shower tower, ball cumulus
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
-      Stack 0f41da2f (slices 4, 5, 3, 1, 2; nothing to build in 6) owner-approved, merged 7e4b5ce6, main CI 45403900858. One last round, asked by the
+      Stack 0f41da2f (slices 4, 5, 3, 1, 2; nothing to build in 6) owner-approved, merged 7e4b5ce6, main CI 45403900858 green. One last round, asked by the
       owner: big clouds that read as balloons, first paint under x1.25 of real, the missing independent review
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 (clouds) in work at 251ca10a)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
