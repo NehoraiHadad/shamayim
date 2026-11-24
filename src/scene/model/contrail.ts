@@ -51,7 +51,7 @@ export function contrailLayer(world: WorldState, box: SceneBox, geom: SkyGeom, p
   }
 
   const { e, n, up } = plane.crossing.centre
-  const behind = skyAt(world, box)(skyDirection(e, n, up).altitude)
+  const behind = skyAt(world, box, true)(skyDirection(e, n, up).altitude)
   const id = `contrail.${plane.id}`
   return { kind: 'contrail', id, surface: 'sky', z: 6.1, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     rgb: mixRgb(lightAt, behind, 0.15), shade: mixRgb(behind, [0.55, 0.58, 0.66], 0.3),

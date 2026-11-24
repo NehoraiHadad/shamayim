@@ -9,6 +9,7 @@ import type { LandData } from '../data/land/types'
 import type { Landmark } from '../data/landmarks/types'
 import type { CropArea } from '../data/landmarks/cropAreas'
 import type { SceneTerrain } from '../data/terrain/terrain'
+import type { VillageTile } from '../data/village/tile'
 import type { WaterMask } from '../data/water/waterMask'
 import type { Camera } from '../domain/camera'
 import type { WeightedSighting } from '../domain/cloudSightings'
@@ -22,7 +23,7 @@ import type { TownLights } from './townLights'
 import type { SnowFall } from './snowLine'
 import type { Air, Body, CloudLayer, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
-import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState, WorldLabels } from './typesLand'
+import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState } from './typesLand'
 
 export * from './typesAtmo'
 export * from './typesLand'
@@ -69,6 +70,8 @@ export interface WorldInput extends AirTimeline {
   bounds?: BoundsFile | null
   /** The land cover round the place (WorldCover, ~6 km): its built cells and trees (C5). */
   cover?: LandCover | null
+  /** The footprint tile the place is in: `undefined` until it is settled, null where there is none. */
+  village?: VillageTile | null
   /** Living-land data bundle (`useLand`): WorldCover, near S2, far GIBS and recent weather; closures stay on the data side. */
   land?: LandData | null
 }
@@ -121,8 +124,8 @@ export interface WorldState {
   marks: WorldMark[]
   /** All viable beyond seats, ranked for re-budgeting after the scene's screen-space cull. */
   seatPool: SeatedWorldMark[]
-  /** The height label and the notes on the land (the place part: independent of the hour). */
-  labels: WorldLabels
+  /** The named waters that really show in the picture (the place part: independent of the hour). */
+  watersShown: string[]
   night: Night
   ground: { wet: number; snowLineM: number | null }
   /** C10: the land round the place (sea, lakes, built and open ground, the towns' sky glow). */

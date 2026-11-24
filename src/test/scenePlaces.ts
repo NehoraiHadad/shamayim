@@ -50,10 +50,9 @@ export const STILL_PLACES: Place[] = [
 ]
 
 /**
- * Places below sea level the "פני הים" datum is checked at (`qa/canvas/datum/`), beside Tiberias, Ein Gedi and Shadmot
- * Mehola: a town in the Beit She'an valley, Jericho and two Dead Sea places. Harness only; not in the tests' place loops.
+ * Places below sea level, beside Tiberias, Ein Gedi and Shadmot Mehola: a town in the Beit She'an valley, Jericho and two Dead Sea places. Harness only; not in the tests' place loops.
  */
-export const DATUM_PLACES: Place[] = [
+export const BELOW_SEA_PLACES: Place[] = [
   { id: 'beit-shean', nameHe: 'בית שאן', regionHe: 'עמק בית שאן', lat: 32.4975, lon: 35.4964, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'town', population: 18000 },
   { id: 'jericho', nameHe: 'יריחו', regionHe: 'בקעת הירדן', lat: 31.8569, lon: 35.4597, timezone: 'Asia/Jerusalem',
@@ -62,4 +61,22 @@ export const DATUM_PLACES: Place[] = [
     featureCode: 'PPL', settlementType: 'village', population: 400 },
   { id: 'neve-zohar', nameHe: 'נווה זוהר', regionHe: 'ים המלח', lat: 31.15, lon: 35.365, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'village', population: 100 },
+]
+
+/**
+ * Small settlements the village evidence is gathered at (stage V1), each another shape, at their OSM place points as the
+ * app's search gives them: a village on a ridge, a kibbutz at a mountain's foot, a desert village on a cliff's edge, a
+ * town on a mountain face, and a village OSM maps thinly. Harness only; not in the tests' place loops.
+ */
+export const VILLAGE_PLACES: Place[] = [
+  { id: 'karmei-tzur', nameHe: 'כרמי צור', regionHe: 'גוש עציון', lat: 31.60922, lon: 35.10088, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'yagur', nameHe: 'יגור', regionHe: 'כרמל', lat: 32.74286, lon: 35.07813, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'midreshet-ben-gurion', nameHe: 'מדרשת בן גוריון', regionHe: 'הר הנגב', lat: 30.85159, lon: 34.78258, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'majdal-shams', nameHe: "מג'דל שמס", regionHe: 'גולן', lat: 33.26843, lon: 35.76937, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'bardala', nameHe: 'ברדלה', regionHe: 'בקעת הירדן', lat: 32.38621, lon: 35.4807, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
 ]

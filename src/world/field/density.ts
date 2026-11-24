@@ -5,7 +5,7 @@ import { expectedClumpSampler, LATTICES, maxRadius } from './lattice'
 import { lambdaOf } from './occupancy'
 import { rasterRange } from './footprint'
 import { rasterNodes } from './rasterNodes'
-import type { CloudField, FieldCell, Lattice } from './types'
+import type { CloudField, FieldCell, FieldLayer, Lattice } from './types'
 
 export { farStrips } from './farDensity'
 export { shadowTau } from './shadowTau'
@@ -22,7 +22,16 @@ export function layerSnapshot(field: CloudField, lattice: Lattice, cx: number, c
   const cells: FieldCell[] = []
   const densityGrid = rasterize(field, lattice, cx, cy, radiusKm, t, cells, extra)
   const layer = field.layers.find(item => item.lattice === lattice)
-  return { cells, densityGrid, layer, heightKm: layer ? layer.baseKm + layer.meanVKm / 2 : 0 }
+  return { cells, densityGrid, layer, heightKm: layer ? planeOf(layer) : 0 }
+}
+
+/**
+ * The height (km) a layer is drawn at, as one sheet. Separate clouds of the low and middle lattices stand on their
+ * condensation level, as the towers do; a closing deck shows no base rim, and is read at the middle of its slab. Between a
+ * half and four fifths of the sky covered (broken, WMO 5–7 oktas) the one goes over into the other.
+ */
+function planeOf({ lattice, cover, baseKm, meanVKm }: FieldLayer) {
+  return baseKm + meanVKm / 2 * (lattice === 'low' || lattice === 'mid' ? smoothstep(0.5, 0.8, cover) : 1)
 }
 
 function rasterize(field: CloudField, lattice: Lattice, cx: number, cy: number, radiusKm: number, t: number,

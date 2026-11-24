@@ -46,7 +46,7 @@ export function select(candidates: Candidate[], width: number, large = false, fa
   return [...far, ...plain, ...near]
 }
 
-const CAPS: Partial<Record<Landmark['kind'], number>> = { minaret: 2, mast: 1, orchard: 2, vineyard: 2, solar: 1 }
+const CAPS: Partial<Record<Landmark['kind'], number>> = { mast: 1, orchard: 2, vineyard: 2, solar: 1 }
 
 /** Best first, but OSM kinds are capped and each repeat of a kind costs 3 points, so the frame shows variety. */
 function pick(candidates: Candidate[], limit: number, reserved: Candidate[] = [], highriseCap = 4): Candidate[] {
@@ -124,16 +124,6 @@ export function spread(candidates: Candidate[], gap: number, blocked?: [number, 
     placed.push(item)
   }
   return placed
-}
-
-export function avoid(candidate: Candidate, blocked: [number, number], scale = 1): Candidate | null {
-  const half = candidate.width / 2
-  if (candidate.x + half <= blocked[0] || candidate.x - half >= blocked[1]) return candidate
-  const left = blocked[0] - half
-  const right = blocked[1] + half
-  const x = Math.abs(candidate.x - left) <= Math.abs(right - candidate.x) ? left : right
-  const maxShift = candidate.mark.source === 'curated' ? 36 * scale : 24 * scale
-  return Math.abs(x - candidate.x) <= maxShift ? { ...candidate, x } : null
 }
 
 function desc(a: Candidate, b: Candidate) { return b.score - a.score }

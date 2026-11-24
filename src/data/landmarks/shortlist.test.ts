@@ -5,7 +5,7 @@ import { placeMarks, withPlaceHomes } from './placeMarks'
 import { shortlist } from './shortlist'
 import type { Landmark } from './types'
 
-const terrain: SceneTerrain = { centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false,
+const terrain: SceneTerrain = { centerLeft: '50%', horizonY: 60, seaInView: false,
   seaSide: null, nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20] }
 const petah: Place = { id: 'petah-tikva', nameHe: 'פתח תקווה', regionHe: '', lat: 32.0871, lon: 34.8875,

@@ -70,14 +70,15 @@ export function curtain(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env
   ctx.restore()
 }
 
-/** The curtains under the far banks that rain or snow, on their cloud layer's band (each also a period over, to wrap). */
-export function paintShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: PaintEnv, fibres: Fibres): void {
+/** The curtains under the far banks that rain or snow, on their cloud layer's band (each also a period over, to wrap); `over` is what a hand lays on each. */
+export function paintShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: PaintEnv, fibres: Fibres, over?: (s: Omit<ShaftDesc, 'id'>) => void): void {
   const { bounds, period } = desc
   for (const s of desc.shafts) {
     for (const k of [-1, 0, 1]) {
       const x = s.x + k * period
       if (x + s.w + Math.abs(s.lean) < bounds.x || x - s.w - Math.abs(s.lean) > bounds.x + bounds.w) continue
       curtain(ctx, { ...s, x }, desc.precip === 'snow', env, fibres)
+      over?.({ ...s, x })
     }
   }
 }

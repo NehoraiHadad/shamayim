@@ -1,5 +1,8 @@
-import { expect, it } from 'vitest'
-import type { Plane, TerrainPlanes } from '../../world/types'
+import { expect, it, vi } from 'vitest'
+import { SCENE_CAMERA } from '../../domain/camera'
+import { SCENE_W } from '../../world/sceneBox'
+import type { Plane, TerrainPlanes, WorldState } from '../../world/types'
+import { planeGeomOf } from './planeGeometry'
 import { planeGeometryKey } from './planeGeometryKey'
 
 it('keys changed geometry at the last packed vertex and in the independent material profile', () => {
@@ -13,4 +16,25 @@ it('keys changed geometry at the last packed vertex and in the independent mater
   packed[3] = 4
   profile.points[0].km = 1.401
   expect(planeGeometryKey(landscape, 'near', near, [packed])).not.toBe(original)
+})
+
+it('keys the back land by the far crest in front of it', () => {
+  const near: Plane = { points: [[0, 25], [375, 25]], distanceKm: [2, 2] }
+  const farAt = (y: number): Plane => ({ ...near, points: [[0, y], [375, y]] })
+  const keyOf = (y: number) => planeGeometryKey({ near, far: farAt(y), faces: {} } as Partial<TerrainPlanes> as TerrainPlanes, 'back', near, [])
+  expect(keyOf(20)).not.toBe(keyOf(21))
+})
+
+it('samples the back plane DEM once per column and gives both rows identical geometry', () => {
+  const back: Plane = { points: [[0, 25], [SCENE_W, 25]], distanceKm: [2, 2] }
+  const groundAt = vi.fn((x: number, km: number) => x + km)
+  const terrain = { near: back, back, faces: {}, groundAt } as unknown as TerrainPlanes
+  const world = { terrain, camera: SCENE_CAMERA } as WorldState
+  const grid = planeGeomOf(world, 'back', back, 128)
+  expect(grid.rows).toBe(2)
+  // Each across-slope uses one DEM height on either side of its column.
+  expect(groundAt).toHaveBeenCalledTimes(2 * grid.cols)
+  for (const values of [grid.nx, grid.ny, grid.nz, grid.km]) {
+    expect(values.slice(0, grid.cols)).toEqual(values.slice(grid.cols))
+  }
 })

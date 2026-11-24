@@ -1,7 +1,7 @@
 import { SCENE_H } from './sunPath'
 
 /**
- * The scene's layout constants and box helpers (stage C4): the world places the marks and the height label with them
+ * The scene's layout constants and box helpers (stage C4): the world places the marks with them
  * (`world/marks.ts`, `world/place.ts`).
  */
 
@@ -10,11 +10,8 @@ export const SHEET_OVERLAP = 14
 export const VISIBLE_BOTTOM = SCENE_H - SHEET_OVERLAP
 /** A base closer than this to the sheet edge reads as a stub cut by the card. */
 export const SHEET_CLEAR = 6
-/** The village dot with its ring (`scene/react/Scene.module.css` `.village`). */
+/** The small clearing kept round the place's exact spot (`place3.dot`): nothing marks the spot, but the town is laid round it. */
 export const DOT_R = 4.5
-/** The height label's drawn size (`ui/tokens.css` `--text-caption` = 0.75rem = 12 px, `scene/react/Scene.module.css` `.depth` `line-height: 1`). */
-export const LABEL_PX = 12
-export const LABEL_H = LABEL_PX
 
 /** A drawn box in scene px (y grows down). */
 export interface Box { left: number; right: number; top: number; bottom: number }
@@ -34,7 +31,3 @@ export function shifts(max: number, step: number) {
   for (let d = step; d <= max; d += step) out.push(d, -d)
   return out
 }
-
-/** Width of a one-line label (Heebo-like digits and Hebrew run about half an em). */
-export function textWidth(text: string, fontPx: number) { return text.replace(/[\u2066-\u2069]/g, '').length * fontPx * .5 + 1 }
-

@@ -6,7 +6,7 @@ import { scaleLight } from './tone'
 import type { SkyGeom } from './sky'
 import type { RGB } from './types'
 
-const RAD = Math.PI / 180
+export const RAD = Math.PI / 180
 
 // Two-stream diffuse transmission uses 3/4 of the transport depth.
 // Water-cloud droplets have scattering asymmetry g ≈ 0.85.

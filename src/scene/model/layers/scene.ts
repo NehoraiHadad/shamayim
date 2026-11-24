@@ -16,14 +16,6 @@ export type LayerDesc =
 export type LayerKind = LayerDesc['kind']
 export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
 
-/** HTML over the land, placed from the model: positions in scene px (x as `box.width` scales it). */
-export type OverlayItem =
-  /** `x` the label's centre, `y` its top. */
-  | { kind: 'height'; text: string; x: number; y: number; below: boolean; backed?: boolean }
-  /** `x` the note's left edge, `y` its top. */
-  | { kind: 'datum' | 'water'; text: string; x: number; y: number }
-  | { kind: 'dot'; x: number; y: number }
-
 /**
  * The land's arrival in time (C8), kept by the React shell, which alone reads the clock, as phases of the scene's one
  * animation clock (s from the page's scene epoch, the phase every loop lays at, so a new model never starts a motion
@@ -36,7 +28,6 @@ export interface LandClock { loadingAt: number; reveal?: { at: number | null; fr
 
 export interface SceneModel {
   layers: LayerDesc[]
-  overlay: OverlayItem[]
-  /** Text and dot zones (land px) that nothing drawn may cover. */
+  /** The place's spot (land px), that nothing drawn may cover. */
   clear: Box[]
 }

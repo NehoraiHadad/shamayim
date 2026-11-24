@@ -30,6 +30,8 @@ Owner, 23 Nov 2026: people try the two scene styles (`real`, `drawn`), say which
 
 Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"** (supersedes the earlier Decision B for famous
 landmarks and non-own worship).
+Since 2026-11-24 no mosque is drawn anywhere, the place's own included (`src/data/landmarks/drawableMark.ts`); it supersedes
+every mosque and minaret line below.
 
 - [x] Non-own mosques/minarets are never drawn, even when famous. Other non-own worship is drawn only when the
       source is curated or a named `fame === 2` landmark (Wikipedia). Fame-1 sources use the ordinary
@@ -52,8 +54,14 @@ landmarks and non-own worship).
       other fame-1 marks capped at 2×. Seated marks stay on visible town feet and never use panorama ridge evidence.
       Restored dot/sheet checks for famous fitting, with sheet clearance retained by the receiver. Measured frame
       drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
-- [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
-      then review these rules against that terrain. The current still is explicitly flat 100 m.
+- [x] Obtain a recorded panorama for the production Karmei Tzur coordinate (and four more small settlements) through
+      the fixture workflow: `src/test/fixtures/scene` via `scripts/fixtures/recordPanoramas.ts`, run on Actions.
+- [x] Scene texts (owner, 2026-11-24): the picture carries none (no height, dot, water names or "פני הים" line). Place, height
+      and the waters drawn (`src/world/watersShown.ts`) are one line at the page's foot (`src/ui/SceneFacts.tsx`). The number's
+      last form on the picture: a3030959 on `claude/found-i-label2`. Left: the spot's small clearing among the houses (filling
+      it fails Tiberias's roof/front gate).
+- [ ] Review the settlement rules against that terrain. Stage V1 measured them (label over the town, dot erasing
+      houses, beyond-town blocks, house size and frame); the fixes are not started. Unit tests still use flat 100 m.
 - [x] Landmark-size decision: shared 6–16 CSS px policy, land aerial perspective plus far-city contrast and lamp
       transmission; owned portraits unchanged. Verified at 375/1280 and DPR 1/2, with mutation guards and a refreshed
       full audit. Histograms: `REPORT.md`, Landmark size. Stills: `stills/landmark-size/README.md` (Dafna, Karmei Tzur,
@@ -879,9 +887,6 @@ Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
       size and haze (`src/world/beyondSeat.ts`, shared with `beyondTowns`, bit-identical; `beyondMarks.ts`).
 - [x] Tests over the bundled data (`src/world/markOwnership.test.ts`, `worship.test.ts`): Karmei Tzur keeps שבת אחים, the
       hamlet cell without the fix does not; Safed and Rosh Pina by the same rule; seated size; hidden-block negative.
-- [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
-      (e.g. famous mosques in Jaffa) get their tower height back.
-- [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.
 - [ ] Follow-up: at render widths other than 375 px the light's sun/moon skyline (`drawnSkyline.ts`) still counts
       structures the scene culls behind text (town blocks, beyond towers, trees, and now swapped seats). Fix them
       together, keeping one world state (e.g. a width-independent cull rule), not per-width world rebuilds.
@@ -1244,20 +1249,70 @@ Goal (owner): `real` (default) and `drawn` clearly different, one true world und
 Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 
 - [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
-      - [~] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
-            (facts only), architecture test. `real` and `drawn` byte-identical. Own READY, own merge. Built on
-            `claude/scene-foundations-2b66cc` (CI job `identity`: the still set, both styles, both paint paths, byte for byte
-            against a base ref); waits for its final CI run, then for the manager's merge
+      - [x] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
+            (facts only), architecture test. `real` and `drawn` byte-identical (CI job `identity`). Merged: main b0181337
       - [x] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`,
             verified; its plain losses go with 1d, its design questions to the manager)
-      - [~] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause proven and fixed on a side
-            branch (3fdcb44a, 73c457aa), reviewed and added after 1a
+      - [x] 1c. Bug: haifa storm differs between first load and reload (real, frozen clock). Cause: the reading was eased in
+            from its receipt (`receivedAt`) even with nothing shown before, a reload shows it whole. Only `blendForecast` eases
+            now; test `src/world/forecastArrival.test.ts`. Second cause, load order: the water mirrored the first land
+            drawn (`src/scene/model/waterSurface.ts`, test `waterArrival.test.ts`). Third: `mist.valley` kept the first
+            crest's sub-step edges under one key (`mist.ts`, test `mist.test.ts`). Open: fixture `current.precipitation`
+            is an hour's total read as 15 min (`scripts/fixtures/recordForecast.ts`), so the 12:00 rain is drawn 4x too strong
+      - [x] 1b2. The audit's plain losses fixed, one commit each with a test that fails without it: life events keep their identity
+            (28fb9ef6), the moon's lit limb (145d824c), live cloud layers feed sky and mist (f6992189), hourly sums and gusts belong to the
+            hour before their stamp (8caa87f2), missing hours / air past its ends / DST minutes / the label's moment (cc4a64e1)
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
+      - [x] 1c2. Slices 1 and 2 on main (5fb0d856, owner approved)
+      - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
+      - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted
+      - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
+      - [~] 1h. Cloud-space positions for marks (`claude/found-i-cloudpos`): `StyleLight.cloudAir` puts `air` on `cloudSheet`
+            (`src/scene/model/cloudAir.ts`; `airFrames` in `src/world/field/handover.ts`, shared with the field's own noise)
+        - [~] Village build, claude/found-i-village on claude/found-i-town (notes: foundations/V/village/NOTES.md)
+          - [x] S1 contract, tile format, cells adapter (src/data/village/)
+          - [x] S2 data workflow (.github/workflows/village.yml, scripts/village/): 190 tiles, 715 places, 176,501 houses, checked by
+            scripts/village/committed.test.ts. Overture deletes the pinned release about 2027-01-17 (monthly step: village.yml's header)
+          - [x] S4 loader (src/data/village/{villageData,settlementOf,useVillageTile}.ts, service worker rule)
+          - [x] S3 model (src/world/village/): the village on its own frame, laid on the town's unchanged land (`lay.ts`); towns from 3.5 km on untouched
+          - [x] Landmarks among the houses, held to their size (`landmarks.ts`); ODbL credit line where footprints are drawn
+          - [ ] Follow-ups (not refined, owner's decision): small known faults in NOTES.md; gable direction, soft ground tone
+      - [~] N2. The sky both hands wait for (`claude/found-i-grade`, on `found-i-lamp`): `StyleLight.sky.grade` (`skyTone.ts`: stops,
+            glows, arch, haze, once; light ungraded; key suffix) and `Style.skyBase` (CSS list; `skyBaseRows.ts`, `e2e/skyBase.mjs`).
+            No hand passes either yet. The sky branch takes the grade before `skyFilter` when it lands
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
-- [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
-- [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
-- [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main b0181337);
+- [~] 2a. Drawn style end to end (colour woodblock print). Map, plan and prototype on `claude/drawn-style-accc0f`; build plan
+      `drawn/BUILD-PLAN.md` in the notes folder. Start from v1: replace only what a user sees as different
+      - [x] Owner approved the direction (second set of stills, `50c75d12`)
+      - [~] S4 ground and water (`claude/drawn-ground`): built, judged, reviewed and fixed (`ab93e476`); READY. Known small faults: hatch
+            ink steps at band edges, `turn` leans without direct sun
+      - [~] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
+            inside the crown); READY `0e3c7cae`. Known: palms take no key, a flat roof hides half its key line
+      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
+            Known: canvases allocated per repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
+      - [~] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
+            second gain (`skied`); READY, main d0195813 merged in (`c6fa7fca`)
+      - [~] S2 cloud sheets (`claude/drawn-cloud`, on S1): caps in the cloud's air, far arches, closed deck as v1; judged on 10 stills,
+            Codex review and its fixes, printed straight onto the layer; READY `0f41da2f`, the whole stack on main 2a0c2fef (grey under a deck; houses in fog and dust veiled). Known: flat tops at the zenith
+            row, a straight line where a sheet begins mid-sky, dusk clouds smooth, showers one closed mass, caps may enter at 2.6 px
+      - [x] S6 air: nothing to build. Dust reads as two flat wipes once S2 prints it, rain shafts and fog are as v1
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+      - [x] Phase 1 on `claude/real-style-13639d` (nothing in `src/scene`): fault map (notes `real/FAULT-MAP.md`), plan `docs/design/REAL-STYLE.md`,
+            concept painters and stills `docs/design/prototypes/real/` (5 moments, side by side in notes `real/concept/`)
+      - [x] Round 2 on the manager's four criticisms (prototype only, stills on CI: the `concept` dispatch input of `ci.yml`): ground raked
+            and gully banks, house corners and casts, haze graded as the sky; one cloud hand for sheets and towers; hole walls; round heads
+            Stills: notes `real/concept/round2/`
+      - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
+      - [x] Build plan: notes `real/BUILD-PLAN.md` (S0 and six slices A-F, needs N1-N9 for foundations, every open fix), reviewed by another model; lightened by the owner's bar
+      - [x] S0 on main 5fb0d856 (CI run 45341294326, scratch `claude/real-meas-base`): notes `real/S0-BASELINE.md`; one dispatch again when the integration lands
+      - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
+      - [ ] Phase 2 after the manager opens `src/scene`: A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
+      - [~] A, night half (`claude/real-town`): street light behind each nearer body, window bloom, far shore lights down the sea,
+            folded windows on bodies of unresolved storeys (`paint/real/town/`). Codex review: 8 findings, reflections fixed. Written down, not
+            chased: a lit pane's bloom pops with the pane; `shine.windows` keyed in 1/64 (a ramp of the strip's poses); the shrine's
+            floodlight blooms as a window; glows squeeze at the layer's edge. Day half waits for the label slice
+- [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main 7e4b5ce6);
       waits for both styles' approval, then main into it, re-verify, owner approves merge and worker deploy (worker first)

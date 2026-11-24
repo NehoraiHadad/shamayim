@@ -4,6 +4,7 @@ import { aviationLamp, type Lamp } from '../shared/town/glyphs/kit'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
 import type { SkyForm } from './outsideOwn'
 import { bodyPlanes, footShade } from './townBlock'
+import { keyedBox } from './townKey'
 import { planesOf, plasterOf, sidesOf, type TownLight } from './townLight'
 import { townWindows } from './townWindows'
 
@@ -20,8 +21,6 @@ const PODIUM = 1.2, PODIUM_SHARE = 0.12, PODIUM_MAX = 3
 const GLASS = 0.55, MIRROR = 0.5
 /** The floors' lines: their least spacing (px) and strength. */
 const FLOOR = 2.6, FLOOR_DARK = 0.2
-/** The outline's dark on what stands behind. */
-const GAP = 0.5, GAP_DARK = 0.28
 
 export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones, l: TownLight, form: SkyForm,
   s: Shine, lamps: Lamp[]) {
@@ -30,8 +29,6 @@ export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'to
   const setback = tw.crown === 1 ? Math.min(tw.h * SETBACK, SETBACK_MAX) : 0, shaft = top + setback
   const plaster = tw.full ? mix(plasterOf(t, 0.4 * stone), t.glass, GLASS * day) : plasterOf(t, 0.3 + 0.5 * stone)
   const planes = planesOf(t, l, plaster, stone), sky = form.tiers[tw.tier]
-  ctx.fillStyle = css(t.deep, GAP_DARK)
-  ctx.fillRect(x0 - GAP, shaft - GAP * 0.6, tw.w + 2 * GAP, tw.base - shaft)
   bodyPlanes(ctx, x0, shaft, tw.w, tw.base - shaft, sides, planes)
   // The sky's light down the shaft: a glass one mirrors it, its foot in the town's shade.
   const g = ctx.createLinearGradient(0, shaft, 0, tw.base)
@@ -47,10 +44,12 @@ export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'to
   if (!tw.full) footShade(ctx, x0, tw.w, tw.base, tw.h * 0.6, t, 0.25)
   townWindows(ctx, { top: shaft + 0.6, foot: tw.base - 1, storeys: tw.storeys }, t, l, { x0: x0 + sides[0], x1: x0 + tw.w - sides[1] },
     plaster, r, lamps, s.windows * 0.8)
+  keyedBox(ctx, x0, shaft, tw.w, tw.base - shaft, t)
   if (setback) {
     const cw = tw.w * SETBACK_W
     bodyPlanes(ctx, tw.x - cw / 2, top, cw, setback, sidesOf(l, cw), planes)
     roofEdge(tw.x - cw / 2, top, cw)
+    keyedBox(ctx, tw.x - cw / 2, top, cw, setback, t)
   }
   roofEdge(x0, shaft, tw.w)
   let tip = top
@@ -64,6 +63,7 @@ export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'to
     bodyPlanes(ctx, tw.x - pw / 2, tw.base - ph, pw, ph, sidesOf(l, pw), planesOf(t, l, plasterOf(t, stone), stone))
     roofEdge(tw.x - pw / 2, tw.base - ph, pw)
     footShade(ctx, tw.x - pw / 2, pw, tw.base, ph, t, 0.3)
+    keyedBox(ctx, tw.x - pw / 2, tw.base - ph, pw, ph, t)
   }
   if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tip - 0.4, s))
 

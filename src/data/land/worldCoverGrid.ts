@@ -1,7 +1,7 @@
 import type { Coordinate } from '../landmarks/project'
 import { EARTH_R_KM, FAR_KM } from '../terrain/panorama'
 import type { Bbox } from './coverCodec'
-import { coverOfWorldCover } from './grid'
+import { COVER_NORTH, COVER_SOUTH, coverOfWorldCover } from './grid'
 
 /**
  * Spherical footprint geometry and area-weighted aggregation for `0.01°` ESA WorldCover 2021 v200
@@ -39,9 +39,9 @@ export function footprintBbox(place: Coordinate, reachKm = WORLDCOVER_FOOTPRINT_
   const dn = (v: number) => Math.floor(v * CELLS_PER_DEG) / CELLS_PER_DEG
   const upOpen = (v: number) => (Math.floor(v * CELLS_PER_DEG) + 1) / CELLS_PER_DEG
   return [
-    Math.max(-60, dn(place.lat - dLat)),
+    Math.max(COVER_SOUTH, dn(place.lat - dLat)),
     dn(place.lon - dLon),
-    Math.min(84, upOpen(place.lat + dLat)),
+    Math.min(COVER_NORTH, upOpen(place.lat + dLat)),
     upOpen(place.lon + dLon),
   ]
 }

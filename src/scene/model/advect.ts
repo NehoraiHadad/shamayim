@@ -1,3 +1,4 @@
+import { rowValues } from './rowValues'
 import type { Advect, AnimSpec, LayerOf, LifeClock } from './types'
 
 /*
@@ -41,7 +42,7 @@ export function pxPerRadAt(azimuthAt: (x: number) => number, x: number): number 
 /** A sheet laid moving with its wind from the minute's start (`from`, a phase): bands down its rows, each at its speed. */
 export function carriedSheet(sheet: LayerOf<'cloudSheet'>, from: number): LayerOf<'cloudSheet'> {
   const { ys, speeds } = sheet
-  return carried(sheet, from, ys[0], ys[ys.length - 1], (y) => speedAt(ys, speeds, y))
+  return carried(sheet, from, ys[0], ys[ys.length - 1], rowValues(ys, speeds))
 }
 
 /** Towers carried as one: the median of their speeds (a tower spans many bands; per band it would shear). */
@@ -60,14 +61,4 @@ function carried<L extends LayerOf<'cloudSheet' | 'cloudCells'>>(layer: L, from:
   if (!bands.some((band) => band.speed)) return layer
   const advect: Advect = { from, bands }
   return { ...layer, animated: { ...layer.animated, mode: 'drift', advect } }
-}
-
-/** The speed at `y`, linear between the rows around it, the nearest row's beyond them; 0 with no rows. */
-function speedAt(ys: readonly number[], speeds: readonly number[], y: number): number {
-  if (ys.length < 2) return speeds[0] ?? 0
-  let row = 0
-  while (row + 2 < ys.length && ys[row + 1] < y) row++
-  const h = ys[row + 1] - ys[row]
-  const t = h > 0 ? Math.min(1, Math.max(0, (y - ys[row]) / h)) : 0
-  return speeds[row] + (speeds[row + 1] - speeds[row]) * t
 }

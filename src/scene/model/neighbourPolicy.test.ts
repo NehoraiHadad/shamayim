@@ -9,7 +9,7 @@ import type { LayerOf } from './types'
 
 const world = { place3: { kind: 'unknown' }, terrain: {
   horizonY: 70, near: { points: [[0, 110], [375, 110]], distanceKm: [2, 2] },
-}, labels: { height: { backed: false } }, farCities: { footprints: new Map([[7, { townId: 1, built:
+}, farCities: { footprints: new Map([[7, { townId: 1, built:
   1 }]]) } } as unknown as WorldState
 const mark = { id: 'source', kind: 'castle', glyphKind: 'castle', base: 101, h: 3, scale: 1,
   w: 16 * 3 / 9.5, x: 140, km: 12, sightKm: 12, plane: 'near', townFootprint: false } as WorldMark
@@ -63,7 +63,7 @@ it('keeps far standalone landmarks but rejects missing town mass for worship or 
   expect(evaluateFarNeighbour(world, far, 375, null, home, [], []).placed).not.toBeNull()
   expect(evaluateFarNeighbour(world, { ...far, townFootprint: true }, 375, null, home, [], []).reason)
     .toBe('missing-town-mass')
-  expect(evaluateFarNeighbour(world, { ...far, glyphKind: 'minaret' }, 375, null, home, [], []).reason)
+  expect(evaluateFarNeighbour(world, { ...far, glyphKind: 'church' }, 375, null, home, [], []).reason)
     .toBe('policy-hidden')
   const hidden = [massAt(140, 30, 98, 50)]
   hidden[0].alwaysInFront = true

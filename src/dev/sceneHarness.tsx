@@ -13,6 +13,7 @@ import { forecastUrl } from '../data/openMeteo/request'
 import { type StoredPanorama } from '../data/terrain/panorama'
 import { terrainFromPanorama } from '../data/terrain/panoramaTerrain'
 import { waterAround } from '../data/water/waterInView'
+import { loadVillageTile } from '../data/village/villageData'
 import { loadWaterMask } from '../data/water/waterMask'
 import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
@@ -21,7 +22,6 @@ import { hideLayers } from './hideLayers'
 import { glideAt, strikes } from '../scene/model/anim'
 import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
-import { SceneOverlay } from '../scene/react/SceneOverlay'
 import { onSkyCanvas } from '../scene/paint/shared/sky/skyBackground'
 import { DEFAULT_STYLE } from '../scene/paint/painters'
 import { STYLES } from '../scene/paint/styles'
@@ -34,16 +34,15 @@ import { withVisibleSun } from '../world/visibleSun'
 import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
 import { harnessPlace, fixturePanorama } from './sceneFixture'
-import { ARRIVAL } from '../scene/model/loading'
 import { WearCanvas } from '../scene/react/WearCanvas'
 import { isDarkPaper, sheetLight } from '../theme/sheetLight'
 import type { ThemeId } from '../theme/skyThemes'
 
 /**
  * The canvas scene alone, for pixel and performance tests (docs/design/CANVAS-SCENE-PLAN.md §3): `scene.html?place=haifa
- * &at=2026-11-17T16:30&weather=rain&phase=0[&overlay=1]`. The baseline places' recorded panoramas, the bundled water,
+ * &at=2026-11-17T16:30&weather=rain&phase=0`. The baseline places' recorded panoramas, the bundled water,
  * landmark and city data, and the forecast from the app's own request (the runners serve the fixture for it: nothing
- * reaches Open-Meteo). No UI text unless `overlay=1`. Sets `window.__sceneReady` once both surfaces are painted;
+ * reaches Open-Meteo). No UI text. Sets `window.__sceneReady` once both surfaces are painted;
  * `window.__scene.scrub(at)` rebuilds and repaints one frame synchronously (perf runner).
  *
  * `land=loading|offline|arrive` (C8): the land not known yet (the mist with the line forming, from phase 0), offline with
@@ -129,12 +128,13 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   if (!panorama) throw new Error(`no panorama fixture for ${place.id}`)
   const mask = await loadWaterMask()
   const terrain = terrainFromPanorama(panorama, { water: mask ? waterAround(place, mask) : undefined })
-  const [source, city, far, bounds, cover, raw] = await Promise.all([
+  const [source, city, far, bounds, cover, village, raw] = await Promise.all([
     loadLandmarkSource(place, signal, { israel: loadIsrael }),
     loadCity(place, signal),
     loadFar(),
     loadBounds(),
     loadFootprintLandCover(place, signal, 6),
+    loadVillageTile(place, signal),
     fetch(forecastUrl(place)).then((res) => {
       if (!res.ok) throw new Error(`forecast ${res.status}`)
       return res.json() as Promise<unknown>
@@ -147,7 +147,7 @@ export async function loadInput(place: Place, at: LocalTime, weather: string): P
   const forecast = withVisibleSun(rollForward(base, at), terrain, place)
   return { place, forecast, now: at, selected: null, terrain, landmarks: withPlaceHomes(place, source.sceneMarks),
     seatCandidates: source.seatCandidates, cropAreas: source.cropAreas, city, far, forced: WEATHER[weather] ?? null,
-    forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover }
+    forcedLayers: LAYERS[weather] ?? null, waterMask: mask, bounds, cover, village }
 }
 
 /** The land's moment (`land=`): its status for the world, and the clock the model is built with. */
@@ -161,7 +161,6 @@ function landMoment(asked: string | null): { status: 'loading' | 'offline' | nul
 
 function Scene({ input: given }: { input: WorldInput }) {
   const params = new URLSearchParams(location.search)
-  const overlay = params.get('overlay') === '1'
   const [build] = useState(makeWorldBuilder)
   const moment = useMemo(() => landMoment(new URLSearchParams(location.search).get('land')), [])
   const input = useMemo(() => (moment.status ? { ...given, terrain: { ...given.terrain, status: moment.status } } : given),
@@ -240,8 +239,6 @@ function Scene({ input: given }: { input: WorldInput }) {
     }
   }, [world, build, input, box, landSurface, moment, lay, style])
 
-  // The labels wait for the land as the app's do (`useLandClock`): an arriving still shows them once it has settled.
-  const labelsShown = !moment.clock?.reveal || (Number(params.get('phase')) || 0) >= ARRIVAL.land.at + ARRIVAL.land.dur * 0.6 + 0.3
   const palette = world.light.palette
   const vars = { '--ink': palette.ink, '--ridge-near': palette.ridgeNear, '--accent': palette.accent } as CSSProperties
   return (
@@ -249,7 +246,6 @@ function Scene({ input: given }: { input: WorldInput }) {
       <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr, style }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
       </div>
     </div>
   )

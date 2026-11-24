@@ -1,7 +1,7 @@
 import { SCENE_CAMERA, wrap180 } from '../../domain/camera'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
-import { illustratedAerialFor as aerialFor, illustratedHazeOf as hazeOf } from './illustratedHaze'
+import { illustratedAerialFor as aerialFor, illustratedAirOf, illustratedHazeOf } from './illustratedHaze'
 import { directK } from './marks'
 import { mixRgb, rgbOf } from './tone'
 import type { Tones } from './types'
@@ -52,10 +52,11 @@ function wallShade(world: WorldState): number {
  * (none under overcast or with no side: then a soft sky light from above); faces away sink toward a sky-lit dark. Every
  * tone but the lamps is then carried toward the air by the land's aerial rule at that distance.
  */
-export function illustratedTonesAt(world: WorldState, km: number): IllustratedTones {
+export function illustratedTonesAt(world: WorldState, km: number, seen = illustratedHazeOf(world)): IllustratedTones {
   const { light, night } = world
   const ridge = rgbOf(light.palette.ridgeNear)
-  const sky = hazeOf(world)
+  // What the sky lights takes its own colour; what mirrors it or fades into it, the colour it is seen in.
+  const sky = illustratedAirOf(world)
   const dark = night.dark, day = 1 - dark
   // The living light: the direct share as it is (the moon's fainter), never gated by a side; a face takes it by its own
   // normal (`Shine.faces`), so `lit` is a face square to the light at this minute and equals the wall when there is none.
@@ -81,16 +82,16 @@ export function illustratedTonesAt(world: WorldState, km: number): IllustratedTo
   const own: IllustratedTones = {
     wall, lit, shade, rim,
     deep: mixRgb(ridge, BLACK, 0.45),
-    refl: mixRgb(shade, sky, 0.28),
+    refl: mixRgb(shade, seen, 0.28),
     roof, roofLit: mixRgb(roof, mixRgb(TILE, sun, 0.3), 0.45 * sunK),
     stone: mixRgb(wall, STONE, 0.12 * day + 0.04), stoneLit: mixRgb(lit, STONE, 0.16 * day + 0.04),
-    glass: mixRgb(mixRgb(ridge, BLACK, 0.12), sky, 0.12), glassLit: mixRgb(ridge, sky, (0.42 * day + 0.12) * (1 - 0.6 * against)),
+    glass: mixRgb(mixRgb(ridge, BLACK, 0.12), seen, 0.12), glassLit: mixRgb(ridge, seen, (0.42 * day + 0.12) * (1 - 0.6 * against)),
     soot: mixRgb(ridge, BLACK, 0.4),
     green, greenLit: mixRgb(green, mixRgb(sun, LEAF, 0.4), 0.42 * sunK + 0.04),
     panel: mixRgb(ridge, PANEL, 0.55), gold: mixRgb(ridge, GOLD, 0.72 * day + 0.5 * dark),
-    win: LAMP, mist: sky,
+    win: LAMP, mist: seen,
   }
-  const aerial = aerialFor(world, sky)
+  const aerial = aerialFor(world, seen)
   const out = {} as Record<keyof IllustratedTones, RGB>
   for (const name of Object.keys(own) as (keyof IllustratedTones)[]) out[name] = name === 'win' || name === 'mist' ? own[name] : aerial(own[name], km)
   return out as IllustratedTones

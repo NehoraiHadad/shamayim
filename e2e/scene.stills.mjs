@@ -1,4 +1,4 @@
-// Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/), with the HTML overlay.
+// Stills of the canvas scene for review (docs/design/qa/canvas/<stage>/).
 //   node e2e/scene.stills.mjs <outDir> <moment>[#<style>] … [--dpr=2]    (a moment: `moments.mjs`)
 // (`#drawn`: painted in the drawn hand, `-drawn` in the file's name; a style the scene does not have is refused.)
 // (`land`: loading | offline | arrive, C8: the land not known yet, or its reveal begun at phase 0.)
@@ -29,7 +29,7 @@ try {
     const moment = parseMoment(text)
     const { place } = moment
     const { context, page } = await openPage(browser, server.url, dpr)
-    const url = new URL(sceneUrl(server.url, { ...moment, overlay: true }))
+    const url = new URL(sceneUrl(server.url, { ...moment }))
     if (flat) for (const [key, value] of Object.entries({ terrain: 'flat', lat: flat[0], lon: flat[1], name:
       flat[2] ?? place })) url.searchParams.set(key, value)
     await loadScene(page, url.href)
