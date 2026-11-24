@@ -2,28 +2,33 @@ import { TEXEL } from '../../../model/planeBands'
 import type { LayerOf } from '../../../model/types'
 import { displace, rng, sample, tube } from '../../shared/base/core'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
-import type { ReceiverBrush, ReceiverInk } from '../../shared/land/receiverBrush'
+import type { ReceiverBrush } from '../../shared/land/receiverBrush'
 import { carve, type P } from '../kit/carve'
 import { columnAt } from './pots'
 import { stepped, type GroundInk, type InkAt } from './groundInk'
 
 /* The hand's marks on the ground: the gullies, terraces and fields the model gives as clean cuts, and the graver's cuts along the slope. */
 
-const CUT: ReceiverInk = [[0.1, 0.09, 0.16]], SEED = 5501
+/** A clean cut's value from the ground's. */
+const CUT = -0.36, SEED = 5501
 
-export function groundLines(brush: ReceiverBrush, desc: LayerOf<'plane'>): void {
+export function groundLines(brush: ReceiverBrush, desc: LayerOf<'plane'>, inkAt: InkAt): void {
+  const cut = ([x, y]: readonly [number, number]) => stepped(inkAt(x, y), CUT, -0.6)
+
   desc.gullies.forEach((gully, i) => {
     const line = displace(sample(gully.points, false, 5), 1.1, 0.3, 2, desc.grain.seed + i * 13)
     if (line.length < 2) return
     const path = brush.path()
     tube(line, gully.w * 0.6, gully.w * 0.1, false).forEach(([x, y], j) => (j ? path.lineTo(x, y) : path.moveTo(x, y)))
     path.closePath()
-    brush.fill(CUT, gully.alpha * 1.1)
+    brush.fill(cut(line[line.length >> 1]), gully.alpha * 1.1)
   })
-  if (!desc.terraces.length) return
-  const path = brush.path()
-  for (const run of desc.terraces) run.forEach(([x, y], i) => (i ? path.lineTo(x, y + 0.45) : path.moveTo(x, y + 0.45)))
-  brush.stroke(CUT, 0.2, 0.7)
+  for (const run of desc.terraces) {
+    if (run.length < 2) continue
+    const path = brush.path()
+    run.forEach(([x, y], i) => (i ? path.lineTo(x, y + 0.45) : path.moveTo(x, y + 0.45)))
+    brush.stroke(cut(run[run.length >> 1]), 0.2, 0.7)
+  }
 }
 
 /** A field's edge (px), how much darker than the ground, how strong; the numbers a field takes in the desc. */

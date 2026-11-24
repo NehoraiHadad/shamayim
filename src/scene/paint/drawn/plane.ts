@@ -29,7 +29,7 @@ export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     paintVegStrata(brush, veg, toneAt)
     paintVegFields(brush, veg, toneAt)
     groundFields(brush, veg.fields, at)
-    groundLines(brush, desc)
+    groundLines(brush, desc, at)
     paintVegRows(brush, veg, toneAt)
     groundDabs(brush, desc, t, at)
     groundKey(targets, brush, desc, t, at)

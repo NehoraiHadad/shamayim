@@ -22,7 +22,7 @@ const BANDS = 4, PART = 1.25, LEAST = 6, LEAST_SHAPE = 6
 
 interface Light extends FieldSample { n: number }
 /** A level: its outline (none for the base), its inks by target, pot and band, and the clear air of each band. */
-export interface Level { path: Path2D | null; inks: RGB[][][]; air: number[] }
+interface Level { path: Path2D | null; inks: RGB[][][]; air: number[] }
 export interface Shading { levels: (Level | null)[]; levelAt: Uint8Array; light: Float32Array }
 
 const lum = (rgb: RGB) => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
@@ -43,7 +43,8 @@ export function shadingOf(t: PlaneTexelCtx, ground: Ground, paired: boolean): Sh
   }
   const cut = lights.map((bands) => (bands.reduce((sum, b) => sum + b.n, 0) >= LEAST ? bands.map((_, b) => meanAt(bands, b)) : null))
   if (!cut[0]) cut[0] = cut.find((c) => c) ?? [...lights[0]]
-  const inks = (paired ? [f.eSun, shadowBeam(f)] : [f.eSun]).map((beam) => inksOf(t, ground, cut, beam))
+  const labs = (paired ? [f.eSun, shadowBeam(f)] : [f.eSun]).map((beam) => labsOf(t, ground, cut, beam)), means = meansOf(ground, cut, labs[0])
+  const inks = labs.map((of) => inksOf(of, cut, means))
   return { levelAt, light, levels: cut.map((bands, v) => bands && {
     path: v ? outlined(t, light, LEVELS[v]) : null, inks: inks.map((by) => by[v]), air: bands.map((b) => 1 - b.haze),
   }) }
@@ -84,11 +85,18 @@ function outlined(t: PlaneTexelCtx, light: Float32Array, { side, at }: (typeof L
   return path
 }
 
-/** Inks by level, pot and band, under one beam. */
-function inksOf({ litField: f }: PlaneTexelCtx, { pots }: Ground, cut: readonly (readonly Light[] | null)[], beam: RGB): RGB[][][] {
-  const labs = cut.map((bands) => pots.map(({ rho }) => (bands ?? []).map((l) =>
+type Cut = readonly (readonly Light[] | null)[]
+type Labs = ReturnType<typeof labsOf>
+
+/** The light of every level, pot and band, under one beam. */
+function labsOf({ litField: f }: PlaneTexelCtx, { pots }: Ground, cut: Cut, beam: RGB) {
+  return cut.map((bands) => pots.map(({ rho }) => (bands ?? []).map((l) =>
     labOf(linearRgbToSrgb(shadeLinearRgb(rho, beam, f.eMoon, f.eSky, l.sVis, l.mVis, l.vSky, f.yHorizon, l.haze, f.hazeLin))))))
-  const means = Array.from({ length: BANDS }, (_, b) => {
+}
+
+/** The mean value of every band of the plane. */
+function meansOf({ pots }: Ground, cut: Cut, labs: Labs) {
+  return Array.from({ length: BANDS }, (_, b) => {
     let sum = 0, whole = 0
     cut.forEach((bands, v) => bands && pots.forEach((pot, p) => {
       const w = pot.count * bands[b].n
@@ -97,6 +105,10 @@ function inksOf({ litField: f }: PlaneTexelCtx, { pots }: Ground, cut: readonly 
     }))
     return whole ? sum / whole : null
   })
+}
+
+/** The inks, parted about the bands' means under the whole sun: where no sun comes in, a cloud's shadow leaves them as they are. */
+function inksOf(labs: Labs, cut: Cut, means: readonly (number | null)[]): RGB[][][] {
   return labs.map((byPot, v) => byPot.map((byBand) => byBand.map((lab, b) => {
     const mean = means[b] ?? lab.l, turn = Math.round(LEVELS[v].turn * (1 - cut[v]![b].haze) * 20) / 20
     return pigment(rgbOfLab({ ...lab, l: Math.min(1, Math.max(0, mean + PART * (lab.l - mean))) }), turn)
