@@ -13,7 +13,7 @@ import { farRows } from './farRows'
 import { billowed, inMasses, keyline } from './billow'
 import { paintCaps } from './caps'
 import { feet } from './feet'
-import { capInks, cloudInks } from './inks'
+import { capInks, cloudInks, lightOf } from './inks'
 import { lobesOf } from './lobes'
 import { wash } from './wash'
 
@@ -31,9 +31,13 @@ const LOBE = 2.3, LOBE_MIN = 5, LOBE_MAX = 42
 /** A row this far apart (px) is near; nearer to 0 than this, the sheet stands in rows (`farRows`). */
 const NEAR = 14, ROWS = 0.24
 /** What a lobe's place in its mass, and the model's own tone there, do to its light. */
-const SIDE = 0.6, TONE = 1.6
+const SIDE = 0.6, TONE = 0.9
 /** The most a foot's ink rises (px, and against its row). */
-const FOOT = 34, FOOT_ROWS = 2.6
+const FOOT = 34, FOOT_ROWS = 2.6, FOOTS = 0.7
+/** How far the light is eased against its row's spacing, and at most (cells). */
+const LIGHT = 0.18, LIGHT_MOST = 2.5
+/** How much of a closed deck's ink lies in its thin places. */
+const THIN = 0.7
 /** The shade an open sheet keeps of the model's: the rest leans to its light, as `real` has it. */
 const KEEPS = 0.55
 /** A deck this open stands in lobes. */
@@ -82,20 +86,26 @@ export function paintCutSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pain
   const nearAt = (y: number) => Math.min(1, rowAt(y) / NEAR)
   if (broken) {
     const loops = billowed(edge, 0, frame, (y) => Math.min(26, Math.max(3.5, 1.5 * rowAt(y))), seed)
-    const up = side.at.map((v, n) => Math.min(1, Math.max(0, 0.5 + SIDE * (0.7 + 0.3 * t.heavy) * v - TONE * (tone.at[n] - mean))))
-    wash(ctx, loops, edge, -8, up, frame, t, env)
-    const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])) / CELL
+    const up = side.at.map((v, n) => lightOf(t, 0.5 + SIDE * (0.7 + 0.3 * t.heavy) * v - TONE * (tone.at[n] - mean)))
+    const spacing = Array.from({ length: rows }, (_, j) => f.spacing[Math.round((j * (f.rows - 1)) / (rows - 1))])
+    wash(ctx, loops, edge, -8, up, spacing.map((s) => Math.min(LIGHT_MOST, LIGHT * s)), frame, t, env)
+    const most = (j: number) => Math.min(LOBE_MAX, Math.max(LOBE_MIN, LOBE * spacing[j])) / CELL
     const lobes = lobesOf({ cols, rows, at: edge.at, side: side.at, most, seed })
     inMasses(ctx, loops, () => paintCaps(ctx, lobes, {
       x: f.x0, y: f.y0, step: CELL, seed,
       ink: (l) => capInks(t, up[l.n]),
       line: (l) => nearAt(f.y0 + l.y * CELL) * t.line,
     }))
-    feet(ctx, loops, frame, { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: 0.7, seed, most: (y) => Math.min(FOOT * (1 + t.heavy), FOOT_ROWS * rowAt(y)) }, env)
+    feet(ctx, loops, frame, { ink: t.foot, line: css(t.key, 0.32 * t.line), strength: FOOTS * (0.6 + 0.4 * t.heavy), seed, most: (y) => Math.min(FOOT * (1 + t.heavy), FOOT_ROWS * rowAt(y)) }, env)
     keyline(ctx, loops, 0.55, css(t.key, 0.42 * t.line), seed)
   } else {
     const loops = billowed(edge, 0, frame, (y) => Math.min(24, Math.max(4, 1.6 * rowAt(y))), seed, true, 0.6)
-    inMasses(ctx, loops, () => paintDeck(ctx, f, mean, t, seed))
+    const deck = () => paintDeck(ctx, f, mean, t, seed)
+    ctx.save()
+    ctx.globalAlpha *= THIN
+    inMasses(ctx, loops.map((l) => ({ ...l, holes: [] })), deck)
+    ctx.restore()
+    inMasses(ctx, loops, deck)
     keyline(ctx, loops, 0.55, css(t.key, 0.3 * t.line), seed)
   }
   ctx.restore()
