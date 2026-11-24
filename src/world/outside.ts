@@ -162,16 +162,16 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     const south = place.lat + box.s / 111.32, north = place.lat + box.n / 111.32
     const west = place.lon + box.w / (111.32 * cos), east = place.lon + box.e / (111.32 * cos)
     const wKm = step * 111.32 * cos
-    const treeSpots: { dx: number; dy: number; lat: number; lon: number }[] = []
+    const treeSpots: { dx: number; dy: number; lat: number; lon: number; km: number }[] = []
     const builtRows = new Map<number, number[]>()
     for (let row = Math.floor(south / step); row <= Math.floor(north / step); row++) {
       for (let col = Math.floor(west / step); col <= Math.floor(east / step); col++) {
         const lat = (row + .5) * step, lon = (col + .5) * step
         const c = cover.coverAt(lat, lon)
         if (c !== BUILT && c !== TREE) continue
-        const dx = (lon - place.lon) * 111.32 * cos, dy = (lat - place.lat) * 111.32
-        if (Math.hypot(dx, dy) > reachKm * 1.42 || !(inPlace?.(dx, dy) ?? true)) continue
-        if (c === TREE) { treeSpots.push({ dx, dy, lat, lon }); continue }
+        const dx = (lon - place.lon) * 111.32 * cos, dy = (lat - place.lat) * 111.32, km = Math.hypot(dx, dy)
+        if (km > reachKm * 1.42 || !(inPlace?.(dx, dy) ?? true)) continue
+        if (c === TREE) { treeSpots.push({ dx, dy, lat, lon, km }); continue }
         const seed = hashId(`${row}:${col}`)
         const random = seeded(seed)
         const square = raster?.at(lat, lon), heights = heightsAt(square, lat, lon, random())
@@ -179,7 +179,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
         // the raster square's built share (the share of the ground under roofs; a row of blocks shows about its root
         // across), at a seeded spot inside the cell, so the streets and yards between them open and the rows behind,
         // with their own heights, show through. A cell the raster knows nothing of is whole.
-        const built = square?.built ?? 0, frontM = raster?.front?.(lat, lon)
+        const built = square?.built ?? 0, frontM = heights.heightM > HOUSE_TOP_M ? raster?.front?.(lat, lon) : 0
         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
         const shift = (random() - .5) * (1 - front) * wKm
         cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM: heights.heightM, siteHeightM: heights.siteHeightM, seed, frontM })
@@ -195,7 +195,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
       for (let d = -r; d <= r; d++) if (builtRows.get(row + d)?.some((c) => Math.abs(c - col) <= r)) return true
       return false
     }
-    for (const spot of treeSpots.sort((a, b) => Math.hypot(a.dx, a.dy) - Math.hypot(b.dx, b.dy))) {
+    for (const spot of treeSpots.sort((a, b) => a.km - b.km)) {
       if (trees.length >= MAX_TREES) break
       if (!near(spot.lat, spot.lon)) continue
       const seed = hashId(`tree:${spot.lat.toFixed(5)}:${spot.lon.toFixed(5)}`)

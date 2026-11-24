@@ -1,5 +1,5 @@
 import { decodeForm, FRONT_M } from './form'
-import { COLS, LAT_STEP, LON_STEP, squareOf, strideFor } from './grid'
+import { cellKey, LAT_STEP, LON_STEP, squareIndex, strideFor } from './grid'
 import type { RayGrid } from './rayWalk'
 import type { CityTower } from './types'
 
@@ -18,21 +18,26 @@ export const CITY_GRID: RayGrid = { toGrid: (lat, lon) => [lon / LON_STEP, lat /
 const EMPTY: RasterSquare = { built: 0, levels: 0, p90: 0 }
 
 export function cityRaster(grids: ReadonlyMap<string, Uint8Array>, towers: readonly CityTower[] = []): CityRaster {
+  // A town's points come square by square: the last cell's bytes are kept, so its key is written once a cell, not once a point.
+  let south = NaN, west = NaN, bytes: Uint8Array | undefined
+  const bytesAt = (lat: number, lon: number) => {
+    const s = Math.floor(lat * 10), w = Math.floor(lon * 10)
+    if (s !== south || w !== west) { south = s; west = w; bytes = grids.get(cellKey(lat, lon)) }
+    return bytes
+  }
   return {
     towers,
-    has: (lat, lon) => grids.has(squareOf(lat, lon).cell),
+    has: (lat, lon) => grids.has(cellKey(lat, lon)),
     at(lat, lon) {
-      const { cell, col, row } = squareOf(lat, lon)
-      const bytes = grids.get(cell)
+      const bytes = bytesAt(lat, lon)
       if (!bytes) return EMPTY
-      const i = (row * COLS + col) * strideFor(bytes)
+      const i = squareIndex(lat, lon) * strideFor(bytes)
       const meta = bytes[i]
       return { built: (meta >> 4) / 15, levels: meta & 15, p90: bytes[i + 1] }
     },
     front(lat, lon) {
-      const { cell, col, row } = squareOf(lat, lon)
-      const bytes = grids.get(cell)
-      return bytes && strideFor(bytes) === 3 ? FRONT_M[decodeForm(bytes[(row * COLS + col) * 3 + 2]).size] : 0
+      const bytes = bytesAt(lat, lon)
+      return bytes && strideFor(bytes) === 3 ? FRONT_M[decodeForm(bytes[squareIndex(lat, lon) * 3 + 2]).size] : 0
     },
   }
 }
