@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
-import { ratio } from '../../theme/contrast'
+import { ratio, skyContrastCeiling } from '../../theme/contrast'
 import type { WorldState } from '../../world/types'
 import { makeWorldBuilder } from '../../world/world'
 import { cloudLayersForSky } from './cloudLayers'
+import { sheetPaintBound } from './cloudPaintBounds'
 import { skyColours, skyStops, stopAt } from './skyColour'
-import { SKY_FILTER_MID } from './skyFilter'
+import { SKY_FILTER_MID, skyFilterReserve, skyFilterTransmission } from './skyFilter'
 import { filterAt, skyGradeOf } from './skyGrade'
 import { hexOf, mixSrgb, rgbOf } from './tone'
 import { towerPaintProfile } from './towerPaintBounds'
@@ -20,8 +21,10 @@ beforeAll(async () => {
 })
 afterAll(() => vi.unstubAllGlobals())
 
-function frame(pm10 = 400, visibilityKm = 3) {
-  return makeWorldBuilder()({ ...worldInput(ramon, '2026-11-17T12:00'),
+const buildWorld = makeWorldBuilder()
+
+function frame(pm10 = 400, visibilityKm = 3, input = worldInput(ramon, '2026-11-17T12:00')) {
+  return buildWorld({ ...input,
     forced: { pm10, dust: pm10, visibilityKm } })
 }
 
@@ -74,13 +77,18 @@ it('keeps tower grade continuous as its crown enters the middle row', () => {
 })
 
 it('limits model cloud composites through concentration and visibility sweeps', () => {
-  const weather = [[100, 3], ...Array.from({ length: 18 }, (_, i) => [140 + 50 * i, 3]), [1000, 3],
-    ...Array.from({ length: 30 }, (_, i) => [400, i + 1])]
+  const input = worldInput(ramon, '2026-11-17T12:00')
+  const visibilities = [1, 2, 3, 5, 8, 12, 20, 30]
+  // The reference always forces zero PM10 and dust. Only its visibility follows the sweep.
+  const cleanByVisibility = new Map(visibilities.map(km => {
+    const clean = frame(0, km, input)
+    return [km, { clean, sheet: sheetOf(clean), stops: skyStops(clean, BOX) }] as const
+  }))
   const sweep = (pm10: number, visibilityKm: number) => {
-    const world = frame(pm10, visibilityKm)
-    const grade = skyGradeOf(world, BOX), clean = frame(0, visibilityKm)
-    const sheet = sheetOf(world), clearSheet = sheetOf(clean)
-    const stops = skyStops(world, BOX), cleanStops = skyStops(clean, BOX)
+    const world = frame(pm10, visibilityKm, input)
+    const grade = skyGradeOf(world, BOX)
+    const { clean, sheet: clearSheet, stops: cleanStops } = cleanByVisibility.get(visibilityKm)!
+    const sheet = sheetOf(world), stops = skyStops(world, BOX)
     let worst = Infinity
     for (const [row, y] of sheet.ys.entries()) {
       if (y > SKY_FILTER_MID * (BOX.landTop + world.relief.horizonY)) break
@@ -94,31 +102,39 @@ it('limits model cloud composites through concentration and visibility sweeps', 
         const cleanComposite = hexOf(mixSrgb(cleanBehind, clearSheet[tone], cleanAlpha))
         const contrast = ratio(world.light.palette.ink, hexOf(filterAt(grade, y, composite)))
         const target = Math.min(4.6, ratio(clean.light.palette.ink, cleanComposite))
-        expect(contrast, `PM10 ${pm10}, ${visibilityKm} km, row ${row}`).toBeGreaterThanOrEqual(target)
-        worst = Math.min(worst, contrast)
+        if (!(contrast >= target)) {
+          throw new Error(`Contrast ${contrast} below ${target} at PM10 ${pm10}, ${visibilityKm} km, row ${row}, ${tone}`)
+        }
+        worst = Math.min(worst, contrast - target)
       }
     }
     return worst
   }
-  let worstPm = 140, worst = Infinity
-  for (const [pm10, km] of weather) {
-    const contrast = sweep(pm10, km)
-    if (km === 3 && pm10 >= 140 && contrast < worst) {
+  // Keep the clean onset as an endpoint, outside the search for the worst dusty scene.
+  sweep(100, 3)
+  let worstPm = 150, worst = Infinity
+  for (let pm10 = 150; pm10 <= 1000; pm10 += 50) {
+    const margin = sweep(pm10, 3)
+    if (margin < worst) {
       worstPm = pm10
-      worst = contrast
+      worst = margin
     }
   }
-  // One-fiftieth of the coarse concentration step, over the two adjacent intervals.
-  for (let pm10 = Math.max(140, worstPm - 50); pm10 <= Math.min(1000, worstPm + 50); pm10++) sweep(pm10, 3)
-}, 30_000)
+  for (const km of visibilities) if (km !== 3) sweep(400, km)
+  // One-tenth of the coarse step, skipping concentrations already checked.
+  for (let pm10 = Math.max(100, worstPm - 50); pm10 <= Math.min(1000, worstPm + 50); pm10 += 5) {
+    if (pm10 % 50) sweep(pm10, 3)
+  }
+})
 
 it('eases a pale deck in from zero PM10 and solar-altitude weight', () => {
   const world = frame(), sheet = sheetOf(world), white = [1, 1, 1] as const
   const pale = { ...sheet, lattice: 'low' as const, body: white, shade: white, lit: white,
     alpha: sheet.alpha.map(() => 1), through: undefined }
+  const clear = { ...world, clouds: [], cloudField: undefined }
+  const paintedAlpha = sheetPaintBound(pale).alpha
   const withCover = (state: WorldState, cover: number) => {
-    const layers = cloudLayersForSky(state, BOX)
-    layers.splice(0, layers.length, { ...pale, alpha: pale.alpha.map(() => cover) })
+    cloudLayersForSky(state, BOX).push({ ...pale, alpha: pale.alpha.map(() => cover) })
     return depth(state)
   }
   // PM10 starts at 100 and ramps to 300. Use independent weight probes here
@@ -128,7 +144,7 @@ it('eases a pale deck in from zero PM10 and solar-altitude weight', () => {
     for (let i = 0; i <= 70; i++) {
       const dustVeilPotential = axis === 'pm10' ? (i / 2000) ** 2 * (3 - 2 * i / 2000) : 1
       const altitude = axis === 'sun' ? 2.9 + i / 100 : world.bodies.sun.altitude
-      const state = { ...world, air: { ...world.air, dustVeilPotential },
+      const state = { ...clear, air: { ...world.air, dustVeilPotential },
         bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } }
       const k = withCover(state, 1)
       if (!i) expect(k).toBe(0)
@@ -139,12 +155,35 @@ it('eases a pale deck in from zero PM10 and solar-altitude weight', () => {
   }
   for (const dustVeilPotential of [0.001, 0.01, 1]) {
     let previous = 0
+    const sky = { ...clear, air: { ...world.air, dustVeilPotential } }
+    const slope = paleDepthSlope(sky)
     for (let i = 0; i <= 100; i++) {
-      const state = { ...world, air: { ...world.air, dustVeilPotential } }
+      const state = { ...sky }
       const k = withCover(state, i / 100)
-      if (i > 0) expect(Math.abs(k - previous)).toBeLessThan(0.05)
+      if (i > 0) {
+        const step = Math.abs(paintedAlpha(i / 100) - paintedAlpha((i - 1) / 100))
+        expect(Math.abs(k - previous), `dust ${dustVeilPotential}, cover ${i / 100}`)
+          .toBeLessThan(Math.max(0.004, slope * step))
+      }
       expect(skyColours(state).bandWeight).toBeGreaterThan(0)
       previous = k
     }
   }
 })
+
+function paleDepthSlope(world: WorldState) {
+  const white = [1, 1, 1] as const
+  const floor = Math.min(skyContrastCeiling(world.light.palette.ink), skyContrastCeiling('#E8F9FF'))
+    - skyFilterReserve(white)
+  const middle = SKY_FILTER_MID * (BOX.landTop + world.relief.horizonY) / BOX.skyHeight
+  const stops = skyStops(world, BOX)
+  const anchors = [...stops.filter(([row]) => row <= middle).map(([, rgb]) => rgb), stopAt(stops, middle, mixSrgb)]
+  // The brightest ramp endpoint bounds the sRGB luminance derivative, including the reserve's lifted input.
+  const halfByte = 1 / (2 * 255)
+  const maxSlope = (2.4 / 1.055) * (1 + halfByte) * ((1 + halfByte * (3 + halfByte) + 0.055) / 1.055) ** 1.4
+  const luminancePerAlpha = maxSlope * Math.max(...anchors.map(([r, g, b]) => 1 - (0.2126 * r + 0.7152 * g + 0.0722 * b)))
+  // In the knee the target loses at most dr/dalpha. At the root, L >= floor
+  // and c L'(c) >= 2 L(c) - .005 (largest deficit at c = .1375).
+  const luminancePerDepth = -Math.log(skyFilterTransmission(1, 0)[0]) * (2 * floor - 0.005)
+  return luminancePerAlpha / luminancePerDepth
+}

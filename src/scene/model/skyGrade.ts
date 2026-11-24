@@ -35,9 +35,11 @@ export function skyGradeOf(world: WorldState, box: SceneBox): Grade | null {
     const reserve = skyFilterReserve(sky)
     const cleanY = unveiled ? luminanceOf(stopAt(unveiled, row / box.skyHeight, mixSrgb)) : cap
     // Clear-day mid #3172B0 is Y≈0.158: below the sentence ceiling (~0.161) but inside its two-reserve knee.
-    // Ease that existing debt, including any above-ceiling city light or cropped clean gradient.
+    // Ease any above-ceiling clean sky debt. Fill the raster reserve as the swatch brightens past clean.
     const skyCap = cap + (1 - ease) * Math.max(0, cleanY - cap)
-    const skyReserve = ease * reserve + (1 - ease) * Math.min(reserve, Math.max(0, cap - cleanY) / 2)
+    const skyReserve = unveiled
+      ? Math.min(reserve, Math.max(0, cap - cleanY) / 2 + Math.max(0, luminanceOf(sky) - cleanY))
+      : reserve
     skyDepth = skyFilterDepth(sky, skyCap, skyReserve, skyDepth)
     if (rgb !== sky) cloudDepth = skyFilterDepth(rgb, cap, skyFilterReserve(rgb), cloudDepth)
   }
