@@ -1,4 +1,3 @@
-import { addMinutes } from '../domain/minutes'
 import type { LocalTime } from '../domain/types'
 import type { Direction, SpecialEvent } from '../events/types'
 import { clockRange, ltr } from './isolate'
@@ -21,8 +20,7 @@ function partText(at: LocalTime, now: LocalTime): string {
 
 function whenText({ from, to, tell }: SpecialEvent['when'], now: LocalTime): string {
   const clock = (at: LocalTime) => at.slice(11, 16), part = partText(from, now)
-  const started = addMinutes(now, 5) >= from
-  if (started) return tell === 'span' && to > now ? `עכשיו, עד ${ltr(clock(to))}` : 'עכשיו'
+  if (from <= now) return tell === 'span' && to > now ? `עכשיו, עד ${ltr(clock(to))}` : 'עכשיו'
   if (tell === 'span' && to > from) return `${part} ${clockRange(clock(from), clock(to))}`
   return `${part} ${tell === 'from' ? 'מ־' : 'ב־'}${ltr(clock(from))}`
 }

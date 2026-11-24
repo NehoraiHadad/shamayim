@@ -40,9 +40,12 @@ export function eventSky(place: Place, forecast: Forecast, now: LocalTime, terra
   const ms = (at: LocalTime) => utcOf(at, timezone).getTime()
   const to = ms(dawn)
   const hours = new Map<number, HourPoint>()
+  // The forecast's hours need not be whole hours of UT.
+  const whole = ms(`${now.slice(0, 10)}T00:00`) % HOUR
+  const hourOf = (at: number) => Math.round((at - whole) / HOUR)
   const first = addMinutes(now, -60), last = addMinutes(dawn, 60)
-  for (const hour of forecast.hours) if (hour.time >= first && hour.time <= last) hours.set(Math.round(ms(hour.time) / HOUR), hour)
-  const hourAt = (at: number) => hours.get(Math.round(at / HOUR)) ?? null
+  for (const hour of forecast.hours) if (hour.time >= first && hour.time <= last) hours.set(hourOf(ms(hour.time)), hour)
+  const hourAt = (at: number) => hours.get(hourOf(at)) ?? null
   const body = (position: typeof sunPosition | typeof moonPosition) => (at: number) => {
     const { altitude, azimuth } = position(new Date(at), lat, lon)
     return { azimuth, altitude: apparentAltitude(altitude) }

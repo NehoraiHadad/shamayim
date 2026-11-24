@@ -17,18 +17,20 @@ const NAMES: Record<string, string> = {
 /** A meteor shower on the night nearest to its peak, when the place's sky shows enough of it. */
 export const meteorShower: Detector = (sky) => {
   const middle = (sky.night.from + sky.night.to) / 2
-  return SHOWERS.filter((shower) => Math.abs(peakNear(shower, middle) - middle) <= HALF_DAY).map((shower) => ({
-    what: `מטר מטאורים: ${NAMES[shower.name] ?? shower.name}`, perYear: 1, tell: 'at' as const, sunBelow: -12, cloud: { all: 0.5 },
-    from: sky.night.from, to: sky.night.to, stepMin: 30,
-    at: (ms: number) => {
-      const at = new Date(ms)
-      const radiant = horizontalPosition({ rightAscension: shower.ra * RAD, declination: shower.dec * RAD, distanceKm: Infinity }, at,
-        sky.place.lat, sky.place.lon)
-      if (radiant.altitude <= 0) return null
-      const limit = limitingMagnitude(sky.sunAt(ms).altitude, { altitude: sky.moonAt(ms).altitude,
-        illumination: moonIllumination(at).fraction }, sky.glow)
-      const score = shower.zhr * Math.sin(radiant.altitude * RAD) * 2.2 ** (limit - 6.5)
-      return score >= WORTH ? { azimuth: radiant.azimuth, altitude: radiant.altitude, score } : null
-    },
-  }))
+  return SHOWERS.map((shower) => ({ shower, peak: peakNear(shower, middle) })).filter(({ peak }) => Math.abs(peak - middle) <= HALF_DAY)
+    .map(({ shower, peak }) => ({
+      what: `מטר מטאורים: ${NAMES[shower.name] ?? shower.name}`, perYear: 1, tell: 'at' as const, sunBelow: -12, cloud: { all: 0.5 },
+      from: sky.night.from, to: sky.night.to, stepMin: 30,
+      at: (ms: number) => {
+        const at = new Date(ms)
+        const radiant = horizontalPosition({ rightAscension: shower.ra * RAD, declination: shower.dec * RAD, distanceKm: Infinity }, at,
+          sky.place.lat, sky.place.lon)
+        if (radiant.altitude <= 0) return null
+        const limit = limitingMagnitude(sky.sunAt(ms).altitude, { altitude: sky.moonAt(ms).altitude,
+          illumination: moonIllumination(at).fraction }, sky.glow)
+        const active = Math.exp(-0.5 * ((ms - peak) / (2 * HALF_DAY * shower.sigma)) ** 2)
+        const score = shower.zhr * active * Math.sin(radiant.altitude * RAD) * 2.2 ** (limit - 6.5)
+        return score >= WORTH ? { azimuth: radiant.azimuth, altitude: radiant.altitude, score } : null
+      },
+    }))
 }

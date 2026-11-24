@@ -20,14 +20,16 @@ function open({ cloud }: Candidate, sky: EventSky, ms: number): boolean {
 function runsOf(c: Candidate, sky: EventSky): Look[][] {
   const step = (c.stepMin ?? 10) * MINUTE, runs: Look[][] = []
   let run: Look[] | null = null
-  // On round times.
-  for (let ms = Math.ceil(Math.max(c.from, sky.from) / step) * step; ms <= Math.min(c.to, sky.to); ms += step) {
+  const from = Math.max(c.from, sky.from), to = Math.min(c.to, sky.to)
+  // Now, when it has begun, and then on round times.
+  for (let ms = c.from < from ? from : Math.ceil(from / step) * step; ms <= to; ms = (Math.floor(ms / step) + 1) * step) {
     const at = c.at(ms)
     if (!at || !sky.clear(at) || !dark(c, sky, ms) || !open(c, sky, ms)) { run = null; continue }
     if (!run) runs.push((run = []))
     run.push({ azimuth: at.azimuth, altitude: at.altitude, score: at.score ?? 0, ms })
   }
-  return runs.filter((r) => r.at(-1)!.ms - r[0].ms >= (c.leastMin ?? 0) * MINUTE)
+  // What is under way is told to its end.
+  return runs.filter((r) => r[0].ms === sky.from || r.at(-1)!.ms - r[0].ms >= (c.leastMin ?? 0) * MINUTE)
 }
 
 /** The event as the place will see it, in the one shape; null when it will not. */

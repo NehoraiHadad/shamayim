@@ -15,7 +15,7 @@ export function useSpecialEvent(place: Place, forecast: Forecast | null, now: Lo
       if (!current) return
       const sky = eventSky(place, forecast, now, terrain)
       setFound({ placeId: place.id, event: sky && specialEvent(sky) })
-    }).catch(() => { /* The line is an extra: without its chunk there is none. */ })
+    }).catch(() => { if (current) setFound(null) /* The line is an extra: without its chunk there is none. */ })
     return () => { current = false }
   }, [place, forecast, now, terrain])
   return forecast && found?.placeId === place.id && found.event ? specialEventText(found.event, now) : null

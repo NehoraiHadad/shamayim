@@ -36,6 +36,20 @@ describe('the special event of a place', () => {
     expect(late.when.from > '2026-11-24T16:40').toBe(true)
   })
 
+  it('says what is under way now, to its end', () => {
+    const [moon] = eventsOf(openSky('2026-11-24T16:45'))
+    expect(moon).toMatchObject({ what: 'ירח מלא זורח', when: { from: '2026-11-24T16:45' } })
+    // The total phase of 2028-12-31 ends at 19:27: a quarter of an hour of it is left.
+    expect(kinds(openSky('2028-12-31T19:12'))[0]).toBe('ליקוי ירח מלא')
+  })
+
+  it('reads the forecast hour by the clock of the place, also at a quarter to the hour of UT', () => {
+    const nepal = { ...PLACE, lat: 27.7, lon: 85.3, timezone: 'Asia/Kathmandu' }
+    const sky = openSky('2026-11-24T12:00', (hour) => ({ temperature: hour }), nepal)
+    const at = (minute: number) => sky.hourAt(sky.from + 60_000 * minute)!.temperature
+    expect([at(0), at(29), at(31), at(60)]).toEqual([12, 12, 13, 13])
+  })
+
   it('promises nothing while the land is on its way or past the forecast', () => {
     const forecast = eventForecast('2026-11-24')
     expect(eventSky(PLACE, forecast, '2026-11-24T12:00', unknownLand('loading'))).toBeNull()
@@ -66,7 +80,7 @@ describe('the special event of a place', () => {
     expect(event.where.azimuth).toBeGreaterThan(20)
     expect(event.where.azimuth).toBeLessThan(80)
     for (const weather of [{ ...showers, cloudLow: 100, cloudCover: 100, thickCloud: 100 }, { ...showers, precipitation: 0 },
-      { ...showers, precipProb: 20 }]) expect(kinds(openSky('2026-11-18T09:00', () => weather))).not.toContain('תיתכן קשת בענן')
+      { ...showers, precipProb: 20 }, { precipProb: 70 }]) expect(kinds(openSky('2026-11-18T09:00', () => weather))).not.toContain('תיתכן קשת בענן')
     // No bow at noon in summer: the sun stands over 42°.
     expect(kinds(openSky('2027-06-25T09:00', (hour) => (hour >= 10 && hour <= 14 ? showers : {})))).toEqual([])
   })
