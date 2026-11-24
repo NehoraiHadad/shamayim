@@ -1,4 +1,3 @@
-import { daylitShare } from '../../domain/cloudDaylight'
 import { smoothstep } from '../../domain/smoothstep'
 import { DUST_VEIL } from '../../theme/skyAir'
 import { R_EFF_KM } from '../../world/field/project'
@@ -15,7 +14,7 @@ import type { RGB } from './types'
 /** The dust's vertical optical depth (550 nm): as much of the air's aerosol as the dust lights the sky with. */
 const dustDepth = (air?: Air) => air?.dustVeilPotential ? air.dustVeilPotential * aerosolDepth550(air.visibilityKm) : 0
 /** Ease from the palette's 3° twilight anchor to its 12° daylight anchor. */
-const dustDaylight = (altitude: number) => smoothstep(3, 12, altitude)
+export const dustDaylight = (altitude: number) => smoothstep(3, 12, altitude)
 
 /** Keep the legacy tonal fade for the residual visibility extinction, treating it as aerosol-dominated. */
 export function cloudHazeFade(world: WorldState, km: number): number {
@@ -31,10 +30,24 @@ function dustAirMass(altitude: number) {
   return 2 / (up + Math.sqrt(up * up + CURVATURE * (1 - up * up)))
 }
 
+/** Fraction of a sightline replaced by scattered dust light in the display palette. */
+const veilWeight = (depth: number, daylit: number, altitude: number) =>
+  -daylit * Math.expm1(-depth * dustAirMass(altitude))
+
+export const dustVeilWeight = (world: WorldState, altitude: number) =>
+  veilWeight(dustDepth(world.air), dustDaylight(world.bodies.sun.altitude), altitude)
+
+const buff = srgbRgbToLinear(rgbOf(DUST_VEIL))
+const airlight = new WeakMap<WorldState, RGB>()
+
 /** The light a full path of dust gives back: the horizon's brightness in the dust's pale buff (under a low sun, the horizon's own). */
 function dustLight(world: WorldState, daylit: number): RGB {
+  const hit = airlight.get(world)
+  if (hit) return hit
   const horizon = rgbOf(world.light.palette.horizon)
-  return mixRgb(horizon, atLuminance(srgbRgbToLinear(rgbOf(DUST_VEIL)), luminanceOf(horizon)), daylit)
+  const rgb = mixRgb(horizon, atLuminance(buff, luminanceOf(horizon)), daylit)
+  airlight.set(world, rgb)
+  return rgb
 }
 
 /** The sky's zenith, middle (30°) and horizon seen through the dust: Beer's law along each line of sight. */
@@ -46,7 +59,7 @@ export function dustSky(world: WorldState): readonly [RGB, RGB, RGB] | undefined
   const light = dustLight(world, daylit)
   // Daylight scales the scattered light. Scaling the depth would saturate the horizon at the start of the ramp.
   const seen = (hex: string, altitude: number) =>
-    mixLight(rgbOf(hex), light, -daylit * Math.expm1(-depth * dustAirMass(altitude)))
+    mixLight(rgbOf(hex), light, veilWeight(depth, daylit, altitude))
   return [seen(top, 90), seen(mid, 30), seen(horizon, 0)]
 }
 
@@ -54,7 +67,7 @@ export function dustSky(world: WorldState): readonly [RGB, RGB, RGB] | undefined
 export function inDust(world: WorldState, rgb: RGB, baseKm: number): RGB {
   const depth = dustDepth(world.air)
   if (!depth) return rgb
-  const daylit = daylitShare(world.bodies.sun.altitude)
+  const daylit = dustDaylight(world.bodies.sun.altitude)
   const above = depth * hazeAbove(Math.max(0, baseKm))
   return daylit ? tinted(rgb, dustLight(world, daylit), -daylit * Math.expm1(-above)) : rgb
 }
@@ -64,9 +77,10 @@ const clearTransmission = () => 1
 /** Beer transmission below a cloud's base. The daylight weight eases the display effect into the existing twilight palette.
  * Extinction itself does not depend on sunlight. */
 export function cloudTransmission(air: Air | undefined, baseKm: number, sunAltitude: number) {
-  if (!air?.dustVeilPotential || sunAltitude <= 3 || baseKm <= 0) return clearTransmission
-  const depth = dustDepth(air) * (1 - hazeAbove(baseKm))
+  if (!air?.dustVeilPotential || baseKm <= 0) return clearTransmission
   const daylit = dustDaylight(sunAltitude)
+  if (!daylit) return clearTransmission
+  const depth = dustDepth(air) * (1 - hazeAbove(baseKm))
   return (altitude: number) => 1 + daylit * Math.expm1(-depth * dustAirMass(altitude))
 }
 

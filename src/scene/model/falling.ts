@@ -5,6 +5,7 @@ import { acrossSpeed, pxPerRadAt } from './advect'
 import { tonesAt, wrap } from './cloudLight'
 import { sheetZ } from './cloudSheet'
 import { coversOf, skyStops, type SkyGeom } from './sky'
+import { exposeDust, skyColours } from './skyColour'
 import type { FallingCloud, Precip, RGB, SceneBox } from './types'
 
 /*
@@ -59,10 +60,12 @@ function drawn(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number, 
   const h = Math.max(s.level === 'high' ? 2 : 5, w * ASPECT[s.level] * (0.75 + 0.6 * up))
   const y = geom.dome(s.altitude)
   const tones = tonesAt(world, box, stops, s.level, y - h / 2, union, 1, s.distanceKm)
+  const { exposure } = skyColours(world)
   // Tones in 1/64 steps: the soft wash shows no finer, and a scrub repaints less often.
   const snap = (rgb: RGB): RGB => [Math.round(rgb[0] * 64) / 64, Math.round(rgb[1] * 64) / 64, Math.round(rgb[2] * 64) / 64]
   return { id: s.id, x: wrap(geom.x(s.azimuth), geom.period), y, w, h, seed: s.seed, alpha: 0.88 * LEVEL_ALPHA[s.level] * s.share,
-    body: snap(tones.body), shade: snap(tones.shade), altitude: s.altitude, distanceKm: s.distanceKm, share: s.share }
+    body: snap(exposeDust(tones.body, exposure)), shade: snap(exposeDust(tones.shade, exposure)),
+    altitude: s.altitude, distanceKm: s.distanceKm, share: s.share }
 }
 
 /** The z the shafts must stand over: the underside of the highest sheet drawn (they start below it). */
@@ -96,7 +99,7 @@ export function fallingOf(world: WorldState, box: SceneBox, geom: SkyGeom, preci
   if (!sources.length) return null
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
-  const stops = skyStops(world, box)
+  const stops = skyStops(world, box, skyColours(world), true)
   const cells = sources.map((s) => drawn(world, box, geom, stops, union, s))
   const sheet = rainSheetZ(world) + 0.5
   if (precip === 'snow') return { cells, z: Math.max(Z[layer!.level], sheet), speed: carryOf(geom, sources, velOf(world, layer!.level)) }

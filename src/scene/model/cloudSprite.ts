@@ -1,5 +1,8 @@
 import type { RGB } from '../../world/types'
 
+/** Below this share the tower raster is skipped by both painters. */
+export const MIN_TOWER_SHARE = 0.005
+
 /** The cloud genera the field makes (`world/field/types.ts` `Genus`), as the painter draws them. */
 export type SpriteGenus = 'cu' | 'cg' | 'cb' | 'sc' | 'st' | 'ac' | 'as' | 'ns' | 'ci' | 'cs'
 
@@ -29,6 +32,8 @@ export interface CloudSprite {
   body: RGB
   shade: RGB
   lit: RGB
+  /** Display white seen through the dust, for highlights mixed toward white. */
+  cloudWhite?: number
   /** How strongly the lit side catches the light (0–1). */
   litA: number
   /** Unit vector toward the light (sprite px), or null with no direct light (the sky's alone, from above). */

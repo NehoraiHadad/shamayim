@@ -1,5 +1,5 @@
 import type { RGB } from '../../../../world/types'
-import type { CloudSprite } from '../../../model/cloudSprite'
+import { MIN_TOWER_SHARE, type CloudSprite } from '../../../model/cloudSprite'
 import type { Ctx2D, PaintEnv } from '../base/hand'
 
 /* A tower laid as a raster on a scratch sheet, stretched with the canvas's own smoothing. */
@@ -20,7 +20,7 @@ interface TowerBody {
 
 /** Lays a tower's raster at its place: the size and opacity both hands share. */
 export function layTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv, bodyOf: (s: CloudSprite) => TowerBody): void {
-  if (s.w < 0.5 || s.share <= 0.005 || s.tall < 0.5) return
+  if (s.w < 0.5 || s.share <= MIN_TOWER_SHARE || s.tall < 0.5) return
   const opacity = OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
   const body = bodyOf(s)
   const { reach } = body, over = s.w * ROOM_TOP

@@ -1,136 +1,21 @@
 //# allFunctionsCalledOnLoad
-import { azimuthAt, xOf } from '../../domain/camera'
 import { coinOf } from '../../world/air'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { cityDomes } from './cityLight'
 import { colourKey, layerKey, skyBoxKey } from './keys'
-import { hazeOf } from './landVeil'
+import { skyGeom } from './skyGeom'
+import { horizonBand, skyStops } from './skyGradient'
 import { skyColours } from './skyColour'
-import { mixLight, mixRgb } from './tone'
-import type { Arch, Band, Glow, LayerOf, RGB, SceneBox } from './types'
+import { mixRgb } from './tone'
+import type { Arch, Glow, LayerOf, RGB, SceneBox } from './types'
+
+export { DOME_ALT, skyGeom, type SkyGeom } from './skyGeom'
+export { horizonBand, skyAt, skyStops, stopAt } from './skyGradient'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const WHITE: RGB = [1, 1, 1]
-
-/**
- * Where things stand in the sky surface (sky px). Across, a direction goes through the world's camera, scaled from the
- * 375 px reference to the figure's width and offset to where the figure stands in the sky (`landLeft`); the sky surface may
- * be wider than the figure (the app's sky spans the window), and the same px a degree carry on past the figure's edges.
- * Up, the bodies stand on the world's relief (`relief.y`, the land's own angle scale), so the sun sets behind the ridge it
- * really sets behind.
- *
- * The clouds use the same relief up to `DOME_ALT`; above it the relief's zenith is only ~135 px over the horizon, less
- * than half the sky the screen shows over the land, so the rest of the dome (to the zenith) is spread over the whole sky
- * above: a cloud overhead is drawn high behind the text, as an eye looking up sees it (an illustrator's dome, not a
- * projection; the bodies keep the true scale, the clouds near the horizon too).
- */
-export interface SkyGeom {
-  /** Figure px per reference px. */
-  s: number
-  left: number
-  /** The sky surface's width. */
-  width: number
-  /** y of eye level. */
-  horizon: number
-  /** Px round the whole horizon (360°), a whole number of device px: where a drifting cloud band repeats. */
-  period: number
-  /** Exact azimuth span in sky px. The seam is 55° outside either edge of the reference 250° view. */
-  azimuthRange: { min: number; period: number }
-  /** x of an azimuth (unwrapped: the camera's seam is behind the view). */
-  x: (azimuth: number) => number
-  /** y of a body at an (apparent) altitude: the world's relief. */
-  y: (altitude: number) => number
-  /** y of a cloud at an altitude: the relief low down, the dome spread over the sky above. */
-  dome: (altitude: number) => number
-  azimuthAt: (x: number) => number
-  domeAltitudeAt: (y: number) => number
-}
-
-/** Up to this altitude (deg) clouds stand on the relief; above it the dome is spread over the sky above. */
-export const DOME_ALT = 22
-/** The dome's zenith stands this far under the sky surface's top (px). */
-const DOME_TOP = 18
-
-export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
-  const s = box.width / world.camera.width
-  const left = box.landLeft ?? 0
-  const width = box.skyWidth ?? box.width
-  const y = (altitude: number) => box.landTop + world.relief.y(altitude)
-  const yDome = y(DOME_ALT)
-  const top = Math.min(DOME_TOP, yDome * 0.5)
-  const span = 360 * world.camera.pxPerDeg * s
-  const period = Math.round(span * box.dpr) / box.dpr
-  return {
-    s, left, width, horizon: y(0), period, azimuthRange: { min: left + (box.width - span) / 2, period: span },
-    x: (azimuth) => left + xOf(azimuth, world.camera) * s,
-    azimuthAt: (x) => azimuthAt((x - left) / box.width, world.camera),
-    y,
-    dome: (altitude) => altitude <= DOME_ALT ? y(altitude)
-      : yDome - (yDome - top) * ((Math.min(90, altitude) - DOME_ALT) / (90 - DOME_ALT)) ** 0.85,
-    domeAltitudeAt: (px) => {
-      if (px <= top) return 90
-      if (px < yDome) return DOME_ALT + (90 - DOME_ALT) * ((yDome - px) / (yDome - top)) ** (1 / 0.85)
-      if (px === y(0)) return 0
-      // The relief is monotone and combines sine and tanh, so invert it numerically.
-      let low = -90, high = DOME_ALT
-      for (let i = 0; i < 46; i++) {
-        const mid = (low + high) / 2
-        if (y(mid) > px) low = mid
-        else high = mid
-      }
-      return (low + high) / 2
-    },
-  }
-}
-
-/**
- * The sky's gradient stops (fractions of the sky surface's height): the zenith at the top, the mid tone a little over
- * half way down to the horizon, the horizon colour at eye level (the land's own horizon, offset by `box.landTop`) and
- * below it.
- */
-export function skyStops(world: WorldState, box: SceneBox, colours = skyColours(world)): [number, RGB][] {
-  const horizon = clamp01((box.landTop + world.relief.horizonY) / box.skyHeight)
-  // By night inside a town its lit air is over every side, less and less up to the zenith (the mid stop stands ~30° up).
-  const { top, mid, horizon: ground } = colours
-  return [[0, top], [horizon * 0.55, mid], [horizon, ground], [1, ground]]
-}
-
-/** The gradient's colour at a fraction of the sky's height. */
-export function stopAt(stops: readonly [number, RGB][], at: number): RGB {
-  for (let i = 1; i < stops.length; i++) {
-    const [a, ca] = stops[i - 1], [b, cb] = stops[i]
-    if (at <= b) return b > a ? mixRgb(ca, cb, clamp01((at - a) / (b - a))) : cb
-  }
-  return stops.at(-1)![1]
-}
-
-/**
- * The sky's colour at an altitude (deg above eye level) as the gradient draws it: what still water mirrors at the same
- * angle below the horizon.
- */
-export function skyAt(world: WorldState, box: SceneBox): (altitude: number) => RGB {
-  const stops = skyStops(world, box)
-  return (altitude) => stopAt(stops, clamp01((box.landTop + world.relief.y(Math.max(0, altitude))) / Math.max(1, box.skyHeight)))
-}
-
-/** Height (px) of the haze band over the horizon. */
-const BAND_H = 44
-
-/**
- * The haze band at the horizon (`air.horizonBand`): the air seen through its whole depth, lighter and paler just over
- * the far land, stronger as the visibility falls; by night it keeps only the sky's own horizon tone, faint.
- */
-export function horizonBand(world: WorldState, box: SceneBox, colours = skyColours(world)): Band | null {
-  const { horizonBand: given } = world.air
-  const dark = world.night.dark
-  const alpha = given.alpha * (1 - 0.6 * dark)
-  if (alpha < 0.02) return null
-  const rgb = colours.veiled ? mixLight(colours.horizon, WHITE, 0.12 * (1 - dark))
-    : mixRgb(hazeOf(world), WHITE, 0.12 * (1 - dark))
-  return { y: box.landTop + world.relief.horizonY, h: BAND_H, rgb, alpha }
-}
 
 /** The covers of the three layers (low, mid, high). */
 export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ?? 0, mid: world.clouds[1]?.cover ?? 0,

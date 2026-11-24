@@ -8,6 +8,7 @@ import { cityLit } from './cityLight'
 import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
 import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
+import { skyColours } from './skyColour'
 import { mixRgb, scaleLight } from './tone'
 import { lowSheetRgb, type Beyond } from './towerStorms'
 import type { LayerOf, SceneBox } from './types'
@@ -29,7 +30,8 @@ function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): num
 }
 
 export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): CloudLayerDesc[] {
-  const stops = skyStops(world, box)
+  const sky = skyColours(world)
+  const stops = skyStops(world, box, sky, true)
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
   const { altitude } = world.bodies.sun

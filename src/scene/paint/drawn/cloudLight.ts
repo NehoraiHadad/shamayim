@@ -8,8 +8,8 @@ import { mix } from '../shared/base/hand'
 const WHITEN = 0.55
 
 /** A lit tone as a cap takes it: by day nearer white, a dusk's or a night's left as it is. */
-export function whitened(lit: RGB): RGB {
-  return mix(lit, [1, 1, 1], WHITEN * smoothstep(0.55, 0.85, Math.min(...lit)))
+export function whitened(lit: RGB, white = 1): RGB {
+  return mix(lit, [white, white, white], WHITEN * smoothstep(0.55, 0.85, Math.min(...lit)))
 }
 
 /** How low the light stands, read from its own colour (0 high … 1 low): a low sun's is warm against the cloud's body. By day a

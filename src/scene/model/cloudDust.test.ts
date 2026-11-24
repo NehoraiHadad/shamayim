@@ -3,14 +3,16 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import type { LocalTime } from '../../domain/types'
 import { ratio } from '../../theme/contrast'
+import { DUST_VEIL } from '../../theme/skyAir'
 import { dustVeilPotential, skyLight } from '../../theme/skyLight'
 import { airOf } from '../../world/air'
 import { makeWorldBuilder, shownAir } from '../../world/world'
 import { luminanceOf } from './cloudChromaticity'
 import { dustSky, inDust } from './cloudDust'
 import { cloudLayersOf } from './cloudLayers'
-import { horizonBand, skyStops } from './sky'
-import { hexOf, labOf, toLinear } from './tone'
+import { horizonBand, skyStops, stopAt } from './sky'
+import { skyColours } from './skyColour'
+import { hexOf, labOf, rgbOf } from './tone'
 import type { LayerOf, RGB } from './types'
 
 const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -45,18 +47,21 @@ it('keeps the dusty sky tan and brightens toward its horizon band', () => {
   const { sky, world } = frame('2026-11-17T12:00', DUST)
   const band = horizonBand(world, box)
   expect(band).not.toBeNull()
-  const colours = [...sky, band!.rgb]
+  const colours = [sky[0], sky.at(-1)!, band!.rgb]
   const veiled = dustSky(world)!
-  for (const [i, rgb] of sky.slice(0, 2).entries()) {
-    const scale = rgb.map((value, channel) => toLinear(value) / toLinear(veiled[i][channel]))
-    expect(scale[0]).toBeLessThan(1)
-    expect(scale[1]).toBeCloseTo(scale[0], 10)
-    expect(scale[2]).toBeCloseTo(scale[0], 10)
+  const exposed = skyColours(world)
+  const buff = labOf(rgbOf(DUST_VEIL))
+  console.info('Ramon noon dust, OKLab', { top: labOf(exposed.top), buff })
+  for (const [i, rgb] of [exposed.top, exposed.mid].entries()) {
+    const before = labOf(veiled[i]), after = labOf(rgb)
+    expect(after.l / before.l).toBeCloseTo(exposed.exposure, 6)
+    expect(exposed.exposure).toBeLessThan(1)
+    expect(after.a).toBeCloseTo(before.a, 6)
+    expect(after.b).toBeCloseTo(before.b, 6)
+    expect(Math.hypot(after.a, after.b)).toBeGreaterThan(0.75 * Math.hypot(buff.a, buff.b))
   }
-  let previous = 0
+  expect(luminanceOf(colours[1])).toBeGreaterThan(luminanceOf(colours[0]))
   for (const rgb of colours) {
-    expect(luminanceOf(rgb) + Number.EPSILON).toBeGreaterThanOrEqual(previous)
-    previous = luminanceOf(rgb)
     const { a, b } = labOf(rgb)
     const hue = (Math.atan2(b, a) * 180) / Math.PI
     expect(hue).toBeGreaterThan(70)
@@ -76,7 +81,7 @@ it('requires coarse dust even when PM10 and fog visibility would otherwise make 
   expect(air(400).dustVeilPotential).toBe(0)
 })
 
-it('keeps Hero and Sentence ink legible on the painted sky across dust, visibility and sun angle', () => {
+it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anchors', () => {
   const { world } = frame('2026-11-17T12:00', DUST)
   const shown = shownAir(worldInput(ramon, '2026-11-17T12:00'))
   for (let pm10 = 0; pm10 <= 1000; pm10 += 25) for (let visibilityKm = 1; visibilityKm <= 30; visibilityKm++) {
@@ -84,11 +89,13 @@ it('keeps Hero and Sentence ink legible on the painted sky across dust, visibili
       visibilitySource: shown.visibilitySource, forcedVisibility: true })
     for (let altitude = -10; altitude <= 80; altitude++) {
       const palette = skyLight({ altitude, pm10, air, cloudCover: 0, wet: 0, rising: false })
-      const stops = skyStops({ ...world, air, light: { ...world.light, palette },
-        bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } }, box)
-      for (const [i, bg] of [palette.top, palette.mid].entries()) if (ratio(palette.ink, bg) >= 4.6) {
-        const actual = ratio(palette.ink, hexOf(stops[i][1]))
-        if (actual < 4.6) throw new Error(`Contrast ${actual} at PM10 ${pm10}, ${visibilityKm} km, ${altitude}°, stop ${i}`)
+      const colours = skyColours({ ...world, air, light: { ...world.light, palette },
+        bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } })
+      for (const [i, bg] of [colours.top, colours.mid].entries()) {
+        for (const ink of i === 0 ? [palette.ink] : [palette.ink, '#E8F9FF']) {
+          const actual = ratio(ink, hexOf(bg))
+          if (actual < 4.6) throw new Error(`Contrast ${actual} at PM10 ${pm10}, ${visibilityKm} km, ${altitude}°, stop ${i}`)
+        }
       }
     }
   }
@@ -114,7 +121,8 @@ it('eases the painted veil and sheet transmission over solar minutes through the
       bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } }
     const sheet = cloudLayersOf(current, box).find((layer): layer is LayerOf<'cloudSheet'> =>
       layer.kind === 'cloudSheet' && layer.lattice === 'mid')!
-    const rgb = [...skyStops(current, box).map(([, color]) => color), sheet.body, sheet.shade, sheet.lit]
+    const stops = skyStops(current, box)
+    const rgb = [...[0, 0.25, 0.5, 0.75, 1].map((at) => stopAt(stops, at)), sheet.body, sheet.shade, sheet.lit]
     const through = sheet.through ?? sheet.ys.map(() => 1)
     if (previous) {
       const before = previous

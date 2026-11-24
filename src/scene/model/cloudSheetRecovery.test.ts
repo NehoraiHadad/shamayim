@@ -27,7 +27,8 @@ it('raises the darkest opaque texels around the Haifa 16:30 smudge', async () =>
         && corrected.alpha[i] >= 0.9 ? [i] : [])
       expect(opaquePatch.length).toBeGreaterThan(0)
       const minimum = (layer: LayerOf<'cloudSheet'>) => Math.min(...opaquePatch.map((i) => layer.tone[i]))
-      expect(minimum(corrected)).toBeGreaterThan(minimum(raw))
+      // Require at least one tone code in the sheet raster fingerprint.
+      expect(minimum(corrected) - minimum(raw)).toBeGreaterThanOrEqual(1 / 255)
     } finally {
       recovery.mockRestore()
     }

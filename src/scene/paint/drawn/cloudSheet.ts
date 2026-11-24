@@ -59,7 +59,7 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
 }
 
 function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetField, w: number, h: number) {
-  const head = billows(hashId(desc.id)), low = lowLight(desc), bright = whitened(desc.lit)
+  const head = billows(hashId(desc.id)), low = lowLight(desc), bright = whitened(desc.lit, desc.cloudWhite)
   const { cols, rows, open } = f
   let v = 0
   for (let j = 0; j < h; j++) {

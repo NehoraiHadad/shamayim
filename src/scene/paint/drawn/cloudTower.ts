@@ -31,7 +31,7 @@ export function paintDrawnCells(ctx: Ctx2D, desc: LayerOf<'cloudCells'>, env: Pa
 }
 
 function drawnTone(s: CloudSprite, depth: number): (y: number, p: TowerPoint) => RGB {
-  const under = mix(s.shade, s.lit, 0.6 * s.glow), bright = whitened(s.lit), [tx, ty] = s.toward ?? [0, -1]
+  const under = mix(s.shade, s.lit, 0.6 * s.glow), bright = whitened(s.lit, s.cloudWhite), [tx, ty] = s.toward ?? [0, -1]
   const lit = Math.min(1, s.litA)
   return (y, p) => {
     const climb = (depth - y) / (depth + s.tall * BASE_CLIMB)
