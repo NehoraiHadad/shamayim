@@ -42,6 +42,21 @@ it('shows no less when what stands in front is narrower, lower or fewer', () => 
   expect(shownWidth(rear, pair)).toBeLessThanOrEqual(Math.min(...pair.map(f => shownWidth(rear, [f]))))
 })
 
+it('measures what shows over any roofs in front, px by px', () => {
+  const random = seeded(11)
+  for (let i = 0; i < 40; i++) {
+    const rear = body(100, 4 + 8 * random(), .5 + 12 * random())
+    const front = Array.from({ length: 12 }, () => body(90 + 20 * random(), 1 + 6 * random(), 14 * random()))
+    const step = .005
+    let sum = 0
+    for (let x = 100 - rear.w / 2 + step / 2; x < 100 + rear.w / 2; x += step) {
+      const roof = Math.min(rear.foot, ...front.filter(f => Math.abs(f.x - x) < f.w / 2).map(f => f.top))
+      sum += step * Math.min(1, Math.max(0, roof - rear.top))
+    }
+    expect(Math.abs(shownWidth(rear, front) - sum)).toBeLessThan(.1)
+  }
+})
+
 it('never jumps by more than the sliver as a frontage grows through the cutoff', () => {
   const rear = body(102, 8, 16, .4, 99.9, 2), step = .1
   const areas = Array.from({ length: 160 }, (_, i) => {

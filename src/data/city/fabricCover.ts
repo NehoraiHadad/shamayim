@@ -18,19 +18,22 @@ const COLUMN = 8
 
 /** The px of width over which `body` shows a whole px of wall over the bodies in front (their true spans and roofs). */
 export function shownWidth(body: OutsideBox, front: readonly OutsideBox[]) {
-  const left = body.x - body.w / 2, right = body.x + body.w / 2
-  // A roof a px or more under the body's own takes nothing of it.
-  const spans = front.filter(f => f.top < body.top + 1 && f.x - f.w / 2 < right && f.x + f.w / 2 > left)
-    .map(f => ({ left: Math.max(left, f.x - f.w / 2), right: Math.min(right, f.x + f.w / 2), top: f.top }))
-  const edges = [left, right, ...spans.flatMap(s => [s.left, s.right])].sort((a, b) => a - b)
-  let shown = 0
-  for (let i = 1; i < edges.length; i++) {
-    const from = edges[i - 1], to = edges[i]
-    if (to <= from) continue
-    let roof = body.foot
-    for (const s of spans) if (s.left <= from && s.right >= to && s.top < roof) roof = s.top
-    shown += (to - from) * Math.min(1, Math.max(0, roof - body.top))
+  const rise = (roof: number) => Math.min(1, Math.max(0, Math.min(roof, body.foot) - body.top))
+  // The highest roof in front decides at each px, so they are laid highest first on what is still open behind them. One a px
+  // or more under the body's own roof takes nothing of it.
+  const roofs = front.filter(f => f.top < body.top + 1).sort((a, b) => a.top - b.top)
+  let open: [number, number][] = [[body.x - body.w / 2, body.x + body.w / 2]], shown = 0
+  for (const f of roofs) {
+    const left = f.x - f.w / 2, right = f.x + f.w / 2
+    open = open.flatMap(([from, to]): [number, number][] => {
+      const start = Math.max(from, left), end = Math.min(to, right)
+      if (start >= end) return [[from, to]]
+      shown += (end - start) * rise(f.top)
+      return [...(from < start ? [[from, start] as [number, number]] : []), ...(end < to ? [[end, to] as [number, number]] : [])]
+    })
+    if (!open.length) break
   }
+  for (const [from, to] of open) shown += (to - from) * rise(body.foot)
   return shown
 }
 
