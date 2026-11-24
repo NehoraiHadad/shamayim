@@ -15,7 +15,9 @@ export function outsideItemKm(frame: OutsideFrame, baseKm: number,
 const ridgeCache = new WeakMap<object, Map<Plane, Plane>>()
 
 /** Transport once per immutable world/ridge; every foot sample and screen width shares this distance geometry. */
-export function outsideRidge(world: Pick<WorldState, 'place3' | 'terrain' | 'camera'>, ridge = world.terrain.near):
+export function outsideRidge(world: Pick<WorldState, 'camera'> & { terrain: { near: Plane }; place3:
+  Exclude<WorldState['place3'], { kind: 'outside' }> |
+    Pick<Extract<WorldState['place3'], { kind: 'outside' }>, 'kind' | 'frame' | 'baseKm'> }, ridge = world.terrain.near):
   Plane {
   if (world.place3.kind !== 'outside') return ridge
   let cached = ridgeCache.get(world)

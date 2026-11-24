@@ -15,7 +15,7 @@ export function sceneClearance({ height, notes }: WorldLabels, dot: Point, width
   const sx = width / SCENE_W
   return [
     dotClearance(dot, width),
-    // The backed label lies over the town. Only seated glyphs give way to it.
+    // The backed label lies over the town. Marks receive the backing separately from the fabric.
     ...(height.backed ? [] : [heightLabelBox(height, width)]),
     ...notes.map((note) => ({ x: note.left * sx, y: note.top, w: note.width, h: note.height })),
   ]

@@ -1,3 +1,4 @@
+import { REAL_PODIUM_OVERHANG, towerMastHeight } from '../../../world/portraitMargins'
 import { facadeDetail } from '../../model/buildingDetail'
 import type { BuildingFaces } from '../../model/buildingLight'
 import type { OutsideItem, Shine, Tones } from '../../model/types'
@@ -9,7 +10,6 @@ import { paintTowerWindows } from './outsideWindows'
 type Tower = Extract<OutsideItem, { kind: 'tower' }>
 
 function towerSetback(tw: Tower) { return tw.crown === 1 ? Math.min(tw.h * .14, 3.5) : 0 }
-function mastHeight(tw: Tower) { return Math.min(5, 1.5 + tw.h * .08) }
 
 export function paintTower(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lamps: Lamp[], f: BuildingFaces, scale: number) {
   const x0 = tw.x - tw.w / 2, top = tw.base - tw.h
@@ -27,11 +27,11 @@ export function paintTower(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lamps: Lam
     ctx.fillStyle = css(f.band, .33)
     for (let y = shaftTop + 1.2; y < shaftBase - .6; y += frequency) ctx.fillRect(x0, y, tw.w, Math.min(.45, .48 / scale))
   }
-  if (podium) block(x0 - 1.1, shaftBase, tw.w + 2.2, podium)
+  if (podium) block(x0 - REAL_PODIUM_OVERHANG, shaftBase, tw.w + 2 * REAL_PODIUM_OVERHANG, podium)
   if (setback > 0) block(tw.x - tw.w * .31, top, tw.w * .62, setback + .2)
   let tipY = top
   if (tw.crown === 2) {
-    tipY -= mastHeight(tw)
+    tipY -= towerMastHeight(tw.h)
     ctx.fillStyle = css(f.front.wall)
     ctx.fillRect(tw.x - .2, tipY, .4, top - tipY)
   }

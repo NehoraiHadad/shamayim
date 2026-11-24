@@ -14,9 +14,9 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
 import type { WaterMask } from '../data/water/waterMask'
 import { heightText } from '../text/isolate'
-import { SHEET_CLEAR, VISIBLE_BOTTOM } from './layout'
+import { SHEET_CLEAR, VISIBLE_BOTTOM, type Box } from './layout'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
-import { outsideMarkBounds } from './outsideSeats'
+import { heightLabelMarks } from './heightLabelMarks'
 import { besideDot } from './heightLabel'
 import { notesOnWater } from './notesOnWater'
 import { SCENE_W } from './sceneBox'
@@ -25,9 +25,6 @@ import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
 import { datumOfRow, datumOnLand } from './datum'
 import type { CoastalSea, OutsideView, WorldLabels } from './types'
-export { besideDot } from './heightLabel'
-export { BACKING_PAD } from './layout'
-export { notesOnWater } from './notesOnWater'
 
 /**
  * The house style and roofs of a place. Roofs only from evidence about the roofs (5+ mapped roof shapes, the majority
@@ -122,15 +119,16 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
     left: seg.x1, right: seg.x2, top: datum!.y - 1, bottom: datum!.y + 1, priority: 'note' as const,
   }))
   const referenceDot = { x: dot.x * SCENE_W / width, y: dot.y }
-  const referenceBox = (b: ReturnType<typeof outsideMarkBounds>, anchor: number) => {
+  const referenceBox = (b: Box, anchor: number) => {
     const shift = anchor * (SCENE_W / width - 1)
     return { ...b, left: b.left + shift, right: b.right + shift }
   }
-  const spot = besideDot(referenceDot, label.text, SCENE_W, [
+  const referenceNotes = noteBoxes(notes).map(note => referenceBox(note, note.left))
+  const spot = besideDot(referenceDot, label.text, [
     ...portraitLabelObstacles(view),
-    ...marks.map(mark => ({ ...referenceBox(outsideMarkBounds(mark, mark.x), mark.x), priority: 'mark' as const, fixed: 'center' as const })),
+    ...heightLabelMarks(marks, view, drawn, referenceNotes, width),
     ...line,
-    ...noteBoxes(notes).map(note => ({ ...referenceBox(note, note.left), priority: 'note' as const, fixed: 'left' as const })),
+    ...referenceNotes.map(note => ({ ...note, priority: 'note' as const, fixed: 'left' as const })),
   ])
   const { x, y } = spot ?? referenceDot
   const labels: WorldLabels = { height: { ...label, x, y, backed: true }, notes, datum }

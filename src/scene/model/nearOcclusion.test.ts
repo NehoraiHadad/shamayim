@@ -32,3 +32,13 @@ it.each(['none', 'near', 'far'])('culls a farther slid near foot behind a nearer
   expect(alone[0].item.glyph.x).toBeCloseTo(all[0].item.glyph.x, 8)
 })
 
+it('keeps an angular outside glyph out of the backed height badge', () => {
+  const mark = { ...baseMark, id: 'mast', km: 8 }
+  const given = { ...world, marks: [mark], labels: { ...world.labels,
+    height: { x: mark.x, y: mark.base - 2, text: '1,013 מ׳', below: false, backed: true } } }
+  const find = (state: WorldState) => outsideMarks(state, 375, new Map(), [], () => 100, [], home)
+  expect(find({ ...given, labels: world.labels })).toHaveLength(1)
+  // The badge spans the entire 12 px slide, so there is no legal seat.
+  expect(find(given)).toEqual([])
+})
+

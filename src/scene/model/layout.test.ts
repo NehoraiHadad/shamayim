@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { LABEL_H, LABEL_PX, textWidth } from '../../world/layout'
-import { BACKING_PAD } from '../../world/place'
+import { BACKING_PAD, LABEL_H, LABEL_PX, textWidth } from '../../world/layout'
 import { heightLabelBox } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
 import { layoutOf } from './layout'

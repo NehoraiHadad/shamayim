@@ -13,11 +13,16 @@ export function localTownAt(city: CityResult | null | undefined, mark: Landmark)
   return raster.has || built > 0 ? built >= TOWN_BUILT_SHARE : undefined
 }
 
-/** Worship/homes require a town; other kinds require support only when their source actually lies in built fabric. */
-export function needsTown(world: WorldState, mark: WorldMark): boolean {
+/** Explicit source evidence that a glyph requires town support. */
+export function requiresTown(mark: WorldMark): boolean | undefined {
   if (mark.seatBlockId !== undefined) return true
   if (['minaret', 'church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) return true
-  if (mark.townFootprint !== undefined) return mark.townFootprint
+  return mark.townFootprint
+}
+
+export function needsTown(world: WorldState, mark: WorldMark): boolean {
+  const known = requiresTown(mark)
+  if (known !== undefined) return known
   const footprint = mark.farCellId === undefined ? undefined : world.farCities.footprints?.get(mark.farCellId)
   return (footprint?.built ?? 0) >= TOWN_BUILT_SHARE
 }

@@ -9,7 +9,7 @@ import { toneAt } from './landVeil'
 import { labOf, mixRgb } from './tone'
 import type { RGB } from './types'
 
-const world = { camera: SCENE_CAMERA, light: { palette: { ridgeNear: '#283948', top: '#6381a0', mid: '#93a8be', horizon: '#d2d9de' },
+const world = { labels: { height: { backed: false } }, camera: SCENE_CAMERA, light: { palette: { ridgeNear: '#283948', top: '#6381a0', mid: '#93a8be', horizon: '#d2d9de' },
   shares: { sun: 1, moon: 0 }, direct: 1, colour: [1, .95, .85], ambient: [.5, .6, .7], diffuse: .2 },
   night: { dark: 0 }, bodies: { sun: { azimuth: 0, altitude: 45 }, moon: { azimuth: 180, altitude: -25 } }, ground: { wet: 0 },
   air: { haze: [.65, .7, .75], visibilityKm: 25, dustWeight: 0, fade: (km: number) => 1 - Math.exp(-3.912 * km / 25) },

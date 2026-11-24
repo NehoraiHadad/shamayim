@@ -1,5 +1,7 @@
 import { refreshLandmarkGlyph } from './landmarkAtmosphere'
 import type { WorldMark } from '../../world/markGeometry'
+import { visibleOutsideMark } from '../../world/outsideSeats'
+import { heightLabelBox } from '../../world/sceneClearance'
 import { needsTown } from '../../world/markContext'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
@@ -25,11 +27,16 @@ export function evaluateFarNeighbour(world: WorldState, mark: WorldMark, width: 
 /** Nearer retained glyphs are foreground too. Paint the final list far first. */
 export function farNeighbourMarks(world: WorldState, box: SceneBox, towns: LayerOf<'farCities'> | null,
   home: HomeRoofline | null, clear: readonly Box[], foreground: readonly DrawnMass[], light: StyleLight = PLAIN_LIGHT): GlyphDesc[] {
+  const badge = world.labels.height.backed ? [heightLabelBox(world.labels.height, box.width)] : []
+  const zones = badge.length ? [...clear, ...badge] : clear
   const candidates = world.marks.filter(mark => mark.plane !== 'near')
   const { kept } = nearestMarks(candidates, foreground, (mark, mass) => {
-    if (mark.sightKm === undefined) return { mark, x: mark.x * box.width / SCENE_W,
-      hazeKm: mark.km, supportId: undefined as string | undefined, town: undefined as boolean | undefined }
-    const result = evaluateFarNeighbour(world, mark, box.width, towns, home, clear, mass)
+    if (mark.sightKm === undefined) {
+      const x = mark.x * box.width / SCENE_W
+      if (badge.length && !visibleOutsideMark(mark, x, badge).length) return null
+      return { mark, x, hazeKm: mark.km, supportId: undefined as string | undefined, town: undefined as boolean | undefined }
+    }
+    const result = evaluateFarNeighbour(world, mark, box.width, towns, home, zones, mass)
     return result.placed ? { ...result.placed, hazeKm: result.hazeKm,
       supportId: result.supportId, town: result.town } : null
   })

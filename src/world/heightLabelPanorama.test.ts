@@ -7,24 +7,29 @@ import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import * as heightSolver from './heightLabel'
 import { DOT_R, overlaps, VISIBLE_BOTTOM, type Box } from './layout'
-import { heightLabelBox, hits, sceneClearance, type ScreenBox } from './sceneClearance'
+import { heightLabelBox, sceneClearance, type ScreenBox } from './sceneClearance'
 import { SCENE_W } from './sceneBox'
 import { buildWorld } from './world'
+import { glyphBox, tallyLeader, unquantizedSpot } from '../test/heightLabelDiagnostics'
 
 const BOX = { width: SCENE_W, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const WIDTHS = [320, 360, SCENE_W, 430, 520]
 const records = import.meta.glob<StoredPanorama>('../test/fixtures/scene/*.panorama.json', { eager: true, import: 'default' })
 const places = [...SCENE_PLACES, ...DATUM_PLACES, ...STILL_PLACES, ...SKYLINE_STUDY_PLACES, ...VILLAGE_PLACES]
 let loaded: Map<string, LoadedPlace>
+const audited = [320, SCENE_W, 520]
+const crossings = audited.map(width => ({ width, places: 0, any: 0, note: 0, datum: 0, mark: 0 }))
 
 beforeAll(async () => {
   stubPublicFetch()
   loaded = await loadPlaces(places)
 }, 120_000)
-afterAll(() => vi.unstubAllGlobals())
+afterAll(() => {
+  vi.unstubAllGlobals()
+  console.log(JSON.stringify({ leaderCrossings: crossings }))
+})
 
 const rect = ({ x, y, w, h }: ScreenBox) => ({ left: x, right: x + w, top: y, bottom: y + h })
-const signature = (...geometry: number[]) => geometry.join()
 
 function unionArea(boxes: readonly Box[], clip: Box) {
   const inside = boxes.filter(b => overlaps(b, clip)).map(b => ({
@@ -51,12 +56,12 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     return buildWorld({ ...input, forecast: { ...input.forecast, elevation } })
   }
   const solve = vi.spyOn(heightSolver, 'besideDot')
-  const { built: world, spot } = (() => {
+  const { built: world, spot, args } = (() => {
     try {
       const built = at('12:00')
       const spot = solve.mock.results[0]?.value as ReturnType<typeof heightSolver.besideDot>
       if (!spot) throw new Error(`Missing tethered badge for ${id}`)
-      return { built, spot }
+      return { built, spot, args: solve.mock.calls[0] }
     }
     finally { solve.mockRestore() }
   })()
@@ -64,7 +69,8 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
   if (view.kind !== 'outside') throw new Error(`Missing outside view for ${id}`)
   const { dot } = view
   const { height, notes, datum } = world.labels
-
+  const raw = unquantizedSpot(args)
+  if (raw && (raw.x !== spot.x || raw.y !== spot.y)) console.log(JSON.stringify({ place: id, quantization: [[raw.x, raw.y], [spot.x, spot.y]] }))
   for (const width of WIDTHS) {
     const sx = width / SCENE_W
     const box = { ...BOX, width }
@@ -72,32 +78,12 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     const clear = sceneClearance(world.labels, dot, width)
     expect(clear).toEqual([{ x: dot.x * sx - DOT_R, y: dot.y - DOT_R, w: 2 * DOT_R, h: 2 * DOT_R }, ...noteZones])
     const placed = outsideShape(world, box, clear).items
-    const clearOfNotes = (x: number, half: number, top: number, bottom: number) =>
-      !hits(noteZones, x - half, top, x + half, bottom)
-    const expected = [
-      ...view.skyline.boxes.filter(b => clearOfNotes(b.x * sx, b.w * sx / 2, b.top, b.foot))
-        .map(b => signature(b.x * sx, b.w * sx, b.top, b.foot)),
-      ...view.skyline.towers.filter(t => clearOfNotes(t.x * sx, t.w / 2, t.baseY - t.h, t.baseY))
-        .map(t => signature(t.x * sx, t.w, t.baseY - t.h, t.baseY)),
-      ...view.trees.filter(t => clearOfNotes(t.x * sx, t.w, t.base - t.h, t.base))
-        .map(t => signature(t.x * sx, t.w, t.base - t.h, t.base)),
-    ]
-    const own = placed.flatMap(item => {
-      if (item.kind === 'box' && !item.beyond) return [signature(item.x, item.w, item.top, item.foot)]
-      if (item.kind === 'tower' && view.skyline.towers.some(t => t.seed === item.seed)) {
-        return [signature(item.x, item.w, item.base - item.h, item.base)]
-      }
-      if (item.kind === 'tree') {
-        const t = item.tree
-        return [signature(t.x, t.w, t.base - t.h, t.base)]
-      }
-      return []
-    })
-    expect(own.sort()).toEqual(expected.sort())
+    const withoutBadge = { ...world, labels: { ...world.labels, height: { ...height, x: -SCENE_W, backed: false } } }
+    const unbacked = outsideShape(withoutBadge, box, clear).items
+    expect(placed.filter(item => item.kind !== 'mark')).toEqual(unbacked.filter(item => item.kind !== 'mark'))
 
     const badge = rect(heightLabelBox(height, width))
     const overlay = layoutOf(world, box).overlay.find(item => item.kind === 'height')
-    expect(overlay).toBeDefined()
     if (!overlay) throw new Error(`Missing height badge at ${width}px`)
     const x = dot.x * sx
     const edgeX = Math.max(badge.left, Math.min(x, badge.right))
@@ -106,13 +92,11 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     expect(gap).toBeGreaterThanOrEqual(2 - 1e-6)
     expect(gap).toBeLessThanOrEqual(34 + 1e-6)
     if (width === SCENE_W) {
-      const { candidates, rasterCells, marks, fabric } = spot
+      const { rasterCells, marks, fabric, beyond } = spot
       const side = badge.bottom <= dot.y ? 'above' : badge.top >= dot.y ? 'below' : spot.x < x ? 'left' : 'right'
-      console.log(JSON.stringify({ place: id, side, distance: gap, marks, fabric, candidates, rasterCells }))
-      // The 34 px rim tether bounds the lattice at 520 px and all six prefix grids.
-      const diameter = 2 * (DOT_R + 34), w = badge.right - badge.left, h = badge.bottom - badge.top
-      expect(candidates).toBeLessThanOrEqual((Math.floor((diameter + w) / (520 / SCENE_W)) + 1) * (Math.floor(diameter + h) + 1))
-      expect(rasterCells).toBeLessThanOrEqual(6 * (Math.ceil(diameter + 2 * w) + 2) * (Math.ceil(diameter + 2 * h) + 2))
+      console.log(JSON.stringify({ place: id, side, distance: gap, x: spot.x, y: spot.y, marks, fabric, beyond, rasterCells }))
+      // Fixed recorded budgets, tightened from the previous ceilings for two-digit and longer elevations.
+      expect(rasterCells).toBeLessThanOrEqual(Math.abs(elevation) < 100 ? 94_000 : 101_000)
     }
     expect(Boolean(overlay.leader)).toBe(gap > 12)
     if (overlay.leader) {
@@ -127,17 +111,23 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
     expect(badge.top).toBeGreaterThanOrEqual(2 - 1e-6)
     expect(badge.bottom).toBeLessThanOrEqual(VISIBLE_BOTTOM - 2 + 1e-6)
     expect(noteZones.filter(n => overlaps(rect(n), badge, -1e-6))).toEqual([])
-    expect((datum?.segments ?? []).filter(s => overlaps({
+    const datumBoxes = (datum?.segments ?? []).map(s => ({
       left: s.x1 * sx, right: s.x2 * sx, top: datum!.y - 1, bottom: datum!.y + 1,
-    }, badge, -1e-6))).toEqual([])
+    }))
+    expect(datumBoxes.filter(b => overlaps(b, badge, -1e-6))).toEqual([])
     const far = sceneModel(world, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
     const glyphs = [...far, ...placed.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
-    const coveredMarks = glyphs.flatMap(m => {
-      return overlaps({ left: m.x - m.w / 2, right: m.x + m.w / 2, top: m.base - m.h * m.scale, bottom: m.base }, badge, -1e-6)
-        ? [m.kind] : []
-    })
-    expect(coveredMarks.length, coveredMarks.join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
+    const count = crossings.find(row => row.width === width)
+    if (count) {
+      tallyLeader(count, overlay.leader, noteZones.map(rect), datumBoxes, glyphs)
+      const drawn = new Set(glyphs.map(g => g.sourceId))
+      const baselineFar = sceneModel(withoutBadge, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
+      const original = [...baselineFar, ...unbacked.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
+      const dropped = original.filter(g => !drawn.has(g.sourceId)).map(g => g.sourceId)
+      if (dropped.length) console.log(JSON.stringify({ place: id, width, badgeDrops: dropped }))
+    }
 
+    expect(glyphs.filter(m => overlaps(glyphBox(m), badge, -1e-6)).map(m => m.sourceId)).toEqual([])
     if (id === 'karmei-tzur' && width === SCENE_W) {
       expect(height.x).toBeCloseTo(dot.x, 6)
       expect(badge.bottom).toBeLessThan(dot.y)

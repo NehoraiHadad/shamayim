@@ -53,8 +53,8 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly S
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
   const height = world.labels.height
-  const seatZone = world.seatPool.length && height.backed ? heightLabelBox(height, box.width) : null
-  const key = `${box.width}|${JSON.stringify([clear, seatZone, world.keys.marks])}`
+  const badgeZone = (world.marks.some(mark => mark.plane === 'near') || world.seatPool.length) && height.backed ? heightLabelBox(height, box.width) : null
+  const key = `${box.width}|${JSON.stringify([clear, badgeZone, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W

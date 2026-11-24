@@ -1,11 +1,10 @@
 import type { WorldMark } from '../../world/markGeometry'
+import { FAR_TOWN_FOOT_TRAVEL_PX } from '../../world/neighbourSeparation'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
 import type { NeighbourBlock } from './neighbourPlacement'
 import type { LayerOf } from './types'
 
-/** The far-city ground is rasterized in half-CSS-pixel rows; align a ground contact by at most one such row. */
-const GROUND_ROW_PX = .5
 /** Geometry comparisons use the existing micro-pixel tolerance. */
 const CONTACT_EPS_PX = 1e-7
 
@@ -18,7 +17,7 @@ export function farTownSupports(world: WorldState, width: number, towns: LayerOf
     .filter(box => box.townId === owner.townId)
   const x = mark.x * width / SCENE_W, requested = mark.sourceGroundY ?? mark.base
   const contacts = [requested, ...ground.filter(box => box.x <= x && box.x + box.w >= x)
-    .map(box => box.y + box.h).filter(y => Math.abs(y - requested) <= GROUND_ROW_PX)]
+    .map(box => box.y + box.h).filter(y => Math.abs(y - requested) <= FAR_TOWN_FOOT_TRAVEL_PX)]
     .sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested))
   for (const foot of contacts) {
     const strips = ground.filter(box => box.y < foot && box.y + box.h >= foot - CONTACT_EPS_PX)

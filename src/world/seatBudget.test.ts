@@ -26,9 +26,9 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
     const world = buildWorld({ ...input, seatCandidates })
     return { world, skyline: judge.mock.results.at(-1)!.value as Skyline }
   }
-  const baseline = buildWith([])
-  const label = baseline.world.labels.height
-  const { dot } = baseline.world.place3
+  const original = buildWith([])
+  const label = original.world.labels.height
+  const { dot } = original.world.place3
   const badge = heightLabelBox(label, SCENE_W)
   // Put the lowest-ranked highrise under the badge and clear of the dot. The
   // five-pixel roof also gives the synthetic crest room above the skyline.
@@ -39,16 +39,17 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
     : label.x < dot.x ? Math.min(Math.round(label.x), Math.floor(dot.x - DOT_R - halfTower))
       : Math.max(Math.round(label.x), Math.ceil(dot.x + DOT_R + halfTower))
   const labelColumn = labelX / SCENE_W
-  const labelHeight = labelBase - Math.min(badge.y, baseline.skyline(labelColumn)) + roofPx
+  const labelHeight = labelBase - Math.min(badge.y, original.skyline(labelColumn)) + roofPx
   // The other seven highrises are to the left of the dot. Their supports and spans are disjoint.
   const sites = [25, 45, 65, 85, 105, 125, 145, labelX].map((x, i) => {
     const hPx = labelHeight + (i === 7 ? 0 : 8 - i)
-    const baseY = i === 7 ? labelBase : baseline.skyline(x / SCENE_W) + roofPx
+    const baseY = i === 7 ? labelBase : original.skyline(x / SCENE_W) + roofPx
     // All the synthetic seats project one metre to half a pixel at their shared distance.
     const mark: Landmark = { id: `highrise-${i}`, kind: 'highrise', source: 'osm', glyph: 'synthetic-distinct-tower',
       heightM: hPx * 2,
       lat: roshPina.lat + .02, lon: roshPina.lon + i * .0001 }
-    const block = { id: `block-${i}`, x, baseY, w: glyphAtHeight('highrise', hPx).w + 1,
+    const glyphWidth = glyphAtHeight('highrise', hPx).w
+    const block = { id: `block-${i}`, x, baseY, w: i === 7 ? glyphWidth / 2 : glyphWidth + 1,
       h: roofPx, heightM: roofPx * 2, km: 3, seed: i }
     return { mark, block, hPx }
   })
@@ -59,12 +60,14 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
     seatMark: (mark) => seats.get(mark.id) ?? null,
   })
 
+  const baseline = buildWith([])
   const crowd = sites.map(({ mark }) => mark)
   const budgeted = buildWith(crowd.slice(0, 2))
   const crowded = buildWith(crowd)
   const droppedAlone = buildWith(crowd.slice(-1))
   expect(crowded.world.seatPool.map(({ id }) => id)).toEqual(crowd.map(({ id }) => id))
   expect(crowded.world.marks.map(({ id }) => id)).toEqual(crowd.slice(0, 2).map(({ id }) => id))
+  expect(budgeted.world.labels.height).toEqual(baseline.world.labels.height)
   expect(crowded.world.labels.height).toEqual(budgeted.world.labels.height)
   const tower = droppedAlone.world.marks.find(mark => mark.id === crowd[7].id)!
   expect(tower).toBeDefined()
@@ -72,7 +75,8 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
   const movedBadge = heightLabelBox(droppedAlone.world.labels.height, SCENE_W)
   const boxes = JSON.stringify({ badge, movedBadge, tower: { left, right, top, bottom } })
   expect(hits([badge], left, top, right, bottom), boxes).toBe(true)
-  expect(hits([movedBadge], left, top, right, bottom), boxes).toBe(false)
+  // The lowest-ranked synthetic block is half the glyph width, so it cannot receive the spire at any supported width.
+  expect(droppedAlone.world.labels.height).toEqual(baseline.world.labels.height)
   expect(crowded.skyline(labelColumn)).toBe(budgeted.skyline(labelColumn))
   expect(droppedAlone.skyline(labelColumn)).toBeLessThan(crowded.skyline(labelColumn))
   const keptColumn = sites[0].block.x / SCENE_W

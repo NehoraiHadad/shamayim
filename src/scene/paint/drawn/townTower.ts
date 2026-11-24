@@ -1,3 +1,4 @@
+import { DRAWN_PODIUM_OVERHANG, towerMastHeight } from '../../../world/portraitMargins'
 import type { OutsideItem, Shine, Tones } from '../../model/types'
 import { rng } from '../shared/base/core'
 import { aviationLamp, type Lamp } from '../shared/town/glyphs/kit'
@@ -13,9 +14,9 @@ import { townWindows } from './townWindows'
  */
 
 /** The crown: a setback's share of the height and at most (px), its width; a mast's height. */
-const SETBACK = 0.14, SETBACK_MAX = 4, SETBACK_W = 0.62, MAST = 1.5, MAST_SHARE = 0.08, MAST_MAX = 5
+const SETBACK = 0.14, SETBACK_MAX = 4, SETBACK_W = 0.62
 /** A full tower's podium past its sides, its share of the height and at most (px). */
-const PODIUM = 1.2, PODIUM_SHARE = 0.12, PODIUM_MAX = 3
+const PODIUM_SHARE = 0.12, PODIUM_MAX = 3
 /** A glass shaft's share of glass, and how far its top mirrors the sky. */
 const GLASS = 0.55, MIRROR = 0.5
 /** The floors' lines: their least spacing (px) and strength. */
@@ -55,12 +56,12 @@ export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'to
   roofEdge(x0, shaft, tw.w)
   let tip = top
   if (tw.crown === 2) {
-    tip = top - Math.min(MAST_MAX, MAST + tw.h * MAST_SHARE)
+    tip = top - towerMastHeight(tw.h)
     ctx.fillStyle = css(mix(planes.front, t.rim, 0.3))
     ctx.fillRect(tw.x - 0.3, tip, 0.6, top - tip)
   }
   if (tw.full) {
-    const ph = Math.min(PODIUM_MAX, tw.h * PODIUM_SHARE), pw = tw.w + 2 * PODIUM
+    const ph = Math.min(PODIUM_MAX, tw.h * PODIUM_SHARE), pw = tw.w + 2 * DRAWN_PODIUM_OVERHANG
     bodyPlanes(ctx, tw.x - pw / 2, tw.base - ph, pw, ph, sidesOf(l, pw), planesOf(t, l, plasterOf(t, stone), stone))
     roofEdge(tw.x - pw / 2, tw.base - ph, pw)
     footShade(ctx, tw.x - pw / 2, pw, tw.base, ph, t, 0.3)

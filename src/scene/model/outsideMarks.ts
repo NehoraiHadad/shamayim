@@ -19,10 +19,10 @@ export function outsideMarks(world: WorldState, width: number, drawnBlocks: Read
   clear: readonly Box[], behind: (x: number, y: number) => number, mass: DrawnMass[], home: HomeRoofline | null) {
   const sx = width / SCENE_W
   const zones = world.labels.height.backed ? [...clear, heightLabelBox(world.labels.height, width)] : clear
-  const neighbour = <T extends WorldMark>(mark: T, foreground: DrawnMass[], clearance = zones) => {
+  const neighbour = <T extends WorldMark>(mark: T, foreground: DrawnMass[]) => {
     const town = needsTown(world, mark)
     const block = town ? drawnBlocks.get(mark.seatBlockId ?? mark.supportBlockId ?? '') : null
-    const result = evaluateNeighbour(world, mark, width, block, home, clearance, foreground)
+    const result = evaluateNeighbour(world, mark, width, block, home, zones, foreground)
     return result.placed ? { ...result.placed, hazeKm: result.hazeKm, supportId: result.supportId, town } : null
   }
   const ordinary = world.marks.filter(mark => mark.plane === 'near' && mark.seatBlockId === undefined)
@@ -35,8 +35,8 @@ export function outsideMarks(world: WorldState, width: number, drawnBlocks: Read
     const seats = budgetSeated(pool)
     const candidates = [...ordinary, ...seats.map(seat => sources.get(seat.mark.id)!)]
     const result = nearestMarks(candidates, mass, (mark, foreground) => {
-      if (mark.sightKm !== undefined || mark.seatBlockId !== undefined) return neighbour(mark, foreground, sources.has(mark.id) ? zones : clear)
-      const seat = visibleOutsideMark(mark, mark.x * sx, clear)[0]
+      if (mark.sightKm !== undefined || mark.seatBlockId !== undefined) return neighbour(mark, foreground)
+      const seat = visibleOutsideMark(mark, mark.x * sx, zones)[0]
       return seat ? { ...seat, hazeKm: Math.min(mark.km, behind(mark.x, mark.base)),
         supportId: undefined as string | undefined, town: false } : null
     })
