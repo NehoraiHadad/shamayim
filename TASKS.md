@@ -1251,8 +1251,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             (village 9d85b096 + night town e73c6b42, ODbL credit seen on screen) merged, main CI 45361470172 running. On CI: spikes
             `claude/found-i-spikes` dfeb5f00, label2 f7b9028d, cloudpos2 52e1edf9; sky 534c865a green, merges main next
             Owner asked about the low red moon of 25-26 Nov: place, time and phase right; not reddened, at the left edge, stars random,
-            no text. Offered for after the styles (red low moon, "tonight in the sky" line); no answer yet
+            no text. Owner said yes (24 Nov): after the styles and the vote, one slice: moon reddens low down, "tonight in the sky" line
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
+- [ ] 4. After the vote: special-sky slice (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
+      a "tonight in the sky" line (full moon rising after dark, meteor shower peak). Real star positions are not in it
