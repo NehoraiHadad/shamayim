@@ -23,6 +23,7 @@ import type { OutsideView, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 import { tonesAt } from './marks'
+import { receiverMaterial } from './buildingMaterial'
 import { landBehind } from './landBehind'
 import { outsideShape } from './outsideShape'
 import type { Box, LayerOf, SceneBox } from './types'
@@ -96,6 +97,15 @@ describe('mapped town frontage and roof heights', () => {
     expect(boxesWith(fixture.city!.towers).some(b => b.heightM! < HOUSE_TOP_M)).toBe(true)
     // A lower typical building is another one beside the tower.
     expect(boxesWith(fixture.city!.towers, 5).every(b => b.heightM! >= HOUSE_TOP_M)).toBe(true)
+  })
+
+  it('draws a block\'s wall apart from its roof: the tallest stand in every plaster', () => {
+    const fixture = loaded.get('haifa')!
+    const city = { ...fixture.city!, towers: [], raster: { at: () => ({ built: .5, levels: 5, p90: 60 }) } }
+    const layer = layerOf(buildWorld(worldInput({ ...fixture, city }, NOON)))!
+    const tall = layer.items.flatMap(i => i.kind === 'box' && !i.beyond && i.storeys >= 17 ? [receiverMaterial(i.receiver).stone] : [])
+    expect(tall.length).toBeGreaterThan(20)
+    expect(new Set(tall).size).toBeGreaterThanOrEqual(5)
   })
 
   it('still gives dense squares without height data their raster default roof', () => {
