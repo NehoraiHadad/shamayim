@@ -19,6 +19,9 @@ import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { marksOf } from './marks'
 import { drawnTerrain, outsidePlace, type NearLine } from './outside'
 import type { CoastalSea, OutsideView } from './types'
+import { outsideBodies } from './outsideBodies'
+import { sceneClearance } from './sceneClearance'
+import { SCENE_W } from './sceneBox'
 import { watersShown } from './watersShown'
 
 /**
@@ -97,8 +100,12 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const { marks, seatPool } = marksOf({ place, city, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
     homeHalf: homeHalf(reachKm, known), style: style.style, rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark, village: view.village } })
-  return { marks, seatPool, ownSkyline, watersShown: watersShown(terrain.water ?? [], view, drawnGround, width), coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
+  const place3: OutsideView = { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
     trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,
-    vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null } }
+    vscale: view.vscale ? { s: view.vscale.s, h0: view.vscale.h0 } : null }
+  // Everything here is laid at `width` already, so its bodies stand at scale 1.
+  const standing = outsideBodies(place3, sceneClearance(dot, SCENE_W), 1)
+  const waters = watersShown(terrain.water ?? [], { sea: view.sea, land: view.land, standing }, drawnGround, width)
+  return { marks, seatPool, ownSkyline, watersShown: waters, coastalSea: view.sea, nearLine: view.nearLine, place3 }
 }

@@ -277,7 +277,7 @@ src/scene/model/  types.ts index.ts sky.ts stars.ts bodies.ts clouds.ts planes.t
 src/scene/paint/  hand.ts sky.ts stars.ts bodies.ts clouds.ts planes.ts water.ts farCities.ts portrait.ts
                   outside.ts marks.ts weather.ts loading.ts glyphs/<kind>.ts icons/<icon>.ts
 src/scene/compose/ surface.ts layerCache.ts loop.ts schedule.ts stats.ts
-src/scene/react/  useWorld.ts SceneCanvas.tsx SkyCanvas.tsx SceneOverlay.tsx useSurface.ts
+src/scene/react/  useWorld.ts SceneCanvas.tsx SkyCanvas.tsx useSurface.ts
 src/dev/          sceneHarness.tsx (+ scene.html at the root, like specimen.html)
 e2e/              scene.pixels.spec.ts scene.perf.spec.ts  __pixels__/<place>-<moment>.png
 playwright.config.ts
@@ -878,12 +878,12 @@ the SVG baseline are unchanged (snapshots untouched, `far.json`'s patches untouc
   the far raster (`far.json`, now a `WorldInput.far`, loaded by the harness, the tests and `CanvasScene`) placed by
   `panoramaFarColumns` as the SVG does (beyond `SKYLINE_TO_KM` when the place has its own skyline), each stretch with its
   cell's storeys, towers with tops and feet (plain: `seenAt`; far crest: its angle + the tower's), and `townShapes`.
-- *Model*: `water.ts` (layers `water.far` z 15 with the datum, `water.near` z 35, by `waterLayer`): the surface's tone is
+- *Model*: `water.ts` (layers `water.far` z 15, `water.near` z 35, by `waterLayer`): the surface's tone is
   a function of the screen row alone, shared by every span: the sky mirrored at the row's depression plus the waves'
   mean tilt (Cox–Munk), by Schlick's Fresnel share over the water's own dark, the land over the far shores mirrored
   where calm (by wind) and higher than the row's depression, then the land's own aerial rule (`aerialFor`) at the row's
   distance; a light rim at the far edge; ripples by the one wind (count, length, light/dark share); the glint where the
-  world puts it, alpha `1 − e^(−12·share)`, widening by the wave slope, sparks seeded; the datum in the hour's ink.
+  world puts it, alpha `1 − e^(−12·share)`, widening by the wave slope, sparks seeded.
   `farCities.ts` (z 16): the towns as the eye resolves them: the built share laid into a 1 px × ½ px field, smoothed,
   drawn as runs at five strengths (a lone shed is a breath of tone, never a speck); blocks of true height (storeys ×
   3.2 m on the relief) only where the smoothed share ≥ 0.3; towers ≥ 80 m; lit face on the light's side; tones by 19
@@ -1604,7 +1604,7 @@ and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
    sea level keeps its scale reaching up to 0 m, so the picture did not move.
 5. **The facts are told in one line at the foot of the page** (`text/sceneFacts.ts`, `ui/SceneFacts.tsx`): the place, its
    height over or under the sea, and the waters drawn in the picture (`world/watersShown.ts`: a named body whose surface,
-   behind the land and the place's own buildings as drawn, shows over 24 columns or more; a coastal place's own sea).
+   behind the land and the buildings as drawn, shows over 24 columns or more; a coastal place's own sea).
 6. **The towns 0–6 km out are drawn by the outside view, as the towers beyond** (`world/outside.ts` `beyondTowns`): every
    built square of the city raster (≥ 20 %) outside the place within the skyline's reach, at its true spot in the outside
    projection, as wide as it is there, its roof by the perspective (never larger a metre than the place's near edge), no

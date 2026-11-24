@@ -73,10 +73,14 @@ async function renderMoment(browser, base, moment) {
     fs.writeFileSync(path.resolve(root, outDir, `${name}.png`), shot)
 
     const sky = await skyProblem(page)
+    // The line of the scene's facts stands first in the footer.
+    const facts = foot ? (await page.locator('footer p').first().textContent()) ?? '' : null
+    const told = facts === null || facts.includes('פני הים')
+    if (!told) console.log(`FAIL ${name}  the footer does not open with the scene's facts: "${facts}"`)
     if (!stable) console.log(`FAIL ${name}  sky did not reach two equal screenshots after painting within 15 s`)
     if (sky) console.log(`FAIL ${name}  ${sky}`)
     const keyboard = box && await checkKeyboard(app, figure, name)
-    return stable && !sky && keyboard ? null : name
+    return stable && !sky && keyboard && told ? null : name
   } finally {
     await context.close()
   }
