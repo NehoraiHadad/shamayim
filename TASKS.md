@@ -1273,4 +1273,5 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       Every event returns the same shape: what, when, where to look, how rare; drop what the place will not see (cloud, land, daylight);
       show only the rarest. A new event = one detector, no UI change. First set: full moon rising low, meteor shower peak (`showers.ts`),
       lunar eclipse (new geometry), planet beside the moon (`planets.ts`), chance of a rainbow (`optics.ts` on forecast hours, worded as a
-      chance). Not storms or heat: the daily summary says them. Computed on the device, no service. Real star positions are not in it
+      chance). Not storms or heat: the daily summary says them. Computed on the device, no service; a test compares our
+      times with published tables; eclipses proposed from a fixed published table, not our own geometry. Real star positions are not in it
