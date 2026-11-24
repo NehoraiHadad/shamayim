@@ -53,6 +53,46 @@ function pickCandidate<T>(
   return (mean ? windowWeight(shownUtcDate, mean.win, tau) : 0) > bestW ? mean : best
 }
 
+/** What sees one point; the far grid and the cover's mean are read only when asked. */
+function observersAt(sampler: PreparedLandSampler, lat: number, lon: number, cover: number | null) {
+  let farLoaded = false, farVal: FarSample | null = null
+  let meanLoaded = false, meanVal: ReturnType<PreparedLandSampler['coverMeanAt']> = null
+  return {
+    near: sampler.nearAt(lat, lon),
+    far: () => (farLoaded ? farVal : ((farLoaded = true), (farVal = sampler.farAt(lat, lon)))),
+    mean: () => (meanLoaded ? meanVal : ((meanLoaded = true), (meanVal = cover !== null ? sampler.coverMeanAt(cover) : null))),
+  }
+}
+
+function albedoOf(seen: ReturnType<typeof observersAt>, shownUtcDate: string, farGain: FarGain, clim: () => ClimatologySample) {
+  const { near, far, mean } = seen
+  const choice = pickCandidate<RGB>(
+    near?.rgb && near.rgbValid >= MIN_CELL_VALID && near.rgbSource && near.rgbDate
+      ? { value: near.rgb, source: near.rgbSource, win: singleDayWindow(near.rgbDate, 'utc') } : null,
+    () => {
+      const f = far(), win = f?.rgb && f.rgbSource && f.rgbDate ? modisSrWindow(f.rgbDate) : null
+      return win ? { value: f!.rgb!, source: f!.rgbSource!, win } : null
+    },
+    () => {
+      const m = mean()
+      if (!m?.mean.rgb) return null
+      const [lo, hi] = m.mean.rgbDateRange ?? [m.mean.rgbDate ?? m.tableDate, m.mean.rgbDate ?? m.tableDate]
+      return { value: m.mean.rgb, source: `s2-mean:${lo}`, win: coverMeanWindow(lo, hi) }
+    },
+    shownUtcDate, TAU_DAYS.albedo,
+  )
+  if (!choice) return { rho: tciRgbToReflectance(clim().rgb), source: 'climatology' as LivingLandSource, date: null }
+  const obsRho = choice.source.startsWith('gibs:') ? farRgbToReflectance(choice.value, farGain) : tciRgbToReflectance(choice.value)
+  const climRho = windowWeight(shownUtcDate, choice.win, TAU_DAYS.albedo) < 1 ? tciRgbToReflectance(clim().rgb) : obsRho
+  const { rgb, source, date } = blendLinearRgb(obsRho, climRho, choice.source, choice.win, shownUtcDate, TAU_DAYS.albedo)
+  return { rho: rgb, source, date }
+}
+
+/** The albedo of a cell of known cover alone (linear), with the climatology the caller gives for its class. */
+export const albedoAt = (
+  sampler: PreparedLandSampler, lat: number, lon: number, cover: number, shownUtcDate: string, farGain: FarGain, clim: () => ClimatologySample,
+) => albedoOf(observersAt(sampler, lat, lon, cover), shownUtcDate, farGain, clim)
+
 function blendChoice(choice: Candidate<number> | null, shownDate: string, tau: number, clim: () => number) {
   if (!choice) return { value: clim(), source: 'climatology' as const, date: null }
   const needsClim = windowWeight(shownDate, choice.win, tau) < 1
@@ -65,43 +105,10 @@ export function samplePoint(
   shownDate: string, shownUtcDate: string, month: number, farGain: FarGain,
 ): LivingLandSample {
   const { cover, source: coverSource } = sampler.coverAt(lat, lon)
-  const near = sampler.nearAt(lat, lon)
-
-  let farLoaded = false, farVal: FarSample | null = null
-  const getFar = () => (farLoaded ? farVal : ((farLoaded = true), (farVal = sampler.farAt(lat, lon))))
-  let meanLoaded = false, meanVal: ReturnType<PreparedLandSampler['coverMeanAt']> = null
-  const getMean = () => (meanLoaded ? meanVal : ((meanLoaded = true), (meanVal = cover !== null ? sampler.coverMeanAt(cover) : null)))
+  const seen = observersAt(sampler, lat, lon, cover), { near } = seen
   let clim: ClimatologySample | null = null
   const getClim = () => (clim ??= climatologyAt(lat, lon, elevationM, month, cover ?? 0))
-
-  const nearRgb: Candidate<[number, number, number]> | null =
-    near?.rgb && near.rgbValid >= MIN_CELL_VALID && near.rgbSource && near.rgbDate
-      ? { value: near.rgb, source: near.rgbSource, win: singleDayWindow(near.rgbDate, 'utc') } : null
-  const rgbChoice = pickCandidate(
-    nearRgb,
-    () => {
-      const f = getFar(), win = f?.rgb && f.rgbSource && f.rgbDate ? modisSrWindow(f.rgbDate) : null
-      return win ? { value: f!.rgb!, source: f!.rgbSource!, win } : null
-    },
-    () => {
-      const m = getMean()
-      if (!m?.mean.rgb) return null
-      const [lo, hi] = m.mean.rgbDateRange ?? [m.mean.rgbDate ?? m.tableDate, m.mean.rgbDate ?? m.tableDate]
-      return { value: m.mean.rgb, source: `s2-mean:${lo}`, win: coverMeanWindow(lo, hi) }
-    },
-    shownUtcDate, TAU_DAYS.albedo,
-  )
-  let albedo: RGB, albedoSource: LivingLandSource, albedoDate: string | null
-  if (!rgbChoice) {
-    albedo = linearRgbToSrgb(tciRgbToReflectance(getClim().rgb)); albedoSource = 'climatology'; albedoDate = null
-  } else {
-    const obsRho = rgbChoice.source.startsWith('gibs:')
-      ? farRgbToReflectance(rgbChoice.value, farGain) : tciRgbToReflectance(rgbChoice.value)
-    const climRho = windowWeight(shownUtcDate, rgbChoice.win, TAU_DAYS.albedo) < 1
-      ? tciRgbToReflectance(getClim().rgb) : obsRho
-    const b = blendLinearRgb(obsRho, climRho, rgbChoice.source, rgbChoice.win, shownUtcDate, TAU_DAYS.albedo)
-    albedo = linearRgbToSrgb(b.rgb); albedoSource = b.source; albedoDate = b.date
-  }
+  const albedo = albedoOf(seen, shownUtcDate, farGain, getClim)
 
   const nearNdvi: Candidate<number> | null =
     near && near.ndvi !== null && near.ndviValid >= MIN_CELL_VALID && near.ndviSource && near.ndviDate
@@ -109,11 +116,11 @@ export function samplePoint(
   const ndviChoice = pickCandidate(
     nearNdvi,
     () => {
-      const f = getFar(), win = f && f.ndvi !== null && f.ndviSource && f.ndviDate ? modisNdviWindow(f.ndviDate) : null
+      const f = seen.far(), win = f && f.ndvi !== null && f.ndviSource && f.ndviDate ? modisNdviWindow(f.ndviDate) : null
       return win ? { value: f!.ndvi!, source: f!.ndviSource!, win } : null
     },
     () => {
-      const m = getMean()
+      const m = seen.mean()
       if (!m || m.mean.ndvi === null) return null
       const [lo, hi] = m.mean.ndviDateRange ?? [m.mean.ndviDate ?? m.tableDate, m.mean.ndviDate ?? m.tableDate]
       return { value: m.mean.ndvi, source: `s2-mean:${lo}`, win: coverMeanWindow(lo, hi) }
@@ -132,7 +139,7 @@ export function samplePoint(
   const snow = blendChoice(snowChoice, shownUtcDate, TAU_DAYS.snow, () => getClim().snowProb)
 
   return {
-    cover, coverSource, albedo, albedoSource, albedoDate,
+    cover, coverSource, albedo: linearRgbToSrgb(albedo.rho), albedoSource: albedo.source, albedoDate: albedo.date,
     ndvi: clamp(ndvi.value, -1, 1), ndviSource: ndvi.source, ndviDate: ndvi.date,
     dryness: clamp(dry.value, 0, 1), drynessSource: dry.source, drynessDate: dry.date,
     snow: clamp(snow.value, 0, 1), snowSource: snow.source, snowDate: snow.date,

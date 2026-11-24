@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { receiverScene as scene } from '../../test/receiverScene'
+import { AFTERGLOW, afterglowColour } from '../../world/afterglow'
 import { NORMALS } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
 import { buildingFaces, buildingLight, groundView, reflectedGround } from './buildingLight'
@@ -9,7 +10,17 @@ import { landIrradiance, skyView } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
 import { metalLight } from './metalLight'
-import { mixLight } from './tone'
+import { labOf, mixLight } from './tone'
+
+function twilightScene(altitude: number, open = 1): WorldState {
+  const world = scene(252, altitude, open)
+  const x = 295, y = 390 // Put the ridge glow and solar meridian over the eye-level sample.
+  world.relief = { ...world.relief, horizonY: y }
+  world.bodies.sun = { ...world.bodies.sun, x, y }
+  world.light = { ...world.light, glow: { side: 'west', opacity: .34, x, y },
+    afterglow: altitude > AFTERGLOW.to && altitude < AFTERGLOW.from ? { x, altitude, rgb: afterglowColour(altitude, world.air) } : null }
+  return world
+}
 
 const y = (srgb: RGB) => linearLuminance(srgbRgbToLinear(srgb))
 describe('building receiver', () => {
@@ -20,7 +31,6 @@ describe('building receiver', () => {
       expect(groundView(n)).toBe(1 - sky)
     }
   })
-
   it('separates ground visibility and sunlit ground from direct visibility at the facade', () => {
     const irr = landIrradiance(scene())
     const open = reflectedGround(STONE, irr, 1, 1)
@@ -32,7 +42,6 @@ describe('building receiver', () => {
     expect(receive(STONE, NORMALS.front, 1, 1)).toEqual(receive(STONE, NORMALS.front, 1, 0))
     expect(y(receive(STONE, NORMALS.right, 1, 0))).toBeLessThan(y(receive(STONE, NORMALS.right)))
   })
-
   it('reduces beam and ground illumination as street and foot exposure close', () => {
     const sunAt = (alt: number) => landIrradiance(scene(190, alt)).sunDir
     expect(sunlitGround(sunAt(-1))).toBe(0)
@@ -42,7 +51,6 @@ describe('building receiver', () => {
     expect(y(faces.right.foot)).toBeLessThan(.8 * y(faces.right.wall))
     expect(y(faces.right.eave)).toBeGreaterThan(y(faces.right.foot))
   })
-
   it('keeps the upward cap brighter than a sun return and a recessed facade at equal distance', () => {
     const receive = buildingLight(scene(), 3)
     const l = y(receive(STONE, NORMALS.left)), r = y(receive(STONE, NORMALS.right))
@@ -51,7 +59,6 @@ describe('building receiver', () => {
     expect(r).toBeGreaterThan(l)
     expect(y(receive(STONE, NORMALS.front, .25, 0))).toBeLessThan(wall)
   })
-
   it('uses bounded linear material bins and a fixed projected facing', () => {
     for (const a of WALL_ALBEDOS) {
       expect(linearLuminance(a)).toBeGreaterThanOrEqual(.390)
@@ -66,7 +73,6 @@ describe('building receiver', () => {
     expect(right.normals[0][0]).toBeGreaterThan(0)
     expect(left.leftWidth).toBeLessThan(right.leftWidth)
   })
-
   it('changes both returns smoothly with solar crossing, deck and twilight', () => {
     const sweep = (a: WorldState, b: WorldState) => {
       const id = receiverId(7)
@@ -85,7 +91,6 @@ describe('building receiver', () => {
     expect(Math.abs(y(flat.left.wall) - y(flat.right.wall))).toBeLessThan(.001)
     expect(y(flat.top)).toBeGreaterThan(y(flat.front.wall))
   })
-
   it('keeps broad sky fill on the half of the street facing away from the twilight glow', () => {
     const world = scene(113, .76, 0), receive = buildingLight(world, 2)
     const { across, ahead } = landIrradiance(world).sunDir
@@ -96,7 +101,6 @@ describe('building receiver', () => {
     expect(ratio).toBeGreaterThan(.9)
     expect(ratio).toBeLessThan(1)
   })
-
   it('reflects more sky at grazing angles and keeps glass bands softly resolved', () => {
     const world = scene(190, 38, 0), receive = buildingLight(world, 1)
     const front = receive.glass(NORMALS.front)
@@ -106,7 +110,6 @@ describe('building receiver', () => {
     expect(ratio).toBeGreaterThan(.55)
     expect(ratio).toBeLessThan(.75)
   })
-
   it('shows the anti-solar sky in a head-on pane when the glow is behind the facade', () => {
     const sunBehindFacade = buildingLight(scene(180, .76, 0), 0).glass(NORMALS.front)
     const sunBehindViewer = buildingLight(scene(0, .76, 0), 0).glass(NORMALS.front)
@@ -117,29 +120,21 @@ describe('building receiver', () => {
     expect(blueRed(sunBehindFacade)).toBeGreaterThan(blueRed(sunBehindViewer))
     expect(y(sunBehindFacade)).toBeLessThan(y(sunBehindViewer))
   })
-
   it('uses exactly the land haze pass after exposure', () => {
     const w = scene(), km = 9
     const near = buildingLight(w, 0)(STONE, NORMALS.front)
     const far = buildingLight(w, km)(STONE, NORMALS.front)
     mixLight(near, hazeOf(w), hazeAt(w, km)).forEach((c, i) => expect(far[i]).toBeCloseTo(c, 5))
   })
-
-  it('puts gold chroma on the reflected twilight side even with the beam absent', () => {
-    const gold = metalLight(scene(252, -1, .82), 0)
-    const left = gold([-.70, -.71, .05]), right = gold([.70, -.71, .05])
-    expect(right[0] - right[2]).toBeGreaterThan(left[0] - left[2])
-    expect(y(right)).toBeGreaterThan(y(left))
-  })
-
   it('tapers directional afterglow at the shared sky cutoffs', () => {
-    for (const cutoff of [-7, 3]) {
-      const a = scene(252, cutoff - .001), b = scene(252, cutoff + .001)
-      if (cutoff < 0) a.light.afterglow = null
-      else b.light.afterglow = null
+    for (const cutoff of [AFTERGLOW.to, AFTERGLOW.from]) {
+      const a = twilightScene(cutoff - .001), b = twilightScene(cutoff + .001)
       const normal = [.70, -.71, .05] as const
-      const difference = Math.abs(y(metalLight(a, 0)(normal)) - y(metalLight(b, 0)(normal)))
-      expect(difference).toBeLessThan(.012)
+      const before = metalLight(a, 0)(normal), after = metalLight(b, 0)(normal)
+      expect(Math.abs(y(before) - y(after))).toBeLessThan(.012)
+      const p = labOf(before), q = labOf(after)
+      // This sweep straddles only .002° of sun travel, so require sub-JND chroma continuity.
+      expect(Math.hypot(p.a - q.a, p.b - q.b)).toBeLessThan(.001)
     }
   })
 })

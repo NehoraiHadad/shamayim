@@ -7,7 +7,7 @@ import { azrieli } from '../icons/azrieli'
 import { babShrine } from '../icons/babShrine'
 import { chordsBridge } from '../icons/chordsBridge'
 import { westernWall } from '../icons/westernWall'
-import { castle, church, homes, minaret, synagogue, waterTower } from './buildings'
+import { castle, church, homes, synagogue, waterTower } from './buildings'
 import { chimney, cooling, highrise, silo } from './industry'
 import { Kit, type Lamp } from './kit'
 import { orchard, palms, solar, vineyard } from './nature'
@@ -17,7 +17,6 @@ import { bridge, lighthouse, mast, turbine } from './structures'
 type Draw = (k: Kit, h: number, d: GlyphDesc) => void
 
 const DRAW: Record<GlyphKind, Draw> = {
-  minaret: (k, h) => minaret(k, h),
   church: (k, h) => church(k, h),
   synagogue: (k) => synagogue(k),
   waterTower: (k, h) => waterTower(k, h),

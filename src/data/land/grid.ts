@@ -9,6 +9,13 @@ export const LAND_STEP = 0.1 / LAND_N
 /** Land cover classes, in a stable order (the stored letters are 'a' + index). */
 export const COVER = ['none', 'tree', 'shrub', 'grass', 'crop', 'built', 'bare', 'snow', 'water', 'wetland', 'moss'] as const
 export type Cover = typeof COVER[number]
+/** Open water's class (left out of land albedo; water is painted by `water.ts`). */
+export const COVER_WATER = COVER.indexOf('water')
+/** The latitudes ESA WorldCover 2021 goes to (degrees). */
+export const COVER_SOUTH = -60
+export const COVER_NORTH = 84
+/** Whether the cover goes to a latitude: the north edge is not in it, as in every grid of cells. */
+export const coverReaches = (lat: number) => lat >= COVER_SOUTH && lat < COVER_NORTH
 
 /** WorldCover's codes to our classes. */
 export function coverOfWorldCover(code: number): number {

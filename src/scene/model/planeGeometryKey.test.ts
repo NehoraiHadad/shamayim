@@ -18,6 +18,13 @@ it('keys changed geometry at the last packed vertex and in the independent mater
   expect(planeGeometryKey(landscape, 'near', near, [packed])).not.toBe(original)
 })
 
+it('keys the back land by the far crest in front of it', () => {
+  const near: Plane = { points: [[0, 25], [375, 25]], distanceKm: [2, 2] }
+  const farAt = (y: number): Plane => ({ ...near, points: [[0, y], [375, y]] })
+  const keyOf = (y: number) => planeGeometryKey({ near, far: farAt(y), faces: {} } as Partial<TerrainPlanes> as TerrainPlanes, 'back', near, [])
+  expect(keyOf(20)).not.toBe(keyOf(21))
+})
+
 it('samples the back plane DEM once per column and gives both rows identical geometry', () => {
   const back: Plane = { points: [[0, 25], [SCENE_W, 25]], distanceKm: [2, 2] }
   const groundAt = vi.fn((x: number, km: number) => x + km)

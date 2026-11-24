@@ -28,7 +28,6 @@ it('culls an ordinary castle needing 3x', () => {
 })
 it.each(['minaret', 'mosque', 'great-masjid'])('bans even a famous %s', kind => {
   expect(neighbourRule(kind, true)).toBe('hidden')
-  if (kind === 'minaret') expect(evaluate({ ...mark, glyphKind: kind }).placed).toBeNull()
 })
 it.each(['church', 'synagogue', 'westernWall', 'babShrine'])('bans generic non-own %s', glyphKind => {
   expect(evaluate({ ...mark, named: false, h: 8, glyphKind } as WorldMark).placed).toBeNull()

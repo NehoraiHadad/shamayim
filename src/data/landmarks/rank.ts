@@ -46,7 +46,7 @@ export function select(candidates: Candidate[], width: number, large = false, fa
   return [...far, ...plain, ...near]
 }
 
-const CAPS: Partial<Record<Landmark['kind'], number>> = { minaret: 2, mast: 1, orchard: 2, vineyard: 2, solar: 1 }
+const CAPS: Partial<Record<Landmark['kind'], number>> = { mast: 1, orchard: 2, vineyard: 2, solar: 1 }
 
 /** Best first, but OSM kinds are capped and each repeat of a kind costs 3 points, so the frame shows variety. */
 function pick(candidates: Candidate[], limit: number, reserved: Candidate[] = [], highriseCap = 4): Candidate[] {

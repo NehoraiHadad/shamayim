@@ -63,3 +63,21 @@ export const DATUM_PLACES: Place[] = [
   { id: 'neve-zohar', nameHe: 'נווה זוהר', regionHe: 'ים המלח', lat: 31.15, lon: 35.365, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'village', population: 100 },
 ]
+
+/**
+ * Small settlements the village evidence is gathered at (stage V1), each another shape, at their OSM place points as the
+ * app's search gives them: a village on a ridge, a kibbutz at a mountain's foot, a desert village on a cliff's edge, a
+ * town on a mountain face, and a village OSM maps thinly. Harness only; not in the tests' place loops.
+ */
+export const VILLAGE_PLACES: Place[] = [
+  { id: 'karmei-tzur', nameHe: 'כרמי צור', regionHe: 'גוש עציון', lat: 31.60922, lon: 35.10088, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'yagur', nameHe: 'יגור', regionHe: 'כרמל', lat: 32.74286, lon: 35.07813, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'midreshet-ben-gurion', nameHe: 'מדרשת בן גוריון', regionHe: 'הר הנגב', lat: 30.85159, lon: 34.78258, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'majdal-shams', nameHe: "מג'דל שמס", regionHe: 'גולן', lat: 33.26843, lon: 35.76937, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+  { id: 'bardala', nameHe: 'ברדלה', regionHe: 'בקעת הירדן', lat: 32.38621, lon: 35.4807, timezone: 'Asia/Jerusalem',
+    usesOsm: true, featureCode: 'PPL', settlementType: 'village' },
+]

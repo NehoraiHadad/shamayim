@@ -50,7 +50,7 @@ describe('Stage 4 review round 1: face alignment, cover containment, PRNG indepe
     expect(faceAtY(w, 'near', w.terrain.near, 180, 40, 128, 118).km).toBeCloseTo(3.0, 5)
     expect(faceAtY(w, 'far', w.terrain.far, 180, 30, 68, 66).km).toBeCloseTo(4.0, 5)
     const surf = planeSurfaceOf(w, 'near', w.terrain.near, 128)
-    const veg = planeVegetationOf(w, BOX, 'near', w.terrain.near, surf.median, [])
+    const veg = planeVegetationOf(w, BOX, 'near', w.terrain.near, surf.mean, [])
     expect(veg.fields.length).toBe(0) // stays on 3 km bare ground; never extrapolates to 1.6 km crop
     expect(veg.strata.length).toBeGreaterThan(0)
   })

@@ -7,6 +7,8 @@ Plan: `docs/PLAN.md`. Brief: `docs/PLANNING_BRIEF.md`. Codex briefs: `docs/brief
 
 Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"** (supersedes the earlier Decision B for famous
 landmarks and non-own worship).
+Since 2026-11-24 no mosque is drawn anywhere, the place's own included (`src/data/landmarks/drawableMark.ts`); it supersedes
+every mosque and minaret line below.
 
 - [x] Non-own mosques/minarets are never drawn, even when famous. Other non-own worship is drawn only when the
       source is curated or a named `fame === 2` landmark (Wikipedia). Fame-1 sources use the ordinary
@@ -29,8 +31,10 @@ landmarks and non-own worship).
       other fame-1 marks capped at 2×. Seated marks stay on visible town feet and never use panorama ridge evidence.
       Restored dot/sheet checks for famous fitting, with sheet clearance retained by the receiver. Measured frame
       drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
-- [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
-      then review these rules against that terrain. The current still is explicitly flat 100 m.
+- [x] Obtain a recorded panorama for the production Karmei Tzur coordinate (and four more small settlements) through
+      the fixture workflow: `src/test/fixtures/scene` via `scripts/fixtures/recordPanoramas.ts`, run on Actions.
+- [ ] Review the settlement rules against that terrain. Stage V1 measured them (label over the town, dot erasing
+      houses, beyond-town blocks, house size and frame); the fixes are not started. Unit tests still use flat 100 m.
 - [x] Landmark-size decision: shared 6–16 CSS px policy, land aerial perspective plus far-city contrast and lamp
       transmission; owned portraits unchanged. Verified at 375/1280 and DPR 1/2, with mutation guards and a refreshed
       full audit. Histograms: `REPORT.md`, Landmark size. Stills: `stills/landmark-size/README.md` (Dafna, Karmei Tzur,
@@ -856,9 +860,6 @@ Notes and the before/after table: `docs/design/qa/polish/track-b/NOTES.md`.
       size and haze (`src/world/beyondSeat.ts`, shared with `beyondTowns`, bit-identical; `beyondMarks.ts`).
 - [x] Tests over the bundled data (`src/world/markOwnership.test.ts`, `worship.test.ts`): Karmei Tzur keeps שבת אחים, the
       hamlet cell without the fix does not; Safed and Rosh Pina by the same rule; seated size; hidden-block negative.
-- [ ] Follow-up: rebuild `public/data/landmarks/il` from the Geofabrik extract (not on this machine) so tagged minarets
-      (e.g. famous mosques in Jaffa) get their tower height back.
-- [ ] Follow-up (painters): a hall-only mosque glyph for a mosque with no tower evidence.
 - [ ] Follow-up: at render widths other than 375 px the light's sun/moon skyline (`drawnSkyline.ts`) still counts
       structures the scene culls behind text (town blocks, beyond towers, trees, and now swapped seats). Fix them
       together, keeping one world state (e.g. a width-independent cull rule), not per-width world rebuilds.
@@ -1238,6 +1239,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
+      - [x] 1c2. Slices 1 and 2 on main (5fb0d856, owner approved)
+      - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
+      - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted
+      - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged

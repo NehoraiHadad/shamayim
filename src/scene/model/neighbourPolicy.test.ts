@@ -63,7 +63,7 @@ it('keeps far standalone landmarks but rejects missing town mass for worship or 
   expect(evaluateFarNeighbour(world, far, 375, null, home, [], []).placed).not.toBeNull()
   expect(evaluateFarNeighbour(world, { ...far, townFootprint: true }, 375, null, home, [], []).reason)
     .toBe('missing-town-mass')
-  expect(evaluateFarNeighbour(world, { ...far, glyphKind: 'minaret' }, 375, null, home, [], []).reason)
+  expect(evaluateFarNeighbour(world, { ...far, glyphKind: 'church' }, 375, null, home, [], []).reason)
     .toBe('policy-hidden')
   const hidden = [massAt(140, 30, 98, 50)]
   hidden[0].alwaysInFront = true
