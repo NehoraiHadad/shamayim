@@ -13,15 +13,22 @@ function haloFor(ink: string, from: string, to: string) {
   return halo
 }
 
+/** Land under which light letters no longer carry (their contrast with it): in fog the ground is as pale as the air. */
+const PALE = 2.4
+
+/** Dark letters on a pale ground of their own. */
+const darkOn = (ink: string, behind: string): CaptionTone => ({ ink, halo: haloFor(ink, mix(behind, '#FFFFFF', .2), '#FFFFFF') })
+
 /**
- * The lettering's ink and its halo, for what lies behind it: the light ink in the land's dark over land; over the sky
- * whichever of the two stands out more from it, in the sky's own tone (the pale ground of its horizon under dark letters, which a bluer one would smudge).
+ * The lettering's ink and its halo, for what lies behind it. Over land: the light ink in the land's dark, or dark letters
+ * where the air has made the land pale. Over the sky: whichever of the two stands out more, in the sky's own tone (dark
+ * letters in the pale of its horizon, which a bluer ground would smudge).
  */
-export function captionTone(palette: SkyLight, on: 'sky' | 'land'): CaptionTone {
+export function captionTone(palette: SkyLight, on: 'sky' | 'land', land = palette.ridgeNear): CaptionTone {
   const { ink, ridgeNear } = palette
-  if (on === 'land') return { ink, halo: ridgeNear }
+  if (on === 'land') return ratio(ink, land) < PALE && ratio(ridgeNear, land) > PALE ? darkOn(ridgeNear, land) : { ink, halo: ridgeNear }
   const sky = mix(palette.mid, palette.horizon, .8)
   return ratio(ridgeNear, sky) >= ratio(ink, sky)
-    ? { ink: ridgeNear, halo: haloFor(ridgeNear, mix(palette.horizon, '#FFFFFF', .2), '#FFFFFF') }
+    ? darkOn(ridgeNear, palette.horizon)
     : { ink, halo: haloFor(ink, sky, '#000000') }
 }

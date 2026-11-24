@@ -28,7 +28,7 @@ export type OverlayItem =
   | { kind: 'dot'; x: number; y: number }
   /** The place's height as one thing with the place (`Caption`), `tone` for its lettering, `ground` for what lies on land. */
   | Pick<Caption, 'x' | 'y' | 'w' | 'h' | 'slope' | 'markDx' | 'spot' | 'tick' | 'line'>
-    & { kind: 'caption'; text: string; tone: CaptionTone; ground: CaptionTone; accent: string }
+    & { kind: 'caption'; text: string; tone: CaptionTone; ground: CaptionTone; accent: string; rim: string }
 
 /**
  * The land's arrival in time (C8), kept by the React shell, which alone reads the clock, as phases of the scene's one

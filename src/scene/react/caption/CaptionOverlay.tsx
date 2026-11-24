@@ -25,7 +25,7 @@ export function CaptionOverlay({ item, width, style, hand: id }: { item: Caption
     <svg viewBox={`0 0 ${width} ${SCENE_H}`} preserveAspectRatio="none" style={{ ...cover, ...style }} aria-hidden="true">
       {line && <GroundRule id={key} line={line} gap={[item.x - item.w / 2 - GAP, item.x + item.w / 2 + GAP]} hand={hand} tone={ground} width={width} />}
       {tick && <Rule points={[[spot.x, tick.top], [spot.x, tick.bottom]]} hand={hand} tone={tone} />}
-      <SpotDot x={spot.x} y={spot.y} fill={item.accent} ring={ground.halo} hand={id} />
+      <SpotDot x={spot.x} y={spot.y} fill={item.accent} ring={item.rim} hand={id} />
       <g transform={`rotate(${(item.slope * 180 / Math.PI).toFixed(2)} ${item.x} ${middle})`}>
         {item.markDx !== null && <CaptionMark x={item.x + item.markDx} y={middle} hand={id} tone={tone} />}
         <text {...text} fill={tone.halo} stroke={tone.halo} strokeWidth={hand.halo.width} opacity={hand.halo.alpha} strokeLinejoin="round"

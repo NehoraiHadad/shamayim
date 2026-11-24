@@ -10,8 +10,10 @@ const palettes = [...Object.values(SKY_THEMES), ...ALTITUDES.flatMap(altitude =>
 
 it.each(['sky', 'land'] as const)('the lettering reads on its halo over %s in every light (WCAG AA)', (on) => {
   const worst = Math.min(...palettes.map((palette) => {
-    const { ink, halo } = captionTone(palette, on)
-    return ratio(ink, halo)
+    return Math.min(...[palette.ridgeNear, palette.horizon].map((land) => {
+      const { ink, halo } = captionTone(palette, on, land)
+      return ratio(ink, halo)
+    }))
   }))
   expect(worst).toBeGreaterThanOrEqual(4.5)
 })

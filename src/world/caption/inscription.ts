@@ -10,6 +10,8 @@ const TICK = { max: 16, min: 5 }
 const HOLD = 8
 /** What a px aside and a covered px of a far town cost, in px of height over the roofs. */
 const ASIDE = .35, FAR = .05
+/** What one tone for letters that stand half on the sky and half on a hill costs (px). */
+const SPLIT = 8
 
 /** Option a: the place's name and its height in one line in the air over its roofs, over the spot's column. */
 export function inscription(scene: CaptionScene): Caption {
@@ -18,6 +20,7 @@ export function inscription(scene: CaptionScene): Caption {
   const reach = Math.max(0, Math.floor(w / 2 - HOLD))
   const roof = Math.min(extent?.roof(spot.x - 4, spot.x + 4) ?? spot.y - 6, spot.y - 6)
   const foot = Math.max(extent?.foot(spot.x - 4, spot.x + 4) ?? spot.y + 6, spot.y + 6)
+  const split = ({ x, y }: { x: number; y: number }) => onLand(x - w / 2, y + h) === onLand(x + w / 2, y + h) ? 0 : SPLIT
   const rows = (from: number, to: number, gap: (y: number) => number) => {
     const list: Scored<{ x: number; y: number }>[] = []
     for (let dx = -reach; dx <= reach; dx++) {
@@ -25,7 +28,7 @@ export function inscription(scene: CaptionScene): Caption {
         const at = { x: spot.x + dx, y }
         if (!fits({ ...at, w, h })) continue
         const covered = cover({ ...at, w, h }, AIR)
-        list.push({ at, cover: covered, cost: Math.abs(dx) * ASIDE + gap(y) + covered.beyond * FAR })
+        list.push({ at, cover: covered, cost: Math.abs(dx) * ASIDE + gap(y) + covered.beyond * FAR + split(at) })
       }
     }
     return least(list)
