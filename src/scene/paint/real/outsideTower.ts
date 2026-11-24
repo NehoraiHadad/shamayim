@@ -8,7 +8,7 @@ import { paintTowerWindows } from './outsideWindows'
 
 type Tower = Extract<OutsideItem, { kind: 'tower' }>
 
-function towerSetback(tw: Tower) { return tw.crown === 1 ? Math.min(tw.h * .14, 3.5) : 0 }
+export function towerSetback(tw: Tower) { return tw.crown === 1 ? Math.min(tw.h * .14, 3.5) : 0 }
 function mastHeight(tw: Tower) { return Math.min(5, 1.5 + tw.h * .08) }
 
 export function paintTower(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lamps: Lamp[], f: BuildingFaces, scale: number) {

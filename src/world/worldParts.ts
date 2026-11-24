@@ -107,8 +107,9 @@ export function makeWorldMemos() {
     planesOf: memoOne(terrainPlanes),
     placePart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, landmarks: WorldInput['landmarks'],
       seatCandidates: WorldInput['seatCandidates'], city: WorldInput['city'], width: number, elevation: number,
-      bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'], cover: WorldInput['cover']) => {
-      const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, elevation, bounds, waterMask, cover })
+      bounds: WorldInput['bounds'], waterMask: WorldInput['waterMask'], cover: WorldInput['cover'],
+      village: WorldInput['village']) => {
+      const part = placeOf({ place, terrain, landmarks, seatCandidates, city, width, elevation, bounds, waterMask, cover, village })
       return { ...part, placeKey: partKey([part.place3, part.labels], 1), marksKey: partKey([part.marks, part.seatPool], 1) }
     }),
     farCitiesPart: memoOne((place: WorldInput['place'], terrain: SceneTerrain, far: WorldInput['far'], ownSkyline: boolean) => {

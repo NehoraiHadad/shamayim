@@ -6,7 +6,7 @@ import { TOWER_FRONT_M } from '../data/city/towerWidth'
 import type { CityResult, CityTower } from '../data/city/types'
 
 /** A built cell's roof where the city raster knows nothing of it: a one- or two-storey house. */
-const HOUSE_M = [STOREY_M + 1.5, 2 * STOREY_M + 1.5] as const
+export const HOUSE_ROOF_M = [STOREY_M + 1.5, 2 * STOREY_M + 1.5] as const
 /** The city raster's typical storeys: of this height (m), and no more than it holds (`scripts/city/raster.ts`). */
 const RASTER_STOREY_M = 3.2, MAX_LEVELS = 15
 /** Below this share of the ground under roofs a raster square is sparse. */
@@ -43,7 +43,7 @@ export function fabricHeights(city: CityResult | null | undefined) {
   }
   return (at: RasterSquare | undefined, lat: number, lon: number, u: number): { heightM: number; siteHeightM: number } => {
     if (at && at.built >= SPARSE) return whole(roofHeight(at.levels, at.p90, u))
-    const house = HOUSE_M[u < .6 ? 0 : 1]
+    const house = HOUSE_ROOF_M[u < .6 ? 0 : 1]
     const typical = at ? roofHeight(at.levels, 0, 0) : house
     if (typical < HOUSE_TOP_M) return whole(house)
     const towers = towersOf.get(squareKey(lat, lon))
