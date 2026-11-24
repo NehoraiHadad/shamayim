@@ -21,12 +21,12 @@ const SIZE = 1.7, LEAST = 3, MOST = 24
 const COMES = [0.5, 0.75] as const, GOES = [1.5, 2.1] as const, FINER = 0.4
 /** How far a cap strays (of the pitch), its least and most size (of half of it), how seldom it is large; the size (px) it is drawn from. */
 const STRAY = 0.85, SIZES = [0.7, 1.9] as const, SELDOM = 1.4, DRAWN = 1.6
-/** How far over the edge a cap stands there (of its size, at least and at most), and what it grows with each px in from it. */
-const OUT = [0.2, 0.5] as const, IN = 0.8
+/** A cap's most at the edge (of its size), what it grows with each px in from it, and over how far (px) in it comes: none stands off its mass. */
+const OUT = [0.3, 0.85] as const, IN = 0.75, ONTO = [0.5, 5] as const
 /** How far in (of its size) a rim goes; the share of places kept deep inside, and what eases it. */
-const RIM = 1.4, INSIDE = 0.6, STAYS = 0.15
+const RIM = 1.4, INSIDE = 0.85, STAYS = 0.15
 /** Where in its mass a cap has gone: its foot has none. */
-const FOOT = [-0.6, -0.1] as const
+const FOOT = [-0.85, -0.4] as const
 /** How far a cap leans out of its mass, and at random (rad); what it is taken over (of the row's spacing). */
 const LEAN = 0.9, SWAY = 0.3, ABOUT = 1.5
 /** Keeps the lattices' places apart in the seed. */
@@ -73,8 +73,8 @@ function tiersOf({ perKm }: Places, ranges: readonly number[], sizes: readonly n
 
 function capAt({ f, wide }: Eased, cut: Cut, x: number, y: number, half: number, weight: number, random: () => number, seed: number): SheetCap | null {
   const gx = ((x - f.x0) / f.width) * (f.cols - 1), gy = ((y - f.y0) / f.height) * (f.rows - 1), size = sizeAt(f, gy), inside = cut.inside(x, y)
-  const most = size * (OUT[0] + (OUT[1] - OUT[0]) * random()) + IN * inside
-  if (most < DRAWN) return null
+  if (inside <= ONTO[0]) return null
+  const most = (size * (OUT[0] + (OUT[1] - OUT[0]) * random()) + IN * inside) * smoothstep(ONTO[0], ONTO[1], inside)
   const rim = 1 - smoothstep(0, RIM * size, inside), q = half / size, least = 1 - (1 - FINER) * rim
   const there = smoothstep(COMES[0] * least, COMES[1] * least, q) * (1 - smoothstep(GOES[0], GOES[1], q))
   if (!there) return null

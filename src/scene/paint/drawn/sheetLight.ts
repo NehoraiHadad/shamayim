@@ -41,7 +41,7 @@ export function sheetLight(desc: LayerOf<'cloudSheet'>, { f, alpha, wide }: Ease
   const body = mix(desc.lit, toneOf(desc, mean), KEEPS)
   const t = cloudInks({ lit: desc.lit, bright: mix(whitened(desc.lit), desc.lit, low), body, shade: desc.shade, least: 0, gain: GAIN })
   // A low sun lights the feet, and the side of the sky it stands on.
-  const up = SIDE * (0.7 + 0.3 * t.heavy) * (1 - 2 * low), place = lamp?.sun ?? lamp, across = place ? ACROSS * (1 - smoothstep(LOW[0], LOW[1], place.altitude)) : 0
+  const up = SIDE * (0.7 - 0.35 * t.heavy) * (1 - 2 * low), place = lamp?.sun ?? lamp, across = place ? ACROSS * (1 - smoothstep(LOW[0], LOW[1], place.altitude)) : 0
   return {
     t,
     crest: 1 - BELOW * low,

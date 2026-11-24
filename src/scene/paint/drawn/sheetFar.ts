@@ -6,8 +6,10 @@ import { fieldAt, type SheetField } from './sheetField'
  * cloud a low arch over a flat foot, as tall as its row is thick there. Pure: the field and the seed.
  */
 
+/** A cloud's light across its height, against a near one's: it is a low wall of it, not a top and a foot. */
+const CALM = 0.55
 /** A row's height against the model's row spacing, its least (px), and how far an arch stands past its row. */
-const TALL = 3, LEAST = 8, OVER = 1.15
+const TALL = 5, LEAST = 13, OVER = 1.15
 /** The alpha a row's cloud begins at, and the foot's own slow slant against the height, over this far (px). */
 const FROM = 0.42, SLANT = 0.22, WAVE = 46
 /** How deep a foot's edge is cut (of the row); what a row with next to no cloud is cut back, and under what height (px). */
@@ -34,7 +36,7 @@ export function farRows(f: SheetField, alpha: Float32Array, seed: number): (x: n
       const gx = x / colPx, i = Math.min(f.cols - 2, Math.floor(gx)), a = r.at[i] + (r.at[i + 1] - r.at[i]) * (gx - i)
       const high = OVER * r.tall * Math.sqrt(Math.max(0, a - FROM) / (1 - FROM)), up = foot - y
       const e = Math.min(high - up, up + (high > 1 ? DEEP * r.tall : 0)) / r.tall - (high < LOW ? NONE : 0)
-      if (e > edge) { edge = e; side = high > 0.1 ? Math.max(-1, Math.min(1, 2 * (up / high) - 1)) : 0 }
+      if (e > edge) { edge = e; side = high > 0.1 ? CALM * Math.max(-1, Math.min(1, 2 * (up / high) - 1)) : 0 }
     }
     return { edge, side }
   }
