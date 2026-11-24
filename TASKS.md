@@ -1253,9 +1253,11 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] S4 ground and water (`claude/drawn-ground`): built, judged, reviewed and fixed (`ab93e476`); READY. Known small faults: hatch
             ink steps at band edges, `turn` leans without direct sun
       - [~] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
-            inside the crown); READY next. Known: palms take no key, a flat roof hides half its key line
-      - [~] S3 storm (`claude/drawn-storm`): built; judge, review and READY next
-      - [ ] S1 sky and sun (waits for `skyBase` + grade), S2 cloud sheets (cloud-space position), S6 air (dust)
-      - [ ] When the sky grade lands: `pigment` in water drops its chroma gain (no double grade)
+            inside the crown); READY `0e3c7cae`. Known: palms take no key, a flat roof hides half its key line
+      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); stills and READY next.
+            Known: canvases allocated per repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
+      - [~] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
+            second gain (`skied`); stills, review and READY next
+      - [ ] S2 cloud sheets (cloud-space position), S6 air (dust)
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
