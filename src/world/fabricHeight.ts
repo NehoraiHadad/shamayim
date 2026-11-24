@@ -1,4 +1,4 @@
-import { LAT_STEP, LON_STEP, squareOf } from '../data/city/grid'
+import { LAT_STEP, LON_STEP, squareIndex } from '../data/city/grid'
 import type { RasterSquare } from '../data/city/cityRaster'
 import { HOUSE_TOP_M } from '../data/city/outsideView'
 import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
@@ -12,7 +12,8 @@ const RASTER_STOREY_M = 3.2, MAX_LEVELS = 15
 /** Below this share of the ground under roofs a raster square is sparse. */
 const SPARSE = .2
 
-const squareKey = (lat: number, lon: number) => Object.values(squareOf(lat, lon)).join(':')
+/** A square's number among all the cells' squares. */
+const squareKey = (lat: number, lon: number) => Math.floor(lat * 10) * 1e9 + Math.floor(lon * 10) * 1e5 + squareIndex(lat, lon)
 const squareM2 = (lat: number) => LAT_STEP * LON_STEP * Math.cos(lat * Math.PI / 180) * 111_320 ** 2
 /** A site laid out as the roof that stands on it. */
 const whole = (heightM: number) => ({ heightM, siteHeightM: heightM })
@@ -34,7 +35,7 @@ function typicalIsTower(at: RasterSquare, lat: number, towers: readonly CityTowe
  * typical roof, with no tail. Where that building is a mapped tower, it is drawn as itself and the rest stay houses.
  */
 export function fabricHeights(city: CityResult | null | undefined) {
-  const towersOf = new Map<string, CityTower[]>()
+  const towersOf = new Map<number, CityTower[]>()
   for (const tower of city?.towers ?? []) {
     const key = squareKey(tower.lat, tower.lon), square = towersOf.get(key)
     if (square) square.push(tower)
