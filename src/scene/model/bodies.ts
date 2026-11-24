@@ -21,6 +21,10 @@ export const MOON_R = 7
 /** The pale coin dust makes of the sun (the SVG's #F3E3B8). */
 const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
 
+/** The sky's own colour at a height, as it is seen. */
+const skyBehind = (world: WorldState, box: SceneBox, y: number): RGB =>
+  filterAt(skyGradeOf(world, box), y, stopAt(skyStops(world, box), y / box.skyHeight, mixSrgb))
+
 /**
  * The sun's disc where the world puts it (`bodies.sun`: its true azimuth across, its apparent altitude up on the shared
  * relief), while it is up: hot core, redder limb, squashed by refraction near the horizon, a close aureole as wide as the
@@ -64,8 +68,9 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
   const air = moonAir(moon.altitude, world.air, look.daylight)
   const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
   return {
-    x, y, r: MOON_R, rgb: tinted(mixRgb(bone, day, look.daylight), air.tint),
-    alpha: look.opacity * air.dim * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
+    // Dimmer is nearer the sky's own colour behind it, not thinner: the seas of a thin disc would show brighter than its face.
+    x, y, r: MOON_R, rgb: mixRgb(skyBehind(world, box, y), tinted(mixRgb(bone, day, look.daylight), air.tint), air.dim),
+    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,
@@ -112,8 +117,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
   let limb = physicalSun?.limb
   if (physicalSun && colours.bandWeight) {
     const { y } = physicalSun
-    const local = stopAt(skyStops(world, box, colours), y / box.skyHeight, mixSrgb)
-    const background = filterAt(grade, y, local), horizon = luminanceOf(colours.horizon)
+    const background = skyBehind(world, box, y), horizon = luminanceOf(colours.horizon)
     const tau = solarAerosolSlantDepth(world.air, world.bodies.sun.altitude)
     core = dustDiscColour(physicalSun.core, background, horizon, tau, colours.bandWeight)
     if (physicalSun.coin <= 0.5) limb = dustDiscColour(physicalSun.limb, background, horizon, tau, colours.bandWeight)

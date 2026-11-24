@@ -7,11 +7,11 @@ import type { RGB } from './types'
 export interface MoonSky { altitude: number; azimuth: number; fraction: number }
 
 /** How much of white stays in the low moon's colour: copper on the horizon, not a flat red. */
-const COPPER = 0.25
+const COPPER = 0.33
 /** A bright day's air in front of the moon adds its own light, so the tint shows this much less. */
 const DAY_WASH = 0.75
 /** The dark eye follows a dimming disc: it sees about this power of the light lost. */
-const EYE_POWER = 0.2
+const EYE_POWER = 0.12
 
 /**
  * What the air does to the moon's own look at this altitude: the sun's light path and aerosol (`sunLight`, `solarBeam`),
