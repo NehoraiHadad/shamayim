@@ -3,12 +3,12 @@ import { moonPosition } from '../../astro/moon'
 import { sunPosition } from '../../astro/sun'
 import { utcOf } from '../../astro/utc'
 import { addMinutes } from '../../domain/time'
-import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
+import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { buildWorld } from '../../world/world'
 import { bodyLayers } from './bodies'
 import { sceneModel } from './index'
-import { lampOf, lampPlace, withLamp } from './lamp'
+import { lampPlace, withLamp } from './lamp'
 import { skyGeom } from './sky'
 import type { Lamp, LayerDesc, SceneBox } from './types'
 
@@ -16,12 +16,10 @@ const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 12
 const DAY = '2026-11-17T00:00'
 const KINDS = ['cloudSheet', 'plane', 'water'] as const
 let haifa: LoadedPlace
-let beitShean: LoadedPlace
 beforeAll(async () => {
   stubPublicFetch()
-  const places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(p => ['haifa', 'beit-shean'].includes(p.id)))
+  const places = await loadPlaces(SCENE_PLACES.filter(p => p.id === 'haifa'))
   haifa = places.get('haifa')!
-  beitShean = places.get('beit-shean')!
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
@@ -45,19 +43,6 @@ it.each(['sun', 'moon'] as const)('registers the unquantised %s direction agains
     const place = lampPlace(skyGeom(world, BOX), body, azimuth, altitude)
     expect(Math.hypot(place.x - disc!.x, place.y - disc!.y)).toBeLessThanOrEqual(1)
   }
-})
-
-it('leaves the datum-only water descriptor and both keys untouched', () => {
-  const world = buildWorld(worldInput(beitShean, '2026-11-17T12:00'))
-  expect(world.labels.below).toBe(true)
-  expect(world.water.spans).toHaveLength(0)
-  const layers = sceneModel(world, BOX).layers
-  const at = layers.findIndex(layer => layer.kind === 'water' && layer.datum && !layer.bands.length)
-  expect(at).toBeGreaterThanOrEqual(0)
-  const datum = withLamp(layers, world, BOX, ['water'])[at]
-  expect(lampOf(world, BOX)).toBeDefined()
-  expect(datum).toBe(layers[at])
-  expect(datum).not.toHaveProperty('lamp')
 })
 
 it('serialises the stored quantum into the right cache part', () => {

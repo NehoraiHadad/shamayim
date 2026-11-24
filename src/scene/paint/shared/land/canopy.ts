@@ -4,7 +4,7 @@ import { paintVegCrowns } from './landVegCrowns'
 import { paintVegTufts } from './landVegTufts'
 import { receiverBrush } from './receiverBrush'
 
-/** Both passes use the same plane mask and avoid the label zones when a mark bends into them. */
+/** Both passes use the same plane mask and avoid the spot's clearing when a mark bends into them. */
 function mask(ctx: Ctx2D, desc: LayerOf<'canopy'>) {
   for (const zone of desc.clear) {
     ctx.globalCompositeOperation = 'destination-out'

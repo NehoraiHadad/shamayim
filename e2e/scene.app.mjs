@@ -1,5 +1,6 @@
 // App stills and smoke checks at 375×812, with the day defaulting to the harness fixture's day.
-// `--built` serves dist/ via Vite preview. `--page` saves the first screen instead of the figure and a strip of sky.
+// `--built` serves dist/ via Vite preview. `--page` saves the first screen instead of the figure and a
+// strip of sky, `--foot` the page's footer.
 import fs from 'node:fs'
 import path from 'node:path'
 import { openAppPage } from './appPage.mjs'
@@ -10,6 +11,7 @@ const args = process.argv.slice(2)
 const dpr = Number(args.find((a) => a.startsWith('--dpr='))?.slice(6) ?? 2)
 const built = args.includes('--built')
 const whole = args.includes('--page')
+const foot = args.includes('--foot')
 /** The scene harness's weather moments (`src/dev/sceneHarness.tsx` WEATHER) in the app's `?wx=` keys (`ui/devParams.ts`). */
 const WX = {
   rain: 'rain:4,code:63,cloud:95,wind:35,gust:55,dir:270,hum:95',
@@ -26,7 +28,7 @@ const WX = {
 const [outDir, ...moments] = args.filter((a) => !a.startsWith('--'))
 if (!outDir || !moments.length) {
   console.log('usage: node e2e/scene.app.mjs <out-dir> <place>@<HH:MM|YYYY-MM-DDTHH:MM>[@<weather>] …'
-    + ' [--built] [--dpr=2] [--page]')
+    + ' [--built] [--dpr=2] [--page|--foot]')
   process.exit(2)
 }
 if (built && !fs.existsSync(path.join(root, 'dist/index.html'))) throw new Error('no dist/: run npx vite build first')
@@ -66,7 +68,8 @@ async function renderMoment(browser, base, moment) {
     const box = await figure.count() === 1 ? await figure.boundingBox() : null
     const top = box ? Math.max(0, box.y - 160) : 0
     const clip = { x: 0, y: top, width: page.viewportSize().width, height: box ? box.y + box.height - top : 0 }
-    const shot = await page.screenshot({ ...STILL_OPTIONS, ...(whole || !box ? {} : { clip }) })
+    const shot = foot ? await page.locator('footer').screenshot(STILL_OPTIONS)
+      : await page.screenshot({ ...STILL_OPTIONS, ...(whole || !box ? {} : { clip }) })
     fs.writeFileSync(path.resolve(root, outDir, `${name}.png`), shot)
 
     const sky = await skyProblem(page)

@@ -53,11 +53,11 @@ export function makeWorldBuilder() {
       blendForecast(forecast, nowMs, sample, (a, b, t) => a + (b - a) * t)
 
     const placePartResult = status === 'ready' ? m.placePart(place, terrain, input.landmarks, input.seatCandidates, input.city,
-      width, forecast.elevation, input.bounds, input.waterMask, input.cover, input.village) : unknownPlace(place, forecast.elevation)
+      width, input.bounds, input.waterMask, input.cover, input.village) : unknownPlace(place)
     const drawn = m.drawnOf(terrain, placePartResult.nearLine)
     const farCities = m.farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const sunSkyline = status === 'ready' ? m.judgeOf(drawn, placePartResult.place3, placePartResult.marks, farCities.part, skyline,
-      placePartResult.labels, width) : skyline
+      width) : skyline
     const day = dayGiven && status === 'ready' ? visibleDay(dayGiven, place, sunSkyline) : dayGiven
     const sun = sunBody(at, day, place, skyline, sunSkyline)
     const moon = moonBody(at, place, skyline, sun, sunSkyline)
@@ -128,7 +128,8 @@ export function makeWorldBuilder() {
       relief: { scale: RELIEF, horizonY, y: (altitude: number) => terrainY(horizonY, altitude) },
       bodies, light, air, clouds, cloudField, rain, snow, snowfall, wind,
       terrain: planes, flightTerrain: grid, water: { ...water, coastalSea: placePartResult.coastalSea },
-      farCities: farCities.part, place3: placePartResult.place3, marks: placePartResult.marks, seatPool: placePartResult.seatPool, labels: placePartResult.labels,
+      farCities: farCities.part, place3: placePartResult.place3, marks: placePartResult.marks, seatPool: placePartResult.seatPool,
+      watersShown: placePartResult.watersShown,
       night, ground, env, townLights: m.townLightsPart(place, input.far, env.glow), life, nightSky, optics, land: land.part,
       cropAreas: input.cropAreas ?? mappedCropAreas(input.landmarks),
       sources: { cloudLayers: cloudSource, rainCloudRaised: raining.raised, windDirection: windSources.windDirection,

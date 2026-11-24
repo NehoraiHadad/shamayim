@@ -34,7 +34,7 @@ interface Shape {
   marks: { at: number; km: number }[]
 }
 
-/** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
+/** Surviving outside shapes cached by view, width and the spot's clearing, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
 
 export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {

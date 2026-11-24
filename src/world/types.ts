@@ -23,7 +23,7 @@ import type { TownLights } from './townLights'
 import type { SnowFall } from './snowLine'
 import type { Air, Body, CloudLayer, Light, MoonBody, Night, Rain, Snowfall, Wind, WorldRelief } from './typesAtmo'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
-import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState, WorldLabels } from './typesLand'
+import type { FarCities, OutsideView, PlaceUnknown, TerrainPlanes, WaterState } from './typesLand'
 
 export * from './typesAtmo'
 export * from './typesLand'
@@ -124,8 +124,8 @@ export interface WorldState {
   marks: WorldMark[]
   /** All viable beyond seats, ranked for re-budgeting after the scene's screen-space cull. */
   seatPool: SeatedWorldMark[]
-  /** The notes on the land (the place part: independent of the hour). */
-  labels: WorldLabels
+  /** The named waters that really show in the picture (the place part: independent of the hour). */
+  watersShown: string[]
   night: Night
   ground: { wet: number; snowLineM: number | null }
   /** C10: the land round the place (sea, lakes, built and open ground, the towns' sky glow). */

@@ -1,14 +1,12 @@
 import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/outsideView'
-import type { SceneNote } from '../data/terrain/sceneNotes'
 import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
 import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
-import type { Datum } from './datum'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
 import type { Pt } from './typesAtmo'
 
-/** Terrain plane, water, settlement, landmark and label types for `WorldState`. */
+/** Terrain plane, water, settlement and landmark types for `WorldState`. */
 export interface Plane {
   points: Pt[]
   /** Height (m) at each point, when sampled. */
@@ -21,7 +19,7 @@ export interface Plane {
 
 export interface TerrainPlanes {
   near: Plane; far: Plane; back?: Plane
-  floorY: number; seaY: number
+  floorY: number
   /** Eye level (the panorama's, or the unknown land's guess). */
   horizonY: number
   /** Whether the place's land is known (C8): `loading`/`offline` stand on `unknownLand`; `ready` is the panorama. */
@@ -54,6 +52,8 @@ export interface WaterState {
 /** Coastal place's own sea in the outside view (C5 item 1, C5b). */
 export interface CoastalSea {
   points: Pt[]; coast: Pt[]; side: 'left' | 'right'; top: number; bottom: number; horizon: number; km: [number, number][]
+  /** The body of water it is of (none: an unnamed one). */
+  name?: string
 }
 
 export type { FarPatch, FarTowerSite, FarCities } from './farCityTypes'
@@ -87,11 +87,4 @@ export interface OutsideView {
    */
   land: { top: Pt[]; base: Pt[]; km: number; heightM?: number[]; localKm?: Pt[] } | null
   vscale?: { s: number; h0: number } | null
-}
-
-/** The text the scene keeps on the land: the notes and, for a place `below` sea level, the sea-level datum. */
-export interface WorldLabels {
-  below: boolean
-  notes: SceneNote[]
-  datum?: Datum | null
 }

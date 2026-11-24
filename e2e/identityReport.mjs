@@ -62,7 +62,7 @@ function markdown(run, results) {
     `- decoded RGBA, byte for byte; styles: ${run.styles.join(', ')}; paint paths of the whole clip: ${run.paints.join(', ')}`,
     ...Object.entries(run.lone).filter(([, ids]) => ids.length).map(([tree, ids]) => `- **not compared, in ${tree} only: ${ids.join(', ')}**`),
     '- every shot: its paint path and its style as the settled page really had them (another one is an `ERROR`, never compared)',
-    `- each layer alone (over black and over white), and the clip with its labels: ${layersText(run.layers)}`,
+    `- each layer alone (over black and over white): ${layersText(run.layers)}`,
     `- \`same\`: four fresh loads (base, head, base, head) all equal: ${run.controls === 'all' ? 'every unit' : 'the whole clips'}`,
     ...(run.controls === 'all' ? [] : ['- `equal`, `empty` (nothing shown): base and head equal in one fresh load each; four loads only where those differ']), '',
     `**${summary(results)}** (${results.filter(isRed).length} red, ${results.reduce((sum, r) => sum + (r.retries ?? 0), 0)} loads retried)`, '',
@@ -71,8 +71,8 @@ function markdown(run, results) {
       `|---|---|${Object.keys(loud[0].pairs).map(() => '---|').join('')}`,
       ...loud.map((r) => `| ${r.name} | ${r.verdict}${r.verdict === 'unstable' ? (r.firstDiffer ? ', first loads differ' : ', first loads equal') : ''} | ` +
         `${Object.values(r.pairs).map(pairText).join(' | ')} |`), ''] : []),
-    '## All', '', '| moment, style, paint | whole clip | with labels | layers alone |', '|---|---|---|---|',
-    ...[...rows].map(([row, list]) => `| ${row} | ${cell(list, 'whole')} | ${cell(list, 'labels')} | ${cell(list, 'layer')} |`), ''].join('\n')
+    '## All', '', '| moment, style, paint | whole clip | layers alone |', '|---|---|---|',
+    ...[...rows].map(([row, list]) => `| ${row} | ${cell(list, 'whole')} | ${cell(list, 'layer')} |`), ''].join('\n')
 }
 
 export function writeReport(out, run, results) {

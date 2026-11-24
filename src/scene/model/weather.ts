@@ -96,7 +96,7 @@ export function brokenness(world: WorldState): number {
 
 /**
  * The wet ground's sheen (land, after rain: `ground.wet`): short level strokes over the near ridge's face where wet rock,
- * roads and flats send back the sky above them, stronger the wetter, the brighter the sky; out of the text zones.
+ * roads and flats send back the sky above them, stronger the wetter, the brighter the sky; out of the spot's clearing.
  */
 export function sheenLayer(world: WorldState, box: SceneBox, clear: readonly Box[]): LayerOf<'sheen'> | null {
   const wet = world.ground.wet

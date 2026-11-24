@@ -10,7 +10,7 @@ import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 import { tonesAt } from './marks'
 import { labOf } from './tone'
-import type { Box, LayerOf, SceneBox } from './types'
+import type { LayerOf, SceneBox } from './types'
 
 /**
  * Stage C4 (docs/design/CANVAS-SCENE-PLAN.md §3, tier 1): the marks, the landmarks and the village (seen from outside
@@ -34,10 +34,6 @@ function worldAt(id: string, at: LocalTime = TIMES[1]) {
   if (!world) worlds.set(key, world = buildWorld(worldInput(loaded.get(id)!, at)))
   return world
 }
-
-const layerOf = <K extends 'marks' | 'outside'>(world: WorldState, kind: K) =>
-  sceneModel(world, BOX).layers.find((l) => l.kind === kind) as LayerOf<K> | undefined
-const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
   it('seats every mark on the land it stands on', () => {
@@ -87,16 +83,6 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
         if (layer.kind !== 'marks') continue
         if (Math.abs(world.light.across) > 0.05) expect(Math.sign(layer.shine.cast.dx)).toBe(-Math.sign(world.light.across))
       }
-    }
-  })
-
-  it('keeps the far marks out of the first note', () => {
-    const world = worldAt(id)
-    const model = sceneModel(world, BOX)
-    const [, ...text] = model.clear
-    for (const glyph of layerOf(world, 'marks')?.glyphs ?? []) {
-      const box = { x: glyph.x - glyph.w / 2, y: glyph.base - glyph.h * glyph.scale, w: glyph.w, h: glyph.h * glyph.scale }
-      for (const zone of text.slice(0, 1)) expect(overlap(box, zone), `${glyph.kind} under the note`).toBe(false)
     }
   })
 

@@ -21,7 +21,7 @@
   --text-lg: 1.125rem;
   --text-md: 0.9375rem;
   --text-sm: 0.8125rem;
-  --text-caption: 0.75rem; /* 12 px: the smallest text the app sets (the scene's notes are a fifth smaller) */
+  --text-caption: 0.75rem; /* 12 px: the smallest text the app sets */
 
   --radius-sheet: 28px;
   --radius-well: 16px;

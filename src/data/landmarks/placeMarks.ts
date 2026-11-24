@@ -7,7 +7,6 @@ export { markAppearance } from './markAppearance'
 export { placeHomes, withPlaceHomes, isPlaceHomes, settlementSize } from './homeMarks'
 import { perspectiveFields, perspectiveWidth } from './perspectiveFields'
 import type { Place } from '../../config/place'
-import type { NoteBox } from '../terrain/sceneNotes'
 import { viableNeighbourHeight, neighbourRule } from '../../world/neighbourPolicy'
 import { glyphOf } from '../../world/glyphSpecs'
 import type { SceneTerrain } from '../terrain/terrain'
@@ -15,7 +14,7 @@ import { isFamousLandmark, isLandmark } from './fame'
 import { elevationAt, projectMark, type Portrait } from './markProjection'
 import { PORTRAIT_MARGIN_KM } from './portrait'
 import { groundY, markHeight } from './project'
-import { avoid, score, select, spread, type Candidate, type FarRule } from './rank'
+import { score, select, spread, type Candidate, type FarRule } from './rank'
 import type { Landmark, MarkPerspective, PlacedMark } from './types'
 
 export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
@@ -24,12 +23,8 @@ export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
 const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6, palms: 11 }
 /** Towers too: a city's high-rises rise out of its blocks instead of standing alone beside an empty hill. */
 const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'church', 'silo'])
-/**
- * `notes`: the boxes of the notes written on the land (`sceneNotes`: the sea-level datum, the water's names), in px at
- * the real width; a mark standing in one moves aside, or is left out.
- */
 export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[], width: number,
-  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait, notes: readonly NoteBox[] = [],
+  homeHalf = legacyHomeHalf(marks), cityMode = false, portrait?: Portrait,
   farRule: FarRule = 'kind', perspective?: MarkPerspective): PlacedMark[] {
   const candidates: Candidate[] = []
   const scale = 375 / width
@@ -107,22 +102,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
     // What stands among the roofs keeps its spot: a near building spread onto it gives way.
     .filter((item) => inside.includes(item) || item.layer !== 'near' || FIXED[item.mark.kind] !== undefined
       || inside.every((other) => Math.abs(other.x - item.x) >= (other.width + item.width) / 2))
-  const boxes = notes.map((box) => ({ ...box, left: box.left * scale, right: box.right * scale }))
-  const clearLabel = spaced.flatMap((item) => {
-    // The place's own portrait is composed round the dot and stays: the note gives way to it, not the reverse.
-    if (item.portrait) return [item]
-    const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
-    const base = item.plain?.baseY ?? groundY(points.map(([x, y]) => ({ x, y })), item.x)
-    const top = item.plain?.visibleTopY ?? base - (item.plain?.hPx ?? markHeight(item.mark.heightM, item.layer === 'near' ? 'near' : 'far'))
-    let moved: Candidate | null = item
-    for (const box of boxes) {
-      if (!moved || top >= box.bottom || base <= box.top) continue
-      const shifted: Candidate | null = avoid(moved, [box.left, box.right], scale)
-      moved = shifted && (!item.plain || shifted === moved) ? shifted : null
-    }
-    return moved ? [moved] : []
-  })
-  return fewLandmarks(clearLabel).flatMap((item) => {
+  return fewLandmarks(spaced).flatMap((item) => {
     const points = item.layer === 'near' ? terrain.nearPoints : terrain.farPoints
     const baseY = item.plain?.baseY ?? groundY(points.map(([x, y]) => ({ x, y })), item.x)
     const fixed = item.mark.kind === 'homes' ? Math.max(6, Math.min(14, item.mark.heightM)) : FIXED[item.mark.kind]

@@ -1,4 +1,4 @@
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
 import type { Place } from '../config/place'
 import { unpackPanorama, type StoredPanorama } from '../data/terrain/panorama'
 import { FLAT_ELEV_M, makeFlatPanorama } from '../test/bundledTerrain'
@@ -21,6 +21,6 @@ export function fixturePanorama(stored: StoredPanorama | undefined) {
 }
 
 export function harnessPlace(params: URLSearchParams) {
-  const places = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES, ...VILLAGE_PLACES]
+  const places = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...BELOW_SEA_PLACES, ...VILLAGE_PLACES]
   return places.find(place => place.id === (params.get('place') ?? 'shadmot-mehola')) ?? fixturePlace(params)
 }

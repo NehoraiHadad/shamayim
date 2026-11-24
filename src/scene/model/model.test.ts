@@ -5,11 +5,9 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { compositeOrder } from '../compose/compositeOrder'
 import { layersOn, sceneModel } from '.'
-import { waterInk } from './noteInk'
-import { hexOf } from './tone'
 import type { SceneBox } from './types'
 
-/** Stage C1 (docs/design/CANVAS-SCENE-PLAN.md §4): the model's skeleton, the overlay and the scrub split. */
+/** Stage C1 (docs/design/CANVAS-SCENE-PLAN.md §4): the model's skeleton and the scrub split. */
 const TIMES: LocalTime[] = ['2026-11-17T06:20', '2026-11-17T12:00', '2026-11-17T16:30', '2026-11-17T21:00']
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 /** The weather's kinds (C7). */
@@ -24,34 +22,6 @@ beforeAll(async () => {
 afterAll(() => { vi.unstubAllGlobals() })
 
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
-  it('places the notes and nothing else, each on its box', () => {
-    const input = worldInput(loaded.get(id)!, TIMES[1])
-    const world = buildWorld(input)
-    const below = input.forecast.elevation < 0
-    const { overlay } = sceneModel(world, BOX)
-    expect(overlay.map(({ kind, text, x, y, w, h }) => ({ kind, text, x, y, w, h })))
-      .toEqual(world.labels.notes.map(({ kind, text, left, top, width, height }) => ({ kind, text, x: left, y: top, w: width, h: height })))
-    // The datum only below sea level, and only where the picture's land reaches 0 m above the spot (`world/datum.ts`): the
-    // fixture's height is below sea level at every place, but the ground of most of them is not.
-    expect(overlay.some((item) => item.kind === 'datum')).toBe(below && Boolean(world.labels.datum))
-    if (world.labels.datum) expect(below).toBe(true)
-    // Scaled across with the figure, heights as they are.
-    const wide = sceneModel(world, { ...BOX, width: 750 }).overlay
-    overlay.forEach((item, i) => expect(wide[i]).toMatchObject({ x: item.x * 2, y: item.y }))
-  })
-
-  it.each(TIMES)('letters the notes in a tone of the land and the water under them (%s)', (at) => {
-    const model = sceneModel(buildWorld(worldInput(loaded.get(id)!, at)), BOX)
-    for (const { kind, text, x, y, w, h, ink } of model.overlay) {
-      if (kind === 'datum') {
-        const line = layersOn(model, 'land').flatMap((layer) => layer.kind === 'water' && layer.datum ? [layer.datum] : [])[0]
-        expect(ink, text).toBe(hexOf(line.rgb))
-      } else {
-        expect(ink, text).toBe(waterInk(model.layers, x + w / 2, y + h / 2))
-      }
-    }
-  })
-
   it('is a pure function of the world and the box', () => {
     const world = buildWorld(worldInput(loaded.get(id)!, TIMES[2]))
     expect(JSON.stringify(sceneModel(world, BOX))).toBe(JSON.stringify(sceneModel(world, BOX)))
@@ -82,8 +52,7 @@ describe('scene model: layers', () => {
     const world = buildWorld(worldInput(loaded.get('haifa')!, TIMES[2]))
     const model = sceneModel(world, BOX)
     // C3: the far towns between the far plane and the near ridge, the sea (within the near band) over the near plane. (No
-    // far water: the fixture's height is below sea level, but Haifa's ground, from the Carmel to the bay, is not, so the
-    // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
+    // far water.)
     // C4–C5: the place seen from outside over it all, its marks (the Báb and the Carmel's church) among its mass;
     // C7: the weather the hour has over them. (What flies in front of the land, laid where it is, comes and goes.)
     const land = layersOn(model, 'land')

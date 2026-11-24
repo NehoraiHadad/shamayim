@@ -5,7 +5,6 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { assertTownScale, QUALIFYING_TOWN_ROOFS } from '../../test/worshipAssertions'
 import { SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '../../test/scenePlaces'
-import { VISIBLE_BOTTOM } from '../../world/layout'
 import { cloudLight } from '../../world/lightCloud'
 import { airDim } from '../../world/livingLight'
 import type { OutsideView, WorldInput, WorldState } from '../../world/types'
@@ -19,7 +18,7 @@ import { fresnel } from './water'
 
 /**
  * The C9 review's defects (docs/design/CANVAS-SCENE-PLAN.md §6, C9 pack), each fixed by a general rule: the sun behind a
- * cloud lobe, the sky's bodies over the place's own mass, the water's names on their water, the towns 4–6 km out, the
+ * cloud lobe, the sky's bodies over the place's own mass, the waters of the picture, the towns 4–6 km out, the
  * water's mirror in linear light and the sun's path by the one light, the structures beyond within the reach, the far
  * towers' foot, the fabric's frontage, and the owner's rays (item 11). The mass against the light and the height label
  * are in `outside.test.ts` and `model.test.ts`.
@@ -92,44 +91,12 @@ describe('C9 defect 3, superseded (2026-11-20): the place\'s own mass hides a bo
   })
 })
 
-describe('C9: the water\'s names on their water (defect 5)', () => {
-  const inside = (poly: readonly (readonly [number, number])[], x: number, y: number) => {
-    let hit = false
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const [xi, yi] = poly[i], [xj, yj] = poly[j]
-      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit
-    }
-    return hit
-  }
-  it.each(['netanya', 'haifa', 'ramat-gan', 'tel-aviv', 'tiberias', 'ein-gedi', 'masada', 'zikhron-yaakov'])('%s: never in the sky nor among what the place builds', (id) => {
-    const world = worldAt(id)
-    const view = world.place3 as OutsideView
-    const blocks = [...view.skyline.boxes.map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.top, b.foot]),
-      ...[...view.skyline.towers, ...view.beyond].map((t) => [t.x - t.w / 2, t.x + t.w / 2, t.baseY - t.h, t.baseY])]
-    for (const note of world.labels.notes.filter((n) => n.kind === 'water')) {
-      // The letters (3–10 px under the box's top) on water: its own stretch between the far and the near edge, or the sea.
-      const glyph = { left: note.left, right: note.left + note.width, top: note.top + 3, bottom: note.top + 10 }
-      expect(glyph.bottom).toBeLessThanOrEqual(VISIBLE_BOTTOM)
-      for (const [l, r, t, b] of blocks) expect(glyph.right <= l || glyph.left >= r || glyph.bottom <= t || glyph.top >= b, note.text).toBe(true)
-      const mid = (glyph.left + glyph.right) / 2
-      // (The shore's raggedness under a letter or two is let pass, as the placement does: the text's middle on water.)
-      const spans = world.water.spans.filter((s) => s.name === note.text && s.from <= mid && s.to >= mid)
-      const middle = (glyph.top + glyph.bottom) / 2
-      const onSpan = spans.some((s) => {
-        const e = s.edges.reduce((best, x) => Math.abs(x.x - mid) < Math.abs(best.x - mid) ? x : best)
-        return middle >= e.farY && middle <= e.nearY
-      })
-      const sea = world.water.coastalSea
-      const onSea = Boolean(sea && [[glyph.left, glyph.top], [glyph.right, glyph.top], [glyph.left, glyph.bottom], [glyph.right, glyph.bottom]]
-        .every(([x, y]) => inside(sea.points, x, y)))
-      expect(onSpan || onSea, `${id} ${note.text}`).toBe(true)
-    }
-  })
-
-  it('names Netanya\'s sea on the sea itself, and Tiberias\'s lake on the lake', () => {
-    expect(worldAt('netanya').labels.notes.some((n) => n.kind === 'water' && n.text === 'ים')).toBe(true)
-    expect(worldAt('tiberias').labels.notes.some((n) => n.kind === 'water' && n.text === 'כנרת')).toBe(true)
-  })
+describe('C9: the waters of the picture (defect 5)', () => {
+  it.each([['netanya', ['ים']], ['haifa', ['ים']], ['tiberias', ['כנרת']], ['ein-gedi', ['ים המלח']], ['jerusalem', []], ['ramat-gan', []]] as const)(
+    '%s: names the waters truly drawn, whatever the hour', (id, names) => {
+      expect(worldAt(id).watersShown).toEqual(names)
+      expect(worldAt(id, '21:00').watersShown).toEqual(names)
+    })
 })
 
 describe('C9: the towns beyond the place within the reach (defect 6)', () => {

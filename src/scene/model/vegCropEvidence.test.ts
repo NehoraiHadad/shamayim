@@ -5,7 +5,7 @@ import { parseOverpass } from '../../data/landmarks/overpass'
 import { loadLandmarkSource } from '../../data/landmarks/useLandmarks'
 import * as panorama from '../../data/terrain/panorama'
 import { makeWorldInput, SHADMOT, typedCover } from '../../test/livingLandFixtures'
-import { DATUM_PLACES, STILL_PLACES } from '../../test/scenePlaces'
+import { BELOW_SEA_PLACES, STILL_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import type { Plane } from '../../world/types'
 import { makeWorldBuilder } from '../../world/world'
@@ -108,7 +108,7 @@ describe('mapped crop evidence from the landmark pipeline', () => {
   it('wires real mapped OSM crop areas through loadPlaces and worldInput (Kalya palms & Nahalal olive/orchards)', async () => {
     stubPublicFetch()
     try {
-      const kalya = DATUM_PLACES.find((p) => p.id === 'kalya')!
+      const kalya = BELOW_SEA_PLACES.find((p) => p.id === 'kalya')!
       const nahalal = STILL_PLACES.find((p) => p.id === 'nahalal')!
       const places = await loadPlaces([kalya, nahalal])
       const kaLoaded = places.get('kalya')!

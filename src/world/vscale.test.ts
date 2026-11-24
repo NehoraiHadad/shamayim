@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NEAR_DROP, outsideProject } from '../data/city/outsideView'
 import { settlementOf } from '../data/village/settlementOf'
 import type { LocalTime } from '../domain/types'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
 import { groundFn } from '../data/landmarks/seat'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import { LAND_TOP, placeDotY, verticalScale, VSCALE } from './outside'
@@ -49,7 +49,7 @@ describe('the place’s one vertical scale', () => {
 })
 
 describe('at every harness place', () => {
-  const places = [...SCENE_PLACES, ...DATUM_PLACES, ...SKYLINE_STUDY_PLACES.filter((p) => p.id !== 'ramat-gan')]
+  const places = [...SCENE_PLACES, ...BELOW_SEA_PLACES, ...SKYLINE_STUDY_PLACES.filter((p) => p.id !== 'ramat-gan')]
   let loaded: Map<string, LoadedPlace>
   const worlds = new Map<string, WorldState>()
   beforeAll(async () => {

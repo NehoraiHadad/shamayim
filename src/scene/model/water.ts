@@ -6,7 +6,6 @@ import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf, toneAt } from './landVeil'
-import { landInk } from './noteInk'
 import { skyAt } from './sky'
 import { mixLight, mixRgb, rgbOf } from './tone'
 import type { Box, GlintPath, LayerOf, RGB, SceneBox, Streak, WaterBand } from './types'
@@ -18,8 +17,6 @@ type WaterName = 'far' | 'near'
 const Z: Record<WaterName, number> = { far: 15, near: 35 }
 /** The water's strip (C7): six frames at six a second, a one-second loop of ripples and sparks. */
 export const WATER_FRAMES = { count: 6, fps: 6 }
-/** The datum's dots are a fine row under its note's letters, in their tone: fainter, as a line is found before a word. */
-const DATUM_ALPHA = 0.6
 /** The water's own colour where it sends back no sky: deep, a little green-blue (scaled by the light of the hour). */
 const DEEP: RGB = [0.06, 0.17, 0.21]
 /** The sun's path on the water in its own colour, the moon's silver. */
@@ -42,7 +39,7 @@ const hits = (clear: readonly Box[], x: number, y: number, w: number, h: number)
  * Ripples the one wind raises on a span (the world's `water.ripples`): calm water keeps a few long glassy bands, a breeze
  * breaks it into many short ripples, gathered in patches with slicks between; shorter and fainter toward the far edge
  * (perspective). Some facets tilt toward the eye and mirror the low sky (light), the rest away and mirror the higher sky
- * (dark): mostly light on calm water, as many dark as light in a breeze. Kept out of the text zones.
+ * (dark): mostly light on calm water, as many dark as light in a breeze. Kept out of the clear zones.
  */
 function ruffleOf(world: WorldState, index: number, box: SceneBox, clear: readonly Box[]) {
   const w = clamp01(world.wind.ms / 9)
@@ -88,18 +85,13 @@ export function openWaterTone(world: WorldState, box: SceneBox): (y: number, km:
  * - **rim**: a fine light line along the far edge (the horizon or the far shore mirrored at grazing angle);
  * - **ruffle** by the one wind (`ruffleOf`);
  * - **glint**: the light's path only where the world puts it (`water.glints`: the sun or moon over the span, above the land
- *   in its direction, strength by the wave slopes the wind raises), widening toward the eye, wider in more wind;
- * - **datum** (near layer, in front of the near ridge: the line is at the place's own depth): the dashed "פני הים" line
- *   where sea level meets the slopes, only below sea level (the
- *   place's `labels.datum`: 0 m on the outside view's own rule, `world/datum.ts`).
+ *   in its direction, strength by the wave slopes the wind raises), widening toward the eye, wider in more wind.
  */
 export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, clear: readonly Box[]): LayerOf<'water'> | null {
   const { water, light, night } = world
   const sx = box.width / SCENE_W
   const spans = water.spans.map((span, index) => ({ span, index })).filter(({ span }) => waterLayer(span) === name)
-  const line = name === 'near' && world.labels.below ? world.labels.datum ?? null : null
-  const datumOn = line !== null
-  if (!spans.length && !datumOn) return null
+  if (!spans.length) return null
 
   const sky = skyAt(world, box)
   const haze = hazeOf(world)
@@ -179,33 +171,24 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   // Over one loop a ripple runs a little way downwind (the one wind's side), more in more wind.
   const drift = (Math.abs(world.wind.across) > 0.05 ? Math.sign(world.wind.across) : 0) * 2.4 * windiness * sx
 
-  let datum: LayerOf<'water'>['datum'] = null
-  if (line) {
-    const segments = line.segments.map((seg) => ({ x1: seg.x1 * sx, x2: seg.x2 * sx, fadeLeft: seg.fadeLeft * sx, fadeRight: seg.fadeRight * sx }))
-    datum = { y: line.y, segments, rgb: landInk(world), alpha: DATUM_ALPHA }
-    for (const seg of segments) { left = Math.min(left, seg.x1); right = Math.max(right, seg.x2) }
-    top = Math.min(top, datum.y - 1); bottom = Math.max(bottom, datum.y + 1)
-  }
   const x0 = Math.max(0, Math.floor(left - 2)), y0 = Math.max(0, Math.floor(top - 2))
   const bounds = { x: x0, y: y0, w: Math.max(1, Math.min(box.width, Math.ceil(right + 2)) - x0),
     h: Math.max(1, Math.min(box.landHeight, Math.ceil(bottom + 2)) - y0) }
   const bandStopsKey = bands.map((b) => b.stops.map(([, c]) => colourKey(c)))
   const lightKey = layerKey('water.light', name, world.keys.terrain, world.keys.water, world.keys.light, world.keys.air,
     world.keys.ground, bandStopsKey, Math.round(world.wind.ms), Math.sign(Math.round(world.wind.across * 20)),
-    world.keys.night, datum && colourKey(datum.rgb), clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
+    world.keys.night, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
   return {
     kind: 'water', id: `water.${name}`, surface: 'land', z: Z[name], bounds,
-    // All of the water is light (the sky it mirrors, the hour's glint, the wind's ripples, the datum in its ground's
-    // tone): its form is only its place, so a scrub frame repaints the light canvas alone (§1d), and a datum alone only
-    // when the ink turns.
-    key: layerKey('water', name, world.keys.terrain, datum && [datum.y, ...datum.segments.flatMap((seg) => [seg.x1, seg.x2, seg.fadeLeft, seg.fadeRight])], landBoxKey(box)),
-    light: { key: bands.length ? lightKey : layerKey('water.datum', datum && colourKey(datum.rgb), landBoxKey(box)),
-      blend: 'source-over', tint: bands[0]?.stops[0][1] ?? body },
+    // All of the water is light (the sky it mirrors, the hour's glint, the wind's ripples): its form is only its
+    // place, so a scrub frame repaints the light canvas alone (§1d).
+    key: layerKey('water', name, world.keys.terrain, landBoxKey(box)),
+    light: { key: lightKey, blend: 'source-over', tint: bands[0].stops[0][1] },
     bands, ruffle: { light: aerial(mixRgb(sky(0.2), [1, 1, 1], 0.18 * (1 - dark)), median(spans.map(({ span }) => span.distanceKm))),
       dark: mixRgb(sky(25), body, 0.5), lit, shade, drift },
     // C7: the ripples run with the wind and the glint's sparks come and go, in a strip of frames (the light canvas only).
     ...(lit.length + shade.length + glints.length ? { animated: { mode: 'frames' as const, frames: WATER_FRAMES } } : {}),
-    glints, datum,
+    glints,
   }
 }
 

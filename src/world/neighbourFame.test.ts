@@ -17,7 +17,7 @@ function candidate(kind: Landmark['kind'], fame: 1 | 2, truePx: number) {
     heightM: 30, lat: 0, lon: .01 }
   const perspective: MarkPerspective = () => ({ hPx: truePx, crestPx: truePx, km: 4, sightKm: 4,
     heightM: 30, supportBlockId: 'town', townFootprint: true })
-  const placed = placeMarks(place, terrain, [source], 375, 0, false, undefined, [], 'landmark', perspective)
+  const placed = placeMarks(place, terrain, [source], 375, 0, false, undefined, 'landmark', perspective)
   return placed[0] && fit(placed[0], { dot: { x: 300, y: 100 }, width: 375, terrain, style: 'tile' } as MarksInput,
     () => 100, () => 80)
 }
@@ -51,7 +51,7 @@ it('uses the same fame predicate for the seat pool, without panorama-frame evide
   const sources: Landmark[] = marks.map(m => ({ id: m.kind, kind: m.kind, fame: m.fame, nameHe: 'Named',
     source: 'osm', heightM: 30, lat: 0, lon: .01 }))
   const { seatPool } = beyondMarks(place, sources, 375, source => ({ x: 140, base: 100, km: 4, blockId: 'town',
-    hPx: marks.find(m => m.kind === source.kind)!.px }), { x: 300, y: 100 }, [])
+    hPx: marks.find(m => m.kind === source.kind)!.px }), { x: 300, y: 100 })
   expect(seatPool.map(m => m.id)).toEqual(['church'])
   expect(seatPool[0]).toMatchObject({ named: true, base: 100 })
   expect(seatPool[0].sourceTopY).toBeUndefined()

@@ -50,10 +50,9 @@ export const STILL_PLACES: Place[] = [
 ]
 
 /**
- * Places below sea level the "פני הים" datum is checked at (`qa/canvas/datum/`), beside Tiberias, Ein Gedi and Shadmot
- * Mehola: a town in the Beit She'an valley, Jericho and two Dead Sea places. Harness only; not in the tests' place loops.
+ * Places below sea level, beside Tiberias, Ein Gedi and Shadmot Mehola: a town in the Beit She'an valley, Jericho and two Dead Sea places. Harness only; not in the tests' place loops.
  */
-export const DATUM_PLACES: Place[] = [
+export const BELOW_SEA_PLACES: Place[] = [
   { id: 'beit-shean', nameHe: 'בית שאן', regionHe: 'עמק בית שאן', lat: 32.4975, lon: 35.4964, timezone: 'Asia/Jerusalem',
     featureCode: 'PPL', settlementType: 'town', population: 18000 },
   { id: 'jericho', nameHe: 'יריחו', regionHe: 'בקעת הירדן', lat: 31.8569, lon: 35.4597, timezone: 'Asia/Jerusalem',

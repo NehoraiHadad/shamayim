@@ -61,7 +61,7 @@ function clearBackdrop(world: WorldState): WorldState {
 function seatWorld(fixtures: SeatFixture[]) {
   const { landmarks, beyondTowns: blocks, seatMark } = seatFixtures(fixtures)
   const view: OutsideView = { ...base.place3 as OutsideView, beyond: [], beyondTowns: blocks }
-  const { seated, seatPool } = beyondMarks(roshPina, landmarks, SCENE_W, seatMark, view.dot, [])
+  const { seated, seatPool } = beyondMarks(roshPina, landmarks, SCENE_W, seatMark, view.dot)
   const world = clearBackdrop({ ...base, place3: view, marks: seated, seatPool })
   const drawn = (box = BOX, clear: Box[] = []) => outsideLayer(world, box, clear)!.items
   const glyphs = (box = BOX, clear: Box[] = []) => drawn(box, clear).flatMap((item) => item.kind === 'mark' ? [item.glyph] : [])

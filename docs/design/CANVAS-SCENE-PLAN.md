@@ -11,8 +11,8 @@ data, drives every element. The SVG scene stays frozen and working behind it unt
 **Rules that carry over unchanged** (`TRUE-SCENE-PLAN.md`): true directions for ridges, sun, moon, water, far cities
 and landmarks; the vertical scale `RELIEF.high` (`data/terrain/angleScale.ts`) for land and sky alike; the portrait is
 an illustration chosen automatically from data, with the side rule; roofs only from roof evidence, else mixed; famous
-landmarks from wikidata/wikipedia with generic glyphs plus 4 hand icons; water from `src/data/water/`; the dashed
-"פני הים" datum only below sea level.
+landmarks from wikidata/wikipedia with generic glyphs plus 4 hand icons; water from `src/data/water/`; no text is
+written on the scene (C9 pack, item 4).
 
 **General rules, not point fixes** (owner, 2026-11-19): as few point fixes as possible. No special handling for
 particular places, mountains or settlements; every rule is written so the algorithm handles every place correctly from
@@ -171,7 +171,7 @@ export type LayerDesc =
   | LayerBase & { kind: 'clouds'; level: CloudLayer['level']; banks: BankDesc[] }        // animated: drift
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB;
                   faces: Face[]; gullies: Path[]; terraces: Path[]; scrub: Dot[]; snow?: Pt[]; grain: Grain }
-  | LayerBase & { kind: 'water'; bands: WaterBand[]; glint: GlintPath | null; datum: Line | null }  // animated: shimmer
+  | LayerBase & { kind: 'water'; bands: WaterBand[]; glint: GlintPath | null }  // animated: shimmer
   | LayerBase & { kind: 'farCities'; lights: Dot[]; blocks: Rect[] }
   | LayerBase & { kind: 'portrait'; items: PortraitItem[] }      // houses, roofs, trees, cypresses, back to front
   | LayerBase & { kind: 'outside'; mass: Pt[]; spires: Spire[]; glyphs: GlyphDesc[]; sea: Pt[] | null }
@@ -182,10 +182,6 @@ export type LayerDesc =
 export interface GlyphDesc { kind: MarkKind | IconKind; x: number; base: number; h: number; seed: number
   litSide: 'left' | 'right' | null; tones: Tones /* lit, shade, body, open, roof after light and haze */
   windows: number /* lit windows by night */; lean: number; famous: boolean }
-export type OverlayItem =
-  | { kind: 'height'; text: string; x: number; y: number; below: boolean }
-  | { kind: 'datum' | 'water'; text: string; x: number; y: number }
-  | { kind: 'dot'; x: number; y: number }
 ```
 
 Files: `sky.ts`, `stars.ts`, `bodies.ts`, `clouds.ts`, `planes.ts` (back/far/near + ridge modelling from
@@ -243,10 +239,7 @@ when `litSide === 'right'`; a glyph with text or asymmetry (Chords Bridge) has a
 
 - `useWorld.ts`: `buildWorld` memoised per part, called once in `App.tsx` and passed to both the sky and the scene.
 - `SceneCanvas.tsx` (replaces the body of `ValleyScene.tsx`): the figure keeps `role="group"` and its `aria-label`,
-  hosts the LandSurface canvas, `SceneOverlay` and `SceneScrubber`.
-- `SceneOverlay.tsx`: HTML from `model.overlay`: the height label, the "פני הים" datum note, the water names, the
-  village dot (kept HTML: crisp, part of the UI). Same CSS classes as today (`styles.depth`, `seaLabel`, `waterLabel`,
-  `village`), positions in % of the figure.
+  hosts the LandSurface canvas and `SceneScrubber`.
 - `SkyCanvas.tsx` inside `ui/Sky.tsx`. The CSS gradient stays under it as the first paint (no flash before the canvas
   is ready). The sky no longer reads the scene from the DOM: `atmo/layout.ts` (`readLayout`, `data-afterglow`,
   `data-cloud-seen`, `[data-sun="up"]`) is replaced by `box.landTop` measured once by a `ResizeObserver`.
@@ -363,8 +356,8 @@ greps `src/world`, `src/scene/model`, `src/scene/paint` for `Math.random`, `Date
   rain cells are at their true azimuths; stars count scales with `starsThrough` and is 0 under full cover.
 - *Wind:* one sign everywhere: rain slant, cloud drift, tree/smoke lean and glint wave share `sign(wind.across)`;
   drift grows with level (low < mid < high).
-- *Layout:* the dot keeps its clearing (no portrait item within `DOT_R + 1`); no glyph, house or label overlaps
-  `model.clear` (text boxes: height label, datum, water names); every mark base lies on its ridge (`|base − ground(x)|
+- *Layout:* the dot keeps its clearing (no portrait item within `DOT_R + 1`); no glyph or house overlaps
+  `model.clear` (the dot's clearing); every mark base lies on its ridge (`|base − ground(x)|
   ≤ 1 px`); portrait density falls off from the dot outward (houses per 10 px slot non-increasing with distance).
 - *Truth:* water spans and glint at their bearings; east of the place drawn left; outside view: a tower ≥ 150 m or
   famous is a glyph, the rest fold or spire per B; the coastal sea runs from the coast to the frame edge.
@@ -1605,17 +1598,13 @@ and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
    disc, the disc is laid again on the land over the mass (its aureole stays on the sky, glare round the mass's edge). A body
    behind the true land stays hidden (Haifa 16:30, Ein Gedi's cliffs). Haifa 06:20: the sun shows low over the lower city by
    the bay.
-4. **No height and no dot on the picture** (owner, 2026-11-24: too many elements of little value): the place's height is
-   spoken only (`scene/react/sceneLabel.ts`). The small clearing at the exact spot stays among the houses (filling it puts
-   Tiberias over its roof/front limit). **The notes that stay** (the water's names, "פני הים" and its line) are quiet: a
-   fifth under the caption size, regular weight, no halo, in a tone of the land or water under them stepped darker or
-   lighter just to 3.2:1 (`theme/quietInk.ts`, `scene/model/noteInk.ts`), one rule for every hour and style.
-5. **A water name is written on its water's surface as drawn** (`world/place.ts` `notesOnWater`): along its own stretch
-   where the surface shows deep enough under the far shore for the letters (the shore's raggedness under a letter or two let
-   pass), nearest the stretch's middle, clear of the place's mass, towers, trees, the towns and towers beyond and the dot;
-   else, for the sea, on the outside view's coastal sea (its polygon, from the open side); else unnamed. Netanya's and
-   Haifa's "ים" now lie on the sea, Tiberias's "כנרת" and Masada's "ים המלח" on the lake (Masada's was dropped); Ramat Gan's
-   sea, only seen among Tel Aviv's towers, goes unnamed. (`sceneNotes` itself is the SVG's and unchanged.)
+4. **No text on the picture** (owner, 2026-11-24: it catches the eye): no height, no dot, no water names, no "פני הים" line
+   (its rules, `world/datum.ts` and the notes' seats, are in git history; the sections below on them are history). The small
+   clearing at the exact spot stays among the houses (filling it puts Tiberias over its roof/front limit), and a place below
+   sea level keeps its scale reaching up to 0 m, so the picture did not move.
+5. **The facts are told in one line at the foot of the page** (`text/sceneFacts.ts`, `ui/SceneFacts.tsx`): the place, its
+   height over or under the sea, and the waters drawn in the picture (`world/watersShown.ts`: a named body whose surface,
+   behind the land and the place's own buildings as drawn, shows over 24 columns or more; a coastal place's own sea).
 6. **The towns 0–6 km out are drawn by the outside view, as the towers beyond** (`world/outside.ts` `beyondTowns`): every
    built square of the city raster (≥ 20 %) outside the place within the skyline's reach, at its true spot in the outside
    projection, as wide as it is there, its roof by the perspective (never larger a metre than the place's near edge), no
@@ -1760,7 +1749,7 @@ sea level stands 137 m above the town.
   sea level); every harness place below sea level has one. The line is `labels.datum` (the far water layer draws it, `model/water.ts`), "פני הים" stands over it within its span (`sceneNotes` `datumNote`).
 - *Places checked* (`qa/canvas/datum/`, before / after at 12:00, Tiberias also 16:30; `sheet-before-after.png`):
   Tiberias (own ground: 6 px over the dot, meets the town's slope west of it), Ein Gedi (own ground: 18 px over the dot,
-  meets the cliff), Shadmot Mehola, and four new harness places below sea level (`DATUM_PLACES`, panoramas recorded
+  meets the cliff), Shadmot Mehola, and four new harness places below sea level (`BELOW_SEA_PLACES`, panoramas recorded
   from the DEM): Beit She'an, Jericho, Kalya, Neve Zohar (all by the land round them: the near ridge's face, the
   Gilboa's and Gilead's feet, the cliffs). Every line stands above its dot.
 - *Tests:* `world/datum.test.ts` (8: the contour, the eye's 0 m on a synthetic slope and a hidden one, above the dot only,
@@ -1938,7 +1927,7 @@ sea level stands 137 m above the town.
   relief grows (28 → 40 px). The places whose own ground is flat but whose band was stretched by the old presses
   (Shadmot Mehola's 0.70 px/m above the dot, Kalya's 0.54) are now as flat as they are.
 - *Stills* (`qa/canvas/vscale/`, before = `54702fe`): `before/` and `after/` of every harness place at 12:00 (the 8 base
-  places, `DATUM_PLACES`, Be'er Sheva and Netanya) and Tiberias at 16:30; `sheet-before-after.png`.
+  places, `BELOW_SEA_PLACES`, Be'er Sheva and Netanya) and Tiberias at 16:30; `sheet-before-after.png`.
 - *Tests*: `world/vscale.test.ts` (6: the band and its saturation, the clamp, the dot's placement and its moves; at all 13
   places with built cells, every row's foot on the one scale above and below the dot and the measured ratio 1, the dot
   in the land area, Haifa / Jerusalem / Rosh Pina at least 25 px tall, Tiberias's dot under the ridge line).
@@ -2202,7 +2191,7 @@ structures are actually drawn in front of it, and the light judges the bodies on
   crossing, and the day's visible sunrise and sunset (`light.ts` `visibleDay`, kept with the crossings).
   `bodiesOverPlace` and the `over` body part are removed. The stars, planets, Milky Way, halo, bows, rays and aureole are
   on the sky surface, under the land.
-- Checked at sunrise and sunset at the 8 base places and the 4 `DATUM_PLACES`: the judged state equals what the model
+- Checked at sunrise and sunset at the 8 base places and the 4 `BELOW_SEA_PLACES`: the judged state equals what the model
   draws (the disc's top against the model's land top, `landTopOf`) at every moment more than 1.5 px from the line.
 
 *Tests*:
@@ -2417,7 +2406,7 @@ by land truly between it and the eye.** General rules, no place named:
   seeded per place and day, the rates ramp, and paths are built once per place, day and inputs.
 
 *Tests*:
-- `scene/model/flight.test.ts` (12: the 8 base places and the 4 `DATUM_PLACES`, every minute of 2026-11-17 through one
+- `scene/model/flight.test.ts` (12: the 8 base places and the 4 `BELOW_SEA_PLACES`, every minute of 2026-11-17 through one
   world builder):
   - every flock under way keeps its kind's least clearance over the ground under it;
   - a flock nearer than the land drawn at its x, with no ground in its line of sight, is never hidden;

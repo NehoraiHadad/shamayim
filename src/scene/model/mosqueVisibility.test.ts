@@ -2,14 +2,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { cellsForStrip, loadIsrael, type IsraelLandmarkIndex, type LandmarkCell } from '../../data/landmarks/israelData'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { buildWorld } from '../../world/world'
 import { sceneModel } from '.'
 
 const places = new Map(
-  [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES, ...VILLAGE_PLACES]
+  [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...BELOW_SEA_PLACES, ...VILLAGE_PLACES]
     .map(place => [place.id, place]),
 )
 const suffix = '.panorama.json'
