@@ -103,14 +103,14 @@ export function paintLitSurface(
   for (let j = 0; j < t.hPx; j++) {
     const y = bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < t.wPx; i++) {
-      const x = bounds.x + (i + 0.5) * TEXEL
-      const n = j * t.wPx + i, m = n * 3, o = n * 4
+      const x = bounds.x + (i + 0.5) * TEXEL, n = j * t.wPx + i, m = n * 3, o = n * 4
       if (material) { rho[0] = material[m]; rho[1] = material[m + 1]; rho[2] = material[m + 2] } else own!.rho(n, rho)
       samplePlaneTexel(t, i, x, y, rho, sample)
-      shadeTexel(t, sample, litField.eSun, own ? own.turn(n, i, sample) : 1, rgb)
+      const turned = own?.turn(n, i, sample) ?? 1
+      shadeTexel(t, sample, litField.eSun, turned, rgb)
       encodeTexel(data, o, rgb)
       if (shade) {
-        if (sample.sVis) shadeTexel(t, sample, diffuse, 1, rgb)
+        if (sample.sVis) shadeTexel(t, sample, diffuse, Math.min(1, turned), rgb)
         encodeTexel(shade.data, o, rgb)
       }
     }
@@ -135,14 +135,15 @@ function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, shade?: Ctx2D, own?: Ow
   if (t.litField.eSun[1] < 0.015) return
   for (let i = 0; i < t.wPx; i++) {
     const left = t.bounds.x + i * TEXEL, x = left + TEXEL / 2, y = t.crestY[i], rho: [number, number, number] = [0, 0, 0]
-    own?.rho(clamp(Math.floor((y + 0.65 - t.bounds.y) / TEXEL), 0, t.hPx - 1) * t.wPx + i, rho)
-    const rim = samplePlaneTexel(t, i, x, y + 0.65, own && rho)
-    const face = samplePlaneTexel(t, i, x, y + 9, own && rho)
+    const n = clamp(Math.floor((y + 0.65 - t.bounds.y) / TEXEL), 0, t.hPx - 1) * t.wPx + i
+    own?.rho(n, rho)
+    const rim = samplePlaneTexel(t, i, x, y + 0.65, own && rho), face = samplePlaneTexel(t, i, x, y + 9, own && rho)
     if (rim.sVis - face.sVis < 0.025) continue
-    ctx.fillStyle = css(shadeTexelSrgb(t, rim))
+    const turned = own?.turn(n, i, rim) ?? 1
+    ctx.fillStyle = css(shadeTexelSrgb(t, rim, turned))
     ctx.fillRect(left, y - 0.75, TEXEL, 2.2)
     if (shade) {
-      shade.fillStyle = css(shadeTexelSrgb(t, rim, 1, shadowBeam(t.litField)))
+      shade.fillStyle = css(shadeTexelSrgb(t, rim, Math.min(1, turned), shadowBeam(t.litField)))
       shade.fillRect(left, y - 0.75, TEXEL, 2.2)
     }
   }
