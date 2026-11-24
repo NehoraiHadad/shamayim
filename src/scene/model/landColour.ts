@@ -87,10 +87,12 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
       const targetY = crests[c] + rowFrac * Math.max(0, feet[c] - crests[c])
       const { km } = faceAtY(world, name, plane, x, crests[c], feet[c], targetY)
       const hit = sampleBandAtKm(world.land, frac * nRays, km)
-      if (shown) {
-        sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
+      if (shown) sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
+      if (shown && depths[c] > 0) {
+        // The mean's rows divide what is seen: the palette's last lies under the nearer crest, so that the two meet there.
+        const seen = faceAtY(world, name, plane, x, crests[c], feet[c], crests[c] + rowFrac * depths[c])
         const area = depths[c] * nodePart(c, cols) * nodePart(r, rows)
-        for (const { albedo, share } of dryPartsAtKm(world.land, frac * nRays, km)) dry.push({ albedo, weight: area * share })
+        for (const { albedo, share } of dryPartsAtKm(world.land, frac * nRays, seen.km)) dry.push({ albedo, weight: area * share })
       }
       visible.push(shown)
       rawAlbedos.push(hit.albedo)
