@@ -107,11 +107,11 @@ describe('at every harness place', () => {
     expect(view.dot.y - world.terrain.near!.points.find(([x]) => x >= view.dot.x)![1]).toBeGreaterThan(20)
   })
 
-  it('draws the place?s ground as one edge, never a comb of single columns', { timeout: 120_000 }, () => {
+  it('draws the place’s ground as one edge, never a comb of single columns', { timeout: 120_000 }, () => {
     const TOOTH_PX = 2.5, APART_PX = 4
     const teeth = ['majdal-shams', 'ein-gedi'].flatMap((id) => {
       const points = worldOf(id).terrain.near!.points
-      const at = groundFn(points, 375)
+      const at = groundFn(points.map(([x, y]) => [x, y]), 375)
       const found = points.filter(([x, y]) => x > APART_PX && x < 375 - APART_PX
         && Math.min(at(x - APART_PX), at(x + APART_PX)) - y > TOOTH_PX)
       return found.map(([x, y]) => `${id} ${x.toFixed(1)} ${y.toFixed(1)}`)
