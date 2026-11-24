@@ -1,12 +1,13 @@
 import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
-import { boundsForPlace, boundsHoldKm, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
+import { boundsForPlace, boundsHolder, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
 import { LON_STEP } from '../data/city/grid'
+import { highestFirst } from '../data/city/numberOrder'
 import {
   baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, isOwnSpot, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
   outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
   type OutsideLook, type OutsideSkyline, type PlaceLie,
 } from '../data/city/outsideView'
-import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
+import { STOREY_M } from '../data/city/skylineHeight'
 import { hashId, seeded } from '../data/landmarks/hash'
 import { groundFn } from '../data/landmarks/seat'
 import { COVER, LAND_STEP } from '../data/land/grid'
@@ -19,6 +20,7 @@ import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
 import { beyondKm, beyondTowns, builtSquares, outsideDistance, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
 import { ridgeHeightAt } from './datum'
+import { fabricHeights } from './fabricHeight'
 import { VISIBLE_BOTTOM } from './layout'
 import { SCENE_H } from './sceneBox'
 import type { BeyondBlock, BeyondTower, CoastalSea, OutsideTreeSite, OutsideView, Pt } from './types'
@@ -123,8 +125,8 @@ export const FRAME_SCALE: FrameScale = {
 }
 /** The frame takes the place's built cells between these quantiles each way: a lone shed far out does not widen it. */
 const FRAME_Q = .02
-/** A built cell's roof where the city raster knows nothing of it: a one- or two-storey house. */
-const HOUSE_M = [STOREY_M + 1.5, 2 * STOREY_M + 1.5] as const
+/** A house's frontage (m): the legible house's, the place's plan scale. */
+const HOUSE_FRONT_M = 13
 /** Trees stand where the cover has them within this many km of a built cell (the place's gardens, yards, streets). */
 const TREE_NEAR_KM = .12
 /**
@@ -153,10 +155,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   const cos = Math.cos(place.lat * Math.PI / 180)
   const cells: FabricCell[] = []
   const trees: PlaceTree[] = []
-  const heightAt = (lat: number, lon: number, u: number) => {
-    const at = raster?.at(lat, lon)
-    return at && at.built >= .2 ? roofHeight(at.levels, at.p90, u) : HOUSE_M[u < .6 ? 0 : 1]
-  }
+  const heightsAt = fabricHeights(city)
   if (cover) {
     const step = LAND_STEP
     // Only the place's own box (its boundary's extent) within the reach is read.
@@ -164,27 +163,27 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     const south = place.lat + box.s / 111.32, north = place.lat + box.n / 111.32
     const west = place.lon + box.w / (111.32 * cos), east = place.lon + box.e / (111.32 * cos)
     const wKm = step * 111.32 * cos
-    const treeSpots: { dx: number; dy: number; lat: number; lon: number }[] = []
+    const treeSpots: { row: number; col: number; km: number }[] = []
     const builtRows = new Map<number, number[]>()
     for (let row = Math.floor(south / step); row <= Math.floor(north / step); row++) {
       for (let col = Math.floor(west / step); col <= Math.floor(east / step); col++) {
         const lat = (row + .5) * step, lon = (col + .5) * step
         const c = cover.coverAt(lat, lon)
         if (c !== BUILT && c !== TREE) continue
-        const dx = (lon - place.lon) * 111.32 * cos, dy = (lat - place.lat) * 111.32
-        if (Math.hypot(dx, dy) > reachKm * 1.42 || !(inPlace?.(dx, dy) ?? true)) continue
-        if (c === TREE) { treeSpots.push({ dx, dy, lat, lon }); continue }
+        const dx = (lon - place.lon) * 111.32 * cos, dy = (lat - place.lat) * 111.32, km = Math.hypot(dx, dy)
+        if (km > reachKm * 1.42 || !(inPlace?.(dx, dy) ?? true)) continue
+        if (c === TREE) { treeSpots.push({ row, col, km }); continue }
         const seed = hashId(`${row}:${col}`)
         const random = seeded(seed)
-        const heightM = heightAt(lat, lon, random())
+        const square = raster?.at(lat, lon), heights = heightsAt(square, lat, lon, random())
         // C9 (defect 10): a built cell is as wide as its buildings' frontage, not wall to wall: its width by the root of
         // the raster square's built share (the share of the ground under roofs; a row of blocks shows about its root
         // across), at a seeded spot inside the cell, so the streets and yards between them open and the rows behind,
         // with their own heights, show through. A cell the raster knows nothing of is whole.
-        const built = raster?.at(lat, lon).built ?? 0
+        const built = square?.built ?? 0, frontM = heights.heightM > HOUSE_TOP_M ? raster?.front?.(lat, lon) : 0
         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
         const shift = (random() - .5) * (1 - front) * wKm
-        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM, seed })
+        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM: heights.heightM, siteHeightM: heights.siteHeightM, seed, frontM })
         const list = builtRows.get(row)
         if (list) list.push(col)
         else builtRows.set(row, [col])
@@ -197,12 +196,12 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
       for (let d = -r; d <= r; d++) if (builtRows.get(row + d)?.some((c) => Math.abs(c - col) <= r)) return true
       return false
     }
-    for (const spot of treeSpots.sort((a, b) => Math.hypot(a.dx, a.dy) - Math.hypot(b.dx, b.dy))) {
+    for (const spot of highestFirst(treeSpots, treeSpots.map(({ km }) => -km))) {
       if (trees.length >= MAX_TREES) break
-      if (!near(spot.lat, spot.lon)) continue
-      const seed = hashId(`tree:${spot.lat.toFixed(5)}:${spot.lon.toFixed(5)}`)
-      const u = seeded(seed)()
-      trees.push({ dx: spot.dx, dy: spot.dy, seed, kind: u < .22 ? 'cypress' : u > .94 ? 'palm' : 'tree',
+      const lat = (spot.row + .5) * step, lon = (spot.col + .5) * step
+      if (!near(lat, lon)) continue
+      const seed = hashId(`tree:${lat.toFixed(5)}:${lon.toFixed(5)}`), u = seeded(seed)()
+      trees.push({ dx: (lon - place.lon) * 111.32 * cos, dy: (lat - place.lat) * 111.32, seed, kind: u < .22 ? 'cypress' : u > .94 ? 'palm' : 'tree',
         heightM: u < .22 ? 11 : u > .94 ? 12 : 6 + 3 * u })
     }
     return { cells, trees, source: 'cover' as const }
@@ -210,8 +209,8 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   for (const sq of builtSquares(place, city, reachKm)) {
     if (!(inPlace?.(sq.dx, sq.dy) ?? true)) continue
     const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
-    const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`)
-    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, heightM: heightAt(lat, lon, seeded(seed)()), seed })
+    const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`), frontM = raster?.front?.(lat, lon)
+    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(raster?.at(lat, lon), lat, lon, seeded(seed)()), seed, frontM })
   }
   return { cells, trees, source: 'raster' as const }
 }
@@ -295,6 +294,7 @@ export function lookOf(frame: OutsideFrame): OutsideLook {
   return {
     px: (heightM, k) => k / frame.k * (heightM <= HOUSE_TOP_M ? heightM * kMin : low + (heightM - HOUSE_TOP_M) * frame.k),
     house: { w: house.w },
+    plan: house.w / HOUSE_FRONT_M,
   }
 }
 
@@ -325,7 +325,7 @@ function groundSamples(frame: OutsideFrame, heightNear: (dx: number, dy: number)
 function lieOf(input: OutsideInput) {
   const { place, terrain, city, reachKm, centerX, width, ground, floor } = input
   const pb = boundsForPlace(place, city?.clusters, input.bounds, reachKm)
-  const inPlace = pb ? (dx: number, dy: number) => boundsHoldKm(pb, place, dx, dy) : undefined
+  const inPlace = pb ? boundsHolder(pb, place) : undefined
   const fabric = fabricOf(place, input, inPlace, pb?.box ?? null)
   const squares = fabric.cells
   let frame: OutsideFrame
@@ -382,8 +382,8 @@ function lieOf(input: OutsideInput) {
   // The place's own land: its ground's spots and its built cells' own ground (a row stands on it, never over the land
   // drawn under it); water is not land. And the land drawn round it on the same scale (`landAround`): it is in the
   // picture too.
-  const spots = [...samples.filter((_, i) => !wet[i]),
-    ...squares.flatMap(({ dx, dy }, i) => Number.isNaN(cellGround[i]) ? [] : [{ dx, dy, h: cellGround[i] }])]
+  const spots = samples.filter((_, i) => !wet[i])
+  squares.forEach(({ dx, dy }, i) => { if (!Number.isNaN(cellGround[i])) spots.push({ dx, dy, h: cellGround[i] }) })
   const around = landAround(frame, heightNear, spots, width)
   // Land beyond the frame's far edge is farther than the place: one metre there is less than one at the place, by its
   // true depth (decision 14: one scale at the same distance).

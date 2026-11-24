@@ -54,6 +54,11 @@ export function apparentAltitude(altitude: number): number {
   return altitude + refraction(altitude)
 }
 
+/** The solar disc's plotted altitude includes its 0.267° angular radius (top limb). */
+export function apparentSunAltitude(altitude: number): number {
+  return apparentAltitude(altitude) + 0.267
+}
+
 /**
  * Where a body at its (apparent) altitude and true azimuth is drawn: across by its direction (through the camera:
  * today west left, south middle, east right), up from the horizon line by its altitude on the shared angle scale. Below the horizon it goes on down,

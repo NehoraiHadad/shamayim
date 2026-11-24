@@ -6,14 +6,13 @@ export const LON_STEP = 0.1 / COLS
 export const LAT_STEP = 0.1 / ROWS
 export const cellKey = (lat: number, lon: number) => `${Math.floor(lat * 10)}_${Math.floor(lon * 10)}`
 
-export function squareOf(lat: number, lon: number): Square {
-  const cell = cellKey(lat, lon)
-  return {
-    cell,
-    col: Math.min(COLS - 1, Math.floor((lon * 10 - Math.floor(lon * 10)) * COLS)),
-    row: Math.min(ROWS - 1, Math.floor((lat * 10 - Math.floor(lat * 10)) * ROWS)),
-  }
-}
+const colOf = (lon: number) => Math.min(COLS - 1, Math.floor((lon * 10 - Math.floor(lon * 10)) * COLS))
+const rowOf = (lat: number) => Math.min(ROWS - 1, Math.floor((lat * 10 - Math.floor(lat * 10)) * ROWS))
+
+export const squareOf = (lat: number, lon: number): Square => ({ cell: cellKey(lat, lon), col: colOf(lon), row: rowOf(lat) })
+
+/** Where a point's square stands among its cell's. */
+export const squareIndex = (lat: number, lon: number) => rowOf(lat) * COLS + colOf(lon)
 
 export function squareCentre({ cell, col, row }: Square) {
   const [south, west] = cell.split('_').map(Number)

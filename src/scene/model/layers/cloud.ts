@@ -1,5 +1,6 @@
 import type { RGB } from '../../../world/types'
 import type { CloudSprite } from '../cloudSprite'
+import type { Lamp } from './lamp'
 import type { LayerBase } from './base'
 
 export type CloudLayers =
@@ -11,6 +12,7 @@ export type CloudLayers =
    * is not given). `body`, `shade` and `lit` the layer's colours at this hour.
    */
   | LayerBase & { kind: 'cloudSheet'; lattice: 'low' | 'tower' | 'mid' | 'high'; genus: string
+      lamp?: Lamp
       xs: number[]; ys: number[]; alpha: number[]; tone: number[]; source?: number[]; body: RGB; shade: RGB; lit: RGB
       /** By night, the towns' light on each texel: its tone and its weight (row-major, 0–1). */
       city?: { rgb: RGB; weight: number[] }

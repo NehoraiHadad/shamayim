@@ -1,17 +1,19 @@
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WorldMark } from './markGeometry'
+import { outsideBodies } from './outsideBodies'
 import { HORIZON_Y, SCENE_W } from './sceneBox'
+import { sceneClearance } from './sceneClearance'
 import type { Skyline } from './skyline'
-import type { FarCities, OutsideView, PlaceUnknown, Pt } from './types'
+import type { FarCities, OutsideView, PlaceUnknown, Pt, WorldLabels } from './types'
 
 /*
  * The drawn skyline (the owner's report of 2026-11-20: a low sun drawn over the near hill and the town). Everything in the
  * sky is hidden by whatever land and structures are actually drawn in front of it, so the sun and moon rise and set, and
  * the light judges them up or behind the land, against one line: the top of what the scene draws. That is the near land
  * as drawn (the place's own ground on its scale within its span, the panorama's ridge beyond), the far land, and what
- * stands on them: the place's rows and towers, its trees, the towers and towns beyond it, the marks, the far towns'
- * towers. (Until this, the bodies were judged on the panorama's own skyline, which the place's own near land now
- * overdraws; and a body the place's eye saw was laid again over the place's mass.)
+ * stands on them, as it stands clear of the text (`outsideBodies.ts`): the place's rows and towers, its trees, the towers
+ * and towns beyond it; the marks, the far towns' towers. (Until this, the bodies were judged on the panorama's own
+ * skyline, which the place's own near land now overdraws; and a body the place's eye saw was laid again over its mass.)
  */
 
 /** Columns per scene px (at the 375 px reference). */
@@ -22,7 +24,7 @@ const RES = 2
  * eye level and camera (`base`) place each body on its path, and this line determines whether it clears the land.
  */
 export function drawnSkyline(drawn: SceneTerrain, place3: OutsideView | PlaceUnknown, marks: readonly WorldMark[], far: FarCities | null,
-  base: Skyline): Skyline {
+  base: Skyline, labels: WorldLabels, width: number): Skyline {
   const n = SCENE_W * RES + 1
   const cols = new Float32Array(n).fill(Infinity)
   const line = (points: readonly Pt[]) => {
@@ -43,10 +45,13 @@ export function drawnSkyline(drawn: SceneTerrain, place3: OutsideView | PlaceUnk
   line(drawn.farPoints)
   if (place3.kind === 'outside') {
     if (place3.land?.top.length) line(place3.land.top)
-    for (const b of place3.skyline.boxes) block(b.x, b.w, b.top)
-    for (const t of [...place3.skyline.towers, ...place3.beyond]) block(t.x, t.w, t.baseY - t.h)
-    for (const b of place3.beyondTowns ?? []) block(b.x, b.w, b.baseY - b.h)
-    for (const t of place3.trees) block(t.x, t.w, t.base - t.h)
+    const sx = width / SCENE_W
+    const standing = outsideBodies(place3, sceneClearance(labels, place3.dot, width), sx)
+    for (const { box, x, w } of standing.boxes) block(x / sx, w / sx, box.top)
+    for (const { tower, x, w } of standing.towers) block(x / sx, w / sx, tower.baseY - tower.h)
+    for (const t of standing.beyond) block(t.x, t.w / sx, t.baseY - t.h)
+    for (const b of standing.towns) block(b.x, b.w, b.baseY - b.h)
+    for (const t of standing.trees) block(t.x, t.w / sx, t.base - t.h)
   }
   for (const m of marks) block(m.x, m.w, m.base - m.h * m.scale)
   for (const t of far?.towers ?? []) block(t.x, 2, t.top)
