@@ -5,6 +5,7 @@ import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
+import { withFallTile } from './fallTile'
 import { landDustLayers } from './landDust'
 import { withCloudAir } from './cloudAir'
 import { withLamp } from './lamp'
@@ -96,7 +97,7 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
 
 /** The layers with what the hand's light asks of the model beyond its own. */
 const asked = (layers: LayerDesc[], world: WorldState, box: SceneBox, light: StyleLight) =>
-  withCloudAir(withLamp(layers, world, box, light.lamp), world, box, light.cloudAir)
+  withCloudAir(withLamp(withFallTile(layers, light.fallTile), world, box, light.lamp), world, box, light.cloudAir)
 
 type OutsideMemo = { box: string; layer: ReturnType<typeof outsideLayer> }
 const outsideMemo = new WeakMap<StyleLight, WeakMap<WorldState, OutsideMemo>>()
