@@ -1220,22 +1220,22 @@ Goal (owner): `real` (default) and `drawn` clearly different, one true world und
 `two-styles-manager-brief.md` in the sessions' shared notes folder. The manager owns every merge to main (each goes live).
 Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 
-- [~] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
+- [x] 1. Foundations (branch `claude/**`, one session, alone in `src/scene`)
       - [x] 1a. `src/scene/paint` split into shared / real / drawn; one painter registry per style, one typed layer contract
             (facts only), architecture test. Byte-identical (identity CI 45271259016). Merged b0181337, main CI 45276145093 green
       - [x] 1b. Data audit table: fact, source, per place and hour, where it is lost or distorted (`docs/design/DATA-AUDIT.md`,
             verified; its plain losses go with 1d, its design questions to the manager)
-      - [~] 1c. Bug: haifa storm differs between first load and reload. Fixed in slice 1 (c04a5590); slice 2 (aef314f9, the audit's
+      - [x] 1c. Bug: haifa storm differs between first load and reload. Fixed in slice 1 (c04a5590); slice 2 (aef314f9, the audit's
             plain losses) on top. Verified by the manager: CI 45289854735 green, stills vs main, same code 1.5x apart on two
             runners so no perf regression shown. Changes the first load of a storm: waits for the owner's approval, then merge
             Same-machine pairs both ways: scrub.latency +1 to +5 % dry (more in rain), model and cold load flat; cause being looked for.
             Owner approved 24 Nov; merged 5fb0d856 (tree of aef314f9), main CI 45335406645 green
-      - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
+      - [x] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
-      - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
+      - [x] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
             Verified 24 Nov, green, sent to the owner: dusk `69ef8e91`, near ground `ebe40935`. Town, sky, clouds rounds still on CI
-      - [ ] 1g. Village composition (owner, 24 Nov, Karmei Tzur), separate from 1c-1e: (1) the height number covers the settlement
+      - [x] 1g. Village composition (owner, 24 Nov, Karmei Tzur), separate from 1c-1e: (1) the height number covers the settlement
             (`besideDot` does not see the houses; seen at Shadmot Mehola too); (2) odd detached buildings around it; (3) the place
             does not resemble itself, houses too far apart. Evidence (record the real panorama in CI) -> proposal of the rule for
             what a settlement shows -> owner's approval -> code. Foundations session, own worktree from its town patch
@@ -1258,9 +1258,12 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             Owner, 24 Nov evening: no text in the scene at all; place, height and waters go to one quiet line at the page foot
             (`claude/found-i-quiet`, variant with the sea level line `claude/meas-datum`); on CI, then before/after for the owner
             Clean scene `a4f4f6ab` (no line, owner chose 1; Tiberias roof/front band 1.65 -> 1.67 with evidence) merged 2a0c2fef, main CI 45390507893 green
-      - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
+      - [x] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
+            Final READY 2a0c2fef (24 Nov). Open, none blocks a user: footer far-edge and width-375 judging; Tiberias band 1.67 tight (1.664);
+            density.perf.test flaky; DST fold; worshipVisibility mojibake; lifeSchedule.ts 626 lines; spikes seams; canopy key with gust;
+            refresh-ease reload. Left to the styles: drawn houses in dust/twilight and Jerusalem wall of blocks; real flat shower tower, ball cumulus
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
-- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 (clouds) in work at 251ca10a)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
       Test mail to the vote address arrived (owner, 24 Nov)
 - [ ] 4. After the vote: special-sky slice (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
