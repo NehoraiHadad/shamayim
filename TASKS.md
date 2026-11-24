@@ -1229,7 +1229,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             plain losses) on top. Verified by the manager: CI 45289854735 green, stills vs main, same code 1.5x apart on two
             runners so no perf regression shown. Changes the first load of a storm: waits for the owner's approval, then merge
             Same-machine pairs both ways: scrub.latency +1 to +5 % dry (more in rain), model and cold load flat; cause being looked for.
-            Owner approved 24 Nov; merged 5fb0d856 (tree of aef314f9), main CI pending
+            Owner approved 24 Nov; merged 5fb0d856 (tree of aef314f9), main CI 45335406645 green
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
