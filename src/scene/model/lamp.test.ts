@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { addMinutes } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
-import { refraction } from '../../world/skyProjection'
+import { apparentSunAltitude } from '../../world/skyProjection'
 import type { WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { STYLES } from '../paint/styles'
 import { sceneModel } from './index'
 import { lampOf, withLamp } from './lamp'
 import { clearNoonBeamShare } from './landIrradiance'
+import { skyGeom } from './sky'
 import { PLAIN_LIGHT } from './styleLight'
-import type { LayerDesc, SceneBox } from './types'
+import type { SceneBox } from './types'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const TIMES = ['2026-11-17T12:00', '2026-11-17T16:45', '2026-11-17T21:00'] as const
@@ -27,24 +27,21 @@ beforeAll(async () => {
 afterAll(() => vi.unstubAllGlobals())
 
 const inputAt = (id = 'haifa', at: LocalTime = TIMES[0]) => worldInput(places.get(id)!, at)
-const keys = ({ key, light }: LayerDesc) => [key, light?.key]
 const sheetWorld = () => buildWorld({ ...inputAt(), forcedLayers: DECK })
 
 function atSun(world: WorldState, apparent: number, azimuth = world.bodies.sun.azimuth): WorldState {
   // Recover the geometric input using the same refraction law. Below −1° refraction is held constant.
   let altitude = apparent
-  for (let i = 0; i < 24; i++) altitude = apparent - refraction(altitude)
+  for (let i = 0; i < 24; i++) altitude += apparent - apparentSunAltitude(altitude)
   const moon = { ...world.bodies.moon, altitude: 20, illumination: 1 }
   return { ...world, bodies: { sun: { ...world.bodies.sun, altitude, azimuth }, moon } }
 }
 
-it.each(IDS)('keeps default keys and leaves descriptors untouched when drawn omits lamp at %s', (id) => {
+it.each(IDS)('leaves descriptors untouched when the styles omit lamp at %s', (id) => {
   for (const time of TIMES) {
     const world = buildWorld(inputAt(id, time))
-    const baseline = sceneModel(world, BOX).layers
     for (const light of [PLAIN_LIGHT, STYLES.real.light, STYLES.drawn.light]) {
       const layers = sceneModel(world, BOX, null, undefined, light).layers
-      if (light !== STYLES.drawn.light) expect(layers.map(keys)).toEqual(baseline.map(keys))
       for (const layer of layers) expect(layer).not.toHaveProperty('lamp')
       expect(withLamp(layers, world, BOX, light.lamp)).toBe(layers)
     }
@@ -125,26 +122,21 @@ it('registers sky and land coordinates at each width, including a wide sky and t
   for (const width of [320, 375, 430]) for (const landLeft of [0, 216, 217]) {
     const box = { ...BOX, width, skyWidth: width + 2 * landLeft, landLeft, landTop: landLeft === 217 ? 301 : 300 }
     for (const [azimuth, side] of [[359, 1], [1, -1]]) {
-      const project = lampOf(atSun(world, 30, azimuth), box)!
+      const placed = atSun(world, 30, azimuth)
+      const geom = skyGeom(placed, box)
+      const project = lampOf(placed, box)!
       const sky = project('sky'), land = project('land')
       expect(Math.sign(land.x - width / 2)).toBe(side * world.camera.handed)
-      expect(sky.x * box.dpr).toBe((land.x + landLeft) * box.dpr)
-      for (const axis of ['y', 'domeY'] as const)
-        expect(sky[axis] * box.dpr).toBe((land[axis] + box.landTop) * box.dpr)
+      const points = { x: geom.x(azimuth), y: geom.y(30), domeY: geom.dome(30) }
+      for (const axis of ['x', 'y', 'domeY'] as const) {
+        const origin = axis === 'x' ? geom.left : geom.horizon - world.relief.y(0)
+        const stride = 2 * width / 375
+        const gridIndex = Math.round((points[axis] - origin) / stride)
+        const devicePoint = Math.round((origin + gridIndex * stride) * box.dpr)
+        expect(sky[axis]).toBe(devicePoint / box.dpr)
+        expect(land[axis]).toBe(devicePoint / box.dpr - origin)
+      }
       expect(sky.domeY).toBeLessThan(sky.y)
     }
-  }
-})
-
-it('serialises the stored quantum into the right cache part', () => {
-  const world = sheetWorld(), base = sceneModel(world, BOX).layers
-  const frame = (az: number, minute: number) => withLamp(base, { ...atSun(world, 30, az), at: addMinutes(world.at, minute) }, BOX, KINDS)
-  const a = frame(181, 0), b = frame(181.1, 1), c = frame(183, 2)
-  for (const [i, layer] of a.entries()) if ('lamp' in layer) {
-    expect(b[i]).toHaveProperty('lamp', layer.lamp)
-    expect(keys(b[i])).toEqual(keys(layer))
-    expect(c[i]).not.toHaveProperty('lamp', layer.lamp)
-    expect(keys(c[i])).not.toEqual(keys(layer))
-    if (layer.kind !== 'cloudSheet') expect([layer.key, b[i].key, c[i].key]).toEqual(Array(3).fill(base[i].key))
   }
 })

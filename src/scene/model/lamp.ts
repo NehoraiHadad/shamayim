@@ -1,8 +1,8 @@
 import type { WorldState } from '../../world/types'
-import { apparentAltitude } from '../../world/skyProjection'
+import { apparentAltitude, apparentSunAltitude } from '../../world/skyProjection'
 import { clearNoonBeamShare } from './landIrradiance'
 import type { Lamp, LampKind, LampPlace as Place } from './layers/lamp'
-import { skyGeom } from './sky'
+import { skyGeom, type SkyGeom } from './sky'
 import type { LayerDesc, SceneBox } from './types'
 
 type LampSurface = 'sky' | 'land'
@@ -12,10 +12,16 @@ const quantise = (value: number, step: number) => Math.round(value / step) * ste
 const hasPosition = (body: { altitude: number; azimuth: number }) =>
   Number.isFinite(body.altitude) && Number.isFinite(body.azimuth)
 
+/** Unquantised direction on the sky surface, using the discs' apparent altitude conventions. */
+export function lampPlace(geom: SkyGeom, body: Lamp['body'], azimuth: number, trueAltitude: number): Place {
+  const altitude = body === 'sun' ? apparentSunAltitude(trueAltitude) : apparentAltitude(trueAltitude)
+  return { x: geom.x(azimuth), y: geom.y(altitude), domeY: geom.dome(altitude), altitude }
+}
+
 /** Compute the shared beam and projection once, then express it in either surface's coordinates. */
 export function lampOf(world: WorldState, box: SceneBox): LampProjection | undefined {
   const { sun, moon } = world.bodies
-  const sunAlt = apparentAltitude(sun.altitude)
+  const sunAlt = apparentSunAltitude(sun.altitude)
   const moonAlt = moon ? apparentAltitude(moon.altitude) : -Infinity
   // The lamp follows the brief's −4° switch and keeps the sun through nautical twilight (−12°).
   const keepSun = hasPosition(sun) && sunAlt >= -12
@@ -26,19 +32,21 @@ export function lampOf(world: WorldState, box: SceneBox): LampProjection | undef
   const source = world.bodies[body]
   const altitude = body === 'sun' ? sunAlt : moonAlt
   const geom = skyGeom(world, box)
-  // Store on the requested 2 px, half-degree and 1/64 beam grids before keying.
+  // Two reference px preserve the angular grid as the figure scales. Snap the shared
+  // grid point on the device lattice before translating between surfaces.
+  const point = (px: number, origin: number) => quantise(origin + quantise(px - origin, 2 * geom.s), 1 / box.dpr) - origin
+  // Store altitude and beam on the brief's half-degree and 1/64 grids before keying.
   const strength = quantise(altitude < 0 ? 0 : clearNoonBeamShare(world, body), 1 / 64)
-  const place = (azimuth: number, altitude: number): Place => ({
-    // geom.x uses xOf's seam behind the camera, like the discs.
-    x: quantise(geom.x(azimuth) - geom.left, 2),
-    y: quantise(geom.y(altitude) - box.landTop, 2),
+  const place = ({ x, y, domeY, altitude }: Place): Place => ({
+    x: point(x, geom.left),
+    y: point(y, box.landTop),
     // Cloud cells aim toward the disc plane (y) for silver lining. Use domeY for direction
     // in a sheet painted on the stretched dome above DOME_ALT.
-    domeY: quantise(geom.dome(altitude) - box.landTop, 2),
+    domeY: point(domeY, box.landTop),
     altitude: quantise(altitude, 0.5),
   })
-  const at = place(source.azimuth, altitude)
-  const sunPlace = body === 'moon' && keepSun ? place(sun.azimuth, sunAlt) : undefined
+  const at = place(lampPlace(geom, body, source.azimuth, source.altitude))
+  const sunPlace = body === 'moon' && keepSun ? place(lampPlace(geom, 'sun', sun.azimuth, sun.altitude)) : undefined
   return (target) => {
     // Translate the grid with the surface, so odd offsets still point at the same device pixel.
     const local = (p: Place): Place => target === 'land' ? p : {
@@ -64,6 +72,7 @@ export function withLamp(layers: LayerDesc[], world: WorldState, box: SceneBox, 
     const { kind } = layer
     if (kind !== 'cloudSheet' && kind !== 'plane' && kind !== 'canopy' && kind !== 'water') return layer
     if (!kinds.includes(kind)) return layer
+    if (kind === 'water' && !layer.bands.length) return layer
     const surface = kind === 'cloudSheet' ? 'sky' : 'land'
     if (!bySurface[surface]) {
       const lamp = project(surface)

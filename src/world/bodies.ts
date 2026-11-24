@@ -8,15 +8,12 @@ import { brightLimbAngle, type ScenePoint } from './moonShape'
 import { SCENE_CAMERA } from '../domain/camera'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
-import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
+import { apparentAltitude, apparentSunAltitude, horizonLine, projectSky } from './skyProjection'
 import { sunAt } from './sunPath'
 import type { Body, MoonBody } from './types'
 import { discShare } from './livingLight'
 
 interface Site { lat: number; lon: number; timezone: string }
-
-/** The sun's radius (deg): it counts as up while its top limb is. */
-const SUN_RADIUS = 0.267
 
 /**
  * The sun's drawn point: on its arc between today's sunrise and sunset (`sunAt`, which runs on before and after them,
@@ -25,7 +22,7 @@ const SUN_RADIUS = 0.267
  */
 function sunPoint(at: LocalTime, day: DayPoint | undefined, site: Site, skyline: Skyline, azimuth: number, altitude: number): ScenePoint {
   if (day && minutesBetween(day.sunrise, day.sunset) > 0) return sunAt(daylightFraction(at, day.sunrise, day.sunset), day.sunrise, day.sunset, site, skyline)
-  return projectSky(apparentAltitude(altitude) + SUN_RADIUS, azimuth, horizonLine(azimuth, azimuth, skyline))
+  return projectSky(apparentSunAltitude(altitude), azimuth, horizonLine(azimuth, azimuth, skyline))
 }
 
 /**
@@ -41,7 +38,7 @@ export function sunBody(at: LocalTime, day: DayPoint | undefined, site: Site, sk
   const t = day && minutesBetween(day.sunrise, day.sunset) > 0 ? daylightFraction(at, day.sunrise, day.sunset) : null
   return {
     azimuth, altitude, x: point.x * SCENE_W, y: point.y,
-    up: apparentAltitude(altitude) + SUN_RADIUS > 0,
+    up: apparentSunAltitude(altitude) > 0,
     overLand: clearance > 0,
     clearance, t, visible: discShare(clearance),
   }
