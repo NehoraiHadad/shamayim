@@ -6,9 +6,9 @@ import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { RANGES } from '../../world/field/cells'
 import { layerSnapshot } from '../../world/field/density'
+import type * as Edges from '../../world/field/edges'
 import { makeWorldBuilder } from '../../world/world'
 import { cloudSheetOf } from './cloudSheet'
-import type * as Edges from './cloudSheetEdges'
 import type * as Seen from './cloudSheetSeen'
 import type * as ShapeModule from './cloudSheetShape'
 import { skyGeom } from './sky'
@@ -31,9 +31,9 @@ vi.mock('./cloudSheetShape', async (load) => {
     change: (...args: Parameters<typeof real.change>) => { counts.changes++; return real.change(...args) },
   }
 })
-vi.mock('./cloudSheetEdges', async (load) => {
+vi.mock('../../world/field/edges', async (load) => {
   const real = await load<typeof Edges>()
-  return { edgeNoise: (...args: Parameters<typeof real.edgeNoise>) => {
+  return { ...real, edgeNoise: (...args: Parameters<typeof real.edgeNoise>) => {
     const noise = real.edgeNoise(...args)
     return { ...noise, at: (x: number, y: number) => { counts.noise++; return noise.at(x, y) } }
   } }

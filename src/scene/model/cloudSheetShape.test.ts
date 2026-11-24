@@ -1,6 +1,7 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { SCENE_CAMERA } from '../../domain/camera'
 import { loneCell } from '../../test/loneCell'
+import type * as Edges from '../../world/field/edges'
 import { groundRangeAt } from '../../world/field/project'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
@@ -10,6 +11,14 @@ import { seenDepth } from './cloudSheetSeen'
 import { DOME_ALT } from './dome'
 import { skyGeom } from './sky'
 import type { LayerOf, SceneBox } from './types'
+
+/** The air's lobes, taken away where a cell's own shape is judged. */
+const air = vi.hoisted(() => ({ still: false }))
+vi.mock('../../world/field/edges', async (load) => {
+  const real = await load<typeof Edges>()
+  return { ...real, edgeNoise: (...args: Parameters<typeof real.edgeNoise>) =>
+    air.still ? { ...real.edgeNoise(...args), at: () => 0 } : real.edgeNoise(...args) }
+})
 
 const RAD = Math.PI / 180
 const box: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -31,31 +40,54 @@ function widths(sheet: LayerOf<'cloudSheet'>) {
   return rows
 }
 
-it.each([
-  ['ac', 5, 1.5, 0.4], ['cu', 1.4, 0.35, 0.36],
-] as const)('draws a lone %s cell as wide as it is tall, on a broad foot', (genus, heightKm, r, vKm) => {
-  for (const elevation of [35, 40, 45, 50, 55, 60]) {
+/** A lone cell's painted body: less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth). */
+function bodyOf(id: string, genus: 'ac' | 'cu', heightKm: number, r: number, vKm: number, elevation: number, azimuth: number) {
+  const range = groundRangeAt(heightKm, elevation)
+  const rows = widths(cloudSheetOf(worldOf(id), geom,
+    loneCell(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
+  const widest = Math.max(...rows), body = rows.filter((wide) => wide >= widest / 4)
+  const low = body.slice(body.indexOf(widest))
+  return {
+    aspect: body.length / 2 / widest, foot: rows[Math.floor(0.85 * rows.length)] / widest,
+    // A vase: how far it widens again under a waist, below its widest.
+    flare: Math.max(0, ...low.map((wide, i) => Math.max(...low.slice(i)) - wide)) / widest,
+  }
+}
+
+const cases = [['ac', 5, 1.5, 0.4], ['cu', 1.4, 0.35, 0.36]] as const
+const ELEVATIONS = [35, 40, 45, 50, 55, 60], STEPS = [-2, -1, 0, 1, 2]
+
+it.each(cases)('draws a lone %s cell as wide as it is tall, on a broad foot', (genus, heightKm, r, vKm) => {
+  for (const elevation of ELEVATIONS) {
     // Round the sky of several places, as each has its own lobes, and over a row's span (5°), as a rim is drawn on the rows.
-    const shapes = ['a', 'b', 'c'].flatMap((id) => [150, 180, 210].flatMap((azimuth) => [-2, -1, 0, 1, 2].map((step) => {
-      const range = groundRangeAt(heightKm, elevation + step)
-      const rows = widths(cloudSheetOf(worldOf(id), geom,
-        loneCell(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
-      const widest = Math.max(...rows), low = rows.slice(Math.floor(rows.length / 2))
-      // A vase: how far the foot's half narrows before it widens again, and its width near its end.
-      const waist = Math.max(0, ...low.map((wide, i) => Math.max(...low.slice(i)) - wide)) / widest
-      // Its body: less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth of its height).
-      return { tall: rows.filter((wide) => wide >= widest / 4).length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest, waist }
-    })))
+    const shapes = ['a', 'b', 'c'].flatMap((id) => [150, 180, 210].flatMap((azimuth) => STEPS.map((step) =>
+      bodyOf(id, genus, heightKm, r, vKm, elevation + step, azimuth))))
     const mean = (of: (shape: (typeof shapes)[number]) => number) => shapes.reduce((sum, shape) => sum + of(shape), 0) / shapes.length
-    const aspect = mean(({ tall, widest }) => tall / widest), foot = mean((shape) => shape.foot)
-    const least = Math.min(...shapes.map((shape) => shape.foot)), tallest = Math.max(...shapes.map(({ tall, widest }) => tall / widest))
-    const waist = Math.max(...shapes.map((shape) => shape.waist))
-    console.info(`${genus} ${elevation}: aspect ${aspect.toFixed(2)}, foot ${foot.toFixed(2)}; each: aspect ${tallest.toFixed(2)}, foot ${least.toFixed(2)}, waist ${waist.toFixed(2)}`)
+    const aspect = mean((shape) => shape.aspect), foot = mean((shape) => shape.foot)
+    console.info('PAINTED', genus, elevation, { aspect, foot }, 'each', {
+      aspect: Math.max(...shapes.map((shape) => shape.aspect)), foot: Math.min(...shapes.map((shape) => shape.foot)),
+      flare: Math.max(...shapes.map((shape) => shape.flare)),
+    })
     expect.soft(aspect, `${genus} ${elevation}`).toBeLessThanOrEqual(1.1)
     // An oval is .71 of its width there: no cone, no drop hanging from its tip.
     expect.soft(foot, `${genus} ${elevation}`).toBeGreaterThanOrEqual(0.6)
   }
-}, 30_000)
+}, 60_000)
+
+it.each(cases)('draws each lone %s cell on its own broad foot, none a cone or a vase, in still air', (genus, heightKm, r, vKm) => {
+  air.still = true
+  const sizes = [0.6, 1, 1.4].map((size) => size * r)
+  for (const elevation of ELEVATIONS) for (const size of sizes) {
+    const shapes = [0, 1, 2, 3, 4].flatMap((turn) => STEPS.map((step) => bodyOf('a', genus, heightKm, size, vKm, elevation + step, 180 + turn / 2)))
+    const worst = { aspect: Math.max(...shapes.map((shape) => shape.aspect)), foot: Math.min(...shapes.map((shape) => shape.foot)),
+      flare: Math.max(...shapes.map((shape) => shape.flare)) }
+    console.info('STILL', genus, elevation, size, worst)
+    expect.soft(worst.aspect, `${genus} ${elevation} ${size}`).toBeLessThanOrEqual(1.1)
+    expect.soft(worst.foot, `${genus} ${elevation} ${size}`).toBeGreaterThanOrEqual(0.6)
+    expect.soft(worst.flare, `${genus} ${elevation} ${size}`).toBeLessThanOrEqual(0.1)
+  }
+  air.still = false
+}, 60_000)
 
 it('draws no level rim: an overhead cell ends at an altitude that follows the air, not the projection', () => {
   const heightKm = 5, snapshot = loneCell('ac', 0, 0, groundRangeAt(heightKm, 40), 0.4, heightKm)

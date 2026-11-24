@@ -30,17 +30,17 @@ function largest(steps: number[][]) {
 
 it('takes a growing cell into the eye\'s proportions with no step', () => {
   for (const elevation of [24, 28, 40]) {
-    const run = Array.from({ length: 400 }, (_, i) => patch(elevation, 0.2 + i * 0.0015))
+    const run = Array.from({ length: 1600 }, (_, i) => patch(elevation, 0.2 + i * 0.000375))
     const step = largest(run)
     console.info('growing', elevation, step)
-    expect.soft(step).toBeLessThanOrEqual(0.03)
+    expect.soft(step).toBeLessThanOrEqual(0.012)
   }
 })
 
 it('takes a cell drifting in across the dome\'s join into them with no step', () => {
   for (const r of [0.5, 1.4]) {
-    const step = largest(Array.from({ length: 600 }, (_, i) => patch(12 + i * 0.03, r)))
+    const step = largest(Array.from({ length: 1200 }, (_, i) => patch(12 + i * 0.015, r)))
     console.info('drifting', r, step)
-    expect.soft(step).toBeLessThanOrEqual(0.05)
+    expect.soft(step).toBeLessThanOrEqual(0.015)
   }
 })

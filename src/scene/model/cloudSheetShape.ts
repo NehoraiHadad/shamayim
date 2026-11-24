@@ -1,4 +1,5 @@
 import { smoothstep, unit } from '../../world/field/genus'
+import { LOBED_ALT } from '../../world/field/edges'
 import { altitudeOf } from '../../world/field/project'
 import { kernel } from '../../world/field/rasterNodes'
 import type { FieldCell } from '../../world/field/types'
@@ -17,10 +18,9 @@ import type { SkyGeom } from './sky'
  * the same oval, wider and lower) and bends on the far side, so that W grows to the foot.
  */
 
-/** Look. The altitude (deg) from which a cell's outline is all the eye's: half as high again as the join. */
-export const SEEN_ALT = 1.5 * DOME_ALT
-/** Look. The altitude of a cell's middle from which it takes the eye's proportions, all by the join: it crosses that whole. */
-const SHAPED_ALT = DOME_ALT / 1.5
+/** Look. The altitude of a cell's middle from which it takes the eye's proportions, as far under the join as its lobes are
+ *  all there over it (`LOBED_ALT`, by when they are all its own): it crosses the join as one. */
+export const SHAPED_ALT = DOME_ALT / 1.5
 /**
  * Look. How much wider than its crown's an open cell's foot is stretched: .8 keeps an oval's sides within a tenth of its
  * widest down to .85 of the way to the far rim (an oval alone is half as wide there), and rounds the rest off.
@@ -38,21 +38,24 @@ export interface Shape {
   wide: number; bend: number
   /** How far its foot and its crown are drawn from its seat, in the square of the range. */
   far: number; near: number
+  /** How much of the air's displacement its outline takes, as it is made lower, and how still its foot is. */
+  give: number; firm: number
   /** The cosine of its half width as drawn, at most. */
   cos: number
   /** The ranges (km) it is drawn over. */
   from: number; to: number
 }
 
-/** How open the sky is before a cell's far rim (0 covered … 1 open): no foot shows under another cell. */
+/** How open the sky is before a cell's far rim (0 covered … 1 open): no foot shows where another cell still hides it, as it
+ *  does up to some .8 of its radius (a third of its depth is left there) and no more at its rim. */
 export function openness(cell: FieldCell, cells: readonly FieldCell[]): number {
   const d = Math.hypot(cell.x, cell.y), far = 1 + cell.r / d
   const x = cell.x * far, y = cell.y * far
   let open = 1
   for (const other of cells) {
     if (other === cell || !open) continue
-    const dx = x - other.x, dy = y - other.y, r = 1.2 * other.r
-    if (dx * dx + dy * dy < r * r) open *= smoothstep(0.8, 1.2, Math.sqrt(dx * dx + dy * dy) / other.r)
+    const dx = x - other.x, dy = y - other.y, r = other.r
+    if (dx * dx + dy * dy < r * r) open *= smoothstep(0.7, 1, Math.sqrt(dx * dx + dy * dy) / other.r)
   }
   return open
 }
@@ -63,9 +66,9 @@ export function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad
   if (!(q < 1)) return null
   const altitude = altitudeOf(heightKm, d)
   // A cell nearer than its own diameter passes overhead with its foot still in view: it goes back to its own rays by then.
-  const weight = smoothstep(SHAPED_ALT, DOME_ALT, altitude) * unit(2 * (1 - q))
+  const weight = smoothstep(SHAPED_ALT, LOBED_ALT, altitude) * unit(2 * (1 - q))
   if (!weight) return null
-  const open = openAt()
+  const firm = weight * openAt()
   const farAlt = altitudeOf(heightKm, d + r), nearAlt = altitudeOf(heightKm, d - r), cos = Math.cos(altitude * Math.PI / 180)
   const half = Math.asin(q), most = Math.PI / 2 / half
   // The eye's height over width: the disc's, and over it the side of a cell as thick as it is. No cell of a sheet is taller
@@ -74,13 +77,12 @@ export function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad
   const drawn = (geom.dome(farAlt) - geom.dome(nearAlt)) / (2 * half * perRad)
   const stretch = drawn / Math.min(1, disc + side)
   const wide = 1 + (Math.min(Math.sqrt(Math.max(1, stretch)), most) - 1) * weight
-  // A foot shows as the cell is seen from its side; from right under it there is none.
-  const foot = Math.min(FLAT * open * cos * weight, most / wide - 1)
+  const foot = Math.min(FLAT * firm, most / wide - 1)
   const far = 2 * r * (d + r) / (wide * (1 + foot / 3)), near = 2 * r * (d - r) / wide
   return {
     cell, cumulus: cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb',
     d, east: cell.x / d, north: cell.y / d, mid: d * d - r * r,
-    wide, bend: foot * wide / (3 * far * far), far, near, cos: Math.max(0, Math.cos(half * wide * (1 + foot))),
+    wide, bend: foot * wide / (3 * far * far), far, near, give: 1 / wide, firm, cos: Math.max(0, Math.cos(half * wide * (1 + foot))),
     from: d - r, to: d + r,
   }
 }
@@ -95,15 +97,18 @@ function narrowed(s: number, wide: number): number {
     * (1 + (16 - n) / 22.5 * s * (1 + (25 - n) / 33 * s)))))
 }
 
-/** The cell's drawn depth less the one its rays alone would show, at a place at `range` km. */
-export function change(shape: Shape, x: number, y: number, range: number): number {
+/** The cell's drawn depth less the one its rays alone would show, at a place `range` km away whose outlines the air moves
+ *  to `scale` times as far. */
+export function change(shape: Shape, east: number, north: number, range: number, scale: number): number {
   const { cell, d } = shape
   // Off to its side: it is only ever drawn wider.
-  const along = x * shape.east + y * shape.north
+  const along = east * shape.east + north * shape.north
   if (along <= range * shape.cos) return 0
-  const inverse = 1 / (cell.r * cell.r), dx = x - cell.x, dy = y - cell.y
+  const inverse = 1 / (cell.r * cell.r), dx = east * scale - cell.x, dy = north * scale - cell.y
   const native = kernel(cell.tau0, (dx * dx + dy * dy) * inverse, shape.cumulus)
-  const up = range * range - shape.mid
+  // Its lobes are as much lower as it is, and stand on its sides and crown: its base is the level air condenses at.
+  const still = shape.firm * unit(2 * (range * range - shape.mid) / shape.far)
+  const at = range * (1 + (scale - 1) * shape.give * (1 - still)), up = at * at - shape.mid
   if (up >= shape.far || up <= -shape.near) return -native
   const bend = up > 0 ? shape.bend * up * up : 0, square = shape.mid + up * (shape.wide + bend)
   const cos = narrowed((1 - along / range) / 2, shape.wide + 3 * bend)

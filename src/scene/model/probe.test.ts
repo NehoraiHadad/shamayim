@@ -10,7 +10,7 @@ import { makeWorldBuilder } from '../../world/world'
 import type * as Grid from './cloudSheetGrid'
 import { cloudLayersOf } from './cloudLayers'
 import { sheetPathFactor } from './cloudSheetMath'
-import type * as Edges from './cloudSheetEdges'
+import type * as Edges from '../../world/field/edges'
 import type * as Seen from './cloudSheetSeen'
 import { seenDepth } from './cloudSheetSeen'
 import type * as Dome from './dome'
@@ -26,11 +26,11 @@ vi.mock('./cloudSheetSeen', async (load) => {
     return real(id, minute, { ...snapshot, cells: [] }, geom, depthAt)
   } }
 })
-vi.mock('./cloudSheetEdges', async (load) => {
-  const { edgeNoise } = await load<typeof Edges>()
-  return { edgeNoise: (...args: Parameters<typeof edgeNoise>) => {
+vi.mock('../../world/field/edges', async (load) => {
+  const all = await load<typeof Edges>(), { edgeNoise } = all
+  return { ...all, edgeNoise: (...args: Parameters<typeof edgeNoise>) => {
     const real = edgeNoise(...args)
-    return on.noise ? real : { radius: real.radius, at: () => 0 }
+    return on.noise ? real : { ...real, at: () => 0 }
   } }
 })
 vi.mock('./dome', async (load) => {

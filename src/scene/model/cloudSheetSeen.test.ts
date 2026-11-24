@@ -12,12 +12,11 @@ import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { sheetOpacity, sheetPathFactor } from './cloudSheetMath'
 import { seenDepth } from './cloudSheetSeen'
+import { SHAPED_ALT } from './cloudSheetShape'
 import { DOME_ALT } from './dome'
 import { skyGeom } from './sky'
 
 const RAD = Math.PI / 180, ROWS = 48, AZIMUTHS = 72, FIELDS = 160, MINUTES = [960, 967, 974]
-/** The altitude of a cell's middle from which it is redrawn (`SHAPED_ALT`): with a cell's radius, all that changes. */
-const SHAPED_ALT = DOME_ALT / 1.5
 const world = { camera: SCENE_CAMERA, relief: { y: (altitude: number) => terrainY(128, altitude) } } as WorldState
 const geom = skyGeom(world, box)
 

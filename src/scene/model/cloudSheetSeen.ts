@@ -1,14 +1,12 @@
-import { smoothstep } from '../../world/field/genus'
+import { edgeNoise } from '../../world/field/edges'
 import type { FieldSnapshot } from '../../world/field/transmit'
 import { pxPerRadAt } from './advect'
-import { edgeNoise } from './cloudSheetEdges'
-import { change, openness, SEEN_ALT, shapeOf, type Shape } from './cloudSheetShape'
-import { DOME_ALT } from './dome'
+import { change, openness, shapeOf, type Shape } from './cloudSheetShape'
 import type { SkyGeom } from './sky'
 
 /*
  * A layer of the field as the eye sees it: its near cells in the eye's proportions (`cloudSheetShape`), each whole, and
- * above the dome's join their outlines moved by the air (`cloudSheetEdges`). Farther out the field is read exactly, as the
+ * above the dome's join their outlines moved by the air (`world/field/edges`). Farther out the field is read exactly, as the
  * land's light reads it.
  */
 
@@ -54,17 +52,17 @@ export function seenDepth(placeId: string, minute: number, snapshot: FieldSnapsh
   }
   const sectors = bySector(shapes)
   return (range: number, altitude: number): DepthAt => {
-    // The outline moves along the ray: the projection draws its levels straight. Overhead, where every ray meets, it dies away.
-    const along = smoothstep(DOME_ALT, SEEN_ALT, altitude) / Math.max(range, noise.radius)
+    const along = noise.along(range, altitude)
     if (!along && range >= outer) return depthAt
     return (east, north) => {
       const scale = along ? 1 + along * noise.at(east, north) : 1
-      const x = east * scale, y = north * scale
-      const depth = depthAt(x, y)
-      const here = sectors[sectorOf(east, north)], at = range * scale
+      const depth = depthAt(east * scale, north * scale)
+      const here = sectors[sectorOf(east, north)]
       if (!here.length) return depth
+      // A cell takes some of the place's displacement: none, all, or between.
+      const low = Math.min(range, range * scale), high = Math.max(range, range * scale)
       let moved = 0
-      for (let i = 0; i < here.length; i++) if (at > here[i].from && at < here[i].to) moved += change(here[i], x, y, at)
+      for (let i = 0; i < here.length; i++) if (high > here[i].from && low < here[i].to) moved += change(here[i], east, north, range, scale)
       const seen = depth + moved
       return seen < layer.floorTau + ROUNDING ? layer.floorTau : seen
     }

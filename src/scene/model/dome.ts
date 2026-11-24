@@ -1,10 +1,13 @@
+import { OUTLINE_ALT } from '../../world/field/edges'
+
 /*
  * The clouds' vertical scale: a layout, not a projection. Three choices of look: where the dome takes over, how far under
  * the screen's top its zenith stands, and that it is spread over the sky between at an even px a degree on average.
  */
 
-/** Look. Up to this altitude (deg) clouds stand on the relief, with the land and the bodies; above it the dome is spread. */
-export const DOME_ALT = 22
+/** Look. Up to this altitude (deg) clouds stand on the relief, with the land and the bodies; above it the dome is spread,
+ *  and the outlines are the air's: one altitude, so that a cloud meets one change. */
+export const DOME_ALT = OUTLINE_ALT
 /** Look. The dome's zenith stands this far under the sky surface's top (px): the rim of a cloud overhead shows. */
 const DOME_TOP = 18
 /** The step (deg) the relief's derivative is taken over: far over a double's rounding, far under the relief's 6° bend. */

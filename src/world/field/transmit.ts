@@ -1,5 +1,6 @@
 import { onCircle } from '../optics'
 import type { layerSnapshot } from './density'
+import { edgeNoise } from './edges'
 import { cellInterval } from './rayCell'
 import { smoothstep } from './genus'
 import { groundRangeAt, R_EFF_KM } from './project'
@@ -21,14 +22,21 @@ function slab(layer: FieldLayer): [number, number] {
   return [min, max]
 }
 
-function ray(snapshot: FieldSnapshot, az: number, alt: number, columnStep?: number) {
+/** How far (km) a ray meets a layer's cells past where it reads them, as their outlines are drawn (`edges`). */
+function outlineShift({ placeId, t }: CloudField, layer: FieldLayer, range: number, east: number, north: number, alt: number) {
+  if (layer.lattice !== 'low' && layer.lattice !== 'mid') return 0
+  const noise = edgeNoise(placeId, layer, t), along = noise.along(range, alt)
+  return along && range * along * noise.at(range * east, range * north)
+}
+
+function ray(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, columnStep?: number) {
   const east = Math.sin(az * rad), north = Math.cos(az * rad)
   const cos = Math.cos(alt * rad), slope = Math.tan(alt * rad)
   const curvature = 1 / (2 * R_EFF_KM)
   const height = (d: number) => d * (slope + d * curvature)
   const patches = new Map<FieldCell, number>()
   let tau = 0
-  for (const { layer, densityGrid: grid } of snapshot) {
+  for (const { layer, densityGrid: grid, heightKm } of snapshot) {
     if (!layer?.cover) continue
     const [min, max] = slab(layer)
     // At this zenith tolerance lateral travel through a 12 km column is below 0.12 mm.
@@ -37,11 +45,12 @@ function ray(snapshot: FieldSnapshot, az: number, alt: number, columnStep?: numb
       continue
     }
     const start = groundRangeAt(min, alt), end = groundRangeAt(max, alt)
+    const moved = outlineShift(field, layer, groundRangeAt(heightKm, alt), east, north, alt)
     if (!columnStep) {
       const range = grid.rayRange
-      for (const cell of grid.rayCells(east, north, start, Math.min(range, end))) {
+      for (const cell of grid.rayCells(east, north, start + moved, Math.min(range, end) + moved)) {
         const base = groundRangeAt(cell.baseKm, alt)
-        const interval = cellInterval(cell, east, north, slope, curvature, Math.max(start, base), Math.min(range, end))
+        const interval = cellInterval(moved ? { ...cell, x: cell.x - moved * east, y: cell.y - moved * north } : cell, east, north, slope, curvature, Math.max(start, base), Math.min(range, end))
         if (!interval) continue
         const [lo, hi] = interval
         // Simpson quadrature is exact on the cubic fade.
@@ -68,7 +77,8 @@ function ray(snapshot: FieldSnapshot, az: number, alt: number, columnStep?: numb
     const step = (meanEnd - meanStart) / count
     for (let k = 0; k < count; k++) {
       const lo = meanStart + k * step, hi = lo + step, d = (lo + hi) / 2
-      const args = [d * east, d * north, height(lo), height(hi), step / cos] as const
+      const at = columnStep ? d + moved : d
+      const args = [at * east, at * north, height(lo), height(hi), step / cos] as const
       tau += columnStep ? grid.rayDepthAt(...args, patches) : grid.meanRayDepth(...args)
     }
   }
@@ -82,10 +92,10 @@ function ray(snapshot: FieldSnapshot, az: number, alt: number, columnStep?: numb
 /** Five equal-weight samples over the disc. The supplied snapshot belongs to the shown minute. */
 export function transmitAlong(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, t = field.t, columnStep?: number) {
   if (t !== field.t) throw new RangeError('Transmission requires the field at the snapshot minute')
-  let sum = ray(snapshot, az, alt, columnStep)
+  let sum = ray(field, snapshot, az, alt, columnStep)
   for (let k = 0; k < 4; k++) {
     const p = onCircle({ azimuth: az, altitude: alt }, 0.19, k * Math.PI / 2)
-    sum += ray(snapshot, p.azimuth, p.altitude, columnStep)
+    sum += ray(field, snapshot, p.azimuth, p.altitude, columnStep)
   }
   return sum / 5
 }
