@@ -1244,6 +1244,13 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] 1e3. Receiver blend (`claude/found-blend5`) closed: same pixels, haifa `scrub.land` p95 5 -> 14 ms (budget 10); reverted
       - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
-- [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
+- [~] 2a. Drawn style end to end (colour woodblock print). Map, plan and prototype on `claude/drawn-style-accc0f`; build plan
+      `drawn/BUILD-PLAN.md` in the notes folder. Start from v1: replace only what a user sees as different
+      - [x] Owner approved the direction (second set of stills, `50c75d12`)
+      - [~] S4 ground and water (`claude/drawn-ground`): built, judged, one fix round (patch and shade sides bent, hatching by the
+            light, dark inks keep the night's chroma); review and READY next
+      - [~] S5 town and trees, S3 storm: open, beside S4
+      - [ ] S1 sky and sun (waits for `skyBase` + grade), S2 cloud sheets (cloud-space position), S6 air (dust)
+      - [ ] When the sky grade lands: `pigment` in water drops its chroma gain (no double grade)
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

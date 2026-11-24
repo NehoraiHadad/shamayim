@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../../domain/smoothstep'
 import { labOf, rgbOfLab } from '../../../model/tone'
 import type { RGB } from '../../../model/types'
 import { kept } from './kept'
@@ -10,6 +11,8 @@ import { kept } from './kept'
 
 /** How far a colour's chroma goes, and the most it may reach (Oklab). */
 const GAIN = 1.5, MOST = 0.15
+/** The values (Oklab) a dark takes its gain through: a night ink stays the night's, no blue of its own. */
+const DARK = [0.15, 0.5] as const
 /** The cool a shade takes and the warmth a light takes (Oklab a, b), at full strength. */
 const COOL = { a: -0.004, b: -0.03 }, WARM = { a: 0.006, b: 0.03 }
 /** Colours are mixed at this many steps a channel, so a kept mix is the mix made again. */
@@ -22,7 +25,8 @@ export function pigment(rgb: RGB, turn = 0, gain = GAIN): RGB {
   const [r, g, b] = rgb.map((v) => Math.round(v * STEPS))
   return held(`${r},${g},${b},${turn},${gain}`, () => {
     const lab = labOf([r / STEPS, g / STEPS, b / STEPS]), chroma = Math.hypot(lab.a, lab.b)
-    const k = chroma > 1e-5 ? (MOST * Math.tanh((chroma * gain) / MOST)) / chroma : 1
+    const most = 1 + (gain - 1) * smoothstep(DARK[0], DARK[1], lab.l)
+    const k = chroma > 1e-5 ? (MOST * Math.tanh((chroma * most) / MOST)) / chroma : 1
     const lean = turn < 0 ? COOL : WARM, by = Math.abs(turn) * Math.min(1, lab.l * 1.6)
     return rgbOfLab({ l: lab.l, a: lab.a * k + lean.a * by, b: lab.b * k + lean.b * by })
   })

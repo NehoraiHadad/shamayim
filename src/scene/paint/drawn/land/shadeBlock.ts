@@ -7,7 +7,7 @@ import { samplePlaneTexel, type PlaneTexelCtx } from '../../shared/land/planeTex
 import { traceOver } from '../kit/contour'
 import { ease } from '../kit/ease'
 import { pigment } from '../kit/palette'
-import { frameOf, type Ground } from './pots'
+import { columnAt, frameOf, type Ground } from './pots'
 
 /*
  * The shade block: the model's own light on the plane (sun, moon and sky together) cut into a few levels, each outlined;
@@ -50,13 +50,13 @@ export function shadingOf(t: PlaneTexelCtx, ground: Ground, paired: boolean): Sh
 }
 
 /** The light of every cell against the plane's mean, and the four fields it comes from. */
-function lightOn(t: PlaneTexelCtx, { pots, label, on }: Ground) {
+function lightOn(t: PlaneTexelCtx, { pots, label, on, bent }: Ground) {
   const { wPx: cols, hPx: rows, litField: f, bounds } = t, cells = cols * rows
   const fields = [0, 1, 2, 3].map(() => new Float32Array(cells)), light = new Float32Array(cells)
   const s = { ...fieldSample(), rho: [0, 0, 0] as [number, number, number] }, sun = lum(f.eSun), moon = lum(f.eMoon), sky = lum(f.eSky)
   let sum = 0, held = 0
   for (let j = 0, n = 0; j < rows; j++) for (let i = 0; i < cols; i++, n++) {
-    samplePlaneTexel(t, i, bounds.x + (i + 0.5) * TEXEL, bounds.y + (j + 0.5) * TEXEL, pots[label[n]].rho, s)
+    samplePlaneTexel(t, columnAt(t, bent[n]), bent[n], bounds.y + (j + 0.5) * TEXEL, pots[label[n]].rho, s)
     fields[0][n] = s.sVis
     fields[1][n] = s.mVis
     fields[2][n] = s.vSky
