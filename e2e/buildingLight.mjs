@@ -17,6 +17,9 @@ const failures = []
 const band = (v, lo, hi, name) => assert.ok(v >= lo && v <= hi, `${name} ${v?.toFixed(3)} outside [${lo}, ${hi}]`)
 const rasterBand = ([min, max], lo, hi, label) => assert.ok(max >= lo && min <= hi,
   `${label} [${min.toFixed(3)}, ${max.toFixed(3)}] misses [${lo}, ${hi}] with 4 sRGB levels of tolerance`)
+// The light's hue on shaded walls, their own colour divided out, against sky + ground bounce: the painted ground is the bounce's
+// stand-in, and the walls see a little less of the sky (.82) than of the ground (.92).
+const WALL_LIGHT = [.95, 1.05]
 let canopy = false, water = false
 
 try {
@@ -67,9 +70,9 @@ try {
       assert.ok(m.n.bare >= 100 && m.n.front >= 150 && m.pairs >= 50, 'need visible ground and contacting facades')
       if (time === '1200' && !weather) {
         for (const pane of colors.glass) band(pane.ratio, 1, 1.8, 'glass / corresponding shaded wall')
-        assert.ok(colors.wallBR > 0 && colors.groundBR > 0, 'measure wall and sky-only ground colors')
-        // Jerusalem and Rosh Pina have cooler plaster than their own ground samples.
-        band(colors.wallBR / colors.groundBR, .95, place === 'tel-aviv' ? 1.05 : 1.16, 'wall / sky-only ground B/R')
+        assert.ok(colors.light.walls >= 20, 'measure the light on shaded walls')
+        band(colors.light.ratio, ...WALL_LIGHT, 'wall light / ground light, B/R, over the expected sky and bounce')
+        assert.ok(colors.light.skyOnly > WALL_LIGHT[1], 'the band must refuse a wall lit by the sky alone')
         band(m.front, .67, .94, 'shaded wall/ground')
         assert.ok(m.n.roof >= 80, 'flat caps should resolve including beside clay roofs')
         band(m.roof, .86, 1.50, 'flat roof/ground')
