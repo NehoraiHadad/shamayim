@@ -15,8 +15,10 @@ export function airMass(altitude: number) {
 const RAYLEIGH = [0.055, 0.099, 0.222] as const
 const WAVELENGTH = [650, 550, 450] as const
 const EXPOSURE = 4
-/** Exponential scale heights of the molecular air and of the mixed layer's haze (km). */
-const AIR_KM = 8.4, HAZE_KM = 1.5
+/** Exponential scale height of molecular air (km). */
+const AIR_KM = 8.4
+/** Exponential scale height of the mixed layer's haze (km). */
+export const HAZE_KM = 1.5
 
 /** The share of the haze that lies above `km`. */
 export const hazeAbove = (km: number) => Math.exp(-km / HAZE_KM)

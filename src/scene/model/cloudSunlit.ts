@@ -1,4 +1,4 @@
-import { smoothstep } from '../../domain/smoothstep'
+import { daylitShare } from '../../domain/cloudDaylight'
 import { solarBeam } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { atLuminance, luminanceOf } from './cloudChromaticity'
@@ -13,13 +13,11 @@ import { mixRgb } from './tone'
  */
 
 const RAD = Math.PI / 180
-/** IES clear-sky diffuse illuminance on the ground (klx), by the sun's altitude (deg). */
+/** Clear-sky diffuse proxy in klx. The square-root fit in docs/briefs/found/sky-colour.diagnosis.md
+ * has 0.8 klx at the horizon and 16.3 klx at zenith, a span of 15.5 klx. */
 const clearDiffuse = (altitude: number) => 0.8 + 15.5 * Math.sqrt(Math.sin(altitude * RAD))
 /** The eye is adapted to a clean high sun, whose light on a cloud is white. */
 const WHITE_BEAM = solarBeam(90).transmission
-
-/** 0 in twilight, 1 by day: between the sky palette's own 3° and 7° rows. */
-export const daylitShare = (altitude: number) => smoothstep(3, 7, altitude)
 
 /** The direct beam `km` up against the diffuse light of the sky, and its colour (linear, a clean high sun's is white). */
 function beamAt(world: WorldState, km: number) {

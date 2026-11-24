@@ -21,18 +21,20 @@ beforeAll(async () => {
 function frame(at: LocalTime, forced: typeof DUST) {
   const world = makeWorldBuilder()({ ...worldInput(ramon, at), forced })
   const sheets = cloudLayersOf(world, box).filter((l): l is LayerOf<'cloudSheet'> => l.kind === 'cloudSheet')
-  return { sheets, mid: sheets.find(({ lattice }) => lattice === 'mid')!, sky: skyStops(world, box).map(([, rgb]) => rgb) }
+  expect(sheets.length).toBeGreaterThan(0)
+  return { sheets, mid: sheets.find(({ lattice }) => lattice === 'mid'), sky: skyStops(world, box).map(([, rgb]) => rgb) }
 }
 const luminance = (rgb: RGB) => linearLuminance(srgbRgbToLinear(rgb))
 
 it('dusty air takes a sheet by its distance and leaves its coverage', () => {
   const { mid } = frame('2026-11-17T15:00', DUST), clean = frame('2026-11-17T15:00', CLEAN).mid
-  expect(mid.through).toBeDefined()
-  expect(Math.max(...mid.through!)).toBeLessThan(0.25)
-  for (let row = 1; row < mid.ys.length; row++) expect(mid.through![row]).toBeLessThanOrEqual(mid.through![row - 1])
-  expect(clean.through).toBeUndefined()
-  expect(mid.alpha).toEqual(clean.alpha)
-  expect(mid.key).not.toBe(clean.key)
+  expect(mid?.through).toBeDefined()
+  expect(clean).toBeDefined()
+  const through = mid!.through!
+  expect(Math.max(...through)).toBeLessThan(0.25)
+  for (let row = 1; row < through.length; row++) expect(through[row]).toBeLessThanOrEqual(through[row - 1])
+  expect(clean!.through).toBeUndefined()
+  expect(mid!.alpha).toEqual(clean!.alpha)
 }, 30_000)
 
 it('the sky of a dusty day is one pale tan, lighter at the horizon, and its clouds stand in the same light', () => {

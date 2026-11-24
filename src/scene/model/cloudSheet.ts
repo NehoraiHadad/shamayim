@@ -20,7 +20,6 @@ export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, 
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
 type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number; daylit?: number }
-
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
 export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapshot, colours: Colours,
@@ -85,6 +84,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   }
   const corrected = textureCorrection(raw, tau, weights, xs.length, detail)
   const solar = solarTexel(world, geom, snapshot, grid, angularStep)
+  const { body, shade, lit, daylit = 0 } = colours
   const closed = colours.closed ?? 0
   const city = cityAt && sheetCity(cityAt, grid, heightKm, deckEnd)
   let fingerprint = (city ?? []).reduce((sum, w) => Math.imul(sum ^ Math.round(w * 255), 16777619), 2166136261)
@@ -103,29 +103,26 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       const local = tau[index]
       const depth = cellular ? local : local + f * (expected[index] - local)
       const thinned = corrected(index)
-      // A column that hides the sky is never lit as a thin one: the texture's deficit there ends at half the depth.
-      const texel = cellular && thinned < 1 ? thinned + 0.5 * sheetOpacity(local, multiplier) * (1 - thinned) ** 2 : thinned
+      const localOpacity = sheetOpacity(local, multiplier)
+      // Design choice: recover up to half the squared texture deficit in opaque, sunlit cells.
+      const texel = cellular && thinned < 1 && daylit
+        ? thinned + 0.5 * daylit * localOpacity * (1 - thinned) ** 2 : thinned
       // The far density is already the log of the ensemble transmission for
       // unresolved footprints. Slanting it again turns the gaps into a solid band.
       const ambient = expected[index]
-      const resolved = (1 - f) * sheetOpacity(local, multiplier)
+      const resolved = (1 - f) * localOpacity
       const unresolved = f * sheetOpacity(ambient, ambientSlant)
       const opacity = resolved + unresolved
       alpha[index] = visibility * (solar?.index === index ? opacity + solar.weight * (solar.opacity - opacity) : opacity)
-      // Divide by the incident diffuse light of this same column. The upper
-      // layers multiply both the numerator and its clear-column reference.
+      // Upper layers cancel when dividing by the same column's incident diffuse light.
       const slantDepth = (veil ? Math.min(1, depth * multiplier) : depth * multiplier) * texel
       const diffuse = 1 / (1 + DIFFUSE_EXTINCTION * slantDepth)
       const forward = colours.light * facing[col] * Math.exp(-slantDepth)
       const thinTone = (1 - diffuse) * (1 - diffuse * forward)
-      // At vertical depth 10 the column is opaque. Preserve the closed
-      // deck's source ramp and leave texture in the open-deck tone only.
-      let localTone = thinTone
-      if (genus === 'ns') {
-        // The rain-darkened body is the slab's diffuse source. Keep a
-        // tenth of the thin-column variation on its brighter side.
-        localTone = 0.4 + 0.1 * thinTone
-      } else if (!cellular && !veil) {
+      // Ns keeps a tenth of the thin-column variation above its rain-darkened body.
+      let localTone = genus === 'ns' ? 0.4 + 0.1 * thinTone : thinTone
+      if (genus !== 'ns' && !cellular && !veil) {
+        // At vertical depth 10 preserve the opaque source ramp, with texture only in the open deck.
         const thick = smoothstep(0, 10, depth)
         const openTone = unit(limb + (thinTone - 0.5) * diffuse)
         const baseTone = 0.5 + 0.5 * (openTone + closed * (ramp - openTone))
@@ -135,17 +132,18 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
-  const { body, shade, lit, daylit } = colours
-  const through = sheetThrough(world.air, layer.baseKm, altitudes)
+  const through = sheetThrough(world.air, layer.baseKm, altitudes, daylit)
+  // A 1/64 step keeps the maximum change in drawn low-light weight below 2% and fits the key's hundredths.
+  const paintDaylight = Math.round(daylit * 64) / 64
   const sheet: LayerOf<'cloudSheet'> = {
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
     ...(through && { through }),
-    ...(daylit && { daylit }),
+    ...(paintDaylight && { daylit: paintDaylight }),
     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
-    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit, ...(through ? [through] : []), ...(daylit ? [daylit] : [])),
+    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit, ...(through ? [through] : []), ...(paintDaylight ? [paintDaylight] : [])),
   }
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet

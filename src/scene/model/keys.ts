@@ -27,9 +27,10 @@ export const colourCode = ([r, g, b]: RGB, shift = 0) =>
  */
 export const cacheRatio = (dpr: number, _soft = false) => dpr
 
-export function layerKey(...parts: unknown[]): string {
-  return partKey(parts, 2)
-}
+const LAYER_KEY_DIGITS = 2
+/** Use the key's own precision when a raster input must agree exactly with its key. */
+export const layerKeyNumber = (value: number) => Math.round(value * 10 ** LAYER_KEY_DIGITS) / 10 ** LAYER_KEY_DIGITS
+export const layerKey = (...parts: unknown[]): string => partKey(parts, LAYER_KEY_DIGITS)
 
 /** The part of the box a land layer depends on. */
 export const landBoxKey = (box: SceneBox, soft = false) => [box.width, box.landHeight, cacheRatio(box.dpr, soft)]

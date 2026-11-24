@@ -5,7 +5,7 @@ import { hashId } from '../data/landmarks/hash'
 import { RELIEF } from '../data/terrain/angleScale'
 import { SCENE_CAMERA } from '../domain/camera'
 import { datePart } from '../domain/time'
-import { dustAirlight, skyLight } from '../theme/skyLight'
+import { dustVeilPotential, skyLight } from '../theme/skyLight'
 import { airOf, coinOf } from './air'
 import { moonBody, sunBody } from './bodies'
 import { cloudMotion } from './cloudField'
@@ -85,7 +85,7 @@ export function makeWorldBuilder() {
       ((grid?.heightAt(eastKm, northKm) ?? forecast.elevation) - eyeM) / 1000
     const rain = rainFrom(cloudField, rate, wind, shown.fieldWeather, shown.live ? shown.thunderWeight : 0, groundAboveEyeKm)
     const snowfall = snowFrom(clouds, snow, wind, hashId(`${place.id}:snow`))
-    air.dustAirlight = dustAirlight(shown.opticalPm10, shown.sunElevation)
+    air.dustVeilPotential = dustVeilPotential(shown.opticalPm10)
     const palette = skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12, cloudCover: shown.cloudCover,
       wet: Math.min(1, rate / 0.8), pm10: shown.opticalPm10, air })
     const lightInput: LightInput = { at, day, site: place, camera, skyline, sunSkyline, sun, moon,

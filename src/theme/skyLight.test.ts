@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ratio } from './contrast'
-import { deltaE } from './oklab'
+import { deltaE, mixOklab } from './oklab'
 import { skyLight } from './skyLight'
 import { SKY_THEMES } from './skyThemes'
 
@@ -14,6 +14,15 @@ describe('continuous sky light', () => {
       expect(deltaE(light(30)[field], SKY_THEMES.clearDay[field])).toBeLessThan(0.01)
     for (const field of Object.keys(light(-20)) as (keyof ReturnType<typeof light>)[])
       expect(deltaE(light(-20)[field], SKY_THEMES.night[field])).toBeLessThan(0.01)
+  })
+
+  it.each([0, 3])('preserves the heavy-dust palette tint at %s°', (altitude) => {
+    const clear = light(altitude)
+    const dusty = light(altitude, true, 0, 0, 300)
+    const weight = 0.9 * Math.min(1, Math.max(0, (altitude + 6) / 10))
+    // These fields bypass the text contrast guard.
+    expect(dusty.ridgeFar).toBe(mixOklab(clear.ridgeFar, SKY_THEMES.dust.ridgeFar, weight))
+    expect(dusty.horizon).toBe(mixOklab(clear.horizon, SKY_THEMES.dust.horizon, Math.min(0.9, weight * 1.3)))
   })
 
   it('keeps text contrast throughout weather and altitude combinations', () => {

@@ -17,6 +17,7 @@ beforeAll(async () => {
 function frame(id: string, at: LocalTime) {
   const world = makeWorldBuilder()(worldInput(loaded.get(id)!, at))
   const sheets = cloudLayersOf(world, box).filter((l): l is LayerOf<'cloudSheet'> => l.kind === 'cloudSheet')
+  expect(sheets.length).toBeGreaterThan(0)
   return { altitude: world.bodies.sun.altitude, sheets }
 }
 
@@ -46,13 +47,18 @@ it('keeps the sun under 3° in the twilight’s own tones: rose and red, not cre
   const { sheets, altitude } = frame('haifa', '2026-11-17T16:30')
   expect(altitude).toBeLessThan(3)
   expect(sheets.every(({ daylit }) => !daylit)).toBe(true)
-  const mid = sheets.find(({ lattice }) => lattice === 'mid')!
-  expect(tone(mid.lit).c).toBeGreaterThan(0.08)
-  expect(tone(mid.lit).h).toBeLessThan(40)
+  const mid = sheets.find(({ lattice }) => lattice === 'mid')
+  expect(mid).toBeDefined()
+  expect(tone(mid!.lit).c).toBeGreaterThan(0.08)
+  expect(tone(mid!.lit).h).toBeLessThan(40)
 })
 
-it.each([['haifa', '2026-11-17T14:30'], ['tiberias', '2026-11-17T16:30']] as const)('lights no opaque column of a low deck as a thin one, at %s %s', (id, at) => {
-  const { alpha, tone: tones, ys, xs } = frame(id, at).sheets.find(({ lattice }) => lattice === 'low')!
+it.each([['haifa', '2026-11-17T14:30'], ['tiberias', '2026-11-17T15:30']] as const)('lights no opaque column of a daylit low deck as a thin one, at %s %s', (id, at) => {
+  const { altitude, sheets } = frame(id, at)
+  expect(altitude).toBeGreaterThanOrEqual(7)
+  const low = sheets.find(({ lattice }) => lattice === 'low')
+  expect(low).toBeDefined()
+  const { alpha, tone: tones, ys, xs } = low!
   const opaque: number[] = []
   // The upper sky, where a cell is wide on the screen and one node's colour is a patch.
   for (let n = 0; n < ys.length * xs.length; n++) if (ys[Math.floor(n / xs.length)] < 240 && alpha[n] >= 0.98) opaque.push(tones[n])

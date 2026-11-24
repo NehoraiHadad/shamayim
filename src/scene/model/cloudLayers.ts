@@ -1,8 +1,9 @@
+import { daylitShare } from '../../domain/cloudDaylight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { CloudLevel, WorldState } from '../../world/types'
 import { towerLayerOf } from './cloudCells'
 import { inDust } from './cloudDust'
-import { daylitShare, sunlitTone } from './cloudSunlit'
+import { sunlitTone } from './cloudSunlit'
 import { cityLit } from './cityLight'
 import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
@@ -68,7 +69,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       lit: inDust(world, light?.sun ? sunlitTone(world, fieldLayer.baseKm + fieldLayer.meanVKm / 2,
         light.above * facing * (1 - tones.fade), body, lit) : lit),
       closed: closed * day,
-      daylit: Math.round(daylitShare(altitude) * 16) / 16,
+      daylit: daylitShare(altitude),
       light: light?.sun ? light.strength * light.above : 0,
     }
     // By night a deck over the towns gives their light back from its base (an overcast city night is not black).
