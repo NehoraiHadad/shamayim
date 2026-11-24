@@ -4,10 +4,10 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput } from '../../test/sceneWorld'
 import type { WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
-import type { Ctx2D, PaintEnv } from '../paint/shared/base/hand'
-import { PAINTERS, SCENE_STYLES, type SceneStyle } from '../paint/painters'
-import { cloudLayersOf } from './cloudLayers'
-import type { LayerOf, SceneBox } from './types'
+import type { Ctx2D, PaintEnv } from './shared/base/hand'
+import { PAINTERS, SCENE_STYLES, type SceneStyle } from './painters'
+import { cloudLayersOf } from '../model/cloudLayers'
+import type { LayerOf, SceneBox } from '../model/types'
 
 const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const SHOWERS = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickCloud: 40, windSpeed: 25, windGusts: 45,

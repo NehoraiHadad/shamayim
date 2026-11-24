@@ -1,4 +1,5 @@
 import { coinOf } from '../../world/air'
+import { transmitAcross } from '../../world/field/transmit'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
@@ -12,6 +13,16 @@ export const CORE_LEAK = 0.08
 /** A disc's own contrast under a cloud of that slant transmission: the painted cloud lets the leak through at least, so
  *  under a thicker one the two together let through what the cloud truly does (half a code value of 255 at a depth of 6.2). */
 const shownThrough = (transmission: number) => Math.min(1, transmission / CORE_LEAK)
+
+/** What the clouds let through of a disc as it is drawn (far larger than its half degree): from its middle and its limb, by
+ *  the air they are drawn in. */
+function throughDisc({ cloudField }: WorldState, geom: SkyGeom, x: number, y: number, r: number): number {
+  if (!cloudField) return 1
+  // A part below the horizon is the land's: a pixel over it instead.
+  const at = (dx: number, dy: number) =>
+    ({ azimuth: geom.azimuthAt(x + dx), altitude: geom.domeAltitudeAt(Math.min(geom.horizon - 1, y + dy)) })
+  return transmitAcross(cloudField.field, cloudField.snapshot, [at(0, 0), at(-r, 0), at(r, 0), at(0, -r), at(0, r)])
+}
 
 const WHITE: RGB = [1, 1, 1]
 /** The discs' radii (px), as the SVG scene draws them (an 18 px sun, a 14 px moon). */
@@ -32,11 +43,12 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
   if (!sun.up) return null
   const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
-  const coin = coinOf(aerosol), veil = veilOf(world), { sun: through } = world.light.through
+  const coin = coinOf(aerosol), veil = veilOf(world), x = geom.left + sun.x * geom.s, y = box.landTop + sun.y
+  const through = throughDisc(world, geom, x, y, SUN_R)
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)
   const limb: RGB = mixRgb([rgb[0] * 0.86, rgb[1] * 0.78, rgb[2] * 0.66], COIN, coin)
   return {
-    x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, r: SUN_R, rgb, veil, core, limb, halo: rgb,
+    x, y, r: SUN_R, rgb, veil, core, limb, halo: rgb,
     // The air before a cloud that hides the sun lies in its shadow; no more than the mean sky leaves, as the disc.
     aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin) * Math.min(1 - veil, through), flatten: sunFlattening(sun.altitude), coin,
     shown: shownThrough(through),
@@ -58,9 +70,10 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
     farFade: world.air.farFade })
   if (!look || !moon.up) return null
   const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
+  const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
   return {
-    x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight),
-    alpha: look.opacity * world.light.clear * shownThrough(world.light.through.moon),
+    x, y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight),
+    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, x, y, MOON_R)),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,
