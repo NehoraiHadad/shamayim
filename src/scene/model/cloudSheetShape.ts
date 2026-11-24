@@ -45,16 +45,31 @@ export interface Shape {
   cos: number
   /** The ranges (km) it is drawn over. */
   from: number; to: number
+  /** 1 / r² and d², and the series (`seriesOf`) of its width as far as its widest range. */
+  inverse: number; dd: number; series: Series
+}
+
+/** Cells by the strips of the ground they reach into, each strip's in the cells' own order: those that can hide a place. */
+export function byStrip(cells: readonly FieldCell[]): (x: number) => readonly FieldCell[] {
+  const width = cells.reduce((most, { r }) => Math.max(most, r), 0), strips = new Map<number, FieldCell[]>()
+  for (const cell of cells) {
+    for (let strip = Math.floor((cell.x - cell.r) / width); strip <= Math.floor((cell.x + cell.r) / width); strip++) {
+      const here = strips.get(strip)
+      if (here) here.push(cell)
+      else strips.set(strip, [cell])
+    }
+  }
+  return (x) => strips.get(Math.floor(x / width)) ?? []
 }
 
 /** How open the sky is before a cell's far rim (0 covered … 1 open): no foot shows where another cell still hides it, as it
  *  does up to some .8 of its radius (a third of its depth is left there) and no more at its rim, and no more of it than the
  *  other's share of its area. */
-export function openness(cell: FieldCell, cells: readonly FieldCell[]): number {
+export function openness(cell: FieldCell, cellsAt: (x: number) => readonly FieldCell[]): number {
   const d = Math.hypot(cell.x, cell.y), far = 1 + cell.r / d
   const x = cell.x * far, y = cell.y * far
   let open = 1
-  for (const other of cells) {
+  for (const other of cellsAt(x)) {
     if (other === cell || !open) continue
     const dx = x - other.x, dy = y - other.y, r = other.r
     if (dx * dx + dy * dy < r * r) open *= 1 - Math.min(1, r * r / (cell.r * cell.r)) * smoothstep(1, 0.7, Math.sqrt(dx * dx + dy * dy) / r)
@@ -87,33 +102,49 @@ export function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad
     d, east: cell.x / d, north: cell.y / d, mid: d * d - r * r,
     wide, bend: foot * wide / (3 * far * far), far, near, give: 1 / wide, firm, cos: Math.max(0, Math.cos(half * wide * (1 + foot))),
     from: d - r, to: d + r,
+    inverse: 1 / (r * r), dd: d * d, series: seriesOf(wide),
   }
 }
+
+type Series = number[]
+
+/** The factors of `narrowed`'s terms. */
+function seriesOf(wide: number, out: Series = []): Series {
+  const n = 1 / (wide * wide)
+  out[0] = 2 * n
+  out[1] = (1 - n) / 3
+  out[2] = (4 - n) / 7.5
+  out[3] = (9 - n) / 14
+  out[4] = (16 - n) / 22.5
+  out[5] = (25 - n) / 33
+  return out
+}
+/** The bent side's, one place at a time. */
+const bent: Series = []
 
 /**
  * The cosine of an angle `wide` times narrower, from sin² of the angle's half: the Chebyshev function T(1/wide) as
  * 2F1(-n, n; 1/2; s). Up to a right angle, the widest half of a cell, seven terms are within 1e-3.
  */
-function narrowed(s: number, wide: number): number {
-  const n = 1 / (wide * wide)
-  return 1 - 2 * n * s * (1 + (1 - n) / 3 * s * (1 + (4 - n) / 7.5 * s * (1 + (9 - n) / 14 * s
-    * (1 + (16 - n) / 22.5 * s * (1 + (25 - n) / 33 * s)))))
+function narrowed(s: number, series: Series): number {
+  return 1 - series[0] * s * (1 + series[1] * s * (1 + series[2] * s * (1 + series[3] * s
+    * (1 + series[4] * s * (1 + series[5] * s)))))
 }
 
 /** The cell's drawn depth less the one its rays alone would show, at a place `range` km away whose outlines the air moves
  *  to `scale` times as far. */
 export function change(shape: Shape, east: number, north: number, range: number, scale: number): number {
-  const { cell, d } = shape
+  const { cell, d, inverse } = shape
   // Off to its side: it is only ever drawn wider.
   const along = east * shape.east + north * shape.north
   if (along <= range * shape.cos) return 0
-  const inverse = 1 / (cell.r * cell.r), dx = east * scale - cell.x, dy = north * scale - cell.y
+  const dx = east * scale - cell.x, dy = north * scale - cell.y
   const native = kernel(cell.tau0, (dx * dx + dy * dy) * inverse, shape.cumulus)
   // Its lobes are as much lower as it is, and stand on its sides and crown: its base is the level air condenses at.
   const still = shape.firm * unit(2 * (range * range - shape.mid) / shape.far)
   const at = range * (1 + (scale - 1) * shape.give * (1 - still)), up = at * at - shape.mid
   if (up >= shape.far || up <= -shape.near) return -native
   const bend = up > 0 ? shape.bend * up * up : 0, square = shape.mid + up * (shape.wide + bend)
-  const cos = narrowed((1 - along / range) / 2, shape.wide + 3 * bend)
-  return kernel(cell.tau0, (square + d * d - 2 * Math.sqrt(square) * d * cos) * inverse, shape.cumulus) - native
+  const cos = narrowed((1 - along / range) / 2, bend ? seriesOf(shape.wide + 3 * bend, bent) : shape.series)
+  return kernel(cell.tau0, (square + shape.dd - 2 * Math.sqrt(square) * d * cos) * inverse, shape.cumulus) - native
 }

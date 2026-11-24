@@ -13,10 +13,10 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
   const cross = 2 * b
 
   function depth(footprint: Footprint, x: number, y: number) {
-    const dx = x - footprint.cell.x
-    const dy = y - footprint.cell.y
+    const dx = x - footprint.x
+    const dy = y - footprint.y
     const rr = ((a * dx + cross * dy) * dx + c * dy * dy) * footprint.inverseR2
-    return kernel(footprint.cell.tau0, rr, footprint.cumulus)
+    return kernel(footprint.tau0, rr, footprint.cumulus)
   }
 
   function rayDepth(footprint: Footprint, x: number, y: number, low: number, high: number, ds: number,
@@ -60,7 +60,7 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
       const east = eastScale * r, north = northScale * r
       const first = Math.max(0, indexX(x - east)), last = Math.min(width - 1, indexX(x + east))
       const top = Math.min(height - 1, indexY(y + north))
-      const footprint = { cell, cumulus, inverseR2: 1 / (r * r) }
+      const footprint = { cell, x, y, tau0: cell.tau0, cumulus, inverseR2: 1 / (r * r) }
       for (let row = Math.max(0, indexY(y - north)); row <= top; row++) {
         for (let col = first; col <= last; col++) {
           const index = row * width + col
@@ -98,6 +98,9 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
 
 interface Footprint {
   cell: FieldCell
+  x: number
+  y: number
+  tau0: number
   cumulus: boolean
   inverseR2: number
 }

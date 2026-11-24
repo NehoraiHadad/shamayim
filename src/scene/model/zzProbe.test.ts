@@ -6,7 +6,10 @@ import { SCENE_PLACES, DATUM_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { transmitAlong } from '../../world/field/transmit'
 import { makeWorldBuilder } from '../../world/world'
+import { genusOf } from '../../world/field/genus'
+import { gridFor } from './cloudSheetGrid'
 import { sceneModel } from './index'
+import { skyGeom } from './sky'
 import type { SceneBox } from './types'
 
 /* A probe, to be removed. */
@@ -28,17 +31,19 @@ it('dumps the showers', () => {
   const { azimuth, altitude } = world.bodies.sun
   console.info('DUMP sun', azimuth, altitude, 'T', transmitAlong(field, snapshot, azimuth, altitude), snapshot.map((s) => [s.layer?.lattice, transmitAlong(field, [s], azimuth, altitude)]),
     'eye', world.light.eye, 'clear', world.light.clear, 'moon', world.bodies.moon.up, world.bodies.moon.altitude)
-  for (const layer of sceneModel(world, box).layers) {
-    if (layer.kind === 'cloudSheet') {
-      const { xs, ys, alpha, tone, body, shade, lit, genus, id } = layer
-      const rows: string[] = []
-      for (let r = 0; r < ys.length; r += 4) if (ys[r] > 20 && ys[r] < 300) {
-        const pick = (list: number[]) => [60, 125, 170, 190, 215, 250, 330].map((x) => list[r * xs.length + Math.round(x / (xs[1] - xs[0]))].toFixed(3)).join(' ')
-        rows.push(`y ${ys[r].toFixed(0)} a ${pick(alpha)} | t ${pick(tone)}`)
+  const geom = skyGeom(world, box), { layers } = sceneModel(world, box)
+  for (const s of snapshot) if (s.layer?.cover && s.layer.lattice !== 'tower') {
+    const genus = genusOf(s.layer.lattice, s.layer.form, 0.5), g = gridFor('haifa', s.layer, geom, s.heightKm, genus)
+    console.info('DUMP', s.layer.lattice, genus, 'cover', s.layer.cover, 'height', s.heightKm, 'base', s.layer.baseKm, 'kappa', s.layer.kappa, 'v', s.layer.meanVKm, JSON.stringify(s.layer.form), 'sun', geom.dome(altitude), geom.azimuthRange)
+    for (let r = 0; r < g.ys.length; r += genus === 'ns' ? 1 : 4) {
+      const at = g.xs.flatMap((x, c) => x >= 125 && x <= 250 ? [r * g.xs.length + c] : []), of = (list: number[]) => {
+        const v = at.map((i) => list[i]), mean = v.reduce((m, x) => m + x, 0) / v.length
+        return `${Math.min(...v).toFixed(3)} ${mean.toFixed(3)} ${Math.max(...v).toFixed(3)} sd ${Math.sqrt(v.reduce((m, x) => m + (x - mean) ** 2, 0) / v.length).toFixed(3)}`
       }
-      console.info('DUMP', id, genus, 'cover', snapshot.find((s) => s.layer?.lattice === layer.lattice)?.layer?.cover,
-        JSON.stringify({ body, shade, lit }), '\n' + rows.join('\n'))
+      console.info('DUMP y', g.ys[r].toFixed(0), 'alt', g.altitudes[r].toFixed(1), 'range', g.ranges[r].toFixed(2), 'tau', of(g.tau), 'tex', of(g.texture), 'det', of(g.detail), 'alpha', of(g.alpha), 'tone', of(g.tone))
     }
+  }
+  for (const layer of layers) {
     if (layer.kind === 'cloudCells') console.info('DUMP towers', JSON.stringify(layer.cells.map(({ sprite: s, x, y }) => [x, y, s.genus, s.w, s.tall, s.under, s.tau, s.share, s.anvil, s.body, s.shade].map((v) => typeof v === 'number' ? +v.toFixed(2) : v))))
   }
 })

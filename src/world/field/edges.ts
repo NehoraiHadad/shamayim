@@ -42,14 +42,33 @@ function samplerOf(placeId: string, lattice: FieldLayer['lattice'], wavelength: 
   return sampler
 }
 
-/** How far (km) the field's outlines are moved at a place of the layer, and the share of it a ray at that range (km) and
- *  altitude (deg) is moved by along itself, for each km of its range. */
-export function edgeNoise(placeId: string, layer: FieldLayer, minute: number) {
+interface EdgeNoise {
+  /** How far (km) the field's outlines are moved at a place of the layer, and the most they are anywhere. */
+  at(x: number, y: number): number
+  most: number
+  /** The share of it a ray at that range (km) and altitude (deg) is moved by along itself, for each km of its range. */
+  along(range: number, altitude: number): number
+}
+
+/** A layer's noise at the minute last asked for: every ray and sheet of a frame reads the same one. */
+const latest = new WeakMap<FieldLayer, { placeId: string; minute: number; noise: EdgeNoise }>()
+
+export function edgeNoise(placeId: string, layer: FieldLayer, minute: number): EdgeNoise {
+  const known = latest.get(layer)
+  if (known?.minute === minute && known.placeId === placeId) return known.noise
+  const noise = noiseAt(placeId, layer, minute)
+  latest.set(layer, { placeId, minute, noise })
+  return noise
+}
+
+function noiseAt(placeId: string, layer: FieldLayer, minute: number): EdgeNoise {
   const radius = meanRadius(layer.lattice, 1), amplitude = PEAK * radius
   const sampler = samplerOf(placeId, layer.lattice, 2 * Math.PI * radius / LOBES)
   const noise = clumpAt(layer, minute, (x, y) => sampler(x, y, 0))
   return {
     at: (x: number, y: number) => amplitude * (noise(x, y) - 0.5),
+    // The sampler's values are 0 to 1.
+    most: amplitude / 2,
     // Along the ray: the projection draws its levels straight. Overhead, where every ray meets, it dies away.
     along: (range: number, altitude: number) => smoothstep(OUTLINE_ALT, LOBED_ALT, altitude) / Math.max(range, radius),
   }

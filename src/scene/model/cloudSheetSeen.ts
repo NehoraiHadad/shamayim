@@ -1,7 +1,7 @@
 import { edgeNoise } from '../../world/field/edges'
 import type { FieldSnapshot } from '../../world/field/transmit'
 import { pxPerRadAt } from './advect'
-import { change, openness, shapeOf, type Shape } from './cloudSheetShape'
+import { byStrip, change, openness, shapeOf, type Shape } from './cloudSheetShape'
 import type { SkyGeom } from './sky'
 
 /*
@@ -43,9 +43,9 @@ export function seenDepth(placeId: string, minute: number, snapshot: FieldSnapsh
   const noise = edgeNoise(placeId, layer, minute)
   const perRad = Math.abs(pxPerRadAt(geom.azimuthAt, geom.width / 2))
   const shapes: Shape[] = []
-  let outer = 0
+  let outer = 0, cellsAt: ReturnType<typeof byStrip> | null = null
   for (const cell of cells) {
-    const shape = shapeOf(cell, heightKm, geom, perRad, () => openness(cell, cells))
+    const shape = shapeOf(cell, heightKm, geom, perRad, () => openness(cell, cellsAt ??= byStrip(cells)))
     if (!shape) continue
     shapes.push(shape)
     outer = Math.max(outer, shape.to)
@@ -54,11 +54,15 @@ export function seenDepth(placeId: string, minute: number, snapshot: FieldSnapsh
   return (range: number, altitude: number): DepthAt => {
     const along = noise.along(range, altitude)
     if (!along && range >= outer) return depthAt
+    // The row's own list of each sector, in the shapes' order: those any displacement of its places brings within range.
+    const most = along * noise.most * (1 + ROUNDING), reach: (Shape[] | undefined)[] = []
+    const reached = ({ from, to }: Shape) => range * (1 + most) > from && range * (1 - most) < to
     return (east, north) => {
       const scale = along ? 1 + along * noise.at(east, north) : 1
       const depth = depthAt(east * scale, north * scale)
-      const here = sectors[sectorOf(east, north)]
-      if (!here.length) return depth
+      const sector = sectorOf(east, north)
+      if (!sectors[sector].length) return depth
+      const here = reach[sector] ??= sectors[sector].filter(reached)
       // A cell takes some of the place's displacement: none, all, or between.
       const low = Math.min(range, range * scale), high = Math.max(range, range * scale)
       let moved = 0

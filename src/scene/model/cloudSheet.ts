@@ -108,16 +108,15 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       // The far density is already the log of the ensemble transmission for
       // unresolved footprints. Slanting it again turns the gaps into a solid band.
       const ambient = expected[index]
-      const resolved = (1 - f) * sheetOpacity(local, multiplier)
-      const unresolved = f * sheetOpacity(ambient, ambientSlant)
+      const resolved = f < 1 ? (1 - f) * sheetOpacity(local, multiplier) : 0
+      const unresolved = f ? f * sheetOpacity(ambient, ambientSlant) : 0
       const opacity = resolved + unresolved
       alpha[index] = visibility * (solar?.index === index ? opacity + solar.weight * (solar.opacity - opacity) : opacity)
       // Divide by the incident diffuse light of this same column. The upper
       // layers multiply both the numerator and its clear-column reference.
       const slantDepth = (veil ? Math.min(1, depth * multiplier) : depth * multiplier) * texel
       const diffuse = 1 / (1 + DIFFUSE_EXTINCTION * slantDepth)
-      const forward = colours.light * facing[col] * Math.exp(-slantDepth)
-      const thinTone = (1 - diffuse) * (1 - diffuse * forward)
+      const thinTone = slantDepth ? (1 - diffuse) * (1 - diffuse * (colours.light * facing[col] * Math.exp(-slantDepth))) : 0
       // At vertical depth 10 the column is opaque. Preserve the closed
       // deck's source ramp and leave texture in the open-deck tone only.
       let localTone = thinTone
