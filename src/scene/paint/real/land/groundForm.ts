@@ -20,8 +20,8 @@ const FLAT = 2.4, FOLLOW = 0.35, EASED = 10, BENT = 24
 const BROAD = { px: 110, crest: 0.25, foot: 1 }, MIDDLE = { px: 44, crest: 0.6, foot: 0.9 }, FINE = { px: 14, crest: 1, foot: 0.85 }
 /** How far the patches move the reflectance; a clump's size (px) and darkening; the swells' heights (px); a fold's depth and dark bed. */
 const PATCHES = 0.5, CLUMP = 24, SCRUB = 0.44, SWELL = [13, 8, 4] as const, DEEP = 3, BED = 0.18
-/** What the far planes show of it; the mottle's lift of the mean, kept; the sky a px of depth takes. */
-const PLAIN = 0.45, KEPT = 0.05, OPEN = 0.02
+/** What the far planes show of it; the mottle's strength, the patches' own fine part beside it; its lift of the mean, kept; the sky a px of depth takes. */
+const PLAIN = 0.45, GRAIN = 0.9, KEPT = 0.05, OPEN = 0.02
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const smooth = (lo: number, hi: number, v: number) => { const x = clamp01((v - lo) / (hi - lo)); return x * x * (3 - 2 * x) }
@@ -61,7 +61,7 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const green = smooth(-0.18, 0.12, (base[1] - base[0]) / Math.max(1e-4, base[1] + base[0]))
     const scrub = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
     const shift = rough * PATCHES * patch, dark = (1 + shift) * (1 - SCRUB * scrub) * (1 - BED * folds[n]), o = n * 3
-    const grain = dark * (t.grainAmount ? mottle(seed, bounds.x + off, y, t.grainAmount) : 1)
+    const grain = dark * (t.grainAmount ? mottle(seed, bounds.x + off, y, GRAIN * t.grainAmount) : 1)
     height[n] = rough * (b * SWELL[0] * broad + m * SWELL[1] * middle + f * SWELL[2] * fine + 2 * scrub) - DEEP * folds[n]
     rho[o] = clamp01(base[0] * grain * (1 + 0.14 * shift - 0.1 * scrub))
     rho[o + 1] = clamp01(base[1] * grain * (1 + 0.04 * scrub))
