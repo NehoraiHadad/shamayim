@@ -1,11 +1,13 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { Landmark } from '../data/landmarks/types'
+import { noteBoxes } from '../data/terrain/sceneNotes'
 import { loadPlaces, stubPublicFetch, worldInput } from '../test/sceneWorld'
 import * as beyondSeat from './beyondSeat'
 import { roshPina } from './beyondSeatFixture'
 import * as skylineLayout from './drawnSkyline'
 import { GLYPH_SPECS, glyphAtHeight } from './glyphSpecs'
 import { LABEL_WIDTHS } from './heightLabel'
+import { heightLabelMarks } from './heightLabelMarks'
 import { DOT_R } from './layout'
 import { markBoxAt } from './markGeometry'
 import { TOWN_SIDE_PX } from './neighbourSeparation'
@@ -85,17 +87,61 @@ it('uses only the budgeted seats for the height label and celestial skyline', as
   expect(crowded.skyline(keptColumn)).toBe(budgeted.skyline(keptColumn))
   expect(crowded.skyline(keptColumn)).toBeLessThan(droppedAlone.skyline(keptColumn))
 
-  // Fit even at the narrow solver viewport, with one extra CSS pixel beyond both seating seams.
-  const last = sites[7].block
-  const wide = { ...last, w: (tower.w + 2 * TOWN_SIDE_PX + 1) * SCENE_W / LABEL_WIDTHS[0] }
-  towns.mockReturnValue({ beyondTowns: [...sites.slice(0, 7).map(({ block }) => block), wide],
-    seatMark: (mark) => seats.get(mark.id) ?? null })
-  const wideBudgeted = buildWith(crowd.slice(0, 2)).world
-  const wideCrowded = buildWith(crowd).world
-  const wideDroppedAlone = buildWith(crowd.slice(-1)).world
+  // Bare, level land isolates the seat from the home roof span and water notes.
+  const ridge = 90
+  const terrain = { ...input.terrain, centerLeft: '50%', nearPoints: [[0, ridge], [SCENE_W, ridge]] as [number, number][],
+    nearElevations: undefined, heightNear: undefined, water: [], sightAt: () => ({ nearKm: 3, farKm: 30, farShows: false }) }
+  const wideInput = { ...input, terrain, city: null, far: null, bounds: null, cover: null, waterMask: null,
+    forecast: { ...input.forecast, elevation: 1000 } }
+  const buildWide = (seatCandidates: Landmark[]) => buildWorld({ ...wideInput, seatCandidates })
+  towns.mockReturnValue({ beyondTowns: [], seatMark: null })
+  const wideBaseline = buildWide([])
+  const baseLabel = wideBaseline.labels.height
+  const baseBadge = heightLabelBox(baseLabel, SCENE_W)
+  const wideDot = wideBaseline.place3.dot
+  const baseY = wideDot.y + roofPx
+  // Rise past the badge's top by one roof height and clear the dot on the right.
+  const hPx = baseY - baseBadge.y + roofPx
+  const x = baseLabel.x + baseBadge.w / 4
+  const wideSites = sites.map(({ mark, block, hPx: height }, i) => {
+    const projectedHeight = hPx + height - labelHeight
+    const glyphWidth = glyphAtHeight('highrise', projectedHeight).w
+    // One spare CSS pixel at the narrowest width leaves room beyond both seating seams.
+    const w = (glyphWidth + 2 * TOWN_SIDE_PX + 1) * SCENE_W / LABEL_WIDTHS[0]
+    return { mark: { ...mark, heightM: 2 * projectedHeight }, block: { ...block, x: i === 7 ? x : block.x, baseY, w },
+      hPx: projectedHeight }
+  })
+  const wideCrowd = wideSites.map(({ mark }) => mark)
+  const wideSeats = new Map(wideSites.map(({ mark, block, hPx }) =>
+    [mark.id, { x: block.x, base: block.baseY, hPx, km: block.km, blockId: block.id }]))
+  towns.mockReturnValue({ beyondTowns: wideSites.map(({ block }) => block), seatMark: (mark) => wideSeats.get(mark.id) ?? null })
+  const wideBudgeted = buildWide(wideCrowd.slice(0, 2))
+  const wideCrowded = buildWide(wideCrowd)
+  const wideDroppedAlone = buildWide(wideCrowd.slice(-1))
   expect(wideCrowded.seatPool.map(({ id }) => id)).toContain(tower.id)
   expect(wideCrowded.marks.map(({ id }) => id)).not.toContain(tower.id)
   expect(wideDroppedAlone.marks.map(({ id }) => id)).toEqual([tower.id])
-  expect(wideDroppedAlone.labels.height).not.toEqual(wideBudgeted.labels.height)
+  const obstacles = (world: typeof wideBaseline) => {
+    const view = world.place3
+    if (view.kind !== 'outside') throw new Error('Expected an outside view')
+    return heightLabelMarks(world.marks, view, terrain, noteBoxes(world.labels.notes), SCENE_W)
+  }
+  const aloneObstacles = obstacles(wideDroppedAlone)
+  const budgetedObstacles = obstacles(wideBudgeted)
+  for (const viewport of LABEL_WIDTHS) {
+    const badge = heightLabelBox(baseLabel, viewport)
+    const alone = aloneObstacles.filter(box => box.viewport === viewport)
+    const kept = budgetedObstacles.filter(box => box.viewport === viewport)
+    const overlap = ({ left, right, top, bottom }: (typeof alone)[number]) =>
+      Math.max(0, Math.min(right, badge.x + badge.w) - Math.max(left, badge.x)) *
+      Math.max(0, Math.min(bottom, badge.y + badge.h) - Math.max(top, badge.y))
+    const boxes = JSON.stringify({ viewport, badge, alone, kept })
+    expect(alone, boxes).toHaveLength(1)
+    expect(overlap(alone[0]), boxes).toBeGreaterThanOrEqual(4)
+    expect(kept, boxes).toHaveLength(wideBudgeted.marks.length)
+    expect(kept.every(box => overlap(box) === 0), boxes).toBe(true)
+  }
+  expect(wideBudgeted.labels.height).toEqual(baseLabel)
+  expect(wideDroppedAlone.labels.height).not.toEqual(baseLabel)
   expect(wideCrowded.labels.height).toEqual(wideBudgeted.labels.height)
 })
