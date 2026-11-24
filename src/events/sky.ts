@@ -1,0 +1,59 @@
+import { moonPosition } from '../astro/moon'
+import { sunPosition } from '../astro/sun'
+import { utcOf } from '../astro/utc'
+import type { Place } from '../config/place'
+import type { SceneTerrain } from '../data/terrain/terrain'
+import { fractionOf } from '../domain/camera'
+import { addMinutes } from '../domain/minutes'
+import type { Forecast, HourPoint, LocalTime } from '../domain/types'
+import { layerCovers } from '../world/clouds'
+import { placeEnvOf } from '../world/placeEnv'
+import { apparentAltitude } from '../world/skyProjection'
+import { sceneSkyline } from '../world/visibleSun'
+import type { EventSky } from './types'
+
+const HOUR = 3_600_000
+/** A body closer to the horizon than this (deg) is lost in its haze. */
+const LOWEST = 0.5
+
+/** The land as the scene knows it: the ridge in view; beyond the view (the north), and with no land known, the horizon. */
+function clearOf(terrain: SceneTerrain): EventSky['clear'] {
+  const { angleY, camera } = terrain
+  const skyline = angleY ? sceneSkyline(terrain) : null
+  return ({ azimuth, altitude }) => {
+    if (altitude < LOWEST) return false
+    if (!skyline || !angleY) return true
+    const x = fractionOf(azimuth, camera)
+    return x < 0 || x > 1 || angleY(altitude) < skyline(x)
+  }
+}
+
+/** The sky from `now` to the next sunrise; null while the land is on its way or the forecast does not hold the days. */
+export function eventSky(place: Place, forecast: Forecast, now: LocalTime, terrain: SceneTerrain): EventSky | null {
+  if (terrain.status === 'loading') return null
+  const today = forecast.days.findIndex((d) => d.date === now.slice(0, 10))
+  if (today < 0) return null
+  const evening = now < forecast.days[today].sunrise ? today - 1 : today
+  const dusk = forecast.days[evening]?.sunset, dawn = forecast.days[evening + 1]?.sunrise
+  if (!dawn) return null
+  const { lat, lon, timezone } = place
+  const ms = (at: LocalTime) => utcOf(at, timezone).getTime()
+  const to = ms(dawn)
+  const hours = new Map<number, HourPoint>()
+  const first = addMinutes(now, -60), last = addMinutes(dawn, 60)
+  for (const hour of forecast.hours) if (hour.time >= first && hour.time <= last) hours.set(Math.round(ms(hour.time) / HOUR), hour)
+  const hourAt = (at: number) => hours.get(Math.round(at / HOUR)) ?? null
+  const body = (position: typeof sunPosition | typeof moonPosition) => (at: number) => {
+    const { altitude, azimuth } = position(new Date(at), lat, lon)
+    return { azimuth, altitude: apparentAltitude(altitude) }
+  }
+  return {
+    place: { lat, lon, timezone }, from: ms(now), to, night: { from: dusk ? ms(dusk) : to - 12 * HOUR, to },
+    glow: placeEnvOf(place, {}).glow, hourAt,
+    coversAt: (at) => {
+      const hour = hourAt(at)
+      return hour && layerCovers({ cloudCover: hour.cloudCover, thickCloud: hour.thickCloud, hour }).covers
+    },
+    clear: clearOf(terrain), sunAt: body(sunPosition), moonAt: body(moonPosition),
+  }
+}
