@@ -39,6 +39,8 @@ export interface Head {
   joint: number; crown: number
   /** 0…1: how far its top spreads into an anvil. */
   anvil: number
+  /** 0…1: how much of it has grown: an overshooting top's, as much as its anvil's. */
+  grown: number
 }
 
 export interface TowerHeadShape { seed: number; w: number; tall: number; anvil?: number }
@@ -60,14 +62,14 @@ export function headsOf(s: TowerHeadShape): Head[] {
   const r = seeded(s.seed ^ 0x51ed), above = seeded(s.seed ^ 0x2b1d), anvil = s.anvil ?? 0
   const slender = smoothstep(SLENDER[0], SLENDER[1], s.tall / s.w)
   const between = ([a, b]: readonly number[], t = r()) => a + (b - a) * t
-  const head = (x: number, w: number, tall: number, flare: number): Head => {
+  const head = (x: number, w: number, tall: number, flare: number, grown = 1): Head => {
     const crown = Math.min(0.6 * tall, w * (DOME + (CAP - DOME) * flare))
-    return { x, half: w / 2, tall, joint: crown - tall, crown, anvil: flare, top: between([TOP_WIDTH, TOP_SLENDER], slender) }
+    return { x, half: w / 2, tall, joint: crown - tall, crown, anvil: flare, grown, top: between([TOP_WIDTH, TOP_SLENDER], slender) }
   }
   const main = between([MAIN_WIDTH, MAIN_SLENDER], slender * (1 - anvil)) * s.w
   const heads = [head((r() - 0.5) * 0.2 * s.w, main, s.tall * (1 - (1 - SHEET_TOP) * anvil), anvil)]
   // The overshooting top rises out of the column as its anvil spreads; its draws are its own, so the shoulders stay put.
-  if (anvil > 0) heads.push(head(heads[0].x + (above() - 0.5) * 2 * OFF * main * anvil, OVERSHOOT * main * anvil, s.tall * (1 + anvil) / 2, 0))
+  if (anvil > 0) heads.push(head(heads[0].x + (above() - 0.5) * 2 * OFF * main * anvil, OVERSHOOT * main * anvil, s.tall * (1 + anvil) / 2, 0, anvil))
   let side = r() < 0.5 ? -1 : 1
   const many = Math.max(slender > 0.5 ? 2 : 1, Math.floor(r() * SHOULDERS) + 1)
   for (let n = 0; n < many; n++, side = -side) {
@@ -82,10 +84,10 @@ export function headsOf(s: TowerHeadShape): Head[] {
 /** How far a head's anvil has spread at a height: a share of its half width. */
 const flareAt = (h: Head, t: number) => ANVIL_FLARE * h.anvil * Math.max(0, (t - FLARE_FROM) / (1 - FLARE_FROM)) ** 1.4
 
-/** A head's half width at a height. */
+/** A head's half width at a height: a grown one's half a pixel at least. */
 export function halfAt(h: Head, y: number): number {
   const t = Math.min(1, Math.max(0, -y / h.tall))
-  return Math.max(0.5, h.half * (1 - (1 - h.top) * t * (1 - h.anvil) + flareAt(h, t)))
+  return Math.max(0.5 * h.grown, h.half * (1 - (1 - h.top) * t * (1 - h.anvil) + flareAt(h, t)))
 }
 
 /** Vertical distance from the column, in crown radii. */

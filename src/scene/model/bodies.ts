@@ -7,6 +7,12 @@ import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
 import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
+/** Look. The light a painter's thickest cloud still lets through: its cores are 1 less it. */
+export const CORE_LEAK = 0.08
+/** A disc's own contrast under a cloud of that slant transmission: the painted cloud lets the leak through at least, so
+ *  under a thicker one the two together let through what the cloud truly does (half a code value of 255 at a depth of 6.2). */
+const shownThrough = (transmission: number) => Math.min(1, transmission / CORE_LEAK)
+
 const WHITE: RGB = [1, 1, 1]
 /** The discs' radii (px), as the SVG scene draws them (an 18 px sun, a 14 px moon). */
 export const SUN_R = 9
@@ -32,6 +38,7 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
   return {
     x: geom.left + sun.x * geom.s, y: box.landTop + sun.y, r: SUN_R, rgb, veil: veilOf(world), core, limb, halo: rgb,
     aureole: Math.min(1.6, 0.55 + aerosolDepth(aerosol)[1]) * (1 - coin), flatten: sunFlattening(sun.altitude), coin,
+    shown: shownThrough(world.light.through.sun),
   }
 }
 
@@ -51,7 +58,8 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
   if (!look || !moon.up) return null
   const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
   return {
-    x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight), alpha: look.opacity * world.light.clear,
+    x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight),
+    alpha: look.opacity * world.light.clear * shownThrough(world.light.through.moon),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,
@@ -80,7 +88,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
       bounds: { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
-        Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50)) })
+        Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50), Math.round(sun.shown * 255)) })
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never
     // reads as a black coin in a bright ring. Under the near rain and the sky's grains.

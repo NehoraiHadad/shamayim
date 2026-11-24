@@ -124,7 +124,10 @@ export function lightOf(input: LightInput, cloudDepthScale = 1): Light {
   const direct = sunShare + moonShare
   const clear = byMoon ? moonClear : sunClear
   const cloud = input.cloudField
-  const eye = clear * (cloud && clear > 0 ? transmitAlong(cloud.field, cloud.snapshot, body.azimuth, body.altitude) : meanTransmission)
+  const throughTo = ({ azimuth, altitude, up }: Body, lit: number) =>
+    cloud && (up || lit > 0) ? transmitAlong(cloud.field, cloud.snapshot, azimuth, altitude) : 1
+  const through = { sun: throughTo(sun, sunClear), moon: throughTo(moon, moonClear) }
+  const eye = clear * (cloud && clear > 0 ? byMoon ? through.moon : through.sun : meanTransmission)
   const across = lateral(body.azimuth, camera)
   const ray = ridgeLightRay(across, body.altitude)
   // Its colour, faded to the sky's as its share goes (a sun sinking behind the land leaves the sky's light, not a switch).
@@ -136,7 +139,7 @@ export function lightOf(input: LightInput, cloudDepthScale = 1): Light {
     source, azimuth: body.azimuth, altitude: body.altitude,
     // Use the same direct-share ramp as the light on faces.
     across: across * smoothstep(SHADING[0], SHADING[1], direct), ray: source === 'sky' ? null : ray,
-    colour, direct, eye, meanBeam: { sun: sunClear * meanTransmission, moon: moonClear * meanTransmission }, shares: { sun: sunShare, moon: moonShare },
+    colour, direct, eye, through, meanBeam: { sun: sunClear * meanTransmission, moon: moonClear * meanTransmission }, shares: { sun: sunShare, moon: moonShare },
     dir: viewDir(body.azimuth, body.altitude, camera),
     // The cast shadow's side and reach follow the source; its strength (every consumer multiplies by `direct`) and its
     // softness follow the share. Moon shadows are faint: soft at best.

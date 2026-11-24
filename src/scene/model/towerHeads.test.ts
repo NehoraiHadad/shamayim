@@ -36,3 +36,17 @@ it('crowns a tower with no anvil no wider than the shoulder under it', () => {
     for (let up = 0.3; up < 1; up += 0.02) expect.soft(wide(up), `${seed} ${tall} ${up}`).toBeLessThanOrEqual(wide(up - 0.02) + 1e-9)
   }
 })
+
+it('grows an anvil and its overshooting top from nothing, its shoulders where they stood', () => {
+  for (const seed of SEEDS) for (const tall of [1.1, 1.6]) {
+    const bare = headsOf({ seed, w: W, tall: tall * W, anvil: 0 })
+    for (const anvil of [1e-9, 1e-6, 1e-3]) {
+      const heads = headsOf({ seed, w: W, tall: tall * W, anvil }), [above] = heads.splice(1, 1)
+      expect(heads).toHaveLength(bare.length)
+      heads.forEach((head, n) => {
+        for (const key of ['x', 'half', 'tall'] as const) expect.soft(Math.abs(head[key] - bare[n][key]), `${seed} ${anvil} ${n} ${key}`).toBeLessThanOrEqual(W * anvil)
+      })
+      for (const up of [0, 0.3, 0.7, 1]) expect.soft(halfAt(above, -up * above.tall), `${seed} ${anvil} ${up}`).toBeLessThanOrEqual(W * anvil)
+    }
+  }
+})

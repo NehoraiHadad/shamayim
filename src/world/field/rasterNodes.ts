@@ -10,12 +10,12 @@ export function rasterNodes(left: number, bottom: number, width: number, height:
   const determinant = a * c - b * b
   const eastScale = Math.sqrt(c / determinant)
   const northScale = Math.sqrt(a / determinant)
-  const cross = 2 * b
+  const cross = 2 * b, round = a === 1 && !b && c === 1
 
   function depth(footprint: Footprint, x: number, y: number) {
     const dx = x - footprint.x
     const dy = y - footprint.y
-    const rr = ((a * dx + cross * dy) * dx + c * dy * dy) * footprint.inverseR2
+    const rr = (round ? dx * dx + dy * dy : (a * dx + cross * dy) * dx + c * dy * dy) * footprint.inverseR2
     return kernel(footprint.tau0, rr, footprint.cumulus)
   }
 

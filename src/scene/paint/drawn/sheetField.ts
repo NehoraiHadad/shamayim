@@ -26,6 +26,8 @@ export interface SheetField {
   open: number
   /** Per cell: the soft alpha, the tone over it, the towns' light on it by night, and its place in its mass (1 top … −1 foot). */
   alpha: Float32Array; tone: Float32Array; city: Float32Array; side: Float32Array
+  /** The light of a thick base against its mean, where the desc gives it. */
+  source: Float32Array | null
   /** Per row: the model's row spacing there (px), its perspective. */
   spacing: number[]
 }
@@ -37,7 +39,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField | null {
   const rows = Math.max(2, Math.ceil(height / ROW) + 1)
   const texels = Array.from({ length: cols * ys.length }, (_, n) => {
     const a = Math.min(1, Math.max(0, desc.alpha[n] ?? 0))
-    return [(desc.tone[n] ?? 0) * a, (desc.city?.weight[n] ?? 0) * a, 0, a]
+    return [(desc.tone[n] ?? 0) * a, (desc.city?.weight[n] ?? 0) * a, (desc.source?.[n] ?? 1) * a, a]
   })
   const { buf, spacing: stepped } = resampleRows(texels, cols, ys, rows)
   const spacing = eased(stepped)
@@ -45,16 +47,17 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField | null {
   const down = spacing.map((s) => Math.min(SOFT_MAX, SOFT * s))
   soften(buf, cols, rows, down.map((r) => (STRETCH * r) / colPx), down.map((r) => r / rowPx))
   const n = cols * rows
-  const alpha = new Float32Array(n), tone = new Float32Array(n), city = new Float32Array(n)
+  const alpha = new Float32Array(n), tone = new Float32Array(n), city = new Float32Array(n), source = desc.source ? new Float32Array(n).fill(1) : null
   for (let i = 0; i < n; i++) {
     alpha[i] = buf[i * 4 + 3]
     if (alpha[i] > 1e-3) {
       tone[i] = buf[i * 4] / alpha[i]
       city[i] = buf[i * 4 + 1] / alpha[i]
+      if (source) source[i] = buf[i * 4 + 2] / alpha[i]
     }
   }
   const side = sides(alpha, cols, spacing.map((s) => Math.exp(-rowPx / (DEEP * s))))
-  return { cols, rows, x0: xs[0], y0: ys[0], width, height, open: deckOpenness(desc), alpha, tone, city, side, spacing }
+  return { cols, rows, x0: xs[0], y0: ys[0], width, height, open: deckOpenness(desc), alpha, tone, city, side, source, spacing }
 }
 
 /** Each part's place in its mass: the cloud under it against the cloud over it, the near weighing more (`keep` a row). */

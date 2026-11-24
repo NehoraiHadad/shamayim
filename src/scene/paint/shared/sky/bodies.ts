@@ -38,14 +38,14 @@ function paintSun(ctx: Ctx2D, d: Disc) {
   // Through cloud the disc spreads into a soft patch: stacked wider copies, no hard limb.
   if (d.veil > 0.15) {
     for (const k of [2.2, 1.6, 1.25]) {
-      ctx.fillStyle = css(d.core, 0.12 * d.veil)
+      ctx.fillStyle = css(d.core, 0.12 * d.veil * d.shown)
       ctx.beginPath()
       ctx.arc(0, 0, r * k, 0, Math.PI * 2)
       ctx.fill()
     }
   }
   // Behind cloud the disc goes fast: at 80 % of its light taken it is a pale patch.
-  const alpha = Math.max(0.1, 1 - 0.97 * d.veil ** 0.7)
+  const alpha = Math.max(0.1, 1 - 0.97 * d.veil ** 0.7) * d.shown
   if (d.coin > 0.5) {
     ctx.fillStyle = css(d.core, alpha)
   } else {

@@ -26,12 +26,15 @@ const SHOWERS = { precipitation: 0.6, weatherCode: 80, cloudCover: 55, thickClou
 
 it('dumps the showers', () => {
   const at = '2026-11-17T12:00' as LocalTime
-  const world = makeWorldBuilder()({ ...worldInput(places.get('haifa')!, at, at), forced: SHOWERS })
+  const input = worldInput(places.get('haifa')!, at, at)
+  console.info('DUMP elevation', input.forecast.elevation)
+  const world = makeWorldBuilder()({ ...input, forecast: { ...input.forecast, elevation: 63 }, forced: SHOWERS })
   const { field, snapshot } = world.cloudField!
   const { azimuth, altitude } = world.bodies.sun
   console.info('DUMP sun', azimuth, altitude, 'T', transmitAlong(field, snapshot, azimuth, altitude), snapshot.map((s) => [s.layer?.lattice, transmitAlong(field, [s], azimuth, altitude)]),
     'eye', world.light.eye, 'clear', world.light.clear, 'moon', world.bodies.moon.up, world.bodies.moon.altitude)
   const geom = skyGeom(world, box), { layers } = sceneModel(world, box)
+  const sheetSource = (lattice: string) => layers.flatMap((l) => l.kind === 'cloudSheet' && l.lattice === lattice ? l.source ?? l.tone.map(() => 1) : [])
   for (const s of snapshot) if (s.layer?.cover && s.layer.lattice !== 'tower') {
     const genus = genusOf(s.layer.lattice, s.layer.form, 0.5), g = gridFor('haifa', s.layer, geom, s.heightKm, genus)
     console.info('DUMP', s.layer.lattice, genus, 'cover', s.layer.cover, 'height', s.heightKm, 'base', s.layer.baseKm, 'kappa', s.layer.kappa, 'v', s.layer.meanVKm, JSON.stringify(s.layer.form), 'sun', geom.dome(altitude), geom.azimuthRange)
@@ -40,7 +43,7 @@ it('dumps the showers', () => {
         const v = at.map((i) => list[i]), mean = v.reduce((m, x) => m + x, 0) / v.length
         return `${Math.min(...v).toFixed(3)} ${mean.toFixed(3)} ${Math.max(...v).toFixed(3)} sd ${Math.sqrt(v.reduce((m, x) => m + (x - mean) ** 2, 0) / v.length).toFixed(3)}`
       }
-      console.info('DUMP y', g.ys[r].toFixed(0), 'alt', g.altitudes[r].toFixed(1), 'range', g.ranges[r].toFixed(2), 'tau', of(g.tau), 'tex', of(g.texture), 'det', of(g.detail), 'alpha', of(g.alpha), 'tone', of(g.tone))
+      console.info('DUMP y', g.ys[r].toFixed(0), 'alt', g.altitudes[r].toFixed(1), 'range', g.ranges[r].toFixed(2), 'tau', of(g.tau), 'tex', of(g.texture), 'det', of(g.detail), 'alpha', of(g.alpha), 'tone', of(g.tone), 'src', of(sheetSource(s.layer.lattice)))
     }
   }
   for (const layer of layers) {
