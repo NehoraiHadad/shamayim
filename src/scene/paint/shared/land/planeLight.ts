@@ -41,8 +41,7 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
   for (const target of targets) target.save()
 
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key,
-      desc.grain.amount * env.hand.grain, desc.grain.seed, env, desc.foreground)
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env)
     const litVeg = desc.vegetation
     const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, Boolean(env.shade))
     const brush = receiverBrush(ctx, env.shade)

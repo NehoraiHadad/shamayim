@@ -4,7 +4,6 @@ import { destination } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { azimuthAt, type Camera } from '../domain/camera'
 import { monthFromIsoDate } from './landAgeBlend'
-import { foregroundAlbedo, type ForegroundAlbedo } from './foregroundAlbedo'
 import { LIVING_LAND_DISTANCES_M, LIVING_LAND_RAYS } from './landRays'
 import { farGainOf, type FarGain } from './landReflectance'
 import { samplePoint, type LivingLandSample } from './landSample'
@@ -56,13 +55,6 @@ export interface LivingLandInput {
   camera: Camera; terrain: SceneTerrain; data?: LandData | null
 }
 
-// Keep raster construction off the place-load path and out of serializable world state.
-const foregrounds = new WeakMap<LivingLand, () => ForegroundAlbedo | undefined>()
-
-export function foregroundOf(land: LivingLand): ForegroundAlbedo | undefined {
-  return foregrounds.get(land)?.()
-}
-
 /** Builds the pure, structured-cloneable living-land state for a place on `(shownDate, shownUtcDate)`. */
 export function livingLandOf(input: LivingLandInput): LivingLand {
   const { lat, lon, elevationM, shownDate, camera, terrain } = input
@@ -100,15 +92,5 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
     rays.push({ x, azimuth, bands })
   }
 
-  const land = { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
-  if (data.cover || data.near) foregrounds.set(land, () => {
-    const foreground = foregroundAlbedo(lat, lon, Boolean(data.cover), data.near?.stepM,
-      (ptLat, ptLon, eastM, northM) => eastM === 0 && northM === 0 ? own : samplePoint(
-        sampler, ptLat, ptLon, terrain.heightNear?.(eastM / 1000, northM / 1000) ?? elevationM,
-        shownDate, utcDate, month, farGain,
-      ))
-    foregrounds.set(land, () => foreground)
-    return foreground
-  })
-  return land
+  return { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
 }

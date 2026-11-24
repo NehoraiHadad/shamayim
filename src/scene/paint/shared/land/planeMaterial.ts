@@ -1,6 +1,5 @@
 import type { PlaneTexelCtx } from './planeTexel'
 import { TEXEL } from '../../../model/planeBands'
-import { blendForeground } from './foregroundMaterial'
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 const ease = (v: number) => v * v * (3 - 2 * v)
@@ -38,11 +37,6 @@ export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v:
   let rr = k00[0] * w00 + k10[0] * w10 + k01[0] * w01 + k11[0] * w11
   let rg = k00[1] * w00 + k10[1] * w10 + k01[1] * w01 + k11[1] * w11
   let rb = k00[2] * w00 + k10[2] * w10 + k01[2] * w01 + k11[2] * w11
-  if (t.foreground) {
-    out[0] = rr; out[1] = rg; out[2] = rb
-    blendForeground(t.foreground, u, v, out)
-    rr = out[0]; rg = out[1]; rb = out[2]
-  }
 
   // Material mottle: linear reflectance variation BEFORE lighting so texture stays crisp in sunlit relief.
   if (grainAmount > 0) {

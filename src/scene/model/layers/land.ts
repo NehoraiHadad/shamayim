@@ -2,7 +2,6 @@ import type { Pt, RGB } from '../../../world/types'
 import type { CanopyTones } from '../canopyTones'
 import type { PlantWind } from '../landWind'
 import type { ReceiverShadow } from '../planeCloudShadow'
-import type { ForegroundMaterial } from '../foregroundMaterial'
 import type { Box, LayerBase, LightPart } from './base'
 
 /**
@@ -110,7 +109,6 @@ export interface OutsideLandDesc {
 
 export type LandLayers =
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      foreground?: ForegroundMaterial;
       gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow }
   | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string }; cloudShadow?: ReceiverShadow;
       tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
