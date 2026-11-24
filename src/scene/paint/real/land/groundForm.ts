@@ -5,15 +5,14 @@ import { fractal } from '../../shared/base/core'
 import { materialAt } from '../../shared/land/planeMaterial'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { foldsOf } from './folds'
-import { specksOf, type Speck } from './specks'
 
 /*
  * The ground's own surface, seen at a slant: the model's palette where it lies, broken into patches of soil and scrub that
  * lengthen across the slope and shrink toward the crest, and the small form the light rakes over. No light in it.
  */
 
-/** A texel's reflectance (3 each), then its fall across, its fall away from the eye and its open sky (3 each); the specks on it. */
-export interface GroundForm { rho: Float32Array; form: Float32Array; specks: Speck[] }
+/** A texel's reflectance (3 each), then its fall across, its fall away from the eye and its open sky (3 each). */
+export interface GroundForm { rho: Float32Array; form: Float32Array }
 
 /** How flat the slant makes a patch; how far it follows the crest's line, eased over this many texels; how far the palette's columns are bent (px). */
 const FLAT = 2.4, FOLLOW = 0.35, EASED = 10, BENT = 24
@@ -22,7 +21,7 @@ const BROAD = { px: 110, crest: 0.25, foot: 1 }, MIDDLE = { px: 44, crest: 0.6, 
 /** How far the patches move the reflectance; a clump's size (px) and darkening; the swells' heights (px); a fold's depth and dark bed. */
 const PATCHES = 0.5, CLUMP = 24, SCRUB = 0.44, SWELL = [13, 8, 4] as const, DEEP = 3, BED = 0.18
 /** What the far planes show of it; the mottle's lift of the mean, kept; the sky a px of depth takes. */
-const PLAIN = 0.45, KEPT = 0.1, OPEN = 0.02
+const PLAIN = 0.45, KEPT = 0.08, OPEN = 0.02
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const smooth = (lo: number, hi: number, v: number) => { const x = clamp01((v - lo) / (hi - lo)); return x * x * (3 - 2 * x) }
@@ -42,7 +41,7 @@ export function groundFormOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundFo
 
 function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   const { wPx: cols, hPx: rows, bounds, crestY, footY, seed } = t, cells = cols * rows
-  const rho = new Float32Array(cells * 3), height = new Float32Array(cells), folds = foldsOf(t, desc), scrubs = new Float32Array(cells)
+  const rho = new Float32Array(cells * 3), height = new Float32Array(cells), folds = foldsOf(t, desc)
   const plain: PlaneTexelCtx = { ...t, grainAmount: 0 }, base: [number, number, number] = [0, 0, 0]
   const rough = Math.min(1, PLAIN + t.grainAmount), line = eased(crestY)
   let was = 0, is = 0
@@ -60,7 +59,7 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const patch = b * read(11, BROAD.px) + 0.8 * m * read(12, MIDDLE.px) + 0.6 * f * fine
     // Scrub stands where the model's ground is green.
     const green = smooth(-0.18, 0.12, (base[1] - base[0]) / Math.max(1e-4, base[1] + base[0]))
-    const scrub = scrubs[n] = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
+    const scrub = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
     const shift = rough * PATCHES * patch, dark = (1 + shift) * (1 - SCRUB * scrub) * (1 - BED * folds[n]), o = n * 3
     height[n] = rough * (b * SWELL[0] * read(21, BROAD.px * 0.8) + m * SWELL[1] * read(22, MIDDLE.px) + f * SWELL[2] * fine + 2 * scrub) - DEEP * folds[n]
     rho[o] = clamp01(base[0] * dark * (1 + 0.14 * shift - 0.1 * scrub))
@@ -71,17 +70,27 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   }
   const even = is > 0 ? (was / is) * (1 + KEPT * t.grainAmount) : 1
   for (let k = 0; k < rho.length; k++) rho[k] = Math.min(1, rho[k] * even)
-  return { rho, form: formOf(height, cols, rows), specks: specksOf(t, desc, scrubs) }
+  return { rho, form: formOf(height, t) }
 }
 
-function formOf(height: Float32Array, cols: number, rows: number): Float32Array {
-  const form = new Float32Array(height.length * 3)
+/** The form's slopes and open sky about their own means: the ground's whole tilt is in the light's field. */
+function formOf(height: Float32Array, { wPx: cols, hPx: rows, bounds, crestY, footY }: PlaneTexelCtx): Float32Array {
+  const form = new Float32Array(height.length * 3), sum = [0, 0, 0]
+  let seen = 0
   for (let j = 0, n = 0; j < rows; j++) for (let i = 0; i < cols; i++, n++) {
     const left = height[i ? n - 1 : n], right = height[i < cols - 1 ? n + 1 : n]
-    const above = height[j ? n - cols : n], below = height[j < rows - 1 ? n + cols : n]
+    const above = height[j ? n - cols : n], below = height[j < rows - 1 ? n + cols : n], y = bounds.y + (j + 0.5) * TEXEL
     form[n * 3] = (left - right) / (2 * TEXEL)
     form[n * 3 + 1] = (below - above) / (2 * TEXEL * FLAT)
-    form[n * 3 + 2] = Math.min(1.15, Math.max(0.8, 1 + OPEN * height[n]))
+    form[n * 3 + 2] = OPEN * height[n]
+    if (y < crestY[i] || y > footY[i]) continue
+    seen++
+    for (let c = 0; c < 3; c++) sum[c] += form[n * 3 + c]
+  }
+  for (let o = 0; seen && o < form.length; o += 3) {
+    form[o] -= sum[0] / seen
+    form[o + 1] -= sum[1] / seen
+    form[o + 2] = Math.min(1.15, Math.max(0.8, 1 + form[o + 2] - sum[2] / seen))
   }
   return form
 }

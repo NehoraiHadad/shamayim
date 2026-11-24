@@ -6,7 +6,6 @@ import type { Ctx2D, PaintEnv } from '../../shared/base/hand'
 import { paintPlaneLight } from '../../shared/land/planeLight'
 import type { OwnGround, PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { groundFormOf, type GroundForm } from './groundForm'
-import { paintSpecks } from './specks'
 
 /* The land as the eye sees it: the ground's own patches and small form, raked by the sun or the moon where its beam falls. */
 
@@ -16,15 +15,7 @@ const RAKE = 1.5, HIGH = 0.35, GRAZED = 0.16, LEAST = 0.3, MOST = 1.8
 const CHROMA = 0.1
 
 export function paintRealPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
-  let at: { t: PlaneTexelCtx; ground: GroundForm } | undefined
-  paintPlaneLight(ctx, desc, env, {
-    ground: (t) => {
-      at = { t, ground: groundFormOf(t, desc) }
-      return lit(t, at.ground, desc.lamp)
-    },
-    // The gullies are in the ground's form.
-    marks: (brush) => at && paintSpecks(brush, at.t, at.ground.specks),
-  })
+  paintPlaneLight(ctx, desc, env, (t) => lit(t, groundFormOf(t, desc), desc.lamp))
 }
 
 function lit(t: PlaneTexelCtx, { rho, form }: GroundForm, lamp?: Lamp): OwnGround {

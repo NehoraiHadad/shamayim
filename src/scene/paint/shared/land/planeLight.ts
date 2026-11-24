@@ -10,13 +10,6 @@ import { receiverBrush, type ReceiverBrush, type ReceiverInk } from './receiverB
 
 const BLACK: ReceiverInk = [[0, 0, 0]]
 
-/** What a hand paints its own way: the ground's surface (then no paper lies over it), its marks for the gullies. */
-export interface PlaneLook {
-  ground?: (t: PlaneTexelCtx) => OwnGround
-  marks: (brush: ReceiverBrush, desc: LayerOf<'plane'>) => void
-}
-const PLAIN: PlaneLook = { marks: paintGullies }
-
 function paintGullies(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   desc.gullies.forEach((gully, i) => {
     const line = displace(sample(gully.points, false, 5), 1.1, 0.3, 2, desc.grain.seed + i * 13)
@@ -43,26 +36,26 @@ function paintTerraces(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   }
 }
 
-/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`). */
-export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, look = PLAIN): void {
+/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`); a hand's own ground has its gullies in it and no paper over it. */
+export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, ground?: (t: PlaneTexelCtx) => OwnGround): void {
   const { light } = desc
   const { litField } = light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
 
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, look.ground)
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, ground)
     const litVeg = desc.vegetation
     const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, Boolean(env.shade))
     const brush = receiverBrush(ctx, env.shade)
     paintVegStrata(brush, litVeg, toneAt)
     paintVegFields(brush, litVeg, toneAt)
-    look.marks(brush, desc)
+    if (!ground) paintGullies(brush, desc)
     paintTerraces(brush, desc)
     paintVegRows(brush, litVeg, toneAt)
     const grain = desc.grain.amount * env.hand.grain
     // White paper specks have a stronger relative effect in the shadows of the display.
-    if (!look.ground) paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
+    if (!ground) paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
   } else for (const target of targets) {
     target.fillStyle = css(desc.fill)
     target.fillRect(desc.bounds.x, desc.bounds.y, desc.bounds.w, desc.bounds.h)
