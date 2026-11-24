@@ -24,6 +24,9 @@ const WALL = 0.45, EDGE = 0.2
 /** How far a low sun's light goes through a cloud, from its lit colour to its shade (a body that is neither would ring the mass),
  *  and how much warmer than its body its lit colour then is. */
 const LOW = 0.6, LOW_SHADE = 0.35, WARM = [0.03, 0.2] as const
+/** From this warmth over its body to this, a sun on the horizon colours a cloud as one soft mass: how far its own forms give way to the far deck's look
+ *  (a head's lit pink and its grey shade would break it in patches). */
+const GLOW = [0.18, 0.36] as const, SOFTENED = 0.62
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
 const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43
@@ -67,7 +70,8 @@ const clamp = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
 export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 'shade'>, own: number) {
   const ramp = new Float32Array((RAMP + 1) * 3), model = new Float32Array((RAMP + 1) * 3)
   // A low sun's light comes in under the mass: its body keeps of it.
-  const { lit, body } = tones, low = LOW * own * smoothstep(WARM[0], WARM[1], lit[0] - lit[2] - (body[0] - body[2])), self = own * own
+  const { lit, body } = tones, warmth = lit[0] - lit[2] - (body[0] - body[2]), low = LOW * own * smoothstep(WARM[0], WARM[1], warmth), self = own * own
+  const formed = 1 - SOFTENED * own * smoothstep(GLOW[0], GLOW[1], warmth)
   const bright = lightness(lit), hue = { lit, body: upTo(mix(body, mix(lit, tones.shade, LOW_SHADE), low), BODY_UP_TO * bright, HELD * own), shade: upTo(mix(tones.shade, lit, low / 2), SHADE_UP_TO * bright, HELD * own) }
   for (let n = 0; n <= RAMP; n++) {
     ramp.set(toneOf(hue, n / RAMP), n * 3)
@@ -76,7 +80,7 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
   // A sky whose lit and shade hardly part has no deep shade either; a dim sky's lit cloud is no sunlit crown.
   const range = UNDER * Math.min(1, 0.2 + 4 * Math.max(0, tones.lit[1] - tones.shade[1])), over = CROWN * tones.lit[1] ** 2
   return (p: CloudPoint, out: Float32Array) => {
-    const { tone, near, light } = p
+    const { tone, light } = p, near = p.near * formed
     const heads = p.relief * RELIEF * self * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * light)
     const there = tone + own * (MODEL_SHARE * tone + p.shade + heads - tone + EDGE * p.flat - WALL * p.wall), place = within(there, own)
     const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * Math.max(0, place - UNDER_FROM)

@@ -1282,6 +1282,6 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             Gates re-measured with a reason: Tiberias 12:00 and 16:30, Jerusalem 16:30 (`landLighting.mjs`), high-pass room 1.36 (`buildingLight.mjs`).
             Codex review: 7 findings, 5 fixed. Written down, not chased: deckOpenness' hard node count and the mean anchor shifting as a bank
             enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
-            capped in dust; twilight bodies a little flat or ringed. Perf over main d0195813: scrub latency, animation and memory flat;
+            capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
             first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
