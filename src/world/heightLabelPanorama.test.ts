@@ -124,7 +124,7 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
       const baselineFar = sceneModel(withoutBadge, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
       const original = [...baselineFar, ...unbacked.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
       const dropped = original.filter(g => !drawn.has(g.sourceId)).map(g => g.sourceId)
-      if (dropped.length) console.log(JSON.stringify({ place: id, width, badgeDrops: dropped }))
+      console.log(JSON.stringify({ place: id, width, drawnIds: [...drawn].sort(), badgeDrops: dropped }))
     }
 
     expect(glyphs.filter(m => overlaps(glyphBox(m), badge, -1e-6)).map(m => m.sourceId)).toEqual([])

@@ -85,16 +85,15 @@ it('retains true base-angle evidence in the world but culls far glyphs without p
 
 it('renders a genuinely visible far standalone castle through the full world and scene paths', () => {
   const seenAt = () => ({ y: 66, groundY: 70, angle: 1, groundAngle: 0 })
-  const terrain = { ...ctx.input.terrain, seenAt,
+  // Supply the foreground ridge to both the badge solver and the scene.
+  const nearPoints: [number, number][] = [[0, 110], [375, 110]]
+  const terrain = { ...ctx.input.terrain, nearPoints, nearElevations: nearPoints.map(() => ctx.elevM), seenAt,
     sightAt: () => ({ nearKm: 3, farKm: 30, farShows: false, seenAt }) }
   const source = { id: 'far-castle', lat: PLACE.lat - .14605, lon: PLACE.lon, kind: 'castle' as const,
     heightM: 120, nameHe: 'Visible castle', source: 'osm' as const, fame: 1 as const }
-  const built = buildWorld({ ...ctx.input, terrain, landmarks: [source], seatCandidates: [], far: null, city: null })
-  if (built.place3.kind !== 'outside') throw new Error('Missing outside frame')
-  const near = { points: [[0, 110], [375, 110]] as [number, number][], distanceKm: [1, 1] }
-  const world = { ...built, terrain: { ...built.terrain, near },
-    place3: { ...built.place3, land: null, beyond: [], beyondTowns: [],
-      skyline: { ...built.place3.skyline, boxes: [], towers: [] } } }
+  const world = buildWorld({ ...ctx.input, terrain, landmarks: [source], seatCandidates: [], far: null,
+    city: null, cover: null })
+  if (world.place3.kind !== 'outside') throw new Error('Missing outside frame')
   expect(world.marks.find(m => m.id === source.id)?.plane).not.toBe('near')
   for (const width of [375, 1280]) {
     const glyph = sceneModel(world, { ...BOX, width }).layers.find(l => l.kind === 'marks')?.glyphs
