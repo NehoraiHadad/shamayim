@@ -89,7 +89,7 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
     const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * own
     // Far off it is the model's tone, leaning to the lit colour as its crowns do; a closed deck's is the model's throughout.
     const m = Math.round(Math.min(1, Math.max(0, tone)) * RAMP) * 3, thick = FAR_GREY * p.cover ** 2
-    const kept = glow ? thick + (1 - smoothstep(LEAN[0], LEAN[1], light) - thick) * glow : thick, grey = 1 - own * (1 - kept)
+    const kept = glow ? thick + (1 - smoothstep(LEAN[0], LEAN[1], light) - thick) * glow * p.near : thick, grey = 1 - own * (1 - kept)
     for (let k = 0; k < 3; k++) {
       const far = lit[k] + (model[m + k] - lit[k]) * grey
       out[k] = Math.min(1, far + near * (ramp[n + k] * (1 - DEEPEST[k] * under) * crown - far))
