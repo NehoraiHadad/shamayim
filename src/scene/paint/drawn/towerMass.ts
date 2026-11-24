@@ -25,7 +25,7 @@ const CORE = [0.2, 0.6] as const
 /** The edge's softness: a growing crown's, the column's and what a far one's adds (its air), an anvil's ice, and what a near base adds. */
 const SOFT_CROWN = 0.2, SOFT = 0.3, SOFT_FAR = 0.4, SOFT_ANVIL = 0.42, SOFT_BASE = 0.5
 /** The underside's fade at its far edge, a dry one's and a raining one's, and the depth against the width it runs over. */
-const UNDER_FADE = { dry: 0.35, rains: 0.8 } as const, FADE_DEEP = 0.35
+const UNDER_FADE = { dry: 0.35, rains: 1 } as const, FADE_DEEP = 0.35
 /** A far tower's width (px), and the share of its height its foot melts into the haze over, to this share. */
 const FAR = 70, FOOT = 0.6, FOOT_LEFT = 0.1
 /** How far (px) the print may stand over the model's top, and under its near edge: the layer's own room. */
@@ -33,7 +33,7 @@ export const OVER_TOP = 10, UNDER_FOOT = 6
 /** Room past a head's half width for the puffs. */
 const ROOM = 1.4
 
-interface TowerPoint {
+export interface TowerPoint {
   alpha: number
   /** The puff's light (+ its lit top). */
   light: number
@@ -75,7 +75,7 @@ export function towerMass(s: CloudSprite): TowerMass {
     let mass = -9, across = 0
     for (const h of row) {
       const a = (x - h.axis) / h.wide, inside = 1 - Math.sqrt(a * a + h.beyond * h.beyond)
-      if (inside > mass) across = a
+      across += (a - across) * Math.min(1, Math.max(0, 0.5 + (inside - mass) / (2 * CREASE)))
       const meet = Math.max(0, 1 - Math.abs(inside - mass) / CREASE)
       mass = Math.max(inside, mass) + (meet * meet * CREASE) / 4
     }

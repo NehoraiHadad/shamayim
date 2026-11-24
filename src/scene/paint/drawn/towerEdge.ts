@@ -2,15 +2,14 @@ import type { CloudSprite } from '../../model/cloudSprite'
 import { rng } from '../shared/base/core'
 import { css, type Ctx2D } from '../shared/base/hand'
 import type { CloudInks } from './cloudInks'
-import { whitened } from './cloudLight'
 import { carve, type P } from './kit/carve'
 import type { Frame } from './kit/contour'
 import type { TowerMass } from './towerMass'
 
-/* A printed tower's edge on its own sheet: the level cuts of its foot, its silver rim and key line, and the foot let go into the air and the rain. */
+/* A printed tower's edge on its own sheet: the level cuts of its foot, its key line, and the foot let go into the air and the rain. */
 
-/** The key line (px, half of it under the body) and its strength; the silver rim of a tower before the sun. */
-const LINE = 1.1, STRONG = 0.5, SILVER = { least: 0.05, wide: 2.2, alpha: 0.6 } as const
+/** The key line (px, half of it under the body) and its strength. */
+const LINE = 1.1, STRONG = 0.5
 /** The width of a tower whose foot is cut; a cut (px), its strength, how high the cuts climb (of the height). */
 const CUT_FROM = 40, CUT = 0.6, CUT_STRONG = 0.32, CLIMB = 0.22
 /** The steps of the foot's fade. */
@@ -27,15 +26,6 @@ export function footCuts(c: Ctx2D, s: CloudSprite, mass: TowerMass, t: CloudInks
   }
   c.fillStyle = css(t.key, CUT_STRONG * t.line)
   c.fill()
-}
-
-/** The silver rim inside the mass's own edge, under its caps. */
-export function silverTower(c: Ctx2D, path: Path2D, s: CloudSprite): void {
-  if (s.silver > SILVER.least) {
-    c.strokeStyle = css(whitened(s.lit), SILVER.alpha * s.silver)
-    c.lineWidth = SILVER.wide
-    c.stroke(path)
-  }
 }
 
 /** The key line outside the caps and the mass. */
