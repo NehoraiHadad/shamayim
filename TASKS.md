@@ -1318,7 +1318,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       Last pre-release pass sent to the vote-prep session on main b76225e8 (24 Nov); then owner: final look at both styles, worker deploy, merge
       READY 64f4fc95 verified by the manager (24 Nov; CI 45460536260, vote stills 45460973165 0 failed; one fix: headline halo); sheets shown; owner approved both styles for the vote (24 Nov), weak spots to polish; worker deployed on the owner's order (version 7764d1ff, before it c4f91a60; live: round v2, 0/0, open), merged d51a027c (same tree as 64f4fc95), main run 45464752625 green, Pages live, panel and drawn switch seen on the live site; no phone vote yet
       Owner (24 Nov): move to the finish; looks good now, polish later, no tens of rounds per problem
-- [~] 4. After the vote: special-sky slice, started 24 Nov in a clean session (claude/special-sky); the style and vote sessions are archived (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
+- [x] 4. After the vote: special-sky slice, started 24 Nov in a clean session (claude/special-sky); the style and vote sessions are archived (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
       one quiet "special event" line, any kind of event, empty on most days (owner, 24 Nov: general, not only night skies).
       Every event returns the same shape: what, when, where to look, how rare; drop what the place will not see (cloud, land, daylight);
       show only the rarest. A new event = one detector, no UI change. First set: full moon rising low, meteor shower peak (`showers.ts`),
@@ -1331,9 +1331,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] One quiet line between the clothes and the days (`ui/SpecialLine.tsx`; the owner chose the place), its own chunk; it opens and closes softly
       - [x] Tests against published tables (NASA, AstroPixels, IMO), cited in `published.test.ts`; app stills: `#app` in `e2e/scene.stills.mjs`
       - [x] Codex review and one fix round; code `f8b8f86c`: CI 45476332833 green, identity against main 45476340602 green (8 moments with no low moon)
-      - [ ] The owner: before/after images, the merge
+      - [x] The owner said yes; merged to main `ad9fae68`, main's CI 45481200318 and Cloudflare Pages green, live site checked (24 Nov)
       - Polish later: the moon is not flattened at the horizon; north of the 250° view the land counts as flat; town glow from population only;
-        Saturn's conjunctions are not checked against a table; eclipses are listed to 2037; in the hour a clock goes back the first of the two is taken
+        Saturn's conjunctions are not checked against a table; eclipses are listed to 2037; in the hour a clock goes back the first of the two is taken;
+        behind thin cloud (a thin moon disc) the moon's seas show brighter than its face (older than this slice)
 
 The branches' own notes on these steps (what was written down and not chased):
 
