@@ -1,12 +1,19 @@
 import type { WaterSpan } from '../../data/water/waterInView'
 import { SCENE_W } from '../../world/sceneBox'
+import { moonAir, tinted } from '../../world/moonlight'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
-import type { Pt, SceneBox } from './types'
+import { mixRgb } from './tone'
+import type { Pt, RGB, SceneBox } from './types'
 
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 export const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
+/** The moon's path on the water, high in the sky: silver. */
+const MOONLIT: RGB = [0.88, 0.91, 0.96]
+/** The colour of the light's path on the water: the sun's own, or the moon's silver through the air it crosses. */
+export const glintColour = (world: WorldState, byMoon: boolean): RGB =>
+  byMoon ? tinted(MOONLIT, moonAir(world.bodies.moon.altitude, world.air).tint) : mixRgb(world.light.colour, [1, 1, 1], 0.5)
 /** A light 1-2-1 smoothing along the span, as the SVG's water has (the DEM's and the mask's steps out of the edge). */
 const smooth = (values: number[]) => values.map((v, i) =>
   (values[Math.max(0, i - 1)] + 2 * v + values[Math.min(values.length - 1, i + 1)]) / 4)

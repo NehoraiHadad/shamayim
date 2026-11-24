@@ -1,4 +1,5 @@
 import { coinOf } from '../../world/air'
+import { moonAir, tinted } from '../../world/moonlight'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
@@ -46,7 +47,8 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
 
 /**
  * The moon where the world puts it, in its true phase with the lit limb at its sky bearing, as the SVG scene
- * shows it (`moonLook`): bone by night, sky-pale by day, veiled from 40 % cover up, gone under overcast or thick haze.
+ * shows it (`moonLook`): bone by night, sky-pale by day, veiled from 40 % cover up, gone under overcast or thick haze;
+ * low, it reddens and dims by the air its light crosses (`moonAir`).
  */
 export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): MoonDisc | null {
   const moon = world.bodies.moon
@@ -59,10 +61,11 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
     farFade: world.air.farFade })
   if (!look || !moon.up) return null
   const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
+  const air = moonAir(moon.altitude, world.air, look.daylight)
   const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
   return {
-    x, y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight),
-    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
+    x, y, r: MOON_R, rgb: tinted(mixRgb(bone, day, look.daylight), air.tint),
+    alpha: look.opacity * air.dim * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,

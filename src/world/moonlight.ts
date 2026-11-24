@@ -1,8 +1,35 @@
 import { lateral, SCENE_CAMERA, type Camera } from '../domain/camera'
 import { ridgeLightRay, smoothstep } from './ridgeLighting'
 import type { RidgeTone } from './ridgeLightTone'
+import { solarBeam, sunLight, type Aerosol } from './sceneLight'
+import type { RGB } from './types'
 
 export interface MoonSky { altitude: number; azimuth: number; fraction: number }
+
+/** How much of white stays in the low moon's colour: copper on the horizon, not a flat red. */
+const COPPER = 0.25
+/** A bright day's air in front of the moon adds its own light, so the tint shows this much less. */
+const DAY_WASH = 0.75
+/** The dark eye follows a dimming disc: it sees about this power of the light lost. */
+const EYE_POWER = 0.2
+
+/**
+ * What the air does to the moon's own look at this altitude: the sun's light path and aerosol (`sunLight`, `solarBeam`),
+ * taken against the same air at the zenith, so a high moon keeps its bone colour and haze (already in `farFade`) is not
+ * counted twice. `tint` multiplies a colour (strongest channel 1), `dim` a strength.
+ */
+export function moonAir(altitude: number, air: Aerosol, daylight = 0): { tint: RGB; dim: number } {
+  const low = sunLight(Math.max(0, altitude), air), high = sunLight(90, air)
+  const white = COPPER + (1 - COPPER) * DAY_WASH * daylight
+  const raw = low.rgb.map((v, i) => v / high.rgb[i])
+  const top = Math.max(...raw)
+  const tint = raw.map((v) => white + (1 - white) * v / top) as RGB
+  const lost = low.strength / Math.max(1e-6, solarBeam(90, air).strength)
+  return { tint, dim: Math.min(1, lost) ** (EYE_POWER * (1 - daylight)) }
+}
+
+/** A colour seen through air of this tint. */
+export const tinted = (rgb: RGB, tint: RGB): RGB => [rgb[0] * tint[0], rgb[1] * tint[1], rgb[2] * tint[2]]
 
 /**
  * How strongly the moon lights the land and clouds (0..1). A full moon is ~400 000× fainter than the sun, so this
