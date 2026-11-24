@@ -86,7 +86,7 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
       animated: { mode: 'drift', speed, period },
       key: layerKey(id, landBoxKey(box, true), period, y0, y1),
       light: lightPart(layerKey(id, 'light', q(band.top, 0.5), q(band.fade, 0.5), q(band.bottom, 0.5), tone(band.rgb), Math.round(band.alpha * 255),
-        band.puffs.length), band.rgb) })
+        band.puffs.length, world.place.id), band.rgb) })
   }
   // The valley's lake of mist: its top a few px over the near crest at first, rising toward the far crest.
   const rise = Math.max(4, nearMed - farMed)

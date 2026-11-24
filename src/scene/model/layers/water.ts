@@ -1,6 +1,6 @@
 import type { Pt, RGB } from '../../../world/types'
 import type { Lamp } from './lamp'
-import type { LayerBase } from './base'
+import type { Box, LayerBase } from './base'
 
 /**
  * One stretch of water in view (C3): its surface between the far edge and the near edge (land px), and its colours down
@@ -45,10 +45,14 @@ export interface SeaDesc {
   drift?: number
   light: RGB
   dark: RGB
+  /** The labels' boxes (see the water layer's). */
+  clear?: readonly Box[]
   /** The sea's horizon: a fine light line, level, from the shore to the edge (C5b). */
   horizon: { y: number; x0: number; x1: number; rgb: RGB; alpha: number }
 }
 
 export type WaterLayers =
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
+      /** The labels' boxes, which no stroke enters: for a hand whose strokes are longer than the model's. */
+      clear?: readonly Box[];
       lamp?: Lamp }

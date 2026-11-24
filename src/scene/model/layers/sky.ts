@@ -3,7 +3,8 @@ import type { LayerBase } from './base'
 
 /** A soft round glow (sky px): `alpha` at the centre falling to nothing at `r`; `ry` squashes it into an ellipse. */
 export interface Glow { x: number; y: number; r: number; rgb: RGB; alpha: number; ry?: number }
-export interface Band { y: number; h: number; rgb: RGB; alpha: number }
+/** The haze band at eye level `y`, `h` px up; `below`: px it goes on down at its strength there (`skyBelowEye`). */
+export interface Band { y: number; h: number; rgb: RGB; alpha: number; below?: number }
 /**
  * Earth's shadow and the belt of Venus round sunset and sunrise, opposite the sun: a blue-grey band on the horizon
  * (`shadow` px high) under a pink one (to `belt` px), fading sideways over `rx` px from `x`.

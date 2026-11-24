@@ -3,7 +3,7 @@ import type { Ctx2D, PaintEnv } from '../base/hand'
 
 /*
  * The sky: its gradient over its bounds, and the haze band at the horizon (rising from nothing to its strength at eye
- * level and thinning just below it, behind the far land). The glows and Earth's shadow are laid over after (C6).
+ * level, kept on down to a far horizon below that, and thinning just under it, behind the far land). The glows and Earth's shadow are laid over after (C6).
  *
  * Written row by row into the canvas's pixels, not filled with a canvas gradient: both are a function of the row alone,
  * and a gradient filled over the whole surface costs ~15–20 ms in software raster (CPU ×4, dpr 2.75, 1032 × 1177 device
@@ -43,6 +43,9 @@ function imageOf(ctx: Ctx2D, width: number, height: number): ImageData {
   return scratch
 }
 
+/** A row under eye level as the band has it: eye level's own down to `below` px under it. */
+const aboveEye = (sy: number, eye: number, below: number) => (sy < eye ? sy : Math.max(eye, sy - below))
+
 export function paintRows(ctx: Ctx2D, desc: LayerOf<'sky'>, env: PaintEnv): void {
   const { x, y, w, h } = desc.bounds
   const k = env.scale
@@ -57,7 +60,7 @@ export function paintRows(ctx: Ctx2D, desc: LayerOf<'sky'>, env: PaintEnv): void
   const at = desc.stops.map(([t]) => clamp01(t))
   const channels = [0, 1, 2].map((j) => desc.stops.map(([, rgb]) => rgb[j]))
   const band = desc.band
-  const top = band ? Math.max(y, band.y - band.h) : 0, bottom = band ? Math.min(y + h, band.y + band.h * 0.3) : 0
+  const top = band ? Math.max(y, band.y - band.h) : 0, below = band?.below ?? 0, bottom = band ? Math.min(y + h, band.y + below + band.h * 0.3) : 0
   const bandAlpha = band ? BAND_ALPHA.map((a) => a * band.alpha) : []
   const over = band ? band.rgb.map((c) => Math.round(clamp01(c) * 255)) : []
   const width = dx1 - dx0
@@ -72,7 +75,7 @@ export function paintRows(ctx: Ctx2D, desc: LayerOf<'sky'>, env: PaintEnv): void
       // The band's rect covers this row by this share (its top and bottom rows partly, as an antialiased edge).
       const cover = clamp01(Math.min(row + 1, bottom * k + m.f) - Math.max(row, top * k + m.f))
       if (cover > 0) {
-        const alpha = clamp01(channelAt(BAND_AT, bandAlpha, (sy - (band.y - band.h)) / (band.h * 1.3))) * cover
+        const alpha = clamp01(channelAt(BAND_AT, bandAlpha, ((below ? aboveEye(sy, band.y, below) : sy) - (band.y - band.h)) / (band.h * 1.3))) * cover
         r = Math.round(over[0] * alpha + r * (1 - alpha))
         g = Math.round(over[1] * alpha + g * (1 - alpha))
         b = Math.round(over[2] * alpha + b * (1 - alpha))

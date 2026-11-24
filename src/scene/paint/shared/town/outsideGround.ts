@@ -2,12 +2,17 @@ import type { OutsideLandDesc, SeaDesc, Shine } from '../../../model/types'
 import { css, outline, type Ctx2D } from '../base/hand'
 import { running, twinkling } from '../land/water'
 
-export function paintOutsideSea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
+/** The sea's body: the model's tones down the band. */
+export function laySea(ctx: Ctx2D, s: SeaDesc): void {
   const g = ctx.createLinearGradient(0, s.top, 0, s.bottom)
   for (const [t, c] of s.stops) g.addColorStop(t, css(c))
   outline(ctx, s.points)
   ctx.fillStyle = g
   ctx.fill()
+}
+
+export function paintOutsideSea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number) {
+  laySea(ctx, s)
   ctx.save()
   outline(ctx, s.points)
   ctx.clip()

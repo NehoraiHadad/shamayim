@@ -1,6 +1,7 @@
 import { bracketAt } from './bracket'
 import { arrivalWeight, forecastObservation, readingWeight } from './forecastRefresh'
 import { minutesBetweenLocal } from './minutes'
+import { smoothstep } from './smoothstep'
 import type { CloudSighting } from './cloudSightings'
 import type { Forecast, LocalTime } from './types'
 
@@ -10,6 +11,10 @@ export interface CloudObservation {
   at: LocalTime
   receivedAt?: number
   previous?: CloudObservation
+  /** The covers of the slots right before it, newest first, as far as they are known without a gap. */
+  before?: readonly number[]
+  /** 0–1: how much daylight the satellite saw by; without it the mask misses fog and takes cold ground for cloud. */
+  daylight?: number
   /** The single cloud patches near the place, biggest-looking first (see `cloudSightings`). */
   sightings?: CloudSighting[]
 }
@@ -20,8 +25,15 @@ const FRESH_MIN = 40
 const STALE_MIN = 100
 /** Fade bulk cover to the model by the documented ~2.5-hour horizon as the observed sky loses relevance. */
 const COVER_FADE_MIN = 150
-/** Cap the error in percentage points because a binary cloud mask can misclassify pixels. */
+/** Cap the error in percentage points because a binary cloud mask can misclassify pixels: the most one slot alone may say. */
 const MAX_SHIFT = 40
+/** This many slots in a row, all clear or all cloudy, are no pixel's mistake: the cap gives way. */
+export const AGREEING_SLOTS = 3
+/** Points off all clear (or all cloudy): a slot this near it agrees wholly, one this far not at all. */
+const UNANIMOUS = 2
+const DIVIDED = 10
+/** Without daylight, an error this big may be fog the mask misses, or cold ground it takes for cloud: the cap comes back. */
+const NIGHT_DOUBT = [70, 90] as const
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -56,12 +68,28 @@ function coverTrust(obs: CloudObservation, at: LocalTime): number {
 
 const lerp = (from: number, to: number, weight: number) => from + (to - from) * weight
 
+/** 0–1: the slots up to the observation's agree on a wholly clear sky, or on a wholly cloudy one. */
+function agreement({ cover, before = [] }: CloudObservation): number {
+  if (before.length < AGREEING_SLOTS - 1) return 0
+  const covers = [cover, ...before.slice(0, AGREEING_SLOTS - 1)]
+  const on = (sky: number) => 1 - smoothstep(UNANIMOUS, DIVIDED, Math.max(...covers.map((seen) => Math.abs(seen - sky))))
+  return Math.max(on(0), on(100))
+}
+
+/** The model's error an observation shows, as far as it is trusted to. */
+function shownError(obs: CloudObservation, modelCover: number): number {
+  const error = obs.cover - modelCover
+  const doubt = (1 - (obs.daylight ?? 0)) * smoothstep(...NIGHT_DOUBT, Math.abs(error))
+  const cap = lerp(MAX_SHIFT, 100, agreement(obs) * (1 - doubt))
+  return clamp(error, -cap, cap)
+}
+
 /** Correct the viewed minute with the model error measured at each satellite observation. */
 export function correctCloudCover(obs: CloudObservation, at: LocalTime, nowMs: number | undefined, modelAt: number,
   modelCoverAt: (minute: LocalTime) => number): number {
   return blendObservations(obs, nowMs, modelAt, (sample) => {
     const trust = coverTrust(sample, at)
-    return trust === 0 ? modelAt : clamp(modelAt + clamp(sample.cover - modelCoverAt(sample.at), -MAX_SHIFT, MAX_SHIFT) * trust, 0, 100)
+    return trust === 0 ? modelAt : clamp(modelAt + shownError(sample, modelCoverAt(sample.at)) * trust, 0, 100)
   }, lerp)
 }
 

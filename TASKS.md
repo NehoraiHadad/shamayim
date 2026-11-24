@@ -1104,6 +1104,16 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 - [x] Track G LOW 2: the satellite's correction is measured at its own minute (cover − model there, ±40 points, full for
       40 min, nothing at 150), so a held preview does not drift while the clock runs, nor at the hour's rollover
       (`observedCloud.ts`, `liveLightSatelliteCases.ts` with unequal model and observed cover).
+- [~] A sky the satellite plainly calls clear is clear (`claude/clear-sky`, owner's Shadmot Mehola evening, 24 Nov: mask 0 % for 3 h, ICON 53 %):
+      - [x] Three slots in a row, all ≤ 2 % (or all ≥ 98 %), lift the ±40 cap, continuously to 10 points off; without daylight an error of 70–90
+            brings the cap back (dawn fog). 53 → 0 there, 13 before (`observedCloud.ts`, `observedCloudAgreement.test.ts`)
+      - [x] Low sun: a patch is a sighting only if it was there in the last slot of daylight (of the night, at dawn) and in those since
+            (`observeCloud.ts`, `maskSlots.ts`, `stoodBefore`). The false patches began an hour before sunset and stood still for 2 h
+      - [x] A failed request is asked once more; a slot that failed is unknown, never clear (`fetchMask.ts`). Cold view 3 requests, not 1; +1 with
+            patches in low sun; then 1 a slot
+      - [ ] Infrared (`msg_fes:ir108`) as a second witness: a new source, not built. Measured: real cloud 30–50 grey levels above the ground
+            (23 Nov), the false patches 10–16; size does not tell them apart. It would also keep a real cloud that arrives after the last daylight
+            slot of a clear evening (23 Nov 13:15 UTC), which the rule hides as a sighting till it is over the place. Partial fog (model < ~70) the mask misses at dawn is still cleared
 - [ ] The correction steps 0 → full where a scrub back crosses the observation's own minute (unchanged from before).
 - [x] CI gap: the stills job renders the built page too (`vite build` + preview, 375 px, recorded Haifa 15.3 noon, other hosts
       refused): `e2e/skyShown.mjs` fails when the sky is the boot colour, when hiding the sky changes nothing, or when its
@@ -1287,15 +1297,19 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 - [~] 2a. Drawn style end to end (colour woodblock print). Map, plan and prototype on `claude/drawn-style-accc0f`; build plan
       `drawn/BUILD-PLAN.md` in the notes folder. Start from v1: replace only what a user sees as different
       - [x] Owner approved the direction (second set of stills, `50c75d12`)
-      - [~] S4 ground and water (`claude/drawn-ground`): built, judged, reviewed and fixed (`ab93e476`); READY. Known small faults: hatch
+      - [x] The whole stack is merged: main `7e4b5ce6`, approved by the owner from stills
+      - [~] Last round, clouds and speed (`claude/drawn-cloud2`): heads in groups, rim caps on the edge itself, scalloped feet, the
+            outline never seen through a thin print; one Codex review (direct printing, grey under a deck, fog houses too), one fix
+            round; READY. Polish later: notes `drawn/POLISH-LATER.md`
+      - [x] S4 ground and water (`claude/drawn-ground`): built, judged, reviewed and fixed (`ab93e476`); READY. Known small faults: hatch
             ink steps at band edges, `turn` leans without direct sun
-      - [~] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
+      - [x] S5 town and trees (`claude/drawn-town`): built, reviewed, one fix round (warmer lit walls, no bluer snow, leaf cuts
             inside the crown); READY `0e3c7cae`. Known: palms take no key, a flat roof hides half its key line
-      - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
+      - [x] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
             Known: canvases allocated per repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
-      - [~] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
+      - [x] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
             second gain (`skied`); READY, main d0195813 merged in (`c6fa7fca`)
-      - [~] S2 cloud sheets (`claude/drawn-cloud`, on S1): caps in the cloud's air, far arches, closed deck as v1; judged on 10 stills,
+      - [x] S2 cloud sheets (`claude/drawn-cloud`, on S1): caps in the cloud's air, far arches, closed deck as v1; judged on 10 stills,
             Codex review and its fixes, printed straight onto the layer; READY `0f41da2f`, the whole stack on main 2a0c2fef (grey under a deck; houses in fog and dust veiled). Known: flat tops at the zenith
             row, a straight line where a sheet begins mid-sky, dusk clouds smooth, showers one closed mass, caps may enter at 2.6 px
       - [x] S6 air: nothing to build. Dust reads as two flat wipes once S2 prints it, rain shafts and fog are as v1
@@ -1308,11 +1322,38 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
       - [x] Build plan: notes `real/BUILD-PLAN.md` (S0 and six slices A-F, needs N1-N9 for foundations, every open fix), reviewed by another model; lightened by the owner's bar
       - [x] S0 on main 5fb0d856 (CI run 45341294326, scratch `claude/real-meas-base`): notes `real/S0-BASELINE.md`; one dispatch again when the integration lands
-      - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
+      - [~] N1 the lamp, N2 the sky's grade: on main c121ed23 (the canopy is not in N1); N3 bounds: the manager to foundations
       - [ ] Phase 2 after the manager opens `src/scene`: A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
-      - [~] A, night half (`claude/real-town`): street light behind each nearer body, window bloom, far shore lights down the sea,
+      - [~] A, night half (`claude/real-town`, e73c6b42, owner approved, the manager integrates): street light behind each nearer body, window bloom, far shore lights down the sea,
             folded windows on bodies of unresolved storeys (`paint/real/town/`). Codex review: 8 findings, reflections fixed. Written down, not
             chased: a lit pane's bloom pops with the pane; `shine.windows` keyed in 1/64 (a ramp of the strip's poses); the shrine's
             floodlight blooms as a window; glows squeeze at the layer's edge. Day half waits for the label slice
-- [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main 7e4b5ce6);
-      waits for both styles' approval, then main into it, re-verify, owner approves merge and worker deploy (worker first)
+      - [x] C and part of D, cloud bodies (`claude/real-sky`, main cbd769cc): one cloud hand for sheets and towers (`paint/real/cloud/`: noise, grain, light
+            marched to sun, sky and base, tone, soft cover); the horizon strip stays the far deck's mean (land-light's 2 % gate).
+            Gates re-measured with a reason: Tiberias 12:00 and 16:30, Jerusalem 16:30 (`landLighting.mjs`), high-pass room 1.36 (`buildingLight.mjs`).
+            Codex reviews: 7 findings, 5 fixed; the rest of the commits: 7, none high, 2 fixed, gate baseline kept. For the shared model: the
+            lamp's half-degree altitude steps the moon's and dusk's light on the sheets, the tower key lacks `tau`, a combed veil and a hole's
+            wall may pass the dust bound, a low sheet's beam ignores the upper deck. Written down, not chased: deckOpenness' hard node count and the mean anchor shifting as a bank
+            enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
+            capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
+            first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
+      - [~] The strip under eye level (`claude/real-strip`, a live bug of both styles): what is in the sky at eye level goes on to the far
+            horizon a high place shows (`model/crest.ts` skyBelowEye, sheets, the haze band, the CSS base); a real deck's rows turn down, a
+            print's go on; nothing changes without a dip (`paint/belowEye.test.ts`). Also: sunny heaps keep more of their forms
+      - [~] F, weather near the eye (`claude/real-air`): fog in uneven banks with lit tops and shaded hollows, rain streaks with depth, drops and
+            flakes of many sizes on a tile twice as wide (`paint/real/air/`, `model/fallTile.ts`, `styleLight.fallTile`). Dropped: dust, smoke (no gain
+            at phone size). No baseline moved. Codex review: 4 findings, 3 fixed (tile key and
+            chains, the fog's light key). Written down, not chased: the fog's crop thins the top few px, near rain a bit fat at its top, the mist repeats every 240 px
+      - [~] E, trees and the sea (`claude/real-sea`): leaf-clump crowns with lit tops, the town's round trees too; waves in perspective gathered
+            in gusts, shallows, broken foam, a hazy far edge; lakes' wavelets (`paint/real/foliage.ts`, `paint/real/sea/`). Dropped: a lit side
+            on canopy crowns (no canopy lamp), the `water` lamp, own palms. Written down: discs over Ein Gedi (likely the `orchard` glyph), the
+            town tree's lean formula twice, dashed foam on Haifa's spit, bodies over the sea without its grain, the sea's light key
+            without the sparks' places (as on main). Codex review: 5 findings, 3 fixed
+      - [~] B, the ground (`claude/real-plane`): soil and scrub patches, small relief the lamp rakes, gullies as folds (`paint/real/land/`),
+            through one optional hook in `planeTexel.ts`. Dropped: the day lift (the land's noon target), specks, terraces. Written down: the
+            ground in an overcast stays flat, dust leaves the foreground soft, a fold may reach 2 px into a label's zone. Codex review:
+            3 findings, 2 fixed
+      - [~] B, E and F joined (`claude/real-join` over main 350efdbd), the owner's two fixes: main's mottle and paper back on the ground over the
+            relief (the hook had left both out), the plants' own inks, fuller clumps and a stronger foot for the crowns
+- [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main b76225e8);
+      last pass re-verified; waits for the owner's approval of the merge and the worker deploy (worker first)

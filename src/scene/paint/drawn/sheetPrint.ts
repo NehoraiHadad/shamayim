@@ -1,18 +1,19 @@
 import { hashId } from '../../../data/landmarks/hash'
 import { rowValues } from '../../model/rowValues'
 import type { LayerOf, RGB } from '../../model/types'
+import { carryDown, rowsBelow } from '../shared/cloud/belowEye'
 import { css, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { capTop, paintCap, traceCap, traceTop } from './cloudCaps'
 import { capInks, printed } from './cloudInks'
-import { traceOver } from './kit/contour'
+import { traceOver, type Frame, type Grid } from './kit/contour'
 import { sheetCaps } from './sheetCaps'
 import { cutOf, nearAt, type Cut, type Eased } from './sheetEdge'
 import { fieldAt, type SheetField } from './sheetField'
 import { sheetLight, type SheetLight } from './sheetLight'
 
 /*
- * A broken sheet as a print: the model's cloud as one block with capped edges, its light wiped over the whole of it, each cap
- * lit on its top, inside a key line. Where the cloud is, how much of it and every tone are the model's. Pure: the desc and
+ * A broken sheet as a print: the model's cloud as one block with capped edges and a scalloped foot, its light wiped over the
+ * whole of it, each cap lit on its top, inside a key line. Where the cloud is, how much of it and every tone are the model's. Pure: the desc and
  * the scratch surface from `env`.
  */
 
@@ -31,39 +32,62 @@ const OUTER = 1.4
 /** The steps of the key line's fade down the sky. */
 const STEPS = 12
 
-export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv): void {
-  const { f } = read, frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }, seed = hashId(desc.id)
+/** Prints it at its share (`open`); `beneath` lays what is not printed, over the key line and under the print. */
+export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv, open: number, beneath: () => void): void {
+  const { f } = read, seed = hashId(desc.id)
   const cut = cutOf(read, seed)
-  if (!cut.edge.at.some((v) => v > 0)) return
+  if (!cut.edge.at.some((v) => v > 0)) return beneath()
   const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), key = new Path2D()
   const air = desc.through ? rowValues(desc.ys, desc.through, 1) : () => 1
   const opaque: Opaque = (gx, gy) => air(f.y0 + (gy / (f.rows - 1)) * f.height) * (THIN + (THICK - THIN) * Math.min(1, fieldAt(read.alpha, f.cols, f.rows, gx, gy)))
-  traceOver(key, cut.edge, 0, frame)
+  const { grid, frame } = outline(f, cut.edge, desc.below)
+  traceOver(key, grid, 0, frame)
   const block = new Path2D(key)
   caps.forEach((cap, i) => {
     if (cut.inside(cap.x, cap.y) > OUTER * cap.r) return
     traceCap(block, cap, tops[i])
     traceTop(key, tops[i])
   })
+  const alpha = ctx.globalAlpha * open
   ctx.save()
-  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * t.line * (FAR + (1 - FAR) * near)))
+  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * open * t.line * (FAR + (1 - FAR) * near)))
   ctx.lineWidth = LINE
   ctx.stroke(key)
-  const wash = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
+  // The line is the mass's outline alone: none of it is seen through a thin print.
+  ctx.globalAlpha = 1
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.fill(block)
+  ctx.restore()
+  beneath()
+  ctx.save()
+  ctx.globalAlpha = alpha
+  const wash = blockOf(read, cut, light, opaque, env, desc.below), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
   if (ink) {
-    const a = f.width / (wash.width - 1), d = f.height / (wash.height - 1)
+    const a = f.width / (wash.width - 1), d = f.height / (washRows(f) - 1)
     ink.setTransform({ a, d, e: f.x0 - 0.5 * a, f: f.y0 - 0.5 * d })
     ctx.fillStyle = ink
     ctx.fill(block)
   }
-  const alpha = ctx.globalAlpha
   caps.forEach((cap, i) => {
+    if (!cap.lit) return
     const inks = capInks(t, light.at(cap.gx, cap.gy, cap.side), light.crest), under = (rgb: RGB) => light.under(rgb, cap.gx, cap.gy)
-    ctx.globalAlpha = alpha * opaque(cap.gx, cap.gy)
+    ctx.globalAlpha = alpha * cap.lit * opaque(cap.gx, cap.gy)
     paintCap(ctx, cap, tops[i], { lit: under(inks.lit), local: under(inks.local), shade: under(inks.shade), key: inks.key }, t.line * nearAt(f, cap.gy))
   })
   ctx.restore()
 }
+
+/** The cut's grid and where it lies, gone on `below` px under eye level as it is there. */
+function outline(f: SheetField, edge: Grid, below?: number): { grid: Grid; frame: Frame } {
+  const { cols, rows } = edge, more = rowsBelow(below, f.height, rows), frame = { x: f.x0, y: f.y0, w: f.width, h: f.height + (more * f.height) / (rows - 1) }
+  if (!more) return { grid: edge, frame }
+  const at = new Float32Array(cols * (rows + more))
+  at.set(edge.at)
+  carryDown(at, cols, rows, more)
+  return { grid: { cols, rows: rows + more, at }, frame }
+}
+
+const washRows = (f: SheetField) => Math.ceil(f.height / WASH) + 1
 
 /** The key line's ink down the sky. */
 function keyOf(ctx: Ctx2D, f: SheetField, ink: (near: number, y: number) => string) {
@@ -72,9 +96,10 @@ function keyOf(ctx: Ctx2D, f: SheetField, ink: (near: number, y: number) => stri
   return down
 }
 
-/** The block's one printing of ink, as opaque as it lies at each place, as far out as its caps may reach. */
-function blockOf({ f }: Eased, { inside, sideAt }: Cut, { at, under, t }: SheetLight, opaque: Opaque, env: PaintEnv) {
-  const cols = Math.ceil(f.width / WASH) + 1, rows = Math.ceil(f.height / WASH) + 1, { canvas, ctx } = env.canvas(cols, rows), image = ctx.createImageData(cols, rows)
+/** The block's one printing of ink, as opaque as it lies at each place, as far out as its caps may reach, and `below` px on. */
+function blockOf({ f }: Eased, { inside, sideAt }: Cut, { at, under, t }: SheetLight, opaque: Opaque, env: PaintEnv, below?: number) {
+  const cols = Math.ceil(f.width / WASH) + 1, rows = washRows(f), more = rowsBelow(below, f.height, rows)
+  const { canvas, ctx } = env.canvas(cols, rows + more), image = ctx.createImageData(cols, rows + more)
   for (let j = 0; j < rows; j++) {
     const v = j / (rows - 1), gy = v * (f.rows - 1), y = f.y0 + v * f.height
     for (let i = 0; i < cols; i++) {
@@ -85,6 +110,7 @@ function blockOf({ f }: Eased, { inside, sideAt }: Cut, { at, under, t }: SheetL
       image.data[n + 3] = Math.round(255 * opaque(gx, gy))
     }
   }
+  carryDown(image.data, cols * 4, rows, more)
   ctx.putImageData(image, 0, 0)
   return canvas
 }
