@@ -23,9 +23,8 @@ const baseSky = {
   'shadmot-mehola-1630': APPROVED_STILL, 'tiberias-0620': APPROVED_STILL,
   // Tiberias's strip stands high, over the Galilee: the soft cover of real's cloud bodies there (.489 and .162 in the approved stills; Jerusalem's .1737).
   'tiberias-1200': .520, 'tiberias-1630': .157, 'jerusalem-1630': .1705,
-  // Measured on 97a85d1f: the same deck (.0970 in the approved still); the falling flakes now cover under half of the strip, so
-  // its median is the bare deck's.
-  'tiberias-1200-snow': .0941,
+  // Measured on 676d6cd3: the thick deck's base carries its own light since the clouds slice (.0970 in the approved still).
+  'tiberias-1200-snow': .0991,
 }
 const failures = []
 const server = await startServer()
