@@ -34,6 +34,8 @@ const FINE_RATE = 2.7, FINE = 0.4, HOLLOW = 0.38
 /** From this cover to this the inside is whole: no noise lets the sky through it. */
 const WHOLE = [0.6, 0.95] as const
 
+/** Between two octaves of the noise's size, where the one gives way to the other (both are read there). */
+const BLEND = [0.3, 0.7] as const
 /** From this soft cover to this a point is the full core, whatever its rim. */
 const CORE = [0.75, 1] as const
 
@@ -43,6 +45,7 @@ export function cloudGrain(make: Make, seed: number) {
   const { u, v } = placeOf(seed), puffs = puffTile(), wisps = wispTile(), swell = swellTile()
   let part = 0, ax = 1, ay = 1, au = 0, av = 0, bx = 1, by = 1, bu = 0, bv = 0
   const read = (tile: Float32Array, x: number, y: number, rate: number, a: number, b: number) => {
+    if (part === 1) return noiseAt(tile, x * rate * bx + a + bu, y * rate * by + b + bv)
     const near = noiseAt(tile, x * rate * ax + a + au, y * rate * ay + b + av)
     return part ? near + (noiseAt(tile, x * rate * bx + a + bu, y * rate * by + b + bv) - near) * part : near
   }
@@ -50,7 +53,7 @@ export function cloudGrain(make: Make, seed: number) {
     /** The row's scale: 1 overhead, small far off. */
     row(scale: number) {
       const level = Math.min(2.999, -Math.log2(0.1 + 0.9 * Math.min(1, scale))), step = Math.floor(level), size = make.tile * 2 ** -step
-      part = level - step
+      part = smoothstep(BLEND[0], BLEND[1], level - step)
       ax = 1 / (size * make.along)
       bx = 2 * ax
       ay = (1 + 0.3 * step) / size

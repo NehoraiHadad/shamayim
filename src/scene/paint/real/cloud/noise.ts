@@ -40,11 +40,11 @@ function addFractal(out: Float32Array, seed: number, octaves: number, weight: nu
   }
 }
 
-/** An octave sum stretched to 0–1 (its 2nd and 98th percentiles). */
+/** An octave sum stretched to 0–1 (the 2nd and 98th percentiles of every fifth value). */
 const tile = (key: string, add: (out: Float32Array) => void) => keptTile(`cloud:${key}`, (out) => {
   add(out)
-  const sorted = Float32Array.from(out).sort()
-  const lo = sorted[Math.floor(0.02 * out.length)], hi = sorted[Math.floor(0.98 * out.length)]
+  const some = Float32Array.from({ length: out.length / 5 | 0 }, (_, n) => out[5 * n]).sort()
+  const lo = some[Math.floor(0.02 * some.length)], hi = some[Math.floor(0.98 * some.length)]
   for (let n = 0; n < out.length; n++) out[n] = Math.min(1, Math.max(0, (out[n] - lo) / (hi - lo)))
 }, false)
 

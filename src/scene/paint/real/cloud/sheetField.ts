@@ -22,6 +22,8 @@ const WALL = 11, WALL_COVER = 0.8
 const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
+/** From this cover on no fine edge shows. */
+const EDGELESS = 0.97
 /** Low over the horizon a cloud is far: the shares of the sky's height from which and over which it has a body of its own. */
 const FAR = [0.04, 0.37] as const
 
@@ -76,8 +78,8 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       }
       // An underside: cloud over it, open air under it.
       const flat = Math.min(1, Math.max(0, STEP * (across(n + over + 3) - across(n + under + 3)))), noise = grain.noise(x, y, bend, wisp)
-      const far = grainedSheetAlpha(veiledSheetAlpha(here, open), 0.25 + noise / 2, open), cover = coverOf(make, a, noise + grain.fine(x, y, bend), wisp, flat)
-      alpha[p] = far + near * (here + open * (cover - here) - far)
+      const far = grainedSheetAlpha(veiledSheetAlpha(here, open), 0.25 + noise / 2, open), fine = near && a < EDGELESS ? grain.fine(x, y, bend) : 0
+      alpha[p] = far + near * (here + open * (coverOf(make, a, noise + fine, wisp, flat) - here) - far)
       field.thick[p] = thickOf(make, a, noise, flat)
       field.flat[p] = flat * holed
       field.wall[p] = wall
