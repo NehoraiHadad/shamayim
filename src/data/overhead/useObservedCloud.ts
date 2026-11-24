@@ -12,12 +12,12 @@ interface Site { lat: number; lon: number; timezone: string }
 /** Polls are cheap: a request goes out only when a newer slot may be out. */
 const POLL_MS = 5 * 60_000
 /** Readings kept for the slots still to come: the longest look back. */
-const KEPT_MS = 5 * 3_600_000
+const KEPT_MS = 6 * 3_600_000
 
 /**
  * What Meteosat's cloud mask saw around the place in the newest published slot, with the single clouds in it. Checked every
  * 5 minutes and whenever the app comes back to the screen, but a request goes out only for a slot not held yet: three small
- * images at first (the newest and the two before it), one more while the sun is low and there are clouds in it, then one
+ * images at first (the newest and the two before it; a request more when the newest is not out yet), one more while the sun is low and there are clouds in it, then one
  * every 15 min. A new image is picked up within ~5 min of being published (~15 min late). Null while unknown or when the
  * service fails; the model then stands alone.
  */

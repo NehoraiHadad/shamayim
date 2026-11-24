@@ -13,7 +13,7 @@ describe('candidateSlots', () => {
 
 describe('slotBeforeLowSun', () => {
   it('is the last slot in daylight, for an evening', () => {
-    for (const slot of [at(13, 30), at(14, 30), at(16)]) {
+    for (const slot of [at(13, 30), at(14, 30), at(16), at(18)]) {
       const before = slotBeforeLowSun(slot, LAT, LON)!
       expect(clock(before)).toBe('13:00')
       expect(sunAt(before + STEP_MS, LAT, LON)).toBeLessThan(14)
@@ -24,7 +24,7 @@ describe('slotBeforeLowSun', () => {
     expect(sunAt(before, LAT, LON)).toBeLessThan(-12)
     expect(sunAt(before + STEP_MS, LAT, LON)).toBeGreaterThan(-12)
   })
-  it('asks nothing by day, late in the night or before dawn', () => {
-    for (const slot of [at(9), at(12, 30), at(21), at(1)]) expect(slotBeforeLowSun(slot, LAT, LON)).toBeNull()
+  it('asks nothing by day, with the ground long cold or before dawn', () => {
+    for (const slot of [at(9), at(12, 30), at(18, 15), at(21), at(1)]) expect(slotBeforeLowSun(slot, LAT, LON)).toBeNull()
   })
 })

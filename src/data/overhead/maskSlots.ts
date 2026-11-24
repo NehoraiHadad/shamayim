@@ -7,13 +7,13 @@ const FIRST_LAG_MS = 14 * 60_000
 const BACK_SLOTS = 3
 /**
  * In low sun the mask takes cold ground for cloud: at Shadmot Mehola on 24 Nov 2026, under a clear sky, patches that stayed
- * in place grew from a sun of 11° on and still stood at −15°.
+ * in place grew from a sun of 11° on and still stood, shrinking, at −18°.
  */
 const LOW_SUN = 14
 /** Below this a morning's sun has not begun to change the ground. */
 const NIGHT_SUN = -12
-/** An evening patch is held to the last daylight for this long (about 2.5 h after sunset). */
-const HELD_SLOTS = 16
+/** An evening patch is held to the last daylight for this long (about 3.5 h after sunset), till the ground has cooled. */
+const HELD_SLOTS = 20
 
 /** The slots to try at `nowMs`, newest first: the newest that may be out, then a few older ones. */
 export function candidateSlots(nowMs: number): number[] {
