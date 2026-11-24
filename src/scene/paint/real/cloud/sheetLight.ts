@@ -11,7 +11,7 @@ const CELL = 3, MIDDLE = 1
 /** What of its heads' sides a broad body keeps. */
 const HEADS_KEPT = 0.3
 /** How far round a point (px overhead) the sky is cloud, and how full, where it is inside a deck. */
-const ROUND = 75, FULL = [0.86, 0.99] as const
+const ROUND = 75, FULL = [0.93, 1] as const
 
 /** The mean of each `CELL`² cells of a w × h grid, on the light's grid. */
 function coarse(full: Float32Array, w: number, h: number, cw: number, ch: number): Float32Array {

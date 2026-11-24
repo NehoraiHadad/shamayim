@@ -1,6 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
+import { skyBelowEye } from './crest'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { skyGeom } from './skyGeom'
 import { horizonBand, skyStops } from './skyGradient'
@@ -39,7 +40,7 @@ export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | nul
   const geom = skyGeom(world, box)
   const colours = skyColours(world)
   const stops = skyStops(world, box, colours)
-  const band = horizonBand(world, box, colours)
+  const band = horizonBand(world, box, colours, skyBelowEye(world, box, geom))
   const glow = skyGlows(world, box, geom)
   const arch = skyArch(world, box, geom)
   const r1 = (v: number) => Math.round(v * 2) / 2
@@ -47,7 +48,7 @@ export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | nul
     kind: 'sky', id: 'sky', surface: 'sky', z: 0, soft: true,
     bounds: { x: 0, y: 0, w: geom.width, h: box.skyHeight },
     key: layerKey('sky', skyBoxKey(box, true), stops.map(([at, rgb]) => [colours.bandWeight ? at * box.skyHeight : at, colourKey(rgb)]),
-      band && [band.y, band.h, colourKey(band.rgb), Math.round(band.alpha * 255)],
+      band && [band.y, band.h, colourKey(band.rgb), Math.round(band.alpha * 255), ...(band.below ? [band.below] : [])],
       glow.map((g) => [r1(g.x), r1(g.y), r1(g.r), g.ry ?? 0, colourKey(g.rgb), Math.round(g.alpha * 255)]),
       arch && [r1(arch.x), r1(arch.shadow), r1(arch.belt), colourKey(arch.shadowRgb), colourKey(arch.beltRgb), Math.round(arch.alpha * 255)]),
     stops, glow, arch, band,
