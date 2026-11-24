@@ -1,38 +1,17 @@
-import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { SCENE_PLACES } from '../../test/scenePlaces'
-import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
-import { ratio, skyContrastCeiling } from '../../theme/contrast'
+import { expect, it } from 'vitest'
+import { skyContrastCeiling } from '../../theme/contrast'
 import type { WorldState } from '../../world/types'
-import { makeWorldBuilder } from '../../world/world'
 import { cloudLayersForSky } from './cloudLayers'
 import { sheetPaintBound } from './cloudPaintBounds'
+import { towerOpacity, type CloudSprite } from './cloudSprite'
 import { skyColours, skyStops, stopAt } from './skyColour'
 import { SKY_FILTER_MID, skyFilterReserve, skyFilterTransmission } from './skyFilter'
-import { filterAt, skyGradeOf } from './skyGrade'
-import { hexOf, mixSrgb, rgbOf } from './tone'
+import { skyGradeOf } from './skyGrade'
+import { BOX, sheetOf, skyGradeCloudFixture } from './skyGradeCloudFixture'
+import { mixSrgb } from './tone'
 import { towerPaintProfile } from './towerPaintBounds'
-import { towerOpacity, type CloudSprite } from './cloudSprite'
 
-const BOX = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
-let ramon: LoadedPlace
-beforeAll(async () => {
-  stubPublicFetch()
-  ramon = (await loadPlaces(SCENE_PLACES.filter(({ id }) => id === 'ramon-crater'))).get('ramon-crater')!
-})
-afterAll(() => vi.unstubAllGlobals())
-
-const buildWorld = makeWorldBuilder()
-
-function frame(pm10 = 400, visibilityKm = 3, input = worldInput(ramon, '2026-11-17T12:00')) {
-  return buildWorld({ ...input,
-    forced: { pm10, dust: pm10, visibilityKm } })
-}
-
-function sheetOf(world: WorldState) {
-  const sheet = cloudLayersForSky(world, BOX).find(layer => layer.kind === 'cloudSheet')
-  if (!sheet) throw new Error('Missing Ramon cloud sheet')
-  return sheet
-}
+const { frame } = skyGradeCloudFixture()
 
 const depth = (world: WorldState) => skyGradeOf(world, BOX)?.k ?? 0
 
@@ -73,57 +52,6 @@ it('keeps tower grade continuous as its crown enters the middle row', () => {
     // At the soft edge's zero-slope endpoint, a hundredth of a pixel is below raster precision.
     expect(Math.abs(k - previous)).toBeLessThan(0.004)
     previous = k
-  }
-})
-
-it('limits model cloud composites through concentration and visibility sweeps', () => {
-  const input = worldInput(ramon, '2026-11-17T12:00')
-  const visibilities = [1, 2, 3, 5, 8, 12, 20, 30]
-  // The reference always forces zero PM10 and dust. Only its visibility follows the sweep.
-  const cleanByVisibility = new Map(visibilities.map(km => {
-    const clean = frame(0, km, input)
-    return [km, { clean, sheet: sheetOf(clean), stops: skyStops(clean, BOX) }] as const
-  }))
-  const sweep = (pm10: number, visibilityKm: number) => {
-    const world = frame(pm10, visibilityKm, input)
-    const grade = skyGradeOf(world, BOX)
-    const { clean, sheet: clearSheet, stops: cleanStops } = cleanByVisibility.get(visibilityKm)!
-    const sheet = sheetOf(world), stops = skyStops(world, BOX)
-    let worst = Infinity
-    for (const [row, y] of sheet.ys.entries()) {
-      if (y > SKY_FILTER_MID * (BOX.landTop + world.relief.horizonY)) break
-      const maxAlpha = (s: typeof sheet) => Math.max(...s.alpha.slice(row * s.xs.length, (row + 1) * s.xs.length))
-      const alpha = maxAlpha(sheet) * (sheet.through?.[row] ?? 1)
-      const behind = rgbOf(hexOf(stopAt(stops, y / BOX.skyHeight, mixSrgb)))
-      const cleanBehind = rgbOf(hexOf(stopAt(cleanStops, y / BOX.skyHeight, mixSrgb)))
-      const cleanAlpha = maxAlpha(clearSheet)
-      for (const tone of ['body', 'shade', 'lit'] as const) {
-        const composite = rgbOf(hexOf(mixSrgb(behind, sheet[tone], alpha)))
-        const cleanComposite = hexOf(mixSrgb(cleanBehind, clearSheet[tone], cleanAlpha))
-        const contrast = ratio(world.light.palette.ink, hexOf(filterAt(grade, y, composite)))
-        const target = Math.min(4.6, ratio(clean.light.palette.ink, cleanComposite))
-        if (!(contrast >= target)) {
-          throw new Error(`Contrast ${contrast} below ${target} at PM10 ${pm10}, ${visibilityKm} km, row ${row}, ${tone}`)
-        }
-        worst = Math.min(worst, contrast - target)
-      }
-    }
-    return worst
-  }
-  // Keep the clean onset as an endpoint, outside the search for the worst dusty scene.
-  sweep(100, 3)
-  let worstPm = 150, worst = Infinity
-  for (let pm10 = 150; pm10 <= 1000; pm10 += 50) {
-    const margin = sweep(pm10, 3)
-    if (margin < worst) {
-      worstPm = pm10
-      worst = margin
-    }
-  }
-  for (const km of visibilities) if (km !== 3) sweep(400, km)
-  // One-tenth of the coarse step, skipping concentrations already checked.
-  for (let pm10 = Math.max(100, worstPm - 50); pm10 <= Math.min(1000, worstPm + 50); pm10 += 5) {
-    if (pm10 % 50) sweep(pm10, 3)
   }
 })
 

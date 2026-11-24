@@ -10,6 +10,7 @@ import { luminanceOf } from './cloudChromaticity'
 import { inDust } from './cloudDust'
 import { cloudLayersOf } from './cloudLayers'
 import { horizonBand, skyStops, stopAt } from './sky'
+import { skyColours, unveiledSkyColours } from './skyColour'
 import { filterAt, skyGradeOf } from './skyGrade'
 import { SKY_FILTER_MID } from './skyFilter'
 import { hexOf, labOf, mixSrgb, rgbOf } from './tone'
@@ -76,7 +77,7 @@ it('requires coarse dust even when PM10 and fog visibility would otherwise make 
   expect(air(400).dustVeilPotential).toBe(0)
 })
 
-it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anchors', () => {
+it('bounds Hero and Sentence ink contrast at the zenith and mid gradient anchors', () => {
   const { world } = frame('2026-11-17T12:00', DUST)
   const shown = shownAir(worldInput(ramon, '2026-11-17T12:00'))
   // Cover the domain and refine around the 3° onset and the 125 µg/m³, 1 km, 4° minimum.
@@ -88,6 +89,7 @@ it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anc
     [coarsePm, [1, 2, 3, 5, 10, 15, 20, 25, 30], coarseAltitudes],
     [finePm, [1, 2, 3, 30], fineAltitudes],
   ]
+  let fullWeight = 0, partialWeight = 0
   for (const [concentrations, visibilities, altitudes] of grids) for (const pm10 of concentrations) for (const visibilityKm of visibilities) {
     const { air } = airOf({ shown: { ...shown, pm10, opticalPm10: pm10, dustConcentration: pm10, visibilityKm },
       visibilitySource: shown.visibilitySource, forcedVisibility: true })
@@ -98,15 +100,36 @@ it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anc
       const grade = skyGradeOf(state, box)
       const middle = SKY_FILTER_MID * (box.landTop + state.relief.horizonY)
       const stops = skyStops(state, box)
-      const anchors = [0, middle].map(y => filterAt(grade, y, rgbOf(hexOf(stopAt(stops, y / box.skyHeight, mixSrgb)))))
-      for (const [i, bg] of anchors.entries()) {
+      const full = skyColours(state).bandWeight === 1
+      if (full) fullWeight++
+      else partialWeight++
+      const unveiled = full ? undefined : skyStops(state, box, unveiledSkyColours(state))
+      for (const [i, y] of [0, middle].entries()) {
+        const row = y / box.skyHeight
+        const bg = hexOf(filterAt(grade, y, rgbOf(hexOf(stopAt(stops, row, mixSrgb)))))
+        const clear = unveiled && hexOf(stopAt(unveiled, row, mixSrgb))
+        const [r, g, b] = rgbOf(bg)
+        const darker = hexOf([r - 1 / 255, g - 1 / 255, b - 1 / 255])
         for (const ink of i === 0 ? [palette.ink] : [palette.ink, '#E8F9FF']) {
-          const actual = ratio(ink, hexOf(bg))
-          if (actual < 4.6) throw new Error(`Contrast ${actual} at PM10 ${pm10}, ${visibilityKm} km, ${altitude}°, stop ${i}`)
+          const actual = ratio(ink, bg)
+          const context = `PM10 ${pm10}, ${visibilityKm} km, ${altitude}°, stop ${i}, ink ${ink}`
+          if (clear) {
+            // As the reserve grows from zero, rounding can brighten a near-ceiling swatch by one sRGB byte.
+            const baseline = ratio(ink, clear)
+            const floor = Math.min(4.5, baseline)
+            const darkerContrast = ratio(ink, darker), target = Math.min(4.6, baseline)
+            if (!(actual >= floor && darkerContrast >= target)) {
+              throw new Error(`Contrast ${actual} (minimum ${floor}), one byte darker ${darkerContrast} (minimum ${target}) at ${context}`)
+            }
+          } else if (!(actual >= 4.6)) {
+            throw new Error(`Contrast ${actual} below 4.6 at ${context}`)
+          }
         }
       }
     }
   }
+  expect(fullWeight).toBeGreaterThan(0)
+  expect(partialWeight).toBeGreaterThan(0)
 })
 
 it('tints low cloud with the overlying dust and leaves cirrus nearly neutral', () => {
