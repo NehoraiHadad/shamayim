@@ -1,4 +1,4 @@
-import { COVER, COVER_NORTH, COVER_SOUTH, decodeLand } from './grid'
+import { COVER, COVER_NORTH, coverReaches, COVER_SOUTH, decodeLand } from './grid'
 
 /** WorldCover product vintage and winning layer that supplied a cover class at a point. */
 export type CoverLayer = 'local-50m' | 'regional-1km' | 'remote-1km' | 'unspecified'
@@ -85,7 +85,7 @@ export function isValidCoarseCoverJson(v: unknown): v is CoarseCoverJson {
  * and a point may be a turn apart, either way: what is not found as given is looked up again from the other side.
  */
 export function lookupCover(cover: LandCover | null, lat: number, lon: number): CoverLookup {
-  if (!cover) return { cover: null, source: 'unknown' }
+  if (!cover || !coverReaches(lat)) return { cover: null, source: 'unknown' }
   const given = lookupAt(cover, lat, lon)
   return given.cover !== null || Math.abs(lon) < 360 - LON_LIMIT ? given : lookupAt(cover, lat, lon < 0 ? lon + 360 : lon - 360)
 }
