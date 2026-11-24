@@ -7,6 +7,8 @@ import type { SizeClass } from './settlement'
 export const HOUSE_STEP_M = 2
 export const HOUSE_STEPS = 1024
 export const HOUSE_BYTES = 3
+/** Three bytes are four letters of base64, with no padding. */
+export const HOUSE_CHARS = 4
 /** Metres in a degree of latitude, as `offsetKm` counts them. */
 export const LAT_M = 111_320
 export const lonM = (lat: number) => LAT_M * Math.cos(lat * Math.PI / 180)

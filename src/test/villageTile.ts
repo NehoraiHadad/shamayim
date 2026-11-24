@@ -13,4 +13,4 @@ export const storedGroup = (more: Partial<StoredGroup> = {}): StoredGroup =>
 
 export const storedTile = (more: Partial<StoredTile> = {}): StoredTile => ({
   v: 1, licence: ODBL.id, licenceUrl: ODBL.url, credits: ['© OpenStreetMap contributors, Overture Maps Foundation'],
-  source: 'Overture Maps buildings', release: '2026-11-18.0', built: '2026-11-24', groups: [storedGroup()], ...more })
+  source: 'Overture Maps buildings', release: '2026-11-18.0', built: '2026-11-24', bare: [], groups: [storedGroup()], ...more })
