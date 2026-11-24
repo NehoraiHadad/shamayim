@@ -1,13 +1,10 @@
 import type { SiteBox } from './fabricSlots'
-import { highestFirst } from './numberOrder'
-
-const nearOf = (box: SiteBox) => box.near
 
 /** Near to far: a box whose top is under the nearer boxes' tops all across it is hidden. */
 export function visible<B extends SiteBox>(boxes: readonly B[], width: number): B[] {
   const cover = new Float64Array(Math.ceil(width) + 8).fill(Infinity)
   const kept: B[] = []
-  for (const box of highestFirst(boxes, nearOf)) {
+  for (const box of [...boxes].sort((a, b) => b.near - a.near)) {
     const from = Math.max(0, Math.floor(box.x - box.w / 2)), to = Math.min(cover.length, Math.ceil(box.x + box.w / 2))
     let shows = false
     for (let px = from; px < to; px++) if (box.top < cover[px] - .25) shows = true

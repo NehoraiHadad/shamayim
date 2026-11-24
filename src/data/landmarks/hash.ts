@@ -10,4 +10,8 @@ export function seeded(seed: number) {
   }
 }
 
-export function hashId(id: string) { return [...id].reduce((sum, char) => Math.imul(sum ^ char.charCodeAt(0), 16777619), 2166136261) }
+export function hashId(id: string) {
+  let sum = 2166136261
+  for (const char of id) sum = Math.imul(sum ^ char.charCodeAt(0), 16777619)
+  return sum
+}
