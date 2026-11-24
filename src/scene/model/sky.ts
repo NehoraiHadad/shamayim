@@ -5,6 +5,7 @@ import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { cityDomes, cityOnSky } from './cityLight'
+import { domeOf } from './dome'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
 import { mixRgb, rgbOf } from './tone'
@@ -20,7 +21,7 @@ const WHITE: RGB = [1, 1, 1]
  * Up, the bodies stand on the world's relief (`relief.y`, the land's own angle scale), so the sun sets behind the ridge it
  * really sets behind.
  *
- * The clouds use the same relief up to `DOME_ALT`; above it the relief's zenith is only ~135 px over the horizon, less
+ * The clouds use the same relief up to `DOME_ALT` (`dome.ts`); above it the relief's zenith is only ~135 px over the horizon, less
  * than half the sky the screen shows over the land, so the rest of the dome (to the zenith) is spread over the whole sky
  * above: a cloud overhead is drawn high behind the text, as an eye looking up sees it (an illustrator's dome, not a
  * projection; the bodies keep the true scale, the clouds near the horizon too).
@@ -47,18 +48,11 @@ export interface SkyGeom {
   domeAltitudeAt: (y: number) => number
 }
 
-/** Up to this altitude (deg) clouds stand on the relief; above it the dome is spread over the sky above. */
-export const DOME_ALT = 22
-/** The dome's zenith stands this far under the sky surface's top (px). */
-const DOME_TOP = 18
-
 export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
   const s = box.width / world.camera.width
   const left = box.landLeft ?? 0
   const width = box.skyWidth ?? box.width
   const y = (altitude: number) => box.landTop + world.relief.y(altitude)
-  const yDome = y(DOME_ALT)
-  const top = Math.min(DOME_TOP, yDome * 0.5)
   const span = 360 * world.camera.pxPerDeg * s
   const period = Math.round(span * box.dpr) / box.dpr
   return {
@@ -66,21 +60,7 @@ export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
     x: (azimuth) => left + xOf(azimuth, world.camera) * s,
     azimuthAt: (x) => azimuthAt((x - left) / box.width, world.camera),
     y,
-    dome: (altitude) => altitude <= DOME_ALT ? y(altitude)
-      : yDome - (yDome - top) * ((Math.min(90, altitude) - DOME_ALT) / (90 - DOME_ALT)) ** 0.85,
-    domeAltitudeAt: (px) => {
-      if (px <= top) return 90
-      if (px < yDome) return DOME_ALT + (90 - DOME_ALT) * ((yDome - px) / (yDome - top)) ** (1 / 0.85)
-      if (px === y(0)) return 0
-      // The relief is monotone and combines sine and tanh, so invert it numerically.
-      let low = -90, high = DOME_ALT
-      for (let i = 0; i < 46; i++) {
-        const mid = (low + high) / 2
-        if (y(mid) > px) low = mid
-        else high = mid
-      }
-      return (low + high) / 2
-    },
+    ...domeOf(y),
   }
 }
 

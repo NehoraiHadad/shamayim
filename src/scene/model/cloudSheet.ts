@@ -8,6 +8,7 @@ import type { WorldState } from '../../world/types'
 import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { CITY_RGB, type CityOnBase } from './cityLight'
 import { sheetCity } from './cloudSheetCity'
+import { seenDepth } from './cloudSheetSeen'
 import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
@@ -41,7 +42,8 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const deckEnd = Math.min(groundRangeAt(heightKm, 0), RANGES[layer.lattice][1])
   const angularStep = 360 * RAD * (xs[1] - xs[0]) / geom.azimuthRange.period
   const { expectedTauAt, rayRange, queryRadius } = densityGrid
-  const depthAt = cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt
+  const seen = seenDepth(world.place.id, world.cloudField?.field.t ?? 0, snapshot, geom,
+    cellular ? densityGrid.resolvedTauAt : densityGrid.tauAt)
   const resolvedEnd = Math.min(rayRange, queryRadius)
   const radius = meanRadius(layer.lattice, layer.g)
   // One centred tap has zero sweep, within both the texel footprint and
@@ -59,6 +61,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
     const f = fade[row] = veil ? 1 : Math.max(handoff, smoothstep(radius, 2 * radius, footprint))
     const level = f === 1 ? 0 : sheetDetail(genus, footprint)
     const sample = level ? texture(footprint) : null
+    const depthAt = seen(range, alt)
     path[row] = 1
     slant[row] = sheetPathFactor(layer.baseKm, layer.meanVKm, alt, Infinity)
     const inner = Math.min(deckEnd, (previous + range) / 2)

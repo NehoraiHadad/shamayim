@@ -74,10 +74,10 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
 
   const count = targetRows + 1
   if (cellular) {
-    // Pack two thirds of the rows into 5–30°. Compress towards 5°,
-    // where one scene pixel covers a larger radial distance.
+    // Pack two thirds of the rows into 5–30°. Compress towards 5°, where one scene pixel covers a larger radial
+    // distance, and above 30° towards it, where a row spans more ground than at the zenith.
     const lowEdge = geom.dome(CELLULAR_LOW_EDGE)
-    const bands = [[0, geom.dome(30), 12, 1], [geom.dome(30), lowEdge, 48, 3],
+    const bands = [[0, geom.dome(30), 12, 1.5], [geom.dome(30), lowEdge, 48, 3],
       [lowEdge, geom.horizon, CELLULAR_LOW_ROWS, CELLULAR_LOW_POWER]]
     let row = 0
     for (const [top, bottom, intervals, power] of bands) {

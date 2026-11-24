@@ -20,7 +20,7 @@ const SHOULDERS = 3, OUT = [0.18, 0.3], WIDE = [0.45, 0.65], HIGH = [0.35, 0.88]
 /** How much lower a shoulder stands under an anvil: the mature column rises clear of them. */
 const UNDER_ANVIL = 0.35
 /** How much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. */
-const ANVIL_FLARE = 1.6, FLARE_FROM = 0.58
+const ANVIL_FLARE = 1, FLARE_FROM = 0.45
 /** The anvil's own height under the column's overshooting top, which is this wide and stands this far off the middle. */
 const SHEET_TOP = 0.95, OVERSHOOT = 0.7, OFF = 0.3
 /** How far an anvil's spread is carried downwind (of the flare). */
@@ -41,10 +41,14 @@ export interface Head {
 
 export interface TowerHeadShape { seed: number; w: number; tall: number; anvil?: number }
 
-/** Above the cool-season Levant tropopause (km), a tall Cb can spread into an anvil. */
+/** No tower is drawn more slender: a Cb 8–12 km deep and 5–8 km across (`LATTICES.tower`) is at most 1.6 times as tall as
+ *  wide. The dome stretches a near one past it; it is drawn wider there, not a chimney. */
+export const SLENDEREST = 1.6
+/** Above the cool-season Levant tropopause (km), a tall Cb can spread into an anvil, brought in over a column's last step
+ *  to the most slender one (a cap on a squat body reads as a disc floating in the sky). */
 const TROPOPAUSE_KM = 11
 export const towerAnvil = (cb: boolean, top: number, w: number, tall: number) =>
-  cb && tall >= 1.5 * w ? smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
+  cb ? smoothstep(1.5, SLENDEREST, tall / w) * smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
 
 /** The main column first, then its shoulders, last the base they all stand on (the whole underside is its own). */
 export function headsOf(s: TowerHeadShape): Head[] {
