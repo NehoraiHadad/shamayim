@@ -1320,4 +1320,6 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             through one optional hook in `planeTexel.ts`. Dropped: the day lift (the land's noon target), specks, terraces. Written down: the
             ground in an overcast stays flat, dust leaves the foreground soft, a fold may reach 2 px into a label's zone. Codex review:
             3 findings, 2 fixed
+      - [~] B, E and F joined (`claude/real-join` over main 350efdbd), the owner's two fixes: main's mottle and paper back on the ground over the
+            relief (the hook had left both out), the plants' own inks, fuller clumps and a stronger foot for the crowns
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
