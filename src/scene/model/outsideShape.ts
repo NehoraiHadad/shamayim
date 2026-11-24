@@ -1,4 +1,3 @@
-import { N } from '../../data/city/tune.tmp'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
@@ -39,6 +38,9 @@ interface Shape {
 
 /** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
+
+/** Sets a block's wall draw apart from its roof's. */
+const BLOCK_WALL = 0x5bd1e995
 
 export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
   const view = world.place3 as OutsideView
@@ -102,7 +104,8 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
     own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
-      seed, receiver: receiverId(roof || !N('decor') ? seed : seed ^ [0, 0x5bd1e995, 0x9e3779b9, 0x2545f491, 0x1b873593][N('decor')]),
+      // A block's roof is its seed's first draw, so its wall comes of another: the tall are no paler than the low.
+      seed, receiver: receiverId(roof ? seed : seed ^ BLOCK_WALL),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }

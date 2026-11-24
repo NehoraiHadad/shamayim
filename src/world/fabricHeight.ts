@@ -1,4 +1,3 @@
-import { N } from '../data/city/tune.tmp'
 import { squareOf } from '../data/city/grid'
 import { HOUSE_TOP_M } from '../data/city/outsideView'
 import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
@@ -30,7 +29,7 @@ export function fabricHeights(city: CityResult | null | undefined) {
     if (at && at.built >= SPARSE) return { heightM: roofHeight(at.levels, at.p90, u) }
     const house = HOUSE_M[u < .6 ? 0 : 1]
     const typical = at ? roofHeight(at.levels, 0, 0) : house
-    if (typical < HOUSE_TOP_M || N('tower') && at!.levels >= (towerLevels.get(squareKey(lat, lon)) ?? Infinity)) return { heightM: house }
+    if (typical < HOUSE_TOP_M || at!.levels >= (towerLevels.get(squareKey(lat, lon)) ?? Infinity)) return { heightM: house }
     return { heightM: typical, siteHeightM: house }
   }
 }

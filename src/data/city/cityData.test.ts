@@ -19,7 +19,7 @@ it('falls back without an index, then loads only indexed cells in the near band'
     expect(await loadCity(place, signal)).toBeNull()
     const data = await loadCity(place, signal)
     expect(data?.rows[1].some(bin => bin.built > 0 && bin.levels === 3)).toBe(true)
-    expect(data?.raster?.at(place.lat, place.lon)).toEqual({ built: 1, levels: 3, p90: 10, front: Math.sqrt(5000) })
+    expect(data?.raster?.at(place.lat, place.lon)).toEqual({ built: 1, levels: 3, p90: 10 })
     expect(request).toHaveBeenCalledTimes(3)
     expect(request.mock.calls[2][0]).toMatch(/\/320_348\.json$/)
     expect(await loadCity({ lat: 0, lon: 0 }, signal)).toBeNull()

@@ -13,14 +13,14 @@ it('leaves every house of a low-rise row on its site', () => {
 })
 
 it('lets a widened block take only the blocks on the ground it covers', () => {
-  const near = site(100, 100, .8, 25, 1, 9), covered = site(102, 99, .7, 25, 1, 9)
-  const beside = site(103, 100, .75, 25, 1, 9), rowBehind = site(100, 94, .4, 25, 1, 9), house = site(102, 99.5, .78, 7.7, 5, 5)
+  const near = site(100, 100, .8, 25, 1, 9), covered = site(101, 99, .7, 25, 1, 9)
+  const beside = site(103, 100, .75, 25, 1, 9), rowBehind = site(100, 94, .4, 25, 1, 9), house = site(101, 99.5, .78, 7.7, 5, 5)
   expect(composeBodies([covered, near, beside, rowBehind, house], 5, HOUSE_TOP_M))
     .toEqual([near.body, beside.body, rowBehind.body, house.body])
 })
 
 it('gives way to a block that stands at its own width', () => {
-  const own = site(100, 100, .5, 25, 9, 9), widened = site(102, 100, .8, 25, 1, 9)
+  const own = site(100, 100, .5, 25, 9, 9), widened = site(101, 100, .8, 25, 1, 9)
   expect(composeBodies([widened, own], 5, HOUSE_TOP_M)).toEqual([own.body])
 })
 
