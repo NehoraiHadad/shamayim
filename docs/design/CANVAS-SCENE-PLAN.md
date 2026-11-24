@@ -1756,8 +1756,8 @@ sea level stands 137 m above the town.
   spots above the dot count (sea level stands over a place below it); the line at their median height. It runs from the
   hollow at the dot to the drawn land rising through it (the near ridge and the place's own land, `outlineOf`;
   `seaSpan` unchanged), where the slopes reach 0 m; an open side with no flank keeps `seaSpan`'s fixed end. Where neither
-  contour has a spot above the dot there is no line and no note (the spoken label says in words that the place is below sea level); every harness place below sea level has one. The line is `labels.datum` (the far
-  water layer draws it, `model/water.ts`), "פני הים" stands over it within its span (`sceneNotes` `datumNote`).
+  contour has a spot above the dot there is no line and no note (the spoken label says in words that the place is below
+  sea level); every harness place below sea level has one. The line is `labels.datum` (the far water layer draws it, `model/water.ts`), "פני הים" stands over it within its span (`sceneNotes` `datumNote`).
 - *Places checked* (`qa/canvas/datum/`, before / after at 12:00, Tiberias also 16:30; `sheet-before-after.png`):
   Tiberias (own ground: 6 px over the dot, meets the town's slope west of it), Ein Gedi (own ground: 18 px over the dot,
   meets the cliff), Shadmot Mehola, and four new harness places below sea level (`DATUM_PLACES`, panoramas recorded
