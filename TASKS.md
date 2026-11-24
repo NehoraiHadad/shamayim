@@ -1255,9 +1255,12 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             integ-3 `d0195813` (sky 8ec6fc11, cloud position e3a023bc, spikes a8d38d7c) owner-approved, CI 45366036832 green, merged to main.
             Label ea208c8d held: the owner wants no line and almost no dot; foundations rebuilds (number only; tiny dot on open land), owner
             chooses no dot or tiny dot in towns from stills. Codex: only through outsourcerer, never a direct `codex exec`
+            Owner, 24 Nov evening: no text in the scene at all; place, height and waters go to one quiet line at the page foot
+            (`claude/found-i-quiet`, variant with the sea level line `claude/meas-datum`); on CI, then before/after for the owner
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
+      Test mail to the vote address arrived (owner, 24 Nov)
 - [ ] 4. After the vote: special-sky slice (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
       a "tonight in the sky" line (full moon rising after dark, meteor shower peak). Real star positions are not in it
