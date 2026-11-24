@@ -54,14 +54,14 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const bend = fractal(seed + 5, off, down, 0.006, 0.006, 1) - 0.5
     const read = (k: number, px: number) => 2 * fractal(seed + k, off + 2 * BENT * bend, down + 2 * BENT * bend, 1 / px, 1 / px, 1) - 1
     const weigh = (s: typeof BROAD) => s.crest + (s.foot - s.crest) * near
-    const b = weigh(BROAD), m = weigh(MIDDLE), f = weigh(FINE), fine = read(13, FINE.px)
+    const b = weigh(BROAD), m = weigh(MIDDLE), f = weigh(FINE), broad = read(11, BROAD.px), middle = read(12, MIDDLE.px), fine = read(13, FINE.px)
     materialAt(plain, bounds.x + off, y, clamp01((off + 2 * BENT * bend) / Math.max(1, bounds.w)), v, base)
-    const patch = b * read(11, BROAD.px) + 0.8 * m * read(12, MIDDLE.px) + 0.6 * f * fine
+    const patch = b * broad + 0.8 * m * middle + 0.6 * f * fine
     // Scrub stands where the model's ground is green.
     const green = smooth(-0.18, 0.12, (base[1] - base[0]) / Math.max(1e-4, base[1] + base[0]))
     const scrub = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
     const shift = rough * PATCHES * patch, dark = (1 + shift) * (1 - SCRUB * scrub) * (1 - BED * folds[n]), o = n * 3
-    height[n] = rough * (b * SWELL[0] * read(21, BROAD.px * 0.8) + m * SWELL[1] * read(22, MIDDLE.px) + f * SWELL[2] * fine + 2 * scrub) - DEEP * folds[n]
+    height[n] = rough * (b * SWELL[0] * broad + m * SWELL[1] * middle + f * SWELL[2] * fine + 2 * scrub) - DEEP * folds[n]
     rho[o] = clamp01(base[0] * dark * (1 + 0.14 * shift - 0.1 * scrub))
     rho[o + 1] = clamp01(base[1] * dark * (1 + 0.04 * scrub))
     rho[o + 2] = clamp01(base[2] * dark * (1 - 0.2 * shift))
