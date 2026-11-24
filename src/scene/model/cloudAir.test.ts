@@ -4,6 +4,7 @@ import type { LocalTime } from '../../domain/types'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { edgeNoise } from '../../world/field/edges'
+import { clumpAt } from '../../world/field/handover'
 import { altitudeOf } from '../../world/field/project'
 import { makeWorldBuilder } from '../../world/world'
 import { airAt, withCloudAir } from './cloudAir'
@@ -45,7 +46,8 @@ function onScreen(sheet: LayerOf<'cloudSheet'>, air: CloudAir, place: readonly n
   const col = cols.findIndex((v, i) => i < xs.length - 1 && v * cols[i + 1] <= 0 && Math.abs(v - cols[i + 1]) < 30)
   const rows = ys.map((_, row) => Math.hypot(...(ground(row, 0) as [number, number])) - range)
   const row = rows.findIndex((v, i) => i < last && v <= 0 && rows[i + 1] > 0)
-  if (col < 0 || row < 0) return null
+  // The first row stands at the sheet's top, short of the zenith's own place on the dome.
+  if (col < 0 || row < 1) return null
   const part = (v: number, next: number) => v / (v - next)
   return [xs[col] + (xs[col + 1] - xs[col]) * part(cols[col], cols[col + 1]), ys[row] + (ys[row + 1] - ys[row]) * part(rows[row], rows[row + 1])]
 }
@@ -102,11 +104,15 @@ it('gives each node the very rays the sheet is drawn by', () => {
   const sheets = sheetsOf(withCloudAir(skyLayers(world, BOX), world, BOX, true))
   expect(sheets.length).toBeGreaterThan(1)
   for (const sheet of sheets) {
-    const { heightKm } = world.cloudField!.snapshot.find((s) => s.layer?.lattice === sheet.lattice)!
+    const { heightKm, layer } = world.cloudField!.snapshot.find((s) => s.layer?.lattice === sheet.lattice)!
     const air = sheet.air!, [{ d }] = air.frames
     expect([air.ranges.length, air.east.length, air.north.length]).toEqual([sheet.ys.length, sheet.xs.length, sheet.xs.length])
+    expect(d).toEqual(layer!.d)
+    // Where the field's own noise is read.
+    const noise = [0, 1].map((k) => clumpAt(layer!, world.cloudField!.field.t, (...at) => at[k]))
     for (const row of [1, sheet.ys.length >> 1, sheet.ys.length - 1]) for (const col of [0, sheet.xs.length - 1]) {
-      const [x, y] = airAt(air, row, col).map((v, k) => v + d[k])
+      const place = airAt(air, row, col), [x, y] = place.map((v, k) => v + d[k])
+      place.forEach((v, k) => expect(noise[k](x, y)).toBeCloseTo(v, 9))
       expect(turn(Math.atan2(x, y) / RAD, geom.azimuthAt(sheet.xs[col]))).toBeCloseTo(0, 6)
       expect(altitudeOf(heightKm, Math.hypot(x, y))).toBeCloseTo(geom.domeAltitudeAt(sheet.ys[row]), 6)
     }
