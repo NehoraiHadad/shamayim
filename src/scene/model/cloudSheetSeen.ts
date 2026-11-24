@@ -28,8 +28,8 @@ interface Shape {
   cumulus: boolean
   /** Its range (km) and its bearing as a unit vector, east and north. */
   d: number; east: number; north: number
-  /** The logarithm of its widest range; how much the oval is scaled toward it on its far and on its near side. */
-  mid: number; far: number; near: number
+  /** The logarithm of its widest range, and of the one it is drawn at; the oval's scales on its far and its near side. */
+  mid: number; seat: number; far: number; near: number
   /** Half its height in log range; the cosine of its half width as drawn, and the bearing's scale (`narrowed`). */
   high: number; cos: number; narrow: number[]
   /** The ranges (km) it reaches over. */
@@ -67,10 +67,12 @@ function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad: numbe
   // The far rim is the underside's, the rest of the height the side's and the crown's: a flatter foot under a domed top.
   const foot = 1 + (disc / (disc + side) - 1) * unit(wide * wide - 1)
   const mid = Math.log(d) + Math.log1p(-q * q) / 2, far = wide / foot, near = wide / (2 - foot)
+  // It keeps its centre, and so the ground it covers: a half oval's is 4/3π of its height from its widest.
+  const seat = mid + 4 / (3 * Math.PI) * (high / near - high / far)
   return {
     cell, cumulus: cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb',
-    d, east: cell.x / d, north: cell.y / d, mid, far, near, high, cos: Math.cos(half * wide), narrow: narrowed(wide),
-    from: Math.min(d - cell.r, Math.exp(mid - high / near)), to: d + cell.r,
+    d, east: cell.x / d, north: cell.y / d, mid, seat, far, near, high, cos: Math.cos(half * wide), narrow: narrowed(wide),
+    from: Math.min(d - cell.r, Math.exp(seat - high / near)), to: d + cell.r,
   }
 }
 
@@ -82,7 +84,7 @@ function change(s: Shape, x: number, y: number, range: number): number {
   if (along <= range * s.cos) return 0
   const inverse = 1 / (cell.r * cell.r), dx = x - cell.x, dy = y - cell.y
   const native = kernel(cell.tau0, (dx * dx + dy * dy) * inverse, s.cumulus)
-  const up = Math.log(range) - s.mid, scaled = up * (up > 0 ? s.far : s.near)
+  const up = Math.log(range) - s.seat, scaled = up * (up > 0 ? s.far : s.near)
   if (scaled >= s.high || scaled <= -s.high) return -native
   const at = Math.exp(s.mid + scaled)
   const half = (1 - along / range) / 2, n = s.narrow
