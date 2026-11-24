@@ -52,10 +52,10 @@ Mean difference against `real` of the same model, of 255 (whole picture; land = 
 
 | Still | v1 | concept | land v1 | land concept |
 |---|---|---|---|---|
-| tel-aviv 12:00 | 6.6 | 18.5 | 5.5 | 15.2 |
-| rosh-pina 10:00 | 4.6 | 13.3 | 1.5 | 13.8 |
-| haifa 2026-03-15 14:00 | 14.6 | 26.3 | 8.2 | 19.3 |
-| haifa 21:00 | 1.9 | 6.3 | 2.8 | 7.3 |
+| tel-aviv 12:00 | 6.6 | 17.7 | 5.5 | 14.4 |
+| rosh-pina 10:00 | 4.6 | 13.2 | 1.5 | 15.2 |
+| haifa 2026-03-15 14:00 | 14.6 | 24.7 | 8.2 | 18.2 |
+| haifa 21:00 | 1.9 | 5.9 | 2.8 | 7.5 |
 
 The base is `ac4262e8` with foundations' clouds and town patches, so both styles show foundations' newer model. Rain, dusk, dawn, broken, fog and dust were
 also drawn with the same code (`more-weather-concept-only.png`).
