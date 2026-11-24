@@ -79,10 +79,19 @@ it('requires coarse dust even when PM10 and fog visibility would otherwise make 
 it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anchors', () => {
   const { world } = frame('2026-11-17T12:00', DUST)
   const shown = shownAir(worldInput(ramon, '2026-11-17T12:00'))
-  for (let pm10 = 0; pm10 <= 1000; pm10 += 25) for (let visibilityKm = 1; visibilityKm <= 30; visibilityKm++) {
+  // Cover the domain and refine around the 3° onset and the 125 µg/m³, 1 km, 4° minimum.
+  const coarsePm = Array.from({ length: 21 }, (_, i) => i * 50)
+  const coarseAltitudes = [...Array.from({ length: 19 }, (_, i) => i * 5 - 10), 3, 4, 12]
+  const finePm = Array.from({ length: 41 }, (_, i) => i + 99)
+  const fineAltitudes = Array.from({ length: 11 }, (_, i) => 2 + i / 2)
+  const grids = [
+    [coarsePm, [1, 2, 3, 5, 10, 15, 20, 25, 30], coarseAltitudes],
+    [finePm, [1, 2, 3, 30], fineAltitudes],
+  ]
+  for (const [concentrations, visibilities, altitudes] of grids) for (const pm10 of concentrations) for (const visibilityKm of visibilities) {
     const { air } = airOf({ shown: { ...shown, pm10, opticalPm10: pm10, dustConcentration: pm10, visibilityKm },
       visibilitySource: shown.visibilitySource, forcedVisibility: true })
-    for (let altitude = -10; altitude <= 80; altitude++) {
+    for (const altitude of altitudes) {
       const palette = skyLight({ altitude, pm10, air, cloudCover: 0, wet: 0, rising: false })
       const state = { ...world, clouds: [], cloudField: undefined, air, light: { ...world.light, palette },
         bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } }
@@ -98,7 +107,7 @@ it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anc
       }
     }
   }
-}, 30_000)
+})
 
 it('tints low cloud with the overlying dust and leaves cirrus nearly neutral', () => {
   const { world } = frame('2026-11-17T12:00', DUST)

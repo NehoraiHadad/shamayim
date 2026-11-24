@@ -30,6 +30,10 @@ function dustAirMass(altitude: number) {
   return 2 / (up + Math.sqrt(up * up + CURVATURE * (1 - up * up)))
 }
 
+/** Total aerosol extinction along the solar ray, including the fine haze mixed with the dust. */
+export const solarAerosolSlantDepth = (air: Air, altitude: number) =>
+  aerosolDepth550(air.visibilityKm) * dustAirMass(altitude)
+
 /** Fraction of a sightline replaced by scattered dust light in the display palette. */
 const veilWeight = (depth: number, daylit: number, altitude: number) =>
   -daylit * Math.expm1(-depth * dustAirMass(altitude))

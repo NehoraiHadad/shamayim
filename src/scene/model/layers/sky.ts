@@ -40,7 +40,7 @@ export type SkyLayers =
    * The sun or the moon round its disc; `part` (C9): `aureole`, the sun's aureole alone, laid over the clouds. (A disc laid
    * again over the place's own mass, C9's `over`, is gone: whatever is drawn in front of a body hides it.)
    */
-  | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null; part?: 'aureole' }
+  | LayerBase & { kind: 'bodies'; sun: Disc | null; moon: MoonDisc | null; part?: 'aureole' | 'discLight' }
   /** In-cloud lightning: one raining cloud lit from within, laid with a flash schedule's alpha and drifting with its rain. */
   | LayerBase & { kind: 'flash'; cloud: FallingCloud; rgb: RGB; period: number }
   /** Heat shimmer over the horizon: fine wavering lines of light in a tile that drifts with the wind. */

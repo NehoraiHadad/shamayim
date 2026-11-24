@@ -10,7 +10,7 @@ import { css, type Ctx2D } from '../base/hand'
  */
 export function paintBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
   if (desc.sun && desc.part === 'aureole') { paintAureole(ctx, desc.sun); return }
-  if (desc.sun) paintSun(ctx, desc.sun)
+  if (desc.sun) paintSun(ctx, desc.sun, desc.part === 'discLight')
   if (desc.moon) paintMoon(ctx, desc.moon)
 }
 
@@ -30,13 +30,13 @@ function paintAureole(ctx: Ctx2D, d: Disc) {
   }
 }
 
-function paintSun(ctx: Ctx2D, d: Disc) {
+function paintSun(ctx: Ctx2D, d: Disc, beamOnly: boolean) {
   const { x, y, r } = d
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(1, d.flatten)
   // Through cloud the disc spreads into a soft patch: stacked wider copies, no hard limb.
-  if (d.veil > 0.15) {
+  if (!beamOnly && d.veil > 0.15) {
     for (const k of [2.2, 1.6, 1.25]) {
       ctx.fillStyle = css(d.cloudGlow ?? d.core, 0.12 * d.veil)
       ctx.beginPath()

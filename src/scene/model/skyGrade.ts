@@ -3,7 +3,7 @@ import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { inkSkySamples } from './skyGradeClouds'
 import { skyColours, stopAt } from './skyColour'
-import { multiplySky, SKY_FILTER_MID, skyFilterDepth, skyFilterGradientRow, skyFilterReserve, skyFilterTransmission } from './skyFilter'
+import { multiplySky, SKY_FILTER_MID, skyFilterDepth, skyFilterGradientRows, skyFilterReserve, skyFilterTransmission } from './skyFilter'
 import { mixSrgb } from './tone'
 import type { LayerOf, RGB, SceneBox } from './types'
 
@@ -38,11 +38,8 @@ export function skyGradeOf(world: WorldState, box: SceneBox): Grade | null {
 
 function gradeStops(k: number): Stops {
   // One constant section and fourteen linear intervals sampling the cubic fade.
-  const intervals = 14
-  return [[0, skyFilterTransmission(k, 0)], ...Array.from({ length: intervals + 1 }, (_, i): [number, RGB] => {
-    const row = i === 0 ? SKY_FILTER_MID : i === intervals ? 1 : skyFilterGradientRow(k, i / intervals)
-    return [row, skyFilterTransmission(k, row)]
-  })]
+  return [[0, skyFilterTransmission(k, 0)], ...skyFilterGradientRows(k, 14)
+    .map((row): [number, RGB] => [row, skyFilterTransmission(k, row)])]
 }
 
 /** Apply exactly the row interpolation the canvas uses. */

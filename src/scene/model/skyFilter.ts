@@ -32,14 +32,27 @@ export function skyFilterReserve(rgb: RGB): number {
   return luminanceOf(upper) - luminanceOf(rgb)
 }
 
-/** Endpoint curvature is proportional to optical depth times transmission. */
-export function skyFilterGradientRow(k: number, fraction: number): number {
-  // Linear interpolation error scales as curvature times interval width
-  // squared. Increase stop density by sqrt(T(horizon) / T(mid)) at the
-  // horizon, using the strongest-absorbing channel for the spacing.
-  const halfDepth = k * absorption[2] / 2
-  const shoulder = 1 - Math.log1p(Math.expm1(halfDepth) * (1 - fraction)) / halfDepth
-  return SKY_FILTER_MID + (1 - SKY_FILTER_MID) * shoulder
+/** Distribute stops by the square root of curvature, since chord error scales as curvature × width². */
+export function skyFilterGradientRows(k: number, intervals: number): number[] {
+  // Four midpoint samples per interval resolve the curvature of the cubic shoulder.
+  const bins = 4 * intervals
+  const cumulative = [0]
+  for (let i = 0; i < bins; i++) {
+    const t = (i + 0.5) / bins
+    const w = 1 - t * t * (3 - 2 * t), slope = 6 * t * (1 - t), second = 6 - 12 * t
+    const curvature = Math.max(...absorption.map(coefficient => {
+      const depth = k * coefficient
+      return Math.exp(-depth * w) * depth * Math.abs(second + depth * slope * slope)
+    }))
+    cumulative.push(cumulative[i] + Math.sqrt(curvature))
+  }
+  let bin = 0
+  return [SKY_FILTER_MID, ...Array.from({ length: intervals - 1 }, (_, i) => {
+    const target = cumulative[bins] * (i + 1) / intervals
+    while (cumulative[bin + 1] < target) bin++
+    const t = (bin + (target - cumulative[bin]) / (cumulative[bin + 1] - cumulative[bin])) / bins
+    return SKY_FILTER_MID + (1 - SKY_FILTER_MID) * t
+  }), 1]
 }
 
 /** Minimum depth for this swatch, with a quadratic knee below the ceiling. */

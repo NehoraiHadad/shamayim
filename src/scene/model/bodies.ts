@@ -2,10 +2,14 @@ import { coinOf } from '../../world/air'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
+import { luminanceOf } from './cloudChromaticity'
+import { solarAerosolSlantDepth } from './cloudDust'
+import { dustDiscColour } from './dustDisc'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
-import { skyGradeOf, unfilterDisc } from './skyGrade'
-import { mixRgb } from './tone'
+import { skyColours, skyStops, stopAt } from './skyColour'
+import { filterAt, skyGradeOf, unfilterDisc } from './skyGrade'
+import { mixRgb, mixSrgb } from './tone'
 import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
 const WHITE: RGB = [1, 1, 1]
@@ -61,6 +65,19 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
 const r1 = (v: number) => Math.round(v * 4) / 4
 /** Over the clouds (6–8) and the rain's edge (8.5), under the flashes (9) and the near fall (11). */
 const AUREOLE_Z = 8.6
+// Restore the part of the beam that cannot fit through the multiply pass at 8.9, before lightning at 9.
+const DISC_LIGHT_Z = 8.95
+
+function discLight(sun: Disc, desired: RGB, grade: ReturnType<typeof skyGradeOf>, bounds: LayerOf<'bodies'>['bounds']): LayerOf<'bodies'> | null {
+  const [r, g, b] = filterAt(grade, sun.y, sun.core)
+  const core: RGB = [Math.max(0, desired[0] - r), Math.max(0, desired[1] - g), Math.max(0, desired[2] - b)]
+  const bytes = colourKey(core)
+  if (!bytes.some(Boolean)) return null
+  return { kind: 'bodies', id: 'bodies.discLight', surface: 'sky', z: DISC_LIGHT_Z, blend: 'lighter',
+    sun: { ...sun, core, limb: [0, 0, 0] }, moon: null, part: 'discLight', bounds,
+    key: layerKey('discLight', r1(sun.x), r1(sun.y), bytes, Math.round(sun.veil * 100),
+      Math.round(sun.flatten * 100), sun.coin > 0.5) }
+}
 
 /** The sun and the moon, each its own small layer round its disc (a scrub repaints only the disc that moved). */
 export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bodies'>[] {
@@ -76,17 +93,28 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
         Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
   }
   const physicalSun = sunDisc(world, box, geom)
+  const colours = skyColours(world)
+  let core = physicalSun?.core
+  if (physicalSun && colours.bandWeight) {
+    const { y } = physicalSun
+    const local = stopAt(skyStops(world, box, colours), y / box.skyHeight, mixSrgb)
+    core = dustDiscColour(physicalSun.core, filterAt(grade, y, local), luminanceOf(colours.horizon),
+      solarAerosolSlantDepth(world.air, world.bodies.sun.altitude), colours.bandWeight)
+  }
   const sun = physicalSun && { ...physicalSun,
-    core: unfilterDisc(grade, physicalSun.y, physicalSun.core),
+    core: unfilterDisc(grade, physicalSun.y, core ?? physicalSun.core),
     limb: unfilterDisc(grade, physicalSun.y, physicalSun.limb),
-    ...(grade && physicalSun.veil > 0.15 && { cloudGlow: physicalSun.core }) }
+    ...(colours.bandWeight && physicalSun.veil > 0.15 && { cloudGlow: physicalSun.core }) }
   if (sun) {
     const pad = Math.ceil(SUN_R * 3.2)
+    const bounds = { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 }
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
-      bounds: { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
+      bounds,
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
         Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50),
         ...(sun.cloudGlow ? [colourKey(sun.cloudGlow)] : [])) })
+    const restoration = core && colours.bandWeight && discLight(sun, core, grade, bounds)
+    if (restoration) out.push(restoration)
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never
     // reads as a black coin in a bright ring. Under the near rain and the sky's grains.
