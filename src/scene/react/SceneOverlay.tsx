@@ -7,7 +7,7 @@ import styles from './Scene.module.css'
 const pct = (x: number, width: number) => `${(x / width * 100).toFixed(2)}%`
 
 /**
- * The HTML over the land (§1e), placed from `model.overlay`: the place's height with its tick and dot in the scene's
+ * The HTML over the land (§1e), placed from `model.overlay`: the place's height with its dot in the scene's
  * hand, the "פני הים" datum note and the water's names; x in % of the figure, y in px. `style` is laid on every item
  * (C8: hidden while the land arrives, then faded in).
  */

@@ -17,10 +17,12 @@ describe.each(Object.keys(HEIGHT_HANDS) as SceneStyle[])('the height in the %s h
   })
 
   it('costs a handful of nodes, the letters written once over their halo', () => {
-    const item = { kind: 'height' as const, text, x: 190, y: 40, tick: { top: 51, bottom: 60 }, spot: { x: 187.5, y: 80 },
-      tone: { ink: '#203040', halo: '#E0E4E8' }, fill: '#F0D090', rim: '#304030' }
+    const item = { kind: 'height' as const, text, x: 190, y: 40, spot: { x: 187.5, y: 80 },
+      tone: { ink: '#203040', halo: '#E0E4E8' }, dot: '#203040' }
     const html = renderToStaticMarkup(createElement(HeightLabel, { item, left: '50%', hand: id }))
-    expect(html.match(/<[a-z]/g)!.length).toBeLessThanOrEqual(8)
+    expect(html.match(/<[a-z]/g)!.length).toBeLessThanOrEqual(4)
+    expect(html).toContain('<path')
+    expect(renderToStaticMarkup(createElement(HeightLabel, { item: { ...item, dot: null }, left: '50%', hand: id }))).not.toContain('<path')
     expect(html.split(text).length - 1).toBe(2)
   })
 })

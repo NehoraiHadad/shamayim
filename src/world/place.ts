@@ -16,7 +16,7 @@ import { settlementOf } from '../data/village/settlementOf'
 import type { VillageTile } from '../data/village/tile'
 import type { WaterMask } from '../data/water/waterMask'
 import { heightText } from '../text/isolate'
-import { heightMark, noteOffSpot } from './heightMark'
+import { heightMark } from './heightMark'
 import { DOT_R, overlaps, SHEET_CLEAR, VISIBLE_BOTTOM } from './layout'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { marksOf } from './marks'
@@ -110,7 +110,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const row = seaLevel && ends ? datumOfRow(seaLevel.y, centerX * 375 / width, { left: to375(ends.left), right: to375(ends.right) }) : null
   const datum = row ? datumOnLand(row, landY, centerX * 375 / width) : null
   const notes0 = sceneNotes(datum ? { ...terrain, seaY: datum.y } : terrain, Boolean(datum), width, datum ?? undefined)
-  const notes = notesOnWater(noteOffSpot(notes0, datum, centerX), terrain, view, dot, width)
+  const notes = notesOnWater(notes0, terrain, view, dot, width)
   const { marks, seatPool } = marksOf({ place, city, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
     homeHalf: homeHalf(reachKm, known), style: style.style, notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark, village: view.village } })

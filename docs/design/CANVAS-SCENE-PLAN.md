@@ -1606,9 +1606,9 @@ and the same sheets, plus `rays.jpg` (`qa/canvas/c9-review/index.md`).
    behind the true land stays hidden (Haifa 16:30, Ein Gedi's cliffs). Haifa 06:20: the sun shows low over the lower city by
    the bay.
 4. **The height is lettered over the place's own roofs** (owner, 2026-11-24; `world/heightMark.ts`, it replaced the backed
-   label beside the dot): the number alone in the dot's column, a tick from under it over the roofs down to the dot,
-   and the small dot on the exact spot. Letters,
-   tick and dot keep clear of the notes at 320, 375 and 430 px. No backing: ink and halo from the hour's palette
+   label beside the dot): the number alone, close over what is drawn in the spot's column; no line, and a tiny plain dot
+   on the spot only where none of the place's houses is drawn near it. It keeps clear of the town, the marks and the notes
+   at 320, 375 and 430 px. No backing: ink and halo from the hour's palette
    (`theme/labelTone.ts`), ≥ 4.5:1 also over fog. Each style has its own hand (`scene/react/heightHands.ts`).
 5. **A water name is written on its water's surface as drawn** (`world/place.ts` `notesOnWater`): along its own stretch
    where the surface shows deep enough under the far shore for the letters (the shore's raggedness under a letter or two let

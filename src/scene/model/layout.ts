@@ -6,7 +6,7 @@ import { heightItem } from './heightItem'
 import type { Box, OverlayItem, SceneBox } from './types'
 
 /**
- * The HTML overlay (the place's height with its tick and dot, the notes on the land: the "פני הים" datum, the water's
+ * The HTML overlay (the place's height with its dot, the notes on the land: the "פני הים" datum, the water's
  * names) and the zones the drawing keeps clear (land px: the dot, the notes), where the place's layout puts them (`world.labels`, laid out
  * by the world with its marks and portrait since C4, `world/place.ts`), x scaled from the reference width.
  */

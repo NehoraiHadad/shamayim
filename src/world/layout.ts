@@ -12,6 +12,8 @@ export const VISIBLE_BOTTOM = SCENE_H - SHEET_OVERLAP
 export const SHEET_CLEAR = 6
 /** The room kept clear round the place's dot (`scene/react/HeightLabel.tsx`). */
 export const DOT_R = 4.5
+/** How far the dot itself is drawn round its spot (px). */
+export const DOT_DRAWN = 2
 /** The size the place's height is lettered in, at the least (`scene/react/heightHands.ts`), and how tall its figures stand. */
 export const LABEL_PX = 12
 export const LETTER_H = 9

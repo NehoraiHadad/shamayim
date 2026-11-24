@@ -19,9 +19,8 @@ export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
 
 /** HTML over the land, placed from the model: positions in scene px (x as `box.width` scales it). */
 export type OverlayItem =
-  /** `x` the letters' middle, `y` their top; the tick under them and the place's dot stand in the spot's column. */
-  | { kind: 'height'; text: string; x: number; y: number; tick: { top: number; bottom: number }; spot: { x: number; y: number }
-    tone: LabelTone; fill: string; rim: string }
+  /** `x` the letters' middle, `y` their top, `spot` the place's exact spot; `dot` its colour, where the spot is marked. */
+  | { kind: 'height'; text: string; x: number; y: number; spot: { x: number; y: number }; tone: LabelTone; dot: string | null }
   /** `x` the note's left edge, `y` its top. */
   | { kind: 'datum' | 'water'; text: string; x: number; y: number }
 

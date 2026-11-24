@@ -10,11 +10,11 @@ export function heightLabelBox({ text, x, y }: Pick<WorldLabels['height'], 'text
   return { x: x * (width / SCENE_W) - w / 2, y, w, h: LETTER_H }
 }
 
-/** Nothing of the town is drawn over its dot and the notes; the height stands over the roofs and takes no room from them. */
-export function sceneClearance({ notes }: Pick<WorldLabels, 'notes'>, dot: Point, width: number): ScreenBox[] {
+/** Nothing of the town is drawn over the dot, where there is one, and the notes; the height stands over the roofs and takes no room from them. */
+export function sceneClearance({ notes, height }: Pick<WorldLabels, 'notes'> & { height: Pick<WorldLabels['height'], 'dotted'> }, dot: Point, width: number): ScreenBox[] {
   const sx = width / SCENE_W
   return [
-    { x: dot.x * sx - DOT_R, y: dot.y - DOT_R, w: 2 * DOT_R, h: 2 * DOT_R },
+    ...(height.dotted ? [{ x: dot.x * sx - DOT_R, y: dot.y - DOT_R, w: 2 * DOT_R, h: 2 * DOT_R }] : []),
     ...notes.map((note) => ({ x: note.left * sx, y: note.top, w: note.width, h: note.height })),
   ]
 }

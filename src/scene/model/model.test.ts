@@ -36,9 +36,9 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const world = buildWorld(input)
     const below = input.forecast.elevation < 0
     const { overlay } = sceneModel(world, BOX)
-    // The height over the roofs in the dot's column, its tick and dot (`heightMark.test.ts`), clear of the marks.
+    // The height over the roofs in the dot's column and its dot (`heightMark.test.ts`), clear of the marks.
     const height = overlay.find((item) => item.kind === 'height')!
-    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, tick: world.labels.height.tick,
+    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y,
       spot: { x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y } })
     const letters = heightLabelBox(world.labels.height, BOX.width)
     const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => hits([letters], markBox(mark).left, markBox(mark).top, markBox(mark).right, markBox(mark).bottom))

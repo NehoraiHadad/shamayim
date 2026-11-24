@@ -16,10 +16,11 @@ function landTone(world: WorldState): string {
   return hexOf(mixRgb(land, haze, FOG_COVER * (air.mist?.fog ?? 0)))
 }
 
-/** The place's height, its tick and its exact spot at the figure's width, in the colours of the shown hour. */
+/** The place's height and, where no house shows it, its exact spot, at the figure's width, in the colours of the shown hour. */
 export function heightItem(world: WorldState, width: number): Extract<OverlayItem, { kind: 'height' }> {
-  const { text, x, y, on, tick } = world.labels.height, { dot } = world.place3
+  const { text, x, y, on, dotted } = world.labels.height, { dot } = world.place3
   const sx = width / SCENE_W, { palette } = world.light
-  return { kind: 'height', text, x: x * sx, y, tick, spot: { x: dot.x * sx, y: dot.y },
-    tone: labelTone(palette, on, landTone(world)), fill: palette.accent, rim: palette.ridgeNear }
+  const land = landTone(world)
+  return { kind: 'height', text, x: x * sx, y, spot: { x: dot.x * sx, y: dot.y }, tone: labelTone(palette, on, land),
+    dot: dotted ? labelTone(palette, 'land', land).ink : null }
 }
