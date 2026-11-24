@@ -29,7 +29,7 @@ export function skyBackground(desc: LayerOf<'sky'>): string {
   }
   const a = desc.arch
   if (a) {
-    // The arch only rises above the horizon: below eye level the land covers it.
+    // The arch only rises above the far horizon: below it the land covers it.
     out.push(`radial-gradient(${px(a.rx)} ${px(a.belt)} at ${px(a.x)} ${px(a.y)}, ${archStops(a).map(([at, colour]) => `${colour} ${(at * 100).toFixed(2)}%`).join(', ')})`)
   }
   out.push(`linear-gradient(180deg, ${desc.stops.map(([at, rgb]) => `${css(rgb)} ${px(Math.min(1, Math.max(0, at)) * h)}`).join(', ')})`)
