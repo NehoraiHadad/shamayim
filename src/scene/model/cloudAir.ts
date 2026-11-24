@@ -26,7 +26,7 @@ export function withCloudAir(layers: LayerDesc[], world: WorldState, box: SceneB
     if (!snapshot?.layer) return desc
     const { layer, heightKm } = snapshot
     const { ranges, east, north } = gridFor(world.place.id, layer, geom, heightKm, genusOf(layer.lattice, layer.form, 0.5))
-    const air = { ranges: ranges.slice(), east: east.slice(), north: north.slice(), frames: airFrames(layer, cloudField.field.t).map((frame) => ({ ...frame, d: [0, 0] as [number, number] })) }
+    const air = { ranges: ranges.slice(), east: east.slice(), north: north.slice(), frames: airFrames(layer, cloudField.field.t) }
     return { ...desc, air, key: desc.key + airBits(air) }
   })
 }
