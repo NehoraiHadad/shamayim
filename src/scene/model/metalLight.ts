@@ -8,6 +8,7 @@ import { illustratedTonesAt, type IllustratedTones } from './illustratedTones'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { METAL_POWER, skyReflection } from './landSkyIrradiance'
 import { aerialFor, hazeAt } from './landVeil'
+import { reflectedCloudFill } from './reflectedCloudFill'
 import { reflectedSkyLobe } from './reflectedSkyLobe'
 import { mixLight } from './tone'
 
@@ -20,7 +21,8 @@ const SILVER_F0: RGB = [.89, .91, .92]
 export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
   const { irr, ground, air } = buildingSurroundings(world)
   const tau = .099 + aerosolDepth(world.air)[1], haze = hazeAt(world, km)
-  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec, reflectedSkyLobe(world, 'metal'), 5.7, 'metal')
+  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec,
+    reflectedSkyLobe(world, 'metal'), 5.7, 'metal', reflectedCloudFill(world))
   // Field-backed land irradiance sees a flat horizon so distant terrain can
   // stay lit across a valley. The depicted conductor uses the drawn disc's
   // terrain visibility. Legacy shares already carry that attenuation.

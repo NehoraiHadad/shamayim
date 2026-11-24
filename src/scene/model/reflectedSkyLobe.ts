@@ -29,10 +29,8 @@ const roughSamples = ([[0, 1 / 4], [2 / 3, 3 / 4]] as const).map(([fraction, mea
   return { altitude: Math.asin(up) / RAD, bearings }
 })
 
-// Composite midpoint integration in equal-solid-angle coordinates (sin elevation
-// and bearing). Use full support: the old rule cropped the tails at one scale
-// height and the half-power bearing. Double the reference's elevation resolution
-// where the gradient and haze change fastest, keeping the same 16 bearings.
+// Full-hemisphere midpoint integration in sin(elevation) and bearing. The
+// narrower conductor kernel needs finer resolution across the haze and glows.
 const metalSamples = Array.from({ length: 24 }, (_, i) => {
   const up = (i + .5) / 24, horizontal = Math.sqrt(1 - up * up)
   const bearings = Array.from({ length: 16 }, (_, j) => {
@@ -52,17 +50,22 @@ function glowAlpha(glow: Glow, x: number, y: number): number {
   return glow.alpha * Math.max(0, 1 - radius)
 }
 
-/** Palette, glows and haze of the CSS sky wash, in linear light at a bearing relative to the sun. */
-export function paintedSkySampler(world: WorldState) {
-  const { sun } = world.bodies
+export function reflectionSkyBox(world: WorldState): SceneBox {
   const { camera } = world
   // Reference-pixel projection, padded on both sides to include off-screen sky and city domes.
   const padding = 360 * camera.pxPerDeg / 2
   // Use the scene harness's 300 px of sky above the figure as the reference
   // for the illustrated gradient. Receiver colours stay independent of page layout.
   const landTop = 300
-  const box: SceneBox = { width: camera.width, landLeft: padding, skyWidth: camera.width + 2 * padding,
+  return { width: camera.width, landLeft: padding, skyWidth: camera.width + 2 * padding,
     skyHeight: landTop + SCENE_H, landTop, landHeight: SCENE_H, dpr: 1 }
+}
+
+/** Palette, glows and haze of the CSS sky wash, in linear light at a bearing relative to the sun. */
+export function paintedSkySampler(world: WorldState) {
+  const { sun } = world.bodies
+  const { camera } = world
+  const box = reflectionSkyBox(world)
   const geom = skyGeom(world, box)
   const stops = skyStops(world, box)
   const band = horizonBand(world, box)

@@ -49,9 +49,9 @@ const DOME = (() => {
 const domeChannel = (mid: number, top: number, horizon: number, zenithShare: number, lowShare: number) =>
   mid + (top - mid) * zenithShare + (horizon - mid) * lowShare
 
-function twilightIntegral(mid: RGB, top: RGB, horizon: RGB, fill: number, forward: number, lobe: RGB): RGB {
+function twilightIntegral(mid: RGB, top: RGB, horizon: RGB, fill: number | RGB, forward: number, lobe: RGB): RGB {
   return mid.map((m, i) => domeChannel(m, top[i], horizon[i], DOME.zenith, DOME.horizon)
-    + fill + forward * DOME.roughForward * lobe[i]) as [number, number, number]
+    + (typeof fill === 'number' ? fill : fill[i]) + forward * DOME.roughForward * lobe[i]) as [number, number, number]
 }
 
 export const DAY_CLOUD_DHI_GAIN = 1.25
@@ -105,12 +105,16 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
  * is normalized to the diffuse reference luminance over the upper hemisphere.
  */
 export function skyReflection(light: RadianceLight, sunAlt: number, tau: number, mean: RGB,
-  lobeColor: RGB, forwardAccent = 0, shape: 'rough' | 'metal' = 'rough') {
+  lobeColor: RGB, forwardAccent = 0, shape: 'rough' | 'metal' = 'rough', cloudColor?: RGB) {
   const cloud = Math.min(1, Math.max(0, light.diffuse))
   const twilight = twilightShare(sunAlt)
   const top = srgbRgbToLinear(rgbOf(light.palette.top)), mid = srgbRgbToLinear(light.ambient)
   const horizon = srgbRgbToLinear(rgbOf(light.palette.horizon)), aerosol = -Math.expm1(-2 * tau)
   const cloudFill = cloudScatter(cloud, aerosol) * Math.max(1e-4, linearLuminance(horizon))
+  const cloudY = cloudColor ? linearLuminance(cloudColor) : 0
+  const fill = cloudColor && cloudY > 0 && cloudFill > 0 && twilight > 0
+    ? cloudColor.map(channel => cloudFill * channel / cloudY) as [number, number, number]
+    : [cloudFill, cloudFill, cloudFill] as const
   // The low reflected band loses its directional accent through civil
   // twilight as the sun moves below the horizon of the rough reflector.
   const accent = forwardAccent * smoothstep(-10, 0, sunAlt)
@@ -119,14 +123,14 @@ export function skyReflection(light: RadianceLight, sunAlt: number, tau: number,
   // conductor shape. The broad luminance meter therefore keeps its meaning.
   const lobe = shape === 'metal' ? metalSkyLobe : lowLobe
   const normalization = shape === 'metal' ? DOME.roughForward / DOME.metalForward : 1
-  const broad = twilightIntegral(mid, top, horizon, cloudFill, forward, lobeColor)
+  const broad = twilightIntegral(mid, top, horizon, fill, forward, lobeColor)
   const gain = twilight * linearLuminance(mean) / Math.max(1e-6, linearLuminance(broad))
   const bias = .065 * smoothstep(3, 16, sunAlt) * (1 - cloud)
   return (up: number, towardSun: number, lobeTowardSun = towardSun): RGB => {
     const m = Math.max(0, up), low = horizonShare(m)
     const forwardLight = forward * normalization * lobe(m, lobeTowardSun)
     const channel = (i: 0 | 1 | 2) => mean[i] * (1 - twilight) * (1 + bias * towardSun)
-      + gain * (domeChannel(mid[i], top[i], horizon[i], m ** 2, low) + cloudFill + forwardLight * lobeColor[i])
+      + gain * (domeChannel(mid[i], top[i], horizon[i], m ** 2, low) + fill[i] + forwardLight * lobeColor[i])
     return [channel(0), channel(1), channel(2)]
   }
 }

@@ -30,6 +30,15 @@ function hue([r, g, b]: RGB) {
   return Math.atan2(200 * (y - z), 500 * (x - y)) * 180 / Math.PI
 }
 
+function checkMetalQuadrature(world: Awaited<ReturnType<typeof worldAtHaifaTwilight>>, fixture: string) {
+  const reference = referenceSkyLobe(world)
+  const error = (sample: RGB) => Math.max(...sample.map((channel, i) => Math.abs(channel / reference[i] - 1)))
+  const production = error(reflectedSkyLobe(world, 'metal'))
+  const trial = error(referenceSkyLobe(world, 12, 8))
+  console.info(`${fixture} metal lobe maximum relative channel error (24 × 16 / 12 × 8): ${production} / ${trial}`)
+  expect(production).toBeLessThan(.02)
+}
+
 describe('clear twilight sky', () => {
   it.each([[1.4, '16:27'], [-5, '17:00']] as const)(
     'keeps the glass and gold sky averages close to the diffuse chromaticity near %s°', async (altitude, time) => {
@@ -65,24 +74,15 @@ describe('clear twilight sky', () => {
 })
 
 describe('sunward reflected sky lobe', () => {
-  it('resolves elevation colour where the old two-node rule misses the same lobe integral', () => {
+  it('resolves a steep elevation colour gradient in the metal lobe', () => {
     const world = receiverScene(252, -1.5)
     world.light = { ...world.light, glow: null,
       palette: { ...world.light.palette, top: '#102bda', mid: '#102bda', horizon: '#dd8020' } }
-    const roughReference = referenceSkyLobe(world, skyIrradiance.lowLobe)
-    const old = reflectedSkyLobe(world)
-    expect(Math.max(...old.map((channel, i) => Math.abs(channel / roughReference[i] - 1)))).toBeGreaterThan(.02)
-    const metalReference = referenceSkyLobe(world)
-    reflectedSkyLobe(world, 'metal').forEach((channel, i) => {
-      expect(Math.abs(channel / metalReference[i] - 1)).toBeLessThan(.02)
-    })
+    checkMetalQuadrature(world, 'steep gradient')
   })
 
   it.each(['16:27', '16:30', '17:00'] as const)('integrates the painted metal lobe at %s within 2%% per channel', async time => {
-    const world = await worldAtHaifaTwilight(time)
-    const reference = referenceSkyLobe(world)
-    const actual = reflectedSkyLobe(world, 'metal')
-    actual.forEach((channel, i) => expect(Math.abs(channel / reference[i] - 1)).toBeLessThan(.02))
+    checkMetalQuadrature(await worldAtHaifaTwilight(time), `Haifa ${time}`)
   })
 
   it('attenuates only the direct conductor return as the disc goes behind the skyline', async () => {

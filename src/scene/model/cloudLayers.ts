@@ -2,8 +2,9 @@ import { smoothstep } from '../../world/ridgeLighting'
 import type { CloudLevel, WorldState } from '../../world/types'
 import { towerLayerOf } from './cloudCells'
 import { cityLit } from './cityLight'
-import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
+import { DECK_GREY, lightOn, RAIN_GREY, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
+import { sheetLitTone, sheetTones } from './cloudSheetLight'
 import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
 import { mixRgb, scaleLight } from './tone'
 import { lowSheetRgb, type Beyond } from './towerStorms'
@@ -16,14 +17,6 @@ import type { LayerOf, SceneBox } from './types'
  */
 
 export type CloudLayerDesc = LayerOf<'cloudSheet'> | LayerOf<'cloudCells'>
-
-/** How much of the field's rain falls from this level, 0–1 (the rate eases it in; mid and low share it). */
-function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): number {
-  const rain = world.cloudField?.field.rain
-  if (!rain) return Number(rains)
-  const midWeight = rain.midWeight ?? Number(rain.level === 'mid')
-  return smoothstep(0, 0.2, rain.rate) * (level === 'mid' ? midWeight : level === 'low' ? 1 - midWeight : 0)
-}
 
 export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): CloudLayerDesc[] {
   const stops = skyStops(world, box)
@@ -46,8 +39,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       if (towers) out.push(towers)
       continue
     }
-    const rain = rainWeightAt(world, level, cloud.rains)
-    const tones = tonesAt(world, box, stops, level, geom.dome(4) * 0.6, union, rain, 3)
+    const { rain, tones } = sheetTones(world, box, geom, stops, cloud, union)
     // Six tenths cover still exposes the sides of Sc rolls; at deck closure (tonesOf's 0.95) the base is a diffuse slab.
     const closed = smoothstep(0.6, 0.95, fieldLayer.cover)
     const base = mixRgb(mixRgb(DECK_GREY, WHITE, 0.5), RAIN_GREY, rain)
@@ -56,9 +48,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       body: mixRgb(tones.body, base, day),
       // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
       shade: mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day),
-      // Moonlight lifts the lit endpoint in proportion to the beam reaching the sheet; at moonset it merges into the body.
-      lit: light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
-        light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body,
+      lit: sheetLitTone(tones, light),
       closed: closed * day,
       light: light?.sun ? light.strength * light.above : 0,
     }
