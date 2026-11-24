@@ -36,6 +36,9 @@ export function traceCrownLobes(ctx: CanvasPath, cx: number, cy: number, rx: num
   ctx.closePath()
 }
 
+/** The crown (px) that shows a lit and a shaded side. */
+export const MODELLED = 0.85
+
 /** A crown as it stands, its body's inks and its fade, for what a style lays over it. */
 export interface Crown { cx: number; cy: number; rx: number; ry: number; r: number; phase: number; lobes: number; alpha: number; body: ReceiverInk }
 
@@ -126,7 +129,7 @@ export function paintVegCrowns(brush: ReceiverBrush, veg: CanopyVegetation, wind
     traceCrownLobes(brush.path(), cx, cy, rx, ry, phase, lobes)
     brush.fill(bodyRgb, 0.96 * alpha)
 
-    if (r >= 0.85) {
+    if (r >= MODELLED) {
       const sideShade = mixInk(bodyRgb, tone(i, 1, TONE.PINE_UNDER), (a, b) => mix(a, b, 0.58))
       traceCrownLobes(brush.path(), cx + rx * 0.22, cy + ry * 0.22, rx * 0.78, ry * 0.62, phase + 0.9, lobes)
       brush.fill(sideShade, 0.64 * alpha)
