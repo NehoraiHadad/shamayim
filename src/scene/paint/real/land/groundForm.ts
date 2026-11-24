@@ -21,7 +21,7 @@ const BROAD = { px: 110, crest: 0.25, foot: 1 }, MIDDLE = { px: 44, crest: 0.6, 
 /** How far the patches move the reflectance; a clump's size (px) and darkening; the swells' heights (px); a fold's depth and dark bed. */
 const PATCHES = 0.5, CLUMP = 24, SCRUB = 0.44, SWELL = [13, 8, 4] as const, DEEP = 3, BED = 0.18
 /** What the far planes show of it; the mottle's strength, the patches' own fine part beside it; its lift of the mean, kept; the sky a px of depth takes. */
-const PLAIN = 0.45, GRAIN = 0.9, KEPT = 0.05, OPEN = 0.02
+const PLAIN = 0.45, GRAIN = 0.85, KEPT = 0.05, OPEN = 0.02
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const smooth = (lo: number, hi: number, v: number) => { const x = clamp01((v - lo) / (hi - lo)); return x * x * (3 - 2 * x) }
