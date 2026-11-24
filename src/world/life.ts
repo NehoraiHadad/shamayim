@@ -6,7 +6,7 @@ import type { HourPoint, LocalTime } from '../domain/types'
 import { AIRPORTS, enuKm, pathPoint, runwayInUse, type Airport } from './airports'
 import type { ContrailAir } from './contrails'
 import type { PlaceEnv } from './placeEnv'
-import { skyLimit } from './nightSky'
+import { limitingMagnitude } from './nightSky'
 import { smoothstep } from './ridgeLighting'
 import { apparentAltitude } from './skyProjection'
 import type { Covers } from './clouds'
@@ -325,14 +325,6 @@ export interface Meteors {
 }
 
 export interface MeteorFlash { id: string; inS: number; seed: number; radiant?: Meteors['radiant']; speed?: number }
-
-/**
- * The naked-eye limiting magnitude for meteors (C10): the sky's own (`skyLimit`: the twilight, the moon) less what the
- * towns' glow takes (unlike the planets, the faint meteors drown in it).
- */
-export function limitingMagnitude(sunAlt: number, moon: { altitude: number; illumination: number }, glow: number): number {
-  return skyLimit(sunAlt, moon) - 1.1 * Math.log10(1 + glow * 1.5)
-}
 
 /** The meteors of a shower night: only when the night is dark and a shower is on; the rate by the radiant, moon, glow, cloud. */
 function showerAt(at: LocalTime) {

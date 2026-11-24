@@ -77,6 +77,14 @@ export function skyLimit(sunAlt: number, moon: { altitude: number; illumination:
   return lm - 1.1 * moon.illumination * smoothstep(-2, 15, moon.altitude) * smoothstep(-6, -12, sunAlt)
 }
 
+/**
+ * The naked-eye limiting magnitude for meteors (C10): the sky's own (`skyLimit`: the twilight, the moon) less what the
+ * towns' glow takes (unlike the planets, the faint meteors drown in it).
+ */
+export function limitingMagnitude(sunAlt: number, moon: { altitude: number; illumination: number }, glow: number): number {
+  return skyLimit(sunAlt, moon) - 1.1 * Math.log10(1 + glow * 1.5)
+}
+
 /** Extinction (mag) of a light low over the horizon: ~0.25 mag an airmass in clean air, more in haze. */
 function extinction(altitude: number, visibilityKm: number): number {
   const h = Math.max(0.5, altitude)
