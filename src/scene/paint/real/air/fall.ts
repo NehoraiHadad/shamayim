@@ -12,7 +12,7 @@ import { wrapped } from '../../shared/weather/fall'
 /** A longest streak over this is the rain round the eye; under it, a curtain's far streaks. */
 const ROUND_EYE = 10
 /** A streak's light along it, from the tail: drawn out, brightest just behind the head, no hard end. */
-const ALONG = [[0, 0], [0.5, 0.45], [0.86, 1], [1, 0]] as const
+const ALONG = [[0, 0], [0.3, 0.5], [0.75, 1], [0.95, 0.8], [1, 0]] as const
 /** A streak across: a soft body and its core. */
 const ACROSS = [[2, 0.35], [0.9, 0.9]] as const
 /** A flake this large (px) is close by: a loose clump, not a speck. */
@@ -29,7 +29,7 @@ function paintRain(ctx: Ctx2D, desc: LayerOf<'fall'>, hair: number) {
     // The depth: 0 far, 1 at the eye.
     const near = longest > ROUND_EYE ? smoothstep(0.62, 1, m.len / longest) : 0
     const tx = x - ux * m.len, ty = y - uy * m.len
-    const strength = m.alpha * (0.55 + 0.45 * near), width = hair + 1.3 * near
+    const strength = m.alpha * (0.55 + 0.45 * near), width = hair + 0.8 * near
     for (const [across, share] of near > 0.15 ? ACROSS : ACROSS.slice(1)) {
       const g = ctx.createLinearGradient(tx, ty, x, y)
       for (const [t, a] of ALONG) g.addColorStop(t, css(desc.rgb, a * strength * share))
