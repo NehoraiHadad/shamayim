@@ -1,0 +1,98 @@
+import { smoothstep } from '../../../../domain/smoothstep'
+import type { LayerOf, RGB } from '../../../model/types'
+import { mix } from '../../shared/base/hand'
+import { toneOf } from '../../shared/cloud/deck'
+
+/*
+ * A point of cloud's colour, one hand for sheets and towers: its place between the model's lit and shade colours by the
+ * light that reaches it (the sun's, the sky's), its base and its heads, and over the lit one on a crown. The model's lit,
+ * body and shade make the range; the light says where on it a point stands, and a little past its ends.
+ */
+
+/** How far the model's tone places a point between lit and shade (the rest is the cloud's own light). */
+const MODEL_SHARE = 0.34
+/** How strongly a head's side toward the light and its far side part, and what of it is left deep in the mass's shade. */
+const RELIEF = 0.72, IN_SHADE = 0.45
+/** How far over the model's lit colour the brightest crowns stand, as light (the model's lit is a mass's mean). */
+const CROWN = 0.24
+/** How much brighter yet the heads that face the light stand out of a mass already lit, against its crowns. */
+const CROWN_TO = 1.6
+/** How far under the model's shade the deepest shade stands (its red the most: a shade is lit by the sky), from which place. */
+const UNDER = 0.26, UNDER_FROM = 0.5, DEEPEST = [1, 0.85, 0.65] as const
+/** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
+const WALL = 0.45, EDGE = 0.2
+/** How far a low sun's light goes through a cloud, from its lit colour to its shade (a body that is neither would ring the mass),
+ *  and how much warmer than its body its lit colour then is. */
+const LOW = 0.6, LOW_SHADE = 0.35, WARM = [0.03, 0.2] as const
+/** From this warmth over its body to this, a sun on the horizon colours a cloud as one soft mass: how far its own forms give way to the far deck's look
+ *  (a head's lit pink and its grey shade would break it in patches). */
+const GLOW = [0.18, 0.36] as const, SOFTENED = 0.62
+/** There the light that reaches a point says how far it leans to the lit colour: none up to this much, all from this much. */
+const LEAN = [0.18, 0.66] as const
+/** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
+ *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
+const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43
+/** How much of the model's tone a far deck's thickest keeps, its crowns too small to see (the rest leans to the lit colour, the thin all). */
+const FAR_GREY = 0.55
+/** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at; how near its ends a place bends. */
+const RAMP = 255, FULL = 1.1, TOE = 0.24
+
+export interface CloudPoint {
+  /** The model's tone, the light that reaches the point and its own shade (`CloudLight`). */
+  tone: number; light: number; shade: number
+  /** How far a head faces away from the light, and how thick the cloud is. */
+  relief: number; thick: number
+  /** The model's own cover there. */
+  cover: number
+  /** What distance leaves of the contrast. */
+  near: number
+  /** How far it is a hole's far wall, and the straight edge of an underside (0–1). */
+  wall: number; flat: number
+}
+
+export const cloudPoint = (): CloudPoint =>
+  ({ tone: 0, light: 1, shade: 0, relief: 0, thick: 0, cover: 1, near: 1, wall: 0, flat: 0 })
+
+const lightness = (c: RGB) => 0.21 * c[0] + 0.72 * c[1] + 0.07 * c[2]
+/** A colour no brighter than `most`, by `part`. */
+const upTo = (c: RGB, most: number, part: number): RGB => {
+  const k = 1 - part * (1 - Math.min(1, most / Math.max(1e-6, lightness(c))))
+  return [c[0] * k, c[1] * k, c[2] * k]
+}
+/** A place on the ramp with no hard end: past `TOE` from either end it only nears it, so the palest and the deepest parts of
+ *  a mass keep their form. `own`: how far the place is its own light's. */
+const within = (t: number, own: number) => {
+  const toe = TOE * own, low = t < toe ? (toe * toe) / (2 * toe - t) : t, left = FULL - low
+  return left < toe ? FULL - (toe * toe) / (2 * toe - left) : low
+}
+const clamp = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
+
+/** The colours (0–1) of a cloud's points, written into `out`. `own`: how far its light is its own (0 a closed deck's: the
+ *  model's tone). */
+export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 'shade'>, own: number) {
+  const ramp = new Float32Array((RAMP + 1) * 3), model = new Float32Array((RAMP + 1) * 3)
+  // A low sun's light comes in under the mass: its body keeps of it.
+  const { lit, body } = tones, warmth = lit[0] - lit[2] - (body[0] - body[2]), low = LOW * own * smoothstep(WARM[0], WARM[1], warmth), self = own * own
+  const glow = own * smoothstep(GLOW[0], GLOW[1], warmth), formed = 1 - SOFTENED * glow
+  const bright = lightness(lit), hue = { lit, body: upTo(mix(body, mix(lit, tones.shade, LOW_SHADE), low), BODY_UP_TO * bright, HELD * own), shade: upTo(mix(tones.shade, lit, low / 2), SHADE_UP_TO * bright, HELD * own) }
+  for (let n = 0; n <= RAMP; n++) {
+    ramp.set(toneOf(hue, n / RAMP), n * 3)
+    model.set(toneOf(tones, n / RAMP), n * 3)
+  }
+  // A sky whose lit and shade hardly part has no deep shade either; a dim sky's lit cloud is no sunlit crown.
+  const range = UNDER * Math.min(1, 0.2 + 4 * Math.max(0, tones.lit[1] - tones.shade[1])), over = CROWN * tones.lit[1] ** 2
+  return (p: CloudPoint, out: Float32Array) => {
+    const { tone, light } = p, near = p.near * formed
+    const heads = p.relief * RELIEF * self * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * light)
+    const there = tone + own * (MODEL_SHARE * tone + p.shade + heads - tone + EDGE * p.flat - WALL * p.wall), place = within(there, own)
+    const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * Math.max(0, place - UNDER_FROM)
+    const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * own
+    // Far off it is the model's tone, leaning to the lit colour as its crowns do; a closed deck's is the model's throughout.
+    const m = Math.round(Math.min(1, Math.max(0, tone)) * RAMP) * 3, thick = FAR_GREY * p.cover ** 2
+    const kept = glow ? thick + (1 - smoothstep(LEAN[0], LEAN[1], light) - thick) * glow * p.near : thick, grey = 1 - own * (1 - kept)
+    for (let k = 0; k < 3; k++) {
+      const far = lit[k] + (model[m + k] - lit[k]) * grey
+      out[k] = Math.min(1, far + near * (ramp[n + k] * (1 - DEEPEST[k] * under) * crown - far))
+    }
+  }
+}

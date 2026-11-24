@@ -5,8 +5,8 @@ import { LAND_LAMP } from './landPainters'
 import { REAL_PAINTERS } from './painters'
 import { SEA_LAMP } from './seaPainters'
 
-/** The model's own light, with its place for what it falls on. */
-const REAL_LIGHT: StyleLight = { key: 'real', lamp: [...LAND_LAMP, ...SEA_LAMP], ...AIR_LIGHT }
+/** The model's own light, with its place for the clouds it goes through and what it falls on. */
+const REAL_LIGHT: StyleLight = { key: 'real', lamp: ['cloudSheet', ...LAND_LAMP, ...SEA_LAMP], ...AIR_LIGHT }
 
 /** The real hand. */
 export const REAL: Style = { id: 'real', painters: REAL_PAINTERS, light: REAL_LIGHT }
