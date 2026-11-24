@@ -46,7 +46,7 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
     traceTop(key, tops[i])
   })
   ctx.save()
-  ctx.strokeStyle = keyOf(ctx, f, (near, y, on) => css(t.key, on * THICK * air(y) * STRONG * t.line * (FAR + (1 - FAR) * near)))
+  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * t.line * (FAR + (1 - FAR) * near)))
   ctx.lineWidth = LINE
   ctx.stroke(key)
   const wash = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
@@ -65,10 +65,10 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   ctx.restore()
 }
 
-/** The key line's ink down the sky; none where the sheet itself begins. */
-function keyOf(ctx: Ctx2D, f: SheetField, ink: (near: number, y: number, on: number) => string) {
+/** The key line's ink down the sky. */
+function keyOf(ctx: Ctx2D, f: SheetField, ink: (near: number, y: number) => string) {
   const down = ctx.createLinearGradient(0, f.y0, 0, f.y0 + f.height)
-  for (let n = 0; n <= STEPS; n++) down.addColorStop(n / STEPS, ink(nearAt(f, (n / STEPS) * (f.rows - 1)), f.y0 + (n / STEPS) * f.height, n ? 1 : 0))
+  for (let n = 0; n <= STEPS; n++) down.addColorStop(n / STEPS, ink(nearAt(f, (n / STEPS) * (f.rows - 1)), f.y0 + (n / STEPS) * f.height))
   return down
 }
 
