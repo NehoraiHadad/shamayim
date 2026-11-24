@@ -1,6 +1,8 @@
 import { halfDepthLightOf } from '../../../../world/halfDepthLight'
 import { partKey } from '../../../../world/keys'
 import { isFamousNonOwn } from '../../../../world/neighbourIdentity'
+import { illustratedHazeOf } from '../../../model/illustratedHaze'
+import { hazeOf } from '../../../model/landVeil'
 import { illustratedTonesAt, type IllustratedTones } from '../../../model/illustratedTones'
 import { landmarkContrast, refreshLandmarkItems } from '../../../model/landmarkAtmosphere'
 import { shineOf } from '../../../model/marks'
@@ -13,10 +15,12 @@ import { skyFormOf } from './skyForm'
 /** The town in the illustrated palette, with the sky's form over it. */
 export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): OutsideLook {
   const litWorld = { ...world, light: halfDepthLightOf(world.light) }
+  // In dust the town is seen through the land's own air: the illustrated one is the brown overhead.
+  const seen = mixRgb(illustratedHazeOf(litWorld), hazeOf(litWorld), litWorld.air.dustWeight)
   const palettes = new Map<number, IllustratedTones>()
   const at = (km: number): IllustratedTones => {
     let tones = palettes.get(km)
-    if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km))
+    if (!tones) palettes.set(km, tones = illustratedTonesAt(litWorld, km, seen))
     return tones
   }
   const tiers = shape.kms.map(at)
@@ -29,7 +33,7 @@ export function drawnOutsideLook({ world, box, shape, sx }: OutsideFacts): Outsi
     }
     return { ...glyph, tones, contrast }
   })
-  const form = skyFormOf(litWorld, box, shape.kms, tiers, sx)
+  const form = skyFormOf(litWorld, box, shape.kms, tiers, sx, seen)
   const shine = shineOf(litWorld)
   const own: OwnOutside = { form }
   return { tiers, items, shine, key: partKey([form, shine], 8), own }
