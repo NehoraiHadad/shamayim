@@ -31,10 +31,10 @@ function samplerOf(placeId: string, lattice: FieldLayer['lattice'], wavelength: 
   return sampler
 }
 
-/** How far (km) the field's outlines are moved at a place of the layer; `reach` bounds it. */
+/** How far (km) the field's outlines are moved at a place of the layer. */
 export function edgeNoise(placeId: string, layer: FieldLayer, minute: number) {
   const radius = meanRadius(layer.lattice, 1), amplitude = PEAK * radius
   const sampler = samplerOf(placeId, layer.lattice, 2 * Math.PI * radius / LOBES)
   const noise = clumpAt(layer, minute, (x, y) => sampler(x, y, 0))
-  return { radius, reach: amplitude / 3, at: (x: number, y: number) => amplitude * (noise(x, y) - 0.5) }
+  return { radius, at: (x: number, y: number) => amplitude * (noise(x, y) - 0.5) }
 }

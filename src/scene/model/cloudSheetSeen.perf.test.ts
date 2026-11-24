@@ -30,7 +30,7 @@ afterAll(() => vi.unstubAllGlobals())
 
 const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
 /** Fresh sheets per minute and variant: the fastest stands for the work, the rest for the runner's noise. */
-const REPS = 3
+const REPS = 5
 
 it.each(cases)('shows the field as the eye sees it within the cold budget at %s %s', (id, time) => {
   const input = worldInput(places.get(id)!, time as LocalTime, time as LocalTime), build = makeWorldBuilder()

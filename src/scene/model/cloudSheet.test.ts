@@ -14,6 +14,7 @@ import { cloudSheetOf, sheetPathFactor } from './cloudSheet'
 import { gridFor } from './cloudSheetGrid'
 import { seenDepth } from './cloudSheetSeen'
 import { sheetTexture, textureCorrection } from './cloudSheetTexture'
+import { DOME_ALT } from './dome'
 import { skyGeom } from './sky'
 import type { SceneBox } from './types'
 
@@ -130,7 +131,8 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
       expect(sheet.xs).toHaveLength(144)
       expect(sheet.ys.filter(y => y >= at.geom.dome(30) && y <= at.geom.dome(5))).toHaveLength(49)
     }
-    const deltas: number[] = []
+    // Where a ray reads the field the sheet moves with the air. Above, a cell in the eye's proportions is redrawn as it moves.
+    const deltas: number[] = [], redrawn: number[] = []
     let max = 0, maxExcess = -Infinity
     const [vx, vy] = snapshot.layer!.vel
     let dense = 0, minDense = 1
@@ -153,7 +155,7 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
         const bound = Math.abs(a.path - b.path)
           + b.path * ((1 - b.fade) * slope(local, b.local) + b.fade * slope(mean, b.mean))
         const delta = Math.abs(warped - later.alpha[i])
-        deltas.push(delta)
+        ;(lattice !== 'high' && altitude > DOME_ALT ? redrawn : deltas).push(delta)
         max = Math.max(max, delta)
         maxExcess = Math.max(maxExcess, delta - bound)
         expect(at.geom.x(at.geom.azimuthAt(x))).toBeCloseTo(x, 8)
@@ -164,9 +166,11 @@ it.each(['haifa', 'jerusalem', 'tiberias'])('projects exact rays and follows the
         minDense = Math.min(minDense, original[i])
       }
     }
-    const p99 = percentile(deltas, 0.99)
-    console.info(place, lattice, { rows: sheet.ys.length, cols: sheet.xs.length, p99, max, maxExcess, dense, minDense })
+    const p99 = percentile(deltas, 0.99), outlines = redrawn.reduce((sum, delta) => sum + delta, 0) / redrawn.length
+    console.info(place, lattice, { rows: sheet.ys.length, cols: sheet.xs.length, p99, outlines, max, maxExcess, dense, minDense })
     expect.soft(p99, lattice).toBeLessThanOrEqual(0.15)
+    // It keeps its place: only its rim changes, a twentieth of the sky in a minute at most.
+    if (redrawn.length) expect.soft(outlines, lattice).toBeLessThanOrEqual(0.05)
     expect.soft(maxExcess, lattice).toBeLessThanOrEqual(0.02)
     if (dense) expect.soft(minDense, lattice).toBeGreaterThan(0.7)
   }

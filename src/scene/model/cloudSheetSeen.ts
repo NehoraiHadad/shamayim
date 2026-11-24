@@ -18,6 +18,8 @@ import type { SkyGeom } from './sky'
 
 /** The altitude (deg) from which a cell's shape and its outline are all the eye's: half as high again as the join. */
 const SEEN_ALT = 1.5 * DOME_ALT
+/** Sectors of the compass the shapes are kept by, for speed alone: a power of two, a third of a mean cell at the join. */
+const SECTORS = 64
 /** Rounding left where a cell's own depth is taken from the field's sum. */
 const ROUNDING = 1e-9
 
@@ -77,6 +79,25 @@ function change(s: Shape, x: number, y: number, range: number): number {
   return kernel(cell.tau0, (at * at + d * d - 2 * at * d * Math.cos(angle)) * inverse, s.cumulus) - native
 }
 
+/** The sector of a bearing given by a vector of any length: a measure that grows with it, with no trigonometry. */
+function sectorOf(east: number, north: number): number {
+  const turn = north / (Math.abs(east) + Math.abs(north) || 1)
+  return (east >= 0 ? 1 - turn : 3 + turn) * SECTORS / 4 & SECTORS - 1
+}
+
+/** The shapes by the sectors they are drawn in (a half turn each at most). */
+function bySector(shapes: Shape[]): Shape[][] {
+  const sectors: Shape[][] = Array.from({ length: SECTORS }, () => [])
+  for (const shape of shapes) {
+    const { east, north, cos } = shape, sin = Math.sqrt(1 - cos * cos)
+    const last = sectorOf(east * cos + north * sin, north * cos - east * sin)
+    let sector = sectorOf(east * cos - north * sin, north * cos + east * sin)
+    for (; sector !== last; sector = sector + 1 & SECTORS - 1) sectors[sector].push(shape)
+    sectors[last].push(shape)
+  }
+  return sectors
+}
+
 export type DepthAt = (x: number, y: number) => number
 
 /** The layer's depth at a place (km) as a row of the sheet at that range and altitude shows it. */
@@ -88,21 +109,20 @@ export function seenDepth(placeId: string, minute: number, snapshot: FieldSnapsh
   const edge = groundRangeAt(heightKm, DOME_ALT)
   const shapes = cells.filter(({ x, y, r }) => r < edge && x * x + y * y < (edge - r) ** 2)
     .map((cell) => shapeOf(cell, heightKm, geom, perRad)).filter((shape) => shape !== null)
+  const sectors = bySector(shapes)
   return (range: number, altitude: number): DepthAt => {
     const weight = smoothstep(DOME_ALT, SEEN_ALT, altitude)
     if (!weight) return depthAt
-    const reach = weight * noise.reach
-    const here = shapes.filter(({ from, to }) => range + reach > from && range - reach < to)
     // Along the ray: the projection draws its levels straight. Overhead, where every ray meets, it dies away.
     const along = weight / Math.max(range, noise.radius)
     return (east, north) => {
       const scale = 1 + along * noise.at(east, north)
       const x = east * scale, y = north * scale
       const depth = depthAt(x, y)
+      const here = sectors[sectorOf(east, north)], at = range * scale
       if (!here.length) return depth
-      const at = range * scale
       let moved = 0
-      for (const shape of here) if (at > shape.from && at < shape.to) moved += change(shape, x, y, at)
+      for (let i = 0; i < here.length; i++) if (at > here[i].from && at < here[i].to) moved += change(here[i], x, y, at)
       const seen = depth + moved
       return seen < layer.floorTau + ROUNDING ? layer.floorTau : seen
     }

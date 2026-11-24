@@ -60,7 +60,8 @@ it.each([
       const rows = widths(cloudSheetOf(worldOf(id), geom,
         lone(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
       const widest = Math.max(...rows)
-      return { tall: rows.length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest }
+      // Its body: less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth of its height).
+      return { tall: rows.filter((wide) => wide >= widest / 4).length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest }
     }))
     const mean = (of: (shape: (typeof shapes)[number]) => number) => shapes.reduce((sum, shape) => sum + of(shape), 0) / shapes.length
     const aspect = mean(({ tall, widest }) => tall / widest), foot = mean((shape) => shape.foot)
