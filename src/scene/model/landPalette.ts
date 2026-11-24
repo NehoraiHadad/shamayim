@@ -1,14 +1,19 @@
 //# allFunctionsCalledOnLoad
 import { unknownLandRgb } from '../../data/land/climatology'
+import { COVER_WATER } from '../../data/land/grid'
+import { smoothstep } from '../../domain/smoothstep'
 import type { LivingLand } from '../../world/landLiving'
 import { linearRgbToSrgb, tciRgbToReflectance } from '../../world/landRadiometry'
+import { dominantWeightedSource, FIRST_RING_M } from '../../world/nearGround'
 import type { RGB } from '../../world/types'
-import { labOf, rgbOfLab } from './tone'
+import { labOf, mixLight, rgbOfLab } from './tone'
 
 /**
  * Deterministic Oklab palette quantisation and ray-band albedo sampling (Stages 3 & 7 round 2: living land).
  * Raw BOA sRGB albedos are preserved without lightness squeezing; lighting, compression and chroma live in `landRadiance.ts`.
  */
+
+export { COVER_WATER, dominantWeightedSource }
 
 /** Minimum squared Oklab separation between quantised centroids (~0.018 ΔE). */
 const MIN_CLUSTER_SEP_SQ = 0.018 * 0.018
@@ -58,8 +63,6 @@ export function quantiseTones(tones: readonly RGB[], maxColours: number): { pale
   return { palette: centers.map((c) => roundRgb(rgbOfLab(c))), indices }
 }
 
-/** WorldCover open water class (excluded from land-plane albedo; water is painted by `water.ts`). */
-export const COVER_WATER = 8
 const lerpRgb = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 
 /** Non-water fallback when rays lack dry land: non-water centre -> closest non-water local point -> explicit land climatology. */
@@ -76,21 +79,13 @@ export function nonWaterLocalFallback(land: LivingLand): { albedo: RGB; source: 
   return { albedo: linearRgbToSrgb(tciRgbToReflectance(unknownLandRgb(land.own.dryness))), source: 'climatology' }
 }
 
-/** Picks the source label carrying the highest total contribution weight. */
-export function dominantWeightedSource(entries: readonly { source: string; weight: number }[]): string {
-  const sums = new Map<string, number>()
-  for (const { source, weight } of entries) if (weight > 0) sums.set(source, (sums.get(source) ?? 0) + weight)
-  let best = entries[0]?.source ?? 'climatology', bestW = -1
-  for (const [src, w] of sums) if (w > bestW) { bestW = w; best = src }
-  return best
-}
+/** Half way, in log distance as they are interpolated, between the rays' first two bands (0.5 and 1 km): all the rays' own. */
+const RAYS_FROM_M = 700
 
-/** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
-export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
-  const rays = land.rays
-  if (!rays.length) return nonWaterLocalFallback(land)
-  const idx = clamp(Math.round(rayIdx), 0, rays.length - 1)
-  let bands = rays[idx].bands.filter((b) => b.sample.cover !== COVER_WATER)
+/** The rays' own albedo & provenance at a distance (log-interpolated, water-excluded, from the nearest ray that has dry bands). */
+function rayBandAt(land: LivingLand, idx: number, distM: number): { albedo: RGB; source: string } {
+  const { rays } = land
+  let bands = rays[idx]?.bands.filter((b) => b.sample.cover !== COVER_WATER) ?? []
   for (let d = 1; d < rays.length && !bands.length; d++) {
     for (const j of [idx - d, idx + d]) {
       if (j < 0 || j >= rays.length) continue
@@ -99,28 +94,32 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
     }
   }
   if (!bands.length) return nonWaterLocalFallback(land)
-  const distM = Math.max(50, km * 1000)
   const hi = bands.findIndex((b) => b.distanceM >= distM)
-  let albedo: RGB
-  const contribs: { source: string; weight: number }[] = []
-  if (hi === -1) {
-    const outer = bands.at(-1)!
-    albedo = outer.sample.albedo
-    contribs.push({ source: outer.sample.albedoSource, weight: 1 })
-  } else if (hi === 0) {
-    albedo = bands[0].sample.albedo
-    contribs.push({ source: bands[0].sample.albedoSource, weight: 1 })
-  } else {
-    const a = bands[hi - 1], b = bands[hi]
-    const t = clamp((Math.log(distM) - Math.log(a.distanceM)) / Math.max(1e-6, Math.log(b.distanceM) - Math.log(a.distanceM)), 0, 1)
-    albedo = lerpRgb(a.sample.albedo, b.sample.albedo, t)
-    contribs.push({ source: a.sample.albedoSource, weight: 1 - t }, { source: b.sample.albedoSource, weight: t })
+  if (hi <= 0) {
+    const { sample } = hi < 0 ? bands.at(-1)! : bands[0]
+    return { albedo: sample.albedo, source: sample.albedoSource }
   }
-  if (distM < 700 && land.own.cover !== COVER_WATER) {
-    const ownW = clamp((700 - distM) / 500, 0, 0.55)
-    albedo = lerpRgb(albedo, land.own.albedo, ownW)
-    for (const c of contribs) c.weight *= 1 - ownW
-    contribs.push({ source: land.own.albedoSource, weight: ownW })
+  const a = bands[hi - 1], b = bands[hi]
+  const t = clamp((Math.log(distM) - Math.log(a.distanceM)) / Math.max(1e-6, Math.log(b.distanceM) - Math.log(a.distanceM)), 0, 1)
+  return {
+    albedo: lerpRgb(a.sample.albedo, b.sample.albedo, t),
+    source: dominantWeightedSource([{ source: a.sample.albedoSource, weight: 1 - t }, { source: b.sample.albedoSource, weight: t }]),
   }
-  return { albedo, source: dominantWeightedSource(contribs) }
+}
+
+/** The near ground on a ray: its footprint's, the dry fallback where that is not known, null where it is open water. */
+function nearOf(land: LivingLand, idx: number): { albedo: RGB; source: string } | null {
+  const near = land.rays[idx]?.near ?? nonWaterLocalFallback(land)
+  return near === 'water' ? null : near
+}
+
+/** Light-free land albedo & provenance on a ray at distance `km`: the near ground, then (a ramp with no edge, in linear light) the rays'. */
+export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
+  const idx = clamp(Math.round(rayIdx), 0, Math.max(0, land.rays.length - 1))
+  const distM = Math.max(50, km * 1000), share = smoothstep(RAYS_FROM_M, FIRST_RING_M, distM)
+  const near = share > 0 ? nearOf(land, idx) : null
+  if (near && share === 1) return near
+  const ray = rayBandAt(land, idx, distM)
+  // The label is the larger part's; at the even point it is the rays'.
+  return near ? { albedo: mixLight(ray.albedo, near.albedo, share), source: share > 0.5 ? near.source : ray.source } : ray
 }

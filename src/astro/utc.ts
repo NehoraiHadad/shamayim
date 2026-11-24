@@ -39,14 +39,24 @@ export function utcOf(local: LocalTime, timeZone: string): Date {
   if (!match) throw new RangeError(`Invalid local time: ${local}`)
   const [, y, m, d, h, minute] = match.map(Number)
   const wallUtc = Date.UTC(y, m - 1, d, h, minute)
-  let guess = wallUtc
-  // A second pass handles offsets that differ between the initial guess and result.
-  for (let pass = 0; pass < 2; pass += 1) {
-    const shown = partsAt(new Date(guess), timeZone)
-    const shownUtc = Date.UTC(
-      shown.year, shown.month - 1, shown.day, shown.hour, shown.minute, shown.second,
-    )
-    guess += wallUtc - shownUtc
+  const wallAt = (ms: number) => {
+    const p = partsAt(new Date(ms), timeZone)
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second)
   }
-  return new Date(guess)
+  // A day on either side sees both offsets of a DST change, including offsets far from UTC.
+  const day = 86_400_000
+  const earlyProbe = wallUtc - day, lateProbe = wallUtc + day
+  const before = wallUtc - (wallAt(earlyProbe) - earlyProbe)
+  const after = wallUtc - (wallAt(lateProbe) - lateProbe)
+  // In a repeated hour use its first occurrence. In a skipped hour hold the transition instant.
+  if (before === after || wallAt(before) === wallUtc) return new Date(before)
+  if (wallAt(after) === wallUtc) return new Date(after)
+  // Neither offset represents this wall time: it falls in the gap.
+  let lo = after / 1000, hi = before / 1000
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2)
+    if (wallAt(mid * 1000) >= wallUtc) hi = mid
+    else lo = mid
+  }
+  return new Date(hi * 1000)
 }

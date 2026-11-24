@@ -1,16 +1,15 @@
 //# allFunctionsCalledOnLoad
 import { waterLayer } from '../../data/water/glint'
-import type { WaterSpan } from '../../data/water/waterInView'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { SCENE_W } from '../../world/sceneBox'
-import { groundAt as lineAt } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf, toneAt } from './landVeil'
 import { skyAt } from './sky'
 import { mixLight, mixRgb, rgbOf } from './tone'
-import type { Box, GlintPath, LayerOf, Pt, RGB, SceneBox, Streak, WaterBand } from './types'
+import type { Box, GlintPath, LayerOf, RGB, SceneBox, Streak, WaterBand } from './types'
+import { angleAt, clamp01, edgeAt, lerp, median, shapeOf, surfaceOf } from './waterSurface'
 
 type WaterName = 'far' | 'near'
 
@@ -22,13 +21,6 @@ export const WATER_FRAMES = { count: 6, fps: 6 }
 const DEEP: RGB = [0.06, 0.17, 0.21]
 /** The sun's path on the water in its own colour, the moon's silver. */
 const MOONLIT: RGB = [0.88, 0.91, 0.96]
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0
-/** A light 1-2-1 smoothing along the span, as the SVG's water has (the DEM's and the mask's steps out of the edge). */
-const smooth = (values: number[]) => values.map((v, i) =>
-  (values[Math.max(0, i - 1)] + 2 * v + values[Math.min(values.length - 1, i + 1)]) / 4)
 
 /**
  * The share of light still water reflects at a grazing angle `depressionDeg` below the horizon (Schlick's Fresnel term for
@@ -42,114 +34,6 @@ export function fresnel(depressionDeg: number): number {
 
 const hits = (clear: readonly Box[], x: number, y: number, w: number, h: number) =>
   clear.some((b) => x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y)
-
-/** A span's surface in the box: x along it, its far and near edges smoothed (as the SVG's `waterPath`). */
-interface Shape {
-  xs: number[]; farY: number[]; nearY: number[]
-  points: Pt[]; far: Pt[]; top: number; bottom: number
-  /** Medians over the span: the edges' y, depression (deg, + below eye level) and distance (km). */
-  far0: { y: number; dep: number; km: number }; near0: { y: number; dep: number; km: number }
-  /** The land standing over the water's far edge (the higher of the two crests there): its angle (deg) and distance. */
-  land: { angle: number; km: number }
-}
-
-const shapes = new WeakMap<WaterSpan, Map<number, Shape>>()
-
-/** The altitude (deg) drawn at a y of the land (the relief is odd and rising: bisection). */
-function angleAt(world: WorldState, y: number): number {
-  let lo = -30, hi = 30
-  for (let i = 0; i < 32; i++) {
-    const mid = (lo + hi) / 2
-    if (world.relief.y(mid) > y) lo = mid
-    else hi = mid
-  }
-  return (lo + hi) / 2
-}
-
-function shapeOf(world: WorldState, span: WaterSpan, box: SceneBox): Shape {
-  let byWidth = shapes.get(span)
-  if (!byWidth) shapes.set(span, byWidth = new Map())
-  const cached = byWidth.get(box.width)
-  if (cached) return cached
-  const sx = box.width / SCENE_W
-  const { edges } = span
-  const xs = edges.map((edge, i) => (i === 0 ? span.from : i === edges.length - 1 ? span.to : edge.x) * sx)
-  const farY = smooth(edges.map((edge) => edge.farY))
-  const nearY = smooth(edges.map((edge) => edge.nearY)).map((y, i) => Math.max(y, farY[i]))
-  const far: Pt[] = xs.map((x, i) => [x, farY[i]])
-  const points: Pt[] = [...far, ...xs.map((x, i): Pt => [x, nearY[i]]).reverse()]
-  // The land over the far edge in each direction: the crest standing highest there, near or far.
-  const { near: nearPlane, far: farPlane } = world.terrain
-  const over = edges.map((edge) => {
-    const ny = nearPlane.points.length > 1 ? lineAt(nearPlane.points, edge.x) : Infinity
-    const fy = farPlane.points.length > 1 ? lineAt(farPlane.points, edge.x) : Infinity
-    const plane = fy < ny ? farPlane : nearPlane
-    const i = Math.max(0, plane.points.findIndex(([px]) => px >= edge.x))
-    return { y: Math.min(ny, fy), km: (plane.hazeKm ?? plane.distanceKm)[i] ?? span.distanceKm }
-  })
-  const landY = median(over.map((o) => o.y))
-  const shape: Shape = {
-    land: { angle: Number.isFinite(landY) ? angleAt(world, landY) : -90, km: median(over.map((o) => o.km)) },
-    xs, farY, nearY, points, far, top: Math.min(...farY), bottom: Math.max(...nearY),
-    far0: { y: median(farY), dep: -median(edges.map((e) => e.farAngle)), km: median(edges.map((e) => e.farKm)) },
-    near0: { y: median(nearY), dep: -median(edges.map((e) => e.nearAngle)), km: median(edges.map((e) => e.nearKm)) },
-  }
-  byWidth.set(box.width, shape)
-  return shape
-}
-
-/**
- * What the water shows at a row of the screen, shared by every span (both planes), so water at one height is one tone
- * however the spans split it: its distance there (the spans' edges binned by row, farther never lower on screen) and the
- * land standing over the far shores (the median over all spans: its angle and distance).
- */
-interface Surface { kmAt: (y: number) => number; land: { angle: number; km: number } }
-const surfaces = new WeakMap<readonly WaterSpan[], Map<number, Surface>>()
-
-function surfaceOf(world: WorldState, box: SceneBox): Surface {
-  const spans = world.water.spans
-  let byWidth = surfaces.get(spans)
-  if (!byWidth) surfaces.set(spans, byWidth = new Map())
-  const cached = byWidth.get(box.width)
-  if (cached) return cached
-  const bins = new Map<number, number[]>()
-  const add = (y: number, km: number) => {
-    const row = Math.round(y)
-    bins.set(row, [...bins.get(row) ?? [], km])
-  }
-  for (const span of spans) for (const e of span.edges) { add(e.farY, e.farKm); add(e.nearY, e.nearKm) }
-  const rows = [...bins.keys()].sort((a, b) => b - a)
-  // From the nearest row up: the median distance of each row, never nearer than the row below it.
-  const known: [number, number][] = []
-  let floor = 0
-  for (const row of rows) {
-    floor = Math.max(floor, median(bins.get(row)!))
-    known.push([row, floor])
-  }
-  known.reverse()
-  const kmAt = (y: number) => {
-    if (!known.length) return 0
-    if (y <= known[0][0]) return known[0][1]
-    for (let i = 1; i < known.length; i++) {
-      const [y1, k1] = known[i]
-      if (y <= y1) { const [y0, k0] = known[i - 1]; return lerp(k0, k1, (y - y0) / ((y1 - y0) || 1)) }
-    }
-    return known.at(-1)![1]
-  }
-  const shapes = spans.map((span) => shapeOf(world, span, box))
-  const surface = { kmAt, land: { angle: median(shapes.map((sh) => sh.land.angle)), km: median(shapes.map((sh) => sh.land.km)) } }
-  byWidth.set(box.width, surface)
-  return surface
-}
-
-/** The surface's far and near edge at an x inside it. */
-function edgeAt(shape: Shape, x: number): [number, number] {
-  const { xs, farY, nearY } = shape
-  let i = 1
-  while (i < xs.length - 1 && xs[i] < x) i++
-  const t = clamp01((x - xs[i - 1]) / ((xs[i] - xs[i - 1]) || 1))
-  return [lerp(farY[i - 1], farY[i], t), lerp(nearY[i - 1], nearY[i], t)]
-}
 
 /**
  * Ripples the one wind raises on a span (the world's `water.ripples`): calm water keeps a few long glassy bands, a breeze
@@ -225,7 +109,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   // Waves tilt the facets (Cox–Munk: slope variance 0.003 + 0.00512 × wind): on the whole the surface mirrors the sky
   // higher than the flat mirror would, by about the facets' own tilt (bluer and darker in more wind).
   const tilt = Math.atan(Math.sqrt(0.003 + 0.00512 * world.wind.ms)) * 180 / Math.PI
-  const surface = surfaceOf(world, box)
+  const surface = surfaceOf(world)
   const land = surface.land
   // The surface at a row: seen that far below eye level and that far away. C9 (defect 7): the land it mirrors is seen
   // along the eye → water → shore path, whose air is the land's own distance in all: the land's tone takes only the air
@@ -242,7 +126,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const lit: Streak[] = [], shade: Streak[] = []
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
   for (const { span, index } of spans) {
-    const shape = shapeOf(world, span, box)
+    const shape = shapeOf(span, box)
     const { far0 } = shape
     const stops = [0, 0.25, 0.5, 0.75, 1].map((t): [number, RGB] => [t, surfaceAt(lerp(shape.top, shape.bottom, t))])
     const rim = { rgb: aerial(mixRgb(sky(0.3), [1, 1, 1], 0.35 * (1 - dark)), far0.km),
@@ -263,7 +147,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const glints = water.glints.flatMap((glint): GlintPath[] => {
     const span = water.spans[glint.span]
     if (waterLayer(span) !== name) return []
-    const shape = shapeOf(world, span, box)
+    const shape = shapeOf(span, box)
     const x = glint.x * sx
     const [gTop, gBottom] = edgeAt(shape, x)
     const depth = Math.max(0.8, gBottom - gTop)

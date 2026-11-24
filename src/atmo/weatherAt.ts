@@ -1,35 +1,25 @@
 import { utcOf } from '../astro/utc'
-import { forecastArrivalProgress, forecastObservation, readingWeight } from '../domain/forecastRefresh'
+import { forecastObservation, readingWeight } from '../domain/forecastRefresh'
 import type { AirPoint, Forecast, LocalTime } from '../domain/types'
 import { visibilityFromHumidity } from '../world/air'
-import { rainRate } from '../world/airParts'
 import { layerCovers } from '../world/clouds'
-import { blockingCloudCover, isFogCode, nightMinimum } from '../world/mist'
-import { fallingSnowAmount, isSnowHour } from '../world/snowLine'
+import { isFogCode, nightMinimum } from '../world/mist'
+import { isSnowHour } from '../world/snowLine'
 import type { AirInput } from './airTypes'
 import { bracketAt } from '../domain/bracket'
-import { fieldWeather } from './fieldWeather'
-import { mixWeather, type Weather } from './weatherMix'
+import { weatherEffects, type PhaseInput } from './weatherEffects'
+import { cloudMist, mixPrecedingHour, mixWeather, type Weather } from './weatherMix'
 
-function weatherEffects({ weatherCode, precipitation, snowfall, temperature, humidity }: PhaseInput, hourlySnow = false, cape = null as number | null) {
-  const fallingSnow = fallingSnowAmount(weatherCode, snowfall)
-  const rainMmH = hourlySnow ? 0 : rainRate({ weatherCode, precipitation, snowfall, temperature })
-  return {
-    rainMmH,
-    fallingSnow,
-    snowCloudRate: fallingSnow > 0 ? Math.max(0.1, snowfall) : 0,
-    thunderWeight: Number(weatherCode >= 95),
-    showerWeight: hourlySnow ? 0 : Number(weatherCode >= 80 && weatherCode <= 82),
-    fieldWeather: fieldWeather(weatherCode, rainMmH, humidity, cape),
-  }
+function airAt(air: AirPoint[] | null, at: LocalTime) {
+  if (!air?.length) return undefined
+  if (at <= air[0].time) return air[0]
+  if (at >= air[air.length - 1].time) return air[air.length - 1]
+  return air.find(point => point.time === at)
 }
-
-type PhaseInput = Pick<AirInput, 'weatherCode' | 'precipitation' | 'snowfall' | 'temperature' | 'humidity'>
-
-const airAt = (air: AirPoint[] | null, at: LocalTime) => air?.find((point) => point.time === at)
 const clippedThick = (thick: number | null | undefined, total: number) => thick == null ? null : Math.min(thick, total)
 
-export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs: number, timezone: string,
+/** What one forecast says of a minute. How it took over from an earlier one is `blendForecast`'s alone to weigh. */
+export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, timezone: string,
   forced?: Partial<AirInput> | null): Weather {
   const forcedCloud = forced && ('cloudCover' in forced || 'thickCloud' in forced) ? forced : undefined
   const phase = (source: PhaseInput) => ({
@@ -48,19 +38,27 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
   const backgroundTemp = hour && next ? hour.temperature + (next.temperature - hour.temperature) * fraction : hour?.temperature
   const nightMinTemp = nightMinimum(forecast.hours, at, backgroundTemp) ?? c.temperature
 
-  const hourly = (row: NonNullable<typeof hour>): Weather => {
-    const air = airAt(forecast.air, row.time)
-    const reportedVisibilityKm = row.visibility == null ? null : row.visibility / 1000
-    const { covers, source } = layerCovers({ cloudCover: forcedCloud?.cloudCover ?? row.cloudCover,
-      thickCloud: forcedCloud && 'thickCloud' in forcedCloud ? forcedCloud.thickCloud : row.thickCloud, hour: row })
+  // Precipitation codes describe the same period as the hourly rain. Fog and cloud cover use the instant timeline.
+  const hourlyPhase = (row: NonNullable<typeof hour>) => {
     const sourcePhase = phase({ ...row, snowfall: 0 })
     const snow = isSnowHour(sourcePhase)
     // Open-Meteo's conversion: 10 mm water equivalent gives 7 cm of fresh snow.
-    const shown = { ...row, feelsLike: row.temperature,
-      snowfall: forced?.snowfall ?? (snow ? 0.7 * sourcePhase.precipitation : 0) }
+    const snowfall = forced?.snowfall ?? (snow ? 0.7 * sourcePhase.precipitation : 0)
+    return { precipitation: row.precipitation, windGusts: row.windGusts, snowfall,
+      ...weatherEffects({ ...sourcePhase, snowfall }, capeOf(row), snow) }
+  }
+
+  const preceding = mixPrecedingHour(forecast.hours, at, hourlyPhase)
+  const hourly = (row: NonNullable<typeof hour>): Weather => {
+    const air = airAt(forecast.air, row.time)
+    const period = preceding ?? hourlyPhase(row)
+    const reportedVisibilityKm = row.visibility == null ? null : row.visibility / 1000
+    const { covers, source } = layerCovers({ cloudCover: forcedCloud?.cloudCover ?? row.cloudCover,
+      thickCloud: forcedCloud && 'thickCloud' in forcedCloud ? forcedCloud.thickCloud : row.thickCloud, hour: row })
     return {
-      ...shown,
-      ...weatherEffects({ ...sourcePhase, snowfall: shown.snowfall }, snow, capeOf(row)),
+      ...row,
+      feelsLike: row.temperature,
+      ...period,
       freezingLevel: freezingOf(row),
       thickCloud: clippedThick(row.thickCloud, row.cloudCover),
       snowDepth: row.snowDepth,
@@ -78,10 +76,7 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
         visibilityWeight: Number(reportedVisibilityKm != null),
         weightedVisibilityKm: reportedVisibilityKm ?? 0,
         fogCodeWeight: Number(reportedVisibilityKm == null && isFogCode(row.weatherCode)),
-        lowCloudPct: row.cloudLow ?? 0,
-        midCloudPct: row.cloudMid ?? 0,
-        rawLayerWeight: Number(row.cloudLow != null || row.cloudMid != null),
-        blockingCloudPct: blockingCloudCover(row.cloudLow, row.cloudMid, row.thickCloud ?? row.cloudCover),
+        ...cloudMist(covers, source),
         nightMinTemp,
       },
       covers,
@@ -101,22 +96,16 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
   const hourlyMist = background?.mist
   const reportedVisibilityKm = c.visibility == null ? null : c.visibility / 1000
   const visibilityWeight = reportedVisibilityKm != null ? 1 : hourlyMist?.visibilityWeight ?? 0
-  const lowCloudPct = c.cloudLow ?? hourlyMist?.lowCloudPct ?? 0
-  const midCloudPct = c.cloudMid ?? hourlyMist?.midCloudPct ?? 0
-  const rawLayerWeight = c.cloudLow != null || c.cloudMid != null ? 1 : hourlyMist?.rawLayerWeight ?? 0
-  const blockingCloudPct = rawLayerWeight > 0
-    ? rawLayerWeight * blockingCloudCover(lowCloudPct / rawLayerWeight, midCloudPct / rawLayerWeight, 0) : 0
-
   const thickCloud = clippedThick(c.thickCloud, c.cloudCover)
   const { covers, source } = forcedCloud && background ? { covers: background.covers, source: background.cloudSource }
     : layerCovers({ cloudCover: forcedCloud?.cloudCover ?? c.cloudCover,
-      thickCloud: forcedCloud && 'thickCloud' in forcedCloud ? forcedCloud.thickCloud : thickCloud })
+      thickCloud: forcedCloud && 'thickCloud' in forcedCloud ? forcedCloud.thickCloud : thickCloud, hour: c })
   // Open-Meteo's current precipitation and snowfall are 15-minute totals. The scene uses hourly rates.
   const shown = { ...c, precipitation: c.precipitation * 4, snowfall: c.snowfall * 4 }
   const observation: Weather = {
     ...shown, thickCloud, covers,
     cloudSource: source,
-    ...weatherEffects(phase(shown), false, capeOf(hour)),
+    ...weatherEffects(phase(shown), capeOf(hour)),
     freezingLevel: background?.freezingLevel ?? freezingOf(hour),
     directionSource: 'current',
     windAloft: background?.windAloft ?? { low: null, mid: null, high: null },
@@ -135,14 +124,13 @@ export function weatherAt(forecast: Forecast, at: LocalTime, atMs: number, nowMs
       visibilityWeight,
       weightedVisibilityKm: reportedVisibilityKm ?? hourlyMist?.weightedVisibilityKm ?? 0,
       fogCodeWeight: isFogCode(c.weatherCode) ? 1 - visibilityWeight : 0,
-      lowCloudPct, midCloudPct, rawLayerWeight,
-      blockingCloudPct: blockingCloudPct + (1 - rawLayerWeight) * (thickCloud ?? c.cloudCover),
+      ...cloudMist(covers, source),
       nightMinTemp,
     },
   }
   if (!background) return observation
 
   const minutesOff = (atMs - utcOf(c.time, timezone).getTime()) / 60_000
-  const weight = readingWeight(minutesOff) * forecastArrivalProgress(forecast, nowMs)
+  const weight = readingWeight(minutesOff)
   return weight === 0 ? background : mixWeather(background, observation, weight)
 }
