@@ -386,7 +386,9 @@ export interface OutsideSkylineInput {
 }
 
 /** One built cell of the place: km east / north, its width (km), its roof's height (m) and a seed. */
-export interface FabricCell { dx: number; dy: number; wKm: number; heightM: number; seed: number }
+export interface FabricCell { dx: number; dy: number; wKm: number; heightM: number; seed: number
+  /** One house, drawn at its own width however small, never composed with its neighbours. */
+  whole?: true }
 
 /**
  * The fabric cells as boxes in the outside view (as `rasterBoxes`), hidden ones left out. With a `look`, a house cell
@@ -403,7 +405,7 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     if (x + w / 2 < -4 || x - w / 2 > width + 4) continue
     const heightM = Math.min(capM, cell.heightM)
     const h = Math.max(1, pxOf(look, heightM, k))
-    const legible = look && heightM < HOUSE_TOP_M ? look.house.w * k / frame.k : 0
+    const legible = look && !cell.whole && heightM < HOUSE_TOP_M ? look.house.w * k / frame.k : 0
     if (w >= legible) {
       const foot = lieBaseY(lie, ground, x, near, floor, w, cell.dx, cell.dy)
       boxes.push({ x, w, top: foot - h, foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy })

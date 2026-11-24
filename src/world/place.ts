@@ -12,6 +12,8 @@ import type { Landmark } from '../data/landmarks/types'
 import { noteBoxes, sceneNotes, type SceneNote } from '../data/terrain/sceneNotes'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { LandCover } from '../data/land/landData'
+import { settlementOf } from '../data/village/settlementOf'
+import type { VillageTile } from '../data/village/tile'
 import type { WaterMask } from '../data/water/waterMask'
 import { heightText } from '../text/isolate'
 import { DOT_R, LABEL_H, LABEL_PX, overlaps, SHEET_CLEAR, textWidth, VISIBLE_BOTTOM } from './layout'
@@ -52,6 +54,8 @@ export interface PlaceInput {
   waterMask?: WaterMask | null
   /** The land cover (C5: every place's built cells and trees). */
   cover?: LandCover | null
+  /** The footprint tile the place is in (null: none). */
+  village?: VillageTile | null
 }
 
 /** Half the place's own houses (px), from its built-up reach (km); a place with no known area a small one: the other marks
@@ -86,7 +90,8 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
   // Seen from outside (C5): its own frame, boundary and slope, its mass and spires, the towers beyond, its sea.
   const view = outsidePlace({ place, terrain, landmarks, city, width, centerX, reachKm, ground, floor,
-    bounds: input.bounds, mask: input.waterMask, cover: input.cover })
+    bounds: input.bounds, mask: input.waterMask, cover: input.cover,
+    settlement: settlementOf(place, { tile: input.village ?? null, cover: input.cover ?? null, raster: city?.raster }) })
   // The land as drawn: the near land the outside view lays (the place's own ground and what truly stands behind it, on its
   // scale), the panorama's ridge beyond the place's span; the marks and the datum stand on it.
   const drawn = drawnTerrain(terrain, view.nearLine)

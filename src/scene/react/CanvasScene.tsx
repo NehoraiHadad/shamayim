@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { loadBounds, type BoundsFile } from '../../data/city/bounds'
 import { loadFar, type FarData } from '../../data/city/farData'
 import { loadLandCover, type LandCover } from '../../data/land/landData'
+import { useVillageTile } from '../../data/village/useVillageTile'
 import { loadWaterMask, type WaterMask } from '../../data/water/waterMask'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { pinnedTime } from '../../ui/devParams'
@@ -60,9 +61,11 @@ export default function CanvasScene({ input, sceneStyle = DEFAULT_STYLE, ...scen
     void loadWaterMask().then((data) => { if (active) setWaterMask(data) })
     return () => { active = false }
   }, [])
-  const placeCover = cover?.id === placeId ? cover.cover : null
-  const full = useMemo(() => ({ ...input, far, bounds, waterMask, cover: placeCover, lifeOffsetMinutes: offsetMinutes }),
-    [input, far, bounds, waterMask, placeCover, offsetMinutes])
+  const village = useVillageTile(input.place)
+  // The cover waits for the village's tile: what is drawn of a place is drawn once.
+  const placeCover = cover?.id === placeId && village !== undefined ? cover.cover : null
+  const full = useMemo(() => ({ ...input, far, bounds, waterMask, cover: placeCover, village, lifeOffsetMinutes: offsetMinutes }),
+    [input, far, bounds, waterMask, placeCover, village, offsetMinutes])
   const world = useWorld(full)
   useEffect(() => {
     if (world) (window as Window & { __world?: unknown }).__world = world

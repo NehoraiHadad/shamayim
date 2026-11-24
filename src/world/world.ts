@@ -53,7 +53,7 @@ export function makeWorldBuilder() {
       blendForecast(forecast, nowMs, sample, (a, b, t) => a + (b - a) * t)
 
     const placePartResult = status === 'ready' ? m.placePart(place, terrain, input.landmarks, input.seatCandidates, input.city,
-      width, forecast.elevation, input.bounds, input.waterMask, input.cover) : unknownPlace(place, forecast.elevation)
+      width, forecast.elevation, input.bounds, input.waterMask, input.cover, input.village) : unknownPlace(place, forecast.elevation)
     const drawn = m.drawnOf(terrain, placePartResult.nearLine)
     const farCities = m.farCitiesPart(place, terrain, status === 'ready' ? input.far : null, placePartResult.ownSkyline)
     const sunSkyline = status === 'ready' ? m.judgeOf(drawn, placePartResult.place3, placePartResult.marks, farCities.part, skyline) : skyline
