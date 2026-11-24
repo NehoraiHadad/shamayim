@@ -12,8 +12,8 @@ import { paintSpecks } from './specks'
 
 /** How hard the light rakes the form, the height of a lamp it eases at; the visibility a grazed slope is read against; the least and most of a beam. */
 const RAKE = 1.5, HIGH = 0.35, GRAZED = 0.16, LEAST = 0.3, MOST = 1.8
-/** How far daylight opens the land's mid tones and its colour, none by night. */
-const OPENED = 0.16, CHROMA = 0.1
+/** How far daylight opens the land's colour, none by night. */
+const CHROMA = 0.1
 
 export function paintRealPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
   let at: { t: PlaneTexelCtx; ground: GroundForm } | undefined
@@ -32,10 +32,10 @@ function lit(t: PlaneTexelCtx, { rho, form }: GroundForm, lamp?: Lamp): OwnGroun
   const day = Math.min(1, t.litField.eSun[1]), chroma = 1 + CHROMA * day
   return {
     rho: (n, out) => {
-      const r = rho[n * 3], g = rho[n * 3 + 1], b = rho[n * 3 + 2], y = 0.2126 * r + 0.7152 * g + 0.0722 * b, k = 1 + OPENED * day * (1 - y)
-      out[0] = Math.max(0, y + (r - y) * chroma) * k
-      out[1] = Math.max(0, y + (g - y) * chroma) * k
-      out[2] = Math.max(0, y + (b - y) * chroma) * k
+      const r = rho[n * 3], g = rho[n * 3 + 1], b = rho[n * 3 + 2], y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+      out[0] = Math.max(0, y + (r - y) * chroma)
+      out[1] = Math.max(0, y + (g - y) * chroma)
+      out[2] = Math.max(0, y + (b - y) * chroma)
     },
     turn: (n, i, s) => {
       s.vSky *= form[n * 3 + 2]

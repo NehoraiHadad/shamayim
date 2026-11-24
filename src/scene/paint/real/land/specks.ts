@@ -11,10 +11,10 @@ import type { ReceiverBrush, ReceiverInk } from '../../shared/land/receiverBrush
 export type Speck = readonly [x: number, y: number, r: number]
 
 /** The px² of ground a place is tried in; the share taken where no scrub stands; a speck's half width at the crest and at the foot. */
-const EVERY = 46, BARE = 0.16, SIZE = [0.45, 1.5] as const
+const EVERY = 32, BARE = 0.05, SIZE = [0.3, 0.85] as const
 const INK: ReceiverInk = [[0.06, 0.08, 0.03]]
 /** A speck's opacity in clear air; the steps of air it is inked in. */
-const ALPHA = 0.3, STEPS = 4
+const ALPHA = 0.26, STEPS = 4
 
 /** The specks of a plane, by its scrub (0–1 a texel). */
 export function specksOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>, scrub: Float32Array): Speck[] {

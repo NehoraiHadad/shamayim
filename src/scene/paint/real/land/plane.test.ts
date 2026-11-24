@@ -57,9 +57,9 @@ it('turns a fold\'s banks as the light crosses, and lights none of it without a 
     }
     return side
   }
-  expect(banks(-60)).toBeGreaterThan(20)
-  expect(banks(240)).toBeLessThan(-20)
-  expect(raster(paintRealPlane, desc(field(0), lamp(-60), gully))).toEqual(raster(paintRealPlane, desc(field(0), lamp(240), gully)))
+  expect(banks(30)).toBeGreaterThan(20)
+  expect(banks(150)).toBeLessThan(-20)
+  expect(raster(paintRealPlane, desc(field(0), lamp(30), gully))).toEqual(raster(paintRealPlane, desc(field(0), lamp(150), gully)))
 })
 
 it('leaves a fully hazed plane the haze\'s own colour', () => {

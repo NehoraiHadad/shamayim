@@ -18,9 +18,9 @@ export interface GroundForm { rho: Float32Array; form: Float32Array; specks: Spe
 /** How flat the slant makes a patch; how far it follows the crest's line, eased over this many texels; how far the palette's columns are bent (px). */
 const FLAT = 2.4, FOLLOW = 0.35, EASED = 10, BENT = 24
 /** The sizes across (px): broad, middle, fine; what each weighs at the crest and at the foot. */
-const BROAD = { px: 110, crest: 0.25, foot: 1 }, MIDDLE = { px: 44, crest: 0.6, foot: 0.9 }, FINE = { px: 17, crest: 1, foot: 0.85 }
+const BROAD = { px: 110, crest: 0.25, foot: 1 }, MIDDLE = { px: 44, crest: 0.6, foot: 0.9 }, FINE = { px: 14, crest: 1, foot: 0.85 }
 /** How far the patches move the reflectance; a clump's size (px) and darkening; the swells' heights (px); a fold's depth and dark bed. */
-const PATCHES = 0.5, CLUMP = 24, SCRUB = 0.5, SWELL = [13, 8, 4] as const, DEEP = 3, BED = 0.18
+const PATCHES = 0.5, CLUMP = 24, SCRUB = 0.44, SWELL = [13, 8, 4] as const, DEEP = 3, BED = 0.18
 /** What the far planes show of it; the mottle's lift of the mean, kept; the sky a px of depth takes. */
 const PLAIN = 0.45, KEPT = 0.1, OPEN = 0.02
 
