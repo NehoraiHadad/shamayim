@@ -1242,6 +1242,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] 1c2. Slices 1 and 2 on main (5fb0d856, owner approved)
       - [~] 1e2. Minarets out, dusk light basis, near ground: integrated on main for the second review (READY with sha)
       - [~] 1g. Label and dot: three options asked by the owner; village build approved (footprints where good, cells elsewhere)
+        - [~] Village build, claude/found-village-b<N> (notes: foundations/V/village/NOTES.md)
+          - [~] S1 contract, tile format, cells adapter (src/data/village/)
+          - [ ] S2 data workflow (.github/workflows/village.yml, scripts/village/), real tile total
+          - [ ] S3 model, S4 loader, S5 painters, S6 outside buildings and credit line (after the town and label slices land)
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
