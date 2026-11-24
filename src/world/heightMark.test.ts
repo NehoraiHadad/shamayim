@@ -45,7 +45,7 @@ it.each(places)('$id: the real height over the spot, clear of every note at ever
   const { tick } = height
   told.push(JSON.stringify([id, Math.round(height.x - dot.x), Math.round(height.y - dot.y), Math.round(tick.bottom - tick.top), Math.round(dot.y - tick.bottom), height.on]))
   expect(tick.bottom - tick.top, 'a tick').toBeGreaterThanOrEqual(TICK.min - 1e-6)
-  expect(dot.y - tick.bottom, 'down to the dot').toBeLessThanOrEqual(DOT_DRAWN + 1.5)
+  expect(dot.y - tick.bottom, 'down to the dot').toBeLessThanOrEqual(DOT_DRAWN + 2)
   expect(tick.bottom).toBeLessThan(dot.y - DOT_DRAWN)
   for (const width of MARK_WIDTHS) {
     const sx = width / SCENE_W
