@@ -6,11 +6,11 @@ export function visible<B extends SiteBox>(boxes: readonly B[], width: number): 
   const kept: B[] = []
   for (const box of [...boxes].sort((a, b) => b.near - a.near)) {
     const from = Math.max(0, Math.floor(box.x - box.w / 2)), to = Math.min(cover.length, Math.ceil(box.x + box.w / 2))
-    let shows = false
-    for (let px = from; px < to; px++) if (box.top < cover[px] - .25) shows = true
-    if (!shows) continue
+    let shown = from
+    while (shown < to && !(box.top < cover[shown] - .25)) shown++
+    if (shown >= to) continue
     kept.push(box)
-    for (let px = from; px < to; px++) cover[px] = Math.min(cover[px], box.top)
+    for (let px = from; px < to; px++) if (box.top < cover[px]) cover[px] = box.top
   }
   return kept
 }

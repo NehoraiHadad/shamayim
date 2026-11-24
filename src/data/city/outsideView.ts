@@ -10,7 +10,7 @@ import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
 import { fabricFrontage } from './fabricFrontage'
-import { composeBodies, standingSites, type FabricSite, type SiteBox } from './fabricSlots'
+import { composeBodies, siteBody, siteBox, standingSites, type FabricSite, type SiteBox } from './fabricSlots'
 import { MassIndex, visible } from './skylineMass'
 import { TOWER_FRONT_M } from './towerWidth'
 
@@ -392,13 +392,11 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     const siteH = pxOf(look, siteM, k), bodyH = heightM === siteM ? siteH : pxOf(look, heightM, k)
     const mapped = look ? Math.min(planPx(look, frame, cell.frontM ?? 0, k), bodyH) : 0
     const bodyW = look ? fabricFrontage(w, house, mapped, heightM, HOUSE_TOP_M) : w
-    const body: OutsideBox = { x, w: bodyW, top: foot - Math.max(1, bodyH), foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
-    const box = bodyW === siteW && bodyH === siteH ? body : { x, w: siteW, top: foot - Math.max(1, siteH), foot, near }
-    sites.push({ box, slotW: w < legible ? legible : 0, body })
+    sites.push({ x, w: bodyW, top: foot - Math.max(1, bodyH), foot, near, heightM, siteW, siteTop: foot - Math.max(1, siteH),
+      slotW: w < legible ? legible : 0, cell })
   }
-  const standing = standingSites(sites)
-  const bodies = look ? composeBodies(standing, HOUSE_TOP_M) : standing.map(({ body }) => body)
-  return { sites: standing.map(({ box }) => box), boxes: visible(bodies, width) }
+  const standing = standingSites(sites), bodies = look ? composeBodies(standing, HOUSE_TOP_M) : standing
+  return { sites: standing, boxes: visible(bodies, width).map(site => siteBody(site, kind)) }
 }
 
 export interface OutsideSkyline {
@@ -428,7 +426,7 @@ export function outsideSkyline(input: OutsideSkylineInput): OutsideSkyline {
   const ranked = [...prepared].sort(byRank)
   // Shortest first: each folds into the mass it meets, so a dense patch of towers builds a high mass round it.
   // Which towers rise is the sites' question (a body's drawn width raises no new mass): each is probed as its silhouette.
-  const index = new MassIndex(fabric && prepared.length > fullGlyphs.size ? visible(fabric.sites, width) : boxes)
+  const index = new MassIndex(fabric && prepared.length > fullGlyphs.size ? visible(fabric.sites.map(siteBox), width) : boxes)
   const probe = ({ x, near, w: drawnW, baseY, h }: OutsideTower, { wClass, dx, dy }: Prepared): SiteBox => {
     const w = SILHOUETTE_W[wClass], foot = w === drawnW ? baseY : lieBaseY(lie, ground, x, near, floor, w, dx, dy)
     return { x, w, top: foot - h, foot, near }

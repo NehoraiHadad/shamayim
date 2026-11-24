@@ -1,6 +1,7 @@
 import { apparentHeight, baseAngle, MARK_MIN_PX } from '../data/terrain/apparentHeight'
-import { boundsForPlace, boundsHoldKm, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
+import { boundsForPlace, boundsHolder, type BoundsFile, type PlaceBounds } from '../data/city/bounds'
 import { LON_STEP } from '../data/city/grid'
+import { highestFirst } from '../data/city/numberOrder'
 import {
   baseYAt, budget, dedupeTowers, frameOfBox, GLYPH_M, GLYPH_W, HOUSE_TOP_M, inFrame, inSkylineReach, isOwnSpot, lieBaseY, MAX_GLYPHS, NEAR_DROP, outsideFrame,
   outsideProject, outsideSkyline, SILHOUETTE_W, towerFame, type FabricCell, type FrameScale, type Ground, type OutsideFrame,
@@ -162,7 +163,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     const south = place.lat + box.s / 111.32, north = place.lat + box.n / 111.32
     const west = place.lon + box.w / (111.32 * cos), east = place.lon + box.e / (111.32 * cos)
     const wKm = step * 111.32 * cos
-    const treeSpots: { dx: number; dy: number; lat: number; lon: number; km: number }[] = []
+    const treeSpots: { row: number; col: number; km: number }[] = []
     const builtRows = new Map<number, number[]>()
     for (let row = Math.floor(south / step); row <= Math.floor(north / step); row++) {
       for (let col = Math.floor(west / step); col <= Math.floor(east / step); col++) {
@@ -171,7 +172,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
         if (c !== BUILT && c !== TREE) continue
         const dx = (lon - place.lon) * 111.32 * cos, dy = (lat - place.lat) * 111.32, km = Math.hypot(dx, dy)
         if (km > reachKm * 1.42 || !(inPlace?.(dx, dy) ?? true)) continue
-        if (c === TREE) { treeSpots.push({ dx, dy, lat, lon, km }); continue }
+        if (c === TREE) { treeSpots.push({ row, col, km }); continue }
         const seed = hashId(`${row}:${col}`)
         const random = seeded(seed)
         const square = raster?.at(lat, lon), heights = heightsAt(square, lat, lon, random())
@@ -195,12 +196,12 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
       for (let d = -r; d <= r; d++) if (builtRows.get(row + d)?.some((c) => Math.abs(c - col) <= r)) return true
       return false
     }
-    for (const spot of treeSpots.sort((a, b) => a.km - b.km)) {
+    for (const spot of highestFirst(treeSpots, ({ km }) => -km)) {
       if (trees.length >= MAX_TREES) break
-      if (!near(spot.lat, spot.lon)) continue
-      const seed = hashId(`tree:${spot.lat.toFixed(5)}:${spot.lon.toFixed(5)}`)
-      const u = seeded(seed)()
-      trees.push({ dx: spot.dx, dy: spot.dy, seed, kind: u < .22 ? 'cypress' : u > .94 ? 'palm' : 'tree',
+      const lat = (spot.row + .5) * step, lon = (spot.col + .5) * step
+      if (!near(lat, lon)) continue
+      const seed = hashId(`tree:${lat.toFixed(5)}:${lon.toFixed(5)}`), u = seeded(seed)()
+      trees.push({ dx: (lon - place.lon) * 111.32 * cos, dy: (lat - place.lat) * 111.32, seed, kind: u < .22 ? 'cypress' : u > .94 ? 'palm' : 'tree',
         heightM: u < .22 ? 11 : u > .94 ? 12 : 6 + 3 * u })
     }
     return { cells, trees, source: 'cover' as const }
@@ -324,7 +325,7 @@ function groundSamples(frame: OutsideFrame, heightNear: (dx: number, dy: number)
 function lieOf(input: OutsideInput) {
   const { place, terrain, city, reachKm, centerX, width, ground, floor } = input
   const pb = boundsForPlace(place, city?.clusters, input.bounds, reachKm)
-  const inPlace = pb ? (dx: number, dy: number) => boundsHoldKm(pb, place, dx, dy) : undefined
+  const inPlace = pb ? boundsHolder(pb, place) : undefined
   const fabric = fabricOf(place, input, inPlace, pb?.box ?? null)
   const squares = fabric.cells
   let frame: OutsideFrame
@@ -381,8 +382,8 @@ function lieOf(input: OutsideInput) {
   // The place's own land: its ground's spots and its built cells' own ground (a row stands on it, never over the land
   // drawn under it); water is not land. And the land drawn round it on the same scale (`landAround`): it is in the
   // picture too.
-  const spots = [...samples.filter((_, i) => !wet[i]),
-    ...squares.flatMap(({ dx, dy }, i) => Number.isNaN(cellGround[i]) ? [] : [{ dx, dy, h: cellGround[i] }])]
+  const spots = samples.filter((_, i) => !wet[i])
+  squares.forEach(({ dx, dy }, i) => { if (!Number.isNaN(cellGround[i])) spots.push({ dx, dy, h: cellGround[i] }) })
   const around = landAround(frame, heightNear, spots, width)
   // Land beyond the frame's far edge is farther than the place: one metre there is less than one at the place, by its
   // true depth (decision 14: one scale at the same distance).

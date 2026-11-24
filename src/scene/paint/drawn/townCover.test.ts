@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { composeBodies } from '../../../data/city/fabricSlots'
+import { composeBodies, siteBody, type FabricSite } from '../../../data/city/fabricSlots'
 import type { OutsideBox } from '../../../data/city/outsideView'
 import { roofHeight } from '../../../data/city/skylineHeight'
 import { visible } from '../../../data/city/skylineMass'
@@ -15,9 +15,11 @@ import { townLight } from './townLight'
 
 const body = (x: number, w: number, h: number, near: number, seed: number): OutsideBox =>
   ({ x, w, foot: 100 + 5 * near, top: 100 + 5 * near - h, near, kind: 'mass', heightM: 25, seed })
+const site = (box: OutsideBox): FabricSite =>
+  ({ ...box, heightM: 25, siteW: 1, siteTop: box.top, slotW: 0, cell: { dx: 0, dy: 0, wKm: .01, heightM: 25, seed: box.seed! } })
 const item = (b: OutsideBox): Box => bodyItem(b, b.x, b.w, 0, 'mixed')
 const drawn = (boxes: OutsideBox[]) =>
-  townBodies(visible(composeBodies(boxes.map(box => ({ box: { ...box, w: 1 }, slotW: 0, body: box })), 12.5), 375)
+  townBodies(visible(composeBodies(boxes.map(site), 12.5), 375).map(s => siteBody(s, 'mass'))
     .sort((a, b) => a.foot - b.foot).map(item)).map(({ block }) => block)
 
 it('stands the taller block up behind the lower one in the drawn town, whatever order they come in', () => {

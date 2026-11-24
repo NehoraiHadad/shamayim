@@ -7,8 +7,12 @@ import { visible } from './skylineMass'
 
 const body = (x: number, w: number, h: number, near = .5, foot = 100, seed = 1): OutsideBox =>
   ({ x, w, foot, top: foot - h, near, kind: 'mass', heightM: 25, seed })
-const widened = (box: OutsideBox): FabricSite => ({ box: { ...box, w: 1 }, slotW: 0, body: box })
-const shown = (boxes: OutsideBox[]) => shownBlocks(boxes.map(widened))
+const widened = (box: OutsideBox): FabricSite =>
+  ({ ...box, heightM: 25, siteW: 1, siteTop: box.top, slotW: 0, cell: { dx: 0, dy: 0, wKm: .01, heightM: 25, seed: box.seed! } })
+const shown = (boxes: OutsideBox[]) => {
+  const sites = boxes.map(widened)
+  return shownBlocks(sites).map(site => boxes[sites.indexOf(site)])
+}
 /** The px of a body over another's roof and beside it. */
 const shownArea = (rear: OutsideBox, front: OutsideBox) => {
   const from = Math.max(rear.x - rear.w / 2, front.x - front.w / 2), to = Math.min(rear.x + rear.w / 2, front.x + front.w / 2)
