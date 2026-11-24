@@ -1267,8 +1267,10 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] S3 storm (`claude/drawn-storm`): built, reviewed, two fix rounds (rim caps, silver in the caps' light); READY.
             Known: canvases allocated per repaint, no test paints a drawn tower, v1 cloud sheets behind it until S2
       - [~] S1 sky and sun (`claude/drawn-sky`, on S3): grade, grain in `skyBase`, paper sun; what is the sky's own colour takes no
-            second gain (`skied`); stills, review and READY next
-      - [ ] S2 cloud sheets (cloud-space position), S6 air (dust)
+            second gain (`skied`); READY, main d0195813 merged in (`c6fa7fca`)
+      - [~] S2 cloud sheets (`claude/drawn-cloud`, on S1): caps in the cloud's air, far arches, closed deck as v1; judged on 10 stills,
+            Codex review, perf and READY next
+      - [x] S6 air: nothing to build. Dust reads as two flat wipes once S2 prints it, rain shafts and fog are as v1
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
       - [x] Phase 1 on `claude/real-style-13639d` (nothing in `src/scene`): fault map (notes `real/FAULT-MAP.md`), plan `docs/design/REAL-STYLE.md`,
             concept painters and stills `docs/design/prototypes/real/` (5 moments, side by side in notes `real/concept/`)
