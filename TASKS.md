@@ -1278,6 +1278,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       Test mail to the vote address arrived (owner, 24 Nov)
       Ready 9033482c (main 7e4b5ce6 in, CI 45404925681 green, panel stills seen by the manager); merge main again after the styles, re-verify
       Last pre-release pass sent to the vote-prep session on main b76225e8 (24 Nov); then owner: final look at both styles, worker deploy, merge
+      READY 64f4fc95 verified by the manager (24 Nov; CI 45460536260, vote stills 45460973165 0 failed; one fix: headline halo); sheets shown to the owner, waits for approval
       Owner (24 Nov): move to the finish; looks good now, polish later, no tens of rounds per problem
 - [ ] 4. After the vote: special-sky slice (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
       one quiet "special event" line, any kind of event, empty on most days (owner, 24 Nov: general, not only night skies).
