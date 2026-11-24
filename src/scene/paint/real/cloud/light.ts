@@ -1,3 +1,5 @@
+import { smoothstep } from '../../../../domain/smoothstep'
+
 /*
  * The light in a cloud: how much of it reaches each point through the cloud itself. Three marches over a half-size copy of
  * its thickness: toward the light in the picture (the lit side, the bright rim, the mass's own shade), up (the open sky's
@@ -25,6 +27,8 @@ const OWN_SHADE = 0.7, BASE = 0.42, LIT = 0.2
 /** A broad thick mass is all shade by this measure, and the model's tone says how dark it is already: how far its mean goes to
  *  the model's. */
 const TO_MEAN = 0.9
+/** Deep in a mass its own puffs show: what a puff thicker than those round it takes of the shade, and from which depth on. */
+const PUFFS = 1.8, INSIDE = [0.5, 0.75] as const
 /** How far round a point its depth in the mass is taken, sky px overhead. */
 const DEEP = 26
 
@@ -52,6 +56,7 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       const under = Math.exp(-2 * LOSS_SKY * down) * (1 - Math.exp(-LOSS_SKY * sky)), base = foot ? Math.max(under, foot.base[j]) : under
       const here = light[n] = direct * through(LOSS_SUN, sun) + (1 - direct) * through(LOSS_SKY, sky) * (foot ? foot.sky[j] : 1)
       shade[n] = OWN_SHADE * (1 - here) ** 1.25 * (0.45 + 0.55 * deep[n]) + BASE * base * (0.4 + 0.6 * deep[n]) - LIT * here
+        - PUFFS * (thick[n] - deep[n]) * smoothstep(INSIDE[0], INSIDE[1], deep[n])
       all += shade[n] * thick[n]
       mass += thick[n]
     }

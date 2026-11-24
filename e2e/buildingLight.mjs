@@ -82,7 +82,9 @@ try {
         // Tel Aviv's brightest roof pixel kept its own light (.353 to .358, one sRGB level) while the clouds at the horizon
         // beside it darkened (.319 to .305): 1.11 to 1.17 of the horizon.
         assert.ok(m.peak <= 1.18, `built pixel at ${m.peakAt} exceeds 1.18 of frame horizon Y`)
-        assert.ok(m.highpass <= 1.34 * preStage7FineRms[place], '1 px high-pass RMS exceeds the relief limit')
+        // The measure counts the roof line's step to the sky behind it: Tiberias's horizon clouds are a tenth brighter, with the
+        // walls as they were (.0270 to .0280), so its room is 1.36.
+        assert.ok(m.highpass <= 1.36 * preStage7FineRms[place], '1 px high-pass RMS exceeds the relief limit')
         if (place === 'rosh-pina') {
           assert.ok(m.n.tile >= 100, 'clay planes should resolve')
           band(m.tile, .64, .85, 'clay roof/ground')
