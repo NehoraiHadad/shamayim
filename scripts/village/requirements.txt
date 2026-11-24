@@ -1,0 +1,5 @@
+# Exact wheels for Python 3.13 on x86_64 Linux: pip install --require-hashes --only-binary :all:
+numpy==2.5.5 --hash=sha256:824025655df929268bfe6b47ed91a00d14209a6f760847cf150be446829e1ce4
+pyarrow==26.0.1 --hash=sha256:f71221bbc7707e3fad920d0478db9350791d4714ec445299ee0d56559fbc156c
+scipy==1.18.1 --hash=sha256:fdaf5ea890a6183d0565f51a61799d67081bd5b1cf03c5f4b3fd3732108625c9
+shapely==2.2.0 --hash=sha256:f340e7f99aaee3df5acd6b247cddf723051a7c93d1e1ef09025b80d84e4c0ded
