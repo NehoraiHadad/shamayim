@@ -18,18 +18,19 @@ export function placeOf(seed: number): { u: number; v: number } {
 /** Adds `weight` × the nearness of one jittered point a cell, `n` cells round the tile: 1 at a point, 0 a cell away. */
 function addCells(out: Float32Array, n: number, seed: number, weight: number, dome = false): void {
   const r = rng(seed), px = Float32Array.from({ length: n * n }, r), py = Float32Array.from({ length: n * n }, r)
-  for (let y = 0, o = 0; y < TILE; y++) {
-    const v = (y * n) / TILE, j = v | 0, fy = v - j
-    for (let x = 0; x < TILE; x++, o++) {
-      const u = (x * n) / TILE, i = u | 0, fx = u - i
-      let best = 1
-      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
-        const c = ((j + b + n) % n) * n + (i + a + n) % n, dx = a + px[c] - fx, dy = b + py[c] - fy
-        best = Math.min(best, dx * dx + dy * dy)
+  const best = new Float32Array(TILE * TILE).fill(1), side = TILE / n, around = TILE - 1
+  for (let c = 0; c < n * n; c++) {
+    // Each point over the cell round it: the nearest one holds.
+    const cx = ((c % n) + px[c]) * side, cy = (Math.floor(c / n) + py[c]) * side
+    for (let y = Math.ceil(cy - side); y <= cy + side; y++) {
+      const dy = (y - cy) / side, row = (y & around) * TILE
+      for (let x = Math.ceil(cx - side); x <= cx + side; x++) {
+        const dx = (x - cx) / side, far = dx * dx + dy * dy, o = row + (x & around)
+        if (far < best[o]) best[o] = far
       }
-      out[o] += weight * (1 - (dome ? best : Math.sqrt(best)))
     }
   }
+  for (let o = 0; o < best.length; o++) out[o] += weight * (1 - (dome ? best[o] : Math.sqrt(best[o])))
 }
 
 /** Adds `weight` × gradient noise of four cells round the tile, over its octaves. */

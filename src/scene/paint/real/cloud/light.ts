@@ -18,7 +18,7 @@ export interface Foot { sky: Float32Array; base: Float32Array }
 
 /** March steps, sky px overhead, and how many of them look for the base; the light's loss per px of full thickness; the
  *  broad loss against it and the broad light's share. */
-const STEPS = [4, 10, 20, 36, 64, 110, 180] as const, TO_BASE = 4
+const STEPS = [4, 12, 30, 72, 165] as const, TO_BASE = 3
 const LOSS_SUN = 0.05, LOSS_SKY = 0.032, BROAD = 0.24, MANY = 0.72
 /** The share of the direct light in the light on a point at its full strength (the rest the open sky's, from above). */
 const FROM_SUN = 0.68
@@ -40,6 +40,11 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
   const light = new Float32Array(size), shade = new Float32Array(size)
   let all = 0, mass = 0
   const at = (x: number, y: number) => gridAt(thick, w, h, x, y)
+  // Straight up and down a column: no reading across.
+  const along = (i: number, y: number) => {
+    const cy = y < 0 ? 0 : y > h - 1.001 ? h - 1.001 : y, j = cy | 0, n = j * w + i
+    return thick[n] + (thick[n + w] - thick[n]) * (cy - j)
+  }
   for (let j = 0, n = 0; j < h; j++) {
     const unit = scale[j] * k
     for (let i = 0; i < w; i++, n++) {
@@ -49,8 +54,8 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       for (let s = 0; s < STEPS.length; s++) {
         const step = STEPS[s] - last, reach = STEPS[s] * unit
         if (direct) sun += step * at(i + ux * reach, j + uy * reach)
-        sky += step * at(i, j - reach)
-        if (s < TO_BASE) down += step * at(i, j + reach)
+        sky += step * along(i, j - reach)
+        if (s < TO_BASE) down += step * along(i, j + reach)
         last = STEPS[s]
       }
       const under = Math.exp(-2 * LOSS_SKY * down) * (1 - Math.exp(-LOSS_SKY * sky)), base = foot ? Math.max(under, foot.base[j]) : under

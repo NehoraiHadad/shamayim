@@ -21,8 +21,9 @@ const CROWN_TO = 1.6
 const UNDER = 0.26, UNDER_FROM = 0.5
 /** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
 const WALL = 0.45, EDGE = 0.2
-/** How far a low sun's light goes through a cloud, and how much warmer than its body its lit colour then is. */
-const LOW = 0.42, WARM = [0.08, 0.3] as const
+/** How far a low sun's light goes through a cloud, from its lit colour to its shade (a body that is neither would ring the mass),
+ *  and how much warmer than its body its lit colour then is. */
+const LOW = 0.6, LOW_SHADE = 0.35, WARM = [0.03, 0.2] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
 const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43
@@ -64,7 +65,7 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
   const ramp = new Float32Array((RAMP + 1) * 3)
   // A low sun's light comes in under the mass: its body keeps of it.
   const { lit, body } = tones, low = LOW * own * smoothstep(WARM[0], WARM[1], lit[0] - lit[2] - (body[0] - body[2])), self = own * own
-  const bright = lightness(lit), hue = { lit, body: upTo(mix(body, lit, low), BODY_UP_TO * bright, HELD * own), shade: upTo(mix(tones.shade, lit, low / 2), SHADE_UP_TO * bright, HELD * own) }
+  const bright = lightness(lit), hue = { lit, body: upTo(mix(body, mix(lit, tones.shade, LOW_SHADE), low), BODY_UP_TO * bright, HELD * own), shade: upTo(mix(tones.shade, lit, low / 2), SHADE_UP_TO * bright, HELD * own) }
   for (let n = 0; n <= RAMP; n++) ramp.set(toneOf(hue, n / RAMP), n * 3)
   // A sky whose lit and shade hardly part has no deep shade either; a dim sky's lit cloud is no sunlit crown.
   const range = UNDER * Math.min(1, 0.2 + 4 * Math.max(0, tones.lit[1] - tones.shade[1])), over = CROWN * tones.lit[1] ** 2

@@ -14,7 +14,7 @@ import type { TowerPoint, TowerShape } from './towerShape'
  */
 
 /** Cells of the grid the light is worked out on, at most; its side at most, against the width. */
-const CELLS = 2600, CELL = 0.5
+const CELLS = 1500, CELL = 0.5
 /** The width (px) of a tower drawn at the overhead scale. */
 const WIDE = 130
 /** How thick the body is in a crease, against a head's. */
